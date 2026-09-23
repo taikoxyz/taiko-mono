@@ -31,13 +31,12 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// are built from this tree inside the fork, with the immutables the deploy scripts bake in; once
 /// the constants name deployed contracts, those are used and nothing is deployed.
 ///
-/// On each chain the rehearsal pins the defect first, on the implementations Proposal0024
-/// installs, then executes the batch and shows the fix: on L1 a send-fail-recall cycle no longer
-/// moves the Ether quota, a token refund no longer moves the token's quota, and an L2 -> L1
-/// delivery is still debited; on L2 the bridge upgrades itself from inside its own
-/// `processMessage` frame and keeps sending, delivering and serving governance afterwards. The
-/// signal proofs are mocked on both forks, as in `Proposal0024Fork.t.sol`: a valid proof cannot be
-/// synthesised against a fork.
+/// On L1 the rehearsal pins the defect first, on the implementations Proposal0024 installs, then
+/// executes the batch and shows the fix: the same send-fail-recall cycles now stop at the recall
+/// with `B_RECALL_DISABLED`, leaving both quotas untouched, and an L2 -> L1 delivery is still
+/// debited. On L2 the bridge upgrades itself from inside its own `processMessage` frame and keeps
+/// sending, delivering and serving governance afterwards. The signal proofs are mocked on both
+/// forks, as in `Proposal0024Fork.t.sol`: a valid proof cannot be synthesised against a fork.
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0025ForkTest is Test {
     /// @dev Live values read before a batch executes, compared against afterwards.
@@ -114,18 +113,15 @@ contract Proposal0025ForkTest is Test {
 
         _assertL1AfterUpgrade(l1, before);
 
-        // The fix: once the quota has refilled, the same cycle leaves it exactly where it was...
+        // The fix: recalls are switched off. Once the quotas have refilled, the same cycles stop at
+        // the recall and leave both exactly where they were...
         vm.warp(block.timestamp + 24 hours);
         assertEq(qm.availableQuota(address(0), 0), ethQuota);
-        _sendAndRecallEther(makeAddr("attacker after"), ethQuota);
-        assertEq(qm.availableQuota(address(0), 0), ethQuota, "the recall still consumed quota");
-
-        // ...a token refund leaves the token's quota where it was...
         assertEq(qm.availableQuota(L1.WETH_TOKEN, 0), wethQuota);
-        _sendAndRecallWeth(makeAddr("holder after"));
-        assertEq(
-            qm.availableQuota(L1.WETH_TOKEN, 0), wethQuota, "the refund still consumed token quota"
-        );
+        _assertRecallDisabled(_sendEther(makeAddr("attacker after"), ethQuota));
+        _assertRecallDisabled(_sendWeth(makeAddr("holder after")));
+        assertEq(qm.availableQuota(address(0), 0), ethQuota);
+        assertEq(qm.availableQuota(L1.WETH_TOKEN, 0), wethQuota);
 
         // ...and a real withdrawal is still debited.
         _deliverEtherFromL2(makeAddr("recipient on L1"), 1 ether);
@@ -189,7 +185,8 @@ contract Proposal0025ForkTest is Test {
                     L1.SHARED_RESOLVER,
                     L1.SIGNAL_SERVICE,
                     L1.QUOTA_MANAGER,
-                    L1.MULTISIG_ADMIN_TAIKO_ETH
+                    L1.MULTISIG_ADMIN_TAIKO_ETH,
+                    false
                 )
             );
             d_.erc20VaultImpl = address(new ERC20Vault(L1.SHARED_RESOLVER, L1.QUOTA_MANAGER));
@@ -236,6 +233,7 @@ contract Proposal0025ForkTest is Test {
         assertEq(address(bridge.signalService()), L1.SIGNAL_SERVICE);
         assertEq(address(bridge.quotaManager()), L1.QUOTA_MANAGER);
         assertEq(bridge.pauser(), L1.MULTISIG_ADMIN_TAIKO_ETH);
+        assertFalse(bridge.recallEnabled());
         (bool enabled, address destBridge) = bridge.isDestChainEnabled(167_000);
         assertTrue(enabled);
         assertEq(destBridge, L2.BRIDGE);
@@ -254,20 +252,9 @@ contract Proposal0025ForkTest is Test {
     /// @param _attacker A fresh account.
     /// @param _amount The amount to lock and recall.
     function _sendAndRecallEther(address _attacker, uint256 _amount) private {
-        vm.deal(_attacker, _amount);
-
-        IBridge.Message memory message;
-        message.srcOwner = _attacker;
-        message.destOwner = _attacker;
-        message.destChainId = 167_000;
-        message.to = _attacker;
-        message.value = _amount;
+        IBridge.Message memory sent = _sendEther(_attacker, _amount);
 
         Bridge bridge = Bridge(payable(L1.BRIDGE));
-        vm.prank(_attacker);
-        (, IBridge.Message memory sent) = bridge.sendMessage{ value: _amount }(message);
-        assertEq(_attacker.balance, 0);
-
         bridge.recallMessage(sent, "");
         assertEq(
             uint8(bridge.messageStatus(bridge.hashMessage(sent))), uint8(IBridge.Status.RECALLED)
@@ -279,12 +266,54 @@ contract Proposal0025ForkTest is Test {
     /// recalls it, ending with the WETH back in hand.
     /// @param _holder A fresh account.
     function _sendAndRecallWeth(address _holder) private {
+        Bridge(payable(L1.BRIDGE)).recallMessage(_sendWeth(_holder), "");
+        assertEq(IERC20(L1.WETH_TOKEN).balanceOf(_holder), _TOKEN_AMOUNT);
+    }
+
+    /// @dev Recalling `_sent` reverts and leaves it `NEW`.
+    /// @param _sent A message the L1 bridge sent.
+    function _assertRecallDisabled(IBridge.Message memory _sent) private {
+        Bridge bridge = Bridge(payable(L1.BRIDGE));
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
+        bridge.recallMessage(_sent, "");
+        assertEq(uint8(bridge.messageStatus(bridge.hashMessage(_sent))), uint8(IBridge.Status.NEW));
+    }
+
+    /// @dev `_attacker` locks `_amount` of Ether for L2.
+    /// @param _attacker A fresh account.
+    /// @param _amount The amount to lock.
+    /// @return sent_ The message the bridge sent.
+    function _sendEther(
+        address _attacker,
+        uint256 _amount
+    )
+        private
+        returns (IBridge.Message memory sent_)
+    {
+        vm.deal(_attacker, _amount);
+
+        IBridge.Message memory message;
+        message.srcOwner = _attacker;
+        message.destOwner = _attacker;
+        message.destChainId = 167_000;
+        message.to = _attacker;
+        message.value = _amount;
+
+        vm.prank(_attacker);
+        (, sent_) = Bridge(payable(L1.BRIDGE)).sendMessage{ value: _amount }(message);
+        assertEq(_attacker.balance, 0);
+    }
+
+    /// @dev `_holder` sends `_TOKEN_AMOUNT` of WETH to L2 through the vault.
+    /// @param _holder A fresh account.
+    /// @return sent_ The message the vault sent.
+    function _sendWeth(address _holder) private returns (IBridge.Message memory sent_) {
         deal(L1.WETH_TOKEN, _holder, _TOKEN_AMOUNT);
         ERC20Vault vault = ERC20Vault(L1.ERC20_VAULT);
 
         vm.startPrank(_holder);
         IERC20(L1.WETH_TOKEN).approve(address(vault), _TOKEN_AMOUNT);
-        IBridge.Message memory sent = vault.sendToken(
+        sent_ = vault.sendToken(
             ERC20Vault.BridgeTransferOp({
                 destChainId: 167_000,
                 destOwner: _holder,
@@ -297,9 +326,6 @@ contract Proposal0025ForkTest is Test {
         );
         vm.stopPrank();
         assertEq(IERC20(L1.WETH_TOKEN).balanceOf(_holder), 0);
-
-        Bridge(payable(L1.BRIDGE)).recallMessage(sent, "");
-        assertEq(IERC20(L1.WETH_TOKEN).balanceOf(_holder), _TOKEN_AMOUNT);
     }
 
     /// @dev Delivers `_value` of Ether from L2 to `_recipient`, the way a relayer delivers an L2
@@ -438,7 +464,7 @@ contract Proposal0025ForkTest is Test {
         if (d_.bridgeImpl == address(0) || d_.erc20VaultImpl == address(0)) {
             console2.log("Proposal0025 L2 constants are placeholders; building the implementations");
             d_.bridgeImpl = address(
-                new Bridge(L2.SHARED_RESOLVER, L2.SIGNAL_SERVICE, address(0), address(0))
+                new Bridge(L2.SHARED_RESOLVER, L2.SIGNAL_SERVICE, address(0), address(0), false)
             );
             d_.erc20VaultImpl = address(new ERC20Vault(L2.SHARED_RESOLVER, address(0)));
         } else {
@@ -463,6 +489,7 @@ contract Proposal0025ForkTest is Test {
         assertEq(address(bridge.signalService()), L2.SIGNAL_SERVICE);
         assertEq(address(bridge.quotaManager()), address(0));
         assertEq(bridge.pauser(), address(0));
+        assertFalse(bridge.recallEnabled());
 
         // gasLimit must clear getMessageMinGasLimit(0); below it sendMessage reverts
         // B_INVALID_GAS_LIMIT. Deliberately not 0, which would short-circuit that validation.

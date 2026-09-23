@@ -1,4 +1,4 @@
-# PROPOSAL-0025: Exempt Recalls from the Withdrawal Quotas on the L1 and L2 Bridges and ERC20 Vaults
+# PROPOSAL-0025: Disable Message Recalls and Failure Marking on the L1 and L2 Bridges
 
 ## Executive Summary
 
@@ -8,21 +8,26 @@ upgrading the same four proxies Proposal0024 upgrades, two per chain, to impleme
 proposal, this runbook and tests only.
 
 - **The defect.** `Bridge.recallMessage` debited the Ether withdrawal quota for the recalled
-  `value`, and `ERC20Vault.onMessageRecalled` debited the token quota for the refunded amount. A
-  recall can only return what the very same message locked in `sendMessage` or `sendToken` (the
-  bridge only recalls a message it sent itself and that is still `NEW`), so it is never a net
-  outflow, yet the debit let anyone exhaust a shared quota at zero net cost: lock the quota's worth
-  on L1, let the delivery fail on L2 (as `destOwner`, process it into a rejecting recipient or with
-  too little gas, then `failMessage`), and recall it on L1. With the mainnet configuration of
-  250 ETH per 24 hours, one such cycle drained the whole Ether quota, so every other user's
-  `recallMessage` and every L2 → L1 `processMessage` reverted with `QM_OUT_OF_QUOTA` until enough
-  quota had refilled, and the cycle could be repeated for as long as the attacker liked, at gas
-  cost only. The token quotas (250 WETH, 250,000 USDC, 250,000 USDT, 10,000,000 TAIKO per
-  24 hours) were exposed the same way through the vault.
-- **The fix.** Recalls are exempt from both quotas. The Ether quota is still debited in
-  `processMessage` and on a successful `retryMessage`, the token quota still in
-  `onMessageInvocation`, exactly where assets actually leave custody, and those paths are
-  unchanged.
+  `value`, and `ERC20Vault.onMessageRecalled` debited the token quota for the refunded amount,
+  which let anyone exhaust a shared quota at zero net cost: lock the quota's worth on L1, let the
+  delivery fail on L2 (as `destOwner`, process it into a rejecting recipient or with too little
+  gas, then `failMessage`), and recall it on L1. With the mainnet configuration of 250 ETH per
+  24 hours, one such cycle drained the whole Ether quota, so every other user's `recallMessage`
+  and every L2 → L1 `processMessage` reverted with `QM_OUT_OF_QUOTA` until enough quota had
+  refilled, and the cycle could be repeated for as long as the attacker liked, at gas cost only.
+  The token quotas (250 WETH, 250,000 USDC, 250,000 USDT, 10,000,000 TAIKO per 24 hours) were
+  exposed the same way through the vault. Dropping the debit alone is not safe either: a recall is
+  released by the same destination-chain failure proof as a delivery, and the source chain never
+  learns that a message it sent was delivered, so under a forged failure proof (the June 2026
+  exploit forged signal proofs) every past deposit could be recalled a second time, with only the
+  quota in the way.
+- **The fix.** Failing and recalling messages are switched off on both chains. The new bridges
+  are built with `recallEnabled = false`: `failMessage` and `recallMessage` revert with
+  `B_RECALL_DISABLED`, and a failed last-attempt `retryMessage` reverts with `B_RETRY_FAILED`
+  instead of marking the message `FAILED`, so no message can enter `FAILED` or `RECALLED`. The
+  quotas are still debited in `processMessage`, on a successful `retryMessage` and in
+  `onMessageInvocation`, exactly where assets leave custody. The recall code stays in place behind
+  the switch, without its quota debit.
 
 **This proposal executes after Proposal0024.** The implementations it replaces are the ones
 Proposal0024 installs (`0xA15dca0A…`, `0x32E47c04…`, `0xa200c226…`, `0xa01d464c…`), all of which
@@ -63,18 +68,20 @@ Proposal0025 assumes the state Proposal0024 leaves behind, and nothing else:
 | L2 bridge | `0x1670000000000000000000000000000000000001` | DelegateController `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`                      | `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` |
 | L2 vault  | `0x1670000000000000000000000000000000000002` | DelegateController                                                                   | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` |
 
-The new implementations carry exactly the immutables of those four, which is what both deploy
-scripts check before and after broadcasting:
+The new implementations carry exactly the immutables of those four, which both deploy scripts
+check before and after broadcasting, plus the bridges' new `recallEnabled`, `false` on both chains,
+which they check after broadcasting:
 
-| Contract  | `resolver()`                                 | `signalService()`                            | `quotaManager()`                             | `pauser()`                                                       |
-| --------- | -------------------------------------------- | -------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
-| L1 bridge | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F` (`admin.taiko.eth`) |
-| L1 vault  | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` | —                                            | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | —                                                                |
-| L2 bridge | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | `0x1670000000000000000000000000000000000005` | zero                                         | zero                                                             |
-| L2 vault  | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | —                                            | zero                                         | —                                                                |
+| Contract  | `resolver()`                                 | `signalService()`                            | `quotaManager()`                             | `pauser()`                                                       | `recallEnabled()` |
+| --------- | -------------------------------------------- | -------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- | ----------------- |
+| L1 bridge | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F` (`admin.taiko.eth`) | `false`           |
+| L1 vault  | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` | —                                            | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | —                                                                | —                 |
+| L2 bridge | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | `0x1670000000000000000000000000000000000005` | zero                                         | zero                                                             | `false`           |
+| L2 vault  | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | —                                            | zero                                         | —                                                                | —                 |
 
-The L2 zeros preserve today's behaviour: L2 has no quota and only the owner can pause. On L2 the
-fix therefore changes nothing observable; the upgrade keeps both chains on the same code.
+The L2 zeros preserve today's behaviour: L2 has no quota and only the owner can pause. The recall
+switch is off on L2 too, so an L1 → L2 message can no longer be marked `FAILED` there, which is
+what an L1 recall proves, and an L2 → L1 message can no longer be recalled.
 
 Preconditions to re-read at execution time, as for Proposal0024: neither bridge may be paused (the
 appended L1 `sendMessage` and the L2 `processMessage` that delivers the batch are both
@@ -83,23 +90,28 @@ appended L1 `sendMessage` and the L2 `processMessage` that delivers the batch ar
 
 ## What Changes
 
-The diff of #22156 against the code Proposal0024 installs is confined to two functions and their
-documentation:
+The diff of #22156 against the code Proposal0024 installs:
 
-- `Bridge.recallMessage` no longer calls `_consumeEtherQuota(_message.value)` after marking the
-  message `RECALLED`. Everything a recall must prove is unchanged: the message was sent by this
-  bridge (`isSignalSent`), it is still `NEW`, the destination chain has reported it `FAILED`
-  (`proveSignalReceived`), and the bridge is not paused.
-- `ERC20Vault._transferTokens` no longer calls `_consumeTokenQuota`; `onMessageInvocation` calls it
-  right after `_transferTokens` instead, so a delivery is still debited atomically with its release
-  and an out-of-quota delivery still reverts as a whole, while `onMessageRecalled` is exempt.
+- `Bridge` gains the constructor argument and immutable `recallEnabled`, `false` in both bridge
+  implementations here. While it is false, `failMessage` and `recallMessage` revert with
+  `B_RECALL_DISABLED` before anything else runs, and `retryMessage` no longer marks a failed last
+  attempt `FAILED`: it reverts with `B_RETRY_FAILED` like any other failed retry.
+- The recall code itself stays, without its quota debit: `Bridge.recallMessage` no longer calls
+  `_consumeEtherQuota`, and `ERC20Vault.onMessageInvocation` debits the token quota right after
+  `_transferTokens` instead of inside it, so a delivery is still debited atomically with its
+  release while a refund (`onMessageRecalled`) is not. Neither is reachable while recalls are off.
 
 What a user or relayer can observe:
 
-- A recall never reverts with `QM_OUT_OF_QUOTA` any more, and a recall larger than a token's whole
-  quota, which `QuotaManager` could never have served in one call, goes through.
-- A recall no longer reduces the quota available to withdrawals, so the griefing cycle above leaves
-  every other user's recalls and withdrawals untouched.
+- No message can enter `FAILED` or `RECALLED` on either chain. A message whose delivery fails
+  stays `RETRIABLE` until a retry succeeds; a succeeding last attempt still marks it `DONE`.
+- A message already `FAILED` on its destination chain when this executes is stranded: it can be
+  neither retried (`B_INVALID_STATUS`) nor recalled (`B_RECALL_DISABLED`). The census in #22156
+  (2026-09-22) found 2 such messages, neither carrying Ether, and 10 `RETRIABLE` ones (6 on L1,
+  4 on L2) that keep their retry path but lose the fail-then-recall escape. Whether to retry, or
+  fail and recall, any of them is worth deciding before this proposal executes.
+- The bridge-ui Release dialog (`recallMessage`) and its "retry one final time" option
+  (`retryMessage(_, true)`) now revert with an error its checked-in ABI cannot decode (#22159).
 - Deliveries, retries, sends, fees, events, the `Message` struct and `hashMessage` are unchanged,
   as is who can pause. The quota configuration on the `QuotaManager` is unchanged.
 
@@ -109,9 +121,9 @@ What a user or relayer can observe:
 
 `Bridge_Layout.sol` and `ERC20Vault_Layout.sol` are untouched by #22156, and
 `script/gen-layouts.sh shared` regenerates them without a diff: neither contract adds, removes or
-moves a storage variable. The layouts are the ones Proposal0024 verified slot by slot against the
-live proxies, so nothing about that analysis changes. No initializer runs in this proposal and none
-is needed.
+moves a storage variable (`recallEnabled` is an immutable). The layouts are the ones Proposal0024
+verified slot by slot against the live proxies, so nothing about that analysis changes. No
+initializer runs in this proposal and none is needed.
 
 ### The L2 bridge upgrades itself mid-call
 
@@ -137,8 +149,9 @@ further call once the bridge's code has changed under its frame.
 
 ### EVM version and ABI
 
-Unchanged from Proposal0024: `evm_version = "osaka"`, transient storage already live on both chains,
-no ABI difference in either contract.
+`evm_version = "osaka"` and transient storage already live on both chains, as in Proposal0024. The
+`ERC20Vault` ABI is unchanged; the `Bridge` ABI gains the `recallEnabled()` getter, the
+`B_RECALL_DISABLED` error and the fifth constructor argument.
 
 ## Action Order
 
@@ -179,12 +192,13 @@ changes.
 every builder in `Proposal0025.s.sol` reverts `ImplementationNotDeployed`, the action file cannot
 be generated and `test_actionFileMatchesTheBuiltCalldata` is skipped.
 
-Deploy from a checkout that contains #22156 (this branch, or `main` once both PRs are merged). Both
-scripts deploy implementations only, no proxy upgrade and no initializer call, and read the live
-chain before broadcasting: `DeployProposal0025L1` aborts unless the live L1 proxies answer the
-resolver, signal service, quota manager and pauser it is about to bake in, `DeployProposal0025L2`
-unless the L2 resolver is owned by the DelegateController. Neither should be re-run: a second run
-deploys contracts the constants do not point at.
+Deploy from this branch, or from `main` once this PR is merged (#22156 already is). Both scripts
+deploy implementations only, no proxy upgrade and no initializer call, and read the live chain
+before broadcasting: `DeployProposal0025L1` aborts unless the live L1 proxies answer the resolver,
+signal service, quota manager and pauser it is about to bake in, `DeployProposal0025L2` unless the
+L2 resolver is owned by the DelegateController. After broadcasting, both abort unless the new
+implementations carry the intended immutables, `recallEnabled() == false` included. Neither should
+be re-run: a second run deploys contracts the constants do not point at.
 
 1. Deploy on Ethereum. The script logs `BRIDGE_NEW_IMPL_L1` and `ERC20_VAULT_NEW_IMPL_L1`.
 
@@ -241,8 +255,10 @@ each diff shows exactly the delta this proposal ships:
 | L2 Bridge     | https://codediff.taiko.xyz/?addr=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&newimpl=[new-impl-placeholder]&chainid=167000 |
 | L2 ERC20Vault | https://codediff.taiko.xyz/?addr=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&newimpl=[new-impl-placeholder]&chainid=167000 |
 
-Each diff should show only #22156: the removed debit in `recallMessage`, the moved debit in the
-vault, and the documentation around them.
+Each bridge diff should show only #22156: the `recallEnabled` switch and its guards, the removed
+debit in `recallMessage`, and the documentation around them. Each vault diff should show #22156's
+moved debit and its documentation, plus the one-line comment #22131 removed after the
+Proposal0024 vaults were built.
 
 ## Verification
 
@@ -263,12 +279,14 @@ cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L1_RPC  #
 cast call [new-impl-placeholder] "signalService()(address)" --rpc-url $L1_RPC  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
 cast call [new-impl-placeholder] "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
 cast call [new-impl-placeholder] "pauser()(address)"        --rpc-url $L1_RPC  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
+cast call [new-impl-placeholder] "recallEnabled()(bool)"    --rpc-url $L1_RPC  # false
 cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (vault)
 cast call [new-impl-placeholder] "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC   (vault)
 cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984
 cast call [new-impl-placeholder] "signalService()(address)" --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000005
 cast call [new-impl-placeholder] "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
 cast call [new-impl-placeholder] "pauser()(address)"        --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
+cast call [new-impl-placeholder] "recallEnabled()(bool)"    --rpc-url $L2_RPC  # false
 cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (vault)
 cast call [new-impl-placeholder] "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000   (vault)
 
@@ -280,9 +298,9 @@ cast call 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC "quotaPeriod()(uint24)" --r
 export ETHERSCAN_API_KEY=<key>
 FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
   contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L1_RPC \
-  --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
+  --encoded-constructor-args $(cast abi-encode "c(address,address,address,address,bool)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
-    0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
+    0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F false)
 FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
   contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L1_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address)" \
@@ -290,9 +308,9 @@ FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
 # First argument of the L2 bridge and vault is the resolver PROXY, not its implementation.
 FOUNDRY_PROFILE=layer2 forge verify-bytecode [new-impl-placeholder] \
   contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L2_RPC \
-  --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
+  --encoded-constructor-args $(cast abi-encode "c(address,address,address,address,bool)" \
     0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 0x1670000000000000000000000000000000000005 \
-    0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000)
+    0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 false)
 FOUNDRY_PROFILE=layer2 forge verify-bytecode [new-impl-placeholder] \
   contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address)" \
@@ -306,10 +324,10 @@ MODE=l2dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Propos
 # Rehearse the exact batch against live state; both legs must pass. While the fork still predates
 # Proposal0024 the rehearsal executes that batch first; while the constants are placeholders it
 # builds the implementations from the tree. On L1 it pins the defect on the Proposal0024 code (a
-# recall drains the Ether quota, a refund debits the WETH quota), executes the batch, and shows
-# both quotas untouched by the same cycles afterwards while a real withdrawal is still debited. On
-# L2 it delivers the batch through processMessage, then sends, delivers bridged USDT and serves a
-# second governance message through the upgraded bridge.
+# recall drains the Ether quota, a refund debits the WETH quota), executes the batch, and shows the
+# same recalls reverting with B_RECALL_DISABLED afterwards, both quotas untouched, while a real
+# withdrawal is still debited. On L2 it delivers the batch through processMessage, then sends,
+# delivers bridged USDT and serves a second governance message through the upgraded bridge.
 L1_FORK_URL=$L1_RPC L2_FORK_URL=$L2_RPC FOUNDRY_PROFILE=layer1 \
   forge test --match-contract Proposal0025ForkTest -vv
 ```
@@ -322,4 +340,4 @@ self-upgrade; only the fork test does.
 - Record both upgrades in `deployments/mainnet-contract-logs-L1.md` and
   `deployments/mainnet-contract-logs-L2.md`.
 - Re-read the four implementation slots (first block of [Verification](#verification)) against the
-  new addresses, and confirm a recall on L1 no longer moves `availableQuota`.
+  new addresses, and confirm `recallEnabled()` reads `false` through both bridge proxies.

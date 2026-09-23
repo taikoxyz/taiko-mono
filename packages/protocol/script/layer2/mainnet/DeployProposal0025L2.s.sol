@@ -17,8 +17,8 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// resolver `DeployBridgeUpgradeL2` deployed (`LibL2Addrs.SHARED_RESOLVER`), which Proposal0024
 /// populates, and have neither a quota manager nor a pauser, since L2 has no Ether or token quota
 /// and only the owner can pause. The only behavioural change over those implementations is
-/// #22156: recalls no longer consume the withdrawal quota, which on L2 changes nothing observable
-/// because no quota manager is configured, but keeps both chains on the same code.
+/// #22156: the bridge's new `recallEnabled` immutable is `false`, so messages can no longer be
+/// failed or recalled on L2 either.
 /// @custom:security-contact security@taiko.xyz
 contract DeployProposal0025L2 is Script {
     struct Deployment {
@@ -56,7 +56,7 @@ contract DeployProposal0025L2 is Script {
     function _deployContracts() private returns (Deployment memory deployment_) {
         deployment_.bridgeImpl = address(
             new Bridge(
-                LibL2Addrs.SHARED_RESOLVER, LibL2Addrs.SIGNAL_SERVICE, address(0), address(0)
+                LibL2Addrs.SHARED_RESOLVER, LibL2Addrs.SIGNAL_SERVICE, address(0), address(0), false
             )
         );
         deployment_.erc20VaultImpl = address(new ERC20Vault(LibL2Addrs.SHARED_RESOLVER, address(0)));
@@ -71,7 +71,7 @@ contract DeployProposal0025L2 is Script {
             bridgeImpl.resolver() == LibL2Addrs.SHARED_RESOLVER
                 && address(bridgeImpl.signalService()) == LibL2Addrs.SIGNAL_SERVICE
                 && address(bridgeImpl.quotaManager()) == address(0)
-                && bridgeImpl.pauser() == address(0)
+                && bridgeImpl.pauser() == address(0) && !bridgeImpl.recallEnabled()
                 && vaultImpl.resolver() == LibL2Addrs.SHARED_RESOLVER
                 && address(vaultImpl.quotaManager()) == address(0),
             ImmutableMismatch()

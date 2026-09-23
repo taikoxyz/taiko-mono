@@ -15,8 +15,8 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// Both constructors reproduce the immutables the live proxies carry, and the script reads them
 /// back from the live proxies before broadcasting so a drifted `LibL1Addrs` constant aborts the
 /// run instead of baking into the new immutables. The only behavioural change these
-/// implementations ship over the ones Proposal0024 installs is #22156: recalls no longer consume
-/// the Ether or token withdrawal quota.
+/// implementations ship over the ones Proposal0024 installs is #22156: the bridge's new
+/// `recallEnabled` immutable is `false`, so messages can no longer be failed or recalled.
 /// @custom:security-contact security@taiko.xyz
 contract DeployProposal0025L1 is Script {
     struct Deployment {
@@ -69,16 +69,17 @@ contract DeployProposal0025L1 is Script {
                 LibL1Addrs.SHARED_RESOLVER,
                 LibL1Addrs.SIGNAL_SERVICE,
                 LibL1Addrs.QUOTA_MANAGER,
-                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                false
             )
         );
         deployment_.erc20VaultImpl =
             address(new ERC20Vault(LibL1Addrs.SHARED_RESOLVER, LibL1Addrs.QUOTA_MANAGER));
     }
 
-    /// @dev Aborts if a constructor argument landed in the wrong position. Every argument is an
-    /// address, so a swapped pair compiles cleanly and would otherwise only surface once a proxy
-    /// is pointed at it.
+    /// @dev Aborts if a constructor argument landed in the wrong position or the bridge allows
+    /// recalls. A swapped pair of address arguments compiles cleanly and would otherwise only
+    /// surface once a proxy is pointed at it.
     /// @param _deployment The freshly deployed implementations.
     function _checkImmutables(Deployment memory _deployment) private view {
         Bridge bridgeImpl = Bridge(payable(_deployment.bridgeImpl));
@@ -88,7 +89,7 @@ contract DeployProposal0025L1 is Script {
                 && address(bridgeImpl.signalService()) == LibL1Addrs.SIGNAL_SERVICE
                 && address(bridgeImpl.quotaManager()) == LibL1Addrs.QUOTA_MANAGER
                 && bridgeImpl.pauser() == LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
-                && vaultImpl.resolver() == LibL1Addrs.SHARED_RESOLVER
+                && !bridgeImpl.recallEnabled() && vaultImpl.resolver() == LibL1Addrs.SHARED_RESOLVER
                 && address(vaultImpl.quotaManager()) == LibL1Addrs.QUOTA_MANAGER,
             ImmutableMismatch()
         );

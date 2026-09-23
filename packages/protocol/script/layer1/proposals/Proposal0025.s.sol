@@ -11,8 +11,8 @@ import { Controller } from "src/shared/governance/Controller.sol";
 // To dryrun the proposal on L2: `P=0025 pnpm proposal:dryrun:l2`
 /// @title Proposal0025
 /// @notice Upgrades the L1 and L2 bridges and ERC20 vaults to implementations built after #22156,
-/// which exempts recalls from the Ether and token withdrawal quotas. Executes after Proposal0024,
-/// which installs the implementations these replace and populates the L2 resolver they read.
+/// which switches off failing and recalling messages. Executes after Proposal0024, which installs
+/// the implementations these replace and populates the L2 resolver they read.
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0025 is BuildProposal {
     /// @dev The implementations the L1 leg points at. A struct with named fields rather than
