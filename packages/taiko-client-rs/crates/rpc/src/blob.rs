@@ -167,52 +167,63 @@ impl BlobDataSource {
             let payload: BlobServerResponse =
                 response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
 
-            let blob = parse_blob(&payload.data)?;
-            let commitment = compute_blob_commitment(&blob)?;
-            let proof =
-                payload.proof.as_deref().map(parse_bytes48).transpose()?.unwrap_or_default();
-
-            let versioned_hash = versioned_hash_from_commitment(&commitment);
-            if versioned_hash != *hash {
-                warn!(
-                ?hash,
-                returned_hash = ?versioned_hash,
-                "blob server returned mismatched blob hash"
-                );
-                return Err(BlobDataError::Parse("blob hash mismatch from blob server".into()));
-            }
-
-            if let Ok(reported_commitment) = parse_bytes48(&payload.commitment) &&
-                reported_commitment != commitment
-            {
-                debug!(
-                    ?hash,
-                    reported = ?reported_commitment,
-                    computed = ?commitment,
-                    "blob server reported mismatched KZG commitment metadata"
-                );
-            }
-            if let Ok(reported_hash) = payload.versioned_hash.parse::<B256>() &&
-                reported_hash != versioned_hash
-            {
-                debug!(
-                    ?hash,
-                    reported = ?reported_hash,
-                    computed = ?versioned_hash,
-                    "blob server reported mismatched versioned hash metadata"
-                );
-            }
-
-            blobs.push(BlobTransactionSidecar {
-                blobs: vec![blob],
-                commitments: vec![commitment],
-                proofs: vec![proof],
-            });
+            // On the blocking thread pool: the first commitment loads the KZG trusted setup, which
+            // takes seconds on a CPU-limited node and would otherwise stall the async runtime.
+            let hash = *hash;
+            blobs.push(
+                tokio::task::spawn_blocking(move || sidecar_from_blob_server(hash, &payload))
+                    .await
+                    .map_err(|err| BlobDataError::Other(err.into()))??,
+            );
             debug!(hash = ?hash, "fetched blob sidecar successfully");
         }
 
         Ok(blobs)
     }
+}
+
+/// Decode a blob server payload into a sidecar, verifying the blob against the requested versioned
+/// hash instead of trusting the payload's metadata.
+fn sidecar_from_blob_server(
+    hash: B256,
+    payload: &BlobServerResponse,
+) -> Result<BlobTransactionSidecar, BlobDataError> {
+    let blob = parse_blob(&payload.data)?;
+    let commitment = compute_blob_commitment(&blob)?;
+    let proof = payload.proof.as_deref().map(parse_bytes48).transpose()?.unwrap_or_default();
+
+    let versioned_hash = versioned_hash_from_commitment(&commitment);
+    if versioned_hash != hash {
+        warn!(?hash, returned_hash = ?versioned_hash, "blob server returned mismatched blob hash");
+        return Err(BlobDataError::Parse("blob hash mismatch from blob server".into()));
+    }
+
+    if let Ok(reported_commitment) = parse_bytes48(&payload.commitment) &&
+        reported_commitment != commitment
+    {
+        debug!(
+            ?hash,
+            reported = ?reported_commitment,
+            computed = ?commitment,
+            "blob server reported mismatched KZG commitment metadata"
+        );
+    }
+    if let Ok(reported_hash) = payload.versioned_hash.parse::<B256>() &&
+        reported_hash != versioned_hash
+    {
+        debug!(
+            ?hash,
+            reported = ?reported_hash,
+            computed = ?versioned_hash,
+            "blob server reported mismatched versioned hash metadata"
+        );
+    }
+
+    Ok(BlobTransactionSidecar {
+        blobs: vec![blob],
+        commitments: vec![commitment],
+        proofs: vec![proof],
+    })
 }
 
 /// Parse a hex-encoded blob server payload into a fixed-size `Blob`.
@@ -261,7 +272,9 @@ pub(crate) fn versioned_hash_from_commitment(commitment: &Bytes48) -> B256 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{TestServer, start_beacon};
+    use crate::test_utils::{
+        TestServer, assert_waits_for_blocking_pool, single_blocking_thread_runtime, start_beacon,
+    };
     use alloy_eips::eip4844::env_settings::EnvKzgSettings;
     use hyper::StatusCode;
 
@@ -329,6 +342,22 @@ mod tests {
         assert_eq!(beacon.requests_with_prefix("/eth/v1/beacon/blobs/").len(), 1);
         assert!(beacon.requests_with_prefix("/eth/v1/beacon/blob_sidecars/").is_empty());
         assert_eq!(blob_server.requests_with_prefix(&format!("/blobs/{zero_hash}")).len(), 1);
+    }
+
+    #[test]
+    fn blob_server_blobs_are_matched_on_the_blocking_pool() {
+        single_blocking_thread_runtime().block_on(async {
+            let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+            let zero_commitment = zero_sidecar.commitments[0];
+            let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+            let body = blob_server_body(&Blob::ZERO, &zero_commitment, zero_hash);
+            let server = TestServer::start(move |_| (StatusCode::OK, body.clone())).await;
+            let source = BlobDataSource::new(None, Some(server.endpoint()), true)
+                .await
+                .expect("blob source should be constructed");
+
+            assert_waits_for_blocking_pool(source.get_blobs(0, &[zero_hash])).await;
+        });
     }
 
     fn sidecar_for_blob(blob: Blob) -> BlobTransactionSidecar {

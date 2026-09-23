@@ -223,21 +223,41 @@ func (c *BeaconClient) GetBlobs(ctx context.Context, timestamp uint64, blobHashe
 	if err == nil {
 		return matchBlobs(blobs, blobHashes)
 	}
-	if !errors.Is(err, client.ErrNotFound) {
-		// Other statuses come from nodes that serve the endpoint, and transport errors would hit the
-		// deprecated endpoint too.
+	if !shouldTryBlobSidecars(ctxWithTimeout, err) {
 		return nil, err
 	}
 
-	// A beacon node that predates the blobs endpoint answers 404 for the unknown route, which cannot be told
-	// apart from "block not found" (or, on Prysm, "blob not in block"). Retrying the deprecated endpoint for the
-	// same slot is safe either way, since its blobs are matched against the requested versioned hashes as well.
+	// A 404 cannot be told apart from "block not found" (or, on Prysm, "blob not in block"), nor a dropped
+	// connection from a node that is down. Retrying the deprecated endpoint for the same slot is safe either way,
+	// since its blobs are matched against the requested versioned hashes as well.
 	matched, sidecarsErr := c.getBlobsFromSidecars(ctxWithTimeout, slot, blobHashes)
 	if sidecarsErr != nil {
 		return nil, fmt.Errorf("%w (deprecated blob sidecars endpoint: %w)", err, sidecarsErr)
 	}
-	log.Warn("Served blobs from the deprecated blob sidecars endpoint, as the blobs endpoint returned 404", "slot", slot)
+	log.Warn(
+		"Served blobs from the deprecated blob sidecars endpoint, as the blobs endpoint failed",
+		"slot", slot,
+		"error", err,
+	)
 	return matched, nil
+}
+
+// shouldTryBlobSidecars reports whether a failed blobs endpoint request should be retried through the
+// deprecated blob sidecars endpoint. That is the case for a 404, which a beacon node that predates the
+// blobs endpoint answers, and for a transport error: Prysm v6.1.0 to v7.1.7 drops the connection when a
+// requested blob appears twice in the block (OffchainLabs/prysm#17199), while its blob sidecars endpoint
+// still serves the blob. Other statuses come from nodes that serve the endpoint, and a timeout, exhausted
+// rate limit retries or a done context would not fare better on the deprecated endpoint.
+func shouldTryBlobSidecars(ctx context.Context, err error) bool {
+	if errors.Is(err, client.ErrNotFound) {
+		return true
+	}
+
+	var (
+		urlErr       *url.Error
+		rateLimitErr *RateLimitError
+	)
+	return ctx.Err() == nil && errors.As(err, &urlErr) && !urlErr.Timeout() && !errors.As(err, &rateLimitErr)
 }
 
 // getBlobs fetches the blobs with the given versioned hashes from the beacon block at the given slot.

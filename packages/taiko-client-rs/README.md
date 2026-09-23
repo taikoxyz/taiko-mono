@@ -40,7 +40,7 @@ Then review all available sub-commands:
 
 ## L1 beacon node requirements
 
-The driver reads each proposal's blobs from the L1 beacon node set by `--l1.beacon`, through `GET /eth/v1/beacon/blobs/{block_id}?versioned_hashes=...`, and checks every blob against its versioned hash. While consensus clients still serve it, a node that answers `404` there is asked again through the deprecated `GET /eth/v1/beacon/blob_sidecars/{block_id}`, which [ethereum/beacon-APIs#577](https://github.com/ethereum/beacon-APIs/pull/577) removed from the spec.
+The driver reads each proposal's blobs from the L1 beacon node set by `--l1.beacon`, through `GET /eth/v1/beacon/blobs/{block_id}?versioned_hashes=...`, and checks every blob against its versioned hash. While consensus clients still serve it, a node that answers `404` there, or drops the connection, is asked again through the deprecated `GET /eth/v1/beacon/blob_sidecars/{block_id}`, which [ethereum/beacon-APIs#577](https://github.com/ethereum/beacon-APIs/pull/577) removed from the spec.
 
 Since Fulu (PeerDAS), a beacon node keeps only the data columns it custodies, so only a **supernode** (custodies every column) or a **semi-supernode** (custodies half of them, enough to reconstruct every blob) can serve full blobs. Point `--l1.beacon` at such a node, or set `--blob.server` to another blob source: when the beacon node cannot return a blob, the driver asks the blob server, and without one derivation stalls until the blob is available.
 

@@ -1,17 +1,42 @@
 //! HTTP stub servers shared by this crate's unit tests.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex, mpsc},
+    time::Duration,
+};
 
 use http_body_util::Full;
 use hyper::{
     StatusCode, Uri, body::Bytes as HyperBytes, header::CONTENT_TYPE,
     server::conn::http1::Builder as Http1Builder, service::service_fn,
 };
-use tokio::{net::TcpListener, select, spawn, sync::Notify, task::JoinHandle};
+use tokio::{
+    net::TcpListener,
+    runtime::{Builder, Runtime},
+    select, spawn,
+    sync::Notify,
+    task::{JoinHandle, spawn_blocking},
+    time::timeout,
+};
 use url::Url;
 
-/// Local HTTP server that answers each request with the status and JSON body its handler returns
-/// for the request URI, and records the URIs it receives.
+/// How a [`TestServer`] answers a request.
+#[derive(Clone)]
+pub(crate) enum Reply {
+    /// Answer with the status and JSON body.
+    Respond(StatusCode, String),
+    /// Close the connection without answering, as a server does when its handler panics.
+    DropConnection,
+}
+
+impl From<(StatusCode, String)> for Reply {
+    fn from((status, body): (StatusCode, String)) -> Self {
+        Self::Respond(status, body)
+    }
+}
+
+/// Local HTTP server that answers each request with the [`Reply`] its handler returns for the
+/// request URI, and records the URIs it receives.
 pub(crate) struct TestServer {
     endpoint: Url,
     shutdown: Arc<Notify>,
@@ -20,8 +45,8 @@ pub(crate) struct TestServer {
 }
 
 impl TestServer {
-    pub(crate) async fn start(
-        handler: impl Fn(&Uri) -> (StatusCode, String) + Send + Sync + 'static,
+    pub(crate) async fn start<R: Into<Reply>>(
+        handler: impl Fn(&Uri) -> R + Send + Sync + 'static,
     ) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
@@ -48,15 +73,19 @@ impl TestServer {
                             let io = hyper_util::rt::TokioIo::new(stream);
                             let service = service_fn(move |request: hyper::Request<_>| {
                                 recorded.lock().unwrap().push(request.uri().clone());
-                                let (status, body) = handler(request.uri());
+                                let reply = handler(request.uri()).into();
                                 async move {
-                                    Ok::<_, hyper::Error>(
-                                        hyper::Response::builder()
+                                    match reply {
+                                        Reply::Respond(status, body) => Ok(hyper::Response::builder()
                                             .status(status)
                                             .header(CONTENT_TYPE, "application/json")
                                             .body(Full::new(HyperBytes::from(body)))
-                                            .expect("test response should build"),
-                                    )
+                                            .expect("test response should build")),
+                                        // hyper closes the connection when the service fails.
+                                        Reply::DropConnection => {
+                                            Err(std::io::Error::other("dropping the connection"))
+                                        }
+                                    }
                                 }
                             });
                             let _ = Http1Builder::new().serve_connection(io, service).await;
@@ -92,18 +121,45 @@ impl Drop for TestServer {
     }
 }
 
+/// A current-thread runtime whose blocking pool has a single thread, for
+/// [`assert_waits_for_blocking_pool`].
+pub(crate) fn single_blocking_thread_runtime() -> Runtime {
+    Builder::new_current_thread()
+        .enable_all()
+        .max_blocking_threads(1)
+        .build()
+        .expect("test runtime should build")
+}
+
+/// Asserts that `fut`, polled on a [`single_blocking_thread_runtime`], cannot finish while the only
+/// thread of the blocking pool is busy: its work runs on the blocking pool, not on the async
+/// runtime.
+pub(crate) async fn assert_waits_for_blocking_pool(fut: impl Future) {
+    let (release, busy) = mpsc::channel::<()>();
+    let occupied = spawn_blocking(move || busy.recv());
+    let finished = timeout(Duration::from_millis(250), fut).await.is_ok();
+    release.send(()).expect("the blocking pool thread should be waiting");
+    occupied
+        .await
+        .expect("the blocking pool thread should not panic")
+        .expect("the blocking pool thread should be released");
+    assert!(!finished, "the future finished while the blocking pool was busy");
+}
+
 /// Starts a beacon node stub, with genesis at 0 and 12-second slots, that answers every request
 /// other than the genesis and spec ones through `handler`.
-pub(crate) async fn start_beacon(
-    handler: impl Fn(&Uri) -> (StatusCode, String) + Send + Sync + 'static,
+pub(crate) async fn start_beacon<R: Into<Reply>>(
+    handler: impl Fn(&Uri) -> R + Send + Sync + 'static,
 ) -> TestServer {
     TestServer::start(move |uri| match uri.path() {
-        "/eth/v1/beacon/genesis" => (StatusCode::OK, r#"{"data":{"genesis_time":"0"}}"#.to_owned()),
-        "/eth/v1/config/spec" => (
+        "/eth/v1/beacon/genesis" => {
+            Reply::Respond(StatusCode::OK, r#"{"data":{"genesis_time":"0"}}"#.to_owned())
+        }
+        "/eth/v1/config/spec" => Reply::Respond(
             StatusCode::OK,
             r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#.to_owned(),
         ),
-        _ => handler(uri),
+        _ => handler(uri).into(),
     })
     .await
 }

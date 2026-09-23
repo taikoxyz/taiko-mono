@@ -3,6 +3,9 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -36,6 +39,8 @@ type beaconStub struct {
 	sidecarsCode int
 	// rateLimited is the number of first blob requests answered with 429.
 	rateLimited int
+	// blobsDropConnection makes the blobs endpoint close the connection without answering.
+	blobsDropConnection bool
 
 	mu       sync.Mutex
 	requests []url.URL
@@ -72,6 +77,10 @@ func (s *beaconStub) serve(t *testing.T) *httptest.Server {
 				if s.recordRequest(r) <= s.rateLimited {
 					respond(w, http.StatusTooManyRequests, "")
 					return
+				}
+				if s.blobsDropConnection {
+					// net/http closes the connection without answering, as it does when a handler panics.
+					panic(http.ErrAbortHandler)
 				}
 				respond(w, s.blobsCode, s.blobsBody)
 			case strings.HasPrefix(r.URL.Path, "/eth/v1/beacon/blob_sidecars/"):
@@ -363,6 +372,25 @@ func TestGetBlobsFallsBackToBlobSidecarsWhenBlobsEndpointNotFound(t *testing.T) 
 	require.Equal(t, "/eth/v1/beacon/blob_sidecars/7", requests[1].Path)
 }
 
+func TestGetBlobsFallsBackToBlobSidecarsWhenBlobsEndpointDropsConnection(t *testing.T) {
+	blob, commitment, blobHash := testBlobWithCommitment(t, []byte("derivation data"))
+
+	stub := newBeaconStub()
+	// Prysm v6.1.0 to v7.1.7 panics on the blobs endpoint when a requested blob appears twice in the block,
+	// while its blob sidecars endpoint still serves the blob.
+	stub.blobsDropConnection = true
+	stub.sidecarsBody = sidecarsBody(t, []*opeth.Blob{blob}, []kzg4844.Commitment{commitment})
+	client, err := NewBeaconClient(stub.serve(t).URL, DefaultRpcTimeout)
+	require.NoError(t, err)
+
+	blobs, err := client.GetBlobs(context.Background(), 100, []common.Hash{blobHash})
+	require.NoError(t, err)
+	require.Equal(t, []*opeth.Blob{blob}, blobs)
+
+	requests := stub.blobRequests()
+	require.Equal(t, "/eth/v1/beacon/blob_sidecars/0", requests[len(requests)-1].Path)
+}
+
 func TestGetBlobsRejectsBlobSidecarNotMatchingItsCommitment(t *testing.T) {
 	_, commitment, blobHash := testBlobWithCommitment(t, []byte("reported"))
 	other, _, _ := testBlobWithCommitment(t, []byte("served"))
@@ -396,7 +424,7 @@ func TestGetBlobsReportsBlobsEndpointErrorWhenBlobSidecarsFallbackFails(t *testi
 	require.Len(t, stub.blobRequests(), 2)
 }
 
-func TestGetBlobsOnlyFallsBackToBlobSidecarsOnNotFound(t *testing.T) {
+func TestGetBlobsDoesNotFallBackToBlobSidecarsOnOtherStatuses(t *testing.T) {
 	blob, commitment, blobHash := testBlobWithCommitment(t, []byte("derivation data"))
 
 	// Nodes serving the endpoint answer 400 (Lighthouse, Lodestar, Grandine) or 5xx for blobs they cannot serve.
@@ -416,6 +444,39 @@ func TestGetBlobsOnlyFallsBackToBlobSidecarsOnNotFound(t *testing.T) {
 			require.Nil(t, blobs)
 			require.ErrorContains(t, err, strconv.Itoa(code))
 			require.Len(t, stub.blobRequests(), 1)
+		})
+	}
+}
+
+func TestShouldTryBlobSidecars(t *testing.T) {
+	blobsURL := "http://beacon/eth/v1/beacon/blobs/0"
+	droppedConnection := &url.Error{Op: "Get", URL: blobsURL, Err: io.EOF}
+	doneCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		err  error
+		want bool
+	}{
+		{"not found", context.Background(), fmt.Errorf("code=404: %w", prysmclient.ErrNotFound), true},
+		{"dropped connection", context.Background(), droppedConnection, true},
+		{"other status", context.Background(), fmt.Errorf("code=400: %w", prysmclient.ErrNotOK), false},
+		{"timeout", context.Background(), &url.Error{Op: "Get", URL: blobsURL, Err: context.DeadlineExceeded}, false},
+		{
+			"exhausted rate limit retries",
+			context.Background(),
+			&url.Error{Op: "Get", URL: blobsURL, Err: &RateLimitError{URL: blobsURL, Attempts: RateLimitMaxRetries}},
+			false,
+		},
+		{"done context", doneCtx, droppedConnection, false},
+		{"malformed response", context.Background(), errors.New("failed to decode beacon blobs response"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, shouldTryBlobSidecars(tt.ctx, tt.err))
 		})
 	}
 }
