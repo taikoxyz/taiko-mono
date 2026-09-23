@@ -111,7 +111,7 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @notice Whether `failMessage`, `recallMessage` and the FAILED branch of `retryMessage`
     /// are enabled.
-    bool public immutable enableFailAndRecall;
+    bool public immutable recallEnabled;
 
     /// @notice The next message ID.
     /// @dev Slot 1.
@@ -148,8 +148,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
-    modifier whenFailAndRecallEnabled() {
-        if (!enableFailAndRecall) revert B_FAIL_AND_RECALL_DISABLED();
+    modifier whenRecallEnabled() {
+        if (!recallEnabled) revert B_FAIL_AND_RECALL_DISABLED();
         _;
     }
 
@@ -159,20 +159,20 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
     /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
     /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
-    /// @param _enableFailAndRecall See `enableFailAndRecall`.
+    /// @param _recallEnabled See `recallEnabled`.
     constructor(
         address _resolver,
         address _signalService,
         address _quotaManager,
         address _pauser,
-        bool _enableFailAndRecall
+        bool _recallEnabled
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
         quotaManager = IQuotaManager(_quotaManager);
         pauser = _pauser;
-        enableFailAndRecall = _enableFailAndRecall;
+        recallEnabled = _recallEnabled;
     }
 
     // ---------------------------------------------------------------
@@ -262,7 +262,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         bytes calldata _proof
     )
         external
-        whenFailAndRecallEnabled
+        whenRecallEnabled
         sameChain(_message.srcChainId)
         diffChain(_message.destChainId)
         whenNotPaused
@@ -435,7 +435,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             // in the bridge, consuming no quota.
             _consumeEtherQuota(_message.value);
             _updateMessageStatus(msgHash, Status.DONE);
-        } else if (_isLastAttempt && enableFailAndRecall) {
+        } else if (_isLastAttempt && recallEnabled) {
             _updateMessageStatus(msgHash, Status.FAILED);
 
             signalService.sendSignal(signalForFailedMessage(msgHash));
@@ -447,7 +447,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @inheritdoc IBridge
     function failMessage(Message calldata _message)
         external
-        whenFailAndRecallEnabled
+        whenRecallEnabled
         sameChain(_message.destChainId)
         diffChain(_message.srcChainId)
         whenNotPaused

@@ -52,7 +52,7 @@ contract DeployBridgeUpgradeL1 is Script {
                 && address(_bridgeImpl.signalService()) == LibL1Addrs.SIGNAL_SERVICE
                 && address(_bridgeImpl.quotaManager()) == LibL1Addrs.QUOTA_MANAGER
                 && _bridgeImpl.pauser() == LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
-                && !_bridgeImpl.enableFailAndRecall(),
+                && !_bridgeImpl.recallEnabled(),
             ImmutableMismatch()
         );
     }

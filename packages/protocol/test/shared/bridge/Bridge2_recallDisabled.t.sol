@@ -26,7 +26,7 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
     Bridge internal taikoBridge;
 
     /// @dev Production configuration: fail-and-recall off.
-    function getEnableFailAndRecall() internal pure override returns (bool) {
+    function getRecallEnabled() internal pure override returns (bool) {
         return false;
     }
 
@@ -52,9 +52,9 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
         vm.chainId(ethereumChainId);
     }
 
-    function test_enableFailAndRecall_isFalse() public view {
-        assertFalse(eBridge.enableFailAndRecall());
-        assertFalse(taikoBridge.enableFailAndRecall());
+    function test_recallEnabled_isFalse() public view {
+        assertFalse(eBridge.recallEnabled());
+        assertFalse(taikoBridge.recallEnabled());
     }
 
     function test_recallMessage_RevertWhen_recallsDisabled() public dealEther(Bob) {

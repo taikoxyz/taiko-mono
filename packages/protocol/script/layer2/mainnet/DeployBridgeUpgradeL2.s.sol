@@ -83,7 +83,7 @@ contract DeployBridgeUpgradeL2 is Script {
             bridgeImpl.resolver() == _deployment.resolverProxy
                 && address(bridgeImpl.signalService()) == LibL2Addrs.SIGNAL_SERVICE
                 && address(bridgeImpl.quotaManager()) == address(0)
-                && bridgeImpl.pauser() == address(0) && !bridgeImpl.enableFailAndRecall(),
+                && bridgeImpl.pauser() == address(0) && !bridgeImpl.recallEnabled(),
             ImmutableMismatch()
         );
     }

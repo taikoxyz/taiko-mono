@@ -36,7 +36,7 @@ contract TestBridge2Base is CommonTest {
                     address(eSignalService),
                     getQuotaManager(),
                     getPauser(),
-                    getEnableFailAndRecall()
+                    getRecallEnabled()
                 )
             )
         );
@@ -52,7 +52,7 @@ contract TestBridge2Base is CommonTest {
     }
 
     /// @dev Enabled by default; tests of the disabled path override this.
-    function getEnableFailAndRecall() internal virtual returns (bool) {
+    function getRecallEnabled() internal virtual returns (bool) {
         return true;
     }
 
