@@ -1070,7 +1070,14 @@ contract Proposal0025ForkTest is Test {
     }
 
     /// @dev Neither `_holder` nor the vault holds any of `_token` any more: the vault burned it.
-    function _assertBurned721(Side memory _s, address _token, address _holder) private view {
+    function _assertBurned721(
+        Side memory _s,
+        address _token,
+        address _holder
+    )
+        private
+        view
+    {
         assertEq(IERC721(_token).balanceOf(_holder), 0);
         assertEq(IERC721(_token).balanceOf(_s.erc721Vault), 0);
     }
