@@ -63,7 +63,9 @@ contract DeployBridgeUpgradeL2 is Script {
         // only the owner can pause today; zero preserves both. The 1.10.0 implementation has no
         // `receive()` at all, so the pauser-only `receive()` is not a regression either.
         deployment_.bridgeImpl = address(
-            new Bridge(deployment_.resolverProxy, LibL2Addrs.SIGNAL_SERVICE, address(0), address(0))
+            new Bridge(
+                deployment_.resolverProxy, LibL2Addrs.SIGNAL_SERVICE, address(0), address(0), false
+            )
         );
     }
 
@@ -81,7 +83,7 @@ contract DeployBridgeUpgradeL2 is Script {
             bridgeImpl.resolver() == _deployment.resolverProxy
                 && address(bridgeImpl.signalService()) == LibL2Addrs.SIGNAL_SERVICE
                 && address(bridgeImpl.quotaManager()) == address(0)
-                && bridgeImpl.pauser() == address(0),
+                && bridgeImpl.pauser() == address(0) && !bridgeImpl.recallEnabled(),
             ImmutableMismatch()
         );
     }

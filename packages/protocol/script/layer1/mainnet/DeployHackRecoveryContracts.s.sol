@@ -72,7 +72,8 @@ contract DeployHackRecoveryContracts is Script {
                 LibL1Addrs.SHARED_RESOLVER,
                 LibL1Addrs.SIGNAL_SERVICE,
                 deployment_.quotaManager,
-                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                true // as deployed
             )
         );
 
