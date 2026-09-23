@@ -127,6 +127,10 @@ export class ReleaseError extends Error {
   name = 'ReleaseError';
 }
 
+export class RecallDisabledError extends Error {
+  name = 'RecallDisabledError';
+}
+
 export class UnknownTokenTypeError extends Error {
   name = 'UnknownTokenTypeError';
 }

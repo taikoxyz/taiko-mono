@@ -10,9 +10,11 @@
   import { OnAccount } from '$components/OnAccount';
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
+  import { RecallDisabledError } from '$libs/error';
   import { getLogger } from '$libs/util/logger';
 
   import Claim from '../Claim.svelte';
+  import { isRecallDisabledError } from '../ClaimDialog/error';
   import { claimWithQuotaGuard, showQuotaToastForClaimError } from '../ClaimDialog/quota';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
@@ -74,7 +76,12 @@
     ) {
       console.error(err);
       // Every non-quota failure needs user-visible feedback, not just a console line
-      if (err instanceof UserRejectedRequestError) {
+      if (err instanceof RecallDisabledError || isRecallDisabledError(err)) {
+        warningToast({
+          title: $t('bridge.errors.recall_disabled.title'),
+          message: $t('bridge.errors.recall_disabled.message'),
+        });
+      } else if (err instanceof UserRejectedRequestError) {
         warningToast({ title: $t('transactions.actions.claim.rejected.title') });
       } else {
         errorToast({ title: $t('bridge.errors.retry_error') });
@@ -192,7 +199,7 @@
       {#if activeStep === RetrySteps.CHECK}
         <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton on:closeDialog={closeDialog} />
       {:else if activeStep === RetrySteps.SELECT}
-        <RetryOptionStep bind:canContinue />
+        <RetryOptionStep {bridgeTx} bind:canContinue />
       {:else if activeStep === RetrySteps.REVIEW}
         <ReviewStep bind:tx={bridgeTx} />
       {:else if activeStep === RetrySteps.CONFIRM}

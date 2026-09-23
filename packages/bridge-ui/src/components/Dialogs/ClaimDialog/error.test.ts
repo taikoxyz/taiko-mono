@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isMessageNotReceivedError, isQuotaManagerOutOfQuotaError } from './error';
+import { isMessageNotReceivedError, isQuotaManagerOutOfQuotaError, isRecallDisabledError } from './error';
 
 describe('isMessageNotReceivedError', () => {
   it('returns true for legacy and current bridge not received errors', () => {
@@ -81,5 +81,20 @@ describe('isQuotaManagerOutOfQuotaError', () => {
 
   it('returns false for unrelated quota manager errors', () => {
     expect(isQuotaManagerOutOfQuotaError(new Error('execution reverted: QM_INVALID_PARAM()'))).toBe(false);
+  });
+});
+
+describe('isRecallDisabledError', () => {
+  it('reads a decoded recall-disabled error from a nested viem cause', () => {
+    expect(
+      isRecallDisabledError({
+        message: 'The contract function "recallMessage" reverted.',
+        cause: { data: { errorName: 'B_RECALL_DISABLED' } },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not classify another bridge error as recall-disabled', () => {
+    expect(isRecallDisabledError(new Error('execution reverted: B_RETRY_FAILED()'))).toBe(false);
   });
 });

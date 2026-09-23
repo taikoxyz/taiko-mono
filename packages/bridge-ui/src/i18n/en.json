@@ -130,6 +130,10 @@
         "title": "Signature transfer failed"
       },
       "process_message_error": "Unable to process message",
+      "recall_disabled": {
+        "message": "This bridge has disabled message recalls. Retry the message until it succeeds.",
+        "title": "Message recall unavailable"
+      },
       "release": {
         "not_received": {
           "message": "The failed message is not proven on the source chain yet, so the funds cannot be released right now. Wait a few minutes and try again.",
@@ -627,6 +631,13 @@
       "title": "Release assets"
     },
     "retry": {
+      "options": {
+        "continue": "Retry and keep retrying",
+        "description": "Your transaction failed on chain. You can keep retrying, or make one final attempt and then release the funds on the source chain if it fails.",
+        "final": "Retry one final time",
+        "prompt": "Please select your preferred option:",
+        "recall_disabled_description": "Your transaction failed on chain. Message recalls are currently disabled, so you can retry until it succeeds."
+      },
       "steps": {
         "select": {
           "title": "Select"
@@ -664,6 +675,7 @@
         "description": "Transaction is processing. Depending on the pending blocks to be verified this can take up to several minutes.",
         "name": "Processing"
       },
+      "recall_disabled": "Recall unavailable",
       "releasable": "Releasable",
       "release": {
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain.",

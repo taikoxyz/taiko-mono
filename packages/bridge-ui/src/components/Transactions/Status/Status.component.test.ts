@@ -19,12 +19,19 @@ vi.mock('$libs/bridge/isTransactionProcessable', () => ({
   isTransactionProcessable: (...args: unknown[]) => isTransactionProcessable(...args),
 }));
 
+const isTransactionRecallEnabled = vi.fn();
+vi.mock('$libs/bridge', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$libs/bridge')>()),
+  isTransactionRecallEnabled: (...args: unknown[]) => isTransactionRecallEnabled(...args),
+}));
+
 const startPolling = vi.fn();
 vi.mock('$libs/polling/messageStatusPoller', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$libs/polling/messageStatusPoller')>()),
   startPolling: (...args: unknown[]) => startPolling(...args),
 }));
 
+import { MessageStatus } from '$libs/bridge';
 import { account } from '$stores/account';
 
 import Status from './Status.svelte';
@@ -62,6 +69,8 @@ let target: HTMLElement;
 
 beforeEach(() => {
   isTransactionProcessable.mockReset();
+  isTransactionRecallEnabled.mockReset();
+  isTransactionRecallEnabled.mockResolvedValue(false);
   startPolling.mockReset();
   account.set({ address: '0xaaaa', isConnected: true } as never);
   target = document.createElement('div');
@@ -158,5 +167,40 @@ describe('Status row manual claim entry', () => {
 
     expect(target.textContent).toContain('transactions.button.claim');
     expect(target.textContent).not.toContain('transactions.button.try_claim');
+  });
+});
+
+describe('Status row recall availability', () => {
+  const failedTx = {
+    msgStatus: MessageStatus.FAILED,
+    srcTxHash: '0x1',
+    msgHash: '0x2',
+  } as never;
+
+  const render = async (enabled: boolean) => {
+    startPolling.mockReturnValue(makePoller().handle);
+    isTransactionProcessable.mockResolvedValue(true);
+    isTransactionRecallEnabled.mockResolvedValue(enabled);
+
+    const component = new Status({
+      target,
+      props: { bridgeTx: failedTx, bridgeTxStatus: MessageStatus.FAILED },
+    });
+    await flush();
+    return component;
+  };
+
+  it('shows an explanation instead of Release when recalls are disabled', async () => {
+    await render(false);
+
+    expect(target.textContent).toContain('transactions.status.recall_disabled');
+    expect(target.textContent).not.toContain('transactions.button.release');
+  });
+
+  it('keeps the Release action when recalls are enabled', async () => {
+    await render(true);
+
+    expect(target.textContent).toContain('transactions.button.release');
+    expect(target.textContent).not.toContain('transactions.status.recall_disabled');
   });
 });

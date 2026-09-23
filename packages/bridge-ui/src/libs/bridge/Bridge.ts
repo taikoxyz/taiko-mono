@@ -15,6 +15,7 @@ import {
   BridgePausedError,
   MessageStatusError,
   ProcessMessageError,
+  RecallDisabledError,
   ReleaseError,
   WrongChainError,
   WrongOwnerError,
@@ -28,6 +29,7 @@ import { config } from '$libs/wagmi';
 
 import { estimateMessageGasLimitWithMinimum, type MessageGasEstimateExtras } from './estimateMessageGasLimit';
 import { feeForGasLimit } from './messageFeeInvariant';
+import { isRecallEnabled } from './recallAvailability';
 import {
   type BridgeArgs,
   type BridgeTransaction,
@@ -337,10 +339,16 @@ export abstract class Bridge {
       } else if (messageStatus === MessageStatus.RETRIABLE) {
         // Claiming after a failed attempt
         await this.beforeRetrying({ ...args, messageStatus });
-        txHash = await this.retryMessage({ ...args, bridgeContract, client });
+        const lastAttempt = args.lastAttempt
+          ? await isRecallEnabled(Number(message.destChainId), bridgeContract.address)
+          : false;
+        txHash = await this.retryMessage({ ...args, lastAttempt, bridgeContract, client });
       } else if (messageStatus === MessageStatus.FAILED) {
         // Release if the message has failed and the user wants to release the funds
         await this.beforeReleasing({ ...args, messageStatus });
+        if (!(await isRecallEnabled(Number(message.srcChainId), srcBridgeContract.address))) {
+          throw new RecallDisabledError('Message recalls are currently disabled');
+        }
         txHash = await this.release({ ...args, bridgeContract: srcBridgeContract, client });
       } else {
         throw new ProcessMessageError('Message status not supported for claiming.');

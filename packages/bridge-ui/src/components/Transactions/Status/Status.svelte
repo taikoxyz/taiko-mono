@@ -4,7 +4,7 @@
 
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
-  import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { type BridgeTransaction, isTransactionRecallEnabled, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable, type Processability } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
   import { bridgeTxService } from '$libs/storage';
@@ -27,6 +27,8 @@
   let polling: ReturnType<typeof startPolling>;
   let loading = false;
   let hasError = false;
+  let recallEnabled = false;
+  let recallCheck = 0;
 
   $: showManualClaimEntry = shouldShowManualClaimEntry({
     bridgeTxStatus,
@@ -38,9 +40,21 @@
     isProcessable = isTxProcessable;
   }
 
+  async function updateRecallAvailability(status: Maybe<MessageStatus>) {
+    const check = ++recallCheck;
+    if (status !== MessageStatus.FAILED) {
+      recallEnabled = false;
+      return;
+    }
+
+    const enabled = await isTransactionRecallEnabled(bridgeTx, 'source');
+    if (!destroyed && check === recallCheck) recallEnabled = enabled;
+  }
+
   function onStatusChange(status: MessageStatus) {
     // Keeping model and UI in sync
     bridgeTxStatus = bridgeTx.msgStatus = status;
+    void updateRecallAvailability(status);
     dispatch('statusChange', status);
   }
 
@@ -105,6 +119,7 @@
   onMount(async () => {
     if (bridgeTx && $account?.address) {
       bridgeTxStatus = bridgeTx.msgStatus;
+      void updateRecallAvailability(bridgeTxStatus);
 
       try {
         // Can we start claiming/retrying/releasing? A single failed read here must not
@@ -181,7 +196,10 @@
     <StatusDot type="success" />
     <span>{$t('transactions.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
-    {#if textOnly}
+    {#if !recallEnabled}
+      <StatusDot type="error" />
+      <span>{$t('transactions.status.recall_disabled')}</span>
+    {:else if textOnly}
       <StatusDot type="pending" />
       <span>{$t('transactions.status.releasable')}</span>
     {:else}

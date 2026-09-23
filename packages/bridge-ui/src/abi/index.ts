@@ -35,6 +35,13 @@ export const bridgeAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'recallEnabled',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'acceptOwnership',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -704,6 +711,7 @@ export const bridgeAbi = [
   { type: 'error', inputs: [], name: 'B_MESSAGE_NOT_SENT' },
   { type: 'error', inputs: [], name: 'B_PERMISSION_DENIED' },
   { type: 'error', inputs: [], name: 'B_PROOF_TOO_LARGE' },
+  { type: 'error', inputs: [], name: 'B_RECALL_DISABLED' },
   { type: 'error', inputs: [], name: 'B_RETRY_FAILED' },
   { type: 'error', inputs: [], name: 'B_SIGNAL_NOT_RECEIVED' },
   { type: 'error', inputs: [], name: 'ETH_TRANSFER_FAILED' },

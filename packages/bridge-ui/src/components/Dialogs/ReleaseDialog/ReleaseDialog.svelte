@@ -16,12 +16,13 @@
     NotConnectedError,
     ProcessMessageError,
     ProofGenerationError,
+    RecallDisabledError,
     RetryError,
   } from '$libs/error';
   import { getLogger } from '$libs/util/logger';
 
   import Claim from '../Claim.svelte';
-  import { isMessageNotReceivedError } from '../ClaimDialog/error';
+  import { isMessageNotReceivedError, isRecallDisabledError } from '../ClaimDialog/error';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
   import { createResetGate } from '../Shared/resetGate';
@@ -138,6 +139,12 @@
       case err instanceof RetryError:
         errorToast({ title: $t('bridge.errors.retry_error') });
         break;
+      case err instanceof RecallDisabledError:
+        warningToast({
+          title: $t('bridge.errors.recall_disabled.title'),
+          message: $t('bridge.errors.recall_disabled.message'),
+        });
+        break;
       // With the block-number gate gone, these two are what a release hits while the FAILED
       // signal has not reached the source chain yet: the prover refuses an empty storage slot,
       // or cannot find a synced block at all. Both used to read "Unknown error", which a user
@@ -154,7 +161,12 @@
         console.error(err);
         // The bridge reverts with B_SIGNAL_NOT_RECEIVED; the old check looked for a name the
         // contract never emits, so this branch could not be reached
-        if (isMessageNotReceivedError(err)) {
+        if (isRecallDisabledError(err)) {
+          warningToast({
+            title: $t('bridge.errors.recall_disabled.title'),
+            message: $t('bridge.errors.recall_disabled.message'),
+          });
+        } else if (isMessageNotReceivedError(err)) {
           warningToast({
             title: $t('bridge.errors.release.not_received.title'),
             message: $t('bridge.errors.release.not_received.message'),

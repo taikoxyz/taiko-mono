@@ -51,7 +51,13 @@ vi.mock('$libs/util/getConnectedWallet', () => ({
 }));
 
 import { routingContractsMap } from '$bridgeConfig';
-import { MessageStatusError, ProcessMessageError, WrongChainError, WrongOwnerError } from '$libs/error';
+import {
+  MessageStatusError,
+  ProcessMessageError,
+  RecallDisabledError,
+  WrongChainError,
+  WrongOwnerError,
+} from '$libs/error';
 
 import { ERC20Bridge } from './ERC20Bridge';
 import { type BridgeTransaction, MessageStatus } from './types';
@@ -59,6 +65,8 @@ import { type BridgeTransaction, MessageStatus } from './types';
 const TX_HASH = '0x00000000000000000000000000000000000000000000000000000000000000aa' as Hash;
 const PROOF = '0xp' as Hash;
 const RECALL_PROOF = '0xr' as Hash;
+let messageStatus: MessageStatus;
+let recallEnabled: boolean;
 
 const prover = {
   getEncodedSignalProof: vi.fn().mockResolvedValue(PROOF),
@@ -90,6 +98,11 @@ const bridgeTx = (overrides: Partial<BridgeTransaction> = {}): BridgeTransaction
 
 beforeEach(() => {
   vi.clearAllMocks();
+  messageStatus = MessageStatus.NEW;
+  recallEnabled = true;
+  readContract.mockImplementation((_config, request) =>
+    request.functionName === 'recallEnabled' ? recallEnabled : messageStatus,
+  );
   built.length = 0;
   simulateContract.mockResolvedValue({ request: { simulated: true } });
   writeContract.mockResolvedValue(TX_HASH);
@@ -102,7 +115,7 @@ beforeEach(() => {
 
 describe('Bridge.processMessage preconditions', () => {
   it('refuses a message the caller neither sent nor owns when only the owner may process it', async () => {
-    readContract.mockResolvedValue(MessageStatus.NEW);
+    messageStatus = MessageStatus.NEW;
     const wallet = walletOn(destChainId, BOB); // neither srcOwner nor destOwner
 
     await expect(
@@ -112,7 +125,7 @@ describe('Bridge.processMessage preconditions', () => {
   });
 
   it('refuses a message that has already been processed', async () => {
-    readContract.mockResolvedValue(MessageStatus.DONE);
+    messageStatus = MessageStatus.DONE;
 
     await expect(
       new ERC20Bridge(prover as never).processMessage({ bridgeTx: bridgeTx(), wallet: walletOn(destChainId) }),
@@ -121,7 +134,7 @@ describe('Bridge.processMessage preconditions', () => {
   });
 
   it('refuses to claim from a wallet on the wrong chain', async () => {
-    readContract.mockResolvedValue(MessageStatus.NEW);
+    messageStatus = MessageStatus.NEW;
 
     await expect(
       new ERC20Bridge(prover as never).processMessage({ bridgeTx: bridgeTx(), wallet: walletOn(srcChainId) }),
@@ -130,7 +143,7 @@ describe('Bridge.processMessage preconditions', () => {
   });
 
   it('refuses to release from a wallet that is not on the source chain', async () => {
-    readContract.mockResolvedValue(MessageStatus.FAILED);
+    messageStatus = MessageStatus.FAILED;
 
     await expect(
       new ERC20Bridge(prover as never).processMessage({ bridgeTx: bridgeTx(), wallet: walletOn(destChainId) }),
@@ -141,7 +154,7 @@ describe('Bridge.processMessage preconditions', () => {
 
 describe('Bridge.processMessage routes each status to its contract call', () => {
   it('claims a NEW message on the destination bridge with the proof', async () => {
-    readContract.mockResolvedValue(MessageStatus.NEW);
+    messageStatus = MessageStatus.NEW;
 
     const hash = await new ERC20Bridge(prover as never).processMessage({
       bridgeTx: bridgeTx(),
@@ -162,7 +175,7 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
   });
 
   it('retries a RETRIABLE message on the destination bridge, marking the last attempt when asked', async () => {
-    readContract.mockResolvedValue(MessageStatus.RETRIABLE);
+    messageStatus = MessageStatus.RETRIABLE;
 
     await new ERC20Bridge(prover as never).processMessage({
       bridgeTx: bridgeTx(),
@@ -177,8 +190,28 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
     );
   });
 
+  it('falls back to an ordinary retry when the destination bridge has disabled recalls', async () => {
+    messageStatus = MessageStatus.RETRIABLE;
+    recallEnabled = false;
+
+    await new ERC20Bridge(prover as never).processMessage({
+      bridgeTx: bridgeTx(),
+      wallet: walletOn(destChainId),
+      lastAttempt: true,
+    });
+
+    expect(simulateContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        address: destBridge,
+        functionName: 'retryMessage',
+        args: [expect.anything(), false],
+      }),
+    );
+  });
+
   it('refuses to claim a NEW message with no source height, which the proof needs', async () => {
-    readContract.mockResolvedValue(MessageStatus.NEW);
+    messageStatus = MessageStatus.NEW;
 
     await expect(
       new ERC20Bridge(prover as never).processMessage({
@@ -193,7 +226,7 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
     // retryMessage sends no proof, and the recall proof is built against the destination chain, so
     // requiring a source height ahead of the dispatch rejected work that would have succeeded - on
     // a button the transaction list had already offered
-    readContract.mockResolvedValue(MessageStatus.RETRIABLE);
+    messageStatus = MessageStatus.RETRIABLE;
     await new ERC20Bridge(prover as never).processMessage({
       bridgeTx: bridgeTx({ blockNumber: undefined, receipt: undefined }),
       wallet: walletOn(destChainId),
@@ -203,7 +236,7 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
       expect.objectContaining({ functionName: 'retryMessage' }),
     );
 
-    readContract.mockResolvedValue(MessageStatus.FAILED);
+    messageStatus = MessageStatus.FAILED;
     await new ERC20Bridge(prover as never).processMessage({
       bridgeTx: bridgeTx({ blockNumber: undefined, receipt: undefined }),
       wallet: walletOn(srcChainId),
@@ -216,7 +249,7 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
 
   it('releases a FAILED message on the SOURCE bridge with the recall proof', async () => {
     // recallMessage lives on the chain the funds left from; the claim contract is the wrong one
-    readContract.mockResolvedValue(MessageStatus.FAILED);
+    messageStatus = MessageStatus.FAILED;
 
     await new ERC20Bridge(prover as never).processMessage({ bridgeTx: bridgeTx(), wallet: walletOn(srcChainId) });
 
@@ -230,6 +263,20 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
       }),
     );
     expect(srcBridge).not.toBe(destBridge);
+  });
+
+  it('does not build a recall transaction when the source bridge has disabled recalls', async () => {
+    messageStatus = MessageStatus.FAILED;
+    recallEnabled = false;
+
+    await expect(
+      new ERC20Bridge(prover as never).processMessage({ bridgeTx: bridgeTx(), wallet: walletOn(srcChainId) }),
+    ).rejects.toBeInstanceOf(RecallDisabledError);
+
+    expect(prover.getEncodedSignalProofForRecall).not.toHaveBeenCalled();
+    expect(estimateRecallMessage).not.toHaveBeenCalled();
+    expect(simulateContract).not.toHaveBeenCalled();
+    expect(writeContract).not.toHaveBeenCalled();
   });
 
   it('skips the status read and claims directly when told to', async () => {
@@ -247,7 +294,7 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
   });
 
   it('writes without simulating when forced', async () => {
-    readContract.mockResolvedValue(MessageStatus.NEW);
+    messageStatus = MessageStatus.NEW;
 
     await new ERC20Bridge(prover as never).processMessage(
       { bridgeTx: bridgeTx(), wallet: walletOn(destChainId) },
@@ -262,7 +309,7 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
   });
 
   it('refuses a status it has no action for', async () => {
-    readContract.mockResolvedValue(MessageStatus.RECALLED);
+    messageStatus = MessageStatus.RECALLED;
 
     await expect(
       new ERC20Bridge(prover as never).processMessage({ bridgeTx: bridgeTx(), wallet: walletOn(destChainId) }),
