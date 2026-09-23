@@ -32,7 +32,11 @@ contract TestBridge2Base is CommonTest {
         eBridge = deployBridge(
             address(
                 new Bridge(
-                    address(resolver), address(eSignalService), getQuotaManager(), getPauser()
+                    address(resolver),
+                    address(eSignalService),
+                    getQuotaManager(),
+                    getPauser(),
+                    getRecallEnabled()
                 )
             )
         );
@@ -45,6 +49,11 @@ contract TestBridge2Base is CommonTest {
 
     function getPauser() internal virtual returns (address) {
         return address(0);
+    }
+
+    /// @dev Enabled by default; tests of the disabled path override this.
+    function getRecallEnabled() internal virtual returns (bool) {
+        return true;
     }
 
     function setUpOnTaiko() internal virtual override {

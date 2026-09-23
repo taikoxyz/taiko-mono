@@ -109,6 +109,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// plain Ether transfers via `receive`. Optional (may be zero, which disables direct funding).
     address public immutable pauser;
 
+    /// @notice Whether `failMessage`, `recallMessage` and the FAILED branch of `retryMessage`
+    /// are enabled.
+    bool public immutable recallEnabled;
+
     /// @notice The next message ID.
     /// @dev Slot 1.
     uint64 private __reserved1;
@@ -144,23 +148,31 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
+    modifier whenRecallEnabled() {
+        if (!recallEnabled) revert B_RECALL_DISABLED();
+        _;
+    }
+
     /// @notice Initializes the bridge's immutable state.
     /// @param _resolver The address of the resolver contract.
     /// @param _signalService The address of the signal service contract.
     /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
     /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
     /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
+    /// @param _recallEnabled See `recallEnabled`.
     constructor(
         address _resolver,
         address _signalService,
         address _quotaManager,
-        address _pauser
+        address _pauser,
+        bool _recallEnabled
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
         quotaManager = IQuotaManager(_quotaManager);
         pauser = _pauser;
+        recallEnabled = _recallEnabled;
     }
 
     // ---------------------------------------------------------------
@@ -243,18 +255,14 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev Recalls are exempt from the Ether withdrawal quota. A recall can only return the exact
-    /// `_message.value` that this very message locked in `sendMessage`, so it never lowers the
-    /// bridge's balance below what it held before the send and is not a net outflow. Debiting it
-    /// would let anyone exhaust the shared quota at zero net cost with a send-fail-recall cycle,
-    /// blocking every other user's recalls and every L2 -> L1 withdrawal until the quota refills.
-    /// The quota is debited only where Ether actually leaves the bridge: `processMessage` and
-    /// `retryMessage`.
+    /// @dev A recall only returns what the message locked in `sendMessage`, so it consumes no
+    /// Ether quota.
     function recallMessage(
         Message calldata _message,
         bytes calldata _proof
     )
         external
+        whenRecallEnabled
         sameChain(_message.srcChainId)
         diffChain(_message.destChainId)
         whenNotPaused
@@ -272,8 +280,6 @@ contract Bridge is EssentialResolverContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        // Deliberately no `_consumeEtherQuota` here: recalls are exempt from the quota, see the
-        // function-level @dev note.
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -429,7 +435,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             // in the bridge, consuming no quota.
             _consumeEtherQuota(_message.value);
             _updateMessageStatus(msgHash, Status.DONE);
-        } else if (_isLastAttempt) {
+        } else if (_isLastAttempt && recallEnabled) {
             _updateMessageStatus(msgHash, Status.FAILED);
 
             signalService.sendSignal(signalForFailedMessage(msgHash));
@@ -441,6 +447,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @inheritdoc IBridge
     function failMessage(Message calldata _message)
         external
+        whenRecallEnabled
         sameChain(_message.destChainId)
         diffChain(_message.srcChainId)
         whenNotPaused
@@ -804,6 +811,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     // Custom Errors
     // ---------------------------------------------------------------
 
+    error B_RECALL_DISABLED();
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();

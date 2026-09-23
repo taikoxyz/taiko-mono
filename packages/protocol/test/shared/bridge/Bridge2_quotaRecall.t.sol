@@ -36,7 +36,11 @@ contract TestBridge2_quotaRecall is TestBridge2Base {
         super.setUpOnEthereum();
         qm = deployQuotaManager(address(eBridge), address(0));
         eBridge.upgradeTo(
-            address(new Bridge(address(resolver), address(eSignalService), address(qm), address(0)))
+            address(
+                new Bridge(
+                    address(resolver), address(eSignalService), address(qm), address(0), true
+                )
+            )
         );
         assertEq(address(eBridge.quotaManager()), address(qm));
         qm.updateQuota(ETHER, uint104(ETH_QUOTA));
@@ -48,7 +52,9 @@ contract TestBridge2_quotaRecall is TestBridge2Base {
         );
         // No quota manager and no pauser, like the live L2 bridge.
         taikoBridge = deployBridge(
-            address(new Bridge(address(resolver), address(tSignalService), address(0), address(0)))
+            address(
+                new Bridge(address(resolver), address(tSignalService), address(0), address(0), true)
+            )
         );
         vm.deal(address(taikoBridge), 10_000 ether);
     }
@@ -142,7 +148,22 @@ contract TestBridge2_quotaRecall is TestBridge2Base {
         );
         vm.chainId(ethereumChainId);
 
-        // L1: the recall returns the Ether and consumes no quota.
+        // L1: the recall asks this chain's signal service for exactly the failure signal the
+        // destination bridge sent, on the destination chain; only the proof bytes go unverified.
+        vm.expectCall(
+            address(eSignalService),
+            abi.encodeCall(
+                ISignalService.proveSignalReceived,
+                (
+                    taikoChainId,
+                    address(taikoBridge),
+                    taikoBridge.signalForFailedMessage(hash),
+                    FAKE_PROOF
+                )
+            )
+        );
+
+        // The recall returns the Ether and consumes no quota.
         eBridge.recallMessage(sent, FAKE_PROOF);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RECALLED);
         assertEq(Bob.balance, ETH_QUOTA);

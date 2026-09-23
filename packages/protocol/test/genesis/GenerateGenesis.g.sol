@@ -200,7 +200,8 @@ contract TestGenerateGenesis is Test {
                     getPredeployedContractAddress("SharedResolver"),
                     getPredeployedContractAddress("SignalService"),
                     address(0),
-                    address(0)
+                    address(0),
+                    false
                 )
             )
         );

@@ -463,13 +463,8 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IRecallableSender
-    /// @dev The refund is exempt from the withdrawal quota. It can only return the exact amount
-    /// this very message pulled or burned in `sendToken` (the bridge only recalls a message it
-    /// sent itself and that is still NEW), so it is never a net outflow from the vault, and on the
-    /// bridged branch the mint restores exactly what the send burned. Debiting it would let anyone
-    /// exhaust a token's shared quota at zero net cost with a send-fail-recall cycle, blocking
-    /// every other user's recalls and withdrawals of that token until the quota refills. The quota
-    /// is debited only where tokens actually leave the vault's custody: `onMessageInvocation`.
+    /// @dev A refund only returns what the message pulled or burned on the send path, so it
+    /// consumes no token quota.
     function onMessageRecalled(
         IBridge.Message calldata _message,
         bytes32 _msgHash
@@ -504,9 +499,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @dev Releases tokens to `_to`, either by transferring the canonical token this vault
-    /// custodies or by minting the bridged representation. It does not touch the withdrawal
-    /// quota: a delivery debits it right after this call in `onMessageInvocation`, while a recall
-    /// (see `onMessageRecalled`) is exempt.
+    /// custodies or by minting the bridged representation. Does not debit the quota.
     /// @param _ctoken The canonical token.
     /// @param _to The recipient of the released tokens.
     /// @param _amount The amount to release.
@@ -530,13 +523,9 @@ contract ERC20Vault is BaseVault {
         }
     }
 
-    /// @dev Consumes a given amount of token quota from the quota manager; reverts if quota is
-    /// insufficient. `onMessageInvocation` calls it right after `_transferTokens`, so quota is
-    /// debited exactly when tokens are actually delivered, and a `QM_OUT_OF_QUOTA` revert rolls
-    /// back the whole delivery atomically: the token transfer/mint is undone and no partial state
-    /// remains. Integrators driving this flow externally (or via a custom vault) must expect the
-    /// entire delivery to revert when quota is exhausted, never a partial one. Skips the external
-    /// call when nothing is released (`_amount == 0`).
+    /// @dev Consumes token quota for a delivery; reverts if insufficient, undoing the transfer or
+    /// mint that `onMessageInvocation` just made. Meters what the vault transferred or minted, not
+    /// what a fee-on-transfer token hands the recipient. Skips the call when `_amount == 0`.
     /// @param _token The token address.
     /// @param _amount The amount of token quota to consume.
     function _consumeTokenQuota(address _token, uint256 _amount) private {

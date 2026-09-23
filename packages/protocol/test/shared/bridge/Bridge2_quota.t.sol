@@ -66,18 +66,19 @@ contract TestBridge2_quota is TestBridge2Base {
     }
 
     // A recall never touches the quota manager, so it goes through even when no quota is left:
-    // users can always take their locked Ether back on the source chain.
+    // a user can always take the Ether they locked back on the source chain.
     function test_bridge2_recallMessage_succeeds_without_ether_quota()
         public
         transactBy(Carol)
         assertSameTotalBalance
     {
+        uint256 carolBalance = Carol.balance;
         (, IBridge.Message memory m) =
-            eBridge.sendMessage{ value: 1 ether }(_l1ToL2Message(Alice, 1 ether));
-        uint256 aliceBalance = Alice.balance;
+            eBridge.sendMessage{ value: 1 ether }(_l1ToL2Message(Carol, 1 ether));
+        assertEq(Carol.balance, carolBalance - 1 ether);
 
         eBridge.recallMessage(m, FAKE_PROOF);
         assertTrue(eBridge.messageStatus(eBridge.hashMessage(m)) == IBridge.Status.RECALLED);
-        assertEq(Alice.balance, aliceBalance + 1 ether);
+        assertEq(Carol.balance, carolBalance);
     }
 }
