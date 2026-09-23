@@ -149,7 +149,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     modifier whenFailAndRecallEnabled() {
-        _checkFailAndRecallEnabled();
+        if (!enableFailAndRecall) revert B_FAIL_AND_RECALL_DISABLED();
         _;
     }
 
@@ -805,10 +805,6 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     function _checkDiffChain(uint64 _chainId) internal view {
         if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
-    }
-
-    function _checkFailAndRecallEnabled() private view {
-        if (!enableFailAndRecall) revert B_FAIL_AND_RECALL_DISABLED();
     }
 
     // ---------------------------------------------------------------
