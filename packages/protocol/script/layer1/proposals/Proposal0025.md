@@ -53,22 +53,22 @@ implementation reads the resolver Proposal0024 populates. Were Proposal0024 to e
 one it would reinstall the defective code, so the DAO must sequence them: Proposal0024 first, then
 Proposal0025.
 
-The proposal executes **7 top-level L1 actions** and **10 L2 actions**. The twelve contracts are
-**not deployed yet**; see [Deployment](#deployment).
+The proposal executes **7 top-level L1 actions** and **10 L2 actions**. All twelve contracts are
+deployed and verified; see [Deployed Addresses](#deployed-addresses).
 
 ## Scope
 
 | Chain | Contract                                                        | Change                                                                                                    |
 | ----- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`       | implementation → `[new-impl-placeholder]`                                                                 |
-| L1    | ERC20Vault proxy `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`   | implementation → `[new-impl-placeholder]`                                                                 |
-| L1    | ERC721Vault proxy `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`  | implementation → `[new-impl-placeholder]`                                                                 |
-| L1    | ERC1155Vault proxy `0xaf145913EA4a56BE22E120ED9C24589659881702` | implementation → `[new-impl-placeholder]`                                                                 |
+| L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`       | implementation → `0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6`                                             |
+| L1    | ERC20Vault proxy `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`   | implementation → `0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92`                                             |
+| L1    | ERC721Vault proxy `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`  | implementation → `0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802`                                             |
+| L1    | ERC1155Vault proxy `0xaf145913EA4a56BE22E120ED9C24589659881702` | implementation → `0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E`                                             |
 | L1    | Shared resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`    | `bridged_erc721`, `bridged_erc1155` (chain 1) → new implementations                                       |
-| L2    | Bridge proxy `0x1670000000000000000000000000000000000001`       | implementation → `[new-impl-placeholder]`                                                                 |
-| L2    | ERC20Vault proxy `0x1670000000000000000000000000000000000002`   | implementation → `[new-impl-placeholder]`                                                                 |
-| L2    | ERC721Vault proxy `0x1670000000000000000000000000000000000003`  | implementation → `[new-impl-placeholder]`                                                                 |
-| L2    | ERC1155Vault proxy `0x1670000000000000000000000000000000000004` | implementation → `[new-impl-placeholder]`                                                                 |
+| L2    | Bridge proxy `0x1670000000000000000000000000000000000001`       | implementation → `0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3`                                             |
+| L2    | ERC20Vault proxy `0x1670000000000000000000000000000000000002`   | implementation → `0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c`                                             |
+| L2    | ERC721Vault proxy `0x1670000000000000000000000000000000000003`  | implementation → `0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0`                                             |
+| L2    | ERC1155Vault proxy `0x1670000000000000000000000000000000000004` | implementation → `0xe148CceFFcd5494301c20e047634995C60611e57`                                             |
 | L2    | Shared resolver `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`    | `erc721_vault`, `erc1155_vault` (chains 1 and 167000), `bridged_erc721`, `bridged_erc1155` (chain 167000) |
 
 Not touched: the `QuotaManager` `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` and its per-token
@@ -236,16 +236,16 @@ under [What Changes](#nft-vaults-protocol-1100-to-main).
 
 ### L1 — 7 top-level actions
 
-1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, [new-impl-placeholder])` — the mainnet
+1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6)` — the mainnet
    bridge.
-2. `upgradeTo(0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab, [new-impl-placeholder])` — the mainnet
+2. `upgradeTo(0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab, 0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92)` — the mainnet
    ERC20 vault.
-3. `registerAddress(1, "bridged_erc721", [new-impl-placeholder])` on the L1 shared resolver
+3. `registerAddress(1, "bridged_erc721", 0xD9c9dB7519011437C54BCD32495c0347A410bc4D)` on the L1 shared resolver
    `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`.
-4. `registerAddress(1, "bridged_erc1155", [new-impl-placeholder])` on the same resolver.
-5. `upgradeTo(0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa, [new-impl-placeholder])` — the mainnet
+4. `registerAddress(1, "bridged_erc1155", 0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e)` on the same resolver.
+5. `upgradeTo(0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa, 0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802)` — the mainnet
    ERC721 vault.
-6. `upgradeTo(0xaf145913EA4a56BE22E120ED9C24589659881702, [new-impl-placeholder])` — the mainnet
+6. `upgradeTo(0xaf145913EA4a56BE22E120ED9C24589659881702, 0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E)` — the mainnet
    ERC1155 vault.
 7. `sendMessage(...)` on `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` — carries the L2 batch to
    the DelegateController. Not written in `Proposal0025.s.sol`: `BuildProposal._buildAllActions()`
@@ -268,16 +268,16 @@ Numbered from 1 here, `actions[0]` to `actions[9]` in `Proposal0025.s.sol`. Acti
 3. `erc721_vault` for chain 167000 → `0x1670000000000000000000000000000000000003`, read by nothing
    today; registered for symmetry with the L1 resolver, as Proposal0024 did for `erc20_vault`.
 4. `erc1155_vault` for chain 167000 → `0x1670000000000000000000000000000000000004`, likewise.
-5. `bridged_erc721` for chain 167000 → `[new-impl-placeholder]`, read on the first delivery of a
+5. `bridged_erc721` for chain 167000 → `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0`, read on the first delivery of a
    collection the vault has not seen.
-6. `bridged_erc1155` for chain 167000 → `[new-impl-placeholder]`, likewise.
-7. `upgradeTo(0x1670000000000000000000000000000000000003, [new-impl-placeholder])` — the ERC721
+6. `bridged_erc1155` for chain 167000 → `0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F`, likewise.
+7. `upgradeTo(0x1670000000000000000000000000000000000003, 0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0)` — the ERC721
    vault.
-8. `upgradeTo(0x1670000000000000000000000000000000000004, [new-impl-placeholder])` — the ERC1155
+8. `upgradeTo(0x1670000000000000000000000000000000000004, 0xe148CceFFcd5494301c20e047634995C60611e57)` — the ERC1155
    vault.
-9. `upgradeTo(0x1670000000000000000000000000000000000002, [new-impl-placeholder])` — the ERC20
+9. `upgradeTo(0x1670000000000000000000000000000000000002, 0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c)` — the ERC20
    vault.
-10. `upgradeTo(0x1670000000000000000000000000000000000001, [new-impl-placeholder])` — the bridge's
+10. `upgradeTo(0x1670000000000000000000000000000000000001, 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3)` — the bridge's
     mid-call self-upgrade, deliberately last.
 
 The `bridge` entry for chain 167000 that the new NFT vaults also read (their `onlyFromNamed` guard
@@ -292,104 +292,109 @@ both together if the action list changes.
 
 ## Deployment
 
-**TODO(@davidtaikocha): deploy the twelve contracts and wire their addresses in.** Until then
-every builder in `Proposal0025.s.sol` reverts `ImplementationNotDeployed`, the action file cannot
-be generated and `test_actionFileMatchesTheBuiltCalldata` is skipped.
+Run on 2026-09-23 from this branch with `--verify`, by deployer
+`0x56706f118e42ae069f20c5636141b844d1324ae1`. Both scripts deploy contracts only, no proxy upgrade,
+no registration and no initializer call, and read the live chain before broadcasting:
+`DeployProposal0025L1` aborts unless the live L1 bridge and ERC20 vault answer the resolver, signal
+service, quota manager and pauser it bakes in, and the L1 resolver names the two NFT vault proxies
+the bridged tokens bind to; `DeployProposal0025L2` unless the L2 resolver is owned by the
+DelegateController and the L2 NFT vault proxies answer their names. After broadcasting, both abort
+unless every new contract carries the intended immutables, `recallEnabled() == false` included.
+Neither is to be re-run: a second run deploys contracts the constants do not point at.
 
-Deploy from this branch, or from `main` once this PR is merged (#22156 already is). Both scripts
-deploy contracts only, no proxy upgrade, no registration and no initializer call, and read the live
-chain before broadcasting: `DeployProposal0025L1` aborts unless the live L1 bridge and ERC20 vault
-answer the resolver, signal service, quota manager and pauser it is about to bake in, and the L1
-resolver names the two NFT vault proxies the bridged tokens bind to; `DeployProposal0025L2` unless
-the L2 resolver is owned by the DelegateController and the L2 NFT vault proxies answer their names.
-After broadcasting, both abort unless every new contract carries the intended immutables,
-`recallEnabled() == false` included. Neither should be re-run: a second run deploys contracts the
-constants do not point at. Each script sends six transactions (about 26M gas in total).
+```bash
+cd packages/protocol
+export ETHERSCAN_API_KEY=<key>
+PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
+  script/layer1/mainnet/DeployProposal0025L1.s.sol:DeployProposal0025L1 \
+  --rpc-url <L1_RPC> --broadcast --verify
+```
 
-1. Deploy on Ethereum. The script logs `BRIDGE_NEW_IMPL_L1`, `ERC20_VAULT_NEW_IMPL_L1`,
-   `ERC721_VAULT_NEW_IMPL_L1`, `ERC1155_VAULT_NEW_IMPL_L1`, `LibL1Addrs.BRIDGED_ERC721` and
-   `LibL1Addrs.BRIDGED_ERC1155`.
+```bash
+PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
+  script/layer2/mainnet/DeployProposal0025L2.s.sol:DeployProposal0025L2 \
+  --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --verify
+```
 
-   ```bash
-   cd packages/protocol
-   export ETHERSCAN_API_KEY=<key>
-   PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
-     script/layer1/mainnet/DeployProposal0025L1.s.sol:DeployProposal0025L1 \
-     --rpc-url <L1_RPC> --broadcast --verify
-   ```
-
-2. Deploy on Taiko. The script logs the same six names with `L2`.
-
-   ```bash
-   PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
-     script/layer2/mainnet/DeployProposal0025L2.s.sol:DeployProposal0025L2 \
-     --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --verify
-   ```
-
-   Check that every logged address has code (`cast codesize`): forge can report success for a
-   broadcast whose transactions the RPC dropped.
-
-3. Write the addresses in:
-
-   - the eight implementations into the constants of `Proposal0025.s.sol` and the `newimpl=` of
-     the codediff link above each;
-   - the four bridged-token implementations into `LibL1Addrs.BRIDGED_ERC721`,
-     `LibL1Addrs.BRIDGED_ERC1155`, `LibL2Addrs.BRIDGED_ERC721` and `LibL2Addrs.BRIDGED_ERC1155`,
-     replacing the legacy values with a comment naming them, and into the matching entries of the
-     unused hardcoded `MainnetSharedResolver` and `SharedResolver`, as Proposal0024 did for
-     `bridged_erc20`;
-   - all twelve into the `DEPLOYED_*` literals of `test/layer1/proposals/Proposal0025.t.sol`;
-   - all twelve into the tables of this runbook, replacing every `[new-impl-placeholder]`.
-
-4. Regenerate the calldata and check it in: `P=0025 pnpm proposal` writes
-   `Proposal0025.action.md`. `test_actionFileMatchesTheBuiltCalldata` compares it against the
-   builders from then on, and a second reviewer should re-run the command and diff the file.
-
-5. Simulate both legs against the live chains and run the fork rehearsal (commands under
-   [Verification](#verification)). Both dry runs revert with `DryrunSucceeded()`, which is the
-   success signal; `Controller.dryrun` always reverts, so the `--broadcast` in the
-   `pnpm proposal:dryrun:*` scripts can never send anything.
-
-6. Authenticate the code with `forge verify-bytecode` (commands under
-   [Verification](#verification)) and update `deployments/mainnet-contract-logs-L1.md` and
-   `deployments/mainnet-contract-logs-L2.md` with the creation transactions.
+The logged addresses are wired into the eight implementation constants of `Proposal0025.s.sol`
+and their codediff links, into `LibL1Addrs` / `LibL2Addrs` `BRIDGED_ERC721` and `BRIDGED_ERC1155`
+and the matching entries of the unused hardcoded `MainnetSharedResolver` and `SharedResolver`, and
+into the `DEPLOYED_*` literals of `Proposal0025.t.sol`. `Proposal0025.action.md` is generated by
+`P=0025 pnpm proposal`, and `test_actionFileMatchesTheBuiltCalldata` compares it against the
+builders; a second reviewer should re-run the command and diff the file. On 2026-09-23, before
+Proposal0024 executed, both dry runs reverted with `DryrunSucceeded()` against the live chains and
+`Proposal0025ForkTest` passed against the deployed contracts.
 
 ## Deployed Addresses
 
-| What                               | Address                  |                                 |
-| ---------------------------------- | ------------------------ | ------------------------------- |
-| L1 `Bridge` implementation         | `[new-impl-placeholder]` | proxy upgrade                   |
-| L1 `ERC20Vault` implementation     | `[new-impl-placeholder]` | proxy upgrade                   |
-| L1 `ERC721Vault` implementation    | `[new-impl-placeholder]` | proxy upgrade                   |
-| L1 `ERC1155Vault` implementation   | `[new-impl-placeholder]` | proxy upgrade                   |
-| L1 `BridgedERC721` implementation  | `[new-impl-placeholder]` | registered as `bridged_erc721`  |
-| L1 `BridgedERC1155` implementation | `[new-impl-placeholder]` | registered as `bridged_erc1155` |
-| L2 `Bridge` implementation         | `[new-impl-placeholder]` | proxy upgrade                   |
-| L2 `ERC20Vault` implementation     | `[new-impl-placeholder]` | proxy upgrade                   |
-| L2 `ERC721Vault` implementation    | `[new-impl-placeholder]` | proxy upgrade                   |
-| L2 `ERC1155Vault` implementation   | `[new-impl-placeholder]` | proxy upgrade                   |
-| L2 `BridgedERC721` implementation  | `[new-impl-placeholder]` | registered as `bridged_erc721`  |
-| L2 `BridgedERC1155` implementation | `[new-impl-placeholder]` | registered as `bridged_erc1155` |
+| What                               | Address                                      |                                 |
+| ---------------------------------- | -------------------------------------------- | ------------------------------- |
+| L1 `Bridge` implementation         | `0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6` | proxy upgrade                   |
+| L1 `ERC20Vault` implementation     | `0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92` | proxy upgrade                   |
+| L1 `ERC721Vault` implementation    | `0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802` | proxy upgrade                   |
+| L1 `ERC1155Vault` implementation   | `0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E` | proxy upgrade                   |
+| L1 `BridgedERC721` implementation  | `0xD9c9dB7519011437C54BCD32495c0347A410bc4D` | registered as `bridged_erc721`  |
+| L1 `BridgedERC1155` implementation | `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e` | registered as `bridged_erc1155` |
+| L2 `Bridge` implementation         | `0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3` | proxy upgrade                   |
+| L2 `ERC20Vault` implementation     | `0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c` | proxy upgrade                   |
+| L2 `ERC721Vault` implementation    | `0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0` | proxy upgrade                   |
+| L2 `ERC1155Vault` implementation   | `0xe148CceFFcd5494301c20e047634995C60611e57` | proxy upgrade                   |
+| L2 `BridgedERC721` implementation  | `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0` | registered as `bridged_erc721`  |
+| L2 `BridgedERC1155` implementation | `0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F` | registered as `bridged_erc1155` |
+
+The eight proxy implementations are constants in `Proposal0025.s.sol`. The four bridged-token
+implementations the resolvers name from this proposal on live in the address libraries:
+`LibL1Addrs.BRIDGED_ERC721` / `LibL1Addrs.BRIDGED_ERC1155` and `LibL2Addrs.BRIDGED_ERC721` /
+`LibL2Addrs.BRIDGED_ERC1155` now hold them in place of the May 2024 implementations the proposal
+retires.
+
+Creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1` on
+2026-09-23, each at the deployer's CREATE address for the nonce (L1 685–690, L2 335–340):
+
+| Contract                           | Chain  | Block      | Transaction                                                          |
+| ---------------------------------- | ------ | ---------- | -------------------------------------------------------------------- |
+| L1 `Bridge` implementation         | 1      | 26,037,288 | `0x8eb9d98094d3da7d02ae808d6989d3263fa2ca4d093c9022353a57714396f64a` |
+| L1 `ERC20Vault` implementation     | 1      | 26,037,288 | `0x2cceab5a039528ed590bf0c0849482a83b95d5a5e5a2de513ac22458c4114b7e` |
+| L1 `ERC721Vault` implementation    | 1      | 26,037,289 | `0x2e1d4f46bac97a4bc758f72d7f63e0c353907a5e88e6a93bfe55ae4784526959` |
+| L1 `ERC1155Vault` implementation   | 1      | 26,037,289 | `0x8f054f70d24a2abfa10cc71ad4d70c01e4f7f1a437af9199b98506d1297f888d` |
+| L1 `BridgedERC721` implementation  | 1      | 26,037,289 | `0x696741b9755dbd5035ec7fdda7ccb2efe9ad360b2f931f3ddf9bfec3a75ea79b` |
+| L1 `BridgedERC1155` implementation | 1      | 26,037,289 | `0xebdafbefb795770c697f7cc0a7b4ba6061cce6f8cb8f077dc465aedd0655489e` |
+| L2 `Bridge` implementation         | 167000 | 11,750,657 | `0x3d2a982ffd70bf3f57651f9ca1df11cf93db9beba0c7ed8789d3bcee28842656` |
+| L2 `ERC20Vault` implementation     | 167000 | 11,750,657 | `0x085aa3a12e04c767b0bd30dc3b35986f8d2bc738e0572575209290d020b886d8` |
+| L2 `ERC721Vault` implementation    | 167000 | 11,750,657 | `0xc8bcd1e93020c744d6b0c7b860300e957a751f0134dcd19e00b4e3c6ebde2633` |
+| L2 `ERC1155Vault` implementation   | 167000 | 11,750,657 | `0x14d649da3b91144e4d1e6e527a265f22ecca4d0ccc682188f19bbc6e3dff6a71` |
+| L2 `BridgedERC721` implementation  | 167000 | 11,750,657 | `0xa2a2dbf7f1c65f78d8f0ff37c40e7d3b1c861b7347ee057f334596ad73511a9c` |
+| L2 `BridgedERC1155` implementation | 167000 | 11,750,657 | `0xd80b1bb3899fb1dc981b8c490238b206546e2722a0457e7ae296cb8b42796287` |
+
+All twelve are verified on their explorers under `solc v0.8.30`, optimizer at 200 runs,
+`evm_version` `osaka`. `forge verify-bytecode` from a build of this branch matches the creation code
+of all twelve with `status full`, run with `--ignore runtime`: the runtime phase replays the
+creation transaction on a fork of the preceding block, which stalled against the public RPCs, and
+the creation code together with the constructor arguments already fixes the runtime code.
+Verification reads the immutables back.
+
+> **Read the L2 addresses on L2 only.** Five of the six collide with unrelated contracts the same
+> deployer created on L1 at the same nonces; the L1 addresses have no code on L2.
 
 Codediff of each change, `addr` being what it replaces. The bridges and ERC20 vaults keep running
 the pre-Proposal0024 code until that proposal executes, so their `addr` is the implementation
 Proposal0024 installs rather than the proxy, and each diff shows exactly the delta this proposal
 ships:
 
-| Contract          | codediff                                                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| L1 Bridge         | https://codediff.taiko.xyz/?addr=0xA15dca0A72da684f20e0FC708DECFb230a715462&newimpl=[new-impl-placeholder]&chainid=1      |
-| L1 ERC20Vault     | https://codediff.taiko.xyz/?addr=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&newimpl=[new-impl-placeholder]&chainid=1      |
-| L1 ERC721Vault    | https://codediff.taiko.xyz/?addr=0xA4C5c20aB33C96B1c281Dca37D03E23609274C49&newimpl=[new-impl-placeholder]&chainid=1      |
-| L1 ERC1155Vault   | https://codediff.taiko.xyz/?addr=0x838ed469db456b67EB3b0B74D759Be4DA999b9c8&newimpl=[new-impl-placeholder]&chainid=1      |
-| L1 BridgedERC721  | https://codediff.taiko.xyz/?addr=0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7&newimpl=[new-impl-placeholder]&chainid=1      |
-| L1 BridgedERC1155 | https://codediff.taiko.xyz/?addr=0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40&newimpl=[new-impl-placeholder]&chainid=1      |
-| L2 Bridge         | https://codediff.taiko.xyz/?addr=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&newimpl=[new-impl-placeholder]&chainid=167000 |
-| L2 ERC20Vault     | https://codediff.taiko.xyz/?addr=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&newimpl=[new-impl-placeholder]&chainid=167000 |
-| L2 ERC721Vault    | https://codediff.taiko.xyz/?addr=0xd532f20a4751156C566Da7745db95E7f80145B36&newimpl=[new-impl-placeholder]&chainid=167000 |
-| L2 ERC1155Vault   | https://codediff.taiko.xyz/?addr=0xBBBC4ad39488b990E095042fa6c59A90d3817846&newimpl=[new-impl-placeholder]&chainid=167000 |
-| L2 BridgedERC721  | https://codediff.taiko.xyz/?addr=0x0167000000000000000000000000000000010097&newimpl=[new-impl-placeholder]&chainid=167000 |
-| L2 BridgedERC1155 | https://codediff.taiko.xyz/?addr=0x0167000000000000000000000000000000010098&newimpl=[new-impl-placeholder]&chainid=167000 |
+| Contract          | codediff                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1 Bridge         | https://codediff.taiko.xyz/?addr=0xA15dca0A72da684f20e0FC708DECFb230a715462&newimpl=0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6&chainid=1      |
+| L1 ERC20Vault     | https://codediff.taiko.xyz/?addr=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&newimpl=0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92&chainid=1      |
+| L1 ERC721Vault    | https://codediff.taiko.xyz/?addr=0xA4C5c20aB33C96B1c281Dca37D03E23609274C49&newimpl=0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802&chainid=1      |
+| L1 ERC1155Vault   | https://codediff.taiko.xyz/?addr=0x838ed469db456b67EB3b0B74D759Be4DA999b9c8&newimpl=0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E&chainid=1      |
+| L1 BridgedERC721  | https://codediff.taiko.xyz/?addr=0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7&newimpl=0xD9c9dB7519011437C54BCD32495c0347A410bc4D&chainid=1      |
+| L1 BridgedERC1155 | https://codediff.taiko.xyz/?addr=0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40&newimpl=0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e&chainid=1      |
+| L2 Bridge         | https://codediff.taiko.xyz/?addr=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&newimpl=0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3&chainid=167000 |
+| L2 ERC20Vault     | https://codediff.taiko.xyz/?addr=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&newimpl=0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c&chainid=167000 |
+| L2 ERC721Vault    | https://codediff.taiko.xyz/?addr=0xd532f20a4751156C566Da7745db95E7f80145B36&newimpl=0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0&chainid=167000 |
+| L2 ERC1155Vault   | https://codediff.taiko.xyz/?addr=0xBBBC4ad39488b990E095042fa6c59A90d3817846&newimpl=0xe148CceFFcd5494301c20e047634995C60611e57&chainid=167000 |
+| L2 BridgedERC721  | https://codediff.taiko.xyz/?addr=0x0167000000000000000000000000000000010097&newimpl=0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0&chainid=167000 |
+| L2 BridgedERC1155 | https://codediff.taiko.xyz/?addr=0x0167000000000000000000000000000000010098&newimpl=0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F&chainid=167000 |
 
 Each bridge diff should show only #22156: the `recallEnabled` switch and its guards, the removed
 debit in `recallMessage`, and the documentation around them. Each ERC20 vault diff should show
@@ -400,7 +405,7 @@ Proposal0024 vaults were built. The NFT vault and bridged-token diffs span proto
 
 ## Verification
 
-Every commented value is the expected result. Run after the addresses are wired in.
+Every commented value is the expected result.
 
 ```bash
 export L1_RPC=<l1 rpc>
@@ -418,77 +423,78 @@ cast storage 0x1670000000000000000000000000000000000003 $IMPL_SLOT --rpc-url $L2
 cast storage 0x1670000000000000000000000000000000000004 $IMPL_SLOT --rpc-url $L2_RPC  # 0x…BBBC4ad39488b990E095042fa6c59A90d3817846
 
 # New implementations' immutables; the L1 bridge and ERC20 vault ones must equal the live proxies'.
-cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (bridge)
-cast call [new-impl-placeholder] "signalService()(address)" --rpc-url $L1_RPC  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
-cast call [new-impl-placeholder] "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
-cast call [new-impl-placeholder] "pauser()(address)"        --rpc-url $L1_RPC  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
-cast call [new-impl-placeholder] "recallEnabled()(bool)"    --rpc-url $L1_RPC  # false
-cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (ERC20 vault)
-cast call [new-impl-placeholder] "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC   (ERC20 vault)
-cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (ERC721 vault)
-cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (ERC1155 vault)
-cast call [new-impl-placeholder] "erc721Vault()(address)"   --rpc-url $L1_RPC  # 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa
-cast call [new-impl-placeholder] "erc1155Vault()(address)"  --rpc-url $L1_RPC  # 0xaf145913EA4a56BE22E120ED9C24589659881702
-cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (bridge)
-cast call [new-impl-placeholder] "signalService()(address)" --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000005
-cast call [new-impl-placeholder] "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
-cast call [new-impl-placeholder] "pauser()(address)"        --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
-cast call [new-impl-placeholder] "recallEnabled()(bool)"    --rpc-url $L2_RPC  # false
-cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (ERC20 vault)
-cast call [new-impl-placeholder] "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000   (ERC20 vault)
-cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (ERC721 vault)
-cast call [new-impl-placeholder] "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (ERC1155 vault)
-cast call [new-impl-placeholder] "erc721Vault()(address)"   --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000003
-cast call [new-impl-placeholder] "erc1155Vault()(address)"  --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000004
+cast call 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6 "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (bridge)
+cast call 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6 "signalService()(address)" --rpc-url $L1_RPC  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
+cast call 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6 "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
+cast call 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6 "pauser()(address)"        --rpc-url $L1_RPC  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
+cast call 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6 "recallEnabled()(bool)"    --rpc-url $L1_RPC  # false
+cast call 0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92 "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (ERC20 vault)
+cast call 0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92 "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC   (ERC20 vault)
+cast call 0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802 "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (ERC721 vault)
+cast call 0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e   (ERC1155 vault)
+cast call 0xD9c9dB7519011437C54BCD32495c0347A410bc4D "erc721Vault()(address)"   --rpc-url $L1_RPC  # 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa
+cast call 0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e "erc1155Vault()(address)"  --rpc-url $L1_RPC  # 0xaf145913EA4a56BE22E120ED9C24589659881702
+cast call 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3 "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (bridge)
+cast call 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3 "signalService()(address)" --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000005
+cast call 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3 "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
+cast call 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3 "pauser()(address)"        --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
+cast call 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3 "recallEnabled()(bool)"    --rpc-url $L2_RPC  # false
+cast call 0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (ERC20 vault)
+cast call 0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000   (ERC20 vault)
+cast call 0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0 "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (ERC721 vault)
+cast call 0xe148CceFFcd5494301c20e047634995C60611e57 "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984   (ERC1155 vault)
+cast call 0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0 "erc721Vault()(address)"   --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000003
+cast call 0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F "erc1155Vault()(address)"  --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000004
 
 # The quota configuration is not touched by the proposal; record it before and after.
 cast call 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC "availableQuota(address,uint256)(uint256)" 0x0000000000000000000000000000000000000000 0 --rpc-url $L1_RPC  # 250 ETH when full
 cast call 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC "quotaPeriod()(uint24)" --rpc-url $L1_RPC  # 86400
 
 # Authenticate the code, not just the getters. Pass signal: "Creation code matched with status full".
+# --ignore runtime: the runtime phase replays the creation tx on a fork and stalls on public RPCs.
 export ETHERSCAN_API_KEY=<key>
-FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L1_RPC \
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6 \
+  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L1_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address,bool)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
     0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F false)
-FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L1_RPC \
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92 \
+  contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L1_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC)
-FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/ERC721Vault.sol:ERC721Vault --rpc-url $L1_RPC \
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802 \
+  contracts/shared/vault/ERC721Vault.sol:ERC721Vault --rpc-url $L1_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x8Efa01564425692d0a0838DC10E300BD310Cb43e)
-FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault --rpc-url $L1_RPC \
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E \
+  contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault --rpc-url $L1_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x8Efa01564425692d0a0838DC10E300BD310Cb43e)
-FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/BridgedERC721.sol:BridgedERC721 --rpc-url $L1_RPC \
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0xD9c9dB7519011437C54BCD32495c0347A410bc4D \
+  contracts/shared/vault/BridgedERC721.sol:BridgedERC721 --rpc-url $L1_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa)
-FOUNDRY_PROFILE=layer1 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155 --rpc-url $L1_RPC \
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e \
+  contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155 --rpc-url $L1_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0xaf145913EA4a56BE22E120ED9C24589659881702)
 # First argument of the L2 bridge and vaults is the resolver PROXY, not its implementation.
-FOUNDRY_PROFILE=layer2 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L2_RPC \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3 \
+  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L2_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address,bool)" \
     0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 0x1670000000000000000000000000000000000005 \
     0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 false)
-FOUNDRY_PROFILE=layer2 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L2_RPC \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c \
+  contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L2_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address,address)" \
     0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 0x0000000000000000000000000000000000000000)
-FOUNDRY_PROFILE=layer2 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/ERC721Vault.sol:ERC721Vault --rpc-url $L2_RPC \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0 \
+  contracts/shared/vault/ERC721Vault.sol:ERC721Vault --rpc-url $L2_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984)
-FOUNDRY_PROFILE=layer2 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault --rpc-url $L2_RPC \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xe148CceFFcd5494301c20e047634995C60611e57 \
+  contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault --rpc-url $L2_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984)
-FOUNDRY_PROFILE=layer2 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/BridgedERC721.sol:BridgedERC721 --rpc-url $L2_RPC \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0 \
+  contracts/shared/vault/BridgedERC721.sol:BridgedERC721 --rpc-url $L2_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x1670000000000000000000000000000000000003)
-FOUNDRY_PROFILE=layer2 forge verify-bytecode [new-impl-placeholder] \
-  contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155 --rpc-url $L2_RPC \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F \
+  contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155 --rpc-url $L2_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x1670000000000000000000000000000000000004)
 
 # Simulate both legs against the live chains; both revert with DryrunSucceeded().
@@ -525,12 +531,12 @@ self-upgrade; only the fork test does.
   entries:
 
   ```bash
-  cast call 0x8Efa01564425692d0a0838DC10E300BD310Cb43e "resolve(uint256,bytes32,bool)(address)" 1 $(cast format-bytes32-string bridged_erc721) false --rpc-url $L1_RPC       # the new L1 BridgedERC721
-  cast call 0x8Efa01564425692d0a0838DC10E300BD310Cb43e "resolve(uint256,bytes32,bool)(address)" 1 $(cast format-bytes32-string bridged_erc1155) false --rpc-url $L1_RPC      # the new L1 BridgedERC1155
+  cast call 0x8Efa01564425692d0a0838DC10E300BD310Cb43e "resolve(uint256,bytes32,bool)(address)" 1 $(cast format-bytes32-string bridged_erc721) false --rpc-url $L1_RPC       # 0xD9c9dB7519011437C54BCD32495c0347A410bc4D
+  cast call 0x8Efa01564425692d0a0838DC10E300BD310Cb43e "resolve(uint256,bytes32,bool)(address)" 1 $(cast format-bytes32-string bridged_erc1155) false --rpc-url $L1_RPC      # 0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e
   cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" 1 $(cast format-bytes32-string erc721_vault) false --rpc-url $L2_RPC         # 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa
   cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" 1 $(cast format-bytes32-string erc1155_vault) false --rpc-url $L2_RPC        # 0xaf145913EA4a56BE22E120ED9C24589659881702
   cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" 167000 $(cast format-bytes32-string erc721_vault) false --rpc-url $L2_RPC    # 0x1670000000000000000000000000000000000003
   cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" 167000 $(cast format-bytes32-string erc1155_vault) false --rpc-url $L2_RPC   # 0x1670000000000000000000000000000000000004
-  cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" 167000 $(cast format-bytes32-string bridged_erc721) false --rpc-url $L2_RPC  # the new L2 BridgedERC721
-  cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" 167000 $(cast format-bytes32-string bridged_erc1155) false --rpc-url $L2_RPC # the new L2 BridgedERC1155
+  cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" 167000 $(cast format-bytes32-string bridged_erc721) false --rpc-url $L2_RPC  # 0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0
+  cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" 167000 $(cast format-bytes32-string bridged_erc1155) false --rpc-url $L2_RPC # 0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F
   ```

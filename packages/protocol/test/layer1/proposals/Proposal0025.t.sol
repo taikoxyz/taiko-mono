@@ -29,24 +29,31 @@ contract Proposal0025Test is Test {
     address internal constant BRIDGED_ERC721_L2 = 0x4444444444444444444444444444444444444444;
     address internal constant BRIDGED_ERC1155_L2 = 0x4545454545454545454545454545454545454545;
 
-    // TODO(@davidtaikocha): once the twelve contracts are deployed and written into
-    // `Proposal0025.s.sol`, `LibL1Addrs` and `LibL2Addrs`, write them out here as literals as well,
-    // rather than reading them back, so an edit to a constant there cannot be mirrored here. The
-    // `UsesDeployedImplementations` tests below switch from pinning the placeholder guard to
-    // pinning these literals as soon as the proposal's constants are non-zero; the bridged-token
-    // literals are what catches a library still naming the legacy implementations.
-    address internal constant DEPLOYED_BRIDGE_IMPL_L1 = address(0);
-    address internal constant DEPLOYED_ERC20_VAULT_IMPL_L1 = address(0);
-    address internal constant DEPLOYED_ERC721_VAULT_IMPL_L1 = address(0);
-    address internal constant DEPLOYED_ERC1155_VAULT_IMPL_L1 = address(0);
-    address internal constant DEPLOYED_BRIDGED_ERC721_L1 = address(0);
-    address internal constant DEPLOYED_BRIDGED_ERC1155_L1 = address(0);
-    address internal constant DEPLOYED_BRIDGE_IMPL_L2 = address(0);
-    address internal constant DEPLOYED_ERC20_VAULT_IMPL_L2 = address(0);
-    address internal constant DEPLOYED_ERC721_VAULT_IMPL_L2 = address(0);
-    address internal constant DEPLOYED_ERC1155_VAULT_IMPL_L2 = address(0);
-    address internal constant DEPLOYED_BRIDGED_ERC721_L2 = address(0);
-    address internal constant DEPLOYED_BRIDGED_ERC1155_L2 = address(0);
+    // The deployed contracts, written out as literals rather than read back from `Proposal0025`,
+    // `LibL1Addrs` or `LibL2Addrs`, so an edit to a constant there cannot be mirrored here. The
+    // bridged-token literals are what catches a library still naming the legacy implementations.
+    address internal constant DEPLOYED_BRIDGE_IMPL_L1 = 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6;
+    address internal constant DEPLOYED_ERC20_VAULT_IMPL_L1 =
+        0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92;
+    address internal constant DEPLOYED_ERC721_VAULT_IMPL_L1 =
+        0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802;
+    address internal constant DEPLOYED_ERC1155_VAULT_IMPL_L1 =
+        0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E;
+    address internal constant DEPLOYED_BRIDGED_ERC721_L1 =
+        0xD9c9dB7519011437C54BCD32495c0347A410bc4D;
+    address internal constant DEPLOYED_BRIDGED_ERC1155_L1 =
+        0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e;
+    address internal constant DEPLOYED_BRIDGE_IMPL_L2 = 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3;
+    address internal constant DEPLOYED_ERC20_VAULT_IMPL_L2 =
+        0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c;
+    address internal constant DEPLOYED_ERC721_VAULT_IMPL_L2 =
+        0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0;
+    address internal constant DEPLOYED_ERC1155_VAULT_IMPL_L2 =
+        0xe148CceFFcd5494301c20e047634995C60611e57;
+    address internal constant DEPLOYED_BRIDGED_ERC721_L2 =
+        0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0;
+    address internal constant DEPLOYED_BRIDGED_ERC1155_L2 =
+        0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F;
 
     Proposal0025Harness internal proposal;
 

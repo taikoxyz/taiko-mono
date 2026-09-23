@@ -26,10 +26,10 @@ contract MainnetSharedResolver is ResolverBase {
                 return 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b;
             }
             if (_name == LibNames.B_BRIDGED_ERC721) {
-                return 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
+                return 0xD9c9dB7519011437C54BCD32495c0347A410bc4D;
             }
             if (_name == LibNames.B_BRIDGED_ERC1155) {
-                return 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
+                return 0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e;
             }
             if (_name == LibNames.B_ERC20_VAULT) {
                 return 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;

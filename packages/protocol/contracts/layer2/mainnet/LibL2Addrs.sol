@@ -18,8 +18,12 @@ library LibL2Addrs {
     // BridgedERC20V2 registered as bridged_erc20 on SHARED_RESOLVER by Proposal0024;
     // replaces 0x98161D67f762A9E589E502348579FA38B1Ac47A8, left on the legacy AddressManager
     address public constant BRIDGED_ERC20 = 0xD6601cdea5857338EbdEE4CF38298aff43f01431;
-    address public constant BRIDGED_ERC721 = 0x0167000000000000000000000000000000010097;
-    address public constant BRIDGED_ERC1155 = 0x0167000000000000000000000000000000010098;
+    // BridgedERC721 registered as bridged_erc721 on SHARED_RESOLVER by Proposal0025;
+    // replaces 0x0167000000000000000000000000000000010097
+    address public constant BRIDGED_ERC721 = 0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0;
+    // BridgedERC1155 registered as bridged_erc1155 on SHARED_RESOLVER by Proposal0025;
+    // replaces 0x0167000000000000000000000000000000010098
+    address public constant BRIDGED_ERC1155 = 0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F;
 
     // Third-party addresses
     address public constant USDC_TOKEN = 0x07d83526730c7438048D55A4fc0b850e2aaB6f0b;

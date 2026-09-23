@@ -52,57 +52,46 @@ contract Proposal0025 is BuildProposal {
         address bridgedErc1155Impl;
     }
 
-    // TODO(@davidtaikocha): deploy the twelve contracts, `DeployProposal0025L1` on Ethereum and
-    // `DeployProposal0025L2` on Taiko (Proposal0025.md, "Deployment"), then:
-    // - replace the eight zero placeholders below with the logged implementations;
-    // - write the four logged bridged-token implementations into `LibL1Addrs.BRIDGED_ERC721`,
-    //   `LibL1Addrs.BRIDGED_ERC1155`, `LibL2Addrs.BRIDGED_ERC721` and `LibL2Addrs.BRIDGED_ERC1155`,
-    //   replacing the legacy values, and into the matching entries of the unused hardcoded
-    //   `MainnetSharedResolver` and `SharedResolver`, as Proposal0024 did for `bridged_erc20`;
-    // - mirror all twelve in the `DEPLOYED_*` literals of `test/layer1/proposals/Proposal0025.t.sol`;
-    // - regenerate `Proposal0025.action.md` with `P=0025 pnpm proposal` and run both dry runs and
-    //   `Proposal0025ForkTest`.
-    // Every builder below reverts `ImplementationNotDeployed` while a placeholder is still zero,
-    // so the proposal cannot be encoded by accident before then. The bridged-token entries have no
-    // zero placeholder, since the libraries still name the legacy implementations; the `DEPLOYED_*`
-    // pins and the fork rehearsal fail if those are not replaced.
+    // Only the proxy implementations are proposal-local. The bridged-token implementations the
+    // resolvers name from this proposal on live in `LibL1Addrs.BRIDGED_ERC721`,
+    // `LibL1Addrs.BRIDGED_ERC1155`, `LibL2Addrs.BRIDGED_ERC721` and `LibL2Addrs.BRIDGED_ERC1155`,
+    // updated ahead of execution.
 
     // The codediff links compare each new implementation against the one it replaces (`addr`):
     // for the bridges and ERC20 vaults the one Proposal0024 installs, which the proxies do not run
-    // until then; for the NFT vaults the one the proxy runs today. Replace
-    // `[new-impl-placeholder]` with the deployed address alongside the constant.
+    // until then; for the NFT vaults the one the proxy runs today.
 
     /// @dev Deployed by `DeployProposal0025L1` on Ethereum mainnet.
-    /// https://codediff.taiko.xyz/?addr=0xA15dca0A72da684f20e0FC708DECFb230a715462&newimpl=[new-impl-placeholder]&chainid=1
-    address public constant BRIDGE_NEW_IMPL_L1 = address(0);
+    /// https://codediff.taiko.xyz/?addr=0xA15dca0A72da684f20e0FC708DECFb230a715462&newimpl=0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6&chainid=1
+    address public constant BRIDGE_NEW_IMPL_L1 = 0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6;
 
     /// @dev Deployed by `DeployProposal0025L1` on Ethereum mainnet.
-    /// https://codediff.taiko.xyz/?addr=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&newimpl=[new-impl-placeholder]&chainid=1
-    address public constant ERC20_VAULT_NEW_IMPL_L1 = address(0);
+    /// https://codediff.taiko.xyz/?addr=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&newimpl=0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92&chainid=1
+    address public constant ERC20_VAULT_NEW_IMPL_L1 = 0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92;
 
     /// @dev Deployed by `DeployProposal0025L1` on Ethereum mainnet.
-    /// https://codediff.taiko.xyz/?addr=0xA4C5c20aB33C96B1c281Dca37D03E23609274C49&newimpl=[new-impl-placeholder]&chainid=1
-    address public constant ERC721_VAULT_NEW_IMPL_L1 = address(0);
+    /// https://codediff.taiko.xyz/?addr=0xA4C5c20aB33C96B1c281Dca37D03E23609274C49&newimpl=0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802&chainid=1
+    address public constant ERC721_VAULT_NEW_IMPL_L1 = 0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802;
 
     /// @dev Deployed by `DeployProposal0025L1` on Ethereum mainnet.
-    /// https://codediff.taiko.xyz/?addr=0x838ed469db456b67EB3b0B74D759Be4DA999b9c8&newimpl=[new-impl-placeholder]&chainid=1
-    address public constant ERC1155_VAULT_NEW_IMPL_L1 = address(0);
+    /// https://codediff.taiko.xyz/?addr=0x838ed469db456b67EB3b0B74D759Be4DA999b9c8&newimpl=0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E&chainid=1
+    address public constant ERC1155_VAULT_NEW_IMPL_L1 = 0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E;
 
     /// @dev Deployed by `DeployProposal0025L2` on Taiko.
-    /// https://codediff.taiko.xyz/?addr=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&newimpl=[new-impl-placeholder]&chainid=167000
-    address public constant BRIDGE_NEW_IMPL_L2 = address(0);
+    /// https://codediff.taiko.xyz/?addr=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&newimpl=0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3&chainid=167000
+    address public constant BRIDGE_NEW_IMPL_L2 = 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3;
 
     /// @dev Deployed by `DeployProposal0025L2` on Taiko.
-    /// https://codediff.taiko.xyz/?addr=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&newimpl=[new-impl-placeholder]&chainid=167000
-    address public constant ERC20_VAULT_NEW_IMPL_L2 = address(0);
+    /// https://codediff.taiko.xyz/?addr=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&newimpl=0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c&chainid=167000
+    address public constant ERC20_VAULT_NEW_IMPL_L2 = 0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c;
 
     /// @dev Deployed by `DeployProposal0025L2` on Taiko.
-    /// https://codediff.taiko.xyz/?addr=0xd532f20a4751156C566Da7745db95E7f80145B36&newimpl=[new-impl-placeholder]&chainid=167000
-    address public constant ERC721_VAULT_NEW_IMPL_L2 = address(0);
+    /// https://codediff.taiko.xyz/?addr=0xd532f20a4751156C566Da7745db95E7f80145B36&newimpl=0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0&chainid=167000
+    address public constant ERC721_VAULT_NEW_IMPL_L2 = 0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0;
 
     /// @dev Deployed by `DeployProposal0025L2` on Taiko.
-    /// https://codediff.taiko.xyz/?addr=0xBBBC4ad39488b990E095042fa6c59A90d3817846&newimpl=[new-impl-placeholder]&chainid=167000
-    address public constant ERC1155_VAULT_NEW_IMPL_L2 = address(0);
+    /// https://codediff.taiko.xyz/?addr=0xBBBC4ad39488b990E095042fa6c59A90d3817846&newimpl=0xe148CceFFcd5494301c20e047634995C60611e57&chainid=167000
+    address public constant ERC1155_VAULT_NEW_IMPL_L2 = 0xe148CceFFcd5494301c20e047634995C60611e57;
 
     uint256 private constant _L1_CHAIN_ID = 1;
     uint256 private constant _L2_CHAIN_ID = 167_000;
