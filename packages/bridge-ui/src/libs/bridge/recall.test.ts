@@ -2,10 +2,9 @@ import { type Config, createConfig } from '@wagmi/core';
 import { encodeAbiParameters, http, toFunctionSelector } from 'viem';
 import { mainnet } from 'viem/chains';
 
-import { env } from '$env/dynamic/public';
-
 // Exercise the installed wagmi/viem error wrapping; mock only the HTTP response.
 vi.unmock('@wagmi/core');
+vi.mock('$env/dynamic/public', () => ({ env: {} }));
 const holder = vi.hoisted(() => ({ config: undefined as Config | undefined }));
 vi.mock('$libs/wagmi', () => ({
   get config() {
@@ -38,7 +37,6 @@ function mockRpc(recallReply: RpcReply, pausedReply: RpcReply = unpaused) {
 }
 
 beforeEach(() => {
-  delete env.PUBLIC_BRIDGE_RECALL_ENABLED;
   holder.config = createConfig({
     chains: [mainnet],
     transports: { [mainnet.id]: http('https://rpc.test.invalid', { retryCount: 0 }) },
