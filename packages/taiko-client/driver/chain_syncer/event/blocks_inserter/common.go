@@ -33,6 +33,24 @@ import (
 // errBatchNotKnown is returned when a batch is not known in the canonical chain.
 var errBatchNotKnown = errors.New("batch not known in canonical chain")
 
+// canonicalHeadReorged reports whether replay removed or replaced the old tip.
+// Checking the old tip also detects replacement of any of its ancestors, while
+// allowing a newer canonical suffix to survive an identical replay.
+func canonicalHeadReorged(
+	ctx context.Context,
+	previousHead *types.Header,
+	headerByNumber func(context.Context, *big.Int) (*types.Header, error),
+) (bool, error) {
+	header, err := headerByNumber(ctx, previousHead.Number)
+	if errors.Is(err, ethereum.NotFound) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return header.Hash() != previousHead.Hash(), nil
+}
+
 // createPayloadAndSetHead tries to insert a new head block to the L2 execution engine's local
 // block chain through Engine APIs.
 func createPayloadAndSetHead(

@@ -349,6 +349,9 @@ type Status struct {
 //	@Success		200	{object} Status
 //	@Router			/status [get]
 func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 

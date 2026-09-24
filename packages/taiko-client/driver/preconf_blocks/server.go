@@ -1165,7 +1165,7 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			log.Info("Stopping latest batch seen event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
-			s.recordLatestSeenProposal(proposal)
+			s.recordLatestSeenProposal(ctx, proposal)
 		case <-ticker.C:
 			s.monitorLatestProposalOnChain(ctx)
 		}
@@ -1174,7 +1174,12 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 
 // monitorLatestProposalOnChain refreshes the latest proposal from L1 if the cached proposal reorgs.
 func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context) {
+	s.mutex.Lock()
+	// Retry head reconciliation even if the previous notification's RPC failed
+	// and no further proposals or preconfirmations arrive.
+	s.reconcileUnsafeHead(ctx)
 	proposal := s.latestSeenProposal
+	s.mutex.Unlock()
 	if proposal == nil {
 		return
 	}
@@ -1249,7 +1254,7 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 		return
 	}
 
-	s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+	s.recordLatestSeenProposal(ctx, &encoding.LastSeenProposal{
 		TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(
 			&shastaBindings.ShastaInboxClientProposed{
 				Id:                             recordedProposal.Id,
@@ -1269,7 +1274,7 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 }
 
 // recordLatestSeenProposal records the latest seen proposal.
-func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.LastSeenProposal) {
+func (s *PreconfBlockAPIServer) recordLatestSeenProposal(ctx context.Context, proposal *encoding.LastSeenProposal) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1285,25 +1290,27 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
 	}
 
-	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
-	if s.latestSeenProposal.PreconfChainReorged {
-		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
-		log.Info(
-			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
-			"proposalId", proposal.Shasta().GetEventData().Id,
-			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-		)
-
+	if proposal.PreconfChainReorged {
 		metrics.DriverReorgsByProposalCounter.Inc()
-	} else if proposal.LastBlockID > s.highestUnsafeL2PayloadBlockID {
-		// Always keep highestUnsafeL2PayloadBlockID in sync with the canonical chain tip.
-		log.Info(
-			"Advancing highest unsafe L2 payload block ID to canonical tip",
-			"proposalId", proposal.Shasta().GetEventData().Id,
-			"previousHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-			"newHighestUnsafeL2PayloadBlockID", proposal.LastBlockID,
-		)
-		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
+	}
+
+	// Notifications are asynchronous: a proposal's tail may already have newer
+	// descendants, or may have been removed by a subsequent reorg. Only the
+	// current execution head can tell us whether to advance or rewind.
+	s.reconcileUnsafeHead(ctx)
+}
+
+// reconcileUnsafeHead updates the unsafe marker from the execution engine.
+// The caller must hold s.mutex to serialize this with preconfirmation imports.
+// On RPC failure, retain the marker and retry on the next proposal-monitor tick.
+func (s *PreconfBlockAPIServer) reconcileUnsafeHead(ctx context.Context) {
+	head, err := s.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		log.Warn("Failed to reconcile unsafe L2 head", "error", err)
+		return
+	}
+	if head.Number.Uint64() != s.highestUnsafeL2PayloadBlockID {
+		s.updateHighestUnsafeL2Payload(head.Number.Uint64())
 	}
 }
 
