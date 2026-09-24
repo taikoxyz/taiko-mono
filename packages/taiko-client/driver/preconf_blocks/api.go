@@ -330,9 +330,8 @@ type Status struct {
 	Lookahead *Lookahead `json:"lookahead"`
 	// @param totalCached uint64 the total number of cached envelopes after the start of the server.
 	TotalCached uint64 `json:"totalCached"`
-	// @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
-	// @param has received from the P2P network, if its zero, it means the current server has not received
-	// @param any preconfirmation block from the P2P network yet.
+	// HighestUnsafeL2PayloadBlockID is the current execution head, which can decrease
+	// after a reorg. If the head RPC fails, it is the last observed or inserted height.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
 	// @param whether the current epoch has received an end of sequencing block marker
 	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
@@ -349,8 +348,9 @@ type Status struct {
 //	@Success		200	{object} Status
 //	@Router			/status [get]
 func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	// Read before acquiring the lookahead lock: status must stay responsive while block
+	// imports or P2P request handling hold the preconfirmation mutex.
+	highestUnsafe := s.reportedUnsafeHead(c.Request().Context())
 
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
@@ -378,7 +378,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 			"currRanges", s.lookahead.CurrRanges,
 			"nextRanges", s.lookahead.NextRanges,
 			"totalCached", s.envelopesCache.getTotalCached(),
-			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+			"highestUnsafeL2PayloadBlockID", highestUnsafe,
 			"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
 			"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
 			"canShutdown", canShutdown,
@@ -388,10 +388,37 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.envelopesCache.getTotalCached(),
-		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
+		HighestUnsafeL2PayloadBlockID: highestUnsafe,
 		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
 		CanShutdown:                   canShutdown,
 	})
+}
+
+// statusHeadTimeout bounds the live lookup so a busy execution engine cannot
+// indefinitely delay status polls; the last observation remains available.
+const statusHeadTimeout = 500 * time.Millisecond
+
+// reportedUnsafeHead samples the execution head for this status request. The
+// atomic fallback is also refreshed by imports, without taking the import lock.
+func (s *PreconfBlockAPIServer) reportedUnsafeHead(ctx context.Context) uint64 {
+	ctx, cancel := context.WithTimeout(ctx, statusHeadTimeout)
+	defer cancel()
+	s.unsafeHeadMutex.Lock()
+	revision := s.unsafeHeadRevision
+	s.unsafeHeadMutex.Unlock()
+
+	head, err := s.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		log.Warn("Failed to read status L2 head, using last observation", "error", err)
+		return s.highestUnsafeL2PayloadBlockID.Load()
+	}
+	// A slow response must not overwrite an import or a newer observation.
+	s.unsafeHeadMutex.Lock()
+	if s.unsafeHeadRevision == revision {
+		s.updateHighestUnsafeL2PayloadLocked(head.Number.Uint64())
+	}
+	s.unsafeHeadMutex.Unlock()
+	return head.Number.Uint64()
 }
 
 // returnError is a helper function to return an error response.

@@ -2,21 +2,32 @@ package event
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/holiman/uint256"
+	"github.com/labstack/echo/v4"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
+	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionDoesNotReportReorg() {
+func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionReportsExecutionHead() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
@@ -30,6 +41,10 @@ func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionDoesNotReportReor
 	s.Require().NoError(err)
 	notifications := make(chan *encoding.LastSeenProposal, 3)
 	inserter := blocksInserter.NewBlocksInserter(s.RPCClient, s.s.progressTracker, constructor, notifications)
+	server, err := preconfblocks.New(
+		"*", nil, common.Address{}, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), inserter, s.RPCClient, nil,
+	)
+	s.Require().NoError(err)
 	source := &derivation.DerivationSourcePayload{
 		ParentBlock: parent,
 		BlockPayloads: []*derivation.BlockPayload{{BlockManifest: manifest.BlockManifest{
@@ -59,6 +74,13 @@ func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionDoesNotReportReor
 	s.Require().NoError(err)
 	s.Require().Equal(block.Hash(), afterOriginal.Hash())
 
+	// Reproduce the incident's retained unsafe suffix: the proposal ends below
+	// the execution head, and these descendants have not been proposed on L1.
+	unsafeHead := s.appendReplayPreconfirmation(ctx, inserter, constructor, block.Header(), anchorNumber)
+	unsafeHead = s.appendReplayPreconfirmation(ctx, inserter, constructor, unsafeHead, anchorNumber)
+	s.Require().Greater(unsafeHead.Number.Uint64(), block.NumberU64())
+	s.checkReplayStatus(server, unsafeHead.Number.Uint64())
+
 	// Recovery uses only the transactions that made it into the block.
 	source.BlockPayloads[0].Transactions = block.Transactions()[1:]
 	_, err = inserter.InsertBlocksWithManifest(ctx, meta, source, nil)
@@ -67,10 +89,19 @@ func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionDoesNotReportReor
 	recoveredOrigin, err := s.RPCClient.L2.L1OriginByID(ctx, block.Number())
 	s.Require().NoError(err)
 	s.NotEqual(originalOrigin.BuildPayloadArgsID, recoveredOrigin.BuildPayloadArgsID)
-	s.False(completion.PreconfChainReorged, "same-hash replay must not be reported as a reorg")
+	s.Equal(block.NumberU64(), completion.LastBlockID)
 	afterReplay, err := s.RPCClient.L2.HeaderByNumber(ctx, block.Number())
 	s.Require().NoError(err)
 	s.Equal(block.Hash(), afterReplay.Hash())
+	replayedHead, err := s.RPCClient.L2.HeaderByNumber(ctx, nil)
+	s.Require().NoError(err)
+	// Geth and Reth with the test configuration's allow-unwind-canonical-header
+	// rewind to the proposal tail even though the executed block hash is unchanged.
+	s.Equal(block.Hash(), replayedHead.Hash())
+	s.checkReplayStatus(server, replayedHead.Number.Uint64())
+	confirmedOrigin, err := s.RPCClient.L2.HeadL1Origin(ctx)
+	s.Require().NoError(err)
+	s.Equal(block.Number(), confirmedOrigin.BlockID)
 
 	// Changing a header field really replaces the canonical block at this height.
 	source.BlockPayloads[0].Coinbase = common.Address{2}
@@ -80,6 +111,58 @@ func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionDoesNotReportReor
 	replacement, err := s.RPCClient.L2.HeaderByNumber(ctx, block.Number())
 	s.Require().NoError(err)
 	s.NotEqual(block.Hash(), replacement.Hash())
+	newHead, err := s.RPCClient.L2.HeaderByNumber(ctx, nil)
+	s.Require().NoError(err)
+	s.Equal(replacement.Hash(), newHead.Hash(), "a real replacement must discard the old unsafe suffix")
+	s.checkReplayStatus(server, newHead.Number.Uint64())
+}
+
+func (s *EventSyncerTestSuite) checkReplayStatus(server *preconfblocks.PreconfBlockAPIServer, expected uint64) {
+	s.T().Helper()
+	recorder := httptest.NewRecorder()
+	ctx := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/status", nil), recorder)
+	s.Require().NoError(server.GetStatus(ctx))
+	var status preconfblocks.Status
+	s.Require().NoError(json.Unmarshal(recorder.Body.Bytes(), &status))
+	s.Equal(expected, status.HighestUnsafeL2PayloadBlockID)
+}
+
+func (s *EventSyncerTestSuite) appendReplayPreconfirmation(
+	ctx context.Context,
+	inserter *blocksInserter.Shasta,
+	constructor *anchorTxConstructor.AnchorTxConstructor,
+	parent *types.Header,
+	anchorNumber uint64,
+) *types.Header {
+	s.T().Helper()
+	anchor, err := s.RPCClient.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(anchorNumber))
+	s.Require().NoError(err)
+	baseFee, err := s.RPCClient.CalculateBaseFee(ctx, parent)
+	s.Require().NoError(err)
+	number := new(big.Int).Add(parent.Number, common.Big1)
+	anchorTx, err := constructor.AssembleAnchorV4Tx(
+		ctx, parent, anchor.Number, anchor.Hash(), anchor.Root, common.Big0, number, baseFee,
+	)
+	s.Require().NoError(err)
+	txs, err := rlp.EncodeToBytes(types.Transactions{anchorTx})
+	s.Require().NoError(err)
+	compressed, err := utils.Compress(txs)
+	s.Require().NoError(err)
+	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, number)
+	s.Require().NoError(err)
+	u256BaseFee, overflow := uint256.FromBig(baseFee)
+	s.Require().False(overflow)
+	headers, err := inserter.InsertPreconfBlocksFromEnvelopes(ctx, []*preconf.Envelope{{
+		Payload: &eth.ExecutionPayload{
+			ParentHash: parent.Hash(), FeeRecipient: parent.Coinbase, PrevRandao: eth.Bytes32(mixHash[:]),
+			BlockNumber: eth.Uint64Quantity(number.Uint64()), GasLimit: eth.Uint64Quantity(parent.GasLimit),
+			Timestamp: eth.Uint64Quantity(parent.Time + 1), ExtraData: eth.BytesMax32(parent.Extra),
+			BaseFeePerGas: eth.Uint256Quantity(*u256BaseFee), Transactions: []eth.Data{compressed},
+		},
+	}}, false)
+	s.Require().NoError(err)
+	s.Require().Len(headers, 1)
+	return headers[0]
 }
 
 func (s *EventSyncerTestSuite) receiveReplayNotification(

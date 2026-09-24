@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,19 +21,36 @@ import (
 )
 
 type proposalHeadRPC struct {
-	head *types.Header
-	err  error
+	head                *types.Header
+	headers             map[gethrpc.BlockNumber]*types.Header
+	err                 error
+	requests            atomic.Uint64
+	waitForCancellation bool
+	started             chan struct{}
+	release             chan struct{}
 }
 
 func (r *proposalHeadRPC) ChainId() hexutil.Uint64 { return 167001 }
 
 func (r *proposalHeadRPC) GetBlockByNumber(
-	_ context.Context,
+	ctx context.Context,
 	number gethrpc.BlockNumber,
 	_ bool,
 ) (*types.Header, error) {
+	r.requests.Add(1)
 	if number != gethrpc.LatestBlockNumber {
+		if r.headers != nil {
+			return r.headers[number], nil
+		}
 		return nil, errors.New("expected a current canonical head lookup")
+	}
+	if r.started != nil {
+		close(r.started)
+		<-r.release
+	}
+	if r.waitForCancellation {
+		<-ctx.Done()
+		return nil, ctx.Err()
 	}
 	return r.head, r.err
 }
@@ -60,61 +78,24 @@ func seenProposal(id int64, lastBlockID uint64, reorged bool) *encoding.LastSeen
 	}
 }
 
-func TestProposalNotificationReconcilesUnsafeHead(t *testing.T) {
-	for _, tt := range []struct {
-		name          string
-		unsafe        uint64
-		proposalTail  uint64
-		executionHead uint64
-		reorged       bool
-		rpcErr        error
-		want          uint64
-	}{
-		{"same hash replay retains newer preconfirmation", 11802693, 11802683, 11802693, false, nil, 11802693},
-		{"delayed reorg retains subsequent preconfirmation", 11802693, 11802683, 11802693, true, nil, 11802693},
-		{"real reorg rewinds unsafe head", 11802693, 11802683, 11802683, true, nil, 11802683},
-		{"canonical replay repairs stale unsafe marker", 11802683, 11802684, 11802693, false, nil, 11802693},
-		{"stale nonreorg notification cannot resurrect removed suffix", 11802683, 11802693, 11802683, false, nil, 11802683},
-		{"RPC failure preserves unsafe head", 11802693, 11802683, 0, true, errors.New("execution RPC unavailable"), 11802693},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			backend := &proposalHeadRPC{
-				head: &types.Header{Number: new(big.Int).SetUint64(tt.executionHead), Difficulty: big.NewInt(1)},
-				err:  tt.rpcErr,
-			}
-			s := &PreconfBlockAPIServer{
-				rpc:                           newProposalHeadClient(t, backend),
-				highestUnsafeL2PayloadBlockID: tt.unsafe,
-			}
-			s.recordLatestSeenProposal(context.Background(), seenProposal(37503, tt.proposalTail, tt.reorged))
-			require.Equal(t, tt.want, s.highestUnsafeL2PayloadBlockID)
-		})
-	}
+func TestOutOfOrderProposalNotificationsPreserveLatestProposal(t *testing.T) {
+	backend := &proposalHeadRPC{err: errors.New("head RPC must not be called by notifications")}
+	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+	s.updateHighestUnsafeL2Payload(11802693)
+	s.recordLatestSeenProposal(seenProposal(37504, 11802684, false), false)
+	s.recordLatestSeenProposal(seenProposal(37503, 11802683, true), false)
+	require.Equal(t, int64(37504), s.latestSeenProposal.GetProposalID().Int64())
+	require.Equal(t, uint64(11802693), s.highestUnsafeL2PayloadBlockID.Load())
+	require.Zero(t, backend.requests.Load())
+
+	// A verified L1 reorg is allowed to reset the cached proposal ID.
+	s.recordLatestSeenProposal(seenProposal(37502, 11802682, false), true)
+	require.Equal(t, int64(37502), s.latestSeenProposal.GetProposalID().Int64())
 }
 
-func TestOutOfOrderProposalNotificationsPreserveExecutionHead(t *testing.T) {
-	backend := &proposalHeadRPC{head: &types.Header{Number: big.NewInt(11802693), Difficulty: big.NewInt(1)}}
-	s := &PreconfBlockAPIServer{
-		rpc:                           newProposalHeadClient(t, backend),
-		highestUnsafeL2PayloadBlockID: 11802693,
-	}
-	s.recordLatestSeenProposal(context.Background(), seenProposal(37504, 11802684, false))
-	s.recordLatestSeenProposal(context.Background(), seenProposal(37503, 11802683, true))
-	require.Equal(t, uint64(11802693), s.highestUnsafeL2PayloadBlockID)
-}
-
-func TestProposalMonitorRetriesUnsafeHeadWithoutNewBlocks(t *testing.T) {
-	backend := &proposalHeadRPC{
-		head: &types.Header{Number: big.NewInt(11802683), Difficulty: big.NewInt(1)},
-		err:  errors.New("temporary RPC failure"),
-	}
-	s := &PreconfBlockAPIServer{
-		rpc:                           newProposalHeadClient(t, backend),
-		highestUnsafeL2PayloadBlockID: 11802693,
-	}
+func TestProposalMonitorDoesNotQueryExecutionHead(t *testing.T) {
+	backend := &proposalHeadRPC{err: errors.New("unexpected head lookup")}
+	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
 	s.monitorLatestProposalOnChain(context.Background())
-	require.Equal(t, uint64(11802693), s.highestUnsafeL2PayloadBlockID)
-	backend.err = nil
-	s.monitorLatestProposalOnChain(context.Background())
-	require.Equal(t, uint64(11802683), s.highestUnsafeL2PayloadBlockID)
+	require.Zero(t, backend.requests.Load())
 }

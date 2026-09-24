@@ -72,12 +72,6 @@ func tryLastFinalizedCheckpoint(
 	}, nil
 }
 
-// replayCompletion retains the pre-replay head until its canonical check succeeds.
-type replayCompletion struct {
-	previousHead *types.Header
-	proposal     *encoding.LastSeenProposal
-}
-
 // Shasta is responsible for inserting Shasta blocks to the L2 execution engine.
 type Shasta struct {
 	rpc                  *rpc.Client
@@ -85,7 +79,6 @@ type Shasta struct {
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor
 	mutex                sync.Mutex
-	pendingReplay        *replayCompletion
 }
 
 // NewBlocksInserter creates a new Shasta instance.
@@ -117,9 +110,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
-	if err := i.sendPendingReplayCompletion(ctx); err != nil {
-		return nil, err
-	}
 
 	var (
 		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
@@ -148,9 +138,8 @@ func (i *Shasta) InsertBlocksWithManifest(
 	}
 
 	var (
-		parent           = sourcePayload.ParentBlock.Header()
-		lastPayloadData  *engine.ExecutableData
-		headBeforeReplay *types.Header
+		parent          = sourcePayload.ParentBlock.Header()
+		lastPayloadData *engine.ExecutableData
 	)
 
 	for j := range sourcePayload.BlockPayloads {
@@ -200,11 +189,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 					"parentHash", parent.Hash(),
 				)
 
-				go i.sendLatestSeenProposal(&encoding.LastSeenProposal{
-					TaikoProposalMetaData: metadata,
-					PreconfChainReorged:   false,
-					LastBlockID:           lastBlockHeader.Number.Uint64(),
-				})
+				if i.latestSeenProposalCh != nil {
+					go i.sendLatestSeenProposal(ctx, &encoding.LastSeenProposal{
+						TaikoProposalMetaData: metadata,
+						LastBlockID:           lastBlockHeader.Number.Uint64(),
+					})
+				}
 
 				// Update the L1 origin for each block in the proposal.
 				if err := updateL1OriginForProposal(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
@@ -216,13 +206,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 				}
 
 				return lastBlockHeader.Number, nil
-			}
-
-			// A different payload ID can still execute to the same block hash.
-			// Remember the canonical tip before replay while holding the insertion
-			// mutex, which also excludes concurrent preconfirmation imports.
-			if headBeforeReplay, err = i.rpc.L2.HeaderByNumber(ctx, nil); err != nil {
-				return nil, fmt.Errorf("failed to fetch L2 head before proposal replay: %w", err)
 			}
 		}
 
@@ -287,15 +270,11 @@ func (i *Shasta) InsertBlocksWithManifest(
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
-	// Replay is a reorg only if it removed or replaced the previous canonical
-	// tip. Appending blocks and rebuilding identical blocks preserve that tip.
-	if headBeforeReplay != nil {
-		i.pendingReplay = &replayCompletion{previousHead: headBeforeReplay, proposal: latestSeenProposal}
-		if err := i.sendPendingReplayCompletion(ctx); err != nil {
-			return nil, err
-		}
-	} else {
-		go i.sendLatestSeenProposal(latestSeenProposal)
+	// Keep the existing conservative replay signal for metrics only. Status
+	// samples the execution head independently of proposal completion.
+	latestSeenProposal.PreconfChainReorged = true
+	if i.latestSeenProposalCh != nil {
+		go i.sendLatestSeenProposal(ctx, latestSeenProposal)
 	}
 
 	return new(big.Int).SetUint64(latestSeenProposal.LastBlockID), nil
@@ -309,9 +288,6 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 ) ([]*types.Header, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
-	if err := i.sendPendingReplayCompletion(ctx); err != nil {
-		return nil, err
-	}
 
 	log.Debug(
 		"Insert preconfirmation blocks from envelopes",
@@ -346,26 +322,8 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 	return headers, nil
 }
 
-// sendPendingReplayCompletion resolves a completed replay before any further
-// insertions can change the chain. The caller holds i.mutex. Retaining the
-// comparison on RPC failure prevents a retry's known-proposal path from losing
-// the reorg notification after the blocks have already been inserted.
-func (i *Shasta) sendPendingReplayCompletion(ctx context.Context) error {
-	if i.pendingReplay == nil {
-		return nil
-	}
-	reorged, err := canonicalHeadReorged(ctx, i.pendingReplay.previousHead, i.rpc.L2.HeaderByNumber)
-	if err != nil {
-		return fmt.Errorf("failed to check canonical head after proposal replay: %w", err)
-	}
-	i.pendingReplay.proposal.PreconfChainReorged = reorged
-	go i.sendLatestSeenProposal(i.pendingReplay.proposal)
-	i.pendingReplay = nil
-	return nil
-}
-
 // sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
-func (i *Shasta) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
+func (i *Shasta) sendLatestSeenProposal(ctx context.Context, proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
 		log.Debug(
 			"Sending latest seen proposal from blocksInserter",
@@ -373,7 +331,10 @@ func (i *Shasta) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 			"preconfChainReorged", proposal.PreconfChainReorged,
 		)
 
-		i.latestSeenProposalCh <- proposal
+		select {
+		case i.latestSeenProposalCh <- proposal:
+		case <-ctx.Done():
+		}
 	}
 }
 
