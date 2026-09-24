@@ -22,11 +22,7 @@ jobs:
     # SECURITY: route fork PRs to a hosted runner so PR-controlled code never
     # executes on arc-runner-set. The typo check itself (crate-ci/typos, pinned)
     # is safe to run against fork contents on ubuntu-latest.
-    runs-on: >-
-      ${{
-        (github.event.pull_request.head.repo.fork == true)
-        && 'ubuntu-latest' || 'arc-runner-set'
-      }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout the repository
