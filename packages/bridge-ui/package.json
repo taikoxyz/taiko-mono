@@ -17,7 +17,7 @@
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
     "lint:fix": "pnpm format && eslint . --fix",
-    "generate:abi": "cd ../protocol && pnpm forge build --evm-version cancun && cd - && pnpm wagmi generate",
+    "generate:abi": "pnpm --dir ../protocol compile:shared && wagmi generate",
     "export:config": "pnpm ./scripts/exportJsonToEnv.js"
   },
   "devDependencies": {

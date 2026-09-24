@@ -28,6 +28,7 @@ import { config } from '$libs/wagmi';
 
 import { estimateMessageGasLimitWithMinimum, type MessageGasEstimateExtras } from './estimateMessageGasLimit';
 import { feeForGasLimit } from './messageFeeInvariant';
+import { assertFinalRetryEnabled, assertRecallEnabled } from './recall';
 import {
   type BridgeArgs,
   type BridgeTransaction,
@@ -428,12 +429,12 @@ export abstract class Bridge {
 
   private async retryMessage(args: RetryMessageArgs): Promise<Hash> {
     const { bridgeTx, bridgeContract, client } = args;
-    const isFinalAttempt = args.lastAttempt || false;
     const { message } = bridgeTx;
 
-    isFinalAttempt ? log('Retrying message for the last time') : log('Retrying message');
-
     if (!message) throw new ProcessMessageError('Message is not defined');
+    const isFinalAttempt = !!args.lastAttempt;
+    if (isFinalAttempt) await assertFinalRetryEnabled(message);
+    isFinalAttempt ? log('Retrying message for the last time') : log('Retrying message');
 
     let estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
       account: client.account,
@@ -453,6 +454,10 @@ export abstract class Bridge {
     });
     log('Simulate contract for retryMessage', request);
 
+    // An upgrade may have executed during estimation or simulation. Stop before requesting
+    // a signature if the final retry is no longer available; let the user choose another retry.
+    if (isFinalAttempt) await assertFinalRetryEnabled(message);
+
     return await writeContract(config, request);
   }
 
@@ -460,6 +465,7 @@ export abstract class Bridge {
     const { bridgeTx, bridgeContract, client } = args;
     const { message } = bridgeTx;
     if (!message) throw new ReleaseError('Message is not defined');
+    await assertRecallEnabled(message);
     const proof = await this._prover.getEncodedSignalProofForRecall({ bridgeTx });
 
     log('Estimating gas for recallMessage', bridgeContract.address, [message, proof]);
@@ -482,6 +488,7 @@ export abstract class Bridge {
     });
     log('Simulate contract for recallMessage', request);
 
+    await assertRecallEnabled(message);
     return await writeContract(config, request);
   }
 }
