@@ -159,8 +159,8 @@ impl BeaconClient {
         }
         let spec: SpecResponse =
             spec_res.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
-        let seconds_per_slot = parse_spec_u64(&spec.data, "SECONDS_PER_SLOT")?;
-        let slots_per_epoch = parse_spec_u64(&spec.data, "SLOTS_PER_EPOCH")?;
+        let seconds_per_slot = parse_spec_positive_u64(&spec.data, "SECONDS_PER_SLOT")?;
+        let slots_per_epoch = parse_spec_positive_u64(&spec.data, "SLOTS_PER_EPOCH")?;
 
         debug!(
             seconds_per_slot,
@@ -441,13 +441,18 @@ fn match_blobs(
         .collect()
 }
 
-/// Look up a required decimal `u64` value from the beacon `/eth/v1/config/spec` response.
-fn parse_spec_u64(spec: &serde_json::Value, key: &str) -> Result<u64, BlobDataError> {
-    spec.get(key)
+/// Look up a required positive decimal `u64` value from the beacon `/eth/v1/config/spec` response.
+fn parse_spec_positive_u64(spec: &serde_json::Value, key: &str) -> Result<u64, BlobDataError> {
+    let value = spec
+        .get(key)
         .and_then(|value| value.as_str())
         .ok_or_else(|| BlobDataError::Parse(format!("{key} missing in beacon spec")))?
         .parse::<u64>()
-        .map_err(|err| BlobDataError::Parse(err.to_string()))
+        .map_err(|err| BlobDataError::Parse(err.to_string()))?;
+    if value == 0 {
+        return Err(BlobDataError::Parse(format!("{key} must be greater than zero")));
+    }
+    Ok(value)
 }
 
 #[cfg(test)]
@@ -493,6 +498,51 @@ mod tests {
             }
         })
         .await
+    }
+
+    /// Starts a beacon node stub with the provided timing values in its spec response.
+    async fn start_metadata_beacon(seconds_per_slot: u64, slots_per_epoch: u64) -> TestServer {
+        TestServer::start(move |uri| match uri.path() {
+            "/eth/v1/beacon/genesis" => {
+                (StatusCode::OK, r#"{"data":{"genesis_time":"0"}}"#.to_owned())
+            }
+            "/eth/v1/config/spec" => (
+                StatusCode::OK,
+                serde_json::json!({
+                    "data": {
+                        "SECONDS_PER_SLOT": seconds_per_slot.to_string(),
+                        "SLOTS_PER_EPOCH": slots_per_epoch.to_string(),
+                    }
+                })
+                .to_string(),
+            ),
+            _ => (StatusCode::NOT_FOUND, String::new()),
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn client_rejects_zero_seconds_per_slot() {
+        let beacon = start_metadata_beacon(0, 32).await;
+
+        let result = BeaconClient::new(beacon.endpoint()).await;
+
+        assert!(
+            matches!(result, Err(BlobDataError::Parse(ref message)) if message == "SECONDS_PER_SLOT must be greater than zero"),
+            "got {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn client_rejects_zero_slots_per_epoch() {
+        let beacon = start_metadata_beacon(12, 0).await;
+
+        let result = BeaconClient::new(beacon.endpoint()).await;
+
+        assert!(
+            matches!(result, Err(BlobDataError::Parse(ref message)) if message == "SLOTS_PER_EPOCH must be greater than zero"),
+            "got {result:?}"
+        );
     }
 
     /// Paths of the `/eth/v1/beacon/blob*` requests `beacon` received, in order.
