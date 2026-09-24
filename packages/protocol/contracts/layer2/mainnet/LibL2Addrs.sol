@@ -7,8 +7,6 @@ library LibL2Addrs {
     address public constant DELEGATE_CONTROLLER = 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C;
     address public constant PERMISSIONLESS_EXECUTOR = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
     address public constant ANCHOR = 0x1670000000000000000000000000000000010001;
-    // DefaultResolver proxy owned by DELEGATE_CONTROLLER, read by the bridge and the ERC20 vault
-    // from Proposal0024 on; the NFT vaults keep the legacy AddressManager 0x1670...0006
     address public constant SHARED_RESOLVER = 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
     address public constant BRIDGE = 0x1670000000000000000000000000000000000001;
 
@@ -20,8 +18,8 @@ library LibL2Addrs {
     // BridgedERC20V2 registered as bridged_erc20 on SHARED_RESOLVER by Proposal0024;
     // replaces 0x98161D67f762A9E589E502348579FA38B1Ac47A8, left on the legacy AddressManager
     address public constant BRIDGED_ERC20 = 0xD6601cdea5857338EbdEE4CF38298aff43f01431;
-    address public constant BRIDGED_ERC721 = 0x0167000000000000000000000000000000010097;
-    address public constant BRIDGED_ERC1155 = 0x0167000000000000000000000000000000010098;
+    address public constant BRIDGED_ERC721 = 0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0;
+    address public constant BRIDGED_ERC1155 = 0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F;
 
     // Third-party addresses
     address public constant USDC_TOKEN = 0x07d83526730c7438048D55A4fc0b850e2aaB6f0b;
