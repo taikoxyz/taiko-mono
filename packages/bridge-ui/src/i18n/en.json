@@ -159,6 +159,16 @@
       "unknown_error": {
         "message": "An unexpected error has occurred. Please try again.",
         "title": "Unknown error"
+      },
+      "recall": {
+        "disabled": {
+          "title": "Releases are unavailable",
+          "message": "Releasing funds back to the source chain is currently disabled."
+        },
+        "unknown": {
+          "title": "Release availability unknown",
+          "message": "Release availability could not be verified. Please try again shortly."
+        }
       }
     },
     "nft": {
@@ -632,7 +642,13 @@
           "title": "Select"
         },
         "title": "Retry claiming"
-      }
+      },
+      "options_description": "Your transaction has failed on chain. You can keep retrying or retry one final time, then release the funds on the source chain if that attempt fails.",
+      "recall_disabled": "Releasing funds back to the source chain is currently disabled. You can continue retrying this transaction.",
+      "recall_unknown": "Release availability could not be verified. You can still retry normally; the final retry option is unavailable for now.",
+      "select_option": "Please select your preferred option:",
+      "continue": "Retry and keep retrying",
+      "final_attempt": "Retry one final time"
     },
     "status": {
       "claim": {

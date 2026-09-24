@@ -85,6 +85,23 @@ To get started, open your terminal in `/packages/bridge-ui/`
 
 #### Optional flags
 
+`PUBLIC_BRIDGE_RECALL_ENABLED` defaults to `true` when unset. Set it to `false` to disable
+Release and final retries in the UI; ordinary retries remain available. This is a public
+runtime environment variable, read when a page loads. Apply environment changes to the
+deployment and reload existing tabs.
+
+When enabled, the UI reads `recallEnabled()` from the bridge proxies. Release requires the
+source bridge to support recalls; a final retry requires both bridges, so it remains safe
+while the two chains upgrade separately. Legacy bridges without the getter retain their
+existing behaviour after a successful `paused()` read confirms a responsive contract.
+RPC failures leave recall availability unknown and do not enable recalls. The flag cannot
+override a bridge reporting `recallEnabled() == false`. Capability is rechecked before
+requesting a signature; an upgrade after that check is enforced by the contract itself.
+
+Regenerate contract ABIs with `pnpm generate:abi`. This builds the protocol's `shared`
+profile using its configured compiler and EVM version, then regenerates all registered
+ABIs (including `QuotaManager`) through `wagmi.config.ts`.
+
 ```bash
 pnpm export:config --<env> --<version>
 ```

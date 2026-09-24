@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError } from 'viem';
 
@@ -7,7 +7,9 @@
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { errorToast, warningToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
+  import { bridgeTransactionPoller } from '$config';
   import type { BridgeTransaction } from '$libs/bridge';
+  import { getRecallState, type RecallState } from '$libs/bridge/recall';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import {
     BlockNotSyncedError,
@@ -21,7 +23,7 @@
   import { getLogger } from '$libs/util/logger';
 
   import Claim from '../Claim.svelte';
-  import { isMessageNotReceivedError } from '../ClaimDialog/error';
+  import { getRecallErrorKey, isMessageNotReceivedError } from '../ClaimDialog/error';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
   import { createResetGate } from '../Shared/resetGate';
@@ -54,6 +56,30 @@
   let ClaimComponent: Claim;
   let hideContinueButton: boolean;
   let isDesktopOrLarger = false;
+  let recallState: RecallState = 'unknown';
+  let recallReadId = 0;
+
+  async function refreshRecall(srcChainId: number, destChainId: number) {
+    const readId = ++recallReadId;
+    const state = await getRecallState(srcChainId, destChainId);
+    if (readId === recallReadId) recallState = state;
+  }
+
+  $: recallSourceChainId = Number(bridgeTx.srcChainId);
+  $: recallDestinationChainId = Number(bridgeTx.destChainId);
+  $: if (dialogOpen) {
+    recallState = 'unknown';
+    void refreshRecall(recallSourceChainId, recallDestinationChainId);
+  }
+  onMount(() => {
+    const timer = setInterval(() => {
+      if (dialogOpen) void refreshRecall(recallSourceChainId, recallDestinationChainId);
+    }, bridgeTransactionPoller.interval);
+    return () => clearInterval(timer);
+  });
+  onDestroy(() => {
+    ++recallReadId;
+  });
 
   const closeDialog = () => {
     dialogOpen = false;
@@ -119,7 +145,11 @@
   const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimAction }>) => {
     //TODO: update this to display info alongside toasts
     const err = event.detail.error;
+    const recallErrorKey = getRecallErrorKey(err);
     switch (true) {
+      case recallErrorKey !== null:
+        warningToast({ title: $t(`${recallErrorKey}.title`), message: $t(`${recallErrorKey}.message`) });
+        break;
       case err instanceof NotConnectedError:
         warningToast({ title: $t('messages.account.required') });
         break;
@@ -211,46 +241,50 @@
     </div>
     <div class="h-sep mx-[-24px] mt-[20px]" />
     <div class="w-full h-full f-col">
-      <DialogStepper>
-        <DialogStep
-          stepIndex={ReleaseSteps.CHECK}
-          currentStepIndex={activeStep}
-          isActive={activeStep === ReleaseSteps.CHECK}>{$t('transactions.claim.steps.pre_check.title')}</DialogStep>
-        <DialogStep
-          stepIndex={ReleaseSteps.REVIEW}
-          currentStepIndex={activeStep}
-          isActive={activeStep === ReleaseSteps.REVIEW}>{$t('common.review')}</DialogStep>
-        <DialogStep
-          stepIndex={ReleaseSteps.CONFIRM}
-          currentStepIndex={activeStep}
-          isActive={activeStep === ReleaseSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
-      </DialogStepper>
-      {#if activeStep === ReleaseSteps.CHECK}
-        <ReleasePreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
-      {:else if activeStep === ReleaseSteps.REVIEW}
-        <ReviewStep tx={bridgeTx} />
-      {:else if activeStep === ReleaseSteps.CONFIRM}
-        <ClaimConfirmStep
-          {bridgeTx}
-          txChainId={Number(bridgeTx.srcChainId)}
-          bind:txHash
-          on:claim={handleReleaseClick}
-          bind:claiming={releasing}
-          bind:canClaim={canContinue}
-          bind:claimingDone={releasingDone} />
-      {/if}
-      <div class="f-col text-left self-end h-full w-full">
-        <div class="f-col gap-4 mt-[20px]">
-          <ReleaseStepNavigation
-            bind:activeStep
-            bind:canContinue
-            {hideContinueButton}
-            bind:loading
-            bind:releasing
-            on:closeDialog={closeDialog}
-            bind:releasingDone />
+      {#if recallState !== 'enabled' && !releasing && !releaseTxPending && !releasingDone}
+        <p class="mt-[20px]" role="status">{$t(`bridge.errors.recall.${recallState}.message`)}</p>
+      {:else}
+        <DialogStepper>
+          <DialogStep
+            stepIndex={ReleaseSteps.CHECK}
+            currentStepIndex={activeStep}
+            isActive={activeStep === ReleaseSteps.CHECK}>{$t('transactions.claim.steps.pre_check.title')}</DialogStep>
+          <DialogStep
+            stepIndex={ReleaseSteps.REVIEW}
+            currentStepIndex={activeStep}
+            isActive={activeStep === ReleaseSteps.REVIEW}>{$t('common.review')}</DialogStep>
+          <DialogStep
+            stepIndex={ReleaseSteps.CONFIRM}
+            currentStepIndex={activeStep}
+            isActive={activeStep === ReleaseSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
+        </DialogStepper>
+        {#if activeStep === ReleaseSteps.CHECK}
+          <ReleasePreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
+        {:else if activeStep === ReleaseSteps.REVIEW}
+          <ReviewStep tx={bridgeTx} />
+        {:else if activeStep === ReleaseSteps.CONFIRM}
+          <ClaimConfirmStep
+            {bridgeTx}
+            txChainId={Number(bridgeTx.srcChainId)}
+            bind:txHash
+            on:claim={handleReleaseClick}
+            bind:claiming={releasing}
+            bind:canClaim={canContinue}
+            bind:claimingDone={releasingDone} />
+        {/if}
+        <div class="f-col text-left self-end h-full w-full">
+          <div class="f-col gap-4 mt-[20px]">
+            <ReleaseStepNavigation
+              bind:activeStep
+              bind:canContinue
+              {hideContinueButton}
+              bind:loading
+              bind:releasing
+              on:closeDialog={closeDialog}
+              bind:releasingDone />
+          </div>
         </div>
-      </div>
+      {/if}
     </div>
   </div>
 </dialog>

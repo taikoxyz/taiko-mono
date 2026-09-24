@@ -29,7 +29,7 @@
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
-  import { isMessageNotReceivedError } from './error';
+  import { getRecallErrorKey, isMessageNotReceivedError } from './error';
   import { type ClaimDialogMode, shouldSkipMessageStatusCheck } from './mode';
   import { claimWithQuotaGuard, showQuotaToastForClaimError } from './quota';
   import { ClaimSteps, INITIAL_STEP } from './types';
@@ -138,8 +138,12 @@
   const handleClaimError = async (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
     //TODO: update this to display info alongside toasts
     const err = event.detail.error;
+    const recallErrorKey = getRecallErrorKey(err);
     // canForceTransaction = true;
     switch (true) {
+      case recallErrorKey !== null:
+        warningToast({ title: $t(`${recallErrorKey}.title`), message: $t(`${recallErrorKey}.message`) });
+        break;
       case err instanceof NotConnectedError:
         warningToast({ title: $t('messages.account.required') });
         break;

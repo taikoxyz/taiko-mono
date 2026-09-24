@@ -12,6 +12,7 @@ import ERC721Vault from '../protocol/out/shared/ERC721Vault.sol/ERC721Vault.json
 import ERC1155Vault from '../protocol/out/shared/ERC1155Vault.sol/ERC1155Vault.json';
 import FreeMintERC20 from '../protocol/out/shared/FreeMintERC20Token.sol/FreeMintERC20Token.json';
 import ISignalService from '../protocol/out/shared/ISignalService.sol/ISignalService.json';
+import QuotaManager from '../protocol/out/shared/QuotaManager.sol/QuotaManager.json';
 
 export default defineConfig({
   out: 'src/abi/index.ts',
@@ -19,6 +20,10 @@ export default defineConfig({
     {
       name: 'Bridge',
       abi: Bridge.abi as Abi,
+    },
+    {
+      name: 'QuotaManager',
+      abi: QuotaManager.abi as Abi,
     },
     {
       name: 'ERC20Vault',

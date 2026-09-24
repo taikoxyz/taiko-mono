@@ -15,6 +15,8 @@ vi.mock('svelte-i18n', async () => {
 });
 
 const isTransactionProcessable = vi.fn();
+const getRecallState = vi.fn();
+vi.mock('$libs/bridge/recall', () => ({ getRecallState: (...args: unknown[]) => getRecallState(...args) }));
 vi.mock('$libs/bridge/isTransactionProcessable', () => ({
   isTransactionProcessable: (...args: unknown[]) => isTransactionProcessable(...args),
 }));
@@ -25,11 +27,12 @@ vi.mock('$libs/polling/messageStatusPoller', async (importOriginal) => ({
   startPolling: (...args: unknown[]) => startPolling(...args),
 }));
 
+import { MOCK_BRIDGE_TX_1 } from '$mocks';
 import { account } from '$stores/account';
 
 import Status from './Status.svelte';
 
-const bridgeTx = { msgStatus: 0, srcTxHash: '0x1', msgHash: '0x2' } as never;
+const bridgeTx = { ...MOCK_BRIDGE_TX_1, msgStatus: 0, srcTxHash: '0x1' as const, msgHash: '0x2' as const };
 
 const flush = async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -62,6 +65,7 @@ let target: HTMLElement;
 
 beforeEach(() => {
   isTransactionProcessable.mockReset();
+  getRecallState.mockReset().mockResolvedValue('enabled');
   startPolling.mockReset();
   account.set({ address: '0xaaaa', isConnected: true } as never);
   target = document.createElement('div');
@@ -69,6 +73,67 @@ beforeEach(() => {
 });
 
 afterEach(() => target.remove());
+
+describe('FAILED message recall availability', () => {
+  it('keeps the last availability visible during one background read per unchanged status poll', async () => {
+    isTransactionProcessable.mockResolvedValue(true);
+    const poller = makePoller();
+    startPolling.mockReturnValue(poller.handle);
+    const component = new Status({
+      target,
+      props: { bridgeTx: { ...bridgeTx, msgStatus: 3, srcChainId: 1n, destChainId: 2n }, bridgeTxStatus: 3 },
+    });
+    await flush();
+    getRecallState.mockClear();
+    let resolve!: (state: string) => void;
+    getRecallState.mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    (poller.listeners.status[0] as (status: number) => void)(3);
+    await flush();
+    expect(target.querySelector('button')?.textContent).toContain('transactions.button.release');
+    expect(getRecallState).toHaveBeenCalledOnce();
+    resolve('disabled');
+    await flush();
+    expect(target.querySelector('button')).toBeNull();
+    component.$destroy();
+  });
+
+  it.each(['disabled', 'unknown'])('replaces Release with an explanation when recall is %s', async (state) => {
+    getRecallState.mockResolvedValue(state);
+    isTransactionProcessable.mockResolvedValue(true);
+    startPolling.mockReturnValue(makePoller().handle);
+    const component = new Status({
+      target,
+      props: { bridgeTx: { ...bridgeTx, msgStatus: 3, srcChainId: 1n, destChainId: 2n }, bridgeTxStatus: 3 },
+    });
+    await flush();
+    expect(target.querySelector('button')).toBeNull();
+    expect(target.textContent).toContain(`bridge.errors.recall.${state}.message`);
+    component.$destroy();
+  });
+
+  it('restores Release when a later poll reports recall enabled', async () => {
+    getRecallState.mockResolvedValue('disabled');
+    isTransactionProcessable.mockResolvedValue(true);
+    const poller = makePoller();
+    startPolling.mockReturnValue(poller.handle);
+    const component = new Status({
+      target,
+      props: { bridgeTx: { ...bridgeTx, msgStatus: 3, srcChainId: 1n, destChainId: 2n }, bridgeTxStatus: 3 },
+    });
+    await flush();
+    expect(target.querySelector('button')).toBeNull();
+    getRecallState.mockResolvedValue('enabled');
+    (poller.listeners.status[0] as (status: number) => void)(3);
+    await flush();
+    expect(target.querySelector('button')?.textContent).toContain('transactions.button.release');
+    component.$destroy();
+  });
+});
 
 describe('Status row polling lifecycle', () => {
   it('detaches its listeners on a normal unmount', async () => {
