@@ -96,7 +96,9 @@ while the two chains upgrade separately. Legacy bridges without the getter retai
 existing behaviour after a successful `paused()` read confirms a responsive contract.
 RPC failures leave recall availability unknown and do not enable recalls. The flag cannot
 override a bridge reporting `recallEnabled() == false`. Capability is rechecked before
-requesting a signature; an upgrade after that check is enforced by the contract itself.
+requesting a signature. Cross-chain reads are not atomic: capabilities can still change
+while a wallet request or transaction is pending. Operators can disable these actions
+before starting a rollout; existing tabs must reload to pick up the environment change.
 
 Regenerate contract ABIs with `pnpm generate:abi`. This builds the protocol's `shared`
 profile using its configured compiler and EVM version, then regenerates all registered
