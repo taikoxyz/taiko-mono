@@ -11,7 +11,7 @@ default = []
 alethia-reth-primitives = { workspace = true, features = ["net"] }
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
-alloy-eips = { workspace = true }
+alloy-eips = { workspace = true, features = ["sha2"] }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }

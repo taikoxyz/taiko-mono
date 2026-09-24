@@ -8,9 +8,13 @@ export const bridgeAbi = [
     inputs: [
       { name: '_resolver', internalType: 'address', type: 'address' },
       { name: '_signalService', internalType: 'address', type: 'address' },
+      { name: '_quotaManager', internalType: 'address', type: 'address' },
+      { name: '_pauser', internalType: 'address', type: 'address' },
+      { name: '_recallEnabled', internalType: 'bool', type: 'bool' },
     ],
     stateMutability: 'nonpayable',
   },
+  { type: 'receive', stateMutability: 'payable' },
   {
     type: 'function',
     inputs: [],
@@ -146,6 +150,15 @@ export const bridgeAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      { name: '_msgHashes', internalType: 'bytes32[]', type: 'bytes32[]' },
+    ],
+    name: 'init3',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [{ name: '_chainId', internalType: 'uint64', type: 'uint64' }],
     name: 'isDestChainEnabled',
     outputs: [
@@ -274,6 +287,13 @@ export const bridgeAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'pauser',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'pendingOwner',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
@@ -317,6 +337,22 @@ export const bridgeAbi = [
     inputs: [],
     name: 'proxiableUUID',
     outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'quotaManager',
+    outputs: [
+      { name: '', internalType: 'contract IQuotaManager', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'recallEnabled',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
     stateMutability: 'view',
   },
   {
@@ -704,6 +740,7 @@ export const bridgeAbi = [
   { type: 'error', inputs: [], name: 'B_MESSAGE_NOT_SENT' },
   { type: 'error', inputs: [], name: 'B_PERMISSION_DENIED' },
   { type: 'error', inputs: [], name: 'B_PROOF_TOO_LARGE' },
+  { type: 'error', inputs: [], name: 'B_RECALL_DISABLED' },
   { type: 'error', inputs: [], name: 'B_RETRY_FAILED' },
   { type: 'error', inputs: [], name: 'B_SIGNAL_NOT_RECEIVED' },
   { type: 'error', inputs: [], name: 'ETH_TRANSFER_FAILED' },
@@ -713,20 +750,6 @@ export const bridgeAbi = [
   { type: 'error', inputs: [], name: 'RESOLVER_NOT_FOUND' },
   { type: 'error', inputs: [], name: 'ZERO_ADDRESS' },
   { type: 'error', inputs: [], name: 'ZERO_VALUE' },
-] as const
-
-export const quotaManagerAbi = [
-  {
-    type: 'function',
-    inputs: [
-      { name: '_token', internalType: 'address', type: 'address' },
-      { name: '_leap', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'availableQuota',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  { type: 'error', inputs: [], name: 'QM_OUT_OF_QUOTA' },
 ] as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1293,7 +1316,10 @@ export const erc1155VaultAbi = [
 export const erc20VaultAbi = [
   {
     type: 'constructor',
-    inputs: [{ name: '_resolver', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: '_resolver', internalType: 'address', type: 'address' },
+      { name: '_quotaManager', internalType: 'address', type: 'address' },
+    ],
     stateMutability: 'nonpayable',
   },
   {
@@ -1473,6 +1499,15 @@ export const erc20VaultAbi = [
     inputs: [],
     name: 'proxiableUUID',
     outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'quotaManager',
+    outputs: [
+      { name: '', internalType: 'contract IQuotaManager', type: 'address' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -4217,6 +4252,240 @@ export const freeMintErc20Abi = [
     ],
     name: 'Transfer',
   },
+] as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// QuotaManager
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const quotaManagerAbi = [
+  {
+    type: 'constructor',
+    inputs: [
+      { name: '_owner', internalType: 'address', type: 'address' },
+      { name: '_bridge', internalType: 'address', type: 'address' },
+      { name: '_erc20Vault', internalType: 'address', type: 'address' },
+      { name: '_quotaPeriod', internalType: 'uint24', type: 'uint24' },
+      { name: '_tokens', internalType: 'address[]', type: 'address[]' },
+      { name: '_quotas', internalType: 'uint104[]', type: 'uint104[]' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'UNLIMITED_QUOTA',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'acceptOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_token', internalType: 'address', type: 'address' },
+      { name: '_leap', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'availableQuota',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'bridge',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_token', internalType: 'address', type: 'address' },
+      { name: '_amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'consumeQuota',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'erc20Vault',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'owner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'pendingOwner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'quotaPeriod',
+    outputs: [{ name: '', internalType: 'uint24', type: 'uint24' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'renounceOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '_quotaPeriod', internalType: 'uint24', type: 'uint24' }],
+    name: 'setQuotaPeriod',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
+    name: 'tokenQuota',
+    outputs: [
+      { name: 'updatedAt', internalType: 'uint48', type: 'uint48' },
+      { name: 'quota', internalType: 'uint104', type: 'uint104' },
+      { name: 'available', internalType: 'uint104', type: 'uint104' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
+    name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_token', internalType: 'address', type: 'address' },
+      { name: '_quota', internalType: 'uint104', type: 'uint104' },
+    ],
+    name: 'updateQuota',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferStarted',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferred',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'amount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'available',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'QuotaConsumed',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'quotaPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'QuotaPeriodUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'oldQuota',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newQuota',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'QuotaUpdated',
+  },
+  { type: 'error', inputs: [], name: 'QM_INVALID_PARAM' },
+  { type: 'error', inputs: [], name: 'QM_OUT_OF_QUOTA' },
+  { type: 'error', inputs: [], name: 'QM_PERMISSION_DENIED' },
 ] as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

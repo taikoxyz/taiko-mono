@@ -47,8 +47,9 @@ var (
 		EnvVars:  []string{"L2_WS"},
 	}
 	L1BeaconEndpoint = &cli.StringFlag{
-		Name:     "l1.beacon",
-		Usage:    "HTTP RPC endpoint of a L1 beacon node",
+		Name: "l1.beacon",
+		Usage: "HTTP RPC endpoint of a L1 beacon node " +
+			"(the driver reads blobs from it, which since Fulu needs a supernode or semi-supernode)",
 		Category: commonCategory,
 		EnvVars:  []string{"L1_BEACON"},
 	}

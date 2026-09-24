@@ -1,3 +1,5 @@
+import { RecallDisabledError, RecallStatusUnknownError } from '$libs/error';
+
 const MESSAGE_NOT_RECEIVED_ERRORS = ['B_NOT_RECEIVED', 'B_SIGNAL_NOT_RECEIVED'];
 const QUOTA_MANAGER_OUT_OF_QUOTA_ERRORS = ['QM_OUT_OF_QUOTA', '0x51d8fe3a'];
 
@@ -41,4 +43,16 @@ export function isMessageNotReceivedError(error: unknown): boolean {
 export function isQuotaManagerOutOfQuotaError(error: unknown): boolean {
   const haystacks = collectErrorTexts(error);
   return haystacks.some((text) => QUOTA_MANAGER_OUT_OF_QUOTA_ERRORS.some((needle) => text.includes(needle)));
+}
+
+/** Classify recall failures without confusing B_RETRY_FAILED with a disabled recall path. */
+export function getRecallErrorKey(error: unknown): string | null {
+  if (error instanceof RecallStatusUnknownError) return 'bridge.errors.recall.unknown';
+  if (
+    error instanceof RecallDisabledError ||
+    collectErrorTexts(error).some((text) => text.includes('B_RECALL_DISABLED'))
+  ) {
+    return 'bridge.errors.recall.disabled';
+  }
+  return null;
 }

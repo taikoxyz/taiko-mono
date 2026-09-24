@@ -2,6 +2,14 @@ export class NotConnectedError extends Error {
   name = 'NotConnectedError';
 }
 
+export class RecallDisabledError extends Error {
+  name = 'RecallDisabledError';
+}
+
+export class RecallStatusUnknownError extends Error {
+  name = 'RecallStatusUnknownError';
+}
+
 export class TokenMintedError extends Error {
   name = 'TokenMintedError';
 }

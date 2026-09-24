@@ -13,6 +13,7 @@
   import { getLogger } from '$libs/util/logger';
 
   import Claim from '../Claim.svelte';
+  import { getRecallErrorKey } from '../ClaimDialog/error';
   import { claimWithQuotaGuard, showQuotaToastForClaimError } from '../ClaimDialog/quota';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
@@ -66,6 +67,16 @@
 
   const handleRetryError = async (event: CustomEvent<{ error: unknown }>) => {
     const err = event.detail.error;
+    const recallErrorKey = getRecallErrorKey(err);
+    if (recallErrorKey) {
+      warningToast({
+        title: $t(`${recallErrorKey}.title`),
+        message: `${$t(`${recallErrorKey}.message`)} ${$t('transactions.retry.final_attempt_not_submitted')}`,
+      });
+      retrying = false;
+      resetGate.settle();
+      return;
+    }
     if (
       !(await showQuotaToastForClaimError(err, bridgeTx, {
         showQuotaReachedToast,
@@ -192,7 +203,7 @@
       {#if activeStep === RetrySteps.CHECK}
         <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton on:closeDialog={closeDialog} />
       {:else if activeStep === RetrySteps.SELECT}
-        <RetryOptionStep bind:canContinue />
+        <RetryOptionStep {bridgeTx} bind:canContinue />
       {:else if activeStep === RetrySteps.REVIEW}
         <ReviewStep bind:tx={bridgeTx} />
       {:else if activeStep === RetrySteps.CONFIRM}
