@@ -19,10 +19,7 @@ use tracing::{debug, warn};
 use url::Url;
 
 use crate::{
-    blob::{
-        BlobDataError, compute_blob_commitment, parse_blob, parse_bytes48,
-        versioned_hash_from_commitment,
-    },
+    blob::{BlobDataError, compute_blob_commitment, parse_blob, versioned_hash_from_commitment},
     client::DEFAULT_HTTP_TIMEOUT,
 };
 
@@ -53,13 +50,6 @@ struct SpecResponse {
 struct BlobsResponse {
     /// Hex-encoded blobs, in block order per the spec (Lighthouse keeps the request order).
     data: Vec<String>,
-}
-
-/// JSON payload returned by the deprecated `/eth/v1/beacon/blob_sidecars/<slot>`.
-#[derive(Debug, Deserialize)]
-struct BlobSidecarsResponse {
-    /// Blob sidecars for the queried slot.
-    data: Vec<BeaconBlobSidecar>,
 }
 
 /// JSON payload returned by `/eth/v2/beacon/blocks/<slot>`.
@@ -108,16 +98,6 @@ struct ExecutionPayloadHeader {
     /// Execution-layer block number encoded as decimal string.
     #[serde(rename = "block_number")]
     block_number: String,
-}
-
-/// Serialized representation of a single blob sidecar returned by the beacon node.
-#[derive(Debug, Deserialize)]
-struct BeaconBlobSidecar {
-    /// Hex-encoded blob body.
-    blob: String,
-    /// Hex-encoded KZG commitment.
-    #[serde(rename = "kzg_commitment")]
-    kzg_commitment: String,
 }
 
 /// Minimal beacon client capable of retrieving blobs.
@@ -221,31 +201,8 @@ impl BeaconClient {
             }
         }
 
-        match self.blobs_by_slot(slot, &unique_hashes).await {
-            Ok(blobs) => match_blobs_off_runtime(slot, blobs, blob_hashes).await,
-            // A 404 cannot be told apart from "block not found" (or, on Prysm, "blob not in
-            // block"), nor a dropped connection from a node that is down. Retrying the deprecated
-            // endpoint for the same slot is safe either way, since its blobs are matched against
-            // the requested versioned hashes as well.
-            Err(err) if should_try_blob_sidecars(&err) => {
-                match self.blobs_from_sidecars(slot, blob_hashes).await {
-                    Ok(sidecars) => {
-                        warn!(
-                            slot,
-                            ?err,
-                            "served blobs from the deprecated blob_sidecars endpoint, as the \
-                             blobs endpoint failed"
-                        );
-                        Ok(sidecars)
-                    }
-                    Err(sidecars_err) => Err(BlobDataError::Beacon(format!(
-                        "blobs endpoint failed: {err:?}, and the deprecated blob_sidecars \
-                         endpoint failed: {sidecars_err:?}"
-                    ))),
-                }
-            }
-            Err(err) => Err(err),
-        }
+        let blobs = self.blobs_by_slot(slot, &unique_hashes).await?;
+        match_blobs_off_runtime(slot, blobs, blob_hashes).await
     }
 
     /// Fetch the blobs with the given versioned hashes from the beacon block at `slot`.
@@ -288,55 +245,6 @@ impl BeaconClient {
             blobs.push(parse_blob(blob)?);
         }
         Ok(blobs)
-    }
-
-    /// [`Self::blobs_by_timestamp`] for `slot` through the deprecated
-    /// `/eth/v1/beacon/blob_sidecars/<slot>` endpoint, which returns every blob of the block and
-    /// which ethereum/beacon-APIs#577 removed from the spec.
-    ///
-    /// TODO: remove this fallback once consensus clients drop the endpoint, expected at the Gloas
-    /// fork.
-    async fn blobs_from_sidecars(
-        &self,
-        slot: u64,
-        blob_hashes: &[B256],
-    ) -> Result<Vec<BlobTransactionSidecar>, BlobDataError> {
-        let sidecars_url = self
-            .endpoint
-            .join(&format!("/eth/v1/beacon/blob_sidecars/{slot}"))
-            .map_err(|err| BlobDataError::Other(err.into()))?;
-        debug!(slot, url = sidecars_url.as_str(), "requesting beacon blob sidecars");
-
-        let response = self
-            .http
-            .get(sidecars_url.clone())
-            .send()
-            .await
-            .map_err(|err| BlobDataError::Other(err.into()))?;
-        if !response.status().is_success() {
-            debug!(
-                status = response.status().as_u16(),
-                url = sidecars_url.as_str(),
-                "beacon blob_sidecars request failed"
-            );
-            return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
-        }
-
-        let payload: BlobSidecarsResponse =
-            response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
-
-        // The reported commitments only narrow down which blobs to decode: `match_blobs`
-        // recomputes the commitment of every blob kept here.
-        let mut blobs = Vec::new();
-        for sidecar in &payload.data {
-            let requested = parse_bytes48(&sidecar.kzg_commitment).is_ok_and(|commitment| {
-                blob_hashes.contains(&versioned_hash_from_commitment(&commitment))
-            });
-            if requested {
-                blobs.push(parse_blob(&sidecar.blob)?);
-            }
-        }
-        match_blobs_off_runtime(slot, blobs, blob_hashes).await
     }
 
     /// Resolve the execution-layer block number for the provided timestamp by querying the beacon
@@ -489,23 +397,6 @@ impl BeaconBlockResponse {
     }
 }
 
-/// Whether a failed blobs endpoint request should be retried through the deprecated blob sidecars
-/// endpoint. That is the case for a 404, which a beacon node that predates the blobs endpoint
-/// answers, and for a transport error: Prysm v6.1.0 to v7.1.7 drops the connection when a
-/// requested blob appears twice in the block (OffchainLabs/prysm#17199), while its blob sidecars
-/// endpoint still serves the blob. Other statuses come from nodes that serve the endpoint, and a
-/// timeout would not fare better on the deprecated endpoint.
-fn should_try_blob_sidecars(err: &BlobDataError) -> bool {
-    match err {
-        BlobDataError::HttpStatus { status } => *status == 404,
-        // `blobs_by_slot` reports transport errors as the `reqwest::Error` they are.
-        BlobDataError::Other(err) => {
-            err.downcast_ref::<reqwest::Error>().is_some_and(|err| !err.is_timeout())
-        }
-        _ => false,
-    }
-}
-
 /// [`match_blobs`] on the blocking thread pool: the first commitment loads the KZG trusted setup,
 /// which takes seconds on a CPU-limited node and would otherwise stall the async runtime.
 async fn match_blobs_off_runtime(
@@ -563,12 +454,10 @@ fn parse_spec_u64(spec: &serde_json::Value, key: &str) -> Result<u64, BlobDataEr
 mod tests {
     use super::*;
     use crate::test_utils::{
-        Reply, TestServer, assert_waits_for_blocking_pool, single_blocking_thread_runtime,
-        start_beacon,
+        TestServer, assert_waits_for_blocking_pool, single_blocking_thread_runtime, start_beacon,
     };
     use alloy::primitives::hex;
     use hyper::{StatusCode, Uri};
-    use std::time::Duration;
 
     /// A canonical test blob, boxed to keep 128 KiB values out of the test futures, with its KZG
     /// commitment and versioned hash.
@@ -594,39 +483,19 @@ mod tests {
             .to_string()
     }
 
-    /// Encodes a blob sidecars endpoint response reporting `commitment` for each `blob`.
-    fn blob_sidecars_body(sidecars: &[(&TestBlob, Bytes48)]) -> String {
-        let data: Vec<_> = sidecars
-            .iter()
-            .enumerate()
-            .map(|(index, (blob, commitment))| {
-                serde_json::json!({
-                    "index": index.to_string(),
-                    "blob": hex::encode_prefixed(blob.blob.as_slice()),
-                    "kzg_commitment": hex::encode_prefixed(commitment),
-                })
-            })
-            .collect();
-        serde_json::json!({ "data": data }).to_string()
-    }
-
-    /// Starts a beacon node stub answering the blobs endpoint with `blobs` and the blob sidecars
-    /// endpoint with `sidecars`.
-    async fn start_blob_beacon(blobs: impl Into<Reply>, sidecars: impl Into<Reply>) -> TestServer {
-        let (blobs, sidecars) = (blobs.into(), sidecars.into());
+    /// Starts a beacon node stub answering the blobs endpoint with `blobs`.
+    async fn start_blob_beacon(blobs: (StatusCode, String)) -> TestServer {
         start_beacon(move |uri| {
             if uri.path().starts_with("/eth/v1/beacon/blobs/") {
                 blobs.clone()
-            } else if uri.path().starts_with("/eth/v1/beacon/blob_sidecars/") {
-                sidecars.clone()
             } else {
-                Reply::Respond(StatusCode::NOT_FOUND, String::new())
+                (StatusCode::NOT_FOUND, String::new())
             }
         })
         .await
     }
 
-    /// Paths of the blob and blob sidecar requests `beacon` received, in order.
+    /// Paths of the `/eth/v1/beacon/blob*` requests `beacon` received, in order.
     fn blob_request_paths(beacon: &TestServer) -> Vec<String> {
         beacon
             .requests_with_prefix("/eth/v1/beacon/blob")
@@ -657,11 +526,7 @@ mod tests {
         let first = TestBlob::new(0x11);
         let second = TestBlob::new(0x22);
         // The spec returns blobs in block order, whatever the order of the requested hashes.
-        let beacon = start_blob_beacon(
-            (StatusCode::OK, blobs_body(&[&first, &second])),
-            (StatusCode::NOT_FOUND, String::new()),
-        )
-        .await;
+        let beacon = start_blob_beacon((StatusCode::OK, blobs_body(&[&first, &second]))).await;
         let client =
             BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
 
@@ -685,11 +550,7 @@ mod tests {
     fn beacon_blobs_are_matched_on_the_blocking_pool() {
         single_blocking_thread_runtime().block_on(async {
             let blob = TestBlob::new(0x11);
-            let beacon = start_blob_beacon(
-                (StatusCode::OK, blobs_body(&[&blob])),
-                (StatusCode::NOT_FOUND, String::new()),
-            )
-            .await;
+            let beacon = start_blob_beacon((StatusCode::OK, blobs_body(&[&blob]))).await;
             let client =
                 BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
 
@@ -699,11 +560,7 @@ mod tests {
 
     #[tokio::test]
     async fn blobs_without_versioned_hashes_send_no_request() {
-        let beacon = start_blob_beacon(
-            (StatusCode::OK, blobs_body(&[])),
-            (StatusCode::NOT_FOUND, String::new()),
-        )
-        .await;
+        let beacon = start_blob_beacon((StatusCode::OK, blobs_body(&[]))).await;
         let client =
             BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
 
@@ -717,11 +574,9 @@ mod tests {
     #[tokio::test]
     async fn blobs_reject_responses_without_the_requested_blobs() {
         /// Requests `hash` from a beacon node stub answering the blobs endpoint with `body`, and
-        /// checks that the node, which serves the endpoint, is not asked the deprecated one.
+        /// checks that nothing but the blobs endpoint is asked.
         async fn fetch(body: String, hash: B256) -> Result<usize, BlobDataError> {
-            let beacon =
-                start_blob_beacon((StatusCode::OK, body), (StatusCode::NOT_FOUND, String::new()))
-                    .await;
+            let beacon = start_blob_beacon((StatusCode::OK, body)).await;
             let client =
                 BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
             let result = client.blobs_by_timestamp(0, &[hash]).await.map(|sidecars| sidecars.len());
@@ -752,11 +607,9 @@ mod tests {
         let other = TestBlob::new(0x22);
         // A node that ignores the filter, or lists a blob twice, still yields exactly the
         // requested blobs.
-        let beacon = start_blob_beacon(
-            (StatusCode::OK, blobs_body(&[&other, &requested, &requested])),
-            (StatusCode::NOT_FOUND, String::new()),
-        )
-        .await;
+        let beacon =
+            start_blob_beacon((StatusCode::OK, blobs_body(&[&other, &requested, &requested])))
+                .await;
         let client =
             BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
 
@@ -769,126 +622,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn blobs_fall_back_to_blob_sidecars_when_blobs_endpoint_is_not_found() {
-        let first = TestBlob::new(0x11);
-        let second = TestBlob::new(0x22);
-        let beacon = start_blob_beacon(
-            (StatusCode::NOT_FOUND, r#"{"code":404,"message":"NOT_FOUND"}"#.to_owned()),
-            (
-                StatusCode::OK,
-                blob_sidecars_body(&[(&first, first.commitment), (&second, second.commitment)]),
-            ),
-        )
-        .await;
-        let client =
-            BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
-
-        let sidecars = client
-            .blobs_by_timestamp(84, &[second.hash, first.hash, second.hash])
-            .await
-            .expect("the blob sidecars endpoint should serve the blobs");
-
-        assert!(serves(&sidecars, &[&second, &first, &second]));
-        assert_eq!(
-            blob_request_paths(&beacon),
-            vec!["/eth/v1/beacon/blobs/7", "/eth/v1/beacon/blob_sidecars/7"]
-        );
-    }
-
-    #[tokio::test]
-    async fn blobs_fall_back_to_blob_sidecars_when_blobs_endpoint_drops_the_connection() {
-        let blob = TestBlob::new(0x11);
-        // Prysm v6.1.0 to v7.1.7 panics on the blobs endpoint when a requested blob appears twice
-        // in the block, while its blob sidecars endpoint still serves the blob.
-        let beacon = start_blob_beacon(
-            Reply::DropConnection,
-            (StatusCode::OK, blob_sidecars_body(&[(&blob, blob.commitment)])),
-        )
-        .await;
-        let client =
-            BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
-
-        let sidecars = client
-            .blobs_by_timestamp(0, &[blob.hash])
-            .await
-            .expect("the blob sidecars endpoint should serve the blob");
-
-        assert!(serves(&sidecars, &[&blob]));
-        assert_eq!(
-            blob_request_paths(&beacon).last().map(String::as_str),
-            Some("/eth/v1/beacon/blob_sidecars/0")
-        );
-    }
-
-    #[tokio::test]
-    async fn blob_sidecars_fallback_rejects_blob_not_matching_its_commitment() {
-        let requested = TestBlob::new(0x11);
-        let other = TestBlob::new(0x22);
-        // The sidecar reports the requested commitment, but carries another blob.
-        let beacon = start_blob_beacon(
-            (StatusCode::NOT_FOUND, String::new()),
-            (StatusCode::OK, blob_sidecars_body(&[(&other, requested.commitment)])),
-        )
-        .await;
-        let client =
-            BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
-
-        let result = client.blobs_by_timestamp(0, &[requested.hash]).await;
-
-        assert!(
-            matches!(&result, Err(BlobDataError::Beacon(message))
-                if message.contains("status: 404") && message.contains("did not return blob")),
-            "expected both endpoints' errors, got {:?}",
-            result.map(|sidecars| sidecars.len())
-        );
-        assert_eq!(
-            blob_request_paths(&beacon),
-            vec!["/eth/v1/beacon/blobs/0", "/eth/v1/beacon/blob_sidecars/0"]
-        );
-    }
-
-    #[tokio::test]
-    async fn blobs_report_both_errors_when_the_blob_sidecars_fallback_fails() {
-        let blob = TestBlob::new(0x11);
-        // Nimbus v26.8.0+ answers the removed endpoint with 410 Gone.
-        let beacon = start_blob_beacon(
-            (StatusCode::NOT_FOUND, String::new()),
-            (StatusCode::GONE, String::new()),
-        )
-        .await;
-        let client =
-            BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
-
-        let result = client.blobs_by_timestamp(0, &[blob.hash]).await;
-
-        assert!(
-            matches!(&result, Err(BlobDataError::Beacon(message))
-                if message.contains("status: 404") && message.contains("status: 410")),
-            "expected both endpoints' errors, got {:?}",
-            result.map(|sidecars| sidecars.len())
-        );
-        assert_eq!(
-            blob_request_paths(&beacon),
-            vec!["/eth/v1/beacon/blobs/0", "/eth/v1/beacon/blob_sidecars/0"]
-        );
-    }
-
-    #[tokio::test]
-    async fn blobs_do_not_fall_back_to_blob_sidecars_on_other_statuses() {
+    async fn blobs_report_error_statuses() {
         let blob = TestBlob::new(0x11);
 
-        // Nodes serving the endpoint answer 400 (Lighthouse, Lodestar, Grandine) or 5xx for blobs
-        // they cannot serve.
+        // Nodes answer 404 for a block they do not have, and 400 (Lighthouse, Lodestar, Grandine)
+        // or 5xx for blobs they cannot serve. The error goes to the caller, which falls back to
+        // the blob server.
         for status in [
+            StatusCode::NOT_FOUND,
             StatusCode::BAD_REQUEST,
             StatusCode::INTERNAL_SERVER_ERROR,
             StatusCode::SERVICE_UNAVAILABLE,
         ] {
-            let beacon = start_blob_beacon(
-                (status, String::new()),
-                (StatusCode::OK, blob_sidecars_body(&[(&blob, blob.commitment)])),
-            )
-            .await;
+            let beacon = start_blob_beacon((status, String::new())).await;
             let client =
                 BeaconClient::new(beacon.endpoint()).await.expect("beacon client should build");
 
@@ -901,36 +647,5 @@ mod tests {
             );
             assert_eq!(blob_request_paths(&beacon), vec!["/eth/v1/beacon/blobs/0"], "{status}");
         }
-    }
-
-    #[tokio::test]
-    async fn blob_sidecars_are_tried_on_not_found_and_transport_errors_other_than_timeouts() {
-        let http = |timeout| {
-            HttpClient::builder().no_proxy().timeout(timeout).build().expect("client should build")
-        };
-        // A server that drops the connection, and a listener that never accepts it.
-        let dropping = TestServer::start(|_| Reply::DropConnection).await;
-        let dropped = http(DEFAULT_HTTP_TIMEOUT)
-            .get(dropping.endpoint())
-            .send()
-            .await
-            .expect_err("the connection should drop");
-        let silent = std::net::TcpListener::bind("127.0.0.1:0").expect("listener should bind");
-        let timed_out = http(Duration::from_millis(50))
-            .get(format!(
-                "http://{}",
-                silent.local_addr().expect("listener should have an address")
-            ))
-            .send()
-            .await
-            .expect_err("the request should time out");
-
-        assert!(should_try_blob_sidecars(&BlobDataError::HttpStatus { status: 404 }));
-        assert!(should_try_blob_sidecars(&BlobDataError::Other(dropped.into())));
-        assert!(!should_try_blob_sidecars(&BlobDataError::Other(timed_out.into())));
-        for status in [400, 500, 503] {
-            assert!(!should_try_blob_sidecars(&BlobDataError::HttpStatus { status }), "{status}");
-        }
-        assert!(!should_try_blob_sidecars(&BlobDataError::Parse("invalid blob".to_owned())));
     }
 }

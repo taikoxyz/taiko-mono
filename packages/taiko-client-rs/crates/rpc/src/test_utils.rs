@@ -20,23 +20,8 @@ use tokio::{
 };
 use url::Url;
 
-/// How a [`TestServer`] answers a request.
-#[derive(Clone)]
-pub(crate) enum Reply {
-    /// Answer with the status and JSON body.
-    Respond(StatusCode, String),
-    /// Close the connection without answering, as a server does when its handler panics.
-    DropConnection,
-}
-
-impl From<(StatusCode, String)> for Reply {
-    fn from((status, body): (StatusCode, String)) -> Self {
-        Self::Respond(status, body)
-    }
-}
-
-/// Local HTTP server that answers each request with the [`Reply`] its handler returns for the
-/// request URI, and records the URIs it receives.
+/// Local HTTP server that answers each request with the status and JSON body its handler returns
+/// for the request URI, and records the URIs it receives.
 pub(crate) struct TestServer {
     endpoint: Url,
     shutdown: Arc<Notify>,
@@ -45,8 +30,8 @@ pub(crate) struct TestServer {
 }
 
 impl TestServer {
-    pub(crate) async fn start<R: Into<Reply>>(
-        handler: impl Fn(&Uri) -> R + Send + Sync + 'static,
+    pub(crate) async fn start(
+        handler: impl Fn(&Uri) -> (StatusCode, String) + Send + Sync + 'static,
     ) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
@@ -73,19 +58,15 @@ impl TestServer {
                             let io = hyper_util::rt::TokioIo::new(stream);
                             let service = service_fn(move |request: hyper::Request<_>| {
                                 recorded.lock().unwrap().push(request.uri().clone());
-                                let reply = handler(request.uri()).into();
+                                let (status, body) = handler(request.uri());
                                 async move {
-                                    match reply {
-                                        Reply::Respond(status, body) => Ok(hyper::Response::builder()
+                                    Ok::<_, hyper::Error>(
+                                        hyper::Response::builder()
                                             .status(status)
                                             .header(CONTENT_TYPE, "application/json")
                                             .body(Full::new(HyperBytes::from(body)))
-                                            .expect("test response should build")),
-                                        // hyper closes the connection when the service fails.
-                                        Reply::DropConnection => {
-                                            Err(std::io::Error::other("dropping the connection"))
-                                        }
-                                    }
+                                            .expect("test response should build"),
+                                    )
                                 }
                             });
                             let _ = Http1Builder::new().serve_connection(io, service).await;
@@ -148,18 +129,16 @@ pub(crate) async fn assert_waits_for_blocking_pool(fut: impl Future) {
 
 /// Starts a beacon node stub, with genesis at 0 and 12-second slots, that answers every request
 /// other than the genesis and spec ones through `handler`.
-pub(crate) async fn start_beacon<R: Into<Reply>>(
-    handler: impl Fn(&Uri) -> R + Send + Sync + 'static,
+pub(crate) async fn start_beacon(
+    handler: impl Fn(&Uri) -> (StatusCode, String) + Send + Sync + 'static,
 ) -> TestServer {
     TestServer::start(move |uri| match uri.path() {
-        "/eth/v1/beacon/genesis" => {
-            Reply::Respond(StatusCode::OK, r#"{"data":{"genesis_time":"0"}}"#.to_owned())
-        }
-        "/eth/v1/config/spec" => Reply::Respond(
+        "/eth/v1/beacon/genesis" => (StatusCode::OK, r#"{"data":{"genesis_time":"0"}}"#.to_owned()),
+        "/eth/v1/config/spec" => (
             StatusCode::OK,
             r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#.to_owned(),
         ),
-        _ => handler(uri).into(),
+        _ => handler(uri),
     })
     .await
 }

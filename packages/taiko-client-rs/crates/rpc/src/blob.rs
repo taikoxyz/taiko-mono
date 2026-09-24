@@ -340,7 +340,6 @@ mod tests {
         assert_eq!(sidecars.len(), 1);
         assert_eq!(sidecars[0].blobs, vec![Blob::ZERO]);
         assert_eq!(beacon.requests_with_prefix("/eth/v1/beacon/blobs/").len(), 1);
-        assert!(beacon.requests_with_prefix("/eth/v1/beacon/blob_sidecars/").is_empty());
         assert_eq!(blob_server.requests_with_prefix(&format!("/blobs/{zero_hash}")).len(), 1);
     }
 

@@ -3,9 +3,6 @@ package rpc
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -19,28 +16,20 @@ import (
 
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto/kzg4844"
-	prysmclient "github.com/prysmaticlabs/prysm/v5/api/client"
-	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 	"github.com/stretchr/testify/require"
 )
 
 // beaconStub is a minimal fake beacon node whose responses can be mutated per test.
 type beaconStub struct {
-	pathPrefix   string
-	genesisBody  string
-	genesisCode  int
-	specBody     string
-	specCode     int
-	blobsBody    string
-	blobsCode    int
-	sidecarsBody string
-	sidecarsCode int
+	pathPrefix  string
+	genesisBody string
+	genesisCode int
+	specBody    string
+	specCode    int
+	blobsBody   string
+	blobsCode   int
 	// rateLimited is the number of first blob requests answered with 429.
 	rateLimited int
-	// blobsDropConnection makes the blobs endpoint close the connection without answering.
-	blobsDropConnection bool
 
 	mu       sync.Mutex
 	requests []url.URL
@@ -48,14 +37,12 @@ type beaconStub struct {
 
 func newBeaconStub() *beaconStub {
 	return &beaconStub{
-		genesisBody:  `{"data":{"genesis_time":"100"}}`,
-		genesisCode:  http.StatusOK,
-		specBody:     `{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}`,
-		specCode:     http.StatusOK,
-		blobsBody:    `{"execution_optimistic":false,"finalized":true,"data":[]}`,
-		blobsCode:    http.StatusOK,
-		sidecarsBody: `{"data":[]}`,
-		sidecarsCode: http.StatusOK,
+		genesisBody: `{"data":{"genesis_time":"100"}}`,
+		genesisCode: http.StatusOK,
+		specBody:    `{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}`,
+		specCode:    http.StatusOK,
+		blobsBody:   `{"execution_optimistic":false,"finalized":true,"data":[]}`,
+		blobsCode:   http.StatusOK,
 	}
 }
 
@@ -78,15 +65,9 @@ func (s *beaconStub) serve(t *testing.T) *httptest.Server {
 					respond(w, http.StatusTooManyRequests, "")
 					return
 				}
-				if s.blobsDropConnection {
-					// net/http closes the connection without answering, as it does when a handler panics.
-					panic(http.ErrAbortHandler)
-				}
 				respond(w, s.blobsCode, s.blobsBody)
-			case strings.HasPrefix(r.URL.Path, "/eth/v1/beacon/blob_sidecars/"):
-				s.recordRequest(r)
-				respond(w, s.sidecarsCode, s.sidecarsBody)
 			default:
+				s.recordRequest(r)
 				http.NotFound(w, r)
 			}
 		},
@@ -95,7 +76,7 @@ func (s *beaconStub) serve(t *testing.T) *httptest.Server {
 	return server
 }
 
-// recordRequest records a blob or blob sidecar request, and returns how many were received so far.
+// recordRequest records a request other than the genesis and spec ones, and returns how many were received so far.
 func (s *beaconStub) recordRequest(r *http.Request) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -103,7 +84,7 @@ func (s *beaconStub) recordRequest(r *http.Request) int {
 	return len(s.requests)
 }
 
-// blobRequests returns the URLs of the blob and blob sidecar requests received so far, in order.
+// blobRequests returns the URLs of the requests other than the genesis and spec ones received so far, in order.
 func (s *beaconStub) blobRequests() []url.URL {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -118,22 +99,6 @@ func blobsBody(t *testing.T, blobs ...*opeth.Blob) string {
 		"finalized":            true,
 		"data":                 append([]*opeth.Blob{}, blobs...), // never null
 	})
-	require.NoError(t, err)
-	return string(body)
-}
-
-// sidecarsBody encodes a blob sidecars endpoint response reporting commitments[i] for blobs[i].
-func sidecarsBody(t *testing.T, blobs []*opeth.Blob, commitments []kzg4844.Commitment) string {
-	t.Helper()
-	sidecars := make([]*structs.Sidecar, len(blobs))
-	for i := range blobs {
-		sidecars[i] = &structs.Sidecar{
-			Index:         strconv.Itoa(i),
-			Blob:          blobs[i].String(),
-			KzgCommitment: hexutil.Encode(commitments[i][:]),
-		}
-	}
-	body, err := json.Marshal(structs.SidecarsResponse{Data: sidecars})
 	require.NoError(t, err)
 	return string(body)
 }
@@ -341,94 +306,19 @@ func TestGetBlobsRejectsResponsesWithoutRequestedBlobs(t *testing.T) {
 			})
 			require.Nil(t, blobs)
 			require.ErrorContains(t, err, tt.wantError)
-			// The node serves the endpoint, so the deprecated one is not asked.
+			// Nothing but the blobs endpoint is asked.
 			require.Len(t, stub.blobRequests(), 1)
 		})
 	}
 }
 
-func TestGetBlobsFallsBackToBlobSidecarsWhenBlobsEndpointNotFound(t *testing.T) {
-	first, firstCommitment, firstHash := testBlobWithCommitment(t, []byte("first"))
-	second, secondCommitment, secondHash := testBlobWithCommitment(t, []byte("second"))
-
-	stub := newBeaconStub()
-	stub.blobsCode = http.StatusNotFound
-	stub.blobsBody = `{"code":404,"message":"NOT_FOUND"}`
-	stub.sidecarsBody = sidecarsBody(
-		t,
-		[]*opeth.Blob{first, second},
-		[]kzg4844.Commitment{firstCommitment, secondCommitment},
-	)
-	client, err := NewBeaconClient(stub.serve(t).URL, DefaultRpcTimeout)
-	require.NoError(t, err)
-
-	blobs, err := client.GetBlobs(context.Background(), 184, []common.Hash{secondHash, firstHash, secondHash})
-	require.NoError(t, err)
-	require.Equal(t, []*opeth.Blob{second, first, second}, blobs)
-
-	requests := stub.blobRequests()
-	require.Len(t, requests, 2)
-	require.Equal(t, "/eth/v1/beacon/blobs/7", requests[0].Path)
-	require.Equal(t, "/eth/v1/beacon/blob_sidecars/7", requests[1].Path)
-}
-
-func TestGetBlobsFallsBackToBlobSidecarsWhenBlobsEndpointDropsConnection(t *testing.T) {
-	blob, commitment, blobHash := testBlobWithCommitment(t, []byte("derivation data"))
-
-	stub := newBeaconStub()
-	// Prysm v6.1.0 to v7.1.7 panics on the blobs endpoint when a requested blob appears twice in the block,
-	// while its blob sidecars endpoint still serves the blob.
-	stub.blobsDropConnection = true
-	stub.sidecarsBody = sidecarsBody(t, []*opeth.Blob{blob}, []kzg4844.Commitment{commitment})
-	client, err := NewBeaconClient(stub.serve(t).URL, DefaultRpcTimeout)
-	require.NoError(t, err)
-
-	blobs, err := client.GetBlobs(context.Background(), 100, []common.Hash{blobHash})
-	require.NoError(t, err)
-	require.Equal(t, []*opeth.Blob{blob}, blobs)
-
-	requests := stub.blobRequests()
-	require.Equal(t, "/eth/v1/beacon/blob_sidecars/0", requests[len(requests)-1].Path)
-}
-
-func TestGetBlobsRejectsBlobSidecarNotMatchingItsCommitment(t *testing.T) {
-	_, commitment, blobHash := testBlobWithCommitment(t, []byte("reported"))
-	other, _, _ := testBlobWithCommitment(t, []byte("served"))
-
-	stub := newBeaconStub()
-	stub.blobsCode = http.StatusNotFound
-	// The sidecar reports the requested commitment, but carries another blob.
-	stub.sidecarsBody = sidecarsBody(t, []*opeth.Blob{other}, []kzg4844.Commitment{commitment})
-	client, err := NewBeaconClient(stub.serve(t).URL, DefaultRpcTimeout)
-	require.NoError(t, err)
-
-	blobs, err := client.GetBlobs(context.Background(), 100, []common.Hash{blobHash})
-	require.Nil(t, blobs)
-	require.ErrorContains(t, err, "did not return blob")
-}
-
-func TestGetBlobsReportsBlobsEndpointErrorWhenBlobSidecarsFallbackFails(t *testing.T) {
+func TestGetBlobsReportsErrorStatuses(t *testing.T) {
 	_, _, blobHash := testBlobWithCommitment(t, []byte("derivation data"))
 
-	stub := newBeaconStub()
-	stub.blobsCode = http.StatusNotFound
-	// Nimbus v26.8.0+ answers the removed endpoint with 410 Gone.
-	stub.sidecarsCode = http.StatusGone
-	client, err := NewBeaconClient(stub.serve(t).URL, DefaultRpcTimeout)
-	require.NoError(t, err)
-
-	blobs, err := client.GetBlobs(context.Background(), 100, []common.Hash{blobHash})
-	require.Nil(t, blobs)
-	require.ErrorIs(t, err, prysmclient.ErrNotFound)
-	require.ErrorContains(t, err, "code=410")
-	require.Len(t, stub.blobRequests(), 2)
-}
-
-func TestGetBlobsDoesNotFallBackToBlobSidecarsOnOtherStatuses(t *testing.T) {
-	blob, commitment, blobHash := testBlobWithCommitment(t, []byte("derivation data"))
-
-	// Nodes serving the endpoint answer 400 (Lighthouse, Lodestar, Grandine) or 5xx for blobs they cannot serve.
+	// Nodes answer 404 for a block they do not have, and 400 (Lighthouse, Lodestar, Grandine) or 5xx for blobs they
+	// cannot serve. The error goes to the caller, which falls back to the blob server.
 	for _, code := range []int{
+		http.StatusNotFound,
 		http.StatusBadRequest,
 		http.StatusInternalServerError,
 		http.StatusServiceUnavailable,
@@ -436,7 +326,6 @@ func TestGetBlobsDoesNotFallBackToBlobSidecarsOnOtherStatuses(t *testing.T) {
 		t.Run(strconv.Itoa(code), func(t *testing.T) {
 			stub := newBeaconStub()
 			stub.blobsCode = code
-			stub.sidecarsBody = sidecarsBody(t, []*opeth.Blob{blob}, []kzg4844.Commitment{commitment})
 			client, err := NewBeaconClient(stub.serve(t).URL, DefaultRpcTimeout)
 			require.NoError(t, err)
 
@@ -444,39 +333,6 @@ func TestGetBlobsDoesNotFallBackToBlobSidecarsOnOtherStatuses(t *testing.T) {
 			require.Nil(t, blobs)
 			require.ErrorContains(t, err, strconv.Itoa(code))
 			require.Len(t, stub.blobRequests(), 1)
-		})
-	}
-}
-
-func TestShouldTryBlobSidecars(t *testing.T) {
-	blobsURL := "http://beacon/eth/v1/beacon/blobs/0"
-	droppedConnection := &url.Error{Op: "Get", URL: blobsURL, Err: io.EOF}
-	doneCtx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	tests := []struct {
-		name string
-		ctx  context.Context
-		err  error
-		want bool
-	}{
-		{"not found", context.Background(), fmt.Errorf("code=404: %w", prysmclient.ErrNotFound), true},
-		{"dropped connection", context.Background(), droppedConnection, true},
-		{"other status", context.Background(), fmt.Errorf("code=400: %w", prysmclient.ErrNotOK), false},
-		{"timeout", context.Background(), &url.Error{Op: "Get", URL: blobsURL, Err: context.DeadlineExceeded}, false},
-		{
-			"exhausted rate limit retries",
-			context.Background(),
-			&url.Error{Op: "Get", URL: blobsURL, Err: &RateLimitError{URL: blobsURL, Attempts: RateLimitMaxRetries}},
-			false,
-		},
-		{"done context", doneCtx, droppedConnection, false},
-		{"malformed response", context.Background(), errors.New("failed to decode beacon blobs response"), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, shouldTryBlobSidecars(tt.ctx, tt.err))
 		})
 	}
 }

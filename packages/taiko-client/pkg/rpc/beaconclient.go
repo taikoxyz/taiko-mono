@@ -15,25 +15,18 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/api/client"
 	"github.com/prysmaticlabs/prysm/v5/api/client/beacon"
-	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 )
 
 var (
 	// Request urls.
-	blobsRequestURL = "/eth/v1/beacon/blobs/%d"
-	// sidecarsRequestURL was deprecated by ethereum/beacon-APIs#546 and removed from the spec by
-	// ethereum/beacon-APIs#577. It is only queried when a beacon node answers 404 for blobsRequestURL.
-	// TODO: remove this fallback once consensus clients drop the endpoint, expected at the Gloas fork.
-	sidecarsRequestURL = "/eth/v1/beacon/blob_sidecars/%d"
-	genesisRequestURL  = "/eth/v1/beacon/genesis"
-	getConfigSpecPath  = "/eth/v1/config/spec"
-	beaconBlockBySlot  = "/eth/v2/beacon/blocks/%d"
+	blobsRequestURL   = "/eth/v1/beacon/blobs/%d"
+	genesisRequestURL = "/eth/v1/beacon/genesis"
+	getConfigSpecPath = "/eth/v1/config/spec"
+	beaconBlockBySlot = "/eth/v2/beacon/blocks/%d"
 )
 
 // blobsResponse is the response from the beacon node for fetching blobs.
@@ -220,44 +213,10 @@ func (c *BeaconClient) GetBlobs(ctx context.Context, timestamp uint64, blobHashe
 	}
 
 	blobs, err := c.getBlobs(ctxWithTimeout, slot, uniqueHashes)
-	if err == nil {
-		return matchBlobs(blobs, blobHashes)
-	}
-	if !shouldTryBlobSidecars(ctxWithTimeout, err) {
+	if err != nil {
 		return nil, err
 	}
-
-	// A 404 cannot be told apart from "block not found" (or, on Prysm, "blob not in block"), nor a dropped
-	// connection from a node that is down. Retrying the deprecated endpoint for the same slot is safe either way,
-	// since its blobs are matched against the requested versioned hashes as well.
-	matched, sidecarsErr := c.getBlobsFromSidecars(ctxWithTimeout, slot, blobHashes)
-	if sidecarsErr != nil {
-		return nil, fmt.Errorf("%w (deprecated blob sidecars endpoint: %w)", err, sidecarsErr)
-	}
-	log.Warn(
-		"Served blobs from the deprecated blob sidecars endpoint, as the blobs endpoint failed",
-		"slot", slot,
-		"error", err,
-	)
-	return matched, nil
-}
-
-// shouldTryBlobSidecars reports whether a failed blobs endpoint request should be retried through the
-// deprecated blob sidecars endpoint. That is the case for a 404, which a beacon node that predates the
-// blobs endpoint answers, and for a transport error: Prysm v6.1.0 to v7.1.7 drops the connection when a
-// requested blob appears twice in the block (OffchainLabs/prysm#17199), while its blob sidecars endpoint
-// still serves the blob. Other statuses come from nodes that serve the endpoint, and a timeout, exhausted
-// rate limit retries or a done context would not fare better on the deprecated endpoint.
-func shouldTryBlobSidecars(ctx context.Context, err error) bool {
-	if errors.Is(err, client.ErrNotFound) {
-		return true
-	}
-
-	var (
-		urlErr       *url.Error
-		rateLimitErr *RateLimitError
-	)
-	return ctx.Err() == nil && errors.As(err, &urlErr) && !urlErr.Timeout() && !errors.As(err, &rateLimitErr)
+	return matchBlobs(blobs, blobHashes)
 }
 
 // getBlobs fetches the blobs with the given versioned hashes from the beacon block at the given slot.
@@ -307,56 +266,6 @@ func (c *BeaconClient) getBlobs(ctx context.Context, slot uint64, blobHashes []c
 	}
 
 	return blobs.Data, nil
-}
-
-// getBlobsFromSidecars is GetBlobs through the deprecated blob sidecars endpoint, which returns every blob of
-// the beacon block at the given slot.
-func (c *BeaconClient) getBlobsFromSidecars(
-	ctx context.Context,
-	slot uint64,
-	blobHashes []common.Hash,
-) ([]*eth.Blob, error) {
-	resBytes, err := c.Get(ctx, c.BaseURL().Path+fmt.Sprintf(sidecarsRequestURL, slot))
-	if err != nil {
-		return nil, err
-	}
-
-	var sidecars structs.SidecarsResponse
-	if err = json.Unmarshal(resBytes, &sidecars); err != nil {
-		return nil, fmt.Errorf("failed to decode beacon blob sidecars response: %w", err)
-	}
-	if sidecars.Data == nil {
-		return nil, errors.New("beacon blob sidecars response is missing data")
-	}
-
-	requested := make(map[common.Hash]struct{}, len(blobHashes))
-	for _, blobHash := range blobHashes {
-		requested[blobHash] = struct{}{}
-	}
-
-	// The reported commitments only narrow down which blobs to decode: matchBlobs recomputes the
-	// commitment of every blob kept here.
-	var blobs []*eth.Blob
-	for _, sidecar := range sidecars.Data {
-		if sidecar == nil {
-			continue
-		}
-		commitment, err := hexutil.Decode(sidecar.KzgCommitment)
-		if err != nil || len(commitment) != len(kzg4844.Commitment{}) {
-			continue
-		}
-		if _, ok := requested[eth.KZGToVersionedHash(kzg4844.Commitment(commitment))]; !ok {
-			continue
-		}
-
-		blob := new(eth.Blob)
-		if err := blob.UnmarshalText([]byte(sidecar.Blob)); err != nil {
-			return nil, fmt.Errorf("invalid blob in beacon blob sidecars response: %w", err)
-		}
-		blobs = append(blobs, blob)
-	}
-
-	return matchBlobs(blobs, blobHashes)
 }
 
 // matchBlobs returns, for each of the given versioned hashes, the blob whose KZG commitment hashes to it.
