@@ -28,7 +28,7 @@ import { config } from '$libs/wagmi';
 
 import { estimateMessageGasLimitWithMinimum, type MessageGasEstimateExtras } from './estimateMessageGasLimit';
 import { feeForGasLimit } from './messageFeeInvariant';
-import { assertRecallEnabled, getFinalRetryState } from './recall';
+import { assertFinalRetryEnabled, assertRecallEnabled } from './recall';
 import {
   type BridgeArgs,
   type BridgeTransaction,
@@ -432,7 +432,8 @@ export abstract class Bridge {
     const { message } = bridgeTx;
 
     if (!message) throw new ProcessMessageError('Message is not defined');
-    const isFinalAttempt = !!args.lastAttempt && (await getFinalRetryState(message)) === 'enabled';
+    const isFinalAttempt = !!args.lastAttempt;
+    if (isFinalAttempt) await assertFinalRetryEnabled(message);
     isFinalAttempt ? log('Retrying message for the last time') : log('Retrying message');
 
     let estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
@@ -453,11 +454,9 @@ export abstract class Bridge {
     });
     log('Simulate contract for retryMessage', request);
 
-    // An upgrade may have executed during estimation or simulation. Rebuild with the normal
-    // retry flag rather than handing the wallet the now-obsolete final-attempt request.
-    if (isFinalAttempt && (await getFinalRetryState(message)) !== 'enabled') {
-      return this.retryMessage({ ...args, lastAttempt: false });
-    }
+    // An upgrade may have executed during estimation or simulation. Stop before requesting
+    // a signature if the final retry is no longer available; let the user choose another retry.
+    if (isFinalAttempt) await assertFinalRetryEnabled(message);
 
     return await writeContract(config, request);
   }

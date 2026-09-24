@@ -94,9 +94,14 @@ When enabled, the UI reads `recallEnabled()` from the bridge proxies. Release re
 source bridge to support recalls; a final retry requires both bridges, so it remains safe
 while the two chains upgrade separately. Legacy bridges without the getter retain their
 existing behaviour after a successful `paused()` read confirms a responsive contract.
+Missing-getter detection accepts empty reverts across RPC clients, including Besu's
+`Execution reverted` and older geth's `-32000` response without revert data.
 RPC failures leave recall availability unknown and do not enable recalls. The flag cannot
 override a bridge reporting `recallEnabled() == false`. Capability is rechecked before
-requesting a signature. Cross-chain reads are not atomic: capabilities can still change
+requesting a signature. If a selected final retry becomes unavailable or cannot be verified,
+submission stops with an explanation; the user can go back and explicitly choose an ordinary
+retry. Returning from Review preserves the selected retry type while capabilities are checked.
+Cross-chain reads are not atomic: capabilities can still change
 while a wallet request or transaction is pending. Operators can disable these actions
 before starting a rollout; existing tabs must reload to pick up the environment change.
 

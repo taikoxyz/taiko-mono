@@ -69,7 +69,10 @@
     const err = event.detail.error;
     const recallErrorKey = getRecallErrorKey(err);
     if (recallErrorKey) {
-      warningToast({ title: $t(`${recallErrorKey}.title`), message: $t(`${recallErrorKey}.message`) });
+      warningToast({
+        title: $t(`${recallErrorKey}.title`),
+        message: `${$t(`${recallErrorKey}.message`)} ${$t('transactions.retry.final_attempt_not_submitted')}`,
+      });
       retrying = false;
       resetGate.settle();
       return;

@@ -1,5 +1,5 @@
-import { readContract } from '@wagmi/core';
-import { BaseError, ContractFunctionRevertedError, ContractFunctionZeroDataError } from 'viem';
+import { getPublicClient, readContract } from '@wagmi/core';
+import { BaseError, decodeFunctionResult, encodeFunctionData, RpcRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -22,29 +22,44 @@ export async function getRecallState(chainId: number, otherChainId: number): Pro
   if (!address) return 'unknown';
 
   try {
-    const enabled = await readContract(config, { address, abi: bridgeAbi, functionName: 'recallEnabled', chainId });
-    return enabled === true ? 'enabled' : enabled === false ? 'disabled' : 'unknown';
+    const client = getPublicClient(config, { chainId });
+    if (!client) return 'unknown';
+    // Read the raw RPC result: readContract can discard nested revert data, and call
+    // conflates a missing result with "0x". Only a literal empty result is a legacy hint.
+    const data = await client.request({
+      method: 'eth_call',
+      params: [{ to: address, data: encodeFunctionData({ abi: bridgeAbi, functionName: 'recallEnabled' }) }, 'latest'],
+    });
+    if (typeof data !== 'string') return 'unknown';
+    if (data !== '0x') {
+      const enabled = decodeFunctionResult({ abi: bridgeAbi, functionName: 'recallEnabled', data });
+      return enabled === true ? 'enabled' : enabled === false ? 'disabled' : 'unknown';
+    }
   } catch (error) {
     if (!(error instanceof BaseError)) return 'unknown';
-    const missingGetter = error.walk(
-      (cause) =>
-        cause instanceof ContractFunctionZeroDataError ||
-        (cause instanceof ContractFunctionRevertedError &&
-          !cause.data &&
-          !cause.signature &&
-          !cause.cause &&
-          (!cause.reason || cause.reason === 'execution reverted')),
-    );
+    const missingGetter = error.walk((cause) => {
+      // Clients differ in code and casing; require a bare revert with no error data.
+      if (!(cause instanceof RpcRequestError) || ![3, -32000, -32603].includes(cause.code)) return false;
+      const rpcError = cause.cause;
+      return (
+        typeof rpcError === 'object' &&
+        rpcError !== null &&
+        'message' in rpcError &&
+        typeof rpcError.message === 'string' &&
+        rpcError.message.toLowerCase() === 'execution reverted' &&
+        (!('data' in rpcError) || rpcError.data === undefined || rpcError.data === '0x')
+      );
+    });
     if (!missingGetter) return 'unknown';
+  }
 
-    try {
-      // Empty return data also occurs for an address without code. Verify a getter that both
-      // old and new bridges implement before treating the address as a legacy bridge.
-      const paused = await readContract(config, { address, abi: bridgeAbi, functionName: 'paused', chainId });
-      return typeof paused === 'boolean' ? 'enabled' : 'unknown';
-    } catch {
-      return 'unknown';
-    }
+  try {
+    // Empty return data also occurs for an address without code. Verify a getter that both
+    // old and new bridges implement before treating the address as a legacy bridge.
+    const paused = await readContract(config, { address, abi: bridgeAbi, functionName: 'paused', chainId });
+    return typeof paused === 'boolean' ? 'enabled' : 'unknown';
+  } catch {
+    return 'unknown';
   }
 }
 
@@ -66,7 +81,17 @@ export async function assertRecallEnabled({
   srcChainId,
   destChainId,
 }: Pick<BridgeTransaction, 'srcChainId' | 'destChainId'>): Promise<void> {
-  const state = await getRecallState(Number(srcChainId), Number(destChainId));
+  assertRecallStateEnabled(await getRecallState(Number(srcChainId), Number(destChainId)));
+}
+
+/** Preserve the requested retry type: unavailable final retries must not silently become ordinary ones. */
+export async function assertFinalRetryEnabled(
+  message: Pick<BridgeTransaction, 'srcChainId' | 'destChainId'>,
+): Promise<void> {
+  assertRecallStateEnabled(await getFinalRetryState(message));
+}
+
+function assertRecallStateEnabled(state: RecallState): void {
   if (state === 'disabled') throw new RecallDisabledError('Bridge recalls are disabled');
   if (state === 'unknown') throw new RecallStatusUnknownError('Could not determine bridge recall availability');
 }

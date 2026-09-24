@@ -27,7 +27,6 @@
     recallState = 'unknown';
     void refresh(recallSourceChainId, recallDestinationChainId);
   }
-  $: if (recallState !== 'enabled') $selectedRetryMethod = RETRY_OPTION.CONTINUE;
   onMount(() => {
     timer = setInterval(
       () => void refresh(recallSourceChainId, recallDestinationChainId),
@@ -39,11 +38,11 @@
     clearInterval(timer);
   });
 
-  $: if ($selectedRetryMethod !== undefined && $selectedRetryMethod !== null) {
-    canContinue = true;
-  } else {
-    canContinue = false;
-  }
+  // Returning from Review rechecks capability without changing the user's choice.
+  // An unavailable final retry requires an explicit choice of the ordinary retry.
+  $: canContinue =
+    $selectedRetryMethod === RETRY_OPTION.CONTINUE ||
+    ($selectedRetryMethod === RETRY_OPTION.RETRY_ONCE && recallState === 'enabled');
 </script>
 
 <div class="container mx-auto inline-block align-middle space-y-[25px] w-full mt-[20px]">
@@ -68,7 +67,7 @@
           bind:group={$selectedRetryMethod} />
       </label>
     </div>
-    {#if recallState === 'enabled'}
+    {#if recallState === 'enabled' || $selectedRetryMethod === RETRY_OPTION.RETRY_ONCE}
       <div class="form-control">
         <label class="label cursor-pointer">
           <span class="">{$t('transactions.retry.final_attempt')}</span>
@@ -76,6 +75,7 @@
             type="radio"
             class="radio radio-primary-brand checked:bg-primary-brand"
             value={RETRY_OPTION.RETRY_ONCE}
+            disabled={recallState !== 'enabled'}
             bind:group={$selectedRetryMethod} />
         </label>
       </div>

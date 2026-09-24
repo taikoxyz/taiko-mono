@@ -5,9 +5,9 @@
  * (destination for claim and retry, source for release) each call is built against.
  */
 import {
-  BaseError,
   ContractFunctionRevertedError,
   ContractFunctionZeroDataError,
+  encodeAbiParameters,
   type Hash,
   type WalletClient,
 } from 'viem';
@@ -25,7 +25,6 @@ const { publicEnv } = vi.hoisted(() => ({ publicEnv: {} as Record<string, string
 vi.mock('$env/dynamic/public', () => ({ env: publicEnv }));
 vi.mock('@wagmi/core', () => ({
   readContract: (config: unknown, args: { functionName: string }) => {
-    if (args.functionName === 'recallEnabled') return recallRead(config, args);
     if (args.functionName === 'paused') return pausedRead(config, args);
     return readContract(config, args);
   },
@@ -65,7 +64,14 @@ vi.mock('$libs/util/getConnectedWallet', () => ({
 }));
 
 import { routingContractsMap } from '$bridgeConfig';
-import { MessageStatusError, ProcessMessageError, WrongChainError, WrongOwnerError } from '$libs/error';
+import {
+  MessageStatusError,
+  ProcessMessageError,
+  RecallDisabledError,
+  RecallStatusUnknownError,
+  WrongChainError,
+  WrongOwnerError,
+} from '$libs/error';
 
 import { ERC20Bridge } from './ERC20Bridge';
 import { type BridgeTransaction, MessageStatus } from './types';
@@ -113,7 +119,13 @@ beforeEach(() => {
   estimateProcessMessage.mockResolvedValue(100_000n);
   estimateRetryMessage.mockResolvedValue(100_000n);
   estimateRecallMessage.mockResolvedValue(100_000n);
-  getPublicClient.mockReturnValue({ estimateContractGas: vi.fn().mockResolvedValue(90_000n) });
+  getPublicClient.mockImplementation((config, args) => ({
+    estimateContractGas: vi.fn().mockResolvedValue(90_000n),
+    request: async () => {
+      const enabled = await recallRead(config, args);
+      return typeof enabled === 'boolean' ? encodeAbiParameters([{ type: 'bool' }], [enabled]) : enabled;
+    },
+  }));
   getConnectedWallet.mockImplementation(async () => walletOn(destChainId));
 });
 
@@ -147,16 +159,27 @@ describe('Bridge recall compatibility', () => {
     expect(estimateRetryMessage).toHaveBeenCalledWith([expect.anything(), false], expect.anything());
   });
 
-  it.each([srcChainId, destChainId])('uses an ordinary retry if chain %s disables recalls', async (disabledChain) => {
+  it.each([srcChainId, destChainId])('rejects a final retry if chain %s disables recalls', async (disabledChain) => {
     readContract.mockResolvedValue(MessageStatus.RETRIABLE);
     recallRead.mockImplementation(async (_config, { chainId }) => chainId !== disabledChain);
-    await retry();
-    expect(estimateRetryMessage).toHaveBeenCalledWith([expect.anything(), false], expect.anything());
-    expect(simulateContract).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ functionName: 'retryMessage', args: [expect.anything(), false] }),
-    );
+    await expect(retry()).rejects.toBeInstanceOf(RecallDisabledError);
+    expect(estimateRetryMessage).not.toHaveBeenCalled();
+    expect(writeContract).not.toHaveBeenCalled();
   });
+
+  it.each([srcChainId, destChainId])(
+    'rejects a final retry after one failed capability read on chain %s',
+    async (failedChain) => {
+      readContract.mockResolvedValue(MessageStatus.RETRIABLE);
+      recallRead.mockImplementation(async (_config, { chainId }) => {
+        if (chainId === failedChain) throw new Error('RPC timeout');
+        return true;
+      });
+      await expect(retry()).rejects.toBeInstanceOf(RecallStatusUnknownError);
+      expect(estimateRetryMessage).not.toHaveBeenCalled();
+      expect(writeContract).not.toHaveBeenCalled();
+    },
+  );
 
   it('can release when only the destination disables recalls', async () => {
     readContract.mockResolvedValue(MessageStatus.FAILED);
@@ -165,24 +188,25 @@ describe('Bridge recall compatibility', () => {
   });
 
   it.each(['false'])(
-    'the operator flag blocks release and converts final retries to normal retries (%s)',
+    'the operator flag blocks release and final retries but allows an explicit ordinary retry (%s)',
     async (flag) => {
       publicEnv.PUBLIC_BRIDGE_RECALL_ENABLED = flag;
       readContract.mockResolvedValue(MessageStatus.FAILED);
       await expect(release()).rejects.toThrow(/recall/i);
       expect(writeContract).not.toHaveBeenCalled();
       readContract.mockResolvedValue(MessageStatus.RETRIABLE);
-      await retry();
+      await expect(retry()).rejects.toBeInstanceOf(RecallDisabledError);
+      expect(writeContract).not.toHaveBeenCalled();
+      await expect(
+        new ERC20Bridge(prover as never).processMessage({ bridgeTx: bridgeTx(), wallet: walletOn(destChainId) }),
+      ).resolves.toBe(TX_HASH);
       expect(estimateRetryMessage).toHaveBeenCalledWith([expect.anything(), false], expect.anything());
     },
   );
 
-  it.each([
-    new ContractFunctionRevertedError({ abi: [], functionName: 'recallEnabled', data: '0x' }),
-    new ContractFunctionZeroDataError({ functionName: 'recallEnabled' }),
-  ])('preserves legacy recalls after verifying a live bridge with a missing getter (%s)', async (cause) => {
+  it('preserves legacy recalls after verifying a live bridge with an empty getter result', async () => {
     readContract.mockResolvedValue(MessageStatus.FAILED);
-    recallRead.mockRejectedValue(new BaseError('read failed', { cause }));
+    recallRead.mockResolvedValue('0x');
     await expect(release()).resolves.toBe(TX_HASH);
     readContract.mockResolvedValue(MessageStatus.RETRIABLE);
     await retry();
@@ -199,13 +223,14 @@ describe('Bridge recall compatibility', () => {
     await expect(release()).rejects.toThrow(/recall/i);
     expect(writeContract).not.toHaveBeenCalled();
     readContract.mockResolvedValue(MessageStatus.RETRIABLE);
-    await retry();
-    expect(estimateRetryMessage).toHaveBeenCalledWith([expect.anything(), false], expect.anything());
+    await expect(retry()).rejects.toBeInstanceOf(RecallStatusUnknownError);
+    expect(estimateRetryMessage).not.toHaveBeenCalled();
+    expect(writeContract).not.toHaveBeenCalled();
   });
 
   it('does not classify an empty address as a legacy bridge', async () => {
     readContract.mockResolvedValue(MessageStatus.FAILED);
-    recallRead.mockRejectedValue(new ContractFunctionZeroDataError({ functionName: 'recallEnabled' }));
+    recallRead.mockResolvedValue('0x');
     pausedRead.mockRejectedValue(new ContractFunctionZeroDataError({ functionName: 'paused' }));
     await expect(release()).rejects.toThrow(/recall/i);
     expect(writeContract).not.toHaveBeenCalled();
@@ -221,19 +246,16 @@ describe('Bridge recall compatibility', () => {
     expect(writeContract).not.toHaveBeenCalled();
   });
 
-  it('rebuilds a final retry as ordinary if recall becomes disabled during simulation', async () => {
+  it.each(['disabled', 'unknown'])('stops a final retry if recall becomes %s during simulation', async (state) => {
     readContract.mockResolvedValue(MessageStatus.RETRIABLE);
     simulateContract.mockImplementationOnce(async () => {
-      recallRead.mockResolvedValue(false);
+      if (state === 'disabled') recallRead.mockResolvedValue(false);
+      else recallRead.mockRejectedValue(new Error('RPC timeout'));
       return { request: { finalAttempt: true } };
     });
-    await retry();
-    expect(simulateContract).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ args: [expect.anything(), false] }),
-    );
-    expect(writeContract).toHaveBeenCalledOnce();
-    expect(writeContract).not.toHaveBeenCalledWith(expect.anything(), { finalAttempt: true });
+    await expect(retry()).rejects.toBeInstanceOf(state === 'disabled' ? RecallDisabledError : RecallStatusUnknownError);
+    expect(simulateContract).toHaveBeenCalledOnce();
+    expect(writeContract).not.toHaveBeenCalled();
   });
 });
 
