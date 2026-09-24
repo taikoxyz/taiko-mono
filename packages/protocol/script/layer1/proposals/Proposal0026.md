@@ -131,7 +131,10 @@ that carries it, not with the value that was live when it was preconfirmed — s
 25,961,745 (tx `0x16532ab9b11251324578fd2f1d42b0dac2986523a19771365cefd9f9af42b533`, deployer
 `0x56706f118e42ae069f20c5636141b844d1324ae1`, sources at commit
 `9deb5b590b4bf303ff161f0b8b14a49ab518a312`), verified on Etherscan, and its creation code is
-reproduced byte for byte from this branch's sources (see [Verification](#verification)). Its
+reproduced byte for byte from the pinned deployment commit (see [Verification](#verification)).
+The current proposal and source comment use **Proposal0026**. The deployed source predates that
+renumbering and names Proposal0024 in the comment; that comment changes Solidity's metadata hash,
+so a full-byte comparison must build the deployment commit, not the current checkout. Its
 `getConfig()` was read back on-chain at block 25,961,770 and equals the "new" column below. `DeployInboxUpgradeL1` reads
 the live proxy's `getConfig()` before broadcasting and aborts unless its five addresses are the
 `LibL1Addrs` constants it compiles in and its percentage is still 75; after deploying it compares
@@ -298,11 +301,23 @@ cast storage $INBOX 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d
 # Authenticate the code, not just the getters. `forge verify-bytecode` refuses library-linked
 # contracts ("Unlinked bytecode is not supported"), and compiling with `--libraries` bakes the
 # addresses into solc's metadata hash while the deployment linked after compiling. So reproduce what
-# the deployment did: build, patch the two link references with the deployed library addresses,
-# append the constructor arguments, and compare with the deployment transaction's input.
-# Expected output: CREATION CODE MATCH (24,947 bytes; reproduced on 2026-09-12).
-cd packages/protocol && FOUNDRY_PROFILE=layer1 forge build
-TXIN=$(cast tx 0x16532ab9b11251324578fd2f1d42b0dac2986523a19771365cefd9f9af42b533 input --rpc-url $L1_RPC)
+# the deployment did: build its exact source commit and locked dependencies in a separate
+# worktree, patch the link references, append the constructor arguments, and compare with the
+# deployment transaction's input. Keep the current checkout and proposal named Proposal0026:
+# its renamed source comment changes metadata, so its bytecode is not the historical bytecode.
+# Expected output: CREATION CODE MATCH (24,947 bytes).
+(
+set -e
+PROPOSAL0026_REPO_ROOT="$(git rev-parse --show-toplevel)"
+PROPOSAL0026_VERIFY_DIR="$(mktemp -d)"
+git -C "$PROPOSAL0026_REPO_ROOT" fetch origin 9deb5b590b4bf303ff161f0b8b14a49ab518a312
+git -C "$PROPOSAL0026_REPO_ROOT" worktree add --detach "$PROPOSAL0026_VERIFY_DIR/deployment" \
+  9deb5b590b4bf303ff161f0b8b14a49ab518a312
+cd "$PROPOSAL0026_VERIFY_DIR/deployment"
+pnpm install --frozen-lockfile
+cd packages/protocol
+FOUNDRY_PROFILE=layer1 forge build
+TXIN=$(cast tx 0x16532ab9b11251324578fd2f1d42b0dac2986523a19771365cefd9f9af42b533 input --rpc-url "$L1_RPC")
 python3 - "$TXIN" <<'PY'
 import json, sys
 art = json.load(open("out/layer1/MainnetInbox.sol/MainnetInbox.json"))
@@ -318,9 +333,14 @@ args = "".join(a.rjust(64, "0") for a in (
     "7284aaC05555Ae6559bdAd8B4221eC9584254Eec", "FD019460881e6EeC632258222393d5821029b2ac",
     "Ea798547d97e345395dA071a0D7ED8144CD612Ae", "9e0a24964e5397B566c1ed39258e21aB5E35C77C",
     "10dea67478c5F8C5E2D90e5E9B26dBe60c54d800"))
-match = bytes.fromhex(code + args) == bytes.fromhex(sys.argv[1][2:])
-print("CREATION CODE MATCH" if match else "MISMATCH")
+if bytes.fromhex(code + args) != bytes.fromhex(sys.argv[1][2:]):
+    sys.exit("MISMATCH")
+print("CREATION CODE MATCH")
 PY
+cd "$PROPOSAL0026_REPO_ROOT"
+git worktree remove "$PROPOSAL0026_VERIFY_DIR/deployment"
+rmdir "$PROPOSAL0026_VERIFY_DIR"
+)
 # Etherscan holds the verified source (MainnetInbox, solc 0.8.30, osaka, optimizer 200 runs):
 # https://etherscan.io/address/0xA18431d42C8dF9778905fBEa912aCF1881b49D2e#code
 
