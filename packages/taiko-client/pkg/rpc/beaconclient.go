@@ -4,27 +4,35 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/api/client"
 	"github.com/prysmaticlabs/prysm/v5/api/client/beacon"
-	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 )
 
 var (
 	// Request urls.
-	sidecarsRequestURL = "/eth/v1/beacon/blob_sidecars/%d"
-	genesisRequestURL  = "/eth/v1/beacon/genesis"
-	getConfigSpecPath  = "/eth/v1/config/spec"
-	beaconBlockBySlot  = "/eth/v2/beacon/blocks/%d"
+	blobsRequestURL   = "/eth/v1/beacon/blobs/%d"
+	genesisRequestURL = "/eth/v1/beacon/genesis"
+	getConfigSpecPath = "/eth/v1/config/spec"
+	beaconBlockBySlot = "/eth/v2/beacon/blocks/%d"
 )
+
+// blobsResponse is the response from the beacon node for fetching blobs.
+type blobsResponse struct {
+	Data []*eth.Blob `json:"data"`
+}
 
 // ConfigSpec is the config spec of the beacon node.
 type ConfigSpec struct {
@@ -176,29 +184,111 @@ func parseBeaconDurationSeconds(name, value string) (uint64, error) {
 	return parsed, nil
 }
 
-// GetBlobs returns the sidecars for a given slot.
-func (c *BeaconClient) GetBlobs(ctx context.Context, time uint64) ([]*structs.Sidecar, error) {
+// GetBlobs returns the blobs with the given versioned hashes, in the same order, from the beacon block at the
+// slot of the given timestamp. Beacon nodes return blobs without their KZG commitments, in block order per the
+// spec (Lighthouse keeps the request order instead), so every returned blob is matched to a versioned hash by
+// recomputing its commitment: a beacon node can make this call fail, but it cannot make it return a blob that
+// does not match the requested versioned hash.
+func (c *BeaconClient) GetBlobs(ctx context.Context, timestamp uint64, blobHashes []common.Hash) ([]*eth.Blob, error) {
+	if len(blobHashes) == 0 {
+		return nil, nil
+	}
+
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	slot, err := c.timeToSlot(time)
-	if err != nil {
-		return nil, err
-	}
-	resBytes, err := c.Get(ctxWithTimeout, c.BaseURL().Path+fmt.Sprintf(sidecarsRequestURL, slot))
+	slot, err := c.timeToSlot(timestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	var sidecars structs.SidecarsResponse
-	if err = json.Unmarshal(resBytes, &sidecars); err != nil {
-		return nil, fmt.Errorf("failed to decode beacon blob sidecars response: %w", err)
-	}
-	if sidecars.Data == nil {
-		return nil, errors.New("beacon blob sidecars response is missing data")
+	// The endpoint takes unique versioned hashes, while a proposal may reference the same blob twice.
+	uniqueHashes := make([]common.Hash, 0, len(blobHashes))
+	seen := make(map[common.Hash]struct{}, len(blobHashes))
+	for _, blobHash := range blobHashes {
+		if _, ok := seen[blobHash]; !ok {
+			seen[blobHash] = struct{}{}
+			uniqueHashes = append(uniqueHashes, blobHash)
+		}
 	}
 
-	return sidecars.Data, nil
+	blobs, err := c.getBlobs(ctxWithTimeout, slot, uniqueHashes)
+	if err != nil {
+		return nil, err
+	}
+	return matchBlobs(blobs, blobHashes)
+}
+
+// getBlobs fetches the blobs with the given versioned hashes from the beacon block at the given slot.
+func (c *BeaconClient) getBlobs(ctx context.Context, slot uint64, blobHashes []common.Hash) ([]*eth.Blob, error) {
+	query := url.Values{}
+	for _, blobHash := range blobHashes {
+		query.Add("versioned_hashes", blobHash.Hex())
+	}
+
+	// client.Get escapes a query string into the path, so the request is built here.
+	requestURL := c.BaseURL().ResolveReference(&url.URL{
+		Path:     c.BaseURL().Path + fmt.Sprintf(blobsRequestURL, slot),
+		RawQuery: query.Encode(),
+	})
+	// A nil body, unlike http.NoBody, lets RateLimitedTransport retry the request on 429.
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, client.Non200Err(res)
+	}
+
+	resBytes, err := io.ReadAll(io.LimitReader(res.Body, client.MaxBodySize))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read beacon blobs response: %w", err)
+	}
+
+	var blobs blobsResponse
+	if err := json.Unmarshal(resBytes, &blobs); err != nil {
+		return nil, fmt.Errorf("failed to decode beacon blobs response: %w", err)
+	}
+	if blobs.Data == nil {
+		return nil, errors.New("beacon blobs response is missing data")
+	}
+	for _, blob := range blobs.Data {
+		if blob == nil {
+			return nil, errors.New("beacon blobs response contains a null blob")
+		}
+	}
+
+	return blobs.Data, nil
+}
+
+// matchBlobs returns, for each of the given versioned hashes, the blob whose KZG commitment hashes to it.
+func matchBlobs(blobs []*eth.Blob, blobHashes []common.Hash) ([]*eth.Blob, error) {
+	byHash := make(map[common.Hash]*eth.Blob, len(blobs))
+	for _, blob := range blobs {
+		commitment, err := blob.ComputeKZGCommitment()
+		if err != nil {
+			return nil, fmt.Errorf("failed to compute KZG commitment of beacon blob: %w", err)
+		}
+		byHash[eth.KZGToVersionedHash(commitment)] = blob
+	}
+
+	matched := make([]*eth.Blob, 0, len(blobHashes))
+	for _, blobHash := range blobHashes {
+		blob, ok := byHash[blobHash]
+		if !ok {
+			return nil, fmt.Errorf("beacon node did not return blob %s", blobHash)
+		}
+		matched = append(matched, blob)
+	}
+
+	return matched, nil
 }
 
 // timeToSlot returns the slots of the given timestamp.
