@@ -164,23 +164,37 @@ func (c *statusWaiterContext) Done() <-chan struct{} {
 	return c.Context.Done()
 }
 
+func receiveStatusTestValue[T any](t *testing.T, ch <-chan T) T {
+	t.Helper()
+	select {
+	case value := <-ch:
+		return value
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for status request")
+		var zero T
+		return zero
+	}
+}
+
 func TestStatusConcurrentPollsShareLookup(t *testing.T) {
 	backend := &proposalHeadRPC{
 		head:    &types.Header{Number: big.NewInt(11802693)},
 		started: make(chan struct{}), release: make(chan struct{}),
 	}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+	release := sync.OnceFunc(func() { close(backend.release) })
+	defer release()
 	results := make(chan uint64, 9)
 	go func() { results <- s.reportedUnsafeHead(context.Background()) }()
-	<-backend.started
+	receiveStatusTestValue(t, backend.started)
 	for i := 0; i < 8; i++ {
 		ctx := &statusWaiterContext{Context: context.Background(), waiting: make(chan struct{})}
 		go func() { results <- s.reportedUnsafeHead(ctx) }()
-		<-ctx.waiting
+		receiveStatusTestValue(t, ctx.waiting)
 	}
-	close(backend.release)
+	release()
 	for i := 0; i < 9; i++ {
-		require.Equal(t, uint64(11802693), <-results)
+		require.Equal(t, uint64(11802693), receiveStatusTestValue(t, results))
 	}
 	require.Equal(t, uint64(1), backend.requests.Load())
 }
@@ -191,16 +205,23 @@ func TestStatusCancelledWaiterDoesNotCancelSharedLookup(t *testing.T) {
 		started: make(chan struct{}), release: make(chan struct{}),
 	}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+	release := sync.OnceFunc(func() { close(backend.release) })
+	defer release()
 	s.updateHighestUnsafeL2Payload(11802683)
 	result := make(chan uint64, 1)
 	go func() { result <- s.reportedUnsafeHead(context.Background()) }()
-	<-backend.started
+	receiveStatusTestValue(t, backend.started)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	waiter := &statusWaiterContext{Context: ctx, waiting: make(chan struct{})}
+	cancelled := make(chan uint64, 1)
+	go func() { cancelled <- s.reportedUnsafeHead(waiter) }()
+	receiveStatusTestValue(t, waiter.waiting)
 	cancel()
-	fallback := s.reportedUnsafeHead(ctx)
-	close(backend.release)
+	fallback := receiveStatusTestValue(t, cancelled)
+	release()
 	require.Equal(t, uint64(11802683), fallback)
-	require.Equal(t, uint64(11802693), <-result)
+	require.Equal(t, uint64(11802693), receiveStatusTestValue(t, result))
 	require.Equal(t, uint64(1), backend.requests.Load())
 }
 
@@ -216,6 +237,8 @@ func TestStatusFirstCallerCancellationDoesNotCancelSharedLookup(t *testing.T) {
 				started: make(chan struct{}), release: make(chan struct{}),
 			}
 			s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+			release := sync.OnceFunc(func() { close(backend.release) })
+			defer release()
 			s.updateHighestUnsafeL2Payload(11802683)
 			ctx, cancel := context.WithCancel(context.Background())
 			if deadline {
@@ -225,24 +248,18 @@ func TestStatusFirstCallerCancellationDoesNotCancelSharedLookup(t *testing.T) {
 			defer cancel()
 			first := make(chan uint64, 1)
 			go func() { first <- s.reportedUnsafeHead(ctx) }()
-			<-backend.started
+			receiveStatusTestValue(t, backend.started)
 			waiter := &statusWaiterContext{Context: context.Background(), waiting: make(chan struct{})}
 			second := make(chan uint64, 1)
 			go func() { second <- s.reportedUnsafeHead(waiter) }()
-			<-waiter.waiting
+			receiveStatusTestValue(t, waiter.waiting)
 			if !deadline {
 				cancel()
 			}
 			// The first caller must stop waiting while the shared RPC is still held.
-			select {
-			case head := <-first:
-				close(backend.release)
-				require.Equal(t, uint64(11802683), head)
-			case <-time.After(time.Second):
-				close(backend.release)
-				t.Fatal("the first caller could not cancel its own wait")
-			}
-			require.Equal(t, uint64(11802693), <-second)
+			require.Equal(t, uint64(11802683), receiveStatusTestValue(t, first))
+			release()
+			require.Equal(t, uint64(11802693), receiveStatusTestValue(t, second))
 			require.Equal(t, uint64(1), backend.requests.Load())
 		})
 	}

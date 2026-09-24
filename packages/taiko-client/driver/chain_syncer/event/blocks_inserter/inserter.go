@@ -267,9 +267,11 @@ func (i *Shasta) InsertBlocksWithManifest(
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
-	// Count completed rebuilds independently of notification delivery. This is
-	// the existing conservative metric, not proof that canonical hashes changed.
-	metrics.DriverReorgsByProposalCounter.Inc()
+	// Preserve the counter's preconfirmation-server scope, independently of
+	// notification delivery. A rebuild does not prove canonical hashes changed.
+	if i.latestSeenProposalCh != nil {
+		metrics.DriverReorgsByProposalCounter.Inc()
+	}
 	i.sendLatestSeenProposal(ctx, latestSeenProposal)
 
 	return new(big.Int).SetUint64(latestSeenProposal.LastBlockID), nil

@@ -32,7 +32,13 @@ import (
 func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionReportsExecutionHead() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+	// The suite's syncer has no preconfirmation server. Ordinary L1 derivation
+	// must not contribute to the preconfirmation reorg counter.
+	var followerBefore, followerAfter dto.Metric
+	s.Require().NoError(metrics.DriverReorgsByProposalCounter.Write(&followerBefore))
 	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
+	s.Require().NoError(metrics.DriverReorgsByProposalCounter.Write(&followerAfter))
+	s.Equal(followerBefore.GetCounter().GetValue(), followerAfter.GetCounter().GetValue())
 	block, err := s.RPCClient.L2.BlockByNumber(ctx, nil)
 	s.Require().NoError(err)
 	parent, err := s.RPCClient.L2.BlockByHash(ctx, block.ParentHash())
