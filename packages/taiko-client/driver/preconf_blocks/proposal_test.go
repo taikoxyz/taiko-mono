@@ -75,13 +75,12 @@ func newProposalHeadClient(t *testing.T, backend *proposalHeadRPC) *rpc.Client {
 	return &rpc.Client{L2: client}
 }
 
-func seenProposal(id int64, lastBlockID uint64, reorged bool) *encoding.LastSeenProposal {
+func seenProposal(id int64, lastBlockID uint64) *encoding.LastSeenProposal {
 	return &encoding.LastSeenProposal{
 		TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(
 			&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(id)}, 0,
 		),
-		LastBlockID:         lastBlockID,
-		PreconfChainReorged: reorged,
+		LastBlockID: lastBlockID,
 	}
 }
 
@@ -90,9 +89,9 @@ func TestProposalNotificationsAcceptRewindsAndSameIDReplacements(t *testing.T) {
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
 	s.updateHighestUnsafeL2Payload(11802693)
 	for _, proposal := range []*encoding.LastSeenProposal{
-		seenProposal(37504, 11802684, false),
-		seenProposal(37503, 11802683, true),
-		seenProposal(37503, 11802682, true),
+		seenProposal(37504, 11802684),
+		seenProposal(37503, 11802683),
+		seenProposal(37503, 11802682),
 	} {
 		s.recordLatestSeenProposal(proposal)
 		require.Same(t, proposal, s.latestSeenProposal)
@@ -107,7 +106,7 @@ func TestProposalMonitorChecksL1WithoutQueryingExecutionHead(t *testing.T) {
 	l2 := &proposalHeadRPC{err: errors.New("unexpected head lookup")}
 	client := newProposalHeadClient(t, l2)
 	client.L1 = newProposalHeadClient(t, l1).L2
-	proposal := seenProposal(37504, 11802684, false)
+	proposal := seenProposal(37504, 11802684)
 	proposal.Shasta().GetEventData().Raw = types.Log{BlockNumber: 7, BlockHash: header.Hash()}
 	s := &PreconfBlockAPIServer{rpc: client, latestSeenProposal: proposal}
 	s.monitorLatestProposalOnChain(context.Background())

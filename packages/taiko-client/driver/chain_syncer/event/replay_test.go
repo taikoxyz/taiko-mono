@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -23,6 +24,7 @@ import (
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -39,7 +41,7 @@ func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionReportsExecutionH
 	s.Require().NoError(err)
 	constructor, err := anchorTxConstructor.New(s.RPCClient)
 	s.Require().NoError(err)
-	notifications := make(chan *encoding.LastSeenProposal, 3)
+	notifications := make(chan *encoding.LastSeenProposal, 1)
 	inserter := blocksInserter.NewBlocksInserter(s.RPCClient, s.s.progressTracker, constructor, notifications)
 	server, err := preconfblocks.New(
 		"*", nil, common.Address{}, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), inserter, s.RPCClient, nil,
@@ -83,9 +85,16 @@ func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionReportsExecutionH
 
 	// Recovery uses only the transactions that made it into the block.
 	source.BlockPayloads[0].Transactions = block.Transactions()[1:]
+	// Force notification coalescing and verify that the completed rebuild is
+	// counted even though an older completion has to be discarded.
+	notifications <- &encoding.LastSeenProposal{TaikoProposalMetaData: meta}
+	var countBefore, countAfter dto.Metric
+	s.Require().NoError(metrics.DriverReorgsByProposalCounter.Write(&countBefore))
 	_, err = inserter.InsertBlocksWithManifest(ctx, meta, source, nil)
 	s.Require().NoError(err)
 	completion := s.receiveReplayNotification(ctx, notifications)
+	s.Require().NoError(metrics.DriverReorgsByProposalCounter.Write(&countAfter))
+	s.Equal(countBefore.GetCounter().GetValue()+1, countAfter.GetCounter().GetValue())
 	recoveredOrigin, err := s.RPCClient.L2.L1OriginByID(ctx, block.Number())
 	s.Require().NoError(err)
 	s.NotEqual(originalOrigin.BuildPayloadArgsID, recoveredOrigin.BuildPayloadArgsID)
@@ -95,19 +104,26 @@ func (s *EventSyncerTestSuite) TestReplayWithOmittedTransactionReportsExecutionH
 	s.Equal(block.Hash(), afterReplay.Hash())
 	replayedHead, err := s.RPCClient.L2.HeaderByNumber(ctx, nil)
 	s.Require().NoError(err)
-	// Geth and Reth with the test configuration's allow-unwind-canonical-header
-	// rewind to the proposal tail even though the executed block hash is unchanged.
-	s.Equal(block.Hash(), replayedHead.Hash())
+	// Engines may retain or truncate the unsafe suffix. Status must reflect
+	// the resulting head in either case.
 	s.checkReplayStatus(server, replayedHead.Number.Uint64())
 	confirmedOrigin, err := s.RPCClient.L2.HeadL1Origin(ctx)
 	s.Require().NoError(err)
 	s.Equal(block.Number(), confirmedOrigin.BlockID)
 
+	// An already-known proposal updates origins without counting another rebuild.
+	_, err = inserter.InsertBlocksWithManifest(ctx, meta, source, nil)
+	s.Require().NoError(err)
+	s.receiveReplayNotification(ctx, notifications)
+	var countKnown dto.Metric
+	s.Require().NoError(metrics.DriverReorgsByProposalCounter.Write(&countKnown))
+	s.Equal(countAfter.GetCounter().GetValue(), countKnown.GetCounter().GetValue())
+
 	// Changing a header field really replaces the canonical block at this height.
 	source.BlockPayloads[0].Coinbase = common.Address{2}
 	_, err = inserter.InsertBlocksWithManifest(ctx, meta, source, nil)
 	s.Require().NoError(err)
-	s.True(s.receiveReplayNotification(ctx, notifications).PreconfChainReorged)
+	s.Equal(block.NumberU64(), s.receiveReplayNotification(ctx, notifications).LastBlockID)
 	replacement, err := s.RPCClient.L2.HeaderByNumber(ctx, block.Number())
 	s.Require().NoError(err)
 	s.NotEqual(block.Hash(), replacement.Hash())

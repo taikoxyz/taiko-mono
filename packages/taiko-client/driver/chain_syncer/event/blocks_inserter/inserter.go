@@ -267,9 +267,9 @@ func (i *Shasta) InsertBlocksWithManifest(
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
-	// Keep the existing conservative replay signal for metrics only. Status
-	// samples the execution head independently of proposal completion.
-	latestSeenProposal.PreconfChainReorged = true
+	// Count completed rebuilds independently of notification delivery. This is
+	// the existing conservative metric, not proof that canonical hashes changed.
+	metrics.DriverReorgsByProposalCounter.Inc()
 	i.sendLatestSeenProposal(ctx, latestSeenProposal)
 
 	return new(big.Int).SetUint64(latestSeenProposal.LastBlockID), nil
@@ -324,17 +324,15 @@ func (i *Shasta) sendLatestSeenProposal(ctx context.Context, proposal *encoding.
 	if i.latestSeenProposalCh == nil || ctx.Err() != nil {
 		return
 	}
-	// Count before coalescing so a slow consumer cannot lose replay metrics.
-	if proposal.PreconfChainReorged {
-		metrics.DriverReorgsByProposalCounter.Inc()
-	}
 	select {
 	case i.latestSeenProposalCh <- proposal:
 		return
 	default:
 	}
 	select {
-	case <-i.latestSeenProposalCh:
+	case dropped := <-i.latestSeenProposalCh:
+		log.Debug("Proposal notification queue full, dropping oldest completion",
+			"droppedLastBlockID", dropped.LastBlockID, "latestLastBlockID", proposal.LastBlockID)
 	default:
 	}
 	// There is now room in the production buffer: the insertion mutex excludes

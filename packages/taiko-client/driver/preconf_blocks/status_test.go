@@ -204,6 +204,65 @@ func TestStatusCancelledWaiterDoesNotCancelSharedLookup(t *testing.T) {
 	require.Equal(t, uint64(1), backend.requests.Load())
 }
 
+func TestStatusFirstCallerCancellationDoesNotCancelSharedLookup(t *testing.T) {
+	for _, deadline := range []bool{false, true} {
+		name := "cancel"
+		if deadline {
+			name = "deadline"
+		}
+		t.Run(name, func(t *testing.T) {
+			backend := &proposalHeadRPC{
+				head:    &types.Header{Number: big.NewInt(11802693)},
+				started: make(chan struct{}), release: make(chan struct{}),
+			}
+			s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+			s.updateHighestUnsafeL2Payload(11802683)
+			ctx, cancel := context.WithCancel(context.Background())
+			if deadline {
+				cancel()
+				ctx, cancel = context.WithTimeout(context.Background(), 100*time.Millisecond)
+			}
+			defer cancel()
+			first := make(chan uint64, 1)
+			go func() { first <- s.reportedUnsafeHead(ctx) }()
+			<-backend.started
+			waiter := &statusWaiterContext{Context: context.Background(), waiting: make(chan struct{})}
+			second := make(chan uint64, 1)
+			go func() { second <- s.reportedUnsafeHead(waiter) }()
+			<-waiter.waiting
+			if !deadline {
+				cancel()
+			}
+			// The first caller must stop waiting while the shared RPC is still held.
+			select {
+			case head := <-first:
+				close(backend.release)
+				require.Equal(t, uint64(11802683), head)
+			case <-time.After(time.Second):
+				close(backend.release)
+				t.Fatal("the first caller could not cancel its own wait")
+			}
+			require.Equal(t, uint64(11802693), <-second)
+			require.Equal(t, uint64(1), backend.requests.Load())
+		})
+	}
+}
+
+func TestStatusLookupPanicDoesNotPoisonLaterPolls(t *testing.T) {
+	backend := &proposalHeadRPC{head: &types.Header{Number: big.NewInt(11802693)}}
+	client := newProposalHeadClient(t, backend)
+	s := &PreconfBlockAPIServer{}
+	s.updateHighestUnsafeL2Payload(11802683)
+	require.NotPanics(t, func() {
+		require.Equal(t, uint64(11802683), s.reportedUnsafeHead(context.Background()))
+	})
+	s.rpc = client
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	require.Equal(t, uint64(11802693), s.reportedUnsafeHead(ctx))
+	require.Equal(t, uint64(1), backend.requests.Load())
+}
+
 func TestStatusFailureWarningsAreThrottled(t *testing.T) {
 	backend := &proposalHeadRPC{err: errors.New("execution engine unavailable")}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}

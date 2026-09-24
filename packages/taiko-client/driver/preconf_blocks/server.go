@@ -29,6 +29,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -85,10 +86,10 @@ type PreconfBlockAPIServer struct {
 	chainSyncer                   preconfBlockChainSyncer
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
-	// This lock only protects publication of an observation and its metric, never RPC or imports.
+	// Protect status observations with a short lock, never held across RPC or imports.
 	unsafeHeadMutex       sync.Mutex
 	unsafeHeadRevision    uint64
-	statusHeadLookup      chan struct{}
+	statusHeadLookup      singleflight.Group
 	statusHeadLastWarning time.Time
 	// P2P network for preconfirmation block propagation
 	p2pNode             *p2p.NodeP2P
@@ -1268,10 +1269,7 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 			},
 			header.Time,
 		),
-		// Known proposals do not constitute a real reorg; the inserter will detect
-		// and report any proposal replay separately.
-		PreconfChainReorged: false,
-		LastBlockID:         blockID.ToInt().Uint64(),
+		LastBlockID: blockID.ToInt().Uint64(),
 	})
 }
 
@@ -1504,19 +1502,7 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2PayloadLocked(blockID uint6
 	if previous == blockID {
 		return
 	}
-	if blockID > previous {
-		log.Info(
-			"Updating highest unsafe L2 payload block ID",
-			"blockID", blockID,
-			"currentHighestUnsafeL2PayloadBlockID", previous,
-		)
-	} else {
-		log.Info(
-			"Reorging highest unsafe L2 payload blockID",
-			"blockID", blockID,
-			"currentHighestUnsafeL2PayloadBlockID", previous,
-		)
-	}
+	log.Debug("Updated observed unsafe L2 head", "blockID", blockID, "previousBlockID", previous)
 }
 
 // tryPutEnvelopeIntoCache tries to put the given payload into the cache, if it is not already cached.

@@ -404,44 +404,57 @@ const statusHeadWarningInterval = 30 * time.Second
 // fallback is also refreshed by imports, without taking the import lock.
 // Concurrent polls share one bounded lookup; each may cancel its own wait.
 func (s *PreconfBlockAPIServer) reportedUnsafeHead(ctx context.Context) uint64 {
-	s.unsafeHeadMutex.Lock()
-	if pending := s.statusHeadLookup; pending != nil {
-		s.unsafeHeadMutex.Unlock()
+	var err error
+	if ctx.Err() == nil {
+		result := s.statusHeadLookup.DoChan("head", func() (any, error) {
+			lookupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), statusHeadTimeout)
+			defer cancel()
+			return nil, s.refreshStatusHead(lookupCtx)
+		})
 		select {
-		case <-pending:
+		case completed := <-result:
+			err = completed.Err
 		case <-ctx.Done():
 		}
-		s.unsafeHeadMutex.Lock()
-		defer s.unsafeHeadMutex.Unlock()
-		return s.highestUnsafeL2PayloadBlockID
 	}
-	pending := make(chan struct{})
-	s.statusHeadLookup = pending
-	revision := s.unsafeHeadRevision
-	s.unsafeHeadMutex.Unlock()
 
-	ctx, cancel := context.WithTimeout(ctx, statusHeadTimeout)
-	defer cancel()
-	head, err := s.rpc.L2.BlockNumber(ctx)
 	s.unsafeHeadMutex.Lock()
-	warn := false
-	if err != nil {
-		if !errors.Is(err, context.Canceled) && time.Since(s.statusHeadLastWarning) >= statusHeadWarningInterval {
-			warn = true
-			s.statusHeadLastWarning = time.Now()
-		}
-	} else if s.unsafeHeadRevision == revision {
-		s.updateHighestUnsafeL2PayloadLocked(head)
+	warn := err != nil && time.Since(s.statusHeadLastWarning) >= statusHeadWarningInterval
+	if warn {
+		s.statusHeadLastWarning = time.Now()
 	}
-	close(pending)
-	s.statusHeadLookup = nil
-	// If an import published while the RPC was in flight, serve that newer observation.
 	height := s.highestUnsafeL2PayloadBlockID
 	s.unsafeHeadMutex.Unlock()
 	if warn {
 		log.Warn("Failed to read status L2 head, using last observation", "error", err)
 	}
 	return height
+}
+
+// refreshStatusHead updates the fallback once per shared lookup. Imports that
+// publish during the RPC take precedence; replay can still move the execution
+// head independently, so neither observation is guaranteed to be the latest.
+func (s *PreconfBlockAPIServer) refreshStatusHead(ctx context.Context) (err error) {
+	// DoChan otherwise propagates worker panics outside the HTTP recovery middleware.
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("status head lookup panicked: %v", recovered)
+		}
+	}()
+	s.unsafeHeadMutex.Lock()
+	revision := s.unsafeHeadRevision
+	s.unsafeHeadMutex.Unlock()
+
+	head, err := s.rpc.L2.BlockNumber(ctx)
+	if err != nil {
+		return err
+	}
+	s.unsafeHeadMutex.Lock()
+	defer s.unsafeHeadMutex.Unlock()
+	if s.unsafeHeadRevision == revision {
+		s.updateHighestUnsafeL2PayloadLocked(head)
+	}
+	return nil
 }
 
 // returnError is a helper function to return an error response.
