@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -28,6 +29,7 @@ type proposalHeadRPC struct {
 	waitForCancellation bool
 	started             chan struct{}
 	release             chan struct{}
+	startedOnce         sync.Once
 }
 
 func (r *proposalHeadRPC) ChainId() hexutil.Uint64 { return 167001 }
@@ -38,21 +40,26 @@ func (r *proposalHeadRPC) GetBlockByNumber(
 	_ bool,
 ) (*types.Header, error) {
 	r.requests.Add(1)
-	if number != gethrpc.LatestBlockNumber {
-		if r.headers != nil {
-			return r.headers[number], nil
-		}
-		return nil, errors.New("expected a current canonical head lookup")
+	if number == gethrpc.LatestBlockNumber {
+		return nil, errors.New("status must use eth_blockNumber instead of fetching a header")
 	}
+	return r.headers[number], nil
+}
+
+func (r *proposalHeadRPC) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
+	r.requests.Add(1)
 	if r.started != nil {
-		close(r.started)
+		r.startedOnce.Do(func() { close(r.started) })
 		<-r.release
 	}
 	if r.waitForCancellation {
 		<-ctx.Done()
-		return nil, ctx.Err()
+		return 0, ctx.Err()
 	}
-	return r.head, r.err
+	if r.err != nil {
+		return 0, r.err
+	}
+	return hexutil.Uint64(r.head.Number.Uint64()), nil
 }
 
 func newProposalHeadClient(t *testing.T, backend *proposalHeadRPC) *rpc.Client {
@@ -78,24 +85,32 @@ func seenProposal(id int64, lastBlockID uint64, reorged bool) *encoding.LastSeen
 	}
 }
 
-func TestOutOfOrderProposalNotificationsPreserveLatestProposal(t *testing.T) {
+func TestProposalNotificationsAcceptRewindsAndSameIDReplacements(t *testing.T) {
 	backend := &proposalHeadRPC{err: errors.New("head RPC must not be called by notifications")}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
 	s.updateHighestUnsafeL2Payload(11802693)
-	s.recordLatestSeenProposal(seenProposal(37504, 11802684, false), false)
-	s.recordLatestSeenProposal(seenProposal(37503, 11802683, true), false)
-	require.Equal(t, int64(37504), s.latestSeenProposal.GetProposalID().Int64())
-	require.Equal(t, uint64(11802693), s.highestUnsafeL2PayloadBlockID.Load())
+	for _, proposal := range []*encoding.LastSeenProposal{
+		seenProposal(37504, 11802684, false),
+		seenProposal(37503, 11802683, true),
+		seenProposal(37503, 11802682, true),
+	} {
+		s.recordLatestSeenProposal(proposal)
+		require.Same(t, proposal, s.latestSeenProposal)
+	}
+	require.Equal(t, uint64(11802693), s.highestUnsafeL2PayloadBlockID)
 	require.Zero(t, backend.requests.Load())
-
-	// A verified L1 reorg is allowed to reset the cached proposal ID.
-	s.recordLatestSeenProposal(seenProposal(37502, 11802682, false), true)
-	require.Equal(t, int64(37502), s.latestSeenProposal.GetProposalID().Int64())
 }
 
-func TestProposalMonitorDoesNotQueryExecutionHead(t *testing.T) {
-	backend := &proposalHeadRPC{err: errors.New("unexpected head lookup")}
-	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+func TestProposalMonitorChecksL1WithoutQueryingExecutionHead(t *testing.T) {
+	header := &types.Header{Number: big.NewInt(7), Difficulty: big.NewInt(1)}
+	l1 := &proposalHeadRPC{headers: map[gethrpc.BlockNumber]*types.Header{7: header}}
+	l2 := &proposalHeadRPC{err: errors.New("unexpected head lookup")}
+	client := newProposalHeadClient(t, l2)
+	client.L1 = newProposalHeadClient(t, l1).L2
+	proposal := seenProposal(37504, 11802684, false)
+	proposal.Shasta().GetEventData().Raw = types.Log{BlockNumber: 7, BlockHash: header.Hash()}
+	s := &PreconfBlockAPIServer{rpc: client, latestSeenProposal: proposal}
 	s.monitorLatestProposalOnChain(context.Background())
-	require.Zero(t, backend.requests.Load())
+	require.Equal(t, uint64(1), l1.requests.Load())
+	require.Zero(t, l2.requests.Load())
 }

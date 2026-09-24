@@ -398,27 +398,50 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 // indefinitely delay status polls; the last observation remains available.
 const statusHeadTimeout = 500 * time.Millisecond
 
+const statusHeadWarningInterval = 30 * time.Second
+
 // reportedUnsafeHead samples the execution head for this status request. The
-// atomic fallback is also refreshed by imports, without taking the import lock.
+// fallback is also refreshed by imports, without taking the import lock.
+// Concurrent polls share one bounded lookup; each may cancel its own wait.
 func (s *PreconfBlockAPIServer) reportedUnsafeHead(ctx context.Context) uint64 {
-	ctx, cancel := context.WithTimeout(ctx, statusHeadTimeout)
-	defer cancel()
 	s.unsafeHeadMutex.Lock()
+	if pending := s.statusHeadLookup; pending != nil {
+		s.unsafeHeadMutex.Unlock()
+		select {
+		case <-pending:
+		case <-ctx.Done():
+		}
+		s.unsafeHeadMutex.Lock()
+		defer s.unsafeHeadMutex.Unlock()
+		return s.highestUnsafeL2PayloadBlockID
+	}
+	pending := make(chan struct{})
+	s.statusHeadLookup = pending
 	revision := s.unsafeHeadRevision
 	s.unsafeHeadMutex.Unlock()
 
-	head, err := s.rpc.L2.HeaderByNumber(ctx, nil)
-	if err != nil {
-		log.Warn("Failed to read status L2 head, using last observation", "error", err)
-		return s.highestUnsafeL2PayloadBlockID.Load()
-	}
-	// A slow response must not overwrite an import or a newer observation.
+	ctx, cancel := context.WithTimeout(ctx, statusHeadTimeout)
+	defer cancel()
+	head, err := s.rpc.L2.BlockNumber(ctx)
 	s.unsafeHeadMutex.Lock()
-	if s.unsafeHeadRevision == revision {
-		s.updateHighestUnsafeL2PayloadLocked(head.Number.Uint64())
+	warn := false
+	if err != nil {
+		if !errors.Is(err, context.Canceled) && time.Since(s.statusHeadLastWarning) >= statusHeadWarningInterval {
+			warn = true
+			s.statusHeadLastWarning = time.Now()
+		}
+	} else if s.unsafeHeadRevision == revision {
+		s.updateHighestUnsafeL2PayloadLocked(head)
 	}
+	close(pending)
+	s.statusHeadLookup = nil
+	// If an import published while the RPC was in flight, serve that newer observation.
+	height := s.highestUnsafeL2PayloadBlockID
 	s.unsafeHeadMutex.Unlock()
-	return head.Number.Uint64()
+	if warn {
+		log.Warn("Failed to read status L2 head, using last observation", "error", err)
+	}
+	return height
 }
 
 // returnError is a helper function to return an error response.

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -85,10 +84,12 @@ type PreconfBlockAPIServer struct {
 	rpc                           *rpc.Client
 	chainSyncer                   preconfBlockChainSyncer
 	anchorValidator               *validator.AnchorTxValidator
-	highestUnsafeL2PayloadBlockID atomic.Uint64
+	highestUnsafeL2PayloadBlockID uint64
 	// This lock only protects publication of an observation and its metric, never RPC or imports.
-	unsafeHeadMutex    sync.Mutex
-	unsafeHeadRevision uint64
+	unsafeHeadMutex       sync.Mutex
+	unsafeHeadRevision    uint64
+	statusHeadLookup      chan struct{}
+	statusHeadLastWarning time.Time
 	// P2P network for preconfirmation block propagation
 	p2pNode             *p2p.NodeP2P
 	p2pSigner           p2p.Signer
@@ -170,7 +171,7 @@ func New(
 		responseSeenCache:            responseSeenCache,
 		syncReady:                    false,
 	}
-	server.highestUnsafeL2PayloadBlockID.Store(head.NumberU64())
+	server.highestUnsafeL2PayloadBlockID = head.NumberU64()
 
 	server.echo.HideBanner = true
 	server.configureMiddleware([]string{cors})
@@ -1169,7 +1170,7 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			log.Info("Stopping latest batch seen event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
-			s.recordLatestSeenProposal(proposal, false)
+			s.recordLatestSeenProposal(proposal)
 		case <-ticker.C:
 			s.monitorLatestProposalOnChain(ctx)
 		}
@@ -1271,22 +1272,14 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 		// and report any proposal replay separately.
 		PreconfChainReorged: false,
 		LastBlockID:         blockID.ToInt().Uint64(),
-	}, true)
+	})
 }
 
-// recordLatestSeenProposal ignores delayed older notifications. Only the L1 reorg
-// monitor may allow a rewind after verifying that the cached proposal was orphaned.
-func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.LastSeenProposal, allowRewind bool) {
+// recordLatestSeenProposal accepts completions in insertion order, including lower
+// or unchanged proposal IDs after an L1 reorg.
+func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if proposal.PreconfChainReorged {
-		metrics.DriverReorgsByProposalCounter.Inc()
-	}
-	if !allowRewind && s.latestSeenProposal != nil &&
-		proposal.GetProposalID().Cmp(s.latestSeenProposal.GetProposalID()) < 0 {
-		log.Debug("Ignore delayed older proposal notification", "proposalID", proposal.GetProposalID())
-		return
-	}
 
 	log.Info(
 		"Received latest proposal seen in event",
@@ -1505,7 +1498,8 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
 // updateHighestUnsafeL2PayloadLocked requires unsafeHeadMutex to be held.
 func (s *PreconfBlockAPIServer) updateHighestUnsafeL2PayloadLocked(blockID uint64) {
 	s.unsafeHeadRevision++
-	previous := s.highestUnsafeL2PayloadBlockID.Swap(blockID)
+	previous := s.highestUnsafeL2PayloadBlockID
+	s.highestUnsafeL2PayloadBlockID = blockID
 	metrics.DriverHighestPreconfUnsafePayloadGauge.Set(float64(blockID))
 	if previous == blockID {
 		return

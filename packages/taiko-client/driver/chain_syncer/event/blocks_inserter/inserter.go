@@ -189,13 +189,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 					"parentHash", parent.Hash(),
 				)
 
-				if i.latestSeenProposalCh != nil {
-					go i.sendLatestSeenProposal(ctx, &encoding.LastSeenProposal{
-						TaikoProposalMetaData: metadata,
-						LastBlockID:           lastBlockHeader.Number.Uint64(),
-					})
-				}
-
 				// Update the L1 origin for each block in the proposal.
 				if err := updateL1OriginForProposal(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
 					return nil, fmt.Errorf(
@@ -205,6 +198,10 @@ func (i *Shasta) InsertBlocksWithManifest(
 					)
 				}
 
+				i.sendLatestSeenProposal(ctx, &encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata,
+					LastBlockID:           lastBlockHeader.Number.Uint64(),
+				})
 				return lastBlockHeader.Number, nil
 			}
 		}
@@ -273,9 +270,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	// Keep the existing conservative replay signal for metrics only. Status
 	// samples the execution head independently of proposal completion.
 	latestSeenProposal.PreconfChainReorged = true
-	if i.latestSeenProposalCh != nil {
-		go i.sendLatestSeenProposal(ctx, latestSeenProposal)
-	}
+	i.sendLatestSeenProposal(ctx, latestSeenProposal)
 
 	return new(big.Int).SetUint64(latestSeenProposal.LastBlockID), nil
 }
@@ -322,19 +317,31 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 	return headers, nil
 }
 
-// sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
+// sendLatestSeenProposal publishes in derivation order while i.mutex is held.
+// It never waits for the consumer, which may itself be waiting for insertion.
+// If the buffer fills, discard its oldest state so the newest completion is retained.
 func (i *Shasta) sendLatestSeenProposal(ctx context.Context, proposal *encoding.LastSeenProposal) {
-	if i.latestSeenProposalCh != nil {
-		log.Debug(
-			"Sending latest seen proposal from blocksInserter",
-			"proposalID", proposal.TaikoProposalMetaData.Shasta().GetEventData().Id,
-			"preconfChainReorged", proposal.PreconfChainReorged,
-		)
-
-		select {
-		case i.latestSeenProposalCh <- proposal:
-		case <-ctx.Done():
-		}
+	if i.latestSeenProposalCh == nil || ctx.Err() != nil {
+		return
+	}
+	// Count before coalescing so a slow consumer cannot lose replay metrics.
+	if proposal.PreconfChainReorged {
+		metrics.DriverReorgsByProposalCounter.Inc()
+	}
+	select {
+	case i.latestSeenProposalCh <- proposal:
+		return
+	default:
+	}
+	select {
+	case <-i.latestSeenProposalCh:
+	default:
+	}
+	// There is now room in the production buffer: the insertion mutex excludes
+	// other senders. Keep the send non-blocking for unbuffered test consumers too.
+	select {
+	case i.latestSeenProposalCh <- proposal:
+	default:
 	}
 }
 

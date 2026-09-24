@@ -53,11 +53,11 @@ func TestStatusFallbackTracksP2PImportAfterReplayRewind(t *testing.T) {
 		ExecutionPayload: &eth.ExecutionPayload{BlockNumber: 91, BlockHash: imported.Hash(), ParentHash: parent.Hash()},
 	}, "")
 	close(backend.release)
-	require.Equal(t, uint64(90), <-done)
+	require.Equal(t, uint64(91), <-done)
 	require.NoError(t, err)
 	require.False(t, cached)
 	require.Equal(t, 1, importer.imports)
-	require.Equal(t, uint64(91), s.highestUnsafeL2PayloadBlockID.Load())
+	require.Equal(t, uint64(91), s.highestUnsafeL2PayloadBlockID)
 }
 
 func TestStatusDoesNotOverwriteAnInterveningImport(t *testing.T) {
@@ -72,8 +72,8 @@ func TestStatusDoesNotOverwriteAnInterveningImport(t *testing.T) {
 	<-backend.started
 	s.updateHighestUnsafeL2Payload(11802693)
 	close(backend.release)
-	require.Equal(t, uint64(11802683), <-done)
-	require.Equal(t, uint64(11802693), s.highestUnsafeL2PayloadBlockID.Load())
+	require.Equal(t, uint64(11802693), <-done)
+	require.Equal(t, uint64(11802693), s.highestUnsafeL2PayloadBlockID)
 }
 
 func statusSnapshot(t *testing.T, s *PreconfBlockAPIServer) Status {
@@ -144,10 +144,76 @@ func TestStatusConcurrentWithImportedHeads(t *testing.T) {
 	}()
 	defer imports.Wait()
 	for i := 0; i < 10; i++ {
-		require.Equal(t, uint64(11802693), statusSnapshot(t, s).HighestUnsafeL2PayloadBlockID)
+		require.GreaterOrEqual(t, statusSnapshot(t, s).HighestUnsafeL2PayloadBlockID, uint64(11802693))
 	}
 	imports.Wait()
 	var gauge dto.Metric
 	require.NoError(t, metrics.DriverHighestPreconfUnsafePayloadGauge.Write(&gauge))
-	require.Equal(t, float64(s.highestUnsafeL2PayloadBlockID.Load()), gauge.GetGauge().GetValue())
+	require.Equal(t, float64(s.highestUnsafeL2PayloadBlockID), gauge.GetGauge().GetValue())
+}
+
+// Done signals that this request has reached its cancellable wait for a shared lookup.
+type statusWaiterContext struct {
+	context.Context
+	waiting chan struct{}
+	once    sync.Once
+}
+
+func (c *statusWaiterContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.waiting) })
+	return c.Context.Done()
+}
+
+func TestStatusConcurrentPollsShareLookup(t *testing.T) {
+	backend := &proposalHeadRPC{
+		head:    &types.Header{Number: big.NewInt(11802693)},
+		started: make(chan struct{}), release: make(chan struct{}),
+	}
+	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+	results := make(chan uint64, 9)
+	go func() { results <- s.reportedUnsafeHead(context.Background()) }()
+	<-backend.started
+	for i := 0; i < 8; i++ {
+		ctx := &statusWaiterContext{Context: context.Background(), waiting: make(chan struct{})}
+		go func() { results <- s.reportedUnsafeHead(ctx) }()
+		<-ctx.waiting
+	}
+	close(backend.release)
+	for i := 0; i < 9; i++ {
+		require.Equal(t, uint64(11802693), <-results)
+	}
+	require.Equal(t, uint64(1), backend.requests.Load())
+}
+
+func TestStatusCancelledWaiterDoesNotCancelSharedLookup(t *testing.T) {
+	backend := &proposalHeadRPC{
+		head:    &types.Header{Number: big.NewInt(11802693)},
+		started: make(chan struct{}), release: make(chan struct{}),
+	}
+	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+	s.updateHighestUnsafeL2Payload(11802683)
+	result := make(chan uint64, 1)
+	go func() { result <- s.reportedUnsafeHead(context.Background()) }()
+	<-backend.started
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	fallback := s.reportedUnsafeHead(ctx)
+	close(backend.release)
+	require.Equal(t, uint64(11802683), fallback)
+	require.Equal(t, uint64(11802693), <-result)
+	require.Equal(t, uint64(1), backend.requests.Load())
+}
+
+func TestStatusFailureWarningsAreThrottled(t *testing.T) {
+	backend := &proposalHeadRPC{err: errors.New("execution engine unavailable")}
+	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+	s.updateHighestUnsafeL2Payload(11802693)
+	require.Equal(t, uint64(11802693), s.reportedUnsafeHead(context.Background()))
+	firstWarning := s.statusHeadLastWarning
+	require.False(t, firstWarning.IsZero())
+	require.Equal(t, uint64(11802693), s.reportedUnsafeHead(context.Background()))
+	require.Equal(t, firstWarning, s.statusHeadLastWarning)
+	s.statusHeadLastWarning = firstWarning.Add(-statusHeadWarningInterval)
+	require.Equal(t, uint64(11802693), s.reportedUnsafeHead(context.Background()))
+	require.True(t, s.statusHeadLastWarning.After(firstWarning))
 }
