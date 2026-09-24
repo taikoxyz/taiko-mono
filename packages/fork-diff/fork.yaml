@@ -384,5 +384,8 @@ ignore:
   - "tests"
   - "*.md"
   - "appveyor.yml"
+  - "*_test.go"
+  - "*/*_test.go"
+  - "*/*/*_test.go"
 # *.pb.go
 # *.sum
