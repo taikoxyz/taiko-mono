@@ -74,6 +74,7 @@ import {
 } from '$libs/error';
 
 import { ERC20Bridge } from './ERC20Bridge';
+import { getRecallState } from './recall';
 import { type BridgeTransaction, MessageStatus } from './types';
 
 const TX_HASH = '0x00000000000000000000000000000000000000000000000000000000000000aa' as Hash;
@@ -139,15 +140,18 @@ describe('Bridge recall compatibility', () => {
       lastAttempt: true,
     });
 
-  it.each([undefined, 'true'])('blocks a disabled source recall regardless of the operator flag (%s)', async (flag) => {
-    publicEnv.PUBLIC_BRIDGE_RECALL_ENABLED = flag;
-    readContract.mockResolvedValue(MessageStatus.FAILED);
-    recallRead.mockResolvedValue(false);
-    await expect(release()).rejects.toThrow(/recall/i);
-    expect(prover.getEncodedSignalProofForRecall).not.toHaveBeenCalled();
-    expect(estimateRecallMessage).not.toHaveBeenCalled();
-    expect(writeContract).not.toHaveBeenCalled();
-  });
+  it.each([undefined, '', 'true', ' TRUE '])(
+    'blocks a disabled source recall regardless of the operator flag (%s)',
+    async (flag) => {
+      publicEnv.PUBLIC_BRIDGE_RECALL_ENABLED = flag;
+      readContract.mockResolvedValue(MessageStatus.FAILED);
+      recallRead.mockResolvedValue(false);
+      await expect(release()).rejects.toThrow(/recall/i);
+      expect(prover.getEncodedSignalProofForRecall).not.toHaveBeenCalled();
+      expect(estimateRecallMessage).not.toHaveBeenCalled();
+      expect(writeContract).not.toHaveBeenCalled();
+    },
+  );
 
   it('ordinary retries do not depend on recall capability reads', async () => {
     readContract.mockResolvedValue(MessageStatus.RETRIABLE);
@@ -187,7 +191,7 @@ describe('Bridge recall compatibility', () => {
     await expect(release()).resolves.toBe(TX_HASH);
   });
 
-  it.each(['false'])(
+  it.each(['false', 'FALSE', ' false ', '0', 'no'])(
     'the operator flag blocks release and final retries but allows an explicit ordinary retry (%s)',
     async (flag) => {
       publicEnv.PUBLIC_BRIDGE_RECALL_ENABLED = flag;
@@ -256,6 +260,50 @@ describe('Bridge recall compatibility', () => {
     await expect(retry()).rejects.toBeInstanceOf(state === 'disabled' ? RecallDisabledError : RecallStatusUnknownError);
     expect(simulateContract).toHaveBeenCalledOnce();
     expect(writeContract).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['release', srcChainId, 'initial'],
+    ['release', srcChainId, 'after simulation'],
+    ['final retry', srcChainId, 'initial'],
+    ['final retry', destChainId, 'initial'],
+    ['final retry', srcChainId, 'after simulation'],
+    ['final retry', destChainId, 'after simulation'],
+  ] as const)('a %s guard bypasses an older UI read on chain %s %s', async (action, chainId, phase) => {
+    let resolveOlder!: (enabled: boolean) => void;
+    const older = new Promise<boolean>((resolve) => {
+      resolveOlder = resolve;
+    });
+    let background: ReturnType<typeof getRecallState> | undefined;
+    const startBackground = () => {
+      recallRead.mockImplementationOnce(() => older);
+      background = getRecallState(chainId, chainId === srcChainId ? destChainId : srcChainId);
+      recallRead.mockImplementation(async (_config, args) => args.chainId !== chainId);
+    };
+    readContract.mockResolvedValue(action === 'release' ? MessageStatus.FAILED : MessageStatus.RETRIABLE);
+    if (phase === 'initial') startBackground();
+    else
+      simulateContract.mockImplementationOnce(async () => {
+        startBackground();
+        return { request: { simulated: true } };
+      });
+    let outcome: 'written' | 'blocked' | undefined;
+    const result = (action === 'release' ? release() : retry()).then(
+      () => {
+        outcome = 'written';
+      },
+      () => {
+        outcome = 'blocked';
+      },
+    );
+    try {
+      await vi.waitFor(() => expect(outcome).toBe('blocked'));
+      expect(writeContract).not.toHaveBeenCalled();
+      expect(simulateContract).toHaveBeenCalledTimes(phase === 'initial' ? 0 : 1);
+    } finally {
+      resolveOlder(true);
+      await Promise.all([background, result]);
+    }
   });
 });
 

@@ -11,25 +11,28 @@
 
   export let canContinue = false;
   export let bridgeTx: BridgeTransaction;
-  let recallState: RecallState = 'unknown';
+  let recallState: RecallState | 'loading' = 'loading';
   let readId = 0;
   let timer: ReturnType<typeof setInterval>;
 
-  async function refresh(srcChainId: bigint, destChainId: bigint) {
+  async function refresh(srcChainId: bigint, destChainId: bigint, background = false) {
     const currentRead = ++readId;
     const state = await getFinalRetryState({ srcChainId, destChainId });
-    if (currentRead === readId) recallState = state;
+    if (currentRead !== readId) return;
+    if (!(background && state === 'unknown' && (recallState === 'enabled' || recallState === 'disabled'))) {
+      recallState = state;
+    }
   }
 
   $: recallSourceChainId = bridgeTx.srcChainId;
   $: recallDestinationChainId = bridgeTx.destChainId;
   $: {
-    recallState = 'unknown';
+    recallState = 'loading';
     void refresh(recallSourceChainId, recallDestinationChainId);
   }
   onMount(() => {
     timer = setInterval(
-      () => void refresh(recallSourceChainId, recallDestinationChainId),
+      () => void refresh(recallSourceChainId, recallDestinationChainId, true),
       bridgeTransactionPoller.interval,
     );
   });
@@ -51,7 +54,11 @@
   </div>
   <p>
     {$t(
-      recallState === 'enabled' ? 'transactions.retry.options_description' : `transactions.retry.recall_${recallState}`,
+      recallState === 'loading'
+        ? 'transactions.status.checking_recall'
+        : recallState === 'enabled'
+          ? 'transactions.retry.options_description'
+          : `transactions.retry.recall_${recallState}`,
     )}
   </p>
 

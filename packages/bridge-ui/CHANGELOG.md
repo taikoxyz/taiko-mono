@@ -1,13 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Bug Fixes
-
-* Gate releases and final retries on bridge recall availability across upgrades, with
-  `PUBLIC_BRIDGE_RECALL_ENABLED` as an operator override to disable both actions. Ordinary
-  retries remain available. Refresh the generated protocol ABIs, including recall errors.
-
 ## [2.18.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.17.1...bridge-ui-v2.18.0) (2026-09-03)
 
 

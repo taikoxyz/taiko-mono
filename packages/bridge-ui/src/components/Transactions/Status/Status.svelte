@@ -28,19 +28,26 @@
   let polling: ReturnType<typeof startPolling>;
   let loading = false;
   let hasError = false;
-  let recallState: RecallState = 'unknown';
+  let recallState: RecallState | 'loading' = 'loading';
   let recallReadId = 0;
 
-  async function refreshRecall(srcChainId: number, destChainId: number) {
+  async function refreshRecall(srcChainId: number, destChainId: number, { background = false, fresh = false } = {}) {
     const readId = ++recallReadId;
-    const state = await getRecallState(srcChainId, destChainId);
-    if (!destroyed && readId === recallReadId) recallState = state;
+    const state = await getRecallState(srcChainId, destChainId, { fresh });
+    if (!destroyed && readId === recallReadId) {
+      // Background failures should not hide a known action; clicks and transaction guards read afresh.
+      if (!(background && state === 'unknown' && (recallState === 'enabled' || recallState === 'disabled'))) {
+        recallState = state;
+      }
+    }
+    // A newer background read may update the row, but must not replace a click's own result.
+    return state;
   }
 
   $: recallSourceChainId = Number(bridgeTx.srcChainId);
   $: recallDestinationChainId = Number(bridgeTx.destChainId);
   $: if (bridgeTxStatus === MessageStatus.FAILED) {
-    recallState = 'unknown';
+    recallState = 'loading';
     void refreshRecall(recallSourceChainId, recallDestinationChainId);
   }
 
@@ -61,7 +68,9 @@
     dispatch('statusChange', status);
     // A status transition triggers the reactive read above. An unchanged FAILED poll only
     // refreshes in the background, preserving the last answer until the new read settles.
-    if (wasFailed && status === MessageStatus.FAILED) void refreshRecall(recallSourceChainId, recallDestinationChainId);
+    if (wasFailed && status === MessageStatus.FAILED) {
+      void refreshRecall(recallSourceChainId, recallDestinationChainId, { background: true });
+    }
   }
 
   async function handleRetryClick() {
@@ -74,8 +83,17 @@
   async function handleReleaseClick() {
     assertBridgeNotPaused(await isBridgePaused());
     if (!$connectedSourceChain || !$account?.address) return;
-    await refreshRecall(recallSourceChainId, recallDestinationChainId);
-    if (destroyed || recallState !== 'enabled') return;
+    const { srcChainId, destChainId, msgHash } = bridgeTx;
+    const state = await refreshRecall(Number(srcChainId), Number(destChainId), { fresh: true });
+    if (
+      destroyed ||
+      bridgeTxStatus !== MessageStatus.FAILED ||
+      srcChainId !== bridgeTx.srcChainId ||
+      destChainId !== bridgeTx.destChainId ||
+      msgHash !== bridgeTx.msgHash ||
+      state !== 'enabled'
+    )
+      return;
     // releaseModalOpen = true;
     dispatch('openModal', 'release');
   }
@@ -203,7 +221,10 @@
     <StatusDot type="success" />
     <span>{$t('transactions.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
-    {#if recallState !== 'enabled'}
+    {#if recallState === 'loading'}
+      <Spinner />
+      <span>{$t('transactions.status.checking_recall')}</span>
+    {:else if recallState !== 'enabled'}
       <StatusDot type="pending" />
       <span>{$t(`bridge.errors.recall.${recallState}.message`)}</span>
     {:else if textOnly}

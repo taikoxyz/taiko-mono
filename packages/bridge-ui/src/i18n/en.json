@@ -662,6 +662,7 @@
         "name": "Claimed"
       },
       "claiming": "Claiming",
+      "checking_recall": "Checking release availability…",
       "dialog": {
         "description": "The bridge message undergoes different stages:",
         "title": "Message status"

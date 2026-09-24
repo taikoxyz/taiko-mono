@@ -1,3 +1,5 @@
+import { RecallDisabledError, RecallStatusUnknownError } from '$libs/error';
+
 const MESSAGE_NOT_RECEIVED_ERRORS = ['B_NOT_RECEIVED', 'B_SIGNAL_NOT_RECEIVED'];
 const QUOTA_MANAGER_OUT_OF_QUOTA_ERRORS = ['QM_OUT_OF_QUOTA', '0x51d8fe3a'];
 
@@ -54,4 +56,3 @@ export function getRecallErrorKey(error: unknown): string | null {
   }
   return null;
 }
-import { RecallDisabledError, RecallStatusUnknownError } from '$libs/error';

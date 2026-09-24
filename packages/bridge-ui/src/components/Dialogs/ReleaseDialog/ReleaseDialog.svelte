@@ -56,24 +56,27 @@
   let ClaimComponent: Claim;
   let hideContinueButton: boolean;
   let isDesktopOrLarger = false;
-  let recallState: RecallState = 'unknown';
+  let recallState: RecallState | 'loading' = 'loading';
   let recallReadId = 0;
 
-  async function refreshRecall(srcChainId: number, destChainId: number) {
+  async function refreshRecall(srcChainId: number, destChainId: number, background = false) {
     const readId = ++recallReadId;
     const state = await getRecallState(srcChainId, destChainId);
-    if (readId === recallReadId) recallState = state;
+    if (readId !== recallReadId) return;
+    if (!(background && state === 'unknown' && (recallState === 'enabled' || recallState === 'disabled'))) {
+      recallState = state;
+    }
   }
 
   $: recallSourceChainId = Number(bridgeTx.srcChainId);
   $: recallDestinationChainId = Number(bridgeTx.destChainId);
   $: if (dialogOpen) {
-    recallState = 'unknown';
+    recallState = 'loading';
     void refreshRecall(recallSourceChainId, recallDestinationChainId);
   }
   onMount(() => {
     const timer = setInterval(() => {
-      if (dialogOpen) void refreshRecall(recallSourceChainId, recallDestinationChainId);
+      if (dialogOpen) void refreshRecall(recallSourceChainId, recallDestinationChainId, true);
     }, bridgeTransactionPoller.interval);
     return () => clearInterval(timer);
   });
@@ -242,7 +245,13 @@
     <div class="h-sep mx-[-24px] mt-[20px]" />
     <div class="w-full h-full f-col">
       {#if recallState !== 'enabled' && !releasing && !releaseTxPending && !releasingDone}
-        <p class="mt-[20px]" role="status">{$t(`bridge.errors.recall.${recallState}.message`)}</p>
+        <p class="mt-[20px]" role="status">
+          {$t(
+            recallState === 'loading'
+              ? 'transactions.status.checking_recall'
+              : `bridge.errors.recall.${recallState}.message`,
+          )}
+        </p>
       {:else}
         <DialogStepper>
           <DialogStep

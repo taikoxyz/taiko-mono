@@ -2,6 +2,7 @@ import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { vi } from 'vitest';
 
+import { bridgeTransactionPoller } from '$config';
 import type { BridgeTransaction } from '$libs/bridge/types';
 
 import RetryOptionHarness from '../../../../tests/RetryOptionHarness.svelte';
@@ -30,7 +31,10 @@ beforeEach(() => {
   getFinalRetryState.mockReset();
   selectedRetryMethod.set(RETRY_OPTION.CONTINUE);
 });
-afterEach(() => target.remove());
+afterEach(() => {
+  vi.useRealTimers();
+  target.remove();
+});
 
 it.each(['disabled', 'unknown'])('allows only an ordinary retry when recall is %s', async (state) => {
   getFinalRetryState.mockResolvedValue(state);
@@ -59,11 +63,33 @@ it('preserves the final retry choice when returning from Review and waits for th
   await tick();
   expect(get(selectedRetryMethod)).toBe(RETRY_OPTION.RETRY_ONCE);
   expect(target.querySelector('button')!.disabled).toBe(true);
+  expect(target.textContent).toContain('transactions.status.checking_recall');
+  expect(target.textContent).not.toContain('transactions.retry.recall_unknown');
   resolve('enabled');
   await flush();
   expect(get(selectedRetryMethod)).toBe(RETRY_OPTION.RETRY_ONCE);
   expect(target.querySelectorAll<HTMLInputElement>('input[type=radio]')[1].checked).toBe(true);
   expect(target.querySelector('button')!.disabled).toBe(false);
+  component.$destroy();
+});
+
+it('keeps a known final retry choice through a background timeout until a confirmed disable', async () => {
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+  getFinalRetryState.mockResolvedValue('enabled');
+  selectedRetryMethod.set(RETRY_OPTION.RETRY_ONCE);
+  const component = new RetryOptionHarness({ target, props: { bridgeTx } });
+  await flush();
+  getFinalRetryState.mockResolvedValue('unknown');
+  vi.advanceTimersByTime(bridgeTransactionPoller.interval);
+  await flush();
+  expect(get(selectedRetryMethod)).toBe(RETRY_OPTION.RETRY_ONCE);
+  expect(target.querySelector('button')!.disabled).toBe(false);
+  expect(target.textContent).not.toContain('transactions.retry.recall_unknown');
+  getFinalRetryState.mockResolvedValue('disabled');
+  vi.advanceTimersByTime(bridgeTransactionPoller.interval);
+  await flush();
+  expect(target.querySelector('button')!.disabled).toBe(true);
+  expect(target.textContent).toContain('transactions.retry.recall_disabled');
   component.$destroy();
 });
 

@@ -3,6 +3,7 @@ import { ContractFunctionRevertedError, encodeErrorResult } from 'viem';
 import { vi } from 'vitest';
 
 import { bridgeAbi } from '$abi';
+import { bridgeTransactionPoller } from '$config';
 import { MOCK_BRIDGE_TX_1 } from '$mocks';
 
 window.matchMedia = vi
@@ -72,7 +73,35 @@ beforeEach(() => {
 });
 afterEach(() => {
   component?.$destroy();
+  vi.useRealTimers();
   target.remove();
+});
+
+it('shows loading rather than a failed read when opening the dialog', async () => {
+  let resolve!: (state: string) => void;
+  getRecallState.mockReturnValue(new Promise((done) => (resolve = done)));
+  await mount();
+  expect(target.textContent).toContain('transactions.status.checking_recall');
+  expect(target.textContent).not.toContain('bridge.errors.recall.unknown.message');
+  expect(button('common.continue')).toBeUndefined();
+  resolve('enabled');
+  await flush();
+  expect(button('common.continue')).toBeDefined();
+});
+
+it('keeps the confirm step after a transient background failure but reacts to a confirmed disable', async () => {
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+  await atConfirm();
+  getRecallState.mockResolvedValue('unknown');
+  vi.advanceTimersByTime(bridgeTransactionPoller.interval);
+  await flush();
+  expect(releaseButton()?.disabled).toBe(false);
+  expect(target.textContent).not.toContain('bridge.errors.recall.unknown.message');
+  getRecallState.mockResolvedValue('disabled');
+  vi.advanceTimersByTime(bridgeTransactionPoller.interval);
+  await flush();
+  expect(releaseButton()).toBeNull();
+  expect(target.textContent).toContain('bridge.errors.recall.disabled.message');
 });
 
 it.each(['disabled', 'unknown'])('blocks even a directly opened release dialog when recall is %s', async (state) => {
