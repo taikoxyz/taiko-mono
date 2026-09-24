@@ -9,10 +9,14 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 
-/// @notice Rehearses the Proposal0026 upgrade against live mainnet state.
+/// @notice Rehearses the Proposal0026 upgrade against a historical mainnet fork.
 /// @dev Skipped unless `L1_FORK_URL` is set, because CI configures no RPC endpoints. Run with:
 ///
 ///   L1_FORK_URL=<l1 rpc> FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0026ForkTest -vv
+///
+/// Defaults to block 25,961,770, after implementation deployment and before the proxy upgrade.
+/// Set `L1_FORK_BLOCK` to use another pre-upgrade block with an archive RPC. `--fork-block-number`
+/// does not select the block of the fork this test creates.
 ///
 /// `Proposal0026.t.sol` proves the proposal encodes the right calldata and that the new
 /// implementation's configuration differs from the live one only in the sharing percentage. This
@@ -46,10 +50,12 @@ contract Proposal0026ForkTest is Test {
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     /// @dev The implementation the proxy must still be running when the rehearsal starts (Unzen,
-    /// Proposal0019). The fork is taken at head, so once Proposal0026 executes these tests would
-    /// otherwise rehearse current -> current and stay green while no longer covering the
-    /// transition they exist for. Asserting the starting implementation fails loudly instead.
+    /// Proposal0019). Rejects an override taken after Proposal0026 executes, which would otherwise
+    /// rehearse current -> current instead of the intended transition.
     address private constant _LIVE_INBOX_IMPL = 0x5253D4C91e80b880DdB54B78E74082Abe066F6b9;
+
+    /// @dev Recorded pre-upgrade state after the new implementation's deployment at block 25,961,745.
+    uint256 private constant _DEFAULT_L1_FORK_BLOCK = 25_961_770;
 
     error ActionReverted(uint256 index);
 
@@ -59,11 +65,11 @@ contract Proposal0026ForkTest is Test {
         assertEq(
             _implementationOf(L1.INBOX),
             _LIVE_INBOX_IMPL,
-            "L1 fork is not pre-upgrade; pin --fork-block-number 25961507 against an archive node"
+            "L1 fork is not pre-upgrade; set L1_FORK_BLOCK=25961770 with an archive RPC"
         );
 
         Before memory before = _snapshot();
-        assertEq(before.config.basefeeSharingPctg, 75, "live inbox does not share 75 today");
+        assertEq(before.config.basefeeSharingPctg, 75, "forked inbox does not share 75");
         assertEq(before.owner, L1.DAO_CONTROLLER, "inbox is not owned by the DAO controller");
         assertEq(uint8(uint256(before.slot0)), 3, "inbox initializer version is not 3");
 
@@ -84,7 +90,11 @@ contract Proposal0026ForkTest is Test {
     function test_l1_dryrunSucceeds() external {
         if (!_forkOrSkip("L1_FORK_URL")) return;
 
-        assertEq(_implementationOf(L1.INBOX), _LIVE_INBOX_IMPL, "L1 fork is not pre-upgrade");
+        assertEq(
+            _implementationOf(L1.INBOX),
+            _LIVE_INBOX_IMPL,
+            "L1 fork is not pre-upgrade; set L1_FORK_BLOCK=25961770 with an archive RPC"
+        );
 
         (, Controller.Action[] memory actions) = _implementationAndBatch();
 
@@ -174,7 +184,8 @@ contract Proposal0026ForkTest is Test {
         }
     }
 
-    /// @dev Selects a fork from `_envVar`, or marks the test skipped when it is unset.
+    /// @dev Selects a fork at `L1_FORK_BLOCK` (or the recorded pre-upgrade block), or marks the
+    /// test skipped when the RPC URL is unset.
     /// @param _envVar Name of the environment variable holding the RPC URL.
     /// @return forked_ True when a fork was selected and the test should continue.
     function _forkOrSkip(string memory _envVar) private returns (bool forked_) {
@@ -183,7 +194,8 @@ contract Proposal0026ForkTest is Test {
             vm.skip(true, string.concat(_envVar, " is not set"));
             return false;
         }
-        vm.createSelectFork(url);
+        uint256 forkBlock = vm.envOr("L1_FORK_BLOCK", _DEFAULT_L1_FORK_BLOCK);
+        vm.createSelectFork(url, forkBlock);
         return true;
     }
 

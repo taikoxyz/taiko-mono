@@ -281,6 +281,11 @@ Deployed on 2026-09-12 by `0x56706f118e42ae069f20c5636141b844d1324ae1`, all in L
 
 Every commented value is the expected result.
 
+The fork rehearsal defaults to L1 block **25,961,770**, after the implementation was deployed and
+before the proxy upgrade, so it remains repeatable after execution. Use an archive-capable RPC.
+Set `L1_FORK_BLOCK` to select another block in that interval; `--fork-block-number` does not select
+the block of the fork created inside the test.
+
 ```bash
 export L1_RPC=<l1 rpc>
 export INBOX=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f
@@ -344,15 +349,15 @@ rmdir "$PROPOSAL0026_VERIFY_DIR"
 # Etherscan holds the verified source (MainnetInbox, solc 0.8.30, osaka, optimizer 200 runs):
 # https://etherscan.io/address/0xA18431d42C8dF9778905fBEa912aCF1881b49D2e#code
 
-# The calldata: regenerate and diff, then the dry run, then the rehearsal against live state. The
-# rehearsal executes the batch from the DAO controller on a fork and asserts the proxy answers 100
+# The calldata: regenerate and diff, then the live dry run, then the historical fork rehearsal. The
+# rehearsal executes the batch from the DAO controller at block 25,961,770 and asserts the proxy answers 100
 # with every other configuration field, the core state, the last and last-finalized proposal
 # hashes, the forced-inclusion queue, the owner, the activation timestamp and the initializer
 # version unchanged; the second test is the dry run itself.
 cd packages/protocol
 P=0026 pnpm proposal && git diff --exit-code script/layer1/proposals/Proposal0026.action.md
 P=0026 pnpm proposal:dryrun:l1                       # reverts DryrunSucceeded()
-L1_FORK_URL=$L1_RPC FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0026ForkTest -vv
+L1_FORK_URL="$L1_RPC" FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0026ForkTest -vv
 ```
 
 After execution:
