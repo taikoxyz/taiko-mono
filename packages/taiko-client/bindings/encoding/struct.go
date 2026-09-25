@@ -13,6 +13,5 @@ type SubProofShasta struct {
 // LastSeenProposal wraps a proposal metadata object with extra sync state.
 type LastSeenProposal struct {
 	metadata.TaikoProposalMetaData
-	PreconfChainReorged bool
-	LastBlockID         uint64
+	LastBlockID uint64
 }

@@ -112,8 +112,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 	defer i.mutex.Unlock()
 
 	var (
-		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
-		// to the channel.
 		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
 		meta               = metadata.Shasta()
 	)
@@ -191,12 +189,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 					"parentHash", parent.Hash(),
 				)
 
-				go i.sendLatestSeenProposal(&encoding.LastSeenProposal{
-					TaikoProposalMetaData: metadata,
-					PreconfChainReorged:   false,
-					LastBlockID:           lastBlockHeader.Number.Uint64(),
-				})
-
 				// Update the L1 origin for each block in the proposal.
 				if err := updateL1OriginForProposal(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
 					return nil, fmt.Errorf(
@@ -206,6 +198,10 @@ func (i *Shasta) InsertBlocksWithManifest(
 					)
 				}
 
+				i.sendLatestSeenProposal(ctx, &encoding.LastSeenProposal{
+					TaikoProposalMetaData: metadata,
+					LastBlockID:           lastBlockHeader.Number.Uint64(),
+				})
 				return lastBlockHeader.Number, nil
 			}
 		}
@@ -271,9 +267,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
-	// Mark the last seen proposal as not preconfirmed and send it to the channel.
-	latestSeenProposal.PreconfChainReorged = true
-	go i.sendLatestSeenProposal(latestSeenProposal)
+	// Preserve the counter's preconfirmation-server scope, independently of
+	// notification delivery. A rebuild does not prove canonical hashes changed.
+	if i.latestSeenProposalCh != nil {
+		metrics.DriverReorgsByProposalCounter.Inc()
+	}
+	i.sendLatestSeenProposal(ctx, latestSeenProposal)
 
 	return new(big.Int).SetUint64(latestSeenProposal.LastBlockID), nil
 }
@@ -320,16 +319,29 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 	return headers, nil
 }
 
-// sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
-func (i *Shasta) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
-	if i.latestSeenProposalCh != nil {
-		log.Debug(
-			"Sending latest seen proposal from blocksInserter",
-			"proposalID", proposal.TaikoProposalMetaData.Shasta().GetEventData().Id,
-			"preconfChainReorged", proposal.PreconfChainReorged,
-		)
-
-		i.latestSeenProposalCh <- proposal
+// sendLatestSeenProposal publishes in derivation order while i.mutex is held.
+// It never waits for the consumer, which may itself be waiting for insertion.
+// If the buffer fills, discard its oldest state so the newest completion is retained.
+func (i *Shasta) sendLatestSeenProposal(ctx context.Context, proposal *encoding.LastSeenProposal) {
+	if i.latestSeenProposalCh == nil || ctx.Err() != nil {
+		return
+	}
+	select {
+	case i.latestSeenProposalCh <- proposal:
+		return
+	default:
+	}
+	select {
+	case dropped := <-i.latestSeenProposalCh:
+		log.Warn("Proposal notification queue full, dropping oldest completion",
+			"droppedLastBlockID", dropped.LastBlockID, "latestLastBlockID", proposal.LastBlockID)
+	default:
+	}
+	// There is now room in the production buffer: the insertion mutex excludes
+	// other senders. Keep the send non-blocking for unbuffered test consumers too.
+	select {
+	case i.latestSeenProposalCh <- proposal:
+	default:
 	}
 }
 

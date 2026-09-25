@@ -29,6 +29,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -85,6 +86,11 @@ type PreconfBlockAPIServer struct {
 	chainSyncer                   preconfBlockChainSyncer
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
+	// Protect status observations with a short lock, never held across RPC or imports.
+	unsafeHeadMutex       sync.Mutex
+	unsafeHeadRevision    uint64
+	statusHeadLookup      singleflight.Group
+	statusHeadLastWarning time.Time
 	// P2P network for preconfirmation block propagation
 	p2pNode             *p2p.NodeP2P
 	p2pSigner           p2p.Signer
@@ -151,22 +157,22 @@ func New(
 	}
 
 	server := &PreconfBlockAPIServer{
-		echo:                          echo.New(),
-		anchorValidator:               anchorValidator,
-		chainSyncer:                   chainSyncer,
-		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
-		rpc:                           cli,
-		envelopesCache:                newEnvelopeQueue(),
-		preconfOperatorAddress:        preconfOperatorAddress,
-		lookahead:                     &Lookahead{},
-		mutex:                         sync.Mutex{},
-		blockRequestsCache:            blockRequestsCache,
-		sequencingEndedForEpochCache:  endOfSequencingCache,
-		latestSeenProposalCh:          latestSeenProposalCh,
-		responseSeenCache:             responseSeenCache,
-		highestUnsafeL2PayloadBlockID: head.NumberU64(),
-		syncReady:                     false,
+		echo:                         echo.New(),
+		anchorValidator:              anchorValidator,
+		chainSyncer:                  chainSyncer,
+		ws:                           &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
+		rpc:                          cli,
+		envelopesCache:               newEnvelopeQueue(),
+		preconfOperatorAddress:       preconfOperatorAddress,
+		lookahead:                    &Lookahead{},
+		mutex:                        sync.Mutex{},
+		blockRequestsCache:           blockRequestsCache,
+		sequencingEndedForEpochCache: endOfSequencingCache,
+		latestSeenProposalCh:         latestSeenProposalCh,
+		responseSeenCache:            responseSeenCache,
+		syncReady:                    false,
 	}
+	server.highestUnsafeL2PayloadBlockID = head.NumberU64()
 
 	server.echo.HideBanner = true
 	server.configureMiddleware([]string{cors})
@@ -1174,7 +1180,9 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 
 // monitorLatestProposalOnChain refreshes the latest proposal from L1 if the cached proposal reorgs.
 func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context) {
+	s.mutex.Lock()
 	proposal := s.latestSeenProposal
+	s.mutex.Unlock()
 	if proposal == nil {
 		return
 	}
@@ -1261,14 +1269,12 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 			},
 			header.Time,
 		),
-		// Known proposals do not constitute a real reorg; the inserter will detect
-		// and signal a PreconfChainReorged if the payload actually changes.
-		PreconfChainReorged: false,
-		LastBlockID:         blockID.ToInt().Uint64(),
+		LastBlockID: blockID.ToInt().Uint64(),
 	})
 }
 
-// recordLatestSeenProposal records the latest seen proposal.
+// recordLatestSeenProposal accepts completions in insertion order, including lower
+// or unchanged proposal IDs after an L1 reorg.
 func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1283,27 +1289,6 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 
 	if proposal.LastBlockID != 0 {
 		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
-	}
-
-	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
-	if s.latestSeenProposal.PreconfChainReorged {
-		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
-		log.Info(
-			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
-			"proposalId", proposal.Shasta().GetEventData().Id,
-			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-		)
-
-		metrics.DriverReorgsByProposalCounter.Inc()
-	} else if proposal.LastBlockID > s.highestUnsafeL2PayloadBlockID {
-		// Always keep highestUnsafeL2PayloadBlockID in sync with the canonical chain tip.
-		log.Info(
-			"Advancing highest unsafe L2 payload block ID to canonical tip",
-			"proposalId", proposal.Shasta().GetEventData().Id,
-			"previousHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-			"newHighestUnsafeL2PayloadBlockID", proposal.LastBlockID,
-		)
-		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
 	}
 }
 
@@ -1468,15 +1453,11 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		return false, fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
-	// If the block number is greater than the highest unsafe L2 payload block ID,
-	// update the highest unsafe L2 payload block ID.
-	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
-		s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
-	}
+	// Replay may have rewound the engine below the cached height. Publish every
+	// successful import, also invalidating status lookups started before it.
+	s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
 
-	// If the block number is less than or equal to the highest unsafe L2 payload block ID,
-	// we also need to update the highest unsafe L2 payload block ID.
-	if header != nil && uint64(msg.ExecutionPayload.BlockNumber) <= header.Number.Uint64() {
+	if header != nil {
 		log.Info(
 			"Preconfirmation block is reorging",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
@@ -1485,7 +1466,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			"headerHash", header.Hash().Hex(),
 			"headerParentHash", header.ParentHash.Hex(),
 		)
-		s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
 	}
 
 	// Try to import the child blocks from the cache, if any.
@@ -1508,21 +1488,25 @@ func envelopeFromMessage(msg *eth.ExecutionPayloadEnvelope) *preconf.Envelope {
 
 // updateHighestUnsafeL2Payload updates the highest unsafe L2 payload block ID.
 func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
-	if blockID > s.highestUnsafeL2PayloadBlockID {
-		log.Info(
-			"Updating highest unsafe L2 payload block ID",
-			"blockID", blockID,
-			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-		)
-	} else {
-		log.Info(
-			"Reorging highest unsafe L2 payload blockID",
-			"blockID", blockID,
-			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-		)
-	}
+	s.unsafeHeadMutex.Lock()
+	defer s.unsafeHeadMutex.Unlock()
+	s.updateHighestUnsafeL2PayloadLocked(blockID)
+}
+
+// updateHighestUnsafeL2PayloadLocked requires unsafeHeadMutex to be held.
+func (s *PreconfBlockAPIServer) updateHighestUnsafeL2PayloadLocked(blockID uint64) {
+	s.unsafeHeadRevision++
+	previous := s.highestUnsafeL2PayloadBlockID
 	s.highestUnsafeL2PayloadBlockID = blockID
 	metrics.DriverHighestPreconfUnsafePayloadGauge.Set(float64(blockID))
+	if previous == blockID {
+		return
+	}
+	if blockID < previous {
+		log.Info("Observed unsafe L2 head decreased", "blockID", blockID, "previousBlockID", previous)
+		return
+	}
+	log.Debug("Updated observed unsafe L2 head", "blockID", blockID, "previousBlockID", previous)
 }
 
 // tryPutEnvelopeIntoCache tries to put the given payload into the cache, if it is not already cached.

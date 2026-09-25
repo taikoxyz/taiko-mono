@@ -106,7 +106,11 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
-	latestSeenProposalCh := make(chan *encoding.LastSeenProposal, 1024)
+	// Nodes without the preconfirmation server have no notification consumer.
+	var latestSeenProposalCh chan *encoding.LastSeenProposal
+	if d.PreconfBlockServerPort > 0 {
+		latestSeenProposalCh = make(chan *encoding.LastSeenProposal, 1024)
+	}
 	if d.l2ChainSyncer, err = chainSyncer.New(
 		d.ctx,
 		d.rpc,
