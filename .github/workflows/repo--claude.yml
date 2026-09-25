@@ -6,10 +6,11 @@ on:
     types: [created]
 
 jobs:
-  claude:
-    # SECURITY: only trusted authors can trigger this secret-bearing job.
-    # Anyone with comment access could otherwise spend the ANTHROPIC_API_KEY
-    # and run a job with contents/pull-requests/issues/id-token write.
+  gate:
+    # SECURITY: only owners/members/collaborators can trigger this: issue_comment runs with repo
+    # secrets and bypasses the fork-PR approval gate. The PR is resolved and forks are refused in
+    # this job, which has no secrets and read-only access, so nothing runs next to the write token
+    # or ANTHROPIC_API_KEY before the check passes.
     if: >-
       github.event_name == 'issue_comment'
       && contains(github.event.comment.body, '@claude')
@@ -17,31 +18,41 @@ jobs:
       && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     permissions:
+      pull-requests: read
+    outputs:
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+    steps:
+      - name: Resolve PR head and refuse forks
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.issue.pull_request.url }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          pr=$(gh api "$PR_URL")
+          head_repo=$(jq -r '.head.repo.full_name // ""' <<<"$pr")
+          head_sha=$(jq -r '.head.sha' <<<"$pr")
+          # Owner/repo names are case-insensitive; a deleted head repo (null) is refused too.
+          if [ "${head_repo,,}" != "${BASE_REPO,,}" ]; then
+            echo "Refusing to run: PR head is '${head_repo}', not ${BASE_REPO} (fork PRs are not supported)." >&2
+            exit 1
+          fi
+          echo "head_sha=${head_sha}" >> "$GITHUB_OUTPUT"
+
+  claude:
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
       contents: write
       pull-requests: write
       issues: write
       id-token: write
     steps:
-      - name: Fetch owner/repo of pull request
-        uses: alessbell/pull-request-comment-branch@ef3408c9757d05f89cb525036383033a313758a0 # v2.1.0
-        id: comment-branch
-      - name: Refuse pull requests from forks
-        # SECURITY: Claude runs installs and tests from the checked-out code with secrets and write
-        # permissions, so fork code must never be checked out here, even when a member triggers it.
-        env:
-          HEAD_REPO: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
-          BASE_REPO: ${{ github.repository }}
-        run: |
-          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
-            echo "Refusing to run: PR head is $HEAD_REPO, not $BASE_REPO (fork PRs are not supported)." >&2
-            exit 1
-          fi
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # SECURITY: Pin to exact commit at comment time to prevent TOCTOU attacks
-          ref: ${{ steps.comment-branch.outputs.head_sha }}
-          repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
+          ref: ${{ needs.gate.outputs.head_sha }}
           # Fetch more history for better git operations
           fetch-depth: 0
           persist-credentials: false
