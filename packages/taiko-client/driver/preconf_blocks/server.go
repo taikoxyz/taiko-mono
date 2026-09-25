@@ -1502,6 +1502,10 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2PayloadLocked(blockID uint6
 	if previous == blockID {
 		return
 	}
+	if blockID < previous {
+		log.Info("Observed unsafe L2 head decreased", "blockID", blockID, "previousBlockID", previous)
+		return
+	}
 	log.Debug("Updated observed unsafe L2 head", "blockID", blockID, "previousBlockID", previous)
 }
 

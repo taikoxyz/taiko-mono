@@ -333,7 +333,7 @@ func (i *Shasta) sendLatestSeenProposal(ctx context.Context, proposal *encoding.
 	}
 	select {
 	case dropped := <-i.latestSeenProposalCh:
-		log.Debug("Proposal notification queue full, dropping oldest completion",
+		log.Warn("Proposal notification queue full, dropping oldest completion",
 			"droppedLastBlockID", dropped.LastBlockID, "latestLastBlockID", proposal.LastBlockID)
 	default:
 	}
