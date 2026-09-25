@@ -23,10 +23,21 @@ jobs:
       id-token: write
     steps:
       - name: Fetch owner/repo of pull request
-        uses: alessbell/pull-request-comment-branch@v2.1.0
+        uses: alessbell/pull-request-comment-branch@ef3408c9757d05f89cb525036383033a313758a0 # v2.1.0
         id: comment-branch
+      - name: Refuse pull requests from forks
+        # SECURITY: Claude runs installs and tests from the checked-out code with secrets and write
+        # permissions, so fork code must never be checked out here, even when a member triggers it.
+        env:
+          HEAD_REPO: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "Refusing to run: PR head is $HEAD_REPO, not $BASE_REPO (fork PRs are not supported)." >&2
+            exit 1
+          fi
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # SECURITY: Pin to exact commit at comment time to prevent TOCTOU attacks
           ref: ${{ steps.comment-branch.outputs.head_sha }}
@@ -36,13 +47,13 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "20"
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@8cf3482550831fb35a4fc3fbf7ca139cf8028b4c # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
