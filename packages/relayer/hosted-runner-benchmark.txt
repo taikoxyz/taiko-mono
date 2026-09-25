@@ -1,0 +1,2 @@
+Marker for the hosted-runner benchmark PR (do not merge).
+Touching this file makes the path-filtered CI for packages/relayer run on the benchmark PR.

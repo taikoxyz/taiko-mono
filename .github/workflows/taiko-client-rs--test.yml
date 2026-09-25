@@ -59,7 +59,7 @@ jobs:
   lockfile:
     if: ${{ github.event.pull_request.draft == false }}
     name: Lockfile
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -76,7 +76,7 @@ jobs:
   lint:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Lint
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
@@ -160,7 +160,7 @@ jobs:
   unit:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Unit Tests
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -247,7 +247,7 @@ jobs:
   test:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     timeout-minutes: 50
 
     steps:
