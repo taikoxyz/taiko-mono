@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.19.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.18.0...bridge-ui-v2.19.0) (2026-09-25)
+
+
+### Features
+
+* **bridge-ui:** gate recalls across bridge upgrades ([#22162](https://github.com/taikoxyz/taiko-mono/issues/22162)) ([b1dd339](https://github.com/taikoxyz/taiko-mono/commit/b1dd3397382020e750115f4cc05c5b34f2640994))
+* **bridge-ui:** support EIP-2612 permit and Permit2 in the ERC20 send flow ([#22143](https://github.com/taikoxyz/taiko-mono/issues/22143)) ([0513185](https://github.com/taikoxyz/taiko-mono/commit/05131855102de6c61cccc89922fe3031f223f8d2))
+
+
+### Chores
+
+* **deps-dev:** bump the npm_and_yarn group across 1 directory with 3 updates ([#22170](https://github.com/taikoxyz/taiko-mono/issues/22170)) ([52a0a5d](https://github.com/taikoxyz/taiko-mono/commit/52a0a5d7bc65fc3a4ab1556776017956154405d3))
+
 ## [2.18.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.17.1...bridge-ui-v2.18.0) (2026-09-03)
 
 
