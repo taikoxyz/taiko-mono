@@ -60,9 +60,8 @@ func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) 
 	return ctx, func() {}
 }
 
-// BlockOnInterruptsContext blocks until a SIGTERM is received.
-// Passing in signals will override the default signals.
-// The function will stop blocking if the context is closed.
+// BlockOnInterruptsContext blocks until one of the configured signals is received
+// or the context is canceled. Passing signals overrides DefaultInterruptSignals.
 func BlockOnInterruptsContext(ctx context.Context, signals ...os.Signal) {
 	if len(signals) == 0 {
 		signals = DefaultInterruptSignals
