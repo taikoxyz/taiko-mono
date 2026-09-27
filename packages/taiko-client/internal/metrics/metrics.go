@@ -28,10 +28,17 @@ var (
 	DriverL2PreconfHeadHeightGauge         = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_preconf_l2Head_height"})
 	DriverL1CurrentHeightGauge             = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Current_height"})
 	DriverL2HeadIDGauge                    = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_id"})
-	DriverHighestPreconfUnsafePayloadGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_highest_unsafe_payload"})
-	DriverReorgsByProposalCounter          = factory.NewCounter(prometheus.CounterOpts{Name: "driver_reorgs_by_proposal"})
-	DriverPreconfEnvelopeCounter           = factory.NewCounter(prometheus.CounterOpts{Name: "driver_p2p_envelope"})
-	DriverLastSeenBlockInProposalGauge     = factory.NewGauge(prometheus.GaugeOpts{
+	DriverHighestPreconfUnsafePayloadGauge = factory.NewGauge(prometheus.GaugeOpts{
+		Name: "driver_highest_unsafe_payload",
+		Help: "Last observed or imported unsafe execution head height; may decrease and is not an L1 derivation watermark.",
+	})
+	DriverReorgsByProposalCounter    = factory.NewCounter(prometheus.CounterOpts{Name: "driver_reorgs_by_proposal"})
+	DriverPreconfEnvelopeCounter     = factory.NewCounter(prometheus.CounterOpts{Name: "driver_p2p_envelope"})
+	DriverUnsafeHeadDecreasesCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "driver_unsafe_head_decreases",
+		Help: "Number of observed unsafe head decreases, including transient replay observations; not proof of a reorg.",
+	})
+	DriverLastSeenBlockInProposalGauge = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "driver_last_seen_block_in_proposal",
 	})
 	DriverL2PreconfBlocksFromRPCGauge = factory.NewGauge(prometheus.GaugeOpts{

@@ -33,6 +33,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/prometheus/client_golang v1.24.1
+	github.com/prometheus/client_model v0.6.2
 	github.com/prysmaticlabs/prysm/v5 v5.3.3
 	github.com/rabbitmq/amqp091-go v1.14.0
 	github.com/shopspring/decimal v1.4.0
@@ -240,7 +241,6 @@ require (
 	github.com/pion/webrtc/v3 v3.3.0 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/prysmaticlabs/fastssz v0.0.0-20241008181541-518c4ce73516 // indirect

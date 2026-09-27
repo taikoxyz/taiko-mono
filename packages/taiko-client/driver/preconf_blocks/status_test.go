@@ -17,10 +17,17 @@ import (
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 )
+
+type StatusTestSuite struct{ suite.Suite }
+
+func TestStatusTestSuite(t *testing.T) {
+	suite.Run(t, new(StatusTestSuite))
+}
 
 type statusTestImporter struct {
 	header  *types.Header
@@ -34,7 +41,8 @@ func (i *statusTestImporter) InsertPreconfBlocksFromEnvelopes(
 	return []*types.Header{i.header}, nil
 }
 
-func TestStatusFallbackTracksP2PImportAfterReplayRewind(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusFallbackTracksP2PImportAfterReplayRewind() {
+	t := ts.T()
 	parent := &types.Header{Number: big.NewInt(90), Difficulty: big.NewInt(1)}
 	imported := &types.Header{Number: big.NewInt(91), Difficulty: big.NewInt(1), ParentHash: parent.Hash()}
 	backend := &proposalHeadRPC{
@@ -45,34 +53,39 @@ func TestStatusFallbackTracksP2PImportAfterReplayRewind(t *testing.T) {
 	s := &PreconfBlockAPIServer{
 		rpc: newProposalHeadClient(t, backend), envelopesCache: newEnvelopeQueue(), chainSyncer: importer,
 	}
+	release := sync.OnceFunc(func() { close(backend.release) })
+	defer release()
 	s.updateHighestUnsafeL2Payload(100)
 	done := make(chan uint64, 1)
 	go func() { done <- s.reportedUnsafeHead(context.Background()) }()
-	<-backend.started
+	receiveStatusTestValue(t, backend.started)
 	cached, err := s.TryImportingPayload(context.Background(), nil, &eth.ExecutionPayloadEnvelope{
 		ExecutionPayload: &eth.ExecutionPayload{BlockNumber: 91, BlockHash: imported.Hash(), ParentHash: parent.Hash()},
 	}, "")
-	close(backend.release)
-	require.Equal(t, uint64(91), <-done)
+	release()
+	require.Equal(t, uint64(91), receiveStatusTestValue(t, done))
 	require.NoError(t, err)
 	require.False(t, cached)
 	require.Equal(t, 1, importer.imports)
 	require.Equal(t, uint64(91), s.highestUnsafeL2PayloadBlockID)
 }
 
-func TestStatusDoesNotOverwriteAnInterveningImport(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusDoesNotOverwriteAnInterveningImport() {
+	t := ts.T()
 	backend := &proposalHeadRPC{
 		head:    &types.Header{Number: big.NewInt(11802683), Difficulty: big.NewInt(1)},
 		started: make(chan struct{}), release: make(chan struct{}),
 	}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+	release := sync.OnceFunc(func() { close(backend.release) })
+	defer release()
 	s.updateHighestUnsafeL2Payload(11802680)
 	done := make(chan uint64, 1)
 	go func() { done <- s.reportedUnsafeHead(context.Background()) }()
-	<-backend.started
+	receiveStatusTestValue(t, backend.started)
 	s.updateHighestUnsafeL2Payload(11802693)
-	close(backend.release)
-	require.Equal(t, uint64(11802693), <-done)
+	release()
+	require.Equal(t, uint64(11802693), receiveStatusTestValue(t, done))
 	require.Equal(t, uint64(11802693), s.highestUnsafeL2PayloadBlockID)
 }
 
@@ -86,7 +99,8 @@ func statusSnapshot(t *testing.T, s *PreconfBlockAPIServer) Status {
 	return status
 }
 
-func TestStatusReadsLiveHeadAndFallsBack(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusReadsLiveHeadAndFallsBack() {
+	t := ts.T()
 	backend := &proposalHeadRPC{head: &types.Header{Number: big.NewInt(11802693), Difficulty: big.NewInt(1)}}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend), envelopesCache: newEnvelopeQueue()}
 	s.updateHighestUnsafeL2Payload(11802683)
@@ -99,7 +113,8 @@ func TestStatusReadsLiveHeadAndFallsBack(t *testing.T) {
 	require.Equal(t, uint64(11802681), statusSnapshot(t, s).HighestUnsafeL2PayloadBlockID)
 }
 
-func TestStatusDoesNotWaitForPreconfirmationLock(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusDoesNotWaitForPreconfirmationLock() {
+	t := ts.T()
 	backend := &proposalHeadRPC{head: &types.Header{Number: big.NewInt(11802693), Difficulty: big.NewInt(1)}}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend), envelopesCache: newEnvelopeQueue()}
 	s.mutex.Lock()
@@ -115,38 +130,55 @@ func TestStatusDoesNotWaitForPreconfirmationLock(t *testing.T) {
 		require.NoError(t, err)
 	case <-time.After(time.Second):
 		s.mutex.Unlock()
-		<-finished
 		t.Fatal("status waited for the preconfirmation import lock")
 	}
 }
 
-func TestStatusBoundsSlowExecutionRPC(t *testing.T) {
-	backend := &proposalHeadRPC{waitForCancellation: true}
+func (ts *StatusTestSuite) TestStatusBoundsSlowExecutionRPC() {
+	t := ts.T()
+	backend := &proposalHeadRPC{waitForCancellation: true, release: make(chan struct{})}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend), envelopesCache: newEnvelopeQueue()}
+	defer close(backend.release)
 	s.updateHighestUnsafeL2Payload(11802693)
-	started := time.Now()
-	require.Equal(t, uint64(11802693), statusSnapshot(t, s).HighestUnsafeL2PayloadBlockID)
-	require.Less(t, time.Since(started), time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan uint64, 1)
+	go func() { done <- s.reportedUnsafeHead(ctx) }()
+	// The fake RPC client's fallback timeout is 10s, well beyond this wait.
+	require.Equal(t, uint64(11802693), receiveStatusTestValue(t, done))
 }
 
-func TestStatusConcurrentWithImportedHeads(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusConcurrentWithImportedHeads() {
+	t := ts.T()
 	backend := &proposalHeadRPC{head: &types.Header{Number: big.NewInt(11802693), Difficulty: big.NewInt(1)}}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend), envelopesCache: newEnvelopeQueue()}
-	var imports sync.WaitGroup
-	imports.Add(1)
+	stop, started, finished := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	go func() {
-		defer imports.Done()
-		for i := uint64(0); i < 100; i++ {
+		defer close(finished)
+		for i := uint64(0); ; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
 			s.mutex.Lock()
 			s.updateHighestUnsafeL2Payload(11802693 + i)
 			s.mutex.Unlock()
+			if i == 0 {
+				close(started)
+			}
 		}
 	}()
-	defer imports.Wait()
+	stopImports := sync.OnceFunc(func() {
+		close(stop)
+		receiveStatusTestValue(t, finished)
+	})
+	defer stopImports()
+	receiveStatusTestValue(t, started)
 	for i := 0; i < 10; i++ {
 		require.GreaterOrEqual(t, statusSnapshot(t, s).HighestUnsafeL2PayloadBlockID, uint64(11802693))
 	}
-	imports.Wait()
+	stopImports()
 	var gauge dto.Metric
 	require.NoError(t, metrics.DriverHighestPreconfUnsafePayloadGauge.Write(&gauge))
 	require.Equal(t, float64(s.highestUnsafeL2PayloadBlockID), gauge.GetGauge().GetValue())
@@ -176,7 +208,8 @@ func receiveStatusTestValue[T any](t *testing.T, ch <-chan T) T {
 	}
 }
 
-func TestStatusConcurrentPollsShareLookup(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusConcurrentPollsShareLookup() {
+	t := ts.T()
 	backend := &proposalHeadRPC{
 		head:    &types.Header{Number: big.NewInt(11802693)},
 		started: make(chan struct{}), release: make(chan struct{}),
@@ -199,7 +232,8 @@ func TestStatusConcurrentPollsShareLookup(t *testing.T) {
 	require.Equal(t, uint64(1), backend.requests.Load())
 }
 
-func TestStatusCancelledWaiterDoesNotCancelSharedLookup(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusCancelledWaiterDoesNotCancelSharedLookup() {
+	t := ts.T()
 	backend := &proposalHeadRPC{
 		head:    &types.Header{Number: big.NewInt(11802693)},
 		started: make(chan struct{}), release: make(chan struct{}),
@@ -225,7 +259,8 @@ func TestStatusCancelledWaiterDoesNotCancelSharedLookup(t *testing.T) {
 	require.Equal(t, uint64(1), backend.requests.Load())
 }
 
-func TestStatusFirstCallerCancellationDoesNotCancelSharedLookup(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusFirstCallerCancellationDoesNotCancelSharedLookup() {
+	t := ts.T()
 	for _, deadline := range []bool{false, true} {
 		name := "cancel"
 		if deadline {
@@ -265,7 +300,8 @@ func TestStatusFirstCallerCancellationDoesNotCancelSharedLookup(t *testing.T) {
 	}
 }
 
-func TestStatusLookupPanicDoesNotPoisonLaterPolls(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusLookupPanicDoesNotPoisonLaterPolls() {
+	t := ts.T()
 	backend := &proposalHeadRPC{head: &types.Header{Number: big.NewInt(11802693)}}
 	client := newProposalHeadClient(t, backend)
 	s := &PreconfBlockAPIServer{}
@@ -280,7 +316,8 @@ func TestStatusLookupPanicDoesNotPoisonLaterPolls(t *testing.T) {
 	require.Equal(t, uint64(1), backend.requests.Load())
 }
 
-func TestStatusFailureWarningsAreThrottled(t *testing.T) {
+func (ts *StatusTestSuite) TestStatusFailureWarningsAreThrottled() {
+	t := ts.T()
 	backend := &proposalHeadRPC{err: errors.New("execution engine unavailable")}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
 	s.updateHighestUnsafeL2Payload(11802693)
@@ -292,4 +329,18 @@ func TestStatusFailureWarningsAreThrottled(t *testing.T) {
 	s.statusHeadLastWarning = firstWarning.Add(-statusHeadWarningInterval)
 	require.Equal(t, uint64(11802693), s.reportedUnsafeHead(context.Background()))
 	require.True(t, s.statusHeadLastWarning.After(firstWarning))
+}
+
+func (ts *StatusTestSuite) TestStatusCountsObservedHeadDecreases() {
+	t := ts.T()
+	backend := &proposalHeadRPC{head: &types.Header{Number: big.NewInt(100)}}
+	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
+	var before, after dto.Metric
+	require.NoError(t, metrics.DriverUnsafeHeadDecreasesCounter.Write(&before))
+	for _, head := range []int64{100, 100, 101, 99, 99, 102, 98} {
+		backend.head.Number.SetInt64(head)
+		require.Equal(t, uint64(head), s.reportedUnsafeHead(context.Background()))
+	}
+	require.NoError(t, metrics.DriverUnsafeHeadDecreasesCounter.Write(&after))
+	require.Equal(t, before.GetCounter().GetValue()+2, after.GetCounter().GetValue())
 }

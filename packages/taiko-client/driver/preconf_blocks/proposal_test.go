@@ -14,12 +14,19 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
+
+type ProposalTestSuite struct{ suite.Suite }
+
+func TestProposalTestSuite(t *testing.T) {
+	suite.Run(t, new(ProposalTestSuite))
+}
 
 type proposalHeadRPC struct {
 	head                *types.Header
@@ -53,8 +60,12 @@ func (r *proposalHeadRPC) BlockNumber(ctx context.Context) (hexutil.Uint64, erro
 		<-r.release
 	}
 	if r.waitForCancellation {
-		<-ctx.Done()
-		return 0, ctx.Err()
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-r.release:
+			return 0, errors.New("test RPC released")
+		}
 	}
 	if r.err != nil {
 		return 0, r.err
@@ -69,7 +80,7 @@ func newProposalHeadClient(t *testing.T, backend *proposalHeadRPC) *rpc.Client {
 	httpServer := httptest.NewServer(server)
 	t.Cleanup(httpServer.Close)
 	t.Cleanup(server.Stop)
-	client, err := rpc.NewEthClient(context.Background(), httpServer.URL, time.Second)
+	client, err := rpc.NewEthClient(context.Background(), httpServer.URL, 10*time.Second)
 	require.NoError(t, err)
 	t.Cleanup(client.Close)
 	return &rpc.Client{L2: client}
@@ -84,7 +95,8 @@ func seenProposal(id int64, lastBlockID uint64) *encoding.LastSeenProposal {
 	}
 }
 
-func TestProposalNotificationsAcceptRewindsAndSameIDReplacements(t *testing.T) {
+func (ts *ProposalTestSuite) TestProposalNotificationsAcceptRewindsAndSameIDReplacements() {
+	t := ts.T()
 	backend := &proposalHeadRPC{err: errors.New("head RPC must not be called by notifications")}
 	s := &PreconfBlockAPIServer{rpc: newProposalHeadClient(t, backend)}
 	s.updateHighestUnsafeL2Payload(11802693)
@@ -100,7 +112,8 @@ func TestProposalNotificationsAcceptRewindsAndSameIDReplacements(t *testing.T) {
 	require.Zero(t, backend.requests.Load())
 }
 
-func TestProposalMonitorChecksL1WithoutQueryingExecutionHead(t *testing.T) {
+func (ts *ProposalTestSuite) TestProposalMonitorChecksL1WithoutQueryingExecutionHead() {
+	t := ts.T()
 	header := &types.Header{Number: big.NewInt(7), Difficulty: big.NewInt(1)}
 	l1 := &proposalHeadRPC{headers: map[gethrpc.BlockNumber]*types.Header{7: header}}
 	l2 := &proposalHeadRPC{err: errors.New("unexpected head lookup")}

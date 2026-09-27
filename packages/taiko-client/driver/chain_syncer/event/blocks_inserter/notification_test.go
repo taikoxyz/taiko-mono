@@ -88,5 +88,14 @@ func TestProposalNotificationsKeepDerivationOrder(t *testing.T) {
 
 func TestProposalNotificationsDisabled(t *testing.T) {
 	inserter := &Shasta{}
-	inserter.sendLatestSeenProposal(context.Background(), nil)
+	done := make(chan struct{})
+	go func() {
+		inserter.sendLatestSeenProposal(context.Background(), nil)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("disabled notifications blocked insertion")
+	}
 }

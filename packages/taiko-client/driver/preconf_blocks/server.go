@@ -1503,6 +1503,7 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2PayloadLocked(blockID uint6
 		return
 	}
 	if blockID < previous {
+		metrics.DriverUnsafeHeadDecreasesCounter.Inc()
 		log.Info("Observed unsafe L2 head decreased", "blockID", blockID, "previousBlockID", previous)
 		return
 	}

@@ -116,6 +116,14 @@ jobs:
           working-directory: ./packages/taiko-client
           args: --timeout=10m --config=.golangci.yml ./...
 
+      - name: Race-check preconfirmation status and proposal notifications
+        run: >-
+          go test -race
+          ./packages/taiko-client/driver/preconf_blocks
+          ./packages/taiko-client/driver/chain_syncer/event/blocks_inserter
+          -run 'Test(StatusTestSuite|ProposalTestSuite|ProposalNotification|FullProposalQueue|Checkpoint)'
+          -count=1
+
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Integration tests

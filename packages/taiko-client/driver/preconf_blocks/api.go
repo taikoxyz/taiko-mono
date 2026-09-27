@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -403,6 +404,8 @@ const statusHeadWarningInterval = 30 * time.Second
 // reportedUnsafeHead samples the execution head for this status request. The
 // fallback is also refreshed by imports, without taking the import lock.
 // Concurrent polls share one bounded lookup; each may cancel its own wait.
+// A joining poll may reuse a sample started before it arrived, bounded by the
+// lookup timeout; a later poll starts a fresh lookup after this one completes.
 func (s *PreconfBlockAPIServer) reportedUnsafeHead(ctx context.Context) uint64 {
 	var err error
 	if ctx.Err() == nil {
@@ -439,6 +442,7 @@ func (s *PreconfBlockAPIServer) refreshStatusHead(ctx context.Context) (err erro
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			err = fmt.Errorf("status head lookup panicked: %v", recovered)
+			log.Error("Status head lookup panicked, using last observation", "error", err, "stack", string(debug.Stack()))
 		}
 	}()
 	s.unsafeHeadMutex.Lock()
