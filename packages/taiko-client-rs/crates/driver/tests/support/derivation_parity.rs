@@ -14,11 +14,13 @@ use flate2::{Compression, write::ZlibEncoder};
 use protocol::shasta::{BlobCoder, manifest::DerivationSourceManifest};
 use std::{
     io::Write,
+    path::PathBuf,
     process::{Child, Command, Stdio},
 };
 
 struct GoDriverProcess {
     child: Child,
+    pid_file: Option<PathBuf>,
 }
 
 impl GoDriverProcess {
@@ -40,6 +42,9 @@ impl Drop for GoDriverProcess {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+        if let Some(path) = &self.pid_file {
+            let _ = std::fs::remove_file(path);
+        }
     }
 }
 
@@ -60,7 +65,15 @@ async fn start_go_driver(env: &ShastaEnv, beacon: &BeaconStubServer) -> Result<G
         .stderr(Stdio::inherit())
         .spawn()
         .context("starting Go driver")?;
-    Ok(GoDriverProcess { child })
+    let process = GoDriverProcess {
+        child,
+        pid_file: std::env::var_os("TAIKO_GO_DRIVER_PID_FILE").map(PathBuf::from),
+    };
+    // The outer runner owns cleanup if nextest SIGKILLs this test before Drop runs.
+    if let Some(path) = &process.pid_file {
+        std::fs::write(path, process.child.id().to_string())?;
+    }
+    Ok(process)
 }
 
 fn rlp_list(contents: &[u8]) -> Vec<u8> {
@@ -101,7 +114,12 @@ fn proposal_variant(
     block.coinbase.encode(&mut fields);
     block.anchor_block_number.encode(&mut fields);
     block.gas_limit.encode(&mut fields);
-    if case.starts_with("type") || case.starts_with("blob") {
+    if case.starts_with("type") ||
+        case.starts_with("blob") ||
+        case.starts_with("framing") ||
+        case == "signed_control" ||
+        case == "forced_bad_with_valid"
+    {
         fields.extend_from_slice(&fixture_tx_list(case)?);
     } else {
         fields.push(0xc0);
@@ -116,6 +134,8 @@ fn proposal_variant(
         let mut compressed = encoder.finish()?;
         if case == "trailer_missing_1" {
             compressed.pop();
+        } else if case == "dictionary_id_1" {
+            compressed.splice(..2, [0x78, 0x20, 0, 0, 0, 1]);
         }
         compressed
     };
@@ -164,7 +184,7 @@ async fn enqueue_invalid_forced_source(
     beacon: &BeaconStubServer,
 ) -> Result<()> {
     let (mut request, sidecar) =
-        proposal_variant(build_empty_proposal(env, proposer).await?, "type2_parity_2")?;
+        proposal_variant(build_empty_proposal(env, proposer).await?, "forced_bad_with_valid")?;
     let reference = bindings::inbox::LibBlobs::BlobReference {
         blobStartIndex: 0,
         numBlobs: 1,
@@ -219,6 +239,7 @@ async fn assert_block_parity(
     height: u64,
     anchor: alloy_primitives::Address,
     expected_coinbase: alloy_primitives::Address,
+    expected_transactions: usize,
 ) -> Result<()> {
     let rust_block = rust
         .l2_provider
@@ -253,7 +274,10 @@ async fn assert_block_parity(
             .collect())
     };
     ensure!(encoded(&rust_block)? == encoded(&go_block)?, "transaction bytes differ at {height}");
-    ensure!(rust_block.transactions.len() == 1, "expected an anchor-only block at {height}");
+    ensure!(
+        rust_block.transactions.len() == expected_transactions,
+        "unexpected transaction count at {height}"
+    );
     let anchor_hash = rust_block.transactions.hashes().next().context("missing anchor")?;
     for client in [rust, go] {
         let receipt = client
@@ -263,6 +287,16 @@ async fn assert_block_parity(
             .context("missing anchor receipt")?;
         ensure!(receipt.to == Some(anchor), "wrong anchor target");
         ensure!(receipt.status(), "anchor reverted at {height}");
+        if expected_transactions == 2 {
+            let tx_hash =
+                rust_block.transactions.hashes().nth(1).context("missing user transaction")?;
+            let receipt = client
+                .l2_provider
+                .get_transaction_receipt(tx_hash)
+                .await?
+                .context("missing user transaction receipt")?;
+            ensure!(receipt.status(), "control transaction reverted at {height}");
+        }
     }
     Ok(())
 }
@@ -292,7 +326,7 @@ async fn derivation_split_parity(env: &mut ShastaEnv) -> Result<()> {
     let mut go = start_go_driver(env, &beacon).await?;
     let (mut syncer, rust_client) = start_event_syncer(env, &beacon).await?;
     let cases = std::env::var("DERIVATION_PARITY_CASES").unwrap_or_else(|_|
-        "control,type2_parity_2,type2_fee_overflow,type2_chain_overflow,blob_sidecar_v0,blob_sidecar_v1,forced_type2_parity_2,trailer_missing_1,nonfinal_stream,type2_unrecoverable,control".to_string());
+        "control,type2_parity_2,type2_fee_overflow,type2_chain_overflow,blob_sidecar_v0,blob_sidecar_v1,forced_type2_parity_2,signed_control,dictionary_id_1,framing_type2_bare,framing_type2_short,framing_type2_long,framing_type0_string,trailer_missing_1,nonfinal_stream,type2_unrecoverable,control".to_string());
     let result: Result<()> = async {
         for case in cases.split(',') {
             let _: serde_json::Value =
@@ -320,15 +354,16 @@ async fn derivation_split_parity(env: &mut ShastaEnv) -> Result<()> {
             beacon.set_default_blob_sidecar(sidecar);
             let (proposal_id, sender) = submit_raw_proposal(env, request).await?;
             ensure!(proposal_id == baseline.proposal_id, "proposal counter changed");
-            let rust_height = wait_for_proposal_processed(
-                &mut syncer,
-                &rust_client,
-                &baseline,
-                before,
-                Duration::from_secs(120),
-            )
-            .await?;
-            let go_height = wait_for_go_proposal(&mut go, &go_client, proposal_id, before).await?;
+            let (rust_height, go_height) = tokio::try_join!(
+                wait_for_proposal_processed(
+                    &mut syncer,
+                    &rust_client,
+                    &baseline,
+                    before,
+                    Duration::from_secs(120),
+                ),
+                wait_for_go_proposal(&mut go, &go_client, proposal_id, before)
+            )?;
             ensure!(rust_height == go_height, "derived heights differ for {case}");
             let forced = case == "forced_type2_parity_2";
             ensure!(rust_height == before + if forced { 2 } else { 1 }, "wrong source block count");
@@ -339,6 +374,7 @@ async fn derivation_split_parity(env: &mut ShastaEnv) -> Result<()> {
                     before + 1,
                     env.taiko_anchor_address,
                     sender,
+                    1,
                 )
                 .await
                 .context("defaulted forced source")?;
@@ -348,11 +384,17 @@ async fn derivation_split_parity(env: &mut ShastaEnv) -> Result<()> {
                 &go_client,
                 rust_height,
                 env.taiko_anchor_address,
-                if forced || case == "control" || case == "type2_unrecoverable" {
+                if forced ||
+                    matches!(
+                        case,
+                        "control" | "type2_unrecoverable" | "signed_control" | "dictionary_id_1"
+                    )
+                {
                     env.l2_suggested_fee_recipient
                 } else {
                     sender
                 },
+                if case == "signed_control" { 2 } else { 1 },
             )
             .await
             .with_context(|| format!("parity case {case}"))?;

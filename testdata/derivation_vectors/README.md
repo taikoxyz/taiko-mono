@@ -1,6 +1,9 @@
 # Manifest decoding vectors
 
-Run from the repository root: `go run ./testdata/derivation_vectors/generate.go`.
+Run from the repository root: `GOTOOLCHAIN=go1.26.0 go run ./testdata/derivation_vectors/generate.go`.
+
+The generator enforces Go 1.26.0 (the CI toolchain) because zlib output changes
+between Go versions even when decompressed bytes are identical.
 
 The corpus contains deterministic source payload bytes and expected source RLP before
 metadata inheritance. A rejected source normalizes to one zero-valued block without
@@ -11,7 +14,9 @@ can decode its grammar. Signer recovery and execution validity are separate:
 a decodable transaction may still be skipped by the execution engine.
 
 All integers in hex fields are encoded in canonical RLP; hex strings omit 0x.
-Both client adapters consume this same file. Tests exercise forced-source cardinality
+Both client adapters consume this same file. Framing cases build malformed RLP directly
+and use Go source decoding as the reference; the reth engine oracle applies only
+to F9 transaction-field cases, not malformed network framing. Tests exercise forced-source cardinality
 separately because it is proposal metadata, not part of the manifest payload.
 
 ## Local driver/engine verification

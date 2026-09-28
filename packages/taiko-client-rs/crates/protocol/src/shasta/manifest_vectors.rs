@@ -34,7 +34,9 @@ fn load_manifest_vectors() -> Vec<ManifestVector> {
 
 #[test]
 fn f9_manifest_vectors() {
-    for v in load_manifest_vectors().into_iter().filter(|v| v.family == "f9") {
+    for v in
+        load_manifest_vectors().into_iter().filter(|v| v.family == "f9" || v.family == "framing")
+    {
         let payload = hex::decode(&v.payload_hex).unwrap();
         let got = DerivationSourceManifest::decompress_and_decode(&payload, v.offset).unwrap();
         let expected = hex::decode(&v.expected_manifest_rlp_hex).unwrap();
@@ -100,4 +102,31 @@ fn f8_large_stream_drains_output() {
         DerivationSourceManifest::decompress_and_decode(&hex::decode(v.payload_hex).unwrap(), 0)
             .unwrap();
     assert_eq!(alloy_rlp::encode(&got), expected);
+}
+
+#[test]
+fn zlib_drains_small_output_chunks() {
+    let v = load_manifest_vectors().into_iter().find(|v| v.name == "large_output").unwrap();
+    let payload = hex::decode(v.payload_hex).unwrap();
+    let expected = hex::decode(v.expected_manifest_rlp_hex).unwrap();
+    for chunk_size in [1, 7, 8192] {
+        assert_eq!(
+            decompress_manifest_zlib(&payload[64..], &mut vec![0; chunk_size]).unwrap(),
+            expected,
+            "chunk size {chunk_size}"
+        );
+    }
+}
+
+#[test]
+fn zlib_rejects_invalid_distances_and_incomplete_trees() {
+    // These streams are rejected by Go and C zlib but accepted by miniz_oxide.
+    // Test decompression itself: a later RLP error must not mask backend drift.
+    for encoded in [
+        "789c03020000030001",
+        "789c04a0810800000000e46f7d00c012939201024d0127",
+        "789c0d80014100000082b602ff3f68d8010608140250",
+    ] {
+        assert!(decompress_manifest_zlib(&hex::decode(encoded).unwrap(), &mut [0; 8192]).is_err());
+    }
 }

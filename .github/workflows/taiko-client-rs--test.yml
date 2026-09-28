@@ -6,6 +6,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "testdata/derivation_vectors/**"
       - "packages/taiko-client-rs/**"
       # `DeployProtocolOnL1`'s import closure reaches `contracts/`, `test/shared/` and the
       # inbox mocks under `test/`, so listing only the obvious directories goes stale the
@@ -29,6 +30,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - "testdata/derivation_vectors/**"
       - "packages/taiko-client-rs/**"
       # `DeployProtocolOnL1`'s import closure reaches `contracts/`, `test/shared/` and the
       # inbox mocks under `test/`, so listing only the obvious directories goes stale the

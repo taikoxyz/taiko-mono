@@ -1,6 +1,6 @@
 //go:build ignore
 
-// Regenerate with: go run ./testdata/derivation_vectors/generate.go
+// Regenerate with: GOTOOLCHAIN=go1.26.0 go run ./testdata/derivation_vectors/generate.go
 package main
 
 import (
@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -105,6 +106,9 @@ func tx(kind int, field string, n *big.Int) *types.Transaction {
 }
 
 func main() {
+	if runtime.Version() != "go1.26.0" {
+		panic("regenerate with GOTOOLCHAIN=go1.26.0 for reproducible zlib bytes")
+	}
 	cases := []vector{}
 	defaultManifest := &manifest.DerivationSourceManifest{Blocks: []*manifest.BlockManifest{{}}}
 	add := func(name string, txs types.Transactions, invalid bool, blocks int) {
@@ -175,8 +179,49 @@ func main() {
 		wrapped := tx(3, "", nil).WithBlobTxSidecar(&types.BlobTxSidecar{Version: version})
 		add(fmt.Sprintf("blob_sidecar_v%d", version), types.Transactions{wrapped}, true, 1)
 	}
+	// Public Anvil account, funded in the disposable devnet genesis. This transaction
+	// proves the E2E forced-source assertion distinguishes retention from fallback.
+	key, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	if err != nil {
+		panic(err)
+	}
+	to := common.HexToAddress("0x1234")
+	signed, err := types.SignTx(types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(167001),
+		Gas: 21000, GasFeeCap: big.NewInt(10_000_000_000), GasTipCap: big.NewInt(1_000_000_000),
+		To: &to, Value: big.NewInt(1)}), types.LatestSignerForChainID(big.NewInt(167001)), key)
+	if err != nil {
+		panic(err)
+	}
+	add("signed_control", types.Transactions{signed}, false, 1)
+	add("forced_bad_with_valid", types.Transactions{signed, tx(2, "v", big.NewInt(2))}, true, 1)
+	add("late_blob_sidecar", types.Transactions{tx(2, "", nil), tx(3, "", nil).WithBlobTxSidecar(&types.BlobTxSidecar{})}, true, 2)
 	add("late_bad_transaction", types.Transactions{tx(2, "", nil), tx(2, "v", big.NewInt(2))}, true, 2)
 	add("two_valid_blocks", types.Transactions{tx(2, "", nil)}, false, 2)
+	// Build malformed wire framing directly: typed constructors only emit canonical RLP.
+	addFraming := func(name string, elements ...[]byte) {
+		var txs []rlp.RawValue
+		for _, element := range elements {
+			txs = append(txs, element)
+		}
+		list := encode(txs)
+		block := encode([]any{uint64(100), common.HexToAddress("0x1234"), uint64(5), uint64(10_000_000), rlp.RawValue(list)})
+		raw := encode([]any{[]rlp.RawValue{block}})
+		cases = append(cases, vector{Name: name, Family: "framing", Payload: hex.EncodeToString(frame(compress(raw))), Default: true,
+			Expected: hex.EncodeToString(encode(defaultManifest)), Engine: hex.EncodeToString(list)})
+	}
+	for kind := 1; kind <= 4; kind++ {
+		bare, err := tx(kind, "", nil).MarshalBinary()
+		if err != nil {
+			panic(err)
+		}
+		name := fmt.Sprintf("framing_type%d", kind)
+		addFraming(name+"_bare", bare)
+		addFraming(name+"_short", append(encode(bare[:len(bare)-1]), bare[len(bare)-1]))
+		addFraming(name+"_long", encode(append(append([]byte(nil), bare...), encode(tx(0, "", nil))...)))
+	}
+	legacy := encode(tx(0, "", nil))
+	addFraming("framing_type0_string", encode(append([]byte{0}, legacy...)))
+	addFraming("framing_type0_bare", append([]byte{0}, legacy...))
 	baseManifest := &manifest.DerivationSourceManifest{Blocks: []*manifest.BlockManifest{{
 		Timestamp: 100, Coinbase: common.HexToAddress("0x1234"), AnchorBlockNumber: 5, GasLimit: 10_000_000,
 	}}}
@@ -191,6 +236,11 @@ func main() {
 			Offset: offset, Default: invalid, Expected: hex.EncodeToString(expected)})
 	}
 	addZlib("complete", z, baseRaw, 0, false)
+	// FDICT with the Adler-32 of an empty dictionary is accepted by Go's NewReader.
+	for _, dictionaryID := range []byte{0, 1, 2} {
+		withDictionary := append([]byte{0x78, 0x20, 0, 0, 0, dictionaryID}, z[2:]...)
+		addZlib(fmt.Sprintf("dictionary_id_%d", dictionaryID), withDictionary, baseRaw, 0, dictionaryID != 1)
+	}
 	for cut := 1; cut <= 4; cut++ {
 		addZlib(fmt.Sprintf("trailer_missing_%d", cut), z[:len(z)-cut], nil, 0, true)
 	}

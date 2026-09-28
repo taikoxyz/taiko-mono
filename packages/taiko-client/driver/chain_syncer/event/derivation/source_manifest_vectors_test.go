@@ -74,6 +74,8 @@ func normalizeSourceRLP(t *testing.T, payload *DerivationSourcePayload) []byte {
 // A lost grammar check must retain the hostile source and fail these expectations.
 func TestManifestVectorsF9(t *testing.T) { testManifestVectors(t, "f9") }
 
+func TestManifestVectorsFraming(t *testing.T) { testManifestVectors(t, "framing") }
+
 func TestManifestVectorsF8(t *testing.T) { testManifestVectors(t, "f8") }
 
 func testManifestVectors(t *testing.T, family string) {

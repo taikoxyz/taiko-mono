@@ -4,7 +4,7 @@ use std::{convert::TryFrom, io::Write};
 
 use alloy::primitives::{Address, U256};
 use alloy_consensus::{TxEip4844Variant, TxEnvelope};
-use alloy_rlp::{self, Encodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{self, Decodable, Encodable, Header, RlpDecodable, RlpEncodable};
 use flate2::{Compression, Decompress, FlushDecompress, Status, write::ZlibEncoder};
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ use crate::shasta::{
 use tracing::warn;
 
 /// Manifest of a single block proposal, matching `LibManifest.ProtocolBlockManifest`.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockManifest {
     /// The timestamp of the block.
@@ -29,6 +29,47 @@ pub struct BlockManifest {
     /// Transactions that make up the block.
     #[serde(default)]
     pub transactions: Vec<TxEnvelope>,
+}
+
+impl Decodable for BlockManifest {
+    /// Decode each transaction within its own RLP frame, matching Go's transaction decoder.
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let mut fields = Header::decode_bytes(buf, true)?;
+        let block = Self {
+            timestamp: u64::decode(&mut fields)?,
+            coinbase: Address::decode(&mut fields)?,
+            anchor_block_number: u64::decode(&mut fields)?,
+            gas_limit: u64::decode(&mut fields)?,
+            transactions: decode_manifest_transactions(&mut fields)?,
+        };
+        if !fields.is_empty() {
+            return Err(alloy_rlp::Error::UnexpectedLength);
+        }
+        Ok(block)
+    }
+}
+
+/// Accept legacy lists or RLP strings containing exactly one supported typed transaction.
+/// Bounding Alloy's decoder to the declared frame prevents it from reading into the next
+/// transaction; checking the remainder also rejects strings containing multiple transactions.
+fn decode_manifest_transactions(buf: &mut &[u8]) -> alloy_rlp::Result<Vec<TxEnvelope>> {
+    let mut list = Header::decode_bytes(buf, true)?;
+    let mut transactions = Vec::new();
+    while !list.is_empty() {
+        let mut payload = list;
+        let header = Header::decode(&mut payload)?;
+        if !header.list && (list[0] < 0x80 || !matches!(payload.first(), Some(1..=4))) {
+            return Err(alloy_rlp::Error::Custom("invalid manifest transaction envelope"));
+        }
+        let frame_len = list.len() - payload.len() + header.payload_length;
+        let (mut frame, rest) = list.split_at(frame_len);
+        transactions.push(TxEnvelope::decode(&mut frame)?);
+        if !frame.is_empty() {
+            return Err(alloy_rlp::Error::UnexpectedLength);
+        }
+        list = rest;
+    }
+    Ok(transactions)
 }
 
 /// Manifest for a derivation source, matching `LibManifest.DerivationSourceManifest`.
@@ -191,25 +232,39 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     }
 
     let compressed = &bytes[start..start + size];
-    decompress_manifest_zlib(compressed)
+    decompress_manifest_zlib(compressed, &mut [0u8; 8192])
 }
 
 /// Decompress the first complete zlib stream, validating its checksum.
 /// Exhausted input is not completion: a truncated stream may have emitted an entire manifest.
 /// Bytes after the first completed stream are ignored, matching the Go source decoder.
-fn decompress_manifest_zlib(compressed: &[u8]) -> Result<Vec<u8>> {
+fn decompress_manifest_zlib(compressed: &[u8], chunk: &mut [u8]) -> Result<Vec<u8>> {
     let mut decoder = Decompress::new(true);
     let mut decoded = Vec::new();
-    let mut chunk = [0u8; 8192];
 
     loop {
         let input_before = decoder.total_in();
         let output_before = decoder.total_out();
-        let status = decoder
-            .decompress(&compressed[input_before as usize..], &mut chunk, FlushDecompress::None)
-            .map_err(|e| {
-                ProtocolError::Compression(format!("failed to decompress zlib data: {e}"))
-            })?;
+        let status = match decoder.decompress(
+            &compressed[input_before as usize..],
+            chunk,
+            FlushDecompress::None,
+        ) {
+            Ok(status) => status,
+            Err(err) if err.needs_dictionary() == Some(1) => {
+                // Go's NewReader uses a nil dictionary, whose Adler-32 is 1. C zlib
+                // requests that dictionary explicitly even when no history is needed.
+                decoder.set_dictionary(&[]).map_err(|err| {
+                    ProtocolError::Compression(format!("failed to set empty dictionary: {err}"))
+                })?;
+                continue;
+            }
+            Err(err) => {
+                return Err(ProtocolError::Compression(format!(
+                    "failed to decompress zlib data: {err}"
+                )));
+            }
+        };
         let produced = (decoder.total_out() - output_before) as usize;
         decoded.extend_from_slice(&chunk[..produced]);
 

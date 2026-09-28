@@ -8,7 +8,21 @@ if [[ -n "$(docker ps -q --filter 'name=^/(l1_node|l2_node_0|l2_node_1)$')" ]]; 
     exit 1
 fi
 PARITY_TMP="$(mktemp -d)"
-trap 'rm -rf "$PARITY_TMP"' EXIT
+export TAIKO_GO_DRIVER_PID_FILE="$PARITY_TMP/go-driver.pid"
+cleanup() {
+    # SIGKILL skips the Rust test's Drop. Reap its child before removing the PID file.
+    if [[ -s "$TAIKO_GO_DRIVER_PID_FILE" ]]; then
+        local driver_pid
+        driver_pid="$(cat "$TAIKO_GO_DRIVER_PID_FILE")"
+        if [[ "$driver_pid" =~ ^[0-9]+$ ]]; then
+            kill -KILL "$driver_pid" 2>/dev/null || true
+        fi
+    fi
+    rm -rf "$PARITY_TMP"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ -z "${TAIKO_GO_DRIVER_BIN:-}" ]]; then
     export TAIKO_GO_DRIVER_BIN="$PARITY_TMP/taiko-client"
