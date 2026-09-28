@@ -13,7 +13,8 @@ open TaikoSpec TaikoSpec.Derivation Tests
 def proposal : ProposalCtx := { proposer := addr 0x99, timestamp := 2000, originBlockNumber := 500 }
 
 /-- A non-genesis parent: block 10 at timestamp 1900, 30M effective gas limit, anchor 400. -/
-def parent : Parent := { number := 10, timestamp := 1900, gasLimit := 31_000_000, anchorBlockNumber := 400 }
+def parent : Parent :=
+  { number := 10, timestamp := 1900, gasLimit := 31_000_000, anchorBlockNumber := 400 }
 
 /-- Number, timestamp, anchor, gas limit and forced flag of each derived block. -/
 def summary (bs : List DerivedBlock) : List (Nat × Nat × Nat × Nat × Bool) :=
@@ -40,10 +41,18 @@ def staleProposerSource : Source × Option ByteArray :=
 -- An undecodable forced inclusion becomes one default block.
 #guard summary (deriveSources devnet proposal parent [(src (forced := true), none)]) ==
   [(11, 1901, 400, 30_000_000, true)]
--- A forced inclusion whose parent anchor lags the origin by more than 128 is voided.
-#guard summary (deriveSources devnet { proposal with originBlockNumber := 529 } parent
-  [forcedSource]) == [(11, 1901, 400, 30_000_000, true)]
+/-- A well-formed legacy transfer: nonce 0, gas price 1, 21000 gas, value 0, v = 27. -/
+def transfer : Rlp.Item :=
+  .list [.bytes ⟨#[]⟩, .bytes ⟨#[1]⟩, .bytes ⟨#[0x52, 0x08]⟩, .bytes (addr 0x42), .bytes ⟨#[]⟩,
+    .bytes ⟨#[]⟩, .bytes ⟨#[27]⟩, .bytes ⟨#[1]⟩, .bytes ⟨#[1]⟩]
+
+/-- A forced inclusion carrying `transfer`. -/
+def forcedTransfer : Source × Option ByteArray :=
+  (src (forced := true), some (payloadOf [{ blk 0 0 0 with transactions := [transfer] }]))
+
+-- A forced inclusion keeps its transaction while the parent's anchor (400) is at most 128 blocks
+-- behind the origin, and becomes a default block without transactions once it is 129 behind.
+#guard (deriveSources devnet { proposal with originBlockNumber := 528 } parent
+  [forcedTransfer]).map (·.transactions.length) == [1]
 #guard (deriveSources devnet { proposal with originBlockNumber := 529 } parent
-  [forcedSource]).length == 1
-#guard ((deriveSources devnet { proposal with originBlockNumber := 528 } parent
-  [forcedSource]).map (·.transactions.length)) == [0]
+  [forcedTransfer]).map (·.transactions.length) == [0]
