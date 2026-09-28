@@ -1,9 +1,12 @@
 name = "formal-spec"
 version = "0.1.0"
-defaultTargets = ["TaikoSpec", "checkaxioms"]
+defaultTargets = ["TaikoSpec", "Tests", "checkaxioms"]
 
 [[lean_lib]]
 name = "TaikoSpec"
+
+[[lean_lib]]
+name = "Tests"
 
 [[lean_exe]]
 name = "checkaxioms"
