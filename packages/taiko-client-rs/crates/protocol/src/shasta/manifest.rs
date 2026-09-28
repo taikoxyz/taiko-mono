@@ -1,14 +1,11 @@
 //! Manifest types for encoding block proposals and metadata.
 
-use std::{
-    convert::TryFrom,
-    io::{Read, Write},
-};
+use std::{convert::TryFrom, io::Write};
 
 use alloy::primitives::{Address, U256};
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{TxEip4844Variant, TxEnvelope};
 use alloy_rlp::{self, Encodable, RlpDecodable, RlpEncodable};
-use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
+use flate2::{Compression, Decompress, FlushDecompress, Status, write::ZlibEncoder};
 use serde::{Deserialize, Serialize};
 
 use crate::shasta::{
@@ -88,6 +85,11 @@ impl DerivationSourceManifest {
             }
         };
 
+        if !manifest_transactions_are_engine_encodable(&manifest) {
+            warn!("manifest contains a blob sidecar wrapper; returning default manifest");
+            return Ok(DerivationSourceManifest::default());
+        }
+
         if manifest.blocks.len() > max_blocks {
             warn!(
                 blocks = manifest.blocks.len(),
@@ -99,6 +101,19 @@ impl DerivationSourceManifest {
 
         Ok(manifest)
     }
+}
+
+/// Reject network-only wrappers before constructing an execution transaction list.
+/// The engine decodes bare EIP-4844 transactions, whereas the manifest envelope also accepts
+/// sidecars. Passing a wrapper through would make the engine discard the entire list.
+fn manifest_transactions_are_engine_encodable(manifest: &DerivationSourceManifest) -> bool {
+    manifest.blocks.iter().flat_map(|block| &block.transactions).all(|tx| {
+        !matches!(
+            tx,
+            TxEnvelope::Eip4844(signed)
+                if matches!(signed.tx(), TxEip4844Variant::TxEip4844WithSidecar(_))
+        )
+    })
 }
 
 /// Encode a manifest into the Shasta protocol payload format.
@@ -176,13 +191,35 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     }
 
     let compressed = &bytes[start..start + size];
-    let mut decoder = ZlibDecoder::new(compressed);
-    let mut decoded = Vec::new();
-    decoder
-        .read_to_end(&mut decoded)
-        .map_err(|e| ProtocolError::Compression(format!("failed to decompress zlib data: {e}")))?;
+    decompress_manifest_zlib(compressed)
+}
 
-    Ok(decoded)
+/// Decompress the first complete zlib stream, validating its checksum.
+/// Exhausted input is not completion: a truncated stream may have emitted an entire manifest.
+/// Bytes after the first completed stream are ignored, matching the Go source decoder.
+fn decompress_manifest_zlib(compressed: &[u8]) -> Result<Vec<u8>> {
+    let mut decoder = Decompress::new(true);
+    let mut decoded = Vec::new();
+    let mut chunk = [0u8; 8192];
+
+    loop {
+        let input_before = decoder.total_in();
+        let output_before = decoder.total_out();
+        let status = decoder
+            .decompress(&compressed[input_before as usize..], &mut chunk, FlushDecompress::None)
+            .map_err(|e| {
+                ProtocolError::Compression(format!("failed to decompress zlib data: {e}"))
+            })?;
+        let produced = (decoder.total_out() - output_before) as usize;
+        decoded.extend_from_slice(&chunk[..produced]);
+
+        if status == Status::StreamEnd {
+            return Ok(decoded);
+        }
+        if decoder.total_in() == input_before && produced == 0 {
+            return Err(ProtocolError::Compression("incomplete zlib stream".to_string()));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -476,3 +513,7 @@ mod tests {
         assert_eq!(decoded.blocks.len(), DERIVATION_SOURCE_MAX_BLOCKS);
     }
 }
+
+#[cfg(test)]
+#[path = "manifest_vectors.rs"]
+mod manifest_vectors;

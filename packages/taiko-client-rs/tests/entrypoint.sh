@@ -60,7 +60,7 @@ else
     exit 1
 fi
 
-COMPOSE_FILE=tests/docker/docker-compose.test.yaml
+COMPOSE_FILE="${TAIKO_TEST_COMPOSE_FILE:-tests/docker/docker-compose.test.yaml}"
 cleanup() {
     "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" down -v
 }

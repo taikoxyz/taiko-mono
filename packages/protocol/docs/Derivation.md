@@ -158,8 +158,14 @@ For each `DerivationSource[i]`, the validator performs:
 2. **Offset Validation**: Verify `blobSlice.offset <= BLOB_BYTES - 64`
 3. **Version Extraction**: Extract version from bytes `[offset, offset+32)` and verify it equals `0x1`
 4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
-5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
-6. **Decoding**: RLP decode the decompressed data
+5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`. Require a complete first stream with a valid Adler-32 checksum; truncated or invalid streams fail even if they produce a complete RLP prefix. Ignore bytes after that first completed stream, including any subsequent compressed streams.
+6. **Decoding**: RLP decode the decompressed data with no trailing RLP bytes. Every transaction must use execution-compatible encoding:
+   - Gas-price and fee-cap fields fit unsigned 128-bit integers; typed transaction chain IDs fit unsigned 64-bit integers.
+   - Transaction value and signature scalars fit unsigned 256-bit integers.
+   - Legacy signature v is 27 or 28, or an EIP-155 value v >= 35 whose (v - 35) / 2 chain ID fits unsigned 64 bits.
+   - Outer typed transaction parity is 0 or 1. EIP-7702 authorization parity remains an unsigned 8-bit field and its chain ID remains unsigned 256 bits.
+   - EIP-4844 transactions use their bare transaction encoding, without a network sidecar wrapper.
+   - A transaction that fails these encoding rules invalidates the entire source. Signature recovery and execution checks remain the execution engine's responsibility; they do not invalidate a source merely because an otherwise decodable transaction cannot execute.
 7. **Block Count Validation**: Verify `manifest.blocks.length` does not exceed the per-source limit selected by the landed L1 block timestamp of the proposal:
    - Before Unzen: `DERIVATION_SOURCE_MAX_BLOCKS = 192`
    - At/after Unzen: `UNZEN_DERIVATION_SOURCE_MAX_BLOCKS = 768`
