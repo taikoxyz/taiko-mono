@@ -1,4 +1,4 @@
-# PROPOSAL-0026: Raise the Inbox Basefee Sharing Percentage to 100%
+# PROPOSAL-0026: Raise Basefee Sharing to 100% and Rotate raiko2 to v0.9.0-rc1
 
 ## Executive Summary
 
@@ -10,10 +10,16 @@ nothing is retained by the L2 fee treasury, the Anchor contract
 configuration value and all five address immutables are the live ones; no storage is touched and no
 initializer runs.
 
+The same atomic L1 batch rotates the active proving identifiers from raiko2 v0.8.0-rc1 to
+[`v0.9.0-rc1`](https://github.com/taikoxyz/raiko2/releases/tag/v0.9.0-rc1): two RISC0 image IDs,
+four SP1 program vkeys, and three SGX MRENCLAVE allowlist entries. It then deletes the active
+v0.8.0-rc1 instance ID `2` from both SGX verifier registries. The already-disabled v0.6 values are
+not touched. The SGX MRSIGNER and enclave attribute policies are unchanged, and this proposal does
+not register replacement SGX instances.
+
 The percentage is a constructor immutable of the inbox implementation (`MainnetInbox.sol`), so
-changing it means deploying a new implementation and upgrading the proxy: one `upgradeTo`, executed
-by the DAO controller, which owns the proxy. The proposal executes **1 L1 action** and has no L2
-leg.
+changing it means deploying a new implementation and upgrading the proxy. That `upgradeTo` remains
+action 0. The proposal executes **21 L1 actions** in total and has no L2 leg.
 
 ## Rationale
 
@@ -87,18 +93,62 @@ which is what keeps proposing a real business rather than a free one.
 | Chain | Contract                                                 | Change                                                                                                                                                                                                               |
 | ----- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | L1    | Inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | implementation → `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` ([codediff](https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e&chainid=1)) |
+| L1    | RISC0 verifier `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` | disable the two v0.8.0-rc1 image IDs and enable the two v0.9.0-rc1 image IDs |
+| L1    | SP1 verifier `0x73A0Db393ef87ce781ac7957bE10D6628432100F` | disable the four v0.8.0-rc1 program vkeys and enable the four v0.9.0-rc1 program vkeys |
+| L1    | SGX attesters `0x0ffa…9261`, `0x8d7C…a8A3` | disable the three v0.8.0-rc1 MRENCLAVEs and enable the three v0.9.0-rc1 MRENCLAVEs |
+| L1    | SGX verifiers `0x41e7…84Ee`, `0x9D3C…FFd8` | delete active instance ID `2`; replacement registration is a separate post-execution operation |
 
-Not touched: the proof verifier, proposer checker, prover whitelist, signal service and bond token
-(reproduced as immutables of the new implementation); every numeric parameter but the percentage;
-the proxy's storage; ownership (no `transferOwnership`, `acceptOwnership` or initializer call); the
-dormant Pacaya inbox `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`; every L2 contract; Hoodi and
-every other network.
+The verifier implementations are not upgraded. The proposal changes only their trust mappings and
+deletes the two named SGX registry entries; it does not change MRSIGNER trust, attribute policies,
+verifier ownership, or verifier configuration. Also not touched: the inbox's proof verifier,
+proposer checker, prover whitelist, signal service and bond token immutables; every numeric inbox
+parameter but the percentage; the proxy's storage; ownership; the dormant Pacaya inbox
+`0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`; every L2 contract; Hoodi and every other network.
 
 `DevnetInbox` moves to 100 in the same PR so local and devnet deployments match mainnet. It is not
 in `MainnetInbox`'s dependency tree and no deployed contract reads it; its only consumer is
 `DeployProtocolOnL1`, which the taiko-client integration tests run.
 
 ## What Changes
+
+### raiko2 v0.9.0-rc1 release rotation
+
+The ZK identifiers below come from `guest-digests-summary.json` in the raiko2 v0.9.0-rc1 release.
+The old column is the v0.8.0-rc1 set enabled by Proposal0021; the new column is enabled by this
+proposal.
+
+| Role | v0.8.0-rc1 disabled | v0.9.0-rc1 enabled |
+| ---- | -------------------- | ------------------ |
+| RISC0 proposal image ID | `0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10` | `0x6016d9b774fdb7af1ac3194793039abb241ac869c856d15d2a0f5a5997e970ca` |
+| RISC0 aggregation image ID | `0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7` | `0xc7a55544d3a96ec3953a5bd2705c42056e27757fd6ac72ca9b972931870f8a2a` |
+| SP1 proposal vkey BN254 | `0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7` | `0x00609a2e8a5834a3675060fa8965315f3e978514aa49fe69f8f407e5d16b941f` |
+| SP1 proposal vkey hash bytes | `0x12a12e113a09d41d05147b387b0f89632df2a3174d2ed9e00ac7c7ac086be7c7` | `0x304d1745160d28d96a0c1f51165315f374bc28a52927f9a771e80fcb516b941f` |
+| SP1 aggregation vkey BN254 | `0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6` | `0x001047d2068ac6e9b57839a587b07a254ad724d69b69c10197c0d4d2660c2fba` |
+| SP1 aggregation vkey hash bytes | `0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6` | `0x0823e90322b1ba6d2f0734b07b07a25456b926b46da704062f81a9a4660c2fba` |
+
+The TEE values come from `tee-attestation-manifest-v0.9.0-rc1.json`:
+
+| Lane | v0.8.0-rc1 MRENCLAVE disabled | v0.9.0-rc1 MRENCLAVE enabled |
+| ---- | ----------------------------- | ---------------------------- |
+| SGX-geth | `0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005` | `0x51701ed3fbd0bfdcea24a2e47ce9e30c5448ca9e4ad9b48bd1530d4a9c022fe4` |
+| SGX-reth | `0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847` | `0xdc994928718200e16e0eb643486ea90e49970a897fd164e39b6ae11262b69ab9` |
+| SGX-reth EDMM | `0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf` | `0x7aaf74aaa95cf967844819e5e4504f28308541c0504e6642a12a75a4669f66a3` |
+
+The release source commit is `c4825c5d7e2b51abff5cb1ff09bca86e9df1609e`. Its published runtime
+image is
+`us-docker.pkg.dev/evmchain/images/raiko2@sha256:41df977ef21c6fe3253e001211985b0d2ac78d8cd0190be78da3e7e4169f6659`.
+The TEE images are pinned in the release manifest:
+
+- `raiko2-sgx@sha256:4798744ba980c3d6db0ea41712a5a81f9df25300be6d213b4df55d5a9c17d6f8`
+- `raiko2-sgx` EDMM
+  `@sha256:7e358a426918982ad85e90309c3e1277997f1b6bfa775e2b46b62909838d42f9`
+- `gaiko2-sgxgeth@sha256:870d49869f1017eb201b34abfb7fc39ec05038aa563441f01bdc679bf9566dc3`
+
+Both SGX verifiers have `nextInstanceId() == 3` at the pinned pre-execution state. IDs `0` and `1`
+are empty and ID `2` is the active v0.8.0-rc1 registration. Actions 19 and 20 delete ID `2`.
+After the proposal executes, each v0.9.0-rc1 provider must register separately; the next successful
+registration is expected to receive instance ID `3`. That registration is deliberately not part of
+this governance batch.
 
 ### How the percentage reaches L2 blocks
 
@@ -213,22 +263,39 @@ So the only behavioural change the new implementation ships is the percentage. N
 - **One unavoidable reorg at the switch.** Blocks preconfirmed under 75 but carried by the first
   proposal after execution are re-derived with 100 (same transactions). Executing the proposal
   right after a proposal lands, with the preconfer restart queued, bounds this to a few blocks.
-- **Provers** (raiko2) take the value from the event and need no change. The bridge UI, the
-  relayer and the eventindexer are not affected.
+- **Provers** take the basefee-sharing value from the event, so that part needs no code change. They
+  must nevertheless run the v0.9.0-rc1 artifacts after the verifier rotation. RISC0 and SP1 can
+  prove as soon as the batch executes; SGX providers additionally need the separate instance
+  registration described above. The bridge UI, relayer and eventindexer are not affected.
 - **Treasury income.** The Anchor contract `0x1670000000000000000000000000000000010001` stops
   receiving basefee; dashboards tracking it will show the step to zero. The ETH it has already
   accrued is untouched and stays withdrawable by the DAO through `Anchor.withdraw`.
 
 ## Action Order
 
-### L1 — 1 action
+### L1 — 21 actions
 
-| #   | Target                                                   | Call                                |
-| --- | -------------------------------------------------------- | ----------------------------------- |
-| 0   | Inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | `upgradeTo(MAINNET_INBOX_NEW_IMPL)` |
+| # | Target | Call |
+| - | ------ | ---- |
+| 0 | Inbox proxy | `upgradeTo(MAINNET_INBOX_NEW_IMPL)` |
+| 1 | RISC0 verifier | `setImageIdTrusted(V0_8_0_RC1_PROPOSAL_IMAGE_ID, false)` |
+| 2 | RISC0 verifier | `setImageIdTrusted(V0_8_0_RC1_AGGREGATION_IMAGE_ID, false)` |
+| 3 | RISC0 verifier | `setImageIdTrusted(V0_9_0_RC1_PROPOSAL_IMAGE_ID, true)` |
+| 4 | RISC0 verifier | `setImageIdTrusted(V0_9_0_RC1_AGGREGATION_IMAGE_ID, true)` |
+| 5–8 | SP1 verifier | disable the four v0.8.0-rc1 proposal/aggregation vkeys in the table above |
+| 9–12 | SP1 verifier | enable the four v0.9.0-rc1 proposal/aggregation vkeys in the table above |
+| 13 | SGX-geth attester | `setMrEnclave(OLD_SGXGETH_MR_ENCLAVE, false)` |
+| 14 | SGX-reth attester | `setMrEnclave(OLD_SGXRETH_NON_EDMM_MR_ENCLAVE, false)` |
+| 15 | SGX-reth attester | `setMrEnclave(OLD_SGXRETH_EDMM_MR_ENCLAVE, false)` |
+| 16 | SGX-geth attester | `setMrEnclave(NEW_SGXGETH_MR_ENCLAVE, true)` |
+| 17 | SGX-reth attester | `setMrEnclave(NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)` |
+| 18 | SGX-reth attester | `setMrEnclave(NEW_SGXRETH_EDMM_MR_ENCLAVE, true)` |
+| 19 | SGX-geth verifier | `deleteInstances([2])` |
+| 20 | SGX-reth verifier | `deleteInstances([2])` |
 
 No L2 leg: `buildL2Actions` is the `BuildProposal` default (empty), so `_buildAllActions` appends
-no `sendMessage` and the batch is the one action above.
+no `sendMessage`. The ordering keeps the existing Inbox upgrade as action 0 and performs the
+release rotation after it in the same atomic controller execution.
 
 ## Deployment
 
@@ -258,7 +325,8 @@ cast codesize 0x511e1E5D9b9E23958076ccF1dD0033237a8cE4f8 --rpc-url $L1_RPC   # 1
 
 The address was then written into `Proposal0026.MAINNET_INBOX_NEW_IMPL` and `DEPLOYED_INBOX_IMPL`
 in `test/layer1/proposals/Proposal0026.t.sol`; `Proposal0026.action.md` was generated with
-`P=0026 pnpm proposal` and is pinned from then on by `test_actionFileMatchesTheBuiltCalldata`; the
+`P=0026 pnpm proposal` after adding the release rotation, and is pinned from then on by
+`test_actionFileMatchesTheBuiltCalldata`; the
 dry run `P=0026 pnpm proposal:dryrun:l1` reverted with `DryrunSucceeded()` as designed
 (`Controller.dryrun` is permissionless and always reverts, so the `--broadcast` in the script can
 never send anything); and the fork rehearsal executed the committed calldata against the deployed
@@ -281,10 +349,13 @@ Deployed on 2026-09-12 by `0x56706f118e42ae069f20c5636141b844d1324ae1`, all in L
 
 Every commented value is the expected result.
 
-The fork rehearsal defaults to L1 block **25,961,770**, after the implementation was deployed and
-before the proxy upgrade, so it remains repeatable after execution. Use an archive-capable RPC.
-Set `L1_FORK_BLOCK` to select another block in that interval; `--fork-block-number` does not select
-the block of the fork created inside the test.
+The fork rehearsal defaults to L1 block **26,075,649**, after the implementation deployment and
+Proposal0021 execution but before Proposal0026. At that block all v0.8.0-rc1 identifiers are
+trusted, all v0.9.0-rc1 identifiers are untrusted, `nextInstanceId()` is `3` on both SGX verifiers,
+IDs `0` and `1` are empty, and ID `2` is active. The deployed `instances(uint256)` getter still has
+the historical two-field `(address,uint64)` ABI. Use an archive-capable RPC. Set `L1_FORK_BLOCK` to
+another block only if it has the same preconditions; `--fork-block-number` does not select the fork
+created inside the test.
 
 ```bash
 export L1_RPC=<l1 rpc>
@@ -350,10 +421,10 @@ rmdir "$PROPOSAL0026_VERIFY_DIR"
 # https://etherscan.io/address/0xA18431d42C8dF9778905fBEa912aCF1881b49D2e#code
 
 # The calldata: regenerate and diff, then the live dry run, then the historical fork rehearsal. The
-# rehearsal executes the batch from the DAO controller at block 25,961,770 and asserts the proxy answers 100
-# with every other configuration field, the core state, the last and last-finalized proposal
-# hashes, the forced-inclusion queue, the owner, the activation timestamp and the initializer
-# version unchanged; the second test is the dry run itself.
+# rehearsal executes the 21-action batch from the DAO controller at block 26,075,649. It asserts
+# the inbox proxy answers 100 with its other state unchanged, rotates every RISC0/SP1/SGX trust
+# value from v0.8.0-rc1 to v0.9.0-rc1, deletes SGX instance ID 2 on both verifiers, and leaves the
+# batch with no L2 bridge message. The second test is the dry run itself.
 cd packages/protocol
 P=0026 pnpm proposal && git diff --exit-code script/layer1/proposals/Proposal0026.action.md
 P=0026 pnpm proposal:dryrun:l1                       # reverts DryrunSucceeded()
@@ -370,7 +441,17 @@ cast storage $INBOX 0 --rpc-url $L1_RPC               # still 0x…03
 # extraData starting with 0x64; blocks of earlier proposals keep 0x4b.
 ```
 
-Then restart the whitelisted preconfer nodes (see [Client rollout](#client-rollout)).
+Then complete the release cutover:
+
+1. Confirm the two old RISC0 IDs return `false` and the two v0.9.0-rc1 IDs return `true`.
+2. Confirm the four old SP1 vkeys return `false` and the four v0.9.0-rc1 vkeys return `true`.
+3. Confirm the three old MRENCLAVEs return `false` and the three v0.9.0-rc1 MRENCLAVEs return
+   `true`. Confirm MRSIGNER trust and attribute policies are unchanged.
+4. Confirm `instances(2)` returns a zero address on both SGX verifiers while `nextInstanceId()`
+   remains `3`.
+5. Register the v0.9.0-rc1 SGX-geth and SGX-reth providers separately. Each next successful
+   registration is expected to receive ID `3`; record and read back the resulting transactions.
+6. Restart the whitelisted preconfer nodes as described in [Client rollout](#client-rollout).
 
 ## Security Contacts
 
