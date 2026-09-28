@@ -31,7 +31,7 @@ type vector struct {
 	Default         bool   `json:"expect_default"`
 	Expected        string `json:"expected_manifest_rlp_hex"`
 	Engine          string `json:"engine_tx_list_hex,omitempty"`
-	EngineDecodable bool   `json:"engine_decodable"`
+	EngineDecodable *bool  `json:"engine_decodable,omitempty"`
 }
 
 func encode(v any) []byte {
@@ -122,7 +122,8 @@ func main() {
 		if invalid {
 			expected = encode(defaultManifest)
 		}
-		cases = append(cases, vector{Name: name, Family: "f9", Payload: hex.EncodeToString(frame(compress(raw))), Default: invalid, Expected: hex.EncodeToString(expected), Engine: hex.EncodeToString(encode(txs)), EngineDecodable: !invalid})
+		engineDecodable := !invalid
+		cases = append(cases, vector{Name: name, Family: "f9", Payload: hex.EncodeToString(frame(compress(raw))), Default: invalid, Expected: hex.EncodeToString(expected), Engine: hex.EncodeToString(encode(txs)), EngineDecodable: &engineDecodable})
 	}
 	for kind := 0; kind <= 4; kind++ {
 		name := fmt.Sprintf("type%d", kind)
@@ -218,10 +219,29 @@ func main() {
 		addFraming(name+"_bare", bare)
 		addFraming(name+"_short", append(encode(bare[:len(bare)-1]), bare[len(bare)-1]))
 		addFraming(name+"_long", encode(append(append([]byte(nil), bare...), encode(tx(0, "", nil))...)))
+		// A list element is exclusively a legacy transaction, even if a generic
+		// envelope decoder could discover a typed payload inside nested wrappers.
+		addFraming(name+"_payload_list", bare[1:])
+		nested := append([]byte(nil), bare[1:]...)
+		for n := 1; n < kind; n++ {
+			nested = encode(nested)
+		}
+		nested = encode([]rlp.RawValue{nested})
+		addFraming(name+"_nested_wrappers", encode([]rlp.RawValue{nested}))
+		if kind == 2 {
+			addFraming("framing_empty_before_typed", []byte{0x80}, encode(bare))
+			unsupported := append([]byte(nil), bare...)
+			unsupported[0] = 5
+			addFraming("framing_type5", encode(unsupported))
+		}
 	}
 	legacy := encode(tx(0, "", nil))
 	addFraming("framing_type0_string", encode(append([]byte{0}, legacy...)))
 	addFraming("framing_type0_bare", append([]byte{0}, legacy...))
+	blockWithExtraField := encode([]any{uint64(100), common.HexToAddress("0x1234"), uint64(5), uint64(10_000_000), []rlp.RawValue{}, uint64(1)})
+	cases = append(cases, vector{Name: "framing_block_extra_field", Family: "framing",
+		Payload: hex.EncodeToString(frame(compress(encode([]any{[]rlp.RawValue{blockWithExtraField}})))),
+		Default: true, Expected: hex.EncodeToString(encode(defaultManifest))})
 	baseManifest := &manifest.DerivationSourceManifest{Blocks: []*manifest.BlockManifest{{
 		Timestamp: 100, Coinbase: common.HexToAddress("0x1234"), AnchorBlockNumber: 5, GasLimit: 10_000_000,
 	}}}

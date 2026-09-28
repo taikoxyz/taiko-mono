@@ -16,7 +16,8 @@ a decodable transaction may still be skipped by the execution engine.
 All integers in hex fields are encoded in canonical RLP; hex strings omit 0x.
 Both client adapters consume this same file. Framing cases build malformed RLP directly
 and use Go source decoding as the reference; the reth engine oracle applies only
-to F9 transaction-field cases, not malformed network framing. Tests exercise forced-source cardinality
+to F9 transaction-field cases, not malformed network framing. Only F9 cases record
+`engine_decodable`; other families make no engine-decoding claim. Tests exercise forced-source cardinality
 separately because it is proposal metadata, not part of the manifest payload.
 
 ## Local driver/engine verification
@@ -35,4 +36,7 @@ The explicitly selected test fails if its Go binary is unavailable. Ordinary Rus
 test runs leave it ignored because it additionally needs Go. The script refuses to
 reuse running harness containers. TAIKO_GO_DRIVER_BIN and DERIVATION_PARITY_CASES
 can select an existing binary and a comma-separated case sequence for failure controls.
+The signed control and forced-source counterexample share a nonce-zero transaction.
+Run `signed_control` at most once and after every `forced_type2_parity_2` case;
+invalid custom ordering is rejected before either driver starts.
 Use only local disposable test chains.

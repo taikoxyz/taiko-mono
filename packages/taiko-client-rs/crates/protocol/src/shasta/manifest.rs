@@ -3,7 +3,7 @@
 use std::{convert::TryFrom, io::Write};
 
 use alloy::primitives::{Address, U256};
-use alloy_consensus::{TxEip4844Variant, TxEnvelope};
+use alloy_consensus::{TxEip4844Variant, TxEnvelope, TxLegacy, transaction::RlpEcdsaDecodableTx};
 use alloy_rlp::{self, Decodable, Encodable, Header, RlpDecodable, RlpEncodable};
 use flate2::{Compression, Decompress, FlushDecompress, Status, write::ZlibEncoder};
 use serde::{Deserialize, Serialize};
@@ -58,12 +58,22 @@ fn decode_manifest_transactions(buf: &mut &[u8]) -> alloy_rlp::Result<Vec<TxEnve
     while !list.is_empty() {
         let mut payload = list;
         let header = Header::decode(&mut payload)?;
-        if !header.list && (list[0] < 0x80 || !matches!(payload.first(), Some(1..=4))) {
+        if !header.list &&
+            (header.payload_length < 2 ||
+                !matches!(payload[..header.payload_length].first(), Some(1..=4)))
+        {
             return Err(alloy_rlp::Error::Custom("invalid manifest transaction envelope"));
         }
         let frame_len = list.len() - payload.len() + header.payload_length;
         let (mut frame, rest) = list.split_at(frame_len);
-        transactions.push(TxEnvelope::decode(&mut frame)?);
+        // Go interprets a list only as Legacy. The generic envelope fallback may
+        // try typed variants after a failed Legacy decode has advanced the cursor.
+        let transaction = if header.list {
+            TxEnvelope::Legacy(TxLegacy::rlp_decode_signed(&mut frame)?)
+        } else {
+            TxEnvelope::decode(&mut frame)?
+        };
+        transactions.push(transaction);
         if !frame.is_empty() {
             return Err(alloy_rlp::Error::UnexpectedLength);
         }
@@ -239,6 +249,8 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
 /// Exhausted input is not completion: a truncated stream may have emitted an entire manifest.
 /// Bytes after the first completed stream are ignored, matching the Go source decoder.
 fn decompress_manifest_zlib(compressed: &[u8], chunk: &mut [u8]) -> Result<Vec<u8>> {
+    debug_assert!(!chunk.is_empty());
+    let mut dictionary_set = false;
     let mut decoder = Decompress::new(true);
     let mut decoded = Vec::new();
 
@@ -251,12 +263,13 @@ fn decompress_manifest_zlib(compressed: &[u8], chunk: &mut [u8]) -> Result<Vec<u
             FlushDecompress::None,
         ) {
             Ok(status) => status,
-            Err(err) if err.needs_dictionary() == Some(1) => {
+            Err(err) if !dictionary_set && err.needs_dictionary() == Some(1) => {
                 // Go's NewReader uses a nil dictionary, whose Adler-32 is 1. C zlib
                 // requests that dictionary explicitly even when no history is needed.
                 decoder.set_dictionary(&[]).map_err(|err| {
                     ProtocolError::Compression(format!("failed to set empty dictionary: {err}"))
                 })?;
+                dictionary_set = true;
                 continue;
             }
             Err(err) => {

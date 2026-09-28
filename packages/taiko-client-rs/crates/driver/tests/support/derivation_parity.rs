@@ -301,11 +301,44 @@ async fn assert_block_parity(
     Ok(())
 }
 
+fn parity_cases(config: &str) -> Result<Vec<&str>> {
+    let cases: Vec<_> = config.split(',').collect();
+    let mut control_nonce_spent = false;
+    for case in &cases {
+        if matches!(*case, "signed_control" | "forced_type2_parity_2") {
+            ensure!(
+                !control_nonce_spent,
+                "{case} requires fixture nonce 0: run signed_control only once and after all forced cases"
+            );
+        }
+        control_nonce_spent |= *case == "signed_control";
+    }
+    Ok(cases)
+}
+
+#[test]
+fn parity_case_order_rejects_reused_control_nonce() {
+    for config in [
+        "control,forced_type2_parity_2,signed_control,control",
+        "signed_control",
+        "forced_type2_parity_2,forced_type2_parity_2",
+    ] {
+        assert!(parity_cases(config).is_ok(), "{config}");
+    }
+    for config in ["signed_control,forced_type2_parity_2", "signed_control,control,signed_control"]
+    {
+        assert!(parity_cases(config).is_err(), "{config} reuses the spent fixture nonce");
+    }
+}
+
 #[test_context(ShastaEnv)]
 #[serial]
 #[ignore = "requires the Go binary built by script/test_derivation_parity.sh"]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn derivation_split_parity(env: &mut ShastaEnv) -> Result<()> {
+    let case_config = std::env::var("DERIVATION_PARITY_CASES").unwrap_or_else(|_|
+        "control,type2_parity_2,type2_fee_overflow,type2_chain_overflow,blob_sidecar_v0,blob_sidecar_v1,forced_type2_parity_2,signed_control,dictionary_id_1,framing_type1_nested_wrappers,framing_type2_nested_wrappers,framing_type3_nested_wrappers,framing_type4_nested_wrappers,framing_type2_bare,framing_type2_short,framing_type2_long,framing_type0_string,trailer_missing_1,nonfinal_stream,type2_unrecoverable,control".to_string());
+    let cases = parity_cases(&case_config)?;
     let beacon = BeaconStubServer::start().await?;
     let proposer = proposer_client(env).await?;
     let mut secondary = env.client_config.clone();
@@ -325,10 +358,8 @@ async fn derivation_split_parity(env: &mut ShastaEnv) -> Result<()> {
     ensure!(rust_parent.header.hash == go_parent.header.hash, "test parents differ");
     let mut go = start_go_driver(env, &beacon).await?;
     let (mut syncer, rust_client) = start_event_syncer(env, &beacon).await?;
-    let cases = std::env::var("DERIVATION_PARITY_CASES").unwrap_or_else(|_|
-        "control,type2_parity_2,type2_fee_overflow,type2_chain_overflow,blob_sidecar_v0,blob_sidecar_v1,forced_type2_parity_2,signed_control,dictionary_id_1,framing_type2_bare,framing_type2_short,framing_type2_long,framing_type0_string,trailer_missing_1,nonfinal_stream,type2_unrecoverable,control".to_string());
     let result: Result<()> = async {
-        for case in cases.split(',') {
+        for case in cases {
             let _: serde_json::Value =
                 rust_client.l1_provider.raw_request("evm_increaseTime".into(), [3u64]).await?;
             let _: serde_json::Value = rust_client

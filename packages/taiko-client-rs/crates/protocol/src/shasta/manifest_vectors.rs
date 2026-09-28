@@ -14,7 +14,7 @@ struct ManifestVector {
     expect_default: bool,
     expected_manifest_rlp_hex: String,
     engine_tx_list_hex: Option<String>,
-    engine_decodable: bool,
+    engine_decodable: Option<bool>,
 }
 
 fn load_manifest_vectors() -> Vec<ManifestVector> {
@@ -56,7 +56,12 @@ fn f9_manifest_vectors() {
 fn f9_engine_encoding_oracle() {
     for v in load_manifest_vectors().into_iter().filter(|v| v.family == "f9") {
         let list = hex::decode(v.engine_tx_list_hex.as_ref().unwrap()).unwrap();
-        assert_eq!(decode_recovered_transactions(&list).is_ok(), v.engine_decodable, "{}", v.name);
+        assert_eq!(
+            decode_recovered_transactions(&list).is_ok(),
+            v.engine_decodable.expect("F9 vector needs an engine expectation"),
+            "{}",
+            v.name
+        );
     }
 }
 
@@ -106,15 +111,20 @@ fn f8_large_stream_drains_output() {
 
 #[test]
 fn zlib_drains_small_output_chunks() {
-    let v = load_manifest_vectors().into_iter().find(|v| v.name == "large_output").unwrap();
-    let payload = hex::decode(v.payload_hex).unwrap();
-    let expected = hex::decode(v.expected_manifest_rlp_hex).unwrap();
-    for chunk_size in [1, 7, 8192] {
-        assert_eq!(
-            decompress_manifest_zlib(&payload[64..], &mut vec![0; chunk_size]).unwrap(),
-            expected,
-            "chunk size {chunk_size}"
-        );
+    for v in load_manifest_vectors()
+        .into_iter()
+        .filter(|v| matches!(v.name.as_str(), "large_output" | "dictionary_id_1"))
+    {
+        let payload = hex::decode(v.payload_hex).unwrap();
+        let expected = hex::decode(v.expected_manifest_rlp_hex).unwrap();
+        for chunk_size in [1, 7, 8192] {
+            assert_eq!(
+                decompress_manifest_zlib(&payload[64..], &mut vec![0; chunk_size]).unwrap(),
+                expected,
+                "{} chunk size {chunk_size}",
+                v.name
+            );
+        }
     }
 }
 
