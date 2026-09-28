@@ -113,10 +113,10 @@ def distExtra : Array Nat :=
 /-- Code lengths of the fixed literal/length code (RFC 1951 §3.2.6), including the invalid
 symbols 286 and 287. -/
 def fixedLitLengths : Array Nat :=
-  (List.replicate 144 8 ++ List.replicate 112 9 ++ List.replicate 24 7 ++ List.replicate 8 8).toArray
+  Array.replicate 144 8 ++ Array.replicate 112 9 ++ Array.replicate 24 7 ++ Array.replicate 8 8
 
 /-- The fixed distance code: 32 five-bit codes, of which 30 and 31 are invalid symbols. -/
-def fixedDistLengths : Array Nat := (List.replicate 32 5).toArray
+def fixedDistLengths : Array Nat := Array.replicate 32 5
 
 /-- Appends `len` bytes copied from `dist` bytes back; the copy may overlap its own output. -/
 def copyBack (out : ByteArray) (dist : Nat) : Nat → ByteArray

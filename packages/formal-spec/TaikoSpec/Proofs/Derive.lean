@@ -44,7 +44,8 @@ theorem foldl_advance_timestamp : ∀ (p : Parent) (bs : List BlockManifest),
   | p, b :: bs => foldl_advance_timestamp (advance p b) bs
 
 theorem foldl_advance_anchor : ∀ (p : Parent) (bs : List BlockManifest),
-    (bs.foldl advance p).anchorBlockNumber = lastOr p.anchorBlockNumber (bs.map (·.anchorBlockNumber))
+    (bs.foldl advance p).anchorBlockNumber =
+      lastOr p.anchorBlockNumber (bs.map (·.anchorBlockNumber))
   | _, [] => rfl
   | p, b :: bs => foldl_advance_anchor (advance p b) bs
 

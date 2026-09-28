@@ -57,11 +57,12 @@ def checkLimits (c : ChainParams) (ctx : ProposalCtx) (src : Source)
 source's blobs decoded and concatenated, or `none` if a blob's encoding is invalid. -/
 def extractManifest (c : ChainParams) (ctx : ProposalCtx) (src : Source)
     (payload : Option ByteArray) : Option (List BlockManifest) :=
-  if src.hasBlobs ∧ src.offset ≤ BLOB_BYTES - 64 then
-    payload.bind fun bytes =>
-      (compressedSlice bytes src.offset).bind fun compressed =>
-        (Zlib.decompress compressed).bind fun raw =>
-          (decodeManifest raw).bind (checkLimits c ctx src)
+  if src.hasBlobs ∧ src.offset ≤ BLOB_BYTES - 64 then do
+    let bytes ← payload
+    let compressed ← compressedSlice bytes src.offset
+    let raw ← Zlib.decompress compressed
+    let blocks ← decodeManifest raw
+    checkLimits c ctx src blocks
   else none
 
 /-- The RLP item of one manifest block. -/

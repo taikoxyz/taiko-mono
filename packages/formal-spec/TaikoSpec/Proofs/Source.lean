@@ -199,7 +199,7 @@ theorem extractManifest_limits {payload : Option ByteArray} {bs : List BlockMani
     bs.length ≤ maxBlocks c ctx.timestamp ∧ (src.isForcedInclusion = true → bs.length = 1) := by
   unfold extractManifest at h
   split at h
-  · simp only [Option.bind_eq_some_iff] at h
+  · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
     obtain ⟨_, _, _, _, _, _, blocks, _, hc⟩ := h
     unfold checkLimits at hc
     split at hc

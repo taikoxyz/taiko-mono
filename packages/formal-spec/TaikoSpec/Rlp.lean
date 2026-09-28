@@ -59,11 +59,10 @@ def decodeItem (b : ByteArray) : Nat → Nat → Nat → Option (Item × Nat)
       match header b pos with
       | none => none
       | some h =>
-        if h.start + h.length ≤ limit then
-          if h.isList then
-            (decodeItems b fuel h.start (h.start + h.length)).map
-              fun items => (.list items, h.start + h.length)
-          else some (.bytes (b.extract h.start (h.start + h.length)), h.start + h.length)
+        let stop := h.start + h.length
+        if stop ≤ limit then
+          if h.isList then (decodeItems b fuel h.start stop).map fun items => (.list items, stop)
+          else some (.bytes (b.extract h.start stop), stop)
         else none
     else none
 

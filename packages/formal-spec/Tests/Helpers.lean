@@ -50,7 +50,7 @@ def blk (timestamp anchor gasLimit : Nat) (coinbase : UInt8 := 0) : BlockManifes
   gasLimit := gasLimit
   transactions := []
 
-/-- A source with blobs at offset 0. -/
+/-- A source with blobs, by default a proposer source at offset 0. -/
 def src (forced : Bool := false) (offset : Nat := 0) : Source :=
   { isForcedInclusion := forced, hasBlobs := true, offset }
 

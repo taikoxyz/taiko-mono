@@ -164,7 +164,8 @@ def parent : Parent :=
   { number := 10, timestamp := 1900, gasLimit := 31_000_000, anchorBlockNumber := 400 }
 
 /-- A source with blobs. -/
-def source (forced : Bool) : Source := { isForcedInclusion := forced, hasBlobs := true, offset := 0 }
+def source (forced : Bool) : Source :=
+  { isForcedInclusion := forced, hasBlobs := true, offset := 0 }
 
 /-- A block without transactions. -/
 def block (timestamp anchor gasLimit : Nat) : BlockManifest :=
