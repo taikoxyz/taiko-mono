@@ -3,6 +3,10 @@ pragma solidity ^0.8.24;
 
 import { BuildProposal } from "../governance/BuildProposal.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
+import { LibRisc0Constants } from "src/layer1/verifiers/LibRisc0Constants.sol";
+import { LibSP1Constants } from "src/layer1/verifiers/LibSP1Constants.sol";
+import { Risc0Verifier } from "src/layer1/verifiers/Risc0Verifier.sol";
+import { SP1Verifier } from "src/layer1/verifiers/SP1Verifier.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 
 // To print the proposal action data: `P=0026 pnpm proposal`
@@ -12,27 +16,53 @@ contract Proposal0026 is BuildProposal {
     /// @dev The `MainnetInbox` implementation the inbox proxy upgrades to: the live configuration
     /// with `basefeeSharingPctg` raised from 75 to 100. Deployed by `DeployInboxUpgradeL1` on
     /// Ethereum mainnet.
-    /// https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e&chainid=1
+    /// See `Proposal0026.md` for the deployed implementation's codediff.
     address public constant MAINNET_INBOX_NEW_IMPL = 0xA18431d42C8dF9778905fBEa912aCF1881b49D2e;
 
+    // Current raiko2 v0.8.0-rc1 TEE MRENCLAVE values trusted on the attester proxies.
+    bytes32 public constant OLD_SGXGETH_MR_ENCLAVE =
+        0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005;
+    bytes32 public constant OLD_SGXRETH_NON_EDMM_MR_ENCLAVE =
+        0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847;
+    bytes32 public constant OLD_SGXRETH_EDMM_MR_ENCLAVE =
+        0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf;
+
+    // New raiko2 v0.9.0-rc1 TEE MRENCLAVE values.
+    // Source: https://github.com/taikoxyz/raiko2/releases/tag/v0.9.0-rc1
+    bytes32 public constant NEW_SGXGETH_MR_ENCLAVE =
+        0x51701ed3fbd0bfdcea24a2e47ce9e30c5448ca9e4ad9b48bd1530d4a9c022fe4;
+    bytes32 public constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE =
+        0xdc994928718200e16e0eb643486ea90e49970a897fd164e39b6ae11262b69ab9;
+    bytes32 public constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
+        0x7aaf74aaa95cf967844819e5e4504f28308541c0504e6642a12a75a4669f66a3;
+
     error ImplementationNotDeployed();
+    error Risc0ImageIdNotSet();
+    error Risc0ImageIdNotRotated();
+    error SP1ProgramVKeyNotSet();
+    error SP1ProgramVKeyNotRotated();
+    error SgxMrEnclaveNotSet();
+    error SgxMrEnclaveNotRotated();
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory) {
         return buildL1Actions(MAINNET_INBOX_NEW_IMPL);
     }
 
     /// @dev Encodes the L1 leg against an injectable implementation so tests can assert the
-    /// encoding while the constant above is still a placeholder.
+    /// complete batch independently of the deployed inbox implementation address.
     /// @param _inboxImpl The implementation the inbox proxy upgrades to.
-    /// @return actions The single L1 action.
+    /// @return actions The complete 21-action L1 batch.
     function buildL1Actions(address _inboxImpl)
         internal
         pure
         returns (Controller.Action[] memory actions)
     {
         require(_inboxImpl != address(0), ImplementationNotDeployed());
+        _checkRisc0Constants();
+        _checkSP1Constants();
+        _checkSgxConstants();
 
-        actions = new Controller.Action[](1);
+        actions = new Controller.Action[](21);
 
         // 0: Upgrade the inbox to the implementation that pays the whole basefee to the coinbase.
         // Immutables only: the new implementation carries the live proof verifier, proposer
@@ -42,5 +72,236 @@ contract Proposal0026 is BuildProposal {
         // Proposals already made keep the percentage they were proposed with; the first propose
         // after execution carries 100.
         actions[0] = buildUpgradeAction(L1.INBOX, _inboxImpl);
+
+        // 1-4: Rotate the trusted RISC0 image IDs to raiko2 v0.9.0-rc1.
+        actions[1] = Controller.Action({
+            target: L1.RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted,
+                (LibRisc0Constants.V0_8_0_RC1_PROPOSAL_IMAGE_ID, false)
+            )
+        });
+        actions[2] = Controller.Action({
+            target: L1.RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted,
+                (LibRisc0Constants.V0_8_0_RC1_AGGREGATION_IMAGE_ID, false)
+            )
+        });
+        actions[3] = Controller.Action({
+            target: L1.RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted,
+                (LibRisc0Constants.V0_9_0_RC1_PROPOSAL_IMAGE_ID, true)
+            )
+        });
+        actions[4] = Controller.Action({
+            target: L1.RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted,
+                (LibRisc0Constants.V0_9_0_RC1_AGGREGATION_IMAGE_ID, true)
+            )
+        });
+
+        // 5-12: Rotate the trusted SP1 program verification keys the same way.
+        actions[5] = Controller.Action({
+            target: L1.SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254, false)
+            )
+        });
+        actions[6] = Controller.Action({
+            target: L1.SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, false)
+            )
+        });
+        actions[7] = Controller.Action({
+            target: L1.SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254, false)
+            )
+        });
+        actions[8] = Controller.Action({
+            target: L1.SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, false)
+            )
+        });
+        actions[9] = Controller.Action({
+            target: L1.SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254, true)
+            )
+        });
+        actions[10] = Controller.Action({
+            target: L1.SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)
+            )
+        });
+        actions[11] = Controller.Action({
+            target: L1.SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254, true)
+            )
+        });
+        actions[12] = Controller.Action({
+            target: L1.SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
+            )
+        });
+
+        // 13-18: Rotate the trusted SGX MRENCLAVE values on the reused attester proxies. MRSIGNER
+        // and the deployed attribute policy remain unchanged.
+        actions[13] = Controller.Action({
+            target: L1.SGXGETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0026Attestation.setMrEnclave, (OLD_SGXGETH_MR_ENCLAVE, false)
+            )
+        });
+        actions[14] = Controller.Action({
+            target: L1.SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0026Attestation.setMrEnclave, (OLD_SGXRETH_NON_EDMM_MR_ENCLAVE, false)
+            )
+        });
+        actions[15] = Controller.Action({
+            target: L1.SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0026Attestation.setMrEnclave, (OLD_SGXRETH_EDMM_MR_ENCLAVE, false)
+            )
+        });
+        actions[16] = Controller.Action({
+            target: L1.SGXGETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0026Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true)
+            )
+        });
+        actions[17] = Controller.Action({
+            target: L1.SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0026Attestation.setMrEnclave, (NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
+            )
+        });
+        actions[18] = Controller.Action({
+            target: L1.SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0026Attestation.setMrEnclave, (NEW_SGXRETH_EDMM_MR_ENCLAVE, true)
+            )
+        });
+
+        // 19-20: Delete the currently registered raiko2 v0.8.0-rc1 SGX instances. Registering
+        // fresh v0.9.0-rc1 instances is a separate post-execution operation.
+        uint256[] memory instanceIds = new uint256[](1);
+        instanceIds[0] = 2;
+        actions[19] = Controller.Action({
+            target: L1.SGXGETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(IProposal0026SgxVerifier.deleteInstances, (instanceIds))
+        });
+        actions[20] = Controller.Action({
+            target: L1.SGXRETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(IProposal0026SgxVerifier.deleteInstances, (instanceIds))
+        });
     }
+
+    function _checkRisc0Constants() private pure {
+        require(
+            LibRisc0Constants.V0_8_0_RC1_PROPOSAL_IMAGE_ID != bytes32(0)
+                && LibRisc0Constants.V0_8_0_RC1_AGGREGATION_IMAGE_ID != bytes32(0)
+                && LibRisc0Constants.V0_9_0_RC1_PROPOSAL_IMAGE_ID != bytes32(0)
+                && LibRisc0Constants.V0_9_0_RC1_AGGREGATION_IMAGE_ID != bytes32(0),
+            Risc0ImageIdNotSet()
+        );
+        require(
+            LibRisc0Constants.V0_8_0_RC1_PROPOSAL_IMAGE_ID
+                    != LibRisc0Constants.V0_9_0_RC1_PROPOSAL_IMAGE_ID
+                && LibRisc0Constants.V0_8_0_RC1_AGGREGATION_IMAGE_ID
+                    != LibRisc0Constants.V0_9_0_RC1_AGGREGATION_IMAGE_ID,
+            Risc0ImageIdNotRotated()
+        );
+    }
+
+    function _checkSP1Constants() private pure {
+        require(
+            LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254 != bytes32(0)
+                && LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
+                && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254 != bytes32(0)
+                && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
+                && LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254 != bytes32(0)
+                && LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
+                && LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254 != bytes32(0)
+                && LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0),
+            SP1ProgramVKeyNotSet()
+        );
+        require(
+            LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254
+                    != LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254
+                && LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES
+                    != LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES
+                && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254
+                    != LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254
+                && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES
+                    != LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES,
+            SP1ProgramVKeyNotRotated()
+        );
+    }
+
+    function _checkSgxConstants() private pure {
+        require(
+            OLD_SGXGETH_MR_ENCLAVE != bytes32(0) && OLD_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
+                && OLD_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0) && NEW_SGXGETH_MR_ENCLAVE != bytes32(0)
+                && NEW_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
+                && NEW_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0),
+            SgxMrEnclaveNotSet()
+        );
+        require(
+            OLD_SGXGETH_MR_ENCLAVE != NEW_SGXGETH_MR_ENCLAVE
+                && OLD_SGXRETH_NON_EDMM_MR_ENCLAVE != NEW_SGXRETH_NON_EDMM_MR_ENCLAVE
+                && OLD_SGXRETH_EDMM_MR_ENCLAVE != NEW_SGXRETH_EDMM_MR_ENCLAVE,
+            SgxMrEnclaveNotRotated()
+        );
+    }
+}
+
+interface IProposal0026Attestation {
+    /// @notice Updates whether an SGX application MRENCLAVE is trusted for attestation.
+    /// @param _mrEnclave The SGX application enclave measurement to update.
+    /// @param _trusted True to trust the measurement, false to untrust it.
+    function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
+}
+
+interface IProposal0026SgxVerifier {
+    /// @notice Deletes SGX verifier instances by instance ID.
+    /// @param _ids The SGX instance IDs to delete.
+    function deleteInstances(uint256[] calldata _ids) external;
 }
