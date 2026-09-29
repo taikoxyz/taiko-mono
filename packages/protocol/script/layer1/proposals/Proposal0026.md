@@ -231,7 +231,7 @@ So the only behavioural change the new implementation ships is the percentage. N
 
 - **Immutables only.** The percentage is an `immutable`, read by `propose` and `getConfig`. The
   storage layout is untouched: `contracts/layer1/mainnet/MainnetInbox_Layout.sol` is identical at
-  `9078278909a43a83fc5bb2664f30b81eb5c967f6` and on `main` (18 entries, `activationTimestamp` at
+  `9078278909a43a83fc5bb2664f30b81eb5c967f6` and on `main` (17 entries, `activationTimestamp` at
   slot 251 through the trailing `__gap[43]` at slot 258).
 - **No initializer.** The action is `upgradeTo`, not `upgradeToAndCall`. `_initialized` is 3
   (`init` at deployment, `init2` by Proposal0017, `init3` by Proposal0019) and `Inbox` has no
