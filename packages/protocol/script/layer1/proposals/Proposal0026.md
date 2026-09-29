@@ -284,12 +284,12 @@ So the only behavioural change the new implementation ships is the percentage. N
 | 4 | RISC0 verifier | `setImageIdTrusted(V0_9_0_RC1_AGGREGATION_IMAGE_ID, true)` |
 | 5–8 | SP1 verifier | disable the four v0.8.0-rc1 proposal/aggregation vkeys in the table above |
 | 9–12 | SP1 verifier | enable the four v0.9.0-rc1 proposal/aggregation vkeys in the table above |
-| 13 | SGX-geth attester | `setMrEnclave(OLD_SGXGETH_MR_ENCLAVE, false)` |
-| 14 | SGX-reth attester | `setMrEnclave(OLD_SGXRETH_NON_EDMM_MR_ENCLAVE, false)` |
-| 15 | SGX-reth attester | `setMrEnclave(OLD_SGXRETH_EDMM_MR_ENCLAVE, false)` |
-| 16 | SGX-geth attester | `setMrEnclave(NEW_SGXGETH_MR_ENCLAVE, true)` |
-| 17 | SGX-reth attester | `setMrEnclave(NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)` |
-| 18 | SGX-reth attester | `setMrEnclave(NEW_SGXRETH_EDMM_MR_ENCLAVE, true)` |
+| 13 | SGX-geth attester | `setMrEnclave(V0_8_0_RC1_SGXGETH_MR_ENCLAVE, false)` |
+| 14 | SGX-reth attester | `setMrEnclave(V0_8_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE, false)` |
+| 15 | SGX-reth attester | `setMrEnclave(V0_8_0_RC1_SGXRETH_EDMM_MR_ENCLAVE, false)` |
+| 16 | SGX-geth attester | `setMrEnclave(V0_9_0_RC1_SGXGETH_MR_ENCLAVE, true)` |
+| 17 | SGX-reth attester | `setMrEnclave(V0_9_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE, true)` |
+| 18 | SGX-reth attester | `setMrEnclave(V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE, true)` |
 | 19 | SGX-geth verifier | `deleteInstances([2])` |
 | 20 | SGX-reth verifier | `deleteInstances([2])` |
 

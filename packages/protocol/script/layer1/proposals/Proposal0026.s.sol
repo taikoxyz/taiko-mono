@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { BuildProposal } from "../governance/BuildProposal.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibRisc0Constants } from "src/layer1/verifiers/LibRisc0Constants.sol";
+import { LibSGXConstants } from "src/layer1/verifiers/LibSGXConstants.sol";
 import { LibSP1Constants } from "src/layer1/verifiers/LibSP1Constants.sol";
 import { Risc0Verifier } from "src/layer1/verifiers/Risc0Verifier.sol";
 import { SP1Verifier } from "src/layer1/verifiers/SP1Verifier.sol";
@@ -18,23 +19,6 @@ contract Proposal0026 is BuildProposal {
     /// Ethereum mainnet.
     /// See `Proposal0026.md` for the deployed implementation's codediff.
     address public constant MAINNET_INBOX_NEW_IMPL = 0xA18431d42C8dF9778905fBEa912aCF1881b49D2e;
-
-    // Current raiko2 v0.8.0-rc1 TEE MRENCLAVE values trusted on the attester proxies.
-    bytes32 public constant OLD_SGXGETH_MR_ENCLAVE =
-        0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005;
-    bytes32 public constant OLD_SGXRETH_NON_EDMM_MR_ENCLAVE =
-        0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847;
-    bytes32 public constant OLD_SGXRETH_EDMM_MR_ENCLAVE =
-        0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf;
-
-    // New raiko2 v0.9.0-rc1 TEE MRENCLAVE values.
-    // Source: https://github.com/taikoxyz/raiko2/releases/tag/v0.9.0-rc1
-    bytes32 public constant NEW_SGXGETH_MR_ENCLAVE =
-        0x51701ed3fbd0bfdcea24a2e47ce9e30c5448ca9e4ad9b48bd1530d4a9c022fe4;
-    bytes32 public constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE =
-        0xdc994928718200e16e0eb643486ea90e49970a897fd164e39b6ae11262b69ab9;
-    bytes32 public constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
-        0x7aaf74aaa95cf967844819e5e4504f28308541c0504e6642a12a75a4669f66a3;
 
     error ImplementationNotDeployed();
     error Risc0ImageIdNotSet();
@@ -179,42 +163,48 @@ contract Proposal0026 is BuildProposal {
             target: L1.SGXGETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0026Attestation.setMrEnclave, (OLD_SGXGETH_MR_ENCLAVE, false)
+                IProposal0026Attestation.setMrEnclave,
+                (LibSGXConstants.V0_8_0_RC1_SGXGETH_MR_ENCLAVE, false)
             )
         });
         actions[14] = Controller.Action({
             target: L1.SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0026Attestation.setMrEnclave, (OLD_SGXRETH_NON_EDMM_MR_ENCLAVE, false)
+                IProposal0026Attestation.setMrEnclave,
+                (LibSGXConstants.V0_8_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE, false)
             )
         });
         actions[15] = Controller.Action({
             target: L1.SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0026Attestation.setMrEnclave, (OLD_SGXRETH_EDMM_MR_ENCLAVE, false)
+                IProposal0026Attestation.setMrEnclave,
+                (LibSGXConstants.V0_8_0_RC1_SGXRETH_EDMM_MR_ENCLAVE, false)
             )
         });
         actions[16] = Controller.Action({
             target: L1.SGXGETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0026Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true)
+                IProposal0026Attestation.setMrEnclave,
+                (LibSGXConstants.V0_9_0_RC1_SGXGETH_MR_ENCLAVE, true)
             )
         });
         actions[17] = Controller.Action({
             target: L1.SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0026Attestation.setMrEnclave, (NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
+                IProposal0026Attestation.setMrEnclave,
+                (LibSGXConstants.V0_9_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
             )
         });
         actions[18] = Controller.Action({
             target: L1.SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0026Attestation.setMrEnclave, (NEW_SGXRETH_EDMM_MR_ENCLAVE, true)
+                IProposal0026Attestation.setMrEnclave,
+                (LibSGXConstants.V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE, true)
             )
         });
 
@@ -278,16 +268,21 @@ contract Proposal0026 is BuildProposal {
 
     function _checkSgxConstants() private pure {
         require(
-            OLD_SGXGETH_MR_ENCLAVE != bytes32(0) && OLD_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
-                && OLD_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0) && NEW_SGXGETH_MR_ENCLAVE != bytes32(0)
-                && NEW_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
-                && NEW_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0),
+            LibSGXConstants.V0_8_0_RC1_SGXGETH_MR_ENCLAVE != bytes32(0)
+                && LibSGXConstants.V0_8_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
+                && LibSGXConstants.V0_8_0_RC1_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0)
+                && LibSGXConstants.V0_9_0_RC1_SGXGETH_MR_ENCLAVE != bytes32(0)
+                && LibSGXConstants.V0_9_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
+                && LibSGXConstants.V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0),
             SgxMrEnclaveNotSet()
         );
         require(
-            OLD_SGXGETH_MR_ENCLAVE != NEW_SGXGETH_MR_ENCLAVE
-                && OLD_SGXRETH_NON_EDMM_MR_ENCLAVE != NEW_SGXRETH_NON_EDMM_MR_ENCLAVE
-                && OLD_SGXRETH_EDMM_MR_ENCLAVE != NEW_SGXRETH_EDMM_MR_ENCLAVE,
+            LibSGXConstants.V0_8_0_RC1_SGXGETH_MR_ENCLAVE
+                    != LibSGXConstants.V0_9_0_RC1_SGXGETH_MR_ENCLAVE
+                && LibSGXConstants.V0_8_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE
+                    != LibSGXConstants.V0_9_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE
+                && LibSGXConstants.V0_8_0_RC1_SGXRETH_EDMM_MR_ENCLAVE
+                    != LibSGXConstants.V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE,
             SgxMrEnclaveNotRotated()
         );
     }
