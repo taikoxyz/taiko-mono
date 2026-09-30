@@ -39,7 +39,7 @@
 <details><summary>A node's wall clock is 40 seconds fast. Does it reject valid blocks?</summary><p>No. No validity rule reads the wall clock. Its clock only affects when it would sign a timeout as an attester (lesson 5), and even that is a signing policy, not a validity rule.</p></details>
 <details><summary>What happens to a block whose anchor transaction reverts?</summary><p>It is invalid (V6 requires receipt status 1). Today such a block is valid but silently lacks its checkpoint.</p></details>
 
-<div class="box challenge"><h4>Challenge this</h4><p>V5 lets a sequencer anchor an L1 block up to 30 minutes old. What can a sequencer gain by anchoring as stale as allowed, and which rule bounds the harm? (Hint: lesson 10, the attester anchor-lag policy, and the 102-minute bound.)</p></div>
+<div class="box challenge"><h4>Challenge this</h4><p>V5 lets a sequencer anchor an L1 block up to 30 minutes old. What can a sequencer gain by anchoring as stale as allowed, and which rule bounds the harm? (Hint: lesson 10, the attester anchor-lag policy, and the 112-minute bound.)</p></div>
 
 <p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="02-seats.html">← 2. Seats and sortition</a><span></span><a href="04-certificates.html">4. Certificates and confirmation →</a></p>
 </main>

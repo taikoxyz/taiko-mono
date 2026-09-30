@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Etna lesson 10: forced inclusion</title>
-<meta name="description" content="Two request shapes, due-ness at the anchored L1 time, the placement rule, the inbox count, and the permissionless forced batch with its 102-minute bound.">
+<meta name="description" content="Two request shapes, due-ness at the anchored L1 time, the placement rule, the inbox count, and the permissionless forced batch with its 112-minute bound.">
 <link rel="stylesheet" href="etna.css">
 </head>
 <body>
@@ -25,14 +25,14 @@
 <li><strong>Due.</strong> <code>savedAt + 300 s ≤ T</code> where T is an anchored L1 timestamp. Blob entries void after 7 days (they derive to an empty block; calldata entries never void).</li>
 <li><strong>Placement V8.</strong> A block whose parent's anchor makes an entry due must be that entry's block (cursor + 1), unless the previous two blocks were already forced blocks. Forced blocks inherit the parent's anchor and coinbase. They are exempt from the per-term byte budget V10, which counts the sequencer's own blocks only (they are already bounded by one blob each and by the per-landing cap), so a blob-shaped backlog never exhausts a term and a leader is never timed out for lack of budget (round 4, R4H-6).</li>
 <li><strong>Inbox count.</strong> At landing, the consumed count must be at least the number due at a floor time every block in the range must have seen, capped at two-thirds of the range: a lazy lander cannot dilute the obligation, and nothing a third party does moves the count.</li>
-<li><strong>Forced batch.</strong> Once <code>replaceableFrom</code> has passed (including any deferral by a bonded landing announcement) and the head entry is due at the latest L1 block: exactly the due entries, view 254, no certificate, two ZK systems always, fees to the lander, the ordinary pipeline resumes on top with a RESUME view change whose first block re-includes the voided transactions before serving any further due entry. The entry at <code>fiQueue.head</code> that no guest can prove is skipped (a landing skips at most that one entry; the cursor never moves during the check) only once no landing of any kind has anchored L1 time within four hours (the gate is the last landing's anchor time, never the entry's age); its 0.05 ETH bond and fee are burned and the fee floor quadruples per skip in a day, so a stream of poison entries is bounded by the poster's budget, not by a DAO action (round 3).</li>
+<li><strong>Forced batch.</strong> Once <code>replaceableFrom</code> has passed (including the one ten-minute deferral per range that a bonded landing announcement or an accepted REPLACE record, whichever comes first, adds; round 5, R5-C3) and the head entry is due at the latest L1 block: exactly the due entries, view 254, no certificate, two ZK systems always, fees to the lander, the ordinary pipeline resumes on top with a RESUME view change whose first block re-includes the voided transactions before serving any further due entry. The entry at <code>fiQueue.head</code> that no guest can prove is skipped (a landing skips at most that one entry; the cursor never moves during the check) only once no landing of any kind has anchored L1 time within four hours (the gate is the last landing's anchor time, never the entry's age); its 0.05 ETH bond and fee are burned and the fee floor quadruples per skip in a day, so a stream of poison entries is bounded by the poster's budget, not by a DAO action (round 3).</li>
 </ul>
 
 <h2>Three behaviours, three bounds</h2>
 <table>
 <tr><th>Sequencers</th><th>What happens</th><th>Bound after the save</th></tr>
 <tr><td>honest</td><td>the first block after an anchor at or past +300 s includes it; attested a second later</td><td>≈ 6 min attested, ≈ 9 min landed</td></tr>
-<tr><td>compliant censor with a colluding quorum</td><td>anchors as stale as allowed (30 min), lands at the deadline; skipping blocks are unlandable</td><td>≤ 112 min landed (300 + 1,800 + 120 + 3,600 + 300 + 600 s), or the forced path</td></tr>
+<tr><td>compliant censor with a colluding quorum</td><td>anchors as stale as allowed (30 min), lands at the deadline; skipping blocks are unlandable</td><td>≤ 112 min landed (300 + 1,800 + 120 + 3,600 + 300 + 600 s, the last term being the single shared deferral), or the forced path</td></tr>
 <tr><td>absent</td><td>nothing lands; after about 40 min anyone lands a forced batch</td><td>≈ 40 min after the stall began, plus proving</td></tr>
 </table>
 

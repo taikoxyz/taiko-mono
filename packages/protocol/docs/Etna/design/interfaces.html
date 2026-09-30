@@ -29,18 +29,18 @@ interface IEtnaInbox {
     struct Seat       { address owner; uint32 activeFrom; uint32 activeUntil; }   // append-only array; a recycled hole has activeUntil + RECYCLE_GRACE ≤ now
     struct Mutation   { uint32 effectiveTime; uint16 seatId; int8 delta; }          // mutation ring entry (+1 enters, −1 leaves eligibility); applied in (effectiveTime, seatId) order (round 4, R4H-1)
     struct Operator   { uint16 seatCount; uint8 strikes; uint32 lastStrikeAt; uint32 exitAt; uint64 reserveGwei;
-                        uint32 s1; uint32 e1; uint32 s2; uint32 e2; uint48 slashedAt; bytes32 seqKeyHash; bytes32 attKeyHash; }   // reserveGwei: landing reserve, non-withdrawable while seatCount > 0; s/e intervals hold structural and reserve-lapse suspensions
-    struct Holders    { address[5] owners; uint16[5] seats; uint8 count; uint8 mode; } // 0 SORTITION 1 OPEN_EMPTY 2 DEAD 3 NO_COMMITTEE
+                        uint32 s1; uint32 e1; uint32 s2; uint32 e2; uint48 slashedAt; bytes32 seqKeyHash; bytes32 attKeyHash; }   // reserveGwei: landing reserve, non-withdrawable while seatCount > 0; s/e intervals hold structural (class A or B, DELAY_S-dated) and reserve-lapse (DELAY_REG-dated) suspensions, read after the draw: they change no rank and no E_t (round 5, R5S-2)
+    struct Holders    { address[5] owners; uint16[5] seats; uint8 count; uint8 mode; } // mode: 0 SORTITION, 1 OPEN_EMPTY, 2 DEAD, 3 NO_COMMITTEE; a suspended seat drawn as a holder is a void view (round 5, R5S-2)
     struct Certificate{ uint32 termId; uint8 view; uint8 redraw; bytes32 vcHash; uint64 height; bytes32 phHash; uint32 bitmap; bytes aggSig; }   // redraw: committee redraw count n (0..REDRAW_MAX), in the signed bytes and in every equivocation key (round 4, R4-C1)
     struct ViewChange { uint32 termId; uint8 view; uint8 redraw; bytes32 closes; uint8 kind; uint32 signerTerm; uint64 lockHeight; bytes32 lockPhHash;
                         Replace l1Ref; uint32 bitmap; bytes aggSig; }       // closes: opening object of the view it closes                    // kind: TIMEOUT TERM_END FALLBACK REPLACE RESUME
     struct Attestation{ uint32 termId; uint8 view; uint8 redraw; bytes32 vcHash; uint64 height; bytes32 phHash; uint8 attesterIdx; bytes sig; }   // vcHash: the view's opening object
-    struct TimeoutMsg { uint32 termId; uint8 view; bytes32 vcHash; uint8 kind; uint8 attesterIdx; bytes sig; }                 // no lock (round 3); signed only against a leader silent to the signer for TIMEOUT (round 4, R4H-4)
-    struct RedrawMsg  { uint32 termId; uint8 view; bytes32 vcHash; uint8 n; uint8 attesterIdx; bytes sig; }                    // REDRAW(t, v, vcHash, n), n = 1..REDRAW_MAX; one statement per key, no conflicting form, no slashing rule
-    struct LockVote   { uint32 termId; uint8 view; uint8 redraw; bytes32 vcHash; uint8 kind; uint64 lockHeight; bytes32 lockPhHash; Replace l1Ref; uint8 attesterIdx; bytes sig; } // l1Ref signed; the S3b/S3c/S3d evidence type
+    struct TimeoutMsg { uint32 termId; uint8 view; uint8 redraw; bytes32 vcHash; uint8 kind; uint8 attesterIdx; bytes sig; }   // no lock (round 3); redraw as in every attester message (round 5, R5-C4); signed only after TIMEOUT s without a new certificate while the signer holds no attested block of (t, v) still uncertified (round 5, R5H-1 and the fix pass)
+    struct RedrawMsg  { uint32 termId; uint8 view; bytes32 vcHash; uint8 n; uint64 height; bytes32 phHash; uint8 attesterIdx; bytes sig; }   // names the lowest uncertified block the signer attested; the redrawn committee attests it with the staleness bound waived (round 5 fix pass)                    // REDRAW(t, v, vcHash, n), n = 1..REDRAW_MAX; one statement per key, no conflicting form, no slashing rule
+    struct LockVote   { uint32 termId; uint8 view; uint8 redraw; bytes32 vcHash; uint8 kind; uint64 lockHeight; bytes32 lockPhHash; Replace l1Ref; uint8 attesterIdx; bytes sig; } // l1Ref signed; the S3b/S3c/S3d evidence type. l1Ref of a RESUME vote: the (number, hash) of the L1 block containing the forced or replacement landing resumed from (certificate page, normative; round 5, R5S-3)
     struct SignedObject  { uint8 kind; bytes body; bytes sig; }           // 0 HEADER (SSZ SignedHeader)
     struct CommitteeProof{ bytes32[32] keyHashes; bytes[] pubkeys; uint32 pubkeyBitmap; uint8 redraw; RedrawProof[] redraws; }   // committee at redraw count n, justified by the chain of redraw proofs 1..n
-    struct RedrawProof{ uint8 n; uint32 bitmap; bytes aggSig; }           // ⌊m/2⌋ + 1 RedrawMsg signatures of the committee at n − 1
+    struct RedrawProof{ uint8 n; uint64 height; bytes32 phHash; uint32 bitmap; bytes aggSig; }           // ⌊m/2⌋ + 1 RedrawMsg signatures of the committee at n − 1
     struct RewardBoost{ uint32 termId; uint64 minRewardPerBlockGwei; bytes seqSig; }
     struct Replace    { uint48 l1RefNumber; bytes32 l1RefHash; }
     struct Segment    { uint32 termId; uint8 view; address sequencer; uint64 firstHeight; uint64 lastHeight; uint16 fiCount; }
@@ -73,17 +73,17 @@ interface IEtnaInbox {
     // ------------------------------------------------------------------ registry, rights, randomness
     function registerKeys(address _seqKey, bytes calldata _blsPubkey, bytes calldata _pop) external;  // PoP over (pubkey, owner, chainId); key must be unbound
     function rotateKey(uint8 _kind, bytes calldata _newKey, bytes calldata _pop) external;   // effective τ + DELAY_REG
-    function register(uint16 _count) external returns (uint16[] memory seats_);       // indices contract-assigned, append-only; bond ≥ 1.05 × _count × B_SEAT + _count × LAND_RESERVE; activeFrom = τ + DELAY_REG
+    function register(uint16 _count) external returns (uint16[] memory seats_);       // indices contract-assigned, append-only; bond ≥ 1.05 × _count × B_SEAT + _count × LAND_RESERVE; activeFrom = the first 60-s effective slot ≥ τ + DELAY_REG holding fewer than MUT_PER_SLOT = 2 mutations (a full slot queues the write to the next; round 5, R5H-2)
     function eligibleNow() external view returns (uint16 count_);                     // E_now = Fenwick tree total after pending mutations are applied
-    function eligibleCount(uint32 _term) external view returns (uint16 count_);       // E_t: the tree total corrected by mutation-ring entries effective in (termStart(t), now]
-    function seatAtRank(uint32 _term, uint16 _rank) external view returns (uint16 seat_);   // Fenwick descent corrected by the same entries; the sortition domain (round 4, R4H-1)
-    function pendingMutations() external view returns (Mutation[] memory ring_);      // applied lazily, in (effectiveTime, seatId) order, before any call computes a right
-    function requestExit(uint16[] calldata _seats) external;                         // activeUntil ≥ activeFrom + MIN_TENURE (7 d); releases seat stake and reserve after EVIDENCE_WINDOW
+    function eligibleCount(uint32 _term) external view returns (uint16 count_);       // E_t: the tree total corrected by mutation-ring entries effective in (termStart(t), now]; eligible(i, T) = registered and inside [activeFrom, activeUntil) only; suspension is not an input (round 5, R5S-2)
+    function seatAtRank(uint32 _term, uint16 _rank) external view returns (uint16 seat_);   // Fenwick descent corrected by the same entries; the sortition domain (round 4, R4H-1); the suspension flag is read after the draw and shifts no rank
+    function pendingMutations() external view returns (Mutation[] memory ring_);      // applied lazily, in (effectiveTime, seatId) order, before any call computes a right; entry and exit only, never a suspension
+    function requestExit(uint16[] calldata _seats) external;                         // per owner, any count of its seats, each seat one mutation (≤ 16 entry or exit mutations per CAP owner per week); activeUntil ≥ activeFrom + MIN_TENURE (7 d), slot-queued like register; releases seat stake and reserve after EVIDENCE_WINDOW
     function finalizeExit(uint16[] calldata _seats) external;
     function reactivate() external;                                                  // after a suspension or a reserve lapse, once topped up; eligibility DELAY_REG-dated
     function reserveOf(address _owner) external view returns (uint64 reserveGwei_, uint64 oneTermExposureGwei_);
     function poke() external;                                                        // mixes block.prevrandao once per L1 block; applies due mutations
-    function recordAssignment(uint32 _term) external;                                // termStart ≤ now ≤ termStart + ROLE_HORIZON (reverts before termStart); walks holders and committee on-chain from the corrected tree and pins digest + committee root (never from calldata)
+    function recordAssignment(uint32 _term) external;                                // termStart ≤ now ≤ termStart + ROLE_HORIZON (reverts before termStart); walks holders and committee on-chain from the corrected tree (correction set gathered once, sorted by seat id) and pins digest + committee root (never from calldata); pays PIN_REWARD (a ramp to PIN_MAX = 400 TAIKO) from the holder's reserve to the first pinner (round 5, R5H-2)
     function termOf(uint48 _time) external pure returns (uint32 term_);
     function termStart(uint32 _term) external pure returns (uint48 start_);
     function sequencerAt(uint48 _time, uint8 _view) external view returns (uint32 term_, address holder_, uint16 seat_, uint8 mode_);
@@ -91,7 +91,7 @@ interface IEtnaInbox {
     function holdersOf(uint32 _term) external view returns (Holders memory h_);
     function isHolder(uint32 _term, uint8 _view, address _who) external view returns (bool ok_);
     function isOpenTerm(uint32 _term) external view returns (bool openEmpty_, bool deadMode_, bool noCommittee_);
-    function committeeOf(uint32 _term) external view returns (uint16[32] memory seats_, address[32] memory owners_, bytes32[32] memory attKeyHashes_);
+    function committeeOf(uint32 _term) external view returns (uint16[32] memory seats_, address[32] memory owners_, bytes32[32] memory attKeyHashes_);   // a slot whose seat is suspended at termStart(t) is empty (zero key hash): m counts non-empty slots and Q(m) scales; no re-draw (round 5, R5S-2)
     function committeeRoot(uint32 _term) external view returns (bytes32 root_);
     function seedOf(uint32 _cycle) external view returns (bytes32 seed_, bool fresh_, bool fixed_);
     function seedAccumulator() external view returns (bytes32 acc_, uint48 lastMixBlock_, uint48 lastMixTime_);
@@ -101,8 +101,10 @@ interface IEtnaInbox {
     // ------------------------------------------------------------------ landing
     function land(LandInput calldata _in) external;                                 // anyone; forced batch = view 254
     function landFor(address _rewardTo, LandInput calldata _in) external;           // msg.sender == G_LAND (0 = disabled)
-    function recordViewChange(ViewChange calldata _vc) external;                    // anyone; first live record per (termId, view, closes) wins; REPLACE and RESUME accepted only if lock == lastLanded and block.timestamp > replaceableFrom, and dead (ignored, no priority) once lastLanded.height > lockHeight; no closing effect (round 4, R4H-5)
-    function announceLanding(uint64 _firstHeight, uint64 _endHeight) external;         // locks ANNOUNCE_BOND (2,000 TAIKO) on the caller's ledger; defers replaceableFrom once per range; refused once the head FI entry has been due for longer than LAND_WINDOW
+    function recordViewChange(ViewChange calldata _vc) external;                    // anyone; first live record per (termId, view, closes) wins; REPLACE and RESUME accepted only if lock == lastLanded and block.timestamp > replaceableFrom, and dead (ignored, no priority) once lastLanded.height > lockHeight; no closing effect (round 4, R4H-5).
+                                                                                     // FALLBACK (signer set: committee(signerTerm), signerTerm > termId) accepted only if block.timestamp ≥ termEnd(termId) + END_GRACE + VC_FALLBACK × (signerTerm − termId) and no live VC of committee(termId) is recorded for the key;
+                                                                                     // a TIMEOUT or TERM_END VC of committee(termId) at a higher lock is stored beside a recorded FALLBACK and supersedes it in land() until a landing has consumed the FALLBACK; both kinds in one call: refused (round 5, R5S-5)
+    function announceLanding(uint64 _firstHeight, uint64 _endHeight) external;         // locks ANNOUNCE_BOND (2,000 TAIKO) on the caller's ledger; spends the one per-lastLanded deferral of replaceableFrom that an accepted REPLACE or RESUME record also spends, whichever comes first (round 5, R5-C3); refused once the head FI entry has been due for longer than LAND_WINDOW
     function lastLanded() external view returns (LastLanded memory head_);
     function lastLandedTerm() external view returns (uint32 term_);
     function termRecord(uint32 _term) external view returns (TermRecord memory record_);
@@ -111,9 +113,9 @@ interface IEtnaInbox {
 
     // ------------------------------------------------------------------ slashing (evidence only; no accusation object; class C is MISS only, applied inside land)
     function slashSequencerEquivocation(SignedObject calldata _a, SignedObject calldata _b) external;                     // S1
-    function slashAttesterEquivocation(Attestation calldata _a, Attestation calldata _b, bytes calldata _pubkey) external;// S3a
-    function slashCertificatePair(Certificate calldata _a, Certificate calldata _b, CommitteeProof calldata _cp) external;// S3a pair
-    function slashLockLie(LockVote calldata _lv, SignedObject calldata _hdr, Attestation calldata _att, bytes calldata _pubkey) external;   // S3b; same opening object at any redraw count; lock not a landed head
+    function slashAttesterEquivocation(Attestation calldata _a, Attestation calldata _b, bytes calldata _pubkey) external;// S3a; key (t, v, vcHash, redraw, height): two attestations by one key with equal key and different phHash (round 5, R5S-6)
+    function slashCertificatePair(Certificate calldata _a, Certificate calldata _b, CommitteeProof calldata _cp) external;// S3a pair, same key
+    function slashLockLie(LockVote calldata _lv, SignedObject calldata _hdr, Attestation calldata _att, bytes calldata _pubkey) external;   // S3b; a TIMEOUT, TERM_END or FALLBACK vote by a key below a certificate that key attested under the same opening object at any redraw count; no exemption for any lock (round 5, R5S-1: every mandatory post-reset vote is a RESUME, which S3b never covers)
     function slashLockVoteEquivocation(LockVote calldata _a, LockVote calldata _b, bytes calldata _pubkey) external;      // S3c (non-monotone votes)
     function slashInvalidNamedObject(SignedObject calldata _hdr, bytes calldata _preimage, SignedObject calldata _parent,
                                      Attestation calldata _att, Certificate calldata _cert, bytes calldata _pubkey, CommitteeProof calldata _cp) external; // S6
@@ -131,10 +133,10 @@ interface IEtnaInbox {
     function fiRequired(uint32 _term, uint64 _numBlocks) external view returns (uint16 required_, uint48 tFloor_);
     function forcedBatchArmed() external view returns (bool armed_, uint48 replaceableFrom_, uint16 dueAtLatest_);
     function withdrawFiFees(address _to) external;                                  // ETH pull ledger
-    function forcedMarker(uint8 _ringSlot) external view returns (uint64 fromHeight_, uint48 at_, bytes32 marker_);   // RESUME references
+    function forcedRecord(uint8 _ringSlot) external view returns (uint64 fromHeight_, uint48 l1Number_, uint48 at_);   // the forced landings a RESUME l1Ref may name; S3d checks against it (round 5, R5S-3)
 
     // ------------------------------------------------------------------ bonds (existing IBondManager shape kept)
-    function deposit(uint256 _amount) external;                                     // tops up seat stake, buffer and reserve
+    function deposit(uint256 _amount) external;                                     // tops up seat stake, buffer and reserve (the client's automatic top-up on ReserveLow); every reward-type credit to an owner with seats also refills reserveGwei first, up to seatCount × LAND_RESERVE, and a self-landing moves only the attester share (round 5, R5S-4)
     function requestWithdrawal() external;
     function withdraw(address _to, uint256 _amount) external;                      // limited to the excess over 1.05 × floor + reserve; stake and reserve leave only through requestExit + EVIDENCE_WINDOW (round 4, R4H-3)
 
@@ -147,7 +149,8 @@ interface IEtnaInbox {
     event MutationsApplied(uint32 throughTime, uint16 eligibleNow);
     event ExitRequested(address indexed owner, uint32 activeUntil);
     event Suspended(address indexed owner, uint32 from, uint32 until, uint8 strikes);
-    event ReserveLow(address indexed owner, uint64 reserveGwei, uint64 oneTermExposureGwei);
+    event ReserveLow(address indexed owner, uint64 reserveGwei, uint64 oneTermExposureGwei);   // once per crossing below two terms of exposure; re-armed once the reserve is back at its required level (round 5, R5S-4)
+    event AssignmentPinned(uint32 indexed termId, address indexed pinner, uint64 pinRewardGwei);   // PIN_REWARD paid from the holder's reserve (round 5, R5H-2)
     event ReserveLapsed(address indexed owner, uint32 ineligibleFrom, uint32 ineligibleUntil);   // DELAY_REG-dated, ≥ SUSPEND(3)
     event Reactivated(address indexed owner, uint32 activeAgainAt);
     event SeedFixed(uint32 indexed cycle, bytes32 seed, bool fresh);
@@ -204,7 +207,7 @@ RewardBoost, FiPayloadById (optional)</code></pre>
 <h2 id="storage">5. Storage-layout summary</h2>
 <table>
 <tr><th>Contract</th><th>Kept slots</th><th>Appended (after the gap start)</th><th>Gap after</th></tr>
-<tr><td>Inbox proxy (L1)</td><td>0-250 prefix; 251 activation; 252-253 core state (frozen after drain); 254 proposal hashes (aliased as the term-record ring after drain); 255-256 forced-inclusion queue; 257 bond ledger</td><td>activation record; lastLanded (3); seed accumulator, seed meta and ring, seats (append-only), operators, Fenwick prefix-count tree and mutation ring (round 4, R4H-1); committee roots, attester keys, offence records, pending burn; recorded view changes, landing ring, last view-change hash; forced-inclusion extras, ETH pull ledger, forced ring; pinned assignment digests: 23 slots</td><td>20</td></tr>
+<tr><td>Inbox proxy (L1)</td><td>0-250 prefix; 251 activation; 252-253 core state (frozen after drain); 254 proposal hashes (aliased as the term-record ring after drain); 255-256 forced-inclusion queue; 257 bond ledger</td><td>activation record; lastLanded (3); seed accumulator, seed meta and ring, seats (append-only), operators, Fenwick prefix-count tree and mutation ring (round 4, R4H-1); committee roots, attester keys, offence records, pending burn; recorded view changes (a FALLBACK and a committee(t) VC may share one key, round 5 R5S-5), last view-change hash; forced-inclusion extras, ETH pull ledger, forced ring (first height and L1 block number per forced landing); pinned assignment digests: 22 slots (round 5, R5S-1 removed the ring of heads that only the deleted S3b exemption read)</td><td>21</td></tr>
 <tr><td>Anchor proxy (L2)</td><td>0-250 prefix; 251 blockHashes; 252-255 retired; 256-257 block state (byte-identical semantics)</td><td>258 packed metadata; 259 carried certificate hash; 260 view-change hash</td><td>40</td></tr>
 <tr><td>SignalService (both), Bridge, Vaults</td><td>all</td><td>none</td><td>unchanged</td></tr>
 </table>
