@@ -24,7 +24,7 @@
   <p>Retain every existing L1 and L2 SignalService, Bridge, ERC20Vault, ERC721Vault and ERC1155Vault proxy address. Retain the L2 Anchor proxy, resolver proxies and all existing protocol-controlled token wrapper proxies as well. Upgrade implementations and their immutable wiring; do not deploy replacement custody addresses or move user escrow. New L1 Inbox, role registry, header store and optional frame sender addresses are permitted. An implementation contract deployed for an existing proxy is not a replacement Bridge or Vault address.</p>
   <p>The DAO owns the upgrade authority only. Every ordinary protocol role is open under objective rules. Root publication and asset release retain contract-to-contract provenance checks: Inbox → L1 SignalService, Anchor → L2 SignalService, Bridge → Vault and Vault → wrapper. These checks authenticate proof-verified state transitions; they do not select a human operator. Token approvals, message owners' retry/recall choices and users' ability to spend their own assets remain intact.</p>
   <p>The frozen addresses are only part of R2. The upgrade preserves storage locations, message encodings, chain IDs, escrow, signal-slot formula, trusted historical checkpoints, received-signal caches, message-status history, token mappings and token balances. No preconfirmed root enters a settlement checkpoint merely because a publisher or custodian signed it.</p>
-  <svg viewBox="0 0 960 330" role="img" aria-labelledby="checkpoint-title checkpoint-desc" xmlns="http://www.w3.org/2000/svg">
+  <div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 960 330" role="img" aria-labelledby="checkpoint-title checkpoint-desc" xmlns="http://www.w3.org/2000/svg">
     <title id="checkpoint-title">The two authenticated checkpoint paths preserve all custody addresses</title>
     <desc id="checkpoint-desc">On L1, a proof-bearing segment accepted by the new Inbox publishes its L2 terminal checkpoint to the existing SignalService. On L2, a circuit-checked first anchor transaction publishes an authenticated L1 checkpoint to the existing SignalService. Existing bridges verify signal proofs against those roots and existing vaults release or mint assets.</desc>
     <defs><marker id="cp-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#27415a"/></marker></defs>
@@ -51,7 +51,7 @@
       <text x="850" y="266" text-anchor="middle">Existing Vaults</text>
     </g>
     <g stroke="#27415a" stroke-width="2" marker-end="url(#cp-arrow)"><path d="M235 90 H292"/><path d="M495 90 H552"/><path d="M710 90 H767"/><path d="M235 260 H292"/><path d="M495 260 H552"/><path d="M710 260 H767"/></g>
-  </svg>
+  </svg></div>
 </section>
 
 <section aria-labelledby="checkpoint" data-claim="assumed">
@@ -537,6 +537,6 @@ event AnchorEtnaActivated(bytes32 indexed originHash, uint64 indexed revision);<
   </ul>
 </section>
 </main>
-<footer><p><strong>Open:</strong> design draft, with deployment-specific migration blockers. <a href="index.html">Return to the design index</a>.</p></footer>
+<footer><p>Converged design specification. <strong>Open:</strong> deployment-specific migration blockers. <a href="index.html">Return to the design index</a>.</p></footer>
 </body>
 </html>
