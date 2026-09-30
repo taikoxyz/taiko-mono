@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna slashing and economics</title>
+<meta name="description" content="The complete slashing catalogue with evidence formats, verification and payouts, bond sizing, withdrawal rules, rewards and the accounting invariant, and the anti-monopoly cost curve.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html" class="here">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Slashing, bonds, rewards and anti-monopoly</h1>
+<p class="lead">Every offence provable on L1 has an evidence format a contract verifies from the evidence alone, submittable by anyone, with no challenger bond. False accusations are impossible rather than merely unprofitable: no rule accepts an unsigned claim. Bonds are sized to the value of a term and to the harm of a certified reorg. The monopoly cost curve is linear in share and unbounded at exclusion. Source: judge synthesis of the three B5/B6 designs, aligned with the certificate and landing pages.</p>
+
+<div class="box"><h4>What today does and why it fails</h4>
+<p>One bond rule exists, the late-proof liveness settlement, and it is dormant: mainnet <code>minBond = livenessBond = 0</code>, settlement is skipped while the prover whitelist is on, and half of any debit stays ownerless (<a href="../00-current-protocol-summary.md">00</a> §2.5). No contract ever sees a preconfirmation signature; both clients accept ten conflicting hashes per height and record nothing; the only sanction is roster removal by an admin. Provers are unpaid on-chain. This fails R6 and R1 and leaves TH4, TH5, TH8, TH9, TH10 and TH18 open.</p></div>
+
+<h2 id="identity">1. Identity and ledger</h2>
+<ul>
+<li><strong>Owner and keys.</strong> The slashable identity is the <em>owner</em>, the registry's operator record. At registration it binds a <strong>sequencer key</strong> (secp256k1 address, no code, TH18) and an <strong>attester key</strong> (BLS12-381, G1 public key, G2 signature, domain-separated) with a proof of possession verified by one pairing; without it the certificate-pair rule would be a framing vector. Keys are rotatable with the two-hour registry delay; a retired key stays bound to its owner for the evidence window. The owner address itself may be a contract (a treasury or multisig); only the sequencer key must be code-less.</li>
+<li><strong>Ledger.</strong> Today's TAIKO gwei ledger in the Inbox proxy; no L2 ledger, no ETH bonds. A debit of <em>x</em> is <code>min(x, balance)</code>; the shortfall goes into the event; debits never revert.</li>
+<li><strong>Payout.</strong> Every debit splits into a challenger share <code>min(10 %, 2,000 TAIKO)</code> credited to the submitter's ledger entry, an affected-party share where a rule names one, and a burn accrued in <code>pendingBurnGwei</code>, swept by anyone to the dead address (the token has no burn function; a token pause can never block a slash). The offender can always be its own challenger, so <strong>the deterrent of a rule is the debit minus the challenger share</strong>; all sizing uses that number.</li>
+<li><strong>Floor and buffer.</strong> <code>floor = seatCount × B_SEAT</code>; registration and reactivation require 105 % of it. A safety or structural debit below the floor triggers open-ended suspension until top-up. Liveness debits (absence, abandonment, reward payments) never trigger that check; they only emit an event; a hard floor at 50 % is the backstop.</li>
+<li><strong>Withdrawal.</strong> While seats exist: the excess over 105 % of the floor. After exit: everything, once the evidence window (7 days) has passed since the last seat's <code>activeUntil</code> and since the last key's retirement. Credits to addresses with no seats and no key history are withdrawable immediately.</li>
+<li><strong>Committee attribution.</strong> The landing of term <em>t</em> writes <code>committeeRoot[t]</code> (one overwritten slot) since it loads the keys anyway; unsettled terms are settled by later landings (≤ 4 per landing) or by a permissionless <code>recordCommittee(t)</code> within two hours of the term's start, inside which the registry's views are exact. Committee-dependent evidence supplies the key hashes and the public keys of the bits it verifies.</li>
+</ul>
+
+<h2 id="classes">2. Classes</h2>
+<table>
+<tr><th>Class</th><th>Meaning</th><th>Amount</th><th>Strike / floor</th></tr>
+<tr><td><strong>A safety</strong></td><td>two signatures by one key that could make honest nodes disagree about an attested or locked block, or a key that defeats its own accountability</td><td>100 % of the owner's ledger</td><td>seats ineligible after DELAY_S; exit only</td></tr>
+<tr><td><strong>B structural</strong></td><td>a signed object naming, by hash, a certificate or view change whose supplied preimage is invalid; certified data not made available</td><td>B_SEAT per lying key</td><td>+3 strikes; floor check</td></tr>
+<tr><td><strong>C liveness</strong></td><td>absence proven by a view change; certified batch not landed</td><td>small, burned or partly to the party restoring liveness</td><td>one coalesced strike (absence); none (abandonment); no floor check</td></tr>
+</table>
+
+<h2 id="catalogue">3. The catalogue</h2>
+<p>B = B_SEAT = 20,000 TAIKO. Every function is external, callable by anyone, no bond, and reverts unless the evidence verifies. Duplicates are prevented by the owner's <code>slashedAt</code> (class A) or by a record keyed on (rule, key, term, height). Costs: a single BLS verification ≈ 152k gas, a 32-key aggregate ≈ 165k, <code>ecrecover</code> 3k.</p>
+<table>
+<tr><th>Id</th><th>Offence</th><th>Evidence</th><th>Verification</th><th>Gas</th><th>Amount and split</th><th>Window</th></tr>
+<tr><td><strong>S1</strong></td><td>block equivocation (TH4)</td><td>one sequencer key, two signed headers, equal (chainId, term, view, height), different phHash</td><td>fields equal, hashes differ; two-branch recovery: if the key has code, slash as S8 without recovery, else <code>ecrecover</code> both; resolve the owner at that term</td><td>≈ 95k</td><td>class A; challenger min(10 %, 2,000), rest burned</td><td>termStart + 7 d</td></tr>
+<tr><td><strong>S3a</strong> single</td><td>attestation equivocation</td><td>one attester key, two attestations, equal (t, v, height), different phHash, public key</td><td>two single verifications; key hash → owner</td><td>≈ 330k</td><td>class A</td><td>7 d</td></tr>
+<tr><td><strong>S3a</strong> pair</td><td>two valid certificates at one (t, v, height)</td><td>both certificates, committee proof</td><td>root check; popcount ≥ Q both; two aggregate verifications; every key in both bitmaps (≥ 2Q − K = 12 by pigeonhole) is slashed class A</td><td>≈ 600k</td><td>class A each; challenger min(10 % of total, 2,000)</td><td>ring lifetime (34 h)</td></tr>
+<tr><td><strong>S3b</strong></td><td>lock lie (W1)</td><td>a timeout or VC signature by key <em>i</em> with lock L, plus an attestation by <em>i</em> on a header of the same term at a view ≤ v whose carried certificate is above L</td><td>recompute phHash of the header; two single verifications</td><td>≈ 340k</td><td>class A</td><td>7 d</td></tr>
+<tr><td><strong>S3c</strong></td><td>timeout / view-change equivocation</td><td>one key, two timeouts for one (t, v, kind), different locks</td><td>two single verifications</td><td>≈ 330k</td><td>class A</td><td>7 d</td></tr>
+<tr><td><strong>S4a</strong></td><td>missed landing after certification (TH2, W5)</td><td>the term's view closed by a recorded or carried VC, or a certificate of that view, and no landing covering it by <code>DEADLINE_HARD = termEnd + 3600 s</code>; a challenger-named landed term inside the outage window</td><td>landed height below the lock; hard deadline passed; root and aggregate valid; <strong>outage gate</strong>: some term landed in the hour before the hard deadline, else revert (a chain-wide outage slashes nobody)</td><td>≈ 320k</td><td>SLASH_ABANDON = 2,000 from the holder; challenger 10 %; 40 % escrowed to whoever lands the next batch; rest burned; no strike, no floor</td><td>ring lifetime</td></tr>
+<tr><td><strong>S4c</strong></td><td>missed term, no takeover</td><td>settlement only</td><td>fault not attributable (holder silent, committee silent, or both): <strong>no penalty</strong>; the term is marked unattributed</td><td>+2k in land</td><td>none</td><td>—</td></tr>
+<tr><td><strong>MISS</strong></td><td>absence with takeover (TH3, TH10)</td><td>the VC chain a landing carries against the timed-out leader</td><td>inside <code>land</code>, the VC is verified anyway; applied only within ROLE_HORIZON of the term start</td><td>+8k</td><td>MISS_PENALTY = 50 TAIKO burned; one strike per owner per STRIKE_COALESCE</td><td>at settlement</td></tr>
+<tr><td><strong>S6</strong></td><td>invalid named object (invalid takeover; uncertified lineage; attesting a block whose parent lacks a certificate)</td><td>a signed or attested header whose carried-certificate or VC preimage fails (popcount &lt; Q, wrong (t, v), height not in {n−1, n−2}, phHash not on the ancestor line, or aggregate invalid); attester and certificate forms add the attestation or the certificate</td><td>keccak(preimage) equals the named hash; signatures valid; preimage fails</td><td>≈ 200k to 550k</td><td>class B, one seat per lying key; challenger min(10 %, 2,000)</td><td>ring lifetime</td></tr>
+<tr><td><strong>S7</strong></td><td>availability default</td><td>a recorded <code>demandData</code> and no landing covering the certified height within DEMAND_WINDOW</td><td>demand record; landed height below; outage gate as S4a</td><td>≈ 300k</td><td>class B for every bitmap member and the leader; demand fee refunded; certificate voided</td><td>DEMAND_WINDOW + 34 h</td></tr>
+<tr><td><strong>S8</strong></td><td>registered sequencer key acquired code (TH18)</td><td>the address</td><td><code>extcodesize &gt; 0</code>; key bound to an owner with seats or within the window</td><td>≈ 35k</td><td>class A</td><td>while bound + 7 d</td></tr>
+</table>
+<p><strong>Why "invalid takeover without preimage" and "parent lacks a certificate" have no standalone rule.</strong> Both are non-existence claims. Their provable forms are S6 (the header names an object; a supplied preimage that fails is the sequencer's own signed lie, and every attester of that header lied about V3). Their unprovable forms are harmless: honest nodes reject at V2/V3 before execution, nothing carrying such a header is landable, and the only way it becomes state is Q colluders certifying it, which S7 turns into 23 seats.</p>
+<p><strong>Why false accusations are impossible.</strong> S1, S3a to S3c, S6 and S8 succeed only on the accused key's own signatures or code. S4a and S7 need an L1 clock fact plus a quorum certificate whose membership is pinned by a root the landing wrote, plus the outage gate. MISS needs a VC the landing verified. No rule accepts an unsigned claim; hence no challenger bond and no counter-accusation game. The challenger's only cost is gas: with Frame Transactions a trailing status VERIFY makes a losing or stale submission invalid and free; without them it reverts on <code>AlreadySlashed</code> for about 30k. <span class="tag proven">proven</span></p>
+
+<h2 id="sizing">4. Bond sizing</h2>
+<p>Let V_term be one term's revenue (75 % base fee + tips + MEV, assumed ≈ 0.01 ETH; measurement is open item G8), P the TAIKO/ETH rate (assumed 1.5·10<sup>−4</sup>), H(X) the largest value users irrevocably act on within X seconds at a confirmation level.</p>
+<ol>
+<li><strong>Attested or locked reorg.</strong> The cheapest <em>provable</em> attack on a locked block is a second certificate or view change: ≥ 12 attester keys plus the leader, all class A: ≥ 13 × B = 260,000 TAIKO ≈ 39 ETH at the assumed rate. This is the published credit bound for "locked"; raise B (linear, no liveness cost) before raising Q (which lowers the stall threshold).</li>
+<li><strong>Sequenced-level reorg.</strong> One uncertified tip block (S1): B − 2,000 ≥ H(1 s).</li>
+<li><strong>Liveness.</strong> B ≥ 100 × V_term so a seat outweighs 100 terms of income; MISS_PENALTY ≤ V_term × (1 − p)/p at p = 0.5 (entry stays profitable when half of a party's draws are griefed); SLASH_ABANDON above the maximum lander reward per term (paying a lander always dominates abandoning); per-term reward exposure ≤ B/2.</li>
+<li><strong>Sybil invariance.</strong> Class A takes the whole ledger and the floor is seatCount × B, so an owner with <em>m</em> committee slots loses ≥ m × B whatever the seat split.</li>
+</ol>
+<p>B_SEAT = 20,000 TAIKO = 300 × V_term satisfies all four at the assumed inputs. The same seats make an owner sequencer and attester: a second bond would only lower the per-role Sybil price. <span class="tag assumed">assumed</span> inputs; every TAIKO figure is a formula instantiated with them.</p>
+
+<h2 id="monopoly">5. Anti-monopoly</h2>
+<figure>
+<svg viewBox="0 0 720 220" role="img" aria-label="Cost of holding a share X of sequencing terms against 40 honest seats: seats needed equals 40 times X over one minus X, rising to infinity at exclusion">
+<line x1="60" y1="180" x2="700" y2="180" class="svg-line"/><line x1="60" y1="20" x2="60" y2="180" class="svg-line"/>
+<text x="330" y="205" class="svg-muted">share X of terms</text>
+<text x="8" y="100" class="svg-muted" transform="rotate(-90 20 100)">seats to buy</text>
+<polyline points="60,180 188,173 316,160 444,140 508,120 572,90 604,60 636,30 652,20" class="svg-line-accent"/>
+<text x="188" y="195" class="svg-muted">0.2</text><text x="316" y="195" class="svg-muted">0.4</text><text x="444" y="195" class="svg-muted">0.6</text><text x="572" y="195" class="svg-muted">0.8</text><text x="652" y="195" class="svg-muted">0.93</text>
+<text x="360" y="60" class="svg-note">k = X·H/(1−X): 33 % = 20 seats, 50 % = 40, 90 % = 360, 100 % = ∞</text>
+<text x="360" y="80" class="svg-muted">marginal cost B·H/(1−X)² is super-linear</text>
+</svg>
+<figcaption>With H = 40 honest seats at launch (200 when mature), 50 % of terms costs 0.8 M (4.0 M) TAIKO and yields exactly 50 % of term revenue.</figcaption>
+</figure>
+<ul>
+<li><strong>Share.</strong> Sortition is uniform over eligible seats. An entity with <em>k</em> of <em>n</em> seats is primary with probability exactly k/n per term, history-free, whatever the split across addresses; committee slots k·K/n in expectation.</li>
+<li><strong>Why 100 % is unreachable.</strong> Registration has no gate but bond and a code-less key; its effect is future-dated from a 20-minute-old snapshot, so nothing an incumbent does after the entrant's transaction changes its draws; no roster edit, vote or sponsor exists. The one arithmetic hole is a full seat array: MAX_SEATS = 65,535 (the registry's index type), and filling it costs 1.31 billion TAIKO, above the supply. <span class="tag proven">proven</span> given a registration is includable on L1 (T1; FOCIL-eligible).</li>
+<li><strong>Seat cap.</strong> CAP = 8 bounds an address, not an entity. <strong>Impossibility:</strong> no owner-keyed rule (cooldown, consecutive-term burn, per-owner decay) costs a Sybil-capable adversary more than the per-seat price, because the registry cannot distinguish <em>m</em> owners of one entity from <em>m</em> entities; such rules tax only honest large operators. Rejected accordingly. <span class="tag proven">proven</span> by indistinguishability.</li>
+<li><strong>Performance decay</strong> is the strike ladder with coalescing: one strike per owner per 600 s however many of its seats were drawn during one partition.</li>
+<li><strong>What a cartel can still do.</strong> With ≥ K − Q + 1 = 11 of 32 committee slots it can refuse to attest an entrant's blocks; the honest 21 then time out <em>honestly</em>, a true VC forms, and the entrant loses 50 TAIKO and a strike. P[Bin(32, c) ≥ 11] = 0.04 / 0.36 / 0.79 at cartel seat share c = 0.2 / 0.3 / 0.4. The entrant's expected term stays positive to c ≈ 0.33, the T11 boundary; beyond it the strike ladder, not the money, is the lever. Cost to the cartel: that term's attester reward and, if any colluder attested above its lock, S3b. The entrant's seat is never removed; strikes decay after seven clean days. <strong>Not defended</strong> above the boundary.</li>
+</ul>
+
+<h2 id="rewards">6. Rewards and accounting</h2>
+<ul>
+<li><strong>Sequencer income (L2, ETH):</strong> unchanged: coinbase gets 75 % of base fees plus tips and MEV; the Anchor keeps 25 %, owner-withdrawable, never load-bearing.</li>
+<li><strong>Forced-inclusion fees (L1, ETH):</strong> pull-credited to the consuming sequencer at landing, to the lander under escalation.</li>
+<li><strong>Lander reward (L1, TAIKO):</strong> the landing page's Dutch ramp, debited from the responsible holder's ledger and credited to <code>rewardTo</code> in the same transaction. Self-landing nets zero.</li>
+<li><strong>Attester reward (L1, TAIKO):</strong> 6 TAIKO per landing, debited from the holder, split equally among the end certificate's signers excluding the holder's own seats. Attesters that did not sign earn nothing, so refusing to attest costs income even though it is not slashable.</li>
+<li><strong>Lander bonus:</strong> the escrowed 40 % of an abandonment penalty, paid to the next <em>ordinary</em> landing's <code>rewardTo</code> (never to a replacement or forced landing).</li>
+<li><strong>No per-term protocol fee, no treasury:</strong> a discretionary recipient would be an operational role (R1) and an incentive to slash.</li>
+<li><strong>Invariant (checkable from events):</strong> <code>TAIKO.balanceOf(Inbox) = Σ balance + pendingBurnGwei + pendingLanderBonusGwei</code>. Every credit is a same-transaction debit of another entry; nothing is minted; a shortfall lowers a credit, never raises it. ETH: <code>address(Inbox).balance = Σ unconsumed FI fees + Σ claimable ETH + Σ open demand fees</code>. <span class="tag proven">proven</span> by construction.</li>
+</ul>
+
+<h2 id="example">7. Worked example (wei; B_SEAT = 2·10<sup>22</sup> wei)</h2>
+<p>Owner A holds 3 seats plus the 5 % buffer: balance 6.3·10<sup>22</sup> wei. Term 81,230, view 0, height 4,873,412.</p>
+<ul>
+<li><strong>S1.</strong> A's split-brain pair signs headers h and h'. Node N holds both and submits: ≈ 95k gas ≈ 1.9·10<sup>15</sup> wei at 20 gwei. Debit 6.3·10<sup>22</sup>; N credited min(6,300, 2,000) TAIKO = 2·10<sup>21</sup> wei; 6.1·10<sup>22</sup> wei queued for burn; A's seats ineligible from τ + 1,320 s. Had A self-reported, its loss is still 6.1·10<sup>22</sup> wei.</li>
+<li><strong>S3a pair.</strong> Certificates c1, c2 at the same (t, 0, height), 22 and 23 bits, intersection 13 slots held by owners B (4 slots), C (2), D (1), E (3) and A (3). Total 3.78·10<sup>23</sup> wei debited, 2·10<sup>21</sup> to the challenger, the rest burned; the lower bound 13 × B = 2.6·10<sup>23</sup> holds. The conflicting certificate could revert at most one 1-s block.</li>
+<li><strong>S4a.</strong> Term 81,233's view change is recorded; nothing lands by termEnd + 3,600 s; term 81,234 landed 700 s after that term's end, so the outage gate passes. Holder debited 2·10<sup>21</sup> wei: 2·10<sup>20</sup> to the reporter, 8·10<sup>20</sup> escrowed for the next lander, 10<sup>21</sup> burned. No strike; A keeps its seats.</li>
+<li><strong>MISS.</strong> Term 81,235: A is primary and dark; the committee's timeout VC is carried by the backup's landing; the inbox burns 5·10<sup>19</sup> wei from A and adds one strike. A's balance stays above the floor.</li>
+</ul>
+
+<h2 id="interface">8. Interface sketch</h2>
+<pre><code>// L1: upgraded Inbox implementation; storage after the 43-slot gap; logic in linked LibSlashing sharing LibBonds.Storage.
+struct SignedObject  { uint8 kind; bytes body; bytes sig; }                     // 0 HEADER (SSZ SignedHeader)
+struct CommitteeProof{ bytes32[32] keyHashes; bytes[] pubkeys; uint32 pubkeyBitmap; }
+struct TermRecord    { uint32 termId; uint48 landedAt; uint64 landedThrough; uint8 flags; }   // LANDED|SETTLED|UNATTRIBUTED
+
+function registerKeys(address _seqKey, bytes calldata _blsPubkey, bytes calldata _pop) external;   // at registration
+function rotateKey(uint8 _kind, bytes calldata _newKey, bytes calldata _pop) external;              // effective τ + DELAY_REG
+function keyOwnerAt(bytes32 _keyId, uint32 _termId) external view returns (address owner_, bool valid_);
+function recordCommittee(uint32 _termId) external;                                                  // while now ≤ termStart + ROLE_HORIZON
+
+function slashSequencerEquivocation(SignedObject calldata _a, SignedObject calldata _b) external;                          // S1 (two-branch)
+function slashAttesterEquivocation(Attestation calldata _a, Attestation calldata _b, bytes calldata _pubkey) external;     // S3a single
+function slashCertificatePair(Certificate calldata _a, Certificate calldata _b, CommitteeProof calldata _cp) external;     // S3a pair
+function slashLockLie(TimeoutMsg calldata _to, SignedObject calldata _hdr, Attestation calldata _att, bytes calldata _pubkey) external; // S3b
+function slashViewChangeEquivocation(TimeoutMsg calldata _a, TimeoutMsg calldata _b, bytes calldata _pubkey) external;     // S3c
+function reportAbandoned(uint32 _termId, uint8 _view, bytes calldata _vcOrCert, CommitteeProof calldata _cp, uint32 _landedTermRef) external; // S4a
+function slashInvalidNamedObject(SignedObject calldata _hdr, bytes calldata _preimage, SignedObject calldata _parent,
+                                 Attestation calldata _att, Certificate calldata _cert, bytes calldata _pubkey, CommitteeProof calldata _cp) external; // S6
+function slashAvailabilityDefault(bytes32 _certHash, CommitteeProof calldata _cp, uint32 _landedTermRef) external;        // S7
+function slashCoded(address _seqKey) external;                                                                              // S8
+function sweepBurn() external;
+
+event Slashed(address indexed owner, uint8 indexed rule, uint32 termId, uint8 view, uint64 height, uint64 debitedGwei,
+              uint64 challengerGwei, uint64 affectedGwei, uint64 burnedGwei, uint64 shortfallGwei, address indexed challenger);
+event MissPenalised(address indexed owner, uint32 indexed termId, uint8 view, uint64 gwei, uint8 strikes, bool coalesced);
+event TermSettled(uint32 indexed termId, uint8 flags);
+event AttestersRewarded(uint32 indexed termId, uint64 endHeight, uint32 bitmap, uint64 totalGwei);
+event LanderBonusPaid(address indexed lander, uint64 gwei);
+event BondBelowBuffer(address indexed owner, uint64 balance, uint64 floor);
+event BurnSwept(uint64 gwei);</code></pre>
+<p>L2: no new interface (all rewards and penalties are L1 ledger movements). P2P: no new message; every gossiped envelope, attestation, timeout, view change and certificate is self-contained evidence. Client duty: a per-key slashing-protection record (t, v, height, phHash) for the last signed header, attestation and timeout, persisted before broadcast.</p>
+
+<h2 id="machines">9. State machines</h2>
+<pre><code>Owner ledger
+  UNREGISTERED --registerKeys + register(seats), balance ≥ 1.05·floor--> ACTIVE
+  ACTIVE --liveness debit (MISS, S4a, rewards)--> ACTIVE [BondBelowBuffer if &lt; 1.05·floor; SUSPENDED_OPEN if &lt; 0.5·floor]
+  ACTIVE --class B debit, balance &lt; floor--> SUSPENDED_OPEN --top-up + reactivate()--> ACTIVE at τ + DELAY_S
+  ACTIVE --class A evidence--> SLASHED (balance 0; seats ineligible at τ + DELAY_S; exit only)
+  ACTIVE --requestExit--> EXITING (activeUntil = τ + DELAY_REG) --finalizeExit at activeUntil + EVIDENCE_WINDOW--> WITHDRAWABLE
+Key: PENDING --DELAY_REG--> VALID --rotate/exit--> RETIRED (liable until validUntil + EVIDENCE_WINDOW)
+Offence record: NONE --valid evidence in window--> SLASHED (terminal; duplicates revert AlreadySlashed)
+Term t (record ring):
+  OPEN --land(t)--> LANDED (root written; MISS applied per carried VC; attesters paid)
+  OPEN --settled by a later landing or recordCommittee--> ROOTED --VC/cert evidence after DEADLINE_HARD, outage gate passes--> ABANDONED
+  OPEN --settled, no VC, cert or landing--> UNATTRIBUTED (no penalty)
+  any --ring overwrite after 2,048 terms--> EXPIRED (committee-dependent evidence no longer fileable)</code></pre>
+
+<h2 id="parameters">10. Parameters</h2>
+<table>
+<tr><th>Name</th><th>Unit</th><th>Initial</th><th>Rationale</th><th>Too small / too large</th></tr>
+<tr><td>B_SEAT</td><td>gwei TAIKO</td><td>2·10<sup>13</sup> (20,000)</td><td>13 × B ≈ 39 ETH per locked reorg; 300 × V_term</td><td>cheap attested reorg / small operators excluded</td></tr>
+<tr><td>BUFFER_BPS / HARD_FLOOR_BPS</td><td>bps</td><td>500 / 5,000</td><td>20 misses before the floor; backstop under-collateralisation</td><td>one false VC suspends / reward drift leaves little at stake</td></tr>
+<tr><td>MAX_SEATS</td><td>count</td><td>65,535</td><td>filling costs 1.31 B TAIKO &gt; supply, so exclusion by array-full is impossible</td><td>4,096 would price exclusion at 81.9 M TAIKO / none</td></tr>
+<tr><td>SLASH_CLASS_A</td><td>share</td><td>100 % of ledger</td><td>the key holder alone produced both signatures; Sybil-invariant with the floor</td><td>anything less prices a double-spend / n.a.</td></tr>
+<tr><td>SLASH_SEAT (S6, S7 per key)</td><td>gwei</td><td>2·10<sup>13</sup></td><td>structural lie provable from bytes but reachable by a software bug; one seat, not all</td><td>W1 primitive cheap / bug = ruin</td></tr>
+<tr><td>SLASH_ABANDON (S4a)</td><td>gwei</td><td>2·10<sup>12</sup> (2,000)</td><td>≫ maximum lander reward per term; 10 % of a seat; a targeted false positive exists</td><td>withholding-to-abandon cheap / honest holder ruined</td></tr>
+<tr><td>LANDER_BONUS_BPS</td><td>bps of S4a debit</td><td>4,000 (800 TAIKO)</td><td>pays the party restoring liveness; self-report-and-land still loses 1,000</td><td>nobody rushes to land / self-abandonment pays</td></tr>
+<tr><td>MISS_PENALTY</td><td>gwei</td><td>5·10<sup>10</sup> (50)</td><td>≤ V_term(1−p)/p at p = 0.5; burned so a false VC pays nobody</td><td>squatting free / entry unprofitable under griefing</td></tr>
+<tr><td>STRIKE_COALESCE / STRIKE_THRESHOLD / STRIKE_DECAY</td><td>s / count / s</td><td>600 / 3 / 604,800</td><td>one incident = one strike for a multi-seat owner</td><td>one partition suspends an 8-seat owner / serial squatters linger</td></tr>
+<tr><td>CHALLENGER_BPS / CHALLENGER_CAP</td><td>bps / gwei</td><td>1,000 / 2·10<sup>12</sup> (2,000)</td><td>cap ≈ 0.3 ETH covers 600k gas at 500 gwei; keeps key theft and self-report unprofitable</td><td>evidence unsubmitted in fee spikes / bond partly recoverable</td></tr>
+<tr><td>EVIDENCE_WINDOW = EXIT_LOCK</td><td>s</td><td>604,800</td><td>key-pair rules; today's withdrawalDelay; every offence's termStart ≤ activeUntil</td><td>exit-then-equivocate / capital locked</td></tr>
+<tr><td>COMMITTEE_RING = TERM_RING</td><td>terms</td><td>2,048 (≈ 34 h)</td><td>committee-dependent evidence horizon; overwritten slots</td><td>evidence expires / first-lap state gas</td></tr>
+<tr><td>SETTLE_MAX</td><td>count</td><td>4</td><td>bounds landing gas (≤ 4 committee walks)</td><td>backlog settles slowly / landing gas</td></tr>
+<tr><td>ROLE_HORIZON</td><td>s</td><td>7,200</td><td>recordCommittee and MISS need exact roles until an hour past the hard deadline</td><td>S4a unfileable in an outage / registry must hold roles longer</td></tr>
+<tr><td>OUTAGE_WINDOW</td><td>s</td><td>3,600</td><td>no landing in the hour before the hard deadline ⇒ outage ⇒ S4a/S7 suspended</td><td>honest holders slashed in outages / targeted abandonment escapes</td></tr>
+<tr><td>ATT_REWARD_TOTAL</td><td>gwei per landing</td><td>6·10<sup>9</sup> (6)</td><td>≈ 9 % of V_term; fixed total</td><td>committees go dark / holder margin gone</td></tr>
+<tr><td>MAX_EVIDENCE_GAS</td><td>gas</td><td>600,000</td><td>6 % of a 10 M-gas block at 2-s slots</td><td>—</td></tr>
+<tr><td>BLS convention</td><td>—</td><td>G1 pubkey (48 B), G2 signature (96 B), DST ETNA_BLS_SIG_V1, PoP at registration</td><td>CL-standard tooling; EIP-2537 gas as of Pectra</td><td>—</td></tr>
+</table>
+
+<h2 id="attacks">11. Attacks defended and not defended</h2>
+<ul>
+<li><strong>TH4 equivocation: defended.</strong> A holder that signs two headers at one height loses its whole ledger for at most one uncertified block; two certificates burn ≥ 13 seats ≈ 39 ETH for one 1-s block of attested reorg.</li>
+<li><strong>TH5 withholding: defended by worthlessness plus S4a/S7.</strong> The seal is the committee's view change; the holder holds nothing the committee lacks.</li>
+<li><strong>TH8 bond griefing: defended.</strong> No accusation object; duplicates revert; no challenger bond; dust deposits meet the buffer and floor rules. Residual: a false VC by ≥ 11 non-attesting colluders costs the victim 50 TAIKO and one strike.</li>
+<li><strong>TH9 monopolisation: defended in cost, not possibility.</strong> A party that pays the linear price holds what it paid for; censorship inside its terms is bounded by forced inclusion.</li>
+<li><strong>TH10 squatting: defended.</strong> 50 TAIKO plus a strike per drawn term, suspensions 1 h doubling to 64 h, no attester income.</li>
+<li><strong>TH18 EIP-8151: defended.</strong> No <code>ecrecover</code> on any attester path (BLS); the sequencer path has the two-branch rule and S8.</li>
+<li><strong>TH11 evidence races: defended with frames, degraded without.</strong> The cap was sized so one lost race per win leaves a challenger positive.</li>
+<li><strong>Key theft: partly defended.</strong> A thief can destroy the victim's bond but nets at most 2,000 TAIKO.</li>
+<li><strong>Not defended:</strong> cartel liveness griefing above the T11 boundary (≥ 11 of 32 slots; unprovable, priced above); value above the credit bounds (39 ETH per locked window; B − 2,000 per sequenced block); wallets must apply the level table.</li>
+</ul>
+
+<h2 id="failure">12. Failure analysis</h2>
+<ul>
+<li><strong>Challengers all offline.</strong> Absence penalties, settlement, roots and rewards happen on the landing path, so liveness needs no challenger; equivocation deterrence is deferred (evidence valid 7 days; discovery is immediate in practice because ≥ Q bonded nodes hold every conflicting pair). All malicious: they can only submit valid evidence, race for the cap, or withhold it.</li>
+<li><strong>Attesters all offline.</strong> No certificates or VCs: S3/S6/S7 evidence cannot exist, S4a cannot fire, every term is unattributed; nobody is slashed for a committee-wide outage, by design. All malicious: conflicting certificates burn ≥ 13 seats each; certifying an invalid lineage burns a seat per slot; certifying private data costs 23 seats; refusing to attest is unslashable liveness harm bounded by one term.</li>
+<li><strong>Holders all offline.</strong> A VC per view, 50 TAIKO plus a coalesced strike, suspension within a week, open-empty terms, then dead mode. All malicious: equivocation costs the ledger; withholding is worthless; coordinated non-landing costs 2,000 per term plus the ramp to any lander until dead mode.</li>
+<li><strong>Landers and provers all offline.</strong> Rewards ramp; nothing is voided or slashed while the outage gate sees no landing.</li>
+<li><strong>The token.</strong> Transfers reverting (pause or upgrade) block deposits, withdrawals and burn sweeps; every slash, reward and settlement is ledger-internal and unaffected.</li>
+<li><strong>DAO inactive.</strong> Parameters frozen; nothing else changes.</li>
+</ul>
+
+<h2 id="fpfn">13. False positives and false negatives</h2>
+<table>
+<tr><th>Rule</th><th>Honest party punished when</th><th>Dishonest party escapes when</th><th>Parameter</th></tr>
+<tr><td>MISS via VC</td><td>partitioned from ≥ 22 attesters for TIMEOUT, or ≥ 11 colluders refuse to attest: 50 TAIKO + one strike</td><td>a holder certifying one block per 4.9 s (unrewarded per block, not slashed)</td><td>MISS_PENALTY, STRIKE_COALESCE, Q</td></tr>
+<tr><td>Strike ladder</td><td>above the T11 boundary a 40 % cartel griefs most of an entrant's draws and climbs its ladder; strikes reset only after seven clean days</td><td>none</td><td>SUSPEND cap, STRIKE_DECAY (open question 2)</td></tr>
+<tr><td>S4a</td><td>content-specific guest bug or targeted L1 censorship while other batches land: 2,000 TAIKO, no strike</td><td>a holder whose batch nobody lands during a chain-wide outage (gate closed); intended</td><td>SLASH_ABANDON, OUTAGE_WINDOW</td></tr>
+<tr><td>S1 / S3a-c</td><td>HA failover double-sign; none otherwise (a pair is a proof)</td><td>the second signature never leaves its machine (no harm)</td><td>client slashing-protection record</td></tr>
+<tr><td>S6</td><td>attester or leader with a BLS or committee-derivation bug: one seat</td><td>"parent never certified" with no named preimage: unprovable, unlandable</td><td>CERT_LAG_MAX</td></tr>
+<tr><td>S8</td><td>a key delegated via EIP-7702 for unrelated reasons: full ledger; the client refuses to start with a coded key</td><td>none</td><td>none</td></tr>
+<tr><td>Floor</td><td>an owner at exactly 1.05·floor after 20 misses is one class-B debit from suspension</td><td>reward drift below the floor keeps rights until the hard floor or the next class-B event</td><td>BUFFER_BPS, HARD_FLOOR_BPS</td></tr>
+</table>
+
+<h2 id="robustness">14. Robustness</h2>
+<p><strong>6/4/2-s slots:</strong> every window is in seconds or terms; no rule reads <code>blockhash</code>, EIP-2935 or EIP-4788; worst evidence ≈ 600k gas = 6 % of a 10 M-gas block. <strong>Without Frame Transactions:</strong> losing evidence races pay ≈ 30k; no evidence path uses a shared nonce or blobs; this is the block least affected by EIP-8141 slipping. <strong>ePBS Empty slots and 4788 gaps:</strong> not consumed; an Empty slot delays an evidence transaction by one slot against 7-day and 34-hour windows. <strong>EIP-7976 calldata floor:</strong> pair-form evidence carries ≤ 4 KiB of keys, below its execution gas; if K ever exceeds 64, store public keys on-chain at registration. <strong>EIP-8037:</strong> fresh slots only in offence records and registration.</p>
+
+<h2 id="claims">15. Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> No false accusation succeeds: each rule's accept set is two signatures by one key over conflicting messages, a signed object naming an invalid preimage, an aggregate whose PoP-backed bitmap includes the key, or an L1 fact with a root-pinned quorum and the outage gate.</li>
+<li><span class="tag proven">proven</span> Deterrent equals debited minus the capped challenger share; self-reporting recovers at most 2,000 TAIKO.</li>
+<li><span class="tag proven">proven</span> Two certificates or view changes over one (t, v) intersect in ≥ 12 keys (pigeonhole with Q = 22, K = 32), each fully slashable; with the floor rule the burn is ≥ 12 × B however seats are split.</li>
+<li><span class="tag proven">proven</span> Rogue-key framing is impossible (standard BLS proof-of-possession argument).</li>
+<li><span class="tag proven">proven</span> No slashing path depends on <code>ecrecover</code> succeeding.</li>
+<li><span class="tag proven">proven</span> No offence outlives the bond: every window ends by termStart + EVIDENCE_WINDOW; every signed object's termStart ≤ activeUntil; exit waits the window past activeUntil and past key retirement.</li>
+<li><span class="tag proven">proven</span> Share is k/n; share X costs X·H/(1 − X) seats; exclusion is unbounded.</li>
+<li><span class="tag proven">proven</span> No owner-keyed progressive rule taxes a Sybil beyond the seat price.</li>
+<li><span class="tag proven">proven</span> A chain-wide outage slashes nobody: S4a and S7 require a landing inside the outage window; MISS requires a VC a dark committee cannot form; S4c is fail-closed.</li>
+<li><span class="tag proven">proven</span> No liveness rule waits for a slash.</li>
+<li><span class="tag proven">proven</span> The accounting invariant, by construction.</li>
+<li><span class="tag assumed">assumed</span> B_SEAT = 20,000, MISS = 50, ATT_REWARD_TOTAL = 6 rest on V_term ≈ 0.01 ETH and the TAIKO/ETH rate; resolved by a week of mainnet coinbase and MEV measurement (G8, G10).</li>
+<li><span class="tag assumed">assumed</span> EIP-2537 gas as of Pectra with no repricing in Glamsterdam or Hegotá; devnet measurement of the 32-key aggregate path is open.</li>
+<li><span class="tag open">open</span> The strike ladder above the T11 boundary: cap suspensions at 8 h and decay strikes one per day, or accept measured griefing on testnet.</li>
+</ol>
+
+<h2 id="rejected">16. Alternatives rejected</h2>
+<ul>
+<li>A 50/50 challenger–burn split (halves the deterrent; key theft or "equivocate with a friend" pays up to half a bond); a challenger floor (self-reporting small debits nets a profit); challenger bonds or accusation-response games (no rule accepts a claim); affected-party compensation for reorg victims (not identifiable on L1); a treasury or DAO share of slashed funds (an operational role and an incentive to slash); BLS for the sequencer key (the guest verifies ecrecover); per-slot amounts for attester equivocation (dominated by full-ledger); MISS_PENALTY = 0 or 200 (squatting free, or entry unprofitable under griefing); a MISS refund when VC signers are later slashed (marginal); two-step seal-withholding games (vacuous once the seal is the committee's VC); replacement-triggered abandonment with a replacer share; standalone rules for invalid takeover or statically invalid headers (software bugs, no protected asset); a "skipped certified block" slash on fallback leaders; progressive fee burns and consecutive-term cooldowns (bypassed by alternating addresses); term auctions; a separate attester bond; paying attesters on L2 from the Anchor's share (needs per-block bitmaps the guest cannot verify); attester reward escrow with claims; the data-request game as the per-block withholding rule; MAX_SEATS = 4,096 (a finite price for exclusion).</li>
+</ul>
+
+<h2 id="open-questions">17. Open questions</h2>
+<ol>
+<li>Should suspensions be capped at 8 h with strikes decaying one per day, so a 30 to 40 % cartel cannot walk an entrant into 64-h suspensions?</li>
+<li>Burn destination: transfer to the dead address (supply unchanged) versus a DAO-added public burn (supply reduced). Governance choice; logic identical.</li>
+<li>Should B_SEAT be DAO-adjustable by constant upgrade with 7-day notice so exits are never trapped?</li>
+<li>Should nodes publish the credit bounds (B − 2,000 at "sequenced", 13 × B at "locked") beside the confirmation level so wallets apply them mechanically?</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

@@ -51,7 +51,7 @@ The brief was executed autonomously. Where a clarifying question would normally 
 | A4 | Should the design retain a **contestation / fraud-proof window** at all? | No fraud-proof window for finality (R7 makes finality = valid ZK proof accepted on L1). Contestation survives only as a *slashing* mechanism for preconf misbehavior, never as a gate on state finality. |
 | A5 | May the design introduce a **new L1 contract** besides the inbox (e.g. a role registry, a slashing module, a gate contract)? R2 freezes only Bridge, SignalService and Vaults. | Yes. New non-frozen contracts are allowed; the frozen three are reused at their existing addresses. |
 | A6 | Bond token: TAIKO on L2 (today's `BondManager` in Anchor) vs. ETH on L1? | Kept as today (TAIKO-denominated bonds via the existing bond design) unless the design justifies otherwise; the design section on economics states where ETH is used and why. |
-| A7 | Is the target for R4's "1-second block time" a hard protocol rule or a client-level cadence? | A protocol-level upper bound on preconf issuance interval, enforced by slashable liveness rules, with the client free to go faster. |
+| A7 | Is the target for R4's "1-second block time" a hard protocol rule or a client-level cadence? | A protocol-level 1-second issuance cadence that is a *rewarded duty* whose hard bound is the committee timeout (5 s): silence is deliberately never slashed because a colluding committee could manufacture it, so the enforcement is loss of rewards, replacement within one timeout, and the strike ladder (revised during Phase 3; see the design's certificate page and limitation L16). |
 | A8 | How many red-team models are available? | The environment offers `opus`, `sonnet`, `haiku`, `fable`. Each round uses at least three distinct models; the iteration log records which. |
 
 ## Phase checklist
@@ -61,7 +61,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 - [x] **Phase 0: Setup.** Branch `claude/beautiful-maxwell-8pyecj`, directory `packages/protocol/docs/Etna/`, this README, PDF input copied to `inputs/`.
 - [x] **Phase 1: Learn.** `00-current-protocol-summary.md`, `01-threat-model.md` (verified by independent sub-agents; reports and gap fills in `notes/`).
 - [x] **Phase 2: Research.** `02-l1-roadmap-survey.md`, `03-frame-transactions-research.md` (each independently re-verified by a skeptic agent; reports in `notes/`).
-- [ ] **Phase 3: Design draft.** `design/index.html` and section pages.
+- [x] **Phase 3: Design draft.** `design/index.html` and fourteen section pages (three independent designs per building block, judged and synthesized, then a cross-block consistency pass; the architect's decisions are listed on the overview page).
 - [ ] **Phase 4: Red team round 1.** `iterations/01-round.md` (three or more adversarial agents on different models, plus a judge).
 - [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap.
 - [ ] **Phase 6: Deliverables.** Design site, learning site, commit, push, draft PR.

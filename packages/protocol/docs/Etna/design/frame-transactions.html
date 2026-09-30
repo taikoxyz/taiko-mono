@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna and Frame Transactions</title>
+<meta name="description" content="The nonce-as-a-lock verdict, the two-shape landing gate Etna adopts, and what degrades if EIP-8141 slips.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html" class="here">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Frame Transactions (EIP-8141) in Etna</h1>
+<p class="lead">Verdict on the "Nonce as a Lock" hypothesis: <strong>possible without EIP changes</strong>, at consensus level, with high confidence; the operational path (mempool policy, unshipped clients, moving pins) has medium confidence. Etna adopts a two-shape gate and depends on Frame Transactions for nothing except zero-cost races. Source: <a href="../03-frame-transactions-research.md">03-frame-transactions-research.md</a>.</p>
+
+<h2 id="what">What the primitive gives</h2>
+<p>A frame transaction whose <code>sender</code> is a shared, non-upgradeable gate contract G and whose <code>nonce</code> is G's account nonce is a consensus-level mutual-exclusion primitive: of any set of transactions sharing (G, n), at most one can ever be included, and every other is <em>invalid</em> rather than included-and-reverted. It pays nothing, including its blob fee, because the nonce check is the first step of frame-transaction processing and nothing is charged until a payment-scoped <code>APPROVE</code> executes. <span class="tag proven">proven</span> (each load-bearing step is a verbatim spec line: nonce check first, APPROVE increments the nonce, VERIFY failure makes the transaction invalid).</p>
+<p>What it does not give: it fixes <em>who pays</em>, never <em>whether the L2 slot advances</em>. Any revert of the winner's action after payment approval still burns the shared nonce for everyone, and under R7 the racing transaction carries a ZK proof that G cannot check in its prefix. So the PDF's single mechanism would hand a third party a nonce-burn lever: outbid the honest tip for one slot and waste it at gas cost. <span class="tag proven">proven</span></p>
+
+<h2 id="two-shape">The two-shape gate Etna adopts</h2>
+<figure>
+<svg viewBox="0 0 720 210" role="img" aria-label="Two frame-transaction shapes: the public-mempool shape with a shared gate nonce, and the direct-to-builder shape with the actor's own nonce and a trailing status VERIFY frame">
+<text x="10" y="18" class="svg-note">Shape 1: public mempool, sender = gate G, nonce = nonce(G)</text>
+<rect x="10" y="26" width="130" height="34" class="svg-box"/><text x="16" y="47" class="svg-muted">0 VERIFY expiry</text>
+<rect x="150" y="26" width="130" height="34" class="svg-box-accent"/><text x="156" y="47" class="svg-muted">1 gate G (pins)</text>
+<rect x="290" y="26" width="130" height="34" class="svg-box"/><text x="296" y="47" class="svg-muted">2 VERIFY pay</text>
+<rect x="430" y="26" width="200" height="34" class="svg-box"/><text x="436" y="47" class="svg-muted">3 SENDER → Inbox.landFor(P, …)</text>
+<text x="10" y="84" class="svg-muted">Losers of the same (G, n): invalid, free. A revert inside frame 3 still burns n.</text>
+
+<text x="10" y="118" class="svg-note">Shape 2: direct to builder, sender = actor P, nonce = nonce(P)</text>
+<rect x="10" y="126" width="130" height="34" class="svg-box"/><text x="16" y="147" class="svg-muted">0 VERIFY expiry</text>
+<rect x="150" y="126" width="250" height="34" class="svg-box"/><text x="156" y="147" class="svg-muted">1 SENDER → Inbox.land(seal, blobs, proof)</text>
+<rect x="410" y="126" width="220" height="34" class="svg-box-accent"/><text x="416" y="147" class="svg-muted">2 VERIFY status == success (A7)</text>
+<text x="10" y="184" class="svg-muted">Any revert of frame 1 makes the whole transaction invalid and free; P's nonce and seat untouched.</text>
+</svg>
+<figcaption>Shape 1 is the censorship-resistant fallback that propagates through the public mempool. Shape 2 is the primary landing path: a landing that reverts for any reason (bad proof, lost race, ring buffer, out of gas) costs nothing.</figcaption>
+</figure>
+<ol>
+<li><strong>Public-mempool shape.</strong> A shared-nonce transaction through a per-role gate, an expiry <code>VERIFY</code> frame in front, a minimum tip pinned. It is the only construction whose zero-cost race propagates through the public mempool and therefore the only fallback that depends on no builder. <span class="tag proven">proven</span></li>
+<li><strong>Direct-to-builder shape.</strong> The actor's own nonce, an expiry frame in front, a trailing status <code>VERIFY</code> frame behind. Any revert of the landing is invalid and free; pipelining and multi-segment submission are allowed; the inbox needs no new trust root because <code>msg.sender</code> is the actor. <span class="tag proven">proven</span> from the spec text; <span class="tag open">open</span> whether post-payment VERIFY frames stay allowed (fallback: a claim VERIFY in the prefix).</li>
+<li>Both shapes are compatible on one seat: a (G, n) transaction with a trailing VERIFY and a plain (G, n) transaction are alternatives for the same nonce. <span class="tag proven">proven</span></li>
+</ol>
+
+<h2 id="pins">Load-bearing pins of the gate</h2>
+<p>Each pin, if missing, lets a third party forge <code>msg.sender == G</code> or burn the nonce at will: exactly four frames with G as frame 1; frame 3 is the only SENDER frame with a fixed target, selector and 68-byte data; the payer, the signer and the named actor are the same address; two signatures with fixed modes and no padding malleability; a minimum tip; no external calls, no <code>SLOAD</code>, no <code>TIMESTAMP</code> or <code>NUMBER</code> in G's bytecode (public-pool eligibility). G is versioned per L1 fork and never deployed on a persistent network before EIP-8141 is Final, because the expiry verifier address, the 8-byte expiry data, the <code>nonce</code> field and opcode numbers are all in motion in open pull requests. <span class="tag assumed">assumed</span> that the pins survive to Final; each pin has a fail-closed behaviour and the direct entry point remains behind a governance switch.</p>
+
+<h2 id="inbox">What the inbox must offer in both regimes</h2>
+<ul>
+<li><code>landFor(address actor, bytes32 packedInput)</code> gated on an immutable gate address (zero = disabled), with a static 32-byte input, next to the direct <code>land(...)</code>.</li>
+<li>An expected batch id in the input, so a stale landing reverts (shape 2) or is invalid (shape 1) instead of landing the wrong batch.</li>
+<li>Forced inclusions consumed by due time and their fees pull-based, so no third party can make a lander's transaction revert after payment approval (03 §4 claim 36).</li>
+<li>No bond check on the gate path (a bond revert would be a burn lever); the ring-buffer bound kept as the per-block spam bound.</li>
+</ul>
+
+<h2 id="degradation">Degradation if Frame Transactions slip</h2>
+<div class="box warn"><h4>Baseline marked as degraded</h4>
+<p>Every zero-cost property disappears together. The fallback is today's revert model: the inbox's one-per-block revert, private revert-protected builder submission, and the <code>deadline</code> field that already exists in the propose input. Losers pay execution gas plus the burned blob fee; stale landings revert with a deadline error. Nothing in the inbox interface changes between the two regimes: <code>land</code> stays callable directly, <code>landFor</code> sits behind a governance switch. Two inbox changes are worth keeping in both regimes because they remove other-triggerable reverts: forced inclusions by due time, and pull-based fees.</p></div>
+
+<h2 id="hazards">Hazards the design must not lean on</h2>
+<ul>
+<li>Public-mempool rules for type 0x06 are not implemented in any shipped client (one-pending-per-sender, revalidation, <code>MAX_VERIFY_GAS</code>). Treat every mempool property as unavailable until a client ships it. <span class="tag proven">proven</span> at the time of writing.</li>
+<li>An ePBS builder can pay its bid and reveal an invalid payload; the primitive never guarantees the L2 batch lands.</li>
+<li>Clients never derive the expected batch id from <code>nonce(G)</code>: a reverted SENDER frame, an L1 reorg or the direct path decouple them.</li>
+<li>EIP-8151 restricts <code>ecrecover</code> for accounts with code: every key that signs attestations, seals or evidence is a code-less EOA or a BLS key.</li>
+</ul>
+
+<h2 id="claims">Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> Nonce-as-lock holds at consensus level under the 2026-09-30 EIP-8141 text (03 §3, §4 claims 1 to 3, 7).</li>
+<li><span class="tag proven">proven</span> A trailing status VERIFY frame makes any reverting landing invalid and free (03 §5 A7; spec lines L423-425, L816, L950).</li>
+<li><span class="tag assumed">assumed</span> EIP-8141 ships in Hegotá as SFI in a form that keeps the pins above meaningful (Hegotá date undecided).</li>
+<li><span class="tag open">open</span> Whether the public-mempool shape ever propagates in practice depends on client policy nobody has shipped (03 §9).</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

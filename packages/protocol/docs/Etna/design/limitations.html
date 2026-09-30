@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna known limitations</title>
+<meta name="description" content="Consolidated known limitations of the Etna design with owner and acceptance rationale, and the list of what was deliberately not built.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html" class="here">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Known limitations and what we did not build</h1>
+<p class="lead">Every per-block "not defended" paragraph, collected in one place with the reason it is accepted, followed by the mechanisms considered and left out. Red-team findings that survived verification and were accepted rather than fixed are added here by the iteration reports.</p>
+
+<h2 id="limitations">1. Known limitations</h2>
+<table>
+<tr><th>#</th><th>Limitation</th><th>Owner page</th><th>Why accepted</th></tr>
+<tr><td>L1</td><td>The assignment is public 20 to 80 minutes ahead (TH6): a targeted DoS or front-running preparation window against a known holder.</td><td><a href="sequencing.html">Sequencing</a></td><td>Mitigation is replacement within 5 s, not secrecy; secret leader election costs about 100k gas per landing and is listed below as not built.</td></tr>
+<tr><td>L2</td><td>Q colluding committee seats can sign a true-looking timeout against a live honest primary (TH8); non-receipt is unprovable. Loss: one view and 50 TAIKO, a strike; three a week suspend.</td><td>Sequencing, Slashing</td><td>The penalty is nuisance-level and burned for exactly this reason; the strike ladder above the collusion boundary is an open tuning question.</td></tr>
+<tr><td>L3</td><td>Q + 1 silent colluders (leader plus a quorum) can certify data only they hold: a stall of at most 30 minutes before the availability escalation slashes 23 seats.</td><td><a href="preconf.html">Certificates</a></td><td>Outside the stated collusion bound T11; bounded harm; priced at 460,000 TAIKO.</td></tr>
+<tr><td>L4</td><td>A premature view change by Q colluders orphans at most two sequenced blocks at zero provable cost.</td><td>Certificates</td><td>Time is local and unprovable; harm is one view; rotation and strikes bound repetition.</td></tr>
+<tr><td>L5</td><td>Fallback race: a colluding committee that abstains all term and records its own term-end view change just before the next committee's fallback can invalidate up to about a minute of the honest fallback chain.</td><td>Certificates</td><td>Needs ≥ Q colluders in one committee; first-recorded-wins keeps the outcome deterministic.</td></tr>
+<tr><td>L6</td><td>Replacement griefing after a global outage: once replacement is permitted and proving returns, the current holder may fork and race the backlog; if it lands first the outage's certified blocks are void and their sequencers pay the abandonment penalty.</td><td><a href="landing.html">Landing</a></td><td>Bounded to one reorg of the backlog per outage; landing the backlog pays more than replacing it; a refundable REPLACE bond is listed as not built.</td></tr>
+<tr><td>L7</td><td>A common-mode bug in the shared guest code defeats the two-system rule.</td><td>Landing</td><td>Only diverse guest implementations resolve it; a third ZK system is the stated target.</td></tr>
+<tr><td>L8</td><td>Forced-inclusion stuffing with a quadratic fee buys a bounded delay; an attacker buying most of L1's calldata can keep two of every three L2 blocks an FI block for a few ETH per hour.</td><td><a href="forced-inclusion.html">Forced inclusion</a></td><td>Ordinary users keep one block in three; the drain rate is a tunable constant.</td></tr>
+<tr><td>L9</td><td>An entity's seat share is only priced, never bounded: no owner-keyed rule can distinguish one entity's many owners from many entities.</td><td><a href="slashing.html">Slashing</a></td><td>Proven impossibility; the cost curve is linear in share and unbounded at exclusion; the collusion tables assume p ≤ 0.2 as an economic assumption.</td></tr>
+<tr><td>L10</td><td>Key theft: a thief can destroy the victim's bond (equivocate and self-report), netting at most 2,000 TAIKO.</td><td>Slashing</td><td>The capped challenger share bounds the thief's gain; custody is the operator's problem.</td></tr>
+<tr><td>L11</td><td>An L1 reorg deeper than 48 s makes an honest holder's certified range unlandable and it pays the abandonment penalty for an event it did not cause.</td><td><a href="bridge-migration.html">Anchor</a></td><td>Needs a &gt; 20 %-stake payload reorg; the penalty is nuisance-level; a reduced rate was a needless case split.</td></tr>
+<tr><td>L12</td><td>L1-level censorship of a registration or of a blob-carrying request is outside the design (T1); FOCIL protects only calldata legs after Hegotá.</td><td>Slashing, Forced inclusion</td><td>An L1 property; the calldata request shape exists for exactly this case.</td></tr>
+<tr><td>L13</td><td>Landing needs an L1 builder to include a blob transaction; a total builder boycott stalls landing (but voids nothing).</td><td>Landing</td><td>T1; the public-mempool gate removes the builder dependency once EIP-8141 is Final.</td></tr>
+<tr><td>L14</td><td>Late landings after an outage longer than two hours depend on someone having recorded each term's assignment; otherwise those terms are unlandable and replaceable, a time-based void for very long outages.</td><td>Sequencing, Landing</td><td>Attesters and holders have the incentive to record; the alternative (unbounded role history) costs state on every term.</td></tr>
+<tr><td>L15</td><td>Every TAIKO amount is a formula instantiated with assumed inputs (term revenue, exchange rate).</td><td><a href="parameters.html">Parameters</a></td><td>Measurement is a listed prerequisite; ratios, not amounts, are the design intent.</td></tr>
+<tr><td>L16</td><td>Committee-degraded operation below four eligible attesters gives users the sequenced level only; the 1-s block guarantee is then a rewarded duty bounded by the 5-s timeout, not a slashable rule (README assumption A7 revised accordingly).</td><td>Certificates</td><td>Silence is deliberately unslashable because a colluding committee could manufacture it.</td></tr>
+<tr><td>L17</td><td>The migration pauses L2 block production for about an hour, at most a day if the outgoing whitelisted provers stall.</td><td>Anchor</td><td>Sequencing from an unfinalized tail would need a drain-time exception to the parent rule.</td></tr>
+<tr><td>L18</td><td>The ordinary MEV of a single sequencer within its public, attested block stream (including sandwiching a forced-inclusion block whose payload is public five minutes ahead).</td><td>all</td><td>Out of scope (01 §8); Etna removes only the private-state amplification.</td></tr>
+</table>
+
+<h2 id="not-built">2. What we did not build</h2>
+<table>
+<tr><th>Mechanism</th><th>Why left out</th><th>Where it would go</th></tr>
+<tr><td>Secret leader election (VRF over the attester key)</td><td>About 100k gas per landing and a new key-usage class to close a 20 to 80-minute predictability window that replacement already bounds.</td><td>Sequencing §4; would replace the public hash walk.</td></tr>
+<tr><td>TEE fast lane at the sequenced level</td><td>Assumption A3: TEE is never sufficient for finality; a fast-lane signal changes nothing above it.</td><td>A client-side confirmation hint only.</td></tr>
+<tr><td>ETH reward pool from the Anchor's 25 % share</td><td>Puts a bridge hop, a relayer and an exchange rate near liveness economics; landers and attesters are paid in TAIKO from the responsible holder's ledger.</td><td>A storage-compatible sweep with a non-zero gas limit and an L1 receiver.</td></tr>
+<tr><td>Term auctions (posted price or sealed bid)</td><td>An L1 transaction per bidder per term, dead exactly when L1 is congested; prices monopoly instead of bounding it.</td><td>A sealed-bid auction remains a candidate for pricing B_SEAT.</td></tr>
+<tr><td>Treasury or DAO share of slashed funds</td><td>A discretionary recipient is an operational role (R1) and an incentive to slash.</td><td>—</td></tr>
+<tr><td>View-change verification inside the ZK guest</td><td>Saves about 115k gas per view change but adds circuit surface; the withholding defence must not rest on ZK soundness.</td><td>Landing §3 L4, if landing gas at 2-s slots proves tight.</td></tr>
+<tr><td>Refundable REPLACE bond</td><td>Only justified if replacement griefing after outages is observed on an adversarial testnet.</td><td>Landing §6.</td></tr>
+<tr><td>Calldata DA fallback for ordinary landings</td><td>Six times dearer under the EIP-7976 floor and not FOCIL-protected either.</td><td>—</td></tr>
+<tr><td>A bonded forced-inclusion lander role</td><td>A content-deterministic path needs no accountability.</td><td>—</td></tr>
+<tr><td>Per-block attester payments on L2</td><td>Needs per-block bitmaps the guest cannot verify cheaply, or unverified bitmaps a leader fills with its own seats.</td><td>—</td></tr>
+<tr><td>Prover assignment or ahead-of-time proving auctions</td><td>Any assignment is a liveness dependency on the assignee.</td><td>—</td></tr>
+<tr><td>Multi-hop bridging, bridge quota changes, relayer economics</td><td>R2 freezes the shared contracts; day-to-day bridging already needs no admin.</td><td>—</td></tr>
+<tr><td>A machine-checked model of the view-change and landing state machines</td><td>Out of scope for a design document; the arguments page gives the proof sketches the model would formalize.</td><td>Before implementation.</td></tr>
+<tr><td>A prototype and gas measurements</td><td>The brief forbids implementation; every gas figure is an estimate marked as such.</td><td>The measurement list on the Parameters page.</td></tr>
+</table>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

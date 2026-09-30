@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna L1 dependency set</title>
+<meta name="description" content="Which L1 features Etna requires, may use, or must tolerate, and how every timing rule behaves at 12, 6, 4 and 2-second slots.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html" class="here">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>L1 dependency set</h1>
+<p class="lead">Nothing scheduled for Glamsterdam or Hegotá is a hard dependency. Etna launches on today's Fusaka mainnet; the forks change its environment, not its primitives. Source: <a href="../02-l1-roadmap-survey.md">02-l1-roadmap-survey.md</a> (facts verified against the EIP repository and client configs on 2026-09-30).</p>
+
+<h2 id="required">Required (all live on mainnet today)</h2>
+<table>
+<tr><th>Primitive</th><th>Used for</th><th>Status</th><th>Fallback</th></tr>
+<tr><td>EIP-4844 blobs, <code>BLOBHASH</code>, KZG point-evaluation precompile</td><td>R7 data availability; binding the ZK proof to blob content</td><td>Final <span class="tag proven">proven</span></td><td>None. Calldata DA would violate R7 and costs 64 gas/byte after EIP-7976.</td></tr>
+<tr><td>EIP-7594 PeerDAS as deployed (21 blobs per block since BPO2)</td><td>Blob capacity baseline, about 224 KiB/s</td><td>Final <span class="tag proven">proven</span></td><td>None needed.</td></tr>
+<tr><td>EIP-7825 transaction gas cap (2<sup>24</sup>)</td><td>A constraint: one landing transaction must fit</td><td>Final <span class="tag proven">proven</span></td><td>Keep landing gas under about 10 M so it also fits a 2-s-slot block.</td></tr>
+<tr><td><code>ecrecover</code> (EIP-8151 caveat) and EIP-2537 BLS12-381 precompiles</td><td>Attestation and evidence verification</td><td>Live <span class="tag proven">proven</span></td><td>Keys must be code-less EOAs or BLS.</td></tr>
+<tr><td><code>block.timestamp</code>, <code>PREVRANDAO</code>, <code>BLOCKHASH</code> / EIP-2935</td><td>All deadlines (seconds), the seed snapshot, L1-hash anchoring</td><td>Live <span class="tag proven">proven</span></td><td>None needed.</td></tr>
+<tr><td>No consensus-layer dependency</td><td>No lookahead, no slot constant, no builder API, no FOCIL</td><td>By design (R5)</td><td>n/a</td></tr>
+</table>
+
+<h2 id="optional">Optional (improves cost, latency or safety)</h2>
+<ul>
+<li><strong>EIP-8141 Frame Transactions</strong> (Hegotá SFI, Draft): zero-cost landing races and the two-shape gate. See <a href="frame-transactions.html">Frame transactions</a>. Degrades to plain type-3 transactions with a <code>deadline</code>.</li>
+<li><strong>EIP-4788 beacon roots + EIP-7688 stable gindices</strong>: only if a role is ever tied to L1 validator facts. Etna's registry is self-contained and does not need them.</li>
+<li><strong>EIP-7805 FOCIL</strong> (Hegotá SFI): an L1-level inclusion floor for small transactions (slashing evidence, registrations, forced-inclusion requests). It does not cover blob-carrying transactions, so it never protects a landing.</li>
+<li><strong>EIP-8272 recent roots, EIP-8250 keyed nonces</strong> (Hegotá CFI): mempool-level invalidation of race losers; concurrent submissions.</li>
+<li><strong>EIP-7843 SLOTNUM</strong>: the only slot-agnostic slot primitive, unused by design.</li>
+</ul>
+
+<h2 id="tolerate">Tolerate (environment changes the design must survive)</h2>
+<ul>
+<li><strong>ePBS (EIP-7732):</strong> payload revealed at 50 % of the slot, canonical in practice at slot N+1, <em>Empty</em> slots. Etna consequence: L1 inclusion of a landing is confirmed one slot later than today; the EIP-4788 buffer has gaps at Empty slots; never read a beacon root by slot timestamp.</li>
+<li><strong>Gas repricing:</strong> EIP-8037 charges 97,920 state gas per new storage slot. Etna consequence: registration is priced to cover its new slots; the landing hot path writes only overwritten ring-buffer slots.</li>
+<li><strong>Header and proof formats:</strong> block access lists, <code>slotNumber</code>, empty <code>logsBloom</code>. Etna consequence: none, no L1 header field is parsed on L2 except the block hash and state root carried by the anchor.</li>
+<li><strong>Blob market:</strong> reserve price 8192 × base fee per blob, sparse blobpool. Etna consequence: the lander reward must cover the reserve price at every slot time.</li>
+<li><strong>Slot time:</strong> EIP-7782 (6 s, Glamsterdam DFI), EIP-8198 Quick Slots (Hegotá PFI). Etna consequence: see the table below.</li>
+<li><strong>EIP-8151 account-code-restricted ecrecover:</strong> slashing and attestation keys are code-less EOAs or BLS keys. <span class="tag assumed">assumed</span> the EIP ships in its A-tier form.</li>
+</ul>
+
+<h2 id="slots">Slot-time robustness</h2>
+<figure>
+<svg viewBox="0 0 720 150" role="img" aria-label="One L1 slot under ePBS at four slot lengths: bid at slot start, payload reveal at 50 percent, attestation at 75 percent, canonical in practice one slot later">
+<text x="10" y="18" class="svg-note">One ePBS slot (proportions are constant; wall clock shrinks)</text>
+<rect x="10" y="30" width="700" height="28" class="svg-box"/>
+<line x1="360" y1="30" x2="360" y2="58" class="svg-line-accent"/>
+<line x1="535" y1="30" x2="535" y2="58" class="svg-line-accent"/>
+<text x="14" y="49" class="svg-muted">bid: content frozen</text>
+<text x="364" y="49" class="svg-muted">payload reveal (50 %)</text>
+<text x="539" y="49" class="svg-muted">PTC vote (75 %)</text>
+<text x="10" y="82" class="svg-note">12 s slot: reveal +6 s, confirmed ≈ +12 to 18 s</text>
+<text x="10" y="100" class="svg-note">6 s: reveal +3 s, confirmed ≈ +6 to 9 s</text>
+<text x="10" y="118" class="svg-note">4 s: reveal +2 s, confirmed ≈ +4 to 6 s</text>
+<text x="10" y="136" class="svg-note">2 s: reveal +1 s, confirmed ≈ +2 to 3 s</text>
+<text x="380" y="100" class="svg-muted">Etna: preconfirmations (R4) hide this latency;</text>
+<text x="380" y="118" class="svg-muted">landing deadlines are in seconds, never slots.</text>
+</svg>
+<figcaption>Under ePBS a landing is canonical in practice one slot after inclusion. The number of slots is constant across slot lengths, the wall clock is not.</figcaption>
+</figure>
+
+<table>
+<tr><th>L1 fact</th><th>12 s</th><th>6 s</th><th>4 s</th><th>2 s</th><th>Etna rule that keeps working</th></tr>
+<tr><td>Execution blocks per second</td><td>1/12</td><td>1/6</td><td>1/4</td><td>1/2</td><td>Batch by time, never one batch per L1 block. 1-s L2 blocks per L1 block: 12/6/4/2.</td></tr>
+<tr><td>Gas per block (200 M schedule / today)</td><td>200 M / 60 M</td><td>100 M / 30 M</td><td>67 M / 20 M</td><td>33 M / 10 M</td><td>Landing transaction under 10 M gas so it fits every block size.</td></tr>
+<tr><td>Max blobs per block</td><td>21</td><td>10</td><td>7</td><td>3</td><td>Batch size cap is per second (about 224 KiB/s), not per block.</td></tr>
+<tr><td>Justification / finality</td><td>6.4 / 12.8 min</td><td>3.2 / 6.4 min</td><td>2.1 / 4.3 min</td><td>1.1 / 2.1 min</td><td>LOOKBACK is in seconds (20 min) and therefore covers more slots as slots shrink.</td></tr>
+<tr><td>EIP-4788 root window (8191 roots)</td><td>27.3 h</td><td>13.7 h</td><td>9.1 h</td><td>4.6 h</td><td>Etna reads no 4788 root. Randomness is a PREVRANDAO snapshot stored in the inbox.</td></tr>
+<tr><td>EIP-2935 (8191 blocks) / BLOCKHASH (256)</td><td>27.3 h / 51 min</td><td>13.7 h / 26 min</td><td>9.1 h / 17 min</td><td>4.6 h / 8.5 min</td><td>Anchored L1 checkpoints are verified against 2935 by block number within the landing window (30 min &lt; 4.6 h).</td></tr>
+<tr><td>Blob retention</td><td>18.2 d</td><td>unverified</td><td>≈ 18 d</td><td>≈ 18 d</td><td>Nodes derive from L1 within days; forced-inclusion blobs are consumed within the escalation bound.</td></tr>
+<tr><td>Epoch length</td><td>384 s</td><td>192 s</td><td>128 s</td><td>64 s</td><td>Not used anywhere in Etna.</td></tr>
+</table>
+<p class="small">The 4-s and 2-s columns extrapolate the EIP-8198 scaling rule; no EIP specifies those parameters <span class="tag assumed">assumed</span>. The 12-s and 6-s columns are from published configs and EIP-7782 <span class="tag proven">proven</span>.</p>
+
+<h2 id="claims">Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> Glamsterdam SFI list contains no EIP Etna calls; ePBS and BALs change timing and header layout only (EIP-7773 master, 2026-09-30).</li>
+<li><span class="tag proven">proven</span> Hegotá SFI = FOCIL + Frame Transactions; ethereum.org gives "Q2 2027, date not confirmed"; mainnet slot time is 12 s in every published config.</li>
+<li><span class="tag proven">proven</span> EIP-7825 caps one transaction at 16,777,216 gas; a landing near the cap does not fit a 10 M-gas block.</li>
+<li><span class="tag assumed">assumed</span> Blob retention stays about 18 days in wall clock under shorter slots (EIP-8198 says windows scale to preserve duration; EIP-7782 is silent).</li>
+<li><span class="tag open">open</span> Whether sub-4-s L1 deadlines are feasible at all is an open L1 question (EIP-8198 phase 2). Etna does not need them.</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

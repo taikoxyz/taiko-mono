@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna liveness and safety</title>
+<meta name="description" content="The end-to-end liveness and safety arguments for Etna, the message flows they rest on, and which assumptions each step consumes.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html" class="here">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Liveness and safety arguments</h1>
+<p class="lead">This page assembles the per-block arguments into two end-to-end sketches. Each step names the page that carries it and the assumption it consumes (T1 to T13 in <a href="../01-threat-model.md">01-threat-model.md</a>). Nothing here is a formal proof; the red-team rounds in <a href="../iterations/README.md">iterations/</a> attack exactly these chains.</p>
+
+<h2 id="properties">1. The properties</h2>
+<table>
+<tr><th>Property</th><th>Statement</th><th>Level</th></tr>
+<tr><td>P1 state safety</td><td>No L1 checkpoint is ever written for a state root that is not the result of executing the certified chain from the previous checkpoint.</td><td>landed</td></tr>
+<tr><td>P2 preconf safety</td><td>A locked block is reverted only by ≥ 12 provably slashable attesters, by a landed replacement after the deadline machinery, or by an L1 reorg.</td><td>locked</td></tr>
+<tr><td>P3 block liveness</td><td>While one honest bonded owner exists, the chain produces certified blocks within seconds of any silence, or landed blocks within about 75 minutes of any committee collapse.</td><td>attested / landed</td></tr>
+<tr><td>P4 landing liveness</td><td>Every certified block is landed while one honest party can prove and one L1 builder includes blob transactions.</td><td>landed</td></tr>
+<tr><td>P5 censorship bound</td><td>A forced-inclusion request is included by a bounded L1 time regardless of sequencer behaviour (<a href="forced-inclusion.html">Forced inclusion</a>).</td><td>landed</td></tr>
+<tr><td>P6 accountability</td><td>Every deviation that harms P1 to P4 is either impossible, worthless, or objectively slashable; no honest party can be slashed by accusation.</td><td>L1</td></tr>
+<tr><td>P7 locality</td><td>Every consensus decision an L2 node makes is a pure function of signed objects and L1 data older than finality.</td><td>node</td></tr>
+</table>
+
+<h2 id="safety">2. Safety argument (P1, P2)</h2>
+<ol>
+<li><strong>A landing writes a checkpoint only after the verifier accepts a proof over a journal</strong> whose parent root and parent hash are read from inbox storage, whose blob hashes are read from <code>blobhash</code>, whose anchor tip is checked against <code>blockhash</code> or EIP-2935, whose consumed queue entries are read from storage, and whose end header hash is bound by an aggregate certificate verified on L1 (<a href="landing.html">Landing</a> L3, L5, L6, L7, L8, L11). <span class="tag proven">proven</span></li>
+<li><strong>The guest proves execution from that parent to that end</strong>, that every header's signature recovers to the term's leader, that every anchored L1 header chains to the tip, and that forced-inclusion blocks are exactly the consumed entries. So a false root needs an unsound proof (T3) accepted by ZK_K = 2 distinct systems, or one system in single-proof mode plus a colluding quorum that certified a header committing to the false root (T11). TEE never counts (A3). <span class="tag assumed">assumed</span> T3 and T11; the common-mode guest bug is the stated residual.</li>
+<li><strong>What lands is what was certified</strong> (V7): the end certificate binds the end header hash, the guest chains signed headers from the last landed block, and view changes pin where views end; a block without a certificate on itself or a descendant cannot be landed. <span class="tag proven">proven</span> (<a href="preconf.html">Certificates</a> §6).</li>
+<li><strong>A locked block cannot be reverted cheaply.</strong> A certified block that carries C(h) has Q signers who verified C(h); a view change with a lock below h has Q signers; the intersection is ≥ 2Q − K = 12, each of whom signed a lock below a certificate they had verified, which is the objective lock-lie offence S3b. Cost ≥ 12 × B_SEAT = 240,000 TAIKO plus, for a certificate pair, the leader. <span class="tag proven">proven</span> given the certificate formats.</li>
+<li><strong>Handoff ambush (W1) needs the same 12 double-signers</strong>: the next leader's first block carries the recorded term-end view change; landing withheld blocks above its lock needs a second view change for the same view. The honest view change is recorded on L1 within seconds, long before any landing of withheld blocks can be proven. <span class="tag proven">proven</span></li>
+<li><strong>Replacement voids but never falsifies</strong>: a replacement landing starts from <code>lastLanded</code> with a certified REPLACE view and a valid proof, so P1 holds through it; P2 is weakened only for blocks that were certified but unlanded past the deadline machinery, which is announced by an L1 predicate every node evaluates identically.</li>
+<li><strong>Randomness and rights cannot be bent into safety violations</strong>: a biased seed changes who sequences, never what is valid; a holder under a wrong assignment cannot land (rights are checked at landing from the same function nodes use).</li>
+</ol>
+
+<h2 id="liveness">3. Liveness argument (P3, P4)</h2>
+<figure>
+<svg viewBox="0 0 720 250" role="img" aria-label="Liveness ladder: silence handled in 5 seconds by view change, term death in 60 seconds by next term, committee collapse by fallback after 12 seconds, landing outage by the reward ramp within 30 minutes, everything dead by dead mode after 75 minutes">
+<rect x="20" y="20" width="680" height="34" class="svg-box-accent"/><text x="30" y="42" class="svg-note">Leader silent → timeout after 5 s → view change → backup extends the last certified block (≈ 6 s gap)</text>
+<rect x="20" y="62" width="680" height="34" class="svg-box"/><text x="30" y="84" class="svg-note">Four backups silent → term idles → next term's leader starts at term end from the last lock (≤ 60 s)</text>
+<rect x="20" y="104" width="680" height="34" class="svg-box"/><text x="30" y="126" class="svg-note">Committee silent → next committee signs a FALLBACK view change at term end + 12 s (one term lost)</text>
+<rect x="20" y="146" width="680" height="34" class="svg-box"/><text x="30" y="168" class="svg-note">Provers or landers silent → reward ramps 0.5 → 4 TAIKO per block over 30 min → anyone with the data lands</text>
+<rect x="20" y="188" width="680" height="34" class="svg-box"/><text x="30" y="210" class="svg-note">Every registered party silent → dead mode after 75 unlanded terms → any bonded address lands without certificates</text>
+<text x="30" y="242" class="svg-muted">No rung needs the DAO. Each rung is triggered by signed objects or L1 state, never by a node's clock alone.</text>
+</svg>
+<figcaption>The liveness ladder. Each rung degrades a guarantee level, never the safety of what was already landed.</figcaption>
+</figure>
+<ol>
+<li><strong>Block production.</strong> While one honest eligible seat exists, the hash walk finds it as primary or backup with probability approaching 1 over a few terms (open-empty terms admit any bonded address). A silent view is closed by Q = 22 of 32 committee signatures after 5 s (T9: gossip reaches honest nodes within about a second; T11: fewer than 11 committee seats abstain). <span class="tag assumed">assumed</span> T9, T11.</li>
+<li><strong>Certification.</strong> With ≥ Q honest attesters online, every valid block is certified within about 0.7 s and every honest view change forms within one extra round trip. If fewer than Q are online, no block is certified: the chain degrades to "sequenced" only and the next committee's fallback closes the term; if fewer than K_MIN = 4 attesters are registered at all, committee-degraded mode replaces certificates by the leader's own term-end signature.</li>
+<li><strong>Landing.</strong> Any certified prefix is landable by anyone holding the data, which ≥ Q attesters hold and serve for two hours; blob bytes are deterministic so proofs are fungible; the lander reward ramps to a level that exceeds proving and landing cost in a 100-gwei hour <span class="tag assumed">assumed</span>. Two distinct ZK systems are needed in normal mode; if none lands for two hours, one suffices. Landing needs an L1 builder to include a blob transaction (T1); FOCIL does not protect blobs, so a total builder boycott stalls landing but voids nothing.</li>
+<li><strong>Nothing voids by clock.</strong> A global proving or L1 outage leaves every certified block certified; the outage gate prevents any abandonment penalty; the first landing after the outage clears the backlog. Replacement needs a landed proof, so it cannot be triggered by an outage. <span class="tag proven">proven</span></li>
+<li><strong>Recovery floor.</strong> If every registered owner and every committee is dark, after 75 unlanded terms dead mode lets any address with B_SEAT of bond sequence from the last landed head and land without a certificate; the first L1 landing wins. Recovery needs one honest bonded party and one honest prover, no DAO. <span class="tag proven">proven</span></li>
+<li><strong>Bridging</strong> resumes with the first landing, since the checkpoint is written in the same transaction; L1→L2 messages resume with the first anchor at most 30 minutes stale (ANCHOR_MAX_AGE).</li>
+</ol>
+
+<h2 id="accountability">4. Accountability argument (P6)</h2>
+<p>Every harmful deviation falls into one of three bins. <strong>Impossible</strong>: finalizing a false root, landing uncertified data, landing beyond a lock, excluding a registrant, pausing the chain. <strong>Worthless</strong>: withholding (unextendable, unlandable, times out in 5 s), producing unprovable content (replaced, penalized), refusing to attest (loses income, cannot stall a term with an honest majority). <strong>Slashable</strong>: every signature pair over conflicting messages, every signed object naming an invalid preimage, a certified block never made available, a certified view never landed while others land, a registered key that acquired code. No rule accepts an unsigned claim, so no honest party can be slashed by accusation; silence is never slashed because a colluding committee could manufacture it. <span class="tag proven">proven</span> (<a href="slashing.html">Slashing</a> §3).</p>
+
+<h2 id="locality">5. Locality argument (P7)</h2>
+<p>Rights, committees and seeds are functions of L1 data at least 20 minutes old (LOOKBACK) and of registry writes future-dated by at least 22 minutes, so every node below finality computes the same answers as the inbox does at landing. Validity rules read only signed objects and L1 blocks at least 48 s old, expressing disagreement as <em>pending</em>, never <em>invalid</em>. Takeover is decided by the existence of a view change, a signed object; a node's clock only decides whether it signs a timeout. Dead mode is the single rule that reads current L1 state, only adds rights, and is arbitrated by the landing contract. <span class="tag proven">proven</span> (<a href="sequencing.html">Sequencing</a> claims 1, 2; <a href="preconf.html">Certificates</a> claim 1).</p>
+
+<h2 id="flows">6. Message flows in one place</h2>
+<table>
+<tr><th>Flow</th><th>Steps</th><th>Page</th></tr>
+<tr><td>Happy path</td><td>leader gossips PH(n) + payload → committee executes and attests (≈ 0.45 s) → C(n) (≈ 0.7 s) → PH(n+1) carries C(n) → provers pipeline block proofs → aggregate → land with endCert and proof (≈ 2 to 3 min) → checkpoint written → L1-safe at N+1 → L1-final</td><td><a href="preconf.html#withholding">Certificates §7</a>, <a href="landing.html#economics">Landing §5</a></td></tr>
+<tr><td>Prover fails</td><td>term ends → reward ramps → sequencer gossips RewardBoost → third party range-syncs, rebuilds identical blobs, proves, lands, is paid from the holder's locked bond</td><td><a href="landing.html#economics">Landing §5</a></td></tr>
+<tr><td>Withholding</td><td>leader silent → timeouts at 5 s → VC(lock) in ≈ 0.4 s → backup extends the lock → VC recorded on L1 → later-released blocks orphaned, later landing reverts</td><td><a href="preconf.html#withholding">Certificates §7</a></td></tr>
+<tr><td>Handoff</td><td>C(h) at termEnd − 1 s → TERM_END timeouts at +2 s → VC recorded at +2.5 s → next leader's PH(h+1) carries the VC at +3 s; fallback VC by the next committee at +12 s if none</td><td><a href="preconf.html#viewchange">Certificates §5</a></td></tr>
+<tr><td>Forced inclusion</td><td>request saved → due after FI_DELAY → included at the first anchor advance after due (V5) → landing checks the count consumed → escalation: forced batch by anyone → void with refund after 7 days</td><td><a href="forced-inclusion.html">Forced inclusion</a></td></tr>
+<tr><td>Replacement</td><td>no landing past replaceableFrom → holder forks a REPLACE view from lastLanded → attesters check the L1 predicate → whichever lands first wins → abandonment reportable with the outage gate</td><td><a href="landing.html#deadline">Landing §6</a></td></tr>
+</table>
+
+<h2 id="assumptions">7. Assumptions consumed</h2>
+<table>
+<tr><th>Assumption</th><th>Consumed by</th><th>If violated</th></tr>
+<tr><td>T1 L1 live, reorgs shallower than LOOKBACK</td><td>snapshot rule, anchor age, landing inclusion</td><td>deeper reorg: assignments recomputed, affected blocks unlandable, view times out; total censorship: landing stalls, nothing voids</td></tr>
+<tr><td>T2 blobs available for retention</td><td>derivation, forced inclusion</td><td>nodes must derive within about 18 days</td></tr>
+<tr><td>T3 ZK soundness of two systems</td><td>P1</td><td>one bug: safe in normal mode; both, or one plus a colluding quorum in single-proof mode: false finalization</td></tr>
+<tr><td>T9 gossip delay ≪ TIMEOUT − 1 s</td><td>certification latency, no honest orphaning</td><td>attested blocks of a slow leader orphaned by honest timeouts; no bond lost</td></tr>
+<tr><td>T11 fewer than Q colluders per committee, fewer than 12 accept slashing</td><td>P2, the collusion table</td><td>a cartel can certify private data (S7, 23 seats) or revert a locked block (12 seats)</td></tr>
+<tr><td>T12 Frame Transactions</td><td>zero-cost races only</td><td>losers pay gas and a blob fee; nothing else changes</td></tr>
+<tr><td>T13 loose clock sync</td><td>attestation policy, timeout signing</td><td>skewed nodes sign late or early; validity unaffected</td></tr>
+</table>
+
+<h2 id="claims">8. Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> P1 reduces to T3 (and T11 in single-proof mode) plus the journal bindings.</li>
+<li><span class="tag proven">proven</span> P2 reduces to the 2Q − K intersection and the recorded view change race.</li>
+<li><span class="tag assumed">assumed</span> P3 and P4 under T1, T9, T11 and the reward band; the ladder's timings are design targets pending devnet measurement.</li>
+<li><span class="tag proven">proven</span> P6: no accusation object exists in any rule.</li>
+<li><span class="tag proven">proven</span> P7 with dead mode as the stated exception.</li>
+<li><span class="tag open">open</span> A machine-checked model of the view-change and landing state machines would turn the sketches above into proofs; not built (see <a href="limitations.html">Limitations</a>).</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna parameters</title>
+<meta name="description" content="Every Etna protocol parameter in one table with owner, unit, initial value, derivation and failure direction, plus the dependency chain between them and the R5 audit.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html" class="here">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Parameters</h1>
+<p class="lead">One table for every constant the design names. Units are seconds, gwei of TAIKO, wei, gas, L1 block counts (only where L1 itself is block-denominated) or counts. <strong>R5 audit:</strong> no parameter in any block is denominated in L1 slots or epochs; the three block-denominated values are the L1-given <code>blockhash</code> and EIP-2935 windows and the attester-policy anchor lag, whose wall-time range is stated. Amounts in TAIKO are formulas instantiated with assumed inputs (a term's revenue ≈ 0.01 ETH, 1 TAIKO ≈ 1.5·10<sup>−4</sup> ETH) and are <span class="tag open">open</span> until measured.</p>
+
+<h2 id="chain">1. Dependency chain</h2>
+<pre><code>DELAY_S  = LOOKBACK + 2·TERM                              = 1,320 s   (registry writes never touch a term already evaluated)
+DELAY_REG > CYCLE + LOOKBACK − TERM                       = 7,200 s   (no grinding when the seed is fresh)
+ROLE_HORIZON ≥ TERM + LAND_WINDOW_MAX + ABANDON_GRACE     = 7,200 s   (roles exact until an hour past the hard deadline)
+SUSPEND(3) ≥ ROLE_HORIZON + DELAY_S                       = 10,800 s  (the two-interval store never drops a live interval)
+RECYCLE_GRACE ≥ ROLE_HORIZON                              = 7,200 s   (a recycled seat never changes a decided term)
+DEAD_TERMS·TERM > LAND_WINDOW_MAX + ABANDON_GRACE         = 4,500 s   (a slow but live chain never enters dead mode; 75 terms)
+RETAIN_SECONDS ≥ LAND_WINDOW_MAX + ABANDON_GRACE + slack  = 7,200 s   (attesters serve data until any landing is possible)
+ROTATION_OVERLAP ≥ LAND_WINDOW_MAX + ABANDON_GRACE + prove= 7,200 s   (an image rotation never orphans an in-window proof)
+ANCHOR_MAX_AGE + TERM + LAND_WINDOW_MAX + ABANDON_GRACE   = 5,760 s   < EIP-2935 window at 2-s slots (16,382 s)
+FI_EXPIRY + ANCHOR_MAX_AGE + LAND_WINDOW_MAX + ABANDON_GRACE ≈ 7 d 95 min < blob retention (≈ 18 d; ≥ 9 d assumed)
+60·R_BLK_MAX + SLASH_ABANDON + 5·ATT_REWARD_TOTAL         = 2,270 TAIKO ≤ B_SEAT / 2 = 10,000  (per-term exposure)
+SLASH_ABANDON > 60·R_BLK_MAX                              (paying a lander always dominates abandoning)
+Q = ⌊2K/3⌋ + 1; 2Q − K = 12                               (provable double-signers behind a locked block)
+K_MIN + V_MAX + 1 = 9 ≤ registered seats at activation    (recommended 37 = K + V_MAX + 1 for full committees)</code></pre>
+
+<h2 id="table">2. The table</h2>
+<table>
+<tr><th>Name</th><th>Owner</th><th>Unit</th><th>Initial</th><th>Derivation / rationale</th><th>Too small / too large</th></tr>
+<tr><td>TERM</td><td>Sequencing</td><td>s</td><td>60</td><td>one handoff and landing per minute; a bad draw holds users ≤ 60 s</td><td>fixed landing gas dominates at 2-s slots / longer censorship per draw</td></tr>
+<tr><td>CYCLE_TERMS</td><td>Sequencing</td><td>count</td><td>60</td><td>one seed per hour</td><td>more seed fixes / long targeting horizon</td></tr>
+<tr><td>LOOKBACK</td><td>Sequencing</td><td>s</td><td>1,200</td><td>above L1 finality at 12-s slots (768 s)</td><td>reorg changes an assignment / slashes bite later</td></tr>
+<tr><td>DELAY_REG</td><td>Sequencing</td><td>s</td><td>7,200</td><td>chain above</td><td>post-seed grinding / slow onboarding</td></tr>
+<tr><td>DELAY_S</td><td>Sequencing</td><td>s</td><td>1,320</td><td>chain above</td><td>node and contract disagree / slashed owner keeps terms</td></tr>
+<tr><td>SUSPEND(3)</td><td>Sequencing</td><td>s</td><td>10,800, doubling per strike, cap 64 h</td><td>chain above</td><td>interval store breaks / honest partitioned owner idle</td></tr>
+<tr><td>STRIKE_THRESHOLD / STRIKE_DECAY / STRIKE_COALESCE</td><td>Sequencing, Slashing</td><td>count / s / s</td><td>3 / 604,800 / 600</td><td>one or two partitions a week free; one incident = one strike</td><td>griefing suspends honest capacity / squatters linger</td></tr>
+<tr><td>MISS_PENALTY</td><td>Slashing</td><td>gwei TAIKO</td><td>5·10<sup>10</sup> (50)</td><td>≤ V_term(1 − p)/p at p = 0.5; burned</td><td>squatting free / entry unprofitable under griefing</td></tr>
+<tr><td>B_SEAT</td><td>Slashing</td><td>gwei TAIKO</td><td>2·10<sup>13</sup> (20,000)</td><td>13 × B ≈ 39 ETH per locked reorg; 300 × V_term</td><td>cheap attested reorg / small operators excluded</td></tr>
+<tr><td>BUFFER_BPS / HARD_FLOOR_BPS</td><td>Slashing</td><td>bps</td><td>500 / 5,000</td><td>20 misses before the floor; backstop</td><td>one false view change suspends / little at stake</td></tr>
+<tr><td>CAP</td><td>Sequencing</td><td>count</td><td>8</td><td>bounds one address to 8/A</td><td>forces Sybil splitting / one address dominates views</td></tr>
+<tr><td>MAX_SEATS</td><td>Sequencing</td><td>count</td><td>65,535</td><td>filling costs 1.31 B TAIKO, above supply</td><td>a finite price for exclusion / —</td></tr>
+<tr><td>MAX_TRIES / MAX_DISTINCT</td><td>Sequencing</td><td>count</td><td>64 / 5</td><td>P(no holder) = (1 − ρ)<sup>64</sup>; ≈ 290k gas worst case</td><td>open-empty at low density / gas</td></tr>
+<tr><td>V_MAX</td><td>Certificates</td><td>count</td><td>4</td><td>bounds view changes a landing verifies</td><td>term dies early / gas per landing</td></tr>
+<tr><td>RECYCLE_GRACE</td><td>Sequencing</td><td>s</td><td>7,200</td><td>chain above</td><td>recycled seat breaks old-term checks / holes persist</td></tr>
+<tr><td>EVIDENCE_WINDOW = EXIT_LOCK</td><td>Slashing</td><td>s</td><td>604,800</td><td>key-pair rules; today's withdrawal delay</td><td>exit-then-equivocate / capital locked</td></tr>
+<tr><td>DEAD_TERMS</td><td>Sequencing</td><td>terms</td><td>75</td><td>chain above</td><td>opportunists void a lagging chain / slow recovery</td></tr>
+<tr><td>ROLE_HORIZON</td><td>Slashing</td><td>s</td><td>7,200</td><td>chain above</td><td>abandonment unfileable in an outage / registry holds roles longer</td></tr>
+<tr><td>K / Q / K_MIN</td><td>Certificates</td><td>count</td><td>32 / 22 / 4</td><td>one pairing per certificate; 12 double-signers behind a locked block; below K_MIN, no-committee mode</td><td>cheap collusion / gossip load; sham security / long bootstrap</td></tr>
+<tr><td>CERT_LAG_MAX</td><td>Certificates</td><td>blocks</td><td>1</td><td>round trip overlaps building; private state ≤ 2 blocks</td><td>cadence = round trip / longer unattested tail</td></tr>
+<tr><td>TIMEOUT / TO_REBROADCAST</td><td>Certificates</td><td>s</td><td>5 / 2</td><td>five missed certificates; a 3-s hiccup never triggers</td><td>spurious view changes / slow takeover</td></tr>
+<tr><td>END_GRACE / VC_FALLBACK</td><td>Certificates</td><td>s</td><td>2 / 10</td><td>last block + certification + skew; two VC round trips</td><td>last block lost / idle gap</td></tr>
+<tr><td>STALE_MAX / CLOCK_SKEW</td><td>Certificates</td><td>s</td><td>3 / 1</td><td>attestation policy only</td><td>honest slow rounds lose certificates / longer delayed publication</td></tr>
+<tr><td>ANCHOR_MIN_AGE / ANCHOR_MAX_AGE</td><td>Certificates</td><td>s</td><td>48 / 1,800</td><td>≥ 2.5 × ePBS canonical-at-N+1; bounds bridge staleness inside the 2935 window</td><td>honest disagreement / stale L1 state</td></tr>
+<tr><td>ANCHOR_WAIT / PENDING_TTL</td><td>Certificates</td><td>s</td><td>30 / 10</td><td>L1 client lag / one range round trip</td><td>valid blocks dropped / pending buffers</td></tr>
+<tr><td>MAX_ENVELOPE / RANGE_MAX / RANGE_RATE / RETAIN_SECONDS</td><td>Certificates</td><td>bytes / count / req·s<sup>−1</sup> / s</td><td>524,288 / 64 / 4 / 7,200</td><td>2.3 × per-second blob budget; one request covers 12 timeouts; chain above</td><td>DoS versus slow sync; prover grief versus storage</td></tr>
+<tr><td>DEMAND_FEE / DEMAND_WINDOW</td><td>Certificates</td><td>gwei / s</td><td>5·10<sup>7</sup> (0.05 ETH) / 1,800</td><td>deters demand spam, refunded on default</td><td>spam / longer stall by colluders</td></tr>
+<tr><td>LAND_WINDOW / LAND_WINDOW_MAX</td><td>Landing</td><td>s</td><td>1,800 / 3,600</td><td>≥ 10 × happy-path landing; hard deadline for abandonment evidence</td><td>honest terms replaceable in ordinary outages / longer void suffix</td></tr>
+<tr><td>LAND_CHAIN_GRACE / ABANDON_GRACE</td><td>Landing</td><td>s</td><td>600 / 300</td><td>a child gets 10 min after a late parent; late original beats a replacement</td><td>children replaceable at once / slower recovery</td></tr>
+<tr><td>OUTAGE_WINDOW</td><td>Slashing</td><td>s</td><td>3,600</td><td>no landing in the hour before the hard deadline ⇒ nobody slashed</td><td>honest holders slashed in outages / targeted abandonment escapes</td></tr>
+<tr><td>DEGRADE_AFTER / ROTATION_OVERLAP</td><td>Landing</td><td>s</td><td>7,200 / 7,200</td><td>one back-end outage never stalls until a DAO upgrade; chain above</td><td>single-proof mode common / retired image trusted longer</td></tr>
+<tr><td>R_BLK_MIN / R_BLK_MAX</td><td>Landing</td><td>TAIKO per block</td><td>0.5 / 4</td><td>≈ 2 × a 1.5 M-gas landing at 10 gwei per term; exceeds proving in a 100-gwei hour</td><td>only the sequencer lands early / bond drained</td></tr>
+<tr><td>SLASH_ABANDON / LANDER_BONUS_BPS</td><td>Slashing</td><td>TAIKO / bps</td><td>2,000 / 4,000</td><td>≫ maximum reward per term; 10 % of a seat</td><td>never-land cheap / honest holder ruined by a guest bug</td></tr>
+<tr><td>CHALLENGER_BPS / CHALLENGER_CAP</td><td>Slashing</td><td>bps / gwei</td><td>1,000 / 2·10<sup>12</sup> (2,000)</td><td>cap covers 600k gas at 500 gwei; keeps self-report unprofitable</td><td>evidence unsubmitted in spikes / bond partly recoverable</td></tr>
+<tr><td>ATT_REWARD_TOTAL</td><td>Slashing</td><td>gwei per landing</td><td>6·10<sup>9</sup> (6)</td><td>≈ 9 % of V_term; fixed total</td><td>committees go dark / holder margin gone</td></tr>
+<tr><td>MAX_BLOCKS / MAX_BLOBS / MAX_FI per landing</td><td>Landing, FI</td><td>count</td><td>256 / 6 / 64</td><td>bounds guest work; per-transaction blob cap; queue walk ≤ 270k gas</td><td>slow catch-up / gas</td></tr>
+<tr><td>BYTES_PER_SEC_TARGET</td><td>Landing (client)</td><td>KiB/s</td><td>32</td><td>one seventh of the L1 blob budget</td><td>throughput / unincludable at short slots</td></tr>
+<tr><td>ZK_K / ZK_N</td><td>Landing</td><td>count</td><td>2 / 2 → 3</td><td>no single system finalizes in normal mode</td><td>single-system soundness / halts on one outage</td></tr>
+<tr><td>TERM_RING / COMMITTEE_RING</td><td>Landing, Slashing</td><td>terms</td><td>21,600 (15 d, aliased) / 2,048 (34 h)</td><td>aliased onto the Shasta ring; committee-evidence horizon</td><td>evidence expires / first-lap state gas</td></tr>
+<tr><td>LANDED_CONFIRM_DEPTH</td><td>Landing</td><td>L1 blocks</td><td>1</td><td>ePBS payload confirmed by the next block</td><td>unrevealed payloads shown safe / latency</td></tr>
+<tr><td>LANDING_GAS_BUDGET</td><td>Landing</td><td>gas</td><td>10,000,000</td><td>fits a 2-s-slot block; estimate 1.5 to 2.0 M</td><td>— / unincludable at short slots</td></tr>
+<tr><td>FI_DELAY / FI_EXPIRY</td><td>FI</td><td>s</td><td>300 / 604,800</td><td>notice for payload fetch; chain above</td><td>attesters lack the payload / blob gone before proof</td></tr>
+<tr><td>MAX_FI_RUN</td><td>FI</td><td>count</td><td>2</td><td>backlog drains at two-thirds cadence</td><td>stuffing outpaces the drain / halts ordinary traffic</td></tr>
+<tr><td>FI_BASE_FEE / FI_FEE_THRESHOLD / FI_CALLDATA_MAX / FI_GAS_LIMIT</td><td>FI</td><td>wei / count / bytes / gas</td><td>10<sup>15</sup> / 50 / 4,096 / 5,000,000</td><td>today's fee shape; half an inclusion list; a multi-transaction exit bundle</td><td>stuffing cheap / users excluded; large exits unprotected / list-ineligible</td></tr>
+<tr><td>FI_ANCHOR_LAG (attester policy)</td><td>FI</td><td>L1 blocks</td><td>20 (40 s to 4 min)</td><td>above any healthy L1 client lag</td><td>honest slow nodes taken over / policy toothless</td></tr>
+<tr><td>FORCED_RING</td><td>FI</td><td>count</td><td>8</td><td>≥ 30 min of history for the waiver</td><td>resumer slashed after a burst / first-lap gas</td></tr>
+<tr><td>ETNA_T0 / MIGRATION_LEAD / FREEZE / DRAIN_DEADLINE</td><td>Migration</td><td>s</td><td>DAO-chosen / 604,800 / 3,600 / 86,400</td><td>fork time; two client releases; minutes-level proving; a day for the whitelisted provers</td><td>see the Anchor page</td></tr>
+<tr><td>ANCHOR_GAS_LIMIT / MAX_L1_HEADERS_PER_LANDING / BASEFEE_SHARING_PCTG</td><td>Anchor</td><td>gas / count / percent</td><td>1,000,000 / 4,096 / 75</td><td>unchanged engine pin; chain above; today's value</td><td>see the Anchor page</td></tr>
+<tr><td>EXPIRY_TTL / REORG_MARGIN</td><td>Landing (client)</td><td>s</td><td>60 / 60</td><td>stale attempts expire; landings near a deadline survive a shallow reorg</td><td>valid attempts expire / stale variants linger</td></tr>
+<tr><td>Sentinel views</td><td>all</td><td>—</td><td>254 forced, 255 open-empty / dead / no-committee</td><td>outside the 0..4 view range</td><td>—</td></tr>
+</table>
+
+<h2 id="tuning">3. What must be measured before freezing</h2>
+<ul>
+<li>A term's revenue (base-fee share, tips, MEV) on mainnet for a week: sets B_SEAT, MISS_PENALTY, SLASH_ABANDON, the reward band and the attester share (open items G8, G10).</li>
+<li>Mainnet gas of the RISC0 and SP1 leaves; the EIP-2537 aggregate path for 32 keys; the registry walk; the forced-inclusion queue walk.</li>
+<li>Gossip and execution latency on a 32-attester devnet: sets TIMEOUT, STALE_MAX, CERT_LAG_MAX and validates the 1-s cadence.</li>
+<li>Guest cost of 64 KZG versioned hashes and of a 4,096-header L1 chain.</li>
+<li>Blob-fetch latency under sparse blob pools: sets FI_DELAY.</li>
+</ul>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna sequencing rights</title>
+<meta name="description" content="How sequencing terms are assigned from L1 state without lookahead, slots or epochs: seats, future-dated registry writes, a prevrandao accumulator, a hash walk, views, takeover and dead mode.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html" class="here">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Sequencing rights</h1>
+<p class="lead">Time is cut into 60-second <em>terms</em>. Within a term, each takeover opens a new <em>view</em> (view 0 is the primary holder, view <em>v</em> the <em>v</em>-th backup). The holder of a term is a pure function of the registry as it stood 20 minutes before the term and of a randomness seed fixed one hour ahead. Every node computes it identically and in advance; the inbox verifies the same function at landing. No slot, epoch, beacon root, lookahead or <code>blockhash</code> is read anywhere in this block.</p>
+
+<div class="box"><h4>What today does and why it fails</h4>
+<p>One <code>PreconfWhitelist</code> operator per 384-second epoch, chosen by <code>beaconRoot % operatorCount</code> from an EIP-4788 root probed in 12-second steps; roster edited by the owner or ejecters; an offline operator loses the whole epoch with no replacement and no penalty; clients read the roster at "latest" so nodes disagree near boundaries (<a href="../00-current-protocol-summary.md">00</a> §3.1, §9.2, §9.4). This fails R1 (TH19), R5 (TH15), R6 (TH9, TH10), and the locality property P7 (TH12).</p></div>
+
+<h2 id="time">1. Time</h2>
+<p><code>TERM = 60 s</code>, <code>termOf(τ) = (τ − T0) / TERM</code>, <code>T0</code> = Etna activation timestamp. <code>CYCLE_TERMS = 60</code>, so one seed per hour. Every quantity is a second count, an L1 block timestamp or a count.</p>
+
+<figure>
+<svg viewBox="0 0 720 200" role="img" aria-label="Timeline for one term: registry inputs frozen 20 minutes before term start, seed fixed 20 minutes before cycle start, registration effective two hours after the write, landing deadline 30 minutes after term end">
+<line x1="20" y1="60" x2="700" y2="60" class="svg-line"/>
+<line x1="460" y1="48" x2="460" y2="72" class="svg-line-accent"/><text x="440" y="42" class="svg-note">termStart(t)</text>
+<line x1="560" y1="48" x2="560" y2="72" class="svg-line-accent"/><text x="536" y="42" class="svg-note">termEnd(t)</text>
+<rect x="460" y="54" width="100" height="12" class="svg-box-accent"/>
+<line x1="320" y1="48" x2="320" y2="72" class="svg-line-muted"/><text x="236" y="42" class="svg-note">S(t): termStart − LOOKBACK (20 min)</text>
+<line x1="680" y1="48" x2="680" y2="72" class="svg-line-muted"/><text x="596" y="90" class="svg-note">deadline: termEnd + LAND_WINDOW (30 min)</text>
+<line x1="120" y1="48" x2="120" y2="72" class="svg-line-muted"/><text x="30" y="42" class="svg-note">T_seed(c): cycleStart − LOOKBACK</text>
+<text x="20" y="110" class="svg-muted">Registry write at τ → effective at τ + DELAY_REG (2 h); a suspension at τ → effective at τ + DELAY_S (22 min).</text>
+<text x="20" y="130" class="svg-muted">Rule D: any write after S(t) takes effect after termEnd(t), so "state at S(t)" = "state at landing" for term t.</text>
+<text x="20" y="160" class="svg-muted">seed(c) = keccak(DOMAIN ‖ chainId ‖ seedAcc at T_seed(c) ‖ c); seedAcc mixes block.prevrandao once per L1 block that</text>
+<text x="20" y="178" class="svg-muted">contains a landing, a registry write or a poke(). Fresh iff a mix happened after the last instant a write could affect cycle c.</text>
+</svg>
+<figcaption>Every input to term <em>t</em> is at least 20 minutes old at term start, which exceeds L1 finality at every slot time.</figcaption>
+</figure>
+
+<h2 id="registry">2. Registry: seats and future-dated writes</h2>
+<p>Storage lives in the upgraded Inbox proxy after its 43-slot gap; logic in a linked library so the landing path reads it without an external call and the existing TAIKO bond ledger is reused (R2: no new address). <span class="tag proven">proven</span> the syncer address stays the Inbox proxy.</p>
+<ul>
+<li><strong>Seat</strong>: one unit of bond <code>B_SEAT</code> and one storage slot <code>Seat{owner, activeFrom, activeUntil}</code> in an append-only array of at most 65,535 (a 16-bit index; filling it costs 1.31 billion TAIKO, above the supply). An owner holds at most <code>CAP = 8</code> seats. A slot is written fresh once (97,920 state gas under EIP-8037, paid by the entrant) and only overwritten afterwards.</li>
+<li><strong>Operator record</strong>: <code>{seatCount, strikes, lastStrikeAt, exitAt, two suspension intervals}</code>.</li>
+<li><strong>Rule D (future-dated effect)</strong>: a registry write at L1 time τ changes eligibility only for instants <code>T ≥ τ + DELAY</code>, with <code>DELAY_REG = 7200 s</code> for entry and exit and <code>DELAY_S = 1320 s</code> for suspensions, both <code>≥ LOOKBACK + 2·TERM</code>. Term <em>t</em> evaluates eligibility at the single instant <code>termStart(t)</code>. This is what lets the contract keep no history and need no proofs.</li>
+<li><code>register(seats[])</code> requires bond ≥ (seatCount + k)·B_SEAT, a registered code-less sequencer key and a BLS attester key with proof of possession (see <a href="slashing.html">Slashing</a>; the owner itself may be a contract), no pending exit, and every named index free; <code>requestExit</code> is all-or-nothing; <code>finalizeExit</code> after <code>activeUntil + EVIDENCE_WINDOW</code> (7 days); withdrawal is limited to the excess over <code>seatCount·B_SEAT</code>.</li>
+<li><code>eligible(i, T) := activeFrom ≤ T &lt; activeUntil ∧ ¬suspended(owner, T)</code>.</li>
+</ul>
+
+<h2 id="snapshot">3. Snapshot rule</h2>
+<p><code>S(t)</code> = the highest L1 block with <code>timestamp ≤ termStart(t) − LOOKBACK</code>, <code>LOOKBACK = 1200 s</code>. A node replays registry events and the mix log up to <code>S(t)</code>; no archive state is needed. Agreement with the contract: any write in a block after <code>S(t)</code> has <code>τ + DELAY &gt; termStart(t) + TERM</code>, so both views evaluate term <em>t</em> without it. <span class="tag proven">proven</span> (claim 2). Under a total L1 halt the schedule stays defined.</p>
+
+<h2 id="randomness">4. Randomness</h2>
+<p>Compared: an EIP-4788 root (slot-keyed probe, fork-dependent gindices, Empty-slot gaps, 4.6-h window at 2-s slots: rejected); an EIP-2935 header proof of a timestamp-defined block's prevrandao (fork-dependent header RLP, a per-cycle transaction: kept as an upgrade path); round-robin with no randomness (predictable forever, terms sellable: rejected). Chosen: a <strong>prevrandao accumulator</strong>.</p>
+<ul>
+<li><strong>RND1.</strong> <code>land</code>, every registry mutation and the public no-op <code>poke()</code> execute, at most once per L1 block, <code>seedAcc = keccak(seedAcc ‖ block.prevrandao)</code>. Each emits an event, so nodes replay the mix log in block order.</li>
+<li><strong>RND2.</strong> <code>seed(c) = keccak(DOMAIN ‖ chainId ‖ seedAcc_at(T_seed(c)) ‖ c)</code> with <code>T_seed(c) = cycleStart(c) − LOOKBACK</code>. The first mixing call at or after <code>T_seed(c)</code> fixes it on-chain; nodes compute the same value from the log without waiting.</li>
+<li><strong>RND3 (freshness).</strong> <code>fresh(c)</code> iff a mix occurred after <code>freshFrom(c) = cycleStart(c) − 3660 s</code>, the last instant at which a registry write can affect cycle <em>c</em>. When fresh, no registrant could know the seed when it last had a chance to change roster inputs. <span class="tag proven">proven</span> (claim 5). When not fresh (no landing and no poke for 41 minutes, itself a total-censorship event), the residual lever is a few bits of seat placement.</li>
+</ul>
+<p>L1-proposer bias: the proposers of the last <em>m</em> blocks before <code>T_seed(c)</code> hold two bits each (reveal or skip; include or exclude a mixing transaction), so <em>m</em> colluding proposers choose among at most 4<sup>m</sup> seeds for one 60-term cycle. Same bound as every RANDAO consumer, including today's 4788 path. <span class="tag assumed">assumed</span> RANDAO model.</p>
+
+<h2 id="selection">5. Selection: weighted random by seats, hash walk, views</h2>
+<p>Compared: term auctions (an L1 transaction per term per bidder, dead exactly when L1 is congested, capital buys everything, still needs a random fallback: rejected); round-robin (rejected as above); <strong>weighted random with a cap</strong> (chosen).</p>
+<ul>
+<li><code>idx(t, k) = keccak(seed(c) ‖ 0x01 ‖ t ‖ k) mod L_t</code>, where <code>L_t</code> is the seat-array length effective at <code>termStart(t)</code>.</li>
+<li><strong>Walk.</strong> For k = 0..63: skip visited or ineligible seats; append the seat's owner to the holder list H if not yet present; stop at 5 distinct owners.</li>
+<li><strong>Views.</strong> <code>holder(t, v) = H[v]</code> for v &lt; |H|; beyond that, view v is the owner of <code>idx(t, v)</code> if eligible, else <strong>void</strong> and skipped without any timeout. At most V_MAX = 4 takeovers happen in one term; after that the term idles to its end.</li>
+<li><strong>Share.</strong> An owner with <em>w</em> of <em>A</em> eligible seats is primary with probability <em>w/A</em>; <code>CAP</code> bounds one address to 8/A; Sybil cost is linear in seats; exclusive control needs every eligible seat and cannot be held against an honest entrant whose append is a plain L1 transaction live two hours later. <span class="tag proven">proven</span> (claims 6, 7).</li>
+<li><strong>No cooldown, no weight halving.</strong> A consecutive-term cooldown is defeated by two addresses and couples term <em>t</em> to <em>t−1</em>; fractional weights cannot be expressed by a seat walk. Both are replaced by binary suspension with strikes.</li>
+</ul>
+
+<h2 id="open">6. Open terms and dead mode</h2>
+<p>A term is <strong>open-empty</strong> if the walk finds no eligible seat, and the chain is in <strong>dead mode</strong> if <code>termOf(now) − lastLandedTerm &gt; DEAD_TERMS = 75</code>. In either, any address with bond ≥ B_SEAT may sequence with the sentinel view 255 and the first landing on L1 wins. (Forced batches use the sentinel view 254 and are the forced-inclusion page's concern.) A third open regime, <strong>no-committee mode</strong>, applies while fewer than K_MIN = 4 attester seats are eligible (for example at launch): the holder is still chosen by sortition, but no certificates exist, landings are accepted with an empty certificate under the same rules as dead mode, and users get the <em>sequenced</em> level only. Dead mode needs no certificate, no attester and no registration delay: a chain whose whole registry and committee vanished is recovered by one honest bonded party within about 75 minutes plus proving. It is the one rule that is not a pure function of <code>S(t)</code>: it depends on the node's current view of <code>lastLandedTerm</code>, only ever <em>adds</em> authorized sequencers, and the landing contract arbitrates. <span class="tag proven">proven</span> bounded disagreement, confined to recovery.</p>
+
+<h2 id="takeover">7. Absent holder: takeover, penalty, strikes, suspension</h2>
+<figure>
+<svg viewBox="0 0 720 170" role="img" aria-label="State machine of a term: view 0, view change, next non-void view, idle until term end, open-empty, dead mode">
+<rect x="20" y="20" width="120" height="36" class="svg-box-accent"/><text x="30" y="43" class="svg-note">VIEW 0</text>
+<line x1="140" y1="38" x2="230" y2="38" class="svg-line-accent"/><text x="144" y="30" class="svg-muted">no certified block for TIMEOUT</text>
+<rect x="230" y="20" width="110" height="36" class="svg-box"/><text x="240" y="43" class="svg-note">VC(t, 0, lock)</text>
+<line x1="340" y1="38" x2="430" y2="38" class="svg-line-accent"/><text x="344" y="30" class="svg-muted">void views skipped</text>
+<rect x="430" y="20" width="150" height="36" class="svg-box-accent"/><text x="440" y="43" class="svg-note">VIEW v+1</text>
+<line x1="580" y1="38" x2="690" y2="38" class="svg-line-muted"/><text x="584" y="30" class="svg-muted">V_MAX = 4 exhausted</text>
+<rect x="590" y="60" width="110" height="36" class="svg-box"/><text x="598" y="83" class="svg-note">DEAD to termEnd</text>
+<rect x="20" y="100" width="180" height="36" class="svg-box"/><text x="30" y="123" class="svg-note">|H| = 0 → OPEN-EMPTY</text>
+<rect x="230" y="100" width="300" height="36" class="svg-box"/><text x="240" y="123" class="svg-note">75 terms unlanded → DEAD MODE (no certificate)</text>
+<text x="20" y="160" class="svg-muted">Every certified absence against a view: 50 TAIKO burned, one strike; three strikes in a week → suspension from τ + 22 min, doubling per strike.</text>
+</svg>
+<figcaption>Takeover is driven by view changes signed by the term's committee (see <a href="preconf.html">Preconfirmation &amp; certificates</a>). Two honest nodes reach the same holder from the same messages.</figcaption>
+</figure>
+<ul>
+<li>Holder of view <em>v</em> is replaced by the next non-void view when a view change <code>VC(t, v, lock)</code> exists: ≥ Q = 22 of the 32 committee signatures stating that no certified block above the lock was seen for <code>TIMEOUT = 5 s</code>. The rightful holder is the highest view with a VC closing every non-void view below it; a holder's first block carries the VC, so a partitioned node verifies signatures instead of trusting its clock. The new holder starts at the last certified block; uncertified blocks are unextendable and unlandable, so withheld blocks are worthless.</li>
+<li><strong>Absence penalty</strong>, applied by the inbox when a landed batch carries a timeout view change (no separate accusation transaction exists): <code>MISS_PENALTY = 50 TAIKO</code>, 100 % burned so a backup allied with attesters gains nothing from a false view change; one strike per owner per 600 s however many seats were drawn; one debit per (term, view).</li>
+<li><strong>Evidence slash</strong> (from <a href="slashing.html">Slashing</a>): a safety offence takes the whole ledger; a structural one takes one seat and adds three strikes.</li>
+<li><strong>Suspension</strong> at three strikes: <code>[τ + DELAY_S, τ + DELAY_S + 10800·2^min(n−3, 6))</code>, stored as two intervals; the dropped interval is provably dead for every still-landable term. <span class="tag proven">proven</span> (claim 3).</li>
+<li><strong>Bond floor</strong>: after an absence or evidence debit, a bond below <code>seatCount·B_SEAT</code> means open-ended suspension until top-up plus <code>reactivate()</code>. The abandonment penalty (a certified view not landed by the hard deadline while other landings happened) debits <em>without</em> a strike or a floor check, so a chain-wide proving outage never suspends the honest set.</li>
+</ul>
+
+<h2 id="committee">8. Committee hook</h2>
+<p><code>committeeOf(t)</code>: the first K = 32 distinct eligible seats of a second walk <code>keccak(seed ‖ 0x02 ‖ t ‖ m)</code>, skipping seats whose owner is in the term's holder list H (owner repeats among the rest allowed, so it is stake-weighted). The certificate page owns Q = 22, the BLS certificate formats and the timeout.</p>
+
+<h2 id="example">9. Worked example</h2>
+<p>Registry of 10 seats: A owns 0-3, B 4-5, C 6, D 7, E 8-9. D exits from term 605; E is suspended for terms 607-609 after a third strike. Seed of cycle 10 computed with a reference keccak (script kept in the scratchpad, not committed).</p>
+<table>
+<tr><th>Term</th><th>First tries idx(t, 0..7)</th><th>View 0</th><th>View 1</th><th>View 2</th><th>View 3</th><th>View 4</th><th>Note</th></tr>
+<tr><td>600</td><td>8,5,8,5,5,0,9,6</td><td>E (seat 8)</td><td>B (5)</td><td>A (0)</td><td>C (6)</td><td>D (7)</td><td></td></tr>
+<tr><td>601</td><td>5,6,7,9,1</td><td>B (5)</td><td>C (6)</td><td>D (7)</td><td>E (9)</td><td>A (1)</td><td>five owners in five tries</td></tr>
+<tr><td>602</td><td>1,1,2,3,7,8,2,3</td><td>A (1)</td><td>D (7)</td><td>E (8)</td><td>C (6)</td><td>B (4)</td><td>A's seats 1, 2, 3 collapse to one view</td></tr>
+<tr><td>604</td><td>5,3,4,5,1,4,9,8</td><td>B (5)</td><td>A (3)</td><td>E (9)</td><td>D (7)</td><td>C (6)</td><td>B dark: VC(604, 0, lock h) at +5 s; A starts at h+1; B loses 50 TAIKO</td></tr>
+<tr><td>605</td><td>2,5,1,1,5,6,8,7</td><td>A (2)</td><td>B (5)</td><td>C (6)</td><td>E (8)</td><td>raw</td><td>D exited: |H| = 4; raw view 7 (seat 7) void</td></tr>
+<tr><td>607</td><td>9,2,5,0,1,1,9,3</td><td>A (2)</td><td>B (5)</td><td>C (6)</td><td>raw</td><td>raw</td><td>E suspended: try 0 skipped</td></tr>
+</table>
+<p class="small">Over terms 600-609 primaries are A 5, B 2, E 2, C 1, D 0 against seat shares 0.4/0.2/0.2/0.1/0.1, within the noise of ten draws. Full table in the Phase 3 synthesis notes.</p>
+
+<h2 id="interface">10. Interface sketch</h2>
+<pre><code>/// @custom:security-contact security@taiko.xyz
+/// L1: storage in the Inbox proxy after __gap; logic in linked library LibSequencerRegistry.
+interface ISequencerRegistry {
+    struct Seat     { address owner; uint32 activeFrom; uint32 activeUntil; }
+    struct Operator { uint16 seatCount; uint8 strikes; uint32 lastStrikeAt; uint32 exitAt;
+                      uint32 s1; uint32 e1; uint32 s2; uint32 e2; }
+    struct Holders  { address[5] owners; uint16[5] seats; uint8 count; uint8 mode; } // 0 SORTITION, 1 OPEN_EMPTY, 2 DEAD
+
+    // permissionless mutations; every eligibility effect is future-dated (Rule D)
+    function register(uint16[] calldata _seats) external;
+    function requestExit(uint16[] calldata _seats) external;
+    function finalizeExit(uint16[] calldata _seats) external;
+    function reactivate() external;
+    function poke() external;                       // mixes prevrandao; emits Poked
+
+    // "who may sequence at time t" (nodes)
+    function termOf(uint48 _time) external pure returns (uint32 term_);
+    function sequencerAt(uint48 _time, uint8 _view)
+        external view returns (uint32 term_, address holder_, uint16 seat_, uint8 mode_);
+    function holderOf(uint32 _term, uint8 _view) external view returns (address holder_, uint16 seat_, bool void_);
+    function holdersOf(uint32 _term) external view returns (Holders memory h_);
+    function committeeOf(uint32 _term) external view returns (uint16[32] memory seats_, address[32] memory owners_, bytes32[32] memory attKeyHashes_);
+    function seedOf(uint32 _cycle) external view returns (bytes32 seed_, bool fresh_, bool fixed_);
+    function isOpenTerm(uint32 _term) external view returns (bool openEmpty_, bool deadMode_, bool noCommittee_);
+    function recordAssignment(uint32 _term) external;      // anyone, while now ≤ termStart + ROLE_HORIZON; pins digest + committee root
+    function seedAccumulator() external view returns (bytes32 acc_, uint48 lastMixBlock_, uint48 lastMixTime_);
+    function assignmentDigest(uint32 _term) external view returns (bytes32); // keccak(term, seed, L_t, holders)
+
+    // Inbox-internal hooks used by land() and by slashing
+    function isHolder(uint32 _term, uint8 _view, address _who) external view returns (bool);
+    function applyMissPenalty(address _holder, uint32 _term, uint8 _view) external;
+    function applyEvidenceSlash(address _owner, uint64 _gwei, uint8 _kind) external;
+
+    event SeatClaimed(uint16 indexed seat, address indexed owner, uint32 activeFrom);
+    event LengthScheduled(uint16 len, uint32 effectiveAt);
+    event ExitRequested(address indexed owner, uint32 activeUntil);
+    event Suspended(address indexed owner, uint32 from, uint32 until, uint8 strikes);
+    event Reactivated(address indexed owner, uint32 activeAgainAt);
+    event SeedFixed(uint32 indexed cycle, bytes32 seed, bool fresh);
+    event Poked(uint64 l1BlockNumber);
+    event MissPenalised(address indexed holder, uint32 indexed term, uint8 view, uint64 gwei, uint8 strikes);
+}</code></pre>
+<p>The block's term, view and seat travel in the anchor calldata (see <a href="bridge-migration.html">Anchor</a>) and <code>extraData</code> keeps its 7-byte engine shape <code>pctg(1) | termId(4) | view(1) | kind(1)</code>; the P2P envelope carries <code>assignmentDigest</code>, so a node whose own digest differs knows its L1 view is stale before it rejects the block. Because ranges may land late after an outage, anyone may call <code>recordAssignment(t)</code> within ROLE_HORIZON (2 h) of a term's start to pin its assignment digest and committee root on L1; a landing of a term older than that verifies rights and certificates against the record, and a term with no record is unlandable and therefore replaceable. Seat and owner state machines:</p>
+<pre><code>Seat:  FREE --register--> PENDING(activeFrom = τ+7200) --time--> ACTIVE --requestExit--> EXITING(activeUntil = τ+7200)
+       --time--> EXPIRED --+RECYCLE_GRACE--> FREE
+Owner: NORMAL --3 strikes | evidence slash--> SUSPENDED[τ+1320, τ+1320+SUSPEND(n)) --time--> NORMAL
+       any --debit below seatCount·B_SEAT--> SUSPENDED_OPEN --top-up + reactivate--> SUSPENDED until τ+1320 --time--> NORMAL</code></pre>
+
+<h2 id="parameters">11. Parameters</h2>
+<table>
+<tr><th>Name</th><th>Unit</th><th>Initial</th><th>Rationale</th><th>Too small / too large</th></tr>
+<tr><td>TERM</td><td>s</td><td>60</td><td>one handoff and one landing per minute; a bad draw holds users ≤ 60 s</td><td>handoffs and fixed landing gas dominate at 2-s slots / longer censorship per bad draw</td></tr>
+<tr><td>CYCLE_TERMS</td><td>count</td><td>60</td><td>one seed per hour; predictability ≤ 1 h + LOOKBACK</td><td>more seed fixes / long targeting horizon</td></tr>
+<tr><td>LOOKBACK</td><td>s</td><td>1200</td><td>above L1 finality at 12-s slots (768 s)</td><td>reorg changes an assignment / slashes bite later</td></tr>
+<tr><td>DELAY_REG</td><td>s</td><td>7200</td><td>&gt; CYCLE + LOOKBACK − TERM, leaving a 41-min freshness window</td><td>post-seed grinding / slow onboarding</td></tr>
+<tr><td>DELAY_S</td><td>s</td><td>1320</td><td>LOOKBACK + 2·TERM: earliest term a suspension may touch</td><td>node and contract disagree / slashed owner keeps terms</td></tr>
+<tr><td>SUSPEND(3)</td><td>s</td><td>10,800</td><td>≥ ROLE_HORIZON + DELAY_S = 8,520 so roles stay exact through the slashing horizon; doubles per strike, cap 64 h</td><td>two-interval invariant breaks / honest partitioned owner idle</td></tr>
+<tr><td>STRIKE_THRESHOLD</td><td>count</td><td>3</td><td>one or two partitions a week are free of suspension</td><td>TC griefing suspends honest capacity / squatters linger</td></tr>
+<tr><td>STRIKE_DECAY</td><td>s</td><td>604,800</td><td>a week without incidents forgives</td><td>repeat offenders cheap / permanent record</td></tr>
+<tr><td>MISS_PENALTY</td><td>gwei TAIKO</td><td>5·10<sup>10</sup> (50 TAIKO, 0.25 % of a seat)</td><td>nuisance, not ruin; entry stays profitable when half of a party's draws are griefed</td><td>squatting free / partition = capital loss</td></tr>
+<tr><td>B_SEAT</td><td>gwei TAIKO</td><td>2·10<sup>13</sup> (20,000 TAIKO) <span class="tag open">open</span></td><td>assumed ≈ 100× per-term fee revenue; equivocation target</td><td>cheap Sybil share / small operators excluded</td></tr>
+<tr><td>CAP</td><td>count</td><td>8</td><td>bounds one address to 8/A</td><td>forces Sybil splitting / one address dominates views</td></tr>
+<tr><td>MAX_SEATS</td><td>count</td><td>65,535</td><td>uint16 index; 1.31 B TAIKO to fill, above the supply, so exclusion by array-full is impossible</td><td>4,096 would price exclusion at 81.9 M TAIKO / —</td></tr>
+<tr><td>MAX_TRIES / MAX_DISTINCT</td><td>count</td><td>64 / 5</td><td>P(no holder) = (1−ρ)<sup>64</sup>; ≈ 290k gas worst case</td><td>open-empty at low density / gas</td></tr>
+<tr><td>RECYCLE_GRACE</td><td>s</td><td>7200</td><td>≥ ROLE_HORIZON so every old term's roles are decided before reuse</td><td>recycled seat breaks old-term checks / holes persist</td></tr>
+<tr><td>EVIDENCE_WINDOW</td><td>s</td><td>604,800</td><td>bond lock after exit; today's withdrawalDelay</td><td>exit-then-equivocate / capital locked</td></tr>
+<tr><td>DEAD_TERMS</td><td>terms</td><td>75</td><td>75 min &gt; LAND_WINDOW_MAX + ABANDON_GRACE = 65 min: a slow but live chain never enters dead mode</td><td>opportunists void a lagging chain / slow recovery</td></tr>
+<tr><td>TIMEOUT (certificate page)</td><td>s</td><td>5</td><td>five missed certificates; a 3-s gossip hiccup never triggers</td><td>honest jitter triggers takeovers / users see stalls</td></tr>
+<tr><td>Registration gas</td><td>gas</td><td>≈ 2 × 97,920 state + ~60k exec</td><td>EIP-8037 pricing; the hot path only overwrites</td><td>—</td></tr>
+</table>
+
+<h2 id="attacks">12. Attacks defended and not defended</h2>
+<ul>
+<li><strong>TH3 absent holder: defended.</strong> Replacement within TIMEOUT per dark view, void views free; 50 TAIKO burned and a strike per event.</li>
+<li><strong>TH9 monopolization: bounded and priced, not prevented.</strong> Share X against H honest seats costs <code>H·X/(1−X)</code> seats (with H = 40: 50 % = 40 seats = 800k TAIKO, 90 % = 360, 99 % = 3,960); marginal cost <code>H/(1−X)²</code> is super-linear. A majority of seats yields a majority of terms; slashing and forced inclusion bound what it can do with them.</li>
+<li><strong>TH10 squatting: defended.</strong> A seat that never serves bleeds 50 TAIKO and a strike per draw and is suspended at the third.</li>
+<li><strong>Grinding: defended when fresh, bounded otherwise.</strong> Requires 41 minutes of total L1 censorship of Etna transactions, after which the lever is a few bits.</li>
+<li><strong>Seed bias by L1 proposers: bounded.</strong> ≤ 2 bits per proposer of the last <em>m</em> blocks; best of 4<sup>m</sup> seeds moves a term count by a few terms per cycle.</li>
+<li><strong>TH12 reorg: defended to finality.</strong></li>
+<li><strong>TH8 false view changes: not fully defended.</strong> Q colluding committee seats can sign a timeout against a live honest primary; non-receipt is unprovable. The loss is one term and 50 TAIKO burned; suspension needs three events a week. There is no accusation object anywhere else in the block.</li>
+<li><strong>TH6 targeted preparation: not defended.</strong> The assignment is public 20-80 minutes ahead. Mitigation is replacement within TIMEOUT; secret leader election is out of scope.</li>
+<li><strong>TH18 EIP-8151: defended</strong> by code-less EOAs at registration and a two-branch evidence rule (if the key acquired code, slash for that L1 fact; else verify the signature pair).</li>
+</ul>
+
+<h2 id="failure">13. Failure analysis</h2>
+<ul>
+<li><strong>All seat holders offline.</strong> Every term dies after at most 4 timeouts (V_MAX); each certified absence strikes, so within a week dark owners are suspended and terms become open-empty. If the committee is dark too, terms end unlanded until DEAD_TERMS pass; then dead mode lets one honest bonded party sequence and land without certificates. Liveness within about 75 minutes plus proving, no DAO action.</li>
+<li><strong>All seat holders malicious.</strong> They cannot finalize invalid state, skip due forced inclusions, block an honest registration, or hide equivocation. Withholding becomes absence. An honest entrant gets its proportional share two hours later.</li>
+<li><strong>Committee dead (fewer than Q live seats).</strong> No view changes, so takeovers stop; an absent primary loses its term for everyone; the next primary starts at term end. The certificate page provides the widening rule.</li>
+<li><strong>Provers dead.</strong> Batches are abandoned by the landing page's rule with a debit but no strike; mixing continues via <code>poke()</code>.</li>
+<li><strong>Partition.</strong> A holder cut off for TIMEOUT is replaced; on reconnection it verifies the view change and stops. A node cut off from L1 keeps a correct schedule for 22 minutes and labels later confirmations "L1-stale".</li>
+</ul>
+
+<h2 id="fpfn">14. False positives and false negatives</h2>
+<table>
+<tr><th>Rule</th><th>Honest party punished when</th><th>Dishonest party escapes when</th><th>Parameter</th></tr>
+<tr><td>TIMEOUT → view change</td><td>an honest holder's blocks reach the committee later than 5 s: loses the view and 50 TAIKO</td><td>a holder produces one certified block every 4.9 s</td><td>TIMEOUT, Q</td></tr>
+<tr><td>Strikes</td><td>a partitioned or griefed holder pays 50 TAIKO per event; three a week suspend it 3 h</td><td>a squatter loses only 50 TAIKO per draw for two draws</td><td>MISS_PENALTY, STRIKE_THRESHOLD, STRIKE_DECAY</td></tr>
+<tr><td>Bond floor</td><td>an owner slashed below the floor for an unrelated event is out until top-up + 22 min</td><td>a seat under-collateralized after proving-outage debits keeps rights (accepted residual)</td><td>which debits trigger the floor</td></tr>
+<tr><td>Snapshot</td><td>only under reorgs deeper than 1200 s</td><td>none</td><td>LOOKBACK</td></tr>
+<tr><td>Dead mode</td><td>a lagging chain is voided only if it already exceeded LAND_WINDOW</td><td>none: dead mode adds rights</td><td>DEAD_TERMS</td></tr>
+</table>
+
+<h2 id="robustness">15. Robustness</h2>
+<p><strong>6/4/2-s slots:</strong> nothing counts slots; LOOKBACK spans 200/300/600 blocks while finality shrinks, so the margin grows; <code>isHolder</code> is ≈ 7k gas typical, ≤ 290k worst case, fitting a 10 M-gas block. <strong>Without Frame Transactions:</strong> zero dependency; no registry call is a race. <strong>ePBS Empty slots and 4788 gaps:</strong> 4788 is never read; the next block's prevrandao reflects every intervening reveal; one-slot-later confirmation is absorbed by the 1320-s minimum delay. <strong>EIP-8037:</strong> fresh slots only at registration.</p>
+
+<h2 id="claims">16. Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> Locality: holders, committee, eligibility, seed and array length are pure functions of L1 data below finality; dead mode is the stated exception and only adds rights.</li>
+<li><span class="tag proven">proven</span> Node snapshot equals landing-time state (Rule D arithmetic).</li>
+<li><span class="tag proven">proven</span> The two-interval suspension store never drops a live interval.</li>
+<li><span class="tag proven">proven</span> Reorg safety under T1 at every slot time.</li>
+<li><span class="tag proven">proven</span> No entry or exit grinding when the seed is fresh.</li>
+<li><span class="tag proven">proven</span> Share bound w/A, cap 8/A, exclusive control needs every seat.</li>
+<li><span class="tag assumed">assumed</span> Exclusive control cannot be sustained (TAIKO liquid; a registration includable on L1 within hours).</li>
+<li><span class="tag proven">proven</span> for dead mode, <span class="tag assumed">assumed</span> for the certificate path: liveness with one honest funded party.</li>
+<li><span class="tag proven">proven</span> Objective punishment: every debit needs a view change, a signature pair, or an L1 fact.</li>
+<li><span class="tag assumed">assumed</span> Seed bias bound (RANDAO model).</li>
+<li><span class="tag assumed">assumed</span> Freshness holds in normal operation (one landing or poke per 41 minutes).</li>
+<li><span class="tag assumed">assumed</span> Gas figures; need a prototype measurement.</li>
+<li><span class="tag open">open</span> B_SEAT and MISS_PENALTY absolute values pending a fee and MEV revenue model (gap G8).</li>
+<li><span class="tag assumed">assumed</span> TIMEOUT = 5 s has negligible honest false positives (gossip delay ≪ 1 s).</li>
+<li><span class="tag open">open</span> EIP-8151 contingency depends on that EIP's inclusion status.</li>
+</ol>
+
+<h2 id="rejected">17. Alternatives rejected</h2>
+<ul>
+<li>Round-robin (predictable forever, O(A) position scans); term auctions (per-term L1 transactions, capital buys everything); Merkle sum tree with sortition proofs and maintenance drains (nine proofs per landing); a 448-seat bitmap with non-evictable incumbents; EIP-2935 header proofs for the seed (kept as upgrade); EIP-4788 seeds; consecutive-term cooldown; weight halving; 24-h exclusion on the first miss; 10 % liveness slash (too costly under TC griefing); BLS registration keys (150-200k gas per verification; revisit if EIP-8151 is scheduled); linear-scan fallback; swap-and-pop seat arrays (index reuse changes computed terms); TERM = 120 s.</li>
+</ul>
+
+<h2 id="open-questions">18. Open questions</h2>
+<ol>
+<li>TIMEOUT and Q set every false-positive rate here; they are tabled with MISS_PENALTY and STRIKE_THRESHOLD on the <a href="parameters.html">Parameters</a> page and must be re-tuned together after devnet measurement.</li>
+<li>"MISS_PENALTY burned, never paid to the taking-over holder" is adopted; paying it would create an incentive for false view changes.</li>
+<li>Is the P8 super-linear-cost requirement satisfied by linear seat cost plus CAP plus per-incident slashing, or is an identity-bearing primitive wanted?</li>
+<li>Is a VRF-based secret leader election worth about 100k gas per landing to close the 20-80-minute TH6 window?</li>
+<li>Should the DAO be able to raise CAP by constant upgrade only (MAX_SEATS is fixed by the index type)?</li>
+<li>Adopted from the slashing page: the owner is separate from the signing keys (one extra slot per operator); the owner may be a contract.</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

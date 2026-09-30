@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna forced inclusion</title>
+<meta name="description" content="Forced inclusion under propose-with-proof: two request shapes, one anchored clock, the per-block placement rule, the inbox count, the permissionless forced batch, fees, blob expiry, stuffing bounds and FOCIL.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html" class="here">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Forced inclusion and censorship resistance</h1>
+<p class="lead">A forced-inclusion (FI) request is one L1 transaction and one L2 block. Due-ness is evaluated against the L1 time a block <em>anchors</em>, never against a landing's own timestamp, so no third party can make a proven landing revert and an entry becoming due never reorgs blocks in flight. When every sequencer refuses, anyone lands a <em>forced batch</em> containing exactly the due entries, without rights, certificates or blobs. Source: judge synthesis of the three B7 designs.</p>
+
+<div class="box"><h4>What today does and why it fails</h4>
+<p>One blob, one block, a fee doubling with backlog, due 576 s after the save ("1.5 epochs"), consumed by the next whitelisted proposal up to 10 per proposal ("one per slot"), fees pushed to the proposer before the proposer gate, and nothing that reserves heights in the preconfirmed chain: any non-empty queue at landing reorgs the whole preconfirmed suffix (<a href="../00-current-protocol-summary.md">00</a> §2.4, §10). The permissionless fallback is dead code; the June 2026 recovery voided the queue by an owner call. Evaluating "due" at a landing's timestamp would let anyone make a proven landing revert (<a href="../03-frame-transactions-research.md">03</a> §4 claim 36).</p></div>
+
+<h2 id="request">1. Request: two shapes (F1)</h2>
+<ul>
+<li><code>saveForcedInclusion(BlobReference)</code>: today's shape, exactly one blob, kind BLOB, <code>dataHash</code> = the versioned hash.</li>
+<li><code>saveForcedInclusionCalldata(bytes manifest)</code>: at most 4 KiB, kind CALLDATA, <code>dataHash = keccak(manifest)</code>; the bytes live in L1 history forever and the request is eligible for FOCIL inclusion lists.</li>
+<li>Both require <code>msg.value ≥ FI_BASE_FEE × (FI_FEE_THRESHOLD + pending) / FI_FEE_THRESHOLD</code> and record the <strong>whole</strong> value as the fee (any excess is a bounty for whoever includes it; today's refund call disappears). <code>FiEntry{dataHash, savedAt, feeWei, kind, offset}</code> is appended; two fresh slots (≈ 196k state gas under EIP-8037) are a second anti-stuffing floor. The queue is unbounded: a full ring would be a censorship lever.</li>
+</ul>
+
+<h2 id="clock">2. One clock: anchored L1 time (F2)</h2>
+<p>For index <em>i</em> and an L1 timestamp T: <code>due(i, T) := i &lt; tail(T) ∧ savedAt_i + FI_DELAY ≤ T</code>; <code>void(i, T) := kind_i = BLOB ∧ savedAt_i + FI_EXPIRY ≤ T</code>. T is always the timestamp of an L1 block whose hash is pinned: at preconfirmation time the parent block's anchor, in the guest the same anchored headers it hash-chains to the tip, at the inbox the landing's verified anchor tip. Entries are FIFO with non-decreasing save times, so due entries form a prefix and void entries a prefix of the due ones. No finality assumption is needed: every entry counted at an anchor sits in an ancestor of that anchor; a reorg that removes the entry removes the anchor, which already invalidates the block. <span class="tag proven">proven</span></p>
+
+<h2 id="block">3. FI block content (F3)</h2>
+<p>An FI block for entry <em>i</em> with parent <em>p</em>: <code>parentHash = p.hash</code>, <code>timestamp = p.timestamp + 1</code>, anchor = <em>p</em>'s anchor (the Anchor ignores a non-newer checkpoint), the anchor calldata's <code>fiCursor</code> advanced by one, <code>coinbase</code> = the parent's coinbase (includer-independent), <code>gasLimit = FI_GAS_LIMIT</code> plus the anchor headroom, transactions = the decoded manifest's transactions in order with invalid ones skipped, as today; an undecodable payload yields the anchor-only block; a void entry yields the anchor-only block <strong>without reading the payload</strong>. Term, view and seat are the sequencer's, and the sequencer signs it like any block. <span class="tag proven">proven</span> that content is includer-independent given the parent.</p>
+
+<h2 id="placement">4. Placement rule V8 (F4; replaces V5(e))</h2>
+<p>Every block has a cursor: after a landing, <code>cursor = fiQueue.head</code>; for block <em>h</em> with parent <em>p</em> and <code>T_p = L1[anchor(p)].timestamp</code>:</p>
+<ul>
+<li><em>FI block</em>: valid iff its cursor equals the parent's cursor + 1, the entry at the parent's cursor is due at T_p, the anchor equals the parent's, and the content is per F3.</li>
+<li><em>Sequencer block</em>: valid iff no entry is due at the parent's cursor at T_p, or the MAX_FI_RUN = 2 blocks ending at <em>p</em> are all FI blocks. A sequencer block may advance the anchor freely; the obligation the new anchor creates binds from the next block.</li>
+</ul>
+<p>Consequences: an entry becoming due while blocks are in flight is a non-event for them (their parents' anchors are older) and binds the first block after the anchor advances past its due time. Nothing is ever reorged by an FI. A backlog drains at two blocks in three while the sequencer keeps one block in three. The obligation crosses term and takeover boundaries with the cursor. <span class="tag proven">proven</span></p>
+
+<h2 id="landing">5. Inbox check at landing (F5; the landing page's L8)</h2>
+<ol>
+<li><code>fiHeadBefore == fiQueue.head</code>; <code>fiHeadAfter ≤ tail</code>; consumed count <code>c ≤ MAX_FI_PER_LANDING = 64</code>.</li>
+<li><code>T_floor = max(lastLanded.anchorTipTimestamp, termStart(termId) − ANCHOR_MAX_AGE − 1)</code>; <code>D</code> = the number of entries due at T_floor (walking at most 64); require <code>c ≥ min(D, ⌈2n/3⌉)</code> for a range of n blocks.</li>
+<li>Every consumed entry is due at the landing's anchor tip timestamp.</li>
+<li><code>fiConsumedHash = keccak(chainId ‖ head ‖ c ‖ (i, kind, dataHash, savedAt) for each consumed entry)</code> from storage, exported to the journal.</li>
+<li>Fees of consumed entries credited to the pull ledger of the range's sequencer (<code>claimableEth</code>, withdrawn with <code>withdrawFiFees</code>).</li>
+<li><code>fiQueue.head = fiHeadAfter</code>; <code>lastLanded.anchorTipTimestamp</code> updated.</li>
+</ol>
+<p>Why step 2 is exact and satisfiable: every block in the range has a timestamp at or after its term's start (V4), its parent's timestamp is at most one second less, and V5 bounds the parent's anchor to within ANCHOR_MAX_AGE of it; anchors are monotone, so every parent anchor in the range is at least T_floor. Entries due at T_floor are due at every block of the range, and V8 forces at least ⌈2n/3⌉ FI blocks in any valid stretch that starts on an FI block. No third party can move the outcome: T_floor is storage plus the chain's own term id, the counted entries were saved at least FI_DELAY before it, the head moves only by a landing on this parent, fees are pull, and the walk is bounded. <span class="tag proven">proven</span></p>
+<p><strong>Guest.</strong> From the consumed-hash preimage and the anchored headers it already verifies, the guest checks F3 and F4 for every block of the range with the cursor starting at <code>fiHeadBefore</code>: each FI block's payload witness hashes to its <code>dataHash</code> (KZG versioned hash for blobs, keccak for calldata; void entries need no witness), each sequencer block satisfies V8 whenever the cursor is below <code>fiHeadAfter</code>, and the journal's queue fields equal the recomputed values. A sequencer that omits, reorders or alters an FI's transactions produces an end hash different from the certified one or a journal the inbox rejects: unlandable either way.</p>
+
+<h2 id="forced">6. The forced batch (F7)</h2>
+<figure>
+<svg viewBox="0 0 720 200" role="img" aria-label="State machine of a forced-inclusion request and of the forced window">
+<rect x="10" y="20" width="90" height="30" class="svg-box"/><text x="20" y="40" class="svg-note">QUEUED</text>
+<line x1="100" y1="35" x2="150" y2="35" class="svg-line-accent"/><text x="102" y="28" class="svg-muted">FI_DELAY at an anchor</text>
+<rect x="150" y="20" width="70" height="30" class="svg-box"/><text x="160" y="40" class="svg-note">DUE</text>
+<line x1="220" y1="35" x2="300" y2="35" class="svg-line-accent"/><text x="222" y="28" class="svg-muted">FI block certified</text>
+<rect x="300" y="20" width="110" height="30" class="svg-box"/><text x="310" y="40" class="svg-note">SEQUENCED</text>
+<line x1="410" y1="35" x2="480" y2="35" class="svg-line-accent"/><text x="412" y="28" class="svg-muted">landing</text>
+<rect x="480" y="20" width="110" height="30" class="svg-box-accent"/><text x="490" y="40" class="svg-note">CONSUMED</text>
+<line x1="185" y1="50" x2="185" y2="90" class="svg-line-muted"/><rect x="130" y="90" width="120" height="30" class="svg-box"/><text x="136" y="110" class="svg-note">FORCEABLE</text>
+<text x="256" y="110" class="svg-muted">replaceableFrom passed ∧ due at the latest L1 block → anyone lands a forced batch → CONSUMED</text>
+<line x1="55" y1="50" x2="55" y2="140" class="svg-line-muted"/><rect x="10" y="140" width="90" height="30" class="svg-box"/><text x="20" y="160" class="svg-note">VOID</text>
+<text x="110" y="160" class="svg-muted">blob entry older than FI_EXPIRY at the consuming anchor → consumed as an anchor-only block, fee to the includer</text>
+<text x="10" y="192" class="svg-muted">Forced window: SERVING → ARMED when block.timestamp &gt; replaceableFrom() and the head is due; back to SERVING at the next ordinary landing.</text>
+</svg>
+<figcaption>No state is admin-reachable; every transition compares anchored timestamps against stored save times, or is a landing.</figcaption>
+</figure>
+<p>A landing through the same <code>land</code> with the sentinel view FORCED = 254, sequencer address zero, empty certificate, no view changes, no blobs. Inbox checks, cheapest first: (1) <code>block.timestamp &gt; replaceableFrom()</code>, the landing page's replacement predicate: the sequencer pipeline is past its deadline machinery, so escalation needs no separate constant; (2) the range starts at <code>lastLanded</code>; (3) the lander-chosen anchor A is verified by <code>blockhash</code> or EIP-2935 and <code>T_A</code> read from it; (4) <code>m = min(due entries at T_A, 64) ≥ 1</code> and the batch has exactly m blocks, all FI blocks; (5) the consumed hash as above; (6) the journal is domain-separated as a forced journal with <code>rewardTo</code> bound in, and verified with ZK_K = 2 always (no certificate, so single-proof mode never applies: forced-batch safety rests on ZK alone); (7) effects: <code>lastLanded</code> height, hashes, roots and anchor tip updated, but <code>lastLanded.at</code> and <code>lastLandedTerm</code> untouched (the pipeline is still unlanded: forced batches may chain, dead mode still counts, and any ordinary landing closes the window); a forced-ring record; the head advanced; fees to <code>rewardTo</code>; the checkpoint written.</p>
+<p>Content is a pure function of <code>(lastLanded, A)</code>: block <em>j</em> derives from entry head + j, with <code>ts_0 = max(parent.timestamp + 1, T_A + ANCHOR_MIN_AGE)</code> and <code>ts_j = ts_0 + j</code>, block 0 anchoring A and the rest inheriting, <code>coinbase = address(0)</code>, no sequencer signature (the guest skips V1, V2 and V4's upper bound for view 254). Anyone builds it from the queue and the payloads; the requester holds them by construction. Binding <code>rewardTo</code> into the forced journal means a mempool copy of the proof cannot redirect the fees. No rights check, no certificate, no absence penalty. <span class="tag proven">proven</span> unique and constructible whenever armed.</p>
+
+<h2 id="resume">7. In-flight batches, resumption, races (F8)</h2>
+<p>A forced landing voids exactly what a replacement voids, and only when replacement is already permitted: the certified blocks above <code>lastLanded</code> whose term passed the deadline machinery without landing. The current holder, or a dead-mode sequencer, resumes on the forced head with a RESUME view change whose reference is the forced marker <code>keccak("ETNA_FORCED" ‖ firstHeight ‖ endBlockHash)</code>, and re-includes voided transactions. Races: a late original, a REPLACE fork, a dead-mode landing and a forced batch all target <code>lastLanded</code>; the first included wins, the loser is invalid and free under the trailing-VERIFY shape, else about 25k gas with no blob fee on the forced side. <strong>Waiver:</strong> the abandonment report reverts if a forced-ring entry covers the certified height and landed before that term's deadline: a resumer whose fresh certified chain lost the race is not penalized; an abandoner, whose deadline passed before the forced landing, stays reportable. Forced landings never write the fields the outage gate reads, so a forced batch never opens the gate on holders stalled by a chain-wide outage.</p>
+
+<h2 id="fees">8. Fees, blob expiry, FOCIL (F6, F9, F10)</h2>
+<ul>
+<li><strong>Fees:</strong> ETH, pull-only. Ordinary landing: to the sequencer of the range holding the FI block (it surrendered a one-second slot and the lander is already paid per block in TAIKO). Forced landing: to <code>rewardTo</code>. No split, no push, no refund.</li>
+<li><strong>Blob expiry:</strong> nodes and provers fetch the payload on the save event and retain it until consumed. Calldata entries never void. A blob entry consumed at anchor <em>a</em> satisfies <code>savedAt + FI_EXPIRY &gt; T(a)</code>; its landing follows within ANCHOR_MAX_AGE + LAND_WINDOW_MAX + ABANDON_GRACE, so the proof is generated within <code>savedAt + 7 d + 95 min</code>, inside retention even if retention halves at short slots <span class="tag assumed">assumed</span>. An entry can reach FI_EXPIRY only if no landing of two or more blocks happened for seven days; then it derives to an empty block and the fee goes to the includer. No owner call replaces today's queue reset.</li>
+<li><strong>FOCIL</strong> (Hegotá): protected legs are calldata requests, the blob-free forced landing (≈ 3 KiB, ≈ 1.2 M gas), abandonment reports and fee withdrawals; not protected are blob-carrying requests and every ordinary landing. A user who fears L1-builder censorship uses the calldata shape, and then the whole escalation leg is inclusion-list eligible. Before Hegotá the floor is T1 and FI_DELAY absorbs ordinary inclusion latency.</li>
+<li><strong>Attester policy</strong> (recommended, not validity): while a node's own L1 view holds a due, unconsumed entry, it withholds attestation from a sequencer block whose anchor is more than FI_ANCHOR_LAG = 20 L1 blocks behind the head; after TIMEOUT the committee's view change replaces the holder. This turns the 30-minute legal staleness into a takeover within minutes against a single stale sequencer; the hard bound below does not rely on it.</li>
+</ul>
+
+<h2 id="bounds">9. Latency bounds and worked timeline</h2>
+<p><strong>Honest:</strong> an entry saved at <em>s</em> is due at every L1 block with timestamp ≥ s + 300; the first such block is anchored by an L2 block at ≥ s + 300 + 48, the FI block follows one second later and is attested within the round trip: <strong>attested ≈ s + 6 min, landed ≈ 2 to 3 min later.</strong> <strong>Compliant adversary</strong> (stale anchors, deadline landings, colluding quorum): the first term starting at or after s + FI_DELAY + ANCHOR_MAX_AGE has T_floor ≥ s + FI_DELAY for every landing of its blocks, so its landings must consume the entry, and they must land by its end + LAND_WINDOW_MAX + ABANDON_GRACE, else the forced path opens: <strong>landed ≤ s + 300 + 1800 + 120 + 3600 + 300 = s + 6,120 s (102 min)</strong>, or the forced path plus proving and inclusion (≈ 4 min). <strong>Absent pipeline:</strong> replacement opens about TERM + LAND_WINDOW + ABANDON_GRACE after the last landing, so a forced batch lands about 40 minutes after the stall began. Throughput floor: two entries per three seconds under any chain that lands at all. <span class="tag proven">proven</span> under T1, T3 and one honest prover-lander.</p>
+<table>
+<tr><th>L1 time (s after save)</th><th>Honest pipeline</th><th>Compliant censor</th><th>Absent pipeline (last landing at −100 s)</th></tr>
+<tr><td>0</td><td>request saved; nodes fetch the payload</td><td>same</td><td>same</td></tr>
+<tr><td>300</td><td>due at any anchor ≥ 300</td><td>same</td><td>same</td></tr>
+<tr><td>348</td><td>a block anchors the L1 block at 300; block 349 is the FI block; attested ≈ 351</td><td>holder anchors 1800 s stale; attester policy times it out after 20 blocks, or the quorum colludes</td><td>no blocks</td></tr>
+<tr><td>≈ 530</td><td>the range lands: head advances, fee to the sequencer (≈ 9 min)</td><td>landings continue with T_floor &lt; 300: not yet required</td><td>—</td></tr>
+<tr><td>≈ 2,100</td><td>—</td><td>—</td><td>replacement predicate holds; anyone builds the forced batch, m = 1, proves ≈ 180 s</td></tr>
+<tr><td>≈ 2,350</td><td>—</td><td>—</td><td>forced batch lands (≈ 39 min); the holder resumes</td></tr>
+<tr><td>2,160</td><td>—</td><td>the first term whose landings must consume the entry begins</td><td>—</td></tr>
+<tr><td>≤ 6,120</td><td>—</td><td>that term lands with the entry (≤ 102 min), or the forced path lands by ≈ 6,360</td><td>—</td></tr>
+</table>
+
+<h2 id="interface">10. Interface sketch</h2>
+<pre><code>// L1: upgraded Inbox implementation; storage after __gap; LibForcedInclusion re-linked.
+enum FiKind { BLOB, CALLDATA }
+struct FiEntry { bytes32 dataHash; uint48 savedAt; uint96 feeWei; FiKind kind; uint24 offset; }   // 2 slots
+struct FiQueue { uint48 head; uint48 tail; }
+struct ForcedRecord { uint64 fromHeight; uint48 at; }                                             // ring of 8, overwritten
+uint8 constant FORCED = 254;                     // view sentinel; 255 = open-empty / dead mode
+
+function saveForcedInclusion(LibBlobs.BlobReference calldata _ref) external payable returns (uint48 id_);
+function saveForcedInclusionCalldata(bytes calldata _manifest) external payable returns (uint48 id_);
+function getForcedInclusionFee() external view returns (uint256 requiredWei_);
+function fiQueue() external view returns (uint48 head_, uint48 tail_);
+function fiEntry(uint48 _id) external view returns (FiEntry memory);
+function fiRequired(uint32 _termId, uint64 _numBlocks) external view returns (uint16 required_, uint48 tFloor_);
+function forcedBatchArmed() external view returns (bool armed_, uint48 replaceableFrom_, uint16 dueAtLatest_);
+function withdrawFiFees(address _to) external;
+function isSupersededByForced(uint64 _height, uint48 _deadline) external view returns (bool);   // read by reportAbandoned
+
+event ForcedInclusionSaved(uint48 indexed id, FiKind kind, bytes32 dataHash, uint48 savedAt, uint96 feeWei, address requester);
+event ForcedInclusionsConsumed(uint64 indexed firstHeight, uint48 headBefore, uint16 count, bool forced);
+event ForcedLanded(uint64 indexed firstHeight, uint16 count, uint48 anchorNumber, address indexed rewardTo);
+// L2: the anchor calldata's fiCursor field (see the Anchor page); nothing new is stored.</code></pre>
+
+<h2 id="parameters">11. Parameters</h2>
+<table>
+<tr><th>Name</th><th>Unit</th><th>Initial</th><th>Rationale</th><th>Too small / too large</th></tr>
+<tr><td>FI_DELAY</td><td>s</td><td>300</td><td>notice only: ≥ 10× ePBS canonical-at-N+1 plus blob fetch under sparse pools, so every attester holds the payload before any anchor makes it due; no reorg-safety role</td><td>attesters lack the payload and withhold / user latency for nothing</td></tr>
+<tr><td>FI_EXPIRY</td><td>s</td><td>604,800 (7 d)</td><td>plus the landing horizon stays under 9 days, half of today's retention</td><td>legitimate blob entries voided in a survivable outage / blob gone before proof</td></tr>
+<tr><td>MAX_FI_RUN</td><td>count</td><td>2</td><td>backlog drains at two-thirds cadence while the sequencer keeps every third second</td><td>stuffing outpaces the drain / stuffing halts ordinary traffic</td></tr>
+<tr><td>MAX_FI_PER_LANDING</td><td>count</td><td>64</td><td>walk ≤ 128 cold loads ≈ 270k gas only under a backlog; forces landers to split ranges so a lazy censor cannot dilute the two-thirds floor</td><td>lazy landings dilute the floor / landing and guest gas</td></tr>
+<tr><td>FI_BASE_FEE / FI_FEE_THRESHOLD</td><td>wei / count</td><td>10<sup>15</sup> (0.001 ETH) / 50</td><td>today's; total cost of N pending is quadratic</td><td>stuffing cheap / small users excluded</td></tr>
+<tr><td>FI_CALLDATA_MAX</td><td>bytes</td><td>4,096</td><td>half of FOCIL's inclusion-list cap</td><td>large exits need the unprotected blob shape / inclusion-list ineligible</td></tr>
+<tr><td>FI_GAS_LIMIT</td><td>gas</td><td>5,000,000</td><td>a multi-transaction exit bundle; ≤ 1/6 of an ordinary block</td><td>legitimate bundles fail / proving grief per 0.001 ETH</td></tr>
+<tr><td>FORCED</td><td>view sentinel</td><td>254</td><td>bypasses rights and certificate checks</td><td>—</td></tr>
+<tr><td>FORCED_RING</td><td>count</td><td>8</td><td>≥ 30 min of history for the abandonment waiver; overwritten slots</td><td>resumer slashed after a burst / first-lap state gas</td></tr>
+<tr><td>FI_ANCHOR_LAG (attester policy)</td><td>L1 blocks</td><td>20</td><td>4 min at 12-s slots, 40 s at 2-s; above any healthy L1 client lag</td><td>honest sequencers with slow L1 nodes taken over / policy toothless</td></tr>
+<tr><td>FORCED_LANDING_GAS</td><td>gas</td><td>≈ 1.2 M</td><td>two ZK leaves, a bounded queue walk, overwritten stores, one fresh checkpoint slot; fits a 2-s-slot block and FOCIL's remaining-gas rule</td><td>—</td></tr>
+</table>
+
+<h2 id="attacks">12. Attacks defended and not defended</h2>
+<ul>
+<li><strong>TH7 starvation by a censoring sequencer with honest attesters: defended.</strong> Blocks that skip a due entry are invalid (V8), no certificate forms, the committee replaces the holder within TIMEOUT, and the next holder sees the same cursor. Cost: the absence penalty and a strike.</li>
+<li><strong>TH7 starvation with a colluding quorum: bounded (102 min).</strong> Skipping blocks are unlandable (the T_floor backstop); stale anchoring is legal for 30 minutes; deadline landings add the hard window. Then the forced path. A certified-and-skipped chain is reportable as abandoned once anything else lands.</li>
+<li><strong>TH7 starvation by all sequencers or an empty registry: defended.</strong> Nothing lands; replacement opens about 40 minutes after the last landing; anyone with the payload and a prover lands a forced batch; forced batches chain until a sequencer resumes.</li>
+<li><strong>TH7 / TH11 stuffing to burn a lander's slot: defended.</strong> Every lever inventoried: the due count (a function of storage and the chain's own term id), the consumed-entry checks (chain content), the walk (bounded), the payout (pull), void (a function of anchored time), expiry (no drop function), the forced gate (monotone until an ordinary landing). Nothing works.</li>
+<li><strong>TH7 stuffing for delay: bounded, priced.</strong> N entries ahead of a victim delay it about 1.5 N seconds and cost 0.001 × (N + N(N−1)/100) ETH plus about 196k state gas per entry: one hour of delay ≈ 60 ETH in fees plus L1 gas; six hours ≈ 2,100 ETH. Not defended: a quadratic price buys a bounded delay, and an attacker buying most of L1's calldata gas can keep two of every three L2 blocks an FI block for a few ETH per hour.</li>
+<li><strong>TH7 blob expiry: defended.</strong> After a week-long outage the head entry voids to an empty block; the requester re-posts, as calldata if it wants permanence.</li>
+<li><strong>TH5 withholding to postpone an FI: defended.</strong> No seal to withhold; a withheld chain does not land; replacement then opens the forced path, which needs no certificate.</li>
+<li><strong>TH8 bond griefing through FIs: defended.</strong> No FI-specific slashing rule; the abandonment waiver removes the one false positive this block would create.</li>
+<li><strong>TH1 forged forced batch: bounded as every batch.</strong> Two unsound systems needed; no single-proof mode.</li>
+<li><strong>Not defended:</strong> sandwiching an FI block (ordinary MEV; the payload is public five minutes ahead); L1-level censorship of the blob-shape request beyond T1 (use calldata).</li>
+</ul>
+
+<h2 id="failure">13. Failure analysis</h2>
+<ul>
+<li><strong>Requesters.</strong> All offline: empty queue. All malicious: stuffing, bounded and priced; undecodable manifests derive to empty blocks; no landing can be made to revert; no bond.</li>
+<li><strong>Sequencers.</strong> Holder offline: takeover; the backup inherits the cursor. All offline or malicious past the replacement predicate: forced batches serve the queue without any sequencing right; dead mode serves ordinary traffic; the first landing wins. They cannot skip a due entry (V8 at attesters, the count at the inbox, V8 in the guest), alter its content, or profit from a stall.</li>
+<li><strong>Attesters.</strong> Fewer than Q live: no certificates, no ordinary landings; forced batches carry no certificate, so FIs keep landing after the predicate holds. All malicious: they can certify skipping or stale chains; skipping chains are unlandable, staleness is bounded; the 102-minute bound holds.</li>
+<li><strong>Provers and landers.</strong> All offline: certified FI blocks are not landed and the forced path also needs a prover, so P5 is conditional on one honest funded participant; the requester, holding the payload and facing at most 64 single-purpose blocks, can be that participant. After seven days blob entries void; calldata entries wait.</li>
+<li><strong>L1 builders.</strong> Censoring the calldata request or the forced landing: FOCIL after Hegotá, else T1.</li>
+<li><strong>DAO.</strong> Never needed: no queue reset, no parameter on the liveness path.</li>
+</ul>
+
+<h2 id="fpfn">14. False positives and false negatives</h2>
+<table>
+<tr><th>Rule</th><th>Honest party punished when</th><th>Dishonest party escapes when</th><th>Knob</th></tr>
+<tr><td>FI_DELAY and payload fetch</td><td>an attester that cannot fetch a blob payload within 300 s withholds; if 11 do, the honest sequencer is timed out and pays 50 TAIKO</td><td>none: due-ness is a pure function of pinned L1 data</td><td>FI_DELAY; the calldata shape has no gap</td></tr>
+<tr><td>The T_floor count</td><td>none for a V8-conforming chain</td><td>a colluding quorum defers entries saved after T_floor − FI_DELAY by at most one landing; bounded by the 102-min argument</td><td>ANCHOR_MAX_AGE, MAX_FI_RUN</td></tr>
+<tr><td>Replacement as the escalation gate</td><td>a resumer's fresh chain loses the parent race to a forced batch: voided but exempt from the abandonment penalty; after a chain-wide proving outage a forced batch may void an honest holder's certified blocks that did include the FIs</td><td>a holder landing at the deadline delays every entry by the full window; that is the floor, not an escape</td><td>LAND_WINDOW_MAX, ABANDON_GRACE, FORCED_RING</td></tr>
+<tr><td>FI_EXPIRY void</td><td>a legitimate blob entry saved just before a 7-day total outage is voided (0.001 ETH lost)</td><td>none</td><td>FI_EXPIRY against retention</td></tr>
+<tr><td>FI_ANCHOR_LAG policy</td><td>a sequencer whose L1 node lags more than 20 blocks behind the committee is taken over and pays 50 TAIKO plus a strike</td><td>a quorum colluding with the holder ignores the policy; the hard bound does not use it</td><td>FI_ANCHOR_LAG, TIMEOUT</td></tr>
+<tr><td>MAX_FI_RUN</td><td>under saturating stuffing honest users get one block in three</td><td>a stuffer holds that state for a few ETH per hour of L1 gas plus quadratic fees</td><td>MAX_FI_RUN, FI_FEE_THRESHOLD</td></tr>
+</table>
+
+<h2 id="robustness">15. Robustness</h2>
+<p><strong>6/4/2-s slots:</strong> every constant is seconds, wei, gas or a count; the attester-policy lag is a block count (4 min to 40 s); the forced landing (no blobs) fits a 10 M-gas block; blob-shape requests compete for 3 blobs per block at 2 s but the per-second rate is unchanged; EIP-2935 covers the forced batch's anchor lookup far beyond the replacement predicate. <strong>Without Frame Transactions:</strong> no property depends on EIP-8141; the forced loser burns no blob fee. <strong>ePBS Empty slots:</strong> a save or landing in an unrevealed payload is not one; the lander resubmits. <strong>EIP-4788:</strong> not consumed. <strong>Without FOCIL:</strong> all L1 legs rely on builder competition and T1; no design change.</p>
+
+<h2 id="claims">16. Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> No third party can make a landing revert through the FI queue.</li>
+<li><span class="tag proven">proven</span> The inbox count is satisfied by every V8-conforming chain and cannot be satisfied by a chain that skips an entry due at T_floor early in the range.</li>
+<li><span class="tag proven">proven</span> (under T1, T3, one honest prover-lander) An entry saved at <em>s</em> is in an L1-landed block by about s + 102 min against any sequencer and attester behaviour, plus proving and inclusion.</li>
+<li><span class="tag proven">proven</span> An FI becoming due never invalidates an in-flight block.</li>
+<li><span class="tag proven">proven</span> The forced batch is unique and constructible from L1 data whenever armed.</li>
+<li><span class="tag proven">proven</span> A forced batch voids only what a replacement voids and only when a replacement is permitted.</li>
+<li><span class="tag proven">proven</span> FI block content is includer-independent given the parent.</li>
+<li><span class="tag proven">proven</span> A void entry never requires its blob; a consumed blob entry's proof is generated within savedAt + 7 d + 95 min.</li>
+<li><span class="tag assumed">assumed</span> T1: L1 includes a 1.2 M-gas, 3 KiB, blob-free transaction within minutes; FOCIL strengthens this after Hegotá.</li>
+<li><span class="tag assumed">assumed</span> Blob retention ≥ 9 days at every slot time.</li>
+<li><span class="tag assumed">assumed</span> The stuffing arithmetic with today's fee constants.</li>
+<li><span class="tag open">open</span> Guest cost of recomputing up to 64 KZG versioned hashes per landing; a raiko benchmark resolves it (a lower forced-batch cap does not change claim 3).</li>
+<li><span class="tag open">open</span> Whether third-party forced landers appear at 0.001 ETH against about 0.012 ETH of L1 gas, or the requester is always the lander; the bounty overpayment and the escrowed lander bonus are the two levers.</li>
+</ol>
+
+<h2 id="rejected">17. Alternatives rejected</h2>
+<ul>
+<li>Due-ness at the landing's timestamp (today; the claim-36 lever); a seal's end timestamp or the term start as the clock (assume one batch per term); FI transactions inside sequencer blocks (breaks the one-block shape and gas accounting); per-anchor MPT proofs of the queue in the guest; trickle detection with a second clock; a separate escalation constant (any value races or wastes); an FI-specific missed-inclusion penalty (double jeopardy with abandonment); fee splits; drop-and-refund of expired entries (a third-party head mover); forbidding early inclusion for byte identity (moot under the anchor clock); a 900-s delay justified by finality (unnecessary: the counted entries share the anchor's chain); anchor freshness as a validity rule (validity would depend on each attester's L1 head); a forced batch carrying its own blobs (loses FOCIL eligibility); a bonded FI-lander role; a bounded ring queue; requester bonds; a blob-only request shape; scaling the caps with queue depth; the Anchor as coinbase for forced blocks; keeping 576 s.</li>
+</ul>
+
+<h2 id="open-questions">18. Open questions</h2>
+<ol>
+<li>MAX_FI_RUN = 2 versus 1: two-thirds drain versus half; trades stuffing-drain speed against ordinary users' share under saturation.</li>
+<li>Fee to the range's sequencer adds a guest-verified FI count per range. Acceptable, or should fees go to <code>rewardTo</code>, accepting that FI blocks become a pure cost to the role that must include them?</li>
+<li>Binding <code>rewardTo</code> into the forced journal departs from fungible proofs. Keep, or accept mempool front-running of forced-batch bounties?</li>
+<li>Adopt the attester anchor-lag policy, or rely on ANCHOR_MAX_AGE alone and accept the 102-minute bound as the honest-path worst case under one stale sequencer?</li>
+<li>FI_DELAY = 300 s: confirm against measured blob-fetch latency on a devnet with sparse blob pools.</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

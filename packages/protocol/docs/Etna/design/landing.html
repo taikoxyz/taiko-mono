@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna propose-with-proof</title>
+<meta name="description" content="One permissionless L1 action lands blobs and a ZK proof and finalizes immediately: canonical blob encoding, the landing transaction check list, the journal, lander economics, deadlines, replacement and verifier degradation.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html" class="here">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Propose-with-proof: the landing</h1>
+<p class="lead">One L1 action, <code>land</code>, carries a range of certified blocks as blobs plus a ZK proof and finalizes them immediately: the checkpoint is written into the L1 SignalService in the same transaction. Anyone may land any certified prefix. The blob bytes are a pure function of the certified chain, so any prover's proof is usable by any lander. Deadlines are economic and evidence-based; the clock alone voids nothing. Sources: judge synthesis of the three B4 designs, aligned with the certificate page.</p>
+
+<div class="box"><h4>What today does and why it fails</h4>
+<p>Two actions: <code>propose</code> stores blob pointers behind a whitelist, one per L1 block; <code>prove</code>, hours later, verifies an aggregated proof behind a second whitelist, writes the checkpoint and advances finalization (<a href="../00-current-protocol-summary.md">00</a> §2). Image ids are owner-set booleans, so every prover release invalidates in-flight proofs. Nothing on L1 references the preconfirmed chain; derivation clamps timestamps to the landing time; a non-empty forced-inclusion queue reorgs the preconfirmed suffix; a prover that stops halts finalization until the ring buffer fills. This fails R1, R5, R6 and R7 and leaves TH1, TH2, TH7, TH11, TH13, TH16, TH17, TH20 and TH25 open.</p></div>
+
+<h2 id="seal">1. There is no sequencer seal; the batch commitment is derived</h2>
+<p>The sequencer signs every block header (V1). No second signature over a batch exists: the batch-level commitment is a digest every party computes identically from the certified chain, and the committee's view change pins where a view ends. Consequences: no seal message to withhold (W5 has no object), no seal-equivocation offence, and a certified block is landable the instant its certificate exists. A lander may land <strong>any certified prefix</strong> <code>[lastLanded.height + 1, L]</code> inside one view. <span class="tag proven">proven</span></p>
+
+<h2 id="encoding">2. Canonical blob encoding (the DA commitment)</h2>
+<pre><code>payload = 0x03 ‖ u32(numBlocks) ‖ Σ_i ( u32(len(rec_i)) ‖ rec_i )
+rec_i   = headerCore_i ‖ seqSig_i (65 B) ‖ [viewChangeBytes_i if first block of a view] ‖ txListBytes_i</code></pre>
+<p><code>headerCore</code> is the non-derivable subset of the signed header (timestamp, coinbase, gasLimit, anchor number, anchor hash and state root, carried certificate height and hash, termId, view, seat, txListHash); <code>txListBytes</code> are the exact compressed bytes whose keccak is <code>txListHash</code> (the sequencer's own zlib stream, copied, never re-compressed). Packing is today's coder: 31 bytes per field element, 130,044 usable bytes per blob, zero-padded, split in order. Every byte is a signed field, a signature, or bytes committed by a signed hash, so the blob versioned hashes are a function of the certified block set and the range with no encoder freedom: two landers of one range produce bit-identical blobs and <strong>any prover's proof is usable by any lander</strong>. A mis-encoded landing yields an end hash different from the certificate and is unlandable (self-harm only). <span class="tag proven">proven</span></p>
+<p><strong>Batch size per second.</strong> The L1 blob budget is about 224 KiB/s at every slot time. Client policy targets 32 KiB/s of compressed output per sequencer (one seventh of L1; about 15 blobs per 60-s term). Ranges are lander-chosen, so no per-term cap exists on-chain; the caps are per landing: 6 blobs (the per-transaction limit) and 256 blocks. An oversized landing is not includable, never slashable.</p>
+
+<h2 id="tx">3. The landing transaction</h2>
+<p><code>land(LandInput)</code> (anyone; <code>rewardTo</code> in calldata) or <code>landFor(rewardTo, LandInput)</code> (only the gate contract, see <a href="frame-transactions.html">Frame transactions</a>), blobs attached in range order. Checks run cheapest first so a race loser exits within about 25k gas in the degraded regime; the proof is verified last, as today, so its revert rolls back every write.</p>
+<ol>
+<li><strong>L1 sequence.</strong> <code>firstHeight == lastLanded.height + 1</code>, else revert <code>NotNext</code>; at most 256 blocks. Several landings may sit adjacent in one L1 block; there is no one-per-block rule.</li>
+<li><strong>L2 deadline</strong> (degraded regime only). <code>deadline == 0 || block.timestamp ≤ deadline</code>.</li>
+<li><strong>L3 parent link.</strong> <code>parentBlockHash == lastLanded.blockHash</code>; the journal's parent hash and parent state root are read from storage, never from calldata.</li>
+<li><strong>L4 view and rights.</strong> The range lies in one view (t, v). If it opens a view, <code>viewChanges[]</code> is the VC chain from <code>lastVCHash</code>, each VC's lock equal to <code>lastLanded</code> when applied, at most V_MAX per term, and each equal to the view change first recorded on L1 for that (t, v) if one exists; each TIMEOUT-kind VC applies the absence penalty to the timed-out leader once per (t, v), while REPLACE and RESUME kinds apply none. The sequencer must satisfy <code>isHolder(t, v, sequencer)</code>, or, with the sentinel view 255, the term must be open-empty, in no-committee mode, or the chain in dead mode, and the sequencer bonded. A term older than ROLE_HORIZON (2 h) is checked against its recorded assignment; without a record it is unlandable and therefore replaceable.</li>
+<li><strong>L5 end certificate.</strong> <code>endCert</code> with <code>height == endHeight</code>, <code>phHash</code> equal to the guest's end header hash, popcount ≥ Q = 22, aggregate signature valid against <code>committee(t)</code> (one pairing), and not marked voided by the availability escalation. Sentinel-view exception (dead mode, no-committee mode, open-empty, forced): an empty certificate is accepted, and then the verifier is never degraded (§7). Verified on L1, not in the guest, so the withholding defence never rests on ZK soundness.</li>
+<li><strong>L6 blobs.</strong> <code>blobhash(i)</code> equals the listed hashes for i &lt; n ≤ 6 and the next one is zero; <code>blobHashesRoot = keccak(hashes)</code>.</li>
+<li><strong>L7 anchor tip.</strong> <code>l1AnchorTipNumber &lt; block.number</code> and ≥ the last landed tip; its hash equals <code>blockhash</code> within 256 blocks, else the EIP-2935 contract (8,191 blocks; 4.55 h at 2-s slots); older is refused (TH17). The guest chains every anchored header to this tip.</li>
+<li><strong>L8 forced inclusion.</strong> <code>fiHeadBefore</code> equals the queue head; the consumed count meets the anchored-time floor rule of the <a href="forced-inclusion.html">Forced inclusion</a> page (at most 64 per landing); <code>fiConsumedHash</code> over the consumed entries; fees credited to the ETH pull ledger.</li>
+<li><strong>L9 replacement</strong> (only if <code>replace</code> is set): §6.</li>
+<li><strong>L10 effects.</strong> <code>lastLanded = {height, blockHash, stateRoot, termId, view, at: block.timestamp, anchorTipNumber}</code>; the term record; <code>lastLandedTerm</code> (read by the sequencing page's dead-mode rule); the committee root for slashing; the SignalService checkpoint (§8); lander and attester rewards (§5); the prevrandao mix; <code>emit Landed</code>.</li>
+<li><strong>L11 proof.</strong> <code>journalHash</code> per §4; <code>verifier.verify(journalHash, proof, kRequired)</code> reverts unless the required number of distinct ZK leaves accept.</li>
+</ol>
+<p>Gas: two ZK leaves ≈ 600k (assumed 300k each; unmeasurable from the repository), one aggregate certificate ≈ 120k, up to four VCs ≈ 120k each worst case, rights ≤ 100k, FI walk ≤ 50k, about ten overwritten stores ≈ 100k, attester credits ≈ 160k, plus one fresh checkpoint slot ≈ 98k state gas (unavoidable under R2). <strong>About 1.5 to 2.0 M execution gas</strong>: 20 % of a 10 M block at 2-s slots, 12 % of the EIP-7825 cap. <span class="tag assumed">assumed</span></p>
+
+<h2 id="journal">4. What the ZK proof covers</h2>
+<pre><code>Journal { chainId, protocolParamsHash,                       // TH25: guest constants published on L1
+          parentBlockHash, parentStateRoot, firstHeight,     // parent = lastLanded (L1 storage)
+          endHeight, endBlockHash, endStateRoot, endPhHash,
+          blobHashesRoot,                                    // L6, inbox-computed
+          termId, view, leader,                              // as resolved by L4
+          vcHashOfFirstBlock,                                // 0 if the range continues an open view
+          l1AnchorTipNumber, l1AnchorTipHash, l1AnchorTipTimestamp,
+          fiHeadBefore, fiHeadAfter, fiConsumedHash }
+journalHash = keccak256(abi.encode(Journal)); leaf input = hashPublicInputs(journalHash, leaf, address(0), chainId)</code></pre>
+<p>The guest proves: decoding the blobs (recomputed versioned hashes match <code>blobHashesRoot</code>) yields blocks <code>firstHeight..endHeight</code>; each header's seqSig recovers to <code>leader</code> and its anchor calldata carries (termId, view); the first block of a view carries <code>vcHashOfFirstBlock</code>; every block executes VALID from the parent state to exactly its blockHash (V6); hashes chain from <code>parentBlockHash</code> to <code>endBlockHash</code>, whose header carries <code>endStateRoot</code>; every anchored L1 header lies on a parent-hash chain ending at the tip, whose timestamp is exported, anchors monotone from the parent's; timestamps obey V4; the forced-inclusion blocks are exactly the consumed queue entries in order, derived from their own blobs, at the placement the forced-inclusion page specifies. Sequence, rights, certificate, blob hashes, anchor tip, queue state and deadlines stay outside the proof; execution, derivation, anchor contents, FI contents and per-block signatures are inside it. <span class="tag proven">proven</span> that no state root is finalized without valid proofs over a journal binding the parent root (storage), blob hashes (<code>blobhash</code>), the anchor tip (<code>blockhash</code> or EIP-2935), the consumed queue entries (storage) and the certified end hash (L5).</p>
+
+<h2 id="economics">5. Sequential landing, pipelined proving, lander economics</h2>
+<p>Landing is sequential in height; proving is not. A block's proof depends only on its parent state, public on the certified chain, so provers prove blocks as they are certified and aggregate any range. Happy-path "landed" latency ≈ 2 to 3 minutes after a block <span class="tag assumed">assumed</span> (block proofs ≤ 20 s pipelined, aggregation ≤ 90 s, one to two L1 blocks). Catch-up: 256 blocks and 6 blobs per landing, several landings per L1 block.</p>
+<p>No prover role, registration, assignment or fee pool. The lander is paid in TAIKO on the existing L1 bond ledger from the bond of the sequencer whose blocks it lands: <code>reward = blocks × r(τ, t)</code>, with <code>r</code> ramping linearly from R_BLK_MIN (0.5 TAIKO) at term end to R_BLK_MAX (4 TAIKO) over LAND_WINDOW. Per block, not per landing, so splitting a range earns nothing. Before term end the price is the minimum and the sequencer lands its own blocks (debit = credit; net cost L1 gas). If its prover fails, the price ramps: a Dutch auction with the sequencer as reserve bidder. A sequencer that knows its prover is down shortcuts the ramp with a signed <code>RewardBoost</code>. The registry locks <code>60 × R_BLK_MAX + SLASH_ABANDON</code> per assigned term so debits are exact. The journal names no lander; proofs are fungible, so copying a mempool proof steals nothing. Attesters of the end certificate share a fixed 6 TAIKO per landing, debited from the same holder.</p>
+<figure>
+<svg viewBox="0 0 720 190" role="img" aria-label="Happy path and prover-fails path timelines for landing a term">
+<text x="10" y="18" class="svg-note">Happy path (S = holder, C = committee, P = any prover; times after block h)</text>
+<rect x="10" y="26" width="160" height="28" class="svg-box"/><text x="16" y="45" class="svg-muted">+0.9 s: C(h), attested</text>
+<rect x="180" y="26" width="170" height="28" class="svg-box"/><text x="186" y="45" class="svg-muted">+0.2..20 s: block proofs</text>
+<rect x="360" y="26" width="160" height="28" class="svg-box"/><text x="366" y="45" class="svg-muted">+60..90 s: aggregate</text>
+<rect x="530" y="26" width="180" height="28" class="svg-box-accent"/><text x="536" y="45" class="svg-muted">+90..115 s: land (A7)</text>
+<text x="10" y="84" class="svg-note">Prover fails (S's prover dies; X = third-party prover)</text>
+<rect x="10" y="92" width="220" height="28" class="svg-box"/><text x="16" y="111" class="svg-muted">termEnd: r ramps 0.5 → 4 TAIKO/block</text>
+<rect x="240" y="92" width="240" height="28" class="svg-box"/><text x="246" y="111" class="svg-muted">X: blocks_by_range → rebuild E1 → prove</text>
+<rect x="490" y="92" width="220" height="28" class="svg-box-accent"/><text x="496" y="111" class="svg-muted">X lands; S's locked bond pays r</text>
+<text x="10" y="150" class="svg-muted">No ZK system works: nothing lands, nothing is voided or penalized (outage gate); after 2 h one working leaf suffices.</text>
+<text x="10" y="170" class="svg-muted">Head range unprovable (guest bug): after replaceableFrom the holder forks a REPLACE view; a replacement landing voids it.</text>
+</svg>
+<figcaption>Anyone can land; the sequencer is the reserve bidder of its own term.</figcaption>
+</figure>
+
+<h2 id="deadline">6. Deadline, replacement, abandonment</h2>
+<p><code>deadline(t) = termEnd(t) + LAND_WINDOW</code> (30 min) is the economic deadline: the ramp reaches its maximum. <code>DEADLINE_HARD(t) = termEnd(t) + LAND_WINDOW_MAX</code> (60 min) is the evidence deadline for the abandonment penalty. <strong>The clock voids nothing by itself.</strong></p>
+<ul>
+<li><strong>A1 replaceable (inbox predicate).</strong> With t' the first unlanded term: <code>replaceableFrom = min(termEnd(t') + LAND_WINDOW_MAX, max(termEnd(t') + LAND_WINDOW, lastLanded.at + LAND_CHAIN_GRACE)) + ABANDON_GRACE</code>. A replacement landing is accepted iff <code>block.timestamp &gt; replaceableFrom</code>. Inputs are inbox storage and the block timestamp. The chain grace keeps a late parent from making its child replaceable at once; the maximum caps the lag chained late landings can build.</li>
+<li><strong>A2 fork.</strong> When A1 holds in a node's L1 view, the current holder may start a new view whose first block has <code>parentHash = lastLanded.blockHash</code> and carries a VC of kind REPLACE with an L1 reference. Attesters attest it iff A1 holds at that reference in their view and the first unlanded certified term's deadline has passed. Attestations are indexed by (t, v, height), so this is not equivocation. Client duty: re-include the void blocks' transactions in order.</li>
+<li><strong>A3 L1 arbitration.</strong> Until a replacement lands, landing the original stays valid and pays the ramp. Whichever lands first wins; the other is <code>NotNext</code> or a parent mismatch, invalid and free under the trailing-VERIFY shape. If the original lands after a REPLACE view was certified, that view is unlandable and the holder resumes from the original's highest certified block with a RESUME VC. Dead-mode landings (view 255, no certificate) are replacements and obey A1.</li>
+<li><strong>A4 abandonment penalty (S4a, evidence-based).</strong> <code>reportAbandoned</code> succeeds iff a recorded or carried VC, or a certificate of view (t, v), lies above what landed for that term, <code>block.timestamp &gt; DEADLINE_HARD(t)</code>, the bit for (t, v) is clear, and the <strong>outage gate</strong> passes: some term landed within OUTAGE_WINDOW (60 min) before the hard deadline, so a chain-wide proving or L1 outage slashes nobody. Effect: SLASH_ABANDON (2,000 TAIKO) debited from the holder through the bond ledger (no strike, no floor check), 10 % to the reporter (capped), 40 % escrowed to whoever lands the next <em>ordinary</em> batch (never a replacement or forced landing, so a replacer earns nothing from the penalty), the rest burned.</li>
+<li><strong>Why descendants are void.</strong> Every certified block above <code>lastLanded</code> was built on a state L1 will never hold once a replacement lands; its proof asserts a parent root the inbox does not store. Unavoidable when the preconf chain runs ahead of L1; this design bounds <em>when</em>: only when a replacement lands, never by time. A global proving outage voids nothing.</li>
+<li><strong>Rarity.</strong> A replacement needs A1 (≥ 35 to 65 minutes without any landing) and a working proof system: the head range is unprovable while a replacement is provable (a content-specific guest bug), or a holder griefs after an outage. A few events per year, each voiding at most about an hour of blocks.</li>
+</ul>
+
+<h2 id="verifier">7. Verifier composition, degradation, rotation</h2>
+<p>ZK_K = 2 distinct ZK leaves of ZK_N (RISC0, SP1; target 3). TEE leaves never count (assumption A3, TH1). Each leaf keeps today's <code>staticcall</code> shape plus <code>require(remote.code.length &gt; 0)</code> and {current, previous, previousValidUntil} image sets: a DAO upgrade moves the old set to <em>previous</em> with a two-hour overlap, or zero when flagged emergency (TH20). <strong>Single-proof mode:</strong> if <code>block.timestamp − lastLanded.at &gt; DEGRADE_AFTER</code> (2 h), one leaf suffices until the next landing, only for landings with a non-empty certificate. Safe under T11: the journal's end block hash must equal the certified hash, whose header commits the state root that Q attesters executed, so a false root needs one ZK bug <em>and</em> a colluding quorum. This is the one place attester execution carries part of state safety, and only after two hours of stalled landing.</p>
+
+<h2 id="races">8. Races, ePBS timing, finality and the SignalService call</h2>
+<p><strong>Primary shape, direct to builder:</strong> an expiry VERIFY frame, the lander's own nonce, the SENDER frame calling <code>land</code>, and a trailing status VERIFY; any revert (lost race, <code>NotNext</code>, bad proof, rotated image, out of gas) makes the transaction invalid: no gas, no blob fee. <strong>Public-mempool fallback:</strong> the shared-nonce gate <code>G_LAND</code> calling <code>landFor</code>; deployed only once EIP-8141 is Final, inert while its immutable address is zero. <strong>Without EIP-8141:</strong> a type-3 transaction from the lander's EOA with <code>deadline</code>; a loser reverts for ≈ 25k gas plus its burned blob fee.</p>
+<p>Levels, no slots: <strong>landed</strong> = in an L1 block the node has (checkpoint written); <strong>L1-safe</strong> = that block has one descendant (under ePBS the payload of N is canonical in practice once N+1 builds on it); <strong>L1-final</strong> = finalized per the node's beacon client (reported, never consumed by a contract); <strong>void</strong> = replaced or removed by an L1 reorg (inbox state reverts with L1; the range returns to CERTIFIED; no penalty). An Empty slot means the transaction was not executed; the expiry frame makes the stale copy free.</p>
+<pre><code>// from the upgraded Inbox proxy, the immutable _authorizedSyncer of the L1 SignalService, once per landing:
+_signalService.saveCheckpoint(ICheckpointStore.Checkpoint({
+    blockNumber: uint48(in.endHeight), blockHash: in.endBlockHash, stateRoot: in.endStateRoot }));</code></pre>
+<p>Same shape as today's <code>prove</code>; <code>ICheckpointStore</code> unchanged; the inbox enforces monotone heights because the SignalService does not. R2: no SignalService change. <span class="tag proven">proven</span></p>
+
+<h2 id="interface">9. Interface sketch</h2>
+<pre><code>/// @custom:security-contact security@taiko.xyz
+// L1: upgraded Inbox implementation on the existing proxy; new storage after __gap (Inbox.sol:145)
+struct Certificate { uint32 termId; uint8 view; uint64 height; bytes32 phHash; uint32 bitmap; bytes aggSig; }
+struct ViewChange  { uint32 termId; uint8 view; uint8 kind; uint32 signerTerm; uint64 lockHeight; bytes32 lockPhHash; uint32 bitmap; bytes aggSig; }
+struct RewardBoost { uint32 termId; uint64 minRewardPerBlockGwei; bytes seqSig; }
+struct Replace     { uint48 l1RefNumber; bytes32 l1RefHash; }
+struct LandInput {
+    uint64 firstHeight; uint64 endHeight; bytes32 parentBlockHash; bytes32 endBlockHash; bytes32 endStateRoot; bytes32 endPhHash;
+    uint32 termId; uint8 view; address sequencer; Certificate endCert; ViewChange[] viewChanges; bytes32[] blobHashes;
+    uint48 l1AnchorTipNumber; bytes32 l1AnchorTipHash; uint48 l1AnchorTipTimestamp;
+    uint48 fiHeadBefore; uint48 fiHeadAfter; RewardBoost[] boosts; Replace replace; uint48 deadline;
+    address rewardTo; bytes proof; }
+struct LastLanded  { uint64 height; bytes32 blockHash; bytes32 stateRoot; bytes32 phHash; uint32 termId; uint8 view; uint48 at; uint48 anchorTipNumber; }
+struct TermRecord  { uint64 landedThrough; uint8 lastView; uint8 abandonedBits; uint8 missBits; uint48 landedAt; uint8 flags; }
+
+function land(LandInput calldata _in) external;                          // anyone
+function landFor(address _rewardTo, LandInput calldata _in) external;    // msg.sender == G_LAND
+function recordViewChange(ViewChange calldata _vc) external;             // anyone; first per (termId, view) wins
+function reportAbandoned(uint32 _termId, uint8 _view, bytes calldata _vcOrCert, uint32 _landedTermRef) external; // S4a
+function lastLanded() external view returns (LastLanded memory);
+function lastLandedTerm() external view returns (uint32);
+function termRecord(uint32 _termId) external view returns (TermRecord memory);
+function replaceableFrom() external view returns (uint48);
+function rewardPerBlock(uint32 _termId, uint48 _at) external view returns (uint64 gwei_);
+function withdrawFiFees(address _to) external;                           // pull ledger
+
+event Landed(uint32 indexed termId, uint8 view, uint64 firstHeight, uint64 endHeight, address indexed lander,
+             bytes32 endPhHash, bytes32 endBlockHash, uint32 certBitmap, uint64 rewardGwei, uint8 zkLeavesUsed, bool replaced);
+event ViewChangeRecorded(uint32 indexed termId, uint8 view, uint8 kind, uint64 lockHeight, bytes32 vcHash);
+event Abandoned(uint32 indexed termId, uint8 view, address indexed sequencer, uint64 penaltyGwei, address reporter);
+event SingleProofMode(bool active);
+
+interface IEtnaVerifier {                                                // replaces ComposeVerifier / ZkRequiredVerifier
+    function verify(bytes32 _journalHash, bytes calldata _proof, uint8 _kRequired) external view returns (uint8 zkLeaves_);
+    function imageSets(uint8 _leaf) external view returns (bytes32[] memory current_, bytes32[] memory previous_, uint48 previousValidUntil_);
+}</code></pre>
+<p>P2P additions: <code>landing-intents {firstHeight, endHeight, lander, etaSeconds, sig}</code> (advisory, registered-key signed), <code>proofs {firstHeight, endHeight, journalHash, leafId, proofBytes}</code> (fungible; a lander may combine two leaves' proofs from different provers), <code>reward-boosts</code>.</p>
+
+<h2 id="machine">10. State machine per certified block</h2>
+<pre><code>SEALED (seqSig) --cert, ≥ Q--> CERTIFIED --(client sub-state PROVING)--land() covering h in L1 block N--> LANDED
+   | no cert; a VC fixes the view's lock below h           | replacement lands, τ &gt; replaceableFrom     | N+1 exists
+   v                                                       v                                             v
+ UNCERTIFIED-DEAD (never landable, no penalty)            VOID (holder penalizable via S4a)             L1-SAFE --beacon finality--> L1-FINAL
+ LANDED --L1 reorg drops N--> CERTIFIED (re-land; no penalty)
+Global: NORMAL --τ − lastLanded.at &gt; DEGRADE_AFTER--> SINGLE-PROOF (ZK_K_eff = 1, certificate required) --any landing--> NORMAL
+Lander: IDLE --cert(L) seen, r ≥ cost--> PROVE --proofs (own or gossiped)--> SUBMIT (A7, expiry) --Landed(me)--> PAID; --Landed(other) | expiry--> IDLE (cost 0)</code></pre>
+
+<h2 id="parameters">11. Parameters</h2>
+<table>
+<tr><th>Name</th><th>Unit</th><th>Initial</th><th>Rationale</th><th>Too small / too large</th></tr>
+<tr><td>LAND_WINDOW</td><td>s</td><td>1800</td><td>≥ 10× happy-path landing; covers a fee spike and a prover restart</td><td>honest terms replaceable in ordinary outages / longer void suffix</td></tr>
+<tr><td>LAND_WINDOW_MAX</td><td>s</td><td>3600</td><td>hard deadline for S4a evidence; caps chained lag; + ABANDON_GRACE &lt; DEAD_TERMS × TERM</td><td>as above / dead mode opens on a live chain</td></tr>
+<tr><td>LAND_CHAIN_GRACE</td><td>s</td><td>600</td><td>a child gets ≥ 10 min after a late parent</td><td>children replaceable at once / cartel stretches lag</td></tr>
+<tr><td>ABANDON_GRACE</td><td>s</td><td>300</td><td>strict priority of a late original over a replacement</td><td>races / slower recovery</td></tr>
+<tr><td>OUTAGE_WINDOW</td><td>s</td><td>3600</td><td>no landing in the hour before the hard deadline ⇒ chain-wide outage ⇒ nobody slashed</td><td>honest holders slashed in outages / targeted abandonment escapes</td></tr>
+<tr><td>DEGRADE_AFTER</td><td>s</td><td>7200</td><td>one back-end outage must not stall landing until a DAO upgrade (R1)</td><td>single-proof mode common / long stalls</td></tr>
+<tr><td>ROTATION_OVERLAP</td><td>s</td><td>7200</td><td>≥ LAND_WINDOW_MAX + ABANDON_GRACE + proving (TH20); 0 on emergency</td><td>proofs orphaned per release / retired image trusted longer</td></tr>
+<tr><td>R_BLK_MIN / R_BLK_MAX</td><td>TAIKO per block</td><td>0.5 / 4 <span class="tag open">open</span></td><td>≈ 2× a 1.5 M-gas landing at 10 gwei per term; maximum exceeds proving plus landing in a 100-gwei hour; per term 30 to 240, below SLASH_ABANDON</td><td>only the sequencer lands early / bond drained</td></tr>
+<tr><td>SLASH_ABANDON</td><td>TAIKO</td><td>2,000 (10 % of a seat)</td><td>≫ maximum per-term reward, so paying a lander always dominates abandoning; false positives exist (guest bug) so not the whole bond</td><td>never-land cheap / honest holder ruined by a guest bug</td></tr>
+<tr><td>per-term lock</td><td>TAIKO</td><td>2,240 = 60 × R_BLK_MAX + SLASH_ABANDON</td><td>exact debits, never best-effort; ≤ B_SEAT / 2</td><td>landers refuse / fewer terms per seat</td></tr>
+<tr><td>ATT_REWARD_TOTAL</td><td>TAIKO per landing</td><td>6</td><td>≈ 9 % of an assumed term's revenue; fixed total keeps the holder indifferent to bitmap size</td><td>committees go dark / holder margin gone</td></tr>
+<tr><td>MAX_BLOCKS / MAX_BLOBS / MAX_FI per landing</td><td>count</td><td>256 / 6 / 64</td><td>bounds guest work; the per-transaction blob cap; queue walk ≤ 50k gas</td><td>slow catch-up / gas</td></tr>
+<tr><td>BYTES_PER_SEC_TARGET</td><td>KiB/s (client)</td><td>32</td><td>one seventh of the L1 budget</td><td>throughput / unincludable at short slots</td></tr>
+<tr><td>ZK_K / ZK_N</td><td>count</td><td>2 / 2 → 3</td><td>no single system finalizes in normal mode (TH1)</td><td>single-system soundness / halts on one outage</td></tr>
+<tr><td>TERM_RING</td><td>terms</td><td>2048 (≈ 34 h)</td><td>evidence horizon for committee-dependent rules; overwritten slots</td><td>evidence expires / first-lap state gas</td></tr>
+<tr><td>LANDED_CONFIRM_DEPTH</td><td>L1 blocks</td><td>1</td><td>ePBS payload confirmed by the next block</td><td>unrevealed payloads shown safe / latency</td></tr>
+<tr><td>EXPIRY_TTL / REORG_MARGIN</td><td>s (client)</td><td>60 / 60</td><td>stale attempts expire; landings near a deadline survive a shallow reorg</td><td>valid attempts expire / stale variants linger</td></tr>
+<tr><td>LANDING_GAS_BUDGET</td><td>gas</td><td>10,000,000</td><td>fits a 2-s-slot block; estimate 1.5 to 2.0 M</td><td>— / unincludable at short slots</td></tr>
+</table>
+
+<h2 id="attacks">12. Attacks defended and not defended</h2>
+<ul>
+<li><strong>TH1 forged proof: defended, bounded.</strong> Normal mode needs two distinct leaves; TEE never counts. Single-proof mode also needs a colluding quorum. Not defended: a common-mode bug in the shared guest; only diverse guests resolve it (open).</li>
+<li><strong>TH2 prover cartel, W6: defended.</strong> The sequencer lands itself; otherwise the ramp attracts any newcomer with the certified data (held by ≥ Q attesters); a total outage delays, never voids.</li>
+<li><strong>TH4 gossiped ≠ landed: defended.</strong> L5 binds the end hash to a certificate; the guest chains every signed header from <code>lastLanded</code> to it.</li>
+<li><strong>TH5 W1/W3/W5: defended.</strong> Uncertified blocks are unlandable; provers rebuild blobs from committee-held data; no seal object. Not defended: withholding that still lands within the window costs only latency.</li>
+<li><strong>TH7 FI starvation: defended.</strong> L8 counts due entries at the anchored timestamp, kept fresh by the anchor age rule; a landing skipping a due request reverts, so the blocks are replaceable and penalized; the forced batch bypasses rights after escalation.</li>
+<li><strong>TH8 bond griefing: defended.</strong> No penalty is accusation-triggered: <code>reportAbandoned</code> needs a quorum object, an L1 timestamp and the outage gate.</li>
+<li><strong>TH11 landing-race waste: defended with frames, degraded without.</strong> No third party can make a winner revert after payment: every check depends on readable state and the winner's calldata; FI fees are pull-based.</li>
+<li><strong>TH12 reorg: defended.</strong> A reorged landing returns the range to CERTIFIED with no penalty.</li>
+<li><strong>TH13 congestion: defended.</strong> Windows in seconds; ≤ 2 M gas; blobs per landing sized to the block; the ramp pays more when gas is dear.</li>
+<li><strong>TH16, TH17, TH20, TH25.</strong> Only the two gate shapes touch EIP-8141 and both fail closed; the anchor tip is checked on L1; image overlap in seconds; <code>protocolParamsHash</code> makes a mismatched guest unlandable (a liveness, never a soundness, failure).</li>
+<li><strong>Not defended: replacement griefing after a global outage.</strong> Once <code>replaceableFrom</code> has passed and proving returns, the current holder may fork a REPLACE view and race the backlog; if it lands first, the outage's certified blocks are void and their sequencers pay SLASH_ABANDON (a false positive). Mitigations: the replacer gets no penalty share; landing the backlog pays the maximum per block and is more lucrative; attester policy prefers the original while any lander announces progress. Bounded to one reorg of the backlog per outage; accepted.</li>
+<li><strong>Not defended:</strong> poison content (a certified block no guest can prove) is handled by replacement plus a client-side blacklist fed by prover error reports.</li>
+</ul>
+
+<h2 id="failure">13. Failure analysis</h2>
+<ul>
+<li><strong>Sequencers.</strong> All offline: takeover produces blocks under backup views; certified ranges are landed by anyone; nothing is voided or penalized without a landed replacement; in dead mode any bonded address restarts from the landed head. All malicious: unprovable content (replaced, penalized each), refusing to land (pay the ramp), spurious forks (attesters reject a REPLACE failing A1); they cannot land uncertified data or a false root.</li>
+<li><strong>Attesters.</strong> All offline: nothing landable, no deadline runs, nobody penalized; dead mode is the floor after 75 minutes. All malicious (≥ Q): they can certify a block only they hold (landable only if provable), refuse certificates (liveness only), or sign a false REPLACE certificate that voids provable blocks (bounded griefing).</li>
+<li><strong>Provers and landers.</strong> All offline: the sequencer lands itself; if it cannot, ranges accumulate CERTIFIED, un-voided; the first returning prover clears the backlog. All malicious: they can only decline or race.</li>
+<li><strong>L1 builders.</strong> All refuse landings: the public-mempool shape needs no builder once the gate exists; before then a total boycott stalls landing but voids nothing. FOCIL does not cover blob transactions. Total L1 censorship is outside T1.</li>
+<li><strong>DAO never acts.</strong> Open-ended image windows never expire; single-proof mode and replacement keep the chain moving unless every ZK system is broken.</li>
+</ul>
+
+<h2 id="fpfn">14. False positives and false negatives</h2>
+<ul>
+<li><strong>Deadline and replacement.</strong> FP: an honest sequencer's blocks hit a guest bug; after ≥ 35 minutes a replacement lands and it loses 2,000 TAIKO plus the term's revenue. FN: a sequencer producing provable blocks but never landing pays only the ramp (intended); one producing unprovable blocks during a global outage escapes until proving returns.</li>
+<li><strong>Certificate at landing.</strong> FP: a partitioned honest sequencer gets no certificate; its blocks are skipped by a VC, never landable, but no deadline runs and nothing is penalized.</li>
+<li><strong>Reward ramp.</strong> FP: in a fee spike a lander is paid up to the maximum per block; bounded by the per-term lock. FN: a lazy cartel waits for the maximum; any defector undercuts.</li>
+<li><strong>Single-proof mode.</strong> FP: an idle chain enters it although nothing failed; harmless under T11. FN: an attacker cannot trigger it while any leaf works.</li>
+<li><strong>Image overlap.</strong> FP: a prover two hours behind a release is refused. FN: a retired image trusted two hours longer; the emergency flag sets zero.</li>
+</ul>
+
+<h2 id="robustness">15. Robustness</h2>
+<p><strong>6/4/2-s slots:</strong> no rule uses slots; blobs per block 10/7/3 so landers shrink ranges; a 2 M landing is 20 % of a 10 M block; LAND_WINDOW spans 300/450/900 L1 blocks; the EIP-2935 window (13.6/9.1/4.55 h) always exceeds the hard deadline. <strong>Without Frame Transactions:</strong> losers pay ≈ 25k gas plus one blob fee; <code>deadline</code> stops stale landings; safety, liveness and latency unchanged. <strong>ePBS Empty slots:</strong> delay inclusion one slot and consume deadline seconds; cannot cause a replacement (that needs a landed proof). <strong>EIP-4788 gaps:</strong> not consumed. <strong>Partitions:</strong> a sequencer cut from attesters is "sequenced" only, no penalty; landers cut from L1 are covered by the window; provers cut from gossip range-sync from any committee member.</p>
+
+<h2 id="claims">16. Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> Blob versioned hashes are a pure function of the certified block set and the range (given <code>txListHash</code> in the signed header).</li>
+<li><span class="tag proven">proven</span> The landed block set equals the certified block set (V7 by construction).</li>
+<li><span class="tag proven">proven</span> No state root is finalized without the required valid proofs over a journal binding parent root, blob hashes, anchor tip, consumed queue entries and the certified end hash.</li>
+<li><span class="tag proven">proven</span> Nothing is voided without a landed replacement; a global proving outage voids and penalizes nothing.</li>
+<li><span class="tag proven">proven</span> No false accusation exists: abandonment evidence is a quorum object plus L1 state plus the outage gate; one debit per (term, view).</li>
+<li><span class="tag proven">proven</span> Replacement is locally decidable: A1 is a predicate on inbox state and the block timestamp; attester disagreements resolve by L1 ordering.</li>
+<li><span class="tag proven">proven</span> Finality lag under sequencer collusion is bounded by LAND_WINDOW_MAX + ABANDON_GRACE after the next unlanded term's end.</li>
+<li><span class="tag assumed">assumed</span> Landing gas 1.5 to 2.0 M (≈ 300k per ZK leaf; unmeasurable from the repository).</li>
+<li><span class="tag assumed">assumed</span> A 256-block range is provable on two leaves within LAND_WINDOW / 2; happy-path latency 2 to 3 minutes.</li>
+<li><span class="tag assumed">assumed</span> T11 carries single-proof-mode safety; attesters execute before attesting.</li>
+<li><span class="tag assumed">assumed</span> TAIKO rewards cover ETH-denominated landing cost within the reward band (no oracle).</li>
+<li><span class="tag open">open</span> Whether post-payment VERIFY frames stay consensus-legal; fallback is a claim VERIFY in the prefix.</li>
+<li><span class="tag open">open</span> The rate of replacement griefing after outages on an adversarial testnet; would justify a refundable REPLACE bond.</li>
+</ol>
+
+<h2 id="rejected">17. Alternatives rejected</h2>
+<ul>
+<li>A quorum-attested explicit seal (a withholdable object and a gossip round on the landing path); a sequencer-signed seal over sequencer-chosen blob bytes (a withheld message voids 30 minutes); a batch grid with dense batch ids; per-batch rewards (invite range splitting); time-based abandonment with automatic void and slash (cascades across an outage); a replacer share of the slash (griefing incentive); hard 2-of-2 ZK with no degradation (halts until a DAO upgrade); permanent single-proof (puts the ZK-bug case entirely on attesters); certificates verified inside the guest (withholding defence would depend on ZK soundness); FI due-ness by MPT proofs in the guest; per-entry anchor checks on L1; data-only landings during proving outages (reintroduces the propose/prove split); prover assignment or ahead-of-time proving auctions (a liveness dependency on the assignee); one landing per L1 block (slot-coupled); a fee pool from L2 base fees (second treasury); gas-reimbursing rewards measured on-chain (manipulable); deterministic re-compression (no canonical zlib); calldata DA fallback (six times dearer, not FOCIL-protected either); uncertified landing after a delay (recreates the withholding payoff).</li>
+</ul>
+
+<h2 id="open-questions">18. Open questions</h2>
+<ol>
+<li>Is the replacement-griefing residual acceptable, or should a REPLACE view post a refundable bond forfeited if the original lands within ABANDON_GRACE afterwards?</li>
+<li>Late landings after an outage longer than ROLE_HORIZON (2 h) depend on someone having called <code>recordAssignment</code> for each term; attesters and holders have the incentive, but the fallback (unlandable, replaceable) reintroduces a time-based void for outages longer than two hours. Acceptable?</li>
+<li>Keep single-proof mode after two hours, given June 2026, or accept a longer stall until a third ZK system exists?</li>
+<li>Should R_BLK_MIN be indexed to <code>block.basefee</code>, or are DAO-tuned constants (upgrade only) acceptable?</li>
+<li>Is a client-side unprovable-transaction blacklist fed by prover error reports acceptable as a non-consensus mitigation for poison content?</li>
+<li>Measured mainnet gas for the RISC0 and SP1 leaves is needed before freezing the landing budget.</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

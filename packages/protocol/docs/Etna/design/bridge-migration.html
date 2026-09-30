@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna anchor, bridge and migration</title>
+<meta name="description" content="The L2 anchorV5 transaction, how every anchored checkpoint is bound to a true L1 block, the unchanged SignalService call, the in-place upgrade of the Inbox and Anchor proxies with storage-layout notes, the migration schedule, rollback, fee flow and client changes.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html" class="here">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>L2 anchor, shared contracts (R2), and migration</h1>
+<p class="lead">Both existing proxies are upgraded in place. The L1 SignalService, the L2 SignalService, the Bridge and the Vaults are not touched: no implementation, no storage, no address, no version bump. Every Etna block opens with <code>anchorV5</code>, which makes the block self-describing, and every anchored checkpoint is bound at landing to an L1 block that was canonical when the landing was included. Source: judge synthesis of the three B8 designs.</p>
+
+<div class="box"><h4>What today does and why it fails</h4>
+<p><code>anchorV4</code> checks the 255-ancestor ring and forwards a strictly newer checkpoint to the L2 SignalService; equal numbers are ignored silently, nothing on L2 checks the hash or state root, and a reverted anchor does not invalidate the block (<a href="../00-current-protocol-summary.md">00</a> §5, §9.2). The only L1 binding is the guest's chain to the proposal's <code>originBlockHash</code>, which the propose step recorded and which disappears with it (TH17, Critical: the L2 Bridge mints against L1 state roots). The block is not self-describing; anchor freshness is 12-second arithmetic. The L1 syncer address is an implementation immutable of the SignalService, so whichever contract lands batches must keep the Inbox proxy address or force a SignalService implementation bump.</p></div>
+
+<h2 id="anchor">1. The anchor transaction: <code>anchorV5(AnchorInput)</code></h2>
+<p>Every Etna block's first transaction, from the golden touch with the fixed-nonce ECDSA signature as today, gas exactly 1,000,000, value 0, fee cap equal to the base fee (the four engine pins, re-pinned for the new selector). <code>AnchorInput</code> is the union of what the other blocks need inside <code>blockHash</code>:</p>
+<ul>
+<li><code>kind</code>: 0 NORMAL, 1 FORCED (a forced-batch block), 2 GENESIS_CHILD (the first Etna block).</li>
+<li><code>checkpoint</code>: the L1 {blockNumber, blockHash, stateRoot}, shape unchanged.</li>
+<li><code>termId</code>, <code>view</code>, <code>seat</code>: the sequencing slot; view 255 is the open-empty or dead-mode sentinel, view 254 forced.</li>
+<li><code>carriedCertHeight</code>, <code>carriedCertHash</code>, <code>carriedCertBitmap</code>: the carried certificate (lag ≤ 1); zero on the first two blocks of a view.</li>
+<li><code>vcHash</code>: keccak of the view change (or the dead-mode marker, or the forced marker) that opened this view; non-zero only on a view's first block.</li>
+<li><code>fiCursor</code>: the forced-inclusion cursor after this block.</li>
+</ul>
+<p>Deliberately absent: a sequencer address (<code>ecrecover</code> of the header signature is the identity; a calldata copy would be a third value no contract can check) and a batch id (ranges are lander-chosen; a block does not know its batch).</p>
+<p><strong>Rules the Anchor enforces on L2</strong> (every <code>require</code> is a consensus rule because of A8):</p>
+<ol>
+<li><strong>A1 sender and fork gate.</strong> Golden touch only; <code>anchorV5</code> requires <code>block.timestamp ≥ ETNA_T0</code>, <code>anchorV4</code> requires the opposite (both selectors exist in the new implementation).</li>
+<li><strong>A2 ancestors ring.</strong> Unchanged; <code>_blockState</code> stays byte-compatible with Shasta (rollback).</li>
+<li><strong>A3 checkpoint monotone and conflict-free.</strong> A lower number reverts; a strictly greater one is saved through the unchanged <code>ICheckpointStore</code>; an equal one must match the stored record, else <code>CheckpointConflict</code>. Today equal numbers are ignored, so two blocks could carry different hashes for one L1 number; Etna refuses.</li>
+<li><strong>A4 term binding.</strong> <code>termStart(termId) ≤ block.timestamp &lt; termStart(termId + 1)</code> for ordinary blocks (exempt for kind FORCED, whose timestamps may cross a term boundary); <code>termId</code> non-decreasing.</li>
+<li><strong>A5 view binding.</strong> (termId, view) changes iff <code>vcHash ≠ 0</code>: a view opens with exactly one opening object; within a view none. The genesis child requires an empty previous record and no view change.</li>
+<li><strong>A6 forced blocks.</strong> Kind FORCED requires view 254 and seat 0; block 0 of a forced batch may advance the checkpoint (the lander's chosen anchor), later ones inherit.</li>
+<li><strong>A7 record.</strong> Store the packed metadata, the carried certificate hash and the view-change hash in three overwritten slots; emit <code>AnchoredV5</code>. L2 contracts and the guest read one source; the slot numbers are published constants (TH25).</li>
+<li><strong>A8 receipt rule</strong> (client and guest). An Etna block is valid only if transaction 0 is <code>anchorV5</code>, its receipt status is 1 and its gas used is within the limit. Today a reverted anchor leaves the block valid; under Etna nodes reject it at V6 and the guest asserts it, so a wrong ancestors hash or a checkpoint conflict surfaces as an invalid block, never as a silent checkpoint gap.</li>
+</ol>
+<p>What the Anchor does <em>not</em> verify, and why: the L1 hash and state root (needs L1: guest plus inbox), the certificate and view change (needs committee keys and pairings: attesters off-chain, inbox at landing), the sequencing right (needs the registry: inbox at landing). Checking any of these on L2 would make 1-s block production depend on fresh, proven L1 state.</p>
+<p><strong>Header rule.</strong> <code>extraData</code> stays exactly 7 bytes so the engine's length pin and fee decoder need no change: <code>basefeeSharingPctg(1) ‖ termId(4) ‖ view(1) ‖ kind(1)</code>; the guest requires the first byte to equal the protocol constant and the rest to match the anchor calldata. The seat lives in the anchor calldata and the assignment digest in the P2P envelope.</p>
+<p><strong>Cost, stated plainly.</strong> <code>anchorV5</code> is an L2 execution-client hard fork: taiko-geth and alethia-reth pin the anchor selector, so both ship <code>ETNA_FORK_TIME = ETNA_T0</code> exactly as they shipped Shasta and Unzen. Keeping <code>anchorV4</code> was rejected because the signed header needs the carried certificate and view-change hashes inside <code>blockHash</code>, and the receipt rule is an engine change in any case.</p>
+
+<h2 id="binding">2. Binding every anchored checkpoint to a true L1 block (TH17)</h2>
+<figure>
+<svg viewBox="0 0 720 190" role="img" aria-label="Anchored L1 blocks chain by parent hash to the landing's anchor tip; the inbox checks the tip against blockhash or EIP-2935; the guest verifies each anchored header preimage">
+<rect x="10" y="30" width="110" height="40" class="svg-box"/><text x="16" y="48" class="svg-muted">L1 block a₁</text><text x="16" y="64" class="svg-muted">anchored by block h</text>
+<rect x="150" y="30" width="110" height="40" class="svg-box"/><text x="156" y="48" class="svg-muted">L1 block a₂</text><text x="156" y="64" class="svg-muted">anchored by h+40</text>
+<rect x="290" y="30" width="110" height="40" class="svg-box"/><text x="296" y="48" class="svg-muted">…</text>
+<rect x="430" y="30" width="130" height="40" class="svg-box-accent"/><text x="436" y="48" class="svg-muted">anchor tip n</text><text x="436" y="64" class="svg-muted">journal: number, hash, ts</text>
+<line x1="120" y1="50" x2="150" y2="50" class="svg-line-accent"/><line x1="260" y1="50" x2="290" y2="50" class="svg-line-accent"/><line x1="400" y1="50" x2="430" y2="50" class="svg-line-accent"/>
+<text x="10" y="100" class="svg-note">Guest: keccak(header RLP) == checkpoint.blockHash, stateRoot matches, parent-hash chain to the tip (≤ 2048 headers)</text>
+<text x="10" y="122" class="svg-note">Inbox: blockhash(n) == tipHash within 256 blocks, else the EIP-2935 history contract within 8191, else refuse</text>
+<rect x="590" y="30" width="120" height="40" class="svg-box"/><text x="596" y="48" class="svg-muted">L1 head at landing</text><text x="596" y="64" class="svg-muted">≥ n + 1</text>
+<text x="10" y="160" class="svg-muted">Windows in seconds at 12/6/4/2-s slots: blockhash 3072/1536/1024/512 s; EIP-2935 98,292/49,146/32,764/16,382 s.</text>
+<text x="10" y="180" class="svg-muted">Oldest anchored block at an on-time landing ≈ 1800 + 60 + 3600 + 300 = 5,760 s: 2.8× inside the 2-s-slot 2935 window.</text>
+</svg>
+<figcaption>No inbox-recorded checkpoint list is needed; <code>blockhash</code> and EIP-2935 are stateless and cover every on-time landing at every slot time.</figcaption>
+</figure>
+<p><strong>Production-time freshness</strong> is V5 on the certificate page: the anchored block is at least 48 s and at most 30 min older than the block, equal to the node's own L1 header, and monotone rather than must-advance (during an L1 stall leaders keep anchoring the last block). <strong>Landing-time binding:</strong> the journal carries the anchor tip's number, hash and timestamp; the guest witnesses the full header RLP of every distinct anchored L1 block, checks its hash, number and state root, and chains every header from the oldest anchored block to the tip; the inbox checks only the tip. Hence every checkpoint written into the L2 SignalService by a block of a landed range is the hash and post-state root of an L1 block canonical at landing. A batch whose landing slips past the window (an outage longer than 4.55 h at 2-s slots) is unlandable and replaced. <span class="tag proven">proven</span> given T3 and EIP-2935 semantics.</p>
+
+<h2 id="signalservice">3. The SignalService interface: one call, byte-identical</h2>
+<pre><code>// from the upgraded Inbox proxy 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f, once per landing, before verifyProof:
+_signalService.saveCheckpoint(ICheckpointStore.Checkpoint({
+    blockNumber: uint48(_in.endHeight), blockHash: _in.endBlockHash, stateRoot: _in.endStateRoot }));</code></pre>
+<p>Inbox-side invariants, because the SignalService checks none: end height strictly increasing, hashes non-zero. <code>msg.sender == _authorizedSyncer</code> holds because the proxy address is unchanged. On L2 the Anchor's call is unchanged and the L2 SignalService's syncer stays the Anchor proxy; it receives one checkpoint entry per anchored L1 block through <code>anchorV5</code>, the same cadence as today. <code>proveSignalReceived</code> still reads version 1; <code>VERSION</code> is not bumped on either layer. Under EIP-8037 the fresh checkpoint words cost about 196k state gas per landing: unavoidable under R2, paid by the lander. <span class="tag proven">proven</span> no SignalService, Bridge or Vault bytecode or storage changes.</p>
+
+<h2 id="r2">4. R2 decision: upgrade both proxies in place</h2>
+<p><strong>Upgrade the Inbox proxy and the Anchor proxy in place; touch neither SignalService, nor Bridge, nor any Vault.</strong> Reasons: the syncer is an implementation immutable, and a new inbox would force a new implementation on the contract that guards all bridged value, on both layers if the Anchor moved too; the bond ledger and the forced-inclusion queue carry over with no token migration; relayer, indexer and both clients already point at the proxies; rollback is one <code>upgradeTo</code> per chain. Costs accepted: Shasta slots stay allocated; the public-function libraries are redeployed and re-linked with the new registry and slashing libraries beside them. The fallback, only if the in-place storage audit fails: a new SignalService implementation whose constructor names the new syncer, layout untouched.</p>
+<h3 id="layout">Storage-layout notes</h3>
+<ul>
+<li><strong>Inbox.</strong> Slots 0-250 (EssentialContract prefix) unchanged. 251 <code>activationTimestamp</code> kept, read-only. 252-253 <code>_coreState</code> kept; written by the retained Shasta functions until the drain completes, then frozen. 254 <code>_proposalHashes</code> kept and read by the retained <code>prove</code>; after the drain it is <strong>aliased</strong> as the term-record ring, key <code>termId % 21,600</code>, because a term record packs into one word and keys up to today's proposal count are already non-zero (overwrites, not fresh slots under EIP-8037); 21,600 terms is 15 days, above the 34-hour committee-evidence horizon. 255-256 the forced-inclusion queue, kept with the same struct so pending requests survive; per-entry extras in a parallel mapping. 257 the bond ledger, kept unchanged as the Etna ledger; the withdraw rule changes in the library, not the storage. Appended from 258: the activation record; <code>lastLanded</code> (3 slots); the registry's seed accumulator, seeds, seats, operators and length ring; committee roots, attester keys, offence records, pending burn and bonus; recorded view changes, demands, voided certificates, last view-change hash; forced-inclusion extras, the ETH pull ledger and the forced ring: 22 slots, the gap becomes 21. Initializer <code>initEtna</code> is <code>reinitializer(4)</code>. The constructor drops the proposer-checker and prover-whitelist arguments; the ring size stays 21,600 so aliased keys match. <code>pnpm layout</code> must show slots 251-257 byte-identical.</li>
+<li><strong>Anchor.</strong> Slots 0-250 unchanged. 251 <code>blockHashes</code> kept and written. 252-255 kept untouched. 256-257 <code>_blockState</code> kept with identical semantics. Appended: 258 packed metadata, 259 carried certificate hash, 260 view-change hash; the gap goes from 43 to 40. Term grid and fee split are implementation immutables. No initializer call is needed.</li>
+<li><strong>SignalService (both layers), Bridge, Vaults, QuotaManager, resolvers.</strong> Not touched.</li>
+<li><strong>Libraries in <code>layer1/core</code>:</strong> <code>LibBonds</code> (seat-floor withdrawal replaces the flat delay), <code>LibForcedInclusion</code> (two shapes, anchored due-ness), new <code>LibSequencerRegistry</code>, <code>LibSlashing</code>, <code>LibEtnaCert</code> (BLS verification through EIP-2537).</li>
+</ul>
+
+<h2 id="migration">5. Migration</h2>
+<p>Let U be the L1 time at which the DAO's single upgrade transaction executes: deploy the linked libraries, the verifier with image windows, the Etna Inbox implementation, then <code>upgradeToAndCall(impl, initEtna(T0, lastFinalizedBlockNumber))</code>. <code>initEtna</code> requires <code>T0 ≥ U + MIGRATION_LEAD</code> (7 days) and verifies the L1 SignalService's checkpoint at that number equals the core state's last finalized hash (this pins the L2 height that the core state does not store), then sets the initial <code>lastLanded</code>. T0 <em>defines</em> the term grid; its phase relative to L1 slots is irrelevant (R5). The same proposal bridges the Anchor <code>upgradeTo</code> to the L2 DelegateController; both execution clients ship the fork time.</p>
+<table>
+<tr><th>L1 time</th><th>Shasta propose</th><th>Shasta prove (whitelist gate removed)</th><th>Etna registry</th><th>Etna land</th></tr>
+<tr><td>[U, T0 − FREEZE)</td><td>allowed (whitelist checks as today)</td><td>allowed; also updates lastLanded</td><td>allowed (effects future-dated)</td><td>reverts NotActive</td></tr>
+<tr><td>[T0 − FREEZE, drained)</td><td>reverts ProposingClosed</td><td>allowed</td><td>allowed</td><td>reverts</td></tr>
+<tr><td>drained, t ≥ T0</td><td>reverts</td><td>reverts ProvingClosed</td><td>allowed</td><td>allowed</td></tr>
+</table>
+<ul>
+<li><strong>M1 drain.</strong> Drained once <code>block.timestamp ≥ T0</code> and every proposal is proven, or abandoned. The first call that observes it records <code>drainedAt</code> and emits <code>ShastaDrained</code>.</li>
+<li><strong>M2 abandonment (R1).</strong> After <code>T0 + DRAIN_DEADLINE</code> (24 h), anyone may call <code>abandonShastaTail()</code>, the effect of today's owner-only <code>init2</code> made permissionless and time-gated; the unproven tail (at most one hour of Shasta blocks) is void; no bond was at stake.</li>
+<li><strong>M3 genesis and first term.</strong> Genesis parent = the last Shasta-finalized block = the newest checkpoint in the L1 SignalService. The first Etna term is <code>⌈(drainedAt − T0) / TERM⌉</code>, an L1 storage value every node reads identically. At <code>drainedAt</code> the inbox sets <code>lastLandedTerm = firstEtnaTerm − 1</code>, <code>lastLanded.at = drainedAt</code> and the anchor-tip timestamp to the drain block's, so no fallback (dead mode, replacement, forced batch) is armed at the first term. The genesis lock is <code>lastLanded</code> with no view change for the first view; the first block carries kind GENESIS_CHILD.</li>
+<li><strong>M4 in-flight objects.</strong> Shasta preconfirmations not proposed by the freeze are lost (announced). Proposals proven during the drain finalize through the retained <code>prove</code> with today's verifier. Forced inclusions keep their save time and fee and become due under the new rule; the drain window is far inside blob retention.</li>
+<li><strong>M5 pause.</strong> No Etna block exists before the first term: about one hour if the whitelisted provers prove promptly, at most 25 hours otherwise. During the drain no penalty can fire (the outage gate needs a prior landing).</li>
+<li><strong>M6 whitelists.</strong> The Etna implementation never reads either whitelist except inside the retained <code>propose</code>, unreachable after the freeze; the retained <code>prove</code> drops the prover gate (safe: the verifier already requires a ZK leaf). Both contracts stay deployed and readable for rollback; setting the prover count to zero is neither required nor wanted.</li>
+<li><strong>Pre-T0 checklist.</strong> Two execution-client releases with the fork time; the guest release with <code>anchorV5</code> decoding, the header-chain witness and the receipt rule, image ids rotated in the same proposal; at least 37 registered seats (K + V_MAX + 1) so the first committees are full, else the no-committee landing regime applies; the gate contract for the public-mempool shape is <em>not</em> deployed until EIP-8141 is Final (its immutable address stays zero).</li>
+</ul>
+
+<h2 id="rollback">6. Rollback</h2>
+<p>L1: the DAO upgrades the Inbox proxy to the Shasta implementation plus <code>initRollback(lastEtnaHeight, lastEtnaHash)</code> (<code>reinitializer(5)</code>), which requires the SignalService's checkpoint at that height to match (so the DAO cannot pick a non-landed head), rewrites the core-state fields and one ring slot as <code>activate</code> does. Bonds stay in their slot under Shasta's withdrawal delay; seat records are inert. L2: <code>anchorV5</code> maintained <code>_blockState</code> byte-for-byte, so <code>upgradeTo(shastaImpl)</code> needs no state fix; clients ship a rollback time after which <code>anchorV4</code> is required again. Unlanded Etna blocks are void; landed ones are final; bridging is never interrupted in either direction because neither SignalService is touched. Rollback is a DAO decision, never a liveness path. <span class="tag proven">proven</span> that no storage migration beyond those fields is needed.</p>
+
+<h2 id="fees">7. L2 fee flow</h2>
+<p>Engine semantics unchanged: <code>extraData[0]</code> percent of each block's base fee to the coinbase, the remainder to the treasury address, which is the Anchor predeploy; priority fees to the coinbase. The 75 % split becomes a protocol constant (an Anchor immutable, in the published parameters, guest-asserted) instead of a per-proposal event field. The coinbase is the sequencer's free choice (a fee key, not the slashing key). <strong>The Anchor's 25 % stays with the DAO in v1</strong>: withdrawable by the DelegateController, never on a liveness path. It is <em>not</em> the reward pool: landers and attesters are paid in TAIKO on the L1 ledger from the responsible holder, so no bridge message, relayer or exchange rate sits on a liveness path. A permissionless sweep to an L1 pool is a storage-compatible later option (it must send with a non-zero gas limit and an L1 receiver, because a zero-gas-limit bridge message can only be processed by its destination owner).</p>
+
+<h2 id="params">8. Published constants (TH25)</h2>
+<p><code>protocolParams()</code> on the inbox returns every guest-visible constant: activation time, term length, lookback, landing windows, anchor ages, anchor gas limit, fee split, history-contract address, Anchor and golden-touch addresses, the three metadata slot numbers, header-chain cap, committee size and quorum, view cap, certificate lag, forced-inclusion delay, expiry, run cap and per-landing cap, encoding version, blob data size, blocks per landing and the ZK threshold. <code>protocolParamsHash = keccak(abi.encode(params))</code> is a journal field. Guest, both clients and both contracts read this one source; a mismatch is a liveness failure (no valid proof), never a soundness failure.</p>
+
+<h2 id="clients">9. Client changes</h2>
+<p><strong>Go client:</strong> new Etna bindings beside the Shasta ones (kept for drain and rollback); the anchor constructor; the chain syncer with a <code>Landed</code>-driven pipeline beside the <code>Proposed</code> one, switched on the drain event, plus the receipt rule; the preconfirmation driver rebuilt around terms, views, BLS attestations and range sync (lookahead code deleted); driver state where the head is <code>lastLanded</code>; the proposer becomes a sequencer building from the preconfirmed chain, not the transaction pool; the prover builds <code>land</code> and the journal; RPC methods for the inbox views replace the whitelist reads; every 12-s constant listed in 00 §11. <strong>Rust client:</strong> bindings (delete the lookahead and whitelist bindings); the protocol crate gains Etna anchor, constants and header modules with no slot-derived offsets; the driver's anchor builder, derivation pipeline and sync; the proposer becomes a sequencer; the whitelist preconfirmation driver becomes a term-aware driver. <strong>Outside this repository:</strong> the raiko2 guest (anchor decoding, header-chain witness, receipt rule, extraData and fee checks, the journal), taiko-geth and alethia-reth (fork time, selector pin, receipt-status validity, extraData length unchanged).</p>
+
+<h2 id="interface">10. Interface sketch: the Anchor</h2>
+<pre><code>/// @title IAnchorV5
+/// @notice Etna implementation behind the Anchor proxy 0x1670…10001, upgraded in place; slots 256-257 unchanged.
+/// @custom:security-contact security@taiko.xyz
+interface IAnchorV5 {
+    struct AnchorInput {
+        uint8 kind;                              // 0 NORMAL, 1 FORCED, 2 GENESIS_CHILD
+        ICheckpointStore.Checkpoint checkpoint;  // L1 {blockNumber, blockHash, stateRoot}
+        uint32 termId; uint8 view; uint16 seat;  // view 255 = open-empty / dead mode, 254 = forced
+        uint64 carriedCertHeight; bytes32 carriedCertHash; uint32 carriedCertBitmap;
+        bytes32 vcHash;                          // opening object of this view; non-zero only on its first block
+        uint48 fiCursor;                         // forced-inclusion cursor after this block
+    }
+    struct EtnaMeta { uint32 termId; uint8 view; uint16 seat; uint8 kind; uint32 carriedCertBitmap; uint48 fiCursor; uint64 carriedCertHeight; }
+
+    /// @notice Anchors L1 data and the block's self-description; golden touch only; any revert invalidates the block (A8).
+    function anchorV5(AnchorInput calldata _input) external;
+    /// @notice Legacy entry point; reverts EtnaActive() once block.timestamp >= ETNA_T0.
+    function anchorV4(ICheckpointStore.Checkpoint calldata _checkpoint) external;
+    function termGrid() external view returns (uint48 t0_, uint32 term_);
+    function basefeeSharingPctg() external view returns (uint8 pctg_);
+    function getEtnaMeta() external view returns (EtnaMeta memory meta_, bytes32 carriedCertHash_, bytes32 vcHash_);
+    // existing: getBlockState(), withdraw(address _token, address _to) onlyOwner: unchanged.
+
+    event AnchoredV5(uint48 indexed l1BlockNumber, uint32 indexed termId, uint8 view, uint16 seat, uint8 kind,
+                     bytes32 carriedCertHash, bytes32 vcHash, bytes32 ancestorsHash);
+    error EtnaActive(); error EtnaNotActive(); error AnchorRegression(); error CheckpointConflict(); error TermMismatch();
+    error ViewChangeMismatch(); error ForcedBlockMismatch(); error GenesisMismatch();
+}</code></pre>
+<p>The inbox interface, including the migration functions, is on the <a href="interfaces.html">Interface sketches</a> page. P2P: nothing new; a receiver requires the anchor calldata in the payload's first transaction to equal the signed header's Etna fields, and a mismatch is an invalid message.</p>
+
+<h2 id="machines">11. State machines</h2>
+<pre><code>Inbox lifecycle (one DAO transaction forward, one back):
+[SHASTA] --upgradeToAndCall(initEtna @ U)--> [ARMED: propose ok, prove ok (no whitelist), register ok, land reverts]
+  --t ≥ T0 − FREEZE--> [FROZEN: propose reverts, prove ok]
+  --t ≥ T0 and all proven--> [DRAINED @ drainedAt: land ok from the first term]
+  --t ≥ T0 + DRAIN_DEADLINE and abandonShastaTail()--> [DRAINED (abandoned)]
+  --DAO upgradeTo(shasta) + initRollback; clients ship ROLLBACK_TIME--> [SHASTA'] (unlanded Etna blocks void)
+
+Anchor, per L2 block (any revert is an invalid block by A8):
+tx0 = anchorV5(in) → A1 gate → A2 ring → A3 checkpoint (regression | conflict | save) → A4 term → A5 view ⇔ vcHash → A6 forced → A7 record → status 1</code></pre>
+
+<h2 id="parameters">12. Parameters</h2>
+<table>
+<tr><th>Name</th><th>Unit</th><th>Value</th><th>Rationale</th><th>Too small / too large</th></tr>
+<tr><td>ETNA_T0</td><td>s (L1 timestamp)</td><td>U + MIGRATION_LEAD, DAO-chosen</td><td>term-grid origin and L2 fork time; phase versus slots irrelevant</td><td>clients not upgraded / none</td></tr>
+<tr><td>MIGRATION_LEAD</td><td>s</td><td>604,800</td><td>two execution-client releases plus registrations before term 0</td><td>unupgraded nodes fork, empty registry / launch delayed</td></tr>
+<tr><td>FREEZE</td><td>s</td><td>3600</td><td>≥ 10× minutes-level proving of the last proposals</td><td>drain overruns T0 / longer Shasta halt</td></tr>
+<tr><td>DRAIN_DEADLINE</td><td>s</td><td>86,400</td><td>a day for the whitelisted provers, then R1 stops waiting</td><td>provable proposals voided / long stall if provers vanish</td></tr>
+<tr><td>ANCHOR_GAS_LIMIT</td><td>gas</td><td>1,000,000</td><td>unchanged engine pin; the new rules add under 40k</td><td>anchor out of gas invalidates every block / user gas displaced</td></tr>
+<tr><td>MAX_L1_HEADERS_PER_LANDING</td><td>count (guest)</td><td>4,096</td><td>span ≤ ANCHOR_MAX_AGE + TERM + LAND_WINDOW_MAX + ABANDON_GRACE ≈ 5,760 s = 2,880 headers at 2-s slots, with margin</td><td>valid ranges unprovable / guest cycles</td></tr>
+<tr><td>BASEFEE_SHARING_PCTG</td><td>percent</td><td>75</td><td>today's mainnet value; policy, not design</td><td>DAO revenue versus sequencer incentive</td></tr>
+<tr><td>Term-record ring (aliased slot 254)</td><td>count</td><td>21,600</td><td>must equal the Shasta ring size for aliased keys; 15 days</td><td>mismatch = fresh slots / n.a.</td></tr>
+<tr><td>Anchor appended slots</td><td>slot numbers</td><td>258, 259, 260</td><td>published constants</td><td>—</td></tr>
+<tr><td>ROLLBACK_TIME</td><td>s</td><td>DAO-chosen, ≥ 7 days ahead</td><td>an ordinary L2 fork time</td><td>—</td></tr>
+</table>
+
+<h2 id="attacks">13. Attacks defended and not defended</h2>
+<ul>
+<li><strong>TH17 false or stale checkpoint: defended at landing, bounded before it.</strong> A sequencer anchoring a fake root containing a fake L1 deposit can have its block attested only if ≥ Q attesters skipped V5(d); the range can never land (no header hashes to the fake root, and a real header has a different root); it is replaced and the sequencer penalized. Before landing the poisoned record lives at most about an hour, which is why bridge withdrawals should wait for "landed" and why the unchanged Bridge quota bounds the residual.</li>
+<li><strong>TH4 and W1: defended.</strong> Term, view, seat, carried certificate and view-change hashes sit in the anchor calldata, hence in <code>blockHash</code>, hence under the sequencer's signature; equivocation evidence names them whatever the envelope said.</li>
+<li><strong>TH12 reorg of an anchored block: defended, residual.</strong> A reorg deeper than 48 s invalidates the block identically everywhere; the certified suffix is unlandable and replaced; the holder pays the nuisance-level abandonment penalty for an event it did not cause (accepted; a reduced rate for this case was rejected as a needless case split).</li>
+<li><strong>TH2 prover cartel at migration: defended.</strong> Whitelisted Shasta provers can delay the first Etna landing by at most a day; then anyone voids their unproven tail.</li>
+<li><strong>TH7 across the cut-over: defended.</strong> Queue entries survive with their save time and become due under the new rule.</li>
+<li><strong>TH8 migration griefing: defended.</strong> No Etna rule debits anyone before the drain; the genesis check is an equality against the SignalService; abandonment is gated only by time.</li>
+<li><strong>TH19 DAO inaction: defended.</strong> After the one upgrade transaction nothing needs the DAO; a hostile rollback cannot rewrite landed history without also upgrading the SignalService.</li>
+<li><strong>TH20 image rotation across migration: defended.</strong> Two verifiers coexist and neither path can write the other's checkpoint.</li>
+<li><strong>TH25: defended for this block's constants</strong> through the published parameters; the guest parses L1 headers itself, so an L1 header-format change is a guest release, not an inbox upgrade. Not defended: an L1 fork moving the state-root field index (none scheduled).</li>
+<li><strong>TH21 SignalService pause: unchanged.</strong> <code>saveCheckpoint</code> has no pause gate: a paused SignalService never blocks landing or anchoring; bridging halts, the rollup does not.</li>
+</ul>
+
+<h2 id="failure">14. Failure analysis</h2>
+<ul>
+<li><strong>Sequencers all offline.</strong> No new checkpoints on L2, so L1→L2 messages wait; L2→L1 messages in landed blocks are unaffected; the sequencing page's fallbacks apply. All malicious: stale-but-true anchors bounded by ANCHOR_MAX_AGE; false anchors unlandable, replaced, penalized; they cannot write a surviving bad checkpoint into either SignalService.</li>
+<li><strong>Attesters all offline.</strong> Blocks are sequenced only and unlandable until dead mode; anchors in dead-mode blocks are still L1-bound. All malicious: bounded per TH17; they cannot make a false checkpoint land.</li>
+<li><strong>Landers and provers all offline.</strong> No checkpoints; L2→L1 bridging stalls; L1→L2 continues on the attested chain; after 4.55 h at 2-s slots anchored blocks fall out of the 2935 window and certified ranges become unlandable, which only shortens the replacement path.</li>
+<li><strong>L1 builders.</strong> Can delay landings or reorg an anchored block; cannot forge a checkpoint.</li>
+<li><strong>DAO offline after U.</strong> Etna runs; the 25 % accumulates; no rollback possible (not a liveness need). <strong>Execution-client maintainers.</strong> A missed fork release forks the client set, as for any hard fork; mitigated by the lead time.</li>
+</ul>
+
+<h2 id="fpfn">15. False positives and false negatives</h2>
+<ul>
+<li><strong>Anchor age.</strong> FP: an attester more than 48 s behind L1 holds the block as pending; a sequencer whose L1 node is dead for 30 minutes produces invalid blocks and loses the view (no slash beyond the absence penalty). FN: anchoring at exactly 30 minutes each block keeps L1→L2 latency at the bound without penalty.</li>
+<li><strong>Reorged anchored block.</strong> FP: an honest holder's range is replaced after a deep reorg and it pays the abandonment penalty. FN: none.</li>
+<li><strong>Checkpoint conflict (A3).</strong> FP: none on the canonical chain. <strong>Receipt rule (A8).</strong> FP: none; it closes today's silent-gap FN.</li>
+<li><strong>Drain deadline.</strong> FP: a proposal that would be proven at hour 25 is voided; no bond at stake. <strong>Genesis and first term.</strong> None: both are L1 storage.</li>
+</ul>
+
+<h2 id="robustness">16. Robustness</h2>
+<p><strong>6/4/2-s slots:</strong> no rule counts slots; the only block-denominated bounds are L1-given (<code>blockhash</code> 256, EIP-2935 8191) and shrink to 512 s and 16,382 s at 2 s; the worst anchor age keeps a 2.8× margin; the guest's header chain grows to about 2,880 headers, under the cap; <code>blockhash</code> alone fails below 12-s slots, so the 2935 path is the common one. <strong>Without Frame Transactions:</strong> nothing here depends on EIP-8141. <strong>ePBS Empty slots:</strong> execution block numbers stay contiguous; no gaps in <code>blockhash</code> or the 2935 ring; canonical-at-N+1 is why ANCHOR_MIN_AGE is 48 s rather than one block. <strong>EIP-4788:</strong> not consumed.</p>
+
+<h2 id="claims">17. Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> No checkpoint reaches the L1 SignalService without a verified proof whose journal commits to the end height, hash and state root.</li>
+<li><span class="tag proven">proven</span> (given T3 and EIP-2935 semantics) Every L1 checkpoint written by a block of a landed range is the hash and post-state root of an L1 block canonical at landing time.</li>
+<li><span class="tag proven">proven</span> A block whose anchor reverts is in no landed range, so A1 to A7 are consensus rules.</li>
+<li><span class="tag proven">proven</span> No SignalService, Bridge or Vault bytecode or storage changes.</li>
+<li><span class="tag proven">proven</span> by layout: Inbox and Anchor slots 251-257 keep their declared types; additions lie inside the gaps.</li>
+<li><span class="tag proven">proven</span> No interval exists in which Shasta <code>prove</code> and Etna <code>land</code> can both write a checkpoint.</li>
+<li><span class="tag proven">proven</span> The migration needs exactly one DAO transaction per chain and no later admin action.</li>
+<li><span class="tag proven">proven</span> Rollback needs no storage migration beyond the core-state fields and one ring slot.</li>
+<li><span class="tag assumed">assumed</span> Aliased term-record keys are already non-zero on mainnet (an archive read resolves it; if false, only first-lap writes cost fresh-slot gas).</li>
+<li><span class="tag assumed">assumed</span> Both execution engines implement the base-fee split exactly as taiko-geth; alethia-reth's executor was not read.</li>
+<li><span class="tag assumed">assumed</span> EIP-2935's address and 32-byte return convention stay as deployed; a change is an inbox upgrade with an overlap window.</li>
+<li><span class="tag open">open</span> Whether an EIP-8037-style L2 gas rule would make the per-block fresh <code>blockHashes[parent]</code> slot too expensive; a 256-entry ring in the gap is a storage-compatible follow-up.</li>
+<li><span class="tag open">open</span> Measured gas of the checkpoint read and the 2935 tip check under EIP-7709 repricing.</li>
+</ol>
+
+<h2 id="rejected">18. Alternatives rejected</h2>
+<ul>
+<li>Keeping <code>anchorV4</code> (the header needs the certificate hashes inside blockHash); freshness relative to a seal; a minimum anchor depth in L1 blocks (4 s at 2-s slots); a permissionless genesis-ready flag (replaced by a fixed T0 and the drain-derived first term); an inbox-recorded L1-hash log fed by landings (covers only blocks some transaction touched, and a dead pipeline is exactly when nobody does); a void rule for legacy forced inclusions; retiring the blob request entry point; the Anchor share as the reward pool (a bridge hop and a relayer near liveness economics, and the proposed sweep could not be relayed as written); a sequencer field or coinbase binding in the anchor; a batch id in the anchor; a hard drain that voids provable proposals; sequencing from T0 on the unfinalized tail; proof verification before the writes; a block-denominated maximum anchor age; certificate or rights verification inside the L2 Anchor (100k+ gas per block and coupling block production to fresh L1 state); a reduced reorg slash rate; an objective attester slash for certifying an L1-rejected anchor (a deep reorg would make honest attesters guilty); a one-day migration lead; a new inbox address with a SignalService bump (fallback only); anchoring through EIP-4788 roots.</li>
+</ul>
+
+<h2 id="open-questions">19. Open questions</h2>
+<ol>
+<li>Is a scheduled pause of about one hour (plus any drain overrun, at most a day) acceptable at cut-over, or should sequencing start at T0 on the proposed tail at the cost of a drain-time exception to the parent rule?</li>
+<li>Confirm the DelegateController can execute the Anchor upgrade from one bridged action and that the L2 upgrade lands and finalizes before T0; the L2 fork time and T0 must be identical.</li>
+<li>Keep the 75 % split, or move to 100 % and delete the treasury path? One constant either way; a governance decision.</li>
+<li>Confirm alethia-reth mirrors taiko-geth's four anchor pins, the 7-byte extraData check and the fee split before the execution-client change list is called complete.</li>
+<li>Should the first term add one full term of margin after the drain so a term never starts with a partial first minute?</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

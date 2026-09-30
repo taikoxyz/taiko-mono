@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna roles</title>
+<meta name="description" content="Every role in Etna with its entry and exit conditions, duties, rewards, slashing conditions and failure analysis: sequencer, attester, lander and prover, challenger, forced-inclusion requester, node operator, DAO.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html" class="here">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Roles</h1>
+<p class="lead">Etna has two bonded roles that share one registration (sequencer and attester), three unbonded roles anyone plays with no registration (lander/prover, challenger, forced-inclusion requester), the passive node operator, and the DAO, whose only power is upgrading code. No role is admitted, removed or paused by anyone in day-to-day operation (R1).</p>
+
+<figure>
+<svg viewBox="0 0 720 260" role="img" aria-label="Role map: owner registers seats and keys on L1 and becomes sequencer and attester; landers and provers, challengers and forced-inclusion requesters interact with the inbox without registration; the DAO only upgrades">
+<rect x="20" y="20" width="200" height="60" class="svg-box-accent"/><text x="30" y="42" class="svg-note">Owner (bonded)</text><text x="30" y="60" class="svg-muted">seats × B_SEAT on L1</text>
+<rect x="20" y="110" width="95" height="40" class="svg-box"/><text x="26" y="134" class="svg-note">sequencer</text>
+<rect x="125" y="110" width="95" height="40" class="svg-box"/><text x="131" y="134" class="svg-note">attester</text>
+<line x1="70" y1="80" x2="67" y2="110" class="svg-line-accent"/><line x1="170" y1="80" x2="172" y2="110" class="svg-line-accent"/>
+<rect x="260" y="20" width="200" height="60" class="svg-box"/><text x="270" y="42" class="svg-note">Unbonded (anyone)</text><text x="270" y="60" class="svg-muted">no registration</text>
+<rect x="260" y="110" width="62" height="40" class="svg-box"/><text x="264" y="134" class="svg-muted">lander</text>
+<rect x="328" y="110" width="66" height="40" class="svg-box"/><text x="332" y="134" class="svg-muted">challenger</text>
+<rect x="400" y="110" width="60" height="40" class="svg-box"/><text x="404" y="134" class="svg-muted">FI user</text>
+<rect x="500" y="20" width="200" height="60" class="svg-box"/><text x="510" y="42" class="svg-note">DAO</text><text x="510" y="60" class="svg-muted">upgrades only; never on a liveness path</text>
+<rect x="500" y="110" width="200" height="40" class="svg-box"/><text x="510" y="134" class="svg-note">node operator (passive)</text>
+<rect x="20" y="180" width="680" height="60" class="svg-box-accent"/>
+<text x="30" y="202" class="svg-note">L1 Inbox proxy (unchanged address): registry, landing, bond ledger, slashing, forced-inclusion queue</text>
+<text x="30" y="222" class="svg-muted">L2 Anchor proxy (unchanged address): anchorV5 · L1 and L2 SignalService, Bridge, Vaults: untouched</text>
+</svg>
+<figcaption>One registration makes an owner both sequencer and attester; every other role needs only an L1 transaction.</figcaption>
+</figure>
+
+<h2 id="sequencer">1. Sequencer (bonded)</h2>
+<table>
+<tr><th>Aspect</th><th>Rule</th></tr>
+<tr><td>Entry</td><td><code>registerKeys</code> (a code-less secp256k1 sequencer key, a BLS attester key with proof of possession) then <code>register(seats[])</code> with bond ≥ seats × B_SEAT (20,000 TAIKO per seat, at most 8 seats per address). Effective two hours later (DELAY_REG). Cost: bond plus about two fresh storage slots per first seat under EIP-8037. No admission decision exists.</td></tr>
+<tr><td>Exit</td><td><code>requestExit</code> (all seats), effective two hours later; <code>finalizeExit</code> and full withdrawal seven days after the last seat's <code>activeUntil</code> and after the last key's retirement (the evidence window). Partial withdrawal of any excess over 105 % of the floor at any time.</td></tr>
+<tr><td>Rights</td><td>Primary holder of a term with probability seats/A, backup with the same weighting; computed 20 to 80 minutes ahead by every node (<a href="sequencing.html">Sequencing rights</a>).</td></tr>
+<tr><td>Duties</td><td>Produce one block per second during its view; carry the newest certificate (lag ≤ 1) or the opening view change; gossip the full payload; hold when more than two blocks are uncertified; stop at a later view change or at term end; serve range requests; get every certified block of its view landed by <code>termEnd + LAND_WINDOW</code> (30 min), landing itself if no one else does.</td></tr>
+<tr><td>Rewards</td><td>L2: coinbase share of base fees (75 %), priority fees and ordering value, as today. L1: forced-inclusion fees of consumed entries (pull ledger). Self-landing costs only L1 gas.</td></tr>
+<tr><td>Slashing</td><td>S1 block equivocation (whole ledger); S6 naming an invalid certificate or view change (one seat); S7 availability default as leader of a private certificate (one seat); S8 key acquires code (whole ledger); S4a certified view not landed by the hard deadline while other landings happened (2,000 TAIKO, no strike); absence proven by a timeout view change (50 TAIKO burned and a strike; three strikes a week suspend).</td></tr>
+<tr><td>All offline</td><td>Each view times out after 5 s; after four takeovers the term idles; certified absences strike and suspend; terms become open-empty (any bonded address); if nothing lands for 75 terms, dead mode lets any bonded address land from the last landed head. No DAO action.</td></tr>
+<tr><td>All malicious</td><td>Cannot finalize invalid state (ZK), land uncertified data (certificate check), skip due forced inclusions (landing reverts, forced batch bypasses them), block a registration, or hide equivocation. Withholding is worthless; coordinated non-landing costs the ramp and the abandonment penalty; an honest entrant gets its share two hours later.</td></tr>
+</table>
+
+<h2 id="attester">2. Attester (bonded; the same registration)</h2>
+<table>
+<tr><th>Aspect</th><th>Rule</th></tr>
+<tr><td>Entry and exit</td><td>As the sequencer; every registered seat is eligible for the per-term committee of 32 seats drawn by the cycle seed, excluding the term's holders.</td></tr>
+<tr><td>Duties</td><td>Execute every valid block of the current view through the engine, verify the produced hash equals the signed one, attest with a BLS signature over the header hash, one attestation per (term, view, height); sign timeouts after 5 s of silence or at term end; sign view changes only at locks it holds; serve <code>blocks_by_range</code> for two hours; keep a slashing-protection record of the last signed header, attestation and timeout.</td></tr>
+<tr><td>Rewards</td><td>A fixed 6 TAIKO per landing, debited from the landed term's holder, split equally among the end certificate's signers. Not signing earns nothing.</td></tr>
+<tr><td>Slashing</td><td>S3a attestation equivocation or a certificate pair (whole ledger, ≥ 12 keys per conflicting pair); S3b lock lie (whole ledger); S3c timeout equivocation (whole ledger); S6 attesting a header whose named certificate is invalid (one seat); S7 signing a certificate over data never made available (one seat). Silence is never slashed.</td></tr>
+<tr><td>All offline</td><td>No certificates, no view changes: the leader produces at most two blocks and holds; at term end plus 12 s the next committee signs a fallback view change; the chain fails closed at the preconfirmation layer with only "sequenced" and "landed" levels; after 75 unlanded terms dead mode lets a bonded party land without certificates. Nobody is slashed for a committee-wide outage.</td></tr>
+<tr><td>All malicious (≥ Q)</td><td>Can certify data only they hold (a 30-minute stall, 23 seats under S7), refuse to attest (liveness only, one term), sign early timeouts (cost 0, one view), or revert a locked block (12 provable slashings). Cannot land beyond a lock, forge a proof, or touch a term with an honest committee.</td></tr>
+</table>
+
+<h2 id="lander">3. Lander and prover (anyone)</h2>
+<table>
+<tr><th>Aspect</th><th>Rule</th></tr>
+<tr><td>Entry and exit</td><td>None. Any address with the certified data (served by any committee member or RPC node) and access to two ZK proving systems can prove; any address can land with a proof it holds, its own or one received on the proofs topic. Proofs are fungible because the blob bytes are a pure function of the certified chain.</td></tr>
+<tr><td>Duties</td><td>None enforced. Economic pull only.</td></tr>
+<tr><td>Rewards</td><td>Per landed block, a Dutch ramp from 0.5 TAIKO at term end to 4 TAIKO at term end + 30 min, debited from the term holder's locked bond and credited on the L1 ledger in the same transaction; plus 40 % of any abandonment penalty escrowed since the previous landing; plus forced-inclusion fees when landing a forced batch.</td></tr>
+<tr><td>Slashing</td><td>None. A wrong or stale landing reverts; with Frame Transactions it is invalid and free, without them it costs about 25k gas plus a blob fee.</td></tr>
+<tr><td>All offline</td><td>The sequencer lands its own blocks; if it cannot, ranges stay certified and un-voided and the ramp waits for the first returning prover. Nothing is voided or penalized while no landing happens (outage gate).</td></tr>
+<tr><td>All malicious</td><td>Can only decline or race; no lander is trusted and no proof names one.</td></tr>
+</table>
+
+<h2 id="challenger">4. Challenger (anyone)</h2>
+<table>
+<tr><th>Aspect</th><th>Rule</th></tr>
+<tr><td>Entry</td><td>None; no bond.</td></tr>
+<tr><td>Duties</td><td>None enforced; every gossiped object is self-contained evidence.</td></tr>
+<tr><td>Rewards</td><td>10 % of the debit, capped at 2,000 TAIKO, credited on the L1 ledger; withdrawable immediately for addresses with no seats.</td></tr>
+<tr><td>Slashing</td><td>None; false accusations are impossible by construction, so no bond is needed.</td></tr>
+<tr><td>All offline</td><td>Absence penalties, settlement and rewards are applied on the landing path, so liveness needs no challenger; equivocation deterrence is delayed, not lost (7-day windows). Since locked-block safety is a deterrent, a challenger-free week is a real degradation (open question on the certificate page).</td></tr>
+<tr><td>All malicious</td><td>Can only submit valid evidence or withhold it.</td></tr>
+</table>
+
+<h2 id="fi">5. Forced-inclusion requester (anyone)</h2>
+<table>
+<tr><th>Aspect</th><th>Rule</th></tr>
+<tr><td>Entry</td><td>Post one blob (or a small calldata shape, FOCIL-eligible) with the fee; see <a href="forced-inclusion.html">Forced inclusion</a>.</td></tr>
+<tr><td>Guarantee</td><td>Inclusion at a bounded L1 time after the request becomes due; escalation to a permissionless forced batch when sequencers ignore it; void with refund after seven days if nothing lands (replacing today's owner-only queue reset).</td></tr>
+<tr><td>Cost</td><td>The queue fee, doubling with backlog; refunded on void.</td></tr>
+</table>
+
+<h2 id="node">6. Node operator (passive)</h2>
+<p>Runs the derivation and preconfirmation client with an L1 view. Validates every block by V1 to V6, follows certificates and view changes, labels confirmations sequenced / attested / locked / landed / final, serves range requests as a duty of RPC nodes, and derives from L1 blobs when behind. Has no validity role; a bad L1 view yields <em>pending</em>, a bad clock only mis-times signing. Not slashable.</p>
+
+<h2 id="dao">7. DAO (upgrades only)</h2>
+<p>Can upgrade the Inbox and Anchor implementations, rotate ZK image ids (with a two-hour overlap or an emergency zero), add a third ZK system, change constants by upgrade. Cannot admit or remove any participant, pause landing or block production, void the forced-inclusion queue, or touch bonds. If the DAO never acts again: image windows stay open-ended, single-proof mode and replacement keep the chain moving unless every ZK system is broken, parameters freeze. <span class="tag proven">proven</span> by construction: no function on any liveness path is owner-gated.</p>
+
+<h2 id="lifecycles">8. Role lifecycles</h2>
+<pre><code>Owner:   UNREGISTERED --registerKeys, register(seats)--> PENDING(2 h) --> ACTIVE --requestExit--> EXITING(2 h) --> EXPIRED --7 d--> WITHDRAWABLE
+         ACTIVE --3 strikes--> SUSPENDED(3 h, doubling) --> ACTIVE ; ACTIVE --class A evidence--> SLASHED (exit only)
+Term:    SCHEDULED (known 20 min ahead) --termStart--> VIEW 0 --timeout VC--> VIEW 1..4 --term end VC--> next term
+Block:   SEQUENCED (0.3 s) --Q attestations--> ATTESTED (0.7 s) --carried by a certified block--> LOCKED (1.7 s) --land--> LANDED (minutes) --> FINAL
+Lander:  IDLE --certificate seen, reward ≥ cost--> PROVE --> SUBMIT --Landed(me)--> PAID ; --Landed(other) or expiry--> IDLE (free)</code></pre>
+
+<h2 id="claims">9. Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> No role has an admission, removal or pause gate; the DAO's only lever is code.</li>
+<li><span class="tag proven">proven</span> Every bonded duty has an objective slashing condition or is deliberately unslashable (silence), and every unbonded role is safe to leave to anyone because it can only decline or race.</li>
+<li><span class="tag assumed">assumed</span> Reward magnitudes (ramp, attester share, challenger cap) rest on an assumed per-term revenue of about 0.01 ETH; measurement is open item G8.</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

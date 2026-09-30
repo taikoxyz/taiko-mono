@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna glossary</title>
+<meta name="description" content="Canonical names for every Etna object, role, level and mode, with the names they replace.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html" class="here">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Glossary</h1>
+<p class="lead">Canonical names used across the design. Where the source syntheses used different words for one thing, the alias is listed so the notes remain readable.</p>
+<table>
+<tr><th>Term</th><th>Meaning</th><th>Aliases avoided</th></tr>
+<tr><td><strong>Term</strong></td><td>A 60-second sequencing interval on the grid <code>termStart(t) = T0 + 60t</code>. All rights and committees are per term.</td><td>epoch, slot</td></tr>
+<tr><td><strong>Cycle</strong></td><td>60 terms; the unit for which one randomness seed is fixed.</td><td></td></tr>
+<tr><td><strong>View</strong></td><td>The position within a term after <em>v</em> takeovers: view 0 is the primary holder, view 1 to 4 the backups. Sentinels: 254 forced batch, 255 open-empty, dead mode and no-committee mode.</td><td>rank</td></tr>
+<tr><td><strong>Holder / leader</strong></td><td>The owner entitled to sequence in (term, view); "leader(t, v)" and "holder(t, v)" are the same function.</td><td>operator, preconfer, proposer</td></tr>
+<tr><td><strong>Owner</strong></td><td>The registered identity that holds seats and bond; the slashable party. May be a contract.</td><td></td></tr>
+<tr><td><strong>Seat</strong></td><td>One unit of bond (B_SEAT) and one registry slot; the unit of sortition weight and of committee sampling.</td><td></td></tr>
+<tr><td><strong>Sequencer key / attester key</strong></td><td>The owner's code-less secp256k1 key that signs headers, and its BLS12-381 key that signs attestations, timeouts and view changes.</td><td></td></tr>
+<tr><td><strong>Snapshot S(t)</strong></td><td>The highest L1 block with timestamp ≤ termStart(t) − LOOKBACK; the L1 state from which term <em>t</em> is computed.</td><td></td></tr>
+<tr><td><strong>Rule D</strong></td><td>Every registry write takes effect only after a delay ≥ LOOKBACK + 2·TERM, so the snapshot equals the landing-time state.</td><td>future-dated effect</td></tr>
+<tr><td><strong>Seed</strong></td><td>The per-cycle randomness derived from an accumulator of <code>block.prevrandao</code> values mixed by inbox transactions.</td><td></td></tr>
+<tr><td><strong>Hash walk</strong></td><td>The deterministic sequence of seat indices <code>keccak(seed ‖ t ‖ k) mod L</code> from which holders and committees are drawn.</td><td>sortition</td></tr>
+<tr><td><strong>Committee</strong></td><td>The 32 seats drawn per term (excluding the term's holders) whose attestations certify blocks; quorum Q = 22.</td><td>attester set</td></tr>
+<tr><td><strong>Signed header (PH)</strong></td><td>The sequencer-signed header of a block; <code>phHash</code> is its hash and the object attestations sign.</td><td>envelope hash</td></tr>
+<tr><td><strong>Attestation</strong></td><td>One attester's BLS signature over (term, view, height, phHash).</td><td></td></tr>
+<tr><td><strong>Certificate C(h)</strong></td><td>An aggregate of ≥ Q attestations over one block; about 100 bytes; carried by the block one or two heights above.</td><td>quorum cert</td></tr>
+<tr><td><strong>Carried certificate</strong></td><td>The certificate a block includes for its parent or grandparent (lag ≤ 1).</td><td>parent certificate</td></tr>
+<tr><td><strong>Lock</strong></td><td>An attester's highest certified block whose chain it holds; monotone within a term; reset only by a landed replacement or forced batch.</td><td>cursor</td></tr>
+<tr><td><strong>Timeout</strong></td><td>An attester's signed statement that no new certificate appeared in (t, v) for TIMEOUT seconds, or that the term ended, carrying its lock.</td><td>TO</td></tr>
+<tr><td><strong>View change VC(t, v)</strong></td><td>Q timeouts aggregated over one lock; closes view v, opens the next, and <strong>is the seal</strong> of the view's batch. Kinds: TIMEOUT, TERM_END, FALLBACK, REPLACE, RESUME.</td><td>takeover certificate, TC, timeout certificate, seal</td></tr>
+<tr><td><strong>Opening object</strong></td><td>What a view's first block carries in <code>vcHash</code>: a view change, a dead-mode marker, or a forced marker.</td><td></td></tr>
+<tr><td><strong>Range</strong></td><td>A contiguous run of certified blocks inside one view that a landing covers; lander-chosen, at most 256 blocks and 6 blobs.</td><td>batch, segment</td></tr>
+<tr><td><strong>Landing</strong></td><td>The single L1 action <code>land</code> that carries a range's blobs and ZK proof and finalizes it; the propose-with-proof primitive.</td><td>propose, prove, batch submission</td></tr>
+<tr><td><strong>Journal</strong></td><td>The ZK proof's public input structure; its hash is what the verifier checks.</td><td>commitment, public input</td></tr>
+<tr><td><strong>Canonical blob encoding (E1)</strong></td><td>The deterministic byte layout of a range's blobs, a pure function of the certified blocks, making proofs fungible.</td><td></td></tr>
+<tr><td><strong>Lander / prover</strong></td><td>Anyone who submits a landing; anyone who produces a proof. No registration.</td><td>proposer, designated prover</td></tr>
+<tr><td><strong>Reward ramp</strong></td><td>The per-block lander reward rising linearly from R_BLK_MIN at term end to R_BLK_MAX after LAND_WINDOW; a Dutch auction with the holder as reserve bidder.</td><td></td></tr>
+<tr><td><strong>Deadline</strong></td><td><code>termEnd + LAND_WINDOW</code>, the economic deadline; <code>DEADLINE_HARD = termEnd + LAND_WINDOW_MAX</code>, the evidence deadline for abandonment.</td><td>proving window</td></tr>
+<tr><td><strong>Replacement</strong></td><td>A landing accepted after <code>replaceableFrom</code> that starts a new view from the last landed block, voiding certified but unlanded descendants.</td><td>abandonment</td></tr>
+<tr><td><strong>Abandonment (S4a)</strong></td><td>The penalty for a certified view not landed by the hard deadline while other landings happened (the outage gate).</td><td>liveness slash</td></tr>
+<tr><td><strong>Outage gate</strong></td><td>The rule that abandonment and availability penalties need a landing within the previous hour, so a chain-wide outage slashes nobody.</td><td></td></tr>
+<tr><td><strong>Single-proof mode</strong></td><td>After two hours without a landing, one ZK system suffices for certified ranges until the next landing.</td><td>degraded mode</td></tr>
+<tr><td><strong>Open-empty term</strong></td><td>A term in which the walk finds no eligible seat; any bonded address may sequence with view 255.</td><td>open term</td></tr>
+<tr><td><strong>Dead mode</strong></td><td>After 75 unlanded terms, any bonded address may sequence from the last landed block and land without a certificate; first landing wins.</td><td></td></tr>
+<tr><td><strong>No-committee mode</strong></td><td>While fewer than four attester seats are eligible: sortition holders, no certificates, certificate-free landings, sequenced level only.</td><td>committee-degraded mode</td></tr>
+<tr><td><strong>Forced inclusion (FI)</strong></td><td>A user request (blob or calldata) that must occupy one L2 block once due at an anchored L1 time.</td><td></td></tr>
+<tr><td><strong>Forced batch</strong></td><td>A certificate-free landing of exactly the due FI entries by anyone, with view 254, once replacement is permitted.</td><td>permissionless batch</td></tr>
+<tr><td><strong>Cursor</strong></td><td>Per block, the index of the next unconsumed FI entry; carried in the anchor calldata.</td><td>fiIndex</td></tr>
+<tr><td><strong>Anchor (anchorV5)</strong></td><td>The golden-touch first transaction of every block carrying the L1 checkpoint and the block's self-description.</td><td></td></tr>
+<tr><td><strong>Checkpoint</strong></td><td>{blockNumber, blockHash, stateRoot} of the other chain, written into a SignalService by its authorized syncer (unchanged interface).</td><td></td></tr>
+<tr><td><strong>Anchor tip</strong></td><td>The newest L1 block a landing's range anchors; the inbox checks it against <code>blockhash</code> or EIP-2935 and the guest chains every anchored header to it.</td><td>origin block</td></tr>
+<tr><td><strong>Confirmation levels</strong></td><td>sequenced (signed, ~0.3 s) → attested (certificate, ~0.7 s) → locked (certificate carried, ~1.7 s) → landed (on L1 with proof) → L1-safe (one L1 descendant) → final (L1-finalized).</td><td>safe, unsafe, finalized</td></tr>
+<tr><td><strong>Availability escalation (S7)</strong></td><td><code>demandData</code> on a certificate; answered only by a landing within 30 minutes, else every signer and the leader lose a seat and the certificate is voided.</td><td>data request game</td></tr>
+<tr><td><strong>Strike</strong></td><td>One unit of the performance ladder; three strikes in a week suspend an owner; coalesced per 600 s.</td><td>decay</td></tr>
+<tr><td><strong>Class A / B / C offence</strong></td><td>Safety (whole ledger), structural (one seat), liveness (small, burned).</td><td></td></tr>
+<tr><td><strong>Gate contract (G_LAND)</strong></td><td>The shared-nonce Frame-Transaction sender for the public-mempool landing shape; deployed only once EIP-8141 is Final.</td><td></td></tr>
+<tr><td><strong>Trailing status VERIFY (A7)</strong></td><td>The Frame-Transaction shape in which a frame after the action checks its success, making any reverting landing invalid and free.</td><td></td></tr>
+<tr><td><strong>Golden touch</strong></td><td>The public-key system account that signs every anchor transaction with a fixed nonce, as today.</td><td></td></tr>
+<tr><td><strong>Published constants</strong></td><td><code>protocolParams()</code> and its hash, the single source of every guest-visible constant (TH25).</td><td></td></tr>
+</table>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

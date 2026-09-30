@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna interface sketches</title>
+<meta name="description" content="Consolidated interface sketches for the upgraded L1 Inbox, the L2 Anchor, and the untouched shared contracts, with storage-layout notes; sketches only, no implementation.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html" class="here">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Interface sketches</h1>
+<p class="lead">One consolidated view of every function, struct and event the design names, following the repository's conventions (named imports, underscore-prefixed parameters, underscore-suffixed returns, errors at the end of implementation files, NatSpec on interfaces). These are sketches inside a design document, not implementations. Per-block pages hold the rationale; this page holds the union.</p>
+
+<h2 id="inbox">1. L1: <code>IEtnaInbox</code> (implementation behind the existing Inbox proxy)</h2>
+<pre><code>// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+
+/// @title IEtnaInbox
+/// @notice Implementation behind the Inbox proxy 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f. Storage after the
+///         43-slot gap; logic in linked libraries LibSequencerRegistry, LibSlashing, LibEtnaCert, LibForcedInclusion.
+/// @custom:security-contact security@taiko.xyz
+interface IEtnaInbox {
+    // ------------------------------------------------------------------ structs
+    struct Seat       { address owner; uint32 activeFrom; uint32 activeUntil; }
+    struct Operator   { uint16 seatCount; uint8 strikes; uint32 lastStrikeAt; uint32 exitAt;
+                        uint32 s1; uint32 e1; uint32 s2; uint32 e2; uint48 slashedAt; bytes32 seqKeyHash; bytes32 attKeyHash; }
+    struct Holders    { address[5] owners; uint16[5] seats; uint8 count; uint8 mode; } // 0 SORTITION 1 OPEN_EMPTY 2 DEAD 3 NO_COMMITTEE
+    struct Certificate{ uint32 termId; uint8 view; uint64 height; bytes32 phHash; uint32 bitmap; bytes aggSig; }
+    struct ViewChange { uint32 termId; uint8 view; uint8 kind; uint32 signerTerm; uint64 lockHeight; bytes32 lockPhHash;
+                        uint32 bitmap; bytes aggSig; }                    // kind: TIMEOUT TERM_END FALLBACK REPLACE RESUME
+    struct Attestation{ uint32 termId; uint8 view; uint64 height; bytes32 phHash; uint8 attesterIdx; bytes sig; }
+    struct TimeoutMsg { uint32 termId; uint8 view; uint8 kind; uint64 lockHeight; bytes32 lockPhHash; uint8 attesterIdx; bytes sig; }
+    struct SignedObject  { uint8 kind; bytes body; bytes sig; }           // 0 HEADER (SSZ SignedHeader)
+    struct CommitteeProof{ bytes32[32] keyHashes; bytes[] pubkeys; uint32 pubkeyBitmap; }
+    struct RewardBoost{ uint32 termId; uint64 minRewardPerBlockGwei; bytes seqSig; }
+    struct Replace    { uint48 l1RefNumber; bytes32 l1RefHash; }
+    struct LandInput {
+        uint64 firstHeight; uint64 endHeight; bytes32 parentBlockHash; bytes32 endBlockHash; bytes32 endStateRoot; bytes32 endPhHash;
+        uint32 termId; uint8 view; address sequencer; Certificate endCert; ViewChange[] viewChanges; bytes32[] blobHashes;
+        uint48 l1AnchorTipNumber; bytes32 l1AnchorTipHash; uint48 l1AnchorTipTimestamp;
+        uint48 fiHeadBefore; uint48 fiHeadAfter; RewardBoost[] boosts; Replace replace; uint48 deadline;
+        address rewardTo; bytes proof; }
+    struct LastLanded { uint64 height; bytes32 blockHash; bytes32 stateRoot; bytes32 phHash; uint32 termId; uint8 view;
+                        uint48 at; uint48 anchorTipNumber; uint48 anchorTipTimestamp; }
+    struct TermRecord { uint64 landedThrough; uint8 lastView; uint8 abandonedBits; uint8 missBits; uint48 landedAt; uint8 flags; }
+    struct EtnaConfig { uint48 t0; uint32 term; uint32 freeze; uint32 drainDeadline; uint48 drainedAt; bool abandoned; }
+    struct ProtocolParams { /* every guest-visible constant; see the Anchor page §8 */ }
+    enum   FiKind { BLOB, CALLDATA }
+    struct FiEntry    { bytes32 dataHash; uint48 savedAt; uint96 feeWei; FiKind kind; uint24 offset; }
+
+    // ------------------------------------------------------------------ migration
+    function initEtna(uint48 _t0, uint48 _lastFinalizedBlockNumber) external;      // reinitializer(4), in the upgrade tx
+    function abandonShastaTail() external;                                          // anyone, after t0 + DRAIN_DEADLINE
+    function propose(bytes calldata _lookahead, bytes calldata _data) external;     // retained; reverts from t0 − FREEZE
+    function prove(bytes calldata _data, bytes calldata _proof) external;           // retained; no whitelist; reverts once drained
+    function shastaDrained() external view returns (bool drained_, uint48 drainedAt_);
+    function firstEtnaTerm() external view returns (uint32 term_);
+    function etnaConfig() external view returns (EtnaConfig memory config_);
+    function protocolParams() external view returns (ProtocolParams memory params_);
+    function protocolParamsHash() external view returns (bytes32 hash_);
+
+    // ------------------------------------------------------------------ registry, rights, randomness
+    function registerKeys(address _seqKey, bytes calldata _blsPubkey, bytes calldata _pop) external;
+    function rotateKey(uint8 _kind, bytes calldata _newKey, bytes calldata _pop) external;   // effective τ + DELAY_REG
+    function register(uint16[] calldata _seats) external;
+    function requestExit(uint16[] calldata _seats) external;
+    function finalizeExit(uint16[] calldata _seats) external;
+    function reactivate() external;
+    function poke() external;                                                        // mixes block.prevrandao once per L1 block
+    function recordAssignment(uint32 _term) external;                                // pins digest + committee root, ≤ termStart + ROLE_HORIZON
+    function termOf(uint48 _time) external pure returns (uint32 term_);
+    function termStart(uint32 _term) external pure returns (uint48 start_);
+    function sequencerAt(uint48 _time, uint8 _view) external view returns (uint32 term_, address holder_, uint16 seat_, uint8 mode_);
+    function holderOf(uint32 _term, uint8 _view) external view returns (address holder_, uint16 seat_, bool void_);
+    function holdersOf(uint32 _term) external view returns (Holders memory h_);
+    function isHolder(uint32 _term, uint8 _view, address _who) external view returns (bool ok_);
+    function isOpenTerm(uint32 _term) external view returns (bool openEmpty_, bool deadMode_, bool noCommittee_);
+    function committeeOf(uint32 _term) external view returns (uint16[32] memory seats_, address[32] memory owners_, bytes32[32] memory attKeyHashes_);
+    function committeeRoot(uint32 _term) external view returns (bytes32 root_);
+    function seedOf(uint32 _cycle) external view returns (bytes32 seed_, bool fresh_, bool fixed_);
+    function seedAccumulator() external view returns (bytes32 acc_, uint48 lastMixBlock_, uint48 lastMixTime_);
+    function assignmentDigest(uint32 _term) external view returns (bytes32 digest_);
+    function keyOwnerAt(bytes32 _keyId, uint32 _term) external view returns (address owner_, bool valid_);
+
+    // ------------------------------------------------------------------ landing
+    function land(LandInput calldata _in) external;                                 // anyone; forced batch = view 254
+    function landFor(address _rewardTo, LandInput calldata _in) external;           // msg.sender == G_LAND (0 = disabled)
+    function recordViewChange(ViewChange calldata _vc) external;                    // anyone; first per (termId, view) wins
+    function demandData(Certificate calldata _cert) external payable;               // msg.value == DEMAND_FEE
+    function lastLanded() external view returns (LastLanded memory head_);
+    function lastLandedTerm() external view returns (uint32 term_);
+    function termRecord(uint32 _term) external view returns (TermRecord memory record_);
+    function replaceableFrom() external view returns (uint48 at_);
+    function rewardPerBlock(uint32 _term, uint48 _at) external view returns (uint64 gwei_);
+
+    // ------------------------------------------------------------------ slashing (evidence only; no accusation object)
+    function slashSequencerEquivocation(SignedObject calldata _a, SignedObject calldata _b) external;                     // S1
+    function slashAttesterEquivocation(Attestation calldata _a, Attestation calldata _b, bytes calldata _pubkey) external;// S3a
+    function slashCertificatePair(Certificate calldata _a, Certificate calldata _b, CommitteeProof calldata _cp) external;// S3a pair
+    function slashLockLie(TimeoutMsg calldata _to, SignedObject calldata _hdr, Attestation calldata _att, bytes calldata _pubkey) external; // S3b
+    function slashViewChangeEquivocation(TimeoutMsg calldata _a, TimeoutMsg calldata _b, bytes calldata _pubkey) external;// S3c
+    function reportAbandoned(uint32 _term, uint8 _view, bytes calldata _vcOrCert, CommitteeProof calldata _cp, uint32 _landedTermRef) external; // S4a
+    function slashInvalidNamedObject(SignedObject calldata _hdr, bytes calldata _preimage, SignedObject calldata _parent,
+                                     Attestation calldata _att, Certificate calldata _cert, bytes calldata _pubkey, CommitteeProof calldata _cp) external; // S6
+    function slashAvailabilityDefault(bytes32 _certHash, CommitteeProof calldata _cp, uint32 _landedTermRef) external;    // S7
+    function slashCoded(address _seqKey) external;                                                                          // S8
+    function sweepBurn() external;
+    function pendingBurnGwei() external view returns (uint64 gwei_);
+
+    // ------------------------------------------------------------------ forced inclusion
+    function saveForcedInclusion(LibBlobs.BlobReference calldata _ref) external payable returns (uint48 id_);
+    function saveForcedInclusionCalldata(bytes calldata _manifest) external payable returns (uint48 id_);
+    function getForcedInclusionFee() external view returns (uint256 requiredWei_);
+    function fiQueue() external view returns (uint48 head_, uint48 tail_);
+    function fiEntry(uint48 _id) external view returns (FiEntry memory entry_);
+    function fiRequired(uint32 _term, uint64 _numBlocks) external view returns (uint16 required_, uint48 tFloor_);
+    function forcedBatchArmed() external view returns (bool armed_, uint48 replaceableFrom_, uint16 dueAtLatest_);
+    function withdrawFiFees(address _to) external;                                  // ETH pull ledger
+    function isSupersededByForced(uint64 _height, uint48 _deadline) external view returns (bool superseded_);
+
+    // ------------------------------------------------------------------ bonds (existing IBondManager shape kept)
+    function deposit(uint256 _amount) external;
+    function requestWithdrawal() external;
+    function withdraw(address _to, uint256 _amount) external;                      // limited to the excess over 1.05 × floor
+
+    // ------------------------------------------------------------------ events
+    event EtnaInitialized(uint48 t0, uint48 lastFinalizedBlockNumber, bytes32 lastFinalizedBlockHash);
+    event ShastaDrained(uint48 drainedAt, uint48 genesisHeight, bytes32 genesisBlockHash, uint32 firstEtnaTerm);
+    event SeatClaimed(uint16 indexed seat, address indexed owner, uint32 activeFrom);
+    event LengthScheduled(uint16 len, uint32 effectiveAt);
+    event ExitRequested(address indexed owner, uint32 activeUntil);
+    event Suspended(address indexed owner, uint32 from, uint32 until, uint8 strikes);
+    event Reactivated(address indexed owner, uint32 activeAgainAt);
+    event SeedFixed(uint32 indexed cycle, bytes32 seed, bool fresh);
+    event Poked(uint64 l1BlockNumber);
+    event AssignmentRecorded(uint32 indexed termId, bytes32 digest, bytes32 committeeRoot);
+    event Landed(uint32 indexed termId, uint8 view, uint64 firstHeight, uint64 endHeight, address indexed lander,
+                 bytes32 endPhHash, bytes32 endBlockHash, uint32 certBitmap, uint64 rewardGwei, uint8 zkLeavesUsed, bool replaced);
+    event ViewChangeRecorded(uint32 indexed termId, uint8 view, uint8 kind, uint64 lockHeight, bytes32 vcHash);
+    event DataDemanded(bytes32 indexed certHash, address demander, uint48 at);
+    event CertificateVoided(bytes32 indexed certHash);
+    event Slashed(address indexed owner, uint8 indexed rule, uint32 termId, uint8 view, uint64 height, uint64 debitedGwei,
+                  uint64 challengerGwei, uint64 affectedGwei, uint64 burnedGwei, uint64 shortfallGwei, address indexed challenger);
+    event MissPenalised(address indexed owner, uint32 indexed termId, uint8 view, uint64 gwei, uint8 strikes, bool coalesced);
+    event Abandoned(uint32 indexed termId, uint8 view, address indexed sequencer, uint64 penaltyGwei, address reporter);
+    event AttestersRewarded(uint32 indexed termId, uint64 endHeight, uint32 bitmap, uint64 totalGwei);
+    event LanderBonusPaid(address indexed lander, uint64 gwei);
+    event SingleProofMode(bool active);
+    event ForcedInclusionSaved(uint48 indexed id, FiKind kind, bytes32 dataHash, uint48 savedAt, uint96 feeWei, address requester);
+    event ForcedInclusionsConsumed(uint64 indexed firstHeight, uint48 headBefore, uint16 count, bool forced);
+    event ForcedLanded(uint64 indexed firstHeight, uint16 count, uint48 anchorNumber, address indexed rewardTo);
+    event BurnSwept(uint64 gwei);
+}
+// Errors (implementation file, end): NotActive, ProposingClosed, ProvingClosed, DrainNotDue, GenesisMismatch, NotNext,
+// NotHolder, BadCertificate, CertificateVoided, ViewChangeMismatch, AnchorTooOld, FiCountTooLow, FiNotDue, ForcedNotArmed,
+// AlreadySlashed, EvidenceExpired, BadProofOfPossession, KeyHasCode, NotReplaceable, DeadlineExceeded, RangeTooLarge.
+
+interface IEtnaVerifier {                                   // replaces ComposeVerifier / ZkRequiredVerifier
+    function verify(bytes32 _journalHash, bytes calldata _proof, uint8 _kRequired) external view returns (uint8 zkLeaves_);
+    function imageSets(uint8 _leaf) external view returns (bytes32[] memory current_, bytes32[] memory previous_, uint48 previousValidUntil_);
+}</code></pre>
+
+<h2 id="anchor">2. L2: <code>IAnchorV5</code></h2>
+<p>Given in full on the <a href="bridge-migration.html#interface">Anchor page</a>: <code>anchorV5(AnchorInput)</code> with kind, checkpoint, term, view, seat, carried certificate, opening-object hash and forced-inclusion cursor; <code>anchorV4</code> retained and fork-gated; views for the term grid, the fee split and the last metadata; <code>withdraw</code> unchanged.</p>
+
+<h2 id="shared">3. Shared contracts</h2>
+<pre><code>// contracts/shared/signal/ICheckpointStore.sol: UNCHANGED
+struct Checkpoint { uint48 blockNumber; bytes32 blockHash; bytes32 stateRoot; }
+function saveCheckpoint(Checkpoint calldata _checkpoint) external;   // only _authorizedSyncer (Inbox proxy on L1, Anchor proxy on L2)
+function getCheckpoint(uint48 _blockNumber) external view returns (Checkpoint memory);
+// SignalService (both layers), Bridge, ERC20/721/1155 Vaults, QuotaManager, DefaultResolver: no implementation, storage,
+// address or VERSION change. The only calls Etna makes into them are the two saveCheckpoint calls that exist today.</code></pre>
+
+<h2 id="p2p">4. P2P objects (SSZ, snappy; topics <code>/etna/{chainId}/1/{blocks, attestations, views}</code>)</h2>
+<pre><code>SignedHeader  { version u8, chainId u64, termId u32, view u8, height u64, timestamp u64, parentHash b32, blockHash b32,
+                txListHash b32, coinbase addr, gasLimit u64, carriedCertHash b32, vcHash b32, anchorNumber u48 }
+BlockEnvelope { signedHeader, seqSig [65]u8, carried: Certificate | ViewChange, assignmentDigest b32, payload: ExecutionPayload }
+Attestation, TimeoutMsg, ViewChange, Certificate: as the L1 structs
+ViewMsg       { kind u8, body }                                   // TO, VC proposal, VC signature, VC
+Status        { termId, view, headHeight, headPhHash, lockHeight, lastLandedHeight }
+BlocksByRange { startHeight u64, count u16 ≤ 64, certifiedOnly bool } → [(BlockEnvelope, Certificate?)]
+ViewsByTerm   { termId } → [ViewChange], [TimeoutMsg]
+LandingIntent { firstHeight, endHeight, lander, etaSeconds, sig }  // advisory
+Proof         { firstHeight, endHeight, journalHash, leafId, proofBytes }  // fungible
+RewardBoost, FiPayloadById (optional)</code></pre>
+
+<h2 id="storage">5. Storage-layout summary</h2>
+<table>
+<tr><th>Contract</th><th>Kept slots</th><th>Appended (after the gap start)</th><th>Gap after</th></tr>
+<tr><td>Inbox proxy (L1)</td><td>0-250 prefix; 251 activation; 252-253 core state (frozen after drain); 254 proposal hashes (aliased as the term-record ring after drain); 255-256 forced-inclusion queue; 257 bond ledger</td><td>activation record; lastLanded (3); seed accumulator, seed meta and ring, seats, operators, length ring; committee roots, attester keys, offence records, pending burn and bonus; recorded view changes, demands, voided, last view-change hash; forced-inclusion extras, ETH pull ledger, forced ring; assignment records: 23 slots</td><td>20</td></tr>
+<tr><td>Anchor proxy (L2)</td><td>0-250 prefix; 251 blockHashes; 252-255 retired; 256-257 block state (byte-identical semantics)</td><td>258 packed metadata; 259 carried certificate hash; 260 view-change hash</td><td>40</td></tr>
+<tr><td>SignalService (both), Bridge, Vaults</td><td>all</td><td>none</td><td>unchanged</td></tr>
+</table>
+<p class="small">Verification duty before any implementation: <code>pnpm layout</code> before and after on both proxies must show slots 251-257 byte-identical. Every appended slot is written fresh once (EIP-8037) except rings, which are overwritten.</p>
+
+<h2 id="frames">6. Which transactions use which Frame-Transaction shape</h2>
+<table>
+<tr><th>Transaction</th><th>Primary shape</th><th>Fallback</th><th>Cost of losing without EIP-8141</th></tr>
+<tr><td><code>land</code> (ordinary, forced, replacement)</td><td>direct-to-builder with trailing status VERIFY (invalid and free on any revert)</td><td>shared-nonce gate <code>landFor</code> (public mempool; once the EIP is Final)</td><td>≈ 25k gas plus one blob fee (none for a forced batch)</td></tr>
+<tr><td>slashing evidence, <code>reportAbandoned</code>, <code>demandData</code></td><td>trailing status VERIFY</td><td>plain transaction</td><td>≈ 30k gas on <code>AlreadySlashed</code></td></tr>
+<tr><td><code>recordViewChange</code>, <code>recordAssignment</code>, <code>poke</code></td><td>plain (no race worth protecting)</td><td>—</td><td>gas only</td></tr>
+<tr><td>registry mutations, <code>saveForcedInclusion*</code>, withdrawals</td><td>plain</td><td>—</td><td>gas only</td></tr>
+</table>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>

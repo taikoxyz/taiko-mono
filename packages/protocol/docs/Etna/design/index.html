@@ -3,11 +3,97 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Etna: pending</title>
-<style>body{font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem;color:#222;background:#fff}</style>
+<title>Etna design</title>
+<meta name="description" content="Etna, a fully permissionless successor to Taiko's based rollup: overview, requirement verdicts, the architecture in one figure, the architect's decisions, and the map of design pages.">
+<link rel="stylesheet" href="etna.css">
 </head>
 <body>
-<h1>Etna: pending</h1>
-<p>This page is produced by a later phase of the Etna research. It will be replaced when that phase completes. See the phase checklist in <a href="../README.md">README.md</a>.</p>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html" class="here">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Etna: a fully permissionless based rollup</h1>
+<p class="lead">Etna replaces the whitelisted operator and prover with bonded seats anyone can buy, replaces 384-second epochs with 60-second terms computed from L1 state, certifies every 1-second block with a bonded attester committee, and lands data and a ZK proof in one permissionless L1 action that finalizes immediately. The DAO keeps upgradeability and nothing else. This site is the design; the research behind it is in <a href="../README.md">the repository documents</a>. Status: <strong>draft under red-team review</strong>; see the <a href="../iterations/README.md">iteration log</a> and the readiness verdict in the README.</p>
+
+<div class="box warn"><h4>How to read claims</h4>
+<p>Every claim is tagged <span class="tag proven">proven</span> (an argument is given from stated rules), <span class="tag assumed">assumed</span> (the assumption is named), or <span class="tag open">open</span> (what would resolve it is named). Gas figures are estimates; TAIKO amounts are formulas instantiated with assumed inputs.</p></div>
+
+<h2 id="figure">1. The protocol in one figure</h2>
+<figure>
+<svg viewBox="0 0 720 330" role="img" aria-label="Etna architecture: L1 Inbox with registry, seed, landing, slashing and forced-inclusion queue; L2 with 1-second blocks, anchorV5, committee certificates and view changes; landers carry ranges with blobs and proofs to L1; the SignalService receives one checkpoint per landing">
+<rect x="10" y="20" width="700" height="120" class="svg-box-accent"/>
+<text x="20" y="40" class="svg-note">L1: Inbox proxy (address unchanged)</text>
+<rect x="20" y="52" width="120" height="70" class="svg-box"/><text x="26" y="70" class="svg-muted">registry: seats,</text><text x="26" y="86" class="svg-muted">keys, bonds,</text><text x="26" y="102" class="svg-muted">prevrandao seed</text>
+<rect x="150" y="52" width="140" height="70" class="svg-box"/><text x="156" y="70" class="svg-muted">land(range, blobs,</text><text x="156" y="86" class="svg-muted">endCert, VCs, proof)</text><text x="156" y="102" class="svg-muted">→ saveCheckpoint</text>
+<rect x="300" y="52" width="130" height="70" class="svg-box"/><text x="306" y="70" class="svg-muted">slashing: evidence</text><text x="306" y="86" class="svg-muted">only; rewards on</text><text x="306" y="102" class="svg-muted">the TAIKO ledger</text>
+<rect x="440" y="52" width="120" height="70" class="svg-box"/><text x="446" y="70" class="svg-muted">FI queue: two</text><text x="446" y="86" class="svg-muted">shapes; anchored</text><text x="446" y="102" class="svg-muted">due-ness</text>
+<rect x="570" y="52" width="130" height="70" class="svg-box"/><text x="576" y="70" class="svg-muted">SignalService,</text><text x="576" y="86" class="svg-muted">Bridge, Vaults:</text><text x="576" y="102" class="svg-muted">untouched</text>
+<line x1="220" y1="140" x2="220" y2="190" class="svg-line-accent"/><text x="228" y="168" class="svg-muted">landers: any certified prefix, minutes</text>
+<line x1="80" y1="140" x2="80" y2="190" class="svg-line-muted"/><text x="10" y="168" class="svg-muted">who sequences at t</text>
+<rect x="10" y="190" width="700" height="120" class="svg-box-accent"/>
+<text x="20" y="210" class="svg-note">L2: 1-second blocks</text>
+<rect x="20" y="222" width="150" height="70" class="svg-box"/><text x="26" y="240" class="svg-muted">holder(t, v) signs PH,</text><text x="26" y="256" class="svg-muted">anchorV5 first,</text><text x="26" y="272" class="svg-muted">carries C(n−1)</text>
+<rect x="180" y="222" width="170" height="70" class="svg-box"/><text x="186" y="240" class="svg-muted">committee (32 seats):</text><text x="186" y="256" class="svg-muted">attest → C(n) at ~0.7 s,</text><text x="186" y="272" class="svg-muted">locked at ~1.7 s</text>
+<rect x="360" y="222" width="170" height="70" class="svg-box"/><text x="366" y="240" class="svg-muted">silence 5 s → timeouts →</text><text x="366" y="256" class="svg-muted">view change = seal;</text><text x="366" y="272" class="svg-muted">backup extends the lock</text>
+<rect x="540" y="222" width="160" height="70" class="svg-box"/><text x="546" y="240" class="svg-muted">Anchor proxy (unchanged):</text><text x="546" y="256" class="svg-muted">checkpoint → L2</text><text x="546" y="272" class="svg-muted">SignalService</text>
+</svg>
+<figcaption>Three loops: rights from L1 state (20 minutes ahead), certificates on L2 (sub-second), landings to L1 (minutes). Withheld blocks cannot be certified, extended or landed.</figcaption>
+</figure>
+
+<h2 id="requirements">2. Requirement verdicts</h2>
+<table>
+<tr><th>Req.</th><th>Verdict</th><th>Where the argument lives</th></tr>
+<tr><td>R1 fully permissionless</td><td><span class="tag proven">pass by construction</span>: no admission, removal or pause gate on any liveness path; the DAO upgrades code and can never be needed for liveness (the roles page lists every DAO-touchable object with its "DAO never acts again" behaviour)</td><td><a href="roles.html">Roles</a> §7, <a href="bridge-migration.html">Anchor</a> §5</td></tr>
+<tr><td>R2 reuse SignalService, Bridge, Vaults</td><td><span class="tag proven">pass</span>: both syncer proxies are upgraded in place; one <code>saveCheckpoint</code> call per landing and per anchored block, byte-identical interface; no implementation, storage, address or version change to any shared contract</td><td><a href="bridge-migration.html">Anchor</a> §3-4, <a href="interfaces.html">Interfaces</a> §3, §5</td></tr>
+<tr><td>R3 richer roles</td><td><span class="tag proven">pass</span>: seven roles with entry, exit, duties, rewards, slashing and all-offline / all-malicious analysis</td><td><a href="roles.html">Roles</a></td></tr>
+<tr><td>R4 1-second blocks</td><td><span class="tag assumed">pass under T9</span>: cadence is decoupled from L1 by design; certification ≈ 0.7 s and locking ≈ 1.7 s rest on measured gossip and execution latency; the 1-s issuance is a rewarded duty whose hard bound is the 5-s timeout (assumption A7 revised)</td><td><a href="preconf.html">Certificates</a> §4</td></tr>
+<tr><td>R5 no lookahead, no slot or epoch coupling</td><td><span class="tag proven">pass</span>: the parameter audit finds no slot or epoch unit; randomness is a prevrandao accumulator; L1 hashes come from <code>blockhash</code> and EIP-2935; behaviour at 12/6/4/2-s slots is stated per page</td><td><a href="parameters.html">Parameters</a>, <a href="l1-dependencies.html">L1 dependencies</a> §4</td></tr>
+<tr><td>R6 objective slashing, anti-monopoly</td><td><span class="tag proven">pass</span> for objectivity (no accusation object exists); anti-monopoly is priced, linear in share and unbounded at exclusion, but an entity's share cannot be bounded (a proven impossibility)</td><td><a href="slashing.html">Slashing</a> §3, §5</td></tr>
+<tr><td>R7 propose-with-proof, minute-level, DA explicit</td><td><span class="tag proven">pass</span>: one <code>land</code> carries blobs (canonical encoding) and a ZK proof and writes the checkpoint; happy-path landing 2 to 3 minutes <span class="tag assumed">assumed</span>; forced batches carry no blobs (their data is already on L1) and always need two ZK systems</td><td><a href="landing.html">Landing</a>, <a href="forced-inclusion.html">Forced inclusion</a> §6</td></tr>
+</table>
+
+<h2 id="decisions">3. The architect's decisions</h2>
+<p>The three independent designs per building block disagreed on these points; the consistency critic listed 30 contradictions, 27 missing interfaces and 25 parameter conflicts. Decisions, with the losing option and the reason:</p>
+<ol>
+<li><strong>Committee of 32 seats with quorum 22 and BLS attester keys</strong> (over 16 seats with ECDSA lists). Twelve provable double-signers behind every locked block instead of six; one pairing verifies any size; no <code>ecrecover</code> on the attester path under EIP-8151. Cost: proof-of-possession registration and about 115k gas per certificate.</li>
+<li><strong>The committee's view change is the batch seal</strong> (over a sequencer-signed or quorum-attested seal). Nothing exists for a sequencer to withhold; landers land any certified prefix inside one view.</li>
+<li><strong>A term-end view change closes every term</strong> (over "no object at the boundary"). The recorded lock is what makes the handoff ambush cost twelve slashed seats; the cost is one aggregate object per minute.</li>
+<li><strong>One view per landing</strong> (over multi-segment landings). Simpler inbox checks; catch-up across takeovers takes one landing per view.</li>
+<li><strong>Replacement voids, the clock never does; abandonment is evidence with an outage gate.</strong> A global proving outage voids and slashes nothing; a stalled holder is penalized only when other landings prove the chain was live.</li>
+<li><strong>Anchored L1 time is the forced-inclusion clock</strong> (over term start or landing time). No third party can make a proven landing revert; an entry becoming due never reorgs in-flight blocks.</li>
+<li><strong>Absence penalty 50 TAIKO, burned; challenger share 10 % capped; abandonment 2,000 TAIKO, no strike</strong> (over 200 TAIKO, 50/50 splits, 400 TAIKO). Entry stays profitable under griefing; self-reporting never pays; paying a lander always beats abandoning.</li>
+<li><strong>Registry index of 65,535 seats</strong> (over 4,096). Exclusion by a full array becomes unpriceable (above the token supply).</li>
+<li><strong>Landing windows 30 min economic, 60 min hard; dead mode after 75 terms</strong> (over 35 min hard and 40 terms). Fewer honest false positives; the forced-inclusion bound becomes 102 minutes instead of 77.</li>
+<li><strong>The owner is separate from its keys and may be a contract</strong>; only the sequencer key must be code-less.</li>
+<li><strong>Sentinel views 254 (forced) and 255 (open-empty, dead, no-committee)</strong>; at most four takeovers per term.</li>
+<li><strong>No-committee mode replaces a separate committee-degraded mode</strong>: below four eligible attesters, sortition still picks holders and landings are certificate-free like dead mode.</li>
+<li><strong>Late landings verify against a recorded assignment</strong> (anyone may pin a term's digest and committee root within two hours); terms without a record are unlandable and replaceable.</li>
+<li><strong>The public-mempool Frame-Transaction gate is not deployed until EIP-8141 is Final</strong>; the direct trailing-VERIFY shape is the primary path and plain transactions the fallback.</li>
+</ol>
+
+<h2 id="pages">4. Map of the design</h2>
+<div class="grid">
+<div class="card"><h3><a href="roles.html">Roles</a></h3><p>Sequencer, attester, lander/prover, challenger, forced-inclusion requester, node operator, DAO: entry, exit, duties, rewards, slashing, failure analysis, lifecycles.</p></div>
+<div class="card"><h3><a href="sequencing.html">Sequencing rights</a></h3><p>Seats, future-dated registry writes, the 20-minute snapshot, the prevrandao seed, the hash walk, views, takeover, strikes, dead mode, worked example.</p></div>
+<div class="card"><h3><a href="preconf.html">Preconfirmation &amp; certificates</a></h3><p>The local validity predicate, BLS certificates, confirmation levels, view changes, the landing binding, the withholding defence variant by variant, gossip and range sync.</p></div>
+<div class="card"><h3><a href="landing.html">Propose-with-proof</a></h3><p>Canonical blobs, the landing check list, the journal, lander economics, replacement and abandonment, verifier degradation and rotation, races.</p></div>
+<div class="card"><h3><a href="slashing.html">Slashing &amp; economics</a></h3><p>The catalogue with evidence formats and payouts, bond sizing, withdrawal, rewards and the accounting invariant, the anti-monopoly cost curve, a worked example in wei.</p></div>
+<div class="card"><h3><a href="forced-inclusion.html">Forced inclusion</a></h3><p>Two request shapes, the anchored clock, placement rule V8, the inbox count, the forced batch, fees, blob expiry, stuffing bounds, FOCIL.</p></div>
+<div class="card"><h3><a href="bridge-migration.html">Anchor, bridge, migration</a></h3><p>anchorV5, checkpoint binding, the unchanged SignalService call, the in-place upgrade with storage notes, the migration schedule, rollback, fee flow, client changes.</p></div>
+<div class="card"><h3><a href="interfaces.html">Interface sketches</a></h3><p>The consolidated inbox, anchor and shared interfaces, P2P objects, storage summary, Frame-Transaction shapes per transaction.</p></div>
+<div class="card"><h3><a href="parameters.html">Parameters</a></h3><p>Every constant with owner, unit, value, derivation and failure direction; the dependency chain; the R5 audit; what must be measured.</p></div>
+<div class="card"><h3><a href="arguments.html">Liveness &amp; safety</a></h3><p>The end-to-end arguments, the liveness ladder, the message flows in one place, the assumptions each step consumes.</p></div>
+<div class="card"><h3><a href="l1-dependencies.html">L1 dependencies</a></h3><p>Required, optional and tolerated L1 features; slot-time robustness table.</p></div>
+<div class="card"><h3><a href="frame-transactions.html">Frame transactions</a></h3><p>The nonce-as-lock verdict, the two-shape gate, the pins, the degradation without EIP-8141.</p></div>
+<div class="card"><h3><a href="limitations.html">Limitations</a></h3><p>Every accepted limitation with its owner and rationale; what we did not build.</p></div>
+<div class="card"><h3><a href="glossary.html">Glossary</a></h3><p>Canonical names and the aliases they replace.</p></div>
+</div>
+
+<h2 id="flows">5. Message flows</h2>
+<p>Happy path, prover fails, withholding, handoff, forced inclusion and replacement are drawn on their pages and summarized side by side on the <a href="arguments.html#flows">arguments page</a>.</p>
+
+<h2 id="sources">6. Provenance</h2>
+<p>Each building-block page synthesizes three independent designs (simplicity-first, security-first, liveness-first) scored by a judge, followed by a cross-block consistency critic; the architect's decisions above resolve the conflicts the critic listed. The research inputs are the current-protocol summary, the threat model, the L1 roadmap survey and the Frame-Transaction study in the repository. The learning path through this material is the <a href="../learn/index.html">learning site</a>.</p>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
 </body>
 </html>

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna preconfirmation validity</title>
+<meta name="description" content="The local validity predicate for 1-second preconfirmed blocks, BLS attestation certificates, view changes as batch seals, confirmation levels, and the withholding defence variant by variant.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna design</span><nav><a href="index.html">Overview</a><a href="roles.html">Roles</a><a href="sequencing.html">Sequencing rights</a><a href="preconf.html" class="here">Preconfirmation & certificates</a><a href="landing.html">Propose-with-proof</a><a href="slashing.html">Slashing & economics</a><a href="forced-inclusion.html">Forced inclusion</a><a href="bridge-migration.html">Anchor, bridge, migration</a><a href="interfaces.html">Interface sketches</a><a href="parameters.html">Parameters</a><a href="arguments.html">Liveness & safety</a><a href="l1-dependencies.html">L1 dependencies</a><a href="frame-transactions.html">Frame transactions</a><a href="limitations.html">Limitations</a><a href="glossary.html">Glossary</a></nav></div></header>
+<main class="wrap">
+<h1>Preconfirmation validity, certificates and the withholding defence</h1>
+<p class="lead">Every node decides locally and identically whether a 1-second block is valid. A committee of 32 bonded attesters certifies each block with one aggregate BLS signature; a block the committee never received cannot be certified, extended or landed. A term's batch is sealed not by the sequencer but by the committee's <em>view change</em>, so there is nothing for a sequencer to withhold. Sources: judge synthesis of the three B3 designs, aligned with <a href="sequencing.html">Sequencing rights</a> and <a href="landing.html">Propose-with-proof</a>.</p>
+
+<div class="box"><h4>What today does and why it fails</h4>
+<p>A preconfirmed block is a sequencer-signed envelope rebuilt by every node from its attributes; only key membership, parent presence and executability are checked locally, and the produced hash is never compared with the signed one (<a href="../00-current-protocol-summary.md">00</a> §9.2). Sequencing rights read the whitelist at "latest", the anchor calldata is never decoded, and what lands may differ from what was gossiped. Withholding is free and pays at handoff (<a href="../01-threat-model.md">01</a> §6). Non-receipt is unprovable, so the defence must combine bonded attestations, timeouts on L1-observable facts and making withheld data worthless.</p></div>
+
+<h2 id="objects">1. Objects and keys</h2>
+<ul>
+<li><strong>Term</strong> <em>t</em> (60 s) and <strong>view</strong> <em>v</em> within it: view 0 is the primary holder, view <em>v</em> ≥ 1 the <em>v</em>-th backup, <em>v</em> ≤ V_MAX = 4. <code>leader(t, v)</code> and <code>committee(t)</code> (K = 32 seats, drawn from seats whose owners are not in the term's holder list) are pure functions of the registry at the snapshot <em>S(t)</em> and the cycle seed. Quorum Q = ⌊2K/3⌋ + 1 = 22.</li>
+<li><strong>Sequencer key</strong>: secp256k1, code-less at registration (TH18). <strong>Attester key</strong>: BLS12-381 (G1 public key, G2 signature) with a proof of possession, verified on L1 through EIP-2537. Both are bound to one <em>owner</em>, the slashable identity.</li>
+<li><strong>Signed header</strong> <code>PH = {version, chainId, termId, view, height, timestamp, parentHash, blockHash, txListHash, carriedCertHash, vcHash, anchorNumber}</code>; <code>phHash = keccak(SSZ(PH))</code>; <code>seqSig = ECDSA(keccak(DOMAIN_BLOCK ‖ chainId ‖ phHash))</code>. <code>blockHash</code> is the execution block hash the sequencer's engine produced; <code>txListHash</code> is the keccak of the exact compressed transaction bytes (needed so blob encoding is a pure function of the certified chain).</li>
+<li><strong>Attestation</strong> <code>A_i = BLS(sk_i, keccak(DOMAIN_ATTEST ‖ chainId ‖ t ‖ v ‖ height ‖ phHash))</code>. Attesting over <code>phHash</code> rather than <code>blockHash</code> is load-bearing: it commits to <code>carriedCertHash</code>, which makes the lock-lie slash objective.</li>
+<li><strong>Certificate</strong> <code>C(h) = {t, v, height, phHash, bitmap:u32, aggSig}</code> with popcount(bitmap) ≥ Q; anyone holding Q attestations builds it (about 100 bytes).</li>
+<li><strong>Timeout</strong> <code>TO_i = BLS(sk_i, keccak(DOMAIN_TIMEOUT ‖ chainId ‖ t ‖ v ‖ kind ‖ lockHeight ‖ lockPhHash))</code>, kind ∈ {TIMEOUT, TERM_END, FALLBACK, REPLACE, RESUME}.</li>
+<li><strong>View change</strong> <code>VC(t, v) = {t, v, kind, signerTerm, lockHeight, lockPhHash, bitmap, aggSig}</code>: Q signatures on one message. It closes view (t, v), opens the next, and <strong>is the seal</strong> of the view's batch, which ends exactly at the lock. No sequencer-signed seal exists.</li>
+<li><strong>Lock</strong> (per attester): the highest certificate it holds together with the block chain under it, or the highest height landed on L1 in its own view, whichever is higher; monotone within a term.</li>
+</ul>
+
+<h2 id="hash">2. Produced hash equals signed hash</h2>
+<p>Enforced three times. (i) The node submits the received payload unchanged through <code>engine_newPayload</code>, never a rebuild, and requires VALID <em>and</em> engine hash equal to <code>PH.blockHash</code>; a mismatch rejects the block. (ii) Attesters sign <code>phHash</code>, which contains <code>blockHash</code>, only after (i). (iii) The ZK guest recomputes <code>blockHash</code> from blob data, rebuilds PH, and verifies <code>ecrecover(seqSig) == leader(t, v)</code> as a public input; an irreproducible signed header is unlandable. The Etna fields of PH are also the calldata of the first transaction <code>anchorV5</code>, so they sit inside <code>blockHash</code> and the guest can reconstruct PH from blobs. <span class="tag proven">proven</span></p>
+
+<h2 id="predicate">3. The validity predicate</h2>
+<p>A node holding PH, seqSig, the payload, its message set and its L1 view accepts block <em>b</em> at height <em>n</em> iff V1 to V6 hold. Failure is silence (the block is dropped, seqSig retained as evidence), except the two <em>pending</em> states, which are held and re-evaluated.</p>
+<table>
+<tr><th>Rule</th><th>Check</th><th>Why it is identical across honest nodes</th></tr>
+<tr><td>V1 signer</td><td><code>ecrecover(seqSig) == leader(PH.termId, PH.view)</code> from S(t)</td><td>reads a signed object and 20-minute-old L1 state</td></tr>
+<tr><td>V2 view entry</td><td><code>PH.timestamp ∈ [termStart(t), termEnd(t))</code>; if v ≥ 1 or the first block of t: <code>PH.vcHash</code> names a carried VC closing the previous view, verified against its signer committee, and <code>PH.parentHash</code> is the lock's block</td><td>signed objects only; never reads the L1 head</td></tr>
+<tr><td>V3 parent and carried certificate</td><td>parent accepted in (t, v) (else <em>pending-parent</em>, range request, PENDING_TTL); <code>carriedCertHeight ∈ {n−1, n−2}</code> (CERT_LAG_MAX = 1); the carried C verifies against committee(t) and names the ancestor at that height. The first two blocks of a view carry the VC instead.</td><td>signed objects</td></tr>
+<tr><td>V4 time</td><td><code>PH.timestamp ≥ parent.timestamp + 1</code> and <code>&lt; termEnd(t)</code></td><td>no wall clock, no L1 landing time; the 1-s cadence is a rewarded duty whose hard bound is the silence timeout</td></tr>
+<tr><td>V5 anchor</td><td>first transaction is golden-touch <code>anchorV5</code> with checkpoint block <em>a</em>: monotone from the parent; <code>L1[a].timestamp ≤ PH.timestamp − ANCHOR_MIN_AGE (48 s)</code> and <code>≥ PH.timestamp − ANCHOR_MAX_AGE (1800 s)</code>; hash and state root equal the node's own L1 header at <em>a</em>; if the anchor advanced, every forced inclusion due at <code>L1[a].timestamp</code> is included</td><td>reads L1 blocks at least 48 s old; a node lacking block <em>a</em> is <em>pending-anchor</em>, never invalid; a reorg of <em>a</em> invalidates b identically everywhere and the batch is unlandable (TH17)</td></tr>
+<tr><td>V6 execution</td><td>§2 (i), plus: the anchor transaction's receipt status is 1 and its gas used is within the limit (a reverted anchor invalidates the block; today it does not)</td><td>deterministic execution of a fixed payload plus an equality</td></tr>
+<tr><td>V7 (landed = certified)</td><td>not a node-side check: a landing carries a certificate over its end block and the guest re-derives the certified chain</td><td>see <a href="landing.html">Propose-with-proof</a></td></tr>
+</table>
+<p><strong>Fork choice</strong> (no clock): the canonical tip is the valid block with the highest (t, v, height) whose ancestors within its view are all certified except at most CERT_LAG_MAX + 1 leaf blocks. Two blocks at equal (t, v, height): keep the certified one, else first seen; store both headers as equivocation evidence.</p>
+
+<h2 id="levels">4. Attesting and confirmation levels</h2>
+<p>Attester <em>i</em> attests <em>b</em> iff V1 to V6 pass, <code>b.height &gt; lock_i</code>, <em>b</em> extends the lock's chain, no timeout was signed for (t, v), and the <em>policy</em> bounds hold: <code>PH.timestamp ∈ [now − STALE_MAX, now + CLOCK_SKEW]</code>. Policy gates signing only, so clocks cannot desynchronise validity (T13). One attestation per (t, v, height) per key. Attestations gossip on their own topic; anyone aggregates, so the sequencer never holds anything the network does not.</p>
+<figure>
+<svg viewBox="0 0 720 210" role="img" aria-label="Latency budget for one 1-second block: header gossip at 0 ms, committee execution by 300 ms, attestations by 450 ms, certificate by 700 ms, next header at 1000 ms carrying the certificate">
+<line x1="30" y1="60" x2="700" y2="60" class="svg-line"/>
+<g class="svg-note">
+<circle cx="30" cy="60" r="4" class="svg-ok"/><text x="10" y="45">0 ms: PH(n) + payload gossiped</text>
+<circle cx="230" cy="60" r="4" class="svg-ok"/><text x="150" y="85">≤ 300 ms: newPayload VALID, hash check</text>
+<circle cx="330" cy="60" r="4" class="svg-ok"/><text x="270" y="45">≈ 450 ms: attestations</text>
+<circle cx="500" cy="60" r="4" class="svg-ok"/><text x="420" y="85">≈ 700 ms: C(n) assembled</text>
+<circle cx="700" cy="60" r="4" class="svg-ok"/><text x="560" y="45">1000 ms: PH(n+1) carries C(n)</text>
+</g>
+<rect x="30" y="110" width="660" height="90" class="svg-box"/>
+<text x="40" y="130" class="svg-note">sequenced (0.3 s): signed, executes locally; revertible without slashing</text>
+<text x="40" y="150" class="svg-note">attested (0.7 to 1.0 s): C(n) held by Q bonded attesters; landable</text>
+<text x="40" y="170" class="svg-note">locked (1.7 to 2.0 s): a certified block carries C(n); reverting needs ≥ 12 provable slashings</text>
+<text x="40" y="190" class="svg-note">landed (minutes): on L1 with a ZK proof; final: the landing is L1-finalized</text>
+</svg>
+<figcaption>Certificate lag 1 absorbs a full second of jitter without touching the 1-s cadence. <span class="tag assumed">assumed</span> gossip hop ≤ 300 ms and newPayload ≤ 200 ms (T9); to be measured on a 32-attester devnet.</figcaption>
+</figure>
+<table>
+<tr><th>Level</th><th>Object</th><th>Typical</th><th>Guarantee</th></tr>
+<tr><td>sequenced</td><td>PH + seqSig, executes locally</td><td>0.3 s</td><td>revertible without slashing; only a <em>conflicting</em> signature is slashable (S1)</td></tr>
+<tr><td>attested</td><td>C(n)</td><td>0.7 to 1.0 s</td><td>held and executed by Q bonded attesters; landable; revertible only by a view change formed without seeing C(n) (a gossip-delay violation) or an L1 reorg; never by a minority</td></tr>
+<tr><td>locked</td><td>a certified block carries C(n)</td><td>1.7 to 2.0 s</td><td>revertible only with ≥ 2Q − K = 12 attesters each provably slashable, by batch replacement at the landing deadline, or by an L1 reorg</td></tr>
+<tr><td>landed</td><td>covered by a landing with a ZK proof</td><td>minutes</td><td>L1 reorg only</td></tr>
+<tr><td>final</td><td>landing L1-finalized</td><td>≈ 900 s at 12-s slots, reported in seconds</td><td>irrevocable</td></tr>
+</table>
+
+<h2 id="viewchange">5. View change: timeout, handoff, fallback</h2>
+<p>Attesters sign a timeout when, by local clock, no new certificate in (t, v) has appeared for TIMEOUT = 5 s (kind TIMEOUT, only while v &lt; V_MAX) or when <code>now ≥ termEnd(t) + END_GRACE</code> (kind TERM_END). Clocks decide only whether to <em>sign</em>; the decision to <em>switch</em> is the existence of a VC, a signed object, so two honest nodes holding it switch identically and a node lacking it learns it from the next view's first block (V2). Two steps:</p>
+<ol>
+<li>Broadcast <code>TO_i</code>; rebroadcast every TO_REBROADCAST while the condition holds.</li>
+<li>Any node holding ≥ Q timeouts of one (t, v, kind) proposes <code>VC(t, v, kind, lock*)</code> with lock* the maximum lock, attaching C(lock*). Attester <em>j</em> signs iff it holds C(lock*) and every block up to it (range-fetching if needed), lock* ≥ lock_j, and it signed no other lock for (t, v). A higher honest lock arrives as a timeout and the proposer re-proposes; with ≥ Q honest online attesters the VC forms at the honest maximum in one extra round trip (≈ 0.4 s).</li>
+</ol>
+<p>After VC(t, v, TIMEOUT), <code>leader(t, v+1)</code> starts at lock* + 1 carrying the VC; after VC(t, v, TERM_END), <code>leader(t+1, 0)</code> likewise. A view without certificates yields a VC at the previous lock (an empty batch). After V_MAX view changes the term idles to its end. <strong>Fallback:</strong> if committee(t) produces no TERM_END VC by <code>termEnd(t) + END_GRACE + VC_FALLBACK</code> (at least 11 dead or abstaining), committee(t+1) signs a FALLBACK VC for the highest (v, lock) it holds; a conflicting late VC is resolved on L1 by <code>recordViewChange</code> (first recorded wins). The REPLACE and RESUME kinds serve the landing page's replacement rule.</p>
+
+<h2 id="binding">6. Landing binding (V7) and the availability escalation</h2>
+<p>The inbox keeps <code>lastLanded = (t, v, height, phHash)</code> and <code>lastVCHash</code>. A landing covers a contiguous range of one view: either it <em>continues</em> the open view from <code>lastLanded.height + 1</code> with an end certificate whose phHash equals the guest's end phHash, so any certified prefix lands in blob-sized pieces; or it <em>opens</em> a view by supplying the VC chain from <code>lastVCHash</code>, each VC's lock equal to <code>lastLanded</code> when applied, the first block's vcHash (a guest public input) equal to the last VC's hash. <code>recordViewChange(vc)</code> may be called by anyone at any time and stores the first VC per (t, v); later landings must match. It puts a term's end on L1 within seconds although its landing takes minutes, which is what wins the handoff race below.</p>
+<p>Consequences: a block with no certificate on itself or a descendant is <strong>unlandable</strong>; the landed set equals the certified set every node holds (V7); blocks above a view's lock never land. <span class="tag proven">proven</span> given the landing page adopts this binding. <strong>Carve-out:</strong> ranges landed with the sentinel views 254 (forced batch) and 255 (open-empty, dead mode, no-committee mode) carry no certificate, reach only the <em>sequenced</em> level before landing, and always require two ZK systems (single-proof mode never applies to them); the claims above are about certified ranges. The landing also refuses any certificate marked voided and any view change that differs from the one first recorded on L1.</p>
+<p><strong>Lock reset.</strong> When a node observes a landing flagged as a replacement, or a forced landing, every certificate above <code>lastLanded</code> is void for it and every attester's lock resets to <code>lastLanded</code>; the REPLACE and RESUME view kinds are attested only when the landing page's replacement predicate holds at the referenced L1 block in the attester's own view. Attestation dedup keys on (term, view, opening object, height), so a REPLACE fork by the same holder is not equivocation.</p>
+<p><strong>Availability escalation (S7).</strong> Q + 1 colluders (leader plus Q attesters) can certify a block only they hold and lock a VC on it; honest attesters cannot sign that lock and the next leader cannot extend it: the one case where "certified" does not imply "available". <code>demandData(cert)</code> (anyone, DEMAND_FEE 0.05 ETH) records the demand; the only valid response is a landing covering the certified height within DEMAND_WINDOW (30 min); otherwise <code>slashAvailabilityDefault</code> slashes every bitmap member and the leader one seat each, refunds the fee, and marks the certificate <strong>voided</strong>. On L2 a voided certificate and any VC locked on it are treated as nonexistent, and the current committee signs a FALLBACK VC at the highest non-voided lock. Harm: a stall of at most 30 minutes plus L1 inclusion; cost 23 seats, unless the colluders publish, in which case nobody transacted on private state.</p>
+
+<h2 id="withholding">7. The withholding defence, variant by variant</h2>
+<figure>
+<svg viewBox="0 0 720 230" role="img" aria-label="Message flows: happy path, withholding path and takeover at term end">
+<text x="10" y="18" class="svg-note">Withholding: S builds n, n+1 privately; last public certificate C(n−1)</text>
+<rect x="10" y="26" width="120" height="28" class="svg-box-accent"/><text x="16" y="45" class="svg-muted">S: silent</text>
+<line x1="130" y1="40" x2="220" y2="40" class="svg-line-muted"/>
+<rect x="220" y="26" width="200" height="28" class="svg-box"/><text x="226" y="45" class="svg-muted">A_i: 5 s no cert → TO_i(lock n−1)</text>
+<line x1="420" y1="40" x2="470" y2="40" class="svg-line-accent"/>
+<rect x="470" y="26" width="240" height="28" class="svg-box"/><text x="476" y="45" class="svg-muted">≥ Q TOs → VC(t, v, lock n−1) in ≈ 0.4 s</text>
+<rect x="10" y="66" width="330" height="28" class="svg-box"/><text x="16" y="85" class="svg-muted">B = leader(t, v+1): PH(n)' with vcHash, parent = n−1</text>
+<rect x="360" y="66" width="350" height="28" class="svg-box"/><text x="366" y="85" class="svg-muted">anyone: recordViewChange(VC) on L1 within seconds</text>
+<text x="10" y="120" class="svg-note">S later gossips n, n+1: view v &lt; v+1 and no C(n): orphaned; V3 fails for children.</text>
+<text x="10" y="140" class="svg-note">S later tries to land ..n+1: reverts, no VC(t, v) with lock ≥ n exists; a second VC needs 12 double-signers (S3c).</text>
+<text x="10" y="176" class="svg-note">Takeover at term end: A = leader(t, 0), B = leader(t+1, 0)</text>
+<text x="10" y="196" class="svg-muted">termEnd − 1 s: C(h) forms · termEnd + 2 s: TO(TERM_END, lock h) · termEnd + 2.5 s: VC recorded · termEnd + 3 s: B's PH(h+1) carries the VC</text>
+<text x="10" y="216" class="svg-muted">no VC by termEnd + 12 s: committee(t+1) signs the FALLBACK VC itself</text>
+</svg>
+<figcaption>Withheld blocks are unextendable (no certificate), unlandable (no VC above them), and worthless within one timeout.</figcaption>
+</figure>
+<ul>
+<li><strong>Unextendable.</strong> A block the committee never received has no certificate (V6 needs its execution). One block can be built on it (carrying the previous certificate) but cannot be certified, so nothing carries a certificate above it: private state is at most 2 blocks and dies within TIMEOUT.</li>
+<li><strong>Unlandable.</strong> §6.</li>
+<li><strong>W1 handoff ambush: impossible without slashing.</strong> The next leader's first block carries VC(t, v_last) with lock (h, H); honest nodes accept nothing else at h+1 in term t+1. For A's withheld h+1..h+m to land, term t must close at a lock ≥ h+m, a second VC for (t, v_last): 2Q − K = 12 keys sign both (S3c), each fully slashed, and the recorded honest VC beats A's landing (minutes of proving) to L1. If A releases just before term end and Q attesters certify, the TERM_END locks reflect it and B extends h+m; if fewer saw it, the lock stays at h and A's blocks are worthless. <span class="tag proven">proven</span></li>
+<li><strong>W2 private MEV.</strong> No certificates → timeout after 5 s; private blocks never land; STALE_MAX refuses blocks published more than 3 s after their timestamp. Residual: the ≤ 0.7-s certification window plus ordinary ordering power.</li>
+<li><strong>W3 prover grief.</strong> Landing needs no live sequencer: Q attesters hold every block below any lock and serve ranges for RETAIN_SECONDS; anyone lands. If all Q withhold, S7.</li>
+<li><strong>W4 selective withholding.</strong> A missing block stops certification there; a node holding the next block range-requests from any bitmap member of the carried certificate, not from the withholder.</li>
+<li><strong>W5 seal withholding.</strong> No seal exists; certificates and VCs are assembled by anyone from gossiped signatures.</li>
+<li><strong>W6, W7.</strong> Proofs: anyone proves given availability. Blobs: impossible after landing (same-transaction hashes).</li>
+</ul>
+
+<h2 id="slashing">8. Slashing conditions this block contributes</h2>
+<p>Evidence is always signatures or one L1 fact; full formats and payouts are on the <a href="slashing.html">Slashing page</a>. S1 sequencer equivocation (two seqSig on different headers at one (t, v, height)); S3a attester equivocation (two attestations or two valid certificates at one (t, v, height)); S3b lock lie (a timeout or VC signature with lock L plus an attestation by the same key on a block whose carried certificate is above L); S3c view-change equivocation; S6 invalid named object; S7 availability default; S8 coded sequencer key. <strong>Silence is deliberately not slashable</strong>: a colluding committee could manufacture it against an honest leader at zero cost; silence forfeits rewards and feeds the strike ladder.</p>
+
+<h2 id="gossip">9. Gossip and range sync (TH22, TH23)</h2>
+<p>Topics <code>/etna/{chainId}/1/{blocks, attestations, views}</code>. Pre-relay validation: signer ∈ leader(t, v) or committee(t) for t within one term of current; height within [lock − 64, lock + 512]; one message per (signer, t, v, height, type), a second relayed once as evidence then the signer muted; envelopes ≤ MAX_ENVELOPE (512 KiB). Streams <code>status</code>, <code>blocks_by_range</code> (start, count ≤ 64, certifiedOnly) returning (envelope, certificate) pairs with at most CERT_LAG_MAX + 1 trailing uncertified items, and <code>views_by_term</code>. Requests signed by a registered key are served at RANGE_RATE, unsigned at a quarter of it, one in flight per peer. Serving is a duty of bitmap members and RPC nodes for RETAIN_SECONDS (2 h); older blocks come from L1 blobs. This replaces today's unauthenticated per-hash request topics and 768-entry cache.</p>
+
+<h2 id="machines">10. State machines</h2>
+<pre><code>BLOCK (per node, deterministic)
+RECEIVED --V1|V2 fail--> INVALID (keep seqSig if equivocation)
+RECEIVED --parent unknown--> PENDING_PARENT --range fetch, ≤ PENDING_TTL--> RECEIVED | INVALID
+RECEIVED --L1[a] not in view--> PENDING_ANCHOR --L1 catches up, ≤ ANCHOR_WAIT--> RECEIVED | INVALID
+RECEIVED --V1..V6 pass--> SEQUENCED --C(n) held--> ATTESTED --C(m) held, m carries C(n)--> LOCKED
+ATTESTED|LOCKED --Landed covers n--> LANDED --L1 finality--> FINAL
+SEQUENCED|ATTESTED --VC(t,v) with lock &lt; n--> ORPHANED      (LOCKED never orphaned without ≥ 2Q−K slashes)
+any --L1 reorg of anchored block a--> INVALID (and all descendants)
+
+VIEW (per node)
+ACTIVE(t,v) --VC(t,v,TIMEOUT) held or carried--> ACTIVE(t,v+1)
+ACTIVE(t,v) --VC(t,v,TERM_END|FALLBACK) held or carried--> ACTIVE(t+1,0)
+ACTIVE(t,V_MAX) --no cert for TIMEOUT--> IDLE until termEnd
+
+ATTESTER i (the only clocked machine; the clock gates signing only)
+IDLE(t) --first valid block of (t,v)--> ATTESTING(v): attest each valid block &gt; lock_i; timer restarts on each new C
+ATTESTING(v) --timer &gt; TIMEOUT or now ≥ termEnd+END_GRACE--> TIMING_OUT(v): sign TO_i, attest nothing in v
+TIMING_OUT(v) --VC(t,v) formed--> ATTESTING(v+1) | IDLE(t+1)
+
+SEQUENCER leader(t,v)
+WAIT --VC opening (t,v) held--> PRODUCING(parent = lock)
+PRODUCING --every 1 s: build child of tip, carry newest C (lag ≤ 1), sign, gossip--> PRODUCING
+PRODUCING --height − highest own certified &gt; CERT_LAG_MAX+1--> HOLD --C arrives--> PRODUCING
+PRODUCING --VC(t,v') with v' &gt; v seen, or next timestamp ≥ termEnd--> STOPPED (serve ranges; ensure landing)</code></pre>
+
+<h2 id="parameters">11. Parameters</h2>
+<table>
+<tr><th>Name</th><th>Unit</th><th>Value</th><th>Rationale</th><th>Too small / too large</th></tr>
+<tr><td>K</td><td>count</td><td>32</td><td>one pairing verifies any size; bitmap in a word; fan-in 32 msgs/s</td><td>cheap collusion / gossip and registry size</td></tr>
+<tr><td>Q</td><td>count</td><td>22</td><td>2Q − K = 12 provable slashings to revert a locked block; tolerates 10 offline; P(no quorum) at 10 % offline ≈ 1.7·10<sup>−4</sup> per term</td><td>fewer double-signers needed / 20 % offline kills many terms</td></tr>
+<tr><td>K_MIN</td><td>count</td><td>4</td><td>below it, committee-degraded mode rather than halt</td><td>sham security / long bootstrap</td></tr>
+<tr><td>V_MAX</td><td>count</td><td>4</td><td>bounds VCs a landing verifies (≈ 115k gas each)</td><td>term dies early / gas per landing</td></tr>
+<tr><td>CERT_LAG_MAX</td><td>blocks</td><td>1</td><td>attestation round trip overlaps building; private state ≤ 2 blocks</td><td>cadence = round trip / longer unattested tail</td></tr>
+<tr><td>TIMEOUT</td><td>s</td><td>5</td><td>five missed certificates; a 3-s hiccup never triggers</td><td>spurious view changes / slow takeover</td></tr>
+<tr><td>END_GRACE / VC_FALLBACK</td><td>s</td><td>2 / 10</td><td>last block + certification + skew; fallback after two VC round trips</td><td>last block lost / idle gap</td></tr>
+<tr><td>STALE_MAX / CLOCK_SKEW</td><td>s</td><td>3 / 1</td><td>attestation policy only</td><td>honest slow rounds lose certificates / longer delayed-publication window</td></tr>
+<tr><td>ANCHOR_MIN_AGE</td><td>s</td><td>48</td><td>≥ 2.5 × ePBS "canonical at N+1" at 12-s slots; 24 slots at 2 s</td><td>honest V5 disagreement / L1→L2 latency</td></tr>
+<tr><td>ANCHOR_MAX_AGE</td><td>s</td><td>1800</td><td>bounds bridge staleness; + LAND_WINDOW_MAX + TERM &lt; EIP-2935 window at 2-s slots</td><td>forced re-anchoring / stale L1 state</td></tr>
+<tr><td>ANCHOR_WAIT / PENDING_TTL</td><td>s</td><td>30 / 10</td><td>L1 client lag / one range round trip</td><td>valid blocks dropped / pending buffers</td></tr>
+<tr><td>MAX_ENVELOPE</td><td>bytes</td><td>524,288</td><td>≈ 2.3 × the per-second blob budget</td><td>valid blocks dropped / DoS</td></tr>
+<tr><td>RANGE_MAX / RANGE_RATE</td><td>count / req·s<sup>−1</sup></td><td>64 / 4</td><td>one request covers 12 timeouts</td><td>DoS / slow sync</td></tr>
+<tr><td>RETAIN_SECONDS</td><td>s</td><td>7200</td><td>≥ LAND_WINDOW_MAX + prover slack; then L1 blobs</td><td>prover grief / storage</td></tr>
+<tr><td>DEMAND_FEE / DEMAND_WINDOW</td><td>gwei / s</td><td>5·10<sup>7</sup> (0.05 ETH) / 1800</td><td>deters demand spam, refunded on default; one landing by any of Q+1 holders</td><td>spam / longer stall by colluders</td></tr>
+</table>
+
+<h2 id="attacks">12. Attacks defended and not defended</h2>
+<ul>
+<li><strong>TH3 silent sequencer: defended.</strong> Gap ≤ TIMEOUT + 1.5 s; cost is forfeited rewards and a strike (silence is unprovable, so no bond).</li>
+<li><strong>TH4 equivocation: defended.</strong> Both headers kept by every node; anyone submits S1. Gossiped ≠ landed is impossible.</li>
+<li><strong>TH5 W1 to W7: defended</strong> (§7). W1 costs 12 slashed seats.</li>
+<li><strong>TH6 stale-state MEV: reduced.</strong> Private state ≤ 2 blocks and ≤ TIMEOUT.</li>
+<li><strong>TH8 bond griefing: defended.</strong> Every rule is a signature pair or an L1 timestamp; the accused always had a way out; silence is never slashed.</li>
+<li><strong>TH12 L1 reorg: fail closed.</strong> V1/V2 read LOOKBACK-old state; V5 reads ≥ 48-s-old blocks; a deeper reorg invalidates identically everywhere and the view times out.</li>
+<li><strong>TH14 P2P DoS: defended.</strong> Only leader and committee keys accepted before decompression; per-key dedupe and mute; bounded, identity-rated range requests; L1 <code>Landed</code> events are ground truth.</li>
+<li><strong>TH17 false anchor: defended</strong> locally by V5 and on L1 by EIP-2935 against the guest's anchored hashes.</li>
+<li><strong>Not defended: silent Q+1 collusion.</strong> A stall ≤ 30 min (S7 costs 23 seats) or a public landing; they cannot revert a locked block without 12 further slashings, forge state, or land beyond a lock.</li>
+<li><strong>Not defended: premature view change.</strong> Q colluders time out an honest leader early; time is local and unprovable; harm one view and ≤ 2 sequenced blocks; cost 0, bounded by rotation and strikes.</li>
+<li><strong>Not defended: fallback race.</strong> A colluding committee(t) that abstains all term and records its own TERM_END VC just before committee(t+1)'s fallback can invalidate up to ANCHOR_MIN_AGE + L1 inclusion of the honest fallback chain; needs ≥ Q colluders in one committee, outside T11.</li>
+</ul>
+
+<h2 id="failure">13. Failure analysis</h2>
+<ul>
+<li><strong>Leaders (primary and backups) offline.</strong> Each view costs TIMEOUT + 0.5 s; after V_MAX the term idles; t+1 starts from the last VC. Nobody slashed; a view with certified blocks that never lands is the landing page's S4.</li>
+<li><strong>Leaders malicious.</strong> Equivocate (S1); withhold (worthless); future timestamps (policy refuses, timeout); wrong anchor (V5 rejects, unlandable); invalid payload (V6 rejects, treated as silence).</li>
+<li><strong>committee(t) all offline (or ≥ 11 abstaining).</strong> No certificates, no VC; the leader produces ≤ 2 blocks and holds; at termEnd + 12 s committee(t+1) signs the FALLBACK VC at the last lock; loss ≈ one term, no slash. If <em>every</em> registered attester is offline, nothing certifies or lands: the chain fails closed at the preconfirmation layer and state moves only through forced batches until attesters return or the sequencing page's dead mode restores landing. <strong>Committee-degraded mode</strong> (fewer than K_MIN eligible attesters, for example at launch): the committee is empty, the leader's own TERM_END signature replaces certificates and VCs, takeover only at term end, the API exposes only <em>sequenced</em> and <em>landed</em>, and property P2 does not hold.</li>
+<li><strong>committee(t) all malicious.</strong> Certify whatever the leader signs, orphan sequenced or attested blocks by premature VC (cost 0), stall behind a private lock (23 seats), revert a locked block (12 seats), run a private chain until landing. They cannot land beyond a lock, forge a proof, or touch a term with an honest committee; reach is bounded by one term.</li>
+<li><strong>Nodes, RPC, landers, provers.</strong> No validity role; data is guaranteed from any honest bitmap member for RETAIN_SECONDS.</li>
+<li><strong>Challengers all offline.</strong> Slashing is delayed, not lost (evidence windows outlive bond locks); structural defences need no challenger.</li>
+</ul>
+
+<h2 id="fpfn">14. False positives and false negatives, collusion table</h2>
+<table>
+<tr><th>Claim</th><th>Honest punished when</th><th>Dishonest escapes when</th><th>Knob</th></tr>
+<tr><td>TIMEOUT (5 s)</td><td>leader partitioned from ≥ 11 attesters &gt; 5 s loses the view's reward, never bond</td><td>one certificate every &lt; 5 s keeps the view at one-fifth cadence, unrewarded per block</td><td>TIMEOUT, per-block reward</td></tr>
+<tr><td>Certificate (Q of K)</td><td>P(≥ 11 of 32 offline): 1.7·10<sup>−4</sup> at 10 % offline, 4.1·10<sup>−2</sup> at 20 %, 0.36 at 30 %: term lost, no bond</td><td>Q silent colluders certify private data: worthless unless published (S7)</td><td>Q/K</td></tr>
+<tr><td>Locked (2-chain)</td><td>none: a fact about signatures</td><td>needs 12 provable slashings</td><td>Q, K, B_SEAT</td></tr>
+<tr><td>S7</td><td>all Q+1 honest holders unable to land one batch in 30 min while other landings happen (the outage gate covers a chain-wide outage); an eclipsed demander loses 0.05 ETH</td><td>none: an L1 fact</td><td>DEMAND_WINDOW, DEMAND_FEE</td></tr>
+<tr><td>V5 anchor age</td><td>a node &gt; 48 s behind L1 cannot attest (pending)</td><td>anchoring a block that reorgs deeper than 48 s: unlandable</td><td>ANCHOR_MIN_AGE</td></tr>
+<tr><td>STALE_MAX (3 s)</td><td>attestation round &gt; 3 s or clock skew &gt; 2 s: no certificate, treated as silence</td><td>publication delayed &lt; 3 s is free</td><td>STALE_MAX</td></tr>
+</table>
+<p>Collusion cost (K = 32, Q = 22, B_SEAT = 20,000 TAIKO; P = probability that a cartel holding fraction p of eligible seats draws the needed count in one committee, per term):</p>
+<table>
+<tr><th>Outcome</th><th>Colluders</th><th>Provable</th><th>Slashed bonds</th><th>p = 0.1</th><th>p = 0.2</th><th>p = 0.33</th><th>p = 0.45</th></tr>
+<tr><td>certify a block only they hold, or stall ≤ 30 min</td><td>Q + leader</td><td>yes (S7)</td><td>23 seats = 460k TAIKO</td><td>2·10<sup>−15</sup></td><td>3·10<sup>−9</sup></td><td>4·10<sup>−5</sup></td><td>6·10<sup>−3</sup></td></tr>
+<tr><td>revert an attested (1-chain) block</td><td>Q (premature VC)</td><td>no</td><td>0</td><td>2·10<sup>−15</sup></td><td>3·10<sup>−9</sup></td><td>4·10<sup>−5</sup></td><td>6·10<sup>−3</sup></td></tr>
+<tr><td>revert a locked block</td><td>Q, of which 12 double-sign</td><td>yes (S3b)</td><td>12 seats = 240k TAIKO</td><td>2·10<sup>−15</sup></td><td>3·10<sup>−9</sup></td><td>4·10<sup>−5</sup></td><td>6·10<sup>−3</sup></td></tr>
+<tr><td>two certificates at one height</td><td>12 double-attesters</td><td>yes (S3a)</td><td>12 seats</td><td>10<sup>−8</sup></td><td>10<sup>−4</sup></td><td>3·10<sup>−2</sup></td><td>0.3</td></tr>
+<tr><td>handoff ambush (W1)</td><td>12 VC double-signers</td><td>yes (S3c)</td><td>12 seats</td><td>2·10<sup>−15</sup></td><td>3·10<sup>−9</sup></td><td>4·10<sup>−5</sup></td><td>6·10<sup>−3</sup></td></tr>
+</table>
+<p class="small">Anti-monopoly must keep any single entity's seat share at p ≤ 0.2 for these rows to be comfortable; committee slots are drawn per seat, so the probability column is indexed by seat share, not address count.</p>
+
+<h2 id="robustness">15. Robustness</h2>
+<p><strong>Slot time 12 → 2 s:</strong> no rule uses slots; ANCHOR_MIN_AGE = 48 s covers 4 to 24 slots, always beyond ePBS's N+1 confirmation; ANCHOR_MAX_AGE + LAND_WINDOW_MAX + TERM ≈ 1.5 h stays inside EIP-2935 at every slot time (4.55 h at 2 s); per-landing verification (one pairing per certificate or VC, ≤ 5) ≈ 0.6 M gas worst case. <strong>Without Frame Transactions:</strong> V1 to V6, certificates, view changes and unlandability never touch L1; <code>recordViewChange</code>, <code>demandData</code> and slashing become ordinary transactions whose race losers pay gas. <strong>ePBS Empty slots:</strong> V5 anchors execution blocks by number and hash; an Empty slot adds none; if the L1 head stalls, leaders keep anchoring the last block (V5 is monotone, not "must advance"). <strong>EIP-4788 gaps:</strong> not consumed.</p>
+
+<h2 id="claims">16. Claims</h2>
+<ol>
+<li><span class="tag proven">proven</span> V1 to V6 are identical across honest nodes; no rule reads wall clock or "latest".</li>
+<li><span class="tag proven">proven</span> A block the committee never received cannot be certified, so nothing above it carries a certificate; it cannot be the end of a landing nor lie under one.</li>
+<li><span class="tag proven">proven</span> A locked block at height h cannot be below the lock of any later VC unless ≥ 2Q − K attesters are slashable (intersection argument, evidence S3b).</li>
+<li><span class="tag proven">proven</span> given the landing binding: the landed set equals the certified set (V7); "gossiped ≠ landed" is impossible.</li>
+<li><span class="tag proven">proven</span> W1 requires two VCs for one (t, v), hence 12 S3c-slashable keys, and the honest VC reaches L1 minutes before any landing of withheld blocks can.</li>
+<li><span class="tag proven">proven</span> Every slashing condition is a signature pair, a code-size check, or an L1 timestamp; silence is never slashed.</li>
+<li><span class="tag proven">proven</span> Two honest nodes reach the same takeover decision from the same messages.</li>
+<li><span class="tag assumed">assumed</span> T9 (hop ≤ 300 ms, newPayload ≤ 200 ms): certification ≈ 0.7 s, locking ≈ 1.7 s. Resolved by a 32-attester devnet.</li>
+<li><span class="tag assumed">assumed</span> T11: fewer than Q of any committee collude silently, fewer than 12 accept slashing.</li>
+<li><span class="tag assumed">assumed</span> BLS12-381 with proof of possession; 32-key aggregate verification ≈ 115k gas under EIP-2537; to be measured.</li>
+<li><span class="tag open">open</span> Whether the guest should verify VCs (gas saved per VC versus circuit surface).</li>
+<li><span class="tag open">open</span> The exact L1 state machine for voiding a certificate after S7 and re-opening the view needs a formal table before implementation.</li>
+<li><span class="tag open">open</span> The fallback race if anti-monopoly cannot keep p ≤ 0.2 for every entity.</li>
+</ol>
+
+<h2 id="rejected">17. Alternatives rejected</h2>
+<ul>
+<li>ECDSA attestation lists at K = 16 (1.4 KiB per envelope, keys under the EIP-8151 hazard, only 6 double-signers behind a locked block); mandatory parent certificate in every block (cadence becomes the round trip); a long provisional window of unattested progress (an unslashable reorg tail); majority quorum (two certificates then need ≈ 2 double-signers); Q = 3K/4 (17.5 % of terms fail at 20 % downtime); single-step certificates with a "max high" rule (one private certificate stalls every view); a fallback that may skip certified blocks; committee = backup permutation; batch = whole view landable only after its VC (exceeds one L1 block's blobs); availability response as a DA post (the inbox cannot check derivation); a separate sequencer-signed seal (a second withholdable object); timeout-versus-attestation equivocation as a rule (not objective); anchoring via EIP-4788 roots; rebuild-from-attributes hash checks (today's shape); timestamp upper bound = L1 landing time (the cause of today's retroactive invalidity).</li>
+</ul>
+
+<h2 id="open-questions">18. Open questions</h2>
+<ol>
+<li>Should the landing page's S4 exempt a leader whose certified batch became unlandable through an L1 reorg deeper than 48 s (provable by an EIP-2935 mismatch)?</li>
+<li>Is committee-degraded mode below K_MIN = 4 acceptable at launch, or should activation require at least 37 registered seats?</li>
+<li>Is a 7-day evidence window after exit sufficient, given that locked-block safety is a deterrent? A permanent evidence registry costs one slot per slash.</li>
+<li>Should VC verification move into the guest to keep landings under ~300k gas of verification at 2-s slots?</li>
+<li>Whether to expose a TEE fast-lane signal at the <em>sequenced</em> level (assumption A3); nothing above changes.</li>
+</ol>
+
+</main>
+<footer class="wrap">Etna: a fully permissionless based-rollup protocol (design research, not implementation). Every claim is tagged <span class="tag proven">proven</span> <span class="tag assumed">assumed</span> <span class="tag open">open</span>. Source documents: <a href="../README.md">README</a>, <a href="../00-current-protocol-summary.md">00</a>, <a href="../01-threat-model.md">01</a>, <a href="../02-l1-roadmap-survey.md">02</a>, <a href="../03-frame-transactions-research.md">03</a>. Learning site: <a href="../learn/index.html">learn/</a>.</footer>
+</body>
+</html>
