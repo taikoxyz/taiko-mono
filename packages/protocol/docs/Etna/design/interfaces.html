@@ -39,9 +39,10 @@ interface IEtnaInbox {
     struct CommitteeProof{ bytes32[32] keyHashes; bytes[] pubkeys; uint32 pubkeyBitmap; }
     struct RewardBoost{ uint32 termId; uint64 minRewardPerBlockGwei; bytes seqSig; }
     struct Replace    { uint48 l1RefNumber; bytes32 l1RefHash; }
+    struct Segment    { uint32 termId; uint8 view; address sequencer; uint64 firstHeight; uint64 lastHeight; uint16 fiCount; }
     struct LandInput {
         uint64 firstHeight; uint64 endHeight; bytes32 parentBlockHash; bytes32 endBlockHash; bytes32 endStateRoot; bytes32 endPhHash;
-        uint32 termId; uint8 view; address sequencer; Certificate endCert; ViewChange[] viewChanges; bytes32[] blobHashes;
+        Segment[] segments; Certificate endCert; ViewChange[] viewChanges; bytes32[] blobHashes;
         uint48 l1AnchorTipNumber; bytes32 l1AnchorTipHash; uint48 l1AnchorTipTimestamp;
         uint48 fiHeadBefore; uint48 fiHeadAfter; RewardBoost[] boosts; Replace replace; uint48 deadline;
         address rewardTo; bytes proof; }
@@ -92,6 +93,7 @@ interface IEtnaInbox {
     function landFor(address _rewardTo, LandInput calldata _in) external;           // msg.sender == G_LAND (0 = disabled)
     function recordViewChange(ViewChange calldata _vc) external;                    // anyone; first per (termId, view) wins
     function demandData(Certificate calldata _cert) external payable;               // msg.value == DEMAND_FEE
+    function answerDemand(bytes32 _certHash, uint64 _firstHeight) external;         // blobs attached: canonical bytes of [firstHeight, cert.height]
     function lastLanded() external view returns (LastLanded memory head_);
     function lastLandedTerm() external view returns (uint32 term_);
     function termRecord(uint32 _term) external view returns (TermRecord memory record_);
@@ -192,7 +194,7 @@ RewardBoost, FiPayloadById (optional)</code></pre>
 <h2 id="storage">5. Storage-layout summary</h2>
 <table>
 <tr><th>Contract</th><th>Kept slots</th><th>Appended (after the gap start)</th><th>Gap after</th></tr>
-<tr><td>Inbox proxy (L1)</td><td>0-250 prefix; 251 activation; 252-253 core state (frozen after drain); 254 proposal hashes (aliased as the term-record ring after drain); 255-256 forced-inclusion queue; 257 bond ledger</td><td>activation record; lastLanded (3); seed accumulator, seed meta and ring, seats, operators, length ring; committee roots, attester keys, offence records, pending burn and bonus; recorded view changes, demands, voided, last view-change hash; forced-inclusion extras, ETH pull ledger, forced ring; assignment records: 23 slots</td><td>20</td></tr>
+<tr><td>Inbox proxy (L1)</td><td>0-250 prefix; 251 activation; 252-253 core state (frozen after drain); 254 proposal hashes (aliased as the term-record ring after drain); 255-256 forced-inclusion queue; 257 bond ledger</td><td>activation record; lastLanded (3); seed accumulator, seed meta and ring, seats, operators, length ring; committee roots, attester keys, offence records, pending burn and bonus; recorded view changes, demands and answers, voided, last view-change hash; forced-inclusion extras, ETH pull ledger, forced ring; pinned assignment digests: 23 slots</td><td>20</td></tr>
 <tr><td>Anchor proxy (L2)</td><td>0-250 prefix; 251 blockHashes; 252-255 retired; 256-257 block state (byte-identical semantics)</td><td>258 packed metadata; 259 carried certificate hash; 260 view-change hash</td><td>40</td></tr>
 <tr><td>SignalService (both), Bridge, Vaults</td><td>all</td><td>none</td><td>unchanged</td></tr>
 </table>

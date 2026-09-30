@@ -16,18 +16,19 @@
 <h2 id="chain">1. Dependency chain</h2>
 <pre><code>DELAY_S  = LOOKBACK + 2·TERM                              = 1,320 s   (registry writes never touch a term already evaluated)
 DELAY_REG > CYCLE + LOOKBACK − TERM                       = 7,200 s   (no grinding when the seed is fresh)
-ROLE_HORIZON ≥ TERM + LAND_WINDOW_MAX + ABANDON_GRACE     = 7,200 s   (roles exact until an hour past the hard deadline)
-SUSPEND(3) ≥ ROLE_HORIZON + DELAY_S                       = 10,800 s  (the two-interval store never drops a live interval)
-RECYCLE_GRACE ≥ ROLE_HORIZON                              = 7,200 s   (a recycled seat never changes a decided term)
+ROLE_HORIZON = COMMITTEE_RING·TERM                        = 122,880 s (34 h: the landing horizon; roles pinned for every settled term)
+SUSPEND(3) ≥ ROLE_HORIZON + DELAY_S                       = 129,600 s (the two-interval store never drops a live interval)
+RECYCLE_GRACE ≥ ROLE_HORIZON + DELAY_S                    = 129,600 s (a recycled seat never changes a decided term)
 DEAD_TERMS·TERM > LAND_WINDOW_MAX + ABANDON_GRACE         = 4,500 s   (a slow but live chain never enters dead mode; 75 terms)
 RETAIN_SECONDS ≥ LAND_WINDOW_MAX + ABANDON_GRACE + slack  = 7,200 s   (attesters serve data until any landing is possible)
 ROTATION_OVERLAP ≥ LAND_WINDOW_MAX + ABANDON_GRACE + prove= 7,200 s   (an image rotation never orphans an in-window proof)
 ANCHOR_MAX_AGE + TERM + LAND_WINDOW_MAX + ABANDON_GRACE   = 5,760 s   < EIP-2935 window at 2-s slots (16,382 s)
 FI_EXPIRY + ANCHOR_MAX_AGE + LAND_WINDOW_MAX + ABANDON_GRACE ≈ 7 d 95 min < blob retention (≈ 18 d; ≥ 9 d assumed)
-60·R_BLK_MAX + SLASH_ABANDON + 5·ATT_REWARD_TOTAL         = 2,270 TAIKO ≤ B_SEAT / 2 = 10,000  (per-term exposure)
-SLASH_ABANDON > 60·R_BLK_MAX                              (paying a lander always dominates abandoning)
-Q = ⌊2K/3⌋ + 1; 2Q − K = 12                               (provable double-signers behind a locked block)
-K_MIN + V_MAX + 1 = 9 ≤ registered seats at activation    (recommended 37 = K + V_MAX + 1 for full committees)</code></pre>
+60·R_BLK_MAX + SLASH_ABANDON + 5·ATT_REWARD_TOTAL         = 3,470 TAIKO ≤ B_SEAT / 2 = 10,000  (per-term exposure)
+SLASH_ABANDON > 60·R_BLK_MAX = 1,440                      (paying a lander always dominates abandoning)
+Q(m) = ⌊2m/3⌋ + 1; 2Q(m) − m                              (provable double-signers behind a locked block: 12 at m = 32, 2 at m = 8)
+K_MIN_CERT = 8 ≤ committee size, else no-committee mode   (recommended 37 = K + V_MAX + 1 seats at activation for full committees)
+DEGRADE_AFTER = 7,200 s &lt; ROLE_HORIZON                    (single-proof mode arms long before the horizon)</code></pre>
 
 <h2 id="table">2. The table</h2>
 <table>
@@ -37,20 +38,20 @@ K_MIN + V_MAX + 1 = 9 ≤ registered seats at activation    (recommended 37 = K 
 <tr><td>LOOKBACK</td><td>Sequencing</td><td>s</td><td>1,200</td><td>above L1 finality at 12-s slots (768 s)</td><td>reorg changes an assignment / slashes bite later</td></tr>
 <tr><td>DELAY_REG</td><td>Sequencing</td><td>s</td><td>7,200</td><td>chain above</td><td>post-seed grinding / slow onboarding</td></tr>
 <tr><td>DELAY_S</td><td>Sequencing</td><td>s</td><td>1,320</td><td>chain above</td><td>node and contract disagree / slashed owner keeps terms</td></tr>
-<tr><td>SUSPEND(3)</td><td>Sequencing</td><td>s</td><td>10,800, doubling per strike, cap 64 h</td><td>chain above</td><td>interval store breaks / honest partitioned owner idle</td></tr>
-<tr><td>STRIKE_THRESHOLD / STRIKE_DECAY / STRIKE_COALESCE</td><td>Sequencing, Slashing</td><td>count / s / s</td><td>3 / 604,800 / 600</td><td>one or two partitions a week free; one incident = one strike</td><td>griefing suspends honest capacity / squatters linger</td></tr>
-<tr><td>MISS_PENALTY</td><td>Slashing</td><td>gwei TAIKO</td><td>5·10<sup>10</sup> (50)</td><td>≤ V_term(1 − p)/p at p = 0.5; burned</td><td>squatting free / entry unprofitable under griefing</td></tr>
+<tr><td>SUSPEND(3)</td><td>Sequencing</td><td>s</td><td>129,600 (36 h), doubling per structural strike</td><td>chain above</td><td>interval store breaks / honest owner idle after a software bug</td></tr>
+<tr><td>STRIKE_THRESHOLD / STRIKE_DECAY</td><td>Slashing</td><td>count / s</td><td>3 / 604,800</td><td>structural offences only; timeouts never strike (round 1, F3)</td><td>a software bug suspends / repeat offenders linger</td></tr>
+<tr><td>MISS_PENALTY</td><td>Slashing</td><td>gwei TAIKO</td><td>5·10<sup>10</sup> (50)</td><td>≤ V_term(1 − p)/p at p = 0.5; burned; the only consequence of a timeout</td><td>squatting free / entry unprofitable under griefing</td></tr>
 <tr><td>B_SEAT</td><td>Slashing</td><td>gwei TAIKO</td><td>2·10<sup>13</sup> (20,000)</td><td>13 × B ≈ 39 ETH per locked reorg; 300 × V_term</td><td>cheap attested reorg / small operators excluded</td></tr>
 <tr><td>BUFFER_BPS / HARD_FLOOR_BPS</td><td>Slashing</td><td>bps</td><td>500 / 5,000</td><td>20 misses before the floor; backstop</td><td>one false view change suspends / little at stake</td></tr>
 <tr><td>CAP</td><td>Sequencing</td><td>count</td><td>8</td><td>bounds one address to 8/A</td><td>forces Sybil splitting / one address dominates views</td></tr>
 <tr><td>MAX_SEATS</td><td>Sequencing</td><td>count</td><td>65,535</td><td>filling costs 1.31 B TAIKO, above supply</td><td>a finite price for exclusion / —</td></tr>
-<tr><td>MAX_TRIES / MAX_DISTINCT</td><td>Sequencing</td><td>count</td><td>64 / 5</td><td>P(no holder) = (1 − ρ)<sup>64</sup>; ≈ 290k gas worst case</td><td>open-empty at low density / gas</td></tr>
+<tr><td>MAX_TRIES / MAX_DISTINCT / MAX_TRIES_COMMITTEE</td><td>Sequencing</td><td>count</td><td>64 / 5 / 512</td><td>P(no holder) = (1 − ρ)<sup>64</sup>; ≈ 290k gas worst case; the committee walk is pinned, not walked, on the landing path</td><td>open-empty at low density / gas</td></tr>
 <tr><td>V_MAX</td><td>Certificates</td><td>count</td><td>4</td><td>bounds view changes a landing verifies</td><td>term dies early / gas per landing</td></tr>
-<tr><td>RECYCLE_GRACE</td><td>Sequencing</td><td>s</td><td>7,200</td><td>chain above</td><td>recycled seat breaks old-term checks / holes persist</td></tr>
+<tr><td>RECYCLE_GRACE</td><td>Sequencing</td><td>s</td><td>129,600</td><td>chain above</td><td>recycled seat breaks old-term checks / holes persist</td></tr>
 <tr><td>EVIDENCE_WINDOW = EXIT_LOCK</td><td>Slashing</td><td>s</td><td>604,800</td><td>key-pair rules; today's withdrawal delay</td><td>exit-then-equivocate / capital locked</td></tr>
 <tr><td>DEAD_TERMS</td><td>Sequencing</td><td>terms</td><td>75</td><td>chain above</td><td>opportunists void a lagging chain / slow recovery</td></tr>
-<tr><td>ROLE_HORIZON</td><td>Slashing</td><td>s</td><td>7,200</td><td>chain above</td><td>abandonment unfileable in an outage / registry holds roles longer</td></tr>
-<tr><td>K / Q / K_MIN</td><td>Certificates</td><td>count</td><td>32 / 22 / 4</td><td>one pairing per certificate; 12 double-signers behind a locked block; below K_MIN, no-committee mode</td><td>cheap collusion / gossip load; sham security / long bootstrap</td></tr>
+<tr><td>ROLE_HORIZON</td><td>Sequencing, Slashing</td><td>s</td><td>122,880 (34 h = 2,048 terms)</td><td>the landing horizon; equals the committee ring</td><td>time-based void sooner / registry holds roles longer</td></tr>
+<tr><td>K / Q(m) / K_MIN_CERT</td><td>Certificates</td><td>count</td><td>32 max / ⌊2m/3⌋ + 1 / 8</td><td>one pairing per certificate; 2Q(m) − m double-signers behind a locked block (12 at m = 32); below 8, no-committee mode</td><td>cheap collusion / gossip load; sham security / long bootstrap</td></tr>
 <tr><td>CERT_LAG_MAX</td><td>Certificates</td><td>blocks</td><td>1</td><td>round trip overlaps building; private state ≤ 2 blocks</td><td>cadence = round trip / longer unattested tail</td></tr>
 <tr><td>TIMEOUT / TO_REBROADCAST</td><td>Certificates</td><td>s</td><td>5 / 2</td><td>five missed certificates; a 3-s hiccup never triggers</td><td>spurious view changes / slow takeover</td></tr>
 <tr><td>END_GRACE / VC_FALLBACK</td><td>Certificates</td><td>s</td><td>2 / 10</td><td>last block + certification + skew; two VC round trips</td><td>last block lost / idle gap</td></tr>
@@ -63,17 +64,17 @@ K_MIN + V_MAX + 1 = 9 ≤ registered seats at activation    (recommended 37 = K 
 <tr><td>LAND_CHAIN_GRACE / ABANDON_GRACE</td><td>Landing</td><td>s</td><td>600 / 300</td><td>a child gets 10 min after a late parent; late original beats a replacement</td><td>children replaceable at once / slower recovery</td></tr>
 <tr><td>OUTAGE_WINDOW</td><td>Slashing</td><td>s</td><td>3,600</td><td>no landing in the hour before the hard deadline ⇒ nobody slashed</td><td>honest holders slashed in outages / targeted abandonment escapes</td></tr>
 <tr><td>DEGRADE_AFTER / ROTATION_OVERLAP</td><td>Landing</td><td>s</td><td>7,200 / 7,200</td><td>one back-end outage never stalls until a DAO upgrade; chain above</td><td>single-proof mode common / retired image trusted longer</td></tr>
-<tr><td>R_BLK_MIN / R_BLK_MAX</td><td>Landing</td><td>TAIKO per block</td><td>0.5 / 4</td><td>≈ 2 × a 1.5 M-gas landing at 10 gwei per term; exceeds proving in a 100-gwei hour</td><td>only the sequencer lands early / bond drained</td></tr>
+<tr><td>R_BLK_MIN / R_BLK_MAX</td><td>Landing</td><td>TAIKO per block</td><td>0.5 / 24</td><td>minimum ≈ 2 × a 1.5 M-gas landing at 10 gwei; maximum covers a 2 M-gas landing at 100 gwei (break-even ≈ 100 gwei per term landed, 400 with four-term landings)</td><td>third parties never land / bond drained in a spike</td></tr>
 <tr><td>SLASH_ABANDON / LANDER_BONUS_BPS</td><td>Slashing</td><td>TAIKO / bps</td><td>2,000 / 4,000</td><td>≫ maximum reward per term; 10 % of a seat</td><td>never-land cheap / honest holder ruined by a guest bug</td></tr>
 <tr><td>CHALLENGER_BPS / CHALLENGER_CAP</td><td>Slashing</td><td>bps / gwei</td><td>1,000 / 2·10<sup>12</sup> (2,000)</td><td>cap covers 600k gas at 500 gwei; keeps self-report unprofitable</td><td>evidence unsubmitted in spikes / bond partly recoverable</td></tr>
 <tr><td>ATT_REWARD_TOTAL</td><td>Slashing</td><td>gwei per landing</td><td>6·10<sup>9</sup> (6)</td><td>≈ 9 % of V_term; fixed total</td><td>committees go dark / holder margin gone</td></tr>
-<tr><td>MAX_BLOCKS / MAX_BLOBS / MAX_FI per landing</td><td>Landing, FI</td><td>count</td><td>256 / 6 / 64</td><td>bounds guest work; per-transaction blob cap; queue walk ≤ 270k gas</td><td>slow catch-up / gas</td></tr>
+<tr><td>MAX_BLOCKS / MAX_VIEWS / MAX_BLOBS / MAX_FI per landing</td><td>Landing, FI</td><td>count</td><td>256 / 4 / 6 / 64</td><td>bounds guest work; per-transaction blob cap; queue walk ≤ 270k gas</td><td>slow catch-up / gas</td></tr>
 <tr><td>BYTES_PER_SEC_TARGET</td><td>Landing (client)</td><td>KiB/s</td><td>32</td><td>one seventh of the L1 blob budget</td><td>throughput / unincludable at short slots</td></tr>
 <tr><td>ZK_K / ZK_N</td><td>Landing</td><td>count</td><td>2 / 2 → 3</td><td>no single system finalizes in normal mode</td><td>single-system soundness / halts on one outage</td></tr>
 <tr><td>TERM_RING / COMMITTEE_RING</td><td>Landing, Slashing</td><td>terms</td><td>21,600 (15 d, aliased) / 2,048 (34 h)</td><td>aliased onto the Shasta ring; committee-evidence horizon</td><td>evidence expires / first-lap state gas</td></tr>
 <tr><td>LANDED_CONFIRM_DEPTH</td><td>Landing</td><td>L1 blocks</td><td>1</td><td>ePBS payload confirmed by the next block</td><td>unrevealed payloads shown safe / latency</td></tr>
 <tr><td>LANDING_GAS_BUDGET</td><td>Landing</td><td>gas</td><td>10,000,000</td><td>fits a 2-s-slot block; estimate 1.5 to 2.0 M</td><td>— / unincludable at short slots</td></tr>
-<tr><td>FI_DELAY / FI_EXPIRY</td><td>FI</td><td>s</td><td>300 / 604,800</td><td>notice for payload fetch; chain above</td><td>attesters lack the payload / blob gone before proof</td></tr>
+<tr><td>FI_DELAY / FI_EXPIRY / FI_SKIP</td><td>FI</td><td>s</td><td>300 / 604,800 / 14,400</td><td>notice for payload fetch; chain above; a due head entry unconsumed for 4 h is voided (the clock rule added in round 1)</td><td>attesters lack the payload / blob gone before proof / a poison entry stalls longer</td></tr>
 <tr><td>MAX_FI_RUN</td><td>FI</td><td>count</td><td>2</td><td>backlog drains at two-thirds cadence</td><td>stuffing outpaces the drain / halts ordinary traffic</td></tr>
 <tr><td>FI_BASE_FEE / FI_FEE_THRESHOLD / FI_CALLDATA_MAX / FI_GAS_LIMIT</td><td>FI</td><td>wei / count / bytes / gas</td><td>10<sup>15</sup> / 50 / 4,096 / 5,000,000</td><td>today's fee shape; half an inclusion list; a multi-transaction exit bundle</td><td>stuffing cheap / users excluded; large exits unprotected / list-ineligible</td></tr>
 <tr><td>FI_ANCHOR_LAG (attester policy)</td><td>FI</td><td>L1 blocks</td><td>20 (40 s to 4 min)</td><td>above any healthy L1 client lag</td><td>honest slow nodes taken over / policy toothless</td></tr>

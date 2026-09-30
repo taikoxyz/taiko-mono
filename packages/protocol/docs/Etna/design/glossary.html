@@ -25,7 +25,7 @@
 <tr><td><strong>Rule D</strong></td><td>Every registry write takes effect only after a delay ≥ LOOKBACK + 2·TERM, so the snapshot equals the landing-time state.</td><td>future-dated effect</td></tr>
 <tr><td><strong>Seed</strong></td><td>The per-cycle randomness derived from an accumulator of <code>block.prevrandao</code> values mixed by inbox transactions.</td><td></td></tr>
 <tr><td><strong>Hash walk</strong></td><td>The deterministic sequence of seat indices <code>keccak(seed ‖ t ‖ k) mod L</code> from which holders and committees are drawn.</td><td>sortition</td></tr>
-<tr><td><strong>Committee</strong></td><td>The 32 seats drawn per term (excluding the term's holders) whose attestations certify blocks; quorum Q = 22.</td><td>attester set</td></tr>
+<tr><td><strong>Committee</strong></td><td>Up to 32 seats drawn per term (excluding the term's holders) whose attestations certify blocks; quorum Q(m) = ⌊2m/3⌋ + 1 of its actual size m (22 of 32).</td><td>attester set</td></tr>
 <tr><td><strong>Signed header (PH)</strong></td><td>The sequencer-signed header of a block; <code>phHash</code> is its hash and the object attestations sign.</td><td>envelope hash</td></tr>
 <tr><td><strong>Attestation</strong></td><td>One attester's BLS signature over (term, view, height, phHash).</td><td></td></tr>
 <tr><td><strong>Certificate C(h)</strong></td><td>An aggregate of ≥ Q attestations over one block; about 100 bytes; carried by the block one or two heights above.</td><td>quorum cert</td></tr>
@@ -34,7 +34,7 @@
 <tr><td><strong>Timeout</strong></td><td>An attester's signed statement that no new certificate appeared in (t, v) for TIMEOUT seconds, or that the term ended, carrying its lock.</td><td>TO</td></tr>
 <tr><td><strong>View change VC(t, v)</strong></td><td>Q timeouts aggregated over one lock; closes view v, opens the next, and <strong>is the seal</strong> of the view's batch. Kinds: TIMEOUT, TERM_END, FALLBACK, REPLACE, RESUME.</td><td>takeover certificate, TC, timeout certificate, seal</td></tr>
 <tr><td><strong>Opening object</strong></td><td>What a view's first block carries in <code>vcHash</code>: a view change, a dead-mode marker, or a forced marker.</td><td></td></tr>
-<tr><td><strong>Range</strong></td><td>A contiguous run of certified blocks inside one view that a landing covers; lander-chosen, at most 256 blocks and 6 blobs.</td><td>batch, segment</td></tr>
+<tr><td><strong>Range / segment</strong></td><td>A contiguous run of certified blocks that a landing covers, spanning up to four consecutive views; each view's part is a segment. Lander-chosen, at most 256 blocks and 6 blobs.</td><td>batch</td></tr>
 <tr><td><strong>Landing</strong></td><td>The single L1 action <code>land</code> that carries a range's blobs and ZK proof and finalizes it; the propose-with-proof primitive.</td><td>propose, prove, batch submission</td></tr>
 <tr><td><strong>Journal</strong></td><td>The ZK proof's public input structure; its hash is what the verifier checks.</td><td>commitment, public input</td></tr>
 <tr><td><strong>Canonical blob encoding (E1)</strong></td><td>The deterministic byte layout of a range's blobs, a pure function of the certified blocks, making proofs fungible.</td><td></td></tr>
@@ -47,7 +47,7 @@
 <tr><td><strong>Single-proof mode</strong></td><td>After two hours without a landing, one ZK system suffices for certified ranges until the next landing.</td><td>degraded mode</td></tr>
 <tr><td><strong>Open-empty term</strong></td><td>A term in which the walk finds no eligible seat; any bonded address may sequence with view 255.</td><td>open term</td></tr>
 <tr><td><strong>Dead mode</strong></td><td>After 75 unlanded terms, any bonded address may sequence from the last landed block and land without a certificate; first landing wins.</td><td></td></tr>
-<tr><td><strong>No-committee mode</strong></td><td>While fewer than four attester seats are eligible: sortition holders, no certificates, certificate-free landings, sequenced level only.</td><td>committee-degraded mode</td></tr>
+<tr><td><strong>No-committee mode</strong></td><td>A term whose committee walk finds fewer than 8 eligible non-holder seats: sortition holders, no certificates, certificate-free landings, sequenced level only. Between 8 and 32 the quorum scales with the committee size.</td><td>committee-degraded mode</td></tr>
 <tr><td><strong>Forced inclusion (FI)</strong></td><td>A user request (blob or calldata) that must occupy one L2 block once due at an anchored L1 time.</td><td></td></tr>
 <tr><td><strong>Forced batch</strong></td><td>A certificate-free landing of exactly the due FI entries by anyone, with view 254, once replacement is permitted.</td><td>permissionless batch</td></tr>
 <tr><td><strong>Cursor</strong></td><td>Per block, the index of the next unconsumed FI entry; carried in the anchor calldata.</td><td>fiIndex</td></tr>
@@ -56,11 +56,13 @@
 <tr><td><strong>Anchor tip</strong></td><td>The newest L1 block a landing's range anchors; the inbox checks it against <code>blockhash</code> or EIP-2935 and the guest chains every anchored header to it.</td><td>origin block</td></tr>
 <tr><td><strong>Confirmation levels</strong></td><td>sequenced (signed, ~0.3 s) → attested (certificate, ~0.7 s) → locked (certificate carried, ~1.7 s) → landed (on L1 with proof) → L1-safe (one L1 descendant) → final (L1-finalized).</td><td>safe, unsafe, finalized</td></tr>
 <tr><td><strong>Availability escalation (S7)</strong></td><td><code>demandData</code> on a certificate; answered only by a landing within 30 minutes, else every signer and the leader lose a seat and the certificate is voided.</td><td>data request game</td></tr>
-<tr><td><strong>Strike</strong></td><td>One unit of the performance ladder; three strikes in a week suspend an owner; coalesced per 600 s.</td><td>decay</td></tr>
+<tr><td><strong>Strike</strong></td><td>One unit of the structural-offence ladder (class B only); three strikes in a week suspend an owner. Timeouts never strike.</td><td>decay</td></tr>
 <tr><td><strong>Class A / B / C offence</strong></td><td>Safety (whole ledger), structural (one seat), liveness (small, burned).</td><td></td></tr>
 <tr><td><strong>Gate contract (G_LAND)</strong></td><td>The shared-nonce Frame-Transaction sender for the public-mempool landing shape; deployed only once EIP-8141 is Final.</td><td></td></tr>
 <tr><td><strong>Trailing status VERIFY (A7)</strong></td><td>The Frame-Transaction shape in which a frame after the action checks its success, making any reverting landing invalid and free.</td><td></td></tr>
 <tr><td><strong>Golden touch</strong></td><td>The public-key system account that signs every anchor transaction with a fixed nonce, as today.</td><td></td></tr>
+<tr><td><strong>Landing horizon</strong></td><td>The time after which an unlanded range can no longer be landed: 34 h (roles pinned) or the EIP-2935 window if shorter. The one time-based void.</td><td></td></tr>
+<tr><td><strong>FI_SKIP</strong></td><td>The four-hour rule that voids a due head forced-inclusion entry no landing has consumed; the one clock rule in forced inclusion.</td><td></td></tr>
 <tr><td><strong>Published constants</strong></td><td><code>protocolParams()</code> and its hash, the single source of every guest-visible constant (TH25).</td><td></td></tr>
 </table>
 

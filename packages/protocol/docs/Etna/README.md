@@ -62,16 +62,16 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 - [x] **Phase 1: Learn.** `00-current-protocol-summary.md`, `01-threat-model.md` (verified by independent sub-agents; reports and gap fills in `notes/`).
 - [x] **Phase 2: Research.** `02-l1-roadmap-survey.md`, `03-frame-transactions-research.md` (each independently re-verified by a skeptic agent; reports in `notes/`).
 - [x] **Phase 3: Design draft.** `design/index.html` and fourteen section pages (three independent designs per building block, judged and synthesized, then a cross-block consistency pass; the architect's decisions are listed on the overview page).
-- [ ] **Phase 4: Red team round 1.** `iterations/01-round.md` (three or more adversarial agents on different models, plus a judge).
-- [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap.
-- [ ] **Phase 6: Deliverables.** Design site, learning site, commit, push, draft PR.
+- [x] **Phase 4: Red team round 1.** `iterations/01-round.md` (three adversarial agents on opus, sonnet and haiku; a fable verifier per finding and a fable judge).
+- [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap. Round 1 revisions applied; round 2 in progress.
+- [x] **Phase 6: Deliverables.** Design site, learning site, commit, push, draft PR (all pushed; both sites are revised after every round).
 - [ ] **Phase 7: Report.** Final message: verdict, top-five decisions, open questions, links.
 
 ## Convergence status
 
 | Round | Models | New Critical | New High | Open Medium | Verdict |
 |---|---|---|---|---|---|
-| (none yet) | | | | | |
+| [1](iterations/01-round.md) | opus (steal, report truncated), sonnet (halt), haiku (censor); fable verifier and judge | 0 | 3 | 5 (all revised) | REVISE: F1 to F10 fixed in the design; round 2 pending |
 
 **Design readiness: NOT READY.** The design is declared ready only if two consecutive red-team rounds produce no new Critical or High findings, every Medium is mitigated or accepted with written rationale, and all of R1 to R7 pass.
 
