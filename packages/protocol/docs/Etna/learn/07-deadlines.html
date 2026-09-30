@@ -21,28 +21,28 @@
 
 <h2>The rules</h2>
 <ul>
-<li><strong>Reward ramp.</strong> <code>r(τ)</code> from 0.5 TAIKO per block at term end to 4 TAIKO per block at term end + 30 min; per block, so splitting a range earns nothing; a sequencer can shortcut the ramp with a signed boost.</li>
+<li><strong>Reward ramp.</strong> <code>r(τ)</code> from 0.5 TAIKO per block at term end to 24 TAIKO per block at term end + 30 min (sized so one term's maximum covers a 2 M-gas landing at 100 gwei; a landing may span four consecutive views to amortize gas); per block, so splitting a range earns nothing; a sequencer can shortcut the ramp with a signed boost.</li>
 <li><strong>Replaceable.</strong> From about term end + 35 to 65 minutes without a landing (a predicate on inbox storage and the block timestamp), the current holder may fork a REPLACE view from <code>lastLanded</code>; attesters attest it only if the predicate holds in their own L1 view. Whichever lands first wins; the loser is invalid and free under the trailing-VERIFY shape.</li>
 <li><strong>Abandonment (S4a).</strong> A certified view not landed by term end + 60 min costs its holder 2,000 TAIKO (10 % of a seat; no strike), but only if some term landed within the hour before that deadline (the <strong>outage gate</strong>). Ten percent to the reporter, 40 % escrowed to the next ordinary lander, the rest burned.</li>
 <li><strong>Single-proof mode.</strong> If nothing has landed for two hours, one ZK system suffices for certified ranges until the next landing. Safe because the end hash must still equal the certified hash, whose header commits the state root 22 attesters executed; a false root then needs one ZK bug and a colluding quorum.</li>
 </ul>
 <figure>
-<svg viewBox="0 0 720 110" role="img" aria-label="Reward per block ramps from 0.5 to 4 TAIKO between term end and term end plus thirty minutes">
+<svg viewBox="0 0 720 110" role="img" aria-label="Reward per block ramps from 0.5 to 24 TAIKO between term end and term end plus thirty minutes">
 <line x1="60" y1="90" x2="700" y2="90" class="svg-line"/><line x1="60" y1="20" x2="60" y2="90" class="svg-line"/>
 <polyline points="60,80 300,80 560,25 700,25" class="svg-line-accent"/>
 <text x="240" y="105" class="svg-muted">term end</text><text x="520" y="105" class="svg-muted">+30 min</text>
-<text x="10" y="84" class="svg-muted">0.5</text><text x="20" y="30" class="svg-muted">4</text>
+<text x="10" y="84" class="svg-muted">0.5</text><text x="20" y="30" class="svg-muted">24</text>
 <text x="330" y="60" class="svg-note">Dutch auction; the holder is the reserve bidder</text>
 </svg>
 <figcaption>Per-block reward in TAIKO, debited from the holder's bond; amounts are placeholders until term revenue is measured.</figcaption>
 </figure>
 
 <h2>Self-check</h2>
-<details><summary>Every prover in the world is down for six hours. Who is slashed?</summary><p>Nobody. No replacement can land without a proof, so nothing is voided; the outage gate sees no landing in the hour before any deadline, so no abandonment can be reported. The backlog lands when proving returns.</p></details>
+<details><summary>Every prover in the world is down for six hours. Who is slashed?</summary><p>Nobody. No replacement can land without a proof, so nothing is voided; the outage gate sees no landing in the hour before any deadline, so no abandonment can be reported. The backlog lands when proving returns. Only an outage longer than the landing horizon (34 hours, or the EIP-2935 window if shorter) loses unlanded ranges, without a slash; that horizon is the design's one time-based void.</p></details>
 <details><summary>Why are descendants of a replaced range void, and why is that acceptable?</summary><p>They were built on a state L1 will never hold. It is unavoidable whenever the preconfirmed chain runs ahead of L1; Etna bounds <em>when</em> it happens (only at a landed replacement) and expects it a few times a year.</p></details>
 <details><summary>Why does the replacer get no share of the abandonment penalty?</summary><p>A share would make replacing more attractive than landing the backlog after an outage. The escrowed 40 % goes to the next ordinary landing only.</p></details>
 
-<div class="box challenge"><h4>Challenge this</h4><p>After a two-hour outage proving returns. The current holder can either land the backlog (earning 4 TAIKO per block) or fork a REPLACE view. Model both payoffs including its own upcoming terms, and decide whether a refundable REPLACE bond (listed as not built) is needed.</p></div>
+<div class="box challenge"><h4>Challenge this</h4><p>After a two-hour outage proving returns. The current holder can either land the backlog (earning 24 TAIKO per block) or fork a REPLACE view. Model both payoffs including its own upcoming terms, and decide whether a refundable REPLACE bond (listed as not built) is needed.</p></div>
 
 <p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="06-landing.html">← 6. Landing with a proof</a><span></span><a href="08-slashing.html">8. Slashing and bonds →</a></p>
 </main>

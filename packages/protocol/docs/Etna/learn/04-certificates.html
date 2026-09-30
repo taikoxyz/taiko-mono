@@ -21,7 +21,7 @@
 
 <h2>The rules</h2>
 <ul>
-<li><strong>Committee.</strong> 32 seats per term, drawn by the seed, excluding the term's holders. Quorum Q = 22.</li>
+<li><strong>Committee.</strong> Up to 32 seats per term, drawn by the seed, excluding the term's holders. The quorum scales with the actual size m: Q(m) = ⌊2m/3⌋ + 1, so 22 of 32; below 8 seats there is no committee at all (no-committee mode). The number of provably slashable double-signers behind a locked block, 2Q(m) − m, is published beside the confirmation level (12 at 32 seats, 2 at 8).</li>
 <li><strong>Attestation.</strong> A BLS signature over (chain, term, view, height, header hash). An attester signs a block only after V1 to V6 pass, only above its lock, one per height, and only if the block's timestamp is within 3 seconds of its own clock (a signing policy, not a validity rule).</li>
 <li><strong>Certificate C(h).</strong> Any 22 attestations aggregated into one 100-byte object with a 32-bit bitmap. Anyone can build it from gossip; the sequencer holds nothing the network does not.</li>
 <li><strong>Carried certificate.</strong> Block n includes C(n−1) if it has it, else C(n−2). A sequencer more than two blocks ahead of its newest certificate must hold.</li>
@@ -53,7 +53,7 @@
 <details><summary>Why is the quorum 22 and not 17?</summary><p>Two certificates or view changes over one (term, view) then share at least 2·22 − 32 = 12 signers, each fully slashable. With a bare majority the overlap could be two keys, and reverting a locked block would cost two bonds.</p></details>
 <details><summary>What does "locked" cost to revert in TAIKO at the initial parameters?</summary><p>At least 12 seats of 20,000 TAIKO, 240,000 TAIKO, plus the leader's bond for a certificate pair: the published credit bound wallets can use.</p></details>
 
-<div class="box challenge"><h4>Challenge this</h4><p>Ten percent of attesters are offline. Compute the probability that a term's committee cannot reach 22 signatures (binomial, 32 seats, 11 or more offline) and compare it with the design's 1.7·10<sup>−4</sup>. Then argue whether Q = 22 or Q = 24 is the better trade at 20 % offline.</p></div>
+<div class="box challenge"><h4>Challenge this</h4><p>Ten percent of attesters are offline. Compute the probability that a term's committee cannot reach 22 signatures (binomial, 32 seats, 11 or more offline) and compare it with the design's 1.7·10<sup>−4</sup>. Then argue whether Q = 22 or Q = 24 is the better trade at 20 % offline, and what the size-scaled quorum does to both numbers when the registry has only 16 non-holder seats.</p></div>
 
 <p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="03-blocks.html">← 3. Blocks and validity</a><span></span><a href="05-takeover.html">5. Silence, takeover, withholding →</a></p>
 </main>

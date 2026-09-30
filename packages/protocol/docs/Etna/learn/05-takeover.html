@@ -40,7 +40,7 @@
 <h2>Self-check</h2>
 <details><summary>Two honest nodes have clocks 3 seconds apart. Can they disagree on who the holder is?</summary><p>No. Each decides by the view changes it holds. One may sign its timeout later than the other, but neither switches until a VC exists, and a VC is the same object for both.</p></details>
 <details><summary>Why is the absence penalty burned rather than paid to the backup that takes over?</summary><p>Paying the backup would create an incentive for a backup allied with 22 attesters to sign a timeout against a live primary. Burning removes the beneficiary.</p></details>
-<details><summary>What does a false view change cost the victim?</summary><p>One view and 50 TAIKO, plus a strike; three strikes in a week suspend it for three hours. The design accepts this because the penalty is nuisance-level and no signature pair can prove silence either way.</p></details>
+<details><summary>What does a false view change cost the victim?</summary><p>One view and 50 TAIKO, and nothing else: a timeout never changes eligibility, because red-team round 1 showed that eleven abstaining seats could otherwise suspend honest operators. Only the 50 % hard floor ends eligibility, after about 200 bled views. The design accepts the bleed because it is nuisance-level and no signature pair can prove silence either way.</p></details>
 
 <div class="box challenge"><h4>Challenge this</h4><p>A colluding committee refuses to attest for a whole term and records its own TERM_END view change one second before the next committee's fallback would have formed. Work out what the honest fallback chain loses (the design says up to about a minute) and whether any rule could distinguish this from an honest slow committee.</p></div>
 
