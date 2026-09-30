@@ -2,7 +2,7 @@
 
 Etna investigates a fully permissionless successor to Taiko's based-rollup protocol. This is a design project: no production contracts, clients, deployments, or changes outside this directory.
 
-**Status:** Round1 complete: one High withholding failure found; revision1 adds public-data staging and objective duties and awaits fresh independent review. PDF-specific review remains unavailable. No implementation-readiness claim. Branch: `codex/etna-protocol-design`.
+**Status:** Three red-team rounds complete. Rounds 02–03 have no new judge-confirmed Critical/High findings, but a Medium inner body/manifest codec gap still blocks the full R6/R7 specification. The codec will be completed and freshly reviewed; convergence is not declared. PDF-specific review remains unavailable. Branch: `codex/etna-protocol-design`.
 
 ## How to read
 
