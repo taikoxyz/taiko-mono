@@ -64,15 +64,18 @@
 <li><strong>Landing windows 30 min economic, 60 min hard; dead mode after 75 terms</strong> (over 35 min hard and 40 terms). Fewer honest false positives; the forced-inclusion bound becomes 102 minutes instead of 77.</li>
 <li><strong>The owner is separate from its keys and may be a contract</strong>; only the sequencer key must be code-less.</li>
 <li><strong>Sentinel views 254 (forced) and 255 (open-empty, dead, no-committee)</strong>; at most four takeovers per term.</li>
-<li><strong>No-committee mode replaces a separate committee-degraded mode</strong>: below four eligible attesters, sortition still picks holders and landings are certificate-free like dead mode.</li>
+<li><strong>No-committee mode replaces a separate committee-degraded mode</strong>: below K_MIN_CERT = 8 eligible committee seats, sortition still picks holders and landings are certificate-free, reserved to the holder until its economic deadline.</li>
 <li><strong>Roles stay resolvable for 34 hours and every landing pins the terms it settles</strong>; a term older than the horizon that was never pinned is unlandable and replaceable (revised after round 1, F7).</li>
 <li><strong>The public-mempool Frame-Transaction gate is not deployed until EIP-8141 is Final</strong>; the direct trailing-VERIFY shape is the primary path and plain transactions the fallback.</li>
+<li><strong>No availability-escalation rule</strong> (revised after round 2, S4/H2: the earlier <code>demandData</code> game could not be verified by the inbox and either slashed honest committees or priced nothing). A private certificate is an unslashable stall until the replacement window opens (limitation L3); the opening object of every view is now in every signed attester message, so replacement and resumption never create equivocation.</li>
+<li><strong>A landable backlog has bonded priority over the forced and replacement paths</strong> (round 2, S3): <code>announceLanding</code> defers the replaceable window once per range, the abandonment penalty is waived for views voided by someone else's landing, and the outage gate needs a strictly later term to have landed.</li>
+<li><strong>The committee excludes only the primary holder by owner</strong> (round 2, F1: excluding every holder by owner emptied committees of the honest set); activation needs six distinct owners and 44 seats.</li>
 </ol>
 
 <h2 id="pages">4. Map of the design</h2>
 <div class="grid">
 <div class="card"><h3><a href="roles.html">Roles</a></h3><p>Sequencer, attester, lander/prover, challenger, forced-inclusion requester, node operator, DAO: entry, exit, duties, rewards, slashing, failure analysis, lifecycles.</p></div>
-<div class="card"><h3><a href="sequencing.html">Sequencing rights</a></h3><p>Seats, future-dated registry writes, the 20-minute snapshot, the prevrandao seed, the hash walk, views, takeover, strikes, dead mode, worked example.</p></div>
+<div class="card"><h3><a href="sequencing.html">Sequencing rights</a></h3><p>Seats, future-dated registry writes, the 20-minute snapshot, the prevrandao seed, the hash walk, views, takeover, suspension, dead mode, worked example.</p></div>
 <div class="card"><h3><a href="preconf.html">Preconfirmation &amp; certificates</a></h3><p>The local validity predicate, BLS certificates, confirmation levels, view changes, the landing binding, the withholding defence variant by variant, gossip and range sync.</p></div>
 <div class="card"><h3><a href="landing.html">Propose-with-proof</a></h3><p>Canonical blobs, the landing check list, the journal, lander economics, replacement and abandonment, verifier degradation and rotation, races.</p></div>
 <div class="card"><h3><a href="slashing.html">Slashing &amp; economics</a></h3><p>The catalogue with evidence formats and payouts, bond sizing, withdrawal, rewards and the accounting invariant, the anti-monopoly cost curve, a worked example in wei.</p></div>

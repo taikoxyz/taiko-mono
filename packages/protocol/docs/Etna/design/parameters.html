@@ -24,10 +24,11 @@ RETAIN_SECONDS ≥ LAND_WINDOW_MAX + ABANDON_GRACE + slack  = 7,200 s   (atteste
 ROTATION_OVERLAP ≥ LAND_WINDOW_MAX + ABANDON_GRACE + prove= 7,200 s   (an image rotation never orphans an in-window proof)
 ANCHOR_MAX_AGE + TERM + LAND_WINDOW_MAX + ABANDON_GRACE   = 5,760 s   < EIP-2935 window at 2-s slots (16,382 s)
 FI_EXPIRY + ANCHOR_MAX_AGE + LAND_WINDOW_MAX + ABANDON_GRACE ≈ 7 d 95 min < blob retention (≈ 18 d; ≥ 9 d assumed)
-60·R_BLK_MAX + SLASH_ABANDON + 5·ATT_REWARD_TOTAL         = 3,470 TAIKO ≤ B_SEAT / 2 = 10,000  (per-term exposure)
+60·R_BLK_MAX + 180·R_BLOB + SLASH_ABANDON + 60·ATT_REWARD_PER_BLOCK = 3,626 TAIKO ≤ B_SEAT / 2 = 10,000  (per-term exposure; 180 = 60 blocks × 3 blobs)
 SLASH_ABANDON > 60·R_BLK_MAX = 1,440                      (paying a lander always dominates abandoning)
-Q(m) = ⌊2m/3⌋ + 1; 2Q(m) − m                              (provable double-signers behind a locked block: 12 at m = 32, 2 at m = 8)
-K_MIN_CERT = 8 ≤ committee size, else no-committee mode   (recommended 37 = K + V_MAX + 1 seats at activation for full committees)
+Q(m) = ⌊2m/3⌋ + 1; 2Q(m) − m                              (provable double-signers behind a locked block: 12 at m = 32, 6 at m = 16, 4 at m = 8)
+K_MIN_CERT = 8 ≤ committee size, else no-committee mode   (4 provable double-signers at m = 8; below that a certificate says little)
+MIN_OWNERS = 6 distinct owners, ≥ 44 seats at initEtna     (K + CAP + V_MAX: a full committee exists with the primary owner excluded)
 DEGRADE_AFTER = 7,200 s &lt; ROLE_HORIZON                    (single-proof mode arms long before the horizon)</code></pre>
 
 <h2 id="table">2. The table</h2>
@@ -42,7 +43,7 @@ DEGRADE_AFTER = 7,200 s &lt; ROLE_HORIZON                    (single-proof mode 
 <tr><td>STRIKE_THRESHOLD / STRIKE_DECAY</td><td>Slashing</td><td>count / s</td><td>3 / 604,800</td><td>structural offences only; timeouts never strike (round 1, F3)</td><td>a software bug suspends / repeat offenders linger</td></tr>
 <tr><td>MISS_PENALTY</td><td>Slashing</td><td>gwei TAIKO</td><td>5·10<sup>10</sup> (50)</td><td>≤ V_term(1 − p)/p at p = 0.5; burned; the only consequence of a timeout</td><td>squatting free / entry unprofitable under griefing</td></tr>
 <tr><td>B_SEAT</td><td>Slashing</td><td>gwei TAIKO</td><td>2·10<sup>13</sup> (20,000)</td><td>13 × B ≈ 39 ETH per locked reorg; 300 × V_term</td><td>cheap attested reorg / small operators excluded</td></tr>
-<tr><td>BUFFER_BPS / HARD_FLOOR_BPS</td><td>Slashing</td><td>bps</td><td>500 / 5,000</td><td>20 misses before the floor; backstop</td><td>one false view change suspends / little at stake</td></tr>
+<tr><td>BUFFER_BPS / HARD_FLOOR_BPS</td><td>Slashing</td><td>bps</td><td>500 / 5,000</td><td>reward debits stop at the buffer (1.05 × floor); the hard floor is the backstop: 220 absence bleeds of one seat from buffer to hard floor</td><td>rewards stop too early / little at stake</td></tr>
 <tr><td>CAP</td><td>Sequencing</td><td>count</td><td>8</td><td>bounds one address to 8/A</td><td>forces Sybil splitting / one address dominates views</td></tr>
 <tr><td>MAX_SEATS</td><td>Sequencing</td><td>count</td><td>65,535</td><td>filling costs 1.31 B TAIKO, above supply</td><td>a finite price for exclusion / —</td></tr>
 <tr><td>MAX_TRIES / MAX_DISTINCT / MAX_TRIES_COMMITTEE</td><td>Sequencing</td><td>count</td><td>64 / 5 / 512</td><td>P(no holder) = (1 − ρ)<sup>64</sup>; ≈ 290k gas worst case; the committee walk is pinned, not walked, on the landing path</td><td>open-empty at low density / gas</td></tr>
@@ -58,12 +59,12 @@ DEGRADE_AFTER = 7,200 s &lt; ROLE_HORIZON                    (single-proof mode 
 <tr><td>STALE_MAX / CLOCK_SKEW</td><td>Certificates</td><td>s</td><td>3 / 1</td><td>attestation policy only</td><td>honest slow rounds lose certificates / longer delayed publication</td></tr>
 <tr><td>ANCHOR_MIN_AGE / ANCHOR_MAX_AGE</td><td>Certificates</td><td>s</td><td>48 / 1,800</td><td>≥ 2.5 × ePBS canonical-at-N+1; bounds bridge staleness inside the 2935 window</td><td>honest disagreement / stale L1 state</td></tr>
 <tr><td>ANCHOR_WAIT / PENDING_TTL</td><td>Certificates</td><td>s</td><td>30 / 10</td><td>L1 client lag / one range round trip</td><td>valid blocks dropped / pending buffers</td></tr>
-<tr><td>MAX_ENVELOPE / RANGE_MAX / RANGE_RATE / RETAIN_SECONDS</td><td>Certificates</td><td>bytes / count / req·s<sup>−1</sup> / s</td><td>524,288 / 64 / 4 / 7,200</td><td>2.3 × per-second blob budget; one request covers 12 timeouts; chain above</td><td>DoS versus slow sync; prover grief versus storage</td></tr>
-<tr><td>DEMAND_FEE / DEMAND_WINDOW</td><td>Certificates</td><td>gwei / s</td><td>5·10<sup>7</sup> (0.05 ETH) / 1,800</td><td>deters demand spam, refunded on default</td><td>spam / longer stall by colluders</td></tr>
+<tr><td>MAX_ENVELOPE / RANGE_MAX / RANGE_RATE / RETAIN_SECONDS</td><td>Certificates</td><td>bytes / count / req·s<sup>−1</sup> / s</td><td>390,132 / 64 / 4 / 7,200</td><td>MAX_ENVELOPE = the canonical record bound of V9 (3 blobs, the per-L1-block capacity at 2-s slots); one request covers 12 timeouts; chain above</td><td>DoS versus slow sync; prover grief versus storage</td></tr>
 <tr><td>LAND_WINDOW / LAND_WINDOW_MAX</td><td>Landing</td><td>s</td><td>1,800 / 3,600</td><td>≥ 10 × happy-path landing; hard deadline for abandonment evidence</td><td>honest terms replaceable in ordinary outages / longer void suffix</td></tr>
 <tr><td>LAND_CHAIN_GRACE / ABANDON_GRACE</td><td>Landing</td><td>s</td><td>600 / 300</td><td>a child gets 10 min after a late parent; late original beats a replacement</td><td>children replaceable at once / slower recovery</td></tr>
 <tr><td>OUTAGE_WINDOW</td><td>Slashing</td><td>s</td><td>3,600</td><td>no landing in the hour before the hard deadline ⇒ nobody slashed</td><td>honest holders slashed in outages / targeted abandonment escapes</td></tr>
 <tr><td>DEGRADE_AFTER / ROTATION_OVERLAP</td><td>Landing</td><td>s</td><td>7,200 / 7,200</td><td>one back-end outage never stalls until a DAO upgrade; chain above</td><td>single-proof mode common / retired image trusted longer</td></tr>
+<tr><td>R_BLOB</td><td>Landing</td><td>TAIKO per blob</td><td>1</td><td>a legitimately large term (up to 3 blobs per block under V9) stays landable at a profit; debited from the same holder</td><td>large terms unlandable in fee spikes / padding rewarded (bounded by V9)</td></tr>
 <tr><td>R_BLK_MIN / R_BLK_MAX</td><td>Landing</td><td>TAIKO per block</td><td>0.5 / 24</td><td>minimum ≈ 2 × a 1.5 M-gas landing at 10 gwei; maximum covers a 2 M-gas landing at 100 gwei (break-even ≈ 100 gwei per term landed, 400 with four-term landings)</td><td>third parties never land / bond drained in a spike</td></tr>
 <tr><td>SLASH_ABANDON / LANDER_BONUS_BPS</td><td>Slashing</td><td>TAIKO / bps</td><td>2,000 / 4,000</td><td>≫ maximum reward per term; 10 % of a seat</td><td>never-land cheap / honest holder ruined by a guest bug</td></tr>
 <tr><td>CHALLENGER_BPS / CHALLENGER_CAP</td><td>Slashing</td><td>bps / gwei</td><td>1,000 / 2·10<sup>12</sup> (2,000)</td><td>cap covers 600k gas at 500 gwei; keeps self-report unprofitable</td><td>evidence unsubmitted in spikes / bond partly recoverable</td></tr>

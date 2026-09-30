@@ -34,7 +34,7 @@
 <tr><td>Handoff ambush (W1)</td><td>withholds the end of its term and lands it after the next holder started</td><td>the next holder's first block carries the recorded TERM_END VC with lock h; landing above h needs a second VC for the same view, i.e. 12 keys signing two locks, each fully slashed; the honest VC reaches L1 in seconds, minutes before any proof</td></tr>
 <tr><td>Private MEV</td><td>delays publication to trade on private state</td><td>attesters refuse blocks published more than 3 s after their timestamp; private state lives at most 2 blocks</td></tr>
 <tr><td>Seal or proof withholding</td><td>refuses to seal or prove its batch</td><td>no seal exists; 22 attesters hold the data and serve it; anyone proves and lands; the ramp pays them (lesson 7)</td></tr>
-<tr><td>Certified-but-private (Q + 1 colluders)</td><td>a quorum certifies a block only it holds</td><td>the one case where certified does not imply available; anyone demands the data on L1 and, absent a landing in 30 min, all 23 seats are slashed and the certificate voided</td></tr>
+<tr><td>Certified-but-private (Q + 1 colluders)</td><td>a quorum certifies a block only it holds</td><td>the one case where certified does not imply available; it is an unslashable stall (rounds 1 and 2 showed no L1 rule can tell unavailable from available-but-unprovable data) until the replaceable window opens, 35 to 65 minutes after the last landing, when the holder reopens from the last landed block; the private blocks never land (limitation L3)</td></tr>
 </table>
 
 <h2>Self-check</h2>

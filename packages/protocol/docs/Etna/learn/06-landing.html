@@ -23,7 +23,7 @@
 <ol>
 <li>Sequence: the range starts at <code>lastLanded + 1</code>; at most 256 blocks; several landings may sit in one L1 block.</li>
 <li>Parent: the parent hash equals <code>lastLanded</code>; the parent state root is read from storage, never from calldata.</li>
-<li>View and rights: the range lies in one view; opening a view supplies the view-change chain; the sequencer is the holder (or the term is open, no-committee or in dead mode and the sequencer is bonded).</li>
+<li>View and rights: the range lies in one view; opening a view supplies the view-change chain; the sequencer is the holder (or the term is open or in dead mode and the sequencer is bonded; in a no-committee term the sortition holder keeps the landing right until its economic deadline).</li>
 <li>End certificate: 22 of 32 aggregate signatures over the end header hash; not voided.</li>
 <li>Blobs: <code>blobhash(i)</code> matches for each of at most 6 blobs.</li>
 <li>Anchor tip: the newest anchored L1 block is verified by <code>blockhash</code> (256 blocks) or EIP-2935 (8,191 blocks).</li>
@@ -41,7 +41,7 @@
 
 <h2>Self-check</h2>
 <details><summary>Why is the certificate verified on L1 rather than inside the ZK proof?</summary><p>So the withholding defence never rests on ZK soundness. If a proof system were unsound, an attacker could at most finalize a false root for a block that was genuinely certified, never land an uncertified one.</p></details>
-<details><summary>Why can any lander use a proof it found in the mempool?</summary><p>The journal names no lander and the blobs are deterministic; the reward goes to the <code>rewardTo</code> in the winning transaction, and the trailing-VERIFY shape makes losing free, so copying steals nothing.</p></details>
+<details><summary>Why can any lander use a proof it found in the mempool?</summary><p>It cannot, since round 2: the journal binds <code>rewardTo</code>, so a proof is valid only for the lander it was made for (a copied proof with a swapped reward address fails). The blobs are still deterministic, so a prover can prove for any lander's address on request; the trailing-VERIFY shape makes a losing landing free.</p></details>
 <details><summary>How does R2 hold?</summary><p>The Inbox proxy address is unchanged, so it is still the SignalService's authorized syncer; the call is byte-identical to today's; no shared contract changes.</p></details>
 
 <div class="box challenge"><h4>Challenge this</h4><p>The inbox reads the parent state root from storage. Construct a scenario in which a lander tries to land a range on the wrong parent and show which check stops it and whether the lander pays anything with and without Frame Transactions.</p></div>

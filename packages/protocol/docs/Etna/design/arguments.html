@@ -42,7 +42,7 @@
 <rect x="20" y="20" width="680" height="34" class="svg-box-accent"/><text x="30" y="42" class="svg-note">Leader silent → timeout after 5 s → view change → backup extends the last certified block (≈ 6 s gap)</text>
 <rect x="20" y="62" width="680" height="34" class="svg-box"/><text x="30" y="84" class="svg-note">Four backups silent → term idles → next term's leader starts at term end from the last lock (≤ 60 s)</text>
 <rect x="20" y="104" width="680" height="34" class="svg-box"/><text x="30" y="126" class="svg-note">Committee silent → any later committee signs a FALLBACK view change (term end + 12 s, then +10 s per further dark committee)</text>
-<rect x="20" y="146" width="680" height="34" class="svg-box"/><text x="30" y="168" class="svg-note">Provers or landers silent → reward ramps 0.5 → 4 TAIKO per block over 30 min → anyone with the data lands</text>
+<rect x="20" y="146" width="680" height="34" class="svg-box"/><text x="30" y="168" class="svg-note">Provers or landers silent → reward ramps 0.5 → 24 TAIKO per block over 30 min → anyone with the data lands</text>
 <rect x="20" y="188" width="680" height="34" class="svg-box"/><text x="30" y="210" class="svg-note">Every registered party silent → dead mode after 75 unlanded terms → any bonded address lands without certificates</text>
 <text x="30" y="242" class="svg-muted">No rung needs the DAO. Each rung is triggered by signed objects or L1 state, never by a node's clock alone.</text>
 </svg>
@@ -81,7 +81,7 @@
 <tr><td>T2 blobs available for retention</td><td>derivation, forced inclusion</td><td>nodes must derive within about 18 days</td></tr>
 <tr><td>T3 ZK soundness of two systems</td><td>P1</td><td>one bug: safe in normal mode; both, or one plus a colluding quorum in single-proof mode: false finalization</td></tr>
 <tr><td>T9 gossip delay ≪ TIMEOUT − 1 s</td><td>certification latency, no honest orphaning</td><td>attested blocks of a slow leader orphaned by honest timeouts; no bond lost</td></tr>
-<tr><td>T11 fewer than Q colluders per committee, fewer than 12 accept slashing</td><td>P2, the collusion table</td><td>a cartel can certify private data (S7, 23 seats) or revert a locked block (12 seats)</td></tr>
+<tr><td>T11 fewer than Q colluders per committee, fewer than 12 accept slashing</td><td>P2, the collusion table</td><td>a cartel of Q + 1 can certify private data (an unslashable stall until the replacement window, L3) or revert a locked block (12 provable slashings)</td></tr>
 <tr><td>T12 Frame Transactions</td><td>zero-cost races only</td><td>losers pay gas and a blob fee; nothing else changes</td></tr>
 <tr><td>T13 loose clock sync</td><td>attestation policy, timeout signing</td><td>skewed nodes sign late or early; validity unaffected</td></tr>
 </table>

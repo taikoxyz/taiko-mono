@@ -46,8 +46,8 @@
 
 <h2 id="inbox">What the inbox must offer in both regimes</h2>
 <ul>
-<li><code>landFor(address actor, bytes32 packedInput)</code> gated on an immutable gate address (zero = disabled), with a static 32-byte input, next to the direct <code>land(...)</code>.</li>
-<li>An expected batch id in the input, so a stale landing reverts (shape 2) or is invalid (shape 1) instead of landing the wrong batch.</li>
+<li><code>landFor(address _rewardTo, LandInput calldata _in)</code> gated on an immutable gate address (zero = disabled), next to the direct <code>land(...)</code>; the SENDER frame's data is the ABI encoding of that call and its hash is what the gate's signature covers.</li>
+<li>The <code>firstHeight</code> and <code>parentBlockHash</code> fields of the input, so a stale landing reverts (shape 2) or is invalid (shape 1) instead of landing on the wrong parent; there is no batch id anywhere (ranges are lander-chosen).</li>
 <li>Forced inclusions consumed by due time and their fees pull-based, so no third party can make a lander's transaction revert after payment approval (03 §4 claim 36).</li>
 <li>No bond check on the gate path (a bond revert would be a burn lever); the ring-buffer bound kept as the per-block spam bound.</li>
 </ul>
@@ -60,7 +60,7 @@
 <ul>
 <li>Public-mempool rules for type 0x06 are not implemented in any shipped client (one-pending-per-sender, revalidation, <code>MAX_VERIFY_GAS</code>). Treat every mempool property as unavailable until a client ships it. <span class="tag proven">proven</span> at the time of writing.</li>
 <li>An ePBS builder can pay its bid and reveal an invalid payload; the primitive never guarantees the L2 batch lands.</li>
-<li>Clients never derive the expected batch id from <code>nonce(G)</code>: a reverted SENDER frame, an L1 reorg or the direct path decouple them.</li>
+<li>Clients never derive the next landable range from <code>nonce(G)</code>: a reverted SENDER frame, an L1 reorg or the direct path decouple them; <code>lastLanded</code> is the only source.</li>
 <li>EIP-8151 restricts <code>ecrecover</code> for accounts with code: every key that signs attestations, seals or evidence is a code-less EOA or a BLS key.</li>
 </ul>
 

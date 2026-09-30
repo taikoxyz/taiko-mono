@@ -5,3 +5,4 @@ One directory entry per round: `NN-round.md` (the round summary with models, ver
 | Round | Verdict | Summary |
 |---|---|---|
 | [1](01-round.md) | REVISE | 3 High (size-scaled quorum, timeouts must not touch eligibility, unprovable forced-inclusion entry), 5 Medium, 1 Low; all revised. |
+| [2](02-round.md) | REVISE | 3 High (certificate-pair rule and opening object in every signed message, outsider forced-batch reorg of a landable backlog, committee walk emptied by owner exclusion), 10 Medium, 2 Low; the availability escalation removed; all revised as one pass. |

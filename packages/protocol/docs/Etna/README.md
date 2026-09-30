@@ -51,7 +51,7 @@ The brief was executed autonomously. Where a clarifying question would normally 
 | A4 | Should the design retain a **contestation / fraud-proof window** at all? | No fraud-proof window for finality (R7 makes finality = valid ZK proof accepted on L1). Contestation survives only as a *slashing* mechanism for preconf misbehavior, never as a gate on state finality. |
 | A5 | May the design introduce a **new L1 contract** besides the inbox (e.g. a role registry, a slashing module, a gate contract)? R2 freezes only Bridge, SignalService and Vaults. | Yes. New non-frozen contracts are allowed; the frozen three are reused at their existing addresses. |
 | A6 | Bond token: TAIKO on L2 (today's `BondManager` in Anchor) vs. ETH on L1? | Kept as today (TAIKO-denominated bonds via the existing bond design) unless the design justifies otherwise; the design section on economics states where ETH is used and why. |
-| A7 | Is the target for R4's "1-second block time" a hard protocol rule or a client-level cadence? | A protocol-level 1-second issuance cadence that is a *rewarded duty* whose hard bound is the committee timeout (5 s): silence is deliberately never slashed because a colluding committee could manufacture it, so the enforcement is loss of rewards, replacement within one timeout, and the strike ladder (revised during Phase 3; see the design's certificate page and limitation L16). |
+| A7 | Is the target for R4's "1-second block time" a hard protocol rule or a client-level cadence? | A protocol-level 1-second issuance cadence that is a *rewarded duty* whose hard bound is the committee timeout (5 s): silence is deliberately never slashed because a colluding committee could manufacture it, so the enforcement is loss of rewards, replacement within one timeout, and a burned 50-TAIKO absence penalty that never touches eligibility (a timeout can be manufactured by an abstaining committee minority, so it never strikes; revised after red-team rounds 1 and 2; see the design's certificate page and limitation L2). |
 | A8 | How many red-team models are available? | The environment offers `opus`, `sonnet`, `haiku`, `fable`. Each round uses at least three distinct models; the iteration log records which. |
 
 ## Phase checklist
@@ -63,7 +63,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 - [x] **Phase 2: Research.** `02-l1-roadmap-survey.md`, `03-frame-transactions-research.md` (each independently re-verified by a skeptic agent; reports in `notes/`).
 - [x] **Phase 3: Design draft.** `design/index.html` and fourteen section pages (three independent designs per building block, judged and synthesized, then a cross-block consistency pass; the architect's decisions are listed on the overview page).
 - [x] **Phase 4: Red team round 1.** `iterations/01-round.md` (three adversarial agents on opus, sonnet and haiku; a fable verifier per finding and a fable judge).
-- [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap. Round 1 revisions applied; round 2 in progress.
+- [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap. Rounds 1 and 2 revised; round 3 in progress.
 - [x] **Phase 6: Deliverables.** Design site, learning site, commit, push, draft PR (all pushed; both sites are revised after every round).
 - [ ] **Phase 7: Report.** Final message: verdict, top-five decisions, open questions, links.
 
@@ -71,7 +71,8 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 
 | Round | Models | New Critical | New High | Open Medium | Verdict |
 |---|---|---|---|---|---|
-| [1](iterations/01-round.md) | opus (steal, report truncated), sonnet (halt), haiku (censor); fable verifier and judge | 0 | 3 | 5 (all revised) | REVISE: F1 to F10 fixed in the design; round 2 pending |
+| [1](iterations/01-round.md) | opus (steal, report truncated), sonnet (halt), haiku (censor); fable verifier and judge | 0 | 3 | 5 (all revised) | REVISE: F1 to F10 fixed in the design |
+| [2](iterations/02-round.md) | sonnet (steal), opus (halt), fable (censor); fable verifier and judge | 0 | 3 (S1, S3, F1) | 10 (all revised) | REVISE: five round-1 fixes found inadequate or un-propagated; groups A to G applied as one pass; round 3 pending |
 
 **Design readiness: NOT READY.** The design is declared ready only if two consecutive red-team rounds produce no new Critical or High findings, every Medium is mitigated or accepted with written rationale, and all of R1 to R7 pass.
 

@@ -25,7 +25,7 @@
 <li><strong>Due.</strong> <code>savedAt + 300 s ≤ T</code> where T is an anchored L1 timestamp. Blob entries void after 7 days (they derive to an empty block; calldata entries never void).</li>
 <li><strong>Placement V8.</strong> A block whose parent's anchor makes an entry due must be that entry's block (cursor + 1), unless the previous two blocks were already forced blocks. Forced blocks inherit the parent's anchor and coinbase.</li>
 <li><strong>Inbox count.</strong> At landing, the consumed count must be at least the number due at a floor time every block in the range must have seen, capped at two-thirds of the range: a lazy lander cannot dilute the obligation, and nothing a third party does moves the count.</li>
-<li><strong>Forced batch.</strong> Once <code>replaceableFrom</code> has passed and the head entry is due at the latest L1 block: exactly the due entries, view 254, no certificate, two ZK systems always, fees to the lander, the ordinary pipeline resumes on top with a RESUME view change.</li>
+<li><strong>Forced batch.</strong> Once <code>replaceableFrom</code> has passed (including any deferral by a bonded landing announcement) and the head entry is due at the latest L1 block: exactly the due entries, view 254, no certificate, two ZK systems always, fees to the lander, the ordinary pipeline resumes on top with a RESUME view change whose first block re-includes the voided transactions before serving any further due entry. A head entry that no guest can prove is skipped only once no landing of any kind has anchored L1 time within four hours (the gate is the last landing's anchor time, never the entry's age).</li>
 </ul>
 
 <h2>Three behaviours, three bounds</h2>

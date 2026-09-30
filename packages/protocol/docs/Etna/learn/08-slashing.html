@@ -23,7 +23,7 @@
 <table>
 <tr><th>Class</th><th>Rules</th><th>Evidence</th><th>Amount</th></tr>
 <tr><td>A safety</td><td>S1 block equivocation; S3a attestation equivocation or certificate pair; S3b lock lie; S3c timeout equivocation; S8 sequencer key acquired code</td><td>two signatures by one key, or an aggregate pair, or <code>extcodesize</code></td><td>the owner's whole ledger</td></tr>
-<tr><td>B structural</td><td>S6 signed header naming an invalid certificate or view change; S7 certified data never made available</td><td>the named object's preimage that fails, or an unanswered on-chain demand</td><td>one seat per lying key</td></tr>
+<tr><td>B structural</td><td>S6 signed header naming an invalid certificate or view change; S3d a REPLACE timeout naming an L1 block at which replacement was not yet permitted</td><td>the named object's preimage that fails, or the timeout plus the inbox's own term records (an L1 fact)</td><td>one seat per lying key</td></tr>
 <tr><td>C liveness</td><td>absence (a timeout view change carried by a landing); S4a abandonment</td><td>the view change itself; a certificate plus the hard deadline plus the outage gate</td><td>50 TAIKO burned, no strike (a timeout is manufacturable by an abstaining minority, so it never touches eligibility); 2,000 TAIKO, no strike</td></tr>
 </table>
 <p>Deliberately not offences: silence (a colluding committee could manufacture it), a missed term with no takeover and no landing (fault not attributable), an invalid block that never became state.</p>
