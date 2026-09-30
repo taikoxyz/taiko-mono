@@ -2,7 +2,7 @@
 
 Etna investigates a fully permissionless successor to Taiko's based-rollup protocol. This is a design project: no production contracts, clients, deployments, or changes outside this directory.
 
-**Status:** Phase 0 setup. No implementation-readiness claim. Branch: `codex/etna-protocol-design`.
+**Status:** Phase 1 complete: baseline and threat model written, with five subsystem evidence notes. No implementation-readiness claim. Branch: `codex/etna-protocol-design`.
 
 ## How to read
 
@@ -30,7 +30,7 @@ Baseline: assume Frame Transactions live before launch; survey Glamsterdam and H
 ## Phase checklist
 
 - [x] 0: inspect instructions, create branch and requirement ledger.
-- [ ] 1: read L1, L2/shared, Go, Rust and docs; synthesize baseline and threat model.
+- [x] 1: read L1, L2/shared, Go, Rust and docs; synthesize baseline and threat model.
 - [ ] 2: verify current Frame Transactions specification/discussions and L1 roadmap.
 - [ ] 3: draft glossary, mechanisms, state machines, interfaces, parameters and migration.
 - [ ] 4–5: independent multi-model red team and judge; revise and log (maximum eight rounds).
