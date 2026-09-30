@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna — public data staging and accountable producers</title><link rel="stylesheet" href="style.css"></head>
+<body><header><p class="eyebrow">Etna · revision 1 · normative mechanism draft</p><h1>Public data before the proof race</h1><p>Anyone publishes a candidate's complete data. Ethereum later chooses an eligible, fully proved candidate in one atomic canonical action.</p><nav aria-label="Design"><a href="index.html">Core specification</a><a href="roles.html">Roles</a><a href="accountability.html">Accountability</a><a href="migration.html">Bridge &amp; migration</a><a href="arguments.html">Arguments &amp; verdict</a><a href="../learn/index.html">Learning course</a></nav></header><main>
+<aside class="warning"><strong>Proposed specification, not deployed code.</strong> The rules below define the revision-1 change to the earlier first-reveal-at-landing design. Staging adds an L1 data transaction and pays to publish accepted data twice. It creates no canonical unproved block, sequencing reservation, committee or checkpoint. Implementation, circuit, gas and economic launch checks remain open.</aside>
+<p><strong>Classification:</strong> unlabelled normative rules and ABI sketches are proposed behavior under A-IMPLEMENTATION. <strong>Proven</strong> identifies a deduction under named premises, not machine verification. <strong>Assumed</strong> identifies environmental or cryptographic premises. <strong>Open</strong> identifies measurements or decisions still needed. This page is authoritative for staging commitments, producer authorization and the block-hash tree; <a href="accountability.html">accountability</a> specifies reserved service liabilities.</p>
+
+<section id="purpose"><h2>1. What staging changes</h2>
+<p>A valid canonical segment must identify a matching actual-data publication at least <strong>360 seconds</strong> old and no more than <strong>900 seconds</strong> old. Its final submission still carries the complete identical data and a valid ZK proof. The first valid L1 action extending the accepted head wins. Many candidates may be staged for one parent; no stage chooses between them.</p>
+<p><strong>Proven under A-L1/A-DA/A-CRYPTO:</strong> a complete private branch cannot first disclose its execution payload in the action that makes it canonical. Its exact public context and DA commitment already appeared in a qualifying L1 publication. Private computation before timely publication remains possible; a mature public competitor may still replace a provisional branch. Staging is an enforceable public-data lead, not soft finality or proof of universal P2P delivery.</p>
+<svg viewBox="0 0 1060 250" role="img" aria-labelledby="staging-flow-title staging-flow-desc"><title id="staging-flow-title">Nonexclusive staging before atomic canonical acceptance</title><desc id="staging-flow-desc">Locally executable one-second candidates form a sealed payload. Any party stages actual data, while proving proceeds. After a 360-second public-data interval, a full matching data and proof action can consume the current canonical parent. Other staged candidates hold no reservation.</desc><defs><marker id="staging-arrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="#008b88"/></marker></defs><rect class="box" x="15" y="35" width="210" height="115" rx="9"/><text x="30" y="65">1-second soft candidates</text><text x="30" y="95">execute before display</text><text x="30" y="125">seal complete context</text><path class="arrow" d="M227 90H268" marker-end="url(#staging-arrow)"/><rect class="box" x="275" y="35" width="225" height="115" rx="9"/><text x="290" y="65">Actual L1 data stage</text><text x="290" y="95">immutable receipt</text><text x="290" y="125">no head reservation</text><path class="arrow" d="M502 90H543" marker-end="url(#staging-arrow)"/><rect class="box" x="550" y="35" width="210" height="115" rx="9"/><text x="565" y="65">Public for 360 seconds</text><text x="565" y="95">retrieve and prove</text><text x="565" y="125">multiple eligible forks</text><path class="arrow" d="M762 90H803" marker-end="url(#staging-arrow)"/><rect class="box" x="810" y="35" width="235" height="115" rx="9"/><text x="825" y="65">Atomic canonical action</text><text x="825" y="95">full data again + proof</text><text x="825" y="125">L1 order picks winner</text><text x="40" y="205">Staging and proof production overlap. Failed or unavailable candidates never lock the accepted head.</text></svg>
+<p><strong>Proven — based boundary:</strong> no incumbent witness, worker or sequencer must approve staging or canonical inclusion. A too-young payload fails a nonexclusive, deterministic publication-age condition. Once eligible, a current L1 proposer can include its valid proof and data without a new external signature. Final ordering remains L1-selected. If “based” is separately defined to forbid every publication-maturity condition, that additional interpretation needs explicit adjudication; it does not follow from the prohibition on external committees or exclusive sequencer leases.</p>
+<p><strong>Proven — R7 boundary:</strong> the single canonical action still supplies and checks both full data and proof atomically. Earlier generic data publication does not create an accepted unproved state. Literal R7 does not expressly prohibit earlier copies. The extra transaction and duplicated DA cost are substantive changes, not free optimizations; this construction would conflict with a separate requirement that first-ever publication occur only with the proof.</p></section>
+
+<section id="encoding"><h2>2. Exact context, deterministic identifiers and no circular hashes</h2>
+<p>All hashes use canonical <code>abi.encode</code>, never <code>abi.encodePacked</code>. Integers have the declared unsigned widths, checked before narrowing. Exact ABI decoding rejects trailing bytes and inconsistent dynamic offsets. Hash strings below are literal UTF-8 strings. The execution domain is the core statement's domain:</p>
+<pre>domain = keccak256(abi.encode("ETNA_V1", l1ChainId, l2ChainId,
+    inbox, anchor, revision, "SegmentStatement"));
+
+struct Origin {
+    uint48 number;
+    bytes32 hash;
+    bytes32 stateRoot;
+    uint48 timestamp;
+}
+
+struct StageContext {
+    bytes32 domain;
+    bytes32 oldHeadHash;
+    uint64 segmentNumber;
+    uint48 firstL2Number;
+    uint48 endL2Number;
+    bytes32 endBlockHash;
+    bytes32 endStateRoot;
+    uint48 endTimestamp;
+    Origin origin;
+    uint64 forceStart;
+    uint64 forceEnd;
+    uint64 nextForceCut;
+    bytes32 forceOutcomesRoot;
+    uint8 daMode;                    // 0 = calldata, 1 = blob
+    bytes32 bodyHash;
+    bytes32 blobVersionedHash;
+    bytes32 manifestRoot;
+    bytes32 blockHashesRoot;
+    uint64 revision;
+}
+
+CONTEXT_TAG = keccak256(bytes("ETNA_STAGE_CONTEXT_V1"));
+contextHash = keccak256(abi.encode(CONTEXT_TAG, context));
+taskHash = contextHash;
+
+STAGE_DOMAIN = keccak256(abi.encode("ETNA_STAGE_V1", l1ChainId,
+    l2ChainId, inbox, daRegistry, revision));
+stageId = uint256(keccak256(abi.encode(STAGE_DOMAIN, contextHash, stageSalt)));
+// stageSalt is a public uint256 chosen before signing/proving.
+// Explicit receipt.exists is authoritative; stageId=0 is not an absence sentinel.</pre>
+<p>The exact field order above is normative. Construct the context by projecting the same-named fields from <code>SegmentStatement</code>; the statement's <code>taskHash</code> must equal the recomputed context hash. Context excludes <code>producer</code>, <code>beneficiary</code>, <code>rewardAuthorizationHash</code>, <code>taskHash</code> itself, <code>jobId</code>, <code>stageId</code>, producer key ID and signatures. The full final statement includes its selected producer, beneficiary, job and stage ID and is independently proof-bound and owner-authorized.</p>
+<p><strong>Proven — dependency direction:</strong> derive execution outputs and the block tree, compute the context and its hash, choose a salt and compute stage ID, construct the complete statement, then sign/prove that statement. No assigned L1 counter or future publication timestamp enters the stage ID, current block hashes or current execution task. Set <code>Head.segmentCommitment=contextHash=taskHash</code>, not the full statement hash. A speculative child's parent execution head is therefore computable from the sealed parent's execution context before staging, job registration or payment assignment. Changing only producer, beneficiary, job or stage ID does not change that head; changing execution context does and requires descendants to be rebuilt. The accepted receipt separately retains the full statement hash for exact authorization, reward and job evidence.</p>
+<p><strong>Required indirect-cycle rule:</strong> current-segment stage ID, authorization, payment assignment, producer identity and job ID cannot determine that segment's EVM execution, headers or anchor calldata. A header's coinbase is an explicit staged input; it is not silently derived from the later L1 beneficiary or producer. An authenticated previous head may already contain the previous statement's commitment; that ordinary backwards dependency is permitted. These exclusions apply to derivation logic as well as to the direct hash field list.</p>
+<p>The complete context appears in the staging call's public calldata. The staged canonical body supplies every transaction, header-affecting field, ordering choice, expected output and manifest dependency required by the core derivation rules. Its block sequence is self-delimiting under the public versioned encoding. Origin and queue context are public in the descriptor. No later private permutation, timestamp, anchor value or execution-affecting option can be selected without changing the context/body and obtaining another qualifying stage. Payment and job reassignment may use the same execution context, but still require a newly appropriate full proof/authorization. Another entrant can produce its own complete statement and self-authorization using the same public context/stage; the original stager or producer's signature is not an approval gate for that entrant's proof.</p>
+<p><strong>Proven:</strong> a stage does not certify the descriptor's execution outputs. It may contain a false state root or impossible task; only the final proof and core checks establish correctness. Recomputing the descriptor hash and matching its declared DA commitment to actual publication are nevertheless mandatory at staging. Otherwise a caller could occupy a deterministic ID with unrelated bytes.</p></section>
+
+<section id="registry"><h2>3. DARegistry state and bounded publication ABI</h2>
+<pre>struct StageReceipt {
+    bool exists;
+    bytes32 contextHash;
+    uint48 publishedAt;
+    uint48 publishedL1Number;
+}
+struct PublicationReceipt {
+    bool exists;
+    uint48 publishedAt;
+    uint48 publishedL1Number;
+}
+
+// New permissionless DARegistry. Fixed Inbox/L2 chain/Anchor scope.
+stageBlob(StageContext context, uint256 stageSalt)
+    returns (uint256 stageId)
+stageCalldata(StageContext context, uint256 stageSalt, bytes completeBody)
+    returns (uint256 stageId)
+getStage(uint256 stageId) view returns (StageReceipt receipt)
+getFirstPublication(bytes32 contextHash) view returns (PublicationReceipt receipt)
+
+event DataStaged(uint256 indexed stageId, bytes32 indexed contextHash,
+    uint8 daMode, bytes32 bodyHash, bytes32 blobVersionedHash,
+    uint48 publishedAt, uint48 publishedL1Number);
+event ContextFirstPublished(bytes32 indexed contextHash,
+    uint48 publishedAt, uint48 publishedL1Number);</pre>
+<p>Both stage methods are nonpayable and callable by any address. They make no token transfer, take no collateral, invoke no actor-selected callback, and create no payment claim. ETH pays ordinary L1 transaction and blob fees. The registry grants no entry cap, role ticket, ownership of data, future sequencing priority or exclusive reward. The first stager is not automatically the producer.</p>
+<table><caption>Exact staging admission gates, before any storage effect</caption><thead><tr><th>Common gates</th><th>Blob mode</th><th>Calldata mode</th></tr></thead><tbody><tr><td>Require exact ABI/resource bounds; check configured domain; <code>1 &lt;= endL2Number-firstL2Number+1 &lt;= 60</code>; <code>forceEnd &gt;= forceStart</code> and <code>forceEnd-forceStart &lt;= 4</code>; reject unknown mode; check conversions. Recompute context hash and stage ID from the full descriptor and salt. Do not accept a detached caller-supplied hash.</td><td><code>daMode=1</code>; <code>BLOBHASH(0)!=0</code>; <code>BLOBHASH(1)=0</code>; <code>context.blobVersionedHash=BLOBHASH(0)</code>. The descriptor and salt are the complete call arguments. Actual blob bytes use the core one-blob encoding. The blob/body/KZG relation and body cap are finally proved at acceptance.</td><td><code>daMode=0</code>; no blobs, checked by <code>BLOBHASH(0)=0</code>; <code>context.blobVersionedHash=0</code>; <code>0 &lt; completeBody.length &lt;= 32768</code>; <code>keccak256(completeBody)=context.bodyHash</code>. Publish all bytes in this call; a hash alone is rejected.</td></tr></tbody></table>
+<p>Context has exactly 22 ABI words, including its four-word origin. A blob staging call has 740 bytes: selector plus context plus salt. A canonical calldata staging call has <code>804 + 32*ceil(bodyLength/32)</code> bytes, at most 33,572 bytes under the body cap. These are encoding bounds, not gas measurements. Check lengths before allocating or hashing a body. The helper performs no body execution, queue scan, block-hash tree construction, ZK verification or loop over candidates; those semantic checks belong to the final proof and Inbox. Historical revisions may still publish under their recorded domain/schema for existing serving duties; publication itself does not make a retired revision canonically admissible.</p>
+<p>After all gates, a previously absent stage ID creates exactly one immutable receipt using the actual <code>block.timestamp</code> and <code>block.number</code>. For a previously unseen context hash, also create its immutable earliest-publication record. A feasible layout uses two storage slots per new stage receipt and one packed slot for the first context publication, excluding ordinary configuration; no unbounded list of stagers or candidates is appended. The two events have bounded fixed fields; full context/body are already in transaction calldata or its validated blob.</p>
+<p>If the stage ID already exists, require its stored context hash to equal the recomputed hash, then return the old receipt without changing its timestamp or emitting a second new-stage record. The actual-data gates still apply: a duplicate does not provide a hash-only registration path. Matching front-running only makes the same data public earlier at the front-runner's expense. Repeated identical publication cannot delay maturity, occupy an ID with different data, erase a miss, or create a reward.</p>
+<p><strong>Proven storage scope:</strong> every call has bounded execution and writes. The total number of paid records can grow with total L1 use; this is not a claim of constant lifetime storage. State growth, archival access and gas repricing remain L1 resource assumptions. A spammer must pay for each publication and new record, but paid spam can still consume bandwidth. No honest peer is required to execute or prove every staged candidate; the public lead gives a funded entrant time to inspect and prove its selected candidate.</p>
+<p><strong>Open launch checks:</strong> benchmark both modes at the launch fork, including intrinsic/data-floor gas and storage. The 4,000,000-gas availability-response quote elsewhere is not a measured staging cost. Confirm descriptor/body parser vectors, exact blob field encoding and the circuit's full KZG-to-body relation. The registry itself cannot read opaque blob payload bytes, so no stage-time claim of semantic decoding is made.</p></section>
+
+<section id="lifecycle"><h2>4. Publication history, expiry and reorgs</h2>
+<pre>Unknown context / salt
+    -- actual matching L1 publication --> Recorded (immutable)
+Recorded -- age &lt; 360 --> Immature for canonical admission
+Recorded -- 360 &lt;= age &lt;= 900 --> Age-eligible; other checks still required
+Recorded -- age &gt; 900 --> Expired for new canonical admission
+
+Any state -- same ID republished --> original receipt unchanged
+Any state -- different salt --> independent deterministic stage receipt
+ContextFirstPublication --> never reset or deleted by ordinary operation
+
+Age-eligible + current parent + fresh origin + owner authorization
+    + complete matching data again + valid ZK proof --> Atomic acceptance
+Different parent consumed --> Stale, regardless of staging age</pre>
+<p><code>getFirstPublication(contextHash)</code> records the earliest successful publication of that exact complete context, independent of salt, stager or later canonical success. It is permanent evidence for publication-by covenants. <code>getStage(stageId)</code> is the particular immutable receipt used for a canonical attempt or proof job. These lookups serve different purposes: a new salt may create a new maturity interval, but cannot rewrite when the context first became public.</p>
+<p>Staging expiry removes eligibility; it does not delete receipts, unlock a promise early or erase evidence. Ordinary APIs have no reset, prune, manual timestamp, cancellation, rescue-owner or record-overwrite selector. Honest upgrades preserve these records and the historical domain/key meanings needed by outstanding duties. The existing DAO upgrade trust assumption still applies.</p>
+<p><strong>Proven expiry interaction:</strong> a real fixed origin predates staging. With both origin age and staging age capped at 900 seconds, a stage that has expired also has an expired origin. A fresh salt alone cannot revive that execution context. Refresh the origin and affected anchors, queue snapshot, body and proof as required; a new context then has a new public-data interval. Even before expiry, a stage first published more than 540 seconds after its origin cannot mature for 360 seconds before that origin expires. Generic staging may record such unusable work, but clients and jobs reject infeasible timing rather than assuming the registry guaranteed success.</p>
+<p><strong>Assumed A-DA:</strong> the launch network's blob retention and retrieval service cover at least the 900-second maximum usable stage age plus the stated retrieval margin. Verify the actual launch-fork policy; do not convert a block-count retention rule into a fixed number of seconds without a valid bound. Final acceptance publishes the identical data again for canonical history. Long-term canonical reconstruction still needs A-ARCHIVE. Calldata mode uses ordinary L1 historical calldata availability and its smaller body cap; a large blob segment cannot be replaced by a hash-only calldata fallback.</p>
+<p><strong>Proven under A-L1:</strong> an L1 reorg removes registry writes, first-publication records and dependent accepted transactions in that reverted history. A stage receipt on an orphaned branch is not evidence in the replacement state. If the data transaction is included again, that new canonical inclusion supplies the receipt time; nodes recalculate maturity and respect canonical state. Reorg-finality risk is not removed by a signed timestamp. A finalized stage still does not force L1 to select its candidate.</p></section>
+
+<section id="acceptance"><h2>5. Exact atomic acceptance match</h2>
+<p>Project <code>StageContext</code> from the submitted complete statement and recompute <code>contextHash</code>. Require <code>s.taskHash=contextHash</code>, a live <code>getStage(s.stageId)</code> with that exact context hash, and <code>publishedAt+360 &lt;= now &lt;= publishedAt+900</code>. Publication time is read from immutable registry state, not supplied as a proof witness. Check arithmetic in full width. The chosen salt need not be passed again: the recorded ID/context association was checked when created and is immutable.</p>
+<p>Then require full same-mode republication: blob mode checks the actual current transaction's versioned hash equals the staged context's hash and its exact one-blob rule; calldata mode checks all bytes against the same body hash and size. The ZK proof binds the canonical body encoding, every context field, computed KZG/versioned hash in blob mode, block-hash tree, exact old head, origin, forced prefix and all additional statement fields. Require origin age at most 900 seconds and the core timestamp rules. The stage cannot replace an execution proof, import another origin, choose a new order or waive forced work.</p>
+<p>Verify the explicit producer authorization below and ordinary reward/job authorizations. Only then atomically consume the exact current parent, record the complete immutable accepted receipt, credit the specified ledgers and publish the proven checkpoint to the existing SignalService address. Any failure reverts the entire canonical action. Staging never calls SignalService, Anchor, Bridge or Vaults; their retained addresses and root provenance are unchanged.</p>
+<p><strong>Proven:</strong> a freely copied stage or proof cannot redirect its proof-bound beneficiary. The producer's endorsement cannot be inferred from who staged, relayed or paid. Existing frame-transaction and ordinary-transaction transports may carry the final action; EIP-8141 is not necessary to observe staging age or to keep publication permissionless.</p></section>
+
+<section id="authorization"><h2>6. Producer assent, keys and historical receipts</h2>
+<p>The final statement's <code>address producer</code> names the accountable canonical endorser. It need not equal the fee beneficiary, prover, stager, transaction sender or payer. An attacker cannot assign a victim as producer without authenticating that victim's assent to the exact statement.</p>
+<pre>// EIP-712 domain:
+// name="EtnaProducer", version="1", chainId=L1 chain ID,
+// verifyingContract=Inbox.
+struct ProducerAuthorization {
+    bytes32 statementHash;
+    uint256 stageId;
+    uint256 keyId;
+}
+PRODUCER_TYPEHASH = keccak256(bytes(
+    "ProducerAuthorization(bytes32 statementHash,uint256 stageId,uint256 keyId)"));
+statementHash = keccak256(abi.encode(statement));  // signature is not a field
+authorizationHash = keccak256(abi.encode(PRODUCER_TYPEHASH,
+    statementHash, statement.stageId, keyId));
+signedDigest = keccak256(0x1901 || eip712DomainSeparator || authorizationHash);
+
+// Separate self-service key records in RoleRegistry.
+struct ProducerKey {
+    address owner;
+    address signingKey;
+    uint48 registeredAt;
+    uint48 revokedAt;            // 0 while active; owner may set once
+}
+registerProducerKey(address signingKey) returns (uint256 keyId)
+revokeProducerKey(uint256 keyId)
+getProducerKey(uint256 keyId) view returns (ProducerKey record)
+
+event ProducerKeyRegistered(uint256 indexed keyId, address indexed owner,
+    address signingKey, uint48 registeredAt);
+event ProducerKeyRevoked(uint256 indexed keyId, uint48 revokedAt);</pre>
+<p><code>keyId=0</code> uses a direct canonical secp256k1 signature recovered to the nonzero <code>s.producer</code>. For a nonzero key ID, the registry record must already exist, be active at acceptance and have <code>owner=s.producer</code>; recover its immutable nonzero signing key. An EOA or contract can register a key by its own authenticated call, with <code>owner=msg.sender</code>; no incumbent approval or token stake is required. Allocate never-reused nonzero key IDs with checked increment. Only the recorded owner can revoke a key for future acceptance. Rotation registers a new record; it never rewrites an old owner or key. Contract owners do not depend on mutable ERC-1271 decisions at evidence time.</p>
+<p>Require a 65-byte signature, <code>v</code> in {27,28}, nonzero <code>r</code>/<code>s</code>, canonical low-<code>s</code>, and nonzero recovered address. Verify the typed domain, exact complete statement hash, stage ID equality and chosen key. No nonce is needed for a distinct exact parent-consumption action: the statement binds revision and old head, and the Inbox consumes that head once. Signature replay cannot select another body, stage, payout, job or producer. Revoking a still-unused key prevents future acceptance under it; it cannot erase an authorization already checked in an immutable receipt.</p>
+<p>The accepted receipt records at least <code>statementHash, oldHeadHash, newHeadHash, beneficiary, taskHash, jobId, stageId, producer, producerKeyId, producerAuthorizationHash, revision, firstL2Number, endL2Number, blockHashesRoot, acceptedAt, acceptedL1Number</code>. Here <code>producerAuthorizationHash</code> is the typed structure hash above; the receipt attests that its signature and active owner/key conditions were successfully checked at acceptance. Historical evidence uses that checked identity and immutable signing key, not today's activation state. The execution domain is reconstructed from receipt revision and the fixed chain/contract scope, or checked against the complete exact statement preimage.</p>
+<p><strong>Proven — no beneficiary framing:</strong> naming Alice as a beneficiary creates no evidence that Alice endorsed the task. The mandatory producer authorization is what attributes the accepted execution to Alice. A third party naming Alice but lacking her valid authorization fails before canonical state effects. Compromise of an active authorized key remains its owner's named key-security risk; revocation provides a permissionless prospective response without changing historical liabilities.</p></section>
+
+<section id="block-tree"><h2>7. Ordered block hashes and exact conflict evidence</h2>
+<p>The validity program derives every block hash from its proved execution. It constructs exactly 64 leaves, with one real leaf per segment block and deterministic padding. The actual count is <code>N=endL2Number-firstL2Number+1</code>, constrained to 1…60. All tags and integers below use the shown ABI types.</p>
+<pre>treeDomain = keccak256(abi.encode("ETNA_BLOCK_TREE_V1",
+    s.domain, s.revision, s.oldHeadHash, s.firstL2Number, s.endL2Number));
+
+// Real leaf i, 0 &lt;= i &lt; N:
+leaf[i] = keccak256(abi.encode(uint8(0), treeDomain, uint8(i),
+    uint48(s.firstL2Number + i), bytes32(provedBlockHash[i])));
+
+// Padding leaf i, N &lt;= i &lt; 64:
+leaf[i] = keccak256(abi.encode(uint8(2), treeDomain, uint8(i)));
+
+parent(left, right) = keccak256(abi.encode(uint8(1), left, right));
+// Combine adjacent pairs through exactly six levels.
+s.blockHashesRoot = root;
+
+// Evidence supplies index i and exactly bytes32[6] siblings.
+// Require i &lt; N and claimedHeight = firstL2Number + i.
+// For level 0…5, bit (i >> level)&amp;1 chooses left/right order.
+// The recomputed root must equal the accepted receipt's blockHashesRoot.</pre>
+<p>There is no sorted-pair convention, variable-depth proof, omitted padding, duplicated-leaf shortcut or reporter-supplied unverified header list. Leaf tags distinguish actual blocks from padding and interior nodes. Index, height, full domain and exact segment range prevent a membership proof from being reused for another position or branch context. The terminal real leaf must equal the statement's proved terminal block hash under the same execution program.</p>
+<p><strong>Proposed precise offense:</strong> an authentic bonded publisher claim X and an accepted block Y conflict only when X's collateral owner equals the receipt's authenticated producer; their revision matches; <code>X.baseHeadHash=receipt.oldHeadHash</code>; their L2 height is equal; and their proved/signed block hashes differ. The reporter supplies X's ordinary signature plus this bounded Y-membership proof. Check X's evidence window and unslashed reserved position; slash <strong>only X's existing 10-TAIKO position once</strong>, with the existing 10% reporter/90% sink split. An unbonded canonical producer is not given an invented additional collateral balance.</p>
+<p><strong>Proven scope:</strong> another owner winning a valid fork is not evidence against X's publisher. Distinct payments, jobs or segment lengths are not conflicting block hashes. If Y does not include X's height, this predicate is absent. A claim's bucket base remains its stated canonical base, while a later pipelined segment may have a different immediate parent; no unbounded ancestry search equates them. This exact-context rule therefore has cross-segment/pipeline and cross-owner false negatives. Independent universal staging eligibility applies to every canonical segment and does not depend on extending that slashing attribution.</p></section>
+
+<section id="timing"><h2>8. Timing, proving jobs and soft exposure</h2>
+<table><caption>Proposed timing and data parameters</caption><thead><tr><th>Parameter</th><th>Value</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>Soft issuance / unsafe horizon</td><td>1 second / 900 L2 blocks</td><td>Local provisional service, with a finite speculative limit. Staging does not make it final.</td></tr>
+<tr><td>Minimum stage age W</td><td>360 seconds</td><td>Objective public-data lead before canonical eligibility.</td></tr>
+<tr><td>Maximum stage age / origin age</td><td>900 / 900 seconds</td><td>Independent inclusive checks at acceptance; expiry requires appropriate reconstruction/restaging.</td></tr>
+<tr><td>A-RETRIEVE / A-PROVE</td><td>60 / 180 seconds</td><td>Assumed notice/data retrieval and proof production budget for a selected funded entrant.</td></tr>
+<tr><td>A-INCLUSION</td><td>120 seconds</td><td>Assumed affordable inclusion only while an action is valid. Not an Ethereum consensus guarantee.</td></tr>
+<tr><td>Segment/body bounds</td><td>60 blocks; 122,880 bytes blob / 32,768 bytes calldata</td><td>Full encoding and proof-enforced limits remain the core design's limits.</td></tr>
+<tr><td>Sealed publication-by covenant</td><td>issuedAt+240 seconds</td><td>Optional authenticated service duty against first actual matching context publication.</td></tr>
+</tbody></table>
+<p><strong>Assumed conditional readiness:</strong> a funded entrant notices/retrieves a selected staged candidate in 60 seconds and proves it in 180 seconds, leaving 120 seconds inside W as margin. The resulting proof can be ready before eligibility. A-INCLUSION does not imply its transaction lands before it is valid, and a competing accepted child can still invalidate it. No argument here requires every peer to download, execute or prove all candidate spam, nor proves fair market share.</p>
+<p><strong>Illustrative schedule:</strong> form a segment for 60 seconds; stage with prompt L1 inclusion; mature for 360 seconds while proving in parallel; land around seven to eight minutes from the initial base time. A schedule with 120-second staging inclusion and 120-second final inclusion instead takes roughly <code>60+120+360+120=660</code> seconds, plus header acquisition. This fits the proposed 900-second budgets only under their stated assumptions and remaining margin. Arbitrary congestion, repeated failures or proof latency can require rebuilding. No unconditional latency SLA is asserted.</p>
+<p>Proof offers store <code>taskHash=contextHash</code> and <code>stageId</code> as separate immutable fields. Acceptance requires the exact applicable current parent and an already published matching staging receipt, then sets <code>deadline=max(acceptedAt+300, stage.publishedAt+360+120)</code>. Require both <code>origin.timestamp+900 &gt;= deadline+120</code> and <code>stage.publishedAt+900 &gt;= deadline+120</code>. Success requires the exact context, stage ID, job ID and worker beneficiary in its accepted receipt. A new stage of the same execution task does not silently become the worker's assigned job. Historical competing-consumption and revision-retirement cancellation remain as specified in accountability; the job grants no exclusive proof right.</p>
+<p><strong>Proven:</strong> keeping the old 300-block unsafe horizon or requiring a freshly staged job to land within an unconditional 300 seconds would contradict the new maturity wait. The enlarged horizon and maturity-aware job deadline are necessary matching changes. They increase provisional exposure and capital/latency costs; they are not stronger user finality. Origin reuse may be nondecreasing as specified in the core, allowing resource-capped segments without waiting for a new L1 header. All timers use seconds and remain independent of 12/6/4/2-second slots or future CL proposer schedules.</p></section>
+
+<section id="accountability"><h2>9. Objective publication covenants and detection limits</h2>
+<pre>// EIP-712 EtnaDuty domain as defined in accountability.html.
+// Exact EIP-712 type name is PublicationClaim; every integer is uint256.
+struct PublicationClaim {
+    uint256 bucketId;
+    uint256 position;
+    uint256 revision;
+    bytes32 baseHeadHash;
+    uint256 issuedAt;
+    bytes32 contextHash;
+}
+PUBLICATION_TYPEHASH = keccak256(bytes("PublicationClaim(uint256 bucketId,uint256 position,uint256 revision,bytes32 baseHeadHash,uint256 issuedAt,bytes32 contextHash)"));
+publishBy = issuedAt + 240;
+timely = firstContextPublication[contextHash].exists
+      &amp;&amp; firstContextPublication[contextHash].publishedAt &lt;= publishBy;</pre>
+<p>This is a distinct reserved publisher promise issued when the exact sealed context is known. The accountability contract applies ordinary bucket owner/key/domain/revision/base/range checks and <code>issuedAt</code> within the preexisting 60-second issuance window. The claim's base matches its bucket; it need not equal the promised context's immediate parent, because a sealed pipelined segment may name a predicted future parent. This promise is to publish exact data, not to assert that parent is already canonical. The signer promises the identified complete context; the client checks its public descriptor, recomputed context hash and exact body commitments before accepting the promise. A random unauthenticated hash cannot create someone else's liability.</p>
+<p>At <code>now&gt;publishBy</code>, anyone may submit the authenticated claim as evidence. Absence of a context publication receipt, or an immutable first publication strictly later than the deadline, establishes default. A timely stage by any address and any salt satisfies it. A late stage never rewrites first publication or cures default. Reserve, evidence horizon, repeat-report, pull-payment and 10%/90% accounting follow <a href="accountability.html">the accountability specification</a>; no additional insurance is minted. At exactly the deadline publication remains timely. Signed <code>issuedAt</code> is bounded by a recorded window, not proof of real-world signing time.</p>
+<p><strong>Required binding boundary:</strong> an early block-fragment keccak digest is not a later sealed segment's versioned blob hash. Early one-second claims retain their bounded publication challenges. A sealed claim binds its complete context only after that context and DA commitment are computable. This page does not retroactively credit a block promise using an unverified membership assertion, nor demand that an early block know its future segment encoding. Wider block-level absolute-deadline coverage would require a separately specified timely authenticated membership mechanism.</p>
+<table><caption>Predicates, false positives and false negatives</caption><thead><tr><th>Predicate</th><th>Result</th><th>Limit</th></tr></thead><tbody>
+<tr><td>Canonical body first disclosed at landing</td><td><strong>Proven:</strong> rejected by matching actual-publication receipt and age checks, under A-DA/A-CRYPTO.</td><td>Does not prohibit private computation before staging or a mature competing branch winning.</td></tr>
+<tr><td>Authentic sealed publication duty misses its included L1 deadline</td><td><strong>Proven:</strong> receipt/absence predicate is deterministic; late reveal cannot erase it.</td><td>Detection needs the signed claim and a funded timely reporter. Receipt validity depends on L1 history.</td></tr>
+<tr><td>Honest publisher is censored or cannot finance inclusion</td><td><strong>Proven counterexample:</strong> it may objectively default despite honest intent.</td><td>Zero false attribution of malice is not claimed. Under the stated funding/inclusion/notice bounds a feasible compliant duty succeeds.</td></tr>
+<tr><td>Producer withholds until just before its publication-by deadline</td><td><strong>Proven:</strong> it satisfies that deadline; canonical eligibility still waits 360 seconds from actual staging.</td><td>Earlier P2P silence is not punished as an unobservable separate offense.</td></tr>
+<tr><td>Same owner endorses X and authorizes conflicting accepted Y</td><td><strong>Proven:</strong> exact-context receipt/member evidence can slash X's live reserve.</td><td>Cross-owner economic identity and unmatched pipelined parent contexts remain outside this predicate.</td></tr>
+<tr><td>All observers hide a signed promise until its evidence horizon ends</td><td><strong>Proven:</strong> service-default detection/punishment can be zero.</td><td>One-hour service evidence retention is a bounded exposure choice, never a claim that bridge custody depends on such testimony.</td></tr>
+</tbody></table>
+<p><strong>R6 rationale:</strong> the original first-reveal-at-landing path is removed by an objective universal canonical eligibility check; signed duties have permissionless deadline evidence and reserved penalties. These are stronger concrete predicates than merely adding optional witnesses. They do not establish economic independence, indefinite historical accountability, guaranteed fair proof races or deterrence against unlimited MEV. Whether the combined scoped guarantees and economic terms meet the complete brief remains the adversarial judge's decision; a disclaimer alone is not a pass.</p></section>
+
+<section id="recovery"><h2>10. Everyone offline, malicious stages and permissionless recovery</h2>
+<p>If every existing publisher, custodian and worker disappears, a new entrant needs no permission from them. It retrieves the latest accepted canonical state and data under A-ARCHIVE, and may either use still-available staged data or construct another valid child. It stages the complete new context, prepares a proof, waits for maturity and submits. A missing staged body, absurd stage descriptor, failed optional job or unavailable old soft suffix never reserves the head. If every capable prover everywhere is unavailable, progress stops until one returns; staging cannot manufacture a proof.</p>
+<p>Nodes keep unavailable soft dependencies UNKNOWN and stop confirming that branch. Recover from available canonical state rather than synthesize missing bytes. Existing serving and publication duties remain independently settleable; losing a canonical race neither creates an automatic misconduct slash nor cancels an already missed publication duty. Once a recovered child consumes the parent, old competing proofs are stale. An old stage, signature or witness certificate cannot overwrite the new head.</p>
+<p><strong>Proven:</strong> this avoids both an unavailable candidate holding recovery hostage and an attacker using an ordinary competing winner to slash an honest loser. It cannot promise that the entrant's preferred optional transactions win; the parent-frozen force prefix supplies the separate censorship escape. Malicious data staging costs L1 resources but can still impose inspection load, so nodes bound parsing and choose work by explicit policies. No claim of an honest majority of staged candidates or independent owners is made.</p>
+<p><strong>Open before launch:</strong> implement and audit the exact hash/ABI/circuit vectors; benchmark proving, retrieval and both publication modes; validate blob retention and context completeness; test historic receipt and revocation semantics; rehearse origin expiry and speculative-parent rebuilding; calibrate duplicate DA costs and willingness to fund proofs. This document supplies reviewable mechanics, not evidence that those engineering experiments have passed.</p></section>
+</main><footer><p><a href="index.html">Core specification</a> · <a href="accountability.html">Evidence and slashing</a> · <a href="../notes/withholding-alternatives.md">Alternative constructions and limits</a></p></footer></body></html>

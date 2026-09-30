@@ -82,19 +82,22 @@ event CheckpointSaved(
   <p><strong>Assumed A-L1.</strong> A checkpoint saved in an Ethereum transaction is accepted settlement state, not a declaration of Ethereum consensus finality. Wallets and relayers call it finalized only after the enclosing L1 block is finalized under Ethereum's own rules. An L1 reorg rolls back head, checkpoint, cache and bridge effects in that L1 history. Cross-layer users must also wait for canonical derivation and finality; the L2 Anchor alone cannot establish L1 finality.</p>
 </section>
 
+<p><strong>Assumed — revision1 addition:</strong> deploy a new permissionless DARegistry and pin its address/code semantics in the new Inbox revision. It is not a replacement custody contract. Its earlier generic publication creates no checkpoint; only a mature staged context accepted with complete republished DA and a valid proof reaches the SignalService interface below. See <a href="staging.html">staging</a>. The first Etna block therefore follows activation, staging and maturity; this introduces no additional DAO action.</p>
 <section aria-labelledby="interfaces" data-claim="assumed">
   <h2 id="interfaces">Assumed — interface sketches and authority</h2>
-  <p>These are interface sketches, not implementations. <code>Segment</code> and <code>Head</code> have the exact commitment fields defined in <a href="architecture.md">the architecture</a>. The core page controls the complete segment ABI; this page fixes what its successful acceptance must publish to SignalService.</p>
+  <p>These are interface sketches, not implementations. <code>SegmentStatement</code> and <code>Head</code> have the exact commitment fields defined in <a href="architecture.md">the architecture</a>. The core page controls the complete segment ABI; this page fixes what its successful acceptance must publish to SignalService.</p>
   <pre><code>// New L1 Inbox: any caller; proof beneficiary is proof-bound, never msg.sender.
 function submitSegment(
-    Segment calldata _segment, bytes calldata _data, bytes calldata _proof
-) external;
+    SegmentStatement calldata _s, bytes calldata _body, bytes calldata _proof,
+    bytes calldata _rewardAuthorization, uint256 _producerKeyId,
+    bytes calldata _producerAuthorization
+) external payable;
 function getHead() external view returns (Head memory head_);
 function getCheckpointStore() external view returns (address signalService_);
 event SegmentAccepted(
-    uint64 indexed segmentNumber, bytes32 indexed parentHeadHash,
-    bytes32 indexed newHeadHash, uint48 endL2Number,
-    bytes32 endL2BlockHash, bytes32 endL2StateRoot, bytes32 dataCommitment
+    uint64 indexed number, bytes32 indexed statementHash,
+    bytes32 oldHeadHash, bytes32 newHeadHash, uint48 endL2Number,
+    bytes32 endStateRoot, uint64 forceEnd, address beneficiary
 );
 
 // Retained L2 Anchor proxy: deterministic first system transaction.

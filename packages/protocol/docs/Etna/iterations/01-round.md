@@ -12,3 +12,13 @@ Reviewed design: `f0a548458`, with migration-encoding clarification `585d2a183`.
 | J-04 | Low: raw-balance equality fails under unsolicited donations | Use liabilities ≤ assets; donations are uncredited surplus and cannot block exits. |
 
 At review completion these findings remain open. Revision dispositions will be appended before the next independent round. Missing circuit implementations, live deployment evidence and benchmarks are separate launch gates; hypothetical failures of specified safeguards were not counted as actual Critical exploits. No universal impossibility of literal R1–R7 was established.
+
+## Revision disposition before round 02
+
+- **J-01 changed, pending fresh review:** mandatory actual-data staging with360-second minimum public age; complete context and identical republication plus proof; no head reservation. Signed exact-context publication deadlines survive late revelation. Mandatory canonical producer authorization supports bounded same-owner conflict evidence without framing a named beneficiary. Mature public forks, private computation, cross-owner attribution and exact-context limits remain explicit; no global historical-gossip oracle is claimed.
+- **J-02 mitigated on paper:** authenticated origins may repeat;900-second freshness suffices for eventual frozen-FIFO progress.900-block unsafe resource horizon and stage-aware job deadlines accommodate the new maturity wait. The origin/cadence proof is re-opened for review.
+- **J-03 concretely revised, not declared economically proven:** position10TAIKO,600-TAIKO buckets,1200-second retention/3600-second evidence; explicit efficient-registration peaks37200/147000TAIKO at1/4 claims per second. Force fees split50%processor/50%irreversible sink;1000 accumulated requests from empty queue cost10.5ETH and sink5.25ETH plus external costs. Interleaved strategies and unknown MEV/token valuation remain stated limits. These are finite deterrents and exposure limits, not insurance or identity diversity.
+- **J-04 corrected:** raw held-assets equality replaced by liabilities≤assets and uncredited surplus; donations cannot block exits.
+- **Additional consistency repair:** canonical Head commits execution contextHash, while the receipt commits full statement/payment/producer/job details. Identical execution with another payment or job assignment cannot mutate precomputed child heads. No future L1-assigned stage ID enters execution: stage IDs are deterministic salted context hashes.
+
+All changes are specification-only. No clean round is credited for making them; round02 reviews the resulting complete HTML without the prior mitigation list.
