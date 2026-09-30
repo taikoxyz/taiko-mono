@@ -15,7 +15,7 @@ Etna is the working name for the successor to Taiko's current (Shasta-era) based
 | See whether Frame Transactions give zero-cost losing races | [`03-frame-transactions-research.md`](03-frame-transactions-research.md) |
 | Read the full design (engineers, auditors) | [`design/index.html`](design/index.html) |
 | Learn the design one block at a time and try to break it | [`learn/index.html`](learn/index.html) |
-| See what the red team found and how it was handled | [`iterations/`](iterations/) |
+| See what the red team found and how it was handled | [`iterations/README.md`](iterations/README.md) |
 | See the user-provided input | [`inputs/nonce-as-a-lock.pdf`](inputs/nonce-as-a-lock.pdf) (text extract: [`inputs/nonce-as-a-lock.txt`](inputs/nonce-as-a-lock.txt)) |
 
 ## Hard requirements
