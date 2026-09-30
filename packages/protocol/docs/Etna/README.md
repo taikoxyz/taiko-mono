@@ -16,6 +16,7 @@ Etna is the working name for the successor to Taiko's current (Shasta-era) based
 | Read the full design (engineers, auditors) | [`design/index.html`](design/index.html) |
 | Learn the design one block at a time and try to break it | [`learn/index.html`](learn/index.html) |
 | See what the red team found and how it was handled | [`iterations/README.md`](iterations/README.md) |
+| See the skeptic re-verification reports for the research documents | [`notes/02.verify.md`](notes/02.verify.md), [`notes/03.verify.md`](notes/03.verify.md) |
 | See the user-provided input | [`inputs/nonce-as-a-lock.pdf`](inputs/nonce-as-a-lock.pdf) (text extract: [`inputs/nonce-as-a-lock.txt`](inputs/nonce-as-a-lock.txt)) |
 
 ## Hard requirements
@@ -59,7 +60,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 
 - [x] **Phase 0: Setup.** Branch `claude/beautiful-maxwell-8pyecj`, directory `packages/protocol/docs/Etna/`, this README, PDF input copied to `inputs/`.
 - [ ] **Phase 1: Learn.** `00-current-protocol-summary.md`, `01-threat-model.md`.
-- [ ] **Phase 2: Research.** `02-l1-roadmap-survey.md`, `03-frame-transactions-research.md`.
+- [x] **Phase 2: Research.** `02-l1-roadmap-survey.md`, `03-frame-transactions-research.md` (each independently re-verified by a skeptic agent; reports in `notes/`).
 - [ ] **Phase 3: Design draft.** `design/index.html` and section pages.
 - [ ] **Phase 4: Red team round 1.** `iterations/01-round.md` (three or more adversarial agents on different models, plus a judge).
 - [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap.
