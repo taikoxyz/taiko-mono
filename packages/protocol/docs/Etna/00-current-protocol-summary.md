@@ -1,6 +1,15 @@
 # Current Taiko protocol: an engineer's guide
 
-Source baseline: `961bbd8ff55a0f66f44ad04160eb51638d655b66`, inspected 2026-09-30. The checkout is configured to fetch `main`, but live remote freshness could not be authenticated because environment GitHub access failed. This is a source-level account, not a deployed-state audit. Every source citation is pinned to that baseline; deployment defaults below are not asserted to be live chain values.
+Initial source baseline: `961bbd8ff55a0f66f44ad04160eb51638d655b66`, inspected 2026-09-30. Remote freshness could not be authenticated during the initial Phase 1 read because GitHub access failed; the later successful refresh is recorded immediately below. This is a source-level account, not a deployed-state audit. Original body citations remain pinned to the initial baseline; source defaults are not asserted to be live chain values.
+
+## 2026-09-30 addendum: refreshed main
+
+**Proven source update:** the subsequent public fetch supplied main `31df8fe8ef7c027840abf122ec36f87c41c3ce94`, two commits beyond the initial baseline. The relevant commit is [6d1d62741464efe736179e3b35f133d5844469ca](https://github.com/taikoxyz/taiko-mono/commit/6d1d62741464efe736179e3b35f133d5844469ca) (Proposal0026). Current [MainnetInbox.sol:45–46](https://github.com/taikoxyz/taiko-mono/blob/31df8fe8ef7c027840abf122ec36f87c41c3ce94/packages/protocol/contracts/layer1/mainnet/MainnetInbox.sol#L45) and [DevnetInbox.sol:43](https://github.com/taikoxyz/taiko-mono/blob/31df8fe8ef7c027840abf122ec36f87c41c3ce94/packages/protocol/contracts/layer1/devnet/DevnetInbox.sol#L43) configure **100% of the L2 basefee to the block coinbase**, replacing 75%. The 75% entry in Section 4 is retained as an explicitly historical initial-snapshot observation, not the refreshed default. Already proposed legacy inputs retain their committed percentage; native fees remain ETH and bond denomination is unchanged.
+
+**Proven scope:** this interval changes no core Inbox, shared SignalService/Bridge/Vault/fork-router, L2 Anchor/layout or Go/Rust client runtime source. Its only Go delta updates treasury-income test expectations. It adds v0.9.0 RISC0/SP1/SGX constants, a recorded ZK-required verifier address, and Proposal0026 deployment/proposal/test artifacts. **Open:** these source constants and repository deployment statements do not authenticate live implementations, enabled keys, SGX registrations or execution of the proposal. They are not preapproved Etna verifier keys.
+
+The [main-refresh evidence note](notes/main-refresh.md) lists exact commits, paths and line citations, the 21-action verifier rotation, checks performed and consequences for fee rules and historical migration. All sections below preserve the initial snapshot unless this addendum explicitly updates them.
+
 
 **Classification:** factual descriptions below are **proven by the cited source**; cryptography, Ethereum consensus and honest operation are **assumptions**; unavailable deployment/circuit facts are **open**. Full subsystem evidence is in [L1](notes/l1.md), [L2/shared](notes/l2-shared.md), [Go](notes/go-client.md), [Rust](notes/rust-client.md) and [docs](notes/docs.md). Read this summary first and those notes when modifying a subsystem.
 
