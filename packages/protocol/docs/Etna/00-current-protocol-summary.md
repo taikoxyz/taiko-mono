@@ -232,6 +232,7 @@ Contract: `contracts/layer2/core/Anchor.sol` (240 lines), a UUPS proxy predeploy
 - Nothing else is validated: no proposal id, block index, timestamp, base fee, proposer or prover identity (`_lastProposalId` is deprecated, `:65-66`). `ANCHOR_GAS_LIMIT = 1_000_000` is declared "must be enforced" but is enforced by the node, not the contract (`:39-40`; `docs/Derivation.md:342-345`).
 - The Anchor receives the non-coinbase share of L2 base fees (`basefeeSharingPctg = 75%` to coinbase on mainnet); the owner can `withdraw` them (`:140-156`).
 - Storage: `blockHashes` at 251, three retired Pacaya slots, deprecated `_lastProposalId` at 255, `_blockState` at 256-257, 43-slot gap (`contracts/layer2/core/Anchor_Layout.sol:21-25`).
+- Verified details: the `l1ChainId` immutable is validated but never read by any logic (`:50`, `:103`); there is no owner function to reset `_blockState`, so a chain whose ancestors hash ever desynchronises is recoverable only by `upgradeTo` (`:113-115`, `:145-156`); the Anchor has no `receive()`; the Go syncer has a second calldata-decoding exception for proposal id 1 on every chain (`driver/chain_syncer/event/syncer.go:318-324`).
 
 ---
 
@@ -256,6 +257,8 @@ event CheckpointSaved(uint48 indexed blockNumber, bytes32 blockHash, bytes32 sta
 - Storage layout: EssentialContract prefix (slots 0-250), two dead Pacaya slots (251-252), `_receivedSignals` (253), `_checkpoints` (254), 46-slot gap (255-300) (`contracts/shared/signal/SignalService_Layout.sol:10-24`).
 
 **Consequence for R2.** A new syncer address requires a new SignalService *implementation* (constructor arg) plus an owner `upgradeTo` on the existing proxy; the proxy address and storage are preserved. If the Etna inbox reuses the existing Inbox proxy address, the L1 SignalService needs no change at all; likewise on L2 if the Anchor proxy is upgraded in place.
+
+Further verified facts: `saveCheckpoint` carries no pause gate, so pausing a SignalService halts proving of signals but never the anchor transaction or the Inbox (`SignalService.sol:174-177`); `_authorizedSyncer` is `internal immutable` with no getter, so the wired syncer cannot be read on-chain (`:37`); the quota manager is optional and a zero address disables rate limiting entirely (`Bridge.sol:652`; `ERC20Vault.sol:532`), and an owner `updateQuota` refills the window immediately (`QuotaManager.sol:74-77`, `:110`); `processMessage` hard-reverts if `destOwner` or the relayer cannot accept ETH within 135k gas (`Bridge.sol:395`, `:400`).
 
 ### 6.2 Signals and proofs
 
