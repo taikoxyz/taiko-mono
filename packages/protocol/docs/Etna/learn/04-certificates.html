@@ -22,8 +22,8 @@
 <h2>The rules</h2>
 <ul>
 <li><strong>Committee.</strong> Up to 32 seats per term, drawn by the seed, excluding the primary holder's seats (and the backups' drawn seats). The quorum scales with the actual size m: Q(m) = ⌊2m/3⌋ + 1, so 22 of 32; below 8 seats there is no committee at all (no-committee mode). The number of provably slashable double-signers behind a locked block, 2Q(m) − m, is published beside the confirmation level (12 at 32 seats, 4 at 8).</li>
-<li><strong>Attestation.</strong> A BLS signature over (chain, term, view, height, header hash). An attester signs a block only after V1 to V6 pass, only above its lock, one per height, and only if the block's timestamp is within 3 seconds of its own clock (a signing policy, not a validity rule).</li>
-<li><strong>Certificate C(h).</strong> Any 22 attestations aggregated into one 100-byte object with a 32-bit bitmap. Anyone can build it from gossip; the sequencer holds nothing the network does not.</li>
+<li><strong>Attestation.</strong> A BLS signature over (chain, term, view, opening object, height, header hash). An attester signs a block only after V1 to V6 pass, only above its lock, one per height, and only if the block's timestamp is within 3 seconds of its own clock (a signing policy, not a validity rule).</li>
+<li><strong>Certificate C(h).</strong> Any 22 attestations aggregated into one object of about 130 bytes with a 32-bit bitmap. Anyone can build it from gossip; the sequencer holds nothing the network does not.</li>
 <li><strong>Carried certificate.</strong> Block n includes C(n−1) if it has it, else C(n−2). A sequencer more than two blocks ahead of its newest certificate must hold.</li>
 </ul>
 <figure>

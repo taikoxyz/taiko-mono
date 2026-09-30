@@ -63,7 +63,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 - [x] **Phase 2: Research.** `02-l1-roadmap-survey.md`, `03-frame-transactions-research.md` (each independently re-verified by a skeptic agent; reports in `notes/`).
 - [x] **Phase 3: Design draft.** `design/index.html` and fourteen section pages (three independent designs per building block, judged and synthesized, then a cross-block consistency pass; the architect's decisions are listed on the overview page).
 - [x] **Phase 4: Red team round 1.** `iterations/01-round.md` (three adversarial agents on opus, sonnet and haiku; a fable verifier per finding and a fable judge).
-- [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap. Rounds 1 and 2 revised; round 3 in progress.
+- [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap. Rounds 1 to 3 revised; round 4 in progress.
 - [x] **Phase 6: Deliverables.** Design site, learning site, commit, push, draft PR (all pushed; both sites are revised after every round).
 - [ ] **Phase 7: Report.** Final message: verdict, top-five decisions, open questions, links.
 
@@ -72,7 +72,8 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 | Round | Models | New Critical | New High | Open Medium | Verdict |
 |---|---|---|---|---|---|
 | [1](iterations/01-round.md) | opus (steal, report truncated), sonnet (halt), haiku (censor); fable verifier and judge | 0 | 3 | 5 (all revised) | REVISE: F1 to F10 fixed in the design |
-| [2](iterations/02-round.md) | sonnet (steal), opus (halt), fable (censor); fable verifier and judge | 0 | 3 (S1, S3, F1) | 10 (all revised) | REVISE: five round-1 fixes found inadequate or un-propagated; groups A to G applied as one pass; round 3 pending |
+| [2](iterations/02-round.md) | sonnet (steal), opus (halt), fable (censor); fable verifier and judge | 0 | 3 (S1, S3, F1) | 10 (all revised) | REVISE: five round-1 fixes found inadequate or un-propagated; groups A to G applied as one pass |
+| [3](iterations/03-round.md) | fable (steal), sonnet (halt), opus (censor); fable verifier and judge | 0 | 7 (S1, S2, S4, H1, H2, H5, C1) | 7 (all revised) | REVISE: lock votes with signed L1 references, recorded-REPLACE close, eligible-list sortition, per-term budget with landing reserve, bonded forced entries, timeout only on leader silence; round 4 pending |
 
 **Design readiness: NOT READY.** The design is declared ready only if two consecutive red-team rounds produce no new Critical or High findings, every Medium is mitigated or accepted with written rationale, and all of R1 to R7 pass.
 

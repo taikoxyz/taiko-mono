@@ -23,7 +23,7 @@
 <ol>
 <li>Sequence: the range starts at <code>lastLanded + 1</code>; at most 256 blocks; several landings may sit in one L1 block.</li>
 <li>Parent: the parent hash equals <code>lastLanded</code>; the parent state root is read from storage, never from calldata.</li>
-<li>View and rights: the range lies in one view; opening a view supplies the view-change chain; the sequencer is the holder (or the term is open or in dead mode and the sequencer is bonded; in a no-committee term the sortition holder keeps the landing right until its economic deadline).</li>
+<li>View and rights: the range covers up to four consecutive views (segments); opening a view supplies the view-change chain; the sequencer is the holder (or the term is open or in dead mode and the sequencer is bonded; in a no-committee term the sortition holder keeps the landing right until its economic deadline).</li>
 <li>End certificate: 22 of 32 aggregate signatures over the end header hash; not voided.</li>
 <li>Blobs: <code>blobhash(i)</code> matches for each of at most 6 blobs.</li>
 <li>Anchor tip: the newest anchored L1 block is verified by <code>blockhash</code> (256 blocks) or EIP-2935 (8,191 blocks).</li>

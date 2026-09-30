@@ -19,10 +19,10 @@
 <h2>The idea</h2>
 <p>Sortition is uniform over eligible seats, so an entity with k of n seats is primary in exactly k/n of terms, however it splits its seats across addresses. Against H honest seats, share X costs <code>k = X·H / (1 − X)</code> seats; the marginal cost <code>B·H / (1 − X)²</code> grows without bound. Exclusion is impossible while one honest seat is live because a registration is a plain L1 transaction with future-dated effect and the seat array (65,535 entries) costs more than the token supply to fill.</p>
 <table>
-<tr><th>Share</th><th>Seats against 40 honest</th><th>Cost (TAIKO)</th><th>Against 200 honest</th></tr>
-<tr><td>33 %</td><td>20</td><td>400,000</td><td>2,000,000</td></tr>
-<tr><td>50 %</td><td>40</td><td>800,000</td><td>4,000,000</td></tr>
-<tr><td>90 %</td><td>360</td><td>7,200,000</td><td>36,000,000</td></tr>
+<tr><th>Share of terms</th><th>Seats against 64 honest</th><th>Cost (TAIKO)</th><th>Against 200 honest</th></tr>
+<tr><td>33 %</td><td>32</td><td>640,000</td><td>2,000,000</td></tr>
+<tr><td>50 %</td><td>64</td><td>1,280,000</td><td>4,000,000</td></tr>
+<tr><td>90 %</td><td>576</td><td>11,520,000</td><td>36,000,000</td></tr>
 <tr><td>100 %</td><td>∞</td><td>∞</td><td>∞</td></tr>
 </table>
 
@@ -30,7 +30,7 @@
 <p>No owner-keyed rule (consecutive-term cooldown, progressive fee burn, per-owner decay) costs a Sybil-capable adversary more than the per-seat price, because the registry cannot distinguish m owners of one entity from m entities. Such rules tax only honest large operators. The design therefore prices share and does not try to bound it; the collusion tables in lesson 4 are stated as an economic assumption (no entity above about 20 % of seats).</p>
 
 <h2>What a cartel can still do</h2>
-<p>With 11 or more of a committee's 32 slots it can refuse to attest an entrant's blocks; the honest 21 time out honestly, and the 11 abstainers then decide whether to co-sign (the entrant loses 50 TAIKO for that view and nothing else) or let the term close by a penalty-free fallback. Since round 2 the committee walk excludes only the primary holder by owner, so five 8-seat honest owners keep 32 honest seats in the pool and a 10-seat cartel reaches 11 slots in about 9 % of terms. The probability of 11 or more slots at cartel seat share c is 4 %, 36 % and 79 % at c = 0.2, 0.3 and 0.4. Bleeding a one-seat entrant to the 50 % hard floor takes 200 of its own drawn views with the cartel present: about 139 days at c = 0.2, about a week at c = 0.33, five days at c = 0.4, at 40 seats; the entrant may top up and the cartel forgoes its attester income throughout. Round 1 removed the strike ladder from timeouts for exactly this reason. The entrant's seat is never removed, and forced inclusion bounds censorship inside the cartel's own terms.</p>
+<p>With 11 or more of a committee's 32 slots it can refuse to attest an entrant's blocks; no certificate forms, and since round 3 no timeout forms either (the honest 21 attested the live leader and a timeout is signed only on leader silence): the entrant keeps its term at the sequenced level and loses that term's revenue, nothing else, and the cartel gains no term. Round 3 also showed the earlier trigger let a third of the seats capture up to 87 % of terms, which broke the cost curve. The blanking probability is hypergeometric (the committee is drawn without replacement): a 10-seat cartel among 50 seats blanks 0 % of terms; two owners with 12 of 44 seats blank 40 %, which is why the launch condition is 8 owners and 72 seats. The absence bleed is unreachable by a minority: a timeout view change needs 22 signers that attested nothing, so only a leader that is in fact silent pays it. The entrant's seat is never removed, and forced inclusion bounds censorship inside the cartel's own terms.</p>
 
 <h2>Self-check</h2>
 <details><summary>Why is a cap of 8 seats per address not an anti-monopoly measure?</summary><p>It bounds an address, not an entity; entities split across addresses at no cost. Its real purpose is bounding on-chain loops and one address's share of backup views.</p></details>

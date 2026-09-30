@@ -38,8 +38,8 @@
 <tr><td>Happy term</td><td>holder(t, 0) signs 60 blocks; certificates at ~0.7 s; landings every 20 s; checkpoint written</td><td>landed within 2 to 3 min of each block; L1-safe one L1 block later</td></tr>
 <tr><td>Holder dies at second 20</td><td>timeouts at 25 s; VC at lock 19; view 1 extends block 19; the landing of view 0 carries no penalty, the landing of view 1 carries the VC and the 50-TAIKO absence penalty</td><td>≈ 6 s gap; no user block reverted</td></tr>
 <tr><td>Withholding ambush at term end</td><td>A withholds h+1..h+m; TERM_END VC at lock h recorded within seconds; B builds on h</td><td>A's blocks orphaned; landing them needs 12 double-signers</td></tr>
-<tr><td>All provers dead for 3 hours</td><td>ramp reaches 24 TAIKO per block; no landing; outage gate closed; after 2 h single-proof mode arms; backlog lands when proving returns</td><td>nothing voided, nobody slashed (an outage beyond the 34-hour landing horizon would lose unlanded ranges)</td></tr>
-<tr><td>Forced inclusion under a censoring quorum</td><td>due at +5 min; stale anchors for 30 min; deadline landings; first term that must include it lands by +102 min or a forced batch lands</td><td>included within 102 min plus proving</td></tr>
+<tr><td>All provers dead for 3 hours</td><td>ramp reaches 4 TAIKO per block and 1,300 per landing; no landing; outage gate closed; after 2 h single-proof mode arms; backlog lands when proving returns</td><td>nothing voided, nobody slashed (an outage beyond the 34-hour landing horizon would lose unlanded ranges)</td></tr>
+<tr><td>Forced inclusion under a censoring quorum</td><td>due at +5 min; stale anchors for 30 min; deadline landings; first term that must include it lands by +112 min (a landing announcement may add ten minutes) or a forced batch lands</td><td>included within 112 min plus proving</td></tr>
 <tr><td>Every registered party vanishes</td><td>terms open-empty; 75 unlanded terms; dead mode; one bonded party sequences from the last landed block and lands with two proofs</td><td>liveness within about 75 min plus proving, no DAO</td></tr>
 </table>
 

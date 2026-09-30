@@ -31,10 +31,11 @@ interface IEtnaInbox {
                         uint32 s1; uint32 e1; uint32 s2; uint32 e2; uint48 slashedAt; bytes32 seqKeyHash; bytes32 attKeyHash; }
     struct Holders    { address[5] owners; uint16[5] seats; uint8 count; uint8 mode; } // 0 SORTITION 1 OPEN_EMPTY 2 DEAD 3 NO_COMMITTEE
     struct Certificate{ uint32 termId; uint8 view; bytes32 vcHash; uint64 height; bytes32 phHash; uint32 bitmap; bytes aggSig; }
-    struct ViewChange { uint32 termId; uint8 view; uint8 kind; uint32 signerTerm; uint64 lockHeight; bytes32 lockPhHash;
-                        uint32 bitmap; bytes aggSig; }                    // kind: TIMEOUT TERM_END FALLBACK REPLACE RESUME
+    struct ViewChange { uint32 termId; uint8 view; bytes32 closes; uint8 kind; uint32 signerTerm; uint64 lockHeight; bytes32 lockPhHash;
+                        Replace l1Ref; uint32 bitmap; bytes aggSig; }       // closes: opening object of the view it closes                    // kind: TIMEOUT TERM_END FALLBACK REPLACE RESUME
     struct Attestation{ uint32 termId; uint8 view; bytes32 vcHash; uint64 height; bytes32 phHash; uint8 attesterIdx; bytes sig; }   // vcHash: the view's opening object
-    struct TimeoutMsg { uint32 termId; uint8 view; bytes32 vcHash; uint8 kind; uint64 lockHeight; bytes32 lockPhHash; Replace l1Ref; uint8 attesterIdx; bytes sig; }
+    struct TimeoutMsg { uint32 termId; uint8 view; bytes32 vcHash; uint8 kind; uint8 attesterIdx; bytes sig; }                 // no lock (round 3)
+    struct LockVote   { uint32 termId; uint8 view; bytes32 vcHash; uint8 kind; uint64 lockHeight; bytes32 lockPhHash; Replace l1Ref; uint8 attesterIdx; bytes sig; } // l1Ref signed
     struct SignedObject  { uint8 kind; bytes body; bytes sig; }           // 0 HEADER (SSZ SignedHeader)
     struct CommitteeProof{ bytes32[32] keyHashes; bytes[] pubkeys; uint32 pubkeyBitmap; }
     struct RewardBoost{ uint32 termId; uint64 minRewardPerBlockGwei; bytes seqSig; }
@@ -52,7 +53,7 @@ interface IEtnaInbox {
     struct EtnaConfig { uint48 t0; uint32 term; uint32 freeze; uint32 drainDeadline; uint48 drainedAt; bool abandoned; }
     struct ProtocolParams { /* every guest-visible constant; see the Anchor page §8 */ }
     enum   FiKind { BLOB, CALLDATA }
-    struct FiEntry    { bytes32 dataHash; uint48 savedAt; uint96 feeWei; FiKind kind; uint24 offset; }   // view shape over the legacy and new layouts
+    struct FiEntry    { bytes32 dataHash; uint48 savedAt; uint96 feeWei; uint64 bondWei; FiKind kind; uint24 offset; }   // view shape over the legacy and new layouts
 
     // ------------------------------------------------------------------ migration
     function initEtna(uint48 _t0, uint48 _lastFinalizedBlockNumber) external;      // reinitializer(4), in the upgrade tx
@@ -68,7 +69,8 @@ interface IEtnaInbox {
     // ------------------------------------------------------------------ registry, rights, randomness
     function registerKeys(address _seqKey, bytes calldata _blsPubkey, bytes calldata _pop) external;  // PoP over (pubkey, owner, chainId); key must be unbound
     function rotateKey(uint8 _kind, bytes calldata _newKey, bytes calldata _pop) external;   // effective τ + DELAY_REG
-    function register(uint16 _count) external returns (uint16[] memory seats_);       // indices contract-assigned
+    function register(uint16 _count) external returns (uint16[] memory seats_);       // indices contract-assigned; bond ≥ 1.05 × floor + LAND_RESERVE
+    function eligibleAt(uint48 _time) external view returns (uint16 length_, bytes32 listRoot_);   // the eligible list (sortition domain)
     function requestExit(uint16[] calldata _seats) external;
     function finalizeExit(uint16[] calldata _seats) external;
     function reactivate() external;
@@ -91,8 +93,8 @@ interface IEtnaInbox {
     // ------------------------------------------------------------------ landing
     function land(LandInput calldata _in) external;                                 // anyone; forced batch = view 254
     function landFor(address _rewardTo, LandInput calldata _in) external;           // msg.sender == G_LAND (0 = disabled)
-    function recordViewChange(ViewChange calldata _vc) external;                    // anyone; first per (termId, view) wins
-    function announceLanding(uint64 _firstHeight, uint64 _endHeight) external payable; // bond ≥ SLASH_ABANDON; defers replaceableFrom once per range
+    function recordViewChange(ViewChange calldata _vc) external;                    // anyone; first per (termId, view, closes) wins; REPLACE closes the original tail
+    function announceLanding(uint64 _firstHeight, uint64 _endHeight) external;         // locks SLASH_ABANDON of TAIKO on the caller's ledger; defers replaceableFrom once per range
     function lastLanded() external view returns (LastLanded memory head_);
     function lastLandedTerm() external view returns (uint32 term_);
     function termRecord(uint32 _term) external view returns (TermRecord memory record_);
@@ -103,12 +105,12 @@ interface IEtnaInbox {
     function slashSequencerEquivocation(SignedObject calldata _a, SignedObject calldata _b) external;                     // S1
     function slashAttesterEquivocation(Attestation calldata _a, Attestation calldata _b, bytes calldata _pubkey) external;// S3a
     function slashCertificatePair(Certificate calldata _a, Certificate calldata _b, CommitteeProof calldata _cp) external;// S3a pair
-    function slashLockLie(TimeoutMsg calldata _to, SignedObject calldata _hdr, Attestation calldata _att, bytes calldata _pubkey) external; // S3b
-    function slashViewChangeEquivocation(TimeoutMsg calldata _a, TimeoutMsg calldata _b, bytes calldata _pubkey) external;// S3c
+    function slashLockLie(LockVote calldata _lv, SignedObject calldata _hdr, Attestation calldata _att, bytes calldata _pubkey) external;   // S3b; lock not a landed head
+    function slashLockVoteEquivocation(LockVote calldata _a, LockVote calldata _b, bytes calldata _pubkey) external;      // S3c (non-monotone votes)
     function reportAbandoned(uint32 _term, uint8 _view, bytes calldata _vcOrCert, CommitteeProof calldata _cp, uint32 _landedTermRef) external; // S4a; requires _landedTermRef > _term and the void waiver
     function slashInvalidNamedObject(SignedObject calldata _hdr, bytes calldata _preimage, SignedObject calldata _parent,
                                      Attestation calldata _att, Certificate calldata _cert, bytes calldata _pubkey, CommitteeProof calldata _cp) external; // S6
-    function slashFalseReplacement(TimeoutMsg calldata _to, bytes calldata _pubkey) external;                                // S3d (L1 fact)
+    function slashFalseReplacement(LockVote calldata _lv, bytes calldata _pubkey) external;                                  // S3d (signed L1 reference)
     function slashCoded(address _seqKey) external;                                                                          // S8
     function sweepBurn() external;
     function pendingBurnGwei() external view returns (uint64 gwei_);
@@ -193,7 +195,7 @@ RewardBoost, FiPayloadById (optional)</code></pre>
 <h2 id="storage">5. Storage-layout summary</h2>
 <table>
 <tr><th>Contract</th><th>Kept slots</th><th>Appended (after the gap start)</th><th>Gap after</th></tr>
-<tr><td>Inbox proxy (L1)</td><td>0-250 prefix; 251 activation; 252-253 core state (frozen after drain); 254 proposal hashes (aliased as the term-record ring after drain); 255-256 forced-inclusion queue; 257 bond ledger</td><td>activation record; lastLanded (3); seed accumulator, seed meta and ring, seats, operators, length ring; committee roots, attester keys, offence records, pending burn and bonus; recorded view changes, demands and answers, voided, last view-change hash; forced-inclusion extras, ETH pull ledger, forced ring; pinned assignment digests: 23 slots</td><td>20</td></tr>
+<tr><td>Inbox proxy (L1)</td><td>0-250 prefix; 251 activation; 252-253 core state (frozen after drain); 254 proposal hashes (aliased as the term-record ring after drain); 255-256 forced-inclusion queue; 257 bond ledger</td><td>activation record; lastLanded (3); seed accumulator, seed meta and ring, seats, operators, length ring; committee roots, attester keys, offence records, pending burn and bonus; recorded view changes, landing ring, eligible list, last view-change hash; forced-inclusion extras, ETH pull ledger, forced ring; pinned assignment digests: 23 slots</td><td>20</td></tr>
 <tr><td>Anchor proxy (L2)</td><td>0-250 prefix; 251 blockHashes; 252-255 retired; 256-257 block state (byte-identical semantics)</td><td>258 packed metadata; 259 carried certificate hash; 260 view-change hash</td><td>40</td></tr>
 <tr><td>SignalService (both), Bridge, Vaults</td><td>all</td><td>none</td><td>unchanged</td></tr>
 </table>

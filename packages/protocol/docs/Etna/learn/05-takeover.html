@@ -21,8 +21,8 @@
 
 <h2>The rules</h2>
 <ol>
-<li><strong>Timeout.</strong> An attester signs TO(t, v, lock) when its own clock has seen no new certificate for 5 s (kind TIMEOUT), or the term has ended (kind TERM_END). The clock decides only whether to <em>sign</em>.</li>
-<li><strong>View change.</strong> Anyone holding 22 timeouts proposes VC(t, v, lock*) with the maximum lock and its certificate; attesters sign iff they hold that certificate's chain and signed no other lock for the view. The decision to <em>switch</em> is the existence of the VC, a signed object, so every node holding it switches identically.</li>
+<li><strong>Timeout.</strong> An attester signs the timeout TO(t, v) (no lock in it) when its own clock has seen no new certificate for 5 s <em>and it has attested nothing of the view in that window</em> (kind TIMEOUT; round 3 showed that without the second condition an abstaining minority could make the honest majority hand a live primary's term to the minority's backup), or when the term has ended (kind TERM_END). The lock travels in a separate lock vote, which a key may only ever raise. The clock decides only whether to <em>sign</em>.</li>
+<li><strong>View change.</strong> Anyone holding 22 timeouts proposes VC(t, v, lock*) with the highest certificate it holds; attesters cast lock votes iff they hold that certificate's chain, re-voting upward if a higher lock appears, and never other lock for the view. The decision to <em>switch</em> is the existence of the VC, a signed object, so every node holding it switches identically.</li>
 <li><strong>Next view.</strong> The next holder's first block carries the VC and builds on the lock. At term end the next term's holder does the same. If a whole committee is silent, the next term's committee signs a fallback VC after 12 s.</li>
 <li><strong>Recording.</strong> Anyone can put a VC on L1 with <code>recordViewChange</code>; the first recorded per (term, view) wins and later landings must match it.</li>
 </ol>
