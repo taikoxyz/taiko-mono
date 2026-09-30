@@ -89,9 +89,9 @@ event CheckpointSaved(
   <pre><code>// New L1 Inbox: any caller; proof beneficiary is proof-bound, never msg.sender.
 function submitSegment(
     SegmentStatement calldata _s, bytes calldata _body, bytes calldata _proof,
-    bytes calldata _rewardAuthorization, uint256 _producerKeyId,
+    ForceOutcome[] calldata _outcomes, bytes calldata _rewardAuthorization, uint256 _producerKeyId,
     bytes calldata _producerAuthorization
-) external payable;
+) external;
 function getHead() external view returns (Head memory head_);
 function getCheckpointStore() external view returns (address signalService_);
 event SegmentAccepted(

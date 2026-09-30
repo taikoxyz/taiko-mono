@@ -193,11 +193,13 @@ s.blockHashesRoot = root;
 <p><strong>Assumed conditional readiness:</strong> a funded entrant notices/retrieves a selected staged candidate in 60 seconds and proves it in 180 seconds, leaving 120 seconds inside W as margin. The resulting proof can be ready before eligibility. A-INCLUSION does not imply its transaction lands before it is valid, and a competing accepted child can still invalidate it. No argument here requires every peer to download, execute or prove all candidate spam, nor proves fair market share.</p>
 <p><strong>Illustrative schedule:</strong> form a segment for 60 seconds; stage with prompt L1 inclusion; mature for 360 seconds while proving in parallel; land around seven to eight minutes from the initial base time. A schedule with 120-second staging inclusion and 120-second final inclusion instead takes roughly <code>60+120+360+120=660</code> seconds, plus header acquisition. This fits the proposed 900-second budgets only under their stated assumptions and remaining margin. Arbitrary congestion, repeated failures or proof latency can require rebuilding. No unconditional latency SLA is asserted.</p>
 <p>Proof offers store <code>taskHash=contextHash</code> and <code>stageId</code> as separate immutable fields. Acceptance requires the exact applicable current parent and an already published matching staging receipt, then sets <code>deadline=max(acceptedAt+300, stage.publishedAt+360+120)</code>. Require both <code>origin.timestamp+900 &gt;= deadline+120</code> and <code>stage.publishedAt+900 &gt;= deadline+120</code>. Success requires the exact context, stage ID, job ID and worker beneficiary in its accepted receipt. A new stage of the same execution task does not silently become the worker's assigned job. Historical competing-consumption and revision-retirement cancellation remain as specified in accountability; the job grants no exclusive proof right.</p>
+<p><strong>Accepted optional-market limit:</strong> jobs require the parent to be currently accepted and conservatively preserve120 seconds of freshness beyond their deadline. Thus a candidate whose origin is already more than480 seconds old cannot accept a new300-second job, even if an already prepared proof could still land. This can occur in the660-second pipeline example. Such work uses an already funded prover or off-protocol payment, or rebuilds a fresh context; the protocol does not promise a subsidized job for every viable candidate. No job gate applies to raw submission.</p>
 <p><strong>Proven:</strong> keeping the old 300-block unsafe horizon or requiring a freshly staged job to land within an unconditional 300 seconds would contradict the new maturity wait. The enlarged horizon and maturity-aware job deadline are necessary matching changes. They increase provisional exposure and capital/latency costs; they are not stronger user finality. Origin reuse may be nondecreasing as specified in the core, allowing resource-capped segments without waiting for a new L1 header. All timers use seconds and remain independent of 12/6/4/2-second slots or future CL proposer schedules.</p></section>
 
+<p>Publication signing has one literal schema and the <a href="encoding-vectors.md">normative digest fixture</a>. The ABI struct name does not substitute for the EIP-712 type name.</p>
 <section id="accountability"><h2>9. Objective publication covenants and detection limits</h2>
 <pre>// EIP-712 EtnaDuty domain as defined in accountability.html.
-// Exact EIP-712 type name is PublicationClaim; every integer is uint256.
+// Exact EIP-712 type name is EtnaPublication (ABI struct name PublicationClaim); every integer is uint256.
 struct PublicationClaim {
     uint256 bucketId;
     uint256 position;
@@ -206,7 +208,7 @@ struct PublicationClaim {
     uint256 issuedAt;
     bytes32 contextHash;
 }
-PUBLICATION_TYPEHASH = keccak256(bytes("PublicationClaim(uint256 bucketId,uint256 position,uint256 revision,bytes32 baseHeadHash,uint256 issuedAt,bytes32 contextHash)"));
+PUBLICATION_TYPEHASH = keccak256(bytes("EtnaPublication(uint256 bucketId,uint256 position,uint256 revision,bytes32 baseHeadHash,uint256 issuedAt,bytes32 contextHash)"));
 publishBy = issuedAt + 240;
 timely = firstContextPublication[contextHash].exists
       &amp;&amp; firstContextPublication[contextHash].publishedAt &lt;= publishBy;</pre>

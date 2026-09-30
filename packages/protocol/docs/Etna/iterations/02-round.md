@@ -12,3 +12,13 @@ Snapshot: `78da76eb6`. Fresh independent reviewers: **gpt-6.1-sol** [A](02-a.md)
 - Disclose that conservative freshness guards make some otherwise viable older pipelined candidates ineligible for optional funded jobs. Raw proving remains open.
 
 No production implementation, benchmark or live migration rehearsal was performed or claimed. Normalization and interface-closure dispositions will be appended before the next fresh review.
+
+## Disposition before round03
+
+The publication EIP-712 type is now exactly `EtnaPublication` everywhere, with a deterministic [digest fixture](../design/encoding-vectors.md). Producer-key return tuple and event signatures now match the authoritative staging schema. The pending forced-fee escrow and its one-time split are explicit. Personal-server SLA wording and the older-pipeline job-funding limitation are clarified; the judge's bounded Medium acceptances remain visible.
+
+Further interface closure for fresh review: the initial verifier is an immutable-key RISC0_RETH+SP1_RETH conjunction over one exact digest, including an Inbox-derived hash of required forced records. An explicit bounded outcome array supplies event fields and must hash to the proved outcome root. Both programs prove the full new Etna relation; legacy program compatibility is not presumed. Initial extra reward-authorization bytes are empty, with no undefined payment scheme. Canonical submission is nonpayable. These are specification choices subject to round03, not claims of implementation or measurement.
+
+Soft response latency is now stated as0…1 second scheduling plus propagation/execution, illustratively1–2 seconds; the issuance interval remains1 second. The prior wording risked confusing cadence with end-to-end latency.
+
+Validation: parsed all six reference HTML pages, checked unique IDs/local links (course still pending), normalized the conflicting schema declarations, checked whitespace, and computed the public fixture in the scratchpad against known Keccak empty/abc values. No production code or signing key was used. Independent language implementations must reproduce the fixture during implementation.

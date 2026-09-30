@@ -100,6 +100,7 @@
 </ol>
 <p><strong>Proven, conditional on receipt integrity:</strong> the Inbox retains an immutable <code>parentConsumption[parentHash] = AcceptedReceipt</code> receipt when consuming each accepted head. Job settlement uses that historical receipt, not merely the current head. This prevents a defaulting worker from changing the head after its deadline and claiming an innocent cancellation. An implementation revision retired before the deadline, making the task inapplicable, also has a dated objective cancellation receipt; a prior timely exact job completion takes precedence; arbitrary upgrades remain subject to A-UPGRADE.</p>
 <p><strong>Assumed A-EXEC + A-L1:</strong> the accepted workload is feasible within its 300-second proving budget, data can be retrieved, and a funded transaction can be included. The stage-aware maximum also leaves the assumed 120-second inclusion allowance after the 360-second public-data age gate. A valid but late worker can be slashed for failing its voluntary deadline despite honest effort. A 120-second inclusion assumption and the publication-gas quote do not guarantee Ethereum will provide that service.</p>
+<p><strong>Accepted market limit:</strong> after an origin is more than480 seconds old, the conservative300-second job plus120-second freshness margin cannot fit, even if a prepared raw proof remains eligible. Current-head-only acceptance can produce this condition for pipelined candidates. Jobs therefore do not guarantee every candidate a subsidy; independent raw proving and off-protocol funding remain available. See the exact timeline in <a href="staging.html#timing">staging</a>.</p>
 <p><strong>Open economics:</strong> anyone can accept and abandon jobs at the stated bond cost; no job acceptance stops competing proof work. The 1,000 TAIKO default penalty must be priced against the particular task's potential grief value. A sponsor can offer an impossible output; local execution before acceptance, not a trusted job curator, is the defense. Offers create no compulsory work.</p>
 </section>
 
@@ -108,10 +109,12 @@
 <p><strong>Proven invariant to implement and verify:</strong></p>
 <pre>accountedTAIKO = freeBalances + dutyReserves + workerReserves
                 + offeredOrAcceptedBounties + unpaidTAIKOCredits + permanentTAIKOSink
-accountedETH   = pendingChallengeDeposits + unpaidETHCredits + permanentForcedFeeSink
+accountedETH   = pendingChallengeDeposits + pendingForcedFeeEscrow
+               + unpaidETHCredits + permanentForcedFeeSink
 accountedTAIKO &lt;= heldTAIKO
 accountedETH   &lt;= heldETH
 </pre>
+<p>On force enqueue, the exact charged fee enters the Inbox pendingForcedFeeEscrow. Any excess msg.value becomes a separate caller pull credit. On proved processing, atomically decrement that request's pending fee and credit half to the bound beneficiary and the remainder to the irreversible sink; never create either allocation twice. Unprocessed fees remain escrow liabilities, not donations. Challenge deposits live in the service registry and are accounted separately.</p>
 <p>These equations show the combined components for readability; enforce the same asset-specific coverage separately in every escrow contract, never net a liability against assets held elsewhere. All quantities use base units; internal transfers conserve accounted balances. Unsolicited donations create uncredited surplus, not a claim, and must never make withdrawals revert by violating an equality-to-assets check. Surplus has no owner sweep. Credits and sink entries cannot also remain reserves. A slash zeros only its selected reserve, creates the reporter's 10% pull credit and increments the 90% nonwithdrawable sink. No new tokens, fractional promise multiples or unbacked user reimbursements are created. Use exact received amounts and support only the established TAIKO token's transfer semantics; do not silently introduce fee-on-transfer collateral.</p>
 <p>All external payouts are pull withdrawals. State transitions and credit creation occur before external token/native transfers; failed recipient transfers leave the credit claimable. Any settlement relayer may help resolve a bucket, but may not redirect an owner's free balance or another recipient's credit. An immutable credited recipient may itself transfer its claim through an explicit authorization; signing-key rotation does not do so.</p>
 <p>Every admitted position challenge has a distinct obligation ID and a separately reserved ETH deposit. Successful publication for a digest and length records a public reveal timestamp. The selected timely responder receives one challenge deposit; other challenges whose deadlines had not expired at revelation refund their deposits on individual bounded settlement. Earlier missed deadlines remain slashable. No implementation loops over every signer when revealing bytes. Duplicate slash evidence is idempotent and never allocates the same reserve twice.</p>
@@ -129,15 +132,18 @@ openBucket(uint256 roleKind, address signingKey, uint256 revision,
 getBucket(uint256 bucketId) view returns (Bucket)
 registerProducerKey(address signingKey) returns (uint256 keyId)
 revokeProducerKey(uint256 keyId)
-getProducerKey(uint256 keyId) view returns (address owner, address signingKey, bool active)
+getProducerKey(uint256 keyId) view returns (ProducerKey record)
+// ProducerKey=(address owner,address signingKey,uint48 registeredAt,uint48 revokedAt);
+// revokedAt=0 means active. Exact schema is defined in staging.html.
 getPosition(uint256 bucketId, uint256 position) view returns (Position)
 releasePosition(uint256 bucketId, uint256 position)
 withdrawCredit(address recipient, uint256 taikoAmount, uint256 ethAmount)
 
 // No key mutation or early release of an existing bucket.
 event Deposited(address indexed beneficiary, uint256 tokenWei)
-event ProducerKeyRegistered(uint256 indexed keyId, address indexed owner, address signingKey)
-event ProducerKeyRevoked(uint256 indexed keyId, address indexed owner)
+event ProducerKeyRegistered(uint256 indexed keyId, address indexed owner,
+    address signingKey, uint48 registeredAt)
+event ProducerKeyRevoked(uint256 indexed keyId, uint48 revokedAt)
 event BucketOpened(uint256 indexed bucketId, address indexed owner,
                    address signingKey, uint256 roleKind, uint256 revision, bytes32 baseHeadHash,
                    uint256 openedAt, uint256 issuanceEnd,
