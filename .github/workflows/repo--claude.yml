@@ -29,18 +29,26 @@ jobs:
           PR_URL: ${{ github.event.issue.pull_request.url }}
           BASE_REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           pr=$(gh api "$PR_URL")
           head_repo=$(jq -r '.head.repo.full_name // ""' <<<"$pr")
-          head_sha=$(jq -r '.head.sha' <<<"$pr")
+          head_sha=$(jq -r '.head.sha // ""' <<<"$pr")
           # Owner/repo names are case-insensitive; a deleted head repo (null) is refused too.
           if [ "${head_repo,,}" != "${BASE_REPO,,}" ]; then
             echo "Refusing to run: PR head is '${head_repo}', not ${BASE_REPO} (fork PRs are not supported)." >&2
+            exit 1
+          fi
+          # Fail closed: an empty SHA would make checkout fall back to the default branch.
+          if [[ ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Refusing to run: unexpected PR head SHA '${head_sha}'." >&2
             exit 1
           fi
           echo "head_sha=${head_sha}" >> "$GITHUB_OUTPUT"
 
   claude:
     needs: gate
+    # Explicit, so a future change to the gate (e.g. continue-on-error) can never let this job run unchecked.
+    if: needs.gate.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
