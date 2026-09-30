@@ -1,0 +1,13 @@
+# What “based” can and cannot mean here
+
+Public sources retrieved live on 2026-09-30; this is a research constraint, not a chosen Etna mechanism.
+
+**Proven/source:** Justin Drake's original [based-rollup definition](https://ethresear.ch/t/based-rollups-superpowers-from-l1-sequencing/15016) says “the next L1 proposer may, in collaboration with L1 searchers and builders, permissionlessly include the next rollup block as part of the next L1 block.” Its stated simplicity excludes an external PoS sequencing consensus. A rollup with an independent sequencer and delayed escape hatch does not automatically inherit L1 sequencing liveness merely because it settles on Ethereum.
+
+**Proven/source:** the January 2026 [hybrid preconfirmation discussion](https://ethresear.ch/t/combining-preconfirmations-with-based-rollups-for-synchronous-composability/23863) distinguishes L1-ordered rollup transactions from off-chain sequenced blocks. Its proposed frequent sequenced blocks and slot-ending certificates have a stated limitation: “This design does not gain the permissionlessness benefits of based rollups, because building a based block requires the sequencer certificate from a slot-ending sequenced block.” The construction's slot-specific rules also cannot be copied into Etna under R5.
+
+**Proven/source:** the earlier [based-preconfirmation construction](https://ethresear.ch/t/based-preconfirmations/17353) orders preconfers using proposer lookahead, precisely the dependency R5 excludes. This does not establish that every other preconfirmation construction is impossible; it rules out reusing that ordering rule.
+
+**Open:** the user was asked whether strict L1 sequencing authority is intended or an independent permissionless committee is acceptable. Until clarified, strict L1 authority is the conservative interpretation of the title. A committee may help attest availability without acquiring canonical sequencing authority; that distinction must be explicit. A draft must not silently rename a sovereign BFT-sequenced rollup “based.”
+
+**Proven/deduction:** a signature, bond or availability certificate does not by itself bind an arbitrary future L1 proposer to a private ordering promise. If L1 admits arbitrary competing valid proof-bearing batches, soft preconfirmations can be displaced. If L1 forbids all alternatives until an independent committee releases a certificate, the committee is a sequencing liveness dependency. A viable design must either state conditional/compensated soft-confirmation semantics, provide an objective recovery rule with honest rollback disclosure, or explicitly relax strict based sequencing. This is a design tradeoff, not a blanket impossibility theorem for R1–R7.
