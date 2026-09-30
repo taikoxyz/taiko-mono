@@ -59,7 +59,7 @@ The brief was executed autonomously. Where a clarifying question would normally 
 Updated as each phase completes. A phase is checked only once its artifact is committed.
 
 - [x] **Phase 0: Setup.** Branch `claude/beautiful-maxwell-8pyecj`, directory `packages/protocol/docs/Etna/`, this README, PDF input copied to `inputs/`.
-- [ ] **Phase 1: Learn.** `00-current-protocol-summary.md`, `01-threat-model.md`.
+- [x] **Phase 1: Learn.** `00-current-protocol-summary.md`, `01-threat-model.md` (verified by independent sub-agents; reports and gap fills in `notes/`).
 - [x] **Phase 2: Research.** `02-l1-roadmap-survey.md`, `03-frame-transactions-research.md` (each independently re-verified by a skeptic agent; reports in `notes/`).
 - [ ] **Phase 3: Design draft.** `design/index.html` and section pages.
 - [ ] **Phase 4: Red team round 1.** `iterations/01-round.md` (three or more adversarial agents on different models, plus a judge).

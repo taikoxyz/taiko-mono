@@ -69,6 +69,7 @@
 | T10 | The golden-touch key is public and the node enforces "anchor first, 1,000,000 gas" | assumed (node-enforced, `Derivation.md:342-345`) | assumed; anchor correctness additionally ZK-proven |
 | T11 | A minority of bonded participants is malicious | not applicable (no bonds) | assumed: fewer than the attester quorum threshold collude with a sequencer; stated per parameter |
 | T12 | Frame Transactions (EIP-8141) ship on L1 as specified | not applicable | assumed for zero-cost races only; every other mechanism works without them (`03-frame-transactions-research.md` §8) |
+| T13 | L2 nodes have loosely synchronized clocks (skew ≪ 1 s block time) | assumed silently; all slot gates use the host wall clock relative to beacon genesis (`00` §9.1) | assumed explicitly with a stated bound; every consensus decision (rights, deadlines, seeds) is a function of L1 blocks or L1 timestamps, and the wall clock is used only for local pacing and local timeouts that are later made objective by attestations |
 
 ---
 
@@ -115,6 +116,9 @@ Severity is the impact if the threat is realized against Etna without a mitigati
 | TH20 | **Proof-system rotation kills in-flight proofs** (image-id rotation invalidates proofs being generated). | Happens on every raiko release. | Accept both old and new ids during an overlap window expressed in seconds; rotation is a DAO upgrade, but it must not halt landing. | Medium |
 | TH21 | **Bridge quota / pause used as a lever** (pausing SignalService halts all bridging). | Owner or pauser can pause; no liveness effect on L2 itself. | Unchanged (R2 freezes these); noted as an accepted governance-level dependency of bridging, not of the rollup. | Low |
 | TH22 | **Data-availability of the preconf chain before landing** (a node that missed gossip cannot catch up; no range request). | Per-hash requests only; L1-derived blocks cannot be served. | Attestations imply availability from a quorum; add a range-sync primitive; landing within the deadline is the backstop. | Medium |
+| TH23 | **P2P request amplification** (unauthenticated `requestPreconfBlocks` / end-of-sequencing request topics make every operator node do lookups and publish responses). | Present: requests carry no signature (`// TODO: add signer`), only per-peer and per-hash rate limits (`00` §9.1). | Authenticate range-sync and parent requests (signed by a registered key or paid), rate-limit by identity, and never let a request trigger unbounded work; range-sync responses must be servable from any node, not only operators. | Medium |
+| TH24 | **Clock skew or clock manipulation changes who may build** (all slot and epoch gates evaluated from the host wall clock). | Present in the Go driver; Rust ignores epochs entirely. | No consensus rule may depend on a node's wall clock (T13); sequencing rights, deadlines and seeds are functions of L1 block identity; 1-s pacing is local and only its *output* (a signed block with an L1-bounded timestamp) is judged. | Medium |
+| TH25 | **Guest / contract / client constant drift** (chain ids, fork times, predeploy addresses, storage slots and anchor gas limit are compiled into the ZK guest; the remote Groth16/PLONK verifier addresses are immutable and a codeless address would accept everything). | Present (`00` §4.4, §4.5); every raiko release rotates ids by DAO proposal; fork times live only in the two execution clients. | Treat every compiled-in constant as a versioned protocol parameter published on L1 and read by guest, clients and contracts from one source; verifier-address changes are DAO upgrades with an overlap window (TH20); the design must state which constants the public input commits to. | High |
 
 ---
 
@@ -165,10 +169,10 @@ Non-receipt of a message is **not provable on-chain**. No contract can distingui
 | R1 permissionless | TH2, TH3, TH19, TH9 (no admin substitutes) | role registry, sequencing rights, prover entry, upgrade path |
 | R2 reuse shared contracts | TH17, TH21 | bridge integration, upgrade path |
 | R3 richer roles | TH3, TH5, TH22 | attester role, challenger role, failure analysis per role |
-| R4 1-s blocks | TH5, TH6, TH22 | preconf validity rules, certificate latency budget |
-| R5 no lookahead / no slot coupling | TH12, TH15 | sequencing rights (randomness, snapshots), parameter table units |
+| R4 1-s blocks | TH5, TH6, TH22, TH23 | preconf validity rules, certificate latency budget |
+| R5 no lookahead / no slot coupling | TH12, TH15, TH24 | sequencing rights (randomness, snapshots), parameter table units |
 | R6 slash and anti-monopoly | TH4, TH8, TH9, TH10, TH18 | slashing catalogue, evidence formats, anti-monopoly parameters |
-| R7 propose-with-proof | TH1, TH2, TH7, TH11, TH13, TH16, TH20 | landing frame, deadline and abandonment, forced inclusion, frame-tx gate and fallback |
+| R7 propose-with-proof | TH1, TH2, TH7, TH11, TH13, TH16, TH20, TH25 | landing frame, deadline and abandonment, forced inclusion, frame-tx gate and fallback |
 
 ---
 
@@ -179,3 +183,11 @@ Non-receipt of a message is **not provable on-chain**. No contract can distingui
 - L1 consensus failures (deep reorgs, finality failure) beyond the stated reorg-safety window.
 - Cryptographic breaks of secp256k1, BLS12-381, KZG, or the ZK proof systems' underlying assumptions; proof-system implementation bugs are in scope only through the k-of-n composition rule (TH1).
 - Bridge application-level bugs unrelated to checkpoints (R2 freezes the Bridge and Vault logic).
+
+Open items carried from Phase 1 (unanswered gap fills, budget-limited; each is a fact-finding task, not a design decision):
+
+- G8: proposer economics today (what a whitelisted operator earns per epoch from L2 fees and MEV; needed to size the sequencer bond).
+- G9: the blob-fetch paths in both drivers (beacon node by slot, blob server fallback) and how they behave when a blob is past retention.
+- G10: the L2 fee flow in detail (coinbase share, Anchor share, priority fees) and the Anchor's accumulated balance on mainnet.
+- G11: the Bridge quota state on mainnet (which tokens are throttled and by how much).
+- G12: the raiko SGX lane's remaining role after `ZkRequiredVerifier`, and whether any mainnet proof still uses it.
