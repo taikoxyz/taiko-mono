@@ -22,7 +22,7 @@
 <h2>The rules</h2>
 <ul>
 <li><strong>Committee.</strong> Up to 32 seats per term, drawn by the seed, excluding the primary holder's seats (and the backups' drawn seats). The quorum scales with the actual size m: Q(m) = ⌊2m/3⌋ + 1, so 22 of 32; below 8 seats there is no committee at all (no-committee mode). The number of provably slashable double-signers behind a locked block, 2Q(m) − m, is published beside the confirmation level (12 at 32 seats, 4 at 8).</li>
-<li><strong>Attestation.</strong> A BLS signature over (chain, term, view, opening object, height, header hash). An attester signs a block only after V1 to V6 pass, only above its lock, one per height, and only if the block's timestamp is within 3 seconds of its own clock (a signing policy, not a validity rule).</li>
+<li><strong>Attestation.</strong> A BLS signature over (chain, term, view, opening object, redraw count, height, header hash); the redraw count is the number of committee redraws of the view (lesson 5), so a redrawn committee's messages never conflict with the first committee's. An attester signs a block only after V1 to V6 pass, only above its lock, one per height, and only if the block's timestamp is within 3 seconds of its own clock (a signing policy, not a validity rule).</li>
 <li><strong>Certificate C(h).</strong> Any 22 attestations aggregated into one object of about 130 bytes with a 32-bit bitmap. Anyone can build it from gossip; the sequencer holds nothing the network does not.</li>
 <li><strong>Carried certificate.</strong> Block n includes C(n−1) if it has it, else C(n−2). A sequencer more than two blocks ahead of its newest certificate must hold.</li>
 </ul>
@@ -43,7 +43,7 @@
 <tr><th>Level</th><th>When</th><th>What can revert it</th></tr>
 <tr><td>sequenced</td><td>≈ 0.3 s: signed, executes locally</td><td>anything; only a <em>conflicting</em> signature is slashable</td></tr>
 <tr><td>attested</td><td>≈ 0.7 to 1.0 s: C(n) exists</td><td>a view change formed without seeing C(n) (a gossip-delay violation), or an L1 reorg; never a minority</td></tr>
-<tr><td>locked</td><td>≈ 1.7 to 2.0 s: a certified block carries C(n)</td><td>only ≥ 12 attesters each provably slashable, a replacement after the deadline machinery, or an L1 reorg</td></tr>
+<tr><td>locked</td><td>≈ 1.7 to 2.0 s: a certified block carries C(n)</td><td>only ≥ 12 attesters each provably slashable (within one committee draw; across a committee redraw, 17 redraw voters plus 22 of the redrawn committee, slashable only where the two committees overlap: lesson 5), a <em>landed</em> replacement after the deadline machinery (never an L1 record alone), or an L1 reorg</td></tr>
 <tr><td>landed</td><td>minutes: covered by a landing with a ZK proof</td><td>an L1 reorg</td></tr>
 <tr><td>final</td><td>the landing is L1-finalized (≈ 15 min at 12-second slots)</td><td>nothing</td></tr>
 </table>
@@ -53,7 +53,7 @@
 <details><summary>Why is the quorum 22 and not 17?</summary><p>Two certificates or view changes over one (term, view) then share at least 2·22 − 32 = 12 signers, each fully slashable. With a bare majority the overlap could be two keys, and reverting a locked block would cost two bonds.</p></details>
 <details><summary>What does "locked" cost to revert in TAIKO at the initial parameters?</summary><p>At least 12 seats of 20,000 TAIKO, 240,000 TAIKO, plus the leader's bond for a certificate pair: the published credit bound wallets can use, valid only while landing keeps up within its 30-minute window; beyond the replaceable window nodes label the blocks "replaceable".</p></details>
 
-<div class="box challenge"><h4>Challenge this</h4><p>Ten percent of attesters are offline. Compute the probability that a term's committee cannot reach 22 signatures (binomial, 32 seats, 11 or more offline) and compare it with the design's 1.7·10<sup>−4</sup>. Then argue whether Q = 22 or Q = 24 is the better trade at 20 % offline, and what the size-scaled quorum does to both numbers when the registry has only 16 non-holder seats.</p></div>
+<div class="box challenge"><h4>Challenge this</h4><p>Ten percent of attesters are offline. Compute the probability that a term's committee cannot reach 22 signatures (binomial, 32 seats, 11 or more offline) and compare it with the design's 1.7·10<sup>−4</sup>. Then argue whether Q = 22 or Q = 24 is the better trade at 20 % offline, and what the size-scaled quorum does to both numbers when the registry has only 16 non-holder seats. Then redo the first computation with the committee redraw vote of lesson 5 (two redraws, each needing 17 of 32 votes) and see how much of the offline risk it absorbs.</p></div>
 
 <p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="03-blocks.html">← 3. Blocks and validity</a><span></span><a href="05-takeover.html">5. Silence, takeover, withholding →</a></p>
 </main>

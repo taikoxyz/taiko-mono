@@ -67,7 +67,7 @@
 | T8 | L2 nodes' L1 views agree closely enough (same operator, same roster) | assumed and violated near epoch boundaries and reorgs (`00-current-protocol-summary.md` §9.2 V2) | must be made objective: assignment computed from L1 state older than a reorg-safety window |
 | T9 | Gossip reaches honest nodes within a bounded delay | assumed implicitly | assumed, with a stated bound δ; attestation quorum is the objective proxy |
 | T10 | The golden-touch key is public and the node enforces "anchor first, 1,000,000 gas" | assumed (node-enforced, `Derivation.md:342-345`) | assumed; anchor correctness additionally ZK-proven |
-| T11 | A minority of bonded participants is malicious | not applicable (no bonds) | assumed: fewer than the attester quorum threshold collude with a sequencer; stated per parameter |
+| T11 | A minority of bonded participants is malicious | not applicable (no bonds) | assumed, in one form (round 4, R4-C1; stated identically on the arguments and certificate pages): fewer than one third of the seats are malicious; for liveness, fewer than m − Q(m) + 1 abstainers in a committee and its redraws; for safety, fewer than Q colluders |
 | T12 | Frame Transactions (EIP-8141) ship on L1 as specified | not applicable | assumed for zero-cost races only; every other mechanism works without them (`03-frame-transactions-research.md` §8) |
 | T13 | L2 nodes have loosely synchronized clocks (skew ≪ 1 s block time) | assumed silently; all slot gates use the host wall clock relative to beacon genesis (`00` §9.1) | assumed explicitly with a stated bound; every consensus decision (rights, deadlines, seeds) is a function of L1 blocks or L1 timestamps, and the wall clock is used only for local pacing and local timeouts that are later made objective by attestations |
 
@@ -172,7 +172,7 @@ Non-receipt of a message is **not provable on-chain**. No contract can distingui
 | R4 1-s blocks | TH5, TH6, TH22, TH23 | preconf validity rules, certificate latency budget |
 | R5 no lookahead / no slot coupling | TH12, TH15, TH24 | sequencing rights (randomness, snapshots), parameter table units |
 | R6 slash and anti-monopoly | TH4, TH8, TH9, TH10, TH18 | slashing catalogue, evidence formats, anti-monopoly parameters |
-| R7 propose-with-proof | TH1, TH2, TH7, TH11, TH13, TH16, TH20, TH25 | landing frame, deadline and abandonment, forced inclusion, frame-tx gate and fallback |
+| R7 propose-with-proof | TH1, TH2, TH7, TH11, TH13, TH16, TH20, TH25 | landing frame, deadline and replacement, forced inclusion, frame-tx gate and fallback |
 
 ---
 

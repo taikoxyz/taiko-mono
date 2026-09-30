@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Etna lesson 9: anti-monopoly</title>
-<meta name="description" content="The share formula, the cost curve that is linear in share and infinite at exclusion, why owner-keyed rules cannot tax a Sybil, and what a cartel can still do.">
+<meta name="description" content="The share formula, why the price of primary share is linear and infinite at exclusion, why blank terms make productive revenue superlinear above one third of the seats, why owner-keyed rules cannot tax a Sybil, and what a cartel can still do.">
 <link rel="stylesheet" href="etna.css">
 </head>
 <body>
@@ -14,23 +14,27 @@
 <p class="small">Prerequisite: lesson 8. Design page: <a href="../design/slashing.html">Slashing &amp; economics</a> §5.</p>
 
 <h2>Goal</h2>
-<p>Compute what a given share of sequencing costs, explain why 100 % is unreachable, and state precisely what cannot be prevented.</p>
+<p>Compute what a given share of primary terms costs, see from simulation how much productive revenue that share actually buys once blank terms are counted, explain why 100 % is unreachable, and state precisely what cannot be prevented.</p>
 
 <h2>The idea</h2>
-<p>Sortition is uniform over eligible seats, so an entity with k of n seats is primary in exactly k/n of terms, however it splits its seats across addresses. Against H honest seats, share X costs <code>k = X·H / (1 − X)</code> seats; the marginal cost <code>B·H / (1 − X)²</code> grows without bound. Exclusion is impossible while one honest seat is live because a registration is a plain L1 transaction with future-dated effect and the seat array (65,535 entries) costs more than the token supply to fill.</p>
+<p>Sortition is uniform over eligible seats, so an entity with k of n seats is primary in exactly k/n of terms, however it splits its seats across addresses. Against H honest seats, a <em>primary</em> share X costs <code>k = X·H / (1 − X)</code> seats (32 seats against 64 honest for one third, 64 for one half, 576 for 90 %); the marginal cost <code>B·H / (1 − X)²</code> grows without bound. That is the price of primary share only. What a cartel <em>earns</em> also depends on how many honest-primary terms it can blank by abstaining in their committees (lesson 5), and round 4 (R4-C1) republished that from simulation (20,000 terms per row, script <code>redraw_sim.py</code>):</p>
 <table>
-<tr><th>Share of terms</th><th>Seats against 64 honest</th><th>Cost (TAIKO)</th><th>Against 200 honest</th></tr>
-<tr><td>33 %</td><td>32</td><td>640,000</td><td>2,000,000</td></tr>
-<tr><td>50 %</td><td>64</td><td>1,280,000</td><td>4,000,000</td></tr>
-<tr><td>90 %</td><td>576</td><td>11,520,000</td><td>36,000,000</td></tr>
-<tr><td>100 %</td><td>∞</td><td>∞</td><td>∞</td></tr>
+<tr><th>Registry (honest / cartel, owners × seats)</th><th>Cartel seat share</th><th>Share of primary terms</th><th>Blank rate of honest-primary terms, no redraw / two redraws</th><th>Cartel share of productive revenue</th></tr>
+<tr><td>8×8 / 8×1</td><td>11 %</td><td>11 %</td><td>0 % / 0 %</td><td>11 %</td></tr>
+<tr><td>100×1 / 33×1</td><td>25 %</td><td>25 %</td><td>12 % / 0.2 %</td><td>25 %</td></tr>
+<tr><td>40×1 / 20×1</td><td>33 %</td><td>33 %</td><td>57 % / 22 %</td><td>38 %</td></tr>
+<tr><td>8×8 / 32×1</td><td>33 %</td><td>33 %</td><td>69 % / 36 %</td><td>44 %</td></tr>
+<tr><td>40×1 / 27×1</td><td>40 %</td><td>40 %</td><td>91 % / 77 %</td><td>74 %</td></tr>
+<tr><td>100×1 / 70×1</td><td>41 %</td><td>41 %</td><td>87 % / 71 %</td><td>70 %</td></tr>
+<tr><td>100×1 / 100×1</td><td>50 %</td><td>50 %</td><td>98 % / 97 %</td><td>97 %</td></tr>
 </table>
+<p>Reading: below about 25 % of the seats a cartel gains nothing; at the T11 boundary (one third) it gains about 5 to 10 points of revenue; above it the gain is superlinear and the design does not defend it (limitation L2). Exclusion is impossible while one honest seat is live because a registration is a plain L1 transaction with future-dated effect and the seat array (65,535 entries) costs more than the token supply to fill.</p>
 
 <h2>The impossibility result</h2>
-<p>No owner-keyed rule (consecutive-term cooldown, progressive fee burn, per-owner decay) costs a Sybil-capable adversary more than the per-seat price, because the registry cannot distinguish m owners of one entity from m entities. Such rules tax only honest large operators. The design therefore prices share and does not try to bound it; the collusion tables in lesson 4 are stated as an economic assumption (no entity above about 20 % of seats).</p>
+<p>No owner-keyed rule (consecutive-term cooldown, progressive fee burn, per-owner decay) costs a Sybil-capable adversary more than the per-seat price, because the registry cannot distinguish m owners of one entity from m entities. Such rules tax only honest large operators. The design therefore prices share and does not try to bound it; the collusion bound is T11 in its single form (fewer than one third of the seats malicious; fewer than m − Q(m) + 1 abstainers in a committee and its redraws; fewer than Q colluders), an assumption, not a rule.</p>
 
 <h2>What a cartel can still do</h2>
-<p>With 11 or more of a committee's 32 slots it can refuse to attest an entrant's blocks; no certificate forms, and since round 3 no timeout forms either (the honest 21 attested the live leader and a timeout is signed only on leader silence): the entrant keeps its term at the sequenced level and loses that term's revenue, nothing else, and the cartel gains no term. Round 3 also showed the earlier trigger let a third of the seats capture up to 87 % of terms, which broke the cost curve. The blanking probability is hypergeometric (the committee is drawn without replacement): a 10-seat cartel among 50 seats blanks 0 % of terms; two owners with 12 of 44 seats blank 40 %, which is why the launch condition is 8 owners and 72 seats. The absence bleed is unreachable by a minority: a timeout view change needs 22 signers that attested nothing, so only a leader that is in fact silent pays it. The entrant's seat is never removed, and forced inclusion bounds censorship inside the cartel's own terms.</p>
+<p>With m − Q(m) + 1 = 11 of a committee's 32 slots it can refuse to attest an honest primary's blocks: no certificate forms, and no timeout forms either, because a timeout is signed only against a leader silent to the whole committee and a leader holding under abstention keeps gossiping signed headers (round 4, R4H-4; round 3's trigger had let a third of the seats capture up to 87 % of terms, and its window-scoped replacement was defeated by the leader's own hold rule). The term is <em>blank</em>: the leader keeps its view, nothing of it lands, and nobody is penalized. Attesters that attested but saw no certificate can vote to redraw the committee for the same leader (17 of 32, up to twice), so the cartel needs a blocking minority in the first draw and in each redraw; that raises the first-draw threshold from 11 to 16 of 32 and is what turns the 57 % blank rate at one third of the seats into 22 % in the table above. The blanking probability is hypergeometric (the committee is drawn without replacement), so it depends on share and barely on registry size: a single 8-seat owner among 72 seats blanks 0 % of terms, which is what the launch condition (8 owners, 72 seats, a heuristic no rule enforces) aims at. The absence bleed is unreachable by a minority: a timeout view change needs 22 signers that all received no signed header from the leader, so only a leader that is in fact silent pays it. The entrant's seat is never removed, and forced inclusion bounds censorship inside the cartel's own terms.</p>
 
 <h2>Self-check</h2>
 <details><summary>Why is a cap of 8 seats per address not an anti-monopoly measure?</summary><p>It bounds an address, not an entity; entities split across addresses at no cost. Its real purpose is bounding on-chain loops and one address's share of backup views.</p></details>

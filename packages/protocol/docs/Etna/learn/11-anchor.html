@@ -29,7 +29,7 @@
 
 <h2>The cut-over</h2>
 <ol>
-<li>One DAO transaction at time U deploys the libraries, the verifier and the implementation and calls <code>initEtna(T0, lastFinalizedBlockNumber)</code> with T0 at least a week ahead; the same proposal bridges the Anchor upgrade; both execution clients ship the fork time.</li>
+<li>One DAO transaction at time U deploys the libraries, the verifier and the implementation and calls <code>initEtna(lastFinalizedBlockNumber)</code> without a term grid; a second upgrade-class call <code>armEtna(T0)</code> with T0 ≥ now + MIGRATION_LEAD sets the grid once the DAO has read the eligible count on chain and the owner structure off chain (round 4, R4-C5). The launch condition (8 owners, 72 seats) is a heuristic over a Sybil-able, revocable count that no rule enforces or protects; if it fails, launch may begin in no-committee mode. The same proposal bridges the Anchor upgrade; both execution clients ship the fork time.</li>
 <li>Registration opens immediately (effects future-dated). Shasta proposing stops one hour before T0; Shasta proving continues without its whitelist until every proposal is proven, or until a day after T0 when anyone may void the tail.</li>
 <li>The drain event fixes the genesis parent (the last Shasta-finalized block) and the first Etna term; no fallback is armed at that term.</li>
 <li>Rollback: one upgrade per chain back to the Shasta implementation with a verified head; landed Etna blocks are final, unlanded ones void, bridging never interrupted.</li>

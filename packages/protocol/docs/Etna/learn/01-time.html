@@ -24,7 +24,7 @@
 <li><strong>Term.</strong> <code>termOf(τ) = (τ − T0) / 60</code>; <code>termStart(t) = T0 + 60t</code>. The grid's phase relative to L1 slots is irrelevant.</li>
 <li><strong>Cycle.</strong> 60 terms (one hour). One randomness seed is fixed per cycle.</li>
 <li><strong>Snapshot S(t).</strong> The highest L1 block with <code>timestamp ≤ termStart(t) − LOOKBACK</code>, LOOKBACK = 1,200 s. At term start the inputs are 20 minutes old, beyond L1 finality at 12-second slots (12.8 min) and by a wider margin at shorter slots.</li>
-<li><strong>Rule D (future-dated effect).</strong> A registry write executed at L1 time τ changes eligibility only for evaluation instants <code>T ≥ τ + DELAY</code>, with every DELAY ≥ LOOKBACK + 2·TERM = 1,320 s. A term evaluates eligibility at the single instant <code>termStart(t)</code>.</li>
+<li><strong>Rule D (future-dated effect).</strong> A registry write executed at L1 time τ changes eligibility only for evaluation instants <code>T ≥ τ + DELAY</code>, with every DELAY ≥ LOOKBACK + 2·TERM = 1,320 s. A term evaluates eligibility at the single instant <code>termStart(t)</code>. Two delays exist: DELAY_REG = 7,200 s for every input the owner can trigger (registration, exit, a reserve lapse), and DELAY_S = 1,320 s only for suspensions from evidence against the owner, which the owner cannot trigger (round 4, R4-C2: every eligibility input is either DELAY_REG-dated or not owner-triggerable).</li>
 </ol>
 <figure>
 <svg viewBox="0 0 720 120" role="img" aria-label="A write after the snapshot takes effect after the term ends">
@@ -39,7 +39,7 @@
 </figure>
 
 <h2>Why it works</h2>
-<p>Take a write in a block after S(t). Its timestamp τ exceeds termStart(t) − LOOKBACK, so τ + DELAY ≥ τ + LOOKBACK + 2·TERM &gt; termStart(t) + TERM. It cannot touch term t. A node replaying events up to S(t) and the inbox reading current storage at landing therefore evaluate term t on the same inputs. No history is stored and no proofs are needed. This is the design's claim 2 on the sequencing page, tagged proven.</p>
+<p>Take a write in a block after S(t). Its timestamp τ exceeds termStart(t) − LOOKBACK, so τ + DELAY ≥ τ + LOOKBACK + 2·TERM &gt; termStart(t) + TERM. It cannot touch term t. A node replaying events up to S(t) and the inbox at landing therefore evaluate term t on the same inputs, provided the inbox can still answer "which seats were eligible at termStart(t)" after later writes took effect: it keeps a prefix-count tree over the seats eligible now and a ring of future-dated mutations, and undoes the mutations effective after termStart(t) when it evaluates term t (lesson 2; round 4, R4H-1). No proofs are needed. This is the design's claim 2 on the sequencing page, tagged proven.</p>
 
 <h2>Self-check</h2>
 <details><summary>A registrant sends <code>register</code> at 10:00:00. Its seat is eligible from what time, and which is the first term that can draw it?</summary><p>DELAY_REG is 7,200 s, so eligibility starts at 12:00:00; the first term whose start is at or after 12:00:00 can draw it.</p></details>
