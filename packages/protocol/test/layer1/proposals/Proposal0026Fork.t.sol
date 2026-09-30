@@ -65,9 +65,9 @@ contract Proposal0026ForkTest is Test {
     bytes32 private constant _OLD_RISC0_AGGREGATION_IMAGE_ID =
         0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7;
     bytes32 private constant _NEW_RISC0_PROPOSAL_IMAGE_ID =
-        0x6016d9b774fdb7af1ac3194793039abb241ac869c856d15d2a0f5a5997e970ca;
+        0x88712dad7dc78126ee7bb592282d3102569c706f1b9db80580a582e5ffd1dfb0;
     bytes32 private constant _NEW_RISC0_AGGREGATION_IMAGE_ID =
-        0xc7a55544d3a96ec3953a5bd2705c42056e27757fd6ac72ca9b972931870f8a2a;
+        0x04480b22e244d60165f3d0898bc61ea084d9c76221464a8a3c3343c74889040a;
 
     bytes32 private constant _OLD_SP1_PROPOSAL_VKEY_BN254 =
         0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7;
@@ -78,13 +78,13 @@ contract Proposal0026ForkTest is Test {
     bytes32 private constant _OLD_SP1_AGGREGATION_VKEY_HASH_BYTES =
         0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6;
     bytes32 private constant _NEW_SP1_PROPOSAL_VKEY_BN254 =
-        0x00609a2e8a5834a3675060fa8965315f3e978514aa49fe69f8f407e5d16b941f;
+        0x0012b97234e59f2319d44202c7b093fed9c9a51b2068e38d26625c139d668c97;
     bytes32 private constant _NEW_SP1_PROPOSAL_VKEY_HASH_BYTES =
-        0x304d1745160d28d96a0c1f51165315f374bc28a52927f9a771e80fcb516b941f;
+        0x095cb91a3967c8c63a8840587b093fed4e4d28d901a38e344cc4b8271d668c97;
     bytes32 private constant _NEW_SP1_AGGREGATION_VKEY_BN254 =
-        0x001047d2068ac6e9b57839a587b07a254ad724d69b69c10197c0d4d2660c2fba;
+        0x0017912dfd72308e2e2cd4211b05ed73a97eb7f576816adec2606a37507de51e;
     bytes32 private constant _NEW_SP1_AGGREGATION_VKEY_HASH_BYTES =
-        0x0823e90322b1ba6d2f0734b07b07a25456b926b46da704062f81a9a4660c2fba;
+        0x0bc896fe5c8c238b459a8423305ed73a4bf5bfab5a05ab7b04c0d46e507de51e;
 
     bytes32 private constant _OLD_SGXGETH_MR_ENCLAVE =
         0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005;
@@ -93,11 +93,11 @@ contract Proposal0026ForkTest is Test {
     bytes32 private constant _OLD_SGXRETH_EDMM_MR_ENCLAVE =
         0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf;
     bytes32 private constant _NEW_SGXGETH_MR_ENCLAVE =
-        0x51701ed3fbd0bfdcea24a2e47ce9e30c5448ca9e4ad9b48bd1530d4a9c022fe4;
+        0x8c23c79045b9b6bb827eab208e0fe58d7446a57a55f3dfc825c90e904953105b;
     bytes32 private constant _NEW_SGXRETH_NON_EDMM_MR_ENCLAVE =
-        0xdc994928718200e16e0eb643486ea90e49970a897fd164e39b6ae11262b69ab9;
+        0xfeabd725eb5bb621b5c6a5071d1702bcbe06a643b42a0db8f381d5bc07dd81bf;
     bytes32 private constant _NEW_SGXRETH_EDMM_MR_ENCLAVE =
-        0x7aaf74aaa95cf967844819e5e4504f28308541c0504e6642a12a75a4669f66a3;
+        0x6f3c8c55ec62fe48b83e57463e8717aa9f8594418203c9520f0f80e6f4fc4d87;
 
     error ActionReverted(uint256 index);
 

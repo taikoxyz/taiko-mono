@@ -57,7 +57,7 @@ contract Proposal0026 is BuildProposal {
         // after execution carries 100.
         actions[0] = buildUpgradeAction(L1.INBOX, _inboxImpl);
 
-        // 1-4: Rotate the trusted RISC0 image IDs to raiko2 v0.9.0-rc1.
+        // 1-4: Rotate the trusted RISC0 image IDs to raiko2 v0.9.0.
         actions[1] = Controller.Action({
             target: L1.RISC0_RETH_VERIFIER,
             value: 0,
@@ -78,8 +78,7 @@ contract Proposal0026 is BuildProposal {
             target: L1.RISC0_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted,
-                (LibRisc0Constants.V0_9_0_RC1_PROPOSAL_IMAGE_ID, true)
+                Risc0Verifier.setImageIdTrusted, (LibRisc0Constants.V0_9_0_PROPOSAL_IMAGE_ID, true)
             )
         });
         actions[4] = Controller.Action({
@@ -87,7 +86,7 @@ contract Proposal0026 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 Risc0Verifier.setImageIdTrusted,
-                (LibRisc0Constants.V0_9_0_RC1_AGGREGATION_IMAGE_ID, true)
+                (LibRisc0Constants.V0_9_0_AGGREGATION_IMAGE_ID, true)
             )
         });
 
@@ -129,7 +128,7 @@ contract Proposal0026 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
-                (LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254, true)
+                (LibSP1Constants.V0_9_0_PROPOSAL_PROGRAM_VKEY_BN254, true)
             )
         });
         actions[10] = Controller.Action({
@@ -137,7 +136,7 @@ contract Proposal0026 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
-                (LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)
+                (LibSP1Constants.V0_9_0_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)
             )
         });
         actions[11] = Controller.Action({
@@ -145,7 +144,7 @@ contract Proposal0026 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
-                (LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254, true)
+                (LibSP1Constants.V0_9_0_AGGREGATION_PROGRAM_VKEY_BN254, true)
             )
         });
         actions[12] = Controller.Action({
@@ -153,7 +152,7 @@ contract Proposal0026 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
-                (LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
+                (LibSP1Constants.V0_9_0_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
             )
         });
 
@@ -188,7 +187,7 @@ contract Proposal0026 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 IProposal0026Attestation.setMrEnclave,
-                (LibSGXConstants.V0_9_0_RC1_SGXGETH_MR_ENCLAVE, true)
+                (LibSGXConstants.V0_9_0_SGXGETH_MR_ENCLAVE, true)
             )
         });
         actions[17] = Controller.Action({
@@ -196,7 +195,7 @@ contract Proposal0026 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 IProposal0026Attestation.setMrEnclave,
-                (LibSGXConstants.V0_9_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
+                (LibSGXConstants.V0_9_0_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
             )
         });
         actions[18] = Controller.Action({
@@ -204,12 +203,12 @@ contract Proposal0026 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 IProposal0026Attestation.setMrEnclave,
-                (LibSGXConstants.V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE, true)
+                (LibSGXConstants.V0_9_0_SGXRETH_EDMM_MR_ENCLAVE, true)
             )
         });
 
         // 19-20: Delete the currently registered raiko2 v0.8.0-rc1 SGX instances. Registering
-        // fresh v0.9.0-rc1 instances is a separate post-execution operation.
+        // fresh v0.9.0 instances is a separate post-execution operation.
         uint256[] memory instanceIds = new uint256[](1);
         instanceIds[0] = 2;
         actions[19] = Controller.Action({
@@ -228,15 +227,15 @@ contract Proposal0026 is BuildProposal {
         require(
             LibRisc0Constants.V0_8_0_RC1_PROPOSAL_IMAGE_ID != bytes32(0)
                 && LibRisc0Constants.V0_8_0_RC1_AGGREGATION_IMAGE_ID != bytes32(0)
-                && LibRisc0Constants.V0_9_0_RC1_PROPOSAL_IMAGE_ID != bytes32(0)
-                && LibRisc0Constants.V0_9_0_RC1_AGGREGATION_IMAGE_ID != bytes32(0),
+                && LibRisc0Constants.V0_9_0_PROPOSAL_IMAGE_ID != bytes32(0)
+                && LibRisc0Constants.V0_9_0_AGGREGATION_IMAGE_ID != bytes32(0),
             Risc0ImageIdNotSet()
         );
         require(
             LibRisc0Constants.V0_8_0_RC1_PROPOSAL_IMAGE_ID
-                    != LibRisc0Constants.V0_9_0_RC1_PROPOSAL_IMAGE_ID
+                    != LibRisc0Constants.V0_9_0_PROPOSAL_IMAGE_ID
                 && LibRisc0Constants.V0_8_0_RC1_AGGREGATION_IMAGE_ID
-                    != LibRisc0Constants.V0_9_0_RC1_AGGREGATION_IMAGE_ID,
+                    != LibRisc0Constants.V0_9_0_AGGREGATION_IMAGE_ID,
             Risc0ImageIdNotRotated()
         );
     }
@@ -247,21 +246,21 @@ contract Proposal0026 is BuildProposal {
                 && LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
                 && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254 != bytes32(0)
                 && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
-                && LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254 != bytes32(0)
-                && LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
-                && LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254 != bytes32(0)
-                && LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0),
+                && LibSP1Constants.V0_9_0_PROPOSAL_PROGRAM_VKEY_BN254 != bytes32(0)
+                && LibSP1Constants.V0_9_0_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
+                && LibSP1Constants.V0_9_0_AGGREGATION_PROGRAM_VKEY_BN254 != bytes32(0)
+                && LibSP1Constants.V0_9_0_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0),
             SP1ProgramVKeyNotSet()
         );
         require(
             LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254
-                    != LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254
+                    != LibSP1Constants.V0_9_0_PROPOSAL_PROGRAM_VKEY_BN254
                 && LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES
-                    != LibSP1Constants.V0_9_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES
+                    != LibSP1Constants.V0_9_0_PROPOSAL_PROGRAM_VKEY_HASH_BYTES
                 && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254
-                    != LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254
+                    != LibSP1Constants.V0_9_0_AGGREGATION_PROGRAM_VKEY_BN254
                 && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES
-                    != LibSP1Constants.V0_9_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES,
+                    != LibSP1Constants.V0_9_0_AGGREGATION_PROGRAM_VKEY_HASH_BYTES,
             SP1ProgramVKeyNotRotated()
         );
     }
@@ -271,18 +270,18 @@ contract Proposal0026 is BuildProposal {
             LibSGXConstants.V0_8_0_RC1_SGXGETH_MR_ENCLAVE != bytes32(0)
                 && LibSGXConstants.V0_8_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
                 && LibSGXConstants.V0_8_0_RC1_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0)
-                && LibSGXConstants.V0_9_0_RC1_SGXGETH_MR_ENCLAVE != bytes32(0)
-                && LibSGXConstants.V0_9_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
-                && LibSGXConstants.V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0),
+                && LibSGXConstants.V0_9_0_SGXGETH_MR_ENCLAVE != bytes32(0)
+                && LibSGXConstants.V0_9_0_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
+                && LibSGXConstants.V0_9_0_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0),
             SgxMrEnclaveNotSet()
         );
         require(
             LibSGXConstants.V0_8_0_RC1_SGXGETH_MR_ENCLAVE
-                    != LibSGXConstants.V0_9_0_RC1_SGXGETH_MR_ENCLAVE
+                    != LibSGXConstants.V0_9_0_SGXGETH_MR_ENCLAVE
                 && LibSGXConstants.V0_8_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE
-                    != LibSGXConstants.V0_9_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE
+                    != LibSGXConstants.V0_9_0_SGXRETH_NON_EDMM_MR_ENCLAVE
                 && LibSGXConstants.V0_8_0_RC1_SGXRETH_EDMM_MR_ENCLAVE
-                    != LibSGXConstants.V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE,
+                    != LibSGXConstants.V0_9_0_SGXRETH_EDMM_MR_ENCLAVE,
             SgxMrEnclaveNotRotated()
         );
     }

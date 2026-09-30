@@ -17,4 +17,11 @@ library LibSGXConstants {
         0xdc994928718200e16e0eb643486ea90e49970a897fd164e39b6ae11262b69ab9;
     bytes32 internal constant V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE =
         0x7aaf74aaa95cf967844819e5e4504f28308541c0504e6642a12a75a4669f66a3;
+
+    bytes32 internal constant V0_9_0_SGXGETH_MR_ENCLAVE =
+        0x8c23c79045b9b6bb827eab208e0fe58d7446a57a55f3dfc825c90e904953105b;
+    bytes32 internal constant V0_9_0_SGXRETH_NON_EDMM_MR_ENCLAVE =
+        0xfeabd725eb5bb621b5c6a5071d1702bcbe06a643b42a0db8f381d5bc07dd81bf;
+    bytes32 internal constant V0_9_0_SGXRETH_EDMM_MR_ENCLAVE =
+        0x6f3c8c55ec62fe48b83e57463e8717aa9f8594418203c9520f0f80e6f4fc4d87;
 }

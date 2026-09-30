@@ -1,4 +1,4 @@
-# PROPOSAL-0026: Raise Basefee Sharing to 100% and Rotate raiko2 to v0.9.0-rc1
+# PROPOSAL-0026: Raise Basefee Sharing to 100% and Rotate raiko2 to v0.9.0
 
 ## Executive Summary
 
@@ -11,11 +11,15 @@ configuration value and all five address immutables are the live ones; no storag
 initializer runs.
 
 The same atomic L1 batch rotates the active proving identifiers from raiko2 v0.8.0-rc1 to
-[`v0.9.0-rc1`](https://github.com/taikoxyz/raiko2/releases/tag/v0.9.0-rc1): two RISC0 image IDs,
+[`v0.9.0`](https://github.com/taikoxyz/raiko2/releases/tag/v0.9.0): two RISC0 image IDs,
 four SP1 program vkeys, and three SGX MRENCLAVE allowlist entries. It then deletes the active
 v0.8.0-rc1 instance ID `2` from both SGX verifier registries. The already-disabled v0.6 values are
 not touched. The SGX MRSIGNER and enclave attribute policies are unchanged, and this proposal does
 not register replacement SGX instances.
+
+The earlier v0.9.0-rc1 version of Proposal0026 was merged but never executed. Therefore this batch
+rotates the live v0.8.0-rc1 identifiers directly to final v0.9.0; it does not add actions for
+disabling v0.9.0-rc1 identifiers or deleting v0.9.0-rc1 instances that were never active.
 
 The percentage is a constructor immutable of the inbox implementation (`MainnetInbox.sol`), so
 changing it means deploying a new implementation and upgrading the proxy. That `upgradeTo` remains
@@ -69,7 +73,7 @@ at all. This proposal does not build any of that and commits no operator to it; 
 protocol-level reason not to.
 
 **Two limits worth stating plainly.** The round trip is exact only within a preconfer's own
-proposals — a sponsor whose transaction lands in a block proposed by a *different* preconfer pays
+proposals — a sponsor whose transaction lands in a block proposed by a _different_ preconfer pays
 the fee to that preconfer, so sponsorship pays for itself only for the preconfer proposing the block
 it sits in. And the refund covers the L2 fee only; the proposer still carries its L1 proposing cost,
 which is what keeps proposing a real business rather than a free one.
@@ -90,13 +94,13 @@ which is what keeps proposing a real business rather than a free one.
 
 ## Scope
 
-| Chain | Contract                                                 | Change                                                                                                                                                                                                               |
-| ----- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| L1    | Inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | implementation → `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` ([codediff](https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e&chainid=1)) |
-| L1    | RISC0 verifier `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` | disable the two v0.8.0-rc1 image IDs and enable the two v0.9.0-rc1 image IDs |
-| L1    | SP1 verifier `0x73A0Db393ef87ce781ac7957bE10D6628432100F` | disable the four v0.8.0-rc1 program vkeys and enable the four v0.9.0-rc1 program vkeys |
-| L1    | SGX attesters `0x0ffa…9261`, `0x8d7C…a8A3` | disable the three v0.8.0-rc1 MRENCLAVEs and enable the three v0.9.0-rc1 MRENCLAVEs |
-| L1    | SGX verifiers `0x41e7…84Ee`, `0x9D3C…FFd8` | delete active instance ID `2`; replacement registration is a separate post-execution operation |
+| Chain | Contract                                                    | Change                                                                                                                                                                                                               |
+| ----- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1    | Inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`    | implementation → `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` ([codediff](https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e&chainid=1)) |
+| L1    | RISC0 verifier `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` | disable the two v0.8.0-rc1 image IDs and enable the two v0.9.0 image IDs                                                                                                                                             |
+| L1    | SP1 verifier `0x73A0Db393ef87ce781ac7957bE10D6628432100F`   | disable the four v0.8.0-rc1 program vkeys and enable the four v0.9.0 program vkeys                                                                                                                                   |
+| L1    | SGX attesters `0x0ffa…9261`, `0x8d7C…a8A3`                  | disable the three v0.8.0-rc1 MRENCLAVEs and enable the three v0.9.0 MRENCLAVEs                                                                                                                                       |
+| L1    | SGX verifiers `0x41e7…84Ee`, `0x9D3C…FFd8`                  | delete active instance ID `2`; replacement registration is a separate post-execution operation                                                                                                                       |
 
 The verifier implementations are not upgraded. The proposal changes only their trust mappings and
 deletes the two named SGX registry entries; it does not change MRSIGNER trust, attribute policies,
@@ -111,42 +115,44 @@ in `MainnetInbox`'s dependency tree and no deployed contract reads it; its only 
 
 ## What Changes
 
-### raiko2 v0.9.0-rc1 release rotation
+### raiko2 v0.9.0 release rotation
 
-The ZK identifiers below come from `guest-digests-summary.json` in the raiko2 v0.9.0-rc1 release.
+The ZK identifiers below come from `guest-digests-summary.json` in the raiko2 v0.9.0 release.
 The old column is the v0.8.0-rc1 set enabled by Proposal0021; the new column is enabled by this
 proposal.
 
-| Role | v0.8.0-rc1 disabled | v0.9.0-rc1 enabled |
-| ---- | -------------------- | ------------------ |
-| RISC0 proposal image ID | `0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10` | `0x6016d9b774fdb7af1ac3194793039abb241ac869c856d15d2a0f5a5997e970ca` |
-| RISC0 aggregation image ID | `0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7` | `0xc7a55544d3a96ec3953a5bd2705c42056e27757fd6ac72ca9b972931870f8a2a` |
-| SP1 proposal vkey BN254 | `0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7` | `0x00609a2e8a5834a3675060fa8965315f3e978514aa49fe69f8f407e5d16b941f` |
-| SP1 proposal vkey hash bytes | `0x12a12e113a09d41d05147b387b0f89632df2a3174d2ed9e00ac7c7ac086be7c7` | `0x304d1745160d28d96a0c1f51165315f374bc28a52927f9a771e80fcb516b941f` |
-| SP1 aggregation vkey BN254 | `0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6` | `0x001047d2068ac6e9b57839a587b07a254ad724d69b69c10197c0d4d2660c2fba` |
-| SP1 aggregation vkey hash bytes | `0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6` | `0x0823e90322b1ba6d2f0734b07b07a25456b926b46da704062f81a9a4660c2fba` |
+| Role                            | v0.8.0-rc1 disabled                                                  | v0.9.0 enabled                                                       |
+| ------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| RISC0 proposal image ID         | `0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10` | `0x88712dad7dc78126ee7bb592282d3102569c706f1b9db80580a582e5ffd1dfb0` |
+| RISC0 aggregation image ID      | `0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7` | `0x04480b22e244d60165f3d0898bc61ea084d9c76221464a8a3c3343c74889040a` |
+| SP1 proposal vkey BN254         | `0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7` | `0x0012b97234e59f2319d44202c7b093fed9c9a51b2068e38d26625c139d668c97` |
+| SP1 proposal vkey hash bytes    | `0x12a12e113a09d41d05147b387b0f89632df2a3174d2ed9e00ac7c7ac086be7c7` | `0x095cb91a3967c8c63a8840587b093fed4e4d28d901a38e344cc4b8271d668c97` |
+| SP1 aggregation vkey BN254      | `0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6` | `0x0017912dfd72308e2e2cd4211b05ed73a97eb7f576816adec2606a37507de51e` |
+| SP1 aggregation vkey hash bytes | `0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6` | `0x0bc896fe5c8c238b459a8423305ed73a4bf5bfab5a05ab7b04c0d46e507de51e` |
 
-The TEE values come from `tee-attestation-manifest-v0.9.0-rc1.json`:
+The TEE values come from `tee-attestation-manifest-v0.9.0.json`:
 
-| Lane | v0.8.0-rc1 MRENCLAVE disabled | v0.9.0-rc1 MRENCLAVE enabled |
-| ---- | ----------------------------- | ---------------------------- |
-| SGX-geth | `0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005` | `0x51701ed3fbd0bfdcea24a2e47ce9e30c5448ca9e4ad9b48bd1530d4a9c022fe4` |
-| SGX-reth | `0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847` | `0xdc994928718200e16e0eb643486ea90e49970a897fd164e39b6ae11262b69ab9` |
-| SGX-reth EDMM | `0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf` | `0x7aaf74aaa95cf967844819e5e4504f28308541c0504e6642a12a75a4669f66a3` |
+| Lane          | v0.8.0-rc1 MRENCLAVE disabled                                        | v0.9.0 MRENCLAVE enabled                                             |
+| ------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| SGX-geth      | `0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005` | `0x8c23c79045b9b6bb827eab208e0fe58d7446a57a55f3dfc825c90e904953105b` |
+| SGX-reth      | `0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847` | `0xfeabd725eb5bb621b5c6a5071d1702bcbe06a643b42a0db8f381d5bc07dd81bf` |
+| SGX-reth EDMM | `0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf` | `0x6f3c8c55ec62fe48b83e57463e8717aa9f8594418203c9520f0f80e6f4fc4d87` |
 
-The release source commit is `c4825c5d7e2b51abff5cb1ff09bca86e9df1609e`. Its published runtime
-image is
-`us-docker.pkg.dev/evmchain/images/raiko2@sha256:41df977ef21c6fe3253e001211985b0d2ac78d8cd0190be78da3e7e4169f6659`.
-The TEE images are pinned in the release manifest:
+The raiko2 release source commit is `dcbfdec7396c7e25a53ee26b43c55d58f63e0b81`. Its published
+runtime image is
+`us-docker.pkg.dev/evmchain/images/raiko2@sha256:615c8ca72b7d657adc56ec73ea7fb4f871a2492ad9f4f49c2e98c91be2e89018`.
+The TEE attestation manifest pins the provider images below. The two raiko2-sgx images use that
+raiko2 commit; gaiko2-sgxgeth uses gaiko2 commit
+`a666927ac6fe5282e196fd54b132a4e00e8178f2`:
 
-- `raiko2-sgx@sha256:4798744ba980c3d6db0ea41712a5a81f9df25300be6d213b4df55d5a9c17d6f8`
+- `raiko2-sgx@sha256:bf441a5fd406a29d025ac973047741fd436e5f5a9ebbf1de91ac99852a8f3da1`
 - `raiko2-sgx` EDMM
-  `@sha256:7e358a426918982ad85e90309c3e1277997f1b6bfa775e2b46b62909838d42f9`
-- `gaiko2-sgxgeth@sha256:870d49869f1017eb201b34abfb7fc39ec05038aa563441f01bdc679bf9566dc3`
+  `@sha256:8b8de3572a9e798226fb1b42623d59d1bf5ba80fbe79177be5c13b5d033ae77e`
+- `gaiko2-sgxgeth@sha256:309afe801117934ad64906014c2cb049461f5c09ca2ff2a3d7d595ec64094886`
 
 Both SGX verifiers have `nextInstanceId() == 3` at the pinned pre-execution state. IDs `0` and `1`
 are empty and ID `2` is the active v0.8.0-rc1 registration. Actions 19 and 20 delete ID `2`.
-After the proposal executes, each v0.9.0-rc1 provider must register separately; the next successful
+After the proposal executes, each v0.9.0 provider must register separately; the next successful
 registration is expected to receive instance ID `3`. That registration is deliberately not part of
 this governance batch.
 
@@ -264,7 +270,7 @@ So the only behavioural change the new implementation ships is the percentage. N
   proposal after execution are re-derived with 100 (same transactions). Executing the proposal
   right after a proposal lands, with the preconfer restart queued, bounds this to a few blocks.
 - **Provers** take the basefee-sharing value from the event, so that part needs no code change. They
-  must nevertheless run the v0.9.0-rc1 artifacts after the verifier rotation. RISC0 and SP1 can
+  must nevertheless run the v0.9.0 artifacts after the verifier rotation. RISC0 and SP1 can
   prove as soon as the batch executes; SGX providers additionally need the separate instance
   registration described above. The bridge UI, relayer and eventindexer are not affected.
 - **Treasury income.** The Anchor contract `0x1670000000000000000000000000000000010001` stops
@@ -275,23 +281,23 @@ So the only behavioural change the new implementation ships is the percentage. N
 
 ### L1 — 21 actions
 
-| # | Target | Call |
-| - | ------ | ---- |
-| 0 | Inbox proxy | `upgradeTo(MAINNET_INBOX_NEW_IMPL)` |
-| 1 | RISC0 verifier | `setImageIdTrusted(V0_8_0_RC1_PROPOSAL_IMAGE_ID, false)` |
-| 2 | RISC0 verifier | `setImageIdTrusted(V0_8_0_RC1_AGGREGATION_IMAGE_ID, false)` |
-| 3 | RISC0 verifier | `setImageIdTrusted(V0_9_0_RC1_PROPOSAL_IMAGE_ID, true)` |
-| 4 | RISC0 verifier | `setImageIdTrusted(V0_9_0_RC1_AGGREGATION_IMAGE_ID, true)` |
-| 5–8 | SP1 verifier | disable the four v0.8.0-rc1 proposal/aggregation vkeys in the table above |
-| 9–12 | SP1 verifier | enable the four v0.9.0-rc1 proposal/aggregation vkeys in the table above |
-| 13 | SGX-geth attester | `setMrEnclave(V0_8_0_RC1_SGXGETH_MR_ENCLAVE, false)` |
-| 14 | SGX-reth attester | `setMrEnclave(V0_8_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE, false)` |
-| 15 | SGX-reth attester | `setMrEnclave(V0_8_0_RC1_SGXRETH_EDMM_MR_ENCLAVE, false)` |
-| 16 | SGX-geth attester | `setMrEnclave(V0_9_0_RC1_SGXGETH_MR_ENCLAVE, true)` |
-| 17 | SGX-reth attester | `setMrEnclave(V0_9_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE, true)` |
-| 18 | SGX-reth attester | `setMrEnclave(V0_9_0_RC1_SGXRETH_EDMM_MR_ENCLAVE, true)` |
-| 19 | SGX-geth verifier | `deleteInstances([2])` |
-| 20 | SGX-reth verifier | `deleteInstances([2])` |
+| #    | Target            | Call                                                                      |
+| ---- | ----------------- | ------------------------------------------------------------------------- |
+| 0    | Inbox proxy       | `upgradeTo(MAINNET_INBOX_NEW_IMPL)`                                       |
+| 1    | RISC0 verifier    | `setImageIdTrusted(V0_8_0_RC1_PROPOSAL_IMAGE_ID, false)`                  |
+| 2    | RISC0 verifier    | `setImageIdTrusted(V0_8_0_RC1_AGGREGATION_IMAGE_ID, false)`               |
+| 3    | RISC0 verifier    | `setImageIdTrusted(V0_9_0_PROPOSAL_IMAGE_ID, true)`                       |
+| 4    | RISC0 verifier    | `setImageIdTrusted(V0_9_0_AGGREGATION_IMAGE_ID, true)`                    |
+| 5–8  | SP1 verifier      | disable the four v0.8.0-rc1 proposal/aggregation vkeys in the table above |
+| 9–12 | SP1 verifier      | enable the four v0.9.0 proposal/aggregation vkeys in the table above      |
+| 13   | SGX-geth attester | `setMrEnclave(V0_8_0_RC1_SGXGETH_MR_ENCLAVE, false)`                      |
+| 14   | SGX-reth attester | `setMrEnclave(V0_8_0_RC1_SGXRETH_NON_EDMM_MR_ENCLAVE, false)`             |
+| 15   | SGX-reth attester | `setMrEnclave(V0_8_0_RC1_SGXRETH_EDMM_MR_ENCLAVE, false)`                 |
+| 16   | SGX-geth attester | `setMrEnclave(V0_9_0_SGXGETH_MR_ENCLAVE, true)`                           |
+| 17   | SGX-reth attester | `setMrEnclave(V0_9_0_SGXRETH_NON_EDMM_MR_ENCLAVE, true)`                  |
+| 18   | SGX-reth attester | `setMrEnclave(V0_9_0_SGXRETH_EDMM_MR_ENCLAVE, true)`                      |
+| 19   | SGX-geth verifier | `deleteInstances([2])`                                                    |
+| 20   | SGX-reth verifier | `deleteInstances([2])`                                                    |
 
 No L2 leg: `buildL2Actions` is the `BuildProposal` default (empty), so `_buildAllActions` appends
 no `sendMessage`. The ordering keeps the existing Inbox upgrade as action 0 and performs the
@@ -351,7 +357,7 @@ Every commented value is the expected result.
 
 The fork rehearsal defaults to L1 block **26,075,649**, after the implementation deployment and
 Proposal0021 execution but before Proposal0026. At that block all v0.8.0-rc1 identifiers are
-trusted, all v0.9.0-rc1 identifiers are untrusted, `nextInstanceId()` is `3` on both SGX verifiers,
+trusted, all v0.9.0 identifiers are untrusted, `nextInstanceId()` is `3` on both SGX verifiers,
 IDs `0` and `1` are empty, and ID `2` is active. The deployed `instances(uint256)` getter still has
 the historical two-field `(address,uint64)` ABI. Use an archive-capable RPC. Set `L1_FORK_BLOCK` to
 another block only if it has the same preconditions; `--fork-block-number` does not select the fork
@@ -423,7 +429,7 @@ rmdir "$PROPOSAL0026_VERIFY_DIR"
 # The calldata: regenerate and diff, then the live dry run, then the historical fork rehearsal. The
 # rehearsal executes the 21-action batch from the DAO controller at block 26,075,649. It asserts
 # the inbox proxy answers 100 with its other state unchanged, rotates every RISC0/SP1/SGX trust
-# value from v0.8.0-rc1 to v0.9.0-rc1, deletes SGX instance ID 2 on both verifiers, and leaves the
+# value from v0.8.0-rc1 to v0.9.0, deletes SGX instance ID 2 on both verifiers, and leaves the
 # batch with no L2 bridge message. The second test is the dry run itself.
 cd packages/protocol
 P=0026 pnpm proposal && git diff --exit-code script/layer1/proposals/Proposal0026.action.md
@@ -443,13 +449,13 @@ cast storage $INBOX 0 --rpc-url $L1_RPC               # still 0x…03
 
 Then complete the release cutover:
 
-1. Confirm the two old RISC0 IDs return `false` and the two v0.9.0-rc1 IDs return `true`.
-2. Confirm the four old SP1 vkeys return `false` and the four v0.9.0-rc1 vkeys return `true`.
-3. Confirm the three old MRENCLAVEs return `false` and the three v0.9.0-rc1 MRENCLAVEs return
+1. Confirm the two old RISC0 IDs return `false` and the two v0.9.0 IDs return `true`.
+2. Confirm the four old SP1 vkeys return `false` and the four v0.9.0 vkeys return `true`.
+3. Confirm the three old MRENCLAVEs return `false` and the three v0.9.0 MRENCLAVEs return
    `true`. Confirm MRSIGNER trust and attribute policies are unchanged.
 4. Confirm `instances(2)` returns a zero address on both SGX verifiers while `nextInstanceId()`
    remains `3`.
-5. Register the v0.9.0-rc1 SGX-geth and SGX-reth providers separately. Each next successful
+5. Register the v0.9.0 SGX-geth and SGX-reth providers separately. Each next successful
    registration is expected to receive ID `3`; record and read back the resulting transactions.
 6. Restart the whitelisted preconfer nodes as described in [Client rollout](#client-rollout).
 
