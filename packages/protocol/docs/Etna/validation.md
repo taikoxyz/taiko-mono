@@ -30,6 +30,10 @@ Completed on 2026-09-30:
 - A final independent editorial audit checked current status labels and local navigation. Historical reports retain their original verdicts; the current reference and course carry the final result.
 - `git diff --check` passes. All deliverable changes are confined to `packages/protocol/docs/Etna/`. No production-code tests, circuit implementation, deployment, layout generation or gas/performance benchmark is represented as completed.
 
+## Publication
+
+The branch was pushed and [draft PR #22188](https://github.com/taikoxyz/taiko-mono/pull/22188) opened on 2026-09-30. GitHub CLI returned an API `Forbidden` response; the connected GitHub tool created the draft successfully. The PR contains only the Etna documentation directory. No site was deployed.
+
 ## Evidence still required before launch
 
 **Open:** authenticate every retained deployed proxy, implementation, owner, initializer, resolver, treasury, wrapper and historical proof-program identity. Compile storage layouts and audit complete inherited/fallback/initializer call graphs. Rehearse legacy drain, activation, historic messages, caches, replay state and wrapper identities against authentic state.

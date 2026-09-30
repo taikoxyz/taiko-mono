@@ -2,7 +2,7 @@
 
 Etna investigates a fully permissionless successor to Taiko's based-rollup protocol. This is a design project: no production contracts, clients, deployments, or changes outside this directory.
 
-**Verdict: converged design specification.** Six rounds are complete. The [final judge](iterations/06-judge.md) confirms rounds 05–06 have no new Critical/High, all Mediums have written dispositions, and R1–R7 pass under explicit assumptions. This is a reference for implementation, not verified production code or launch approval. Economic concentration, finite accountability and unmeasured deployment/performance remain material limits. Branch: `codex/etna-protocol-design`.
+**Verdict: converged design specification.** Six rounds are complete. The [final judge](iterations/06-judge.md) confirms rounds 05–06 have no new Critical/High, all Mediums have written dispositions, and R1–R7 pass under explicit assumptions. This is a reference for implementation, not verified production code or launch approval. Economic concentration, finite accountability and unmeasured deployment/performance remain material limits. Branch: `codex/etna-protocol-design`. [Draft PR #22188](https://github.com/taikoxyz/taiko-mono/pull/22188).
 
 ## How to read
 
@@ -35,8 +35,8 @@ Baseline: assume Frame Transactions live before launch; survey Glamsterdam and H
 - [x] 3: draft glossary, mechanisms, state machines, interfaces, parameters and migration.
 - [x] 4–5: independent multi-model red team and judge; revise and log (maximum eight rounds).
 - [x] Convergence: two consecutive rounds with no new Critical/High, all Medium dispositions, all R1–R7 pass; **or** evidence-backed negative verdict and smallest relaxation.
-- [ ] 6: complete design/course HTML, validate artifacts, commit, push and open draft PR.
-- [ ] 7: report verdict, five key decisions, human decisions and entry links.
+- [x] 6: complete design/course HTML, validate artifacts, commit, push and open draft PR.
+- [x] 7: deliver verdict, five key decisions, human decisions and entry links in the session report.
 
 Phase boundaries and review rounds are committed separately. Design convergence does not imply launch readiness. The review log records actual reviewer models, concrete attack traces, evidence, severity and disposition.
 
