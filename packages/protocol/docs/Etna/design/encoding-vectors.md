@@ -11,10 +11,12 @@ Use the EIP-712 domain fields in exactly this order:
 ```text
 EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)
 name = "EtnaDuty"
-version = "1"
+version = "2"
 chainId = 1
 verifyingContract = 0x3333333333333333333333333333333333333333
 ```
+
+Version 2 separates the stronger mandatory fragment-publication duty from the earlier research draft's version-1 serving promise. Both current DutyClaim and EtnaPublication use this domain version; historic version-1 signatures never acquire version-2 penalties. EtnaProducer remains a separate version-1 authorization domain. No version of this research design has been deployed.
 
 The fixture message is:
 
@@ -33,8 +35,8 @@ Expected Keccak-256 results:
 |---|---|
 | Type hash | `0x4d23451d8ae40b9d41993d4ea691972b642b2cea6ea784f21ef8e709291696fc` |
 | Struct hash | `0xa41c80567337dee88ac82dc3412a7b834c671a5e325fda431cf783cbc3ef2419` |
-| Domain separator | `0x9a13cb9612f90857681e558fdcf3bc698a9f6e19a1954bec63822bf76a3c6ab8` |
-| Signing digest | `0x51613be945e729b3e52efb01ee7ce67514536e3a91a70d06fcf41bc9cfbeea7b` |
+| Domain separator | `0x658fb1eb2aed8883089431fa3c66c9ef4943c73636e3398259ce8eb41c5df0e9` |
+| Signing digest | `0x3a997e89de7254f2b6a590c690e14646b59cc1c87e79478ac3ac8c5671bd59c4` |
 
 The struct hash is Keccak-256 of `abi.encode(typeHash, bucketId, position, revision, baseHeadHash, issuedAt, contextHash)`. The signing digest is Keccak-256 of the 66 bytes `0x1901 || domainSeparator || structHash`. Do not use NIST SHA3-256, packed variable-length fields, or the ABI struct name as a substitute type string. Changing any field, registry, chain ID, type literal or field order must produce a different digest.
 

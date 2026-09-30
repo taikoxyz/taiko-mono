@@ -10,3 +10,13 @@ Reviewed snapshot: `96fcdecec06a4993834549085758b55e90191703`. Fresh independent
 - **Accepted Medium:** cross-owner and cross-segment attribution remains bounded. No identity oracle, irreversible soft branch or unlimited MEV compensation is claimed.
 
 Next revision: exact zero-sentinel bootstrap; mandatory public fragment covenants for bonded claims; a per-head descending-price admission rent with no reserved winner and a zero-price fallback. These are proposed corrections awaiting specification and fresh round05 review, not current passing mechanisms. No impossibility theorem is established.
+
+## Disposition before round05
+
+The revised normative pages now fully construct H0 from the verified legacy certificate, use an exact zero-origin/empty-force bootstrap exception, preserve every queued request/fee and initialize a separate rent clock. The first anchor-only calldata body has a constructive17,724-byte upper bound; actual MPT/verifier gas remains a launch test. Normal snapshots begin with the first real authenticated origin.
+
+Every version-2 DutyClaim now promises actual fragment calldata plus its complete ordered FR preimage by issuedAt+240. An immutable first-publication receipt proves timing; changed issuedAt is conflicting liability; optional paid challenges cannot extend the deadline or pay Q late. The stronger domain is separate from the earlier undeployed version-1 research signature. The signed sealed-context covenant remains a distinct optional promise.
+
+Every canonical winner additionally pays a descending price from0.05 ETH tozero over900 seconds since the last accepted head. The clock resets across all owners, grants no reservation and puts100% of rent in an irreversible sink. With a funded competing candidate included by age D<900 unless beaten, n captures pay at least the sum of q(D); capture is unprofitable below that explicit net-benefit threshold. This is a bounded deterrence model, not equal market share. Honest entry and sustained throughput also bear this charge; calibration and high-MEV dominance remain explicit.
+
+Positive-rent Frames use individually funded senders because gas payer approval does not supply call value; the shared-sender nonce example is zero-value only. Ordinary payable submission remains open. Fixture updates cover the v2 signature domain, exact fragment publication key/binding, complete bootstrap hash and rent rounding. Structural/link checks pass for the reference pages; the uncommitted course remains incomplete. No production implementation or performance result is claimed. Fresh round05 must judge these changes and all seven gates.

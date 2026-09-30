@@ -256,3 +256,12 @@ Every URL below was retrieved or explicitly checked through live public web tool
 | S10 | [Ethresear.ch: Encrypted frame transactions](https://ethresear.ch/t/encrypted-frame-transactions/24440) | Search-reviewed older canonical-hash assumption; not relied on for current encoding |
 
 For reproducibility, SHA-256 of the UTF-8 **extracted markdown snapshot** (including a final newline), not raw HTML or a Git commit: S1 `e3b350b9e6501b7bb0fbaf36325dd369b0fb86fbe150df420b878ac1de1a50dd`; S4 `ff89304c4b6485d0fb10c522a67759a7424cac3e1735c742f6e7115ddec8cef4`; S6 `2f00e380ecaff494e79624751bc9eb806f7a964c03772c653713c91337bcff50`. Temporary snapshots were kept only in the session scratchpad, not committed as production or experiment code.
+
+
+## 11. Integration update: mandatory canonical rent
+
+**Proven/source:** EIP-8141 defines per-frame value as transferred from the sender, permits nonzero value only in SENDER frames, and reverts a frame if that caller lacks the balance [S1, frame fields/Behavior]. Payer fee approval does **not** supply Inbox call value. This distinction matters once Etna charges the round05 candidate's descending-price ETH rent.
+
+**Proposed rule:** at positive rent, competitors use individually controlled, funded sender accounts with the exact action/value authorized. The four-frame shape retains terminal success verification; stale losers invalidate even though their sender nonces differ (alternative §4.D). No common prefunded pool or privileged sponsor is required. At zero rent, the worked shared-sender/nonce construction remains usable with every frame value zero. It proves the nonce-as-lock hypothesis without introducing shared-value theft. Any excess call value is an Inbox credit of its actual calling sender account, withdrawable through that account's own authorization. Ordinary payable public submission is always available and still has paid losing races.
+
+**Assumed/Open:** deployed account authorization, value balance, exact frame binding and launch EIP semantics require conformance testing. No smart account has been implemented here. These funding restrictions do not change the consensus verdict or make the terminal-VERIFY shape eligible for the public mempool.

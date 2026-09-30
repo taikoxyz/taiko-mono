@@ -58,3 +58,45 @@ Changing the order, omitting the last byte, padding the final fragment, or choos
 | Put a future stage ID, context hash or proof receipt in the block record | Reject schema; such a self-dependent execution field is absent |
 
 **Validation performed:** scratchpad-only Keccak/ABI byte calculations, checked against the known Keccak empty-input and `abc` answers. No key, signature, production code or deployed state was used. **Open implementation conformance:** independent Solidity, Go and Rust encoders must reproduce these values and negative cases; full valid block/proof vectors belong to the later implementation work. SHA3-256 is not Ethereum Keccak-256.
+
+## Version-2 publication receipt component
+
+For the six-byte record above, use the unchanged FR, fragmentIndex=uint256(0), blockNumber=uint256(42), fragmentCount=uint256(1), dataDigest=recordHash and byteLength=uint256(6). The exact formulas are in [accountability](accountability.html#fragment-publication). The publication key encodes three static words (tag hash, FR, index); claimBinding encodes five static words (number, blockHash, count, digest, length).
+
+| Output | Keccak-256 value |
+|---|---|
+| fragmentPublicationKey | `0x9a039f7c7a175e51ba04123f60fa63f75c92b39f01cd4101c563123a4e455f11` |
+| claimBinding | `0xb9437e954a0a069f6014808d9bd50c90ee17fccbb143597b8c0014c6864f1a13` |
+
+Actual calldata and this manifest can create a publication receipt without certifying Ethereum execution. That is intentional: a client still rejects the toy header/transaction as an invalid block. Changing only the signed issuedAt changes a version-2 duty's deadline and is incompatible same-position evidence; it does not change the underlying bytes' publication key.
+
+## Bootstrap head component
+
+Use the same chain IDs, Inbox, Anchor, revision, number and blockHash as above. Set manifestHash to 32 bytes `88`, cutHash to 32 bytes `66`, finalProposalId=uint48(7), checkpoint stateRoot to 32 bytes `55`, endL2Timestamp=uint48(1000), and installedL2StateDigest to 32 bytes `77`. These are synthetic byte patterns, not a valid migration certificate or authenticated root.
+
+Apply exactly [migration's bootstrap formulas](migration.html#bootstrap). The certificate's static ABI is seven words (224 bytes). Each domain has a seven-word head, with offset224 for its dynamic string `ETNA_V1`, then length7 and its right-padded bytes. The initial Head is twelve static words (384 bytes), including segmentNumber=0, all three force fields=0 and originNumber/hash=0. hashHead prepends the 32-byte Dhead to that Head encoding. No future activation timestamp enters these hashes.
+
+| Output | Keccak-256 value |
+|---|---|
+| certificateHash | `0x3cfa8cdc9480fcd8aa8d8fa285a4836497644253f051a9ef851ef680d9707884` |
+| migrationPublicInput | `0xdbcf7617b88aa3d8f4016d6b6f7e305d1c328a964461c143428d1b289af062d8` |
+| bootstrapCommitment | `0xfb0408a5ac7fe55295e6ebb8ddd1b87f059a81145ab0b909f1cb13d599c154f0` |
+| Dhead | `0x3120a09995e6d4938b8334d2de1d19b4b733c7ccc042c42d3f61c4967ca068a5` |
+| initialHeadHash | `0xd48dffab53d463bfcdcded843a352211917a35b4ad88105e3dc17f3c09b9205a` |
+
+**Proven/calculated:** scratch-only Keccak calculation, checked first against empty-string and `abc` known answers. **Open:** independent encoders and the real migration circuit must reproduce/validate their respective relations; these synthetic values do not prove a deployment is ready.
+
+## Canonical rent rounding
+
+For maximum50,000,000,000,000,000 wei and900-second decay, `ceil(maximum × max(900-age,0)/900)` gives:
+
+| Head age (seconds) | Rent (wei) |
+|---|---:|
+| 0 | 50,000,000,000,000,000 |
+| 360 | 30,000,000,000,000,000 |
+| 420 | 26,666,666,666,666,667 |
+| 660 | 13,333,333,333,333,334 |
+| 899 | 55,555,555,555,556 |
+| 900 or more | 0 |
+
+Every successful head resets the clock, including a zero-rent acceptance. Read calls and failed/stale transactions cannot reset it. Never subtract age from900 before handling age≥900, and never truncate the nonzero remainder downward.

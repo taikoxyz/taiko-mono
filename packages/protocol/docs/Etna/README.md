@@ -2,7 +2,7 @@
 
 Etna investigates a fully permissionless successor to Taiko's based-rollup protocol. This is a design project: no production contracts, clients, deployments, or changes outside this directory.
 
-**Status:** Three red-team rounds complete. Rounds 02–03 have no new judge-confirmed Critical/High findings, but a Medium inner body/manifest codec gap still blocks the full R6/R7 specification. The exact codec and component fixtures are now specified and await round04 review; convergence is not declared. PDF-specific review remains unavailable. Branch: `codex/etna-protocol-design`.
+**Status:** Four red-team rounds complete. The round04 judge confirms no new Critical/High but requires corrections for R6 ordinary-capture economics and R7 bootstrap initialization. The round05 candidate specifies those corrections and mandatory early fragment publication; fresh review is pending. Convergence is not declared. PDF-specific review remains unavailable. Branch: `codex/etna-protocol-design`.
 
 ## How to read
 
@@ -17,13 +17,13 @@ Links to unfinished phases become available as work completes. Uppercase `Etna/`
 
 | ID | Hard requirement | Acceptance criterion | Verdict |
 |---|---|---|---|
-| R1 | 100% permissionless; DAO owns upgradeability only | Any address can enter/exit every role under objective on-chain conditions; no operational admin/operator/allowlist gate; chain remains live without DAO action. | Unassessed |
-| R2 | Reuse existing SignalService, Bridge, ERC20/ERC721/ERC1155 Vault addresses on both layers | Specify exact checkpoint/state-root interfaces from inbox and anchor; enumerate all shared-contract changes and storage-compatible upgrades; deploy no new frozen addresses. | Unassessed |
-| R3 | Richer role set permitted | Every role has entry, exit, duties, rewards, slashing, and all-offline/all-malicious failure analysis. | Unassessed |
-| R4 | At most 1-second preconfirmed L2 block cadence | Define block time as preconfirmation issuance interval and user soft-confirmation latency; decouple L1 landing cadence. | Unassessed |
-| R5 | No CL lookahead or L1-slot coupling | Never consume future validator/proposer schedules; authenticated CL facts allowed; all timers in seconds or L1 block numbers; work with 12/6/4/2-second L1 slots. | Unassessed |
-| R6 | Objective penalties and slashing; concrete anti-monopoly economics | Specify L1-verifiable evidence, permissionless submitter, payout split, false-accusation deterrence for every offense; tabulate rotation/caps/auctions/decay and rationale. | Unassessed |
-| R7 | Propose with proof | Single L1 action/frame carries batch data and valid ZK proof; describe minute-long preconfirmation/proving window, prover failure, forced inclusion, finality and blobs/calldata. | Unassessed |
+| R1 | 100% permissionless; DAO owns upgradeability only | Any address can enter/exit every role under objective on-chain conditions; no operational admin/operator/allowlist gate; chain remains live without DAO action. | Round04: design mechanism passes under named assumptions; launch validation open |
+| R2 | Reuse existing SignalService, Bridge, ERC20/ERC721/ERC1155 Vault addresses on both layers | Specify exact checkpoint/state-root interfaces from inbox and anchor; enumerate all shared-contract changes and storage-compatible upgrades; deploy no new frozen addresses. | Round04: design mechanism passes under named assumptions; launch validation open |
+| R3 | Richer role set permitted | Every role has entry, exit, duties, rewards, slashing, and all-offline/all-malicious failure analysis. | Round04: design mechanism passes under named assumptions; launch validation open |
+| R4 | At most 1-second preconfirmed L2 block cadence | Define block time as preconfirmation issuance interval and user soft-confirmation latency; decouple L1 landing cadence. | Round04: design mechanism passes under named assumptions; launch validation open |
+| R5 | No CL lookahead or L1-slot coupling | Never consume future validator/proposer schedules; authenticated CL facts allowed; all timers in seconds or L1 block numbers; work with 12/6/4/2-second L1 slots. | Round04: design mechanism passes under named assumptions; launch validation open |
+| R6 | Objective penalties and slashing; concrete anti-monopoly economics | Specify L1-verifiable evidence, permissionless submitter, payout split, false-accusation deterrence for every offense; tabulate rotation/caps/auctions/decay and rationale. | Round04: incomplete; specified revision awaits fresh review |
+| R7 | Propose with proof | Single L1 action/frame carries batch data and valid ZK proof; describe minute-long preconfirmation/proving window, prover failure, forced inclusion, finality and blobs/calldata. | Round04: incomplete; specified revision awaits fresh review |
 
 Baseline: assume Frame Transactions live before launch; survey Glamsterdam and Hegota; retain today's bond/reward denomination, native token and gas accounting unless a change is justified. Every design assertion is classified **proven**, **assumed** (named assumption), or **open** (resolution criterion). URC is removed in Etna.
 
