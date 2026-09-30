@@ -150,6 +150,95 @@ raiko2 commit; gaiko2-sgxgeth uses gaiko2 commit
   `@sha256:8b8de3572a9e798226fb1b42623d59d1bf5ba80fbe79177be5c13b5d033ae77e`
 - `gaiko2-sgxgeth@sha256:309afe801117934ad64906014c2cb049461f5c09ca2ff2a3d7d595ec64094886`
 
+The [v0.9.0 release page](https://github.com/taikoxyz/raiko2/releases/tag/v0.9.0) publishes the
+source-reproduction instructions and these machine-readable artifacts:
+
+| Artifact                 | Release asset                                                                                                                              | SHA-256                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Release manifest         | [`release-manifest-v0.9.0.json`](https://github.com/taikoxyz/raiko2/releases/download/v0.9.0/release-manifest-v0.9.0.json)                 | `e0fe8f2283fa4112206fe6d6686e81121e083251b2a7a3722b30818933dedd06` |
+| ZK digest summary        | [`guest-digests-summary.json`](https://github.com/taikoxyz/raiko2/releases/download/v0.9.0/guest-digests-summary.json)                     | `376225618b838bbe1e93be5ff1670eec1a4fb101bf69e52acbe2176761ed5ed2` |
+| TEE attestation manifest | [`tee-attestation-manifest-v0.9.0.json`](https://github.com/taikoxyz/raiko2/releases/download/v0.9.0/tee-attestation-manifest-v0.9.0.json) | `de75ce83550809ca4a495abfec34e6a177e12ab73a2a75716e68a95c827b812c` |
+
+Reproduce the ZK identifiers from a clean `taikoxyz/raiko2` checkout. Build the guests before
+running `guest-digests`; otherwise the command only re-hashes the checked-in release artifacts.
+Compare the sorted `.digests` projection because `created_at_unix` changes on every run:
+
+```bash
+export TAG=v0.9.0
+export REPRO_DIR=target/releases/${TAG}/zk-digest-repro
+
+git fetch --tags origin "${TAG}"
+git checkout "${TAG}"
+mkdir -p "${REPRO_DIR}"
+
+just build-guest all --force
+
+cargo run -r -p xtask-build-guest --bin guest-digests --features digests -- \
+  --output "${REPRO_DIR}/from-source.json"
+
+gh release download "${TAG}" --repo taikoxyz/raiko2 \
+  --pattern guest-digests-summary.json \
+  --dir "${REPRO_DIR}" \
+  --clobber
+
+jq -S '.digests | sort_by(.proof_system, .object_name, .stage, .digest_source)' \
+  "${REPRO_DIR}/guest-digests-summary.json" > "${REPRO_DIR}/release-digests.sorted.json"
+jq -S '.digests | sort_by(.proof_system, .object_name, .stage, .digest_source)' \
+  "${REPRO_DIR}/from-source.json" > "${REPRO_DIR}/source-digests.sorted.json"
+diff -u "${REPRO_DIR}/release-digests.sorted.json" \
+  "${REPRO_DIR}/source-digests.sorted.json"
+```
+
+Reproduce the TEE source pins and MRENCLAVEs from the same release checkout. A disposable local
+key cannot reproduce the official Taiko MRSIGNER, which comes only from the protected
+`sgx-release-signing` workflow, so remove `attestation.mr_signer` from both projections:
+
+```bash
+export TAG=v0.9.0
+export REPRO_DIR=target/releases/${TAG}/tee-provider-repro
+
+git fetch --tags origin "${TAG}"
+git checkout "${TAG}"
+mkdir -p "${REPRO_DIR}"
+
+gh release download "${TAG}" --repo taikoxyz/raiko2 \
+  --pattern "tee-attestation-manifest-${TAG}.json" \
+  --dir "${REPRO_DIR}" \
+  --clobber
+
+openssl genrsa -3 -out "${REPRO_DIR}/local-gramine-signing-key.pem" 3072
+RAIKO2_SGX_ENCLAVE_KEY_HOST="${REPRO_DIR}/local-gramine-signing-key.pem" \
+cargo run -r -p xtask --no-default-features --features tee-provider-release -- \
+  release-tee-providers --tag "${TAG}" --no-push
+
+cp "target/releases/${TAG}/tee-attestation-manifest-${TAG}.json" \
+  "${REPRO_DIR}/from-source.json"
+
+jq -S '[.providers[]
+  | {lane, provider, source, attestation: (.attestation | del(.mr_signer))}]
+  | sort_by(.provider, .lane)' \
+  "${REPRO_DIR}/tee-attestation-manifest-${TAG}.json" \
+  > "${REPRO_DIR}/release-tee.no-signer.sorted.json"
+jq -S '[.providers[]
+  | {lane, provider, source, attestation: (.attestation | del(.mr_signer))}]
+  | sort_by(.provider, .lane)' \
+  "${REPRO_DIR}/from-source.json" \
+  > "${REPRO_DIR}/source-tee.no-signer.sorted.json"
+diff -u "${REPRO_DIR}/release-tee.no-signer.sorted.json" \
+  "${REPRO_DIR}/source-tee.no-signer.sorted.json"
+```
+
+`release-tee-providers --no-push` verifies local metadata but does not authenticate the published
+registry objects. Inspect all four tags separately and confirm their reported manifests match the
+immutable digests above:
+
+```bash
+docker buildx imagetools inspect us-docker.pkg.dev/evmchain/images/raiko2:v0.9.0
+docker buildx imagetools inspect us-docker.pkg.dev/evmchain/images/raiko2-sgx:v0.9.0
+docker buildx imagetools inspect us-docker.pkg.dev/evmchain/images/raiko2-sgx:v0.9.0-edmm
+docker buildx imagetools inspect us-docker.pkg.dev/evmchain/images/gaiko2-sgxgeth:v0.9.0
+```
+
 Both SGX verifiers have `nextInstanceId() == 3` at the pinned pre-execution state. IDs `0` and `1`
 are empty and ID `2` is the active v0.8.0-rc1 registration. Actions 19 and 20 delete ID `2`.
 After the proposal executes, each v0.9.0 provider must register separately; the next successful
@@ -323,7 +412,7 @@ transaction (it happened during the Proposal0022 deployment), so the receipts we
 summary:
 
 ```bash
-export L1_RPC=<l1 rpc>
+export L1_RPC='<l1 rpc>'
 cast codesize 0xA18431d42C8dF9778905fBEa912aCF1881b49D2e --rpc-url $L1_RPC   # 23058
 cast codesize 0x526957d1a25E9D3F5ab5a4926d07eEE5d612ED42 --rpc-url $L1_RPC   # 2407, LibInboxSetup
 cast codesize 0x511e1E5D9b9E23958076ccF1dD0033237a8cE4f8 --rpc-url $L1_RPC   # 1936, LibForcedInclusion
@@ -355,6 +444,79 @@ Deployed on 2026-09-12 by `0x56706f118e42ae069f20c5636141b844d1324ae1`, all in L
 
 Every commented value is the expected result.
 
+### Live verifier preconditions
+
+Immediately before submission, check the live mainnet state rather than assuming the historical
+fork preconditions still hold. The old values must all return `true`, the final v0.9.0 values must
+all return `false`, both SGX verifiers must still report `nextInstanceId() == 3`, and instance ID
+`2` must still contain a non-zero provider address:
+
+```bash
+(
+set -euo pipefail
+
+export L1_RPC='<l1 rpc>'
+RISC0_VERIFIER=0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b
+SP1_VERIFIER=0x73A0Db393ef87ce781ac7957bE10D6628432100F
+SGXGETH_ATTESTER=0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261
+SGXRETH_ATTESTER=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
+SGXGETH_VERIFIER=0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee
+SGXRETH_VERIFIER=0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8
+ZERO_ADDRESS=0x0000000000000000000000000000000000000000
+
+check_trust() {
+  local target=$1 signature=$2 expected=$3 value actual
+  shift 3
+  for value in "$@"; do
+    actual=$(cast call "$target" "$signature" "$value" --rpc-url "$L1_RPC")
+    test "$actual" = "$expected" || {
+      echo "unexpected trust state: target=$target value=$value expected=$expected actual=$actual" >&2
+      return 1
+    }
+  done
+}
+
+# Live v0.8.0-rc1 values: all true.
+check_trust "$RISC0_VERIFIER" 'isImageTrusted(bytes32)(bool)' true \
+  0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10 \
+  0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7
+check_trust "$SP1_VERIFIER" 'isProgramTrusted(bytes32)(bool)' true \
+  0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7 \
+  0x12a12e113a09d41d05147b387b0f89632df2a3174d2ed9e00ac7c7ac086be7c7 \
+  0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6 \
+  0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6
+check_trust "$SGXGETH_ATTESTER" 'trustedUserMrEnclave(bytes32)(bool)' true \
+  0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005
+check_trust "$SGXRETH_ATTESTER" 'trustedUserMrEnclave(bytes32)(bool)' true \
+  0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847 \
+  0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf
+
+# Final v0.9.0 values: all false before execution.
+check_trust "$RISC0_VERIFIER" 'isImageTrusted(bytes32)(bool)' false \
+  0x88712dad7dc78126ee7bb592282d3102569c706f1b9db80580a582e5ffd1dfb0 \
+  0x04480b22e244d60165f3d0898bc61ea084d9c76221464a8a3c3343c74889040a
+check_trust "$SP1_VERIFIER" 'isProgramTrusted(bytes32)(bool)' false \
+  0x0012b97234e59f2319d44202c7b093fed9c9a51b2068e38d26625c139d668c97 \
+  0x095cb91a3967c8c63a8840587b093fed4e4d28d901a38e344cc4b8271d668c97 \
+  0x0017912dfd72308e2e2cd4211b05ed73a97eb7f576816adec2606a37507de51e \
+  0x0bc896fe5c8c238b459a8423305ed73a4bf5bfab5a05ab7b04c0d46e507de51e
+check_trust "$SGXGETH_ATTESTER" 'trustedUserMrEnclave(bytes32)(bool)' false \
+  0x8c23c79045b9b6bb827eab208e0fe58d7446a57a55f3dfc825c90e904953105b
+check_trust "$SGXRETH_ATTESTER" 'trustedUserMrEnclave(bytes32)(bool)' false \
+  0xfeabd725eb5bb621b5c6a5071d1702bcbe06a643b42a0db8f381d5bc07dd81bf \
+  0x6f3c8c55ec62fe48b83e57463e8717aa9f8594418203c9520f0f80e6f4fc4d87
+
+for verifier in "$SGXGETH_VERIFIER" "$SGXRETH_VERIFIER"; do
+  test "$(cast call "$verifier" 'nextInstanceId()(uint256)' --rpc-url "$L1_RPC")" = 3
+  provider=$(cast call "$verifier" 'instances(uint256)(address,uint64)' 2 \
+    --rpc-url "$L1_RPC" | sed -n '1p')
+  test "$provider" != "$ZERO_ADDRESS"
+done
+)
+```
+
+### Inbox implementation and proposal rehearsal
+
 The fork rehearsal defaults to L1 block **26,075,649**, after the implementation deployment and
 Proposal0021 execution but before Proposal0026. At that block all v0.8.0-rc1 identifiers are
 trusted, all v0.9.0 identifiers are untrusted, `nextInstanceId()` is `3` on both SGX verifiers,
@@ -364,7 +526,7 @@ another block only if it has the same preconditions; `--fork-block-number` does 
 created inside the test.
 
 ```bash
-export L1_RPC=<l1 rpc>
+export L1_RPC='<l1 rpc>'
 export INBOX=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f
 export NEW_IMPL=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e
 CONFIG='getConfig()((address,address,address,address,address,uint64,uint64,uint48,uint48,uint48,uint48,uint48,uint8,uint16,uint64,uint64,uint8))'
