@@ -148,6 +148,7 @@ fn encode_transaction_list(transactions: &[Vec<u8>]) -> Vec<u8> {
 /// encoding. Mirrors go-ethereum's `types.Transactions` decoding; the previous
 /// `Vec::<Bytes>` decode rejected legacy transactions with an "unexpected list"
 /// error, which stalled real-time preconfirmation import.
+/// The outer list must consume the entire input, matching `rlp.DecodeBytes`.
 fn decode_transaction_list(decoded: &[u8]) -> Result<Vec<Vec<u8>>> {
     let mut buf = decoded;
     let header =
@@ -155,8 +156,10 @@ fn decode_transaction_list(decoded: &[u8]) -> Result<Vec<Vec<u8>>> {
     if !header.list {
         return Err(TxListCodecError::RlpDecode("expected an RLP list of transactions".to_string()));
     }
-    if buf.len() < header.payload_length {
-        return Err(TxListCodecError::RlpDecode("transaction list payload truncated".to_string()));
+    if buf.len() != header.payload_length {
+        return Err(TxListCodecError::RlpDecode(
+            "trailing bytes after transaction list".to_string(),
+        ));
     }
 
     let mut payload = &buf[..header.payload_length];
@@ -194,7 +197,7 @@ mod tests {
     use alloy_rlp::Bytes as RlpBytes;
     use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 
-    use super::ZlibTxListCodec;
+    use super::{TxListCodecError, ZlibTxListCodec};
 
     fn compress_payload(payload: &[u8]) -> Vec<u8> {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -217,6 +220,47 @@ mod tests {
         let codec = ZlibTxListCodec::new(1024);
         let txs = codec.decode(&compressed).expect("decode txlist");
         assert!(txs.is_empty());
+    }
+
+    #[test]
+    fn txlist_codec_rejects_trailing_bytes() {
+        let codec = ZlibTxListCodec::new(1024);
+        let tx_lists = [
+            Vec::new(),
+            vec![vec![0x02, 0xc0]],
+            vec![sample_legacy_transaction()],
+            vec![sample_legacy_transaction(), vec![0x02, 0xc0]],
+        ];
+        let suffixes: &[&[u8]] = &[&[0x00], &[0xde, 0xad, 0xbe, 0xef], &[0xc0]];
+
+        for txs in tx_lists {
+            let compressed = codec.encode(&txs).expect("encode tx-list");
+            assert_eq!(codec.decode(&compressed).expect("decode valid tx-list"), txs);
+            let rlp_encoded = decompress_payload(&compressed);
+
+            for suffix in suffixes {
+                let mut with_trailing_bytes = rlp_encoded.clone();
+                with_trailing_bytes.extend_from_slice(suffix);
+                let compressed = compress_payload(&with_trailing_bytes);
+
+                let err = codec.decode(&compressed).expect_err("trailing bytes must be rejected");
+                assert!(matches!(err, TxListCodecError::RlpDecode(_)));
+                assert!(err.to_string().contains("trailing bytes"));
+            }
+        }
+    }
+
+    #[test]
+    fn txlist_codec_rejects_truncated_transaction_list() {
+        let codec = ZlibTxListCodec::new(1024);
+        let compressed = codec.encode(&[sample_legacy_transaction()]).expect("encode tx-list");
+        let mut rlp_encoded = decompress_payload(&compressed);
+        rlp_encoded.pop();
+
+        let err = codec
+            .decode(&compress_payload(&rlp_encoded))
+            .expect_err("truncated transaction list must be rejected");
+        assert!(matches!(err, TxListCodecError::RlpDecode(_)));
     }
 
     #[test]
