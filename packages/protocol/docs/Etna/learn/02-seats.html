@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 2: seats and sortition</title>
+<meta name="description" content="The bonded seat registry, the prevrandao seed, the hash walk that picks holders and committees, views, open terms and dead mode.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html" class="here">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 2: seats and sortition</h1>
+<p class="small">Prerequisite: lesson 1. Design pages: <a href="../design/sequencing.html">Sequencing rights</a>, <a href="../design/roles.html">Roles</a>.</p>
+
+<h2>Goal</h2>
+<p>Know how anyone becomes a sequencer, how the holder of each term is drawn, and what happens when nobody eligible exists.</p>
+
+<h2>The idea</h2>
+<p>Replace the roster with <strong>seats</strong>: one seat is one unit of bond (20,000 TAIKO) in the existing L1 ledger and one slot in an append-only array. Anyone with the bond, a code-less signing key and a BLS attester key registers; the effect is future-dated (lesson 1). Each term, a <strong>hash walk</strong> over the seat array, seeded by randomness fixed an hour ahead, picks a primary holder (view 0) and up to four backups (views 1 to 4). A second walk picks the 32-seat committee that will certify the term's blocks. Because the walk is a pure function of the seed, the term number and the array, every node and the inbox compute it identically.</p>
+
+<h2>The rules</h2>
+<ul>
+<li><strong>Seed.</strong> Every landing, registry write or public <code>poke()</code> mixes <code>block.prevrandao</code> into an accumulator once per L1 block. The seed of cycle c is the accumulator as of <code>cycleStart(c) − LOOKBACK</code>, hashed with the cycle number. It is <em>fresh</em> if some mix happened after the last instant a registry write could affect the cycle; then no registrant could have known the seed when it last had a chance to change its inputs.</li>
+<li><strong>Walk.</strong> <code>idx(t, k) = keccak(seed ‖ t ‖ k) mod L</code> for k = 0, 1, 2, …; skip visited or ineligible seats; the first five distinct owners are views 0 to 4. The committee walk uses a different domain byte and skips the holders' owners.</li>
+<li><strong>Share.</strong> An owner with w of A eligible seats is primary with probability w/A; an address holds at most 8 seats (a cap on addresses, not on entities: lesson 9).</li>
+<li><strong>Open-empty term.</strong> No eligible seat found: any address with one seat's bond may sequence with the sentinel view 255.</li>
+<li><strong>Dead mode.</strong> If 75 terms pass without any landing, any bonded address may sequence from the last <em>landed</em> block and land without a certificate; the first landing on L1 wins. This is the recovery floor that needs no attester, no registration and no DAO.</li>
+<li><strong>No-committee mode.</strong> Fewer than four eligible attester seats (for example at launch): holders are still drawn, but there are no certificates and landings are certificate-free.</li>
+</ul>
+
+<h2>Worked example</h2>
+<p>Ten seats: A owns 0-3, B 4-5, C 6, D 7, E 8-9. For term 604 the walk yields 5, 3, 4, 5, 1, 4, 9, 8: view 0 is B (seat 5), view 1 is A (seat 3), view 2 is E (seat 9), view 3 is D (seat 7), view 4 is C (seat 6). If B is dark, the committee closes view 0 after 5 seconds (lesson 5) and A starts. Over ten terms the primaries land within sampling noise of the seat shares.</p>
+
+<h2>Self-check</h2>
+<details><summary>Why is a consecutive-term cooldown not used?</summary><p>Two addresses defeat it, and it couples term t to term t−1's evaluation. Consecutive terms by one honest owner cost nothing; consecutive censorship is bounded by forced inclusion, not by rotation.</p></details>
+<details><summary>How many bits of bias can L1 proposers put into a seed?</summary><p>At most two per proposer of the last m blocks before the seed instant (reveal or skip; include or exclude a mixing transaction), so m colluders choose among at most 4<sup>m</sup> seeds for one 60-term cycle. The same bound as every RANDAO consumer.</p></details>
+<details><summary>What does an entrant need to obtain its proportional share of terms?</summary><p>One L1 transaction with the bond; two hours later its seat is eligible. No vote, no sponsor, no roster edit exists, and a full seat array costs more than the token supply.</p></details>
+
+<div class="box challenge"><h4>Challenge this</h4><p>The seed can be stale if nobody lands or pokes for 41 minutes. Design the cheapest attack that makes it stale on purpose, then compute what it buys (the design says: a few bits of seat placement in a registration already submitted). Is that worth 41 minutes of total censorship of every Etna transaction on L1?</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="01-time.html">← 1. Time without slots</a><span></span><a href="03-blocks.html">3. Blocks and validity →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>

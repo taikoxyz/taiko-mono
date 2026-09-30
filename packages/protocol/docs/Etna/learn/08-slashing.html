@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 8: slashing and bonds</title>
+<meta name="description" content="The three offence classes, the evidence each rule accepts, why false accusations are impossible, payouts, and how the bond is sized.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html" class="here">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 8: slashing and bonds</h1>
+<p class="small">Prerequisites: lessons 5 and 7. Design page: <a href="../design/slashing.html">Slashing &amp; economics</a>.</p>
+
+<h2>Goal</h2>
+<p>List every slashable offence with its evidence, and explain why nobody can be slashed by accusation.</p>
+
+<h2>The idea</h2>
+<p>A rule that accepts a <em>claim</em> needs a counter-claim game, a challenger bond and a judge. Etna's rules accept only the accused key's own signatures over conflicting messages, a signed object naming an invalid preimage, a code-size fact, or a quorum object plus an L1 timestamp. A challenger controls none of these inputs, so false accusations are impossible rather than merely unprofitable, and challengers need no bond. The offender can always report itself, so the deterrent of a rule is the debit minus the capped 10 % challenger share.</p>
+
+<h2>The classes and the catalogue</h2>
+<table>
+<tr><th>Class</th><th>Rules</th><th>Evidence</th><th>Amount</th></tr>
+<tr><td>A safety</td><td>S1 block equivocation; S3a attestation equivocation or certificate pair; S3b lock lie; S3c timeout equivocation; S8 sequencer key acquired code</td><td>two signatures by one key, or an aggregate pair, or <code>extcodesize</code></td><td>the owner's whole ledger</td></tr>
+<tr><td>B structural</td><td>S6 signed header naming an invalid certificate or view change; S7 certified data never made available</td><td>the named object's preimage that fails, or an unanswered on-chain demand</td><td>one seat per lying key</td></tr>
+<tr><td>C liveness</td><td>absence (a timeout view change carried by a landing); S4a abandonment</td><td>the view change itself; a certificate plus the hard deadline plus the outage gate</td><td>50 TAIKO burned and a strike; 2,000 TAIKO, no strike</td></tr>
+</table>
+<p>Deliberately not offences: silence (a colluding committee could manufacture it), a missed term with no takeover and no landing (fault not attributable), an invalid block that never became state.</p>
+
+<h2>Sizing the bond</h2>
+<ol>
+<li>Reverting a locked block needs 12 attester keys plus the leader, all class A: at least 13 × B. With B = 20,000 TAIKO that is 260,000 TAIKO, about 39 ETH at the assumed rate: the published credit bound for "locked".</li>
+<li>One uncertified tip block (S1): B minus the challenger cap must exceed what users act on within one second.</li>
+<li>Liveness: B ≥ 100 terms of revenue; the absence penalty small enough that entry stays profitable when half of a party's draws are griefed; abandonment larger than any lander reward per term.</li>
+<li>Sybil invariance: class A takes the whole ledger and the floor is seats × B, so splitting seats across owners changes nothing.</li>
+</ol>
+
+<h2>Self-check</h2>
+<details><summary>An attester's key is stolen. What is the worst the thief can do?</summary><p>Equivocate and self-report: the victim loses its whole ledger, the thief nets at most 2,000 TAIKO (the challenger cap).</p></details>
+<details><summary>Why does EIP-8151 matter here and how is it handled?</summary><p>It restricts <code>ecrecover</code> for accounts with code, so a sequencer could attach code to make its own equivocation unprovable. The evidence function has two branches: if the key has code, slash for that fact (S8); else recover the signatures. Attesters use BLS and never touch <code>ecrecover</code>.</p></details>
+<details><summary>What is the accounting invariant?</summary><p>The inbox's TAIKO balance equals the sum of ledger balances plus pending burn plus pending lander bonus; every credit is a same-transaction debit of another entry; nothing is minted.</p></details>
+
+<div class="box challenge"><h4>Challenge this</h4><p>Try to construct evidence that slashes an honest party under any rule in the table. For each attempt, name the input you would need and who controls it. The design's claim is that you will always need the victim's own signature or a quorum object plus an L1 fact.</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="07-deadlines.html">← 7. Deadlines and prover economics</a><span></span><a href="09-monopoly.html">9. Anti-monopoly →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>

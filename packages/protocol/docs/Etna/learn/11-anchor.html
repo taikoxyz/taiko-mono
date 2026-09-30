@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 11: anchor, bridge, migration</title>
+<meta name="description" content="What anchorV5 carries and checks, how every anchored checkpoint is bound to a canonical L1 block, why both proxies are upgraded in place, and how the cut-over and rollback work.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html" class="here">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 11: anchor, bridge and migration</h1>
+<p class="small">Prerequisite: lesson 6. Design page: <a href="../design/bridge-migration.html">Anchor, bridge, migration</a>.</p>
+
+<h2>Goal</h2>
+<p>State what the L2 Anchor checks and does not check, why the shared contracts need no change, and what a DAO must do exactly once to activate Etna.</p>
+
+<h2>The idea</h2>
+<p>The Anchor is the one contract every L2 block touches, so it is the right place to make blocks self-describing (term, view, seat, carried certificate, opening object, forced-inclusion cursor) and the wrong place to verify anything that needs fresh L1 state or committee keys. Those are verified at landing: the guest proves every anchored L1 header is real and chains to the landing's anchor tip, and the inbox checks the tip against <code>blockhash</code> or EIP-2935. The SignalService, Bridge and Vaults are not touched because both syncer addresses are proxies that are upgraded in place.</p>
+
+<h2>The rules</h2>
+<ul>
+<li><strong>A1 to A8.</strong> Golden-touch sender and fork gate; the 255-ancestor ring unchanged; checkpoint monotone and conflict-free (an equal number must match the stored record; today it is silently ignored); term binding; a view changes iff an opening object is present; forced-block constraints; three overwritten metadata slots; and the receipt rule: a reverted anchor invalidates the block.</li>
+<li><strong>Freshness.</strong> Anchored block at least 48 s and at most 30 min older than the block; monotone, not must-advance.</li>
+<li><strong>Binding.</strong> Guest: every anchored header's RLP hashes to the checkpoint's hash with the right number and state root, chained by parent hash to the tip. Inbox: the tip equals <code>blockhash(n)</code> within 256 blocks or the EIP-2935 record within 8,191. A landing older than that is refused and the range replaced.</li>
+<li><strong>Storage.</strong> Inbox slots 251-257 and Anchor slots 251-257 keep their types; additions lie inside the gaps; the Shasta proposal-hash mapping is reused as the term-record ring after the drain.</li>
+</ul>
+
+<h2>The cut-over</h2>
+<ol>
+<li>One DAO transaction at time U deploys the libraries, the verifier and the implementation and calls <code>initEtna(T0, lastFinalizedBlockNumber)</code> with T0 at least a week ahead; the same proposal bridges the Anchor upgrade; both execution clients ship the fork time.</li>
+<li>Registration opens immediately (effects future-dated). Shasta proposing stops one hour before T0; Shasta proving continues without its whitelist until every proposal is proven, or until a day after T0 when anyone may void the tail.</li>
+<li>The drain event fixes the genesis parent (the last Shasta-finalized block) and the first Etna term; no fallback is armed at that term.</li>
+<li>Rollback: one upgrade per chain back to the Shasta implementation with a verified head; landed Etna blocks are final, unlanded ones void, bridging never interrupted.</li>
+</ol>
+
+<h2>Self-check</h2>
+<details><summary>Why is a fake state root in an anchor harmless to the bridge in the end, and harmful for how long?</summary><p>The range can never land (no L1 header hashes to it), so it is replaced and the poisoned L2 record dies with it. Before that it can only be attested if 22 attesters skipped V5(d), and even then for at most about an hour; bridge withdrawals should wait for "landed".</p></details>
+<details><summary>Why not deploy a new inbox and point the SignalService at it?</summary><p>The syncer is an implementation immutable of the contract guarding all bridged value; changing it means upgrading that contract on both layers, orphaning the bond ledger and the forced-inclusion queue, and making rollback a second SignalService upgrade.</p></details>
+<details><summary>What is the expected pause at cut-over?</summary><p>About one hour (the proposing freeze) if the outgoing provers prove promptly; at most 25 hours otherwise. During it nothing can be slashed.</p></details>
+
+<div class="box challenge"><h4>Challenge this</h4><p>The migration reuses the Shasta proposal-hash mapping as a ring of term records. Find a term id whose slot could collide with an unproven Shasta proposal during the drain, and check whether the "land reverts until drained" rule closes it.</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="10-forced.html">← 10. Forced inclusion</a><span></span><a href="12-l1.html">12. The L1 environment →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>

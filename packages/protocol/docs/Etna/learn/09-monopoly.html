@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 9: anti-monopoly</title>
+<meta name="description" content="The share formula, the cost curve that is linear in share and infinite at exclusion, why owner-keyed rules cannot tax a Sybil, and what a cartel can still do.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html" class="here">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 9: anti-monopoly</h1>
+<p class="small">Prerequisite: lesson 8. Design page: <a href="../design/slashing.html">Slashing &amp; economics</a> §5.</p>
+
+<h2>Goal</h2>
+<p>Compute what a given share of sequencing costs, explain why 100 % is unreachable, and state precisely what cannot be prevented.</p>
+
+<h2>The idea</h2>
+<p>Sortition is uniform over eligible seats, so an entity with k of n seats is primary in exactly k/n of terms, however it splits its seats across addresses. Against H honest seats, share X costs <code>k = X·H / (1 − X)</code> seats; the marginal cost <code>B·H / (1 − X)²</code> grows without bound. Exclusion is impossible while one honest seat is live because a registration is a plain L1 transaction with future-dated effect and the seat array (65,535 entries) costs more than the token supply to fill.</p>
+<table>
+<tr><th>Share</th><th>Seats against 40 honest</th><th>Cost (TAIKO)</th><th>Against 200 honest</th></tr>
+<tr><td>33 %</td><td>20</td><td>400,000</td><td>2,000,000</td></tr>
+<tr><td>50 %</td><td>40</td><td>800,000</td><td>4,000,000</td></tr>
+<tr><td>90 %</td><td>360</td><td>7,200,000</td><td>36,000,000</td></tr>
+<tr><td>100 %</td><td>∞</td><td>∞</td><td>∞</td></tr>
+</table>
+
+<h2>The impossibility result</h2>
+<p>No owner-keyed rule (consecutive-term cooldown, progressive fee burn, per-owner decay) costs a Sybil-capable adversary more than the per-seat price, because the registry cannot distinguish m owners of one entity from m entities. Such rules tax only honest large operators. The design therefore prices share and does not try to bound it; the collusion tables in lesson 4 are stated as an economic assumption (no entity above about 20 % of seats).</p>
+
+<h2>What a cartel can still do</h2>
+<p>With 11 or more of a committee's 32 slots it can refuse to attest an entrant's blocks; the honest 21 then time out honestly and the entrant loses 50 TAIKO and a strike for that term. The probability of 11 or more slots at cartel seat share c is 4 %, 36 % and 79 % at c = 0.2, 0.3 and 0.4. An entrant's expected term stays profitable up to about a third; beyond that the strike ladder, not the money, is the lever (an open tuning question). The entrant's seat is never removed, and forced inclusion bounds censorship inside the cartel's own terms.</p>
+
+<h2>Self-check</h2>
+<details><summary>Why is a cap of 8 seats per address not an anti-monopoly measure?</summary><p>It bounds an address, not an entity; entities split across addresses at no cost. Its real purpose is bounding on-chain loops and one address's share of backup views.</p></details>
+<details><summary>A term auction would let the richest party buy every term. Why is that worse than sortition?</summary><p>An auction prices monopoly instead of bounding it, needs an L1 transaction per bidder per term that dies under congestion, and still needs a random fallback for an absent winner.</p></details>
+
+<div class="box challenge"><h4>Challenge this</h4><p>Propose a rule that taxes consecutive control by one entity without being bypassable by address splitting. The design claims none exists without an identity-bearing primitive; either find one or say which primitive (and its trust assumption) you would add.</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="08-slashing.html">← 8. Slashing and bonds</a><span></span><a href="10-forced.html">10. Forced inclusion →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>

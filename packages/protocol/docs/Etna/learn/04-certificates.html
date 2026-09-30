@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 4: certificates and confirmation</title>
+<meta name="description" content="The 32-seat committee, BLS attestations, certificates with lag one, and the five confirmation levels from sequenced to final.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html" class="here">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 4: certificates and confirmation levels</h1>
+<p class="small">Prerequisite: lesson 3. Design page: <a href="../design/preconf.html">Preconfirmation &amp; certificates</a> §4.</p>
+
+<h2>Goal</h2>
+<p>Know what a certificate is, how fast it forms, and exactly what each confirmation level promises a user.</p>
+
+<h2>The idea</h2>
+<p>A block the sequencer signed is only its word. A block that 22 of 32 bonded attesters have executed and signed is a fact that costs at least 12 whole bonds to contradict. Attesters sign the header hash (not just the execution hash), so the signature also commits to which certificate the block carried; that detail is what later makes the "lock lie" offence provable. The sequencer includes the newest certificate it holds in the next block (lag at most one), so the chain itself records that its ancestors were published.</p>
+
+<h2>The rules</h2>
+<ul>
+<li><strong>Committee.</strong> 32 seats per term, drawn by the seed, excluding the term's holders. Quorum Q = 22.</li>
+<li><strong>Attestation.</strong> A BLS signature over (chain, term, view, height, header hash). An attester signs a block only after V1 to V6 pass, only above its lock, one per height, and only if the block's timestamp is within 3 seconds of its own clock (a signing policy, not a validity rule).</li>
+<li><strong>Certificate C(h).</strong> Any 22 attestations aggregated into one 100-byte object with a 32-bit bitmap. Anyone can build it from gossip; the sequencer holds nothing the network does not.</li>
+<li><strong>Carried certificate.</strong> Block n includes C(n−1) if it has it, else C(n−2). A sequencer more than two blocks ahead of its newest certificate must hold.</li>
+</ul>
+<figure>
+<svg viewBox="0 0 720 100" role="img" aria-label="Within one second: header gossip, execution and attestation, certificate, next header carrying it">
+<line x1="30" y1="50" x2="700" y2="50" class="svg-line"/>
+<circle cx="30" cy="50" r="4" class="svg-ok"/><text x="10" y="35" class="svg-note">0 ms header + payload</text>
+<circle cx="230" cy="50" r="4" class="svg-ok"/><text x="180" y="75" class="svg-note">≤ 300 ms executed</text>
+<circle cx="330" cy="50" r="4" class="svg-ok"/><text x="300" y="35" class="svg-note">≈ 450 ms attested</text>
+<circle cx="500" cy="50" r="4" class="svg-ok"/><text x="450" y="75" class="svg-note">≈ 700 ms certificate</text>
+<circle cx="700" cy="50" r="4" class="svg-ok"/><text x="590" y="35" class="svg-note">1000 ms next header carries it</text>
+</svg>
+<figcaption>Design target under the gossip assumption T9 (hop ≤ 300 ms, execution ≤ 200 ms); to be measured on a 32-attester devnet.</figcaption>
+</figure>
+
+<h2>The level table</h2>
+<table>
+<tr><th>Level</th><th>When</th><th>What can revert it</th></tr>
+<tr><td>sequenced</td><td>≈ 0.3 s: signed, executes locally</td><td>anything; only a <em>conflicting</em> signature is slashable</td></tr>
+<tr><td>attested</td><td>≈ 0.7 to 1.0 s: C(n) exists</td><td>a view change formed without seeing C(n) (a gossip-delay violation), or an L1 reorg; never a minority</td></tr>
+<tr><td>locked</td><td>≈ 1.7 to 2.0 s: a certified block carries C(n)</td><td>only ≥ 12 attesters each provably slashable, a replacement after the deadline machinery, or an L1 reorg</td></tr>
+<tr><td>landed</td><td>minutes: covered by a landing with a ZK proof</td><td>an L1 reorg</td></tr>
+<tr><td>final</td><td>the landing is L1-finalized (≈ 15 min at 12-second slots)</td><td>nothing</td></tr>
+</table>
+
+<h2>Self-check</h2>
+<details><summary>Why sign the header hash rather than the execution hash?</summary><p>The header hash commits to the carried certificate. An attester that later signs a lock below a certificate it had verified can be slashed objectively (S3b); with execution hashes alone that lie would be unprovable.</p></details>
+<details><summary>Why is the quorum 22 and not 17?</summary><p>Two certificates or view changes over one (term, view) then share at least 2·22 − 32 = 12 signers, each fully slashable. With a bare majority the overlap could be two keys, and reverting a locked block would cost two bonds.</p></details>
+<details><summary>What does "locked" cost to revert in TAIKO at the initial parameters?</summary><p>At least 12 seats of 20,000 TAIKO, 240,000 TAIKO, plus the leader's bond for a certificate pair: the published credit bound wallets can use.</p></details>
+
+<div class="box challenge"><h4>Challenge this</h4><p>Ten percent of attesters are offline. Compute the probability that a term's committee cannot reach 22 signatures (binomial, 32 seats, 11 or more offline) and compare it with the design's 1.7·10<sup>−4</sup>. Then argue whether Q = 22 or Q = 24 is the better trade at 20 % offline.</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="03-blocks.html">← 3. Blocks and validity</a><span></span><a href="05-takeover.html">5. Silence, takeover, withholding →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>

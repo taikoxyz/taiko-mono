@@ -3,11 +3,89 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Etna: pending</title>
-<style>body{font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem;color:#222;background:#fff}</style>
+<title>Learn Etna</title>
+<meta name="description" content="A progressive learning path through the Etna design: one lesson per building block, a dependency map, self-checks and challenge boxes, ending in a final assembly module.">
+<link rel="stylesheet" href="etna.css">
 </head>
 <body>
-<h1>Etna: pending</h1>
-<p>This page is produced by a later phase of the Etna research. It will be replaced when that phase completes. See the phase checklist in <a href="../README.md">README.md</a>.</p>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html" class="here">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Learn Etna, one building block at a time</h1>
+<p class="lead">Etna is a proposed fully permissionless successor to Taiko's based rollup. This site teaches it the way it was designed: as thirteen building blocks, each depending on a few earlier ones, ending with a module in which you assemble the whole protocol yourself. Every lesson ends with self-check questions (answers hidden until you want them) and a <em>challenge this</em> box that tells you where the design is most attackable and invites you to try.</p>
+
+<h2 id="who">Who this is for</h2>
+<p>Engineers, auditors and researchers who know what a rollup is and can read a Solidity signature. No knowledge of Taiko's current code is assumed; lesson 0 gives the minimum. If you already know the current protocol, start at lesson 1.</p>
+
+<h2 id="map">Dependency map</h2>
+<figure>
+<svg viewBox="0 0 720 300" role="img" aria-label="Dependency map of the thirteen lessons: 0 start; 1 time; 2 seats; 3 blocks; 4 certificates; 5 takeover; 6 landing; 7 deadlines; 8 slashing; 9 monopoly; 10 forced inclusion; 11 anchor and migration; 12 L1 environment; 13 assembly depends on everything">
+<g class="svg-note">
+<rect x="10" y="20" width="90" height="30" class="svg-box-accent"/><text x="18" y="40">0 start</text>
+<rect x="120" y="20" width="90" height="30" class="svg-box"/><text x="128" y="40">1 time</text>
+<rect x="230" y="20" width="90" height="30" class="svg-box"/><text x="238" y="40">2 seats</text>
+<rect x="340" y="20" width="90" height="30" class="svg-box"/><text x="348" y="40">3 blocks</text>
+<rect x="450" y="20" width="110" height="30" class="svg-box"/><text x="458" y="40">4 certificates</text>
+<rect x="580" y="20" width="110" height="30" class="svg-box"/><text x="588" y="40">5 takeover</text>
+<rect x="450" y="90" width="110" height="30" class="svg-box"/><text x="458" y="110">6 landing</text>
+<rect x="580" y="90" width="110" height="30" class="svg-box"/><text x="588" y="110">7 deadlines</text>
+<rect x="580" y="160" width="110" height="30" class="svg-box"/><text x="588" y="180">8 slashing</text>
+<rect x="580" y="230" width="110" height="30" class="svg-box"/><text x="588" y="250">9 monopoly</text>
+<rect x="340" y="160" width="110" height="30" class="svg-box"/><text x="348" y="180">10 forced incl.</text>
+<rect x="200" y="160" width="120" height="30" class="svg-box"/><text x="208" y="180">11 anchor, migr.</text>
+<rect x="60" y="160" width="120" height="30" class="svg-box"/><text x="68" y="180">12 L1 environment</text>
+<rect x="60" y="230" width="460" height="30" class="svg-box-accent"/><text x="68" y="250">13 final assembly (depends on every lesson)</text>
+</g>
+<g class="svg-line-accent">
+<line x1="100" y1="35" x2="120" y2="35"/><line x1="210" y1="35" x2="230" y2="35"/><line x1="320" y1="35" x2="340" y2="35"/><line x1="430" y1="35" x2="450" y2="35"/><line x1="560" y1="35" x2="580" y2="35"/>
+<line x1="505" y1="50" x2="505" y2="90"/><line x1="560" y1="105" x2="580" y2="105"/><line x1="635" y1="120" x2="635" y2="160"/><line x1="635" y1="190" x2="635" y2="230"/>
+<line x1="450" y1="105" x2="395" y2="160"/><line x1="450" y1="105" x2="260" y2="160"/><line x1="450" y1="105" x2="120" y2="160"/>
+<line x1="580" y1="175" x2="635" y2="160"/>
+</g>
+<line x1="635" y1="50" x2="635" y2="160" class="svg-line-muted"/>
+</svg>
+<figcaption>Read left to right along the top row, then down. Lessons 10 to 12 need only lesson 6 (plus lesson 3 for forced inclusion). Lesson 8 needs lessons 5 and 7.</figcaption>
+</figure>
+
+<h2 id="lessons">Lessons</h2>
+<ol start="0">
+<li><a href="index.html#start">Start here</a> (below): the current protocol in a page, and the seven requirements.</li>
+<li><a href="01-time.html">Time without slots</a>: terms, cycles, the snapshot, future-dated writes.</li>
+<li><a href="02-seats.html">Seats and sortition</a>: registry, seed, hash walk, views, dead mode.</li>
+<li><a href="03-blocks.html">Blocks and validity</a>: the signed header, V1 to V6, the anchor.</li>
+<li><a href="04-certificates.html">Certificates and confirmation</a>: committee, attestations, lag, the level table.</li>
+<li><a href="05-takeover.html">Silence, takeover, withholding</a>: timeouts, view changes, why withheld blocks are worthless.</li>
+<li><a href="06-landing.html">Landing with a proof</a>: canonical blobs, the check list, the journal, the checkpoint.</li>
+<li><a href="07-deadlines.html">Deadlines and prover economics</a>: the ramp, replacement, abandonment, verifier degradation.</li>
+<li><a href="08-slashing.html">Slashing and bonds</a>: offence classes, evidence, payouts, sizing.</li>
+<li><a href="09-monopoly.html">Anti-monopoly</a>: the cost curve and the impossibility result.</li>
+<li><a href="10-forced.html">Forced inclusion</a>: the anchored clock, placement, the forced batch.</li>
+<li><a href="11-anchor.html">Anchor, bridge, migration</a>: anchorV5, the checkpoint binding, the in-place upgrade.</li>
+<li><a href="12-l1.html">The L1 environment</a>: dependencies, slot times, Frame Transactions.</li>
+<li><a href="13-assembly.html">Final assembly</a>: build the protocol from the blocks; walk six scenarios; the cross-module quiz.</li>
+</ol>
+
+<h2 id="start">Lesson 0: start here</h2>
+<h3>The current protocol in a page</h3>
+<p>Taiko is a <strong>based rollup</strong>: L1 Ethereum orders its batches, and validity proofs (ZK) finalize its state. Today three contracts matter. The <strong>Inbox</strong> on L1 accepts <code>propose</code> (blob pointers, one per L1 block) from a whitelisted operator chosen per 384-second epoch, and <code>prove</code> (an aggregated proof, hours later) from a whitelisted prover; <code>prove</code> writes a <em>checkpoint</em> of the L2 state into the L1 <strong>SignalService</strong>, which the Bridge uses to verify messages. The <strong>Anchor</strong> on L2 opens every L2 block with a system transaction carrying an L1 checkpoint into the L2 SignalService. Between propose and prove, users see <em>preconfirmations</em>: blocks the operator signs and gossips every second or two, with no bond behind them and no relation to what L1 will eventually say.</p>
+<p>Three things go wrong. Whitelists make liveness depend on admins. Preconfirmations are unaccountable: an operator can withhold blocks, land different ones, and reorg everyone at handoff. And every timing rule assumes 12-second slots and 32-slot epochs. The June 2026 incident, in which forged TEE proofs finalized a false state, added a fourth: only ZK may finalize.</p>
+<h3>The seven requirements</h3>
+<table>
+<tr><th>Req.</th><th>In one line</th><th>Lesson that carries it</th></tr>
+<tr><td>R1</td><td>100 % permissionless: the DAO only upgrades code.</td><td>2, 8, 11</td></tr>
+<tr><td>R2</td><td>Reuse the SignalService, Bridge and Vault addresses.</td><td>11</td></tr>
+<tr><td>R3</td><td>A richer set of roles, each with entry, exit, duties, rewards, slashing.</td><td>2, 4, 7, 8</td></tr>
+<tr><td>R4</td><td>1-second preconfirmed blocks, decoupled from L1.</td><td>3, 4</td></tr>
+<tr><td>R5</td><td>No lookahead, no slots, no epochs; works at 12, 6, 4 and 2-second slots.</td><td>1, 12</td></tr>
+<tr><td>R6</td><td>Objective, permissionless slashing with evidence formats; concrete anti-monopoly.</td><td>8, 9</td></tr>
+<tr><td>R7</td><td>Propose with proof in one L1 action, minute-level, DA explicit.</td><td>6, 7</td></tr>
+</table>
+<h3>Self-check</h3>
+<details><summary>Why is "L1 wins" a problem for preconfirmation users today?</summary><p>Because the block that lands on L1 may differ from the one the user saw preconfirmed, and nothing on L1 references the gossiped block, so the operator can replace it at no cost.</p></details>
+<details><summary>Which contract address must Etna keep, and why is that hard?</summary><p>The SignalService's authorized syncer is an implementation immutable equal to the Inbox proxy on L1 and the Anchor proxy on L2. Whatever lands batches must keep those proxy addresses, or the SignalService implementation must be bumped.</p></details>
+<div class="box challenge"><h4>Challenge this</h4><p>The brief treats the whitelist as the root problem. Argue the opposite: that a whitelist with a bond and objective removal would satisfy R1's intent. Then check which of R1's words ("no whitelist, no admin in operation") your argument violates. Keep the answer; lesson 2 explains why the design chose bonded seats over a bonded roster.</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><span></span><a href="01-time.html">1. Time without slots →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
 </body>
 </html>

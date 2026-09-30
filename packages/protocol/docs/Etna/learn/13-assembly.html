@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 13: final assembly</title>
+<meta name="description" content="Assemble the whole protocol from the twelve building blocks, walk six end-to-end scenarios, restate the safety and liveness arguments, and take the cross-module quiz.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html" class="here">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 13: final assembly</h1>
+<p class="small">Prerequisites: every lesson. Design page: <a href="../design/arguments.html">Liveness &amp; safety</a>.</p>
+
+<h2>Goal</h2>
+<p>Build the protocol from its blocks in your head, run six scenarios through it, and check that you can reproduce the two arguments that hold it together.</p>
+
+<h2>Assembly</h2>
+<ol>
+<li><strong>Time</strong> (lesson 1) gives every block a term and every term an L1 snapshot.</li>
+<li><strong>Seats</strong> (lesson 2) turn the snapshot and a seed into holders, backups and a committee.</li>
+<li><strong>Blocks</strong> (lesson 3) are signed, self-describing and locally checkable.</li>
+<li><strong>Certificates</strong> (lesson 4) turn a block into a bonded fact within a second and a locked fact within two.</li>
+<li><strong>View changes</strong> (lesson 5) answer silence, seal batches, and make withheld blocks worthless.</li>
+<li><strong>Landing</strong> (lesson 6) carries a certified prefix and a proof to L1 and writes the checkpoint.</li>
+<li><strong>Economics and replacement</strong> (lesson 7) keep landings coming without a prover role and never void by clock.</li>
+<li><strong>Slashing</strong> (lesson 8) makes every harmful deviation impossible, worthless or provable.</li>
+<li><strong>Anti-monopoly</strong> (lesson 9) prices share and makes exclusion impossible.</li>
+<li><strong>Forced inclusion</strong> (lesson 10) bounds censorship against everyone.</li>
+<li><strong>Anchor and migration</strong> (lesson 11) bind L2 to true L1 state and reuse the shared contracts.</li>
+<li><strong>L1 environment</strong> (lesson 12) is tolerated at every slot time and used only optionally.</li>
+</ol>
+
+<h2>Six scenarios</h2>
+<table>
+<tr><th>Scenario</th><th>Walk it</th><th>Expected outcome</th></tr>
+<tr><td>Happy term</td><td>holder(t, 0) signs 60 blocks; certificates at ~0.7 s; landings every 20 s; checkpoint written</td><td>landed within 2 to 3 min of each block; L1-safe one L1 block later</td></tr>
+<tr><td>Holder dies at second 20</td><td>timeouts at 25 s; VC at lock 19; view 1 extends block 19; the landing of view 0 carries no penalty, the landing of view 1 carries the VC and the 50-TAIKO absence penalty</td><td>≈ 6 s gap; no user block reverted</td></tr>
+<tr><td>Withholding ambush at term end</td><td>A withholds h+1..h+m; TERM_END VC at lock h recorded within seconds; B builds on h</td><td>A's blocks orphaned; landing them needs 12 double-signers</td></tr>
+<tr><td>All provers dead for 3 hours</td><td>ramp reaches 4 TAIKO per block; no landing; outage gate closed; after 2 h single-proof mode arms; backlog lands when proving returns</td><td>nothing voided, nobody slashed</td></tr>
+<tr><td>Forced inclusion under a censoring quorum</td><td>due at +5 min; stale anchors for 30 min; deadline landings; first term that must include it lands by +102 min or a forced batch lands</td><td>included within 102 min plus proving</td></tr>
+<tr><td>Every registered party vanishes</td><td>terms open-empty; 75 unlanded terms; dead mode; one bonded party sequences from the last landed block and lands with two proofs</td><td>liveness within about 75 min plus proving, no DAO</td></tr>
+</table>
+
+<h2>The two arguments, in your words</h2>
+<details><summary>Safety: why is no false state root ever finalized?</summary><p>A landing writes a checkpoint only after two distinct ZK systems accept a journal whose parent root comes from storage, whose blob hashes come from <code>blobhash</code>, whose anchor tip is checked against L1 history, and whose end hash is bound by a 22-of-32 certificate verified on L1. A false root needs two unsound systems, or one plus a colluding quorum after two hours of stalled landing. Reverting a locked block needs 12 provably slashable attesters.</p></details>
+<details><summary>Liveness: why does the chain keep producing and landing blocks?</summary><p>Silence is answered in 5 s by a view change, a dead term by the next term, a dead committee by the next committee's fallback in 12 s, dead provers by a reward ramp that pays anyone with the data, and a vanished registry by dead mode after 75 terms. No rung needs the DAO or a node's clock alone; each is triggered by signed objects or L1 state.</p></details>
+
+<h2>Cross-module quiz</h2>
+<details><summary>1. Which single object is both the takeover mechanism and the batch seal, and why is that one object rather than two?</summary><p>The view change. A separate sequencer-signed seal would be a second withholdable object; the committee's lock already says where the batch ends.</p></details>
+<details><summary>2. Name every rule that reads a node's wall clock, and its consequence when the clock is wrong.</summary><p>The attester's timeout-signing condition and its 3-second staleness policy. A wrong clock signs late or early; validity and the switch decision (a signed VC) are unaffected.</p></details>
+<details><summary>3. What are the three ways a certified block can be reverted, and their costs?</summary><p>A view change formed without seeing its certificate (a gossip-delay violation, cost 0, at most an attested block, never a locked one); a landed replacement after the deadline machinery (an outage plus a working proof; the holder pays 2,000 TAIKO if the outage gate is open); an L1 reorg (outside T1).</p></details>
+<details><summary>4. Why is the forced-inclusion clock the anchored L1 time and not the landing time?</summary><p>A proof is computed minutes before landing; an entry becoming due in between would let any third party make the proven landing revert. Anchored time is fixed when the block is built and hash-pinned.</p></details>
+<details><summary>5. Which contract addresses change at activation?</summary><p>None. The Inbox and Anchor proxies get new implementations; the SignalService, Bridge and Vaults on both layers are untouched; new linked libraries and a verifier are deployed but nothing points at them except the new implementations.</p></details>
+<details><summary>6. What does the DAO control after activation, and what happens if it never acts again?</summary><p>Upgrades, image-id rotation with an overlap, constants by upgrade, and the Anchor's 25 % share. If it never acts: image windows stay open-ended, single-proof mode and replacement keep the chain moving unless every ZK system is broken, parameters freeze.</p></details>
+<details><summary>7. Give the three bins of the accountability argument with one example each.</summary><p>Impossible (landing uncertified data), worthless (withholding), slashable (equivocation). No rule accepts an unsigned claim.</p></details>
+<details><summary>8. Which limitation would you attack first as a red-teamer, and why?</summary><p>Any answer with a trace is right; the design's own list is on the <a href="../design/limitations.html">limitations page</a>. The iteration reports record what the red team actually found.</p></details>
+
+<div class="box challenge"><h4>Challenge this: the whole design</h4><p>Pick one of the six scenarios and change one assumption (a slower gossip layer, a 2-second L1 slot, a 40 % cartel, no Frame Transactions). Re-run the scenario and write down the first rule that no longer holds. Compare with the iteration log; if your finding is not there, it is new.</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="12-l1.html">← 12. The L1 environment</a><span></span></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>

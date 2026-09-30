@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 12: the L1 environment</title>
+<meta name="description" content="Which L1 features Etna needs, which it tolerates, how every rule behaves at 12, 6, 4 and 2-second slots, and what Frame Transactions add and what their absence costs.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html" class="here">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 12: the L1 environment</h1>
+<p class="small">Prerequisite: lesson 6. Design pages: <a href="../design/l1-dependencies.html">L1 dependencies</a>, <a href="../design/frame-transactions.html">Frame transactions</a>.</p>
+
+<h2>Goal</h2>
+<p>Know which upcoming L1 changes matter, which do not, and how to check any Etna rule against a change of slot time.</p>
+
+<h2>The idea</h2>
+<p>Nothing in Glamsterdam or Hegotá is a hard dependency. Etna needs only what is live today: blobs with <code>blobhash</code>, the transaction gas cap as a constraint, <code>ecrecover</code> and the BLS precompiles, <code>block.timestamp</code>, <code>prevrandao</code>, and <code>blockhash</code> with EIP-2935. It must <em>tolerate</em> ePBS (payloads canonical one slot later, Empty slots), state-gas repricing (97,920 gas per fresh slot), and shorter slots. It may <em>use</em> Frame Transactions for zero-cost races and FOCIL for calldata legs.</p>
+
+<h2>The slot-time test</h2>
+<p>Every Etna constant is in seconds, TAIKO, wei, gas or a count. To check a rule at a new slot time, ask: does it count L1 blocks? Only three do, and all are L1-given: <code>blockhash</code> (256 blocks), EIP-2935 (8,191 blocks) and the attester's anchor-lag policy (20 blocks, 40 s to 4 min). Windows in seconds cover <em>more</em> blocks as slots shrink, so finality margins grow; windows in blocks shrink in wall time, so the design keeps its worst-case anchor age (about 96 minutes) under the 2935 window at 2-second slots (4.55 hours). Blob capacity per second is roughly constant, so batch sizes are per second; gas per block shrinks, so a landing stays under 10 M gas.</p>
+
+<h2>Frame Transactions in two shapes</h2>
+<ul>
+<li><strong>Direct to builder:</strong> the lander's own nonce with an expiry frame in front and a status-VERIFY frame behind. Any revert makes the whole transaction invalid: no gas, no blob fee. This is the primary landing path and needs no builder trust for safety.</li>
+<li><strong>Public mempool:</strong> a shared gate contract whose nonce is the lock; of all transactions sharing one nonce at most one can ever be included and the rest are invalid and free. It is the only censorship-resistant race that propagates through the public mempool, and it is deployed only once the EIP is Final because its pins (frame count, selector, expiry address) are still moving.</li>
+<li><strong>Without EIP-8141:</strong> plain transactions with a deadline field; a losing lander pays about 25k gas plus one blob fee; nothing else changes.</li>
+</ul>
+
+<h2>Self-check</h2>
+<details><summary>Why does Etna never read the EIP-4788 beacon root?</summary><p>Reading it "at time T" means probing by slot timestamp (R5), it has gaps at ePBS Empty slots, and its window is 4.5 hours at 2-second slots. The prevrandao accumulator gives the same entropy without any of that.</p></details>
+<details><summary>What is the one property Frame Transactions do not give?</summary><p>That the L2 slot is used. They fix who pays for a lost race, never whether a landing happens; an ePBS builder can still reveal an invalid payload.</p></details>
+<details><summary>At 2-second slots, why does the inbox use the EIP-2935 path for almost every landing?</summary><p><code>blockhash</code> then covers only 8.5 minutes, less than the happy-path landing latency after a 48-second anchor age plus proving.</p></details>
+
+<div class="box challenge"><h4>Challenge this</h4><p>Pick any parameter on the <a href="../design/parameters.html">parameters page</a> and try to break it at 2-second slots with ePBS Empty slots. The design claims every one survives; find the weakest.</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="11-anchor.html">← 11. Anchor, bridge, migration</a><span></span><a href="13-assembly.html">13. Final assembly →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>

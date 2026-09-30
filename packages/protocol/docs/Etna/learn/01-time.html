@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 1: time without slots</title>
+<meta name="description" content="Terms, cycles, the snapshot rule and future-dated registry writes: how Etna keeps every consensus decision a function of L1 data without any slot or epoch.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html" class="here">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 1: time without slots</h1>
+<p class="small">Prerequisite: lesson 0. Design page: <a href="../design/sequencing.html">Sequencing rights</a> §1 to §3.</p>
+
+<h2>Goal</h2>
+<p>Understand the four time rules everything else rests on: terms, cycles, the snapshot, and future-dated effect. After this lesson you can answer "which L1 state decides who sequences at time t, and why do all nodes agree?"</p>
+
+<h2>The idea</h2>
+<p>Ethereum's slots and epochs are consensus-layer concepts that change length across forks and are invisible to contracts except through the beacon-root precompile. Etna uses only two clocks a contract can read: <code>block.timestamp</code> (seconds) and <code>block.number</code> (L1 blocks). It cuts wall time into <strong>terms</strong> of 60 seconds on a grid anchored at the activation timestamp T0. A term's holder is computed from L1 state that is already old enough to be final, so it never changes under a reorg, and every registry change is dated far enough into the future that the "old" state and the "current" state give the same answer.</p>
+
+<h2>The rules</h2>
+<ol>
+<li><strong>Term.</strong> <code>termOf(τ) = (τ − T0) / 60</code>; <code>termStart(t) = T0 + 60t</code>. The grid's phase relative to L1 slots is irrelevant.</li>
+<li><strong>Cycle.</strong> 60 terms (one hour). One randomness seed is fixed per cycle.</li>
+<li><strong>Snapshot S(t).</strong> The highest L1 block with <code>timestamp ≤ termStart(t) − LOOKBACK</code>, LOOKBACK = 1,200 s. At term start the inputs are 20 minutes old, beyond L1 finality at 12-second slots (12.8 min) and by a wider margin at shorter slots.</li>
+<li><strong>Rule D (future-dated effect).</strong> A registry write executed at L1 time τ changes eligibility only for evaluation instants <code>T ≥ τ + DELAY</code>, with every DELAY ≥ LOOKBACK + 2·TERM = 1,320 s. A term evaluates eligibility at the single instant <code>termStart(t)</code>.</li>
+</ol>
+<figure>
+<svg viewBox="0 0 720 120" role="img" aria-label="A write after the snapshot takes effect after the term ends">
+<line x1="20" y1="60" x2="700" y2="60" class="svg-line"/>
+<line x1="200" y1="45" x2="200" y2="75" class="svg-line-muted"/><text x="150" y="38" class="svg-note">S(t) = start − 20 min</text>
+<line x1="420" y1="45" x2="420" y2="75" class="svg-line-accent"/><text x="380" y="38" class="svg-note">termStart(t)</text>
+<line x1="480" y1="45" x2="480" y2="75" class="svg-line-accent"/><text x="470" y="38" class="svg-note">end</text>
+<circle cx="260" cy="60" r="5" class="svg-bad"/><text x="230" y="95" class="svg-muted">write at τ &gt; S(t)</text>
+<line x1="260" y1="60" x2="560" y2="60" class="svg-line-muted"/><circle cx="560" cy="60" r="5" class="svg-ok"/><text x="520" y="95" class="svg-muted">effective τ + 22 min &gt; end</text>
+</svg>
+<figcaption>Why the snapshot and the landing-time state agree: any write the snapshot missed takes effect after the term is over.</figcaption>
+</figure>
+
+<h2>Why it works</h2>
+<p>Take a write in a block after S(t). Its timestamp τ exceeds termStart(t) − LOOKBACK, so τ + DELAY ≥ τ + LOOKBACK + 2·TERM &gt; termStart(t) + TERM. It cannot touch term t. A node replaying events up to S(t) and the inbox reading current storage at landing therefore evaluate term t on the same inputs. No history is stored and no proofs are needed. This is the design's claim 2 on the sequencing page, tagged proven.</p>
+
+<h2>Self-check</h2>
+<details><summary>A registrant sends <code>register</code> at 10:00:00. Its seat is eligible from what time, and which is the first term that can draw it?</summary><p>DELAY_REG is 7,200 s, so eligibility starts at 12:00:00; the first term whose start is at or after 12:00:00 can draw it.</p></details>
+<details><summary>L1 reorgs 5 blocks deep at 12-second slots. Does any term's holder change?</summary><p>No. Every input to a term is at least 1,200 s (100 blocks) old at its start. Only a reorg deeper than 20 minutes could change an assignment, which is outside the assumption T1.</p></details>
+<details><summary>Why is a suspension delayed by 1,320 s rather than applied immediately?</summary><p>An immediate suspension would change who holds a term that nodes have already computed from S(t). The 1,320-s delay is the smallest that keeps the snapshot and the live state identical for every term.</p></details>
+
+<div class="box challenge"><h4>Challenge this</h4><p>Rule D makes every penalty bite 22 minutes late. Find a scenario where a misbehaving holder exploits those 22 minutes, and cost it. Then check lesson 5: withheld blocks are worthless within 5 seconds regardless of eligibility, so what exactly does the delay let an attacker keep?</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="index.html">← Start here</a><span></span><a href="02-seats.html">2. Seats and sortition →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>

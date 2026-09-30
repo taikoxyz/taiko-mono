@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etna lesson 3: blocks and validity</title>
+<meta name="description" content="The signed header, the six local validity rules, the anchor transaction, and why every honest node reaches the same verdict without a clock.">
+<link rel="stylesheet" href="etna.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Etna: learn</span><nav><a href="index.html">Start here</a><a href="01-time.html">1. Time without slots</a><a href="02-seats.html">2. Seats and sortition</a><a href="03-blocks.html" class="here">3. Blocks and validity</a><a href="04-certificates.html">4. Certificates and confirmation</a><a href="05-takeover.html">5. Silence, takeover, withholding</a><a href="06-landing.html">6. Landing with a proof</a><a href="07-deadlines.html">7. Deadlines and prover economics</a><a href="08-slashing.html">8. Slashing and bonds</a><a href="09-monopoly.html">9. Anti-monopoly</a><a href="10-forced.html">10. Forced inclusion</a><a href="11-anchor.html">11. Anchor, bridge, migration</a><a href="12-l1.html">12. The L1 environment</a><a href="13-assembly.html">13. Final assembly</a></nav></div></header>
+<main class="wrap">
+<h1>Lesson 3: blocks and validity</h1>
+<p class="small">Prerequisite: lesson 2. Design pages: <a href="../design/preconf.html">Preconfirmation &amp; certificates</a> §1 to §3, <a href="../design/bridge-migration.html">Anchor</a> §1.</p>
+
+<h2>Goal</h2>
+<p>Be able to decide, as a node, whether a received 1-second block is valid, using only signed objects and L1 data at least 48 seconds old.</p>
+
+<h2>The idea</h2>
+<p>Today a node rebuilds the block from attributes and never checks that its result matches what the sequencer signed. Etna makes the block self-describing and the check exact. The sequencer signs a <strong>header</strong> that names the term, the view, the block's execution hash, the hash of the compressed transaction bytes, the certificate it carries and the view change that opened its view. The same fields are the calldata of the block's first transaction, <code>anchorV5</code>, so they sit inside the execution hash and a ZK guest can rebuild the header from blob data alone.</p>
+
+<h2>The rules (V1 to V6)</h2>
+<table>
+<tr><th>Rule</th><th>Check</th><th>What it reads</th></tr>
+<tr><td>V1 signer</td><td>the header's signature recovers to <code>holder(term, view)</code></td><td>a signed object and 20-minute-old L1 state</td></tr>
+<tr><td>V2 view entry</td><td>timestamp inside the term; the first block of a view carries the view change that opened it and builds on that view change's lock</td><td>signed objects</td></tr>
+<tr><td>V3 parent and carried certificate</td><td>the parent was accepted in this view; the carried certificate is for the parent or grandparent and verifies against the committee</td><td>signed objects</td></tr>
+<tr><td>V4 time</td><td>timestamp ≥ parent + 1 and &lt; term end</td><td>the header only: no wall clock, no L1 landing time</td></tr>
+<tr><td>V5 anchor</td><td>first transaction is <code>anchorV5</code>; its L1 block is at least 48 s and at most 30 min older than the block, monotone from the parent, and equals the node's own L1 header; if the anchor advanced, every due forced inclusion is included</td><td>L1 blocks at least 48 s old; a node lacking the block holds it as <em>pending</em>, never invalid</td></tr>
+<tr><td>V6 execution</td><td>the received payload, submitted unchanged to the engine, is VALID and its hash equals the signed hash; the anchor's receipt status is 1</td><td>deterministic execution</td></tr>
+</table>
+<p>Failure is silence: the block is dropped and its signature kept as possible equivocation evidence. Two <em>pending</em> states (unknown parent, L1 block not yet seen) are held and re-evaluated. There is no V7 at the node: the guarantee that what lands is what was certified comes from the landing (lesson 6).</p>
+
+<h2>Why the anchor age matters</h2>
+<p>Under ePBS an L1 payload is canonical in practice one slot after it was revealed. If a block could anchor the newest L1 block, honest nodes with slightly different L1 views would disagree on V5. Requiring the anchored block to be at least 48 seconds old (2.5 times the canonical-at-N+1 latency at 12-second slots, 24 slots at 2-second slots) makes every honest view agree, and expressing disagreement as <em>pending</em> instead of <em>invalid</em> means a lagging node never rejects a good block.</p>
+
+<h2>Self-check</h2>
+<details><summary>Why does V4 have no upper bound tied to when the block lands on L1?</summary><p>Today's upper bound (the landing time) is what makes a preconfirmed block retroactively invalid when its proposal lands late. Etna bounds timestamps by the term instead, which every node knows in advance.</p></details>
+<details><summary>A node's wall clock is 40 seconds fast. Does it reject valid blocks?</summary><p>No. No validity rule reads the wall clock. Its clock only affects when it would sign a timeout as an attester (lesson 5), and even that is a signing policy, not a validity rule.</p></details>
+<details><summary>What happens to a block whose anchor transaction reverts?</summary><p>It is invalid (V6 requires receipt status 1). Today such a block is valid but silently lacks its checkpoint.</p></details>
+
+<div class="box challenge"><h4>Challenge this</h4><p>V5 lets a sequencer anchor an L1 block up to 30 minutes old. What can a sequencer gain by anchoring as stale as allowed, and which rule bounds the harm? (Hint: lesson 10, the attester anchor-lag policy, and the 102-minute bound.)</p></div>
+
+<p class="small" style="display:flex;justify-content:space-between;margin-top:2.5rem"><a href="02-seats.html">← 2. Seats and sortition</a><span></span><a href="04-certificates.html">4. Certificates and confirmation →</a></p>
+</main>
+<footer class="wrap">Etna learning site. Each lesson is one building block; the <a href="index.html">dependency map</a> says what to read first. The full design is at <a href="../design/index.html">design/</a>; the research documents are in the <a href="../README.md">repository</a>.</footer>
+</body>
+</html>
