@@ -92,6 +92,9 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
+	if err := d.rpc.CheckEtnaSchedule(d.ctx); err != nil {
+		return fmt.Errorf("failed to verify the Etna fork schedule: %w", err)
+	}
 
 	if d.state, err = state.New(d.ctx, d.rpc); err != nil {
 		return fmt.Errorf("failed to create driver state: %w", err)

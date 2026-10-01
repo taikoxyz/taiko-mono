@@ -85,6 +85,9 @@ func (p *Proposer) InitFromConfig(
 	if p.rpc, err = rpc.NewClient(p.ctx, cfg.ClientConfig); err != nil {
 		return fmt.Errorf("initialize rpc clients error: %w", err)
 	}
+	if err := p.rpc.CheckEtnaSchedule(p.ctx); err != nil {
+		return fmt.Errorf("failed to verify the Etna fork schedule: %w", err)
+	}
 
 	// Protocol configs
 	if p.protocolConfigs, err = p.rpc.GetProtocolConfigs(&bind.CallOpts{Context: p.ctx}); err != nil {

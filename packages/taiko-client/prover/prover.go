@@ -109,6 +109,9 @@ func InitFromConfig(
 	}); err != nil {
 		return err
 	}
+	if err := p.rpc.CheckEtnaSchedule(p.ctx); err != nil {
+		return fmt.Errorf("failed to verify the Etna fork schedule: %w", err)
+	}
 
 	// Configs
 	p.protocolConfigs, err = p.rpc.GetProtocolConfigs(&bind.CallOpts{Context: p.ctx})
