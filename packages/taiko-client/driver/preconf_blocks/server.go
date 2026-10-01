@@ -957,6 +957,9 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if payload.Timestamp == 0 {
 		return errors.New("non-zero timestamp is required")
 	}
+	if err := preconf.CheckNotEtna(s.rpc.L2.ChainID, uint64(payload.Timestamp)); err != nil {
+		return err
+	}
 	if payload.FeeRecipient == (common.Address{}) {
 		return errors.New("empty L2 fee recipient")
 	}

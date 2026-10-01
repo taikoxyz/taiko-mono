@@ -107,6 +107,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	if reqBody.ExecutableData == nil {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
 	}
+	if err := preconf.CheckNotEtna(s.rpc.L2.ChainID, reqBody.ExecutableData.Timestamp); err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
 
 	parent, err := s.rpc.L2.BlockByHash(ctx, reqBody.ExecutableData.ParentHash)
 	if err != nil {

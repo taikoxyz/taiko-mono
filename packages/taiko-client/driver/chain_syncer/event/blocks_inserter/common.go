@@ -727,6 +727,10 @@ func InsertPreconfBlockFromEnvelope(
 		"signature", common.Bytes2Hex(signature[:]),
 	)
 
+	if err := preconf.CheckNotEtna(cli.L2.ChainID, uint64(envelope.Payload.Timestamp)); err != nil {
+		return nil, err
+	}
+
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := cli.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
