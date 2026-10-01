@@ -9,12 +9,12 @@ Status: open, in progress, review, done. Updated by the arbiter only.
 | # | Owner | Task | Deliverable | Status |
 |---|---|---|---|---|
 | W1 | B | Revise C1 per A's verdict on #22195 (six blocking items, four non-blocking), then ping A and J on the PR. | #22195 updated | open |
-| W2 | J | Re-check the restated decomposition rows at `b311d1d` (D10): does the stall revision close R6H-1; do A's anchor-free rules match B's C1 draft. Post on #22191. | comment on #22191 | open |
-| W3 | J | Review #22195 (C1) as the third voice: blocking only for a Critical or High finding. | comment on #22195 | open |
+| W2 | J | Re-check the restated decomposition rows at `b311d1d` (D10): does the stall revision close R6H-1; do A's anchor-free rules match B's C1 draft. Post on #22191. | comment on #22191 | done: D10 discharged, DL-2 resolved to A's stall revision as the C3 base (D12) |
+| W3 | J | Review #22195 (C1) as the third voice: blocking only for a Critical or High finding. | comment on #22195 | open: J reports it posted; not visible on the PR at 12:10 UTC |
 | W4 | A | Draft C2 (landing) and S2 (certificates and handoff), verified, as two PRs against the branch. | two PRs | review: C2 and S2 opened, B's verdict (W8) and J's review (W9) pending |
 | W5 | B | Draft C4 (migration: the complete retained-surface change table per DL-4; the requeue versus the proof-backed drain argued per DL-3 with A's rule as input). | PR | open, after W1 |
-| W6 | B | Draft the C6 dashboard and the unmeasured-numbers register, indexing every section's register by id. | PR | open, after W5 |
-| W7 | A | Draft C3 (forced inclusion, base per DL-2 and W2), C5, C7 (the validity predicate), C8 (interfaces, storage, messages, upgrade paths), S1, S3, S4, and the C6 threat-model half. | PRs, one per section | open, after W4 |
+| W6 | B | Draft the C6 dashboard and the unmeasured-numbers register, indexing every section's register by id (the index defines nothing, D12). | PR | open, after W5 |
+| W7 | A | Draft C3 (forced inclusion, base A's stall revision per D12, carrying J's accepted Medium with its numbers and the reveal's shape), C5, C7 (the validity predicate), C8 (interfaces, storage, messages, upgrade paths), S1, S3, S4, and the C6 threat-model half. | PRs, one per section | in progress: C7, C3, S1, S3 drafting |
 | W8 | B | Review every A section PR adversarially with an explicit verdict within one cycle of its opening. | review comments | standing |
 | W9 | J | Review every section PR as the third voice; give the verdict on each contested decision when the arbiter asks; audit the readiness checklist at the end of cycle 2. | comments | standing |
 
