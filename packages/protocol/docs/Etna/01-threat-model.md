@@ -26,7 +26,7 @@
 | A3. L2 state itself | Every L2 account | Whoever can finalize state on L1 (`Inbox.prove`) | A false state root finalizes theft of any L2 balance and corrupts every downstream bridge. |
 | A4. Bonds | L1 Inbox ledger in TAIKO (`LibBonds.sol`) | Inbox; only debit is the late-proof settlement | Today zero on mainnet. In Etna: sequencer, attester and prover bonds are the primary economic security and a griefing target. |
 | A5. Forced-inclusion fees | ETH held in the Inbox until consumption (`Inbox.sol:435-443`, `:710`) | Inbox; paid to whoever consumes the request | Small per request; voidable by `init3` today. |
-| A6. L2 fee revenue | Coinbase share (75 %) and the Anchor's share of base fees (`Anchor.sol:141-142`) | Block builder; Anchor owner | Ongoing income; the incentive that makes sequencing rights worth capturing. |
+| A6. L2 fee revenue | Coinbase share (75 % at the snapshot commit, 100 % on `main` since Proposal0026) and the Anchor's share of base fees (`Anchor.sol:141-142`) | Block builder; Anchor owner | Ongoing income; the incentive that makes sequencing rights worth capturing. |
 | A7. Preconfirmation promises | Off-chain signed envelopes (`api.go:242-283`) | No custodian; not referenced on-chain | Users acting on soft confirmations (payments, exchanges, MEV). Today unbacked. |
 | A8. Liveness of the chain | The ability to propose, derive and finalize | Whitelisted operators and provers, plus DAO/multisig for rotations | If lost, users cannot exit except through forced inclusion + proofs, both of which are also gated today. |
 | A9. L1 proposal slot | The single `propose` allowed per L1 block (`Inbox.sol:590`) | First transaction to land | A wasted slot delays L2 by one L1 block; in Etna the landing slot for a batch. |

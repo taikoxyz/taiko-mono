@@ -139,7 +139,7 @@ There is no contestation, no fraud proof, no proving "tier", and no designated p
 | `permissionlessProvingDelay` | 5 days | s | **never read** (`Inbox.sol:99`, `:165`, `:539` only) |
 | `maxProofSubmissionDelay` | 3 minutes | s | only in the liveness settlement |
 | `ringBufferSize` | 21,600 | proposals | yes |
-| `basefeeSharingPctg` | 75 | % | consumed by the node, not the Inbox |
+| `basefeeSharingPctg` | 75 at the snapshot commit; 100 on `main` since Proposal0026 (`MainnetInbox.sol:45-46` at 31df8fe, checked 2026-10-01) | % | consumed by the node, not the Inbox |
 | `forcedInclusionDelay` | 576 | s | yes |
 | `forcedInclusionFeeInGwei` | 1,000,000 | gwei | yes |
 | `forcedInclusionFeeDoubleThreshold` | 50 | pending | yes |
@@ -236,7 +236,7 @@ Contract: `contracts/layer2/core/Anchor.sol` (240 lines), a UUPS proxy predeploy
 - The contract recomputes a keccak over the previous 255 L2 block hashes plus chain id and requires it to equal the value stored by the previous block's anchor, which forces exactly one successful anchor per consecutive block once bootstrapped (`:173-179`, `:194-229`). It records `blockHashes[parent] = blockhash(parent)` (`:132-133`).
 - If `checkpoint.blockNumber > _blockState.anchorBlockNumber`, it forwards the checkpoint to the L2 `SignalService` via `ICheckpointStore.saveCheckpoint` and updates the number (`:182-185`). Equal or lower numbers are silently ignored. **Nothing on-chain checks that `blockHash`/`stateRoot` are the real L1 values**; correctness rests on the off-chain derivation rule (`docs/Derivation.md:238-240`) and, ultimately, on the L1 proof of that L2 block.
 - Nothing else is validated: no proposal id, block index, timestamp, base fee, proposer or prover identity (`_lastProposalId` is deprecated, `:65-66`). `ANCHOR_GAS_LIMIT = 1_000_000` is declared "must be enforced" but is enforced by the node, not the contract (`:39-40`; `docs/Derivation.md:342-345`).
-- The Anchor receives the non-coinbase share of L2 base fees (`basefeeSharingPctg = 75%` to coinbase on mainnet); the owner can `withdraw` them (`:140-156`).
+- The Anchor receives the non-coinbase share of L2 base fees (`basefeeSharingPctg = 75%` to coinbase at the snapshot commit; Proposal0026 raised it to 100 % on `main`, so the Anchor now accrues nothing new and keeps only its legacy balance); the owner can `withdraw` them (`:140-156`).
 - Storage: `blockHashes` at 251, three retired Pacaya slots, deprecated `_lastProposalId` at 255, `_blockState` at 256-257, 43-slot gap (`contracts/layer2/core/Anchor_Layout.sol:21-25`).
 - Verified details: the `l1ChainId` immutable is validated but never read by any logic (`:50`, `:103`); there is no owner function to reset `_blockState`, so a chain whose ancestors hash ever desynchronises is recoverable only by `upgradeTo` (`:113-115`, `:145-156`); the Anchor has no `receive()`; the Go syncer has a second calldata-decoding exception for proposal id 1 on every chain (`driver/chain_syncer/event/syncer.go:318-324`).
 
