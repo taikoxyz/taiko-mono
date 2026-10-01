@@ -2,6 +2,7 @@ package flags
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -156,11 +157,13 @@ var (
 	}
 	TaikoDevnetEtnaTime = &cli.Uint64Flag{
 		Name: "taiko.devnet-etna-time",
-		Usage: "Override Etna fork time for Taiko internal devnet; defaults to the Unzen time and " +
-			"must match taiko-geth's --taiko.devnet-etna-time and alethia-reth's --devnet-etna-timestamp",
-		Category: commonCategory,
-		Value:    0,
-		EnvVars:  []string{"TAIKO_DEVNET_ETNA_TIME"},
+		Usage: "Override Etna fork time for Taiko internal devnet; unset means never, as with alethia-reth's " +
+			"--devnet-etna-timestamp. Must not be earlier than the Unzen time, and must match the execution " +
+			"engine's Etna time",
+		Category:    commonCategory,
+		Value:       math.MaxUint64,
+		DefaultText: "never",
+		EnvVars:     []string{"TAIKO_DEVNET_ETNA_TIME"},
 	}
 )
 

@@ -35,12 +35,16 @@ type ClientTestSuite struct {
 func (s *ClientTestSuite) SetupTest() {
 	LoadEnv()
 	// Mirror the --taiko.devnet-etna-time override the client binaries apply: the harness exports the
-	// Etna activation time it also passes to the L2 execution engine.
-	if etnaTime := os.Getenv("TAIKO_DEVNET_ETNA_TIME"); etnaTime != "" {
-		parsed, err := strconv.ParseUint(etnaTime, 10, 64)
-		s.Nil(err)
-		gethcore.DevnetEtnaTime = parsed
-	}
+	// Etna activation time it also passes to the L2 execution engine. Without it, the tests would run with
+	// taiko-geth's package default instead of the execution engine's Etna time.
+	etnaTime := os.Getenv("TAIKO_DEVNET_ETNA_TIME")
+	s.Require().NotEmpty(
+		etnaTime,
+		"TAIKO_DEVNET_ETNA_TIME is not set: `make test` and `make dev_net` write it into integration_test/.env",
+	)
+	parsed, err := strconv.ParseUint(etnaTime, 10, 64)
+	s.Nil(err)
+	gethcore.DevnetEtnaTime = parsed
 	// Default logger
 	ver, err := strconv.Atoi(os.Getenv("VERBOSITY"))
 	s.Nil(err)
