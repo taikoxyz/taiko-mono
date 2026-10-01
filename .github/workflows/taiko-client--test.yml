@@ -129,7 +129,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        execution_node: [l2_geth, l2_reth]
+        include:
+          - execution_node: l2_geth
+          - execution_node: l2_reth
+          - execution_node: l2_reth
+            etna_time: "18446744073709551615"
+          - execution_node: l2_reth
+            etna_boundary: true
 
     steps:
       - name: Cancel Previous Runs
@@ -198,11 +204,15 @@ jobs:
         working-directory: packages/protocol
         run: pnpm install
 
-      - name: Run Tests on ${{ matrix.execution_node }} execution engine
+      - name: Run Tests on ${{ matrix.execution_node }} execution engine${{ matrix.etna_boundary && ' (Etna boundary)' || matrix.etna_time && ' (pre-Etna)' || '' }}
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
           PROTOCOL_DIR: ${{ github.workspace }}/packages/protocol
+          TAIKO_DEVNET_ETNA_TIME: ${{ matrix.etna_time }}
+          TAIKO_TEST_ETNA_BOUNDARY: ${{ matrix.etna_boundary && 'true' || 'false' }}
+          PACKAGE: ${{ matrix.etna_boundary && 'driver' || '' }}
+          GO_TEST_RUN: ${{ matrix.etna_boundary && 'TestDriverTestSuite/TestEtnaBoundary' || '' }}
         run: make test
 
       - name: Codecov.io
