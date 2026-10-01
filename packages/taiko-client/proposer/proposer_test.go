@@ -152,6 +152,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			[]common.Address{},
 			10,
 			0,
+			nil,
 		)
 		s.Nil(err)
 
@@ -219,6 +220,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			[]common.Address{},
 			testCase.maxTransactionsLists,
 			0,
+			nil,
 		)
 		s.Nil(err)
 
@@ -282,6 +284,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			[]common.Address{},
 			p.MaxTxListsPerEpoch,
 			0,
+			nil,
 		)
 		time.Sleep(time.Second)
 	}

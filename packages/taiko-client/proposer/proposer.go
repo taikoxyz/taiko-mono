@@ -193,6 +193,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
 		minTip,
+		nil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)

@@ -376,7 +376,7 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 }
 
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
-// upper limit.
+// upper limit; blockContext describes the target block (nil keeps the legacy request).
 func (c *Client) GetPoolContent(
 	ctx context.Context,
 	beneficiary common.Address,
@@ -385,6 +385,7 @@ func (c *Client) GetPoolContent(
 	locals []common.Address,
 	maxTransactionsLists uint64,
 	minTip uint64,
+	blockContext *TxPoolBlockContext,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
@@ -413,6 +414,7 @@ func (c *Client) GetPoolContent(
 		localsArg,
 		maxTransactionsLists,
 		minTip,
+		blockContext,
 	)
 }
 
