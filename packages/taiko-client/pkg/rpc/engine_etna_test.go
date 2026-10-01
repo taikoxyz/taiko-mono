@@ -12,6 +12,7 @@ import (
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 )
@@ -124,6 +125,51 @@ func TestManifestGasLimit(t *testing.T) {
 	require.Equal(t, uint64(30_000_000), ManifestGasLimit(devnetID, genesis))
 	require.Equal(t, uint64(30_000_000), ManifestGasLimit(devnetID, preEtna))
 	require.Equal(t, uint64(30_000_000), ManifestGasLimit(devnetID, etna))
+}
+
+// sampleBuildPayloadArgsID fingerprints a fixed sample block with the given parentBeaconBlockRoot.
+func sampleBuildPayloadArgsID(parentBeaconBlockRoot *common.Hash) engine.PayloadID {
+	return BuildPayloadArgsID(
+		common.HexToHash("0x01"),
+		100,
+		common.HexToAddress("0x02"),
+		common.HexToHash("0x03"),
+		[]byte{0, 0, 0, 0, 0, 0, 7},
+		common.HexToHash("0x04"),
+		parentBeaconBlockRoot,
+	)
+}
+
+func TestBuildPayloadArgsIDKeepsPreEtnaFingerprint(t *testing.T) {
+	txListHash := common.HexToHash("0x04")
+	expected := (&miner.BuildPayloadArgs{
+		Parent:       common.HexToHash("0x01"),
+		Timestamp:    100,
+		FeeRecipient: common.HexToAddress("0x02"),
+		Random:       common.HexToHash("0x03"),
+		Withdrawals:  make([]*types.Withdrawal, 0),
+		Version:      engine.PayloadV2,
+		TxListHash:   &txListHash,
+		Extra:        []byte{0, 0, 0, 0, 0, 0, 7},
+	}).Id()
+
+	require.Equal(t, expected, sampleBuildPayloadArgsID(nil))
+	// Pinned, so a taiko-geth bump that changes BuildPayloadArgs.Id() fails here.
+	require.Equal(t, engine.PayloadID{0x02, 0x4a, 0xd6, 0x36, 0x22, 0x68, 0x15, 0x1d}, sampleBuildPayloadArgsID(nil))
+}
+
+func TestBuildPayloadArgsIDBindsEtnaRoot(t *testing.T) {
+	preEtna := sampleBuildPayloadArgsID(nil)
+
+	root := common.HexToHash("0xaa")
+	etna := sampleBuildPayloadArgsID(&root)
+	require.Equal(t, byte(engine.PayloadV3), etna[0])
+	require.NotEqual(t, preEtna, etna)
+	// Pinned, so a taiko-geth bump that changes BuildPayloadArgs.Id() fails here.
+	require.Equal(t, engine.PayloadID{0x03, 0xba, 0x33, 0xdc, 0xa7, 0xbf, 0xd2, 0x51}, etna)
+
+	otherRoot := common.HexToHash("0xbb")
+	require.NotEqual(t, etna, sampleBuildPayloadArgsID(&otherRoot))
 }
 
 func TestNewTaikoExecutionPayloadV3_JSONShape(t *testing.T) {

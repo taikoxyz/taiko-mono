@@ -6,12 +6,10 @@ import (
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
@@ -79,37 +77,24 @@ func (s *EtnaHelpersTestSuite) TestEncodeTxListPrependsAnchor() {
 	s.Equal(userTx.Hash(), decoded[0].Hash())
 }
 
-func (s *EtnaHelpersTestSuite) TestBuildPayloadArgsIDKeepsPreEtnaFingerprint() {
+func (s *EtnaHelpersTestSuite) TestBuildPayloadArgsIDDelegatesToRPC() {
 	meta := s.sampleMeta()
 	txListHash := common.HexToHash("0x04")
-
-	expected := (&miner.BuildPayloadArgs{
-		Parent:       meta.ParentHash,
-		Timestamp:    meta.Timestamp,
-		FeeRecipient: meta.SuggestedFeeRecipient,
-		Random:       meta.MixHash,
-		Withdrawals:  make([]*types.Withdrawal, 0),
-		Version:      engine.PayloadV2,
-		TxListHash:   &txListHash,
-		Extra:        meta.ExtraData,
-	}).Id()
-	s.Equal(expected, buildPayloadArgsID(meta, txListHash))
-}
-
-func (s *EtnaHelpersTestSuite) TestBuildPayloadArgsIDBindsEtnaRoot() {
-	meta := s.sampleMeta()
-	txListHash := common.HexToHash("0x04")
-	preEtna := buildPayloadArgsID(meta, txListHash)
+	s.Equal(
+		rpc.BuildPayloadArgsID(
+			meta.ParentHash, meta.Timestamp, meta.SuggestedFeeRecipient, meta.MixHash, meta.ExtraData, txListHash, nil,
+		),
+		buildPayloadArgsID(meta, txListHash),
+	)
 
 	root := common.HexToHash("0xaa")
 	meta.ParentBeaconBlockRoot = &root
-	etna := buildPayloadArgsID(meta, txListHash)
-	s.Equal(byte(engine.PayloadV3), etna[0])
-	s.NotEqual(preEtna, etna)
-
-	otherRoot := common.HexToHash("0xbb")
-	meta.ParentBeaconBlockRoot = &otherRoot
-	s.NotEqual(etna, buildPayloadArgsID(meta, txListHash))
+	s.Equal(
+		rpc.BuildPayloadArgsID(
+			meta.ParentHash, meta.Timestamp, meta.SuggestedFeeRecipient, meta.MixHash, meta.ExtraData, txListHash, &root,
+		),
+		buildPayloadArgsID(meta, txListHash),
+	)
 }
 
 func (s *EtnaHelpersTestSuite) TestInsertPreconfBlockFromEnvelopeRejectsEtna() {

@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"golang.org/x/sync/errgroup"
@@ -83,25 +82,18 @@ func encodeTxList(anchorTx *types.Transaction, txs types.Transactions) ([]byte, 
 	return rlp.EncodeToBytes(txs)
 }
 
-// buildPayloadArgsID computes the driver-side payload fingerprint stored as l1Origin.buildPayloadArgsId,
-// which isKnownCanonicalBlock recomputes to detect blocks that are already inserted. Etna blocks also
-// bind their parentBeaconBlockRoot and use the V3 version byte; earlier blocks keep the V2 fingerprint.
+// buildPayloadArgsID computes the block's rpc.BuildPayloadArgsID fingerprint, stored as
+// l1Origin.buildPayloadArgsId, which isKnownCanonicalBlock recomputes to detect blocks that are already inserted.
 func buildPayloadArgsID(meta *createExecutionPayloadsMetaData, txListHash common.Hash) engine.PayloadID {
-	args := &miner.BuildPayloadArgs{
-		Parent:       meta.ParentHash,
-		Timestamp:    meta.Timestamp,
-		FeeRecipient: meta.SuggestedFeeRecipient,
-		Random:       meta.MixHash,
-		Withdrawals:  make([]*types.Withdrawal, 0),
-		Version:      engine.PayloadV2,
-		TxListHash:   &txListHash,
-		Extra:        meta.ExtraData,
-	}
-	if meta.ParentBeaconBlockRoot != nil {
-		args.BeaconRoot = meta.ParentBeaconBlockRoot
-		args.Version = engine.PayloadV3
-	}
-	return args.Id()
+	return rpc.BuildPayloadArgsID(
+		meta.ParentHash,
+		meta.Timestamp,
+		meta.SuggestedFeeRecipient,
+		meta.MixHash,
+		meta.ExtraData,
+		txListHash,
+		meta.ParentBeaconBlockRoot,
+	)
 }
 
 // createExecutionPayloadsAndSetHead creates a new execution payloads through Engine APIs,
@@ -777,21 +769,16 @@ func InsertPreconfBlockFromEnvelope(
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
-	var (
-		txListHash = crypto.Keccak256Hash(decompressedTxs)
-		args       = &miner.BuildPayloadArgs{
-			Parent:       envelope.Payload.ParentHash,
-			Timestamp:    uint64(envelope.Payload.Timestamp),
-			FeeRecipient: envelope.Payload.FeeRecipient,
-			Random:       common.Hash(envelope.Payload.PrevRandao),
-			Withdrawals:  make([]*types.Withdrawal, 0),
-			Version:      engine.PayloadV2,
-			TxListHash:   &txListHash,
-			Extra:        envelope.Payload.ExtraData,
-		}
+	txListHash := crypto.Keccak256Hash(decompressedTxs)
+	payloadID := rpc.BuildPayloadArgsID(
+		envelope.Payload.ParentHash,
+		uint64(envelope.Payload.Timestamp),
+		envelope.Payload.FeeRecipient,
+		common.Hash(envelope.Payload.PrevRandao),
+		envelope.Payload.ExtraData,
+		txListHash,
+		nil,
 	)
-
-	payloadID := args.Id()
 
 	var (
 		u256BaseFee    = uint256.Int(envelope.Payload.BaseFeePerGas)
@@ -807,11 +794,11 @@ func InsertPreconfBlockFromEnvelope(
 	log.Debug(
 		"Payload arguments",
 		"blockID", uint64(envelope.Payload.BlockNumber),
-		"parent", args.Parent.Hex(),
-		"timestamp", args.Timestamp,
-		"feeRecipient", args.FeeRecipient.Hex(),
-		"random", args.Random.Hex(),
-		"txListHash", args.TxListHash.Hex(),
+		"parent", envelope.Payload.ParentHash.Hex(),
+		"timestamp", uint64(envelope.Payload.Timestamp),
+		"feeRecipient", envelope.Payload.FeeRecipient.Hex(),
+		"random", common.Hash(envelope.Payload.PrevRandao).Hex(),
+		"txListHash", txListHash.Hex(),
 		"id", payloadID.String(),
 		"signature", common.Bytes2Hex(signature[:]),
 	)

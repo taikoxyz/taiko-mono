@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/miner"
 )
 
 // IsEtna returns whether the given chain and timestamp are inside the Etna fork, which removes the
@@ -38,6 +39,35 @@ func ManifestGasLimit(chainID *big.Int, header *types.Header) uint64 {
 	}
 
 	return header.GasLimit - consensus.AnchorV3V4GasLimit
+}
+
+// BuildPayloadArgsID computes the driver's payload fingerprint stored as l1Origin.buildPayloadArgsId, which the
+// driver recomputes to detect blocks it already inserted. Blocks before Etna use the original V2 fingerprint;
+// Etna blocks (a non-nil parentBeaconBlockRoot) also bind the root and use the V3 version byte.
+func BuildPayloadArgsID(
+	parentHash common.Hash,
+	timestamp uint64,
+	feeRecipient common.Address,
+	mixHash common.Hash,
+	extraData []byte,
+	txListHash common.Hash,
+	parentBeaconBlockRoot *common.Hash,
+) engine.PayloadID {
+	args := &miner.BuildPayloadArgs{
+		Parent:       parentHash,
+		Timestamp:    timestamp,
+		FeeRecipient: feeRecipient,
+		Random:       mixHash,
+		Withdrawals:  make([]*types.Withdrawal, 0),
+		Version:      engine.PayloadV2,
+		TxListHash:   &txListHash,
+		Extra:        extraData,
+	}
+	if parentBeaconBlockRoot != nil {
+		args.BeaconRoot = parentBeaconBlockRoot
+		args.Version = engine.PayloadV3
+	}
+	return args.Id()
 }
 
 // TaikoExecutionPayloadV3 is the engine_newPayloadV4 payload object for Etna blocks: the standard

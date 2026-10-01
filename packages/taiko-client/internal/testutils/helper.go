@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/phayes/freeport"
@@ -444,30 +443,24 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	extraData, err := encoding.EncodeShastaExtraData(proposed.BasefeeSharingPctg, proposed.Id)
 	s.Nil(err)
 
-	// The fingerprint must match the driver's buildPayloadArgsID, so the driver later recognizes the
-	// block as already inserted.
+	// Use the driver's payload fingerprint, so the driver later recognizes the block as already inserted.
 	txListHash := crypto.Keccak256Hash(txListBytes)
-	payloadArgs := &miner.BuildPayloadArgs{
-		Parent:       parent.Hash(),
-		Timestamp:    anchorBlock.Time,
-		FeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-		Random:       common.BytesToHash(mixHash),
-		Withdrawals:  make([]*types.Withdrawal, 0),
-		Version:      engine.PayloadV2,
-		TxListHash:   &txListHash,
-		Extra:        extraData,
-	}
-	if beaconRoot != nil {
-		payloadArgs.BeaconRoot = beaconRoot
-		payloadArgs.Version = engine.PayloadV3
-	}
+	payloadID := rpc.BuildPayloadArgsID(
+		parent.Hash(),
+		anchorBlock.Time,
+		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
+		common.BytesToHash(mixHash),
+		extraData,
+		txListHash,
+		beaconRoot,
+	)
 
 	l1Origin := &rawdb.L1Origin{
 		BlockID:            blockID,
 		L2BlockHash:        common.Hash{},
 		L1BlockHeight:      new(big.Int).SetUint64(proposed.Raw.BlockNumber),
 		L1BlockHash:        proposed.Raw.BlockHash,
-		BuildPayloadArgsID: payloadArgs.Id(),
+		BuildPayloadArgsID: payloadID,
 	}
 
 	s.forkTo(&engine.PayloadAttributes{
