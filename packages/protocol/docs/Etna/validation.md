@@ -10,9 +10,9 @@ This report concerns the research documents and static sites. No production cont
 - Immutable review snapshots, model assignments, input order, concrete attacks, accepted risks and checks are in [iterations](iterations/). Failed/filtered invocations contribute no review coverage.
 - The referenced PDF was not supplied. [Frame research](03-frame-transactions-research.md) verifies the independently stated hypothesis, not an unseen document.
 
-## Checks completed during construction
+## Original delivery checks — 2026-09-30
 
-**Proven local observations:** the reference and course have 19 HTML pages, 23 inline SVG diagrams and 29 native hidden-answer blocks. The final document-parser check reports zero errors for local targets, fragment identifiers, duplicate IDs, scripts/iframes and external asset dependencies. All local links resolve.
+**Proven observations at original delivery:** the reference and course had 19 HTML pages, 23 inline SVG diagrams and 29 native hidden-answer blocks. The final document-parser check reports zero errors for local targets, fragment identifiers, duplicate IDs, scripts/iframes and external asset dependencies. All local links resolve.
 
 Desktop, mobile and dark-mode screenshots were inspected locally. Mobile diagrams were changed to retain readable width inside a keyboard-focusable scrolling region. The browser environment blocks direct file URLs, so actual browser verification uses a localhost static server; no externally hosted site or deployment was created. Relative HTML/CSS links have no runtime network dependency.
 
@@ -20,7 +20,7 @@ Independent component calculations checked known Keccak-256 empty/`abc` values, 
 
 All throwaway calculations and browser-check code live only in the session scratchpad and are deleted before completion. The committed deliverables contain documentation, HTML, CSS and SVG; interface sketches are specifications only.
 
-## Final delivery checks
+## Original final delivery checks
 
 Completed on 2026-09-30:
 
@@ -30,6 +30,14 @@ Completed on 2026-09-30:
 - A final independent editorial audit checked current status labels and local navigation. Historical reports retain their original verdicts; the current reference and course carry the final result.
 - `git diff --check` passes. All deliverable changes are confined to `packages/protocol/docs/Etna/`. No production-code tests, circuit implementation, deployment, layout generation or gas/performance benchmark is represented as completed.
 
+## Anchor-removal revision checks — 2026-10-01
+
+**Proven local observations:** the updated sites have 21 HTML pages, 25 inline SVG diagrams and 32 native hidden-answer blocks. All local file/fragment references resolve; no duplicate IDs, scripts, iframes or external assets were found. Chromium loaded every page at desktop and 390-pixel mobile widths: zero SVG text-bounds failures, zero page-width overflow and zero external asset requests. The new lesson's native hidden answers and keyboard scrolling worked; desktop/mobile screenshots were inspected.
+
+All twelve lessons retain their prerequisite order, motivating problem, mechanism, diagram, numeric example, attack limits, two or three hidden self-check answers and challenge box. A separate read-only course review checked consistency. Independent scratch serialization reproduced the 1,039-byte empty-bootstrap and 1,845-byte forced-reveal envelope bounds; these synthetic framing checks are not complete execution vectors or gas measurements.
+
+The immutable candidate `575d41a5ad2aa1a276c9a491cd04dcd4d1f8d8c2` is under fresh rounds 07–08. Their result will be recorded before publication. The earlier convergence verdict does not automatically cover this changed mechanism. EIP sources and David's issue/corrections were checked on October1; the unrelated roadmap survey retains its September30 research date.
+
 ## Publication
 
 The branch was pushed and [draft PR #22188](https://github.com/taikoxyz/taiko-mono/pull/22188) opened on 2026-09-30. GitHub CLI returned an API `Forbidden` response; the connected GitHub tool created the draft successfully. The PR contains only the Etna documentation directory. No site was deployed.
@@ -38,7 +46,7 @@ The branch was pushed and [draft PR #22188](https://github.com/taikoxyz/taiko-mo
 
 **Open:** authenticate every retained deployed proxy, implementation, owner, initializer, resolver, treasury, wrapper and historical proof-program identity. Compile storage layouts and audit complete inherited/fallback/initializer call graphs. Rehearse legacy drain, activation, historic messages, caches, replay state and wrapper identities against authentic state.
 
-**Open:** implement and audit both full execution relations, all canonical parsers and complete blob/KZG binding. Produce valid end-to-end execution/proof vectors. Measure combined activation witness bytes and gas, whole transaction envelopes, worst-case blocks, four-item forced prefixes, fragment publication and sustained one-second execution/proving throughput. Test reorg recovery, header pinning, actual DA retrieval/retention and the deployed Frame Transactions rules.
+**Open:** implement and audit both full execution relations, all canonical parsers and complete blob/KZG binding. Produce valid end-to-end execution/proof vectors. Measure empty-bootstrap system-call execution, ordinary pin/reveal gas, whole transaction envelopes, worst-case blocks, four-item forced prefixes, fragment publication and sustained one-second execution/proving throughput. Test reorg recovery, header pinning, actual DA retrieval/retention and the deployed Frame Transactions rules.
 
 **Open human/economic decisions:** calibrate rent, service reserves, publication fees and forced-queue throughput against actual revenues and entrant budgets. Explicitly accept revocable soft branches, bounded identity attribution, finite evidence windows, honest deadline defaults under censorship, zero-rent concentration and long paid-backlog delay. No model-generated review can establish a profitable decentralized operator market.
 
