@@ -41,7 +41,7 @@ Every row is a pass/fail gate. The design document states, per row, how it is sa
 
 ### Working assumptions made by the architect (in place of clarifying questions)
 
-The brief was executed autonomously. Where a clarifying question would normally have been asked, the following assumptions were made. Each is revisited in the final report; reversing any of them is a bounded change to the design.
+The brief was executed autonomously. Where a clarifying question would normally have been asked, the following assumptions were made; A9 records a change the user requested during the red-team loop. Each is revisited in the final report; reversing any of them is a bounded change to the design.
 
 | # | Question I would have asked | Assumption taken |
 |---|---|---|
@@ -53,6 +53,7 @@ The brief was executed autonomously. Where a clarifying question would normally 
 | A6 | Bond token: TAIKO on L2 (today's `BondManager` in Anchor) vs. ETH on L1? | Kept as today (TAIKO-denominated bonds via the existing bond design) unless the design justifies otherwise; the design section on economics states where ETH is used and why. |
 | A7 | Is the target for R4's "1-second block time" a hard protocol rule or a client-level cadence? | A protocol-level 1-second issuance cadence that is a *rewarded duty* whose hard bound is the committee timeout (5 s): silence is deliberately never slashed because a colluding committee could manufacture it, so the enforcement is loss of rewards, replacement within one timeout, and a burned 50-TAIKO absence penalty that never touches eligibility (a timeout can be manufactured by an abstaining committee minority, so it never strikes; revised after red-team rounds 1 and 2; see the design's certificate page and limitation L2). |
 | A8 | How many red-team models are available? | The environment offers `opus`, `sonnet`, `haiku`, `fable`. Each round uses at least three distinct models; the iteration log records which. |
+| A9 | The user asked, after round 6, to adopt the anchor-free L2 block design of [taikoxyz/taiko-mono#22147](https://github.com/taikoxyz/taiko-mono/issues/22147). Must that fork ship before Etna, or with it? | Etna requires anchor-free L2 blocks from its first block. If the stand-alone fork proposed in the issue ships first, Etna inherits it and adds only its `extraData` layout and kind values; otherwise Etna's L2 fork includes it. The issue thread's direction is adopted as decided there: the pre-execution call stays strictly standard EIP-4788 (the L1 block hash in `parentBeaconBlockRoot` plus a permissionless reveal), not a Taiko-specific system call. |
 
 ## Phase checklist
 
@@ -63,7 +64,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 - [x] **Phase 2: Research.** `02-l1-roadmap-survey.md`, `03-frame-transactions-research.md` (each independently re-verified by a skeptic agent; reports in `notes/`).
 - [x] **Phase 3: Design draft.** `design/index.html` and fourteen section pages (three independent designs per building block, judged and synthesized, then a cross-block consistency pass; the architect's decisions are listed on the overview page).
 - [x] **Phase 4: Red team round 1.** `iterations/01-round.md` (three adversarial agents on opus, sonnet and haiku; a fable verifier per finding and a fable judge).
-- [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap. Rounds 1 to 5 revised; round 6 in progress.
+- [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap. Rounds 1 to 5 revised; round 6 reported (REVISE), its revision and the anchor-free L2 blocks the user requested (A9) in progress.
 - [x] **Phase 6: Deliverables.** Design site, learning site, commit, push, draft PR (all pushed; both sites are revised after every round).
 - [ ] **Phase 7: Report.** Final message: verdict, top-five decisions, open questions, links.
 
@@ -76,6 +77,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 | [3](iterations/03-round.md) | fable (steal), sonnet (halt), opus (censor); fable verifier and judge | 0 | 7 (S1, S2, S4, H1, H2, H5, C1) | 7 (all revised) | REVISE: lock votes with signed L1 references, recorded-REPLACE close, eligible-list sortition, per-term budget with landing reserve, bonded forced entries, timeout only on leader silence |
 | [4](iterations/04-round.md) | opus (steal, interrupted, no findings), fable (halt), sonnet (censor); fable verifier and judge | 0 | 6 (all inside round-3 mechanisms) | 4 (all revised) | REVISE: property-first revision from five invariants with independent verification; abandonment rule removed; round 5 ran all three goals |
 | [5](iterations/05-round.md) | sonnet (steal), opus (halt), fable (censor); fable judge; opus verifier of the fix pass | 0 | 3 (S3b exemption, suspension grinding, FALLBACK gate) | 3 (all revised) | REVISE: revised object by object, then two fix passes after independent verification (timeout on the attester's own attestations, staleness measured at receipt so a redraw can certify, reserve and pin re-derived, a persistent domain tree replacing the mutation ring); round 6 pending |
+| [6](iterations/06-judge.md) | fable (steal), sonnet (halt), opus (censor); opus verifiers and judge | 0 | 1 (pre-posted poison forced-inclusion stream) | 4 (revision in progress) | REVISE: reports committed; the revision (skip by stall, one reserve re-derivation, a certificate record against FALLBACK) is in progress together with the anchor-free L2 blocks of A9 |
 
 **Design readiness: NOT READY.** The design is declared ready only if two consecutive red-team rounds produce no new Critical or High findings, every Medium is mitigated or accepted with written rationale, and all of R1 to R7 pass.
 
