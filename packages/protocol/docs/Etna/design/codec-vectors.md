@@ -47,7 +47,7 @@ Changing the order, omitting the last byte, padding the final fragment, or choos
 | Input or change | Required result |
 |---|---|
 | `0xc301c0c0`, version 1 with no blocks | Reject: minimum one block |
-| The toy body above | Outer RLP decodes as shown; full segment rejects invalid header/type-3 transaction and missing correct anchor |
+| The toy body above | Outer RLP decodes as shown; full segment rejects invalid header/type-3 transaction |
 | Encode integer 1 as `0x8101` | Reject nonminimal RLP |
 | Encode integer zero as a single `0x00` integer byte | Reject integer encoding; zero is empty RLP string `0x80` (a raw byte-string field may contain `0x00`) |
 | Append `0x00` after a complete body | Reject trailing bytes |

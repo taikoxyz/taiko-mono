@@ -89,3 +89,9 @@ Required design response:
 ## Open baseline questions
 
 Live deployment addresses, owners, verifier wiring and parameter values were not authenticated from the initial source checkout. The baseline describes code, not a live-state audit. The referenced nonce-lock PDF has not been supplied. External EIP/fork claims belong in the Phase 2 survey with retrieval dates, not in this threat model as remembered facts.
+
+## Anchor-removal extension — 2026-10-01
+
+The revised design removes signed anchor transactions. Its additional attack surfaces are authenticated header equality, canonical EIP-4788/2935 code and build/import/prover parity, transient timestamp-ring expiry, durable origin pins, header-preimage parsing, first-block legacy writer retirement and old consumer assumptions. [Checkpoint persistence](design/checkpoints.html) and [migration](design/migration.html#legacy-writer-gate) specify the predicates. A mere nonzero L2 header field is not provenance; a matching full L1 origin is required. An ordinary caller cannot supply the pinned hash, impersonate the standard system caller, overwrite an existing conflicting checkpoint or use the L2 extension on L1.
+
+The concrete long-backlog attack queues a fixed-timestamp reveal, waits for a modulo8191 overwrite and makes the eventual execution revert. The fixed-calldata current-origin pin survives that delay, and its later header reveal has no expiry. This closes checkpoint acquisition's transient deadline, not arbitrary bridge proof-size, fee, archive or finality constraints. Historical permanent Anchor data remains stored but ceases updating; consumers must stop treating its getters/events as a current-origin oracle. New system contracts are not new Bridge, SignalService or Vault addresses.

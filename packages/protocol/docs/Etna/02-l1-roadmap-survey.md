@@ -135,3 +135,7 @@ All URLs in this document were fetched or surfaced from fetched meta text on **2
 | [EF Hegotá opinion/tier list, September 7](https://blog.ethereum.org/2026/09/07/protocol-hegota-eips) | Documents proposed packages and Quick Slots delivery prerequisites; opinion is not fork selection |
 | [Fusaka announcement, November 6, 2025](https://blog.ethereum.org/2025/11/06/fusaka-mainnet-announcement) | Announced activation and BPO schedule |
 | [Checkpoint 8, January 20, 2026](https://blog.ethereum.org/2026/01/20/checkpoint-8) | Reports BPO1/BPO2 activated and 14/21 blob schedule; historic evidence, not a live-state read |
+
+## Anchor-removal dependency clarification — 2026-10-01
+
+The updated design uses the **standard EIP-4788 and EIP-2935 execution behavior and canonical contracts on L2**. They are prerequisites to migration: verify canonical runtime code and builder/importer/prover parity before enabling the nonzero origin-hash header rule. If absent or inconsistent, this revision cannot launch. This adds no dependence on L1 CL lookahead, slots, future fork inclusion, or the L1 beacon-roots oracle. The L2 field contains an authenticated L1 **execution** hash; it is not an SSZ beacon root. The original roadmap statuses above retain their September30 research date. Current EIP text and issue corrections were checked on October1 in the [anchor-removal source audit](notes/anchor-removal-source-audit.md). See [checkpoint design](design/checkpoints.html) for finite ring semantics and permanent permissionless pins.

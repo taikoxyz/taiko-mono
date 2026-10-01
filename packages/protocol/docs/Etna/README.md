@@ -11,7 +11,7 @@ Etna investigates a fully permissionless successor to Taiko's based-rollup proto
 3. [Design reference](design/index.html) and [progressive learning course](learn/index.html), static HTML with inline SVG, no build or network dependencies.
 4. [Review iterations](iterations/) and [subsystem research notes](notes/).
 
-[Validation and evidence limits](validation.md) records checks actually performed. Research notes and historical revisions explain prior observations and alternatives; the seven current HTML reference pages control the specification. Uppercase `Etna/` follows the requested final deliverable layout; no separate lowercase directory is used.
+[Validation and evidence limits](validation.md) records checks actually performed. Research notes and historical revisions explain prior observations and alternatives; the eight current HTML reference pages control the specification. Uppercase `Etna/` follows the requested final deliverable layout; no separate lowercase directory is used.
 
 ## Requirement ledger
 
@@ -65,3 +65,12 @@ Then visit `http://127.0.0.1:8765/learn/` or `/design/`. To serve on GitHub Page
 - Calibrate the proposed 0.05-ETH rent ceiling, 900-second decay, service reserves and force capacity. An illustrative 60-second acceptance cadence alone sinks about 67.2 ETH/day in rent; no sustainable market has been demonstrated.
 - Explicitly accept revocable soft branches, limited cross-owner attribution and evidence horizons, zero-rent/high-MEV concentration and paid-backlog delay. Slashing proves exact missed duties, not global gossip or intent.
 - Authenticate migration state and layouts, then implement and measure complete proof/DA relations, activation witnesses, maximum-work execution and sustained proving before launch. Supply the missing PDF for a document-specific nonce-lock review.
+
+## Anchor-removal revision checklist
+
+- [x] Read issue #22147 and its corrections; map current responsibilities and expiry/migration attacks.
+- [x] Integrate standard EIP-4788/2935, permissionless pins/reveals, preserved custody and anchor-free bootstrap.
+- [ ] Fresh rounds 07–08; preserve the original eight-round cap and report any unresolved findings honestly.
+- [ ] Validate reference/course, commit, push and update draft PR #22188.
+
+The original phase checklist records the earlier completed delivery. The revision checklist above controls this follow-up.

@@ -1,14 +1,15 @@
 # Etna architecture map — non-normative
 
-This is a navigation guide to the seven HTML reference pages, not an additional specification or a review verdict. The linked HTML rules control every encoding, predicate, interface and parameter. **Assumed — A-IMPLEMENTATION:** the mechanism summaries below describe the specified rules, not deployed behavior. Claim labels and conditional proofs are defined in [Arguments](arguments.html#classification); current review status is controlled solely by [Arguments: verdict](arguments.html#verdict).
+This is a navigation guide to the eight HTML reference pages, not an additional specification or a review verdict. The linked HTML rules control every encoding, predicate, interface and parameter. **Assumed — A-IMPLEMENTATION:** the mechanism summaries below describe the specified rules, not deployed behavior. Claim labels and conditional proofs are defined in [Arguments](arguments.html#classification); current review status is controlled solely by [Arguments: verdict](arguments.html#verdict).
 
 | Read | Controlling reference |
 |---|---|
 | Canonical state, one-second soft service and atomic L1 acceptance | [Core specification](index.html#state) |
 | Prior public data, exact context and producer assent | [Staging](staging.html#encoding) |
-| Execution profile, complete bytes, anchors and fragment commitments | [Codec](codec.html#profile) |
+| Execution profile, complete bytes, standard system calls and fragment commitments | [Codec](codec.html#profile) |
 | Open roles, lifecycle, funding and economics | [Roles](roles.html#role-matrix) |
 | Signed duties, publication receipts, evidence and payouts | [Accountability](accountability.html#obligations) |
+| Ordinary pin/reveal calls and durable checkpoint recovery | [Checkpoint persistence](checkpoints.html#liveness) |
 | Existing custody contracts and the legacy-to-Etna boundary | [Migration](migration.html#boundary) |
 | Conditional safety/liveness, requirement claims and limitations | [Arguments](arguments.html#assumptions) |
 
@@ -16,7 +17,7 @@ This is a navigation guide to the seven HTML reference pages, not an additional 
 
 Any address may build, stage, authorize, prove or relay an eligible candidate under the objective rules. No publisher ticket, custodian certificate, assigned worker, CL lookahead or exclusive sequencer grants canonical priority. Ethereum chooses among eligible proof-bearing successors. See [role boundary](roles.html#boundary) and [producer authorization](staging.html#authorization).
 
-The soft service targets one-second issuance. A node checks the complete block, parent, authenticated origin, anchor and execution locally; a missing dependency is UNKNOWN. Soft validity does not imply canonical selection or finality. The exact bytes and commitments are fixed by the [codec](codec.html#body), [manifests](codec.html#manifests) and [preconfirmation rules](codec.html#preconf). User latency and the bounded unsafe horizon are specified in [core preconfirmation](index.html#preconf).
+The soft service targets one-second issuance. A node checks the complete block, parent, authenticated origin, standard hash-recording calls and execution locally; a missing dependency is UNKNOWN. Soft validity does not imply canonical selection or finality. The exact bytes and commitments are fixed by the [codec](codec.html#body), [manifests](codec.html#manifests) and [preconfirmation rules](codec.html#preconf). User latency and the bounded unsafe horizon are specified in [core preconfirmation](index.html#preconf).
 
 A sealed candidate first publishes actual complete data and execution context through the nonexclusive DARegistry. Its selected receipt must be 360–900 seconds old at acceptance, while the authenticated origin also satisfies its separate freshness limit. Staging reserves no parent and publishes no checkpoint. The later payable canonical action republishes the complete matching data **together with the valid proof**, checks authorization, current parent, forced work and admission rent, then atomically advances the head and publishes its checkpoint. Follow [stage lifecycle](staging.html#lifecycle), [acceptance](staging.html#acceptance), [landing](index.html#landing), [verifier interface](index.html#verifier-interface) and [DA modes](index.html#da).
 
@@ -44,10 +45,14 @@ An unchanged head eventually has zero rent, but old origins or stages may have e
 
 A Head freezes the queue snapshot used by its child. Each ordinary child processes the required prefix of up to four mature requests before discretionary traffic, including proved rejection outcomes. Later arrivals cannot overtake an existing index. Pending fees remain liabilities until processing splits them equally between beneficiary credit and the permanent sink. Exact bounds and conditional progress are in [forced inclusion](index.html#forced), [forced-byte encoding](codec.html#forced) and [FIFO argument](arguments.html#l2).
 
-The [bootstrap definition](migration.html#bootstrap) constructs a unique H0 from the authenticated final legacy fields and a domain-separated bootstrap commitment. Segment number, consumed cursor, initial force cut/time and origin pair use the explicit zero sentinel. This is a one-time boundary, not a caller-selected snapshot. The first segment uses a real origin at or after activation, proves ACTIVE through `beginEtna`, consumes no forced requests and installs the first normal snapshot. Pre-activation queue records and fee liabilities remain preserved; subsequent children follow ordinary FIFO. The same section defines exact hashing, phase gates, a first-successor example and the bounded calldata bootstrap composition.
+The [bootstrap definition](migration.html#bootstrap) constructs a unique H0 from the authenticated final legacy fields and a domain-separated bootstrap commitment. Segment number, consumed cursor, initial force cut/time and origin pair use the explicit zero sentinel. This is a one-time boundary, not a caller-selected snapshot. The first segment uses a real origin at or after activation, is accepted only by an ACTIVE Inbox, consumes no forced requests and installs the first normal snapshot. Pre-activation queue records and fee liabilities remain preserved; subsequent children follow ordinary FIFO. The same section defines exact hashing, phase gates, a first-successor example and the bounded calldata bootstrap composition.
 
 Bridge, SignalService and all existing ERC20/ERC721/ERC1155 Vault addresses remain. Their exact checkpoint provenance and storage-compatible changes are controlled by [checkpoint interfaces](migration.html#checkpoint), [upgrade inventory](migration.html#inventory), [operational authority removal](migration.html#authority) and [migration](migration.html#migration). The DAO governs upgrades only; routine operation and recovery have no DAO action.
 
 ## Assumptions and review status
 
 Use [dependencies](index.html#dependencies) for the L1 feature boundary, [assumptions](arguments.html#assumptions) for cryptography, DA, funding, proving, inclusion and archive premises, and [limitations](arguments.html#limits) for their practical scope. [Preflight](migration.html#preflight) separates launch verification from a design argument. This map makes no independent readiness claim; consult the current [verdict](arguments.html#verdict) and [requirement dispositions](arguments.html#requirements).
+
+## Anchor-removal update
+
+The current [checkpoint module](checkpoints.html) controls the standard EIP-4788/2935 recording and ordinary pin/reveal paths. No Etna anchor transaction or activation MPT calldata remains. The migration uses the current recorded zero/nonzero word to disable old writers before the first ordinary Etna transaction. Earlier reviewed versions are historical, not alternative mechanisms.
