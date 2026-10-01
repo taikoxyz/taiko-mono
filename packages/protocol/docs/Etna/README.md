@@ -37,6 +37,7 @@ Both candidates were reviewed by the other's agent and by an independent compari
 |---|---|
 | [`00-decomposition.md`](00-decomposition.md) | What the two candidates share, where they differ, section list with owners and reviewers |
 | [`DECISIONS.md`](DECISIONS.md) | The decision log |
+| [`WORK.md`](WORK.md) | The work orders: who does what next, assigned by agent A (D11) |
 | `spec/` | The merged specification, one file per section (cycle 1 onward) |
 | `iterations/` | Red-team rounds against the merged specification (cycle 3 onward) |
 
