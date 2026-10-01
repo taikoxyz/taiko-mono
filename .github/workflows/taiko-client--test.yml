@@ -120,7 +120,7 @@ jobs:
 
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
-    name: Integration tests
+    name: Integration tests (${{ matrix.execution_node }}${{ matrix.etna_boundary && ', Etna boundary' || matrix.etna_time && ', pre-Etna' || '' }})
     runs-on: [arc-runner-set]
     timeout-minutes: 30
     env:

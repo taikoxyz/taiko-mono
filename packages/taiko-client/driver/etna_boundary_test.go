@@ -5,12 +5,15 @@ import (
 	"context"
 	"math/big"
 	"os"
+	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/taiko"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -35,7 +38,9 @@ func (s *DriverTestSuite) TestEtnaBoundary() {
 	lastUnzen, err := s.RPCClient.L2.BlockByNumber(ctx, nil)
 	s.Nil(err)
 	s.False(rpc.IsEtna(chainID, lastUnzen.Time()))
-	s.Equal(1, s.AnchorTxCount(lastUnzen.Header()))
+	s.Require().NotZero(lastUnzen.Transactions().Len())
+	s.True(bytes.HasPrefix(lastUnzen.Transactions()[0].Data(), consensus.AnchorV4Selector))
+	s.Require().NotNil(lastUnzen.BeaconRoot())
 	s.Equal(common.Hash{}, *lastUnzen.BeaconRoot())
 	unzenAnchor := s.AnchorBlockNumberOf(lastUnzen)
 
@@ -53,15 +58,22 @@ func (s *DriverTestSuite) TestEtnaBoundary() {
 	s.Nil(err)
 	s.True(rpc.IsEtna(chainID, firstEtna.Time()))
 	for _, tx := range firstEtna.Transactions() {
-		s.False(bytes.HasPrefix(tx.Data(), taiko.AnchorV4Selector))
+		s.False(bytes.HasPrefix(tx.Data(), consensus.AnchorV4Selector))
 	}
-	s.Equal(lastUnzen.GasLimit()-rpc.AnchorGasReserve(chainID, lastUnzen.Time()), firstEtna.GasLimit())
-	s.NotNil(firstEtna.BeaconRoot())
+	s.Equal(lastUnzen.GasLimit()-consensus.AnchorV3V4GasLimit, firstEtna.GasLimit())
+	s.Require().NotNil(firstEtna.BeaconRoot())
 	firstAnchor := s.AnchorBlockNumberOf(firstEtna)
-	s.GreaterOrEqual(firstAnchor, unzenAnchor)
+	s.Greater(firstAnchor, unzenAnchor)
 	canonicalAnchor, err := s.RPCClient.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(firstAnchor))
 	s.Nil(err)
 	s.Equal(canonicalAnchor.Hash(), *firstEtna.BeaconRoot())
+	// R1 advances to the anchor the root names, while the Anchor contract, which no Etna block calls, still
+	// holds the last Unzen anchor.
+	anchorState, err := s.RPCClient.ShastaClients.Anchor.GetBlockState(
+		&bind.CallOpts{BlockHash: firstEtna.Hash(), Context: ctx},
+	)
+	s.Nil(err)
+	s.Equal(unzenAnchor, anchorState.AnchorBlockNumber.Uint64())
 
 	// 4. An invalid derivation source falls back to the default manifest: an empty Etna block that
 	//    inherits its Etna parent's anchor, so it repeats the parent's root (R1).
@@ -86,6 +98,8 @@ func (s *DriverTestSuite) TestEtnaBoundary() {
 	s.Equal(parent.NumberU64()+1, defaultBlock.NumberU64())
 	s.Zero(defaultBlock.Transactions().Len())
 	s.Zero(defaultBlock.Difficulty().Sign())
+	s.Require().NotNil(parent.BeaconRoot())
+	s.Require().NotNil(defaultBlock.BeaconRoot())
 	s.Equal(*parent.BeaconRoot(), *defaultBlock.BeaconRoot())
 	s.Equal(parent.GasLimit(), defaultBlock.GasLimit())
 	// The prover reports this as the next proposal's last anchor block number through the same lookup
@@ -93,21 +107,37 @@ func (s *DriverTestSuite) TestEtnaBoundary() {
 	s.Equal(s.AnchorBlockNumberOf(parent), s.AnchorBlockNumberOf(defaultBlock))
 	s.GreaterOrEqual(s.AnchorBlockNumberOf(defaultBlock), firstAnchor)
 
-	// 5. Re-deriving the Etna proposals after resetting the L1 cursor finds every block already known. The
-	//    cursor moves back to the Etna anchor of the previous proposal's last block. The driver's own syncer
-	//    skips proposals it has already inserted, so a fresh one, as after a restart, re-derives them.
+	// 5. Resetting the L1 cursor moves it back to the anchor of the previous proposal's last block: read from
+	//    the anchor transaction when that block is Unzen, and resolved from its root when it is Etna. From the
+	//    Etna anchor, a fresh event syncer, as after a restart, re-derives both Etna proposals. Each must be
+	//    detected as already known: the inserter reports it with PreconfChainReorged false, which it only does
+	//    for a known proposal (a rebuilt one is reported true), and the chain head stays the same.
+	s.Nil(s.d.state.ResetL1Current(ctx, firstEtna.Number()))
+	s.Equal(unzenAnchor, s.d.state.GetL1Current().Number.Uint64())
 	s.Nil(s.d.state.ResetL1Current(ctx, defaultBlock.Number()))
 	s.Equal(firstAnchor, s.d.state.GetL1Current().Number.Uint64())
+	latestSeenProposalCh := make(chan *encoding.LastSeenProposal, 2)
 	restartedSyncer, err := event.NewSyncer(
 		ctx,
 		s.RPCClient,
 		s.d.state,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2),
 		s.ParseL1HttpURLFromEnv(),
-		nil,
+		latestSeenProposalCh,
 	)
 	s.Nil(err)
 	s.Nil(restartedSyncer.ProcessL1Blocks(ctx))
+	var lastBlockIDs []uint64
+	for i := 0; i < 2; i++ {
+		select {
+		case proposal := <-latestSeenProposalCh:
+			s.False(proposal.PreconfChainReorged)
+			lastBlockIDs = append(lastBlockIDs, proposal.LastBlockID)
+		case <-time.After(10 * time.Second):
+			s.FailNow("timed out waiting for a re-derived proposal")
+		}
+	}
+	s.ElementsMatch([]uint64{firstEtna.NumberU64(), defaultBlock.NumberU64()}, lastBlockIDs)
 	head, err := s.RPCClient.L2.BlockByNumber(ctx, nil)
 	s.Nil(err)
 	s.Equal(defaultBlock.Hash(), head.Hash())
