@@ -18,7 +18,7 @@ Etna is the working name for the successor to Taiko's current (Shasta-era) based
 | See what the red team found and how it was handled | [`iterations/README.md`](iterations/README.md) |
 | See the skeptic re-verification reports for the research documents | [`notes/02.verify.md`](notes/02.verify.md), [`notes/03.verify.md`](notes/03.verify.md) |
 | See the phase-2 working notes the research documents synthesize | [`notes/phase2/`](notes/phase2/) (eight sub-reports: three on the L1 roadmap, five on Frame Transactions) |
-| See the user-provided input | [`inputs/nonce-as-a-lock.pdf`](inputs/nonce-as-a-lock.pdf) (text extract: [`inputs/nonce-as-a-lock.txt`](inputs/nonce-as-a-lock.txt)). Provenance: supplied by the user with the brief as the input to the Frame Transactions research; no license statement came with it, so its redistribution terms are the user's to confirm before this tree is published anywhere else |
+| See the user-provided input | [`inputs/nonce-as-a-lock.pdf`](inputs/nonce-as-a-lock.pdf) (text extract: [`inputs/nonce-as-a-lock.txt`](inputs/nonce-as-a-lock.txt)). Provenance: supplied by the user with the brief as the input to the Frame Transactions research; the user decided on 2026-10-01 that the file stays in the tree and that its licence needs no further action from this work |
 
 ## Hard requirements
 
