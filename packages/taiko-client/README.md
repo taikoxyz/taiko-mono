@@ -66,3 +66,15 @@ Then, run the integration tests:
 ```sh
 make test
 ```
+
+`make test` reads these optional environment variables:
+
+- `L2_NODE`: the L2 execution engine, `l2_geth` (default) or `l2_reth`.
+- `TAIKO_DEVNET_ETNA_TIME`: the devnet Etna activation time, shared by the client and the L2 execution engine. It defaults to `0` (Etna from genesis) with `l2_reth`, and to never otherwise; use `18446744073709551615` for never. `make dev_net` uses the same default.
+- `PACKAGE` and `GO_TEST_RUN`: run one package, and only the tests matching a `go test -run` pattern.
+- `TAIKO_TEST_ETNA_BOUNDARY=true`: activate Etna one hour after the L1 start timestamp, for the Unzen to Etna boundary test:
+
+```sh
+L2_NODE=l2_reth TAIKO_TEST_ETNA_BOUNDARY=true PACKAGE=driver \
+  GO_TEST_RUN=TestDriverTestSuite/TestEtnaBoundary make test
+```
