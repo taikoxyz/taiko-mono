@@ -420,6 +420,12 @@ Phase-2 working notes synthesized (same directory as this file): `ft-spec-model.
 
 ---
 
+## Erratum (2026-10-01)
+
+Claims 10, 19 and 31, the worked example in §6 and the pin list in §8 describe the PDF's call `proposeFor(address, bytes32 packed)`, a Shasta proposal whose data lives in blobs, so the gate's `SENDER` frame carries exactly 68 bytes. Etna's landing is not that call: `landFor(address _rewardTo, LandInput _in)` carries a proof and a certificate in calldata, so its data is dynamic. The design page (`design/frame-transactions.html`) therefore pins the selector, the `_rewardTo` word and a length bound (`LAND_CALLDATA_MAX`) instead of `len(data) == 68`; the gate reads only that fixed prefix and the rest is covered by the actor's signature over the transaction. The nonce-as-lock conclusions are unchanged by this. The same page now also states the cost a shape-1 transaction pays when a direct or shape-2 landing consumes its parent first: the transaction stays valid, frame 3 reverts at the inbox's first check, the nonce is burned and the actor pays that gas (§3.1 rows 9 and 10 and §3.2 item 4 state the rule: a `SENDER` revert never rolls back the nonce increment; the earlier design wording "invalid (shape 1)" was wrong). Raised by the review posted from PR #22188 on 2026-10-01.
+
+---
+
 ## 11. Verification record
 
 This document was produced by a research sub-agent and then independently re-verified by a skeptic sub-agent instructed to refute it (report: [`notes/03.verify.md`](notes/03.verify.md), 2026-09-30). The skeptic re-fetched EIP-8141 (byte-identical, md5 `284f4d79ea303353412f58eb73d09421`), every cited client and PR source, and 19 Taiko `file:line` citations at HEAD `61d8f18`. Result: 100 statements checked, 2 wrong, 4 unverifiable, the rest correct. The two errors (Nethermind PR #13058 status; the PR #12253 quote) were in the client/PR status inventory, did not bear on the verdict, and have been corrected in place above (marked "corrected after skeptic review"). The skeptic's conclusion: "No HOLDS claim in Section 4 should be downgraded to FAILS; none needs to become UNDETERMINED." The architect's own reading of the spec sections on nonce checking (L390-392), `APPROVE` (L700-727) and the mempool policy (L1083-1108) agrees.

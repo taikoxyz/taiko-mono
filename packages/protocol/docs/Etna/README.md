@@ -1,7 +1,7 @@
 # Etna: a fully permissionless based-rollup protocol for Taiko
 
 > **Status: research in progress. This is a design and research artifact, not an implementation.**
-> Nothing under this directory changes any deployed contract, client, or existing doc.
+> Nothing under this directory changes any deployed contract, client, or existing doc, and nothing here describes a deployed system. Dated facts about today's protocol and the L1 roadmap cite their sources at the time of writing (2026-09-30 to 2026-10-01).
 
 Etna is the working name for the successor to Taiko's current (Shasta-era) based-rollup protocol. This directory holds the complete research trail: what the current protocol does, the threat model, the L1 roadmap it depends on, a research sub-project on Frame Transactions as a mutual-exclusion primitive, the design itself, the adversarial red-team rounds it survived (or did not), and a learning site for digesting and challenging it.
 
@@ -41,7 +41,7 @@ Every row is a pass/fail gate. The design document states, per row, how it is sa
 
 ### Working assumptions made by the architect (in place of clarifying questions)
 
-The brief was executed autonomously. Where a clarifying question would normally have been asked, the following assumptions were made; A9 records a change the user requested during the red-team loop. Each is revisited in the final report; reversing any of them is a bounded change to the design.
+The brief was executed autonomously. Where a clarifying question would normally have been asked, the following assumptions were made; A9 records a change the user requested during the red-team loop, and A10 a position taken after the review by the other candidate's agent (PR #22188). Each is revisited in the final report; reversing any of them is a bounded change to the design.
 
 | # | Question I would have asked | Assumption taken |
 |---|---|---|
@@ -54,6 +54,7 @@ The brief was executed autonomously. Where a clarifying question would normally 
 | A7 | Is the target for R4's "1-second block time" a hard protocol rule or a client-level cadence? | A protocol-level 1-second issuance cadence that is a *rewarded duty* whose hard bound is the committee timeout (5 s): silence is deliberately never slashed because a colluding committee could manufacture it, so the enforcement is loss of rewards, replacement within one timeout, and a burned 50-TAIKO absence penalty that never touches eligibility (a timeout can be manufactured by an abstaining committee minority, so it never strikes; revised after red-team rounds 1 and 2; see the design's certificate page and limitation L2). |
 | A8 | How many red-team models are available? | The environment offers `opus`, `sonnet`, `haiku`, `fable`. Each round uses at least three distinct models; the iteration log records which. |
 | A9 | The user asked, after round 6, to adopt the anchor-free L2 block design of [taikoxyz/taiko-mono#22147](https://github.com/taikoxyz/taiko-mono/issues/22147). Must that fork ship before Etna, or with it? | Etna requires anchor-free L2 blocks from its first block. If the stand-alone fork proposed in the issue ships first, Etna inherits it and adds only its `extraData` layout and kind values; otherwise Etna's L2 fork includes it. The issue thread's direction is adopted as decided there: the pre-execution call stays strictly standard EIP-4788 (the L1 block hash in `parentBeaconBlockRoot` plus a permissionless reveal), not a Taiko-specific system call. |
+| A10 | Does R1 allow the Bridge, the SignalService and the Vaults to keep their existing pause and owner-only operational powers (`_authorizePause` is owner-or-pauser, `changeBridgedToken` is owner-only), given that R2 freezes their addresses but not their implementations? Raised by the review of this design posted from PR #22188 on 2026-10-01. | No, as the design now reads R1: an emergency brake faster than the DAO is a permissioned stop, and a brake as slow as a DAO upgrade adds nothing over the upgrade. The design specifies storage-compatible in-place upgrades that remove the pause and owner-only operational functions (addresses unchanged, R2), at the cost of auditing the custody contracts and losing an emergency brake (limitation L-OP on the design's limitations page). A human decision the user may reverse; reversing it restores the previous reading (A5) and removes one limitation. |
 
 ## Phase checklist
 
@@ -65,7 +66,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 - [x] **Phase 3: Design draft.** `design/index.html` and fourteen section pages (three independent designs per building block, judged and synthesized, then a cross-block consistency pass; the architect's decisions are listed on the overview page).
 - [x] **Phase 4: Red team round 1.** `iterations/01-round.md` (three adversarial agents on opus, sonnet and haiku; a fable verifier per finding and a fable judge).
 - [ ] **Phase 5: Revise and loop.** One `iterations/NN-round.md` per round; loop until converged, negative verdict, or the 8-round cap. Rounds 1 to 5 revised; round 6 reported (REVISE), its revision and the anchor-free L2 blocks the user requested (A9) in progress.
-- [x] **Phase 6: Deliverables.** Design site, learning site, commit, push, draft PR (all pushed; both sites are revised after every round).
+- [x] **Phase 6: Deliverables.** Design site, learning site, commit, push, draft PR (all pushed; both sites are revised after every round). Both sites are generated from one set of fragments with one shared stylesheet (`design/etna.css`); every lesson is re-synchronised with the design pages after each design change and verified by independent agents, and relative links, anchors and tag balance are checked on every built page before each commit.
 - [ ] **Phase 7: Report.** Final message: verdict, top-five decisions, open questions, links.
 
 ## Convergence status
@@ -88,7 +89,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 3. Nothing outside `packages/protocol/docs/Etna/` is modified.
 4. No deployments, no keys, no private resources. The Notion page referenced by the original brief was not accessible; the PDF in `inputs/` is used instead.
 5. External facts (EIP numbers, fork contents, status) are verified via the web at run time and cited in `02-l1-roadmap-survey.md`.
-6. Every claim in the design is marked **proven** (with argument), **assumed** (with the assumption named), or **open** (with what would resolve it).
+6. Every claim in the design is marked **proven** (with argument), **assumed** (with the assumption named), or **open** (with what would resolve it). "Proven" means proven by the argument written on the page; nothing in this tree is machine-checked, and the verification reports in `notes/` and `iterations/` were written by independent agents, not by a formal tool. Dated facts about today's protocol and the L1 roadmap cite their source: a file and line in this repository or a public URL, checked at run time (2026-09-30 to 2026-10-01).
 7. Repository `CLAUDE.md` conventions are followed for commits and the PR. The PR is opened as a draft.
 
 ## Things deliberately ignored
