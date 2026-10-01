@@ -56,7 +56,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **Metadata Component** | **Description**                                                           |
 | ---------------------- | ------------------------------------------------------------------------- |
 | **number**             | The block number                                                          |
-| **mixHash**            | The block's `prevRandao` value                                            |
+| **difficulty**         | A random number seed, written to the header's `mixHash` (`prevRandao`)    |
 | **index**              | The zero-based index of the block within the proposal                     |
 | **timestamp**          | The timestamp of the block                                                |
 | **coinbase**           | The coinbase address for the block                                        |
@@ -296,12 +296,12 @@ The remaining metadata fields follow straightforward assignment patterns:
 
 **Block-level assignments:**
 
-| Metadata Field          | Value Assignment                                                                                                                                      |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `metadata.index`        | `parent.metadata.index + 1` (abbreviated as `i`)                                                                                                      |
-| `metadata.number`       | `parent.metadata.number + 1`                                                                                                                          |
-| `metadata.mixHash`      | `keccak256(abi.encode(parent.difficulty, metadata.number))`, both encoded as `uint256`, where `parent.difficulty` is the parent header's `difficulty` |
-| `metadata.transactions` | `sourceManifest.blocks[i].transactions` (from current source)                                                                                         |
+| Metadata Field          | Value Assignment                                                                                                                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata.index`        | `parent.metadata.index + 1` (abbreviated as `i`)                                                                                                                                                                 |
+| `metadata.number`       | `parent.metadata.number + 1`                                                                                                                                                                                     |
+| `metadata.difficulty`   | `keccak256(abi.encode(parentHeader.difficulty, metadata.number))`, both encoded as `uint256`. `parentHeader.difficulty` is the `difficulty` field of the parent block's header, not `parent.metadata.difficulty` |
+| `metadata.transactions` | `sourceManifest.blocks[i].transactions` (from current source)                                                                                                                                                    |
 
 **Derivation source-level assignments:**
 
@@ -323,16 +323,16 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field                                     |
-| -------------------- | ------- | ------------------------------------------------ |
-| `number`             | uint256 | `number`                                         |
-| `timestamp`          | uint256 | `timestamp`                                      |
-| `coinbase`           | address | `coinbase`                                       |
-| `mixHash`            | bytes32 | `mixHash` (`prevRandao`, see EIP-4399)           |
-| `gasLimit`           | uint256 | `gasLimit`, plus `ANCHOR_GAS_LIMIT` before Etna  |
-| `anchorBlockHash`    | bytes32 | `parentBeaconBlockRoot` from Etna on (see below) |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData`                        |
-| `proposalId`         | uint48  | Bytes 1..6 in `extraData` (big-endian)           |
+| Metadata Component   | Type    | Header Field                                                          |
+| -------------------- | ------- | --------------------------------------------------------------------- |
+| `number`             | uint256 | `number`                                                              |
+| `timestamp`          | uint256 | `timestamp`                                                           |
+| `coinbase`           | address | `coinbase`                                                            |
+| `difficulty`         | bytes32 | `mixHash` (`prevRandao`, see EIP-4399), not the header's `difficulty` |
+| `gasLimit`           | uint256 | `gasLimit`, plus `ANCHOR_GAS_LIMIT` before Etna                       |
+| `anchorBlockHash`    | bytes32 | `parentBeaconBlockRoot` from Etna on (see below)                      |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`                                             |
+| `proposalId`         | uint48  | Bytes 1..6 in `extraData` (big-endian)                                |
 
 `extraData` is exactly these 7 bytes.
 
@@ -355,7 +355,7 @@ The following block header fields are also set before transaction execution but 
 | `requestsHash`                 | Absent       | `EMPTY_REQUESTS_HASH`    | `EMPTY_REQUESTS_HASH`                                           |
 | `difficulty` (after execution) | `0`          | zk gas used by the block | zk gas used by the block (`0` for a block without transactions) |
 
-Because every header before Unzen has a zero `difficulty`, `metadata.mixHash` depends only on the block number up to and including the first Unzen block. After that it also depends on the parent's zk gas used.
+Because the header's `difficulty` field is zero before Unzen, `metadata.difficulty` depends only on the block number up to and including the first Unzen block. After that it also depends on the parent's zk gas used.
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed`, and from Unzen on `difficulty`, are populated after transaction execution.
 
