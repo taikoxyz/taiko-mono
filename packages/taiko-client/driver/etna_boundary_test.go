@@ -71,8 +71,8 @@ func (s *DriverTestSuite) TestEtnaBoundary() {
 	canonicalAnchor, err := s.RPCClient.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(firstAnchor))
 	s.Nil(err)
 	s.Equal(canonicalAnchor.Hash(), *firstEtna.BeaconRoot())
-	// R1 advances to the anchor the root names, while the Anchor contract, which no Etna block calls, still
-	// holds the last Unzen anchor.
+	// The anchor block number now comes from the L1 block the root names, while the Anchor contract, which no
+	// Etna block calls, still holds the last Unzen anchor.
 	anchorState, err := s.RPCClient.ShastaClients.Anchor.GetBlockState(
 		&bind.CallOpts{BlockHash: firstEtna.Hash(), Context: ctx},
 	)
@@ -80,7 +80,7 @@ func (s *DriverTestSuite) TestEtnaBoundary() {
 	s.Equal(unzenAnchor, anchorState.AnchorBlockNumber.Uint64())
 
 	// 4. An invalid derivation source falls back to the default manifest: an empty Etna block that
-	//    inherits its Etna parent's anchor, so it repeats the parent's root (R1).
+	//    inherits its Etna parent's anchor, so it repeats the parent's root.
 	parent, err := s.RPCClient.L2.BlockByNumber(ctx, nil)
 	s.Nil(err)
 	txCandidate, err := builder.NewBlobTransactionBuilder(
