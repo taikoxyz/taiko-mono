@@ -3,19 +3,19 @@ package rpc
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
-// fakeL1 serves eth_chainId plus eth_getBlockByHash / eth_getBlockByNumber from the given header JSON
-// bodies (an unknown hash or number answers null, i.e. not found).
+// newFakeL1 returns a Client whose L1 node serves eth_chainId plus eth_getBlockByHash / eth_getBlockByNumber
+// from the given header JSON bodies (an unknown hash or number answers null, i.e. not found).
 func newFakeL1(t *testing.T, byHash map[common.Hash]string, byNumber map[uint64]string) *Client {
 	t.Helper()
 	url, _ := newFakeRPCServerFunc(t, func(method string, params []json.RawMessage) string {
@@ -29,12 +29,9 @@ func newFakeL1(t *testing.T, byHash map[common.Hash]string, byNumber map[uint64]
 				return body
 			}
 		case "eth_getBlockByNumber":
-			var number string
+			var number hexutil.Uint64
 			require.NoError(t, json.Unmarshal(params[0], &number))
-			var n uint64
-			_, err := fmt.Sscanf(number, "0x%x", &n)
-			require.NoError(t, err)
-			if body, ok := byNumber[n]; ok {
+			if body, ok := byNumber[uint64(number)]; ok {
 				return body
 			}
 		}
@@ -87,8 +84,7 @@ func TestEtnaAnchorBlockNumber_UnknownRootIsNotFound(t *testing.T) {
 	root := common.HexToHash("0xab")
 
 	_, err := c.EtnaAnchorBlockNumber(context.Background(), &types.Header{Number: big.NewInt(5), ParentBeaconRoot: &root})
-	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "not found"))
+	require.ErrorContains(t, err, "not found")
 }
 
 func TestIsEtnaAnchorReorged(t *testing.T) {

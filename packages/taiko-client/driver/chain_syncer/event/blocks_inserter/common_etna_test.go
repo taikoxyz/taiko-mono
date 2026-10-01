@@ -29,7 +29,7 @@ func (s *EtnaHelpersTestSuite) signedTx(nonce uint64) *types.Transaction {
 	s.Nil(err)
 	tx, err := types.SignTx(
 		types.NewTransaction(nonce, common.Address{}, common.Big0, 21_000, big.NewInt(1), nil),
-		types.LatestSignerForChainID(big.NewInt(167001)),
+		types.LatestSignerForChainID(params.TaikoInternalNetworkID),
 		key,
 	)
 	s.Nil(err)

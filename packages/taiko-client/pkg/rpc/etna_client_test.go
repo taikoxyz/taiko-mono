@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 
@@ -204,5 +203,5 @@ func TestEngineClient_TxPoolContentWithMinTip_BlockContextOnlyWhenSet(t *testing
 	require.Len(t, recorded, 2)
 	require.Len(t, recorded[0].Params, 7)
 	require.Len(t, recorded[1].Params, 8)
-	require.True(t, strings.Contains(string(recorded[1].Params[7]), `"timestamp":"0x64"`))
+	require.Contains(t, string(recorded[1].Params[7]), `"timestamp":"0x64"`)
 }
