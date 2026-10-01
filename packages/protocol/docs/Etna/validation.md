@@ -36,11 +36,15 @@ Completed on 2026-09-30:
 
 All twelve lessons retain their prerequisite order, motivating problem, mechanism, diagram, numeric example, attack limits, two or three hidden self-check answers and challenge box. A separate read-only course review checked consistency. Independent scratch serialization reproduced the 1,039-byte empty-bootstrap and 1,845-byte forced-reveal envelope bounds; these synthetic framing checks are not complete execution vectors or gas measurements.
 
-The immutable candidate `575d41a5ad2aa1a276c9a491cd04dcd4d1f8d8c2` is under fresh rounds 07–08. Their result will be recorded before publication. The earlier convergence verdict does not automatically cover this changed mechanism. EIP sources and David's issue/corrections were checked on October1; the unrelated roadmap survey retains its September30 research date.
+Fresh rounds07–08 meet the stated stopping criterion at the eight-round cap. The final reviewed normative candidate is `c60b2042af3d422fff96e79c59f283b40cab41a5`; subsequent edits reconcile verdicts, a stale “affected anchors” phrase and source navigation, without changing interfaces, parameters, encodings or transition rules. Round07’s Medium pre-activation intake issue is corrected and independently checked in round08. Current R1–R7 pass; every Medium has an explicit disposition in [08-round](iterations/08-round.md) and the [final judge](iterations/08-judge.md). Round07’s old immutable candidate retains its narrow R7 failure; the stopping criterion is not represented as two historical all-gate passes.
+
+The final judge reproduced17 named digest outputs, two fragment digests and six rent values with known Keccak checks. This is component arithmetic only. Browser validation after the force-intake correction again passed all21 pages. Source references outside the standalone site root now use immutable GitHub permalinks to the audited checkout; they are navigation links, not runtime dependencies. Final link/ID/asset and whitespace checks passed. EIP sources and David’s issue/corrections were checked on October1; the unrelated roadmap survey retains its September30 research date.
 
 ## Publication
 
 The branch was pushed and [draft PR #22188](https://github.com/taikoxyz/taiko-mono/pull/22188) opened on 2026-09-30. GitHub CLI returned an API `Forbidden` response; the connected GitHub tool created the draft successfully. The PR contains only the Etna documentation directory. No site was deployed.
+
+The anchor-removal revision and round07 correction were pushed on 2026-10-01; the final round08 records and reconciled sites are published in the same branch. The PR was observed in ready state and returned to draft to meet the requested delivery mode. Its existing title and reviewer assignments were preserved; the body now describes the final revised design and evidence. All task changes, measured from the PR merge base and the preceding delivery commit, are confined to the Etna directory; upstream main changes are not attributed to this task.
 
 ## Evidence still required before launch
 

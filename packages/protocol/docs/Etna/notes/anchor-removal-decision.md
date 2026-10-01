@@ -1,6 +1,6 @@
 # Anchor transaction removal — design decision, 2026-10-01
 
-Status: mechanism selected for integration and fresh rounds 07–08. The prior rounds 05–06 verdict applies to the earlier specification, not automatically to this revision. No production implementation or deployment is authorized by this document.
+Status: integrated and reviewed in fresh rounds 07–08; see [final adjudication](../iterations/08-judge.md). The earlier rounds 05–06 covered the prior specification. New force intake now requires ACTIVE, closing the pre-launch escrow issue identified in round07. No production implementation or deployment is authorized by this document.
 
 ## Source and scope
 

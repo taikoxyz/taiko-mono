@@ -2,7 +2,7 @@
 
 Etna investigates a fully permissionless successor to Taiko's based-rollup protocol. This is a design project: no production contracts, clients, deployments, or changes outside this directory.
 
-**Anchor-removal revision in progress.** The earlier specification converged in rounds 05–06. The user requested adoption of [David’s proposal](https://github.com/taikoxyz/taiko-mono/issues/22147), using standard EIP-4788 and permissionless checkpoint reveal without an L2 anchor transaction. Its [decision record](notes/anchor-removal-decision.md) is being integrated and will receive fresh rounds 07–08; the previous verdict does not automatically cover it. Branch: `codex/etna-protocol-design`. [Draft PR #22188](https://github.com/taikoxyz/taiko-mono/pull/22188).
+**Anchor-removal design converged in rounds 07–08.** Etna adopts [David’s standard-call direction](https://github.com/taikoxyz/taiko-mono/issues/22147#issuecomment-5756531478): standard EIP-4788/2935, ordinary permissionless checkpoint persistence, and no L2 anchor transaction. Round07’s Medium pre-activation force-escrow issue is corrected; the [final judge](iterations/08-judge.md) checks the revised specification and convergence. No new Critical/High appeared in these two rounds; every Medium has a disposition and R1–R7 pass under named assumptions. This is specification convergence, not launch approval. Branch: `codex/etna-protocol-design`. [Draft PR #22188](https://github.com/taikoxyz/taiko-mono/pull/22188).
 
 ## How to read
 
@@ -42,12 +42,12 @@ Phase boundaries and review rounds are committed separately. Design convergence 
 
 ## Provenance and outstanding inputs
 
-- Session date: 2026-09-30 UTC.
+- Initial session: 2026-09-30 UTC; anchor-removal revision: 2026-10-01 UTC.
 - Initial source snapshot: `961bbd8ff55a0f66f44ad04160eb51638d655b66` (initial main checkout; public fetch subsequently verified main at `31df8fe8ef7c027840abf122ec36f87c41c3ce94`; see baseline addendum).
 - The user-authorized branch is `codex/etna-protocol-design`.
 - `inputs/nonce-as-a-lock.pdf` has **not been supplied**. The research distinguishes the stated nonce-lock hypothesis from the unavailable PDF. No page-by-page PDF review is claimed.
 - Repository guidance: root `CLAUDE.md`, protocol `CLAUDE.md`, client `AGENTS.md` where applicable. Documentation-only checks apply; no contract tests or layout generation are needed without source changes.
-- Throwaway analysis belongs in `/tmp/etna-scratch/`; it is not committed and is removed at completion.
+- Throwaway analysis belongs in `/tmp/etna-scratch/` (initial work) or `/tmp/etna-anchor-scratch/` (revision); it is not committed and is removed at completion.
 - Do not record API keys, private resources or credentials in these artifacts.
 
 ## Open the sites
@@ -64,13 +64,13 @@ Then visit `http://127.0.0.1:8765/learn/` or `/design/`. To serve on GitHub Page
 
 - Calibrate the proposed 0.05-ETH rent ceiling, 900-second decay, service reserves and force capacity. An illustrative 60-second acceptance cadence alone sinks about 67.2 ETH/day in rent; no sustainable market has been demonstrated.
 - Explicitly accept revocable soft branches, limited cross-owner attribution and evidence horizons, zero-rent/high-MEV concentration and paid-backlog delay. Slashing proves exact missed duties, not global gossip or intent.
-- Authenticate migration state and layouts, then implement and measure complete proof/DA relations, activation witnesses, maximum-work execution and sustained proving before launch. Supply the missing PDF for a document-specific nonce-lock review.
+- Authenticate migration state and layouts, then implement and measure complete proof/DA relations, activation certificates, maximum-work execution and sustained proving before launch. Supply the missing PDF for a document-specific nonce-lock review.
 
 ## Anchor-removal revision checklist
 
 - [x] Read issue #22147 and its corrections; map current responsibilities and expiry/migration attacks.
 - [x] Integrate standard EIP-4788/2935, permissionless pins/reveals, preserved custody and anchor-free bootstrap.
-- [ ] Fresh rounds 07–08; preserve the original eight-round cap and report any unresolved findings honestly.
-- [ ] Validate reference/course, commit, push and update draft PR #22188.
+- [x] Fresh rounds 07–08; preserve the original eight-round cap and report any unresolved findings honestly.
+- [x] Validate reference/course, commit, push and update draft PR #22188.
 
 The original phase checklist records the earlier completed delivery. The revision checklist above controls this follow-up.
