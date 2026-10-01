@@ -165,19 +165,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 		)
 	}
 	// Request proof.
-	blockStateOpts := &bind.CallOpts{Context: ctx}
-	if prevProposalLastBlockID.Cmp(common.Big0) == 0 {
-		blockStateOpts.BlockNumber = common.Big0
-	} else {
-		// Pin GetBlockState to the previous proposal's last block. We read the header by number
-		// (works for beacon-synced blocks, which carry no L1Origin) to recover its hash.
-		prevProposalLastHeader, err := s.rpc.L2.HeaderByNumber(ctx, prevProposalLastBlockID)
-		if err != nil {
-			return err
-		}
-		blockStateOpts.BlockHash = prevProposalLastHeader.Hash()
-	}
-	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(blockStateOpts)
+	lastAnchorBlockNumber, err := s.lastAnchorBlockNumber(ctx, prevProposalLastBlockID)
 	if err != nil {
 		return err
 	}
@@ -194,7 +182,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 				BlockHash:   header.Hash(),
 				StateRoot:   header.Root,
 			},
-			LastAnchorBlockNumber: lastBlockState.AnchorBlockNumber,
+			LastAnchorBlockNumber: lastAnchorBlockNumber,
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse
@@ -254,6 +242,42 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 	}
 
 	return nil
+}
+
+// lastAnchorBlockNumber returns the anchor block number of the previous proposal's last block, i.e. the
+// `parent.metadata.anchorBlockNumber` of this proposal's first block. Before Etna it comes from the
+// Anchor contract state at that block. From Etna on, blocks no longer update the Anchor contract, so it
+// is resolved from the block's parentBeaconBlockRoot.
+func (s *ProofSubmitter) lastAnchorBlockNumber(
+	ctx context.Context,
+	prevProposalLastBlockID *big.Int,
+) (*big.Int, error) {
+	// Read the header by number, which also works for beacon-synced blocks that carry no L1Origin.
+	header, err := s.rpc.L2.HeaderByNumber(ctx, prevProposalLastBlockID)
+	if err != nil {
+		return nil, err
+	}
+
+	if rpc.IsEtna(s.rpc.L2.ChainID, header.Time) {
+		anchorBlockNumber, err := s.rpc.EtnaAnchorBlockNumber(ctx, header)
+		if err != nil {
+			return nil, err
+		}
+		return new(big.Int).SetUint64(anchorBlockNumber), nil
+	}
+
+	blockStateOpts := &bind.CallOpts{Context: ctx}
+	if prevProposalLastBlockID.Cmp(common.Big0) == 0 {
+		blockStateOpts.BlockNumber = common.Big0
+	} else {
+		// Pin GetBlockState to the previous proposal's last block.
+		blockStateOpts.BlockHash = header.Hash()
+	}
+	blockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(blockStateOpts)
+	if err != nil {
+		return nil, err
+	}
+	return blockState.AnchorBlockNumber, nil
 }
 
 // isProposalOutOfRange checks whether proposalID is outside the configured proving window.
