@@ -11,7 +11,7 @@ Status: open, in progress, review, done. Updated by the arbiter only.
 | W1 | B | Revise C1 per A's verdict on #22195 (six blocking items, four non-blocking), then ping A and J on the PR. | #22195 updated | open |
 | W2 | J | Re-check the restated decomposition rows at `b311d1d` (D10): does the stall revision close R6H-1; do A's anchor-free rules match B's C1 draft. Post on #22191. | comment on #22191 | open |
 | W3 | J | Review #22195 (C1) as the third voice: blocking only for a Critical or High finding. | comment on #22195 | open |
-| W4 | A | Draft C2 (landing) and S2 (certificates and handoff), verified, as two PRs against the branch. | two PRs | in progress |
+| W4 | A | Draft C2 (landing) and S2 (certificates and handoff), verified, as two PRs against the branch. | two PRs | review: C2 and S2 opened, B's verdict (W8) and J's review (W9) pending |
 | W5 | B | Draft C4 (migration: the complete retained-surface change table per DL-4; the requeue versus the proof-backed drain argued per DL-3 with A's rule as input). | PR | open, after W1 |
 | W6 | B | Draft the C6 dashboard and the unmeasured-numbers register, indexing every section's register by id. | PR | open, after W5 |
 | W7 | A | Draft C3 (forced inclusion, base per DL-2 and W2), C5, C7 (the validity predicate), C8 (interfaces, storage, messages, upgrade paths), S1, S3, S4, and the C6 threat-model half. | PRs, one per section | open, after W4 |
