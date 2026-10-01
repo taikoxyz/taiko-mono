@@ -21,19 +21,19 @@ tokio-stream = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 
 # observability
-prometheus = "0.13"
+prometheus = "0.14"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 # web
-axum = "0.7"
-reqwest = { version = "0.12" }
+axum = "0.8"
+reqwest = { version = "0.13" }
 event-scanner = "1.1.1"
 robust-provider = { version = "1.0.1", features = ["http-subscription"] }
 
 # ethereum
 alloy = { version = "1.0.13", features = ["full"] }
-alloy-serde = "0.11.0"
+alloy-serde = "1.6.3"
 
 # types
 once_cell = "1.19"
