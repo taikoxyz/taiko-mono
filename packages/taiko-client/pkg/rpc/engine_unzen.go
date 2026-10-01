@@ -45,11 +45,10 @@ func DerivationSourceMaxBlocks(chainID *big.Int, proposalTimestamp uint64) int {
 
 // ForkLabel returns the active fork label for display purposes.
 func ForkLabel(chainID *big.Int, timestamp uint64) string {
-	config := taikoChainConfig(chainID)
 	switch {
-	case config != nil && config.IsEtna(timestamp):
+	case IsEtna(chainID, timestamp):
 		return "Etna"
-	case config != nil && config.IsUnzen(timestamp):
+	case IsUnzen(chainID, timestamp):
 		return "Unzen"
 	default:
 		return "Shasta"

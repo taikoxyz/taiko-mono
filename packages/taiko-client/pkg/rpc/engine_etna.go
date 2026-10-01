@@ -34,11 +34,11 @@ func AnchorGasReserve(chainID *big.Int, timestamp uint64) uint64 {
 // `parent.metadata.gasLimit`: the header gas limit minus the anchor gas reserve for a non-genesis
 // block before Etna, and the header gas limit otherwise.
 func ManifestGasLimit(chainID *big.Int, header *types.Header) uint64 {
-	if header.Number.Sign() == 0 || IsEtna(chainID, header.Time) {
+	if header.Number.Sign() == 0 {
 		return header.GasLimit
 	}
 
-	return header.GasLimit - consensus.AnchorV3V4GasLimit
+	return header.GasLimit - AnchorGasReserve(chainID, header.Time)
 }
 
 // BuildPayloadArgsID computes the driver's payload fingerprint stored as l1Origin.buildPayloadArgsId, which the
