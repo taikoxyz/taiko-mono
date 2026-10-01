@@ -179,7 +179,8 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		minTip = 0
 	}
 
-	// For proposals submission in current implementation, we always use the parent block's gas limit.
+	// The pool content fills the next block on top of the L2 head. Its gas budget is the head's gas limit before
+	// Etna, and the head's manifest gas limit for an Etna target block (see poolContentTarget).
 	l2Head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)

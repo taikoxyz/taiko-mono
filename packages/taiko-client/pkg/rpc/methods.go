@@ -543,8 +543,9 @@ type ReorgCheckResult struct {
 //     L1 block should have also been finalized.
 //
 // Then we will check:
-// 1. If the L2 block's corresponding L1 block which in L1Origin has been reorged
-// 2. If the L1 information which in the given L2 block's anchor transaction has been reorged
+//  1. If the L2 block's corresponding L1 block which in L1Origin has been reorged
+//  2. If the given L2 block's L1 anchor block, named by its anchor transaction or, from Etna on, by its
+//     parentBeaconBlockRoot, has been reorged
 //
 // And if a reorg is detected, we return a new L1 block cursor which need to reset to.
 func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*ReorgCheckResult, error) {
@@ -613,14 +614,15 @@ func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*ReorgC
 			continue
 		}
 
-		// 2. Check whether the L1 information which in the given L2 block's anchor transaction has been reorged.
+		// 2. Check whether the L2 block's L1 anchor block, named by its anchor transaction or, from Etna on, by its
+		//    parentBeaconBlockRoot, has been reorged.
 		isSyncedL1SnippetInvalid, err := c.checkSyncedL1SnippetFromAnchor(
 			ctxWithTimeout,
 			l1Origin.BlockID,
 			l1Origin.L1BlockHeight.Uint64(),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to check L1 reorg from anchor transaction: %w", err)
+			return nil, fmt.Errorf("failed to check L1 reorg from the L1 anchor block of block %d: %w", l1Origin.BlockID, err)
 		}
 		if isSyncedL1SnippetInvalid {
 			proposalID = new(big.Int).Sub(proposalID, common.Big1)
@@ -644,7 +646,9 @@ func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*ReorgC
 	return result, nil
 }
 
-// checkSyncedL1SnippetFromAnchor checks whether the L1 snippet synced from the anchor transaction is valid.
+// checkSyncedL1SnippetFromAnchor reports whether the L1 anchor block of the given L2 block has been reorged: the
+// L1 snippet synced from its anchor transaction before Etna, or the L1 block its parentBeaconBlockRoot names from
+// Etna on.
 func (c *Client) checkSyncedL1SnippetFromAnchor(
 	ctx context.Context,
 	blockID *big.Int,

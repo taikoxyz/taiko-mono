@@ -63,12 +63,12 @@ func (b *BlobTransactionBuilder) Build(
 
 	anchorBlockNumber := l1Head.Number.Uint64()
 
-	// For inbox proposal submission in the current implementation, we always use the parent block's gas limit.
 	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
-	// Every block in the manifest inherits the L2 head's manifest gas limit (`parent.metadata.gasLimit`).
+	// Every block in the manifest inherits the L2 head's manifest gas limit (`parent.metadata.gasLimit`): the
+	// head's gas limit, minus the anchor gas reserve when the head is a non-genesis block before Etna.
 	gasLimit := rpc.ManifestGasLimit(b.rpc.L2.ChainID, l2Head)
 
 	for i, txs := range txBatch {
