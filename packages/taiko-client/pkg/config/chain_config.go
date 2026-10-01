@@ -23,6 +23,7 @@ type forkInfo struct {
 	pacayaBlock *big.Int
 	shastaTime  uint64
 	unzenTime   uint64
+	etnaTime    uint64
 }
 
 // NewChainConfig creates a new ChainConfig instance.
@@ -67,7 +68,8 @@ func (c *ChainConfig) Description() string {
 		banner += fmt.Sprintf(" - Ontake:                   %s\n", formatForkBlock(forks.ontakeBlock))
 		banner += fmt.Sprintf(" - Pacaya:                   %s\n", formatForkBlock(forks.pacayaBlock))
 		banner += fmt.Sprintf(" - Shasta:                   %s\n", formatForkTime(forks.shastaTime))
-		banner += fmt.Sprintf(" - Unzen:                    %s", formatForkTime(forks.unzenTime))
+		banner += fmt.Sprintf(" - Unzen:                    %s\n", formatForkTime(forks.unzenTime))
+		banner += fmt.Sprintf(" - Etna:                     %s", formatForkTime(forks.etnaTime))
 	}
 	banner += "\n"
 
@@ -101,6 +103,7 @@ func (c *ChainConfig) forkInfo() (forkInfo, bool) {
 			pacayaBlock: gethcore.InternalDevnetPacayaBlock,
 			shastaTime:  gethcore.InternalShastaTime,
 			unzenTime:   gethcore.DevnetUnzenTime,
+			etnaTime:    gethcore.DevnetEtnaTime,
 		}, true
 	case params.TaikoHoodiNetworkID.Uint64():
 		return forkInfo{
@@ -108,6 +111,7 @@ func (c *ChainConfig) forkInfo() (forkInfo, bool) {
 			pacayaBlock: gethcore.TaikoHoodiPacayaBlock,
 			shastaTime:  gethcore.HoodiShastaTime,
 			unzenTime:   gethcore.HoodiUnzenTime,
+			etnaTime:    gethcore.HoodiEtnaTime,
 		}, true
 	case params.TaikoMainnetNetworkID.Uint64():
 		return forkInfo{
@@ -115,6 +119,7 @@ func (c *ChainConfig) forkInfo() (forkInfo, bool) {
 			pacayaBlock: gethcore.MainnetPacayaBlock,
 			shastaTime:  gethcore.MainnetShastaTime,
 			unzenTime:   gethcore.MainnetUnzenTime,
+			etnaTime:    gethcore.MainnetEtnaTime,
 		}, true
 	default:
 		return forkInfo{}, false

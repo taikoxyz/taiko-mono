@@ -32,6 +32,9 @@ func DerivationSourceMaxBlocks(chainID *big.Int, proposalTimestamp uint64) int {
 
 // ForkLabel returns the active fork label for display purposes.
 func ForkLabel(chainID *big.Int, timestamp uint64) string {
+	if IsEtna(chainID, timestamp) {
+		return "Etna"
+	}
 	if IsUnzen(chainID, timestamp) {
 		return "Unzen"
 	}
