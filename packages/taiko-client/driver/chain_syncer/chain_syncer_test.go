@@ -266,6 +266,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	protocolCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 
+	s.assertPreEtnaAnchorStateRoot(head)
 	l1Height := s.AnchorBlockNumberOf(head)
 	s.NotZero(l1Height)
 	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head.Coinbase())
@@ -293,6 +294,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.Equal(head.Extra()[0], head2.Extra()[0])
 	s.Equal(protocolCfg.BasefeeSharingPctg, core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
 
+	s.assertPreEtnaAnchorStateRoot(head2)
 	l1Height2 := s.AnchorBlockNumberOf(head2)
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
@@ -302,6 +304,7 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
+	s.assertPreEtnaAnchorStateRoot(head)
 	l1Height := s.AnchorBlockNumberOf(head)
 
 	protocolCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
@@ -325,9 +328,22 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Equal(head.Extra()[0], head2.Extra()[0])
 	s.Equal(protocolCfg.BasefeeSharingPctg, core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
 
+	s.assertPreEtnaAnchorStateRoot(head2)
 	l1Height2 := s.AnchorBlockNumberOf(head2)
 	s.NotZero(l1Height2)
 	s.Less(l1Height, l1Height2)
+}
+
+// assertPreEtnaAnchorStateRoot checks that a pre-Etna block's anchor transaction records a non-zero L1
+// state root. Etna blocks carry no anchor transaction, so it checks nothing for them.
+func (s *ChainSyncerTestSuite) assertPreEtnaAnchorStateRoot(block *types.Block) {
+	if s.IsEtnaBlock(block.Header()) {
+		return
+	}
+
+	l1StateRoot, _, _, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
+	s.Nil(err)
+	s.NotEqual(common.Hash{}, l1StateRoot)
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {

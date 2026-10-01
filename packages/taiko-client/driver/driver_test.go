@@ -549,6 +549,12 @@ func (s *DriverTestSuite) TestBuildPreconfBlockRejectedAfterEtna() {
 	res := s.insertPreconfBlock(s.preconfServerURL, l1Head, head.Number.Uint64()+1, head.Time+1)
 	s.Equal(http.StatusBadRequest, res.StatusCode())
 	s.Contains(res.String(), "preconfirmation is not supported after Etna yet")
+
+	// The rejected request must leave the chain unchanged.
+	headAfter, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(head.Number.Uint64(), headAfter.Number.Uint64())
+	s.Equal(head.Hash(), headAfter.Hash())
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
@@ -662,6 +668,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.T().Skip("This test is only applicable for L2 Geth node, since it returns blocks in forks when " +
 			"querying by hash.")
 	}
+	s.SkipPreconfUnderEtna()
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
