@@ -69,7 +69,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 ## Metadata Preparation
 
 The metadata preparation process initiates with a subscription to the inbox's `Proposed` event (see
-[`IInbox.Proposed`](../contracts/layer1/core/iface/IInbox.sol#L162-L176)).
+[`IInbox.Proposed`](../contracts/layer1/core/iface/IInbox.sol#L174-L188)).
 
 The other fields can be derived by querying the L1:
 
@@ -94,7 +94,7 @@ The following metadata fields are extracted directly from the event payload:
 | `metadata.isForcedInclusion` | `payload.sources[i].isForcedInclusion` |
 
 The `sources` array in the `Proposed` event (`payload.sources`) contains `DerivationSource` objects (see
-[`IInbox.DerivationSource`](../contracts/layer1/core/iface/IInbox.sol#L51-L57)). Each source includes a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
+[`IInbox.DerivationSource`](../contracts/layer1/core/iface/IInbox.sol#L47-L53)). Each source includes a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
 - **Forced inclusion submitters** publish blob data for a `DerivationSourceManifest` and call `Inbox.saveForcedInclusion(blobReference)`; the inbox stores the resulting `blobSlice` in a queue.
 - **The proposer** publishes blob data for their own `DerivationSourceManifest` and calls `Inbox.propose(...)` with a `blobReference` to it plus `numForcedInclusions`. The inbox dequeues up to `min(numForcedInclusions, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)` forced inclusions (FIFO, currently 10) and appends the proposer's source **last**. If forced inclusions are due, the proposer must request at least `min(numDue, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)` forced inclusions.
@@ -120,20 +120,34 @@ struct DerivationSourceManifest {
 /// @notice Represents a block manifest
 struct BlockManifest {
   /// @notice The timestamp of the block.
-  uint64 timestamp;
+  uint48 timestamp;
   /// @notice The coinbase of the block.
   address coinbase;
-  /// @notice The anchor block number. Zero has no special meaning.
-  uint64 anchorBlockNumber;
+  /// @notice The anchor block number. If set to zero, it will use the parent's anchor.
+  uint48 anchorBlockNumber;
   /// @notice The block's gas limit.
-  uint64 gasLimit;
+  uint48 gasLimit;
   /// @notice The transactions for this block.
   SignedTransaction[] transactions;
 }
 
-/// @notice SignedTransaction: a signed transaction of type 0 to 4 in its EIP-2718 block-body encoding
-/// (an RLP list for a legacy transaction, otherwise an RLP string), without a blob sidecar. If any
-/// transaction is not a valid encoding of this form, the source falls back to the default source manifest.
+/// @notice Represents a signed Ethereum transaction
+/// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
+struct SignedTransaction {
+  uint8 txType;
+  uint64 chainId;
+  uint64 nonce;
+  uint256 maxPriorityFeePerGas;
+  uint256 maxFeePerGas;
+  uint64 gasLimit;
+  address to;
+  uint256 value;
+  bytes data;
+  bytes accessList;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
+}
 ```
 
 ### Proposer Bond Validation
@@ -207,7 +221,7 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
-Any `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` value is overwritten during metadata application with inherited proposer/parent values, so these fields cannot invalidate the source. The inherited values are still validated: the source falls back to the default manifest if the inherited anchor lags more than `MAX_ANCHOR_OFFSET` behind `proposal.originBlockNumber` or the timestamp lower bound exceeds `proposal.timestamp`.
+Any non-zero `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is overwritten during metadata application with inherited proposer/parent values, keeping the source valid and avoiding a fallback to the default manifest.
 
 ### Metadata Validation and Computation
 
@@ -243,7 +257,6 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber > proposal.originBlockNumber`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
-- **No progress** (proposer-supplied sources only): no block in the source has an `anchorBlockNumber` greater than the parent anchor of the source's first block
 
 **Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
 
