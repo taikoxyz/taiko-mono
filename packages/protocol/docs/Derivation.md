@@ -17,7 +17,7 @@ The Shasta fork introduces refined terminology to better reflect the system's ar
 | Unzen  | `UNZEN_FORK_TIME`  | Active on Hoodi and mainnet | The EVM follows Ethereum's Osaka rules, and headers gain the Cancun and Prague fields; zk gas metering, recorded in `difficulty`; a larger per-source block limit |
 | Etna   | `ETNA_FORK_TIME`   | Not scheduled               | No anchor transaction; the L1 anchor block hash is carried in `parentBeaconBlockRoot` instead (see [Etna](#etna-blocks-without-an-anchor-transaction))            |
 
-Each L2 block follows the rules of the fork that is active at its own timestamp (`metadata.timestamp`). Block timestamps may trail the proposal's L1 timestamp by up to `TIMESTAMP_MAX_OFFSET`, so one proposal can contain blocks of two forks. The per-source block limit is the only rule selected by the proposal's L1 timestamp (`proposal.timestamp`) instead.
+Each L2 block follows the rules of the fork that is active at its own timestamp (`metadata.timestamp`). Block timestamps may trail the proposal's L1 timestamp by up to `TIMESTAMP_MAX_OFFSET`, so one proposal can contain blocks of two forks. The per-source block limit is the only fork-dependent rule whose fork is chosen by the proposal's L1 timestamp (`proposal.timestamp`) instead.
 
 The activation times are listed under [Constants](#constants).
 
@@ -231,14 +231,14 @@ With the extracted `ProposalManifest`, metadata computation proceeds using both 
 
 Within a source, a block's parent is the previous block of the same source, whose metadata has just been computed. The first block of a source has the preceding L2 block as its parent, and that block's metadata is recovered from the block itself:
 
-| Field                               | Value                                                                                                                                                                                                                                                                                        |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `parent.metadata.number`            | The parent header's `number`                                                                                                                                                                                                                                                                 |
-| `parent.metadata.timestamp`         | The parent header's `timestamp`                                                                                                                                                                                                                                                              |
-| `parent.metadata.gasLimit`          | The parent header's `gasLimit`, minus `ANCHOR_GAS_LIMIT` if the parent is a non-genesis block before Etna                                                                                                                                                                                    |
-| `parent.metadata.anchorBlockNumber` | `0` for the genesis block. For a parent before Etna, the anchor block number stored by its anchor transaction (`Anchor.getBlockState().anchorBlockNumber` at the parent block). For a parent at or after Etna, the number of the L1 block whose hash is the parent's `parentBeaconBlockRoot` |
+| Field                               | Value                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `parent.metadata.number`            | The parent header's `number`                                                                                                                                                                                                                                                                                                                                                                                             |
+| `parent.metadata.timestamp`         | The parent header's `timestamp`                                                                                                                                                                                                                                                                                                                                                                                          |
+| `parent.metadata.gasLimit`          | The parent header's `gasLimit`, minus `ANCHOR_GAS_LIMIT` if the parent is a non-genesis block before Etna                                                                                                                                                                                                                                                                                                                |
+| `parent.metadata.anchorBlockNumber` | `0` for the genesis block. For a parent before Etna, the anchor block number stored by its anchor transaction (`Anchor.getBlockState().anchorBlockNumber` at the parent block; on Taiko mainnet, proposals with an id up to 7 decode it from the parent's anchor transaction calldata instead). For a non-genesis parent at or after Etna, the number of the L1 block whose hash is the parent's `parentBeaconBlockRoot` |
 
-An Etna parent's anchor block is never newer than `proposal.originBlockNumber`. If it is older than `max(0, proposal.originBlockNumber - MAX_ANCHOR_OFFSET)`, every rule that reads `parent.metadata.anchorBlockNumber` has the same outcome whatever its exact value, and a block that inherits the anchor simply copies the parent's `parentBeaconBlockRoot`. An implementation that holds the L1 headers from that block number up to `proposal.originBlockNumber`, linked by parent hash to `proposal.originBlockHash`, can therefore treat a root that matches none of them as older than that range.
+An Etna parent's anchor block is never newer than `proposal.originBlockNumber`. If it is older than `max(0, proposal.originBlockNumber - MAX_ANCHOR_OFFSET)`, the derivation outcome does not depend on its exact value, and a block that inherits the anchor from such a parent copies the parent's `parentBeaconBlockRoot`. An implementation that holds the L1 headers from that block number up to `proposal.originBlockNumber`, linked by parent hash to `proposal.originBlockHash`, can therefore treat a root that matches none of them as older than that range.
 
 #### `timestamp` Validation
 
@@ -262,7 +262,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
-The anchor hash and state root must always correspond to the actual L1 block referenced by the block's final `anchorBlockNumber`. They are not proposer inputs (`BlockManifest` carries only `anchorBlockNumber`): the driver reads both from that L1 block. Provers enforce the correspondence. A new anchor is matched against L1 headers linked by parent hash to `proposal.originBlockHash`. An inherited anchor is matched against the parent block: for a parent before Etna, against the checkpoint stored in the parent's L2 state; for a parent at or after Etna, against the parent's `parentBeaconBlockRoot`.
+The anchor hash and state root must always correspond to the actual L1 block referenced by the block's final `anchorBlockNumber`. They are not proposer inputs (`BlockManifest` carries only `anchorBlockNumber`): the driver reads both from that L1 block. Provers enforce the correspondence against L1 headers linked by parent hash to `proposal.originBlockHash`. An anchor equal to the parent's may instead be checked against the parent block: for a parent before Etna, against the checkpoint stored in the parent's L2 state; for a non-genesis parent at or after Etna, against the parent's `parentBeaconBlockRoot`.
 
 - Before Etna, both values are arguments of the [anchor transaction](#anchor-transaction).
 - From Etna on, `anchorBlockHash` is the header's `parentBeaconBlockRoot`, and `anchorStateRoot` is not used.
@@ -317,7 +317,7 @@ The validated metadata serves three critical functions in block construction:
 
 1. **Pre-execution block header field determination**
 2. **L2 anchor transaction construction** (before Etna)
-3. **L2 world state modification**: the anchor transaction's writes before Etna, and the EIP-4788 and EIP-2935 pre-execution calls, which run from Unzen on and write state once their contracts are deployed (see [Etna](#etna-blocks-without-an-anchor-transaction))
+3. **L2 world state modification**: the anchor transaction's writes before Etna, and the EIP-4788 and EIP-2935 pre-execution calls, which Unzen's execution rules include and which write state once their contracts are deployed (see [Etna](#etna-blocks-without-an-anchor-transaction))
 
 ### Pre-Execution Block Header
 
@@ -333,6 +333,8 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 | `anchorBlockHash`    | bytes32 | `parentBeaconBlockRoot` from Etna on (see below) |
 | `basefeeSharingPctg` | uint8   | First byte in `extraData`                        |
 | `proposalId`         | uint48  | Bytes 1..6 in `extraData` (big-endian)           |
+
+`extraData` is exactly these 7 bytes.
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -359,7 +361,7 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### zk Gas
 
-From Unzen on, execution meters zk gas as specified in [the zk gas spec](./zk_gas_spec.md). If a transaction would take the block's zk gas above `BLOCK_ZK_GAS_LIMIT`, that transaction is aborted and every later transaction of the block is skipped, so the block keeps only the transactions before it. The header's `difficulty` records the zk gas the block used. Before Etna the anchor transaction is metered too, but it is never the transaction that is aborted; from Etna on, any transaction, including the first one, can be.
+From Unzen on, execution meters zk gas as specified in [the zk gas spec](./zk_gas_spec.md). If a transaction would take the block's zk gas above `BLOCK_ZK_GAS_LIMIT`, that transaction is aborted and every later transaction of the block is skipped, so the block keeps only the transactions before it. The header's `difficulty` records the zk gas the block used. Before Etna the anchor transaction counts toward the limit but is never aborted: a block whose anchor transaction would exceed `BLOCK_ZK_GAS_LIMIT` is invalid, which is unreachable in practice. From Etna on, any transaction, including the first one, can be the one that is aborted.
 
 ### Anchor Transaction
 
@@ -393,39 +395,40 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 ## Etna: Blocks Without an Anchor Transaction
 
-> Etna is not scheduled on any network. This section specifies the derivation side of [taiko-mono#22147](https://github.com/taikoxyz/taiko-mono/issues/22147). The execution side is implemented in [alethia-reth#248](https://github.com/taikoxyz/alethia-reth/pull/248), whose driver guide also defines the Engine API methods drivers use for Etna blocks.
+> Etna is not scheduled on any network. This section specifies the derivation side of [taiko-mono#22147](https://github.com/taikoxyz/taiko-mono/issues/22147). The execution side is drafted in [alethia-reth#248](https://github.com/taikoxyz/alethia-reth/pull/248), whose driver guide also defines the Engine API methods drivers use for Etna blocks.
 
 Etna removes the anchor transaction. The L1 block that an L2 block anchors to is committed in the block header instead, and the standard EIP-4788 pre-execution call records it in L2 state. The proposal format and the metadata validation rules stay the same; what changes is how a block is built from its metadata and how a parent's metadata is recovered.
 
 ### Block Contents
 
-- A block's transactions are `metadata.transactions`. Nothing is prepended and no position is reserved, so the first transaction is handled like every other one.
+- A block's transactions come from `metadata.transactions`: as before Etna, the execution engine skips invalid transactions and stops at the zk gas limit (see [zk Gas](#zk-gas)). Nothing is prepended and no position is reserved, so the first transaction is handled like every other one.
 - A source replaced by the default source manifest yields a block without transactions.
 - Transactions sent by the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.
 - The block's gas limit has no anchor reserve (see [`gasLimit` Validation](#gaslimit-validation)).
 
 ### L1 Anchor in the Header
 
-`parentBeaconBlockRoot` is `metadata.anchorBlockHash`: the hash of the L1 block at the block's final `anchorBlockNumber`. A block that inherits its parent's anchor, such as a forced inclusion or a default source manifest block, therefore repeats the parent's `parentBeaconBlockRoot`. The value is never zero, and it is not the hash of the L1 block that included the proposal.
+`parentBeaconBlockRoot` is `metadata.anchorBlockHash`: the hash of the L1 block at the block's final `anchorBlockNumber`, including when that number is inherited from the parent (forced inclusions, default source manifests). When the parent is a non-genesis Etna block, an inherited anchor therefore repeats the parent's `parentBeaconBlockRoot`. When the parent is from before Etna, as for the first Etna block, it is the hash of L1 block `parent.metadata.anchorBlockNumber`, because the parent's own root is zero. The value is never zero, and it is not the hash of the L1 block that included the proposal.
 
 The execution engine only checks that the field is present and non-zero. Its relation to L1 is a derivation rule: drivers set it from L1, and provers check it as described in [`anchorBlockHash` and `anchorStateRoot` Validation](#anchorblockhash-and-anchorstateroot-validation).
 
 ### Recording L1 Data on L2
 
-Two standard pre-execution calls replace the anchor transaction's writes. Execution has run both since Unzen, and until their contracts are deployed the calls change nothing. They run in every block, including blocks without transactions, and their writes are part of the state transition:
+Two standard pre-execution calls take over the anchor transaction's role of recording L1 data. Both are part of Unzen's execution rules (taiko-geth's block builder runs the EIP-4788 call from [taiko-geth#601](https://github.com/taikoxyz/taiko-geth/pull/601) on), and they change nothing until their contracts are deployed. They run in every block, including blocks without transactions, and their writes are part of the state transition:
 
 - EIP-4788 stores `parentBeaconBlockRoot` in the beacon roots contract (`0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02`), in a ring buffer of 8191 entries keyed by block timestamp.
 - EIP-2935 stores the parent block hash in the history storage contract (`0x0000F90827F1C53a10cb7A02335B175320002935`), for the last 8191 blocks.
 
-Blocks no longer write L1 checkpoints. Any account can persist one by calling `SignalService.revealCheckpoint` with the L1 header that a hash recorded by EIP-4788 commits to. This is an ordinary transaction, not part of derivation.
+They do not reproduce every anchor write: `Anchor.blockHashes` and the anchor's block state are no longer updated, and blocks no longer save L1 checkpoints. [taiko-mono#22147](https://github.com/taikoxyz/taiko-mono/issues/22147) plans a permissionless `SignalService.revealCheckpoint` (not implemented yet) through which any account persists a checkpoint by submitting the L1 header that a hash recorded by EIP-4788 commits to. That is an ordinary transaction, not part of derivation.
 
 ### Activation
 
 - Parent metadata follows the parent's fork (see [Parent Metadata](#parent-metadata)). For the first Etna block, `ANCHOR_GAS_LIMIT` is still subtracted from the parent's gas limit, and the parent's anchor block number still comes from `Anchor`.
 - The base fee reads the parent header as recorded (see [Base Fee Calculation](#base-fee-calculation)).
 - Before the first Etna block:
-  - every taiko-geth node must execute the EIP-4788 call identically when building and when importing blocks ([taiko-geth#601](https://github.com/taikoxyz/taiko-geth/pull/601)), and only then can the EIP-4788 contract be deployed on L2; the EIP-2935 contract must be deployed as well;
-  - `Anchor.anchorV4` and the L2 `SignalService` checkpoint writer must be disabled. The anchor contract's own checks still pass in the first block without an anchor transaction, and the golden touch key is public, so otherwise a proposer could put an `anchorV4` call with a forged checkpoint into that block.
+  - every taiko-geth node must execute the EIP-4788 call identically when building and when importing blocks (taiko-geth#601, released in v2.7.0), and only then can the EIP-4788 contract be deployed on L2; the EIP-2935 contract must be deployed as well;
+  - upgrades to `Anchor` and the L2 `SignalService` must make `anchorV4` and L2 checkpoint saving revert when `block.timestamp >= ETNA_FORK_TIME`, while both keep working in every earlier block. The anchor contract's own checks still pass in the first block without an anchor transaction, and the golden touch key is public, so without this gate a proposer could put an `anchorV4` call with a forged checkpoint into that block;
+  - the L2 `SignalService` must offer `revealCheckpoint`, since bridging depends on checkpoints that blocks no longer save.
 
 ## L1 Proof and Liveness Bond Settlement
 
