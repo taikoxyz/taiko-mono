@@ -67,6 +67,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cancel Previous Runs
+        # Fork PRs get a read-only token, so cancelling needs actions: write they do not have.
+        if: github.event.pull_request.head.repo.fork != true
         uses: styfle/cancel-workflow-action@0.13.1
         with:
           access_token: ${{ github.token }}
