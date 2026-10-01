@@ -1,0 +1,377 @@
+# S3. Slashing, rewards, reserves and anti-monopoly economics
+
+**Owner:** A. **Reviewer:** B. **Independent reviewer:** J (DeepSeek).
+
+**Status [open]:** proposed section, transcribed from candidate A's verified pages at `b311d1d` (`claude/beautiful-maxwell-8pyecj`, 2026-10-01): the slashing page (all sections), the roles page (rewards and duties), the rewards, reserve and exposure parts of the landing page §5, the parameters page and limitations L2, L9, L15, L16 and L20; S3's few additions are tagged in place (§16). J's verification applied; awaiting B's verdict. A specification, not an implementation. Every rule keeps its citation to the page section and the red-team round that produced it; where the pages state a rule two ways or leave a number underived, §15 records it instead of resolving it. Every TAIKO amount is a formula on two inputs the pages mark unmeasured, a term's revenue V_term and the TAIKO/ETH rate P (limitation L15); the formulas are normative, the instantiated amounts are not (D2).
+
+## 1. Scope, vocabulary and claim convention
+
+**[assumed: section boundary]** S3 owns the slashable identity and the ledger; the payout split; the capital structure of a seat; the offence classes, strikes and the debit side of every suspension; the slashing catalogue (S1, S3a to S3d, S6, S8) with evidence as consumed, gas, windows and payouts; MISS; the reward constants (§11) and the exposure sizing behind C2-R16's formulas, which C2 owns together with the greedy-landing proof; the per-term exposure as a hard bound; LAND_RESERVE, the lapse line, ReserveLow, the top-up duty, the outage and honest-drain arithmetic; invariants I2 and I5 and the accounting invariant; the bond sizing; the anti-monopoly economics; limitations L2, L15, L20, the revenue half of L9 (S1-R19 states the limitation) and the economic half of L16. S1 owns seats, keys, the suspension store and its flags, the walks and their exclusions, the share rule, CAP and the price-of-share derivation (S1-R03 to S1-R05, S1-R08, S1-R09, S1-R12, S1-R13, S1-R19, S1 §11); S2 the evidence objects (S2-R21), the quorum, the timeout rule and the levels; C2 the landing, the reward formulas, the boost, the paid-landing gate and the greedy-landing proof (C2-R16), the reserve as a funding interface (C2-R17), A1 and the announcement bond (C2-R08); C3 forced-inclusion money; C7 the validity predicate; C8 types, ABI and storage; S4 the role arguments; C6 the registers. Their text is referenced, not repeated (`00-decomposition.md` §1, §2; D9, D12).
+
+**[assumed: notation]** **assumed** heads a proposed rule or a premise; **proven** means an argument on this page, not machine verification; **open** means unresolved, with its closure condition named. `S3-Rnn` has one normative definition; the slashing conditions keep the page ids S1, S3a to S3d, S6, S8 and MISS, which S2-R21 and C8 cite. §11 is S3's only register of numbers. "Round n, Rn" cites candidate A's red-team iterations.
+
+| Term | Definition [assumed: vocabulary] |
+|---|---|
+| Ledger | The existing TAIKO gwei bond ledger in the Inbox proxy: per address a `balance`, a `reserveGwei` sub-balance and the pending burn; no L2 ledger, no ETH bonds. |
+| Floor, buffer, hard floor; reserve, exposure | `floor = seatCount × B_SEAT`; the 5 % above it required at registration; 50 % of the floor; `reserveGwei`, LAND_RESERVE per seat (C2-R17 names it, S3 sizes it); the most one term can debit from it (S3-R21). Owner and keys are S1-R04 and S1-R05's. |
+| V_term, P | A term's revenue in ETH and the TAIKO/ETH rate: the two unmeasured inputs of every TAIKO amount (§11). |
+
+**[assumed: named premises]**
+
+| Premise | Exact dependency |
+|---|---|
+| A-T11; A-T1 | S2's: S3 prices the collusion boundary (§8) and defends nothing beyond it (L2, L9); evidence and top-ups reach L1 inside their windows. |
+| A-BLS | S2's A-BLS: the proof of possession makes the certificate-pair rule framing-proof. |
+| A-REV | V_term about 0.01 ETH, P about `1.5·10⁻⁴` ETH per TAIKO. **Unmeasured** (the pages' G8 and G10: a week of mainnet coinbase and MEV data). |
+| A-LEDGER | The token's `transfer` may revert; every slash, reward and settlement is ledger-internal and the burn is a sweep, so no token behaviour blocks a debit. |
+| A-RATE | TAIKO rewards cover ETH-denominated landing cost up to the published break-even fee; no oracle (landing page §16; the DAO-set rate constant is C2-R17's open alternative). |
+| A-ATT | An owner's attester income equals, in expectation over draws, the attester share it pays on its own terms; assumed by the pages, not proven (slashing page §15). |
+
+## 2. Identity, ledger, payout and capital
+
+### S3-R01. The slashable identity and its keys
+
+**[assumed: proposed rule]** The slashable identity is the owner. Every rule resolves a key to the owner that held it at `termStart(t)` of the offence's term through S1-R05's validity intervals (`keyOwnerAt`), so a rotation effective after a term starts changes nothing for that term (round 6, R6S-4), and a retired key stays liable until `validUntil + EVIDENCE_WINDOW`. The sequencer key is a code-less secp256k1 address that proved control at registration by signing `keccak(DOMAIN_KEYREG ‖ chainId ‖ owner)` (S1-R05; round 6, judge's note: a front-run of `registerKeys` fails without that signature); the attester key is BLS12-381 with a proof of possession (A-BLS). The owner may be a contract; only the sequencer key must be code-less (S8). One registration makes an owner sequencer and attester (a bond per role would only lower the per-role Sybil price). **Adversary schedule:** a key rotated after an offence (still liable); a key bound twice (refused); rogue keys (A-BLS). Source: slashing page §1, §4; sequencing page §8.
+
+### S3-R02. The ledger and the debit rule
+
+**[assumed: proposed rule]** All amounts are TAIKO gwei entries in the Inbox proxy's existing ledger. A debit of `x` takes `min(x, balance)`, logs the shortfall in `Slashed`, never reverts. Class A takes the whole ledger, reserve included; class B and MISS take from `balance` outside the reserve in S3-R04's order; reward-type debits take from `reserveGwei` only. Credits to an address with no seats and no key history are withdrawable at once; credits to an owner with seats follow S3-R18. **Adversary schedule:** an owner that empties its balance before evidence lands (the shortfall is logged and the window outlives the exit lock, S3-R08). Source: slashing page §1.
+
+### S3-R03. The payout split
+
+**[assumed: proposed rule]** Every slash debit splits into a challenger share `min(CHALLENGER_BPS × debit, CHALLENGER_CAP)` credited to the submitter's ledger entry, an affected-party share where a rule names one (none does; the field exists for C8's event) and a burn accrued in `pendingBurnGwei`, swept by anyone to the dead address with `sweepBurn()` (the token has no burn function, A-LEDGER). MISS is burned whole, so a false timeout view change pays nobody. An offender can be its own challenger, so every rule's deterrent is the debit minus the challenger share, the number sizing uses (S3-R10). Self-submitted evidence has no eligibility lever (round 5, R5S-2): the suspension it produces changes no `E_t` and no rank (S1-R09). **[proven: deterrent]** Self-reporting recovers at most CHALLENGER_CAP; no rule whose debit exceeds the cap by more than its gas pays against oneself. **Adversary schedule:** key theft, or equivocating with an accomplice (nets at most the cap). Source: slashing page §1, §3, §15.
+
+### S3-R04. Floor, buffer, hard floor and reserve
+
+**[assumed: proposed rule]** Registration and reactivation require `1.05 × seatCount × B_SEAT + seatCount × LAND_RESERVE` (S1-R04 reads it; S3 owns the amounts): seat stake (the floor, class-A capital), a 5 % buffer, the landing reserve. A class-B debit takes from `balance` outside the reserve; a balance below the floor afterwards opens an open-ended suspension until top-up plus `reactivate()`, DELAY_REG-dated through S1-R09's flag (round 4, R4-C2). MISS takes from the buffer, then from seat stake (`BondBelowBuffer` once the balance is below `1.05 × floor`); a MISS that leaves the balance strictly below the hard floor suspends the owner open-endedly (the one comparison; S1-R09's state machine reads the same strict one, and a balance exactly at the hard floor is not suspended), DELAY_REG-dated (the crossing MISS is applied at a landing whose timing is choosable, so it is dated like an owner write), until top-up plus `reactivate()`. Reward-type debits (S3-R11's list) come from the reserve and never from seat stake or the buffer, so an owner cannot drain its class-A stake through self-directed rewards (round 2, S5); MISS never touches the reserve (round 4, R4-C4). Withdrawal while any seat is active or pending is limited to the excess over `1.05 × floor + reserve`; the reserve leaves the ledger only through `requestExit` plus EVIDENCE_WINDOW (round 4, R4H-3; S1-R07). **Adversary schedule:** moving class-A stake through self-landings (impossible; the reserve's own drain is S3-R23's residual); a timeout storm against the reserve (ring-fenced). Source: slashing page §1, §10; landing page §5; roles page §1.
+
+## 3. Classes, strikes and MISS
+
+### S3-R05. The three classes
+
+**[assumed: proposed rule]** (Slashing page §2.)
+
+| Class | Meaning | Amount | Eligibility effect (S1-R09's flag; S3 sets it) |
+|---|---|---|---|
+| A, safety | two signatures by one key that could make honest nodes disagree about an attested or locked block, or a key that defeats its own accountability (S1, S3a to S3c, S8) | 100 % of the ledger, reserve included | seats void from `τ + DELAY_S`, `E_t` and ranks unchanged (round 5, R5S-2); exit only (`exitSlashed`, S1-R08) |
+| B, structural | a signed object naming a certificate or view change whose supplied preimage is invalid (S6); a REPLACE or RESUME lock vote whose signed L1 reference did not satisfy A1 or was not canonical (S3d) | B_SEAT per lying key | one strike per offence; STRIKE_THRESHOLD strikes within STRIKE_DECAY suspend for SUSPEND(n), doubling, DELAY_S-dated (round 5, R5S-6); then S3-R04's floor check |
+| C, liveness | absence proven by a view change: MISS, the only class-C rule since round 4 | MISS_PENALTY, burned | no strike, no floor check; only the hard floor can end eligibility, since silence is judged by local clocks and unprovable |
+
+**[proven: no debit writes a domain record]** Every debit moves ledger amounts and sets a flag or a strike counter; `activeFrom`, `activeUntil` and key records are written only by S1's calls (`register`, `requestExit`, `exitSlashed`, `exitStale`, `rotateKey`), each a domain write by an owner or, for the two permissionless exits, by anyone after the fact S1-R08 names. This is the confirmation S1 §16 asks of S3. Source: slashing page §9.
+
+### S3-R06. Strikes and the suspension ladder
+
+**[assumed: proposed rule]** A class-B offence adds one strike; strikes older than STRIKE_DECAY are forgotten; the STRIKE_THRESHOLD-th strike within the window suspends for SUSPEND(n), S1 §11's doubling ladder with its 24-day cap (not restated), stored in S1-R09's two-interval store (its minimum SUSPEND(3) is S1's constraint). One software bug never suspends (round 5, R5S-6); timeouts never strike (round 1, F3); strikes are reserved for offences needing the offender's own signed lie. Source: slashing page §2, §5, §10.
+
+### S3-R07. MISS and the buffer
+
+**[assumed: proposed rule]** MISS is applied inside `land` (C2-R06), once per `(t, v)` per TIMEOUT-kind view change a landing consumes against the timed-out leader, within ROLE_HORIZON of the term start, at settlement; the view change is verified anyway (L4), so MISS needs no evidence. It burns MISS_PENALTY from the leader's buffer, then seat stake, never the reserve; never a strike; the hard floor is its only eligibility consequence. A TIMEOUT view change needs `Q` signers each holding no attested block of the view still uncertified (S2-R07), so an abstaining minority cannot apply it to a producing leader (round 4, R4H-4; round 5, R5H-1), while a leader that gets nothing attested is bled (TH10). `S4c`, a missed term with no takeover, is unattributable fault: no penalty, the term marked `UNATTRIBUTED` at settlement. **Adversary schedule:** `Q` colluders time out an honest leader early for MISS_PENALTY (outside A-T11, the TH8 residual); a cartel below `Q` cannot bleed, only blank (§8). Source: slashing page §2, §3, §13; certificate page §1.
+
+## 4. The catalogue
+
+### S3-R08. Common rules and the table
+
+**[assumed: proposed rule]** Every function is external, callable by anyone, bond-free, and reverts unless the evidence verifies from its own bytes plus pinned state. Committee-dependent evidence supplies the key hashes and public keys of the bits it verifies, checked against the pinned `committeeRoot[t]` (S1-R11), never trusted from calldata (round 6, R6S-4). Duplicates revert `AlreadySlashed` through the owner's `slashedAt` (class A) or a record keyed `(rule, key, term, height)` (class B). Every window ends by `termStart(t) + EVIDENCE_WINDOW`, every signed object's `termStart ≤ activeUntil`, and exit waits EVIDENCE_WINDOW past `activeUntil` and key retirement, so no offence outlives the bond (**proven** from those clauses; slashing page §15). The S3a key is copied verbatim from S2-R21 (round 5, R5S-6): `(t, v, vcHash, redraw, height)`. S3b reads lock votes of kinds TIMEOUT, TERM_END and FALLBACK only, never REPLACE or RESUME, and a FALLBACK vote pairs only with an attestation under the same opening object, which exists only for a key in both `committee(t)` and the signing committee (S2-R14, S2-R21), both confirmed as S2 §10 asks. The forced ring `forcedRecord(uint8)` (C2 §10, C3) is S3d's record. Gas is unmeasured (§11). Source: slashing page §3; interfaces page §1.
+
+| Id | Offence | Evidence (objects per S2-R21; types per C8) | Verification | Class, split | Window |
+|---|---|---|---|---|---|
+| S1 | sequencer equivocation (TH4) | one sequencer key, two signed headers, equal `(chainId, t, v, vcHash, height)`, different `phHash` | fields equal, hashes differ; two-branch recovery: a coded key is slashed as S8 without recovery, else `ecrecover` both (TH18) | A; challenger `min(10 %, 2,000)`, rest burned | `termStart + 7 d` |
+| S3a, attestation form | attester equivocation | one attester key, two attestations, equal `(t, v, vcHash, redraw, height)`, different `phHash`, the public key | two single BLS verifications; key hash to owner | A | 7 d |
+| S3a, certificate form | two valid certificates at one `(t, v, vcHash, redraw, height)` with different `phHash` | both certificates, a committee proof | keys equal, hashes differ (two certificates over one header slash nobody); root check; `popcount ≥ Q(m)` both; two aggregate verifications; every key in both bitmaps (at least `2Q(m) − m`) slashed; the leader's headers are S1 evidence | A each; challenger `min(10 % of the total, 2,000)` | COMMITTEE_RING (34 h) |
+| S3b | lock lie (W1) | a lock vote by key `i` of kind TIMEOUT, TERM_END or FALLBACK with lock `L`, plus an attestation by `i` under the same opening object (redraw counts may differ, round 4 fix) on a header whose carried certificate is above `L` | recompute the header's `phHash`; kind not REPLACE or RESUME; no exemption for any lock, landed included (round 5, R5S-1: an honest vote of these kinds is never below a certificate its key attested, its lock being at least the carried certificate verified at V3, and only RESUME is signable after a reset); two single verifications | A | 7 d |
+| S3c | lock-vote equivocation | one key, two lock votes for one `(t, v, vcHash, kind)` at one height with different `phHash`, or a later vote below an earlier one (a strictly higher extending lock is a permitted re-vote, round 3, S5) | two single verifications; height and `phHash` compared | A | 7 d |
+| S3d | false replacement | a REPLACE or RESUME lock vote whose signed L1 reference `(number, hash)`, inside the DOMAIN_LOCK preimage (round 3, S1), names a block at which A1 did not hold, or a hash not canonical there | canonicality by `blockhash` or EIP-2935 (older reverts); `replaceableFrom` recomputed as of that L1 block from the term records, for RESUME against the forced ring (round 5, R5S-3); one single verification | B, one seat | COMMITTEE_RING |
+| S6 | invalid named object | a signed or attested header whose carried-certificate or view-change preimage fails (`popcount < Q`, wrong `(t, v)`, height not in `{n − 1, n − 2}`, `phHash` off the ancestor line, invalid aggregate); attester and certificate forms add that object; sentinel-view headers are never evidence | `keccak(preimage)` equals the named hash; signatures valid; the preimage fails | B, one seat per lying key; challenger `min(10 %, 2,000)` | COMMITTEE_RING |
+| S8 | a registered sequencer key acquired code (TH18) | the address | `extcodesize > 0`; key bound or within the window | A | while bound, plus 7 d |
+| MISS; S4c | absence with takeover (TH3, TH10); missed term, no takeover | the view-change chain a landing carries; settlement only | inside `land` (S3-R07); unattributable | C, burned; none (`UNATTRIBUTED`) | at settlement, within ROLE_HORIZON |
+
+**[proven: why "invalid takeover without preimage" and "parent lacks a certificate" have no standalone rule]** Both are non-existence claims: their provable forms are S6 (a failing preimage is the signer's own lie), their unprovable forms harmless, since honest nodes reject at V2 and V3, nothing carrying such a header is landable, and `Q` colluders certifying it never land it (C2-R09). Source: slashing page §3.
+
+### S3-R09. False accusations are impossible: invariant I5
+
+**[proven: I5, from the accept sets]** S1, S3a to S3c, S6 and S8 succeed only on the accused key's own signatures or code over conflicting messages (a pair rule checks the inequality explicitly); S3d needs the accused's own signed L1 reference plus an L1 fact; MISS needs a view change the landing verified. No rule infers fault from the absence of a landing: the abandonment rule of rounds 2 and 3 (S4a, with its outage gate and void waiver) was removed in round 4 (R4H-5, R4-C3): a certified view is landable by anyone from the holder's reserve, and the only unlandable certified content is a guest bug, a false positive for any such rule, handled by replacement (C2-R07). No rule accepts an unsigned claim, hence no challenger bond and no counter-accusation game; the challenger's only cost is gas: with Frame Transactions a trailing status VERIFY makes a losing or stale submission invalid and free (C5), without them it reverts on `AlreadySlashed` for about 30k gas. Silence is never slashed and never changes eligibility, since a colluding committee could manufacture it free; it forfeits rewards and costs MISS, nothing else. This is the one statement of I5; C2 §13, S2 §7 and S4 cite it. **[proven: no slashing path depends on `ecrecover` succeeding]** Every attester path is BLS; the sequencer path has the two-branch rule and S8. **[proven: no rogue-key framing]** The standard BLS proof-of-possession argument (A-BLS). Source: slashing page §3, §15.
+
+## 5. Bond sizing
+
+### S3-R10. The four constraints on B_SEAT
+
+**[assumed: proposed constraints, every amount a formula on A-REV]** Let `H(X)` be the largest value users irrevocably act on within `X` seconds at a level (unmeasured, §11).
+
+1. **Attested or locked reorg.** The cheapest provable attack on a locked block is a second certificate or view change at one redraw count: at least `2Q(m) − m` attester keys plus the leader, all class A, a burn of at least `(2Q(m) − m + 1) × B_SEAT`, 13 × B at `m = 32`. This is the published credit bound for "locked" (S2-R18 publishes `m` and the exceptions beside it); it holds at every lock, landed included (round 5, R5S-1), within one redraw count (S2-R16, L16), and is conditional on `m`, which falls with the suspended share `s` of the domain, about `32(1 − s)` (round 6, R6-C1; `exitStale` bounds parking, S1-R08). It is a deterrent, not compensation (victims are not identifiable on L1). Raise B_SEAT (linear, no liveness cost) before `Q` (which lowers the stall threshold). A later committee's FALLBACK is not a provable attack and is not priced: S2-R14's gates refuse it, L5 the residual that slashes nobody.
+2. **Sequenced-level reorg.** One uncertified tip block (S1): `B_SEAT − CHALLENGER_CAP ≥ H(1 s)`.
+3. **Liveness.** `B_SEAT ≥ 100 × V_term`, so a seat outweighs 100 terms of income; MISS_PENALTY is a nuisance, not ruin, and no griefing rate enters, the bleed applying only to a leader silent to the whole committee (round 4, R4-C1); the reserve is at most B_SEAT.
+4. **Sybil invariance.** Class A takes the whole ledger and the floor is `seatCount × B_SEAT`, so an owner with `m` committee slots loses at least `m × B_SEAT` however seats are split.
+
+`B_SEAT = 20,000 TAIKO = 300 × V_term` at A-REV satisfies 1, 3 and 4 as arithmetic (§11) and 2 only if `H(1 s) ≤ 18,000 TAIKO`, unmeasured (§15 item 2). **[proven: the pigeonhole]** Two `Q`-subsets of `m` slots intersect in at least `2Q − m` (12 at 32, 6 at 16, 4 at 8), each key there signed the S3a or S3b pair, and the floor rule makes the burn at least `(2Q − m) × B_SEAT` however seats are split. Source: slashing page §4, §10, §15; S2 §6.
+
+## 6. Rewards
+
+### S3-R11. Reward-type movements and what S3 does not pay
+
+**[assumed: proposed rule]** The reward-type movements are the block ramp `r`, the blob reward R_BLOB, the per-landing reward `r_land`, a `RewardBoost`, the attester share and PIN_REWARD, each debited from the responsible holder's `reserveGwei` and credited in the same transaction to the address the journal's `rewardTo` binds (C2-R04; round 2, S6: proofs are per lander), to the end certificate's signers or to the first pinner. Nothing is paid on L2; no per-term protocol fee or treasury exists (a discretionary recipient would be an operational role, R1). L2 income is unchanged: the coinbase keeps the whole base fee (BASEFEE_SHARING_PCTG = 100 since Proposal0026, C1's P-FEE-SHARE) plus tips and ordering value. No reward or penalty attaches to an origin pin (`pinCurrentOrigin`) or a checkpoint reveal (C1); the pin PIN_REWARD pays is S1-R14's `recordAssignment` (S3-R17); the per-anchor reveal is a client policy of about 100k gas (roles page §1, unmeasured). Forced-inclusion fees, bonds, surcharges and refunds are ETH movements C3 owns, cited here only as lander income and as terms of S3-R20. Source: slashing page §6; landing page §5; roles page §1, §3.
+
+### S3-R12. Why the ramps run from landability: the outage argument
+
+**[assumed: S3's argument on C2-R16's origin rule, not a second statement of it]** C2-R16 defines `landableFrom(t)`, the three ramps and the unpaid pin above the first unlanded term; S3 states only what the origin costs the reserve. **[proven: a chain-wide outage charges at most the head of the backlog, conditional on C2-R16]** Ramps from term end would reach their maximum for the whole backlog; from `landableFrom`, only the terms the first range after recovery reaches (at most MAX_VIEWS = 4) are charged from their term end, every later term ramps from the landing below it, holders self-land their backlog at no debit (S3-R18), and a backlog pin pays at most the head term's, a `recordAssignment` pin above the first unlanded term being unpaid (C2-R16). A1 is unchanged (L6). This is the `j ≤ 4` of S3-R22's outage arithmetic. Source: landing page §5, §6; slashing page §6; round 6, R6H-2.
+
+### S3-R13. The block constants and the boost's ceiling
+
+**[assumed: the constants; the ramp and the `RewardBoost` are C2-R16's]** R_BLK_MIN and R_BLK_MAX (§11) are the ends of C2-R16's block ramp, R_BLK_MAX being the assumed marginal proving cost per block and the ceiling of the boost C2-R16 defines, so the boost leaves the exposure unchanged (§15 item 6). FI blocks earn no lander reward of their own, add no blob and are exempt from V10, but they are among the term's at most sixty blocks, so they lie inside `60 × R_BLK_MAX` (C3; round 4, R4H-6; round 6 fix pass). The holder is the reserve bidder of its own term: it lands at the minimum, and the price ramps only if it does not. Source: landing page §5; slashing page §1, §6.
+
+### S3-R14. R_LAND_MAX, the paid-landing bound S3 consumes, and the break-even fee
+
+**[assumed: the constant; the gate, LANDING_UNIT and the greedy-landing proof are C2-R16's and C2 §12's]** R_LAND_MAX prices one 2 M-gas landing at 100 gwei at A-REV (§11); it is the ceiling of C2-R16's `r_land`, paid to landing `k` of a term only under C2-R16's byte gate (round 4, R4H-7: a per-block price cannot cover a fixed landing cost when a term needs several landings; round 6, R6H-3). S3 consumes, without re-deriving, two results C2-R16 proves: every greedy landing is paid, and a lander is paid at most `⌈TERM_BYTES_MAX / LANDING_UNIT⌉ = 5` times `r_land` per term (conditional on C7's V9 and V10, C3's MAX_FI_RUN and the FI record size open until C2's E02). **[proven: break-even, conditional on A-RATE and on C2-R16's paid-landing result]** Since every greedy landing is paid and R_LAND_MAX prices one 2 M-gas landing at 100 gwei, a third party is paid in full up to about 100 gwei per landing whatever the term's size and the slot time; above it landing waits for the fee to fall or the holder to land at its own cost, and nothing is penalized meanwhile (I5). Source: landing page §5, §11; parameters page §1; round 6, R6H-3.
+
+### S3-R15. The blob reward and its cap
+
+**[assumed: the constant and its cap; C2-R16 applies the cap as `min(blobs, 15 − blobsPaid)`]** R_BLOB per blob is paid for at most 15 blobs of a term in landing order; a later blob earns nothing. The cap is the five paid landings of a cap term at three blobs each (round 6 fix pass); FI blocks add no blob (C2-R02). **[proven: why the cap is needed]** Without it sixty one-blob landings of one term would earn `60 × R_BLOB`, an exposure of 7,206, and two such terms `14,412 > LAND_RESERVE = 14,400`. Source: landing page §5; parameters page §2.
+
+### S3-R16. The attester share and the exclusion C2-R16 omits
+
+**[assumed: the constant; the split is C2-R16's; the exclusion is S3's proposal against C2-R16, not a second rule]** ATT_REWARD_PER_BLOCK, the only attester-reward constant (round 5, R5S-6; §11), is debited per landed block from that block's holder's reserve and split among the end certificate's signers as C2-R16 states, each share credited under S3-R18; per block, so one-block landings and range splitting earn nothing extra; attesters that did not sign earn nothing, so refusing to attest costs income though it is not slashable. The slashing page §6 adds "excluding the holder's own seats", which C2-R16 omits and the page states two ways (§15 item 7); S3 proposes the §6 form, since a backup holder's other seats may sit in the committee (S1-R13). Until C2-R16 adopts or refuses it (§15), the normative split is C2-R16's; A-ATT holds under either reading. Source: slashing page §6, §10; roles page §2.
+
+### S3-R17. The pin reward
+
+**[assumed: proposed rule]** The first party that pins term `t` (by `recordAssignment(t)` or by the landing that settles it, at most SETTLE_MAX terms per landing) is paid PIN_REWARD, C2-R16's ramp to PIN_MAX (§11), from the term holder's reserve, skipped when the pinner is the holder (S1-R14; round 5, R5H-2, sized in the fix pass; origin from round 6, R6H-2). A backlog pin during an outage pays at most the head term's (S3-R12). PIN_MAX pays a launch-registry pin up to about 75 gwei and a 4,096-seat pin up to about 11 gwei (§11); above that the first landing pins at its own cost. Whether one landing pinning several terms collects several pin rewards is implied, not stated (C2 §16 item 8). Source: slashing page §1, §6, §10; parameters page §2.
+
+### S3-R18. Self-landing and the refill rule
+
+**[assumed: proposed rule]** When the lander's `rewardTo` resolves to the holder, the lander's debit and credit are both skipped: a self-landing costs L1 gas plus the attester share, about `60 × ATT_REWARD_PER_BLOCK = 6` TAIKO per full term. Any reward-type credit to an owner with seats goes to its `reserveGwei` first, up to `seatCount × LAND_RESERVE`, the excess to its withdrawable balance (round 5, R5S-4). A reward-type credit to an address with no seats is the only reward-type movement that leaves the pool of reserves (a class-A slash and an exit release are not reward-type, S3-R02, S1-R07), and the owner can direct its own landings there (S3-R23's residual). Source: landing page §5; slashing page §1, §6.
+
+### S3-R19. The announcement bond's split
+
+**[assumed: proposed rule]** C2-R08 defines `announceLanding`, ANNOUNCE_BOND and its forfeiture; S3 owns the split: 40 % to the forced or replacement lander, 60 % burned; the bond is a ledger entry (S3-R20). Source: landing page §6; slashing page §6, §10.
+
+### S3-R20. The accounting invariant
+
+**[proven: by construction]** `TAIKO.balanceOf(Inbox) = Σ balance + pendingBurnGwei`, reserves and announcement bonds being sub-amounts of `Σ balance`: every credit is a same-transaction debit of another entry, nothing is minted, a shortfall lowers a credit and never raises it. ETH: `address(Inbox).balance = Σ unconsumed FI fees + Σ unconsumed FI bonds + Σ claimable ETH`, the claimable part being the includers' fee ledger plus the bond and refund of every refundable, unclaimed entry (C3's statuses; round 6, R6H-1 and the fix pass); the bond and fee a stall burns leave in the landing that burns them, pushed to the dead address, a push that cannot revert. Source: slashing page §6.
+
+## 7. The reserve
+
+### S3-R21. The per-term exposure is a hard bound
+
+**[assumed: definition]** The exposure is the most one term can debit from its holder's reserve: `60 × R_BLK_MAX + 15 × R_BLOB + 5 × R_LAND_MAX + 60 × ATT_REWARD_PER_BLOCK + PIN_MAX = 240 + 15 + 6,500 + 6 + 400 = 7,161` TAIKO at A-REV, realised only at the maximum ramp (round 5, R5H-2; round 6, R6H-3 and the fix pass). **[proven: hard bound over every landing pattern, conditional on C7's V4, V9 and V10, C3's MAX_FI_RUN and C2-R16]** A term has at most sixty blocks (V4), each paid at most R_BLK_MAX by ramp or boost (C2-R16; S3-R13); R_BLOB at most 15 times (S3-R15); `r_land` at most `⌈TERM_BYTES_MAX / LANDING_UNIT⌉ = 5` times, each at most R_LAND_MAX (C2-R16's paid-landing result; S3-R14); the attester share per landed block, at most sixty; the pin reward once, at most PIN_MAX. Each part is bounded independently of packing and landing count, so the sum bounds every pattern: sixty one-block landings earn 7,161 again. S3 accepts 7,161 as the hard bound C2 §16 asks for and changes no cap. Source: landing page §5, §11; parameters page §1; slashing page §4, §10.
+
+### S3-R22. LAND_RESERVE, the entry capital and the honest drain
+
+**[assumed: proposed rule]** LAND_RESERVE per seat, required at registration and reactivation (S1-R04), is two terms of exposure (`2 × 7,161 = 14,322 ≤ 14,400`) and at most B_SEAT; the entry capital is `1.05 × B_SEAT + LAND_RESERVE = 35,400` TAIKO per seat at A-REV. The honest path does not drain it: a self-landing skips the lander's debit (S3-R18), the attester share is offset in expectation (A-ATT), and every reward paid to an owner with seats refills its reserve first; it is drawn down only when another party lands the term (a failed prover, or a fee the holder will not pay). An 8-seat owner holds 115,200 TAIKO, about 16 terms of exposure, 8 above its lapse line. Source: landing page §5; slashing page §1, §4, §10.
+
+**[proven: the honest-drain figures, arithmetic at A-REV, reproduced with their blob counts]** At the happy-path lag of 150 s after `landableFrom`, `r = 0.5 + 3.5 × 150 / 1,800 = 0.7917`, `r_land = 1,300 × 150 / 1,800 = 108.33` and PIN_REWARD `= 33.33`, so a cap term left to a third party costs `47.5 + blobs + 108.33 × landings + 39.33`: 643.5 TAIKO in five landings at the 15-blob cap (the most paid; a cap term's about 9.8 blobs, 10 paid, give 638.5, §15 item 9), 530.2 in four (2-s slots, 10 blobs), 313.5 in two (12-s slots, 10 blobs) and 198.2 to 201.2 in one (3 to 6 blobs, 6 being C2 §12's MAX_BLOBS); the page rounds these to "about 640, 530, 310, 200"; against 7,161 at the maximum ramp. **[proven: the outage arithmetic, conditional on S3-R12]** An outage charges the maximum ramp only to the owner's terms the first range after recovery reaches, `j ≤ 4`; an owner at its required level with `s` seats lapses from the outage alone only if `s × 14,400 − j × 7,161 < s × 7,161`, that is `j > 1.01 × s`, impossible from four seats up. At the launch registry (8 of 72 seats) about 7 of an 8-seat owner's terms fall in one LAND_WINDOW_MAX, more than 8 in about 22 % of windows and more than 16 in about 0.02 % (§11), so an owner whose own prover stays down through an hour of fees above break-even relies on S3-R25, not on the outage case. Source: landing page §5; slashing page §1, §10; L20.
+
+### S3-R23. The per-seat lapse line, invariant I2 and residual L20
+
+**[assumed: proposed rule]** An owner whose reserve falls below `seatCount × 7,161`, one term of exposure per seat, lapses (round 6, R6S-2, replacing round 5's per-owner lines, under which an 8-seat owner kept every draw on one term of reserve): effective at `τ + DELAY_S`; stored in S1-R09's two-interval store with its minimum SUSPEND(3) kept (round 4, R4-C2); ended only by a top-up to `seatCount × LAND_RESERVE` plus `reactivate()`, DELAY_REG-dated. The line is read at every draw: a seat drawn while its owner is lapsed is a void view or an empty committee slot; the lapse changes no rank and no `E_t` (S1-R09; round 5, R5S-2). DELAY_S rather than DELAY_REG is safe since voiding one's own draws or emptying one's own slots after the seed is fixed never adds a cartel member to a committee (a coalition losing one slot lowers its count by one while `Q(m)` falls by at most one) and moves no other owner's rank, and `DELAY_S = LOOKBACK + 2 × TERM` keeps every term's flag a function of L1 state at `S(t)` (S1's I1). Source: slashing page §1; landing page §5; parameters page §1.
+
+**[assumed: invariant I2, owned by S3; C2-R17 and S2 §7 cite it]** No owner action short of a class-A slash of itself and of the self-directed drain costed below, and no liveness event, can remove the funds that pay a drawn term's landers and attesters, and no owner keeps its draws with less than one term of exposure per seat in reserve: by S3-R04 (non-withdrawable, ring-fenced from MISS), S3-R11 (reward-type debits only), S3-R18 (refilled first, untouched by a self-landing but for the attester share), the lapse DELAY_S after the line and S3-R12 (an outage charges only the terms the first landing reaches). S2 §7 states the precondition; S4 argues it. **[assumed: residual L20, proposed for C6's register]** No L1 rule can guarantee funds for a term drawn before the debits that emptied its holder's reserve, and the owner can bring those debits about: it lets its own terms ramp to the maximum and lands them with `rewardTo` a seatless address it controls, moving up to 7,161 TAIKO per term to a withdrawable balance (the refill rule cannot tell such an address from a third party). That frees at most `LAND_RESERVE − 7,161 = 7,239` TAIKO per seat while the owner keeps its draws; past the line it loses them 22 minutes later for at least SUSPEND(3), every draw held until then backed by about a term per seat. The residual window is the terms drawn inside DELAY_S after the crossing plus those still unlanded at it, funded only by what is left; such a term is landed by its holder at gas cost or replaced under A1 with no penalty (C2-R09). A third party landing a negligent owner's late terms can choose which debit crosses the line; the only effect is that the owner's views pass to their drawn backups, after a ReserveLow warning a full term of debits earlier. A self-inflicted class-A slash empties the ledger at the price of the seats and changes no draw (round 5, R5S-2). Honest operation does not reach the line (S3-R22). Source: landing page §5; slashing page §1, §13; L20 (R4H-3, R4-C4, R5S-4, R6S-2, R6H-2, R6H-3).
+
+### S3-R24. ReserveLow and its hysteresis
+
+**[assumed: proposed rule]** `ReserveLow` fires once per crossing below `(seatCount + 1) × 7,161`, one term of headroom above the lapse line, and re-arms only at the required level `seatCount × LAND_RESERVE`, which the refill rule reaches on its own (round 5, R5S-4; round 6, R6S-2), so an owner sees one event per real drawdown. **[derived: S3's gloss, not on the pages]** A re-arm line of `seats + 1.5` terms would never re-arm for a one-seat owner (required level about 2.01 terms); a warning line of `seats + 0.5` would re-fire on every debit. Between the warning and the line lies a full term of maximum-ramp debits, at least one LAND_WINDOW apart unless one range reaches both (S3-R12): about half an hour for the client. Source: slashing page §1, §8; landing page §5.
+
+### S3-R25. The top-up duty
+
+**[assumed: proposed rule, a sequencer duty of the roles page §1]** On `ReserveLow` the client tops up through `deposit()` to `seatCount × LAND_RESERVE`, never to less (a partial top-up leaves the event disarmed), at most `seatCount × 7,239`. A single seat survives one maximum-ramp third-party term (`14,400 − 7,161 = 7,239`, above its line) and lapses at the second unless it tops up. **Adversary schedule:** maximum-ramp third-party landings, or the owner's own laundering; both visible a full term of debits before the line. Source: roles page §1; slashing page §1.
+
+## 8. Anti-monopoly economics
+
+### S3-R26. Share, price and why exclusion is unreachable
+
+**[assumed: what S3 states; S1-R19 with S1-R12 owns the share rule, S1 §11 the derivation]** Under S1-R19 an entity with `k` of `n` seats is drawn primary with probability `k / n` per term whatever the split across addresses, and holds `k × K / n` committee slots in expectation (S1-R13). Primary share `X` against `H` honest seats costs `k = X × H / (1 − X)` seats (§11); the marginal cost is super-linear in primary share only and silent on productive revenue (S3-R28). Exclusion is unreachable for the reasons S1-R19 gives (A-T1, no gate but bond and a code-less key, no roster edit); S3 adds only its price: a full seat array costs 1.31 billion TAIKO of seat stake, above the supply (§11; S1's A-SUPPLY). Source: slashing page §5; sequencing page §16.
+
+### S3-R27. CAP, owner-keyed rules and key rotation
+
+**[assumed: proposed rule]** CAP = 8 bounds an address, not an entity (S1-R03). **[proven: by indistinguishability]** No owner-keyed rule (a cooldown, a consecutive-term burn, a per-owner decay, a progressive fee burn) costs a Sybil-capable adversary more than the per-seat price, since the registry cannot tell `m` owners of one entity from `m` entities; such rules tax only honest large operators and are rejected (L9, S1-R19). Performance decay is the absence bleed and the hard floor only (S3-R07, S3-R04). Key rotation is economically neutral: every term reads the key valid at its start, the retired key stays liable (S3-R01), and nothing is keyed on a key rather than its owner, so rotating neither evades a window nor changes a draw. Source: slashing page §5; sequencing page §5, §8.
+
+### S3-R28. What a cartel can still do: the revenue model and the cartel table
+
+**[assumed: the model]** With at least `m − Q(m) + 1` slots (11 of 32) in a committee a cartel can refuse to attest an honest primary's blocks: no certificate forms and no timeout either (S3-R07); the primary holds after two uncertified blocks and loses that term's revenue; nothing is penalized. Two redraws (S2-R16) mean blanking needs a blocking minority in the first draw and in each redraw (16 of 32 in the first). A blank term shifts revenue without shifting primaries, so the cartel's share of productive revenue exceeds its seat share once it blanks a material fraction of honest terms; the committee is drawn without replacement after excluding the primary by owner and the backups by seat (S1-R13), so the blocking probability is hypergeometric and depends on the owner structure. **Revenue in terms** (round 6, R6-C2): the last column counts certified terms, exact when a delayed second's fees carry over to later blocks (delay costs users latency, not honest holders revenue). **Revenue in seconds:** a blocking minority also delays every handoff out of a committee it blocks by 12 to 22 s by withholding TERM_END (S2-R14; the record costs honest members about 165k gas plus S1's walk, S2-R13); if those seconds' revenue is lost instead, the seconds-weighted shares are 50.8 % rather than 44.0 % for `8 × 8 / 32 × 1` and 56.9 % rather than 48.9 % against six 8-seat honest owners (the round-6 judge's re-run); the extra 7 to 8 points need TERM_END withheld after certified terms too, else 2.4 to 3.5. Source: slashing page §5; L2.
+
+**[assumed: simulated, not reproduced]** Candidate A's simulation, 20,000 terms per row (script not committed; round 4, R4-C1; round 5, R5-C2); assumed until re-run (§15 item 4).
+
+| Registry (honest / cartel) | Cartel seat share | Cartel share of primary terms | Blank rate, no redraw | Blank rate, two redraws | Cartel share of productive revenue |
+|---|---|---|---|---|---|
+| 8 × 8 / 8 × 1 (72, launch condition) | 11 % | 11 % | 0 % | 0 % | 11 % |
+| 100 × 1 / 33 × 1 | 25 % | 25 % | 12 % | 0.2 % | 25 % |
+| 40 × 1 / 20 × 1 | 33 % | 33 % | 57 % | 22 % | 38 % |
+| 8 × 8 / 32 × 1 (96) | 33 % | 33 % | 69 % | 36 % | 44 % |
+| 8 × 8 / 4 × 8 (96) | 33 % | 33 % | 70 % | 37 % | 44 % |
+| 8 × 8 / 2 × 8 + 16 × 1 (96) | 33 % | 33 % | 69 % | 36 % | 44 % |
+| 40 × 1 / 27 × 1 | 40 % | 40 % | 91 % | 77 % | 74 % |
+| 100 × 1 / 70 × 1 | 41 % | 41 % | 87 % | 71 % | 70 % |
+| 100 × 1 / 100 × 1 | 50 % | 50 % | 98 % | 97 % | 97 % |
+
+Reading: below about 25 % of seats a cartel gains nothing; at the A-T11 boundary it gains about 5 points against a dispersed honest set and about 11 against the eight 8-seat honest owners of the launch condition, whatever its own seat structure, because excluding an 8-seat primary by owner leaves a pool of 88 seats, less the backups' seats, in which 32 cartel seats are 36 to 38 % (**derived**, S3's arithmetic on S1-R13's exclusions, `32 / 88` to `32 / 84`, not on the pages); against six 8-seat honest owners about 15 points. A single-seat entrant against a one-third cartel has about 16 % of its primary terms blanked with two redraws and earns about 84 % of its fair revenue (round 5, R5-C2). **Above one third the gain is superlinear (40 % of seats yields about 70 to 74 %, 50 % yields 97 %) and the design does not defend it: limitation L2, proposed for C6's register with this table as its evidence.** The launch condition (8 owners, 72 seats) is a heuristic enforced by no rule (S1 §11); at it a cartel of 8 single seats blanks nothing. The limitation this table evidences is L9 as S1-R19 states it (seat share priced, never bounded; A-T11 the only collusion bound); S3 owns its revenue half only: this table, the seconds-weighted shares and the entrant figure. **[open]** Whether the revenue shift at the boundary needs a brake beyond two redraws (a larger REDRAW_MAX, or a redraw seeded per attempt). Source: slashing page §5, §11, §15; L2, L9.
+
+## 9. Interface sketch
+
+**[assumed: interface declaration; C8 indexes it, the interfaces page is normative for the struct types]** The slashing and ledger surface of the upgraded Inbox behind the existing proxy; `Attestation`, `Certificate`, `LockVote`, `CommitteeProof` and `TermRecord` are S2's and C2's types; registry functions are S1's.
+
+```solidity
+/// @custom:security-contact security@taiko.xyz
+interface IEtnaInbox /* slashing and ledger surface */ {
+    struct SignedObject { uint8 kind; bytes body; bytes sig; }   // 0 HEADER: PH bytes under S2-R03's encoding
+
+    function slashSequencerEquivocation(SignedObject calldata _a, SignedObject calldata _b) external;
+    function slashAttesterEquivocation(Attestation calldata _a, Attestation calldata _b, bytes calldata _pubkey) external;
+    function slashCertificatePair(Certificate calldata _a, Certificate calldata _b, CommitteeProof calldata _cp) external;
+    function slashLockLie(LockVote calldata _lv, SignedObject calldata _hdr, Attestation calldata _att, bytes calldata _pubkey) external;
+    function slashLockVoteEquivocation(LockVote calldata _a, LockVote calldata _b, bytes calldata _pubkey) external;
+    function slashFalseReplacement(LockVote calldata _lv, bytes calldata _pubkey) external;
+    function slashInvalidNamedObject(SignedObject calldata _hdr, bytes calldata _preimage, SignedObject calldata _parent,
+        Attestation calldata _att, Certificate calldata _cert, bytes calldata _pubkey, CommitteeProof calldata _cp) external;
+    function slashCoded(address _seqKey) external;
+    function sweepBurn() external;
+    function deposit(uint256 _amount) external;                 // interfaces page (S3-R25)
+    function withdraw(address _to, uint256 _amount) external;   // interfaces page (S3-R04)
+    function balanceOf(address _owner) external view returns (uint256 balance_, uint256 reserve_);   // S3 addition (§15 item 11)
+
+    event Slashed(address indexed owner, uint8 indexed rule, uint32 termId, uint8 view, uint64 height, uint64 debitedGwei,
+                  uint64 challengerGwei, uint64 affectedGwei, uint64 burnedGwei, uint64 shortfallGwei, address indexed challenger);
+    // MissPenalised, TermSettled, AttestersRewarded, PinRewarded, ReserveLow, ReserveLapsed, BondBelowBuffer, BurnSwept: C8
+}
+```
+
+Errors: `AlreadySlashed, EvidenceExpired` (interfaces page); `NotConflicting, BadPreimage, KeyNotBound, ReferenceUnverifiable, NotCanonical, PredicateHeld, InsufficientDeposit, ReserveLocked` are **S3 additions** named for the vectors of §13, on neither page, for C8 to adopt or rename (§15 item 11). No L2 interface; no new P2P message (every gossiped object is self-contained evidence; REDRAW never is). Client duty: a per-key slashing-protection record `(t, v, vcHash, redraw, height, phHash)` persisted before broadcast (S2-R04). Source: slashing page §8; interfaces page §1.
+
+## 10. State machines
+
+**[proven: projections of the rules, not new transitions]** The term record's transitions are C2 §11's; only the settlement flags are S3's.
+
+```text
+Owner ledger
+  UNREGISTERED --register (S1-R04)--> ACTIVE
+  ACTIVE --MISS--> ACTIVE [BondBelowBuffer below 1.05·floor; SUSPENDED_OPEN at τ + DELAY_REG below 0.5·floor]
+  ACTIVE --reward debit (reserve only) | reward credit (reserve first)--> ACTIVE [ReserveLow once below (seats + 1)·7,161; re-armed at seats·LAND_RESERVE]
+  ACTIVE --reserve below seats·7,161--> RESERVE_LAPSED from τ + DELAY_S, ≥ SUSPEND(3) --top-up + reactivate()--> ACTIVE at max(lapse start + SUSPEND(3), τ' + DELAY_REG)
+  ACTIVE --third class-B strike in STRIKE_DECAY--> SUSPENDED[τ + DELAY_S, + SUSPEND(n)) --time--> ACTIVE
+  ACTIVE --class B debit below floor--> SUSPENDED_OPEN --top-up + reactivate()--> ACTIVE at τ' + DELAY_REG
+  ACTIVE --class A evidence--> SLASHED (balance 0; seats void from τ + DELAY_S; exit only)
+  any suspension or lapse > STALE_EXIT --exitStale by anyone (S1-R08)--> EXITING;  ACTIVE --requestExit--> EXITING --activeUntil + EVIDENCE_WINDOW--> WITHDRAWABLE
+Key: PENDING --DELAY_REG--> VALID --rotate | exit--> RETIRED (liable to validUntil + EVIDENCE_WINDOW)
+```
+
+Source: slashing page §9; roles page §8.
+
+## 11. Numeric register
+
+**[assumed: rule-owned register]** S3's sole numeric definitions; C6 indexes them without a second copy. C2 §12 still duplicates several reward rows (§15 item 5). Units: TAIKO (or gwei of TAIKO), ETH, seconds, gas, basis points or counts; nothing in L1 slots. Every TAIKO amount is a formula instantiated with the first row's unmeasured inputs (L15); "quoted" marks a value another section owns. The pages' "owned by the parameters page" is superseded by this register (D9).
+
+| ID | Value / unit | Derivation, rationale and status |
+|---|---|---|
+| V_term; P (A-REV) | about 0.01 ETH per term; about `1.5·10⁻⁴` ETH per TAIKO | **unmeasured inputs** (G8, G10) behind every TAIKO row. |
+| H(X) | the value users irrevocably act on within X s at a level | **unmeasured:** no page states it; S3-R10's constraint 2 is unverifiable until it is. |
+| B_SEAT | 20,000 TAIKO (`2·10¹³` gwei) per seat | **derived from assumed inputs:** `300 × V_term / P`; `13 × B × P = 39` ETH per locked reorg at `m = 32`; `B ≥ 100 × V_term / P = 6,667`. |
+| Credit bounds | locked: `(2Q(m) − m + 1) × B_SEAT` (260,000 TAIKO at 32; 7 × B at 16; 5 × B at 8); sequenced: `B_SEAT − CHALLENGER_CAP = 18,000` | **derived (S3-R10);** deterrents within one redraw count at the published `m`. |
+| BUFFER_BPS / HARD_FLOOR_BPS | 500 / 5,000 | **assumed:** the buffer is 1,000 TAIKO per seat, 20 MISS debits; from `1.05 × floor` to the hard floor `0.55 × 20,000 / 50 = 220` debits of one seat (**derived**; 220 / 36 draws per day ≈ 6.1 days at one of 40 seats; §15 item 1). |
+| Entry capital | 35,400 TAIKO per seat | **derived:** `1.05 × B_SEAT + LAND_RESERVE`. |
+| Per-term exposure | 7,161 TAIKO | **derived (S3-R21):** `60 × 4 + 15 × 1 + 5 × 1,300 + 60 × 0.1 + 400`; a hard bound; realised only at the maximum ramp. |
+| LAND_RESERVE | 14,400 TAIKO per seat | **assumed, chosen:** `≥ 2 × 7,161 = 14,322`, `≤ B_SEAT`; 8 seats hold 115,200, about 16 terms. |
+| Lapse line; ReserveLow line; top-up | `seats × 7,161`; `(seats + 1) × 7,161` (14,322 for one seat, 64,449 for eight); at most `seats × 7,239` | **derived (S3-R23 to S3-R25):** `7,239 = 14,400 − 7,161`; an outage alone lapses an owner at its required level only if `j > 1.01 × seats`. |
+| Honest drain; outage probabilities | 643.5 / 530.2 / 313.5 / 198.2 to 201.2 TAIKO per third-party term at a 150-s lag (five landings at the 15-blob cap / four and two at 10 blobs / one at 3 to 6 blobs); about 7 of an 8-seat owner's terms per LAND_WINDOW_MAX at 8 of 72 seats, `P(> 8) ≈ 22 %`, `P(> 16) ≈ 0.02 %` | **derived, reproduced (S3-R22):** `47.5 + blobs + 108.33 × landings + 39.33`, the page's "about 640 / 530 / 310 / 200"; `Binomial(60, 1/9)`: mean 6.67, `0.219`, `2.1·10⁻⁴`. |
+| MISS_PENALTY | 50 TAIKO (`5·10¹⁰` gwei), burned | **assumed:** `50 × P / V_term = 75 %` of a term's revenue; a non-serving one-seat holder in a 40-seat domain loses `1,440 / 40 × 50 = 1,800` TAIKO per day (**derived**; §15 item 8). |
+| SLASH_CLASS_A; SLASH_SEAT; STRIKE_THRESHOLD / STRIKE_DECAY | 100 % of the ledger; B_SEAT per lying key; 3 / 604,800 s | **assumed:** the key holder alone produced both signatures (Sybil-invariant with the floor); a structural lie is reachable by a software bug, so one seat and one bug never suspends (round 5, R5S-6). |
+| SUSPEND(n); DELAY_S; DELAY_REG; STALE_EXIT; COMMITTEE_RING; ROLE_HORIZON | `SUSPEND(3) × 2^min(n − 3, 4)`, SUSPEND(3) = 129,600 s, capped at 24 d; 1,320 s; 7,200 s; 604,800 s; 2,048 terms; 122,880 s | **quoted (S1 §11, C2):** the flag dates and the evidence horizon. |
+| CHALLENGER_BPS / CHALLENGER_CAP | 1,000 / 2,000 TAIKO (`2·10¹²` gwei) | **derived from assumed inputs:** the cap, 0.3 ETH at P, covers `600,000 gas × 500 gwei` and keeps key theft and self-report unprofitable. |
+| EVIDENCE_WINDOW = EXIT_LOCK | 604,800 s | **assumed:** today's `withdrawalDelay`; whether 7 days after exit suffices is S2 §9's open question. |
+| SETTLE_MAX | 4 terms per landing | **assumed:** bounds landing gas to four committee walks; equals MAX_VIEWS (C2 §16 item 3: the parameters page omits it). |
+| MAX_EVIDENCE_GAS | 600,000 gas | **assumed:** 6 % of a 10 M-gas block at 2-s slots, the worst catalogue entry. |
+| Evidence gas | S1 about 95k; S3a 330k (attestation), 600k (certificate); S3b 340k; S3c 330k; S3d 200k; S6 200k to 550k; S8 35k; MISS +8k inside `land`; a lost race without frames about 30k | **unmeasured:** from a single BLS verification of about 152k, a 32-key aggregate of about 165k (S2 §6), `ecrecover` 3k. |
+| R_BLK_MIN / R_BLK_MAX | 0.5 / 4 TAIKO per block | **assumed, unmeasured:** marginal proving cost per block; the boost's ceiling. **Open (C2-R17):** indexing the minimum to `block.basefee`. |
+| R_LAND_MAX; break-even fee | 1,300 TAIKO; about 100 gwei per landing | **derived from assumed inputs:** `2,000,000 gas × 100 gwei = 0.2 ETH ≈ 1,300 × P = 0.195 ETH`; holds at every term size and slot time (S3-R14). |
+| LANDING_UNIT; LANDING_BYTES; paid landings | 254,000 bytes; 390,132 bytes; at most 5 per term | **quoted (C2 §12, C7 V10):** `⌈1,270,000 / 254,000⌉ = 5`; the 12,500-byte uncounted bound rests on a 250-byte FI record (open until C2's E02). |
+| R_BLOB; cap | 1 TAIKO per blob; 15 per term in landing order | **assumed:** the blob-fee share at low fees; the cap is five paid landings at three blobs; without it 7,206 per term and `14,412 > 14,400` for two (S3-R15). |
+| ATT_REWARD_PER_BLOCK | 0.1 TAIKO (`10⁸` gwei) per landed block; 6 per full term | **assumed:** `6 × P / V_term = 9 %` of V_term (**derived**); the only attester constant. |
+| PIN_MAX | 400 TAIKO per term | **derived from assumed inputs:** `400 × P = 0.06 ETH` pays `0.8 M gas × 75 gwei` or `5.4 M gas × 11 gwei` (S1's simulated walk gas, unmeasured). |
+| ANNOUNCE_BOND split | 40 % to the forced or replacement lander, 60 % burned | **assumed (S3-R19);** the bond, 2,000 TAIKO, is C2's. |
+| Price of primary share | `X × H / (1 − X)` seats; at `H = 64`: 32, 64 (1.28 M TAIKO), 576 for one third, 50 %, 90 % | **quoted (S1 §11), reproduced.** |
+| MAX_SEATS fill cost | 1.31 B TAIKO of seat stake; 2.32 B with buffer and reserve | **derived:** `65,535 × 20,000` and `× 35,400`; above the supply (S1's A-SUPPLY). |
+| Cartel table; seconds-weighted shares; entrant | §8 rows; 50.8 vs 44.0 %, 56.9 vs 48.9 %; 16 % blanked, 84 % of fair revenue | **assumed (simulated, script not in the tree):** 20,000 terms per row. |
+| BLS convention | G1 pubkey 48 B, G2 signature 96 B, DST `ETNA_BLS_SIG_V1` | **assumed:** CL-standard tooling; EIP-2537 gas as of Pectra. |
+
+## 12. Argument and adversary coverage
+
+**[proven]** I5 (S3-R09); the credit bounds within one redraw count at the published `m` (S3-R10); no offence outlives the bond (S3-R08); the accounting invariant (S3-R20). **[proven: a chain-wide outage slashes nobody]** No rule keys on the absence of a landing; MISS needs a view change a dark committee cannot form; S4c is fail-closed; a late landing moves at most the maximum-ramp reward of the terms heading the backlog (S3-R12). **[proven: no liveness rule waits for a slash]** Penalties, settlement and rewards happen on the landing path. **[proven for the lander part, assumed for the attester part (A-ATT)]** The honest path does not lapse a reserve (S3-R22). **[assumed]** B_SEAT, MISS_PENALTY and ATT_REWARD_PER_BLOCK rest on A-REV; EIP-2537 gas as of Pectra. Source: slashing page §15.
+
+| Attack trace [assumed: adversarial schedule] | Result under the cited rules, or explicit limit |
+|---|---|
+| TH4 equivocation. | A holder signing two headers at one height loses its whole ledger for at most one uncertified block (S1); two certificates burn at least 13 seats, 39 ETH at `m = 32`, for one 1-s block of attested reorg (S3a). |
+| TH5 withholding; TH8 bond griefing. | Nothing can be abandoned (S3-R09; C2-R07). No accusation object or challenger bond, duplicates revert, a minority cannot bleed a producing leader; residual: `Q` colluders time out an honest leader early for 50 TAIKO (outside A-T11). |
+| TH9 monopolisation; TH10 squatting. | Priced below one third of the seats, not defended above (S3-R26, S3-R28, L2, L9); a holder with no block attested for TIMEOUT is timed out whatever it gossips, outside S2-R07 (d): 50 TAIKO per drawn term, the hard floor after 220 draws. |
+| TH11 races; TH18; key theft. | Free with frames, about 30k per lost race without; no `ecrecover` on an attester path; a thief nets at most CHALLENGER_CAP. |
+| Self-directed drain (R6S-2); parked seats (R6-C1); not defended. | At most 7,239 TAIKO per seat freed while the owner keeps its draws (S3-R23); parked seats lower `m` and its published bound until `exitStale`. Not defended: blank terms by a blocking minority of a committee and both redraws (unprovable; §8, L2); value above the credit bounds (wallets apply S2-R18's level table). |
+
+**[assumed: failure profile and false positives, for S4]** The all-offline and all-malicious rows of every role (slashing page §12; roles page §1 to §4) and the false-positive table (slashing page §13) follow from the rules: no role's outage slashes anyone; a committee-wide or holder-wide failure ends in MISS, open-empty terms and S1's dead mode; the honest false positives are a leader partitioned from every attester for TIMEOUT (one view, one MISS), an HA failover double-sign (S1 or S3a; the slashing-protection record is the remedy), a BLS or committee-derivation bug (one seat, S6), a key delegated through EIP-7702 (the full ledger, S8; the client refuses to start with a coded key) and a term drawn before a lapse takes effect (L20). **[assumed: robustness under short slots]** Every window is in seconds or terms; only S3d reads `blockhash` or EIP-2935; no evidence path uses a shared nonce or blobs (C5); pair evidence carries at most 4 KiB of keys (EIP-7976); fresh slots only in offence records and S1's domain writes (EIP-8037). Source: slashing page §11 to §14.
+
+## 13. Test-vector obligations
+
+**[open: required by the readiness checklist, absent at `b311d1d`]**
+
+| Vector | Content | Status |
+|---|---|---|
+| S3-V01 payout | a 100,000-TAIKO class-A debit: challenger 2,000, burn 98,000; a 10,000 class-B debit: 1,000 and 9,000; balance 5,000 against a 10,000 debit: shortfall 5,000, challenger 500 | **open** |
+| S3-V02 orders of debit | MISS at `1.05 × floor`, at `floor`, at `0.5 × floor + 50` (lands exactly on the hard floor: no suspension), at `0.5 × floor + 49` (crosses it: `SUSPENDED_OPEN` at `τ + DELAY_REG`); a class-B debit at `floor + 1` | **open** |
+| S3-V03 exposure | sixty one-block, one-blob landings at the maximum ramp: per-landing debits, total 7,161; landings of 6 and 4 blobs: 2,850 + 6 + 400 (two six-blob landings: 2,852) | **open** (C2's E07 covers the ramps) |
+| S3-V04 lapse and refill | an 8-seat owner at 115,200 debited 7,161 nine times: `ReserveLow` after the eighth (57,912), `ReserveLapsed` after the ninth (50,751), `from = τ + 1,320`, `until = max(from + 129,600, τ' + 7,200)`; a 10,000 credit to an owner 9,000 below its level: 9,000 to the reserve, 1,000 withdrawable | **open** |
+| S3-V05 S3a, S3b, S3d | S2-V03's pair (different `phHash` slashes every key in both bitmaps; equal reverts `NotConflicting`); S2-V10's pair (the vote at 39 slashes, at 40 not; a FALLBACK vote by a key only in `committee(t')` reverts `KeyNotBound`); a RESUME `l1Ref` where A1 held (no slash), where it did not (one seat), older than EIP-2935's window (`ReferenceUnverifiable`) | **open**, consume S2-V03, S2-V10, C2's E05 |
+| S3-V06 invariant | before and after each vector, `TAIKO.balanceOf(Inbox) = Σ balance + pendingBurnGwei` | **open** |
+
+## 14. Limits and rejected alternatives
+
+**[assumed: one-clause citations, not argued here]** Slashing page §16: a 50/50 challenger and burn split (halves the deterrent); a challenger floor (self-reporting profits); challenger bonds or accusation games (no rule accepts a claim); victim compensation (victims unidentifiable on L1); a treasury share (an operational role); BLS for the sequencer key (the guest verifies `ecrecover`); `MISS_PENALTY = 0` or 200; penalties keyed on a landing deadline (rounds 2 and 3); standalone rules for invalid takeovers or statically invalid headers (software bugs); a "skipped certified block" slash on fallback leaders (round 6, R6S-3); progressive burns and cooldowns (S3-R27); term auctions; a separate attester bond; attester pay on L2; `MAX_SEATS = 4,096` (a finite exclusion price, 81.9 M TAIKO). Landing page §17: a withdrawable reserve; per-batch rewards; gas reimbursement; a fee pool from L2 base fees. Rounds 5 and 6: per-owner reserve lines; ramps from term end; PIN_MAX = 5. Open on the page (§17): pausing the bleed for owners whose seats attested in the same term; the burn destination; DAO-adjustable B_SEAT with 7-day notice; publishing the credit bound's TAIKO figure beside the level (the label and `m` are, S2-R18).
+
+## 15. Integration dashboard and requirement impact
+
+### Answers to obligations placed on S3
+
+| Obligation on S3, as worded by the placing section | Answered by |
+|---|---|
+| C2 §16: the reserve sizing and I2 (C2-R17); every constant of C2-R16; MISS as the only class-C debit; accept the 7,161 exposure as the hard bound or change the caps; items 7 and 8 | S3-R22 to S3-R25 (the flag is S1-R09's); §11 (LANDING_UNIT stays C2's); S3-R05, S3-R07; S3-R21 (accepted with the per-part proof, no cap changed); item 7 is C2's event, item 8 is S3-R17's implied, unstated clause. |
+| S2 §10: the S3a key copied verbatim; S3b reading TIMEOUT, TERM_END and FALLBACK votes only, a FALLBACK vote pairing only with a key in both committees; formats, gas, classes, payouts, windows, MISS, the attester reward | S3-R08 (both confirmed); S3-R03, S3-R05, S3-R07, S3-R16, §11. |
+| S2 §10, "S3's D1 discharge record must carry S2-R18's scope sentence (J-1)" | **D1 discharge record, as S3 holds it:** discharged for the equivocation route only, where `2Q(m) − m` signers are provably slashable under S3a, S3b and S3c at S3-R10's credit bound; the protocol routes (a landed replacement or forced batch after C2's deadline machinery, an L1 reorg) revert a locked block with nothing slashable. The bound is a deterrent, conditional on `m` and one redraw count, inside C2's landing horizon (L14). |
+| S1 §16, the amounts and debits of S1-R04 and S1-R09; the class-A condition `exitSlashed` reads; EVIDENCE_WINDOW and S1-R07's ledger rules; whether a class-A owner may ever reactivate (S1 §13 item 12); three citations to correct | §11; S3-R04, S3-R06, S3-R07, S3-R23 (S1-R09 cited for every flag); S3-R05 (`slashedAt`); S3-R04; never: `exitSlashed` is a class-A owner's only path (S3-R05; the page's §1 wording is item 12 below); corrected: S1-R19 with S1-R12 (S3-R26), S1-R13 (S3-R16, S3-R28), S1 §16 (this table). |
+| S1 §16: the revenue side of L9 and the TH9 table; the "about five days" figure; no debit writes `activeFrom`, `activeUntil` or a key record | S3-R26, S3-R28 and the table; §11's BUFFER row (item 1 below); S3-R05's proven paragraph: confirmed. |
+| C3: MISS as the only consequence of a timed-out censor; the forced ring as S3d's record; the 40 % share; FI blocks earn no R_BLOB and count inside `60 × R_BLK_MAX`; no FI-specific slash | S3-R07; S3-R08 (S3d row); S3-R19; S3-R13, S3-R15; none exists, S3-R09 says why. |
+| C1 §10, "S3/C6: retention economics"; C1 §6 P-FEE-SHARE; C1's integrated-producer row; C1 §10 R6 | S3-R11: the coinbase's whole base fee plus tips (P-FEE-SHARE = 100); no reward or penalty attaches to an origin pin or a checkpoint reveal. **[assumed: proposed limitation for C6's register beside C1's bound]** S3 accepts unbounded distinct-origin growth unpriced, direct unpinned reveals included: every `pinCurrentOrigin` and every reveal, pinned or direct, is an L2 transaction whose base fee the coinbase keeps, so the writer pays the holder at the L2 price of the write; the count stays within C1's `3M` bound; no tariff or pruning is proposed, since either changes C1's interface. Closure: B accepts it for C1 or a DECISIONS entry names the deciding owner. Anti-monopoly: §8; S4 argues it. |
+
+### Obligations S3 places on other sections
+
+| Owner / obligation | Status and closure condition |
+|---|---|
+| S1: the flags S3 sets (S1-R09); `exitSlashed` and `exitStale` (S1-R08); `keyOwnerAt` (S1-R05); the registration requirement (S1-R04); A-SUPPLY; the share rule and L9 (S1-R19); the committee exclusions (S1-R13); the price-of-share derivation (S1 §11); S1-R14's citation of C2-R16 for the pin ramp and self-pin skip stands, since C2-R16 owns the formulas | **Open.** Closure: S1 cites §11 for every amount and S3-R05 for each flag's condition. |
+| S2: S2-R21's objects unchanged; S2-R07 the sole trigger of MISS; `m` and the exceptions beside "locked" carrying S3-R10's bound as a deterrent; the FALLBACK-lie wording resolved in S2's favour (S2 §10 item 9), which S3-R08 follows | **Open.** |
+| C2: C2-R16 owns the formulas, the boost, the paid-landing gate and the greedy-landing proof, which S3-R12 to S3-R14 cite without restating; C2 §12 still defines R_BLK_MIN / R_BLK_MAX, R_LAND_MAX with the break-even fee, R_BLOB with its cap, PIN_MAX and the ANNOUNCE_BOND split as rows of its own while §11 owns them; C2-R17 cites S3-R23 for I2; MISS once per `(t, v)` at settlement; E07 with §11's constants; S3-R16's exclusion adopted into C2-R16 or refused (item 7) | **Open.** Closure: C2 §12 turns those rows into "quoted (S3)" (the ANNOUNCE_BOND amount stays C2's); C2-R16 states the exclusion or C2 §16 records the refusal. |
+| C3: the FI record size and MAX_FI_RUN behind C2-R16's paid-landing proof, which S3-R14 consumes; FI blocks inside the term's sixty and exempt from R_BLOB; the fee ledger, per-entry refunds and the stall burn as terms of S3-R20; the forced ring's contents for S3d | **Open.** Closure: C3 states the FI record bound or C2 re-derives the proof. |
+| C7: V4, V9 and V10 as S3-R21 assumes them. C5: the trailing-VERIFY shape making a losing submission free (S3-R09). S4: the role arguments citing §12; I2 and I5 as S3 states them | **Open.** |
+| C8: the types, ABI and errors of §9 (item 11); the storage of `slashedAt`, strike counters, the offence record, `pendingBurnGwei`, `reserveGwei`; the DOMAIN_KEYREG byte value | **Open.** |
+| C6: index §11 with statuses; register L2, L15, L20 with the acceptance text of S3-R23 and S3-R28, the revenue half of L9 beside S1-R19's entry, L16's economic half and the retention limitation of the C1 row; hold I2 and I5 with S3 as owner; carry the D1 discharge record | **Open.** |
+| B's verdict; J's review | B **open**, not received; J's verification applied (§16). Per decomposition §4: B's evidence windows are reused (S3-R08), its signed duty claims are not (every duty is objectively slashable from the signer's own bytes or deliberately unslashable, S3-R09), and `proveCanonicalConflict` has its counterpart in S1 and S3a. |
+
+**Open items found while transcribing (not decided here):**
+
+1. The slashing page §11 says a squatter "reaches the 50 % hard floor after 200 draws", the sequencing page §7 "about five days at 40 seats"; the derivation gives 220 debits (the page's §10 agrees) and about 6.1 days at one of 40 seats. §11 carries 220.
+2. B_SEAT "satisfies all four" constraints of §4, but constraint 2, `B − 2,000 ≥ H(1 s)`, needs the unmeasured `H`; S3-R10 keeps it conditional.
+3. The S3a certificate form's window is COMMITTEE_RING (34 h), the attestation form's 7 days; the 13 × B bound counts the leader, whose S1 pair is a separate submission. S3-R08 transcribes both.
+4. The cartel table, the seconds-weighted shares and the entrant's 16 % and 84 % come from a simulation whose script is not in the tree, assumed until re-run; L16's "about 8.4" expected slashable count is not reproduced (S2 §10 item 7).
+5. LAND_RESERVE and PIN_MAX are marked "owned by the parameters page" on the slashing page. C2 §12 quotes LAND_RESERVE and ATT_REWARD_PER_BLOCK from S3 but still defines PIN_MAX, the ramp constants, R_BLOB with its cap and the bond split as rows of its own; §11 owns them (D9), open until C2 converts those rows to quotes.
+6. Whether a `RewardBoost` also raises `r_land` and PIN_REWARD is unstated; S3-R13 and C2-R16 read it as the block ramp only.
+7. The attester share's exclusion is stated two ways (slashing page §6 "excluding the holder's own seats"; §1 "which never include the holder's own seats", an overclaim for backup views, S1-R13) and C2-R16 omits it. S3-R16 proposes the §6 form; C2 adopts or refuses it.
+8. TH10's "about 1,800 per day at 40 seats" assumes a one-seat owner in a 40-seat domain and 1,440 terms per day, which the page does not state; §11 does.
+9. The honest-drain figure "about 640" counts 15 paid blobs although a cap term holds about 9.8 (638.5 at 10 blobs); S3-R22 gives both.
+10. The slashing page prices the credit bound "≈ 39 ETH" and B_SEAT "300 × V_term" without saying the two together fix `P × V_term`; §11 keeps both as instances of A-REV.
+11. §9's departures from the pages, S3's additions for C8 to adopt or rename: `balanceOf(address)` and the eight error names beyond `AlreadySlashed` and `EvidenceExpired`; `deposit` and `withdraw` follow the interfaces page. The slashing page §8 lists no ledger functions or errors.
+12. The slashing page §1 says a safety debit below the floor opens a suspension "until top-up plus `reactivate()`" while its §9 state machine sends class A to `SLASHED`, exit only; S3-R05 and §10 follow the state machine, as S1-R09 does (S1 §13 item 12).
+
+| Requirement | S3 contribution, not a whole-design pass |
+|---|---|
+| R1 | **Proven conditionally (S3-R09, S3-R11):** no slashing or reward path is owner-gated; no treasury or discretionary recipient; the DAO's only economic lever is a constant change by upgrade. |
+| R2, R7 | **No contribution:** no shared contract touched; the one-action landing is C2's, funded by S3-R23. |
+| R3 | **Assumed:** every role's rewards and penalties are stated (S3-R05 to S3-R08, S3-R11 to S3-R19); duties and arguments are S4's. |
+| R4, R5 | **Proven for S3 (§11, §12):** no S3 value is in L1 slots or epochs; only S3d reads L1 history. |
+| R6 | **Proven conditionally (S3-R09, S3-R10, S3-R27):** every condition is objective (I5); priced share, CAP, no owner-keyed rules, the bleed; L2 and L9 the accepted limits above one third. |
+| D1, D2 | **Open / assumed scope:** the stake behind "locked" is S3-R10's bound for the equivocation route only (the discharge record above); every TAIKO amount is a formula on A-REV (L15); the simulated table and the gas figures are assumed; interfaces are sketches pending C8. |
+
+## 16. Evidence and credit
+
+**[assumed: sources; S3's own additions are tagged in place: §9's error names and `balanceOf`, S3-R24's hysteresis gloss, S3-R28's 36 to 38 %, §15's retention limitation]** Candidate A's branch `claude/beautiful-maxwell-8pyecj` at `b311d1d` (2026-10-01), `packages/protocol/docs/Etna/design/`: `slashing.html` §1 to §17; `roles.html` §1 to §5, §8, §9; `landing.html` §5, §6, §11, §16, §17; `parameters.html` §1 to §3; `limitations.html` L2, L9, L15, L16, L20; `preconf.html` and `sequencing.html` through S2 and S1.
+
+**[assumed: credit]** The objective catalogue, I5, the reserve with its lapse line and refill rule, the ramps from landability, the landing unit and the cartel simulation are candidate A's (judge synthesis of its B5 and B6 rounds, revised through round 6). Every amount as a formula on unmeasured inputs follows candidate B's cost arithmetic (decomposition §2); B's evidence-window pattern is reused, its signed duty claims are not (§15). The D1 discharge record carries J's review of #22197 (2026-10-01), J-1; J's verification findings S3-V1 to S3-V12 are applied. Decision-log entries: D1, D2, D9, D12.
