@@ -77,3 +77,4 @@ figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 0.4rem; }
 footer { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1rem; }
 @media (max-width: 40rem) { .toc { columns: 1; } h1 { font-size: 1.5rem; } }
 @media print { header.top, footer { display: none; } details { border: none; } details > summary { display: none; } details[open] { padding: 0; } }
+.status{font-size:.86rem;line-height:1.5;color:var(--muted,#555);border:1px solid var(--line,#ddd);border-left:4px solid var(--accent,#b5501f);padding:.6rem .9rem;margin:0 0 1.4rem;background:var(--panel,#faf8f5)}

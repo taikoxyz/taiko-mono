@@ -1,0 +1,73 @@
+2537 | Final | Precompile for BLS12-381 curve operations | Standards Track/Core | 2020-02-21
+2780 | Review | Resource-based intrinsic transaction gas | Standards Track/Core | 2020-07-11
+2935 | Final | Serve historical block hashes from state | Standards Track/Core | 2020-09-03
+3298 | Draft | Remove storage-clear refund and refund cap | Standards Track/Core | 2021-02-26
+4399 | Final | Supplant DIFFICULTY opcode with PREVRANDAO | Standards Track/Core | 2021-10-30
+4758 | Stagnant | Deactivate SELFDESTRUCT | Standards Track/Core | 2022-02-03
+4788 | Final | Beacon block root in the EVM | Standards Track/Core | 2022-02-10
+4844 | Final | Shard Blob Transactions | Standards Track/Core | 2022-02-25
+5920 | Draft | PAY opcode | Standards Track/Core | 2022-03-14
+7594 | Final | PeerDAS - Peer Data Availability Sampling | Standards Track/Core | 2024-01-12
+7607 | Final | Hardfork Meta - Fusaka | Meta/ | 2024-02-01
+7610 | Last Call | Revert creation in case of non-empty storage | Standards Track/Core | 2024-02-02
+7668 | Stagnant | Remove bloom filters | Standards Track/Core | 2024-03-31
+7688 | Review | Forward compatible consensus data structures | Standards Track/Core | 2024-04-15
+7701 | Withdrawn | Native Account Abstraction | Standards Track/Core | 2024-05-01
+7702 | Final | Set Code for EOAs | Standards Track/Core | 2024-05-07
+7708 | Review | ETH transfers emit a log | Standards Track/Core | 2024-05-17
+7709 | Draft | Read BLOCKHASH from Storage and Update Cost | Standards Track/Core | 2024-05-18
+7723 | Last Call | Network Upgrade Inclusion Stages | Meta/ | 2024-06-12
+7732 | Review | Enshrined Proposer-Builder Separation | Standards Track/Core | 2024-06-28
+7773 | Review | Hardfork Meta - Glamsterdam | Meta/ | 2024-09-26
+7778 | Review | Block Gas Accounting without Refunds | Standards Track/Core | 2024-10-01
+7782 | Draft | Reduce Block Latency | Standards Track/Core | 2024-10-05
+7805 | Draft | Fork-choice enforced Inclusion Lists (FOCIL) | Standards Track/Core | 2024-11-01
+7807 | Draft | SSZ execution blocks | Standards Track/Core | 2024-10-28
+7825 | Final | Transaction Gas Limit Cap | Standards Track/Core | 2024-11-23
+7843 | Review | SLOTNUM opcode | Standards Track/Core | 2024-12-06
+7862 | Draft | Delayed State Root | Standards Track/Core | 2024-12-23
+7864 | Draft | Ethereum state using a unified binary tree | Standards Track/Core | 2025-01-20
+7886 | Stagnant | Delayed execution | Standards Track/Core | 2025-02-18
+7892 | Final | Blob Parameter Only Hardforks | Informational/ | 2025-02-28
+7904 | Review | Compute Gas Cost Analysis | Informational/ | 2025-02-05
+7906 | Draft | Transaction Assertions via State Diff Opcode | Standards Track/Core | 2025-02-21
+7917 | Final | Deterministic proposer lookahead | Standards Track/Core | 2025-03-24
+7918 | Final | Blob base fee bounded by execution cost | Standards Track/Core | 2025-03-25
+7928 | Review | Block-Level Access Lists | Standards Track/Core | 2025-03-31
+7954 | Review | Increase Maximum Contract Size | Standards Track/Core | 2025-06-09
+7976 | Review | Increase Calldata Floor Cost | Standards Track/Core | 2025-06-18
+7979 | Draft | Call and Return Opcodes for the EVM | Standards Track/Core | 2025-12-17
+7981 | Review | Increase Access List Cost | Standards Track/Core | 2024-12-27
+7997 | Review | Deterministic Factory Contract | Standards Track/Core | 2025-08-03
+7999 | Draft | Unified multidimensional fee market | Standards Track/Core | 2025-08-04
+8015 | Draft | Remove `deposit` and `eth1data` fields | Standards Track/Core | 2025-08-22
+8024 | Review | Backward compatible SWAPN, DUPN, EXCHANGE | Standards Track/Core | 2025-08-16
+8025 | Draft | Optional Execution Proofs | Standards Track/Core | 2025-09-17
+8037 | Review | State Creation Gas Cost Increase | Standards Track/Core | 2025-10-01
+8038 | Review | State-access gas cost update | Standards Track/Core | 2025-10-03
+8045 | Review | Exclude slashed validators from proposing | Standards Track/Core | 2025-10-16
+8061 | Review | Increase exit and consolidation churn | Standards Track/Core | 2025-10-17
+8070 | Review | eth/72 - Sparse Blobpool | Standards Track/Networking | 2025-10-29
+8079 | Draft | Native rollups | Standards Track/Core | 2025-11-13
+8081 | Draft | Hardfork Meta - Hegotá | Meta/ | 2025-11-11
+8130 | Draft | Keystore Accounts | Standards Track/Core | 2025-10-14
+8131 | Draft | Unified Transaction Content Floor | Standards Track/Core | 2025-01-21
+8141 | Draft | Frame Transaction | Standards Track/Core | 2026-01-29
+8142 | Draft | Block-in-Blobs (BiB) | Standards Track/Core | 2026-01-29
+8151 | Draft | Account Code Restricted ecRecover | Standards Track/Core | 2026-02-09
+8163 | Review | Reserve `EXTENSION (0xae)` opcode | Standards Track/Core | 2026-02-13
+8198 | Draft | Quick Slots | Standards Track/Core | 2026-03-17
+8246 | Last Call | Remove SELFDESTRUCT Burn | Standards Track/Core | 2026-05-01
+8250 | Draft | Keyed Nonces for Frame Transactions | Standards Track/Core | 2026-04-16
+8253 | Draft | Bump nonce of zero-nonce storage accounts | Standards Track/Core | 2026-05-05
+8261 | Review | Gas Limit Schedule | Informational/ | 2026-05-11
+8272 | Draft | Recent Roots for Frame Transactions | Standards Track/Core | 2026-05-15
+8279 | Draft | Block Access List Byte Floor | Standards Track/Core | 2026-05-23
+8282 | Review | Builder Execution Requests | Standards Track/Core | 2026-05-22
+8298 | Draft | SETCODEFROM Code Reuse Instruction | Standards Track/Core | 2026-06-11
+8304 | Draft | Trustless log and transaction index | Standards Track/Core | 2026-06-17
+8368 | Draft | CPSB Recalibration for New Gas Limit | Standards Track/Core | 2026-08-05
+8369 | Draft | VOPS Profiles for FOCIL Eligibility | Informational/ | 2026-08-05
+8372 | Draft | Normalized state gas limit | Standards Track/Core | 2026-08-06
+8383 | Draft | Reduce CL Block Retention Window | Standards Track/Networking | 2026-08-17
+8411 |  |  | / | 
