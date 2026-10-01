@@ -1,6 +1,6 @@
 # Verification of l2-anchor
 
-Verifier read every covered file in full (`Anchor.sol`, the three `_Layout.sol` files, `DelegateController.sol`, `LibL2Addrs.sol`, `BridgedTaikoToken.sol`) plus the cited supporting ranges (EssentialContract, Controller, SignalService, ICheckpointStore, ForkRouter, TaikoTokenBase, IBridge/Bridge, LibAddress, BuildProposal, Proposal0007/0009/0010/0011, UpgradeShastaL2Contracts, Derivation.md, constants.rs, signer.rs, anchor.rs, event.rs, anchor_tx_constructor.go, anchor_tx_validator.go, common.go, syncer.go, methods.go, api.go, IInbox/IBondManager/Inbox/LibBonds, Anchor.t.sol, DelegateController.t.sol, genesis_config.json, gen-layouts.sh). All paths relative to `/home/user/taiko-mono`.
+Verifier read every covered file in full (`Anchor.sol`, the three `_Layout.sol` files, `DelegateController.sol`, `LibL2Addrs.sol`, `BridgedTaikoToken.sol`) plus the cited supporting ranges (EssentialContract, Controller, SignalService, ICheckpointStore, ForkRouter, TaikoTokenBase, IBridge/Bridge, LibAddress, BuildProposal, Proposal0007/0009/0010/0011, UpgradeShastaL2Contracts, Derivation.md, constants.rs, signer.rs, anchor.rs, event.rs, anchor_tx_constructor.go, anchor_tx_validator.go, common.go, syncer.go, methods.go, api.go, IInbox/IBondManager/Inbox/LibBonds, Anchor.t.sol, DelegateController.t.sol, genesis_config.json, gen-layouts.sh). All paths relative to the repository root.
 
 ## Checked claims
 

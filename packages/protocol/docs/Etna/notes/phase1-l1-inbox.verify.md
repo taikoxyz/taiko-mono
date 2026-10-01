@@ -1,6 +1,6 @@
 # Verification of l1-inbox
 
-Working tree checked: HEAD `61d8f18` (summary says `ba613749b2fb7f5e56fb9f1e3f99146bc8bb6369`); every covered file has exactly the line count the summary lists and the cited lines match, so the difference is immaterial. All 90 indexed claims were opened at the cited location. Paths relative to `/home/user/taiko-mono/packages/protocol` unless noted.
+Working tree checked: HEAD `61d8f18` (summary says `ba613749b2fb7f5e56fb9f1e3f99146bc8bb6369`); every covered file has exactly the line count the summary lists and the cited lines match, so the difference is immaterial. All 90 indexed claims were opened at the cited location. Paths relative to `packages/protocol` unless noted.
 
 ## Checked claims
 

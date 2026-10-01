@@ -397,9 +397,9 @@ Client and builder sources:
 - Web search only (titles, not fetched): https://github.com/Soubhik-10/revm/pull/26 , https://github.com/alloy-rs/alloy/pull/4067 .
 
 Taiko sources (repository at HEAD `61d8f18`):
-- /home/user/taiko-mono/packages/protocol/docs/Etna/inputs/nonce-as-a-lock.txt — the PDF under test.
-- /home/user/taiko-mono/packages/protocol/docs/Etna/README.md — requirements R1-R7.
-- /home/user/taiko-mono/packages/protocol/contracts/layer1/core/impl/Inbox.sol ; core/libs/LibCodec.sol , LibForcedInclusion.sol , LibBlobs.sol , LibBonds.sol , LibPackUnpack.sol , LibInboxSetup.sol ; core/iface/IInbox.sol , IProposerChecker.sol ; layer1/preconf/impl/PreconfWhitelist.sol ; layer1/mainnet/MainnetInbox.sol , MainnetInbox_Layout.sol , LibL1Addrs.sol ; layer1/devnet/DevnetInbox.sol ; shared/libs/LibAddress.sol ; shared/common/EssentialContract.sol ; script/layer1/core/DeployShastaContracts.s.sol , DeployShastaMainnet.s.sol ; deployments/mainnet-contract-logs-L1.md ; packages/taiko-client/proposer/transaction_builder/blob.go ; packages/taiko-client-rs/crates/proposer/src/transaction_builder.rs .
+- packages/protocol/docs/Etna/inputs/nonce-as-a-lock.txt — the PDF under test.
+- packages/protocol/docs/Etna/README.md — requirements R1-R7.
+- packages/protocol/contracts/layer1/core/impl/Inbox.sol ; core/libs/LibCodec.sol , LibForcedInclusion.sol , LibBlobs.sol , LibBonds.sol , LibPackUnpack.sol , LibInboxSetup.sol ; core/iface/IInbox.sol , IProposerChecker.sol ; layer1/preconf/impl/PreconfWhitelist.sol ; layer1/mainnet/MainnetInbox.sol , MainnetInbox_Layout.sol , LibL1Addrs.sol ; layer1/devnet/DevnetInbox.sol ; shared/libs/LibAddress.sol ; shared/common/EssentialContract.sol ; script/layer1/core/DeployShastaContracts.s.sol , DeployShastaMainnet.s.sol ; deployments/mainnet-contract-logs-L1.md ; packages/taiko-client/proposer/transaction_builder/blob.go ; packages/taiko-client-rs/crates/proposer/src/transaction_builder.rs .
 - https://github.com/taikoxyz/taiko-mono/pull/18570 , https://github.com/taikoxyz/taiko-mono/pull/20186 , https://github.com/taikoxyz/taiko-mono/pull/19488 — conditional propose; one proposal per block; expected-id precedent.
 
 Phase-2 working notes synthesized (same directory as this file): `ft-spec-model.md`, `ft-client-behaviour.md`, `ft-taiko-inbox-facts.md`, `ft-analysis-nonce-lock.md`, `ft-alternatives.md`, `roadmap-glamsterdam.md`, `roadmap-hegota.md`.

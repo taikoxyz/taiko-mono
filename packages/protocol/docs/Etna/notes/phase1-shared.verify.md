@@ -1,6 +1,6 @@
 # Verification of shared
 
-All 90 claims in the summary's Claims index (C1–C90) were checked against the source at the cited lines, plus the section 5 and section 6 tables. Paths are relative to `/home/user/taiko-mono/packages/protocol/`.
+All 90 claims in the summary's Claims index (C1–C90) were checked against the source at the cited lines, plus the section 5 and section 6 tables. Paths are relative to `packages/protocol/`.
 
 ## Checked claims
 

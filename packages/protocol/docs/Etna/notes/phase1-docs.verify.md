@@ -1,7 +1,7 @@
 # Verification of docs
 
-Summary reviewed: `/tmp/claude-0/-home-user-taiko-mono/4d5ce0fb-3018-5f83-858b-c503338bcd33/scratchpad/phase1/docs.md`
-All paths below are relative to `/home/user/taiko-mono`. `P/` = `packages/protocol/`, `RS/` = `packages/taiko-client-rs/`, `GO/` = `packages/taiko-client/`.
+Summary reviewed: a file in the session scratchpad (not committed; see README rule 2)
+All paths below are relative to the repository root. `P/` = `packages/protocol/`, `RS/` = `packages/taiko-client-rs/`, `GO/` = `packages/taiko-client/`.
 
 Method: every cited file was opened at the cited line range (sed -n / grep). 63 claims checked, prioritising access gates (sec. 6), timing constants (sec. 5), invariants (sec. 7), interface signatures (sec. 8) and preconfirmation/withholding facts (secs. 9-10).
 

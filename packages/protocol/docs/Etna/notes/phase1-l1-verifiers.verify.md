@@ -1,6 +1,6 @@
 # Verification of l1-verifiers
 
-Working tree checked: `/home/user/taiko-mono` at HEAD `e1aba1106` (the summary header says `61d8f18`; `git diff 61d8f18 HEAD` on every covered file plus Inbox/IInbox/LibCodec/LibHashOptimized is empty, so all cited line numbers are valid for both commits). Paths below are relative to `packages/protocol` unless noted.
+Working tree checked: the repository root at HEAD `e1aba1106` (the summary header says `61d8f18`; `git diff 61d8f18 HEAD` on every covered file plus Inbox/IInbox/LibCodec/LibHashOptimized is empty, so all cited line numbers are valid for both commits). Paths below are relative to `packages/protocol` unless noted.
 
 ## Checked claims
 

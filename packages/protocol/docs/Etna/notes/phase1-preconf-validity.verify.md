@@ -1,6 +1,6 @@
 # Verification of preconf-validity
 
-Repository HEAD at verification time: `7c0e9740980fc897d9ecab355f5bfec9ec047940`. The summary was written at `61d8f1852ed229a7d752fe02ae9ea78f2147a5bd`, which is an ancestor of HEAD; `git diff --stat 61d8f18 HEAD -- <all covered and cited paths>` is empty, so every cited line number is still valid. Paths below are relative to `/home/user/taiko-mono/packages/` unless absolute.
+Repository HEAD at verification time: `7c0e9740980fc897d9ecab355f5bfec9ec047940`. The summary was written at `61d8f1852ed229a7d752fe02ae9ea78f2147a5bd`, which is an ancestor of HEAD; `git diff --stat 61d8f18 HEAD -- <all covered and cited paths>` is empty, so every cited line number is still valid. Paths below are relative to `packages/` unless absolute.
 
 ## Checked claims
 

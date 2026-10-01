@@ -1,6 +1,6 @@
 # G1: Who turns preconfirmed L2 blocks into the L1 proposal, and how? Neither in-repo proposer consumes preconf blocks (Go and Rust proposers read only the L2 txpool and stamp blocks l1Head.time+i), and both Rust and Go defer handover/parent choice/EOS to an external sequencer ('Catalyst'). No summary states how the operator assembles the DerivationSourceManifest from its gossiped chain, picks anchorBlockNumber per block, reserves heights for forced inclusions, or decides when to land (one propose per L1 block, ≤768 blocks/source, timestamps must stay within [landing.ts − 6144 s, landing.ts]).
 
-All paths are relative to `/home/user/taiko-mono/`. Line numbers are from the checked-out tree read on 2026-09-30.
+All paths are relative to the repository root. Line numbers are from the checked-out tree read on 2026-09-30.
 
 ## Short answer
 

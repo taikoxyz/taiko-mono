@@ -1,6 +1,6 @@
 # G5: What are the practical proof-aggregation and proving-economics limits? Known: codec allows 65,535 transitions per prove, ring buffer allows 21,599 unfinalized proposals, client batch size defaults to 1 with a 30-min forced flush, verifiers ignore proposalAge, and prove() writes state before verifying. Unknown: real L1 gas of prove() as n grows (hashCommitment is 9+3n words) and of the external Groth16/PLONK verifiers, Raiko's aggregation caps and per-lane latency for RISC0/SP1/SGX, and how provers are compensated today (no on-chain reward while whitelisted; livenessBond=0; actualProver self-declared).
 
-All paths are relative to `/home/user/taiko-mono`. `P/` = `packages/protocol/`, `GO/` = `packages/taiko-client/`, `RS/` = `packages/taiko-client-rs/`. Line numbers were read from the working tree on 2026-09-30.
+All paths are relative to the repository root. `P/` = `packages/protocol/`, `GO/` = `packages/taiko-client/`, `RS/` = `packages/taiko-client-rs/`. Line numbers were read from the working tree on 2026-09-30.
 
 ## Short answer
 

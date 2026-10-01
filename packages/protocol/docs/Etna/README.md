@@ -11,13 +11,13 @@ Etna is the working name for the successor to Taiko's current (Shasta-era) based
 |---|---|
 | Understand today's protocol without reading the code | [`00-current-protocol-summary.md`](00-current-protocol-summary.md) |
 | See what we are defending against | [`01-threat-model.md`](01-threat-model.md) |
-| See which L1 features Etna needs and their status | [`02-l1-roadmap-survey.md`](02-l1-roadmap-survey.md) |
+| See which L1 features Etna needs and their status | [`02-l1-roadmap-survey.md`](02-l1-roadmap-survey.md) (fork names, EIP numbers and statuses as published in `ethereum/EIPs` and the client configs on the fetch date, 2026-09-30; a reader after that date must re-check them) |
 | See whether Frame Transactions give zero-cost losing races | [`03-frame-transactions-research.md`](03-frame-transactions-research.md) |
 | Read the full design (engineers, auditors) | [`design/index.html`](design/index.html) |
 | Learn the design one block at a time and try to break it | [`learn/index.html`](learn/index.html) |
 | See what the red team found and how it was handled | [`iterations/README.md`](iterations/README.md) |
 | See the skeptic re-verification reports for the research documents | [`notes/02.verify.md`](notes/02.verify.md), [`notes/03.verify.md`](notes/03.verify.md) |
-| See the user-provided input | [`inputs/nonce-as-a-lock.pdf`](inputs/nonce-as-a-lock.pdf) (text extract: [`inputs/nonce-as-a-lock.txt`](inputs/nonce-as-a-lock.txt)) |
+| See the user-provided input | [`inputs/nonce-as-a-lock.pdf`](inputs/nonce-as-a-lock.pdf) (text extract: [`inputs/nonce-as-a-lock.txt`](inputs/nonce-as-a-lock.txt)). Provenance: supplied by the user with the brief as the input to the Frame Transactions research; no license statement came with it, so its redistribution terms are the user's to confirm before this tree is published anywhere else |
 
 ## Hard requirements
 

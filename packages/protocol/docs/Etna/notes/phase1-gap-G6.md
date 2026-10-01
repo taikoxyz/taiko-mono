@@ -2,7 +2,7 @@
 
 ## Sources and scope
 
-- Repository: `/home/user/taiko-mono` at commit `7c0e9740980fc897d9ecab355f5bfec9ec047940`.
+- Repository: this repository at commit `7c0e9740980fc897d9ecab355f5bfec9ec047940`.
 - Execution engine (Go side): the taiko-geth pinned by the root `go.mod:308` — `replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260924044618-8e98046bfd6a`. All `taiko-geth/...` citations below are relative to `/root/go/pkg/mod/github.com/taikoxyz/taiko-geth@v1.18.1-0.20260924044618-8e98046bfd6a/`.
 - P2P layer (Go side): `/root/go/pkg/mod/github.com/taikoxyz/optimism@v0.0.0-20260420065638-5490c5186828/` (op-node fork).
 - **Not readable in this session: alethia-reth.** `packages/taiko-client-rs/Cargo.toml:77-82` pins `taikoxyz/alethia-reth` at rev `0fb47d966f290c032e0ce88bdc8877121768d253`, but the crate is not in the cargo cache (`~/.cargo` holds only `bin`/`env`), `gh` is not installed, and the GitHub tool denies access to any repo other than `taikoxyz/taiko-mono`. Every EE rule below is therefore established from taiko-geth. taiko-geth's own comments claim parity with "the Rust reference" (e.g. `taiko-geth/core/state_processor.go:189`, `taiko-geth/consensus/taiko/consensus.go:259-263`); that parity is **unverified** here.
@@ -168,4 +168,4 @@ So "what the EE enforces at newPayload" has two layers: **build-time rules** (`s
 40. Rust read-back check compares EE hash with EE hash — `engine.rs:355-365, 394-395`; mismatch with envelope only purges and still records — `crates/whitelist-preconfirmation-driver/src/importer/cache_import.rs:186-224`; all imports go via cache — `ingress.rs:79`, `runner.rs:210`, `cache_import.rs:43, 66`.
 41. Rust newPayload status mapping — `engine.rs:293-308`; Go any non-VALID is an error — `common.go:207-209`.
 42. alethia-reth pinned but unreadable here — `packages/taiko-client-rs/Cargo.toml:77-82`; taiko-geth's "Rust reference" parity comments — `state_processor.go:189`, `consensus.go:259-263`.
-43. taiko-geth version — `/home/user/taiko-mono/go.mod:308`.
+43. taiko-geth version — `go.mod:308`.

@@ -1,12 +1,12 @@
 # Verification of go-preconf
 
-Repo HEAD: `e1aba1106fcaeb3f3ed332e34ad38af8cc7517e8`. Paths relative to `/home/user/taiko-mono/packages/taiko-client` unless noted; `OPNODE` = `/root/go/pkg/mod/github.com/taikoxyz/optimism@v0.0.0-20260420065638-5490c5186828`. Line counts of all listed files re-measured with `wc -l` and match section 1 exactly (driver.go 679, server.go 1623, api.go 399, queue.go 146, util.go 165, lookahead.go 110, payload.go 30, chain_syncer.go 329, anchor_tx_constructor.go 139, state.go 251, common.go 813, inserter.go 343). `pkg/preconf/` contains only `payload.go`.
+Repo HEAD: `e1aba1106fcaeb3f3ed332e34ad38af8cc7517e8`. Paths relative to `packages/taiko-client` unless noted; `OPNODE` = `/root/go/pkg/mod/github.com/taikoxyz/optimism@v0.0.0-20260420065638-5490c5186828`. Line counts of all listed files re-measured with `wc -l` and match section 1 exactly (driver.go 679, server.go 1623, api.go 399, queue.go 146, util.go 165, lookahead.go 110, payload.go 30, chain_syncer.go 329, anchor_tx_constructor.go 139, state.go 251, common.go 813, inserter.go 343). `pkg/preconf/` contains only `payload.go`.
 
 ## Checked claims
 
 | Claim | Verdict | Evidence (file:line + quoted code) | Correction |
 |---|---|---|---|
-| C1 op-node fork via `replace` | CORRECT | `/home/user/taiko-mono/go.mod:310`: `replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20260420065638-5490c5186828` | - |
+| C1 op-node fork via `replace` | CORRECT | `go.mod:310`: `replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20260420065638-5490c5186828` | - |
 | C2 `NewNodeP2P(ctx, cfg{Taiko:true}, log, setup, gossipIn=server, nil, runCfg=server, metrics, false)` | CORRECT | `driver/driver.go:148-158`: `p2p.NewNodeP2P(d.ctx, &rollup.Config{... Taiko: true}, log.Root(), d.p2pSetup, d.preconfBlockServer, nil, d.preconfBlockServer, metrics.P2PNodeMetrics, false)`; `OPNODE/op-node/p2p/node.go:55-65` params `resourcesCtx, rollupCfg, log, setup, gossipIn, l2Chain, runCfg, metrics, elSyncEnabled` | - |
 | C3 four topics | CORRECT | `OPNODE/op-node/p2p/gossip.go:96,101,106,111`: `"/taiko/%s/0/preconfBlocks"`, `.../requestPreconfBlocks`, `.../requestEndOfSequencingPreconfBlocks`, `.../responsePreconfBlocks` | - |
 | C4 driver hard-codes request topic | CORRECT | `server.go:915`: `topic := fmt.Sprintf("/taiko/%s/0/requestPreconfBlocks", s.rpc.L2.ChainID.String())` | - |

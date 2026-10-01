@@ -1,6 +1,6 @@
 # Verification of go-proposer-prover
 
-All paths relative to `/home/user/taiko-mono/packages/taiko-client/` unless noted. Every cited file was opened and the cited lines read; verdicts below quote the actual code. Module-cache files (`taikoxyz/optimism`, `taikoxyz/taiko-geth`) were read from `/root/go/pkg/mod`. The `cenkalti/backoff/v4` module is **not** present in the module cache, so the numeric value of `backoff.DefaultMaxInterval` (C37) could not be confirmed on disk (see note in that row).
+All paths relative to `packages/taiko-client/` unless noted. Every cited file was opened and the cited lines read; verdicts below quote the actual code. Module-cache files (`taikoxyz/optimism`, `taikoxyz/taiko-geth`) were read from `/root/go/pkg/mod`. The `cenkalti/backoff/v4` module is **not** present in the module cache, so the numeric value of `backoff.DefaultMaxInterval` (C37) could not be confirmed on disk (see note in that row).
 
 ## Checked claims
 

@@ -1,6 +1,6 @@
 # G3: How does forced-inclusion timing interact with a preconfirmed chain? Due-ness is evaluated at landing (block.timestamp ≥ saveTs + 576 s), due entries (≤10, one block each, timestamp = lowerBound, coinbase = proposer) are prepended before the proposer's source, and both proposers request u16::MAX inclusions (draining not-yet-due ones early). No summary explains how the preconfer reserves those heights, whether the IsForcedInclusion flag on gossiped blocks is ever checked against the queue, what happens when an entry becomes due mid-epoch after blocks were preconfirmed, or what the real censorship bound is now that permissionlessInclusionMultiplier is dead code and the queue can be voided by init3.
 
-All paths are relative to `/home/user/taiko-mono`. `Inbox.sol` = `packages/protocol/contracts/layer1/core/impl/Inbox.sol`; `Derivation.md` = `packages/protocol/docs/Derivation.md`; Go = `packages/taiko-client`; Rust = `packages/taiko-client-rs/crates`.
+All paths are relative to the repository root. `Inbox.sol` = `packages/protocol/contracts/layer1/core/impl/Inbox.sol`; `Derivation.md` = `packages/protocol/docs/Derivation.md`; Go = `packages/taiko-client`; Rust = `packages/taiko-client-rs/crates`.
 
 ## Short answer
 

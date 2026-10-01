@@ -1,6 +1,6 @@
 # Verification of l1-gates
 
-Verified against `/home/user/taiko-mono` at HEAD `61d8f18` (one docs-only commit after the `ba613749b2fb7f5e56fb9f1e3f99146bc8bb6369` the summary cites; all 13 covered contract files have the exact line counts the summary lists, so citations are comparable). Every line number below was opened and read.
+Verified against this repository at HEAD `61d8f18` (one docs-only commit after the `ba613749b2fb7f5e56fb9f1e3f99146bc8bb6369` the summary cites; all 13 covered contract files have the exact line counts the summary lists, so citations are comparable). Every line number below was opened and read.
 
 ## Checked claims
 
