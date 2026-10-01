@@ -373,12 +373,9 @@ func (s *DerivationSourceFetcherTestSuite) TestApplyInheritedMetadata() {
 }
 
 func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
-	parentGasLimit := uint64(30_000_000)
-	parentBlockNumber := big.NewInt(1001) // After fork
-
-	// When parent block is after Shasta fork, AnchorV4GasLimit is subtracted
-	// Based on the log output, we can see the effective parent gas limit is 29,000,000 (0x1ba8140)
-	effectiveParentGasLimit := uint64(29_000_000) // This is what actually gets used
+	// validateGasLimit takes the parent's manifest gas limit, i.e. a 30M pre-Etna header limit minus
+	// the 1M anchor gas reserve (see rpc.ManifestGasLimit).
+	effectiveParentGasLimit := uint64(29_000_000)
 
 	// Calculate expected bounds (0.001% change = 10 millionths) based on effective parent gas limit
 	expectedLowerBound := max(
@@ -398,7 +395,7 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
+	s.False(validateGasLimit(sourcePayload, effectiveParentGasLimit))
 
 	// Test 2: Gas limit below lower bound - should fail
 	lowGasLimit := expectedLowerBound - 1000
@@ -410,7 +407,7 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
+	s.False(validateGasLimit(sourcePayload, effectiveParentGasLimit))
 
 	// Test 3: Gas limit above upper bound - should fail
 	highGasLimit := expectedUpperBound + 1000
@@ -422,7 +419,7 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	s.False(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
+	s.False(validateGasLimit(sourcePayload, effectiveParentGasLimit))
 
 	// Test 4: Valid gas limit within bounds - should remain unchanged
 	validGasLimit := expectedLowerBound
@@ -439,7 +436,7 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	s.True(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
+	s.True(validateGasLimit(sourcePayload, effectiveParentGasLimit))
 	s.Equal(validGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
 
 	// Test 5: Sequential blocks - parent gas limit should update
@@ -457,13 +454,13 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
 		},
 	}
 
-	s.True(validateGasLimit(sourcePayload, parentBlockNumber, parentGasLimit))
+	s.True(validateGasLimit(sourcePayload, effectiveParentGasLimit))
 	s.Equal(firstBlockGasLimit, sourcePayload.BlockPayloads[0].GasLimit)
 	s.Equal(firstBlockGasLimit, sourcePayload.BlockPayloads[1].GasLimit) // Should inherit from first block
 
 	// Test 6: Minimum gas limit enforcement returns false when below MIN_BLOCK_GAS_LIMIT
 	if manifest.MinBlockGasLimit > expectedLowerBound {
-		veryLowParentGasLimit := uint64(10_000_000) // Low parent gas limit
+		veryLowParentGasLimit := uint64(9_000_000) // Low parent manifest gas limit
 		sourcePayload = &DerivationSourcePayload{
 			BlockPayloads: []*BlockPayload{
 				{BlockManifest: manifest.BlockManifest{
@@ -472,7 +469,7 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
 			},
 		}
 
-		s.False(validateGasLimit(sourcePayload, parentBlockNumber, veryLowParentGasLimit))
+		s.False(validateGasLimit(sourcePayload, veryLowParentGasLimit))
 	}
 }
 
