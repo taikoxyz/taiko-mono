@@ -409,12 +409,12 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64()+uint64(batchSize), l2Head2.Number().Uint64())
-	s.Equal(txNumInBatch+1, l2Head2.Transactions().Len())
+	s.Equal(txNumInBatch+s.AnchorTxCount(l2Head2.Header()), l2Head2.Transactions().Len())
 
 	l2Head3, err := s.RPCClient.L2.BlockByHash(context.Background(), l2Head2.ParentHash())
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64()+uint64(batchSize-1), l2Head3.Number().Uint64())
-	s.Equal(txNumInBatch+1, l2Head3.Transactions().Len())
+	s.Equal(txNumInBatch+s.AnchorTxCount(l2Head3.Header()), l2Head3.Transactions().Len())
 }
 
 func (s *ProposerTestSuite) TestStartClose() {
