@@ -244,11 +244,11 @@ Errors: `MigrationPhase`, `AlreadyInitialized`, `AlreadyArmed`, `BadMigrationMan
 
 ```text
 LEGACY --DAO upgrade+init--> INITIALIZED --proved prerequisites + DAO arm--> ARMED
-ARMED --timestamp freeze--> FROZEN/DRAINING --all frozen ids proven--> READY
+ARMED --timestamp freeze--> FROZEN/DRAINING --all frozen ids proven + terminal installation proof + finishDrain--> READY
 FROZEN/DRAINING --deadline + begin abandonment--> ABANDONING
 ABANDONING --all descending ids/sources checked and repaired, head restored once--> DRAINED
 DRAINED --terminal installation proof + finishDrain--> READY
-READY --terminal installation proof + canonical D + activate--> ACTIVE
+READY --canonical D + activate--> ACTIVE
 ACTIVE --reviewed DAO forward upgrade only--> RESTART or LEGACY' (C4-R12/R13)
 ```
 
