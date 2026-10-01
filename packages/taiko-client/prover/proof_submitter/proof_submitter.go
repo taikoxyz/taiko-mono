@@ -261,7 +261,7 @@ func (s *ProofSubmitter) lastAnchorBlockNumber(
 	if rpc.IsEtna(s.rpc.L2.ChainID, header.Time) {
 		anchorBlockNumber, err := s.rpc.EtnaAnchorBlockNumber(ctx, header)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to resolve the Etna anchor block of block %d: %w", header.Number, err)
 		}
 		return new(big.Int).SetUint64(anchorBlockNumber), nil
 	}
