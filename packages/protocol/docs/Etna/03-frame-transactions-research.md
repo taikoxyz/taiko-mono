@@ -2,7 +2,7 @@
 
 Prepared 2026-09-30 for the Etna project. Every external fact below is tagged **VERIFIED** (primary source fetched on 2026-09-30, URL given) or **UNVERIFIED**. Every design claim is tagged **proven** (with the argument or quote), **assumed** (the assumption is named), or **open** (what would resolve it). Quotes marked `[8141 L###]` are verbatim from `https://raw.githubusercontent.com/ethereum/EIPs/master/EIPS/eip-8141.md` as re-fetched on 2026-09-30 for this document (1472 lines, md5 `284f4d79ea303353412f58eb73d09421`, byte-identical to the copies used by the phase-2 inputs).
 
-Inputs synthesized (all read in full): `packages/protocol/docs/Etna/inputs/nonce-as-a-lock.txt` (the user-provided "Nonce as a Lock" PDF, 7 pages), and the phase-2 working notes `ft-spec-model.md`, `ft-client-behaviour.md`, `ft-taiko-inbox-facts.md`, `ft-analysis-nonce-lock.md`, `ft-alternatives.md`.
+Inputs synthesized (all read in full): `packages/protocol/docs/Etna/inputs/nonce-as-a-lock.txt` (the user-provided "Nonce as a Lock" PDF, 7 pages), and the phase-2 working notes `ft-spec-model.md`, `ft-client-behaviour.md`, `ft-taiko-inbox-facts.md`, `ft-analysis-nonce-lock.md`, `ft-alternatives.md` (committed under [`notes/phase2/`](notes/phase2/)).
 
 Fetch-failure record for this document: none. (The phase-2 inputs record that `api.github.com` returned HTTP 403 through the session proxy and that `gh` is not installed; PR states were obtained from the PR HTML pages and the GitHub MCP search tool instead.)
 
@@ -402,7 +402,7 @@ Taiko sources (repository at HEAD `61d8f18`):
 - packages/protocol/contracts/layer1/core/impl/Inbox.sol ; core/libs/LibCodec.sol , LibForcedInclusion.sol , LibBlobs.sol , LibBonds.sol , LibPackUnpack.sol , LibInboxSetup.sol ; core/iface/IInbox.sol , IProposerChecker.sol ; layer1/preconf/impl/PreconfWhitelist.sol ; layer1/mainnet/MainnetInbox.sol , MainnetInbox_Layout.sol , LibL1Addrs.sol ; layer1/devnet/DevnetInbox.sol ; shared/libs/LibAddress.sol ; shared/common/EssentialContract.sol ; script/layer1/core/DeployShastaContracts.s.sol , DeployShastaMainnet.s.sol ; deployments/mainnet-contract-logs-L1.md ; packages/taiko-client/proposer/transaction_builder/blob.go ; packages/taiko-client-rs/crates/proposer/src/transaction_builder.rs .
 - https://github.com/taikoxyz/taiko-mono/pull/18570 , https://github.com/taikoxyz/taiko-mono/pull/20186 , https://github.com/taikoxyz/taiko-mono/pull/19488 — conditional propose; one proposal per block; expected-id precedent.
 
-Phase-2 working notes synthesized (same directory as this file): `ft-spec-model.md`, `ft-client-behaviour.md`, `ft-taiko-inbox-facts.md`, `ft-analysis-nonce-lock.md`, `ft-alternatives.md`, `roadmap-glamsterdam.md`, `roadmap-hegota.md`.
+Phase-2 working notes synthesized (committed under [`notes/phase2/`](notes/phase2/)): `ft-spec-model.md`, `ft-client-behaviour.md`, `ft-taiko-inbox-facts.md`, `ft-analysis-nonce-lock.md`, `ft-alternatives.md`, `roadmap-glamsterdam.md`, `roadmap-hegota.md`.
 
 ### Consolidated UNVERIFIED list
 1. That an invalid type-0x06 transaction invalidates the containing block: inherited rule, not restated in EIP-8141.
