@@ -14,6 +14,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/relayer/**"
+      - ".github/workflows/relayer--test.yml"
       - "go.mod"
       - "go.sum"
       - "!**/*.md"

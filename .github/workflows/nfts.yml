@@ -5,6 +5,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/nfts/**"
+      - ".github/workflows/nfts.yml"
       - "!packages/nfts/contract_layout_*"
     branches-ignore:
       - release-please--branches--**
