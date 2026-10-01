@@ -2,7 +2,7 @@
 
 Etna investigates a fully permissionless successor to Taiko's based-rollup protocol. This is a design project: no production contracts, clients, deployments, or changes outside this directory.
 
-**Verdict: converged design specification.** Six rounds are complete. The [final judge](iterations/06-judge.md) confirms rounds 05–06 have no new Critical/High, all Mediums have written dispositions, and R1–R7 pass under explicit assumptions. This is a reference for implementation, not verified production code or launch approval. Economic concentration, finite accountability and unmeasured deployment/performance remain material limits. Branch: `codex/etna-protocol-design`. [Draft PR #22188](https://github.com/taikoxyz/taiko-mono/pull/22188).
+**Anchor-removal revision in progress.** The earlier specification converged in rounds 05–06. The user requested adoption of [David’s proposal](https://github.com/taikoxyz/taiko-mono/issues/22147), using standard EIP-4788 and permissionless checkpoint reveal without an L2 anchor transaction. Its [decision record](notes/anchor-removal-decision.md) is being integrated and will receive fresh rounds 07–08; the previous verdict does not automatically cover it. Branch: `codex/etna-protocol-design`. [Draft PR #22188](https://github.com/taikoxyz/taiko-mono/pull/22188).
 
 ## How to read
 
