@@ -42,3 +42,9 @@ Both candidates were reviewed by the other's agent and by an independent compari
 | `iterations/` | Red-team rounds against the merged specification (cycle 3 onward) |
 
 The candidate trees stay on their own branches as the record of how each design was reached; this tree cites them rather than copying their history.
+
+## C4 migration proposal
+
+[Migration and retained surfaces](spec/C4-migration.md) is B's W5 proposal under DL-3/DL-4. It covers the permissionless legacy proof drain, authenticated abandonment/requeue, bootstrap boundary, complete retained-contract changes and guarded forward rollback. It is submitted for A/J review, not an accepted migration or readiness verdict.
+
+The original R1 interpretation of the directed retained DAO powers and the versioned legacy forced-request adapter remain explicit open decisions. The converged learning site follows accepted section text; historical candidate lessons do not establish acceptance of this proposal.
