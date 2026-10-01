@@ -85,7 +85,7 @@ Updated as each phase completes. A phase is checked only once its artifact is co
 ## Rules this work followed
 
 1. No implementation: no production code, contracts, or client changes. Interface sketches live only inside the design document.
-2. Throwaway experiments only in the session scratchpad, never committed.
+2. Throwaway experiments only in the session scratchpad, never committed. Where a verification note or an iteration record cites a scratchpad path or a simulation that was not committed, the figure is reproducible only from the description in the text, not from a file in this tree, and it is evidence of nothing beyond that description. Code citations (`file:line`) are point-in-time: each names the commit it was read at.
 3. Nothing outside `packages/protocol/docs/Etna/` is modified.
 4. No deployments, no keys, no private resources. The Notion page referenced by the original brief was not accessible; the PDF in `inputs/` is used instead.
 5. External facts (EIP numbers, fork contents, status) are verified via the web at run time and cited in `02-l1-roadmap-survey.md`.
