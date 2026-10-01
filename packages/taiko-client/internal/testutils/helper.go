@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -407,23 +406,36 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	baseFee, err := s.RPCClient.CalculateBaseFee(ctx, parent)
 	s.Nil(err)
 
-	anchorConstructor, err := anchortxconstructor.New(s.RPCClient)
-	s.Nil(err)
-
 	blockID := proposed.Id
-	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
-		ctx,
-		parent,
-		anchorBlock.Number,
-		anchorBlock.Hash(),
-		anchorBlock.Root,
-		proposed.EndOfSubmissionWindowTimestamp,
-		blockID,
-		baseFee,
-	)
-	s.Nil(err)
 
-	txListBytes, err := rlp.EncodeToBytes(types.Transactions{anchorTx})
+	// Before Etna block 1 starts with the anchor transaction; from Etna on it commits its L1 anchor
+	// block hash as parentBeaconBlockRoot and carries no transactions.
+	var (
+		txList     = types.Transactions{}
+		beaconRoot *common.Hash
+	)
+	if rpc.IsEtna(s.RPCClient.L2.ChainID, anchorBlock.Time) {
+		anchorHash := anchorBlock.Hash()
+		beaconRoot = &anchorHash
+	} else {
+		anchorConstructor, err := anchortxconstructor.New(s.RPCClient)
+		s.Nil(err)
+
+		anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
+			ctx,
+			parent,
+			anchorBlock.Number,
+			anchorBlock.Hash(),
+			anchorBlock.Root,
+			proposed.EndOfSubmissionWindowTimestamp,
+			blockID,
+			baseFee,
+		)
+		s.Nil(err)
+		txList = types.Transactions{anchorTx}
+	}
+
+	txListBytes, err := rlp.EncodeToBytes(txList)
 	s.Nil(err)
 
 	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, blockID)
@@ -432,8 +444,10 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	extraData, err := encoding.EncodeShastaExtraData(proposed.BasefeeSharingPctg, proposed.Id)
 	s.Nil(err)
 
+	// The fingerprint must match the driver's buildPayloadArgsID, so the driver later recognizes the
+	// block as already inserted.
 	txListHash := crypto.Keccak256Hash(txListBytes)
-	payloadID := (&miner.BuildPayloadArgs{
+	payloadArgs := &miner.BuildPayloadArgs{
 		Parent:       parent.Hash(),
 		Timestamp:    anchorBlock.Time,
 		FeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -442,14 +456,18 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 		Version:      engine.PayloadV2,
 		TxListHash:   &txListHash,
 		Extra:        extraData,
-	}).Id()
+	}
+	if beaconRoot != nil {
+		payloadArgs.BeaconRoot = beaconRoot
+		payloadArgs.Version = engine.PayloadV3
+	}
 
 	l1Origin := &rawdb.L1Origin{
 		BlockID:            blockID,
 		L2BlockHash:        common.Hash{},
 		L1BlockHeight:      new(big.Int).SetUint64(proposed.Raw.BlockNumber),
 		L1BlockHash:        proposed.Raw.BlockHash,
-		BuildPayloadArgsID: payloadID,
+		BuildPayloadArgsID: payloadArgs.Id(),
 	}
 
 	s.forkTo(&engine.PayloadAttributes{
@@ -457,9 +475,10 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 		Random:                common.BytesToHash(mixHash),
 		SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		Withdrawals:           []*types.Withdrawal{},
+		BeaconRoot:            beaconRoot,
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-			GasLimit:    parent.GasLimit + consensus.AnchorV3V4GasLimit,
+			GasLimit:    parent.GasLimit + rpc.AnchorGasReserve(s.RPCClient.L2.ChainID, anchorBlock.Time),
 			Timestamp:   anchorBlock.Time,
 			TxList:      txListBytes,
 			MixHash:     common.BytesToHash(mixHash),

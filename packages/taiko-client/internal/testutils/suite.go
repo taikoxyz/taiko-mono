@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
@@ -33,6 +34,13 @@ type ClientTestSuite struct {
 
 func (s *ClientTestSuite) SetupTest() {
 	LoadEnv()
+	// Mirror the --taiko.devnet-etna-time override the client binaries apply: the harness exports the
+	// Etna activation time it also passes to the L2 execution engine.
+	if etnaTime := os.Getenv("TAIKO_DEVNET_ETNA_TIME"); etnaTime != "" {
+		parsed, err := strconv.ParseUint(etnaTime, 10, 64)
+		s.Nil(err)
+		gethcore.DevnetEtnaTime = parsed
+	}
 	// Default logger
 	ver, err := strconv.Atoi(os.Getenv("VERBOSITY"))
 	s.Nil(err)
@@ -239,19 +247,36 @@ func (s *ClientTestSuite) SetBlockTimestampInterval(interval time.Duration) {
 }
 
 func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHash common.Hash) {
-	fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
-		context.Background(),
-		&engine.ForkchoiceStateV1{HeadBlockHash: parentHash},
-		attributes,
+	isEtna := rpc.IsEtna(s.RPCClient.L2.ChainID, attributes.Timestamp)
+	fcState := &engine.ForkchoiceStateV1{HeadBlockHash: parentHash}
+
+	var (
+		fcRes *engine.ForkChoiceResponse
+		err   error
 	)
+	if isEtna {
+		fcRes, err = s.RPCClient.L2Engine.ForkchoiceUpdatedV3(context.Background(), fcState, attributes)
+	} else {
+		fcRes, err = s.RPCClient.L2Engine.ForkchoiceUpdate(context.Background(), fcState, attributes)
+	}
 	s.Nil(err)
 	s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
 	s.NotNil(fcRes.PayloadID)
 
-	payload, err := s.RPCClient.L2Engine.GetPayload(context.Background(), fcRes.PayloadID)
+	var payload *engine.ExecutableData
+	if isEtna {
+		payload, err = s.RPCClient.L2Engine.GetPayloadV5(context.Background(), fcRes.PayloadID)
+	} else {
+		payload, err = s.RPCClient.L2Engine.GetPayload(context.Background(), fcRes.PayloadID)
+	}
 	s.Nil(err)
 
-	execStatus, err := s.RPCClient.L2Engine.NewPayload(context.Background(), payload)
+	var execStatus *engine.PayloadStatusV1
+	if isEtna {
+		execStatus, err = s.RPCClient.L2Engine.NewPayloadV4(context.Background(), payload, *attributes.BeaconRoot)
+	} else {
+		execStatus, err = s.RPCClient.L2Engine.NewPayload(context.Background(), payload)
+	}
 	s.Nil(err)
 	s.Equal(engine.VALID, execStatus.Status)
 
