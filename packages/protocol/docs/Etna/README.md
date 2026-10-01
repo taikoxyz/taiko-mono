@@ -11,7 +11,15 @@ Etna investigates a fully permissionless successor to Taiko's based-rollup proto
 3. [Design reference](design/index.html) and [progressive learning course](learn/index.html), static HTML with inline SVG, no build or network dependencies.
 4. [Review iterations](iterations/) and [subsystem research notes](notes/).
 
-[Validation and evidence limits](validation.md) records checks actually performed. Research notes and historical revisions explain prior observations and alternatives; the eight current HTML reference pages control the specification. Uppercase `Etna/` follows the requested final deliverable layout; no separate lowercase directory is used.
+[Validation and evidence limits](validation.md) records checks actually performed. Research notes and historical revisions explain prior observations and alternatives; the eight mechanism pages control consensus; the two new companion pages specify optional proof discovery and consolidate launch evidence. Uppercase `Etna/` follows the requested final deliverable layout; no separate lowercase directory is used.
+
+## Peer-design follow-up — October1
+
+[Comparison with Claude’s PR #22184](notes/peer-design-comparison.md): adopted explicit [confirmation assessments](design/index.html#assessment), clock-policy deferral, optional [proof discovery](design/proof-discovery.html), and an [invariant/resource/funding dashboard](design/assurance.html). The public nonce-lock PDF was also reviewed. These additions specify client behavior and evidence; Inbox rules, proof thresholds, timing constants and custody transitions are unchanged. The original convergence record is scoped to its reviewed snapshot; this follow-up receives targeted validation, not a ninth full round.
+
+**Production feasibility remains unresolved.** The [reciprocal peer review](https://github.com/taikoxyz/taiko-mono/pull/22188#issuecomment-5926119441) correctly challenges throughput, recurring publication cost and paid-backlog delay. The earlier review-loop stopping criterion does not settle these product/economic questions. This operating profile is not a production launch recommendation.
+
+**Launch status remains open.** The dashboard centralizes unmeasured execution/proving, complete gas/byte envelopes, migration facts, state growth and service economics. In particular, the proposed rent costs about67.2 ETH/day at a60-second landing cadence. A model-generated clean review does not establish affordability or security of an implementation.
 
 ## Requirement ledger
 
@@ -20,10 +28,10 @@ Etna investigates a fully permissionless successor to Taiko's based-rollup proto
 | R1 | 100% permissionless; DAO owns upgradeability only | Any address can enter/exit every role under objective on-chain conditions; no operational admin/operator/allowlist gate; chain remains live without DAO action. | Pass: open objective roles and recovery; DAO authorizes upgrades only. Funding/capability assumptions remain. |
 | R2 | Reuse existing SignalService, Bridge, ERC20/ERC721/ERC1155 Vault addresses on both layers | Specify exact checkpoint/state-root interfaces from inbox and anchor; enumerate all shared-contract changes and storage-compatible upgrades; deploy no new frozen addresses. | Pass at specification level: exact checkpoint ABI, retained addresses and enumerated compatible upgrades. Live-state rehearsal remains open. |
 | R3 | Richer role set permitted | Every role has entry, exit, duties, rewards, slashing, and all-offline/all-malicious failure analysis. | Pass: every role has funded terms, penalties, exit and total-outage analysis. |
-| R4 | At most 1-second preconfirmed L2 block cadence | Define block time as preconfirmation issuance interval and user soft-confirmation latency; decouple L1 landing cadence. | Pass as a conditional one-second issuance target; latency and finality separated. Sustained performance requires measurement. |
+| R4 | At most 1-second preconfirmed L2 block cadence | Define block time as preconfirmation issuance interval and user soft-confirmation latency; decouple L1 landing cadence. | Conditional one-second issuance target; latency and finality separated. No soft-ordering guarantee. Sustained performance and application usefulness remain open. |
 | R5 | No CL lookahead or L1-slot coupling | Never consume future validator/proposer schedules; authenticated CL facts allowed; all timers in seconds or L1 block numbers; work with 12/6/4/2-second L1 slots. | Pass: seconds, L1 block identity and authenticated past headers; no CL lookahead. |
 | R6 | Objective penalties and slashing; concrete anti-monopoly economics | Specify L1-verifiable evidence, permissionless submitter, payout split, false-accusation deterrence for every offense; tabulate rotation/caps/auctions/decay and rationale. | Pass for objective finite duties and concrete bounded rent economics. Concentration risks explicitly accepted; effectiveness unmeasured. |
-| R7 | Propose with proof | Single L1 action/frame carries batch data and valid ZK proof; describe minute-long preconfirmation/proving window, prover failure, forced inclusion, finality and blobs/calldata. | Pass: full data plus proof in one canonical action, exact bootstrap, open recovery and frozen FIFO. Earlier generic DA grants no priority. |
+| R7 | Propose with proof | Single L1 action/frame carries batch data and valid ZK proof; describe minute-long preconfirmation/proving window, prover failure, forced inclusion, finality and blobs/calldata. | Specification supports full data plus proof atomically, exact bootstrap, open recovery and frozen FIFO. Minute-level sustained capacity and economics remain open; earlier generic DA grants no priority. |
 
 Baseline: assume Frame Transactions live before launch; survey Glamsterdam and Hegota; retain today's bond/reward denomination, native token and gas accounting unless a change is justified. Every design assertion is classified **proven**, **assumed** (named assumption), or **open** (resolution criterion). URC is removed in Etna.
 
@@ -31,7 +39,7 @@ Baseline: assume Frame Transactions live before launch; survey Glamsterdam and H
 
 - [x] 0: inspect instructions, create branch and requirement ledger.
 - [x] 1: read L1, L2/shared, Go, Rust and docs; synthesize baseline and threat model.
-- [x] 2: verify current Frame Transactions specification/discussions and L1 roadmap (referenced PDF absent; independent hypothesis analyzed).
+- [x] 2: verify current Frame Transactions specification/discussions and L1 roadmap (initially independent; public PDF reviewed in the October1 follow-up).
 - [x] 3: draft glossary, mechanisms, state machines, interfaces, parameters and migration.
 - [x] 4–5: independent multi-model red team and judge; revise and log (maximum eight rounds).
 - [x] Convergence: two consecutive rounds with no new Critical/High, all Medium dispositions, all R1–R7 pass; **or** evidence-backed negative verdict and smallest relaxation.
@@ -45,7 +53,7 @@ Phase boundaries and review rounds are committed separately. Design convergence 
 - Initial session: 2026-09-30 UTC; anchor-removal revision: 2026-10-01 UTC.
 - Initial source snapshot: `961bbd8ff55a0f66f44ad04160eb51638d655b66` (initial main checkout; public fetch subsequently verified main at `31df8fe8ef7c027840abf122ec36f87c41c3ce94`; see baseline addendum).
 - The user-authorized branch is `codex/etna-protocol-design`.
-- `inputs/nonce-as-a-lock.pdf` has **not been supplied**. The research distinguishes the stated nonce-lock hypothesis from the unavailable PDF. No page-by-page PDF review is claimed.
+- The seven-page nonce-lock PDF is now reviewed from the public peer PR; [provenance/checksum](inputs/README.md) and the [dated review](03-frame-transactions-research.md#12-review-of-the-now-available-nonce-lock-pdf) preserve the distinction from the original independent analysis.
 - Repository guidance: root `CLAUDE.md`, protocol `CLAUDE.md`, client `AGENTS.md` where applicable. Documentation-only checks apply; no contract tests or layout generation are needed without source changes.
 - Throwaway analysis belongs in `/tmp/etna-scratch/` (initial work) or `/tmp/etna-anchor-scratch/` (revision); it is not committed and is removed at completion.
 - Do not record API keys, private resources or credentials in these artifacts.
@@ -64,7 +72,7 @@ Then visit `http://127.0.0.1:8765/learn/` or `/design/`. To serve on GitHub Page
 
 - Calibrate the proposed 0.05-ETH rent ceiling, 900-second decay, service reserves and force capacity. An illustrative 60-second acceptance cadence alone sinks about 67.2 ETH/day in rent; no sustainable market has been demonstrated.
 - Explicitly accept revocable soft branches, limited cross-owner attribution and evidence horizons, zero-rent/high-MEV concentration and paid-backlog delay. Slashing proves exact missed duties, not global gossip or intent.
-- Authenticate migration state and layouts, then implement and measure complete proof/DA relations, activation certificates, maximum-work execution and sustained proving before launch. Supply the missing PDF for a document-specific nonce-lock review.
+- Authenticate migration state and layouts, then implement and measure complete proof/DA relations, activation certificates, maximum-work execution and sustained proving before launch.
 
 ## Anchor-removal revision checklist
 
