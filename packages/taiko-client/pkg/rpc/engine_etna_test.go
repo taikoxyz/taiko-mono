@@ -37,6 +37,8 @@ func TestIsEtna_PublicNetworksUnscheduled(t *testing.T) {
 }
 
 func TestIsEtna_NilAndUnknownChainID(t *testing.T) {
+	pinDevnetForkTimes(t, 0, 0)
+
 	require.False(t, IsEtna(nil, 0))
 	require.False(t, IsEtna(big.NewInt(123456789), 0))
 }
