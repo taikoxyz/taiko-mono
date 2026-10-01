@@ -4,6 +4,16 @@
 
 **[assumed: reading the tags]** `S` means source fact or quoted dependency; `D` means source arithmetic, **proven conditionally** on its stated inputs; `A` means an assumed choice; `U` means measurement missing; `O` means semantic or derivation closure still open. Combinations are deliberate: arithmetic on an assumed gas or revenue input is not a measurement. Labels below transcribe the source, not an independent proof. D2 permits `U` at specification readiness; an unresolved rule marked `O` needs its owning section's disposition. No item becomes a readiness blocker merely because it is unmeasured.
 
+## Register maintenance
+
+**[assumed: documentation process, not protocol rules]** The following discipline governs this index:
+
+1. Every entry names its existing identifier (or source row label) and owning section, and carries no parameter value. Grouped entries inherit the named section; quoted dependencies point to their normative owner. The value appears only in the owning rule.
+2. On each owning-section merge, re-pin its entries to that merged commit and verify the claimed rule and line anchors. A broken link, or a link that does not contain the claimed rule, is a register defect. Until the merge, preserve the current pins; newer proposal references may be listed separately as staged, without implying acceptance.
+3. Before any section is called converged, index every one of its OPEN and unmeasured rows with its owner and source. This is an index-coverage requirement: measurements may remain unmeasured under D2, with their closure tasks recorded; semantic OPEN items retain the owning section's disposition.
+
+**[assumed: review provenance]** [J's review of #22206 at `0440d277`](https://github.com/taikoxyz/taiko-mono/pull/22206#issuecomment-5934276207) reported no Critical or High findings and requested the nonblocking J1 to J3 maintenance clarifications above. This records J's review and its disposition, not A's approval or a whole-specification convergence verdict.
+
 ## Immutable register inventory
 
 **[assumed: source inventory]** Every numeric/bytecode register row in the following pinned artifacts is indexed below by its existing identifier or source row label; values are not copied. Each section link opens its register. A row's full argument and mixed premises stay there. These PR snapshots are evidence, not a declaration of acceptance.
@@ -46,6 +56,7 @@
 | S3: [H(X); B_SEAT; Credit bounds](https://github.com/taikoxyz/taiko-mono/blob/1383e06c9ac601aa7e0e25737111024422824dc5/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md#L262) | Define and estimate user value exposed at each actionable level, then compare with currently collectible collateral and challenger deductions under D20, repeated offences, depleted reserves and shared owners. Nominal registration capital and committee seat count alone cannot close this test. |
 | S3: [Evidence gas; reward costs; Cartel table](https://github.com/taikoxyz/taiko-mono/blob/1383e06c9ac601aa7e0e25737111024422824dc5/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md#L278) | Measure every evidence path and reward/pin break-even workload; reproduce simulations with seed, owner distribution, parking/redraw rules and executable script. Retest after D19/D20. Publish the model assumptions separately from empirical fee/prover observations. |
 | C4: [Layout, gas, state-witness and code-hash verification cost](https://github.com/taikoxyz/taiko-mono/blob/744234398514746baefc99710fd267356a1d0bbf/packages/protocol/docs/Etna/spec/C4-migration.md#L302) | Produce the compiled/deployed layout and selector/immutable manifest comparison, retained proof/public-input compatibility, bounded-chunk calldata/gas and proof costs, conservation/replay vectors and client conformance. LEGACY_BLOB adapter content/resource compatibility and historical preimages are semantic prerequisites owned with C3/C8, not missing gas measurements. |
+| C4: [C4-R06; forced-request continuity and funding](https://github.com/taikoxyz/taiko-mono/blob/744234398514746baefc99710fd267356a1d0bbf/packages/protocol/docs/Etna/spec/C4-migration.md#L66) | Report already-paid unrecovered legacy fees separately from still-escrowed fees and new replay/proving/inclusion costs. An authenticated requeue creates no second fee payment, new bond or refund entitlement; identify the actual replay funder, including the no-reward case. Keep ordinary-tail loss and this fee-loss consequence in the migration runbook and eventual lesson, as J's DL-3 condition requires. This indexes C4's funding premise, not a subsidy or a new acceptance. |
 
 ## Revision and pending-owner notices
 
