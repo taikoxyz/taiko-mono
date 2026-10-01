@@ -354,10 +354,21 @@ func isKnownCanonicalBlock(
 
 	var (
 		// Etna blocks commit their L1 anchor block hash instead of carrying an anchor transaction.
-		isEtna     = meta.ParentBeaconBlockRoot != nil
+		isEtna     = rpc.IsEtna(cli.L2.ChainID, meta.Timestamp)
 		txListHash = crypto.Keccak256Hash(txListBytes[:])
 		id         = buildPayloadArgsID(meta.createExecutionPayloadsMetaData, txListHash)
 	)
+
+	// The metadata must follow its own fork: an Etna block commits a non-zero L1 anchor block hash, and an
+	// earlier block commits none.
+	if isEtna && (meta.ParentBeaconBlockRoot == nil || *meta.ParentBeaconBlockRoot == (common.Hash{})) {
+		logUnknown("missing L1 anchor block hash for an Etna block")
+		return nil, false, nil
+	}
+	if !isEtna && meta.ParentBeaconBlockRoot != nil {
+		logUnknown(fmt.Sprintf("unexpected L1 anchor block hash before Etna: %s", *meta.ParentBeaconBlockRoot))
+		return nil, false, nil
+	}
 
 	log.Info(
 		"Check if block is known in canonical chain",
