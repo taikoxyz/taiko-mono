@@ -115,6 +115,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
+	if err := preconf.CheckNotEtna(s.rpc.L2.ChainID, parent.Time()); err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
 
 	if s.latestSeenProposal != nil &&
 		s.latestSeenProposal.IsShasta() &&

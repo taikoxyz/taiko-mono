@@ -6,10 +6,13 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	gethcore "github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 type CacheTestSuite struct {
@@ -293,4 +296,24 @@ func (s *CacheTestSuite) TestDuplicateCachingPrevention() {
 
 	// hasExact should still work
 	s.True(cache.hasExact(blockNum, blockHash))
+}
+
+// TestValidateExecutionPayloadRejectsEtna verifies that a payload at or after Etna is rejected
+// with the Etna sentinel, so it is never cached or inserted.
+func (s *CacheTestSuite) TestValidateExecutionPayloadRejectsEtna() {
+	originalUnzen, originalEtna := gethcore.DevnetUnzenTime, gethcore.DevnetEtnaTime
+	s.T().Cleanup(func() { gethcore.DevnetUnzenTime, gethcore.DevnetEtnaTime = originalUnzen, originalEtna })
+	gethcore.DevnetUnzenTime, gethcore.DevnetEtnaTime = 0, 100
+
+	// Only the RPC client is set: the Etna check must return before any other server field is used.
+	server := &PreconfBlockAPIServer{rpc: &rpc.Client{L2: &rpc.EthClient{ChainID: params.TaikoInternalNetworkID}}}
+
+	s.ErrorIs(
+		server.ValidateExecutionPayload(&eth.ExecutionPayload{Timestamp: eth.Uint64Quantity(100)}),
+		preconf.ErrNotSupportedAfterEtna,
+	)
+	s.NotErrorIs(
+		server.ValidateExecutionPayload(&eth.ExecutionPayload{Timestamp: eth.Uint64Quantity(99)}),
+		preconf.ErrNotSupportedAfterEtna,
+	)
 }

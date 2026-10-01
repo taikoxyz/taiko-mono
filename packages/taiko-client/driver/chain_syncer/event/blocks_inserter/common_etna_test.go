@@ -1,20 +1,27 @@
 package blocksinserter
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// EtnaHelpersTestSuite covers the fork-aware transactions-list and payload-fingerprint helpers. It needs
-// no devnet.
+// EtnaHelpersTestSuite covers the fork-aware transactions-list and payload-fingerprint helpers, and the
+// preconfirmation Etna guard. It needs no devnet.
 type EtnaHelpersTestSuite struct {
 	suite.Suite
 }
@@ -103,6 +110,20 @@ func (s *EtnaHelpersTestSuite) TestBuildPayloadArgsIDBindsEtnaRoot() {
 	otherRoot := common.HexToHash("0xbb")
 	meta.ParentBeaconBlockRoot = &otherRoot
 	s.NotEqual(etna, buildPayloadArgsID(meta, txListHash))
+}
+
+func (s *EtnaHelpersTestSuite) TestInsertPreconfBlockFromEnvelopeRejectsEtna() {
+	originalUnzen, originalEtna := gethcore.DevnetUnzenTime, gethcore.DevnetEtnaTime
+	s.T().Cleanup(func() { gethcore.DevnetUnzenTime, gethcore.DevnetEtnaTime = originalUnzen, originalEtna })
+	gethcore.DevnetUnzenTime, gethcore.DevnetEtnaTime = 0, 100
+
+	// The L2 client has no connection, so any RPC would panic: the Etna check must return first.
+	cli := &rpc.Client{L2: &rpc.EthClient{ChainID: params.TaikoInternalNetworkID}}
+	envelope := &preconf.Envelope{Payload: &eth.ExecutionPayload{Timestamp: eth.Uint64Quantity(100)}}
+
+	header, err := InsertPreconfBlockFromEnvelope(context.Background(), cli, envelope)
+	s.Nil(header)
+	s.ErrorIs(err, preconf.ErrNotSupportedAfterEtna)
 }
 
 func TestEtnaHelpersTestSuite(t *testing.T) {
