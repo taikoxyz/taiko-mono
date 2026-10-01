@@ -299,7 +299,13 @@ func (s *Syncer) processProposal(
 		)
 
 		var lastAnchorBlockNumber uint64
-		if s.rpc.L2.ChainID.Cmp(params.TaikoMainnetNetworkID) == 0 &&
+		if rpc.IsEtna(s.rpc.L2.ChainID, sourcePayload.ParentBlock.Time()) {
+			// From Etna on, the parent commits its L1 anchor block hash as parentBeaconBlockRoot; the
+			// Anchor contract and the parent's first transaction no longer record it.
+			if lastAnchorBlockNumber, err = s.rpc.EtnaAnchorBlockNumber(ctx, sourcePayload.ParentBlock.Header()); err != nil {
+				return fmt.Errorf("failed to resolve the parent's Etna anchor block: %w", err)
+			}
+		} else if s.rpc.L2.ChainID.Cmp(params.TaikoMainnetNetworkID) == 0 &&
 			meta.GetEventData().Id.Uint64() <= manifest.MainnetAnchorCheckSkipProposalOffset {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
 				sourcePayload.ParentBlock.Transactions()[0],

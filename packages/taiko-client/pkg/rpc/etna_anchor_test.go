@@ -90,3 +90,32 @@ func TestEtnaAnchorBlockNumber_UnknownRootIsNotFound(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "not found"))
 }
+
+func TestIsEtnaAnchorReorged(t *testing.T) {
+	anchorBody := fakeHeaderJSON(77)
+	root := decodedHeaderHash(t, anchorBody)
+	replacedBody := strings.Replace(anchorBody, `"extraData":"0x"`, `"extraData":"0x01"`, 1)
+	header := &types.Header{Number: big.NewInt(5), ParentBeaconRoot: &root}
+
+	// The anchor block is still canonical at its height.
+	c := newFakeL1(t, map[common.Hash]string{root: anchorBody}, map[uint64]string{77: anchorBody})
+	reorged, err := c.isEtnaAnchorReorged(context.Background(), header)
+	require.NoError(t, err)
+	require.False(t, reorged)
+
+	// Another block replaced the anchor block at its height.
+	c = newFakeL1(t, map[common.Hash]string{root: anchorBody}, map[uint64]string{77: replacedBody})
+	reorged, err = c.isEtnaAnchorReorged(context.Background(), header)
+	require.NoError(t, err)
+	require.True(t, reorged)
+
+	// The L1 node no longer knows the anchor block.
+	c = newFakeL1(t, nil, nil)
+	reorged, err = c.isEtnaAnchorReorged(context.Background(), header)
+	require.NoError(t, err)
+	require.True(t, reorged)
+
+	// A missing root is an error, not a reorg.
+	_, err = c.isEtnaAnchorReorged(context.Background(), &types.Header{Number: big.NewInt(5)})
+	require.ErrorContains(t, err, "missing L1 anchor block hash")
+}

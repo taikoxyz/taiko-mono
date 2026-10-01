@@ -656,6 +656,10 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		log.Error("Failed to fetch L2 block", "blockID", blockID, "error", err)
 		return false, err
 	}
+	// From Etna on, the block commits its L1 anchor block hash instead of carrying an anchor transaction.
+	if IsEtna(c.L2.ChainID, block.Time()) {
+		return c.isEtnaAnchorReorged(ctx, block.Header())
+	}
 	parent, err := c.L2.BlockByHash(ctx, block.ParentHash())
 	if err != nil {
 		log.Error("Failed to fetch L2 parent block", "blockID", blockID, "parentHash", block.ParentHash(), "error", err)
@@ -1096,8 +1100,13 @@ func (c *Client) GetProposalByID(
 		return nil, nil, fmt.Errorf("failed to get L2 block by ID %d: %w", blockID.ToInt(), err)
 	}
 
-	_, anchorNumber, _, err := c.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
-	if err != nil {
+	// The block's anchor block precedes the proposal's L1 inclusion block, so it bounds the event search.
+	var anchorNumber uint64
+	if IsEtna(c.L2.ChainID, block.Time()) {
+		if anchorNumber, err = c.EtnaAnchorBlockNumber(ctxWithTimeout, block.Header()); err != nil {
+			return nil, nil, fmt.Errorf("failed to resolve Etna anchor block of block %d: %w", blockID.ToInt(), err)
+		}
+	} else if _, anchorNumber, _, err = c.GetSyncedL1SnippetFromAnchor(block.Transactions()[0]); err != nil {
 		return nil, nil, fmt.Errorf("failed to get synced L1 snippet from anchor transaction: %w", err)
 	}
 
