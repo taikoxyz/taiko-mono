@@ -87,7 +87,7 @@
 </table>
 
 <h2 id="node">6. Node operator (passive)</h2>
-<p>Runs the derivation and preconfirmation client with an L1 view. Validates every block by V1 to V6, follows certificates and view changes, labels confirmations sequenced / attested / locked / landed / final, serves range requests as a duty of RPC nodes, and derives from L1 blobs when behind. Has no validity role; a bad L1 view yields <em>pending</em>, a bad clock only mis-times signing. Not slashable.</p>
+<p>Runs the derivation and preconfirmation client with an L1 view. Validates every block by V1 to V6, follows certificates and view changes, labels confirmations sequenced / attested / locked / landed / final, serves range requests as a duty of RPC nodes, and derives from L1 blobs when behind. Has no validity role; a bad L1 view yields <em>pending</em>, a bad clock only mistimes signing. Not slashable.</p>
 
 <h2 id="dao">7. DAO (upgrades only)</h2>
 <p>Can upgrade the Inbox and Anchor implementations, rotate ZK image ids (with a two-hour overlap or an emergency zero), add a third ZK system, change constants by upgrade. Cannot admit or remove any participant, pause landing or block production, void the forced-inclusion queue, or touch bonds. If the DAO never acts again: image windows stay open-ended, single-proof mode and replacement keep certified landing moving unless every ZK system is broken; certificate-free regimes (dead mode, no-committee, open-empty, forced batches) always need two systems and stall on a one-system outage until an image rotation (limitation L19), parameters freeze. <span class="tag proven">proven</span> by construction: no function on any liveness path is owner-gated.</p>

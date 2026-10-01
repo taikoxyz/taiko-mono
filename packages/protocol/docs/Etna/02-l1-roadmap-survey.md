@@ -8,7 +8,7 @@ Etna requirements used as the yardstick: **R1** permissionless (no whitelist); *
 
 Headline: **nothing scheduled for Glamsterdam or Hegotá is a hard dependency for Etna, and nothing in either fork breaks R1–R7 provided the "tolerate" notes below are honoured.** Etna can launch on today's Fusaka mainnet. The forks change Etna's *environment* (ePBS timing, gas repricing, header layout) more than its *primitives*.
 
-Glamsterdam status snapshot (VERIFIED, EIP-7773 master, 2026-09-30): 18 core EIPs SFI, headliners ePBS (EIP-7732) and BALs (EIP-7928); Sepolia activation epoch 353024 = 2026-10-06 13:53:36 UTC; Hoodi and mainnet not set. Hegotá snapshot (VERIFIED, EIP-8081 master, last commit 2026-09-24 "Decisions from ACDE246"): SFI = FOCIL (EIP-7805) and Frame Transaction (EIP-8141); CFI = 11 EIPs; PFI = 25; DFI = 18; ethereum.org says "Q2 2027 · Date not yet confirmed". Slot time stays 12 s in every published config (VERIFIED, eth-clients mainnet/sepolia/hoodi `SLOT_DURATION_MS: 12000`).
+Glamsterdam status snapshot (VERIFIED, EIP-7773 master, 2026-09-30): 18 core EIPs SFI, headliners ePBS (EIP-7732) and block-level access lists (EIP-7928); Sepolia activation epoch 353024 = 2026-10-06 13:53:36 UTC; Hoodi and mainnet not set. Hegotá snapshot (VERIFIED, EIP-8081 master, last commit 2026-09-24 "Decisions from ACDE246"): SFI = FOCIL (EIP-7805) and Frame Transaction (EIP-8141); CFI = 11 EIPs; PFI = 25; DFI = 18; ethereum.org says "Q2 2027 · Date not yet confirmed". Slot time stays 12 s in every published config (VERIFIED, eth-clients mainnet/sepolia/hoodi `SLOT_DURATION_MS: 12000`).
 
 ### REQUIRED (all already live on mainnet; none comes from Glamsterdam or Hegotá)
 
@@ -161,7 +161,7 @@ Not yet merged to `master` but in flight (raw fetch 404 on 2026-09-30, VERIFIED 
 
 ### 4.2 Block-Level Access Lists (EIP-7928, Glamsterdam SFI, Review)
 
-*Guarantees*: header `block_access_list_hash`; "BALs enable parallel disk reads, parallel transaction validation, parallel state root computation and executionless state updates" (VERIFIED). *Does NOT*: change any gas cost, or speed up a single sequential verifier tx; parallelism is across txs. *Etna use*: none directly; indirectly BALs justify the 200 M gas limit (`GAS_LIMIT_SCHEDULE` on Sepolia), which lowers base-fee pressure for Etna's ~1 tx per block. Any Etna code that RLP-decodes or ZK-proves L1 headers must accept the post-Gloas layout (`block_access_list_hash`, `slotNumber`). *If it slips*: gas limit likely stays 60 M; Etna unaffected.
+*Guarantees*: header `block_access_list_hash`; "[Block-level access lists] enable parallel disk reads, parallel transaction validation, parallel state root computation and executionless state updates" (VERIFIED). *Does NOT*: change any gas cost, or speed up a single sequential verifier tx; parallelism is across txs. *Etna use*: none directly; indirectly block-level access lists justify the 200 M gas limit (`GAS_LIMIT_SCHEDULE` on Sepolia), which lowers base-fee pressure for Etna's ~1 tx per block. Any Etna code that RLP-decodes or ZK-proves L1 headers must accept the post-Gloas layout (`block_access_list_hash`, `slotNumber`). *If it slips*: gas limit likely stays 60 M; Etna unaffected.
 
 ### 4.3 FOCIL (EIP-7805, Hegotá SFI, Draft) with EIP-8369 (PFI, Informational)
 
@@ -235,7 +235,7 @@ Etna timing assumptions that break if hard-coded in slots or blocks: forced-incl
 3. **"Glamsterdam raises blob counts."** No blob-parameter change is scheduled in any config; mainnet stays at 21 (VERIFIED). The 200 M figure is a *gas* schedule, on Sepolia only, and clients still default to 60 M unless validators opt in (VERIFIED, EF blog).
 4. **"A tx included in an ePBS block is confirmed when the beacon block lands."** No: the payload lands at 50 % of the slot and "is not widely validated until the proposer of slot N+1 releases their beacon block"; Empty slots exist and the proposer is still paid (VERIFIED, EIP-7732 and Gloas beacon-chain `settle_builder_payment`).
 5. **"FOCIL guarantees inclusion of rollup batch txs."** Under the current design, blob-carrying txs are explicitly "not candidates for either profile" (EIP-8369) and EIP-7805 itself is silent on blobs (VERIFIED); inclusion is conditional and unordered.
-6. **"BALs make proof verification cheaper."** No gas change; parallelism is across txs (VERIFIED, EIP-7928). The only gas *reductions* in Glamsterdam are 2780's intrinsic decomposition and 8246; everything else on the propose path gets pricier (8037/8038).
+6. **"Block-level access lists make proof verification cheaper."** No gas change; parallelism is across txs (VERIFIED, EIP-7928). The only gas *reductions* in Glamsterdam are 2780's intrinsic decomposition and 8246; everything else on the propose path gets pricier (8037/8038).
 7. **"EIP status `Last Call` means it ships next."** EIP-7610 is `Last Call` and was removed from Glamsterdam; EIP-7805 is `Draft` and is a locked-in headliner (VERIFIED). Document maturity and fork inclusion are independent axes.
 8. **"Native rollups / EXECUTE are on the Hegotá track."** EIP-8079 appears in none of EIP-8081's four lists and its precompile address is `TBD` (VERIFIED).
 9. **"The Hegotá EF tier list is the decision."** The meta EIP disagrees with it in at least two places (8163 and 7979: EF "DFI", meta CFI) — the meta wins (VERIFIED).

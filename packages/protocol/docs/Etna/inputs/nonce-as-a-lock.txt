@@ -122,8 +122,7 @@ iry: check only mode and target, not data
 f
     require(frameparam(0x02, 2) == VERIFY && frameparam(0x03, 2) == 1);       // pay
     uint256 P = frameparam(0x00, 2);
-    require(sigparam(0x01, 0) == ARBITRARY && sigparam(0x03, 0) == 0);  // placehold
-er length pinned to 0: no fee or tx-hash malleability
+    require(sigparam(0x01, 0) == ARBITRARY && sigparam(0x03, 0) == 0);  // placeholder length pinned to 0: no fee or tx-hash malleability
     require(sigparam(0x01, 1) == SECP256K1 && sigparam(0x02, 1) == 0 && sigparam(0x0
 0, 1) == P);
     // frame 3: the only SENDER frame; static ABI, calldata is always 68 bytes
@@ -184,8 +183,7 @@ persistent network before the spec is frozen.
 error NotProposalGate();
 error DirectProposeDisabled();
 address internal immutable _proposalGate;   // 0 = disabled
-bool internal _directProposeDisabled;       // governance switch: propose has no whe
-nNotPaused
+bool internal _directProposeDisabled;       // governance switch: propose has no whenNotPaused
 function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentr
 ant {
     require(!_directProposeDisabled, DirectProposeDisabled());  // disabled once G h
