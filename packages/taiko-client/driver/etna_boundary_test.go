@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"math/big"
+	"net/http"
 	"os"
 	"time"
 
@@ -12,10 +13,13 @@ import (
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/go-resty/resty/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
+	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -148,4 +152,24 @@ func (s *DriverTestSuite) TestEtnaBoundary() {
 	res, err := s.RPCClient.CheckL1Reorg(ctx, proposalID)
 	s.Nil(err)
 	s.False(res.IsReorged)
+
+	// 7. A preconfirmation request with a pre-Etna timestamp passes the request-timestamp guard, so only the
+	//    parent guard can reject it: its parent is the empty Etna block from step 4, which has no anchor
+	//    transaction for the handler to read. Both guards run before the handler reads any other field.
+	preEtnaTimestamp := gethcore.DevnetEtnaTime - 1
+	s.False(rpc.IsEtna(chainID, preEtnaTimestamp))
+	s.True(rpc.IsEtna(chainID, defaultBlock.Time()))
+	preconfRes, err := resty.New().R().SetBody(&preconfblocks.BuildPreconfBlockRequestBody{
+		ExecutableData: &preconfblocks.ExecutableData{
+			ParentHash: defaultBlock.Hash(),
+			Number:     defaultBlock.NumberU64() + 1,
+			Timestamp:  preEtnaTimestamp,
+		},
+	}).Post(s.preconfServerURL.String() + "/preconfBlocks")
+	s.Nil(err)
+	s.Equal(http.StatusBadRequest, preconfRes.StatusCode())
+	s.Contains(preconfRes.String(), preconf.ErrNotSupportedAfterEtna.Error())
+	headAfter, err := s.RPCClient.L2.BlockByNumber(ctx, nil)
+	s.Nil(err)
+	s.Equal(defaultBlock.Hash(), headAfter.Hash())
 }

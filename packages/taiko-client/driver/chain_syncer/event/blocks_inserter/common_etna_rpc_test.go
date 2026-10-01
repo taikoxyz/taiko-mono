@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -26,6 +27,62 @@ import (
 
 // testEtnaTime is the devnet Etna activation time the fake-RPC tests pin; Unzen is active from genesis.
 const testEtnaTime = 100
+
+// fakePayloadID is the payload ID the fake execution engine returns for every payload it starts building.
+const fakePayloadID = "0x0300000000000001"
+
+// fakeBlockHash is the hash of the block the fake execution engine builds.
+var fakeBlockHash = common.HexToHash("0x06")
+
+// fakePayloadJSON returns the execution payload the fake execution engine builds. It carries
+// headerDifficulty itself: rpc.NewJWTEngineClient leaves the engine client's chain ID unset, so
+// GetPayloadV5 does not copy blockValue into it.
+func fakePayloadJSON() string {
+	return `{` +
+		`"parentHash":"` + sampleParent().Hash().Hex() + `",` +
+		`"feeRecipient":"0x0000000000000000000000000000000000000002",` +
+		`"stateRoot":"` + common.HexToHash("0x04").Hex() + `",` +
+		`"receiptsRoot":"` + common.HexToHash("0x05").Hex() + `",` +
+		`"logsBloom":"0x` + strings.Repeat("00", types.BloomByteLength) + `",` +
+		`"prevRandao":"` + common.HexToHash("0x03").Hex() + `",` +
+		`"blockNumber":"0xa",` +
+		`"gasLimit":"0x1c9c380",` +
+		`"gasUsed":"0x0",` +
+		`"timestamp":"0x64",` +
+		`"extraData":"0x00000000000007",` +
+		`"baseFeePerGas":"0xf4240",` +
+		`"blockHash":"` + fakeBlockHash.Hex() + `",` +
+		`"transactions":[],` +
+		`"withdrawals":[],` +
+		`"blobGasUsed":"0x0",` +
+		`"excessBlobGas":"0x0",` +
+		`"headerDifficulty":7` +
+		`}`
+}
+
+// fakeEngineResult returns the fake execution engine's result for an Engine API method: it starts building
+// on every forkchoice update with attributes, returns fakePayloadJSON, and accepts every payload.
+func fakeEngineResult(method string) string {
+	switch method {
+	case "engine_forkchoiceUpdatedV2", "engine_forkchoiceUpdatedV3":
+		return `{"payloadStatus":{"status":"VALID","latestValidHash":null,"validationError":null},` +
+			`"payloadId":"` + fakePayloadID + `"}`
+	case "engine_getPayloadV2", "engine_getPayloadV5":
+		return `{"executionPayload":` + fakePayloadJSON() + `,"blockValue":"0x7"}`
+	case "engine_newPayloadV2", "engine_newPayloadV4":
+		return `{"status":"VALID","latestValidHash":"` + fakeBlockHash.Hex() + `","validationError":null}`
+	}
+	return "null"
+}
+
+// methodsOf returns the method of each recorded call.
+func methodsOf(calls []fakeRPCCall) []string {
+	methods := make([]string, 0, len(calls))
+	for _, call := range calls {
+		methods = append(methods, call.Method)
+	}
+	return methods
+}
 
 // fakeRPCCall is one JSON-RPC request received by a fake server.
 type fakeRPCCall struct {
@@ -127,6 +184,19 @@ func (s *EtnaRPCTestSuite) signedTx(nonce uint64) *types.Transaction {
 	return tx
 }
 
+// newFakeEngine returns an internal devnet rpc.Client whose engine client is backed by a fake execution
+// engine (see fakeEngineResult), and a function listing the Engine API calls it received.
+func (s *EtnaRPCTestSuite) newFakeEngine() (*rpc.Client, func() []fakeRPCCall) {
+	url, calls := newFakeRPCServer(s.T(), func(method string, _ []json.RawMessage) string {
+		return fakeEngineResult(method)
+	})
+	engineClient, err := rpc.NewJWTEngineClient(url, "fake-jwt-secret")
+	s.Require().NoError(err)
+	s.T().Cleanup(engineClient.Close)
+
+	return &rpc.Client{L2: &rpc.EthClient{ChainID: params.TaikoInternalNetworkID}, L2Engine: engineClient}, calls
+}
+
 // newFakeL2 returns an rpc.Client whose L2 node serves block as every block by number, and an L1 origin
 // for it that stores the payload fingerprint the driver would compute for meta and txListBytes.
 func (s *EtnaRPCTestSuite) newFakeL2(
@@ -216,6 +286,78 @@ func (s *EtnaRPCTestSuite) isKnown(
 	)
 	s.Require().NoError(err)
 	return header, known
+}
+
+func (s *EtnaRPCTestSuite) TestCreateExecutionPayloadsEtnaUsesV3V5V4() {
+	root := common.HexToHash("0xaa")
+	cli, calls := s.newFakeEngine()
+
+	payload, err := createExecutionPayloads(
+		context.Background(), cli, sampleBlockMeta(testEtnaTime, &root), []byte{0xc0},
+	)
+	s.Require().NoError(err)
+	s.Equal(fakeBlockHash, payload.BlockHash)
+
+	recorded := calls()
+	s.Require().Equal(
+		[]string{"engine_forkchoiceUpdatedV3", "engine_getPayloadV5", "engine_newPayloadV4"},
+		methodsOf(recorded),
+	)
+
+	// The payload is built with the L1 anchor block hash as parentBeaconBlockRoot...
+	s.Require().Len(recorded[0].Params, 2)
+	var attributes engine.PayloadAttributes
+	s.Require().NoError(json.Unmarshal(recorded[0].Params[1], &attributes))
+	s.Require().NotNil(attributes.BeaconRoot)
+	s.Equal(root, *attributes.BeaconRoot)
+
+	// ...fetched by the payload ID the forkchoice update returned...
+	s.Require().Len(recorded[1].Params, 1)
+	s.JSONEq(`"`+fakePayloadID+`"`, string(recorded[1].Params[0]))
+
+	// ...and executed with the same root: [payload, [], root, []].
+	s.Require().Len(recorded[2].Params, 4)
+	var executed rpc.TaikoExecutionPayloadV3
+	s.Require().NoError(json.Unmarshal(recorded[2].Params[0], &executed))
+	s.Equal(fakeBlockHash, executed.BlockHash)
+	s.Equal(uint64(7), executed.HeaderDifficulty)
+	s.JSONEq(`[]`, string(recorded[2].Params[1]))
+	s.JSONEq(`"`+root.Hex()+`"`, string(recorded[2].Params[2]))
+	s.JSONEq(`[]`, string(recorded[2].Params[3]))
+}
+
+func (s *EtnaRPCTestSuite) TestCreateExecutionPayloadsPreEtnaUsesV2() {
+	cli, calls := s.newFakeEngine()
+
+	payload, err := createExecutionPayloads(
+		context.Background(), cli, sampleBlockMeta(testEtnaTime-1, nil), []byte{0xc0},
+	)
+	s.Require().NoError(err)
+	s.Equal(fakeBlockHash, payload.BlockHash)
+
+	recorded := calls()
+	s.Require().Equal(
+		[]string{"engine_forkchoiceUpdatedV2", "engine_getPayloadV2", "engine_newPayloadV2"},
+		methodsOf(recorded),
+	)
+	s.Require().Len(recorded[0].Params, 2)
+	var attributes engine.PayloadAttributes
+	s.Require().NoError(json.Unmarshal(recorded[0].Params[1], &attributes))
+	s.Nil(attributes.BeaconRoot)
+	s.Len(recorded[2].Params, 1)
+}
+
+func (s *EtnaRPCTestSuite) TestCreateExecutionPayloadsEtnaRequiresRoot() {
+	zero := common.Hash{}
+	for _, root := range []*common.Hash{nil, &zero} {
+		cli, calls := s.newFakeEngine()
+
+		_, err := createExecutionPayloads(
+			context.Background(), cli, sampleBlockMeta(testEtnaTime, root), []byte{0xc0},
+		)
+		s.ErrorContains(err, "missing L1 anchor block hash for Etna block 10")
+		s.Empty(methodsOf(calls()))
+	}
 }
 
 func (s *EtnaRPCTestSuite) TestKnownCanonicalBlockEtna() {
