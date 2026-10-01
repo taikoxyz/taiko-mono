@@ -38,6 +38,8 @@ type createExecutionPayloadsMetaData struct {
 	Txs                   types.Transactions
 	BaseFee               *big.Int
 	Withdrawals           []*types.Withdrawal
+	// ParentBeaconBlockRoot is the L1 anchor block hash an Etna block commits; nil before Etna.
+	ParentBeaconBlockRoot *common.Hash
 }
 
 // verifiedCheckpoint holds the latest verified checkpoint info used for setting Safe/Finalized hash.
