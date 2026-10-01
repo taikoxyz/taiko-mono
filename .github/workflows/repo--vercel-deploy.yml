@@ -27,7 +27,7 @@ env:
 jobs:
   build-deploy:
     if: ${{ github.event_name != 'pull_request' || (!startsWith(github.head_ref, 'dependabot') && github.event.pull_request.head.repo.fork == false) }}
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     steps:
       - name: Print Vercel Project ID
         run: |
