@@ -274,6 +274,8 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 
 	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
+	_, blockContext, err := p.poolContentTarget(context.Background(), l2Head)
+	s.Nil(err)
 
 	for i := 0; i < 3 && len(preBuiltTxList) == 0; i++ {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
@@ -284,7 +286,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			[]common.Address{},
 			p.MaxTxListsPerEpoch,
 			0,
-			nil,
+			blockContext,
 		)
 		time.Sleep(time.Second)
 	}
@@ -419,6 +421,28 @@ func (s *ProposerTestSuite) TestStartClose() {
 	s.Nil(s.p.Start())
 	s.cancel()
 	s.NotPanics(func() { s.p.Close(s.p.ctx) })
+}
+
+func (s *ProposerTestSuite) TestPoolContentTargetMatchesFork() {
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	gasLimit, blockContext, err := s.p.poolContentTarget(context.Background(), l2Head)
+	s.Nil(err)
+
+	if !rpc.IsEtna(s.RPCClient.L2.ChainID, max(l1Head.Time, l2Head.Time+1)) {
+		s.Equal(l2Head.GasLimit, gasLimit)
+		s.Nil(blockContext)
+		return
+	}
+
+	s.Equal(rpc.ManifestGasLimit(s.RPCClient.L2.ChainID, l2Head), gasLimit)
+	s.NotNil(blockContext)
+	s.Greater(uint64(blockContext.Timestamp), l2Head.Time)
+	s.NotEqual(common.Hash{}, blockContext.ParentBeaconBlockRoot)
+	s.Equal(7, len(blockContext.ExtraData))
 }
 
 func TestProposerTestSuite(t *testing.T) {

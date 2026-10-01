@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -184,16 +185,21 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
 
+	blockMaxGasLimit, blockContext, err := p.poolContentTarget(p.ctx, l2Head)
+	if err != nil {
+		return nil, err
+	}
+
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		uint32(l2Head.GasLimit),
+		uint32(blockMaxGasLimit),
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
 		minTip,
-		nil,
+		blockContext,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
@@ -227,6 +233,45 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 	)
 
 	return txLists, nil
+}
+
+// poolContentTarget returns the gas budget and the optional target block context for tx-pool
+// preselection. Before Etna it keeps the original request: the L2 head's gas limit and no context.
+// For an Etna target block the budget is the L2 head's manifest gas limit, because Etna blocks have no
+// anchor gas reserve, and the execution engine needs the target block's timestamp,
+// parentBeaconBlockRoot (the L1 head the proposal anchors to) and extraData to simulate it.
+func (p *Proposer) poolContentTarget(
+	ctx context.Context,
+	l2Head *types.Header,
+) (uint64, *rpc.TxPoolBlockContext, error) {
+	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get L1 head: %w", err)
+	}
+
+	timestamp := max(l1Head.Time, l2Head.Time+1)
+	if !rpc.IsEtna(p.rpc.L2.ChainID, timestamp) {
+		return l2Head.GasLimit, nil, nil
+	}
+
+	inboxConfig, err := p.rpc.GetInboxConfigs(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get inbox config: %w", err)
+	}
+	coreState, err := p.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get inbox core state: %w", err)
+	}
+	extraData, err := encoding.EncodeShastaExtraData(inboxConfig.BasefeeSharingPctg, coreState.NextProposalId)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to encode target block extraData: %w", err)
+	}
+
+	return rpc.ManifestGasLimit(p.rpc.L2.ChainID, l2Head), &rpc.TxPoolBlockContext{
+		Timestamp:             hexutil.Uint64(timestamp),
+		ParentBeaconBlockRoot: l1Head.Hash(),
+		ExtraData:             extraData,
+	}, nil
 }
 
 // ProposeOp performs a proposing operation, fetching transactions
