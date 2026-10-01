@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -34,7 +35,9 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		logger.InitLogger(c)
 
-		applyDevnetUnzenTimeOverride(c)
+		if err := applyDevnetForkTimeOverrides(c); err != nil {
+			return err
+		}
 
 		ctx, ctxClose := context.WithCancel(context.Background())
 		defer ctxClose()
@@ -79,16 +82,34 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	}
 }
 
-// applyDevnetUnzenTimeOverride mutates the embedded taiko-geth's core.DevnetUnzenTime
-// package variable from the CLI flag, if and only if the flag was explicitly set.
-// It must run before any chain-config or genesis lookup so downstream consumers
-// observe the overridden Unzen activation timestamp. When the flag is absent this
-// is a no-op (the package var is left untouched, never overwritten with 0).
-func applyDevnetUnzenTimeOverride(c *cli.Context) {
-	if !c.IsSet(flags.TaikoDevnetUnzenTime.Name) {
-		return
+// applyDevnetForkTimeOverrides mutates the embedded taiko-geth's core.DevnetUnzenTime and
+// core.DevnetEtnaTime package variables from the CLI flags, with the same semantics as taiko-geth's
+// --taiko.devnet-unzen-time and --taiko.devnet-etna-time. It must run before any chain-config or
+// genesis lookup so downstream consumers observe the overridden activation timestamps. Unzen is only
+// overridden when its flag is set; Etna takes its own flag when set and otherwise follows an
+// explicitly set Unzen time; Etna may never activate before Unzen.
+func applyDevnetForkTimeOverrides(c *cli.Context) error {
+	if c.IsSet(flags.TaikoDevnetUnzenTime.Name) {
+		core.DevnetUnzenTime = c.Uint64(flags.TaikoDevnetUnzenTime.Name)
+		log.Info("Overriding devnet Unzen activation time", "timestamp", core.DevnetUnzenTime)
 	}
-	ts := c.Uint64(flags.TaikoDevnetUnzenTime.Name)
-	core.DevnetUnzenTime = ts
-	log.Info("Overriding devnet Unzen activation time", "timestamp", ts)
+
+	switch {
+	case c.IsSet(flags.TaikoDevnetEtnaTime.Name):
+		core.DevnetEtnaTime = c.Uint64(flags.TaikoDevnetEtnaTime.Name)
+		log.Info("Overriding devnet Etna activation time", "timestamp", core.DevnetEtnaTime)
+	case c.IsSet(flags.TaikoDevnetUnzenTime.Name):
+		core.DevnetEtnaTime = core.DevnetUnzenTime
+		log.Info("Devnet Etna activation time follows Unzen", "timestamp", core.DevnetEtnaTime)
+	}
+
+	if core.DevnetEtnaTime < core.DevnetUnzenTime {
+		return fmt.Errorf(
+			"--%s (%d) must not be earlier than --%s (%d)",
+			flags.TaikoDevnetEtnaTime.Name, core.DevnetEtnaTime,
+			flags.TaikoDevnetUnzenTime.Name, core.DevnetUnzenTime,
+		)
+	}
+
+	return nil
 }

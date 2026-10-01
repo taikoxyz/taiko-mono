@@ -154,6 +154,14 @@ var (
 		Value:    0,
 		EnvVars:  []string{"TAIKO_DEVNET_UNZEN_TIME"},
 	}
+	TaikoDevnetEtnaTime = &cli.Uint64Flag{
+		Name: "taiko.devnet-etna-time",
+		Usage: "Override Etna fork time for Taiko internal devnet; defaults to the Unzen time and " +
+			"must match taiko-geth's --taiko.devnet-etna-time and alethia-reth's --devnet-etna-timestamp",
+		Category: commonCategory,
+		Value:    0,
+		EnvVars:  []string{"TAIKO_DEVNET_ETNA_TIME"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -174,6 +182,7 @@ var CommonFlags = []cli.Flag{
 	RPCTimeout,
 	L1PrivateEndpoint,
 	TaikoDevnetUnzenTime,
+	TaikoDevnetEtnaTime,
 }
 
 // MergeFlags merges the given flag slices.
