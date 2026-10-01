@@ -145,7 +145,7 @@ jobs:
           just-version: 1.5.0
 
       - name: Install cargo-sort
-        uses: taiki-e/install-action@v2.87.1
+        uses: taiki-e/install-action@v2.87.21
         with:
           tool: cargo-sort
 
