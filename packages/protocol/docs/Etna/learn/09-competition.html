@@ -1,40 +1,129 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna lesson 9 — Price early capture without naming a winner</title><link rel="stylesheet" href="../design/style.css"></head>
-<body><header><p class="eyebrow">Etna learning course · lesson 9</p><h1>Price early capture without naming a winner</h1><p>Prerequisites: mature staged data, open settlement and the distinction between bonds and payments.</p><nav aria-label="Course"><a href="index.html">Course map</a><a href="08-publication.html">Previous: publication deadlines</a><a href="10-checkpoints.html">Next: persistent checkpoints</a></nav></header><main>
-<aside class="notice"><strong>Historical review milestone; production feasibility remains open.</strong> The <a href="../iterations/08-judge.md">round 08 judge</a> records specification convergence for the anchor-removal snapshot reviewed in rounds 07–08. That record is not launch approval or validation of later additions. The <a href="../design/assurance.html#operating-profile">current operating-profile assessment</a> leaves affordability, sustained capacity and service guarantees unresolved. This course describes proposed rules, not a production-ready protocol.</aside>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna lesson 9 — Price early capture without naming a winner</title>
+<link rel="stylesheet" href="../design/style.css">
+</head>
+<body>
+<header>
+<p class="eyebrow">Etna learning course · lesson 9</p>
+<h1>Price early capture without naming a winner</h1>
+<p>Prerequisites: mature staged data, open settlement and the distinction between bonds and payments.</p>
+<nav aria-label="Course"><a href="index.html">Course map</a><a href="08-publication.html">Previous: publication deadlines</a><a href="10-checkpoints.html">Next: persistent checkpoints</a>
+</nav>
+</header>
+<main>
+<aside class="notice"><strong>Research candidate; current feasibility gates remain open.</strong> Measured one-second soft issuance and acceptable confirmation semantics (R4), practical deterrence (R6) and sustained minute-level landing (R7) are not demonstrated. The <a href="../iterations/08-judge.md">round 08 judge</a> records a historical stopping criterion for the rounds 07–08 anchor-removal snapshot; it does not establish that every current requirement passes. Read the <a href="../design/assurance.html#operating-profile">current assessment</a> and <a href="../notes/pr-comment-dispositions.md">PR-comment dispositions</a>. This course teaches proposed rules, not a production-ready protocol.</aside>
 <aside><strong>Classification.</strong> <strong>Proven</strong> marks conditional deductions from the proposed rules; <strong>Assumed</strong> states their premises; <strong>Open</strong> marks unresolved economics. This lesson makes no equal-market-share guarantee.</aside>
-<section><h2>The problem: open entry does not price repeated capture</h2>
+<section>
+<h2>The problem: open entry does not price repeated capture</h2>
 <p><strong>Proven distinction:</strong> zero exclusive leases prevent an operator from owning a protocol veto. They do not stop one well-funded builder from winning every ordinary ordering race. Optional service bonds also miss a producer that makes no bonded promises. Per-address caps fail when one actor uses many addresses.</p>
 </section>
-<section><h2>The mechanism: one declining price per parent</h2>
+<section>
+<h2>The mechanism: one declining price per parent</h2>
 <p><strong>Proven rule:</strong> every accepted head starts a public ETH price at 0.05 ETH. It falls linearly to zero after 900 seconds. Any applicable proof-and-data transaction may pay the current price and win in L1 order. There is no reserved winner, future lease or reveal phase. Every accepted successor resets the next price, regardless of who produced or paid for it; registration or staging alone cannot reset it.</p>
 <pre>a = seconds since the current head was accepted
 q(a) = ceil(50,000,000,000,000,000 × max(900 − a, 0) /900) wei
 successful payment: 100% q → nonwithdrawable ETH sink
 excess call value → actual caller's pull credit</pre>
 <p><strong>Proven accounting:</strong> the bootstrap head uses activation time. The rent clock sits outside the execution commitment, so waiting changes price without changing the proof, while freshness still applies. Neither coinbase nor proof beneficiary recovers rent. This is an ETH admission cost; the earlier TAIKO bond is a different, potentially refundable liability. Failed admission cannot update the clock or collect rent.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1000 245" role="img" aria-labelledby="price-title price-desc"><title id="price-title">The price decreases while one parent remains unconsumed</title><desc id="price-desc">At age zero the price is 0.05 ETH; at 660 seconds it is approximately 0.013333 ETH; at 900 seconds it is zero. Any accepted successor restarts its own 0.05 ETH clock.</desc><path class="arrow" d="M90 35V195H755M90 45L690 195H755"/><path class="arrow" d="M530 155V195" stroke-dasharray="5 5"/><rect class="box" x="775" y="70" width="205" height="95" rx="8"/><g font-size="17" text-anchor="middle"><text x="78" y="24">0.05 ETH</text><text x="105" y="224">0 seconds</text><text x="530" y="224">660</text><text x="690" y="224">900</text><text x="510" y="134">≈0.013333 ETH</text><text x="877" y="101">Accepted successor</text><text x="877" y="129">resets next price</text><text x="877" y="153">for every address</text></g></svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1000 245" role="img" aria-labelledby="price-title price-desc">
+<title id="price-title">The price decreases while one parent remains unconsumed</title>
+<desc id="price-desc">At age zero the price is 0.05 ETH; at 660 seconds it is approximately 0.013333 ETH; at 900 seconds it is zero. Any accepted successor restarts its own 0.05 ETH clock.</desc>
+<path class="arrow" d="M90 35V195H755M90 45L690 195H755"/>
+<path class="arrow" d="M530 155V195" stroke-dasharray="5 5"/>
+<rect class="box" x="775" y="70" width="205" height="95" rx="8"/>
+<g font-size="17" text-anchor="middle">
+<text x="78" y="24">0.05 ETH</text>
+<text x="105" y="224">0 seconds</text>
+<text x="530" y="224">660</text>
+<text x="690" y="224">900</text>
+<text x="510" y="134">≈0.013333 ETH</text>
+<text x="877" y="101">Accepted successor</text>
+<text x="877" y="129">resets next price</text>
+<text x="877" y="153">for every address</text>
+</g>
+</svg>
+</div>
 </section>
-<section><h2>Worked example: make the competition assumption explicit</h2>
+<section>
+<h2>Worked example: make the competition assumption explicit</h2>
 <p><strong>Assumed A-COMPETITION(660):</strong> for each contested parent, an honest entrant forms an applicable candidate within 60 seconds, stages within another 120, and finishes retrieval/proving while the stage ages 360 seconds. It is ready by parent age 540. It can fund rent and gas, and L1 includes it within another 120 seconds unless somebody already consumed the parent. Its origin, stage and mandatory-work snapshot remain valid throughout. This is an economic and inclusion assumption, not merely a fast-prover benchmark.</p>
 <p><strong>Proven conditional cost:</strong> to capture every such parent, an incumbent must win by age 660. Each win therefore sinks at least <code>q(660)=0.013333333333333334 ETH</code>; 100 wins sink at least 1.3333333333333334 ETH. Splitting addresses changes neither clock nor cost. Capture is unprofitable when its aggregate incremental benefit, after ordinary costs but before rent, is below that rent sum. Unlimited MEV does not satisfy this bound. At the specified 100% coinbase share, fees from the producer’s own L2 transactions are internal transfers, not irreversible costs or external revenue. Count all accounts controlled by the same party together.</p>
 <p><strong>Proven rapid-capture example:</strong> each additional accepted child at the same L1 timestamp pays 0.05 ETH. Three such advances sink 0.15 ETH. Even empty-discretionary candidates need valid proofs, mature data and required FIFO processing; an invalid transaction cannot reset the price.</p>
 </section>
-<section><h2>Defenses and limits</h2>
+<section>
+<h2>Defenses and limits</h2>
 <p><strong>Proven conditional recovery:</strong> if nobody advances the head for 900 seconds, rent reaches zero for everyone. An old origin or stage may now be expired. A willing prover must construct, stage and prove a fresh candidate; the price stays zero while that parent remains current. There is no offline auction winner to replace or DAO timer to reset. <strong>Assumed:</strong> proving and L1 gas remain affordable.</p>
 <p><strong>Open:</strong> an incumbent without a funded competitor can wait for zero and keep every win. High MEV or builder censorship can defeat the economic premises. Honest winners pay too, so a higher rent can make the very entrant assumed by the argument unable or unwilling to compete.</p>
-<table><caption>Proven arithmetic under two hypothetical steady landing schedules</caption><thead><tr><th>One accepted segment every</th><th>Maximum encoded body rate</th><th>Maximum average L2 block rate</th><th>Daily rent alone</th></tr></thead><tbody>
-<tr><td>60 seconds</td><td>122,880 /60 =2,048 bytes/s</td><td>60 /60 =1 block/s</td><td>Approximately 67.2 ETH</td></tr>
-<tr><td>900 seconds</td><td>122,880 /900 ≈136.53 bytes/s</td><td>60 /900 =1 block per 15 seconds</td><td>0 ETH; other costs remain</td></tr>
-</tbody></table>
+<table>
+<caption>Proven arithmetic under two hypothetical steady landing schedules</caption>
+<thead>
+<tr>
+<th>One accepted segment every</th>
+<th>Maximum encoded body rate</th>
+<th>Maximum average L2 block rate</th>
+<th>Daily rent alone</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>60 seconds</td>
+<td>122,880 /60 =2,048 bytes/s</td>
+<td>60 /60 =1 block/s</td>
+<td>Approximately 67.2 ETH</td>
+</tr>
+<tr>
+<td>900 seconds</td>
+<td>122,880 /900 ≈136.53 bytes/s</td>
+<td>60 /900 =1 block per 15 seconds</td>
+<td>0 ETH; other costs remain</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Proven capacity limit:</strong> these are encoded-body ceilings before subtracting headers, rejected-request records and RLP overhead. At one segment per 900 seconds, even 60-block segments cannot indefinitely settle a branch issuing one block every second. Its unaccepted suffix grows toward the 900-block speculative limit, after which that service must stop extending the view. Zero-rent recovery is therefore insufficient to sustain the advertised cadence by itself.</p>
 <p><strong>Assumed alternative:</strong> pipelining and more frequent mature acceptances can raise throughput; the 360-second stage delay does not impose 360-second spacing between accepted successors. That alternative demands more proof/L1 capacity and recurring rent. <strong>Open:</strong> no measured affordable production operating point is established. The 0.05-ETH ceiling needs calibration against the complete <a href="../design/assurance.html#operating-profile">workload and funding budget</a>, rather than an assumption that all rational producers either pay or wait. User revenue, MEV and willingness to pay remain evidence to obtain.</p>
 </section>
-<section><h2>Check your understanding</h2>
-<details><summary>Can a new address receive a fresh zero-price clock?</summary><p><strong>Proven:</strong> no. Price belongs to the canonical parent, not to an address.</p></details>
-<details><summary>Does reaching zero make an expired proof applicable again?</summary><p><strong>Proven:</strong> no. The independent origin and stage freshness checks still apply.</p></details>
-<details><summary>Which premise fails if the only competitor cannot afford ETH?</summary><p><strong>Proven:</strong> A-COMPETITION includes funding and willingness. The quantified repeated-capture bound cannot be claimed from hardware availability alone.</p></details>
+<section id="sustained-cost">
+<h2>Worked example: bursts do not remove the sustained cost</h2>
+<p><strong>Proven arithmetic from the proposed rules:</strong> collect N accepted successors over T seconds measured from the initial rent reference. Let each acceptance gap be a. Its rent is at least <code>0.05 × (1 − a/900)</code> ETH; a gap above 900 gives a negative right side but still nonnegative rent. Summing the gaps gives <code>total rent ≥ 0.05 × max(0, N − T/900)</code> ETH. Integer rounding can only increase the charge. For an arbitrary reporting window, an endpoint correction disappears in the long-run average.</p>
+<pre>r = sustained accepted segments per second
+b = sustained accepted L2 blocks per second
+x = sustained encoded segment-body bytes per second
+f = sustained mandatory FIFO outcomes processed per second
+
+r ≥ max(b /60, x /122880, f /4)
+long-run rent per day ≥ 86400 × 0.05 × max(0, r − 1/900) ETH</pre>
+<p><strong>Proven necessary bound:</strong> keeping up with one accepted L2 block per second requires at least one segment per 60 seconds on average, so rent is at least <strong>67.2 ETH/day</strong>, including bursty schedules. At 10,000 encoded body bytes per second, the body cap requires at least <code>10000/122880</code> segments per second and at least <strong>346.7625 ETH/day</strong> rent. Encoded body bytes include overhead; this is not a useful-payload guarantee. The FIFO term counts mandatory queue outcomes, not successful application calls. Processing fewer outcomes leaves an unbounded backlog under a sustained higher admitted load.</p>
+<p><strong>Open:</strong> these are necessary long-run bounds, not measured performance or sufficient funding budgets. Proofs, execution, publication, gas and user demand still need their own accounting. Waiting 900 seconds and then landing a burst cannot evade the aggregate price: only the first acceptance gets the old zero-price clock.</p>
 </section>
-<aside class="challenge"><h2>Challenge this</h2><p><strong>Assumed:</strong> a real entrant is ready, funded and includable before zero, with incumbent gains below the stated threshold. Try private order flow, a larger MEV opportunity, gas-price shocks or a zero-rent schedule unable to keep up with issued blocks. Which assumption breaks, and does raising rent harm the honest entrant too?</p></aside>
+<section>
+<h2>Check your understanding</h2>
+<details>
+<summary>Can a new address receive a fresh zero-price clock?</summary>
+<p><strong>Proven:</strong> no. Price belongs to the canonical parent, not to an address.</p>
+</details>
+<details>
+<summary>Can bursts after a 900-second wait settle one block per second for less than 67.2 ETH/day rent?</summary>
+<p><strong>Proven under the current caps:</strong> no in the long-run average. Only the first successor uses the old clock; each later successor resets it. The summed lower bound still applies, and waiting does not revive expired origins or stages.</p>
+</details>
+<details>
+<summary>Which premise fails if the only competitor cannot afford ETH?</summary>
+<p><strong>Proven:</strong> A-COMPETITION includes funding and willingness. The quantified repeated-capture bound cannot be claimed from hardware availability alone.</p>
+</details>
+</section>
+<aside class="challenge">
+<h2>Challenge this</h2>
+<p><strong>Assumed:</strong> a real entrant is ready, funded and includable before zero, with incumbent gains below the stated threshold. Try private order flow, a larger MEV opportunity, gas-price shocks or a zero-rent schedule unable to keep up with issued blocks. Which assumption breaks, and does raising rent harm the honest entrant too? Try to beat the aggregate rent bound by rearranging the same accepted segments into bursts; identify the exact inequality your schedule would have to violate.</p>
+</aside>
 <p class="small">References: <a href="../design/roles.html#rent">exact price, accounting and conditional theorem</a>; <a href="../design/roles.html#competition">other competition costs and limits</a>.</p>
-</main><footer><nav aria-label="Lesson navigation"><a href="08-publication.html">← Lesson 8</a><a href="10-checkpoints.html">Lesson 10: persistent checkpoints →</a></nav></footer></body></html>
+</main>
+<footer>
+<nav aria-label="Lesson navigation"><a href="08-publication.html">← Lesson 8</a><a href="10-checkpoints.html">Lesson 10: persistent checkpoints →</a>
+</nav>
+</footer>
+</body>
+</html>

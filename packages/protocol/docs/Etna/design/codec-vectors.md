@@ -1,5 +1,7 @@
 # Canonical body and manifest fixtures
 
+**Provisional expected outputs, not release conformance vectors.** Earlier scratch checks reproduced the reported component values, as recorded in [validation](../validation.md); no independently runnable generator is committed. The local codec formulas are authoritative over these example hashes. Before using a value in an implementation or standard, reproduce it from the stated bytes and formulas with an independently reviewed generator and record the result. A mismatch blocks use of the fixture; it does not redefine the protocol. The task explicitly requires throwaway experiment code to remain outside the committed tree.
+
 Normative formulas: [execution codec](codec.html#manifests). These are **encoding/hash component fixtures**, not a valid segment, signature, execution proof or launch benchmark. The deliberately tiny header and transaction below must fail full Ethereum/profile validation. Their purpose is to make byte nesting, ABI offsets, tags and manifest order independently reproducible without a key or production implementation.
 
 ## Outer RLP and commitment fixture

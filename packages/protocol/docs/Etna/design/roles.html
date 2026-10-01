@@ -7,8 +7,14 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><p><a href="index.html">Etna design</a> / Roles and economics</p><h1>Roles without admission authorities</h1><p>Reviewed specification. Service promises are optional and never reserve the canonical head.</p></header>
+<header>
+<p><a href="index.html">Etna design</a> / Roles and economics</p>
+<h1>Roles without admission authorities</h1>
+<p>Reviewed specification. Service promises are optional and never reserve the canonical head.</p>
+</header>
 <main>
+<aside class="notice warning"><strong>Research candidate; production feasibility remains unresolved.</strong> Current R4/R6/R7 acceptance is open. This page specifies proposed rules; historical model-generated review does not establish a usable, affordable operating profile. See the <a href="assurance.html">resource and funding evidence</a> and <a href="../notes/pr-comment-dispositions.md">comment dispositions</a>.</aside>
+
 <p><strong>Assumed A-IMPLEMENTATION:</strong> unlabelled interface declarations, table cells and normative transition rules specify intended behavior, not deployed or tested code. <strong>Proven</strong> marks a logical consequence of those rules; <strong>Assumed</strong> names a dependency; <strong>Open</strong> marks an unresolved claim.</p>
 <section id="boundary">
 <h2>1. Separate a service promise from canonical admission</h2>
@@ -21,58 +27,182 @@
 <section id="glossary">
 <h2>2. Role and accounting glossary</h2>
 <dl>
-<dt>Stager</dt><dd>Anyone publishing the complete candidate data and context through DARegistry, paying ETH transaction/blob costs and obtaining no ordering right.</dd>
-<dt>Producer</dt><dd>The EOA or objectively registered immutable-key owner authorizing a canonical segment statement. It need not be the proof beneficiary, payer or bonded publisher.</dd>
-<dt>Publication-by covenant</dt><dd>A separate reserved PublicationClaim that promises the complete sealed context will have an actual public staging receipt by issuedAt +240 seconds.</dd>
-<dt>Fragment publication duty</dt><dd>Every signed DutyClaim promises complete fragment bytes in calldata with the exact block-fragment manifest preimage by issuedAt +240 seconds. A challenge may fund earlier recovery but is not required to create this deadline.</dd>
-<dt>Publisher</dt><dd>An optional signer distributing executed provisional blocks and their dependency data.</dd>
-<dt>Custodian</dt><dd>An optional signer accepting a bounded, fragment-specific public-publication obligation, with opportunistic serving before publication.</dd>
-<dt>Proof producer</dt><dd>Anyone computing a ZK proof; it need not submit the transaction or accept a job.</dd>
-<dt>Submitter / payer</dt><dd>Anyone relaying and paying gas plus the current ETH canonical rent for a complete proof-bearing L1 action. Proof-bound beneficiaries cannot be replaced by copying the transaction; unused call value is credited to the actual caller.</dd>
-<dt>Worker</dt><dd>A proof producer that voluntarily accepts a particular escrowed job and its deadline liability.</dd>
-<dt>Sponsor</dt><dd>An address funding an immutable proof-job bounty. Sponsorship grants no protocol administration.</dd>
-<dt>Challenger / reporter</dt><dd>Anyone opening a bonded availability challenge or presenting objective slash evidence.</dd>
-<dt>Responder</dt><dd>Anyone publishing the complete bytes satisfying a live challenge; it need not be the signer.</dd>
-<dt>Relayer</dt><dd>Anyone transporting gossip, proofs, transactions or existing Bridge messages without changing authenticated contents.</dd>
-<dt>Duty bucket</dt><dd>An immutable registry record reserving 60 independent service positions for one owner, signing key, kind and branch context. A position is an obligation index, never an Ethereum slot.</dd>
-<dt>Position</dt><dd>A separately reserved 10 TAIKO liability for one signed content identity; incompatible content identities for the same position are equivocation.</dd>
-<dt>Content identity</dt><dd>The canonical hash of every semantic promise field, including bucket, position, branch context, block/manifest commitment, fragment index, digest, byte length and issuedAt. Both DutyClaim and PublicationClaim use issuedAt to fix an absolute publication deadline; changing it is an incompatible promise, not a harmless retry.</dd>
-<dt>Free balance</dt><dd>Deposited TAIKO not backing a duty, job, payout credit or sink entry. It may be withdrawn immediately by its owner.</dd>
-<dt>Sink</dt><dd>Tokens permanently excluded from withdrawable accounting. This is not an ERC20 burn, and there is no owner sweep.</dd>
-<dt>Canonical rent</dt><dd>An identity-independent ETH admission price that decreases from 0.05 ETH to zero over 900 seconds since the last accepted head. Every accepted head restarts that clock; 100% of the charged rent remains in a nonwithdrawable ledger sink.</dd>
-<dt>DAO</dt><dd>The sole upgrade owner; it is not a registry manager, scheduler, fee setter, pauser, slashing judge or recovery operator.</dd>
+<dt>Stager</dt>
+<dd>Anyone publishing the complete candidate data and context through DARegistry, paying ETH transaction/blob costs and obtaining no ordering right.</dd>
+<dt>Producer</dt>
+<dd>The EOA or objectively registered immutable-key owner authorizing a canonical segment statement. It need not be the proof beneficiary, payer or bonded publisher.</dd>
+<dt>Publication-by covenant</dt>
+<dd>A separate reserved PublicationClaim that promises the complete sealed context will have an actual public staging receipt by issuedAt +240 seconds.</dd>
+<dt>Fragment publication duty</dt>
+<dd>Every signed DutyClaim promises complete fragment bytes in calldata with the exact block-fragment manifest preimage by issuedAt +240 seconds. A challenge may fund earlier recovery but is not required to create this deadline.</dd>
+<dt>Publisher</dt>
+<dd>An optional signer distributing executed provisional blocks and their dependency data.</dd>
+<dt>Custodian</dt>
+<dd>An optional signer accepting a bounded, fragment-specific public-publication obligation, with opportunistic serving before publication.</dd>
+<dt>Proof producer</dt>
+<dd>Anyone computing a ZK proof; it need not submit the transaction or accept a job.</dd>
+<dt>Submitter / payer</dt>
+<dd>Anyone relaying and paying gas plus the current ETH canonical rent for a complete proof-bearing L1 action. Proof-bound beneficiaries cannot be replaced by copying the transaction; unused call value is credited to the actual caller.</dd>
+<dt>Worker</dt>
+<dd>A proof producer that voluntarily accepts a particular escrowed job and its deadline liability.</dd>
+<dt>Sponsor</dt>
+<dd>An address funding an immutable proof-job bounty. Sponsorship grants no protocol administration.</dd>
+<dt>Challenger / reporter</dt>
+<dd>Anyone opening a bonded availability challenge or presenting objective slash evidence.</dd>
+<dt>Responder</dt>
+<dd>Anyone publishing the complete bytes satisfying a live challenge; it need not be the signer.</dd>
+<dt>Relayer</dt>
+<dd>Anyone transporting gossip, proofs, transactions or existing Bridge messages without changing authenticated contents.</dd>
+<dt>Duty bucket</dt>
+<dd>An immutable registry record reserving 60 independent service positions for one owner, signing key, kind and branch context. A position is an obligation index, never an Ethereum slot.</dd>
+<dt>Position</dt>
+<dd>A separately reserved 10 TAIKO liability for one signed content identity; incompatible content identities for the same position are equivocation.</dd>
+<dt>Content identity</dt>
+<dd>The canonical hash of every semantic promise field, including bucket, position, branch context, block/manifest commitment, fragment index, digest, byte length and issuedAt. Both DutyClaim and PublicationClaim use issuedAt to fix an absolute publication deadline; changing it is an incompatible promise, not a harmless retry.</dd>
+<dt>Free balance</dt>
+<dd>Deposited TAIKO not backing a duty, job, payout credit or sink entry. It may be withdrawn immediately by its owner.</dd>
+<dt>Sink</dt>
+<dd>Tokens permanently excluded from withdrawable accounting. This is not an ERC20 burn, and there is no owner sweep.</dd>
+<dt>Canonical rent</dt>
+<dd>An identity-independent ETH admission price that decreases from 0.05 ETH to zero over 900 seconds since the last accepted head. Every accepted head restarts that clock; 100% of the charged rent remains in a nonwithdrawable ledger sink.</dd>
+<dt>DAO</dt>
+<dd>The sole upgrade owner; it is not a registry manager, scheduler, fee setter, pauser, slashing judge or recovery operator.</dd>
 </dl>
 </section>
 
 <section id="role-matrix">
 <h2>3. Entry, exit, compensation and failure for every role</h2>
 <p><strong>Proven, as interface constraints:</strong> personal ownership checks protect a person's deposits and signed authorizations; they are not an operator allowlist. A contract account may own collateral and designate an immutable ECDSA service key. No citizenship, hardware vendor, TEE identity, current-member vote or permissioned signature is required.</p>
-<div class="table-wrap"><table>
-<thead><tr><th>Role</th><th>Objective entry and exit</th><th>Duties and rewards</th><th>Objective penalty</th><th>All offline / all malicious</th></tr></thead>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Objective entry and exit</th>
+<th>Duties and rewards</th>
+<th>Objective penalty</th>
+<th>All offline / all malicious</th>
+</tr>
+</thead>
 <tbody>
-<tr><td>Stager</td><td>Any address publishes actual blob/calldata through DARegistry and pays ETH. No bond, admission list or sequencing lease. Stop publishing at any time; existing records remain immutable.</td><td>Expose exact candidate data/context before canonical eligibility. No automatic staging subsidy; anyone may arrange voluntary payment. The stager cannot reserve or update the canonical head.</td><td>Malformed calls pay gas. Mere staging creates no silence duty. A separately signed publication-by covenant can slash its own 10 TAIKO position for missed timely staging.</td><td>Offline: any new entrant can stage available data; canonical successors wait for a mature stage. Malicious: mismatched records fail binding and cannot publish roots; a new honest stager can enter. If every data holder withholds, that candidate cannot become eligible until someone publishes it.</td></tr>
-<tr><td>Raw proof producer / submitter</td><td>No service-registry entry. Obtain eligible staged data, mandatory producer authorization, a valid proof, transaction gas and the current payable ETH rent. An EOA self-signs; a contract owner objectively registers its immutable authorization key. Stop at any time.</td><td>Republish exact data plus proof; receive 50% of processed forced-request fees as proof-bound beneficiary and any valid explicitly funded reward. Canonical rent has no beneficiary payout. A producer and payer may privately agree on compensation; no protocol claim is implied.</td><td>No mandatory collateral or silence penalty. Every winning head pays the same global age-based rent, independently of owner; a producer's authorization also records any separately bonded same-owner conflict. An honest loser is not slashed for someone else's winning branch. Invalid ordinary actions pay gas; valid losers may also pay gas. Forging execution fails proof verification.</td><td>Offline: canonical progress waits for any new capable producer. Rent reaches zero after 900 seconds without acceptance, but a new candidate may need fresh data/origin/staging. Malicious: proofs, forced FIFO and irreversible early-admission rent constrain accepted actions under named assumptions; censorship/liveness still needs an honest capable entrant and L1 inclusion.</td></tr>
-<tr><td>Publisher</td><td>Lock 600 TAIKO in a fixed bucket, choose a signing key, and distribute valid signed data. Stop issuing at will; liabilities last through immutable release time.</td><td>Offer at most one content identity per position. Every fragment promise requires complete calldata plus the exact fragment-manifest preimage by issuedAt +240 seconds, without waiting for a challenge. It may separately promise staging of a complete sealed candidate within 240 seconds, using another reserved position. If its block becomes canonical, the block's coinbase receives the refreshed main source's100% basefee share and applicable engine priority fees in ETH. No guaranteed publisher subsidy or fee for losing provisional blocks.</td><td>Conflicting valid content for one position, same-owner conflicting blocks for one subject (including an owner-authorized accepted block), a missed fragment or sealed-publication deadline, or a missed valid data challenge slash the involved live positions at most once each. Invalid execution is locally rejected; this draft does not invent a cheap execution-fraud slashing proof.</td><td>Offline: users lose that soft service and accept a new publisher; any holder can publish promised data on time. Malicious: reject bad execution, report objectively missed publication deadlines, and treat other valid branches as provisional. A mature publicly staged competitor can still replace soft state; first reveal at landing is ineligible.</td></tr>
-<tr><td>Custodian</td><td>Lock its own 600 TAIKO bucket; download bytes and manifest before signing each claim. Stop new claims at will; outstanding signed publication deadlines and evidence liability remain.</td><td>Publish each promised fragment, at most 32,768 bytes, as calldata with its exact manifest preimage by issuedAt +240 seconds. Any holder may satisfy this duty. No native fixed custody subsidy; optional customer agreements are outside consensus. A custodian answering a selected pending challenge receives its ETH publication fee like any responder; there is no post-publication bonded archive service.</td><td>Conflicting content for one reserved position, missed absolute publication deadline or failure of that position's admitted challenge; maximum one 10 TAIKO slash per position across offenses.</td><td>Offline: fetch elsewhere, publish on its behalf or report the historical miss; no certificate makes absent bytes valid. Malicious: local execution remains necessary and independent holders can publish data. Loss of every source before the deadline can destroy a provisional branch and trigger its bounded penalty; no soft-finality promise survives that.</td></tr>
-<tr><td>Voluntary proof worker</td><td>Accept a live funded exact job, reserve 1,000 TAIKO and receive the stage-aware deadline specified below. No unilateral withdrawal from an accepted duty. Exit by success, objective cancellation or default settlement.</td><td>Produce and land the exact task with the worker bound as beneficiary before deadline. Receive the sponsor's immutable TAIKO bounty; own bond returns on success or early parent replacement.</td><td>Miss deadline while the original parent was not consumed by the deadline: slash 1,000 TAIKO. Historical consumption evidence prevents a later parent change erasing default.</td><td>Offline: anyone can prove; job expires and slashes if applicable. Malicious: cannot block another submission or alter task/beneficiary. A worker may lose a race without fault; early competing consumption cancels the job.</td></tr>
-<tr><td>Sponsor</td><td>Escrow chosen TAIKO bounty with complete immutable task. Cancel an unaccepted offer; accepted escrow exits only via deterministic job settlement.</td><td>Fund optional proof work. No consensus rewards for sponsorship. Local execution lets workers examine the committed output before accepting.</td><td>No additional bond: accepted bounty is locked and cannot be stolen back. Impossible tasks are not an oracle-resolved fraud claim; worker diligence is required.</td><td>Offline/malicious: no new subsidized jobs; canonical proving remains open. Existing escrow and terms cannot be changed. Economic willingness to prove without jobs is an assumption.</td></tr>
-<tr><td>Challenger / reporter</td><td>Anyone supplies a valid signed obligation plus ETH publication deposit, or objective equivocation/default evidence. Exit after response/default; no registration.</td><td>Expose service failures. First valid slash settlement receives 10% of the actually slashed TAIKO position or worker bond.</td><td>Malformed claims fail and pay gas. A fulfilled availability challenge spends the entire ETH deposit as the responder's publication fee. Duplicate slash evidence pays no second reward.</td><td>Offline: detection can be zero and hidden evidence may expire; roots still require proofs. Malicious: cannot slash without valid evidence; valid but unnecessary challenges purchase public data and pay the stipulated fee.</td></tr>
-<tr><td>Responder</td><td>Anyone with correct bytes and exact fragment-manifest preimage answers an admitted challenge at or before its fixed deadline. No bond or registration. Exit after action.</td><td>Reveal exactly matching complete bytes in calldata; first valid response to the selected challenge earns its full ETH deposit. Direct publication without selecting a live challenge creates no subsidy.</td><td>Wrong/late challenge responses are rejected and pay gas. A later direct publication cannot cure a historic miss. No extra liability for simply attempting to respond.</td><td>Offline: live claims can default after timeout. Malicious: digest, length and manifest checks reject bad data. No one is forced to reveal data it never promised to publish.</td></tr>
-<tr><td>Gossip / proof / Bridge relayer</td><td>Join public networking or existing permissionless Bridge processing; stop at any time.</td><td>Transport authenticated contents. Existing Bridge fee rules apply; gossip has no guaranteed protocol reward. A proof relayer cannot rewrite its bound beneficiary.</td><td>No generic transport-silence slash without a signed reserved duty; invalid messages are ignored and invalid L1 calls pay gas. Taking a service duty adds that duty's liability.</td><td>Offline: any replacement can relay. Malicious: signatures/proofs prevent content substitution; partition/censorship can delay receipt and requires A-NET/A-L1 for recovery.</td></tr>
-<tr><td>Checkpoint pin/reveal caller</td><td>Any address funds ordinary L2 pin/reveal calls or queues supported signed transactions through the L1 force path. No registration, collateral or exclusive relayer. Stop immediately; stored pins/checkpoints remain permanent.</td><td>Persist an authenticated current origin hash or reveal its full header. No new protocol reward; benefit is access to bridge proofs and shared checkpoints. Canonical blocks need no such call every block.</td><td>Malformed, conflicting or unauthenticated writes revert and consume ordinary gas. No silence slash: the caller accepts no deadline or service obligation. Separate bonded duties remain governed by their own signatures.</td><td>Offline: any new funded user can pin the processing block’s origin, then reveal without expiry. Malicious: exact oracle provenance, full-header hashing, permanent membership and non-overwrite checks prevent forged roots. Total loss of archives or capable funded participants can delay claims; no DAO rescue is needed.</td></tr>
-<tr><td>DAO upgrade owner</td><td>Governance ownership is the explicit upgrade trust exception in R1, not an operating role acquired through registry admission.</td><td>Upgrade implementation only. No protocol operating reward; no action required for entry, exits, fees, proofs, challenges or recovery.</td><td>No dishonest-governance slash is asserted: A-UPGRADE is explicit. Removing arbitrary upgrade trust would require constraining the user's allowed upgrade owner.</td><td>Offline: existing rules continue indefinitely. Malicious upgrades can steal custody or destroy liveness; this is the named upgrade assumption.</td></tr>
-</tbody></table></div>
+<tr>
+<td>Stager</td>
+<td>Any address publishes actual blob/calldata through DARegistry and pays ETH. No bond, admission list or sequencing lease. Stop publishing at any time; existing records remain immutable.</td>
+<td>Expose exact candidate data/context before canonical eligibility. No automatic staging subsidy; anyone may arrange voluntary payment. The stager cannot reserve or update the canonical head.</td>
+<td>Malformed calls pay gas. Mere staging creates no silence duty. A separately signed publication-by covenant can slash its own 10 TAIKO position for missed timely staging.</td>
+<td>Offline: any new entrant can stage available data; canonical successors wait for a mature stage. Malicious: mismatched records fail binding and cannot publish roots; a new honest stager can enter. If every data holder withholds, that candidate cannot become eligible until someone publishes it.</td>
+</tr>
+<tr>
+<td>Raw proof producer / submitter</td>
+<td>No service-registry entry. Obtain eligible staged data, mandatory producer authorization, a valid proof, transaction gas and the current payable ETH rent. An EOA self-signs; a contract owner objectively registers its immutable authorization key. Stop at any time.</td>
+<td>Republish exact data plus proof; receive 50% of processed forced-request fees as proof-bound beneficiary and any valid explicitly funded reward. Canonical rent has no beneficiary payout. A producer and payer may privately agree on compensation; no protocol claim is implied.</td>
+<td>No mandatory collateral or silence penalty. Every winning head pays the same global age-based rent, independently of owner; a producer's authorization also records any separately bonded same-owner conflict. An honest loser is not slashed for someone else's winning branch. Invalid ordinary actions pay gas; valid losers may also pay gas. Forging execution fails proof verification.</td>
+<td>Offline: canonical progress waits for any new capable producer. Rent reaches zero after 900 seconds without acceptance, but a new candidate may need fresh data/origin/staging. Malicious: proofs, forced FIFO and irreversible early-admission rent constrain accepted actions under named assumptions; censorship/liveness still needs an honest capable entrant and L1 inclusion.</td>
+</tr>
+<tr>
+<td>Publisher</td>
+<td>Lock 600 TAIKO in a fixed bucket, choose a signing key, and distribute valid signed data. Stop issuing at will; liabilities last through immutable release time.</td>
+<td>Offer at most one content identity per position. Every fragment promise requires complete calldata plus the exact fragment-manifest preimage by issuedAt +240 seconds, without waiting for a challenge. It may separately promise staging of a complete sealed candidate within 240 seconds, using another reserved position. If its block becomes canonical, the block's coinbase receives the refreshed main source's100% basefee share and applicable engine priority fees in ETH. No guaranteed publisher subsidy or fee for losing provisional blocks.</td>
+<td>Conflicting valid content for one position, same-owner conflicting blocks for one subject (including an owner-authorized accepted block), a missed fragment or sealed-publication deadline, or a missed valid data challenge slash the involved live positions at most once each. Invalid execution is locally rejected; this draft does not invent a cheap execution-fraud slashing proof.</td>
+<td>Offline: users lose that soft service and accept a new publisher; any holder can publish promised data on time. Malicious: reject bad execution, report objectively missed publication deadlines, and treat other valid branches as provisional. A mature publicly staged competitor can still replace soft state; first reveal at landing is ineligible.</td>
+</tr>
+<tr>
+<td>Custodian</td>
+<td>Lock its own 600 TAIKO bucket; download bytes and manifest before signing each claim. Stop new claims at will; outstanding signed publication deadlines and evidence liability remain.</td>
+<td>Publish each promised fragment, at most 32,768 bytes, as calldata with its exact manifest preimage by issuedAt +240 seconds. Any holder may satisfy this duty. No native fixed custody subsidy; optional customer agreements are outside consensus. A custodian answering a selected pending challenge receives its ETH publication fee like any responder; there is no post-publication bonded archive service.</td>
+<td>Conflicting content for one reserved position, missed absolute publication deadline or failure of that position's admitted challenge; maximum one 10 TAIKO slash per position across offenses.</td>
+<td>Offline: fetch elsewhere, publish on its behalf or report the historical miss; no certificate makes absent bytes valid. Malicious: local execution remains necessary and independent holders can publish data. Loss of every source before the deadline can destroy a provisional branch and trigger its bounded penalty; no soft-finality promise survives that.</td>
+</tr>
+<tr>
+<td>Voluntary proof worker</td>
+<td>Accept a live funded exact job, reserve 1,000 TAIKO and receive the stage-aware deadline specified below. No unilateral withdrawal from an accepted duty. Exit by success, objective cancellation or default settlement.</td>
+<td>Produce and land the exact task with the worker bound as beneficiary before deadline. Receive the sponsor's immutable TAIKO bounty; own bond returns on success or early parent replacement.</td>
+<td>Miss deadline while the original parent was not consumed by the deadline: slash 1,000 TAIKO. Historical consumption evidence prevents a later parent change erasing default.</td>
+<td>Offline: anyone can prove; job expires and slashes if applicable. Malicious: cannot block another submission or alter task/beneficiary. A worker may lose a race without fault; early competing consumption cancels the job.</td>
+</tr>
+<tr>
+<td>Sponsor</td>
+<td>Escrow chosen TAIKO bounty with complete immutable task. Cancel an unaccepted offer; accepted escrow exits only via deterministic job settlement.</td>
+<td>Fund optional proof work. No consensus rewards for sponsorship. Local execution lets workers examine the committed output before accepting.</td>
+<td>No additional bond: accepted bounty is locked and cannot be stolen back. Impossible tasks are not an oracle-resolved fraud claim; worker diligence is required.</td>
+<td>Offline/malicious: no new subsidized jobs; canonical proving remains open. Existing escrow and terms cannot be changed. Economic willingness to prove without jobs is an assumption.</td>
+</tr>
+<tr>
+<td>Challenger / reporter</td>
+<td>Anyone supplies a valid signed obligation plus ETH publication deposit, or objective equivocation/default evidence. Exit after response/default; no registration.</td>
+<td>Expose service failures. First valid slash settlement receives 10% of the actually slashed TAIKO position or worker bond.</td>
+<td>Malformed claims fail and pay gas. A fulfilled availability challenge spends the entire ETH deposit as the responder's publication fee. Duplicate slash evidence pays no second reward.</td>
+<td>Offline: detection can be zero and hidden evidence may expire; roots still require proofs. Malicious: cannot slash without valid evidence; valid but unnecessary challenges purchase public data and pay the stipulated fee.</td>
+</tr>
+<tr>
+<td>Responder</td>
+<td>Anyone with correct bytes and exact fragment-manifest preimage answers an admitted challenge at or before its fixed deadline. No bond or registration. Exit after action.</td>
+<td>Reveal exactly matching complete bytes in calldata; first valid response to the selected challenge earns its full ETH deposit. Direct publication without selecting a live challenge creates no subsidy.</td>
+<td>Wrong/late challenge responses are rejected and pay gas. A later direct publication cannot cure a historic miss. No extra liability for simply attempting to respond.</td>
+<td>Offline: live claims can default after timeout. Malicious: digest, length and manifest checks reject bad data. No one is forced to reveal data it never promised to publish.</td>
+</tr>
+<tr>
+<td>Gossip / proof / Bridge relayer</td>
+<td>Join public networking or existing permissionless Bridge processing; stop at any time.</td>
+<td>Transport authenticated contents. Existing Bridge fee rules apply; gossip has no guaranteed protocol reward. A proof relayer cannot rewrite its bound beneficiary.</td>
+<td>No generic transport-silence slash without a signed reserved duty; invalid messages are ignored and invalid L1 calls pay gas. Taking a service duty adds that duty's liability.</td>
+<td>Offline: any replacement can relay. Malicious: signatures/proofs prevent content substitution; partition/censorship can delay receipt and requires A-NET/A-L1 for recovery.</td>
+</tr>
+<tr>
+<td>Checkpoint pin/reveal caller</td>
+<td>Any address funds ordinary L2 pin/reveal calls or queues supported signed transactions through the L1 force path. No registration, collateral or exclusive relayer. Stop immediately; stored pins/checkpoints remain permanent.</td>
+<td>Persist an authenticated current origin hash or reveal its full header. No new protocol reward; benefit is access to bridge proofs and shared checkpoints. Canonical blocks need no such call every block.</td>
+<td>Malformed, conflicting or unauthenticated writes revert and consume ordinary gas. No silence slash: the caller accepts no deadline or service obligation. Separate bonded duties remain governed by their own signatures.</td>
+<td>Offline: any new funded user can pin the processing block’s origin, then reveal without expiry. Malicious: exact oracle provenance, full-header hashing, permanent membership and non-overwrite checks prevent forged roots. Total loss of archives or capable funded participants can delay claims; no DAO rescue is needed.</td>
+</tr>
+<tr>
+<td>DAO upgrade owner</td>
+<td>Governance ownership is the explicit upgrade trust exception in R1, not an operating role acquired through registry admission.</td>
+<td>Upgrade implementation only. No protocol operating reward; no action required for entry, exits, fees, proofs, challenges or recovery.</td>
+<td>No dishonest-governance slash is asserted: A-UPGRADE is explicit. Removing arbitrary upgrade trust would require constraining the user's allowed upgrade owner.</td>
+<td>Offline: existing rules continue indefinitely. Malicious upgrades can steal custody or destroy liveness; this is the named upgrade assumption.</td>
+</tr>
+</tbody>
+</table>
+</div>
 <p><strong>Open A-SERVICE economics:</strong> 10 TAIKO per position is a proposed exposure cap, not a measured deterrent against arbitrary MEV. Voluntary custody has no proven equilibrium at the stated reward policy. Failure of that market removes the optional service; it does not create a protocol-operated fallback committee.</p>
 </section>
 
 <section id="registry">
 <h2>4. Bucket state machine and bounded liabilities</h2>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1000 240" role="img" aria-labelledby="roles-svg-title roles-svg-desc" xmlns="http://www.w3.org/2000/svg">
-<title id="roles-svg-title">A service owner's deposit becomes immutable duty reserves and finally withdrawable credit</title><desc id="roles-svg-desc">Free collateral funds a 60-position bucket. It accepts promises for 60 seconds. Every fragment promise requires actual calldata publication within 240 seconds of its signed issuance time, and evidence remains admissible for 3,600 seconds after issuance closes. Each position can be slashed once; only resolved unslashed reserves are released.</desc>
-<defs><marker id="roles-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
-<g fill="none" stroke="currentColor" stroke-width="2"><rect x="10" y="45" width="170" height="70" rx="10"/><rect x="220" y="45" width="190" height="70" rx="10"/><rect x="450" y="45" width="220" height="70" rx="10"/><rect x="720" y="45" width="265" height="70" rx="10"/><path d="M180 80 H215 M410 80 H445 M670 80 H715" marker-end="url(#roles-arrow)"/><rect x="460" y="163" width="210" height="60" rx="10"/><path d="M560 115 V155" marker-end="url(#roles-arrow)"/></g>
-<g fill="currentColor" text-anchor="middle" font-family="sans-serif" font-size="16"><text x="95" y="72">FREE</text><text x="95" y="98">owner may withdraw</text><text x="315" y="72">ISSUING: 60 seconds</text><text x="315" y="98">60 × 10 TAIKO locked</text><text x="560" y="70">LIABLE</text><text x="560" y="95">publication + evidence</text><text x="852" y="70">RELEASED</text><text x="852" y="95">after all fixed deadlines</text><text x="565" y="188">SLASHED ONCE</text><text x="565" y="211">10% reporter / 90% sink</text><text x="505" y="145">evidence</text></g>
-</svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1000 240" role="img" aria-labelledby="roles-svg-title roles-svg-desc" xmlns="http://www.w3.org/2000/svg">
+<title id="roles-svg-title">A service owner's deposit becomes immutable duty reserves and finally withdrawable credit</title>
+<desc id="roles-svg-desc">Free collateral funds a 60-position bucket. It accepts promises for 60 seconds. Every fragment promise requires actual calldata publication within 240 seconds of its signed issuance time, and evidence remains admissible for 3,600 seconds after issuance closes. Each position can be slashed once; only resolved unslashed reserves are released.</desc>
+<defs>
+<marker id="roles-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+<path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/>
+</marker>
+</defs>
+<g fill="none" stroke="currentColor" stroke-width="2">
+<rect x="10" y="45" width="170" height="70" rx="10"/>
+<rect x="220" y="45" width="190" height="70" rx="10"/>
+<rect x="450" y="45" width="220" height="70" rx="10"/>
+<rect x="720" y="45" width="265" height="70" rx="10"/>
+<path d="M180 80 H215 M410 80 H445 M670 80 H715" marker-end="url(#roles-arrow)"/>
+<rect x="460" y="163" width="210" height="60" rx="10"/>
+<path d="M560 115 V155" marker-end="url(#roles-arrow)"/>
+</g>
+<g fill="currentColor" text-anchor="middle" font-family="sans-serif" font-size="16">
+<text x="95" y="72">FREE</text>
+<text x="95" y="98">owner may withdraw</text>
+<text x="315" y="72">ISSUING: 60 seconds</text>
+<text x="315" y="98">60 × 10 TAIKO locked</text>
+<text x="560" y="70">LIABLE</text>
+<text x="560" y="95">publication + evidence</text>
+<text x="852" y="70">RELEASED</text>
+<text x="852" y="95">after all fixed deadlines</text>
+<text x="565" y="188">SLASHED ONCE</text>
+<text x="565" y="211">10% reporter / 90% sink</text>
+<text x="505" y="145">evidence</text>
+</g>
+</svg>
+</div>
 <p><strong>Proven, by reservation:</strong> registration atomically moves exactly 60 × 10 × 10<sup>18</sup> token-wei from free balance into positions. There is no overbooking and no reuse of a position in another bucket. Buckets have independent IDs, so a key's many parallel buckets require proportionate locked collateral. One owner may hold arbitrarily many buckets; this creates a capital cost, not identity independence.</p>
 <ol>
 <li><strong>Open.</strong> Kind 1 is publisher, kind 2 is custodian; reject other values. The context is the committed revision and canonical base-head digest. Store immutable <code>owner, signingKey, roleKind, revision, baseHeadHash, openedAt, issuanceEnd, claimDomainVersion, evidenceClose</code> and 60 fresh positions. Set <code>openedAt = block.timestamp</code>, <code>issuanceEnd = openedAt + 60</code>, <code>claimDomainVersion = 2</code>, <code>evidenceClose = issuanceEnd + 3600</code>. Registration cannot backdate its start. There is no retentionEnd field or post-publication service interval.</li>
@@ -111,7 +241,8 @@
 
 <section id="accounting">
 <h2>6. Conservation, pull payments and concurrent disputes</h2>
-<p><strong>Proven invariant to implement and verify:</strong></p>
+<p><strong>Proven invariant to implement and verify:</strong>
+</p>
 <pre>accountedTAIKO = freeBalances + dutyReserves + workerReserves
                 + offeredOrAcceptedBounties + unpaidTAIKOCredits + permanentTAIKOSink
 accountedETH   = pendingChallengeDeposits + pendingForcedFeeEscrow
@@ -199,38 +330,159 @@ event CanonicalRentPaid(bytes32 indexed statementHash, bytes32 indexed oldHeadHa
 <section id="parameters">
 <h2>8. Initial economic and role parameters</h2>
 <p>Every value below is a proposed initial protocol constant or formula. Changing it is an implementation upgrade, not a daily DAO operation. Existing promises retain their recorded terms across an honest upgrade. No parameter is measured in slots or epochs; none reads CL lookahead or pretends an L1-derived lottery is unbiased.</p>
-<div class="table-wrap"><table>
-<thead><tr><th>Parameter</th><th>Proposed value and units</th><th>Reason / claim status</th></tr></thead>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Proposed value and units</th>
+<th>Reason / claim status</th>
+</tr>
+</thead>
 <tbody>
-<tr><td>TAIKO scale</td><td>1 TAIKO = 10<sup>18</sup> token-wei</td><td>Preserve collateral denomination. New ledgers use uint256 base units; migrated old gwei-denominated records require exact ×10<sup>9</sup> conversion.</td></tr>
-<tr><td>Bucket positions</td><td>60 independent positions</td><td>Bound each record's obligations; no relation to L1 slots or identity count.</td></tr>
-<tr><td>Position reserve / bucket reserve</td><td>10 ×10<sup>18</sup> / 600 ×10<sup>18</sup> token-wei</td><td>Concrete bounded slash exposure. <strong>Open:</strong> not calibrated against token price or MEV.</td></tr>
-<tr><td>Issuance interval</td><td>60 seconds from bucket registration</td><td>Limits eligibility period for historic signatures; does not prove when they were actually signed.</td></tr>
-<tr><td>Every DutyClaim publication deadline</td><td>issuedAt +240 seconds</td><td>Actual complete fragment calldata and exact FR preimage required, even without a challenge. No later server-retention interval.</td></tr>
-<tr><td>Evidence close</td><td>3,600 seconds after issuance end</td><td>One-hour evidence liability; never measured from owner's exit request.</td></tr>
-<tr><td>Challenge opening / response</td><td>Open strictly before publishBy and before first publication; deadline =min(included opening +600, publishBy) seconds</td><td>Absolute promise never extends. A late challenge has only the remaining time; censorship can cause honest service defaults.</td></tr>
-<tr><td>Release time</td><td>Strictly after evidenceClose, following pending challenge settlement</td><td>Every v2 publication/challenge deadline is earlier; unseen unreported signatures cannot prevent eventual release.</td></tr>
-<tr><td>Maximum claim bytes</td><td>32,768 bytes</td><td>Single calldata response; larger payload uses separately collateralized claims.</td></tr>
-<tr><td>Maximum ordered fragments</td><td>4 per block-record manifest; whole segment body ≤122,880 bytes</td><td>Fits selected segment data cap. Clients check completeness, not just one convenient fragment.</td></tr>
-<tr><td>Response gas reference / tip reference</td><td>4,000,000 gas / 2 ×10<sup>9</sup> ETH-wei per gas</td><td>Conservative proposed quote inputs; <strong>Open:</strong> benchmark actual worst case before launch.</td></tr>
-<tr><td>Challenge deposit Q</td><td>2 ×4,000,000 ×(opening basefee +2 ×10<sup>9</sup>) ETH-wei</td><td>Funds response at twice opening quote. At 20 gwei basefee, Q = 0.176 ETH. No oracle converts ETH to TAIKO.</td></tr>
-<tr><td>Response payout</td><td>100% Q to first selected timely responder</td><td>Requester pays publication; duplicate active same-digest claims refund as specified.</td></tr>
-<tr><td>Slash split</td><td>10% reporter /90% sink</td><td>Reporting incentive; a colluding self-slash still irreversibly loses 90% plus gas.</td></tr>
-<tr><td>Worker reserve</td><td>1,000 ×10<sup>18</sup> token-wei per accepted job</td><td>Independent liability for each commitment; never secures exclusive proving rights.</td></tr>
-<tr><td>Job deadline / unaccepted offer expiry</td><td>max(acceptance +300, stage publication +480) /offer creation +600 seconds</td><td>Budget proof work and leave 120 seconds after the stage matures. <strong>Open:</strong> benchmark proving.</td></tr>
-<tr><td>Job bounty</td><td>Any positive sponsor-funded amount in token-wei, immutable per offer</td><td>Market pricing; no native emission or DAO-set recurring subsidy.</td></tr>
-<tr><td>Assumed funded L1 inclusion bound</td><td>120 seconds</td><td>Environmental assumption for service false-default and proof-window analysis, not an Ethereum guarantee.</td></tr>
-<tr><td>Origin and stage freshness at job acceptance</td><td>origin.timestamp +900 ≥deadline +120 and stage.publishedAt +900 ≥deadline +120 seconds</td><td>Both receipts must survive the job deadline and inclusion allowance.</td></tr>
-<tr><td>Stage maturity / maximum age</td><td>360 /900 seconds</td><td>Public retrieval/proving lead; exact content binding and expiry are in staging.html.</td></tr>
-<tr><td>Publication-by covenant</td><td>issuedAt +240 seconds; separate 10 ×10<sup>18</sup> token-wei position</td><td>Only a complete sealed stage commitment can receive this promise.</td></tr>
-<tr><td>Forced-request fee</td><td>10<sup>15</sup> ×(1 +floor(pending/50)) ETH-wei</td><td>50% beneficiary credit, 50% permanent ETH sink; identity-independent unrecoverable fee.</td></tr>
-<tr><td>Canonical rent ceiling Pmax</td><td>50,000,000,000,000,000 ETH-wei (0.05 ETH)</td><td>Bounds each accepted head's admission charge and prices rapid repeated capture. <strong>Open:</strong> proposed research value, requiring empirical revenue/entry-cost calibration.</td></tr>
-<tr><td>Canonical rent decay / floor</td><td>900 seconds /0 ETH-wei</td><td>q(a)=ceil(Pmax ×max(900−a,0)/900). Every accepted head resets the clock; zero after a pause preserves rent-free eventual admission with fresh eligible data.</td></tr>
-<tr><td>Canonical rent allocation</td><td>100% nonwithdrawable ETH sink; all excess to actual caller</td><td>No identity, beneficiary, coinbase or job can recover the price through protocol rewards.</td></tr>
-<tr><td>Per-address cap / mandatory ticket / exclusive lease</td><td>None /none /0 seconds</td><td>Addresses are Sybil-cheap; avoid false decentralization guarantees or role squatting.</td></tr>
-<tr><td>Guaranteed custody issuance reward</td><td>0 token-wei</td><td>Optional market must fund mandatory fragment calldata publication; a selected live challenge offers Q but its existence is not guaranteed.</td></tr>
-<tr><td>Canonical execution basefee allocation</td><td>100% coinbase /0% new Anchor allocation, ETH</td><td>Follow refreshed main source at31df8fe8e. Legacy Anchor balance sweeping is specified in migration; it funds no automatic job bounty.</td></tr>
-</tbody></table></div>
+<tr>
+<td>TAIKO scale</td>
+<td>1 TAIKO = 10<sup>18</sup> token-wei</td>
+<td>Preserve collateral denomination. New ledgers use uint256 base units; migrated old gwei-denominated records require exact ×10<sup>9</sup> conversion.</td>
+</tr>
+<tr>
+<td>Bucket positions</td>
+<td>60 independent positions</td>
+<td>Bound each record's obligations; no relation to L1 slots or identity count.</td>
+</tr>
+<tr>
+<td>Position reserve / bucket reserve</td>
+<td>10 ×10<sup>18</sup> / 600 ×10<sup>18</sup> token-wei</td>
+<td>Concrete bounded slash exposure. <strong>Open:</strong> not calibrated against token price or MEV.</td>
+</tr>
+<tr>
+<td>Issuance interval</td>
+<td>60 seconds from bucket registration</td>
+<td>Limits eligibility period for historic signatures; does not prove when they were actually signed.</td>
+</tr>
+<tr>
+<td>Every DutyClaim publication deadline</td>
+<td>issuedAt +240 seconds</td>
+<td>Actual complete fragment calldata and exact FR preimage required, even without a challenge. No later server-retention interval.</td>
+</tr>
+<tr>
+<td>Evidence close</td>
+<td>3,600 seconds after issuance end</td>
+<td>One-hour evidence liability; never measured from owner's exit request.</td>
+</tr>
+<tr>
+<td>Challenge opening / response</td>
+<td>Open strictly before publishBy and before first publication; deadline =min(included opening +600, publishBy) seconds</td>
+<td>Absolute promise never extends. A late challenge has only the remaining time; censorship can cause honest service defaults.</td>
+</tr>
+<tr>
+<td>Release time</td>
+<td>Strictly after evidenceClose, following pending challenge settlement</td>
+<td>Every v2 publication/challenge deadline is earlier; unseen unreported signatures cannot prevent eventual release.</td>
+</tr>
+<tr>
+<td>Maximum claim bytes</td>
+<td>32,768 bytes</td>
+<td>Single calldata response; larger payload uses separately collateralized claims.</td>
+</tr>
+<tr>
+<td>Maximum ordered fragments</td>
+<td>4 per block-record manifest; whole segment body ≤122,880 bytes</td>
+<td>Fits selected segment data cap. Clients check completeness, not just one convenient fragment.</td>
+</tr>
+<tr>
+<td>Response gas reference / tip reference</td>
+<td>4,000,000 gas / 2 ×10<sup>9</sup> ETH-wei per gas</td>
+<td>Conservative proposed quote inputs; <strong>Open:</strong> benchmark actual worst case before launch.</td>
+</tr>
+<tr>
+<td>Challenge deposit Q</td>
+<td>2 ×4,000,000 ×(opening basefee +2 ×10<sup>9</sup>) ETH-wei</td>
+<td>Funds response at twice opening quote. At 20 gwei basefee, Q = 0.176 ETH. No oracle converts ETH to TAIKO.</td>
+</tr>
+<tr>
+<td>Response payout</td>
+<td>100% Q to first selected timely responder</td>
+<td>Requester pays publication; duplicate active same-digest claims refund as specified.</td>
+</tr>
+<tr>
+<td>Slash split</td>
+<td>10% reporter /90% sink</td>
+<td>Reporting incentive; a colluding self-slash still irreversibly loses 90% plus gas.</td>
+</tr>
+<tr>
+<td>Worker reserve</td>
+<td>1,000 ×10<sup>18</sup> token-wei per accepted job</td>
+<td>Independent liability for each commitment; never secures exclusive proving rights.</td>
+</tr>
+<tr>
+<td>Job deadline / unaccepted offer expiry</td>
+<td>max(acceptance +300, stage publication +480) /offer creation +600 seconds</td>
+<td>Budget proof work and leave 120 seconds after the stage matures. <strong>Open:</strong> benchmark proving.</td>
+</tr>
+<tr>
+<td>Job bounty</td>
+<td>Any positive sponsor-funded amount in token-wei, immutable per offer</td>
+<td>Market pricing; no native emission or DAO-set recurring subsidy.</td>
+</tr>
+<tr>
+<td>Assumed funded L1 inclusion bound</td>
+<td>120 seconds</td>
+<td>Environmental assumption for service false-default and proof-window analysis, not an Ethereum guarantee.</td>
+</tr>
+<tr>
+<td>Origin and stage freshness at job acceptance</td>
+<td>origin.timestamp +900 ≥deadline +120 and stage.publishedAt +900 ≥deadline +120 seconds</td>
+<td>Both receipts must survive the job deadline and inclusion allowance.</td>
+</tr>
+<tr>
+<td>Stage maturity / maximum age</td>
+<td>360 /900 seconds</td>
+<td>Public retrieval/proving lead; exact content binding and expiry are in staging.html.</td>
+</tr>
+<tr>
+<td>Publication-by covenant</td>
+<td>issuedAt +240 seconds; separate 10 ×10<sup>18</sup> token-wei position</td>
+<td>Only a complete sealed stage commitment can receive this promise.</td>
+</tr>
+<tr>
+<td>Forced-request fee</td>
+<td>10<sup>15</sup> ×(1 +floor(pending/50)) ETH-wei</td>
+<td>50% beneficiary credit, 50% permanent ETH sink; identity-independent unrecoverable fee.</td>
+</tr>
+<tr>
+<td>Canonical rent ceiling Pmax</td>
+<td>50,000,000,000,000,000 ETH-wei (0.05 ETH)</td>
+<td>Bounds each accepted head's admission charge and prices rapid repeated capture. <strong>Open:</strong> proposed research value, requiring empirical revenue/entry-cost calibration.</td>
+</tr>
+<tr>
+<td>Canonical rent decay / floor</td>
+<td>900 seconds /0 ETH-wei</td>
+<td>q(a)=ceil(Pmax ×max(900−a,0)/900). Every accepted head resets the clock; zero after a pause preserves rent-free eventual admission with fresh eligible data.</td>
+</tr>
+<tr>
+<td>Canonical rent allocation</td>
+<td>100% nonwithdrawable ETH sink; all excess to actual caller</td>
+<td>No identity, beneficiary, coinbase or job can recover the price through protocol rewards.</td>
+</tr>
+<tr>
+<td>Per-address cap / mandatory ticket / exclusive lease</td>
+<td>None /none /0 seconds</td>
+<td>Addresses are Sybil-cheap; avoid false decentralization guarantees or role squatting.</td>
+</tr>
+<tr>
+<td>Guaranteed custody issuance reward</td>
+<td>0 token-wei</td>
+<td>Optional market must fund mandatory fragment calldata publication; a selected live challenge offers Q but its existence is not guaranteed.</td>
+</tr>
+<tr>
+<td>Canonical execution basefee allocation</td>
+<td>100% coinbase /0% new Anchor allocation, ETH</td>
+<td>Follow refreshed main source at31df8fe8e. Legacy Anchor balance sweeping is specified in migration; it funds no automatic job bounty.</td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 
 <section id="competition">
@@ -267,11 +519,29 @@ At successful submitSegment admission, atomically:
 <p><strong>Proven — exact state boundary:</strong> the complete proof, data, maturity, expiry, forced-prefix, producer-authorization and current-parent checks remain mandatory. Every accepted head, including a zero-rent or empty-discretionary head, resets the clock once. A rejected call, an unsolicited ETH transfer, a service registration, staging, a job, or a partial proof cannot reset it. The quote and allocations are recomputed from current state in the same atomic canonical action; any revert rolls all of them back. The constant product is bounded by <code>50,000,000,000,000,000 ×900</code>; checked uint256 arithmetic and checked uint48 narrowing reject overflow rather than wrapping. A quote has no persistent effects.</p>
 <p><strong>Assumed — payment interface:</strong> <code>quoteCanonicalRent()</code> returns the current head hash, reference time, observed L1 timestamp and q. It is a snapshot, not a guaranteed reservation. For an unchanged parent q can only decrease as canonical L1 time increases. A caller may attach Pmax to cover every quote and receives the exact excess as its own pull credit. A changed parent invalidates the stale statement; the caller must build an applicable successor rather than treating the old quote as a ticket. The rent clock is outside <code>Head</code>, StageContext, taskHash and the execution proof, so waiting changes payment without changing executed L2 blocks or requiring a new proof, provided all existing freshness constraints still hold. The quote uses L1 seconds, never a proposer schedule, slot or epoch.</p>
 <p><strong>Assumed — transaction transport:</strong> ordinary payable submission is always available. A positive-rent Frame Transaction must fund actual call value from the sender that executes the Inbox call; a separate frame payer's gas authorization does not fund msg.value. The private terminal-success-guard construction can use each competitor's individually owned and funded contract account, with ordinary account authorization and no protocol allowlist. The shared-nonce example is restricted to zero-rent, zero-SENDER-value execution; there is no unpartitioned shared ETH pool. If a funded smart account is the immediate caller, excess credit belongs to that account and it can withdraw through its own authorization. Invalid guarded losers pay no protocol rent under the researched EIP assumptions; ordinary reverted losers pay gas but create no rent liability. See <a href="../03-frame-transactions-research.md">Frame Transactions research</a>.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1000 275" role="img" aria-labelledby="rent-svg-title rent-svg-desc" xmlns="http://www.w3.org/2000/svg">
-<title id="rent-svg-title">Every accepted parent has a declining public price, without a reserved winner</title><desc id="rent-svg-desc">The price begins at 0.05 ETH at acceptance, falls to approximately 0.013333 ETH after 660 seconds and reaches zero after 900 seconds. A complete accepted successor resets the next parent's price to 0.05 ETH. Waiting never reserves that successor.</desc>
-<g fill="none" stroke="currentColor" stroke-width="2"><path d="M85 30 V220 H750"/><path d="M85 45 L685 220 H750" stroke-width="4"/><path d="M525 170 V220" stroke-dasharray="5 5"/><rect x="770" y="75" width="215" height="110" rx="10"/><path d="M715 130 H765" marker-end="url(#roles-arrow)"/></g>
-<g fill="currentColor" font-family="sans-serif" font-size="16"><text x="5" y="35">0.05 ETH</text><text x="92" y="248">age 0</text><text x="480" y="248">660 seconds</text><text x="655" y="248">900</text><text x="470" y="150">q(660) ≈0.013333 ETH</text><text x="790" y="108">Any valid proof + data</text><text x="790" y="138">pays current q</text><text x="790" y="167">next head resets q</text></g>
-</svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1000 275" role="img" aria-labelledby="rent-svg-title rent-svg-desc" xmlns="http://www.w3.org/2000/svg">
+<title id="rent-svg-title">Every accepted parent has a declining public price, without a reserved winner</title>
+<desc id="rent-svg-desc">The price begins at 0.05 ETH at acceptance, falls to approximately 0.013333 ETH after 660 seconds and reaches zero after 900 seconds. A complete accepted successor resets the next parent's price to 0.05 ETH. Waiting never reserves that successor.</desc>
+<g fill="none" stroke="currentColor" stroke-width="2">
+<path d="M85 30 V220 H750"/>
+<path d="M85 45 L685 220 H750" stroke-width="4"/>
+<path d="M525 170 V220" stroke-dasharray="5 5"/>
+<rect x="770" y="75" width="215" height="110" rx="10"/>
+<path d="M715 130 H765" marker-end="url(#roles-arrow)"/>
+</g>
+<g fill="currentColor" font-family="sans-serif" font-size="16">
+<text x="5" y="35">0.05 ETH</text>
+<text x="92" y="248">age 0</text>
+<text x="480" y="248">660 seconds</text>
+<text x="655" y="248">900</text>
+<text x="470" y="150">q(660) ≈0.013333 ETH</text>
+<text x="790" y="108">Any valid proof + data</text>
+<text x="790" y="138">pays current q</text>
+<text x="790" y="167">next head resets q</text>
+</g>
+</svg>
+</div>
 <h3>9.2 What the price proves</h3>
 <p><strong>Assumed A-COMPETITION(D):</strong> for every contested accepted parent, at least one independent honest entrant can obtain applicable public data, complete execution/proving, fund the current rent and L1 gas, and submit an otherwise-valid successor that L1 includes by parent age <code>D &lt;900</code> unless another valid successor already consumes that parent. Its candidate remains fresh and satisfies the frozen forced prefix throughout that window. This assumption includes economic willingness, not merely available proving hardware. Canonical L1 timing/inclusion and no destructive upgrade remain A-L1/A-UPGRADE. A producer paying an L1 builder to exclude this entrant violates the inclusion premise; the rent alone does not prevent that.</p>
 <p><strong>Proven, conditional bounded capture cost:</strong> a participant that captures every contested parent before that entrant must consume each by age D. Since q decreases with age, each such capture irreversibly sinks at least <code>q(D)</code>. Across n captures the cost is at least <code>Σ q(Dᵢ)</code>, independent of the number of addresses it uses. If <code>Gnetᵢ</code> denotes its incremental fees, MEV and external benefit after ordinary gas/proving/DA costs but before this rent, capture has negative aggregate profit when <code>Σ Gnetᵢ &lt; Σ q(Dᵢ)</code>. A stronger sufficient condition is <code>Gnetᵢ &lt; q(Dᵢ)</code> for every captured head. Under the100% coinbase fee rule, fees from the producer’s own L2 transactions are internal transfers, not an irreversible attack cost or external revenue. Gnet consolidates all addresses under common control and counts genuine external costs/receipts only; L1 rent and sunk force fees cannot return through L2 coinbase. This is an explicit economic deterrent for repeated early ordinary-ordering capture, rather than a claim that refundable service collateral alone deters it.</p>
@@ -280,7 +550,7 @@ At successful submitSegment admission, atomically:
 <h3>9.3 Liveness and economic limits</h3>
 <p><strong>Proven, conditional eventual admission:</strong> if no one consumes a parent for 900 seconds its rent is zero for every address. No unavailable auction winner can block another proof, and the DAO need never reset the clock. An old proof or stage may have expired by then: an entrant must obtain a fresh origin, execute/stage a fresh candidate and prove it within its own freshness window. If the parent remains unconsumed during that work the rent stays zero; if another participant consumes it, canonical progress already occurred. Under eventual affordable L1 inclusion and a willing capable prover, the rent introduces no permanent admission lock.</p>
 <p><strong>Open — market concentration remains possible:</strong> without a funded ready competing entrant, an incumbent can wait until zero and capture every head for no rent. With sufficiently large MEV, private order flow, external censorship value or hardware advantage, it can rationally pay every quote and still dominate. Address caps cannot identify common ownership, and this auction does not promise equal shares. The demonstrated result is a nonrecoverable identity-independent cost for sustained early capture under A-COMPETITION(D), with an explicit profit threshold; broader dominance is outside that theorem. The earlier rounds 05–06 accepted this bounded R6 mechanism while retaining concentration as a Medium risk; economic diversity is not a protocol invariant.</p>
-<p><strong>Open — honest throughput and entry cost:</strong> every winner pays rent, including an honest entrant. A hypothetical accepted-head cadence of 60 seconds pays <code>q(60)=0.046666666666666667 ETH</code> per head, approximately <code>67.2 ETH/day</code> at 1,440 heads/day, before gas/proving/DA. This cadence example is not a measured sustainable market or a proof that users will fund it. Zero rent after a pause establishes eventual price accessibility, not continuous one-second soft service or sustained canonical throughput. The 0.05-ETH ceiling is an explicit proposed economic change from today's Taiko, chosen to make capture costs concrete; fee revenue, ETH purchasing power and small-entrant budgets must be evaluated before launch. Rent has no TAIKO oracle and changes neither L2's ETH native token nor the100% coinbase execution-fee rule.</p>
+<p><strong>Open — honest throughput and entry cost:</strong> every winner pays rent, including an honest entrant. A hypothetical accepted-head cadence of 60 seconds pays <code>q(60)=0.046666666666666667 ETH</code> per head, approximately <code>67.2 ETH/day</code> at 1,440 heads/day, before gas/proving/DA. The <a href="assurance.html#operating-profile">sustained-rate derivation</a> strengthens this example: because a segment contains at most60 blocks, one accepted block/s with bounded landing lag requires at least67.2 ETH/day in rent in the long run, regardless of regular or bursty scheduling. At10,000 encoded body bytes/s the optimistic necessary bound rises to346.7625 ETH/day. These deductions do not establish a sustainable market or that users will fund it. Zero rent after a pause establishes eventual price accessibility, not continuous one-second soft service or sustained canonical throughput. The 0.05-ETH ceiling is an explicit proposed economic change from today's Taiko, chosen to make capture costs concrete; fee revenue, ETH purchasing power and small-entrant budgets must be evaluated before launch. Rent has no TAIKO oracle and changes neither L2's ETH native token nor the100% coinbase execution-fee rule.</p>
 </section>
 <h3>9.4 Other griefing prices and collateral limits</h3>
 <p><strong>Proven, under the forced-queue rules:</strong> canonical successors must process the eligible FIFO prefix. A winning builder cannot prefer newly arriving discretionary transactions over the required prefix. Congestion can slow progress, but later arrivals cannot jump ahead of an already queued request. See the canonical pipeline for the precise snapshot rule and workload bound.</p>
@@ -308,6 +578,9 @@ At successful submitSegment admission, atomically:
 </ul>
 </section>
 </main>
-<footer><p><a href="index.html">Design index</a> · <a href="accountability.html">Evidence and slashing</a> · <a href="../learn/index.html">Learning course</a></p></footer>
+<footer>
+<p><a href="index.html">Design index</a> · <a href="accountability.html">Evidence and slashing</a> · <a href="../learn/index.html">Learning course</a>
+</p>
+</footer>
 </body>
 </html>

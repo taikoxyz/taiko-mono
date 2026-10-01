@@ -8,11 +8,14 @@
 </head>
 <body>
 <header>
-  <nav aria-label="Primary"><a href="index.html">Etna design</a> · <a href="../learn/index.html">Learning course</a> · <a href="../00-current-protocol-summary.md">Current protocol</a></nav>
+  <nav aria-label="Primary"><a href="index.html">Etna design</a> · <a href="../learn/index.html">Learning course</a> · <a href="../00-current-protocol-summary.md">Current protocol</a>
+</nav>
   <h1>Checkpoints, custody and migration</h1>
   <p><strong>Migration specification reviewed in rounds 07–08; launch evidence remains required.</strong> This is a source-grounded migration specification, not an authenticated deployment manifest. No live proxy address, implementation, owner, treasury recipient or stored state has been verified. R2 is achievable only if the preflight conditions below hold; specification convergence does not establish deployed compatibility or launch readiness.</p>
 </header>
 <main>
+<aside class="notice warning"><strong>Research candidate; production feasibility remains unresolved.</strong> Current R4/R6/R7 acceptance is open. This page specifies proposed rules; historical model-generated review does not establish a usable, affordable operating profile. See the <a href="assurance.html">resource and funding evidence</a> and <a href="../notes/pr-comment-dispositions.md">comment dispositions</a>.</aside>
+
 <section aria-labelledby="claims">
   <h2 id="claims">How to read the claims</h2>
   <p><strong>Proven</strong> identifies a baseline source fact or a deduction with a stated argument. <strong>Assumed</strong> identifies a normative design obligation under A-IMPL: the eventual implementation, circuit and migration procedure conform to this specification. <strong>Open</strong> identifies evidence still required. A section's label applies to its paragraphs, lists, interface sketches and diagram unless an item is explicitly relabeled. A proposed interface is never a claim that code already exists.</p>
@@ -24,34 +27,51 @@
   <p>Retain every existing L1 and L2 SignalService, Bridge, ERC20Vault, ERC721Vault and ERC1155Vault proxy address. Retain the L2 Anchor proxy, resolver proxies and all existing protocol-controlled token wrapper proxies as well. Upgrade implementations and their immutable wiring; do not deploy replacement custody addresses or move user escrow. New L1 Inbox, role registry, header store and optional frame sender addresses are permitted. An implementation contract deployed for an existing proxy is not a replacement Bridge or Vault address.</p>
   <p>The DAO owns the upgrade authority only. Every ordinary protocol role is open under objective rules. Root publication and asset release retain authenticated provenance: Inbox → L1 SignalService, standard EIP-4788 recorded origin → permissionless L2 SignalService reveal, Bridge → Vault and Vault → wrapper. The retained Anchor remains a checkpoint writer only during legacy execution under the guard specified below. These checks authenticate proof-verified state transitions; they do not select a human operator. Token approvals, message owners' retry/recall choices and users' ability to spend their own assets remain intact.</p>
   <p>The frozen addresses are only part of R2. The upgrade preserves storage locations, message encodings, chain IDs, escrow, signal-slot formula, trusted historical checkpoints, received-signal caches, message-status history, token mappings and token balances. No preconfirmed root enters a settlement checkpoint merely because a publisher or custodian signed it.</p>
-  <div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 960 330" role="img" aria-labelledby="checkpoint-title checkpoint-desc" xmlns="http://www.w3.org/2000/svg">
+  <div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 960 330" role="img" aria-labelledby="checkpoint-title checkpoint-desc" xmlns="http://www.w3.org/2000/svg">
     <title id="checkpoint-title">The two authenticated checkpoint paths preserve all custody addresses</title>
     <desc id="checkpoint-desc">On L1, a proof-bearing segment accepted by the new Inbox publishes its L2 terminal checkpoint to the existing SignalService. On L2, standard EIP-4788 records the authenticated L1 origin hash before execution; an optional ordinary pin or reveal transaction preserves it through the existing SignalService. Existing bridges verify signal proofs against those roots and existing vaults release or mint assets.</desc>
-    <defs><marker id="cp-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#27415a"/></marker></defs>
+    <defs>
+<marker id="cp-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto">
+<path d="M0 0 L8 4 L0 8 Z" fill="#27415a"/>
+</marker>
+</defs>
     <rect x="10" y="10" width="940" height="140" rx="12" fill="#eaf2fb" stroke="#27415a"/>
     <rect x="10" y="180" width="940" height="140" rx="12" fill="#ecf6ec" stroke="#27415a"/>
     <g font-family="system-ui, sans-serif" fill="#172b3a" font-size="15">
       <text x="26" y="35" font-weight="700">L1: accepted proof → authenticated L2 state root</text>
       <text x="26" y="205" font-weight="700">L2: authenticated origin → standard 4788 → permissionless reveal</text>
       <rect x="35" y="55" width="200" height="70" rx="8" fill="white" stroke="#27415a"/>
-      <text x="135" y="84" text-anchor="middle">New Inbox</text><text x="135" y="107" text-anchor="middle">data + ZK proof + exact head</text>
+      <text x="135" y="84" text-anchor="middle">New Inbox</text>
+<text x="135" y="107" text-anchor="middle">data + ZK proof + exact head</text>
       <rect x="300" y="55" width="195" height="70" rx="8" fill="white" stroke="#27415a"/>
-      <text x="397" y="84" text-anchor="middle">Existing SignalService</text><text x="397" y="107" text-anchor="middle">saveCheckpoint(L2 end)</text>
+      <text x="397" y="84" text-anchor="middle">Existing SignalService</text>
+<text x="397" y="107" text-anchor="middle">saveCheckpoint(L2 end)</text>
       <rect x="560" y="55" width="150" height="70" rx="8" fill="white" stroke="#27415a"/>
       <text x="635" y="96" text-anchor="middle">Existing Bridge</text>
       <rect x="775" y="55" width="150" height="70" rx="8" fill="white" stroke="#27415a"/>
       <text x="850" y="96" text-anchor="middle">Existing Vaults</text>
       <rect x="35" y="225" width="200" height="70" rx="8" fill="white" stroke="#27415a"/>
-      <text x="135" y="254" text-anchor="middle">Canonical EIP-4788</text><text x="135" y="277" text-anchor="middle">recorded origin hash</text>
+      <text x="135" y="254" text-anchor="middle">Canonical EIP-4788</text>
+<text x="135" y="277" text-anchor="middle">recorded origin hash</text>
       <rect x="300" y="225" width="195" height="70" rx="8" fill="white" stroke="#27415a"/>
-      <text x="397" y="254" text-anchor="middle">Existing SignalService</text><text x="397" y="277" text-anchor="middle">reveal verified L1 header</text>
+      <text x="397" y="254" text-anchor="middle">Existing SignalService</text>
+<text x="397" y="277" text-anchor="middle">reveal verified L1 header</text>
       <rect x="560" y="225" width="150" height="70" rx="8" fill="white" stroke="#27415a"/>
       <text x="635" y="266" text-anchor="middle">Existing Bridge</text>
       <rect x="775" y="225" width="150" height="70" rx="8" fill="white" stroke="#27415a"/>
       <text x="850" y="266" text-anchor="middle">Existing Vaults</text>
     </g>
-    <g stroke="#27415a" stroke-width="2" marker-end="url(#cp-arrow)"><path d="M235 90 H292"/><path d="M495 90 H552"/><path d="M710 90 H767"/><path d="M235 260 H292"/><path d="M495 260 H552"/><path d="M710 260 H767"/></g>
-  </svg></div>
+    <g stroke="#27415a" stroke-width="2" marker-end="url(#cp-arrow)">
+<path d="M235 90 H292"/>
+<path d="M495 90 H552"/>
+<path d="M710 90 H767"/>
+<path d="M235 260 H292"/>
+<path d="M495 260 H552"/>
+<path d="M710 260 H767"/>
+</g>
+  </svg>
+</div>
 </section>
 
 <section aria-labelledby="checkpoint" data-claim="assumed">
@@ -70,11 +90,29 @@ event CheckpointSaved(
 );</code></pre>
   <table>
     <caption>Assumed — publication predicates and consumers</caption>
-    <thead><tr><th>Path</th><th>Exact meaning</th><th>Required checks before publication</th></tr></thead>
+    <thead>
+<tr>
+<th>Path</th>
+<th>Exact meaning</th>
+<th>Required checks before publication</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td>New L1 Inbox → existing L1 SignalService</td><td><code>Checkpoint(endL2Number, endL2BlockHash, endL2StateRoot)</code> of the accepted segment.</td><td>Sound ZK proof; exact current parent head; matching calldata/blob commitment; L1 origin authenticated by HeaderStore; forced FIFO cursor; chain, address and circuit revision domains; strictly increasing L2 end height. One transaction commits both the canonical head and checkpoint or neither.</td></tr>
-      <tr><td>Canonical EIP-4788 → permissionless reveal at existing L2 SignalService</td><td><code>Checkpoint(l1Number, l1BlockHash, l1StateRoot)</code> authenticated by a recorded or pinned origin hash and its complete L1 header preimage.</td><td>Every Etna header carries the exact nonzero authenticated segment-origin hash. Standard pre-execution records it. A bounded ordinary reveal authenticates the complete header against that value or a previously pinned value. Identical checkpoints are idempotent; conflicting values revert. Reveals may arrive out of order. The <a href="checkpoints.html">checkpoint specification</a> fixes the exact API, bounds, persistence and forced recovery rules.</td></tr>
-      <tr><td>SignalService → Bridge proof verification</td><td>Full EVM state root for the remote SignalService account, then the remote app's signal storage proof.</td><td>Keep remote SignalService proxy address and signal-slot domain. Reject a block hash, receipts root, DA commitment or soft root substituted for an EVM state root. Existing successful received-signal cache entries remain usable only under A-LEGACY.</td></tr>
+      <tr>
+<td>New L1 Inbox → existing L1 SignalService</td>
+<td><code>Checkpoint(endL2Number, endL2BlockHash, endL2StateRoot)</code> of the accepted segment.</td>
+<td>Sound ZK proof; exact current parent head; matching calldata/blob commitment; L1 origin authenticated by HeaderStore; forced FIFO cursor; chain, address and circuit revision domains; strictly increasing L2 end height. One transaction commits both the canonical head and checkpoint or neither.</td>
+</tr>
+      <tr>
+<td>Canonical EIP-4788 → permissionless reveal at existing L2 SignalService</td>
+<td><code>Checkpoint(l1Number, l1BlockHash, l1StateRoot)</code> authenticated by a recorded or pinned origin hash and its complete L1 header preimage.</td>
+<td>Every Etna header carries the exact nonzero authenticated segment-origin hash. Standard pre-execution records it. A bounded ordinary reveal authenticates the complete header against that value or a previously pinned value. Identical checkpoints are idempotent; conflicting values revert. Reveals may arrive out of order. The <a href="checkpoints.html">checkpoint specification</a> fixes the exact API, bounds, persistence and forced recovery rules.</td>
+</tr>
+      <tr>
+<td>SignalService → Bridge proof verification</td>
+<td>Full EVM state root for the remote SignalService account, then the remote app's signal storage proof.</td>
+<td>Keep remote SignalService proxy address and signal-slot domain. Reject a block hash, receipts root, DA commitment or soft root substituted for an EVM state root. Existing successful received-signal cache entries remain usable only under A-LEGACY.</td>
+</tr>
     </tbody>
   </table>
   <p>The new SignalService implementation makes checkpoint writes idempotent and non-overwriting: an empty entry accepts a nonzero hash/root, an identical existing entry succeeds without changing state, and a conflicting existing entry reverts. The existing mapping suffices; no storage slot is added for this rule. Inbox enforces L2 advancement; Etna headers enforce nondecreasing authenticated L1 origins. Permissionless L2 reveals may arrive out of order and impose no global latest-height variable. A same-history conflicting root therefore fails even if a caller accidentally attempts a duplicate write.</p>
@@ -138,21 +176,79 @@ function remoteSignalService() external view returns (address service_);</code><
   <p>The following is the generated layout at the source baseline, not a report of current chain state. Every row is preserved byte-for-byte in location and interpretation. References are the named <code>*_Layout.sol</code> files enumerated in <a href="../notes/l2-shared.md">the evidence note</a>. Do not consume a historical reservation merely because current source appears not to use it.</p>
   <table>
     <caption>Proven source layout; preserving it is an A-IMPL obligation</caption>
-    <thead><tr><th>Proxy family</th><th>Existing slots and packing</th><th>Etna treatment</th></tr></thead>
+    <thead>
+<tr>
+<th>Proxy family</th>
+<th>Existing slots and packing</th>
+<th>Etna treatment</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td>All Essential-derived proxies</td><td>0: initializer bytes; 1–50 gap; 51: owner; 52–100 gap; 101: pending owner; 102–150 gap; 151–200 old resolver gap; 201 byte 0 deprecated reentry, byte 1 paused; 202–250 gap.</td><td>Retain all. Preserve transient reentry storage domain. Ignore old pause flag in Etna operational logic; <code>paused()</code> returns false. Preserve owner as DAO, disable ownership-transfer/renunciation entrypoints; a pending-owner value cannot retain an acceptance path.</td></tr>
-      <tr><td>Anchor</td><td>251: <code>blockHashes</code>; 252–254 Pacaya reservations; 255: deprecated uint48 proposal ID; 256–257: <code>BlockState</code>; gap 258–300.</td><td>Preserve historical accumulator/history in place; freeze their updates after the final legacy block. Getters explicitly report legacy values. No field or gap is reset, deleted or reused.</td></tr>
-      <tr><td>SignalService</td><td>251–252 Pacaya reservations; 253: versioned received-signal map; 254: versioned checkpoints; gap 255–300; separately hashed sent-signal slots.</td><td>Keep <code>VERSION = 1</code>, both map domains and sent-signal formula. Read old checkpoints unchanged; reject conflicting overwrite. Add only the separate pinned-origin namespace specified in <a href="checkpoints.html">checkpoints</a>.</td></tr>
-      <tr><td>Bridge</td><td>251 bytes 0–7 reserved, bytes 8–15 <code>nextMessageId</code>; 252: message status; 253–254: old context; 255–256 reservations; gap 257–300.</td><td>Preserve counter and every status. Keep existing transient context semantics; no reinitializer may mark arbitrary messages DONE or reset reservations.</td></tr>
-      <tr><td>ERC20Vault</td><td>251–300 BaseVault gap; 301 <code>bridgedToCanonical</code>; 302 <code>canonicalToBridged</code>; 303 denylist; 304 last migration start; gap 305–350.</td><td>Keep all maps and migration history. Disable new owner-directed remapping. Resolve active legacy migrations before activation or implement a separately audited, immutable continuation.</td></tr>
-      <tr><td>ERC721Vault</td><td>251–300 BaseVault gap; 301/302 token maps; 303–350 BaseNFTVault gap; 351–400 derived gap.</td><td>Keep mappings, escrow and receiver interfaces; disable operational pause gates.</td></tr>
-      <tr><td>ERC1155Vault</td><td>Same through 350; additional gaps 351–400, 401–450, 451–500.</td><td>Same preservation; do not compact multiple inherited gaps.</td></tr>
-      <tr><td>DefaultResolver</td><td>251: nested addresses map; gap 252–300.</td><td>Keep all keys. Pin the audited launch entries; no runtime registration.</td></tr>
-      <tr><td>BridgedERC20</td><td>251 balances; 252 allowances; 253 supply; 254/255 name/symbol; gap 256–300; 301 source token + decimals at byte20; 302 source chain; 303 migration address + inbound flag at byte20; gap 304–350.</td><td>Keep balances, approvals, metadata and decimals. Remove owner mint/burn authority. Do not discard migration liabilities.</td></tr>
-      <tr><td>BridgedERC20V2</td><td>All ERC20 fields; 351/352 hashed EIP712 name/version; 353/354 EIP712 strings; gap 355–402; 403 permit nonces; gap 404–452.</td><td>Retain permit domain and consumed nonces. Disable obsolete initializers on existing proxies.</td></tr>
-      <tr><td>BridgedERC721</td><td>251–300 gap; 301/302 name/symbol; 303 owners; 304 balances; 305 approvals; 306 operator approvals; gap 307–350; 351 source token; 352 source chain; gap 353–400.</td><td>Keep every owner, token approval and operator approval; vault-only mint/burn remains.</td></tr>
-      <tr><td>BridgedERC1155</td><td>251–300 gap; 301 balances; 302 operator approvals; 303 URI; gap 304–350; 351 source token; 352 source chain; 353/354 symbol/name; gap 355–400.</td><td>Keep amounts per ID, approvals and metadata; vault-only mint/burn remains.</td></tr>
-      <tr><td>ForkRouter</td><td>Uses inherited slots 0–150; delegates into the same proxy storage as the target.</td><td>Replace the router as the proxy implementation at final cutover. No old branch or generic legacy fallback remains reachable.</td></tr>
+      <tr>
+<td>All Essential-derived proxies</td>
+<td>0: initializer bytes; 1–50 gap; 51: owner; 52–100 gap; 101: pending owner; 102–150 gap; 151–200 old resolver gap; 201 byte 0 deprecated reentry, byte 1 paused; 202–250 gap.</td>
+<td>Retain all. Preserve transient reentry storage domain. Ignore old pause flag in Etna operational logic; <code>paused()</code> returns false. Preserve owner as DAO, disable ownership-transfer/renunciation entrypoints; a pending-owner value cannot retain an acceptance path.</td>
+</tr>
+      <tr>
+<td>Anchor</td>
+<td>251: <code>blockHashes</code>; 252–254 Pacaya reservations; 255: deprecated uint48 proposal ID; 256–257: <code>BlockState</code>; gap 258–300.</td>
+<td>Preserve historical accumulator/history in place; freeze their updates after the final legacy block. Getters explicitly report legacy values. No field or gap is reset, deleted or reused.</td>
+</tr>
+      <tr>
+<td>SignalService</td>
+<td>251–252 Pacaya reservations; 253: versioned received-signal map; 254: versioned checkpoints; gap 255–300; separately hashed sent-signal slots.</td>
+<td>Keep <code>VERSION = 1</code>, both map domains and sent-signal formula. Read old checkpoints unchanged; reject conflicting overwrite. Add only the separate pinned-origin namespace specified in <a href="checkpoints.html">checkpoints</a>.</td>
+</tr>
+      <tr>
+<td>Bridge</td>
+<td>251 bytes 0–7 reserved, bytes 8–15 <code>nextMessageId</code>; 252: message status; 253–254: old context; 255–256 reservations; gap 257–300.</td>
+<td>Preserve counter and every status. Keep existing transient context semantics; no reinitializer may mark arbitrary messages DONE or reset reservations.</td>
+</tr>
+      <tr>
+<td>ERC20Vault</td>
+<td>251–300 BaseVault gap; 301 <code>bridgedToCanonical</code>; 302 <code>canonicalToBridged</code>; 303 denylist; 304 last migration start; gap 305–350.</td>
+<td>Keep all maps and migration history. Disable new owner-directed remapping. Resolve active legacy migrations before activation or implement a separately audited, immutable continuation.</td>
+</tr>
+      <tr>
+<td>ERC721Vault</td>
+<td>251–300 BaseVault gap; 301/302 token maps; 303–350 BaseNFTVault gap; 351–400 derived gap.</td>
+<td>Keep mappings, escrow and receiver interfaces; disable operational pause gates.</td>
+</tr>
+      <tr>
+<td>ERC1155Vault</td>
+<td>Same through 350; additional gaps 351–400, 401–450, 451–500.</td>
+<td>Same preservation; do not compact multiple inherited gaps.</td>
+</tr>
+      <tr>
+<td>DefaultResolver</td>
+<td>251: nested addresses map; gap 252–300.</td>
+<td>Keep all keys. Pin the audited launch entries; no runtime registration.</td>
+</tr>
+      <tr>
+<td>BridgedERC20</td>
+<td>251 balances; 252 allowances; 253 supply; 254/255 name/symbol; gap 256–300; 301 source token + decimals at byte20; 302 source chain; 303 migration address + inbound flag at byte20; gap 304–350.</td>
+<td>Keep balances, approvals, metadata and decimals. Remove owner mint/burn authority. Do not discard migration liabilities.</td>
+</tr>
+      <tr>
+<td>BridgedERC20V2</td>
+<td>All ERC20 fields; 351/352 hashed EIP712 name/version; 353/354 EIP712 strings; gap 355–402; 403 permit nonces; gap 404–452.</td>
+<td>Retain permit domain and consumed nonces. Disable obsolete initializers on existing proxies.</td>
+</tr>
+      <tr>
+<td>BridgedERC721</td>
+<td>251–300 gap; 301/302 name/symbol; 303 owners; 304 balances; 305 approvals; 306 operator approvals; gap 307–350; 351 source token; 352 source chain; gap 353–400.</td>
+<td>Keep every owner, token approval and operator approval; vault-only mint/burn remains.</td>
+</tr>
+      <tr>
+<td>BridgedERC1155</td>
+<td>251–300 gap; 301 balances; 302 operator approvals; 303 URI; gap 304–350; 351 source token; 352 source chain; 353/354 symbol/name; gap 355–400.</td>
+<td>Keep amounts per ID, approvals and metadata; vault-only mint/burn remains.</td>
+</tr>
+      <tr>
+<td>ForkRouter</td>
+<td>Uses inherited slots 0–150; delegates into the same proxy storage as the target.</td>
+<td>Replace the router as the proxy implementation at final cutover. No old branch or generic legacy fallback remains reachable.</td>
+</tr>
     </tbody>
   </table>
   <p><strong>Assumed.</strong> Existing shared linear storage remains unchanged. L2 SignalService adds the explicit noncolliding pinned-origin namespace defined in <a href="checkpoints.html">the checkpoint specification</a>; pinning is ordinary optional transaction execution and never reuses checkpoint/cache slots or gaps. The legacy Inbox drain adapter and new Inbox use the exact migration namespaces below. Transitional Anchor adds no phase namespace or other persistent field. All new namespaced allocations must be compared against every existing linear, EIP-1967, custom and hashed domain.</p>
@@ -164,24 +260,109 @@ function remoteSignalService() external view returns (address service_);</code><
   <p>Paths below are relative to <code>packages/protocol/contracts/shared/</code>. “Behavior change” means a future storage-compatible implementation upgrade at the existing proxy; this research task changes none of those files. Interfaces retain their existing selectors unless an additive getter or checkpoint extension is explicitly listed. All implementation families also inherit the operational-authority removal in the next section.</p>
   <table>
     <caption>Assumed — every baseline file in the frozen shared directories</caption>
-    <thead><tr><th>Files</th><th>Required change or explicit no-change</th><th>Compatibility condition</th></tr></thead>
+    <thead>
+<tr>
+<th>Files</th>
+<th>Required change or explicit no-change</th>
+<th>Compatibility condition</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td><code>signal/ICheckpointStore.sol</code></td><td>No ABI change.</td><td>Keep uint48 height and event fields exactly.</td></tr>
-      <tr><td><code>signal/ISignalService.sol</code></td><td>Preserve signal, proof, slot and cache ABI. Add the explicit L2 pin/reveal extension and immutable wiring getters specified in checkpoints.html.</td><td>Retain current one-hop proof behavior and signal encoding; do not resurrect obsolete comment-only multi-hop semantics.</td></tr>
-      <tr><td><code>signal/SignalService.sol</code></td><td>Remove pause powers; preserve remote service; add non-overwriting checkpoint writes and wiring getters. L1 retains the finite drain/ACTIVE Inbox gate. L2 adds pin/reveal support and the current-timestamp zero-root guard on its retained Anchor syncer. L1 rejects the L2 extension explicitly.</td><td>VERSION 1, slots253/254, signal-domain storage unchanged; historical reads unchanged.</td></tr>
-      <tr><td><code>signal/SignalService_Layout.sol</code>, <code>SignalServiceForkRouter_Layout.sol</code></td><td>Regenerate layout documentation only when implementation exists; old slots remain fixed and the L2 pinned-origin namespace is explicit. Router artifact is not evidence of a live route.</td><td>Compare deployed router and target separately before removing dispatch.</td></tr>
-      <tr><td><code>bridge/Bridge.sol</code></td><td>Remove pause/recovery authority; plain ETH funding becomes permissionless and creates no claim; set quotaManager immutable to zero; retain SignalService, recall setting, message operations and context semantics.</td><td>No storage additions; preserve message hash/status/counter and actual escrow. Verify unchanged <code>recallEnabled</code> per deployed side.</td></tr>
-      <tr><td><code>bridge/IBridge.sol</code>, <code>IQuotaManager.sol</code></td><td>No ABI or enum renumbering.</td><td>Old message and status encodings remain valid.</td></tr>
-      <tr><td><code>bridge/QuotaManager.sol</code></td><td>No upgrade: this contract is non-upgradeable. Quarantine by eliminating every Etna call edge to it; its configuration no longer controls release.</td><td>No state, balance or ownership migration required for liveness. Do not pretend its owner setters can be removed by UUPS.</td></tr>
-      <tr><td><code>bridge/Bridge_Layout.sol</code>, <code>bridge/README.md</code></td><td>Future layout/document update only.</td><td>No implementation or existing-doc change is performed in this research task.</td></tr>
-      <tr><td><code>vault/BaseVault.sol</code>, <code>BaseNFTVault.sol</code></td><td>Retain Bridge/context authentication and token transfer validation; use upgrade-only governance base without effective pausing.</td><td>Keep base gaps and names used to authenticate the source Vault.</td></tr>
-      <tr><td><code>vault/ERC20Vault.sol</code></td><td>Disable <code>changeBridgedToken</code>; detach quotaManager; keep lock/burn/release/mint/recall flow. New wrapper deployment references only the frozen audited implementation entry.</td><td>Keep maps301–304, denylist and all existing wrapper addresses. Do not deploy a second wrapper for an existing canonical key.</td></tr>
-      <tr><td><code>vault/ERC721Vault.sol</code>, <code>ERC1155Vault.sol</code></td><td>Remove effective pause gates; retain authenticated custody functions and lazy wrapper creation.</td><td>Keep canonical maps, balances in escrow, receivers and token IDs/amounts.</td></tr>
-      <tr><td><code>vault/BridgedERC20.sol</code>, <code>BridgedERC20V2.sol</code></td><td>Remove owner mint/burn and pause; freeze migration transitions after old migrations are resolved; keep vault-only ordinary mint/burn, transfers and permits. Existing-proxy unused initializers revert.</td><td>Retain all token state, EIP712 fields and permit nonce history. Audit any legacy pair before restricting migration mint paths.</td></tr>
-      <tr><td><code>vault/BridgedERC721.sol</code>, <code>BridgedERC1155.sol</code></td><td>Remove pause; keep vault-only mint/burn and user approval/transfer rights.</td><td>No change to token storage, source identities or metadata.</td></tr>
-      <tr><td><code>vault/IBridgedERC20.sol</code>, <code>IBridgedERC721.sol</code>, <code>IBridgedERC1155.sol</code>, <code>IPermit2.sol</code>, <code>LibBridgedToken.sol</code></td><td>No change to compatibility interfaces, Permit2 interaction or token validation library needed.</td><td>A selector may remain in an interface while its obsolete administrative operation always reverts; document this behavior.</td></tr>
-      <tr><td>All seven <code>vault/*_Layout.sol</code> files</td><td>Regenerate documentation only with implementations.</td><td>Preserve the exact Vault and wrapper rows above.</td></tr>
-      <tr><td><code>fork-router/ForkRouter.sol</code>, <code>ForkRouter_Layout.sol</code></td><td>No generic router extension. Final proxy implementation directly selects Etna code; preserve old storage reservations.</td><td>No old-fork delegatecall, receive fallback, selector collision or inherited owner mutator remains executable at activation.</td></tr>
+      <tr>
+<td><code>signal/ICheckpointStore.sol</code>
+</td>
+<td>No ABI change.</td>
+<td>Keep uint48 height and event fields exactly.</td>
+</tr>
+      <tr>
+<td><code>signal/ISignalService.sol</code>
+</td>
+<td>Preserve signal, proof, slot and cache ABI. Add the explicit L2 pin/reveal extension and immutable wiring getters specified in checkpoints.html.</td>
+<td>Retain current one-hop proof behavior and signal encoding; do not resurrect obsolete comment-only multi-hop semantics.</td>
+</tr>
+      <tr>
+<td><code>signal/SignalService.sol</code>
+</td>
+<td>Remove pause powers; preserve remote service; add non-overwriting checkpoint writes and wiring getters. L1 retains the finite drain/ACTIVE Inbox gate. L2 adds pin/reveal support and the current-timestamp zero-root guard on its retained Anchor syncer. L1 rejects the L2 extension explicitly.</td>
+<td>VERSION 1, slots253/254, signal-domain storage unchanged; historical reads unchanged.</td>
+</tr>
+      <tr>
+<td><code>signal/SignalService_Layout.sol</code>, <code>SignalServiceForkRouter_Layout.sol</code>
+</td>
+<td>Regenerate layout documentation only when implementation exists; old slots remain fixed and the L2 pinned-origin namespace is explicit. Router artifact is not evidence of a live route.</td>
+<td>Compare deployed router and target separately before removing dispatch.</td>
+</tr>
+      <tr>
+<td><code>bridge/Bridge.sol</code>
+</td>
+<td>Remove pause/recovery authority; plain ETH funding becomes permissionless and creates no claim; set quotaManager immutable to zero; retain SignalService, recall setting, message operations and context semantics.</td>
+<td>No storage additions; preserve message hash/status/counter and actual escrow. Verify unchanged <code>recallEnabled</code> per deployed side.</td>
+</tr>
+      <tr>
+<td><code>bridge/IBridge.sol</code>, <code>IQuotaManager.sol</code>
+</td>
+<td>No ABI or enum renumbering.</td>
+<td>Old message and status encodings remain valid.</td>
+</tr>
+      <tr>
+<td><code>bridge/QuotaManager.sol</code>
+</td>
+<td>No upgrade: this contract is non-upgradeable. Quarantine by eliminating every Etna call edge to it; its configuration no longer controls release.</td>
+<td>No state, balance or ownership migration required for liveness. Do not pretend its owner setters can be removed by UUPS.</td>
+</tr>
+      <tr>
+<td><code>bridge/Bridge_Layout.sol</code>, <code>bridge/README.md</code>
+</td>
+<td>Future layout/document update only.</td>
+<td>No implementation or existing-doc change is performed in this research task.</td>
+</tr>
+      <tr>
+<td><code>vault/BaseVault.sol</code>, <code>BaseNFTVault.sol</code>
+</td>
+<td>Retain Bridge/context authentication and token transfer validation; use upgrade-only governance base without effective pausing.</td>
+<td>Keep base gaps and names used to authenticate the source Vault.</td>
+</tr>
+      <tr>
+<td><code>vault/ERC20Vault.sol</code>
+</td>
+<td>Disable <code>changeBridgedToken</code>; detach quotaManager; keep lock/burn/release/mint/recall flow. New wrapper deployment references only the frozen audited implementation entry.</td>
+<td>Keep maps301–304, denylist and all existing wrapper addresses. Do not deploy a second wrapper for an existing canonical key.</td>
+</tr>
+      <tr>
+<td><code>vault/ERC721Vault.sol</code>, <code>ERC1155Vault.sol</code>
+</td>
+<td>Remove effective pause gates; retain authenticated custody functions and lazy wrapper creation.</td>
+<td>Keep canonical maps, balances in escrow, receivers and token IDs/amounts.</td>
+</tr>
+      <tr>
+<td><code>vault/BridgedERC20.sol</code>, <code>BridgedERC20V2.sol</code>
+</td>
+<td>Remove owner mint/burn and pause; freeze migration transitions after old migrations are resolved; keep vault-only ordinary mint/burn, transfers and permits. Existing-proxy unused initializers revert.</td>
+<td>Retain all token state, EIP712 fields and permit nonce history. Audit any legacy pair before restricting migration mint paths.</td>
+</tr>
+      <tr>
+<td><code>vault/BridgedERC721.sol</code>, <code>BridgedERC1155.sol</code>
+</td>
+<td>Remove pause; keep vault-only mint/burn and user approval/transfer rights.</td>
+<td>No change to token storage, source identities or metadata.</td>
+</tr>
+      <tr>
+<td><code>vault/IBridgedERC20.sol</code>, <code>IBridgedERC721.sol</code>, <code>IBridgedERC1155.sol</code>, <code>IPermit2.sol</code>, <code>LibBridgedToken.sol</code>
+</td>
+<td>No change to compatibility interfaces, Permit2 interaction or token validation library needed.</td>
+<td>A selector may remain in an interface while its obsolete administrative operation always reverts; document this behavior.</td>
+</tr>
+      <tr>
+<td>All seven <code>vault/*_Layout.sol</code> files</td>
+<td>Regenerate documentation only with implementations.</td>
+<td>Preserve the exact Vault and wrapper rows above.</td>
+</tr>
+      <tr>
+<td><code>fork-router/ForkRouter.sol</code>, <code>ForkRouter_Layout.sol</code>
+</td>
+<td>No generic router extension. Final proxy implementation directly selects Etna code; preserve old storage reservations.</td>
+<td>No old-fork delegatecall, receive fallback, selector collision or inherited owner mutator remains executable at activation.</td>
+</tr>
     </tbody>
   </table>
   <p><strong>Proven baseline fact.</strong> The inventory and the quota manager's non-upgradeable status are established by tree enumeration and <a href="https://github.com/taikoxyz/taiko-mono/blob/7217121d516ce37e8c1684d168d6e5b525f8765c/packages/protocol/contracts/shared/bridge/QuotaManager.sol">QuotaManager.sol:8–11,67–97</a>. Existing immutables are not resolver entries: changing a resolver alone cannot change SignalService's syncer, Bridge's quotaManager or a wrapper's Vault.</p>
@@ -192,19 +373,74 @@ function remoteSignalService() external view returns (address service_);</code><
   <h2 id="authority">Assumed — remove operational authority through every entry path</h2>
   <table>
     <caption>Assumed — post-activation authority matrix</caption>
-    <thead><tr><th>Operation</th><th>Etna rule</th><th>Why it is necessary</th></tr></thead>
+    <thead>
+<tr>
+<th>Operation</th>
+<th>Etna rule</th>
+<th>Why it is necessary</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td>UUPS <code>upgradeTo</code>/<code>upgradeToAndCall</code>, as supported by the deployed proxy</td><td>DAO owner only. Implementation upgrade payload may perform the audited migration belonging to that revision.</td><td>The sole explicit governance power permitted by R1.</td></tr>
-      <tr><td><code>pause</code>, <code>unpause</code>, pauser-specific paths</td><td>Revert for every caller, including DAO. Active methods no longer consult persisted pause bytes; <code>paused()</code> returns false.</td><td>Setting pauser to zero alone leaves inherited owner pause authority and can leave a previously paused proxy stuck.</td></tr>
-      <tr><td><code>transferOwnership</code>, <code>acceptOwnership</code>, <code>renounceOwnership</code></td><td>Revert after migration. DAO remains sole recorded owner; old pendingOwner cannot accept.</td><td>Prevents a stale pending owner or inherited path from restoring an operator.</td></tr>
-      <tr><td>Existing Bridge <code>init</code>, <code>init2</code>, <code>init3(bytes32[])</code> and unused reinitializers</td><td>Revert on retained proxies; initialization/migration occurs only as the already authorized upgrade's committed effect.</td><td>Legacy <code>init3</code> can mark arbitrary messages DONE; an unused initializer is not harmless merely because its normal initializer has run.</td></tr>
-      <tr><td>Resolver <code>registerAddress</code></td><td>Revert. Existing chain/app identities and new wrapper implementation entries are pinned in the installation upgrade.</td><td>Runtime remapping can forge remote Vault provenance or create a mutable allowlist.</td></tr>
-      <tr><td>ERC20Vault <code>changeBridgedToken</code>; wrapper <code>changeMigrationStatus</code></td><td>Revert for new transitions. Old active migrations must be completed or receive a narrowly audited immutable continuation before activation.</td><td>Preserves canonical asset identity without an operator choosing a replacement token.</td></tr>
-      <tr><td>ERC20 wrapper <code>mint</code>/<code>burn</code></td><td>Ordinary mint/burn only from its retained Vault. Remove owner branch. Historic paired migration authority is permitted only under a separately committed conservation proof, otherwise it blocks activation.</td><td>Removing only Vault remapping does not remove existing owner mint or migration-pair mint.</td></tr>
-      <tr><td>Bridge plain <code>receive</code></td><td>Anyone may donate ETH; receipt gives no withdrawal/reward entitlement. Existing message-value accounting is unchanged.</td><td>Eliminates the pauser funding gate without creating an unbacked claim.</td></tr>
-      <tr><td>Anchor treasury withdrawal</td><td>Legacy withdrawal reverts; anyone may sweep native fees to the immutable treasury recipient only.</td><td>No DAO action or mutable destination is needed for protocol operation.</td></tr>
-      <tr><td>Quota changes on old utility</td><td>Old utility may still have owner setters, but zero reachable Etna dependency edges and zero custody authority. No Etna contract points to it.</td><td>Its dormant ABI cannot pause, mint, remap or withhold Etna assets.</td></tr>
-      <tr><td>Normal send/process/retry/recall, token transfers, proof submission, forced transactions, challenge and exit</td><td>Public under objective state conditions and appropriate asset-owner consent.</td><td>No DAO, whitelist or discretionary adjudicator participates.</td></tr>
+      <tr>
+<td>UUPS <code>upgradeTo</code>/<code>upgradeToAndCall</code>, as supported by the deployed proxy</td>
+<td>DAO owner only. Implementation upgrade payload may perform the audited migration belonging to that revision.</td>
+<td>The sole explicit governance power permitted by R1.</td>
+</tr>
+      <tr>
+<td><code>pause</code>, <code>unpause</code>, pauser-specific paths</td>
+<td>Revert for every caller, including DAO. Active methods no longer consult persisted pause bytes; <code>paused()</code> returns false.</td>
+<td>Setting pauser to zero alone leaves inherited owner pause authority and can leave a previously paused proxy stuck.</td>
+</tr>
+      <tr>
+<td><code>transferOwnership</code>, <code>acceptOwnership</code>, <code>renounceOwnership</code>
+</td>
+<td>Revert after migration. DAO remains sole recorded owner; old pendingOwner cannot accept.</td>
+<td>Prevents a stale pending owner or inherited path from restoring an operator.</td>
+</tr>
+      <tr>
+<td>Existing Bridge <code>init</code>, <code>init2</code>, <code>init3(bytes32[])</code> and unused reinitializers</td>
+<td>Revert on retained proxies; initialization/migration occurs only as the already authorized upgrade's committed effect.</td>
+<td>Legacy <code>init3</code> can mark arbitrary messages DONE; an unused initializer is not harmless merely because its normal initializer has run.</td>
+</tr>
+      <tr>
+<td>Resolver <code>registerAddress</code>
+</td>
+<td>Revert. Existing chain/app identities and new wrapper implementation entries are pinned in the installation upgrade.</td>
+<td>Runtime remapping can forge remote Vault provenance or create a mutable allowlist.</td>
+</tr>
+      <tr>
+<td>ERC20Vault <code>changeBridgedToken</code>; wrapper <code>changeMigrationStatus</code>
+</td>
+<td>Revert for new transitions. Old active migrations must be completed or receive a narrowly audited immutable continuation before activation.</td>
+<td>Preserves canonical asset identity without an operator choosing a replacement token.</td>
+</tr>
+      <tr>
+<td>ERC20 wrapper <code>mint</code>/<code>burn</code>
+</td>
+<td>Ordinary mint/burn only from its retained Vault. Remove owner branch. Historic paired migration authority is permitted only under a separately committed conservation proof, otherwise it blocks activation.</td>
+<td>Removing only Vault remapping does not remove existing owner mint or migration-pair mint.</td>
+</tr>
+      <tr>
+<td>Bridge plain <code>receive</code>
+</td>
+<td>Anyone may donate ETH; receipt gives no withdrawal/reward entitlement. Existing message-value accounting is unchanged.</td>
+<td>Eliminates the pauser funding gate without creating an unbacked claim.</td>
+</tr>
+      <tr>
+<td>Anchor treasury withdrawal</td>
+<td>Legacy withdrawal reverts; anyone may sweep native fees to the immutable treasury recipient only.</td>
+<td>No DAO action or mutable destination is needed for protocol operation.</td>
+</tr>
+      <tr>
+<td>Quota changes on old utility</td>
+<td>Old utility may still have owner setters, but zero reachable Etna dependency edges and zero custody authority. No Etna contract points to it.</td>
+<td>Its dormant ABI cannot pause, mint, remap or withhold Etna assets.</td>
+</tr>
+      <tr>
+<td>Normal send/process/retry/recall, token transfers, proof submission, forced transactions, challenge and exit</td>
+<td>Public under objective state conditions and appropriate asset-owner consent.</td>
+<td>No DAO, whitelist or discretionary adjudicator participates.</td>
+</tr>
     </tbody>
   </table>
   <p>The final selector audit includes proxy fallback and receive functions, router-local UUPS/Ownable methods, delegated old code, inherited methods, multicalls, externally callable initializers and every immutable/resolver target. A generic fallback to old code is forbidden. Denying a selector only in a front-end ABI is insufficient. In particular, baseline <code>EssentialContract.pause()</code> is nonvirtual; an implementation cannot claim to remove it through an override Solidity does not permit. Replace the relevant base behavior with identical storage, or ensure its authorization hook unconditionally reverts and remove effective pause checks.</p>
@@ -242,12 +478,38 @@ function remoteSignalService() external view returns (address service_);</code><
   <p>The migration manifest commits chain IDs, all retained proxy addresses, exact old/new code hashes, implementation immutables, DAO identity, treasury recipient, resolver bindings, trusted root boundary, initializer versions, permitted drain verifier and expected L2 upgrade-state commitment. It also pins canonical EIP-4788/EIP-2935 addresses and runtime code hashes, the guarded Anchor and L2 SignalService implementations, explicit L1/L2 mode and unchanged remote identities, and the pinned-origin namespace. The installation proof authenticates actual code and proxy implementation slots under the terminal legacy root; an address list or operator assertion is insufficient. It is fixed by the initial upgrade authorization; no runtime setter, operator-selected head or per-token exemption may amend it.</p>
   <table>
     <caption>Assumed — migration states, triggers and invariants</caption>
-    <thead><tr><th>State</th><th>Entry and allowed actions</th><th>Exit predicate and failure behavior</th></tr></thead>
+    <thead>
+<tr>
+<th>State</th>
+<th>Entry and allowed actions</th>
+<th>Exit predicate and failure behavior</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td><code>LEGACY</code></td><td>Existing system; preflight and read-only rehearsal. DAO prepares audited upgrade payloads and upgrades L2 shared/wrapper contracts through current governance.</td><td>All required ownership, layout, data and wrapper checks pass. If any fail, remain on legacy and publish the blocker; never guess an address or discard liabilities.</td></tr>
-      <tr><td><code>PREPARED</code></td><td>Etna Inbox exists inactive. The manifest and code hashes are fixed. Execution-client/prover parity has been established; both canonical EIP contracts and all L2 implementation changes required for the boundary have executed as ordinary legacy transactions and their blocks can be proved. L1 cutover bundle installs compatible shared implementations plus the legacy drain revision atomically.</td><td>The L1 bundle records a finite old proposal tail and forced-queue tail. It disables new discretionary legacy proposals and legacy forced enqueues. This step is an upgrade action; it must not later require discretionary DAO confirmation.</td></tr>
-      <tr><td><code>DRAINING</code></td><td>Anyone may prove already-pending legacy proposals. Anyone may submit/prove deterministic forced-only legacy proposals for the remaining frozen legacy queue, with original data and derivation rules. No proposer/prover whitelist, new worker assignment or private relay gates the drain. New Etna force intake rejects until ACTIVE, collecting no fee or request liability during the drain.</td><td>Every committed legacy proposal and frozen forced request is consumed/proved; final accepted legacy root contains the required L2 upgrades. Missing historical blob data or unavailable audited legacy proving blocks activation safely. No owner void/refund-by-fiat escape is allowed.</td></tr>
-      <tr><td><code>ACTIVE</code></td><td>Anyone calls <code>activateEtna</code> with the exact authenticated drain certificate. In one L1 transaction set the new canonical genesis head, mark legacy drain sealed and switch root authority to new Inbox. Permissionless data+proof submission, force, challenge and exit run from here.</td><td>No accepted Etna descendant returns to legacy. L1 rejects old writers immediately at ACTIVE; the first Etna block’s standard nonzero 4788 write disables both L2 legacy writers before ordinary transactions. Stale drain calls, conflicting boundary roots and generic old-fork selectors fail. Subsequent revisions require the normal DAO upgrade power, not an operational migration switch.</td></tr>
+      <tr>
+<td><code>LEGACY</code>
+</td>
+<td>Existing system; preflight and read-only rehearsal. DAO prepares audited upgrade payloads and upgrades L2 shared/wrapper contracts through current governance.</td>
+<td>All required ownership, layout, data and wrapper checks pass. If any fail, remain on legacy and publish the blocker; never guess an address or discard liabilities.</td>
+</tr>
+      <tr>
+<td><code>PREPARED</code>
+</td>
+<td>Etna Inbox exists inactive. The manifest and code hashes are fixed. Execution-client/prover parity has been established; both canonical EIP contracts and all L2 implementation changes required for the boundary have executed as ordinary legacy transactions and their blocks can be proved. L1 cutover bundle installs compatible shared implementations plus the legacy drain revision atomically.</td>
+<td>The L1 bundle records a finite old proposal tail and forced-queue tail. It disables new discretionary legacy proposals and legacy forced enqueues. This step is an upgrade action; it must not later require discretionary DAO confirmation.</td>
+</tr>
+      <tr>
+<td><code>DRAINING</code>
+</td>
+<td>Anyone may prove already-pending legacy proposals. Anyone may submit/prove deterministic forced-only legacy proposals for the remaining frozen legacy queue, with original data and derivation rules. No proposer/prover whitelist, new worker assignment or private relay gates the drain. New Etna force intake rejects until ACTIVE, collecting no fee or request liability during the drain.</td>
+<td>Every committed legacy proposal and frozen forced request is consumed/proved; final accepted legacy root contains the required L2 upgrades. Missing historical blob data or unavailable audited legacy proving blocks activation safely. No owner void/refund-by-fiat escape is allowed.</td>
+</tr>
+      <tr>
+<td><code>ACTIVE</code>
+</td>
+<td>Anyone calls <code>activateEtna</code> with the exact authenticated drain certificate. In one L1 transaction set the new canonical genesis head, mark legacy drain sealed and switch root authority to new Inbox. Permissionless data+proof submission, force, challenge and exit run from here.</td>
+<td>No accepted Etna descendant returns to legacy. L1 rejects old writers immediately at ACTIVE; the first Etna block’s standard nonzero 4788 write disables both L2 legacy writers before ordinary transactions. Stale drain calls, conflicting boundary roots and generic old-fork selectors fail. Subsequent revisions require the normal DAO upgrade power, not an operational migration switch.</td>
+</tr>
     </tbody>
   </table>
   <p>The DRAINING path is finite because the legacy proposal tail and forced tail are frozen before processing. Each forced drain proposal contains exactly the next stored legacy source plus one deterministic default regular source required for compatibility, hence exactly two derived blocks. It cannot introduce attacker-selected discretionary transactions or extend the queue. Legacy enqueues after the cutoff fail; the new Etna queue also rejects before ACTIVE. Clients expose this temporary intake gap and submit new requests only after objective activation. There is no cancellation timer that erases pending requests, committed data, bonds or user escrow.</p>
@@ -325,13 +587,48 @@ initialHeadHash = hashHead(H0); // exact same canonical Head hash as normal pare
   <p>At successful activation record <code>activationL1Number = uint48(block.number)</code>, <code>activationTime = uint48(block.timestamp)</code> and <code>rentReferenceTime = activationTime</code> outside Head. They occupy full uint256 words M+1, M+2 and M+3 respectively, following the migration-phase word M specified below; the stored values are checked to fit the stated uint48 ranges. activationL1Number and activationTime never change. Each successful canonical segment acceptance alone updates rentReferenceTime to its actual L1 acceptance timestamp, for the head-age admission rule. A head read, staged candidate, header pin, proof-job acceptance, forced enqueue, failed submission or repeated activation call cannot reset any clock or refresh a queue snapshot.</p>
   <table>
     <caption>Assumed — exact migration-phase gates</caption>
-    <thead><tr><th>Operation</th><th>PREPARED</th><th>DRAINING</th><th>ACTIVE</th></tr></thead>
+    <thead>
+<tr>
+<th>Operation</th>
+<th>PREPARED</th>
+<th>DRAINING</th>
+<th>ACTIVE</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td><code>force</code></td><td>Revert; no fee collected.</td><td>Revert; no fee collected, record appended or credit created.</td><td>Open; append with original timestamp/block and exact fee.</td></tr>
-      <tr><td><code>getHead</code>, <code>submitSegment</code></td><td>Revert: no usable head.</td><td>Revert: no usable head.</td><td>Normal head access and data+proof admission.</td></tr>
-      <tr><td>Execution-stage registration; canonical proof-job creation/acceptance</td><td>Revert.</td><td>Revert.</td><td>Normal objective stage/task checks; no synthetic genesis task.</td></tr>
-      <tr><td>Independent service deposits, withdrawals and mature evidence claims; HeaderStore pinning</td><td>Existing objective rules; no fabricated head dependence.</td><td>Same.</td><td>Same.</td></tr>
-      <tr><td><code>activateEtna</code></td><td>Revert until the installed drain has entered DRAINING and is READY.</td><td>Public; accept only the exact verified READY certificate.</td><td>Revert; no replay, replacement genesis or clock reset.</td></tr>
+      <tr>
+<td><code>force</code>
+</td>
+<td>Revert; no fee collected.</td>
+<td>Revert; no fee collected, record appended or credit created.</td>
+<td>Open; append with original timestamp/block and exact fee.</td>
+</tr>
+      <tr>
+<td><code>getHead</code>, <code>submitSegment</code>
+</td>
+<td>Revert: no usable head.</td>
+<td>Revert: no usable head.</td>
+<td>Normal head access and data+proof admission.</td>
+</tr>
+      <tr>
+<td>Execution-stage registration; canonical proof-job creation/acceptance</td>
+<td>Revert.</td>
+<td>Revert.</td>
+<td>Normal objective stage/task checks; no synthetic genesis task.</td>
+</tr>
+      <tr>
+<td>Independent service deposits, withdrawals and mature evidence claims; HeaderStore pinning</td>
+<td>Existing objective rules; no fabricated head dependence.</td>
+<td>Same.</td>
+<td>Same.</td>
+</tr>
+      <tr>
+<td><code>activateEtna</code>
+</td>
+<td>Revert until the installed drain has entered DRAINING and is READY.</td>
+<td>Public; accept only the exact verified READY certificate.</td>
+<td>Revert; no replay, replacement genesis or clock reset.</td>
+</tr>
     </tbody>
   </table>
   <p>The new Etna queue is initialized once with tail=0, consumed cursor=0 and no request-fee liabilities. <code>force</code> first requires ACTIVE, before any enqueue, fee allocation or excess-payment credit; a pre-ACTIVE call reverts atomically with all value returned except ordinary failed-transaction gas. Activation requires the new queue to be empty with zero request-fee liabilities, and preserves that state while installing H0.forceCursor=0. It never clears unexpected records or escrow. Unsolicited ETH is uncredited surplus and does not violate the internal-liability check. The read-only <code>quoteForceFee</code> may quote in any phase using pending=tail−consumedCursor, but supplies no admission promise; it changes no state or liabilities. After ACTIVE, new arrivals may increase the quote but cannot alter an existing request’s paid amount, place or due time. Legacy requests retain their separate original namespace and drain obligations.</p>
@@ -416,14 +713,50 @@ event LegacyDrainSealed(bytes32 indexed cutHash, bytes32 indexed checkpointHash)
   <p><code>cutHash = keccak256(abi.encode("ETNA_LEGACY_CUT_V1", L1ChainId, L2ChainId, oldInbox, newInbox, cut))</code>. <code>checkpointHash = keccak256(abi.encode("ETNA_LEGACY_END_V1", cutHash, checkpoint, endL2Timestamp, finalProposalId))</code>, with the checkpoint tuple and integer widths exactly as in the ABI. Function callers never supply an alternative snapshot, hash function, fee recipient or root. Every narrowing conversion to uint48 is checked; counter exhaustion prevents installation instead of wrapping. Every end-header witness is canonical RLP under the pinned legacy header schema and at most 4096 bytes; rejection precedes unbounded decoding work.</p>
   <table>
     <caption>Assumed — deterministic adapter transitions</caption>
-    <thead><tr><th>Action</th><th>Acceptance checks</th><th>Atomic effects</th></tr></thead>
+    <thead>
+<tr>
+<th>Action</th>
+<th>Acceptance checks</th>
+<th>Atomic effects</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td><code>installLegacyDrain</code></td><td>UNINSTALLED; manifest equals implementation immutable; new Inbox inactive; invoked in the same authorized upgrade bundle that installs the adapter. Supplied base header hashes to the stored last-finalized L2 block hash, its height/root match an existing trusted SignalService checkpoint and its timestamp parses canonically. Require nonempty valid legacy activation state and enough uint48 proposal IDs for every remaining forced entry.</td><td>Read current CoreState and queue to construct cut; freeze tails, effective old whitelist mode and base checkpoint. HISTORY if historical suffix nonempty, otherwise FORCED if queue nonempty, otherwise READY. Disable old propose, prove, enqueue, deposit and owner recovery entrypoints. No user supplies cut indices. Emit complete cut.</td></tr>
-      <tr><td><code>proveHistorical</code></td><td>HISTORY; 1–32 transitions; firstProposalId equals nextHistoricalId; lastId &lt; cut.proposalEnd; parent hash equals current finalized block; lastProposalHash equals preserved ring-buffer hash at lastId. End header hash equals last transition blockHash and its number/root equal commitment fields. Historical legacy proofs authenticate proposal chain, data, derivation and every execution transition.</td><td>Verify legacy ZK proof and update exact historical CoreState/checkpoint. Apply at most the existing first-new-proposal liveness settlement when cut.historicalSlashing is true, using proof-bound actualProver. Advance nextHistoricalId by proof length. On equality with frozen proposalEnd enter FORCED or READY. Publish checkpoint and events together, or revert everything.</td></tr>
-      <tr><td><code>commitNextForcedDrain</code></td><td>FORCED; expectedCursor equals both drain cursor and old queue head; cursor &lt; cut.forcedEnd; no pending forced proposal; all previously committed proposals proved; current timestamp ≥ last accepted L2 timestamp + 2 seconds; canonical parent L1 block hash available. No bond, caller identity or publication reward condition.</td><td>Construct exactly the deterministic proposal below from stored queue data. Store its hash in the existing ring and complete pending proposal in the new namespace; increment nextProposalId once. Emit existing <code>Proposed</code> plus LegacyForcedCommitted. Do not yet advance the forced cursor, transfer a fee or publish a state root.</td></tr>
-      <tr><td><code>proveForcedDrain</code></td><td>FORCED with one pending proposal; exactly one transition; commitment firstProposalId equals pending ID; lastProposalHash equals stored pending hash; parent equals accepted end hash; proposer/timestamp match pending proposal; end block number equals prior end + 2. Canonical end header matches hash/root/number. Sound legacy proof covers both source-derived blocks.</td><td>Publish terminal checkpoint; finalize pending proposal; advance old queue head and drain cursor exactly once; clear pending proposal; credit original feeInGwei × 10<sup>9</sup> ETH wei to commitment.actualProver. No liveness bond is created or slashed for the fixed protocol proposer. If cursor reaches cut.forcedEnd, enter READY.</td></tr>
-      <tr><td><code>claimLegacyForceFees</code></td><td>Any stage after installation; caller has positive pull credit; nonzero destination of caller's choice.</td><td>Clear only caller's credit and transfer that exact ETH amount non-reentrantly. Recipient failure reverts the claim only. Claims do not block READY or activation.</td></tr>
-      <tr><td><code>sealLegacyDrain</code></td><td>READY; expected hashes equal stored cut/end; caller is the new Inbox executing its public <code>activateEtna</code> transaction; no pending proposal; frozen queue fully consumed; CoreState.lastFinalizedProposalId + 1 equals nextProposalId.</td><td>Enter SEALED irreversibly and emit sealed digest. The caller provenance is a contract integrity check; any address may trigger the surrounding activation. If new Inbox activation fails, this seal rolls back too.</td></tr>
+      <tr>
+<td><code>installLegacyDrain</code>
+</td>
+<td>UNINSTALLED; manifest equals implementation immutable; new Inbox inactive; invoked in the same authorized upgrade bundle that installs the adapter. Supplied base header hashes to the stored last-finalized L2 block hash, its height/root match an existing trusted SignalService checkpoint and its timestamp parses canonically. Require nonempty valid legacy activation state and enough uint48 proposal IDs for every remaining forced entry.</td>
+<td>Read current CoreState and queue to construct cut; freeze tails, effective old whitelist mode and base checkpoint. HISTORY if historical suffix nonempty, otherwise FORCED if queue nonempty, otherwise READY. Disable old propose, prove, enqueue, deposit and owner recovery entrypoints. No user supplies cut indices. Emit complete cut.</td>
+</tr>
+      <tr>
+<td><code>proveHistorical</code>
+</td>
+<td>HISTORY; 1–32 transitions; firstProposalId equals nextHistoricalId; lastId &lt; cut.proposalEnd; parent hash equals current finalized block; lastProposalHash equals preserved ring-buffer hash at lastId. End header hash equals last transition blockHash and its number/root equal commitment fields. Historical legacy proofs authenticate proposal chain, data, derivation and every execution transition.</td>
+<td>Verify legacy ZK proof and update exact historical CoreState/checkpoint. Apply at most the existing first-new-proposal liveness settlement when cut.historicalSlashing is true, using proof-bound actualProver. Advance nextHistoricalId by proof length. On equality with frozen proposalEnd enter FORCED or READY. Publish checkpoint and events together, or revert everything.</td>
+</tr>
+      <tr>
+<td><code>commitNextForcedDrain</code>
+</td>
+<td>FORCED; expectedCursor equals both drain cursor and old queue head; cursor &lt; cut.forcedEnd; no pending forced proposal; all previously committed proposals proved; current timestamp ≥ last accepted L2 timestamp + 2 seconds; canonical parent L1 block hash available. No bond, caller identity or publication reward condition.</td>
+<td>Construct exactly the deterministic proposal below from stored queue data. Store its hash in the existing ring and complete pending proposal in the new namespace; increment nextProposalId once. Emit existing <code>Proposed</code> plus LegacyForcedCommitted. Do not yet advance the forced cursor, transfer a fee or publish a state root.</td>
+</tr>
+      <tr>
+<td><code>proveForcedDrain</code>
+</td>
+<td>FORCED with one pending proposal; exactly one transition; commitment firstProposalId equals pending ID; lastProposalHash equals stored pending hash; parent equals accepted end hash; proposer/timestamp match pending proposal; end block number equals prior end + 2. Canonical end header matches hash/root/number. Sound legacy proof covers both source-derived blocks.</td>
+<td>Publish terminal checkpoint; finalize pending proposal; advance old queue head and drain cursor exactly once; clear pending proposal; credit original feeInGwei × 10<sup>9</sup> ETH wei to commitment.actualProver. No liveness bond is created or slashed for the fixed protocol proposer. If cursor reaches cut.forcedEnd, enter READY.</td>
+</tr>
+      <tr>
+<td><code>claimLegacyForceFees</code>
+</td>
+<td>Any stage after installation; caller has positive pull credit; nonzero destination of caller's choice.</td>
+<td>Clear only caller's credit and transfer that exact ETH amount non-reentrantly. Recipient failure reverts the claim only. Claims do not block READY or activation.</td>
+</tr>
+      <tr>
+<td><code>sealLegacyDrain</code>
+</td>
+<td>READY; expected hashes equal stored cut/end; caller is the new Inbox executing its public <code>activateEtna</code> transaction; no pending proposal; frozen queue fully consumed; CoreState.lastFinalizedProposalId + 1 equals nextProposalId.</td>
+<td>Enter SEALED irreversibly and emit sealed digest. The caller provenance is a contract integrity check; any address may trigger the surrounding activation. If new Inbox activation fails, this seal rolls back too.</td>
+</tr>
     </tbody>
   </table>
   <p><code>installLegacyDrain</code> has one objective immutable-manifest initialization path, not a reusable owner reset. The proxy upgrade and installation are one atomic <code>upgradeToAndCall</code> operation. There is no interval in which a publicly visible uninitialized adapter can be used to choose a different checkpoint. The function's supplied base is merely a witness to the already recorded end hash/checkpoint, not an administrator-selected state. Any post-install call fails. No later whitelist read or DAO mutation can change the frozen historical-slashing mode.</p>
@@ -437,20 +770,61 @@ event LegacyDrainSealed(bytes32 indexed cutHash, bytes32 indexed checkpointHash)
   <p>Use ERC-7201-style namespace base <code>N = keccak256(abi.encode(uint256(keccak256("taiko.etna.legacy-drain.v1")) − 1)) &amp; ~bytes32(uint256(255))</code>. This is an exact slot formula, not an unspecified gap allocation. All integer fields listed below occupy a complete uint256 word and are checked against their narrower ABI bounds. The namespace is checked against every existing linear, EIP-1967 and custom namespaced slot during preflight. No existing gap is consumed.</p>
   <table>
     <caption>Assumed — new legacy Inbox namespace offsets</caption>
-    <thead><tr><th>Offset from N</th><th>Field and representation</th></tr></thead>
+    <thead>
+<tr>
+<th>Offset from N</th>
+<th>Field and representation</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td>0</td><td>cutHash, bytes32</td></tr>
-      <tr><td>1–2</td><td>cut L1 number; cut timestamp, each uint256</td></tr>
-      <tr><td>3–4</td><td>first historical proposal ID; frozen exclusive proposal end, each uint256</td></tr>
-      <tr><td>5</td><td>frozen historical proposal tip hash, bytes32</td></tr>
-      <tr><td>6–7</td><td>frozen forced start/end, each uint256</td></tr>
-      <tr><td>8–9</td><td>next historical ID; forced cursor, each uint256</td></tr>
-      <tr><td>10</td><td>DrainStage as uint256; zero is UNINSTALLED</td></tr>
-      <tr><td>11</td><td>historicalSlashing as uint256, exactly 0 or 1</td></tr>
-      <tr><td>12–15</td><td>last L2 number (uint256), block hash (bytes32), state root (bytes32), timestamp (uint256)</td></tr>
-      <tr><td>16–17</td><td>pending forced proposal ID (uint256), pending proposal hash (bytes32)</td></tr>
-      <tr><td>18</td><td>ABI-encoded pending IInbox.Proposal as Solidity <code>bytes</code>; data storage follows the standard bytes layout. Empty means none.</td></tr>
-      <tr><td>19</td><td><code>mapping(address =&gt; uint256)</code> ETH pull fee credits</td></tr>
+      <tr>
+<td>0</td>
+<td>cutHash, bytes32</td>
+</tr>
+      <tr>
+<td>1–2</td>
+<td>cut L1 number; cut timestamp, each uint256</td>
+</tr>
+      <tr>
+<td>3–4</td>
+<td>first historical proposal ID; frozen exclusive proposal end, each uint256</td>
+</tr>
+      <tr>
+<td>5</td>
+<td>frozen historical proposal tip hash, bytes32</td>
+</tr>
+      <tr>
+<td>6–7</td>
+<td>frozen forced start/end, each uint256</td>
+</tr>
+      <tr>
+<td>8–9</td>
+<td>next historical ID; forced cursor, each uint256</td>
+</tr>
+      <tr>
+<td>10</td>
+<td>DrainStage as uint256; zero is UNINSTALLED</td>
+</tr>
+      <tr>
+<td>11</td>
+<td>historicalSlashing as uint256, exactly 0 or 1</td>
+</tr>
+      <tr>
+<td>12–15</td>
+<td>last L2 number (uint256), block hash (bytes32), state root (bytes32), timestamp (uint256)</td>
+</tr>
+      <tr>
+<td>16–17</td>
+<td>pending forced proposal ID (uint256), pending proposal hash (bytes32)</td>
+</tr>
+      <tr>
+<td>18</td>
+<td>ABI-encoded pending IInbox.Proposal as Solidity <code>bytes</code>; data storage follows the standard bytes layout. Empty means none.</td>
+</tr>
+      <tr>
+<td>19</td>
+<td><code>mapping(address =&gt; uint256)</code> ETH pull fee credits</td>
+</tr>
     </tbody>
   </table>
   <p>Manifest hash, new Inbox, SignalService, chain IDs, fixed L2 Anchor coinbase, verifier code/program commitments and frozen legacy configuration are implementation immutables; they add no proxy slots. Computed cutHash includes that immutable manifest. Historical bond effects continue on the original ledger using the legacy 50/50 best-effort accounting and proof-bound actualProver. Existing withdrawal/request/cancel selectors stay permissionless; no deposit is needed for draining. Withdrawals retain the original mature-request behavior, so this upgrade does not invent a retroactive bond lock or promise that already withdrawable funds remain slashable.</p>
@@ -488,30 +862,124 @@ L2 SignalService.saveCheckpoint(checkpoint):
   <h2 id="parameters">Assumed — migration and integration parameters</h2>
   <table>
     <caption>Assumed proposed values; Open rows require evidence rather than invented addresses</caption>
-    <thead><tr><th>Parameter</th><th>Value / units</th><th>Reason and status</th></tr></thead>
+    <thead>
+<tr>
+<th>Parameter</th>
+<th>Value / units</th>
+<th>Reason and status</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td>Replaced custody proxy addresses</td><td>0 addresses on each layer</td><td>Assumed: R2; upgrade implementations only.</td></tr>
-      <tr><td>Signal cache/checkpoint namespace</td><td>VERSION = 1</td><td>Assumed: preserve existing authenticated history under A-LEGACY.</td></tr>
-      <tr><td>New shared persistent state</td><td>L2 pinned-origin namespace only</td><td>Assumed: exact allocation and pin/reveal rules in <a href="checkpoints.html">checkpoints</a>; all existing shared linear slots, gaps and VERSION 1 maps remain unchanged. No new Anchor phase slot.</td></tr>
-      <tr><td>Bootstrap segment / first force snapshot</td><td>Segment0; cursor=0, cut=0, snapshot time=0</td><td>Assumed: unique certificate-derived H0; first accepted segment processes no forced requests and publishes the first ordinary snapshot.</td></tr>
-      <tr><td>Minimal first-segment calldata body bound</td><td>≤1,039 bytes</td><td>Proven under codec bounds: one ≤1,024-byte L2 header, empty transaction list, empty forced array and exact RLP overhead. System-call/proof/landing costs require preflight measurement.</td></tr>
-      <tr><td>Activation clocks</td><td>M+1 activationL1Number; M+2 activationTime; M+3 rentReferenceTime</td><td>Assumed: outside Head; first two immutable after activation, rent clock changes only on successful canonical acceptance.</td></tr>
-      <tr><td>Etna anchor transaction / gas reserve</td><td>None / 0 gas</td><td>Assumed: upstream standard 4788/2935 operations plus ordinary transactions. Pin/reveal gas is ordinary transaction gas inside the 10,000,000 total block limit.</td></tr>
-      <tr><td>Ordinary pin/reveal inputs</td><td>pinCurrentOrigin(): 4 calldata bytes; full L1 header ≤1,536 bytes</td><td>Assumed: checkpoint API and exact signed-transaction sizing in <a href="checkpoints.html">checkpoints</a>; bounded pin/reveal recovery fits the 2,048-byte forced raw-transaction cap.</td></tr>
-      <tr><td>Canonical EIP-4788 getter allowance</td><td>100,000 gas</td><td>Assumed: exact runtime code hash, raw 32-byte timestamp input, successful exact 32-byte output; every failure reverts.</td></tr>
-      <tr><td>Checkpoint height</td><td>uint48 L1 or L2 block number</td><td>Proven existing ABI; Assumed reject overflow rather than truncate.</td></tr>
-      <tr><td>Base-fee allocation</td><td>100% coinbase;0% new Anchor allocation, ETH wei</td><td>Assumed: follow refreshed main source. Preserve historical legacy fee accounting; treasury funds no mandatory live role.</td></tr>
-      <tr><td>Fee-sweep caller reward</td><td>0 wei</td><td>Assumed: caller may pay gas voluntarily; sweep is never a liveness prerequisite.</td></tr>
-      <tr><td>Quota dependency</td><td>address(0), both Bridge and ERC20Vault</td><td>Assumed: removes administrative token/ETH release throttling.</td></tr>
-      <tr><td>Migration timeout / force-void deadline</td><td>None</td><td>Assumed: elapsed time cannot justify discarding accepted old work or assets. Missing evidence blocks launch.</td></tr>
-      <tr><td>Governance freeze after activation</td><td>No routine transaction or periodic renewal</td><td>Assumed: DAO inactivity does not stop open proofs, force, challenges or exits.</td></tr>
-      <tr><td>Legacy freeze tails</td><td>Exact proposal and forced indices from installation L1 block</td><td>Open: finite immutable values from authenticated state; not guessed constants.</td></tr>
-      <tr><td>Historical drain proof length</td><td>1–32 consecutive proposals</td><td>Assumed: bounds on-chain work; no overlap with already finalized proposals.</td></tr>
-      <tr><td>Forced drain concurrency / source count</td><td>1 pending proposal; 1 original forced source + 1 deterministic default source</td><td>Assumed: prevents ring-buffer grief and guarantees finite obligation processing with exactly two derived blocks.</td></tr>
-      <tr><td>Forced drain commit timestamp lower bound</td><td>last accepted L2 timestamp + 2 seconds</td><td>Assumed: leaves valid timestamps for both mandatory derived blocks independently of L1 block interval.</td></tr>
-      <tr><td>End-header witness size</td><td>≤4096 bytes</td><td>Assumed: reject oversized/noncanonical RLP before parsing; supports the pinned legacy header schema.</td></tr>
-      <tr><td>Migration boundary / L2 upgrade root / DAO / treasury</td><td>Manifest values, presently unset</td><td>Open: launch blockers until public state and ownership are verified.</td></tr>
-      <tr><td>Legacy bond units</td><td>Original gwei ledger × 10<sup>9</sup> token base units where applicable</td><td>Assumed: preserve source conversion exactly; do not merge with new uint256 service accounting.</td></tr>
+      <tr>
+<td>Replaced custody proxy addresses</td>
+<td>0 addresses on each layer</td>
+<td>Assumed: R2; upgrade implementations only.</td>
+</tr>
+      <tr>
+<td>Signal cache/checkpoint namespace</td>
+<td>VERSION = 1</td>
+<td>Assumed: preserve existing authenticated history under A-LEGACY.</td>
+</tr>
+      <tr>
+<td>New shared persistent state</td>
+<td>L2 pinned-origin namespace only</td>
+<td>Assumed: exact allocation and pin/reveal rules in <a href="checkpoints.html">checkpoints</a>; all existing shared linear slots, gaps and VERSION 1 maps remain unchanged. No new Anchor phase slot.</td>
+</tr>
+      <tr>
+<td>Bootstrap segment / first force snapshot</td>
+<td>Segment0; cursor=0, cut=0, snapshot time=0</td>
+<td>Assumed: unique certificate-derived H0; first accepted segment processes no forced requests and publishes the first ordinary snapshot.</td>
+</tr>
+      <tr>
+<td>Minimal first-segment calldata body bound</td>
+<td>≤1,039 bytes</td>
+<td>Proven under codec bounds: one ≤1,024-byte L2 header, empty transaction list, empty forced array and exact RLP overhead. System-call/proof/landing costs require preflight measurement.</td>
+</tr>
+      <tr>
+<td>Activation clocks</td>
+<td>M+1 activationL1Number; M+2 activationTime; M+3 rentReferenceTime</td>
+<td>Assumed: outside Head; first two immutable after activation, rent clock changes only on successful canonical acceptance.</td>
+</tr>
+      <tr>
+<td>Etna anchor transaction / gas reserve</td>
+<td>None / 0 gas</td>
+<td>Assumed: upstream standard 4788/2935 operations plus ordinary transactions. Pin/reveal gas is ordinary transaction gas inside the 10,000,000 total block limit.</td>
+</tr>
+      <tr>
+<td>Ordinary pin/reveal inputs</td>
+<td>pinCurrentOrigin(): 4 calldata bytes; full L1 header ≤1,536 bytes</td>
+<td>Assumed: checkpoint API and exact signed-transaction sizing in <a href="checkpoints.html">checkpoints</a>; bounded pin/reveal recovery fits the 2,048-byte forced raw-transaction cap.</td>
+</tr>
+      <tr>
+<td>Canonical EIP-4788 getter allowance</td>
+<td>100,000 gas</td>
+<td>Assumed: exact runtime code hash, raw 32-byte timestamp input, successful exact 32-byte output; every failure reverts.</td>
+</tr>
+      <tr>
+<td>Checkpoint height</td>
+<td>uint48 L1 or L2 block number</td>
+<td>Proven existing ABI; Assumed reject overflow rather than truncate.</td>
+</tr>
+      <tr>
+<td>Base-fee allocation</td>
+<td>100% coinbase;0% new Anchor allocation, ETH wei</td>
+<td>Assumed: follow refreshed main source. Preserve historical legacy fee accounting; treasury funds no mandatory live role.</td>
+</tr>
+      <tr>
+<td>Fee-sweep caller reward</td>
+<td>0 wei</td>
+<td>Assumed: caller may pay gas voluntarily; sweep is never a liveness prerequisite.</td>
+</tr>
+      <tr>
+<td>Quota dependency</td>
+<td>address(0), both Bridge and ERC20Vault</td>
+<td>Assumed: removes administrative token/ETH release throttling.</td>
+</tr>
+      <tr>
+<td>Migration timeout / force-void deadline</td>
+<td>None</td>
+<td>Assumed: elapsed time cannot justify discarding accepted old work or assets. Missing evidence blocks launch.</td>
+</tr>
+      <tr>
+<td>Governance freeze after activation</td>
+<td>No routine transaction or periodic renewal</td>
+<td>Assumed: DAO inactivity does not stop open proofs, force, challenges or exits.</td>
+</tr>
+      <tr>
+<td>Legacy freeze tails</td>
+<td>Exact proposal and forced indices from installation L1 block</td>
+<td>Open: finite immutable values from authenticated state; not guessed constants.</td>
+</tr>
+      <tr>
+<td>Historical drain proof length</td>
+<td>1–32 consecutive proposals</td>
+<td>Assumed: bounds on-chain work; no overlap with already finalized proposals.</td>
+</tr>
+      <tr>
+<td>Forced drain concurrency / source count</td>
+<td>1 pending proposal; 1 original forced source + 1 deterministic default source</td>
+<td>Assumed: prevents ring-buffer grief and guarantees finite obligation processing with exactly two derived blocks.</td>
+</tr>
+      <tr>
+<td>Forced drain commit timestamp lower bound</td>
+<td>last accepted L2 timestamp + 2 seconds</td>
+<td>Assumed: leaves valid timestamps for both mandatory derived blocks independently of L1 block interval.</td>
+</tr>
+      <tr>
+<td>End-header witness size</td>
+<td>≤4096 bytes</td>
+<td>Assumed: reject oversized/noncanonical RLP before parsing; supports the pinned legacy header schema.</td>
+</tr>
+      <tr>
+<td>Migration boundary / L2 upgrade root / DAO / treasury</td>
+<td>Manifest values, presently unset</td>
+<td>Open: launch blockers until public state and ownership are verified.</td>
+</tr>
+      <tr>
+<td>Legacy bond units</td>
+<td>Original gwei ledger × 10<sup>9</sup> token base units where applicable</td>
+<td>Assumed: preserve source conversion exactly; do not merge with new uint256 service accounting.</td>
+</tr>
     </tbody>
   </table>
   <p>No parameter is denominated in an Ethereum consensus slot or epoch. The migration waits for authenticated state transitions and Ethereum finality, not a fixed number of present-day 12-second intervals. Shorter L1 block intervals change operational waiting time, not the preserved-state or authority predicates.</p>
@@ -539,12 +1007,34 @@ L2 SignalService.saveCheckpoint(checkpoint):
   <h2 id="arguments">Assumed — requirement claims, proof sketches and limits</h2>
   <table>
     <caption>Conditional R1/R2 claims; adversaries must try to falsify every condition</caption>
-    <thead><tr><th>Requirement</th><th>Conditional argument</th><th>Open falsification targets</th></tr></thead>
+    <thead>
+<tr>
+<th>Requirement</th>
+<th>Conditional argument</th>
+<th>Open falsification targets</th>
+</tr>
+</thead>
     <tbody>
-      <tr><td>R1: DAO upgrade authority only</td><td>Under A-IMPL, all ordinary entrypoints depend only on public state, proof/consent and objective collateral. Shared provenance controls identify contracts, not human members. Disabled selectors and detached quotas leave no runtime admin path. New entrants need no DAO action; treasury sweeps are optional.</td><td>Inherited pause/owner mint; pending-owner acceptance; unused initializer; old fork fallback; resolver mutation; indirect quota call; treasury subsidy assumed by economics; secret-key system transaction.</td></tr>
-      <tr><td>R2: existing custody design and addresses</td><td>Under A-LEGACY, A-CRYPTO and exact layouts, the same proxies keep the same escrow, maps and replay records. New authenticated full-state checkpoints extend the last legacy head; the existing signal proof and vault context authenticate releases.</td><td>Unknown live implementation; stale routed layout; a reset cache/status map; version mismatch; checkpoint root substitution; old wrapper owner mint; incomplete token migration; inaccurate manifest.</td></tr>
-      <tr><td>Safety of the switch</td><td>Under A-L1 and A-IMPL, L1 phase gates make old/new Inbox authority disjoint; the authenticated zero/nonzero current-header rule closes both L2 legacy writers before Etna transactions. Activation proves all finite prior work and installs the exact parent head. Revert rolls back all same-transaction changes.</td><td>Activation certificate ignores pending proposal/forced work; forged L2 upgrade-state commitment; old authority reachable after ACTIVE; unstated cross-chain atomicity.</td></tr>
-      <tr><td>Liveness after installation</td><td>Under A-EXEC, A-NET, funded L1 inclusion and available historic DA, finite frozen work can be processed by any capable prover; active settlement is an open proof race. No governance heartbeat, whitelist renewal or committee certificate is needed.</td><td>No surviving legacy prover/circuit; missing blobs; unaffordable proving; all capable provers offline; active migration pair requiring an owner; never-completed installation.</td></tr>
+      <tr>
+<td>R1: DAO upgrade authority only</td>
+<td>Under A-IMPL, all ordinary entrypoints depend only on public state, proof/consent and objective collateral. Shared provenance controls identify contracts, not human members. Disabled selectors and detached quotas leave no runtime admin path. New entrants need no DAO action; treasury sweeps are optional.</td>
+<td>Inherited pause/owner mint; pending-owner acceptance; unused initializer; old fork fallback; resolver mutation; indirect quota call; treasury subsidy assumed by economics; secret-key system transaction.</td>
+</tr>
+      <tr>
+<td>R2: existing custody design and addresses</td>
+<td>Under A-LEGACY, A-CRYPTO and exact layouts, the same proxies keep the same escrow, maps and replay records. New authenticated full-state checkpoints extend the last legacy head; the existing signal proof and vault context authenticate releases.</td>
+<td>Unknown live implementation; stale routed layout; a reset cache/status map; version mismatch; checkpoint root substitution; old wrapper owner mint; incomplete token migration; inaccurate manifest.</td>
+</tr>
+      <tr>
+<td>Safety of the switch</td>
+<td>Under A-L1 and A-IMPL, L1 phase gates make old/new Inbox authority disjoint; the authenticated zero/nonzero current-header rule closes both L2 legacy writers before Etna transactions. Activation proves all finite prior work and installs the exact parent head. Revert rolls back all same-transaction changes.</td>
+<td>Activation certificate ignores pending proposal/forced work; forged L2 upgrade-state commitment; old authority reachable after ACTIVE; unstated cross-chain atomicity.</td>
+</tr>
+      <tr>
+<td>Liveness after installation</td>
+<td>Under A-EXEC, A-NET, funded L1 inclusion and available historic DA, finite frozen work can be processed by any capable prover; active settlement is an open proof race. No governance heartbeat, whitelist renewal or committee certificate is needed.</td>
+<td>No surviving legacy prover/circuit; missing blobs; unaffordable proving; all capable provers offline; active migration pair requiring an owner; never-completed installation.</td>
+</tr>
     </tbody>
   </table>
   <p><strong>Proven limitation.</strong> Reusing SignalService does not solve withholding. Its checkpoint contains height/hash/root, not proof of timely gossip. An attacker may reveal a valid private branch with proof and canonical data without ever promising to gossip it. This page neither makes that slashable nor strengthens a preconfirmation into a bridge withdrawal right; the core withholding verdict still governs R6.</p>
@@ -567,6 +1057,8 @@ L2 SignalService.saveCheckpoint(checkpoint):
   </ul>
 </section>
 </main>
-<footer><p>Anchor-removal specification reviewed in rounds 07–08. <strong>Open:</strong> deployment-specific migration blockers. <a href="index.html">Return to the design index</a>.</p></footer>
+<footer>
+<p>Anchor-removal specification reviewed in rounds 07–08. <strong>Open:</strong> deployment-specific migration blockers. <a href="index.html">Return to the design index</a>.</p>
+</footer>
 </body>
 </html>

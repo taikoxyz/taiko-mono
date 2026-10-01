@@ -1,38 +1,120 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna lesson 1 — Three meanings of confirmed</title><link rel="stylesheet" href="../design/style.css"></head>
-<body><header><p class="eyebrow">Etna learning course · lesson 1</p><h1>Three meanings of “confirmed”</h1><p>First learn what a fast block can promise.</p><nav aria-label="Course"><a href="index.html">Course map</a><a href="02-origins.html">Next: known L1 facts</a></nav></header><main>
-<aside class="notice"><strong>Historical review milestone; production feasibility remains open.</strong> The <a href="../iterations/08-judge.md">round 08 judge</a> records specification convergence for the anchor-removal snapshot reviewed in rounds 07–08. That record is not launch approval or validation of later additions. The <a href="../design/assurance.html#operating-profile">current operating-profile assessment</a> leaves affordability, sustained capacity and service guarantees unresolved. This course describes proposed rules, not a production-ready protocol.</aside>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna lesson 1 — Three meanings of confirmed</title>
+<link rel="stylesheet" href="../design/style.css">
+</head>
+<body>
+<header>
+<p class="eyebrow">Etna learning course · lesson 1</p>
+<h1>Three meanings of “confirmed”</h1>
+<p>First learn what a fast block can promise.</p>
+<nav aria-label="Course"><a href="index.html">Course map</a><a href="02-origins.html">Next: known L1 facts</a>
+</nav>
+</header>
+<main>
+<aside class="notice"><strong>Research candidate; current feasibility gates remain open.</strong> Measured one-second soft issuance and acceptable confirmation semantics (R4), practical deterrence (R6) and sustained minute-level landing (R7) are not demonstrated. The <a href="../iterations/08-judge.md">round 08 judge</a> records a historical stopping criterion for the rounds 07–08 anchor-removal snapshot; it does not establish that every current requirement passes. Read the <a href="../design/assurance.html#operating-profile">current assessment</a> and <a href="../notes/pr-comment-dispositions.md">PR-comment dispositions</a>. This course teaches proposed rules, not a production-ready protocol.</aside>
 <aside><strong>Reading rule.</strong> This is a research candidate. <strong>Proven</strong> means a source fact or deduction from the proposed rules; <strong>Assumed</strong> names a premise; <strong>Open</strong> means evidence is still required. These labels do not claim a tested implementation.</aside>
-<section><h2>The problem: a correct block can lose</h2>
+<section>
+<h2>The problem: a correct block can lose</h2>
 <p><strong>Proven/source:</strong> today's Taiko preconfirmations precede L1 proposal and proof transactions. A later landed proposal can replace an incompatible provisional branch. An application's successful local execution therefore does not mean Ethereum has selected that history. See the <a href="../00-current-protocol-summary.md">baseline summary, sections 1 and 7</a>.</p>
 <p><strong>Proven distinction:</strong> Etna separates three questions. Does this candidate execute correctly? Did L1 accept this candidate's history? Has Ethereum finalized that acceptance? Answering the first does not answer the other two.</p>
 </section>
-<section><h2>The mechanism: name the guarantee</h2>
-<table><caption>Proven definitions in the proposed specification</caption><thead><tr><th>Label</th><th>What a node establishes</th></tr></thead><tbody>
-<tr><td><code>VALID_IN_VIEW</code></td><td>The complete candidate correctly extends its known parent under its named L1 view, after authentication and execution checks. Still provisional.</td></tr>
-<tr><td>Accepted</td><td>A successful L1 action supplied the required data and validity proof and extended the unique Inbox head. Still subject to an L1 reorg.</td></tr>
-<tr><td>Final</td><td>Ethereum finalized the L1 block containing that acceptance.</td></tr>
-</tbody></table>
+<section>
+<h2>The mechanism: name the guarantee</h2>
+<table>
+<caption>Proven definitions in the proposed specification</caption>
+<thead>
+<tr>
+<th>Label</th>
+<th>What a node establishes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VALID_IN_VIEW</code>
+</td>
+<td>The complete candidate correctly extends its known parent under its named L1 view, after authentication and execution checks. Still provisional.</td>
+</tr>
+<tr>
+<td>Accepted</td>
+<td>A successful L1 action supplied the required data and validity proof and extended the unique Inbox head. Still subject to an L1 reorg.</td>
+</tr>
+<tr>
+<td>Final</td>
+<td>Ethereum finalized the L1 block containing that acceptance.</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Proven rule:</strong> missing parent state, bytes or authenticated L1 context means <code>UNKNOWN</code>. Demonstrably wrong input means <code>INVALID</code>. A signature or transport acknowledgment alone establishes neither execution validity nor acceptance. Nodes follow the accepted chain while exposing any provisional service branch separately.</p>
 <p><strong>Proposed clock rule:</strong> a candidate more than two seconds ahead of a node's local clock is also temporarily UNKNOWN, with reason <code>LOCAL_CLOCK_AHEAD</code>. The node checks it again when its clock catches up. A clock difference alone is never proof of invalid execution or a punishable offence. This separates “I cannot admit it yet” from “the block is wrong.”</p>
 <p><strong>Proposed client report:</strong> a wallet should show the exact block and branch, whether it has checked execution and received the data, and whether it has verified L1 acceptance or finality. It should also show how old its L1 observation is. A valid but displaced block can be <code>VALID_IN_VIEW</code> and <code>ORPHANED</code> at the same time: it executed correctly but belongs to the losing history. Missing hashes stay unknown rather than becoming zero-valued placeholders. A signed service promise may have a limited penalty; it does not insure Alice's payment.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 980 225" role="img" aria-labelledby="states-title states-desc"><title id="states-title">Three separate confirmation stages</title><desc id="states-desc">Local execution validity can progress to L1 acceptance and Ethereum finality. A competing accepted branch can discard a provisional branch; an L1 reorg can discard an unfinalized acceptance.</desc><defs><marker id="states-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="currentColor"/></marker></defs><rect class="box" x="20" y="32" width="270" height="85" rx="8"/><rect class="box" x="355" y="32" width="270" height="85" rx="8"/><rect class="box" x="690" y="32" width="270" height="85" rx="8"/><path class="arrow" d="M290 74H352" marker-end="url(#states-arrow)"/><path class="arrow" d="M625 74H687" marker-end="url(#states-arrow)"/><g font-size="19" text-anchor="middle"><text x="155" y="65">Valid in this view</text><text x="155" y="95">local execution</text><text x="490" y="65">Accepted on L1</text><text x="490" y="95">data + proof</text><text x="825" y="65">Ethereum-final</text><text x="825" y="95">settlement</text><text x="155" y="165">Competing branch can win</text><text x="490" y="165">L1 reorg remains possible</text><text x="490" y="204">One-second issuance describes the first stage only</text></g></svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 980 225" role="img" aria-labelledby="states-title states-desc">
+<title id="states-title">Three separate confirmation stages</title>
+<desc id="states-desc">Local execution validity can progress to L1 acceptance and Ethereum finality. A competing accepted branch can discard a provisional branch; an L1 reorg can discard an unfinalized acceptance.</desc>
+<defs>
+<marker id="states-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+<path d="M0 0L8 4L0 8Z" fill="currentColor"/>
+</marker>
+</defs>
+<rect class="box" x="20" y="32" width="270" height="85" rx="8"/>
+<rect class="box" x="355" y="32" width="270" height="85" rx="8"/>
+<rect class="box" x="690" y="32" width="270" height="85" rx="8"/>
+<path class="arrow" d="M290 74H352" marker-end="url(#states-arrow)"/>
+<path class="arrow" d="M625 74H687" marker-end="url(#states-arrow)"/>
+<g font-size="19" text-anchor="middle">
+<text x="155" y="65">Valid in this view</text>
+<text x="155" y="95">local execution</text>
+<text x="490" y="65">Accepted on L1</text>
+<text x="490" y="95">data + proof</text>
+<text x="825" y="65">Ethereum-final</text>
+<text x="825" y="95">settlement</text>
+<text x="155" y="165">Competing branch can win</text>
+<text x="490" y="165">L1 reorg remains possible</text>
+<text x="490" y="204">One-second issuance describes the first stage only</text>
+</g>
+</svg>
+</div>
 </section>
-<section><h2>Worked example: Alice's payment</h2>
-<p><strong>Assumed example:</strong> at time 1000.2 seconds, Alice submits a payment to a healthy publisher. Its next candidate appears at 1001.0; propagation and checking take another 0.5 seconds. Alice sees a soft result after 1.3 seconds. This illustrates the proposed one-second issuance interval, not a guaranteed measurement.</p>
+<section>
+<h2>Worked example: Alice's payment</h2>
+<p><strong>Assumed example:</strong> at time 1000.2 seconds, Alice submits a payment to a healthy publisher. Its next candidate appears at 1001.0; propagation and checking take another 0.5 seconds. Alice sees a soft result after 1.3 seconds. This illustrates the proposed one-second issuance interval, not a guaranteed measurement. Keeping such a branch useful also requires accepted progress to keep pace over time; a fast stream that repeatedly stops or loses its suffix does not establish sustainable service. The combined resource and funding test comes in lesson 12.</p>
 <p><strong>Proven consequence:</strong> candidate A can correctly spend Alice's nonce 7 while candidate B correctly spends the same nonce differently from the same parent using another transaction Alice also signed. If B's eligible data-and-proof action wins L1 order, A's incompatible suffix is discarded. A node must notify Alice and reevaluate her balance and nonce. A valid execution proof for A does not reserve its parent or force A to win.</p>
 <p><strong>Assumed second observation:</strong> another node receives A's timestamp-1001 candidate while its own clock still reads 998. Its allowance ends at 1000, so it reports UNKNOWN / LOCAL_CLOCK_AHEAD. When its clock reaches 999, that policy permits admission, subject to all the ordinary checks. No bond can be slashed just for this clock discrepancy. If B later wins, Alice's report identifies the conflicting L1 acceptance and says A is orphaned. Etna guarantees zero reimbursement for that ordinary soft-branch loss, even if A's publisher had bonded service duties.</p>
 </section>
-<section><h2>What this block defends against</h2>
+<section>
+<h2>What this block defends against</h2>
 <p><strong>Proven:</strong> precise labels prevent a signature, execution result or RPC acknowledgment from being presented as final settlement. They do not stop a competing valid branch, make provisional trades reversible outside the chain, or protect against broken Ethereum finality.</p>
 <p><strong>Open product decision:</strong> applications must decide whether a revocable execution preview is useful for their actions. This design supplies neither a unique network-wide soft chain nor guaranteed reimbursement if that branch loses. Requiring either would need additional protocol work, not a stronger label.</p>
 <p><strong>Assumed:</strong> A-L1 supplies Ethereum ordering/finality; A-CRYPTO and A-IMPLEMENTATION supply correct verification; A-NET and A-EXEC support the advertised soft latency. <strong>Open:</strong> execution benchmarks must establish whether the proposed resource limits sustain that latency. No readiness claim follows from the diagram.</p>
 </section>
-<section><h2>Check your understanding</h2>
-<details><summary>Two nodes execute the same complete candidate. Must they disagree if only one likes its publisher?</summary><p><strong>Proven:</strong> with the same authenticated inputs and correct rules, they agree on execution validity. Service preference and canonical selection are separate questions.</p></details>
-<details><summary>The parent is missing, or the candidate is ahead of my clock. Is it invalid?</summary><p><strong>Proven:</strong> neither fact alone proves incorrect execution. Report UNKNOWN with the missing-parent or LOCAL_CLOCK_AHEAD reason, then recheck when the parent is recovered or the clock permits admission. A demonstrated deterministic rule violation remains INVALID.</p></details>
-<details><summary>Does a one-second cadence promise an irreversible payment in one second?</summary><p><strong>Proven:</strong> no. It describes candidate issuance. Acceptance and Ethereum finality are separate stages.</p></details>
+<section>
+<h2>Check your understanding</h2>
+<details>
+<summary>Two nodes execute the same complete candidate. Must they disagree if only one likes its publisher?</summary>
+<p><strong>Proven:</strong> with the same authenticated inputs and correct rules, they agree on execution validity. Service preference and canonical selection are separate questions.</p>
+</details>
+<details>
+<summary>The parent is missing, or the candidate is ahead of my clock. Is it invalid?</summary>
+<p><strong>Proven:</strong> neither fact alone proves incorrect execution. Report UNKNOWN with the missing-parent or LOCAL_CLOCK_AHEAD reason, then recheck when the parent is recovered or the clock permits admission. A demonstrated deterministic rule violation remains INVALID.</p>
+</details>
+<details>
+<summary>Does a one-second cadence promise an irreversible payment in one second?</summary>
+<p><strong>Proven:</strong> no. It describes candidate issuance. Acceptance and Ethereum finality are separate stages.</p>
+</details>
 </section>
-<aside class="challenge"><h2>Challenge this</h2><p><strong>Assumed:</strong> clients preserve these labels through wallets, exchanges and applications. Try to find an interface that turns UNKNOWN into success, or treats a soft balance as final. What external action becomes unrecoverable if that branch loses?</p></aside>
+<aside class="challenge">
+<h2>Challenge this</h2>
+<p><strong>Assumed:</strong> clients preserve these labels through wallets, exchanges and applications. Try to find an interface that turns UNKNOWN into success, or treats a soft balance as final. What external action becomes unrecoverable if that branch loses?</p>
+</aside>
 <p class="small">Reference: <a href="../design/index.html#preconf">preconfirmation rules</a>; <a href="../design/index.html#assessment">versioned client assessment</a>; <a href="../design/assurance.html">assumptions and measurement gates</a>; <a href="../design/arguments.html#s5">local-validity argument</a>. The <a href="../notes/peer-design-comparison.md">peer comparison</a> motivated making each label's evidence explicit. Next we identify the L1 facts a node needs before it can say VALID_IN_VIEW.</p>
-</main><footer><nav aria-label="Lesson navigation"><a href="index.html">Course map</a><a href="02-origins.html">Lesson 2: known L1 facts →</a></nav></footer></body></html>
+</main>
+<footer>
+<nav aria-label="Lesson navigation"><a href="index.html">Course map</a><a href="02-origins.html">Lesson 2: known L1 facts →</a>
+</nav>
+</footer>
+</body>
+</html>

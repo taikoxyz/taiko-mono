@@ -1,40 +1,123 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna lesson 3 — Commit to the block you executed</title><link rel="stylesheet" href="../design/style.css"></head>
-<body><header><p class="eyebrow">Etna learning course · lesson 3</p><h1>Commit to the block you executed</h1><p>Prerequisites: confirmation labels and one authenticated origin.</p><nav aria-label="Course"><a href="index.html">Course map</a><a href="02-origins.html">Previous: origins</a><a href="04-staging.html">Next: public staging</a></nav></header><main>
-<aside class="notice"><strong>Historical review milestone; production feasibility remains open.</strong> The <a href="../iterations/08-judge.md">round 08 judge</a> records specification convergence for the anchor-removal snapshot reviewed in rounds 07–08. That record is not launch approval or validation of later additions. The <a href="../design/assurance.html#operating-profile">current operating-profile assessment</a> leaves affordability, sustained capacity and service guarantees unresolved. This course describes proposed rules, not a production-ready protocol.</aside>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna lesson 3 — Commit to the block you executed</title>
+<link rel="stylesheet" href="../design/style.css">
+</head>
+<body>
+<header>
+<p class="eyebrow">Etna learning course · lesson 3</p>
+<h1>Commit to the block you executed</h1>
+<p>Prerequisites: confirmation labels and one authenticated origin.</p>
+<nav aria-label="Course"><a href="index.html">Course map</a><a href="02-origins.html">Previous: origins</a><a href="04-staging.html">Next: public staging</a>
+</nav>
+</header>
+<main>
+<aside class="notice"><strong>Research candidate; current feasibility gates remain open.</strong> Measured one-second soft issuance and acceptable confirmation semantics (R4), practical deterrence (R6) and sustained minute-level landing (R7) are not demonstrated. The <a href="../iterations/08-judge.md">round 08 judge</a> records a historical stopping criterion for the rounds 07–08 anchor-removal snapshot; it does not establish that every current requirement passes. Read the <a href="../design/assurance.html#operating-profile">current assessment</a> and <a href="../notes/pr-comment-dispositions.md">PR-comment dispositions</a>. This course teaches proposed rules, not a production-ready protocol.</aside>
 <aside><strong>Classification.</strong> These are proposed encoding rules. <strong>Proven</strong> means a specification fact or deduction assuming correct enforcement; <strong>Assumed</strong> names a premise; <strong>Open</strong> identifies missing validation.</aside>
-<section><h2>The problem: “the same transactions” is ambiguous</h2>
+<section>
+<h2>The problem: “the same transactions” is ambiguous</h2>
 <p><strong>Proven:</strong> changing transaction order, timestamp or the authenticated header origin can change execution. A commitment to an incomplete description leaves room for a different block. Etna therefore names exact public bytes, including the complete header and every ordinary signed transaction, and distinguishes a block commitment from a segment commitment.</p>
 </section>
-<section><h2>The mechanism: execute first, hash afterward</h2>
+<section>
+<h2>The mechanism: execute first, hash afterward</h2>
 <p><strong>Proven definitions:</strong> a <em>block record</em> B contains its complete canonical header and ordered raw signed transaction envelopes. A <em>body</em> groups one to 60 records using one exact, uncompressed RLP format. It also carries any mandatory-request records, including rejected input bytes; their queue semantics come in a later lesson. No private ordering option is left for the prover.</p>
 <pre>BodyV1 = RLP([1, blocks, mandatoryRequestRecords])
 Block  = [headerRlpBytes, [signedTxBytes, ...]]
 bodyHash = keccak256(exact complete BodyV1 bytes)</pre>
 <p><strong>Assumed anchor-free rule:</strong> the signed transaction list may be empty. Standard EIP-4788/2935 calls are execution steps with their normal upstream gas and receipt semantics, not signed BodyV1 transactions or synthetic receipts. The header commits their resulting state. Fixed-k anchor signing disappears; no special sender, fee exemption or anchor gas reserve is added.</p>
 <p><strong>Proven rule:</strong> header and transaction entries are byte strings containing their inner encodings, not interchangeable nested lists. Reject nonminimal encodings, wrong shapes and trailing bytes. Reexecute against the known parent, recompute roots and header fields, and compare with the supplied header. Merely hashing a false header does not validate it.</p>
-<table><caption>Proven commitment definitions: different names protect different objects</caption><thead><tr><th>Name</th><th>What it binds</th></tr></thead><tbody>
-<tr><td>FR, block fragment root</td><td>The execution domain, block number/hash, total record length and ordered chunk lengths/digests.</td></tr>
-<tr><td>MR, segment manifest root</td><td>The segment domain, parent and range, plus ordered rows containing each block's number, hash, record hash/length and FR.</td></tr>
-<tr><td>bodyHash</td><td>Every body byte, including mandatory-request records outside the block list.</td></tr>
-<tr><td>contextHash</td><td>The sealed execution description: parent, origin, results and data commitments. Introduced fully with staging next.</td></tr>
-</tbody></table>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1000 220" role="img" aria-labelledby="bytes-title bytes-desc"><title id="bytes-title">Commitments follow execution without a circular dependency</title><desc id="bytes-desc">Known origin and signed transactions produce executed headers and block records. Those produce fragment roots, body hash and segment manifest, which feed the sealed context. No current header or system call contains that future context hash.</desc><defs><marker id="bytes-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="currentColor"/></marker></defs><rect class="box" x="15" y="40" width="205" height="95" rx="8"/><rect class="box" x="270" y="40" width="205" height="95" rx="8"/><rect class="box" x="525" y="40" width="215" height="95" rx="8"/><rect class="box" x="790" y="40" width="195" height="95" rx="8"/><path class="arrow" d="M220 87H267" marker-end="url(#bytes-arrow)"/><path class="arrow" d="M475 87H522" marker-end="url(#bytes-arrow)"/><path class="arrow" d="M740 87H787" marker-end="url(#bytes-arrow)"/><g font-size="18" text-anchor="middle"><text x="117" y="77">Known origin</text><text x="117" y="108">+ signed transactions</text><text x="372" y="77">Execute and check</text><text x="372" y="108">header + record B</text><text x="632" y="77">FR · MR · bodyHash</text><text x="632" y="108">exact public bytes</text><text x="887" y="77">Sealed context</text><text x="887" y="108">then later authorization</text><text x="500" y="181">The current header never contains its own future contextHash</text></g></svg></div>
+<table>
+<caption>Proven commitment definitions: different names protect different objects</caption>
+<thead>
+<tr>
+<th>Name</th>
+<th>What it binds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FR, block fragment root</td>
+<td>The execution domain, block number/hash, total record length and ordered chunk lengths/digests.</td>
+</tr>
+<tr>
+<td>MR, segment manifest root</td>
+<td>The segment domain, parent and range, plus ordered rows containing each block's number, hash, record hash/length and FR.</td>
+</tr>
+<tr>
+<td>bodyHash</td>
+<td>Every body byte, including mandatory-request records outside the block list.</td>
+</tr>
+<tr>
+<td>contextHash</td>
+<td>The sealed execution description: parent, origin, results and data commitments. Introduced fully with staging next.</td>
+</tr>
+</tbody>
+</table>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1000 220" role="img" aria-labelledby="bytes-title bytes-desc">
+<title id="bytes-title">Commitments follow execution without a circular dependency</title>
+<desc id="bytes-desc">Known origin and signed transactions produce executed headers and block records. Those produce fragment roots, body hash and segment manifest, which feed the sealed context. No current header or system call contains that future context hash.</desc>
+<defs>
+<marker id="bytes-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+<path d="M0 0L8 4L0 8Z" fill="currentColor"/>
+</marker>
+</defs>
+<rect class="box" x="15" y="40" width="205" height="95" rx="8"/>
+<rect class="box" x="270" y="40" width="205" height="95" rx="8"/>
+<rect class="box" x="525" y="40" width="215" height="95" rx="8"/>
+<rect class="box" x="790" y="40" width="195" height="95" rx="8"/>
+<path class="arrow" d="M220 87H267" marker-end="url(#bytes-arrow)"/>
+<path class="arrow" d="M475 87H522" marker-end="url(#bytes-arrow)"/>
+<path class="arrow" d="M740 87H787" marker-end="url(#bytes-arrow)"/>
+<g font-size="18" text-anchor="middle">
+<text x="117" y="77">Known origin</text>
+<text x="117" y="108">+ signed transactions</text>
+<text x="372" y="77">Execute and check</text>
+<text x="372" y="108">header + record B</text>
+<text x="632" y="77">FR · MR · bodyHash</text>
+<text x="632" y="108">exact public bytes</text>
+<text x="887" y="77">Sealed context</text>
+<text x="887" y="108">then later authorization</text>
+<text x="500" y="181">The current header never contains its own future contextHash</text>
+</g>
+</svg>
+</div>
 <p><strong>Proven:</strong> FR can be computed as soon as a block executes; it needs no future segment boundary, stage identifier or payment assignment. MR later binds the chosen complete segment. Feeding contextHash back into the current header or execution inputs would create a hash dependency cycle and is forbidden.</p>
 </section>
-<section><h2>Worked example: two exact chunks</h2>
+<section>
+<h2>Worked example: two exact chunks</h2>
 <p><strong>Assumed example:</strong> a complete valid B is 50,000 bytes. <strong>Proven arithmetic:</strong> split it at the fixed 32,768-byte boundary into lengths [32,768, 17,232]. FR commits both ordered Keccak digests and total length. A signed first chunk alone cannot establish complete-block validity. Swapping chunks or padding the last chunk fails the prescribed recomputation.</p>
 <p><strong>Proven aggregate limit:</strong> 122,880 bytes is the entire blob-mode body budget, not a per-block allowance. Dividing it among 60 records gives an average of 2,048 encoded bytes per block before subtracting headers, mandatory-request records and RLP overhead. Likewise, the 120-million ordinary-gas segment limit averages 2 million per block across 60 blocks, even though an individual block may use 10 million. These are arithmetic ceilings, not demonstrated execution or proving throughput.</p>
-<p><strong>Proven bounds:</strong> this exceeds the 32,768-byte calldata body limit, so it requires blob mode, whose full-body limit is 122,880 bytes. A 32,768-byte record has one chunk, but its enclosing body is larger. The <a href="../design/codec-vectors.md">fixtures</a> specify a 32,769-byte [32,768, 1] split and tiny RLP/hash examples; those toy bytes are not execution-valid blocks.</p>
+<p><strong>Proven bounds:</strong> this exceeds the 32,768-byte calldata body limit, so it requires blob mode, whose full-body limit is 122,880 bytes. A 32,768-byte record has one chunk, but its enclosing body is larger. The <a href="../design/codec-vectors.md">fixtures</a> specify a 32,769-byte [32,768, 1] split and tiny RLP/hash examples; those toy bytes are not execution-valid blocks. Their expected hashes are provisional examples: the local codec formulas control, and an independently reviewed generator must reproduce the values before implementation use. Earlier scratch checks are not a committed conformance suite.</p>
 </section>
-<section><h2>Defenses and limits</h2>
+<section>
+<h2>Defenses and limits</h2>
 <p><strong>Proven under A-CRYPTO and A-IMPLEMENTATION:</strong> exact binding prevents silent substitution of transaction order, header origins or record bytes under the same commitment. It does not prove anyone can download the bytes, establish fair ordering, or make a soft block final. A commitment is not availability.</p>
 <p><strong>Assumed:</strong> collision-resistant Ethereum Keccak, correct parsers/executors, and available parent state. <strong>Open:</strong> independent clients and proving programs must reproduce all codec vectors and full execution cases; component hashes alone do not close that obligation.</p>
 </section>
-<section><h2>Check your understanding</h2>
-<details><summary>Can a segment MR stand in for the FR on an early block promise?</summary><p><strong>Proven:</strong> no. Their domains, inputs and meanings differ. Recompute the exact block FR.</p></details>
-<details><summary>Does a correct bodyHash prove the transactions executed correctly?</summary><p><strong>Proven:</strong> no. It identifies bytes; local execution and the eventual validity proof establish their execution.</p></details>
+<section>
+<h2>Check your understanding</h2>
+<details>
+<summary>Can a segment MR stand in for the FR on an early block promise?</summary>
+<p><strong>Proven:</strong> no. Their domains, inputs and meanings differ. Recompute the exact block FR.</p>
+</details>
+<details>
+<summary>Does a correct bodyHash prove the transactions executed correctly?</summary>
+<p><strong>Proven:</strong> no. It identifies bytes; local execution and the eventual validity proof establish their execution.</p>
+</details>
 </section>
-<aside class="challenge"><h2>Challenge this</h2><p><strong>Assumed:</strong> every execution-affecting input is public or authenticated by the parent context. Try hiding a system-call effect, changing a rejected input, or making the fee recipient depend on a later assignment. Identify which commitment and validation rule rejects the substitution.</p></aside>
+<aside class="challenge">
+<h2>Challenge this</h2>
+<p><strong>Assumed:</strong> every execution-affecting input is public or authenticated by the parent context. Try hiding a system-call effect, changing a rejected input, or making the fee recipient depend on a later assignment. Identify which commitment and validation rule rejects the substitution.</p>
+</aside>
 <p class="small">References: <a href="../design/codec.html#body">body schema</a>; <a href="../design/codec.html#manifests">FR/MR formulas</a>; <a href="../design/staging.html#encoding">context boundary</a>; <a href="../design/assurance.html#dependencies">combined resource bounds</a>. Next: make these committed bytes publicly available before they can win.</p>
-</main><footer><nav aria-label="Lesson navigation"><a href="02-origins.html">← Lesson 2</a><a href="04-staging.html">Lesson 4: public staging →</a></nav></footer></body></html>
+</main>
+<footer>
+<nav aria-label="Lesson navigation"><a href="02-origins.html">← Lesson 2</a><a href="04-staging.html">Lesson 4: public staging →</a>
+</nav>
+</footer>
+</body>
+</html>

@@ -1,5 +1,7 @@
 # Publication covenant encoding fixture
 
+**Provisional expected outputs, not release conformance vectors.** Earlier scratch checks reproduced the reported component values, as recorded in [validation](../validation.md); no independently runnable generator is committed. The local [accountability schema](accountability.html) and [staging authorization rules](staging.html) control; the example hashes below cannot override them. Independently reproduce every value from the explicit inputs and formulas before implementation use. A mismatch blocks use of the fixture. The task's scratch-only experiment rule prevents committing the earlier generator as a remedy in this documentation task.
+
 **Normative literal schema; deterministic test data, not deployed addresses or a real signature.** All integers below are unsigned 256-bit ABI words. The Solidity/interface struct is named `PublicationClaim`, but its EIP-712 type name is exactly `EtnaPublication`.
 
 ```text

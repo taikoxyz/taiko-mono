@@ -1,37 +1,105 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna lesson 5 — One action accepts the transition</title><link rel="stylesheet" href="../design/style.css"></head>
-<body><header><p class="eyebrow">Etna learning course · lesson 5</p><h1>One action accepts the transition</h1><p>Prerequisites: exact execution bytes and mature public staging.</p><nav aria-label="Course"><a href="index.html">Course map</a><a href="04-staging.html">Previous: staging</a><a href="06-forced-inclusion.html">Next: forced inclusion</a></nav></header><main>
-<aside class="notice"><strong>Historical review milestone; production feasibility remains open.</strong> The <a href="../iterations/08-judge.md">round 08 judge</a> records specification convergence for the anchor-removal snapshot reviewed in rounds 07–08. That record is not launch approval or validation of later additions. The <a href="../design/assurance.html#operating-profile">current operating-profile assessment</a> leaves affordability, sustained capacity and service guarantees unresolved. This course describes proposed rules, not a production-ready protocol.</aside>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna lesson 5 — One action accepts the transition</title>
+<link rel="stylesheet" href="../design/style.css">
+</head>
+<body>
+<header>
+<p class="eyebrow">Etna learning course · lesson 5</p>
+<h1>One action accepts the transition</h1>
+<p>Prerequisites: exact execution bytes and mature public staging.</p>
+<nav aria-label="Course"><a href="index.html">Course map</a><a href="04-staging.html">Previous: staging</a><a href="06-forced-inclusion.html">Next: forced inclusion</a>
+</nav>
+</header>
+<main>
+<aside class="notice"><strong>Research candidate; current feasibility gates remain open.</strong> Measured one-second soft issuance and acceptable confirmation semantics (R4), practical deterrence (R6) and sustained minute-level landing (R7) are not demonstrated. The <a href="../iterations/08-judge.md">round 08 judge</a> records a historical stopping criterion for the rounds 07–08 anchor-removal snapshot; it does not establish that every current requirement passes. Read the <a href="../design/assurance.html#operating-profile">current assessment</a> and <a href="../notes/pr-comment-dispositions.md">PR-comment dispositions</a>. This course teaches proposed rules, not a production-ready protocol.</aside>
 <aside><strong>Classification.</strong> <strong>Proven</strong> marks proposed definitions or deductions under correct enforcement; <strong>Assumed</strong> names environmental premises; <strong>Open</strong> identifies evidence still required. No implemented behavior is claimed.</aside>
-<section><h2>The problem: unfinished canonical work</h2>
+<section>
+<h2>The problem: unfinished canonical work</h2>
 <p><strong>Proven/source:</strong> <a href="../00-current-protocol-summary.md">today's Inbox</a> separates proposing data from proving its resulting execution. Etna instead makes acceptance conditional on supplying both data and proof together. Earlier staging creates no canonical unproved state; the one canonical action is <code>submitSegment</code>.</p>
 </section>
-<section><h2>The mechanism: all checks, or no transition</h2>
+<section>
+<h2>The mechanism: all checks, or no transition</h2>
 <p><strong>Proven rule:</strong> an attempt names the exact current accepted parent, authenticated origin, mature stage, complete matching data, authorized producer and immutable execution statement. The proposed verifier requires RISC0 and SP1 proofs of the same complete relation. No assigned worker or incumbent publisher grants entry; the candidate's own producer authorization and all ordinary submission checks still apply.</p>
 <p><strong>Proven rule:</strong> successful acceptance updates the head, records its receipt, settles authorized credits and publishes the proved terminal L2 checkpoint to the existing L1 SignalService atomically. Any failed check rolls back all those effects. Ethereum finality remains the separate condition from lesson 1.</p>
 <p><strong>Proven funding rule:</strong> acceptance also pays descending ETH rent, sinking 0.05 ETH at head age zero and decaying to zero at 900 seconds. At age 660 the exact quote is 13,333,333,333,333,334 wei; excess value becomes the caller's credit. Each accepted successor resets the clock. This is additional to proving, data and gas costs; <a href="09-competition.html">lesson 9</a> explains its economic purpose. Zero rent does not revive expired inputs.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1020 235" role="img" aria-labelledby="accept-title accept-desc"><title id="accept-title">An atomic acceptance race</title><desc id="accept-desc">Two complete data-and-proof attempts name head H. The first successful L1 action consumes H and publishes its checkpoint. The incompatible competitor becomes stale. Failure before acceptance changes no protocol state.</desc><defs><marker id="accept-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="currentColor"/></marker></defs><rect class="box" x="20" y="25" width="275" height="70" rx="8"/><rect class="box" x="20" y="140" width="275" height="70" rx="8"/><rect class="box" x="390" y="70" width="260" height="95" rx="8"/><rect class="box" x="745" y="70" width="255" height="95" rx="8"/><path class="arrow" d="M295 60H345V99H387" marker-end="url(#accept-arrow)"/><path class="arrow" d="M295 175H345V136H387" marker-end="url(#accept-arrow)"/><path class="arrow" d="M650 117H742" marker-end="url(#accept-arrow)"/><g font-size="18" text-anchor="middle"><text x="157" y="55">Attempt A: parent H</text><text x="157" y="82">data + proof + payment</text><text x="157" y="170">Attempt B: parent H</text><text x="157" y="197">data + proof + payment</text><text x="520" y="109">First successful L1 action</text><text x="520" y="138">consumes H exactly once</text><text x="872" y="108">New head + checkpoint</text><text x="872" y="138">other attempt is stale</text></g></svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1020 235" role="img" aria-labelledby="accept-title accept-desc">
+<title id="accept-title">An atomic acceptance race</title>
+<desc id="accept-desc">Two complete data-and-proof attempts name head H. The first successful L1 action consumes H and publishes its checkpoint. The incompatible competitor becomes stale. Failure before acceptance changes no protocol state.</desc>
+<defs>
+<marker id="accept-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+<path d="M0 0L8 4L0 8Z" fill="currentColor"/>
+</marker>
+</defs>
+<rect class="box" x="20" y="25" width="275" height="70" rx="8"/>
+<rect class="box" x="20" y="140" width="275" height="70" rx="8"/>
+<rect class="box" x="390" y="70" width="260" height="95" rx="8"/>
+<rect class="box" x="745" y="70" width="255" height="95" rx="8"/>
+<path class="arrow" d="M295 60H345V99H387" marker-end="url(#accept-arrow)"/>
+<path class="arrow" d="M295 175H345V136H387" marker-end="url(#accept-arrow)"/>
+<path class="arrow" d="M650 117H742" marker-end="url(#accept-arrow)"/>
+<g font-size="18" text-anchor="middle">
+<text x="157" y="55">Attempt A: parent H</text>
+<text x="157" y="82">data + proof + payment</text>
+<text x="157" y="170">Attempt B: parent H</text>
+<text x="157" y="197">data + proof + payment</text>
+<text x="520" y="109">First successful L1 action</text>
+<text x="520" y="138">consumes H exactly once</text>
+<text x="872" y="108">New head + checkpoint</text>
+<text x="872" y="138">other attempt is stale</text>
+</g>
+</svg>
+</div>
 </section>
-<section><h2>Worked example: a prover disappears</h2>
+<section>
+<h2>Worked example: a prover disappears</h2>
 <p><strong>Assumed example:</strong> data stages at time 60; its earliest age eligibility is 420. Prover A stops at 150. An independently funded backup already holding the public data starts immediately and takes 180 seconds, finishing at 330. It can prepare its own authorized statement and attempt acceptance from 420; no service timeout unlocks that right.</p>
 <p><strong>Proven:</strong> a different accepted parent makes the attempt stale, even if its execution proof remains mathematically sound. An expired origin requires rebuilding. <strong>Assumed:</strong> sustained proving capacity and affordable inclusion support minute-level landing; arbitrary repeated failures do not preserve that latency.</p>
 </section>
-<section><h2>Frame Transactions: losing without inclusion gas</h2>
+<section>
+<h2>Frame Transactions: losing without inclusion gas</h2>
 <p><strong>Proven from the researched EIP-8141 draft:</strong> use four frames: authorize the exact action, authorize fee payment, execute it, then VERIFY that execution succeeded and the exact receipt exists. A failed terminal VERIFY invalidates the whole transaction; it cannot appear in a valid block. Ordinary execution-frame failure alone can still cost gas.</p>
 <p><strong>Proven funding distinction:</strong> positive rent needs each competitor's individually controlled, funded sender account; the fee payer does not supply call value. Terminal verification rejects stale losers even with different sender nonces. A shared sender/nonce is used only at zero call value, after rent reaches zero. No shared prefunded pot is assumed.</p>
 <p><strong>Assumed/Open:</strong> deployed frame semantics and a willing builder must support this shape; terminal VERIFY is outside the analyzed public-mempool policy. Ordinary payable public submission always remains available, with paid reverting losers. Invalid frame losers still incur proving and builder simulation costs.</p>
 </section>
-<section id="proof-sharing"><h2>Discover another prover’s completed work</h2>
+<section id="proof-sharing">
+<h2>Discover another prover’s completed work</h2>
 <p><strong>Proposed optional coordination:</strong> Alice offers a RISC0 proof and Bob an SP1 proof for the exact same public input. Recipients recompute it from the complete statement, its proof domain and authenticated inputs. Matching body hashes alone is insufficient: the producer, payment recipient, stage, revision and every other bound field must match. Anyone can retrieve and independently verify both leaves, then assemble the existing two-proof envelope. A changed beneficiary changes the public input and makes the old proofs unusable for that new statement. Existing producer/payment authorizations still apply; sharing proof bytes grants no right to redirect a reward.</p>
 <p><strong>Assumed size example:</strong> Alice's leaf is 4,000 bytes and Bob's is 6,000. Including the canonical ABI offsets, lengths and padding gives <code>128 +32×ceil(4000/32) +32×ceil(6000/32) =10,144 bytes</code>, below the 16,384-byte total proof cap. These are illustrative sizes, not measured backend results. Two individually bounded leaves can still exceed the total cap together.</p>
 <p><strong>Concrete failure example:</strong> Alice announces “ready in 30 seconds” and disappears. Bob may prove or submit as soon as the ordinary gates allow; he never has to wait for Alice's ETA. Offers and intents create no reservation, payment or bonded duty. Clients bound requests and verification work, reject false offers, and retain independent recovery. A valid shared proof can still become stale when another candidate wins. The <a href="../design/proof-discovery.html">advisory proof inventory</a> adopts a useful part of the peer design; optional service contracts are introduced separately in lesson 7.</p>
 </section>
-<section id="nonce-example"><h2>A shared nonce is narrower than a successful landing</h2><p><strong>Proven under the researched Frame draft:</strong> suppose gate G has nonce 7 and the current rollup head is H. If another G7 transaction lands successfully, our G7 copy is invalid before execution. But if an independent sender advances H while G remains at 7, a plain G7 call can approve payment, consume nonce 7 and pay for a stale-parent revert. A terminal VERIFY makes that failure invalidate the whole transaction under the draft, but its public mempool policy excludes that shape. The ordinary public path stays open and may charge losing transactions. The <a href="../03-frame-transactions-research.md#12-review-of-the-now-available-nonce-lock-pdf">PDF review</a> explains the distinction; the gas payer does not automatically fund the sender’s positive rent.</p></section>
-<section><h2>Check your understanding</h2>
-<details><summary>Does a failed proof leave a published checkpoint behind?</summary><p><strong>Proven:</strong> no. The acceptance transaction's state effects roll back together.</p></details>
-<details><summary>Does a prover's outage require DAO intervention?</summary><p><strong>Proven:</strong> no entry permission is needed for a replacement. <strong>Assumed:</strong> somebody can fund and produce the required proofs.</p></details>
-<details><summary>Two proofs name the same body but different payment recipients. Can I combine them?</summary><p><strong>Proven under the binding rules:</strong> no. Their complete public inputs differ. Recompute the exact identity, verify both required leaves and retain the statement's original authorizations; a proof offer cannot reserve the race or redirect its reward.</p></details>
+<section id="nonce-example">
+<h2>A shared nonce is narrower than a successful landing</h2>
+<p><strong>Proven under the researched Frame draft:</strong> suppose gate G has nonce 7 and the current rollup head is H. If another G7 transaction lands successfully, our G7 copy is invalid before execution. But if an independent sender advances H while G remains at 7, a plain G7 call can approve payment, consume nonce 7 and pay for a stale-parent revert. A terminal VERIFY makes that failure invalidate the whole transaction under the draft, but its public mempool policy excludes that shape. The ordinary public path stays open and may charge losing transactions. The <a href="../03-frame-transactions-research.md#12-review-of-the-now-available-nonce-lock-pdf">PDF review</a> explains the distinction; the gas payer does not automatically fund the sender’s positive rent.</p>
 </section>
-<aside class="challenge"><h2>Challenge this</h2><p><strong>Assumed:</strong> the complete relation and transaction envelope are correctly bound. Try changing the parent, payout, call value or body after authorization. Then remove private-builder access: can the same funded action still reach the public fallback?</p></aside>
+<section>
+<h2>Check your understanding</h2>
+<details>
+<summary>Does a failed proof leave a published checkpoint behind?</summary>
+<p><strong>Proven:</strong> no. The acceptance transaction's state effects roll back together.</p>
+</details>
+<details>
+<summary>Does a prover's outage require DAO intervention?</summary>
+<p><strong>Proven:</strong> no entry permission is needed for a replacement. <strong>Assumed:</strong> somebody can fund and produce the required proofs.</p>
+</details>
+<details>
+<summary>Two proofs name the same body but different payment recipients. Can I combine them?</summary>
+<p><strong>Proven under the binding rules:</strong> no. Their complete public inputs differ. Recompute the exact identity, verify both required leaves and retain the statement's original authorizations; a proof offer cannot reserve the race or redirect its reward.</p>
+</details>
+</section>
+<aside class="challenge">
+<h2>Challenge this</h2>
+<p><strong>Assumed:</strong> the complete relation and transaction envelope are correctly bound. Try changing the parent, payout, call value or body after authorization. Then remove private-builder access: can the same funded action still reach the public fallback?</p>
+</aside>
 <p class="small">References: <a href="../design/index.html#landing">atomic checks</a>; <a href="../design/index.html#frames">funded frame construction</a>; <a href="../03-frame-transactions-research.md">research verdict and limits</a>. <strong>Open:</strong> verifier, gas and account-envelope conformance require implementation validation.</p>
-</main><footer><nav aria-label="Lesson navigation"><a href="04-staging.html">← Lesson 4</a><a href="06-forced-inclusion.html">Lesson 6: forced inclusion →</a></nav></footer></body></html>
+</main>
+<footer>
+<nav aria-label="Lesson navigation"><a href="04-staging.html">← Lesson 4</a><a href="06-forced-inclusion.html">Lesson 6: forced inclusion →</a>
+</nav>
+</footer>
+</body>
+</html>

@@ -1,32 +1,94 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna lesson 4 — Publish before competing</title><link rel="stylesheet" href="../design/style.css"></head>
-<body><header><p class="eyebrow">Etna learning course · lesson 4</p><h1>Publish before competing</h1><p>Prerequisites: provisional validity, authenticated origins and exact body commitments.</p><nav aria-label="Course"><a href="index.html">Course map</a><a href="03-body.html">Previous: exact bytes</a><a href="05-settlement.html">Next: atomic settlement</a></nav></header><main>
-<aside class="notice"><strong>Historical review milestone; production feasibility remains open.</strong> The <a href="../iterations/08-judge.md">round 08 judge</a> records specification convergence for the anchor-removal snapshot reviewed in rounds 07–08. That record is not launch approval or validation of later additions. The <a href="../design/assurance.html#operating-profile">current operating-profile assessment</a> leaves affordability, sustained capacity and service guarantees unresolved. This course describes proposed rules, not a production-ready protocol.</aside>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna lesson 4 — Publish before competing</title>
+<link rel="stylesheet" href="../design/style.css">
+</head>
+<body>
+<header>
+<p class="eyebrow">Etna learning course · lesson 4</p>
+<h1>Publish before competing</h1>
+<p>Prerequisites: provisional validity, authenticated origins and exact body commitments.</p>
+<nav aria-label="Course"><a href="index.html">Course map</a><a href="03-body.html">Previous: exact bytes</a><a href="05-settlement.html">Next: atomic settlement</a>
+</nav>
+</header>
+<main>
+<aside class="notice"><strong>Research candidate; current feasibility gates remain open.</strong> Measured one-second soft issuance and acceptable confirmation semantics (R4), practical deterrence (R6) and sustained minute-level landing (R7) are not demonstrated. The <a href="../iterations/08-judge.md">round 08 judge</a> records a historical stopping criterion for the rounds 07–08 anchor-removal snapshot; it does not establish that every current requirement passes. Read the <a href="../design/assurance.html#operating-profile">current assessment</a> and <a href="../notes/pr-comment-dispositions.md">PR-comment dispositions</a>. This course teaches proposed rules, not a production-ready protocol.</aside>
 <aside><strong>Classification.</strong> This is a proposed mechanism. <strong>Proven</strong> marks definitions or conditional deductions; <strong>Assumed</strong> names premises; <strong>Open</strong> identifies unresolved evidence. None is a deployment claim.</aside>
-<section><h2>The problem: a private head start</h2>
+<section>
+<h2>The problem: a private head start</h2>
 <p><strong>Proven attack:</strong> if a producer can reveal its blocks for the first time when its proof wins L1, competitors cannot prepare from those bytes beforehand. A signature or data hash does not remove that private advantage. Nor can an on-chain contract observe whether every peer received a P2P broadcast.</p>
 <p><strong>Proven design choice:</strong> Etna makes every canonical candidate publish its actual data and complete execution context on L1 first. This is <em>staging</em>: a public candidate receipt, not a reservation or accepted block.</p>
 </section>
-<section><h2>The mechanism: an objective public-data interval</h2>
+<section>
+<h2>The mechanism: an objective public-data interval</h2>
 <p><strong>Proven rule:</strong> once Inbox is ACTIVE, anyone can stage. In calldata mode the call carries the complete bounded body and checks its hash. In blob mode it carries a real current-transaction blob and binds its versioned hash; final proof verification establishes the blob/body relation. The public descriptor binds the exact parent, origin, execution results and commitments introduced in lesson 3. A detached promise of future bytes does not qualify.</p>
 <p><strong>Proven rule:</strong> the chosen immutable receipt must be at least <strong>360 seconds</strong> old and no more than <strong>900 seconds</strong> old at acceptance. The final action publishes the identical data again with its proof. The origin independently must remain at most 900 seconds old. A new salt or repeated publication cannot make an expired origin fresh.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1020 235" role="img" aria-labelledby="stage-title stage-desc"><title id="stage-title">Actual publication precedes canonical eligibility</title><desc id="stage-desc">The data receipt is created at time 1060, becomes age eligible at 1420, and the origin expires after 1900. Proving can run during the maturity interval. No stage reserves the accepted parent.</desc><defs><marker id="stage-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="currentColor"/></marker></defs><rect class="box" x="20" y="35" width="255" height="85" rx="8"/><rect class="box" x="383" y="35" width="255" height="85" rx="8"/><rect class="box" x="745" y="35" width="255" height="85" rx="8"/><path class="arrow" d="M275 77H380" marker-end="url(#stage-arrow)"/><path class="arrow" d="M638 77H742" marker-end="url(#stage-arrow)"/><g font-size="18" text-anchor="middle"><text x="147" y="68">1060: actual data staged</text><text x="147" y="98">receipt, no head change</text><text x="510" y="68">1420: age eligible</text><text x="510" y="98">360 seconds have elapsed</text><text x="872" y="68">1900: origin age = 900</text><text x="872" y="98">later acceptance fails</text><text x="326" y="163">Retrieve and prove during the wait</text><text x="510" y="204">Many candidates can mature; L1 still chooses between them</text></g></svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1020 235" role="img" aria-labelledby="stage-title stage-desc">
+<title id="stage-title">Actual publication precedes canonical eligibility</title>
+<desc id="stage-desc">The data receipt is created at time 1060, becomes age eligible at 1420, and the origin expires after 1900. Proving can run during the maturity interval. No stage reserves the accepted parent.</desc>
+<defs>
+<marker id="stage-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+<path d="M0 0L8 4L0 8Z" fill="currentColor"/>
+</marker>
+</defs>
+<rect class="box" x="20" y="35" width="255" height="85" rx="8"/>
+<rect class="box" x="383" y="35" width="255" height="85" rx="8"/>
+<rect class="box" x="745" y="35" width="255" height="85" rx="8"/>
+<path class="arrow" d="M275 77H380" marker-end="url(#stage-arrow)"/>
+<path class="arrow" d="M638 77H742" marker-end="url(#stage-arrow)"/>
+<g font-size="18" text-anchor="middle">
+<text x="147" y="68">1060: actual data staged</text>
+<text x="147" y="98">receipt, no head change</text>
+<text x="510" y="68">1420: age eligible</text>
+<text x="510" y="98">360 seconds have elapsed</text>
+<text x="872" y="68">1900: origin age = 900</text>
+<text x="872" y="98">later acceptance fails</text>
+<text x="326" y="163">Retrieve and prove during the wait</text>
+<text x="510" y="204">Many candidates can mature; L1 still chooses between them</text>
+</g>
+</svg>
+</div>
 <p><strong>Proven latency distinction:</strong> the 360-second wait applies to each receipt. Successor candidates can be built and staged on a speculative branch before their parents land, then accepted in order if that branch wins and all gates still hold. The wait therefore does not require 360 seconds between every accepted head. It does require enough sustained proving, data capacity and funding; losing the speculative parent can discard all its prepared descendants.</p>
 <p><strong>Proven limits:</strong> the registry does not execute the body or certify its claimed output root. A malformed execution or stale parent can still have a staging receipt. Repeating the same stage identifier preserves its original timestamp; copying a valid publication grants no exclusive reward or ownership of its data. No stage writes a SignalService checkpoint.</p>
 </section>
-<section><h2>Worked example: use the wait productively</h2>
+<section>
+<h2>Worked example: use the wait productively</h2>
 <p><strong>Assumed example:</strong> origin time is 1000; a segment seals and stages at 1060. An entrant notices and retrieves it within 60 seconds, then produces its required proofs within 180 seconds. Its proof is ready by 1300, 120 seconds before age eligibility at 1420.</p>
 <p><strong>Proven arithmetic:</strong> the stage alone lasts through 1960, but the origin expires after 1900, so the usable overlap ends earlier. <strong>Assumed:</strong> a funded entrant can obtain inclusion while the action remains valid. The 120-second margin does not promise inclusion before eligibility or victory over another mature candidate.</p>
 </section>
-<section><h2>Defenses and limits</h2>
+<section>
+<h2>Defenses and limits</h2>
 <p><strong>Proven under A-L1, A-DA, A-CRYPTO and A-IMPLEMENTATION:</strong> first disclosure in the canonical acceptance action cannot satisfy the minimum stage age. Private computation before staging, mature competing branches and paid publication spam remain possible. Public availability is not proof that every peer downloaded the data.</p>
 <p><strong>Assumed:</strong> staged blobs remain retrievable throughout the usable horizon plus the retrieval budget; historical canonical reconstruction has an archive source. <strong>Open:</strong> launch retention, retrieval performance and duplicated publication costs require validation against the <a href="../design/assurance.html#dependencies">combined timing and resource budgets</a>. An L1 reorg also removes receipts on the orphaned history and requires recalculating maturity.</p>
 </section>
-<section><h2>Check your understanding</h2>
-<details><summary>Does the earliest stage own the next canonical segment?</summary><p><strong>Proven:</strong> no. It creates no ordering right. Several eligible candidates may extend the same parent.</p></details>
-<details><summary>Does a 400-second-old receipt make a false claimed state root acceptable?</summary><p><strong>Proven:</strong> no. Correct execution and all other acceptance checks remain mandatory.</p></details>
-<details><summary>Can restaging the same old-origin body reset origin age?</summary><p><strong>Proven:</strong> no. Refreshing that origin changes the execution context and requires corresponding reconstruction and proof work.</p></details>
+<section>
+<h2>Check your understanding</h2>
+<details>
+<summary>Does the earliest stage own the next canonical segment?</summary>
+<p><strong>Proven:</strong> no. It creates no ordering right. Several eligible candidates may extend the same parent.</p>
+</details>
+<details>
+<summary>Does a 400-second-old receipt make a false claimed state root acceptable?</summary>
+<p><strong>Proven:</strong> no. Correct execution and all other acceptance checks remain mandatory.</p>
+</details>
+<details>
+<summary>Can restaging the same old-origin body reset origin age?</summary>
+<p><strong>Proven:</strong> no. Refreshing that origin changes the execution context and requires corresponding reconstruction and proof work.</p>
+</details>
 </section>
-<aside class="challenge"><h2>Challenge this</h2><p><strong>Assumed:</strong> a funded entrant can retrieve the complete chosen candidate. Try hiding one execution input outside the staged descriptor/body, or supplying an unavailable blob hash. Which rule rejects it, and which availability assumption fails?</p></aside>
+<aside class="challenge">
+<h2>Challenge this</h2>
+<p><strong>Assumed:</strong> a funded entrant can retrieve the complete chosen candidate. Try hiding one execution input outside the staged descriptor/body, or supplying an unavailable blob hash. Which rule rejects it, and which availability assumption fails?</p>
+</aside>
 <p class="small">References: <a href="../design/staging.html#registry">actual publication gates</a>; <a href="../design/staging.html#lifecycle">receipt lifecycle</a>; <a href="../design/staging.html#timing">timing assumptions</a>.</p>
-</main><footer><nav aria-label="Lesson navigation"><a href="03-body.html">← Lesson 3</a><a href="05-settlement.html">Lesson 5: atomic settlement →</a></nav></footer></body></html>
+</main>
+<footer>
+<nav aria-label="Lesson navigation"><a href="03-body.html">← Lesson 3</a><a href="05-settlement.html">Lesson 5: atomic settlement →</a>
+</nav>
+</footer>
+</body>
+</html>

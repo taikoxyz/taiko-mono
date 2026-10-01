@@ -1,33 +1,141 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna — protocol design</title><link rel="stylesheet" href="style.css"></head>
-<body><header><p class="eyebrow">Etna · anchor-free reference · production feasibility open</p><h1>Proof-bearing settlement,<br>permissionless soft services</h1><p>A design candidate for Taiko. Canonical order comes from Ethereum; fast promises are explicitly provisional.</p><nav aria-label="Design"><a href="index.html">Core specification</a><a href="staging.html">Public data staging</a><a href="codec.html">Execution codec</a> · <a href="roles.html">Roles</a><a href="accountability.html">Accountability</a><a href="migration.html">Bridge &amp; migration</a><a href="arguments.html">Arguments &amp; verdict</a><a href="../learn/index.html">Learning course</a><a href="../README.md">Research index</a><a href="checkpoints.html">Checkpoint persistence</a><a href="proof-discovery.html">Proof discovery</a><a href="assurance.html">Launch evidence</a></nav></header><main>
-<aside class="notice"><strong>Anchor-removal design converged.</strong> This design adopts <a href="https://github.com/taikoxyz/taiko-mono/issues/22147#issuecomment-5756531478">David’s standard EIP-4788 direction</a>: no anchor transaction or custom pre-execution hook. Ordinary permissionless calls persist checkpoints at the existing SignalService. Fresh rounds 07–08 found no new Critical/High; the pre-activation intake Medium is corrected, every Medium has a disposition and all seven gates pass under named assumptions. See the <a href="../iterations/08-judge.md">final adjudication</a>. Production implementation, deployment compatibility, performance and economic effectiveness remain unverified.</aside>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna — protocol design</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+<p class="eyebrow">Etna · anchor-free reference · production feasibility open</p>
+<h1>Proof-bearing settlement,<br>permissionless soft services</h1>
+<p>A design candidate for Taiko. Canonical order comes from Ethereum; fast promises are explicitly provisional.</p>
+<nav aria-label="Design"><a href="index.html">Core specification</a><a href="staging.html">Public data staging</a><a href="codec.html">Execution codec</a> · <a href="roles.html">Roles</a><a href="accountability.html">Accountability</a><a href="migration.html">Bridge &amp; migration</a><a href="arguments.html">Arguments &amp; verdict</a><a href="../learn/index.html">Learning course</a><a href="../README.md">Research index</a><a href="checkpoints.html">Checkpoint persistence</a><a href="proof-discovery.html">Proof discovery</a><a href="assurance.html">Launch evidence</a>
+</nav>
+</header>
+<main>
+<aside class="notice warning"><strong>Research candidate; current acceptance gates are not all demonstrated.</strong> Product, resource and economic questions remain open, particularly R4/R6/R7. This is not an implementation-ready verdict. The design adopts <a href="https://github.com/taikoxyz/taiko-mono/issues/22147#issuecomment-5756531478">David’s standard EIP-4788 direction</a>: no anchor transaction or custom pre-execution hook; ordinary permissionless calls persist checkpoints at the existing SignalService. Model-generated rounds07–08 reported convergence for snapshot <code>c60b2042af3d422fff96e79c59f283b40cab41a5</code>; their <a href="../iterations/08-judge.md">historical adjudication</a> does not close subsequent peer-review concerns or provide implementation, deployment or performance evidence.</aside>
 <p><span class="tag">Classification</span> “Proven” means a stated deduction or source fact under named assumptions. “Assumed” is an environmental or cryptographic premise. “Open” requires evidence or a decision. Mechanism specifications below are <strong>proposed rules</strong>; their claimed consequences carry those labels. No contracts or clients are implemented here.</p>
 
 <aside class="notice"><strong>October1 peer-design follow-up:</strong> explicit <a href="#assessment">client assessments</a>, <a href="proof-discovery.html">optional proof discovery</a> and <a href="assurance.html">parameter/funding checks</a> adopt useful ideas from <a href="../notes/peer-design-comparison.md">PR #22184</a>. Canonical rules are unchanged; these additions have targeted review rather than a new full convergence round. <a href="assurance.html#operating-profile">Reciprocal review challenges the operating profile</a>: throughput, publication cost and backlog delay remain unresolved launch constraints.</aside>
+<p><strong>Current review entry points:</strong> the <a href="../notes/pr-comment-dispositions.md">complete comment ledger</a> distinguishes actual fixes from open mechanisms. The <a href="../README.md#unverified-numeric-assumptions-and-derived-bounds">top-level bounds summary</a> and <a href="assurance.html#dependencies">resource register</a> separate arithmetic from measurements. Sustaining one accepted block/s costs at least67.2 ETH/day in rent under the present rules, even with bursty landing; see the <a href="assurance.html#operating-profile">proof and budget frontier</a>. The <a href="../notes/design-course-sync.md">course synchronization checklist</a> controls paired documentation updates.</p>
+<p><strong>Authority and evidence:</strong> the local mechanism pages define the proposed rules. External issue/comment links identify motivation or criticism; changing or deleting a comment cannot change a rule. Dated local notes retain the relevant arguments and immutable source snapshots. Component hash fixtures are provisional examples until independently reproduced for implementation use; review narratives are historical process evidence.</p>
 <h2 id="map">Read the design in dependency order</h2>
-<ol><li>This page fixes canonical data, execution, preconfirmation meaning, atomic landing, and forced inclusion.</li><li><a href="staging.html">Public data staging</a> fixes complete context, public-age eligibility, producer authorization and exact commitments.</li><li><a href="codec.html">Execution codec</a> defines canonical bodies, headers, standard hash-recording calls, manifests and gas accounting.</li><li><a href="roles.html">Roles</a> defines voluntary services, registration and bounded collateral.</li><li><a href="accountability.html">Accountability</a> defines evidence, response deadlines, payouts and detection limits.</li><li><a href="checkpoints.html">Checkpoint persistence</a> replaces automatic anchor writes with ordinary permissionless pin/reveal calls.</li><li><a href="migration.html">Bridge and migration</a> preserves existing custody addresses and removes operational administration.</li><li><a href="arguments.html">Arguments and verdict</a> gives assumptions, proof sketches, requirement disposition and rejected alternatives.</li></ol>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1040 190" role="img" aria-labelledby="architecture-title"><title id="architecture-title">Optional soft services feed an always-open proof and data transaction; the accepted state feeds existing SignalService and Bridge.</title><defs><marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="#008b88"/></marker></defs><rect class="box" x="18" y="25" width="230" height="120" rx="9"/><text x="35" y="56">Optional 1-second soft branch</text><text x="35" y="86">publisher + bonded custodians</text><text x="35" y="116">execute locally · may reorg</text><path class="arrow" d="M250 85H320" marker-end="url(#a)"/><rect class="box" x="325" y="25" width="325" height="120" rx="9"/><text x="343" y="56">Any address: data + ZK proof</text><text x="343" y="86">mature public DA + parent + FIFO</text><text x="343" y="116">one atomic L1 acceptance</text><path class="arrow" d="M652 85H720" marker-end="url(#a)"/><rect class="box" x="727" y="25" width="295" height="120" rx="9"/><text x="744" y="56">Existing SignalService address</text><text x="744" y="86">proven L2 state checkpoint</text><text x="744" y="116">existing Bridge and Vaults</text></svg></div>
+<ol>
+<li>This page fixes canonical data, execution, preconfirmation meaning, atomic landing, and forced inclusion.</li>
+<li><a href="staging.html">Public data staging</a> fixes complete context, public-age eligibility, producer authorization and exact commitments.</li>
+<li><a href="codec.html">Execution codec</a> defines canonical bodies, headers, standard hash-recording calls, manifests and gas accounting.</li>
+<li><a href="roles.html">Roles</a> defines voluntary services, registration and bounded collateral.</li>
+<li><a href="accountability.html">Accountability</a> defines evidence, response deadlines, payouts and detection limits.</li>
+<li><a href="checkpoints.html">Checkpoint persistence</a> replaces automatic anchor writes with ordinary permissionless pin/reveal calls.</li>
+<li><a href="migration.html">Bridge and migration</a> preserves existing custody addresses and removes operational administration.</li>
+<li><a href="arguments.html">Arguments and verdict</a> gives assumptions, proof sketches, requirement disposition and rejected alternatives.</li>
+</ol>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1040 190" role="img" aria-labelledby="architecture-title">
+<title id="architecture-title">Optional soft services feed an always-open proof and data transaction; the accepted state feeds existing SignalService and Bridge.</title>
+<defs>
+<marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+<path d="M0 0 L8 3 L0 6" fill="#008b88"/>
+</marker>
+</defs>
+<rect class="box" x="18" y="25" width="230" height="120" rx="9"/>
+<text x="35" y="56">Optional 1-second soft branch</text>
+<text x="35" y="86">publisher + bonded custodians</text>
+<text x="35" y="116">execute locally · may reorg</text>
+<path class="arrow" d="M250 85H320" marker-end="url(#a)"/>
+<rect class="box" x="325" y="25" width="325" height="120" rx="9"/>
+<text x="343" y="56">Any address: data + ZK proof</text>
+<text x="343" y="86">mature public DA + parent + FIFO</text>
+<text x="343" y="116">one atomic L1 acceptance</text>
+<path class="arrow" d="M652 85H720" marker-end="url(#a)"/>
+<rect class="box" x="727" y="25" width="295" height="120" rx="9"/>
+<text x="744" y="56">Existing SignalService address</text>
+<text x="744" y="86">proven L2 state checkpoint</text>
+<text x="744" y="116">existing Bridge and Vaults</text>
+</svg>
+</div>
 
 <h2 id="glossary">1. Glossary and authority</h2>
-<table><thead><tr><th>Term</th><th>Precise meaning</th></tr></thead><tbody>
-<tr><td>Accepted head</td><td>The unique L2 state commitment stored by Inbox in the current L1 history. “Accepted” is not Ethereum-final.</td></tr>
-<tr><td>Segment</td><td>A bounded ordered list of L2 blocks plus immutable derivation context, submitted with its validity proof and DA in one action.</td></tr>
-<tr><td>Soft block / branch</td><td>A fully specified, locally executable candidate extending a known accepted or soft parent. It is provisional until its exact ancestry lands.</td></tr>
-<tr><td>Stage / stager</td><td>A public nonexclusive candidate-data receipt / any address paying to publish it; no accepted state or ordering right.</td></tr>
-<tr><td>Producer</td><td>The address that authorizes an exact canonical statement. Distinct from its payer, prover, publisher and fee beneficiary; any address may enter objectively.</td></tr>
-<tr><td>Publication covenant</td><td>A reserved signed promise to stage an exact complete sealed context by a fixed time; distinct from the mandatory early fragment-publication deadline.</td></tr>
-<tr><td>Context hash / task hash</td><td>The hash of the exact execution-only StageContext; payment, producer, job and stage identifier are excluded.</td></tr>
-<tr><td>Publisher</td><td>A permissionlessly bonded provider that signs candidate payloads with mandatory timed public-fragment promises; additional custodians are optional. It has no exclusive canonical sequencing right.</td></tr>
-<tr><td>Custodian</td><td>A voluntary bonded signer promising timely public bytes and their exact fragment manifest. A certificate is a set of these claims, not BFT consensus.</td></tr>
-<tr><td>Prover / proof worker</td><td>Anyone able to produce a valid proof. A worker may accept a prefunded service job; assignment never excludes another submitter.</td></tr>
-<tr><td>Submitter / payer</td><td>The relay and account funding an L1 transaction. They may differ from the proof-bound beneficiary.</td></tr>
-<tr><td>Challenger / responder</td><td>Anyone presenting authenticated evidence or satisfying a public data request. Permission follows evidence, not an approved identity.</td></tr>
-<tr><td>Origin</td><td>A fixed, authenticated earlier L1 execution header selected before proof generation. It is not the eventual landing block.</td></tr>
-<tr><td>Force cursor / cut</td><td>Next unprocessed FIFO request / immutable upper bound of the queue snapshot known to a segment's successor.</td></tr>
-<tr><td>Revision</td><td>A domain-separating identifier for derivation rules, circuit key and signing rules. Changed only by an allowed DAO upgrade.</td></tr>
-<tr><td>Duty bucket / position</td><td>A finite set of independently reserved signed obligations. “Position” is an obligation index; no CL slot is consumed.</td></tr>
-<tr><td>Final</td><td>The proof-bearing acceptance transaction is finalized by Ethereum consensus. RPC clients must check that L1 fact separately.</td></tr></tbody></table>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Precise meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Accepted head</td>
+<td>The unique L2 state commitment stored by Inbox in the current L1 history. “Accepted” is not Ethereum-final.</td>
+</tr>
+<tr>
+<td>Segment</td>
+<td>A bounded ordered list of L2 blocks plus immutable derivation context, submitted with its validity proof and DA in one action.</td>
+</tr>
+<tr>
+<td>Soft block / branch</td>
+<td>A fully specified, locally executable candidate extending a known accepted or soft parent. It is provisional until its exact ancestry lands.</td>
+</tr>
+<tr>
+<td>Stage / stager</td>
+<td>A public nonexclusive candidate-data receipt / any address paying to publish it; no accepted state or ordering right.</td>
+</tr>
+<tr>
+<td>Producer</td>
+<td>The address that authorizes an exact canonical statement. Distinct from its payer, prover, publisher and fee beneficiary; any address may enter objectively.</td>
+</tr>
+<tr>
+<td>Publication covenant</td>
+<td>A reserved signed promise to stage an exact complete sealed context by a fixed time; distinct from the mandatory early fragment-publication deadline.</td>
+</tr>
+<tr>
+<td>Context hash / task hash</td>
+<td>The hash of the exact execution-only StageContext; payment, producer, job and stage identifier are excluded.</td>
+</tr>
+<tr>
+<td>Publisher</td>
+<td>A permissionlessly bonded provider that signs candidate payloads with mandatory timed public-fragment promises; additional custodians are optional. It has no exclusive canonical sequencing right.</td>
+</tr>
+<tr>
+<td>Custodian</td>
+<td>A voluntary bonded signer promising timely public bytes and their exact fragment manifest. A certificate is a set of these claims, not BFT consensus.</td>
+</tr>
+<tr>
+<td>Prover / proof worker</td>
+<td>Anyone able to produce a valid proof. A worker may accept a prefunded service job; assignment never excludes another submitter.</td>
+</tr>
+<tr>
+<td>Submitter / payer</td>
+<td>The relay and account funding an L1 transaction. They may differ from the proof-bound beneficiary.</td>
+</tr>
+<tr>
+<td>Challenger / responder</td>
+<td>Anyone presenting authenticated evidence or satisfying a public data request. Permission follows evidence, not an approved identity.</td>
+</tr>
+<tr>
+<td>Origin</td>
+<td>A fixed, authenticated earlier L1 execution header selected before proof generation. It is not the eventual landing block.</td>
+</tr>
+<tr>
+<td>Force cursor / cut</td>
+<td>Next unprocessed FIFO request / immutable upper bound of the queue snapshot known to a segment's successor.</td>
+</tr>
+<tr>
+<td>Revision</td>
+<td>A domain-separating identifier for derivation rules, circuit key and signing rules. Changed only by an allowed DAO upgrade.</td>
+</tr>
+<tr>
+<td>Duty bucket / position</td>
+<td>A finite set of independently reserved signed obligations. “Position” is an obligation index; no CL slot is consumed.</td>
+</tr>
+<tr>
+<td>Final</td>
+<td>The proof-bearing acceptance transaction is finalized by Ethereum consensus. RPC clients must check that L1 fact separately.</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Proven/design:</strong> no publisher, custodian, worker, auction winner or builder endpoint is an admission authority for <code>submitSegment</code>. A valid public transaction can extend the accepted head without contacting them. DAO ownership authorizes upgrades only. Contract-authenticated root and bridge calls remain mandatory: they are provenance boundaries, not a human whitelist.</p>
 <p><strong>Assumed:</strong> Ethereum eventually includes an affordable honest transaction, at least one capable prover exists, and cryptographic/proving programs are sound. <strong>Open:</strong> exact “based” terminology was posed to the user; this candidate uses the strict always-open L1 race rather than independent BFT ordering.</p>
 
@@ -109,7 +217,32 @@ AcceptedReceipt {
 <p><strong>Proposed origin disclosure:</strong> include the selected origin number, hash and timestamp from the decoded context, and show whether authenticatedOrigin is true. This revision has no minimum origin age. A shallow L1 reorg can invalidate a recent-origin soft segment and its descendants; staging does not retroactively make that early promise reorg-safe. Nodes display that exposure separately from later L1 acceptance. Choosing an older origin is permitted, but the unchanged <code>block.timestamp ≤ origin.timestamp+60</code> rule leaves less production time; a 48-second-old origin leaves at most 12 seconds of timestamp room. A mandatory minimum age would require a coordinated parameter/workload revision, not an undocumented client validity rule.</p>
 <p><strong>Proposed reorg and freshness rules:</strong> <code>ORPHANED</code> requires verified ancestry/conflict evidence that the named candidate is incompatible with the observed accepted chain. Keep any former acceptance as historical evidence and identify <code>orphanedBy</code>; null finality for the current status. An unfinalized acceptance removed by an L1 reorg becomes UNACCEPTED unless a conflicting accepted chain establishes ORPHANED; retain the earlier receipt in diagnostic history, not the current acceptance field. Loss of connectivity alone is neither invalidity nor orphaning. <code>observedAtUnixMs</code> is the client's observation time and <code>observationAgeMs</code> is elapsed client time since that observation, preferably measured with a monotonic clock. Recompute age when displaying a cached assessment; never derive it from the L1 timestamp or silently reset it on an RPC cache hit. If elapsed age cannot be established, return a null observationAgeMs; consumers must treat null as stale/unknown and refresh before presenting the assessment as current.</p>
 <p><strong>Proven limit:</strong> a duty reference earns a “bonded” label only after verifying the authentic claim, its exact reserved position, remaining liability and evidence deadline in the named L1 observation. Several references do not create independent capital, and summing face-value bonds does not create insurance. The protocol guarantees <strong>zero reimbursement for an arbitrary soft-branch reorg</strong>; a particular objective offence may pay the specified reporter reward, which is not compensation for every affected user. Applications choosing irreversible actions before L1 acceptance bear that exposure. <strong>Open launch evidence:</strong> measure continuous issuance and user latency across segment sealing, origin changes and recovery, reporting typical and tail gaps separately; do not extrapolate a within-segment throughput result into a continuous one-second service guarantee.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1000 210" role="img" aria-labelledby="preconf-title"><title id="preconf-title">Preconfirmation lifecycle includes an unknown state for missing data, an executed soft state, L1 acceptance and Ethereum finality, with rollback before finality.</title><rect class="box" x="20" y="40" width="150" height="65" rx="8"/><text x="37" y="68">Received</text><text x="37" y="91">bounded decode</text><path class="arrow" d="M172 72H220"/><rect class="box" x="223" y="40" width="190" height="65" rx="8"/><text x="238" y="68">Local checks + execute</text><text x="238" y="91">UNKNOWN if missing</text><path class="arrow" d="M415 72H457"/><rect class="box" x="460" y="40" width="145" height="65" rx="8"/><text x="476" y="68">Valid soft block</text><text x="476" y="91">provisional</text><path class="arrow" d="M608 72H657"/><rect class="box" x="660" y="40" width="135" height="65" rx="8"/><text x="676" y="68">L1 accepted</text><text x="676" y="91">data + proof</text><path class="arrow" d="M797 72H838"/><rect class="box" x="840" y="40" width="138" height="65" rx="8"/><text x="857" y="68">L1 finalized</text><text x="857" y="91">settled</text><path class="arrow" d="M532 106V151H317V107"/><text x="345" y="178">Competing canonical branch → rollback / rebuild</text></svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1000 210" role="img" aria-labelledby="preconf-title">
+<title id="preconf-title">Preconfirmation lifecycle includes an unknown state for missing data, an executed soft state, L1 acceptance and Ethereum finality, with rollback before finality.</title>
+<rect class="box" x="20" y="40" width="150" height="65" rx="8"/>
+<text x="37" y="68">Received</text>
+<text x="37" y="91">bounded decode</text>
+<path class="arrow" d="M172 72H220"/>
+<rect class="box" x="223" y="40" width="190" height="65" rx="8"/>
+<text x="238" y="68">Local checks + execute</text>
+<text x="238" y="91">UNKNOWN if missing</text>
+<path class="arrow" d="M415 72H457"/>
+<rect class="box" x="460" y="40" width="145" height="65" rx="8"/>
+<text x="476" y="68">Valid soft block</text>
+<text x="476" y="91">provisional</text>
+<path class="arrow" d="M608 72H657"/>
+<rect class="box" x="660" y="40" width="135" height="65" rx="8"/>
+<text x="676" y="68">L1 accepted</text>
+<text x="676" y="91">data + proof</text>
+<path class="arrow" d="M797 72H838"/>
+<rect class="box" x="840" y="40" width="138" height="65" rx="8"/>
+<text x="857" y="68">L1 finalized</text>
+<text x="857" y="91">settled</text>
+<path class="arrow" d="M532 106V151H317V107"/>
+<text x="345" y="178">Competing canonical branch → rollback / rebuild</text>
+</svg>
+</div>
 
 <h2 id="landing">4. Atomic propose-with-proof</h2>
 <p><strong>Proposed state machine:</strong> <code>BUILDING → SEALED → STAGING + PROVING → MATURE_AND_PROVED → ACCEPTED → L1_FINAL</code>. Before acceptance, a competing parent consumption changes applicability to <code>STALE</code>; a 900-second origin or staging expiry changes it to <code>EXPIRED</code>. A missing assigned worker changes a voluntary service job, not canonical eligibility: another prover may submit at any time. No “proposed but unproven canonical” state exists in the Etna Inbox.</p>
@@ -198,13 +331,61 @@ forceOutcomesRoot = keccak256(abi.encode("ETNA_FORCE_OUTCOMES_V1",
 <p><strong>Proposed early accountability:</strong> every displayed bonded fragment additionally promises publication of its complete ≤32,768-byte calldata fragment and exact ordered FR preimage by issuedAt+240 seconds. The registry records the first matching publication; a late response cannot erase default or earn a late Q payout. Every chunk of a bonded block needs its own reserve. This is distinct from sealed segment staging; see <a href="accountability.html#fragment-publication">the exact version-2 duty</a>. Its extra calldata cost is explicit, and it provides neither a global gossip timestamp nor canonical priority.</p>
 <p><strong>Proposed accountability:</strong> a signed sealed-context publication-by covenant defaults if its first matching public stage is later than issuedAt+240 seconds, even if it eventually reveals. A separately authenticated canonical producer who contradicts its own signed block can lose that block's reserved duty collateral. A named fee recipient alone is never sufficient evidence of authorization. No protocol claim equates a block fragment hash with a blob commitment.</p>
 <h3 id="da">Data availability modes</h3>
-<table><thead><tr><th>Mode</th><th>Exact binding</th><th>Limits / consequence</th></tr></thead><tbody>
-<tr><td>Blob, preferred</td><td>One current-transaction EIP-4844 blob; require <code>BLOBHASH(0)=s.blobVersionedHash</code> and <code>BLOBHASH(1)=0</code>. Circuit computes the KZG commitment to the canonical field-element vector and its versioned hash, binding it to the full derived body. No unchecked “hash of unavailable bytes” substitute.</td><td>Each field element has a zero high byte plus 31 payload bytes. Stream begins with 32-byte version=1 and 32-byte exact body length, followed by body then zero padding. 4096×31−64=126912 usable bytes; 122880-byte body cap fits.</td></tr>
-<tr><td>Calldata, fallback</td><td>No blobs; exact body bytes carried in the same call, hash equals statement bodyHash; circuit proves the identical canonical encoding and execution.</td><td>Body≤32768; proof≤16384; entire call/envelope budget≤65536 bytes. A larger sealed blob segment requires a new smaller segment/proof; relaying its hash alone is not fallback DA.</td></tr></tbody></table>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Exact binding</th>
+<th>Limits / consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Blob, preferred</td>
+<td>One current-transaction EIP-4844 blob; require <code>BLOBHASH(0)=s.blobVersionedHash</code> and <code>BLOBHASH(1)=0</code>. Circuit computes the KZG commitment to the canonical field-element vector and its versioned hash, binding it to the full derived body. No unchecked “hash of unavailable bytes” substitute.</td>
+<td>Each field element has a zero high byte plus 31 payload bytes. Stream begins with 32-byte version=1 and 32-byte exact body length, followed by body then zero padding. 4096×31−64=126912 usable bytes; 122880-byte body cap fits.</td>
+</tr>
+<tr>
+<td>Calldata, fallback</td>
+<td>No blobs; exact body bytes carried in the same call, hash equals statement bodyHash; circuit proves the identical canonical encoding and execution.</td>
+<td>Body≤32768; proof≤16384; entire call/envelope budget≤65536 bytes. A larger sealed blob segment requires a new smaller segment/proof; relaying its hash alone is not fallback DA.</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Assumed A-DA/A-ARCHIVE:</strong> Ethereum validates blob availability at inclusion and honest archives preserve execution history after blob retention ends. Calldata fallback also requires history access. Custody services provide bounded extra retrievability; they are not permanent archival consensus. <strong>Open:</strong> prove and benchmark the chosen circuit's full KZG-to-body relation, uncompressed encoding parser and aggregate gas cost. No statistical one-point check is silently substituted for exact binding.</p>
 
 <h3 id="frames">Frame Transactions are optional transport</h3>
-<table><thead><tr><th>Frame</th><th>Call</th><th>Effect</th></tr></thead><tbody><tr><td>0 · VERIFY, flags 0x2</td><td>Contract sender validates the <em>entire</em> exact frame list, domains, values, targets, gas budgets, data/proof commitments and final postcondition; approve execution.</td><td>No shared secret. Bind action to old head and revision; unrelated roles have no shared lock.</td></tr><tr><td>1 · VERIFY, flags 0x1</td><td>Competitor's payer consents to the canonical envelope and bounded cost; approve payment.</td><td>Payer is separate from sender and proof beneficiary.</td></tr><tr><td>2 · SENDER, flags 0</td><td>Inbox.submitSegment(data, proof, exact statement).</td><td>Runs all acceptance checks exactly once.</td></tr><tr><td>3 · VERIFY, flags 0</td><td>Assert frame 2 succeeded and immutable receipt/current head match the exact promised action.</td><td>Any failure invalidates the whole transaction, rolling back nonce/payment. No atomic-group or extra suffix allowed.</td></tr></tbody></table>
+<table>
+<thead>
+<tr>
+<th>Frame</th>
+<th>Call</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 · VERIFY, flags 0x2</td>
+<td>Contract sender validates the <em>entire</em> exact frame list, domains, values, targets, gas budgets, data/proof commitments and final postcondition; approve execution.</td>
+<td>No shared secret. Bind action to old head and revision; unrelated roles have no shared lock.</td>
+</tr>
+<tr>
+<td>1 · VERIFY, flags 0x1</td>
+<td>Competitor's payer consents to the canonical envelope and bounded cost; approve payment.</td>
+<td>Payer is separate from sender and proof beneficiary.</td>
+</tr>
+<tr>
+<td>2 · SENDER, flags 0</td>
+<td>Inbox.submitSegment(data, proof, exact statement).</td>
+<td>Runs all acceptance checks exactly once.</td>
+</tr>
+<tr>
+<td>3 · VERIFY, flags 0</td>
+<td>Assert frame 2 succeeded and immutable receipt/current head match the exact promised action.</td>
+<td>Any failure invalidates the whole transaction, rolling back nonce/payment. No atomic-group or extra suffix allowed.</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Proposed funding rule:</strong> EIP-8141 SENDER-frame value comes from tx.sender, while payer approval funds transaction fees. For positive rent use each competitor’s individually controlled, funded contract sender; execution authorization binds the exact permitted value and full action. The terminal success guard makes stale losers invalid even with distinct sender nonces. A shared per-action sender/nonce is used only with zero SENDER-frame value after the canonical rent reaches zero; never pool competitors’ value in an unpartitioned shared account. Excess Inbox value belongs to the actual calling sender account and is withdrawn under that account’s ordinary owner authorization. No protocol operator funds or controls these accounts. The ordinary payable transaction remains the public fallback.</p>
 <p><strong>Proven from the fetched EIP-8141 draft:</strong> in the zero-value shared-sender construction, after one successful transaction consumes its nonce, its competitors are invalid for inclusion; both may have been valid against the original state. Terminal VERIFY prevents a failed execution burning the nonce. Invalid transactions pay no Ethereum inclusion fee, but builders still spend simulation resources. <strong>Assumed A-FRAME/A-BUILDER:</strong> the deployed fork retains these semantics and some builder accepts the non-public-policy frame shape. <strong>Proposed fallback:</strong> submit the same atomic action through an ordinary public transaction; stale losers can revert and pay gas. Neither force processing nor settlement waits for a private relay. See the full <a href="../03-frame-transactions-research.md">research verdict and alternatives</a>.</p>
 
@@ -219,32 +400,167 @@ forceOutcomesRoot = keccak256(abi.encode("ETNA_FORCE_OUTCOMES_V1",
 <p><strong>Proven conditional progress:</strong> origins may repeat but must remain within900 seconds of landing; therefore an indefinitely progressing chain cannot keep a fixed old snapshot. Once a request is due and in the snapshot, every accepted successor either processes it or removes up to four earlier due requests. Cheap empty-proof grinding can still waste discretionary proving work, but cannot indefinitely avoid a fixed eligible FIFO item while advancing. <strong>Assumed:</strong> at least one affordable valid proof can process the bounded prefix. During a total prover outage the chain halts safely; no DAO action manufactures a proof.</p>
 
 <h2 id="flows">6. Message flows and user-visible latency</h2>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1050 365" role="img" aria-labelledby="happy-title"><title id="happy-title">Happy path and prover-failure path: one-second soft blocks, sealed segment, parallel proving, single L1 data-plus-proof acceptance, existing checkpoint, finality.</title><text x="25" y="32">Happy path (example seconds, not guarantees)</text><rect class="box" x="22" y="55" width="220" height="87" rx="8"/><text x="37" y="84">t=0…59: publisher</text><text x="37" y="112">gossips 60 soft blocks</text><path class="arrow" d="M244 97H292"/><rect class="box" x="295" y="55" width="220" height="87" rx="8"/><text x="310" y="84">t=60…240: prover(s)</text><text x="310" y="112">fixed context + body</text><path class="arrow" d="M517 97H567"/><rect class="box" x="570" y="55" width="210" height="87" rx="8"/><text x="585" y="84">t≥420: submit + rent</text><text x="585" y="112">data + proof together</text><path class="arrow" d="M782 97H825"/><rect class="box" x="828" y="55" width="200" height="87" rx="8"/><text x="843" y="84">checkpoint accepted</text><text x="843" y="112">then Ethereum finality</text><text x="25" y="200">Worker fails: no reserved canonical right</text><rect class="box" x="22" y="222" width="270" height="92" rx="8"/><text x="38" y="250">assigned worker stops at t=150</text><text x="38" y="279">body remains public to peers</text><path class="arrow" d="M294 267H341"/><rect class="box" x="344" y="222" width="285" height="92" rx="8"/><text x="360" y="250">any backup can start immediately</text><text x="360" y="279">proof/job timeout does not block it</text><path class="arrow" d="M631 267H677"/><rect class="box" x="680" y="222" width="348" height="92" rx="8"/><text x="696" y="250">land exact proof, or rebuild stale branch</text><text x="696" y="279">objective job settlement / slash separately</text></svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1050 365" role="img" aria-labelledby="happy-title">
+<title id="happy-title">Happy path and prover-failure path: one-second soft blocks, sealed segment, parallel proving, single L1 data-plus-proof acceptance, existing checkpoint, finality.</title>
+<text x="25" y="32">Happy path (example seconds, not guarantees)</text>
+<rect class="box" x="22" y="55" width="220" height="87" rx="8"/>
+<text x="37" y="84">t=0…59: publisher</text>
+<text x="37" y="112">gossips 60 soft blocks</text>
+<path class="arrow" d="M244 97H292"/>
+<rect class="box" x="295" y="55" width="220" height="87" rx="8"/>
+<text x="310" y="84">t=60…240: prover(s)</text>
+<text x="310" y="112">fixed context + body</text>
+<path class="arrow" d="M517 97H567"/>
+<rect class="box" x="570" y="55" width="210" height="87" rx="8"/>
+<text x="585" y="84">t≥420: submit + rent</text>
+<text x="585" y="112">data + proof together</text>
+<path class="arrow" d="M782 97H825"/>
+<rect class="box" x="828" y="55" width="200" height="87" rx="8"/>
+<text x="843" y="84">checkpoint accepted</text>
+<text x="843" y="112">then Ethereum finality</text>
+<text x="25" y="200">Worker fails: no reserved canonical right</text>
+<rect class="box" x="22" y="222" width="270" height="92" rx="8"/>
+<text x="38" y="250">assigned worker stops at t=150</text>
+<text x="38" y="279">body remains public to peers</text>
+<path class="arrow" d="M294 267H341"/>
+<rect class="box" x="344" y="222" width="285" height="92" rx="8"/>
+<text x="360" y="250">any backup can start immediately</text>
+<text x="360" y="279">proof/job timeout does not block it</text>
+<path class="arrow" d="M631 267H677"/>
+<rect class="box" x="680" y="222" width="348" height="92" rx="8"/>
+<text x="696" y="250">land exact proof, or rebuild stale branch</text>
+<text x="696" y="279">objective job settlement / slash separately</text>
+</svg>
+</div>
 <p><strong>Revised timing example:</strong> form at t=0…60, stage at t≈60 while proving until t≈240, become eligible at t≈420, then land, paying the contemporaneous rent. A healthy funded example is7–8 minutes; with120 seconds for stage inclusion and another120 for final inclusion, the illustrative path reaches660 seconds plus header acquisition. The proving interval in the diagram runs in parallel with public-data maturation.</p>
 <p><strong>Proposed operation:</strong> soft production continues while older segments are being proved, subject to a local 900-block unsafe horizon. Crossing that horizon stops new soft confirmations; it does not create unbounded promises or block an L1 rescue. A backup prover uses the same public sealed statement; if the worker's proof is unavailable, it recomputes. If the origin expires or a different parent wins, rebase/reseal/reprove and notify users. No claim is made that every backup preserves minute latency after arbitrary repeated failures.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1050 270" role="img" aria-labelledby="force-title"><title id="force-title">Forced inclusion and withholding responses use public L1 entry points, with no DAO or private relay dependency.</title><rect class="box" x="20" y="27" width="250" height="85" rx="8"/><text x="37" y="57">User force(raw transaction)</text><text x="37" y="84">calldata + ETH queue fee</text><path class="arrow" d="M272 68H330"/><rect class="box" x="333" y="27" width="280" height="85" rx="8"/><text x="350" y="57">origin freezes eligible FIFO</text><text x="350" y="84">no moving proof target</text><path class="arrow" d="M615 68H673"/><rect class="box" x="676" y="27" width="350" height="85" rx="8"/><text x="693" y="57">any next valid child processes prefix</text><text x="693" y="84">proof verifies inclusion/rejection</text><rect class="box" x="20" y="159" width="250" height="85" rx="8"/><text x="37" y="189">Missing bonded body</text><text x="37" y="216">node refuses soft confirmation</text><path class="arrow" d="M272 201H330"/><rect class="box" x="333" y="159" width="280" height="85" rx="8"/><text x="350" y="189">anyone opens public challenge</text><text x="350" y="216">signed claim + funded response</text><path class="arrow" d="M615 201H673"/><rect class="box" x="676" y="159" width="350" height="85" rx="8"/><text x="693" y="189">full data response OR timed default</text><text x="693" y="216">not proof of earlier gossip intent</text></svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1050 270" role="img" aria-labelledby="force-title">
+<title id="force-title">Forced inclusion and withholding responses use public L1 entry points, with no DAO or private relay dependency.</title>
+<rect class="box" x="20" y="27" width="250" height="85" rx="8"/>
+<text x="37" y="57">User force(raw transaction)</text>
+<text x="37" y="84">calldata + ETH queue fee</text>
+<path class="arrow" d="M272 68H330"/>
+<rect class="box" x="333" y="27" width="280" height="85" rx="8"/>
+<text x="350" y="57">origin freezes eligible FIFO</text>
+<text x="350" y="84">no moving proof target</text>
+<path class="arrow" d="M615 68H673"/>
+<rect class="box" x="676" y="27" width="350" height="85" rx="8"/>
+<text x="693" y="57">any next valid child processes prefix</text>
+<text x="693" y="84">proof verifies inclusion/rejection</text>
+<rect class="box" x="20" y="159" width="250" height="85" rx="8"/>
+<text x="37" y="189">Missing bonded body</text>
+<text x="37" y="216">node refuses soft confirmation</text>
+<path class="arrow" d="M272 201H330"/>
+<rect class="box" x="333" y="159" width="280" height="85" rx="8"/>
+<text x="350" y="189">anyone opens public challenge</text>
+<text x="350" y="216">signed claim + funded response</text>
+<path class="arrow" d="M615 201H673"/>
+<rect class="box" x="676" y="159" width="350" height="85" rx="8"/>
+<text x="693" y="189">full data response OR timed default</text>
+<text x="693" y="216">not proof of earlier gossip intent</text>
+</svg>
+</div>
 
 <h2 id="parameters">7. Core parameters and launch assumptions</h2>
-<table><thead><tr><th>Parameter</th><th>Initial value / unit</th><th>Rationale / status</th></tr></thead><tbody>
-<tr><td>Soft issuance / local clock skew</td><td>1 second /2 seconds</td><td>R4 target; skew only a client admission bound, not slash evidence. Assumed healthy clocks/network.</td></tr>
-<tr><td>Maximum segment blocks / unsafe horizon</td><td>60 /900 L2 blocks</td><td>Bound proving and speculative exposure; early seal at data/gas cap.</td></tr>
-<tr><td>Block gas / aggregate gas</td><td>10,000,000 /120,000,000 execution gas</td><td>Retains current low-end block envelope; actual one-second execution and minute proving remain Open measurements.</td></tr>
-<tr><td>Target proof time / optional job timeout</td><td>180 seconds /stage-aware deadline</td><td>Minute-level target, not an unconditional deadline guarantee; independently funded workers.</td></tr>
-<tr><td>Origin maximum age / block lead</td><td>900 /60 seconds</td><td>Room for production, proving and inclusion while bounding stale queue snapshots.</td></tr>
-<tr><td>Minimum public DA age / maximum stage age</td><td>360 /900 seconds</td><td>Time to retrieve and prepare a proof; fresh bounded DA context; does not reserve ordering rights.</td></tr>
-<tr><td>Assumed honest L1 inclusion bound</td><td>120 seconds</td><td>Explicit bounded-liveness premise; not an Ethereum consensus guarantee.</td></tr>
-<tr><td>DA body cap</td><td>122880 bytes blob;32768 bytes calldata</td><td>One blob or bounded public fallback; exact content remains proof-bound.</td></tr>
-<tr><td>Proof / envelope cap</td><td>16384 /65536 bytes for calldata mode</td><td>At64 gas/B, a64KiB data floor is4,194,304 gas; full execution and state costs still require measurement.</td></tr>
-<tr><td>Canonical rent maximum / decay / floor</td><td>0.05 ETH /900 seconds /0 wei</td><td>Identity-independent cost for early repeated control; resets per accepted head, 100% sink. Waiting removes rent, not proving/DA costs or freshness rules.</td></tr>
-<tr><td>Bonded fragment publication</td><td>issuedAt+240 seconds; ≤32768 calldata bytes plus exact manifest</td><td>Mandatory for every signed bonded fragment; independent from optional sealed-context covenant and canonical stage maturity.</td></tr>
-<tr><td>Force maturity / work cap</td><td>120 seconds /4 requests per segment</td><td>Fixed bounded FIFO prefix; no unbounded scan or proof invalidation from new arrivals.</td></tr>
-<tr><td>Force request size / gas</td><td>2048 bytes /1,000,000 gas</td><td>Limits mandatory witness/execution cost; oversized contracts use ordinary path or smaller operations.</td></tr>
-<tr><td>Force fee</td><td>10<sup>15</sup> wei ETH ×(1+⌊pending/50⌋)</td><td>Retains source baseline base fee, adds explicit backlog cost; 50% to the proof-bound processor and50% to an irrevocably nonwithdrawable ETH sink. Solvency does not imply profitability at all gas prices.</td></tr>
-<tr><td>L2 fee token / split</td><td>ETH /100% coinbase,0% new Anchor allocation</td><td>Follow refreshed main source; preserve denomination; one-second cadence parameter and permissionless fixed-recipient sweep documented in migration.</td></tr>
-<tr><td>Collateral, jobs, challenges</td><td>See complete <a href="roles.html">role</a> and <a href="accountability.html">evidence</a> tables</td><td>TAIKO service liabilities and ETH publication costs never share an implicit price conversion.</td></tr></tbody></table>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Initial value / unit</th>
+<th>Rationale / status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Soft issuance / local clock skew</td>
+<td>1 second /2 seconds</td>
+<td>R4 target; skew only a client admission bound, not slash evidence. Assumed healthy clocks/network.</td>
+</tr>
+<tr>
+<td>Maximum segment blocks / unsafe horizon</td>
+<td>60 /900 L2 blocks</td>
+<td>Bound proving and speculative exposure; early seal at data/gas cap.</td>
+</tr>
+<tr>
+<td>Block gas / aggregate gas</td>
+<td>10,000,000 /120,000,000 execution gas</td>
+<td>Retains current low-end block envelope; actual one-second execution and minute proving remain Open measurements.</td>
+</tr>
+<tr>
+<td>Target proof time / optional job timeout</td>
+<td>180 seconds /stage-aware deadline</td>
+<td>Minute-level target, not an unconditional deadline guarantee; independently funded workers.</td>
+</tr>
+<tr>
+<td>Origin maximum age / block lead</td>
+<td>900 /60 seconds</td>
+<td>Room for production, proving and inclusion while bounding stale queue snapshots.</td>
+</tr>
+<tr>
+<td>Minimum public DA age / maximum stage age</td>
+<td>360 /900 seconds</td>
+<td>Time to retrieve and prepare a proof; fresh bounded DA context; does not reserve ordering rights.</td>
+</tr>
+<tr>
+<td>Assumed honest L1 inclusion bound</td>
+<td>120 seconds</td>
+<td>Explicit bounded-liveness premise; not an Ethereum consensus guarantee.</td>
+</tr>
+<tr>
+<td>DA body cap</td>
+<td>122880 bytes blob;32768 bytes calldata</td>
+<td>One blob or bounded public fallback; exact content remains proof-bound.</td>
+</tr>
+<tr>
+<td>Proof / envelope cap</td>
+<td>16384 /65536 bytes for calldata mode</td>
+<td>At64 gas/B, a64KiB data floor is4,194,304 gas; full execution and state costs still require measurement.</td>
+</tr>
+<tr>
+<td>Canonical rent maximum / decay / floor</td>
+<td>0.05 ETH /900 seconds /0 wei</td>
+<td>Identity-independent cost for early repeated control; resets per accepted head, 100% sink. Waiting removes rent, not proving/DA costs or freshness rules.</td>
+</tr>
+<tr>
+<td>Bonded fragment publication</td>
+<td>issuedAt+240 seconds; ≤32768 calldata bytes plus exact manifest</td>
+<td>Mandatory for every signed bonded fragment; independent from optional sealed-context covenant and canonical stage maturity.</td>
+</tr>
+<tr>
+<td>Force maturity / work cap</td>
+<td>120 seconds /4 requests per segment</td>
+<td>Fixed bounded FIFO prefix; no unbounded scan or proof invalidation from new arrivals.</td>
+</tr>
+<tr>
+<td>Force request size / gas</td>
+<td>2048 bytes /1,000,000 gas</td>
+<td>Limits mandatory witness/execution cost; oversized contracts use ordinary path or smaller operations.</td>
+</tr>
+<tr>
+<td>Force fee</td>
+<td>10<sup>15</sup> wei ETH ×(1+⌊pending/50⌋)</td>
+<td>Retains source baseline base fee, adds explicit backlog cost; 50% to the proof-bound processor and50% to an irrevocably nonwithdrawable ETH sink. Solvency does not imply profitability at all gas prices.</td>
+</tr>
+<tr>
+<td>L2 fee token / split</td>
+<td>ETH /100% coinbase,0% new Anchor allocation</td>
+<td>Follow refreshed main source; preserve denomination; one-second cadence parameter and permissionless fixed-recipient sweep documented in migration.</td>
+</tr>
+<tr>
+<td>Collateral, jobs, challenges</td>
+<td>See complete <a href="roles.html">role</a> and <a href="accountability.html">evidence</a> tables</td>
+<td>TAIKO service liabilities and ETH publication costs never share an implicit price conversion.</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Open launch gates:</strong> exact verifier/circuit implementation, launch-fork gas and blob encoding vectors, one-second execution benchmark, sustainable proof throughput, full storage-layout and historic-message migration rehearsal, live address/codehash/owner manifest, and EIP-8141 client conformance. A source-level research design cannot claim those experiments passed.</p>
 
 <h2 id="dependencies">8. L1 dependencies integrated into the design</h2>
 <p><strong>Required:</strong> sound Ethereum execution/consensus, a deployable sound ZK verifier, usable L1 DA and affordable eventual inclusion. Without them the chain cannot launch safely or cannot make liveness progress. <strong>Assumed launch feature:</strong> EIP-8141, currently Draft/SFI for Hegotá; if delayed, use ordinary atomic transactions with paid losing races. <strong>Optional:</strong> ePBS, BAL, FOCIL and increased blob throughput. They do not assign Etna roles or verify private dissemination. No L1 EIP-4788 beacon-root input, SLOTNUM, keyed nonces, proposer lookahead or shorter-slot feature is required by this candidate. The standard EIP-4788 and EIP-2935 contracts and execution behavior on L2 are required before migration; this is a local L2 prerequisite, not a dependency on Ethereum’s CL lookahead. Without verified runtime code and client/prover parity, this revision cannot launch.</p>
 <p><strong>Proven timing independence:</strong> changing Ethereum block production from12 seconds to6,4 or2 changes the opportunity to include actions, not any Etna seconds-based deadline or service assignment rule. EVM BLOCKHASH's block-count window is handled by permissionless header pinning; it is never converted into a fixed number of seconds. Mainnet gas repricing is a compatibility requirement, not a reason to assume cheaper rescue. The <a href="../02-l1-roadmap-survey.md">dated survey</a> records exact current statuses, competing source claims and fallbacks.</p>
-</main><footer>Etna research · Source baseline961bbd8ff55a0f66f44ad04160eb51638d655b66 · Public research cut2026-09-30 · No production implementation or deployment.</footer></body></html>
+</main>
+<footer>Etna research · Source baseline961bbd8ff55a0f66f44ad04160eb51638d655b66 · Public research cut2026-09-30 · No production implementation or deployment.</footer>
+</body>
+</html>

@@ -21,6 +21,8 @@
   </nav>
 </header>
 <main>
+<aside class="notice warning"><strong>Research candidate; production feasibility remains unresolved.</strong> Current R4/R6/R7 acceptance is open. This page specifies proposed rules; historical model-generated review does not establish a usable, affordable operating profile. See the <a href="assurance.html">resource and funding evidence</a> and <a href="../notes/pr-comment-dispositions.md">comment dispositions</a>.</aside>
+
   <aside><strong>Proposed, optional client behavior.</strong> This module adds advisory network messages only. The existing Inbox, statement encoding, producer authorization, job accounting, two-proof predicate and public data requirements remain authoritative. An advertisement has no on-chain effect and creates no service obligation.</aside>
   <p><strong>Source and scope:</strong> this adopts the explicit proof-sharing and landing-intent topics in <a href="https://github.com/taikoxyz/taiko-mono/blob/32e78bb2159e0bfb002e65b006a9b50945e0d736/packages/protocol/docs/Etna/design/landing.html#L152">Claude's Etna design, PR #22184</a>. That design emphasizes fungible proofs. Etna's present full statement also binds producer, beneficiary, job and stage, so reuse here is deliberately restricted to the same exact public input. Changing payment assignment is not a network optimization.</p>
   <p><strong>Classification:</strong> message schemas and client behavior below are proposed. Deductions marked <strong>proven</strong> assume the unchanged verifier and hash rules are correctly implemented. Network delivery and willing peers are <strong>assumed</strong>. Interoperability, verification cost and bandwidth measurements are <strong>open</strong>; the prior red-team convergence is not an implementation test of this addition.</p>
@@ -109,21 +111,53 @@ ProofResponse { offerDigest, exactLeafBytes }</code></pre>
     <h2>5. False advertisements are a resource problem, not a consensus vote</h2>
     <table>
       <caption>Client defenses and their limits</caption>
-      <thead><tr><th>Attack</th><th>Response</th><th>Residual</th></tr></thead>
+      <thead>
+<tr>
+<th>Attack</th>
+<th>Response</th>
+<th>Residual</th>
+</tr>
+</thead>
       <tbody>
-        <tr><td>Advertise many fake leaves to consume verification CPU.</td><td>Cheap identity/length checks first; bounded local queues; independently verify fetched artifacts; do not forward unverified bytes as verified.</td><td>Sybil peers can still consume bandwidth and some verification effort. Measure admission and scheduling policy; no open network makes that cost zero.</td></tr>
-        <tr><td>Announce an imminent landing and never submit.</td><td>No consensus reservation; clients retain independent proving and submission paths. ETA has no bond or job semantics.</td><td>A client that voluntarily stops its only prover can hurt itself. An advisory promise provides no compensation.</td></tr>
-        <tr><td>Replace a beneficiary, proof key, queue prefix or revision.</td><td>Recompute the exact public input and use the pinned backend/program; reject mismatched leaves.</td><td>A common error in the authoritative statement or relation is outside transport checks.</td></tr>
-        <tr><td>Replay a valid old offer after its parent was consumed.</td><td>Keep proof correctness distinct from current applicability; check the Inbox head before relay.</td><td>A competing landing may still win after that check. Ordinary stale submissions may pay gas; frame behavior remains as separately specified.</td></tr>
-        <tr><td>Withhold the bytes after offering their digest.</td><td>Mark that transfer unavailable, try other peers or prove independently.</td><td>The offer itself is not an objectively bonded publication duty. Existing signed service claims, if any, retain their separate evidence rules.</td></tr>
+        <tr>
+<td>Advertise many fake leaves to consume verification CPU.</td>
+<td>Cheap identity/length checks first; bounded local queues; independently verify fetched artifacts; do not forward unverified bytes as verified.</td>
+<td>Sybil peers can still consume bandwidth and some verification effort. Measure admission and scheduling policy; no open network makes that cost zero.</td>
+</tr>
+        <tr>
+<td>Announce an imminent landing and never submit.</td>
+<td>No consensus reservation; clients retain independent proving and submission paths. ETA has no bond or job semantics.</td>
+<td>A client that voluntarily stops its only prover can hurt itself. An advisory promise provides no compensation.</td>
+</tr>
+        <tr>
+<td>Replace a beneficiary, proof key, queue prefix or revision.</td>
+<td>Recompute the exact public input and use the pinned backend/program; reject mismatched leaves.</td>
+<td>A common error in the authoritative statement or relation is outside transport checks.</td>
+</tr>
+        <tr>
+<td>Replay a valid old offer after its parent was consumed.</td>
+<td>Keep proof correctness distinct from current applicability; check the Inbox head before relay.</td>
+<td>A competing landing may still win after that check. Ordinary stale submissions may pay gas; frame behavior remains as separately specified.</td>
+</tr>
+        <tr>
+<td>Withhold the bytes after offering their digest.</td>
+<td>Mark that transfer unavailable, try other peers or prove independently.</td>
+<td>The offer itself is not an objectively bonded publication duty. Existing signed service claims, if any, retain their separate evidence rules.</td>
+</tr>
       </tbody>
     </table>
     <p><strong>Proven scope:</strong> none of these messages reduces the proof threshold, extends a stage lifetime, waives full DA, grants a lease, cancels a job, reserves a bounty or changes slashing. No canonical action waits for an intent holder, a selected peer or an assigned worker.</p>
     <p><strong>Assumed:</strong> useful peers have incentives to share completed leaves, and at least one party can fund independent recovery. This module promises interoperability, not free proving or a profitable public-proof market. <strong>Open:</strong> cross-client encoding vectors, streaming limits, worst-case verification scheduling and observed sharing rates belong in the <a href="assurance.html">launch evidence</a>.</p>
   </section>
 
-  <aside class="challenge"><h2>Challenge this addition</h2><p>Try combining two offers that agree on the body but differ in one payment, queue or revision field. Try filling every peer queue with valid-looking identities and invalid leaves. Then disconnect every advertising peer. The client should preserve exact verifier binding, bounded local work and an independent submission path; it should never infer a new canonical right from network metadata.</p></aside>
+  <aside class="challenge">
+<h2>Challenge this addition</h2>
+<p>Try combining two offers that agree on the body but differ in one payment, queue or revision field. Try filling every peer queue with valid-looking identities and invalid leaves. Then disconnect every advertising peer. The client should preserve exact verifier binding, bounded local work and an independent submission path; it should never infer a new canonical right from network metadata.</p>
+</aside>
 </main>
-<footer><p>Design research only. No contracts or clients are implemented here. <a href="../notes/peer-design-comparison.md">Comparison and attribution</a> · <a href="index.html">Reference specification</a></p></footer>
+<footer>
+<p>Design research only. No contracts or clients are implemented here. <a href="../notes/peer-design-comparison.md">Comparison and attribution</a> · <a href="index.html">Reference specification</a>
+</p>
+</footer>
 </body>
 </html>

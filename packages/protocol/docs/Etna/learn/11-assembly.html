@@ -1,31 +1,144 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna lesson 12 — Assemble the arguments</title><link rel="stylesheet" href="../design/style.css"></head>
-<body><header><p class="eyebrow">Etna learning course · lesson 12</p><h1>Assemble the arguments</h1><p>Now test whether the pieces support the claimed safety and progress together.</p><nav aria-label="Course"><a href="index.html">Course map</a><a href="10-migration.html">Previous: migration</a><a href="../design/arguments.html">Full arguments and verdict</a></nav></header><main>
-<aside class="notice" id="verdict"><strong>Historical review milestone; production feasibility remains open.</strong> The <a href="../iterations/08-judge.md">round 08 judge</a> records specification convergence for the anchor-removal snapshot reviewed in rounds 07–08. That record is not launch approval or validation of later additions. The <a href="../design/assurance.html#operating-profile">current operating-profile assessment</a> leaves affordability, sustained capacity and service guarantees unresolved. This course describes proposed rules, not a production-ready protocol.</aside>
-<section><h2>The problem: correct parts can compose incorrectly</h2><p><strong>Proven lesson from the review:</strong> an exact proof statement is insufficient if its inner byte decoder is undefined. A safe queue rule is insufficient if the initial head never chooses its first snapshot. A nonce lock is insufficient if a reverted action can consume it without advancing the head. Composition needs explicit boundaries, not just individually plausible components.</p></section>
-<section><h2>The assembled mechanism</h2><p><strong>Assumed rules:</strong> nodes execute complete candidate blocks against authenticated parents and origins. Bonded signers accept public-fragment deadlines. A sealed candidate's complete data and context are staged without reserving anything. Any producer may authorize an applicable statement; any funded caller may atomically submit its proof, republish its data and pay the current rent. The verified successor processes the frozen forced prefix and publishes its L2 checkpoint to the existing L1 SignalService. Separately, every L2 block records its authenticated L1 execution hash through standard EIP-4788; ordinary pin/reveal transactions persist L1 checkpoints in the existing L2 SignalService when needed.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1060 350" role="img" aria-labelledby="assembly-title assembly-desc"><title id="assembly-title">The full protocol connects local validity to proof-authenticated existing custody</title><desc id="assembly-desc">Locally checked soft candidates feed complete public stages and proofs. A single atomic data-and-proof action also checks the parent, forced queue and rent, then publishes an L2 checkpoint on L1. Ordinary L2 pin/reveal calls separately persist authenticated L1 checkpoints. Bonded publication evidence is settled separately and never replaces the execution proof.</desc><defs><marker id="assembly-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="currentColor"/></marker></defs><rect class="box" x="20" y="45" width="225" height="110" rx="8"/><rect class="box" x="290" y="45" width="230" height="110" rx="8"/><rect class="box" x="565" y="45" width="245" height="110" rx="8"/><rect class="box" x="855" y="45" width="185" height="110" rx="8"/><rect class="box" x="20" y="220" width="500" height="85" rx="8"/><path class="arrow" d="M245 100H285 M520 100H560 M810 100H850" marker-end="url(#assembly-arrow)"/><path class="arrow" d="M132 155V215" marker-end="url(#assembly-arrow)"/><g font-size="18" text-anchor="middle"><text x="132" y="77">Execute each candidate</text><text x="132" y="107">1-second issue target</text><text x="132" y="137">revocable soft branch</text><text x="405" y="78">Complete public stage</text><text x="405" y="108">360-second lead</text><text x="405" y="138">proving in parallel</text><text x="687" y="78">One atomic L1 action</text><text x="687" y="108">data + proof + rent</text><text x="687" y="138">parent + FIFO checks</text><text x="947" y="78">L1 checkpoint store</text><text x="947" y="108">existing custody</text><text x="947" y="138">then L1 finality</text><text x="270" y="252">Separate public duties: exact bytes by +240 seconds</text><text x="270" y="282">objective default · bounded slash · no ordering veto</text></g></svg></div>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna lesson 12 — Assemble the arguments</title>
+<link rel="stylesheet" href="../design/style.css">
+</head>
+<body>
+<header>
+<p class="eyebrow">Etna learning course · lesson 12</p>
+<h1>Assemble the arguments</h1>
+<p>Now test whether the pieces support the claimed safety and progress together.</p>
+<nav aria-label="Course"><a href="index.html">Course map</a><a href="10-migration.html">Previous: migration</a><a href="../design/arguments.html">Full arguments and verdict</a>
+</nav>
+</header>
+<main>
+<aside class="notice" id="verdict"><strong>Research candidate; current feasibility gates remain open.</strong> Measured one-second soft issuance and acceptable confirmation semantics (R4), practical deterrence (R6) and sustained minute-level landing (R7) are not demonstrated. The <a href="../iterations/08-judge.md">round 08 judge</a> records a historical stopping criterion for the rounds 07–08 anchor-removal snapshot; it does not establish that every current requirement passes. Read the <a href="../design/assurance.html#operating-profile">current assessment</a> and <a href="../notes/pr-comment-dispositions.md">PR-comment dispositions</a>. This course teaches proposed rules, not a production-ready protocol.</aside>
+<section>
+<h2>The problem: correct parts can compose incorrectly</h2>
+<p><strong>Proven lesson from the review:</strong> an exact proof statement is insufficient if its inner byte decoder is undefined. A safe queue rule is insufficient if the initial head never chooses its first snapshot. A nonce lock is insufficient if a reverted action can consume it without advancing the head. Composition needs explicit boundaries, not just individually plausible components.</p>
+</section>
+<section>
+<h2>The assembled mechanism</h2>
+<p><strong>Assumed rules:</strong> nodes execute complete candidate blocks against authenticated parents and origins. Bonded signers accept public-fragment deadlines. A sealed candidate's complete data and context are staged without reserving anything. Any producer may authorize an applicable statement; any funded caller may atomically submit its proof, republish its data and pay the current rent. The verified successor processes the frozen forced prefix and publishes its L2 checkpoint to the existing L1 SignalService. Separately, every L2 block records its authenticated L1 execution hash through standard EIP-4788; ordinary pin/reveal transactions persist L1 checkpoints in the existing L2 SignalService when needed.</p>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1060 350" role="img" aria-labelledby="assembly-title assembly-desc">
+<title id="assembly-title">The full protocol connects local validity to proof-authenticated existing custody</title>
+<desc id="assembly-desc">Locally checked soft candidates feed complete public stages and proofs. A single atomic data-and-proof action also checks the parent, forced queue and rent, then publishes an L2 checkpoint on L1. Ordinary L2 pin/reveal calls separately persist authenticated L1 checkpoints. Bonded publication evidence is settled separately and never replaces the execution proof.</desc>
+<defs>
+<marker id="assembly-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+<path d="M0 0L8 4L0 8Z" fill="currentColor"/>
+</marker>
+</defs>
+<rect class="box" x="20" y="45" width="225" height="110" rx="8"/>
+<rect class="box" x="290" y="45" width="230" height="110" rx="8"/>
+<rect class="box" x="565" y="45" width="245" height="110" rx="8"/>
+<rect class="box" x="855" y="45" width="185" height="110" rx="8"/>
+<rect class="box" x="20" y="220" width="500" height="85" rx="8"/>
+<path class="arrow" d="M245 100H285 M520 100H560 M810 100H850" marker-end="url(#assembly-arrow)"/>
+<path class="arrow" d="M132 155V215" marker-end="url(#assembly-arrow)"/>
+<g font-size="18" text-anchor="middle">
+<text x="132" y="77">Execute each candidate</text>
+<text x="132" y="107">1-second issue target</text>
+<text x="132" y="137">revocable soft branch</text>
+<text x="405" y="78">Complete public stage</text>
+<text x="405" y="108">360-second lead</text>
+<text x="405" y="138">proving in parallel</text>
+<text x="687" y="78">One atomic L1 action</text>
+<text x="687" y="108">data + proof + rent</text>
+<text x="687" y="138">parent + FIFO checks</text>
+<text x="947" y="78">L1 checkpoint store</text>
+<text x="947" y="108">existing custody</text>
+<text x="947" y="138">then L1 finality</text>
+<text x="270" y="252">Separate public duties: exact bytes by +240 seconds</text>
+<text x="270" y="282">objective default · bounded slash · no ordering veto</text>
+</g>
+</svg>
+</div>
 <p><strong>Proven safety sketch under A-LEGACY/A-CRYPTO/A-IMPLEMENTATION/A-L1/A-UPGRADE:</strong> H0 authenticates the legacy boundary. Inductively, each accepted successor verifies the complete execution/DA relation against the unique current parent. Only that accepted output can publish a new rollup checkpoint on L1. In the other direction, exact header-origin equality authenticates 4788 hashes; pin/reveal binds a full L1 header to one of those hashes before persisting its checkpoint. Explicit first-block guards close the legacy writer paths. Existing Bridge proofs and replay rules consume the retained authenticated state. Neither a soft signature, availability payment, auction price nor DAO assertion substitutes for the execution proof.</p>
 <p><strong>Proven conditional liveness sketch:</strong> no incumbent service or job reserves the parent. A new capable, funded prover with reconstructible state can stage and prove a fresh child. Rent eventually reaches zero if no one advances; refreshing an expired candidate does not reset that price. If somebody advances first, canonical progress occurred and the immutable FIFO snapshot constrains its required work. Eventual affordable inclusion, available data and feasible proving remain premises. Forced pinning selects its processing block's origin; a later pinned reveal has no ring expiry, under the 1,536-byte header and 2,048-byte queue limits. Caller funding, a recoverable header and separately feasible bridge proofs remain necessary. Zero capable provers, lost history or unbounded L1 censorship defeat those premises.</p>
 </section>
-<section><h2>Worked example: one healthy segment</h2><p><strong>Assumed example:</strong> an accepted parent starts the rent clock at time 10,000. A usable authenticated origin is available, and the publisher issues blocks through 10,060. It stages at 10,060 and finishes proving by 10,240. Each bonded fragment is published by its own issuedAt+240 deadline. The segment matures at 10,420. A caller landing then pays q(420)=0.026666666666666667 ETH plus ordinary L1 costs.</p><p><strong>Proven consequences:</strong> a new forced enqueue at 10,419 does not change this proof's parent-frozen workload. If the assigned worker stopped, another prover can submit without waiting for its job timeout. Another mature candidate can still win and invalidate this soft suffix. After successful acceptance, users still wait for Ethereum finality; no fixed L1 slot count defines that finality.</p></section>
-<section id="review"><h2>What the red team changed</h2><table><caption>Recorded findings and specified responses; final closure is judged separately</caption><thead><tr><th>Concrete problem</th><th>Design response and remaining limit</th></tr></thead><tbody>
-<tr><td>Round 1 High: first reveal of a private competing branch at settlement.</td><td>Require actual public data 360 seconds before eligibility. Mature public competition can still replace soft state.</td></tr>
-<tr><td>Inconsistent evidence encodings; undefined inner body/manifest grammar.</td><td>Exact schemas, domain separation, canonical bytes and reproducible component fixtures. Real circuits and encoders still need implementation verification.</td></tr>
-<tr><td>Round 4: incomplete bootstrap and ordinary capture economics.</td><td>Specify every H0 field and first successor; add mandatory descending-price rent with an explicit conditional cost/gain theorem.</td></tr>
-<tr><td>Paid recovery allowed a long prepublication delay.</td><td>Every v2 bonded fragment gets an absolute 240-second deadline; late disclosure cannot cure its miss. Timely short withholding and false defaults under censorship remain possible.</td></tr>
-<tr><td>Round 7 Medium: new force fees could be accepted before a blocked legacy drain completed.</td><td>New Etna intake requires ACTIVE before any fee or record effect. Existing legacy obligations remain; clients expose the intake gap.</td></tr>
-</tbody></table><p id="review-result"><strong>Proven historical review record:</strong> the <a href="../iterations/08-judge.md">round 08 judge</a> confirms convergence across fresh rounds 07–08 for the anchor-removal specification. No new Critical/High arose; the Medium pre-activation intake defect was corrected and rechecked, all remaining Mediums have explicit dispositions and R1–R7 were assessed as passing under the reviewed snapshot's named assumptions. Earlier first-reveal, encoding, bootstrap and accounting findings retain their specified responses. Concentration, service costs, finite attribution, paid backlog and checkpoint funding/archive limits remain accepted risks. Deployment and performance evidence remain hard launch gates. Read the <a href="../iterations/">full reports</a> and <a href="../README.md">requirement ledger</a>; absence of Critical/High alone never establishes readiness.</p></section>
-<section id="operating-profile"><h2>Can the combined design sustain a useful workload?</h2>
-<p><strong>Proven coupled-budget examples:</strong> a maximum 60-block, 122,880-byte segment every 60 seconds yields at most one accepted block per second and 2,048 encoded body bytes per second before headers and other overhead. That schedule pays approximately 67.2 ETH/day in rent before proofs, gas and both DA publications. One segment every 900 seconds pays zero rent but processes at most one block per 15 seconds, so a continuous one-second soft branch eventually hits the 900-block speculative horizon.</p>
-<p><strong>Proven additional burdens under the stated scenarios:</strong> bonded publication of 10,000 data bytes per second at the modeled 64-gas-per-byte floor and 20 gwei contributes 1,105.92 ETH/day in byte-only calldata cost. With 1,000 predecessors and a conditional 660-second maximum accepted-head interval, the conservative forced-processing bound is 46 hours 29 minutes. None of these examples is an observed deployment result, and no uniform short delay applies to arbitrary paid backlog.</p>
-<p><strong>Open production verdict:</strong> the <a href="../design/assurance.html#operating-profile">combined operating profile</a> has no demonstrated affordable point meeting an agreed Taiko workload and service target. Humans must choose acceptable workload, delay and soft-confirmation semantics; engineers must then demonstrate the complete resource and funding budget. If the chosen workload cannot fit or be funded, revising parameters or mechanisms and reviewing the consequences is required. Historical specification convergence does not close this issue.</p>
+<section>
+<h2>Worked example: one healthy segment</h2>
+<p><strong>Assumed example:</strong> an accepted parent starts the rent clock at time 10,000. A usable authenticated origin is available, and the publisher issues blocks through 10,060. It stages at 10,060 and finishes proving by 10,240. Each bonded fragment is published by its own issuedAt+240 deadline. The segment matures at 10,420. A caller landing then pays q(420)=0.026666666666666667 ETH plus ordinary L1 costs.</p>
+<p><strong>Proven consequences:</strong> a new forced enqueue at 10,419 does not change this proof's parent-frozen workload. If the assigned worker stopped, another prover can submit without waiting for its job timeout. Another mature candidate can still win and invalidate this soft suffix. After successful acceptance, users still wait for Ethereum finality; no fixed L1 slot count defines that finality.</p>
 </section>
-<section><h2>What these arguments do not establish</h2><p><strong>Proven scope:</strong> soft finality, separate beneficial owners, unlimited MEV insurance and a uniform short delay through arbitrary paid backlog are not provided. <strong>Assumed:</strong> a funded competitor ready before rent reaches zero is necessary for the positive capture-cost bound. <strong>Open:</strong> proving throughput, actual maximum gas, service economics, live storage compatibility, pin/reveal gas and first-block system-call/migration rehearsal require evidence. Historical clean reviews do not perform those experiments or approve changed rules.</p></section>
-<section id="peer-lessons"><h2>What the other design helped us clarify</h2><p>The <a href="../notes/peer-design-comparison.md">comparison with Claude’s design</a> improved our client confirmation labels and optional proof exchange. Its property-first presentation and reserve stress analysis also motivated the <a href="../design/assurance.html">launch dashboard</a>. Try the coupled budgets together: 60 seconds to retrieve plus 180 to prove leaves 120 before 360-second stage maturity, but an old origin can expire first. A solvent TAIKO reserve does not buy ETH gas or make a 60-second rent cadence affordable.</p><p><strong>Proven scope:</strong> these additions leave canonical admission and proof thresholds unchanged. They receive a targeted follow-up review; they do not create a ninth red-team round or extend the old verdict to a new consensus mechanism. <strong>Open:</strong> measurements, product requirements and economic decisions still control launch; the reciprocal critique sharpened the unresolved capacity, recurring-cost and forced-delay questions above.</p></section>
-<section><h2>Check your understanding</h2>
-<details><summary>Every incumbent prover disappears. Which promise keeps the chain live?</summary><p><strong>Proven conditionally:</strong> open entry permits a new funded capable prover to act; no promise creates proving hardware or missing state. Without any such entrant, the chain halts safely.</p></details>
-<details><summary>Does a missed fragment deadline authorize a replacement state root?</summary><p><strong>Proven:</strong> no. Evidence settles a bounded service reserve. Canonical roots still require complete valid execution proofs and data.</p></details>
-<details><summary>A cartel wins every zero-rent head. Does this falsify the capture theorem or sustain one-second settlement?</summary><p><strong>Proven:</strong> it does not falsify the conditional theorem if no funded competitor was ready and includable before 900 seconds. But at exactly one 60-block segment per 900 seconds, canonical processing averages at most one block per 15 seconds. This exposes both the competition premise and the unresolved cost/capacity tradeoff; neither can be advertised away.</p></details>
-</section><aside class="challenge"><h2>Challenge the complete protocol</h2><p>Choose one invariant: authenticated roots, conservation of one asset, immutable forced work, historical default settlement or open replacement. Construct a starting state and an action sequence that violates it while satisfying every named premise. If your trace instead removes a premise, identify the user-visible failure and decide whether accepting that risk is justified. A severity label never waives a failed hard requirement.</p></aside>
-</main><footer><nav aria-label="Lesson navigation"><a href="10-migration.html">← Lesson 11: migration</a><a href="index.html">Course map</a><a href="../design/index.html">Open the engineering reference →</a></nav></footer></body></html>
+<section id="review">
+<h2>What the red team changed</h2>
+<table>
+<caption>Recorded findings and specified responses; final closure is judged separately</caption>
+<thead>
+<tr>
+<th>Concrete problem</th>
+<th>Design response and remaining limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Round 1 High: first reveal of a private competing branch at settlement.</td>
+<td>Require actual public data 360 seconds before eligibility. Mature public competition can still replace soft state.</td>
+</tr>
+<tr>
+<td>Inconsistent evidence encodings; undefined inner body/manifest grammar.</td>
+<td>Exact schemas, domain separation and canonical bytes. Component fixture outputs are provisional until independently reproduced for implementation use; earlier scratch checks are not a committed conformance suite. Real circuits and encoders still need verification.</td>
+</tr>
+<tr>
+<td>Round 4: incomplete bootstrap and ordinary capture economics.</td>
+<td>Specify every H0 field and first successor; add mandatory descending-price rent with an explicit conditional cost/gain theorem.</td>
+</tr>
+<tr>
+<td>Paid recovery allowed a long prepublication delay.</td>
+<td>Every v2 bonded fragment gets an absolute 240-second deadline; late disclosure cannot cure its miss. Timely short withholding and false defaults under censorship remain possible.</td>
+</tr>
+<tr>
+<td>Round 7 Medium: new force fees could be accepted before a blocked legacy drain completed.</td>
+<td>New Etna intake requires ACTIVE before any fee or record effect. Existing legacy obligations remain; clients expose the intake gap.</td>
+</tr>
+</tbody>
+</table>
+<p id="review-result"><strong>Proven historical review record:</strong> the <a href="../iterations/08-judge.md">round 08 judge</a> confirms convergence across fresh rounds 07–08 for the anchor-removal specification. No new Critical/High arose; the Medium pre-activation intake defect was corrected and rechecked, all remaining Mediums have explicit dispositions and R1–R7 were assessed as passing under the reviewed snapshot's named assumptions. That dated assessment is not the present requirement ledger: subsequent peer scrutiny leaves current R4/R6/R7 feasibility open, and a reported Medium disposition does not satisfy a hard acceptance gate. Earlier first-reveal, encoding, bootstrap and accounting findings retain their specified responses. Concentration, service costs, finite attribution, paid backlog and checkpoint funding/archive limits remain accepted risks. Deployment and performance evidence remain hard launch gates. Read the <a href="../iterations/">full reports</a> and <a href="../README.md">requirement ledger</a>; absence of Critical/High alone never establishes readiness.</p>
+</section>
+<section id="operating-profile">
+<h2>Can the combined design sustain a useful workload?</h2>
+<p><strong>Proven necessary sustained-budget bounds:</strong> a maximum 60-block, 122,880-byte segment every 60 seconds yields at most one accepted block per second and 2,048 total encoded body bytes per second, leaving less transaction payload after headers and other overhead. The summed price argument in <a href="09-competition.html#sustained-cost">lesson 9</a> strengthens the example: sustaining one accepted block per second requires at least <strong>67.2 ETH/day</strong> in long-run rent even with bursty acceptance. Sustaining 10,000 encoded body bytes per second requires at least <strong>346.7625 ETH/day</strong> rent. Both exclude proofs, gas and both DA publications. One segment every 900 seconds pays zero rent but processes at most one block per 15 seconds, so a continuous one-second soft branch eventually hits the 900-block speculative horizon.</p>
+<p><strong>Proven additional burdens under the stated scenarios:</strong> bonded publication of 10,000 data bytes per second at the modeled 64-gas-per-byte floor and 20 gwei contributes 1,105.92 ETH/day in byte-only calldata cost. With 1,000 predecessors and a conditional 660-second maximum accepted-head interval, the conservative forced-processing bound is 46 hours 29 minutes. None of these examples is an observed deployment result, and no uniform short delay applies to arbitrary paid backlog.</p>
+<p><strong>Open production verdict:</strong> the <a href="../design/assurance.html#operating-profile">combined operating profile</a> has no demonstrated affordable point meeting an agreed Taiko workload and service target. Current R4 (one-second soft issuance and its confirmation semantics), R6 (practical deterrence) and R7 (sustained minute-level landing) therefore remain open. A one-second issuance target alone does not demonstrate canonical follow-through. Humans must choose acceptable workload, delay and soft-confirmation semantics; engineers must then demonstrate the complete resource and funding budget. If the chosen workload cannot fit or be funded, revising parameters or mechanisms and reviewing the consequences is required. Historical specification convergence does not close this issue.</p>
+<p><strong>Proven scope of the new persistence bound:</strong> N accepted segments add at most N pin values and 2N checkpoint value words through the new origin API, after the migration baseline. This is linear growth with no lifetime cap, excludes storage-system overhead, and does not price that growth. Ordinary fees can return to coinbase; direct reveal bypasses a pin-only tariff. <strong>Open:</strong> the state-cost policy remains a launch decision, with no new fee or pruning rule adopted.</p>
+</section>
+<section>
+<h2>What these arguments do not establish</h2>
+<p><strong>Proven scope:</strong> soft finality, separate beneficial owners, unlimited MEV insurance and a uniform short delay through arbitrary paid backlog are not provided. <strong>Assumed:</strong> a funded competitor ready before rent reaches zero is necessary for the positive capture-cost bound. <strong>Open:</strong> proving throughput, actual maximum gas, service economics, live storage compatibility, pin/reveal gas and first-block system-call/migration rehearsal require evidence. Historical clean reviews do not perform those experiments or approve changed rules.</p>
+</section>
+<section id="peer-lessons">
+<h2>What the other design helped us clarify</h2>
+<p>The <a href="../notes/peer-design-comparison.md">comparison with Claude’s design</a> improved our client confirmation labels and optional proof exchange. Its property-first presentation and reserve stress analysis also motivated the <a href="../design/assurance.html">launch dashboard</a>. Try the coupled budgets together: 60 seconds to retrieve plus 180 to prove leaves 120 before 360-second stage maturity, but an old origin can expire first. A solvent TAIKO reserve does not buy ETH gas or make a 60-second rent cadence affordable.</p>
+<p><strong>Proven scope:</strong> these additions and the <a href="../notes/pr-comment-dispositions.md">complete PR-comment response</a> leave canonical admission and proof thresholds unchanged. Scoped follow-up checks do not create a ninth red-team round or extend the old verdict to a new consensus mechanism. The <a href="../notes/design-course-sync.md">design/course synchronization record</a> maps changes to affected lessons and their checks. <strong>Open:</strong> measurements, product requirements and economic decisions still control launch; the critique sharpened the unresolved capacity, recurring-cost, state-growth and forced-delay questions above.</p>
+</section>
+<section>
+<h2>Check your understanding</h2>
+<details>
+<summary>Every incumbent prover disappears. Which promise keeps the chain live?</summary>
+<p><strong>Proven conditionally:</strong> open entry permits a new funded capable prover to act; no promise creates proving hardware or missing state. Without any such entrant, the chain halts safely.</p>
+</details>
+<details>
+<summary>Does a missed fragment deadline authorize a replacement state root?</summary>
+<p><strong>Proven:</strong> no. Evidence settles a bounded service reserve. Canonical roots still require complete valid execution proofs and data.</p>
+</details>
+<details>
+<summary>Does a historical clean review, or bursty zero-rent recovery, establish that R4/R6/R7 now pass?</summary>
+<p><strong>Proven scope:</strong> no. Review outcomes do not establish sustained affordable service. Only the first acceptance after a 900-second gap uses the old zero price; sustained one-block-per-second acceptance still requires at least 67.2 ETH/day rent under these caps. Competitor funding, service semantics and the complete operating budget remain unresolved.</p>
+</details>
+</section>
+<aside class="challenge">
+<h2>Challenge the complete protocol</h2>
+<p>Choose one invariant: authenticated roots, conservation of one asset, immutable forced work, historical default settlement or open replacement. Construct a starting state and an action sequence that violates it while satisfying every named premise. If your trace instead removes a premise, identify the user-visible failure and decide whether accepting that risk is justified. A severity label never waives a failed hard requirement.</p>
+</aside>
+</main>
+<footer>
+<nav aria-label="Lesson navigation"><a href="10-migration.html">← Lesson 11: migration</a><a href="index.html">Course map</a><a href="../design/index.html">Open the engineering reference →</a>
+</nav>
+</footer>
+</body>
+</html>

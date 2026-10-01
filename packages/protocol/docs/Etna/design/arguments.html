@@ -1,46 +1,166 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etna — arguments, assumptions and verdict</title><link rel="stylesheet" href="style.css"></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna — arguments, assumptions and verdict</title>
+<link rel="stylesheet" href="style.css">
+</head>
 <body>
-<header><p class="eyebrow">Etna · anchor-free reference · production feasibility open</p><h1>What this design establishes</h1><p>Conditional proof sketches, explicit counterexamples and the evidence still needed before launch.</p><nav aria-label="Design"><a href="index.html">Core specification</a><a href="roles.html">Roles</a><a href="accountability.html">Accountability</a><a href="migration.html">Bridge &amp; migration</a><a href="arguments.html" aria-current="page">Arguments &amp; verdict</a><a href="../learn/index.html">Learning course</a><a href="../README.md">Research index</a><a href="checkpoints.html">Checkpoint persistence</a></nav></header>
+<header>
+<p class="eyebrow">Etna · anchor-free reference · production feasibility open</p>
+<h1>What this design establishes</h1>
+<p>Conditional proof sketches, explicit counterexamples and the evidence still needed before launch.</p>
+<nav aria-label="Design"><a href="index.html">Core specification</a><a href="roles.html">Roles</a><a href="accountability.html">Accountability</a><a href="migration.html">Bridge &amp; migration</a><a href="arguments.html" aria-current="page">Arguments &amp; verdict</a><a href="../learn/index.html">Learning course</a><a href="../README.md">Research index</a><a href="checkpoints.html">Checkpoint persistence</a>
+</nav>
+</header>
 <main>
-<aside class="notice" id="verdict"><strong>Anchor-removal design converged in rounds 07–08.</strong> No new Critical/High appeared in those rounds. The Medium pre-activation intake issue is corrected; the final judge verifies all seven gates and every Medium has a written disposition. Standard hash recording and ordinary pin/reveal replace the L2 anchor transaction. This is an implementation reference under named assumptions; launch, performance and economic evidence remain outstanding.</aside>
+<aside class="notice warning" id="verdict"><strong>Current verdict: research candidate with unresolved acceptance gates.</strong> Standard hash recording and ordinary pin/reveal replace the L2 anchor transaction, and ACTIVE-only force intake closes the pre-launch escrow defect. Model-generated rounds07–08 reported convergence for snapshot <code>c60b2042af3d422fff96e79c59f283b40cab41a5</code>. Subsequent peer review leaves R4/R6/R7 product, resource and economic acceptance open. The historical result is not a present all-gates-pass or implementation-ready verdict; accepting a severity rating cannot waive a hard requirement.</aside>
 <aside class="notice warning"><strong>Operating-profile challenge remains open.</strong> The <a href="assurance.html#operating-profile">reciprocal review calculations</a> expose low body throughput at long landing intervals, expensive recurring publication and long paid-backlog delays. Historical specification convergence does not prove this profile is affordable or suitable for Taiko’s workload. No production launch recommendation follows.</aside>
-<section id="classification"><h2>1. How to read the claims</h2>
+<section id="classification">
+<h2>1. How to read the claims</h2>
 <p><strong>Proven</strong> below means a deduction from the specified rules and named assumptions, or a cited source observation. It does not mean mechanically verified Solidity, a completed circuit audit, or an empirical performance result. <strong>Assumed</strong> identifies premises the mechanism cannot supply for itself. <strong>Open</strong> identifies an unresolved obligation and the evidence or decision needed to close it. A-IMPLEMENTATION makes the safety proofs conditional on faithful implementation; it does not prevent an interface-complete design from being reviewed before production code exists. Production implementation is expressly outside this research task. Specification gaps block design readiness; deployment verification and performance benchmarks are separate launch gates. These labels apply to the grouped table rows and numbered arguments as well as their introductions. “Proposed” marks a normative rule assumed to be implemented exactly under A-IMPLEMENTATION, reviewed at specification level; it is not a fourth class of established result.</p>
 <p><strong>Proven distinction:</strong> an individual block can be locally execution-valid and later lose canonical selection. Local validation answers “does this signed candidate correctly extend this known parent in this named L1 view?” Canonical acceptance answers “did Ethereum accept a valid proof and available data extending the unique Inbox head?” Ethereum finality answers a third question about the containing L1 block. None implies either of the others in advance. One-second issuance and minute-level proof landing therefore do not alone prove an impossibility.</p>
 </section>
 
-<section id="assumptions"><h2>2. Assumption ledger</h2>
-<table><caption>Assumed premises; all timing bounds are seconds, not slots or epochs</caption><thead><tr><th>Name</th><th>Exact premise</th><th>Claims that depend on it / consequence of failure</th></tr></thead><tbody>
-<tr><td>A-CRYPTO</td><td>Hash collision resistance, signature unforgeability, KZG binding for blob mode, and correct enforcement of the complete Etna relation by at least one of the required RISC0_RETH/SP1_RETH proof backends at its stated security level; shared relation-specification bugs remain outside that cryptographic premise.</td><td>Evidence attribution, body binding and canonical state safety. A forged execution proof can authorize a false withdrawal root; TAIKO bonds do not repair that failure.</td></tr>
-<tr><td>A-IMPLEMENTATION</td><td>The circuit implements the complete selected Ethereum/L2 execution, origin and standard system-call rules; Inbox verifies the exact statement, DA relation and cursor rules atomically; contract accounting, parsers and frame-envelope checks faithfully implement this specification.</td><td>All contract-level deductions. Requires specification closure, independent review and implementation verification; this document is no substitute for them.</td></tr>
-<tr><td>A-L1</td><td>Ethereum executes valid transactions and orders a single accepted state per history; its consensus finality holds. Clients track reorgs and distinguish accepted from finalized history.</td><td>Canonical head uniqueness, header authentication, checkpoint provenance and final settlement. No rollup rule defeats a broken L1 finality assumption.</td></tr>
-<tr><td>A-DA</td><td>An included calldata publication or valid blob transaction makes its exact bounded payload available under Ethereum's DA rules. Staged blobs remain retrievable for the 900-second eligibility horizon plus the 60-second retrieval budget; the launch retention regime must cover this in seconds. No execution-affecting manifest context remains private.</td><td>The mandatory 360-second public-data lead and entrant recovery from staged data. A supplied hash without actual publication is insufficient. DA failure invalidates the public-lead argument; publication is not universal P2P receipt.</td></tr>
-<tr><td>A-UPGRADE</td><td>Migration authenticates the existing deployments and storage correctly, and the DAO does not install a malicious or incompatible implementation. Existing obligations survive honest upgrades.</td><td>Custody and historical accounting across upgrades. The DAO may remain inactive forever after a valid launch; safety against an actively malicious arbitrary upgrade is not claimed.</td></tr>
-<tr><td>A-INCLUDE(I)</td><td>After network stabilization, at least one adequately funded, bounded public transaction that remains valid can be included within I=120 seconds. Fees and resource use fit the active fork.</td><td>Bounded response and proof recovery. This is an explicit model, not an Ethereum guarantee. An obsolete competing proof is no longer protected by this premise.</td></tr>
-<tr><td>A-NET</td><td>After stabilization, honest participants can exchange complete bounded block bodies, proofs and L1 observations within a known latency compatible with their advertised service.</td><td>Healthy soft-confirmation latency and challenge awareness. A partition permits UNKNOWN blocks, suspension of the soft service and false timeout defaults.</td></tr>
-<tr><td>A-RETRIEVE</td><td>A funded peer notices a successful stage and retrieves its complete public body, manifest and authenticated parent context within 60 seconds under A-NET/A-DA/A-ARCHIVE.</td><td>With the 180-second proof target, a same-branch proof can be ready before the 360-second data-age threshold. This does not guarantee winning L1 order or inclusion before eligibility.</td></tr>
-<tr><td>A-EXEC</td><td>Participating full nodes can reexecute the selected block resource bound quickly enough for the advertised soft service.</td><td>One-second user experience. Ten million gas per block is a proposed cap, not a measured one-second benchmark; reducing the cap may be necessary.</td></tr>
-<tr><td>A-PROVE(P)</td><td>At least one entrant can reconstruct the accepted state and produce both required proofs for a correct bounded next segment within P seconds (parallel production is allowed); proposed healthy target P=180 seconds. Sustainable prover throughput covers the selected chain workload.</td><td>Canonical progress and minute-level landing. If every capable prover stops or proving cost becomes unaffordable, the chain halts safely until someone returns or enters.</td></tr>
-<tr><td>A-FUND</td><td>Some honest user/prover/responder can finance Ethereum gas, DA and computation when its action is needed. A target-latency submitter also funds the quoted canonical admission rent; zero-rent eventual recovery has a separate longer schedule. Optional publishers and custodians need willing customers or independent funding.</td><td>Practical permissionless replacement and publication. A TAIKO reserve is neither ETH gas/rent funding nor a guaranteed profitable business. A-FUND alone does not imply a competitor willing to race before rent reaches zero.</td></tr>
-<tr><td>A-ARCHIVE</td><td>At least one reachable source retains enough accepted DA and authenticated state to reconstruct the chain after temporary L1 blob retention expires.</td><td>Long-term fresh-node and prover entry. A proof proves correctness; it cannot recreate erased transaction bytes. Calldata revelation is permanently recorded in L1 history, not a promise that every future RPC retains it.</td></tr>
-<tr><td>A-COMPETITION(D)</td><td>After each considered accepted head, a funded honest competitor has a fresh, mature, valid complete candidate and will pay its valid rent quote; absent earlier competing consumption, its transaction is included by head age D&lt;900 seconds. The illustrative bounded-deterrence scenario chooses D=660 seconds, including its stated notice/header/proving/staging/inclusion budget. This is stronger than merely having a capable prover somewhere.</td><td>If an adversary captures that head first, it must accept by D and pay at least q(D). Without the ready/willing/funded competitor or included valid transaction, it may wait until rent is zero; no positive capture-cost bound applies. L1 first-winner ordering remains unrestricted.</td></tr>
-<tr><td>A-PUBLISH</td><td>A signer issues a bonded fragment promise only while it possesses a complete valid FR preimage and exact bytes and can arrange their L1 calldata publication within issuedAt+240 seconds. Healthy notice/submission is budgeted within 120 seconds and funded inclusion within 120; a late paid challenge does not extend the absolute deadline.</td><td>Zero objective fragment defaults for conforming signers within those premises. Arbitrary censorship, key outage, loss of data or insufficient funding can still cause an honest signer to default.</td></tr>
-<tr><td>A-LIVE(Δ)</td><td>Under the preceding execution, proving, inclusion, archive and funding premises, successive accepted segments are no more than Δ seconds apart during the period for which a wall-clock FIFO bound is claimed.</td><td>The explicit forced-queue delay bound below. Δ is conditional on feasible origin freshness and mandatory workload; it is not an additional measured launch parameter.</td></tr>
-<tr><td>A-FRAME</td><td>The deployed EIP-8141 fork retains the analyzed transaction-invalidating VERIFY, sender nonce and blob semantics; the approved envelope is exactly bound.</td><td>Optional zero-inclusion-fee losing races. If absent or changed, ordinary public atomic submission remains available.</td></tr>
-<tr><td>A-BUILDER</td><td>At least one reachable builder accepts and economically tolerates the terminal-VERIFY frame shape excluded by the analyzed public-mempool policy.</td><td>Only the optional race-cost optimization. Neither membership, custody, forced inclusion nor canonical progress depends on this premise.</td></tr>
-</tbody></table>
+<section id="assumptions">
+<h2>2. Assumption ledger</h2>
+<table>
+<caption>Assumed premises; all timing bounds are seconds, not slots or epochs</caption>
+<thead>
+<tr>
+<th>Name</th>
+<th>Exact premise</th>
+<th>Claims that depend on it / consequence of failure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A-CRYPTO</td>
+<td>Hash collision resistance, signature unforgeability, KZG binding for blob mode, and correct enforcement of the complete Etna relation by at least one of the required RISC0_RETH/SP1_RETH proof backends at its stated security level; shared relation-specification bugs remain outside that cryptographic premise.</td>
+<td>Evidence attribution, body binding and canonical state safety. A forged execution proof can authorize a false withdrawal root; TAIKO bonds do not repair that failure.</td>
+</tr>
+<tr>
+<td>A-IMPLEMENTATION</td>
+<td>The circuit implements the complete selected Ethereum/L2 execution, origin and standard system-call rules; Inbox verifies the exact statement, DA relation and cursor rules atomically; contract accounting, parsers and frame-envelope checks faithfully implement this specification.</td>
+<td>All contract-level deductions. Requires specification closure, independent review and implementation verification; this document is no substitute for them.</td>
+</tr>
+<tr>
+<td>A-L1</td>
+<td>Ethereum executes valid transactions and orders a single accepted state per history; its consensus finality holds. Clients track reorgs and distinguish accepted from finalized history.</td>
+<td>Canonical head uniqueness, header authentication, checkpoint provenance and final settlement. No rollup rule defeats a broken L1 finality assumption.</td>
+</tr>
+<tr>
+<td>A-DA</td>
+<td>An included calldata publication or valid blob transaction makes its exact bounded payload available under Ethereum's DA rules. Staged blobs remain retrievable for the 900-second eligibility horizon plus the 60-second retrieval budget; the launch retention regime must cover this in seconds. No execution-affecting manifest context remains private.</td>
+<td>The mandatory 360-second public-data lead and entrant recovery from staged data. A supplied hash without actual publication is insufficient. DA failure invalidates the public-lead argument; publication is not universal P2P receipt.</td>
+</tr>
+<tr>
+<td>A-UPGRADE</td>
+<td>Migration authenticates the existing deployments and storage correctly, and the DAO does not install a malicious or incompatible implementation. Existing obligations survive honest upgrades.</td>
+<td>Custody and historical accounting across upgrades. The DAO may remain inactive forever after a valid launch; safety against an actively malicious arbitrary upgrade is not claimed.</td>
+</tr>
+<tr>
+<td>A-INCLUDE(I)</td>
+<td>After network stabilization, at least one adequately funded, bounded public transaction that remains valid can be included within I=120 seconds. Fees and resource use fit the active fork.</td>
+<td>Bounded response and proof recovery. This is an explicit model, not an Ethereum guarantee. An obsolete competing proof is no longer protected by this premise.</td>
+</tr>
+<tr>
+<td>A-NET</td>
+<td>After stabilization, honest participants can exchange complete bounded block bodies, proofs and L1 observations within a known latency compatible with their advertised service.</td>
+<td>Healthy soft-confirmation latency and challenge awareness. A partition permits UNKNOWN blocks, suspension of the soft service and false timeout defaults.</td>
+</tr>
+<tr>
+<td>A-RETRIEVE</td>
+<td>A funded peer notices a successful stage and retrieves its complete public body, manifest and authenticated parent context within 60 seconds under A-NET/A-DA/A-ARCHIVE.</td>
+<td>With the 180-second proof target, a same-branch proof can be ready before the 360-second data-age threshold. This does not guarantee winning L1 order or inclusion before eligibility.</td>
+</tr>
+<tr>
+<td>A-EXEC</td>
+<td>Participating full nodes can reexecute the selected block resource bound quickly enough for the advertised soft service.</td>
+<td>One-second user experience. Ten million gas per block is a proposed cap, not a measured one-second benchmark; reducing the cap may be necessary.</td>
+</tr>
+<tr>
+<td>A-PROVE(P)</td>
+<td>At least one entrant can reconstruct the accepted state and produce both required proofs for a correct bounded next segment within P seconds (parallel production is allowed); proposed healthy target P=180 seconds. Sustainable prover throughput covers the selected chain workload.</td>
+<td>Canonical progress and minute-level landing. If every capable prover stops or proving cost becomes unaffordable, the chain halts safely until someone returns or enters.</td>
+</tr>
+<tr>
+<td>A-FUND</td>
+<td>Some honest user/prover/responder can finance Ethereum gas, DA and computation when its action is needed. A target-latency submitter also funds the quoted canonical admission rent; zero-rent eventual recovery has a separate longer schedule. Optional publishers and custodians need willing customers or independent funding.</td>
+<td>Practical permissionless replacement and publication. A TAIKO reserve is neither ETH gas/rent funding nor a guaranteed profitable business. A-FUND alone does not imply a competitor willing to race before rent reaches zero.</td>
+</tr>
+<tr>
+<td>A-ARCHIVE</td>
+<td>At least one reachable source retains enough accepted DA and authenticated state to reconstruct the chain after temporary L1 blob retention expires.</td>
+<td>Long-term fresh-node and prover entry. A proof proves correctness; it cannot recreate erased transaction bytes. Calldata revelation is permanently recorded in L1 history, not a promise that every future RPC retains it.</td>
+</tr>
+<tr>
+<td>A-COMPETITION(D)</td>
+<td>After each considered accepted head, a funded honest competitor has a fresh, mature, valid complete candidate and will pay its valid rent quote; absent earlier competing consumption, its transaction is included by head age D&lt;900 seconds. The illustrative bounded-deterrence scenario chooses D=660 seconds, including its stated notice/header/proving/staging/inclusion budget. This is stronger than merely having a capable prover somewhere.</td>
+<td>If an adversary captures that head first, it must accept by D and pay at least q(D). Without the ready/willing/funded competitor or included valid transaction, it may wait until rent is zero; no positive capture-cost bound applies. L1 first-winner ordering remains unrestricted.</td>
+</tr>
+<tr>
+<td>A-PUBLISH</td>
+<td>A signer issues a bonded fragment promise only while it possesses a complete valid FR preimage and exact bytes and can arrange their L1 calldata publication within issuedAt+240 seconds. Healthy notice/submission is budgeted within 120 seconds and funded inclusion within 120; a late paid challenge does not extend the absolute deadline.</td>
+<td>Zero objective fragment defaults for conforming signers within those premises. Arbitrary censorship, key outage, loss of data or insufficient funding can still cause an honest signer to default.</td>
+</tr>
+<tr>
+<td>A-LIVE(Δ)</td>
+<td>Under the preceding execution, proving, inclusion, archive and funding premises, successive accepted segments are no more than Δ seconds apart during the period for which a wall-clock FIFO bound is claimed.</td>
+<td>The explicit forced-queue delay bound below. Δ is conditional on feasible origin freshness and mandatory workload; it is not an additional measured launch parameter.</td>
+</tr>
+<tr>
+<td>A-FRAME</td>
+<td>The deployed EIP-8141 fork retains the analyzed transaction-invalidating VERIFY, sender nonce and blob semantics; the approved envelope is exactly bound.</td>
+<td>Optional zero-inclusion-fee losing races. If absent or changed, ordinary public atomic submission remains available.</td>
+</tr>
+<tr>
+<td>A-BUILDER</td>
+<td>At least one reachable builder accepts and economically tolerates the terminal-VERIFY frame shape excluded by the analyzed public-mempool policy.</td>
+<td>Only the optional race-cost optimization. Neither membership, custody, forced inclusion nor canonical progress depends on this premise.</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Assumption aliases:</strong> A-IMPL means A-IMPLEMENTATION. A-LEGACY is the migration premise that historical checkpoints, signal caches, custody and wrapper accounting are sound at the authenticated boundary; its required audit and failure handling are defined in <a href="migration.html#history">migration</a>. A-INCLUSION in mechanism pages means A-INCLUDE(120); A-ECON means the applicable A-FUND premise, including a funded timely reporter for slashing. A-SERVICE is the optional willing-service-provider premise. They do not silently imply A-COMPETITION(D), which separately requires a ready willing competitor before rent reaches zero.</p>
 <p><strong>Proven assumption boundary:</strong> permissionless entry is an objective admission rule; it cannot imply that an honest operator exists, possesses adequate hardware, can obtain historical state, or can afford an unbounded fee. Conversely, an incumbent outage does not require a DAO rescue if a capable new entrant can satisfy those premises. No honest-majority assumption for publishers or custodians appears in the canonical proof-safety argument.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1040 410" role="img" aria-labelledby="proof-map-title proof-map-desc"><title id="proof-map-title">Proof dependency map</title><desc id="proof-map-desc">Cryptographic, implementation, L1 and upgrade assumptions feed state safety. Network, execution, proving, funding, archive and inclusion bounds feed conditional progress. Optional frame and builder assumptions affect submission cost only. Absolute publication duties and rent constrain specified behavior; neither proves historical P2P intent or fair market share.</desc><defs><marker id="proof-arrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0 0L8 3L0 6" fill="#008b88"/></marker></defs>
-<rect class="box" x="20" y="25" width="440" height="80" rx="8"/><text x="36" y="57">CRYPTO · IMPLEMENTATION · L1 · UPGRADE</text><text x="36" y="85">Execution proof + DA + exact parent + provenance</text><path class="arrow" d="M462 65H535" marker-end="url(#proof-arrow)"/><rect class="box" x="540" y="25" width="480" height="80" rx="8"/><text x="558" y="57">S1–S4: accepted state and custody safety</text><text x="558" y="85">Final only when its L1 acceptance is finalized</text>
-<rect class="box" x="20" y="139" width="440" height="80" rx="8"/><text x="36" y="171">NET · EXEC · PROVE · FUND · ARCHIVE · INCLUDE</text><text x="36" y="199">Bounded work and fresh authenticated origins</text><path class="arrow" d="M462 180H535" marker-end="url(#proof-arrow)"/><rect class="box" x="540" y="139" width="480" height="80" rx="8"/><text x="558" y="171">L1–L4: progress, FIFO and bounded capture cost</text><text x="558" y="199">No guarantee that an honest soft branch wins</text>
-<rect class="box" x="20" y="253" width="440" height="70" rx="8"/><text x="36" y="283">FRAME · BUILDER</text><text x="36" y="307">Optional private transaction optimization</text><path class="arrow" d="M462 289H535" marker-end="url(#proof-arrow)"/><rect class="box" x="540" y="253" width="480" height="70" rx="8"/><text x="558" y="283">Invalid stale losers avoid L1 inclusion gas</text><text x="558" y="307">Does not supply DA, fairness or sequencing rights</text>
-<text x="22" y="372">Prior actual DA + 360-second age supplies a public lead; it does not fix soft ordering.</text></svg></div>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1040 410" role="img" aria-labelledby="proof-map-title proof-map-desc">
+<title id="proof-map-title">Proof dependency map</title>
+<desc id="proof-map-desc">Cryptographic, implementation, L1 and upgrade assumptions feed state safety. Network, execution, proving, funding, archive and inclusion bounds feed conditional progress. Optional frame and builder assumptions affect submission cost only. Absolute publication duties and rent constrain specified behavior; neither proves historical P2P intent or fair market share.</desc>
+<defs>
+<marker id="proof-arrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+<path d="M0 0L8 3L0 6" fill="#008b88"/>
+</marker>
+</defs>
+<rect class="box" x="20" y="25" width="440" height="80" rx="8"/>
+<text x="36" y="57">CRYPTO · IMPLEMENTATION · L1 · UPGRADE</text>
+<text x="36" y="85">Execution proof + DA + exact parent + provenance</text>
+<path class="arrow" d="M462 65H535" marker-end="url(#proof-arrow)"/>
+<rect class="box" x="540" y="25" width="480" height="80" rx="8"/>
+<text x="558" y="57">S1–S4: accepted state and custody safety</text>
+<text x="558" y="85">Final only when its L1 acceptance is finalized</text>
+<rect class="box" x="20" y="139" width="440" height="80" rx="8"/>
+<text x="36" y="171">NET · EXEC · PROVE · FUND · ARCHIVE · INCLUDE</text>
+<text x="36" y="199">Bounded work and fresh authenticated origins</text>
+<path class="arrow" d="M462 180H535" marker-end="url(#proof-arrow)"/>
+<rect class="box" x="540" y="139" width="480" height="80" rx="8"/>
+<text x="558" y="171">L1–L4: progress, FIFO and bounded capture cost</text>
+<text x="558" y="199">No guarantee that an honest soft branch wins</text>
+<rect class="box" x="20" y="253" width="440" height="70" rx="8"/>
+<text x="36" y="283">FRAME · BUILDER</text>
+<text x="36" y="307">Optional private transaction optimization</text>
+<path class="arrow" d="M462 289H535" marker-end="url(#proof-arrow)"/>
+<rect class="box" x="540" y="253" width="480" height="70" rx="8"/>
+<text x="558" y="283">Invalid stale losers avoid L1 inclusion gas</text>
+<text x="558" y="307">Does not supply DA, fairness or sequencing rights</text>
+<text x="22" y="372">Prior actual DA + 360-second age supplies a public lead; it does not fix soft ordering.</text>
+</svg>
+</div>
 </section>
 
-<section id="safety"><h2>3. Safety proof sketches</h2>
+<section id="safety">
+<h2>3. Safety proof sketches</h2>
 <h3 id="s0">S0. Bootstrap gives the first proof one exact parent</h3>
 <p><strong>Proposed bootstrap rule:</strong> <a href="migration.html#bootstrap">the migration specification</a> constructs H0 from the authenticated final legacy height/hash/state root/timestamp and manifest revision, with segmentNumber=0, forceCursor=0, nextForceCut=0, nextForceTime=0, originNumber=0 and originHash=0. Its segmentCommitment is the exact domain-separated bootstrap commitment specified there, not a fictional legacy StageContext. Its head hash uses the same canonical Head encoding. These sentinel values are a single explicit initialization exception, not values chosen by an activation caller.</p>
 <p><strong>Proven under the specified bootstrap and A-IMPLEMENTATION:</strong> the first Etna statement binds that unique H0. Its real authenticated origin is at or after the activation L1 block and Inbox checks ACTIVE before accepting it. Local preconfirmation validation checks that same canonical L1 activation context. No L2 phase write or activation transaction is needed: the standard EIP-4788 call installs a nonzero current word before user execution, disabling both legacy writer paths. Because H0's frozen cut is zero, this first segment consumes zero forced requests. All records and fees from successful ACTIVE enqueues remain untouched, in order; before ACTIVE the new queue accepts none. The first successor commits the exact queue snapshot at its real origin; subsequent mandatory prefixes follow the ordinary rule. No later caller can manufacture another sentinel head, reset the cursor, waive due work or select a migration root.</p>
@@ -75,7 +195,8 @@
 <p><strong>Proven scope:</strong> issuedAt now changes an objective deadline and is a semantic signed field. Two otherwise equal DutyClaims with different issuedAt are not harmless retries. Version 2 prevents silently applying this stronger duty to a version 1 signature. No retrospective penalty or hidden reinterpretation of old commitments is allowed. Timely publication can still follow selective early gossip and can still earn the voluntarily funded publication fee; the new guarantee is a fixed latest public availability time, not proof of earlier intent or zero responder profit.</p>
 </section>
 
-<section id="liveness"><h2>4. Liveness proof sketches and their limits</h2>
+<section id="liveness">
+<h2>4. Liveness proof sketches and their limits</h2>
 <h3 id="l1">L1. Incumbents cannot reserve all canonical admission rights</h3>
 <p><strong>Proven under the admission rules:</strong> any address can stage actual data and submit an eligible valid segment without a publisher ticket, custodian certificate, job acceptance, private relay or administrator action, while paying the deterministic current admission rent when it is nonzero. Producer assent is an objective self-authorization, not someone else's approval; relay and fee payer may be different parties. The DAO has no routine operation to perform. Assigned workers have no exclusive claim, and their deadlines do not delay a replacement proof. A malicious incumbent cannot squat a finite global registry capacity because there is no such capacity or canonical lease. Staging supplies no head reservation and does not obligate others to use its candidate.</p>
 <p><strong>Proven conditional progress:</strong> suppose a reconstructible accepted head remains unchanged long enough for a funded honest entrant to acquire bounded work, stage it, reach the 360-second age threshold, prove it and have its still-valid submission included within both 900-second freshness limits. A-DA, A-PROVE, A-INCLUDE and the applicable rent funding yield a successor. If a competing eligible action instead consumes the parent first, canonical progress already occurred, although the honest worker's computation and paid stage may be wasted. Repeated competing progress does not prove honest ordinary transactions will be selected; forced FIFO supplies that separate guarantee.</p>
@@ -97,16 +218,58 @@ Before ACTIVE no new Etna force escrow or request is admitted.</pre>
 <p><strong>Proven limited deterrent:</strong> the fee remains 0.001 ETH×(1+floor(pending/50)), but half is irreversibly excluded from withdrawals. Starting empty, 1000 enqueues without intermediate processing pay 50×0.001×(1+…+20)=10.5 ETH, of which 5.25 ETH is a net sink even if the attacker earns every processing credit. Gas, staging, proof and republication costs are additional. Intermediate processing can lower the next admission fee but must consume existing FIFO work; it cannot cheaply hold a fixed victim behind the same unprocessed prefix forever. This is a concrete resource cost, not a proof that all censorship is unprofitable.</p>
 
 <h3 id="l3">L3. All-holders failure analysis</h3>
-<table><caption>Proven admission effects; recovery also assumes funded capable entrants and L1 inclusion</caption><thead><tr><th>All holders offline or malicious</th><th>Immediate effect</th><th>Recovery and remaining limit</th></tr></thead><tbody>
-<tr><td>Publishers</td><td>One-second soft service disappears, or provides invalid/stale/conflicting candidates that honest nodes reject or stop trusting.</td><td>Any new provider enters objectively; any prover can build, stage and land without the old publisher. A missed signed sealed-publication covenant can be reported independently of canonical recovery. Canonical safety does not imply continued soft-service quality.</td></tr>
-<tr><td>Custodians</td><td>No trusted availability service; valid signed absolute publication duties may default. Nodes with incomplete data return UNKNOWN.</td><td>Any data holder can publish the full fragment/FR preimage or answer a still-timely challenge; a prover may retrieve still-retained stage data or stage another branch from canonical history. A custodian's failure supplies no canonical veto; a missed absolute fragment publication is reportable without opening a challenge; third-party timely publication also fulfills it.</td></tr>
-<tr><td>Existing stagers</td><td>No new stages from incumbents; old receipts eventually expire for admission.</td><td>Any funded entrant stages actual data and waits the objective maturity period. No existing stage reserves the head or capacity; unavailable or invalid staged branches can be ignored. A-DA/A-ARCHIVE remain necessary to reconstruct a usable starting state.</td></tr>
-<tr><td>Accepted proof workers</td><td>Voluntary jobs miss deadlines or are abandoned.</td><td>Open replacement proving begins immediately; objective job settlement handles expiry/cancellation independently. If all capable provers everywhere stop, canonical progression halts until one enters or returns.</td></tr>
-<tr><td>Submitters, payers, private frame builders</td><td>Existing relay endpoints or the frame optimization disappear.</td><td>Any funded address calls the ordinary public path and pays the current quote, or reconstructs a fresh zero-rent candidate after an unchanged head has aged900 seconds. Permanent Ethereum censorship violates A-INCLUDE and cannot be repaired inside Etna.</td></tr>
-<tr><td>Challengers and responders</td><td>Misconduct may go unreported; absolute publication deadlines may be missed even if someone privately possesses data.</td><td>Anyone can submit evidence, answer or finalize without permission. Objective entry does not guarantee economic motivation to do so.</td></tr>
-<tr><td>Historical data providers</td><td>New entrants may be unable to reconstruct old accepted state after retention windows.</td><td>Recovery requires a surviving authenticated state/data source. Cryptographic correctness alone supplies no reconstruction oracle.</td></tr>
-<tr><td>DAO</td><td>No new upgrades.</td><td>The deployed protocol continues without administrative pauses, daily allocation, root publication or emergency appointments. A future incompatible L1 fork may still require a software/protocol upgrade; no fixed implementation promises eternal fork compatibility.</td></tr>
-</tbody></table>
+<table>
+<caption>Proven admission effects; recovery also assumes funded capable entrants and L1 inclusion</caption>
+<thead>
+<tr>
+<th>All holders offline or malicious</th>
+<th>Immediate effect</th>
+<th>Recovery and remaining limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Publishers</td>
+<td>One-second soft service disappears, or provides invalid/stale/conflicting candidates that honest nodes reject or stop trusting.</td>
+<td>Any new provider enters objectively; any prover can build, stage and land without the old publisher. A missed signed sealed-publication covenant can be reported independently of canonical recovery. Canonical safety does not imply continued soft-service quality.</td>
+</tr>
+<tr>
+<td>Custodians</td>
+<td>No trusted availability service; valid signed absolute publication duties may default. Nodes with incomplete data return UNKNOWN.</td>
+<td>Any data holder can publish the full fragment/FR preimage or answer a still-timely challenge; a prover may retrieve still-retained stage data or stage another branch from canonical history. A custodian's failure supplies no canonical veto; a missed absolute fragment publication is reportable without opening a challenge; third-party timely publication also fulfills it.</td>
+</tr>
+<tr>
+<td>Existing stagers</td>
+<td>No new stages from incumbents; old receipts eventually expire for admission.</td>
+<td>Any funded entrant stages actual data and waits the objective maturity period. No existing stage reserves the head or capacity; unavailable or invalid staged branches can be ignored. A-DA/A-ARCHIVE remain necessary to reconstruct a usable starting state.</td>
+</tr>
+<tr>
+<td>Accepted proof workers</td>
+<td>Voluntary jobs miss deadlines or are abandoned.</td>
+<td>Open replacement proving begins immediately; objective job settlement handles expiry/cancellation independently. If all capable provers everywhere stop, canonical progression halts until one enters or returns.</td>
+</tr>
+<tr>
+<td>Submitters, payers, private frame builders</td>
+<td>Existing relay endpoints or the frame optimization disappear.</td>
+<td>Any funded address calls the ordinary public path and pays the current quote, or reconstructs a fresh zero-rent candidate after an unchanged head has aged900 seconds. Permanent Ethereum censorship violates A-INCLUDE and cannot be repaired inside Etna.</td>
+</tr>
+<tr>
+<td>Challengers and responders</td>
+<td>Misconduct may go unreported; absolute publication deadlines may be missed even if someone privately possesses data.</td>
+<td>Anyone can submit evidence, answer or finalize without permission. Objective entry does not guarantee economic motivation to do so.</td>
+</tr>
+<tr>
+<td>Historical data providers</td>
+<td>New entrants may be unable to reconstruct old accepted state after retention windows.</td>
+<td>Recovery requires a surviving authenticated state/data source. Cryptographic correctness alone supplies no reconstruction oracle.</td>
+</tr>
+<tr>
+<td>DAO</td>
+<td>No new upgrades.</td>
+<td>The deployed protocol continues without administrative pauses, daily allocation, root publication or emergency appointments. A future incompatible L1 fork may still require a software/protocol upgrade; no fixed implementation promises eternal fork compatibility.</td>
+</tr>
+</tbody>
+</table>
 <h3 id="l4">L4. Repeated early control pays an identity-independent admission rent</h3>
 <p><strong>Proposed normative mechanism:</strong> every successful canonical successor pays the <a href="roles.html#competition">global Dutch admission rent</a>. Let <code>R0=50,000,000,000,000,000 wei</code> (0.05 ETH), <code>T=900 seconds</code>, and <code>age=now-rentReferenceTime</code>. Initialize rentReferenceTime to the activation timestamp, then reset it to the current L1 timestamp on <em>every</em> successful acceptance. It is a separate Inbox clock, not a Head field or proof input. A stage, failed transaction, signature, challenge, bid or job cannot reset it. Quote:</p>
 <pre>q(age) = 0                                      when age ≥900
@@ -114,21 +277,59 @@ q(age) = ceil(R0 × (900-age) /900) wei             otherwise
 required ETH ≥ q(age); exactly q enters the permanent sink;
 excess goes to the actual Inbox caller’s pull credit (msg.sender).</pre>
 <p><strong>Proven admission and accounting consequences:</strong> every address may immediately submit an otherwise valid mature proof/data action and pay the current quote. There is no auction winner, reserved turn, identity lookup or preferential incumbent price. The first accepted action consumes its parent and resets the price for the next parent; several valid advancing actions in one L1 block each face age zero after the first and each pay 0.05 ETH. Each still executes its exact proof and mandatory FIFO prefix. One owner controlling producer, beneficiary, payer and Sybil addresses recovers none of the rent: 100% is permanently excluded from withdrawals. Paying rent cannot cure an invalid proof, stale parent, immature stage, wrong origin or missing forced work.</p>
-<table><caption>Proven quote arithmetic, rounded upward to whole ETH wei</caption><thead><tr><th>Age since last accepted head (seconds)</th><th>Rent (ETH)</th></tr></thead><tbody>
-<tr><td>0</td><td>0.05</td></tr><tr><td>180</td><td>0.04</td></tr><tr><td>360</td><td>0.03</td></tr><tr><td>540</td><td>0.02</td></tr><tr><td>660</td><td>0.013333333333333334</td></tr><tr><td>780</td><td>0.006666666666666667</td></tr><tr><td>900 or later</td><td>0</td></tr>
-</tbody></table>
+<table>
+<caption>Proven quote arithmetic, rounded upward to whole ETH wei</caption>
+<thead>
+<tr>
+<th>Age since last accepted head (seconds)</th>
+<th>Rent (ETH)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>180</td>
+<td>0.04</td>
+</tr>
+<tr>
+<td>360</td>
+<td>0.03</td>
+</tr>
+<tr>
+<td>540</td>
+<td>0.02</td>
+</tr>
+<tr>
+<td>660</td>
+<td>0.013333333333333334</td>
+</tr>
+<tr>
+<td>780</td>
+<td>0.006666666666666667</td>
+</tr>
+<tr>
+<td>900 or later</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Proven bounded capture-cost argument under A-COMPETITION(D):</strong> on each considered parent, either an honest competitor consumes it by age D or the adversary captures it first by D. Since q decreases while that parent remains unchanged, every such adversarial win pays at least q(D). For D=660, 100 early wins therefore sink at least <code>100×13,333,333,333,333,334 =1,333,333,333,333,333,400 wei</code>, or <strong>1.3333333333333334 ETH</strong>, in addition to normal execution, proving, stage/republication, gas and builder costs. This is true for one owner or many correlated owners. Let G be its won L2 fees plus ordering/external value <em>minus those normal costs</em>. The tactic is unprofitable whenever <code>G &lt; Σq</code>. For example G=0.01 ETH per captured head gives G=1 ETH over 100 wins, leaving a loss of at least 0.3333333333333334 ETH. No bound on all possible MEV, equal shares or honest first ordering is assumed.</p>
 <p><strong>Assumed model scope and open calibration:</strong> A-COMP(660) requires a ready, valid, adequately funded and willing competitor before the zero floor; the existence of some prover does not supply it. The earlier 660-second example excludes header acquisition, so a particular launch workload meets A-COMP(660) only if its complete acquisition/work/inclusion schedule fits 660. Otherwise choose and state its actual D&lt;900 and recompute q(D), or admit that no positive bound follows. If profitable value exceeds rent, concentration can remain profitable. If no competitor can or will fund an early quote, a monopolist may wait 900 seconds and pay zero. These limits are part of the conditional result, not a claim that the selected 0.05 ETH rate has been empirically calibrated.</p>
 <p><strong>Proven nonblocking fallback under the liveness premises:</strong> an unchanged parent reaches zero rent at age 900 and remains there. Old candidate origins or stages may expire at that same horizon; zero rent does not extend them. An entrant can construct a fresh origin/context, stage it, prove it and wait 360 seconds while the head remains unchanged. It then pays zero rent and normal L1 costs. If someone advances the head first, canonical progress has occurred and the new quote applies. Thus rent cannot reserve a head forever. Target seven-to-eight-minute landing assumes funding the positive quote; a lower-rent policy deliberately accepts longer recovery. A-LIVE(Δ) must include the chosen funding schedule and any reconstruction/restaging, not silently reuse660 seconds for this fallback.</p>
 <p><strong>Proven proof-stability property:</strong> rentReferenceTime changes only when the parent changes. While that parent remains current, its quote only decreases and does not alter the proved execution statement. A payer may fund the maximum 0.05 ETH and reclaim excess without guessing the inclusion timestamp. Refund attribution is to msg.sender: the ordinary caller or its individually controlled authorized frame sender. The separate transaction-fee payer does not acquire that credit. Positive-rent frames fund the individual sender; the shared per-action nonce/sender construction applies only at zero SENDER-frame value. Quote rounding, ordinary/frame envelope funding, state-first sink/credit updates and the no-sweep rule must agree with <a href="index.html#rent">the canonical interface</a>. The earlier rounds 05–06 accepted this bounded R6 mechanism; measured economic effectiveness remains open.</p>
 </section>
 
-<section id="checkpoint-liveness"><h2>Checkpoint persistence without a timely relayer monopoly</h2>
+<section id="checkpoint-liveness">
+<h2>Checkpoint persistence without a timely relayer monopoly</h2>
 <p><strong>Proven conditional recovery:</strong> a temporary EIP-4788 entry may be overwritten after 8,191 seconds of L2 timestamp advancement, so a fixed-timestamp forced reveal alone is insufficient. Any user can instead force a valid, adequately funded ordinary pinCurrentOrigin transaction. FIFO processing selects the origin current at execution, not an expiring request-time timestamp. Under the existing queue-progress assumptions and nonce/fee/gas validity, it permanently pins that hash. A later revealCheckpoint(0, header) has no ring deadline. Every admissible origin header is ≤1,536 bytes, allowing the zero-value empty-access-list type-2 reveal to fit the 2,048-byte forced limit (≤1,845 bytes). No new mandatory block transaction or special client callback is introduced.</p>
 <p><strong>Proven scope under A-LEGACY:</strong> a source signal stored before the pin request’s L1 enqueue is included in the mandatory processing origin: the frozen queue cut can include that request only at an origin at/after its enqueue, and origins never decrease. Append-only source signal slots therefore allow re-proving against that pinned later checkpoint. This does not recover arbitrary historical storage, guarantee that every old cached proof remains usable, or make an arbitrary-size bridge claim fit the existing force gas/byte caps. Reveals and bridge claims pay ordinary fees; failed nonce/balance/fee conditions follow the normal force outcomes. Complete bridge-proof/resource and archival-state availability remain explicit assumptions.</p>
 <p><strong>Assumed service availability:</strong> no dedicated relayer is privileged. If every relayer disappears, any funded capable user may reconstruct headers/state proofs and execute the pin/reveal/claim workflow. Missing archived state can delay proof construction even when a checkpoint is durable. With no capable funded participant, progress is not promised; the DAO supplies neither daily calls nor rescue authority.</p>
 </section>
-<section id="withholding"><h2>5. Withholding: prevention, attribution and residual limits</h2>
+<section id="withholding">
+<h2>5. Withholding: prevention, attribution and residual limits</h2>
 <p><strong>Proven first-reveal counterexample W1:</strong> without earlier actual DA, an attacker can privately build Y from accepted H and first reveal Y with a valid proof before public X lands, making X stale without a violated signature. <strong>Proposed defense:</strong> Y must now have complete actual L1 data and execution context staged for at least 360 seconds, and must republish it in its proof-bearing acceptance. W1's first-disclosure-at-landing step fails the eligibility predicate. The attacker may compute privately earlier, but must expose Y and give public peers the same-branch proving opportunity before Y can win. It also pays the current ordinary admission rent; avoiding optional service promises does not bypass that charge.</p>
 <p><strong>Proven separation under the named assumptions:</strong> mandatory staging prevents first disclosure at acceptance for every producer; every bonded early-fragment promise now has its own absolute actual-publication deadline; an optional sealed covenant separately fixes a whole-segment staging deadline; authenticated owner assent makes a bounded class of conflicting endorsements provable. Rent prices repeated early canonical wins under A-COMPETITION(D). Advisory attestations alone provide none of these universal canonical checks. The complete byte/context and receipt rules are normative in <a href="staging.html">staging</a>, with fragment/evidence settlement in <a href="accountability.html#fragment-publication">accountability</a>.</p>
 <h3>Every bonded early fragment must actually be published</h3>
@@ -140,33 +341,111 @@ excess goes to the actual Inbox caller’s pull credit (msg.sender).</pre>
 <h3>Sealed publication-by covenant</h3>
 <p><strong>Proposed objective duty:</strong> after sealing, the complete DA key and execution context are known. A publisher uses a separate reserved position to sign them with an issuedAt inside its preexisting bucket window and publishBy=issuedAt+240 seconds. Any matching actual stage recorded by publishBy discharges the duty, regardless of who paid for staging. At now&gt;publishBy, a valid signature and the immutable first qualifying stage timestamp or its absence establish default. A late stage cannot cure it; anyone can report and receive 10% of the position's slash while 90% enters the sink.</p>
 <p><strong>Proven distinction:</strong> a one-second block fragment's keccak digest is not a later unknown segment blob versioned hash. Early fragment claims require their own exact fragment/FR calldata publication; a sealed claim requires actual publication of its exact complete execution context. These independent absolute deadlines use separate positions and distinct signed types. Neither bucket registration nor a signer-chosen issuedAt proves earlier P2P dissemination. The duty is the objectively enforceable publication deadline it says, not a global gossip timestamp.</p>
-<table><caption>Proven worst-case predicate-specific detection limits; no empirical rates are claimed</caption><thead><tr><th>Predicate</th><th>Condition</th><th>Result</th></tr></thead><tbody>
-<tr><td>Canonical first disclosure at landing</td><td>Correct receipt/body/context binding and age enforcement under A-L1/A-DA/A-CRYPTO.</td><td>Deterministically rejected: zero missed violations of this acceptance predicate. Actual earlier publication must exist; a bare commitment or private manifest cannot satisfy it.</td></tr>
-<tr><td>Missed bonded fragment publication</td><td>A valid version-2 claim is presented while its reserve/evidence window is live; exact FR/index/binding and first-publication records are checked.</td><td>Deterministic default after issuedAt+240 without any challenge: zero missed violations of this exact predicate. Under A-PUBLISH, a conforming signer has zero objective defaults. Any matching holder can discharge it; this does not certify the signer personally stayed online.</td></tr>
-<tr><td>Missed sealed publishBy covenant</td><td>Exact signed key, live reserve/evidence window and immutable timely-stage lookup are correct; a reporter presents it.</td><td>Deterministic default even if the eventual canonical body is public. A late stage never erases an earlier miss. No challenge is required to start its absolute deadline.</td></tr>
-<tr><td>Same-owner canonical conflict</td><td>Authenticated producer assent, exact context, valid block membership and matching historic reserve.</td><td>Deterministic attribution within that scope. Foreign beneficiaries cannot be framed. Unknown common ownership and different base-head contexts can yield 100% missed economic conflicts for this predicate.</td></tr>
-<tr><td>Honest publication or response censored beyond its deadline</td><td>A-PUBLISH/A-INCLUDE/A-NET or gas funding fails.</td><td>Up to 100% false defaults relative to honest intent. The contract judges observable service completion, not intent.</td></tr>
-<tr><td>Private computation before timely staging; selective early gossip followed by timely exact fragment publication</td><td>No conflicting or missed attributable duty exists and the canonical stage is mature.</td><td>No violation of these explicit duties. An inference of historical withholding intent still has 100% worst-case false negatives; no such inference is claimed.</td></tr>
-<tr><td>Evidence discovered after the 3600-second evidence horizon, or never reported</td><td>No remaining reserved claim or no funded reporter.</td><td>Slashing may be unavailable. This explicit bounded-service exposure does not affect the mandatory canonical-stage check or proof-based custody safety.</td></tr>
-</tbody></table>
+<table>
+<caption>Proven worst-case predicate-specific detection limits; no empirical rates are claimed</caption>
+<thead>
+<tr>
+<th>Predicate</th>
+<th>Condition</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Canonical first disclosure at landing</td>
+<td>Correct receipt/body/context binding and age enforcement under A-L1/A-DA/A-CRYPTO.</td>
+<td>Deterministically rejected: zero missed violations of this acceptance predicate. Actual earlier publication must exist; a bare commitment or private manifest cannot satisfy it.</td>
+</tr>
+<tr>
+<td>Missed bonded fragment publication</td>
+<td>A valid version-2 claim is presented while its reserve/evidence window is live; exact FR/index/binding and first-publication records are checked.</td>
+<td>Deterministic default after issuedAt+240 without any challenge: zero missed violations of this exact predicate. Under A-PUBLISH, a conforming signer has zero objective defaults. Any matching holder can discharge it; this does not certify the signer personally stayed online.</td>
+</tr>
+<tr>
+<td>Missed sealed publishBy covenant</td>
+<td>Exact signed key, live reserve/evidence window and immutable timely-stage lookup are correct; a reporter presents it.</td>
+<td>Deterministic default even if the eventual canonical body is public. A late stage never erases an earlier miss. No challenge is required to start its absolute deadline.</td>
+</tr>
+<tr>
+<td>Same-owner canonical conflict</td>
+<td>Authenticated producer assent, exact context, valid block membership and matching historic reserve.</td>
+<td>Deterministic attribution within that scope. Foreign beneficiaries cannot be framed. Unknown common ownership and different base-head contexts can yield 100% missed economic conflicts for this predicate.</td>
+</tr>
+<tr>
+<td>Honest publication or response censored beyond its deadline</td>
+<td>A-PUBLISH/A-INCLUDE/A-NET or gas funding fails.</td>
+<td>Up to 100% false defaults relative to honest intent. The contract judges observable service completion, not intent.</td>
+</tr>
+<tr>
+<td>Private computation before timely staging; selective early gossip followed by timely exact fragment publication</td>
+<td>No conflicting or missed attributable duty exists and the canonical stage is mature.</td>
+<td>No violation of these explicit duties. An inference of historical withholding intent still has 100% worst-case false negatives; no such inference is claimed.</td>
+</tr>
+<tr>
+<td>Evidence discovered after the 3600-second evidence horizon, or never reported</td>
+<td>No remaining reserved claim or no funded reporter.</td>
+<td>Slashing may be unavailable. This explicit bounded-service exposure does not affect the mandatory canonical-stage check or proof-based custody safety.</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Proposed honest-node response:</strong> retain signed claims and conflicting envelopes, re-gossip complete validated blocks, request complete data from multiple peers, expose UNKNOWN while dependencies are missing, stop extending a suspect service branch, and optionally fund a challenge while an exact early-fragment duty is still before publishBy. Publish held complete fragment/FR data proactively; no challenge is needed to start or enforce its deadline. Monitor first-fragment receipts, then report a miss while its evidence reserve is live. At seal, separately monitor the exact stage context and any signed publication covenant. Before canonical eligibility, retrieve the mandatory public stage and, if useful, compute or relay its proof. Track the accepted L1 head independently. On another mature branch winning, roll back the unsafe suffix and notify users; do not fabricate a slash from an unprovable first-seen timestamp.</p>
 <p><strong>Proven review scope:</strong> the final R6 disposition rests on these precise prevention and punishment claims. The revision addresses W1 without an independent ordering committee or unproved canonical head. It does not punish every private computation, guarantee each soft branch wins, infer common ownership across keys, or reimburse all lost proving effort. The brief permits objective timeout surrogates; rejecting them solely because they do not prove universal historical nonreceipt would impose a stronger predicate. Conversely, a disclaimer does not establish that their exact scope and economics meet the brief. The earlier rounds 05–06 accepted the specified bounded mechanism, with written Medium-risk dispositions; their verdict does not extend its predicates.</p>
 </section>
 
-<section id="requirements"><h2>6. Requirement-by-requirement disposition</h2>
-<table><caption>R1–R7 pass at specification level after rounds 07–08; launch evidence remains open</caption><thead><tr><th>Gate</th><th>Candidate mechanism and present status</th><th>Required falsification attempt / closure evidence</th></tr></thead><tbody>
-<tr><td>R1 · fully permissionless</td><td><strong>Proposed mechanism:</strong> open stage/proof/force/evidence entry, objective self-authorized producer keys and voluntary duties, uniform objective rent, no canonical ticket, no daily DAO action. Contract provenance checks remain; DAO upgrade authorization is the sole administrative exception. <strong>Open launch evidence:</strong> verify actual selector and call-graph completeness of operational-privilege removal.</td><td>Find an owner-only pause, root publisher, mint/remap/quota action, resolver mutation, fee withdrawal, exclusive relay, key-registration approver or upgrade requirement needed for routine recovery. Verify role entry/exit and all-incumbent failure paths.</td></tr>
-<tr><td>R2 · retain custody addresses</td><td><strong>Proposed:</strong> retain existing SignalService, Bridge and all Vault proxies on both layers; publish only proof-authenticated checkpoints through the exact interfaces in migration. <strong>Open:</strong> authenticated deployment manifest and storage/message compatibility rehearsal.</td><td>Find a changed checkpoint/signal encoding, storage collision, lost replay protection, failed old-message proof, unauthorized root route or hidden dependency requiring a new frozen address.</td></tr>
-<tr><td>R3 · specified richer roles</td><td><strong>Proposed:</strong> publisher, custodian, stager, authorized producer, prover/worker, sponsor, submitter/payer and evidence/response actors have objective terms in roles/accountability/staging. <strong>Proven conditional separation:</strong> soft-role failure has no canonical veto. <strong>Assumed:</strong> economically willing entrants.</td><td>Try unlimited unpaid liabilities, stuck exits, worker squatting, jobs due before stage maturity, stale-task slashing, key-rotation escape and coordinated all-holders outages. Confirm every duty has a bounded funding source and failure result.</td></tr>
-<tr><td>R4 · one-second L2 cadence</td><td><strong>Proposed:</strong> at most one second between live preconf issuances; user soft result after 0…1 second scheduling plus transport/local execution, illustratively 1–2 seconds under a measured one-second additional latency budget. Origin reuse avoids an extra L1 wait for small segments. Stage maturity affects landing, not issuance. <strong>Open launch evidence:</strong> execution and sustained proving measurements.</td><td>Exercise maximum gas/data, origin reuse, empty periods, missing parents, partitions and the 900-block unsafe horizon across the initial stage delay. Do not mistake a signed-but-unexecuted payload for a completed local check.</td></tr>
-<tr><td>R5 · no CL lookahead/slot coupling</td><td><strong>Proposed mechanism:</strong> deadlines and rent decay use seconds; header identity uses L1 block numbers; no role reads a CL proposer schedule. HeaderStore pins authenticated history. L1 cadence changes inclusion opportunity, not assignment.</td><td>Recalculate origin retrieval, proof freshness and response paths for 12-, 6-, 4- and 2-second L1 intervals. Find any hidden slots-to-seconds arithmetic or dependence on deprecated lookahead/URC.</td></tr>
-<tr><td>R6 · slashing and monopoly deterrence</td><td><strong>Proposed correction:</strong> mature actual-data staging rejects first reveal; every bonded fragment has an absolute 240-second FR/calldata duty; exact same-owner conflict, sealed deadline and job defaults are objective evidence. Ten-TAIKO positions, finite evidence, reporter/sink splits, force-fee sinking and FIFO remain. Mandatory per-head Dutch rent adds bounded repeat-control deterrence under A-COMPETITION(D), with a zero-floor recovery path. <strong>Review disposition:</strong> bounded mechanisms pass; economic concentration is explicitly accepted and actual effectiveness remains open. No equal-share or unlimited-MEV guarantee.</td><td>Try private manifest/hash staging, manufactured owner attribution, different-base/owner escape, late publication curing a duty or collecting Q, issue-time/domain substitution, Q multiplication, collateral reuse, rent refund/sink escape, repeated clock reset without progress, same-block churn, Sybil pricing, unbounded claims of a competitor at 660 seconds, and zero-rent stale-origin deadlock. Check the exact G&lt;Σq argument and admitted limits.</td></tr>
-<tr><td>R7 · propose-with-proof</td><td><strong>Proposed correction:</strong> one canonical action republishes full DA plus proof, checks exact parent and rent, and publishes only the derived checkpoint. H0 now assigns every field and its domain-separated boundary commitment; first acceptance checks ACTIVE and a real post-activation origin and defers the preserved force queue exactly once. Earlier nonexclusive DA grants no canonical status. <strong>Assumed:</strong> bounded-work timing and positive-rent funding for the healthy minute-level examples. <strong>Proven review result:</strong> the ACTIVE-only intake correction closes the pre-launch escrow lifecycle; bootstrap and failure rules pass the final review. Actual system-call/proof/gas feasibility remains open.</td><td>Derive H0 and the first statement independently; try selecting sentinel values, skipping preserved requests, repeating bootstrap eligibility, forging the initial origin or bypassing activation. Check first complete calldata composition, old force fees and subsequent FIFO. Also attack stage/body/context binding, expiry/recovery, producer/job authorization, quote funding and frame lock burns. Literal R7 permits earlier generic DA; the canonical action must still contain complete data and proof.</td></tr>
-</tbody></table>
-<p><strong>Proven review record:</strong> all eight permitted rounds are recorded. Fresh <a href="../iterations/07-judge.md">round07</a> and <a href="../iterations/08-judge.md">round08</a> adjudications find no new Critical/High. Round07’s Medium new-escrow intake issue is corrected by ACTIVE-only force admission and checked in round08; every remaining Medium has a written disposition and the final R1–R7 gates pass. This satisfies the specified convergence criterion for the anchor-removal revision. Requested different reviewer models, author-status exposure and unavailable runtime-model attestation are disclosed. No missing normative safeguard is excused as an implementation assumption, and convergence does not supply launch evidence.</p>
+<section id="requirements">
+<h2>6. Requirement-by-requirement disposition</h2>
+<table>
+<caption>Current mechanisms and unresolved acceptance evidence; historical review is a separate record</caption>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Candidate mechanism and present status</th>
+<th>Required falsification attempt / closure evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1 · fully permissionless</td>
+<td><strong>Proposed mechanism:</strong> open stage/proof/force/evidence entry, objective self-authorized producer keys and voluntary duties, uniform objective rent, no canonical ticket, no daily DAO action. Contract provenance checks remain; DAO upgrade authorization is the sole administrative exception. <strong>Open launch evidence:</strong> verify actual selector and call-graph completeness of operational-privilege removal.</td>
+<td>Find an owner-only pause, root publisher, mint/remap/quota action, resolver mutation, fee withdrawal, exclusive relay, key-registration approver or upgrade requirement needed for routine recovery. Verify role entry/exit and all-incumbent failure paths.</td>
+</tr>
+<tr>
+<td>R2 · retain custody addresses</td>
+<td><strong>Proposed:</strong> retain existing SignalService, Bridge and all Vault proxies on both layers; publish only proof-authenticated checkpoints through the exact interfaces in migration. <strong>Open:</strong> authenticated deployment manifest and storage/message compatibility rehearsal.</td>
+<td>Find a changed checkpoint/signal encoding, storage collision, lost replay protection, failed old-message proof, unauthorized root route or hidden dependency requiring a new frozen address.</td>
+</tr>
+<tr>
+<td>R3 · specified richer roles</td>
+<td><strong>Proposed:</strong> publisher, custodian, stager, authorized producer, prover/worker, sponsor, submitter/payer and evidence/response actors have objective terms in roles/accountability/staging. <strong>Proven conditional separation:</strong> soft-role failure has no canonical veto. <strong>Assumed:</strong> economically willing entrants.</td>
+<td>Try unlimited unpaid liabilities, stuck exits, worker squatting, jobs due before stage maturity, stale-task slashing, key-rotation escape and coordinated all-holders outages. Confirm every duty has a bounded funding source and failure result.</td>
+</tr>
+<tr>
+<td>R4 · one-second L2 cadence</td>
+<td><strong>Proposed:</strong> at most one second between live preconf issuances; user soft result after 0…1 second scheduling plus transport/local execution, illustratively 1–2 seconds under a measured one-second additional latency budget. Origin reuse avoids an extra L1 wait for small segments. Stage maturity affects landing, not issuance. <strong>Open acceptance:</strong> execution and sustained proving measurements, acceptable revocable soft semantics, and funded canonical follow-through. One-second issuance alone does not establish that a continuously issued branch can land with bounded lag.</td>
+<td>Exercise maximum gas/data, origin reuse, empty periods, missing parents, partitions and the 900-block unsafe horizon across the initial stage delay. Do not mistake a signed-but-unexecuted payload for a completed local check.</td>
+</tr>
+<tr>
+<td>R5 · no CL lookahead/slot coupling</td>
+<td><strong>Proposed mechanism:</strong> deadlines and rent decay use seconds; header identity uses L1 block numbers; no role reads a CL proposer schedule. HeaderStore pins authenticated history. L1 cadence changes inclusion opportunity, not assignment.</td>
+<td>Recalculate origin retrieval, proof freshness and response paths for 12-, 6-, 4- and 2-second L1 intervals. Find any hidden slots-to-seconds arithmetic or dependence on deprecated lookahead/URC.</td>
+</tr>
+<tr>
+<td>R6 · slashing and monopoly deterrence</td>
+<td><strong>Proposed correction:</strong> mature actual-data staging rejects first reveal; every bonded fragment has an absolute 240-second FR/calldata duty; exact same-owner conflict, sealed deadline and job defaults are objective evidence. Ten-TAIKO positions, finite evidence, reporter/sink splits, force-fee sinking and FIFO remain. Mandatory per-head Dutch rent adds bounded repeat-control deterrence under A-COMPETITION(D), with a zero-floor recovery path. <strong>Open acceptance:</strong> bounded predicates are specified; affordable competition and practical deterrence remain unestablished. Historical acceptance of concentration risk does not demonstrate R6. No equal-share or unlimited-MEV guarantee.</td>
+<td>Try private manifest/hash staging, manufactured owner attribution, different-base/owner escape, late publication curing a duty or collecting Q, issue-time/domain substitution, Q multiplication, collateral reuse, rent refund/sink escape, repeated clock reset without progress, same-block churn, Sybil pricing, unbounded claims of a competitor at 660 seconds, and zero-rent stale-origin deadlock. Check the exact G&lt;Σq argument and admitted limits.</td>
+</tr>
+<tr>
+<td>R7 · propose-with-proof</td>
+<td><strong>Proposed correction:</strong> one canonical action republishes full DA plus proof, checks exact parent and rent, and publishes only the derived checkpoint. H0 now assigns every field and its domain-separated boundary commitment; first acceptance checks ACTIVE and a real post-activation origin and defers the preserved force queue exactly once. Earlier nonexclusive DA grants no canonical status. <strong>Assumed:</strong> bounded-work timing and positive-rent funding for the healthy minute-level examples. <strong>Proven review result:</strong> the ACTIVE-only intake correction closes the pre-launch escrow lifecycle; bootstrap and failure rules were reviewed at the historical snapshot. <strong>Open acceptance:</strong> actual system-call/proof/gas feasibility, sustained minute-level funding and supported forced operations.</td>
+<td>Derive H0 and the first statement independently; try selecting sentinel values, skipping preserved requests, repeating bootstrap eligibility, forging the initial origin or bypassing activation. Check first complete calldata composition, old force fees and subsequent FIFO. Also attack stage/body/context binding, expiry/recovery, producer/job authorization, quote funding and frame lock burns. Literal R7 permits earlier generic DA; the canonical action must still contain complete data and proof.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Historical review record:</strong> all eight permitted rounds are recorded. The <a href="../iterations/07-judge.md">round07</a> and <a href="../iterations/08-judge.md">round08</a> adjudications reported no new Critical/High, correction of the Medium pre-activation intake defect and dispositions for remaining Mediums. Round08 reported the stopping criterion satisfied for its immutable candidate. Requested reviewer models, author-status exposure and unavailable runtime-model attestation are disclosed. The <a href="../notes/pr-comment-dispositions.md">subsequent comment review</a> does not endorse a current blanket pass: soft-service semantics, sustained minute-level capacity, affordable competition and permanent-state policy remain unresolved. These gaps cannot be discharged by model agreement or relabeled implementation assumptions. No ninth full round is claimed.</p>
 </section>
 
-<section id="limits"><h2>7. Known limitations and risks requiring explicit acceptance</h2>
+<section id="limits">
+<h2>7. Known limitations and risks requiring explicit acceptance</h2>
 <ul>
 <li><strong>Proven:</strong> fully staged, mature competing branches can displace honest soft branches; soft confirmations are revocable. Mandatory prior DA rejects first-disclosure-at-landing, not every MEV opportunity or branch conflict.</li>
 <li><strong>Proven:</strong> faster minimal proofs can repeatedly beat transaction-rich discretionary branches. Frozen FIFO protects eligible forced transactions, but ordinary mempool fairness and honest prover profitability are not guaranteed.</li>
@@ -183,34 +462,116 @@ excess goes to the actual Inbox caller’s pull credit (msg.sender).</pre>
 </ul>
 </section>
 
-<section id="alternatives"><h2>8. What we did not build</h2>
-<table><caption>Proven tradeoffs or explicit open alternatives; rejection applies to this candidate</caption><thead><tr><th>Mechanism considered</th><th>Why it is not selected</th><th>What would justify reconsideration</th></tr></thead><tbody>
-<tr><td>CL-lookahead sequencer assignment; URC</td><td>Lookahead violates R5; the brief explicitly excludes URC. Neither is needed for an always-open proof action.</td><td>No reconsideration within this brief. Authenticated L1 facts remain permitted without lookahead.</td></tr>
-<tr><td>Independent BFT ordering committee with timed escape</td><td>Can restrict private competing branches under a correctly specified quorum/locking assumption, but a ready L1 proof is then blocked while the required certificate is absent. A timeout limits that dependence, not its existence.</td><td>Explicit permission to change the strict based-sequencing boundary, plus complete membership, locking, data and recovery proofs. Permissionless membership alone does not establish an honest quorum.</td></tr>
-<tr><td>Mandatory canonical preproposal commitment</td><td>Freezes ordering before proof and can reserve capacity for an unavailable actor. The candidate instead selects nonexclusive actual-data staging: it grants no canonical status, receipt priority or parent reservation, and the later canonical action carries full data plus proof.</td><td>An explicit R7 interpretation permitting a prior <em>canonical ordering</em> stage, with objective expiry and no liveness monopoly. Merely publishing a generic earlier copy is not that ordering stage.</td></tr>
-<tr><td>Hash-only staging or mandatory external DA quorum</td><td>A hash alone proves neither public bytes nor an executable manifest. An external quorum adds unavailable-signer dependence and an honest-threshold premise. Actual L1 DA staging supplies an objective publication event under L1 DA assumptions.</td><td>A proof of complete earlier data/context publication with no private admission dependency. A different DA system would need an explicit new trust and recovery analysis.</td></tr>
-<tr><td>Exclusive ticket auction or proof reservation</td><td>Winner disappearance adds a liveness wait and role-squatting value. The selected Dutch <em>price</em> instead admits any valid proof at the current quote, grants no reservation and reaches zero after 900 seconds.</td><td>A procurement mechanism must preserve unconditional outsider eligibility at the objective public terms. The present design already supports nonexclusive voluntary proof jobs.</td></tr>
-<tr><td>Optional service bonds or force-spam sinks alone as ordinary-control deterrence</td><td>A raw producer can repeatedly win without buying a service position or enqueueing spam. These mechanisms do not impose their advertised losses on that tactic. Mandatory admission rent now covers every canonical winner, with the explicit bounded gain/cost inequality.</td><td>A different mandatory resource mechanism with an equally explicit ordinary-control model; disclaimers about unlimited MEV alone do not establish it.</td></tr>
-<tr><td>A permanently positive canonical admission fee</td><td>Even a long-uncontested head would retain the extra Etna price barrier. The chosen900-second decay leaves zero-rent recovery while charging repeated early consumption; ordinary L1 gas remains unavoidable.</td><td>A different affordability/recovery assumption and a demonstrated benefit over the selected decay. Increasing the peak without evidence may penalize honest throughput more than the target tactic.</td></tr>
-<tr><td>Challenge-only recovery for early bonded fragments</td><td>It lets a holder defer revelation until a later paid challenge and then perform its weaker duty without penalty. Version 2 instead fixes full calldata/FR publication at issuedAt+240 for every fragment, independent of challenge funding. The additional publication cost is explicit.</td><td>A different objective missed-duty predicate that supplies the same fixed availability deadline without requiring an unavailable manifest or proving historical nonreceipt.</td></tr>
-<tr><td>Per-address caps, cooldowns or concave stake weights as anti-monopoly proof</td><td>One owner can split capital over arbitrary keys. Such limits do not establish independent economic actors and may favor Sybil splitting.</td><td>The selected global age-based rent avoids identifying common ownership; its bounded deterrence still needs the named competitor/value conditions. Reconsider address-specific pricing only with a non-whitelist identity/resource argument.</td></tr>
-<tr><td>L1-derived “unbiased” publisher lottery</td><td>Selection can inherit proposer withholding/manipulation and capital concentration assumptions; no unbiased randomness proof was supplied. Optional services need no canonical leader lottery.</td><td>A fully specified randomness threat model and proof that the benefit exceeds the extra membership/scheduling complexity.</td></tr>
-<tr><td>Slash “withholding intent,” first-seen timestamps, or every lost soft branch</td><td>Intent and global receipt time have no objective transcript. Penalizing every losing branch lets a faster competing prover slash an honest broadcaster. Calling that insurance does not establish solvent pricing.</td><td>Objective signed promises with bounded losses, or a separately funded and explicitly priced insurance product. Neither may be advertised as proof of intent.</td></tr>
-<tr><td>TEE-only correctness or owner-selected operational verifier list</td><td>Neither meets the selected valid-ZK-proof rule and no-operational-whitelist boundary. TAIKO collateral cannot substitute for an unsound validity predicate.</td><td>A sound ZK system remains mandatory; supplementary independent proof systems may be evaluated without creating a permissioned daily role.</td></tr>
-<tr><td>Landing-time force queue; permanently frozen queue snapshot</td><td>The former invalidates proofs whenever new requests arrive; the latter permits indefinite censorship. Parent-frozen work with nondecreasing origins and a 900-second freshness ceiling avoids both specific failures while allowing origin reuse for short segments.</td><td>Another immutable-work rule with a complete FIFO progress argument and bounded contract/prover work.</td></tr>
-<tr><td>Every user transaction must first post to L1</td><td>Fixes ordering for that traffic but adds L1 latency and fees to every normal user action. One-second empty blocks would not establish a useful one-second user soft-confirmation service.</td><td>Explicitly narrower product goals. Etna lets users receive provisional execution before L1 publication; it separately requires later staged/final DA and bonded-fragment publication. These do not give each user a prior L1 ordering position.</td></tr>
-<tr><td>Nonce-only frame lock</td><td>A failed SENDER execution can consume the shared nonce without accepting a segment. Adding an exact terminal VERIFY avoids that burn under consensus semantics but loses specified public-mempool eligibility.</td><td>A demonstrated cheap complete prevalidation within policy limits, or changed policy with a credible invalid-simulation resource model. The ordinary public fallback must remain.</td></tr>
-<tr><td>New claim frame or shared external sequence read</td><td>A new claim primitive needs EIP changes. Reading mutable external application state in VERIFY and terminal checks conflicts with the analyzed public policy. See the <a href="../03-frame-transactions-research.md">worked research alternatives</a>.</td><td>A fork change or a validated alternative envelope; never assume research discussion has changed deployed consensus.</td></tr>
-<tr><td>New Bridge, SignalService or Vault addresses</td><td>R2 expressly freezes those addresses and historical custody/application bindings. Rebuilding the same API at another address does not satisfy it.</td><td>No reconsideration within R2. Storage-compatible proxy upgrades and an authenticated migration are required.</td></tr>
-</tbody></table>
+<section id="alternatives">
+<h2>8. What we did not build</h2>
+<table>
+<caption>Proven tradeoffs or explicit open alternatives; rejection applies to this candidate</caption>
+<thead>
+<tr>
+<th>Mechanism considered</th>
+<th>Why it is not selected</th>
+<th>What would justify reconsideration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CL-lookahead sequencer assignment; URC</td>
+<td>Lookahead violates R5; the brief explicitly excludes URC. Neither is needed for an always-open proof action.</td>
+<td>No reconsideration within this brief. Authenticated L1 facts remain permitted without lookahead.</td>
+</tr>
+<tr>
+<td>Independent BFT ordering committee with timed escape</td>
+<td>Can restrict private competing branches under a correctly specified quorum/locking assumption, but a ready L1 proof is then blocked while the required certificate is absent. A timeout limits that dependence, not its existence.</td>
+<td>Explicit permission to change the strict based-sequencing boundary, plus complete membership, locking, data and recovery proofs. Permissionless membership alone does not establish an honest quorum.</td>
+</tr>
+<tr>
+<td>Mandatory canonical preproposal commitment</td>
+<td>Freezes ordering before proof and can reserve capacity for an unavailable actor. The candidate instead selects nonexclusive actual-data staging: it grants no canonical status, receipt priority or parent reservation, and the later canonical action carries full data plus proof.</td>
+<td>An explicit R7 interpretation permitting a prior <em>canonical ordering</em> stage, with objective expiry and no liveness monopoly. Merely publishing a generic earlier copy is not that ordering stage.</td>
+</tr>
+<tr>
+<td>Hash-only staging or mandatory external DA quorum</td>
+<td>A hash alone proves neither public bytes nor an executable manifest. An external quorum adds unavailable-signer dependence and an honest-threshold premise. Actual L1 DA staging supplies an objective publication event under L1 DA assumptions.</td>
+<td>A proof of complete earlier data/context publication with no private admission dependency. A different DA system would need an explicit new trust and recovery analysis.</td>
+</tr>
+<tr>
+<td>Exclusive ticket auction or proof reservation</td>
+<td>Winner disappearance adds a liveness wait and role-squatting value. The selected Dutch <em>price</em> instead admits any valid proof at the current quote, grants no reservation and reaches zero after 900 seconds.</td>
+<td>A procurement mechanism must preserve unconditional outsider eligibility at the objective public terms. The present design already supports nonexclusive voluntary proof jobs.</td>
+</tr>
+<tr>
+<td>Optional service bonds or force-spam sinks alone as ordinary-control deterrence</td>
+<td>A raw producer can repeatedly win without buying a service position or enqueueing spam. These mechanisms do not impose their advertised losses on that tactic. Mandatory admission rent now covers every canonical winner, with the explicit bounded gain/cost inequality.</td>
+<td>A different mandatory resource mechanism with an equally explicit ordinary-control model; disclaimers about unlimited MEV alone do not establish it.</td>
+</tr>
+<tr>
+<td>A permanently positive canonical admission fee</td>
+<td>Even a long-uncontested head would retain the extra Etna price barrier. The chosen900-second decay leaves zero-rent recovery while charging repeated early consumption; ordinary L1 gas remains unavoidable.</td>
+<td>A different affordability/recovery assumption and a demonstrated benefit over the selected decay. Increasing the peak without evidence may penalize honest throughput more than the target tactic.</td>
+</tr>
+<tr>
+<td>Challenge-only recovery for early bonded fragments</td>
+<td>It lets a holder defer revelation until a later paid challenge and then perform its weaker duty without penalty. Version 2 instead fixes full calldata/FR publication at issuedAt+240 for every fragment, independent of challenge funding. The additional publication cost is explicit.</td>
+<td>A different objective missed-duty predicate that supplies the same fixed availability deadline without requiring an unavailable manifest or proving historical nonreceipt.</td>
+</tr>
+<tr>
+<td>Per-address caps, cooldowns or concave stake weights as anti-monopoly proof</td>
+<td>One owner can split capital over arbitrary keys. Such limits do not establish independent economic actors and may favor Sybil splitting.</td>
+<td>The selected global age-based rent avoids identifying common ownership; its bounded deterrence still needs the named competitor/value conditions. Reconsider address-specific pricing only with a non-whitelist identity/resource argument.</td>
+</tr>
+<tr>
+<td>L1-derived “unbiased” publisher lottery</td>
+<td>Selection can inherit proposer withholding/manipulation and capital concentration assumptions; no unbiased randomness proof was supplied. Optional services need no canonical leader lottery.</td>
+<td>A fully specified randomness threat model and proof that the benefit exceeds the extra membership/scheduling complexity.</td>
+</tr>
+<tr>
+<td>Slash “withholding intent,” first-seen timestamps, or every lost soft branch</td>
+<td>Intent and global receipt time have no objective transcript. Penalizing every losing branch lets a faster competing prover slash an honest broadcaster. Calling that insurance does not establish solvent pricing.</td>
+<td>Objective signed promises with bounded losses, or a separately funded and explicitly priced insurance product. Neither may be advertised as proof of intent.</td>
+</tr>
+<tr>
+<td>TEE-only correctness or owner-selected operational verifier list</td>
+<td>Neither meets the selected valid-ZK-proof rule and no-operational-whitelist boundary. TAIKO collateral cannot substitute for an unsound validity predicate.</td>
+<td>A sound ZK system remains mandatory; supplementary independent proof systems may be evaluated without creating a permissioned daily role.</td>
+</tr>
+<tr>
+<td>Landing-time force queue; permanently frozen queue snapshot</td>
+<td>The former invalidates proofs whenever new requests arrive; the latter permits indefinite censorship. Parent-frozen work with nondecreasing origins and a 900-second freshness ceiling avoids both specific failures while allowing origin reuse for short segments.</td>
+<td>Another immutable-work rule with a complete FIFO progress argument and bounded contract/prover work.</td>
+</tr>
+<tr>
+<td>Every user transaction must first post to L1</td>
+<td>Fixes ordering for that traffic but adds L1 latency and fees to every normal user action. One-second empty blocks would not establish a useful one-second user soft-confirmation service.</td>
+<td>Explicitly narrower product goals. Etna lets users receive provisional execution before L1 publication; it separately requires later staged/final DA and bonded-fragment publication. These do not give each user a prior L1 ordering position.</td>
+</tr>
+<tr>
+<td>Nonce-only frame lock</td>
+<td>A failed SENDER execution can consume the shared nonce without accepting a segment. Adding an exact terminal VERIFY avoids that burn under consensus semantics but loses specified public-mempool eligibility.</td>
+<td>A demonstrated cheap complete prevalidation within policy limits, or changed policy with a credible invalid-simulation resource model. The ordinary public fallback must remain.</td>
+</tr>
+<tr>
+<td>New claim frame or shared external sequence read</td>
+<td>A new claim primitive needs EIP changes. Reading mutable external application state in VERIFY and terminal checks conflicts with the analyzed public policy. See the <a href="../03-frame-transactions-research.md">worked research alternatives</a>.</td>
+<td>A fork change or a validated alternative envelope; never assume research discussion has changed deployed consensus.</td>
+</tr>
+<tr>
+<td>New Bridge, SignalService or Vault addresses</td>
+<td>R2 expressly freezes those addresses and historical custody/application bindings. Rebuilding the same API at another address does not satisfy it.</td>
+<td>No reconsideration within R2. Storage-compatible proxy upgrades and an authenticated migration are required.</td>
+</tr>
+</tbody>
+</table>
 </section>
 
-<section id="launch"><h2>9. Human decisions and evidence required before launch</h2>
+<section id="launch">
+<h2>9. Human decisions and evidence required before launch</h2>
 <p><strong>Proven final review outcome:</strong> rounds07–08 independently cover authenticated header origins, standard system calls, permanent pins/reveals, retired writer guards, exact bootstrap and custody continuity. ACTIVE-only new force intake resolves the pre-launch escrow issue. Accepted Medium risks include paid-backlog delay, caller/archive dependence, bounded forceable Bridge operations, concentration, service costs and finite accountability. These are possible outcomes, not rejected traces; full dispositions are in the <a href="../iterations/08-round.md">final round record</a>.</p>
 <p><strong>Open human decisions:</strong> calibrate rent, reserves, publication economics and forced capacity using actual revenues, costs and entrant budgets. Decide whether the explicitly revocable soft service and bounded accountability meet the intended product's risk tolerance. A-COMPETITION(660) remains a conditional scenario, not a claim that every honest prover can or will pay. A change to these reviewed mechanisms or bounds requires corresponding review. The nonce-lock PDF is now reviewed from the public peer PR in the <a href="../03-frame-transactions-research.md#12-review-of-the-now-available-nonce-lock-pdf">dated addendum</a>; the Frame verdict is unchanged. The <a href="assurance.html">launch dashboard</a> consolidates coupled resource and funding evidence, and the <a href="../notes/peer-design-comparison.md">peer comparison</a> records this follow-up’s limited review scope.</p>
-<p><strong>Open launch-validation evidence:</strong> implement and independently verify the specified circuit and canonical blob/KZG relation after design approval; benchmark maximum block execution, sustained proof throughput, verifier and full FR/calldata publication resources; test the empty first-block bootstrap and ordinary pin/reveal gas profile; calibrate quoted rent and competitor scheduling against actual demand; authenticate live proxy/storage/deployment facts; rehearse old checkpoint/message/bond compatibility; test removal of operational owner powers; and recheck the launch EIP-8141 clients and public fallback. These are future tests of a complete design, not fabricated pass results and not all prerequisites to finishing this research document. The 900-second staging eligibility plus retrieval margin must fit the actual launch DA-retention guarantee.</p>
+<p><strong>Open launch-validation evidence:</strong> implement and independently verify the specified circuit and canonical blob/KZG relation after design approval; benchmark maximum block execution, sustained proof throughput, verifier and full FR/calldata publication resources; test the empty first-block bootstrap and ordinary pin/reveal gas profile; calibrate quoted rent and competitor scheduling against actual demand; authenticate live proxy/storage/deployment facts; rehearse old checkpoint/message/bond compatibility; test removal of operational owner powers; and recheck the launch EIP-8141 clients and public fallback. These are future validation obligations, not fabricated pass results. Open product and economic choices also require design decisions; they are not all implementation tests. The 900-second staging eligibility plus retrieval margin must fit the actual launch DA-retention guarantee.</p>
 <p><strong>Proven minimum dependency statement:</strong> Etna needs sound Ethereum execution/consensus, actual available bounded L1 data with sufficient retention for staging and retrieval, an executable sound proof verifier, reconstructible accepted state and some funded capable participant for progress. Healthy early landing additionally requires the current rent; after 900 seconds without acceptance the extra rent is zero, but fresh data/origin work and ordinary L1 gas are still needed. Without safety prerequisites it cannot launch safely. If blob retention or cost is unsuitable, bounded full calldata staging and republication remains available; proof-bound bodies that do not fit must be rebuilt smaller rather than changing bytes beneath a proof. Frames are assumed by the brief but have an ordinary-transaction fallback preserving atomic propose-with-proof; ePBS, block-level access lists, FOCIL, larger blob capacity, keyed nonces and shorter L1 intervals are optional benefits or compatibility facts, never role-assignment inputs. The <a href="../02-l1-roadmap-survey.md">dated roadmap survey</a> separates current EIP status and target-fork selection from these dependencies.</p>
-<p><strong>Final disposition:</strong> no subset of R1–R7 was proved impossible under the stated assumptions, and no requirement relaxation is used. This revised document specifies what to implement and what evidence must precede launch. It is not a promise of no future findings. Preserve actual prior DA, fixed signed deadlines, objective ordinary-admission pricing and their stated limits when evaluating a counterexample.</p>
+<p><strong>Final disposition:</strong> neither satisfaction of every current acceptance gate nor impossibility of a subset of R1–R7 is established. The original eight-round loop is exhausted; subsequent scoped review does not restart it or manufacture convergence. This reference preserves concrete interfaces and rules, but unresolved product/economic choices prevent an implementation-ready verdict. Human acceptance of a limitation is valid only if it meets the original requirement; otherwise record an explicit requirement relaxation and review the resulting design. Preserve actual prior DA, fixed signed deadlines and exact custody checks while evaluating alternatives.</p>
 </section>
-</main><footer>Etna research · Anchor-removal revision under review; launch evidence remains open · Public research cut 2026-09-30 · No implementation or deployment.</footer>
-</body></html>
+</main>
+<footer>Etna research · Anchor-removal revision under review; launch evidence remains open · Public research cut 2026-09-30 · No implementation or deployment.</footer>
+</body>
+</html>

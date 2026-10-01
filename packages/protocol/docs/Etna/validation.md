@@ -2,6 +2,8 @@
 
 This report concerns the research documents and static sites. No production contracts or clients were implemented, deployed or tested. A design-level argument is not an implementation audit, performance result or authenticated deployment manifest.
 
+**Current acceptance is open.** Historical review results below are dated observations at their named snapshots, not a current all-gates-pass verdict. Exact fixture outputs are provisional reference values despite reported scratch reproductions; no checked-in generator or conformance suite is supplied. The [current review response](notes/pr-comment-dispositions.md) identifies unresolved protocol issues and evidence limitations.
+
 ## Source and review provenance
 
 - Initial code-reading snapshot: `961bbd8ff55a0f66f44ad04160eb51638d655b66` on main. Original file/line citations retain that identity.
@@ -36,7 +38,7 @@ Completed on 2026-09-30:
 
 All twelve lessons retain their prerequisite order, motivating problem, mechanism, diagram, numeric example, attack limits, two or three hidden self-check answers and challenge box. A separate read-only course review checked consistency. Independent scratch serialization reproduced the 1,039-byte empty-bootstrap and 1,845-byte forced-reveal envelope bounds; these synthetic framing checks are not complete execution vectors or gas measurements.
 
-Fresh rounds07–08 meet the stated stopping criterion at the eight-round cap. The final reviewed normative candidate is `c60b2042af3d422fff96e79c59f283b40cab41a5`; subsequent edits reconcile verdicts, a stale “affected anchors” phrase and source navigation, without changing interfaces, parameters, encodings or transition rules. Round07’s Medium pre-activation intake issue is corrected and independently checked in round08. Current R1–R7 pass; every Medium has an explicit disposition in [08-round](iterations/08-round.md) and the [final judge](iterations/08-judge.md). Round07’s old immutable candidate retains its narrow R7 failure; the stopping criterion is not represented as two historical all-gate passes.
+Fresh rounds07–08 meet the stated stopping criterion at the eight-round cap. The final reviewed normative candidate is `c60b2042af3d422fff96e79c59f283b40cab41a5`; subsequent edits reconcile verdicts, a stale “affected anchors” phrase and source navigation, without changing interfaces, parameters, encodings or transition rules. Round07’s Medium pre-activation intake issue is corrected and independently checked in round08. The judge reported R1–R7 passing for that snapshot; every Medium has an explicit disposition in [08-round](iterations/08-round.md) and the [final judge](iterations/08-judge.md). Round07’s old immutable candidate retains its narrow R7 failure; the stopping criterion is not represented as two historical all-gate passes.
 
 The final judge reproduced17 named digest outputs, two fragment digests and six rent values with known Keccak checks. This is component arithmetic only. Browser validation after the force-intake correction again passed all21 pages. Source references outside the standalone site root now use immutable GitHub permalinks to the audited checkout; they are navigation links, not runtime dependencies. Final link/ID/asset and whitespace checks passed. EIP sources and David’s issue/corrections were checked on October1; the unrelated roadmap survey retains its September30 research date.
 
@@ -54,7 +56,7 @@ The anchor-removal revision and round07 correction were pushed on 2026-10-01; th
 
 **Open human/economic decisions:** calibrate rent, service reserves, publication fees and forced-queue throughput against actual revenues and entrant budgets. Explicitly accept revocable soft branches, bounded identity attribution, finite evidence windows, honest deadline defaults under censorship, zero-rent concentration and long paid-backlog delay. No model-generated review can establish a profitable decentralized operator market.
 
-These are launch obligations, not evidence secretly supplied by the documentation tests. The final verdict must preserve their distinction from specification convergence.
+These are launch obligations, not evidence supplied by the documentation tests. Subsequent peer review also leaves current product and economic acceptance unresolved; historical specification convergence does not settle those decisions.
 
 ## Peer-design comparison and course synchronization — 2026-10-01
 
@@ -71,3 +73,34 @@ The optional network schemas, client reporting and evidence organization do not 
 **Final follow-up document checks:** all23 HTML pages resolve local file/fragment links with unique IDs and no scripts, iframes or external runtime assets. Chromium loaded every page at1280-pixel desktop and390-pixel mobile widths with zero page-width overflow, zero out-of-viewBox SVG text and zero external asset requests. The23 pages contain27 inline SVGs and35 native hidden-answer blocks. A mobile answer expanded correctly; desktop/mobile screenshots of the new reference pages were inspected. `git diff --check` passes.
 
 All13 learning pages were reviewed and synchronized: the12 lessons keep prerequisite order, motivating problems, diagrams, numeric examples,2–3 hidden answers each and challenge boxes. Updates cover confirmation evidence and local-clock deferral; no-minimum-age origin reorg exposure; per-segment bytes/block counts; exact-statement proof reuse; ACTIVE-only queue intake and the long-backlog example; service capital versus ETH costs; recurring publication cost; rent/throughput tradeoffs; bounded checkpoint/bridge coverage; and the final assembly. All course status banners distinguish the historical review milestone from unresolved production feasibility. No consensus rule was changed to make the course examples work.
+
+
+## PR-comment follow-up — 2026-10-01
+
+All nine distinct records observed across the initial read and refreshed discussion are disposed in the [comment ledger](notes/pr-comment-dispositions.md); eight remained in the refreshed response, whose latest observed review update was07:17:44UTC. Both inline threads, the replaced bot review, the reciprocal review, the newer reproducibility review and the independent comparison with its complete public gist were read. Live comments are mutable attribution, not normative rules. Their relevant claims and responses remain local even if a source disappears.
+
+**Current verdict: acceptance remains open.** The README, all design entry points and all course banners now distinguish the historical round07–08 snapshot from current R4/R6/R7 feasibility. No fee, parameter, API, proof threshold, ordering right or pin-expiry rule changed. The original eight-round cap is respected; this follow-up is targeted review, not a new convergence round.
+
+A separate reader checked the new finite-window/sustained rent proof against the reset/rounding rule, the≤3N origin/checkpoint value-word bound against exact provenance and the existing two-word checkpoint record, and the affected lessons. No new contradiction was found in that scope. Two wording corrections were applied: R4 means soft issuance rather than an implicit accepted-block throughput obligation, and encoded-body capacity already includes headers. This is model-assisted document review, not an external audit. The fixture files now label their example hashes provisional; earlier scratch reproductions remain reported historical observations rather than release conformance evidence.
+
+**Completed artifact checks:** all23 HTML pages,27 inline SVGs and35 hidden-answer blocks were checked as described in the [file-identified receipt](notes/site-check-receipt.md). Static references/IDs passed; Chromium at1280/390 pixels found zero page overflow, SVG text-bound errors or external requests. Native answers worked. Formatting preserved parsed structure/text and exact preformatted sketches; screenshots were inspected. All12 lessons retain prerequisite order, problem/mechanism/diagram/example/attack limits,2–3 hidden answers and a challenge box. Relevant reference/course values and current status agree. `git diff --check` passed, and all task edits remain in the Etna directory.
+
+These observations verify the documentation, not the open feasibility gates. The [synchronization map](notes/design-course-sync.md) is a manual publication discipline; it does not automatically keep future edits consistent.
+
+## Manual reproduction procedure
+
+Use the commit containing this receipt and compare its HTML checksums before reproducing the observations. From the repository root, the following commands independently recover the file/element counts; they are inspection commands, not a committed experiment or validator:
+
+```bash
+rg --files packages/protocol/docs/Etna/design packages/protocol/docs/Etna/learn --glob '*.html' | wc -l
+rg --only-matching '<svg\b' packages/protocol/docs/Etna/design packages/protocol/docs/Etna/learn --glob '*.html' | wc -l
+rg --only-matching '<details\b' packages/protocol/docs/Etna/learn --glob '*.html' | wc -l
+git diff --check
+python3 -m http.server 8765 --bind 127.0.0.1 --directory packages/protocol/docs/Etna
+```
+
+Expected counts for the receipt:23,27,35. Open the local design/course indexes; at1280×1000 and390×1000 visit every HTML page and check that the document has no horizontal overflow. Tables, code and diagrams may scroll inside their own containers. Expand a native answer, use keyboard scrolling on a narrow diagram, and inspect the browser network panel for requests outside localhost. Check every SVG text bounding box against its parent viewBox. Optional dark mode is useful but was not an all-pages accessibility audit.
+
+For structural reproduction, parse all HTML without executing code; require unique IDs, existing `aria-labelledby` targets, and resolution of every relative `href`/`src` plus fragment (including Markdown heading anchors). Treat external citation links as navigation; reject scripts, iframes or external runtime assets. Verify all12 lessons have2–3 `<details>` answers and at least one diagram and challenge box. Compare the exact formulas and examples using the owning sections in the synchronization map, including hidden answers and captions. A different checker implementing these steps can reproduce the structural assertions; this task supplies no maintained executable checker or complete raw browser log.
+
+For cryptographic examples, start with the documented bytes/types/domain fields and an independently reviewed Ethereum Keccak/ABI implementation, not the printed expected digest. Reproduce all intermediate encodings, offsets and hashes before accepting any fixture as an implementation test oracle. That durable conformance work remains open.

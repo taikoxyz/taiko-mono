@@ -1,11 +1,80 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Learn Etna — one mechanism at a time</title><link rel="stylesheet" href="../design/style.css"></head>
-<body><header><p class="eyebrow">Etna · progressive course</p><h1>Understand it.<br>Then try to break it.</h1><p>Twelve short lessons introduce the design in dependency order. Start with what a fast block promises; assemble the protocol only at the end.</p><nav aria-label="Course entry"><a href="01-confirmations.html">Start lesson 1</a><a href="../design/index.html">Engineering reference</a><a href="../README.md">Research and review record</a></nav></header><main>
-<aside class="notice" id="review-status"><strong>Historical review milestone; production feasibility remains open.</strong> The <a href="../iterations/08-judge.md">round 08 judge</a> records specification convergence for the anchor-removal snapshot reviewed in rounds 07–08. That record is not launch approval or validation of later additions. The <a href="../design/assurance.html#operating-profile">current operating-profile assessment</a> leaves affordability, sustained capacity and service guarantees unresolved. This course describes proposed rules, not a production-ready protocol.</aside>
-<section><h2>Your route through the concepts</h2><p>Each arrow means “read this first.” Every lesson gives a problem, a mechanism, a numerical example, attacks and limits, hidden self-check answers and assumptions to challenge. Follow the route once; use the reference later for exact interfaces.</p>
-<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens"><svg viewBox="0 0 1020 550" role="img" aria-labelledby="course-map-title course-map-desc"><title id="course-map-title">Concept dependency route through twelve lessons</title><desc id="course-map-desc">Read confirmation meanings, origins and exact bytes; then public staging, atomic settlement and forced inclusion; then roles, publication duties and competition pricing; finally checkpoint persistence, migration and the assembled safety and liveness arguments.</desc><defs><marker id="course-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="currentColor"/></marker></defs><g class="box"><rect x="25" y="20" width="280" height="75" rx="8"/><rect x="370" y="20" width="280" height="75" rx="8"/><rect x="715" y="20" width="280" height="75" rx="8"/><rect x="25" y="155" width="280" height="75" rx="8"/><rect x="370" y="155" width="280" height="75" rx="8"/><rect x="715" y="155" width="280" height="75" rx="8"/><rect x="25" y="290" width="280" height="75" rx="8"/><rect x="370" y="290" width="280" height="75" rx="8"/><rect x="715" y="290" width="280" height="75" rx="8"/><rect x="25" y="445" width="280" height="75" rx="8"/><rect x="370" y="445" width="280" height="75" rx="8"/><rect x="715" y="445" width="280" height="75" rx="8"/></g><g class="arrow" marker-end="url(#course-arrow)"><path d="M305 57H365"/><path d="M650 57H710"/><path d="M855 95V125H165V150"/><path d="M305 192H365"/><path d="M650 192H710"/><path d="M855 230V260H165V285"/><path d="M305 327H365"/><path d="M650 327H710"/><path d="M855 365V410H165V440"/><path d="M305 482H365"/><path d="M650 482H710"/></g><g font-size="20" text-anchor="middle"><text x="165" y="65">1 · Confirmation meanings</text><text x="510" y="65">2 · Known L1 facts</text><text x="855" y="65">3 · Exact bytes</text><text x="165" y="200">4 · Public data lead</text><text x="510" y="200">5 · Atomic settlement</text><text x="855" y="200">6 · Forced inclusion</text><text x="165" y="335">7 · Voluntary duties</text><text x="510" y="335">8 · Timely publication</text><text x="855" y="335">9 · Competition pricing</text><text x="165" y="490">10 · Persistent checkpoints</text><text x="510" y="490">11 · Preserve custody</text><text x="855" y="490">12 · Assemble and attack</text></g></svg></div>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Learn Etna — one mechanism at a time</title>
+<link rel="stylesheet" href="../design/style.css">
+</head>
+<body>
+<header>
+<p class="eyebrow">Etna · progressive course</p>
+<h1>Understand it.<br>Then try to break it.</h1>
+<p>Twelve short lessons introduce the design in dependency order. Start with what a fast block promises; assemble the protocol only at the end.</p>
+<nav aria-label="Course entry"><a href="01-confirmations.html">Start lesson 1</a><a href="../design/index.html">Engineering reference</a><a href="../README.md">Research and review record</a>
+</nav>
+</header>
+<main>
+<aside class="notice" id="review-status"><strong>Research candidate; current feasibility gates remain open.</strong> Measured one-second soft issuance and acceptable confirmation semantics (R4), practical deterrence (R6) and sustained minute-level landing (R7) are not demonstrated. The <a href="../iterations/08-judge.md">round 08 judge</a> records a historical stopping criterion for the rounds 07–08 anchor-removal snapshot; it does not establish that every current requirement passes. Read the <a href="../design/assurance.html#operating-profile">current assessment</a> and <a href="../notes/pr-comment-dispositions.md">PR-comment dispositions</a>. This course teaches proposed rules, not a production-ready protocol.</aside>
+<section>
+<h2>Your route through the concepts</h2>
+<p>Each arrow means “read this first.” Every lesson gives a problem, a mechanism, a numerical example, attacks and limits, hidden self-check answers and assumptions to challenge. Follow the route once; use the reference later for exact interfaces.</p>
+<div class="diagram" tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg viewBox="0 0 1020 550" role="img" aria-labelledby="course-map-title course-map-desc">
+<title id="course-map-title">Concept dependency route through twelve lessons</title>
+<desc id="course-map-desc">Read confirmation meanings, origins and exact bytes; then public staging, atomic settlement and forced inclusion; then roles, publication duties and competition pricing; finally checkpoint persistence, migration and the assembled safety and liveness arguments.</desc>
+<defs>
+<marker id="course-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+<path d="M0 0L8 4L0 8Z" fill="currentColor"/>
+</marker>
+</defs>
+<g class="box">
+<rect x="25" y="20" width="280" height="75" rx="8"/>
+<rect x="370" y="20" width="280" height="75" rx="8"/>
+<rect x="715" y="20" width="280" height="75" rx="8"/>
+<rect x="25" y="155" width="280" height="75" rx="8"/>
+<rect x="370" y="155" width="280" height="75" rx="8"/>
+<rect x="715" y="155" width="280" height="75" rx="8"/>
+<rect x="25" y="290" width="280" height="75" rx="8"/>
+<rect x="370" y="290" width="280" height="75" rx="8"/>
+<rect x="715" y="290" width="280" height="75" rx="8"/>
+<rect x="25" y="445" width="280" height="75" rx="8"/>
+<rect x="370" y="445" width="280" height="75" rx="8"/>
+<rect x="715" y="445" width="280" height="75" rx="8"/>
+</g>
+<g class="arrow" marker-end="url(#course-arrow)">
+<path d="M305 57H365"/>
+<path d="M650 57H710"/>
+<path d="M855 95V125H165V150"/>
+<path d="M305 192H365"/>
+<path d="M650 192H710"/>
+<path d="M855 230V260H165V285"/>
+<path d="M305 327H365"/>
+<path d="M650 327H710"/>
+<path d="M855 365V410H165V440"/>
+<path d="M305 482H365"/>
+<path d="M650 482H710"/>
+</g>
+<g font-size="20" text-anchor="middle">
+<text x="165" y="65">1 · Confirmation meanings</text>
+<text x="510" y="65">2 · Known L1 facts</text>
+<text x="855" y="65">3 · Exact bytes</text>
+<text x="165" y="200">4 · Public data lead</text>
+<text x="510" y="200">5 · Atomic settlement</text>
+<text x="855" y="200">6 · Forced inclusion</text>
+<text x="165" y="335">7 · Voluntary duties</text>
+<text x="510" y="335">8 · Timely publication</text>
+<text x="855" y="335">9 · Competition pricing</text>
+<text x="165" y="490">10 · Persistent checkpoints</text>
+<text x="510" y="490">11 · Preserve custody</text>
+<text x="855" y="490">12 · Assemble and attack</text>
+</g>
+</svg>
+</div>
 </section>
-<section><h2>The lessons</h2><ol>
+<section>
+<h2>The lessons</h2>
+<ol>
 <li><a href="01-confirmations.html">Three meanings of confirmed</a> — distinguish local validity, acceptance and finality.</li>
 <li><a href="02-origins.html">Known L1 facts</a> — authenticate the context before checking a block.</li>
 <li><a href="03-body.html">Exact bytes</a> — give execution and availability promises one meaning.</li>
@@ -18,7 +87,27 @@
 <li><a href="10-checkpoints.html">Keep a checkpoint after its oracle expires</a> — pay for ordinary permissionless pinning and reveal.</li>
 <li><a href="10-migration.html">Change the engine, preserve custody</a> — finish legacy work and construct one new boundary.</li>
 <li><a href="11-assembly.html">Assemble and challenge</a> — combine the proofs and examine the red team's results.</li>
-</ol></section>
-<section><h2>What changed after comparing the designs</h2><p>The course now follows the reference's explicit client confirmation report and clock handling, optional exchange of independently verified proof leaves, and combined timing/resource/funding assessment. You meet each addition only after its prerequisites: confirmation evidence in lesson 1, exact proof reuse in lesson 5, queue delay in lesson 6, publication cost in lesson 8 and the complete operating profile in lesson 12.</p><p>After the course, read <a href="../notes/peer-design-comparison.md">what we learned from the alternative design</a> and challenge the <a href="../design/assurance.html#operating-profile">unresolved production profile</a>. These updates preserve the existing canonical rules; they do not turn the historical review result into proof of launch readiness.</p></section>
-<section><h2>How to challenge a claim</h2><p><strong>Proven</strong> identifies a deduction from stated rules and premises. Try to break a step in that deduction. <strong>Assumed</strong> identifies something the mechanism cannot provide itself; ask what happens when it fails. <strong>Open</strong> identifies a decision or missing evidence; do not turn it into a guarantee.</p><p>A useful objection has a starting state, specific actions, a cost and consequence, and the requirement it contradicts. Keep locally valid, canonically accepted and final separate. A signature is not proof of universal gossip; a proof is not a source of missing bytes; open entry is not a guarantee of a profitable market.</p></section>
-</main><footer><p>Static HTML and inline SVG · no scripts, build step or external assets · <a href="01-confirmations.html">Begin with lesson 1 →</a></p></footer></body></html>
+</ol>
+</section>
+<section>
+<h2>What changed after comparing the designs</h2>
+<p>The course now follows the reference's explicit client confirmation report and clock handling, optional exchange of independently verified proof leaves, and combined timing/resource/funding assessment. You meet each addition only after its prerequisites: confirmation evidence in lesson 1, exact proof reuse in lesson 5, queue delay in lesson 6, publication cost in lesson 8 and the complete operating profile in lesson 12.</p>
+<p>After the course, read <a href="../notes/peer-design-comparison.md">what we learned from the alternative design</a> and challenge the <a href="../design/assurance.html#operating-profile">unresolved production profile</a>. These updates preserve the existing canonical rules; they do not turn the historical review result into proof of launch readiness.</p>
+</section>
+<section>
+<h2>What the PR comments changed</h2>
+<p>The review response strengthens two deductions without changing consensus rules. Lesson 9 now shows why bursts cannot evade the sustained rent cost; lesson 10 bounds additional origin storage per accepted segment while explaining why the lifetime cost remains unresolved. Lesson 12 combines those limits with the current open R4/R6/R7 gates. The historical review result no longer stands in for today’s acceptance assessment.</p>
+<p>See the <a href="../notes/pr-comment-dispositions.md">point-by-point comment dispositions</a> for what was fixed, clarified or remains open. The <a href="../notes/design-course-sync.md">synchronization record</a> identifies the reference sections, dependent lessons and checks required before an update is published as synchronized. This is a review discipline; it does not automatically prove semantic agreement.</p>
+</section>
+<section>
+<h2>How to challenge a claim</h2>
+<p><strong>Proven</strong> identifies a deduction from stated rules and premises. Try to break a step in that deduction. <strong>Assumed</strong> identifies something the mechanism cannot provide itself; ask what happens when it fails. <strong>Open</strong> identifies a decision or missing evidence; do not turn it into a guarantee.</p>
+<p>A useful objection has a starting state, specific actions, a cost and consequence, and the requirement it contradicts. Keep locally valid, canonically accepted and final separate. A signature is not proof of universal gossip; a proof is not a source of missing bytes; open entry is not a guarantee of a profitable market.</p>
+</section>
+</main>
+<footer>
+<p>Static HTML and inline SVG · no scripts, build step or external assets · <a href="01-confirmations.html">Begin with lesson 1 →</a>
+</p>
+</footer>
+</body>
+</html>
