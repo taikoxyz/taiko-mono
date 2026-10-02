@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.7.0...taiko-alethia-client-v2.8.0) (2026-10-02)
+
+
+### Features
+
+* **protocol,taiko-client:** raise inbox basefee sharing to 100% and rotate raiko2 to `v0.9.0` (Proposal0026) ([#22127](https://github.com/taikoxyz/taiko-mono/issues/22127)) ([6d1d627](https://github.com/taikoxyz/taiko-mono/commit/6d1d62741464efe736179e3b35f133d5844469ca))
+
 ## [2.7.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.6.0...taiko-alethia-client-v2.7.0) (2026-09-28)
 
 
