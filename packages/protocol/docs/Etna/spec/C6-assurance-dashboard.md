@@ -2,27 +2,27 @@
 
 **[assumed: ownership]** B maintains this reference-only dashboard under D12/W6/W16. A's C6-R08 owns limitation dispositions; S4-R14 owns requirement tags; S2-R18 owns confirmation levels. This index defines no protocol rule or independent acceptance status.
 
-**[open: readiness under D44]** The target is implementation-ready under [D44 at f8592fd](https://github.com/taikoxyz/taiko-mono/blob/f8592fd7139f1d10b8218640eb4244ccb03b9fe3/packages/protocol/docs/Etna/DECISIONS.md#L53), amending D2. [WORK, Readiness](../WORK.md#readiness-d44) owns the exit checklist. Section merges and historical candidate rounds do not complete that checklist. Semantic gaps need owner resolutions and reference vectors; unmeasured numbers need conservative specified defaults and measurement procedures. A proposed limitation is no exception to completeness until the user has signed it.
+**[open: readiness under D44]** The target is implementation-ready under [D44 at 58a09848](https://github.com/taikoxyz/taiko-mono/blob/58a098484c948062bec7387346991f451fb875c9/packages/protocol/docs/Etna/DECISIONS.md#L53), amending D2. [WORK, Readiness](../WORK.md#readiness-d44) owns the exit checklist: no open item in any section except accepted limitations the user has signed. Separately, unmeasured numbers need conservative specified defaults and measurement procedures. Section merges and historical candidate rounds do not complete that checklist.
 
 ## Current decision and review overlay
 
-**[assumed: dated evidence]** This overlay reads [DECISIONS at f8592fd](https://github.com/taikoxyz/taiko-mono/blob/f8592fd7139f1d10b8218640eb4244ccb03b9fe3/packages/protocol/docs/Etna/DECISIONS.md) and the reviews linked below. Sections 1–5 preserve the earlier W15/W16 inventory and review history, not the current disposition of superseded findings. The [readiness closure index](C6-readiness-closure-index.md) maps B-owned integration obligations to owners and concrete artifacts. WORK statuses remain arbiter-owned.
+**[assumed: dated evidence]** This overlay reads [DECISIONS at 58a09848](https://github.com/taikoxyz/taiko-mono/blob/58a098484c948062bec7387346991f451fb875c9/packages/protocol/docs/Etna/DECISIONS.md), including D45/D46/D47, and the reviews below. Sections 1–5 preserve the earlier W15/W16 inventory and review history, not the current disposition of superseded findings. The proposed [readiness closure index](C6-readiness-closure-index.md), awaiting its own merge in #22215, maps integration obligations to owners and artifacts. D35 does not cover that new index. WORK statuses remain arbiter-owned.
 
 | Subject | Current evidence | Consequence |
 |---|---|---|
 | Accepted sections | C1/D28, C5/D31, C4/D32, C6-B/D35; C2 at `fb6180a`/D36 | C2's prior provisional-conflict findings are closed at the reviewed merge. Restart opening, reference-floor composition and other retained owner obligations remain separate. |
-| Confirmation | D29/D37/D42; S2 `2224a4afde42e94a1ce1497f869f1a480579515f`; [B review](https://github.com/taikoxyz/taiko-mono/pull/22197#issuecomment-5947054329) | D29 adopts narrow locked and separate fully-backed conditions. B requests changes to the final-F refusal, stale closing cap and shared evidence predicate; the old broad guarantee is not restored. |
-| Economics | D34; S3 `d97f1fb9c176f1fe835082a1f43403082ab91850`; [B review](https://github.com/taikoxyz/taiko-mono/pull/22202#issuecomment-5946996920) | The old inventory/continuous-floor High is closed for its trace by separating inventory, live deterrent and conditional illustrations. No fixed collectible floor or full S3 approval follows. |
+| Confirmation | D29/D37/D42/D47; S2 `2224a4afde42e94a1ce1497f869f1a480579515f`; [B review](https://github.com/taikoxyz/taiko-mono/pull/22197#issuecomment-5947054329) | D29 adopts narrow locked and separate fully-backed conditions. [D47](https://github.com/taikoxyz/taiko-mono/blob/58a098484c948062bec7387346991f451fb875c9/packages/protocol/docs/Etna/DECISIONS.md#L55) records the user's acceptance of about 96 to 108 s full-backing delay after a FALLBACK, versus 60 to 75 s otherwise, with no design change; these are accepted estimates, not measurements. B's final-F, stale-cap and evidence corrections remain pending in the cited head. |
+| Economics | D34; S3 `d97f1fb9c176f1fe835082a1f43403082ab91850`; [B review](https://github.com/taikoxyz/taiko-mono/pull/22202#issuecomment-5946996920) | D34 defines inventory, live deterrent and conditional illustrations separately. B's cited review closes the old inventory/continuous-floor High for its trace. No fixed collectible floor or full S3 approval follows. |
 | Objective evidence | Same S2/S3 heads and reviews | Opening-witness substitution is repaired. Parent-ancestry authentication and the missing S3b certificate preimage remain semantic corrections, not unmeasured gas work. |
 | Forced inclusion | User decision D39; hatch pending | D33 is withdrawn. C3 `4aa0299` and its per-block FI duties, waivers, stall clock and run cap are historical; C3 and consumers must apply the reviewed hatch. |
-| Registry | D40; S1 `f4e8354e0921ef372e7792c63c6d832f4893816a`; [B review](https://github.com/taikoxyz/taiko-mono/pull/22201#issuecomment-5947146539) | B requests changes: disclosed suspension-retrospectivity item19 and the admission-key/liable-owner ledger mismatch. This index selects no remedy. |
+| Registry | D40/D45; published S1 `f4e8354e0921ef372e7792c63c6d832f4893816a`; [B review](https://github.com/taikoxyz/taiko-mono/pull/22201#issuecomment-5947146539) | [D45](https://github.com/taikoxyz/taiko-mono/blob/58a098484c948062bec7387346991f451fb875c9/packages/protocol/docs/Etna/DECISIONS.md#L56) adopts the minimum-duration closure for item 19, liable-owner admission, bounded sentinel span, a dedicated retained sentinel bond and reference-only L4 read. Revised S1/S3 text and B/J review remain pending at this snapshot; the decision is not approval of an unpublished revision. |
 | Local validity | C7 `5839790dcbffe9f002a9961848ffa17b3d2b8e5a`; [B review](https://github.com/taikoxyz/taiko-mono/pull/22199#issuecomment-5946532908) | The future-range/local-validity and mode/reference questions remain with C7 and dependencies. D39 requires another projection pass. |
 | Learning site | Course `11faed6`, accepted by A under D43; [D46 correction](https://github.com/taikoxyz/taiko-mono/blob/a1318ed0839aea777e4c45668b9a4ae9b88dbc5a/packages/protocol/docs/Etna/DECISIONS.md) | [The course](../learn/index.html) teaches accepted C1/C2/C4/C5. J had not reviewed it at that merge; D46 requests J's review. No J clearance is inferred. |
 | Completion | D44 | One final PR, #22191; exact C8 artifacts, defaults/procedures, merged-tree red-team rounds, J's audit and a fresh independent review remain obligations. No completion verdict is asserted. |
 
 **[assumed: limitation provenance]** The historical C6-R08 links below record what their cited owner revision said. Their presence, technical review or section acceptance is not the user sign-off D44 requires for a limitation left at completion. Record its exact text, consequence and user decision when that sign-off exists.
 
-## 1. Historical Source and review ledger
+## 1. Historical source and review ledger
 
 | Owner | Immutable source | Review state at snapshot |
 |---|---|---|
@@ -43,7 +43,7 @@
 
 [W11](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5945030219) attacks D21–D23; [W13](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5945170889) owns the snapshot consistency list. All six W15 replacement heads and the C5 repair are pinned above. Recovery reviews close particular prior traces and identify remaining/new defects; no unchanged historical approval or partial J closure approves the revised section as a whole.
 
-## 2. Historical Assurance claim index
+## 2. Historical assurance claim index
 
 | Claim to inspect | Sole owning arguments | Current review dependency |
 |---|---|---|
@@ -56,7 +56,7 @@
 | Retained custody and upgrade-only powers | C4-R09–R13; C8-R15/R17 | C4 and its D26/D30 rules are accepted under D32; C8/S4 projections and manifest evidence remain. |
 | Whole-design safety, liveness and role failures | S4-R01–R14 | Follow S4's premises/exceptions and [B's request-changes verdict](https://github.com/taikoxyz/taiko-mono/pull/22211#issuecomment-5945109838); this index supplies no parallel theorem. |
 
-## 3. Historical Confirmation-level index
+## 3. Historical confirmation-level index
 
 **[assumed: reference only]** Use the exact level names and definitions in [S2-R18](https://github.com/taikoxyz/taiko-mono/blob/ab391fe4710382f089f367b54261c0296e54cc67/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md#L214). The rows below identify their source, not an alternative label system or promise.
 
@@ -134,7 +134,7 @@
 
 **[open: evidence, not subsidy]** The register indexes replay workload, actual collectible funding and governance-response assumptions. Quota exposure follows C4-R10/R12: only configured assets and covered paths are capped; quota zero is unlimited, and a rate cap is neither reimbursement nor a total-loss bound with unbounded response time. B-C6A-02 requests that qualification in A's register; this projection does not silently edit its disposition.
 
-## 5. Historical Requirement-review index
+## 5. Historical requirement-review index
 
 **[assumed: sole verdict owner]** Requirement tags are **as [S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L163)**. B records review state only. An open review can dispute a tag without this page becoming another verdict table.
 
@@ -178,4 +178,4 @@
 
 **[assumed: D35/editorial record]** A approved C6-B at `c1ff472` in [5945661298](https://github.com/taikoxyz/taiko-mono/pull/22206#issuecomment-5945661298) and merged it. Its check counted 276 parameter rows plus one table-header link; this follow-up removes the header link, retains all 276 rows, attributes S6/L41 statements as review items, links the S3 economic owners and S4 verdict, and updates accepted-source status. These edits change no owning specification or acceptance decision.
 
-**[assumed: D44 follow-up]** The current overlay and closure index supersede earlier readiness/status projections while preserving immutable evidence. They record D36/D43 acceptance and D29/D34/D39/D40/D42/D44; they change no owning rule, WORK status or limitation disposition and supply no measurement or whole-design approval.
+**[assumed: D44 follow-up]** The current overlay and proposed closure index supersede earlier readiness/status projections while preserving immutable evidence. They record D36/D43 acceptance and D29/D34/D39/D40/D42/D44–D47; they change no owning rule, WORK status or limitation disposition and supply no measurement or whole-design approval.
