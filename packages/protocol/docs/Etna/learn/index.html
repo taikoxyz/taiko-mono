@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Learn the accepted Etna building blocks</title><link rel="stylesheet" href="course.css"></head>
+<body>
+<a class="skip-link" href="#main">Skip to course</a>
+<header class="site-header">
+<nav aria-label="Project navigation"><a href="../README.md">Specification index</a><a href="../DECISIONS.md">Decision log</a><a href="../spec/C6-assurance-dashboard.md">Assurance dashboard</a></nav>
+<p class="eyebrow">Etna · Convergence course</p>
+<h1>Learn a building block. Then try to break it.</h1>
+<p class="lede">A short path through the accepted parts of the Etna proposal, with each assumption visible.</p>
+</header>
+<main id="main">
+<aside class="status">
+<strong>Research in progress. The full protocol is not converged.</strong>
+<p><strong>Assumed, acceptance record:</strong> these lessons follow C1, C5, C2 and C4 as merged under D28, D31, D36 and D32. They teach selected rules, not deployed behavior. Unmerged sections and unresolved integration remain pending.</p>
+<p>Decision snapshot: <a href="https://github.com/taikoxyz/taiko-mono/blob/58a098484c948062bec7387346991f451fb875c9/packages/protocol/docs/Etna/DECISIONS.md">D44–D47 at 58a09848</a>. The target is an implementation-ready specification for independent design review. The work remains design-only under D2, and the target has not been met. Every substantive claim and worked value leads back to its owning specification.</p>
+<p>The <a href="../WORK.md#readiness-d44">readiness checklist</a> requires no open item in any section except accepted limitations the user has signed. It separately requires exact interfaces and vectors, conservative defaults with measurement procedures, two clean red-team rounds, J's audit and a fresh review. A merged lesson does not establish those conditions. Read <a href="../README.md">the charter</a> for the single-deliverable and review agreement.</p>
+<p><strong>Review provenance:</strong> A accepted this course under D43. <a href="https://github.com/taikoxyz/taiko-mono/blob/a1318ed0839aea777e4c45668b9a4ae9b88dbc5a/packages/protocol/docs/Etna/DECISIONS.md">D46</a> records that J had not reviewed it at merge and requests J's review; no J clearance is claimed.</p>
+<p><strong>Forced-inclusion scope: <a href="https://github.com/taikoxyz/taiko-mono/blob/a6bebd17b1538954cd41655d12b74c155b0dbe38/packages/protocol/docs/Etna/DECISIONS.md#L48">D39: minimal escape hatch</a>.</strong> The user selected a delayed escape hatch open to any bonded party and withdrew D33. Per-block FI duties, waivers, the stall clock and run cap are removed from the chosen direction. C3’s replacement predicates and the affected sections’ revisions are pending; the course does not supply a delay, bond or new censorship bound.</p>
+</aside>
+<section aria-labelledby="map-heading">
+<h2 id="map-heading">Your dependency map</h2>
+<p>Start with Ethereum headers, storage proofs and transactions. Learn authenticated context before migration. The transaction-race lesson explains submission costs. Landing then supplies the publication and recovery boundaries used by migration. The arrows show teaching prerequisites; the owning integration tables define protocol dependencies.</p>
+<figure tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 590" role="img" aria-labelledby="map-title map-desc">
+<title id="map-title">Prerequisites for the accepted lessons</title>
+<desc id="map-desc">Ethereum foundations lead to C1 anchor-free context and C5 transaction races. These prepare the C2 landing lesson. C1 and C2 then prepare C4 migration. The full protocol argument remains pending.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#486172"/></marker></defs>
+<g fill="#e9f4ee" stroke="#486172" stroke-width="2"><rect x="210" y="15" width="380" height="60" rx="10"/><rect x="25" y="125" width="340" height="72" rx="10"/><rect x="435" y="125" width="340" height="72" rx="10"/><rect x="210" y="255" width="380" height="72" rx="10"/><rect x="210" y="385" width="380" height="72" rx="10"/><rect x="210" y="505" width="380" height="72" rx="10" fill="#fff3db" stroke-dasharray="6 5"/></g>
+<g fill="none" stroke="#486172" stroke-width="2" marker-end="url(#arrow)"><path d="M400 75 V100 H195 V125"/><path d="M400 100 H605 V125"/><path d="M195 197 V225 H400 V255"/><path d="M605 197 V225 H400"/><path d="M400 327 V385"/></g>
+<g font-family="system-ui,sans-serif" font-size="19" fill="#172b3a" text-anchor="middle"><text x="400" y="52">Ethereum foundations</text><text x="195" y="153">C1 · Anchor-free context</text><text x="195" y="181" font-size="15">Authenticate, reveal, pin</text><text x="605" y="153">C5 · Transaction races</text><text x="605" y="181" font-size="15">Validity, payment, inclusion</text><text x="400" y="283">C2 · Landing with proof</text><text x="400" y="311" font-size="15">Data, execution and custody publication</text><text x="400" y="413">C4 · Migration</text><text x="400" y="441" font-size="15">Keep addresses; close old powers</text><text x="400" y="533">Full protocol argument</text><text x="400" y="561" font-size="15">Pending remaining sections and review</text></g>
+</svg>
+<figcaption>A pedagogical map, not a replacement for the specifications' integration tables.</figcaption>
+</figure>
+</section>
+<section aria-labelledby="lessons-heading">
+<h2 id="lessons-heading">Follow the accepted lessons</h2>
+<p>Each page starts with a small problem. Open the next explanation when ready, try the worked example, and challenge the assumptions before continuing.</p>
+<div class="grid">
+<article class="card"><span class="badge">C1 · Accepted section</span><h2><a href="anchor-free.html">Blocks without an anchor transaction</a></h2><p>Where authenticated L1 context comes from, how a checkpoint is revealed, and what a pin does not promise.</p><p class="small">Start here. Prerequisites: Ethereum headers and state roots.</p></article>
+<article class="card"><span class="badge">C5 · Accepted section</span><h2><a href="frames.html">Paying for a lost race</a></h2><p>Why invalid and reverted transactions differ, and when Frame Transactions can protect a losing submitter.</p><p class="small">Next in the course. Prerequisites: transaction validity and gas.</p></article>
+<article class="card"><span class="badge">C2 · Accepted section</span><h2><a href="landing.html">Land the data and proof together</a></h2><p>How a journal binds a range, why provisional landing defers custody publication, and what a conflict can establish.</p><p class="small">Builds on C1 and C5. Confirmation labels and forced-inclusion composition remain pending.</p></article>
+<article class="card"><span class="badge">C4 · Accepted section</span><h2><a href="migration.html">Move the protocol, keep the addresses</a></h2><p>How the transition preserves custody state, finalizes or abandons a frozen tail, and removes operational authority.</p><p class="small">Builds on C1 and C2. The full recovery composition is still open.</p></article>
+</div>
+</section>
+<section aria-labelledby="pending-heading">
+<h2 id="pending-heading">What is still pending</h2>
+<p><strong>Open:</strong> acceptance of these owners' complete rules and their cross-section arguments. Pending topics are not taught as settled mechanisms. Links lead to live review threads and may contain rejected proposals.</p>
+<table><caption>Pending lessons at the accepted snapshot</caption><thead><tr><th scope="col">Owner section</th><th scope="col">Topic and review</th></tr></thead><tbody>
+<tr><th scope="row">C3</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22200">Minimal escape hatch and censorship resistance</a> — D39 rewrite pending</td></tr>
+<tr><th scope="row">C6-A</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22212">Threat model and accepted limitations</a></td></tr>
+<tr><th scope="row">C7</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22199">Complete local block-validity predicate</a></td></tr>
+<tr><th scope="row">C8</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22210">Interfaces, messages and storage composition</a></td></tr>
+<tr><th scope="row">S1</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22201">Seats, entry and sortition</a></td></tr>
+<tr><th scope="row">S2</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22197">Certificates, confirmations and handoff</a></td></tr>
+<tr><th scope="row">S3</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22202">Slashing and economic backing</a></td></tr>
+<tr><th scope="row">S4</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22211">Safety and liveness arguments</a></td></tr>
+<tr><th scope="row">Assembly</th><td>Whole-protocol walkthrough and red-team resolution, after the owning sections and their composition pass review.</td></tr>
+</tbody></table>
+<p>C6-B's <a href="../spec/C6-assurance-dashboard.md">assurance index</a> and <a href="../spec/C6-unmeasured-register.md">source-number index</a> were accepted under D35. The new <a href="../spec/C6-readiness-closure-index.md">D44 closure index</a> is proposed in <a href="https://github.com/taikoxyz/taiko-mono/pull/22215">#22215</a> and awaits its own merge; D35 does not cover it. It tracks owners and closure evidence without adding a protocol mechanism or turning an open claim into a proven one.</p>
+</section>
+<aside class="challenge"><h2>How to read the evidence</h2><p><strong>Assumed</strong> means a selected rule or a named premise. <strong>Proven conditionally</strong> means an argument under those premises, not machine verification. <strong>Open</strong> names the missing decision, integration or evidence.</p><p>Diagrams scroll horizontally on narrow screens. Example arithmetic is not a benchmark. Follow numerical citations to the source register or fixture. If a lesson and its owner disagree, the owner controls; report the discrepancy on <a href="https://github.com/taikoxyz/taiko-mono/pull/22191">the convergence PR</a>.</p></aside>
+</main>
+<footer><nav aria-label="Begin learning"><a href="anchor-free.html">Start: anchor-free blocks</a><a href="../WORK.md">Current work orders</a></nav></footer>
+</body></html>
