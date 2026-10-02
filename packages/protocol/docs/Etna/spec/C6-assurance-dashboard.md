@@ -1,29 +1,29 @@
 # C6-B. Assurance dashboard
 
-**[assumed: ownership and snapshot]** B maintains this reference-only dashboard under D12/W6/W16. A's C6-R08 owns limitation dispositions; S4-R14 owns requirement tags; S2-R18 owns the six confirmation levels. This page assigns none of those a second meaning or acceptance status. Snapshot: 2026-10-02, after C1's D28 merge and B's W11–W13 reviews; C4 is the W16 submission. A/J have not approved this revision.
+**[assumed: ownership and snapshot]** B maintains this reference-only dashboard under D12/W6/W16. A's C6-R08 owns limitation dispositions; S4-R14 owns requirement tags; S2-R18 owns the six confirmation levels. This page assigns none of those a second meaning or acceptance status. Snapshot: 2026-10-02, after C1's D28 and C5's D31 merges, B's commit-pinned W12 recovery reviews and the second W16 migration revision. A/J have not approved this C6-B revision.
 
-**[open: readiness]** Section review is in progress. The cross-opening accountability finding B-D21-01 and the primary-frame authorization finding B-C5-01 remain open at this snapshot. D2 allows unmeasured implementation work, not contradictory rules. Neither historical candidate rounds nor these section reviews constitute the merged-spec convergence rounds.
+**[open: readiness]** Section review is in progress. B-D21-01 remains open. B approved C5's repaired authorization shape and A merged it under D31; the new provisional-conflict output, S6 witness-authentication and collectible-backing findings remain open in their owning section reviews. D2 allows unmeasured implementation work, not contradictory rules. Neither historical candidate rounds nor these section reviews constitute the merged-spec convergence rounds.
 
 ## 1. Source and review ledger
 
 | Owner | Immutable source | Review state at snapshot |
 |---|---|---|
 | C1 | [42c76c9b](https://github.com/taikoxyz/taiko-mono/blob/42c76c9bddb24bc8d51a7b4454a0439ab5d8e182/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md) | Merged by A under D28; C4/C8 integration and unmeasured evidence remain. |
-| C2 | [f67d4d47](https://github.com/taikoxyz/taiko-mono/blob/f67d4d47e7c7b3ac960d4434ac28e5dedf5b64da/packages/protocol/docs/Etna/spec/C2-landing.md) | B request-changes; D23/W15 recovery head pending. |
-| C3 | [13d0e119](https://github.com/taikoxyz/taiko-mono/blob/13d0e119f87ce6dc33c59f48b1aeade274884277/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md) | B request-changes; D18/D22/W15 recovery head pending. |
-| C4 | [d1ebe1e6](https://github.com/taikoxyz/taiko-mono/blob/d1ebe1e6e3c68972c0b14cef04db72b0dccee304/packages/protocol/docs/Etna/spec/C4-migration.md) | W16 submitted; A/J review and named integration seams pending. |
-| C5 | [595b5f7b](https://github.com/taikoxyz/taiko-mono/blob/595b5f7b192b95cac349617c9c4599c295744221/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md) | B request-changes, B-C5-01 High: primary frame authorization missing. |
+| C2 | [6e2b7321](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md) | B request-changes: new provisional-conflict output/interface gaps; original D23 binding repaired. |
+| C3 | [4aa0299c](https://github.com/taikoxyz/taiko-mono/blob/4aa0299c00ef25b77fc99ea54499839ddaa503a4/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md) | B request-changes: inherited floor, renewable waivers and multi-cut/recovery/legacy seams; original D18 vectors repaired for new entries. |
+| C4 | [93d9038b](https://github.com/taikoxyz/taiko-mono/blob/93d9038bd05652f95ce73b9270c8db7b2b034b82/packages/protocol/docs/Etna/spec/C4-migration.md) | Second W16 revision submitted: separate settlement flag, explicit restart initialization and D30; A/J re-review and owner seams pending. |
+| C5 | [66e37373](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md) | Merged by A under D31 after B's approval; B-C5-01 closed. Downstream C2/S3 propagation remains separate. |
 | C6A | [22948df9](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md) | B request-changes; B-D21-01 propagation and three Mediums. |
-| C7 | [fa854f35](https://github.com/taikoxyz/taiko-mono/blob/fa854f3524a9dc20181f47fb04b8e4c4ab6afbf3/packages/protocol/docs/Etna/spec/C7-block-validity.md) | B request-changes; D22/W15 recovery head pending. |
+| C7 | [515f3be4](https://github.com/taikoxyz/taiko-mono/blob/515f3be43404dc301d4ce4bd42f8879214ba5a45/packages/protocol/docs/Etna/spec/C7-block-validity.md) | B request-changes: hold re-entry, mode/bootstrap definitions and acknowledged liveness gaps; D22 repairs partially close prior traces. |
 | C8 | [f03f12a7](https://github.com/taikoxyz/taiko-mono/blob/f03f12a77879d625a7a2e8e34c55c516c47c5efd/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md) | B request-changes; encoding/layout/authority synchronization. |
-| S1 | [6751cb3a](https://github.com/taikoxyz/taiko-mono/blob/6751cb3a1a48af53b3bfe066332f5f7b1af397a3/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md) | B request-changes; D19/W15 recovery head pending. |
-| S2 | [0403a540](https://github.com/taikoxyz/taiko-mono/blob/0403a540a2186f404d7e5bff99496d29a7be3789/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md) | B request-changes; D21 and B-D21-01/D29 pending. |
-| S3 | [181acf03](https://github.com/taikoxyz/taiko-mono/blob/181acf03a2e77948aeb730683882b3589bc2adf3/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md) | B request-changes; D20 plus cross-opening evidence/backing work pending. |
+| S1 | [e72e55e8](https://github.com/taikoxyz/taiko-mono/blob/e72e55e825ff53f2f6a9b761f0d004ef2444812b/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md) | B request-changes: D19 original traces repaired; fresh-owner lifecycle, sentinel reference and interval/dating choices remain. |
+| S2 | [ab391fe4](https://github.com/taikoxyz/taiko-mono/blob/ab391fe4710382f089f367b54261c0296e54cc67/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md) | B request-changes: original witness/chronology/suppression repairs pass; D29, S6 witness authentication and reference convergence remain. |
+| S3 | [a0f3232a](https://github.com/taikoxyz/taiko-mono/blob/a0f3232a654580d491aecbd88c8716cd9794ea57/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md) | B request-changes: MISS floor repaired; quorum-inventory versus deterrent, S6 evidence and backing/lifecycle consistency remain. |
 | S4 | [103b7c88](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md) | B request-changes; composed claims and decided projections need repair. |
 
-**[assumed: decision provenance]** [DECISIONS through D28](https://github.com/taikoxyz/taiko-mono/blob/42c76c9bddb24bc8d51a7b4454a0439ab5d8e182/packages/protocol/docs/Etna/DECISIONS.md) governs this snapshot. D27 corrects D24: J is active; the fallback applies only to a head J has not reached within a cycle. D28 accepts C1. D25/D26 govern the migration revision. D29 was announced as pending arbitration of B-D21-01; it is not a decision in this pin.
+**[assumed: decision provenance]** [DECISIONS through D31](https://github.com/taikoxyz/taiko-mono/blob/673a1179d44314552fb5c69aed3d08c8fdd78057/packages/protocol/docs/Etna/DECISIONS.md) governs this snapshot. D27 corrects D24: J is active; the fallback applies only to a head J has not reached within a cycle. D28 accepts C1. D25/D26 govern migration and operational removals; D30 rejects plain-Ether Bridge funding uniformly; D31 merges C5. D29 was announced as pending arbitration of B-D21-01; it is not a decision in this pin.
 
-[W11](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5945030219) attacks D21–D23; [W13](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5945170889) owns the snapshot consistency list. The six W15 replacement heads were not yet cited; unchanged historical approvals or partial J closures do not approve unseen recovery predicates.
+[W11](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5945030219) attacks D21–D23; [W13](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5945170889) owns the snapshot consistency list. All six W15 replacement heads and the C5 repair are pinned above. Recovery reviews close particular prior traces and identify remaining/new defects; no unchanged historical approval or partial J closure approves the revised section as a whole.
 
 ## 2. Assurance claim index
 
@@ -31,16 +31,16 @@
 |---|---|---|
 | Anchor-free execution and current-root guards | C1-R01/R02/R05/R07/R09 | C1 merged; C4 installation, client/guest parity and C8 projection remain distinct obligations. |
 | Checkpoint/header integrity and floor lookup | C1-R06/R08/R10; C2-R13/R15/R19/R21 | C2/C8 must consume C1's merged lookup and installation rule. Floors do not undo custody effects. |
-| Local validity versus landed validity | C7-R01 and predicate; C2-R04/R05 | D22 fixed references, mode table and invalid-object preimage residual need recovery review. |
-| Slashable actionable confirmation | S2-R18; S3-R08/R10; S4-R07 | B-D21-01 remains open; current collectible backing is not nominal seat capital or a continuously funded reserve threshold. |
-| Atomic data/proof landing and races | C2-R01–R05; C5-R12–R15 | B-C5-01 requires complete sender/payment authorization in the primary frame shape. Ordinary land remains a fallback. |
-| Forced inclusion and irreversible settlement | C3-R03–R11; C4-R06 legacy adapter | D18/D22 recovery and the exact legacy resource/outcome profile require owner review. |
+| Local validity versus landed validity | C7-R01 and predicate; C2-R04/R05 | D22 fixed-reference, mode and hold re-entry gaps remain; the S6 witness must be authenticated separately from the logical opening ID. |
+| Slashable actionable confirmation | S2-R18; S3-R08/R10; S4-R07 | B-D21-01 remains open. D20 adopts S3's assumed threshold-based collectible bound; B disputes its continuous funding and the new quorum-sum interpretation. These are open review items pending D29/the D20 amendment, not a replacement bound adopted by this index. |
+| Atomic data/proof landing and races | C2-R01–R05; C5-R12–R15 | B approved C5's complete sender/payment authorization; C2/S3 must consume it. C2's new derived-output conflict handling remains open. Ordinary land remains a fallback. |
+| Forced inclusion and irreversible settlement | C3-R03–R11; C4-R06 legacy adapter | Original D18 new-entry vectors pass; inherited floor, recurring waivers, multi-cut and legacy resource/outcome decisions remain open. |
 | Retained custody and upgrade-only powers | C4-R09–R13; C8-R15/R17 | D26 removals are in C4's W16 submission; C8/S4 projections and manifest audit remain. |
 | Whole-design safety, liveness and role failures | S4-R01–R14 | Follow S4's premises/exceptions and the explicit B verdict; this index supplies no parallel theorem. |
 
 ## 3. Confirmation-level index
 
-**[assumed: reference only]** Use the exact level names and definitions in [S2-R18](https://github.com/taikoxyz/taiko-mono/blob/0403a540a2186f404d7e5bff99496d29a7be3789/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md#L177). The rows below identify their source, not an alternative label system or promise.
+**[assumed: reference only]** Use the exact level names and definitions in [S2-R18](https://github.com/taikoxyz/taiko-mono/blob/ab391fe4710382f089f367b54261c0296e54cc67/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md#L214). The rows below identify their source, not an alternative label system or promise.
 
 | S2 level | Definition and exceptions | Review notice |
 |---|---|---|
@@ -104,9 +104,9 @@
 | [L41](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L225) | C4-R10, S4-R04 | status: as C6-R08 |
 | [L42](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L226) | C4-R10, C4-R11 (storage compatibility), S4-R04 | status: as C6-R08 |
 
-**[assumed: separate implementation classification]** [IG1](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L230) follows C5-R17(d): client/Catalyst integration, not an L1 dependency or an L-id. Its closure and possible reclassification are owned there.
+**[assumed: separate implementation classification]** [IG1](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L234) follows C5-R17(d): client/Catalyst integration, not an L1 dependency or an L-id. Its closure and possible reclassification are owned there.
 
-**[open: migration projection]** C4-R04/R05's forced-intake gap runs from the freeze cutoff through actual ACTIVE. FREEZE plus DRAIN_DEADLINE describes the nominal wait until abandonment is available; authenticated repair, data availability and inclusion may extend it. C4-R06/§6 carries ordinary-tail loss, unrecovered old fees and self-funded replay. These are references to C4, not new limitation IDs or an additional time bound. D26's stuck-asset and fixed-resolver consequences are L41/L42; the three operational powers are removed.
+**[open: migration projection; source: [C4 §10's C6 obligation](https://github.com/taikoxyz/taiko-mono/blob/93d9038bd05652f95ce73b9270c8db7b2b034b82/packages/protocol/docs/Etna/spec/C4-migration.md#L351)]** C4-R04/R05's forced-intake gap runs from the freeze cutoff through actual ACTIVE. FREEZE plus DRAIN_DEADLINE describes the nominal wait until abandonment is available; authenticated repair, data availability and inclusion may extend it. C4-R06/§6 carries ordinary-tail loss, unrecovered old fees and self-funded replay. These are references to C4, not new limitation IDs or an additional time bound. D26's stuck-asset and fixed-resolver consequences are L41/L42; the three operational powers are removed. C4's second revision chooses no initial treasury sweep, so L41's projection must include the accumulated pre-Etna base-fee treasury. D30 removes the receive allowlist through uniform rejection.
 
 ### L-PF restart-cost evidence index
 
@@ -120,17 +120,17 @@
 
 **[assumed: sole verdict owner]** Requirement tags are **as [S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L163)**. B records review state only. An open review can dispute a tag without this page becoming another verdict table.
 
-| Requirement | Tag source | Review state / owning correction |
+| Requirement | Exact tag, as S4-R14 | Review state / owning correction |
 |---|---|---|
-| R1 | as S4-R14 | B requests explicit availability premises for L19/L-PF; D26 removes the three powers, with C4/C8 integration pending. |
-| R2 | as S4-R14 | C1 accepted; C4/C8 manifest, retained surfaces and restart schema in review. |
-| R3 | as S4-R14 | S4's role/offline analysis reviewed with the P6 scope correction requested. |
-| R4 | as S4-R14 | Timing remains an unmeasured owner target under D2; source-level consistency is still required. |
-| R5 | as S4-R14 | User permits seconds and L1 block numbers. D22 locality and C5 dependency projections are in review. |
-| R6 | as S4-R14 | S2/S3 evidence and D19/D20 economic/assignment recovery under review; no independent pass assigned here. |
-| R7 | as S4-R14 | C2/C5/C8 integration pending, including B-C5-01's primary-frame correction. |
-| D1 | as S4-R14 | B-D21-01 remains open. Only the user can approve a requirement relaxation. |
-| D2 | as S4-R14 | Specification-only scope; implementation and measurements are not newly imposed gates. |
+| R1 | **proven conditionally** ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L169)) | B requests explicit availability premises for L19/L-PF; D26 removes the three powers, with C4/C8 integration pending. |
+| R2 | **proven** for addresses and the one unchanged checkpoint call; **open** for the audit ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L170)) | C1 accepted; C4/C8 manifest, retained surfaces and restart schema in review. |
+| R3 | **proven** that every role has a stated entry, exit and gate-free rule; **assumed** for magnitudes ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L171)) | S4's role/offline analysis reviewed with the P6 scope correction requested. |
+| R4 | **assumed** target, **unmeasured** ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L172)) | Timing remains an unmeasured owner target under D2; source-level consistency is still required. |
+| R5 | **proven** for slots and epochs ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L173)) | See S4 §10 item 12 and C6-A §11 item 13 for the owning open question; this index adds no answer. D22 locality integration remains in review. |
+| R6 | **proven** for objectivity; **assumed** for anti-monopoly ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L174)) | S2/S3 evidence and D19/D20 economic/assignment recovery under review; no independent pass assigned here. |
+| R7 | **proven** for one action carrying data and proof; **assumed** for explicit data availability and minute-level landing ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L175)) | C5 frame correction approved by B; C2 conflict/output and C3 recovery findings plus C8 projection remain open. |
+| D1 | **open** ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L176)) | B-D21-01 remains open. Only the user can approve a requirement relaxation. |
+| D2 | **assumed** scope ([as S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L177)) | Specification-only scope; implementation and measurements are not newly imposed gates. |
 | Convergence | README/WORK criterion, owned by A | Merged-spec rounds and J's readiness audit have not been completed at this snapshot. |
 
 ## 6. Learning-site synchronization
@@ -142,7 +142,7 @@
 | Standard operations and roots | Accepted C1 at the merged pin above; C4 installation/migration remains in review. |
 | Seats and local validity | S1/S2/C7 recovery, including fixed references and sentinel modes, before teaching final predicates. |
 | Actionable confirmation | S2/S3's eventual D29 disposition, actual backing and all six exact S2-R18 names; distinguish IG1 from running-client evidence. |
-| Landing and recovery | C2/C3/C5 with the repaired complete frame shape, due clocks, settlements and replay costs. |
+| Landing and recovery | Accepted C5 four-frame shape under D31; C2/C3 must consume it and resolve due clocks, settlement and restart edges before those dependent lessons are taught as settled. |
 | Custody and migration | C4/C8, D26 removals, legacy profile, actual activation/ref floors, no lower-than-published rollback, L41/L42. |
 | Full argument | Reviewed S4 and both C6 halves, each accepted residual and the actual merged-round closure commits. |
 
@@ -151,3 +151,7 @@
 ## 7. Review provenance
 
 **[assumed: record]** This W16 revision applies A's [5944784586](https://github.com/taikoxyz/taiko-mono/pull/22206#issuecomment-5944784586): full owner-only limitation coverage, S2 names, S4 verdict ownership and separate economic closure tests. Earlier J clearances apply to their cited heads, not this revision. W12 request-changes comments remain linked from the umbrella W13 list. Internal support reviews are not J's independent verdict, arbiter decisions, tests or measurements.
+
+**[assumed: second W16 review record]** This revision also applies A's [5945408758](https://github.com/taikoxyz/taiko-mono/pull/22206#issuecomment-5945408758): value-free register identifiers, no index-owned backing decision, exact S4 tag text, corrected IG1/source anchors and refreshed recovery sources. It consumes C4's second W16 revision without approving its remaining owner seams.
+
+**[assumed: immutable-head recovery verdicts]** [C2: request changes](https://github.com/taikoxyz/taiko-mono/pull/22196#issuecomment-5945458948); [S2: request changes](https://github.com/taikoxyz/taiko-mono/pull/22197#issuecomment-5945463611); [C7: request changes](https://github.com/taikoxyz/taiko-mono/pull/22199#issuecomment-5945469204); [C3: request changes](https://github.com/taikoxyz/taiko-mono/pull/22200#issuecomment-5945484944); [S1: request changes](https://github.com/taikoxyz/taiko-mono/pull/22201#issuecomment-5945496141); [S3: request changes](https://github.com/taikoxyz/taiko-mono/pull/22202#issuecomment-5945516240); [C5: approve](https://github.com/taikoxyz/taiko-mono/pull/22209#issuecomment-5945442854). Each review names its full commit and separates repaired traces from remaining/new findings. The C3 review includes the C4 restart-edge clock regression. A merged C5 under D31; none of these B verdicts merges another section or changes a C6-R08 disposition.
