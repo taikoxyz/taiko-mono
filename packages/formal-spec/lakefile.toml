@@ -1,0 +1,18 @@
+name = "formal-spec"
+version = "0.1.0"
+defaultTargets = ["TaikoSpec", "Tests", "vectors", "checkaxioms"]
+
+[[lean_lib]]
+name = "TaikoSpec"
+
+[[lean_lib]]
+name = "Tests"
+
+[[lean_exe]]
+name = "vectors"
+root = "Main.Vectors"
+
+[[lean_exe]]
+name = "checkaxioms"
+root = "Main.CheckAxioms"
+supportInterpreter = true
