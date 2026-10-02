@@ -11,7 +11,7 @@
 3. **[assumed: documentation process]** Cover every numeric row and each owner's open/unmeasured list before declaring the index complete. Corrections to semantics go to the owner; absent measurements remain closure tasks under D2.
 4. **[assumed: experiment boundary]** Any optional experiments run only in the session scratchpad and are deleted afterwards. Documents may preserve inputs, methodology and results; do not commit experimental code.
 
-**[open: snapshot review]** These pins include the six W15 recovery heads, C5's repair and C4's W16 revision. C1 and C5 are merged under D28/D31; the other section reviews and A/J acceptance of this index remain distinct. W11/W12/W13 findings remain linked in the [dashboard](C6-assurance-dashboard.md), including D29's pending accountability disposition, C2's new conflict output, S6's witness binding, current backing and encoding disagreements. No superseded estimate becomes correct by inclusion here.
+**[open: snapshot review]** These pins include the six W15 recovery heads, C5's repair and C4's W16 revision. C1, C5 and C4 are merged under D28/D31/D32; the other section reviews and A/J acceptance of this index remain distinct. W11/W12/W13 findings remain linked in the [dashboard](C6-assurance-dashboard.md), including D29's pending accountability disposition, C2's new conflict output, S6's witness binding, current backing and encoding disagreements. No superseded estimate becomes correct by inclusion here.
 
 ## Immutable register inventory
 
@@ -397,6 +397,6 @@
 
 ## Revision notices
 
-**[assumed: decisions and reviews]** D19–D23 change assignment, backing, opening identities, references and landing bindings; D25/D26 change migration/authority, D27 corrects J's availability, D28 merges C1, D30 selects uniform Bridge receive rejection and D31 merges C5. The [dashboard](C6-assurance-dashboard.md) pins sources/reviews. D29 remains pending at this snapshot. Earlier J clearances do not approve changed heads. All twelve source registers remain inventoried. The six W15 heads and C5 repair replace their prior pins; changed encodings, row labels and line anchors are indexed without treating review approval as arbiter acceptance.
+**[assumed: decisions and reviews]** D19–D23 change assignment, backing, opening identities, references and landing bindings; D25/D26 change migration/authority, D27 corrects J's availability, D28 merges C1, D30 selects uniform Bridge receive rejection, D31 merges C5 and D32 merges C4. D33/D34 are reserved for the waiver ruling and collectible-bound amendment, not adopted rules. The [dashboard](C6-assurance-dashboard.md) pins sources/reviews. D29 remains pending at this snapshot. Earlier J clearances do not approve changed heads. All twelve source registers remain inventoried. The six W15 heads and C5 repair replace their prior pins; changed encodings, row labels and line anchors are indexed without treating review approval as arbiter acceptance.
 
 **[open: acceptance]** A requested two corrections at the preceding W16 head; this revision applies them and awaits A/J re-review. No measurements, production implementation, course publication, residual acceptance or merged-spec convergence are inferred from coverage.
