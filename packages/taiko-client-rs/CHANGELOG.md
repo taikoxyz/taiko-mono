@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.3.0...taiko-alethia-client-rs-v2.3.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **taiko-client-rs:** reject trailing bytes in transaction-list RLP ([#22180](https://github.com/taikoxyz/taiko-mono/issues/22180)) ([961bbd8](https://github.com/taikoxyz/taiko-mono/commit/961bbd8ff55a0f66f44ad04160eb51638d655b66))
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 
