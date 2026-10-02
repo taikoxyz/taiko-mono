@@ -15,7 +15,14 @@ export async function deployTaikoAnchor(
     config: Config,
     result: Result,
 ): Promise<Result> {
-    const { contractOwner, l1ChainId, chainId, seedAccounts } = config;
+    const { contractOwner, l1ChainId, etnaTimestamp, chainId, seedAccounts } =
+        config;
+
+    // An unpatched immutable stays 0 in the genesis bytecode, which would disable anchorV4 from
+    // genesis.
+    if (etnaTimestamp === undefined) {
+        throw new Error("genesis config: etnaTimestamp is not set");
+    }
 
     const alloc: any = {};
 
@@ -42,6 +49,7 @@ export async function deployTaikoAnchor(
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         l1ChainId,
+        etnaTimestamp,
         chainId,
         config.contractAddresses,
         config.param1559,
@@ -117,6 +125,7 @@ export async function deployTaikoAnchor(
 async function generateContractConfigs(
     contractOwner: string,
     l1ChainId: number,
+    etnaTimestamp: string,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
@@ -202,7 +211,11 @@ async function generateContractConfigs(
     );
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
-        getImmutableReference("Anchor", ["checkpointStore", "l1ChainId"]),
+        getImmutableReference("Anchor", [
+            "checkpointStore",
+            "l1ChainId",
+            "etnaTimestamp",
+        ]),
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
@@ -635,6 +648,13 @@ async function generateContractConfigs(
                         id: taikoAnchorReferencesMap.l1ChainId.id,
                         value: ethers.utils.hexZeroPad(
                             ethers.utils.hexlify(l1ChainId),
+                            32,
+                        ),
+                    },
+                    {
+                        id: taikoAnchorReferencesMap.etnaTimestamp.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.BigNumber.from(etnaTimestamp).toHexString(),
                             32,
                         ),
                     },
