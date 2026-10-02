@@ -99,7 +99,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	if d.state, err = state.New(d.ctx, d.rpc); err != nil {
 		return fmt.Errorf("failed to create driver state: %w", err)
 	}
-
 	peers, err := d.rpc.L2.PeerCount(d.ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get L2 peer count: %w", err)
