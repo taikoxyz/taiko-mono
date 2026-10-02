@@ -1,0 +1,406 @@
+# C6 (A's half). Threat model, invariants and the accepted-limitations register
+
+**Owner:** A (this half). **Reviewer:** B. **Independent reviewer:** J (DeepSeek). The other half, the assurance dashboard and the unmeasured-numbers register, is B's and is cited here as **C6-B** (decomposition §1, row C6; work order W6).
+
+**Status [open]:** proposed section, transcribed from candidate A's documents and verified pages at `b311d1d` (`claude/beautiful-maxwell-8pyecj`, 2026-10-01): `01-threat-model.md` (assets, actors, T1 to T13, properties, TH1 to TH25, withholding, out of scope), the index page, the arguments page (I1 to I5), the limitations page (L1 to L22, L-OP, L-PF), `iterations/01-round.md` to `06-round.md`, and the decision log (D1 to D20, DL-1 to DL-4, as of 2026-10-01). The siblings' attack tables, limits and dashboards (C1 as accepted, C2, C3, C5, C7, S1, S2, S3, S4) are answered by rule id. The independent verification's findings V1 to V14 are applied. Awaiting B's verdict and J's review. A specification, nothing machine-checked (L34). Where the sources state a rule two ways or leave a number underived, §11 records it instead of choosing.
+
+## 1. Scope, vocabulary and claim convention
+
+**[assumed: section boundary]** This half of C6 owns C6-R01 to C6-R12: assets, actors, the trust premises (the defining table), the property map, the threat catalogue TH1 to TH25, the withholding checklist, the invariant register I1 to I5, the accepted-limitations register (the artifact the convergence criterion reads; README working agreement 5; J-06; D9), the ledger of Mediums, the whole-design residual statements, out of scope and the register's admission rule. It owns no mechanism: every mechanism is owned by C1, C2, C3, C5, C7, S1, S2, S3 or S4 and cited by id; C4 and C8, not yet drafted, are cited as owners of open rows. C6-B indexes every section's numeric register, its unmeasured numbers and the statuses this half assigns, and defines nothing (D12).
+
+**[assumed: notation]** **assumed** heads a proposed rule or a premise; **proven** means argued on this page or on the cited section's page, never machine-checked; **open** means unresolved, with the closure condition named. `C6-Rnn` has one normative definition. §6 is this half's only numeric register; a number in a register row is quoted from its owner, whose rule id is given, unless §6 derives it. "Round n, id" cites candidate A's red-team rounds; "after the #22188 review" cites A's revision on candidate B's review of PR #22184 (2026-10-01); "J-n of #NNNNN" cites J's review of that pull request.
+
+| Term | Definition [assumed: vocabulary] |
+|---|---|
+| Threat | A way an actor can harm an asset; TH-ids are the threat model's (§5 of `01-threat-model.md`), kept. |
+| Severity | The impact if the threat is realised with no mitigation: Critical (loss of an asset A1 to A3, or a permanent halt), High (prolonged halt, bounded theft, an unpunishable reorg of a confirmation), Medium (degraded service, bounded griefing), Low (cost without a safety or liveness effect) (threat model §5). |
+| Limitation | A residual harm the design does not prevent, with its numbers and the sentence that accepts it. L-ids L1 to L22, L-OP and L-PF are the limitations page's, kept; L23 to L35 are assigned here (C6-R12); L35 is S1's LS1-1. |
+| Disposition | **Mitigated**: a rule removes the harm or bounds it inside a stated premise. **Accepted**: the harm remains and a written sentence accepts it. **Open**: neither yet. |
+| Register status | One test for every row. **Recorded**: ratified in the converged tree, by a decision-log entry or by a ratified converged text (the decomposition, D9, D10). **Proposed**: not yet ratified in the converged tree, whether the acceptance sentence comes from candidate A's pages or from a sibling section; the Source column names where it was accepted. A proposed row becomes recorded by B's verdict and J's review of this section (C6-R12). |
+| TM-P1 to TM-P8 | The security properties of `01-threat-model.md` §4, renamed here because S4 uses P1 to P7 for the arguments page's different list (C6-R04). |
+
+## 2. Assets, actors and premises
+
+### C6-R01. The asset model
+
+**[assumed: proposed rule]** Etna protects ten assets. The custodian column is the Etna state; the threat model gives today's.
+
+| Asset | Where in Etna | What protects it (rule ids) | Loss mode if the protection fails |
+|---|---|---|---|
+| A1 bridged ETH | L1 Bridge escrow and L2 Bridge balance, unchanged addresses | A checkpoint is written only for a proven state root (C2-R15, C2-R04); L2 checkpoints only through an authenticated reveal (C1-R08, C2-R19); no pause or owner power on the custody contracts (C4, L-OP) | A false checkpoint releases everything bridged (TH1, TH17). |
+| A2 bridged tokens | the Vaults on L1, bridged-token mint rights on L2 | As A1; token remapping removed (C4, L-OP) | As A1. |
+| A3 L2 state | every L2 account | ZK finality from two leaves (C2-R03), provisional single-leaf mode (C2-R13) | A false root finalizes theft and corrupts the bridges. |
+| A4 bonds and the ledger | the TAIKO ledger in the Inbox: seat bonds, buffers, reserves (S3-R02, S3-R04) | Objective slashing only (S3-R09, I5); the reserve ring-fenced (S3-R23, I2) | Griefing by false accusation (impossible, I5); a drained reserve (L20). |
+| A5 forced-inclusion fees, bonds and surcharges | ETH held in the Inbox per entry (C3-R03) | Pull-only refunds and fees (C3-R03, C3-R13); a burn only for a stall's first void (C3-R06) | Loss to the requester bounded by its own bond and fee (L23). |
+| A6 L2 fee revenue | the coinbase keeps the whole base fee and tips (S3-R11; 100 % since Proposal0026) | Sortition and the share rule (S1-R12, S1-R19) | Revenue capture by a cartel (L2, L9). |
+| A7 confirmation promises | the levels a node shows (S2-R18) | "Locked" backed by `2Q(m) − m` slashable keys within one redraw count (S2 §7, S3-R10) | Revert of a locked block by the routes I4 lists (L24). |
+| A8 liveness | block production, landing, forced inclusion, bridging | The ladder (S4-R08), the recovery floor (S4-R11), the stall rule (C3-R06) | The DAO-dependent cases (C6-R10 (b)). |
+| A9 the landing opportunity | one L1 transaction per landing, lander-chosen ranges (C2-R01) | No third party can make a winner revert after payment (C2 §13, C3-R09, C5-R16); losing is free under the gate (C5-R12) | A wasted landing costs the loser gas (L27). |
+| A10 governance keys | the DAO controller on L1 and the DelegateController on L2 | Upgrades only (S4-R04); no operational allowlist (README A2) | Capture is out of scope (C6-R11); inaction waits only in the C6-R10 (b) cases. |
+
+**Adversary schedule:** an asset with no named protection, or a protection whose failure mode is unstated; none remains in the table. Source: threat model §1; index page §2 rows R1, R2; after the #22188 review (A6 fee share, A10 powers).
+
+### C6-R02. The actor model
+
+**[assumed: proposed rule]** Every actor of the threat model maps to an Etna role or to an external party. S4-R01 owns the role set and S4-R03 the all-offline and all-malicious profile of each role; this table states only the attacker's capability, so that the threat catalogue can cite it.
+
+| Actor | Etna mapping | Attacker capability considered |
+|---|---|---|
+| L2 user | user | Spam and mempool games; nothing privileged. |
+| Forced-inclusion requester | requester (S4-R01) | Stuffing, unprovable entries, entries timed against a stall (C3-R02, C3-R06). |
+| Sequencer (holder, leader) | owner drawn for a view (S1-R12) | Withhold, equivocate, censor, private MEV, squat a view, self-suspend after a seed (TH3 to TH6, TH9, TH10). |
+| Attester | owner's seat drawn into `committee(t)` (S1-R13) | Abstain, collude to certify private data, sign early timeouts, withhold TERM_END, redraw (TH5, L2 to L5). |
+| Prover and lander | anyone (C2-R01) | Withhold proofs, race, copy proofs (TH2, TH11). |
+| Challenger | anyone (S3-R08) | Submit or withhold evidence; false accusations are impossible (I5). |
+| Node operator, RPC node, archive | passive, no protocol role (S4-R01) | Refuse to serve, divergent fork choice; cannot forge (TH14, TH22, TH23). |
+| L1 builder and proposer | outside the protocol | Order, censor or reorganise L1 within T1; bias two bits of `prevrandao` (A-RANDAO); boycott blobs (L13). |
+| Proof-system authors | supplier of code, upgraded by the DAO | An unsound guest (TH1, L7). |
+| DAO | upgrades only (S4-R04) | Inaction (TH19); capture out of scope (C6-R11). |
+| Admin multisig of today | removed from operation | None after migration (C4; TH19, TH21). |
+
+**Adversary schedule:** an actor holding a capability no row names. Source: threat model §2; roles page via S4-R01.
+
+### C6-R03. The trust premises, stated once
+
+**[assumed: proposed rule; each premise is assumed by definition]** The premises below are the threat model's T1 to T13 in their Etna form, plus the cryptographic and economic premises the sections added. C6-R03 is the defining table of the premise statements (decomposition row C6 gives C6 the threat model; S4 §1 is a consumption map citing this table, S4 §10 item 15); each row names the sibling premises that are the same assumption at a stated strength, and those names resolve to the row here. A number inside a premise is not a C6 number: it is quoted from its owner register and marked so, and C6-B indexes it there. A premise marked **removed** is one Etna replaces by a rule.
+
+| Id | Premise (Etna form) | Sibling names and the strength each consumes | Consumed by (examples) | If violated |
+|---|---|---|---|---|
+| T1 (L1 inclusion and depth) | L1 is live, includes an honest transaction within a bounded delay, and does not reorganise below a stated depth; total censorship is outside the design. | A-INCL (C5, which lists the four strengths); A-T1 of S1 (hours; depth LOOKBACK), of S2 (one or two L1 blocks; depth ANCHOR_MIN_AGE), of S3 and S4; T1 of C2 and C3 (a 1.2 M-gas blob-free request within minutes); A-L1VIEW (C7); A-CANON (C5, canonical once slot N+1 builds on N); A-L1BLOB (S4: a builder includes a blob transaction); A-L1HIST (C2, S4: `blockhash` within 256 blocks and EIP-2935 within 8,191 return canonical hashes) | I1, I4 (L5), the recording duties (S2-R13), landing (C2-R05 L7), the inclusion bound (C3 §11) | A deeper reorg recomputes assignments and makes affected blocks unlandable (L11); total censorship stalls landing and voids nothing (L12, L13). |
+| T2 (blob retention) | Blob data referenced by a landed transaction stays available for the L1 retention window (about 18 days, quoted from C2 §12; threat model T2, `LibBlobs.sol:221-227`); nodes derive within the window; older bytes need a voluntary archive. | T2 of C2; A-RETAIN (C3 at 9 days, C5 unmeasured under shorter slots); A-ARCHIVE (C1, C2); A-BYTES (S4) | Derivation, forced-inclusion expiry (C3-R15), sync after the window | Later sync needs an archive (L30). |
+| T3 (proof soundness) | At least two distinct ZK leaves accepted by the verifier are sound and independent for their image ids; a TEE never counts (README A3); a common-mode guest bug is outside it (L7). | A-T3 (S4); T3 and A3 (C2) | I4 through P1, the provisional rule (C2-R13) | One leaf unsound: safe in normal mode. Both: false finalization. One plus a colluding quorum in single-proof mode: a false provisional landing, final after 24 h unless the other leaf contradicts it (C2-R14, L-PF). |
+| T4 (DAO) | The DAO acts honestly on upgrades and is never needed for liveness of certified operation. | A-GOV (S4); A-UPGRADE (C1) | S4-R04, the image rotation (C2-R03) | Capture: out of scope (C6-R11). Inaction: only the C6-R10 (b) cases wait. |
+| T5, T6, T7 | **Removed.** Whitelisted operators, whitelisted provers and the admin multisig on liveness paths are replaced by bonded seats and rotation (S1), permissionless landing with rewards (C2-R01, C2-R16) and no operational allowlist (S4-R01, S4-R04). | none | | |
+| T8 (agreement on assignment) | **Made objective.** Assignment is a pure function of L1 state at least LOOKBACK old: invariant I1. | A-REGISTRY (C7); A-I1 (S2) | V1, V2 (C7-R05, C7-R06), landing L4 | (I1 is proven, C6-R07.) |
+| T9 (gossip delay) | Gossip reaches honest attesters within a bound far below TIMEOUT minus 1 s; the bounds are S2's A-T9 (quoted from S2 §1: a hop at most 300 ms, `engine_newPayload` at most 200 ms; **unmeasured**, not C6 numbers). | A-T9 (S2, S4) | The level timings (S2-R18), no honest orphaning | Attested blocks of a slow leader are orphaned by honest timeouts; no bond is lost. |
+| T10 (anchor transaction) | **Removed** by the anchor-free blocks (issue #22147; README A9). Its successor is A-EXEC: builder, importer and guest implement the same C1 profile and the same C7 predicate. | A-EXEC (C1, C2, C7) | C1-R02, C7 §8 | Outside A-EXEC: a certified chain is unlandable or a node is stricter than the guest (C7 §8). |
+| T11 (bonded minority) | In one form (round 4, R4-C1): fewer than one third of the domain seats are malicious; for liveness, fewer than `m − Q(m) + 1` abstainers in a committee and in each redraw; for safety, fewer than `Q(m)` colluders in one committee. | A-T11 (S1, S2, S3, S4); T11 of C2 | I3, I4, P2 and P3 (S4-R07, S4-R08), single-proof mode, the cartel table (S3-R28) | C6-R10 (a). |
+| A-HQ (honest quorum) | In every view that must certify, at least `Q(m)` of the `m` non-empty committee seats are honest and online (`Q(32) = 22`, quoted from S2-R02): T11's liveness half stated positively. | A-HQ (S4) | P3 (S4-R08) | No certificate forms: a blank term, then FALLBACK (S2-R14). |
+| T12 (Frame Transactions) | EIP-8141 ships in a form that keeps C5-R13's pins meaningful; needed for zero-cost landing races only. | A-8141-FINAL, A-BUILDER-2 (C5) | C5-R12 to C5-R16 | Losers pay gas and a blob fee (L27, L28); nothing else changes (C5-R18). |
+| T13 (clocks) | Nodes' clocks are loosely synchronized (skew far below one second); no consensus rule reads a wall clock, which only paces local signing. | A-T13 (cited by S4-R03, not defined there); CLOCK_SKEW and STALE_MAX (S2-R04) | The signing policy only (C7 §8) | Skewed nodes sign late or early; validity is unaffected. |
+| A-CRYPTO | keccak256 is collision resistant and uniform for the walks; secp256k1 and BLS12-381 with proof of possession are unforgeable; EIP-2537 gas as of Pectra; EIP-8151 ships, if at all, in its A-tier form. | A-CRYPTO (C1, S4); A-KECCAK (S1); A-BLS (S2, S3); A-8151 (C5); A-HEADER (C5) | I5, every certificate, the reveal (C1-R08) | Evidence and certificates lose their meaning. |
+| A-RANDAO | An L1 proposer controls at most two bits of `prevrandao` per block. **Open** under ePBS builders (C5 §14 item 20). | A-RANDAO (S1) | S1-R11 | Seed bias beyond `4^m` options. |
+| A-ECON | A term's revenue V_term and the TAIKO/ETH rate P are S3's A-REV inputs (quoted from S3 §1: about 0.01 ETH and about 1.5·10⁻⁴ ETH per TAIKO; **unmeasured**, not C6 numbers); TAIKO rewards cover ETH landing cost up to the published break-even fee; an owner's attester income offsets the attester share it pays; TAIKO is liquid and its supply below what filling the seat array costs. **Unmeasured** (L15; C6-B indexes V_term and its fee and MEV inputs, §9). | A-REV (S3, S4); A-RATE, A-ATT, A-LEDGER (S3); A-FEES (C3); A-LIQ, A-SUPPLY, A-GAS (S1) | Every TAIKO amount; I2 (S3-R22) | Amounts move; ratios are the intent (L15). |
+| A-ACTORS | At least one honest bonded owner with a funded reserve (A-OWNER), one honest funded party holding the certified bytes and running two ZK leaves (A-PROVER), and certified bytes held by bitmap attesters for RETAIN_SECONDS (A-BYTES). | A-OWNER, A-PROVER, A-BYTES (S4); A-PROVER (C3) | P3, P4, P5 (S4-R08 to S4-R10) | The ladder's rung fails; S4-R03 gives the result. |
+
+**Adversary schedule:** an argument that consumes a premise no row names, or two sections consuming one premise at different strengths without saying so; T1's four strengths are such a case and are listed, not reconciled (§11 item 4). Source: threat model §3; arguments page §7; the premise tables of C1 §1, C2 §1, C3 §1, C5 §2, C7 §1, S1 §1, S2 §1, S3 §1, S4 §1; README A2, A3, A9.
+
+### C6-R04. Security properties and where each is argued
+
+**[assumed: proposed rule]** The threat model's properties TM-P1 to TM-P8 are the requirements the arguments must carry; the arguments page restated them as P1 to P7, which S4 owns. The map:
+
+| Threat-model property | Carried by | Tag there |
+|---|---|---|
+| TM-P1 state safety | P1, S4-R06 | proven (composition), conditional on T3, A-CRYPTO, A-L1HIST, and T11 in single-proof mode |
+| TM-P2 confirmation safety | P2, S4-R07; I4 | proven within one redraw count; assumed across a redraw and for L5 |
+| TM-P3 liveness | P3 and P4, S4-R08, S4-R09, S4-R11 | assumed |
+| TM-P4 censorship resistance | P5, S4-R10 | proven conditionally for the bound; assumed for the compounded delay |
+| TM-P5 permissionlessness | S4-R01, S4-R04 (R1) | proven by enumeration, conditional on C4 |
+| TM-P6 accountability | P6, S4-R12; I5 | proven |
+| TM-P7 local decidability | P7, S4-R13; C7 §8 | proven, dead mode the stated exception |
+| TM-P8 anti-monopoly | S1-R19, S3-R26 to S3-R28 (R6) | assumed; priced below one third, not defended above (C6-R10 (a)) |
+
+TM-P4 as the threat model words it ("or every sequencer who could have included it is slashed") is amended by I5: no rule infers fault from a missing inclusion; the bound is enforced by the inbox count and the forced path (C3-R09, C3-R11), and a censor's only cost is MISS through an objective timeout (S3-R07). **Adversary schedule:** a property with no carrying argument. Source: threat model §4; arguments page §1; round 1 (F3), round 4 (R4H-5).
+
+## 3. The threat catalogue
+
+### C6-R05. TH1 to TH25, each with the rules that answer it
+
+**[assumed: proposed rule; the rows are a map, the answers are the cited rules']** Each threat keeps the threat model's severity. "Answered by" names the rules that defeat or bound it; "Residual" names the register row that remains. Where the threat model's "Etna must" line was changed by a later decision, the amended reading and its source are given. Status: **closed** (answered within the premises), **bounded** (a residual is registered), **open** (an owner section has not yet answered).
+
+| TH | Threat (sev.) | Answered by | Residual | Status |
+|---|---|---|---|---|
+| TH1 | Forged or unsound proofs finalize a false root (Critical) | C2-R03 (two distinct ZK leaves, TEE never counts), C2-R04, C2-R05 L11, C2-R11 (certificate-free regimes always two leaves), C2-R13 and C2-R14 (one-leaf landings provisional, CONFLICT). The threat model's open "veto window for a second proof system" is answered by the provisional rule (after the #22188 review, CR5). | L7, L-PF | bounded |
+| TH2 | Prover withholding or cartel halts finalization (High) | C2-R01, C2-R02 (fungible blobs), C2-R07, C2-R16, C2-R17, C2-R18, S3-R12, I2. Amended: the threat model's "the sequencer is slashed after a landing deadline" was removed in round 4 (R4H-5); no rule infers fault from a missing landing (I5); a window nobody lands is replaced (C2-R08, C2-R09). | L14, L25 | bounded |
+| TH3 | Sequencer offline halts production (High) | S2-R07, S2-R10, S2-R11 (timeout and takeover), S3-R07 (MISS), S1-R12 (void views), S1-R15, S1-R17 | none beyond S4-R08's timings | closed under A-HQ |
+| TH4 | Confirmation equivocation; gossiped block differs from landed (High) | S2-R03, S2-R21 rows S1 and S3a, S3-R08; C2-R05 L5 and C7-R10 (V6): landed equals certified | L4, L24 | bounded |
+| TH5 | Withholding (High) | C6-R06; S2-R19 (W1 to W5); C2-R02, C2-R18 (W6, W7) | L3, L5 | bounded |
+| TH6 | Private-state MEV (Medium) | S2-R19 W2, S2-R04 (STALE_MAX at receipt) | L1, L18 | bounded |
+| TH7 | Forced-inclusion starvation (High) | C3-R04 to C3-R11, C7-R11 (V8 at step 12), C3 §11's bound | L8, L12, L23 | bounded |
+| TH8 | Bond griefing (High) | S3-R09 (I5), S3-R08, S2-R21; no challenger bond or accusation object | L10 | closed |
+| TH9 | Monopolization and Sybil (High) | S1-R03 (CAP), S1-R11 (seed), S1-R19, S3-R26, S3-R27, S3-R28. Amended: the threat model's "rotation with cooldown" is rejected (S3-R27, by indistinguishability). | L2, L9 | bounded |
+| TH10 | Role squatting (Medium) | S3-R07 (MISS bleed to the hard floor), S1-R09, S1-R08 (`exitStale`), S2-R07 (c), S1-R04 (entry capital). Amended: "missed-duty slashing" is the MISS bleed, which never touches eligibility (round 1, F3). | none | closed |
+| TH11 | Landing-race waste (Medium) | C5-R12 to C5-R16, C2-R20, C3-R09 (no third-party revert), C3-R13 (pull fees) | L27, L28 | bounded |
+| TH12 | L1 reorg (Medium) | S1-R02 (LOOKBACK), C7-R09 (ANCHOR_MIN_AGE), C2-R19, C2-R20, C5-R05 | L11 | bounded |
+| TH13 | L1 congestion and gas (Medium) | C2-R07 (deadlines economic), C2-R16 (break-even fee), C5-R04, C5-R06, C5-R09 | L13, L29 | bounded |
+| TH14 | P2P DoS and eclipse (Medium) | S2-R22 (registered keys before decompression, identity-rated requests, unsigned requests at a quarter rate); the L1 landing path as the source of truth (C2-R20). Amended: "signed messages only from bonded keys" holds for gossip; requests may be unsigned at a reduced rate. **Open:** peer scoring is not specified (C8). | none registered | open (C8) |
+| TH15 | Slot-time change (High for R5) | C5-R02 to C5-R04, C5-R18; every register in seconds (S4-R14 R5 row) | §11 item 13 (L1-block counts) | bounded |
+| TH16 | Frame-transaction spec drift (Medium) | C5-R13, C5-R14 (fail closed, versioned gate, direct land always on), C5-R17, C5-R18 | L28 | closed |
+| TH17 | False or stale L1 checkpoint on L2 (Critical) | C1-R01, C1-R04, C1-R05, C1-R08; C7-R03 (H2), C7-R09 (V5); C2-R04 and C2-R19 (every anchored header chains to a tip checked on L1) | L22 | closed |
+| TH18 | EIP-8151 signature hazard (Low) | C5-R08, S1-R05 (code-less key), S3-R08 row S8 | none | closed |
+| TH19 | DAO or admin capture or inaction (High for inaction) | S4-R04 (closed list of levers), S4-R01; inaction answered by every rung of S4-R08 | C6-R10 (b); capture C6-R11 | bounded |
+| TH20 | Proof-system rotation kills in-flight proofs (Medium) | C2-R03 (ROTATION_OVERLAP in seconds) | none | closed |
+| TH21 | Bridge quota or pause as a lever (Low) | Amended by README A10 (after the #22188 review, CR1): the pause and owner-only operational powers are removed by compatible in-place upgrades (C4's table, not yet drafted; S4-R04) | L-OP | open (C4) |
+| TH22 | Availability of the confirmation chain before landing (Medium) | S2-R22 (range sync), S2-R19 W3 and W4, C2-R18 | L3, L25 | bounded |
+| TH23 | P2P request amplification (Medium) | S2-R22 (signed requests at RANGE_RATE, one in flight per peer, bounded ranges) | none | closed |
+| TH24 | Clock skew changes who may build (Medium) | C7 §8 (no clock in validity), S2-R07 and S2-R10 (a clock gates signing only), S1-R01, S1-R02, S4-R13. D14 decides the hold expiry as a drop without verdict (J-2 of #22199). | none | open until S2 §5 and C7-R01 carry D14 (W10) |
+| TH25 | Guest, contract and client constant drift (High) | C2-R03 (image sets in seconds), C1-R09 (activation), and C2-R04: `protocolParamsHash = keccak256(abi.encode(params))` is a journal field over every guest-visible constant published by `protocolParams()` on the inbox, the one source guest, clients and contracts read (Anchor page §8, which lists the constants; a mismatch is a liveness failure, never a soundness one). Both asks of the threat model (one source; the public input commits to it) are answered. | none registered; whether the list is complete is a C8 check | closed (completeness check on C8) |
+
+**Adversary schedule:** a TH with no answering rule, or an answer that rests on a superseded "Etna must" line; the amended lines are named in the row. Source: threat model §5 and §7; index page §2; the attack tables of C1 §7, C2 §13, C3 §11, C5 §10, C7 §8, S1 §13, S2 §7, S3 §12; rounds 1 (F3), 4 (R4H-5), 6 (CR1, CR5); D14.
+
+**[proven: severity census, by counting the threat model's §5 column]** 2 Critical (TH1, TH17), 10 High (TH2, TH3, TH4, TH5, TH7, TH8, TH9, TH15, TH19, TH25), 11 Medium, 2 Low; 25 in all (§6). Neither Critical threat is open; no High one is open, and TH19 is bounded by the DAO-dependent cases.
+
+### C6-R06. The withholding attack and its checklist
+
+**[assumed: proposed rule]** Non-receipt is not provable on L1 (threat model §6.3); the design's defence is the fourth of the threat model's four routes, making withheld data worthless, backed by bonded attestation (the second route) and economic timeouts on L1 facts (the first). The third route, bonded availability claims, was built in round 1 and removed in round 2 (S4, F2, H2): no L1 rule can tell unavailable data from available but unprovable data (L3).
+
+| Variant | Answered by | Residual |
+|---|---|---|
+| W1 handoff ambush | S2-R19 W1; the second-view-change argument of S2 §7 (proven under T1 and A-V7) | L5 |
+| W2 private MEV | S2-R19 W2 | L18 |
+| W3 prover grief | S2-R19 W3, C2-R18 | L3, L25 |
+| W4 selective withholding | S2-R19 W4, S2-R22 | none |
+| W5 seal or attestation withholding | S2-R19 W5 (no seal; certificates assembled by anyone) | L2 (a minority can withhold certification) |
+| W6 proof withholding | C2-R01, C2-R16 | L14 |
+| W7 blob withholding | impossible after landing: blob hashes from `blobhash` in the same transaction (C2-R05 L6) | none |
+
+The threat model's §6.4 checklist, answered by id: the takeover predicate (S2-R07, S2-R10); the certificate format and its cost (S2-R05; cost unmeasured, C6-B); the quorum, committee rule and collusion table (S2-R02, S1-R13, S2 §6); the latency bound for an honest quorum and what follows without it (S2-R18, T9; a blank term, L2); what a user is told at each level (S2-R18); W1 impossible without slashing (S2 §7); prover behaviour and pay after abandonment (C2-R16; no abandonment exists, C2-R07); a withheld seal cannot postpone a due forced inclusion (no seal; C3 §11's bound reads no certification timing). **Adversary schedule:** each variant W1 to W7. Source: threat model §6; certificate page §7 via S2-R19; rounds 1 and 2.
+
+## 4. Invariants
+
+### C6-R07. The invariant register
+
+**[assumed: proposed rule; this table holds the invariants by reference, their statements are the owners']** Round 4 restated the design property-first from five invariants (arguments page §1). Each is stated once by its owner; C6 records the argument's tag, its premises, its stated exceptions and the round that shaped it.
+
+| Inv. | Short form | Owner, statement | Argued by, tag | Premises | Stated exceptions | Rounds |
+|---|---|---|---|---|---|---|
+| I1 | Sortition is a pure function of state at `S(t)` | S1-R02 | S1 §13 first proven paragraph; **proven** | T1 (depth LOOKBACK), A-CRYPTO (A-KECCAK) | none; dead mode only adds rights (S1-R17) | R4H-1, R4-C2, R5S-2, R6S-4 |
+| I2 | A drawn term's lander reward exists at landing time | S3-R23 | S3-R22, S3-R23, S3-R12; **assumed** (the attester part rests on A-ATT); certificate-side precondition S2 §7 via S2-R19 W3 and C2-R18; argued by S4-R09 | A-ECON, T1, A-BYTES | a class-A slash of itself; the self-directed drain; the residual window (L20) | R4H-3, R4-C4, R5S-4, R6S-2, R6H-2, R6H-3 |
+| I3 | No minority takes a view from a producing leader | S2 §7 | S2-R07 (a) to (d), S2-R14; **assumed** as S2 tags it | T11, A-C7 (C7's predicate gates attestation), T9 for timing | a minority of at least `m − Q(m) + 1` blanks the term and delays the handoff 12 to 22 s (L2) | R4H-4, R5H-1, R6H-4, R6-C2 |
+| I4 | Nothing voids a locked block but the listed routes | S2 §7, jointly with C2 (C2-R07, C2-R09, C2-R10, C2-R14) | S2 §7 locked-bound paragraph; **proven** within one redraw count, **assumed** across a redraw and for L5 | T11, T1, A-CRYPTO, A-V7 | the redraw route (L16), the FALLBACK race (L5), the horizon (L14), a landed replacement or forced batch (L6), the DAO resolution of a CONFLICT (L-PF) | R4H-5, R4-C3, R5S-1, R5S-5, R6S-3, CR5 |
+| I5 | No accusation object; no fault inferred from a missing landing | S3-R09 | S3-R09, S2 §7 last proven paragraph, S4-R12; **proven** | A-CRYPTO | an honest operator's own conflicting signatures are not covered (S4-R03) | F3 (round 1), R4H-5, R5S-6 |
+
+**[assumed: a record of round verdicts]** Round 6's judge found none of I1 to I5 false as a statement, while three published claims built on them were false as written and were revised (I2's sizing, the forced-inclusion page's "DAO never needed", limitation L5) (`iterations/06-round.md`, verdict). No later review has falsified one. This is a record of the rounds, not a proof; the proofs are the owners'. **Adversary schedule:** a protection stated over the case it was written for rather than over the adversary's schedule (the round-6 judge's diagnosis); each owner's rule names its schedule. Source: arguments page §1; `iterations/04-round.md` to `06-round.md`.
+
+## 5. The accepted-limitations register
+
+### C6-R08. The register
+
+**[assumed: proposed rule]** Every residual the design does not prevent is one row: its id, its source (page, round), its numbers (quoted from the owner rule unless §6 derives them), its disposition and the sentence that accepts it, quoted or closely transcribed from the source. The convergence criterion reads this table: every Medium is mitigated or accepted in writing (README working agreement 5). A row's numbers are the owner's; a change there changes the row.
+
+| Id | Limitation, with its numbers | Source | Disposition; register status | Acceptance sentence | Owner rules |
+|---|---|---|---|---|---|
+| L1 | The assignment is public 20 to 80 minutes ahead: a targeted DoS or front-running preparation window against a known holder. | sequencing page; TH6 | accepted (A's pages); proposed | "Mitigation is replacement within 5 s, not secrecy; secret leader election costs about 100k gas per landing" and is not built. | S1-R11, S2-R07 |
+| L2 | An abstaining minority of `m − Q(m) + 1` (11 of 32) in the first draw and a blocking minority in each of up to two redraws (a redraw needs `⌊m/2⌋ + 1` = 17) blanks a term, unprovably; it cannot time out, bleed or take a producing leader's view. A flood at a public term start costs its target one view and 50 TAIKO. A cartel of 17 of 32 can redraw a committee that already certified (re-roll toward Q, L16). By withholding TERM_END it delays every handoff out of a committee it blocks by 12 to 22 s and imposes on honest members about 165k gas per certificate record for a pinned term, plus the walk (about 1 M gas at 128 seats, 5.4 M at 4,096) when unpinned, normally one or two records. Revenue (simulated, S3-R28): nothing below about 25 % of seats; at one third about +5 points against a dispersed honest set (38 %) and +11 against eight 8-seat owners (44 %), 50.8 % by seconds (56.9 % against six owners); a single-seat entrant has about 16 % of its primary terms blanked and earns about 84 %; above one third superlinear (40 % of seats: 70 to 74 %; 50 %: 97 %), not defended. Launch case (J-3 of #22201): a launch that fails the launch condition may begin in no-committee mode (S1-R13), each term with `m < K_MIN_CERT` in that mode (S1-R18), sequenced level only (L16). Reading: the limitations page's per-draw condition, since the register transcribes that page; other pages say 16 of 32 (§11 item 8, not chosen here). | limitations page; R4H-4, R4-C1, R5-C2, R6-C2, R6S-3 | accepted; proposed (S3-R28, S1-R19) | "T11 bounds malicious seats below one third; the launch condition (8 owners, 72 seats) is a heuristic that keeps blanking rare for small cartels at launch ... and nothing enforces it; inside T11 the loss is the term's revenue, never eligibility, the term or the leader's stake." | S2-R07, S2-R13, S2-R14, S2-R16, S3-R28 |
+| L3 | `Q + 1` silent colluders certify data only they hold: an unslashable stall until the replacement window opens, after which the holder reopens from `lastLanded`; the private blocks land only if published first. The exception is shown beside "locked". | certificate page §6; rounds 1 (F5), 2 (S4, F2, H2); after the #22188 review | accepted; proposed (S2-R20: "not yet accepted") | "Outside the stated collusion bound T11. Rounds 1 and 2 showed no L1 rule can distinguish unavailable from available-but-unprovable data without slashing honest committees ...; the cost is a bounded stall, not a safety loss." | S2-R20, C2-R08 |
+| L4 | A premature view change by Q colluders orphans at most two sequenced blocks at zero provable cost. | certificate page | accepted (A's pages); proposed | "Time is local and unprovable; harm is one view; rotation bounds repetition (a timeout never strikes)." | S2-R07, S2-R10 |
+| L5 | Fallback race: (a) a colluding committee(t) that abstains and records its own view change just before the fallback can invalidate about a minute of the honest fallback chain; (b) a Q cartel of a later committee whose FALLBACK is consumed by a landing in the same L1 block as, or before, the honest certificate record orphans the FALLBACK lock's descendants until that landing (minutes), with no slashable key. Probability of `≥ Q` colluders in one committee about 4·10⁻⁵ per term at one third of the seats (the page's figure; 3.8·10⁻⁵ at p = 0.33, 4.5·10⁻⁵ at exactly one third, §11 item 11), 6·10⁻³ at 45 %. | certificate page §14; R5S-5, R6S-3 | accepted (A's pages); proposed | "Both need ≥ Q colluders in one committee, outside T11 ...; first-recorded-wins and the certificate record keep the outcome deterministic, and a landing that consumes a FALLBACK is itself a landing, so the harm is the FALLBACK lock's descendants until that landing and never a proof-free void." | S2-R13, S2-R14 |
+| L6 | Once the replaceable window opens and proving returns, the holder may fork and race the backlog and any bonded party may land a forced batch; if either lands first the outage's certified blocks are void. One reorg of the backlog per stall, bounded by the grace period; one bonded deferral per range (two had put the forced-inclusion bound ten minutes above 112, R5-C3). | landing page §6; round 2 (S3), R4H-5, R4-C3, R5-C3 | accepted (A's pages); proposed | "Nobody pays anything ... Residual: one reorg of the backlog per stall, bounded by the grace period, unprofitable to the forcer beyond its own transaction's ordering, with no penalty to anyone." | C2-R08, C2-R09, C3-R11 |
+| L7 | A common-mode bug in the shared guest code defeats the two-system rule. | landing page | accepted (A's pages); proposed | "Only diverse guest implementations resolve it; a third ZK system is the stated target." | C2-R03 |
+| L8 | Forced-inclusion stuffing with a quadratic fee buys a bounded delay; an attacker buying most of L1's calldata can keep two of every three L2 blocks FI blocks "for a few ETH per hour" (underived, §11 item 9); FI blocks are exempt from V10, so 40 FI blocks per term still drain; four hours of saturation is a stall (L23). | forced-inclusion page; R4H-6 | accepted (A's pages); proposed | "Ordinary users keep one block in three; the drain rate is a tunable constant." | C3-R02, C3-R08, C7-R13 |
+| L9 | An entity's seat share is only priced, never bounded; the revenue consequence is L2. | slashing page; R4-C1 | accepted; proposed (S1-R19 statement, S3-R28 revenue half) | "Proven impossibility; ... the collusion bound is T11 in its single form ..., an assumption, not a rule." | S1-R19, S3-R27, S3-R28 |
+| L10 | Key theft: the thief can destroy the victim's bond (equivocate and self-report), netting at most CHALLENGER_CAP = 2,000 TAIKO. | slashing page | accepted (A's pages); proposed | "The capped challenger share bounds the thief's gain; custody is the operator's problem." | S3-R03 |
+| L11 | An L1 reorg deeper than ANCHOR_MIN_AGE (48 s) makes an honest holder's certified range unlandable; it is replaced after the deadline machinery and the holder loses its revenue, with no penalty. | Anchor page; TH12 | accepted (A's pages); proposed | "Needs a > 20 %-stake payload reorg; the loss is one range's revenue and nothing from the bond." (The stake figure is EIP-7732's for a payload reorg and is open for four slots, §11 item 10.) | C7-R09, C2-R20, C5-R05 |
+| L12 | L1-level censorship of a registration or of a blob-carrying request is outside the design; FOCIL protects only calldata legs after Hegotá. | slashing and forced-inclusion pages | accepted (A's pages); proposed | "An L1 property; the calldata request shape exists for exactly this case." | C3-R16, C5-R10, S1-R04 |
+| L13 | Landing needs an L1 builder to include a blob transaction; a total builder boycott stalls landing but voids nothing. | landing page | accepted (A's pages); proposed | "T1; the public-mempool gate removes the builder dependency once EIP-8141 is Final." | C2-R20, C5-R17, C5-R18 |
+| L14 | The landing horizon is the one time-based void: a range whose first term is older than ROLE_HORIZON (34.1 h) and never pinned, or whose anchor tip has left the EIP-2935 window (27.3 h at 12-s slots, 4.55 h at 2-s slots), is no longer landable and its certified and locked blocks are lost without a slash. Nodes label "replaceable" from `replaceableFrom` and "outage" after DEGRADE_AFTER, and publish beside "locked" that its 39-ETH credit bound holds only while landing keeps up and at a full committee. | landing and Anchor pages; round 1 (F7), round 2 (S3) | accepted (A's pages); proposed | "Round 1 (F7) found the original 'nothing voids by clock' claim overstated. Unbounded role history would cost state on every term, and the EIP-2935 window is an L1 fact; the horizon is stated everywhere the claim was made." Reading of its two thresholds (answers S2 §10 item 11): the "locked" exception text, the 39-ETH credit bound, is read against landing keeping up within LAND_WINDOW, the operative point being `replaceableFrom` (after it L6's replacement can void locked blocks with nothing slashable); the "no void" promise is read against the horizon. §11 item 5 records the derivation. | C2-R10, S2-R18, C2-R08 |
+| L15 | Every TAIKO amount is a formula on assumed inputs (term revenue, exchange rate). | parameters page | accepted (A's pages); proposed | "Measurement is a listed prerequisite; ratios, not amounts, are the design intent." | S3 §11 (A-ECON) |
+| L16 | Small registries certify with small committees: `2Q(m) − m` slashable double-signers behind "locked" is 12 at 32 seats, 4 at 8, none below 8 (no-committee mode). Suspended seats are empty slots, so the 12 and the 13 × B (39 ETH) bound hold at a full committee; with at most a third suspended, `m < 8` has probability about 3·10⁻⁷ and the mean is about 8.4 double-signers (not reproduced, S2 §10 item 7); `exitStale` exits seats parked longer than STALE_EXIT (7 days). Across a redraw a locked block can be reverted with only keys in both committees slashable: about 6·10⁻⁷ per view at one third, 2·10⁻³ at 45 %. No-committee operation gives the sequenced level only. (The page appends the stall text here; it is L23.) | certificate page §4, §14; round 4 fix, R5S-1, R5S-2, R6-C1 | accepted (A's pages); proposed | "Silence is deliberately unslashable because a colluding committee could manufacture it." | S2-R02, S2-R16, S2-R18, S1-R08, S1-R13, S1-R18 |
+| L17 | The migration pauses L2 block production about an hour, at most a day if the outgoing whitelisted provers stall; L2's EIP-4788 contract may be deployed only after the taiko-geth sealer fix (taiko-geth#601) runs on every geth node (else a liveness split, never a safety one); abandoning the unproven Shasta tail loses its ordinary content and, under the requeue, leaks the fees Shasta proposers were paid: at most 10 entries per proposal, about 3 ETH over a one-hour tail of 300 proposals at the base fee. | Anchor page M2, M4; after the #22188 review (CR2); issue #22147 | accepted on A's pages; **open** in the converged text: DL-3 (requeue versus proof-backed drain) is decided in C4 | "The fee leak is accepted over a proof-backed drain, which would let a whitelisted prover hold the migration (R1); no forced request accepted by Shasta is discarded by the migration except by the stall rule." | C4 (not drafted), C3-R05 |
+| L18 | Ordinary MEV of a single sequencer within its public, attested stream, including sandwiching an FI block whose payload is public FI_DELAY = 300 s ahead. | threat model §8 | accepted (A's pages); proposed | "Out of scope ...; Etna removes only the private-state amplification." | C6-R11, C3 §11 |
+| L19 | Certificate-free landings (dead mode, no-committee, open-empty, forced batches) always need two ZK systems; one back-end outage in such a regime stalls it until the DAO rotates images or adds a leaf. | landing and roles pages; R3H-4 | accepted (A's pages); proposed | "Deliberate: without an attester-executed state root, one proof system would carry P1 alone. R1's 'DAO never needed for liveness' therefore holds for certified operation and fails in the compound case." | C2-R11, S4-R04 |
+| L20 | No L1 rule guarantees funds for a term drawn before the debits that emptied its holder's reserve. LAND_RESERVE 14,400 TAIKO per seat against a 7,161 per-term exposure; lapse below `seats × 7,161`, 22 minutes later, for at least 36 h; the owner can free at most 7,239 TAIKO per seat by landing its own ramped terms with a seatless `rewardTo`; after an outage a first landing reaches at most four of an owner's terms, so owners with three seats or fewer can still lapse (`j > 1.01 s`). The residual window is the terms drawn inside DELAY_S after a crossing plus those unlanded at it. | landing page §5; R4H-3, R4-C4, R5S-4, R6S-2, R6H-2, R6H-3 | accepted; proposed (S3-R23) | "Such a term is landed by its holder at gas cost or replaced under A1 with no penalty; a drain below one term per seat costs the owner its draws for at least SUSPEND(3) (36 h), and the exposure is realised only at the maximum ramp, which runs from landability." | S3-R21 to S3-R25, C2-R17 |
+| L21 | Anchor-free blocks: the permanent map of past L2 block hashes shrinks to EIP-2935's window of 8,191 L2 blocks (about 2.3 h at 1-s blocks); `getBlockState().anchorBlockNumber` and the `Anchored` event disappear. **Open** whether any L2 application relies on the permanent lookup. | Anchor page; issue #22147 | accepted (A's pages); proposed, pending C1's text | "Keeping them would need a Taiko-specific write in every block, which is exactly the per-block cost the change removes; recent L2 hashes stay readable through EIP-2935." | C1-R10 |
+| L22 | L2 receives L1 checkpoints only through reveals (about 100k gas, unmeasured); the EIP-4788 record is guaranteed for 8,191 s only; a pinned origin stays revealable with no deadline; the L2 contract returns L1 execution hashes, not beacon roots. | Anchor page; issue #22147; AD2 (pins from PR #22188) | accepted (A's pages); proposed, pending C1's text | "A missed or expired reveal is harmless: a newer L1 state root proves every signal an older one did ...; a censoring sequencer can delay a durable checkpoint by the forced-inclusion bound but never prevent one." | C1-R05, C1-R08, C3 §13 |
+| L-OP | No emergency brake: with pause and owner powers removed from the shared contracts, a live exploit of a custody contract stops only at a DAO upgrade; the quota, frozen, bounds the loss rate meanwhile. Residual DAO-only entry points that are not upgrades: `DefaultResolver.registerAddress` and the owner branch of BridgedERC20 mint and burn, each as slow as an upgrade. | index decision 26; README A10; after the #22188 review (CR1, verifier X4) | accepted (A's pages, README A10); proposed; a human decision the user may reverse | "R1 as written forbids an emergency brake faster than the DAO, and a brake as slow as a DAO upgrade adds nothing over the upgrade; the cost is an audit of the custody contracts and the brake itself." | C4 (not drafted), S4-R04 |
+| L-PF | Provisional finality: a one-leaf landing gets its L1 checkpoint only after a second-leaf proof of the same journal or DEGRADED_FINALITY = 24 h with no conflict, so withdrawals wait up to 24 h in degraded mode; a conflict halts every landing path until a DAO upgrade names the sound leaf; the rollback restores the oldest unfinalized record's start (at most one DEGRADED_FINALITY of landings), the entries those landings consumed are due again on the stall clock from the restart, and it does not claw back fees, rewards or term records (a bounded leak). | landing page §7; after the #22188 review (CR5) and its fix pass | accepted (A's pages); proposed | "A conflict between two valid proofs is the one event no rule can resolve objectively, so it is the one state that waits for the DAO, beside L19." Elapsed time is not evidence of soundness. | C2-R12 to C2-R15, C2-R21 |
+| L23 | The four-hour stall (the residual of the stall rule; assigned here from the text appended inside L16, C3 §13 item 3): an entry no guest can prove stalls every landing path, ordinary, replacement, forced and dead mode, for FI_SKIP = 14,400 s of anchored time; then every entry due at the cut is voided, 64 per landing; honest entries due at the cut are voided, refunded and must re-post; the first void loses bond and fee; each stall voids the certified blocks above `lastLanded` once. Within a week the k-th stall costs at least `0.05 + 0.001 × 4^(k−1)` ETH (six back to back about 1.7 ETH; twelve about 5,600 ETH); spaced a week apart each returns to about 0.051 ETH, so over T days a budget buys about `T / 7 + 1 + log4(budget / 0.001 ETH)` stalls; every requester fronts about `0.001 × 4^level` ETH while the level is above zero (about 4 ETH after six stalls). | forced-inclusion page §2 to §5; R6H-1 (round 1 F4, round 3 H1 before it); D12 | accepted Medium; recorded (D12) | D12: "The residual of the stall rule is an accepted Medium ... and its disposition depends on the journal fields `fiStallMask`, `fiStallClock` and `fiNotDueAt` being implemented exactly as written." | C3-R02, C3-R03, C3-R06, C3-R09, C3-R10 |
+| L24 | D1 scope: the slashable confirmation is discharged for the equivocation route only, where `2Q(m) − m` keys are provably slashable (12 at `m = 32`; 13 × B ≈ 39 ETH with the leader), as a deterrent, not compensation; the protocol routes revert a locked block with nothing slashable. Its timing (1.7 to 2.0 s) is unmeasured (C6-B). | J-1 of #22197; S2-R18; S3 §15 D1 record | accepted in S2-R18's draft text; proposed: no decision-log entry records the arbiter's acceptance of J-1 of #22197 (D15 to D20 decide other questions); **open** for the user's sign-off, since D1 is the user's requirement (§11 item 14) | S2-R18: "D1 is discharged for the equivocation route only; the protocol routes, a landed replacement or forced batch after C2's deadline machinery and an L1 reorg, revert a locked block with nothing slashable." | S2-R18, S3-R10 |
+| L25 | The retention gap: the serving duty lapses at RETAIN_SECONDS = 7,200 s while a range stays landable up to the horizon, so after a longer outage landing depends on a voluntary holder of the bytes (gaps of 2.55 h at 2-s slots and 25.3 h at 12-s slots); a failure to serve is unprovable on L1. | C2-R18; J-2 of #22196; decomposition §4 (bonded fragment publication dropped) | accepted; recorded (decomposition §4, D9, D10) | Decomposition §4: the merged design "keeps availability through the committee's execution requirement and the retention duty, and records the residual (a failure to serve is unprovable on L1) as a limitation"; after the #22188 review (CR6): an L1 publication duty "costs what the bonded-fragment path of #22188 costs". | C2-R18, S2-R22 |
+| L26 | Unbounded distinct-origin growth on L2 is unpriced: every pin and reveal, pinned or direct, is an ordinary L2 transaction whose base fee the coinbase keeps; the count stays within C1's bound of `3M` values (96M raw bytes) for `M` distinct origins. | C1 §7; S3 §15 | accepted; proposed (S3) | S3: "no tariff or pruning is proposed, since either changes C1's interface." Closure: B accepts it for C1 or a decision-log entry names the deciding owner. | C1-R05, C1-R08, S3-R11 |
+| L27 | Shape 1 burns the shared nonce on any frame-3 revert; a stale copy pays about 0.31 M gas at a typical landing. | C5 §13 proposal; after the #22188 review (CR3) | accepted; proposed (C5) | "Accepted because the lever is priced and shape 2 and the direct land do not share the nonce." | C5-R12, C5-R15 |
+| L28 | No builder is known to accept shape 2 privately. | C5 §13 proposal | accepted; proposed (C5) | "Accepted because the fallbacks exist and fail no property." | C5-R12, C5-R18 |
+| L29 | FOCIL never protects a landing (blob transactions are not candidates); beside L13. | C5 §13 proposal | accepted; proposed (C5) | As L13: an L1 property under T1. | C5-R10 |
+| L30 | Blob retention under shorter slots is unmeasured (EIP-8198 rescales, EIP-7782 is silent); C3 assumes 9 days, C2 18. | C5 §13 proposal | open (a measurement, C6-B) | none yet; closes when measured. | C5-R18 |
+| L31 | The predicate cannot express provability: a block no guest can prove is valid at nodes and unlandable. | C7 §8, §9 | accepted; proposed (C7) | "No node can decide provability; C2 and C3 handle the unprovable block by replacement and the stall rule." | C7-R01, C2-R07, C3-R06 |
+| L32 | A challenger outage longer than an evidence window loses that offence: 604,800 s for the pair rules, 122,880 s (COMMITTEE_RING) for the certificate form, S3d and S6. | S4 §10 item 7, derived from S3-R08 | open; proposed | The pages say "delayed, not lost"; S3 must state the derived reading or refute it (§11 item 15). | S3-R08 |
+| L33 | Withholding TERM_END imposes the certificate record's gas on honest members at no cost to the cartel. | R6S-3 fix pass | accepted (R6S-3 fix pass); proposed, within L2 (no separate harm) | As L2. | S2-R13 |
+| L34 | No machine-checked model of the view-change and landing state machines and no implementation exist; every "proven" is argued on a page. | arguments page §8, last item; limitations page §2 | accepted (A's pages); proposed | "Out of scope for a design document; the arguments page gives the proof sketches the model would formalize" (D2: spec-level readiness). | S4-R05, S4 §8 |
+| L35 | LS1-1 of S1: the freshness of a cycle's seed (S1-R11 RND3) depends on a mix after `freshFrom(c)`, and none of its sources (a landing, a registry write, `poke()`) is paid to mix; an unfresh seed needs 2,460 s with none of them, which fits inside LAND_WINDOW_MAX on a slow but live chain. Bound: S1-R11's fallback clause (the last mixer chooses among its own paid writes, per cycle, and cannot delay or prevent the fixing). `poke()` gas unmeasured. | S1 §13; J-1 of #22201 under the arbiter's decision | accepted; proposed (S1) | S1: "Accepted as a limitation rather than closed by a paid poke, which would add a reward path S3 would have to derive and that a landing already provides whenever a landing falls in the window." | S1-R11, S1-R17 |
+
+The mechanisms considered and not built are recorded by their owners' limits sections (C1 §9, C2 §15, C3 §12, C5 §12, C7 §9, S1 §15, S2 §9, S3 §14, S4 §8), not here: they are choices, not residual harms. **Adversary schedule:** a residual a section names and no row holds; a row whose numbers diverge from its owner rule; a row "accepted" with no sentence. Source: limitations page §1 and §2; the round records; D12; the siblings' dashboards (§9).
+
+### C6-R09. The ledger of Mediums
+
+**[assumed: proposed rule]** Every finding of Medium severity (or above, where a review raised one against a converged section) in candidate A's six rounds and in the convergence reviews, with its disposition. A Medium is closed only by a mitigation the round's verification checked, or by a row of C6-R08.
+
+| Source | Mediums (or J items) | Disposition |
+|---|---|---|
+| Round 1 | F5 (availability escalation slashed honest seats), F6 (lander reward below cost), F7 ("nothing voids by clock" overstated), F8 (equivocation keys without the opening object), F9 (one-deep fallback) | F5 mitigated, then the mechanism removed in round 2 (L3); F6 mitigated, re-derived through R6H-3 (C2-R16); F7 accepted as L14; F8 mitigated (S2-R21 keys); F9 mitigated (S2-R14). |
+| Round 2 | S2 (outage gate slashed lagged holders), S4/F2/H2 (data-post answer unverifiable), S5 (reward debits eroded bonds), S6 (`rewardTo` unbound), S7/F4 (timeout-strike contradictions), S9 (sentinel reopening), F3 (S3b across opening objects), H1 (no record bound), F5 (FI_SKIP aged due-ness) | S2 mitigated, then the abandonment rule removed in round 4; S4/F2/H2 accepted as L3; S5 mitigated (S3-R11); S6 mitigated (C2-R04); S7/F4 mitigated; S9 mitigated (S1-R16); F3 mitigated (S3-R08 S3b, S3d); H1 mitigated (C7-R12); F5 mitigated, superseded by R6H-1 (C3-R06). |
+| Round 3 | R3-S5, R3-S6, R3H-3, R3H-4, R3H-6, R3H-7, C2 | R3H-4 accepted as L19; R3H-7 mitigated by the simulated table (S3-R28, assumed until re-run); the rest mitigated (S2-R09, S2-R10, C7-R12, C7-R01, S1-R13). |
+| Round 4 | R4H-6 (V10 counted FI blocks), R4H-7 (per-landing reward drained the reserve), R4-C3 (recorded REPLACE voided the backlog), R4-C4 (reserve margin) | All mitigated (C7-R13, C2-R16, C2-R09, S3-R04); residuals L6, L20. |
+| Round 5 | R5S-4 (self-landing drained the reserve), R5H-1 and R5-C1 (free liveness signal), R5H-2 (walk gas) | All mitigated after two fix passes (S3-R18, S2-R07, S1-R10); residual L20. |
+| Round 6 | R6S-2 (per-owner reserve), R6S-3 (FALLBACK after a withheld TERM_END), R6H-2 (outage lapses), R6H-3 (2-s landing reward); R6H-4 and R6-C1 downgraded to Low | All mitigated after two fix passes (S3-R23, S2-R13 and S2-R14, S3-R12, C2-R16); residuals L5, L16, L20, L33. The round's High R6H-1 is mitigated to the accepted Medium L23 (D12). |
+| J's review 1 (#22191; D9) | 2 High, 5 Medium, 3 Low on the decomposition | Accepted in full (D9); process artifacts, no design residual. |
+| J on C1 (#22195; W3) | J-1 High (the conflict rule's consequence and recovery), J-2 Medium (the getter change on inherited records) | **Open:** carried into W1 (B); J-2 goes to C4's table. |
+| J on C2 (#22196) | J-1 High (rollback against first-write-wins), J-2 Medium (two retention duties) | Mitigated (C2-R14, C2-R15, C2-R21; C2-R18); residual L25. |
+| J on S2 (#22197) | J-1 (D1 scope), J-2 (`phHash` encoding), J-3 (per-term recording cost) | J-1 accepted as L24; J-2 mitigated (S2-R03, S2-V14); J-3 to C6-B as unmeasured. |
+| J on C7 (#22199; D14) | J-1 High (V5's age bound leaves no valid child), J-2 (hold expiry), J-3 (view-254 skips) | Decided by D14; **open** until applied in C7-R09, C3-R07, C3-R11, C2-R04 and S2 §5 (W7, W10). |
+| J's re-check (W2; D12) | the stall residual | Accepted Medium, L23. |
+| J on S1 (#22201) | J-1 Medium (no mix after `freshFrom(c)`), J-2 (walk-gas sources), J-3 (no-committee launch case) | J-1 mitigated by S1-R11's fallback clause, residual L35 (LS1-1); J-2 to C6-B; J-3 carried in L2. |
+| J on S3 (#22202) | J-1 Medium (attester share and the holder's own seats), J-2 (V_term inputs), J-3 (simulation inputs) | J-1 decided by D15 (C2-R16 the owner), **open** until applied in C2 (W10); J-2 to C6-B (§9); J-3 beside S3-R28. |
+| B's W8 verdicts (W4, W7) | C2: B-C2-01 to B-C2-04 (four Mediums); S2: three Highs and a Medium (D16); C7: four Highs and three Mediums (D17); C3: two Highs and a Medium (D18); S1: two Highs and a Medium (D19); S3: two Highs (D20) | C2's items **open** (revision in progress, W4); the others decided by D16 to D20, **open** until applied in the revisions and re-checked. |
+
+**[proven: the ledger is complete for rounds 1 to 6, by the round records' verdict counts and finding tables; for the convergence reviews it is complete only through DECISIONS.md D20 and WORK.md as of 2026-10-01]** 33 Mediums (5, 10, 7, 4, 3, 4; §6; round 2's count of 10 covers nine table rows, one row merging S4, F2 and H2; round 5's three include R5H-1 and R5-C1 as one defect), each with a disposition above; none is open. Convergence-review items are open where marked. **Adversary schedule:** a Medium with no disposition. Source: `iterations/01-round.md` to `06-round.md`; D9, D12, D14 to D20; W1 to W10.
+
+### C6-R10. Whole-design residual statements
+
+**[assumed: proposed rule; index rows, each defined by the register ids it cites]** These are the statements the convergence criterion and the requirement verdicts (S4-R14, S4-R15) read as wholes.
+
+- **(a) The one-third cartel bound.** T11 is an assumption, not a rule. Inside it: blank terms cost revenue only (L2), private-quorum stalls and the FALLBACK race need `≥ Q` colluders (L3, L5), the redraw route has the probabilities of L16. At its boundary the cartel gains a few points of revenue (L2). Above it the gain is superlinear and undefended (L2, L9), and the launch condition is a heuristic no rule enforces (S1-R13). S4-R15 E3 is this statement.
+- **(b) The DAO-dependent cases.** Exactly two states wait for the DAO: CONFLICT after a provisional landing (L-PF) and an uncertified regime during a one-leaf outage (L19) (S4-R04). The loss of an emergency brake and the two residual entry points are DAO-only by construction (L-OP). The four-hour stall is not DAO-dependent: a guest fix shortens it and is never a prerequisite (L23). S4-R15 E2 is this statement.
+- **(c) The four-hour stall** is L23, the accepted Medium of D12.
+- **(d) D1** is L24.
+- **(e) Availability** is L3, L25, L14 and T2's archive premise (S4-R15 E5).
+
+**Adversary schedule:** a whole-design claim stronger than the rows it cites. Source: S4-R15; D12; J-1 of #22197.
+
+### C6-R11. Out of scope
+
+**[assumed: proposed rule]** Outside every guarantee: ordinary sequencer MEV within a public, attested stream (L18); a malicious or captured DAO (T4; R1 leaves upgradeability with the DAO; timelocks and vetoes are governance design), which is why no all-malicious DAO row exists (S4 §10 item 8); L1 consensus failures beyond T1's depth; cryptographic breaks of secp256k1, BLS12-381, KZG or the ZK systems' assumptions, guest bugs being in scope only through the two-leaf rule (TH1, L7); Bridge application-level bugs unrelated to checkpoints (R2 keeps the Bridge and Vault logic). **Adversary schedule:** a section claiming a guarantee against an out-of-scope actor. Source: threat model §8.
+
+### C6-R12. How a limitation enters and leaves the register
+
+**[assumed: proposed rule]** A residual enters as a row of C6-R08 with a new id (the next free L number; page ids are kept) when a section, a red-team round or a review names it; it is **proposed** until B's verdict and J's review on this section, or a decision-log entry, ratify it, then **recorded** (§1's single test). A row leaves only by a later decision-log entry that cites the mitigating rule (README working agreement 4). A section that states a limitation inside another's text (C3's stall inside L16) cites the id assigned here. Each red-team round appends its accepted Mediums to C6-R09 and C6-R08 before the round is recorded in `iterations/`. **Adversary schedule:** a residual removed by a silent edit. Source: limitations page introduction ("added here by the iteration reports"); README working agreements 4 and 5.
+
+## 6. Numeric register
+
+**[assumed: rule-owned register]** This half's sole numeric definitions. Every other number in §5 is quoted from the owner rule named in its row; C6-B indexes the owners' registers and the unmeasured values. Units: counts, seconds, ETH, TAIKO, gas.
+
+| Id | Value | Derivation and status |
+|---|---|---|
+| Threats | 25: 2 Critical, 10 High, 11 Medium, 2 Low | **counted** from the threat model §5 (C6-R05). |
+| Premises | 13 T-premises (4 removed or made objective: T5, T6, T7, T8; T10 replaced by A-EXEC) plus A-HQ, A-CRYPTO, A-RANDAO, A-ECON, A-ACTORS | **counted** (C6-R03). |
+| Round Mediums | 33: 5, 10, 7, 4, 3, 4 | **counted** from the round records (C6-R09). |
+| Register rows | 37: L1 to L22, L-OP, L-PF, L23 to L35 | **counted** (C6-R08). |
+| `m − Q(m) + 1` at 32; `⌊m/2⌋ + 1`; `2Q(m) − m` at 32 and 8 | 11; 17; 12 and 4 | **derived** from `Q(m) = ⌊2m/3⌋ + 1` (S2-R02): `Q(32) = 22`, `Q(8) = 6`. |
+| Locked credit bound | 13 × 20,000 = 260,000 TAIKO, about 39 ETH | **derived** from S3-R10 with A-ECON's rate 1.5·10⁻⁴; assumed. |
+| Horizons | ROLE_HORIZON `2,048 × 60 = 122,880 s` (34.1 h); EIP-2935 `8,191 × 12 = 98,292 s` (27.3 h), `8,191 × 2 = 16,382 s` (4.55 h) | **derived** (C2-R10, C5-R02). |
+| Retention gaps (L25) | 2.55 h at 2-s slots; 25.3 h at 12-s slots | **derived:** `(16,382 − 7,200) / 3,600`, `(98,292 − 7,200) / 3,600`. |
+| Stall costs (L23) | six in a run: `0.3 + 0.001 × 1,365 = 1.665` ETH; twelve: `0.6 + 0.001 × (4^12 − 1) / 3 ≈ 5,593` ETH; fourteenth seed `0.001 × 4^13 ≈ 67,109` ETH; front at level 6 `0.001 × 4^6 ≈ 4.1` ETH | **derived** from C3-R02's price; A-FEES. |
+| L20 thresholds | `14,400 − 7,161 = 7,239`; `2 × 7,161 = 14,322`; lapse at `j > 7,239 / 7,161 × s ≈ 1.01 s`; DELAY_S `1,200 + 2 × 60 = 1,320 s` (22 min); SUSPEND(3) 129,600 s (36 h) | **derived** from S3 §11. |
+| L17 leak | `300 × 10 × 0.001 = 3` ETH | **derived:** one hour at 12-s slots is 300 proposals; MAX_FORCED_INCLUSIONS_PER_PROPOSAL = 10 (`Inbox.sol:65`); fee at an empty queue 0.001 ETH. |
+| L27 loser cost | `16,800 + 64 × 4,593 = 310,752` gas | **quoted** (C5 §11 (b)). |
+| Evidence windows (L32) | 604,800 s; 122,880 s | **quoted** (S3-R08). |
+| Unmeasured in this half | T9's latencies; the level timings; the walk and record gas; the reveal gas; blob retention under short slots; V_term, its fee input and its MEV input (three entries, S3 §15, closure test a week of mainnet coinbase and MEV data); P; L8's "few ETH per hour"; L11's stake for a 48-s reorg; the cartel simulation (simulated, not reproduced) | **unmeasured** or **simulated**; C6-B lists them with their owners. |
+
+## 7. State machine of a register row
+
+**[assumed: projection of C6-R12]**
+
+```text
+NAMED (by a section, round or review) --row written--> PROPOSED --B's verdict and J's review--> RECORDED
+PROPOSED | RECORDED --decision entry citing a mitigating rule--> MITIGATED (row kept, marked)
+```
+
+## 8. Test-vector obligations
+
+**[open]** The register carries no executable content. Its checks are textual and belong to the readiness audit (W9): (C6-T01) every L id cited by any section resolves to one row here; (C6-T02) every number in a row equals its owner register's value; (C6-T03) every Medium in a new round record appears in C6-R09; (C6-T04) no section states a limitation's acceptance sentence differently from its row.
+
+## 9. Integration dashboard and requirement impact
+
+### Answers to obligations placed on C6 (this half)
+
+**[assumed: by-rule-id answers; nothing restated]** Rows that ask for indexing or for unmeasured numbers are C6-B's and are listed in the next table.
+
+| Obligation on C6, as worded by the placing section | Answered by |
+|---|---|
+| C1 §10, "S3/C6: retention economics. Accept or price unbounded distinct-origin growth" | L26 (proposed, with S3's acceptance sentence); closure by B for C1 or a decision entry. |
+| C1 §7, §8, "C6 records their current absence" (conformance fixtures) | C6-B (readiness); L34 records that no implementation exists. |
+| C2 §16, "the limitations L3, L6, L7, L11, L13, L14, L19, L20, L-PF" | C6-R08 rows L3, L6, L7, L11, L13, L14, L19, L20, L-PF; the retention limitation as L25. |
+| C2 §16 item 10, "the RETAIN_SECONDS erratum ... carried into C6's parameter index" | C6-B (the parameter index); L25 states the limitation. |
+| C3 §13, "give the unprovable-entry limitation its own id (today inside L16); hold L8, L12, L17, L18, L22; §12's open questions" | L23 (with D12's sentence); rows L8, L12, L17, L18, L22; §12's open questions stay in C3 §12 as owner text and are indexed by C6-B. |
+| C3 §11, "C6 carries the limitation under its own id" | L23. |
+| C5 §13, "carry L11, L12, L13, L14, L21, L22, the proposed limitations below" | Rows L11 to L14, L21, L22; proposals (1) to (4) as L27, L28, L29, L30. |
+| C7 §11, "hold the limitation that C7 cannot express provability" | L31. |
+| S1 §16, "hold I1 with S1 as owner; register L9, L16 (with S2), L19 (with C2), L20 (with S3)" | C6-R07 row I1; L9, L16, L19, L20 with those owners; LS1-1 as L35 (J-1 of #22201); the no-committee launch case in L2 (J-3); the walk-gas figures to C6-B (J-2). |
+| S2 §10, "record L2 to L5, L14 and L16 ...; resolve L14's horizon-versus-LAND_WINDOW tension; hold I3 and I4 ...; carry S2-R18's D1 scope sentence" | L2 to L5 (L3 marked proposed), L14, L16; the tension is answered by L14's reading (§11 item 5 derives it); C6-R07 rows I3, I4; L24 carries the sentence verbatim. |
+| S3 §15, "register L2, L15, L20 ..., the revenue half of L9 ..., L16's economic half and the retention limitation of the C1 row; hold I2 and I5; carry the D1 discharge record"; V_term and its fee and MEV inputs as individual entries (J-2 of #22202) | L2, L15, L20 (owners S3-R28, S3-R23), L9 (both halves cited), L16, L26; C6-R07 rows I2, I5; L24; V_term, its fee input and its MEV input as three unmeasured entries with closure tests (§6 last row; C6-B). |
+| S4 §9, "register L2, L3, L5, L14, L16, L19, L20, L-OP, L-PF ...; hold I1 to I5 ...; carry the D1 discharge record; do not make the index a second normative definition" | C6-R08 rows; C6-R10 cites S4-R15 E2, E3, E5 and maps the rest (E1 to C6-B, E4 to D14, E6 to L5, L7, L16, L20, L23, E7 to L24, E8 to L34); C6-R07; L24; every row cites its owner rule. |
+| S4 §10 item 6, "A-T4 to A-T8 and A-T10 are not mapped" | C6-R03 rows T4, T5 to T7, T8, T10. |
+| S4 §10 item 7, the challenger outage | L32 (proposed; S3 to confirm). |
+| S4 §10 item 8, a malicious DAO | C6-R11 (out of scope, T4). |
+| S4 §10 item 12, "Whether R5 forbids a count of L1 blocks is for C6" | **Open**, §11 item 13: a reading of the brief's R5, for the user. |
+| D9, D12, "the accepted-limitations register ... the artifact the convergence criterion reads (J-06)"; "B's C6 register indexes by id and defines nothing" | C6-R08, C6-R09, C6-R12; C6-B indexes. |
+
+### What C6-B must index, per section
+
+| Section | Register to index (statuses) | Unmeasured list to carry | From this half |
+|---|---|---|---|
+| C1 | §6 numeric register | §10 C6 row (P-READ-GAS, parser bounds, pin and reveal gas, forced wrapper and proof cost, runtime parity, state growth, repricing) | L21, L22, L26; TH17 closed |
+| C2 | §12 | §16 list; RETAIN_SECONDS erratum | L3, L6, L7, L11, L13, L14, L19, L-PF, L25; TH1, TH2 bounded |
+| C3 | §10 | §13 list | L8, L12, L17, L18, L22, L23; TH7 bounded |
+| C4 | not drafted | (C4's) | L17, L-OP open; TH21 open |
+| C5 | §8 | §14 list | L11 to L14, L21, L22, L27 to L30; TH11, TH16 |
+| C7 | §7 | its two unmeasured rows | L31; TH24 open (D14) |
+| C8 | not drafted | (C8's) | TH14 open; TH25's completeness check |
+| S1 | §11 | §16 list; the walk-gas figures with their sources (J-2 of #22201) | I1; L1, L9, L16, L19, L20, L35 |
+| S2 | §6 | §6 unmeasured rows; the per-term recording cost (J-3) | I3, I4; L2 to L5, L14, L16, L24, L33 |
+| S3 | §11 | V_term, its fee input, its MEV input (three entries, closure tests per S3 §15); P; the cartel simulation | I2, I5; L2, L9, L10, L15, L20, L32 |
+| S4 | §5 | §5 unmeasured rows | C6-R04, C6-R10; L34 |
+| C6 (this half) | §6 | §6 last row | C6-R05 statuses, C6-R07 tags, C6-R08 dispositions |
+
+### Obligations this half places on other sections
+
+| Owner / obligation | Status and closure condition |
+|---|---|
+| S4: §1's premise table cites C6-R03 as the defining table (S4 §10 item 15); A-T13 is now a row of both, S4's citing C6-R03 T13 | **Open** until an arbiter's entry confirms C6-R03 as the defining table. |
+| C3: cite L23 instead of "L16" for the stall residual; the limitations page's L16 loses its appended text | **Open.** |
+| C2: L25 as the C2-R18 limitation's id; adopt L14's reading; apply D15 in C2-R16 | **Open.** |
+| C4: TH21 and L-OP (the change table and selector audit); L17 under DL-3; J-2 of #22195 (the getter change on inherited records) | **Open.** |
+| C5: one T1 strength per consumer, or a statement that the four are distinct premises (§11 item 4); L11's stake figure | **Open.** |
+| C7, C3, C2, S2: apply D14 (C7-R09, C3-R07, C3-R11, C2-R04, S2 §5) so TH24 and C6-R09's J row close | **Open** (W7, W10). |
+| S2: ratify L3 and L33; accept L14's reading (S2 §10 item 11) | **Open.** |
+| S3: ratify L2, L9, L20, L26; L32's reading; re-run and commit the cartel simulation behind L2 | **Open.** |
+| C8: TH14 (peer scoring); TH25, check that `protocolParams()` lists every guest-visible constant | **Open.** |
+| C6-B: index every row of the table above with these statuses; list §6's unmeasured row | **Open** (W6). |
+| The user (via the arbiter): L24 (D1 discharged for the equivocation route only); L-OP (A10, reversible); R5 and L1-block counts | **Open.** |
+| B / J: review | **Open.** B's verdict and J's review of this section ratify every **proposed** row. |
+
+### Requirement impact
+
+| Requirement | This half's contribution, not a verdict (S4-R14 owns the verdicts) |
+|---|---|
+| R1 | The DAO-dependent cases are exactly C6-R10 (b); TH19 bounded; TH21 open on C4. |
+| R2 | TH17 closed; L21 and L22 are the semantic changes on unchanged addresses. |
+| R3 | C6-R02 maps every actor to a role or an external party. |
+| R4 | No contribution; the timing is unmeasured (C6-B). |
+| R5 | TH15 bounded; §11 item 13 open. |
+| R6 | TH8 closed; TH9 bounded by L2 and L9 (C6-R10 (a)). |
+| R7 | TH1, TH2, TH7, TH11, TH13 bounded; TH16, TH20, TH25 closed (TH25's completeness on C8). |
+| D1 | L24. |
+| D2 | L34; every number in §5 quoted or derived in §6. |
+
+## 10. Limits and rejected alternatives
+
+**[assumed]** Rejected for this half: restating each section's attack table (the map of C6-R05 cites them); a severity re-grading of TH1 to TH25 after the design (the threat model's grades are kept, the residual carries the post-design harm); merging L23 into L16 (C3 asked for an own id); giving L33 a separate harm (it is kept as an id only because S2 asked for one, and its harm is L2's); keeping the threat model's P-numbering (it collides with S4's).
+
+## 11. Open items found while transcribing (not decided here)
+
+1. **Two premise registers.** S4 §1 is now a consumption map citing C6-R03 as the defining table (S4 §10 item 15), and C6-R03 quotes every number it holds from its owner register; naming still differs (A-T1 versus T1). An arbiter's entry must confirm the defining table.
+2. **Two property lists.** The threat model's P1 to P8 and the arguments page's P1 to P7 share labels with different meanings; C6-R04 renames the former TM-P1 to TM-P8.
+3. **Amended "Etna must" lines.** TH2 and TM-P4 ("slashed"), TH9 ("rotation with cooldown"), TH10 ("missed-duty slashing"), TH14 ("signed messages only"), TH21 ("unchanged") and T10 were superseded by later decisions (I5 from round 1 F3 and round 4 R4H-5; S3-R27; round 1 F3; S2-R22; README A10; issue #22147). C6-R05 records the source of each; the threat model document itself is not edited.
+4. **T1 has four strengths** (C5 §14 item 7), listed in C6-R03 row T1 beside the arguments page's "live, reorgs shallower than LOOKBACK"; not reconciled.
+5. **L14's two thresholds.** L14 publishes the credit-bound exception against LAND_WINDOW (1,800 s) and the void against the landing horizon (hours): two clauses on two claims, read as L14 states (the operative point of the first is `replaceableFrom`, after which L6's replacement can void locked blocks with nothing slashable). This is C6's answer to S2 §10 item 11; whether the published text names `replaceableFrom` instead of LAND_WINDOW is S2's wording (S2-R18).
+6. **The origin of the replacement window.** L3 and S2-R18 say 35 to 65 minutes "after the last landing" (75 with an announcement); C2-R08 measures from the first unlanded term's end (S4 §10 item 4).
+7. **L16 carries the stall text.** The limitations page appends the R6H-1 residual inside L16 (small committees); C6 assigns it L23 (C3 §13 item 3). The page needs the same split.
+8. **L2's simulation and threshold.** The cartel table is simulated by a script not in the tree (S3 §15 item 4). The pages state the blanking threshold two ways: 11 of 32 in the first draw plus a blocking minority in each redraw (limitations page L2: "m − Q(m) + 1 committee seats (11 of 32) in the first draw"; slashing page §5: "≥ m − Q(m) + 1 slots (11 of 32)"), against 16 of 32 (certificate page and slashing page §5 and §11: "16 of 32 in the first draw"; sequencing page: "≥ 16 of 32 seats in the committee and in each redraw"). The index, parameters (REDRAW_MAX row) and certificate pages say two redraws "raise the blanking threshold from 11 to 16 of 32", underived. L2 quotes the per-draw reading; which number is the cartel's whole-term threshold is open for S2 and S3.
+9. **L8's "a few ETH per hour"** for keeping two of three blocks FI blocks is not derived.
+10. **L11's stake figure.** "> 20 %-stake payload reorg" for a 48-s reorg is EIP-7732's figure for a payload reorg; what four slots need is unstated (C5 §14 item 7).
+11. **L5 and L16 probabilities.** The page's 4·10⁻⁵ at one third: S2 §6 reproduces 3.8·10⁻⁵ by a binomial at p = 0.33; at exactly one third `P(X ≥ 22)`, `X ~ Binomial(32, 1/3)`, is 4.5·10⁻⁵; 6·10⁻³ at 45 %, the redraw rows (6·10⁻⁷, 2·10⁻³), 3·10⁻⁷ and "about 8.4" are not reproduced (S2 §10 items 5 and 7).
+12. **L17 depends on DL-3**, decided in C4, which is not drafted; the row stays open.
+13. **R5 and L1-block counts** (S4 §10 item 12): S2-R13's one-L1-block stagger, LANDED_CONFIRM_DEPTH and the `blockhash` and EIP-2935 windows are block counts. Whether R5 forbids them is a reading of the brief, for the user.
+14. **D1's scope** (L24) follows J-1 of #22197 as S2-R18 drafts it; no decision-log entry records the arbiter's acceptance, and D1 is the user's requirement, so neither the entry nor the user's sign-off on "the equivocation route only" is recorded. D20 restates the deterrent bound from collectible collateral (about 200,800 TAIKO at m = 32 instead of 13 × B); L16, L24 and §6's locked credit bound quote S3-R10 as it stands until S3's revision lands.
+15. **The challenger outage** (L32): the pages say "delayed, not lost" and S3-R08's windows imply loss past 122,880 s for three offence forms.
+16. **Limitation numbering.** The task names L1 to L20; the page at `b311d1d` adds L21 and L22 (anchor-free blocks), kept.
+17. **Parameter index ownership.** C1 and C2 address "C6's parameter index"; the decomposition gives B the unmeasured-numbers register and the dashboard, and gives A no parameter table; this half assumes the index is C6-B's.
+18. **TH25** is answered by C2-R04 and the Anchor page §8 (`protocolParams()` and `protocolParamsHash`); whether the published list is complete is a C8 check.
+19. **J-1 and J-2 of #22195** (C1) are open on B's revision (W1); J-2 lands in C4's table.
+20. **Acceptance status.** Under §1's single test only L23 (D12) and L25 (decomposition §4) are recorded; every other row is proposed, and the convergence criterion is not met for them until B and J ratify this section.
+
+## 12. Evidence and credit
+
+**[assumed: sources]** Candidate A's branch `claude/beautiful-maxwell-8pyecj` at `b311d1d` (2026-10-01): `packages/protocol/docs/Etna/01-threat-model.md` §1 to §8; `design/index.html` §2, §3; `design/arguments.html` §1, §7, §8 (its last item: no machine-checked model); `design/limitations.html` §1, §2; `iterations/01-round.md` to `06-round.md`; `README.md` working assumptions A2, A3, A9, A10. The converged tree: `README.md`, `00-decomposition.md`, `DECISIONS.md` (D1 to D20, DL-1 to DL-4, as of 2026-10-01), `WORK.md` (W1 to W10); the sections C1 (B's accepted draft), C2, C3, C5, C7, S1, S2, S3, S4, cited by rule id.
+
+**[assumed: credit]** The threat model, the invariants and the limitations register are candidate A's (Phase 1 learn documents; the property-first restatement of round 4; the iteration reports). L-OP, L-PF, L22's pins and the retention statement answer candidate B's review of PR #22184 and its Astra pages; L25's framing follows the decomposition's dropped-items list; L26 to L31 are proposals of S3, C5 and C7 recorded here; L23's acceptance is J's (D12); L24 follows J's J-1 on #22197 (no decision-log entry yet); L35 is S1's LS1-1 (J-1 of #22201). The register's admission rule, the TM-P renaming, the Medium ledger and the ids L23 to L35 are this half's additions, tagged in place and listed in §11 for review.
