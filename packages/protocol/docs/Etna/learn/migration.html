@@ -94,7 +94,7 @@
 <h2>Attack coverage</h2>
 <table><caption>Conditional defenses and remaining limits</caption><thead><tr><th scope="col">Schedule</th><th scope="col">Result</th></tr></thead><tbody>
 <tr><td>Substitute a root or omit an old writer.</td><td><strong>Assumed defense:</strong> complete committed manifest and authenticated boundary reject it.</td></tr>
-<tr><td>Race a proof with abandonment or repeat a repair chunk.</td><td><strong>Proven conditionally:</strong> phase closure, exact descending progress and final head update prevent duplicate finalization/requeue.</td></tr>
+<tr><td>Race a proof with abandonment or repeat a repair chunk.</td><td><strong>Proven conditionally:</strong> phase closure, exact descending progress and final head update prevent duplicate finalization/requeue. <a href="https://github.com/taikoxyz/taiko-mono/blob/ad85e9fa2cda762d52e117750414fd4cf3c295b4/packages/protocol/docs/Etna/spec/C4-migration.md#L59">C4-R05</a>.</td></tr>
 <tr><td>Replay a settled legacy entry after cursor rewind.</td><td><strong>Assumed defense:</strong> irreversible settled state prevents another financial disposition.</td></tr>
 <tr><td>Admitted generators stop serving.</td><td><strong>Conditional escape:</strong> deadline abandonment; unavailable preimages or funding still block progress.</td></tr>
 <tr><td>Old request has missing or incompatible execution data.</td><td><strong>Not solved:</strong> requeue preserves identity, not execution success. The C3 profile is open.</td></tr>

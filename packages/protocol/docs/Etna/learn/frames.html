@@ -69,8 +69,8 @@
 
 <details class="lesson-block"><summary>Separate cost protection from safety and inclusion</summary><h2>Attack coverage</h2>
 <table><caption>Protection depends on the transaction path</caption><thead><tr><th scope="col">Attempt</th><th scope="col">Result or limit</th></tr></thead><tbody>
-<tr><th scope="row">Charge a builder-path loser whose action reverts</th><td><strong>Proven conditionally:</strong> trailing VERIFY invalidates it under analyzed semantics.</td></tr>
-<tr><th scope="row">Include competing copies at a shared nonce</th><td><strong>Proven conditionally:</strong> nonce validity excludes later copies; success of the included action is not guaranteed.</td></tr>
+<tr><th scope="row">Charge a builder-path loser whose action reverts</th><td><strong>Proven conditionally:</strong> trailing VERIFY invalidates it under analyzed semantics. <a href="https://github.com/taikoxyz/taiko-mono/blob/ad85e9fa2cda762d52e117750414fd4cf3c295b4/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L113">C5-R12</a>.</td></tr>
+<tr><th scope="row">Include competing copies at a shared nonce</th><td><strong>Proven conditionally:</strong> nonce validity excludes later copies; success of the included action is not guaranteed. <a href="https://github.com/taikoxyz/taiko-mono/blob/ad85e9fa2cda762d52e117750414fd4cf3c295b4/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L139">C5-R15</a>.</td></tr>
 <tr><th scope="row">Burn the gate nonce with malformed calldata</th><td><strong>Not prevented:</strong> prefix pins allow the described paid attack; other paths do not share that nonce.</td></tr>
 <tr><th scope="row">Censor submissions or withhold a payload</th><td><strong>Not solved:</strong> cost protection supplies no inclusion or data availability.</td></tr>
 <tr><th scope="row">Submit a false proof or redirect a reward</th><td><strong>Not independently solved:</strong> both paths must preserve the same underlying inbox checks. Accepted C2 owns those inbox checks; their remaining cross-section composition stays open.</td></tr>
