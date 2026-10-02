@@ -39,7 +39,7 @@ Both candidates were reviewed by the other's agent and by an independent compari
 | [`DECISIONS.md`](DECISIONS.md) | The decision log |
 | [`WORK.md`](WORK.md) | The work orders: who does what next, assigned by agent A (D11) |
 | `spec/` | The merged specification, one file per section (cycle 1 onward) |
-| [`learn/index.html`](learn/index.html) | Offline learning course for accepted C1, C5, C2, C4 and C8 choices; other sections and unresolved composition explicitly pending |
+| [`learn/index.html`](learn/index.html) | Offline learning course for accepted C1, C5, C2, C4, C8, S1, C6-A and S4 choices; other sections and unresolved composition explicitly pending |
 | `iterations/` | Red-team rounds against the merged specification (WORK cycle 2) |
 
 The candidate trees stay on their own branches as the record of how each design was reached; this tree cites them rather than copying their history.
@@ -55,10 +55,10 @@ D44 makes [PR #22191](https://github.com/taikoxyz/taiko-mono/pull/22191) the sin
 | [C4: migration and retained surfaces](spec/C4-migration.md) | B / A; J independent review | **Merged** under D32 (approved by A at `93d9038`); gates owned by C2, C3, S2 and C8 stay open as C4 states them. |
 | [C5: L1 dependencies and Frame Transactions](spec/C5-l1-dependencies-and-frames.md) | A / B; J independent review | **Merged** under D31 (approved by B at `66e3737`). |
 | [C6-B: assurance dashboard](spec/C6-assurance-dashboard.md) and [unmeasured-numbers register](spec/C6-unmeasured-register.md) | B / A; J independent review | **Merged** under D35 (approved by A at `c1ff472`); an index only, re-pinned on each owning-section merge. |
-| [C6-B: D44 readiness closure index](spec/C6-readiness-closure-index.md) | B / A; J independent review | **Merged** in [#22215](https://github.com/taikoxyz/taiko-mono/pull/22215#issuecomment-5947839250) at `dac1ceb40`, on A’s review under D27; J has not reviewed it. This is its own acceptance record, separate from D35. |
+| [C6-B: D44 readiness closure index](spec/C6-readiness-closure-index.md) | B / A; J independent review | **Merged** in [#22215](https://github.com/taikoxyz/taiko-mono/pull/22215#issuecomment-5947839250) at `dac1ceb40`, on A’s review under D27. J subsequently reviewed its course at `dac1ceb4` and the index follow-up at `566aec04` ([review](https://github.com/taikoxyz/taiko-mono/pull/22216#issuecomment-5948511699)); the final readiness audit is pending. This acceptance is separate from D35. |
 | [C6: threat model and limitations register (A's half)](spec/C6-threat-model-and-limitations.md) | A / B; J independent review | **Merged** under D54 (approved by B at `ab9deed`); the S2/S3 evidence gate and D41 stay open. |
 | [C8: interfaces, storage, messages and upgrade paths](spec/C8-interfaces-and-storage.md) | A / B; J independent review | **Merged** under D49 as `f87836f` (B approved `480d27e`); exact open definitions and D49’s follow-ups remain. This does not establish D44 completeness. |
 | [S1: seats and sortition](spec/S1-seats-and-sortition.md) | A / B; J independent review | **Merged** under D52 (approved by B at `08f8bcd`). |
 | [S4: roles and liveness](spec/S4-roles-and-liveness.md) | A / B; J independent review | **Merged** under D53 (approved by B at `1fd99dc`). |
 
-The C1 integration dashboard identifies its dependencies on C2/C3/C4/C6/C7/C8/S2/S3. The [learning course](learn/index.html) follows accepted C1, C5, C2, C4 and C8 choices, with source-linked examples and pending dependencies; no legacy candidate course is relabeled as the converged specification. Open its index directly from a checkout, with no build step or network assets. The current draft does not establish D1 or implementation readiness on its own.
+The C1 integration dashboard identifies its dependencies on C2/C3/C4/C6/C7/C8/S2/S3. The [learning course](learn/index.html) follows accepted C1, C5, C2, C4, C8, S1, C6-A and S4 choices, with source-linked examples and pending dependencies; no legacy candidate course is relabeled as the converged specification. Open its index directly from a checkout, with no build step or network assets. The current draft does not establish D1 or implementation readiness on its own.
