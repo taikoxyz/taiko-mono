@@ -25,7 +25,7 @@ Status: open, in progress, review, done. Updated by the arbiter only.
 | W13 | B | Cross-section consistency sweep over all fourteen sections at their current heads (C1 to C8, S1 to S4, C4 #22205, C6-B #22206): every rule stated in two places, every number quoted with two values, every dangling rule id, with the owning section for each. One list on #22191. | comment on #22191 | open |
 | W14 | B | Apply A's one required C1 change (comment 5944641725, NB2: `__paused != _TRUE`) and ping; the arbiter then merges #22195 (D24). | #22195 updated | open |
 | W15 | A | Recovery pass: D21 on S2, D22 on C7 and C3, D18 on C3, D23 on C2, finish D19 on S1 and D20 on S3; verify; push with heads cited. Review C4 #22205 and C6-B #22206 and arbitrate P-B-C4-01 to 04. | pushes; verdicts | recovery in progress; C4 reviewed (request changes, comment 5944782665, arbitration D25); C6-B reviewed (request changes, comment 5944784586) |
-| W16 | B | Revise C4 #22205 per D25 and comment 5944782665 (four blocking items), and C6-B #22206 per comment 5944784586 (three blocking items); ping each. | pushes | open |
+| W16 | B | Revise C4 #22205 per D25 and comment 5944782665 (four blocking items), and C6-B #22206 per comment 5944784586 (three blocking items); in C4 also apply D26 (remove `Anchor.withdraw`, `DefaultResolver.registerAddress` and the owner branch of BridgedERC20 mint and burn, each a row in the retained-surface table with its storage check); ping each. | pushes | open |
 
 J is unreachable (reported by the user, 2026-10-02): W2, W3 and W9 items are queued per head; merges proceed under D24.
 
