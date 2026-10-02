@@ -12,20 +12,20 @@
 <main id="main">
 <aside class="status">
 <strong>Research in progress. The full protocol is not converged.</strong>
-<p><strong>Assumed, acceptance record:</strong> these lessons follow C1, C5 and C4 as merged under D28, D31 and D32. They teach selected rules, not deployed behavior. Unmerged sections and unresolved integration remain pending.</p>
-<p>Snapshot: <a href="https://github.com/taikoxyz/taiko-mono/blob/ad85e9fa2cda762d52e117750414fd4cf3c295b4/packages/protocol/docs/Etna/DECISIONS.md">accepted decision log at ad85e9f</a>. Every substantive claim and worked value leads back to its owning specification. Read <a href="../README.md">the charter</a> for the full readiness criterion.</p>
+<p><strong>Assumed, acceptance record:</strong> these lessons follow C1, C5, C2 and C4 as merged under D28, D31, D36 and D32. They teach selected rules, not deployed behavior. Unmerged sections and unresolved integration remain pending.</p>
+<p>Snapshot: <a href="https://github.com/taikoxyz/taiko-mono/blob/ca514c641026ded9f0aa20b2950c9d429d1186a3/packages/protocol/docs/Etna/DECISIONS.md">accepted decision log at ca514c6</a>. Every substantive claim and worked value leads back to its owning specification. Read <a href="../README.md">the charter</a> for the full readiness criterion.</p>
 </aside>
 <section aria-labelledby="map-heading">
 <h2 id="map-heading">Your dependency map</h2>
-<p>Start with Ethereum headers, storage proofs and transactions. Learn authenticated context before migration. The transaction-race lesson is an independent branch; placing it before migration is a reading order, not a protocol dependency.</p>
-<figure>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 370" role="img" aria-labelledby="map-title map-desc">
+<p>Start with Ethereum headers, storage proofs and transactions. Learn authenticated context before migration. The transaction-race lesson explains submission costs. Landing then supplies the publication and recovery boundaries used by migration. The arrows show teaching prerequisites; the owning integration tables define protocol dependencies.</p>
+<figure tabindex="0" role="region" aria-label="Diagram; scroll horizontally on narrow screens">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 590" role="img" aria-labelledby="map-title map-desc">
 <title id="map-title">Prerequisites for the accepted lessons</title>
-<desc id="map-desc">Ethereum foundations lead independently to C1 anchor-free context and C5 frame transaction races. C1 supplies prerequisites for C4 migration. The full protocol argument remains pending and has no completed edge in this map.</desc>
+<desc id="map-desc">Ethereum foundations lead to C1 anchor-free context and C5 transaction races. These prepare the C2 landing lesson. C1 and C2 then prepare C4 migration. The full protocol argument remains pending.</desc>
 <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#486172"/></marker></defs>
-<g fill="#e9f4ee" stroke="#486172" stroke-width="2"><rect x="210" y="15" width="380" height="60" rx="10"/><rect x="25" y="125" width="340" height="72" rx="10"/><rect x="435" y="125" width="340" height="72" rx="10"/><rect x="25" y="255" width="340" height="72" rx="10"/><rect x="435" y="255" width="340" height="72" rx="10" fill="#fff3db" stroke-dasharray="6 5"/></g>
-<g fill="none" stroke="#486172" stroke-width="2" marker-end="url(#arrow)"><path d="M400 75 V100 H195 V125"/><path d="M400 100 H605 V125"/><path d="M195 197 V255"/></g>
-<g font-family="system-ui,sans-serif" font-size="19" fill="#172b3a" text-anchor="middle"><text x="400" y="52">Ethereum foundations</text><text x="195" y="153">C1 · Anchor-free context</text><text x="195" y="181" font-size="15">Authenticate, reveal, pin</text><text x="605" y="153">C5 · Transaction races</text><text x="605" y="181" font-size="15">Validity, payment, inclusion</text><text x="195" y="283">C4 · Migration</text><text x="195" y="311" font-size="15">Keep addresses; close old powers</text><text x="605" y="283">Full protocol argument</text><text x="605" y="311" font-size="15">Pending remaining sections and review</text></g>
+<g fill="#e9f4ee" stroke="#486172" stroke-width="2"><rect x="210" y="15" width="380" height="60" rx="10"/><rect x="25" y="125" width="340" height="72" rx="10"/><rect x="435" y="125" width="340" height="72" rx="10"/><rect x="210" y="255" width="380" height="72" rx="10"/><rect x="210" y="385" width="380" height="72" rx="10"/><rect x="210" y="505" width="380" height="72" rx="10" fill="#fff3db" stroke-dasharray="6 5"/></g>
+<g fill="none" stroke="#486172" stroke-width="2" marker-end="url(#arrow)"><path d="M400 75 V100 H195 V125"/><path d="M400 100 H605 V125"/><path d="M195 197 V225 H400 V255"/><path d="M605 197 V225 H400"/><path d="M400 327 V385"/></g>
+<g font-family="system-ui,sans-serif" font-size="19" fill="#172b3a" text-anchor="middle"><text x="400" y="52">Ethereum foundations</text><text x="195" y="153">C1 · Anchor-free context</text><text x="195" y="181" font-size="15">Authenticate, reveal, pin</text><text x="605" y="153">C5 · Transaction races</text><text x="605" y="181" font-size="15">Validity, payment, inclusion</text><text x="400" y="283">C2 · Landing with proof</text><text x="400" y="311" font-size="15">Data, execution and custody publication</text><text x="400" y="413">C4 · Migration</text><text x="400" y="441" font-size="15">Keep addresses; close old powers</text><text x="400" y="533">Full protocol argument</text><text x="400" y="561" font-size="15">Pending remaining sections and review</text></g>
 </svg>
 <figcaption>A pedagogical map, not a replacement for the specifications' integration tables.</figcaption>
 </figure>
@@ -36,14 +36,14 @@
 <div class="grid">
 <article class="card"><span class="badge">C1 · Accepted section</span><h2><a href="anchor-free.html">Blocks without an anchor transaction</a></h2><p>Where authenticated L1 context comes from, how a checkpoint is revealed, and what a pin does not promise.</p><p class="small">Start here. Prerequisites: Ethereum headers and state roots.</p></article>
 <article class="card"><span class="badge">C5 · Accepted section</span><h2><a href="frames.html">Paying for a lost race</a></h2><p>Why invalid and reverted transactions differ, and when Frame Transactions can protect a losing submitter.</p><p class="small">Next in the course. Prerequisites: transaction validity and gas.</p></article>
-<article class="card"><span class="badge">C4 · Accepted section</span><h2><a href="migration.html">Move the protocol, keep the addresses</a></h2><p>How the transition preserves custody state, bounds the old drain, and removes operational authority.</p><p class="small">Builds on C1. The full recovery composition is still open.</p></article>
+<article class="card"><span class="badge">C2 · Accepted section</span><h2><a href="landing.html">Land the data and proof together</a></h2><p>How a journal binds a range, why provisional landing defers custody publication, and what a conflict can establish.</p><p class="small">Builds on C1 and C5. Confirmation labels and forced-inclusion composition remain pending.</p></article>
+<article class="card"><span class="badge">C4 · Accepted section</span><h2><a href="migration.html">Move the protocol, keep the addresses</a></h2><p>How the transition preserves custody state, finalizes or abandons a frozen tail, and removes operational authority.</p><p class="small">Builds on C1 and C2. The full recovery composition is still open.</p></article>
 </div>
 </section>
 <section aria-labelledby="pending-heading">
 <h2 id="pending-heading">What is still pending</h2>
 <p><strong>Open:</strong> acceptance of these owners' complete rules and their cross-section arguments. Pending topics are not taught as settled mechanisms. Links lead to live review threads and may contain rejected proposals.</p>
 <table><caption>Pending lessons at the accepted snapshot</caption><thead><tr><th scope="col">Owner section</th><th scope="col">Topic and review</th></tr></thead><tbody>
-<tr><th scope="row">C2</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22196">Propose-with-proof landing and custody publication</a></td></tr>
 <tr><th scope="row">C3</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22200">Forced inclusion and censorship resistance</a></td></tr>
 <tr><th scope="row">C6-A</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22212">Threat model and accepted limitations</a></td></tr>
 <tr><th scope="row">C7</th><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22199">Complete local block-validity predicate</a></td></tr>

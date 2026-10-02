@@ -6,7 +6,7 @@ header,main,footer{width:min(100% - 2.4rem,58rem);margin-inline:auto}
 header{padding:2.6rem 0 1rem}main{padding-bottom:2rem}footer{padding:1.5rem 0 3rem;border-top:1px solid var(--line)}
 h1,h2,h3{line-height:1.18;letter-spacing:-.025em}h1{font-size:clamp(2.2rem,6vw,3.65rem);max-width:19ch;margin:.6rem 0 1rem}h2{font-size:1.55rem;margin:1.7rem 0 .8rem}h3{font-size:1.18rem;margin-top:1.5rem}
 a{color:var(--accent);text-underline-offset:.18em;overflow-wrap:anywhere}a:hover{text-decoration-thickness:.14em}
-a:focus-visible,summary:focus-visible{outline:3px solid #b86217;outline-offset:5px;border-radius:3px}
+a:focus-visible,summary:focus-visible,figure:focus-visible{outline:3px solid #b86217;outline-offset:5px;border-radius:3px}
 nav{display:flex;gap:.7rem 1.6rem;flex-wrap:wrap;font-size:.92rem}
 p{margin:.85rem 0}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:.78rem;font-weight:750;color:var(--accent);margin-top:2rem}
 .lede{font-size:1.25rem;color:var(--muted);max-width:48ch}
