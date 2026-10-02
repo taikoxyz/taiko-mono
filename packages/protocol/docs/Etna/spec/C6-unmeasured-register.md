@@ -1,5 +1,7 @@
 # C6. Unmeasured-numbers and source-register index
 
+**[assumed: acceptance record; open: consumer integration]** [D59](https://github.com/taikoxyz/taiko-mono/blob/97fe7d6f6b14f2381773ad274eaa7d827bb5fe9b/packages/protocol/docs/Etna/DECISIONS.md#L69) merges C3 as `c0b52677325c6565b5bf34902ceb801ebf9e1c53`; its content is identical to the retained `eebc598` source pins. This PR's C1/C4/C6 consumer changes remain proposed. D59's full D50 user-completion list stays open: hatch spacing; the base poison halt and `fiClear` cap; deposit forfeit; honest post-void certification anchored before the void (B-D41-03); the lengthened poison halt; legacy expiry and the LEGACY_BLOB service promise. Technical review and C3's merge sign none of these for the user. [D60](https://github.com/taikoxyz/taiko-mono/blob/25090d713af0b54848b8f3da24ce2afa0b7d10d5/packages/protocol/docs/Etna/DECISIONS.md#L70) separately adds fresh out-of-order execution outside T11 to the user-completion list; D55(3) signs only replay. [D61](https://github.com/taikoxyz/taiko-mono/blob/25090d713af0b54848b8f3da24ce2afa0b7d10d5/packages/protocol/docs/Etna/DECISIONS.md#L71) merges A's C2/C5/C6-A/C8/S1/S4 hatch synchronization as `d3f9bfe6`. B's consumers in this PR remain proposed.
+
 **[assumed: ownership]** B maintains this index under D12/W6/W16. Each section owns its values, formulas, claim tags and closure criteria. A's C6 owns limitations. This index adds no protocol parameter, measurement, approval or implementation requirement.
 
 **[assumed: status convention]** A link inherits its owner's claim and measurement labels, including mixed premises. Arithmetic on assumed gas, price or latency is not measurement. D44 amends D2: every number unmeasured at completion needs an owner-specified conservative default and measurement procedure. Existing assumed examples are not thereby proven conservative. Missing encodings, contradictory rules and undefined transitions require semantic resolution.
@@ -11,7 +13,7 @@
 3. **[assumed: documentation process]** Cover every numeric row and each owner's open/unmeasured list. Under D44, index the owning default, its conservative rationale, measurement procedure and consequence of an out-of-range result; invent none in this index. Semantic corrections go to the owner.
 4. **[assumed: experiment boundary]** Any optional experiments run only in the session scratchpad and are deleted afterwards. Documents may preserve inputs, methodology and results; do not commit experimental code.
 
-**[assumed: dated inventory]** This inventory preserves its W15/W16 immutable pins except accepted C2 (D36, fb6180a), C8 (D49, f87836f), and S1/S4/C6-A (D52–D54, 960ee7d2), whose merged registers are revalidated. C3 is separately re-pinned to the corrected D41 proposal at `eebc59808aa16e291ab262c31aa224c60979ef5d`, following B's review of the D56 frozen head. D57 records J's full verdict at the earlier `76c6150`; neither that verdict nor the corrections supply measurements. The C1/C4 proposed consumer registers are pinned to ff842699 and explicitly await review. Other draft pins are historical, not assertions that they remain current. The [dashboard overlay](C6-assurance-dashboard.md#current-decision-and-review-overlay) records subsequent decisions/reviews, through D58, including the D48 holder-path scope, A-only acceptance of #22215, and D50's exact-coverage sign-off convention. C1/C4 rows retain explicitly proposed source pins; after their merge they must be re-pinned to the actual merge commit. No future merge is presumed and no estimate is promoted to measurement.
+**[assumed: dated inventory]** This inventory preserves historical W15/W16 pins for unchanged owners. D61's merged C2/C5/C8/S1/S4/C6-A registers are re-pinned to d3f9bfe6 and every owner row is revalidated. C3 is separately re-pinned to the corrected D41 source, merged under D59, at `eebc59808aa16e291ab262c31aa224c60979ef5d`, following B's review of the D56 frozen head. D57 records J's full verdict at the earlier `76c6150`; neither that verdict nor the corrections supply measurements. The C1/C4 proposed consumer registers are pinned to ff842699 and explicitly await review. Other draft pins are historical, not assertions that they remain current. The [dashboard overlay](C6-assurance-dashboard.md#current-decision-and-review-overlay) records subsequent decisions/reviews, through D61, including the D48 holder-path scope, A-only acceptance of #22215, and D50's exact-coverage sign-off convention. C1/C4 rows retain explicitly proposed source pins; after their merge they must be re-pinned to the actual merge commit. No future merge is presumed and no estimate is promoted to measurement.
 
 **[open: D44 completion]** The [closure index](C6-readiness-closure-index.md) identifies semantic owner work and required default/procedure evidence. A listed procedure is a task, not its result. No estimate becomes conservative merely by being inventoried.
 
@@ -19,7 +21,7 @@
 
 **[assumed: owner premise; open: propagation]** [S1-R16 at 08f8bcd](https://github.com/taikoxyz/taiko-mono/blob/08f8bcd260785eef722ae681ead94d52c2caff2e/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L162) states the L1-window-in-seconds premise for reconstructing its historical sentinel bond. [S1's integration rows](https://github.com/taikoxyz/taiko-mono/blob/08f8bcd260785eef722ae681ead94d52c2caff2e/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L417) assign it to C2/C5/C6. B approved the conditional argument, not actual chain-liveness measurements. A's C6 assumptions register must carry the premise; the original slot-miss percentage is only an illustration. This index neither changes that assumption nor marks its consumers complete.
 
-## Adopted hatch choices and corrected technical proposal
+## Adopted hatch choices and merged technical source
 
 **[assumed: decision and owner source; open: evidence]** [D41](https://github.com/taikoxyz/taiko-mono/blob/324b9b31c4ce9d7d3cc92acb99efb0644b76ef05/packages/protocol/docs/Etna/DECISIONS.md#L64) adopts the hatch, now corrected in [C3 at `eebc598`](https://github.com/taikoxyz/taiko-mono/blob/eebc59808aa16e291ab262c31aa224c60979ef5d/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L1). D56 froze `76c6150`; [D57](https://github.com/taikoxyz/taiko-mono/blob/324b9b31c4ce9d7d3cc92acb99efb0644b76ef05/packages/protocol/docs/Etna/DECISIONS.md#L67) records J's full verdict on that earlier head with the C7 deletion condition. [B's W18 review](https://github.com/taikoxyz/taiko-mono/pull/22200#issuecomment-5951827846) produced four Medium claim corrections; the next heads apply them, with review disposition recorded on that PR. D51 owns the product choices; D55(1) qualifies the stuffing price by unmeasured full-hatch latency `L_K`, while D55(2) and (3) sign the poison-adjacent and outside-T11 replay limitations. Honest post-void certification anchored to an eligible pre-void view, the longer poison halt and legacy service questions remain unsigned. The queue-cost illustrations are not measurements or an unconditional censorship bound. This index defines no owner constants and does not revive a superseded stall/run parameter. The [current procedures](#current-hatch-measurement-and-closure-procedures) implement C3's measurement handoff.
 
@@ -50,48 +52,47 @@
 - [EIP-2935 system calldata](https://github.com/taikoxyz/taiko-mono/blob/ff8426996a4807d82f61065c3cfe4ce0ae47d11c/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md#L271)
 - [System-call ETH value](https://github.com/taikoxyz/taiko-mono/blob/ff8426996a4807d82f61065c3cfe4ce0ae47d11c/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md#L272)
 
-### C2: [owning register](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L367)
+### C2: [owning register](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L370)
 
-**[assumed: accepted source; D36]** Pin `fb6180a5`. All 34 numeric rows were rechecked by label and line in this follow-up. D39 supersedes FI-dependent premises such as the run/clock/drift inputs; those rows remain owner-pending revisions, not adopted hatch parameters.
+**[assumed: accepted D61 source; tags/status as source]** Pin `d3f9bfe6`. All 34 owner rows are indexed by identifier; values, formulas and unmeasured status remain at the source. D61 accepts the hatch synchronization, not D44 completeness or an additional user-signed limitation.
 
-- [MAX_BLOCKS / MAX_VIEWS / MAX_BLOBS](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L373)
-- [MAX_FI](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L374)
-- [Blob usable bytes](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L375)
-- [V9 record bound](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L376)
-- [V10 = TERM_BYTES_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L377)
-- [LANDING_BYTES](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L378)
-- [LANDING_UNIT](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L379)
-- [MAX_L1_HEADERS_PER_LANDING](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L380)
-- [DRIFT_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L381)
-- [LAND_WINDOW / LAND_WINDOW_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L382)
-- [LAND_CHAIN_GRACE / REPLACE_GRACE](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L383)
-- [ANNOUNCE_BOND](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L384)
-- [DEGRADE_AFTER / DEGRADED_FINALITY](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L385)
-- [PROVISIONAL_RING](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L386)
-- [ROTATION_OVERLAP](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L387)
-- [ZK_K / ZK_N](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L388)
-- [R_BLK_MIN / R_BLK_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L389)
-- [R_LAND_MAX; break-even fee](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L390)
-- [R_BLOB, cap](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L391)
-- [PIN_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L392)
-- [ATT_REWARD_PER_BLOCK; LAND_RESERVE](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L393)
-- [Per-term exposure](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L394)
-- [RETAIN_SECONDS](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L395)
-- [T2 blob retention](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L396)
-- [FORCED_RING](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L397)
-- [ANCHOR_MIN_AGE / ANCHOR_MAX_AGE; ROLE_HORIZON](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L398)
-- [EIP-2935 / blockhash windows; landing horizon](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L399)
-- [TERM_RING; SETTLE_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L400)
-- [LANDED_CONFIRM_DEPTH; EXPIRY_TTL / REORG_MARGIN; LANDING_GAS_BUDGET](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L401)
-- [LAND_CALLDATA_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L402)
-- [Gas per landing](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L403)
-- [Gas: committee walk when a landing pins; race loser](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L404)
-- [Happy-path landed latency](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L405)
-- [Checkpoint delay in degraded mode](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L406)
-
+- [MAX_BLOCKS / MAX_VIEWS / MAX_BLOBS](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L376)
+- [MAX_FI_PER_LANDING](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L377)
+- [Blob usable bytes](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L378)
+- [V9 record bound](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L379)
+- [V10 = TERM_BYTES_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L380)
+- [LANDING_BYTES](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L381)
+- [LANDING_UNIT](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L382)
+- [MAX_L1_HEADERS_PER_LANDING](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L383)
+- [DRIFT_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L384)
+- [LAND_WINDOW / LAND_WINDOW_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L385)
+- [LAND_CHAIN_GRACE / REPLACE_GRACE](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L386)
+- [ANNOUNCE_BOND](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L387)
+- [DEGRADE_AFTER / DEGRADED_FINALITY](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L388)
+- [PROVISIONAL_RING](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L389)
+- [ROTATION_OVERLAP](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L390)
+- [ZK_K / ZK_N](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L391)
+- [R_BLK_MIN / R_BLK_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L392)
+- [R_LAND_MAX; break-even fee](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L393)
+- [R_BLOB, cap](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L394)
+- [PIN_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L395)
+- [ATT_REWARD_PER_BLOCK; LAND_RESERVE](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L396)
+- [Per-term exposure](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L397)
+- [RETAIN_SECONDS](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L398)
+- [T2 blob retention](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L399)
+- [FORCED_RING](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L400)
+- [ANCHOR_MIN_AGE / ANCHOR_MAX_AGE; ROLE_HORIZON](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L401)
+- [EIP-2935 / blockhash windows; landing horizon](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L402)
+- [TERM_RING; SETTLE_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L403)
+- [LANDED_CONFIRM_DEPTH; EXPIRY_TTL / REORG_MARGIN; LANDING_GAS_BUDGET](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L404)
+- [LAND_CALLDATA_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L405)
+- [Gas per landing](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L406)
+- [Gas: committee walk when a landing pins; race loser](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L407)
+- [Happy-path landed latency](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L408)
+- [Checkpoint delay in degraded mode](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C2-landing.md#L409)
 ### C3: [owning register](https://github.com/taikoxyz/taiko-mono/blob/eebc59808aa16e291ab262c31aa224c60979ef5d/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L349)
 
-**[assumed: corrected D41 proposal; tags/status as source]** Pin `eebc59808aa16e291ab262c31aa224c60979ef5d`; the corrected source remains unmerged. All 14 numeric owner rows are indexed below by their exact row identifiers; values, units, formulas and assumptions remain in C3. This replaces the obsolete `4aa0299c` inventory in full. The [§9 economics](https://github.com/taikoxyz/taiko-mono/blob/eebc59808aa16e291ab262c31aa224c60979ef5d/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L494), including all three `L_K` scenario rows, and [§10 C6 handoff](https://github.com/taikoxyz/taiko-mono/blob/eebc59808aa16e291ab262c31aa224c60979ef5d/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L526) are indexed by the [current measurement procedures](#current-hatch-measurement-and-closure-procedures). No assumed or quoted row is promoted to measured or conservative by this pin.
+**[assumed: accepted D41 source under D59; tags/status as source]** Pin `eebc59808aa16e291ab262c31aa224c60979ef5d`; the corrected source is merged under D59. All 14 numeric owner rows are indexed below by their exact row identifiers; values, units, formulas and assumptions remain in C3. This replaces the obsolete `4aa0299c` inventory in full. The [§9 economics](https://github.com/taikoxyz/taiko-mono/blob/eebc59808aa16e291ab262c31aa224c60979ef5d/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L494), including all three `L_K` scenario rows, and [§10 C6 handoff](https://github.com/taikoxyz/taiko-mono/blob/eebc59808aa16e291ab262c31aa224c60979ef5d/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L526) are indexed by the [current measurement procedures](#current-hatch-measurement-and-closure-procedures). No assumed or quoted row is promoted to measured or conservative by this pin.
 
 - [HATCH_DELAY](https://github.com/taikoxyz/taiko-mono/blob/eebc59808aa16e291ab262c31aa224c60979ef5d/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L353)
 - [HATCH_WINDOW](https://github.com/taikoxyz/taiko-mono/blob/eebc59808aa16e291ab262c31aa224c60979ef5d/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L354)
@@ -132,44 +133,43 @@
 - [EIP-2935 window at L1](https://github.com/taikoxyz/taiko-mono/blob/515f3be43404dc301d4ce4bd42f8879214ba5a45/packages/protocol/docs/Etna/spec/C7-block-validity.md#L224)
 - [Predicate evaluation cost per block](https://github.com/taikoxyz/taiko-mono/blob/515f3be43404dc301d4ce4bd42f8879214ba5a45/packages/protocol/docs/Etna/spec/C7-block-validity.md#L225)
 
-### S1: [owning register](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L186)
+### S1: [owning register](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L188)
 
-**[assumed: accepted source; D52]** Pin `960ee7d2`. All 33 numeric rows are indexed to the merged source; derived, assumed and unmeasured labels remain the owner’s. Section acceptance does not complete the owner’s integration obligations or supply measurements. D50/D51 control newer sign-off and hatch choices over historical source wording.
+**[assumed: accepted D61 source; tags/status as source]** Pin `d3f9bfe6`. All 33 owner rows are indexed by identifier; values, formulas and unmeasured status remain at the source. D61 accepts the hatch synchronization, not D44 completeness or an additional user-signed limitation.
 
-- [TERM; CYCLE_TERMS; T0](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L192)
-- [LOOKBACK](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L193)
-- [DELAY_S](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L194)
-- [DELAY_REG; its inequality](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L195)
-- [freshFrom offset; freshness window](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L196)
-- [MIN_TENURE; STALE_EXIT](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L197)
-- [EVIDENCE_WINDOW](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L198)
-- [ROLE_HORIZON](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L199)
-- [SUSPEND(3)](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L200)
-- [B_SEAT; buffer; hard floor; LAND_RESERVE](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L201)
-- [Entry capital per seat](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L202)
-- [CAP; MAX_SEATS](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L203)
-- [MAX_TRIES; MAX_DISTINCT](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L204)
-- [WALK_MAX; walk failure probability](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L205)
-- [K; K_MIN_CERT; V_MAX](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L206)
-- [Full-committee minimum; launch condition](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L207)
-- [Open-empty probability](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L208)
-- [DEAD_TERMS; dead-mode opening](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L209)
-- [Class-A committee effect](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L210)
-- [Sentinel reference window](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L211)
-- [Sentinel span (D45(3)); sentinel disarm delay (D45(4))](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L212)
-- [Suspension merge over-approximation](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L213)
-- [Sentinel replacement wait](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L214)
-- [TH9 price of share](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L215)
-- [L1-proposer seed bias](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L216)
-- [Domain write gas](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L217)
-- [Committee walk gas (a pin)](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L218)
-- [isHolder gas](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L219)
-- [poke() gas](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L220)
-- [Pin gas at the launch registry](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L221)
-- [MISS_PENALTY; STRIKE_THRESHOLD within STRIKE_DECAY](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L222)
-- [PIN_MAX](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L223)
-- [Domain tags and walk prefixes](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L224)
-
+- [TERM; CYCLE_TERMS; T0](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L194)
+- [LOOKBACK](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L195)
+- [DELAY_S](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L196)
+- [DELAY_REG; its inequality](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L197)
+- [freshFrom offset; freshness window](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L198)
+- [MIN_TENURE; STALE_EXIT](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L199)
+- [EVIDENCE_WINDOW](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L200)
+- [ROLE_HORIZON](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L201)
+- [SUSPEND(3)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L202)
+- [B_SEAT; buffer; hard floor; LAND_RESERVE](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L203)
+- [Entry capital per seat](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L204)
+- [CAP; MAX_SEATS](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L205)
+- [MAX_TRIES; MAX_DISTINCT](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L206)
+- [WALK_MAX; walk failure probability](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L207)
+- [K; K_MIN_CERT; V_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L208)
+- [Full-committee minimum; launch condition](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L209)
+- [Open-empty probability](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L210)
+- [DEAD_TERMS; dead-mode opening](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L211)
+- [Class-A committee effect](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L212)
+- [Sentinel reference window](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L213)
+- [Sentinel span (D45(3)); sentinel disarm delay (D45(4))](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L214)
+- [Suspension merge over-approximation](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L215)
+- [Sentinel replacement wait](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L216)
+- [TH9 price of share](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L217)
+- [L1-proposer seed bias](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L218)
+- [Domain write gas](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L219)
+- [Committee walk gas (a pin)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L220)
+- [isHolder gas](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L221)
+- [poke() gas](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L222)
+- [Pin gas at the launch registry (72 seats)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L223)
+- [MISS_PENALTY; STRIKE_THRESHOLD within STRIKE_DECAY](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L224)
+- [PIN_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L225)
+- [Domain tags and walk prefixes](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L226)
 ### S2: [owning register](https://github.com/taikoxyz/taiko-mono/blob/ab391fe4710382f089f367b54261c0296e54cc67/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md#L230)
 
 **[assumed: index; tags/status as source]** Pin `ab391fe4`. Every register row is linked by identifier below; no parameter value is copied, defined or re-derived here.
@@ -231,110 +231,110 @@
 - [Cartel table; seconds-weighted shares; entrant](https://github.com/taikoxyz/taiko-mono/blob/a0f3232a654580d491aecbd88c8716cd9794ea57/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md#L294)
 - [BLS convention](https://github.com/taikoxyz/taiko-mono/blob/a0f3232a654580d491aecbd88c8716cd9794ea57/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md#L295)
 
-### C5: [owning register](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L182)
+### C5: [owning register](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L184)
 
-**[assumed: index; tags/status as source]** Pin `66e37373`. Every register row is linked by identifier below; no parameter value is copied, defined or re-derived here.
+**[assumed: accepted D61 source; tags/status as source]** Pin `d3f9bfe6`. All 30 owner rows are indexed by identifier; values, formulas and unmeasured status remain at the source. D61 accepts the hatch synchronization, not D44 completeness or an additional user-signed limitation.
 
-- [L1-SLOT](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L188)
-- [L1-2935 window](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L189)
-- [L1-BLOCKHASH](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L190)
-- [L1-4788 ring](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L191)
-- [L2-4788 / L2-2935](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L192)
-- [L1-GAS-CAP](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L193)
-- [L1-BLOCK-GAS](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L194)
-- [L1-BLOBS-BLOCK](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L195)
-- [L1-BLOB-RATE](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L196)
-- [L1-FINALITY](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L197)
-- [L1-EPBS](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L198)
-- [L1-ANCHOR-MARGIN](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L199)
-- [L1-RETENTION](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L200)
-- [L1-STATE-GAS](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L201)
-- [L1-CALLDATA-FLOOR](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L202)
-- [L1-BLOB-RESERVE](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L203)
-- [L1-FOCIL-CAP](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L204)
-- [TX-ENVELOPE](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L205)
-- [FOCIL-LEG-BYTES](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L206)
-- [G-PREFIX](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L207)
-- [LAND_CALLDATA_MAX](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L208)
-- [G-VERIFY-GAS](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L209)
-- [G-FLOOR(L)](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L210)
-- [G-BURN-MIN](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L211)
-- [S2-FLOOR(L)](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L212)
-- [D-FLOOR(L)](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L213)
-- [G-STALE-EXEC](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L214)
-- [MIN_TIP](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L215)
-- [T-GATE-DATES](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L216)
-- [Quoted constants](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L217)
+- [L1-SLOT](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L190)
+- [L1-2935 window](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L191)
+- [L1-BLOCKHASH](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L192)
+- [L1-4788 ring](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L193)
+- [L2-4788 / L2-2935](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L194)
+- [L1-GAS-CAP](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L195)
+- [L1-BLOCK-GAS](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L196)
+- [L1-BLOBS-BLOCK](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L197)
+- [L1-BLOB-RATE](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L198)
+- [L1-FINALITY](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L199)
+- [L1-EPBS](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L200)
+- [L1-ANCHOR-MARGIN](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L201)
+- [L1-RETENTION](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L202)
+- [L1-STATE-GAS](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L203)
+- [L1-CALLDATA-FLOOR](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L204)
+- [L1-BLOB-RESERVE](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L205)
+- [L1-FOCIL-CAP](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L206)
+- [TX-ENVELOPE](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L207)
+- [FOCIL-LEG-BYTES](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L208)
+- [G-PREFIX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L209)
+- [LAND_CALLDATA_MAX](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L210)
+- [G-VERIFY-GAS](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L211)
+- [G-FLOOR(L)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L212)
+- [G-BURN-MIN](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L213)
+- [S2-FLOOR(L)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L214)
+- [D-FLOOR(L)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L215)
+- [G-STALE-EXEC](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L216)
+- [MIN_TIP](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L217)
+- [T-GATE-DATES](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L218)
+- [Quoted constants](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L219)
+### C8: [owning register](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L499)
 
-### C8: [owning register](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L471)
+**[assumed: accepted D61 source; tags/status as source]** Pin `d3f9bfe6`. All 19 owner rows are indexed by identifier; values, formulas and unmeasured status remain at the source. D61 accepts the hatch synchronization, not D44 completeness or an additional user-signed limitation.
 
-**[assumed: accepted source; D49]** Pin `f87836f4`. All 18 numeric rows are linked by identifier and verified against the merged source. The register separates derived byte/layout arithmetic from quoted inputs and unmeasured costs; none is measurement. The `Operator` row awaits reviewed D45 projection, FI-dependent rows await D41, and the `headerCore` width proposal remains conditional on C2 adoption. Section acceptance does not close these owner-marked conditions or unplaced fields.
+- [DOMAIN tags](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L505)
+- [phHash preimage](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L506)
+- [Other preimages](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L507)
+- [L2 timestamp bound; wire L1 number bound](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L508)
+- [uint32 L1 time end](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L509)
+- [TermRecord; Seat](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L510)
+- [New-entry word of the FI queue; FiEntry](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L511)
+- [FiQueue word](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L512)
+- [LastLanded storage](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L513)
+- [ProvisionalRecord storage](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L514)
+- [Operator scalars](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L515)
+- [Inbox appended slots; remaining gap](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L516)
+- [SignalService gap](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L517)
+- [Floor list element](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L518)
+- [Anchor gap; Bridge gap; ERC20Vault gap](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L519)
+- [FI queue walk, cold loads per entry](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L520)
+- [Manifest-wrapped reveal](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L521)
+- [headerCore widths (proposal for C2's E02)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L522)
+- [Reinitializer versions](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L523)
+### S4: [owning register](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L199)
 
-- [DOMAIN tags](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L477)
-- [phHash preimage](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L478)
-- [Other preimages](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L479)
-- [L2 timestamp bound; wire L1 number bound](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L480)
-- [uint32 L1 time end](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L481)
-- [TermRecord; Seat](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L482)
-- [New-entry word of the FI queue](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L483)
-- [LastLanded storage](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L484)
-- [ProvisionalRecord storage](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L485)
-- [Operator scalars](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L486)
-- [Inbox appended slots; remaining gap](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L487)
-- [SignalService gap](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L488)
-- [Floor list element](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L489)
-- [Anchor gap; Bridge gap; ERC20Vault gap](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L490)
-- [FI queue walk, cold loads per entry](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L491)
-- [Manifest-wrapped reveal](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L492)
-- [headerCore widths (proposal for C2's E02)](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L493)
-- [Reinitializer versions](https://github.com/taikoxyz/taiko-mono/blob/f87836f4e8188201a882242c6e051d3991541c29/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L494)
+**[assumed: accepted D61 source; tags/status as source]** Pin `d3f9bfe6`. All 19 owner rows are indexed by identifier; values, formulas and unmeasured status remain at the source. D61 accepts the hatch synchronization, not D44 completeness or an additional user-signed limitation.
 
-### S4: [owning register](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L195)
+- [Roles](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L205)
+- [Rung 1, takeover gap](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L206)
+- [Rung 2, idle bound](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L207)
+- [Rung 3, FALLBACK gates](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L208)
+- [Rung 4, replacement window](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L209)
+- [Rung 4, ramp](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L210)
+- [Rung 5, degraded mode](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L211)
+- [Rung 6, dead mode](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L212)
+- [Landing horizon](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L213)
+- [Retention gap](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L214)
+- [Forced inclusion](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L215)
+- [Locked and fully backed backing](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L216)
+- [Quorum failure](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L217)
+- [Collusion](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L218)
+- [Evidence windows](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L219)
+- [Honest draw at the weak premise](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L220)
+- [Level timings, cadence](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L221)
+- [Landed latency, proving](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L222)
+- [Other unmeasured inputs](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L223)
+### C6A: [owning register](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L299)
 
-**[assumed: accepted source; D53]** Pin `960ee7d2`. All 19 numeric rows are indexed to the merged source; derived, assumed and unmeasured labels remain the owner’s. Section acceptance does not complete the owner’s integration obligations or supply measurements. D50/D51 control newer sign-off and hatch choices over historical source wording.
+**[assumed: accepted D61 source; tags/status as source]** Pin `d3f9bfe6`. All 20 owner rows are indexed by identifier; values, formulas and unmeasured status remain at the source. D61 accepts the hatch synchronization, not D44 completeness or an additional user-signed limitation.
 
-- [Roles](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L201)
-- [Rung 1, takeover gap](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L202)
-- [Rung 2, idle bound](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L203)
-- [Rung 3, FALLBACK gates](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L204)
-- [Rung 4, replacement window](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L205)
-- [Rung 4, ramp](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L206)
-- [Rung 5, degraded mode](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L207)
-- [Rung 6, dead mode](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L208)
-- [Landing horizon](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L209)
-- [Retention gap](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L210)
-- [Forced inclusion](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L211)
-- [Locked and fully backed backing](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L212)
-- [Quorum failure](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L213)
-- [Collusion](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L214)
-- [Evidence windows](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L215)
-- [Honest draw at the weak premise](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L216)
-- [Level timings, cadence](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L217)
-- [Landed latency, proving](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L218)
-- [Other unmeasured inputs](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L219)
-
-### C6A: [owning register](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L291)
-
-**[assumed: accepted source; D54]** Pin `960ee7d2`. All 17 numeric rows are indexed to the merged source; derived, assumed and unmeasured labels remain the owner’s. Section acceptance does not complete the owner’s integration obligations or supply measurements. D50/D51 control newer sign-off and hatch choices over historical source wording.
-
-- [Threats](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L297)
-- [Premises](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L298)
-- [Round Mediums](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L299)
-- [Register rows](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L300)
-- [Quorum, stall and intersection counts](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L301)
-- [Deterrent illustrations (L14, L16, L24)](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L302)
-- [Horizons](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L303)
-- [Retention gaps (L25)](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L304)
-- [Stall costs (L23)](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L305)
-- [L20 thresholds](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L306)
-- [L17 leak](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L307)
-- [L39 drift](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L308)
-- [L37 window](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L309)
-- [L27 loser cost; burn floor](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L310)
-- [Evidence windows (L32)](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L311)
-- [FALLBACK finality; full-backing delay (L5, L24, L46)](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L312)
-- [Unmeasured in this half](https://github.com/taikoxyz/taiko-mono/blob/960ee7d2d9e20c2fc4da9a9bcafc95f92b932345/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L313)
-
+- [Id](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L303)
+- [Threats](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L305)
+- [Premises](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L306)
+- [Round Mediums](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L307)
+- [Register rows](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L308)
+- [m − Q(m) + 1 at 32; ⌊m/2⌋ + 1; 2Q(m) − m at 32, 16 and 8; ⌊m/2⌋ + 1 + Q(m) − m at 32, 16 and 8](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L309)
+- [Deterrent illustrations (L14, L16, L24)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L310)
+- [Horizons](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L311)
+- [Retention gaps (L25)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L312)
+- [Stall costs (L23)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L313)
+- [Hatch stuffing price (L-HATCH-STUFF)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L314)
+- [Poison residual (L-HATCH-POISON)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L315)
+- [L20 thresholds](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L316)
+- [L17 leak](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L317)
+- [L39 drift](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L318)
+- [L37 window](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L319)
+- [L27 loser cost; burn floor](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L320)
+- [Evidence windows (L32)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L321)
+- [FALLBACK finality; full-backing delay (L5, L24, L46)](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L322)
+- [Unmeasured in this half](https://github.com/taikoxyz/taiko-mono/blob/d3f9bfe63ebfee12e5b41a4c41fd10f2176af155/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L323)
 ### C4: [owning register](https://github.com/taikoxyz/taiko-mono/blob/ff8426996a4807d82f61065c3cfe4ce0ae47d11c/packages/protocol/docs/Etna/spec/C4-migration.md#L329)
 
 **[assumed: proposed D41 consumer source; open: review]** Pin `ff842699`. The prior section is accepted, but this consumer revision awaits A/J review. Every register row is linked by identifier; no parameter value is copied or selected here.
@@ -420,6 +420,8 @@
 
 The [D44 closure index](C6-readiness-closure-index.md) expands B's C1/C4/C6 obligations into owner artifacts and checks. It supersedes the blanket D2 treatment; it neither disposes of source-owned open items nor grants user acceptance to a limitation.
 
+**[open: nonblocking owner synchronization]** D61's C2 register still quotes `DRIFT_MAX = 65 s` and the old inheritance derivation, while merged C3 and D59 supersede inheritance with zero drift. This index links C2's actual row rather than silently replacing its value. C2 owns removing the superseded derivation in its next synchronization; the old larger header-count allowance is conservative, but its explanation is stale. D60's fresh-execution contiguity gap likewise awaits its explicit C3/C7/C6/S4 owner projection; only its signed-limitation classification is recorded here.
+
 ## External implementation evidence (IG1)
 
 **[assumed: dated classification]** [C5-R17(d)](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L158) classifies [client PR #22207](https://github.com/taikoxyz/taiko-mono/pull/22207) at `1170344842dec57b1a4dcbc5a2d68a9f920a0895` as an implementation gap. C6 records it as IG1. Classification is supplied, not pending: neither the guard nor “Catalyst changes” establishes an Ethereum ePBS dependency. C5 owns reclassification if the eventual confirmation implementation proves to require an L1 consensus change.
@@ -432,6 +434,6 @@ The [D44 closure index](C6-readiness-closure-index.md) expands B's C1/C4/C6 obli
 
 ## Revision notices
 
-**[assumed: decisions and reviews]** C2's numeric inventory is pinned to its D36 accepted revision and C8's to D49; C3's is pinned to the corrected `eebc598` proposal with the remaining review gates explicit. Other entries retain explicitly dated sources. The dashboard records D29/D42 confirmation/evidence, D34 economics, D39/D41/D51's hatch choices and corrected technical proposal, D55's signed latency-dependent limitations and D56's historical freeze, D57's full earlier-head review and D58's pending C7 revision, D40/D45 registry repairs, D48's reviewed holder-path scope, D43/D46 and #22215's A-only course/index acceptance, D44/D50 readiness/sign-off, D47's accepted delay and D49's accepted C8 with nonblocking follow-ups. Prior clearances approve only their cited heads.
+**[assumed: decisions and reviews]** C2/C5/C8/S1/S4/C6-A numeric inventories are pinned to their D61 accepted synchronization; C3's is pinned to the merged `eebc598` source with the remaining review gates explicit. Other entries retain explicitly dated sources. The dashboard records D29/D42 confirmation/evidence, D34 economics, D39/D41/D51's hatch choices and corrected technical proposal, D55's signed latency-dependent limitations and D56's historical freeze, D57's full earlier-head review and D58's pending C7 revision, D40/D45 registry repairs, D48's reviewed holder-path scope, D43/D46 and #22215's A-only course/index acceptance, D44/D50 readiness/sign-off, D47's accepted delay and D49's accepted C8 with nonblocking follow-ups. Prior clearances approve only their cited heads.
 
 **[open: follow-up review]** This update changes no parameter, formula, WORK status or limitation disposition. Defaults still need conservative rationales/procedures where absent, draft inventories need owner-merge updates, and completion requires WORK's full evidence checklist.
