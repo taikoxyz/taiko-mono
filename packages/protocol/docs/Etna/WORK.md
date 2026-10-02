@@ -34,3 +34,15 @@ J is active through hourly reads of GitHub (D27): W9 covers the recovery heads a
 ## Cycle 2
 
 Red-team rounds on the merged specification: A and B run the three attack goals in alternation on different models, J judges; two consecutive rounds with no new Critical or High, then the readiness checklist (W9).
+
+## Readiness (D44)
+
+"Done" means all of the following hold at the head of #22191, the single deliverable PR.
+
+1. **Merged.** Every section (C1 to C8, S1 to S4, C6-B) and the learning site are merged into `etna/converged-spec`. Every other PR is closed: merged section PRs close on merge, superseded ones with a pointer, and the candidate PRs #22184 and #22188 with a pointer to #22191.
+2. **Complete.** No open item remains in any section, except accepted limitations in C6's register that the user has signed off.
+3. **Implementation ready.** C8 defines every interface, encoding, storage slot, constant and error, with reference vectors that an implementer can test against. Each rule names its owner, inputs, failure behaviour and test vector.
+4. **Numbers.** Every unmeasured number has a conservative specified default and a stated measurement procedure. None is left as "unmeasured" without a default.
+5. **Sound.** Cycle 2 red-team: rounds by A and B on different models, judged by J, until two consecutive rounds find no new Critical or High.
+6. **Audited.** J's readiness audit (W9) passes.
+7. **Third-party review ready.** A fresh reviewer who reads only the merged tree, with no conversation context, finds nothing blocking. The README gives a reading order, the requirements R1 to R7 and D1 with their verdicts, and the accepted-limitations register.
