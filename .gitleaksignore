@@ -1,0 +1,2 @@
+# False positive: Etna C4 prose ("supply/balances/allowances/NFT ownership") matched generic-api-key; no credential (user-approved 2026-10-02).
+52c7fd03480b100d82ab944302ed36094e8fc13a:packages/protocol/docs/Etna/spec/C4-migration.md:generic-api-key:116
