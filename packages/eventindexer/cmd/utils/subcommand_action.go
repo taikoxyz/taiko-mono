@@ -35,17 +35,21 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		_, startMetrics := metrics.Serve(ctx, c)
-
-		if err := startMetrics(); err != nil {
-			slog.Error("Starting metrics server error", "error", err)
-			return err
-		}
-
 		defer func() {
 			ctxClose()
 			app.Close(ctx)
 			slog.Info("Application stopped", "name", app.Name())
+		}()
+
+		_, startMetrics := metrics.Serve(ctx, c)
+
+		// Echo's Start blocks until the server is shut down, so serving the metrics
+		// endpoint inline would keep the signal handler below from ever being
+		// installed and the application could not be stopped gracefully.
+		go func() {
+			if err := startMetrics(); err != nil {
+				slog.Error("Starting metrics server error", "error", err)
+			}
 		}()
 
 		quitCh := make(chan os.Signal, 1)
