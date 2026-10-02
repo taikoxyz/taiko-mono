@@ -10,6 +10,8 @@
 
 **[assumed: index boundary]** Rule IDs resolve to the owning source, not to a paraphrase here. The [unmeasured register](C6-unmeasured-register.md) lists every supplied section's numeric-register rows by identifier or exact source label and gives measurement closure tests. C5, C8, S4 and A's C6 half are pending integration artifacts at this snapshot; no IDs or verdicts are fabricated for them.
 
+**[open: external implementation status, 2026-10-02]** The register's [client/Catalyst evidence record](C6-unmeasured-register.md#external-implementation-evidence-outside-d2) tracks #22207 at `1170344842dec57b1a4dcbc5a2d68a9f920a0895`, which explicitly rejects Etna preconfirmation. Anchorless client support is not evidence that D1's confirmation layer executes. C5 owns the dependency classification and C8 the interface integration; this observation neither establishes an Ethereum ePBS requirement nor adds implementation to D2's specification-readiness gate.
+
 | Source | Immutable revision / entry point | Review state evidenced here |
 |---|---|---|
 | C1, execution/checkpoints | [6f3834077, C1](https://github.com/taikoxyz/taiko-mono/blob/6f38340771752c76484adf55abebd9ff9f19a18a/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md), #22195 | **Open:** A's follow-up applied; new verdict pending. J closed J-1/J-2 at the preceding 75616d5, not a blanket approval of future edits. |
@@ -116,7 +118,7 @@ C5 owns L1/frame dependencies. C8 owns exact encodings and physical layouts.
 |---|---|
 | Execution and roots | Accepted C1, then C4's activation prerequisites; optional reveal/pin, guarded legacy writes and no mandatory Anchor transaction. |
 | Assignments and local validity | Accepted S1 then S2/C7; D19 fixed draw counter and finite exits; D17 gossip/landed predicates. |
-| Actionable confirmation and attacks | Accepted S2/S3; D16 logical opening identity and objective evidence; D20 actual backing and all S2-R18 exceptions next to LOCKED. |
+| Actionable confirmation and attacks | Accepted S2/S3; D16 logical opening identity and objective evidence; D20 actual backing and all S2-R18 exceptions next to LOCKED. Link the register's client/Catalyst evidence record so proposed behavior is not presented as already executing in the anchorless client. |
 | Landing and recovery | Accepted C2/C3/C5; fixed-recipient proof reuse, authenticated due clock, irreversible per-entry settlement and L-PF consequences. |
 | Custody and migration | Accepted C4/C8; exact existing-address changes, legacy-request adapter, bootstrap, funding and prohibited deeper custody rollback. |
 | Full argument | Accepted S4 and both C6 halves; original requirement verdicts, accepted Medium rationale and merged-round findings with their actual closure commits. |
