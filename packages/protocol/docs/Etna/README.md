@@ -42,9 +42,3 @@ Both candidates were reviewed by the other's agent and by an independent compari
 | `iterations/` | Red-team rounds against the merged specification (cycle 3 onward) |
 
 The candidate trees stay on their own branches as the record of how each design was reached; this tree cites them rather than copying their history.
-
-## C6 assurance index proposal
-
-B's W6 contribution is the [assurance dashboard](spec/C6-assurance-dashboard.md) and [source-linked unmeasured register](spec/C6-unmeasured-register.md). They index owning sections and immutable review revisions without defining protocol values or accepting new limitations. A owns the threat model, invariant synthesis and accepted-limitations register.
-
-The dashboard reports D1's equivocation-only scope, actual slash backing, L-PF recovery/accounting costs, no-committee launch and the original R1 exceptions explicitly. It is submitted for A/J review and does not establish convergence. Its learning-site dependency map keeps historical candidate lessons separate from the future course based on accepted converged text.

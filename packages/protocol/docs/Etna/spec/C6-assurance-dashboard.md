@@ -1,130 +1,153 @@
 # C6-B. Assurance dashboard
 
-**Owner:** B. **Reviewer:** A. **Independent reviewer:** J.
+**[assumed: ownership and snapshot]** B maintains this reference-only dashboard under D12/W6/W16. A's C6-R08 owns limitation dispositions; S4-R14 owns requirement tags; S2-R18 owns the six confirmation levels. This page assigns none of those a second meaning or acceptance status. Snapshot: 2026-10-02, after C1's D28 merge and B's W11–W13 reviews; C4 is the W16 submission. A/J have not approved this revision.
 
-**Status [open]:** W6 review snapshot, 2026-10-01. The converged specification is **not ready**. This index defines no protocol rule, parameter, new limitation acceptance or exception to R1–R7. A owns C6's threat model, invariant synthesis and accepted-limitations register. [WORK](../WORK.md) alone records task completion; A alone updates it. Source revisions below are immutable: a later PR head does not inherit a verdict from this snapshot.
+**[open: readiness]** Section review is in progress. The cross-opening accountability finding B-D21-01 and the primary-frame authorization finding B-C5-01 remain open at this snapshot. D2 allows unmeasured implementation work, not contradictory rules. Neither historical candidate rounds nor these section reviews constitute the merged-spec convergence rounds.
 
-## 1. How to read the evidence
+## 1. Source and review ledger
 
-**[assumed: documentation convention]** **Proven** means an argument under its named premises, not machine verification. **Assumed** identifies a proposed mechanism, a trust/economic premise or a source-reported result. **Open** identifies missing semantics, a decision, review or evidence. **Unmeasured** identifies a quantity for later implementation measurement; D2 permits it and does not by itself make a coherent specification unready. Missing signed fields, undefined state transitions and contradictory accounting are semantic opens, even if they affect performance.
-
-**[assumed: index boundary]** Rule IDs resolve to the owning source, not to a paraphrase here. The [unmeasured register](C6-unmeasured-register.md) lists every supplied section's numeric-register rows by identifier or exact source label and gives measurement closure tests. C5, C8, S4 and A's C6 half are pending integration artifacts at this snapshot; no IDs or verdicts are fabricated for them.
-
-**[open: external implementation status, 2026-10-02]** The register's [client/Catalyst evidence record](C6-unmeasured-register.md#external-implementation-evidence-outside-d2) tracks #22207 at `1170344842dec57b1a4dcbc5a2d68a9f920a0895`, which explicitly rejects Etna preconfirmation. Anchorless client support is not evidence that D1's confirmation layer executes. C5 owns the dependency classification and C8 the interface integration; this observation neither establishes an Ethereum ePBS requirement nor adds implementation to D2's specification-readiness gate.
-
-| Source | Immutable revision / entry point | Review state evidenced here |
+| Owner | Immutable source | Review state at snapshot |
 |---|---|---|
-| C1, execution/checkpoints | [6f3834077, C1](https://github.com/taikoxyz/taiko-mono/blob/6f38340771752c76484adf55abebd9ff9f19a18a/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md), #22195 | **Open:** A's follow-up applied; new verdict pending. J closed J-1/J-2 at the preceding 75616d5, not a blanket approval of future edits. |
-| C2, landing | [f67d4d4, C2](https://github.com/taikoxyz/taiko-mono/blob/f67d4d47e7c7b3ac960d4434ac28e5dedf5b64da/packages/protocol/docs/Etna/spec/C2-landing.md), #22196 | **Open:** four original B findings closed; [new Medium hash-domain ambiguity](https://github.com/taikoxyz/taiko-mono/pull/22196#issuecomment-5934018060) blocks B approval. |
-| S2, certificates/handoff | [0403a54, S2](https://github.com/taikoxyz/taiko-mono/blob/0403a540a2186f404d7e5bff99496d29a7be3789/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md), #22197 | **Open:** B request-changes; D16 adopts repairs, revised text and new verdict still required. |
-| C7, block validity | [0583a6f, C7](https://github.com/taikoxyz/taiko-mono/blob/0583a6fdd249c22862df93b257a0cf79c7b98136/packages/protocol/docs/Etna/spec/C7-block-validity.md), #22199 | **Open:** B request-changes; D14/D17 decide repairs. J's later D14-only closure does not close the other B findings. |
-| C3, forced inclusion | [185ed1c, C3](https://github.com/taikoxyz/taiko-mono/blob/185ed1c4c8185d29f1228d597fc1a352bd8f8974/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md), #22200 | **Open:** B request-changes; D18 adopts repairs. J's later age-bound closure is distinct from the new accounting/clock findings. |
-| S1, seats/sortition | [dbdcc3d, S1](https://github.com/taikoxyz/taiko-mono/blob/dbdcc3dc5bf9475429edcbe2ba025301805f515d/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md), #22201 | **Open:** B request-changes; D19 adopts walk/exit/recycling changes, not yet verified in a revised source by this index. |
-| S3, slashing/economics | [1383e06, S3](https://github.com/taikoxyz/taiko-mono/blob/1383e06c9ac601aa7e0e25737111024422824dc5/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md), #22202 | **Open:** B request-changes; D20 adopts actual-backing and comparator repairs. The old nominal credit bound is superseded. |
-| C4, migration | [744234398, C4](https://github.com/taikoxyz/taiko-mono/blob/744234398514746baefc99710fd267356a1d0bbf/packages/protocol/docs/Etna/spec/C4-migration.md), #22205 | **Open:** [J found no Critical/High and supported DL-3 conditionally](https://github.com/taikoxyz/taiko-mono/pull/22205#issuecomment-5934289378) at this pin; B's clarification revision and A's arbitration remain pending. |
-| Decisions | [ef22fce25, D1–D20](https://github.com/taikoxyz/taiko-mono/blob/ef22fce253b348506193398e9697f1c52e4b8fe2/packages/protocol/docs/Etna/DECISIONS.md) | **Assumed: record:** adopted directions can supersede a source claim, but do not prove the replacement is internally consistent or merged. |
+| C1 | [42c76c9b](https://github.com/taikoxyz/taiko-mono/blob/42c76c9bddb24bc8d51a7b4454a0439ab5d8e182/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md) | Merged by A under D28; C4/C8 integration and unmeasured evidence remain. |
+| C2 | [f67d4d47](https://github.com/taikoxyz/taiko-mono/blob/f67d4d47e7c7b3ac960d4434ac28e5dedf5b64da/packages/protocol/docs/Etna/spec/C2-landing.md) | B request-changes; D23/W15 recovery head pending. |
+| C3 | [13d0e119](https://github.com/taikoxyz/taiko-mono/blob/13d0e119f87ce6dc33c59f48b1aeade274884277/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md) | B request-changes; D18/D22/W15 recovery head pending. |
+| C4 | [d1ebe1e6](https://github.com/taikoxyz/taiko-mono/blob/d1ebe1e6e3c68972c0b14cef04db72b0dccee304/packages/protocol/docs/Etna/spec/C4-migration.md) | W16 submitted; A/J review and named integration seams pending. |
+| C5 | [595b5f7b](https://github.com/taikoxyz/taiko-mono/blob/595b5f7b192b95cac349617c9c4599c295744221/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md) | B request-changes, B-C5-01 High: primary frame authorization missing. |
+| C6A | [22948df9](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md) | B request-changes; B-D21-01 propagation and three Mediums. |
+| C7 | [fa854f35](https://github.com/taikoxyz/taiko-mono/blob/fa854f3524a9dc20181f47fb04b8e4c4ab6afbf3/packages/protocol/docs/Etna/spec/C7-block-validity.md) | B request-changes; D22/W15 recovery head pending. |
+| C8 | [f03f12a7](https://github.com/taikoxyz/taiko-mono/blob/f03f12a77879d625a7a2e8e34c55c516c47c5efd/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md) | B request-changes; encoding/layout/authority synchronization. |
+| S1 | [6751cb3a](https://github.com/taikoxyz/taiko-mono/blob/6751cb3a1a48af53b3bfe066332f5f7b1af397a3/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md) | B request-changes; D19/W15 recovery head pending. |
+| S2 | [0403a540](https://github.com/taikoxyz/taiko-mono/blob/0403a540a2186f404d7e5bff99496d29a7be3789/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md) | B request-changes; D21 and B-D21-01/D29 pending. |
+| S3 | [181acf03](https://github.com/taikoxyz/taiko-mono/blob/181acf03a2e77948aeb730683882b3589bc2adf3/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md) | B request-changes; D20 plus cross-opening evidence/backing work pending. |
+| S4 | [103b7c88](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md) | B request-changes; composed claims and decided projections need repair. |
 
-## 2. Assurance claims and their dependencies
+**[assumed: decision provenance]** [DECISIONS through D28](https://github.com/taikoxyz/taiko-mono/blob/42c76c9bddb24bc8d51a7b4454a0439ab5d8e182/packages/protocol/docs/Etna/DECISIONS.md) governs this snapshot. D27 corrects D24: J is active; the fallback applies only to a head J has not reached within a cycle. D28 accepts C1. D25/D26 govern the migration revision. D29 was announced as pending arbitration of B-D21-01; it is not a decision in this pin.
 
-| Claim | Owning argument | Evidence / boundary |
+[W11](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5945030219) attacks D21–D23; [W13](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5945170889) owns the snapshot consistency list. The six W15 replacement heads were not yet cited; unchanged historical approvals or partial J closures do not approve unseen recovery predicates.
+
+## 2. Assurance claim index
+
+| Claim to inspect | Sole owning arguments | Current review dependency |
 |---|---|---|
-| No mandatory Anchor transaction | C1-R01/R02/R07/R09, §7 | **Proven conditionally:** standard operations precede ordinary execution; current-root guard closes old writers. Premises include A-EXEC, A-HISTORY and authenticated origins. **Open:** C4 installation manifest and client/guest conformance. |
-| Checkpoint root/header integrity at the existing service | C1-R06/R08, §7; C2-R04/R19 | **Proven conditionally:** full-header authentication and single L1 ancestry bind number/hash/root; same-epoch conflict is not overwriteable. **Open:** C8 codec/profile vectors and C4 inherited-history audit. A pin does not establish finality or data availability. |
-| Local block validation and landed acceptance | C7; C2-R04/R05; D17 | **Assumed:** D17 distinguishes VALID_GOSSIP from VALID_LANDED. **Open:** total mode table, carried-object hash branches and S3 evidence for a bad carried certificate. Do not teach these as identical predicates. |
-| Slashable user-actionable confirmation | S2-R18; S3-R10; D16/D20 | **Open:** only the equivocation route has the promised slash evidence, under its committee/history assumptions and current collectible backing. The exceptions below remain visible. No positive numeric bound is copied from superseded S3 text. |
-| Proof and data land together | C2-R01–R05; C5 | **Assumed:** one atomic landing action binds data/proof, recipient and parent. **Open:** final frame/mempool semantics and full codec integration. A copied proof retains its bound recipient; a different recipient needs a new proof. |
-| Forced progress despite withheld or unprovable work | C3-R05–R11; C2-R08; S2 | **Open:** D18 repairs positive-due authentication, one-cut accounting and irreversible settlement. D12 accepts the genuine stall/void residual; it does not excuse a falsified clock or duplicate payout. |
-| Existing custody survives migration | C4-R01/R05/R09–R13 | **Proven conditionally:** authenticated retained state and exact layout/authority preservation keep message/token identities and custody. **Open:** legacy FI adapter, bootstrap integration, actual deployment manifest and R1 authority interpretation. |
-| DAO is not a normal liveness actor | S4; C2-R11–R14; C4 | **Open / fails in named exceptional cases:** C2 explicitly requires DAO recovery in CONFLICT and admits an uncertified regime with a prover-backend outage. This candidate is not an unconditional discharge of original R1. |
+| Anchor-free execution and current-root guards | C1-R01/R02/R05/R07/R09 | C1 merged; C4 installation, client/guest parity and C8 projection remain distinct obligations. |
+| Checkpoint/header integrity and floor lookup | C1-R06/R08/R10; C2-R13/R15/R19/R21 | C2/C8 must consume C1's merged lookup and installation rule. Floors do not undo custody effects. |
+| Local validity versus landed validity | C7-R01 and predicate; C2-R04/R05 | D22 fixed references, mode table and invalid-object preimage residual need recovery review. |
+| Slashable actionable confirmation | S2-R18; S3-R08/R10; S4-R07 | B-D21-01 remains open; current collectible backing is not nominal seat capital or a continuously funded reserve threshold. |
+| Atomic data/proof landing and races | C2-R01–R05; C5-R12–R15 | B-C5-01 requires complete sender/payment authorization in the primary frame shape. Ordinary land remains a fallback. |
+| Forced inclusion and irreversible settlement | C3-R03–R11; C4-R06 legacy adapter | D18/D22 recovery and the exact legacy resource/outcome profile require owner review. |
+| Retained custody and upgrade-only powers | C4-R09–R13; C8-R15/R17 | D26 removals are in C4's W16 submission; C8/S4 projections and manifest audit remain. |
+| Whole-design safety, liveness and role failures | S4-R01–R14 | Follow S4's premises/exceptions and the explicit B verdict; this index supplies no parallel theorem. |
 
-**[assumed: dependency projection]** The following is an index, not a second state machine:
+## 3. Confirmation-level index
 
-```text
-C1 execution + S1 assignment + S2 certificates -> C7 gossip validity
-                       |                              |
-                       +---- C3 forced rules --------+
-                                                      v
-                              C2 data/proof landing -> custody publication
-                                                      |
-C4 retained-state migration -> same SignalService / Bridge / Vault addresses
+**[assumed: reference only]** Use the exact level names and definitions in [S2-R18](https://github.com/taikoxyz/taiko-mono/blob/0403a540a2186f404d7e5bff99496d29a7be3789/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md#L177). The rows below identify their source, not an alternative label system or promise.
 
-S3 owns accountable collateral; S4 owns the composed safety/liveness argument.
-C5 owns L1/frame dependencies. C8 owns exact encodings and physical layouts.
-```
-
-## 3. What the confirmation labels permit a user to conclude
-
-**[assumed: S2-R18 projection, not replacement text]** A displayed label identifies both the observed history and the assumptions it relies on. Missing context is not a known invalid block. Execution validity is not canonical inclusion. L1 inclusion is not Ethereum finality. A checkpoint is a custody authorization and must follow C2's publication rule, not merely the local label.
-
-| Observation | What may be stated | What remains outside that statement |
+| S2 level | Definition and exceptions | Review notice |
 |---|---|---|
-| Locally valid / preconfirmed | C7's applicable gossip predicate passed for the node's authenticated context. | **Open/assumed:** propagation, canonical extension, data retention and later landed identity. |
-| LOCKED | S2's locking condition and S3's currently collectible evidence-backed amount, with applicable committee/opening identity. | **Assumed limitation:** S2-R18 discharges D1 for equivocation only. Protocol-authorized replacement or forced recovery after the deadline machinery, an L1 reorg, redraw/FALLBACK exceptions and governing upgrades can remove work without the nominal equivocation slash. D20's backing update still needs source-level review. |
-| Landed, provisional | C2 accepted the journal but withheld the custody checkpoint under its provisional rules. | **Assumed limitation L-PF:** later confirmation/finalization or CONFLICT recovery determines its fate; elapsed time is not proof-system soundness. |
-| Checkpoint published / L1-final | C2's publication predicate passed; Ethereum finality is separately observed for its L1 history. | **Assumed:** accepting proof systems, any named quorum premise in degraded mode, implementation correctness and future upgrade policy. A finalized bad authorization cannot be repaired by hiding its checkpoint afterward. |
+| sequenced | S2-R18, sequenced row; C7 local predicate | Fixed-reference/mode integration pending. |
+| attested | S2-R18, attested row | A certificate's precise commitments, quorum and witness are S2-owned. |
+| locked | S2-R18, locked and “what locked is not” rows | B-D21-01 and current-backing review remain open; show the owner's exceptions beside the label. |
+| landed | S2-R18, landed row; C2 publication state | L1 inclusion and finality remain separate in the owner definition. |
+| landed (provisional) | S2-R18, provisional row; C2-R12–R15 | L-PF and L37 are indexed below; no custody checkpoint is inferred merely from this label. |
+| final | S2-R18, final row | Read its L1-finality premise and proof/upgrade assumptions; this index does not strengthen it. |
 
-**[open: D1 integration]** The scoped confirmation is a candidate product with explicit exceptions, not an unconditional promise that every reorg compensates a user. D1 does not itself require victim compensation. D20 must nevertheless avoid advertising already-spent collateral as backing for another confirmation: historical assignment stability and current economic backing are different facts. S3/S2 own the exact formula and observation point; C6 copies neither an old nominal number nor a pending replacement formula as an approved value.
+**[open: client evidence]** IG1 in C6 and C5-R17(d) identifies the inspected anchorless client's unimplemented confirmation path. The [unmeasured register](C6-unmeasured-register.md#external-implementation-evidence-outside-d2) pins the source. A specified level is not evidence that a client currently executes it.
 
-## 4. Limitations index for A's accepted-limitations register
+## 4. C6-R08 limitations index
 
-**[assumed: ownership]** These rows link owning rules/decisions and preserve acceptance status. They do not accept a new risk on A's or the user's behalf. A's C6 register supplies the final limitation text, severity, acceptance rationale and links to J's verdict. A historical candidate limitation is input, not a completed convergence review.
+**[assumed: reference-only projection]** Exactly one row per id in [C6-R08](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L177). Every status is **as C6-R08**; this page neither ratifies a proposed residual nor changes a user-gated decision. A technical review of faithful transcription is not acceptance of a D1 relaxation. Full consequence, severity, rationale and acceptance evidence remain in the linked row.
 
-| Record / owner | Status and consequence that must remain visible |
+| C6-R08 id | Owning rules / section, as named there | Status |
+|---|---|---|
+| [L1](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L183) | S1-R11, S2-R07 | status: as C6-R08 |
+| [L2](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L184) | S2-R07, S2-R13, S2-R14, S2-R16, S3-R28 | status: as C6-R08 |
+| [L3](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L185) | S2-R20, C2-R08 | status: as C6-R08 |
+| [L4](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L186) | S2-R07, S2-R10 | status: as C6-R08 |
+| [L5](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L187) | S2-R10, S2-R13, S2-R14 | status: as C6-R08 |
+| [L6](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L188) | C2-R08, C2-R09, C3-R11 | status: as C6-R08 |
+| [L7](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L189) | C2-R03 | status: as C6-R08 |
+| [L8](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L190) | C3-R02, C3-R08, C7-R13 | status: as C6-R08 |
+| [L9](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L191) | S1-R19, S3-R27, S3-R28 | status: as C6-R08 |
+| [L10](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L192) | S3-R03 | status: as C6-R08 |
+| [L11](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L193) | C7-R09, C2-R20, C5-R05 | status: as C6-R08 |
+| [L12](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L194) | C3-R16, C5-R10, S1-R04 | status: as C6-R08 |
+| [L13](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L195) | C2-R20, C5-R17, C5-R18 | status: as C6-R08 |
+| [L14](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L196) | C2-R10, S2-R18, C2-R08 | status: as C6-R08 |
+| [L15](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L197) | S3 §11 (A-ECON) | status: as C6-R08 |
+| [L16](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L198) | S2-R02, S2-R16, S2-R18, S3-R10, S1-R08, S1-R13, S1-R18 | status: as C6-R08 |
+| [L17](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L199) | C4 (B's draft #22205, D25), C3-R05 | status: as C6-R08 |
+| [L18](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L200) | C6-R11, C3 §11 | status: as C6-R08 |
+| [L19](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L201) | C2-R11, S4-R04 | status: as C6-R08 |
+| [L20](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L202) | S3-R21 to S3-R25, C2-R17 | status: as C6-R08 |
+| [L21](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L203) | C1-R10 | status: as C6-R08 |
+| [L22](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L204) | C1-R05, C1-R08, C3 §13 | status: as C6-R08 |
+| [L-OP](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L205) | C4 (B's draft #22205; D25 adopts its change table, D26 removes three of its retained rows), S4-R04 | status: as C6-R08 |
+| [L-PF](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L206) | C2-R12 to C2-R15, C2-R21 | status: as C6-R08 |
+| [L23](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L207) | C3-R02, C3-R03, C3-R06, C3-R09, C3-R10 | status: as C6-R08 |
+| [L24](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L208) | S2-R18, S3-R10, S3 §15 (D1 discharge record) | status: as C6-R08 |
+| [L25](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L209) | C2-R18, S2-R22 | status: as C6-R08 |
+| [L26](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L210) | C1-R05, C1-R08, S3-R11 | status: as C6-R08 |
+| [L27](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L211) | C5-R12, C5-R15 | status: as C6-R08 |
+| [L28](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L212) | C5-R12, C5-R18 | status: as C6-R08 |
+| [L29](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L213) | C5-R10 | status: as C6-R08 |
+| [L30](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L214) | C5-R18 | status: as C6-R08 |
+| [L31](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L215) | C7-R01, C2-R07, C3-R06 | status: as C6-R08 |
+| [L32](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L216) | S3-R08 | status: as C6-R08 |
+| [L33](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L217) | S2-R13 | status: as C6-R08 |
+| [L34](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L218) | S4-R05, S4 §8 | status: as C6-R08 |
+| [L35](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L219) | S1-R11, S1-R17 | status: as C6-R08 |
+| [L36](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L220) | C2-R02, C2-R04, C2-R09, S2-R10 | status: as C6-R08 |
+| [L37](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L221) | C2-R14, C2-R21, C4 (rollback table) | status: as C6-R08 |
+| [L38](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L222) | C7-R15, S3-R05, S2-R21 | status: as C6-R08 |
+| [L39](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L223) | C7-R09, C2-R19, C3-R07, C3-R08, C3-R11 | status: as C6-R08 |
+| [L40](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L224) | C3-R03, C3-R09 step 5, C3-R13, C2-R14 | status: as C6-R08 |
+| [L41](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L225) | C4-R10, S4-R04 | status: as C6-R08 |
+| [L42](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L226) | C4-R10, C4-R11 (storage compatibility), S4-R04 | status: as C6-R08 |
+
+**[assumed: separate implementation classification]** [IG1](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L230) follows C5-R17(d): client/Catalyst integration, not an L1 dependency or an L-id. Its closure and possible reclassification are owned there.
+
+**[open: migration projection]** C4-R04/R05's forced-intake gap runs from the freeze cutoff through actual ACTIVE. FREEZE plus DRAIN_DEADLINE describes the nominal wait until abandonment is available; authenticated repair, data availability and inclusion may extend it. C4-R06/§6 carries ordinary-tail loss, unrecovered old fees and self-funded replay. These are references to C4, not new limitation IDs or an additional time bound. D26's stuck-asset and fixed-resolver consequences are L41/L42; the three operational powers are removed.
+
+### L-PF restart-cost evidence index
+
+**[assumed: accounting references only]** C2-R14, C3's D18 settlement, C4-R06/R12 and C6-R08 L-PF/L37 own the dispositions. Evidence should separate irreversible landing/attestation/pin rewards, FI credits/refunds/burns, new proving/DA/L1 replay costs, and custody actions already executed against a root. Keep ETH and TAIKO separately denominated; S3 owns any rate assumption.
+
+**[proven: accounting identity only]** Rewinding an execution cursor does not create another entitlement from already-settled money. A bounded provisional interval is not itself a monetary loss or restart-cost bound. The owning per-term/entry rules and actual affected workload determine the components.
+
+**[open: evidence, not subsidy]** The register indexes replay workload, actual collectible funding and governance-response assumptions. Quota exposure follows C4-R10/R12: only configured assets and covered paths are capped; quota zero is unlimited, and a rate cap is neither reimbursement nor a total-loss bound with unbounded response time. B-C6A-02 requests that qualification in A's register; this projection does not silently edit its disposition.
+
+## 5. Requirement-review index
+
+**[assumed: sole verdict owner]** Requirement tags are **as [S4-R14](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L163)**. B records review state only. An open review can dispute a tag without this page becoming another verdict table.
+
+| Requirement | Tag source | Review state / owning correction |
+|---|---|---|
+| R1 | as S4-R14 | B requests explicit availability premises for L19/L-PF; D26 removes the three powers, with C4/C8 integration pending. |
+| R2 | as S4-R14 | C1 accepted; C4/C8 manifest, retained surfaces and restart schema in review. |
+| R3 | as S4-R14 | S4's role/offline analysis reviewed with the P6 scope correction requested. |
+| R4 | as S4-R14 | Timing remains an unmeasured owner target under D2; source-level consistency is still required. |
+| R5 | as S4-R14 | User permits seconds and L1 block numbers. D22 locality and C5 dependency projections are in review. |
+| R6 | as S4-R14 | S2/S3 evidence and D19/D20 economic/assignment recovery under review; no independent pass assigned here. |
+| R7 | as S4-R14 | C2/C5/C8 integration pending, including B-C5-01's primary-frame correction. |
+| D1 | as S4-R14 | B-D21-01 remains open. Only the user can approve a requirement relaxation. |
+| D2 | as S4-R14 | Specification-only scope; implementation and measurements are not newly imposed gates. |
+| Convergence | README/WORK criterion, owned by A | Merged-spec rounds and J's readiness audit have not been completed at this snapshot. |
+
+## 6. Learning-site synchronization
+
+**[assumed: publication evidence]** The integration snapshot contains the charter, work orders and accepted C1; no converged learning site is present. Historical candidate courses remain historical. This revision supplies an exact handoff rather than relabeling one of those courses as the accepted specification.
+
+| Lesson dependency | Accepted source or pending seam to consume |
 |---|---|
-| L-PF / C2-R12–R15 | **Assumed proposed limitation:** provisional work can be rolled back after a proof conflict; CONFLICT stops all landing, including forced batches, until a DAO upgrade selects recovery. Already paid rewards and FI fees are not clawed back. Restart costs and custody cases are indexed below. R1 remains qualified. |
-| C2-R14 custody residual / C4-R12/R13 | **Proven conditionally unreachable on the stated protocol path:** no reverted suffix checkpoint was published. **Open outside that premise:** cached signals, completed transfers and retry authorizations survive a checkpoint-map epoch change; C4 prohibits rollback below the newest published checkpoint. No cache-reset shortcut is approved. |
-| D12 genuine stall / C3 | **Accepted Medium by D12:** due honest entries can be voided with poison and need resubmission; repeat stalls have the owning section's time/price bounds. D18 repairs are necessary before reusing that argument. Voiding a reveal is not successful checkpoint recovery. |
-| L3/L5, S2-R13/R18–R20 | **Open or conditionally accepted in owning text:** private quorum, L1 recording race and fallback routes limit slashable finality. Do not turn a timeout into an objective proof of P2P withholding. Archive/inclusion/funding assumptions stay explicit. |
-| L14, S2-R18 and C2-R10 | **Open semantic alignment:** reward/deadline clocks and the actual landing horizon are distinct; use the appropriate owning predicate when reporting replaceability or expiry. |
-| L16/no-committee launch, S1-R13/R18 and S2-R18 | **Assumed disclosed limitation:** the owner/seat launch counts are a Sybil-able heuristic, not an enforced safety gate. Launch or later churn can produce no-committee terms, with no LOCKED label and certificate-free proving requirements. This row belongs beside the launch condition in A's register. |
-| L19, C2-R11 | **Assumed disclosed limitation:** certificate-free operation cannot use the certified single-leaf fallback. A required backend outage can halt it and require an upgrade. Do not mark R1 universally passed. |
-| L20, S3-R23/S1 | **Assumed disclosed limitation:** reserve routing and lapse timing can expose temporarily unfunded duties. D20 changes actual backing; the old nominal collateral claim is not preserved by accepting L20. |
-| Retention / C2-R18/S2-R22 | **Assumed:** attesters retain bytes under the stated duty. Minimum duty and maximum landable horizon differ; archived retrieval is a distinct premise. A hash is not a byte archive. |
-| C2-R02 witness reuse | **Assumed disclosed limitation:** multiple valid signature witnesses can make different data commitments and duplicate proving expense for one state range. Proof reuse fixes both recipient and exact blobs. C8 must also classify VC witness bytes under D16. |
-| C4 migration / P-B-C4-01 | **Open proposal:** deadline abandonment loses ordinary unfinalized content and retains authenticated forced requests with already-paid fees zeroed. The original fee is unrecovered and is not paid again; requeue creates no new bond or refund entitlement and replay can require self-funding. J's DL-3 support requires this consequence to remain user-facing. Legacy execution compatibility remains C3's obligation. |
-| Retained DAO powers / P-B-C4-02 | **Open product interpretation:** A directs retained DAO-only withdrawal/resolver/token powers; original R1 permits only upgradeability. Equal governance latency is not a proof that these selectors satisfy the original wording. |
-| C1 permanent state / §7/§9 | **Proven conditional per-origin bound; open lifetime economics:** distinct origins add permanent pin/checkpoint state. No global storage-growth or anti-monopoly guarantee follows from a local bound or producer-recoverable gas. |
+| Standard operations and roots | Accepted C1 at the merged pin above; C4 installation/migration remains in review. |
+| Seats and local validity | S1/S2/C7 recovery, including fixed references and sentinel modes, before teaching final predicates. |
+| Actionable confirmation | S2/S3's eventual D29 disposition, actual backing and all six exact S2-R18 names; distinguish IG1 from running-client evidence. |
+| Landing and recovery | C2/C3/C5 with the repaired complete frame shape, due clocks, settlements and replay costs. |
+| Custody and migration | C4/C8, D26 removals, legacy profile, actual activation/ref floors, no lower-than-published rollback, L41/L42. |
+| Full argument | Reviewed S4 and both C6 halves, each accepted residual and the actual merged-round closure commits. |
 
-### L-PF restart cost, without an invented subsidy
-
-**[assumed: source accounting, C2-R14 plus C3 D18 and C4-R06/R12]** For the actual restored suffix, report separately (a) paid landing/attestation/pin rewards, (b) paid FI fees/refunds and burned entry deposits, (c) new proving/DA/L1 costs of replay, and (d) value acted on against reverted L2 work. These have different beneficiaries and may use different denominations. Report TAIKO and ETH amounts separately; conversion uses S3's explicitly unmeasured price premise, never an assumed permanent exchange rate.
-
-**[proven: accounting identity only]** The unrecovered protocol payouts are the sum of the actual irreversible debits/credits in that suffix, not a second entitlement created by rewinding an execution cursor. A time bound on the reverted suffix is not itself a monetary bound. C2/S3's per-term debit bounds can bound the reward component only after the applicable paid-term count and all self-landing/settlement paths are derived. FI fees and economic user losses require their own bounds. This index does not invent a constant total restart cost.
-
-**[open: measurement and funding]** C2/S3/C4 must supply the replay workload and actual collectible payer balances; the unmeasured register covers both proving leaves, retransmission/data publication and L1 execution cost. D18's irreversible settlement prevents paying an old deposit twice; it does not automatically finance a replay prover. A governance resolution time is unbounded by this protocol, so no unconditional restart-time or DAO response-cost guarantee is stated.
-
-**[assumed/proven conditional: custody distinction]** C2-R14 separates a publication bug from an extraordinary upgrade below published custody. For a configured capped asset, the actual QuotaManager's available balance and refill rules limit authorized outflow over a specified interval; quota zero is unlimited. A rate multiplied by the provisional interval alone omits the DAO-response interval, initial available capacity and outstanding retry semantics. For a deliberately deeper rollback, exposure begins when the oldest invalidated authorization became usable, which C2 does not bound. A quota is not a lifetime loss cap or a revocation mechanism. C4's permitted restart preserves valid cache/retry history and does not authorize this deeper rollback.
-
-## 5. Requirement and readiness gates
-
-| Gate | Snapshot verdict | Evidence needed to change it |
-|---|---|---|
-| R1 permissionless, DAO upgrades only | **Open; current stated exceptions fail its unconditional reading.** | C2/S4 reconcile CONFLICT/uncertified-outage recovery and C4's retained operational powers with the user's requirement or obtain an explicit product relaxation. This is not an impossibility proof for all possible designs. |
-| R2 existing addresses and compatible shared upgrades | **Open, conditionally designed.** | C1/C4/C8 complete the retained deployment/layout/ABI manifest and legacy service adapter, with A/J review. |
-| R3 all roles and all-offline/malicious cases | **Open.** | S4 role catalogue composes S1/S2/S3 and permissionless migration/caller paths without an unnamed trusted role. |
-| R4 cadence and soft-confirmation latency | **Assumed target, unmeasured.** | Coherent S2/C7 timing/labels; index later propagation/execution/proving measurements. D2 permits absent measurements, not inconsistent timing semantics. |
-| R5 no lookahead or slot-coupled timing | **Conditionally supported; open composition.** | C5/S4 verify every rule's units and header/history assumptions under changed L1 cadence; hypothetical slot examples are not protocol clocks. |
-| R6 objective slashing and anti-monopoly | **Open.** | D16/D19/D20 integrated evidence, exits, immutable rank selection and collectible collateral; S3/S4 state cartel/Sybil limits without claiming per-address caps identify entities. |
-| R7 atomic data-plus-proof landing | **Conditionally designed; open integration.** | C2/C3/C5/C8 jointly define the exact proof/data/frame/journal shapes, prover failure, DA/finality and fallback behavior. |
-| D1 slashable actionable confirmation | **Open, equivocation-scoped candidate.** | S2/S3 reviewed identity/evidence/backing plus disclosed unslashable recovery exceptions and product-scope acceptance. |
-| D2 spec-level readiness | **Not met yet.** | Close semantic/encoding/state-machine gaps; A/J approve immutable section revisions. Measurements may remain explicitly unmeasured. |
-| Convergence | **Not met.** | Merged specification passes the charter's consecutive independent red-team rounds and J's readiness audit; candidate-tree rounds and these section reviews do not count as merged-spec rounds. |
-
-## 6. Learning-site synchronization and handoff
-
-**[assumed: publication record]** The integration base at this snapshot contains the charter/decomposition/work orders, not a published converged course. Candidate A/B learning sites remain historical candidates. They must not be relabeled as this specification or cited as evidence that a pending section was accepted. This W6 contribution therefore adds the index and measurement register; it does not silently import either candidate's lessons.
-
-| Future lesson dependency | Authoritative material / changed claims to consume |
-|---|---|
-| Execution and roots | Accepted C1, then C4's activation prerequisites; optional reveal/pin, guarded legacy writes and no mandatory Anchor transaction. |
-| Assignments and local validity | Accepted S1 then S2/C7; D19 fixed draw counter and finite exits; D17 gossip/landed predicates. |
-| Actionable confirmation and attacks | Accepted S2/S3; D16 logical opening identity and objective evidence; D20 actual backing and all S2-R18 exceptions next to LOCKED. Link the register's client/Catalyst evidence record so proposed behavior is not presented as already executing in the anchorless client. |
-| Landing and recovery | Accepted C2/C3/C5; fixed-recipient proof reuse, authenticated due clock, irreversible per-entry settlement and L-PF consequences. |
-| Custody and migration | Accepted C4/C8; exact existing-address changes, legacy-request adapter, bootstrap, funding and prohibited deeper custody rollback. |
-| Full argument | Accepted S4 and both C6 halves; original requirement verdicts, accepted Medium rationale and merged-round findings with their actual closure commits. |
-
-**[open: course acceptance]** Each lesson remains a small prerequisite-ordered mechanism with a diagram, concrete source-derived example, defended/remaining attacks, hidden self-check answers and a challenge box, as the original brief requires. A final course revision must pin its source commit and update all dependent lessons and examples when a rule changes. The owner of the final site build is assigned through WORK; this index neither duplicates rules in a second course spec nor claims the unfinished course is synchronized.
+**[open: publication]** Each future lesson must retain the original brief's small prerequisite-ordered mechanism, diagram, worked example, attacks, hidden answers and challenge box. Pin its accepted source and update dependent examples whenever that source changes. WORK assigns the course owner; no implementation-ready or synchronized-course claim is made while that site is absent.
 
 ## 7. Review provenance
 
-**[assumed: evidence record]** B's original W8 verdicts and A's adopted directions are recorded in [the umbrella status comment](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5933729212), D16–D20, and the linked section PRs. C1's latest submission is [5933874097](https://github.com/taikoxyz/taiko-mono/pull/22195#issuecomment-5933874097); C4 is [#22205](https://github.com/taikoxyz/taiko-mono/pull/22205). [J's C6 review](https://github.com/taikoxyz/taiko-mono/pull/22206#issuecomment-5934276207) at `0440d277` found no Critical/High and requested the nonblocking maintenance clarifications now recorded in the register. A's verdict and review of this revision remain open. No model-generated internal support note is presented as J's independent verdict, an arbiter decision, a test run or a measurement.
+**[assumed: record]** This W16 revision applies A's [5944784586](https://github.com/taikoxyz/taiko-mono/pull/22206#issuecomment-5944784586): full owner-only limitation coverage, S2 names, S4 verdict ownership and separate economic closure tests. Earlier J clearances apply to their cited heads, not this revision. W12 request-changes comments remain linked from the umbrella W13 list. Internal support reviews are not J's independent verdict, arbiter decisions, tests or measurements.
