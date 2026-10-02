@@ -11,9 +11,17 @@
 3. **[assumed: documentation process]** Cover every numeric row and each owner's open/unmeasured list. Under D44, index the owning default, its conservative rationale, measurement procedure and consequence of an out-of-range result; invent none in this index. Semantic corrections go to the owner.
 4. **[assumed: experiment boundary]** Any optional experiments run only in the session scratchpad and are deleted afterwards. Documents may preserve inputs, methodology and results; do not commit experimental code.
 
-**[assumed: dated inventory]** This inventory preserves its W15/W16 immutable pins except C2, revalidated against its accepted D36 register at fb6180a, and C8, revalidated against its accepted D49 register at f87836f. Other draft pins are historical, not assertions that they remain current. The [dashboard overlay](C6-assurance-dashboard.md#current-decision-and-review-overlay) records subsequent decisions/reviews, through D49, including the D48 holder-path scope and A-only acceptance of #22215. Unmerged numeric registers are re-pinned after owner acceptance, without promoting their estimates in the meantime.
+**[assumed: dated inventory]** This inventory preserves its W15/W16 immutable pins except C2, revalidated against its accepted D36 register at fb6180a, and C8, revalidated against its accepted D49 register at f87836f. Other draft pins are historical, not assertions that they remain current. The [dashboard overlay](C6-assurance-dashboard.md#current-decision-and-review-overlay) records subsequent decisions/reviews, through D51, including the D48 holder-path scope, A-only acceptance of #22215, and D50's exact-coverage sign-off convention. Unmerged numeric registers are re-pinned after owner acceptance, without promoting their estimates in the meantime.
 
 **[open: D44 completion]** The [closure index](C6-readiness-closure-index.md) identifies semantic owner work and required default/procedure evidence. A listed procedure is a task, not its result. No estimate becomes conservative merely by being inventoried.
+
+## Reference-time bond premise awaiting consumer integration
+
+**[assumed: owner premise; open: propagation]** [S1-R16 at 08f8bcd](https://github.com/taikoxyz/taiko-mono/blob/08f8bcd260785eef722ae681ead94d52c2caff2e/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L162) states the L1-window-in-seconds premise for reconstructing its historical sentinel bond. [S1's integration rows](https://github.com/taikoxyz/taiko-mono/blob/08f8bcd260785eef722ae681ead94d52c2caff2e/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L417) assign it to C2/C5/C6. B approved the conditional argument, not actual chain-liveness measurements. A's C6 assumptions register must carry the premise; the original slot-miss percentage is only an illustration. This index neither changes that assumption nor marks its consumers complete.
+
+## Adopted hatch choices awaiting the owning technical register
+
+**[assumed: decision; open: specification and evidence]** [D51](https://github.com/taikoxyz/taiko-mono/blob/f4ccdeeced649f43e06be0492b29b5993c4c9753/packages/protocol/docs/Etna/DECISIONS.md#L60) owns the selected `HATCH_DELAY` and `HATCH_BOND` pending the C3 rewrite. Its queue-stuffing upfront/daily-cost and delay figures are decision-level illustrations, not measured outcomes. The technical owner must publish the default rationale, assumptions, derivation and measurement procedure under D44. This index preserves the signed priced-not-bounded limitation without treating those illustrative costs as an unconditional censorship bound. The historical C3 rows below are superseded; no old stall/run value becomes a hatch parameter.
 
 ## Source-register inventory
 
@@ -418,6 +426,6 @@ The [D44 closure index](C6-readiness-closure-index.md) expands B's C1/C4/C6 obli
 
 ## Revision notices
 
-**[assumed: decisions and reviews]** C2's numeric inventory is pinned to its D36 accepted revision and C8's to D49; other entries retain explicitly dated sources. The dashboard records D29/D42 confirmation/evidence, D34 economics, D39's pending hatch, D40/D45 registry repairs, D48's adopted holder-path scope awaiting projection, D43/D46 and #22215's A-only course/index acceptance, D44 readiness, D47's accepted delay and D49's accepted C8 with nonblocking follow-ups. Prior clearances approve only their cited heads.
+**[assumed: decisions and reviews]** C2's numeric inventory is pinned to its D36 accepted revision and C8's to D49; other entries retain explicitly dated sources. The dashboard records D29/D42 confirmation/evidence, D34 economics, D39/D51's hatch choices awaiting the technical rule, D40/D45 registry repairs, D48's reviewed holder-path scope, D43/D46 and #22215's A-only course/index acceptance, D44/D50 readiness/sign-off, D47's accepted delay and D49's accepted C8 with nonblocking follow-ups. Prior clearances approve only their cited heads.
 
 **[open: follow-up review]** This update changes no parameter, formula, WORK status or limitation disposition. Defaults still need conservative rationales/procedures where absent, draft inventories need owner-merge updates, and completion requires WORK's full evidence checklist.
