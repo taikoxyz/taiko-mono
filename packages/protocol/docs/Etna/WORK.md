@@ -27,7 +27,7 @@ Status: open, in progress, review, done. Updated by the arbiter only.
 | W15 | A | Recovery pass: D21 on S2, D22 on C7 and C3, D18 on C3, D23 on C2, finish D19 on S1 and D20 on S3; verify; push with heads cited. Review C4 #22205 and C6-B #22206 and arbitrate P-B-C4-01 to 04. | pushes; verdicts | recovery in progress; C4 reviewed (request changes, comment 5944782665, arbitration D25); C6-B reviewed (request changes, comment 5944784586) |
 | W16 | B | Revise C4 #22205 per D25 and comment 5944782665 (four blocking items), and C6-B #22206 per comment 5944784586 (three blocking items); in C4 also apply D26 (remove `Anchor.withdraw`, `DefaultResolver.registerAddress` and the owner branch of BridgedERC20 mint and burn, each a row in the retained-surface table with its storage check); ping each. | pushes | open |
 
-J is unreachable (reported by the user, 2026-10-02): W2, W3 and W9 items are queued per head; merges proceed under D24.
+J is active through hourly reads of GitHub (D27): W9 covers the recovery heads and the new sections; D24 applies only to a head J has not reached within one cycle.
 
 ## Cycle 2
 
