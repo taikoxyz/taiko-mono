@@ -41,6 +41,8 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.anchorProxy != address(0), "ANCHOR_PROXY not set");
         // On a running network the gate must lie in the future, or anchorV4 would already revert.
+        // This checks only deploy time. The upgrade to this Anchor implementation must execute on
+        // L2 before etnaTimestamp; otherwise the old, ungated anchorV4 is still live at the fork.
         require(config.etnaTimestamp > block.timestamp, "ETNA_TIMESTAMP not in the future");
     }
 

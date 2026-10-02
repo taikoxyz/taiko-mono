@@ -42,8 +42,9 @@ contract Anchor is EssentialContract {
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
-    /// @notice The canonical EIP-4788 beacon roots contract. From the Etna fork on, it records
-    /// each L2 block's `parentBeaconBlockRoot`, which is the hash of the L1 block it anchors to.
+    /// @notice The canonical EIP-4788 beacon roots contract. Once deployed, it records every L2
+    /// block's `parentBeaconBlockRoot`. That root is zero before the Etna fork; from Etna on, it
+    /// is the hash of the L1 block that the L2 block anchors to.
     address public constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
 
     // ---------------------------------------------------------------
@@ -159,6 +160,8 @@ contract Anchor is EssentialContract {
     /// of the L1 block it anchors to, and EIP-4788 records it keyed by the L2 block's timestamp.
     /// The header is verified against that hash, so the state root and number read from it are
     /// authentic. An equal stored checkpoint makes this a no-op; a different one reverts.
+    /// EIP-4788 keeps a timestamp's root readable only until a timestamp 8191 seconds later
+    /// reuses its slot.
     /// @param _l2Timestamp Timestamp of the L2 block whose `parentBeaconBlockRoot` is the L1 block
     /// hash.
     /// @param _headerRlp RLP encoding of that L1 block header.
