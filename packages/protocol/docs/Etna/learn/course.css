@@ -1,0 +1,30 @@
+/* Static, offline course. No downloaded fonts or assets. */
+:root{color-scheme:light;--ink:#172b3a;--muted:#486172;--paper:#f7f8f4;--card:#fff;--line:#cdd9d8;--accent:#065f5b;--tint:#e9f4ee;--warm:#fff3db}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:1.05rem/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header,main,footer{width:min(100% - 2.4rem,58rem);margin-inline:auto}
+header{padding:2.6rem 0 1rem}main{padding-bottom:2rem}footer{padding:1.5rem 0 3rem;border-top:1px solid var(--line)}
+h1,h2,h3{line-height:1.18;letter-spacing:-.025em}h1{font-size:clamp(2.2rem,6vw,3.65rem);max-width:19ch;margin:.6rem 0 1rem}h2{font-size:1.55rem;margin:1.7rem 0 .8rem}h3{font-size:1.18rem;margin-top:1.5rem}
+a{color:var(--accent);text-underline-offset:.18em;overflow-wrap:anywhere}a:hover{text-decoration-thickness:.14em}
+a:focus-visible,summary:focus-visible,figure:focus-visible{outline:3px solid #b86217;outline-offset:5px;border-radius:3px}
+nav{display:flex;gap:.7rem 1.6rem;flex-wrap:wrap;font-size:.92rem}
+p{margin:.85rem 0}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:.78rem;font-weight:750;color:var(--accent);margin-top:2rem}
+.lede{font-size:1.25rem;color:var(--muted);max-width:48ch}
+.status,.source-note,.callout,.challenge{padding:1rem 1.4rem;border-left:4px solid var(--accent);background:var(--tint);margin:1.5rem 0;border-radius:0 8px 8px 0}
+.challenge{background:var(--warm);border-color:#955309}.challenge h2,.status h2{margin-top:.3rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1rem;margin:1.6rem 0}
+.card{background:var(--card);border:1px solid var(--line);padding:1.25rem;border-radius:12px}.card h2{margin:.35rem 0}.card p{font-size:.98rem}
+.badge{display:inline-block;font-size:.76rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:1rem 0;padding:0 1.3rem}
+summary{cursor:pointer;font-weight:700;padding:1.05rem 0;line-height:1.4}
+details[open]{padding-bottom:1rem}details[open]>summary{border-bottom:1px solid var(--line);margin-bottom:1rem}
+.self-check details,details.self-check{background:#f2f6f6}
+figure{overflow-x:auto;margin:1.5rem 0;padding:1rem;border:1px solid var(--line);border-radius:10px;background:white}
+svg{display:block;width:100%;height:auto}figcaption,caption,.source,.small{font-size:.88rem;color:var(--muted)}figcaption{margin-top:.8rem}
+table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.95rem;overflow-wrap:anywhere}
+caption{text-align:left;margin-bottom:.6rem}th,td{padding:.75rem .65rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead{background:var(--tint)}th{font-weight:650}tbody th{width:30%}
+code{font:.88em/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#e8eeee;padding:.12em .28em;border-radius:3px;overflow-wrap:anywhere}
+li{margin:.5rem 0}.skip-link{position:absolute;left:1rem;top:-5rem;background:white;padding:.7rem;z-index:5}.skip-link:focus{top:1rem}
+@media(max-width:40rem){header,main,footer{width:calc(100% - 1.5rem)}header{padding-top:1.3rem}details{padding-inline:.9rem}.status,.challenge,.source-note{padding:1rem}th,td{padding:.6rem .3rem}table{font-size:.85rem}figure{padding:.35rem}figure svg{min-width:36rem}}
+@media print{body{background:white;font-size:10pt}header,main,footer{width:100%}nav,.skip-link{display:none}details{break-inside:avoid}a{color:inherit}figure{break-inside:avoid}}
