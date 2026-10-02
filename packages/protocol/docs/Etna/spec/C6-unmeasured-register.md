@@ -2,18 +2,20 @@
 
 **[assumed: ownership]** B maintains this index under D12/W6/W16. Each section owns its values, formulas, claim tags and closure criteria. A's C6 owns limitations. This index adds no protocol parameter, measurement, approval or implementation requirement.
 
-**[assumed: status convention]** A link inherits the owning row's proven/assumed/open and measured/unmeasured labels, including mixed premises. Arithmetic on an assumed gas, price or latency is not a measurement. D2 permits explicitly unmeasured implementation work; a missing encoding or contradictory rule still needs owner disposition.
+**[assumed: status convention]** A link inherits its owner's claim and measurement labels, including mixed premises. Arithmetic on assumed gas, price or latency is not measurement. D44 amends D2: every number unmeasured at completion needs an owner-specified conservative default and measurement procedure. Existing assumed examples are not thereby proven conservative. Missing encodings, contradictory rules and undefined transitions require semantic resolution.
 
 ## Register maintenance
 
 1. **[assumed: documentation process]** Every entry uses an existing row label, owning section and immutable source. Each entry carries no parameter value: values stay at the source. Where an owning table merges identifier and value in one cell, this index keeps only the identifier.
 2. **[assumed: documentation process]** On an owning merge, re-pin and check the linked rule/row. Proposed newer sources are identified as proposals; a source pin alone is not acceptance.
-3. **[assumed: documentation process]** Cover every numeric row and each owner's open/unmeasured list before declaring the index complete. Corrections to semantics go to the owner; absent measurements remain closure tasks under D2.
+3. **[assumed: documentation process]** Cover every numeric row and each owner's open/unmeasured list. Under D44, index the owning default, its conservative rationale, measurement procedure and consequence of an out-of-range result; invent none in this index. Semantic corrections go to the owner.
 4. **[assumed: experiment boundary]** Any optional experiments run only in the session scratchpad and are deleted afterwards. Documents may preserve inputs, methodology and results; do not commit experimental code.
 
-**[open: snapshot review]** These pins include the six W15 recovery heads, C5's repair and C4's W16 revision. C1, C5, C4 and the substantive C6-B revision are merged under D28/D31/D32/D35; this acceptance-status/editorial follow-up and the other section reviews remain distinct. W11/W12/W13 findings remain linked in the [dashboard](C6-assurance-dashboard.md), including D29's pending accountability disposition, C2's new conflict output, S6's witness binding, current backing and encoding disagreements. No superseded estimate becomes correct by inclusion here.
+**[assumed: dated inventory]** This inventory preserves its W15/W16 immutable pins except C2, revalidated against its accepted D36 register at fb6180a. Other draft pins are historical, not assertions that they remain current. The [dashboard overlay](C6-assurance-dashboard.md#current-decision-and-review-overlay) records subsequent decisions/reviews, including D29/D34/D39 and D43. Unmerged numeric registers are re-pinned after owner acceptance, without promoting their estimates in the meantime.
 
-## Immutable register inventory
+**[open: D44 completion]** The [closure index](C6-readiness-closure-index.md) identifies semantic owner work and required default/procedure evidence. A listed procedure is a task, not its result. No estimate becomes conservative merely by being inventoried.
+
+## Source-register inventory
 
 ### C1: [owning register](https://github.com/taikoxyz/taiko-mono/blob/42c76c9bddb24bc8d51a7b4454a0439ab5d8e182/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md#L235)
 
@@ -40,44 +42,44 @@
 - [EIP-2935 system calldata](https://github.com/taikoxyz/taiko-mono/blob/42c76c9bddb24bc8d51a7b4454a0439ab5d8e182/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md#L264)
 - [System-call ETH value](https://github.com/taikoxyz/taiko-mono/blob/42c76c9bddb24bc8d51a7b4454a0439ab5d8e182/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md#L265)
 
-### C2: [owning register](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L321)
+### C2: [owning register](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L367)
 
-**[assumed: index; tags/status as source]** Pin `6e2b7321`. Every register row is linked by identifier below; no parameter value is copied, defined or re-derived here.
+**[assumed: accepted source; D36]** Pin `fb6180a5`. All 34 numeric rows were rechecked by label and line in this follow-up. D39 supersedes FI-dependent premises such as the run/clock/drift inputs; those rows remain owner-pending revisions, not adopted hatch parameters.
 
-- [MAX_BLOCKS / MAX_VIEWS / MAX_BLOBS](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L327)
-- [MAX_FI](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L328)
-- [Blob usable bytes](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L329)
-- [V9 record bound](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L330)
-- [V10 = TERM_BYTES_MAX](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L331)
-- [LANDING_BYTES](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L332)
-- [LANDING_UNIT](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L333)
-- [MAX_L1_HEADERS_PER_LANDING](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L334)
-- [DRIFT_MAX](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L335)
-- [LAND_WINDOW / LAND_WINDOW_MAX](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L336)
-- [LAND_CHAIN_GRACE / REPLACE_GRACE](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L337)
-- [ANNOUNCE_BOND](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L338)
-- [DEGRADE_AFTER / DEGRADED_FINALITY](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L339)
-- [PROVISIONAL_RING](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L340)
-- [ROTATION_OVERLAP](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L341)
-- [ZK_K / ZK_N](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L342)
-- [R_BLK_MIN / R_BLK_MAX](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L343)
-- [R_LAND_MAX; break-even fee](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L344)
-- [R_BLOB, cap](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L345)
-- [PIN_MAX](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L346)
-- [ATT_REWARD_PER_BLOCK; LAND_RESERVE](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L347)
-- [Per-term exposure](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L348)
-- [RETAIN_SECONDS](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L349)
-- [T2 blob retention](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L350)
-- [FORCED_RING](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L351)
-- [ANCHOR_MIN_AGE / ANCHOR_MAX_AGE; ROLE_HORIZON](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L352)
-- [EIP-2935 / blockhash windows; landing horizon](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L353)
-- [TERM_RING; SETTLE_MAX](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L354)
-- [LANDED_CONFIRM_DEPTH; EXPIRY_TTL / REORG_MARGIN; LANDING_GAS_BUDGET](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L355)
-- [LAND_CALLDATA_MAX](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L356)
-- [Gas per landing](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L357)
-- [Gas: committee walk when a landing pins; race loser](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L358)
-- [Happy-path landed latency](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L359)
-- [Checkpoint delay in degraded mode](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L360)
+- [MAX_BLOCKS / MAX_VIEWS / MAX_BLOBS](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L373)
+- [MAX_FI](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L374)
+- [Blob usable bytes](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L375)
+- [V9 record bound](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L376)
+- [V10 = TERM_BYTES_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L377)
+- [LANDING_BYTES](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L378)
+- [LANDING_UNIT](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L379)
+- [MAX_L1_HEADERS_PER_LANDING](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L380)
+- [DRIFT_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L381)
+- [LAND_WINDOW / LAND_WINDOW_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L382)
+- [LAND_CHAIN_GRACE / REPLACE_GRACE](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L383)
+- [ANNOUNCE_BOND](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L384)
+- [DEGRADE_AFTER / DEGRADED_FINALITY](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L385)
+- [PROVISIONAL_RING](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L386)
+- [ROTATION_OVERLAP](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L387)
+- [ZK_K / ZK_N](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L388)
+- [R_BLK_MIN / R_BLK_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L389)
+- [R_LAND_MAX; break-even fee](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L390)
+- [R_BLOB, cap](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L391)
+- [PIN_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L392)
+- [ATT_REWARD_PER_BLOCK; LAND_RESERVE](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L393)
+- [Per-term exposure](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L394)
+- [RETAIN_SECONDS](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L395)
+- [T2 blob retention](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L396)
+- [FORCED_RING](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L397)
+- [ANCHOR_MIN_AGE / ANCHOR_MAX_AGE; ROLE_HORIZON](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L398)
+- [EIP-2935 / blockhash windows; landing horizon](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L399)
+- [TERM_RING; SETTLE_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L400)
+- [LANDED_CONFIRM_DEPTH; EXPIRY_TTL / REORG_MARGIN; LANDING_GAS_BUDGET](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L401)
+- [LAND_CALLDATA_MAX](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L402)
+- [Gas per landing](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L403)
+- [Gas: committee walk when a landing pins; race loser](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L404)
+- [Happy-path landed latency](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L405)
+- [Checkpoint delay in degraded mode](https://github.com/taikoxyz/taiko-mono/blob/fb6180a54d929cf70f742359f1c69e7aa45e972f/packages/protocol/docs/Etna/spec/C2-landing.md#L406)
 
 ### C3: [owning register](https://github.com/taikoxyz/taiko-mono/blob/4aa0299c00ef25b77fc99ea54499839ddaa503a4/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L248)
 
@@ -351,9 +353,9 @@
 - [Bootstrap/migration integer widths](https://github.com/taikoxyz/taiko-mono/blob/93d9038bd05652f95ce73b9270c8db7b2b034b82/packages/protocol/docs/Etna/spec/C4-migration.md#L338)
 - [Layout, gas, state-witness and code-hash verification cost](https://github.com/taikoxyz/taiko-mono/blob/93d9038bd05652f95ce73b9270c8db7b2b034b82/packages/protocol/docs/Etna/spec/C4-migration.md#L339)
 
-## Measurement and evidence closure ledger
+## Historical measurement and evidence closure ledger
 
-**[open: evidence tasks, not results]** Preserve client/prover versions, selected fork, workload, hardware when relevant, cold/warm state, inputs and results. The owning section decides any revision. Source-specific tests below are quoted or identified explicitly; additional suggested evidence is not an adopted protocol gate.
+**[assumed: dated source procedures]** These rows retain their linked W15/W16 tests and proposals. D29/D34/D39 supersede affected confirmation, economics and FI premises; the dashboard overlay gives current dispositions. Owners must carry applicable procedures into current registers with D44's conservative defaults and rationales. Preserve client/prover versions, selected fork, workload, hardware where relevant, cold/warm state, inputs and results. No result is supplied here.
 
 | Owner / existing source labels | Closure evidence and scope |
 |---|---|
@@ -382,11 +384,15 @@
 | S4: Rung 1, Level timings, Landed latency, Collusion, Other unmeasured inputs | [Register](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L192): references S1/S2/S3/C2/C3/C5 above; resolve probability units and theorem premises before copying a figure into the composition. No second parameter set. |
 | C6-A: Unmeasured in this half, L17/L24/L32/L37 | [Register](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L281): source owners above supply economic/latency/gas/custody evidence; A owns residual disposition, S3 evidence-window interpretation, C4 migration and the user any D1 relaxation. IG1 is separate. |
 
+**[assumed: economics disposition update]** The historical H(X)/credit-bound row records the earlier dispute. D34 closes its inventory-versus-deterrent and continuously funded threshold traces by separating inventory, live deterrent and conditional illustrations in S3 at d97f1fb. This closes the earlier High for its trace; no illustration becomes a guaranteed floor. Current evidence findings remain separate in the dashboard.
+
 ## Semantic-open coverage
 
 **[open: index only]** Every source's open/integration list is retained as a linked owner inventory: [C1 §10](https://github.com/taikoxyz/taiko-mono/blob/42c76c9bddb24bc8d51a7b4454a0439ab5d8e182/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md#L363), [C2 §16](https://github.com/taikoxyz/taiko-mono/blob/6e2b73215ea7031a4d67571049980d9742be13dc/packages/protocol/docs/Etna/spec/C2-landing.md#L419), [C3 §13](https://github.com/taikoxyz/taiko-mono/blob/4aa0299c00ef25b77fc99ea54499839ddaa503a4/packages/protocol/docs/Etna/spec/C3-forced-inclusion.md#L331), [C4 §10](https://github.com/taikoxyz/taiko-mono/blob/93d9038bd05652f95ce73b9270c8db7b2b034b82/packages/protocol/docs/Etna/spec/C4-migration.md#L341) / [§12](https://github.com/taikoxyz/taiko-mono/blob/93d9038bd05652f95ce73b9270c8db7b2b034b82/packages/protocol/docs/Etna/spec/C4-migration.md#L378), [C5 §14](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L322), [C8 §15](https://github.com/taikoxyz/taiko-mono/blob/f03f12a77879d625a7a2e8e34c55c516c47c5efd/packages/protocol/docs/Etna/spec/C8-interfaces-and-storage.md#L436), [C7 §11](https://github.com/taikoxyz/taiko-mono/blob/515f3be43404dc301d4ce4bd42f8879214ba5a45/packages/protocol/docs/Etna/spec/C7-block-validity.md#L307), [S1 §13](https://github.com/taikoxyz/taiko-mono/blob/e72e55e825ff53f2f6a9b761f0d004ef2444812b/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L243) / [§16](https://github.com/taikoxyz/taiko-mono/blob/e72e55e825ff53f2f6a9b761f0d004ef2444812b/packages/protocol/docs/Etna/spec/S1-seats-and-sortition.md#L316), [S2 §10](https://github.com/taikoxyz/taiko-mono/blob/ab391fe4710382f089f367b54261c0296e54cc67/packages/protocol/docs/Etna/spec/S2-certificates-and-handoff.md#L360), [S3 §15](https://github.com/taikoxyz/taiko-mono/blob/a0f3232a654580d491aecbd88c8716cd9794ea57/packages/protocol/docs/Etna/spec/S3-slashing-and-economics.md#L331), [S4 §10](https://github.com/taikoxyz/taiko-mono/blob/103b7c88e28bf488bf2c7de4b06307a891687c6e/packages/protocol/docs/Etna/spec/S4-roles-and-liveness.md#L279), [C6-A §11](https://github.com/taikoxyz/taiko-mono/blob/22948df900eac650947761f17c651a184316d770/packages/protocol/docs/Etna/spec/C6-threat-model-and-limitations.md#L399). W13 identifies cross-owner inconsistencies; owners must disposition each remaining semantic item. A blanket “unmeasured” label cannot close missing encodings, evidence or transitions.
 
-## External implementation evidence (outside D2)
+The [D44 closure index](C6-readiness-closure-index.md) expands B's C1/C4/C6 obligations into owner artifacts and checks. It supersedes the blanket D2 treatment; it neither disposes of source-owned open items nor grants user acceptance to a limitation.
+
+## External implementation evidence (IG1)
 
 **[assumed: dated classification]** [C5-R17(d)](https://github.com/taikoxyz/taiko-mono/blob/66e37373b5acd9baf9fee8b1ccc53d2eb3d9f451/packages/protocol/docs/Etna/spec/C5-l1-dependencies-and-frames.md#L158) classifies [client PR #22207](https://github.com/taikoxyz/taiko-mono/pull/22207) at `1170344842dec57b1a4dcbc5a2d68a9f920a0895` as an implementation gap. C6 records it as IG1. Classification is supplied, not pending: neither the guard nor “Catalyst changes” establishes an Ethereum ePBS dependency. C5 owns reclassification if the eventual confirmation implementation proves to require an L1 consensus change.
 
@@ -394,8 +400,10 @@
 
 **[open: implementation evidence]** C5's closure requires a client implementing the accepted S2 layer with Catalyst or a replacement. A future implementation claim needs source revisions and a trace through construction, gossip/import, confirmation/handoff and objective evidence/current backing, including the fork/recovery cases. Removing the guard alone does not establish D1. No client work is requested by this index; timings/costs remain unmeasured until that workload is reported.
 
+**[assumed: D44 scope]** The inspected client gap remains dated implementation evidence. D44 requires a complete implementation-ready specification, reference vectors and defaults with measurement procedures. The task remains design-only; running-client/performance claims need execution evidence.
+
 ## Revision notices
 
-**[assumed: decisions and reviews]** D19–D23 change assignment, backing, opening identities, references and landing bindings; D25/D26 change migration/authority, D27 corrects J's availability, D28 merges C1, D30 selects uniform Bridge receive rejection, D31 merges C5, D32 merges C4 and D35 merges the substantive C6-B revision. D33/D34 are reserved for the waiver ruling and collectible-bound amendment, not adopted rules. The [dashboard](C6-assurance-dashboard.md) pins sources/reviews. D29 remains pending at this snapshot. Earlier J clearances do not approve changed heads. All twelve source registers remain inventoried. The six W15 heads and C5 repair replace their prior pins; changed encodings, row labels and line anchors are indexed without treating review approval as arbiter acceptance.
+**[assumed: decisions and reviews]** C2's numeric inventory is re-pinned to its D36 accepted revision; other entries retain their dated sources. Current decisions are indexed in the dashboard: D29/D42 confirmation/evidence, D34 economics, D39 withdrawal of D33 and the pending hatch, D40 registry with its open suspension item, D43 course acceptance and D44 readiness. Prior clearances approve only their cited heads.
 
-**[open: follow-up acceptance]** A approved the two corrected W16 items at c1ff472 under D35; this status/editorial follow-up awaits review. No measurements, production implementation, course publication, residual acceptance or merged-spec convergence are inferred from coverage.
+**[open: follow-up review]** This update changes no parameter, formula, WORK status or limitation disposition. Defaults still need conservative rationales/procedures where absent, draft inventories need owner-merge updates, and completion requires WORK's full evidence checklist.

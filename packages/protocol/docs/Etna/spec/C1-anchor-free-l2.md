@@ -2,7 +2,7 @@
 
 **Owner:** B. **Reviewer:** A. **Independent reviewer:** J (DeepSeek).
 
-**Status [open]:** W1 follow-up applying A's re-review (5933727702) after J closed J-1/J-2 at `75616d5` (5933724570); integrates D14–D18 and awaits an explicit verdict on this revision. This is a specification, not an implementation or an assertion about deployed contracts. It does not establish whole-protocol readiness, D1 confirmation, or a successful convergence round. The integration obligations in §10 remain open until their owning sections discharge them.
+**[assumed: acceptance record; open: integration]** A merged C1 under D28. The W1 review dispositions below retain their authoring-time history; they are not a new request to review the accepted head. This is a specification, not an implementation or an assertion about deployed contracts. D44 now requires implementation-ready specification closure under [WORK.md](../WORK.md#readiness-d44), not merely a list of unmeasured inputs. The obligations in §10 remain open until their owners discharge them; [C6's closure index](C6-readiness-closure-index.md) links the required artifacts. D39 supersedes the old per-block forced-inclusion mechanism; C3's hatch must supply C1's recovery path before the conditional censorship-recovery argument is complete. No whole-protocol readiness, D1 confirmation or successful convergence round is claimed.
 
 ## 1. Scope, vocabulary and claim convention
 
@@ -310,7 +310,7 @@ EIP-2935 runtime (83 bytes, derived from the 0x53 constructor length):
 
 **[proven: constructive raw transaction bound]** Consider a type-2 transaction with that calldata, a non-creation destination, zero value, empty access list, a nonce bounded by uint64, arbitrary uint256 chain ID and fees, and gas limit at P-FI-EXAMPLE-GAS. Its maximum RLP field sizes are: three uint256 fields `3*33 = 99`, nonce `9`, gas `4`, destination `21`, zero value `1`, data `1,639`, empty list `1`, parity `1`, signatures `2*33 = 66`. Payload total `1,841`; outer list prefix `3` and transaction type `1` give **1,845 bytes**. This derivation is conditional on those dimensions, not a statement that every account/transaction fits. C3 must add its actual request/manifest wrapper and separately admit measured EVM and proof costs. Candidate A's quoted 4,096-byte manifest is not an adopted C1 parameter or proof of fit.
 
-**[open: integration measurement]** P-READ-GAS, header parse cost, initial/repeated pin and fresh/duplicate reveal gas, proof cost, complete C3 envelope length, repricing headroom and adequate eventual fee funding have no execution measurements in this section. D2 permits unmeasured values; it does not permit claiming forced execution fits an unspecified wrapper or gas budget. C3/C6 own closure of those integration facts.
+**[open: integration measurement]** P-READ-GAS, header parse cost, initial/repeated pin and fresh/duplicate reveal gas, proof cost, complete C3 envelope length, repricing headroom and adequate eventual fee funding have no execution measurements in this section. Under D44, each unmeasured input needs an owner-specified conservative default and measurement procedure before readiness; an unspecified wrapper or gas budget cannot establish forced execution. C3/C6 own closure of those integration facts, with C1 owning its execution/read costs. No default is invented by this status update.
 
 ### Deterministic examples and test-vector obligations
 

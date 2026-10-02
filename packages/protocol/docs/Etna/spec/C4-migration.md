@@ -2,7 +2,7 @@
 
 **Owner:** B. **Reviewer:** A. **Independent reviewer:** J.
 
-**Status [open]:** W16 revision applying A's review 5944782665 and decisions D25/D26 at integration head `42c76c9bddb24bc8d51a7b4454a0439ab5d8e182`. C1 is merged at that head under D28. A adopted the finite drain/abandonment and retained-surface table; this revision still needs A/J review. C2/C3/S1/S2 recovery texts remain pending and their explicit integration obligations below are not closed by this draft. D2 is specification-only: no implementation, deployment or measurement is claimed. Source audit BASE remains `bfc09641794cbc172a3255a416a93d0a10a23a1f`; historical candidate text is evidence, not an additional normative rule.
+**[assumed: acceptance record; open: integration]** A merged C4 at `93d9038` under D32, following D25/D26/D30. The W16 review dispositions below retain their authoring-time history; those review-pending statements do not undo that acceptance. The explicit integration obligations remain open until their owners discharge them. D44 requires implementation-ready specification closure under [WORK.md](../WORK.md#readiness-d44); [C6's closure index](C6-readiness-closure-index.md) names owners and required artifacts. References to superseded per-block forced-inclusion rules await C3's D39 hatch revision, including legacy settlement and the restart edge; this update supplies no replacement transition. No implementation, deployment, measurement or whole-design readiness is claimed. Source audit BASE remains `bfc09641794cbc172a3255a416a93d0a10a23a1f`; historical candidate text is evidence, not an additional normative rule.
 
 ## 1. Boundary, evidence and claim convention
 
