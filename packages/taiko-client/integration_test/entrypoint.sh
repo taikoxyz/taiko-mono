@@ -22,6 +22,20 @@ if [ -z "${ANVIL_L1_START_TIMESTAMP:-}" ]; then
   export ANVIL_L1_START_TIMESTAMP=$((NOW - 7200))
 fi
 
+# Etna activation time shared by the client and the L2 execution engine. alethia-reth runs the
+# anchorless Etna fork from genesis; taiko-geth has no Etna consensus rules yet, so its job keeps Etna
+# disabled. The boundary job activates Etna one hour after the (past) L1 start timestamp, and its test
+# moves L1 time across that boundary.
+if [ -z "${TAIKO_DEVNET_ETNA_TIME:-}" ]; then
+  if [ "${TAIKO_TEST_ETNA_BOUNDARY:-false}" == "true" ]; then
+    export TAIKO_DEVNET_ETNA_TIME=$((ANVIL_L1_START_TIMESTAMP + 3600))
+  elif [ "${L2_NODE:-l2_geth}" == "l2_reth" ]; then
+    export TAIKO_DEVNET_ETNA_TIME=0
+  else
+    export TAIKO_DEVNET_ETNA_TIME=18446744073709551615
+  fi
+fi
+
 # Start and stop docker-compose
 trap "$PROJECT_ROOT/internal/docker/stop.sh" EXIT INT KILL ERR
 "$PROJECT_ROOT/internal/docker/start.sh"
@@ -47,14 +61,17 @@ check_env "TREASURY"
 check_env "JWT_SECRET"
 check_env "VERBOSITY"
 check_env "ANVIL_L1_START_TIMESTAMP"
+check_env "TAIKO_DEVNET_ETNA_TIME"
 
 echo "ANVIL_L1_START_TIMESTAMP=$ANVIL_L1_START_TIMESTAMP"
+echo "TAIKO_DEVNET_ETNA_TIME=$TAIKO_DEVNET_ETNA_TIME"
 
 RUN_TESTS=${RUN_TESTS:-false}
 PACKAGE=${PACKAGE:-...}
+GO_TEST_RUN=${GO_TEST_RUN:-}
 
 if [ "$RUN_TESTS" == "true" ]; then
-    go test -v -p=1 ./"$PACKAGE" -coverprofile=coverage.out -covermode=atomic -timeout=700s
+    go test -v -p=1 ./"$PACKAGE" -run "${GO_TEST_RUN:-.}" -coverprofile=coverage.out -covermode=atomic -timeout=700s
 else
     echo "💻 Local dev net started"
 fi

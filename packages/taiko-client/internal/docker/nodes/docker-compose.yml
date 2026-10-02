@@ -22,6 +22,9 @@ services:
     image: us-docker.pkg.dev/evmchain/images/taiko-geth:taiko
     restart: unless-stopped
     pull_policy: ${PULL_POLICY:-always}
+    environment:
+      # Read by taiko-geth builds that include the Etna fork switch (taikoxyz/taiko-geth#608).
+      TAIKO_DEVNET_ETNA_TIME: ${TAIKO_DEVNET_ETNA_TIME:-18446744073709551615}
     volumes:
       - .:/host
     ports:
@@ -87,6 +90,8 @@ services:
       - node
       - --chain
       - devnet
+      - --devnet-etna-timestamp
+      - "${TAIKO_DEVNET_ETNA_TIME:-0}"
       - --disable-discovery
       - --datadir
       - /data/alethia-reth

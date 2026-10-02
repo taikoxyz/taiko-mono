@@ -102,12 +102,25 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 		},
 	}
 
+	// Rebuild the block through the Engine API methods of its fork; an Etna block also commits its L1
+	// anchor block hash as parentBeaconBlockRoot.
+	isEtna := s.IsEtnaBlock(block.Header())
+	if isEtna {
+		s.Require().NotNil(block.BeaconRoot())
+		attributes.BeaconRoot = block.BeaconRoot()
+	}
+
 	step0 := func() *engine.ForkChoiceResponse {
-		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
-			ctx,
-			&engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()},
-			attributes,
+		var (
+			fcState = &engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()}
+			fcRes   *engine.ForkChoiceResponse
+			err     error
 		)
+		if isEtna {
+			fcRes, err = s.RPCClient.L2Engine.ForkchoiceUpdatedV3(ctx, fcState, attributes)
+		} else {
+			fcRes, err = s.RPCClient.L2Engine.ForkchoiceUpdate(ctx, fcState, attributes)
+		}
 		s.Nil(err)
 		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
 		s.True(true, fcRes.PayloadID != nil)
@@ -115,13 +128,29 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	}
 
 	step1 := func(fcRes *engine.ForkChoiceResponse) *engine.ExecutableData {
-		payload, err := s.RPCClient.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+		var (
+			payload *engine.ExecutableData
+			err     error
+		)
+		if isEtna {
+			payload, err = s.RPCClient.L2Engine.GetPayloadV5(ctx, fcRes.PayloadID)
+		} else {
+			payload, err = s.RPCClient.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+		}
 		s.Nil(err)
 		return payload
 	}
 
 	step2 := func(payload *engine.ExecutableData) *engine.ExecutableData {
-		execStatus, err := s.RPCClient.L2Engine.NewPayload(ctx, payload)
+		var (
+			execStatus *engine.PayloadStatusV1
+			err        error
+		)
+		if isEtna {
+			execStatus, err = s.RPCClient.L2Engine.NewPayloadV4(ctx, payload, *attributes.BeaconRoot)
+		} else {
+			execStatus, err = s.RPCClient.L2Engine.NewPayload(ctx, payload)
+		}
 		s.Nil(err)
 		s.Equal(engine.VALID, execStatus.Status)
 		return payload
@@ -228,11 +257,12 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 	for i := headBefore + 1; i <= headAfter; i++ {
 		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
 		s.Nil(err)
-		s.GreaterOrEqual(block.Transactions().Len(), 1)
+		anchorTxs := s.AnchorTxCount(block.Header())
+		s.GreaterOrEqual(block.Transactions().Len(), anchorTxs)
 		s.Greater(block.BaseFee().Uint64(), uint64(0))
 
 		for j, tx := range block.Transactions() {
-			if j == 0 {
+			if j < anchorTxs {
 				continue
 			}
 

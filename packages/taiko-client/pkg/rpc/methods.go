@@ -376,7 +376,7 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 }
 
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
-// upper limit.
+// upper limit; blockContext describes the target block (nil keeps the legacy request).
 func (c *Client) GetPoolContent(
 	ctx context.Context,
 	beneficiary common.Address,
@@ -385,6 +385,7 @@ func (c *Client) GetPoolContent(
 	locals []common.Address,
 	maxTransactionsLists uint64,
 	minTip uint64,
+	blockContext *TxPoolBlockContext,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
@@ -413,6 +414,7 @@ func (c *Client) GetPoolContent(
 		localsArg,
 		maxTransactionsLists,
 		minTip,
+		blockContext,
 	)
 }
 
@@ -541,8 +543,9 @@ type ReorgCheckResult struct {
 //     L1 block should have also been finalized.
 //
 // Then we will check:
-// 1. If the L2 block's corresponding L1 block which in L1Origin has been reorged
-// 2. If the L1 information which in the given L2 block's anchor transaction has been reorged
+//  1. If the L2 block's corresponding L1 block which in L1Origin has been reorged
+//  2. If the given L2 block's L1 anchor block, named by its anchor transaction or, from Etna on, by its
+//     parentBeaconBlockRoot, has been reorged
 //
 // And if a reorg is detected, we return a new L1 block cursor which need to reset to.
 func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*ReorgCheckResult, error) {
@@ -611,14 +614,15 @@ func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*ReorgC
 			continue
 		}
 
-		// 2. Check whether the L1 information which in the given L2 block's anchor transaction has been reorged.
+		// 2. Check whether the L2 block's L1 anchor block, named by its anchor transaction or, from Etna on, by its
+		//    parentBeaconBlockRoot, has been reorged.
 		isSyncedL1SnippetInvalid, err := c.checkSyncedL1SnippetFromAnchor(
 			ctxWithTimeout,
 			l1Origin.BlockID,
 			l1Origin.L1BlockHeight.Uint64(),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to check L1 reorg from anchor transaction: %w", err)
+			return nil, fmt.Errorf("failed to check L1 reorg from the L1 anchor block of block %d: %w", l1Origin.BlockID, err)
 		}
 		if isSyncedL1SnippetInvalid {
 			proposalID = new(big.Int).Sub(proposalID, common.Big1)
@@ -642,7 +646,9 @@ func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*ReorgC
 	return result, nil
 }
 
-// checkSyncedL1SnippetFromAnchor checks whether the L1 snippet synced from the anchor transaction is valid.
+// checkSyncedL1SnippetFromAnchor reports whether the L1 anchor block of the given L2 block has been reorged: the
+// L1 snippet synced from its anchor transaction before Etna, or the L1 block its parentBeaconBlockRoot names from
+// Etna on.
 func (c *Client) checkSyncedL1SnippetFromAnchor(
 	ctx context.Context,
 	blockID *big.Int,
@@ -653,6 +659,10 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	if err != nil {
 		log.Error("Failed to fetch L2 block", "blockID", blockID, "error", err)
 		return false, err
+	}
+	// From Etna on, the block commits its L1 anchor block hash instead of carrying an anchor transaction.
+	if IsEtna(c.L2.ChainID, block.Time()) {
+		return c.isEtnaAnchorReorged(ctx, block.Header())
 	}
 	parent, err := c.L2.BlockByHash(ctx, block.ParentHash())
 	if err != nil {
@@ -1094,8 +1104,13 @@ func (c *Client) GetProposalByID(
 		return nil, nil, fmt.Errorf("failed to get L2 block by ID %d: %w", blockID.ToInt(), err)
 	}
 
-	_, anchorNumber, _, err := c.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
-	if err != nil {
+	// The block's anchor block precedes the proposal's L1 inclusion block, so it bounds the event search.
+	var anchorNumber uint64
+	if IsEtna(c.L2.ChainID, block.Time()) {
+		if anchorNumber, err = c.EtnaAnchorBlockNumber(ctxWithTimeout, block.Header()); err != nil {
+			return nil, nil, fmt.Errorf("failed to resolve Etna anchor block of block %d: %w", blockID.ToInt(), err)
+		}
+	} else if _, anchorNumber, _, err = c.GetSyncedL1SnippetFromAnchor(block.Transactions()[0]); err != nil {
 		return nil, nil, fmt.Errorf("failed to get synced L1 snippet from anchor transaction: %w", err)
 	}
 

@@ -10,12 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"golang.org/x/sync/errgroup"
@@ -47,32 +45,22 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a Anchor.anchorV4 transaction at transactions list head,
+	// Insert the Anchor.anchorV4 transaction at the transactions list head before Etna,
 	// then encode the transactions list.
-	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
+	txListBytes, err := encodeTxList(anchorTx, meta.Txs)
 	if err != nil {
 		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
 		return nil, fmt.Errorf("failed to encode transaction list for block %d: %w", meta.BlockID, err)
 	}
 
-	// Increase the gas limit for the anchor block.
-	meta.GasLimit += consensus.AnchorV3V4GasLimit
+	// Add the anchor gas reserve to the gas limit, which only applies before Etna.
+	meta.GasLimit += rpc.AnchorGasReserve(cli.L2.ChainID, meta.Timestamp)
 
 	// Update execution payload id for the L1 origin.
-	var (
-		txListHash = crypto.Keccak256Hash(txListBytes)
-		args       = &miner.BuildPayloadArgs{
-			Parent:       meta.ParentHash,
-			Timestamp:    meta.Timestamp,
-			FeeRecipient: meta.SuggestedFeeRecipient,
-			Random:       meta.MixHash,
-			Withdrawals:  make([]*types.Withdrawal, 0),
-			Version:      engine.PayloadV2,
-			TxListHash:   &txListHash,
-			Extra:        meta.ExtraData,
-		}
+	meta.L1Origin.BuildPayloadArgsID = buildPayloadArgsID(
+		meta.createExecutionPayloadsMetaData,
+		crypto.Keccak256Hash(txListBytes),
 	)
-	meta.L1Origin.BuildPayloadArgsID = args.Id()
 
 	// Create a new execution payload and set the chain head.
 	return createExecutionPayloadsAndSetHead(
@@ -81,6 +69,30 @@ func createPayloadAndSetHead(
 		meta.createExecutionPayloadsMetaData,
 		txListBytes,
 		meta.VerifiedCheckpoint,
+	)
+}
+
+// encodeTxList RLP-encodes a block's transactions list, prepending the anchor transaction when one is
+// given (before Etna). An Etna block without transactions encodes as the empty list 0xc0, which tells
+// the execution engine to build an empty block instead of selecting transactions from its mempool.
+func encodeTxList(anchorTx *types.Transaction, txs types.Transactions) ([]byte, error) {
+	if anchorTx != nil {
+		txs = append(types.Transactions{anchorTx}, txs...)
+	}
+	return rlp.EncodeToBytes(txs)
+}
+
+// buildPayloadArgsID computes the block's rpc.BuildPayloadArgsID fingerprint, stored as
+// l1Origin.buildPayloadArgsId, which isKnownCanonicalBlock recomputes to detect blocks that are already inserted.
+func buildPayloadArgsID(meta *createExecutionPayloadsMetaData, txListHash common.Hash) engine.PayloadID {
+	return rpc.BuildPayloadArgsID(
+		meta.ParentHash,
+		meta.Timestamp,
+		meta.SuggestedFeeRecipient,
+		meta.MixHash,
+		meta.ExtraData,
+		txListHash,
+		meta.ParentBeaconBlockRoot,
 	)
 }
 
@@ -122,18 +134,26 @@ func createExecutionPayloadsAndSetHead(
 	return payload, nil
 }
 
-// createExecutionPayloads creates a new execution payloads through Engine APIs.
+// createExecutionPayloads creates a new execution payloads through Engine APIs. Etna blocks use
+// engine_forkchoiceUpdatedV3 / engine_getPayloadV5 / engine_newPayloadV4 with the block's L1 anchor
+// block hash as parentBeaconBlockRoot; earlier blocks use the V2 methods.
 func createExecutionPayloads(
 	ctx context.Context,
 	cli *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
 ) (payloadData *engine.ExecutableData, err error) {
+	isEtna := rpc.IsEtna(cli.L2.ChainID, meta.Timestamp)
+	if isEtna && (meta.ParentBeaconBlockRoot == nil || *meta.ParentBeaconBlockRoot == (common.Hash{})) {
+		return nil, fmt.Errorf("missing L1 anchor block hash for Etna block %d", meta.BlockID)
+	}
+
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
 		Random:                meta.MixHash,
 		SuggestedFeeRecipient: meta.SuggestedFeeRecipient,
 		Withdrawals:           meta.Withdrawals,
+		BeaconRoot:            meta.ParentBeaconBlockRoot,
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: meta.SuggestedFeeRecipient,
 			GasLimit:    meta.GasLimit,
@@ -154,6 +174,7 @@ func createExecutionPayloads(
 		"random", attributes.Random,
 		"suggestedFeeRecipient", attributes.SuggestedFeeRecipient,
 		"withdrawals", len(attributes.Withdrawals),
+		"parentBeaconBlockRoot", attributes.BeaconRoot,
 		"gasLimit", attributes.BlockMetadata.GasLimit,
 		"timestamp", attributes.BlockMetadata.Timestamp,
 		"mixHash", attributes.BlockMetadata.MixHash,
@@ -165,11 +186,15 @@ func createExecutionPayloads(
 	)
 
 	// Step 1, prepare a payload
-	fcRes, err := cli.L2Engine.ForkchoiceUpdate(
-		ctx,
-		&engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash},
-		attributes,
+	var (
+		fcState = &engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash}
+		fcRes   *engine.ForkChoiceResponse
 	)
+	if isEtna {
+		fcRes, err = cli.L2Engine.ForkchoiceUpdatedV3(ctx, fcState, attributes)
+	} else {
+		fcRes, err = cli.L2Engine.ForkchoiceUpdate(ctx, fcState, attributes)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to update fork choice: %w", err)
 	}
@@ -181,7 +206,12 @@ func createExecutionPayloads(
 	}
 
 	// Step 2, get the payload
-	payload, err := cli.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+	var payload *engine.ExecutableData
+	if isEtna {
+		payload, err = cli.L2Engine.GetPayloadV5(ctx, fcRes.PayloadID)
+	} else {
+		payload, err = cli.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payload: %w", err)
 	}
@@ -199,8 +229,13 @@ func createExecutionPayloads(
 		"withdrawalsHash", payload.WithdrawalsHash,
 	)
 
-	// Step 3, execute the payload
-	execStatus, err := cli.L2Engine.NewPayload(ctx, payload)
+	// Step 3, execute the payload with the same root the payload was built with.
+	var execStatus *engine.PayloadStatusV1
+	if isEtna {
+		execStatus, err = cli.L2Engine.NewPayloadV4(ctx, payload, *meta.ParentBeaconBlockRoot)
+	} else {
+		execStatus, err = cli.L2Engine.NewPayload(ctx, payload)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new payload: %w", err)
 	}
@@ -253,7 +288,7 @@ func isKnownCanonicalProposal(
 				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
 			}
 
-			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+			b, err := encodeTxList(anchorTx, createExecutionPayloadsMetaData.Txs)
 			if err != nil {
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}
@@ -318,25 +353,28 @@ func isKnownCanonicalBlock(
 	}
 
 	var (
+		// Etna blocks commit their L1 anchor block hash instead of carrying an anchor transaction.
+		isEtna     = rpc.IsEtna(cli.L2.ChainID, meta.Timestamp)
 		txListHash = crypto.Keccak256Hash(txListBytes[:])
-		args       = &miner.BuildPayloadArgs{
-			Parent:       meta.Parent.Hash(),
-			Timestamp:    meta.Timestamp,
-			FeeRecipient: meta.SuggestedFeeRecipient,
-			Random:       meta.MixHash,
-			Withdrawals:  make([]*types.Withdrawal, 0),
-			Version:      engine.PayloadV2,
-			TxListHash:   &txListHash,
-			Extra:        meta.ExtraData,
-		}
-		id = args.Id()
+		id         = buildPayloadArgsID(meta.createExecutionPayloadsMetaData, txListHash)
 	)
+
+	// The metadata must follow its own fork: an Etna block commits a non-zero L1 anchor block hash, and an
+	// earlier block commits none.
+	if isEtna && (meta.ParentBeaconBlockRoot == nil || *meta.ParentBeaconBlockRoot == (common.Hash{})) {
+		logUnknown("missing L1 anchor block hash for an Etna block")
+		return nil, false, nil
+	}
+	if !isEtna && meta.ParentBeaconBlockRoot != nil {
+		logUnknown(fmt.Sprintf("unexpected L1 anchor block hash before Etna: %s", *meta.ParentBeaconBlockRoot))
+		return nil, false, nil
+	}
 
 	log.Info(
 		"Check if block is known in canonical chain",
 		"blockID", blockID,
 		"blockHash", block.Hash(),
-		"args", args,
+		"payloadID", id,
 	)
 
 	l1Origin, err := cli.L2.L1OriginByID(ctx, blockID)
@@ -353,13 +391,16 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("parent hash mismatch: %s != %s", block.ParentHash(), meta.Parent.Hash()))
 		return nil, false, nil
 	}
-	if block.Transactions().Len() == 0 {
-		logUnknown("transactions list is empty")
-		return nil, false, nil
-	}
-	if block.Transactions()[0].Hash() != anchorTx.Hash() {
-		logUnknown(fmt.Sprintf("anchor transaction mismatch: %s != %s", block.Transactions()[0].Hash(), anchorTx.Hash()))
-		return nil, false, nil
+	// Before Etna every block starts with the anchor transaction; Etna blocks can be empty.
+	if !isEtna {
+		if block.Transactions().Len() == 0 {
+			logUnknown("transactions list is empty")
+			return nil, false, nil
+		}
+		if block.Transactions()[0].Hash() != anchorTx.Hash() {
+			logUnknown(fmt.Sprintf("anchor transaction mismatch: %s != %s", block.Transactions()[0].Hash(), anchorTx.Hash()))
+			return nil, false, nil
+		}
 	}
 	if block.UncleHash() != types.EmptyUncleHash {
 		logUnknown(fmt.Sprintf("uncle hash mismatch: %s != %s", block.UncleHash(), types.EmptyUncleHash))
@@ -384,13 +425,19 @@ func isKnownCanonicalBlock(
 			return nil, false, nil
 		}
 	} else {
-		zero := common.Hash{}
-		if block.Difficulty().Cmp(common.Big0) == 0 {
+		// Unzen blocks commit a zero root; Etna blocks commit their L1 anchor block hash.
+		expectedRoot := common.Hash{}
+		if isEtna {
+			expectedRoot = *meta.ParentBeaconBlockRoot
+		}
+		// The difficulty records the block's zk gas. Unzen blocks always use some for the anchor
+		// transaction, while an Etna block without transactions uses none.
+		if !isEtna && block.Difficulty().Cmp(common.Big0) == 0 {
 			logUnknown("difficulty zero during Unzen")
 			return nil, false, nil
 		}
-		if block.BeaconRoot() == nil || *block.BeaconRoot() != zero {
-			logUnknown(fmt.Sprintf("parent beacon root mismatch: %v != %v", block.BeaconRoot(), zero))
+		if block.BeaconRoot() == nil || *block.BeaconRoot() != expectedRoot {
+			logUnknown(fmt.Sprintf("parent beacon root mismatch: %v != %v", block.BeaconRoot(), expectedRoot))
 			return nil, false, nil
 		}
 		if block.RequestsHash() == nil || *block.RequestsHash() != types.EmptyRequestsHash {
@@ -414,8 +461,9 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("block number mismatch: %d != %d", block.Number(), meta.BlockID))
 		return nil, false, nil
 	}
-	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3V4GasLimit {
-		logUnknown(fmt.Sprintf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3V4GasLimit))
+	expectedGasLimit := meta.GasLimit + rpc.AnchorGasReserve(cli.L2.ChainID, meta.Timestamp)
+	if block.GasLimit() != expectedGasLimit {
+		logUnknown(fmt.Sprintf("gas limit mismatch: %d != %d", block.GasLimit(), expectedGasLimit))
 		return nil, false, nil
 	}
 	if block.Time() != meta.Timestamp {
@@ -453,8 +501,9 @@ func isKnownCanonicalBlock(
 	return block.Header(), true, nil
 }
 
-// assembleCreateExecutionPayloadMeta assembles the metadata for creating an execution payload,
-// and the `ShastaAnchor.anchorV4` transaction for the given L2 block.
+// assembleCreateExecutionPayloadMeta assembles the metadata for creating an execution payload and,
+// before Etna, the `ShastaAnchor.anchorV4` transaction for the given L2 block. From Etna on it returns
+// no anchor transaction and sets the metadata's ParentBeaconBlockRoot to the L1 anchor block hash.
 func assembleCreateExecutionPayloadMeta(
 	ctx context.Context,
 	cli *rpc.Client,
@@ -505,7 +554,15 @@ func assembleCreateExecutionPayloadMeta(
 		"root", anchorBlockHeaderRoot,
 	)
 
-	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
+	var (
+		anchorTx              *types.Transaction
+		parentBeaconBlockRoot *common.Hash
+	)
+	if rpc.IsEtna(cli.L2.ChainID, blockInfo.Timestamp) {
+		// From Etna on, the block commits its L1 anchor block hash as parentBeaconBlockRoot instead of
+		// carrying an anchor transaction.
+		parentBeaconBlockRoot = &anchorBlockHeaderHash
+	} else if anchorTx, err = anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
 		anchorBlockID,
@@ -514,8 +571,7 @@ func assembleCreateExecutionPayloadMeta(
 		meta.GetEventData().EndOfSubmissionWindowTimestamp,
 		blockID,
 		baseFee,
-	)
-	if err != nil {
+	); err != nil {
 		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
@@ -546,9 +602,10 @@ func assembleCreateExecutionPayloadMeta(
 			L1BlockHeight: meta.GetRawBlockHeight(),
 			L1BlockHash:   meta.GetRawBlockHash(),
 		},
-		Txs:         blockInfo.Transactions,
-		Withdrawals: make([]*types.Withdrawal, 0),
-		BaseFee:     baseFee,
+		Txs:                   blockInfo.Transactions,
+		Withdrawals:           make([]*types.Withdrawal, 0),
+		BaseFee:               baseFee,
+		ParentBeaconBlockRoot: parentBeaconBlockRoot,
 	}, anchorTx, nil
 }
 
@@ -673,6 +730,10 @@ func InsertPreconfBlockFromEnvelope(
 		"signature", common.Bytes2Hex(signature[:]),
 	)
 
+	if err := preconf.CheckNotEtna(cli.L2.ChainID, uint64(envelope.Payload.Timestamp)); err != nil {
+		return nil, err
+	}
+
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := cli.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
@@ -719,21 +780,16 @@ func InsertPreconfBlockFromEnvelope(
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
-	var (
-		txListHash = crypto.Keccak256Hash(decompressedTxs)
-		args       = &miner.BuildPayloadArgs{
-			Parent:       envelope.Payload.ParentHash,
-			Timestamp:    uint64(envelope.Payload.Timestamp),
-			FeeRecipient: envelope.Payload.FeeRecipient,
-			Random:       common.Hash(envelope.Payload.PrevRandao),
-			Withdrawals:  make([]*types.Withdrawal, 0),
-			Version:      engine.PayloadV2,
-			TxListHash:   &txListHash,
-			Extra:        envelope.Payload.ExtraData,
-		}
+	txListHash := crypto.Keccak256Hash(decompressedTxs)
+	payloadID := rpc.BuildPayloadArgsID(
+		envelope.Payload.ParentHash,
+		uint64(envelope.Payload.Timestamp),
+		envelope.Payload.FeeRecipient,
+		common.Hash(envelope.Payload.PrevRandao),
+		envelope.Payload.ExtraData,
+		txListHash,
+		nil,
 	)
-
-	payloadID := args.Id()
 
 	var (
 		u256BaseFee    = uint256.Int(envelope.Payload.BaseFeePerGas)
@@ -749,11 +805,11 @@ func InsertPreconfBlockFromEnvelope(
 	log.Debug(
 		"Payload arguments",
 		"blockID", uint64(envelope.Payload.BlockNumber),
-		"parent", args.Parent.Hex(),
-		"timestamp", args.Timestamp,
-		"feeRecipient", args.FeeRecipient.Hex(),
-		"random", args.Random.Hex(),
-		"txListHash", args.TxListHash.Hex(),
+		"parent", envelope.Payload.ParentHash.Hex(),
+		"timestamp", uint64(envelope.Payload.Timestamp),
+		"feeRecipient", envelope.Payload.FeeRecipient.Hex(),
+		"random", common.Hash(envelope.Payload.PrevRandao).Hex(),
+		"txListHash", txListHash.Hex(),
 		"id", payloadID.String(),
 		"signature", common.Bytes2Hex(signature[:]),
 	)

@@ -2,6 +2,7 @@ package flags
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -154,6 +155,16 @@ var (
 		Value:    0,
 		EnvVars:  []string{"TAIKO_DEVNET_UNZEN_TIME"},
 	}
+	TaikoDevnetEtnaTime = &cli.Uint64Flag{
+		Name: "taiko.devnet-etna-time",
+		Usage: "Override Etna fork time for Taiko internal devnet; unset means never, as with alethia-reth's " +
+			"--devnet-etna-timestamp. Must not be earlier than the Unzen time, and must match the execution " +
+			"engine's Etna time",
+		Category:    commonCategory,
+		Value:       math.MaxUint64,
+		DefaultText: "never",
+		EnvVars:     []string{"TAIKO_DEVNET_ETNA_TIME"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -174,6 +185,7 @@ var CommonFlags = []cli.Flag{
 	RPCTimeout,
 	L1PrivateEndpoint,
 	TaikoDevnetUnzenTime,
+	TaikoDevnetEtnaTime,
 }
 
 // MergeFlags merges the given flag slices.

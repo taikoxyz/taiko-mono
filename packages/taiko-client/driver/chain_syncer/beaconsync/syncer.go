@@ -6,6 +6,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -51,12 +53,17 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 		)
 	}
 
-	headPayload, err := s.getBlockPayload(s.ctx, blockID)
+	headPayload, headBeaconRoot, err := s.getBlockPayload(s.ctx, blockID)
 	if err != nil {
 		return fmt.Errorf("failed to get block payload: %w", err)
 	}
 
-	status, err := s.rpc.L2Engine.NewPayload(s.ctx, headPayload)
+	var status *engine.PayloadStatusV1
+	if headBeaconRoot != nil {
+		status, err = s.rpc.L2Engine.NewPayloadV4(s.ctx, headPayload, *headBeaconRoot)
+	} else {
+		status, err = s.rpc.L2Engine.NewPayload(s.ctx, headPayload)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to call NewPayload: %w", err)
 	}
@@ -88,15 +95,35 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 }
 
 // getBlockPayload fetches the block's header, and converts it to an Engine API executable data,
-// which will be used to let the node start beacon syncing.
-func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.ExecutableData, error) {
-	block, err := s.rpc.L2CheckPoint.BlockByNumber(s.ctx, new(big.Int).SetUint64(blockID))
+// which will be used to let the node start beacon syncing. For an Etna block it also returns the
+// block's parentBeaconBlockRoot, which engine_newPayloadV4 takes as a separate parameter.
+func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.ExecutableData, *common.Hash, error) {
+	block, err := s.rpc.L2CheckPoint.BlockByNumber(ctx, new(big.Int).SetUint64(blockID))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get block %d: %w", blockID, err)
+		return nil, nil, fmt.Errorf("failed to get block %d: %w", blockID, err)
 	}
 
 	log.Info("Block to sync retrieved", "number", block.Number(), "hash", block.Hash())
 
+	return checkpointPayload(s.rpc.L2.ChainID, block)
+}
+
+// checkpointPayload converts a checkpoint block into the payload to import it with and, for an Etna block,
+// the parentBeaconBlockRoot that engine_newPayloadV4 takes as a separate parameter (nil before Etna).
+func checkpointPayload(chainID *big.Int, block *types.Block) (*engine.ExecutableData, *common.Hash, error) {
+	// From Unzen on, the header difficulty records the block's zk gas. It is passed explicitly because
+	// engine.BlockToExecutableData only reports a non-zero value, and an empty Etna block uses no zk gas.
 	envelope := engine.BlockToExecutableData(block, nil, nil, nil)
-	return rpc.NormalizeExecutableData(s.rpc.L2.ChainID, envelope.ExecutionPayload, envelope.BlockValue)
+	payload, err := rpc.NormalizeExecutableData(chainID, envelope.ExecutionPayload, block.Difficulty())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !rpc.IsEtna(chainID, block.Time()) {
+		return payload, nil, nil
+	}
+	if block.BeaconRoot() == nil {
+		return nil, nil, fmt.Errorf("missing parentBeaconBlockRoot in Etna block %d", block.NumberU64())
+	}
+	return payload, block.BeaconRoot(), nil
 }

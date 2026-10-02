@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -237,7 +235,7 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 
 // ValidateMetadata validates block-level metadata according to protocol rules, return true if validation passes.
 func ValidateMetadata(
-	rpc *rpc.Client,
+	cli *rpc.Client,
 	sourcePayload *DerivationSourcePayload,
 	event *shastaBindings.ShastaInboxClientProposed,
 	proposalTimestamp uint64,
@@ -253,7 +251,7 @@ func ValidateMetadata(
 		sourcePayload,
 		event,
 		proposalTimestamp,
-		rpc.L2.ChainID,
+		cli.L2.ChainID,
 	) {
 		return false
 	}
@@ -264,15 +262,14 @@ func ValidateMetadata(
 		parentAnchorBlockNumber,
 		event,
 		isForcedInclusion,
-		rpc.L2.ChainID,
+		cli.L2.ChainID,
 	) {
 		return false
 	}
 
 	if !validateGasLimit(
 		sourcePayload,
-		sourcePayload.ParentBlock.Number(),
-		sourcePayload.ParentBlock.GasLimit(),
+		rpc.ManifestGasLimit(cli.L2.ChainID, sourcePayload.ParentBlock.Header()),
 	) {
 		return false
 	}
@@ -418,19 +415,13 @@ func validateAnchorBlockNumber(
 	return true
 }
 
-// validateGasLimit ensures each block's gas limit is within valid bounds.
+// validateGasLimit ensures each block's gas limit is within valid bounds. parentGasLimit is the parent's
+// manifest gas limit (`parent.metadata.gasLimit`, see rpc.ManifestGasLimit), which excludes any anchor
+// gas reserve the parent header carries.
 func validateGasLimit(
 	sourcePayload *DerivationSourcePayload,
-	parentBlockNumber *big.Int,
 	parentGasLimit uint64,
 ) bool {
-	// NOTE: When the parent block is not the genesis block, its gas limit always contains the
-	// legacy or post-Shasta anchor transaction gas limit, which always equals consensus.AnchorV3V4GasLimit.
-	// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
-	// the real gas limit from parent block metadata.
-	if parentBlockNumber.Cmp(common.Big0) != 0 {
-		parentGasLimit = parentGasLimit - consensus.AnchorV3V4GasLimit
-	}
 	for i := range sourcePayload.BlockPayloads {
 		upperGasBound := min(
 			parentGasLimit*(manifest.GasLimitChangeDenominator+manifest.MaxBlockGasLimitMaxChange)/
@@ -472,11 +463,8 @@ func ApplyInheritedMetadata(
 ) {
 	var (
 		parentTimestamp = sourcePayload.ParentBlock.Time()
-		parentGasLimit  = sourcePayload.ParentBlock.GasLimit()
+		parentGasLimit  = rpc.ManifestGasLimit(chainID, sourcePayload.ParentBlock.Header())
 	)
-	if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
-		parentGasLimit -= consensus.AnchorV3V4GasLimit
-	}
 
 	for i := range sourcePayload.BlockPayloads {
 		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, chainID)

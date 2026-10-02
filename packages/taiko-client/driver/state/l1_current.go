@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // GetL1Current reads the L1 current cursor concurrent safely.
@@ -53,7 +55,8 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		return fmt.Errorf("failed to get L2 header by number (%d): %w", blockID, err)
 	}
 
-	if block.Transactions().Len() == 0 {
+	// Before Etna every block starts with the anchor transaction; Etna blocks can be empty.
+	if !rpc.IsEtna(s.rpc.L2.ChainID, block.Time()) && block.Transactions().Len() == 0 {
 		return fmt.Errorf("no transactions found in block %d", blockID)
 	}
 
@@ -80,15 +83,27 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		if err != nil {
 			return fmt.Errorf("failed to get L2 block by number (%d): %w", blockIDFromLastProposal.ToInt(), err)
 		}
-		if blockFromLastProposal.Transactions().Len() == 0 {
-			return fmt.Errorf("no transactions found in block %d", blockIDFromLastProposal.ToInt())
+		if rpc.IsEtna(s.rpc.L2.ChainID, blockFromLastProposal.Time()) {
+			anchorBlockNumber, err := s.rpc.EtnaAnchorBlockNumber(ctx, blockFromLastProposal.Header())
+			if err != nil {
+				return fmt.Errorf(
+					"failed to resolve Etna anchor block of block %d: %w",
+					blockIDFromLastProposal.ToInt(),
+					err,
+				)
+			}
+			proposedIn = new(big.Int).SetUint64(anchorBlockNumber)
+		} else {
+			if blockFromLastProposal.Transactions().Len() == 0 {
+				return fmt.Errorf("no transactions found in block %d", blockIDFromLastProposal.ToInt())
+			}
+			// Fetch the anchor block number from the anchorV4 transaction for blocks.
+			_, anchorBlockNumber, _, err := s.rpc.GetSyncedL1SnippetFromAnchor(blockFromLastProposal.Transactions()[0])
+			if err != nil {
+				return fmt.Errorf("failed to decode anchorV4 block params: %w", err)
+			}
+			proposedIn = new(big.Int).SetUint64(anchorBlockNumber)
 		}
-		// Fetch the anchor block number from the anchorV4 transaction for blocks.
-		_, anchorBlockNumber, _, err := s.rpc.GetSyncedL1SnippetFromAnchor(blockFromLastProposal.Transactions()[0])
-		if err != nil {
-			return fmt.Errorf("failed to decode anchorV4 block params: %w", err)
-		}
-		proposedIn = new(big.Int).SetUint64(anchorBlockNumber)
 	}
 
 	l1Current, err := s.rpc.L1.HeaderByNumber(ctx, proposedIn)

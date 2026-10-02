@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -64,15 +63,13 @@ func (b *BlobTransactionBuilder) Build(
 
 	anchorBlockNumber := l1Head.Number.Uint64()
 
-	// For inbox proposal submission in the current implementation, we always use the parent block's gas limit.
 	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
-	gasLimit := l2Head.GasLimit
-	if l2Head.Number.Uint64() > 0 {
-		gasLimit -= consensus.AnchorV3V4GasLimit
-	}
+	// Every block in the manifest inherits the L2 head's manifest gas limit (`parent.metadata.gasLimit`): the
+	// head's gas limit, minus the anchor gas reserve when the head is a non-genesis block before Etna.
+	gasLimit := rpc.ManifestGasLimit(b.rpc.L2.ChainID, l2Head)
 
 	for i, txs := range txBatch {
 		log.Info(

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -83,6 +84,9 @@ func (p *Proposer) InitFromConfig(
 	// RPC clients
 	if p.rpc, err = rpc.NewClient(p.ctx, cfg.ClientConfig); err != nil {
 		return fmt.Errorf("initialize rpc clients error: %w", err)
+	}
+	if err := p.rpc.CheckEtnaSchedule(p.ctx); err != nil {
+		return fmt.Errorf("failed to verify the Etna fork schedule: %w", err)
 	}
 
 	// Protocol configs
@@ -168,31 +172,36 @@ func (p *Proposer) Close(_ context.Context) {
 
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
 func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transactions, error) {
-	var (
-		minTip  = p.MinTip
-		startAt = time.Now()
-	)
+	minTip := p.MinTip
 	// If `--epoch.allowZeroTipInterval` flag is set, allow proposing zero tip transactions once when
 	// the total epochs number is divisible by the flag value.
 	if p.AllowZeroTipInterval > 0 && p.totalEpochs%p.AllowZeroTipInterval == 0 {
 		minTip = 0
 	}
 
-	// For proposals submission in current implementation, we always use the parent block's gas limit.
+	// The pool content fills the next block on top of the L2 head. Its gas budget is the head's gas limit before
+	// Etna, and the head's manifest gas limit for an Etna target block (see poolContentTarget).
 	l2Head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
 
-	// Fetch the pool content.
+	blockMaxGasLimit, blockContext, err := p.poolContentTarget(p.ctx, l2Head)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch the pool content; the fetch time metric measures only this call.
+	startAt := time.Now()
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		uint32(l2Head.GasLimit),
+		uint32(blockMaxGasLimit),
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
 		minTip,
+		blockContext,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
@@ -226,6 +235,45 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 	)
 
 	return txLists, nil
+}
+
+// poolContentTarget returns the gas budget and the optional target block context for tx-pool
+// preselection. Before Etna it keeps the original request: the L2 head's gas limit and no context.
+// For an Etna target block the budget is the L2 head's manifest gas limit, because Etna blocks have no
+// anchor gas reserve, and the execution engine needs the target block's timestamp,
+// parentBeaconBlockRoot (the L1 head the proposal anchors to) and extraData to simulate it.
+func (p *Proposer) poolContentTarget(
+	ctx context.Context,
+	l2Head *types.Header,
+) (uint64, *rpc.TxPoolBlockContext, error) {
+	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get L1 head: %w", err)
+	}
+
+	timestamp := max(l1Head.Time, l2Head.Time+1)
+	if !rpc.IsEtna(p.rpc.L2.ChainID, timestamp) {
+		return l2Head.GasLimit, nil, nil
+	}
+
+	inboxConfig, err := p.rpc.GetInboxConfigs(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get inbox config: %w", err)
+	}
+	coreState, err := p.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get inbox core state: %w", err)
+	}
+	extraData, err := encoding.EncodeShastaExtraData(inboxConfig.BasefeeSharingPctg, coreState.NextProposalId)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to encode target block extraData: %w", err)
+	}
+
+	return rpc.ManifestGasLimit(p.rpc.L2.ChainID, l2Head), &rpc.TxPoolBlockContext{
+		Timestamp:             hexutil.Uint64(timestamp),
+		ParentBeaconBlockRoot: l1Head.Hash(),
+		ExtraData:             extraData,
+	}, nil
 }
 
 // ProposeOp performs a proposing operation, fetching transactions

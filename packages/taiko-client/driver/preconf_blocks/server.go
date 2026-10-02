@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -957,6 +956,9 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if payload.Timestamp == 0 {
 		return errors.New("non-zero timestamp is required")
 	}
+	if err := preconf.CheckNotEtna(s.rpc.L2.ChainID, uint64(payload.Timestamp)); err != nil {
+		return err
+	}
 	if payload.FeeRecipient == (common.Address{}) {
 		return errors.New("empty L2 fee recipient")
 	}
@@ -1358,18 +1360,17 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			if err != nil {
 				return false, fmt.Errorf("failed to decompress cached parent tx list: %w", err)
 			}
-			txListHash := crypto.Keccak256Hash(decompressedTxs)
-			args := &miner.BuildPayloadArgs{
-				Parent:       cachedParent.Payload.ParentHash,
-				Timestamp:    uint64(cachedParent.Payload.Timestamp),
-				FeeRecipient: cachedParent.Payload.FeeRecipient,
-				Random:       common.Hash(cachedParent.Payload.PrevRandao),
-				Withdrawals:  make([]*types.Withdrawal, 0),
-				Version:      engine.PayloadV2,
-				TxListHash:   &txListHash,
-				Extra:        cachedParent.Payload.ExtraData,
-			}
-			payloadID = args.Id()
+			// The pre-Etna fingerprint InsertPreconfBlockFromEnvelope stores: preconfirmation blocks are never
+			// Etna blocks.
+			payloadID = rpc.BuildPayloadArgsID(
+				cachedParent.Payload.ParentHash,
+				uint64(cachedParent.Payload.Timestamp),
+				cachedParent.Payload.FeeRecipient,
+				common.Hash(cachedParent.Payload.PrevRandao),
+				cachedParent.Payload.ExtraData,
+				crypto.Keccak256Hash(decompressedTxs),
+				nil,
+			)
 			parentID = new(big.Int).SetUint64(uint64(cachedParent.Payload.BlockNumber))
 
 			var sig [65]byte

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"net/http"
 	"net/url"
 	"os"
 	"testing"
@@ -132,7 +133,16 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 
 		txCount, err := s.d.rpc.L2.TransactionCount(context.Background(), header.Hash())
 		s.Nil(err)
-		s.GreaterOrEqual(txCount, uint(1))
+		s.GreaterOrEqual(txCount, uint(s.AnchorTxCount(header)))
+
+		// From Etna on, a block commits its L1 anchor block hash as parentBeaconBlockRoot instead of
+		// starting with the anchor transaction.
+		if s.IsEtnaBlock(header) {
+			anchorBlockNumber, err := s.RPCClient.EtnaAnchorBlockNumber(context.Background(), header)
+			s.Nil(err)
+			s.NotZero(anchorBlockNumber)
+			continue
+		}
 
 		anchorTx, err := s.d.rpc.L2.TransactionInBlock(context.Background(), header.Hash(), 0)
 		s.Nil(err)
@@ -454,15 +464,18 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64()+2, l2Head2.Number().Uint64())
-	s.Equal(1, len(l2Head2.Transactions()))
+	s.Equal(s.AnchorTxCount(l2Head2.Header()), len(l2Head2.Transactions()))
 
 	forcedIncludedBlock, err := s.d.rpc.L2.BlockByNumber(
 		context.Background(),
 		new(big.Int).Add(l2Head1.Number, common.Big1),
 	)
 	s.Nil(err)
-	s.Equal(2, len(forcedIncludedBlock.Transactions()))
-	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
+	s.Equal(1+s.AnchorTxCount(forcedIncludedBlock.Header()), len(forcedIncludedBlock.Transactions()))
+	s.Equal(
+		forcedInclusionTx.Hash(),
+		forcedIncludedBlock.Transactions()[s.AnchorTxCount(forcedIncludedBlock.Header())].Hash(),
+	)
 
 	// Propose an empty batch, without another batch with the forced inclusion tx.
 	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
@@ -471,7 +484,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(l2Head2.Number().Uint64()+1, l2Head3.Number().Uint64())
-	s.Equal(1, len(l2Head3.Transactions()))
+	s.Equal(s.AnchorTxCount(l2Head3.Header()), len(l2Head3.Transactions()))
 }
 
 func (s *DriverTestSuite) TestL1Current() {
@@ -482,6 +495,7 @@ func (s *DriverTestSuite) TestL1Current() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocks() {
+	s.SkipPreconfUnderEtna()
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -522,7 +536,29 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.True(l1Origin2.IsPreconfBlock())
 }
 
+func (s *DriverTestSuite) TestBuildPreconfBlockRejectedAfterEtna() {
+	head, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	if !rpc.IsEtna(s.RPCClient.L2.ChainID, head.Time+1) {
+		s.T().Skip("the next L2 block is not an Etna block")
+	}
+
+	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	res := s.insertPreconfBlock(s.preconfServerURL, l1Head, head.Number.Uint64()+1, head.Time+1)
+	s.Equal(http.StatusBadRequest, res.StatusCode())
+	s.Contains(res.String(), "preconfirmation is not supported after Etna yet")
+
+	// The rejected request must leave the chain unchanged.
+	headAfter, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(head.Number.Uint64(), headAfter.Number.Uint64())
+	s.Equal(head.Hash(), headAfter.Hash())
+}
+
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
+	s.SkipPreconfUnderEtna()
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -589,6 +625,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
+	s.SkipPreconfUnderEtna()
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -631,6 +668,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.T().Skip("This test is only applicable for L2 Geth node, since it returns blocks in forks when " +
 			"querying by hash.")
 	}
+	s.SkipPreconfUnderEtna()
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -808,6 +846,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
+	s.SkipPreconfUnderEtna()
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -1007,6 +1046,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
+	s.SkipPreconfUnderEtna()
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 

@@ -110,6 +110,66 @@ func (c *EngineClient) GetPayload(
 	return NormalizeExecutableData(c.chainID, envelope.ExecutionPayload, envelope.BlockValue)
 }
 
+// ForkchoiceUpdatedV3 updates the forkchoice and starts building an Etna payload on the execution
+// client. A forkchoice update without payload attributes keeps using ForkchoiceUpdate (V2).
+func (c *EngineClient) ForkchoiceUpdatedV3(
+	ctx context.Context,
+	fc *engine.ForkchoiceStateV1,
+	attributes *engine.PayloadAttributes,
+) (*engine.ForkChoiceResponse, error) {
+	var result *engine.ForkChoiceResponse
+	if err := c.CallContext(ctx, &result, "engine_forkchoiceUpdatedV3", fc, attributes); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// GetPayloadV5 gets the Etna execution payload associated with the payload ID, with the block's
+// finalized zk gas from blockValue copied into HeaderDifficulty.
+func (c *EngineClient) GetPayloadV5(
+	ctx context.Context,
+	payloadID *engine.PayloadID,
+) (*engine.ExecutableData, error) {
+	var envelope *engine.ExecutionPayloadEnvelope
+	if err := c.CallContext(ctx, &envelope, "engine_getPayloadV5", payloadID); err != nil {
+		return nil, err
+	}
+	if envelope == nil || envelope.ExecutionPayload == nil {
+		return nil, errors.New("empty engine_getPayloadV5 response")
+	}
+
+	return NormalizeExecutableData(c.chainID, envelope.ExecutionPayload, envelope.BlockValue)
+}
+
+// NewPayloadV4 executes a built Etna block on the execution engine. parentBeaconBlockRoot is the
+// block's L1 anchor block hash, the same root the payload was built with.
+func (c *EngineClient) NewPayloadV4(
+	ctx context.Context,
+	payload *engine.ExecutableData,
+	parentBeaconBlockRoot common.Hash,
+) (*engine.PayloadStatusV1, error) {
+	etnaPayload, err := NewTaikoExecutionPayloadV3(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var result *engine.PayloadStatusV1
+	if err := c.CallContext(
+		ctx,
+		&result,
+		"engine_newPayloadV4",
+		etnaPayload,
+		[]common.Hash{},
+		parentBeaconBlockRoot,
+		[]hexutil.Bytes{},
+	); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // ExchangeTransitionConfiguration exchanges transition configs with the L2 execution engine.
 func (c *EngineClient) ExchangeTransitionConfiguration(
 	ctx context.Context,
@@ -124,6 +184,8 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 }
 
 // TxPoolContentWithMinTip fetches the transaction pool content from the L2 execution engine.
+// blockContext describes the target block; it is only sent when non-nil, because execution engines
+// without Etna support reject the extra argument.
 func (c *EngineClient) TxPoolContentWithMinTip(
 	ctx context.Context,
 	beneficiary common.Address,
@@ -133,12 +195,9 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	locals []string,
 	maxTransactionsLists uint64,
 	minTip uint64,
+	blockContext *TxPoolBlockContext,
 ) ([]*miner.PreBuiltTxList, error) {
-	var result []*miner.PreBuiltTxList
-	if err := c.CallContext(
-		ctx,
-		&result,
-		"taikoAuth_txPoolContentWithMinTip",
+	args := []interface{}{
 		beneficiary,
 		baseFee,
 		blockMaxGasLimit,
@@ -146,7 +205,13 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 		locals,
 		maxTransactionsLists,
 		minTip,
-	); err != nil {
+	}
+	if blockContext != nil {
+		args = append(args, blockContext)
+	}
+
+	var result []*miner.PreBuiltTxList
+	if err := c.CallContext(ctx, &result, "taikoAuth_txPoolContentWithMinTip", args...); err != nil {
 		return nil, err
 	}
 	return result, nil

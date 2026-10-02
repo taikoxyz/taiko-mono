@@ -40,6 +40,7 @@ func (s *stubTopicPeerLister) ListPeers(topic string) []peer.ID {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
+	s.SkipPreconfUnderEtna()
 	server, err := New(
 		"*",
 		nil,
