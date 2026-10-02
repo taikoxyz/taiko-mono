@@ -42,3 +42,14 @@ Both candidates were reviewed by the other's agent and by an independent compari
 | `iterations/` | Red-team rounds against the merged specification (cycle 3 onward) |
 
 The candidate trees stay on their own branches as the record of how each design was reached; this tree cites them rather than copying their history.
+
+## Section drafts
+
+| Section | Owner / reviewer | Status |
+|---|---|---|
+| [C1: anchor-free L2 execution and checkpoint publication](spec/C1-anchor-free-l2.md) | B / A; J independent review | **Merged** under D28; proposed rules, interfaces, adversary schedules and numeric register; A/J review and cross-section integration pending. |
+| [C4: migration and retained surfaces](spec/C4-migration.md) | B / A; J independent review | **Merged** under D27 (approved by A at `93d9038`); gates owned by C2, C3, S2 and C8 stay open as C4 states them. |
+| [C5: L1 dependencies and Frame Transactions](spec/C5-l1-dependencies-and-frames.md) | A / B; J independent review | **Merged** under D31 (approved by B at `66e3737`). |
+| [C6-B: assurance dashboard](spec/C6-assurance-dashboard.md) and [unmeasured-numbers register](spec/C6-unmeasured-register.md) | B / A; J independent review | **Merged** under D35 (approved by A at `c1ff472`); an index only, re-pinned on each owning-section merge. |
+
+The C1 integration dashboard identifies its dependencies on C2/C3/C4/C6/C7/C8/S2/S3. The merged learning site will follow accepted section text; no legacy candidate course is relabeled as the converged specification. The current draft does not establish D1 or implementation readiness on its own.
