@@ -15,6 +15,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         address l2SignalService;
         address anchorProxy;
         address signalServicePauser;
+        uint64 etnaTimestamp;
     }
 
     modifier broadcast() {
@@ -34,16 +35,21 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
     /// @dev Override this function to provide deployment configuration.
     function _loadConfig() internal virtual returns (DeploymentConfig memory config);
 
-    function _validateConfig(DeploymentConfig memory config) internal pure {
+    function _validateConfig(DeploymentConfig memory config) internal view {
         require(config.l1ChainId != 0, "L1_CHAIN_ID not set");
         require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.anchorProxy != address(0), "ANCHOR_PROXY not set");
+        // On a running network the gate must lie in the future, or anchorV4 would already revert.
+        require(config.etnaTimestamp > block.timestamp, "ETNA_TIMESTAMP not in the future");
     }
 
     function _deploy(DeploymentConfig memory config) internal {
-        address anchorImpl =
-            address(new Anchor(ICheckpointStore(config.l2SignalService), config.l1ChainId));
+        address anchorImpl = address(
+            new Anchor(
+                ICheckpointStore(config.l2SignalService), config.l1ChainId, config.etnaTimestamp
+            )
+        );
         console2.log("New anchorImpl deployed:", anchorImpl);
 
         address signalServiceImpl = address(

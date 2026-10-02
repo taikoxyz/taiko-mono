@@ -49,6 +49,11 @@ contract Anchor is EssentialContract {
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
 
+    /// @notice First L2 block timestamp at which the Etna fork is active.
+    /// @dev `anchorV4` reverts from this timestamp on. 0 means Etna is active from genesis;
+    /// `type(uint64).max` means Etna never activates.
+    uint64 public immutable etnaTimestamp;
+
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
@@ -95,7 +100,8 @@ contract Anchor is EssentialContract {
     /// @notice Initializes the Anchor contract.
     /// @param _checkpointStore The address of the checkpoint store.
     /// @param _l1ChainId The L1 chain ID.
-    constructor(ICheckpointStore _checkpointStore, uint64 _l1ChainId) {
+    /// @param _etnaTimestamp First L2 block timestamp at which the Etna fork is active.
+    constructor(ICheckpointStore _checkpointStore, uint64 _l1ChainId, uint64 _etnaTimestamp) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
 
@@ -106,6 +112,7 @@ contract Anchor is EssentialContract {
         // Assign immutables
         checkpointStore = _checkpointStore;
         l1ChainId = _l1ChainId;
+        etnaTimestamp = _etnaTimestamp;
     }
 
     /// @notice Initializes the owner of the Anchor.
@@ -119,13 +126,16 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice Processes a block and anchors L1 data.
-    /// @dev Core function that anchors L1 block data for cross-chain verification.
+    /// @dev Core function that anchors L1 block data for cross-chain verification. Reverts from
+    /// `etnaTimestamp` on, where blocks no longer carry an anchor transaction.
     /// @param _checkpoint Checkpoint data for the L1 block being anchored.
     function anchorV4(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         onlyValidSender
         nonReentrant
     {
+        require(block.timestamp < etnaTimestamp, AnchorDisabled());
+
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_checkpoint);
 
@@ -233,6 +243,7 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     error AncestorsHashMismatch();
+    error AnchorDisabled();
     error InvalidAddress();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
