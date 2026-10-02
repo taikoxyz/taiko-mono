@@ -42,3 +42,11 @@ Both candidates were reviewed by the other's agent and by an independent compari
 | `iterations/` | Red-team rounds against the merged specification (cycle 3 onward) |
 
 The candidate trees stay on their own branches as the record of how each design was reached; this tree cites them rather than copying their history.
+
+## Section drafts
+
+| Section | Owner / reviewer | Status |
+|---|---|---|
+| [C1: anchor-free L2 execution and checkpoint publication](spec/C1-anchor-free-l2.md) | B / A; J independent review | **Open:** proposed rules, interfaces, adversary schedules and numeric register; A/J review and cross-section integration pending. |
+
+The C1 integration dashboard identifies its dependencies on C2/C3/C4/C6/C7/C8/S2/S3. The merged learning site will follow accepted section text; no legacy candidate course is relabeled as the converged specification. The current draft does not establish D1 or implementation readiness on its own.
