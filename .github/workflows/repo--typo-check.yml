@@ -19,9 +19,7 @@ jobs:
       || (github.event.pull_request.draft == false
           && github.head_ref != 'release-please-*'
           && !startsWith(github.head_ref, 'dependabot'))
-    # SECURITY: route fork PRs to a hosted runner so PR-controlled code never
-    # executes on arc-runner-set. The typo check itself (crate-ci/typos, pinned)
-    # is safe to run against fork contents on ubuntu-latest.
+    # The typo check (crate-ci/typos, pinned) is safe to run against fork contents.
     runs-on: ubuntu-latest
 
     steps:
