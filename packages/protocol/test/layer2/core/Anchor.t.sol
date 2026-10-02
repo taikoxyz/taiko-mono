@@ -337,17 +337,8 @@ contract AnchorRevealTest is AnchorTestBase {
     /// @dev The first Etna block inherits its parent's anchor, whose checkpoint the last
     /// `anchorV4` already saved.
     function test_revealCheckpoint_isNoOpForCheckpointSavedByLastAnchor() external {
-        vm.roll(100);
-        vm.warp(ETNA_TIMESTAMP - 1);
-        vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(
-            ICheckpointStore.Checkpoint({
-                blockNumber: L1_BLOCK_NUMBER, blockHash: L1_BLOCK_HASH, stateRoot: L1_STATE_ROOT
-            })
-        );
+        _anchorBeforeEtna(L1_BLOCK_HASH, L1_STATE_ROOT);
 
-        vm.roll(101);
-        _recordBeaconRoot(ETNA_TIMESTAMP, L1_BLOCK_HASH);
         vm.recordLogs();
         ICheckpointStore.Checkpoint memory revealed =
             anchor.revealCheckpoint(ETNA_TIMESTAMP, L1_HEADER);
@@ -368,6 +359,20 @@ contract AnchorRevealTest is AnchorTestBase {
         _recordBeaconRoot(ETNA_TIMESTAMP + 1, keccak256(conflicting));
         vm.expectRevert(Anchor.CheckpointConflict.selector);
         anchor.revealCheckpoint(ETNA_TIMESTAMP + 1, conflicting);
+    }
+
+    function test_revealCheckpoint_RevertWhen_OnlyStateRootConflicts() external {
+        _anchorBeforeEtna(L1_BLOCK_HASH, bytes32(uint256(0xBAD)));
+
+        vm.expectRevert(Anchor.CheckpointConflict.selector);
+        anchor.revealCheckpoint(ETNA_TIMESTAMP, L1_HEADER);
+    }
+
+    function test_revealCheckpoint_RevertWhen_OnlyBlockHashConflicts() external {
+        _anchorBeforeEtna(bytes32(uint256(0xBAD)), L1_STATE_ROOT);
+
+        vm.expectRevert(Anchor.CheckpointConflict.selector);
+        anchor.revealCheckpoint(ETNA_TIMESTAMP, L1_HEADER);
     }
 
     function test_revealCheckpoint_RevertWhen_BeaconRootsHasNoCode() external {
@@ -410,6 +415,17 @@ contract AnchorRevealTest is AnchorTestBase {
         anchor.revealCheckpoint(ETNA_TIMESTAMP, header);
     }
 
+    function test_revealCheckpoint_acceptsExactlyNineFields() external {
+        bytes memory header = _syntheticHeader(9, abi.encodePacked(L1_STATE_ROOT), hex"03e8");
+        _recordBeaconRoot(ETNA_TIMESTAMP, keccak256(header));
+
+        ICheckpointStore.Checkpoint memory revealed =
+            anchor.revealCheckpoint(ETNA_TIMESTAMP, header);
+
+        assertEq(revealed.blockNumber, 1000);
+        assertEq(revealed.stateRoot, L1_STATE_ROOT);
+    }
+
     function test_revealCheckpoint_RevertWhen_TooFewFields() external {
         bytes memory header = _syntheticHeader(8, abi.encodePacked(L1_STATE_ROOT), "");
         _recordBeaconRoot(ETNA_TIMESTAMP, keccak256(header));
@@ -427,6 +443,17 @@ contract AnchorRevealTest is AnchorTestBase {
         anchor.revealCheckpoint(ETNA_TIMESTAMP, header);
     }
 
+    function test_revealCheckpoint_acceptsMaxUint48Number() external {
+        bytes memory header =
+            _syntheticHeader(21, abi.encodePacked(L1_STATE_ROOT), hex"ffffffffffff");
+        _recordBeaconRoot(ETNA_TIMESTAMP, keccak256(header));
+
+        ICheckpointStore.Checkpoint memory revealed =
+            anchor.revealCheckpoint(ETNA_TIMESTAMP, header);
+
+        assertEq(revealed.blockNumber, type(uint48).max);
+    }
+
     function test_revealCheckpoint_RevertWhen_NumberExceedsUint48() external {
         bytes memory header =
             _syntheticHeader(21, abi.encodePacked(L1_STATE_ROOT), hex"01000000000000");
@@ -434,5 +461,21 @@ contract AnchorRevealTest is AnchorTestBase {
 
         vm.expectRevert(Anchor.InvalidL1Header.selector);
         anchor.revealCheckpoint(ETNA_TIMESTAMP, header);
+    }
+
+    /// @dev Saves a checkpoint for `L1_BLOCK_NUMBER` through the last pre-Etna `anchorV4`, then
+    /// moves to the first Etna block and records the real L1 block hash for its timestamp.
+    function _anchorBeforeEtna(bytes32 _blockHash, bytes32 _stateRoot) private {
+        vm.roll(100);
+        vm.warp(ETNA_TIMESTAMP - 1);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(
+            ICheckpointStore.Checkpoint({
+                blockNumber: L1_BLOCK_NUMBER, blockHash: _blockHash, stateRoot: _stateRoot
+            })
+        );
+
+        vm.roll(101);
+        _recordBeaconRoot(ETNA_TIMESTAMP, L1_BLOCK_HASH);
     }
 }
