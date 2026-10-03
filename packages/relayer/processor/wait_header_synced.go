@@ -126,16 +126,15 @@ func (p *Processor) tryRevealCheckpoint(ctx context.Context, minL1Block uint64) 
 		return
 	}
 
-	if err := p.checkpointRevealer.reveal(ctx, minL1Block); err != nil {
-		if ctx.Err() != nil {
-			return
-		}
-
-		relayer.CheckpointRevealErrors.Inc()
-
-		slog.Warn("Failed to reveal an L1 checkpoint",
-			"requiredBlockID", minL1Block,
-			"error", err,
-		)
+	err := p.checkpointRevealer.reveal(ctx, minL1Block)
+	if err == nil || ctx.Err() != nil {
+		return
 	}
+
+	relayer.CheckpointRevealErrors.Inc()
+
+	slog.Warn("Failed to reveal an L1 checkpoint",
+		"requiredBlockID", minL1Block,
+		"error", err,
+	)
 }

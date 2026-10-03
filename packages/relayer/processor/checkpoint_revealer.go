@@ -181,9 +181,10 @@ func (r *checkpointRevealer) reveal(ctx context.Context, minL1Block uint64) erro
 		return fmt.Errorf("anchored L1 header %s not found", root.Hex())
 	}
 
-	if l1Header.Number.Uint64() < minL1Block {
+	l1Number := l1Header.Number.Uint64()
+	if l1Number < minL1Block {
 		slog.Debug("L2 has not anchored the L1 block yet",
-			"anchoredL1Block", l1Header.Number.Uint64(),
+			"anchoredL1Block", l1Number,
 			"requiredBlockID", minL1Block,
 		)
 
@@ -201,7 +202,7 @@ func (r *checkpointRevealer) reveal(ctx context.Context, minL1Block uint64) erro
 	if crypto.Keccak256Hash(headerRlp) != *root {
 		return fmt.Errorf(
 			"cannot reproduce the encoding of L1 header %s (block %d); go-ethereum may not know a header field L1 added",
-			root.Hex(), l1Header.Number.Uint64(),
+			root.Hex(), l1Number,
 		)
 	}
 
@@ -221,7 +222,7 @@ func (r *checkpointRevealer) reveal(ctx context.Context, minL1Block uint64) erro
 		return fmt.Errorf("revealCheckpoint %s: %w", receipt.TxHash.Hex(), errTxReverted)
 	}
 
-	r.revealed = l1Header.Number.Uint64()
+	r.revealed = l1Number
 	r.revealedAt = r.now()
 
 	relayer.CheckpointRevealsSent.Inc()
@@ -254,13 +255,15 @@ func (r *checkpointRevealer) settledHeader(ctx context.Context) (*types.Header, 
 	headNumber := head.Number.Uint64()
 
 	for back := uint64(1); back <= maxSettledBlockLookback && back <= headNumber; back++ {
-		header, err := r.destClient.HeaderByNumber(ctx, new(big.Int).SetUint64(headNumber-back))
+		number := headNumber - back
+
+		header, err := r.destClient.HeaderByNumber(ctx, new(big.Int).SetUint64(number))
 		if err != nil {
-			return nil, fmt.Errorf("fetching destination block %d: %w", headNumber-back, err)
+			return nil, fmt.Errorf("fetching destination block %d: %w", number, err)
 		}
 
 		if header == nil {
-			return nil, fmt.Errorf("destination block %d not found", headNumber-back)
+			return nil, fmt.Errorf("destination block %d not found", number)
 		}
 
 		if header.Time < head.Time {

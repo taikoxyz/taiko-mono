@@ -163,14 +163,13 @@ func testL2Header(number, timestamp uint64, root *common.Hash) *types.Header {
 }
 
 // revealerFixture is a revealer over an L2 chain whose head is block 10 at timestamp 1,020, and
-// whose settled block 9, at timestamp 1,018, anchors L1 block l1Header.
+// whose settled block 9, at timestamp 1,018, anchors the L1 block whose hash is root.
 type revealerFixture struct {
 	revealer *checkpointRevealer
 	src      *fakeHeaders
 	dest     *fakeHeaders
 	sender   *fakeTxSender
 	clock    *fakeClock
-	l1Header *types.Header
 	root     common.Hash
 }
 
@@ -213,7 +212,6 @@ func newRevealerFixture(t *testing.T, l1Number uint64) *revealerFixture {
 		dest:     dest,
 		sender:   sender,
 		clock:    clock,
-		l1Header: l1Header,
 		root:     root,
 	}
 }
