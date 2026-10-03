@@ -41,7 +41,7 @@ Red-team rounds on the merged specification: A and B run the three attack goals 
 
 1. **Merged.** Every section (C1 to C8, S1 to S4, C6-B) and the learning site are merged into `etna/converged-spec`. Every other PR is closed: merged section PRs close on merge, superseded ones with a pointer, and the candidate PRs #22184 and #22188 with a pointer to #22191.
 2. **Complete.** No open item remains in any section, except accepted limitations in C6's register that the user has signed off.
-3. **Implementation ready.** C8 defines every interface, encoding, storage slot, constant and error, with reference vectors that an implementer can test against. Each rule names its owner, inputs, failure behaviour and test vector.
+3. **Implementation ready.** C8 defines every interface, encoding, storage slot, constant and error, with reference vectors that an implementer can test against. Each rule names its owner, inputs, failure behaviour and test vector. **[open]** Evidence in progress: [spec/C8-traceability.md](spec/C8-traceability.md) traces each rule of the merged sections to these four elements (77 of 143 rules complete; 46 failure and 41 vector gaps) and gives C8's error family (C8-E01 to C8-E29; 43 errors open), pending the owners' confirmation.
 4. **Numbers.** Every unmeasured number has a conservative specified default and a stated measurement procedure. None is left as "unmeasured" without a default.
 5. **Sound.** Cycle 2 red-team: rounds by A and B on different models, judged by J, until two consecutive rounds find no new Critical or High.
 6. **Audited.** J's readiness audit (W9) passes.
