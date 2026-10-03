@@ -604,7 +604,7 @@ Rollback of any single proxy upgrade is one `upgradeTo` of that proxy (Anchor pa
 | C7 | C7-T01 to C7-T18 (C7-T18, prevRandao, added 2026-10-03) | C8-R06's kind and carried-selector values; C8-R16's envelope | **open** |
 | S1 | S1-V01 to S1-V21 (S1-V21, the sentinel landable prefix, added 2026-10-03) | C8-R03's DOMAIN and DOMAIN_KEYREG; C8-R02's walk layout; §15 items 3 and 8 | **open** |
 | S2 | S2-V01 to S2-V37 in tree, with S2-V23b and S2-V27a to S2-V27c (D78; earlier S2-V01 to S2-V30); mapping S2-V31 to S2-V37 and the lettered vectors to C8 vectors is **[open: owner adoption]** | C8-V02 (S2-V14), C8-V03, C8-V04, C8-V09 to C8-V11; the certificate preimage needs §15 item 3 | S2-V14 **derived** here, conditional on C8-R03 |
-| S3 | S3-V01 to S3-V12 | C8-R09's ABI; `Slashed.rule` ids (C8-R06) | **open** |
+| S3 | S3-V01 to S3-V09 | C8-R09's ABI; `Slashed.rule` ids (C8-R06) | **open** |
 | S4 | S4-V01 to S4-V14 | S4-V01 enumerates every selector of C8-R07 to C8-R14 against C4's audit | **open** |
 | C8 | C8-V01 to C8-V22; the layout diff fixtures; a reference certificate and committee proof against a fixed `committeeRoot` (needs §15 item 3) | | V01 to V14 **derived**; V15 to V22 logical projections supplied, their full encodings and state **open: specification fixture** (C8/A), execution **open: fixture after code** (V18 (iii) and (iv) runnable on the baseline; B-W18-A05); the rest **open** |
 
