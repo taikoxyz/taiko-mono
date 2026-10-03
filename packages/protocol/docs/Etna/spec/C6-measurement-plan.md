@@ -1,0 +1,425 @@
+# C6. Measurement plan for unmeasured numbers
+
+**Owner:** A. **Reviewer:** B. **Independent reviewer:** J (DeepSeek).
+
+**Status [open]:** proposed page, written on `etna/a-measure` at base `d95be86`; not reviewed, not merged. It answers WORK's readiness item 4 ([D44](../DECISIONS.md)): "every unmeasured number has a conservative specified default and a stated measurement procedure". Its scope is J's census of that item at `d95be86` (W10 task 2): 33 gap rows and 2 pass rows, 35 entries, numbered MP-01 to MP-35 (MP-34's S2, S3 and hatch-gas quantities as sub-entries MP-34a to MP-34d) and grouped by the register the row sits in. S2 and S3 are not in this tree: S3 is published at `9a6889f4` on [#22202](https://github.com/taikoxyz/taiko-mono/pull/22202) and S2 is under revision. For their rows this page states the procedure and records the register edit as an obligation on that section (§11); it edits neither.
+
+## 1. Scope, vocabulary and claim convention
+
+**[assumed: page boundary]** This page owns measurement procedures, pass criteria and out-of-range actions. Every other value stays in its owner's register, quoted here as it reads at `d95be86` (S3 at `9a6889f4`). Five defaults are specified here and adopted by their owner rows in the same revision. Two are defaults no owner stated: MP-19 (C7, predicate evaluation cost) and MP-21 (S1, `poke()` gas). Three replace owner values known to be below the quantity they name: MP-05's worst landing (C2, about 13.8 M gas in place of "under 2.7 M worst"), MP-07's race loser (C2, 547,040 gas plus one blob fee in place of "about 25k plus one blob fee", from C5-R15) and MP-06's per-block landed latency (C2, S4 projects; at most TERM + 180 s = 240 s beside the 180 s from a range's last block). S3's `H(X)` (MP-27) is a user-level definition and stays open for the user. This page changes no rule, formula or limitation disposition.
+
+**[assumed: D44 reading]** A default's derivation is its rationale, never its procedure: arithmetic on assumed gas, price or latency is not measurement (C6 unmeasured register, status convention). Each entry therefore separates the two. A procedure is an experiment or an observation with an environment, a measured quantity, a sample and a pass criterion stated against the default.
+
+**[assumed: tags]** **proven** means argued on the page, **assumed** a premise, a cited source or a choice, **open** not yet decided or not yet run. Every procedure below is **[open: not run]**: no implementation, guest, client or prover exists for Etna (D2 keeps the work design-only), so no result is claimed anywhere on this page.
+
+**Environments.**
+
+| Name | What it is |
+|---|---|
+| BENCH | A benchmark harness: one execution client of the selected L1 fork (§2) running the Etna contracts from a fixture state, with per-call gas accounting split into execution gas and state gas. Gas cases run on at least two execution-client implementations. |
+| DEVNET | A private network: the selected L1 fork with its slot duration, Etna L2 nodes at 1-s blocks, a 32-attester committee (S2's A-T9 devnet), both required ZK provers and aggregation, and an L1 gate deployment. Faults are injected by the harness operator. |
+| TESTNET | A public Ethereum testnet running the selected fork (Hoodi or Sepolia), with Etna deployed and the same prover set as DEVNET. |
+| MAINNET-OBS | Observation of Ethereum mainnet and Taiko mainnet data and of public market data; no deployment. |
+| PROVER-REF | The proving configuration a measurement report declares (hardware, concurrency, both ZK systems, circuit and aggregation configuration). A passing result holds for that configuration only; A-PROVER's honest party is then premised to hold at least it. |
+
+## 2. Common rules
+
+**MR1 [assumed: evidence record]** Every result carries the specification head, the implementation, guest, client and prover revisions, the selected L1 fork with its EIP set and slot duration, PROVER-REF where proving is involved, input fixtures, cold or warm state, and the raw distribution. The C6 unmeasured register's [evidence-record paragraph](C6-unmeasured-register.md#current-hatch-measurement-and-closure-procedures) applies to every entry, not only to the hatch.
+
+**MR2 [assumed: gas sample rule]** Gas is deterministic for a given state and input. A gas procedure runs every case of its case matrix once per state configuration (cold, warm, fresh slot, overwritten slot) on each execution client; the result is the maximum. A disagreement between clients is a failed result, not a sample to average.
+
+**MR3 [assumed: latency sample rule]** A latency procedure states its run count and reports p50, p99 and maximum. The pass criterion uses the maximum (C6 register: each gate is evaluated "at the maximum measured duration"; "no percentile alone proves a universal latency premise"). A timeout or a failed run counts as exceeding the default and is never excluded.
+
+**MR4 [assumed: selected fork]** "Selected fork" is the L1 fork Etna activates on, with that fork's EIP set (C5 §9 records it as of its fetch date; the set at activation is re-verified under MR5). Because several cited EIPs are still in `Review`, every gas and size procedure is rerun when that set changes.
+
+**MR5 [assumed: rerun triggers]** A procedure is rerun before T0, on any change of the selected fork, on any client, guest or prover version that touches the measured path, on any C8 encoding change, and before any DAO upgrade that changes a constant the procedure feeds.
+
+**Out-of-range actions.** Each entry names the parameter that moves, the rule that moves it, who decides and which dependent bounds must be re-derived. These general rules apply to all of them.
+
+- **OR1 [assumed: before T0]** An out-of-range result is reported against its MP number. The owner of the named parameter writes a section revision applying the entry's rule; the reviewer's verdict and J's review apply as to any section change (README, working agreement 2), a contested change becomes a DECISIONS entry, and the arbiter merges. A change that alters a limitation the user signed, or one on D50's user-completion list, goes to the user for sign-off.
+- **OR2 [assumed: after T0]** Constants are frozen in code and change only by a DAO upgrade (S4-R04 lever (3); R1; C8-R17's upgrade path). The reviewed source revision of OR1 precedes the upgrade proposal. No measurement changes a deployed constant by itself, and no rule reads a measured value at run time.
+- **OR3 [assumed: re-derivation]** Every dependent bound an entry names is recomputed in its owner's register in the same revision, or marked open there. Until then the dependent claim reads "assumed, unsupported at the measured profile".
+- **OR4 [assumed: no automatic tightening]** A result inside the default records a pass with the measured value. It does not lower the default; a tighter value is an ordinary owner revision.
+
+**TAIKO amounts.** S3 defines every TAIKO amount as a formula on A-REV (`V_term` about 0.01 ETH, `P` about `1.5·10⁻⁴` ETH per TAIKO). Two directions apply. **[assumed: the plan's reading]** A deterrent (a bond, a stake, a penalty) is conservative when it buys at least as many terms of measured revenue as at A-REV, that is when `V_term / P` measured is at most `0.01 / 1.5·10⁻⁴ ≈ 66.7` TAIKO per term. A reward that pays an ETH cost is conservative when `P` measured is at least `1.5·10⁻⁴` and the cost measured is at most the cost assumed. MP-28 measures both inputs.
+
+## 3. Index
+
+| MP | Quantity (register row) | Owner register | Environment | Census |
+|---|---|---|---|---|
+| 01 | ANNOUNCE_BOND | C2 §12 | DEVNET, MAINNET-OBS | gap |
+| 02 | R_BLK_MIN / R_BLK_MAX | C2 §12 | BENCH (proving), MAINNET-OBS | gap |
+| 03 | T2 blob retention | C2 §12 (C5 L1-RETENTION) | TESTNET | gap |
+| 04 | LAND_CALLDATA_MAX (quoted) | C2 §12 | BENCH | gap |
+| 05 | Gas per landing | C2 §12 | BENCH, DEVNET | gap |
+| 06 | Happy-path landed latency | C2 §12 | DEVNET, TESTNET | gap |
+| 07 | Gas: committee walk when a landing pins | C2 §12 | BENCH | pass |
+| 08 | HATCH_WINDOW | C3 §7 | DEVNET | gap |
+| 09 | HATCH_K latency `L_K` | C3 §7 | DEVNET | gap |
+| 10 | FI_GAS_LIMIT / FI_ZK_GAS_LIMIT | C3 §7 | BENCH (proving), DEVNET | gap |
+| 11 | HATCH_RESUME_GRACE | C3 §7 | DEVNET | gap |
+| 12 | LEGACY_FI_GAS_LIMIT | C3 §7 | DEVNET | gap |
+| 13 | L1-STATE-GAS | C5 §8 | BENCH | gap |
+| 14 | FOCIL-LEG-BYTES | C5 §8 | BENCH | gap |
+| 15 | LAND_CALLDATA_MAX | C5 §8 | BENCH | gap |
+| 16 | G-VERIFY-GAS | C5 §8 | BENCH | gap |
+| 17 | G-BURN-MIN | C5 §8 | BENCH | gap |
+| 18 | G-STALE-EXEC | C5 §8 | BENCH | gap |
+| 19 | Predicate evaluation cost per block (default specified here) | C7 §7 | DEVNET, BENCH (proving) | gap |
+| 20 | BLOCK_ZK_GAS_LIMIT | C7 §7 (C3 §7) | BENCH (proving) | gap |
+| 21 | `poke()` gas (default specified here) | S1 §11 | BENCH | gap |
+| 22 | B_SEAT; buffer; hard floor; LAND_RESERVE (quoted) | S1 §11 (S3 §11) | MAINNET-OBS, by MP-28 | gap |
+| 23 | Domain write gas | S1 §11 | BENCH | gap |
+| 24 | Committee walk gas (a pin) | S1 §11 | BENCH | gap |
+| 25 | `isHolder` gas | S1 §11 | BENCH | gap |
+| 26 | Pin gas at the launch registry | S1 §11 (C2 §12) | BENCH | gap |
+| 27 | `H(X)` (user definition) | S3 §11 | MAINNET-OBS once defined | gap, open for the user |
+| 28 | V_term; P (A-REV) | S3 §11 | MAINNET-OBS | gap |
+| 29 | R_BLK_MIN / R_BLK_MAX | S3 §11 | by MP-02 | gap |
+| 30 | PIN_MAX | S3 §11 | by MP-26 and MP-28 | gap |
+| 31 | Rung 1, takeover gap | S4 §5 | DEVNET | gap |
+| 32 | Rung 6, dead mode | S4 §5 | DEVNET | gap |
+| 33 | Landed latency, proving | S4 §5 | by MP-06 | gap |
+| 34 | Other unmeasured inputs | S4 §5 | by the mapped entries | gap |
+| 34a | Evidence gas | S3 §11 (via S4 §5) | BENCH | gap (in row 34) |
+| 34b | L1 recording cost per term (S2-R13) | S2 §6 (via S4 §5) | BENCH, MAINNET-OBS | gap (in row 34) |
+| 34c | END_GRACE | S2 §6 (via S4 §5) | DEVNET | gap (in row 34) |
+| 34d | Hatch gas | C3 §9 (via S4 §5) | BENCH | gap (in row 34) |
+| 35 | Level timings, cadence | S4 §5 (S2 §6) | DEVNET | pass |
+
+## 4. C2 §12 rows
+
+### MP-01. ANNOUNCE_BOND
+
+- **Row:** C2 §12, `ANNOUNCE_BOND`: "2,000 TAIKO"; "**assumed, unmeasured input:** 40 % to the forced or replacement lander, 60 % burned".
+- **Default [assumed, the owner's]:** 2,000 TAIKO. **Rationale, not a procedure [assumed: the plan's reading; C2 states none]:** a false announcement buys one LAND_CHAIN_GRACE deferral of `replaceableFrom` per range (C2-R08), 600 s, or 10 terms. At A-REV the bond is 0.3 ETH against 10 × 0.01 = 0.1 ETH of revenue for those terms, a ratio of 3.0.
+- **Procedure [open: not run]:** (a) DEVNET: issue announcements against an unlanded range with and without a following ordinary landing, with a hatch or replacement landing first, and twice for one range; record the deferral of `replaceableFrom`, the bond's return or forfeit and the 40/60 split on the ledger; 20 runs per case. (b) MAINNET-OBS: take `V_term` and `P` from MP-28. **Pass:** every deferral is at most LAND_CHAIN_GRACE and occurs at most once per range, the forfeit split is exact, and `ANNOUNCE_BOND × P / (10 × V_term)` at the measured inputs is at least 3.0.
+- **Out of range:** a deferral longer than LAND_CHAIN_GRACE or a second deferral is a rule defect returned to C2-R08, not a parameter change. A ratio below 3.0 raises ANNOUNCE_BOND to `ceil(3.0 × 10 × V_term / P)` TAIKO, rounded up to 100 TAIKO, by OR1 or OR2; C2 decides, S3-R19 keeps the split. Re-derive: none of C3's. C2-R08 allows one LAND_CHAIN_GRACE deferral per range whatever the amount, and no C3 §9 bound depends on ANNOUNCE_BOND.
+- **Owner:** C2 (A); inputs from S3 through MP-28.
+
+### MP-02. R_BLK_MIN / R_BLK_MAX
+
+- **Row:** C2 §12, `R_BLK_MIN / R_BLK_MAX`: "0.5 / 4 TAIKO per block"; "**assumed, unmeasured:** marginal proving cost per block". The same values sit in S3 §11 (MP-29).
+- **Default [assumed, the owner's]:** 0.5 / 4 TAIKO per block, that is 7.5·10⁻⁵ / 6·10⁻⁴ ETH at A-REV.
+- **Procedure [open: not run]:** BENCH proving on PROVER-REF with both required ZK systems and aggregation. Prove landings of `n` and `n + 1` blocks for `n` in {1, 16, 60, 256} with three workloads: empty blocks, a replay of a week of Taiko mainnet blocks, and blocks at BLOCK_ZK_GAS_LIMIT. Marginal cost per block is the difference in prover cost, in ETH, from measured prover-seconds at the declared hardware price, converted to ETH at the ETH/USD rate over the same week as MP-28's window, as a time-weighted average from at least two named public market sources (the method S3 states for `P`); the report names the sources and the window. At least 30 pairs per workload. **Pass:** `R_BLK_MIN × P` is at least the median marginal cost of the mainnet-replay workload, and `R_BLK_MAX × P` is at least the maximum marginal cost of the full-block workload, with `P` from MP-28.
+- **Out of range:** raise the failing constant to the measured cost divided by `P`, rounded up to 0.1 TAIKO; C2 decides with S3 (MP-29 keeps the two registers equal), by OR1 or OR2. Re-derive: per-term exposure (60 × R_BLK_MAX, C2-R16, S3-R21), LAND_RESERVE (at least twice the exposure, S3 §11), entry capital (S1 §11, S3 §11), the ReserveLow line (C2-R17), the boost's ceiling (S3-R13) and S3-R28's cartel model.
+- **Owner:** C2 (A), with S3.
+
+### MP-03. T2 blob retention
+
+- **Row:** C2 §12, `T2 blob retention`: "about 18 days"; "**quoted (C5 ...):** the L1 network's retention; **unmeasured** under short slots (EIP-8198 preserves the duration, EIP-7782 is silent)". C5 §8's `L1-RETENTION` row is the source: "4,096 epochs = 1,572,864 s = 18.2 days at 12 s".
+- **Default [assumed, the owner's]:** 1,572,864 s at the selected slot duration. Lower is worse.
+- **Procedure [open: not run]:** (a) record `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` and the slot duration in the selected fork's final consensus specification. (b) TESTNET running that fork: post blobs at known times and query blob sidecars by root from at least five default-configured beacon nodes of at least two consensus-client implementations, daily from day 0 and hourly within one day of 1,572,864 s and of the out-of-range threshold below at the selected slot duration, until every node refuses. The measured retention is the last queried age at which every queried node served the sidecar, never the first age at which one refused. **Pass:** the specified value is at least 1,572,864 s and the measured retention is at least 1,572,864 s.
+- **Out of range:** a value below the default but above FI_EXPIRY plus the landing horizon (604,800 + 98,292 = 703,092 s at 12-s slots; 604,800 + 16,382 = 621,182 s at 2-s slots) re-states the C5 and C2 rows and moves no parameter. A value at or below it breaks A-RETAIN and C3's register condition "FI_EXPIRY + horizon < T2": C3 lowers FI_EXPIRY below `T2 − horizon`, rounded down to a day, by OR1 or OR2; because FI_EXPIRY bounds the forced-inclusion service, the change goes to the user under OR1. Re-derive: C3's A-RETAIN, C4's legacy expiry, C2-R18's retention duty (RETAIN_SECONDS is far below and unaffected).
+- **Owner:** C5 (A) records the fact; C2 quotes it; C3 owns FI_EXPIRY.
+
+### MP-04. LAND_CALLDATA_MAX (C2's quote)
+
+- **Row:** C2 §12, `LAND_CALLDATA_MAX`: "8,192 bytes"; "**quoted (C5), unmeasured:** the gate's SENDER-frame data bound".
+- **Default:** C5's, 8,192 bytes (MP-15).
+- **Procedure:** MP-15's. C2's row needs no separate measurement.
+- **Out of range:** MP-15's rule; C2 re-quotes the new value and re-derives nothing of its own beyond MP-05's calldata component.
+- **Owner:** C5 (A); C2 quotes.
+
+### MP-05. Gas per landing
+
+- **Row:** C2 §12, `Gas per landing`: "two ZK leaves about 600k; certificate or VC verification about 165k each (EIP-2537, 32 keys); rights ≤ 290k; FI walk about 134k plus about 2.9k per entry (C3 §7, assumed); stores about 100k; attester credits about 160k; checkpoint about 196k; total about 1.5 M typical, under 2.7 M worst for a pinned term (26 % of a 10 M block)"; "**unmeasured** except the checkpoint and provisional record ...; mainnet RISC0 and SP1 gas must be measured before freezing".
+- **Default:** 1.5 M gas typical [assumed, the owner's]; worst, excluding the committee walk (MP-07, MP-24): about 13.8 M gas, rounded up [proven: arithmetic on cited estimates; specified here; C2's row adopts it, replacing its "under 2.7 M worst"]. C2's 2.7 M worst prices each view-change verification at "about 165k" (C2 §12), but C2-R05 L4 verifies every view-change witness at landing as S2-R10 states it, and S2 §6 at `ab391fe4` ("View-change verification gas (D16)") gives about 0.8 M to 2 M at `Q = 22` (S2 §6) per view change (`Q + 1` pairings over distinct messages plus `Q` hashes to G2). S2-R10's witness admits up to 32 signers (`popcount(bitmap) ≥ Q(m)`; S2 §6 sizes it "361 at 32"), so the worst case is taken at 32: by S2's own unit costs, `32,600 × 33 + 37,700 = 1,113,500` gas of pairings plus 32 hashes to G2 at about 50,000 each (S2's 1.1 M for 22), 1,600,000, about 2.72 M per view change. Itemized from C2 §12's parts, with the first-lap provisional record (7 × 97,920, about 685k, which C2's itemized parts omit) and 64 `fiReplayIds` at about 2.9k per id plus 2.9k for its bit write (C3 §7, about 371k): two leaves 600k + end certificate 165k + 4 × 2.72 M view changes + rights 290k + FI walk 134k + 64 × 2.9k (about 320k) + replay ids 371k + stores 100k + attester credits 160k + checkpoint 196k + provisional record 685k = about 13.77 M, stated as 13.8 M. At `Q = 22` and S2's upper figure of 2 M it is about 10.9 M. Either way the worst case exceeds LANDING_GAS_BUDGET (10,000,000) by itself, without any walk, so the out-of-range rule on MAX_VIEWS or MAX_FI_PER_LANDING below is expected to fire at the default. It stays within L1-GAS-CAP (16,777,216).
+- **Procedure [open: not run]:** BENCH with the selected fork, the deployed RISC0 and SP1 verifiers, EIP-2537 and the final C8 encoding. Case matrix: one view, no FI, warm (typical); MAX_VIEWS = 4 view changes, MAX_FI_PER_LANDING = 64 entries consumed, maximum `fiReplayIds`, a provisional record on the first lap, attester credits for 32 signers, first checkpoint write (worst); shape 1, shape 2 and the direct land; winner and race loser. Each component is reported separately under MR2. A DEVNET run of 300 landings confirms that the BENCH cases bound the observed calls. **Pass:** typical at most 1.5 M, worst at most the default of 13.8 M and within LANDING_GAS_BUDGET (10,000,000), worst plus SETTLE_MAX (4, C2 §12) committee walks at MP-24's measured figure for the launch registry (72 seats, MP-26) within LANDING_GAS_BUDGET, and every landing transaction within L1-GAS-CAP (16,777,216). The report also states the measured seat ceiling: the largest seat count whose measured walk `w` keeps `worst + SETTLE_MAX × w` within LANDING_GAS_BUDGET. The seat ceiling is a dependent bound reported to S1 and C2, not a pass condition at MAX_SEATS. The worst case against C2's former 2.7 M is reported, not gated.
+- **[open: design item at the defaults, routed to S1 and C2]** The defaults are not jointly consistent, and no measurement is needed to show it. **[proven: arithmetic on the defaults]** With the 13.8 M worst, `worst + SETTLE_MAX × w` exceeds LANDING_GAS_BUDGET for every `w ≥ 0`, and with the launch registry's 0.8 M pin it exceeds L1-GAS-CAP too (`13.8 M + 4 × 0.8 M = 17.0 M`); even at C2's former 2.7 M the ceiling needs `w` at most about 1.8 M (`2.7 M + 4 × 1.8 M = 9.9 M`), below 4,096 seats (`2.7 M + 4 × 5.4 M = 24.3 M`) and 65,535 seats (one 10.1 M walk), against MAX_SEATS = 65,535 (S1 §11). Whether to lower MAX_VIEWS, SETTLE_MAX or MAX_SEATS, or to split the pin, is a design revision for C2 (MAX_VIEWS, SETTLE_MAX, LANDING_GAS_BUDGET) and S1 (MAX_SEATS, the pin), decided under OR1 now, not an action a measurement triggers. The launch-registry criterion stays a pass condition and is expected to fail until that revision.
+- **Out of range:** a typical figure in (1.5 M, 2 M] re-states the C2 row with no parameter change. A worst figure above the default of 13.8 M re-states the default at the measured value, rounded up to 0.1 M, and C3's T1 premise and the 26 %-of-block figure are re-derived by OR3. A typical figure above 2 M gas moves R_LAND_MAX, which prices "a 2 M-gas landing at 100 gwei" (C2 §12): R_LAND_MAX becomes `measured typical × 100 gwei / P`, rounded up to 100 TAIKO, C2 deciding with S3 (S3-R14). A worst case without walks beyond LANDING_GAS_BUDGET lowers MAX_VIEWS (C2) or MAX_FI_PER_LANDING (C3), the owner choosing the smaller change, never the budget above the selected fork's block. A miss of the launch-registry criterion driven by the walks is not cured by those two constants and follows MP-24's rule; a seat ceiling below MAX_SEATS is the open design item above, not a measured miss. Re-derive: per-term exposure and LAND_RESERVE (as MP-02), the break-even fee, C3's T1 premise (a blob-free landing of about 1.2 M gas within one slot), C5's `C_stale`, the seat ceiling, and S2 §6's `View-change verification gas (D16)` row, whose measured figure at 32 signers (MP-34b) sets MP-05's view-change component.
+- **Owner:** C2 (A), with C3 and S3; S2 for the view-change component; S1 and C2 for the design item.
+
+### MP-06. Happy-path landed latency
+
+- **Row:** C2 §12, `Happy-path landed latency`: "2 to 3 min after a block"; "**unmeasured:** block proofs ≤ 20 s pipelined, aggregation ≤ 90 s, one to two L1 blocks". The components are its rationale, not its procedure.
+- **Default:** (a) [assumed, the owner's, read at the policy below] 180 s from the timestamp of a range's last block to L1 inclusion of the landing that covers it; (b) per block [proven: arithmetic on (a) and the policy; specified here; C2's row adopts it and S4 projects it]: at most TERM + 180 s = 240 s from any block's timestamp to L1 inclusion of the landing that covers it, since a block waits at most one term (60 s) for its range's last block under the policy. C2's "2 to 3 min after a block" holds only for the last block.
+- **Procedure [open: not run]:** DEVNET and then TESTNET, each for 24 h continuous at 1-s blocks on PROVER-REF, with an ordinary honest pipeline. **[assumed: honest lander policy, fixed here]** C2 leaves range choice to the lander (C2-R01, C2-R16), so the run fixes one: the lander lands each term's range once, submitted as soon as the term's last block is proved and aggregated (one landing per term, packed greedily as C2-R16 states). The measured latency runs from the timestamp of the range's last block to L1 inclusion of the landing that covers it; earlier blocks of the range wait up to one term more by the policy, not by proving, and that wait is reported separately and gated by default (b). For every landing record the last block's timestamp, its block-proof completion, the aggregation completion, the landing submission and the L1 inclusion, and for every block its own timestamp-to-inclusion latency; at least 300 landings. **Pass:** maximum last-block-to-inclusion latency at most 180 s, and maximum over all blocks of block-to-inclusion latency at most 240 s.
+- **Out of range:** LAND_WINDOW rests on "≥ 10 × happy-path landing" (C2 §12), read at the policy and the definition above; a different honest policy needs its own run before LAND_WINDOW depends on it. If either maximum exceeds its default, either PROVER-REF is enlarged and the run repeated (no spec change), or C2 raises LAND_WINDOW to 10 × the measured last-block maximum, rounded up to 60 s (a per-block miss alone re-states MP-06 (b) and the C2 and S4 rows), by OR1 or OR2. Re-derive: LAND_WINDOW_MAX and the inequality `LAND_WINDOW_MAX + REPLACE_GRACE < DEAD_TERMS × TERM` (S1), RETAIN_SECONDS's floor (C2-R18), ROTATION_OVERLAP, MAX_L1_HEADERS_PER_LANDING, C3's honest serve-and-land figure of 4,188 s and with it HATCH_DELAY's condition and HATCH_RESUME_GRACE, and S4 §5's rung 4 rows (replacement window and ramp, which quote LAND_WINDOW), rung 6 (MP-32) and `Landed latency, proving` (MP-33).
+- **Owner:** C2 (A); S4 projects it.
+
+### MP-07. Gas: committee walk when a landing pins (census pass)
+
+- **Row:** C2 §12, `Gas: committee walk when a landing pins; race loser`: "about 1 M at 128 seats, 5.4 M at 4,096, 10.1 M at 65,535; about 25k plus one blob fee"; "**unmeasured:** the round-6 simulation of the persistent tree".
+- **Default:** the walk as the row [assumed, the owner's]. J's census reads the named simulation as a procedure; it is a simulation, not a client measurement (S1 §11, "simulated"), so this entry adds the measurement. The race loser [assumed: specified here from C5-R15; C2-R20's figure is replaced under C5's existing obligation to C2]: charged gas `max(execution component, G-FLOOR(L))` (C5-R15), which is G-FLOOR(LAND_CALLDATA_MAX) = 547,040 at `L` = LAND_CALLDATA_MAX (C5-R15's execution component, the three prefix frames of about 14,600 gas plus about 30k for the early revert plus calldata, is below the floor there), plus one blob fee. The row's "about 25k" is not kept as a default: it is below the cost it describes. **[proven: arithmetic on C5's derived floors]** C5-R15 states that the pages' "about 25k gas plus a blob fee" is the cost of a loser without the gate, and that a direct land pays the calldata floor on its own bytes, `(15,000 to 21,000) + 64 × L`: 69,400 to 75,400 gas at `L = 850`, about 0.30 M at 4,500 and at most 545,288 at 8,192, above 25,000 for every real landing and at most the default. G-FLOOR alone is 27,104 at 68 B, above 25,000 at every `L` for a shape-1 stale copy.
+- **Procedure [open: not run]:** MP-24 for the walk. The race loser, on BENCH at `L` in {68, 850, 4,500, LAND_CALLDATA_MAX}, cold and warm, recording charged gas `max(execution, floor)` and the blob fee: (i) the path C2-R20's figure describes, a direct land without the gate that loses the race and reverts at the inbox's first check; (ii) a shape-2 loser, which C5-R15 states is invalid and free; (iii) as a separate case, shape 1: a same-`(G, n)` loser (invalid and free) and a stale copy (`C_stale`, whose execution part MP-18 measures). **Pass:** MP-24's pass for the walk; for every loser at each tested `L`, charged gas at most 547,040 and at most one blob fee paid; the shape-2 and same-`(G, n)` shape-1 losers charged nothing.
+- **Out of range:** MP-24's rule for the walk. For the loser, C5 decides (C5-R15, `C_stale`) and C2 re-quotes in C2-R20: a charge above 547,040 at some `L` re-states C5-R15's `C_stale` and C2-R20's figure at the measured value, with no parameter change; a shape-2 or same-`(G, n)` loser that pays returns the gate's zero-cost claim to C5 (C5-R12, C5-R15).
+- **Owner:** S1 (A) for the walk; C2 quotes. Race loser: C5 (C5-R15, `C_stale`) decides; C2 re-quotes in C2-R20.
+
+## 5. C3 §7 rows
+
+The C6 unmeasured register's [current hatch procedures](C6-unmeasured-register.md#current-hatch-measurement-and-closure-procedures) already state the method for `L_K`, the stuffing price, legacy proving, A-HONEST-RESUME and hatch gas. MP-08 to MP-12 adopt those methods, add sample sizes and state the out-of-range actions the register leaves to C3.
+
+### MP-08. HATCH_WINDOW
+
+- **Row:** C3 §7, `HATCH_WINDOW`: "1,800 s"; "assumed, unmeasured; at least a HATCH_K-block hatch's acquisition, proof and submission plus two slots ... It is also the landing halt per poison".
+- **Default [assumed, the owner's]:** 1,800 s. At 12-s slots this leaves 1,776 s for acquisition, proof and submission and 1,788 s for the full `L_K`.
+- **Procedure [open: not run]:** MP-09's runs. **Pass:** the maximum acquisition-to-submission interval is at most HATCH_WINDOW minus two inclusion allowances (1,776 s at 12 s) and the maximum submission-to-inclusion interval at most one allowance (T1, 12 s).
+- **Out of range:** first rerun on a larger PROVER-REF (no spec change; A-PROVER is restated at that configuration). If no declared configuration passes, C3 raises HATCH_WINDOW to the measured maximum plus two inclusion allowances, rounded up to 60 s, by OR1 or OR2. HATCH_WINDOW is the landing halt per poison, and the base poison halt is on D50's user-completion list, so the change goes to the user. Re-derive: C3 §9's bound (the empty-queue bound HATCH_DELAY + HATCH_WINDOW, S4's 4 h 30 min), the young-threshold margin HATCH_DELAY − HATCH_RESUME_GRACE above an honest hatch's anchor age (at most HATCH_WINDOW), HATCH_GRACE, the `short` close extension of C3-R04, and L-HATCH-POISON's halt.
+- **Owner:** C3 (A); the user for the halt.
+
+### MP-09. HATCH_K and its latency `L_K`
+
+- **Row:** C3 §7, `HATCH_K`: "32"; "Its latency L_K (from S_c to L1 inclusion, A-HATCH-LATENCY; unmeasured, at most HATCH_WINDOW − 12 s = 1,788 s) sets the stuffing price". D55(1) names C6 as the carrier of `L_K`.
+- **Default [assumed, the owner's]:** HATCH_K = 32; `L_K` at most 1,788 s at 12-s slots; `L_1` at most `L_K`, so at most 1,788 s (C3 §9's ordering `L_1 ≤ L_K ≤ HATCH_WINDOW − 12 s`).
+- **The default fails its own price gate [proven: C3 §9 table]:** at `L_K` = 1,800 s the stuffing price is about 0.07 ETH upfront plus 0.09 ETH/day (C3 §9), against D51(4)'s benchmark of about 2.78 ETH plus 5.1 ETH/day, which holds only at `L_K` of about 3 min. The conservative pre-launch position is therefore D55(1)'s remedy (FI_BASE_FEE raised by about the price ratio, or parallel proving) unless the measured maximum `L_K` is about 3 min or less.
+- **Procedure [open: not run]:** DEVNET on PROVER-REF, the register's `L_K` method: from the owner-defined `S_c`, time acquisition, input preparation, both required leaves, aggregation, submission and L1 inclusion for full HATCH_K-block hatches. Profiles: all CALLDATA, all BLOB, one LEGACY block among them, mixed, each from cold state with expensive legal payloads at the per-request caps (MP-10). At least 30 hatches per profile, serial and parallel PROVER-REF reported separately; `L_1` measured the same way for one-block hatches, 30 runs. **Pass:** maximum `L_K` at most 1,788 s (MP-08 for the inner gates); maximum `L_1` at most the measured maximum `L_K` and at most 1,788 s (MP-11's end-to-end gate then covers `L_1` inside HATCH_RESUME_GRACE); and the stuffing price from C3 §9 and T34 at the maximum measured `L_K` at least D51(4)'s benchmark of about 2.78 ETH upfront plus 5.1 ETH/day.
+- **Out of range:** a latency miss follows MP-08. A price below the benchmark applies D55(1)'s remedy as the register states it: C3 raises FI_BASE_FEE enough to restore the benchmark, or parallel proving brings maximum `L_K` to about 3 min; the model and the measurement are then repeated. HATCH_K moves only if neither remedy works: C3 lowers it, which raises the stuffing rate HATCH_RESUME_GRACE / HATCH_K and so goes to the user under OR1 (D51(4) signed the stuffing price, and D55(1) accepted it as a function of L_K for a full HATCH_K = 32 hatch).
+- **Owner:** C3 (A); the procedure is C6's under D55(1).
+
+### MP-10. FI_GAS_LIMIT / FI_ZK_GAS_LIMIT
+
+- **Row:** C3 §7, `FI_GAS_LIMIT / FI_ZK_GAS_LIMIT`: "5 M / 20 %"; "assumed, unmeasured; FI_ZK_GAS_LIMIT = 20 % of BLOCK_ZK_GAS_LIMIT (100 M, zk_gas_spec) = 20 M zk gas for every request block, LEGACY included".
+- **Default [assumed, the owner's]:** 5,000,000 L2 gas and 20,000,000 zk gas per request block.
+- **Procedure [open: not run]:** BENCH proving on PROVER-REF: request blocks filled to the execution-gas cap with the cheapest-gas, most zk-expensive legal transactions, and blocks filled to the zk-gas cap; the over-budget skip case (G7). At least 30 blocks per cap. Then use these blocks as MP-09's payload. **Pass:** MP-09's latency gates hold with all HATCH_K blocks at these caps (maximum `L_K` at most 1,788 s and MP-08's inner gates); MP-09's stuffing-price gate is not part of this pass and is left to MP-09's D55(1) remedy; per-block proof time is reported for MP-19 and MP-20.
+- **Out of range:** C3 lowers the binding cap (FI_GAS_LIMIT, or the FI_ZK_GAS_LIMIT percentage) until MP-09's latency gates hold, by OR1 or OR2; a lower cap skips more transactions of a request (C3-R05) and is disclosed in C3-R05. Re-derive: FI_CALLDATA_MAX's fit, C7 §7's quoted row, MP-12's legacy envelope (its zk gas is capped at FI_ZK_GAS_LIMIT).
+- **Owner:** C3 (A).
+
+### MP-11. HATCH_RESUME_GRACE
+
+- **Row:** C3 §7, `HATCH_RESUME_GRACE`: "4,200 s"; "assumed, unmeasured; at least the honest hatch-to-first-landing latency ..., taken at the honest serve-and-land figure of 4,188 s ... and rounded up".
+- **Default [assumed, the owner's]:** 4,200 s; A-HONEST-RESUME requires the first ordinary landing within 4,188 s at 12-s slots.
+- **Procedure [open: not run]:** DEVNET, the register's A-HONEST-RESUME method: timestamp a landed hatch, the RESUME reference's aging, RESUME formation, resumed blocks, the first segment's certificate and proof and the first ordinary landing. Cases: window and A1 hatches, maximal and non-maximal, an open provable head, same-L1-block tip rewriting; at least 30 per case. Runs in which another hatch lands first restart at that hatch, as the premise states. **Pass:** maximum hatch-to-first-ordinary-landing at most 4,188 s.
+- **Out of range:** the register's rule stands: a miss leaves the no-griefing premise unsupported and returns the default to C3, with no automatic increase. C3 then chooses, by OR1 or OR2, between raising HATCH_RESUME_GRACE to the measured maximum plus one slot, rounded up to 60 s, and recording the unsupported premise as a limitation for the user. A raise re-derives: the young threshold `HATCH_DELAY − HATCH_RESUME_GRACE` above HATCH_WINDOW, the stuffing rate and price (MP-09; D55(1)), C3 §9's cost per hatch ahead, C2-R08's hatch gate and S4's forced-inclusion row.
+- **Owner:** C3 (A).
+
+### MP-12. LEGACY_FI_GAS_LIMIT
+
+- **Row:** C3 §7, `LEGACY_FI_GAS_LIMIT`: "45 M"; "quoted (Derivation.md:373); zk gas capped at FI_ZK_GAS_LIMIT; proving time of such a block is unmeasured (C6)".
+- **Default [assumed, the owner's]:** 45,000,000 L2 gas, zk gas at most 20,000,000; the latency gates of MP-08.
+- **Procedure [open: not run]:** DEVNET, the register's legacy method: prove a live, unexpired LEGACY request block at the 45 M envelope under the 20 M zk-gas cap with the retained BlobSlice profile, inside a full hatch submission. At least 10 runs, with transactions hitting each cap and the skip case. **Pass:** the maximum acquisition-to-submission interval at most 1,776 s and full inclusion at most 1,788 s.
+- **Out of range:** the value is quoted from the legacy protocol and is part of the LEGACY_BLOB promise, so C3 does not move it. A legal legacy entry that cannot meet the gates stays a poison counted in C3 §9's M (L-HATCH-POISON), and the result is handed to the open legacy-expiry and LEGACY_BLOB decision of C3, C4 and the user (D51).
+- **Owner:** C3 and C4; the user for the promise.
+
+## 6. C5 §8 rows
+
+### MP-13. L1-STATE-GAS
+
+- **Row:** C5 §8, `L1-STATE-GAS`: "97,920 per new slot (64 × 1,530); 183,600 per new account; ..."; "**cited** (EIP-8037, 8038, 2780, all `Review`); final values pending EIP-8368 / 8372 (**unmeasured**)".
+- **Default [assumed, the owner's]:** 97,920 gas per new slot, 183,600 per new account; `CPSB` 1,530; STORAGE_WRITE 10,000 per overwritten slot; COLD_ACCOUNT_ACCESS 3,000; a value-less call's intrinsic cost 15,000.
+- **Procedure [open: not run]:** when the selected fork's EIP set is final, BENCH on at least two execution clients: a fixture contract writes fresh slots, overwrites slots, creates accounts and accesses cold accounts, and a value-less call with empty calldata is sent to it; read state gas and execution gas per operation from the receipts and traces. **Pass:** at most 97,920 per new slot (that is, at most 64 × 1,530 at the measured `CPSB`), 183,600 per new account, 10,000 per overwritten slot, 3,000 per cold account access and 15,000 intrinsic for the value-less call.
+- **Out of range:** C5 re-states the cited figures (no Etna constant moves). Re-derive by OR3: C2's checkpoint (2 slots) and provisional record (7 slots) and MP-05, S1's domain write gas (MP-23), MP-21's `poke()` defaults (which use the overwrite, cold-access and intrinsic figures), C3's hatch and replay writes, C8's storage costs, and through MP-05 R_LAND_MAX and PIN_MAX. G-FLOOR's EIP-8141 constants are not in this set; MP-17 covers them.
+- **Owner:** C5 (A).
+
+### MP-14. FOCIL-LEG-BYTES
+
+- **Row:** C5 §8, `FOCIL-LEG-BYTES`: "calldata save at the manifest cap: 4,373; wrapped reveal request: about 2,229; blob-free hatch: about 3,281"; "**unmeasured** until C8 fixes the field sets".
+- **Default [assumed, the owner's]:** as quoted; each leg must also fit L1-FOCIL-CAP, 8,192 bytes.
+- **Procedure [open: not run]:** after C8 fixes the field sets, BENCH: build each leg with the reference encoder (a save at FI_CALLDATA_MAX, a wrapped reveal request, a blob-free hatch with the largest valid hatch calldata: HATCH_K blocks, the maximum FI walk, LEGACY entries and the restart re-void case, with `fiReplayIds` empty, since C3 refuses a non-empty list on a hatch with `FiRange`) and measure the RLP length of the signed transaction. **Pass:** each leg at most its default and at most 8,192 bytes.
+- **Out of range:** a leg above its default but within 8,192 bytes re-states the row. A leg above 8,192 bytes cannot enter an inclusion list: C3 lowers FI_CALLDATA_MAX or the hatch's calldata (by HATCH_K or by moving data to a blob), by OR1 or OR2, and C5-R10's floor claim is narrowed to the legs that fit until then.
+- **Owner:** C5 (A), with C8 and C3.
+
+### MP-15. LAND_CALLDATA_MAX
+
+- **Row:** C5 §8, `LAND_CALLDATA_MAX`: "8,192 bytes"; "**assumed, unmeasured:** upper bound on frame 3's data; the page's typical 4.5 KB and four-view worst case 8 KB are not itemized (§14 item 4)".
+- **Default [assumed, the owner's]:** 8,192 bytes.
+- **Procedure [open: not run]:** BENCH with the final C8 encoding: encode frame 3's data for the typical landing (one segment, one view change, two leaves) and the worst case (MAX_VIEWS = 4 view changes with full witnesses, the end certificate, both leaves at their deployed seal sizes, 64 `fiReplayIds`, the journal fields, and the content C5 §6 sizes into its 8 KB worst case: eight redraw proofs, with any S1-R13 redraw witnesses they carry, and four `RewardBoost` objects); itemize every field. **Pass:** worst case at most 8,192 bytes.
+- **Out of range:** C5 raises LAND_CALLDATA_MAX to the measured worst case rounded up to 1,024 bytes, or C2 lowers MAX_VIEWS, by OR1 or OR2, whichever keeps the landing within L1-GAS-CAP. Re-derive: G-FLOOR(L), S2-FLOOR(L), D-FLOOR(L), `C_stale` (C5-R15), C2's quoted row (MP-04) and MP-05.
+- **Owner:** C5 (A), with C2 and C8.
+
+### MP-16. G-VERIFY-GAS
+
+- **Row:** C5 §8, `G-VERIFY-GAS`: "at most 14,600 gas for the three prefix frames of the record's example"; "**derived from the record's example limits; unmeasured:** G's bytecode does not exist; policy cap `MAX_VERIFY_GAS = 100,000`".
+- **Default [assumed, the owner's]:** 14,600 gas; the policy cap 100,000 is a hard ceiling.
+- **Procedure [open: not run]:** once G is written, BENCH under the selected fork's EIP-8141: run the three prefix frames for a winner, a same-`(G, n)` loser, a stale copy and a malformed short call, cold and warm. **Pass:** each at most 14,600 gas.
+- **Out of range:** a figure up to 100,000 re-states the row and re-derives the execution-component crossover (about `L = 850`, C5-R15) and MP-17's execution part. A figure above 100,000 fails public-mempool policy: shape 1 is withdrawn as a path until C5 revises G's prefix pins (C5-R13), shape 2 and the direct land remaining (C5-R15); C5 decides by OR1 or OR2, and the censorship-resistant fallback claim of C5 is marked open meanwhile.
+- **Owner:** C5 (A).
+
+### MP-17. G-BURN-MIN
+
+- **Row:** C5 §8, `G-BURN-MIN`: "at least 27,104 gas (the G-FLOOR at 68 B), no blob, plus MIN_TIP; execution component up to about 40,000 gas"; "**derived** floor, execution part **unmeasured** (G03)".
+- **Default [assumed, the owner's]:** at least 27,104 gas per burned shape-1 nonce. This is a floor on an attacker's price, so lower is worse.
+- **Procedure [open: not run]:** BENCH: send the minimal malformed 68-byte `landFor` that passes pins 2 and 3 and reverts in ABI decoding, and its shortest variants; record the gas charged, `max(execution, floor)`, and the execution part. **Pass:** gas charged at least 27,104 for every variant that burns a nonce.
+- **Out of range:** a cheaper nonce burn means a shorter call passes the pins or the EIP-8141 constants changed: C5 re-derives G-FLOOR and tightens the pins, or sets MIN_TIP (open, C5 §14 item 17) to restore the price, by OR1 or OR2. A higher execution part than 40,000 only raises the price and re-states the row.
+- **Owner:** C5 (A).
+
+### MP-18. G-STALE-EXEC
+
+- **Row:** C5 §8, `G-STALE-EXEC`: "about 30k gas of frame execution for the early revert"; "**cited** from the page; **unmeasured**; below the floor for every real `L`".
+- **Default [assumed, the owner's]:** 30,000 gas.
+- **Procedure [open: not run]:** BENCH: a shape-1 stale copy whose parent another landing consumed; measure frame 3's execution to the inbox's first check, cold and warm, at `L` in {68, 850, 4,500, LAND_CALLDATA_MAX}. **Pass:** at most 30,000 gas.
+- **Out of range:** no parameter moves. C5 re-states the row and the crossover `L`, and re-derives C5-R15's charged gas `max(execution component, G-FLOOR(L))`, whose execution component includes this figure; the obligations C5 carries to C2-R20 and S3 for their "about 25k" and "about 30k" figures use the measured value.
+- **Owner:** C5 (A).
+
+## 7. C7 §7 rows
+
+### MP-19. Predicate evaluation cost per block
+
+- **Row:** C7 §7, `Predicate evaluation cost per block`: "unmeasured"; "**open:** the node's cost is inside S2's A-T9 (`engine_newPayload` ≤ 200 ms, unmeasured); the guest's cost of asserting H1 to H3, V4, V5, V8, V9 and V10 per block is part of C2's unmeasured guest cost".
+- **Default [assumed: specified here; C7's row adopts it]:** (a) **node:** at most 50 ms of wall time per block for C1's component (C1-R01 to C1-R03), H1 to H3 and V1 to V5, V8, V9, V10 (V6's execution excluded; C7-R01), and at most 140 ms for a block that carries a view change; (b) **guest:** at most 2 s of a block's proof on PROVER-REF, within C2's "block proofs ≤ 20 s" component.
+- **Derivation, not a procedure [assumed]:** a node's heaviest checks are one secp256k1 recovery (V1), one BLS aggregate verification of the carried certificate (V3: two pairings and up to 32 G1 additions) and, at a view entry, one view-change verification with signer-specific messages (up to 33 pairings for 32 keys). Signer-specific messages also need one hash to G2 per signer, which S2 §6 shows is the larger part of the on-chain cost (about 1.1 M gas against 787k for the pairings at `Q = 22`). At a pessimistic 2 ms per pairing (about 3x native), about 0.8 ms per hash to G2 at the same pessimism, and 10 ms for parsing, other hashing and lookups, that is about 15 ms for an ordinary block (one common message) and about 66 + 26 + 10 = 102 ms, call it 100 to 110 ms, at a view entry with 32 signers; the defaults carry at least 25 % above those figures (50 ms; 140 ms against 110 ms). 50 ms is a quarter of A-T9's 200-ms `newPayload` budget and leaves 150 ms for execution. At a view entry, 140 ms leaves 60 ms of A-T9's 200 ms for execution; **[open: whether a view-entry block's execution fits in 60 ms]** the pass below tests the two together. The guest asserts no signature; its checks are hashing and comparisons over the header, the record and the L1 references, so 10 % of the per-block proof figure is a pessimistic share.
+- **Procedure [open: not run]:** (a) DEVNET (S2's 32-attester devnet): instrument the node's evaluator (C7-R14's order) per rule; run 24 h at 1-s blocks, at least 10,000 blocks, including at least 100 view-entry blocks, FI request blocks, and C7 §10's invalid vectors (bad signature, wrong certificate, malformed view change) injected at the maximum certificate and witness sizes. (b) BENCH proving on PROVER-REF: prove blocks with and without the predicate assertions and attribute the difference; 30 blocks per kind. **Pass:** node maximum at most 50 ms (140 ms at a view entry) and, together with execution, within A-T9's 200 ms; guest difference at most 2 s per block.
+- **Out of range:** the node figure feeds A-T9, which is S2's: S2 re-derives A-T9, TIMEOUT and the level timings (MP-35), an obligation on S2 (§11). If the predicate alone breaks the 1-s cadence, the fix is a rule change (verification off the attestation path), returned to C7 and S2, not a parameter. The guest figure feeds MP-06; C2 re-derives the happy-path latency.
+- **Owner:** C7 (A) for the definition and default; S2 for A-T9; C2 for the guest budget.
+
+### MP-20. BLOCK_ZK_GAS_LIMIT
+
+- **Row:** C7 §7, `BLOCK_ZK_GAS_LIMIT`: "100 M zk gas"; "**quoted (C3 §7, from zk_gas_spec; assumed, unmeasured):** the per-block zk-gas limit V10 reads".
+- **Default [assumed, quoted]:** 100,000,000 zk gas per block.
+- **Procedure [open: not run]:** BENCH proving on PROVER-REF with both ZK systems: blocks at the limit with the worst legal opcode and precompile mixes, at least 30; confirm on DEVNET that the execution client enforces the limit (a block above it is rejected). **Pass:** maximum block-proof time at a full block at most 20 s (C2's pipelined block-proof component) and enforcement confirmed.
+- **Out of range:** first a larger PROVER-REF (A-PROVER restated). Otherwise C3 adopts a lower Etna per-block limit in its register (C7 re-quotes), by OR1 or OR2; FI_ZK_GAS_LIMIT follows at 20 % and MP-10 is rerun. Re-derive: C2's happy-path latency (MP-06) and MP-02's full-block workload.
+- **Owner:** C3 (A) for the quoted value; C7 quotes.
+
+## 8. S1 §11 rows
+
+### MP-21. `poke()` gas
+
+- **Row:** S1 §11, `` `poke()` gas ``: "unmeasured"; "**unmeasured, no page estimate:** one keccak over two words, one storage write of `seedAcc`, one event, at most once per L1 block (S1-R11 RND1)".
+- **Default [assumed: specified here; S1's row adopts it]:** 75,000 gas for a mixing `poke()`; 300,000 gas for a `poke()` that is the fixing call of S1-R11 RND2.
+- **Derivation, not a procedure [assumed]:** a mixing call pays the transaction's intrinsic cost (21,000 today; 15,000 for a value-less call under EIP-2780 as C5 cites it), a cold account or proxy access (2,600 today; 3,000 under C5's cited COLD_ACCOUNT_ACCESS), a cold read and an overwrite of `seedAcc` (2,100 + 2,900 today; at most about 13,000 under C5's cited STORAGE_WRITE of 10,000), a keccak over two words (42), the `Poked` log (under 2,000) and dispatch (about 1,000): about 31,000 today and about 34,000 at C5's cited values. The state that enforces "at most once per L1 block" (RND1, S1-R11) is read and written on every effective call: about 5,000 more today and up to about 13,000 at C5's cited STORAGE_WRITE, so about 36,000 today and about 47,000 at C5's values. 75,000 carries about 60 % above the larger. `seedAcc` and the guard are overwritten slots, so no state gas for a fresh slot is charged (C5-R06). The fixing call also writes `seed(c)` with `fresh`, reads `freshFrom(c)` and emits `SeedFixed`. At C5's values: the mixing call's 47,000, 97,920 of state gas for a fresh `seed(c)` slot (L1-STATE-GAS), about 10,000 for its STORAGE_WRITE, 2,100 for the cold `freshFrom(c)` read and about 2,000 for `SeedFixed`: about 159,000. If `fresh` sits in its own slot, a second fresh slot adds about 108,000 (97,920 + 10,000), about 267,000. 300,000 covers two fresh slots with about 12 % margin and one with about 89 %. **[open: C8]** The slot layout of `seed(c)` and `fresh` is C8's; if C8 packs them into one slot, S1 may lower the fixing default by an ordinary owner revision (OR4).
+- **Procedure [open: not run]:** BENCH under the selected fork: `poke()` as the first mixing call of a block, as a second call in the same block (the no-op path), as the fixing call, and after a `land` in the same block; cold and warm. **Pass:** each mixing case at most 75,000 gas, the fixing case at most 300,000.
+- **Out of range:** no parameter moves: `poke()` is unpaid. S1 re-states the row and LS1-1's reliance on the cost of a `poke()` being small (unmeasured, S1 §11). A fixing case above 300,000 returns the seed storage layout to C8 and S1 (a ring of seed slots removes the fresh-slot charge), by OR1.
+- **Owner:** S1 (A), with C8.
+
+### MP-22. B_SEAT; buffer; hard floor; LAND_RESERVE
+
+- **Row:** S1 §11, `B_SEAT; buffer; hard floor; LAND_RESERVE`: "20,000 TAIKO per seat; 5 % (1,000 TAIKO per seat); 50 %; 14,400 TAIKO per seat"; "**quoted (S3), unmeasured inputs**". S3 §11 at `9a6889f4`: B_SEAT "**derived from assumed inputs:** `300 × V_term / P`"; LAND_RESERVE "`≥ 2 × 7,161 = 14,322`, `≤ B_SEAT`".
+- **Default [assumed, S3's]:** as quoted.
+- **Procedure [open: not run]:** no direct measurement: B_SEAT's inputs are MP-28's, LAND_RESERVE's are the per-term exposure components of MP-02, MP-05 (through R_LAND_MAX) and MP-30. **[assumed: classification]** The buffer and hard floor are ratios on B_SEAT with S3's rationale (20 MISS debits; 220 debits to the floor), not measured quantities; their TAIKO amounts follow B_SEAT. **Pass:** `300 × V_term / P` at the measured inputs at most 20,000 TAIKO, LAND_RESERVE at least twice the per-term exposure re-derived from the measured components, and LAND_RESERVE ≤ B_SEAT (S3 §11) after both are re-derived.
+- **Out of range:** S3 raises B_SEAT to `300 × V_term / P` measured, rounded up to 1,000 TAIKO, and LAND_RESERVE to twice the re-derived exposure, by OR1 or OR2 (S3 §11 at `9a6889f4`, `V_term; P (A-REV)` row: "a constant changed after it changes only by DAO upgrade (R1)"). If the raised LAND_RESERVE exceeds B_SEAT (exposure rising faster than `300 × V_term / P`, for example R_BLK_MAX raised by MP-02 while `V_term / P` passes), S3 decides by OR1 between raising B_SEAT to LAND_RESERVE and lowering the exposure parameters, and S1's entry capital is re-derived. Re-derive: S1's entry capital, MAX_SEATS fill cost, TH9's price of share, the launch condition's capital, S3-R10's illustrations and S4's backing row.
+- **Owner:** S3 (A); obligation on S3 to cite this entry (§11). S1 quotes.
+
+### MP-23. Domain write gas
+
+- **Row:** S1 §11, `Domain write gas`: "about 1.6 M state gas plus about 60k execution per seat; `register(8)` about 13 M state gas"; "**derived from an assumed input, unmeasured:** about 16 fresh nodes ... × 97,920 gas ...; the execution part is unmeasured".
+- **Default [assumed, the owner's]:** 1,566,720 state gas and 60,000 execution gas per seat; 13 M state gas for `register(8)`.
+- **Procedure [open: not run]:** BENCH under the selected fork with the persistent tree preloaded at 72, 128, 4,096 and 65,534 seats: `register(1)`, `register(8)`, exit, key rotation, reactivation and a history lookup, each with execution and state gas split. **Pass:** per seat at most 16 fresh slots at MP-13's measured per-slot figure and at most 60,000 execution gas; `register(8)` within the default.
+- **Out of range:** no TAIKO constant depends on it; the registrant pays. S1 re-states the row; if `register(8)` no longer fits the selected fork's block, S1 caps the batch size of `register` to what fits, by OR1 or OR2. A per-seat path above 16 fresh nodes returns the tree layout to S1 and C8.
+- **Owner:** S1 (A).
+
+### MP-24. Committee walk gas (a pin)
+
+- **Row:** S1 §11, `Committee walk gas (a pin)`: "about 1 M at 128 seats; 5.4 M at 4,096; 10.1 M at 65,535"; "**1 M: assumed, unmeasured** ...; **5.4 M and 10.1 M: simulated, unmeasured** ...; under D19 a pin is at most 320 lookups (64 + WALK_MAX ...)".
+- **Default [assumed, the owner's]:** as quoted; all under the 16.8 M EIP-7825 cap.
+- **Procedure [open: not run]:** BENCH with the D19 walk: `recordAssignment(t)` at 72, 128, 4,096 and 65,535 seats; seeds chosen to force the worst case (WALK_MAX = 256 committee draws plus 64 holder lookups, maximum redraws per count), cold storage, several tree versions; plus a redraw verification walk. **Pass:** at most 1 M at 128, 5.4 M at 4,096 and 10.1 M at 65,535, and every figure within L1-GAS-CAP.
+- **Out of range:** PIN_MAX moves by MP-26 and MP-30's rule. A walk above L1-GAS-CAP at some seat count makes that count unpinnable in one transaction: S1 lowers MAX_SEATS below it, or splits the pin, by OR1 or OR2. A walk that fails MP-05's launch-registry criterion is resolved the same way: S1 lowers MAX_SEATS, C2 lowers SETTLE_MAX, or the pin is split, by OR1 or OR2. A seat ceiling below MAX_SEATS is not a measurement-triggered miss: it already holds at the defaults and is MP-05's open design item for S1 and C2. Re-derive: C2's worst pinned landing (MP-05), the seat ceiling as a dependent bound, and SETTLE_MAX's bound of four walks per landing.
+- **Owner:** S1 (A); C2 and S3 consume.
+
+### MP-25. `isHolder` gas
+
+- **Row:** S1 §11, `` `isHolder` gas ``: "about 7k typical; at most 290k"; "**unmeasured:** 64 rank lookups worst case; fits a 10 M-gas block".
+- **Default [assumed, the owner's]:** 7,000 typical, 290,000 worst.
+- **Procedure [open: not run]:** BENCH: `isHolder` at the seat counts of MP-24, a first-try holder (typical) and a seed forcing MAX_TRIES = 64 lookups (worst), cold and warm. **Pass:** typical at most 7,000, worst at most 290,000.
+- **Out of range:** C2's "rights ≤ 290k" in MP-05 is re-derived. If the worst case breaks MP-05's budget, S1 lowers MAX_TRIES, by OR1 or OR2, which changes the open-empty probability S1 §11 states.
+- **Owner:** S1 (A).
+
+### MP-26. Pin gas at the launch registry
+
+- **Row:** S1 §11, `Pin gas at the launch registry (72 seats)`: "about 0.8 M"; "**quoted (C2 §12, PIN_MAX row), unmeasured**". C2 §12 `PIN_MAX`: "400 TAIKO"; "pays a launch-registry pin (about 0.8 M gas) up to about 75 gwei".
+- **Default [assumed, the owner's]:** 800,000 gas at 72 seats.
+- **Procedure [open: not run]:** MP-24's BENCH case at 72 seats, the full `recordAssignment` call including the pin record and root, key and version reads. **Pass:** at most 800,000 gas.
+- **Out of range:** PIN_MAX's rule is that it pays a launch-registry pin up to 75 gwei: C2 and S3 set PIN_MAX to `measured gas × 75 gwei / P`, rounded up to 10 TAIKO, with `P` from MP-28, by OR1 or OR2 (MP-30 is the same decision in S3's register). Re-derive: per-term exposure (7,161), LAND_RESERVE, ReserveLow.
+- **Owner:** C2 (A) for PIN_MAX; S1 measures the walk.
+
+## 9. S3 §11 rows (obligations on S3)
+
+S3 is not in this tree. Each entry below states the procedure; adding the citation to S3's register is an obligation on S3 (§11).
+
+### MP-27. `H(X)`
+
+- **Row:** S3 §11 at `9a6889f4`, `H(X)`: "the value users irrevocably act on within X s at a level"; "**unmeasured:** no page states it; S3-R10's constraint 2 is unverifiable until it is".
+- **Default [open: for the user]:** none can be specified here. `H(X)` is a definition of which user actions count as irrevocable and at which confirmation level, a product question; it belongs on D50's user-completion list.
+- **Interim conservative treatment [assumed: what S3's text implies]:** S3-R10 states that B_SEAT satisfies constraint 2 "only if `H(1 s)` is at most the holder's current collectible amount", illustrated at 15,444.9 TAIKO and falling to zero in its stated cases. Until the user defines `H(X)`, the sequenced level is backed by the holder's live collectible amount `c(o)` and nothing more, and the locked level by S3-R10 (ii)'s live deterrent; no larger value is claimed as covered, and the client shows the level with its `m` and exceptions (S2's label rule).
+- **Procedure [open: contingent on the definition]:** once the user names the irrevocable actions (for example bridge exits, exchange deposits, cross-chain fills) and the statistic (a maximum or a high percentile), MAINNET-OBS: over a week of Taiko mainnet blocks, sum the value of those actions per sliding X-second window at each level's X (1 s sequenced, about 2 s locked), and report the maximum and the 99.9th percentile in ETH and TAIKO at MP-28's `P`. **Pass:** per S3-R10 stated case, the report gives the user's statistic of `H(1 s)` against that case's `c(o)`; the gate is the case the user selects, or the client value cap the user chooses. A gate at S3-R10's worst stated case would require `H(1 s) = 0`, since `c(o)` falls to zero there, so that case is reported, not gated, unless the user selects it.
+- **Out of range:** S3 and the arbiter own any change of formula; the user decides whether the sequenced level carries a value cap in the client or whether B_SEAT rises under S3-R10. Re-derive: S3-R10, S2-R18's D1 record, C6-A's D1 limitation.
+- **Owner:** the user (definition); S3 (A) (procedure and consequence).
+
+### MP-28. V_term; P (A-REV)
+
+- **Row:** S3 §11 at `9a6889f4`, `V_term; P (A-REV)`: "about 0.01 ETH per term; about `1.5·10⁻⁴` ETH per TAIKO"; "**unmeasured inputs** (G8, G10) behind every TAIKO row". S3 §1's A-REV premise states V_term's closure test, "a week of mainnet coinbase and MEV data", and S3 §11's row states P's: "the TAIKO/ETH rate over the same week as V_term's data, as a time-weighted average from at least two named public market sources".
+- **Default [assumed, S3's]:** 0.01 ETH per 60-s term; `1.5·10⁻⁴` ETH per TAIKO.
+- **Procedure [open: not run]:** MAINNET-OBS for one week (10,080 terms): the fee input as base fee plus tips kept by the coinbase per term (C1's P-FEE-SHARE), the MEV input as ordering value per term with observable and missing MEV disclosed, both rescaled from Taiko's current block time to 60-s terms; `P` as S3 states. Record each value, the window and the sources. **[assumed: statistic]** `V_term` is the weekly mean per term, the plan's choice (S3's A-REV names the data, not the statistic); the p99 and the maximum per term are reported beside it. Every deterrent pass reads the mean: MP-01's ratio, MP-22's `300 × V_term / P`, MP-26's and MP-30's `P`; the p99 and maximum are disclosed for S3's judgement and move nothing by themselves. **Pass:** `V_term / P` at most 66.7 TAIKO per term (the deterrent direction) and `P` at least `1.5·10⁻⁴` ETH (the cost-reward direction).
+- **Out of range:** S3 re-derives every TAIKO row by its formulas (B_SEAT by MP-22, MISS_PENALTY, ATT_REWARD_PER_BLOCK, R_LAND_MAX, PIN_MAX by MP-30, R_BLK by MP-29), C2 re-quotes, by OR1 before T0 and by OR2 after. A run fixes the instance at a date, never a formula (S3's row; D2).
+- **Owner:** S3 (A); obligation on S3.
+
+### MP-29. R_BLK_MIN / R_BLK_MAX (S3's row)
+
+- **Row:** S3 §11 at `9a6889f4`, `R_BLK_MIN / R_BLK_MAX`: "0.5 / 4 TAIKO per block"; "**assumed, unmeasured:** marginal proving cost per block; the boost's ceiling".
+- **Default:** as C2's (MP-02). **Procedure and out of range:** MP-02's; S3 and C2 change the two rows in one revision so they stay equal. The boost's ceiling (S3-R13) follows R_BLK_MAX.
+- **Owner:** S3 and C2 (A); obligation on S3.
+
+### MP-30. PIN_MAX (S3's row)
+
+- **Row:** S3 §11 at `9a6889f4`, `PIN_MAX`: "400 TAIKO per term"; "**derived from assumed inputs:** `400 × P = 0.06 ETH` pays `0.8 M gas × 75 gwei` or `5.4 M gas × 11 gwei` (S1's simulated walk gas, unmeasured)".
+- **Default:** 400 TAIKO. **Procedure:** MP-26 for the launch pin, MP-24 for the 4,096-seat walk, MP-28 for `P`. **Pass:** `400 × P` at least the measured launch pin gas × 75 gwei.
+- **Out of range:** MP-26's rule, in S3's and C2's registers together; the 4,096-seat break-even gas price is re-stated, not targeted.
+- **Owner:** S3 and C2 (A); obligation on S3.
+
+## 10. S4 §5 rows
+
+### MP-31. Rung 1, takeover gap
+
+- **Row:** S4 §5, `Rung 1, takeover gap`: "about 5.4 s; the page says about 6 s"; "**derived, unmeasured:** TIMEOUT 5 s plus a view-change round trip of about 0.4 s (S2 §6, A-T9)".
+- **Default [assumed: the larger of the two stated figures]:** 6 s from the failed leader's last block to the first block of the next view.
+- **Procedure [open: not run]:** DEVNET (S2's 32-attester devnet): kill or partition the leader at random points in a term, with a higher honest lock present in a third of runs; at least 200 induced takeovers. **Pass:** maximum gap at most 6 s.
+- **Out of range:** S4 re-states rung 1 at the measured maximum. TIMEOUT and the VC round trip are S2's, and S2 decides by OR1 or OR2 (obligation on S2) under this rule [assumed: the plan's rule]: TIMEOUT stays above the measured maximum gossip hiccup (the longest gap between blocks of a live leader) plus 1 s, rounded up to 1 s; the VC round trip is re-stated at its measured maximum; rung 1 becomes TIMEOUT plus that maximum. Rung 2's 60-s idle bound is unaffected (it is bounded by TERM).
+- **Owner:** S4 (A) for the projection; S2 for its inputs.
+
+### MP-32. Rung 6, dead mode
+
+- **Row:** S4 §5, `Rung 6, dead mode`: "`termEnd(t′) + 4,440 s` (74 min); the page says about 75 min, plus proving"; "**quoted (S1 §11):** 75 terms; proving unmeasured (landed 2 to 3 min on the happy path, C2 §12)".
+- **Default [assumed]:** the opening is derived exactly; the measured part, from the opening to L1 inclusion of the first dead-mode landing, defaults to TERM + 180 s = 240 s, MP-06's per-block default: the interval includes block production and up to one term's wait under the lander policy, which MP-06's 180 s from a range's last block excludes.
+- **Procedure [open: not run]:** DEVNET: stop every committee for more than 75 terms, run a dead-mode producer and a lander with both leaves (a certificate-free landing needs two, C2-R11), and time the interval; at least 10 induced events. **[assumed: dead-mode lander policy, fixed here as in MP-06]** the lander lands each term's range once, submitted as soon as the term's last block is proved and aggregated. **Pass:** maximum at most 240 s after the opening.
+- **Out of range:** S4 re-states rung 6. No parameter moves for this interval alone; if MP-06 also fails, its rule applies.
+- **Owner:** S4 (A).
+
+### MP-33. Landed latency, proving
+
+- **Row:** S4 §5, `Landed latency, proving`: "2 to 3 min happy path"; "**unmeasured** (C2 §12): block proofs, aggregation, one or two L1 blocks".
+- **Default, procedure and out of range:** MP-06's. S4 quotes the per-block figure, at most TERM + 180 s = 240 s (MP-06 (b)), not only the 180 s from a range's last block, and re-quotes the measured maximum over all blocks.
+- **Owner:** C2 (A); S4 projects.
+
+### MP-34. Other unmeasured inputs
+
+- **Row:** S4 §5, `Other unmeasured inputs`: "gas of the walk, registration, recording, evidence, landing, the forced-inclusion queue (C3-R01, kept under D39); END_GRACE; L_1, L_K and hatch gas ...; blob retention under short slots; V_term and the TAIKO rate"; "**unmeasured:** owned by S1 §11, S2 §6, S3 §11, C2 §12, C3 §10 ...; S4 adds none".
+- **Default:** each owner's. **Procedure:** the mapped entries: walk MP-24; registration MP-23; landing MP-05; `L_1` and `L_K` MP-09; blob retention MP-03; `V_term` and the rate MP-28; the forced-inclusion queue walk by MP-05's FI-walk component (MAX_FI_PER_LANDING entries in its worst case); hatch gas MP-34d; evidence gas MP-34a, recording MP-34b, END_GRACE MP-34c; adding each citation to S3's or S2's register is an obligation on that section (§11). **Pass:** every mapped entry passes.
+- **Out of range:** each mapped entry's rule; S4 re-derives its sums.
+- **Owner:** S4 (A) for the mapping.
+
+### MP-34a. Evidence gas (S3's row)
+
+- **Row:** S3 §11 at `9a6889f4`, `Evidence gas`: "S1 about 95k; S3a 330k (attestation), 600k (certificate); S3b 340k; S3c′ pair form 330k, aggregate form about 600k plus two committee proofs; S3e about 330k (two single signatures), up to about 600k plus an on-chain redraw walk of up to 256 draws (S1-R13) for a set-bit form; S3c for REPLACE and RESUME (a), (c) 330k, (b) about 170k; S3d 200k; S6 200k to 550k; S8 35k; MISS +8k inside `land`; ..."; "**unmeasured:** from a single BLS verification of about 152k, a 32-key aggregate of about 165k (S2 §6), `ecrecover` 3k; the redraw walk's gas is S1's, unmeasured; the largest evidence object is C8's to fix". S4 §5 lists it as "evidence".
+- **Default [assumed, S3's]:** each form's figure as quoted; S3e's set-bit form takes MP-24's measured walk figure for its redraw walk.
+- **Procedure [open: not run]:** BENCH under the selected fork with the final C8 encoding: submit every evidence form above as an accepted accusation and as a reverting one (`NotConflicting`), cold and warm, with S6 at its smallest and its largest named object and every object at the largest size C8 fixes; S3e's set-bit form with a redraw walk of 256 draws. **Pass:** each form at most its default, and every form within L1-GAS-CAP.
+- **Out of range:** S3 re-states the row, by OR1 or OR2. A form above L1-GAS-CAP cannot be submitted in one transaction: S3 and C8 shrink the object or split the proof, and that offence class's slashability is marked open until then. Re-derive: any S3 figure that prices an accuser's cost from this row, and MP-05's MISS component.
+- **Owner:** S3 (A); obligation on S3 (§11).
+
+### MP-34b. L1 recording cost per term (S2-R13)
+
+- **Row:** S2 §6 at `ab391fe4`, `L1 recording cost per term (S2-R13)`: "unmeasured"; "about 165k gas per `recordCertificate` for a pinned term ... and, per `recordViewChange` ..., about 0.8 M to 2 M at `Q = 22`, both unmeasured, plus S1's walk when the term is unpinned ... No per-term figure is derived and none is measured". S4 §5 lists it as "recording".
+- **Default [assumed: S2's per-call estimates, taken at 32 signers]:** per call, 165,000 gas per `recordCertificate` for a pinned term, plus MP-24's walk when it pins; 2,720,000 gas per `recordViewChange` at 32 signers (MP-05's figure; S2 gives about 0.8 M to 2 M at `Q = 22`). Per term, for each named workload [proven: arithmetic on the per-call defaults]: happy path, zero; one withheld term, at most two `recordCertificate` calls (S2-R13 duty (3)), so at most 2 × (165,000 + 10.1 M, MP-24's walk at MAX_SEATS when it pins) = 20.53 M, without relying on the second call finding the term pinned; each recorded TIMEOUT or FALLBACK view change in the term adds one `recordViewChange` at 32 signers, 2.72 M.
+- **Procedure [open: not run]:** the C6 unmeasured register's S2-R13 method, on BENCH: `recordCertificate` and `recordViewChange` separately, full calldata, window tests, first pin versus already pinned, fresh, warm and overwritten storage, record multiplicity, the ordinary no-record path and races, at 22 and 32 signers. Per-term and per-day cost follows from stated workloads (happy path, one withheld term, one TIMEOUT view change per term, a FALLBACK) at MAINNET-OBS fee distributions. **Pass:** `recordCertificate` at most 165,000 plus the measured walk when it pins, `recordViewChange` at most 2,720,000 at 32 signers (the figure at 22 is reported), each workload's per-term cost at most its default, the no-record path records nothing, and every call within L1-GAS-CAP.
+- **Out of range:** S2 re-states the row and the duty's cost, by OR1 or OR2; a `recordViewChange` above L1-GAS-CAP returns the record's encoding to S2 and C8. Re-derive: MP-05's view-change verification component (C2 quotes about 165k each; MP-05's default already uses about 2.72 M at 32 signers) and any S3 figure that pays a recording duty.
+- **Owner:** S2; obligation on S2 (§11).
+
+### MP-34c. END_GRACE
+
+- **Row:** S2 §6 at `ab391fe4`, `TIMEOUT; TO_REBROADCAST; END_GRACE`: "5 s; 2 s; 2 s"; "**assumed, unmeasured against A-T9:** ... END_GRACE is "last block + certification + skew" on the page with no arithmetic". S4 §5 lists it.
+- **Default [assumed, S2's]:** 2 s after `termEnd(t)`.
+- **Procedure [open: not run]:** DEVNET with MP-35's setup: at every term end record the publication of the block stamped `termEnd(t) − 1`, the time each attester holds `C(h)` for it, and each attester's clock offset from a reference clock; at least 1,000 term ends, in the all-online, 10 % and 30 % offline runs, and with leaders that publish the last block late within STALE_MAX. The measured quantity is the time after `termEnd(t)` at which the last online attester holds `C(h)`, plus the maximum measured clock offset. **Pass:** maximum at most 2 s in the all-online and 10 % offline runs.
+- **Out of range:** S2 raises END_GRACE to the measured maximum rounded up to 1 s, by OR1 or OR2 (obligation on S2). Re-derive: the four-slot bound and handoff margin, the certificate record moment, the FALLBACK gate times `END_GRACE + VC_FALLBACK × (signerTerm − t)`, MP-35's levels and S4's rows that quote them.
+- **Owner:** S2; obligation on S2 (§11).
+
+### MP-34d. Hatch gas
+
+- **Row:** S4 §5's `Other unmeasured inputs` lists "hatch gas"; C3 §9 prices hatches "at 1.2 M gas and 10 gwei, assumed", and C3's T1 premise is "a blob-free landing of about 1.2 M gas within one slot". The C6 unmeasured register's hatch-gas row states the method and leaves the default and the pass to the owners.
+- **Default [assumed, C3's]:** 1,200,000 gas per full HATCH_K-block hatch, the figure of C3 §9 and C3's T1 premise.
+- **Procedure [open: not run]:** the C6 register's hatch-gas method on BENCH under the selected fork with the final C8 encoding: complete hatch calls with both required leaves and encoded calldata, full and partial, maximal and non-maximal, empty and maximum walks, `fiClear`, new and legacy entries, `fiReplayIds` empty (C3 refuses a non-empty list on a hatch: `FiRange`), the largest valid hatch calldata (HATCH_K blocks, the maximum FI walk, LEGACY entries and the restart re-void case), restart re-void and re-execution, cold and warm, successful and reverting races separately, execution and state gas split. **Pass:** every successful full hatch at most 1,200,000 gas, within L1-GAS-CAP, and its blob-free signed transaction within L1-FOCIL-CAP (8,192 bytes; MP-14's leg).
+- **Out of range:** C3 re-derives C3 §9's L1-gas column and C3's T1 premise at the measured maximum, and, if the hatch breaks L1-GAS-CAP or the FOCIL leg cap, lowers HATCH_K or moves hatch data to a blob, by OR1 or OR2; a lower HATCH_K changes the stuffing rate and goes to the user (MP-09).
+- **Owner:** C3 (A).
+
+### MP-35. Level timings, cadence (census pass)
+
+- **Row:** S4 §5, `Level timings, cadence`: "0.3 / 0.7 to 1.0 / 1.7 to 2.0 s; 1 block per second"; "**unmeasured:** A-T9, a 32-attester devnet (S2 §6)".
+- **Default [assumed, S2's]:** 0.3 s sequenced (`PH` plus `seqSig` received and executed locally, S2 §5's level table), 1.0 s attested (`C(n)`), 2.0 s locked, 1 block per second; A-T9's separate bounds, a gossip hop at most 300 ms and `newPayload` at most 200 ms.
+- **Procedure [open: not run]:** DEVNET as S2 names it: 32 attesters across at least three regions with production clients; record per block the gossip arrival, `newPayload`, attestations, `C(n)` and `PH(n + 1)`; 24 h, at least 10,000 blocks, with 10 % and 30 % of attesters offline as S2 §6's quorum rows. **Pass:** with all attesters online, maximum time to the sequenced level (gossip arrival plus local execution) at most 0.3 s, attested at most 1.0 s and locked at most 2.0 s, A-T9's two bounds hold at their maxima, and the 1-s cadence holds over the run (no missed slot). **[assumed: the plan's reading of S2 §6's `Q(m)` and P(no quorum) rows]** With 10 % offline (3 of 32, 29 online against `Q(32) = 22`) the same bounds and the cadence hold. With 30 % offline (10 of 32, leaving exactly `Q(32) = 22`, the most `Q(m)` tolerates) every block is certified, the cadence holds and attested and locked times are reported against the same bounds.
+- **Out of range:** S2 decides by OR1 or OR2 (obligation on S2): each level's timing is re-stated at its measured maximum, rounded up to 0.1 s; TIMEOUT follows MP-31's rule and END_GRACE MP-34c's. A miss only in the 30 % run re-states S2 §6's tolerance (`m − Q(m)` offline) at the measured timings, not the all-online levels. A locked time above 2 s bears on D1 ("about two seconds"), which is the user's requirement: the result goes to the user under OR1.
+- **Owner:** S2; S4 projects.
+
+## 11. Obligations on S2 and S3, and edits in this tree
+
+**[open: obligations, not edits]** S3 at `9a6889f4` should add "procedure: C6-measurement-plan MP-NN" to its §11 rows `H(X)` (MP-27), `V_term; P (A-REV)` (MP-28), `R_BLK_MIN / R_BLK_MAX` (MP-29), `PIN_MAX` (MP-30), `B_SEAT` and `LAND_RESERVE` (MP-22), and MP-34a to its `Evidence gas` row (J's census lists evidence gas through S4's `Other unmeasured inputs` row), and carry MP-27's interim treatment beside S3-R10's constraint 2. S2, on its next revision, should cite MP-35 at `Level timings` and A-T9, MP-31 at TIMEOUT and the VC round trip, MP-19 at A-T9 for the predicate's share, MP-34b at `L1 recording cost per term (S2-R13)` and MP-34c at END_GRACE.
+
+**[assumed: edits made with this page]** The owner rows in C2 §12, C3 §7, C5 §8, C7 §7, S1 §11 and S4 §5 cite their MP number; no value or rule is changed, except that C7's predicate-cost row and S1's `poke()` row now carry the defaults of MP-19 and MP-21, C2's `Gas per landing`, race-loser and `Happy-path landed latency` rows carry MP-05's, MP-07's and MP-06 (b)'s, each marking the value it supersedes ("under 2.7 M worst", "about 25k"), and S4's `Landed latency, proving` row quotes MP-06 (b)'s per-block figure, and S1's `poke()` status text changes from "**unmeasured, no page estimate:**" to "**unmeasured; default derived in MP-21:**" because the row now carries an estimate.
+
+**[open: completion]** Every entry stays open until its procedure runs on an implementation, which D2 does not include. `H(X)` stays open for the user. This page satisfies the "stated measurement procedure" half of readiness item 4 for J's 35 rows once reviewed; it does not cover numbers outside J's census (C1, C4, C8, S2, S3's other rows), which keep their own owner obligations in the C6 unmeasured register.

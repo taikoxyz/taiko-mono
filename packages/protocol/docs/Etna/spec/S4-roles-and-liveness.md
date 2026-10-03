@@ -205,13 +205,13 @@
 | ID | Value / unit | Derivation, rationale and status |
 |---|---|---|
 | Roles | 7 | **counted:** S4-R01. |
-| Rung 1, takeover gap | about 5.4 s; the page says about 6 s | **derived, unmeasured:** TIMEOUT 5 s plus a view-change round trip of about 0.4 s (S2 §6, A-T9); the page's 0.6 s remainder has no derivation (§10 item 3). |
+| Rung 1, takeover gap | about 5.4 s; the page says about 6 s | **derived, unmeasured:** TIMEOUT 5 s plus a view-change round trip of about 0.4 s (S2 §6, A-T9); the page's 0.6 s remainder has no derivation (§10 item 3). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-31. |
 | Rung 2, idle bound | at most 60 s | **derived:** after V_MAX = 4 takeovers the term idles to its end (S2-R11), and TERM = 60 s (S1 §11). |
 | Rung 3, FALLBACK gates | `termEnd + 12 s`, `+ 22 s` | **quoted (S2 §6):** `END_GRACE + VC_FALLBACK × (signerTerm − t)` with 2 s and 10 s. |
 | Rung 4, replacement window | `termEnd(t′) + 2,100 s` to `+ 3,900 s` (35 to 65 min); with the one deferral `+ 2,700` to `+ 4,500 s` (45 to 75 min) | **derived** from C2-R08 with LAND_WINDOW 1,800, LAND_WINDOW_MAX 3,600, REPLACE_GRACE 300, LAND_CHAIN_GRACE 600 (C2 §12): `min(T + 3,600, max(T + 1,800, L + 600)) + 300`. The origin is the first unlanded term's end, not "the last landing" (§10 item 4). |
 | Rung 4, ramp | 1,800 s | **quoted (C2 §12):** LAND_WINDOW. |
 | Rung 5, degraded mode | 7,200 s to enter; checkpoint up to 86,400 s; ring 12 | **quoted (C2 §12):** DEGRADE_AFTER, DEGRADED_FINALITY, `86,400 / 7,200`. |
-| Rung 6, dead mode | `termEnd(t′) + 4,440 s` (74 min); the page says about 75 min, plus proving | **quoted (S1 §11):** 75 terms; proving unmeasured (landed 2 to 3 min on the happy path, C2 §12). |
+| Rung 6, dead mode | `termEnd(t′) + 4,440 s` (74 min); the page says about 75 min, plus proving | **quoted (S1 §11):** 75 terms; proving unmeasured (landed 2 to 3 min on the happy path, C2 §12). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-32. |
 | Landing horizon | 27.3 h at 12-s slots; 4.55 h at 2-s slots; role horizon 34.1 h | **derived:** `8,191 × 12 = 98,292 s`; `8,191 × 2 = 16,382 s`; `2,048 × 60 = 122,880 s`; the horizon is the smaller (C2-R10). |
 | Retention gap | serving duty 7,200 s against a horizon of 16,382 s or 98,292 s: gaps of 2.55 h and 25.3 h | **derived:** `(16,382 − 7,200) / 3,600`, `(98,292 − 7,200) / 3,600`; C2-R18 says "up to about 34 h", which is the role horizon, not the smaller landing horizon. |
 | Forced inclusion | HATCH_DELAY 14,400 s; empty-queue bound at most 4 h 30 min; HATCH_WINDOW and HATCH_GRACE 1,800 s; HATCH_RESUME_GRACE 4,200 s; HATCH_BOND 0 | **quoted (C3 §7 and §9 at `eebc598`; D51(2), D51(3)):** HATCH_DELAY + HATCH_WINDOW for an empty queue; S4 defines none. The 6,720-s bound, FI_SKIP and the stall pricing of the per-block machinery are withdrawn (D39). |
@@ -220,9 +220,9 @@
 | Collusion | `Q(m)` colluders in one committee `3.8·10⁻⁵` at `p = 0.33`; redraw path about `6·10⁻⁷` (per view on the arguments page, per term in S2 §6's table: unit unresolved); cartel table | **quoted (S2 §6, S3-R28):** the binomial row reproduced; the redraw row and the table are not (§10 item 11). |
 | Evidence windows | 604,800 s (7 d) for S1, S3a attestation form, S3b, S3c; 122,880 s (34.1 h) for S3a certificate form, S3d, S6 | **quoted (S3-R08, S1 §11):** the challenger-outage reading is derived from the table. |
 | Honest draw at the weak premise | 5 / 72, 6.9 % per term | **derived, illustrative:** one honest single-seat owner among 72 single-seat owners; the chance that at least one of five distinct drawn owners is honest is `1 − (71/72 · 70/71 · 69/70 · 68/69 · 67/68) = 5/72` (S1-R12). Used only in §10 item 2. |
-| Level timings, cadence | 0.3 / 0.7 to 1.0 / 1.7 to 2.0 s; 1 block per second | **unmeasured:** A-T9, a 32-attester devnet (S2 §6). |
-| Landed latency, proving | 2 to 3 min happy path | **unmeasured** (C2 §12): block proofs, aggregation, one or two L1 blocks. |
-| Other unmeasured inputs | gas of the walk, registration, recording, evidence, landing, the forced-inclusion queue (C3-R01, kept under D39); END_GRACE; L_1, L_K and hatch gas (C3 §11 at `76c6150`; D55(1)); blob retention under short slots; V_term and the TAIKO rate | **unmeasured:** owned by S1 §11, S2 §6, S3 §11, C2 §12, C3 §10 (at `4aa0299`, read under D39); S4 adds none. |
+| Level timings, cadence | 0.3 / 0.7 to 1.0 / 1.7 to 2.0 s; 1 block per second | **unmeasured:** A-T9, a 32-attester devnet (S2 §6). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-35. |
+| Landed latency, proving | 2 to 3 min happy path from a range's last block; at most TERM + 180 s = 240 s from any block (MP-06 (b)) | **unmeasured** (C2 §12): block proofs, aggregation, one or two L1 blocks. **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-33. |
+| Other unmeasured inputs | gas of the walk, registration, recording, evidence, landing, the forced-inclusion queue (C3-R01, kept under D39); END_GRACE; L_1, L_K and hatch gas (C3 §11 at `76c6150`; D55(1)); blob retention under short slots; V_term and the TAIKO rate | **unmeasured:** owned by S1 §11, S2 §6, S3 §11, C2 §12, C3 §10 (at `4aa0299`, read under D39); S4 adds none. **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-34. |
 
 ## 6. State machines
 
