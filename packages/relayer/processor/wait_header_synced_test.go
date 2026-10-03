@@ -275,10 +275,12 @@ func TestWaitHeaderSyncedGivesUpWhenTheContextIsCancelled(t *testing.T) {
 }
 
 // headClient reports head as the L1 head and counts the BlockNumber calls. Like recordingRevealer,
-// it answers with the queued errors in order first, where a nil entry is a call that succeeds.
+// it answers with the queued errors in order first, where a nil entry is a call that succeeds. A
+// call that succeeds reports the queued heads in order, then head: the head can move between reads.
 type headClient struct {
 	mock.EthClient
 	head  uint64
+	heads []uint64
 	errs  []error
 	calls int
 }
@@ -293,6 +295,13 @@ func (c *headClient) BlockNumber(_ context.Context) (uint64, error) {
 		if err != nil {
 			return 0, err
 		}
+	}
+
+	if len(c.heads) > 0 {
+		head := c.heads[0]
+		c.heads = c.heads[1:]
+
+		return head, nil
 	}
 
 	return c.head, nil
@@ -348,9 +357,11 @@ func TestWaitHeaderSyncedDoesNotReadTheL1HeadWithoutReveals(t *testing.T) {
 func TestWaitHeaderSyncedRequiresARecentCheckpointWithReveals(t *testing.T) {
 	// Only checkpoints below 904 are indexed. One of them may still cover the message's block 800,
 	// but it is more than maxCheckpointAge blocks behind the head of 1,000, where the L1 node may
-	// no longer serve a proof. The checkpoint the revealer is asked for is indexed by the first tick.
-	index := &checkpointIndex{misses: 1, event: &relayer.Event{BlockID: 950}}
-	client := &headClient{head: 1_000}
+	// no longer serve a proof. By the first tick the head is 1,012, so from then on the wait asks both
+	// the index and the revealer for 916; a reveal covering only 904 or 800 would be too old. The
+	// checkpoint the revealer is asked for is indexed by the second tick.
+	index := &checkpointIndex{misses: 2, event: &relayer.Event{BlockID: 950}}
+	client := &headClient{heads: []uint64{1_000}, head: 1_012}
 	revealer := &recordingRevealer{}
 
 	p := newTestProcessor(false)
@@ -366,9 +377,9 @@ func TestWaitHeaderSyncedRequiresARecentCheckpointWithReveals(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ev)
 	assert.Equal(t, uint64(950), ev.BlockID)
-	assert.Equal(t, []uint64{904, 904}, index.lookups)
-	assert.Equal(t, []uint64{904}, revealer.calls)
-	assert.Equal(t, 2, client.calls, "the head is read before the first lookup and again on the tick")
+	assert.Equal(t, []uint64{904, 916, 916}, index.lookups)
+	assert.Equal(t, []uint64{904, 916}, revealer.calls)
+	assert.Equal(t, 3, client.calls, "the head is read before the first lookup and again on each tick")
 }
 
 func TestWaitHeaderSyncedAcceptsTheMessageBlockWhenItIsRecent(t *testing.T) {

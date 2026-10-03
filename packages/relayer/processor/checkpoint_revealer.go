@@ -184,7 +184,7 @@ func (r *checkpointRevealer) reveal(ctx context.Context, minL1Block uint64) erro
 	if l1Header.Number.Uint64() < minL1Block {
 		slog.Debug("L2 has not anchored the L1 block yet",
 			"anchoredL1Block", l1Header.Number.Uint64(),
-			"blockIDWaitingFor", minL1Block,
+			"requiredBlockID", minL1Block,
 		)
 
 		return nil

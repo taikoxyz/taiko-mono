@@ -395,7 +395,9 @@ func TestCheckpointRevealerWaitsForAPendingReveal(t *testing.T) {
 	require.NoError(t, f.revealer.reveal(ctx, 101))
 	assert.Len(t, f.sender.sent(), 2)
 
-	// A reveal that has not been indexed after retryAfter was most likely reorged out.
+	// A reveal that has not been indexed at retryAfter was most likely reorged out. This retry comes
+	// exactly retryAfter after the reveal of block 101 was mined, which pins the < comparison at the
+	// boundary.
 	f.clock.now = f.clock.now.Add(checkpointRevealRetryAfter)
 	require.NoError(t, f.revealer.reveal(ctx, 90))
 	assert.Len(t, f.sender.sent(), 3)
@@ -444,8 +446,8 @@ func TestCheckpointRevealerDoesNotWaitForAnotherAttempt(t *testing.T) {
 	f.clock.now = f.clock.now.Add(time.Minute)
 	f.anchorL1Block(101)
 
-	// They return at once instead of queueing behind it, and their messages keep polling the index,
-	// where the first reveal will show up.
+	// They return at once instead of queueing behind it, and their messages keep polling the index
+	// until a later attempt covers them.
 	results := make(chan error, 10)
 
 	for range 10 {
@@ -459,7 +461,7 @@ func TestCheckpointRevealerDoesNotWaitForAnotherAttempt(t *testing.T) {
 		case err := <-results:
 			require.NoError(t, err)
 		case <-time.After(time.Second):
-			t.Fatal("a reveal waited for the attempt in progress")
+			t.Fatal("a reveal waited for, or ran alongside, the attempt in progress")
 		}
 	}
 

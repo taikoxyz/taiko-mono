@@ -63,15 +63,16 @@ func (p *Processor) waitHeaderSynced(
 			return nil, ctx.Err()
 		case <-ticker.C:
 			// The head moves while the message waits. When it cannot be read, the last required block
-			// stays: falling back to blockNum would accept the stale checkpoint this check avoids.
-			if latest, err := p.requiredCheckpoint(ctx, ethClient, blockNum); err != nil {
+			// stays: falling back to blockNum would accept the stale checkpoint this check avoids. A read
+			// that fails because the processor is shutting down is not logged: the wait is ending anyway.
+			if latest, err := p.requiredCheckpoint(ctx, ethClient, blockNum); err == nil {
+				required = latest
+			} else if ctx.Err() == nil {
 				slog.Warn("Failed to read the L1 head, keeping the required checkpoint",
 					"blockIDWaitingFor", blockNum,
 					"requiredBlockID", required,
 					"error", err,
 				)
-			} else {
-				required = latest
 			}
 
 			event, err := p.eventRepo.CheckpointSyncedEventByBlockNumberOrGreater(ctx, hopChainId, chainId.Uint64(), required)
@@ -117,15 +118,15 @@ func (p *Processor) requiredCheckpoint(ctx context.Context, ethClient ethClient,
 }
 
 // tryRevealCheckpoint asks the checkpoint revealer, when there is one, for a checkpoint covering
-// blockNum. A failed reveal is logged and counted but never fails the wait: the message keeps
+// minL1Block. A failed reveal is logged and counted but never fails the wait: the message keeps
 // waiting, and a later attempt may succeed. Failures caused by the processor shutting down are not
 // counted.
-func (p *Processor) tryRevealCheckpoint(ctx context.Context, blockNum uint64) {
+func (p *Processor) tryRevealCheckpoint(ctx context.Context, minL1Block uint64) {
 	if p.checkpointRevealer == nil {
 		return
 	}
 
-	if err := p.checkpointRevealer.reveal(ctx, blockNum); err != nil {
+	if err := p.checkpointRevealer.reveal(ctx, minL1Block); err != nil {
 		if ctx.Err() != nil {
 			return
 		}
@@ -133,7 +134,7 @@ func (p *Processor) tryRevealCheckpoint(ctx context.Context, blockNum uint64) {
 		relayer.CheckpointRevealErrors.Inc()
 
 		slog.Warn("Failed to reveal an L1 checkpoint",
-			"blockIDWaitingFor", blockNum,
+			"requiredBlockID", minL1Block,
 			"error", err,
 		)
 	}
