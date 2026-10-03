@@ -269,7 +269,7 @@ prover failure or L1/L2 reorg
 | Constant | Exact value |
 |---|---|
 | System caller | `0xfffffffffffffffffffffffffffffffffffffffe` |
-| EIP-4788 address | `0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02` |
+| EIP-4788 address | `0x000F3df6D742807Ef1319fB7B8bB8522d0Beac02` |
 | EIP-4788 runtime code hash | `0xf57acd40259872606d76197ef052f3d35588dadf919ee1f0e3cb9b62d3f4b02c` (**proven: derived** from the runtime bytes below) |
 | EIP-2935 runtime code hash | `0x6e49e66782037c0555897870e29fa5e552daf4719552131a0abce779daec0a5d` (**proven: derived** from the runtime bytes below) |
 | EIP-2935 address | `0x0000F90827F1C53a10cb7A02335B175320002935` |
