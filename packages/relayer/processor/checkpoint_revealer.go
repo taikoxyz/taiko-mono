@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -97,7 +98,9 @@ func newCheckpointRevealer(
 	checkpointStore, err := anchorCaller.CheckpointStore(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf(
-			"enableCheckpointReveal: destTaikoAddress %s is not an Anchor: %w", anchorAddress.Hex(), err,
+			"enableCheckpointReveal: reading checkpointStore() from destTaikoAddress %s, "+
+				"which must be the destination chain's Anchor: %w",
+			anchorAddress.Hex(), err,
 		)
 	}
 
@@ -109,7 +112,7 @@ func newCheckpointRevealer(
 
 	anchorABI, err := anchor.AnchorMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loading the Anchor ABI: %w", err)
 	}
 
 	slog.Info("Checkpoint reveal enabled",
@@ -174,6 +177,10 @@ func (r *checkpointRevealer) reveal(ctx context.Context, minL1Block uint64) erro
 		return fmt.Errorf("fetching anchored L1 header %s: %w", root.Hex(), err)
 	}
 
+	if l1Header == nil {
+		return fmt.Errorf("anchored L1 header %s not found", root.Hex())
+	}
+
 	if l1Header.Number.Uint64() < minL1Block {
 		slog.Debug("L2 has not anchored the L1 block yet",
 			"anchoredL1Block", l1Header.Number.Uint64(),
@@ -193,7 +200,8 @@ func (r *checkpointRevealer) reveal(ctx context.Context, minL1Block uint64) erro
 
 	if crypto.Keccak256Hash(headerRlp) != *root {
 		return fmt.Errorf(
-			"cannot reproduce the encoding of L1 header %s (block %d)", root.Hex(), l1Header.Number.Uint64(),
+			"cannot reproduce the encoding of L1 header %s (block %d); go-ethereum may not know a header field L1 added",
+			root.Hex(), l1Header.Number.Uint64(),
 		)
 	}
 
@@ -239,12 +247,20 @@ func (r *checkpointRevealer) settledHeader(ctx context.Context) (*types.Header, 
 		return nil, fmt.Errorf("fetching the destination head: %w", err)
 	}
 
+	if head == nil {
+		return nil, errors.New("destination head not found")
+	}
+
 	headNumber := head.Number.Uint64()
 
 	for back := uint64(1); back <= maxSettledBlockLookback && back <= headNumber; back++ {
 		header, err := r.destClient.HeaderByNumber(ctx, new(big.Int).SetUint64(headNumber-back))
 		if err != nil {
 			return nil, fmt.Errorf("fetching destination block %d: %w", headNumber-back, err)
+		}
+
+		if header == nil {
+			return nil, fmt.Errorf("destination block %d not found", headNumber-back)
 		}
 
 		if header.Time < head.Time {

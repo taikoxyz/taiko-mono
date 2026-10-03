@@ -32,7 +32,7 @@ var (
 )
 
 // fakeHeaders serves headers by number and by hash and counts the reads. HeaderByNumber(nil)
-// returns the head.
+// returns the head. A number or hash mapped to nil is answered with a nil header and no error.
 type fakeHeaders struct {
 	head     uint64
 	byNumber map[uint64]*types.Header
@@ -68,7 +68,8 @@ func (f *fakeHeaders) HeaderByHash(_ context.Context, hash common.Hash) (*types.
 }
 
 // fakeTxSender records what it is asked to send and answers with a fixed receipt and error. When
-// release is set, Send reports on sending and then waits for release.
+// release is set, Send reports on sending and then waits for release. When onSend is set, Send
+// calls it before returning, which lets a test move the clock while a reveal is being mined.
 type fakeTxSender struct {
 	mu         sync.Mutex
 	candidates []txmgr.TxCandidate
@@ -76,6 +77,7 @@ type fakeTxSender struct {
 	err        error
 	sending    chan struct{}
 	release    chan struct{}
+	onSend     func()
 }
 
 func (s *fakeTxSender) Send(_ context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
@@ -86,6 +88,10 @@ func (s *fakeTxSender) Send(_ context.Context, candidate txmgr.TxCandidate) (*ty
 	if s.release != nil {
 		s.sending <- struct{}{}
 		<-s.release
+	}
+
+	if s.onSend != nil {
+		s.onSend()
 	}
 
 	return s.receipt, s.err
@@ -212,6 +218,15 @@ func newRevealerFixture(t *testing.T, l1Number uint64) *revealerFixture {
 	}
 }
 
+// anchorL1Block makes the settled block 9 anchor L1 block l1Number instead.
+func (f *revealerFixture) anchorL1Block(l1Number uint64) {
+	l1Header := testL1Header(l1Number)
+	root := l1Header.Hash()
+
+	f.src.byHash[root] = l1Header
+	f.dest.byNumber[9] = testL2Header(9, 1_018, &root)
+}
+
 // unpackRevealCheckpoint returns the arguments of a revealCheckpoint call.
 func unpackRevealCheckpoint(t *testing.T, data []byte) (uint64, []byte) {
 	t.Helper()
@@ -242,7 +257,7 @@ func TestNewCheckpointRevealerRequiresAnAnchor(t *testing.T) {
 	_, err := newCheckpointRevealer(
 		ctx, testAnchorAddress, fakeAnchorCaller{err: errors.New("execution reverted")}, nil, nil, nil, time.Second,
 	)
-	require.ErrorContains(t, err, "is not an Anchor")
+	require.ErrorContains(t, err, "must be the destination chain's Anchor")
 
 	_, err = newCheckpointRevealer(ctx, testAnchorAddress, fakeAnchorCaller{}, nil, nil, nil, time.Second)
 	require.ErrorContains(t, err, "has no checkpoint store")
@@ -276,6 +291,7 @@ func TestCheckpointRevealerWaitsUntilTheBlockIsAnchored(t *testing.T) {
 	// L2 anchors L1 block 100 and the message is in block 101, so no reveal can cover it yet.
 	require.NoError(t, f.revealer.reveal(context.Background(), 101))
 	assert.Empty(t, f.sender.sent())
+	assert.EqualValues(t, 1, f.src.reads.Load())
 }
 
 func TestCheckpointRevealerSendsTheAnchoredHeader(t *testing.T) {
@@ -336,22 +352,53 @@ func TestCheckpointRevealerNeedsABlockBelowTheHeadTimestamp(t *testing.T) {
 	assert.Empty(t, f.sender.sent())
 }
 
+func TestCheckpointRevealerLooksBackAtMost64Blocks(t *testing.T) {
+	f := newRevealerFixture(t, 100)
+	f.dest.head = 70
+
+	// Blocks 6 to 70 share the head's timestamp. Block 5 has a lower one, but it is 65 blocks back,
+	// one more than the revealer looks.
+	for number := uint64(6); number <= 70; number++ {
+		f.dest.byNumber[number] = testL2Header(number, 1_020, &f.root)
+	}
+
+	f.dest.byNumber[5] = testL2Header(5, 1_018, &f.root)
+
+	err := f.revealer.reveal(context.Background(), 100)
+	require.ErrorContains(t, err, "has a lower timestamp")
+	assert.EqualValues(t, 65, f.dest.reads.Load(), "one head read plus 64 looked-back blocks")
+	assert.Empty(t, f.sender.sent())
+}
+
 func TestCheckpointRevealerWaitsForAPendingReveal(t *testing.T) {
 	f := newRevealerFixture(t, 100)
 	ctx := context.Background()
 
+	// Each reveal is mined 90 seconds after it is sent. The index cannot store it any earlier, so
+	// retryAfter counts from then.
+	f.sender.onSend = func() { f.clock.now = f.clock.now.Add(90 * time.Second) }
+
 	require.NoError(t, f.revealer.reveal(ctx, 100))
 
-	// Past the attempt interval but inside retryAfter: the reveal of block 100 covers block 90 and
-	// is still on its way to the index.
+	f.anchorL1Block(101)
+
+	// A minute after the reveal of block 100 was mined, and 150 seconds after it was sent: past the
+	// attempt interval but inside retryAfter. It is still on its way to the index, and it covers
+	// block 100 itself and every block below.
 	f.clock.now = f.clock.now.Add(time.Minute)
+	require.NoError(t, f.revealer.reveal(ctx, 100))
 	require.NoError(t, f.revealer.reveal(ctx, 90))
 	assert.Len(t, f.sender.sent(), 1)
+
+	// It does not cover block 101, which L2 has anchored since, so that block gets a reveal of its
+	// own.
+	require.NoError(t, f.revealer.reveal(ctx, 101))
+	assert.Len(t, f.sender.sent(), 2)
 
 	// A reveal that has not been indexed after retryAfter was most likely reorged out.
 	f.clock.now = f.clock.now.Add(checkpointRevealRetryAfter)
 	require.NoError(t, f.revealer.reveal(ctx, 90))
-	assert.Len(t, f.sender.sent(), 2)
+	assert.Len(t, f.sender.sent(), 3)
 }
 
 func TestCheckpointRevealerAttemptsAtMostOncePerInterval(t *testing.T) {
@@ -385,17 +432,46 @@ func TestCheckpointRevealerDoesNotWaitForAnotherAttempt(t *testing.T) {
 		done <- f.revealer.reveal(context.Background(), 100)
 	}()
 
-	<-f.sender.sending
+	select {
+	case <-f.sender.sending:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the first reveal never reached the sender")
+	}
 
-	// The first attempt is still sending. The others return at once instead of queueing behind it,
-	// and their messages keep polling the index, where the first reveal will show up.
+	// The first attempt is still sending. The others come after the attempt interval and ask for a
+	// block L2 has anchored since, which the first reveal does not cover. Only the attempt in
+	// progress can turn them away; without it they would go on to send reveals of their own.
+	f.clock.now = f.clock.now.Add(time.Minute)
+	f.anchorL1Block(101)
+
+	// They return at once instead of queueing behind it, and their messages keep polling the index,
+	// where the first reveal will show up.
+	results := make(chan error, 10)
+
 	for range 10 {
-		require.NoError(t, f.revealer.reveal(context.Background(), 100))
+		go func() {
+			results <- f.revealer.reveal(context.Background(), 101)
+		}()
+	}
+
+	for range 10 {
+		select {
+		case err := <-results:
+			require.NoError(t, err)
+		case <-time.After(time.Second):
+			t.Fatal("a reveal waited for the attempt in progress")
+		}
 	}
 
 	close(f.sender.release)
 
-	require.NoError(t, <-done)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the first reveal never finished")
+	}
+
 	assert.Len(t, f.sender.sent(), 1)
 }
 
@@ -411,6 +487,41 @@ func TestCheckpointRevealerRefusesAHeaderItCannotReproduce(t *testing.T) {
 	err := f.revealer.reveal(context.Background(), 100)
 	require.ErrorContains(t, err, "cannot reproduce the encoding")
 	assert.Empty(t, f.sender.sent())
+}
+
+func TestCheckpointRevealerRefusesAMissingHeader(t *testing.T) {
+	root := testL1Header(100).Hash()
+
+	// A node may answer a header request with null and no error. That is an error to report, not a
+	// header to read.
+	for name, tc := range map[string]struct {
+		setNil  func(f *revealerFixture)
+		wantErr string
+	}{
+		"anchored L1 header": {
+			setNil:  func(f *revealerFixture) { f.src.byHash[f.root] = nil },
+			wantErr: "anchored L1 header " + root.Hex() + " not found",
+		},
+		"destination head": {
+			setNil:  func(f *revealerFixture) { f.dest.byNumber[10] = nil },
+			wantErr: "destination head not found",
+		},
+		"looked-back block": {
+			setNil:  func(f *revealerFixture) { f.dest.byNumber[9] = nil },
+			wantErr: "destination block 9 not found",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newRevealerFixture(t, 100)
+			tc.setNil(f)
+
+			var err error
+
+			require.NotPanics(t, func() { err = f.revealer.reveal(context.Background(), 100) })
+			require.EqualError(t, err, tc.wantErr)
+			assert.Empty(t, f.sender.sent())
+		})
+	}
 }
 
 func TestCheckpointRevealerReportsFailedSends(t *testing.T) {
