@@ -58,12 +58,14 @@
 - The queue is unbounded.
 - After the save, nothing is rewritten except the status and replayable bits, or for a legacy id, C4-R06's flags and fee word.
 - Every payout is pull. An overpayment is a bounty.
+- **Failure [assumed: restates the refusals above, no new behaviour]:** each refusal above (intake closed; msg.value below FI_BOND + FI_FEE; a calldata manifest longer than FI_CALLDATA_MAX) reverts the saving transaction, so tail, the entry word and the FI_FEE burn are all unwritten (transaction atomicity). C3 names no error for these refusals. The revert data is **[open: arbiter]**; C4-R14's `ForceIntakeClosed` is a candidate for the intake case only, which C4-R04's text does not assign. Vectors: T39.
 
 ### C3-R02. Price [assumed]
 
 - FI_FEE = FI_BASE_FEE × (FI_FEE_THRESHOLD + (tail − head)) / FI_FEE_THRESHOLD, fixed at save.
 - No escalation and no surcharge.
 - `getForcedInclusionFee()` returns FI_BOND + FI_FEE.
+- **Failure [proven: definitional]:** no failure path of its own. The rule is a formula and a view, and neither refuses anything. A save that pays less than the price fails C3-R01's msg.value requirement, which is C3-R01's refusal (T39), not this rule's. Two readings the text leaves unfixed are **[open: arbiter]**: whether `tail` in the formula is read before or after the saving entry is appended, and the rounding of the division at values where it is inexact (at the register values, 10^15 × (50 + k) / 50 = 2 × 10^13 × (50 + k) is exact for every k). Vectors: T38.
 
 ### C3-R03. Settlement, per id and irreversible [assumed]
 
@@ -119,6 +121,8 @@ The shift is binding only for a full hatch (m = HATCH_K). For a maximal hatch th
 The `short` extension holds the head after a non-maximal hatch open for at least HATCH_WINDOW after the non-maximal gate lifts (C3-R07 (4a)). The head's open is unchanged, so the gate binds from its natural open. It holds every later head too until the next hatch: a head reached by an ordinary landing before hatchAt + HATCH_RESUME_GRACE still closes no earlier than hatchAt + HATCH_RESUME_GRACE + HATCH_WINDOW. [proven] The extension is inert for any head whose open is at or after hatchAt + HATCH_RESUME_GRACE (its natural close is already later), so a stale `short` changes nothing: a head reached by a landing at T_L ≥ hatchAt + HATCH_RESUME_GRACE with n > E opens at or after T_L, and one reached through voids opens at or after an extended close plus HATCH_GRACE (P2). It only lengthens a head window whose open is unchanged, and the gate forces execution inside it, so it buys a censor nothing; a poison head's halt stays within hatchAt + HATCH_RESUME_GRACE + HATCH_WINDOW, the figure already in L-HATCH-POISON.
 
 `hatchStatus()` returns (current, open, close, E, R, capped, short) at block.timestamp.
+
+**Failure [proven: definitional]:** no failure path of its own. The walk and the update are computations over storage and T (P1); the walk reads and refuses nothing. Its outputs are enforced by the callers' named errors: C3-R06 step 2 (`FiVoidNotExpired`, `FiGateUnmet`), C3-R06a step 1 (`FiNotCapped`) and C3-R07 checks 1 and (4a) (`HatchNotPermitted`). `hatchStatus()` is a view; its values when no entry is current are **[open: C8 §15 item 29]**, not chosen here. Vectors: T01, T02, T09, T13, T27, T29 to T31, T33, T35, T36 (the walk's values), T40 (`FiGateUnmet` from R(T)).
 
 Proven properties:
 - **P1** [proven]: the schedule is a function of storage and T only.
@@ -197,6 +201,8 @@ At T = block.timestamp:
 
 **The gate in words:** once the current entry's window is open, lastLanded moves only through a landing that executes it. After it expires, lastLanded moves only through a landing that consumes it.
 
+**Error vectors [assumed: derived from the steps above]:** `FiRange` T21, T23, T28; `FiVoidNotExpired` T31, T33; `FiGateUnmet` T40 (with T03's title).
+
 Claims:
 - [proven] Two sound journals with equal fixed inputs are equal:
   - fiHeadAfter, v and fiReplayIds are lander inputs that the guest and inbox check;
@@ -222,6 +228,8 @@ Claims:
 4. lastLanded, hatchAt, hatchL1 and hatchTip are untouched. Certified blocks are not voided; a certified request block for a cleared id lands later as a replay (C3-R05(e), L-HATCH-DEPOSIT).
 
 Gas: the walk (about 134k) plus one entry write per id, about 64 × 2.9k.
+
+**Failure [assumed: restates step 1]:** `FiNotCapped` when the walk is not capped (T27, T41). The CONFLICT refusal reverts with every write of steps 2 and 3 undone; C3 names no error for it, so its revert data is **[open: arbiter]** (T41).
 
 Claims:
 - [proven] `fiClear` voids only entries that every landing at T must already consume (R = E) and may already void (v ≤ E). It removes only a late execution of an expired entry, which any lander could have voided, and a proven landing with the old head reverts for free (C3-R06 race claim). An honest pipeline under A-HONEST-SERVE never lets the walk cap.
@@ -271,6 +279,8 @@ The guest skips V1, V2, V4's upper bound and V10 for view 254.
 - S2-R15's reset.
 - A bonded announcement covering the voided range is forfeited (C2-R08).
 - Refused during CONFLICT.
+
+**Failure and vectors [assumed: restates the checks above, no new behaviour]:** every refusal reverts the landing with no effect above written. Named: `HatchNotPermitted` (checks 1 and (4a); T24, T29, T30, T33, T34), `HatchNotBonded` (check 2; unreachable at HATCH_BOND = 0, boundary T42), `HatchAnchorBeforeSave` (T43) and `HatchAnchorTooOld` (T44) (check 5), and C3-R06's errors through check 4. Unnamed, revert data **[open: arbiter]**: the CONFLICT refusal (T45), check 3 (a range not starting at lastLanded; whether C2-R05 L1's `NotNext` serves it is not stated) and check 4's bound 1 ≤ m ≤ HATCH_K (T46); check 6 is the proof.
 
 Claims:
 - [proven] V5 holds at every hatch block at its own timestamp: T_A ≤ ts_0 − 48 ≤ ts_j − 48, and T_A ≥ ts_{m−1} − 1,800. No block of any kind inherits a V5 verdict, so DRIFT_MAX = 0.
@@ -329,6 +339,7 @@ Claims:
 - A replay in a rewound landing of an id i < r.fiHeadAtStart cleared its bit, and i is not re-consumed. Its content then runs zero times on the landed chain. No block of the restarted chain can carry i: every anchor after i's void has head > i, so contiguity refuses it [assumed: the restarted chain has no anchor older than i's void, by V5's ANCHOR_MAX_AGE and the CONFLICT halt; reachable only through CONFLICT, which needs an unsound leaf].
 - [proven] No window opens before epoch + HATCH_DELAY, and no derived clock can regress at the restart edge.
 - A settled replayed head is windowed and hatched like any other entry. This avoids design 1's restart break.
+- **Failure [proven: definitional]:** no failure path of its own. The rule states the values the activation and restart writes assign; the calls that perform them, and their refusals, belong to C4-R07 (`activateEtna`; which C4-R14 name it raises is C4's) and to C2-R14 with C4-R12 (the CONFLICT reinitializer). The re-consumption it describes runs under C3-R06 and C3-R03 and has their failures. The one refusal the bullets mention, contiguity refusing a restarted-chain block for i, is C3-R05(b)'s rule. Vectors: T15, T28, T36, T47.
 
 ### C3-R11. Serving policy (recommended, not validity) [assumed]
 
@@ -337,6 +348,7 @@ Claims:
 - A sequencer does not include a request block for an entry already expired at its reference. Such a block is valid, but a lander may void the entry first, and the block then lands as a replay with the deposit burned.
 - There is no attester skip policy: contiguity is validity (C3-R05(b)).
 - Landers consume every entry saved before their proof and every entry expiring by their landing.
+- **Failure [proven: definitional]:** no failure path. The rule is recommended policy, not validity: a departure from it is valid and has only the consequences other rules state (a lander that skips the current entry once its window is open fails C3-R06's `FiGateUnmet`; a request block for an entry expired at the reference may land as a replay with its deposit burned, C3-R03 and C3-R05(e)). Vectors: T48, T49.
 
 ### C3-R12. FOCIL, retention, what is not defended [assumed]
 
@@ -346,6 +358,7 @@ Claims:
   - sandwiching of public payloads (L18);
   - pre-execution of a non-idempotent request transaction by an includer in a context of its choosing (L-HATCH-REPLAY);
   - a voided entry whose request block is anchored at a view where it was eligible before the void still executes on L2 as a replay, with its deposit burned, even when that block is created and certified after the void, at an L2 timestamp below the void's L1 time plus ANCHOR_MAX_AGE under T11 with no CONFLICT restart (L-HATCH-DEPOSIT; T37; [open] for the user, not covered by D55); and, outside T11, a cartel holding a quorum may replay any voided id whose replayable bit is set at any later time, even one with no certified block at its void. It still runs at most once, from an anchor at or after s_i, and a BLOB or LEGACY id runs empty past FI_EXPIRY (C3-R08). The outside-T11 case is signed by the user in D55(3).
+- **Failure [proven: definitional]:** no failure path. The rule is descriptive: the FOCIL legs are an L1 inclusion premise (C5-R10), expiry is C3-R05(a)'s behaviour, and the replay outcomes it lists are C3-R05 and C3-R08 behaviour with their failures. Vectors: T14, T32, T37.
 
 ## 7. Register (C3's only numbers)
 
@@ -452,6 +465,38 @@ Deleted from the register: FI_DELAY, FORCED_RING, MAX_FI_RUN, FI_SKIP, DRIFT_MAX
   - After the void, the holder creates B at u + 49 on A (anchor age 61 s, inside V5's 48 to 1,800 s) and the next certified parent. Contiguity at A passes (the id is head(A)); honest attesters certify B; no cartel or false certificate is used.
   - The next range lands B with the id in fiReplayIds; its content executes once, and its deposit stays burned.
   - Bound: B's timestamp is below T_V + ANCHOR_MAX_AGE (here u + 49 < u + 48 + 1,800). A block for the id on an anchor after the void fails contiguity (head > id).
+
+**Failure and gap vectors (C8-traceability §2.3 and §3):** T38 to T49 close the failure and vector gaps that page lists for C3. Each is **[assumed: derived from the cited rule text]**; it adds no behaviour, and every revert leaves state unchanged by transaction atomicity. Each needs Inbox bytecode, and the accepted cases need a proof, so each is a fixture plan **[open: fixture after code]** with the pre-state and expected outcome below. Arithmetic on register values is **[proven: arithmetic]**. Register values used: §7 (FI_BOND 5 × 10^16 wei, FI_BASE_FEE 10^15 wei, FI_FEE_THRESHOLD 50, FI_CALLDATA_MAX 4,096 bytes, HATCH_DELAY 14,400 s, HATCH_GRACE 1,800 s, HATCH_WINDOW 1,800 s, HATCH_RESUME_GRACE 4,200 s, HATCH_K 32, HATCH_BOND 0) and C7 §7 (ANCHOR_MIN_AGE 48 s, ANCHOR_MAX_AGE 1,800 s). **Q1** is the queue: Inbox ACTIVE, no CONFLICT; head = 100, tail = 101 (one entry at or above Q, status 00); s_100 = 1,000,000; base = 0; short = false; hatchAt = 0. In Q1, open_100 = max(1,014,400, 1,800) = 1,014,400 and close_100 = 1,016,200; at T = 1,015,000, E = 0, windowOpen is true and R = 1; at T = 1,010,000, E = 0, windowOpen is false and R = 0.
+- **T38 (price, C3-R02):**
+  - `getForcedInclusionFee()` with tail − head = 0, 25 and 50 at the call. Which `tail` the view reads is **[open: arbiter question 8, C8-traceability §3.1]**, so both readings are stated. If the view reads `tail` as it stands (the before-append reading): 5 × 10^16 + 10^15 = 5.1 × 10^16 wei at 0; FI_FEE = 1.5 × 10^15 and 5.15 × 10^16 at 25; FI_FEE = 2 × 10^15 and 5.2 × 10^16 at 50. If the view quotes the fee a save would pay now under the after-append reading (`tail + 1 − head`): 5 × 10^16 + 1.02 × 10^15 = 5.102 × 10^16 at 0; 5 × 10^16 + 1.52 × 10^15 = 5.152 × 10^16 at 25; 5 × 10^16 + 2.02 × 10^15 = 5.202 × 10^16 at 50 (each 2 × 10^13 × (50 + k) with k = 1, 26, 51, exact).
+  - No escalation: the same (head, tail) read at two block timestamps returns the same value.
+  - Fixed at save: an entry saved with msg.value = 5.2 × 10^16 at head = tail burns FI_FEE in the saving transaction and stores bountyWei = msg.value − FI_BOND − FI_FEE; later saves that raise tail − head change neither. FI_FEE here is 10^15 (bountyWei 10^15) if tail is read before the append and 1.02 × 10^15 (bountyWei 9.8 × 10^14) if after; which is **[open: arbiter]** (C3-R02).
+- **T39 (save refusals, C3-R01):** Inbox ACTIVE, head = tail = 100.
+  - `saveForcedInclusionCalldata(m)` with m of 4,097 bytes and msg.value = 5.2 × 10^16: reverts. The same call with m of 4,096 bytes: accepted, tail = 101, entry 100 of kind CALLDATA with dataHash = keccak256(m) and s_100 = block.timestamp.
+  - A 100-byte m with msg.value = 5.1 × 10^16 − 1: reverts (below FI_BOND + FI_FEE under either reading of T38).
+  - Intake closed, the Inbox not ACTIVE for this case only: at any time before ACTIVE (C4-R04: "Etna enqueue also rejects until ACTIVE"), either save with msg.value = 5.2 × 10^16 reverts.
+  - In every case tail, the entry word and the burn are unwritten; revert data **[open: arbiter]**.
+- **T40 (gate, C3-R06 step 2):** Q1 at T = 1,015,000; an ordinary landing otherwise valid through C2-R05 L1 to L7 with fiHeadBefore = 100.
+  - fiHeadAfter = 100, v = 0, fiReplayIds = []: `FiGateUnmet` (n = 0 < R = 1). Step 1 passes (100 ≤ tail, n = 0, v = 0).
+  - The same landing at T = 1,010,000 (R = 0) passes step 2.
+  - fiHeadAfter = 101, v = 0, with one request block for 100 at T = 1,015,000 passes step 2.
+- **T41 (`fiClear`, C3-R06a):**
+  - Inbox ACTIVE, no CONFLICT; head = tail: `FiNotCapped`; head, base and short unchanged.
+  - T27's capped queue at close_64 + 1, with the Inbox in CONFLICT: `fiClear()` reverts; head, base, short and P1..P64's status and replayable bits unchanged; revert data **[open: arbiter]**. The same call outside CONFLICT is T27's accepted case.
+- **T42 (`HatchNotBonded` boundary, C3-R07 check 2):** Q1 at T = 1,015,000. A hatch from lastLanded executing entry 100 (fiHeadAfter = 101, v = 0, m = 1; j = 101 = tail, so maximal), rewardTo's TAIKO ledger balance 0, anchor A at or above lastLanded's anchor tip with T_A = 1,000,000, and fiParentTimestamp = 1,000,000. Check 2 passes: every balance is at least HATCH_BOND = 0. Check 5 passes: T_A ≥ s_100, and ts_0 = max(1,000,001, 1,000,048) = 1,000,048 gives the bound 1,000,048 + 0 − 1,800 = 998,248 ≤ T_A. With a valid proof, accepted. `HatchNotBonded` is unreachable at the register value; a reverting vector needs a nonzero HATCH_BOND, which D51(3) does not set **[open: user value]**.
+- **T43 (`HatchAnchorBeforeSave`, C3-R07 check 5):** as T42, but T_A = 999,988 (below s_100). The second bound holds: ts_0 = max(1,000,001, 1,000,036) = 1,000,036 and 999,988 ≥ 1,000,036 − 1,800 = 998,236. Expected: `HatchAnchorBeforeSave`.
+- **T44 (`HatchAnchorTooOld`, C3-R07 check 5):** as T42, but fiParentTimestamp = 1,001,800 (lastLanded's header timestamp). ts_0 = max(1,001,801, 1,000,048) = 1,001,801; the bound is 1,001,801 − 1,800 = 1,000,001 > T_A = 1,000,000. Expected: `HatchAnchorTooOld`. Boundary: fiParentTimestamp = 1,001,799 gives ts_0 = 1,001,800 and a bound of 1,000,000, which passes.
+- **T45 (hatch during CONFLICT, C3-R07):** T42's hatch with the Inbox in CONFLICT: reverts; head, base, short, hatchAt, hatchL1 and hatchTip unchanged; revert data **[open: arbiter]**.
+- **T46 (check 4's bound 1 ≤ m ≤ HATCH_K, C3-R07):**
+  - m = 0: Inbox ACTIVE, head = tail = 100 (E = 0, R = 0), hatchAt = 0, and T > replaceableFrom with T ≥ 4,200 (the A1 disjunct of check 1 holds). A hatch with fiHeadAfter = 100, v = 0 passes checks 1 to 3 and C3-R06 steps 1 and 2, and fails m ≥ 1: reverts, revert data **[open: arbiter]**. Checks run cheapest first, so check 5, which names "the last executed entry", is not reached.
+  - m = 33: as Q1 but tail = 133, every s_i = 1,000,000, at T = 1,015,000 (windowOpen, R = 1). A hatch with fiHeadAfter = 133, v = 0 passes C3-R06 step 1 (n = 33 ≤ 64) and step 2, and fails m ≤ HATCH_K: reverts, revert data **[open: arbiter]**. Boundary: fiHeadAfter = 132 (m = 32 = HATCH_K, maximal) passes check 4.
+- **T47 (restart values, C3-R10):** before the restart, head = headBefore = 110, tail = 120, short = true, hatchAt = 50,000, hatchL1 = 7; r.fiHeadAtStart = 105; restartTimestamp = 200,000. After the reinitializer: head = 105, base = 200,000 + 14,400 − 1,800 = 212,600, short = false, hatchAt = 50,000 and hatchL1 = 7 (untouched), and the status bits of [105, 110) unchanged. Every unconsumed entry then has open ≥ 212,600 + 1,800 = 214,400 = restartTimestamp + HATCH_DELAY, so at any T < 214,400 no window is open and the walk gives E = R = 0 (hatchStatus() reports open ≥ 214,400, E = 0 and R = 0). Activation is T36.
+- **T48 (serving policy: stop at a poison, void after expiry, continue, C3-R11):** head = 7, tail = 10, s_7 = s_8 = s_9 = 100,000, base = 0, short = false; 7 and 9 provable, 8 a poison.
+  - The honest sequencer includes a request block for 7 and none for 8 or 9; a request block for 9 anchored where head = 7 or 8 is invalid by contiguity (C3-R05(b), T19).
+  - A landing at T = 101,000 executes 7 (n = 1 > E = 0): base = max(0, 101,000 − 1,800) = 99,200. Then open_8 = max(114,400, 101,000) = 114,400, close_8 = 116,200, open_9 = max(114,400, 118,000) = 118,000 and close_9 = 119,800.
+  - At T = 116,500: E = 1 (8 expired), current = 9 with its window not yet open, R = 1. A landing with fiHeadAfter = 9, v = 1 and no request block is accepted and voids 8 (burn, status 11, replayable set); base = 116,200, so open_9 stays 118,000. The same landing with fiHeadAfter = 8 and v = 0: `FiGateUnmet` (n = 0 < R = 1).
+  - The sequencer then includes a request block for 9 anchored at or after that landing's L1 block (head(A_b) = 9); a landing executing it at T < 119,800 is accepted.
+- **T49 (serving policy: lander consumes what was saved before its proof, C3-R11 with C3-R06's race claim):** head = tail = 200, base = 0, short = false; a lander proves at P = 500,000 an ordinary range with fiHeadAfter = 200, v = 0. A third party saves entry 200 at 500,010 (tail = 201). The landing at T = 514,400 (within HATCH_DELAY of P): open_200 = max(514,410, 1,800) = 514,410 > T, so R = 0 and it is accepted. The same landing at T = 514,410: windowOpen, R = 1, `FiGateUnmet`; this is the departure C3-R06's race claim excludes by its proviso "lands within HATCH_DELAY of its proof"; C3-R11's bullet on landers is not what the second case exercises.
 
 ## 9. The censorship bound
 
@@ -578,7 +623,7 @@ D39 replaced the per-block obligation with a minimal hatch. Three designs were r
 | §10 merged consumers | **[assumed: adoption recorded]** C1/C4: D63; C2/C5/C6-A/C8/S1/S4: D61, with D65/D67 corrections and C6-B's D63/D68 indexing; C7: D62. Each §10 row preserves its remaining fit, format, measurement or user condition. S2/S3 remain **[open]** with their owners until accepted jointly consistent texts and evidence vectors exist. |
 | C7 §11 items 7 and 23, and its C3 row's T10 confirmation | **[open: A as C3 owner, with C7/C2/C8]** Define the non-ancestor reading of “above lastLanded(A_b)”, specify the FORCED PH-equivalent `vcHash` and `carriedCertHeight`, and explicitly reconcile C7-T10's existence projection with C3-T10. Closure requires an accepted owner definition and corresponding positive/negative vector; this disposition chooses none of those missing rules. The fresh out-of-order gap disclosure is already adopted beside C3-R08 by D65/D67, not an unperformed synchronization. |
 | C8 §15 items 11, 16, 17 and 29; C1-R05 execution interface | **[open: A as C3/C8 owner, with C2 and B as C1 owner]** Publish the FI hash serialization and record-width adoption, state the walk's counted reads/default and measurement procedure, and define the events, no-current-entry `hatchStatus` values and multi-block manifest treatment. C1/C8 must close the request-block system-pin call/gas/log interface. No ABI choice, gas value or event behavior is supplied by bookkeeping. |
-| §8 vectors and §11 remaining confirmation-test requests | **[open: A as C3/C8 owner]** T01 to T37 are stated reference scenarios, not a completed conformance suite. Close the specification obligation with exact inputs/expected errors and a rule-to-vector coverage map, including `fiClear`, replay and `short` paths, under A's D44 item-3 assignment. D59's accepted review is evidence of the listed claim corrections, not evidence that every fixture exists. Client/guest execution belongs to later implementation validation under D2. |
+| §8 vectors and §11 remaining confirmation-test requests | **[open: A as C3/C8 owner]** T01 to T49 are stated reference scenarios, not a completed conformance suite. Close the specification obligation with exact inputs/expected errors and a rule-to-vector coverage map, including `fiClear`, replay and `short` paths, under A's D44 item-3 assignment. D59's accepted review is evidence of the listed claim corrections, not evidence that every fixture exists. Client/guest execution belongs to later implementation validation under D2. |
 | §7/§11 unmeasured latencies, hatch/walk gas and legacy proving fit | **[assumed: plan/default adoption, D69]** [MP-08 to MP-12](C6-measurement-plan.md#mp-08-hatch_window) and [MP-34d](C6-measurement-plan.md#mp-34d-hatch-gas) supply defaults and procedures for hatch timing, request gas, legacy fit and hatch gas; D55(1)'s L_K-dependent pricing remains the source. **[open: C6 with C3/C4]** Procedures are not run. C3 must apply MP-34d's worst-default reading to its T1 premise and §9 gas-price column; the legacy service promise remains user-gated. Walk accounting remains part of MP-05's open cost model. D69 does not accept gas fit, costed admission/splitting, irreducible VC-chain policy or payment/reserve re-derivation, and does not close exact fixtures/interfaces or D44 readiness. |
 | §11 anchor-exemption alternative | **[assumed: closed by D70, not pursued]** The arbiter, as C3 owner, does not pursue this optional alternative for Etna: G6's selected design remains D41/D59's hatch, and replacing it needs a new reviewed proposal and decision. It is not required by D44. |
 | §11 price-restoring mechanism | **[assumed: closed under D55(1)]** D55(1) accepts the L_K-dependent price and orders no further price-restoration design round. The absence of a price-restoring mechanism is not an unassigned prerequisite. |
