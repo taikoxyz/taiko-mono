@@ -205,7 +205,7 @@
 | ID | Value / unit | Derivation, rationale and status |
 |---|---|---|
 | Roles | 7 | **counted:** S4-R01. |
-| Rung 1, takeover gap | about 5.4 s; the page says about 6 s | **derived, unmeasured:** TIMEOUT 5 s plus a view-change round trip of about 0.4 s (S2 §6, A-T9); the page's 0.6 s remainder has no derivation (§10 item 3). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-31. |
+| Rung 1, takeover gap | about 5.4 s; the page says about 6 s; conservative default 7 s (MP-31) | **derived, unmeasured:** TIMEOUT 5 s plus a view-change round trip of about 0.4 s (S2 §6, A-T9); the page's 0.6 s remainder has no derivation (§10 item 3). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-31. |
 | Rung 2, idle bound | at most 60 s | **derived:** after V_MAX = 4 takeovers the term idles to its end (S2-R11), and TERM = 60 s (S1 §11). |
 | Rung 3, FALLBACK gates | `termEnd + 12 s`, `+ 22 s` | **quoted (S2 §6):** `END_GRACE + VC_FALLBACK × (signerTerm − t)` with 2 s and 10 s. |
 | Rung 4, replacement window | `termEnd(t′) + 2,100 s` to `+ 3,900 s` (35 to 65 min); with the one deferral `+ 2,700` to `+ 4,500 s` (45 to 75 min) | **derived** from C2-R08 with LAND_WINDOW 1,800, LAND_WINDOW_MAX 3,600, REPLACE_GRACE 300, LAND_CHAIN_GRACE 600 (C2 §12): `min(T + 3,600, max(T + 1,800, L + 600)) + 300`. The origin is the first unlanded term's end, not "the last landing" (§10 item 4). |
@@ -220,7 +220,7 @@
 | Collusion | `Q(m)` colluders in one committee `3.8·10⁻⁵` at `p = 0.33`; redraw path about `6·10⁻⁷` (per view on the arguments page, per term in S2 §6's table: unit unresolved); cartel table | **quoted (S2 §6, S3-R28):** the binomial row reproduced; the redraw row and the table are not (§10 item 11). |
 | Evidence windows | 604,800 s (7 d) for S1, S3a attestation form, S3b, S3c; 122,880 s (34.1 h) for S3a certificate form, S3d, S6 | **quoted (S3-R08, S1 §11):** the challenger-outage reading is derived from the table. |
 | Honest draw at the weak premise | 5 / 72, 6.9 % per term | **derived, illustrative:** one honest single-seat owner among 72 single-seat owners; the chance that at least one of five distinct drawn owners is honest is `1 − (71/72 · 70/71 · 69/70 · 68/69 · 67/68) = 5/72` (S1-R12). Used only in §10 item 2. |
-| Level timings, cadence | 0.3 / 0.7 to 1.0 / 1.7 to 2.0 s; 1 block per second | **unmeasured:** A-T9, a 32-attester devnet (S2 §6). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-35. |
+| Level timings, cadence | 0.3 / 0.7 to 1.0 / 1.7 to 2.0 s; 1 block per second; gated defaults sequenced 0.5 s and locked 2.0 s, attested reported (MP-35) | **unmeasured:** A-T9, a 32-attester devnet (S2 §6). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-35. |
 | Landed latency, proving | 2 to 3 min happy path from a range's last block; at most TERM + 180 s = 240 s from any block (MP-06 (b)) | **unmeasured** (C2 §12): block proofs, aggregation, one or two L1 blocks. **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-33. |
 | Other unmeasured inputs | gas of the walk, registration, recording, evidence, landing, the forced-inclusion queue (C3-R01, kept under D39); END_GRACE; L_1, L_K and hatch gas (C3 §11 at `76c6150`; D55(1)); blob retention under short slots; V_term and the TAIKO rate | **unmeasured:** owned by S1 §11, S2 §6, S3 §11, C2 §12, C3 §10 (at `4aa0299`, read under D39); S4 adds none. **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-34. |
 
