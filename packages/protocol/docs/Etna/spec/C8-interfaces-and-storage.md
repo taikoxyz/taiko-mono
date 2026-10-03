@@ -569,7 +569,7 @@ Rollback of any single proxy upgrade is one `upgradeTo` of that proxy (Anchor pa
 | Attack trace [assumed: adversarial schedule] | Result under the cited rules, or explicit limit |
 |---|---|
 | A signer escapes S1 by claiming it signed the SSZ form. | No SSZ form is signed (C8-R04). |
-| A REPLACE vote numbered as TIMEOUT by a client. | One numbering (C8-R06), accepted by B under D49 subject to the genesis caveat; complete cross-client fixture coverage remains open with C8/S2. |
+| A REPLACE vote numbered as TIMEOUT by a client. | One numbering (C8-R06), accepted by B under D49 (the view names); complete cross-client fixture coverage remains open with C8/S2. |
 | A six-byte `anchorNumber` on the wire, so that two clients disagree on every later offset. | Only `u64` is valid, bounded at `2^48 − 1` (C8-R16, C8-V08; B-C8-01). |
 | A failed or repeated recovery leaves a stored epoch that disagrees with the floor list. | No epoch is stored (C8-R15; J-2). |
 | An upgrade batch calls `upgradeTo` on the QuotaManager, or skips it and leaves its owner powers. | Separate disposition: renunciation, quotas frozen (C8-R14, C8-R17; B-C8-02). |
