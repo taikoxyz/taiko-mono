@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -133,6 +135,121 @@ func TestWaitHeaderSyncedReturnsTheRepositoryErrorFromThePollLoop(t *testing.T) 
 
 	require.ErrorContains(t, err, "db went away")
 	assert.Nil(t, ev)
+}
+
+// recordingRevealer records the blocks it is asked to reveal and returns the queued errors in
+// order, then nil.
+type recordingRevealer struct {
+	mu    sync.Mutex
+	calls []uint64
+	errs  []error
+}
+
+func (r *recordingRevealer) reveal(_ context.Context, minL1Block uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.calls = append(r.calls, minL1Block)
+
+	if len(r.errs) == 0 {
+		return nil
+	}
+
+	err := r.errs[0]
+	r.errs = r.errs[1:]
+
+	return err
+}
+
+// cancellingRevealer stands for a reveal interrupted by shutdown: it cancels the processor's
+// context and fails with the context's error.
+type cancellingRevealer struct {
+	cancel context.CancelFunc
+}
+
+func (r *cancellingRevealer) reveal(ctx context.Context, _ uint64) error {
+	r.cancel()
+
+	return ctx.Err()
+}
+
+func TestWaitHeaderSyncedDoesNotRevealAnIndexedCheckpoint(t *testing.T) {
+	revealer := &recordingRevealer{}
+
+	p := newTestProcessor(false)
+	p.checkpointRevealer = revealer
+
+	ev, err := p.waitHeaderSynced(context.Background(), &mock.EthClient{}, 2, 1)
+
+	require.NoError(t, err)
+	require.NotNil(t, ev)
+	assert.Empty(t, revealer.calls)
+}
+
+func TestWaitHeaderSyncedRevealsWhileWaiting(t *testing.T) {
+	var lookups int
+
+	repo := &mock.EventRepository{}
+	repo.CheckpointSyncedEventByBlockNumberOrGreaterFunc = func(
+		_ context.Context, _, _, _ uint64,
+	) (*relayer.Event, error) {
+		lookups++
+
+		// After Etna nothing saves the checkpoint until a reveal does, and the indexer stores
+		// the revealed one a little later.
+		if lookups < 3 {
+			return nil, nil
+		}
+
+		return &relayer.Event{BlockID: 42}, nil
+	}
+
+	// A failed reveal must not end the wait: the message keeps waiting and the next attempt may
+	// succeed.
+	revealer := &recordingRevealer{errs: []error{errors.New("sending revealCheckpoint: nonce too low")}}
+
+	p := newTestProcessor(false)
+	p.eventRepo = repo
+	p.headerSyncIntervalSeconds = 1
+	p.checkpointRevealer = revealer
+
+	errorsBefore := testutil.ToFloat64(relayer.CheckpointRevealErrors)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	ev, err := p.waitHeaderSynced(ctx, &mock.EthClient{}, 2, 7)
+
+	require.NoError(t, err)
+	require.NotNil(t, ev)
+	assert.Equal(t, uint64(42), ev.BlockID)
+	assert.Equal(t, []uint64{7, 7}, revealer.calls)
+	assert.Equal(t, errorsBefore+1, testutil.ToFloat64(relayer.CheckpointRevealErrors))
+}
+
+func TestWaitHeaderSyncedDoesNotCountRevealsInterruptedByShutdown(t *testing.T) {
+	repo := &mock.EventRepository{}
+	repo.CheckpointSyncedEventByBlockNumberOrGreaterFunc = func(
+		_ context.Context, _, _, _ uint64,
+	) (*relayer.Event, error) {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p := newTestProcessor(false)
+	p.eventRepo = repo
+	p.headerSyncIntervalSeconds = 1
+	p.checkpointRevealer = &cancellingRevealer{cancel: cancel}
+
+	errorsBefore := testutil.ToFloat64(relayer.CheckpointRevealErrors)
+
+	ev, err := p.waitHeaderSynced(ctx, &mock.EthClient{}, 2, 1)
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, ev)
+	assert.Equal(t, errorsBefore, testutil.ToFloat64(relayer.CheckpointRevealErrors))
 }
 
 func TestWaitHeaderSyncedGivesUpWhenTheContextIsCancelled(t *testing.T) {

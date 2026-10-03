@@ -48,6 +48,11 @@ type checkpointStoreReader interface {
 	CheckpointStore(opts *bind.CallOpts) (common.Address, error)
 }
 
+// l1CheckpointRevealer is what the header-sync wait needs from a checkpointRevealer.
+type l1CheckpointRevealer interface {
+	reveal(ctx context.Context, minL1Block uint64) error
+}
+
 // checkpointRevealer saves L1 checkpoints on the destination chain once the Etna fork leaves no
 // anchor transaction to do it. From Etna on, each L2 block's parentBeaconBlockRoot is the hash of
 // the L1 block it anchors to, EIP-4788 records that hash under the block's timestamp, and

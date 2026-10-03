@@ -88,6 +88,15 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"ENABLE_TAIKO_L2"},
 	}
+	EnableCheckpointReveal = &cli.BoolFlag{
+		Name: "enableCheckpointReveal",
+		Usage: "Reveal L1 checkpoints on the destination chain's Anchor, destTaikoAddress, once the " +
+			"Etna fork leaves no anchor transaction to save them. Only for L1 to L2 processors: " +
+			"startup fails if destTaikoAddress is not an Anchor",
+		Value:    false,
+		Category: processorCategory,
+		EnvVars:  []string{"ENABLE_CHECKPOINT_REVEAL"},
+	}
 	TargetTxHash = &cli.StringFlag{
 		Name:     "targetTxHash",
 		Usage:    "Target transaction hash, set to ignore processing from queue and only process this individual transaction",
@@ -167,6 +176,7 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	ProfitableOnly,
 	QueuePrefetchCount,
 	EnableTaikoL2,
+	EnableCheckpointReveal,
 	DestBridgeAddress,
 	TargetTxHash,
 	UnprofitableMessageQueueExpiration,
