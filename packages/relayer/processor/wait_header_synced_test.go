@@ -273,3 +273,172 @@ func TestWaitHeaderSyncedGivesUpWhenTheContextIsCancelled(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Nil(t, ev)
 }
+
+// headClient reports head as the L1 head and counts the BlockNumber calls. Like recordingRevealer,
+// it answers with the queued errors in order first, where a nil entry is a call that succeeds.
+type headClient struct {
+	mock.EthClient
+	head  uint64
+	errs  []error
+	calls int
+}
+
+func (c *headClient) BlockNumber(_ context.Context) (uint64, error) {
+	c.calls++
+
+	if len(c.errs) > 0 {
+		err := c.errs[0]
+		c.errs = c.errs[1:]
+
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return c.head, nil
+}
+
+// checkpointIndex stands in for the indexed CheckpointSaved rows: its lookups find nothing the
+// first misses times and event after that. It records the block number each lookup asks for.
+type checkpointIndex struct {
+	misses  int
+	event   *relayer.Event
+	lookups []uint64
+}
+
+// repository returns an event repository whose checkpoint lookups go to the index.
+func (i *checkpointIndex) repository() *mock.EventRepository {
+	repo := &mock.EventRepository{}
+	repo.CheckpointSyncedEventByBlockNumberOrGreaterFunc = func(
+		_ context.Context, _, _, blockNumber uint64,
+	) (*relayer.Event, error) {
+		i.lookups = append(i.lookups, blockNumber)
+
+		if len(i.lookups) <= i.misses {
+			return nil, nil
+		}
+
+		return i.event, nil
+	}
+
+	return repo
+}
+
+func TestWaitHeaderSyncedDoesNotReadTheL1HeadWithoutReveals(t *testing.T) {
+	index := &checkpointIndex{misses: 1, event: &relayer.Event{BlockID: 950}}
+	client := &headClient{head: 1_000}
+
+	p := newTestProcessor(false)
+	p.eventRepo = index.repository()
+	p.headerSyncIntervalSeconds = 1
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// With checkpoint reveal off the wait is unchanged: it asks for the message's own block and
+	// never reads the head.
+	ev, err := p.waitHeaderSynced(ctx, client, 2, 800)
+
+	require.NoError(t, err)
+	require.NotNil(t, ev)
+	assert.Equal(t, []uint64{800, 800}, index.lookups)
+	assert.Zero(t, client.calls)
+}
+
+func TestWaitHeaderSyncedRequiresARecentCheckpointWithReveals(t *testing.T) {
+	// Only checkpoints below 904 are indexed. One of them may still cover the message's block 800,
+	// but it is more than maxCheckpointAge blocks behind the head of 1,000, where the L1 node may
+	// no longer serve a proof. The checkpoint the revealer is asked for is indexed by the first tick.
+	index := &checkpointIndex{misses: 1, event: &relayer.Event{BlockID: 950}}
+	client := &headClient{head: 1_000}
+	revealer := &recordingRevealer{}
+
+	p := newTestProcessor(false)
+	p.eventRepo = index.repository()
+	p.headerSyncIntervalSeconds = 1
+	p.checkpointRevealer = revealer
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	ev, err := p.waitHeaderSynced(ctx, client, 2, 800)
+
+	require.NoError(t, err)
+	require.NotNil(t, ev)
+	assert.Equal(t, uint64(950), ev.BlockID)
+	assert.Equal(t, []uint64{904, 904}, index.lookups)
+	assert.Equal(t, []uint64{904}, revealer.calls)
+	assert.Equal(t, 2, client.calls, "the head is read before the first lookup and again on the tick")
+}
+
+func TestWaitHeaderSyncedAcceptsTheMessageBlockWhenItIsRecent(t *testing.T) {
+	index := &checkpointIndex{event: &relayer.Event{BlockID: 950}}
+
+	p := newTestProcessor(false)
+	p.eventRepo = index.repository()
+	p.checkpointRevealer = &recordingRevealer{}
+
+	// Block 950 is within maxCheckpointAge of the head, so a checkpoint covering it is recent enough.
+	ev, err := p.waitHeaderSynced(context.Background(), &headClient{head: 1_000}, 2, 950)
+
+	require.NoError(t, err)
+	require.NotNil(t, ev)
+	assert.Equal(t, []uint64{950}, index.lookups)
+}
+
+func TestWaitHeaderSyncedAcceptsTheMessageBlockOnAShortChain(t *testing.T) {
+	index := &checkpointIndex{event: &relayer.Event{BlockID: 7}}
+
+	p := newTestProcessor(false)
+	p.eventRepo = index.repository()
+	p.checkpointRevealer = &recordingRevealer{}
+
+	// The whole chain is shorter than maxCheckpointAge blocks, so every checkpoint is recent enough.
+	ev, err := p.waitHeaderSynced(context.Background(), &headClient{head: 50}, 2, 7)
+
+	require.NoError(t, err)
+	require.NotNil(t, ev)
+	assert.Equal(t, []uint64{7}, index.lookups)
+}
+
+func TestWaitHeaderSyncedHandlesL1HeadErrors(t *testing.T) {
+	t.Run("before the first lookup", func(t *testing.T) {
+		index := &checkpointIndex{event: &relayer.Event{BlockID: 950}}
+
+		p := newTestProcessor(false)
+		p.eventRepo = index.repository()
+		p.checkpointRevealer = &recordingRevealer{}
+
+		// Without the head the wait cannot tell which checkpoints are recent enough.
+		client := &headClient{errs: []error{errors.New("dial tcp: connect: connection refused")}}
+		ev, err := p.waitHeaderSynced(context.Background(), client, 2, 800)
+
+		require.ErrorContains(t, err, "connection refused")
+		assert.Nil(t, ev)
+		assert.Empty(t, index.lookups)
+	})
+
+	t.Run("while polling", func(t *testing.T) {
+		index := &checkpointIndex{misses: 1, event: &relayer.Event{BlockID: 950}}
+
+		// The first read succeeds and the L1 node is unreachable by the first tick. Falling back to
+		// the message's block would accept a stale checkpoint, so the wait keeps asking for 904.
+		client := &headClient{head: 1_000, errs: []error{nil, errors.New("dial tcp: connect: connection refused")}}
+
+		p := newTestProcessor(false)
+		p.eventRepo = index.repository()
+		p.headerSyncIntervalSeconds = 1
+		p.checkpointRevealer = &recordingRevealer{}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		ev, err := p.waitHeaderSynced(ctx, client, 2, 800)
+
+		require.NoError(t, err)
+		require.NotNil(t, ev)
+		assert.Equal(t, uint64(950), ev.BlockID)
+		assert.Equal(t, []uint64{904, 904}, index.lookups)
+		assert.Equal(t, 2, client.calls)
+	})
+}
