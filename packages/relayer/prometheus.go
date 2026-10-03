@@ -109,6 +109,14 @@ var (
 		Name: "checkpoint_saved_events_indexed_ops_total",
 		Help: "The total number of CheckpointSaved indexed events",
 	})
+	CheckpointRevealsSent = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "checkpoint_reveals_ops_total",
+		Help: "The total number of L1 checkpoints the processor revealed on the destination Anchor",
+	})
+	CheckpointRevealErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "checkpoint_reveal_errors_ops_total",
+		Help: "The total number of failed attempts to reveal an L1 checkpoint on the destination Anchor",
+	})
 	MessageSentEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_processed_ops_total",
 		Help: "The total number of MessageSent processed events",
