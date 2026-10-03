@@ -137,7 +137,7 @@
 
 | Rung | Failure | Answer | Time (§5) | Owner ids | Premises |
 |---|---|---|---|---|---|
-| 1 | Leader silent | Timeout of a view whose leader has no attested block outstanding, view change, backup extends the lock | about 5.4 s | S2-R07, S2-R10, S2-R11; MISS S3-R07; void views skipped S1-R12 | A-T9, A-HQ |
+| 1 | Leader silent | Timeout of a view whose leader has no attested block outstanding, view change, backup extends the lock | about 5.4 s projected; conservative default 7 s (MP-31) | S2-R07, S2-R10, S2-R11; MISS S3-R07; void views skipped S1-R12 | A-T9, A-HQ |
 | 2 | Four backups silent, or every drawn view void | Term idles to its end; if every drawn owner is suspended or lapsed the term is open-empty and a bonded signer sequences, admitted at its sentinel object's L1 reference as S4-R11 states (S1-R15, S1-R16; D45); sentinel landings that void a certified backlog are replacements under A1 (D40(3)) | at most 60 s | S2-R11, S1-R15 | A-T11 |
 | 3 | Committee silent | A later committee, gated by L1 time, signs a FALLBACK | `termEnd + 12 s`, then 10 s per further committee | S2-R14, S2-R13 (3) | A-T1 (L5) |
 | 4 | Provers or landers silent | Ramp from `landableFrom` over LAND_WINDOW; the holder self-lands; anyone with the bytes lands; replacement after `replaceableFrom` | 1,800 s ramp; replacement 35 to 65 min after `termEnd` | C2-R16, C2-R17, S3-R12, C2-R07 to C2-R09 | A-PROVER, A-BYTES |
@@ -205,7 +205,7 @@
 | ID | Value / unit | Derivation, rationale and status |
 |---|---|---|
 | Roles | 7 | **counted:** S4-R01. |
-| Rung 1, takeover gap | about 5.4 s; the page says about 6 s; conservative default 7 s (MP-31) | **derived, unmeasured:** TIMEOUT 5 s plus a view-change round trip of about 0.4 s (S2 §6, A-T9); the page's 0.6 s remainder has no derivation (§10 item 3). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-31. |
+| Rung 1, takeover gap | about 5.4 s; the page says about 6 s; conservative default 7 s on the TIMEOUT path (MP-31; a late-term kill is bounded by S2's four-slot bound) | **derived, unmeasured:** TIMEOUT 5 s plus a view-change round trip of about 0.4 s (S2 §6, A-T9); the page's 0.6 s remainder has no derivation (§10 item 3). **procedure:** [C6-measurement-plan](C6-measurement-plan.md) MP-31. |
 | Rung 2, idle bound | at most 60 s | **derived:** after V_MAX = 4 takeovers the term idles to its end (S2-R11), and TERM = 60 s (S1 §11). |
 | Rung 3, FALLBACK gates | `termEnd + 12 s`, `+ 22 s` | **quoted (S2 §6):** `END_GRACE + VC_FALLBACK × (signerTerm − t)` with 2 s and 10 s. |
 | Rung 4, replacement window | `termEnd(t′) + 2,100 s` to `+ 3,900 s` (35 to 65 min); with the one deferral `+ 2,700` to `+ 4,500 s` (45 to 75 min) | **derived** from C2-R08 with LAND_WINDOW 1,800, LAND_WINDOW_MAX 3,600, REPLACE_GRACE 300, LAND_CHAIN_GRACE 600 (C2 §12): `min(T + 3,600, max(T + 1,800, L + 600)) + 300`. The origin is the first unlanded term's end, not "the last landing" (§10 item 4). |
@@ -289,7 +289,7 @@ S4-R14's table is the single place that states the whole-design verdict on R1 to
 
 1. **Role count.** The roles page counts seven roles (two bonded, three unbonded, the passive node operator, the DAO); the task and the decomposition name eleven terms. S4-R01 maps them: seat, owner, holder and leader are facts of the bonded roles, the prover is merged with the lander, and the RPC node and the archive have no entry, exit, reward or failure row on the page. S4-R02 and S4-R03 derive those rows from S2-R22, C2-R18 and C1 §5 and tag them assumed.
 2. **P3's premise.** The page states P3 for "one honest bonded owner", but its argument consumes A-T9, A-T11 and a committee of which `Q(m)` is honest and online, and says an honest seat is found "with probability approaching 1 over a few terms". S1-R19 gives `w / A` per view, so a single honest seat among 72 single-seat owners is drawn in some view of a term with probability 5/72 (§5); the rest of the terms idle or are held by others. S4-R08 carries A-HQ and A-OWNER and does not choose a reading.
-3. **The "about 6 s" gap** of the ladder's first rung is not derived on the page; 5 s plus about 0.4 s gives about 5.4 s (§5).
+3. **The "about 6 s" gap** of the ladder's first rung is not derived on the page; 5 s plus about 0.4 s gives about 5.4 s (§5). C6's MP-31 replaces the 0.4 s round trip with about 1.1 s of certificate hold plus two TC hops, giving its conservative 7 s default on the TIMEOUT path.
 4. **The origin of the replacement window.** Limitation L3 and S2-R18 say 35 to 65 minutes "after the last landing", up to 75 with an announcement; C2-R08's formula and C2 §13 measure from the first unlanded term's end. §5 uses C2's.
 5. **P4's retention condition.** The page states P4 without the limit C2-R18 adds (the serving duty lapses at 7,200 s while a landing stays possible up to the horizon); C2-R18 also says "up to about 34 h", the role horizon, while the horizon is the smaller of that and the EIP-2935 window (§5). S4-R09 carries C2's.
 6. **T-premise coverage.** The arguments page §7 lists T1, T2, T3, T9, T11, T12 and T13 only; the threat model (`01-threat-model.md`) that defines T1 to T13 is not among the sources, so A-T4 to A-T8 and A-T10 are not mapped.
