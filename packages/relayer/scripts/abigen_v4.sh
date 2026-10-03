@@ -5,13 +5,14 @@ if [ ! -d "../protocol/out" ]; then
     exit 1
 fi
 
-paths=("shared/SignalService.sol")
+paths=("shared/SignalService.sol" "layer2/Anchor.sol")
 
-names=("SignalService")
+names=("SignalService" "Anchor")
 
 for (( i = 0; i < ${#paths[@]}; ++i ));
 do
     lower=$(echo "${names[i]}" | tr '[:upper:]' '[:lower:]')
+    mkdir -p bindings/v4/$lower
     jq .abi ../protocol/out/${paths[i]}/${names[i]}.json > bindings/v4/$lower/${names[i]}.json
     abigen --abi bindings/v4/$lower/${names[i]}.json \
     --pkg $lower \
