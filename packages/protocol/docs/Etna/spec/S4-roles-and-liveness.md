@@ -289,7 +289,7 @@ S4-R14's table is the single place that states the whole-design verdict on R1 to
 
 ## W15 open-item disposition
 
-**[assumed: bookkeeping against D68's accepted tree]** This table disposes the S4 entries of [J's census](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5967553118), under [A's W15 order](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5968122322). It replaces stale review/merge labels without promoting any conditional argument to a whole-design proof.
+**[assumed: bookkeeping against the accepted tree through D69]** This table disposes the S4 entries of [J's census](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5967553118), under [A's W15 order](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5968122322). It replaces stale review/merge labels without promoting any conditional argument to a whole-design proof.
 
 | Census item / related obligation | Disposition and remaining closure condition |
 |---|---|
@@ -299,6 +299,7 @@ S4-R14's table is the single place that states the whole-design verdict on R1 to
 | §7 S4-V02 and S4-V03 | **[open: A/S4 with A/S1 and A/C2]** Complete reproducible boundary fixtures from the cited owner vectors, including exact timestamps/heads and expected replacement/dead-mode outcomes. Arithmetic examples do not by themselves supply the full fixture or rule-to-vector coverage. |
 | §7 S4-V04 | **[open: A/S4 with S3]** Supply the accepted S3 evidence inputs and expiry-boundary outcomes, then map them to this outage schedule. S3 is unmerged, so no final error/encoding or joint no-framing gate is inferred. |
 | §7 S4-V05 | **[assumed: closed as withdrawn]** D39 removes the stall-clock vector. D59/D61 replace its role in S4-R10 with the cited C3 hatch vectors; any missing hatch fixtures remain C3's obligation, not a revived stall-clock rule. |
+| §5 timing and cost procedures | **[assumed: plan acceptance closed]** [D69](../DECISIONS.md) accepts [MP-31 to MP-35](C6-measurement-plan.md#10-s4-5-rows) as specification. MP-31's derived 7-second default applies only to its explicitly eligible TIMEOUT path; it is not a universal takeover bound. **[open: A/S4 with the named S1/S2/S3/C2/C3/C6 owners]** No DEVNET/BENCH procedure has run. Final S2/S3 semantics, the chain/admission and splitting obligations D69 names, and the model's liveness assumptions remain open; plan acceptance does not establish measured capacity or unconditional recovery. |
 | §9 S1 row and remaining composition premises | **[assumed: S1 decision closed]** D40/D45/D48 and D52 settle the named S1 suspension/admission semantics. **[open: A/S4 with S2/S3]** Reconcile the final certificate/evidence and recovery composition when both sections are accepted; P2 and the full no-framing claim retain their existing qualifications. |
 | A-GOV and unsigned residuals | **[open: user list, coordinated by A under D50]** A-GOV remains the premise excluding a malicious upgrade; D26 removes operational powers without answering malicious upgrades. D59's unsigned hatch/legacy limitations and D60's separate fresh-execution gap remain unsigned; D51/D55 sign only their exact stated limitations. This W15 update supplies no user's signature. |
 
