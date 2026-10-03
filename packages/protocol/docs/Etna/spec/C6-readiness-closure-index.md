@@ -19,7 +19,7 @@
 |---|---|---|
 | 1. Merged | [README section ledger](../README.md#section-drafts), learning-site entry below | Actual section/course merge and PR-closure records at the audited head; this index changes none. |
 | 2. Complete | C1/C4/C6 owner maps below and [C6-A's limitation register](C6-threat-model-and-limitations.md#5-the-accepted-limitations-register) | Every section's open items, with exact user-sign-off coverage under D50; the index is not an exhaustive substitute. |
-| 3. Implementation ready | C1/C4 interface and vector obligations below; accepted-C8 closure work below | [C8](C8-interfaces-and-storage.md) and each rule's owner supply the actual definitions, errors and vectors. |
+| 3. Implementation ready | C1/C4 interface and vector obligations below; accepted-C8 closure work below; [D71 traceability mapping](C8-traceability.md) | [C8](C8-interfaces-and-storage.md) and each rule's owner supply the actual definitions, errors and vectors. |
 | 4. Numbers | [Source-number index](C6-unmeasured-register.md), unmeasured-number entry below | Each numeric owner's specified default, conservative rationale and measurement procedure; a link or estimate is not completion evidence. |
 | 5. Sound | Final-readiness entry below | Merged-tree round reports and J's judgments establish the consecutive-round result; candidate rounds and section reviews do not. |
 | 6. Audited | Final-readiness entry below | J's explicit audit of all WORK items at the final integration head. This mapping and the course review are not that audit. |
@@ -95,3 +95,11 @@
 **[assumed: boundary under D2]** The task remains design-only under D2; D44 raises the readiness target. Procedures and reference vectors can be specified without production contracts/clients. Actual measurements, deployed-layout assertions and running-client claims need their own evidence. IG1 remains the dated gap in the [unmeasured register](C6-unmeasured-register.md#external-implementation-evidence-ig1), not proof that a complete Etna client runs.
 
 **[open: owner decisions]** Review of the published hatch, its consumer composition, restart opening, joint S2/S3 evidence predicates, remaining C8 definitions, conservative defaults and uncovered user limitation acceptance remain owner work. This index identifies artifacts and checks so they cannot disappear under a blanket unmeasured label.
+
+## D71 traceability and course synchronization
+
+**[assumed: accepted scope]** [D70](../DECISIONS.md) accepts the W15/course synchronization in #22229. [D71](../DECISIONS.md) accepts the [traceability index at `2df21abb6916b1fb06ded47e600d37971426ccbf`](https://github.com/taikoxyz/taiko-mono/blob/2df21abb6916b1fb06ded47e600d37971426ccbf/packages/protocol/docs/Etna/spec/C8-traceability.md) and its owner convention: a section's named owner owns its rules by default; when content is elsewhere, cite its owning rule or section explicitly. The index maps owner, inputs, failure behavior and named vectors.
+
+**[proven: enumeration of that pinned snapshot]** Of 143 rules, 78 have all four mapped elements; 46 lack a failure description and 40 lack a named vector. These are overlapping missing-element counts, not failed test counts. **[open: D44 item 3]** Owner closure edits, complete deterministic byte/state/error fixtures and unresolved definitions still need review. The [current traceability page](C8-traceability.md) may carry proposed later counts; the immutable D71 snapshot remains the acceptance source for this entry.
+
+**[assumed: teaching scope; open: this addition's review]** The [companion lesson](../learn/traceability.html) uses an accepted C1 wrong-mode case to distinguish a logical scenario from a full encoded fixture and an executed test result. It changes no rule, accepts no limitation and supplies no D44 pass. Full fixtures that can be specified before production code remain specification obligations now; only an actual execution report depends on an implementation.
