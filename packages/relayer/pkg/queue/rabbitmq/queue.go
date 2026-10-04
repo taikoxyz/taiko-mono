@@ -598,14 +598,55 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 			if d.Body != nil {
 				slog.Info("rabbitmq message found", "msgId", d.MessageId)
-				msgChan <- queue.Message{
-					Body:     d.Body,
-					Internal: d,
+
+				stopped, err := r.forwardDelivery(ctx, msgChan, d)
+				if !stopped {
+					continue
 				}
+
+				// Torn down with a delivery in hand, which stays unacknowledged. Closing the
+				// connection is what hands it back to the broker, and it is the same thing the
+				// two arms of the select below do.
+				defer r.Close(ctx)
+
+				slog.Info("rabbitmq subscription ended while forwarding a message", "msgId", d.MessageId)
+
+				return err
 			} else {
 				slog.Info("nil body message, queue is closed")
 				return queue.ErrClosed
 			}
 		}
+	}
+}
+
+// forwardDelivery hands a delivery to the consumer, and abandons it when the subscription is being
+// torn down instead of waiting for a receiver that will never come.
+//
+// The consumer is the processor's event loop, reading an unbuffered channel, and it returns as soon
+// as its context is cancelled. That cancellation does not wake a send already parked on the
+// channel: the loop selects between the two, and picks uniformly at random when both are ready, so
+// it can leave with a delivery still waiting to be handed over. Nothing reads the channel after
+// that, so the send never completes, Subscribe never returns, and the wg.Done it defers never runs
+// — Processor.Close waits on that WaitGroup, so a SIGTERM becomes a SIGKILL.
+//
+// It reports whether the caller should stop, and with which error. A cancelled processor context is
+// the graceful stop the select in Subscribe returns nil for, and a cancelled subscription context
+// is the ErrClosed it returns there, which is what makes the backoff retry resubscribe.
+func (r *RabbitMQ) forwardDelivery(
+	ctx context.Context,
+	msgChan chan<- queue.Message,
+	d amqp.Delivery,
+) (bool, error) {
+	select {
+	case msgChan <- queue.Message{
+		Body:     d.Body,
+		Internal: d,
+	}:
+		return false, nil
+	case <-ctx.Done():
+		return true, nil
+	case <-r.subscriptionCtx.Done():
+		return true, queue.ErrClosed
 	}
 }

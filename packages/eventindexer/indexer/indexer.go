@@ -76,8 +76,6 @@ type Indexer struct {
 }
 
 func (i *Indexer) Start() error {
-	i.ctx = context.Background()
-
 	if err := i.checkBalanceClaimBootstrap(i.ctx); err != nil {
 		return err
 	}
@@ -209,6 +207,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
+
+	// Cancelled by SubcommandAction once a shutdown signal arrives, so the event
+	// loop stops and Close can return.
+	i.ctx = ctx
 	i.wg = &sync.WaitGroup{}
 
 	i.syncMode = cfg.SyncMode
