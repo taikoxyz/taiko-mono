@@ -207,15 +207,15 @@
 
 ### S2/S3 adoption open items (D78)
 
-**[open: owner adoption]** Revision (2026-10-03, S2/S3 adoption after D78). The textual items for this page are applied above. The rows below need owner work outside this page or a new rule, parameter or binding; this page invents none of them.
+**[open: owner adoption]** Revision (2026-10-03, S2/S3 adoption after D78). The textual items for this page are applied above. In the rows below, "text applied" means the adoption text is in this tree (the C6 threat page's L3/L5/L24, the unmeasured register and measurement plan, S4-R14's D1 row and S4-R15 E7) and only its acceptance is pending; what remains open is the semantic or fixture work each row names. This page invents none of it (clarified 2026-10-04 on B's review of `2b64159`).
 
 | Item | Source | Owner and state |
 |---|---|---|
 | L3/L5/L24 rewording: L24 quotes the complete S2-R18 D1 block citing S2-R20; L5 cites S2-R14 (iii); L3 keeps only its Q-malicious case; R20's wedge, losing-branch loss, zero slash/MISS, conditional timing and retained-lock stall indexed | [open: owner adoption, S2 §12 row "C6 L3/L5/L24, dashboard and learning site"]; S2 §10 C6 row; S3 §15 C6 row | A, in C6-R08 (threat-model page). This page indexes the result once adopted. |
 | S2 lesson and confirmation/slashing teaching | [open: owner adoption, S2 §12 row "C6 L3/L5/L24, dashboard and learning site"] | B, learning site. Not edited here. |
-| Register entries: S2 §6 unmeasured rows (per-term recording cost, view-change verification gas, FB_CONTEST_BLOCKS, FB_CONTEST, FB_SIGNER_HORIZON, full-backing delay) and S2 §10 items 13 to 21 | [open: owner adoption, S2 §10 C6 row] | A, unmeasured register. |
-| B_SEAT derivation inputs (V_term, fee, MEV, P) and `H(X)` documentation-only rows | [open: owner adoption, S3 §15 C6 rows (J-2; D73 (3))] | A, unmeasured register and measurement plan. |
-| S4-R14 D1 row and S4-R15 E7 cite the corrected R18 block and R20 residual | [open: owner adoption, S2 §12 row "S4-R03/R05/R07/R08/R12, S4-R14 D1, S4-R15 E7; C6 limitations"] | A, S4. Section 5 above reads S4-R14 as published. |
+| Register entries: S2 §6 unmeasured rows (per-term recording cost, view-change verification gas, FB_CONTEST_BLOCKS, FB_CONTEST, FB_SIGNER_HORIZON, full-backing delay) and S2 §10 items 13 to 21 | [open: owner adoption, S2 §10 C6 row] | Text applied in the unmeasured register and measurement plan (acceptance pending); A,. |
+| B_SEAT derivation inputs (V_term, fee, MEV, P) and `H(X)` documentation-only rows | [open: owner adoption, S3 §15 C6 rows (J-2; D73 (3))] | Text applied in the unmeasured register and measurement plan (acceptance pending); A, and measurement plan. |
+| S4-R14 D1 row and S4-R15 E7 cite the corrected R18 block and R20 residual | [open: owner adoption, S2 §12 row "S4-R03/R05/R07/R08/R12, S4-R14 D1, S4-R15 E7; C6 limitations"] | Text applied in S4-R14 and S4-R15 (acceptance pending); A, S4. Section 5 above reads S4-R14 as published. |
 | S3 rule changes | none recorded by this page | Any S3 rule change found during adoption is recorded here as open, not applied. |
 
 ## 7. Review provenance
