@@ -192,7 +192,7 @@ contract Anchor is EssentialContract {
         require(stateRoot.length == 32 && number.length <= 6, InvalidL1Header());
 
         checkpoint_ = ICheckpointStore.Checkpoint({
-            blockNumber: uint48(_toUint(number)),
+            blockNumber: uint48(uint256(bytes32(number)) >> (8 * (32 - number.length))),
             blockHash: blockHash,
             stateRoot: bytes32(stateRoot)
         });
@@ -301,15 +301,6 @@ contract Anchor is EssentialContract {
                 inputs,
                 8192 /*mul(256, 32)*/
             )
-        }
-    }
-
-    /// @dev Folds big-endian bytes into an unsigned integer.
-    /// @param _bytes At most 32 big-endian bytes.
-    /// @return value_ The integer value; 0 for empty bytes.
-    function _toUint(bytes memory _bytes) private pure returns (uint256 value_) {
-        for (uint256 i; i < _bytes.length; ++i) {
-            value_ = (value_ << 8) | uint8(_bytes[i]);
         }
     }
 
