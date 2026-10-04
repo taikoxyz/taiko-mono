@@ -767,6 +767,9 @@ func isTransientProcessMessageError(err error) bool {
 		// dead-lettered, and the dead-letter queue has no consumer. A claim nobody had processed
 		// was parked there for good. The sentinel is %w-wrapped, so this matches it exactly.
 		errors.Is(err, core.ErrNonceTooLow) ||
+		// The L1 block the proof was built at changed root after the wait checked it, which only an
+		// L1 reorg does. The next attempt waits for an anchor again.
+		errors.Is(err, proof.ErrStateRootMismatch) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||
