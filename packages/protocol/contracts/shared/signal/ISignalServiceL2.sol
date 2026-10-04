@@ -18,9 +18,4 @@ interface ISignalServiceL2 is ISignalService {
         /// @notice Storage proof for the signal slot under that account.
         bytes[] storageProof;
     }
-
-    /// @notice Returns the configured provider of authenticated L1 state roots.
-    /// @dev This is the same Anchor that is authorized to save pre-Etna checkpoints.
-    /// @return provider_ Address of the L1 state root provider.
-    function stateRootProvider() external view returns (address provider_);
 }

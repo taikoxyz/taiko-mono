@@ -35,11 +35,6 @@ contract SignalServiceL2 is SignalService, ISignalServiceL2 {
         usesLegacyStorage = _usesLegacyStorage;
     }
 
-    /// @inheritdoc ISignalServiceL2
-    function stateRootProvider() external view returns (address provider_) {
-        return _authorizedSyncer;
-    }
-
     /// @dev Returns the cache in exactly the selected layout, without fallback.
     /// @return cache_ Storage reference to the active cache mapping.
     function _receivedSignalCache()

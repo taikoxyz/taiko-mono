@@ -515,9 +515,6 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
             address(_service).staticcall(abi.encodeWithSignature("usesLegacyStorage()"));
         assertTrue(ok, "storage mode getter reverted");
         assertEq(abi.decode(result, (bool)), _legacy);
-        (ok, result) = address(_service).staticcall(abi.encodeWithSignature("stateRootProvider()"));
-        assertTrue(ok, "state root provider getter reverted");
-        assertEq(abi.decode(result, (address)), address(_anchor));
     }
 
     function _deployEtna(bool _legacy, address _remote) private returns (SignalService) {
