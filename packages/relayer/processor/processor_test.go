@@ -469,6 +469,13 @@ func TestIsTransientProcessMessageError(t *testing.T) {
 			want: true,
 		},
 		{
+			// A legacy-proof claim failed and the fork state could not be read; it may have
+			// failed because the fork passed, so the message is retried rather than lost.
+			name: "a legacy proof failed with the Etna fork state unknown",
+			err:  fmt.Errorf("%w: %w", errEtnaForkUnknown, errTxReverted),
+			want: true,
+		},
+		{
 			// The sentinel itself, wrapped the way sendTx wraps it. This is the claim that lost a
 			// race for its nonce with nobody having processed the message, so it is retried.
 			name: "the nonce too low sentinel",

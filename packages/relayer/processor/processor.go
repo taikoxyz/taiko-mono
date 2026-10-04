@@ -797,6 +797,7 @@ func isTransientProcessMessageError(err error) bool {
 		// A legacy proof used after the Etna fork cannot verify; the next attempt waits for an
 		// Etna anchor and proves the message again.
 		errors.Is(err, errLegacyProofAfterEtna) ||
+		errors.Is(err, errEtnaForkUnknown) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||

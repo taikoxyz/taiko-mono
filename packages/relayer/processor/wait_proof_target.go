@@ -22,6 +22,11 @@ const etnaForkGuardSeconds = 600
 // again with an Etna proof, rather than dead-lettered.
 var errLegacyProofAfterEtna = errors.New("legacy signal proof used after the Etna fork")
 
+// errEtnaForkUnknown marks a claim that failed with a legacy proof when whether the destination
+// had reached the Etna fork could not be read. The failure may be the fork's doing, so the message
+// is retried rather than dead-lettered.
+var errEtnaForkUnknown = errors.New("legacy signal proof failed and the Etna fork state is unknown")
+
 // proofTarget is what a signal proof is built against. Exactly one field is set.
 type proofTarget struct {
 	// checkpoint is the indexed CheckpointSaved covering the message, before the Etna fork.
@@ -156,33 +161,53 @@ func warnUnlessDone(ctx context.Context, msg string, args ...any) {
 }
 
 // claimError returns err, the failure of a claim, marked with errLegacyProofAfterEtna when the claim
-// carried a legacy proof and the destination has since reached the Etna fork. The guard keeps
-// legacy proofs away from the fork, but a claim can still outlive it: a send with no timeout can
-// keep resubmitting past the fork, and a cached read can say the Anchor has no Etna timestamp for
-// up to a minute after its upgrade.
+// carried a legacy proof and the destination has since reached the Etna fork, or with
+// errEtnaForkUnknown when that cannot be read. The guard keeps legacy proofs away from the fork,
+// but a claim can still outlive it: a send with no timeout can keep resubmitting past the fork,
+// and a cached read can say the Anchor has no Etna timestamp for up to a minute after its upgrade.
+// Both marks are transient, so the message is proven again rather than dead-lettered.
 func (p *Processor) claimError(ctx context.Context, etnaProof bool, err error) error {
-	if etnaProof || !p.passedEtnaFork(ctx) {
+	if etnaProof {
 		return err
 	}
 
-	return fmt.Errorf("%w: %w", errLegacyProofAfterEtna, err)
+	passed, forkErr := p.passedEtnaFork(ctx)
+
+	switch {
+	case forkErr != nil:
+		return fmt.Errorf("%w: %w (reading the fork state: %v)", errEtnaForkUnknown, err, forkErr)
+	case passed:
+		return fmt.Errorf("%w: %w", errLegacyProofAfterEtna, err)
+	default:
+		return err
+	}
 }
 
-// passedEtnaFork reports whether the destination's head has reached its Etna fork. It reads the
-// fork time afresh rather than from the cache, which also refreshes the cache for every waiting
-// message. A read that fails counts as not reached.
-func (p *Processor) passedEtnaFork(ctx context.Context) bool {
+// passedEtnaFork reports whether the destination has reached its Etna fork: the wall clock or the
+// destination's head is at or past the fork time. The wall clock counts because the head may come
+// from a node that lags the one that mined the claim. It reads the fork time afresh rather than
+// from the cache, which also refreshes the cache for every waiting message. It returns an error
+// when a read fails, since the fork state is then unknown.
+func (p *Processor) passedEtnaFork(ctx context.Context) (bool, error) {
 	p.etnaTimestamps.expire()
 
 	etnaTimestamp, supported, err := p.etnaTimestamp(ctx)
-	if err != nil || !supported {
-		return false
+	if err != nil {
+		return false, err
+	}
+
+	if !supported {
+		return false, nil
+	}
+
+	if uint64(p.currentTime().Unix()) >= etnaTimestamp {
+		return true, nil
 	}
 
 	head, err := p.destEthClient.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return false
+		return false, err
 	}
 
-	return head.Time >= etnaTimestamp
+	return head.Time >= etnaTimestamp, nil
 }
