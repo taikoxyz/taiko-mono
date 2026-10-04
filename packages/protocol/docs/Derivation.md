@@ -374,7 +374,7 @@ Etna removes the anchor transaction. The L1 block that an L2 block anchors to is
 
 - A block's transactions come from `metadata.transactions` as before, but nothing is prepended and no position is reserved, so the first transaction is treated like every other one. A default source manifest yields a block without transactions.
 - Transactions from the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.
-- `parentBeaconBlockRoot` is `metadata.anchorBlockHash`: the hash of the L1 block at the block's final `anchorBlockNumber`, never zero, and not the hash of the L1 block that included the proposal. An inherited anchor repeats an Etna parent's `parentBeaconBlockRoot`; in the first Etna block it is the hash of L1 block `parent.metadata.anchorBlockNumber`, because the parent's root is zero.
+- `parentBeaconBlockRoot` is `metadata.anchorBlockHash`: the hash of the L1 block at the block's final `anchorBlockNumber`, never zero, and not the hash of the L1 block that included the proposal. An inherited anchor repeats an Etna parent's `parentBeaconBlockRoot`. If an anchor is inherited from a pre-Etna parent, its hash is obtained from L1 using the inherited `anchorBlockNumber`, since the parent header does not contain the L1 anchor hash.
 - The execution engine only checks that the root is non-zero. Drivers set it from L1, and provers check it against L1 headers linked by parent hash to `proposal.originBlockHash` or, for an inherited anchor, against the parent block (its `parentBeaconBlockRoot`, or for a parent before Etna the checkpoint in its L2 state). `anchorStateRoot` is no longer used.
 
 ## L1 Proof and Liveness Bond Settlement
