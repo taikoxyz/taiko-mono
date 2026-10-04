@@ -342,6 +342,8 @@ From Unzen on, execution meters zk gas as specified in [the zk gas spec](./zk_ga
 
 ### Anchor Transaction
 
+This section applies only to blocks before Etna.
+
 The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the `Anchor` contract with the L1 checkpoint fields:
 
 | Parameter         | Type    | Description                                     |
@@ -374,7 +376,7 @@ Etna removes the anchor transaction. The L1 block that an L2 block anchors to is
 
 - A block's transactions come from `metadata.transactions` as before, but nothing is prepended and no position is reserved, so the first transaction is treated like every other one. A default source manifest yields a block without transactions.
 - Transactions from the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.
-- `parentBeaconBlockRoot` is `metadata.anchorBlockHash`: the hash of the L1 block at the block's final `anchorBlockNumber`, never zero, and not the hash of the L1 block that included the proposal. An inherited anchor repeats a non-genesis Etna parent's `parentBeaconBlockRoot`. For a genesis or pre-Etna parent, obtain the hash from L1 using the inherited `anchorBlockNumber` (`0` for genesis).
+- `parentBeaconBlockRoot` is `metadata.anchorBlockHash`: the hash of the L1 block at the block's final `anchorBlockNumber`, never zero, and not the hash of the L1 block that included the proposal. An inherited anchor repeats a non-genesis Etna parent's `parentBeaconBlockRoot`. For a genesis or pre-Etna parent, obtain the hash from L1 using the inherited `anchorBlockNumber` (`0` for genesis). This lookup may require an L1 header outside the usual anchor window, as in pre-Etna derivation.
 - The execution engine only checks that the root is non-zero. Drivers set it from L1, and provers check it against L1 headers linked by parent hash to `proposal.originBlockHash` or, for an inherited anchor from a non-genesis parent, against the parent block (its `parentBeaconBlockRoot`, or for a parent before Etna the checkpoint in its L2 state). For genesis inheritance, the L1 header chain must reach block `0`, even outside the usual anchor window. `anchorStateRoot` is no longer used.
 
 ## L1 Proof and Liveness Bond Settlement
