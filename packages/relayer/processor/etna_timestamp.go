@@ -29,6 +29,14 @@ type etnaTimestampCache struct {
 	supported bool
 }
 
+// expire drops the cached read, so the next etnaTimestamp call reads the destination again.
+func (c *etnaTimestampCache) expire() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.readAt = time.Time{}
+}
+
 // etnaTimestamp returns the destination's Etna activation timestamp. supported is false when the
 // destination has no such timestamp: the L1 Inbox of an L2→L1 processor, an Anchor not yet
 // upgraded, or no Anchor configured. Both outcomes are cached for etnaTimestampCacheTTL; any other

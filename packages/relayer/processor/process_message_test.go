@@ -495,8 +495,9 @@ func TestGenerateEncodedSignalProofUsesDestChainCheckpoint(t *testing.T) {
 		},
 	}
 
-	_, err = p.generateEncodedSignalProof(context.Background(), event)
+	_, etnaProof, err := p.generateEncodedSignalProof(context.Background(), event)
 	assert.Nil(t, err)
+	assert.False(t, etnaProof)
 }
 
 type blockByNumberEthClient struct {
@@ -859,8 +860,9 @@ func TestGenerateEncodedSignalProofUsesTheEtnaAnchor(t *testing.T) {
 	event := newProcessMessageEvent(0)
 	event.Raw.BlockNumber = testAnchorBase + 2
 
-	encoded, err := p.generateEncodedSignalProof(testContext(t), event)
+	encoded, etnaProof, err := p.generateEncodedSignalProof(testContext(t), event)
 	require.NoError(t, err)
+	assert.True(t, etnaProof)
 
 	// The proof carries the timestamp of the L2 block that recorded the root, and the storage
 	// proof comes from that block's L1 anchor.
@@ -887,10 +889,37 @@ func TestGenerateEncodedSignalProofRejectsAnL1ReorgAfterTheWait(t *testing.T) {
 	event := newProcessMessageEvent(0)
 	event.Raw.BlockNumber = testAnchorBase + 2
 
-	encoded, err := p.generateEncodedSignalProof(testContext(t), event)
+	encoded, _, err := p.generateEncodedSignalProof(testContext(t), event)
 
 	// A transient error: the message is retried later rather than dead-lettered.
 	require.ErrorIs(t, err, proof.ErrStateRootMismatch)
 	assert.True(t, isTransientProcessMessageError(err))
 	assert.Nil(t, encoded)
+}
+
+func Test_ProcessMessage_retriesALegacyProofThatOutlivedTheFork(t *testing.T) {
+	p, _, _, destAnchor := etnaFixture(testEtnaTimestamp)
+	p.destBridge = &mock.Bridge{MessageNotReceived: true}
+
+	// The Anchor was upgraded moments before the fork, but the cache still holds the read from
+	// before the upgrade. The wait therefore takes the legacy path, and the destination, now past
+	// the fork, cannot verify the legacy proof.
+	destAnchor.etnaErr = errors.New("execution reverted")
+
+	_, supported, err := p.etnaTimestamp(context.Background())
+	require.NoError(t, err)
+	require.False(t, supported)
+
+	destAnchor.etnaErr = nil
+
+	body, err := json.Marshal(queue.QueueMessageSentBody{Event: newProcessMessageEvent(1)})
+	require.NoError(t, err)
+
+	shouldRequeue, _, err := p.processMessage(testContext(t), queue.Message{Body: body})
+
+	// The failure is transient, so the message is retried with an Etna proof, not dead-lettered.
+	require.ErrorIs(t, err, errLegacyProofAfterEtna)
+	require.ErrorContains(t, err, "message not received")
+	assert.True(t, isTransientProcessMessageError(err))
+	assert.False(t, shouldRequeue)
 }

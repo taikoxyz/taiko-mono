@@ -794,6 +794,9 @@ func isTransientProcessMessageError(err error) bool {
 		// The L1 block the proof was built at changed root after the wait checked it: an L1 reorg,
 		// or RPC backends that disagree. The next attempt waits for an anchor again.
 		errors.Is(err, proof.ErrStateRootMismatch) ||
+		// A legacy proof used after the Etna fork cannot verify; the next attempt waits for an
+		// Etna anchor and proves the message again.
+		errors.Is(err, errLegacyProofAfterEtna) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||

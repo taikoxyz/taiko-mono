@@ -402,3 +402,116 @@ func TestWaitProofTargetHandlesTheExtremeEtnaTimestamps(t *testing.T) {
 	assert.NotNil(t, target.checkpoint)
 	assert.Equal(t, 1, calls)
 }
+
+func TestClaimErrorRetriesALegacyProofAfterTheFork(t *testing.T) {
+	tests := []struct {
+		name     string
+		claimErr error
+		// headTime, when set, is the destination head's timestamp; otherwise the head is past
+		// the fork.
+		headTime uint64
+	}{
+		// A claim sent shortly before the fork and mined after it.
+		{name: "claim reverted", claimErr: errTxReverted},
+		{name: "message not received", claimErr: errors.New("message not received")},
+		{name: "head exactly at the fork", claimErr: errTxReverted, headTime: testEtnaTimestamp},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, l2, _, _ := etnaFixture(testEtnaTimestamp)
+			if tt.headTime != 0 {
+				l2.heads = []*types.Header{etnaHeader(10, tt.headTime, testAnchorBase, testRoot(0))}
+			}
+
+			err := p.claimError(testContext(t), false, tt.claimErr)
+
+			// No legacy proof verifies after the fork, so the message is retried and proven
+			// again, now with an Etna proof, rather than dead-lettered.
+			require.ErrorIs(t, err, errLegacyProofAfterEtna)
+			require.ErrorIs(t, err, tt.claimErr)
+			assert.True(t, isTransientProcessMessageError(err))
+		})
+	}
+}
+
+func TestClaimErrorLeavesOtherFailuresAlone(t *testing.T) {
+	tests := []struct {
+		name      string
+		etnaProof bool
+		mutate    func(l2 *l2Chain, anchor *fakeAnchor)
+	}{
+		{
+			name:      "Etna proof",
+			etnaProof: true,
+			mutate:    func(*l2Chain, *fakeAnchor) {},
+		},
+		{
+			// The L1 Inbox of an L2→L1 processor.
+			name: "no Etna timestamp",
+			mutate: func(_ *l2Chain, anchor *fakeAnchor) {
+				anchor.etnaErr = errors.New("execution reverted")
+			},
+		},
+		{
+			name: "before the fork",
+			mutate: func(l2 *l2Chain, _ *fakeAnchor) {
+				l2.heads = []*types.Header{etnaHeader(10, testEtnaTimestamp-1, testAnchorBase, testRoot(0))}
+			},
+		},
+		{
+			name: "Etna timestamp unreadable",
+			mutate: func(_ *l2Chain, anchor *fakeAnchor) {
+				anchor.etnaErr = errors.New("dial tcp: connect: connection refused")
+			},
+		},
+		{
+			name: "L2 head unreadable",
+			mutate: func(l2 *l2Chain, _ *fakeAnchor) {
+				l2.headErr = errors.New("dial tcp: connect: connection refused")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, l2, _, destAnchor := etnaFixture(testEtnaTimestamp)
+			tt.mutate(l2, destAnchor)
+
+			err := p.claimError(testContext(t), tt.etnaProof, errTxReverted)
+
+			// Today's handling: a reverted claim is not retried.
+			require.ErrorIs(t, err, errTxReverted)
+			require.NotErrorIs(t, err, errLegacyProofAfterEtna)
+			assert.False(t, isTransientProcessMessageError(err))
+
+			if tt.etnaProof {
+				assert.Zero(t, destAnchor.etnaCalls)
+				assert.Zero(t, l2.reads)
+			}
+		})
+	}
+}
+
+func TestClaimErrorRefreshesAStaleEtnaTimestamp(t *testing.T) {
+	p, _, _, destAnchor := etnaFixture(testEtnaTimestamp)
+
+	// The cache still holds a read from before the Anchor upgrade.
+	destAnchor.etnaErr = errors.New("execution reverted")
+
+	_, supported, err := p.etnaTimestamp(context.Background())
+	require.NoError(t, err)
+	require.False(t, supported)
+
+	destAnchor.etnaErr = nil
+
+	err = p.claimError(testContext(t), false, errTxReverted)
+	require.ErrorIs(t, err, errLegacyProofAfterEtna)
+
+	// The fresh read replaced the cached one, so every waiting message now sees the fork.
+	timestamp, supported, err := p.etnaTimestamp(context.Background())
+	require.NoError(t, err)
+	assert.True(t, supported)
+	assert.Equal(t, testEtnaTimestamp, timestamp)
+	assert.Equal(t, 2, destAnchor.etnaCalls)
+}

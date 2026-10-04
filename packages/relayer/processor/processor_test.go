@@ -463,6 +463,12 @@ func TestIsTransientProcessMessageError(t *testing.T) {
 			want: true,
 		},
 		{
+			// A legacy proof used after the Etna fork cannot verify; the message is proven again.
+			name: "a legacy proof used after the Etna fork",
+			err:  fmt.Errorf("%w: %w", errLegacyProofAfterEtna, errTxReverted),
+			want: true,
+		},
+		{
 			// The sentinel itself, wrapped the way sendTx wraps it. This is the claim that lost a
 			// race for its nonce with nobody having processed the message, so it is retried.
 			name: "the nonce too low sentinel",
