@@ -18,8 +18,15 @@ const (
 	// later L2 block's fresher anchor prove it.
 	maxAnchorAge = 96
 
-	// maxSameTimestampLookback caps how far below the L2 head the search for a block with an
-	// earlier timestamp goes.
+	// etnaSettleSeconds is how much older than the L2 head the L2 block an Etna proof is built
+	// against must be. The L2 RPC may be several nodes behind one service, and a node that lags
+	// the one that served the head by a few blocks would not yet have the block's EIP-4788 entry:
+	// the claim's IsMessageReceived would fail and the message would be dead-lettered. Twelve
+	// seconds costs nothing against the minutes the L1 anchor lags.
+	etnaSettleSeconds = 12
+
+	// maxSameTimestampLookback caps how far below the L2 head the search for a settled block
+	// goes.
 	maxSameTimestampLookback = 64
 
 	// etnaExtraDataLength is the length of an Etna L2 header's extraData:
@@ -28,7 +35,7 @@ const (
 )
 
 var (
-	errNoSettledL2Block    = errors.New("no L2 block with an earlier timestamp than the head")
+	errNoSettledL2Block    = errors.New("no settled L2 block below the head")
 	errMalformedEtnaHeader = errors.New("malformed Etna L2 header")
 	errAnchorTooOld        = errors.New("L1 anchor is too old for eth_getProof")
 	errOracleRootMismatch  = errors.New("getL1StateRoot does not match the L2 header root")
@@ -113,9 +120,10 @@ func (p *Processor) etnaAnchorFor(
 	return &etnaAnchor{l2Timestamp: block.Time, l1Block: l1Block, stateRoot: root}, nil
 }
 
-// settledL2Block returns the newest L2 block below head whose timestamp is lower than head's.
-// EIP-4788 keys roots by timestamp and a later block with the same timestamp overwrites the entry,
-// so only a block followed by a later timestamp has a final entry.
+// settledL2Block returns the newest L2 block below head whose timestamp is at least
+// etnaSettleSeconds older than head's. EIP-4788 keys roots by timestamp and a later block with the
+// same timestamp overwrites the entry, so only a block followed by a later timestamp has a final
+// entry; the margin also gives L2 nodes that lag the one serving head time to record it.
 func (p *Processor) settledL2Block(ctx context.Context, head *types.Header) (*types.Header, error) {
 	number := head.Number.Uint64()
 
@@ -127,7 +135,7 @@ func (p *Processor) settledL2Block(ctx context.Context, head *types.Header) (*ty
 			return nil, err
 		}
 
-		if header.Time < head.Time {
+		if header.Time+etnaSettleSeconds <= head.Time {
 			return header, nil
 		}
 	}
