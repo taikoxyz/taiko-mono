@@ -42,6 +42,8 @@
 
 ## C1 integration obligations
 
+**[open: D80 proposal adoption]** [C1-R11](C1-anchor-free-l2.md#c1-r11-inline-header-signal-proof), [V20–V29/C1-O16](C1-anchor-free-l2.md#d80-inline-proof-vectors) and C4-R10's SignalService row add the inline-header proof artifact requested by D80. A/C8 must index its tag/error, unchanged selectors and storage/return semantics; B/C1 and A/C8 must supply full header/MPT/encoding and expected-state fixtures, budgets and complete forced-wrapper/funding checks. C1 keeps the one-hop legacy/cache formats and the standalone reveal fallback. The new course module distinguishes the selected direction from pending technical acceptance; no old traceability count automatically includes R11 or its error.
+
 **[assumed: source inventory; open: closure]** Source: [accepted C1 §10](https://github.com/taikoxyz/taiko-mono/blob/d997a9bc7b7489a2ac2e8c15f01b52c5280a8907/packages/protocol/docs/Etna/spec/C1-anchor-free-l2.md#L382). D28 supplies original section acceptance and D63 accepts the hatch consumer; historical review-pending language is not a new blocker.
 
 | Source obligation | Owner | Concrete closure artifact or check |

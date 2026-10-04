@@ -23,6 +23,8 @@
 
 ## W22 candidate cost and encoding obligations
 
+**[assumed: D80 direction; open: proposal review]** [C1-R11 and §6](C1-anchor-free-l2.md#c1-r11-inline-header-signal-proof) add the owning P-INLINE-TAG and P-INLINE-OVERHEAD definitions. The tag is derived ASCII/padding; overhead `128 + ceil32(H)` is derived ABI arithmetic, not measured gas or a full-request bound. [C1-O16](C1-anchor-free-l2.md#d80-inline-proof-vectors) lists parser/oracle/trie/storage, complete wrapper and zk-cost procedures, exact fixtures and missing conservative budgets. The EIP-4788 address in the historical inventory below had `D742`; C1's current §6 corrects it to canonical `D732` under D80. Historical source links are preserved as provenance, not an instruction to deploy the typo. No unmeasured research gas estimate is adopted here.
+
 **[assumed: owner-index projection; open: candidate review]** [D78](../DECISIONS.md) merges S2 and S3; their old unmerged/joint-gate statuses are historical. The subsequent Cycle 2 round-1 interleaved-branch **High blocks D1**. [W22](../iterations/01-w22-repair.md) proposes changes to S2 evidence/PH identity and C4 migration authentication. This index accepts no repair, parameter, limitation or gas result.
 
 | Owner source | Quantity or dependency to index | Evidence and remaining work |
