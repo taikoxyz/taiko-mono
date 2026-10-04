@@ -30,7 +30,7 @@ contract TestDeployShastaL2Config is CommonTest {
     uint64 private constant _ETNA_TIMESTAMP = 1_800_000_000;
 
     // Run all environment changes in one test so parallel tests never race vm.setEnv.
-    function test_loadConfig_PreservesPauserAndHandlesLegacyCompatibility() external {
+    function test_loadConfig_PreservesPauserAndRejectsMissingVersionedPauser() external {
         vm.setEnv("ETNA_TIMESTAMP", vm.toString(uint256(_ETNA_TIMESTAMP)));
         IDeploymentConfigLoader mainnet =
             IDeploymentConfigLoader(address(new MainnetConfigLoader()));
@@ -43,51 +43,75 @@ contract TestDeployShastaL2Config is CommonTest {
     function _checkLoader(IDeploymentConfigLoader _loader, address _signalService) private {
         SignalService implementation = new SignalService(address(this), address(1), Alice);
         vm.etch(_signalService, address(implementation).code);
+        _expectPauser(_loader, _signalService, Alice);
 
-        _expectPauser(_loader, _signalService, false, Alice);
-        _expectPauser(_loader, _signalService, true, Alice);
+        // A versioned implementation must expose its immutable pauser, even when it is zero.
+        implementation = new SignalService(address(this), address(1), address(0));
+        vm.etch(_signalService, address(implementation).code);
+        _expectPauser(_loader, _signalService, address(0));
+        vm.mockCall(_signalService, abi.encodeWithSignature("pauser()"), "");
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+        vm.mockCallRevert(_signalService, abi.encodeWithSignature("pauser()"), "");
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
 
-        // The historical flat implementation genuinely has no pauser getter.
+        // The genuine historical implementation has neither pauser nor VERSION getters.
         LegacySignalService legacy = new LegacySignalService(address(this), address(1));
         vm.etch(_signalService, address(legacy).code);
-        _expectPauser(_loader, _signalService, true, address(0));
-        _expectLoaderRevert(_loader, false);
+        _expectPauser(_loader, _signalService, address(0));
 
-        // A fallback may return no data for an unknown selector instead of reverting.
+        // Unknown selectors may return empty bytes successfully or revert without data.
         vm.etch(_signalService, hex"5f5ff3");
-        _expectPauser(_loader, _signalService, true, address(0));
-        _expectLoaderRevert(_loader, false);
+        _expectPauser(_loader, _signalService, address(0));
+        vm.etch(_signalService, hex"5f5ffd");
+        _expectPauser(_loader, _signalService, address(0));
 
-        // Nonempty malformed returns and nonempty reverts must fail in either storage mode.
+        // With no pauser data, any nonempty VERSION response must fail, including bad ABI.
+        vm.etch(_signalService, hex"5f5ff3");
+        vm.mockCall(_signalService, abi.encodeWithSignature("VERSION()"), abi.encode(uint256(1)));
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+        vm.mockCall(_signalService, abi.encodeWithSignature("VERSION()"), hex"01");
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+        vm.mockCall(_signalService, abi.encodeWithSignature("VERSION()"), new bytes(33));
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+        vm.mockCallRevert(_signalService, abi.encodeWithSignature("VERSION()"), hex"01");
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+
+        // Nonempty malformed or reverting pauser responses cannot erase pause authority.
         vm.etch(_signalService, hex"6001600052601f6000f3");
-        _expectLoaderRevert(_loader, true);
-        _expectLoaderRevert(_loader, false);
+        _expectLoaderRevert(_loader);
         vm.etch(_signalService, hex"600160005260216000f3");
-        _expectLoaderRevert(_loader, true);
-        _expectLoaderRevert(_loader, false);
+        _expectLoaderRevert(_loader);
         vm.etch(_signalService, hex"600160005260206000fd");
-        _expectLoaderRevert(_loader, true);
-        _expectLoaderRevert(_loader, false);
+        _expectLoaderRevert(_loader);
+        vm.etch(_signalService, hex"5f5ff3");
+        vm.mockCall(
+            _signalService, abi.encodeWithSignature("pauser()"), abi.encode(uint256(1) << 160)
+        );
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
     }
 
     function _expectPauser(
         IDeploymentConfigLoader _loader,
         address _signalService,
-        bool _legacy,
         address _pauser
     )
         private
+        view
     {
-        vm.setEnv("SIGNAL_SERVICE_USES_LEGACY_STORAGE", _legacy ? "true" : "false");
         DeployShastaL2Contracts.DeploymentConfig memory config = _loader.loadConfig();
         assertEq(config.signalServicePauser, _pauser, "existing pauser was not preserved");
         assertEq(config.l2SignalService, _signalService);
         assertEq(config.etnaTimestamp, _ETNA_TIMESTAMP);
-        assertEq(config.signalServiceUsesLegacyStorage, _legacy);
     }
 
-    function _expectLoaderRevert(IDeploymentConfigLoader _loader, bool _legacy) private {
-        vm.setEnv("SIGNAL_SERVICE_USES_LEGACY_STORAGE", _legacy ? "true" : "false");
+    function _expectLoaderRevert(IDeploymentConfigLoader _loader) private {
         vm.expectRevert();
         _loader.loadConfig();
     }

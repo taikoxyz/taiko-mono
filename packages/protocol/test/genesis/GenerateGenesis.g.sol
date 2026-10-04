@@ -313,10 +313,7 @@ contract TestGenerateGenesis is Test {
 
         assertEq(contractOwner, signalServiceProxy.owner());
 
-        (bool ok, bytes memory result) =
-            address(signalServiceProxy).staticcall(abi.encodeWithSignature("usesLegacyStorage()"));
-        assertTrue(ok, "storage mode getter reverted");
-        assertFalse(abi.decode(result, (bool)));
+        assertEq(signalServiceProxy.VERSION(), 1);
 
         signalServiceProxy.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 

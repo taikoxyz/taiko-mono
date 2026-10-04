@@ -8,66 +8,23 @@ import { SignalService } from "./SignalService.sol";
 
 /// @title SignalServiceL2
 /// @notice Verifies L1 signals using execution state roots recorded by the L2 Anchor's oracle.
-/// @dev Adds no storage slots. The immutable layout selection must match the existing proxy;
-/// it never falls back to another namespace. L1 continues to use SignalService.
+/// @dev Uses SignalService's VERSION namespace and adds no storage slots.
 /// @custom:security-contact security@taiko.xyz
 contract SignalServiceL2 is SignalService, ISignalServiceL2 {
     /// @notice Four-byte prefix identifying timestamp-indexed state-root proofs.
     bytes4 public constant STATE_ROOT_PROOF_MAGIC = bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1"));
 
-    /// @notice Whether checkpoint and received-signal cache mappings use the old flat layout.
-    /// @dev False selects VERSION storage and never accepts deprecated unversioned records.
-    bool public immutable usesLegacyStorage;
-
-    /// @notice Initializes the L2 root provider, remote SignalService, pauser and storage layout.
+    /// @notice Initializes the L2 root provider, remote SignalService and pauser.
     /// @param _authorizedSyncer L2 Anchor that saves legacy checkpoints and provides Etna roots.
     /// @param _remoteSignalService L1 SignalService whose account and signal slots are proven.
     /// @param _pauser Optional additional pause authority.
-    /// @param _usesLegacyStorage True for flat-mapping proxies; false for VERSION storage.
     constructor(
         address _authorizedSyncer,
         address _remoteSignalService,
-        address _pauser,
-        bool _usesLegacyStorage
+        address _pauser
     )
         SignalService(_authorizedSyncer, _remoteSignalService, _pauser)
-    {
-        usesLegacyStorage = _usesLegacyStorage;
-    }
-
-    /// @dev Returns the cache in exactly the selected layout, without fallback.
-    /// @return cache_ Storage reference to the active cache mapping.
-    function _receivedSignalCache()
-        internal
-        view
-        override
-        returns (mapping(bytes32 signalSlot => bool received) storage cache_)
-    {
-        if (!usesLegacyStorage) return super._receivedSignalCache();
-        assembly {
-            cache_.slot := _receivedSignals.slot
-        }
-    }
-
-    /// @dev Returns a checkpoint record in exactly the selected layout, without fallback.
-    /// @param _blockNumber Source block number.
-    /// @return record_ Storage reference to the selected checkpoint record.
-    function _checkpointRecord(uint48 _blockNumber)
-        internal
-        view
-        override
-        returns (CheckpointRecord storage record_)
-    {
-        if (!usesLegacyStorage) return super._checkpointRecord(_blockNumber);
-        uint256 mappingSlot;
-        assembly {
-            mappingSlot := _checkpoints.slot
-        }
-        bytes32 recordSlot = keccak256(abi.encode(_blockNumber, mappingSlot));
-        assembly {
-            record_.slot := recordSlot
-        }
-    }
+    { }
 
     /// @dev Verifies an Etna envelope, or delegates legacy/cached proofs to the base verifier.
     /// @param _chainId Source chain ID.

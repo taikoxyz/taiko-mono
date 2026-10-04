@@ -26,7 +26,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         address signalServiceProxy =
             vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
         _anchor = _deployAnchor(ICheckpointStore(signalServiceProxy), ETNA_TIMESTAMP);
-        _signalService = _deployEtna(false, REMOTE_SIGNAL_SERVICE);
+        _signalService = _deployEtna(REMOTE_SIGNAL_SERVICE);
         assertEq(address(_signalService), signalServiceProxy);
         _recordBeaconRoot(ETNA_TIMESTAMP, VALID_PROOF_STATE_ROOT);
     }
@@ -36,7 +36,6 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
             SignalServiceL2(address(_signalService)).STATE_ROOT_PROOF_MAGIC(),
             bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1"))
         );
-        _assertStorageMode(_signalService, false);
     }
 
     function test_verifySignalReceived_AcceptsRealStateRootProofWithoutCheckpoint() external view {
@@ -170,7 +169,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
     }
 
     function test_verifySignalReceived_RevertWhen_RemoteSignalServiceTampered() external {
-        SignalService wrongRemote = _deployEtna(false, Alice);
+        SignalService wrongRemote = _deployEtna(Alice);
 
         vm.expectRevert();
         wrongRemote.verifySignalReceived(
@@ -257,7 +256,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
     }
 
     function test_stateRootProof_DesignatedPauserCanPauseAndUnpause() external {
-        SignalService service = _deployEtna(false, REMOTE_SIGNAL_SERVICE, Alice);
+        SignalService service = _deployEtna(REMOTE_SIGNAL_SERVICE, Alice);
         bytes memory proof = _stateRootProof(ETNA_TIMESTAMP);
         assertEq(service.pauser(), Alice);
 
@@ -298,7 +297,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         assertEq(vm.load(address(_signalService), _cacheSlot(false)), bytes32(uint256(1)));
     }
 
-    function test_versionedMode_RevertWhen_OnlyDeprecatedRecordsExist() external {
+    function test_versionedStorage_RevertWhen_OnlyDeprecatedRecordsExist() external {
         _storeCheckpoint(address(_signalService), true, VALID_PROOF_STATE_ROOT);
         vm.store(address(_signalService), _cacheSlot(true), bytes32(uint256(1)));
 
@@ -314,7 +313,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         _signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
     }
 
-    function test_versionedMode_UsesVersionedRecordWhenDeprecatedRecordConflicts() external {
+    function test_versionedStorage_UsesVersionedRecordWhenDeprecatedRecordConflicts() external {
         _storeCheckpoint(address(_signalService), true, bytes32(uint256(123)));
         _saveCheckpoint(_signalService, VALID_PROOF_STATE_ROOT);
 
@@ -327,7 +326,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         );
     }
 
-    function test_legacyMode_ProxyUpgradePreservesCheckpointCacheAndSentSignal() external {
+    function test_proxyUpgrade_IgnoresDeprecatedRecordsAndReprovesOldSignal() external {
         LegacySignalService legacy = _deployLegacy();
         vm.prank(address(_anchor));
         legacy.saveCheckpoint(
@@ -338,89 +337,39 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
             )
         );
         legacy.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
-        bytes32 localSignal = keccak256("local signal");
+        bytes32 localSignal = keccak256("historical sent signal");
         legacy.sendSignal(localSignal);
-
-        SignalService upgraded = _upgradeLegacy(legacy, true);
-
-        _assertStorageMode(upgraded, true);
-        assertEq(upgraded.owner(), address(this));
-        assertEq(
-            upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID)).stateRoot, VALID_PROOF_STATE_ROOT
-        );
-        upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-        assertTrue(upgraded.isSignalSent(address(this), localSignal));
-        assertEq(vm.load(address(upgraded), _cacheSlot(false)), bytes32(0));
-    }
-
-    function test_legacyMode_ProxyUpgradeAcceptsOldHopProofAndCachesAtOldSlot() external {
-        LegacySignalService legacy = _deployLegacy();
-        vm.prank(address(_anchor));
-        legacy.saveCheckpoint(
-            _checkpoint(
-                uint48(VALID_PROOF_BLOCK_ID),
-                uint256(VALID_BLOCK_HASH),
-                uint256(VALID_PROOF_STATE_ROOT)
-            )
-        );
-        SignalService upgraded = _upgradeLegacy(legacy, true);
-
-        upgraded.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
-
-        assertEq(vm.load(address(upgraded), _cacheSlot(true)), bytes32(uint256(1)));
-        assertEq(vm.load(address(upgraded), _cacheSlot(false)), bytes32(0));
-        upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-    }
-
-    function test_legacyMode_StateRootProofWritesCacheAtOldSlot() external {
-        SignalService legacy = _deployEtna(true, REMOTE_SIGNAL_SERVICE);
-
-        legacy.proveSignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-
+        assertEq(vm.load(address(legacy), _checkpointSlot(true)), VALID_BLOCK_HASH);
         assertEq(vm.load(address(legacy), _cacheSlot(true)), bytes32(uint256(1)));
-        assertEq(vm.load(address(legacy), _cacheSlot(false)), bytes32(0));
-        legacy.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-    }
 
-    function test_legacyMode_NewCheckpointWritesUseOldSlotsAfterUpgrade() external {
-        SignalService upgraded = _upgradeLegacy(_deployLegacy(), true);
-
-        _saveCheckpoint(upgraded, VALID_PROOF_STATE_ROOT);
-
-        bytes32 oldSlot = _checkpointSlot(true);
-        assertEq(vm.load(address(upgraded), oldSlot), VALID_BLOCK_HASH);
-        assertEq(vm.load(address(upgraded), bytes32(uint256(oldSlot) + 1)), VALID_PROOF_STATE_ROOT);
-        assertEq(vm.load(address(upgraded), _checkpointSlot(false)), bytes32(0));
-        assertEq(
-            upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID)).stateRoot, VALID_PROOF_STATE_ROOT
-        );
-    }
-
-    function test_legacyMode_RevertWhen_OnlyVersionedRecordsExist() external {
-        SignalService legacy = _deployEtna(true, REMOTE_SIGNAL_SERVICE);
-        _storeCheckpoint(address(legacy), false, VALID_PROOF_STATE_ROOT);
-        vm.store(address(legacy), _cacheSlot(false), bytes32(uint256(1)));
+        SignalService upgraded = _upgradeLegacy(legacy);
 
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
-        legacy.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
+        upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
-        legacy.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-    }
+        upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
+        assertTrue(upgraded.isSignalSent(address(this), localSignal));
+        assertEq(upgraded.owner(), address(this));
+        assertEq(vm.load(address(upgraded), _cacheSlot(false)), bytes32(0));
 
-    function test_legacyMode_UsesOldRecordWhenVersionedRecordConflicts() external {
-        SignalService legacy = _deployEtna(true, REMOTE_SIGNAL_SERVICE);
-        _storeCheckpoint(address(legacy), false, bytes32(uint256(123)));
-        _saveCheckpoint(legacy, VALID_PROOF_STATE_ROOT);
-
-        assertEq(
-            legacy.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID)).stateRoot, VALID_PROOF_STATE_ROOT
+        uint64 freshTimestamp = ETNA_TIMESTAMP + 1;
+        _recordBeaconRoot(freshTimestamp, VALID_PROOF_STATE_ROOT);
+        vm.record();
+        upgraded.proveSignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(freshTimestamp)
         );
-        legacy.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
+
+        (, bytes32[] memory writes) = vm.accesses(address(upgraded));
+        assertEq(writes.length, 1);
+        assertEq(writes[0], _cacheSlot(false));
+        assertEq(vm.load(address(upgraded), _cacheSlot(false)), bytes32(uint256(1)));
+        assertEq(vm.load(address(upgraded), _cacheSlot(true)), bytes32(uint256(1)));
+        upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
     }
 
-    function test_versionedMode_ProxyUpgradeRejectsOldRecordsAndUsesNewSlots() external {
+    function test_versionedStorage_ProxyUpgradeRejectsOldRecordsAndUsesNewSlots() external {
         LegacySignalService legacy = _deployLegacy();
         vm.prank(address(_anchor));
         legacy.saveCheckpoint(
@@ -431,7 +380,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
             )
         );
         legacy.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
-        SignalService upgraded = _upgradeLegacy(legacy, false);
+        SignalService upgraded = _upgradeLegacy(legacy);
 
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
@@ -444,7 +393,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         assertEq(vm.load(address(upgraded), _checkpointSlot(false)), VALID_BLOCK_HASH);
     }
 
-    function test_versionedMode_ProxyUpgradePreservesVersionOneRecordsAndSentSignal() external {
+    function test_proxyUpgrade_PreservesVersionOneRecordsOwnerPausedStateAndSentSignal() external {
         SignalService implementation =
             new SignalService(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0));
         SignalService versionOne = SignalService(
@@ -461,14 +410,19 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         );
         bytes32 localSignal = keccak256("version one signal");
         versionOne.sendSignal(localSignal);
+        versionOne.pause();
 
         SignalServiceL2 etnaImplementation =
-            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), false);
+            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0));
         versionOne.upgradeTo(address(etnaImplementation));
         SignalService upgraded = SignalService(address(versionOne));
 
-        _assertStorageMode(upgraded, false);
+        assertEq(upgraded.VERSION(), 1);
         assertEq(upgraded.owner(), address(this));
+        assertTrue(upgraded.paused());
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
+        upgraded.unpause();
         ICheckpointStore.Checkpoint memory stored =
             upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
         assertEq(stored.blockNumber, VALID_PROOF_BLOCK_ID);
@@ -481,10 +435,10 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         assertEq(vm.load(address(upgraded), _cacheSlot(true)), bytes32(0));
     }
 
-    function test_legacyMode_ProxyUpgradePreservesPausedState() external {
+    function test_proxyUpgrade_PreservesHistoricalPausedState() external {
         LegacySignalService legacy = _deployLegacy();
         legacy.pause();
-        SignalService upgraded = _upgradeLegacy(legacy, true);
+        SignalService upgraded = _upgradeLegacy(legacy);
 
         assertTrue(upgraded.paused());
         vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
@@ -497,40 +451,24 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         );
     }
 
-    function test_saveCheckpoint_RevertWhen_LegacyModeUnauthorizedOrInvalid() external {
-        SignalService legacy = _deployEtna(true, REMOTE_SIGNAL_SERVICE);
+    function test_saveCheckpoint_RevertWhen_UnauthorizedOrInvalid() external {
         ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1, 1, 1);
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
-        legacy.saveCheckpoint(checkpoint);
+        _signalService.saveCheckpoint(checkpoint);
         vm.prank(address(_anchor));
         vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
-        legacy.saveCheckpoint(_checkpoint(1, 1, 0));
+        _signalService.saveCheckpoint(_checkpoint(1, 1, 0));
         vm.prank(address(_anchor));
         vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
-        legacy.saveCheckpoint(_checkpoint(1, 0, 1));
+        _signalService.saveCheckpoint(_checkpoint(1, 0, 1));
     }
 
-    function _assertStorageMode(SignalService _service, bool _legacy) private view {
-        (bool ok, bytes memory result) =
-            address(_service).staticcall(abi.encodeWithSignature("usesLegacyStorage()"));
-        assertTrue(ok, "storage mode getter reverted");
-        assertEq(abi.decode(result, (bool)), _legacy);
+    function _deployEtna(address _remote) private returns (SignalService) {
+        return _deployEtna(_remote, address(0));
     }
 
-    function _deployEtna(bool _legacy, address _remote) private returns (SignalService) {
-        return _deployEtna(_legacy, _remote, address(0));
-    }
-
-    function _deployEtna(
-        bool _legacy,
-        address _remote,
-        address _pauser
-    )
-        private
-        returns (SignalService)
-    {
-        SignalServiceL2 implementation =
-            new SignalServiceL2(address(_anchor), _remote, _pauser, _legacy);
+    function _deployEtna(address _remote, address _pauser) private returns (SignalService) {
+        SignalServiceL2 implementation = new SignalServiceL2(address(_anchor), _remote, _pauser);
         return SignalService(
             address(
                 new ERC1967Proxy(
@@ -553,15 +491,9 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         );
     }
 
-    function _upgradeLegacy(
-        LegacySignalService _legacy,
-        bool _useLegacy
-    )
-        private
-        returns (SignalService)
-    {
+    function _upgradeLegacy(LegacySignalService _legacy) private returns (SignalService) {
         SignalServiceL2 implementation =
-            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), _useLegacy);
+            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0));
         _legacy.upgradeTo(address(implementation));
         return SignalService(address(_legacy));
     }
@@ -599,21 +531,21 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         return bytes.concat(bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1")), abi.encode(_proof));
     }
 
-    function _cacheSlot(bool _legacy) private view returns (bytes32) {
+    function _cacheSlot(bool _deprecated) private view returns (bytes32) {
         bytes32 signalSlot = _signalService.getSignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
         bytes32 namespaceSlot =
-            _legacy ? bytes32(uint256(253)) : keccak256(abi.encode(uint256(1), uint256(253)));
+            _deprecated ? bytes32(uint256(253)) : keccak256(abi.encode(uint256(1), uint256(253)));
         return keccak256(abi.encode(signalSlot, namespaceSlot));
     }
 
-    function _checkpointSlot(bool _legacy) private pure returns (bytes32) {
+    function _checkpointSlot(bool _deprecated) private pure returns (bytes32) {
         bytes32 namespaceSlot =
-            _legacy ? bytes32(uint256(254)) : keccak256(abi.encode(uint256(1), uint256(254)));
+            _deprecated ? bytes32(uint256(254)) : keccak256(abi.encode(uint256(1), uint256(254)));
         return keccak256(abi.encode(uint256(VALID_PROOF_BLOCK_ID), namespaceSlot));
     }
 
-    function _storeCheckpoint(address _service, bool _legacy, bytes32 _root) private {
-        bytes32 slot = _checkpointSlot(_legacy);
+    function _storeCheckpoint(address _service, bool _deprecated, bytes32 _root) private {
+        bytes32 slot = _checkpointSlot(_deprecated);
         vm.store(_service, slot, VALID_BLOCK_HASH);
         vm.store(_service, bytes32(uint256(slot) + 1), _root);
     }

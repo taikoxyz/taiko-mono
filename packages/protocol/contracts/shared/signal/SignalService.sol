@@ -69,7 +69,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Storage for checkpoints persisted via the SignalService.
     /// @dev Maps checkpoint version => block number => checkpoint data.
-    mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) internal
+    mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) private
         _checkpoints;
 
     uint256[46] private __gap;
@@ -122,7 +122,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
-        _receivedSignalCache()[getSignalSlot(_chainId, _app, _signal)] = true;
+        _receivedSignals[VERSION][getSignalSlot(_chainId, _app, _signal)] = true;
         return 0;
     }
 
@@ -176,9 +176,9 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        CheckpointRecord storage record = _checkpointRecord(_checkpoint.blockNumber);
-        record.blockHash = _checkpoint.blockHash;
-        record.stateRoot = _checkpoint.stateRoot;
+        _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
+            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
+        });
 
         emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
@@ -200,29 +200,6 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
     function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
-    /// @dev Returns the received-signal cache for this implementation's active layout.
-    /// @return cache_ Storage reference to the active cache mapping.
-    function _receivedSignalCache()
-        internal
-        view
-        virtual
-        returns (mapping(bytes32 signalSlot => bool received) storage cache_)
-    {
-        return _receivedSignals[VERSION];
-    }
-
-    /// @dev Returns a checkpoint record in this implementation's active layout.
-    /// @param _blockNumber Source block number.
-    /// @return record_ Storage reference to the checkpoint record.
-    function _checkpointRecord(uint48 _blockNumber)
-        internal
-        view
-        virtual
-        returns (CheckpointRecord storage record_)
-    {
-        return _checkpoints[VERSION][_blockNumber];
-    }
-
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
     /// @return checkpoint_ The checkpoint
@@ -231,7 +208,7 @@ contract SignalService is EssentialContract, ISignalService {
         view
         returns (Checkpoint memory checkpoint_)
     {
-        CheckpointRecord storage record = _checkpointRecord(_blockNumber);
+        CheckpointRecord storage record = _checkpoints[VERSION][_blockNumber];
         bytes32 blockHash = record.blockHash;
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
@@ -273,7 +250,7 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-    /// @dev Verifies a cached signal or a legacy block-number-indexed checkpoint proof.
+    /// @dev Verifies a cached signal or a block-number-indexed checkpoint proof.
     /// @param _chainId Source chain ID.
     /// @param _app Source application that sent the signal.
     /// @param _signal Signal being proven.
@@ -293,7 +270,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
-            require(_receivedSignalCache()[slot], SS_SIGNAL_NOT_RECEIVED());
+            require(_receivedSignals[VERSION][slot], SS_SIGNAL_NOT_RECEIVED());
             return;
         }
 

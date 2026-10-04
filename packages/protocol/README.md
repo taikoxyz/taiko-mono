@@ -88,25 +88,21 @@ the L2 header, construct this envelope and refresh expired proofs; the checkpoin
 
 ### Existing SignalService storage
 
-`SignalServiceL2` adds no storage slots. Its immutable `usesLegacyStorage` selects exactly one
-layout for checkpoint and received-signal cache reads **and writes**:
+`SignalServiceL2` uses the base `SignalService.VERSION` namespace for checkpoints and received-signal
+caches and adds no storage slots. Upgrading an unversioned implementation makes its old
+checkpoint/cache records inaccessible; sent-signal slots, owner and paused state remain unchanged.
+Existing VERSION records remain accessible.
 
-- `true`: the unversioned flat mappings used by the pre-VERSION Shasta implementation.
-- `false`: the current `SignalService.VERSION` namespace. Deprecated unversioned records remain
-  inaccessible, as they do in the current implementation.
+Signals cached in the unversioned layout must be proven again before an empty proof can be reused. Before Etna,
+`HopProof[]` require a checkpoint written in the active namespace; from Etna, use the timestamp-indexed
+state-root proof against a current root.
 
-There is no fallback between layouts. Verify the existing proxy implementation and storage layout
-before choosing the flag; changing it on a later upgrade changes which records are accessible.
-`VERSION()` describes the inherited versioned namespace, while `usesLegacyStorage()` determines
-whether that namespace is used. The existing L2 deploy scripts require both `ETNA_TIMESTAMP` and
-`SIGNAL_SERVICE_USES_LEGACY_STORAGE` explicitly. They read and preserve the existing proxy's
-pauser; a missing getter is accepted only for an explicitly selected legacy layout, whose older
-implementation had no additional pause authority. Their deployments do not upgrade either proxy.
-Upgrade the existing SignalService proxy to the matching-layout Etna implementation, and install
-the Anchor timestamp gate strictly before the first anchorless block. Preserve the remote
-SignalService, owner, pauser and proxy addresses. New genesis allocations use versioned storage
-(`usesLegacyStorage = false`). Execution clients, drivers and prover guests must implement the
-matching root and 13-byte header rules before Etna activates.
+The L2 deploy scripts require `ETNA_TIMESTAMP` and preserve the existing proxy's pauser. A missing
+getter is accepted only for older implementations without `VERSION()`. The scripts deploy
+implementations without upgrading proxies. Upgrade SignalService and install the Anchor timestamp
+gate before the first anchorless block, preserving the remote SignalService, owner, pauser and proxy
+addresses. Execution clients, drivers and prover guests must implement the matching root and 13-byte
+header rules before Etna activates.
 
 ## Layer 2 Genesis Block
 

@@ -16,8 +16,6 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         address anchorProxy;
         address signalServicePauser;
         uint64 etnaTimestamp;
-        /// @dev Must match the checkpoint/cache layout of the existing L2 proxy.
-        bool signalServiceUsesLegacyStorage;
     }
 
     modifier broadcast() {
@@ -50,21 +48,19 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
 
     /// @dev Preserves an existing immutable pauser when deploying a replacement implementation.
     /// @param _signalService Existing L2 SignalService proxy.
-    /// @param _usesLegacyStorage Whether the target is an old flat-mapping implementation.
-    /// @return pauser_ Existing pauser, or zero for a legacy implementation without that getter.
-    function _readSignalServicePauser(
-        address _signalService,
-        bool _usesLegacyStorage
-    )
+    /// @return pauser_ Existing pauser, or zero for a pre-pauser implementation.
+    function _readSignalServicePauser(address _signalService)
         internal
         view
         returns (address pauser_)
     {
         (bool ok, bytes memory ret) = _signalService.staticcall(abi.encodeWithSignature("pauser()"));
-        // The pre-pauser legacy implementation has no getter. A versioned target must expose
-        // it; treating a failed read there as zero would silently remove its pause authority.
+        // Older implementations have neither getter; a versioned target must expose its pauser.
         if (ret.length == 0) {
-            require(_usesLegacyStorage, "SignalService pauser unavailable");
+            (bool versionOk, bytes memory version) =
+                _signalService.staticcall(abi.encodeWithSignature("VERSION()"));
+            require(versionOk || version.length == 0, "Invalid SignalService version");
+            require(version.length == 0, "SignalService pauser unavailable");
             return address(0);
         }
         require(ok && ret.length == 32, "Invalid SignalService pauser");
@@ -81,10 +77,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
 
         address signalServiceImpl = address(
             new SignalServiceL2(
-                config.anchorProxy,
-                config.l1SignalService,
-                config.signalServicePauser,
-                config.signalServiceUsesLegacyStorage
+                config.anchorProxy, config.l1SignalService, config.signalServicePauser
             )
         );
         console2.log("New signalServiceImpl deployed:", signalServiceImpl);
