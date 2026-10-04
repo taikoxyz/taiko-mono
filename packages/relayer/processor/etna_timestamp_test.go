@@ -69,10 +69,10 @@ func TestEtnaTimestampWithoutAnAnchorIsUnsupported(t *testing.T) {
 }
 
 func TestEtnaTimestampIsCachedForAMinute(t *testing.T) {
-	anchor := &fakeAnchor{etnaTimestamp: testEtnaTimestamp}
+	destAnchor := &fakeAnchor{etnaTimestamp: testEtnaTimestamp}
 
 	p := newTestProcessor(false)
-	p.destAnchor = anchor
+	p.destAnchor = destAnchor
 	advance := withClock(p)
 
 	for i := 0; i < 3; i++ {
@@ -83,19 +83,19 @@ func TestEtnaTimestampIsCachedForAMinute(t *testing.T) {
 		assert.Equal(t, testEtnaTimestamp, timestamp)
 	}
 
-	assert.Equal(t, 1, anchor.etnaCalls)
+	assert.Equal(t, 1, destAnchor.etnaCalls)
 
 	advance(etnaTimestampCacheTTL - time.Second)
 
 	_, _, err := p.etnaTimestamp(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, 1, anchor.etnaCalls)
+	assert.Equal(t, 1, destAnchor.etnaCalls)
 
 	advance(time.Second)
 
 	_, _, err = p.etnaTimestamp(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, 2, anchor.etnaCalls)
+	assert.Equal(t, 2, destAnchor.etnaCalls)
 }
 
 // codeWithoutOutput is a chain where the destination address has code but every call returns no
@@ -131,10 +131,10 @@ func TestEtnaTimestampCachesAnUnsupportedDestination(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			anchor := &fakeAnchor{etnaErr: tt.err}
+			destAnchor := &fakeAnchor{etnaErr: tt.err}
 
 			p := newTestProcessor(false)
-			p.destAnchor = anchor
+			p.destAnchor = destAnchor
 			withClock(p)
 
 			for i := 0; i < 2; i++ {
@@ -144,7 +144,7 @@ func TestEtnaTimestampCachesAnUnsupportedDestination(t *testing.T) {
 				assert.False(t, supported)
 			}
 
-			assert.Equal(t, 1, anchor.etnaCalls)
+			assert.Equal(t, 1, destAnchor.etnaCalls)
 		})
 	}
 }
@@ -161,10 +161,10 @@ func TestEtnaTimestampDoesNotCacheRPCErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			anchor := &fakeAnchor{etnaErr: tt.err}
+			destAnchor := &fakeAnchor{etnaErr: tt.err}
 
 			p := newTestProcessor(false)
-			p.destAnchor = anchor
+			p.destAnchor = destAnchor
 			withClock(p)
 
 			for i := 0; i < 2; i++ {
@@ -174,16 +174,16 @@ func TestEtnaTimestampDoesNotCacheRPCErrors(t *testing.T) {
 				assert.False(t, supported)
 			}
 
-			assert.Equal(t, 2, anchor.etnaCalls)
+			assert.Equal(t, 2, destAnchor.etnaCalls)
 		})
 	}
 }
 
 func TestEtnaTimestampSeesTheAnchorUpgradeAfterTheCacheExpires(t *testing.T) {
-	anchor := &fakeAnchor{etnaErr: errors.New("execution reverted")}
+	destAnchor := &fakeAnchor{etnaErr: errors.New("execution reverted")}
 
 	p := newTestProcessor(false)
-	p.destAnchor = anchor
+	p.destAnchor = destAnchor
 	advance := withClock(p)
 
 	_, supported, err := p.etnaTimestamp(context.Background())
@@ -191,8 +191,8 @@ func TestEtnaTimestampSeesTheAnchorUpgradeAfterTheCacheExpires(t *testing.T) {
 	assert.False(t, supported)
 
 	// The DAO upgrades the Anchor.
-	anchor.etnaErr = nil
-	anchor.etnaTimestamp = testEtnaTimestamp
+	destAnchor.etnaErr = nil
+	destAnchor.etnaTimestamp = testEtnaTimestamp
 
 	advance(etnaTimestampCacheTTL)
 
