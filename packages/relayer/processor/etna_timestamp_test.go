@@ -3,13 +3,19 @@ package processor
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/anchor"
 )
 
 // testEtnaTimestamp is the Etna fork time of the test chains.
@@ -92,14 +98,35 @@ func TestEtnaTimestampIsCachedForAMinute(t *testing.T) {
 	assert.Equal(t, 2, anchor.etnaCalls)
 }
 
+// codeWithoutOutput is a chain where the destination address has code but every call returns no
+// data, as a contract whose fallback answers a function it does not have does.
+type codeWithoutOutput struct{}
+
+func (codeWithoutOutput) CodeAt(context.Context, common.Address, *big.Int) ([]byte, error) {
+	return []byte{0x00}, nil
+}
+
+func (codeWithoutOutput) CallContract(context.Context, ethereum.CallMsg, *big.Int) ([]byte, error) {
+	return nil, nil
+}
+
 func TestEtnaTimestampCachesAnUnsupportedDestination(t *testing.T) {
+	// The error the Anchor binding returns when the call succeeds without output.
+	caller, err := anchor.NewAnchorCaller(common.Address{}, codeWithoutOutput{})
+	require.NoError(t, err)
+
+	_, emptyOutput := caller.EtnaTimestamp(&bind.CallOpts{})
+	require.Error(t, emptyOutput)
+
 	tests := []struct {
 		name string
 		err  error
 	}{
 		// The L1 Inbox, and an Anchor without the Etna upgrade, revert.
 		{name: "revert", err: errors.New("execution reverted")},
+		{name: "Besu revert", err: errors.New("Execution reverted")},
 		{name: "no contract code", err: bind.ErrNoCode},
+		{name: "no output", err: emptyOutput},
 	}
 
 	for _, tt := range tests {
@@ -123,20 +150,33 @@ func TestEtnaTimestampCachesAnUnsupportedDestination(t *testing.T) {
 }
 
 func TestEtnaTimestampDoesNotCacheRPCErrors(t *testing.T) {
-	anchor := &fakeAnchor{etnaErr: errors.New("dial tcp: connect: connection refused")}
-
-	p := newTestProcessor(false)
-	p.destAnchor = anchor
-	withClock(p)
-
-	for i := 0; i < 2; i++ {
-		_, supported, err := p.etnaTimestamp(context.Background())
-
-		require.ErrorContains(t, err, "connection refused")
-		assert.False(t, supported)
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "connection refused", err: errors.New("dial tcp: connect: connection refused")},
+		{name: "timeout", err: fmt.Errorf("Post \"http://l2:8545\": %w", context.DeadlineExceeded)},
+		{name: "EOF", err: fmt.Errorf("Post \"http://l2:8545\": %w", io.EOF)},
 	}
 
-	assert.Equal(t, 2, anchor.etnaCalls)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			anchor := &fakeAnchor{etnaErr: tt.err}
+
+			p := newTestProcessor(false)
+			p.destAnchor = anchor
+			withClock(p)
+
+			for i := 0; i < 2; i++ {
+				_, supported, err := p.etnaTimestamp(context.Background())
+
+				require.ErrorIs(t, err, tt.err)
+				assert.False(t, supported)
+			}
+
+			assert.Equal(t, 2, anchor.etnaCalls)
+		})
+	}
 }
 
 func TestEtnaTimestampSeesTheAnchorUpgradeAfterTheCacheExpires(t *testing.T) {
