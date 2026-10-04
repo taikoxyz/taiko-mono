@@ -857,7 +857,7 @@ func TestGenerateEncodedSignalProofUsesTheEtnaAnchor(t *testing.T) {
 	p.srcCaller = caller
 
 	event := newProcessMessageEvent(0)
-	event.Raw.BlockNumber = testAnchorBase + 5
+	event.Raw.BlockNumber = testAnchorBase + 2
 
 	encoded, err := p.generateEncodedSignalProof(testContext(t), event)
 	require.NoError(t, err)
@@ -865,16 +865,16 @@ func TestGenerateEncodedSignalProofUsesTheEtnaAnchor(t *testing.T) {
 	// The proof names the L2 block that recorded the root, and the storage proof comes from
 	// that block's L1 anchor.
 	want, err := encoding.EncodeHopProofs([]encoding.HopProof{{
-		BlockID:      testEtnaTimestamp + 16,
+		BlockID:      testEtnaTimestamp + 6,
 		ChainID:      mock.MockChainID.Uint64(),
-		RootHash:     testRoot(8),
+		RootHash:     testRoot(3),
 		AccountProof: [][]byte{},
 		StorageProof: [][]byte{},
 	}})
 	require.NoError(t, err)
 
 	assert.Equal(t, want, encoded)
-	assert.Equal(t, []string{"0x3f0"}, caller.blocks) // testAnchorBase + 8
+	assert.Equal(t, []string{"0x3eb"}, caller.blocks) // testAnchorBase + 3
 }
 
 func TestGenerateEncodedSignalProofRejectsAnL1ReorgAfterTheWait(t *testing.T) {
@@ -882,10 +882,10 @@ func TestGenerateEncodedSignalProofRejectsAnL1ReorgAfterTheWait(t *testing.T) {
 	p.srcEthClient = l1
 
 	// The anchor block checks out during the wait, then is reorged before the proof reads it.
-	l1.blockRoots = map[uint64]common.Hash{testAnchorBase + 8: common.HexToHash("0xbad")}
+	l1.blockRoots = map[uint64]common.Hash{testAnchorBase + 3: common.HexToHash("0xbad")}
 
 	event := newProcessMessageEvent(0)
-	event.Raw.BlockNumber = testAnchorBase + 5
+	event.Raw.BlockNumber = testAnchorBase + 2
 
 	encoded, err := p.generateEncodedSignalProof(testContext(t), event)
 

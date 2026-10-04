@@ -275,15 +275,15 @@ func TestWaitProofTargetUsesTheEtnaAnchorAfterTheFork(t *testing.T) {
 	var calls int
 	p.eventRepo = countingCheckpointRepo(true, &calls)
 
-	target, err := p.waitProofTarget(testContext(t), l1, 2, testAnchorBase+5)
+	target, err := p.waitProofTarget(testContext(t), l1, 2, testAnchorBase+2)
 
 	require.NoError(t, err)
 	require.NotNil(t, target)
 	assert.Nil(t, target.checkpoint)
 	assert.Equal(t, &etnaAnchor{
-		l2Timestamp: testEtnaTimestamp + 16,
-		l1Block:     testAnchorBase + 8,
-		stateRoot:   testRoot(8),
+		l2Timestamp: testEtnaTimestamp + 6,
+		l1Block:     testAnchorBase + 3,
+		stateRoot:   testRoot(3),
 	}, target.etna)
 	// Checkpoints saved before the fork no longer verify after it, so they are not consulted.
 	assert.Zero(t, calls)
@@ -303,12 +303,12 @@ func TestWaitProofTargetSwitchesToEtnaWhenTheForkPassesMidWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	target, err := p.waitProofTarget(ctx, l1, 2, testAnchorBase+5)
+	target, err := p.waitProofTarget(ctx, l1, 2, testAnchorBase+2)
 
 	require.NoError(t, err)
 	require.NotNil(t, target)
 	require.NotNil(t, target.etna)
-	assert.Equal(t, testAnchorBase+8, target.etna.l1Block)
+	assert.Equal(t, testAnchorBase+3, target.etna.l1Block)
 	assert.Equal(t, 1, calls)
 }
 
@@ -332,7 +332,7 @@ func TestWaitProofTargetKeepsWaitingOnEtnaReadErrors(t *testing.T) {
 		{
 			name: "EIP-4788 root mismatch",
 			mutate: func(_ *l2Chain, anchor *fakeAnchor) {
-				anchor.roots[testEtnaTimestamp+16] = common.HexToHash("0xbad")
+				anchor.roots[testEtnaTimestamp+6] = common.HexToHash("0xbad")
 			},
 		},
 	}
@@ -368,7 +368,7 @@ func TestWaitProofTargetHandlesTheExtremeEtnaTimestamps(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, target)
 	require.NotNil(t, target.etna)
-	assert.Equal(t, uint64(16), target.etna.l2Timestamp)
+	assert.Equal(t, uint64(6), target.etna.l2Timestamp)
 
 	// Etna never activates.
 	p, _, l1, anchor := etnaFixture(testEtnaTimestamp)

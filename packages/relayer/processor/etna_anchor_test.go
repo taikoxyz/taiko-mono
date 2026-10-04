@@ -141,29 +141,49 @@ func TestEtnaAnchorForUsesTheNewestSettledBlock(t *testing.T) {
 	p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
 
 	// The head (block 9) can still be followed by a block with its timestamp, which would
-	// overwrite its EIP-4788 entry, so the proof uses block 8.
-	anchor, err := p.etnaAnchorFor(context.Background(), l1, l2.headers[9], testEtnaTimestamp, testAnchorBase+5)
+	// overwrite its EIP-4788 entry, and a node behind the one serving the head may not have
+	// blocks 4 to 8 yet, so the proof uses block 3, twelve seconds older than the head.
+	anchor, err := p.etnaAnchorFor(context.Background(), l1, l2.headers[9], testEtnaTimestamp, testAnchorBase+2)
 
 	require.NoError(t, err)
 	assert.Equal(t, &etnaAnchor{
-		l2Timestamp: testEtnaTimestamp + 16,
-		l1Block:     testAnchorBase + 8,
-		stateRoot:   testRoot(8),
+		l2Timestamp: testEtnaTimestamp + 6,
+		l1Block:     testAnchorBase + 3,
+		stateRoot:   testRoot(3),
 	}, anchor)
 }
 
 func TestEtnaAnchorForSkipsBlocksWithTheHeadTimestamp(t *testing.T) {
 	p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
 
-	l2.headers[8].Time = l2.headers[9].Time
+	// Blocks 3 to 8 share the head's timestamp, so none of their EIP-4788 entries is final.
+	for i := 3; i < 9; i++ {
+		l2.headers[i].Time = l2.headers[9].Time
+	}
 
-	anchor, err := p.etnaAnchorFor(context.Background(), l1, l2.headers[9], testEtnaTimestamp, testAnchorBase+5)
+	anchor, err := p.etnaAnchorFor(context.Background(), l1, l2.headers[9], testEtnaTimestamp, testAnchorBase+2)
 
 	require.NoError(t, err)
 	require.NotNil(t, anchor)
-	assert.Equal(t, testEtnaTimestamp+14, anchor.l2Timestamp)
-	assert.Equal(t, testAnchorBase+7, anchor.l1Block)
-	assert.Equal(t, testRoot(7), anchor.stateRoot)
+	assert.Equal(t, testEtnaTimestamp+4, anchor.l2Timestamp)
+	assert.Equal(t, testAnchorBase+2, anchor.l1Block)
+	assert.Equal(t, testRoot(2), anchor.stateRoot)
+}
+
+func TestEtnaAnchorForNeedsABlockTwelveSecondsOlderThanTheHead(t *testing.T) {
+	p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
+	head := l2.headers[9]
+
+	// Block 4 is eleven seconds older than the head, block 3 exactly twelve.
+	l2.headers[4].Time = head.Time - 11
+	require.Equal(t, head.Time-12, l2.headers[3].Time)
+
+	anchor, err := p.etnaAnchorFor(context.Background(), l1, head, testEtnaTimestamp, testAnchorBase)
+
+	require.NoError(t, err)
+	require.NotNil(t, anchor)
+	assert.Equal(t, head.Time-12, anchor.l2Timestamp)
+	assert.Equal(t, testAnchorBase+3, anchor.l1Block)
 }
 
 func TestEtnaAnchorForCapsTheSameTimestampLookback(t *testing.T) {
@@ -206,21 +226,21 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		wantErrText string
 	}{
 		{
-			// The first blocks after the fork: block 8 predates it.
+			// The first blocks after the fork: block 3 predates it.
 			name:     "settled block before the fork",
 			mutate:   func(*l2Chain, *l1Chain, *fakeAnchor) {},
-			etna:     testEtnaTimestamp + 17,
+			etna:     testEtnaTimestamp + 7,
 			blockNum: testAnchorBase,
 		},
 		{
 			name:     "anchor below the message block",
 			mutate:   func(*l2Chain, *l1Chain, *fakeAnchor) {},
-			blockNum: testAnchorBase + 9,
+			blockNum: testAnchorBase + 4,
 		},
 		{
 			name: "extraData without the anchor number",
 			mutate: func(l2 *l2Chain, _ *l1Chain, _ *fakeAnchor) {
-				l2.headers[8].Extra = l2.headers[8].Extra[:7]
+				l2.headers[3].Extra = l2.headers[3].Extra[:7]
 			},
 			blockNum: testAnchorBase,
 			wantErr:  errMalformedEtnaHeader,
@@ -228,7 +248,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		{
 			name: "zero parentBeaconBlockRoot",
 			mutate: func(l2 *l2Chain, _ *l1Chain, _ *fakeAnchor) {
-				l2.headers[8].ParentBeaconRoot = &common.Hash{}
+				l2.headers[3].ParentBeaconRoot = &common.Hash{}
 			},
 			blockNum: testAnchorBase,
 			wantErr:  errMalformedEtnaHeader,
@@ -236,7 +256,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		{
 			name: "no parentBeaconBlockRoot",
 			mutate: func(l2 *l2Chain, _ *l1Chain, _ *fakeAnchor) {
-				l2.headers[8].ParentBeaconRoot = nil
+				l2.headers[3].ParentBeaconRoot = nil
 			},
 			blockNum: testAnchorBase,
 			wantErr:  errMalformedEtnaHeader,
@@ -244,7 +264,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		{
 			name: "anchor older than maxAnchorAge",
 			mutate: func(_ *l2Chain, l1 *l1Chain, _ *fakeAnchor) {
-				l1.head = testAnchorBase + 8 + maxAnchorAge + 1
+				l1.head = testAnchorBase + 3 + maxAnchorAge + 1
 			},
 			blockNum: testAnchorBase,
 			wantErr:  errAnchorTooOld,
@@ -252,7 +272,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		{
 			name: "EIP-4788 has no entry",
 			mutate: func(_ *l2Chain, _ *l1Chain, anchor *fakeAnchor) {
-				delete(anchor.roots, testEtnaTimestamp+16)
+				delete(anchor.roots, testEtnaTimestamp+6)
 			},
 			blockNum:    testAnchorBase,
 			wantErrText: "getL1StateRoot",
@@ -260,7 +280,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		{
 			name: "EIP-4788 holds another root",
 			mutate: func(_ *l2Chain, _ *l1Chain, anchor *fakeAnchor) {
-				anchor.roots[testEtnaTimestamp+16] = otherRoot
+				anchor.roots[testEtnaTimestamp+6] = otherRoot
 			},
 			blockNum: testAnchorBase,
 			wantErr:  errOracleRootMismatch,
@@ -268,7 +288,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		{
 			name: "L1 anchor block reorged",
 			mutate: func(_ *l2Chain, l1 *l1Chain, _ *fakeAnchor) {
-				l1.roots[testAnchorBase+8] = otherRoot
+				l1.roots[testAnchorBase+3] = otherRoot
 			},
 			blockNum: testAnchorBase,
 			wantErr:  errL1StateRootMismatch,
@@ -303,13 +323,13 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 
 func TestEtnaAnchorForAcceptsAnAnchorExactlyMaxAnchorAgeOld(t *testing.T) {
 	p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
-	l1.head = testAnchorBase + 8 + maxAnchorAge
+	l1.head = testAnchorBase + 3 + maxAnchorAge
 
 	anchor, err := p.etnaAnchorFor(context.Background(), l1, l2.headers[9], testEtnaTimestamp, testAnchorBase)
 
 	require.NoError(t, err)
 	require.NotNil(t, anchor)
-	assert.Equal(t, testAnchorBase+8, anchor.l1Block)
+	assert.Equal(t, testAnchorBase+3, anchor.l1Block)
 }
 
 func TestAnchorBlockNumberDecodesBigEndianUint48(t *testing.T) {
