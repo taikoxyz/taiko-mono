@@ -382,8 +382,6 @@ Etna replaces the anchor transaction with header commitments to the L1 anchor bl
 - In non-genesis blocks, `parentBeaconBlockRoot` is the nonzero `metadata.anchorStateRoot` of the L1 block at the final `anchorBlockNumber`; bytes 7..12 of `extraData` encode that number. The execution engine checks the nonzero root and 13-byte layout.
 - Inherited anchors, including forced/default blocks, preserve the parent's number/root pair. Use an Etna parent's header; for a pre-Etna parent, authenticate its number and any saved checkpoint through its L2 state. If no checkpoint exists, authenticate the L1 header instead.
 - Genesis inheritance uses number `0` and the state root of L1 block `0`. The L2 genesis header keeps a zero `parentBeaconBlockRoot` and performs no EIP-4788 call.
-- Drivers/provers check the encoded number against the final derived `anchorBlockNumber` and the root against that anchor's `stateRoot`. Provers authenticate an L1 parent-hash chain ending at `proposal.originBlockHash`, or an inherited pair through the validated parent L2 header/state. The L1 chain may extend beyond the usual anchor window, including to block `0` for genesis inheritance.
-- The standard EIP-4788 call records `parentBeaconBlockRoot` unchanged under the L2 timestamp before transactions, including in empty blocks. Include its code and storage accesses in the witness and its writes in the L2 state root. Proving does not depend on checkpoint reveals.
 
 ## L1 Proof and Liveness Bond Settlement
 
