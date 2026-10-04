@@ -149,7 +149,7 @@ async function generateContractConfigs(
         SignalServiceImpl: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./SignalServiceEtna.sol/SignalServiceEtna.json",
+                "./SignalServiceL2.sol/SignalServiceL2.json",
             ),
         ),
         SharedResolverImpl: require(
@@ -236,7 +236,7 @@ async function generateContractConfigs(
         ["erc1155Vault"],
     );
     const signalServiceReferencesMap: any = getImmutableReference(
-        "SignalServiceEtna",
+        "SignalServiceL2",
         ["_authorizedSyncer", "_remoteSignalService", "usesLegacyStorage"],
     );
 

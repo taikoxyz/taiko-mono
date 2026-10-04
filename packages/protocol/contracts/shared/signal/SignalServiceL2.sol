@@ -3,15 +3,15 @@ pragma solidity ^0.8.26;
 
 import { LibTrieProof } from "../libs/LibTrieProof.sol";
 import { IL1StateRootProvider } from "./IL1StateRootProvider.sol";
-import { ISignalServiceEtna } from "./ISignalServiceEtna.sol";
+import { ISignalServiceL2 } from "./ISignalServiceL2.sol";
 import { SignalService } from "./SignalService.sol";
 
-/// @title SignalServiceEtna
+/// @title SignalServiceL2
 /// @notice Verifies L1 signals using execution state roots recorded by the L2 Anchor's oracle.
 /// @dev Adds no storage slots. The immutable layout selection must match the existing proxy;
 /// it never falls back to another namespace. L1 continues to use SignalService.
 /// @custom:security-contact security@taiko.xyz
-contract SignalServiceEtna is SignalService, ISignalServiceEtna {
+contract SignalServiceL2 is SignalService, ISignalServiceL2 {
     /// @notice Four-byte prefix identifying timestamp-indexed state-root proofs.
     bytes4 public constant STATE_ROOT_PROOF_MAGIC = bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1"));
 
@@ -35,7 +35,7 @@ contract SignalServiceEtna is SignalService, ISignalServiceEtna {
         usesLegacyStorage = _usesLegacyStorage;
     }
 
-    /// @inheritdoc ISignalServiceEtna
+    /// @inheritdoc ISignalServiceL2
     function stateRootProvider() external view returns (address provider_) {
         return _authorizedSyncer;
     }

@@ -8,13 +8,13 @@ import { Anchor } from "src/layer2/core/Anchor.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
-import { ISignalServiceEtna } from "src/shared/signal/ISignalServiceEtna.sol";
+import { ISignalServiceL2 } from "src/shared/signal/ISignalServiceL2.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { SignalServiceEtna } from "src/shared/signal/SignalServiceEtna.sol";
+import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
 import { AnchorTestBase } from "test/layer2/core/Anchor.t.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
-contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProofFixture {
+contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFixture {
     Anchor private _anchor;
     SignalService private _signalService;
 
@@ -33,7 +33,7 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
 
     function test_stateRootProof_MagicMatchesSpecifiedFormat() external view {
         assertEq(
-            SignalServiceEtna(address(_signalService)).STATE_ROOT_PROOF_MAGIC(),
+            SignalServiceL2(address(_signalService)).STATE_ROOT_PROOF_MAGIC(),
             bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1"))
         );
         _assertStorageMode(_signalService, false);
@@ -179,7 +179,7 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
     }
 
     function test_verifySignalReceived_RevertWhen_AccountProofTampered() external {
-        ISignalServiceEtna.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
+        ISignalServiceL2.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
         proof.accountProof[0][3] ^= bytes1(uint8(1));
 
         vm.expectRevert();
@@ -189,7 +189,7 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
     }
 
     function test_verifySignalReceived_RevertWhen_StorageProofTampered() external {
-        ISignalServiceEtna.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
+        ISignalServiceL2.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
         proof.storageProof[0][3] ^= bytes1(uint8(1));
 
         vm.expectRevert();
@@ -199,7 +199,7 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
     }
 
     function test_verifySignalReceived_RevertWhen_StateRootProofAccountProofEmpty() external {
-        ISignalServiceEtna.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
+        ISignalServiceL2.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
         proof.accountProof = new bytes[](0);
 
         vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
@@ -209,7 +209,7 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
     }
 
     function test_verifySignalReceived_RevertWhen_StateRootProofStorageProofEmpty() external {
-        ISignalServiceEtna.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
+        ISignalServiceL2.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
         proof.storageProof = new bytes[](0);
 
         vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
@@ -462,8 +462,8 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
         bytes32 localSignal = keccak256("version one signal");
         versionOne.sendSignal(localSignal);
 
-        SignalServiceEtna etnaImplementation =
-            new SignalServiceEtna(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), false);
+        SignalServiceL2 etnaImplementation =
+            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), false);
         versionOne.upgradeTo(address(etnaImplementation));
         SignalService upgraded = SignalService(address(versionOne));
 
@@ -532,8 +532,8 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
         private
         returns (SignalService)
     {
-        SignalServiceEtna implementation =
-            new SignalServiceEtna(address(_anchor), _remote, _pauser, _legacy);
+        SignalServiceL2 implementation =
+            new SignalServiceL2(address(_anchor), _remote, _pauser, _legacy);
         return SignalService(
             address(
                 new ERC1967Proxy(
@@ -563,8 +563,8 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
         private
         returns (SignalService)
     {
-        SignalServiceEtna implementation =
-            new SignalServiceEtna(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), _useLegacy);
+        SignalServiceL2 implementation =
+            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), _useLegacy);
         _legacy.upgradeTo(address(implementation));
         return SignalService(address(_legacy));
     }
@@ -583,18 +583,18 @@ contract TestSignalServiceEtna is CommonTest, AnchorTestBase, SignalServiceProof
     function _proofData(uint64 _timestamp)
         private
         pure
-        returns (ISignalServiceEtna.StateRootProof memory)
+        returns (ISignalServiceL2.StateRootProof memory)
     {
         ISignalService.HopProof[] memory proofs =
             abi.decode(VALID_SIGNAL_PROOF, (ISignalService.HopProof[]));
-        return ISignalServiceEtna.StateRootProof({
+        return ISignalServiceL2.StateRootProof({
             l2Timestamp: _timestamp,
             accountProof: proofs[0].accountProof,
             storageProof: proofs[0].storageProof
         });
     }
 
-    function _encodeStateRootProof(ISignalServiceEtna.StateRootProof memory _proof)
+    function _encodeStateRootProof(ISignalServiceL2.StateRootProof memory _proof)
         private
         pure
         returns (bytes memory)

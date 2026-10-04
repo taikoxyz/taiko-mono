@@ -57,14 +57,14 @@ anchor execution state root in `parentBeaconBlockRoot` and the anchor number in 
 13-byte `extraData`. `Anchor.getL1StateRoot(l2Timestamp)` reads the root recorded by the canonical
 EIP-4788 contract. It rejects pre-Etna timestamps, zero roots and unavailable entries.
 
-L2 uses `SignalServiceEtna`, with the existing Anchor as both its checkpoint writer and state-root
+L2 uses `SignalServiceL2`, with the existing Anchor as both its checkpoint writer and state-root
 provider. Bridge continues to pass opaque proof bytes to the same SignalService proxy. Encode an
 Etna proof as:
 
 ```solidity
 abi.encodePacked(
     bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1")),
-    abi.encode(ISignalServiceEtna.StateRootProof({
+    abi.encode(ISignalServiceL2.StateRootProof({
         l2Timestamp: l2Timestamp,
         accountProof: accountProof,
         storageProof: storageProof
@@ -88,7 +88,7 @@ the L2 header, construct this envelope and refresh expired proofs; the checkpoin
 
 ### Existing SignalService storage
 
-`SignalServiceEtna` adds no storage slots. Its immutable `usesLegacyStorage` selects exactly one
+`SignalServiceL2` adds no storage slots. Its immutable `usesLegacyStorage` selects exactly one
 layout for checkpoint and received-signal cache reads **and writes**:
 
 - `true`: the unversioned flat mappings used by the pre-VERSION Shasta implementation.

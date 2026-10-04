@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { SignalServiceEtna } from "src/shared/signal/SignalServiceEtna.sol";
+import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title DeployShastaL2Contracts
@@ -80,7 +80,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         console2.log("New anchorImpl deployed:", anchorImpl);
 
         address signalServiceImpl = address(
-            new SignalServiceEtna(
+            new SignalServiceL2(
                 config.anchorProxy,
                 config.l1SignalService,
                 config.signalServicePauser,
