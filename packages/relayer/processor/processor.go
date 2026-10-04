@@ -114,6 +114,9 @@ type Processor struct {
 	destAnchor     anchorCaller
 	etnaTimestamps etnaTimestampCache
 
+	// now is the processor's clock, replaced in tests. Nil means time.Now.
+	now func() time.Time
+
 	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
 
 	cfg *Config
@@ -470,6 +473,15 @@ func installPrivateSending(
 
 func (p *Processor) Name() string {
 	return "processor"
+}
+
+// currentTime returns the time on the processor's clock.
+func (p *Processor) currentTime() time.Time {
+	if p.now != nil {
+		return p.now()
+	}
+
+	return time.Now()
 }
 
 // WaitForInterrupt returns whether processor should keep running and wait for
