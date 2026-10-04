@@ -57,10 +57,10 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
 
-    /// @notice First L2 block timestamp at which the Etna fork is active.
+    /// @inheritdoc IL1StateRootProvider
     /// @dev `anchorV4` reverts from this timestamp on. 0 means Etna is active from genesis;
     /// `type(uint64).max` means Etna never activates.
-    uint64 public immutable etnaTimestamp;
+    uint64 public immutable override etnaTimestamp;
 
     // ---------------------------------------------------------------
     // State variables

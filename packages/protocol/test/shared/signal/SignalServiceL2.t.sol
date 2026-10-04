@@ -8,7 +8,6 @@ import { Anchor } from "src/layer2/core/Anchor.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
-import { ISignalServiceL2 } from "src/shared/signal/ISignalServiceL2.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
 import { AnchorTestBase } from "test/layer2/core/Anchor.t.sol";
@@ -21,111 +20,22 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
     function setUp() public override {
         vm.chainId(167_001);
         vm.etch(BEACON_ROOTS, BEACON_ROOTS_CODE);
-
-        // Deploy the real Anchor and SignalService proxies with reciprocal immutable addresses.
-        address signalServiceProxy =
-            vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
-        _anchor = _deployAnchor(ICheckpointStore(signalServiceProxy), ETNA_TIMESTAMP);
-        _signalService = _deployEtna(REMOTE_SIGNAL_SERVICE);
-        assertEq(address(_signalService), signalServiceProxy);
+        _deployPair(ETNA_TIMESTAMP);
         _recordBeaconRoot(ETNA_TIMESTAMP, VALID_PROOF_STATE_ROOT);
     }
 
-    function test_stateRootProof_MagicMatchesSpecifiedFormat() external view {
-        assertEq(
-            SignalServiceL2(address(_signalService)).STATE_ROOT_PROOF_MAGIC(),
-            bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1"))
-        );
-    }
+    function test_verifySignalReceived_UsesHopProofTimestampAtEtnaWithoutCheckpoint() external {
+        vm.warp(ETNA_TIMESTAMP);
+        ISignalService.HopProof[] memory proofs =
+            abi.decode(VALID_SIGNAL_PROOF, (ISignalService.HopProof[]));
+        proofs[0].blockId = ETNA_TIMESTAMP;
 
-    function test_verifySignalReceived_AcceptsRealStateRootProofWithoutCheckpoint() external view {
         _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
         );
     }
 
-    function test_verifySignalReceived_StateRootProofDoesNotCacheOrSaveCheckpoint() external {
-        vm.recordLogs();
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-
-        assertEq(vm.getRecordedLogs().length, 0);
-        assertEq(vm.load(address(_signalService), _cacheSlot(false)), bytes32(0));
-        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
-        _signalService.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
-    }
-
-    function test_proveSignalReceived_AcceptsRealStateRootProofAndCaches() external {
-        assertEq(
-            _signalService.proveSignalReceived(
-                SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-            ),
-            0
-        );
-
-        assertEq(vm.load(address(_signalService), _cacheSlot(false)), bytes32(uint256(1)));
-        assertEq(vm.load(address(_signalService), _cacheSlot(true)), bytes32(0));
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-        assertEq(
-            _signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, ""), 0
-        );
-    }
-
-    function test_proveSignalReceived_CacheRemainsUsableAfterOracleExpiry() external {
-        _signalService.proveSignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-        _recordBeaconRoot(ETNA_TIMESTAMP + 8191, bytes32(uint256(123)));
-
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-        _signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-
-        vm.expectRevert(Anchor.L1StateRootNotFound.selector);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_StateRootProofTimestampBeforeEtna() external {
-        _recordBeaconRoot(ETNA_TIMESTAMP - 1, VALID_PROOF_STATE_ROOT);
-
-        vm.expectRevert(Anchor.EtnaNotActive.selector);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP - 1)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_StateRootProofTimestampMissing() external {
-        vm.expectRevert(Anchor.L1StateRootNotFound.selector);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP + 1)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_StateRootProofRootIsZero() external {
-        _recordBeaconRoot(ETNA_TIMESTAMP, bytes32(0));
-
-        vm.expectRevert(Anchor.L1StateRootNotFound.selector);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_OracleStateRootDiffersFromProof() external {
-        // An authentic pre-Etna checkpoint must not replace the timestamp-selected Etna root.
-        _saveCheckpoint(_signalService, VALID_PROOF_STATE_ROOT);
-        _recordBeaconRoot(ETNA_TIMESTAMP, bytes32(uint256(123)));
-
-        vm.expectRevert();
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-    }
-
-    function test_preEtnaAnchorV4_OldCheckpointAndFirstEtnaProofRemainUsable() external {
+    function test_verifySignalReceived_CheckpointProofMustBeRegeneratedAtEtna() external {
         vm.roll(100);
         vm.warp(ETNA_TIMESTAMP - 1);
         vm.prank(GOLDEN_TOUCH);
@@ -136,191 +46,103 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
                 uint256(VALID_PROOF_STATE_ROOT)
             )
         );
-
-        vm.roll(101);
-        _recordBeaconRoot(ETNA_TIMESTAMP, VALID_PROOF_STATE_ROOT);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
-        );
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-
-        vm.prank(GOLDEN_TOUCH);
-        vm.expectRevert(Anchor.AnchorDisabled.selector);
-        _anchor.anchorV4(_checkpoint(uint48(VALID_PROOF_BLOCK_ID + 1), 123, 123));
-        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
-        _signalService.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID + 1));
-    }
-
-    function test_verifySignalReceived_RevertWhen_AppOrChainIdTampered() external {
-        bytes memory proof = _stateRootProof(ETNA_TIMESTAMP);
-        vm.expectRevert();
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, Alice, VALID_SIGNAL, proof);
-        vm.expectRevert();
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID + 1, REMOTE_APP, VALID_SIGNAL, proof);
-    }
-
-    function test_verifySignalReceived_RevertWhen_SignalTampered() external {
-        vm.expectRevert();
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, bytes32(uint256(123)), _stateRootProof(ETNA_TIMESTAMP)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_RemoteSignalServiceTampered() external {
-        SignalService wrongRemote = _deployEtna(Alice);
-
-        vm.expectRevert();
-        wrongRemote.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_AccountProofTampered() external {
-        ISignalServiceL2.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
-        proof.accountProof[0][3] ^= bytes1(uint8(1));
-
-        vm.expectRevert();
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _encodeStateRootProof(proof)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_StorageProofTampered() external {
-        ISignalServiceL2.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
-        proof.storageProof[0][3] ^= bytes1(uint8(1));
-
-        vm.expectRevert();
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _encodeStateRootProof(proof)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_StateRootProofAccountProofEmpty() external {
-        ISignalServiceL2.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
-        proof.accountProof = new bytes[](0);
-
-        vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _encodeStateRootProof(proof)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_StateRootProofStorageProofEmpty() external {
-        ISignalServiceL2.StateRootProof memory proof = _proofData(ETNA_TIMESTAMP);
-        proof.storageProof = new bytes[](0);
-
-        vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _encodeStateRootProof(proof)
-        );
-    }
-
-    function test_verifySignalReceived_RevertWhen_StateRootProofMagicWrong() external {
-        bytes memory proof = _stateRootProof(ETNA_TIMESTAMP);
-        proof[0] ^= bytes1(uint8(1));
-
-        vm.expectRevert();
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
-    }
-
-    function test_verifySignalReceived_RevertWhen_StateRootProofEncodingTruncated() external {
-        vm.expectRevert();
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID,
-            REMOTE_APP,
-            VALID_SIGNAL,
-            abi.encodePacked(bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1")))
-        );
-        vm.expectRevert();
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"010203");
-    }
-
-    function test_verifySignalReceived_RevertWhen_AppOrSignalZero() external {
-        bytes memory proof = _stateRootProof(ETNA_TIMESTAMP);
-        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, address(0), VALID_SIGNAL, proof);
-        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, bytes32(0), proof);
-    }
-
-    function test_stateRootProof_RevertWhen_Paused() external {
-        bytes memory proof = _stateRootProof(ETNA_TIMESTAMP);
-        _signalService.pause();
-
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        _signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
-    }
-
-    function test_stateRootProof_DesignatedPauserCanPauseAndUnpause() external {
-        SignalService service = _deployEtna(REMOTE_SIGNAL_SERVICE, Alice);
-        bytes memory proof = _stateRootProof(ETNA_TIMESTAMP);
-        assertEq(service.pauser(), Alice);
-
-        vm.prank(Alice);
-        service.pause();
-        assertTrue(service.paused());
-
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        service.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        service.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
-
-        vm.prank(Alice);
-        service.unpause();
-        assertFalse(service.paused());
-        service.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
-        service.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
-        service.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-    }
-
-    function test_verifySignalReceived_AcceptsOldHopProofWithoutCaching() external {
-        _saveCheckpoint(_signalService, VALID_PROOF_STATE_ROOT);
-        _signalService.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
-        );
-
-        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
-        _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-    }
-
-    function test_proveSignalReceived_AcceptsOldHopProofAndCaches() external {
-        _saveCheckpoint(_signalService, VALID_PROOF_STATE_ROOT);
         _signalService.proveSignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
         );
 
+        vm.warp(ETNA_TIMESTAMP);
+        // The wire format is unchanged, but blockId is now interpreted as an L2 timestamp.
+        vm.expectRevert(Anchor.EtnaNotActive.selector);
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
+        );
         _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIMESTAMP)
+        );
+
+        _recordBeaconRoot(ETNA_TIMESTAMP + 1, VALID_PROOF_STATE_ROOT);
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIMESTAMP + 1)
+        );
+    }
+
+    function test_proveSignalReceived_CacheSurvivesOracleExpiryAndUnavailableProvider() external {
+        assertEq(
+            _signalService.proveSignalReceived(
+                SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIMESTAMP)
+            ),
+            0
+        );
         assertEq(vm.load(address(_signalService), _cacheSlot(false)), bytes32(uint256(1)));
-    }
+        assertEq(vm.load(address(_signalService), _cacheSlot(true)), bytes32(0));
+        _recordBeaconRoot(ETNA_TIMESTAMP + 8191, bytes32(uint256(123)));
 
-    function test_versionedStorage_RevertWhen_OnlyDeprecatedRecordsExist() external {
-        _storeCheckpoint(address(_signalService), true, VALID_PROOF_STATE_ROOT);
-        vm.store(address(_signalService), _cacheSlot(true), bytes32(uint256(1)));
-
-        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
-        _signalService.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
-        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
-        _signalService.proveSignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
+        vm.expectRevert(Anchor.L1StateRootNotFound.selector);
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIMESTAMP)
         );
-        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
+
+        // An empty proof must bypass both the fork-time getter and the expired oracle entry.
+        vm.etch(address(_anchor), hex"5f5ffd");
         _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
         _signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
     }
 
-    function test_versionedStorage_UsesVersionedRecordWhenDeprecatedRecordConflicts() external {
-        _storeCheckpoint(address(_signalService), true, bytes32(uint256(123)));
-        _saveCheckpoint(_signalService, VALID_PROOF_STATE_ROOT);
-
-        assertEq(
-            _signalService.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID)).stateRoot,
-            VALID_PROOF_STATE_ROOT
+    function test_verifySignalReceived_RevertWhen_OracleRootMissingOrZero() external {
+        vm.expectRevert(Anchor.L1StateRootNotFound.selector);
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIMESTAMP + 1)
         );
+
+        _recordBeaconRoot(ETNA_TIMESTAMP, bytes32(0));
+        vm.expectRevert(Anchor.L1StateRootNotFound.selector);
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIMESTAMP)
+        );
+    }
+
+    function test_verifySignalReceived_RevertWhen_RootHashDiffersFromOracleRoot() external {
+        _recordBeaconRoot(ETNA_TIMESTAMP, bytes32(uint256(123)));
+
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIMESTAMP)
+        );
+    }
+
+    function test_verifySignalReceived_RevertWhen_MerkleProofTampered() external {
+        ISignalService.HopProof[] memory proofs =
+            abi.decode(_timestampProof(ETNA_TIMESTAMP), (ISignalService.HopProof[]));
+        proofs[0].storageProof[0][3] ^= bytes1(uint8(1));
+
+        vm.expectRevert();
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
+        );
+    }
+
+    function test_verifySignalReceived_UsesFullUint64TimestampWithoutTruncation() external {
+        uint64 timestamp = ETNA_TIMESTAMP + (uint64(1) << 48);
+        // Different roots make accidental uint48 truncation select an invalid root.
+        _recordBeaconRoot(ETNA_TIMESTAMP, bytes32(uint256(123)));
+        _recordBeaconRoot(timestamp, VALID_PROOF_STATE_ROOT);
+
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(timestamp)
+        );
+    }
+
+    function test_verifySignalReceived_RespectsGenesisAndNeverEtnaConfiguration() external {
+        _deployPair(0);
+        _recordBeaconRoot(1, VALID_PROOF_STATE_ROOT);
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(1)
+        );
+
+        _deployPair(type(uint64).max);
+        vm.warp(ETNA_TIMESTAMP);
+        _saveCheckpoint(_signalService, VALID_PROOF_STATE_ROOT);
         _signalService.verifySignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
         );
@@ -339,24 +161,29 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         legacy.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
         bytes32 localSignal = keccak256("historical sent signal");
         legacy.sendSignal(localSignal);
+        legacy.pause();
         assertEq(vm.load(address(legacy), _checkpointSlot(true)), VALID_BLOCK_HASH);
         assertEq(vm.load(address(legacy), _cacheSlot(true)), bytes32(uint256(1)));
 
         SignalService upgraded = _upgradeLegacy(legacy);
 
+        assertEq(upgraded.owner(), address(this));
+        assertTrue(upgraded.paused());
+        assertTrue(upgraded.isSignalSent(address(this), localSignal));
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
+        upgraded.unpause();
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
         upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-        assertTrue(upgraded.isSignalSent(address(this), localSignal));
-        assertEq(upgraded.owner(), address(this));
         assertEq(vm.load(address(upgraded), _cacheSlot(false)), bytes32(0));
 
         uint64 freshTimestamp = ETNA_TIMESTAMP + 1;
         _recordBeaconRoot(freshTimestamp, VALID_PROOF_STATE_ROOT);
         vm.record();
         upgraded.proveSignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(freshTimestamp)
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(freshTimestamp)
         );
 
         (, bytes32[] memory writes) = vm.accesses(address(upgraded));
@@ -367,30 +194,6 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
-    }
-
-    function test_versionedStorage_ProxyUpgradeRejectsOldRecordsAndUsesNewSlots() external {
-        LegacySignalService legacy = _deployLegacy();
-        vm.prank(address(_anchor));
-        legacy.saveCheckpoint(
-            _checkpoint(
-                uint48(VALID_PROOF_BLOCK_ID),
-                uint256(VALID_BLOCK_HASH),
-                uint256(VALID_PROOF_STATE_ROOT)
-            )
-        );
-        legacy.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
-        SignalService upgraded = _upgradeLegacy(legacy);
-
-        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
-        upgraded.getCheckpoint(uint48(VALID_PROOF_BLOCK_ID));
-        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
-        upgraded.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
-
-        _saveCheckpoint(upgraded, VALID_PROOF_STATE_ROOT);
-        upgraded.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF);
-        assertEq(vm.load(address(upgraded), _cacheSlot(false)), bytes32(uint256(1)));
-        assertEq(vm.load(address(upgraded), _checkpointSlot(false)), VALID_BLOCK_HASH);
     }
 
     function test_proxyUpgrade_PreservesVersionOneRecordsOwnerPausedStateAndSentSignal() external {
@@ -435,47 +238,21 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         assertEq(vm.load(address(upgraded), _cacheSlot(true)), bytes32(0));
     }
 
-    function test_proxyUpgrade_PreservesHistoricalPausedState() external {
-        LegacySignalService legacy = _deployLegacy();
-        legacy.pause();
-        SignalService upgraded = _upgradeLegacy(legacy);
-
-        assertTrue(upgraded.paused());
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        upgraded.proveSignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-        upgraded.unpause();
-        upgraded.verifySignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _stateRootProof(ETNA_TIMESTAMP)
-        );
-    }
-
-    function test_saveCheckpoint_RevertWhen_UnauthorizedOrInvalid() external {
-        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1, 1, 1);
-        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
-        _signalService.saveCheckpoint(checkpoint);
-        vm.prank(address(_anchor));
-        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
-        _signalService.saveCheckpoint(_checkpoint(1, 1, 0));
-        vm.prank(address(_anchor));
-        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
-        _signalService.saveCheckpoint(_checkpoint(1, 0, 1));
-    }
-
-    function _deployEtna(address _remote) private returns (SignalService) {
-        return _deployEtna(_remote, address(0));
-    }
-
-    function _deployEtna(address _remote, address _pauser) private returns (SignalService) {
-        SignalServiceL2 implementation = new SignalServiceL2(address(_anchor), _remote, _pauser);
-        return SignalService(
+    function _deployPair(uint64 _etnaTimestamp) private {
+        // Deploy real Anchor and SignalService proxies with reciprocal immutable addresses.
+        address signalServiceProxy =
+            vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
+        _anchor = _deployAnchor(ICheckpointStore(signalServiceProxy), _etnaTimestamp);
+        SignalServiceL2 implementation =
+            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0));
+        _signalService = SignalService(
             address(
                 new ERC1967Proxy(
                     address(implementation), abi.encodeCall(SignalService.init, (address(this)))
                 )
             )
         );
+        assertEq(address(_signalService), signalServiceProxy);
     }
 
     function _deployLegacy() private returns (LegacySignalService) {
@@ -505,30 +282,11 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         );
     }
 
-    function _stateRootProof(uint64 _timestamp) private pure returns (bytes memory) {
-        return _encodeStateRootProof(_proofData(_timestamp));
-    }
-
-    function _proofData(uint64 _timestamp)
-        private
-        pure
-        returns (ISignalServiceL2.StateRootProof memory)
-    {
+    function _timestampProof(uint64 _timestamp) private pure returns (bytes memory) {
         ISignalService.HopProof[] memory proofs =
             abi.decode(VALID_SIGNAL_PROOF, (ISignalService.HopProof[]));
-        return ISignalServiceL2.StateRootProof({
-            l2Timestamp: _timestamp,
-            accountProof: proofs[0].accountProof,
-            storageProof: proofs[0].storageProof
-        });
-    }
-
-    function _encodeStateRootProof(ISignalServiceL2.StateRootProof memory _proof)
-        private
-        pure
-        returns (bytes memory)
-    {
-        return bytes.concat(bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1")), abi.encode(_proof));
+        proofs[0].blockId = _timestamp;
+        return abi.encode(proofs);
     }
 
     function _cacheSlot(bool _deprecated) private view returns (bytes32) {
@@ -542,11 +300,5 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         bytes32 namespaceSlot =
             _deprecated ? bytes32(uint256(254)) : keccak256(abi.encode(uint256(1), uint256(254)));
         return keccak256(abi.encode(uint256(VALID_PROOF_BLOCK_ID), namespaceSlot));
-    }
-
-    function _storeCheckpoint(address _service, bool _deprecated, bytes32 _root) private {
-        bytes32 slot = _checkpointSlot(_deprecated);
-        vm.store(_service, slot, VALID_BLOCK_HASH);
-        vm.store(_service, bytes32(uint256(slot) + 1), _root);
     }
 }

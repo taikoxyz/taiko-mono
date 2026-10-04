@@ -200,6 +200,14 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
     function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
+    /// @dev Returns the authenticated state root for a checkpoint proof.
+    /// @param _blockId Source block number.
+    /// @return stateRoot_ State root saved in the checkpoint.
+    function _getStateRoot(uint64 _blockId) internal view virtual returns (bytes32 stateRoot_) {
+        if (_blockId > type(uint48).max) revert SS_INVALID_BLOCK_ID();
+        return _getCheckpoint(uint48(_blockId)).stateRoot;
+    }
+
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
     /// @return checkpoint_ The checkpoint
@@ -250,7 +258,7 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-    /// @dev Verifies a cached signal or a block-number-indexed checkpoint proof.
+    /// @dev Verifies a cached signal or a proof against the implementation's authenticated root.
     /// @param _chainId Source chain ID.
     /// @param _app Source application that sent the signal.
     /// @param _signal Signal being proven.
@@ -261,9 +269,8 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _signal,
         bytes calldata _proof
     )
-        internal
+        private
         view
-        virtual
     {
         require(_app != address(0), ZERO_ADDRESS());
         require(_signal != bytes32(0), ZERO_VALUE());
@@ -283,22 +290,13 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_EMPTY_PROOF();
         }
 
-        if (proof.blockId > type(uint48).max) {
-            revert SS_INVALID_BLOCK_ID();
-        }
-
-        Checkpoint memory checkpoint = _getCheckpoint(uint48(proof.blockId));
-        if (checkpoint.stateRoot != proof.rootHash) {
+        bytes32 stateRoot = _getStateRoot(proof.blockId);
+        if (stateRoot != proof.rootHash) {
             revert SS_INVALID_CHECKPOINT();
         }
 
         LibTrieProof.verifyMerkleProof(
-            checkpoint.stateRoot,
-            _remoteSignalService,
-            slot,
-            _signal,
-            proof.accountProof,
-            proof.storageProof
+            stateRoot, _remoteSignalService, slot, _signal, proof.accountProof, proof.storageProof
         );
     }
 
