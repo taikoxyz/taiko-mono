@@ -2,6 +2,8 @@ package processor
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,6 +16,11 @@ import (
 // resubmitting for five to ten minutes (see DefaultPrivateRPCSendTimeout) and the node can lag the
 // chain, so the guard is ten minutes, judged by the later of the L2 head's time and the wall clock.
 const etnaForkGuardSeconds = 600
+
+// errLegacyProofAfterEtna marks a claim that failed with a legacy proof after the destination
+// reached the Etna fork. No legacy proof verifies there, so the message is retried, and proven
+// again with an Etna proof, rather than dead-lettered.
+var errLegacyProofAfterEtna = errors.New("legacy signal proof used after the Etna fork")
 
 // proofTarget is what a signal proof is built against. Exactly one field is set.
 type proofTarget struct {
@@ -146,4 +153,36 @@ func warnUnlessDone(ctx context.Context, msg string, args ...any) {
 	if ctx.Err() == nil {
 		slog.Warn(msg, args...)
 	}
+}
+
+// claimError returns err, the failure of a claim, marked with errLegacyProofAfterEtna when the claim
+// carried a legacy proof and the destination has since reached the Etna fork. The guard keeps
+// legacy proofs away from the fork, but a claim can still outlive it: a send with no timeout can
+// keep resubmitting past the fork, and a cached read can say the Anchor has no Etna timestamp for
+// up to a minute after its upgrade.
+func (p *Processor) claimError(ctx context.Context, etnaProof bool, err error) error {
+	if etnaProof || !p.passedEtnaFork(ctx) {
+		return err
+	}
+
+	return fmt.Errorf("%w: %w", errLegacyProofAfterEtna, err)
+}
+
+// passedEtnaFork reports whether the destination's head has reached its Etna fork. It reads the
+// fork time afresh rather than from the cache, which also refreshes the cache for every waiting
+// message. A read that fails counts as not reached.
+func (p *Processor) passedEtnaFork(ctx context.Context) bool {
+	p.etnaTimestamps.expire()
+
+	etnaTimestamp, supported, err := p.etnaTimestamp(ctx)
+	if err != nil || !supported {
+		return false
+	}
+
+	head, err := p.destEthClient.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return false
+	}
+
+	return head.Time >= etnaTimestamp
 }

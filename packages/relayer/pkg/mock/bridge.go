@@ -32,6 +32,9 @@ type Bridge struct {
 	// existing callers see the previous hardcoded behavior.
 	IsMessageSentResult bool
 	IsMessageSentCalls  int
+	// MessageNotReceived makes IsMessageReceived report false, as when the destination cannot
+	// verify the proof. Defaults to false so existing callers keep the previous true.
+	MessageNotReceived bool
 	// IsMessageSentErr, when set, is returned by IsMessageSent to simulate an
 	// origin-chain RPC failure.
 	IsMessageSentErr  error
@@ -103,7 +106,7 @@ func (b *Bridge) SendMessage(opts *bind.TransactOpts, _message bridge.IBridgeMes
 }
 
 func (b *Bridge) IsMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeMessage, _proof []byte) (bool, error) {
-	return true, nil
+	return !b.MessageNotReceived, nil
 }
 
 func (b *Bridge) Paused(opts *bind.CallOpts) (bool, error) {

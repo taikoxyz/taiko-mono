@@ -197,14 +197,14 @@ func (p *Processor) processMessage(
 		}
 	}
 
-	encodedSignalProof, err := p.generateEncodedSignalProof(ctx, msgBody.Event)
+	encodedSignalProof, etnaProof, err := p.generateEncodedSignalProof(ctx, msgBody.Event)
 	if err != nil {
 		return false, msgBody.TimesRetried, err
 	}
 
 	_, err = p.sendProcessMessageCall(ctx, msgBody.ID, msgBody.Event, encodedSignalProof)
 	if err != nil {
-		return false, msgBody.TimesRetried, err
+		return false, msgBody.TimesRetried, p.claimError(ctx, etnaProof, err)
 	}
 
 	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{
@@ -239,12 +239,13 @@ func (p *Processor) processMessage(
 }
 
 // generateEncodedSignalProof takes a MessageSent event and calls a
-// proof generation service to generate the source-chain proof.
+// proof generation service to generate the source-chain proof. etnaProof reports whether the
+// proof is an Etna proof rather than a legacy checkpoint proof.
 func (p *Processor) generateEncodedSignalProof(ctx context.Context,
-	event *bridge.BridgeMessageSent) ([]byte, error) {
+	event *bridge.BridgeMessageSent) (encodedSignalProof []byte, etnaProof bool, err error) {
 	target, err := p.waitProofTarget(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{
@@ -256,7 +257,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	params := proof.SignalProofParams{
@@ -274,7 +275,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	} else {
 		latestBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		if latestBlockID == 0 {
@@ -289,7 +290,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		params.BlockNumber = latestBlockID
 	}
 
-	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, params)
+	encodedSignalProof, err = p.prover.EncodedSignalProof(ctx, params)
 
 	if err != nil {
 		slog.Error("error encoding signal proof",
@@ -305,10 +306,10 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"blockID", params.BlockID,
 		)
 
-		return nil, err
+		return nil, false, err
 	}
 
-	return encodedSignalProof, nil
+	return encodedSignalProof, target.etna != nil, nil
 }
 
 // sendProcessMessageCall calls `bridge.processMessage` with latest nonce
