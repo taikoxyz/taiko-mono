@@ -63,8 +63,17 @@ func (p *Processor) etnaTimestamp(ctx context.Context) (timestamp uint64, suppor
 	return c.timestamp, c.supported, nil
 }
 
+// emptyOutputErrorText is the error go-ethereum's abi package returns when a call to an address
+// with code succeeds without output, as when a contract's fallback answers a function it does not
+// have. The package exports no sentinel for it.
+const emptyOutputErrorText = "abi: attempting to unmarshal an empty string while arguments are expected"
+
 // isUnsupportedCallError reports whether a contract call failed because the contract does not
-// implement the function, rather than because the call could not be made.
+// implement the function, rather than because the call could not be made: the address has no
+// code, the call reverts (geth says "execution reverted", Besu "Execution reverted"), or it
+// returns no data.
 func isUnsupportedCallError(err error) bool {
-	return errors.Is(err, bind.ErrNoCode) || strings.Contains(err.Error(), "execution reverted")
+	return errors.Is(err, bind.ErrNoCode) ||
+		strings.Contains(strings.ToLower(err.Error()), "execution reverted") ||
+		strings.Contains(err.Error(), emptyOutputErrorText)
 }
