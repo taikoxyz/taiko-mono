@@ -11,11 +11,11 @@ The Shasta fork introduces refined terminology to better reflect the system's ar
 
 ## Forks
 
-| Fork                 | Activation         | Changes to derivation                                                                                                                       |
-| -------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shasta               | `SHASTA_FORK_TIME` | Baseline of this document                                                                                                                   |
-| Unzen                | `UNZEN_FORK_TIME`  | Osaka execution rules with the Cancun and Prague header fields; zk gas, recorded in `difficulty`; a larger per-source block limit           |
-| Etna (not scheduled) | `ETNA_FORK_TIME`   | No anchor transaction; the L1 anchor block hash moves into `parentBeaconBlockRoot` (see [Etna](#etna-blocks-without-an-anchor-transaction)) |
+| Fork                 | Activation         | Changes to derivation                                                                                                                                     |
+| -------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shasta               | `SHASTA_FORK_TIME` | Baseline of this document                                                                                                                                 |
+| Unzen                | `UNZEN_FORK_TIME`  | Osaka execution rules with the Cancun and Prague header fields; zk gas, recorded in `difficulty`; a larger per-source block limit                         |
+| Etna (not scheduled) | `ETNA_FORK_TIME`   | No anchor transaction; L1 anchor state root in `parentBeaconBlockRoot` and number in `extraData` (see [Etna](#etna-blocks-without-an-anchor-transaction)) |
 
 Each L2 block follows the fork active at its own timestamp, so one proposal can contain blocks of two forks. Only the per-source block limit picks its fork by the proposal's L1 timestamp.
 
@@ -245,7 +245,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 **Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
 
-For a parent block that is already built, `parent.metadata.anchorBlockNumber` is `Anchor.getBlockState().anchorBlockNumber` at that block before Etna, and from Etna on the number of the L1 block whose hash is its `parentBeaconBlockRoot` (`0` for the genesis block). If such a non-genesis Etna anchor is older than `max(0, proposal.originBlockNumber - MAX_ANCHOR_OFFSET)`, the derivation outcome does not depend on its exact value, so an implementation that holds only the L1 headers of that range can treat a root that matches none of them as older than the range.
+Recover `parent.metadata.anchorBlockNumber` using the parent's fork: `Anchor.getBlockState().anchorBlockNumber` before Etna, bytes 7..12 of `extraData` from Etna, and `0` for genesis.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -307,14 +307,17 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field              |
-| -------------------- | ------- | ------------------------- |
-| `number`             | uint256 | `number`                  |
-| `timestamp`          | uint256 | `timestamp`               |
-| `difficulty`         | uint256 | `mixHash`                 |
-| `gasLimit`           | uint256 | `gasLimit`                |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData` |
-| `proposalId`         | uint48  | Bytes 1..6 in `extraData` |
+| Metadata Component   | Type    | Header Field                           |
+| -------------------- | ------- | -------------------------------------- |
+| `number`             | uint256 | `number`                               |
+| `timestamp`          | uint256 | `timestamp`                            |
+| `difficulty`         | uint256 | `mixHash`                              |
+| `gasLimit`           | uint256 | `gasLimit`                             |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`              |
+| `proposalId`         | uint48  | Bytes 1..6 in `extraData`              |
+| `anchorBlockNumber`  | uint48  | Bytes 7..12 in `extraData` (Etna only) |
+
+For non-genesis blocks, Shasta/Unzen use 7-byte `extraData`; Etna uses exactly 13 bytes: `[basefeeSharingPctg(1) | proposalId(6) | anchorBlockNumber(6)]`. Offsets are zero-based and inclusive. Both `uint48` values are big-endian and must fit without truncation. Encode the final derived `anchorBlockNumber` after validation and inheritance.
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -331,7 +334,7 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 | Header Field                   | Before Unzen | Unzen                    | Etna                                                            |
 | ------------------------------ | ------------ | ------------------------ | --------------------------------------------------------------- |
-| `parentBeaconBlockRoot`        | Absent       | `0x0`                    | `metadata.anchorBlockHash`, never zero                          |
+| `parentBeaconBlockRoot`        | Absent       | `0x0`                    | `metadata.anchorStateRoot`, never zero for non-genesis blocks   |
 | `blobGasUsed`, `excessBlobGas` | Absent       | `0`                      | `0`                                                             |
 | `requestsHash`                 | Absent       | `sha256("")`             | `sha256("")`                                                    |
 | `difficulty` (after execution) | `0`          | zk gas used by the block | zk gas used by the block (`0` for a block without transactions) |
@@ -372,12 +375,13 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 ## Etna: Blocks Without an Anchor Transaction
 
-Etna removes the anchor transaction. The L1 block that an L2 block anchors to is committed in its header instead, and the standard EIP-4788 pre-execution call records it in L2 state. The proposal format and the metadata validation rules stay the same.
+Etna replaces the anchor transaction with header commitments to the L1 anchor block's number and execution state root. EIP-4788 records the root. The proposal format and metadata validation rules stay the same.
 
 - A block's transactions come from `metadata.transactions` as before, but nothing is prepended and no position is reserved, so the first transaction is treated like every other one. A default source manifest yields a block without transactions.
 - Transactions from the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.
-- `parentBeaconBlockRoot` is `metadata.anchorBlockHash`: the hash of the L1 block at the block's final `anchorBlockNumber`, never zero, and not the hash of the L1 block that included the proposal. An inherited anchor repeats a non-genesis Etna parent's `parentBeaconBlockRoot`. For a genesis or pre-Etna parent, obtain the hash from L1 using the inherited `anchorBlockNumber` (`0` for genesis). This lookup may require an L1 header outside the usual anchor window, as in pre-Etna derivation.
-- The execution engine only checks that the root is non-zero. Drivers set it from L1, and provers check it against L1 headers linked by parent hash to `proposal.originBlockHash` or, for an inherited anchor from a non-genesis parent, against the parent block (its `parentBeaconBlockRoot`, or for a parent before Etna the checkpoint in its L2 state). For genesis inheritance, the L1 header chain must reach block `0`, even outside the usual anchor window. `anchorStateRoot` is no longer used.
+- In non-genesis blocks, `parentBeaconBlockRoot` is the nonzero `metadata.anchorStateRoot` of the L1 block at the final `anchorBlockNumber`; bytes 7..12 of `extraData` encode that number. The execution engine checks the nonzero root and 13-byte layout.
+- Inherited anchors, including forced/default blocks, preserve the parent's number/root pair. Use an Etna parent's header; for a pre-Etna parent, authenticate its number and any saved checkpoint through its L2 state. If no checkpoint exists, authenticate the L1 header instead.
+- Genesis inheritance uses number `0` and the state root of L1 block `0`. The L2 genesis header keeps a zero `parentBeaconBlockRoot` and performs no EIP-4788 call.
 
 ## L1 Proof and Liveness Bond Settlement
 
