@@ -86,7 +86,7 @@ func (p *Processor) etnaAnchorFor(
 
 	l1Head, err := srcEthClient.BlockNumber(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("L1 head: %w", err)
 	}
 
 	if l1Head > l1Block+maxAnchorAge {
@@ -108,7 +108,7 @@ func (p *Processor) etnaAnchorFor(
 
 	l1Header, err := srcEthClient.HeaderByNumber(ctx, new(big.Int).SetUint64(l1Block))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("L1 header %d: %w", l1Block, err)
 	}
 
 	// eth_getProof runs against L1's canonical block at this number, so a reorged anchor block
@@ -132,7 +132,7 @@ func (p *Processor) settledL2Block(ctx context.Context, head *types.Header) (*ty
 
 		header, err := p.destEthClient.HeaderByNumber(ctx, new(big.Int).SetUint64(number))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("L2 header %d: %w", number, err)
 		}
 
 		if header.Time+etnaSettleSeconds <= head.Time {

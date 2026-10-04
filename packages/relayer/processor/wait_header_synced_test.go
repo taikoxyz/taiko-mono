@@ -289,6 +289,24 @@ func TestWaitProofTargetUsesTheEtnaAnchorAfterTheFork(t *testing.T) {
 	assert.Zero(t, calls)
 }
 
+func TestWaitProofTargetWaitsForAnEtnaBlockCoveringTheMessage(t *testing.T) {
+	p, _, l1, _ := etnaFixture(testEtnaTimestamp)
+
+	var calls int
+	p.eventRepo = countingCheckpointRepo(true, &calls)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	defer cancel()
+
+	// The settled block anchors to testAnchorBase + 3, below the message. A checkpoint is indexed,
+	// but after the fork it would not verify, so the wait holds out for a later Etna block.
+	target, err := p.waitProofTarget(ctx, l1, 2, testAnchorBase+4)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Nil(t, target)
+	assert.Zero(t, calls)
+}
+
 func TestWaitProofTargetSwitchesToEtnaWhenTheForkPassesMidWait(t *testing.T) {
 	p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
 
