@@ -25,9 +25,8 @@ const (
 	// seconds costs nothing against the minutes the L1 anchor lags.
 	etnaSettleSeconds = 12
 
-	// maxSameTimestampLookback caps how far below the L2 head the search for a settled block
-	// goes.
-	maxSameTimestampLookback = 64
+	// maxSettledBlockLookback caps how far below the L2 head the search for a settled block goes.
+	maxSettledBlockLookback = 64
 
 	// etnaExtraDataLength is the length of an Etna L2 header's extraData:
 	// basefeeSharingPctg (1) | proposalId (6) | anchorBlockNumber (6).
@@ -127,7 +126,7 @@ func (p *Processor) etnaAnchorFor(
 func (p *Processor) settledL2Block(ctx context.Context, head *types.Header) (*types.Header, error) {
 	number := head.Number.Uint64()
 
-	for i := 0; i < maxSameTimestampLookback && number > 0; i++ {
+	for i := 0; i < maxSettledBlockLookback && number > 0; i++ {
 		number--
 
 		header, err := p.destEthClient.HeaderByNumber(ctx, new(big.Int).SetUint64(number))

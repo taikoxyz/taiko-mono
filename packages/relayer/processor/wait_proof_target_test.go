@@ -54,10 +54,10 @@ func TestWaitProofTargetReturnsTheChainIDError(t *testing.T) {
 
 	// Without a chain ID the checkpoint lookup would be against the wrong chain, so this has to
 	// fail rather than fall through to the poll loop.
-	ev, err := p.waitProofTarget(context.Background(), &chainIDErrClient{}, 2, 1)
+	target, err := p.waitProofTarget(context.Background(), &chainIDErrClient{}, 2, 1)
 
 	require.ErrorContains(t, err, "connection refused")
-	assert.Nil(t, ev)
+	assert.Nil(t, target)
 }
 
 func TestWaitProofTargetReturnsTheRepositoryError(t *testing.T) {
@@ -71,10 +71,10 @@ func TestWaitProofTargetReturnsTheRepositoryError(t *testing.T) {
 	p := newTestProcessor(false)
 	p.eventRepo = repo
 
-	ev, err := p.waitProofTarget(context.Background(), &mock.EthClient{}, 2, 1)
+	target, err := p.waitProofTarget(context.Background(), &mock.EthClient{}, 2, 1)
 
 	require.ErrorContains(t, err, "db is down")
-	assert.Nil(t, ev)
+	assert.Nil(t, target)
 }
 
 func TestWaitProofTargetPollsUntilTheCheckpointAppears(t *testing.T) {
@@ -102,12 +102,12 @@ func TestWaitProofTargetPollsUntilTheCheckpointAppears(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	ev, err := p.waitProofTarget(ctx, &mock.EthClient{}, 2, 1)
+	target, err := p.waitProofTarget(ctx, &mock.EthClient{}, 2, 1)
 
 	require.NoError(t, err)
-	require.NotNil(t, ev)
-	require.NotNil(t, ev.checkpoint)
-	assert.Equal(t, uint64(42), ev.checkpoint.BlockID)
+	require.NotNil(t, target)
+	require.NotNil(t, target.checkpoint)
+	assert.Equal(t, uint64(42), target.checkpoint.BlockID)
 	assert.Equal(t, 3, calls)
 }
 
@@ -134,10 +134,10 @@ func TestWaitProofTargetReturnsTheRepositoryErrorFromThePollLoop(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	ev, err := p.waitProofTarget(ctx, &mock.EthClient{}, 2, 1)
+	target, err := p.waitProofTarget(ctx, &mock.EthClient{}, 2, 1)
 
 	require.ErrorContains(t, err, "db went away")
-	assert.Nil(t, ev)
+	assert.Nil(t, target)
 }
 
 func TestWaitProofTargetGivesUpWhenTheContextIsCancelled(t *testing.T) {
@@ -156,10 +156,10 @@ func TestWaitProofTargetGivesUpWhenTheContextIsCancelled(t *testing.T) {
 	defer cancel()
 
 	// A shutdown must not be blocked by a checkpoint that is never going to arrive.
-	ev, err := p.waitProofTarget(ctx, &mock.EthClient{}, 2, 1)
+	target, err := p.waitProofTarget(ctx, &mock.EthClient{}, 2, 1)
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
-	assert.Nil(t, ev)
+	assert.Nil(t, target)
 }
 
 // testContext returns a context that ends the test's wait after five seconds, so a proof that

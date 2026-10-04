@@ -21,7 +21,7 @@ const testAnchorBase = uint64(1000)
 
 // l2Chain is a destination client serving a fixed list of L2 headers, indexed by number. The head
 // is the last header, unless heads is set: then each head read takes the next entry, and the last
-// one stays.
+// one stays. reads counts every HeaderByNumber call, headReads only the head reads among them.
 type l2Chain struct {
 	mock.EthClient
 	headers   []*types.Header
@@ -198,11 +198,11 @@ func TestEtnaAnchorForNeedsABlockTwelveSecondsOlderThanTheHead(t *testing.T) {
 	assert.Equal(t, testAnchorBase+3, anchor.l1Block)
 }
 
-func TestEtnaAnchorForCapsTheSameTimestampLookback(t *testing.T) {
+func TestEtnaAnchorForCapsTheSettledBlockLookback(t *testing.T) {
 	p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
 
 	l2.headers = nil
-	for i := uint64(0); i < maxSameTimestampLookback+2; i++ {
+	for i := uint64(0); i < maxSettledBlockLookback+2; i++ {
 		l2.headers = append(l2.headers, etnaHeader(i, testEtnaTimestamp+100, testAnchorBase, testRoot(0)))
 	}
 
@@ -212,7 +212,7 @@ func TestEtnaAnchorForCapsTheSameTimestampLookback(t *testing.T) {
 
 	require.ErrorIs(t, err, errNoSettledL2Block)
 	assert.Nil(t, anchor)
-	assert.Equal(t, maxSameTimestampLookback, l2.reads)
+	assert.Equal(t, maxSettledBlockLookback, l2.reads)
 }
 
 func TestEtnaAnchorForHasNoSettledBlockBelowGenesis(t *testing.T) {
