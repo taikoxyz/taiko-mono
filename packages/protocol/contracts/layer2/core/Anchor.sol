@@ -3,21 +3,21 @@ pragma solidity ^0.8.26;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { RLPReader } from "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { IL1StateRootProvider } from "src/shared/signal/IL1StateRootProvider.sol";
 
 import "./Anchor_Layout.sol"; // DO NOT DELETE
 
 /// @title Anchor
 /// @notice Implements the Shasta fork's anchoring mechanism with checkpoint management, and the
-/// Etna fork's permissionless checkpoint reveal.
+/// Etna fork's timestamp-indexed L1 state root oracle.
 /// @dev This contract implements:
 ///      - Anchoring of L1 checkpoints for cross-chain verification, before the Etna fork
-///      - Revealing L1 checkpoints recorded by EIP-4788, from the Etna fork on
+///      - Reading L1 execution state roots recorded by EIP-4788, from the Etna fork on
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is EssentialContract {
+contract Anchor is EssentialContract, IL1StateRootProvider {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -44,7 +44,7 @@ contract Anchor is EssentialContract {
 
     /// @notice The canonical EIP-4788 beacon roots contract. Once deployed, it records every L2
     /// block's `parentBeaconBlockRoot`. That root is zero before the Etna fork; from Etna on, it
-    /// is the hash of the L1 block that the L2 block anchors to.
+    /// is the execution state root of the L1 block that the L2 block anchors to.
     address public constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
 
     // ---------------------------------------------------------------
@@ -155,62 +155,16 @@ contract Anchor is EssentialContract {
         );
     }
 
-    /// @notice Persists the L1 checkpoint whose block hash EIP-4788 recorded for an Etna L2 block.
-    /// @dev Permissionless. From the Etna fork on, an L2 block's `parentBeaconBlockRoot` is the hash
-    /// of the L1 block it anchors to, and EIP-4788 records it keyed by the L2 block's timestamp.
-    /// The header is verified against that hash, so the state root and number read from it are
-    /// authentic. An equal stored checkpoint makes this a no-op; a different one reverts.
-    /// EIP-4788 keeps a timestamp's root readable only until a timestamp 8191 seconds later
-    /// reuses its slot.
-    /// @param _l2Timestamp Timestamp of the L2 block whose `parentBeaconBlockRoot` is the L1 block
-    /// hash.
-    /// @param _headerRlp RLP encoding of that L1 block header.
-    /// @return checkpoint_ The checkpoint, whether newly saved or already stored.
-    function revealCheckpoint(
-        uint64 _l2Timestamp,
-        bytes calldata _headerRlp
-    )
-        external
-        returns (ICheckpointStore.Checkpoint memory checkpoint_)
-    {
-        // The EIP-4788 getter takes the raw 32-byte timestamp, without a selector. It returns
-        // nothing while the contract has no code, and reverts for a timestamp it does not hold.
+    /// @inheritdoc IL1StateRootProvider
+    function getL1StateRoot(uint64 _l2Timestamp) external view returns (bytes32 stateRoot_) {
+        require(_l2Timestamp >= etnaTimestamp, EtnaNotActive());
+
+        // EIP-4788 takes a raw 32-byte timestamp, without a function selector. It reverts when
+        // another timestamp has overwritten the queried slot; absent code returns no data.
         (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(uint256(_l2Timestamp)));
-        require(ok && ret.length == 32, L1BlockHashNotFound());
-        bytes32 blockHash = abi.decode(ret, (bytes32));
-        // Pre-Etna blocks record a zero root.
-        require(blockHash != bytes32(0), L1BlockHashNotFound());
-
-        require(keccak256(_headerRlp) == blockHash, InvalidL1Header());
-
-        // The hash binds the bytes to the real, canonically encoded header, so only the lengths
-        // that make the conversions below safe are checked.
-        RLPReader.RLPItem[] memory fields = RLPReader.readList(_headerRlp);
-        require(fields.length > 8, InvalidL1Header());
-        bytes memory stateRoot = RLPReader.readBytes(fields[3]);
-        bytes memory number = RLPReader.readBytes(fields[8]);
-        require(stateRoot.length == 32 && number.length <= 6, InvalidL1Header());
-
-        checkpoint_ = ICheckpointStore.Checkpoint({
-            blockNumber: uint48(uint256(bytes32(number)) >> (8 * (32 - number.length))),
-            blockHash: blockHash,
-            stateRoot: bytes32(stateRoot)
-        });
-
-        // A checkpoint exists when its block hash is non-zero. Never overwrite one.
-        try checkpointStore.getCheckpoint(checkpoint_.blockNumber) returns (
-            ICheckpointStore.Checkpoint memory existing
-        ) {
-            if (existing.blockHash != bytes32(0)) {
-                require(
-                    existing.blockHash == blockHash && existing.stateRoot == checkpoint_.stateRoot,
-                    CheckpointConflict()
-                );
-                return checkpoint_;
-            }
-        } catch { }
-
-        checkpointStore.saveCheckpoint(checkpoint_);
+        require(ok && ret.length == 32, L1StateRootNotFound());
+        stateRoot_ = abi.decode(ret, (bytes32));
+        require(stateRoot_ != bytes32(0), L1StateRootNotFound());
     }
 
     /// @notice Withdraw token or Ether from this address.
@@ -310,11 +264,10 @@ contract Anchor is EssentialContract {
 
     error AncestorsHashMismatch();
     error AnchorDisabled();
-    error CheckpointConflict();
     error InvalidAddress();
     error InvalidL1ChainId();
-    error InvalidL1Header();
     error InvalidL2ChainId();
     error InvalidSender();
-    error L1BlockHashNotFound();
+    error L1StateRootNotFound();
+    error EtnaNotActive();
 }

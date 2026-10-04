@@ -147,7 +147,10 @@ async function generateContractConfigs(
             path.join(ARTIFACTS_PATH, "./ERC1155Vault.sol/ERC1155Vault.json"),
         ),
         SignalServiceImpl: require(
-            path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
+            path.join(
+                ARTIFACTS_PATH,
+                "./SignalServiceEtna.sol/SignalServiceEtna.json",
+            ),
         ),
         SharedResolverImpl: require(
             path.join(
@@ -233,8 +236,8 @@ async function generateContractConfigs(
         ["erc1155Vault"],
     );
     const signalServiceReferencesMap: any = getImmutableReference(
-        "SignalService",
-        ["_authorizedSyncer", "_remoteSignalService"],
+        "SignalServiceEtna",
+        ["_authorizedSyncer", "_remoteSignalService", "usesLegacyStorage"],
     );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
@@ -599,6 +602,11 @@ async function generateContractConfigs(
                     {
                         id: signalServiceReferencesMap._remoteSignalService.id,
                         value: ethers.utils.hexZeroPad(remoteSignalService, 32),
+                    },
+                    {
+                        // New genesis state uses VERSION storage; no legacy records exist.
+                        id: signalServiceReferencesMap.usesLegacyStorage.id,
+                        value: ethers.utils.hexZeroPad("0x00", 32),
                     },
                 ]),
                 addressMap,
