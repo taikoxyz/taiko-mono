@@ -370,7 +370,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 ## Etna: Blocks Without an Anchor Transaction
 
-Etna removes the anchor transaction, so blocks no longer save L1 checkpoints. The L1 block that an L2 block anchors to is committed in its header instead, and the standard EIP-4788 pre-execution call records it in L2 state. The proposal format and the metadata validation rules stay the same.
+Etna removes the anchor transaction. The L1 block that an L2 block anchors to is committed in its header instead, and the standard EIP-4788 pre-execution call records it in L2 state. The proposal format and the metadata validation rules stay the same.
 
 - A block's transactions come from `metadata.transactions` as before, but nothing is prepended and no position is reserved, so the first transaction is treated like every other one. A default source manifest yields a block without transactions.
 - Transactions from the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.
