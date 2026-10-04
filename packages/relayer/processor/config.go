@@ -47,6 +47,10 @@ type Config struct {
 	ConfirmationsTimeout uint64
 	ProfitableOnly       bool
 	EnableTaikoL2        bool
+	// EnableCheckpointReveal makes the processor reveal L1 checkpoints on the destination chain's
+	// Anchor, which DestTaikoAddress must then be, when the Etna fork leaves no anchor transaction
+	// to save them.
+	EnableCheckpointReveal bool
 
 	// backoff configs
 	BackoffRetryInterval uint64
@@ -166,6 +170,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		Confirmations:                      c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:               c.Uint64(flags.ConfirmationTimeout.Name),
 		EnableTaikoL2:                      c.Bool(flags.EnableTaikoL2.Name),
+		EnableCheckpointReveal:             c.Bool(flags.EnableCheckpointReveal.Name),
 		ProfitableOnly:                     c.Bool(flags.ProfitableOnly.Name),
 		BackoffRetryInterval:               c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetries:                  c.Uint64(flags.BackOffMaxRetries.Name),

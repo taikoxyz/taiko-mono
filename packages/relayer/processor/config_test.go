@@ -262,6 +262,39 @@ func TestNewConfigFromCliContext_PrivateRPCUrlsAsOneCommaSeparatedValue(t *testi
 	)))
 }
 
+func TestNewConfigFromCliContext_CheckpointRevealIsOffByDefault(t *testing.T) {
+	app := setupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		assert.Nil(t, err)
+
+		// An L2 to L1 processor must never treat its destTaikoAddress, the L1 Inbox, as an Anchor.
+		assert.False(t, c.EnableCheckpointReveal)
+
+		return nil
+	}
+
+	assert.Nil(t, app.Run(baseProcessorArgs("TestNewConfigFromCliContext_CheckpointRevealIsOffByDefault")))
+}
+
+func TestNewConfigFromCliContext_EnableCheckpointReveal(t *testing.T) {
+	app := setupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		assert.Nil(t, err)
+		assert.True(t, c.EnableCheckpointReveal)
+
+		return nil
+	}
+
+	assert.Nil(t, app.Run(append(
+		baseProcessorArgs("TestNewConfigFromCliContext_EnableCheckpointReveal"),
+		"--"+flags.EnableCheckpointReveal.Name,
+	)))
+}
+
 func TestParsePrivateRPCUrls(t *testing.T) {
 	tests := []struct {
 		name       string

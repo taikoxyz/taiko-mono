@@ -34,6 +34,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/anchor"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -107,6 +108,10 @@ type Processor struct {
 	destChainId *big.Int
 
 	taikoL2 *taikol2.TaikoL2
+
+	// checkpointRevealer is set when cfg.EnableCheckpointReveal is. It reveals L1 checkpoints on
+	// the destination Anchor for messages that would otherwise wait for one forever after Etna.
+	checkpointRevealer l1CheckpointRevealer
 
 	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
 
@@ -326,6 +331,32 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	slog.Info("Processor tx manager initialized",
 		"privateEndpoints", sendingBackend.NumPrivateEndpoints(),
 	)
+
+	if cfg.EnableCheckpointReveal {
+		anchorCaller, err := anchor.NewAnchorCaller(cfg.DestTaikoAddress, destEthClient)
+		if err != nil {
+			return err
+		}
+
+		revealerCtx, cancel := context.WithTimeout(ctx, time.Duration(cfg.ETHClientTimeout)*time.Second)
+		revealer, err := newCheckpointRevealer(
+			revealerCtx,
+			cfg.DestTaikoAddress,
+			anchorCaller,
+			srcEthClient,
+			destEthClient,
+			p.txmgr,
+			time.Duration(cfg.HeaderSyncInterval)*time.Second,
+		)
+
+		cancel()
+
+		if err != nil {
+			return err
+		}
+
+		p.checkpointRevealer = revealer
+	}
 
 	// Mirror the tx manager's minimum tip cap so the profitability estimate can
 	// floor the suggested tip at the same value the tx manager will pay.
