@@ -144,7 +144,14 @@ contract AnchorStateRootTest is AnchorTestBase {
         _expectGetterRevert(_anchor, ETNA_TIMESTAMP);
     }
 
-    function _getL1StateRoot(Anchor _provider, uint64 _blockId) private view returns (bytes32) {
+    function _getL1StateRoot(
+        Anchor _provider,
+        uint64 _blockId
+    )
+        private
+        view
+        returns (bytes32)
+    {
         (bool ok, bytes memory result) = address(_provider)
             .staticcall(abi.encodeWithSignature("getL1StateRoot(uint64)", _blockId));
         assertTrue(ok, "state root getter reverted");
@@ -156,7 +163,14 @@ contract AnchorStateRootTest is AnchorTestBase {
         _expectGetterRevert(_provider, _blockId, bytes4(keccak256("L1StateRootNotFound()")));
     }
 
-    function _expectGetterRevert(Anchor _provider, uint64 _blockId, bytes4 _error) private view {
+    function _expectGetterRevert(
+        Anchor _provider,
+        uint64 _blockId,
+        bytes4 _error
+    )
+        private
+        view
+    {
         (bool ok, bytes memory result) = address(_provider)
             .staticcall(abi.encodeWithSignature("getL1StateRoot(uint64)", _blockId));
         assertFalse(ok, "state root getter accepted invalid input");
