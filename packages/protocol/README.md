@@ -14,6 +14,7 @@ To install dependencies:
 ```bash
 pnpm install
 ```
+
 Foundryup will automatically update during the post-installation script to the version specified in `.tool-versions`.
 
 ## Compilation
@@ -49,6 +50,64 @@ pnpm test:l2
 pnpm test
 ```
 
+## Etna L1 state-root proofs
+
+The state-root design in [#22237](https://github.com/taikoxyz/taiko-mono/pull/22237) puts the L1
+anchor execution state root in `parentBeaconBlockRoot` and the anchor number in the L2 header's
+13-byte `extraData`. `Anchor.getL1StateRoot(l2Timestamp)` reads the root recorded by the canonical
+EIP-4788 contract. It rejects pre-Etna timestamps, zero roots and unavailable entries.
+
+L2 uses `SignalServiceEtna`, with the existing Anchor as both its checkpoint writer and state-root
+provider. Bridge continues to pass opaque proof bytes to the same SignalService proxy. Encode an
+Etna proof as:
+
+```solidity
+abi.encodePacked(
+    bytes4(keccak256("TAIKO_STATE_ROOT_PROOF_V1")),
+    abi.encode(ISignalServiceEtna.StateRootProof({
+        l2Timestamp: l2Timestamp,
+        accountProof: accountProof,
+        storageProof: storageProof
+    }))
+)
+```
+
+The timestamp is an L2 timestamp. The verifier obtains the root from Anchor and verifies the remote
+SignalService's account and signal slot. It accepts no caller-supplied L1 block number, block hash
+or state root. A successful `proveSignalReceived` caches the signal and returns the existing cache
+operation count `0`; `verifySignalReceived` only reads state. Legacy `HopProof[]` and empty cached
+proofs retain their encoding. L1 continues to use `SignalService`.
+
+EIP-4788 entries can be overwritten by a later timestamp with the same remainder modulo 8191.
+When a proof's entry is unavailable, select a recent settled L2 timestamp and regenerate the L1
+Merkle proof against the corresponding anchor state root. Once a signal has been cached, an empty
+proof remains valid after oracle expiry. There is no separate reveal transaction or new
+`CheckpointSaved` event in this path. Relayer and bridge UI consumers must select the anchor from
+the L2 header, construct this envelope and refresh expired proofs; the checkpoint-reveal flow in
+[#22228](https://github.com/taikoxyz/taiko-mono/pull/22228) must be adapted before activation.
+
+### Existing SignalService storage
+
+`SignalServiceEtna` adds no storage slots. Its immutable `usesLegacyStorage` selects exactly one
+layout for checkpoint and received-signal cache reads **and writes**:
+
+- `true`: the unversioned flat mappings used by the pre-VERSION Shasta implementation.
+- `false`: the current `SignalService.VERSION` namespace. Deprecated unversioned records remain
+  inaccessible, as they do in the current implementation.
+
+There is no fallback between layouts. Verify the existing proxy implementation and storage layout
+before choosing the flag; changing it on a later upgrade changes which records are accessible.
+`VERSION()` describes the inherited versioned namespace, while `usesLegacyStorage()` determines
+whether that namespace is used. The existing L2 deploy scripts require both `ETNA_TIMESTAMP` and
+`SIGNAL_SERVICE_USES_LEGACY_STORAGE` explicitly. They read and preserve the existing proxy's
+pauser; a missing getter is accepted only for an explicitly selected legacy layout, whose older
+implementation had no additional pause authority. Their deployments do not upgrade either proxy.
+Upgrade the existing SignalService proxy to the matching-layout Etna implementation, and install
+the Anchor timestamp gate strictly before the first anchorless block. Preserve the remote
+SignalService, owner, pauser and proxy addresses. New genesis allocations use versioned storage
+(`usesLegacyStorage = false`). Execution clients, drivers and prover guests must implement the
+matching root and 13-byte header rules before Etna activates.
+
 ## Layer 2 Genesis Block
 
 ### Generating a Dummy Genesis Block
@@ -64,6 +123,7 @@ module.exports = {
     { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 },
   ],
   l1ChainId: 31337,
+  etnaTimestamp: "0xffffffffffffffff", // never; "0x0" = Etna from genesis
   ownerSecurityCouncil: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   ownerTimelockController: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   param1559: {
