@@ -116,6 +116,7 @@ func etnaHeader(number, timestamp, anchor uint64, root common.Hash) *types.Heade
 // etnaFixture returns a processor whose destination is an Etna L2 of ten blocks, 2 s apart from
 // etna on, where block i anchors to L1 block testAnchorBase + i with root testRoot(i). Every root
 // is recorded by EIP-4788 and matches L1, and the L1 head is two blocks past the newest anchor.
+// The processor's clock reads the head's time.
 func etnaFixture(etna uint64) (*Processor, *l2Chain, *l1Chain, *fakeAnchor) {
 	l2 := &l2Chain{}
 	l1 := &l1Chain{head: testAnchorBase + 11, roots: map[uint64]common.Hash{}}
@@ -131,6 +132,7 @@ func etnaFixture(etna uint64) (*Processor, *l2Chain, *l1Chain, *fakeAnchor) {
 	p := newTestProcessor(false)
 	p.destEthClient = l2
 	p.destAnchor = anchor
+	atTime(p, l2.headers[len(l2.headers)-1].Time)
 
 	return p, l2, l1, anchor
 }

@@ -211,9 +211,10 @@ func TestWaitProofTargetIgnoresTheL2HeadWithoutAnEtnaTimestamp(t *testing.T) {
 func TestWaitProofTargetUsesCheckpointsUntilTheForkGuard(t *testing.T) {
 	p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
 
-	// The head is more than etnaForkGuardSeconds before the fork.
+	// The head and the clock are more than etnaForkGuardSeconds before the fork.
 	head := etnaHeader(10, testEtnaTimestamp-etnaForkGuardSeconds-1, testAnchorBase, testRoot(0))
 	l2.heads = []*types.Header{head}
+	atTime(p, head.Time)
 
 	var calls int
 	p.eventRepo = countingCheckpointRepo(true, &calls)
@@ -228,27 +229,43 @@ func TestWaitProofTargetUsesCheckpointsUntilTheForkGuard(t *testing.T) {
 }
 
 func TestWaitProofTargetBuildsNothingWithinTheForkGuard(t *testing.T) {
-	for _, before := range []uint64{etnaForkGuardSeconds, 1} {
-		p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
-		l2.heads = []*types.Header{etnaHeader(10, testEtnaTimestamp-before, testAnchorBase, testRoot(0))}
+	tests := []struct {
+		name string
+		// head and clock are how many seconds before the fork the L2 head and the wall clock are.
+		head  uint64
+		clock uint64
+	}{
+		{name: "at the guard", head: etnaForkGuardSeconds, clock: etnaForkGuardSeconds},
+		{name: "a second before the fork", head: 1, clock: 1},
+		// The node lags: its head is an hour old, but a claim sent now lands by the wall clock.
+		{name: "lagging node", head: 3600, clock: 300},
+		// The wall clock is behind the head, which a claim cannot land before.
+		{name: "clock behind the head", head: 300, clock: 3600},
+	}
 
-		var calls int
-		p.eventRepo = countingCheckpointRepo(true, &calls)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
+			l2.heads = []*types.Header{etnaHeader(10, testEtnaTimestamp-tt.head, testAnchorBase, testRoot(0))}
+			atTime(p, testEtnaTimestamp-tt.clock)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+			var calls int
+			p.eventRepo = countingCheckpointRepo(true, &calls)
 
-		// A legacy proof now could land after the fork and revert, and an Etna one cannot be
-		// built yet, so the wait builds neither — even though a checkpoint is indexed.
-		target, err := p.waitProofTarget(ctx, l1, 2, testAnchorBase)
+			ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
+			defer cancel()
 
-		cancel()
+			// A legacy proof now could land after the fork and revert, and an Etna one cannot be
+			// built yet, so the wait builds neither — even though a checkpoint is indexed.
+			target, err := p.waitProofTarget(ctx, l1, 2, testAnchorBase)
 
-		require.ErrorIs(t, err, context.DeadlineExceeded)
-		assert.Nil(t, target)
-		assert.Zero(t, calls)
-		assert.GreaterOrEqual(t, l2.headReads, 2)
-		// Only the head is read: the guard does not look for an Etna block either.
-		assert.Equal(t, l2.headReads, l2.reads)
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+			assert.Nil(t, target)
+			assert.Zero(t, calls)
+			assert.GreaterOrEqual(t, l2.headReads, 2)
+			// Only the head is read: the guard does not look for an Etna block either.
+			assert.Equal(t, l2.headReads, l2.reads)
+		})
 	}
 }
 
@@ -278,6 +295,7 @@ func TestWaitProofTargetSwitchesToEtnaWhenTheForkPassesMidWait(t *testing.T) {
 	// The first round sees a pre-fork head and no checkpoint yet; the next sees the Etna chain.
 	preFork := etnaHeader(10, testEtnaTimestamp-etnaForkGuardSeconds-10, testAnchorBase, testRoot(0))
 	l2.heads = []*types.Header{preFork, l2.headers[9]}
+	atTime(p, preFork.Time)
 
 	var calls int
 	p.eventRepo = countingCheckpointRepo(false, &calls)

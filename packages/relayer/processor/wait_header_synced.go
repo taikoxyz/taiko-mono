@@ -10,8 +10,10 @@ import (
 
 // etnaForkGuardSeconds is how long before the Etna fork the processor stops building legacy
 // proofs. L2 picks the proof format by the claim block's timestamp, so a legacy proof whose claim
-// lands after the fork reverts, and a reverted claim is dead-lettered.
-const etnaForkGuardSeconds = 120
+// lands after the fork reverts, and a reverted claim is dead-lettered. A send can keep
+// resubmitting for five to ten minutes (see DefaultPrivateRPCSendTimeout) and the node can lag the
+// chain, so the guard is ten minutes, judged by the later of the L2 head's time and the wall clock.
+const etnaForkGuardSeconds = 600
 
 // proofTarget is what a signal proof is built against. Exactly one field is set.
 type proofTarget struct {
@@ -27,8 +29,8 @@ type proofTarget struct {
 // Before the Etna fork, and always on a destination without an Etna timestamp, it waits for an
 // indexed CheckpointSaved event at or above blockNum. From the fork on, it waits for an Etna L2
 // block whose L1 anchor covers blockNum (see etnaAnchorFor). Within etnaForkGuardSeconds before
-// the fork it builds neither. Each round decides afresh, so a wait that spans the fork switches
-// paths.
+// the fork, by the L2 head or the wall clock, it builds neither. Each round decides afresh, so a
+// wait that spans the fork switches paths.
 //
 // It returns an error only when the context ends, the chain ID or the database fails. Errors from
 // the Etna reads are logged and retried at the next round.
@@ -88,8 +90,10 @@ func (p *Processor) proofTargetRound(
 			return nil, nil
 		}
 
+		now := uint64(p.currentTime().Unix())
+
 		switch {
-		case head.Time+etnaForkGuardSeconds < etnaTimestamp:
+		case max(head.Time, now)+etnaForkGuardSeconds < etnaTimestamp:
 			// Before the fork, with time to land a claim: the legacy path below.
 		case head.Time < etnaTimestamp:
 			// Too close to the fork for a legacy proof, too early for an Etna one.

@@ -27,8 +27,6 @@ type etnaTimestampCache struct {
 	readAt    time.Time
 	timestamp uint64
 	supported bool
-	// now is the clock, replaced in tests. Nil means time.Now.
-	now func() time.Time
 }
 
 // etnaTimestamp returns the destination's Etna activation timestamp. supported is false when the
@@ -45,12 +43,7 @@ func (p *Processor) etnaTimestamp(ctx context.Context) (timestamp uint64, suppor
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	now := time.Now
-	if c.now != nil {
-		now = c.now
-	}
-
-	if !c.readAt.IsZero() && now().Sub(c.readAt) < etnaTimestampCacheTTL {
+	if !c.readAt.IsZero() && p.currentTime().Sub(c.readAt) < etnaTimestampCacheTTL {
 		return c.timestamp, c.supported, nil
 	}
 
@@ -65,7 +58,7 @@ func (p *Processor) etnaTimestamp(ctx context.Context) (timestamp uint64, suppor
 		return 0, false, err
 	}
 
-	c.readAt = now()
+	c.readAt = p.currentTime()
 
 	return c.timestamp, c.supported, nil
 }

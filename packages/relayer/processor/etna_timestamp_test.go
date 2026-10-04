@@ -38,13 +38,18 @@ func (a *fakeAnchor) GetL1StateRoot(_ *bind.CallOpts, blockID uint64) ([32]byte,
 	return root, nil
 }
 
-// withClock makes the processor's Etna timestamp cache read the returned time, which the test
-// moves with the returned function.
+// withClock makes the processor's clock read the returned time, which the test moves with the
+// returned function.
 func withClock(p *Processor) func(time.Duration) {
 	now := time.Unix(1_000_000, 0)
-	p.etnaTimestamps.now = func() time.Time { return now }
+	p.now = func() time.Time { return now }
 
 	return func(d time.Duration) { now = now.Add(d) }
+}
+
+// atTime stops the processor's clock at Unix time sec.
+func atTime(p *Processor, sec uint64) {
+	p.now = func() time.Time { return time.Unix(int64(sec), 0) }
 }
 
 func TestEtnaTimestampWithoutAnAnchorIsUnsupported(t *testing.T) {
