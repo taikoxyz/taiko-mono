@@ -1,0 +1,49 @@
+# Sentinel throughput: research note on continuation
+
+**Labels.** [proven] means an argument written out on this page or in the cited spec text, not machine verification. [assumed] means a premise, a proposed rule, or a figure nobody has measured. [open] means unresolved; where possible the note says what would close it. Figures use S1 §11 and C2 §12 at `982aac6`: TERM 60 s, DEAD_TERMS 75, DELAY_REG 7,200 s, SENTINEL_DISARM_DELAY 612,060 s, EVIDENCE_WINDOW 604,800 s, MAX_VIEWS 4, LAND_WINDOW 1,800 s, LAND_WINDOW_MAX 3,600 s, REPLACE_GRACE 300 s, LAND_CHAIN_GRACE 600 s.
+
+## 1. Purpose and status
+
+**Status (2026-10-04): research track under D79 (2).** [D79](../DECISIONS.md) (2) signs LS1-2 (C6 row L49) and keeps this design, the sentinel continuation, the redesign that failed attack before LS1-2 was signed, as a research track for a later DAO upgrade. The note below is unchanged; it changes no rule.
+
+This is a research note. It is not a specification and it changes no rule. It records the design round of 2026-10-03 on finding cross-section-02 (S1-R16's landable prefix, S1-R17's recovery rate, the proposed limitation LS1-2), run after B's review of `982aac6` (#22236, comment 5972414158). B named a candidate direction: "a continuation design could authenticate the same sentinel object's original base/reference across several landings, instead of invalidating it merely because its own first range moved lastLanded; preserve its span/bond/ancestry limits and separately decide how dead-mode eligibility persists or renews. This needs C2/S1/C8 review and a liveness proof; it is a candidate direction, not an adopted fix."
+
+**Outcome [assumed: review record].** The candidate below was attacked twice. Both attacks found it unsound as proposed. Most problems have clear text fixes, but one does not: a continuation stream lets one bonded sentinel keep pre-empting a revived registered committee for up to about 188 terms (§4, P3), and the proposed remedy is a new admission rule that no attack round has examined. So the spec keeps LS1-2 ([signed: D79 (2)] from 2026-10-04, earlier "[open: user sign-off], not signed") with its premises corrected under B-W22-A05, and this note holds the candidate as **[open: research]**. Nothing here is user-signed or adopted.
+
+**Revision (2026-10-03, follow-up Lows on `ca4a942`) [assumed: review record]:** §4's problem statements and verdicts carry labels: each problem as [proven] or [assumed], and each "Fixable as stated" as [assumed: the attack round's verdict, not re-attacked]. No finding or outcome changes.
+
+**Revision (2026-10-03, B's recheck of `e6b795c`, range `982aac6..e6b795c`) [assumed: review record]:** P3's cadence is stated per 4 occupied terms (at most 240 blocks), 240 s only under full production, earlier "every 240 s". No verdict changes.
+
+## 2. Correction applied in the spec [proven: from C2-R02, C7-R06, C2-R05 L4, C7-R08]
+
+A range's segments are its maximal runs of equal `(termId, view)`, a sentinel block carries the term of its own timestamp, and a term with no block has no segment. So one landing carries at most MAX_VIEWS = 4 occupied terms, not necessarily consecutive, and at most 240 blocks; no bound on elapsed time follows (blocks in terms 176, 180, 184 and 188 are four segments). S1-R17's "at most 3 terms later" and its general "dead mode ends at its first landing" are withdrawn in the spec (S1-R17's dated note).
+
+## 3. The candidate [assumed: candidate rule, not adopted]
+
+1. **Settled sentinel admission.** Consecutive view-255 segments of one object consume no view change; an opening landing checks the object once with S1-R16's five-word id.
+2. **One object per sentinel range.** The guest asserts that every view-255 block of a range names one `vcHash` [proven consistent with validity: an object opens only at `lastLanded + 1`, and REPLACE and RESUME lock only at `lastLanded`, C7-R06].
+3. **Sentinel cursor.** A new slot `sentinelCursor` holds the digest of `(objectId, t, l1RefNumber, l1RefHash, r, signer, owner, path)`, written by every all-view-255 landing and zeroed by every other landing, a hatch, a CONFLICT restart and initialization.
+4. **Continuation.** A landing with the cursor preimage, `vcHashOfFirstBlock = 0` and every segment view 255 continues the object without re-reading the regime or parent at the reference; it re-checks the span, same-owner rule, signer, exclusion at landing and the bond at `r`; A1 applies to DEAD and POST_DEADLINE continuations.
+5. **Eligibility persists per object and does not renew.**
+
+What survived both attacks [proven, as the attacks checked it]: the B-W22-A05 correction; the A1 interval arithmetic for a dead-path continuation (refused at or before `termStart(L) + 2,220` s, admitted from `termStart(L) + 4,020` s, `4,620` s after one announcement); the release ordering (`disarmCalledAt ≥ r + 1`, release at `≥ r + 612,061`); the one-object assertion's induction; slot 282 with the gap reduced to 18; and no honest-key slashing route.
+
+## 4. Problems found, with the amendment each attack proposed
+
+| # | Problem | Status after amendment |
+|---|---|---|
+| P1 | **Evidence after landing [proven: from S2-R17's window and the candidate's].** The proposed window `block.timestamp ≤ r + 612,060` would admit a continuation after its blocks' evidence windows (`termStart(u) + 604,800`) closed, defeating S2-R17's equivocation deterrent. In practice L7's anchor age (`AnchorTooOld`) and `TermBeyondHorizon` bind far earlier, so the window never binds [proven: from L7 and C2-R10], but the design's own argument did not rely on them. | Fixable as stated [assumed: the attack round's verdict, not re-attacked]: a window `block.timestamp ≤ r + 86,400` leaves at least 518,400 s of evidence time [proven: arithmetic] and keeps the release ordering. |
+| P2 | **Holder path [proven: from D48 and S1-R18].** The bond test was applied on every path, but D48 admits S1-R18's holder path with no sentinel pocket, so holder-path openings and continuations would revert, a regression. | Fixable as stated [assumed: the attack round's verdict, not re-attacked]: scope the bond test to OPEN_EMPTY, DEAD and POST_DEADLINE; on HOLDER_PATH re-check the holder and non-exclusion. The holder's retention over the window is **[open: A/S3]**. |
+| P3 | **Pre-emption of a revived committee [proven: schedule].** A1's `replaceableFrom` is computed from the incumbent's old term, about 67 terms behind production. A committee that returns and RESUMEs spends the one deferral, after which the incumbent's next continuation is admissible about 840 s later; unless the committee's proof is ready by then, the continuation supersedes its parent, and the race repeats once per 4 occupied terms (at most 240 blocks) of the incumbent's continuation stream for the rest of the span and backlog, which is every 240 s only when the incumbent produces in every term (full production) [assumed: full production for the 240 s figure]. (Revised 2026-10-03 on B's recheck of `e6b795c`: read "the race repeats every 240 s", which inferred elapsed time from four occupied terms, the inference B-W22-A05 withdrew.) Today's rule ends the object after one landing. | **[open]** Candidate rule: a DEAD or POST_DEADLINE continuation reverts while an accepted RESUME or REPLACE record keyed on the current `lastLanded` exists. Its interaction with S2's recorded view changes is unexamined; otherwise the regression must be disclosed and "no regression" withdrawn. |
+| P4 | **Inclusion premise [proven: arithmetic on A1's interval].** "No competing fresh dead-mode object can open" needs the continuation included within 539 s of `termStart(L) + 4,020`; an inclusion delay of 540 s or more opens the same race as an announcement, with no bond cost. | **[assumed]** Add `I < 540 s` to the premise, or list it as a residual. |
+| P5 | **Rate arithmetic [proven: arithmetic].** "100 to 121 terms per 176 to 197 terms" pairs bounds that cannot occur together: at most 121 terms per cycle of at least 196 terms (about 62 %) under the freshest reference, about 100 per 195 (about 51 %) under an older one. | Fixable as stated [assumed: the attack round's verdict, not re-attacked]. |
+| P6 | **Gas on every landing [assumed: estimate, not measured].** Zeroing the cursor and carrying its 8-field struct in `LandInput` costs every ordinary landing a cold access and about 256 bytes of zero calldata. | **[open]** A one-bit "cursor live" flag in an already loaded word and an optional trailing field; measured under C6. |
+| P7 | **Stale cross-references [proven: from C3-R06 step 7, C3's T50 paragraph and L7].** C3-R06 step 7 and C3's T50 paragraph cite the reference-time test, which a continuation does not re-run; the C5-R02 note claimed a continuation reads no L1 block hash, but L7 still reads its anchor tip. | Fixable as stated [assumed: the attack round's verdict, not re-attacked]. |
+
+## 5. Why the spec keeps the disclosure [assumed: judgment of this round]
+
+P3 is a liveness regression against a revived honest committee, and its remedy is an unexamined new rule touching S2's view-change records. B also asked for C2, S1 and C8 to be reviewed together with a liveness proof before adoption. So the amendments do not clearly fix every problem, and LS1-2 stays the disclosed limitation. The next round should attack P3's pre-emption rule together with the cursor, the 86,400-s window and the path-scoped bond test.
+
+## 6. Obligations a later adoption would place on others [open]
+
+S2 (B): only S2-R18's optional "unlandable" label for blocks under an object after a landing not under it; no S2 change is required. C3 (A): step 7's dead-mode clause and the T50 paragraph. C8 (A): slot 282, two error names, one event and one struct. None of S2, C1 or C4 is edited by this note.
