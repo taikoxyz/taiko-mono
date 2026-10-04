@@ -108,6 +108,11 @@ type Processor struct {
 
 	taikoL2 *taikol2.TaikoL2
 
+	// destAnchor is the destination chain's Anchor at DEST_TAIKO_ADDRESS. On an L2→L1 processor
+	// the address is the L1 Inbox, which has no Etna timestamp, so the Etna path never runs.
+	destAnchor     anchorCaller
+	etnaTimestamps etnaTimestampCache
+
 	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
 
 	cfg *Config
