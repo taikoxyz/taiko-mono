@@ -242,7 +242,8 @@ func (p *Processor) processMessage(
 // proof generation service to generate the source-chain proof.
 func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	event *bridge.BridgeMessageSent) ([]byte, error) {
-	if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
+	target, err := p.waitProofTarget(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber)
+	if err != nil {
 		return nil, err
 	}
 
@@ -258,31 +259,37 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		return nil, err
 	}
 
-	latestBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
-	if err != nil {
-		return nil, err
+	params := proof.SignalProofParams{
+		ChainID:              p.destChainId,
+		SignalServiceAddress: p.srcSignalServiceAddress,
+		Blocker:              p.srcEthClient,
+		Caller:               p.srcCaller,
+		Key:                  key,
 	}
 
-	if latestBlockID == 0 {
-		latestBlockID = event.Raw.BlockNumber
-		slog.Warn("no synced header found; using message block number",
-			"fallbackBlockNum", latestBlockID,
-			"srcChainId", p.srcChainId.Uint64(),
-			"destChainId", p.destChainId.Uint64(),
-		)
+	if target.etna != nil {
+		params.BlockNumber = target.etna.l1Block
+		params.BlockID = target.etna.l2Timestamp
+		params.StateRoot = target.etna.stateRoot
+	} else {
+		latestBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
+		if err != nil {
+			return nil, err
+		}
+
+		if latestBlockID == 0 {
+			latestBlockID = event.Raw.BlockNumber
+			slog.Warn("no synced header found; using message block number",
+				"fallbackBlockNum", latestBlockID,
+				"srcChainId", p.srcChainId.Uint64(),
+				"destChainId", p.destChainId.Uint64(),
+			)
+		}
+
+		params.BlockNumber = latestBlockID
 	}
 
-	encodedSignalProof, err := p.prover.EncodedSignalProof(
-		ctx,
-		proof.SignalProofParams{
-			ChainID:              p.destChainId,
-			SignalServiceAddress: p.srcSignalServiceAddress,
-			Blocker:              p.srcEthClient,
-			Caller:               p.srcCaller,
-			Key:                  key,
-			BlockNumber:          latestBlockID,
-		},
-	)
+	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, params)
 
 	if err != nil {
 		slog.Error("error encoding signal proof",
@@ -294,7 +301,8 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"srcOwner", event.Message.SrcOwner.Hex(),
 			"destOwner", event.Message.DestOwner.Hex(),
 			"error", err,
-			"blockNumber", latestBlockID,
+			"blockNumber", params.BlockNumber,
+			"blockID", params.BlockID,
 		)
 
 		return nil, err
