@@ -34,6 +34,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/anchor"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -107,6 +108,14 @@ type Processor struct {
 	destChainId *big.Int
 
 	taikoL2 *taikol2.TaikoL2
+
+	// destAnchor is the destination chain's Anchor at DEST_TAIKO_ADDRESS. On an L2→L1 processor
+	// the address is the L1 Inbox, which has no Etna timestamp, so the Etna path never runs.
+	destAnchor     anchorCaller
+	etnaTimestamps etnaTimestampCache
+
+	// now is the processor's clock, replaced in tests. Nil means time.Now.
+	now func() time.Time
 
 	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
 
@@ -217,6 +226,11 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	}
 
 	destBridge, err := bridge.NewBridge(cfg.DestBridgeAddress, destEthClient)
+	if err != nil {
+		return err
+	}
+
+	destAnchor, err := anchor.NewAnchor(cfg.DestTaikoAddress, destEthClient)
 	if err != nil {
 		return err
 	}
@@ -345,6 +359,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.srcSignalService = srcSignalService
 
 	p.destBridge = destBridge
+	p.destAnchor = destAnchor
 	p.destERC1155Vault = destERC1155Vault
 	p.destERC20Vault = destERC20Vault
 	p.destERC721Vault = destERC721Vault
@@ -458,6 +473,15 @@ func installPrivateSending(
 
 func (p *Processor) Name() string {
 	return "processor"
+}
+
+// currentTime returns the time on the processor's clock.
+func (p *Processor) currentTime() time.Time {
+	if p.now != nil {
+		return p.now()
+	}
+
+	return time.Now()
 }
 
 // WaitForInterrupt returns whether processor should keep running and wait for
@@ -767,6 +791,13 @@ func isTransientProcessMessageError(err error) bool {
 		// dead-lettered, and the dead-letter queue has no consumer. A claim nobody had processed
 		// was parked there for good. The sentinel is %w-wrapped, so this matches it exactly.
 		errors.Is(err, core.ErrNonceTooLow) ||
+		// The L1 block the proof was built at changed root after the wait checked it: an L1 reorg,
+		// or RPC backends that disagree. The next attempt waits for an anchor again.
+		errors.Is(err, proof.ErrStateRootMismatch) ||
+		// A legacy proof used after the Etna fork cannot verify; the next attempt waits for an
+		// Etna anchor and proves the message again.
+		errors.Is(err, errLegacyProofAfterEtna) ||
+		errors.Is(err, errEtnaForkUnknown) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||

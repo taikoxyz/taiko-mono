@@ -455,6 +455,27 @@ func TestIsTransientProcessMessageError(t *testing.T) {
 			want: false,
 		},
 		{
+			// The L1 block changed root between the wait and the proof: an L1 reorg, or RPC
+			// backends that disagree. The next attempt waits for a fresh anchor, so the claim is
+			// not lost.
+			name: "the proof's L1 block was reorged",
+			err:  fmt.Errorf("encode proof: %w", proof.ErrStateRootMismatch),
+			want: true,
+		},
+		{
+			// A legacy proof used after the Etna fork cannot verify; the message is proven again.
+			name: "a legacy proof used after the Etna fork",
+			err:  fmt.Errorf("%w: %w", errLegacyProofAfterEtna, errTxReverted),
+			want: true,
+		},
+		{
+			// A legacy-proof claim failed and the fork state could not be read; it may have
+			// failed because the fork passed, so the message is retried rather than lost.
+			name: "a legacy proof failed with the Etna fork state unknown",
+			err:  fmt.Errorf("%w: %w", errEtnaForkUnknown, errTxReverted),
+			want: true,
+		},
+		{
 			// The sentinel itself, wrapped the way sendTx wraps it. This is the claim that lost a
 			// race for its nonce with nobody having processed the message, so it is retried.
 			name: "the nonce too low sentinel",

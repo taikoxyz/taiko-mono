@@ -20,6 +20,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -494,8 +495,9 @@ func TestGenerateEncodedSignalProofUsesDestChainCheckpoint(t *testing.T) {
 		},
 	}
 
-	_, err = p.generateEncodedSignalProof(context.Background(), event)
+	_, etnaProof, err := p.generateEncodedSignalProof(context.Background(), event)
 	assert.Nil(t, err)
+	assert.False(t, etnaProof)
 }
 
 type blockByNumberEthClient struct {
@@ -828,4 +830,96 @@ func Test_saveMessageStatusChangedEventIgnoresAStatusLogAnotherContractEmitted(t
 	require.NoError(t, json.Unmarshal(saved[0].Data, stored))
 	assert.Equal(t, p.cfg.DestBridgeAddress, stored.Raw.Address)
 	assert.Equal(t, uint(5), stored.Raw.Index)
+}
+
+// recordingCaller answers eth_getProof like mock.Caller and records the block it was asked for.
+type recordingCaller struct {
+	mock.Caller
+	blocks []string
+}
+
+func (c *recordingCaller) CallContext(
+	ctx context.Context,
+	result interface{},
+	method string,
+	args ...interface{},
+) error {
+	if method == "eth_getProof" {
+		c.blocks = append(c.blocks, args[2].(string))
+	}
+
+	return c.Caller.CallContext(ctx, result, method, args...)
+}
+
+func TestGenerateEncodedSignalProofUsesTheEtnaAnchor(t *testing.T) {
+	p, _, l1, _ := etnaFixture(testEtnaTimestamp)
+	caller := &recordingCaller{}
+	p.srcEthClient = l1
+	p.srcCaller = caller
+
+	event := newProcessMessageEvent(0)
+	event.Raw.BlockNumber = testAnchorBase + 2
+
+	encoded, etnaProof, err := p.generateEncodedSignalProof(testContext(t), event)
+	require.NoError(t, err)
+	assert.True(t, etnaProof)
+
+	// The proof carries the timestamp of the L2 block that recorded the root, and the storage
+	// proof comes from that block's L1 anchor.
+	want, err := encoding.EncodeHopProofs([]encoding.HopProof{{
+		BlockID:      testEtnaTimestamp + 6,
+		ChainID:      mock.MockChainID.Uint64(),
+		RootHash:     testRoot(3),
+		AccountProof: [][]byte{},
+		StorageProof: [][]byte{},
+	}})
+	require.NoError(t, err)
+
+	assert.Equal(t, want, encoded)
+	assert.Equal(t, []string{"0x3eb"}, caller.blocks) // testAnchorBase + 3
+}
+
+func TestGenerateEncodedSignalProofRejectsAnL1ReorgAfterTheWait(t *testing.T) {
+	p, _, l1, _ := etnaFixture(testEtnaTimestamp)
+	p.srcEthClient = l1
+
+	// The anchor block checks out during the wait, then is reorged before the proof reads it.
+	l1.blockRoots = map[uint64]common.Hash{testAnchorBase + 3: common.HexToHash("0xbad")}
+
+	event := newProcessMessageEvent(0)
+	event.Raw.BlockNumber = testAnchorBase + 2
+
+	encoded, _, err := p.generateEncodedSignalProof(testContext(t), event)
+
+	// A transient error: the message is retried later rather than dead-lettered.
+	require.ErrorIs(t, err, proof.ErrStateRootMismatch)
+	assert.True(t, isTransientProcessMessageError(err))
+	assert.Nil(t, encoded)
+}
+
+func Test_ProcessMessage_retriesALegacyProofThatOutlivedTheFork(t *testing.T) {
+	p, _, _, destAnchor := etnaFixture(testEtnaTimestamp)
+	p.destBridge = &mock.Bridge{MessageNotReceived: true}
+
+	// The Anchor was upgraded moments before the fork, but the cache still holds the read from
+	// before the upgrade. The wait therefore takes the legacy path, and the destination, now past
+	// the fork, cannot verify the legacy proof.
+	destAnchor.etnaErr = errors.New("execution reverted")
+
+	_, supported, err := p.etnaTimestamp(context.Background())
+	require.NoError(t, err)
+	require.False(t, supported)
+
+	destAnchor.etnaErr = nil
+
+	body, err := json.Marshal(queue.QueueMessageSentBody{Event: newProcessMessageEvent(1)})
+	require.NoError(t, err)
+
+	shouldRequeue, _, err := p.processMessage(testContext(t), queue.Message{Body: body})
+
+	// The failure is transient, so the message is retried with an Etna proof, not dead-lettered.
+	require.ErrorIs(t, err, errLegacyProofAfterEtna)
+	require.ErrorContains(t, err, "message not received")
+	assert.True(t, isTransientProcessMessageError(err))
+	assert.False(t, shouldRequeue)
 }
