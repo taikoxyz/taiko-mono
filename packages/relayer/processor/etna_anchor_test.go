@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -26,6 +27,7 @@ type l2Chain struct {
 	headers   []*types.Header
 	heads     []*types.Header
 	headErr   error
+	headerErr error
 	headReads int
 	reads     int
 }
@@ -34,6 +36,10 @@ func (c *l2Chain) HeaderByNumber(_ context.Context, number *big.Int) (*types.Hea
 	c.reads++
 
 	if number != nil {
+		if c.headerErr != nil {
+			return nil, c.headerErr
+		}
+
 		if number.Uint64() >= uint64(len(c.headers)) {
 			return nil, ethereum.NotFound
 		}
@@ -65,15 +71,21 @@ func (c *l2Chain) HeaderByNumber(_ context.Context, number *big.Int) (*types.Hea
 type l1Chain struct {
 	mock.EthClient
 	head       uint64
+	headErr    error
+	headerErr  error
 	roots      map[uint64]common.Hash
 	blockRoots map[uint64]common.Hash
 }
 
 func (c *l1Chain) BlockNumber(_ context.Context) (uint64, error) {
-	return c.head, nil
+	return c.head, c.headErr
 }
 
 func (c *l1Chain) HeaderByNumber(_ context.Context, number *big.Int) (*types.Header, error) {
+	if c.headerErr != nil {
+		return nil, c.headerErr
+	}
+
 	return &types.Header{Number: number, Root: c.roots[number.Uint64()]}, nil
 }
 
@@ -314,9 +326,50 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 				require.ErrorIs(t, err, tt.wantErr)
 			case tt.wantErrText != "":
 				require.ErrorContains(t, err, tt.wantErrText)
+				// errOracleRootMismatch names getL1StateRoot too, and is not this error.
+				require.NotErrorIs(t, err, errOracleRootMismatch)
 			default:
 				require.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestEtnaAnchorForNamesTheReadThatFailed(t *testing.T) {
+	rpcErr := errors.New("dial tcp: connect: connection refused")
+
+	tests := []struct {
+		name     string
+		mutate   func(l2 *l2Chain, l1 *l1Chain)
+		wantText string
+	}{
+		{
+			name:     "L2 header",
+			mutate:   func(l2 *l2Chain, _ *l1Chain) { l2.headerErr = rpcErr },
+			wantText: "L2 header 8: ",
+		},
+		{
+			name:     "L1 head",
+			mutate:   func(_ *l2Chain, l1 *l1Chain) { l1.headErr = rpcErr },
+			wantText: "L1 head: ",
+		},
+		{
+			name:     "L1 header",
+			mutate:   func(_ *l2Chain, l1 *l1Chain) { l1.headerErr = rpcErr },
+			wantText: "L1 header 1003: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, l2, l1, _ := etnaFixture(testEtnaTimestamp)
+			tt.mutate(l2, l1)
+
+			got, err := p.etnaAnchorFor(context.Background(), l1, l2.headers[9], testEtnaTimestamp, testAnchorBase)
+
+			assert.Nil(t, got)
+			require.ErrorIs(t, err, rpcErr)
+			require.ErrorContains(t, err, tt.wantText)
 		})
 	}
 }

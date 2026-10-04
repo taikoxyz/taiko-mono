@@ -862,8 +862,8 @@ func TestGenerateEncodedSignalProofUsesTheEtnaAnchor(t *testing.T) {
 	encoded, err := p.generateEncodedSignalProof(testContext(t), event)
 	require.NoError(t, err)
 
-	// The proof names the L2 block that recorded the root, and the storage proof comes from
-	// that block's L1 anchor.
+	// The proof carries the timestamp of the L2 block that recorded the root, and the storage
+	// proof comes from that block's L1 anchor.
 	want, err := encoding.EncodeHopProofs([]encoding.HopProof{{
 		BlockID:      testEtnaTimestamp + 6,
 		ChainID:      mock.MockChainID.Uint64(),

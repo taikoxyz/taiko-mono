@@ -57,8 +57,9 @@ func Test_EncodedSignalProof_BlockIDOverridesTheBlockNumber(t *testing.T) {
 	encoded, err := p.EncodedSignalProof(context.Background(), params)
 	require.NoError(t, err)
 
-	// The proof is the legacy one except for the blockId: an Etna proof names the L2 block that
-	// recorded the root, while the account and storage proofs still come from the L1 block.
+	// The proof is the legacy one except for the blockId: an Etna proof carries the timestamp of
+	// the L2 block that recorded the root, while the account and storage proofs still come from
+	// the L1 block.
 	want, err := encoding.EncodeHopProofs([]encoding.HopProof{{
 		BlockID:      1_800_000_000,
 		ChainID:      mock.MockChainID.Uint64(),

@@ -455,8 +455,9 @@ func TestIsTransientProcessMessageError(t *testing.T) {
 			want: false,
 		},
 		{
-			// The L1 block changed root between the wait and the proof, which only a reorg does.
-			// The next attempt waits for a fresh anchor, so the claim is not lost.
+			// The L1 block changed root between the wait and the proof: an L1 reorg, or RPC
+			// backends that disagree. The next attempt waits for a fresh anchor, so the claim is
+			// not lost.
 			name: "the proof's L1 block was reorged",
 			err:  fmt.Errorf("encode proof: %w", proof.ErrStateRootMismatch),
 			want: true,
