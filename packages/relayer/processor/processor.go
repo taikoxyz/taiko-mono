@@ -34,6 +34,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/anchor"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -226,6 +227,11 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
+	destAnchor, err := anchor.NewAnchor(cfg.DestTaikoAddress, destEthClient)
+	if err != nil {
+		return err
+	}
+
 	srcChainID, err := srcEthClient.ChainID(context.Background())
 	if err != nil {
 		return err
@@ -350,6 +356,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.srcSignalService = srcSignalService
 
 	p.destBridge = destBridge
+	p.destAnchor = destAnchor
 	p.destERC1155Vault = destERC1155Vault
 	p.destERC20Vault = destERC20Vault
 	p.destERC721Vault = destERC721Vault
