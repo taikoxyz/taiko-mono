@@ -50,6 +50,14 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
         );
 
+        ISignalService.HopProof[] memory proofs =
+            abi.decode(VALID_SIGNAL_PROOF, (ISignalService.HopProof[]));
+        proofs[0].blockId += uint64(1) << 48;
+        vm.expectRevert(Anchor.InvalidL1BlockNumber.selector);
+        _signalService.verifySignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
+        );
+
         vm.warp(ETNA_TIMESTAMP);
         // The wire format is unchanged, but blockId is now interpreted as an L2 timestamp.
         vm.expectRevert(Anchor.EtnaNotActive.selector);
@@ -83,7 +91,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, _timestampProof(ETNA_TIMESTAMP)
         );
 
-        // An empty proof must bypass both the fork-time getter and the expired oracle entry.
+        // An empty proof must bypass the provider, even after its oracle entry expires.
         vm.etch(address(_anchor), hex"5f5ffd");
         _signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");
         _signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, "");

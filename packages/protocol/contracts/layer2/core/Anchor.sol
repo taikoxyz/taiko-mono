@@ -57,10 +57,10 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
 
-    /// @inheritdoc IL1StateRootProvider
+    /// @notice First L2 block timestamp at which the Etna fork is active.
     /// @dev `anchorV4` reverts from this timestamp on. 0 means Etna is active from genesis;
     /// `type(uint64).max` means Etna never activates.
-    uint64 public immutable override etnaTimestamp;
+    uint64 public immutable etnaTimestamp;
 
     // ---------------------------------------------------------------
     // State variables
@@ -156,14 +156,19 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
     }
 
     /// @inheritdoc IL1StateRootProvider
-    function getL1StateRoot(uint64 _l2Timestamp) external view returns (bytes32 stateRoot_) {
-        require(_l2Timestamp >= etnaTimestamp, EtnaNotActive());
+    function getL1StateRoot(uint64 _blockId) external view returns (bytes32 stateRoot_) {
+        if (block.timestamp < etnaTimestamp) {
+            require(_blockId <= type(uint48).max, InvalidL1BlockNumber());
+            stateRoot_ = checkpointStore.getCheckpoint(uint48(_blockId)).stateRoot;
+        } else {
+            require(_blockId >= etnaTimestamp, EtnaNotActive());
 
-        // EIP-4788 takes a raw 32-byte timestamp, without a function selector. It reverts when
-        // another timestamp has overwritten the queried slot; absent code returns no data.
-        (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(uint256(_l2Timestamp)));
-        require(ok && ret.length == 32, L1StateRootNotFound());
-        stateRoot_ = abi.decode(ret, (bytes32));
+            // EIP-4788 takes a raw 32-byte timestamp without a selector. Missing/expired entries
+            // revert; absent code returns no data.
+            (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(uint256(_blockId)));
+            require(ok && ret.length == 32, L1StateRootNotFound());
+            stateRoot_ = abi.decode(ret, (bytes32));
+        }
         require(stateRoot_ != bytes32(0), L1StateRootNotFound());
     }
 
@@ -270,4 +275,5 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
     error InvalidSender();
     error L1StateRootNotFound();
     error EtnaNotActive();
+    error InvalidL1BlockNumber();
 }

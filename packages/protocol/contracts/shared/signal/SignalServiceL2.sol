@@ -21,12 +21,10 @@ contract SignalServiceL2 is SignalService {
         SignalService(_authorizedSyncer, _remoteSignalService, _pauser)
     { }
 
-    /// @dev Resolves a checkpoint before Etna, or an oracle root from Etna on.
+    /// @dev Reads the authenticated root from the configured provider.
     /// @param _blockId L1 block number before Etna, L2 timestamp from Etna on.
     /// @return stateRoot_ Authenticated L1 execution state root.
     function _getStateRoot(uint64 _blockId) internal view override returns (bytes32 stateRoot_) {
-        IL1StateRootProvider provider = IL1StateRootProvider(_authorizedSyncer);
-        if (block.timestamp < provider.etnaTimestamp()) return super._getStateRoot(_blockId);
-        return provider.getL1StateRoot(_blockId);
+        return IL1StateRootProvider(_authorizedSyncer).getL1StateRoot(_blockId);
     }
 }
