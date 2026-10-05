@@ -50,18 +50,15 @@ pub(super) fn response_envelope_from_l2_block(
     is_forced_inclusion: bool,
     signature: [u8; 65],
 ) -> WhitelistExecutionPayloadEnvelope {
-    WhitelistExecutionPayloadEnvelope {
+    crate::payload::signed_envelope_from_header(
+        header,
+        base_fee_per_gas,
+        compressed_tx_list,
+        header.parent_beacon_block_root,
         end_of_sequencing,
-        is_forced_inclusion: is_forced_inclusion.then_some(true),
-        parent_beacon_block_root: header.parent_beacon_block_root.filter(|root| !root.is_zero()),
-        header_difficulty: (!header.difficulty.is_zero()).then_some(header.difficulty),
-        execution_payload: crate::payload::execution_payload_from_header(
-            header,
-            base_fee_per_gas,
-            vec![compressed_tx_list],
-        ),
-        signature: Some(signature),
-    }
+        is_forced_inclusion.then_some(true),
+        signature,
+    )
 }
 
 impl WhitelistPreconfirmationImporter {

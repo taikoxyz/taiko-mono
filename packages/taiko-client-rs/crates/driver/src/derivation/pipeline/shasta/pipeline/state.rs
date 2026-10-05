@@ -143,13 +143,12 @@ impl ParentState {
 #[cfg(test)]
 mod tests {
     use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
-    use alloy_primitives::{Address, B256};
     use protocol::shasta::{
         constants::{TAIKO_DEVNET_CHAIN_ID, min_base_fee_for_chain},
         manifest::{BlockManifest, DerivationSourceManifest},
     };
 
-    use super::*;
+    use super::{super::sample_meta, *};
 
     /// Etna activation used by the parent-state tests.
     const ETNA_TIMESTAMP: u64 = 1_000;
@@ -171,20 +170,6 @@ mod tests {
             min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
             chain_id: TAIKO_DEVNET_CHAIN_ID,
             etna_fork_timestamp: Some(ETNA_TIMESTAMP),
-        }
-    }
-
-    /// Proposal 3 emitted in L1 block 60 after both sample parents.
-    fn sample_meta() -> BundleMeta {
-        BundleMeta {
-            proposal_id: 3,
-            last_finalized_proposal_id: None,
-            proposal_timestamp: ETNA_TIMESTAMP + 12,
-            l1_block_number: 60,
-            l1_block_hash: B256::with_last_byte(0x60),
-            origin_block_number: 59,
-            proposer: Address::repeat_byte(0x22),
-            basefee_sharing_pctg: 75,
         }
     }
 

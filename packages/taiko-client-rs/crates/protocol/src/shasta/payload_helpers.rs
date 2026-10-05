@@ -219,15 +219,12 @@ pub fn build_payload_attributes_with_id(
 #[cfg(test)]
 mod tests {
     use super::{
-        PayloadAttributesInput, build_payload_attributes_with_id, decode_etna_anchor_block_number,
-        encode_etna_extra_data, encode_extra_data,
+        PayloadAttributesInput, UINT48_MAX, build_payload_attributes_with_id,
+        decode_etna_anchor_block_number, encode_etna_extra_data, encode_extra_data,
     };
     use crate::shasta::ProtocolError;
     use alethia_reth_primitives::decode_shasta_proposal_id;
     use alloy::primitives::{Address, B256, Bytes, U256, hex};
-
-    /// Largest value a `uint48` `extraData` field can carry.
-    const MAX_U48: u64 = (1 << 48) - 1;
 
     /// Pre-Etna fingerprint of [`fingerprint_input`] without a beacon root, recorded with the
     /// pre-Osaka alethia-reth pin (`0fb47d9`) so the Osaka pin is checked against V2-era IDs.
@@ -314,24 +311,24 @@ mod tests {
     #[test]
     fn etna_extra_data_round_trips_the_largest_uint48_values() {
         let extra_data =
-            encode_etna_extra_data(u8::MAX, MAX_U48, MAX_U48).expect("max uint48 fits");
+            encode_etna_extra_data(u8::MAX, UINT48_MAX, UINT48_MAX).expect("max uint48 fits");
 
         assert_eq!(extra_data.as_ref(), hex!("ffffffffffffffffffffffffff"));
-        assert_eq!(decode_shasta_proposal_id(&extra_data), Some(MAX_U48));
-        assert_eq!(decode_etna_anchor_block_number(1, &extra_data).unwrap(), MAX_U48);
+        assert_eq!(decode_shasta_proposal_id(&extra_data), Some(UINT48_MAX));
+        assert_eq!(decode_etna_anchor_block_number(1, &extra_data).unwrap(), UINT48_MAX);
     }
 
     #[test]
     fn etna_extra_data_rejects_fields_beyond_uint48() {
         assert!(matches!(
-            encode_etna_extra_data(50, MAX_U48 + 1, 1),
+            encode_etna_extra_data(50, UINT48_MAX + 1, 1),
             Err(ProtocolError::EtnaExtraDataFieldOverflow { field: "proposal_id", value })
-                if value == MAX_U48 + 1
+                if value == UINT48_MAX + 1
         ));
         assert!(matches!(
-            encode_etna_extra_data(50, 1, MAX_U48 + 1),
+            encode_etna_extra_data(50, 1, UINT48_MAX + 1),
             Err(ProtocolError::EtnaExtraDataFieldOverflow { field: "anchor_block_number", value })
-                if value == MAX_U48 + 1
+                if value == UINT48_MAX + 1
         ));
     }
 

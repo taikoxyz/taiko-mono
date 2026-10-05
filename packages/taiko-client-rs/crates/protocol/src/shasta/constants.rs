@@ -244,12 +244,8 @@ pub fn unzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> ForkCo
 /// every built-in chain.
 pub fn etna_fork_condition_for_chain(chain_id: u64) -> ForkConfigResult<ForkCondition> {
     let condition = fork_condition_for_chain(chain_id, TaikoHardfork::Etna)?;
-    match chain_id {
-        TAIKO_DEVNET_CHAIN_ID => Ok(DEVNET_ETNA_OVERRIDE
-            .get()
-            .copied()
-            .map(ForkCondition::Timestamp)
-            .unwrap_or(condition)),
+    match (chain_id, DEVNET_ETNA_OVERRIDE.get()) {
+        (TAIKO_DEVNET_CHAIN_ID, Some(&timestamp)) => Ok(ForkCondition::Timestamp(timestamp)),
         _ => Ok(condition),
     }
 }
