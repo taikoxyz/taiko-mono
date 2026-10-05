@@ -35,15 +35,29 @@ pub(super) fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) 
 }
 
 /// Map internal driver errors to REST status codes.
+///
+/// The engine layer's payload fork guards (a pre-Unzen target, a root that breaks the fork's
+/// `parentBeaconBlockRoot` rule) reject the request before any engine call, so they are client
+/// errors like any other invalid payload. An unresolvable Etna schedule is a fault of this
+/// node's configuration, not of the request, so it stays a server error.
 fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
+    use driver::sync::error::EngineSubmissionError;
+
     match err {
         WhitelistPreconfirmationDriverError::InvalidPayload(_) |
         WhitelistPreconfirmationDriverError::Driver(
             driver::DriverError::PreconfIngressNotReady,
         ) |
-        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
-            StatusCode::BAD_REQUEST
-        }
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) |
+        WhitelistPreconfirmationDriverError::Driver(
+            driver::DriverError::PreconfInjectionFailed {
+                source:
+                    EngineSubmissionError::PreUnzenTarget { .. } |
+                    EngineSubmissionError::EtnaTargetWithoutBeaconRoot { .. } |
+                    EngineSubmissionError::PreEtnaTargetWithBeaconRoot { .. },
+                ..
+            },
+        ) => StatusCode::BAD_REQUEST,
         // The Go preconfirmation server maps block-insertion failures to 500. Keep parent
         // mismatches and other production-path failures in this catch-all for REST parity.
         _ => StatusCode::INTERNAL_SERVER_ERROR,

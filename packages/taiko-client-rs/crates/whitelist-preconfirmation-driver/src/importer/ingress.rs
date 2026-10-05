@@ -137,8 +137,11 @@ impl WhitelistPreconfirmationImporter {
         envelope: WhitelistExecutionPayloadEnvelope,
         ingress_source: &'static str,
     ) -> Result<()> {
+        // P2P imports still apply the pre-Etna rules without a root check.
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
+            None,
+            None,
             self.chain_id,
             self.anchor_address,
         )?;

@@ -10,9 +10,10 @@ use protocol::shasta::{PayloadAttributesInput, build_payload_attributes_with_id}
 ///
 /// `tx_list` carries the already-decompressed transaction list bytes; the L1 origin
 /// `signature` is zeroed for local builds and carries the sequencer signature for
-/// P2P imports. An absent `parent_beacon_block_root` (REST builds, and P2P envelopes whose zero
-/// root decodes to `None`) is sent as `Some(B256::ZERO)`, the root every pre-Etna
-/// `engine_forkchoiceUpdatedV3` build requires.
+/// P2P imports. `parent_beacon_block_root` is the request's or envelope's root: an Etna block's
+/// nonzero root is sent as is, and an absent one (pre-Etna REST requests that omit it, and P2P
+/// envelopes whose zero root decodes to `None`) is sent as `Some(B256::ZERO)`, the root every
+/// pre-Etna `engine_forkchoiceUpdatedV3` build requires.
 pub(crate) fn build_driver_payload(
     execution_payload: &ExecutionPayloadV1,
     tx_list: Vec<u8>,
