@@ -386,40 +386,157 @@ economics spike, and the resistance argument of <a href="#REC-03">REC-03</a> is 
 reviewed)</span></div>
 
 <div class="rule" id="REC-03"><span class="rid">REC-03 — resistance analysis: what it costs to induce recovery, and what cannot be bounded</span>
-<span class="norm"><strong>Premises.</strong> Within the fault model — <code>A-CONS-1</code> (fewer than
-one third of the voting power is Byzantine), <code>A-CONS-2</code> (the network eventually delivers
-messages to honest validators), <code>A-DA-2</code> (data is served) and <code>A-L1-1</code> (L1 includes
-valid transactions) — the following all hold: (1) finalization continues with the honest
-supermajority; (2) proposer rotation prevents a leader from censoring indefinitely
-(<a href="02-consensus.html#CONS-06">CONS-06</a>); (3) data is served; (4) proving is permissionless and
-rewarded (<a href="04-l1-integration.html#L1-10">L1-10</a>); and (5) L1 includes valid transactions.
-Therefore batches keep landing, <code>T_STALL</code> never elapses, and a sub-threshold coalition
-<strong>cannot induce the trigger</strong>. <strong>What it would take.</strong> To induce the trigger an
-attacker must suppress <em>every</em> prover or censor the landing transaction at L1 — both outside the L2
-fault model: the absence of any prover is an availability failure rather than an attack inside
-<code>A-DA-2</code>, and L1 censorship contradicts <code>A-L1-1</code>. <strong>No selective
-rollback.</strong> Because recovery restores the checkpoint wholesale, there is no selective rollback: an
-attacker cannot revert one unfavourable transaction without destroying every L2 effect above that
-checkpoint, including their own. <strong>Residual, stated honestly.</strong> Off-chain profit from a
-rolled-back state is outside any protocol bound; an adversary who can censor L1 can attempt repeated
-recoveries, which the escalating bond and the cooldown make <em>expensive</em> but do not bound. Recovery
-is therefore a <strong>manipulation primitive with a price, not a free option</strong>.
-<strong>Falsifiers, stated explicitly.</strong> The argument fails if (a) proving ceases to be
-permissionless in practice; (b) <code>T_RECOVERY_DELAY</code> is shorter than the time an honest prover
-needs to land a batch; or (c) the bond were refundable on cancellation. <strong>Review
-requirement.</strong> This analysis requires independent review before the selection is treated as
-settled, and reviewers must attempt to break it. <em>(user decision D-7: the D2-step-5 blocker is
-replaced by this resistance analysis, whose premises, residuals and falsifiers are stated, with
-independent review still required.)</em></span>
-<span class="why">This analysis is an argument, not a proof, and it is only as strong as its premises:
-resistance to inducing the trigger is inherited from the L2 fault model, while L1-level censorship and
-genuine prover absence remain outside it. The residual is disclosed rather than hidden — repeated
-recovery by an L1-censoring adversary is priced, not prevented — and the falsifiers above are the
-conditions under which the argument must be withdrawn.</span>
+<span class="norm"><strong>Premises, stated separately from the conclusion.</strong> The claim below is
+conditional on all six, and none may be silently dropped: <strong>(P1)</strong> <code>A-CONS-1</code> —
+fewer than one third of the voting power is Byzantine, in every epoch; <strong>(P2)</strong>
+<code>A-CONS-2</code> — after GST, delivery among correct validators is timely, so finalization continues
+with the honest supermajority (<a href="02-consensus.html#CONS-07">CONS-07</a>); <strong>(P3)</strong>
+<code>A-DA-2</code> — at least one honest, adequately-resourced prover completes each committed batch's
+proof inside the envelope, with the batch data obtainable (<code>A-CONS-5</code>,
+<a href="04-l1-integration.html#DA-01">DA-01</a>); <strong>(P4)</strong> <code>A-L1-1</code> — L1 includes
+valid transactions within a bounded delay and does not reorganise below finality; <strong>(P5)</strong>
+<strong>the landing market is funded</strong> — the fee sweep actually credits the reward pool and the
+reward available to a lander is not below the cost of landing, so landing is not a zero-reward race
+(<a href="04-l1-integration.html#L1-11">L1-11</a>,
+<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clauses 5 and 7; L1-11 deliberately permits
+<code>rewardPaid = 0</code>, so this is an economic premise and not a rule); and <strong>(P6)</strong>
+<code>T_RECOVERY_DELAY</code> is at least the time an honest prover needs to land a batch once the stall
+ends. P5 and P6 are premises, not measurements: every value they refer to is unmeasured until Phase B
+(<a href="09-parameters.html">09</a>). <em>(S5 &sect;10: the old analysis described a mechanism whose
+authorization was a tautology; this is a re-derivation around the repaired mechanism, with the premises
+stated separately from the claim; round 4, R4-MB-01: the resistance claim is stated with its unmeasured
+inputs named as Phase B outputs, not left as a disclosure item.)</em>
+<strong>The claim, restricted to what the repaired mechanism supports.</strong> Within P1–P6, a
+sub-threshold coalition — any set of participants holding less than one third of the voting power —
+<strong>cannot induce the trigger</strong>. The argument uses only the repaired mechanism: finalization
+continues with the honest supermajority (P1, P2); proposer selection is weighted by committed stake and
+the slot rotates, so a coalition selected for strictly fewer than one third of slots in expectation cannot
+censor indefinitely (<a href="02-consensus.html#CONS-06">CONS-06</a>); data is served (P3); proving is
+permissionless and rewarded, and any account may land a proof and collect the reward
+(<a href="04-l1-integration.html#L1-10">L1-10</a>,
+<a href="04-l1-integration.html#L1-11">L1-11</a>); and L1 includes the landing transaction (P4). The
+checkpoint therefore keeps advancing: <code>lastLandedHeight</code> strictly increases,
+<code>T_STALL</code> is built from the permitted proof latency, the settlement pipeline, L1 finality and a
+margin and is strictly larger than the D6 envelope (<a href="#REC-02">REC-02</a>), and no interval of
+length <code>T_STALL</code> passes without an accepted batch extending the checkpoint
+(<a href="04-l1-integration.html#L1-06">L1-06</a>), so <code>T_STALL</code> never elapses and the trigger
+of <a href="#REC-02">REC-02</a> is never reachable by that coalition. This is a claim about rule-legal
+behaviour under P1–P6; everything outside them is a residual or a falsifier below.
+<strong>What inducing the trigger would actually require.</strong> Inducing the trigger means holding the
+checkpoint still for the whole window, so it requires breaking P3, P4 or P5, and there are exactly three
+ways: <strong>(i) suppress every prover</strong>, so no proof exists to land (P3 fails);
+<strong>(ii) censor every landing transaction at L1</strong>, so a produced proof is never included (P4
+fails); or <strong>(iii) price the protocol out of the blob market for the whole stall window</strong>, so
+no landing transaction is includable at a payable cost (P5 fails) — an L1 block-space and market-power
+condition, not an L2 action (<a href="04-l1-integration.html#L1-01">L1-01</a>,
+<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 1). Each lies outside the L2 fault model
+and each has a cost, expressed symbolically as
+<code>cost(n attempts) = &Sigma;<sub>k&le;n</sub>(B_REC_KEEP(e<sub>k</sub>)) + escalation(n) +
+cooldown(n) + gas<sub>L1</sub>(n) + V_own</code>: <code>B_REC_KEEP</code> is the non-refundable bond
+component paid at every attempt; the posted bond escalates across attempts as <code>B_REC(e) =
+B_REC_BASE &middot; 2<sup>attempts</sup></code> with <code>attempts</code> counted in
+<code>REC_WINDOW</code>; <code>REC_COOLDOWN</code> follows every attempt, so attempts cannot be amortised;
+<code>gas<sub>L1</sub></code> is the L1 cost of invocation and completion; and <code>V_own</code> is the
+value the attacker holds inside the provisional range, which its own rollback destroys, bounded by
+<code>value_at_risk(D_MAX)</code> — the fees and bridge value the range carries
+(<a href="#REC-02">REC-02</a>). Add what it costs to buy (i), (ii) or (iii): paying or denying every
+prover, censoring L1, or holding blob space for <code>T_STALL</code>; those resources are outside the
+protocol's accounting. The refundable balance is not relief: it returns only if the recovery completes,
+and completion is the event that destroys <code>V_own</code>, while cancellation sends the whole bond to
+the treasury (<a href="07-economics-slashing.html#ECON-06">ECON-06</a>(6)). <strong>Every value above is
+unmeasured and a Phase B output</strong> — <code>B_REC_BASE</code>, <code>B_REC_KEEP</code>,
+<code>REC_WINDOW</code>, <code>REC_COOLDOWN</code>, <code>value_at_risk(D_MAX)</code>, the gas terms and
+<code>T_STALL</code> (<a href="09-parameters.html">09</a>). The <strong>structure</strong> of the argument
+does not depend on the values: it needs only the relation <code>B_REC_KEEP &ge; value_at_risk(D_MAX)</code>
+and the ordering of the terms — a non-refundable component on every attempt, escalation across attempts,
+a cooldown, gas, and the attacker's own destroyed value — not any particular number. <em>(S5 &sect;4: the
+bond is non-refundable in part and escalation counts attempts, so a completed recovery is not free; round
+4, "the bond is free on success" and "the landing market is unpriced" — the attacker's cost is stated
+instead of assumed.)</em>
+<strong>Retirement, and why reinstatement is not a route.</strong> The repair also removed the
+reinstatement route: a completed recovery records <code>resumeHeight</code> on L1, and the discarded
+heights are permanently retired — a batch whose first height is below <code>resumeHeight</code> is rejected
+by the contiguity rule (<a href="04-l1-integration.html#L1-06">L1-06</a>), a correct validator must not
+sign at a retired height (<a href="02-consensus.html#CONS-01">CONS-01</a>(vii)), and a retired height can
+never be re-certified under any generation, by anyone
+(<a href="02-consensus.html#CONS-12">CONS-12</a>). A branch descending from the discarded range therefore
+cannot be re-proven and landed back into canonical history, whoever pays for the proof: the acceptance rule
+is about where a batch <em>starts</em>, not which proof was used. The <code>recoveryGeneration</code>
+counter remains a public input of the proof statement and invalidates in-flight proofs made before the
+completion (<a href="05-proof-statement.html#PRF-02">PRF-02</a>,
+<a href="04-l1-integration.html#L1-05">L1-05</a> row 31); it is a cheap invalidation only, and the security
+property rests on the retired heights. <em>(S5 &sect;1: the generation binds the proof, retirement binds the
+height; this closes round 4's R4-MB-02 and the consensus angle's Critical — a discarded but certified
+branch can no longer be reinstated.)</em> <em>(S5 &sect;2: completion takes effect only at the
+<a href="01-system-model.html#SYS-02">SYS-02</a> depth, so there is no window in which a completed recovery
+and a batch at a retired height are both true.)</em>
+<strong>Residuals, stated honestly.</strong> (1) Off-chain profit from a rolled-back state — a position
+closed elsewhere, a withdrawal already credited off-chain, MEV extracted around the discarded range — is
+outside any protocol bound, and protocol penalties are not compensation
+(<a href="07-economics-slashing.html#ECON-11">ECON-11</a>). (2) An adversary who can censor L1, or buy
+inclusion delay, can attempt repeated recoveries: the non-refundable bond and <code>REC_COOLDOWN</code>
+make each attempt expensive and escalation counts attempts, but they do not bound the number or the total
+cost of attempts (<a href="#REC-02">REC-02</a>; <a href="09-parameters.html">09</a>). (3) An unfunded or
+below-cost reward pool reaches the trigger with <strong>no adversary at all</strong>: if the sweep does not
+credit the pool, or the reward is below the cost of landing, no rational prover lands, P5 fails, and the
+stall is economics rather than attack. <strong>Recovery cannot repair an economics stall</strong> — it
+restores a checkpoint and retires a range, and it changes no reward, no fee and no subsidy — so recovery
+must never be presented as the remedy for an unfunded reward pool. <em>(S5 &sect;10: the off-chain-profit
+residual stays outside any protocol bound; S5 &sect;7 and &sect;9: the sweep is protocol-constructed and
+the pool identity includes the proving-share outflow, which is what makes the funded-market premise
+checkable; round 4, "T_STALL has no inclusion-delay term" and "the landing market is unpriced" — the
+unfunded-pool and bought-delay cases are now residuals and falsifiers.)</em> Recovery is therefore a
+<strong>manipulation primitive with a price, not a free option</strong> — and the price is only as real as
+the pre-registered values, which are unmeasured.
+<strong>Falsifiers, explicitly listed and complete.</strong> The argument fails, and this analysis must be
+withdrawn, if any of the following holds: <strong>(a)</strong> proving ceases to be permissionless in
+practice — a gate, a whitelist, or a de-facto single prover that can be pressured — so P3's prover cannot
+be replaced (<a href="04-l1-integration.html#L1-10">L1-10</a>); <strong>(b)</strong>
+<code>T_RECOVERY_DELAY</code> is shorter than the time an honest prover needs to land a batch, so a
+recovery can complete before honest progress cancels it (<a href="#REC-02">REC-02</a>);
+<strong>(c)</strong> the non-refundable bond component is set below the value at risk —
+<code>B_REC_KEEP &lt; value_at_risk(D_MAX)</code> — so a completed recovery costs the attacker less than
+the value it destroys (<a href="#REC-02">REC-02</a>; <a href="09-parameters.html">09</a>);
+<strong>(d)</strong> the reward pool is empty, or the reward is below the cost of landing, so no rational
+prover lands (P5); <strong>(e)</strong> inclusion delay is purchasable for longer than
+<code>T_STALL</code>, so a funded, permissionless prover still cannot land inside the window (P4, P5);
+<strong>(f)</strong> retirement is not enforced on the acceptance path — the contiguity rule of
+<a href="04-l1-integration.html#L1-06">L1-06</a> or the validators' refusal to sign below
+<code>resumeHeight</code> (<a href="02-consensus.html#CONS-01">CONS-01</a>(vii)) — so a discarded height can
+be landed again. A reviewer who exhibits any of (a)–(f) falsifies the resistance claim and reopens the D-7
+selection. <em>(S5 &sect;10: the falsifier list is completed — the empty-pool, bond-sizing and
+bought-delay cases are added, and the superseded "bond refundable on cancellation" falsifier is removed
+with the mechanism it described.)</em>
+<strong>Review requirement.</strong> This analysis is an argument, not a measurement and not a proof, and
+it requires independent review before the D-7 selection is treated as settled. Reviewers must attempt to
+break it and must answer three questions: <strong>(1)</strong> can an L2-only adversary — one with less
+than one third of the voting power and no L1 censorship or delay-buying capability — reach the trigger by
+any path this analysis does not cover? <strong>(2)</strong> can recovery be made selective despite
+retirement — can an attacker re-establish its own effects from the discarded range while denying a
+counterparty's, through the replay rules, bridge message ordering, or the acceptance path?
+<strong>(3)</strong> is the bond genuinely at risk at the pre-registered values — once Phase B measures
+<code>value_at_risk(D_MAX)</code>, will <code>B_REC_KEEP &ge; value_at_risk(D_MAX)</code> actually hold,
+and is <code>B_REC_KEEP</code> irrecoverably paid on every attempt, including a completed one? Until all
+three are answered and the falsifiers (a)–(f) are checked, the selection is <strong>not settled</strong>.
+<em>(D2 step 5 and round 4's R4-MB-01: the resistance claim is quantified where the design allows it, its
+remaining inputs are named as Phase B outputs, and the review questions are stated rather than the blocker
+being disclosed as a limitation.)</em></span>
+<span class="why">This analysis is an argument, not a proof, and it is only as strong as P1–P6: P1–P4 are
+the named fault-model assumptions, while P5 and P6 are economic and parameter premises whose values are
+unmeasured. The claim is deliberately narrow — a sub-threshold coalition on L2 cannot reach the trigger
+while the landing market is funded and retirement is enforced — and everything outside that boundary is
+stated as a residual rather than a guarantee: off-chain profit, an L1-censoring or delay-buying adversary,
+and an unfunded reward pool that reaches the trigger with no adversary at all. The superseded analysis's
+outcome claims are not carried over: reinstatement is closed by retirement (S5 &sect;1), and there is no
+selective-rollback guarantee to state, only the replay rules of <a href="#REC-02">REC-02</a>. <em>(S5
+&sect;10 and round 4's R4-MB-01/R4-MB-02: the argument is re-derived around the repaired mechanism and
+remains open until independent review answers the three questions.)</em></span>
 <span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span>
 <span class="pill open">Open</span> <span class="small">(premises <code>A-CONS-1</code>,
-<code>A-CONS-2</code>, <code>A-DA-2</code>, <code>A-L1-1</code>; independent review required before the
-D-7 selection is treated as settled — review round 4 must attempt to break it)</span></div>
+<code>A-CONS-2</code>, <code>A-DA-2</code>, <code>A-L1-1</code>, the funded landing market and the
+<code>T_RECOVERY_DELAY</code> lower bound; <strong>awaiting independent review</strong> — the D2 review must
+be re-run on this rewritten analysis before the D-7 selection is treated as settled, and the three review
+questions above must all be answered)</span></div>
 
 <h2 id="scenarios">Required scenario walk-throughs</h2>
 <table>
