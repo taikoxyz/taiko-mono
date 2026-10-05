@@ -44,6 +44,14 @@ Rules:
 - A scanner reconnect only probes finalized state once; on failure it rewinds to the original
   finalized-safe startup anchor so replay remains conservative without wedging reconnection.
 - Batch-to-last-block mapping plus anchor metadata determines scanner start point.
+- The scanner starts at the L1 anchor block of the target block, decided by that block's own
+  timestamp:
+  - genesis: the inbox activation block;
+  - pre-Etna: the `anchorV4` calldata of tx 0;
+  - Etna: bytes 7..13 of its 13-byte `extraData` (`decode_etna_anchor_block_number`). An Etna
+    block has no anchor transaction, so its tx 0 is never read: anyone could place anchor-shaped
+    calldata there and choose the scan start. `Anchor.getBlockState()` stays frozen at the last
+    pre-Etna value and is never used for an Etna block.
 
 ## Confirmed-Sync Readiness And Ingress Gate
 
@@ -55,8 +63,9 @@ Primary Rust behavior anchors:
   - Continuously evaluates scanner-live plus confirmed-sync readiness.
   - Opens preconf ingress only after readiness is true.
   - Exposes explicit wait path for ingress readiness.
-- `crates/whitelist-preconfirmation-driver/src/preconf_ingress_sync.rs`
-  - Whitelist importer path also blocks on event-sync ingress readiness.
+- `crates/driver/src/preconf_ingress_sync.rs`
+  - Shared helper the whitelist importer (`crates/whitelist-preconfirmation-driver/src/runner.rs`)
+    uses to block on event-sync ingress readiness.
 
 Rules:
 
@@ -128,6 +137,47 @@ Sequence:
 3. Import only contiguous parent-valid payload chains.
 4. Submit candidate payloads through event-sync ingress after gating checks.
 5. Never cross below `head_l1_origin` while resolving parent gaps.
+
+## Etna Preconfirmation Blocks
+
+A preconfirmation payload follows the fork of its own `timestamp`. An Etna block has no anchor
+transaction; it commits to its L1 anchor through its header instead.
+
+Primary Rust behavior anchors:
+
+- `crates/whitelist-preconfirmation-driver/src/importer/validation.rs`
+  - One fork matrix for REST builds and P2P imports: an Etna payload needs a nonzero
+    `parentBeaconBlockRoot` and exactly 13 bytes of `extraData`; its transaction list may be empty
+    (the RLP empty list `0xc0`, zlib-compressed on the wire like every `transactions` value) and
+    tx 0 is not checked. An Etna envelope may omit the header difficulty (an empty block has zero
+    zk gas).
+- `crates/whitelist-preconfirmation-driver/src/api/types.rs`
+  - REST `POST /preconfBlocks` carries the root in `executableData.parentBeaconBlockRoot`.
+- `crates/whitelist-preconfirmation-driver/src/payload.rs`
+  - Builds the driver payload with the request's or envelope's root (`Some(ZERO)` before Etna).
+- `crates/whitelist-preconfirmation-driver/src/importer/ingress.rs`
+  - A response rebuilt from a stored block takes the root from its header, so peers can rebuild
+    Etna blocks byte for byte.
+- `crates/driver/src/derivation/pipeline/shasta/pipeline/payload.rs`
+  - `verify_canonical_block` later accepts the preconfirmed block only if its stored payload ID
+    and its header fields (root, `extraData`, gas limit, timestamp, base fee, mix hash, coinbase,
+    parent) match what derivation builds from the proposal. The body itself is not compared
+    (before Etna only the anchor tx 0 is checked): the builder may skip invalid transactions, so a
+    canonical body can be a strict subset of the derived list. The payload ID binds the body
+    instead: it hashes keccak(txList) together with the root, `extraData`, timestamp, prevRandao,
+    coinbase and parent.
+
+Rules:
+
+- The sequencer supplies the root: the L1 state root of the block at the anchor number in
+  `extraData` (`[basefeeSharingPctg | proposalId | anchorBlockNumber]`). Derivation reuses the
+  parent's root only when the parent is a non-genesis Etna block with the same anchor number; the
+  first Etna block (whose pre-Etna parent has a zero root) and a child of the Etna genesis always
+  use the anchor block's L1 state root.
+- The gas limit carries no anchor reserve and is passed through.
+- The driver does not check the root against L1, as it never checked anchor calldata: a block
+  that breaks the contract fails derivation's canonical check and is replaced when its proposal is
+  derived.
 
 ## Confirmed Block Checks Agents Must Preserve
 
