@@ -83,6 +83,15 @@ impl DriverMetrics {
         &METRICS.derivation_canonical_hits_total
     }
 
+    /// Return how many proposals derivation has recognized as already canonical in this process.
+    ///
+    /// Read-only view of the canonical hit counter for integration tests, which tell a skipped
+    /// rebuild apart from an identical one by this count.
+    #[doc(hidden)]
+    pub fn derivation_canonical_hits() -> u64 {
+        METRICS.derivation_canonical_hits_total.get()
+    }
+
     /// Return the L1 origin update counter.
     pub(crate) fn derivation_l1_origin_updates_total() -> &'static IntCounter {
         &METRICS.derivation_l1_origin_updates_total

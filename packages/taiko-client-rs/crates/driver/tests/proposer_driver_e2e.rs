@@ -734,5 +734,11 @@ mod lifecycle_tests {
     }
 }
 
+#[path = "support/raw_proposal.rs"]
+mod raw_proposal;
+
 #[path = "support/derivation_parity.rs"]
 mod derivation_parity;
+
+#[path = "support/etna_boundary.rs"]
+mod etna_boundary;
