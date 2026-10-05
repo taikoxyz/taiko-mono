@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — 4 Stake, validators and epochs</title>
+<link rel="stylesheet" href="course.css">
+</head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">engineer&rsquo;s course</span>
+  <nav>
+    <a href="index.html">Contents</a>
+    <a href="01-what-is-etna.html">1&nbsp;Overview</a>
+    <a href="02-life-of-a-transaction.html">2&nbsp;Life of a transaction</a>
+    <a href="03-consensus.html">3&nbsp;Consensus</a>
+    <a href="04-staking-and-epochs.html">4&nbsp;Staking</a>
+    <a href="05-the-proof.html">5&nbsp;The proof</a>
+    <a href="06-data-and-proof-together.html">6&nbsp;Data&nbsp;+&nbsp;proof</a>
+    <a href="07-timing.html">7&nbsp;Timing</a>
+    <a href="08-when-things-go-wrong.html">8&nbsp;Failures</a>
+    <a href="09-censorship-and-the-bridge.html">9&nbsp;Censorship&nbsp;&amp;&nbsp;bridge</a>
+    <a href="10-economics.html">10&nbsp;Economics</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="../spec/index.html">Specification</a>
+  </nav>
+</header>
+<main>
+
+<h1>Stake, validators and epochs</h1>
+<p class="muted">This lesson follows one bonded TAIKO stake from the L1 transaction that creates
+it, through activation, into the epoch that first counts it, and out again through the exit
+queue. It closes with where a brand-new node starts. Everything here is a design: nothing is
+deployed or measured, and every number is tagged
+<span class="pill derived">derived</span>, <span class="pill sourced">sourced</span> or
+<span class="pill unmeasured">unmeasured</span>.</p>
+
+<h2>The idea</h2>
+<p>A validator is not appointed. It is created by locking the existing TAIKO token on Ethereum in a staking contract, registering a signing key, and waiting for the protocol&rsquo;s own schedule to place it in a validator set. Holding TAIKO in a wallet does nothing: only stake that is bonded, activated and inside the set for an epoch counts as voting power.</p>
+<p>The chain is divided into <strong>epochs</strong> of fixed length. Each epoch has exactly one validator set, and that set is decided on Ethereum <em>before</em> the epoch starts, not during it. Every block header carries a commitment to the current set and to the next one, so a reader can check who was allowed to sign without trusting a peer.</p>
+<p>Voting power is the bonded stake: one base unit for one unit of weight, with no multipliers and no delegation. The L1 address that bonded the stake is the only address that can rotate its key, request an exit or receive the unbonded tokens.</p>
+<p>Leaving is deliberately slow. An exit request keeps the validator in every set it was already committed to, still voting and still slashable, until the exit takes effect at a later epoch boundary; the tokens then wait out a further delay before withdrawal. The delay exists so that misbehaviour committed while the stake was bonded remains punishable afterwards.</p>
+<p>A brand-new node does not replay the chain from genesis and call the result verified. It starts from the newest checkpoint Ethereum has already accepted &mdash; a height, a block hash, a state root, an epoch and a set version &mdash; and treats Ethereum as the only authority on which history is the real one.</p>
+
+<figure>
+<svg viewBox="0 0 940 430" role="img" aria-label="Validator lifecycle states and the two-epoch set commitment schedule">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7aa2f7"></path></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#e0af68"></path></marker>
+  </defs>
+  <text x="20" y="24" fill="#9aa7b4" font-size="12">Validator lifecycle (solid = normal path, dashed = cancel or evidence path)</text>
+  <rect x="10" y="40" width="140" height="46" rx="8" fill="#161b22" stroke="#2d3743"></rect><text x="80" y="60" fill="#e6edf3" font-size="13" text-anchor="middle">inactive</text><text x="80" y="77" fill="#9aa7b4" font-size="10" text-anchor="middle">no stake, no key</text>
+  <rect x="190" y="40" width="140" height="46" rx="8" fill="#161b22" stroke="#2d3743"></rect><text x="260" y="60" fill="#e6edf3" font-size="13" text-anchor="middle">activating</text><text x="260" y="77" fill="#9aa7b4" font-size="10" text-anchor="middle">bonded, in FIFO queue</text>
+  <rect x="370" y="40" width="140" height="46" rx="8" fill="#161b22" stroke="#bb9af7"></rect><text x="440" y="60" fill="#e6edf3" font-size="13" text-anchor="middle">active</text><text x="440" y="77" fill="#9aa7b4" font-size="10" text-anchor="middle">in set roots, voting</text>
+  <rect x="550" y="40" width="140" height="46" rx="8" fill="#161b22" stroke="#e0af68"></rect><text x="620" y="60" fill="#e6edf3" font-size="13" text-anchor="middle">exit-requested</text><text x="620" y="77" fill="#9aa7b4" font-size="10" text-anchor="middle">still voting, still slashable</text>
+  <rect x="730" y="40" width="140" height="46" rx="8" fill="#161b22" stroke="#2d3743"></rect><text x="800" y="60" fill="#e6edf3" font-size="13" text-anchor="middle">unbonding</text><text x="800" y="77" fill="#9aa7b4" font-size="10" text-anchor="middle">effStake = 0, delay runs</text>
+  <rect x="370" y="150" width="140" height="46" rx="8" fill="#161b22" stroke="#2d3743"></rect><text x="440" y="170" fill="#e6edf3" font-size="13" text-anchor="middle">withdrawn</text><text x="440" y="187" fill="#9aa7b4" font-size="10" text-anchor="middle">stake returned, key retired</text>
+  <line x1="150" y1="63" x2="186" y2="63" stroke="#7aa2f7" marker-end="url(#a)"></line><text x="168" y="36" fill="#9aa7b4" font-size="10" text-anchor="middle">1</text>
+  <line x1="330" y1="63" x2="366" y2="63" stroke="#7aa2f7" marker-end="url(#a)"></line><text x="348" y="36" fill="#9aa7b4" font-size="10" text-anchor="middle">2</text>
+  <line x1="510" y1="63" x2="546" y2="63" stroke="#7aa2f7" marker-end="url(#a)"></line><text x="528" y="36" fill="#9aa7b4" font-size="10" text-anchor="middle">3</text>
+  <line x1="690" y1="63" x2="726" y2="63" stroke="#7aa2f7" marker-end="url(#a)"></line><text x="708" y="36" fill="#9aa7b4" font-size="10" text-anchor="middle">4</text>
+  <path d="M 800 86 L 800 130 L 512 130 L 512 146" fill="none" stroke="#7aa2f7" marker-end="url(#a)"></path><text x="640" y="126" fill="#9aa7b4" font-size="10" text-anchor="middle">5</text>
+  <path d="M 620 86 L 620 120 L 480 120 L 480 146" fill="none" stroke="#2d3743" stroke-dasharray="4 3"></path>
+  <path d="M 260 86 L 260 110 L 440 110 L 440 146" fill="none" stroke="#e0af68" stroke-dasharray="4 3" marker-end="url(#b)"></path><text x="330" y="106" fill="#9aa7b4" font-size="10">6 cancelActivation (owner)</text>
+  <path d="M 440 86 C 480 96, 560 96, 600 86" fill="none" stroke="#2d3743" stroke-dasharray="4 3"></path><text x="520" y="103" fill="#9aa7b4" font-size="10">8 rotateKey (forward only)</text>
+  <text x="20" y="230" fill="#9aa7b4" font-size="12">1 bond &#8805; S_min &#183; 2 key bound + ACTIVATION_DELAY + FIFO rate limit &#183; 3 requestExit() &#183; 3b cancelExit() (back to active)</text>
+  <text x="20" y="248" fill="#9aa7b4" font-size="12">4 exit effective at a snapshot the churn cap does not exclude &#183; 5 D_WITHDRAW + evidence window closed + no exposure &#183; 6 cancel &#183; 7 slash</text>
+  <text x="20" y="292" fill="#9aa7b4" font-size="12">Epoch ladder: the entry for epoch e+2 is committed on L1 during epoch e, and must be Ethereum-final before epoch e+2 begins</text>
+  <rect x="30" y="310" width="180" height="52" rx="8" fill="#161b22" stroke="#2d3743"></rect><text x="120" y="331" fill="#e6edf3" font-size="12" text-anchor="middle">L1-side epoch e</text><text x="120" y="348" fill="#9aa7b4" font-size="10" text-anchor="middle">commitSet() appends set root for e+2</text>
+  <rect x="260" y="310" width="180" height="52" rx="8" fill="#161b22" stroke="#2d3743"></rect><text x="350" y="331" fill="#e6edf3" font-size="12" text-anchor="middle">epoch e+1</text><text x="350" y="348" fill="#9aa7b4" font-size="10" text-anchor="middle">root becomes Ethereum-final</text>
+  <rect x="490" y="310" width="180" height="52" rx="8" fill="#161b22" stroke="#bb9af7"></rect><text x="580" y="331" fill="#e6edf3" font-size="12" text-anchor="middle">epoch e+2</text><text x="580" y="348" fill="#9aa7b4" font-size="10" text-anchor="middle">this set is now authoritative</text>
+  <line x1="210" y1="336" x2="256" y2="336" stroke="#7aa2f7" marker-end="url(#a)"></line>
+  <line x1="440" y1="336" x2="486" y2="336" stroke="#7aa2f7" marker-end="url(#a)"></line>
+  <text x="700" y="336" fill="#9aa7b4" font-size="11">A block of epoch e+2 is not voted</text>
+  <text x="700" y="352" fill="#9aa7b4" font-size="11">on before its entry exists and is</text>
+  <text x="700" y="368" fill="#9aa7b4" font-size="11">Ethereum-final. If it is missing,</text>
+  <text x="700" y="384" fill="#9aa7b4" font-size="11">the chain halts at the boundary.</text>
+</svg>
+<figcaption>Figure 1 &mdash; The six lifecycle states, the eight transitions, and the two-epoch
+set commitment. The exact conditions are in the specification&rsquo;s staking page.</figcaption>
+</figure>
+
+<h2>How it works</h2>
+
+<h3>1. Bonding: one asset, held on Ethereum</h3>
+<p>The staked asset is the existing L1 ERC-20 TAIKO at
+<code>0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800</code>, which has 18 decimals
+<span class="pill sourced">sourced</span>. A new L1 custody contract holds bonded TAIKO; it never
+lends or rehypothecates it, and no party other than the protocol&rsquo;s objective rules can move
+a bonded balance. Neither ETH nor a bridged L2 representation of TAIKO counts as consensus stake;
+gas stays ETH. The bond call is <code>bond(amount, ed25519PubKey)</code> (function names in this
+lesson are illustrative; the rules are what bind). The caller&rsquo;s own L1 address is the economic
+owner, and the amount must be at least <code>S_min</code>, the entry floor. <code>S_min</code> is derived from operator economics &mdash; annual operating cost divided
+by the margin between gross reward rate and operating cost &mdash; and its value is
+<span class="pill unmeasured">unmeasured</span>.</p>
+
+<h3>2. Activation: a queue with objective rules</h3>
+<p>Activation entries are ordered by the L1 coordinates of the bonding transaction:
+<code>(l1BlockNumber, txIndex, logIndex)</code>. Ties cannot occur, and once an entry&rsquo;s
+coordinates are fixed nothing &mdash; not fee, not stake size, not identity &mdash; can reorder it.
+At most <code>ACTIVATION_RATE_LIMIT</code> entries become active per epoch, always taken from the
+head of the queue; the limit delays entries but never cancels one or lets a later entry pass an
+earlier one. An entry becomes active when its key is bound, its <code>ACTIVATION_DELAY</code> has
+elapsed, and it has been served from the queue. The delay must cover Ethereum finality of the
+bonding transaction plus the two-epoch lookahead below, so a reorganisation cannot erase a stake
+after it was counted and an operator has time to bring a node online. The delay, the rate limit
+and <code>S_min</code> are all <span class="pill unmeasured">unmeasured</span>. An entry that never
+binds a key or never comes online never appears in any set root: it is not slashable for a
+consensus offence and earns nothing, but it keeps its queue position
+(<a href="../spec/03-membership-staking.html#MEM-03">MEM-03</a>).</p>
+
+<h3>3. Keys: one per entry, rotated forward only</h3>
+<p>An entry has at most one consensus key per set version: an Ed25519 public key in its canonical
+32-byte compressed form. The key enters a set root only through an L1 transaction signed by the
+entry&rsquo;s owner, which is itself the authentication. Rotation is forward-only:
+<code>rotateKey(newPubKey)</code> applies from the first set version whose snapshot point is at or
+after the rotation transaction, and every already-published version keeps the old key. A key that
+has ever appeared in a published set root is retired permanently, so the mapping from (key, epoch)
+to entry stays one-to-one. A vote is judged against the key committed for <em>that epoch</em>,
+never against the validator&rsquo;s current key; a vote signed with a rotated-away key at an epoch
+that commits the new key is invalid and does not count toward quorum.</p>
+
+<h3>4. The set is an Ethereum object</h3>
+<p>A set version <code>k</code> is published as
+<code>(chainId, k, R_k, TotalVP_k, n_k, entries)</code>: the Merkle root, the total voting power,
+the entry count and the full list of <code>(pubkey, effStake)</code> pairs. Leaves are
+domain-separated and sorted by <code>keccak256(abi.encode(DOMAIN_SET_KEY, chainId, pubkey))</code>,
+so the root is independent of insertion order. <code>TotalVP_k</code> is published in the same L1
+transaction as the root because a sum cannot be recovered from a Merkle root, and the proof guest
+recomputes it from the leaves. The root is written by <code>commitSet()</code>, a function that
+takes no arguments and may be called by anyone: the caller chooses nothing, and the contract
+computes the contents from its own state
+(<a href="../spec/03-membership-staking.html#MEM-08">MEM-08</a>).</p>
+
+<h3>5. Epochs, and why the set is fixed two epochs ahead</h3>
+<p>Heights are partitioned into epochs of <code>L = 900</code> blocks, which is 30 minutes at the
+2-second cadence <span class="pill derived">derived</span>; suitability at the target set size is
+<span class="pill unmeasured">unmeasured</span>. The epoch of a height is a pure function of that
+height and of constants recorded on L1 when the chain activates
+(<a href="../spec/02-consensus.html#CONS-13">CONS-13</a>).</p>
+<p>The staking contract has its own L1-side clock, expressed in L1 blocks and anchored at the
+activation transaction. During L1-side epoch <code>e</code> the contract appends the set entry for
+epoch <code>e+2</code>. That entry must be an Ethereum-final L1 fact before any block of
+<code>e+2</code> is proposed or voted on, and the L2 may not enter epoch <code>e</code> before the
+L1-side clock has reached the start of that epoch. The two-epoch lead is what makes the set
+immutable in practice: the entry for the epoch being entered was fixed while the previous one was
+still producing, so no prover, caller or late arrival can influence who judges an epoch after its
+blocks exist (<a href="../spec/03-membership-staking.html#MEM-09">MEM-09</a>).</p>
+<p>The lead must satisfy
+<code>2 &middot; E_EPOCH &ge; T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY + margin</code>,
+where <code>E_EPOCH</code> is the epoch duration and the terms are the longest permitted proving
+time, the settlement pipeline, Ethereum finality and a safety margin. Every input to that
+inequality is <span class="pill unmeasured">unmeasured</span>; at the proposed values the two-epoch
+window is about 60 minutes <span class="pill derived">derived</span>. The append is driven by the
+L1-side schedule alone, never by settlement progress: settlement lags production by the whole
+proving pipeline, so a gate keyed to it would stop production at every boundary. If the entry for
+the epoch being entered is missing or not yet Ethereum-final at the moment of entry, correct
+validators do not proceed: the chain halts at the last finalized block of the closing epoch rather
+than borrowing a set.</p>
+<p>Every block header commits to two set roots: <code>validators_hash</code>, the root of the epoch
+containing that block, and <code>next_validators_hash</code>, the root of the following epoch. The
+first block of an epoch and the last block of the previous one must agree on the same root, and
+the root itself is read from the staking contract&rsquo;s per-epoch mapping rather than from any
+header, witness or prover.</p>
+
+<h3>6. Exits, and why the delay exists</h3>
+<p><code>requestExit()</code> moves the entry to <em>exit-requested</em>. It stays in every set
+version it is already committed to, keeps voting, and remains fully slashable. The exit becomes
+effective at the first snapshot whose point is at or after the request block and which the
+per-epoch churn cap does not exclude; the cap may defer exits to later snapshots, served in request
+order, but never cancels or penalises one. From the effective version the entry&rsquo;s effective
+stake is zero and it appears in no later set root. Withdrawal then requires three things together:
+the exit has been effective for at least <code>D_WITHDRAW</code>; the evidence window has closed
+for every epoch the entry was in; and no unsettled or collectible penalty remains
+(<a href="../spec/03-membership-staking.html#MEM-05">MEM-05</a>).</p>
+<p><code>D_WITHDRAW</code> is bounded below by the whole accountability pipeline:
+<code>T_PROOF_MAX_PERMITTED + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_PROCESS + M</code>.
+Each term is <span class="pill unmeasured">unmeasured</span>, and the inclusion term must be a
+quantile, never a mean. The delay is long because data and proof land together: there is no window
+in which published data sits on L1 waiting for a proof, so evidence is typically generated after
+settlement or concurrently on L2. Penalties are charged against the stake the entry held at the
+offence epoch, not at the epoch the evidence arrives, so an exit cannot launder an old offence.</p>
+
+<h3>7. Rotation cannot change who was allowed to vote</h3>
+<p>A certificate names its epoch, and that value must equal the epoch of its height under the
+L1-committed schedule. It is judged under that epoch&rsquo;s committed set root and no other, and
+once valid it stays valid forever: no expiry, no &ldquo;current set&rdquo; check, and no
+re-verification under a later set. Set roots are stored per epoch and are never overwritten. A
+validator that joins in a later epoch cannot cause a block finalized earlier to be re-judged,
+re-signed or discarded; rotation changes who may finalize future heights only.</p>
+
+<h3>8. Weak subjectivity: where a new node starts</h3>
+<p>A fresh node bootstraps from the most recent checkpoint that the L1 Inbox accepted and that is
+Ethereum-final: an L2 height, block hash, state root, epoch and set version. It reads this from L1
+state; there is no checkpoint provider role, no peer vote and no social input. The node must not
+start from a checkpoint older than <code>WS_MAX</code>, whose derived upper bound is
+<code>T_PROOF_MAX_PERMITTED + M &minus; M_ws</code>; the value is
+<span class="pill unmeasured">unmeasured</span>. The freshness bound exists because of long-range
+attacks: an attacker who held stake in a past epoch keeps those signatures, and a history signed by
+a past set is cryptographically indistinguishable from the real one. Only Ethereum&rsquo;s accepted
+checkpoint says which history the protocol accepts. If the newest accepted checkpoint is older than
+the window, the node must not call the history it would sync verified, and new entry is blocked
+until a newer checkpoint exists
+(<a href="../spec/03-membership-staking.html#MEM-11">MEM-11</a>). Replaying from genesis does not
+remove the problem: two internally valid histories can both exist.</p>
+
+<h2>Worked example</h2>
+<p>One validator, one stake increase, one exit. Heights and epochs follow
+<code>epoch_of(h) = floor((h &minus; H_genesis) / L) + e_0</code> with <code>H_genesis = 0</code>,
+<code>e_0 = 0</code> and <code>L = 900</code>, so epoch 13 spans heights 11,700&ndash;12,599 and
+epoch 15 spans 13,500&ndash;14,399.</p>
+<table>
+<thead><tr><th>Step</th><th>What happens</th><th>Numbers</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice bonds TAIKO from her own L1 address and binds an Ed25519 key. Her queue key is fixed by the L1 coordinates of this transaction.</td><td>1,000,000 TAIKO = 1 &times; 10<sup>24</sup> base units at 18 decimals</td><td><span class="pill sourced">sourced</span> decimals &middot; <span class="pill unmeasured">unmeasured</span> S_min</td></tr>
+<tr><td>2</td><td>The bond lands while epoch 13 is producing. Epoch 13&rsquo;s set entry already exists, so Alice cannot be in it; activation also waits for ACTIVATION_DELAY and the FIFO rate limit.</td><td>Epoch 13 = heights 11,700&ndash;12,599; the bond is at height 12,345</td><td><span class="pill derived">derived</span> schedule &middot; <span class="pill unmeasured">unmeasured</span> delay</td></tr>
+<tr><td>3</td><td>During L1-side epoch 13 (the epoch containing height 12,345), <code>commitSet()</code> appends the entry for epoch 15. Alice&rsquo;s leaf is <code>(pubkey, 1,000,000 TAIKO)</code>, inside root <code>R_k</code>, with the total published beside it.</td><td>Epoch 15 = heights 13,500&ndash;14,399</td><td><span class="pill derived">derived</span> two-epoch lead</td></tr>
+<tr><td>4</td><td>Epoch 15 begins. Its first header commits <code>validators_hash = R_k</code>. Alice is a validator, with voting power exactly equal to her effective stake.</td><td>1,000,000 TAIKO of weight</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>5</td><td>Quorum check for a certificate from this epoch. The predicate is <code>3 &middot; s &gt; 2 &middot; W</code>, evaluated with checked arithmetic by the L2 client, the zkVM guest and the L1 contract alike.</td><td>If W = 100,000,000 TAIKO then s must be at least 66,666,667 TAIKO</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>6</td><td>Alice bonds an extra 500,000 TAIKO at height 14,200 &mdash; inside epoch 15, whose set is already committed. Her weight in epochs 15 and 16 does not change; the next root appended (for epoch 17) carries 1,500,000 TAIKO.</td><td>The change lands in epoch 17, two epochs after the epoch whose L1-side clock appended it</td><td><span class="pill derived">derived</span> timing</td></tr>
+<tr><td>7</td><td>Alice requests an exit in epoch 20. She stays in every committed set, keeps voting and remains slashable. The exit takes effect at the first snapshot at or after the request that the churn cap does not exclude; then D_WITHDRAW runs before withdrawal.</td><td>All delay terms</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>8</td><td>If Alice equivocated in epoch 15, the penalty is charged against her stake as it stood in epoch 15 &mdash; 1,000,000 TAIKO &mdash; regardless of the later bond or exit.</td><td>SlashBase(v, 15) = 1,000,000 TAIKO</td><td><span class="pill derived">derived</span> from the rule</td></tr>
+</tbody></table>
+<p class="small">Steps 3, 4 and 6 assume the activation delay, the queue rate limit and the churn
+cap all admit Alice&rsquo;s entry or exit at the earliest possible snapshot. Those three values are
+<span class="pill unmeasured">unmeasured</span>, so the epoch numbers here are the earliest
+possible, not a promise.</p>
+
+<h2>What this gives you</h2>
+<ul>
+<li>Permissionless entry: any L1 account with enough TAIKO can bond and join, with no allowlist and
+no approval.</li>
+<li>A set fixed before its epoch, committed on Ethereum and carried in every block header; the whole
+entry list is published, so concentration is at least observable.</li>
+<li>Voting power exactly equal to bonded stake, with no multipliers a client would have to
+reproduce.</li>
+<li>An exit path that is slow but predictable, and a penalty that follows the stake held at the
+offence epoch rather than the stake at the moment evidence arrives.</li>
+<li>A defined starting point for a new node: the newest Ethereum-final checkpoint, with a freshness
+bound.</li>
+</ul>
+
+<h2>What it does not give you</h2>
+<ul>
+<li>No delegation and no liquid-staking credit in this version: one economic owner per entry, and a
+pooled or delegated balance is not counted as consensus stake.</li>
+<li>No cap on how much stake one owner may control, and no claim that splitting or merging
+identities is prevented.</li>
+<li>No bound on concentration; the published entry list makes it visible, it does not limit it.</li>
+<li>No protection for a lost owner key: if the address that bonded the stake is lost, the stake is
+stranded, because no rule and no operator can move a bonded balance.</li>
+<li>No working entry in a market where the reward rate does not exceed operating cost:
+<code>S_min</code> would then have no finite value.</li>
+<li>No fresh checkpoint during a long halt: new nodes and new validators wait for a newer
+Ethereum-accepted checkpoint, and an old anchor must never be presented as verified.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<details><summary>I bonded during epoch 13. When can my key first sign a vote?</summary>
+<p>Not before epoch 15 in the earliest case. The first set entry that can contain you is the one
+appended for epoch 15 during the L1-side clock of epoch 13, and it must be Ethereum-final before
+epoch 15 begins. On top of that you must have bound a key, waited out <code>ACTIVATION_DELAY</code>,
+and been served from the FIFO queue within <code>ACTIVATION_RATE_LIMIT</code>. If any of those is
+late, your first epoch is later.</p></details>
+<details><summary>Why does an exit request not remove me from the set immediately?</summary>
+<p>Because stake that signed a certificate must stay punishable. An exiting validator remains in
+every set it is already committed to, keeps voting and remains fully slashable until the exit takes
+effect at a later snapshot. Withdrawal then waits out <code>D_WITHDRAW</code>, which covers proving,
+detection, evidence submission, L1 inclusion and finality, processing and a margin, and only after
+the evidence window has closed for every epoch the entry was in.</p></details>
+<details><summary>Why can a brand-new node not simply replay the chain from genesis?</summary>
+<p>An attacker that held a large share of the stake in a past epoch keeps the private keys of that
+epoch and can sign a competing history that verifies exactly as well as the real one. More history
+does not resolve that; only Ethereum&rsquo;s accepted checkpoint does. A checkpoint older than
+<code>WS_MAX</code> is not safe either, because its signers&rsquo; stake may already have been
+released and they can no longer be punished.</p></details>
+
+<div class="warnbox">
+<p><strong>Assumptions.</strong> This lesson relies on: fewer than one third of the voting power of
+the relevant epoch&rsquo;s set breaking the rules; enough validators online for a quorum to form; at
+least one holder keeping each block&rsquo;s data until the batch is settled; Ethereum continuing to
+accept and finalize transactions so the L1 clock and the set commitments advance; a new node being
+able to obtain an Ethereum-final checkpoint no older than <code>WS_MAX</code>; and the reward pool
+paying enough that operating a validator is rational at <code>S_min</code>. If a checkpoint cannot
+be obtained, the honest outcome is a refusal to call the history verified, and new entry stops until
+one exists.</p>
+</div>
+
+<p class="small"><a href="03-consensus.html">&larr; Previous: How the chain agrees</a> &middot;
+<a href="05-the-proof.html">Next: What the proof proves &rarr;</a></p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</body></html>

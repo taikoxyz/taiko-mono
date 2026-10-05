@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>10 &mdash; Who pays, who earns, who loses &middot; Etna PoS + ZK engineer&rsquo;s course</title>
+<link rel="stylesheet" href="course.css">
+</head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">engineer&rsquo;s course</span>
+  <nav>
+    <a href="index.html">Contents</a>
+    <a href="01-what-is-etna.html">1&nbsp;Overview</a>
+    <a href="02-life-of-a-transaction.html">2&nbsp;Life of a transaction</a>
+    <a href="03-consensus.html">3&nbsp;Consensus</a>
+    <a href="04-staking-and-epochs.html">4&nbsp;Staking</a>
+    <a href="05-the-proof.html">5&nbsp;The proof</a>
+    <a href="06-data-and-proof-together.html">6&nbsp;Data&nbsp;+&nbsp;proof</a>
+    <a href="07-timing.html">7&nbsp;Timing</a>
+    <a href="08-when-things-go-wrong.html">8&nbsp;Failures</a>
+    <a href="09-censorship-and-the-bridge.html">9&nbsp;Censorship&nbsp;&amp;&nbsp;bridge</a>
+    <a href="10-economics.html">10&nbsp;Economics</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="../spec/index.html">Specification</a>
+  </nav>
+</header>
+<main>
+<h1>10 &mdash; Who pays, who earns, who loses</h1>
+<p>What a validator spends, where its ETH rewards come from, what has to be proven before any stake is taken, and why the minimum stake is an operator-economics number rather than a security threshold.</p>
+<div class="warnbox">
+<p><strong>This is a design.</strong> Nothing on this page is implemented, deployed, audited or measured. Numbers are tagged
+<span class="pill derived">derived</span> (arithmetic on stated inputs), <span class="pill sourced">sourced</span> (from an Ethereum constant or a published rule) or <span class="pill unmeasured">unmeasured</span> (a value with no measurement behind it yet). A formula is a relation the design has to satisfy, not a value.</p>
+</div>
+
+<h2 id="idea">The idea</h2>
+<p>Two assets do two different jobs. <strong>TAIKO</strong> is what a validator bonds and can lose: it is the staking and slashable collateral asset, held in one L1 custody ledger. <strong>ETH</strong> is what the chain earns and spends: L2 execution fees are paid in ETH, L1 data and verification costs are paid in ETH, and validator rewards are denominated and paid in ETH. Gas stays ETH.</p>
+<p>A reward is a nominal ETH amount fixed when it is awarded. The protocol says nothing about its fiat value, and no rule may be conditioned on TAIKO&rsquo;s price rising. A reward schedule that only works if the token appreciates is an unfunded promise: TAIKO has no mint function today, so a reward funded by new TAIKO would need a token upgrade, and the reward pool can pay out only what has actually flowed into it.</p>
+<p>A penalty is not a mood and not a discretion. Exactly two kinds of behaviour are objectively provable from signed messages, and only a proven offence consumes stake. The size of the penalty is a function of how much of the epoch&rsquo;s voting power the offence implicated, so a single misbehaving validator pays a small amount while a coalition that approaches the one-third safety boundary loses everything it bonded for that epoch.</p>
+<p>Exit is an ordered queue, not a switch. A validator that asks to leave keeps validating and stays fully slashable until its exit takes effect, and even then its stake is held until every evidence window it was exposed to has closed. The delay exists because batch data and its proof land in one L1 transaction, so nobody can inspect a published batch before settlement: the delay has to cover the whole path from offence to L1-applied penalty.</p>
+
+<h2 id="diagram">The money path</h2>
+<figure>
+<svg viewBox="0 0 960 380" role="img" aria-label="ETH flows into the validator reward pool from L2 fees and a bounded subsidy, minus L1 costs, and out to validators in proportion to effective stake; proven offences debit TAIKO stake.">
+  <defs>
+    <marker id="ar10" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker>
+    <marker id="ar10g" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#9ece6a"/></marker>
+    <marker id="ar10r" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#f7768e"/></marker>
+  </defs>
+  <rect x="16" y="16" width="270" height="52" rx="8" fill="#161b22" stroke="#2d3743"/>
+  <text x="30" y="38" fill="#e6edf3" font-size="11">L2 execution + priority fees (ETH)</text>
+  <text x="30" y="55" fill="#9aa7b4" font-size="9">F_exec_L2 + F_priority_L2 &#8212; not yet measured</text>
+  <rect x="16" y="86" width="270" height="52" rx="8" fill="#161b22" stroke="#2d3743"/>
+  <text x="30" y="108" fill="#e6edf3" font-size="11">Any other L1 inflow (ETH)</text>
+  <text x="30" y="125" fill="#9aa7b4" font-size="9">POOL_TOPUP &#8212; budgeted and recorded; not yet measured</text>
+  <rect x="16" y="156" width="270" height="52" rx="8" fill="#161b22" stroke="#2d3743"/>
+  <text x="30" y="178" fill="#e6edf3" font-size="11">Bounded, expiring subsidy (ETH)</text>
+  <text x="30" y="195" fill="#9aa7b4" font-size="9">capitalises the pool from the protocol&rsquo;s own inflow; netted out</text>
+  <rect x="16" y="226" width="270" height="60" rx="8" fill="#2a1f10" stroke="#5c4a1c"/>
+  <text x="30" y="248" fill="#e0af68" font-size="11">How L2 fees reach the L1 pool</text>
+  <text x="30" y="265" fill="#e6edf3" font-size="10">is not specified by the design</text>
+  <text x="30" y="280" fill="#9aa7b4" font-size="9">until it exists, pool inflow is zero and Alloc(e) = 0</text>
+  <rect x="16" y="306" width="270" height="56" rx="8" fill="#2a1218" stroke="#5c2630"/>
+  <text x="30" y="328" fill="#f7768e" font-size="11">Costs subtracted before rewards</text>
+  <text x="30" y="345" fill="#e6edf3" font-size="10">C_L1_data + C_L1_verify + C_bridge_ops</text>
+  <rect x="358" y="86" width="238" height="96" rx="8" fill="#1c2330" stroke="#9ece6a"/>
+  <text x="372" y="110" fill="#9ece6a" font-size="12">Validator reward pool (ETH)</text>
+  <text x="372" y="130" fill="#e6edf3" font-size="10">held by the L1 staking contract</text>
+  <text x="372" y="147" fill="#e6edf3" font-size="10">never stake, never collateral,</text>
+  <text x="372" y="164" fill="#e6edf3" font-size="10">never slashable, never borrowed</text>
+  <line x1="288" y1="42" x2="354" y2="110" stroke="#7aa2f7" marker-end="url(#ar10)"/>
+  <line x1="288" y1="112" x2="354" y2="124" stroke="#7aa2f7" marker-end="url(#ar10)"/>
+  <line x1="288" y1="182" x2="354" y2="152" stroke="#9ece6a" marker-end="url(#ar10g)"/>
+  <line x1="288" y1="256" x2="354" y2="176" stroke="#e0af68" stroke-dasharray="5 4"/>
+  <line x1="288" y1="334" x2="354" y2="170" stroke="#f7768e" stroke-dasharray="5 4"/>
+  <text x="292" y="304" fill="#9aa7b4" font-size="9">subtracted</text>
+  <rect x="672" y="16" width="272" height="64" rx="8" fill="#161b22" stroke="#2d3743"/>
+  <text x="686" y="38" fill="#e6edf3" font-size="11">Alloc(e): the ETH assigned to epoch e</text>
+  <text x="686" y="55" fill="#9aa7b4" font-size="9">at most the pool&rsquo;s realised net inflow</text>
+  <rect x="672" y="96" width="272" height="86" rx="8" fill="#161b22" stroke="#2d3743"/>
+  <text x="686" y="118" fill="#e6edf3" font-size="11">Payout = floor(Alloc(e) &middot; effStake / PS(e))</text>
+  <text x="686" y="136" fill="#9aa7b4" font-size="9">PS(e) is the participating stake, frozen when the</text>
+  <text x="686" y="151" fill="#9aa7b4" font-size="9">epoch&rsquo;s evidence window closes. Only signers are paid;</text>
+  <text x="686" y="166" fill="#9aa7b4" font-size="9">claims are permissionless and pay the entry&rsquo;s owner.</text>
+  <rect x="672" y="198" width="272" height="96" rx="8" fill="#2a1218" stroke="#5c2630"/>
+  <text x="686" y="220" fill="#f7768e" font-size="11">Proven offence: slash()</text>
+  <text x="686" y="239" fill="#e6edf3" font-size="10">immediate debit at evidence time, plus a</text>
+  <text x="686" y="255" fill="#e6edf3" font-size="10">correlated debit at evidenceClose(e) + CORR_DELAY</text>
+  <text x="686" y="274" fill="#9aa7b4" font-size="9">debited from TAIKO already in custody; destination not yet fixed</text>
+  <line x1="596" y1="120" x2="668" y2="52" stroke="#7aa2f7" marker-end="url(#ar10)"/>
+  <line x1="596" y1="140" x2="668" y2="140" stroke="#7aa2f7" marker-end="url(#ar10)"/>
+  <path d="M810 182 L810 194" stroke="#f7768e" marker-end="url(#ar10r)"/>
+</svg>
+<figcaption>The reward pool pays only what has flowed into it. Fees are ETH, the pool is ETH, the payouts are ETH; TAIKO never leaves the custody ledger except through an owner withdrawal, and a proven offence debits it there.</figcaption>
+</figure>
+
+<h2 id="how">How it works</h2>
+<h3>1. What a validator pays for</h3>
+<p>A validator runs a node and holds capital. The node costs are ETH: hardware able to execute a worst-case block inside the two-second cadence, bandwidth for gossip and block fetches, storage for L2 state plus the retention window, an Ethereum client of its own for L1 finality evidence, L1 gas for bonding, exiting and submitting evidence, and the labour to operate all of it. The capital cost is the TAIKO it locks plus the opportunity cost of locking it for the duration of the unbonding delay.</p>
+<p>Write <code>C_op</code> for the annual operating cost of one validator in ETH, <code>S</code> for the TAIKO it bonds, and
+<code>&rho;_capital</code> for the annual ETH return it requires per unit of bonded TAIKO (risk-free rate plus an illiquidity premium for the unbonding delay, an expected-slashing-loss premium and a price-risk premium). The annual bill for <code>n</code> validators is
+<code>n &middot; (C_op + &rho;_capital &middot; S)</code> ETH. Every term is <span class="pill unmeasured">unmeasured</span> for this design: there is no operations study, no cost-of-capital observation and no measured node cost.</p>
+<h3>2. Where rewards come from</h3>
+<p>All ETH-denominated payouts in an accounting period must satisfy the funding identity</p>
+<pre><code>rewards_ETH(period) &le; F_exec_L2 + F_priority_L2 + POOL_TOPUP
+                        &minus; C_L1_data &minus; C_L1_verify &minus; C_bridge_ops &minus; D_subsidy</code></pre>
+<p>where the two <code>F</code> terms are L2 execution and priority fees actually collected, <code>POOL_TOPUP</code> is any other recorded L1-side inflow, the three <code>C</code> terms are L1 data, verification and bridge operating costs, and
+<code>D_subsidy</code> is the draw that capitalises a bounded, expiring subsidy account. The subsidy is a transfer of the protocol&rsquo;s own inflow, not a second funding source: it can smooth timing inside its term and can never make an unfunded schedule funded. Ordering value that leaks to searchers or builders is not revenue and has no term in the identity.</p>
+<p>Payment runs through the reward pool held by the L1 staking contract:</p>
+<ul>
+<li><strong>Participation is attested, not assumed.</strong> When <code>land(data, proof)</code> accepts a batch it writes the head certificate&rsquo;s authenticated signer bitmap into the staking contract&rsquo;s per-epoch participation accumulator. Nothing else may set a participation bit, and a payout is never made on presence in the set or on bonded balance alone.</li>
+<li><strong>Each epoch has one allocation.</strong> <code>Alloc(e)</code> is fixed before the first claim and may not exceed the pool&rsquo;s realised net inflow. The participant set and the participating stake <code>PS(e)</code> are frozen when the epoch&rsquo;s evidence window closes; each signer receives <code>floor(Alloc(e) &middot; effStake / PS(e))</code>, and floor-rounding remainders stay in the pool.</li>
+<li><strong>Claims are permissionless.</strong> Anyone may call <code>claimValidatorReward(epoch, index)</code>; the payout goes to the entry&rsquo;s recorded owner, once per (epoch, index). Claims open only after the epoch&rsquo;s evidence window closes, because only then is the allocation fixed. A batch of epoch <code>e</code> that lands after that instant does not change <code>PS(e)</code>; its validators are recorded as participants but are not paid from epoch <code>e</code>&rsquo;s allocation.</li>
+<li><strong>The pool is not collateral.</strong> ETH in the pool is never stake, never counted as bonded balance, never slashable and never borrowed against.</li>
+</ul>
+<p>How L2 fee revenue reaches the L1 pool is <strong>not specified</strong> by the design. Until that path exists, the pool has no inflow, <code>Alloc(e) = 0</code> and no validator reward can be paid at all. That consequence is part of the design as stated, not a detail to be filled in silently.</p>
+<h3>3. Why rewards cannot assume token appreciation</h3>
+<p>TAIKO has no mint and no burn function today: the supply was minted once and no inflation path exists on L1. A reward funded by new TAIKO therefore requires a token upgrade, which is a governance action, and it is not a standing funding source. Because rewards are paid in ETH, a TAIKO-denominated reward would additionally need a conversion rule and a price; no price constant is permitted anywhere in the design.</p>
+<p>A reward is a nominal ETH amount fixed when it is awarded. No rule, parameter, user interface or learning page may assume, require, promise or be conditioned on an increase in TAIKO&rsquo;s market price, market depth, float or pool value. &ldquo;Rewards are sustainable&rdquo; is a claim that holds only once fee-only inflow covers the validator bill; until then the honest description is that the schedule is reserve-dependent.</p>
+<h3>4. What can be slashed, and what evidence a penalty needs</h3>
+<p>The offence catalogue is closed. Only behaviour on the list consumes bonded stake, and only through
+<code>slash(address v, uint epoch, bytes evidence)</code>, which any address may call.</p>
+<table>
+<thead><tr><th>Offence</th><th>What the evidence is</th><th>What it costs</th></tr></thead>
+<tbody>
+<tr><td><strong>Equivocation</strong> &mdash; two conflicting signed messages by one validator at one
+<code>(chain_id, height, round, type)</code>, where type is a proposal, a prevote or a precommit</td>
+<td>the two signed messages themselves, plus the validator index; each signature is checked against the key committed for the signer at the epoch the message names. The pair is self-authenticating: no witness, no peer receipt and no other validator&rsquo;s cooperation is needed, and the submitter need not be a validator or hold any stake.</td>
+<td>an immediate debit, plus a correlated debit computed once the epoch&rsquo;s evidence window closes</td></tr>
+<tr><td><strong>Lock-rule violation</strong> in the only form that is objectively provable: a conflicting signed pair at the same (height, round)</td>
+<td>the same kind of pair. A violation whose proof would require showing that <em>no</em> unlocking proof-of-lock-change existed is not provable and is not slashable, and a cross-round or cross-epoch divergence under withholding can leave no admissible evidence at all.</td>
+<td>as above</td></tr>
+<tr><td><strong>Nothing else</strong></td>
+<td>Being offline, voting late, a round that times out, a prover that is slow inside the thirty-minute envelope, and the omission of a particular transaction are not offences. Mere non-receipt of a message is never evidence of misconduct.</td>
+<td>no stake</td></tr>
+</tbody>
+</table>
+<p>Evidence is one canonical encoding of <code>(domainTag, chainId, offenceType, payload)</code>, with a right-padded domain tag and the chain id first. A submission that fails any check reverts: no state is written, no balance is touched, no replay marker is set, and the submitter pays only L1 gas. The identity of an offence is
+<code>(validator, epoch, offenceType, keccak256(evidence))</code>; a second submission of the same identity is a no-op that pays no second bounty and does not extend any window.</p>
+<p>The deadline is an L1 timestamp: evidence is admissible only if the block that includes the <code>slash</code> transaction has
+<code>block.timestamp &le; evidenceClose(epoch)</code>. The window opens when the epoch&rsquo;s set root is committed and closes no earlier than the event that makes the offence observable plus the window length. <code>W_EVIDENCE</code> must cover the entire pipeline &mdash; permitted proving latency, L1 inclusion at a chosen quantile, L1 finality, detection, and submission &mdash; and it must satisfy the strict inequality <code>W_EVIDENCE + T_PROCESS + CORR_DELAY + M_ev &lt; D_WITHDRAW</code>. Equality is non-conforming: it turns a deadline into an L1 ordering race. Every term is <span class="pill unmeasured">unmeasured</span>.</p>
+<h3>5. Why penalties scale with implicated stake</h3>
+<p>For epoch <code>e</code>, each entry retains <code>SlashBase(v, e)</code>, its effective stake in that epoch&rsquo;s set version, and an offence at <code>e</code> is charged against that base, never against the balance at evidence time. Let <code>f</code> be the fraction of the epoch&rsquo;s total voting power held by entries with an applied offence of the class. Then</p>
+<pre><code>c(f)     = min( (f / F_SAT) ^ CORR_Q , 1 )      with F_SAT = 1/3, CORR_Q in {1, 2}
+P(v, e)  = min( SlashBase(v, e) &middot; ( IMM_FRAC + c(f) ) , SlashBase(v, e) )
+charge   = min( P(v, e) , bonded(v) , remaining_exposure(v, e) )</code></pre>
+<p>The correlated term <code>c(f)</code> is convex and saturates exactly at the one-third boundary: a lone offender implicates a tiny fraction and pays little, while a coalition holding a third of the epoch&rsquo;s voting power pays 100% of its epoch stake in the correlated component, on top of the immediate component. <code>CORR_Q = 1</code> reproduces Ethereum&rsquo;s
+<code>min(3f, 1)</code>; <code>CORR_Q = 2</code> reproduces Polkadot&rsquo;s <code>min((3x/n)^2, 1)</code>
+<span class="pill sourced">sourced</span>. <code>IMM_FRAC</code> is a per-class fraction with <code>0 &lt; IMM_FRAC &le; 1</code>, so every proven offence has a non-zero immediate cost; its value is <span class="pill unmeasured">unmeasured</span>.</p>
+<p>The immediate component is debited when the accepted evidence transaction executes. The correlated component cannot be known before the window closes, so it is computed once at <code>evidenceClose(e) + CORR_DELAY</code> and debited by the permissionless
+<code>applyCorrelated(e, class)</code>. A debit is bounded by the bonded balance and by the per-epoch base; the applied amount is taken, the remainder is recorded in the event and is not carried as a debt outside the ledger.</p>
+<p>The destination of slashed TAIKO is <strong>not yet fixed</strong>. The permitted options are transfer to the treasury, a burn (which needs a token upgrade or a recorded unrecoverable sink address), or a split that pays a strictly partial reporter bounty &mdash; strictly less than the total penalty actually debited, so that self-reporting is never profitable. The destination never changes the size of the penalty.</p>
+<div class="warnbox small"><strong>The honest tail.</strong> On a small validator set, a correlated penalty makes one operator&rsquo;s duplicated key a correlated loss for a non-trivial fraction of the set. The mitigation is operational: slashing-protection databases, remote signers, disciplined key custody. No parameter choice removes the tail, and the correlated penalty is not harmless.</div>
+<h3>6. Exit and unbonding</h3>
+<p>Exit is a request plus a wait, and the wait has three gates.</p>
+<ol>
+<li><strong>Request.</strong> The owner calls <code>requestExit()</code>. The entry stays in every set version it is already committed to, keeps voting, and remains fully slashable. Leaving the set immediately would silently shrink the validator set and would buy no protection at all.</li>
+<li><strong>Effectiveness.</strong> The exit takes effect at the first set version whose snapshot point is at or after the request and which the per-epoch churn cap does not exclude. The cap limits how much voting power may go inactive in one epoch (<code>CHURN_LIMIT &middot; TotalVP</code>); deferred exits are served in the objective order of their L1 request coordinates
+<code>(blockNumber, txIndex, logIndex)</code>, are never cancelled by the protocol and are never overtaken. Only the owner&rsquo;s
+<code>cancelExit()</code> before effectiveness removes one.</li>
+<li><strong>Withdrawal.</strong> The owner may withdraw only when the exit has been effective for at least <code>D_WITHDRAW</code>, every evidence window for every epoch the entry was in has closed, and no slashing exposure remains. At any moment the owner may withdraw at most <code>bonded &minus; max_exposure</code>, where <code>max_exposure</code> is the largest retained per-epoch charge base over epochs whose windows are still open.</li>
+</ol>
+<pre><code>D_WITHDRAW &ge; T_PROOF_MAX_PERMITTED + T_detect + T_evidence_submit
+             + T_L1_include(p) + T_L1_final + T_PROCESS + M</code></pre>
+<p><code>T_L1_include(p)</code> must be a quantile of L1 inclusion delay, never a mean and never a fixed slot duration. The delay may not be derived from nominal proving latency alone: because data and proof land together, there is no data-first window in which a third party could object before settlement, and the offence clock starts on L2, possibly long before the batch is provable. If the delay is judged too long, the answer is to reduce the pipeline terms it covers, never to set it below the formula. Every term is
+<span class="pill unmeasured">unmeasured</span>.</p>
+<h3>7. Minimum stake is an economic question</h3>
+<p>The minimum bonded amount for one validator is fixed by the operator break-even relation, in ETH-revenue terms:</p>
+<pre><code>S_min &ge; C_op_annual / ( r_gross &minus; &rho;_ops )</code></pre>
+<p>where <code>r_gross</code> is the annualised ETH reward actually paid per unit of bonded TAIKO and <code>&rho;_ops</code> is the
+operator&rsquo;s required margin in the same unit. The relation is dimensionally closed and contains no price term; the TAIKO price
+enters only through the required margin, which is why that margin is time-varying rather than a constant. If the pool cannot pay
+<code>r_gross &gt; &rho;_ops</code>, the denominator is zero or negative and <strong>no finite minimum exists</strong>: entry is closed
+in practice and permissionless entry is unsatisfiable in that regime. The honest statement is that the design is unfunded, not that the
+minimum can be lowered until operators appear.</p>
+<p>Attack cost is a different inequality and it does not produce a per-validator number. Aggregate stake must satisfy
+<code>S_total &ge; &Lambda; &middot; (EV_extractable + OV_option) / (b &middot; P(t) &middot; (1 + &sigma;(t)))</code>, where
+<code>b</code> is the Byzantine threshold, <code>P(t)</code> the TAIKO price, <code>&sigma;(t)</code> the slippage and illiquidity
+premium for acquiring the stake, and <code>EV_extractable</code> and <code>OV_option</code> the value extractable during the attack
+window and the option value of holding the ability to attack. No individual <code>S</code> appears, so no rule may derive a per-validator
+minimum from it. The minimum must also be at or below what a median intended participant can afford, or permissionless entry is
+permissionless only in name. Borrowed and leveraged stake changes the cost floor to a financing cost, and the protocol cannot observe
+leverage; per-address caps constrain labels, not capital. Every value here is <span class="pill unmeasured">unmeasured</span>, and no
+figure may be copied from Bitcoin or Ethereum validator costs, whose workloads differ.</p>
+
+<h2 id="example">Worked example</h2>
+<p>The numbers below are chosen to make the arithmetic visible. Unless a row says otherwise they are
+<span class="pill unmeasured">unmeasured</span>: they are placeholders, not measurements.</p>
+<table>
+<thead><tr><th>Quantity</th><th>Value</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>L2 block cadence</td><td>2 s</td><td><span class="pill derived">derived</span> (decided input)</td></tr>
+<tr><td>Epoch length</td><td>900 L2 blocks = 1,800 s = 30 min</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Epoch total voting power <code>W</code></td><td>90,000,000 TAIKO</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>One validator&rsquo;s effective stake</td><td>1,000,000 TAIKO</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Stake implicated by one offence class, <code>f</code></td><td>3,000,000 / 90,000,000 = 1/30 &asymp; 3.33%</td><td><span class="pill derived">derived</span> from the two rows above</td></tr>
+<tr><td>Immediate fraction <code>IMM_FRAC</code></td><td>1%</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Correlated shape <code>CORR_Q</code></td><td>2</td><td><span class="pill unmeasured">unmeasured</span> (1 or 2)</td></tr>
+<tr><td>Correlated multiplier <code>c(f)</code></td><td>((1/30) / (1/3))<sup>2</sup> = 0.01 = 1%</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>One offender&rsquo;s charge at 1,000,000 TAIKO base</td><td>1% immediate + 1% correlated = 20,000 TAIKO, 2% of its stake</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Same offenders, but 30,000,000 TAIKO implicated (f = 1/3)</td><td><code>c</code> saturates at 1; charge capped at the 1,000,000 TAIKO base = 100% of that epoch&rsquo;s stake</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Epoch allocation <code>Alloc(e)</code></td><td>10 ETH</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Participating stake <code>PS(e)</code></td><td>40,000,000 TAIKO</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Payout to the 1,000,000 TAIKO validator</td><td>floor(10 &middot; 1,000,000 / 40,000,000) = 0.25 ETH</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Annual cost per validator <code>C_op</code></td><td>1.2 ETH</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Capital charge <code>&rho;_capital &middot; S</code></td><td>0.3 ETH per validator-year</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Annual bill for 100 validators</td><td>100 &middot; (1.2 + 0.3) = 150 ETH</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Net ETH inflow for the year</td><td>100 ETH</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Fundable validator count <code>n_max_fundable</code></td><td>floor(100 / 1.5) = 66 validators</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Epoch-length term in the evidence window</td><td>3 &middot; 1,800 s = 5,400 s</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Pipeline terms (proof, inclusion, finality, detect, submit)</td><td>7,200 s</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Evidence window floor</td><td>5,400 + 7,200 = 12,600 s &asymp; 3.5 h, and <code>D_WITHDRAW</code> must exceed it plus the processing, correlated-penalty and margin terms</td><td><span class="pill derived">derived</span> from unmeasured inputs</td></tr>
+</tbody>
+</table>
+<p>Read together: at 150 ETH of annual bill against 100 ETH of inflow, the design pays 66 validators and needs a reserve to cover the
+difference, or it reduces the validator count through the exit path. Each validator&rsquo;s share of a 10 ETH epoch allocation is
+0.25 ETH before costs. A single equivocator loses about 2% of its epoch stake; the same offence class at the one-third boundary loses
+100% of it.</p>
+
+<h2 id="gives">What this gives you</h2>
+<ul>
+<li>A reward that is a nominal ETH amount with a stated funding identity, not a yield promise tied to a token price.</li>
+<li>Penalties that require objective, self-authenticating evidence, that any address can submit, and that credit no one&rsquo;s
+discretion.</li>
+<li>Proportional cost: the more stake an offence implicates, the larger the fraction of each offender&rsquo;s stake that is taken,
+saturating at the one-third safety boundary.</li>
+<li>A withdrawal gate that makes it impossible to release stake before the window that could charge it has closed.</li>
+<li>A minimum stake derived from what it costs to run a validator, and an aggregate attack-cost bound that is stated as a separate
+inequality.</li>
+</ul>
+
+<h2 id="not">What it does not give you</h2>
+<ul>
+<li>No reward at all while the path that moves L2 fee revenue into the L1 pool is unspecified; an unfunded pool pays nothing.</li>
+<li>No compensation to users. A penalty debits an offender&rsquo;s stake and does nothing else: it does not reverse a finalized block,
+return a bridge message or cover a loss, and there is no universal bound on user losses.</li>
+<li>No penalty for being offline, for censoring a transaction or for omitting it. Those are liveness or inclusion questions, not
+offences.</li>
+<li>No deterrent guarantee. The deterrence argument is conditional on slashed stake having value and being confiscated, and it can fail
+with no rule changing if the market moves.</li>
+<li>No protection from the correlated-penalty tail, in which one operator&rsquo;s key mishap costs honest peers.</li>
+<li>No measured cost, revenue, reward or market figure. There are no operations study, fee history or liquidity data behind any value
+on this page.</li>
+</ul>
+
+<h2 id="check">Check yourself</h2>
+<details><summary>A validator is offline for a day and misses its rounds. Is it slashed?</summary>
+<p>No. Being offline, voting late and timing out are not offences; the only slashable consensus behaviour is objectively signed
+conflict. The validator loses the rewards it did not attest &mdash; no participation bit, no payout &mdash; and if too much of the set
+is offline the chain halts rather than penalising anyone. The withdrawal gate still applies to stake already exposed to an open
+epoch.</p></details>
+<details><summary>Two validators equivocate in the same epoch. Why is the second offence&rsquo;s marginal cost much larger than the
+first&rsquo;s?</summary>
+<p>Because the correlated component is a convex function of the fraction <code>f</code> of the epoch&rsquo;s voting power implicated by
+the class, not a fixed fee per offender. One offender sets a small <code>f</code> and pays a small correlated fraction; as
+<code>f</code> approaches one third, each additional offender raises the multiplier for the whole class until it saturates at 100%. The
+immediate component is charged per offence and is bounded by the same per-epoch base, so once the base is exhausted further offences are
+recorded but not collected.</p></details>
+<details><summary>The reward pool holds 500 ETH. Can a validator count on a share of it?</summary>
+<p>Only through the stated identity. The pool pays <code>Alloc(e)</code> per epoch, and <code>Alloc(e)</code> may not exceed the
+pool&rsquo;s realised net inflow and is subject to the frozen participant set and participating stake. A large balance smooths timing; it
+does not create an obligation, and no rule may pay out more than has flowed in or borrow against the pool. If the transfer path for fee
+revenue is unspecified, the pool has no inflow and nothing is payable at all.</p></details>
+
+<h2 id="assumptions">Assumptions</h2>
+<div class="warnbox">
+<ul>
+<li>Fewer than one third of the voting power in each epoch is malicious; the deterrence and safety arguments stop at that boundary.</li>
+<li>TAIKO keeps enough market value and liquidity that confiscating it is a real loss, and that acquiring a third of it is expensive.
+Both are market facts the protocol does not control and cannot observe on-chain.</li>
+<li>Somebody funds the pool: L2 fee revenue reaches it, or a bounded and recorded top-up does, or validators are paid nothing.</li>
+<li>Operators use slashing protection and disciplined key custody, because the correlated penalty makes one duplicated key expensive for
+others.</li>
+<li>The evidence window&rsquo;s close is anchored to the epoch&rsquo;s set-root commit. The L1 fact that would tie the close to the
+epoch&rsquo;s production is not fixed, so a settlement halt longer than the window can make a resumed epoch&rsquo;s offences
+inadmissible.</li>
+<li>Ethereum keeps producing blocks and finalizing them; the whole settlement and evidence path is denominated in L1 time.</li>
+</ul>
+</div>
+
+<p class="small">Previous: <a href="09-censorship-and-the-bridge.html">9 &mdash; Censorship &amp; the bridge</a> &middot; Next:
+<a href="glossary.html">Glossary</a> &middot; The exact rules are <a href="../spec/07-economics-slashing.html#ECON-05">ECON-05</a>
+(penalties), <a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a> (offences and evidence),
+<a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a> (rewards and funding),
+<a href="../spec/07-economics-slashing.html#ECON-07">ECON-07</a> (evidence window),
+<a href="../spec/03-membership-staking.html#MEM-05">MEM-05</a> (exit and unbonding) and
+<a href="../spec/07-economics-slashing.html#ECON-09">ECON-09</a> (minimum stake).</p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course &middot; the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</body></html>

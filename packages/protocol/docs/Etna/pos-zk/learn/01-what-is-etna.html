@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What Etna PoS + ZK is — engineer&rsquo;s course</title>
+<link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">engineer&rsquo;s course</span>
+  <nav>
+    <a href="index.html">Contents</a>
+    <a href="01-what-is-etna.html">1&nbsp;Overview</a>
+    <a href="02-life-of-a-transaction.html">2&nbsp;Life of a transaction</a>
+    <a href="03-consensus.html">3&nbsp;Consensus</a>
+    <a href="04-staking-and-epochs.html">4&nbsp;Staking</a>
+    <a href="05-the-proof.html">5&nbsp;The proof</a>
+    <a href="06-data-and-proof-together.html">6&nbsp;Data&nbsp;+&nbsp;proof</a>
+    <a href="07-timing.html">7&nbsp;Timing</a>
+    <a href="08-when-things-go-wrong.html">8&nbsp;Failures</a>
+    <a href="09-censorship-and-the-bridge.html">9&nbsp;Censorship&nbsp;&amp;&nbsp;bridge</a>
+    <a href="10-economics.html">10&nbsp;Economics</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="../spec/index.html">Specification</a>
+  </nav>
+</header>
+<main>
+
+<h1>What Etna PoS + ZK is</h1>
+<p class="muted">This lesson gives you the shape of the system: who does what, what Ethereum still provides, and the five questions people mix up when they talk about it.</p>
+
+<div class="warnbox">
+<p><strong>This is a design, not a running system.</strong> Nothing described here is implemented, deployed, audited or
+measured. Numbers are tagged <span class="pill derived">derived</span> (arithmetic on the design's fixed inputs),
+<span class="pill sourced">sourced</span> (an external standard or constant) or
+<span class="pill unmeasured">unmeasured</span> (a placeholder with no measurement behind it). The authoritative
+rules are in the <a href="../spec/index.html">specification</a>.</p>
+</div>
+
+<h2>The idea</h2>
+<p>Etna PoS + ZK is a layer-2 chain that keeps its own consensus. Its blocks are ordered by validators who bond the
+TAIKO token on Ethereum and whose voting power is the stake they bonded. Ethereum does not choose the order of L2
+transactions, and no Ethereum proposer sits in the L2 block path. The honest name for the architecture is a
+<strong>PoS-sequenced validity rollup</strong> (<a href="../spec/index.html#GEN-09">GEN-09</a>).</p>
+<p>Blocks are produced on a fixed cadence: one L2 block every <strong>two seconds</strong> under the design's
+operating assumptions <span class="pill derived">derived</span>, not measured. A block becomes
+<strong>final</strong> when <a href="../spec/02-consensus.html#CONS-03">more than two thirds</a> of the epoch's voting power has signed a precommit for it (<a href="../spec/02-consensus.html#CONS-05">CONS-05</a>).
+Finality is a consensus fact, established by validators alone in a few message round trips — it is not an Ethereum
+confirmation and it is not a proof.</p>
+<p>Ethereum's job is different. Batches of L2 blocks are published to Ethereum together with a zero-knowledge proof
+that the batch's blocks were finalized by the validator set <em>and</em> executed correctly. One Ethereum
+transaction carries the batch data and the proof, or the batch is not accepted at all (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>). There is no state on that
+path between "transaction exists" and "batch accepted": the contract derives what the proof is checked against, the
+proof verifies, and only then is a checkpoint written. A batch whose data is missing cannot be accepted, and a
+batch is never recorded before its proof verifies.</p>
+<p>Data and proof travel together because the alternative has a known failure mode: data published first, proof
+never produced, and then the data expires from Ethereum's blob window while the batch is still unsettled. Here the
+canonical copy of a batch's data <em>is</em> the accepting L1 transaction — its calldata or its blob sidecars — so
+acceptance and publication are the same event (<a href="../spec/04-l1-integration.html#DA-01">DA-01</a>).</p>
+<p>Finally, safety beats progress. When the information or participation needed to continue safely is missing, the
+protocol stops producing and keeps serving what it has (<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>). It never replaces a block it already finalized, and there
+is no operator key, pause button or emergency path that can rewrite finalized history.</p>
+
+<h2>The picture</h2>
+<figure>
+<svg viewBox="0 0 960 430" role="img" aria-label="Users submit transactions to L2 validators, who order and finalize blocks; a prover proves each finalized batch; one Ethereum transaction carries the batch data and the proof, advancing a checkpoint that the bridge reads.">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7aa2f7"></path>
+    </marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ece6a"></path>
+    </marker>
+  </defs>
+  <rect x="20" y="24" width="200" height="70" rx="9" fill="#161b22" stroke="#2d3743"></rect>
+  <text x="120" y="52" fill="#e6edf3" font-size="14" text-anchor="middle">Users</text>
+  <text x="120" y="72" fill="#9aa7b4" font-size="11" text-anchor="middle">L2 transactions, bridge calls</text>
+  <rect x="330" y="24" width="290" height="70" rx="9" fill="#161b22" stroke="#bb9af7"></rect>
+  <text x="475" y="50" fill="#e6edf3" font-size="14" text-anchor="middle">L2 validators (TAIKO-bonded)</text>
+  <text x="475" y="70" fill="#9aa7b4" font-size="11" text-anchor="middle">propose · execute · prevote · precommit</text>
+  <rect x="700" y="24" width="230" height="70" rx="9" fill="#161b22" stroke="#9ece6a"></rect>
+  <text x="815" y="50" fill="#e6edf3" font-size="14" text-anchor="middle">Provers</text>
+  <text x="815" y="70" fill="#9aa7b4" font-size="11" text-anchor="middle">witness + ZK proof per batch</text>
+  <rect x="330" y="170" width="290" height="70" rx="9" fill="#161b22" stroke="#2d3743"></rect>
+  <text x="475" y="196" fill="#e6edf3" font-size="14" text-anchor="middle">Full nodes · archive nodes</text>
+  <text x="475" y="216" fill="#9aa7b4" font-size="11" text-anchor="middle">execute · serve bodies and state · retain</text>
+  <rect x="700" y="170" width="230" height="70" rx="9" fill="#161b22" stroke="#7aa2f7"></rect>
+  <text x="815" y="196" fill="#e6edf3" font-size="14" text-anchor="middle">Ethereum (L1)</text>
+  <text x="815" y="216" fill="#9aa7b4" font-size="11" text-anchor="middle">data · proof check · settlement · bridge</text>
+  <rect x="20" y="320" width="200" height="70" rx="9" fill="#161b22" stroke="#2d3743"></rect>
+  <text x="120" y="348" fill="#e6edf3" font-size="14" text-anchor="middle">TAIKO staking</text>
+  <text x="120" y="368" fill="#9aa7b4" font-size="11" text-anchor="middle">bond, exit, slash (on L1)</text>
+  <rect x="700" y="320" width="230" height="70" rx="9" fill="#161b22" stroke="#2d3743"></rect>
+  <text x="815" y="348" fill="#e6edf3" font-size="14" text-anchor="middle">DAO</text>
+  <text x="815" y="368" fill="#9aa7b4" font-size="11" text-anchor="middle">upgrades only · no runtime role</text>
+  <line x1="220" y1="59" x2="326" y2="59" stroke="#7aa2f7" marker-end="url(#arr)"></line>
+  <text x="273" y="50" fill="#9aa7b4" font-size="10" text-anchor="middle">submit</text>
+  <line x1="620" y1="59" x2="696" y2="59" stroke="#7aa2f7" marker-end="url(#arr)"></line>
+  <text x="658" y="50" fill="#9aa7b4" font-size="10" text-anchor="middle">finalized batch</text>
+  <line x1="700" y1="205" x2="624" y2="205" stroke="#9ece6a" marker-end="url(#arrg)"></line>
+  <text x="662" y="196" fill="#9aa7b4" font-size="10" text-anchor="middle">state sync</text>
+  <line x1="475" y1="94" x2="475" y2="166" stroke="#7aa2f7" marker-end="url(#arr)"></line>
+  <text x="505" y="134" fill="#9aa7b4" font-size="10">blocks · votes · data</text>
+  <line x1="120" y1="320" x2="120" y2="98" stroke="#7aa2f7" stroke-dasharray="4 3" marker-end="url(#arr)"></line>
+  <text x="132" y="230" fill="#9aa7b4" font-size="10">validator set per epoch (L1 fact)</text>
+  <line x1="700" y1="355" x2="620" y2="355" stroke="#7aa2f7" marker-end="url(#arr)"></line>
+  <text x="660" y="346" fill="#9aa7b4" font-size="10" text-anchor="middle">upgrade tx</text>
+  <line x1="815" y1="170" x2="815" y2="98" stroke="#9ece6a" stroke-dasharray="4 3" marker-end="url(#arrg)"></line>
+  <text x="825" y="140" fill="#9aa7b4" font-size="10">proof verified</text>
+  <text x="30" y="415" fill="#9aa7b4" font-size="11">Solid arrows: messages and transactions. Dashed arrows: L1 facts read by L2 and upgrades.</text>
+</svg>
+<figcaption>Figure 1 — Ethereum provides data availability, proof verification, settlement and bridge anchoring.
+It does not sequence L2 blocks. Validators finalize order; provers show that the finalized order and its execution
+are correct.</figcaption>
+</figure>
+
+<h2>How it works</h2>
+
+<h3>The cast</h3>
+<table>
+<thead><tr><th>Participant</th><th>How it enters</th><th>What it does</th><th>What it never does</th></tr></thead>
+<tbody>
+<tr><td><strong>Validators</strong></td><td>Permissionless: bond TAIKO on Ethereum, bind a signing key, join a first-come activation queue (<a href="../spec/01-system-model.html#ROLE-01">ROLE-01</a>)</td><td>Propose blocks when selected, execute and check every block they vote for, prevote and precommit, hold and serve the data they voted for</td><td>They do not get to choose the validator set, and holding TAIKO gives no protocol right other than this role</td></tr>
+<tr><td><strong>Provers</strong></td><td>Permissionless: no registration, no bond, no allowlist</td><td>Prove a finalized batch and submit data + proof in one L1 transaction; the first valid landing wins and is paid</td><td>They do not choose the validator set, the predecessor, the data commitment or the threshold — all are derived from L1 state</td></tr>
+<tr><td><strong>Full nodes</strong></td><td>Permissionless</td><td>Execute the chain, check validity, serve blocks, state and witnesses</td><td>They have no vote and no role in finality</td></tr>
+<tr><td><strong>Archive nodes</strong></td><td>Permissionless</td><td>Retain the full accepting-transaction calldata and blob sidecars, and L2 history, past the window in which Ethereum serves them</td><td>Retention is an assumption the design relies on, not a duty the protocol can enforce today</td></tr>
+<tr><td><strong>Users</strong></td><td>No registration, no TAIKO</td><td>Submit L2 transactions and bridge messages</td><td>They have no L1 path that forces a transaction into L2</td></tr>
+<tr><td><strong>Ethereum</strong></td><td>External</td><td>Stores the batch data, verifies proofs, settles checkpoints, anchors the bridge</td><td>It does not order L2 transactions and does not see them before they are final</td></tr>
+<tr><td><strong>The DAO</strong></td><td>Existing L1 governance</td><td>Upgrades contracts under the published upgrade rules</td><td>It has no role in ordinary block production, voting, proving or withdrawal</td></tr>
+</tbody>
+</table>
+
+<h3>What Ethereum provides, and what it does not</h3>
+<div class="grid">
+<div class="card">
+<h4>Still provided by Ethereum</h4>
+<ul>
+<li><strong>Data availability.</strong> The canonical copy of a batch's data is the accepting L1 transaction itself: its calldata and/or its blob sidecars. A batch is never accepted without it.</li>
+<li><strong>Proof verification.</strong> An L1 contract checks the proof and writes the checkpoint only if verification succeeds, in the same transaction.</li>
+<li><strong>Settlement.</strong> A monotone checkpoint chain records, per landed height, the L2 block hash, state root, epoch, validator-set root, data commitment and the L1 block that accepted it.</li>
+<li><strong>Bridge anchoring.</strong> Cross-chain messages authenticate against a checkpoint that the Inbox wrote; value leaves only on the strength of an L1-accepted checkpoint plus the required delay.</li>
+</ul>
+</div>
+<div class="card">
+<h4>No longer provided by Ethereum</h4>
+<ul>
+<li><strong>Ordering.</strong> The order of L2 transactions is decided by L2 PoS. No Ethereum proposer, builder or slot timing enters a validity rule.</li>
+<li><strong>Per-transaction inclusion.</strong> There is no inclusion duty and no L1 forced-inclusion path. Resistance to censorship is a conditional statistical property of proposer rotation, not a guarantee.</li>
+<li><strong>Instant settlement.</strong> L2 finality (a few round trips) is a different event from L1 acceptance (proof + inclusion) and from Ethereum finality (a further L1 finality lag).</li>
+<li><strong>Rollback of finalized L2 history.</strong> No rule, timeout, rotation, admission rule or ordinary upgrade may invalidate a PoS-finalized block. If the chain cannot continue correctly, it halts.</li>
+</ul>
+</div>
+</div>
+
+<h3>The five words people mix up</h3>
+<p>Each of these is a different question with a different answer, a different source of evidence, and a different failure
+mode. A tool that shows "confirmed" must say which one it means.</p>
+<table>
+<thead><tr><th>Word</th><th>The question it answers</th><th>Where the answer comes from</th><th>What it does not tell you</th></tr></thead>
+<tbody>
+<tr><td><strong>Execution validity</strong></td><td>Does this block follow from its parent under the execution rules?</td><td>This node's own re-execution of the block against a known parent state</td><td>Nothing about what other nodes did or agreed to.</td></tr>
+<tr><td><strong>Consensus agreement</strong></td><td>Did more than two thirds of the epoch's voting power sign for this block at this height?</td><td>A published commit certificate: signed precommits from distinct validators, weighted by bonded stake</td><td>Nothing about whether the data is retrievable, and nothing about Ethereum.</td></tr>
+<tr><td><strong>Data availability</strong></td><td>Can someone other than the current holder actually retrieve the block body or the batch data?</td><td>Your own retrieval, and later the accepting L1 transaction. A certificate commits to a block hash, not to bytes.</td><td>A holder's local possession is not evidence that others can get the data.</td></tr>
+<tr><td><strong>Economic accountability</strong></td><td>If a validator broke a consensus rule, is there objective evidence that anyone can submit, and stake that can be taken?</td><td>The offence catalogue and the slashing rules, which act on signed objects and L1-committed stake</td><td>It does not prevent a break. Safety still assumes fewer than one third of the voting power is malicious.</td></tr>
+<tr><td><strong>Ethereum settlement</strong></td><td>Is the transition committed on Ethereum with its data in the same transaction?</td><td>The Inbox checkpoint record and the accepting L1 transaction</td><td>It does not decide the ordering or the contents, and it can be reorganised until Ethereum finalizes it.</td></tr>
+</tbody>
+</table>
+
+<h2>Worked example: one epoch, in numbers</h2>
+<p>Suppose the chain is at epoch 0, covering L2 heights 0–899. The table shows where each number comes from.</p>
+<table>
+<thead><tr><th>Quantity</th><th>Value</th><th>Where it comes from</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>L2 block cadence</td><td>2 s</td><td>the design's fixed production cadence — a cadence, not a finality or settlement latency</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Epoch length <code>L</code></td><td>900 heights</td><td>900 × 2 s = 1,800 s = 30 min; suitability at the target validator count is not measured</td><td><span class="pill derived">derived</span> / suitability <span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Block at 824 s after height 0</td><td>height 412</td><td>412 × 2 s</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Nominal batch length <code>K</code></td><td>32 blocks ≈ 64 s</td><td>a placeholder planning value; the L1 admission bound is a separate, unset parameter</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Data per 12 s L1 slot at target blob capacity</td><td>786,432 bytes = 6 × 131,072</td><td>EIP-7691 target blob count</td><td><span class="pill sourced">sourced</span></td></tr>
+<tr><td>Data budget per 2 s L2 block</td><td>≈ 131,072 bytes</td><td>six 2 s blocks per 12 s L1 slot at target capacity</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Data published per epoch envelope</td><td>≈ 118 MB</td><td>900 × 131,072 bytes — the volume that must stay retrievable while a batch is unsettled</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Quorum for a certificate</td><td><code>3·s &gt; 2·W</code></td><td>with epoch total voting power <code>W = 900,000</code> TAIKO base units, <code>s = 600,000</code> does <em>not</em> reach quorum and <code>s = 600,001</code> does; the same strict comparison is evaluated by the L2 client, the proof's guest program and the L1 contract</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Proof envelope</td><td>30 min</td><td>a planning assumption for normal operation; not a worst-case bound and not measured</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>EIP-4844 point-evaluation precompile cost</td><td>50,000 gas per blob</td><td>EIP-4844 constant, used on the blob data path</td><td><span class="pill sourced">sourced</span></td></tr>
+</tbody>
+</table>
+<p>Read the table as a warning about wording: "2 s" is a production cadence, "30 min" is a proof envelope, "900" is an
+epoch length, and "more than two thirds" is a signing threshold. None of them is a settlement time. A batch of 32
+blocks spanning 64 s of history can be finalized by validators within seconds and still take minutes to be proven
+and land on Ethereum; the interface must name which stage it is showing.</p>
+
+<h2>What this gives you</h2>
+<ul>
+<li>A clear split of responsibilities: validators order and finalize; provers and Ethereum settle; the bridge authenticates against settled checkpoints.</li>
+<li>Permissionless roles with objective entry conditions — bond TAIKO to validate, produce a proof to land a batch — and no allowlists in ordinary operation.</li>
+<li>An architecture whose failure mode for missing information is a halt, not a silent rewrite of finalized history.</li>
+<li>A vocabulary — the eight statuses used across this course — that lets a tool say exactly which guarantee it is showing.</li>
+</ul>
+
+<h2>What it does not give you</h2>
+<ul>
+<li><strong>No implementation.</strong> There is no compiled client, contract deployment, audit, benchmark or testnet result behind any of this.</li>
+<li><strong>No measured performance.</strong> The 2 s cadence, the 30-minute proving envelope, the round budget and the fleet sizing are all unmeasured; the arithmetic in this lesson is arithmetic, not evidence.</li>
+<li><strong>No safety beyond the stake assumption.</strong> If one third or more of an epoch's voting power is malicious or compromised, two conflicting certificates can both be valid, and the proof verifies both.</li>
+<li><strong>No inclusion guarantee.</strong> Proposer selection is public and predictable; the protocol has no per-transaction inclusion promise and no L1 escape hatch.</li>
+<li><strong>No fully trustless L2 checkpoint write yet.</strong> The design retains one reserved system sender for the L2-side checkpoint write; its only permitted action is to publish the Ethereum-final L1 fact that the rule already constrains.</li>
+<li><strong>No unconditional blob-path binding.</strong> Batch data can travel as calldata or as blobs. The calldata commitment is the unconditional path; the blob path's fixed-point argument must be independently checked and its in-guest evaluation cost measured before it is relied on.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<details><summary>A tool tells you a transaction is "confirmed". What should you ask?</summary>
+<p>Which of the eight statuses it means. A 2 s PoS confirmation says a validator set agreed on ordering; it does not
+say the batch data and proof are on Ethereum. Until the accepting L1 transaction exists and is final, a settlement
+or bridge action cannot safely rely on it.</p></details>
+<details><summary>Why can a batch not be published to Ethereum before its proof?</summary>
+<p>Because the canonical copy of the data is the accepting transaction. If data could be published first, it could
+sit on Ethereum unproven, age out of the blob window, and leave a settled-looking obligation that no one can prove —
+which would force a rollback the design forbids. So data and proof are one atomic acceptance or nothing.</p></details>
+<details><summary>Ethereum verifies the proof. Does that mean the L2 history is safe even if one third of validators misbehave?</summary>
+<p>No. The proof attests that the presented certificate is internally consistent with the authenticated validator
+set and the quorum rule. It cannot attest that no competing certificate exists. If the stake assumption fails, two
+conflicting certificates can both be cryptographically valid and both can produce accepting proofs.</p></details>
+
+<div class="card" id="assumptions">
+<h3>Assumptions</h3>
+<ul>
+<li>Fewer than one third of each epoch's voting power is malicious or compromised.</li>
+<li>More than two thirds of each epoch's voting power is online and messages arrive within the round-timeout bound often enough to complete rounds.</li>
+<li>Validators and full nodes hold and serve the data of blocks they voted for, at least until settlement; somebody keeps the data until the proof lands.</li>
+<li>At least one adequately-resourced prover completes each committed batch.</li>
+<li>Ethereum includes valid transactions within a bounded delay and does not reorganise below the finality depth it reports.</li>
+<li>TAIKO has a market, and the stake bonded is worth enough that slashing matters.</li>
+<li>The DAO executes upgrades honestly and never uses an upgrade to invalidate finalized history.</li>
+</ul>
+</div>
+
+<p class="small"><a href="02-life-of-a-transaction.html">Next: the life of a transaction &rarr;</a></p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</body></html>

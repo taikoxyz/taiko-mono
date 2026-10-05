@@ -88,8 +88,8 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | R10 | Censorship resistance — **relaxed by user decision D-6**: forced inclusion removed; statistical resistance only (proposer rotation under A-CONS-2), with the withdrawal-censorship consequence disclosed | [10](spec/10-assurance.html) LIVE-04, [04](spec/04-l1-integration.html) FI-REMOVED-01 | satisfied in relaxed form only |
 | R11 | Objective misconduct evidence, collateral, exits | [07](spec/07-economics-slashing.html) ECON-04..08 | specified |
 | R12 | No L1 lookahead or fixed slot dependence | [index](spec/index.html) GEN-06 | specified |
-| R13 | Implementable without inventing rules | all pages; 128 registered rules | 128/128 stated once |
-| R14 | Learning site consistent with the specification | [learn/](learn/index.html) | in progress |
+| R13 | Implementable without inventing rules | all pages; 137 registered rules | 137/137 stated once |
+| R14 | Learning site consistent with the specification | [learn/](learn/index.html) — a 12-page engineer's course that carries **no review-process or decision-log content**; process archaeology stays in the specification, `DECISIONS.md` and `iterations/` | in progress |
 
 ## Reading order
 
@@ -104,7 +104,9 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
    decision procedure, the selected architecture and its six modifications.
 6. [`spec/index.html`](spec/index.html) — **the authoritative specification**, with the complete rule
    index (128 rules, each stated exactly once).
-7. [`learn/index.html`](learn/index.html) — the progressive course.
+7. [`learn/index.html`](learn/index.html) — the engineer's course: twelve plain-language pages covering the
+   design from first principles. It deliberately contains no review history, no finding identifiers and no
+   decision-log references; those live in `DECISIONS.md` and `iterations/`.
 8. [`DECISIONS.md`](DECISIONS.md) — the ordered decision log, including the recorded dissent against
    the Mode A selection.
 9. [`iterations/`](iterations/) — frozen review rounds, findings and dispositions.

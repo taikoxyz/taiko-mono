@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — 6 Data and proof travel together</title>
+<link rel="stylesheet" href="course.css">
+</head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">engineer&rsquo;s course</span>
+  <nav>
+    <a href="index.html">Contents</a>
+    <a href="01-what-is-etna.html">1&nbsp;Overview</a>
+    <a href="02-life-of-a-transaction.html">2&nbsp;Life of a transaction</a>
+    <a href="03-consensus.html">3&nbsp;Consensus</a>
+    <a href="04-staking-and-epochs.html">4&nbsp;Staking</a>
+    <a href="05-the-proof.html">5&nbsp;The proof</a>
+    <a href="06-data-and-proof-together.html">6&nbsp;Data&nbsp;+&nbsp;proof</a>
+    <a href="07-timing.html">7&nbsp;Timing</a>
+    <a href="08-when-things-go-wrong.html">8&nbsp;Failures</a>
+    <a href="09-censorship-and-the-bridge.html">9&nbsp;Censorship&nbsp;&amp;&nbsp;bridge</a>
+    <a href="10-economics.html">10&nbsp;Economics</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="../spec/index.html">Specification</a>
+  </nav>
+</header>
+<main>
+
+<h1>Data and proof travel together</h1>
+<p class="muted">This lesson explains the single rule that shapes settlement: one Ethereum
+transaction carries the batch data and its proof, and the Inbox accepts neither without the other.
+It covers the two ways data can be published, how the blob binding works, and what happens when
+verification fails. This is a design: nothing is deployed, and the costs below are arithmetic on
+published constants, not measurements of this system.</p>
+
+<h2>The idea</h2>
+<p>There is exactly one function that can advance the chain&rsquo;s L1 checkpoint:
+<code>land(data, proof)</code>. One call, one transaction, carries the batch&rsquo;s block range,
+its data (as calldata, as blob sidecars, or both) and the zero-knowledge proof of the previous
+lesson. The Inbox verifies the proof against a statement hash it derives itself, and only then
+writes the new checkpoint.</p>
+<p>That gives the design a property that is worth stating in plain words: <strong>there is no
+state in which data has been published but not yet proven, and no state in which a proof has been
+accepted for data that is not public in the same transaction.</strong> The two travel together or
+not at all.</p>
+<p>Data can travel in two forms. <strong>Calldata</strong> is ordinary transaction input; the
+contract can read it, so the contract itself hashes the exact bytes and nothing is left to trust.
+<strong>Blobs</strong> are the cheaper bulk-data form introduced by EIP-4844, but the EVM cannot
+read a blob&rsquo;s contents &mdash; it can only see a versioned hash. For blobs, the binding is
+split: the contract checks a cryptographic opening of the blob at a challenge point, and the proof
+guest shows that the data <em>it actually executed</em> is a polynomial that takes the same value
+at the same point. Together those two facts pin the executed bytes to the published blobs.</p>
+
+<figure>
+<svg viewBox="0 0 940 470" role="img" aria-label="Two data paths into one atomic L1 transaction">
+  <defs>
+    <marker id="d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7aa2f7"></path></marker>
+    <marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#e0af68"></path></marker>
+  </defs>
+  <rect x="20" y="20" width="250" height="86" rx="9" fill="#161b22" stroke="#bb9af7"></rect>
+  <text x="145" y="46" fill="#e6edf3" font-size="13" text-anchor="middle">L2: a finalized batch</text>
+  <text x="36" y="68" fill="#9aa7b4" font-size="11">32 blocks &#183; head commit certificate</text>
+  <text x="36" y="86" fill="#9aa7b4" font-size="11">payload bytes &#183; claimed new state root</text>
+  <rect x="20" y="140" width="900" height="250" rx="10" fill="#131820" stroke="#2d3743" stroke-dasharray="6 4"></rect>
+  <text x="40" y="168" fill="#e6edf3" font-size="13">One L1 transaction: land(data, proof)</text>
+  <rect x="50" y="190" width="360" height="170" rx="9" fill="#161b22" stroke="#7aa2f7"></rect>
+  <text x="230" y="216" fill="#e6edf3" font-size="13" text-anchor="middle">Calldata path (daMode = 1)</text>
+  <text x="66" y="242" fill="#9aa7b4" font-size="11">the bytes are in the transaction&#8217;s calldata</text>
+  <text x="66" y="262" fill="#9aa7b4" font-size="11">the contract itself computes</text>
+  <text x="66" y="280" fill="#9aa7b4" font-size="11">keccak256(_data) and the data commitment</text>
+  <text x="66" y="306" fill="#9aa7b4" font-size="11">the guest recomputes the same commitment</text>
+  <text x="66" y="324" fill="#9aa7b4" font-size="11">over the bytes it executed</text>
+  <text x="66" y="348" fill="#9aa7b4" font-size="11">no probabilistic argument needed</text>
+  <rect x="530" y="190" width="360" height="170" rx="9" fill="#161b22" stroke="#e0af68"></rect>
+  <text x="710" y="216" fill="#e6edf3" font-size="13" text-anchor="middle">Blob path (daMode = 2)</text>
+  <text x="546" y="242" fill="#9aa7b4" font-size="11">the full 131,072-byte blobs ride in the same tx</text>
+  <text x="546" y="262" fill="#9aa7b4" font-size="11">contract: BLOBHASH + KZG opening at point 0x0A</text>
+  <text x="546" y="282" fill="#9aa7b4" font-size="11">challenge z is derived from the statement</text>
+  <text x="546" y="302" fill="#9aa7b4" font-size="11">guest: evaluates the polynomial of the data it</text>
+  <text x="546" y="320" fill="#9aa7b4" font-size="11">executed at the same z and recomputes the</text>
+  <text x="546" y="338" fill="#9aa7b4" font-size="11">commitment over the full bytes</text>
+  <line x1="270" y1="106" x2="270" y2="186" stroke="#7aa2f7" marker-end="url(#d)"></line>
+  <text x="285" y="132" fill="#9aa7b4" font-size="10">payload</text>
+  <line x1="145" y1="106" x2="145" y2="186" stroke="#e0af68" marker-end="url(#e)"></line>
+  <text x="30" y="132" fill="#9aa7b4" font-size="10">blob sidecars</text>
+  <line x1="410" y1="275" x2="526" y2="275" stroke="#2d3743" stroke-dasharray="4 3"></line>
+  <line x1="230" y1="360" x2="230" y2="400" stroke="#7aa2f7" marker-end="url(#d)"></line>
+  <line x1="710" y1="360" x2="710" y2="400" stroke="#7aa2f7" marker-end="url(#d)"></line>
+  <rect x="380" y="400" width="180" height="46" rx="8" fill="#161b22" stroke="#bb9af7"></rect>
+  <text x="470" y="420" fill="#e6edf3" font-size="12" text-anchor="middle">statement hash</text>
+  <text x="470" y="437" fill="#9aa7b4" font-size="10" text-anchor="middle">proof checked against it</text>
+  <rect x="620" y="400" width="290" height="46" rx="8" fill="#161b22" stroke="#2d3743"></rect>
+  <text x="765" y="420" fill="#e6edf3" font-size="12" text-anchor="middle">checkpoint advances, or the whole call reverts</text>
+  <text x="765" y="437" fill="#9aa7b4" font-size="10" text-anchor="middle">no partial acceptance exists</text>
+  <line x1="560" y1="423" x2="616" y2="423" stroke="#7aa2f7" marker-end="url(#d)"></line>
+</svg>
+<figcaption>Figure 1 &mdash; Two data paths, one atomic entry point. The calldata path is
+unconditional; the blob path adds a KZG opening on L1 and an evaluation inside the guest. Both
+feed the same statement hash, and a failure at any step reverts the whole call.</figcaption>
+</figure>
+
+<h2>How it works</h2>
+
+<h3>1. One entry point, and its order of operations</h3>
+<p><code>land(data, proof)</code> must execute in a fixed order: decode and shape-check the input in
+memory (no state writes); derive every L1-side public input from storage and from this transaction;
+if blobs are used, perform the blob checks and keep the results in memory; call the active verifier
+with the statement hash; treat a revert, an empty return or any return other than exactly
+<code>abi.encode(true)</code> as invalid; only then write the checkpoint, advance the height,
+record the signer bitmap and pay the reward; emit events last. If any step fails, the call reverts
+with a typed error and leaves no partial effect
+(<a href="../spec/04-l1-integration.html#L1-03">L1-03</a>).</p>
+
+<h3>2. There is deliberately no data-first path</h3>
+<p>No entry point, overload, helper or recovery path may record the data, or a commitment to it,
+in one transaction and the proof in another. There is no &ldquo;propose then prove&rdquo; flow, and
+no function may write a pending batch record that a later <code>land</code> depends on
+(<a href="../spec/04-l1-integration.html#L1-02">L1-02</a>). The reason is concrete: data published
+without a proof occupies L1 capacity and settles nothing, and it creates an interval in which the
+batch can only be settled if somebody still holds the data until a proof appears. Publishing the
+data and the proof together removes that interval entirely. The canonical copy of a batch&rsquo;s
+data is therefore the accepting L1 transaction itself, and no witness, certificate, blob reference
+or off-chain store is a substitute for it.</p>
+
+<h3>3. The calldata path: the contract hashes the bytes</h3>
+<p>On this path the Inbox computes the commitment itself over the exact calldata slice:
+<code>dataRoot = keccak256(_data)</code>, then
+<code>dataCommitment = keccak256(abi.encode(domain, chainId, firstHeight, lastHeight, daMode, dataRoot))</code>.
+The committed object is the whole byte string, never a prefix, and a submitter-supplied copy of the
+commitment must be ignored. The guest decodes the payload from those bytes, executes it, and
+recomputes the same commitment; a mismatch invalidates the batch. Because both sides hash the same
+single byte string, this path needs no probabilistic argument at all
+(<a href="../spec/04-l1-integration.html#DA-02">DA-02</a>).</p>
+
+<h3>4. The blob path: an opening on L1 and an evaluation in the guest</h3>
+<p>A blob is 131,072 bytes: 4,096 field elements of a polynomial over the BLS12-381 scalar field.
+The commitment covers every one of those bytes, including any unused remainder at the end &mdash;
+a commitment over a prefix would leave the prover free to choose the suffix after the challenge
+point was fixed.</p>
+<ol>
+<li>The Inbox reads the transaction&rsquo;s own versioned hash with the <code>BLOBHASH</code>
+opcode. The opcode is transaction-scoped, so no other transaction&rsquo;s blobs can be substituted,
+and a zero value means no blob at that index.</li>
+<li>It calls the EIP-4844 point-evaluation precompile at address <code>0x0A</code>, which checks
+that the supplied commitment hashes to that versioned hash and that the polynomial opens to the
+claimed value at the claimed point. The call must return exactly
+<code>abi.encode(4096, BLS_MODULUS)</code>; anything else reverts.</li>
+<li>The challenge point <code>z</code> is derived on L1 by Fiat&ndash;Shamir from the statement
+itself &mdash; the statement hash, the data commitment, the ordered blob versioned hashes and the
+blob index. The submitter cannot choose it.</li>
+<li>The guest interprets the blob in the EIP-4844 convention (the elements are evaluations in
+bit-reversed order, not coefficients), rejects any element that is not a canonical field element,
+and checks that the polynomial of the data it executed takes the same value <code>y</code> at
+<code>z</code>.</li>
+<li>The guest recomputes the data commitment over the full blob byte strings it executed and
+requires equality with the journal value used to derive the challenge.</li>
+</ol>
+<p>Why this binds the two objects together: the opening proves
+<code>p_blob(z) = y</code>; the guest proves <code>p_data(z) = y</code>; so the difference of the
+two polynomials has a root at <code>z</code>. But <code>z</code> is not fixed while the prover
+chooses its data &mdash; it is derived from a transcript that contains the commitment to that data.
+A cheating prover would need a fixed point: data whose hash-derived challenge is a root of the
+difference polynomial. For any candidate payload the chance is at most 4,095 / |F| &asymp;
+2<sup>&minus;243</sup> <span class="pill derived">derived</span>, so searching <code>q</code>
+candidates gives at most <code>q &middot; 2<sup>&minus;243</sup></code>, under the random-oracle
+model for the challenge and the binding property of KZG
+(<a href="../spec/04-l1-integration.html#DA-03">DA-03</a>).</p>
+<p>When both calldata and blobs are used, the whole published string is the calldata payload
+followed by the full blobs, and both bindings apply independently: a batch is invalid if either
+fails.</p>
+
+<h3>5. Any prover may land a batch</h3>
+<p>Admission has no gate: no whitelist, no approval, no bond, no reputation and no deadline that
+could make an unsettled range permanently unacceptable. The structural bounds are exactly three:
+the range must be contiguous and start at the previous checkpoint&rsquo;s height plus one; the batch
+must be non-empty; and every loop must be bounded by the transaction&rsquo;s own contents
+(<a href="../spec/04-l1-integration.html#L1-04">L1-04</a>).</p>
+<p>The first valid submission wins. Two transactions in the same L1 block are ordered by Ethereum,
+so the first advances the checkpoint and the second either reverts or is evaluated against the new
+one. Re-submitting the same batch after a failed attempt is accepted, and it is never rejected
+because somebody else announced, attempted or submitted the range first. A proof is a proof of
+exactly one statement: the same proof presented with a different range, predecessor, data
+commitment, epoch or set root fails verification, because all of those values are inside the
+statement hash. The reward goes to the account that paid for the L1 transaction, not to an address
+named inside the proof, and copying a proof from the public mempool and landing it first is
+accepted behaviour; a prover&rsquo;s mitigation is private orderflow or bundling
+(<a href="../spec/04-l1-integration.html#L1-10">L1-10</a>).</p>
+
+<h3>6. What a failed verification does</h3>
+<p>Nothing is accepted. If the proof is invalid, if a blob opening fails, if the range is not
+contiguous, or if any check reverts, the whole call reverts: no checkpoint is written, the height
+does not advance, no reward is paid and no event is emitted. The batch stays unsettled and anybody
+may try again with a correct witness or a correct proof later. There is no &ldquo;accepted but
+unproven&rdquo; state to clean up, and no recovery path that could create one.</p>
+
+<h2>Worked example</h2>
+<p>A six-block batch whose payload is about 600,000 bytes, published first one way and then the
+other. The gas figures are arithmetic on published Ethereum constants, not measurements of this
+system.</p>
+<table>
+<thead><tr><th>Quantity</th><th>Value in this example</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>Payload size</td><td>6 blocks &times; ~100,000 bytes = 600,000 bytes (example input)</td><td><span class="pill unmeasured">unmeasured</span> real payloads</td></tr>
+<tr><td>Calldata cost</td><td>600,000 &times; 16 gas per non-zero byte = 9,600,000 gas</td><td><span class="pill derived">derived</span> from a <span class="pill sourced">sourced</span> constant (EIP-2028)</td></tr>
+<tr><td>Blob count</td><td>600,000 / 131,072 = 4.58, so 5 blobs; each blob is exactly 131,072 bytes = 4,096 field elements</td><td><span class="pill derived">derived</span> &middot; <span class="pill sourced">sourced</span> blob size</td></tr>
+<tr><td>Blob opening cost</td><td>5 &times; 50,000 gas per point-evaluation call = 250,000 gas</td><td><span class="pill derived">derived</span> from a <span class="pill sourced">sourced</span> constant (EIP-4844)</td></tr>
+<tr><td>Blob data cost</td><td>paid separately as blob gas at the Ethereum blob market price; not part of execution gas</td><td><span class="pill sourced">sourced</span> mechanism &middot; <span class="pill unmeasured">unmeasured</span> price</td></tr>
+<tr><td>Blob limits</td><td>5 blobs fits under Ethereum&rsquo;s target of 6 blobs per block; the maximum is 9</td><td><span class="pill sourced">sourced</span> (EIP-7691)</td></tr>
+<tr><td>Total cost of <code>land(data, proof)</code></td><td>not stated; it depends on the verifier route, the batch size and the proof system</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+</tbody></table>
+<p class="small">The comparison between the two rows is the engineering point: the same 600,000
+bytes cost about 9.6 million execution gas as calldata and about 250,000 gas of execution for the
+blob openings, with the blob data itself paid on a separate market. Which is cheaper overall
+depends on blob prices and on the verifier&rsquo;s gas, neither of which is measured here.</p>
+
+<h2>What this gives you</h2>
+<ul>
+<li>One atomic rule to implement and to reason about: no checkpoint without both the data and a
+valid proof, and no way to create a pending state.</li>
+<li>A calldata path whose binding is a hash the contract computes itself, with no probabilistic
+argument.</li>
+<li>A blob path that still binds the executed bytes to the published blobs, using an L1 precompile
+for the cryptographic opening and in-guest field arithmetic for the evaluation.</li>
+<li>Permissionless landing: any account may submit a valid pair, and re-submission is allowed until
+one lands.</li>
+<li>A clean failure story: a failed verification reverts and changes nothing, so there is nothing
+to reconcile afterwards.</li>
+</ul>
+
+<h2>What it does not give you</h2>
+<ul>
+<li>No fast path for publishing data early: if you need data on L1 before a proof exists, this
+design does not offer it, in any mode.</li>
+<li>No permanent storage: Ethereum guarantees blob sidecars for a bounded window (4,096 epochs,
+about 18 days at the present cadence, <span class="pill sourced">sourced</span>), and historical
+calldata is pruned on the p2p layer under EIP-4444 (14,299 epochs,
+<span class="pill sourced">sourced</span>); past that, retrievability depends on archive nodes
+keeping the accepting transaction&rsquo;s bytes.</li>
+<li>No protection against a prover being front-run: the reward follows the landing transaction, so
+copying a public proof is allowed.</li>
+<li>No measured cost or in-guest blob-evaluation cost; the blob binding&rsquo;s fixed-point argument
+has not yet been independently checked.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<details><summary>Can a batch&rsquo;s data be on Ethereum before its proof?</summary>
+<p>No. There is exactly one entry point, <code>land(data, proof)</code>, and one transaction carries
+both. No function may record the data, or a commitment to it, or a pending batch that a later call
+depends on. A batch is either accepted with its data and a valid proof, or not accepted at
+all.</p></details>
+<details><summary>On the blob path the contract cannot read the blob bytes. What stops a prover
+from committing to data it did not execute?</summary>
+<p>The guest recomputes the data commitment over the full blob bytes it executed, and the challenge
+point is derived from a transcript that includes that commitment. To cheat, a prover would need
+executed data whose hash-derived challenge is a root of the difference between its polynomial and
+the blob&rsquo;s polynomial &mdash; a fixed point, not a linear equation &mdash; which succeeds with
+probability at most about 2<sup>&minus;243</sup> per candidate payload under the stated
+assumptions.</p></details>
+<details><summary>Someone copies your proof from the mempool and lands it first. What happens?</summary>
+<p>The batch lands &mdash; it is the same data and the same statement &mdash; and the reward goes to
+the account that paid for the L1 transaction. The proof cannot be reused for a different batch,
+because the range, predecessor, data commitment, epoch and set root are all inside the statement
+hash. A prover who wants to avoid this uses private orderflow or bundles its own landing
+transaction.</p></details>
+
+<div class="warnbox">
+<p><strong>Assumptions.</strong> This lesson relies on: somebody publishing the data in the
+accepting transaction, as calldata or as blob sidecars of that same transaction; Ethereum&rsquo;s
+blob-retention window holding long enough for the batch to be proven and for evidence to be
+submitted, with archive nodes keeping the bytes afterwards; KZG binding and the random-oracle model
+for the Fiat&ndash;Shamir challenge on the blob path; the in-guest blob evaluation being implemented
+correctly in the EIP-4844 convention; and a verifier route being registered and reachable on L1. If
+the blob path&rsquo;s argument does not hold, the calldata path still binds data by a hash the
+contract computes itself.</p>
+</div>
+
+<p class="small"><a href="05-the-proof.html">&larr; Previous: What the proof proves</a> &middot;
+<a href="07-timing.html">Next: Two seconds and thirty minutes &rarr;</a></p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</body></html>

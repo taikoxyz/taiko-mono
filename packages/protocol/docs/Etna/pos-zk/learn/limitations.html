@@ -1,300 +1,220 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Limitations — what this design does not claim · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What this design does not promise &middot; Etna PoS + ZK engineer&rsquo;s course</title>
+<link rel="stylesheet" href="course.css">
+</head><body>
 <header class="site">
-  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
-  <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
-  <a href="../spec/index.html">Specification</a></nav>
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">engineer&rsquo;s course</span>
+  <nav>
+    <a href="index.html">Contents</a>
+    <a href="01-what-is-etna.html">1&nbsp;Overview</a>
+    <a href="02-life-of-a-transaction.html">2&nbsp;Life of a transaction</a>
+    <a href="03-consensus.html">3&nbsp;Consensus</a>
+    <a href="04-staking-and-epochs.html">4&nbsp;Staking</a>
+    <a href="05-the-proof.html">5&nbsp;The proof</a>
+    <a href="06-data-and-proof-together.html">6&nbsp;Data&nbsp;+&nbsp;proof</a>
+    <a href="07-timing.html">7&nbsp;Timing</a>
+    <a href="08-when-things-go-wrong.html">8&nbsp;Failures</a>
+    <a href="09-censorship-and-the-bridge.html">9&nbsp;Censorship&nbsp;&amp;&nbsp;bridge</a>
+    <a href="10-economics.html">10&nbsp;Economics</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="../spec/index.html">Specification</a>
+  </nav>
 </header>
 <main>
-<h1>Limitations — what this design does not claim</h1>
 
-<div class="card">
-<p><strong>Problem this lesson solves.</strong> It collects, in one place, the assumptions the design rests on, the numbers that are not
-measured, the blockers that are still open, and how to report a finding — so a learner can tell a specification from a working system.</p>
+<h1>What this design does not promise</h1>
+<p>The honest edge of everything in this course: what the design is, what it deliberately leaves unsolved, and which numbers do not exist yet.</p>
+
+<div class="warnbox">
+<p><strong>This is a design, not a system.</strong> Nothing described in this course is implemented, deployed, audited or measured.
+There is no running network, no benchmark, no audit and no model. Every property called <em>proven</em> in the specification is an
+argument from named premises, not a machine-checked or tested result, and every number is either arithmetic on stated inputs or an
+unmeasured placeholder. Where this page and the <a href="../spec/index.html">specification</a> disagree, the specification wins.</p>
 </div>
 
-<h2 id="plain">In plain language</h2>
+<h2 id="idea">The idea</h2>
+<p>A design earns trust by stating its own boundary. This page is that boundary: the guarantees the design does not make, the duties it
+does not enforce, and the dependencies it cannot remove. None of these is a temporary gap to be read past &mdash; each is part of the
+design as it stands.</p>
+<p>Two of them matter more than the rest for anyone sizing exposure. The protocol provides <strong>no forced-inclusion path</strong>, so
+a network-level adversary that can isolate a user can exclude that user&rsquo;s transactions indefinitely &mdash; including preventing
+the user from starting a withdrawal. And when the assumptions needed to continue safely are missing, the chain <strong>halts</strong>
+rather than rolling back; a halt can be long, and the design permits it to be permanent.</p>
 
-<p><strong>Nothing here is implemented, measured, audited or deployed.</strong> This is a design document. Interface sketches are not
-compiled code; there are no benchmarks produced by the project; the static site is a deliverable, not software
-(<a href="../spec/index.html#GEN-01">GEN-01</a>). Every "Proven" in the specification is an argued property with named premises, not a
-machine-checked or tested one (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, scope row).</p>
-
-<p><strong>How to read the tags.</strong> Rules carry <span class="pill proven">Proven</span> (an argument with named premises),
-<span class="pill assumed">Assumed</span> (a justification plus the consequence of failure) or <span class="pill open">Open</span> (the
-evidence that would close it). Numbers carry <span class="pill derived">derived</span> (arithmetic on decided or sourced inputs),
-<span class="pill sourced">sourced</span> (an external constant, cited) or <span class="pill unmeasured">unmeasured</span> (a placeholder
-with the experiment that would fix it). No proposed value may be described as a benchmark
-(<a href="../spec/index.html#GEN-04">GEN-04</a>, <a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a>).</p>
-
-<p><strong>The assumptions.</strong> The full list is in
-<a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §4. The ones a reader should carry everywhere:
-fewer than one third of each epoch's voting power is Byzantine (<code>A-CONS-1</code>); message delivery among correct validators is timely
-often enough after a global stabilization time (<code>A-CONS-2</code>, <code>A-CONS-3</code>); correct validators hold and serve the data
-they voted for (<code>A-CONS-5</code>); at least one adequately-resourced prover completes each committed batch
-(<code>A-DA-2</code>); Ethereum includes valid transactions and does not reverse finality (<code>A-L1-1</code>); a new node can obtain a
-weak-subjectivity checkpoint within the freshness window (<code>A-CONS-6</code>); the zkVM is sound
-(<code>A-CRYPTO-1</code>); the economic assumption <code>A-ECO-1</code> holds at the relevant time; and the DAO does not execute a
-malicious upgrade (<code>A-GOV-1</code>).</p>
-
-<p><strong>Three failure classes, kept apart.</strong> <strong>F1 — liveness-assumption failure, safety intact:</strong> a quorum offline, a
-partition, a prover outage, blob expiry, L1 congestion. The protocol halts, backpressures, waits or replaces provers; it never rewrites
-finalized history. <strong>F2 — safety-assumption failure:</strong> one third or more Byzantine stake, key compromise, a zkVM soundness break,
-or a governance upgrade that changes the rules. The safety claims do not apply, and two conflicting certificates can both be
-cryptographically valid; ZK verification cannot repair this. Detection and disclosure is the honest response.
-<strong>F3 — implementation-assumption failure:</strong> a client, prover or contract bug; out of scope for this design project, but the
-specification must not make it undetectable (<a href="../01-requirements-and-threat-model.md">01</a> §5,
-<a href="../spec/10-assurance.html#INV-01">INV-01</a>).</p>
-
-<p><strong>What is explicitly not claimed.</strong> That any attack is unprofitable; that the protocol provides a per-transaction
-inclusion guarantee or an L1 forced-inclusion path
-(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>); that proving throughput or the 2&nbsp;s cadence has been
-measured; that ZK verification repairs failed consensus assumptions; that a PoS confirmation before
-<a href="../spec/index.html#STATUS-06">accepted on L1</a> is irreversible in any mode other than Mode A's stated assumptions; that a
-settlement halt is bounded in duration; that users will be compensated for losses — penalties are not compensation and no universal bound on
-economic loss exists (<a href="../spec/index.html#verdict">specification verdict</a>,
-<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
-
-<h2 id="definitions">Precise definitions</h2>
-
-<ul>
-<li><strong>Design-only claim.</strong> No implementation, deployment or measurement; no performance number without a source or an explicit
-<em>unmeasured</em> tag (<a href="../spec/index.html#GEN-01">GEN-01</a>).</li>
-<li><strong>Evidence tags.</strong> Proven / Assumed / Open for rules; derived / sourced / unmeasured for numbers, each used once and never
-merged (<a href="../spec/index.html#GEN-04">GEN-04</a>, <a href="../spec/index.html#GEN-08">GEN-08</a>).</li>
-<li><strong>Parameter discipline.</strong> A value with no derivation and no source may not be given: it is marked unmeasured with the
-experiment that would fix it; changing a value is a governance action
-(<a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a>).</li>
-<li><strong>Unmeasured register.</strong> The list of quantities that must be measured, with workload, hardware and methodology, before the
-corresponding value is fixed (<a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>).</li>
-<li><strong>Conditional liveness.</strong> The complete liveness claim with its clauses; liveness ends at the first clause that fails, and a
-safe halt is a permitted outcome (<a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>).</li>
-<li><strong>Sustainability inequalities.</strong> Three inequalities — rate, concurrency, data — that must be evaluated with measured inputs
-before launch; if any fails, the correct response is backpressure, not a longer latency assumption
-(<a href="../spec/10-assurance.html#LIVE-03">LIVE-03</a>).</li>
-<li><strong>Limitations register.</strong> The accepted limitations, stated once with their consequence, none of which may be presented as a
-strength or dropped from a summary (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
-<li><strong>Open blocker.</strong> An item that blocks a decision rather than being disclosed as a caveat; the Mode B cheap-trigger
-resistance is the named example (<a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a>).</li>
-<li><strong>Finding ledger.</strong> Every adversarial finding recorded with its rule, preconditions, attack trace, fault-model position,
-attacker resources, harm, affected requirements and resolution or explicit acceptance
-(<a href="../spec/10-assurance.html#LIM-03">LIM-03</a>).</li>
-</ul>
-
-<h2 id="diagram">Diagram — the assumption stack and the three failure classes</h2>
-
+<h2 id="diagram">What each guarantee rests on</h2>
 <figure>
-<svg viewBox="0 0 940 330" role="img" aria-label="Six layers of assumptions from cryptography to governance, with F1 liveness failures leading to a safe halt, F2 safety failures voiding the claims, and F3 implementation failures kept detectable.">
+<svg viewBox="0 0 960 330" role="img" aria-label="Five assumptions on the left, the guarantee each supports, and the consequence of failure on the right: a halt, no remedy, or an unpriced risk.">
   <defs>
-    <marker id="arL" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#f7768e"/></marker>
+    <marker id="arL" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker>
   </defs>
-  <rect x="20" y="18" width="470" height="42" rx="8" fill="#1c2330" stroke="#bb9af7"/>
-  <text x="36" y="36" fill="#e6edf3" font-size="11">Economic: A-ECO-1 deterrence · A-ECO-2 obtainable TAIKO</text>
-  <text x="36" y="52" fill="#9aa7b4" font-size="9">time-varying; no verified price, float or liquidity data</text>
-  <rect x="20" y="68" width="470" height="42" rx="8" fill="#1c2330" stroke="#bb9af7"/>
-  <text x="36" y="86" fill="#e6edf3" font-size="11">Governance: A-GOV-1 — the DAO does not execute a malicious upgrade</text>
-  <text x="36" y="102" fill="#9aa7b4" font-size="9">a trust assumption; one upgrade can rewrite any rule (GOV-02)</text>
-  <rect x="20" y="118" width="470" height="42" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
-  <text x="36" y="136" fill="#e6edf3" font-size="11">L1: A-L1-1 — Ethereum inclusion, no finality reversal; A-L1-2 features available</text>
-  <text x="36" y="152" fill="#9aa7b4" font-size="9">if it fails: nothing settles, and no L1 fallback path exists (LIVE-04)</text>
-  <rect x="20" y="168" width="470" height="42" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
-  <text x="36" y="186" fill="#e6edf3" font-size="11">DA and proving: A-CONS-5 retention · A-DA-2 a prover completes · A-DA-4 witness reconstructible</text>
-  <text x="36" y="202" fill="#9aa7b4" font-size="9">if they fail: settlement halts, possibly permanently</text>
-  <rect x="20" y="218" width="470" height="42" rx="8" fill="#1c2330" stroke="#9ece6a"/>
-  <text x="36" y="236" fill="#e6edf3" font-size="11">Consensus: A-CONS-1 &lt; 1/3 Byzantine · A-CONS-2 partial synchrony · A-CONS-4 set agreement · A-CONS-6 freshness</text>
-  <text x="36" y="252" fill="#9aa7b4" font-size="9">if A-CONS-1 fails: two valid conflicting histories, and ZK cannot detect it</text>
-  <rect x="20" y="268" width="470" height="42" rx="8" fill="#1c2330" stroke="#9ece6a"/>
-  <text x="36" y="286" fill="#e6edf3" font-size="11">Cryptographic: A-CRYPTO-1 zkVM sound · A-CRYPTO-2 signatures unforgeable · A-CRYPTO-3 hashes binding</text>
-  <text x="36" y="302" fill="#9aa7b4" font-size="9">a soundness break is the bridge-theft class; not repairable by the protocol</text>
-  <rect x="520" y="18" width="400" height="82" rx="8" fill="#2a1f10" stroke="#5c4a1c"/>
-  <text x="536" y="40" fill="#e0af68" font-size="12">F1 — liveness-assumption failure</text>
-  <text x="536" y="60" fill="#e6edf3" font-size="10">safety intact: halt · backpressure · replace provers · wait</text>
-  <text x="536" y="78" fill="#9aa7b4" font-size="9">never rewrite finalized history; the halt may be permanent</text>
-  <rect x="520" y="112" width="400" height="82" rx="8" fill="#2a1218" stroke="#5c2630"/>
-  <text x="536" y="134" fill="#f7768e" font-size="12">F2 — safety-assumption failure</text>
-  <text x="536" y="154" fill="#e6edf3" font-size="10">the safety claims do not apply; detection and disclosure only</text>
-  <text x="536" y="172" fill="#9aa7b4" font-size="9">conflicting certificates may both verify; ZK does not repair it</text>
-  <rect x="520" y="206" width="400" height="82" rx="8" fill="#1c2330" stroke="#2d3743"/>
-  <text x="536" y="228" fill="#e6edf3" font-size="12">F3 — implementation-assumption failure</text>
-  <text x="536" y="248" fill="#e6edf3" font-size="10">out of scope for this design project</text>
-  <text x="536" y="266" fill="#9aa7b4" font-size="9">but the design must not make a bug undetectable</text>
-  <line x1="494" y1="150" x2="516" y2="150" stroke="#f7768e" marker-end="url(#arL)"/>
+  <g fill="#161b22" stroke="#2d3743">
+    <rect x="16" y="16" width="440" height="46" rx="8"/>
+    <rect x="16" y="76" width="440" height="46" rx="8"/>
+    <rect x="16" y="136" width="440" height="46" rx="8"/>
+    <rect x="16" y="196" width="440" height="46" rx="8"/>
+    <rect x="16" y="262" width="440" height="52" rx="8" stroke="#e0af68"/>
+  </g>
+  <text x="30" y="37" fill="#e6edf3" font-size="11">Fewer than one third of stake is malicious, and enough validators are online</text>
+  <text x="30" y="54" fill="#9aa7b4" font-size="9">supports: PoS safety and continued finality</text>
+  <text x="30" y="97" fill="#e6edf3" font-size="11">Somebody retains the batch data until the proof lands</text>
+  <text x="30" y="114" fill="#9aa7b4" font-size="9">supports: settlement ever happening</text>
+  <text x="30" y="157" fill="#e6edf3" font-size="11">Ethereum keeps producing and finalizing blocks</text>
+  <text x="30" y="174" fill="#9aa7b4" font-size="9">supports: every L1-anchored status</text>
+  <text x="30" y="217" fill="#e6edf3" font-size="11">The ETH reward pool is actually funded</text>
+  <text x="30" y="234" fill="#9aa7b4" font-size="9">supports: validator rewards of any size</text>
+  <text x="30" y="283" fill="#e0af68" font-size="11">A fresh L1 checkpoint exists and governance behaves</text>
+  <text x="30" y="300" fill="#9aa7b4" font-size="9">supports: safe sync by a new node, and the rules themselves</text>
+  <rect x="580" y="30" width="364" height="120" rx="8" fill="#2a1218" stroke="#5c2630"/>
+  <text x="596" y="54" fill="#f7768e" font-size="12">If a liveness assumption fails</text>
+  <text x="596" y="76" fill="#e6edf3" font-size="10">the chain halts safely and waits; there is no</text>
+  <text x="596" y="93" fill="#e6edf3" font-size="10">rollback, no degraded mode and no emergency</text>
+  <text x="596" y="110" fill="#e6edf3" font-size="10">operator. A halt can last a long time, and it may</text>
+  <text x="596" y="127" fill="#e6edf3" font-size="10">be permanent.</text>
+  <rect x="580" y="170" width="364" height="120" rx="8" fill="#2a1f10" stroke="#5c4a1c"/>
+  <text x="596" y="194" fill="#e0af68" font-size="12">If a safety or funding assumption fails</text>
+  <text x="596" y="216" fill="#e6edf3" font-size="10">the guarantees do not apply and no rule repairs</text>
+  <text x="596" y="233" fill="#e6edf3" font-size="10">them: two valid histories can exist above one third</text>
+  <text x="596" y="250" fill="#e6edf3" font-size="10">of Byzantine stake, and an unfunded pool pays</text>
+  <text x="596" y="267" fill="#e6edf3" font-size="10">nothing. There is no compensation channel.</text>
+  <line x1="460" y1="39" x2="576" y2="70" stroke="#7aa2f7" marker-end="url(#arL)"/>
+  <line x1="460" y1="99" x2="576" y2="90" stroke="#7aa2f7" marker-end="url(#arL)"/>
+  <line x1="460" y1="159" x2="576" y2="110" stroke="#7aa2f7" marker-end="url(#arL)"/>
+  <line x1="460" y1="219" x2="576" y2="220" stroke="#7aa2f7" marker-end="url(#arL)"/>
+  <line x1="460" y1="288" x2="576" y2="250" stroke="#7aa2f7" marker-end="url(#arL)"/>
 </svg>
-<figcaption>Bottom-to-top: what has to hold for the design's claims to apply. The right column is what failure looks like —
-and none of the three classes is repaired by a proof.</figcaption>
+<figcaption>Left: what has to hold. Right: what failure looks like. None of it is repaired by a validity proof &mdash; a proof shows a
+transition is correct, not that the premises were met.</figcaption>
 </figure>
 
-<h2 id="example">Worked example — the unmeasured register, counted</h2>
+<h2 id="list">The honest list</h2>
 
-<p>Counting is the honest illustration here: it shows how much of the design is still a promise. The counts are
-<span class="pill derived">derived</span> from the register tables at this revision; the individual items are
-<span class="pill unmeasured">unmeasured</span> until the stated experiment is done.</p>
+<h3>Scope: a design, not an implementation</h3>
+<p>There is no implementation, no deployment, no benchmark, no audit and no formal model. Statements that a rule is
+<em>proven</em> mean it has an argument with named premises; they do not mean it has been tested. Every performance, cost, revenue and
+market quantity of this design is <strong>unmeasured</strong>. The only measured-looking numbers in the course are Ethereum constants
+copied from published standards, and even those are properties of Ethereum rather than of this design.</p>
 
+<h3>The chain halts instead of rolling back</h3>
+<p>If the information or participation needed to continue safely is missing &mdash; too much of the validator set offline, a
+certificate withheld, data unavailable, proofs falling behind the cap on unsettled depth &mdash; correct participants stop rather than
+choose between histories. History that was finalized is never rewritten, and there is no recovery path that invalidates it, no
+emergency operator and no DAO rescue in ordinary operation. The price is that a halt can be long, and the design explicitly permits it
+to be permanent. Production also backpressures before that point: validators refuse to vote past the unsettled-depth cap, and a
+violation of that cap is not objectively punishable at L1 &mdash; its only enforcement is honest compliance.</p>
+
+<h3>Data retention is an assumption, not an enforced duty</h3>
+<p>Settlement requires that somebody still holds a batch&rsquo;s data and the witness needed to prove it. Retention is a
+<strong>liveness assumption</strong>: a failure to serve data is not provable on L1 for most classes, so it produces a halt rather than
+a penalty. No rule may claim retention is enforced, and no reward or bond makes serving data a duty a validator can be slashed for
+breaching.</p>
+
+<h3>No forced inclusion, and no remedy for isolation</h3>
+<p>The protocol provides no per-transaction inclusion guarantee and no L1 forced-inclusion path. Proposer selection is weighted and
+public, so a coalition holding less than a third of voting power is selected for fewer than a third of slots in expectation, and a
+transaction that reaches honest validators is included by the first honest proposer with room for it &mdash; but that last clause is
+behavioural, not a rule: no inclusion duty attaches to a validator, and omission is not an offence. A network-level adversary able to
+isolate a user from every honest proposer can exclude that user&rsquo;s transactions indefinitely; because a withdrawal is started by
+an L2 transaction, the same adversary can prevent the user from <em>starting</em> a withdrawal. The protocol offers no remedy. Proposer
+selection is fully predictable, so buying or coercing the proposer of one specific slot is possible and no rule prices, detects or
+penalises it.</p>
+
+<h3>Rewards depend on a funded pool</h3>
+<p>Validator and prover rewards are ETH, and they can only be paid out of ETH that has actually flowed into the reward pool. How L2 fee
+revenue reaches that pool is <strong>not specified</strong>; until that path exists the pool has no inflow, the per-epoch allocation is
+zero and no validator reward is payable. What an unfunded schedule does is not quietly shrink: the validator count falls through the
+objective exit path, or the chain halts. The subsidy, if one is funded, is bounded, expiring and netted out of the same inflow &mdash;
+it is not a second funding source. TAIKO has no mint path today, so paying rewards in new TAIKO would require a token upgrade and is not
+a standing source. No rule may be conditioned on TAIKO&rsquo;s price rising, and there is no verified price, float or liquidity data in
+this design.</p>
+
+<h3>Long-range attacks are handled by weak subjectivity</h3>
+<p>An attacker who once held a third of the stake and has since exited can still produce an alternative history whose signatures verify,
+because it kept the keys that were committed at that past epoch; once its stake is released it cannot be punished. The defences are
+that a node never adopts an L2 history conflicting with its L1 checkpoint, and that it refuses to bootstrap from a checkpoint older
+than a fixed freshness window. That window is the weak-subjectivity trust requirement: a node cannot validate its way out of it, and if
+no fresh, Ethereum-final checkpoint exists &mdash; because of a long halt or a proving outage &mdash; a new node must not present the
+history it syncs as verified, and new validators cannot be admitted until a newer checkpoint exists.</p>
+
+<h3>Governance can change the rules</h3>
+<p>Upgrades are a governance action, and a governance action can rewrite any rule in this design, including the ones this page
+describes. Malicious or captured governance is outside the protocol&rsquo;s protection: the staking ledger, the offence catalogue and
+the reward identity are all rules that an upgrade could replace. The design's protection in ordinary operation is the absence of an
+emergency operator or an owner-triggered path that moves bonded stake &mdash; not an assumption that governance will always behave.</p>
+
+<h3>No measured numbers, and no compensation</h3>
+<p>Proving latency, throughput, bandwidth, storage, retention, operator cost, fee revenue, reward schedules, L1 verification gas,
+evidence windows and the withdrawal delay are all unmeasured. Penalties are not compensation and no universal bound on user loss exists:
+a penalty debits an offender&rsquo;s stake, and losses from a broken safety assumption, a key compromise, a proof-system failure, a
+malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
+
+<h2 id="example">Worked example &mdash; what is actually known</h2>
+<p>The table separates three different kinds of number, because the difference is the point.</p>
 <table>
-<thead><tr><th>Register</th><th>Count</th><th>What it blocks</th><th>Tag</th></tr></thead>
+<thead><tr><th>Number</th><th>Where it comes from</th><th>Tag</th></tr></thead>
 <tbody>
-<tr><td>Derived quantities at the 2&nbsp;s cadence (PARAM-02)</td><td>13 rows, including 900 blocks per 30-minute envelope</td><td>nothing by itself; these are arithmetic on decided or sourced inputs</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Unmeasured quantities (PARAM-03)</td><td>13 rows: proving latency, throughput, cycles per gas, Ed25519 cost, in-guest blob evaluation, round time, retention, TAIKO market data, operator cost, fee/MEV revenue, ordering value (MEV) retained, L1 verification gas, detection rates</td><td>every performance and economics value of the design</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td>Unmeasured register contributed by the L1 page</td><td>14 items: 3 measurements (gas of <code>land</code>, in-guest Lagrange cost, blob-path acceptance cost) + 11 parameters (<code>MAX_BATCH_BLOCKS</code>, <code>D_MAX</code>, <code>RETENTION_WINDOW</code>, <code>MARGIN_V</code>, <code>T_PROOF_MAX_PERMITTED</code>, <code>T_SETTLE_PIPELINE</code>, <code>RETRIEVABILITY_WINDOW</code>, <code>ARCHIVE_REQUIREMENT</code>, <code>W_EVIDENCE</code>, <code>WITHDRAWAL_DELAY</code>, <code>REWARD_QUOTE</code>); the forced-inclusion parameters and queue-griefing profitability are no longer in it (<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>)</td><td>batch economics, retention and reward funding</td><td><span class="pill derived">derived</span> count of <span class="pill unmeasured">unmeasured</span> items; the register itself is maintained on <a href="../spec/04-l1-integration.html">04</a> and <a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a></td></tr>
-<tr><td>Measurement gates carried by the architecture decision</td><td>4 items: F2 in-guest blob evaluation cost, F3 2&nbsp;s cadence with a permissionless global set, F4 proving throughput inputs, plus review target F1</td><td>whether the blob path, the cadence and the fleet size are feasible</td><td><span class="pill open">Open</span></td></tr>
-<tr><td>Throughput sustainability (LIVE-03)</td><td>3 inequalities, all with unmeasured inputs</td><td>launch feasibility; a failure means backpressure, not a longer assumption</td><td><span class="pill open">Open</span></td></tr>
-<tr><td>Withdrawal delay <code>D_withdraw</code></td><td>6 terms + margin, every term unmeasured</td><td>the exit path's safety against the withdrawal race</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td>Envelope versus backlog cap</td><td>900 blocks (derived) versus <code>D_MAX</code>, which is a formula with no proposed numeric value</td><td>whether a normal proof can ever hit the cap</td><td>first <span class="pill derived">derived</span>, second <span class="pill unmeasured">unmeasured</span> inputs</td></tr>
-<tr><td>Measured quantities of this design</td><td>0</td><td>every performance claim; only Ethereum constants are <span class="pill sourced">sourced</span> (50,000 gas, 4096 epochs, 6/9 blobs, 14,299 epochs)</td><td><span class="pill sourced">sourced</span> for the constants; none measured here</td></tr>
-</tbody></table>
+<tr><td>50,000 gas per blob KZG point-evaluation</td><td>Ethereum&rsquo;s EIP-4844 precompile cost</td><td><span class="pill sourced">sourced</span></td></tr>
+<tr><td>131,072 bytes per blob; 6 blobs target / 9 maximum per L1 block</td><td>Ethereum&rsquo;s EIP-7691 blob parameters</td><td><span class="pill sourced">sourced</span></td></tr>
+<tr><td>Roughly two Ethereum epochs of finality depth</td><td>Ethereum&rsquo;s own finality rule; must be re-derived if Ethereum changes</td><td><span class="pill sourced">sourced</span> property</td></tr>
+<tr><td>900 L2 blocks in thirty minutes</td><td>30 &times; 60 / 2, from the two-second cadence</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>About 118 MB published per 900-block envelope</td><td>900 &times; 131,072 bytes at the blob target</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Proving latency, cycles per gas, verifier gas, round time, retention, operator cost, fee revenue, reward rate, evidence window, withdrawal delay</td><td>No measurement exists; each needs a stated experiment with workload, hardware and methodology</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Measured quantities of this design</td><td>None</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+</tbody>
+</table>
 
-<h2 id="blockers">Open blockers and unresolved human decisions</h2>
+<h2 id="gives">What this gives you</h2>
 <ul>
-<li><strong>REC-03 — Mode B cheap-trigger resistance.</strong> Within the stated normal-operation assumptions, it is not established that an
-ordinary malicious leader or sub-threshold coalition cannot cheaply trigger a recovery that replaces honestly confirmed history. Mode B is
-specified and <em>not selected</em>; inability to establish this is a blocker, not a disclosure item
-(<a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a>).</li>
-<li><strong>Migration audit obligations.</strong> Every upgraded contract's storage layout must be regenerated and diffed
-(<code>pnpm layout</code>); whether the deployed proxies route through a <code>ForkRouter</code> is unmeasured; the completeness of the
-privilege-removal table is a review obligation; and <a href="../spec/10-assurance.html#INV-04">INV-04</a> is <span class="pill open">Open</span>
-for the operational audit of the completed migration (<a href="../spec/08-migration-upgrades.html#MIG-02">MIG-02</a>,
-<a href="../spec/08-migration-upgrades.html#MIG-04">MIG-04</a>). The migration rehearses on Hoodi, but the rehearsal's cost and duration are
-unmeasured and it is a procedural mitigation, not a guarantee
-(<a href="../spec/08-migration-upgrades.html#MIG-06">MIG-06</a>).</li>
-<li><strong>Measurement gates.</strong> The gates above (F2, F3, F4, F1) plus the three LIVE-03 inequalities and every row of PARAM-03 must be
-closed by measurement, with workload, hardware and methodology recorded, before launch
-(<a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>, <a href="../spec/10-assurance.html#LIVE-03">LIVE-03</a>).</li>
-<li><strong>Adversarial review questions.</strong> Q-A1 (is the availability counterexample reachable inside the stated assumptions?),
-Q-A2 (is "one certificate per batch" sound for the whole prefix?), Q-A3 (does the blob binding hold against a grinding prover?) remain open,
-and the red-team ledger <a href="../spec/10-assurance.html#LIM-03">LIM-03</a> is <span class="pill open">Open</span>.</li>
-<li><strong>Human decisions.</strong> Where slashed stake goes is an unresolved human decision
-(<a href="../spec/07-economics-slashing.html#ECON-06">ECON-06</a>), and rewards may be unfundable because TAIKO has no mint path today — a
-treasury transfer or a token upgrade is a user decision, and no token-appreciation assumption may substitute for funding
-(<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, <a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a>).</li>
+<li>A clear boundary: which claims are arguments, which are arithmetic, and which numbers simply do not exist yet.</li>
+<li>An explicit statement that the chain halts rather than rewriting finalized history, and that the halt may be permanent.</li>
+<li>A precise statement of the inclusion limit: statistical resistance only, with no L1 escape path and no remedy against isolation.</li>
+<li>The dependencies named &mdash; retention, funding, weak subjectivity, governance &mdash; so they can be monitored and priced deliberately.</li>
 </ul>
 
-<h2 id="r10">The R10 relaxation, disclosed</h2>
-<p><strong>What R10 asked for.</strong> R10 reads: "Specify censorship resistance and forced inclusion without introducing an
-override that violates D2." Forced inclusion was the mechanism the original requirement asked the design to specify.</p>
-
-<p><strong>What was decided.</strong> The user, as requirement owner, directed that forced inclusion be removed from the
-specification; the decision is recorded as <a href="../DECISIONS.md">DECISIONS.md D-6</a> and it is a
-<strong>user-authorized partial relaxation of R10</strong>, not a silent omission. R10 is restated as: "State censorship
-resistance honestly. The protocol provides statistical resistance from proposer rotation and gossip under
-<code>A-CONS-2</code> and provides no L1 forced-inclusion path; no override that violates D2 may be introduced." R10 is
-satisfied in that relaxed form and <strong>not</strong> in its original form
-(<a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §7).</p>
-
-<p><strong>The disclosed limitation and its consequence.</strong> The protocol provides no per-transaction inclusion
-guarantee and no L1 forced-inclusion path. What remains is conditional: proposer selection is hash-based and weighted
-(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>), so a coalition with less than one third of the voting power
-proposes strictly fewer than one third of slots in expectation, and a transaction that reaches honest validators is included
-by the first honest proposer with room for it — under <code>A-CONS-2</code>, that it can still reach honest validators. A
-network-level adversary able to isolate a user from every honest proposer can therefore exclude that user's transactions
-indefinitely; and because a withdrawal is initiated by an L2 transaction, the same adversary can prevent the user from
-<em>starting</em> a withdrawal. The protocol offers no remedy
-(<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, <a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</p>
-
-<p><strong>How to read it.</strong> This is a disclosed limitation, not a strength: it must not be summarised away, and no
-unconditional censorship-resistance claim may be made. The specification states it in
-<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> and carries it in the limitations register
-<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>; lesson <a href="11-forced-inclusion.html">11</a> works through the
-consequence.</p>
-
-<h2 id="prevents">Attacks this prevents</h2>
+<h2 id="not">What it does not give you</h2>
 <ul>
-<li><strong>Mistaking the design for a working system.</strong> GEN-01 and the scope row of LIM-01 state that there is no implementation,
-audit, model or measurement (<a href="../spec/index.html#GEN-01">GEN-01</a>,
-<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
-<li><strong>Reading assumptions as guarantees.</strong> Every rule carries an evidence tag and every assumption carries the consequence of its
-failure (<a href="../spec/index.html#GEN-04">GEN-04</a>, <a href="../01-requirements-and-threat-model.md">01</a> §4).</li>
-<li><strong>Quoting a proposed number as measured.</strong> PARAM-01 and PARAM-03 make that a specification violation, not a rounding error
-(<a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a>, <a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>).</li>
-<li><strong>"The proof verifies, therefore the history is unique" and "the DAO would fix it".</strong> Both are explicit non-arguments; the
-invariant stops at the one-third boundary and governance capture is a separate failure class
-(<a href="../spec/10-assurance.html#INV-01">INV-01</a>, <a href="../spec/08-migration-upgrades.html#GOV-02">GOV-02</a>).</li>
-<li><strong>"A timeout proves something does not exist".</strong> Forbidden in every mode
-(<a href="../spec/index.html#STATUS-10">STATUS-10</a>).</li>
+<li>No implementation, deployment, audit, benchmark or model to point at.</li>
+<li>No measurement of any performance, cost or economic quantity of this design.</li>
+<li>No rollback, no recovery path over finalized history, no emergency operator and no degraded mode.</li>
+<li>No inclusion guarantee, no retention enforcement and no compensation for loss.</li>
+<li>No protection against a malicious upgrade, or against a proof-system or cryptographic failure.</li>
 </ul>
 
-<h2 id="not-prevents">Attacks this does not prevent</h2>
+<h2 id="check">Check yourself</h2>
+<details><summary>The chain halts for a week. What does the design do about it?</summary>
+<p>Nothing automatic. It waits: correct participants stop rather than rewriting finalized history, and recovery means restoring the
+missing premise &mdash; validators back online, data served, proofs landed, a fresh checkpoint accepted on L1. If the missing premise
+never returns, the halt can be permanent. There is no rollback, no emergency operator and no DAO rescue in ordinary operation.</p></details>
+<details><summary>A user is isolated from every honest proposer. Can they withdraw anyway?</summary>
+<p>No. There is no forced-inclusion path, and a withdrawal is started by an L2 transaction, so an adversary that can keep the user&rsquo;s
+transactions away from every honest proposer can prevent the withdrawal from starting. The protocol offers no remedy; the honest
+statement is that inclusion resistance is a conditional statistical property, not a guarantee.</p></details>
+<details><summary>Which numbers in this course are measured?</summary>
+<p>None of this design&rsquo;s own numbers. Ethereum constants such as the blob gas cost and blob sizes are copied from published
+standards, and quantities like 900 blocks per thirty minutes are arithmetic on the two-second cadence. Everything else &mdash; proving
+latency, throughput, operator cost, fee revenue, reward rates, evidence and withdrawal delays &mdash; is unmeasured.</p></details>
+
+<h2 id="assumptions">Assumptions</h2>
+<div class="warnbox">
 <ul>
-<li><strong>F2 failures.</strong> One third or more Byzantine stake, key compromise, a zkVM soundness break or a malicious governance
-upgrade; the safety claims simply do not apply (<a href="../spec/10-assurance.html#INV-01">INV-01</a>,
-<a href="../spec/08-migration-upgrades.html#GOV-02">GOV-02</a>).</li>
-<li><strong>Implementation bugs (F3).</strong> Out of scope for this project, and the specification only promises they must not be made
-undetectable (<a href="../01-requirements-and-threat-model.md">01</a> §5).</li>
-<li><strong>Liveness limits.</strong> A minority outage halts the chain; there is no degraded mode; a halt, including a permanent one, is
-explicitly permitted (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>,
-<a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>).</li>
-<li><strong>Losses.</strong> Penalties are not compensation, no universal bound on economic loss exists, and no compensation channel is
-defined (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
-<li><strong>A reader who ignores this page.</strong> No document prevents someone from quoting a placeholder as a result; the defence is the
-tag and the finding process below.</li>
+<li>Fewer than one third of the voting power in each epoch is malicious, and enough validators stay online to reach quorum.</li>
+<li>Somebody retains each batch&rsquo;s data and witness until its proof lands.</li>
+<li>Ethereum keeps producing and finalizing blocks, and L1 facts become Ethereum-final at a known depth.</li>
+<li>The reward pool is funded by L2 fee revenue or a recorded top-up; otherwise no reward is payable.</li>
+<li>A fresh, Ethereum-final L1 checkpoint is available to a new node, and governance does not execute an upgrade that breaks these
+rules.</li>
 </ul>
-
-<h2 id="self-check">Self-check</h2>
-<details><summary>Is the 2&nbsp;s block cadence a measured result?</summary>
-<p>No. It is a decided input (<a href="../spec/index.html#fixed">D1</a>) that holds "under stated operating assumptions". The measurement that
-would support it — round completion time at 2&nbsp;s with a permissionless global set — is on the unmeasured register
-(<a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>), and D1 itself says cadence is not finality, proof, settlement or withdrawal
-latency.</p></details>
-<details><summary>A rule is tagged "Proven". Does that mean it has been tested?</summary>
-<p>No. "Proven" means an argument with named premises. The limitations register states plainly that every "Proven" is an argued property, not a
-machine-checked or tested one, because there is no implementation (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>,
-<a href="../spec/index.html#GEN-04">GEN-04</a>).</p></details>
-<details><summary>Mode B is fully specified. May an implementer switch it on if the chain halts?</summary>
-<p>No. Mode B is not selected; it may not be implemented, deployed or advertised, and nothing in it may be used to describe a PoS confirmation
-as anything other than irreversible under Mode A. Selecting it requires the D2 evidence-and-review procedure, and REC-03 blocks selection
-until its cheap-trigger resistance is established (<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>,
-<a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a>).</p></details>
-
-<h2 id="report">How to report a finding</h2>
-<ul>
-<li><strong>Security issues</strong> go to the project's security contact, <code>security@taiko.xyz</code>, not to a public issue. This
-design is pre-implementation, so a design-level break is still a security finding.</li>
-<li><strong>A specification finding</strong> should carry the elements the project's finding ledger requires: the exact rule (or the missing
-rule), its preconditions, a concrete attack trace, whether the attack is inside or outside the claimed fault model, attacker resources and
-cost, the harm, the affected requirements, and evidence or a worked counterexample
-(<a href="../spec/10-assurance.html#LIM-03">LIM-03</a>, <a href="../01-requirements-and-threat-model.md">01</a> §8). Findings are closed only
-when the attack trace is retained and the specification states why it no longer succeeds.</li>
-<li><strong>A course-versus-specification inconsistency</strong> is a finding too: R14 requires the learning site to match the
-specification. Quote both sentences and link the rule id; if this course ever states a stronger guarantee than the specification, the
-specification wins and the course is the bug (<a href="index.html">course map</a>,
-<a href="../01-requirements-and-threat-model.md">01</a> §7 R14).</li>
-<li><strong>Useful falsifiers to aim at.</strong> The availability counterexample reachable <em>inside</em> the stated assumptions (Q-A1); a
-number presented as measured; a rule stated more strongly than its premises; a privileged lever still live after migration
-(<a href="../spec/10-assurance.html#INV-04">INV-04</a>); or a violation of D2, D3, D5, D6 or D7
-(<a href="../spec/index.html#fixed">fixed decisions</a>).</li>
-</ul>
-
-<div class="card">
-<p><strong>Challenge this.</strong> This page relied on: (i) the register counts being read from the specification at this revision — the
-counts are derived from the text and will drift as the specification is edited, while the rule identifiers stay stable
-(<a href="../spec/index.html#GEN-03">GEN-03</a>); (ii) the fault-boundary mapping of F1/F2/F3 being the requirements document's, not this
-page's invention; (iii) the claim that zero performance numbers of this design are measured, with only Ethereum constants tagged sourced —
-if a measured number has since been added, this page is stale; (iv) the blockers list being complete only up to the recorded review questions
-Q-A1 to Q-A3; (v) the R10 relaxation being the user's recorded decision (D-6), which changes the scope of the final verdict;
-(vi) the reporting route being the repository's stated security contact and the LIM-03 finding format. Falsifier: point at any
-number in this course that is presented as measured without a source, or any guarantee stronger than the specification's — that is exactly
-the finding this page exists to make possible.</p>
 </div>
 
-<h2 id="more">Where to read more</h2>
-<ul>
-<li><a href="../spec/10-assurance.html#LIM-01">LIM-01</a> — the limitations register; <a href="../spec/10-assurance.html#LIM-02">LIM-02</a> —
-rejected alternatives and their tradeoffs; <a href="../spec/10-assurance.html#LIM-03">LIM-03</a> — the finding ledger.</li>
-<li><a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a> — the unmeasured register with the experiment that closes each item;
-<a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a> — the parameter discipline.</li>
-<li><a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>–<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> — the conditional
-liveness statement, backpressure, the three sustainability inequalities, and censorship resistance stated honestly.</li>
-<li><a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> — the assumption list, the fault boundary and the
-mandatory adversarial schedule; <a href="../04-architecture-decision.md">04 — architecture decision</a> §7 — the open items and falsifiers.</li>
-<li><a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a> — the Mode B blocker;
-<a href="../spec/08-migration-upgrades.html#MIG-02">MIG-02</a> and <a href="../spec/08-migration-upgrades.html#MIG-04">MIG-04</a> — the
-migration audit obligations.</li>
-<li><a href="../DECISIONS.md">DECISIONS.md D-6</a> — the user-authorized removal of forced inclusion; the specification's
-<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> — the conditional statistical property and its disclosed consequence.</li>
-<li>Course: <a href="10-halt-or-roll-back.html">10 — halt or roll back</a> · <a href="11-forced-inclusion.html">11 — no forced inclusion</a> ·
-<a href="12-bridge-and-addresses.html">12 — the bridge and the addresses</a> · <a href="13-walkthrough.html">13 — walkthrough</a>.</li>
-</ul>
+<p class="small">Previous: <a href="glossary.html">Glossary</a> &middot; Next: <a href="index.html">Contents</a> &middot; The
+limitations stated as rules are <a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, with the safe-halt obligation
+<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>, the unsettled-depth cap
+<a href="../spec/06-recovery-exceptions.html#HALT-03">HALT-03</a>, inclusion resistance stated honestly
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, the reward funding identity
+<a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a> and weak subjectivity
+<a href="../spec/03-membership-staking.html#MEM-11">MEM-11</a>.</p>
+
 </main>
-<footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·
-<a href="limitations.html">limitations</a></p></footer>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course &middot; the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
 </body></html>

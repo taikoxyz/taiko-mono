@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>08 &mdash; When things go wrong · Etna PoS + ZK engineer&rsquo;s course</title>
+<link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">engineer&rsquo;s course</span>
+  <nav>
+    <a href="index.html">Contents</a>
+    <a href="01-what-is-etna.html">1&nbsp;Overview</a>
+    <a href="02-life-of-a-transaction.html">2&nbsp;Life of a transaction</a>
+    <a href="03-consensus.html">3&nbsp;Consensus</a>
+    <a href="04-staking-and-epochs.html">4&nbsp;Staking</a>
+    <a href="05-the-proof.html">5&nbsp;The proof</a>
+    <a href="06-data-and-proof-together.html">6&nbsp;Data&nbsp;+&nbsp;proof</a>
+    <a href="07-timing.html">7&nbsp;Timing</a>
+    <a href="08-when-things-go-wrong.html">8&nbsp;Failures</a>
+    <a href="09-censorship-and-the-bridge.html">9&nbsp;Censorship&nbsp;&amp;&nbsp;bridge</a>
+    <a href="10-economics.html">10&nbsp;Economics</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="../spec/index.html">Specification</a>
+  </nav>
+</header>
+<main>
+<h1>When things go wrong</h1>
+<p class="muted">This lesson gives you the failure-handling rules: what happens when a proposer hides a
+block, when votes or certificates do not arrive, when a set goes offline, when data cannot be found or
+when no prover finishes &mdash; and why the design stops instead of rewriting history. This is a design
+description; none of it is implemented, measured, audited or deployed.</p>
+
+<h2>The idea</h2>
+<p>Failures are ordinary inputs to this protocol, not exceptions bolted on afterwards. Two rules do
+most of the work.</p>
+<p><strong>A timeout is never evidence of absence.</strong> When a timer expires, a node may change
+what it does &mdash; retry, change the view, halt &mdash; but it may not conclude that a vote, a
+certificate or a block does not exist somewhere else, and it may not invalidate anything
+(<a href="../spec/index.html#STATUS-10">STATUS-10</a>). A certificate that is revealed after everyone
+gave up is still the valid certificate.</p>
+<p><strong>A validator&rsquo;s lock keeps two histories from both being finalized.</strong> A validator
+that precommits a block at a height is locked on it. It will not prevote a conflicting block at that
+height unless it sees a proof-of-lock-change at the same height and a strictly later round
+(<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>). A finalized height implies more than a third
+of the voting power is honest and locked, so a conflicting finality would need those validators to
+break the lock &mdash; which is exactly the behaviour the rule forbids and slashing punishes.</p>
+<p>And when the protocol cannot continue without choosing between histories, it <strong>halts</strong>.
+No timeout, rotation, admission rule or upgrade may lower the accepted checkpoint or replace a
+finalized block (<a href="../spec/06-recovery-exceptions.html#REC-01">REC-01</a>). A halt is a correct
+outcome: it preserves the guarantee that a finalized block is permanent, at the cost of liveness until
+the missing ingredient returns.</p>
+
+<h2>Situation &rarr; correct action</h2>
+<figure>
+<svg viewBox="0 0 960 560" role="img" aria-label="Decision diagram: each failure situation and the correct action">
+<defs> <marker id="arr8" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"> <path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker> </defs>
+<text x="20" y="24" fill="#9aa7b4" font-size="12">SITUATION</text> <text x="360" y="24" fill="#9aa7b4" font-size="12">CORRECT ACTION</text> <rect x="20" y="36" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/> <text x="34" y="59" fill="#e6edf3" font-size="12">Proposer hides the block body</text>
+<text x="34" y="78" fill="#9aa7b4" font-size="10">selective distribution</text> <rect x="360" y="36" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/> <text x="374" y="59" fill="#dbe3ec" font-size="11">Do not vote. Ask peers for the body. After the round budget, prevote nil</text> <text x="374" y="78" fill="#dbe3ec" font-size="11">and let the view change select the next proposer.</text> <path d="M320 64 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/>
+<rect x="20" y="102" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/> <text x="34" y="125" fill="#e6edf3" font-size="12">Votes or the certificate</text> <text x="34" y="144" fill="#e6edf3" font-size="12">do not arrive</text> <rect x="360" y="102" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/>
+<text x="374" y="125" fill="#dbe3ec" font-size="11">Keep the lock. Retry. Accept the certificate whenever it arrives, and never</text> <text x="374" y="144" fill="#dbe3ec" font-size="11">finalize a conflicting block at that height. A timeout proves nothing.</text> <path d="M320 130 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="168" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/>
+<text x="34" y="191" fill="#e6edf3" font-size="12">An entire validator set</text> <text x="34" y="210" fill="#e6edf3" font-size="12">goes offline</text> <rect x="360" y="168" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/> <text x="374" y="191" fill="#dbe3ec" font-size="11">No quorum, no finality. Correct validators halt, stop signing and keep their</text> <text x="374" y="210" fill="#dbe3ec" font-size="11">state. They do not fork and they do not adopt a lower checkpoint.</text>
+<path d="M320 196 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="234" width="300" height="56" rx="8" fill="#2a1f10" stroke="#5c4a1c"/> <text x="34" y="257" fill="#e6edf3" font-size="12">Data for a finalized or locked</text> <text x="34" y="276" fill="#e6edf3" font-size="12">block cannot be obtained</text>
+<rect x="360" y="234" width="580" height="56" rx="8" fill="#2a1f10" stroke="#5c4a1c"/> <text x="374" y="257" fill="#dbe3ec" font-size="11">Halt safely and keep serving what you hold. Do not roll back. If a holder</text> <text x="374" y="276" fill="#dbe3ec" font-size="11">returns with the data, the chain resumes; if not, the halt can be permanent.</text> <path d="M320 262 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/>
+<rect x="20" y="300" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/> <text x="34" y="323" fill="#e6edf3" font-size="12">No prover finishes</text> <text x="34" y="342" fill="#9aa7b4" font-size="10">the proof never lands</text> <rect x="360" y="300" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/> <text x="374" y="323" fill="#dbe3ec" font-size="11">Settlement stalls; another permissionless prover may take over. Unsettled</text>
+<text x="374" y="342" fill="#dbe3ec" font-size="11">depth grows, the cap binds, production stops, withdrawals wait.</text> <path d="M320 328 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="366" width="300" height="56" rx="8" fill="#2a1218" stroke="#5c2630"/> <text x="34" y="389" fill="#e6edf3" font-size="12">Two conflicting certificates</text>
+<text x="34" y="408" fill="#e6edf3" font-size="12">at one height</text> <rect x="360" y="366" width="580" height="56" rx="8" fill="#2a1218" stroke="#5c2630"/> <text x="374" y="389" fill="#dbe3ec" font-size="11">The assumptions failed. Halt, publish both signed certificates as evidence,</text> <text x="374" y="408" fill="#dbe3ec" font-size="11">and never choose a branch. Do not delegate the choice to an operator.</text> <path d="M320 394 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/>
+<rect x="20" y="432" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/> <text x="34" y="455" fill="#e6edf3" font-size="12">The needed L1 fact or set</text> <text x="34" y="474" fill="#e6edf3" font-size="12">commitment is missing</text> <rect x="360" y="432" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/>
+<text x="374" y="455" fill="#dbe3ec" font-size="11">Halt at the highest finalized block and wait. Never continue on an</text> <text x="374" y="474" fill="#dbe3ec" font-size="11">unauthenticated set and never take a set from an unfinalized L1 block.</text> <path d="M320 460 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="504" width="920" height="44" rx="8" fill="#0f2418" stroke="#2c5a3a"/>
+<text x="34" y="524" fill="#9ece6a" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; lower the accepted checkpoint &middot;</text> <text x="34" y="541" fill="#9ece6a" font-size="11">replace a finalized block &middot; let a privileged party choose a history or clear a halt.</text>
+</svg>
+<figcaption>Every situation has one rule-legal action. None of them is &ldquo;roll back&rdquo; and none of them
+is &ldquo;ask an operator&rdquo;.</figcaption>
+</figure>
+
+<h2>How it works</h2>
+
+<h3>Withholding: what can be hidden, and what it costs</h3>
+<p>The design assumes messages can be late, lost or delivered selectively. For each object that can be
+withheld, the honest action is fixed (<a href="../spec/06-recovery-exceptions.html#WH-01">WH-01</a>).
+No case of non-receipt justifies concluding that an object does not exist, and no case of non-receipt
+alone justifies slashing.</p>
+<table>
+<thead><tr><th>Withheld object</th><th>Safety effect</th><th>Liveness effect</th><th>Honest action</th></tr></thead>
+<tbody>
+<tr><td>Block body</td><td>None: a validator never votes for a block it has not received and validated</td><td>A height cannot advance if fewer than two thirds can obtain the body</td><td>Do not vote; request the body; after the round budget prevote nil and let the view change</td></tr>
+<tr><td>Individual votes</td><td>None</td><td>Delays certificate formation</td><td>Continue; the round completes when more than two thirds are collected</td></tr>
+<tr><td>Aggregate signatures</td><td>None: the lock rule prevents a conflicting later commit</td><td>Stalls the height until a new round</td><td>View change; the next proposer re-proposes. Votes are gossiped independently of the aggregator</td></tr>
+<tr><td>Finality certificate</td><td>None while fewer than a third of power double-signs</td><td>Nodes that have not seen it may try to change view</td><td>Keep the lock; retry; accept the certificate whenever it arrives; never finalize a conflicting block</td></tr>
+<tr><td>Validator-transition certificate</td><td>None: the transition is authenticated by header fields and the L1 set root</td><td>Can block entry to a new epoch</td><td>Do not enter the new epoch without the authenticated set; halt if it never arrives</td></tr>
+<tr><td>Execution witness</td><td>None</td><td>Prevents independent proving</td><td>A prover that cannot reconstruct the witness must report it, not pretend the batch is provable</td></tr>
+<tr><td>Completed proof</td><td>None</td><td>Prevents settlement of that batch and everything after it in order</td><td>Any prover may produce a proof for the same data commitment and land it; a slow proof is not misconduct</td></tr>
+</tbody></table>
+
+<h3>What is evidence, and what is only suspicion</h3>
+<p>A protocol penalty needs objective, self-contained, on-chain-verifiable evidence: two signed
+messages of the same type at the same height and round with different block ids, or a signed message
+that violates a rule whose inputs are all on-chain (<a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a>).
+Everything else &mdash; a message that did not arrive, a height that did not advance, a proof that has
+not been submitted, a peer that did not answer &mdash; is local suspicion. It can change local
+behaviour: retry, view change, peer selection, disclosure. It cannot trigger a penalty or a statement
+about what exists elsewhere. Silence is not provable.</p>
+
+<h3>The lock, stated precisely</h3>
+<p>A validator&rsquo;s lock is a local triple <code>(locked_height, locked_value, locked_round)</code>.
+It is <strong>per height</strong>: it constrains votes at that height only, it survives a restart while
+the height is unresolved, and it is released in exactly two ways:</p>
+<ul>
+<li>the height commits &mdash; once <code>H</code> is finalized the lock has done its work; or</li>
+<li>the validator sees a proof-of-lock-change at the same height <code>H</code>, for a different value,
+at a round strictly later than its <code>locked_round</code> and earlier than the current round.</li>
+</ul>
+<p>Nothing else unlocks. A proof-of-lock-change at the same round, at an earlier round, or for the
+value already locked does not unlock; a proof-of-lock-change at another height neither unlocks this
+height nor creates a lock there. The <code>pol_round</code> field carried in a proposal is only a hint;
+the validator must verify the proof itself. And a validator that holds a lock at a height and then sees
+a valid commit certificate for a <em>different</em> block at that height has evidence that the
+assumptions failed: it halts, and it does not treat the certificate as an unlock.</p>
+<p>Why this protects safety: a commit certificate requires more than two thirds of the epoch&rsquo;s
+voting power. If a second, conflicting commit certificate existed, the two signer sets would overlap in
+more than one third of the power, and those validators would have had to sign conflicting blocks at the
+same height. The lock rule says the honest ones never do. A certificate that exists but has not been
+published can delay a node that has not seen it; it cannot displace a decision.</p>
+
+<h3>Halt: what it is, and what it costs</h3>
+<p>A correct validator halts &mdash; stops signing and stops advancing its finalized view &mdash; when
+any of the following holds and no rule-legal action can resolve it
+(<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>):</p>
+<ul>
+<li>it cannot obtain the data for a finalized or locked block;</li>
+<li>it cannot obtain a quorum for a height within the timeout ladder;</li>
+<li>the L1 facts it must consume are not yet Ethereum-final, or its L1 view disagrees with the consensus
+view;</li>
+<li>the L1 validator-set commitment for the epoch it is about to enter is absent; or</li>
+<li>the unsettled-depth cap would be exceeded.</li>
+</ul>
+<p>Halting is not a fork, not a rollback and not a vote to abandon the chain. A halting node keeps
+serving what it has and keeps its state so it can resume. There is no emergency key, no operator
+override and no governance rescue that can advance, rewind or replace the checkpoint
+(HALT-04). If progress needs information that
+no rule-legal action can obtain, the protocol says so and stops.</p>
+
+<h3>What a safe halt means for users and operators</h3>
+<ul>
+<li><strong>Funds are not lost; exit is delayed.</strong> A withdrawal needs the settlement pipeline to
+resume. A halt delays withdrawals indefinitely while nothing is forfeited
+(MSG-03).</li>
+<li><strong>L1-accepted messages stay valid.</strong> Anything already anchored to an accepted
+checkpoint remains authenticated.</li>
+<li><strong>Validators are not punished for halting.</strong> Halting is the required behaviour when
+the rules say so.</li>
+<li><strong>Operators must not improvise.</strong> &ldquo;Unsticking&rdquo; the chain by publishing
+data without a proof, rewriting the checkpoint, or picking a branch converts a safe halt into an
+unsafe restart. The only legitimate actions are the rule-legal ones.</li>
+<li><strong>The halt may be permanent.</strong> If every holder of a finalized block&rsquo;s data has
+disappeared, nothing in the protocol can reconstruct it, and no rollback is permitted. That is a
+disclosed liveness cost of permanent finality.</li>
+</ul>
+
+<h3>Restarting afterwards</h3>
+<p>After a halt, a correct participant resumes only from the <strong>highest finalized block whose data
+and certificate it can independently reconstruct</strong> (<a href="../spec/06-recovery-exceptions.html#HALT-02">HALT-02</a>).
+It never adopts an alternative history at a height it has already finalized, and it never treats a
+timeout during the halt as evidence that a certificate does not exist. On restart four rules apply:</p>
+<ol>
+<li>Each validator enforces a signed-message uniqueness check over its own signing history: no message
+of the same type at the same height and round may be signed twice, including after a restart or a
+resync. A validator that cannot prove it has not already signed for a <code>(height, round, type)</code>
+must not sign &mdash; lost memory is treated as a signing fault, not as a fresh start.</li>
+<li>A resuming validator re-verifies the epoch and the validator set for the height it is resuming at
+instead of trusting its cache.</li>
+<li>Replayed historical messages are rejected: every vote carries its epoch and round, and receiving
+rules reject messages for heights already finalized.</li>
+<li>A resumed node&rsquo;s first act is a data-and-certificate sync, not a proposal.</li>
+</ol>
+
+<h3>Why halt rather than roll back a finalized block</h3>
+<p>Rolling back one finalized block is not a local repair. It means deciding between two histories,
+which the protocol has no rule for; it would retroactively invalidate state that users, proofs and
+bridge messages were told was permanent; and it would change the design&rsquo;s guarantee from
+irreversible finality to provisional confirmation. So the design contains no mechanism that lowers the
+checkpoint, and the honest response to a situation that would require one is to stop. Halting keeps the
+safety property intact and pays in liveness; a rollback would pay with the property itself.</p>
+
+<h2>Worked example</h2>
+<p>The numbers below are arithmetic on the rules and on illustrative inputs. The inputs are not design
+values; they are marked so that nothing here reads as a measurement.</p>
+<table>
+<thead><tr><th>Quantity</th><th>Arithmetic</th><th>Result</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>Quorum for total power <code>W = 900</code></td><td><code>3s &gt; 2W</code>, so <code>3s &gt; 1800</code></td><td><code>s &ge; 601</code></td><td><span class="chip">derived</span></td></tr>
+<tr><td>Power that must double-sign for two conflicting certificates</td><td><code>601 + 601 &minus; 900</code></td><td>302 units, strictly more than one third of <code>W</code></td><td><span class="chip">derived</span></td></tr>
+<tr><td>Round ladder (proposed floor and ceiling 3 s / 30 s)</td><td><code>min(30, 3 &times; 2^k)</code></td><td>3, 6, 12, 24, 30, 30 &hellip; seconds</td><td><span class="chip">derived from unmeasured inputs</span></td></tr>
+<tr><td>Stop depth, illustrative</td><td><code>D_MAX = floor((86,400 &minus; 1,800 &minus; 600) / 2)</code></td><td>42,000 blocks unsettled</td><td><span class="chip">illustrative; inputs unmeasured</span></td></tr>
+<tr><td>Finality margin, illustrative</td><td>768 s / 2 s per block</td><td>384 blocks, so validators stop above 41,616</td><td><span class="chip">derived from sourced depth</span></td></tr>
+</tbody></table>
+
+<p><strong>A lock, walked through.</strong> A validator is locked on block <code>B</code> at
+<code>(H, round 2)</code>. At round 5 it receives a proposal for a different block <code>B&prime;</code>
+whose hint says <code>pol_round = 4</code>. The hint is not evidence: the validator must obtain and
+verify the proof-of-lock-change itself. If that proof is for <code>B&prime;</code> at
+<code>(H, round 4)</code>, it unlocks and prevotes <code>B&prime;</code>, because 4 is strictly later
+than its locked round 2 and the value differs. If the proof is for round 2, or for <code>B</code>, it
+stays locked and prevotes <code>B</code>. If instead it obtains a commit certificate for a different
+block at <code>H</code>, it halts &mdash; it does not treat the certificate as an unlock.</p>
+
+<p><strong>A prover that never finishes.</strong> A batch is finalized at time <code>t</code>. At
+<code>t</code> + 30 minutes there is still no proof. Nothing special happens: a proof consuming the
+whole envelope is normal, not misconduct. Other provers may produce a proof for the same data
+commitment and land it, and the first valid landing wins. If none lands, unsettled depth keeps growing
+until the cap binds; then production stops, the chain halts safely, and withdrawals wait. The recovery
+is a proof, not a rollback.</p>
+
+<h2>What this gives you</h2>
+<ul>
+<li>A fixed, minimal response for every class of missing message or data, without inventing rules at
+run time.</li>
+<li>Safety that does not depend on seeing a certificate: the lock protects the decision, not the
+publication.</li>
+<li>A principled restart: resume from the highest finalized block whose data and certificate can be
+reconstructed, never from a competing branch.</li>
+<li>A halt that preserves every guarantee already given, including L1-anchored messages and user
+funds.</li>
+</ul>
+
+<h2>What it does not give you</h2>
+<ul>
+<li>Availability. If data is gone, the halt can be permanent; retention is an assumption, not an
+enforced duty.</li>
+<li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that
+never answers is not slashable.</li>
+<li>A degraded or read-only mode. A minority outage halts the chain rather than continuing with reduced
+participation.</li>
+<li>An unstick button. No operator, DAO or emergency key can clear a halt; that is deliberate.</li>
+<li>Any measured detection rate, timeout value or retention window. Those are not yet measured.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<details><summary>Validators have waited past every timeout and seen no certificate for height H. May they finalize a different block at H?</summary>
+<p>No. A timeout changes local round state only. The lock still binds: without a proof-of-lock-change
+at H for a different value at a strictly later round, a validator prevotes its locked value. If a
+certificate for the locked block eventually appears, it is accepted then.</p></details>
+<details><summary>A node is restarted from a backup and cannot prove which messages it already signed. What does it do?</summary>
+<p>It must not sign for any <code>(height, round, type)</code> it cannot prove it has not already
+signed. Lost memory is treated as a signing fault, not as a fresh start, because double-signing is the
+one objectively punishable offence and the one that can break safety.</p></details>
+<details><summary>Why is publishing data without a proof not an acceptable way to unblock settlement?</summary>
+<p>It would create an accepted record before anything justifies it, break the rule that data and proof
+live in one transaction, and turn a safe halt into an unverified history. The design has no data-first
+path by construction, and no halt may introduce one.</p></details>
+
+<div class="card">
+<h3>Assumptions</h3>
+<ul>
+<li>Fewer than one third of each epoch&rsquo;s voting power is malicious, and the rest follows the lock
+and vote-uniqueness rules.</li>
+<li>Enough validators are online to form quorums in normal operation; the protocol has no degraded
+mode when they are not.</li>
+<li>Somebody keeps the data for every finalized block until its proof lands.</li>
+<li>At least one prover finishes each batch before the retention assumption expires.</li>
+<li>Ethereum itself keeps producing, including and finalizing blocks.</li>
+<li>The timeout values, the retention window and the cap are placeholders awaiting measurement.</li>
+</ul>
+</div>
+
+<p class="small"><a href="07-timing.html">&larr; Previous: Two seconds and thirty minutes</a>
+&middot; <a href="09-censorship-and-the-bridge.html">Next: Censorship and the bridge &rarr;</a></p>
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</body></html>
