@@ -70,7 +70,7 @@ the immutable checkpoint-writer links are all keyed to those exact addresses.</p
 <h2>Slots and checkpoints</h2>
 <figure>
 <svg viewBox="0 0 960 520" role="img" aria-label="Top: weighted proposer slots with a below-one-third coalition. Bottom: the bridge message path from L2 signal to L1 checkpoint and release">
-<defs> <marker id="arr9" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"> <path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker> </defs>
+<defs> <marker id="arr9" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"> <path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker></defs>
 <rect x="20" y="16" width="920" height="212" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="36" y="42" fill="#24292f" font-size="13">Inclusion: weighted slots, no promise</text> <rect x="56"  y="60" width="60" height="46" rx="6" fill="#ffebe9" stroke="#5c2630"/> <text x="86"  y="88" fill="#cf222e" font-size="13" text-anchor="middle">C</text>
 <rect x="124" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="154" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="192" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="222" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="260" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/>
 <text x="290" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="328" y="60" width="60" height="46" rx="6" fill="#ffebe9" stroke="#5c2630"/> <text x="358" y="88" fill="#cf222e" font-size="13" text-anchor="middle">C</text> <rect x="396" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="426" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text>
@@ -89,7 +89,7 @@ the immutable checkpoint-writer links are all keyed to those exact addresses.</p
 <text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">No forced-inclusion entry point exists: recovery replaces unsettled history, it does not include a censored transaction.</text>
 </svg>
 <figcaption>The top panel shows why inclusion is a statistical property and not a guarantee; the bottom
-panel shows the only path by which a cross-chain message becomes trustworthy. </figcaption>
+panel shows the only path by which a cross-chain message becomes trustworthy.</figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -244,9 +244,9 @@ be indefinite.</li>
 <li>Protection against slot-buying: selection is predictable and no rule prices or penalises it.</li>
 <li>Early exit: a withdrawal still needs the checkpoint and the delay, and a settlement stall delays it
 until either a batch lands or a recovery completes &mdash; and a recovery can replace an unsettled
-withdrawal message. </li>
+withdrawal message.</li>
 <li>A remedy against isolation: this version has no forced-inclusion path, and forced inclusion is planned as
-a later protocol update .</li>
+a later protocol update.</li>
 <li>Confidence in the recorded addresses beyond the record: they were not chain-verified in the design
 work.</li>
 </ul>

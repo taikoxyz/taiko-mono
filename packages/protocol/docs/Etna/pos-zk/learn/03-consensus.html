@@ -71,11 +71,11 @@ proves anything about what other nodes hold, and it never invalidates a block.</
   <defs>
     <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"></path>
-    </marker>
+</marker>
     <marker id="a3w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#9a6700"></path>
-    </marker>
-  </defs>
+</marker>
+</defs>
   <rect x="30" y="90" width="180" height="74" rx="10" fill="#ffffff" stroke="#8250df"></rect>
   <text x="120" y="118" fill="#24292f" font-size="13" text-anchor="middle">Propose (H,R)</text>
   <text x="120" y="140" fill="#59636e" font-size="10.5" text-anchor="middle">proposer signs one proposal</text>
@@ -234,7 +234,7 @@ a view change, a retry, or a halt.</p>
 set root and quorum checked locally, regardless of who sent it;</li>
 <li>if it holds a lock on a different block at that height and a valid conflicting certificate arrives, halt and
 publish the evidence it has, rather than choosing a branch;</li>
-<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; what may be replaced above the latest checkpoint accepted on Ethereum is decided by the recovery rules, not by a node. </li>
+<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; what may be replaced above the latest checkpoint accepted on Ethereum is decided by the recovery rules, not by a node.</li>
 </ol>
 <p>Equivocation is the one thing a pair of signed objects can prove: two signed messages of the same type, at the
 same (chain id, height, round, validator index), with different signed values — or with different signed epoch
@@ -263,7 +263,7 @@ therefore reduces to the same case: at least one third of the previous epoch's p
 <h2>What this gives you</h2>
 <ul>
 <li>Single-slot certification: one certificate per height, no confirmation depth, no probabilistic waiting.</li>
-<li>Certificates are epoch-scoped and stay valid forever as certificates, so validator rotation cannot re-judge or re-sign a past decision; rotation is not a replacement path &mdash; only recovery may replace history above the latest accepted checkpoint. </li>
+<li>Certificates are epoch-scoped and stay valid forever as certificates, so validator rotation cannot re-judge or re-sign a past decision; rotation is not a replacement path &mdash; only recovery may replace history above the latest accepted checkpoint.</li>
 <li>A lock and a signed-vote rule that make the cost of a conflicting commit one third of the epoch's stake, and make the most damaging fault objectively provable when it appears as a same-height, same-round pair.</li>
 <li>A deterministic, publicly computable proposer schedule, so anyone can audit who was supposed to propose and when.</li>
 <li>Timeouts that affect liveness only: exceeding any timing bound slows the chain, never breaks safety.</li>

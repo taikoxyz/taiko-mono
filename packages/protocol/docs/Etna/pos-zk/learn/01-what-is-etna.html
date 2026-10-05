@@ -79,11 +79,11 @@ automatically.</p>
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"></path>
-    </marker>
+</marker>
     <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a7f37"></path>
-    </marker>
-  </defs>
+</marker>
+</defs>
   <rect x="20" y="24" width="200" height="70" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
   <text x="120" y="52" fill="#24292f" font-size="14" text-anchor="middle">Users</text>
   <text x="120" y="72" fill="#59636e" font-size="11" text-anchor="middle">L2 transactions, bridge calls</text>
@@ -159,7 +159,7 @@ are correct.</figcaption>
 <li><strong>Ordering.</strong> The order of L2 transactions is decided by L2 PoS. No Ethereum proposer, builder or slot timing enters a validity rule.</li>
 <li><strong>Per-transaction inclusion.</strong> There is no inclusion duty and no L1 forced-inclusion path. Resistance to censorship is a conditional statistical property of proposer rotation, not a guarantee.</li>
 <li><strong>Instant settlement.</strong> L2 certification (a few round trips) is a different event from L1 acceptance (proof + inclusion) and from Ethereum finality (a further L1 finality lag).</li>
-<li><strong>Rollback of unsettled L2 history.</strong> It is never an Ethereum action and never applies at or below the latest accepted checkpoint, which no rule, timeout, rotation, admission rule or ordinary upgrade may invalidate. Above that checkpoint the history is provisional: a permissionless, bonded, delayed recovery may replace the range and permanently retires the heights it discards, so the replaced range can never be re-certified or landed again, while a failure below the checkpoint still leaves a halt rather than a rewrite. </li>
+<li><strong>Rollback of unsettled L2 history.</strong> It is never an Ethereum action and never applies at or below the latest accepted checkpoint, which no rule, timeout, rotation, admission rule or ordinary upgrade may invalidate. Above that checkpoint the history is provisional: a permissionless, bonded, delayed recovery may replace the range and permanently retires the heights it discards, so the replaced range can never be re-certified or landed again, while a failure below the checkpoint still leaves a halt rather than a rewrite.</li>
 </ul>
 </div>
 </div>

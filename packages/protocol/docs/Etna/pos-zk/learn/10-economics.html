@@ -54,7 +54,7 @@
     <marker id="ar10" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker>
     <marker id="ar10g" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#1a7f37"/></marker>
     <marker id="ar10r" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#cf222e"/></marker>
-  </defs>
+</defs>
   <rect x="16" y="16" width="270" height="52" rx="8" fill="#ffffff" stroke="#d8dee4"/>
   <text x="30" y="38" fill="#24292f" font-size="11">L2 execution + priority fees (ETH)</text>
   <text x="30" y="55" fill="#59636e" font-size="9">F_exec_L2 + F_priority_L2 &#8212; not yet measured</text>
@@ -100,7 +100,7 @@
   <line x1="596" y1="140" x2="668" y2="140" stroke="#0969da" marker-end="url(#ar10)"/>
   <path d="M810 182 L810 194" stroke="#cf222e" marker-end="url(#ar10r)"/>
 </svg>
-<figcaption>The reward pool pays only what has flowed into it. Fees are ETH, the pool is ETH, the payouts are ETH; TAIKO never leaves the custody ledger except through an owner withdrawal, and a proven offence debits it there and sends the debit to the protocol treasury, less a reporter bounty strictly below the total penalty. </figcaption>
+<figcaption>The reward pool pays only what has flowed into it. Fees are ETH, the pool is ETH, the payouts are ETH; TAIKO never leaves the custody ledger except through an owner withdrawal, and a proven offence debits it there and sends the debit to the protocol treasury, less a reporter bounty strictly below the total penalty.</figcaption>
 </figure>
 
 <h2 id="how">How it works</h2>
@@ -239,7 +239,7 @@ difference, or it reduces the validator count through the exit path. Each valida
 <li>Penalties that require objective, self-authenticating evidence, that any address can submit, and that credit no one&rsquo;s
 discretion.</li>
 <li>A fixed penalty destination: the protocol treasury receives every debit except a reporter bounty strictly below the total
-penalty, with no burn option. </li>
+penalty, with no burn option.</li>
 <li>Proportional cost: the more stake an offence implicates, the larger the fraction of each offender&rsquo;s stake that is taken,
 saturating at the one-third safety boundary.</li>
 <li>A withdrawal gate that makes it impossible to release stake before the window that could charge it has closed.</li>
@@ -249,7 +249,7 @@ inequality.</li>
 
 <h2 id="not">What it does not give you</h2>
 <ul>
-<li>No reward from an empty pool: L2 fees must be swept from the L2 fee vault through the preserved Bridge, rewards lag the settlement pipeline, and a bridging failure stops rewards instead of creating a claim on future revenue. </li>
+<li>No reward from an empty pool: L2 fees must be swept from the L2 fee vault through the preserved Bridge, rewards lag the settlement pipeline, and a bridging failure stops rewards instead of creating a claim on future revenue.</li>
 <li>No compensation to users. A penalty debits an offender&rsquo;s stake and does nothing else: it does not restore replaced history,
 return a bridge message or cover a loss, and there is no universal bound on user losses.</li>
 <li>No penalty for being offline, for censoring a transaction or for omitting it. Those are liveness or inclusion questions, not
