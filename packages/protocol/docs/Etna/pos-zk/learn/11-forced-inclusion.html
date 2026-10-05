@@ -1,270 +1,267 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>11 — Getting in when nobody will include you · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<title>11 — No forced-inclusion path, and what that costs · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
 <header class="site">
   <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
   <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
   <a href="../spec/index.html">Specification</a></nav>
 </header>
 <main>
-<h1>11 — Getting in when nobody will include you</h1>
+<h1>11 — No forced-inclusion path, and what that costs</h1>
 
 <div class="card">
-<p><strong>Problem this lesson solves.</strong> It explains how a user gets a transaction into an L2 block when no proposer will include it,
-why a forced-inclusion request must be calldata rather than a blob, and what forced inclusion does <em>not</em> guarantee.</p>
+<p><strong>Problem this lesson solves.</strong> It explains what forced inclusion was meant to solve, why this design
+deliberately has no forced-inclusion path, what the removal costs, and what remains: conditional statistical resistance from
+hash-based weighted proposer selection, plus a disclosed consequence the protocol does not remedy. The filename is kept from
+the earlier draft so existing links do not break; the mechanism it is named after is gone
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).</p>
 </div>
 
 <h2 id="plain">In plain language</h2>
 
-<p><strong>The problem.</strong> In this design L2 PoS proposers determine transaction order
-(<a href="../spec/index.html#fixed">D4</a>), so a proposer can leave a transaction out. A user's recourse is an L1 transaction, not a
-complaint: the Inbox accepts a forced-inclusion request and L2 must eventually include it, or the settled chain cannot advance past it.</p>
+<p><strong>What forced inclusion was meant to solve.</strong> In this design L2 PoS proposers determine transaction order
+(<a href="../spec/index.html#fixed">D4</a>), so a proposer can leave a transaction out. An L1-side forced-inclusion request
+would have been the user's recourse: the user posts a request on L1, an L2 validity rule obliges proposers to include it, and
+an L1 backstop rejects batches that omit it. That is a real remedy in principle — it converts "please include me" into a rule
+that does not depend on the proposer's goodwill.</p>
 
-<p><strong>The request.</strong> The user calls <code>requestForcedInclusion(bytes _txData)</code> on L1, pays a fee, and receives a
-<code>requestId</code>. The request records the requester, an eligibility timestamp
-(<code>block.timestamp + FORCED_INCLUSION_DELAY_SECONDS</code>), the payload hash and the payload itself, with ids assigned strictly FIFO and
-never reused (<a href="../spec/04-l1-integration.html#FI-01">FI-01</a>). The delay is expressed in seconds and gives proposers a window to
-include it voluntarily before the duty attaches.</p>
+<p><strong>This design deliberately does not have it.</strong> The user, as requirement owner, directed that forced inclusion
+be removed from the specification. There is no L1 request function, no queue, no escrow, no eligibility delay, no inclusion
+duty, no L1 backstop and no escape hatch, and there are no forced-inclusion parameters
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>). The protocol therefore provides <strong>no
+per-transaction inclusion guarantee</strong> and no L1 escape path by which a user can force a transaction into L2. The
+removal is recorded as a user-authorized partial relaxation of R10 in <a href="../DECISIONS.md">DECISIONS.md D-6</a>, not
+absorbed silently.</p>
 
-<p><strong>Why calldata and not a blob.</strong> The payload must be carried in the request transaction as calldata and stored in the Inbox's
-own L1 state. A blob-backed request would re-create the expiry class: Ethereum guarantees blob sidecar retrievability for
-<code>MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS = 4096</code> epochs — roughly 18 days at the present cadence — and after that window the
-request could be neither included nor refunded (<a href="../spec/04-l1-integration.html#DA-05">DA-05</a>). That is precisely what happened to
-the queue voided by the owner-only <code>init3()</code> in June 2026, whose skipped entries' blobs had expired; a surviving
-<code>init3()</code>-style selector is forbidden and queued requests are never re-interpreted across migration
-(<a href="../spec/04-l1-integration.html#FI-03">FI-03</a>, <a href="../spec/08-migration-upgrades.html#MIG-04">MIG-04</a>).</p>
+<p><strong>The honest replacement — and it is not a guarantee.</strong> Proposer selection is hash-based and weighted
+(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>). A coalition holding less than one third of the voting power that
+counts toward quorum is selected for <em>strictly fewer than one third of slots in expectation</em>, and a transaction that
+reaches honest validators is included by the first honest proposer with room for it. Under the network assumption
+<code>A-CONS-2</code> — a censored transaction can still reach honest validators — that is a real but
+<strong>conditional</strong> resistance, stated in the specification as
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>. It is an expectation over proposer slots, not a deadline and not a
+bound on any finite window: <a href="../spec/02-consensus.html#CONS-06">CONS-06</a>(b) says so in its own text.</p>
 
-<p><strong>The duty has two layers, and both are normative.</strong> On L2, a proposal is invalid unless its first block includes, as
-transactions and in FIFO request order, every request that is eligible and observed at the configured Ethereum finality depth; correct
-validators reject a proposal that omits one
-(<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>, <a href="../spec/04-l1-integration.html#FI-02">FI-02</a>a). On L1, <code>land</code>
-recomputes the due set itself and requires <em>exact equality</em> — not containment — with the covered set bound by the proof, plus a
-timestamp-drift bound so a batch cannot back-date <code>firstBlockTimestamp</code> to dodge a request that just became eligible
-(<a href="../spec/04-l1-integration.html#FI-02">FI-02</a>b). Because the batch range must start at <code>lastLandedHeight + 1</code>, a
-proposer cannot move the batch boundary to escape the duty (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>).</p>
+<p><strong>The disclosed consequence.</strong> A network-level adversary able to isolate a user from every honest proposer can
+exclude that user's transactions <em>indefinitely</em>. Because a withdrawal is initiated by an L2 transaction, such an
+adversary can also prevent the user from <em>starting</em> a withdrawal. The protocol offers no remedy, and this is a disclosed
+consequence, not a bug (<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>,
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>). Removing forced inclusion is therefore not free of cost: it removes the
+only path that did not depend on the censored user's connectivity to honest validators.</p>
 
-<p><strong>Forced inclusion can only add to the future.</strong> A covered request's payload may enter only an L2 block at a height strictly
-greater than <code>lastLandedHeight</code>: it can never change the content, ordering or state root of an already-landed block, and never a
-checkpoint record. Within the batch that covers it, its position relative to other covered requests is fixed to FIFO request order; its
-position relative to non-forced transactions is <a href="../spec/02-consensus.html#CONS-01">CONS-01</a>'s derivation rule. No code path may
-use a forced inclusion, or the fact that one is overdue, to re-execute, invalidate or replace a landed batch
-(<a href="../spec/04-l1-integration.html#FI-04">FI-04</a>).</p>
-
-<p><strong>The escape hatch under sustained censorship.</strong> A request must not be voidable: no owner, DAO, operator or recovery function
-may remove it, rewrite its eligibility timestamp, or mark it consumed without an accepted batch — the exact opposite of <code>init3()</code>.
-When a request has been eligible and uncovered longer than <code>FORCED_INCLUSION_ESCAPE_THRESHOLD</code>, three things happen: it stays in
-the queue and remains coverable by any future batch, forever; the requester may claim a refund of the fee it paid, without removing the
-request or affecting its coverage obligation; and <code>land</code> keeps rejecting batches that fail the equality check, so a chain that
-keeps producing without covering the request stops being able to settle. The hatch deliberately does <strong>not</strong> provide an L1-side
-force-exit of L2-held value: the funds are in L2 state, and no rule may invent an L1 path that mints or releases them
-(<a href="../spec/04-l1-integration.html#FI-03">FI-03</a>, <a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>).</p>
-
-<p><strong>Griefing controls.</strong> The request fee escalates with queue depth and is capped by <code>MAX_FEE</code>; a request is
-cancellable only before it becomes eligible, and cancellation refunds the fee minus a fixed cost; a request consumes exactly one slot of the
-L2 block space it eventually occupies; a batch covers at most <code>MAX_FORCED_INCLUSIONS_PER_BATCH</code>; and <code>land</code>'s due-set
-computation must be bounded by those limits, never by an unbounded loop over all requests ever made
-(<a href="../spec/04-l1-integration.html#FI-05">FI-05</a>).</p>
-
-<p><strong>Why a sub-threshold cartel cannot starve inclusion.</strong> Proposer selection is stake-weighted rotation: over any window of
-<code>W</code> consecutive proposer slots, validator <code>i</code> is proposer exactly <code>w_i</code> times, so a coalition holding
-<code>f &lt; 1/3</code> of the stake that counts toward quorum holds strictly fewer than one third of the slots
-(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>). The residual power is to make coverage <em>late</em>, not to prevent it, and
-lateness is bounded by the rotation, not by a timeout judgement
-(<a href="../spec/index.html#STATUS-10">STATUS-10</a>). Two honest caveats, in the specification's own words: this holds only while
-<code>A-CONS-1</code> holds — at one third or more of Byzantine stake the argument does not apply and the protocol claims nothing; and it
-assumes proposer selection is not predictable enough for the cartel to buy the specific slots in which a request becomes due, an assumption
-about the selection function that <a href="../spec/02-consensus.html#CONS-06">CONS-06</a> must state, not this argument. CONS-06 adds a
-third: the counting property is over proposer <em>slots</em>, not produced blocks, and a cartel that forces timeouts on honest slots can
-increase its share of produced blocks.</p>
-
-<p><strong>What it does not guarantee.</strong> The request transaction itself is an L1 transaction: if Ethereum censors it, or censors the
-<code>land</code> transaction, the remedy is unavailable — a disclosed consequence of <code>A-L1-1</code>, not a protocol fault. Forced
-inclusion cannot reorder or revoke the past, cannot force an exit of L2-held funds, and gives no wall-clock deadline: the protocol never
-converts a timeout into an assertion about what exists elsewhere. And the profitability of queue griefing is
-<span class="pill unmeasured">unmeasured</span> even with escalation
-(<a href="../spec/04-l1-integration.html#FI-05">FI-05</a>, <a href="../spec/06-recovery-exceptions.html#scenarios">06 — required
-scenarios</a>).</p>
+<p><strong>What remains.</strong> The rules that do not depend on forced inclusion are untouched: one atomic
+data-plus-proof acceptance entry point (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>), no privileged lever in
+ordinary operation (<a href="../spec/10-assurance.html#INV-04">INV-04</a>), monotone checkpoint advancement
+(<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>) and the ban on rewriting finalized history
+(<a href="../spec/06-recovery-exceptions.html#REC-01">REC-01</a>). Nothing here claims the protocol is censorship-resistant
+without the conditional: the claim is the conditional statistical property of
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, and no more.</p>
 
 <h2 id="definitions">Precise definitions</h2>
 
 <ul>
-<li><strong>Forced-inclusion request.</strong> An L1-stored record — id, requester, eligibility timestamp, payload hash, payload — created by
-<code>requestForcedInclusion</code>, FIFO and never reused, with the payload in calldata in L1 state and never a blob
-(<a href="../spec/04-l1-integration.html#FI-01">FI-01</a>).</li>
-<li><strong>Inclusion duty.</strong> An L2 validity rule (proposal invalid if a due request is missing, duplicated or reordered) plus an L1
-backstop (exact equality between the computed due set and the covered set, with a drift bound)
-(<a href="../spec/04-l1-integration.html#FI-02">FI-02</a>).</li>
-<li><strong>Escape hatch.</strong> After the escape threshold: the request stays queued and coverable forever, the requester may claim a fee
-refund without removing it, and settlement keeps rejecting batches that omit it — but there is no L1 force-exit of L2 value
-(<a href="../spec/04-l1-integration.html#FI-03">FI-03</a>).</li>
-<li><strong>No retroactive power.</strong> A covered request can only enter a block above <code>lastLandedHeight</code>; it can never reorder
-or revoke past history or a checkpoint (<a href="../spec/04-l1-integration.html#FI-04">FI-04</a>).</li>
-<li><strong>Griefing controls.</strong> Depth-escalating, capped fee; cancellation only before eligibility; one L2 slot per request; bounded
-coverage and bounded due-set computation (<a href="../spec/04-l1-integration.html#FI-05">FI-05</a>).</li>
-<li><strong>Sub-threshold cartel bound.</strong> A coalition with less than one third of the weight holds strictly fewer than one third of
-proposer slots in every <code>W</code>-slot window; an honest proposer must include the due set or its proposal is invalid
-(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>, <a href="../spec/02-consensus.html#CONS-01">CONS-01</a>).</li>
-<li><strong>The omission offence.</strong> Provable censorship of a due forced inclusion is a slashing offence with an objective evidence
-encoding — the block, the L1 request record, the omission proof and the leader identity
-(<a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a>).</li>
-<li><strong>R10.</strong> The requirement forced inclusion must satisfy: censorship resistance without an override that violates
-<a href="../spec/index.html#fixed">D2</a> (<a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §7).</li>
+<li><strong>No forced-inclusion path (FI-REMOVED-01).</strong> The design has no L1 request, queue, escrow, inclusion duty,
+L1 backstop, escape hatch or forced-inclusion parameter, and gives no per-transaction inclusion guarantee
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).</li>
+<li><strong>Conditional statistical resistance (LIVE-04).</strong> Hash-based weighted selection means a coalition with less
+than one third of the voting power proposes strictly fewer than one third of slots in expectation, and a transaction that
+reaches honest validators is included by the first honest proposer with room for it
+(<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, <a href="../spec/02-consensus.html#CONS-06">CONS-06</a>).</li>
+<li><strong>The condition (A-CONS-2).</strong> The resistance holds only while a censored transaction can still reach honest
+validators; if a network-level adversary isolates a user from every honest proposer, the argument does not apply
+(<code>A-CONS-2</code>, <a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §4,
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>).</li>
+<li><strong>Isolation consequence (LIVE-04).</strong> Such an adversary can exclude a user's transactions indefinitely, and
+because a withdrawal is initiated by an L2 transaction, can also prevent the user from starting a withdrawal. There is no
+protocol remedy (<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>).</li>
+<li><strong>R10, restated.</strong> "State censorship resistance honestly. The protocol provides statistical resistance from
+proposer rotation and gossip under <code>A-CONS-2</code> and provides no L1 forced-inclusion path; no override that violates
+D2 may be introduced." R10 is satisfied in this relaxed form and <em>not</em> in its original form
+(<a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §7,
+<a href="../DECISIONS.md">DECISIONS.md D-6</a>).</li>
+<li><strong>User-authorized relaxation.</strong> The removal was directed by the user as the requirement owner, recorded
+rather than absorbed, and it changes the scope of the final verdict
+(<a href="../DECISIONS.md">DECISIONS.md D-6</a>).</li>
+<li><strong>What is not removed.</strong> Atomic data-plus-proof acceptance (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>),
+no privileged lever in ordinary operation (<a href="../spec/10-assurance.html#INV-04">INV-04</a>), monotone checkpoint
+advancement (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>) and the ban on rewriting finalized history
+(<a href="../spec/06-recovery-exceptions.html#REC-01">REC-01</a>) are unchanged: the removal takes away an L1 remedy, not a
+safety rule.</li>
+<li><strong>No unprovable accusation.</strong> With no inclusion duty there is no duty to breach, and an elapsed timeout is
+never evidence about what exists elsewhere (<a href="../spec/index.html#STATUS-10">STATUS-10</a>,
+<a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a>).</li>
 </ul>
 
-<h2 id="diagram">Diagram — from an L1 request to an L2 block</h2>
+<h2 id="diagram">Diagram — the conditional path and the gap where forced inclusion used to be</h2>
 
 <figure>
-<svg viewBox="0 0 940 300" role="img" aria-label="A forced-inclusion request is stored in L1 state, becomes eligible, is included in FIFO order by an honest proposer, and is checked by exact equality when the batch lands.">
+<svg viewBox="0 0 940 330" role="img" aria-label="A user transaction reaches honest validators and is included by the first honest proposer with room under hash-based weighted selection; a network-level adversary that isolates the user from every honest proposer can exclude indefinitely and prevent a withdrawal from being started; there is no L1 forced-inclusion fallback.">
   <defs>
     <marker id="ar11" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker>
     <marker id="ar11r" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#f7768e"/></marker>
   </defs>
-  <rect x="14" y="30" width="180" height="70" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
-  <text x="104" y="54" fill="#e6edf3" font-size="11" text-anchor="middle">L1: requestForcedInclusion</text>
-  <text x="104" y="72" fill="#9aa7b4" font-size="9" text-anchor="middle">payload in calldata,</text>
-  <text x="104" y="86" fill="#9aa7b4" font-size="9" text-anchor="middle">stored in Inbox L1 state (FI-01)</text>
-  <rect x="228" y="30" width="170" height="70" rx="8" fill="#1c2330" stroke="#2d3743"/>
-  <text x="313" y="54" fill="#e6edf3" font-size="11" text-anchor="middle">FIFO queue</text>
-  <text x="313" y="72" fill="#9aa7b4" font-size="9" text-anchor="middle">ids never reused · fee held</text>
-  <text x="313" y="86" fill="#9aa7b4" font-size="9" text-anchor="middle">escalating fee, capped (FI-05)</text>
-  <rect x="432" y="30" width="170" height="70" rx="8" fill="#1c2330" stroke="#e0af68"/>
-  <text x="517" y="54" fill="#e0af68" font-size="11" text-anchor="middle">eligible at L1 timestamp</text>
-  <text x="517" y="72" fill="#9aa7b4" font-size="9" text-anchor="middle">+ FORCED_INCLUSION_DELAY</text>
-  <text x="517" y="86" fill="#9aa7b4" font-size="9" text-anchor="middle">seconds (GEN-06)</text>
-  <rect x="636" y="30" width="290" height="70" rx="8" fill="#0f2418" stroke="#2c5a3a"/>
-  <text x="781" y="54" fill="#9ece6a" font-size="11" text-anchor="middle">proposer rotation (CONS-06)</text>
-  <text x="781" y="72" fill="#9aa7b4" font-size="9" text-anchor="middle">a coalition with f &lt; 1/3 holds fewer than 1/3 of slots;</text>
-  <text x="781" y="86" fill="#9aa7b4" font-size="9" text-anchor="middle">an honest proposer must include the due set (CONS-01)</text>
-  <line x1="194" y1="65" x2="224" y2="65" stroke="#7aa2f7" marker-end="url(#ar11)"/>
-  <line x1="398" y1="65" x2="428" y2="65" stroke="#7aa2f7" marker-end="url(#ar11)"/>
-  <line x1="602" y1="65" x2="632" y2="65" stroke="#7aa2f7" marker-end="url(#ar11)"/>
-  <rect x="228" y="140" width="380" height="64" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
-  <text x="418" y="163" fill="#e6edf3" font-size="11" text-anchor="middle">L2 block includes the due set, in FIFO order</text>
-  <text x="418" y="181" fill="#9aa7b4" font-size="10" text-anchor="middle">a block that omits or reorders one is not valid (CONS-01(v))</text>
-  <text x="418" y="196" fill="#9aa7b4" font-size="10" text-anchor="middle">voting for it is slashable only with objective evidence (ECON-04)</text>
-  <line x1="781" y1="100" x2="781" y2="120" stroke="#9ece6a" marker-end="url(#ar11)"/>
-  <line x1="781" y1="120" x2="608" y2="150" stroke="#9ece6a"/>
-  <rect x="636" y="140" width="290" height="64" rx="8" fill="#0f2418" stroke="#2c5a3a"/>
-  <text x="781" y="163" fill="#9ece6a" font-size="11" text-anchor="middle">L1 backstop in land (FI-02)</text>
-  <text x="781" y="181" fill="#9aa7b4" font-size="10" text-anchor="middle">exact equality: covered set = computed due set</text>
-  <text x="781" y="196" fill="#9aa7b4" font-size="10" text-anchor="middle">drift bound stops back-dated batches</text>
-  <line x1="518" y1="172" x2="632" y2="172" stroke="#7aa2f7" marker-end="url(#ar11)"/>
-  <rect x="228" y="232" width="698" height="52" rx="8" fill="#2a1218" stroke="#5c2630"/>
-  <text x="246" y="254" fill="#f7768e" font-size="11">Escape hatch (FI-03): request never voidable · fee refundable after the threshold · request stays coverable forever ·</text>
-  <text x="246" y="272" fill="#f7768e" font-size="11">land keeps rejecting omitting batches (a safe halt) · NO L1 force-exit of L2-held value</text>
-  <line x1="418" y1="204" x2="418" y2="228" stroke="#f7768e" marker-end="url(#ar11r)"/>
-  <text x="24" y="252" fill="#9aa7b4" font-size="10">R10:</text>
-  <text x="24" y="268" fill="#9aa7b4" font-size="10">censorship</text>
-  <text x="24" y="284" fill="#9aa7b4" font-size="10">resistance</text>
+  <rect x="14" y="30" width="190" height="80" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="109" y="54" fill="#e6edf3" font-size="11" text-anchor="middle">user's L2 transaction</text>
+  <text x="109" y="74" fill="#9aa7b4" font-size="9" text-anchor="middle">broadcast into the L2 mempool;</text>
+  <text x="109" y="90" fill="#9aa7b4" font-size="9" text-anchor="middle">gossip is the only path in</text>
+  <rect x="236" y="30" width="196" height="80" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="334" y="54" fill="#e6edf3" font-size="11" text-anchor="middle">reaches honest validators?</text>
+  <text x="334" y="74" fill="#9aa7b4" font-size="9" text-anchor="middle">conditional: A-CONS-2 — the tx</text>
+  <text x="334" y="90" fill="#9aa7b4" font-size="9" text-anchor="middle">can still reach honest proposers</text>
+  <rect x="464" y="30" width="196" height="80" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="562" y="54" fill="#e6edf3" font-size="11" text-anchor="middle">hash-based weighted selection</text>
+  <text x="562" y="74" fill="#9aa7b4" font-size="9" text-anchor="middle">CONS-06: a coalition with &lt; 1/3</text>
+  <text x="562" y="90" fill="#9aa7b4" font-size="9" text-anchor="middle">proposes &lt; 1/3 of slots in expectation</text>
+  <rect x="692" y="30" width="234" height="80" rx="8" fill="#0f2418" stroke="#2c5a3a"/>
+  <text x="809" y="52" fill="#9ece6a" font-size="11" text-anchor="middle">included by the first honest</text>
+  <text x="809" y="67" fill="#9ece6a" font-size="11" text-anchor="middle">proposer with room (LIVE-04)</text>
+  <text x="809" y="87" fill="#9aa7b4" font-size="9" text-anchor="middle">an expectation over slots,</text>
+  <text x="809" y="101" fill="#9aa7b4" font-size="9" text-anchor="middle">not a deadline or a window bound</text>
+  <line x1="204" y1="70" x2="232" y2="70" stroke="#7aa2f7" marker-end="url(#ar11)"/>
+  <line x1="432" y1="70" x2="460" y2="70" stroke="#7aa2f7" marker-end="url(#ar11)"/>
+  <line x1="660" y1="70" x2="688" y2="70" stroke="#7aa2f7" marker-end="url(#ar11)"/>
+  <rect x="14" y="150" width="196" height="100" rx="8" fill="#2a1f10" stroke="#5c4a1c"/>
+  <text x="112" y="176" fill="#e0af68" font-size="11" text-anchor="middle">No L1 fallback</text>
+  <text x="112" y="196" fill="#9aa7b4" font-size="9" text-anchor="middle">no request, no queue,</text>
+  <text x="112" y="211" fill="#9aa7b4" font-size="9" text-anchor="middle">no duty, no escape hatch,</text>
+  <text x="112" y="226" fill="#9aa7b4" font-size="9" text-anchor="middle">no per-tx guarantee</text>
+  <text x="112" y="241" fill="#9aa7b4" font-size="9" text-anchor="middle">(FI-REMOVED-01)</text>
+  <rect x="236" y="150" width="690" height="100" rx="8" fill="#2a1218" stroke="#5c2630"/>
+  <text x="252" y="176" fill="#f7768e" font-size="11">Network-level adversary isolates the user from every honest proposer (A-CONS-2 fails):</text>
+  <text x="252" y="198" fill="#e6edf3" font-size="10">can exclude that user's transactions indefinitely</text>
+  <text x="252" y="216" fill="#e6edf3" font-size="10">can prevent the user from starting a withdrawal, because a withdrawal is initiated by an L2 transaction</text>
+  <text x="252" y="234" fill="#9aa7b4" font-size="10">no protocol remedy — a disclosed consequence, not a bug (LIVE-04)</text>
+  <line x1="562" y1="110" x2="562" y2="146" stroke="#f7768e" marker-end="url(#ar11r)"/>
+  <rect x="14" y="272" width="912" height="46" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="30" y="291" fill="#e6edf3" font-size="10">R10 relaxation, user-authorized and recorded in DECISIONS.md D-6: R10 is satisfied in its relaxed form and not in its</text>
+  <text x="30" y="307" fill="#e6edf3" font-size="10">original form; the removal must not be presented as free of cost, and no unconditional censorship-resistance claim is made.</text>
 </svg>
-<figcaption>The request is an L1 fact; the duty is an L2 validity rule with an L1 backstop; the hatch keeps the evidence alive but does
-not move value.</figcaption>
+<figcaption>The conditional path runs through honest proposers; the amber box is what is gone; the red box is what that
+leaves open, stated with its consequence.</figcaption>
 </figure>
 
-<h2 id="example">Worked example — fees, waiting time and the cartel's odds</h2>
+<h2 id="example">Worked example — rotation odds, tagged, and where they stop helping</h2>
 
-<p>The fee constants are the baseline's, tagged <span class="pill sourced">sourced</span> as <em>today's</em> values at revision
-<code>7718753c1</code> (<code>baseFee = 1,000,000</code> gwei, <code>threshold = 50</code>), not this design's values. This design's
-<code>BASE_FEE</code>, <code>FEE_DOUBLE_THRESHOLD</code>, <code>MAX_FEE</code>, delays and escape threshold are all
-<span class="pill unmeasured">unmeasured</span>.</p>
+<p>The arithmetic below uses an example coalition with 30% of the voting power that counts toward quorum, strictly below the
+one-third boundary the rotation argument requires. Every row is an expectation under the selection rule, not a deadline.</p>
 
 <table>
 <thead><tr><th>Step</th><th>Arithmetic</th><th>Result</th><th>Tag</th></tr></thead>
 <tbody>
-<tr><td>Fee shape</td><td><code>floor(BASE_FEE &times; (FEE_DOUBLE_THRESHOLD + pending) / FEE_DOUBLE_THRESHOLD)</code>, then <code>min(fee, MAX_FEE)</code></td><td>linear in queue depth until capped</td><td><span class="pill sourced">sourced</span> shape (FI-05); design constants <span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td>Empty queue, baseline constants</td><td>1,000,000 &times; (50 + 0) / 50 gwei</td><td>1,000,000 gwei &#61; 0.001 ETH</td><td><span class="pill derived">derived</span> from sourced baseline constants</td></tr>
-<tr><td>Queue of 50, baseline constants</td><td>1,000,000 &times; 100 / 50 gwei</td><td>2,000,000 gwei &#61; 0.002 ETH</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Queue of 1,000, baseline constants</td><td>1,000,000 &times; 1,050 / 50 gwei</td><td>21,000,000 gwei &#61; 0.021 ETH</td><td><span class="pill derived">derived</span>; the cap is <span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td>Expected wait for an honest proposer slot, cartel share f = 1/3</td><td>1 / (1 &minus; f) &#61; 1 / (1 &minus; 1/3)</td><td>1.5 slots &#61; 3&nbsp;s at 2&nbsp;s cadence</td><td><span class="pill derived">derived</span> (FI-02 argument); cadence decided (D1)</td></tr>
-<tr><td>Probability the cartel leads 5 slots in a row</td><td>(1/3)<sup>5</sup> &#61; 1/243</td><td>&#8776; 0.41%</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Probability the cartel leads 20 slots in a row</td><td>(1/3)<sup>20</sup></td><td>&#8776; 2.9 &times; 10<sup>&minus;10</sup> (about 1 in 3.5 billion)</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Eligibility delay</td><td><code>FORCED_INCLUSION_DELAY_SECONDS</code></td><td>the design's value is unmeasured; the baseline's 576&nbsp;s is today's value only</td><td><span class="pill sourced">sourced</span> baseline, <span class="pill unmeasured">unmeasured</span> design</td></tr>
-<tr><td>Escape threshold and request size</td><td><code>FORCED_INCLUSION_ESCAPE_THRESHOLD</code>, <code>MAX_FORCED_INCLUSION_BYTES</code></td><td>both unmeasured; each request consumes one bounded L2 slot</td><td><span class="pill unmeasured">unmeasured</span> (FI-01, FI-05)</td></tr>
+<tr><td>Coalition weight</td><td>f = 0.30 of the voting power, below one third</td><td>the boundary condition of CONS-06(b) holds for this example</td><td><span class="pill unmeasured">unmeasured</span> — the example value is chosen, not measured; the real stake distribution is unmeasured</td></tr>
+<tr><td>Coalition share of proposer slots, in expectation</td><td>f = 0.30</td><td>30% — strictly fewer than one third</td><td><span class="pill derived">derived</span> from CONS-06(b); the fairness step is <span class="pill assumed">Assumed</span></td></tr>
+<tr><td>Coalition-led slots in a 900-slot envelope (30 min at 2&nbsp;s)</td><td>0.30 &times; 900</td><td>270 of 900 (&lt; 300)</td><td><span class="pill derived">derived</span>; 900 blocks derived from the D6 envelope</td></tr>
+<tr><td>Expected slots until the first honest proposer</td><td>1 / (1 &minus; 0.30)</td><td>&#8776; 1.43 slots &#8776; 2.9&nbsp;s at the 2&nbsp;s cadence</td><td><span class="pill derived">derived</span>; cadence decided (D1)</td></tr>
+<tr><td>Probability the coalition leads 5 consecutive slots</td><td>0.30<sup>5</sup> = 0.00243</td><td>0.243%</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Probability the coalition leads 20 consecutive slots</td><td>0.30<sup>20</sup></td><td>&#8776; 3.5 &times; 10<sup>&minus;11</sup> (about 1 in 29 billion)</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>At exactly one third of the weight</td><td>CONS-06(b) requires <code>&Sigma; w_i &lt; W/3</code></td><td>not covered; the protocol claims nothing there</td><td>decided boundary (CONS-06(b))</td></tr>
+<tr><td>Network-isolation capability and its cost</td><td>no measured frequency, cost or duration</td><td><code>A-CONS-2</code> is an assumption, not a measured property of the network</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Any wall-clock inclusion deadline</td><td>none — the rotation gives an expectation, not a bound on any finite window</td><td>a user who never reaches an honest proposer has no deadline and no remedy</td><td>no number; CONS-06(b), LIVE-04</td></tr>
 </tbody></table>
 
-<p>The fifth row is the whole liveness claim, and it is an expectation over a rotation — not a deadline. A cartel that keeps winning a slot
-can keep a request late for as long as it keeps winning, which is why the counting argument and its caveats matter more than the average.</p>
+<p>Rows three to six are the statistical case, and they hold only while the transaction can still reach honest validators.
+They are exactly the rows that stop helping under network-level isolation: a user who can reach nobody in the honest set
+cannot benefit from a share of slots, however favorable the share is. That gap is what forced inclusion was meant to close,
+and this design deliberately leaves it open (<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>,
+<a href="../DECISIONS.md">DECISIONS.md D-6</a>).</p>
 
 <h2 id="prevents">Attacks this prevents</h2>
 <ul>
-<li><strong>Selective omission by a sub-threshold cartel.</strong> The due set must be included by an honest proposer or the proposal is
-invalid, and validators reject invalid proposals; the cartel can delay coverage, not prevent it
-(<a href="../spec/04-l1-integration.html#FI-02">FI-02</a>, <a href="../spec/02-consensus.html#CONS-01">CONS-01</a>).</li>
-<li><strong>Colluding-quorum omission while still landing batches.</strong> The L1 backstop recomputes the due set and requires exact
-equality; an omitting batch reverts with no partial effect
-(<a href="../spec/04-l1-integration.html#FI-02">FI-02</a>, <a href="../spec/04-l1-integration.html#L1-03">L1-03</a>).</li>
-<li><strong>Queue voiding and expired requests.</strong> No selector may remove a request; the payload is calldata in L1 state, so the
-June-2026 blob-expiry class cannot recur for the queue (<a href="../spec/04-l1-integration.html#FI-03">FI-03</a>,
-<a href="../spec/04-l1-integration.html#DA-05">DA-05</a>).</li>
-<li><strong>Using inclusion to rewrite history.</strong> A request can only enter a future block; it can never reorder or revoke a landed
-batch or checkpoint (<a href="../spec/04-l1-integration.html#FI-04">FI-04</a>).</li>
-<li><strong>Queue flooding and last-minute withdrawal of evidence.</strong> Escalating capped fees, one slot per request, bounded coverage,
-and cancellation only before eligibility (<a href="../spec/04-l1-integration.html#FI-05">FI-05</a>).</li>
-<li><strong>Unprovable accusations.</strong> Only objective evidence — the request record, the omitted block, the omission proof and the
-leader identity — supports the omission offence; a late or missing preference never does
-(<a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a>, <a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a>).</li>
+<li><strong>Selective omission by a sub-threshold coalition, while the transaction reaches honest validators.</strong> A
+coalition with less than one third of the voting power proposes strictly fewer than one third of slots in expectation, and
+the first honest proposer with room includes what reached it
+(<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, <a href="../spec/02-consensus.html#CONS-06">CONS-06</a>).</li>
+<li><strong>Making one firm's share the whole schedule.</strong> Selection is by committed weight through a hash over
+<code>(domain, chainId, epoch, height, round)</code>; no interval is privileged by position and a sub-threshold coalition
+cannot claim more than its share in expectation (<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>(b)–(d)).</li>
+<li><strong>A privileged inclusion lever.</strong> With no request queue and no escrow, there is no owner-, DAO- or
+operator-reachable queue state to void or rewrite, and no selector whose removal could strand a request. The failure class the
+baseline's one-time <code>init3()</code> produced has no state to act on in this design
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>, <a href="../spec/index.html#fixed">D-6</a>).</li>
+<li><strong>Using inclusion policy to rewrite history.</strong> The removal adds no retroactive power, and the unchanged rules
+require monotone checkpoint advancement and forbid invalidating PoS-finalized history
+(<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>, <a href="../spec/06-recovery-exceptions.html#REC-01">REC-01</a>).</li>
+<li><strong>Unprovable censorship accusations.</strong> There is no inclusion duty to breach and no evidence object that could
+turn an omission into a slashable offence; an elapsed timeout is never evidence of absence
+(<a href="../spec/index.html#STATUS-10">STATUS-10</a>, <a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a>).</li>
 </ul>
 
 <h2 id="not-prevents">Attacks this does not prevent</h2>
 <ul>
-<li><strong>One third or more of Byzantine stake.</strong> The rotation argument stops applying, the protocol claims nothing, and a cartel
-of that size can halt the chain (<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>,
-<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
-<li><strong>L1 censorship of the request or of <code>land</code>.</strong> If the L1 transaction cannot land, the remedy is unavailable and
-settlement halts; that is a disclosed consequence of <code>A-L1-1</code>
-(<a href="../spec/06-recovery-exceptions.html#scenarios">06 — required scenarios</a>).</li>
-<li><strong>An L1 force-exit of L2-held funds.</strong> FI-03 refunds the request fee only; the funds are in L2 state and no L1 path may mint
-or release them (<a href="../spec/04-l1-integration.html#FI-03">FI-03</a>).</li>
-<li><strong>Any wall-clock inclusion deadline.</strong> The protocol never converts an elapsed timeout into an assertion about what exists
-elsewhere (<a href="../spec/index.html#STATUS-10">STATUS-10</a>); coverage is late-bounded only through the rotation argument.</li>
-<li><strong>Predictable-slot capture and griefing profitability.</strong> Selection is a public deterministic function and the assumption
-about slot predictability is owned by <a href="../spec/02-consensus.html#CONS-06">CONS-06</a>/<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>;
-the profitability of queue griefing is <span class="pill unmeasured">unmeasured</span> (<a href="../spec/04-l1-integration.html#FI-05">FI-05</a>).</li>
+<li><strong>Network-level isolation of a user from every honest proposer.</strong> The central disclosed consequence: the user
+can be excluded indefinitely, and there is no L1 path to force inclusion
+(<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, <a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).</li>
+<li><strong>Preventing a withdrawal from being started.</strong> A withdrawal is initiated by an L2 transaction, so sustained
+exclusion of that transaction also blocks the exit at its first step; the protocol offers no remedy
+(<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>).</li>
+<li><strong>A coalition of one third or more of the voting power.</strong> The expectation argument stops applying there and
+the protocol claims nothing; the specification says so rather than claiming protection
+(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>(b), <a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
+<li><strong>Predictable-slot capture and timeout forcing.</strong> Selection is a public deterministic function, and a cartel
+that forces timeouts on honest slots can increase its share of <em>produced blocks</em>; the counting property is over
+proposer slots, and the disclosure obligation for predictability belongs to
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, not to this lesson
+(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>).</li>
+<li><strong>L1 censorship of data, proofs or the accepting transaction.</strong> Nothing settles, and there is no
+forced-inclusion fallback to route around it because the design has none
+(<a href="../01-requirements-and-threat-model.md">T-7</a>, <a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a> clause L5,
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>).</li>
+<li><strong>Losses.</strong> Penalties are not compensation and no universal bound on economic loss exists
+(<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
 </ul>
 
 <h2 id="self-check">Self-check</h2>
-<details><summary>Why can a forced-inclusion request not be a blob pointer?</summary>
-<p>Because blobs expire from retrievability — 4096 epochs (roughly 18 days at the present cadence, sourced and derived) — after which the
-request could be neither included nor refunded. That is the class observed in June 2026 and voided by the owner-only <code>init3()</code>.
-The request payload is therefore calldata stored in L1 state (<a href="../spec/04-l1-integration.html#FI-01">FI-01</a>,
-<a href="../spec/04-l1-integration.html#DA-05">DA-05</a>).</p></details>
-<details><summary>A cartel holds 30% of stake and never includes a due request. Can it starve inclusion forever?</summary>
-<p>Not while <code>A-CONS-1</code> holds. A coalition below one third holds fewer than one third of proposer slots in every window, and an
-honest proposer must include the due set or its proposal is invalid; honest validators precommit only valid proposals, so the request is
-covered when an honest proposer leads (<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>,
-<a href="../spec/04-l1-integration.html#FI-02">FI-02</a>). It can make coverage late. At one third or more the argument does not apply and
-the protocol claims nothing.</p></details>
-<details><summary>Does the escape hatch let a censored user take their L2 funds out on L1?</summary>
-<p>No. The hatch refunds the request fee, keeps the request queued and coverable forever, and leaves <code>land</code> rejecting batches that
-omit it — which is a safe halt, not an exit. The funds are in L2 state, and no rule may invent an L1 path that mints or releases them
-(<a href="../spec/04-l1-integration.html#FI-03">FI-03</a>).</p></details>
+<details><summary>My transaction never reaches a block. Can I force it in from L1?</summary>
+<p>No. There is no forced-inclusion path: no request transaction, no queue, no duty and no escape hatch
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>). If the transaction reaches honest validators, the
+first honest proposer with room includes it, and a coalition with less than one third of the weight proposes strictly fewer
+than one third of slots in expectation (<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>,
+<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>). If an adversary isolates you from every honest proposer, the protocol
+offers no remedy (<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>).</p></details>
+<details><summary>Is the protocol censorship-resistant?</summary>
+<p>Only under the conditional. The claim is statistical resistance from hash-based weighted proposer selection: a coalition
+with less than one third of the voting power proposes strictly fewer than one third of slots in expectation, and a transaction
+that reaches honest validators is included by the first honest proposer with room for it — conditional on
+<code>A-CONS-2</code>, that a censored transaction can still reach honest validators. There is no unconditional claim and no
+per-transaction guarantee; forced inclusion was removed by user decision and the R10 relaxation is disclosed
+(<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, <a href="../spec/02-consensus.html#CONS-06">CONS-06</a>,
+<a href="../DECISIONS.md">DECISIONS.md D-6</a>).</p></details>
+<details><summary>My L2 transactions are being excluded and I want to withdraw. Can I start the withdrawal on L1 instead?</summary>
+<p>No. A withdrawal is initiated by an L2 transaction, so an adversary able to isolate the user from every honest proposer can
+also prevent the withdrawal from being started, and with forced inclusion removed there is no L1 path to force that L2
+transaction in. This is the disclosed consequence of <a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>; the protocol
+offers no remedy.</p></details>
 
 <div class="card">
-<p><strong>Challenge this.</strong> The lesson relied on: (i) <code>A-CONS-1</code> — fewer than one third of the stake that counts toward
-quorum is Byzantine, and the rotation property of <a href="../spec/02-consensus.html#CONS-06">CONS-06</a>; (ii) honest validators enforcing
-proposal validity and honest proposers including the due set, which are duties, not measured behaviour; (iii) the caveat that proposer
-selection is public and predictable, whose mitigation is owned by CONS-06 and LIM-01, not by this lesson; (iv) the L1 liveness assumption
-<code>A-L1-1</code>, without which neither the request nor the landing transaction can be included; (v) every fee, delay and size parameter of
-this design being unmeasured, with only the baseline constants and EIP-4844/7691/4444 figures tagged sourced; (vi) the arithmetic being an
-expectation over rotation, never a wall-clock guarantee. Falsifier: find a sentence here that promises inclusion by a deadline, presents a
-design fee value as measured, or claims the hatch can move L2 value.</p>
+<p><strong>Challenge this.</strong> The lesson relied on: (i) <code>A-CONS-2</code> — a censored transaction can still reach
+honest validators — which is a network assumption, not an enforced property; (ii) <code>A-CONS-1</code> — fewer than one third
+of the stake that counts toward quorum is Byzantine; (iii) <a href="../spec/02-consensus.html#CONS-06">CONS-06</a>(b)'s
+uniformity step, which is <span class="pill assumed">Assumed</span> on the hash behaving as a random oracle, so the one-third
+statement is an expectation and not a bound on any finite window; (iv) honest proposers including what reaches them, which is
+a duty, not measured behaviour; (v) the disclosure obligation for a public, predictable selection function belonging to
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, not to this lesson; (vi) the cost and frequency of network-level
+isolation being <span class="pill unmeasured">unmeasured</span>; (vii) the removal of forced inclusion being a user-authorized
+partial relaxation of R10 recorded as <a href="../DECISIONS.md">D-6</a>, with the withdrawal consequence disclosed. Falsifier:
+find a sentence here or in the specification that claims unconditional censorship resistance, promises inclusion by a deadline,
+offers a per-transaction inclusion guarantee, or presents the removal as free of cost.</p>
 </div>
 
 <h2 id="more">Where to read more</h2>
 <ul>
-<li><a href="../spec/04-l1-integration.html#FI-01">FI-01</a>–<a href="../spec/04-l1-integration.html#FI-05">FI-05</a> and
-<a href="../spec/04-l1-integration.html#fi-argument">the rotation argument</a> — the request format, the duty, the hatch, the bounds and the
-counting argument with its caveats.</li>
-<li><a href="../spec/02-consensus.html#CONS-01">CONS-01</a> (proposal validity) and
-<a href="../spec/02-consensus.html#CONS-06">CONS-06</a> (weighted rotation and what it does not claim).</li>
-<li><a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a> and
-<a href="../spec/06-recovery-exceptions.html#scenarios">06 — required scenarios</a> — what happens when coverage never comes.</li>
-<li><a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a> — the omission offence and its evidence;
-<a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a> — why non-receipt is never misconduct.</li>
-<li><a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> — R10 and threat T-7;
-<a href="../spec/10-assurance.html#LIM-01">LIM-01</a> — the disclosed limits.</li>
+<li><a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a> — what was removed and what replaced it; the
+specification's <a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> — the conditional statistical property in its own
+words.</li>
+<li><a href="../spec/02-consensus.html#CONS-06">CONS-06</a> — hash-based weighted selection, its <em>Assumed</em> fairness, and
+the properties it explicitly does not claim.</li>
+<li><a href="../spec/10-assurance.html#LIM-01">LIM-01</a> — the limitations register; <a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>
+clause L5 — where liveness ends when L1 fails.</li>
+<li><a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §7 — R10 in its restated form and
+threat T-7; <a href="../DECISIONS.md">DECISIONS.md D-6</a> — the user authorization, the removal list and the disclosed
+consequences.</li>
+<li><a href="../spec/index.html#STATUS-10">STATUS-10</a> and <a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a> — why
+an elapsed timeout or a missing transaction is never proof of misconduct.</li>
 <li>Siblings: <a href="03-status-labels.html">lesson 03</a> · <a href="08-atomic-data-and-proof.html">lesson 08</a> ·
-<a href="10-halt-or-roll-back.html">lesson 10</a>.</li>
+<a href="10-halt-or-roll-back.html">lesson 10</a> · <a href="limitations.html">limitations</a>.</li>
 </ul>
 </main>
 <footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·

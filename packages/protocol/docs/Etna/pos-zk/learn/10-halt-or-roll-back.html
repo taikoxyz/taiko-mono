@@ -186,8 +186,8 @@ not a worst-case bound; <code>D_MAX</code> and every Mode B timing term are plac
 <tr><td>D6 proving envelope</td><td>30 &times; 60 / 2</td><td>900 L2 blocks at 2&nbsp;s</td><td><span class="pill derived">derived</span> from the decided D6 input</td></tr>
 <tr><td>Placeholder batch span (K = 32 blocks)</td><td>32 &times; 2&nbsp;s</td><td>64&nbsp;s</td><td><span class="pill derived">derived</span> from an <span class="pill unmeasured">unmeasured</span> placeholder</td></tr>
 <tr><td>Proofs in flight at the envelope limit</td><td>1,800&nbsp;s / 64&nbsp;s</td><td>&#8776; 28.1</td><td><span class="pill derived">derived</span> (Little's law, PARAM-02)</td></tr>
-<tr><td>Placeholder unsettled-depth cap</td><td>3,600 &times; 2&nbsp;s</td><td>3,600 blocks &#61; 2&nbsp;h</td><td><span class="pill unmeasured">unmeasured</span> value, derived arithmetic</td></tr>
-<tr><td>Mode B rollback depth</td><td>at most <code>D_MAX</code> blocks</td><td>&#8804; 3,600 blocks with the placeholder</td><td><span class="pill derived">derived</span>, <em>conditional</em> on the cap; not a bound on loss (REC-02)</td></tr>
+<tr><td>Unsettled-depth cap <code>D_MAX</code></td><td><code>floor((RETENTION_WINDOW &minus; T_PROOF_MAX_PERMITTED &minus; T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL)</code></td><td>no numeric value proposed; the arithmetic runs when the inputs are measured</td><td><span class="pill unmeasured">unmeasured</span> inputs (PARAM-03)</td></tr>
+<tr><td>Mode B rollback depth</td><td>at most <code>D_MAX</code> blocks</td><td>a formula, not a fixed number</td><td><span class="pill derived">derived</span>, <em>conditional</em> on the cap; not a bound on loss (REC-02)</td></tr>
 <tr><td>Mode A with the data for one height gone</td><td>blocks discarded to escape the halt</td><td>0</td><td><span class="pill sourced">sourced</span> normative: REC-01 forbids discarding finalized history</td></tr>
 <tr><td>Mode B duration</td><td><code>T_STALL + T_RECOVERY_DELAY + resume</code></td><td>inactive formula</td><td><span class="pill unmeasured">unmeasured</span>, except <code>T_STALL</code> &gt; envelope by construction</td></tr>
 <tr><td>Certificates inferred from an elapsed timeout</td><td>none permitted</td><td>0</td><td><span class="pill sourced">sourced</span> normative: STATUS-10</td></tr>
@@ -268,7 +268,7 @@ statement, exactly where it ends, and the limitations register.</li>
 <a href="../research/recovery-and-withholding-raw.md">research — recovery and withholding</a> §3.3 — the counterexample;
 <a href="../04-architecture-decision.md">04 — architecture decision</a> §5 — the decision and the falsifier.</li>
 <li>Siblings: <a href="06-withheld-certificates.html">lesson 06</a> ·
-<a href="07-two-seconds-and-thirty-minutes.html">lesson 07</a> · <a href="11-forced-inclusion.html">lesson 11</a>.</li>
+<a href="07-two-seconds-and-thirty-minutes.html">lesson 07</a> · <a href="11-forced-inclusion.html">lesson 11 — no forced inclusion</a>.</li>
 </ul>
 </main>
 <footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·

@@ -24,7 +24,7 @@ epoch is Byzantine (<code>A-CONS-1</code>); (P2) correct validators obey the vot
 of the epoch's voting power, counted over distinct authenticated signers
 (<a href="02-consensus.html#CONS-03">CONS-03</a>); (P4) each epoch's set is the L1-committed set
 (<a href="02-consensus.html#CONS-10">CONS-10</a>, <a href="03-membership-staking.html#MEM-08">MEM-08</a>);
-(P5) the epoch-handoff rule carries locks across boundaries
+(P5) the per-height lock of <a href="02-consensus.html#CONS-04">CONS-04</a> is enforced, and cross-height continuity is exactly the parent-validity condition of <a href="02-consensus.html#CONS-01">CONS-01</a>(iii) — no lock <em>state</em> crosses an epoch boundary, because the lock is per height (*review round 2, finding R2A-10*)
 (<a href="02-consensus.html#CONS-09">CONS-09</a>).</span>
 <span class="why">Failure mode: if any premise fails, two conflicting certificates can both be
 cryptographically valid, and <strong>a ZK proof cannot detect it</strong>. Both proofs verify. The
@@ -44,7 +44,7 @@ No recovery, outage, degraded mode, governance action or operator procedure may 
 (<a href="06-recovery-exceptions.html#REC-01">REC-01</a> e,
 <a href="04-l1-integration.html#L1-02">L1-02</a>).</span>
 <span class="why">Failure mode: a data-first design creates exactly the class observed in this
-repository — <code>init3()</code> (<code>Inbox.sol:246-258</code>) had to void forced inclusions whose
+repository — <code>init3()</code> (<code>Inbox.sol:246-258</code>) had to void queued requests whose
 blob references expired before they could be derived. That class cannot occur for a pending batch
 here because data is published only with its proof.</span>
 <span class="pill proven">Proven</span> <span class="small">(inherited from D5; the in-repo incident is
@@ -61,8 +61,8 @@ withdrawal race in which an offender unbonds between the offence and the evidenc
 <span class="pill proven">Proven</span></div>
 
 <div class="rule" id="INV-04"><span class="rid">INV-04 — no privilege or discretion in ordinary operation</span>
-<span class="norm">Every step of ordinary operation — activation, proposing, voting, proving, forced
-inclusion, evidence submission, reward claiming and exit — is reachable by any address satisfying the
+<span class="norm">Every step of ordinary operation — activation, proposing, voting, proving,
+evidence submission, reward claiming and exit — is reachable by any address satisfying the
 objective rules, with no allowlist, no owner approval, no DAO vote and no operator key. A privileged
 lever is permitted only for <em>upgrades</em>, and each such lever is enumerated with its scope in
 <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>.</span>
@@ -95,7 +95,7 @@ finality depth; (L6) the L1 staking contract commits each epoch's set root befor
 <span class="why">Liveness <strong>ends</strong> at the first clause that fails: (L1) fails → the chain
 halts rather than forks; (L3) fails → settlement halts, possibly permanently, unless a data holder
 returns; (L4) fails → settlement halts after the unsettled-depth cap binds; (L5) fails → nothing
-settles and forced inclusion is unavailable; (L6) fails → the chain cannot enter the next epoch;
+settles and no L1 inclusion path can restore progress (<a href="#LIVE-04">LIVE-04</a>); (L6) fails → the chain cannot enter the next epoch;
 (L7) fails → a new node must not silently trust an unverified history. There is no clause whose failure
 licenses rewriting finalized history.</span>
 <span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span>
@@ -133,6 +133,26 @@ formulas are the deliverable.</span>
 <span class="pill open">Open</span> <span class="small">(requires measurement of cycles per L2 gas and
 proven cycles per second per machine, <a href="../03-zkvm-feasibility.md">03</a> §7)</span></div>
 
+<div class="rule" id="LIVE-04"><span class="rid">LIVE-04 — censorship resistance, stated honestly</span>
+<span class="norm">The protocol provides no per-transaction inclusion guarantee and no L1 forced-inclusion
+path. Censorship resistance is the conditional statistical property described in this rule:
+proposer selection is hash-based and weighted (<a href="02-consensus.html#CONS-06">CONS-06</a>), so a
+coalition with less than one third of the voting power is selected for strictly fewer than one third of
+slots in expectation, and a transaction that reaches honest validators is included by the first honest
+proposer with room for it. Under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> that is a
+real but conditional resistance. A network-level adversary able to isolate a user from every honest
+proposer can exclude that user's transactions indefinitely, and because a withdrawal is initiated by an
+L2 transaction, such an adversary can also prevent the user from starting a withdrawal. The protocol
+offers no remedy, and a partial relaxation of <a href="../01-requirements-and-threat-model.md">R10</a> is
+disclosed. <em>(user decision D-6: forced inclusion removed; a user-authorized partial relaxation of
+R10)</em></span>
+<span class="why">Failure mode: presenting statistical inclusion under A-CONS-2 as a per-transaction
+guarantee, or implying an L1 escape path that does not exist, would let a user size exposure on a promise
+the protocol never makes.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(the absence of an L1 path is structural; the resistance claim is conditional on
+<a href="../01-requirements-and-threat-model.md">A-CONS-2</a>)</span></div>
+
 <h2 id="lim">Limitations register</h2>
 
 <div class="rule" id="LIM-01"><span class="rid">LIM-01 — known limitations, stated once, with their consequence</span>
@@ -145,11 +165,12 @@ may be silently dropped when the design is summarised to users.</span>
 <tr><td>Cryptographic</td><td>A soundness bug in an accepted zkVM backend, or in the guest program, forges batches</td><td>Bridge-theft class. Not repairable by the protocol; mitigation is audit, version discipline, and optionally the two-backend policy of <a href="05-proof-statement.html#PRF-09">PRF-09</a></td></tr>
 <tr><td>Cryptographic</td><td>One combined guest means a single trusted computing base; a common-mode defect is not caught by a second backend unless the policy requires both</td><td>Same as above, with a smaller detection surface</td></tr>
 <tr><td>Consensus</td><td>Safety holds only while fewer than one third of each epoch's voting power is Byzantine</td><td>Two conflicting valid certificates; the proof verifies both; the invariant <a href="#INV-01">INV-01</a> does not apply</td></tr>
-<tr><td>Consensus</td><td>The epoch-handoff lock-carry-over argument is argued, not machine-checked</td><td>A boundary-specific fork is the named review target F1</td></tr>
+<tr><td>Consensus</td><td>The epoch-handoff argument (per-height locks released only by the commit at that height or a strictly later same-height proof-of-lock-change, with cross-height continuity carried by the parent-validity condition) is argued, not machine-checked</td><td>A boundary-specific fork is the named review target F1</td></tr>
 <tr><td>Availability</td><td>Settlement depends on somebody retaining the data until the proof lands</td><td>A halt, possibly permanent, if every holder disappears. Retention is a liveness <strong>assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty. Disclosed; explicitly permitted by D2 step 1</td></tr>
 <tr><td>Availability</td><td>Retention is a <strong>liveness assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty: a failure to serve is not provable on L1 for most classes, and no evidence object exists for it (*review round 1, finding C R1-04*)</td><td>A holder's failure produces a <strong>halt, not a penalty</strong>; the honest response is disclosure, not a penalty (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>), and no rule may claim retention is enforced</td></tr>
 <tr><td>Liveness</td><td>A minority outage halts the chain; there is no degraded mode</td><td>Unbounded halt duration outside the assumptions</td></tr>
 <tr><td>Liveness</td><td>A cartel of at least one third can halt the chain, though it cannot censor selectively while quorum exists</td><td>Denial of service, not a safety break</td></tr>
+<tr><td>Censorship</td><td>No per-transaction inclusion guarantee and no L1 forced-inclusion path: resistance is the conditional statistical property of <a href="#LIVE-04">LIVE-04</a> — hash-based, weighted proposer selection (<a href="02-consensus.html#CONS-06">CONS-06</a>) under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> <em>(user decision D-6: forced inclusion removed; the limitation is disclosed, not remedied)</em></td><td>A network-level adversary that isolates a user from every honest proposer can exclude that user's transactions indefinitely and can prevent the user from starting a withdrawal; the protocol offers no remedy — a user-authorized partial relaxation of R10, recorded as D-6</td></tr>
 <tr><td>Performance</td><td>The 2&nbsp;s cadence, the round budget, the proving envelope, the in-guest blob evaluation and the fleet sizing are all unmeasured</td><td><a href="#LIVE-03">LIVE-03</a>'s inequalities cannot be checked until measured</td></tr>
 <tr><td>Economic</td><td>No verified price, float or liquidity data; attack cost is time-varying and A-ECO-1 can fail with no rule change</td><td>The deterrence claim is conditional and must be re-evaluated with market data</td></tr>
 <tr><td>Economic</td><td>The reward budget's inputs are unmeasured, and the protocol cannot mint TAIKO today</td><td>Rewards may be unfundable without a user decision (treasury transfer or a token upgrade)</td></tr>
@@ -199,6 +220,7 @@ requirements, and either a resolution or an explicit acceptance. A finding is cl
 original attack trace is retained and the specification states precisely why it no longer
 succeeds.</span>
 <p class="small">After round 1's fixes were applied in place, the specification was re-reviewed in round 2 under the same rule-by-rule discipline, on a frozen snapshot and with four fresh reviewers covering all five required angles (including the compliance angle round 1 missed).</p>
+<p class="small">Round 3 is not yet adjudicated: this revision applies change order 03 in place on the frozen base <code>f67458b45</code> — forced inclusion is removed under user decision D-6, and the remaining round-2 findings are dispositioned in <a href="../iterations/03-round.md"><code>iterations/03-round.md</code></a>. No round-3 finding has been reviewed, no earlier fix has been re-verified, and <strong>no convergence is claimed</strong>; the consecutive-clean-round count remains zero until a full round is reviewed clean on a frozen snapshot. <em>(change order 03, §4: round-3 placeholder, no convergence claim)</em></p>
 <table>
 <thead><tr><th>Round</th><th>Snapshot</th><th>Findings adjudicated</th><th>Disposition</th></tr></thead>
 <tbody>

@@ -64,7 +64,7 @@ No stronger word ("final", "irreversible", "confirmed") may be substituted for a
 <a href="01-system-model.html">01 — System model, participants, roles</a>
 <a href="02-consensus.html">02 — Consensus: proposals, votes, locks, finality, epochs</a>
 <a href="03-membership-staking.html">03 — Membership, TAIKO staking, exits, weak subjectivity</a>
-<a href="04-l1-integration.html">04 — L1 integration: atomic data+proof, DA, forced inclusion</a>
+<a href="04-l1-integration.html">04 — L1 integration: atomic data+proof, DA, bridge anchoring</a>
 <a href="05-proof-statement.html">05 — Proof statement, public inputs, witnesses, backends</a>
 <a href="06-recovery-exceptions.html">06 — Withholding, safe halt, restart, Mode B (not selected)</a>
 <a href="07-economics-slashing.html">07 — Economics, offences, penalties, rewards</a>
@@ -256,7 +256,11 @@ expectations").</span>
 
 <h2 id="ruleindex">Rule index</h2>
 <p class="small">Registry of every normative rule and the page that states it in full. A rule's text
-is normative on its own page; this table is a map, not a second copy.</p>
+is normative on its own page; this table is a map, not a second copy. Forced inclusion is removed
+(user decision D-6): <code>FI-01</code>–<code>FI-05</code> no longer exist as rules and are not
+indexed. The tombstone <code>FI-REMOVED-01</code> records the removal and
+<a href="10-assurance.html#LIVE-04">LIVE-04</a> owns the honest statement of what inclusion resistance
+remains. <em>(user decision D-6: forced inclusion removed)</em></p>
 <table><thead><tr><th>ID</th><th>Rule</th><th>Page</th></tr></thead><tbody>
 <tr><td><code>GEN-01</code></td><td>What this specification is (and is not)</td><td>this page</td></tr>
 <tr><td><code>GEN-02</code></td><td>Fixed decisions D1–D7 bind the design</td><td>this page</td></tr>
@@ -287,7 +291,7 @@ is normative on its own page; this table is a map, not a second copy.</p>
 <tr><td><code>ROLE-03</code></td><td>Full and archive node role and retention assumption</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>ROLE-04</code></td><td>User rights: inclusion, exit, disclosure</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>ROLE-05</code></td><td>DAO role: upgrades only</td><td><a href="01-system-model.html">01</a></td></tr>
-<tr><td><code>CONS-01</code></td><td>Proposal validity, including the forced-inclusion duty</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-01</code></td><td>Proposal validity</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-02</code></td><td>Vote phases and vote uniqueness per (height, round)</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-03</code></td><td>Quorum: strictly more than 2/3 of epoch voting power, distinct signers, stake-weighted</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-04</code></td><td>Lock rule and unlocking by proof-of-lock-change</td><td><a href="02-consensus.html">02</a></td></tr>
@@ -299,7 +303,7 @@ is normative on its own page; this table is a map, not a second copy.</p>
 <tr><td><code>CONS-10</code></td><td>Validator-set authentication in block headers</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-11</code></td><td>Equivocation: definition and evidence</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-12</code></td><td>Safety invariant: uniqueness of the finalized prefix</td><td><a href="02-consensus.html">02</a></td></tr>
-<tr><td><code>CONS-13</code></td><td>Epoch length, set-commitment timing and one-epoch lookahead</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-13</code></td><td>Epoch length, set-commitment timing and two-epoch lookahead</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-14</code></td><td>Genesis, activation and first epoch</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-15</code></td><td>Halt on loss of the assumptions (pointer to HALT)</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>MEM-01</code></td><td>L1 staking custody of TAIKO at the existing token address</td><td><a href="03-membership-staking.html">03</a></td></tr>
@@ -310,7 +314,7 @@ is normative on its own page; this table is a map, not a second copy.</p>
 <tr><td><code>MEM-06</code></td><td>Slashing follows stake at offence time</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-07</code></td><td>Key binding, rotation, and stale-key handling</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-08</code></td><td>Validator-set commitment construction</td><td><a href="03-membership-staking.html">03</a></td></tr>
-<tr><td><code>MEM-09</code></td><td>Set snapshot timing and one-epoch lookahead</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-09</code></td><td>Set snapshot timing and two-epoch lookahead</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-10</code></td><td>Sybil resistance and the non-claim about per-address caps</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-11</code></td><td>Weak subjectivity: L1 checkpoint as the source and the freshness window</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-12</code></td><td>Long-range attack handling; no silent trusted checkpoint provider</td><td><a href="03-membership-staking.html">03</a></td></tr>
@@ -332,11 +336,7 @@ is normative on its own page; this table is a map, not a second copy.</p>
 <tr><td><code>DA-04</code></td><td>No witness, certificate or off-chain store substitutes for on-chain data</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-05</code></td><td>Retrievability window, archive requirement, and the blob-retention limit</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-06</code></td><td>Retention duty and its link to the backlog cap</td><td><a href="04-l1-integration.html">04</a></td></tr>
-<tr><td><code>FI-01</code></td><td>Forced-inclusion request format, bond and fee</td><td><a href="04-l1-integration.html">04</a></td></tr>
-<tr><td><code>FI-02</code></td><td>Inclusion duty and validity rule</td><td><a href="04-l1-integration.html">04</a></td></tr>
-<tr><td><code>FI-03</code></td><td>Escape hatch under sustained censorship</td><td><a href="04-l1-integration.html">04</a></td></tr>
-<tr><td><code>FI-04</code></td><td>Forced inclusion cannot reorder or revoke past history</td><td><a href="04-l1-integration.html">04</a></td></tr>
-<tr><td><code>FI-05</code></td><td>Griefing controls and fee escalation</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-REMOVED-01</code></td><td>Forced inclusion removed (tombstone for the non-existent FI-01–FI-05); no L1 inclusion path, honest statement in <a href="10-assurance.html#LIVE-04">LIVE-04</a></td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-01</code></td><td>SignalService and Bridge authentication anchored at L1 checkpoints</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-02</code></td><td>Replay protection and domain separation</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-03</code></td><td>Withdrawal eligibility and delays</td><td><a href="04-l1-integration.html">04</a></td></tr>
@@ -395,6 +395,7 @@ is normative on its own page; this table is a map, not a second copy.</p>
 <tr><td><code>LIVE-01</code></td><td>Conditional liveness statement and the exact point where it ends</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIVE-02</code></td><td>Backpressure and halt triggers</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIVE-03</code></td><td>Throughput sustainability conditions</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIVE-04</code></td><td>Censorship resistance, stated honestly: no per-transaction inclusion guarantee and no L1 forced-inclusion path</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIM-01</code></td><td>Known limitations register</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIM-02</code></td><td>Rejected alternatives and their tradeoffs</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIM-03</code></td><td>Red-team finding resolutions</td><td><a href="10-assurance.html">10</a></td></tr>

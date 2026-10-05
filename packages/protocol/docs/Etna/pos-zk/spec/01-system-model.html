@@ -50,7 +50,7 @@ not restated here. Nothing on this page is implemented, deployed or measured; ev
   </defs>
   <rect x="20" y="18" width="240" height="62" rx="9" fill="#161b22" stroke="#2d3743"></rect>
   <text x="140" y="43" fill="#e6edf3" font-size="14" text-anchor="middle">Users</text>
-  <text x="140" y="63" fill="#9aa7b4" font-size="11" text-anchor="middle">L2 txs · bridge · forced inclusion (L1)</text>
+  <text x="140" y="63" fill="#9aa7b4" font-size="11" text-anchor="middle">L2 txs · bridge · statistical inclusion only</text>
 
   <rect x="330" y="18" width="270" height="62" rx="9" fill="#161b22" stroke="#bb9af7"></rect>
   <text x="465" y="43" fill="#e6edf3" font-size="14" text-anchor="middle">Validators (TAIKO-staked, permissionless)</text>
@@ -102,7 +102,7 @@ availability, proof verification, settlement and bridge anchoring (D4/GEN-09).</
 <tr><td><strong>Prover</strong></td><td>permissionless; no registration</td><td>no — produces proofs off-chain; only the accepted proof matters</td><td>nothing — no prover registry exists (<a href="04-l1-integration.html#L1-04">L1-04</a>)</td></tr>
 <tr><td><strong>Full node</strong></td><td>permissionless</td><td>no — executes, verifies, serves data and state</td><td>nothing</td></tr>
 <tr><td><strong>Archive node</strong></td><td>permissionless</td><td>no — retention beyond the blob window (<a href="04-l1-integration.html#DA-05">DA-05</a>)</td><td>nothing</td></tr>
-<tr><td><strong>User</strong></td><td>none — no account registration, no TAIKO required</td><td>no — submits L2 transactions, bridges, may force inclusion on L1</td><td>ordinary account/state only</td></tr>
+<tr><td><strong>User</strong></td><td>none — no account registration, no TAIKO required</td><td>no — submits L2 transactions and bridges; no L1 inclusion path</td><td>ordinary account/state only</td></tr>
 <tr><td><strong>L1 Ethereum</strong></td><td>external</td><td>no — settles, stores data, verifies proofs, anchors the bridge, hosts governance</td><td>only L1 facts, and only once Ethereum-final (<a href="#SYS-02">SYS-02</a>)</td></tr>
 <tr><td><strong>DAO</strong></td><td>existing L1 governance</td><td>no — upgrades only, never a runtime dependency (<a href="08-migration-upgrades.html#GOV-01">GOV-01</a>)</td><td>nothing in ordinary operation (<a href="#SYS-04">SYS-04</a>)</td></tr>
 </tbody></table>
@@ -112,7 +112,7 @@ availability, proof verification, settlement and bridge anchoring (D4/GEN-09).</
 <tbody>
 <tr><td><code>C1</code></td><td>L2 P2P <em>gossip</em></td><td>L2↔L2, many-to-many, best effort</td><td>proposals, block headers, votes, finality certificates, epoch/set commitments</td><td>partial synchrony after GST (<a href="../01-requirements-and-threat-model.md">A-CONS-2</a>)</td><td>liveness only (view change, slower confirmation)</td></tr>
 <tr><td><code>C2</code></td><td>L2 P2P <em>directed</em></td><td>L2↔L2, one-to-one request/response</td><td>block bodies, state, execution witnesses</td><td>none — a holder may refuse; this is what makes availability a liveness assumption (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not a property and not an enforceable duty</td><td>data unavailability → safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>); never a history rewrite</td></tr>
-<tr><td><code>C3</code></td><td>L1 transaction inclusion</td><td>L2→L1, signed Ethereum transactions</td><td>staking/exit operations, forced-inclusion requests, atomic (data, proof) acceptance (<a href="04-l1-integration.html#L1-01">L1-01</a>)</td><td>Ethereum inclusion liveness (<a href="../01-requirements-and-threat-model.md">A-L1-1</a>); subject to censorship T-7</td><td>settlement and forced inclusion stall; L2 continues until the backlog cap binds (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>)</td></tr>
+<tr><td><code>C3</code></td><td>L1 transaction inclusion</td><td>L2→L1, signed Ethereum transactions</td><td>staking/exit operations, atomic (data, proof) acceptance (<a href="04-l1-integration.html#L1-01">L1-01</a>)</td><td>Ethereum inclusion liveness (<a href="../01-requirements-and-threat-model.md">A-L1-1</a>); subject to censorship T-7</td><td>settlement stalls; L2 continues until the backlog cap binds (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>)</td></tr>
 <tr><td><code>C4</code></td><td>L1→L2 observation</td><td>L1→L2, each node reads L1 through a client it operates</td><td>L1 block hashes, state roots, logs and storage values</td><td>the reading node's own L1 client; only Ethereum-final facts may be committed (<a href="#SYS-02">SYS-02</a>)</td><td>the node must abstain rather than vote; it must not take L1 finality second-hand (<a href="index.html#STATUS-09">STATUS-09</a>)</td></tr>
 </tbody></table>
 
@@ -123,7 +123,7 @@ availability, proof verification, settlement and bridge anchoring (D4/GEN-09).</
 <tr><td>Prover</td><td>L2 node able to reconstruct the execution witness from public data; proving machine; L1 transaction submitter</td><td>C2, C4 (validator-set roots and public inputs), C3</td></tr>
 <tr><td>Full node</td><td>L2 execution client</td><td>C1, C2; C4 to check L1-derived state</td></tr>
 <tr><td>Archive node</td><td>L2 execution client plus archive storage for the full retention window</td><td>C2, C4</td></tr>
-<tr><td>User</td><td>any L2 RPC endpoint (its own or a provider's); an L1 account for bridge and forced-inclusion transactions</td><td>C1/C2 through the endpoint, C3 directly for L1 actions</td></tr>
+<tr><td>User</td><td>any L2 RPC endpoint (its own or a provider's); an L1 account for bridge transactions</td><td>C1/C2 through the endpoint, C3 directly for L1 actions</td></tr>
 <tr><td>DAO</td><td>L1 governance</td><td>C3</td></tr>
 <tr><td>L1 Ethereum</td><td>not run by this protocol</td><td>C3, C4</td></tr>
 </tbody></table>
@@ -157,7 +157,7 @@ it, so it is available" errors that <a href="index.html#STATUS-01">STATUS-01</a>
 
 <h2 id="l1-final">3. L1→L2: only Ethereum-final facts may enter L2 consensused state</h2>
 
-<p>L2 execution, bridge message authentication and forced-inclusion bookkeeping all consume facts
+<p>L2 execution and bridge message authentication consume facts
 that originate on L1: an L1 block hash, an L1 state root, an L1 log, or an L1 storage value. Such a
 fact is <em>reorganisable</em> until Ethereum itself finalizes it. Under Mode A a PoS-finalized L2
 block may never be rolled back (D2, <a href="06-recovery-exceptions.html#REC-01">REC-01</a>). If a
@@ -206,9 +206,8 @@ for a validator's own L1 client to observe the finalized checkpoint (UNMEASURED)
 (UNMEASURED). D1 does not require this latency to be 2 s. The measurement that would pin the terms:
 operate at least ten geographically distributed validators with pinned L1 and L2 clients for at least
 one week and record the distribution of inclusion, finalized-checkpoint observation and certificate
-publication times. (f) Forced-inclusion requests and bridge messages inherit the same bound: an L1
-request may not become due, and an L1-anchored message may not be consumed by L2 state, before the
-carrying L1 transaction is Ethereum-final. (g) <strong>L2-side checkpoint writer (reserved system sender) — reconciled, not assumed away.</strong> The write path that publishes an L1 fact into L2
+publication times. (f) Bridge messages inherit the same bound: an L1-anchored message may not be consumed by L2 state
+before the carrying L1 transaction is Ethereum-final. (g) <strong>L2-side checkpoint writer (reserved system sender) — reconciled, not assumed away.</strong> The write path that publishes an L1 fact into L2
 consensused state (today the L2 Anchor's golden-touch-gated <code>anchorV4</code>, migration <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>) <strong>remains a single reserved system
 sender</strong>; this rule does not claim the gate is gone. Its ONLY remaining power is to publish an L1 fact of the form (a) that this rule already constrains — an Ethereum-final L1 block
 hash and state root at the required coordinates, on the canonical chain, at the next height — and it may not choose which fact to publish beyond the SYS-02 rule: a payload that is not that
@@ -306,8 +305,8 @@ required. Paths are relative to <code>packages/protocol/contracts/</code>.</p>
 <tbody>
 <tr><td>Inbox owner: bootstrap</td><td><code>activate</code> — <code>Inbox.sol:188-201</code></td><td>Replace with the deterministic genesis/activation rule (<a href="02-consensus.html#CONS-14">CONS-14</a>); no owner key participates.</td></tr>
 <tr><td>Inbox owner: state rewrite</td><td><code>init2</code> — <code>Inbox.sol:217-244</code></td><td>Remove. Rewriting the L1 checkpoint outside consensus is exactly the operation Mode A forbids (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>).</td></tr>
-<tr><td>Inbox owner: forced-inclusion void</td><td><code>init3</code> — <code>Inbox.sol:253-258</code> (<code>head = tail</code>; fees not refunded)</td><td>Remove. This is the June 2026 failure class; forced inclusions are governed only by <a href="04-l1-integration.html#FI-01">FI-01</a>–<a href="04-l1-integration.html#FI-05">FI-05</a>.</td></tr>
-<tr><td>Inbox pause</td><td><code>pause</code>/<code>unpause</code> — <code>EssentialContract.sol:150,159</code>; no <code>whenNotPaused</code> exists in <code>Inbox.sol</code> (research §2.3, §9.4)</td><td>Keep non-operative for consensus, proving and inclusion paths; do not add a pause gate in the redesign.</td></tr>
+<tr><td>Inbox owner: queue reset</td><td><code>init3</code> — <code>Inbox.sol:253-258</code> (<code>head = tail</code>; fees not refunded)</td><td>Remove. This is the June 2026 failure class: an owner-only reset of queued work. No rule of this specification leaves any operator a voidable queue, and what inclusion resistance does and does not promise is stated in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. <em>(user decision D-6: forced inclusion removed)</em></td></tr>
+<tr><td>Inbox pause</td><td><code>pause</code>/<code>unpause</code> — <code>EssentialContract.sol:150,159</code>; no <code>whenNotPaused</code> exists in <code>Inbox.sol</code> (research §2.3, §9.4)</td><td>Keep non-operative for consensus, proving and settlement paths; do not add a pause gate in the redesign.</td></tr>
 <tr><td>Proposer permissioning</td><td><code>PreconfWhitelist.checkProposer</code> — <code>PreconfWhitelist.sol:127-141</code>; Inbox comment "Permissionless proposing is temporarily disabled" — <code>Inbox.sol:601-603</code></td><td>Replace the <code>IProposerChecker</code> indirection with stake-based selection (<a href="02-consensus.html#CONS-06">CONS-06</a>). <code>addOperator</code>/<code>removeOperator</code> (<code>PreconfWhitelist.sol:94,100,108</code>) and <code>setEjecter</code> (<code>:115-124</code>) disappear with it.</td></tr>
 <tr><td>Prover permissioning</td><td><code>whitelistProver</code> — <code>ProverWhitelist.sol:74-80</code> (modifier <code>:45-48</code>; immutable <code>_proverManager</code> <code>:18,56-59</code>); Inbox gate <code>_checkProver</code>/<code>ProverNotWhitelisted</code> — <code>Inbox.sol:337,771-779</code></td><td>Remove. Admission is <a href="04-l1-integration.html#L1-04">L1-04</a>: no gate, no expiry, any prover.</td></tr>
 <tr><td>Anchor owner</td><td><code>withdraw</code> — <code>Anchor.sol:145-156</code>; also <code>init</code> <code>:113</code>, pause/unpause, upgrade</td><td>The Anchor ceases to be the L2 checkpoint writer; its privileged surface is removed or made rule-governed (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>, <a href="08-migration-upgrades.html#MIG-03">MIG-03</a>).</td></tr>
@@ -323,7 +322,7 @@ required. Paths are relative to <code>packages/protocol/contracts/</code>.</p>
 verifier owner or emergency operator is required for any of: ordinary block
 production and finality; view change, timeout handling or leader rotation; epoch handoff and
 validator-set update; proof production, submission or acceptance; validator activation, key rotation
-or exit; forced inclusion; or withdrawal. One exception is stated rather than hidden: the L2-side
+or exit; or withdrawal. One exception is stated rather than hidden: the L2-side
 checkpoint writer retained by <a href="#SYS-02">SYS-02</a>(g) remains a reserved system sender in
 ordinary operation, its only power being to publish the SYS-02-constrained Ethereum-final L1 fact,
 and its removal is an Open migration item (<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>).
@@ -342,7 +341,7 @@ must accept every previously finalized history (<a href="08-migration-upgrades.h
 correct behaviour is a safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>); there is
 no operator path to restart, rescue or roll back (<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>,
 <a href="06-recovery-exceptions.html#REC-01">REC-01</a>).</span>
-<span class="why">Failure mode: a lever left live can void forced inclusions (the <code>init3</code>
+<span class="why">Failure mode: a lever left live can void queued work (the <code>init3</code>
 class), censor proposing or proving, write or block the L2 checkpoint, or change which proofs count;
 each makes a role's permissionlessness and Mode A's no-rollback promise untrue in practice, and each
 is exactly the "the DAO/emergency key would fix it" non-argument the requirements forbid.</span>
@@ -372,8 +371,7 @@ rule and its unlocking condition (<a href="02-consensus.html#CONS-02">CONS-02</a
 <a href="02-consensus.html#CONS-04">CONS-04</a>); hold and serve the block data it voted for for at
 least the retention window — a liveness assumption (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>,
 <a href="../01-requirements-and-threat-model.md">A-DA-2</a>, <a href="04-l1-integration.html#DA-05">DA-05</a>), not an enforceable protocol duty: failure to
-serve is not provable on L1 for most classes and produces a halt, not a penalty (*review round 1, finding C R1-04*); include due forced inclusions in proposals it
-builds (<a href="02-consensus.html#CONS-01">CONS-01</a>, <a href="04-l1-integration.html#FI-02">FI-02</a>).
+serve is not provable on L1 for most classes and produces a halt, not a penalty (*review round 1, finding C R1-04*). No inclusion duty attaches to a validator: a proposer includes what the objective rules admit, and omitting a particular transaction is neither a proposal-validity failure nor an offence — inclusion resistance is the conditional statistical property of <a href="10-assurance.html#LIVE-04">LIVE-04</a>, and the offence catalogue of <a href="07-economics-slashing.html#ECON-04">ECON-04</a> contains no censorship offence.
 (c) <em>Required resources</em> — each item is UNMEASURED for this design and the measurement that
 would pin it is named: sustained bandwidth for C1 gossip plus C2 fetches at the observed block size
 and cadence; CPU able to execute a worst-case block inside the cadence budget; storage for L2 state
@@ -510,13 +508,17 @@ into an unstated assumption with no cost accounting.</span>
 <span class="norm"><strong>Statement.</strong> (a) <em>Entry.</em> None: any account may submit L2
 transactions and use the preserved bridge and signal surface (D3,
 <a href="04-l1-integration.html#MSG-01">MSG-01</a>) without registration and without holding TAIKO.
-(b) <em>Rights and duties.</em> (i) <em>Inclusion</em> — a transaction accepted by an honest
-validator is included under <a href="02-consensus.html#CONS-01">CONS-01</a>; if it is censored, the
-user may post a forced-inclusion request on L1 with the format, fee and bond of
-<a href="04-l1-integration.html#FI-01">FI-01</a>, the inclusion duty of
-<a href="04-l1-integration.html#FI-02">FI-02</a>, and the escape hatch of
-<a href="04-l1-integration.html#FI-03">FI-03</a>; inclusion can never reorder or revoke past history
-(<a href="04-l1-integration.html#FI-04">FI-04</a>). (ii) <em>Exit</em> — a bridge withdrawal becomes
+(b) <em>Rights and duties.</em> (i) <em>Inclusion</em> — a user may submit a transaction and rely only
+on the statistical proposer rotation of <a href="02-consensus.html#CONS-06">CONS-06</a> under
+<a href="../01-requirements-and-threat-model.md">A-CONS-2</a>: proposer selection is hash-based and
+weighted, so a transaction that reaches honest validators is included by the first honest proposer with
+room for it. There is <strong>no forced-inclusion path</strong> and no protocol remedy against a
+network-level adversary: such an adversary can exclude a user's transactions indefinitely and, because a
+withdrawal is initiated by an L2 transaction, can also prevent the user from starting a withdrawal. This
+is the disclosed limitation of <a href="10-assurance.html#LIVE-04">LIVE-04</a> and
+<a href="10-assurance.html#LIM-01">LIM-01</a>, and no rule may present the rotation as a per-transaction
+guarantee. <em>(user decision D-6: forced inclusion removed; a user-authorized partial relaxation of
+R10)</em> (ii) <em>Exit</em> — a bridge withdrawal becomes
 <a href="index.html#STATUS-08">withdrawal-eligible</a> only through the message-authentication path
 and the delay of <a href="04-l1-integration.html#MSG-03">MSG-03</a>, derived from the full settlement
 pipeline (<a href="07-economics-slashing.html#ECON-03">ECON-03</a>); no operator can accelerate, block
@@ -524,21 +526,21 @@ or reverse it outside those rules. (iii) <em>Disclosure</em> — any interface t
 use the <a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11">STATUS-11</a>
 labels and state which status it shows; a display before
 <a href="index.html#STATUS-06">STATUS-06</a> must state that the batch's data and proof are not yet
-on Ethereum. (c) <em>Resources.</em> L2 gas in ETH; an L1 account and ETH for bridge and
-forced-inclusion transactions; a client able to follow the chain's status. (d) <em>Rewards.</em> The
-protocol pays users nothing; users are not a protocol payee. (e) <em>Penalties.</em> None beyond fees
-and the forced-inclusion bond of <a href="04-l1-integration.html#FI-01">FI-01</a>; a user is never
-slashed for a protocol offence. (f) <em>Exit and failure.</em> If the L2 halts, funds are not lost
+on Ethereum. (c) <em>Resources.</em> L2 gas in ETH; an L1 account and ETH for bridge transactions; a client able to
+follow the chain's status. (d) <em>Rewards.</em> The
+protocol pays users nothing; users are not a protocol payee. (e) <em>Penalties.</em> None beyond L2 gas and L1 transaction fees; a user is never slashed for a
+protocol offence. (f) <em>Exit and failure.</em> If the L2 halts, funds are not lost
 but exit is delayed; a halt is safe and is never resolved by invalidating finalized history (Mode A,
 <a href="06-recovery-exceptions.html#REC-01">REC-01</a>); L1-accepted messages remain valid
 (<a href="04-l1-integration.html#L1-06">L1-06</a>). (g) <em>Permissionlessness and barriers.</em> No
-KYC and no allowlist; the real barriers are the L1 gas cost of forced inclusion and bridge exits, the
-need to hold ETH, and dependence on <a href="../01-requirements-and-threat-model.md">A-L1-1</a> for
-L1 inclusion liveness.</span>
-<span class="why">Failure mode: a user's only censorship remedy is a privileged actor, or a UI or
-downstream assumption presents a pre-settlement block as settled, which
-<a href="index.html#STATUS-11">STATUS-11</a> exists to prevent.</span>
-<span class="small">Assumed on A-L1-1 for L1 inclusion liveness.</span>
+KYC and no allowlist; the real barriers are the L1 gas cost of bridge exits, the need to hold ETH, and
+dependence on <a href="../01-requirements-and-threat-model.md">A-L1-1</a> for L1 inclusion liveness plus
+<a href="../01-requirements-and-threat-model.md">A-CONS-2</a> for the statistical inclusion property.</span>
+<span class="why">Failure mode: rotation under A-CONS-2 is presented as a per-transaction inclusion
+guarantee or as an L1 remedy the protocol does not provide, or a UI or downstream assumption presents a
+pre-settlement block as settled, which <a href="index.html#STATUS-11">STATUS-11</a> exists to
+prevent.</span>
+<span class="small">Assumed on A-L1-1 for L1 inclusion liveness and on <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> for the statistical inclusion property of <a href="10-assurance.html#LIVE-04">LIVE-04</a>; outside those assumptions the protocol offers no inclusion remedy.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span></div>
 
 <div class="rule" id="ROLE-05"><span class="rid">ROLE-05 — DAO role: upgrades only</span>
@@ -552,7 +554,7 @@ history as valid (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>,
 layouts (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>,
 <a href="08-migration-upgrades.html#MIG-06">MIG-06</a>), and (iii) introduce no privileged path in
 ordinary operation (<a href="#SYS-04">SYS-04</a>). The DAO must not be required for block production,
-finality, proof submission or acceptance, forced inclusion, activation, exit or withdrawal, and has
+finality, proof submission or acceptance, activation, exit or withdrawal, and has
 no rescue function (<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>). (c) <em>Resources.</em>
 None operational. (d) <em>Rewards.</em> None from this design; the destination of slashed stake is a
 separate human decision (<a href="07-economics-slashing.html#ECON-06">ECON-06</a>). (e)

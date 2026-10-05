@@ -41,7 +41,7 @@ lesson ever sounds more confident than the specification, trust the specificatio
   <rect class="n" x="650" y="200" width="200" height="52"/><text class="t" x="664" y="222">8 · Atomic data+proof</text>
   <rect class="n" x="650" y="110" width="200" height="52"/><text class="t" x="664" y="132">9 · What the proof proves</text>
   <rect class="n" x="650" y="20"  width="200" height="52"/><text class="t" x="664" y="42">10 · Halt or roll back</text>
-  <rect class="n" x="230" y="290" width="170" height="52"/><text class="t" x="244" y="312">11 · Forced inclusion</text>
+  <rect class="n" x="230" y="290" width="170" height="52"/><text class="t" x="244" y="306">11 · No forced</text><text class="t" x="244" y="322">inclusion path</text>
   <rect class="n" x="440" y="290" width="180" height="52"/><text class="t" x="454" y="312">12 · Bridge &amp; addresses</text>
   <rect class="n" x="650" y="290" width="200" height="52"/><text class="t" x="664" y="312">13 · Walkthrough</text>
   <path class="e" d="M105,72 L105,110"/>
@@ -49,6 +49,7 @@ lesson ever sounds more confident than the specification, trust the specificatio
   <path class="e" d="M190,130 C210,130 210,220 230,222"/>
   <path class="e" d="M400,136 L440,136"/>
   <path class="e" d="M315,162 C315,260 380,300 440,312"/>
+  <path class="e" d="M240,162 C196,190 196,250 212,290 L226,306"/>
   <path class="e" d="M530,110 C530,80 530,60 530,72" />
   <path class="e" d="M620,136 L650,136"/>
   <path class="e" d="M620,150 C640,160 640,200 650,215"/>
@@ -68,13 +69,13 @@ lesson ever sounds more confident than the specification, trust the specificatio
 <tr><td><a href="02-five-things-people-confuse.html">Five things people confuse</a></td><td>Execution validity, consensus agreement, data availability, economic accountability, Ethereum settlement — separated once, used everywhere afterwards.</td><td class="small">01</td></tr>
 <tr><td><a href="03-status-labels.html">What “confirmed” actually means</a></td><td>The eight status labels, their evidence, their guarantees, and what can revoke each one.</td><td class="small">02</td></tr>
 <tr><td><a href="04-taiko-staking.html">Why TAIKO must be at risk</a></td><td>Stake custody, voting power, slashing, exit delay, and why a cap per address does not stop concentration.</td><td class="small">02</td></tr>
-<tr><td><a href="05-validator-sets-and-epochs.html">Changing the validators without changing history</a></td><td>Epochs, set roots, one-epoch lookahead, and why an old certificate never expires.</td><td class="small">04</td></tr>
+<tr><td><a href="05-validator-sets-and-epochs.html">Changing the validators without changing history</a></td><td>Epochs, set roots, two-epoch lookahead, and why an old certificate never expires.</td><td class="small">04</td></tr>
 <tr><td><a href="06-withheld-certificates.html">The certificate nobody can see</a></td><td>Locks, proof-of-lock-change, view changes, and why a timeout is never proof that something does not exist.</td><td class="small">05</td></tr>
 <tr><td><a href="07-two-seconds-and-thirty-minutes.html">Two seconds and thirty minutes</a></td><td>A timeline with 2-second blocks, a proof taking 30 minutes, L1 acceptance, Ethereum finality and withdrawal — without pretending the data is on Ethereum early.</td><td class="small">03</td></tr>
 <tr><td><a href="08-atomic-data-and-proof.html">Data and proof travel together</a></td><td>Why there is no data-first path, how blobs are bound to a proof, and the June 2026 failure this prevents.</td><td class="small">07</td></tr>
 <tr><td><a href="09-what-the-proof-proves.html">What the proof proves — and what it cannot</a></td><td>The proof statement, public inputs, the validator set, and the sentence it must never be used to say.</td><td class="small">08</td></tr>
 <tr><td><a href="10-halt-or-roll-back.html">Halt or roll back</a></td><td>The A-versus-B recovery tradeoff: why safety-first means stopping, and what a rollback would have to disclose.</td><td class="small">06</td></tr>
-<tr><td><a href="11-forced-inclusion.html">Getting in when nobody will include you</a></td><td>Forced inclusion, why it cannot reorder the past, and what it does not guarantee.</td><td class="small">03</td></tr>
+<tr><td><a href="11-forced-inclusion.html">When nobody will include you: no forced-inclusion path</a></td><td>What forced inclusion was meant to solve, why this design deliberately has no L1 path for it, the conditional statistical resistance of hash-based weighted selection (CONS-06/LIVE-04), and the disclosed consequence that an isolating adversary can exclude a user indefinitely — including preventing a withdrawal from being started. A user-authorized partial relaxation of R10 (D-6).</td><td class="small">03</td></tr>
 <tr><td><a href="12-bridge-and-addresses.html">The bridge and the addresses that must not move</a></td><td>SignalService, Bridge and the vaults; how a message is authenticated; why the addresses stay.</td><td class="small">03</td></tr>
 <tr><td><a href="13-walkthrough.html">Putting it all together</a></td><td>One batch followed end to end, from a user transaction to a withdrawal, naming the status at every step.</td><td class="small">all</td></tr>
 </tbody></table>

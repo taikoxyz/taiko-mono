@@ -95,8 +95,9 @@ Anchor are upgraded in place too (<a href="../spec/index.html#fixed">D3</a>,
 <li><strong>Storage-layout constraint (MIG-02).</strong> Frozen prefix 0–250; new state only after the contract's last used slot; one gap slot
 per 32 bytes; deprecated slots frozen; layout diffed before and after
 (<a href="../spec/08-migration-upgrades.html#MIG-02">MIG-02</a>).</li>
-<li><strong>In-flight objects (MIG-03).</strong> Unproven Shasta proposals are void at the drain deadline; forced inclusions are consumed or
-refunded, never voided; legacy bonds are not stake; messages, signal cache and withdrawals continue monotone
+<li><strong>In-flight objects (MIG-03).</strong> Unproven Shasta proposals are void at the drain deadline; every legacy forced-inclusion queue entry
+still present at the freeze is consumed or refunded in full, never silently voided, and queued entries are never re-interpreted under the new design
+(<a href="../spec/08-migration-upgrades.html#MIG-03">MIG-03</a>(4), <a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>); legacy bonds are not stake; messages, signal cache and withdrawals continue monotone
 (<a href="../spec/08-migration-upgrades.html#MIG-03">MIG-03</a>).</li>
 <li><strong>Privilege removal (MIG-04).</strong> Every owner, whitelist, pause, quota and resolver lever is removed from the runtime ABI; the
 only remaining authority is DAO upgrade authority, never a runtime dependency

@@ -6,12 +6,12 @@
     <a href="07-economics-slashing.html">Economics</a> <a href="08-migration-upgrades.html">Migration</a> <a href="09-parameters.html">Parameters</a>
     <a href="10-assurance.html">Assurance</a> <a href="../learn/index.html">Learn</a> </nav> </header> <main>
 
-<h1>04 — L1 integration: atomic data + proof, data availability, forced inclusion, bridge anchoring</h1>
+<h1>04 — L1 integration: atomic data + proof, data availability, bridge anchoring, and the limits of inclusion</h1>
 
 <div class="verdict"> <p><strong>This page carries D5 and D8.</strong> It fixes how a batch becomes <a href="index.html#STATUS-06">STATUS-06 — accepted on L1</a>: one L1 transaction carrying the batch
 data <em>and</em> its validity proof, out of which the Inbox itself derives the data commitment, and out of which a single monotone checkpoint advance follows. It also fixes where that data is
-canonical (<a href="#DA-01">DA-01</a>), how the blob path binds data to the proof (<a href="#DA-03">DA-03</a>), how forced inclusion works without an override that could violate
-Mode A (<a href="#FI-01">FI-01</a>–<a href="#FI-05">FI-05</a>), and how the preserved SignalService/Bridge addresses authenticate against these checkpoints (<a href="#MSG-01">MSG-01</a>–<a href="#MSG-03">MSG-03</a>).</p>
+canonical (<a href="#DA-01">DA-01</a>), how the blob path binds data to the proof (<a href="#DA-03">DA-03</a>), the honest limit on inclusion — no per-transaction
+guarantee and no L1 forced-inclusion path (<a href="#FI-REMOVED-01">FI-REMOVED-01</a>, <a href="10-assurance.html#LIVE-04">LIVE-04</a>) — and how the preserved SignalService/Bridge addresses authenticate against these checkpoints (<a href="#MSG-01">MSG-01</a>–<a href="#MSG-03">MSG-03</a>). <em>(user decision D-6: forced inclusion removed)</em></p>
 <p class="small">Baseline for every comparison to "today" on this page: Taiko monorepo revision <code>7718753c1</code> (2026-10-05), file <code>packages/protocol/contracts/layer1/core/impl/Inbox.sol</code>.
 Nothing on this page is implemented, deployed, audited or measured (<a href="index.html#GEN-01">GEN-01</a>). Every number is tagged derived / sourced / unmeasured.</p> </div>
 
@@ -55,7 +55,7 @@ settles nothing. Allowing it in one mode re-opens D5 for every mode, because the
 
 <p><strong>Contrast with the baseline.</strong> At revision <code>7718753c1</code> the two paths are separate and there is no combined one:</p>
 <table> <thead><tr><th>Baseline element</th><th>Location</th><th>What it does</th></tr></thead> <tbody>
-<tr><td><code>propose(bytes _lookahead, bytes _data)</code></td><td><code>Inbox.sol:270</code></td><td>Accepts a <strong>data-only</strong> proposal. <code>ProposeInput</code> carries <code>deadline</code>, a <code>BlobReference</code> and a forced-inclusion count — <em>no proof argument at all</em>. Writes <code>_coreState.nextProposalId</code> and the proposal hash (<code>Inbox.sol:284-286</code>).</td></tr>
+<tr><td><code>propose(bytes _lookahead, bytes _data)</code></td><td><code>Inbox.sol:270</code></td><td>Accepts a <strong>data-only</strong> proposal. <code>ProposeInput</code> carries <code>deadline</code>, a <code>BlobReference</code> and a forced-inclusion count (baseline-only fields; this specification removes the count, <a href="#FI-REMOVED-01">FI-REMOVED-01</a>) — <em>no proof argument at all</em>. Writes <code>_coreState.nextProposalId</code> and the proposal hash (<code>Inbox.sol:284-286</code>).</td></tr>
 <tr><td><code>prove(bytes _data, bytes _proof)</code></td><td><code>Inbox.sol:321</code></td><td>A <strong>separate</strong> external function carrying the proof. It re-reads nothing from blobs; the blob slice was frozen into the proposal hash at propose time.</td></tr>
 <tr><td><code>_proposalHashes[id % ringBuffer]</code></td><td><code>Inbox.sol:286</code>, read at <code>:349</code></td><td>The propose-time commitment becomes a <em>precondition</em>: <code>prove</code> requires <code>commitment.lastProposalHash == getProposalHash(lastProposalId)</code> or reverts <code>LastProposalHashMismatch</code>.</td></tr>
 </tbody></table> <p class="small">Verdict recorded in the baseline research: data and proof are submitted in separate L1 transactions today and that is the only supported flow
@@ -78,10 +78,9 @@ construct exists in this design; see <a href="08-migration-upgrades.html#MIG-04"
 <span class="norm"><code>land(data, proof)</code> MUST execute in this exact order: (1) decode and shape-check the input in memory only, with no state writes; (2) derive every contract-derived public input of
 <a href="#L1-05">L1-05</a> from L1 storage and from this transaction; (3) if blobs are used, perform the <a href="#DA-03">DA-03</a> checks and record the accepted <code>(versionedHash, z, y)</code>
 tuples in memory; (4) call the active verifier route with the statement hash; (5) treat the proof as <strong>invalid</strong> unless the call returns exactly <code>abi.encode(true)</code> — a revert, an
-empty return, or any other return value is invalid; (6) <em>only then</em> write the checkpoint record, advance the height pointer, mark covered forced inclusions consumed, record the proof-bound <code>signerBitmap</code> into the staking contract's per-epoch participation accumulator (<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5), and pay out
+empty return, or any other return value is invalid; (6) <em>only then</em> write the checkpoint record, advance the height pointer, record the proof-bound <code>signerBitmap</code> into the staking contract's per-epoch participation accumulator (<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5), and pay out
 <a href="#L1-11">L1-11</a>; (7) emit events last. If any step fails, <code>land(data, proof)</code> MUST revert with a typed error and produce <strong>no</strong> partial effect: no checkpoint, no height advance,
-no consumed forced inclusion, no payout, no event.</span> <span class="why">Failure mode: a checkpoint exists that no proof ever justified, or a forced
-inclusion is marked consumed by a batch that was never accepted. A "verify last, write first" ordering survives only as long as the verifier always reverts and nothing can swallow the revert;
+no payout, no event. <em>(user decision D-6: the forced-inclusion consumption write is removed with the queue.)</em></span> <span class="why">Failure mode: a checkpoint exists that no proof ever justified. A "verify last, write first" ordering survives only as long as the verifier always reverts and nothing can swallow the revert;
 the moment a route returns <code>false</code>, or an upgrade or a low-level call absorbs the failure,
 the write becomes permanent and the chain's checkpoint advances without a proof.</span> <span class="pill proven">Proven</span></div>
 
@@ -101,7 +100,7 @@ readable from the function body rather than inferred from EVM unwind semantics. 
 no <code>deadline</code>, timestamp, block-number or age condition that can make a range permanently unacceptable; and no dependency on <code>tx.origin</code>, <code>block.coinbase</code>, gas price, or
 L1 proposer identity (<a href="index.html#GEN-06">GEN-06</a>). For any unsettled range, any account that can produce a valid <code>(data, proof)</code> pair MUST be able to land it. Structural bounds
 are permitted and MUST be exactly these: the range must be contiguous and start at <code>lastLandedHeight + 1</code> (<a href="#L1-06">L1-06</a>); the batch must be non-empty; and every
-loop in <code>land(data, proof)</code> must be bounded by the transaction's own contents (its blob count, its forced-inclusion coverage list, its claimed range length), never by an unbounded external structure.
+loop in <code>land(data, proof)</code> must be bounded by the transaction's own contents (its blob count, its claimed range length), never by an unbounded external structure. <em>(user decision D-6: the forced-inclusion coverage list is removed from the permitted loop bounds.)</em>
 Backpressure on <em>production</em> — the consensus-enforced unsettled-depth cap of <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a> and <a href="#DA-06">DA-06</a> — MUST NOT be
 implemented as an admission condition on <code>land(data, proof)</code>.</span> <span class="why">Failure mode: a validly PoS-finalized extension of the L1 checkpoint becomes
 permanently unacceptable, i.e. a legitimate extension of finalized history can never be settled. Under Mode A the protocol may halt but may not discard finalized history; an admission gate or an
@@ -140,7 +139,7 @@ object and land a batch the protocol never agreed to. A value that L1 could deri
 <tr><td>5</td><td><code>previousStateRoot</code></td><td><code>bytes32</code></td><td>L1-derived</td><td>From the stored record; the execution proof runs from this root.</td></tr>
 <tr><td>6</td><td><code>firstBlockHeight</code></td><td><code>uint64</code></td><td>L1-derived</td><td><code>previousHeight + 1</code>. A submitter-supplied value that differs MUST revert <code>RangeNotContiguous()</code>.</td></tr>
 <tr><td>7</td><td><code>lastBlockHeight</code></td><td><code>uint64</code></td><td>claimed</td><td>MUST satisfy <code>firstBlockHeight &lt;= lastBlockHeight &lt;= firstBlockHeight + MAX_BATCH_BLOCKS - 1</code>; proof-bound over the whole range.</td></tr>
-<tr><td>8</td><td><code>firstBlockTimestamp</code>, <code>lastBlockTimestamp</code></td><td><code>uint64</code></td><td>claimed &rarr; <strong>public input</strong></td><td>Header timestamps of the range ends, committed by <a href="05-proof-statement.html#PRF-02">PRF-02</a> and proof-bound. <code>firstBlockTimestamp</code> is forced-inclusion dueness <code>T</code> (<a href="#FI-02">FI-02</a>), so it MUST be a public input: an unbound <code>T</code> would let a lander label a batch so that a due request appears not-yet-due; the pair also fixes the two-sided drift bound.</td></tr>
+<tr><td>8</td><td><code>firstBlockTimestamp</code>, <code>lastBlockTimestamp</code></td><td><code>uint64</code></td><td>claimed &rarr; <strong>public input</strong></td><td>Header timestamps of the range ends, committed by <a href="05-proof-statement.html#PRF-02">PRF-02</a> and proof-bound to the headers the guest executes; a claimed value that does not match the header chain makes the proof invalid. <em>(user decision D-6: the forced-inclusion dueness clock and the two-sided drift bound are removed with the forced-inclusion rules; the pair remains in the journal as a header-chain value.)</em></td></tr>
 <tr><td>9</td><td><code>epoch</code></td><td><code>uint64</code></td><td>claimed, then recomputed</td><td>The contract MUST recompute <code>epoch = epoch_of(lastBlockHeight) = epoch_of(firstBlockHeight)</code> from its own L1-committed schedule (<a href="02-consensus.html#CONS-13">CONS-13</a>, <a href="02-consensus.html#CONS-14">CONS-14</a>) and MUST reject a mismatch with <code>EpochScheduleMismatch()</code>: the epoch is a pure function of height, never a chosen label. The staking contract MUST already hold that epoch's set commitment (<a href="03-membership-staking.html#MEM-09">MEM-09</a>).</td></tr>
 <tr><td>10</td><td><code>validatorSetRoot</code></td><td><code>bytes32</code></td><td>L1-derived</td><td>Read from the L1 staking contract's <em>per-epoch mapping</em> for <code>epoch</code> — the canonical <a href="03-membership-staking.html#MEM-08">MEM-08</a> Merkle root <code>R_k</code> of the set version that governs that epoch. The contract resolves epoch → root from its own state, without trusting the proof; the mapping is append-only and immutable once the epoch starts. This is the only validator-set commitment: <a href="02-consensus.html#CONS-10">CONS-10</a>'s <code>validators_hash</code>/<code>next_validators_hash</code> MUST be the same root under the same encoding. Any submitter-supplied copy MUST be ignored.</td></tr>
 <tr><td>11</td><td><code>validatorSetTotalPower</code></td><td><code>uint256</code></td><td>L1-derived</td><td>Read alongside the root; the denominator of quorum.</td></tr>
@@ -152,14 +151,13 @@ object and land a batch the protocol never agreed to. A value that L1 could deri
 <tr><td>17</td><td><code>daMode</code></td><td><code>uint8</code></td><td>tx-derived &rarr; <strong>public input</strong></td><td><code>1 = CALLDATA</code>, <code>2 = BLOB</code>, <code>3 = CALLDATA_AND_BLOB</code>; derived from which arguments/blobs are present, not from a submitter field.</td></tr>
 <tr><td>18</td><td><code>challengeZ[i]</code></td><td><code>bytes32</code></td><td>tx-derived</td><td>Fiat–Shamir per blob index: <code>z_i = H("TAIKO_ETNA_CHALLENGE", l2ChainId, statementCoreHash, dataCommitment, blobHashesHash, uint16(i)) mod BLS_MODULUS</code>, recomputed by the contract from rows 1–17 (excluding the challenges) per <a href="#DA-03">DA-03</a>(iii); because <code>dataCommitment</code> and <code>blobHashesHash</code> are transcript inputs, the point moves whenever the committed bytes move. <code>bytes32(0)</code> when <code>daMode = 1</code>.</td></tr>
 <tr><td>19</td><td><code>challengeY[i]</code></td><td><code>bytes32</code></td><td>tx-derived</td><td>The value the point-evaluation precompile accepted for <code>challengeZ[i]</code>; <code>bytes32(0)</code> when <code>daMode = 1</code>.</td></tr>
-<tr><td>20</td><td><code>forcedInclusionCommitment</code></td><td><code>bytes32</code></td><td>L1-derived over the covered set</td><td><code>keccak256(abi.encode(bytes32("TAIKO_ETNA_FI"), chainId, requestIds[]))</code> over the ordered ids <code>land(data, proof)</code> requires (<a href="#FI-02">FI-02</a>).</td></tr>
-<tr><td>21</td><td><code>feeRecipient</code></td><td><code>address</code></td><td>claimed &rarr; <strong>public input</strong></td><td>The L2 proposer payout address for the batch's first block, proof-bound to the header of block <code>firstBlockHeight</code>. It receives the forced-inclusion fees (<a href="#L1-11">L1-11</a>). It MUST be a public input: any account may land (<a href="#L1-04">L1-04</a>), so an unbound field would let the lander set it to itself and redirect the escrowed fees.</td></tr>
+<tr><td>21</td><td><code>feeRecipient</code></td><td><code>address</code></td><td>claimed &rarr; <strong>public input</strong></td><td>The L2 proposer payout address committed by the header of block <code>firstBlockHeight</code>, proof-bound to that header. It is retained independently of forced inclusion: it is the journal field that names that address, and because any account may land (<a href="#L1-04">L1-04</a>) a lander MUST NOT be able to substitute its own address. It receives no forced-inclusion fee — no such escrow exists (<a href="#L1-11">L1-11</a>) — and the landing reward goes to <code>msg.sender</code> (<a href="#L1-10">L1-10</a>). <em>(user decision D-6: the forced-inclusion fee purpose is removed; the header-committed address binding is kept.)</em></td></tr>
 <tr><td>22</td><td><code>l2ChainId</code></td><td><code>uint256</code></td><td>L1-derived (Inbox config) &rarr; <strong>public input</strong></td><td>The L2 chain the statement is about; it scopes consensus and execution to this chain and is a transcript input to <a href="#DA-03">DA-03</a>(iii)'s challenge. Read from Inbox configuration, never from the submitter.</td></tr>
 <tr><td>23</td><td><code>configHash</code></td><td><code>bytes32</code></td><td>L1-derived (Inbox storage) &rarr; <strong>public input</strong></td><td>Commitment to the consensus-relevant configuration the guest applied (epoch schedule, quorum form, limits); without it a proof made under one configuration could be accepted under another.</td></tr>
 <tr><td>24</td><td><code>blobHashesHash</code></td><td><code>bytes32</code></td><td>tx-derived &rarr; <strong>public input</strong></td><td><code>keccak256</code> over the ordered versioned hashes the contract reads with <code>BLOBHASH</code> for this transaction's blob range; it binds the blob set published in the accepting transaction and is a transcript input to <a href="#DA-03">DA-03</a>(iii).</td></tr>
 <tr><td>25</td><td><code>signerBitmap</code></td><td><code>bytes</code></td><td>claimed &rarr; <strong>public input</strong></td><td>The authenticated head-certificate signer bitmap, canonical <code>ceil(nSigners/8)</code> bytes, bit <code>i</code> = canonical signer index <code>i</code>. The guest checks it against the signatures and the quorum predicate (<a href="05-proof-statement.html#PRF-04">PRF-04</a>(ii)–(iii)); L1 records it as the per-signer participation input for validator rewards (<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5). No other bitmap may be submitted.</td></tr>
 <tr><td>26</td><td><code>domain</code></td><td><code>bytes32</code></td><td>L1 constant &rarr; <strong>public input</strong></td><td>The right-padded ASCII tag <code>"ETNA_JOURNAL_V1"</code>, first field of the vector (<a href="index.html#GEN-05">GEN-05</a>); supplied by the contract, never the submitter, and prevents cross-domain replay.</td></tr>
-</tbody></table> <p class="small">Rows 9–10 close review round 1, findings B R1-03 and B R1-05: <em>epoch is a pure function of height that L1 recomputes from its own committed schedule, and validatorSetRoot is L1's own canonical per-epoch root, so neither value is ever a proof-supplied choice</em>.</p> <p class="small">The <em>program image id</em> is deliberately <strong>not</strong> in this list: it is a
+</tbody></table> <p class="small">Row 20 is vacant and MUST NOT be reused: it was the forced-inclusion commitment, removed with forced inclusion; row 21 <code>feeRecipient</code> is kept because PRF-02's journal retains it as the header-committed L2 proposer payout address of the batch's first block, and it no longer receives any fee (<a href="#L1-10">L1-10</a> pays the lander; <a href="#L1-11">L1-11</a> has no such ledger) <em>(user decision D-6: the forced-inclusion commitment is removed; the address binding is kept)</em>.</p> <p class="small">Rows 9–10 close review round 1, findings B R1-03 and B R1-05: <em>epoch is a pure function of height that L1 recomputes from its own committed schedule, and validatorSetRoot is L1's own canonical per-epoch root, so neither value is ever a proof-supplied choice</em>.</p> <p class="small">The <em>program image id</em> is deliberately <strong>not</strong> in this list: it is a
 routing parameter of the verifier, not a statement the guest proves (<a href="#L1-09">L1-09</a>).</p>
 
 <h3 id="input-reconciliation">2.1 Public-input reconciliation: every field of both lists</h3>
@@ -175,7 +173,7 @@ A mismatch between the two lists is a protocol defect: a value L1 hashes that th
 <tr><td>5 <code>previousStateRoot</code></td><td><code>prevStateRoot</code></td><td>Same value; execution runs from this root (PRF-06).</td></tr>
 <tr><td>6 <code>firstBlockHeight</code></td><td><code>firstHeight</code></td><td>Same value, derived as <code>prevHeight + 1</code>.</td></tr>
 <tr><td>7 <code>lastBlockHeight</code></td><td><code>lastHeight</code></td><td>Same value; claimed and proof-bound over the whole range.</td></tr>
-<tr><td>8 <code>firstBlockTimestamp</code>, <code>lastBlockTimestamp</code></td><td><code>firstBlockTimestamp</code>, <code>lastBlockTimestamp</code></td><td><strong>Public inputs</strong> (added to the journal): header timestamps of the range ends. <code>firstBlockTimestamp</code> is FI-02's dueness clock <code>T</code>, so if it were unbound a lander could label a batch so that a due forced inclusion looks not-yet-due; the pair also fixes the two-sided drift bound.</td></tr>
+<tr><td>8 <code>firstBlockTimestamp</code>, <code>lastBlockTimestamp</code></td><td><code>firstBlockTimestamp</code>, <code>lastBlockTimestamp</code></td><td><strong>Public inputs</strong> (in the journal): header timestamps of the range ends, bound as part of the header-chain statement. They are not a dueness clock: the forced-inclusion clock and the two-sided drift bound are removed with the forced-inclusion rules <em>(user decision D-6)</em>.</td></tr>
 <tr><td>9 <code>epoch</code></td><td><code>epoch</code></td><td>Same value; claimed, then recomputed by the contract from its L1-committed schedule (CONS-13/CONS-14).</td></tr>
 <tr><td>10 <code>validatorSetRoot</code></td><td><code>validatorSetRoot</code></td><td>Same value; L1's own canonical per-epoch MEM-08 root, read from the staking contract, never proof-supplied.</td></tr>
 <tr><td>11 <code>validatorSetTotalPower</code></td><td><code>totalVotingPower</code></td><td>Same value under the journal's name; read alongside the root and the quorum denominator.</td></tr>
@@ -187,23 +185,20 @@ A mismatch between the two lists is a protocol defect: a value L1 hashes that th
 <tr><td>17 <code>daMode</code></td><td><code>daMode</code></td><td><strong>Public input</strong> (added to the journal): the data path (DA-02 calldata, DA-03(0) blob, or hybrid) changes the commitment construction and the meaning of the blob fields, so the path must be unambiguous and bound.</td></tr>
 <tr><td>18 <code>challengeZ[i]</code></td><td><code>challengeZ</code></td><td>Same value, per blob; derived by the contract per DA-03(iii), never submitter-supplied.</td></tr>
 <tr><td>19 <code>challengeY[i]</code></td><td><code>evaluationsY</code></td><td>Same value, per blob; the value the point-evaluation precompile accepted.</td></tr>
-<tr><td>20 <code>forcedInclusionCommitment</code></td><td><code>forcedInclusionCommitment</code></td><td>Same value; L1-derived over the covered set, and the guest checks the covered set equals <code>DueCap(T)</code> (FI-02, PRF-04(vi)).</td></tr>
-<tr><td>21 <code>feeRecipient</code></td><td><code>feeRecipient</code></td><td><strong>Public input</strong> (added to the journal): L1-11 pays the escrowed forced-inclusion fees to it, so if it were not proof-bound to the header of <code>firstBlockHeight</code> any lander could redirect the escrow to itself.</td></tr>
+<tr><td>21 <code>feeRecipient</code></td><td><code>feeRecipient</code></td><td><strong>Public input</strong> (in the journal): the L2 proposer payout address committed by the header of <code>firstBlockHeight</code>. It is kept because PRF-02's journal retains it as the header-committed address binding, and no forced-inclusion fee is paid to it any more (no escrow exists; <a href="#L1-10">L1-10</a> pays the lander) <em>(user decision D-6: fee purpose removed, address binding kept)</em>.</td></tr>
 <tr><td>22 <code>l2ChainId</code> (added)</td><td><code>l2ChainId</code></td><td><strong>Public input</strong>: scopes the statement to the L2 chain whose consensus and execution are proven, and is a transcript input to DA-03(iii)'s challenge.</td></tr>
 <tr><td>23 <code>configHash</code> (added)</td><td><code>configHash</code></td><td><strong>Public input</strong>: commits the consensus-relevant configuration the guest applied, so a proof made under one configuration cannot be accepted under another.</td></tr>
 <tr><td>24 <code>blobHashesHash</code> (added)</td><td><code>blobHashesHash</code></td><td><strong>Public input</strong>: the ordered versioned hashes read from <code>BLOBHASH</code>; it binds the blob set of the accepting transaction and is a transcript input to DA-03(iii).</td></tr>
 <tr><td>25 <code>signerBitmap</code> (added)</td><td><code>signerBitmap</code></td><td><strong>Public input</strong>: the authenticated head-certificate signer bitmap, checked in-guest against the signatures and quorum (PRF-04(ii)–(iii)) and recorded by L1 as the per-signer participation input for validator rewards (ECON-02 clause 5).</td></tr>
 <tr><td>26 <code>domain</code> (added)</td><td><code>domain</code></td><td>Constant <code>"ETNA_JOURNAL_V1"</code>, first field of the vector (GEN-05); supplied by the contract, never the submitter, and prevents cross-domain replay.</td></tr>
 </tbody></table>
-<p class="small">The reverse direction is now closed as well: every PRF-02 journal field has an L1-05 row — <code>domain</code> (26), <code>l1ChainId</code> (1), <code>l2ChainId</code> (22), <code>prevHeight</code> (3), <code>prevBlockHash</code> (4), <code>prevStateRoot</code> (5), <code>epoch</code> (9), <code>validatorSetRoot</code> (10), <code>totalVotingPower</code> (11), <code>quorumThreshold</code> (12), <code>configHash</code> (23), <code>firstHeight</code> (6), <code>lastHeight</code> (7), <code>headBlockHash</code> (13), <code>postStateRoot</code> (14), <code>dataCommitment</code> (16), <code>daMode</code> (17), <code>blobHashesHash</code> (24), <code>challengeZ</code> (18), <code>evaluationsY</code> (19), <code>finalityCommitment</code> (15), <code>signerBitmap</code> (25), <code>firstBlockTimestamp</code>/(<code>lastBlockTimestamp</code>) (8), <code>feeRecipient</code> (21), <code>forcedInclusionCommitment</code> (20) — so from this round the two normative definitions are one list, and the only row that is not a public input is row 2. <em>(review round 2, finding E-R2-02: the public-input vector is reconciled field by field, with feeRecipient, firstBlockTimestamp, daMode, l1ChainId and configHash bound and previousCheckpointHash declared L1-local.)</em></p>
+<p class="small">The reverse direction is now closed as well: every PRF-02 journal field has an L1-05 row — <code>domain</code> (26), <code>l1ChainId</code> (1), <code>l2ChainId</code> (22), <code>prevHeight</code> (3), <code>prevBlockHash</code> (4), <code>prevStateRoot</code> (5), <code>epoch</code> (9), <code>validatorSetRoot</code> (10), <code>totalVotingPower</code> (11), <code>quorumThreshold</code> (12), <code>configHash</code> (23), <code>firstHeight</code> (6), <code>lastHeight</code> (7), <code>headBlockHash</code> (13), <code>postStateRoot</code> (14), <code>dataCommitment</code> (16), <code>daMode</code> (17), <code>blobHashesHash</code> (24), <code>challengeZ</code> (18), <code>evaluationsY</code> (19), <code>finalityCommitment</code> (15), <code>signerBitmap</code> (25), <code>firstBlockTimestamp</code>/(<code>lastBlockTimestamp</code>) (8), <code>feeRecipient</code> (21) — so from this round the two normative definitions are one list, and the only row that is not a public input is row 2. <em>(review round 2, finding E-R2-02: the public-input vector is reconciled field by field, with feeRecipient, firstBlockTimestamp, daMode, l1ChainId and configHash bound and previousCheckpointHash declared L1-local; row 20 (the forced-inclusion commitment) is deleted from both lists by user decision D-6, and its number is left vacant so every other row number keeps its meaning.)</em></p>
 
 <div class="rule" id="L1-06"><span class="rid">L1-06 — monotone checkpoint advancement</span> <span class="norm">Let <code>lastLandedHeight</code> be the height of the current checkpoint record
 (<code>0</code> before the first one). <code>land(data, proof)</code> MUST require <code>firstBlockHeight == lastLandedHeight + 1</code> and MUST reject with
-<code>RangeNotContiguous()</code> otherwise. It MUST also reject any batch whose <em>unsettled depth</em>
-<code>lastBlockHeight &minus; lastLandedHeight</code> exceeds <code>D_MAX</code>
-(<code>UnsettledDepthExceeded()</code>), which is the contract-side half of the backpressure rule
-<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>: the cap becomes objectively detectable from L1
-state alone rather than being an unverifiable claim about validator behaviour <em>(review round 1, finding C R1-03)</em>. The check is a pure comparison against storage and costs no external call; for a duplicate or earlier range it MUST revert <code>AlreadyLanded()</code>. After a successful <code>land(data, proof)</code>,
+<code>RangeNotContiguous()</code> otherwise; for a duplicate or earlier range it MUST revert <code>AlreadyLanded()</code>. The unsettled-depth cap of
+<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a> is a <strong>production-side consensus rule</strong> — correct validators refuse to vote past it — and it MUST NOT be implemented as an admission condition on <code>land(data, proof)</code>
+(<a href="#L1-04">L1-04</a>): refusing an available, valid proof would strand PoS-finalized history, which Mode A forbids; and a contract-side check on a <em>submitted</em> batch cannot bound the depth at which that range was finalized, because any range can be split into sub-batches that each pass the check. <em>(review round 2, finding R2-LIV-07: the L1 half of the cap is removed, so the cap has exactly one enforcement point — the consensus rule of HALT-03 — and no batch is ever rejected at <code>land</code> for being too old or too deep.)</em> After a successful <code>land(data, proof)</code>,
 <code>lastLandedHeight = lastBlockHeight</code> strictly increases. No function in any mode — including an upgrade initialiser, a recovery path, or a governance call — may decrease
 <code>lastLandedHeight</code>, replace or delete a checkpoint record at a height <code>&le;</code> the current one, or write a checkpoint at a height greater than <code>lastLandedHeight + 1</code>. The
 only legitimate way a checkpoint disappears is an L1 reorganisation that reverts the entire <code>land(data, proof)</code> transaction (<a href="#L1-12">L1-12</a>) — the contract never chooses to move
@@ -241,7 +236,7 @@ next proof's predecessor binding and for the bridge; (b) an encoding that is not
 <div class="rule" id="L1-08"><span class="rid">L1-08 — Inbox interface sketch, events, and required reverts</span> <span class="norm">The Inbox MUST expose exactly the acceptance surface below.
 <strong>This is a sketch, not compiled or audited code</strong>: parameter packing, storage layout and gas are implementation decisions, and the pause/upgrade plumbing of the preserved contracts
 (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>) is out of scope here. Every function named below MUST exist with a compatible ABI; every custom error listed MUST be raised on the stated
-condition; and there MUST NOT be an additional state-changing entry point that accepts a batch or writes a checkpoint.</span>
+condition; and there MUST NOT be an additional state-changing entry point that accepts a batch or writes a checkpoint. <em>(user decision D-6: the forced-inclusion entry points, events, fields and errors are deleted from the acceptance surface.)</em></span>
 <span class="why">Failure mode: an unlisted setter or a "helper" entry point becomes the de-facto admission path, and reviewers audit an interface that is not the one deployed.</span>
 <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span> <span class="small">(gas of every function below is UNMEASURED)</span></div>
 
@@ -267,8 +262,6 @@ struct LandInput {
     bytes32[] blobVersionedHashes;   // MUST equal blobhash(blobIndexStart + i) element-wise
     bytes[]  blobCommitments;        // 48-byte compressed BLS12-381 G1 commitments
     bytes[]  blobProofs;             // 48-byte compressed BLS12-381 G1 proofs
-    // --- forced inclusion ---
-    uint64[] coveredRequestIds;      // MUST equal DueCap(T) computed by the contract (FI-02)
 }
 
 /// @notice Accepts one batch: the batch data first, the validity proof second, in this same transaction.
@@ -278,40 +271,24 @@ struct LandInput {
 function land(bytes calldata _data, bytes calldata _proof, LandInput calldata _input)
     external payable returns (bytes32 checkpointHash_);
 
-/// @notice Requests inclusion of _txData in a FUTURE L2 block. Calldata, not a blob: FI-01.
-function requestForcedInclusion(bytes calldata _txData) external payable returns (uint64 requestId_);
-
-function cancelForcedInclusion(uint64 _requestId) external;        // only before eligibility (FI-05)
-function refundForcedInclusionFee(uint64 _requestId) external;     // after the escape threshold (FI-03);
-                                                                   // zeroes feeHeld[r], never removes r
 function checkpointAt(uint64 _height) external view returns (Checkpoint memory);
 function lastCheckpoint() external view returns (Checkpoint memory);
-function currentForcedInclusionFee() external view returns (uint256);
 function verifierRoute(bytes32 _programImageId) external view returns (VerifierRoute memory); // L1-09
 function verifierRouteEnabled(bytes32 _programImageId, uint64 _epoch) external view returns (bool); // L1-09
 
 // ---------------------------------------------------------------
-// Events — acceptance, checkpoint advancement, forced inclusion
+// Events — acceptance and checkpoint advancement
 // ---------------------------------------------------------------
 event BatchLanded(
     uint64 indexed firstBlockHeight, uint64 indexed lastBlockHeight,
     bytes32 indexed dataCommitment, bytes32 checkpointHash,
     bytes32 newStateRoot, bytes32 newBlockHash, uint8 daMode,
-    address prover, uint256 rewardPaid, uint256 forcedInclusionFeesPaid);
+    address prover, uint256 rewardPaid);
 
 event CheckpointAdvanced(
     uint64 indexed height, bytes32 indexed blockHash,
     bytes32 stateRoot, uint64 indexed epoch, bytes32 setRoot,
     bytes32 dataCommitment, bytes32 checkpointHash, uint64 l1BlockNumber);
-
-event ForcedInclusionRequested(
-    uint64 indexed requestId, address indexed requester, uint64 eligibleAtL1Timestamp,
-    uint256 feePaid, bytes32 payloadHash);
-
-event ForcedInclusionConsumed(
-    uint64 indexed requestId, uint64 indexed includedInBlockHeight, uint256 feePaid);
-
-event ForcedInclusionFeeRefunded(uint64 indexed requestId, address indexed requester, uint256 amount);
 
 event VerifierRouteChanged(uint64 indexed routeVersion, bytes32 programImageId, address verifier);
 
@@ -333,11 +310,7 @@ error VerifierRouteNotRegistered(bytes32 programImageId); // L1-09: no deployed,
 error VerifierRouteRetired(bytes32 programImageId, uint64 epoch);
 error NoVerifierRouteForEpoch(uint64 epoch);     // no accepted image has a live route
 error SignerBitmapMismatch();                    // signerBitmap does not match the verified certificate
-error ForcedInclusionNotCovered(uint64 requestId);
-error ForcedInclusionOverdue(uint64 requestId);
-error BatchTimestampDrift(uint64 firstBlockTimestamp, uint256 l1Now);
 error FeeAccountingUnderflow();
-error RefundNotAvailable(uint64 requestId);      // FI-03: not refundable yet, or already refunded
 </code></pre>
 
 <div class="rule" id="L1-09"><span class="rid">L1-09 — proof-system policy, verifier routing and the L1 ability to move to a new circuit</span>
@@ -367,41 +340,28 @@ is an accepted property of permissionless landing, not a defect to be patched wi
 (<a href="#L1-04">L1-04</a>); (b) accepting a proof for a different batch lets a prover attach a valid proof to unrelated data — the whole point of binding the data commitment is that it cannot be done;
 (c) paying the reward to a proof-declared address lets anyone who copies a proof redirect the payout and makes the identity of the prover unfalsifiable.</span> <span class="pill proven">Proven</span></div>
 
-<div class="rule" id="L1-11"><span class="rid">L1-11 — fees and the reward accounting identity</span> <span class="norm">The Inbox MUST hold two separate ledgers and MUST enforce their conservation with
-checked arithmetic (no unchecked subtraction; violation reverts <code>FeeAccountingUnderflow()</code>): a <strong>forced-inclusion ledger</strong> holding requester fees, and a <strong>prover reward
+<div class="rule" id="L1-11"><span class="rid">L1-11 — fees and the reward accounting identity</span> <span class="norm">The Inbox MUST hold exactly one reward-related ledger and MUST enforce its conservation with
+checked arithmetic (no unchecked subtraction; violation reverts <code>FeeAccountingUnderflow()</code>): a <strong>prover reward
 ledger</strong> funded by L2 fee revenue (<a href="07-economics-slashing.html#ECON-02">ECON-02</a>) and by any <code>msg.value</code> the submitter adds. On a successful <code>land(data, proof)</code> the identity is:</span>
-<pre><code>forcedInclusion_after = forcedInclusion_before
-                       - sum of feeHeld[r] for r in coveredRequestIds   // paid to feeRecipient;
-                                                                        // feeHeld[r] = 0 if refunded
-proverReward_after    = proverReward_before + msg.value - rewardPaid
+<pre><code>proverReward_after    = proverReward_before + msg.value - rewardPaid
 rewardPaid            = min(REWARD_QUOTE, proverReward_before + msg.value)
-require(forcedInclusion_after &gt;= 0); require(proverReward_after &gt;= 0);
+require(proverReward_after &gt;= 0);
 require(rewardPaid &lt;= proverReward_before + msg.value);</code></pre>
-<span class="norm">Each covered request's fee MUST be paid at most once: <code>land(data, proof)</code> MUST mark the request consumed in the same write that pays it, and a second payment for the same
-<code>requestId</code> MUST be impossible. <code>land(data, proof)</code> MUST NOT require a non-zero <code>rewardPaid</code>: if the reward ledger is empty, the batch still lands with
+<span class="norm"><code>land(data, proof)</code> MUST NOT require a non-zero <code>rewardPaid</code>: if the reward ledger is empty, the batch still lands with
 <code>rewardPaid = 0</code> and the event records <code>0</code>. <code>REWARD_QUOTE</code> MUST NOT
-depend on anything the submitter controls except the gas actually consumed, and MUST NOT depend on the proof's contents beyond validity.</span>
-<span class="norm"><strong>Escrow invariant (single accounting path).</strong> The forced-inclusion ledger is a <em>segregated escrow</em>. It MUST be debited only by the coverage payout of the request whose fee it holds or by that request's refund, and by nothing else — never for rewards, gas or any other purpose. For every queued request that has not been refunded, the escrow MUST hold at least <code>feeHeld[r]</code>:</span>
-<pre><code>invariant:  forcedInclusionEscrow >= sum over outstanding requests of feeHeld[r]
-coverage:   feeHeld[r] -> feeRecipient; escrow -= feeHeld[r]; consumed[r] = true
-refund:     feeHeld[r] -> requester;    escrow -= feeHeld[r]; feeHeld[r] = 0; refunded[r] = true
-mutual exclusion: refunded[r] =&gt; coverage pays 0 for r (and still consumes it);
-                  consumed[r]  =&gt; refund reverts RefundNotAvailable(r)
-revert conditions: land(data, proof) reverts FeeAccountingUnderflow() if applying coverage would
-                  break the invariant (unreachable while the invariant holds); the refund reverts
-                  RefundNotAvailable(r) iff r is not yet refundable or refunded[r] is true.
-                  The invariant is inductive — each refund zeroes exactly the fee it removes —
-                  so a refund can never fail for lack of balance.</code></pre>
-<span class="norm">A refund MUST NOT remove the request or affect its coverage obligation: it terminates the <em>fee</em>, not the duty, and coverage and refund are mutually exclusive per request. Conversely, coverage of an already-refunded request pays nothing but still marks the request consumed, so the queue still drains and the duty is still discharged. The Inbox MUST NOT be able to become unable to pay a refund or to settle a batch: that is the invariant's content, and any upgrade, entry point or payout that can spend the escrow outside these two paths violates it. <em>(review round 1, findings B R1-07, C R1-10, C R1-11)</em></span>
-<span class="norm"><strong>Scope of these two ledgers.</strong> They are the Inbox's only reward-related state, and validator rewards are not a term of either conservation identity: validator payouts come from the segregated ETH reward pool of the L1 staking contract (<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5), never from the forced-inclusion escrow, so the escrow invariant above is unaffected by them. <em>(review round 2, finding E-R2-05: the reward mechanism is stated on the staking contract and does not drain or double-count either Inbox ledger.)</em></span>
+depend on anything the submitter controls except the gas actually consumed, and MUST NOT depend on the proof's contents beyond validity. The ledger MUST be debited only by the
+<code>rewardPaid</code> of a successful <code>land(data, proof)</code> and by nothing else — never for validator payouts, gas, refunds or any other purpose — and no entry point, payout or upgrade may spend it
+outside that path. <em>(user decision D-6: the forced-inclusion ledger, its segregated escrow, its coverage and refund paths and their mutual-exclusion argument are removed with the queue; the prover reward
+ledger keeps its conservation identity and the <code>FeeAccountingUnderflow()</code> revert.)</em></span>
+<span class="norm"><strong>Scope.</strong> This ledger is the Inbox's only reward-related state, and validator rewards are not a term of its conservation identity: validator payouts come from the segregated ETH reward pool of the L1 staking contract (<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5), never from the Inbox's ledger, so the identity above is unaffected by them. <em>(review round 2, finding E-R2-05: the reward mechanism is stated on the staking contract and does not drain or double-count the Inbox ledger.)</em></span>
 <span class="why">Failure modes: (a) an empty reward pool blocking acceptance turns economics into an admission gate, which <a href="#L1-04">L1-04</a> forbids and which makes settlement depend on a
-treasury rather than on a proof; (b) paying a forced-inclusion fee twice is a direct drain of the ledger; (c) a reward that scales with a submitter-chosen quantity is a self-dealing surface.</span>
+treasury rather than on a proof; (b) a second payout path out of the reward ledger drains it; (c) a reward that scales with a submitter-chosen quantity is a self-dealing surface.</span>
 <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span> <span class="small">(<code>REWARD_QUOTE</code> and the gas cost of <code>land(data, proof)</code> are UNMEASURED;
 closing them requires a gas-snapshot run over batches of the target size, which does not exist)</span></div>
 
 <div class="rule" id="L1-12"><span class="rid">L1-12 — L1 reorganisation handling, and no unfinalised L1 fact is settled</span>
 <span class="norm">If the L1 block containing a <code>land(data, proof)</code> transaction is reorganised out below Ethereum finality, the transaction is undone by Ethereum: no checkpoint record exists, no height
-advanced, no request consumed, no fee paid, and no event is part of the canonical chain. The batch remains <a href="index.html#STATUS-04">PoS-finalized</a> in Mode A, and MUST be re-landable with the
+advanced, no fee paid, and no event is part of the canonical chain. <em>(user decision D-6: the consumed-request reference is removed with the queue.)</em> The batch remains <a href="index.html#STATUS-04">PoS-finalized</a> in Mode A, and MUST be re-landable with the
 same <code>dataCommitment</code> under <a href="#L1-04">L1-04</a>. The Inbox MUST NOT contain any function that "repairs" a reorganisation by writing a chosen checkpoint, height, or state root: the
 only response is re-execution of <code>land(data, proof)</code>. Because a checkpoint chain is built by strict succession (<a href="#L1-06">L1-06</a>), a reorg that drops one <code>land(data, proof)</code> transaction also
 drops every later transaction that extended from it, since those transactions cannot satisfy <code>firstBlockHeight == lastLandedHeight + 1</code> on the new branch; a submitter whose transaction
@@ -538,117 +498,44 @@ accepting-transaction calldata and full blob sidecars for at least that window, 
 retrievability depends on those archives and not on Ethereum. <strong>Under D5 this failure class cannot recur for a pending batch:</strong> data is published only in the transaction that proves it,
 so there is no interval in which a batch's data is on L1 while its proof is not. The retention clock starts at acceptance, not at a separate proposal.</span>
 <span class="why">In-repo evidence that this failure class is real, not hypothetical: at revision <code>7718753c1</code>, <code>init3()</code> (<code>Inbox.sol:246-258</code>) is a one-time
-<code>onlyOwner</code> function that voids queued forced inclusions by moving the queue head to the tail, and its NatSpec states the reason — the skipped entries' <em>blobs have expired from the blob
-retention window and can no longer be derived</em> after the June 2026 incident, and their fees remain in the contract. <a href="../04-architecture-decision.md">04-architecture-decision.md</a> §4 records
-the same finding. A design that publishes data before a proof re-creates exactly that state.</span>
+<code>onlyOwner</code> function that voids a queue of pending entries by moving the queue head to the tail, and its NatSpec states the reason — the skipped entries' <em>blobs have expired from the blob
+retention window and can no longer be derived</em> after the June 2026 incident. <a href="../04-architecture-decision.md">04-architecture-decision.md</a> §4 records
+the same finding. The queue <code>init3()</code> voided belonged to the baseline design, not to this specification (the corresponding mechanism is removed: <a href="#FI-REMOVED-01">FI-REMOVED-01</a>); what it
+demonstrates is the data-expiry failure class that any design publishing data before a proof re-creates. <em>(user decision D-6: the baseline queue cited as evidence is not a mechanism of this specification.)</em></span>
 <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill derived">derived</span></div>
 
-<div class="rule" id="DA-06"><span class="rid">DA-06 — retention duty and its link to the backlog cap</span> <span class="norm">The consensus-enforced unsettled-depth cap of
-<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a> exists <em>because of</em> this rule. Define <code>unsettledAge</code> as the L1-block distance between the oldest PoS-finalized-but-not-landed L2
-block and the current L1 block. Correct validators MUST refuse to vote for a block that would make <code>unsettledAge</code> exceed <code>MAX_UNSETTLED_AGE</code>, so that the oldest unsettled batch
-never leaves the retrievability window before it can be proven and landed. The retention duty MUST satisfy <code>RETRIEVABILITY_WINDOW &ge; MAX_UNSETTLED_AGE + SETTLEMENT_PIPELINE + EVIDENCE_WINDOW</code>,
-where <code>SETTLEMENT_PIPELINE</code> is the worst-case proving plus L1-inclusion plus Ethereum-finality time (<a href="07-economics-slashing.html#ECON-03">ECON-03</a>) and <code>EVIDENCE_WINDOW</code> is the
-misconduct-evidence window (<a href="07-economics-slashing.html#ECON-07">ECON-07</a>). The cap is a rule on <em>production</em>; it MUST NOT be applied to <code>land(data, proof)</code>
-(<a href="#L1-04">L1-04</a>), because refusing an available, valid proof would strand finalized
-history. When the cap binds, the honest outcome is a safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>), never a rollback.</span>
+<div class="rule" id="DA-06"><span class="rid">DA-06 — retention duty and its link to the backlog cap</span> <span class="norm">There is exactly <strong>one</strong> production-side cap: the unsettled-depth cap
+<code>D_MAX</code> of <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>, expressed in <strong>L2 blocks</strong> and derived there as
+<code>D_MAX = floor((RETENTION_WINDOW &minus; T_PROOF_MAX_PERMITTED &minus; T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL)</code>. <code>RETENTION_WINDOW</code> is in
+<strong>seconds</strong> and is the assumed retrievability duration of <em>unsettled L2 data held by validators and nodes</em> (<a href="01-system-model.html#ROLE-03">ROLE-03</a>, A-CONS-5), not the
+retention of any L1 artifact; every term is registered in <a href="09-parameters.html#PARAM-01">09</a>. The cap exists <em>because of</em> this retention duty: without it, blocks keep being finalized
+whose data ages out of that window before any proof exists, the batch then cannot be proven by anyone, and Mode A forbids discarding it. Correct validators MUST refuse to vote for a block whose
+unsettled depth would exceed <code>D_MAX &minus; MARGIN_V</code> (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>): the cap is a rule on <em>production</em> and has exactly one enforcement
+point, and it MUST NOT be applied to <code>land(data, proof)</code> (<a href="#L1-04">L1-04</a>, <a href="#L1-06">L1-06</a>), because refusing an available, valid proof would strand finalized history.
+When the cap binds, the honest outcome is a safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>), never a rollback.
+<br><strong>Relation to the post-acceptance retention window.</strong> <code>RETRIEVABILITY_WINDOW</code> (<a href="#DA-05">DA-05</a>) is a different object in a different unit: it is an archive duty
+over the <em>accepted</em> artifacts — the accepting transaction's calldata and blob sidecars — measured in <strong>L1 block numbers</strong> and starting at acceptance. It is not a cap and not an
+input to <code>D_MAX</code>; they measure different objects at different times and MUST NOT be combined into one inequality, so the earlier inequality that mixed them is
+deleted. The one obligation that remains on the post-acceptance side is stated in its own unit: <code>RETRIEVABILITY_WINDOW</code> MUST be at least the blob-retention window (<a href="#DA-05">DA-05</a>(a))
+and, converted to seconds at Ethereum's fixed slot cadence, at least <code>W_EVIDENCE</code> (<a href="07-economics-slashing.html#ECON-07">ECON-07</a>, registered in
+<a href="09-parameters.html#PARAM-01">09</a>), so an accepted batch's artifacts stay retrievable at least as long as evidence about it can still be submitted. The former second cap
+<code>MAX_UNSETTLED_AGE</code> (an L1-block distance) is <strong>deleted as redundant</strong>: it restated <code>D_MAX</code> in a second unit, so an implementer could satisfy one and violate the other.
+<em>(review round 2, findings R2-LIV-07 and R2-LIV-08: one cap, one unit, one enforcement point — production — and no second window standing in for it.)</em></span>
 <span class="why">Failure mode: without the cap, blocks keep being finalized whose data ages out of the retention window before any proof exists; the batch then cannot be proven by anyone, and Mode A
-forbids discarding it, so the chain is permanently stuck on a range whose data no longer exists
-anywhere the protocol promised. The cap converts an unbounded, unrecoverable failure into a bounded, recoverable halt.</span> <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
-<span class="small">(<code>RETRIEVABILITY_WINDOW</code>, <code>MAX_UNSETTLED_AGE</code> and the pipeline terms are unmeasured parameters; all four are fixed in <a href="09-parameters.html#PARAM-01">09</a>)</span></div>
+forbids discarding it, so the chain is permanently stuck on a range whose data no longer exists anywhere the protocol promised. The cap converts an unbounded, unrecoverable failure into a bounded,
+recoverable halt — but it does so as a consensus rule on production, not as an L1 admission gate that would refuse a valid proof and strand finalized history.</span> <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(<code>D_MAX</code>, <code>RETENTION_WINDOW</code>, <code>MARGIN_V</code>, <code>T_PROOF_MAX_PERMITTED</code>, <code>T_SETTLE_PIPELINE</code> and <code>RETRIEVABILITY_WINDOW</code> are unmeasured parameters; all are fixed in <a href="09-parameters.html#PARAM-01">09</a>)</span></div>
 
-<h2 id="forced">6. Forced inclusion</h2>
+<h2 id="inclusion">6. Inclusion limits: no forced-inclusion path</h2>
 
-<div class="rule" id="FI-01"><span class="rid">FI-01 — request format, bond/fee, and eligibility delay</span> <span class="norm">A user censored on L2 MUST be able to request inclusion by an L1 transaction:</span>
-<pre><code>function requestForcedInclusion(bytes calldata _txData) external payable returns (uint64 requestId_);
+<div class="rule" id="FI-REMOVED-01"><span class="rid">FI-REMOVED-01 — forced inclusion removed: no per-transaction inclusion guarantee and no L1 forced-inclusion path</span> <span class="norm">This rule is the tombstone of the removed forced-inclusion rules and the only normative text on this page about inclusion guarantees. The protocol provides no per-transaction inclusion guarantee and no L1 forced-inclusion path. The replacement text, used consistently across this specification, is:</span>
+<blockquote><p>The protocol provides no per-transaction inclusion guarantee and no L1 forced-inclusion path. Censorship resistance is the conditional statistical property described in <a href="10-assurance.html#LIVE-04">LIVE-04</a>: proposer selection is hash-based and weighted (<a href="02-consensus.html#CONS-06">CONS-06</a>), so a coalition with less than one third of the voting power is selected for strictly fewer than one third of slots in expectation, and a transaction that reaches honest validators is included by the first honest proposer with room for it. Under A-CONS-2 that is a real but conditional resistance. A network-level adversary able to isolate a user from every honest proposer can exclude that user's transactions indefinitely, and because a withdrawal is initiated by an L2 transaction, such an adversary can also prevent the user from starting a withdrawal. The protocol offers no remedy, and a partial relaxation of R10 is disclosed.</p></blockquote>
+<span class="norm"><strong>Authority.</strong> The removal is a <strong>user-authorized partial relaxation of hard requirement R10</strong>, recorded as decision <a href="../DECISIONS.md">D-6</a> in the decision log. R10 is satisfied in its relaxed form ("state censorship resistance honestly") and <strong>not</strong> satisfied in its original form, which required an L1 forced-inclusion path; the final report MUST say so. <a href="10-assurance.html#LIVE-04">LIVE-04</a> owns the censorship-resistance statement, <a href="02-consensus.html#CONS-06">CONS-06</a> owns proposer selection, and this rule owns the removal and the disclosure.</span>
+<span class="norm"><strong>Disclosed consequence.</strong> A network-level adversary able to isolate a user from every honest proposer can exclude that user's transactions indefinitely, and because a withdrawal is initiated by an L2 transaction, the same adversary can also prevent the user from <em>starting</em> a withdrawal. The protocol offers no remedy: there is no inclusion duty, no request queue, no escrow, no refund and no L1 entry point by which a user can force a transaction into L2 or start a withdrawal. Any user-facing material that implies otherwise is a defect. <em>(user decision D-6: forced inclusion removed; user-authorized partial relaxation of R10)</em></span>
+<span class="why">Failure mode: leaving the removal implicit would let a reader assume an L1 escape hatch exists, and a user facing isolation would wait for a remedy the protocol does not provide. The honest substitute is the conditional statistical resistance of LIVE-04 — real under A-CONS-2, not a guarantee — never a promise of inclusion.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="small">(the absence of an L1 path is structural; the resistance claim is conditional on A-CONS-2 and is owned by <a href="10-assurance.html#LIVE-04">LIVE-04</a>)</span></div>
 
-struct ForcedInclusionRequest {
-    uint64  id;                       // FIFO, assigned in request order, never reused
-    address requester;                // receives a refund under FI-03
-    uint64  eligibleAtL1Timestamp;    // = block.timestamp + FORCED_INCLUSION_DELAY_SECONDS
-    bytes32 payloadHash;              // keccak256(_txData)
-    bytes   txData;                   // the transaction to be included, stored in L1 STATE
-}</code></pre>
-<span class="norm">The payload MUST be calldata carried in the request transaction and stored in the Inbox's own L1 storage — <strong>not</strong> a blob. A blob-backed request re-creates the
-<a href="#DA-05">DA-05</a> expiry class: the reference would outlive nothing, and after the retention window the request could neither be included nor refunded, which is precisely what happened to the
-queue voided by <code>init3()</code> (<code>Inbox.sol:246-258</code>). The requester MUST pay a fee at request time (formula and escalation in <a href="#FI-05">FI-05</a>); excess MUST be refunded. The
-delay parameter <code>FORCED_INCLUSION_DELAY_SECONDS</code> is expressed in <strong>seconds</strong> (<a href="index.html#GEN-06">GEN-06</a>) and its value is fixed in
-<a href="09-parameters.html#PARAM-01">09</a>; the baseline's <code>576</code> seconds (<code>MainnetInbox.sol:48</code>) is recorded as <em>today's value at 7718753c1</em>
-<span class="pill sourced">sourced</span>, not as this design's value <span class="pill unmeasured">unmeasured</span>. <code>_txData.length</code> MUST be bounded by
-<code>MAX_FORCED_INCLUSION_BYTES</code> so that the request's storage cost and its later inclusion are bounded. Requests are strictly FIFO by <code>id</code>; <code>id</code> is never reused.</span>
-<span class="why">Failure modes: (a) a blob-backed request expires and becomes unincludable and unrefundable; (b) an unbounded payload lets one request consume an entire L2 block, converting the
-censorship remedy into a denial-of-service tool; (c) a reused or reorderable <code>id</code> lets a proposer shuffle or selectively drop the queue.</span>
-<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill unmeasured">unmeasured</span></div>
-
-<div class="rule" id="FI-02"><span class="rid">FI-02 — the inclusion duty: an L2 validity rule with an L1 backstop</span> <span class="norm">The duty has two layers and both are normative. <strong>(a) L2 validity rule
-(<a href="02-consensus.html#CONS-01">CONS-01</a>).</strong> A proposal is invalid unless its first block includes, as transactions and in FIFO request order, exactly the <em>capped FIFO prefix</em> <code>DueCap(T)</code> and no request outside it, where <code>T</code> is the batch's first-block timestamp and <code>DueCap(T)</code> is the first <code>min(|Due(T)|, MAX_FORCED_INCLUSIONS_PER_BATCH)</code> entries of the FIFO queue <code>Due(T) = { r : r.eligibleAtL1Timestamp &le; T &amp;&amp; !consumed[r] }</code> in request order. The predicate is evaluated on the <strong>L1-visible queue</strong>: a request's eligibility is its own L1 facts (<code>eligibleAtL1Timestamp</code>, <code>consumed</code>), not a proof-supplied or submitter-supplied timestamp, and <code>T</code> is fixed by the header the validators sign. Correct validators MUST reject a proposal that omits, duplicates, reorders or pads the prefix; a validator that has not yet observed a request at the configured Ethereum finality depth MUST NOT treat that observation gap as a change to the due set, because the delay bound in (c) guarantees that every request in <code>DueCap(T)</code> is already Ethereum-final in the parent's L1 view. <strong>(b) L1 backstop in <code>land(data, proof)</code>.</strong>
-The Inbox MUST compute the same <code>DueCap(T)</code> from its own storage and require exact equality with the covered set bound by the proof. The scan is bounded by construction: it walks the queue from the head in FIFO order and stops as soon as it has collected <code>MAX_FORCED_INCLUSIONS_PER_BATCH</code> eligible entries, so its cost depends on the cap and not on the queue length.</span>
-<pre><code>T = _input.firstBlockTimestamp
-Due(T)    = FIFO queue in request order: { r : r.eligibleAtL1Timestamp <= T && !consumed[r] }
-DueCap(T) = first min(|Due(T)|, MAX_FORCED_INCLUSIONS_PER_BATCH) entries of Due(T)
-require(keccak256(abi.encode(bytes32("TAIKO_ETNA_FI"), block.chainid, coveredIds))
-        == forcedInclusionCommitment);                       // L1-05 row 20
-require(setEquals(coveredIds, DueCap(T)));                   // else ForcedInclusionNotCovered(id)
-require(T <= block.timestamp);                               // two-sided bound, side 1: no future-dating
-require(block.timestamp <= T + FORCED_INCLUSION_MAX_DRIFT);  // side 2: no back-dating beyond the drift
-                                                             // else BatchTimestampDrift(...)
-consume(coveredIds);                                         // each id exactly once, in FI-01 order</code></pre>
-<span class="norm"><code>coveredIds</code> MUST be strictly ascending and duplicate-free; a duplicate MUST revert <code>ForcedInclusionNotCovered()</code>. Exact equality — not containment — is required
-so that a proposer can neither omit a due request nor pad the batch with requests that are not due in order to change their relative order. Because <code>firstBlockHeight</code> is forced to <code>lastLandedHeight + 1</code>
-(<a href="#L1-06">L1-06</a>), a proposer cannot move the batch boundary to escape the duty.
-<br><strong>(c) One predicate, one clock, and the containment direction.</strong> The two layers MUST use the predicate above on the same L1-visible state; there is no height-based dueness, no second clock, and no proof-supplied dueness flag. For any batch the L2 predicate admits, <strong>L1's due set MUST be a subset of the L2 predicate's due set</strong>, <code>DueCap_L1(T) &sube; DueCap_L2(T)</code>; the converse holds automatically because the L2 view is a historical prefix of L1 state (a request consumed or cancelled in that view is consumed or cancelled in L1's), so the two sets MUST in fact coincide — that is what makes <code>setEquals</code> satisfiable. The eligibility timestamp is compared through values the L1 contract recomputes from its own state: <code>r.eligibleAtL1Timestamp</code> is L1 storage, and <code>T</code> is sandwiched by L1's own clock (<code>T &le; block.timestamp &le; T + FORCED_INCLUSION_MAX_DRIFT</code>). The finality-depth lag is absorbed by <code>FORCED_INCLUSION_DELAY_SECONDS</code>: it MUST be at least <code>L1_FINALITY_DEPTH</code> expressed in seconds plus <code>MAX_BATCH_BLOCKS &times; L2_BLOCK_INTERVAL</code> plus a clock-skew and observation margin, so that any request with <code>eligibleAtL1Timestamp &le; T</code> was already Ethereum-final in the parent's L1 view and could not have been invisible to the L2 predicate. Without this containment, L2 could declare a request not-yet-due while L1 declares it due, and a legitimately finalized range would be permanently unlandable — the outcome <a href="#L1-04">L1-04</a> forbids. <em>(review round 1, findings B R1-08, C R1-06, C R1-07)</em>
-<br><code>FORCED_INCLUSION_MAX_DRIFT</code> MUST be strictly smaller than <code>FORCED_INCLUSION_DELAY_SECONDS</code>, so the omission window it opens is a fraction of the eligibility delay: a request hidden by back-dating in one batch is inside every later batch's due set once L1 time passes <code>eligibleAtL1Timestamp + FORCED_INCLUSION_MAX_DRIFT</code>, and it can never be permanently excluded. The value is a liveness parameter fixed in <a href="09-parameters.html#PARAM-01">09</a> and is <strong>UNMEASURED</strong> — closing it requires measured L2/L1 clock skew under the stated operating assumptions. <em>(review round 1, finding B R1-07)</em></span>
-<span class="why">Failure modes: (a) without the L2 rule, the queue drains at proposer discretion and
-the duty is only a fee; (b) without the L1 backstop, a colluding quorum can omit a request forever while continuing to land batches; (c) containment instead of equality lets a proposer reorder due
-requests relative to each other; (d) without the two-sided bound on <code>T</code> in L1 time, a proposer can label a batch with a timestamp older than a request's eligibility and claim the request was not yet due; (e) without the containment direction of (c), a finality-lag mismatch makes an honestly finalized range permanently unlandable.</span>
-<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span></div>
-
-<div class="rule" id="FI-03"><span class="rid">FI-03 — escape hatch under sustained censorship</span>
-<span class="norm">A request MUST NOT be voidable. There MUST NOT exist an owner, DAO, operator, or recovery function that removes a request from the queue, rewrites its
-<code>eligibleAtL1Timestamp</code>, or marks it consumed without a corresponding accepted batch — contrast <code>init3()</code> (<code>Inbox.sol:253-258</code>), which does exactly that. When a
-request has remained eligible and uncovered for longer than <code>FORCED_INCLUSION_ESCAPE_THRESHOLD</code> (seconds), the following MUST hold: (a) the request
-stays in the queue and remains coverable by any future batch, forever; (b) the requester becomes entitled to a refund of the fee it paid, claimable from the Inbox at any time thereafter, without
-removing the request or affecting its coverage obligation; refunds MUST be paid from the segregated escrow of <a href="#L1-11">L1-11</a> under its solvency invariant, in which each request's fee is held until <em>exactly one</em> of coverage or refund occurs — the two are mutually exclusive for one request, and a refunded request that is later covered is still consumed and still carries its coverage obligation but pays zero to <code>feeRecipient</code>; a refund MUST NOT be able to make the Inbox unable to pay a later refund or to settle a batch, and the only reverts on the refund path are <code>RefundNotAvailable()</code> (not yet refundable, or already refunded) and the invariant's unreachable <code>FeeAccountingUnderflow()</code> <em>(review round 1, findings B R1-07, C R1-10, C R1-11)</em>; a refund does <strong>not</strong> restore inclusion, and the hatch MUST NOT be described as an inclusion right — it is a fee remedy whose only effect on inclusion is that the duty continues to block settlement while the request is uncovered; (c) <code>land(data, proof)</code> continues to reject batches that fail <a href="#FI-02">FI-02</a>, so a chain that keeps producing without covering the
-request stops being able to settle, which is the halt defined by <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>; (d) honest participants MUST NOT respond
-by discarding, rolling back, or re-founding finalized history (<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>). The hatch deliberately does <em>not</em>
-provide an L1-side force-exit of L2-held value: the funds are in L2 state, and no rule here may invent an L1 path that mints or releases them. That limitation MUST be disclosed wherever the hatch is described.</span>
-<span class="why">Failure modes: (a) a voidable queue destroys the censorship remedy and destroys the evidence of the censorship (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>); (b) an "escape"
-that mints or releases L2-held value on L1 is a bridge exploit with an honest name; (c) an escape that invalidates finalized history is Mode B by the back door and is forbidden by D2 in ordinary operation.</span>
-<span class="pill proven">Proven</span></div>
-
-<div class="rule" id="FI-04"><span class="rid">FI-04 — forced inclusion can only add to a future block; it can never reorder or revoke past history</span>
-<span class="norm">A covered request's payload MUST enter as a transaction in an L2 block whose height is strictly greater than <code>lastLandedHeight</code> — i.e. in a block of the batch currently being
-landed, or a future one, never in an already-landed block. A request MUST NOT be able to change the content, ordering, or state root of any block at a height <code>&le; lastLandedHeight</code>, and
-MUST NOT be able to change any checkpoint record (<a href="#L1-06">L1-06</a>). Within the batch that covers it, the request's position relative to other covered requests is fixed to FIFO request order
-(<a href="#FI-02">FI-02</a>); its position relative to non-forced transactions is a derivation rule owned by <a href="02-consensus.html#CONS-01">CONS-01</a>. A request that is never covered MUST remain
-queued rather than be discarded (<a href="#FI-03">FI-03</a>). There MUST NOT exist a code path that uses a forced inclusion, or the fact that one is overdue, to re-execute, invalidate or replace a
-landed batch (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>).</span> <span class="why">Failure mode: a censorship remedy that can reorder or revoke past history is a
-retroactive-reordering mechanism — the mechanism D2 forbids — and it would let an attacker use the
-forced-inclusion queue to rewrite settled outcomes, including bridge messages already authenticated against a checkpoint.</span> <span class="pill proven">Proven</span></div>
-
-<div class="rule" id="FI-05"><span class="rid">FI-05 — griefing controls and fee escalation</span> <span class="norm">The required fee for a request MUST escalate with queue depth:</span>
-<pre><code>fee = floor(BASE_FEE * (FEE_DOUBLE_THRESHOLD + pending) / FEE_DOUBLE_THRESHOLD)  // pending = queue length
-fee = min(fee, MAX_FEE);                                                          // no overflow, no unbounded grief</code></pre>
-<span class="norm">This is the shape used at revision <code>7718753c1</code> (<code>LibForcedInclusion.sol:89-93</code>, with <code>baseFee = 1_000_000</code> gwei and
-<code>threshold = 50</code> at <code>MainnetInbox.sol:49-50</code>) <span class="pill sourced">sourced</span>; this design's <code>BASE_FEE</code>, <code>FEE_DOUBLE_THRESHOLD</code> and <code>MAX_FEE</code> are set in
-<a href="09-parameters.html#PARAM-01">09</a> and are <strong>UNMEASURED</strong>. Additional controls
-are mandatory: (a) a request MUST NOT be cancellable once <code>block.timestamp &ge; eligibleAtL1Timestamp</code> — before that it is cancellable, and
-cancellation refunds the fee minus a fixed <code>CANCELLATION_COST</code> in the same write that zeroes <code>feeHeld[r]</code> and marks the request cancelled, so the escrow invariant of <a href="#L1-11">L1-11</a> is preserved and the retained <code>CANCELLATION_COST</code> is never refundable <em>(review round 1, finding B R1-07)</em>; (b) each request consumes exactly one slot of the L2 block space it eventually occupies, and the number of requests a single
-batch can cover MUST be bounded by <code>MAX_FORCED_INCLUSIONS_PER_BATCH</code>, so that both <code>land(data, proof)</code> and block production have bounded cost; (c) the fee MUST rise with queue depth as specified above, and the protocol MUST NOT depend on any bound on the queue length for correctness: because <a href="#FI-02">FI-02</a> requires only the <em>capped prefix</em> of the due list, an arbitrarily long queue can slow coverage but can never make every proposal invalid, and it can never halt production. <em>This is a correction recorded in review round 1 (finding C R1-01): an earlier revision of this rule required the whole due set to be covered while capping coverage per batch, which allowed a permissionless attacker to post <code>MAX_FORCED_INCLUSIONS_PER_BATCH + 1</code> requests and make every proposal invalid at negligible cost.</em> (d) <code>land(data, proof)</code>'s due-prefix computation MUST stop after collecting <code>MAX_FORCED_INCLUSIONS_PER_BATCH</code> eligible entries, so its cost is bounded by the cap and not by the queue length.</span>
-<span class="why">Failure modes: (a) a free or cheap queue lets an attacker fill the due set so that every <code>land(data, proof)</code> reverts, stalling settlement at negligible cost; (b) an unbounded due-set
-loop makes <code>land(data, proof)</code> unaffordable or uncallable as the queue grows; (c) cancellable-after-eligible requests let an attacker withdraw the evidence of censorship exactly when it matters. Note honestly
-that this remains a <em>cost-imposing liveness attack</em> even with escalation: its profitability is
-<strong>UNMEASURED</strong>, and closing it requires the fee schedule and the measured cost of covering a request.</span>
-<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill unmeasured">unmeasured</span></div>
-
-<h3 id="fi-argument">Why a sub-threshold cartel cannot starve inclusion</h3> <p>This is a <em>conditional</em> liveness argument with named premises, not a guarantee. Proposer
-selection is hash-based weighted selection (<a href="02-consensus.html#CONS-06">CONS-06</a>), and a cartel holding <code>f &lt; 1/3</code> of the stake that counts toward quorum (A-CONS-1) holds fewer
-than <code>1/3</code> of proposer slots in expectation over any window of <code>s</code> slots. Let <code>p = f</code> be the cartel's slot share. The probability that the cartel leads <code>s</code>
-slots in a row is <code>p^s</code>, so the expected waiting time for an honest slot is <code>1/(1-p) &le; 1.5</code> slots <span class="pill derived">derived</span>. An honest proposer MUST
-include the due set or its proposal is invalid (<a href="#FI-02">FI-02</a>a, <a href="02-consensus.html#CONS-01">CONS-01</a>), and honest validators precommit only valid
-proposals, so the request is covered as soon as an honest proposer leads. The cartel's residual power is to make coverage <em>late</em>, not to prevent it, and lateness is bounded by the selection rule, not by
-a timeout judgement (<a href="index.html#STATUS-10">STATUS-10</a>). Two honest caveats: this holds only while A-CONS-1 holds — at <code>&ge;1/3</code> Byzantine stake the argument does not apply and
-the protocol claims nothing; and it assumes proposer selection is not predictable enough for the cartel to buy the specific slots in which a request becomes due, which is an assumption about the
-selection function that MUST be stated in <a href="02-consensus.html#CONS-06">CONS-06</a>, not here. <em>(review round 1, finding CS-02: the slot-share premise is <a href="02-consensus.html#CONS-06">CONS-06</a>(b)'s <strong>Assumed</strong> fairness claim, and the superseded residue rotation is replaced by hash-based weighted selection.)</em></p>
+<h3 id="rotation-argument">Why proposer rotation gives conditional inclusion resistance</h3> <p>This is a <em>conditional</em> statistical argument with named premises, not a guarantee, and it is the mechanism behind <a href="10-assurance.html#LIVE-04">LIVE-04</a>'s statement. Proposer selection is hash-based weighted selection (<a href="02-consensus.html#CONS-06">CONS-06</a>), and a coalition holding <code>f &lt; 1/3</code> of the stake that counts toward quorum (A-CONS-1) holds fewer than <code>1/3</code> of proposer slots in expectation over any window of <code>s</code> slots. Let <code>p = f</code> be the coalition's slot share. The probability that it leads <code>s</code> slots in a row is <code>p^s</code>, so the expected waiting time for an honest slot is <code>1/(1-p) &le; 1.5</code> slots <span class="pill derived">derived</span>. A transaction that reaches honest validators is included by the first honest proposer with room for it (<a href="10-assurance.html#LIVE-04">LIVE-04</a>, <a href="#FI-REMOVED-01">FI-REMOVED-01</a>). The coalition's residual power is to make inclusion <em>late</em>, not to prevent it, and lateness is bounded by the selection rule, not by a timeout judgement (<a href="index.html#STATUS-10">STATUS-10</a>). Three honest caveats: the argument holds only while A-CONS-1 holds — at <code>&ge;1/3</code> Byzantine stake it does not apply and the protocol claims nothing; it assumes proposer selection is not predictable enough for the coalition to buy the specific slots in which a transaction would be included, which is <a href="02-consensus.html#CONS-06">CONS-06</a>(b)'s <strong>Assumed</strong> fairness claim; and it holds only under the network assumption A-CONS-2 — a network-level adversary able to isolate a user from every honest proposer can exclude that user indefinitely and can prevent the user from starting a withdrawal, and the protocol offers no remedy (<a href="#FI-REMOVED-01">FI-REMOVED-01</a>). <em>(user decision D-6: the argument is re-based from the removed inclusion duty onto proposer rotation, <a href="02-consensus.html#CONS-06">CONS-06</a>, with the A-CONS-2 caveat.)</em></p>
 
 <h2 id="msg">7. SignalService and Bridge at the preserved addresses</h2>
 
@@ -701,7 +588,7 @@ and the failure signal is <code>msgHash ^ 3</code> (<code>Bridge.sol:544-546</co
 (<code>SignalService.sol:52</code>), which exists so that a version bump invalidates cached signals and their checkpoints together; the migration MUST either bump <code>VERSION</code> in the preserved
 implementation or explicitly reconcile every cached entry, and MUST NOT leave cache entries whose originating checkpoint no longer exists live. New hashes introduced by this specification use the
 <a href="index.html#GEN-05">GEN-05</a> construction with the domain tag and chain id as the first two fields: <code>TAIKO_ETNA_DATA</code>, <code>TAIKO_ETNA_CKPT</code>, <code>TAIKO_ETNA_FIN</code>,
-<code>TAIKO_ETNA_FI</code>, <code>TAIKO_ETNA_CHALLENGE</code>. The preserved encodings above are the
+<code>TAIKO_ETNA_CHALLENGE</code>. <em>(user decision D-6: the <code>TAIKO_ETNA_FI</code> domain tag is removed with the forced-inclusion commitment; no removed mechanism keeps a domain tag.)</em> The preserved encodings above are the
 <em>existing</em> published formats; <a href="index.html#GEN-05">GEN-05</a> governs new hashes and is not retroactively a defect in them.</span>
 <span class="why">Failure modes: (a) a signal verified on chain A being replayable on chain B — prevented only by the chain id being inside the hash; (b) a stale received-signal cache entry whose
 checkpoint was replaced by a different history, which would let a message be proven against a state root that is no longer the protocol's; (c) changing the slot derivation silently, which orphans every
@@ -723,7 +610,8 @@ than the evidence window lets a proven-misbehaving party exit before its stake c
 <h2 id="composition">8. How this page composes with the rest</h2> <table> <thead><tr><th>Concern stated here</th><th>Stated in full on</th></tr></thead> <tbody>
 <tr><td>The guest's statement, its canonical public-input encoding, and the in-guest data-commitment recomputation</td><td><a href="05-proof-statement.html#PRF-01">PRF-01</a>, <a href="05-proof-statement.html#PRF-02">PRF-02</a>, <a href="05-proof-statement.html#PRF-07">PRF-07</a></td></tr>
 <tr><td>Acceptance policy (one backend vs either), program-image and verifier upgrades</td><td><a href="05-proof-statement.html#PRF-09">PRF-09</a>, <a href="05-proof-statement.html#PRF-10">PRF-10</a></td></tr>
-<tr><td>Proposal validity, including the forced-inclusion duty on L2; leader selection</td><td><a href="02-consensus.html#CONS-01">CONS-01</a>, <a href="02-consensus.html#CONS-06">CONS-06</a></td></tr>
+<tr><td>Proposal validity and leader selection (the forced-inclusion duty is removed: proposal validity imposes no inclusion condition) <em>(user decision D-6)</em></td><td><a href="02-consensus.html#CONS-01">CONS-01</a>, <a href="02-consensus.html#CONS-06">CONS-06</a></td></tr>
+<tr><td>The censorship-resistance statement, its conditionality and the disclosed isolation consequence</td><td><a href="10-assurance.html#LIVE-04">LIVE-04</a>; the removal itself is stated here in <a href="#FI-REMOVED-01">FI-REMOVED-01</a></td></tr>
 <tr><td>The unsettled-depth cap that backpressures production</td><td><a href="06-recovery-exceptions.html#HALT-03">HALT-03</a></td></tr>
 <tr><td>Withdrawal delay derivation; reward funding identity</td><td><a href="07-economics-slashing.html#ECON-03">ECON-03</a>, <a href="07-economics-slashing.html#ECON-02">ECON-02</a></td></tr>
 <tr><td>Preserved-contract upgrade list, storage layout, privilege removal, pending-state treatment</td><td><a href="08-migration-upgrades.html#MIG-02">MIG-02</a>, <a href="08-migration-upgrades.html#MIG-03">MIG-03</a>, <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>, <a href="08-migration-upgrades.html#MIG-06">MIG-06</a></td></tr>
@@ -731,10 +619,10 @@ than the evidence window lets a proven-misbehaving party exit before its stake c
 <tr><td>The invariant this page serves: no batch is accepted without its data</td><td><a href="10-assurance.html#INV-02">INV-02</a></td></tr> </tbody></table>
 
 <div class="warnbox small"> <strong>Unmeasured register contributed by this page.</strong> Gas cost of <code>land(data, proof)</code>; gas cost
-of the in-guest Lagrange evaluation per blob; the full cost of a blob-path acceptance; every parameter value named above (<code>MAX_BATCH_BLOCKS</code>, <code>RETRIEVABILITY_WINDOW</code>,
-<code>MAX_UNSETTLED_AGE</code>, <code>ARCHIVE_REQUIREMENT</code>, <code>FORCED_INCLUSION_DELAY_SECONDS</code>, <code>FORCED_INCLUSION_MAX_DRIFT</code>,
-<code>FORCED_INCLUSION_ESCAPE_THRESHOLD</code>, <code>MAX_FORCED_INCLUSION_BYTES</code>, <code>MAX_FORCED_INCLUSIONS_PER_BATCH</code>, <code>BASE_FEE</code>,
-<code>FEE_DOUBLE_THRESHOLD</code>, <code>MAX_FEE</code>, <code>CANCELLATION_COST</code>, <code>WITHDRAWAL_DELAY</code>, <code>REWARD_QUOTE</code>); and the profitability of queue griefing.
+of the in-guest Lagrange evaluation per blob; the full cost of a blob-path acceptance; every parameter value named above (<code>MAX_BATCH_BLOCKS</code>, <code>D_MAX</code>,
+<code>RETENTION_WINDOW</code>, <code>MARGIN_V</code>, <code>T_PROOF_MAX_PERMITTED</code>, <code>T_SETTLE_PIPELINE</code>, <code>RETRIEVABILITY_WINDOW</code>,
+<code>ARCHIVE_REQUIREMENT</code>, <code>W_EVIDENCE</code>, <code>WITHDRAWAL_DELAY</code>, <code>REWARD_QUOTE</code>). <em>(user decision D-6: the forced-inclusion parameters are removed from this
+register; review round 2, findings R2-LIV-07 / R2-LIV-08: the redundant second cap and its parameters are removed — the single cap is HALT-03's <code>D_MAX</code>.)</em>
 The only sourced figures on this page are the EIP-4844 constants (<code>0x0A</code>, <code>50,000</code> gas, 4096 field elements per blob, 4096 epochs of sidecar retention), the EIP-7691
 blob counts (target 6, maximum 9), the EIP-4444 pruning horizon (14,299 epochs), and today's baseline values, which are not this design's values. </div>
 

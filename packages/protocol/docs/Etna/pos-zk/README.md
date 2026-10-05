@@ -71,7 +71,7 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | R7 | Complete proof statement, both backends | [05](spec/05-proof-statement.html) PRF-01..13, [03](03-zkvm-feasibility.md) | specified |
 | R8 | Public data bound to the proof | [04](spec/04-l1-integration.html) DA-01..06 | specified |
 | R9 | D5 atomicity everywhere | [04](spec/04-l1-integration.html) L1-01..04, [06](spec/06-recovery-exceptions.html) REC-02 | specified |
-| R10 | Censorship resistance and forced inclusion | [04](spec/04-l1-integration.html) FI-01..05 | specified |
+| R10 | Censorship resistance — **relaxed by user decision D-6**: forced inclusion removed; statistical resistance only (proposer rotation under A-CONS-2), with the withdrawal-censorship consequence disclosed | [10](spec/10-assurance.html) LIVE-04, [04](spec/04-l1-integration.html) FI-REMOVED-01 | satisfied in relaxed form only |
 | R11 | Objective misconduct evidence, collateral, exits | [07](spec/07-economics-slashing.html) ECON-04..08 | specified |
 | R12 | No L1 lookahead or fixed slot dependence | [index](spec/index.html) GEN-06 | specified |
 | R13 | Implementable without inventing rules | all pages; 128 registered rules | 128/128 stated once |

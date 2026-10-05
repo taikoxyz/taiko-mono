@@ -38,8 +38,9 @@ certificate over (chain id, epoch, height, round, block id) signed by more than 
 voting power of the epoch's validator set, where that set is authenticated from L1 state and
 <code>epoch</code> is the L1-committed function of height; a batch never spans an epoch boundary
 (<a href="#PRF-05">PRF-05</a>), so exactly one epoch and one set root are in play; and
-<strong>(W2) execution</strong> — that executing the batch's blocks, in the order fixed by the
-consensus chain, from the predecessor state root yields the claimed successor state root. The guest
+<strong>(W2) execution</strong> — that executing the batch's blocks, decoded from the committed payload per
+<a href="#PRF-06">PRF-06</a>, in the order fixed by the consensus chain, from the predecessor state root
+yields the claimed successor state root. The guest
 also proves <strong>(W3) data binding</strong> — that the data it executed is the data the accepting
 L1 transaction publishes (see <a href="#PRF-07">PRF-07</a>). Acceptance requires all three. <em>(review round 1, findings B R1-03, B R1-04)</em></span>
 <span class="why">Failure mode if split: a proof that a block was finalized without proving what it
@@ -104,14 +105,15 @@ transaction, and it recomputes the Fiat–Shamir challenge rather than trusting 
                              // ceil(nSigners/8) bytes, bit i = canonical signer index i: the
                              // per-signer input the staking contract records for per-epoch
                              // validator rewards (ECON-02 clause 5)  (L1: claimed, proof-bound)
-  uint64  firstBlockTimestamp; // header timestamp of firstHeight; fixes the FI-02 dueness clock
-                             // T, so a proof MUST bind it            (L1: claimed, proof-bound)
-  uint64  lastBlockTimestamp;  // header timestamp of lastHeight; the pair fixes the drift bound
+  uint64  firstBlockTimestamp; // header timestamp of firstHeight; with lastBlockTimestamp
+                             // it fixes the batch's time span, which the header-chain and
+                             // timestamp-monotonicity checks read, so a proof MUST bind it
                              //                                       (L1: claimed, proof-bound)
-  address feeRecipient;      // L2 proposer payout address of the first block's header; it receives
-                             // the forced-inclusion fees (L1-11), so a lander MUST NOT be able to
+  uint64  lastBlockTimestamp;  // header timestamp of lastHeight; the span's other end, bound
+                             // by the same checks                      (L1: claimed, proof-bound)
+  address feeRecipient;      // L2 proposer payout address committed by the first block's header;
+                             // any account may land (L1-04), so a lander MUST NOT be able to
                              // choose it                            (L1: claimed, proof-bound)
-  bytes32 forcedInclusionCommitment; // keccak over the covered FI ids   (L1: recomputed from L1 state)
 }
 // INVARIANT: firstHeight and lastHeight lie in the SAME epoch. A batch may not span an
 // epoch boundary (PRF-05), so one epoch/set-root pair is sufficient and the journal needs
@@ -146,7 +148,8 @@ predecessor record, while the guest binds the predecessor through
 <code>prevHeight</code>/<code>prevBlockHash</code>/<code>prevStateRoot</code>. <em>(review round 2,
 finding E-R2-02: this journal is now the single authoritative vector and L1-05 reconciles to it
 field-by-field; the <code>signerBitmap</code> field is the per-signer input required by review round 2
-finding E-R2-05.)</em></span>
+finding E-R2-05.)</em>
+<em>(user decision D-6: the <code>forcedInclusionCommitment</code> field is deleted from the journal together with forced inclusion; the journal remains the single authoritative public-input vector, and verification against <a href="04-l1-integration.html#L1-05">L1-05</a> &sect;2.1 confirms that the journal and L1-05's binding table agree field for field — every journal field maps to a live L1-05 row, row 2 (<code>previousCheckpointHash</code>) is the only L1-local value that is not a public input, row 20 stays vacant and row 21 <code>feeRecipient</code> is kept.)</em></span>
 <span class="why">Failure mode if any field were caller-supplied: a prover could assert its own
 validator set, quorum threshold or predecessor, and the proof would be sound but meaningless. This is
 the highest-risk integration point identified in the zkVM research
@@ -164,9 +167,11 @@ from <code>prevHeight + 1</code> to <code>lastHeight</code>, including each head
 encoding fixed in <a href="#PRF-02">PRF-02</a>(3), so a header whose field is a hash of any other
 encoding is invalid; (d) the epoch-boundary evidence required by <a href="#PRF-05">PRF-05</a> — a batch
 never crosses a boundary, so this is the end-of-epoch or start-of-epoch evidence of the batch that
-touches the boundary; (e) the batch's transaction
-data and the pre-state witness needed for execution; (f) the blob field elements used by
-<a href="#PRF-07">PRF-07</a>. <strong>No witness element may define the authoritative validator
+touches the boundary; (e) the committed payload bytes — the byte string
+<code>dataCommitment</code> binds, framed per <a href="#PRF-07">PRF-07</a>(0) — and the pre-state
+witness needed for execution: the guest MUST derive every executed block body by decoding these
+bytes and MUST NOT accept a second, independent copy of the payload; (f) the blob field elements
+used by <a href="#PRF-07">PRF-07</a> (on the blob path, the same committed byte string). <strong>No witness element may define the authoritative validator
 set.</strong> A set is accepted only if its recomputed commitment equals <code>validatorSetRoot</code>,
 and that root comes from L1 state, never from the proof payload.</span>
 <span class="why">Failure mode: a prover supplies a set it controls together with matching signatures,
@@ -208,18 +213,7 @@ becomes unsettleable. <em>(review round 1, finding CS-09: the guest's
 the client's <code>3s &gt; 2W</code>, so a minimally finalized certificate could not be proven.)</em>
 (iv) <code>totalVotingPower</code> equals the sum of the authenticated entries' effective stakes;
 (v) the head block hash equals the hash of the reconstructed head header, and the header chain links
-back to <code>prevBlockHash</code> by parent hash with no gaps; and (vi) <strong>the forced-inclusion
-check</strong>: the guest recomputes the capped FIFO prefix <code>DueCap(T)</code> defined by
-<a href="04-l1-integration.html#FI-02">FI-02</a> — the same predicate the L1 backstop in
-<code>land(data, proof)</code> computes, with <code>T</code> the batch's first-block timestamp — from
-the L1-stored queue (the queue head, the eligibility timestamps and the consumed set are L1 state,
-supplied as public inputs or derived from values the contract reads), and requires that the batch's
-first block contains exactly those requests,
-that <code>forcedInclusionCommitment</code> is the canonical hash of that ordered list, and that no other
-request is covered. <em>This check is what makes the L1 backstop real: without it, an L1-05 binding row
-that claims <code>forcedInclusionCommitment</code> is proof-bound is merely asserted, and a quorum could
-omit a forced inclusion, consume the request and collect its fee while every other check passes (review
-round 1, finding C R1-02).</em></span>
+back to <code>prevBlockHash</code> by parent hash with no gaps. <em>(user decision D-6: clause (vi), the forced-inclusion check, is removed with forced inclusion; the remaining clauses keep their lettering — no clause is renumbered.)</em></span>
 <span class="why">Failure modes addressed: double counting a signer, counting stake twice, a rounding
 discrepancy between guest and contract, and a certificate over a block that is not the one whose header
 chain was executed.</span>
@@ -236,7 +230,7 @@ epoch whose set it still controls, and a prover choosing an "easy" set.</span>
 <span class="norm">The guest executes every block in the range in consensus order, starting from
 <code>prevStateRoot</code>, applies each block's transactions under the L2 execution rules, and checks
 that each resulting state commitment equals the state root committed by that block's header; the final
-state commitment must equal <code>postStateRoot</code>. The state commitment function is
+state commitment must equal <code>postStateRoot</code>. <strong>The executed block bodies are decoded from the committed payload, never taken from a separate witness stream.</strong> The guest MUST decode each block's body from the byte string the journal's <code>dataCommitment</code> binds — the canonical framing of <a href="#PRF-07">PRF-07</a>(0) — and MUST reject the proof unless the transactions it decodes for every height in <code>[firstHeight, lastHeight]</code> yield, under that header's own transactions-root construction, exactly the <code>transactions_root</code> committed by that height's header; a body that cannot be decoded from the committed bytes, or whose decoded transactions do not reproduce that root, invalidates the proof. The witness may not supply a block body independently of the committed payload: <a href="#PRF-03">PRF-03</a>(e) carries the committed payload bytes to the guest and MUST NOT be read as permitting a second, independent copy. This decode-and-root check is what makes <code>dataCommitment</code> a binding rather than a claim: without it the guest could execute a certified chain whose bodies came from somewhere other than the published bytes, and the accepting L1 transaction would commit to data that was never executed. <em>(review round 2, finding P-R2-01)</em> The state commitment function is
 Ethereum-compatible (Merkle–Patricia root over the account and storage tries), because the design
 preserves type-1 execution semantics; substituting a different commitment scheme is a normative change
 and not an implementation choice.</span>
@@ -245,7 +239,8 @@ different pre-state, and a state-root scheme the bridge cannot verify.</span>
 <span class="pill proven">Proven</span> <span class="small">(premise: the L2 execution rules are fixed by the preserved EVM semantics)</span></div>
 
 <div class="rule" id="PRF-07"><span class="rid">PRF-07 — data-commitment binding for both data paths</span>
-<span class="norm">Exactly one of the following holds, and the journal records which.
+<span class="norm"><strong>(0) Payload framing — the one canonical serialisation, normative for both paths.</strong> The batch payload <code>P</code> is a single byte string and is the only object the guest decodes and executes; (a) and (b) bind this payload and nothing else. <code>P</code> is the ordered concatenation, in ascending height order, of exactly one frame per height in <code>[firstHeight, lastHeight]</code>: <code>P = frame(firstHeight) || frame(firstHeight + 1) || ... || frame(lastHeight)</code>, with <code>frame(h) = be32(len(body_h)) || body_h</code>. <code>be32(x)</code> is the 4-byte big-endian encoding of the unsigned 32-bit byte length of the element that follows, so the i-th frame (zero-based) is the body of height <code>firstHeight + i</code>; <code>body_h</code> is that block's body in the canonical execution-layer encoding whose transaction list the header's <code>transactions_root</code> commits to (the RLP list of the block's transactions in execution order), with no additional wrapper, separator, compression or framing field. No framing value is taken from the witness: the decoder consumes frames left to right, the height of each frame follows from its position, and the journal fixes the expected frame count at <code>lastHeight - firstHeight + 1</code>. A payload is invalid if a body length does not fit in 32 bits, if a length prefix would run past the end of the committed region, if the frame count differs from that number, or if any committed byte remains after the last frame; trailing bytes are not tolerated, so the decode is injective and <code>P</code> is a function of the published bytes and of the journal's height range alone. In the calldata path (<code>daMode = 1</code>) <code>_data</code> MUST be exactly <code>P</code>; on the blob path (<code>daMode = 2</code>) the blob concatenation MUST be <code>P</code> followed by zero padding to the end of the last blob in the committed range; and in <code>CALLDATA_AND_BLOB</code> both published copies MUST encode the same payload — <code>_data = P</code> and the blob concatenation MUST be <code>P</code> followed by zero padding — because two committed copies that differed would name two different data objects. This framing is part of the one statement both backends implement (<a href="#PRF-09">PRF-09</a>): a backend that framed or decoded differently would implement a different statement. Bodies enter the guest only by decoding these bytes, as <a href="#PRF-06">PRF-06</a> requires. <em>(review round 2, finding P-R2-04)</em>
+Exactly one of the following holds for the commitment construction, and the journal records which.
 <strong>(a) Calldata path.</strong> The object committed by <code>dataCommitment</code> is the
 <em>whole</em> published byte string, not a prefix of it: here, the exact calldata payload the guest
 executes and L1 publishes. The L1 contract computes <code>dataCommitment</code> itself with the

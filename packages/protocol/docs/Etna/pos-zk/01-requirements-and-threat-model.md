@@ -242,7 +242,7 @@ decision needed). Numbers are tagged **derived**, **sourced**, or **unmeasured**
 | R7 | Complete proof statement for execution + selected mode's consensus/finality/recovery rules; credible on RISC Zero **and** SP1 | *(Phase 2/4)* | *(Phase 2/4)* | Open |
 | R8 | Sufficient data on Ethereum (blobs/calldata) bound to the accepted proof; no private witness/committee certificate as a substitute | *(Phase 4)* | *(Phase 4)* | Open |
 | R9 | D5 atomicity for every accepted batch, incl. during recovery and prover failure; no bypass | *(Phase 4)* | *(Phase 4)* | Open |
-| R10 | Censorship resistance and forced inclusion without an override that violates D2 | *(Phase 4)* | *(Phase 4)* | Open |
+| R10 | Censorship resistance and forced inclusion, without an override that violates D2 — **restated by user decision D-6**: state censorship resistance honestly; the protocol provides statistical resistance from proposer rotation and gossip under A-CONS-2 and provides **no** L1 forced-inclusion path; no override that violates D2 may be introduced | enforced by `LIVE-04` (spec/10) and `FI-REMOVED-01` (spec/04) | Proven (statement honesty) / Assumed (A-CONS-2) | Satisfied **in its relaxed form only**; the original form is explicitly not satisfied (D-6) |
 | R11 | Objective misconduct evidence, collateral, payouts, exit delays, false-accusation handling; no "non-receipt = misconduct" | *(Phase 4)* | *(Phase 4)* | Open |
 | R12 | No dependence on L1 proposer lookahead or fixed L1 slot duration; seconds or L1 block numbers | *(Phase 4)* | *(Phase 4)* | Open |
 | R13 | Every security-relevant transition/message/proof input/exceptional path specified enough to implement without inventing rules | *(Phase 4)* | *(Phase 4)* | Open |

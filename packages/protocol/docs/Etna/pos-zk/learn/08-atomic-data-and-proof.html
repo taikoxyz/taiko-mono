@@ -10,7 +10,7 @@
 <h1>08 — Data and proof travel together</h1>
 <div class="card">
 <p><strong>Problem this lesson solves.</strong> It explains why this design has no "publish the data now,
-prove it later" path, what the June 2026 forced-inclusion expiry shows about that class of failure, and
+prove it later" path, what the June 2026 baseline queue expiry shows about that class of failure, and
 how the blob path binds the data a prover executed to the data Ethereum published.</p>
 </div>
 <h2 id="plain">In plain language</h2>
@@ -28,18 +28,22 @@ transactions the data is public on L1 while no proof exists. If the proof never 
 occupied L1 capacity, consumed the settlement budget, and settled nothing — and the record that ties the
 data to a future proof can itself expire.</p>
 <p><strong>The real example: June 2026.</strong> The repository at revision <code>7718753c1</code> shows
-the failure class, not a hypothetical. Forced inclusions were disabled after the June 2026 incident, and
-the queued entries' blobs had <em>expired from the blob retention window and can no longer be
-derived</em>. The one-time owner function <code>init3()</code>
+the failure class, not a hypothetical. The baseline's forced-inclusion mechanism was disabled after the
+June 2026 incident, and the queued entries' blobs had <em>expired from the blob retention window and can
+no longer be derived</em>. The one-time owner function <code>init3()</code>
 (<a href="../../../../contracts/layer1/core/impl/Inbox.sol#L246-L258">Inbox.sol:246-258</a>) moves the
 queue head to the tail, permanently discarding every queued entry, and its documentation records that
-the fees remained in the contract. The design's answer is structural, not a promise of better
-operations: a forced-inclusion request's payload must be calldata carried in the request transaction and
-stored in the Inbox's own L1 storage — <em>not</em> a blob — precisely so the request cannot expire
-(<a href="../spec/04-l1-integration.html#FI-01">FI-01</a>), and a request must never be voidable by an
-owner, DAO or operator (<a href="../spec/04-l1-integration.html#FI-03">FI-03</a>). What the repository
-establishes is the expiry and the void; the <em>cause</em> of the June 2026 incident is recorded as
-unverified in the baseline research and is not claimed here
+the fees remained in the contract. This design does not rebuild that queue: forced inclusion is removed
+entirely (<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>), so there is no
+queued request reference that can outlive its data and no owner-reachable queue state to void. What
+remains is the atomicity rule — data and its proof land in one transaction, so the acceptance path never
+waits on a reference created earlier
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>) — together with the retention limit and the
+backlog cap, stated honestly with their own limits
+(<a href="../spec/04-l1-integration.html#DA-05">DA-05</a>,
+<a href="../spec/04-l1-integration.html#DA-06">DA-06</a>). What the repository establishes is the expiry
+and the void; the <em>cause</em> of the June 2026 incident is recorded as unverified in the baseline
+research and is not claimed here
 (<a href="../research/taiko-baseline-contracts.md">taiko-baseline-contracts.md</a>).</p>
 <p><strong>No second door.</strong> The rule is not only about one function name: no entry point —
 public, external, or reachable through an upgrade initialiser — may write a batch record, predecessor
@@ -85,7 +89,7 @@ unconditionally available if any blob-path premise fails.</p>
 <p><strong>What failure does.</strong> The acceptance call executes in a fixed order and writes nothing
 until the verifier has returned exactly <code>abi.encode(true)</code>. A revert, an empty return or any
 other value means the batch is unaccepted, and <code>land</code> must revert with <em>no</em> partial
-effect: no checkpoint, no height advance, no consumed forced inclusion, no payout, no event
+effect: no checkpoint, no height advance, no payout, no event
 (<a href="../spec/04-l1-integration.html#L1-03">L1-03</a>). And a failed attempt does not poison the
 range: the first valid submission wins, but re-submission of the same batch by a <em>different</em>
 account must be accepted whenever the first submission did not land, and the reward is paid to the
@@ -114,9 +118,11 @@ Fiat–Shamir challenge, and an in-guest evaluation at the same point
 <li><strong>Retention and its limit.</strong> Blobs are not a permanent store; retrievability is
 specified as a window in L1 block numbers with an archive requirement, and the retention clock starts at
 acceptance (<a href="../spec/04-l1-integration.html#DA-05">DA-05</a>).</li>
-<li><strong>Forced-inclusion request.</strong> A calldata payload stored in L1 state with an eligibility
-timestamp, FIFO and never reused; not a blob, so it cannot expire
-(<a href="../spec/04-l1-integration.html#FI-01">FI-01</a>).</li>
+<li><strong>No forced-inclusion path (FI-REMOVED-01).</strong> The design has no L1 request, queue,
+escrow, duty or escape hatch, so no data-carrying request exists whose reference could expire; the
+remaining response to censorship is the conditional statistical property of
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, not a data-availability rule
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).</li>
 <li><strong>Data-commitment binding.</strong> Exactly one of the two paths holds per batch, and the guest
 must reject the batch if its recomputation differs; this is the rule that makes a proof unusable for
 unrelated data (<a href="../spec/05-proof-statement.html#PRF-07">PRF-07</a>).</li>
@@ -191,13 +197,14 @@ why the published blob and the executed data cannot be two different things.</fi
 <tr><td>Total gas cost of <code>land</code></td><td>not established</td><td><span class="pill unmeasured">unmeasured</span> — would need a gas-snapshot run at the target batch size (L1-03)</td></tr>
 <tr><td>Calldata path: probability term for data/proof mismatch</td><td>none — the contract and the guest hash the same bytes and require equality</td><td><span class="pill proven">Proven</span> — DA-02, PRF-07(a)</td></tr>
 <tr><td>Blob retention window (EIP-4844 constant)</td><td>4096 epochs ≈ 18 days at present Ethereum cadence</td><td><span class="pill sourced">sourced</span> constant, <span class="pill derived">derived</span> conversion; the design expresses the window in epochs/L1 blocks and does not depend on the wall-clock figure (DA-05)</td></tr>
-<tr><td>Forced-inclusion payload location</td><td>calldata in the request transaction, stored in Inbox L1 state</td><td><span class="pill proven">Proven</span> — FI-01; deliberately not a blob, so it cannot expire</td></tr>
+<tr><td>Queued reference that outlives its data</td><td>not present: forced inclusion and its queue are removed, so no such state exists in the design</td><td><span class="pill proven">Proven</span> — by removal; the class cannot recur in the design's own state (FI-REMOVED-01)</td></tr>
 <tr><td>June 2026 queue void</td><td><code>init3()</code> at <code>Inbox.sol:246-258</code>: head set to tail; entries discarded; fees retained</td><td><span class="pill sourced">sourced</span> — repository at <code>7718753c1</code>; the incident's cause is recorded UNVERIFIED</td></tr>
 </tbody></table>
 <p>Two rows carry the lesson. The blob path's guarantee is probabilistic and conditional on four named
-premises; the calldata path's is an exact equality. And the June 2026 row is why the forced-inclusion
-request must live in L1 state rather than in a blob: a reference that outlives its data is how a queue
-becomes unincludable <em>and</em> unrefundable, which is exactly the state FI-01 rules out.</p>
+premises; the calldata path's is an exact equality. And the June 2026 row is why the design does not
+keep a queued reference at all: a reference that outlives its data is how a queue becomes unincludable
+<em>and</em> unrefundable, and this design removes that state rather than promising to operate it better
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).</p>
 <h2 id="prevents">Attacks this prevents</h2>
 <ul>
 <li><strong>Publish-and-never-prove.</strong> Data cannot be put on L1 ahead of its proof, so a batch
@@ -237,9 +244,11 @@ on archives rather than on Ethereum, and the design says so
 <li><strong>An unmeasured blob-path cost.</strong> Whether the in-guest evaluation is usable at scale is
 unmeasured; the calldata path remains available unconditionally
 (<a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>).</li>
-<li><strong>L1 censorship of the atomic transaction.</strong> Data and proof cannot land, and
-forced-inclusion requests cannot land either; that is a disclosed consequence of L1 failure
-(<a href="../01-requirements-and-threat-model.md">T-7</a>).</li>
+<li><strong>L1 censorship of the atomic transaction.</strong> Data and proof cannot land, and there is
+no forced-inclusion path to fall back on because the design deliberately has none; that is a disclosed
+consequence of L1 failure with no protocol remedy
+(<a href="../01-requirements-and-threat-model.md">T-7</a>,
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>).</li>
 <li><strong>A soundness bug in a backend or in the guest program.</strong> A mis-proven statement is
 outside what atomicity can repair (<a href="../spec/05-proof-statement.html#PRF-09">PRF-09</a>).</li>
 </ul>
@@ -254,7 +263,7 @@ pin the executed data to the published blob (<a href="../spec/04-l1-integration.
 commitment and hence the versioned hashes of the very blobs the prover must fix first; a submitter-
 supplied <code>z</code> is not accepted (<a href="../spec/04-l1-integration.html#DA-03">DA-03(iii)</a>).</p></details>
 <details><summary>Your proof transaction fails. What state changed, and can someone else still land the batch?</summary>
-<p>No partial effect: no checkpoint, no height advance, no consumed forced inclusion, no payout, no
+<p>No partial effect: no checkpoint, no height advance, no payout, no
 event (<a href="../spec/04-l1-integration.html#L1-03">L1-03</a>). Another account may land the same batch
 with the same data commitment; re-submission must be accepted if the first attempt did not land, and the
 reward goes to whoever pays for the landing transaction
@@ -266,8 +275,8 @@ reward goes to whoever pays for the landing transaction
 record, where the repository establishes the blob expiry, the queue void and the retained fees, while
 the cause is explicitly unverified; (iv) the blob binding's four premises — KZG binding, the random-
 oracle model for Fiat–Shamir, correct in-guest field arithmetic, canonical field elements — whose
-in-guest cost is unmeasured; (v) the calldata path's exact-equality binding; (vi) FI-01's replacement of
-blob-backed requests with L1-stored calldata. Falsifier: find a place in this lesson that claims a
+in-guest cost is unmeasured; (v) the calldata path's exact-equality binding; (vi) the removal of forced
+inclusion (<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>), so no queue state exists whose reference could expire. Falsifier: find a place in this lesson that claims a
 stronger blob-path guarantee than DA-03's premises allow, or that presents the June 2026 cause as
 established.</p>
 </div>
@@ -279,8 +288,9 @@ established.</p>
 <li><a href="../spec/04-l1-integration.html#DA-01">DA-01</a>–<a href="../spec/04-l1-integration.html#DA-05">DA-05</a>
 (data availability, both data paths, retention), and
 <a href="../spec/05-proof-statement.html#PRF-07">PRF-07</a> for the guest-side binding.</li>
-<li><a href="../spec/04-l1-integration.html#FI-01">FI-01</a> and
-<a href="../spec/04-l1-integration.html#FI-03">FI-03</a> (forced-inclusion format and the no-void rule).</li>
+<li><a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a> (forced inclusion is not part
+of this design) and <a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> (the conditional
+censorship-resistance statement).</li>
 <li><a href="../../../../contracts/layer1/core/impl/Inbox.sol#L246-L258">Inbox.sol:246-258</a> — the
 <code>init3()</code> comment and function at the pinned baseline.</li>
 <li><a href="../04-architecture-decision.md">04 — architecture decision</a> §4 (the two data paths and the

@@ -19,8 +19,10 @@ withdrawal, naming the exact status label, the evidence held and what could stil
 <p><strong>The batch.</strong> A user transaction enters the L2 mempool. The proposer selected by the epoch's weighted rotation
 (<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>) builds a block at height <em>H</em> and proposes it; the block body is what a
 receiver first holds, which is only <a href="../spec/index.html#STATUS-01">proposed</a>. Each validator executes the block against the parent
-state and checks every consensus and validity rule — including the forced-inclusion duty
-(<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>) — which makes it
+state and checks every consensus and validity rule
+(<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>) — there is no forced-inclusion duty to check,
+because the design has no forced-inclusion path
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>) — which makes it
 <a href="../spec/index.html#STATUS-02">locally execution-valid</a> for that node only. Validators then prevote and precommit; once a commit
 certificate carrying strictly more than two thirds of the epoch's voting power is published and the node has checked data availability for
 itself, the block is <a href="../spec/index.html#STATUS-04">PoS-finalized</a> (Mode A). Under Mode A that status is never revoked.</p>

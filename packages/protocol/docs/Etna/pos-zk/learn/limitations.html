@@ -47,7 +47,9 @@ cryptographically valid; ZK verification cannot repair this. Detection and discl
 specification must not make it undetectable (<a href="../01-requirements-and-threat-model.md">01</a> §5,
 <a href="../spec/10-assurance.html#INV-01">INV-01</a>).</p>
 
-<p><strong>What is explicitly not claimed.</strong> That any attack is unprofitable; that proving throughput or the 2&nbsp;s cadence has been
+<p><strong>What is explicitly not claimed.</strong> That any attack is unprofitable; that the protocol provides a per-transaction
+inclusion guarantee or an L1 forced-inclusion path
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>); that proving throughput or the 2&nbsp;s cadence has been
 measured; that ZK verification repairs failed consensus assumptions; that a PoS confirmation before
 <a href="../spec/index.html#STATUS-06">accepted on L1</a> is irreversible in any mode other than Mode A's stated assumptions; that a
 settlement halt is bounded in duration; that users will be compensated for losses — penalties are not compensation and no universal bound on
@@ -95,7 +97,7 @@ attacker resources, harm, affected requirements and resolution or explicit accep
   <text x="36" y="102" fill="#9aa7b4" font-size="9">a trust assumption; one upgrade can rewrite any rule (GOV-02)</text>
   <rect x="20" y="118" width="470" height="42" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
   <text x="36" y="136" fill="#e6edf3" font-size="11">L1: A-L1-1 — Ethereum inclusion, no finality reversal; A-L1-2 features available</text>
-  <text x="36" y="152" fill="#9aa7b4" font-size="9">if it fails: nothing settles and forced inclusion is unavailable</text>
+  <text x="36" y="152" fill="#9aa7b4" font-size="9">if it fails: nothing settles, and no L1 fallback path exists (LIVE-04)</text>
   <rect x="20" y="168" width="470" height="42" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
   <text x="36" y="186" fill="#e6edf3" font-size="11">DA and proving: A-CONS-5 retention · A-DA-2 a prover completes · A-DA-4 witness reconstructible</text>
   <text x="36" y="202" fill="#9aa7b4" font-size="9">if they fail: settlement halts, possibly permanently</text>
@@ -133,12 +135,12 @@ and none of the three classes is repaired by a proof.</figcaption>
 <thead><tr><th>Register</th><th>Count</th><th>What it blocks</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Derived quantities at the 2&nbsp;s cadence (PARAM-02)</td><td>13 rows, including 900 blocks per 30-minute envelope</td><td>nothing by itself; these are arithmetic on decided or sourced inputs</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Unmeasured quantities (PARAM-03)</td><td>12 rows: proving latency, throughput, cycles per gas, Ed25519 cost, in-guest blob evaluation, round time, retention, TAIKO market data, operator cost, fee/MEV revenue, L1 verification gas, detection rates</td><td>every performance and economics value of the design</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td>Unmeasured register contributed by the L1 page</td><td>19 items: 3 measurements (gas of <code>land</code>, in-guest Lagrange cost, blob-path acceptance cost) + 15 parameters + queue-griefing profitability</td><td>batch economics and the fee schedule</td><td><span class="pill derived">derived</span> count of <span class="pill unmeasured">unmeasured</span> items</td></tr>
+<tr><td>Unmeasured quantities (PARAM-03)</td><td>13 rows: proving latency, throughput, cycles per gas, Ed25519 cost, in-guest blob evaluation, round time, retention, TAIKO market data, operator cost, fee/MEV revenue, ordering value (MEV) retained, L1 verification gas, detection rates</td><td>every performance and economics value of the design</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Unmeasured register contributed by the L1 page</td><td>14 items: 3 measurements (gas of <code>land</code>, in-guest Lagrange cost, blob-path acceptance cost) + 11 parameters (<code>MAX_BATCH_BLOCKS</code>, <code>D_MAX</code>, <code>RETENTION_WINDOW</code>, <code>MARGIN_V</code>, <code>T_PROOF_MAX_PERMITTED</code>, <code>T_SETTLE_PIPELINE</code>, <code>RETRIEVABILITY_WINDOW</code>, <code>ARCHIVE_REQUIREMENT</code>, <code>W_EVIDENCE</code>, <code>WITHDRAWAL_DELAY</code>, <code>REWARD_QUOTE</code>); the forced-inclusion parameters and queue-griefing profitability are no longer in it (<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>)</td><td>batch economics, retention and reward funding</td><td><span class="pill derived">derived</span> count of <span class="pill unmeasured">unmeasured</span> items; the register itself is maintained on <a href="../spec/04-l1-integration.html">04</a> and <a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a></td></tr>
 <tr><td>Measurement gates carried by the architecture decision</td><td>4 items: F2 in-guest blob evaluation cost, F3 2&nbsp;s cadence with a permissionless global set, F4 proving throughput inputs, plus review target F1</td><td>whether the blob path, the cadence and the fleet size are feasible</td><td><span class="pill open">Open</span></td></tr>
 <tr><td>Throughput sustainability (LIVE-03)</td><td>3 inequalities, all with unmeasured inputs</td><td>launch feasibility; a failure means backpressure, not a longer assumption</td><td><span class="pill open">Open</span></td></tr>
 <tr><td>Withdrawal delay <code>D_withdraw</code></td><td>6 terms + margin, every term unmeasured</td><td>the exit path's safety against the withdrawal race</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td>Envelope versus placeholder backlog cap</td><td>900 blocks (derived) versus <code>D_MAX</code> = 3,600 blocks (placeholder)</td><td>whether a normal proof can ever hit the cap</td><td>first <span class="pill derived">derived</span>, second <span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Envelope versus backlog cap</td><td>900 blocks (derived) versus <code>D_MAX</code>, which is a formula with no proposed numeric value</td><td>whether a normal proof can ever hit the cap</td><td>first <span class="pill derived">derived</span>, second <span class="pill unmeasured">unmeasured</span> inputs</td></tr>
 <tr><td>Measured quantities of this design</td><td>0</td><td>every performance claim; only Ethereum constants are <span class="pill sourced">sourced</span> (50,000 gas, 4096 epochs, 6/9 blobs, 14,299 epochs)</td><td><span class="pill sourced">sourced</span> for the constants; none measured here</td></tr>
 </tbody></table>
 
@@ -166,6 +168,34 @@ and the red-team ledger <a href="../spec/10-assurance.html#LIM-03">LIM-03</a> is
 treasury transfer or a token upgrade is a user decision, and no token-appreciation assumption may substitute for funding
 (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, <a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a>).</li>
 </ul>
+
+<h2 id="r10">The R10 relaxation, disclosed</h2>
+<p><strong>What R10 asked for.</strong> R10 reads: "Specify censorship resistance and forced inclusion without introducing an
+override that violates D2." Forced inclusion was the mechanism the original requirement asked the design to specify.</p>
+
+<p><strong>What was decided.</strong> The user, as requirement owner, directed that forced inclusion be removed from the
+specification; the decision is recorded as <a href="../DECISIONS.md">DECISIONS.md D-6</a> and it is a
+<strong>user-authorized partial relaxation of R10</strong>, not a silent omission. R10 is restated as: "State censorship
+resistance honestly. The protocol provides statistical resistance from proposer rotation and gossip under
+<code>A-CONS-2</code> and provides no L1 forced-inclusion path; no override that violates D2 may be introduced." R10 is
+satisfied in that relaxed form and <strong>not</strong> in its original form
+(<a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §7).</p>
+
+<p><strong>The disclosed limitation and its consequence.</strong> The protocol provides no per-transaction inclusion
+guarantee and no L1 forced-inclusion path. What remains is conditional: proposer selection is hash-based and weighted
+(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>), so a coalition with less than one third of the voting power
+proposes strictly fewer than one third of slots in expectation, and a transaction that reaches honest validators is included
+by the first honest proposer with room for it — under <code>A-CONS-2</code>, that it can still reach honest validators. A
+network-level adversary able to isolate a user from every honest proposer can therefore exclude that user's transactions
+indefinitely; and because a withdrawal is initiated by an L2 transaction, the same adversary can prevent the user from
+<em>starting</em> a withdrawal. The protocol offers no remedy
+(<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>, <a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</p>
+
+<p><strong>How to read it.</strong> This is a disclosed limitation, not a strength: it must not be summarised away, and no
+unconditional censorship-resistance claim may be made. The specification states it in
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> and carries it in the limitations register
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>; lesson <a href="11-forced-inclusion.html">11</a> works through the
+consequence.</p>
 
 <h2 id="prevents">Attacks this prevents</h2>
 <ul>
@@ -240,7 +270,8 @@ counts are derived from the text and will drift as the specification is edited, 
 (<a href="../spec/index.html#GEN-03">GEN-03</a>); (ii) the fault-boundary mapping of F1/F2/F3 being the requirements document's, not this
 page's invention; (iii) the claim that zero performance numbers of this design are measured, with only Ethereum constants tagged sourced —
 if a measured number has since been added, this page is stale; (iv) the blockers list being complete only up to the recorded review questions
-Q-A1 to Q-A3; (v) the reporting route being the repository's stated security contact and the LIM-03 finding format. Falsifier: point at any
+Q-A1 to Q-A3; (v) the R10 relaxation being the user's recorded decision (D-6), which changes the scope of the final verdict;
+(vi) the reporting route being the repository's stated security contact and the LIM-03 finding format. Falsifier: point at any
 number in this course that is presented as measured without a source, or any guarantee stronger than the specification's — that is exactly
 the finding this page exists to make possible.</p>
 </div>
@@ -251,14 +282,16 @@ the finding this page exists to make possible.</p>
 rejected alternatives and their tradeoffs; <a href="../spec/10-assurance.html#LIM-03">LIM-03</a> — the finding ledger.</li>
 <li><a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a> — the unmeasured register with the experiment that closes each item;
 <a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a> — the parameter discipline.</li>
-<li><a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>–<a href="../spec/10-assurance.html#LIVE-03">LIVE-03</a> — the conditional
-liveness statement, backpressure, and the three sustainability inequalities.</li>
+<li><a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>–<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> — the conditional
+liveness statement, backpressure, the three sustainability inequalities, and censorship resistance stated honestly.</li>
 <li><a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> — the assumption list, the fault boundary and the
 mandatory adversarial schedule; <a href="../04-architecture-decision.md">04 — architecture decision</a> §7 — the open items and falsifiers.</li>
 <li><a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a> — the Mode B blocker;
 <a href="../spec/08-migration-upgrades.html#MIG-02">MIG-02</a> and <a href="../spec/08-migration-upgrades.html#MIG-04">MIG-04</a> — the
 migration audit obligations.</li>
-<li>Course: <a href="10-halt-or-roll-back.html">10 — halt or roll back</a> · <a href="11-forced-inclusion.html">11 — forced inclusion</a> ·
+<li><a href="../DECISIONS.md">DECISIONS.md D-6</a> — the user-authorized removal of forced inclusion; the specification's
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> — the conditional statistical property and its disclosed consequence.</li>
+<li>Course: <a href="10-halt-or-roll-back.html">10 — halt or roll back</a> · <a href="11-forced-inclusion.html">11 — no forced inclusion</a> ·
 <a href="12-bridge-and-addresses.html">12 — the bridge and the addresses</a> · <a href="13-walkthrough.html">13 — walkthrough</a>.</li>
 </ul>
 </main>

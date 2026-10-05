@@ -203,3 +203,46 @@ removal of data-first submission as a structural change rather than a configurat
 | 6 — Adversarial review | `iterations/NN-round.md` | pending |
 | 7 — Revision | updated spec + learn + ledger | pending |
 | 8 — Final verdict | README verdict + final report | pending |
+
+---
+
+### D-6 — User decision: **forced inclusion is removed from the specification** (2026-10-05)
+
+**Authorization.** The user explicitly directed that forced inclusion may be removed from the
+specification entirely. This is a **user-authorized relaxation of hard requirement R10**, which reads
+"Specify censorship resistance and forced inclusion without introducing an override that violates D2".
+The user is the requirement owner; the relaxation is recorded here rather than absorbed silently, and
+it changes the scope of the final verdict.
+
+**What is removed.** FI-01 … FI-05 (request format and fee, inclusion duty and L1 backstop, escape
+hatch, the no-reorder guarantee, griefing controls), the L1 forced-inclusion queue and its escrow, the
+`forcedInclusionCommitment` public input and its guest check, the forced-inclusion duty in proposal
+validity, the forced-inclusion fee terms in the reward budget, all forced-inclusion parameters, and the
+censorship offence in the penalty catalogue.
+
+**What replaces it: nothing on L1.** The protocol provides **no per-transaction inclusion guarantee**
+and no L1 escape path by which a user can force a transaction into L2.
+
+**What remains, stated honestly as a conditional statistical property, not a guarantee.**
+
+1. Proposer selection is hash-based and weighted (CONS-06), so a coalition holding less than one third
+   of the voting power is selected as proposer for strictly fewer than one third of slots in
+   expectation, and a transaction that reaches honest proposers is included by the first honest
+   proposer that has room for it.
+2. That resistance is conditional on the network assumption A-CONS-2: it holds only while a censored
+   transaction can still reach honest validators. **A network-level adversary that isolates a user from
+   every honest proposer can exclude that user's transactions indefinitely, and with forced inclusion
+   removed the protocol offers no remedy.**
+3. Because withdrawals are initiated by an L2 transaction, sustained L2 censorship can therefore also
+   prevent a user from **starting** a withdrawal. This is a disclosed consequence, not a bug, and it
+   must be stated in the specification, the learning course and any user-facing material.
+
+**Effect on the requirement matrix.** R10 is restated as: *"State censorship resistance honestly. The
+protocol provides statistical resistance from proposer rotation and gossip under A-CONS-2 and provides
+no L1 forced-inclusion path; no override that violates D2 may be introduced."* R10 is thereby
+**satisfied in its relaxed form and not satisfied in its original form**; the final report must say so.
+
+**Effect on findings.** Round-2 Criticals R2-LIV-01, R2-LIV-03 and R2-LIV-04 were all forced-inclusion
+defects and are closed by removal. The round-2 Highs that depended on the forced-inclusion backstop are
+closed with them. R2A-01 (epoch-lookahead gate) is unaffected and is fixed by a two-epoch lookahead.
+

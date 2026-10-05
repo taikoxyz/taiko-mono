@@ -142,8 +142,9 @@ coherent: the validator count is reduced through the objective exit path of
 <span class="norm">(5) <strong>Payment mechanism: the pool, the per-signer input, the claim, and the per-epoch identity.</strong>
 (a) <strong>Custody.</strong> The validator reward pool is an ETH balance held in a segregated account of
 the L1 staking contract of <a href="03-membership-staking.html#MEM-01">MEM-01</a> — not in the Inbox, whose
-two ledgers of <a href="04-l1-integration.html#L1-11">L1-11</a> (forced-inclusion escrow and prover reward)
-remain exactly two and are not touched by validator payouts. ETH in the pool is never collateral, never
+<a href="04-l1-integration.html#L1-11">L1-11</a> ledger (the prover reward) is not touched by validator
+payouts. <em>(user decision D-6: forced inclusion removed; no forced-inclusion escrow, fee or refund term
+remains in this accounting)</em> ETH in the pool is never collateral, never
 stake and never slashable: it is not counted in INV-A–INV-D (<a href="#ECON-01">ECON-01</a>), no slash may
 debit it, and no rule may borrow against it. Its inflows are the terms of clause 1 (L2 fee revenue and
 <code>POOL_TOPUP</code>, once the transfer of clause 7 exists); the pool never carries a negative balance.
@@ -229,9 +230,15 @@ against a wall clock during validation (<a href="index.html#GEN-06">GEN-06</a>),
 constant.</span> <span class="norm">(6) <strong>Exit churn is capped per epoch.</strong> <code>CHURN_LIMIT</code> is the maximum
 fraction of an epoch's voting power that may leave the set at one epoch boundary: the L1 staking contract
 <strong>MUST NOT</strong> make more than <code>CHURN_LIMIT · TotalVP(e)</code> of effective stake inactive at any
-single epoch <code>e</code>. Exits beyond the cap are neither cancelled nor penalised; they are deferred to later
-epochs in the objective request order of <a href="03-membership-staking.html#MEM-05">MEM-05</a>, and a deferred entry
-remains in every set version it is already committed to and remains fully slashable (clause 4). The cap exists
+single epoch <code>e</code>. Exits beyond the cap are neither cancelled nor penalised; they are deferred.
+<strong>How a deferred exit is ordered.</strong> Deferred exits become effective in ascending order of the request
+coordinates <code>(l1BlockNumber, txIndex, logIndex)</code> of the <code>requestExit()</code> transaction — the objective
+ordering key owned by <a href="03-membership-staking.html#MEM-03">MEM-03</a>(2) — so no later request takes effect before an
+earlier deferred one, and the cap never reorders the queue by stake, key, identity, reputation or fee. A deferred exit is
+<strong>never cancelled</strong> by the protocol: it remains pending until the first snapshot the cap does not exclude, and
+only the owner's <code>cancelExit()</code> before effectiveness removes it
+(<a href="03-membership-staking.html#MEM-05">MEM-05</a>(2), §2.1 transition 3b). A deferred entry remains in every set
+version it is already committed to and remains fully slashable (clause 4). The cap exists
 because otherwise a coordinated exit — every operator calling <code>requestExit()</code> in one L1 block, or the
 public end of the subsidy (ECON-02 clause 4) or a price move making exit rational for many operators at once — drops
 the stake that deters attack in a single step, after which an attacker acquires or rents a set that no longer
@@ -239,16 +246,14 @@ satisfies the deterrence relation of <a href="#ECON-09">ECON-09</a> clause 2 and
 exit, never a denial of it and never a confiscation: <code>withdraw()</code> remains available once the delay and the
 exposure gates of MEM-05 are satisfied. <code>CHURN_LIMIT</code> is <span class="pill unmeasured">unmeasured</span>;
 it must be derived from the deterrence relation, not chosen for convenience.
-<strong>Which rule wins when the cap binds.</strong> This clause qualifies MEM-05 clause 2's "first set version
-whose snapshot point is at or after the exit request transaction's L1 block" and §2.1 lifecycle row 4's
-"automatic at the first set snapshot at or after the request block": the exit becomes effective at the first
-set version at or after the request <em>that the cap does not exclude</em>, and MEM-05's wording MUST be read
-with that qualification. The two are one rule — MEM-05 owns the transition, this clause bounds how much stake
-may leave in one epoch — and an implementation that makes an exit effective regardless of the cap is
-non-conforming, because it voids the cap. A deferred exit is not cancelled, not penalised and not reordered; it
-keeps the entry in every committed set and fully slashable (clause 4) until its effective version arrives.
+<strong>Which rule wins when the cap binds.</strong> <a href="03-membership-staking.html#MEM-05">MEM-05</a>(2) states the same condition — the exit becomes effective at the
+first set version at or after the request <em>that the cap does not exclude</em> — and §2.1 lifecycle row 4 carries the same
+qualification. The two are one rule — MEM-05 owns the transition, this clause bounds how much stake may leave in one epoch —
+and an implementation that makes an exit effective regardless of the cap is non-conforming, because it voids the cap. A deferred exit keeps the entry in every committed set and fully slashable (clause 4) until its effective version arrives.
 <em>(review round 1, finding ECO-07; review round 2, finding E-R2-08: the cap is wired into the rule that owns
-exit effectiveness instead of contradicting it.)</em></span>
+exit effectiveness instead of contradicting it.)</em> <em>This closes review round 2 finding R2A-06: the ordering key and the
+never-cancelled property of a deferred exit are fixed here, and MEM-05(2) and §2.1 row 4 state the cap's power to defer
+effectiveness.</em></span>
 <span class="why">Failure mode: an offender equivocates at epoch <code>e</code>, requests exit, waits out a delay
 no longer than the proving latency, withdraws, and is slashed on a remainder — the documented withdrawal race that
 both Ethereum (<code>state.slashings</code> plus the <code>withdrawable_epoch</code> clamp) and Cosmos
@@ -260,8 +265,8 @@ both Ethereum (<code>state.slashings</code> plus the <code>withdrawable_epoch</c
 stake, and only through <code>slash(address v, uint256 epoch, bytes evidence)</code>
 (<a href="03-membership-staking.html#MEM-06">MEM-06</a>). Behaviour not listed, however suspicious, consumes
 nothing. In particular, <strong>mere non-receipt of a P2P message is not evidence of misconduct</strong>: not
-receiving a block, vote, proposal, PoLC, certificate, transition certificate, witness, proof or forced-inclusion
-record is never by itself an offence, and neither is an elapsed timeout, a slow round, a validator being offline,
+receiving a block, vote, proposal, PoLC, certificate, transition certificate, witness or proof
+is never by itself an offence, and neither is an elapsed timeout, a slow round, a validator being offline,
 or a node disagreeing with a proposal it received (threat model §6.4; <a href="index.html#STATUS-09">STATUS-09</a>,
 <a href="index.html#STATUS-10">STATUS-10</a>, <a href="06-recovery-exceptions.html#WH-01">WH-01</a>, <a href="06-recovery-exceptions.html#WH-02">WH-02</a>).</span>
 <span class="norm">(2) <strong>Encoding.</strong> <code>evidence</code> is exactly one canonical <code>abi.encode</code> of the tuple
@@ -281,8 +286,10 @@ revert: no state change, no balance touched, no replay marker written, and the s
 <span class="norm">(3) <strong>Predicates are self-contained.</strong> Every predicate is a pure function of
 published signed objects and L1-committed state. A predicate requiring proof of the <em>absence</em> of a message
 is inadmissible and <strong>MUST NOT</strong> be added: the lock-rule row below shows the case where this bites.
-Deterrence claims are conditional on A-ECO-1 and, for the omission offence, on the data being retrievable
-(A-CONS-5 / A-DA-2); where data is unavailable the offence is simply not provable, and that limitation is disclosed rather than repaired by suspicion.</span>
+Deterrence claims are conditional on A-ECO-1. There is no censorship or omission offence: inclusion
+resistance is the conditional statistical property of <a href="10-assurance.html#LIVE-04">LIVE-04</a>, not
+something a penalty can enforce, and the protocol provides no L1 inclusion path and no remedy against a
+network-level adversary.</span>
 <span class="norm">(4) <strong>Identity and duplicates.</strong> The identity of an offence is
 <code>id = (v, epoch, offenceType, keccak256(evidence))</code> (<a href="03-membership-staking.html#MEM-06">MEM-06</a>
 clause 4). The first accepted submission applies the penalty of <a href="#ECON-05">ECON-05</a>; a second submission
@@ -297,17 +304,6 @@ bounty, does not extend any window, and emits <code>OffenceAlreadyApplied(id)</c
 <td>inclusion block's timestamp ≤ <code>evidenceClose(epoch_of(H))</code>, and the offender still exposed (<a href="#ECON-07">ECON-07</a>)</td>
 <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code></td>
 <td><code>id</code> as in clause 4; a different conflicting pair at another <code>(H,R)</code> is a distinct offence, each bounded by the same <code>SlashBase</code></td></tr>
-<tr><td><strong>Provable censorship of a due forced inclusion</strong> — a finalized block produced by the offender omits a forced-inclusion request that was due at that block</td>
-<td><code>(requestId, dueL1Block, blockB, dataCommitment(B), omissionProof, leaderEvidence)</code>: the request
-record of <a href="04-l1-integration.html#FI-01">FI-01</a> authenticated against the L1 record store; the block
-<code>B</code> whose data commitment is bound by an L1-accepted batch (<a href="04-l1-integration.html#L1-05">L1-05</a>,
-<a href="05-proof-statement.html#PRF-07">PRF-07</a>) so the body is public data (<a href="04-l1-integration.html#DA-01">DA-01</a>);
-a proof that no entry of <code>dataCommitment(B)</code> equals <code>keccak256(request.canonicalPayload)</code> and
-that <code>request</code> is unconsumed; and the leader identity for <code>B</code>'s height from <a href="02-consensus.html#CONS-06">CONS-06</a> under the epoch's L1-committed set root</td>
-<td>any address</td> <td>inclusion block's timestamp ≤ <code>evidenceClose(e)</code> for the epoch <code>e</code> in which
-<code>B</code> was finalized; the window opens at the L1 acceptance of the batch carrying <code>B</code> because that is when canonical data exists (D5, DA-01)</td>
-<td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(leader, e)</code></td>
-<td><code>id</code> as in clause 4; distinct omitted requests are distinct offences, and the correlated fraction counts the offender once (ECON-05 clause 2)</td></tr>
 <tr><td><strong>Lock-rule violation</strong> — unlocking or precommitting contrary to <a href="02-consensus.html#CONS-04">CONS-04</a></td>
 <td>a same-<code>(H,R)</code> conflicting signed pair, i.e. equivocation per <a href="02-consensus.html#CONS-11">CONS-11</a>, is
 <strong>always slashable</strong> and is the <em>only</em> lock-related offence with admissible evidence. A lock violation
@@ -326,16 +322,17 @@ divergence under withholding may leave no admissible evidence and is Assumed, no
 <td><strong>none</strong>: no bond, deposit or stake is consumed; the submitter pays L1 gas only</td>
 <td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> </tbody></table>
 <span class="norm">(5) <strong>What is not an offence.</strong> Alongside the non-receipt ban of clause 1: a
-proposal that includes a due request later within <code>FI-02</code>'s allowed delay; a validator that is offline or votes late; a proposer whose round times out; a node that halts under
+validator that is offline or votes late; a proposer whose round times out; a node that halts under
 <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>; and a prover that is slow inside the D6 envelope. Ordering
-and reordering of <em>included</em> transactions is not an offence at all; forced inclusion cannot reorder or
-revoke past history (<a href="04-l1-integration.html#FI-04">FI-04</a>). Objective key duplication <em>is</em>
-equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is stated in ECON-05 clause 7 and is not excused by this rule.</span>
+and reordering of <em>included</em> transactions is not an offence at all, and neither is the omission of a
+particular transaction: the catalogue contains no censorship or omission offence, and what inclusion resistance
+the protocol does and does not provide is stated once in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. Objective key duplication <em>is</em>
+equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is stated in ECON-05 clause 7 and is not excused by this rule. <em>(user decision D-6: forced inclusion removed; the censorship/omission offence is deleted from the closed catalogue)</em></span>
 <span class="why">Failure modes: an open-ended "misconduct" clause lets an implementer invent a discretionary
 slash; a predicate that needs a missing message makes honest validators unprovable or innocent ones slashable; an
 encoding without domain separation allows replay of an evidence object on another chain or epoch; treating a
 missing message as proof of misbehaviour is the exact non-argument the threat model forbids.</span> <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
-<span class="small">(the omission predicate additionally needs A-CONS-5/A-DA-2 to hold so that bodies remain retrievable; without it the offence is unprovable, not forgiven.)</span></div> 
+<span class="small">(the catalogue contains no censorship or omission offence; the honest, conditional statement of what inclusion resistance exists is <a href="10-assurance.html#LIVE-04">LIVE-04</a>.)</span></div> 
 <h2 id="penalties">5. Penalty structure</h2>  <div class="rule" id="ECON-05"><span class="rid">ECON-05 — penalty structure and the convex correlated penalty</span>
 <span class="norm">(1) <strong>Parameters.</strong> <code>IMM_FRAC(c)</code> is the immediate penalty fraction for
 offence class <code>c</code>, a parameter with <code>0 &lt; IMM_FRAC(c) ≤ 1</code> so that every proven offence has
@@ -462,8 +459,9 @@ exists and a slash for <code>e</code> reverts <code>EpochNotCommitted(e)</code>.
 <strong>The anchor is the commit block's timestamp, not the later moment at which that block became
 Ethereum-final</strong>: the finality requirement is enforced where it belongs — MEM-09 clause 5 requires
 <code>mapping[e]</code> to be Ethereum-final before any block of epoch <code>e</code> is finalized — and clause
-(4)'s <code>2 &middot; E_epoch</code> term is derived for exactly this anchor (the commit can precede the epoch's
-first height by up to <code>E_epoch</code>). Defining the anchor as "became final" would make it un-storable on
+(4)'s <code>3 &middot; E_EPOCH</code> term is derived for exactly this anchor (under the two-epoch lookahead of
+<a href="02-consensus.html#CONS-13">CONS-13</a>(3) the commit precedes the epoch's first height by up to
+<code>2 &middot; E_EPOCH</code>). Defining the anchor as "became final" would make it un-storable on
 L1 and would shorten the admissible interval by the finality lag; the stored commit timestamp is the value the
 non-emptiness inequality of clause (4) already assumes, and it is registered as <code>t_root(e)</code> in
 <a href="09-parameters.html#PARAM-01">09</a>. <em>(review round 2, finding E-R2-07: the anchor is a stored,
@@ -497,20 +495,30 @@ prevent it are</span>
 <pre><code>t_offence + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit  ≤  evidenceClose(e)
                                                                     for every admissible offence at epoch e
 
-W_evidence(e)  ≥  2 · E_epoch + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit
-                 (+ T_replay  where the offence requires re-execution or reconstruction of a body)</code></pre>
-<span class="norm">The <code>2 · E_epoch</code> term is the anchor skew that makes the first inequality hold uniformly
-across the epoch: epoch <code>e</code>'s set root is committed with one-epoch lookahead (CONS-13(3)), so
-<code>t_root(e)</code> — clause (1)'s stored commit timestamp, not the later finality moment — can precede the
-epoch's first height by up to <code>E_epoch</code>, while an offence can occur
-as late as <code>h_last(e)</code>, a further <code>E_epoch</code> later (<code>E_epoch = EPOCH_LEN_L2 ·
-L2_BLOCK_INTERVAL</code> <span class="pill derived">derived</span>). For an omission offence whose body is bound to an
-accepted batch (ECON-04), the object becomes constructible only at L1 acceptance of that batch, which is already
-later than the offence, so the same bound holds a fortiori. Self-authenticating offences (equivocation, and omission
-offences whose body is bound to an accepted batch) require the pipeline terms from the offence;
-offences requiring re-execution or reconstruction additionally require <code>T_replay</code> (economics-raw.md §3.3).
-All pipeline terms are <span class="pill unmeasured">unmeasured</span>. The rule <strong>MUST</strong> name which term
-binds. Do not invent a universal window. <em>(review round 1, findings ECO-04, ECO-05)</em></span>
+W_evidence(e)  ≥  3 · E_EPOCH + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit
+                 (+ T_BACKLOG_MAX + T_replay  where the offence requires the accepting batch's own data,
+                                               i.e. re-execution or reconstruction of a body)</code></pre>
+<span class="norm">The <code>3 · E_EPOCH</code> term is the anchor skew that makes the first inequality hold uniformly
+across the epoch, re-derived for the two-epoch lookahead of <a href="02-consensus.html#CONS-13">CONS-13</a>(3): epoch
+<code>e</code>'s set root is appended during epoch <code>e-2</code> (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(1)),
+so <code>t_root(e)</code> — clause (1)'s stored commit timestamp, not the later finality moment — can precede the epoch's
+first height by up to <code>2 · E_EPOCH</code>, while an offence can occur
+as late as <code>h_last(e)</code>, a further <code>E_EPOCH</code> later (<code>E_EPOCH = EPOCH_LEN_L2 ·
+L2_BLOCK_INTERVAL</code> <span class="pill derived">derived</span>; the superseded one-epoch schedule gave
+<code>2 · E_EPOCH</code>, the two-epoch schedule gives <code>3 · E_EPOCH</code>). The offences of <a href="#ECON-04">ECON-04</a>'s
+closed catalogue are
+self-authenticating: a signed-conflict pair is constructible from the offence itself and does not wait on settlement, so they
+require the pipeline terms from the offence; an offence that requires the accepting batch's own accepted data (re-execution or
+reconstruction) additionally requires <code>T_BACKLOG_MAX</code> and <code>T_replay</code> (economics-raw.md §3.3), where
+<code>T_BACKLOG_MAX</code> is defined in clause (7). <em>(user decision D-6: forced inclusion removed; the omission-offence
+term is deleted from the window derivation. This closes review round 2 finding R2A-01's evidence-window consequence: the lower
+bound is re-derived for the two-epoch lookahead of CONS-13(3).)</em>
+<strong>Every input is unmeasured except <code>E_EPOCH</code>, which is derived from the sourced cadence.</strong>
+<code>T_PROOF_MAX_PERMITTED</code>, <code>T_L1_include(p)</code>, <code>T_L1_final</code>, <code>T_detect</code>,
+<code>T_evidence_submit</code>, <code>T_replay</code> and <code>T_BACKLOG_MAX</code> are each
+<span class="pill unmeasured">unmeasured</span> and are registered in <a href="09-parameters.html#PARAM-03">09</a>; no value
+may be substituted from another workload. The rule <strong>MUST</strong> name which term binds. Do not invent a universal
+window. <em>(review round 1, findings ECO-04, ECO-05)</em></span>
 <span class="norm">(5) <strong>Enforcement in the ledger.</strong> <code>withdraw()</code> reverts while any open
 epoch's window has not closed or any exposure (including a pending correlated amount) is unsettled
 (<a href="03-membership-staking.html#MEM-05">MEM-05</a> clause 3, MEM-06 clause 2). The enforceable guarantee is
@@ -519,6 +527,34 @@ therefore structural, not discretionary: stake cannot leave before the window th
 to reduce the pipeline terms it covers — for example a measured, tighter proof bound or a measured L1-inclusion
 quantile — never to set <code>W_evidence</code> or <code>D_WITHDRAW</code> below the inequality (MEM-05 clause 6).
 Changing L1's inclusion or finality behaviour is outside protocol control and requires re-deriving both parameters.</span>
+<span class="norm">(7) <strong>Joint satisfiability with HALT-03's unsettled-depth cap.</strong>
+<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a> permits production to run ahead of the highest L1-accepted
+checkpoint by up to <code>D_MAX − MARGIN_V</code> L2 blocks and rejects a batch whose depth exceeds <code>D_MAX</code>, so an offence
+whose evidence needs the accepting batch's own data may have to wait for that backlog to settle before evidence can be built. Write
+<code>T_BACKLOG_MAX := D_MAX · L2_BLOCK_INTERVAL</code> for the L2 production time the deepest permitted backlog represents (<code>D_MAX</code> and the cap's other inputs are
+<span class="pill unmeasured">unmeasured</span>, <a href="09-parameters.html#PARAM-03">09</a>).
+<strong>(a) For the offences of <a href="#ECON-04">ECON-04</a>'s closed catalogue</strong> — equivocation and the
+same-<code>(H,R)</code> lock-rule pair — the evidence is two signed objects obtained by gossip and does not wait on acceptance, so
+clause (4)'s bound is the binding one and this window and HALT-03's cap are simultaneously satisfiable whenever the pipeline
+inequality of (4) holds; no backlog term enters the window. <strong>(b) For any offence that requires the accepting batch's
+data</strong> (the <code>T_replay</code> case of (4)), the interval can be non-empty only while</span>
+<pre><code>3 · E_EPOCH + T_BACKLOG_MAX + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit (+ T_replay)
+     ≤  W_evidence(e)  <  D_WITHDRAW − T_process − CORR_DELAY − M_ev</code></pre>
+<span class="norm">At the derived formulas the two rules are <strong>not certifiably simultaneously satisfiable</strong>:
+<a href="03-membership-staking.html#MEM-05">MEM-05</a>(4)'s <code>D_WITHDRAW</code> carries none of the anchor skew
+<code>3 · E_EPOCH</code>, the backlog <code>T_BACKLOG_MAX</code>, <code>CORR_DELAY</code> or <code>M_ev</code>, and no input is
+measured, so unless the margin <code>M</code> absorbs them the upper and lower bounds can cross — the empty interval that clause
+(4) calls a defect, not a tuning choice. <strong>Which one yields: the cap yields.</strong> Where the two cannot both hold,
+<code>D_MAX</code> MUST be reduced (HALT-03's cap tightened, equivalently the deepest permitted backlog shortened) until the
+inequality holds, because <code>W_evidence</code> may not be lowered (clause (6)) and an offence that is unpunishable by
+construction is a defect; only if no positive <code>D_MAX</code> satisfies it must <code>D_WITHDRAW</code> be raised, as clause
+(2) already requires, by carrying the missing terms in <a href="03-membership-staking.html#MEM-05">MEM-05</a>(4). Consequence of
+the cap yielding: production backpressures at a shallower depth and HALT-03's safe-halt state is entered sooner — a liveness cost.
+Consequence of raising <code>D_WITHDRAW</code> instead: exits take longer for every entry, including honest ones. An offence class
+whose evidence cannot be built inside its window MUST NOT be added to the closed catalogue of <a href="#ECON-04">ECON-04</a> until
+the inequality holds, and HALT-03's page must carry this same inequality. <em>This closes review round 2 finding P-R2-08: the
+evidence window and the unsettled-depth cap are explicitly coupled, the direction in which they yield is stated, and every input
+remains unmeasured.</em></span>
 <span class="why">Failure mode: with <code>W_evidence ≥ D_WITHDRAW</code> the offender's withdrawal and the
 reporter's transaction race in the L1 mempool, and the penalty punishes only offenders who submit nothing. The
 withdrawal race is the documented failure both Ethereum and Cosmos engineered against.</span>
@@ -587,10 +623,17 @@ stake and never the individual validator:</span>
 <pre><code>S_total  ≥  Λ · ( EV_extractable + OV_option ) / ( b · P(t) · (1 + σ(t)) )</code></pre>
 <span class="norm">This inequality contains no individual <code>S</code>; no rule may derive <code>S_min</code>
 from it (economics-raw.md §3.1 constraint A). The parameter <code>Λ ≥ 1</code> is <span class="pill unmeasured">unmeasured</span>, and the claim is conditional on A-ECO-1.</span>
-<span class="norm">(3) <strong>Participation.</strong> <code>S_min ≤ S_affordable(median intended participant)</code>, or entry is permissionless only in name (R1). The resulting count
-<code>n = S_total / S_min</code> must lie inside the consensus set-size window, which is a consensus-rule output
-and not an economics input, and the resulting <code>Budget(n)</code> must be fundable (ECON-12); if it is not,
-<code>S_min</code> and the participation target are in conflict and the conflict must be recorded, not smoothed.</span>
+<span class="norm">(3) <strong>Participation.</strong> <code>S_min ≤ S_affordable(median intended participant)</code>, or entry is
+permissionless only in name (R1). The resulting count <code>n = S_total / S_min</code> is <strong>not bounded by any consensus
+rule</strong>: <a href="02-consensus.html#CONS-06">CONS-06</a> and <a href="02-consensus.html#CONS-10">CONS-10</a> are well defined
+for every <code>n ≥ 1</code> and impose no maximum (the invalid-set conditions are <code>n = 0</code>, a zero effective stake,
+and a malformed or duplicate key, not a large <code>n</code>), so there is no normative set-size window; what bounds <code>n</code> in practice is the reward budget <code>Budget_ETH(n)</code> of
+<a href="#ECON-12">ECON-12</a> and the measured consensus performance at the target set size, which is
+<span class="pill unmeasured">unmeasured</span> (<a href="../04-architecture-decision.md">04</a> §7, falsifier F3). The resulting
+<code>Budget(n)</code> must be fundable (ECON-12); if it is not, <code>S_min</code> and the participation target are in conflict and the
+conflict must be recorded, not smoothed. <em>This closes review round 2 finding E-R2-11(b): the undefined "consensus set-size
+window" is deleted and re-expressed as the budget bound plus the unmeasured consensus performance limit; no rule of this
+specification defines such a window, and none is implied.</em></span>
 <span class="norm">(4) <strong>Values.</strong> The numeric value of <code>S_min</code> is a <a href="09-parameters.html#PARAM-01">PARAM-01</a> parameter and is
 <span class="pill unmeasured">unmeasured</span> with respect to <code>C_op_annual</code>, <code>r_gross</code> and
 <code>ρ_ops</code>; <code>C_op_annual</code> must be measured for a reference host under the 2 s cadence, L2 state
@@ -813,7 +856,7 @@ now made there, together with the parameters the revised <code>D_MAX</code> and 
 <tr><td><code>F_SAT</code></td><td>fraction</td><td><a href="#ECON-05">ECON-05</a></td><td><code>= 1/3</code>, equal to the <code>b</code> of A-CONS-1; the coincidence is by construction</td></tr>
 <tr><td><code>CORR_Q</code></td><td>integer</td><td><a href="#ECON-05">ECON-05</a></td><td><code>∈ {1, 2}</code>; 1 = Ethereum form, 2 = Polkadot form</td></tr>
 <tr><td><code>CORR_DELAY</code></td><td>seconds</td><td><a href="#ECON-05">ECON-05</a></td><td><code>W_evidence + T_process + CORR_DELAY + M_ev &lt; D_WITHDRAW</code></td></tr>
-<tr><td><code>W_EVIDENCE</code></td><td>seconds</td><td><a href="#ECON-07">ECON-07</a></td><td><code>≥ 2 · E_EPOCH + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit</code> (plus <code>T_replay</code> where re-execution is required), and <code>W_EVIDENCE + T_PROCESS + CORR_DELAY + M_ev &lt; D_WITHDRAW</code>; per epoch</td></tr>
+<tr><td><code>W_EVIDENCE</code></td><td>seconds</td><td><a href="#ECON-07">ECON-07</a></td><td><code>≥ 3 · E_EPOCH + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit</code> (plus <code>T_BACKLOG_MAX + T_replay</code> where the offence requires the accepting batch's own data; <code>T_BACKLOG_MAX</code> and the joint bound with HALT-03 are clause (7)), and <code>W_EVIDENCE + T_PROCESS + CORR_DELAY + M_ev &lt; D_WITHDRAW</code>; per epoch</td></tr>
 <tr><td><code>REWARD_ASSET</code></td><td>asset</td><td><a href="#ECON-02">ECON-02</a></td><td><strong>ETH</strong>; TAIKO is the staking and collateral asset only (D7)</td></tr>
 <tr><td><code>POOL_TOPUP</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>any L1-side inflow other than L2 fee revenue; the transfer mechanism is <span class="pill open">Open</span></td></tr>
 <tr><td><code>D_subsidy</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>the subsidy draw, subtracted in the identity; a subsidy is not additional funding</td></tr>

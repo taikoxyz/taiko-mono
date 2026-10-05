@@ -173,15 +173,20 @@ relying on it.</li>
 <h2 id="not-prevents">Attacks this does not prevent</h2>
 <ul>
 <li>Reordering or censorship by whoever is selected to propose, inside the rules. This lesson names
-the authority; the constraints live in the consensus and forced-inclusion rules
-(<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>,
-<a href="../spec/04-l1-integration.html#FI-01">FI-01</a>–<a href="../spec/04-l1-integration.html#FI-05">FI-05</a>).</li>
+the authority; the response is conditional statistical resistance from hash-based weighted selection,
+with no L1 forced-inclusion path and no per-transaction guarantee — and an adversary who can isolate a
+user from every honest proposer can exclude that user indefinitely
+(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>,
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>,
+<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).</li>
 <li>A coalition holding one third or more of the relevant stake. The safety claim does not apply there,
 and the specification says so rather than claiming protection
 (<a href="../01-requirements-and-threat-model.md">A-CONS-1</a>,
 <a href="../spec/10-assurance.html#INV-01">INV-01</a>).</li>
-<li>L1 censorship of data, proofs or forced-inclusion transactions
-(<a href="../01-requirements-and-threat-model.md">T-7</a>).</li>
+<li>L1 censorship of data, proofs or the accepting transaction. There is no forced-inclusion
+fallback to route around it, because the design deliberately has none
+(<a href="../01-requirements-and-threat-model.md">T-7</a>,
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>).</li>
 <li>Any implementation defect: this is a specification-level design, with no implementation and no
 measurement (<a href="../spec/index.html#GEN-01">GEN-01</a>).</li>
 <li>The gap between an honest name and what a reader actually reads.</li>

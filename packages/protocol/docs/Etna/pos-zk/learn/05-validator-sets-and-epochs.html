@@ -41,7 +41,7 @@ matching signatures would otherwise "prove" finality about a chain no independen
 saw.</p>
 
 <p><strong>One-epoch lookahead.</strong> The set commitment for an epoch is made before that epoch
-begins — the rule is stated as set-snapshot timing with one-epoch lookahead
+begins — the rule is stated as set-snapshot timing with two-epoch lookahead
 (<a href="../spec/03-membership-staking.html#MEM-09">MEM-09</a>,
 <a href="../spec/02-consensus.html#CONS-13">CONS-13</a>). The reason is not elegance: if the set were
 decided during the epoch, L2 progress would wait on an L1 transaction, and nodes could disagree about
@@ -136,7 +136,7 @@ checkpoint is the natural source, with a freshness window
   <text x="592" y="54" fill="#e0af68" font-size="10" text-anchor="middle">handoff</text>
   <line x1="322" y1="58" x2="322" y2="100" stroke="#e0af68" stroke-dasharray="4 3" marker-end="url(#ar-e1)"/>
   <line x1="592" y1="58" x2="592" y2="100" stroke="#e0af68" stroke-dasharray="4 3" marker-end="url(#ar-e1)"/>
-  <text x="60" y="270" fill="#9aa7b4" font-size="11">Set roots are committed with one-epoch lookahead (CONS-13, MEM-09). The root is an L1-derived public input,</text>
+  <text x="60" y="270" fill="#9aa7b4" font-size="11">Set roots are committed with two-epoch lookahead (the entry for epoch e+2 is appended during epoch e) (CONS-13, MEM-09). The root is an L1-derived public input,</text>
   <text x="60" y="288" fill="#9aa7b4" font-size="11">never a witness element the prover chooses (PRF-02, PRF-03). The handoff rule is Assumed-with-argument (CONS-09, PRF-05, F1).</text>
 </svg>
 <figcaption>New epochs bring new sets and new heights. They do not get to re-judge the certificate a
@@ -154,7 +154,7 @@ arithmetic below is the course's, on those inputs.</p>
 <tbody>
 <tr><td><code>EPOCH_LEN_L2</code> (placeholder)</td><td>300 L2 blocks ≈ 10 min</td><td><span class="pill unmeasured">unmeasured</span> — 09 says no measurement supports the value</td></tr>
 <tr><td>Time for 300 blocks at the 2 s cadence</td><td>600 s = 10 min</td><td><span class="pill derived">derived</span> — 300 × 2; the cadence is D1</td></tr>
-<tr><td><code>EPOCH_LEN_L1</code> (required form)</td><td>strictly greater than the L1 time needed to commit one set root with one-epoch lookahead</td><td><span class="pill derived">derived</span> formula; inputs unmeasured (09)</td></tr>
+<tr><td><code>EPOCH_LEN_L1</code> (required form)</td><td>E_EPOCH / L1_BLOCK_INTERVAL, governed by the two-epoch lookahead inequality</td><td><span class="pill derived">derived</span> formula; inputs unmeasured (09)</td></tr>
 <tr><td>Ethereum finality for a set-root commitment</td><td>≈ 2 epochs = 64 slots × 12 s = 768 s ≈ 12.8 min</td><td><span class="pill derived">derived</span> from <span class="pill sourced">sourced</span> Ethereum configuration; the L1 finality depth is tagged as depending on that configuration (09)</td></tr>
 <tr><td>Extra depth <code>F_L1</code></td><td>not fixed</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td>Comparison: one epoch of margin (10 min) vs L1 finality (12.8 min)</td><td>10 &lt; 12.8 — the placeholder does not by itself satisfy the derived constraint</td><td><span class="pill derived">derived</span> from the rows above; a course observation, not a specification value</td></tr>
@@ -228,7 +228,7 @@ checkpoint within a freshness window; rotation does not remove that need
 validator rotation cannot re-judge it (REC-01 c). New sets get new heights, not a new opinion about
 old ones.</p></details>
 <details><summary>When must the set root for epoch e be committed, and why?</summary>
-<p>Before epoch <em>e</em> begins, with one-epoch lookahead (MEM-09, CONS-13), so that all correct
+<p>Before epoch <em>e</em> begins, with two-epoch lookahead (MEM-09, CONS-13), so that all correct
 nodes agree on the set version and L2 never waits on an L1 transaction inside an epoch (A-CONS-4).</p></details>
 <details><summary>What is the evidence status of the handoff lock-carry-over argument?</summary>
 <p>Assumed-with-argument. PRF-05's note says exactly that of CONS-09; the architecture decision calls
