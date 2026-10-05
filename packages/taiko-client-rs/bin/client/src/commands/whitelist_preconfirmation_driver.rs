@@ -153,6 +153,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
     /// Runs the whitelist preconfirmation driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
+        self.common_flags.apply_devnet_fork_overrides();
         self.init_metrics()?;
 
         let driver_config = self.build_driver_config()?;
