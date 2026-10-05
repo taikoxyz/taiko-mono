@@ -9,10 +9,10 @@ use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
-use protocol::{FixedKSigner, codec::ZlibTxListCodec};
+use protocol::{FixedKSigner, codec::ZlibTxListCodec, shasta::encode_etna_extra_data};
 
 use crate::{
-    codec::{MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope},
+    codec::{MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
 };
 
@@ -53,7 +53,7 @@ fn sample_execution_payload_with_transactions(
             block_number: 42,
             gas_limit: 30_000_000,
             gas_used: 21_000,
-            timestamp: 1_735_000_000,
+            timestamp: SAMPLE_TIMESTAMP,
             extra_data: Bytes::from(vec![0x55u8; 8]),
             base_fee_per_gas: U256::from(1_000_000_000u64),
             block_hash: B256::from([0x15u8; 32]),
@@ -231,6 +231,8 @@ fn validate_payload_rejects_missing_transactions_list() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -249,6 +251,8 @@ fn validate_payload_rejects_multiple_transactions_lists() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -268,6 +272,8 @@ fn validate_payload_rejects_oversized_compressed_transactions_list() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -287,6 +293,8 @@ fn validate_payload_accepts_single_transactions_list_within_size_limit() {
 
     validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -302,6 +310,8 @@ fn validate_payload_rejects_zero_timestamp() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -322,6 +332,8 @@ fn validate_payload_rejects_zero_fee_recipient() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -342,6 +354,8 @@ fn validate_payload_rejects_zero_gas_limit() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -362,6 +376,8 @@ fn validate_payload_rejects_zero_base_fee() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -382,6 +398,8 @@ fn validate_payload_rejects_empty_extra_data() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -401,6 +419,8 @@ fn validate_payload_rejects_invalid_zlib_transactions_bytes() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -419,6 +439,8 @@ fn validate_payload_rejects_invalid_rlp_transactions_bytes() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -439,6 +461,8 @@ fn validate_payload_rejects_oversized_decompressed_transactions_bytes() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -458,6 +482,8 @@ fn validate_payload_rejects_empty_decoded_transactions_list() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -481,6 +507,8 @@ fn validate_payload_rejects_anchor_with_wrong_recipient() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -508,6 +536,8 @@ fn validate_payload_rejects_anchor_with_wrong_sender() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -529,6 +559,8 @@ fn validate_payload_rejects_anchor_with_wrong_method() {
 
     let err = validate_execution_payload_for_preconf(
         &envelope.execution_payload,
+        None,
+        None,
         TEST_CHAIN_ID,
         anchor_address,
     )
@@ -538,6 +570,168 @@ fn validate_payload_rejects_anchor_with_wrong_method() {
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
             if msg.contains("invalid anchor transaction method")
     ));
+}
+
+/// Timestamp of the sample payloads.
+const SAMPLE_TIMESTAMP: u64 = 1_735_000_000;
+/// Etna activation at the sample timestamp: the sample payloads are Etna blocks.
+const ETNA_AT_SAMPLE: Option<u64> = Some(SAMPLE_TIMESTAMP);
+/// Etna activation one second after the sample timestamp: the sample payloads are pre-Etna.
+const ETNA_AFTER_SAMPLE: Option<u64> = Some(SAMPLE_TIMESTAMP + 1);
+/// Nonzero Etna root (the L1 state root of the anchor block).
+const SAMPLE_ETNA_ROOT: B256 = B256::repeat_byte(0x5a);
+
+/// Build a well-formed Etna envelope: nonzero root, 13-byte `extraData`, the given tx lists.
+fn sample_etna_envelope(transactions: Vec<Bytes>) -> WhitelistExecutionPayloadEnvelope {
+    let mut envelope = sample_execution_payload_with_transactions(transactions);
+    envelope.parent_beacon_block_root = Some(SAMPLE_ETNA_ROOT);
+    envelope.execution_payload.extra_data =
+        encode_etna_extra_data(0x32, 7, 1_234).expect("13-byte Etna extra data");
+    envelope
+}
+
+/// Run the shared payload validation with the envelope's own root and the given Etna time.
+fn validate_envelope_payload(
+    envelope: &WhitelistExecutionPayloadEnvelope,
+    etna_fork_timestamp: Option<u64>,
+) -> crate::Result<()> {
+    validate_execution_payload_for_preconf(
+        &envelope.execution_payload,
+        envelope.parent_beacon_block_root,
+        etna_fork_timestamp,
+        TEST_CHAIN_ID,
+        sample_anchor_address(),
+    )
+}
+
+/// Assert that `result` is an `InvalidPayload` error whose message contains `needle`.
+fn assert_invalid_payload(result: crate::Result<()>, needle: &str) {
+    let err = result.expect_err("payload must be rejected");
+    assert!(
+        matches!(&err, WhitelistPreconfirmationDriverError::InvalidPayload(msg) if msg.contains(needle)),
+        "expected InvalidPayload containing {needle:?}, got {err:?}"
+    );
+}
+
+/// A compressed list holding one ordinary signed transaction (not an anchor transaction).
+fn ordinary_tx_list() -> Bytes {
+    let signer =
+        NON_GOLDEN_SIGNER_PRIVATE_KEY.parse::<PrivateKeySigner>().expect("non-golden signer key");
+    let tx_bytes = standard_signed_anchor_tx_bytes(
+        &signer,
+        TEST_CHAIN_ID,
+        Address::from([0x99u8; 20]),
+        [0; 4],
+    );
+    encode_compressed_tx_list(vec![tx_bytes])
+}
+
+#[test]
+fn validate_payload_accepts_pre_etna_absent_or_zero_root() {
+    let mut envelope = sample_execution_payload_with_transactions(vec![valid_anchor_tx_list(
+        sample_anchor_address(),
+    )]);
+    for etna_fork_timestamp in [None, ETNA_AFTER_SAMPLE] {
+        for root in [None, Some(B256::ZERO)] {
+            envelope.parent_beacon_block_root = root;
+            validate_envelope_payload(&envelope, etna_fork_timestamp)
+                .expect("pre-Etna payload with an absent or zero root must be accepted");
+        }
+    }
+}
+
+#[test]
+fn validate_payload_rejects_pre_etna_nonzero_root() {
+    let mut envelope = sample_execution_payload_with_transactions(vec![valid_anchor_tx_list(
+        sample_anchor_address(),
+    )]);
+    envelope.parent_beacon_block_root = Some(SAMPLE_ETNA_ROOT);
+    for etna_fork_timestamp in [None, ETNA_AFTER_SAMPLE] {
+        assert_invalid_payload(
+            validate_envelope_payload(&envelope, etna_fork_timestamp),
+            "pre-Etna payload at timestamp 1735000000 carries nonzero parent beacon block root",
+        );
+    }
+}
+
+#[test]
+fn validate_payload_accepts_etna_nonzero_root_and_13_byte_extra_data() {
+    let envelope = sample_etna_envelope(vec![ordinary_tx_list()]);
+    validate_envelope_payload(&envelope, ETNA_AT_SAMPLE)
+        .expect("Etna payload with a nonzero root and 13-byte extra data must be accepted");
+}
+
+#[test]
+fn validate_payload_rejects_etna_missing_or_zero_root() {
+    let mut envelope = sample_etna_envelope(vec![ordinary_tx_list()]);
+    for root in [None, Some(B256::ZERO)] {
+        envelope.parent_beacon_block_root = root;
+        assert_invalid_payload(
+            validate_envelope_payload(&envelope, ETNA_AT_SAMPLE),
+            "Etna payload at timestamp 1735000000 requires a nonzero parent beacon block root",
+        );
+    }
+}
+
+#[test]
+fn validate_payload_rejects_etna_extra_data_that_is_not_13_bytes() {
+    let mut envelope = sample_etna_envelope(vec![ordinary_tx_list()]);
+    for (len, expected) in [
+        (7, "Etna extra data must be exactly 13 bytes, got 7"),
+        (0, "Etna extra data must be exactly 13 bytes, got 0"),
+        (14, "Etna extra data must be exactly 13 bytes, got 14"),
+    ] {
+        envelope.execution_payload.extra_data = Bytes::from(vec![0x32u8; len]);
+        assert_invalid_payload(validate_envelope_payload(&envelope, ETNA_AT_SAMPLE), expected);
+    }
+}
+
+#[test]
+fn validate_payload_accepts_an_empty_etna_tx_list() {
+    let empty_list = encode_compressed_tx_list(vec![]);
+    // The build path decompresses the same bytes: the empty RLP list must survive it too.
+    assert_eq!(decompress_tx_list(&empty_list).expect("decompress empty list"), vec![0xc0]);
+
+    let envelope = sample_etna_envelope(vec![empty_list]);
+    validate_envelope_payload(&envelope, ETNA_AT_SAMPLE)
+        .expect("an empty Etna transaction list must be accepted");
+}
+
+#[test]
+fn validate_payload_accepts_an_anchor_shaped_first_etna_tx_as_ordinary() {
+    let envelope = sample_etna_envelope(vec![valid_anchor_tx_list(sample_anchor_address())]);
+    validate_envelope_payload(&envelope, ETNA_AT_SAMPLE)
+        .expect("an anchor-shaped first Etna transaction is an ordinary transaction");
+}
+
+#[test]
+fn validate_payload_does_not_check_the_first_etna_tx() {
+    let envelope = sample_etna_envelope(vec![ordinary_tx_list()]);
+    validate_envelope_payload(&envelope, ETNA_AT_SAMPLE)
+        .expect("an ordinary first Etna transaction must be accepted");
+
+    // The same list is rejected before Etna, where tx[0] must be the anchor transaction.
+    let mut pre_etna = sample_execution_payload_with_transactions(vec![ordinary_tx_list()]);
+    pre_etna.parent_beacon_block_root = None;
+    assert_invalid_payload(
+        validate_envelope_payload(&pre_etna, ETNA_AFTER_SAMPLE),
+        "invalid anchor transaction",
+    );
+}
+
+#[test]
+fn validate_payload_still_decodes_the_etna_tx_list() {
+    let envelope = sample_etna_envelope(vec![compress(b"not-rlp")]);
+    assert_invalid_payload(
+        validate_envelope_payload(&envelope, ETNA_AT_SAMPLE),
+        "rlp decode failed",
+    );
+
+    let envelope = sample_etna_envelope(vec![compress(b"a"), compress(b"b")]);
+    assert_invalid_payload(
+        validate_envelope_payload(&envelope, ETNA_AT_SAMPLE),
+        "only one transaction list is allowed",
+    );
 }
 
 #[test]

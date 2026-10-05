@@ -88,6 +88,41 @@ impl WhitelistApi for SyncReadyApi {
     }
 }
 
+/// API whose block builds always fail with the error `make_error` produces.
+struct FailingBuildApi {
+    /// Factory for the build error (driver errors are not `Clone`).
+    make_error: fn() -> crate::error::WhitelistPreconfirmationDriverError,
+}
+
+#[async_trait]
+impl WhitelistApi for FailingBuildApi {
+    async fn build_preconf_block(
+        &self,
+        _request: BuildPreconfBlockRequest,
+    ) -> Result<BuildPreconfBlockResponse> {
+        Err((self.make_error)())
+    }
+
+    async fn get_status(&self) -> Result<ApiStatus> {
+        MockApi.get_status().await
+    }
+
+    fn is_sync_ready(&self) -> bool {
+        true
+    }
+
+    fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
+        MockApi.subscribe_end_of_sequencing()
+    }
+}
+
+/// Wrap an engine-submission error the way the preconfirmation path reports it.
+fn preconf_injection_error(
+    source: driver::sync::error::EngineSubmissionError,
+) -> crate::error::WhitelistPreconfirmationDriverError {
+    driver::DriverError::PreconfInjectionFailed { block_number: 1, source }.into()
+}
+
 fn sample_preconf_request() -> Vec<u8> {
     let request = BuildPreconfBlockRequest {
         executable_data: Some(ExecutableData {
@@ -99,6 +134,7 @@ fn sample_preconf_request() -> Vec<u8> {
             transactions: RpcBytes::from(vec![0x00]),
             extra_data: RpcBytes::default(),
             base_fee_per_gas: 1_000_000_000,
+            parent_beacon_block_root: None,
         }),
         end_of_sequencing: Some(false),
         is_forced_inclusion: Some(false),
@@ -209,6 +245,107 @@ async fn preconf_blocks_is_rejected_when_not_sync_ready() {
         .expect("request should succeed");
     assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
     assert_eq!(build_preconf_calls.load(Ordering::SeqCst), 0);
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn preconf_blocks_maps_engine_fork_guard_errors_to_bad_request() {
+    use driver::sync::error::EngineSubmissionError;
+
+    let cases: [fn() -> crate::error::WhitelistPreconfirmationDriverError; 3] = [
+        || {
+            preconf_injection_error(EngineSubmissionError::EtnaTargetWithoutBeaconRoot {
+                block_number: 1,
+                timestamp: 1_735_000_000,
+            })
+        },
+        || {
+            preconf_injection_error(EngineSubmissionError::PreEtnaTargetWithBeaconRoot {
+                block_number: 1,
+                timestamp: 1_735_000_000,
+                root: B256::repeat_byte(0x5a),
+            })
+        },
+        || {
+            preconf_injection_error(EngineSubmissionError::PreUnzenTarget {
+                block_number: 1,
+                timestamp: 1_735_000_000,
+                chain_id: 167,
+            })
+        },
+    ];
+
+    for make_error in cases {
+        let api: Arc<dyn WhitelistApi> = Arc::new(FailingBuildApi { make_error });
+        let server = WhitelistApiServer::start(test_config(), api).await.expect("server starts");
+
+        let response = reqwest::Client::new()
+            .post(format!("{}/preconfBlocks", server.http_url()))
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(sample_preconf_request())
+            .send()
+            .await
+            .expect("request should succeed");
+        assert_eq!(
+            response.status(),
+            reqwest::StatusCode::BAD_REQUEST,
+            "a deterministic payload fault must be a client error: {}",
+            make_error()
+        );
+
+        server.stop().await;
+    }
+}
+
+/// An Etna schedule the node cannot resolve is a fault of its own configuration, not of the
+/// request, so it is reported as a server error.
+#[tokio::test]
+async fn preconf_blocks_maps_an_unresolved_etna_schedule_to_server_error() {
+    let api: Arc<dyn WhitelistApi> = Arc::new(FailingBuildApi {
+        make_error: || {
+            preconf_injection_error(
+                driver::sync::error::EngineSubmissionError::EtnaScheduleUnresolved {
+                    chain_id: 0,
+                    source: protocol::shasta::error::ForkConfigError::UnsupportedActivation,
+                },
+            )
+        },
+    });
+    let server = WhitelistApiServer::start(test_config(), api).await.expect("server starts");
+
+    let response = reqwest::Client::new()
+        .post(format!("{}/preconfBlocks", server.http_url()))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(sample_preconf_request())
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn preconf_blocks_keeps_engine_invalid_block_as_server_error() {
+    let api: Arc<dyn WhitelistApi> = Arc::new(FailingBuildApi {
+        make_error: || {
+            preconf_injection_error(driver::sync::error::EngineSubmissionError::InvalidBlock(
+                1,
+                "invalid payload".to_string(),
+            ))
+        },
+    });
+    let server = WhitelistApiServer::start(test_config(), api).await.expect("server starts");
+
+    let response = reqwest::Client::new()
+        .post(format!("{}/preconfBlocks", server.http_url()))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(sample_preconf_request())
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::INTERNAL_SERVER_ERROR);
 
     server.stop().await;
 }

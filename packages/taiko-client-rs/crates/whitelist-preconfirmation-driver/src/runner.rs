@@ -10,6 +10,7 @@ use driver::{
     DriverConfig,
     preconf_ingress_sync::{PreconfIngressSync, map_event_syncer_exit},
 };
+use protocol::shasta::etna_fork_timestamp_for_chain;
 use rpc::beacon::BeaconClient;
 use tracing::{info, warn};
 
@@ -62,9 +63,14 @@ impl WhitelistPreconfirmationDriverRunner {
         let mut preconf_ingress_sync =
             PreconfIngressSync::start(&self.config.driver_config).await?;
         let chain_id = preconf_ingress_sync.client().chain_id;
+        // Resolved once: the REST builder and the P2P importer decide each payload's fork rules
+        // against this activation time.
+        let etna_fork_timestamp = etna_fork_timestamp_for_chain(chain_id)
+            .map_err(|source| driver::DriverError::EtnaScheduleUnresolved { chain_id, source })?;
 
         info!(
             chain_id,
+            ?etna_fork_timestamp,
             whitelist_address = %self.config.whitelist_address,
             "starting whitelist preconfirmation driver"
         );
@@ -129,6 +135,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
                 chain_id,
+                etna_fork_timestamp,
                 signer,
                 beacon_client: Arc::clone(&beacon_client),
                 operator_set: operator_set.clone(),

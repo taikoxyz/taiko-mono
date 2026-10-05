@@ -3,16 +3,25 @@ use std::{
     time::{Duration, Instant},
 };
 
+use alloy_primitives::{Address, B256, Bytes, U256};
+use alloy_rpc_types::Header as RpcHeader;
 use alloy_signer_local::PrivateKeySigner;
 use flate2::{Compression, write::ZlibEncoder};
 
 use crate::{
-    api::service::{
-        HAND_OVER_WINDOW_SLOTS, SHUTDOWN_BLOCK_WINDOW, SHUTDOWN_IMMINENCE_MARGIN_SLOTS,
-        WhitelistApiService, can_shutdown_for,
+    api::{
+        service::{
+            HAND_OVER_WINDOW_SLOTS, SHUTDOWN_BLOCK_WINDOW, SHUTDOWN_IMMINENCE_MARGIN_SLOTS,
+            WhitelistApiService, can_shutdown_for,
+            payload_build::{driver_payload_from_request, published_envelope},
+        },
+        types::ExecutableData,
     },
     cache::SharedPreconfState,
-    codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
+    codec::{
+        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decode_envelope_ssz,
+        decompress_tx_list, encode_envelope_ssz,
+    },
     error::WhitelistPreconfirmationDriverError,
 };
 
@@ -75,6 +84,141 @@ fn decompress_tx_list_accepts_non_empty_payload_within_limits() {
     let compressed = compress(&expected);
     let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
     assert_eq!(decoded, expected);
+}
+
+/// Nonzero Etna root (the L1 state root of the anchor block).
+const SAMPLE_ETNA_ROOT: B256 = B256::repeat_byte(0x5a);
+
+/// Build a REST request body's executable data carrying `root`.
+fn sample_executable_data(root: Option<B256>) -> ExecutableData {
+    ExecutableData {
+        parent_hash: B256::repeat_byte(0x01),
+        fee_recipient: Address::repeat_byte(0x11),
+        block_number: 42,
+        gas_limit: 30_000_000,
+        timestamp: 1_735_000_000,
+        transactions: Bytes::from(compress(&[0xc0])),
+        extra_data: Bytes::from(vec![0x32u8; 13]),
+        base_fee_per_gas: 7,
+        parent_beacon_block_root: root,
+    }
+}
+
+/// Build the header the execution engine returns for the inserted block.
+fn sample_inserted_header(difficulty: U256, base_fee_per_gas: Option<u64>) -> RpcHeader {
+    RpcHeader {
+        hash: B256::repeat_byte(0x05),
+        inner: alloy_consensus::Header {
+            parent_hash: B256::repeat_byte(0x01),
+            number: 42,
+            timestamp: 1_735_000_000,
+            difficulty,
+            base_fee_per_gas,
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+#[test]
+fn published_envelope_carries_the_request_root() {
+    let data = sample_executable_data(Some(SAMPLE_ETNA_ROOT));
+    let header = sample_inserted_header(U256::ZERO, Some(9));
+
+    let envelope = published_envelope(&data, &header, Some(true), None, [0x22u8; 65]);
+    assert_eq!(envelope.parent_beacon_block_root, Some(SAMPLE_ETNA_ROOT));
+    assert_eq!(envelope.execution_payload.block_hash, header.hash);
+    assert_eq!(envelope.execution_payload.transactions, vec![data.transactions.clone()]);
+    assert_eq!(envelope.end_of_sequencing, Some(true));
+    assert_eq!(envelope.signature, Some([0x22u8; 65]));
+
+    let decoded = decode_envelope_ssz(&encode_envelope_ssz(&envelope)).expect("decode envelope");
+    assert_eq!(decoded.parent_beacon_block_root, Some(SAMPLE_ETNA_ROOT));
+}
+
+/// The REST build hands the request's root to the driver: an Etna request's nonzero root as
+/// is, an absent or zero one as the zero root every pre-Etna build sends.
+#[test]
+fn driver_payload_from_request_sends_the_request_root() {
+    let prev_randao = B256::repeat_byte(0x04);
+    let etna = driver_payload_from_request(
+        &sample_executable_data(Some(SAMPLE_ETNA_ROOT)),
+        None,
+        prev_randao,
+        [0u8; 65],
+    )
+    .expect("Etna request builds");
+    assert_eq!(etna.payload_attributes.parent_beacon_block_root, Some(SAMPLE_ETNA_ROOT));
+
+    for root in [None, Some(B256::ZERO)] {
+        let pre_etna = driver_payload_from_request(
+            &sample_executable_data(root),
+            None,
+            prev_randao,
+            [0u8; 65],
+        )
+        .expect("pre-Etna request builds");
+        assert_eq!(
+            pre_etna.payload_attributes.parent_beacon_block_root,
+            Some(B256::ZERO),
+            "request root {root:?}"
+        );
+        assert_ne!(
+            pre_etna.l1_origin.build_payload_args_id, etna.l1_origin.build_payload_args_id,
+            "the root is bound into the payload fingerprint"
+        );
+    }
+}
+
+#[test]
+fn published_envelope_carries_an_absent_or_zero_request_root_as_none() {
+    let header = sample_inserted_header(U256::from(21_000u64), Some(9));
+    for root in [None, Some(B256::ZERO)] {
+        let envelope =
+            published_envelope(&sample_executable_data(root), &header, None, None, [0u8; 65]);
+        assert_eq!(envelope.parent_beacon_block_root, None, "request root {root:?}");
+    }
+}
+
+#[test]
+fn published_envelope_sets_header_difficulty_only_when_nonzero() {
+    let data = sample_executable_data(Some(SAMPLE_ETNA_ROOT));
+
+    let empty = published_envelope(
+        &data,
+        &sample_inserted_header(U256::ZERO, Some(9)),
+        None,
+        None,
+        [0u8; 65],
+    );
+    assert_eq!(empty.header_difficulty, None);
+
+    let full = published_envelope(
+        &data,
+        &sample_inserted_header(U256::from(21_000u64), Some(9)),
+        None,
+        None,
+        [0u8; 65],
+    );
+    assert_eq!(full.header_difficulty, Some(U256::from(21_000u64)));
+}
+
+#[test]
+fn published_envelope_prefers_the_header_base_fee() {
+    let data = sample_executable_data(None);
+
+    let from_header = published_envelope(
+        &data,
+        &sample_inserted_header(U256::ZERO, Some(9)),
+        None,
+        None,
+        [0; 65],
+    );
+    assert_eq!(from_header.execution_payload.base_fee_per_gas, U256::from(9u64));
+
+    let from_request =
+        published_envelope(&data, &sample_inserted_header(U256::ZERO, None), None, None, [0; 65]);
+    assert_eq!(from_request.execution_payload.base_fee_per_gas, U256::from(7u64));
 }
 
 #[test]
