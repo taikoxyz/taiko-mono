@@ -17,6 +17,7 @@ use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{ExecutionPayloadV3, ForkchoiceState, PayloadStatusEnum};
 use anyhow::anyhow;
+use protocol::shasta::{etna_fork_timestamp_for_chain, is_etna_at};
 use rpc::{
     client::{Client, connect_http_with_timeout},
     error::RpcClientError,
@@ -52,20 +53,33 @@ pub struct BeaconSyncer {
     checkpoint: Option<RootProvider>,
     /// Shared resume head consumed by event sync after this stage completes.
     checkpoint_resume_head: Arc<CheckpointResumeHead>,
+    /// Etna activation time of the chain, resolved once at construction (`None` while Etna is
+    /// not scheduled); decides which checkpoint heads must carry a nonzero beacon root.
+    etna_fork_timestamp: Option<u64>,
 }
 
 impl BeaconSyncer {
-    /// Construct a new beacon syncer from the provided configuration and RPC client.
+    /// Construct a new beacon syncer from the provided configuration and RPC client, resolving
+    /// the chain's Etna activation time once.
     #[instrument(skip(config, rpc))]
     pub fn new(
         config: &DriverConfig,
         rpc: Client,
         checkpoint_resume_head: Arc<CheckpointResumeHead>,
-    ) -> Self {
+    ) -> Result<Self, DriverError> {
+        let chain_id = rpc.chain_id;
+        let etna_fork_timestamp = etna_fork_timestamp_for_chain(chain_id)
+            .map_err(|source| DriverError::EtnaScheduleUnresolved { chain_id, source })?;
         let checkpoint =
             config.l2_checkpoint_url.as_ref().map(|url| connect_http_with_timeout(url.clone()));
 
-        Self { retry_interval: config.retry_interval, rpc, checkpoint, checkpoint_resume_head }
+        Ok(Self {
+            retry_interval: config.retry_interval,
+            rpc,
+            checkpoint,
+            checkpoint_resume_head,
+            etna_fork_timestamp,
+        })
     }
 
     /// Read the proof-finalized sync target from the L1 inbox core state.
@@ -123,7 +137,7 @@ impl BeaconSyncer {
         debug!(block_number, ?block_hash, "submitting checkpoint block to execution engine");
 
         let CheckpointPayload { payload, header_difficulty, parent_beacon_block_root } =
-            checkpoint_payload(block)?;
+            checkpoint_payload(block, self.etna_fork_timestamp)?;
         let payload_status = self
             .rpc
             .engine_new_payload_v4(&payload, header_difficulty, parent_beacon_block_root)
@@ -176,14 +190,35 @@ struct CheckpointPayload {
 /// Prepare a sealed checkpoint block for `engine_newPayloadV4`.
 ///
 /// Checkpoint import bypasses the local getPayload/newPayload round trip, so the sealed header's
-/// difficulty and beacon root are passed through explicitly.
-fn checkpoint_payload(block: RpcBlock<TxEnvelope>) -> Result<CheckpointPayload, DriverError> {
+/// difficulty and beacon root are passed through explicitly. A non-genesis head must follow the
+/// beacon-root rule of its fork, decided by its own timestamp against `etna_fork_timestamp`: an
+/// Etna head carries a nonzero root, a pre-Etna head a zero or missing one. A head that breaks
+/// the rule is refused before any engine call, since it is canonical and the client's Etna
+/// activation time then disagrees with the execution engine's.
+fn checkpoint_payload(
+    block: RpcBlock<TxEnvelope>,
+    etna_fork_timestamp: Option<u64>,
+) -> Result<CheckpointPayload, DriverError> {
     let block_number = block.header.number;
+    let timestamp = block.header.timestamp;
     let block_hash = block.hash();
     let difficulty = block.header.difficulty;
     let header_difficulty = u64::try_from(difficulty)
         .map_err(|_| DriverError::CheckpointDifficultyOverflow { block_number, difficulty })?;
     let parent_beacon_block_root = block.header.parent_beacon_block_root.unwrap_or_default();
+    if block_number != 0 {
+        let is_etna = is_etna_at(etna_fork_timestamp, timestamp);
+        if is_etna && parent_beacon_block_root.is_zero() {
+            return Err(DriverError::EtnaCheckpointWithoutBeaconRoot { block_number, timestamp });
+        }
+        if !is_etna && !parent_beacon_block_root.is_zero() {
+            return Err(DriverError::PreEtnaCheckpointWithBeaconRoot {
+                block_number,
+                timestamp,
+                root: parent_beacon_block_root,
+            });
+        }
+    }
 
     let consensus_block: Block<TxEnvelope> = block.into();
     let payload = ExecutionPayloadV3::from_block_unchecked(block_hash, &consensus_block);
@@ -392,8 +427,15 @@ impl SyncStage for BeaconSyncer {
             match self.submit_target_block(block).await {
                 Ok(()) => DriverMetrics::beacon_sync_remote_submissions_total().inc(),
                 // An INVALID verdict is not transient: the block hashes to the L1 checkpoint yet
-                // the engine rejects it, which needs operator attention rather than retries.
-                Err(err @ DriverError::EngineInvalidPayload(_)) => {
+                // the engine rejects it, which needs operator attention rather than retries. A
+                // verified head that breaks its fork's beacon-root rule, in either direction, is
+                // just as deterministic: the client's Etna schedule disagrees with the execution
+                // engine's.
+                Err(
+                    err @ (DriverError::EngineInvalidPayload(_) |
+                    DriverError::EtnaCheckpointWithoutBeaconRoot { .. } |
+                    DriverError::PreEtnaCheckpointWithBeaconRoot { .. }),
+                ) => {
                     return Err(SyncError::RemoteBlockSubmit {
                         block_number: target_block_number,
                         error: err.into(),
@@ -414,12 +456,18 @@ impl SyncStage for BeaconSyncer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy::{primitives::Bytes, rpc::types::eth::BlockTransactions, sol_types::SolCall};
+    use alloy::{
+        primitives::Bytes, rpc::types::eth::BlockTransactions, sol_types::SolCall,
+        transports::http::reqwest::Url,
+    };
     use alloy_primitives::U256;
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_types_engine::{ForkchoiceUpdated, PayloadStatus};
     use alloy_transport::mock::Asserter;
     use bindings::inbox::{IInbox::CoreState, Inbox::getCoreStateCall};
+    use protocol::shasta::constants::TAIKO_MAINNET_CHAIN_ID;
+    use rpc::{SubscriptionSource, client::ClientConfig};
+    use std::path::PathBuf;
 
     use crate::test_support::{mock_client_with_asserters, mock_client_with_l1_asserter};
 
@@ -476,6 +524,7 @@ mod tests {
                     .connect_mocked_client(Asserter::new()),
             ),
             checkpoint_resume_head: checkpoint_resume_head.clone(),
+            etna_fork_timestamp: None,
         };
         let run = syncer.run();
         tokio::pin!(run);
@@ -521,6 +570,7 @@ mod tests {
                     .connect_mocked_client(Asserter::new()),
             ),
             checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+            etna_fork_timestamp: None,
         };
 
         let err = tokio::time::timeout(Duration::from_millis(100), syncer.run())
@@ -542,6 +592,7 @@ mod tests {
             rpc: mock_client_with_l1_asserter(l1_asserter.clone()),
             checkpoint: None,
             checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+            etna_fork_timestamp: None,
         };
 
         let target = syncer
@@ -574,12 +625,15 @@ mod tests {
         assert!(resolve_checkpoint_forkchoice_status(&PayloadStatusEnum::Accepted, 7).is_err());
     }
 
+    /// Timestamp of [`sample_checkpoint_block`].
+    const SAMPLE_CHECKPOINT_TIMESTAMP: u64 = 100;
+
     /// Sealed checkpoint block 9 with the given header difficulty and beacon root.
     fn sample_checkpoint_block(difficulty: U256, root: Option<B256>) -> RpcBlock<TxEnvelope> {
         let mut block = RpcBlock::<TxEnvelope>::default();
         block.header.hash = B256::with_last_byte(0x09);
         block.header.inner.number = 9;
-        block.header.inner.timestamp = 100;
+        block.header.inner.timestamp = SAMPLE_CHECKPOINT_TIMESTAMP;
         block.header.inner.difficulty = difficulty;
         block.header.inner.parent_beacon_block_root = root;
         block.transactions = BlockTransactions::Full(Vec::new());
@@ -587,35 +641,109 @@ mod tests {
         block
     }
 
+    /// An Unzen head keeps its zero root and difficulty, whether Etna is unscheduled or
+    /// scheduled after it.
     #[test]
     fn unzen_checkpoint_head_uses_new_payload_v4_with_zero_root_and_its_difficulty() {
-        let payload =
-            checkpoint_payload(sample_checkpoint_block(U256::from(7u64), Some(B256::ZERO)))
-                .expect("Unzen checkpoint payload");
+        for etna_fork_timestamp in [None, Some(SAMPLE_CHECKPOINT_TIMESTAMP + 1)] {
+            let payload = checkpoint_payload(
+                sample_checkpoint_block(U256::from(7u64), Some(B256::ZERO)),
+                etna_fork_timestamp,
+            )
+            .expect("Unzen checkpoint payload");
 
-        assert_eq!(
-            payload.payload.payload_inner.payload_inner.block_hash,
-            B256::with_last_byte(0x09)
-        );
-        assert_eq!(payload.payload.payload_inner.payload_inner.block_number, 9);
-        assert!(payload.payload.payload_inner.withdrawals.is_empty());
-        assert_eq!(payload.header_difficulty, 7);
-        assert_eq!(payload.parent_beacon_block_root, B256::ZERO);
+            assert_eq!(
+                payload.payload.payload_inner.payload_inner.block_hash,
+                B256::with_last_byte(0x09)
+            );
+            assert_eq!(payload.payload.payload_inner.payload_inner.block_number, 9);
+            assert!(payload.payload.payload_inner.withdrawals.is_empty());
+            assert_eq!(payload.header_difficulty, 7);
+            assert_eq!(payload.parent_beacon_block_root, B256::ZERO);
+        }
     }
 
     #[test]
-    fn checkpoint_head_passes_its_own_header_root_and_zero_difficulty() {
+    fn etna_checkpoint_head_passes_its_own_header_root_and_zero_difficulty() {
         let root = B256::with_last_byte(0xaa);
-        let payload = checkpoint_payload(sample_checkpoint_block(U256::ZERO, Some(root)))
-            .expect("checkpoint payload");
+        let payload = checkpoint_payload(
+            sample_checkpoint_block(U256::ZERO, Some(root)),
+            Some(SAMPLE_CHECKPOINT_TIMESTAMP),
+        )
+        .expect("Etna checkpoint payload");
 
-        assert_eq!(payload.header_difficulty, 0, "an empty block keeps its zero zk gas");
+        assert_eq!(payload.header_difficulty, 0, "an empty Etna block keeps its zero zk gas");
         assert_eq!(payload.parent_beacon_block_root, root);
+    }
+
+    /// A non-genesis Etna head must carry the nonzero L1 state root of its anchor block.
+    #[test]
+    fn etna_checkpoint_head_without_root_is_rejected() {
+        for root in [None, Some(B256::ZERO)] {
+            let err = checkpoint_payload(
+                sample_checkpoint_block(U256::ZERO, root),
+                Some(SAMPLE_CHECKPOINT_TIMESTAMP),
+            )
+            .expect_err("an Etna head needs a nonzero root");
+
+            assert!(
+                matches!(
+                    err,
+                    DriverError::EtnaCheckpointWithoutBeaconRoot {
+                        block_number: 9,
+                        timestamp: SAMPLE_CHECKPOINT_TIMESTAMP,
+                    }
+                ),
+                "root {root:?}: unexpected error {err:?}"
+            );
+        }
+    }
+
+    /// A non-genesis head that the client places before Etna, whether Etna is unscheduled or
+    /// scheduled after it, must not carry a nonzero root: the execution engine built it as an
+    /// Etna block.
+    #[test]
+    fn pre_etna_checkpoint_head_with_root_is_rejected() {
+        let root = B256::with_last_byte(0xaa);
+        for etna_fork_timestamp in [None, Some(SAMPLE_CHECKPOINT_TIMESTAMP + 1)] {
+            let err = checkpoint_payload(
+                sample_checkpoint_block(U256::ZERO, Some(root)),
+                etna_fork_timestamp,
+            )
+            .expect_err("a pre-Etna head needs a zero or missing root");
+
+            assert!(
+                matches!(
+                    err,
+                    DriverError::PreEtnaCheckpointWithBeaconRoot {
+                        block_number: 9,
+                        timestamp: SAMPLE_CHECKPOINT_TIMESTAMP,
+                        root: r,
+                    } if r == root
+                ),
+                "Etna at {etna_fork_timestamp:?}: unexpected error {err:?}"
+            );
+        }
+    }
+
+    /// The L2 genesis header keeps a zero (or no) root even when Etna is active from genesis.
+    #[test]
+    fn genesis_checkpoint_head_without_root_is_accepted_with_etna_from_genesis() {
+        for root in [None, Some(B256::ZERO)] {
+            let mut genesis = sample_checkpoint_block(U256::ZERO, root);
+            genesis.header.inner.number = 0;
+            genesis.header.inner.timestamp = 0;
+
+            let payload = checkpoint_payload(genesis, Some(0))
+                .unwrap_or_else(|err| panic!("root {root:?}: genesis head rejected: {err:?}"));
+
+            assert_eq!(payload.parent_beacon_block_root, B256::ZERO, "root {root:?}");
+        }
     }
 
     #[test]
     fn checkpoint_head_without_root_sends_zero_root() {
-        let payload = checkpoint_payload(sample_checkpoint_block(U256::from(7u64), None))
+        let payload = checkpoint_payload(sample_checkpoint_block(U256::from(7u64), None), None)
             .expect("checkpoint payload");
 
         assert_eq!(payload.parent_beacon_block_root, B256::ZERO);
@@ -624,7 +752,7 @@ mod tests {
     #[test]
     fn checkpoint_head_difficulty_beyond_u64_is_rejected() {
         let difficulty = U256::from(u64::MAX) + U256::from(1u64);
-        let err = checkpoint_payload(sample_checkpoint_block(difficulty, Some(B256::ZERO)))
+        let err = checkpoint_payload(sample_checkpoint_block(difficulty, Some(B256::ZERO)), None)
             .expect_err("difficulty beyond u64 has no headerDifficulty encoding");
 
         assert!(matches!(
@@ -651,6 +779,7 @@ mod tests {
             ),
             checkpoint: None,
             checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+            etna_fork_timestamp: None,
         };
 
         syncer
@@ -659,5 +788,191 @@ mod tests {
             .expect("SYNCING import and promotion are accepted");
 
         assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
+    /// An Etna head without a root is refused before any engine call: the auth asserter has no
+    /// scripted reply, so a call would surface as an RPC error instead.
+    #[tokio::test]
+    async fn submit_target_block_rejects_etna_head_without_root_before_engine_calls() {
+        let l2_auth_asserter = Asserter::new();
+        let syncer = BeaconSyncer {
+            retry_interval: Duration::from_secs(1),
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                Asserter::new(),
+                l2_auth_asserter,
+                Default::default(),
+            ),
+            checkpoint: None,
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+            etna_fork_timestamp: Some(SAMPLE_CHECKPOINT_TIMESTAMP),
+        };
+
+        let err = syncer
+            .submit_target_block(sample_checkpoint_block(U256::ZERO, Some(B256::ZERO)))
+            .await
+            .expect_err("an Etna head without a root must not reach the engine");
+
+        assert!(matches!(
+            err,
+            DriverError::EtnaCheckpointWithoutBeaconRoot { block_number: 9, .. }
+        ));
+    }
+
+    /// A pre-Etna head with a nonzero root is refused before any engine call: the auth asserter
+    /// has no scripted reply, so a call would surface as an RPC error instead.
+    #[tokio::test]
+    async fn submit_target_block_rejects_pre_etna_head_with_root_before_engine_calls() {
+        let l2_auth_asserter = Asserter::new();
+        let syncer = BeaconSyncer {
+            retry_interval: Duration::from_secs(1),
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                Asserter::new(),
+                l2_auth_asserter,
+                Default::default(),
+            ),
+            checkpoint: None,
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+            etna_fork_timestamp: Some(SAMPLE_CHECKPOINT_TIMESTAMP + 1),
+        };
+
+        let err = syncer
+            .submit_target_block(sample_checkpoint_block(
+                U256::ZERO,
+                Some(B256::with_last_byte(0xaa)),
+            ))
+            .await
+            .expect_err("a pre-Etna head with a root must not reach the engine");
+
+        assert!(matches!(
+            err,
+            DriverError::PreEtnaCheckpointWithBeaconRoot { block_number: 9, .. }
+        ));
+    }
+
+    /// Run beacon sync toward `head`, stored locally and recorded on L1 as the proof-finalized
+    /// checkpoint but not yet canonical, and return the error that stops the stage. The stage
+    /// must stop on the first tick instead of entering the retry loop.
+    async fn run_until_checkpoint_head_stops_the_stage(
+        mut head: RpcBlock<TxEnvelope>,
+        etna_fork_timestamp: Option<u64>,
+    ) -> SyncError {
+        head.header.hash = head.header.inner.hash_slow();
+        let head_hash = head.header.hash;
+
+        let l1_asserter = Asserter::new();
+        let mut core_state = empty_core_state();
+        core_state.lastFinalizedProposalId = alloy_primitives::aliases::U48::from(1u64);
+        core_state.lastFinalizedBlockHash = head_hash;
+        l1_asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&core_state)));
+        let l2_asserter = Asserter::new();
+        l2_asserter.push_success(&0u64); // local head
+        l2_asserter.push_success(&Some(head)); // locally stored target body
+        l2_asserter.push_success(&None::<RpcBlock<TxEnvelope>>); // nothing at the target height
+
+        let syncer = BeaconSyncer {
+            retry_interval: Duration::from_secs(1),
+            rpc: mock_client_with_asserters(
+                l1_asserter,
+                l2_asserter.clone(),
+                Asserter::new(),
+                Default::default(),
+            ),
+            checkpoint: Some(
+                ProviderBuilder::new()
+                    .disable_recommended_fillers()
+                    .connect_mocked_client(Asserter::new()),
+            ),
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+            etna_fork_timestamp,
+        };
+
+        let err = tokio::time::timeout(Duration::from_millis(100), syncer.run())
+            .await
+            .expect("a misconfigured Etna schedule must not enter the retry loop")
+            .expect_err("a misconfigured Etna schedule must stop beacon sync");
+        assert!(l2_asserter.read_q().is_empty());
+        err
+    }
+
+    /// A verified checkpoint head that the client places in Etna but that carries a zero root
+    /// stops the stage instead of retrying forever, and the error tells the operator to align
+    /// the Etna schedules.
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn run_stops_on_etna_checkpoint_head_without_root() {
+        let err = run_until_checkpoint_head_stops_the_stage(
+            sample_checkpoint_block(U256::ZERO, Some(B256::ZERO)),
+            Some(SAMPLE_CHECKPOINT_TIMESTAMP),
+        )
+        .await;
+
+        let SyncError::RemoteBlockSubmit { block_number: 9, error } = err else {
+            panic!("unexpected error: {err:?}");
+        };
+        assert!(matches!(
+            error.downcast_ref::<DriverError>(),
+            Some(DriverError::EtnaCheckpointWithoutBeaconRoot { block_number: 9, .. })
+        ));
+        assert!(
+            error.to_string().contains("set --devnet-etna-timestamp to the execution engine's"),
+            "missing operator hint: {error}"
+        );
+    }
+
+    /// A verified checkpoint head that the client places before Etna but that carries a nonzero
+    /// root stops the stage the same way: the client's Etna time is later than the engine's.
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn run_stops_on_pre_etna_checkpoint_head_with_root() {
+        let err = run_until_checkpoint_head_stops_the_stage(
+            sample_checkpoint_block(U256::ZERO, Some(B256::with_last_byte(0xaa))),
+            Some(SAMPLE_CHECKPOINT_TIMESTAMP + 1),
+        )
+        .await;
+
+        let SyncError::RemoteBlockSubmit { block_number: 9, error } = err else {
+            panic!("unexpected error: {err:?}");
+        };
+        assert!(matches!(
+            error.downcast_ref::<DriverError>(),
+            Some(DriverError::PreEtnaCheckpointWithBeaconRoot { block_number: 9, .. })
+        ));
+        assert!(
+            error.to_string().contains("set --devnet-etna-timestamp to the execution engine's"),
+            "missing operator hint: {error}"
+        );
+    }
+
+    /// The syncer resolves the Etna time once from the client's chain id; a chain without a fork
+    /// schedule fails construction.
+    #[test]
+    fn new_resolves_the_etna_schedule_from_the_chain_id() {
+        let config = DriverConfig::new(
+            ClientConfig {
+                l1_provider_source: SubscriptionSource::Http(
+                    Url::parse("http://localhost:8545").expect("valid http url"),
+                ),
+                l2_provider_url: Url::parse("http://localhost:8545").expect("valid http url"),
+                l2_auth_provider_url: Url::parse("http://localhost:8551").expect("valid http url"),
+                jwt_secret: PathBuf::from("/dev/null"),
+                inbox_address: Default::default(),
+            },
+            Duration::from_secs(1),
+            Url::parse("http://localhost:5052").expect("valid beacon url"),
+            None,
+            None,
+            false,
+        );
+
+        let mut rpc = mock_client_with_l1_asserter(Asserter::new());
+        let err = BeaconSyncer::new(&config, rpc.clone(), Default::default())
+            .err()
+            .expect("chain 0 has no fork schedule");
+        assert!(matches!(err, DriverError::EtnaScheduleUnresolved { chain_id: 0, .. }));
+
+        rpc.chain_id = TAIKO_MAINNET_CHAIN_ID;
+        let syncer = BeaconSyncer::new(&config, rpc, Default::default())
+            .expect("mainnet has a fork schedule");
+        assert_eq!(syncer.etna_fork_timestamp, None, "mainnet does not schedule Etna");
     }
 }
