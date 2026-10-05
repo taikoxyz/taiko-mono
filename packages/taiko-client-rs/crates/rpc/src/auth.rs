@@ -346,6 +346,7 @@ mod tests {
             taiko_block: Some(true),
             block_access_list: None,
             slot_number: None,
+            osaka: None,
         };
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
@@ -381,6 +382,7 @@ mod tests {
             taiko_block: Some(true),
             block_access_list: None,
             slot_number: None,
+            osaka: None,
         };
 
         let err = engine_new_payload_v2_value(&payload, &sidecar)
@@ -399,6 +401,7 @@ mod tests {
             taiko_block: Some(true),
             block_access_list: None,
             slot_number: None,
+            osaka: None,
         };
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
@@ -418,6 +421,7 @@ mod tests {
             taiko_block: Some(true),
             block_access_list: None,
             slot_number: None,
+            osaka: None,
         };
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
