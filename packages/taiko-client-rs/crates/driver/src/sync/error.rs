@@ -2,6 +2,7 @@
 
 use alloy::primitives::{B256, U256};
 use anyhow::Error as AnyhowError;
+use protocol::shasta::error::ForkConfigError;
 use rpc::RpcClientError;
 use thiserror::Error;
 
@@ -130,6 +131,56 @@ pub enum EngineSubmissionError {
         timestamp: u64,
         /// Chain id whose fork schedule was consulted.
         chain_id: u64,
+    },
+    /// The Etna activation time of the client's chain cannot be resolved, so the beacon-root
+    /// rule of a target cannot be decided.
+    #[error("cannot resolve the Etna fork schedule of chain {chain_id}")]
+    EtnaScheduleUnresolved {
+        /// Chain id whose fork schedule was consulted.
+        chain_id: u64,
+        /// Underlying fork-configuration error.
+        #[source]
+        source: ForkConfigError,
+    },
+    /// The payload attributes carry no `parentBeaconBlockRoot`. Every
+    /// `engine_forkchoiceUpdatedV3` with attributes needs one, whatever the target's fork: zero
+    /// before Etna, the nonzero L1 state root of the anchor block for Etna.
+    #[error(
+        "payload attributes for block {block_number} (timestamp {timestamp}) carry no \
+         parentBeaconBlockRoot; every build needs one (zero before Etna, the L1 state root of the \
+         anchor block for Etna)"
+    )]
+    MissingBeaconRoot {
+        /// Number of the rejected target block.
+        block_number: u64,
+        /// Timestamp of the rejected target block.
+        timestamp: u64,
+    },
+    /// An Etna target carries a zero `parentBeaconBlockRoot`; every non-genesis Etna block must
+    /// carry the nonzero L1 state root of its anchor block.
+    #[error(
+        "Etna block {block_number} (timestamp {timestamp}) has a zero parentBeaconBlockRoot; an \
+         Etna block must carry the nonzero L1 state root of its anchor block"
+    )]
+    EtnaTargetWithoutBeaconRoot {
+        /// Number of the rejected target block.
+        block_number: u64,
+        /// Timestamp of the rejected target block.
+        timestamp: u64,
+    },
+    /// A target before Etna carries a nonzero `parentBeaconBlockRoot`; pre-Etna blocks use
+    /// exactly the zero root.
+    #[error(
+        "pre-Etna block {block_number} (timestamp {timestamp}) carries parentBeaconBlockRoot \
+         {root}; blocks before Etna must use a zero root"
+    )]
+    PreEtnaTargetWithBeaconRoot {
+        /// Number of the rejected target block.
+        block_number: u64,
+        /// Timestamp of the rejected target block.
+        timestamp: u64,
+        /// Nonzero root the target carried.
+        root: B256,
     },
     /// `engine_getPayloadV5` returned a `blockValue` (the block's zk gas) that does not fit the
     /// u64 `headerDifficulty` of `engine_newPayloadV4`.

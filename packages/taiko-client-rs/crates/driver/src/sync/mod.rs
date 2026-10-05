@@ -114,7 +114,7 @@ impl SyncPipeline {
         // Shared cross-stage state: beacon sync writes the checkpoint head it caught up to,
         // event sync consumes that head as its resume anchor when checkpoint mode is enabled.
         let checkpoint_resume_head = Arc::new(CheckpointResumeHead::default());
-        let beacon = BeaconSyncer::new(&cfg, rpc.clone(), checkpoint_resume_head.clone());
+        let beacon = BeaconSyncer::new(&cfg, rpc.clone(), checkpoint_resume_head.clone())?;
         let event = Arc::new(
             EventSyncer::new_with_checkpoint_resume_head(&cfg, rpc, checkpoint_resume_head).await?,
         );

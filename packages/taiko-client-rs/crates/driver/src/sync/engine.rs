@@ -10,7 +10,9 @@ use alloy_rpc_types_engine::{
     PayloadStatus, PayloadStatusEnum,
 };
 use async_trait::async_trait;
-use protocol::shasta::unzen_active_for_chain_timestamp;
+use protocol::shasta::{
+    etna_fork_timestamp_for_chain, is_etna_at, unzen_active_for_chain_timestamp,
+};
 use rpc::client::Client;
 use tracing::{debug, info, instrument, warn};
 
@@ -76,6 +78,10 @@ trait EnginePayloadRpc: Sync {
     /// Chain id used to resolve the fork schedule of a target block.
     fn chain_id(&self) -> u64;
 
+    /// Etna activation time of the chain (`None` while Etna is not scheduled), used to decide
+    /// the beacon-root rule of a target block.
+    fn etna_fork_timestamp(&self) -> Result<Option<u64>, EngineSubmissionError>;
+
     /// Send `engine_forkchoiceUpdatedV3`, optionally carrying payload attributes.
     async fn forkchoice_updated_v3(
         &self,
@@ -109,6 +115,14 @@ impl EnginePayloadRpc for Client {
     /// Return the chain id cached on the client at construction time.
     fn chain_id(&self) -> u64 {
         self.chain_id
+    }
+
+    /// Resolve the Etna activation time of the client's chain, mapping an unresolvable schedule
+    /// into [`EngineSubmissionError::EtnaScheduleUnresolved`].
+    fn etna_fork_timestamp(&self) -> Result<Option<u64>, EngineSubmissionError> {
+        etna_fork_timestamp_for_chain(self.chain_id).map_err(|source| {
+            EngineSubmissionError::EtnaScheduleUnresolved { chain_id: self.chain_id, source }
+        })
     }
 
     /// Delegate to `engine_forkchoiceUpdatedV3` on the authenticated engine endpoint,
@@ -171,10 +185,15 @@ async fn apply_payload_internal<R: EnginePayloadRpc>(
     finalized_block_hash: Option<B256>,
 ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
     let block_number = payload.l1_origin.block_id.to::<u64>();
-    ensure_unzen_target(rpc.chain_id(), block_number, payload.payload_attributes.timestamp)?;
+    let timestamp = payload.payload_attributes.timestamp;
+    ensure_unzen_target(rpc.chain_id(), block_number, timestamp)?;
     // `newPayloadV4` must carry the root sent with the forkchoice update that started the build.
-    let parent_beacon_block_root =
-        payload.payload_attributes.parent_beacon_block_root.unwrap_or_default();
+    let parent_beacon_block_root = ensure_fork_beacon_root(
+        rpc.etna_fork_timestamp()?,
+        block_number,
+        timestamp,
+        payload.payload_attributes.parent_beacon_block_root,
+    )?;
 
     // Advertise the next payload attributes so the execution engine can build the block body.
     let forkchoice_state = ForkchoiceState {
@@ -248,6 +267,35 @@ fn ensure_unzen_target(
         Ok(false) | Err(_) => {
             Err(EngineSubmissionError::PreUnzenTarget { block_number, timestamp, chain_id })
         }
+    }
+}
+
+/// Enforce the fork's beacon-root rule before any engine call, returning the root that
+/// `engine_newPayloadV4` must repeat.
+///
+/// Every `engine_forkchoiceUpdatedV3` with attributes needs a root, so a missing one is refused
+/// for every fork. An Etna target must carry a nonzero root (the L1 state root of its anchor
+/// block); a target before Etna must carry exactly the zero root. The execution engine rejects
+/// each mismatch, so refusing it here keeps a wrong root from ever reaching it.
+fn ensure_fork_beacon_root(
+    etna_fork_timestamp: Option<u64>,
+    block_number: u64,
+    timestamp: u64,
+    parent_beacon_block_root: Option<B256>,
+) -> Result<B256, EngineSubmissionError> {
+    let Some(root) = parent_beacon_block_root else {
+        return Err(EngineSubmissionError::MissingBeaconRoot { block_number, timestamp });
+    };
+    match (is_etna_at(etna_fork_timestamp, timestamp), root.is_zero()) {
+        (true, true) => {
+            Err(EngineSubmissionError::EtnaTargetWithoutBeaconRoot { block_number, timestamp })
+        }
+        (false, false) => Err(EngineSubmissionError::PreEtnaTargetWithBeaconRoot {
+            block_number,
+            timestamp,
+            root,
+        }),
+        _ => Ok(root),
     }
 }
 
@@ -384,10 +432,13 @@ mod tests {
     use alloy::primitives::{Address, B256, Bloom, Bytes, U256};
     use alloy_eips::eip7685::Requests;
     use alloy_rpc_types_engine::{BlobsBundleV2, ExecutionPayloadV1, ExecutionPayloadV2};
+    use alloy_transport::mock::Asserter;
     use protocol::shasta::{
         PayloadAttributesInput, build_payload_attributes,
         constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID},
     };
+
+    use crate::test_support::mock_client_with_l1_asserter;
 
     /// zk gas the scripted engine reports through `getPayloadV5.blockValue`.
     const SAMPLE_ZK_GAS: u64 = 1234;
@@ -528,6 +579,8 @@ mod tests {
         /// Chain id reported to the fork checks; `None` means the internal devnet, whose Unzen
         /// fork is active from genesis.
         chain_id: Option<u64>,
+        /// Etna activation time reported to the root guard; `None` leaves Etna unscheduled.
+        etna_fork_timestamp: Option<u64>,
         attributes_forkchoice: Option<ForkchoiceUpdated>,
         envelope: Option<ExecutionPayloadEnvelopeV5>,
         new_payload: Option<PayloadStatus>,
@@ -553,6 +606,10 @@ mod tests {
     impl EnginePayloadRpc for ScriptedEngine {
         fn chain_id(&self) -> u64 {
             self.chain_id.unwrap_or(TAIKO_DEVNET_CHAIN_ID)
+        }
+
+        fn etna_fork_timestamp(&self) -> Result<Option<u64>, EngineSubmissionError> {
+            Ok(self.etna_fork_timestamp)
         }
 
         async fn forkchoice_updated_v3(
@@ -621,6 +678,14 @@ mod tests {
     /// Unzen payload attributes for block 7 at `timestamp`, matching [`sample_payload`]'s block
     /// number and carrying the zero root every pre-Etna build sends.
     fn sample_attributes_at(timestamp: u64) -> TaikoPayloadAttributes {
+        sample_attributes_with_root(timestamp, Some(B256::ZERO))
+    }
+
+    /// Payload attributes for block 7 at `timestamp` carrying `parent_beacon_block_root`.
+    fn sample_attributes_with_root(
+        timestamp: u64,
+        parent_beacon_block_root: Option<B256>,
+    ) -> TaikoPayloadAttributes {
         let mut attributes = build_payload_attributes(PayloadAttributesInput {
             beneficiary: Address::from([1u8; 20]),
             timestamp,
@@ -634,7 +699,7 @@ mod tests {
             l1_block_hash: Some(B256::ZERO),
             is_forced_inclusion: false,
             signature: [0; 65],
-            parent_beacon_block_root: Some(B256::ZERO),
+            parent_beacon_block_root,
             anchor_transaction: None,
         });
         attributes.l1_origin.build_payload_args_id = *expected_payload_id().0;
@@ -972,6 +1037,183 @@ mod tests {
             );
             assert!(engine.calls().is_empty(), "chain {chain_id}: no engine call may be made");
         }
+    }
+
+    /// Etna activation used by the root-guard tests (the devnet activates Unzen at genesis).
+    const SAMPLE_ETNA_TIMESTAMP: u64 = 100;
+
+    /// Nonzero root an Etna target carries: the L1 state root of its anchor block.
+    fn sample_etna_root() -> B256 {
+        B256::with_last_byte(0xaa)
+    }
+
+    /// An Etna target takes the same Osaka path, and `newPayloadV4` carries the exact nonzero
+    /// root its attributes carried and `blockValue` as the difficulty, including the zero zk gas
+    /// of an empty Etna block.
+    #[tokio::test]
+    async fn apply_payload_drives_etna_target_with_its_root_through_osaka_methods() {
+        for zk_gas in [0, SAMPLE_ZK_GAS] {
+            let engine = ScriptedEngine {
+                etna_fork_timestamp: Some(SAMPLE_ETNA_TIMESTAMP),
+                envelope: Some(sample_envelope(U256::from(zk_gas))),
+                ..scripted_happy_engine()
+            };
+
+            apply_payload_internal(
+                &engine,
+                &sample_attributes_with_root(SAMPLE_ETNA_TIMESTAMP, Some(sample_etna_root())),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .expect("valid Etna sequence must succeed");
+
+            assert_eq!(
+                engine.calls(),
+                vec![
+                    EngineCall::ForkchoiceWithAttributes {
+                        head: sample_parent_hash(),
+                        safe: sample_parent_hash(),
+                        finalized: B256::ZERO,
+                        attrs_block_number: 7,
+                        attrs_payload_id: *expected_payload_id().0,
+                        attrs_parent_beacon_block_root: Some(sample_etna_root()),
+                    },
+                    EngineCall::GetPayload { payload_id: engine_payload_id() },
+                    EngineCall::NewPayload {
+                        block_hash: sample_block_hash(),
+                        block_number: 7,
+                        header_difficulty: zk_gas,
+                        parent_beacon_block_root: sample_etna_root(),
+                    },
+                    promotion_call(),
+                    readback_call(),
+                ],
+                "zk gas {zk_gas}"
+            );
+        }
+    }
+
+    /// An Etna target without a nonzero root is refused before any engine call: a zero root
+    /// breaks the Etna rule and a missing root breaks every fork's rule.
+    #[tokio::test]
+    async fn apply_payload_rejects_etna_target_without_root_before_engine_calls() {
+        for root in [None, Some(B256::ZERO)] {
+            let engine = ScriptedEngine {
+                etna_fork_timestamp: Some(SAMPLE_ETNA_TIMESTAMP),
+                ..scripted_happy_engine()
+            };
+
+            let err = apply_payload_internal(
+                &engine,
+                &sample_attributes_with_root(SAMPLE_ETNA_TIMESTAMP, root),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .unwrap_err();
+
+            let expected = if root.is_some() {
+                matches!(
+                    err,
+                    EngineSubmissionError::EtnaTargetWithoutBeaconRoot {
+                        block_number: 7,
+                        timestamp: SAMPLE_ETNA_TIMESTAMP,
+                    }
+                )
+            } else {
+                matches!(
+                    err,
+                    EngineSubmissionError::MissingBeaconRoot {
+                        block_number: 7,
+                        timestamp: SAMPLE_ETNA_TIMESTAMP,
+                    }
+                )
+            };
+            assert!(expected, "root {root:?}: unexpected error {err:?}");
+            assert!(engine.calls().is_empty(), "root {root:?}: no engine call may be made");
+        }
+    }
+
+    /// A pre-Etna target without a root is refused before any engine call, whether Etna is
+    /// unscheduled or scheduled later: `forkchoiceUpdatedV3` needs the explicit zero root.
+    #[tokio::test]
+    async fn apply_payload_rejects_unzen_target_without_root_before_engine_calls() {
+        for etna_fork_timestamp in [None, Some(SAMPLE_ETNA_TIMESTAMP)] {
+            let engine = ScriptedEngine { etna_fork_timestamp, ..scripted_happy_engine() };
+            let timestamp = SAMPLE_ETNA_TIMESTAMP - 1;
+
+            let err = apply_payload_internal(
+                &engine,
+                &sample_attributes_with_root(timestamp, None),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .unwrap_err();
+
+            assert!(
+                matches!(
+                    err,
+                    EngineSubmissionError::MissingBeaconRoot { block_number: 7, timestamp: t }
+                        if t == timestamp
+                ),
+                "Etna at {etna_fork_timestamp:?}: unexpected error {err:?}"
+            );
+            assert!(
+                engine.calls().is_empty(),
+                "Etna at {etna_fork_timestamp:?}: no engine call may be made"
+            );
+        }
+    }
+
+    /// A pre-Etna target with a nonzero root is refused before any engine call, whether Etna is
+    /// unscheduled or scheduled later.
+    #[tokio::test]
+    async fn apply_payload_rejects_unzen_target_with_root_before_engine_calls() {
+        for etna_fork_timestamp in [None, Some(SAMPLE_ETNA_TIMESTAMP)] {
+            let engine = ScriptedEngine { etna_fork_timestamp, ..scripted_happy_engine() };
+            let timestamp = SAMPLE_ETNA_TIMESTAMP - 1;
+
+            let err = apply_payload_internal(
+                &engine,
+                &sample_attributes_with_root(timestamp, Some(sample_etna_root())),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .unwrap_err();
+
+            assert!(
+                matches!(
+                    err,
+                    EngineSubmissionError::PreEtnaTargetWithBeaconRoot {
+                        block_number: 7,
+                        timestamp: t,
+                        root,
+                    } if t == timestamp && root == sample_etna_root()
+                ),
+                "Etna at {etna_fork_timestamp:?}: unexpected error {err:?}"
+            );
+            assert!(
+                engine.calls().is_empty(),
+                "Etna at {etna_fork_timestamp:?}: no engine call may be made"
+            );
+        }
+    }
+
+    /// The client resolves the Etna time from its chain id; a chain without a fork schedule is
+    /// refused instead of being treated as pre-Etna.
+    #[test]
+    fn client_etna_fork_timestamp_follows_the_chain_schedule() {
+        let mut client = mock_client_with_l1_asserter(Asserter::new());
+        assert!(matches!(
+            EnginePayloadRpc::etna_fork_timestamp(&client),
+            Err(EngineSubmissionError::EtnaScheduleUnresolved { chain_id: 0, .. })
+        ));
+
+        client.chain_id = TAIKO_MAINNET_CHAIN_ID;
+        assert_eq!(EnginePayloadRpc::etna_fork_timestamp(&client).unwrap(), None);
     }
 
     #[test]
