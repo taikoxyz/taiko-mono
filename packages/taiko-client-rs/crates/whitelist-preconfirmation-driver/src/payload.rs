@@ -10,7 +10,9 @@ use protocol::shasta::{PayloadAttributesInput, build_payload_attributes_with_id}
 ///
 /// `tx_list` carries the already-decompressed transaction list bytes; the L1 origin
 /// `signature` is zeroed for local builds and carries the sequencer signature for
-/// P2P imports.
+/// P2P imports. An absent `parent_beacon_block_root` (REST builds, and P2P envelopes whose zero
+/// root decodes to `None`) is sent as `Some(B256::ZERO)`, the root every pre-Etna
+/// `engine_forkchoiceUpdatedV3` build requires.
 pub(crate) fn build_driver_payload(
     execution_payload: &ExecutionPayloadV1,
     tx_list: Vec<u8>,
@@ -32,7 +34,7 @@ pub(crate) fn build_driver_payload(
             l1_block_hash: None,
             is_forced_inclusion,
             signature,
-            parent_beacon_block_root,
+            parent_beacon_block_root: Some(parent_beacon_block_root.unwrap_or_default()),
             anchor_transaction: None,
         },
         &execution_payload.parent_hash,
@@ -63,5 +65,45 @@ pub(crate) fn execution_payload_from_header(
         base_fee_per_gas: U256::from(base_fee_per_gas),
         block_hash: header.hash,
         transactions,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy_primitives::{Address, Bloom};
+
+    use super::*;
+
+    fn sample_execution_payload() -> ExecutionPayloadV1 {
+        ExecutionPayloadV1 {
+            parent_hash: B256::from([0x01u8; 32]),
+            fee_recipient: Address::from([0x11u8; 20]),
+            state_root: B256::from([0x02u8; 32]),
+            receipts_root: B256::from([0x03u8; 32]),
+            logs_bloom: Bloom::default(),
+            prev_randao: B256::from([0x04u8; 32]),
+            block_number: 42,
+            gas_limit: 30_000_000,
+            gas_used: 21000,
+            timestamp: 1_735_000_000,
+            extra_data: Bytes::from(vec![0x32, 0, 0, 0, 0, 0, 7]),
+            base_fee_per_gas: U256::from(1_000_000_000u64),
+            block_hash: B256::from([0x05u8; 32]),
+            transactions: vec![],
+        }
+    }
+
+    /// A REST build (no root) and a P2P import (zero envelope roots decode to `None`, but a
+    /// peer may also send an explicit zero) both send the zero root every pre-Etna FCUv3
+    /// requires, and bind the same payload fingerprint.
+    #[test]
+    fn driver_payload_sends_a_zero_root_for_rest_and_p2p_builds() {
+        let payload = sample_execution_payload();
+        let rest = build_driver_payload(&payload, vec![0xc0], None, false, [0u8; 65]);
+        let p2p = build_driver_payload(&payload, vec![0xc0], Some(B256::ZERO), false, [0u8; 65]);
+
+        assert_eq!(rest.payload_attributes.parent_beacon_block_root, Some(B256::ZERO));
+        assert_eq!(p2p.payload_attributes.parent_beacon_block_root, Some(B256::ZERO));
+        assert_eq!(rest.l1_origin.build_payload_args_id, p2p.l1_origin.build_payload_args_id);
     }
 }

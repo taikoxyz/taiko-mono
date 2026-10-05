@@ -7,9 +7,7 @@ use alloy_primitives::{Address, B256, Bytes, FixedBytes, U256};
 use alloy_provider::{Provider, RootProvider};
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
-use alloy_rpc_types_engine::{
-    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
-};
+use alloy_rpc_types_engine::{ForkchoiceState, PayloadStatusEnum};
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
 use protocol::shasta::{PayloadAttributesInput, build_payload_attributes};
@@ -147,7 +145,7 @@ fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
 ///
 /// `base_coinbase` is the beneficiary every driver-built block carries
 /// (`L2_SUGGESTED_FEE_RECIPIENT`) and is the only base-block identity a reset cannot
-/// corrupt: the engine's `fork_choice_updated_v2` persists block 1's l1_origin row with
+/// corrupt: the engine's `fork_choice_updated_v3` persists block 1's l1_origin row with
 /// the hash of whichever payload was just built, so after an interrupted reset both the
 /// canonical block at height 1 and the row can point at the temporary random-coinbase
 /// sibling — only the coinbase still tells the two apart.
@@ -275,7 +273,6 @@ async fn fork_to(
     let timestamp = block.header.timestamp;
     let mix_digest = block.header.mix_hash;
     let gas_limit = block.header.gas_limit;
-    let header_difficulty = block.header.difficulty;
     let extra_data = block.header.extra_data.clone();
     let base_fee = block.header.base_fee_per_gas.unwrap_or_default();
 
@@ -302,7 +299,9 @@ async fn fork_to(
         l1_block_hash: l1_origin.l1_block_hash,
         is_forced_inclusion: l1_origin.is_forced_inclusion,
         signature: l1_origin.signature,
-        parent_beacon_block_root: None,
+        // Pre-Etna builds send a zero root (and, via the builder, empty withdrawals) over
+        // `engine_forkchoiceUpdatedV3`.
+        parent_beacon_block_root: Some(B256::ZERO),
         anchor_transaction: None,
     });
 
@@ -312,9 +311,9 @@ async fn fork_to(
         finalized_block_hash: B256::ZERO,
     };
     let fc_response = client
-        .engine_forkchoice_updated_v2(forkchoice_state, Some(taiko_attrs))
+        .engine_forkchoice_updated_v3(forkchoice_state, Some(taiko_attrs))
         .await
-        .context("engine_forkchoiceUpdatedV2 with attributes failed")?;
+        .context("engine_forkchoiceUpdatedV3 with attributes failed")?;
     let fc_status = &fc_response.payload_status.status;
     ensure!(payload_status_is_ok(fc_status), "forkchoice update returned status: {fc_status:?}");
 
@@ -323,45 +322,18 @@ async fn fork_to(
         .ok_or_else(|| anyhow::anyhow!("forkchoice update missing payload_id"))?;
 
     let envelope =
-        client.engine_get_payload_v2(payload_id).await.context("engine_getPayloadV2 failed")?;
-    let (payload_input, block_hash) = match envelope.execution_payload {
-        ExecutionPayloadFieldV2::V1(payload) => (
-            ExecutionPayloadInputV2 { execution_payload: payload.clone(), withdrawals: None },
-            payload.block_hash,
-        ),
-        ExecutionPayloadFieldV2::V2(payload) => (
-            ExecutionPayloadInputV2 {
-                execution_payload: payload.payload_inner.clone(),
-                withdrawals: Some(payload.withdrawals.clone()),
-            },
-            payload.payload_inner.block_hash,
-        ),
-    };
-
-    use alloy_consensus::proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder};
-    use alloy_primitives::bytes::BufMut;
-
-    let tx_hash =
-        ordered_trie_root_with_encoder(&payload_input.execution_payload.transactions, |tx, buf| {
-            buf.put_slice(tx)
-        });
-    let withdrawals_hash =
-        payload_input.withdrawals.as_ref().map(|ws| calculate_withdrawals_root(ws));
-
-    let sidecar = alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar {
-        tx_hash,
-        withdrawals_hash,
-        header_difficulty: Some(header_difficulty),
-        taiko_block: Some(true),
-        block_access_list: None,
-        slot_number: None,
-        osaka: None,
-    };
+        client.engine_get_payload_v5(payload_id).await.context("engine_getPayloadV5 failed")?;
+    // Taiko's `blockValue` carries the block's zk gas, sent back as the header difficulty.
+    let header_difficulty = u64::try_from(envelope.block_value).map_err(|_| {
+        anyhow::anyhow!("getPayloadV5 blockValue {} does not fit u64", envelope.block_value)
+    })?;
+    let execution_payload = envelope.execution_payload;
+    let block_hash = execution_payload.payload_inner.payload_inner.block_hash;
 
     let exec_status = client
-        .engine_new_payload_v2(&payload_input, &sidecar)
+        .engine_new_payload_v4(&execution_payload, header_difficulty, B256::ZERO)
         .await
-        .context("engine_newPayloadV2 failed")?;
+        .context("engine_newPayloadV4 failed")?;
     let exec_status_value = &exec_status.status;
     ensure!(
         payload_status_is_ok(exec_status_value),
@@ -374,9 +346,9 @@ async fn fork_to(
         finalized_block_hash: B256::ZERO,
     };
     let promote_response = client
-        .engine_forkchoice_updated_v2(promote_state, None)
+        .engine_forkchoice_updated_v3(promote_state, None)
         .await
-        .context("engine_forkchoiceUpdatedV2 promotion failed")?;
+        .context("engine_forkchoiceUpdatedV3 promotion failed")?;
     let promote_status = &promote_response.payload_status.status;
     ensure!(
         payload_status_is_ok(promote_status),

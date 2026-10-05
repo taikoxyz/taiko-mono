@@ -19,7 +19,7 @@ use alloy_consensus::{
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt};
-use alloy_rpc_types_engine::{ExecutionPayloadFieldV2, ForkchoiceState};
+use alloy_rpc_types_engine::{ExecutionPayloadV3, ForkchoiceState};
 use base_tx_manager::{SimpleTxManager, TxManager, TxManagerError};
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use protocol::shasta::{
@@ -500,7 +500,8 @@ impl Proposer {
             l1_block_hash: Some(l1_block.header.hash),
             is_forced_inclusion: false,
             signature: [0; 65],
-            parent_beacon_block_root: None,
+            // Pre-Etna builds send a zero root over `engine_forkchoiceUpdatedV3`.
+            parent_beacon_block_root: Some(B256::ZERO),
             anchor_transaction: Some(Bytes::from(anchor_tx.encoded_2718())),
         });
 
@@ -538,7 +539,7 @@ impl Proposer {
         // Send forkchoice_updated to trigger payload building.
         let fcu_response = self
             .rpc_provider
-            .engine_forkchoice_updated_v2(forkchoice_state, Some(payload_attributes))
+            .engine_forkchoice_updated_v3(forkchoice_state, Some(payload_attributes))
             .await
             .map_err(|e| ProposerError::FcuFailed(e.to_string()))?;
 
@@ -556,13 +557,9 @@ impl Proposer {
         info!(payload_id = ?payload_id, "received payload ID, fetching payload");
 
         // Fetch the built payload.
-        let payload_envelope = self.rpc_provider.engine_get_payload_v2(payload_id).await?;
-
-        // Extract transactions from payload based on version.
-        let transactions = match &payload_envelope.execution_payload {
-            ExecutionPayloadFieldV2::V1(payload) => &payload.transactions,
-            ExecutionPayloadFieldV2::V2(payload) => &payload.payload_inner.transactions,
-        };
+        let payload_envelope = self.rpc_provider.engine_get_payload_v5(payload_id).await?;
+        let execution_payload = &payload_envelope.execution_payload;
+        let transactions = &execution_payload.payload_inner.payload_inner.transactions;
 
         // If no transactions, return empty list with engine parameters.
         if transactions.is_empty() {
@@ -570,27 +567,7 @@ impl Proposer {
             return Ok((vec![vec![]], engine_params));
         }
 
-        // Skip the first transaction (anchor) and parse the rest.
-        let txs: Vec<Transaction> = transactions
-            .iter()
-            .skip(1) // Skip anchor transaction
-            .enumerate()
-            .map(|(index, tx_bytes): (usize, &Bytes)| {
-                // Decode the transaction from RLP bytes.
-                let tx = TxEnvelope::decode_2718(&mut tx_bytes.as_ref())
-                    .map_err(|source| ProposerError::TxDecode { index, source })?;
-
-                // Recover the signer address from the transaction signature.
-                let signer = tx
-                    .recover_signer()
-                    .map_err(|e| ProposerError::SignerRecovery { index, message: e.to_string() })?;
-
-                Ok(RpcTransaction::from_transaction(
-                    Recovered::new_unchecked(tx, signer),
-                    TransactionInfo::default(),
-                ))
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let txs = engine_payload_user_transactions(execution_payload)?;
 
         info!(
             tx_count = txs.len(),
@@ -601,6 +578,38 @@ impl Proposer {
 
         Ok((vec![txs], engine_params))
     }
+}
+
+/// Decode the user transactions of a payload built in engine mode.
+///
+/// Every pre-Etna payload starts with the anchor transaction the execution engine inserted from
+/// the attributes; it is not part of the proposal, so it is skipped.
+fn engine_payload_user_transactions(
+    execution_payload: &ExecutionPayloadV3,
+) -> Result<Vec<Transaction>> {
+    execution_payload
+        .payload_inner
+        .payload_inner
+        .transactions
+        .iter()
+        .skip(1) // Skip anchor transaction
+        .enumerate()
+        .map(|(index, tx_bytes): (usize, &Bytes)| {
+            // Decode the transaction from RLP bytes.
+            let tx = TxEnvelope::decode_2718(&mut tx_bytes.as_ref())
+                .map_err(|source| ProposerError::TxDecode { index, source })?;
+
+            // Recover the signer address from the transaction signature.
+            let signer = tx
+                .recover_signer()
+                .map_err(|e| ProposerError::SignerRecovery { index, message: e.to_string() })?;
+
+            Ok(RpcTransaction::from_transaction(
+                Recovered::new_unchecked(tx, signer),
+                TransactionInfo::default(),
+            ))
+        })
+        .collect()
 }
 
 /// Calculate the next Shasta base fee from a fixed parent snapshot and its grandparent.
@@ -735,20 +744,26 @@ mod tests {
     use alloy::{
         consensus::Header as ConsensusHeader,
         primitives::{Address, B256, Bytes, U256},
+        signers::{SignerSync, local::PrivateKeySigner},
         transports::{RpcError, TransportErrorKind},
     };
-    use alloy_consensus::{Eip658Value, Receipt, ReceiptEnvelope, ReceiptWithBloom};
+    use alloy_consensus::{
+        Eip658Value, Receipt, ReceiptEnvelope, ReceiptWithBloom, SignableTransaction,
+        Transaction as _, TxEnvelope, TxLegacy,
+    };
+    use alloy_eips::eip2718::Encodable2718;
     use alloy_json_rpc::ErrorPayload;
     use alloy_rpc_types::{
         TransactionReceipt,
         eth::{Block as RpcBlock, Header as RpcHeader},
     };
+    use alloy_rpc_types_engine::{ExecutionPayloadV1, ExecutionPayloadV2, ExecutionPayloadV3};
     use base_tx_manager::TxManagerError;
 
     use super::{
-        calculate_next_shasta_block_base_fee_from_parent, forced_inclusion_is_permissionless,
-        is_operational_loop_error, next_shasta_proposal_id, record_submission_attempt,
-        record_submission_receipt, should_increment_loop_failure_metric,
+        calculate_next_shasta_block_base_fee_from_parent, engine_payload_user_transactions,
+        forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
+        record_submission_attempt, record_submission_receipt, should_increment_loop_failure_metric,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::{
@@ -1127,6 +1142,75 @@ mod tests {
                 1_000_000_000
             ),
             Err(ProposerError::MissingParentBaseFee { parent_block_number: 2 })
+        ));
+    }
+
+    /// Encoded legacy transfer with the given nonce, signed by `signer`.
+    fn signed_transfer(signer: &PrivateKeySigner, nonce: u64) -> Bytes {
+        let tx = TxLegacy {
+            chain_id: Some(167_001),
+            nonce,
+            gas_price: 1,
+            gas_limit: 21_000,
+            to: Address::with_last_byte(0x42).into(),
+            ..Default::default()
+        };
+        let signature = signer.sign_hash_sync(&tx.signature_hash()).expect("sign transfer");
+        Bytes::from(TxEnvelope::from(tx.into_signed(signature)).encoded_2718())
+    }
+
+    /// V3 execution payload, as carried by a `getPayloadV5` envelope, with the given
+    /// transactions.
+    fn engine_payload(transactions: Vec<Bytes>) -> ExecutionPayloadV3 {
+        ExecutionPayloadV3 {
+            payload_inner: ExecutionPayloadV2 {
+                payload_inner: ExecutionPayloadV1 {
+                    parent_hash: B256::ZERO,
+                    fee_recipient: Address::ZERO,
+                    state_root: B256::ZERO,
+                    receipts_root: B256::ZERO,
+                    logs_bloom: Default::default(),
+                    prev_randao: B256::ZERO,
+                    block_number: 1,
+                    gas_limit: 30_000_000,
+                    gas_used: 0,
+                    timestamp: 1,
+                    extra_data: Bytes::new(),
+                    base_fee_per_gas: U256::from(1u64),
+                    block_hash: B256::ZERO,
+                    transactions,
+                },
+                withdrawals: vec![],
+            },
+            blob_gas_used: 0,
+            excess_blob_gas: 0,
+        }
+    }
+
+    /// Unzen engine-mode payloads still start with the anchor transaction, which is not part
+    /// of the proposal.
+    #[test]
+    fn engine_payload_user_transactions_skip_the_unzen_anchor() {
+        let signer = PrivateKeySigner::random();
+        let payload =
+            engine_payload(vec![signed_transfer(&signer, 0), signed_transfer(&signer, 1)]);
+
+        let txs = engine_payload_user_transactions(&payload).expect("decode user transactions");
+
+        assert_eq!(txs.len(), 1);
+        assert_eq!(txs[0].nonce(), 1);
+        assert_eq!(txs[0].inner.signer(), signer.address());
+    }
+
+    #[test]
+    fn engine_payload_user_transactions_reject_undecodable_bytes() {
+        let signer = PrivateKeySigner::random();
+        let payload =
+            engine_payload(vec![signed_transfer(&signer, 0), Bytes::from_static(&[0xff])]);
+
+        assert!(matches!(
+            engine_payload_user_transactions(&payload),
+            Err(ProposerError::TxDecode { index: 0, .. })
         ));
     }
 }
