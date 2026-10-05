@@ -21,6 +21,7 @@ use proposer::{
     proposer::EngineBuildContext,
     transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder},
 };
+use protocol::shasta::etna_fork_timestamp_for_chain;
 use rpc::{blob::BlobDataSource, client::Client};
 use serial_test::serial;
 use test_context::test_context;
@@ -54,7 +55,9 @@ fn decode_proposal_id(log: &Log) -> Result<u64> {
 async fn build_empty_proposal(env: &ShastaEnv, proposer: &Client) -> Result<BuiltProposalTx> {
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let (build_ctx, _) = EngineBuildContext::from_chain_heads(proposer).await?;
+    let etna_fork_timestamp = etna_fork_timestamp_for_chain(proposer.chain_id)?;
+    let (build_ctx, _) =
+        EngineBuildContext::from_chain_heads(proposer, etna_fork_timestamp).await?;
     Ok(builder.build(vec![Vec::new()], build_ctx).await?)
 }
 
