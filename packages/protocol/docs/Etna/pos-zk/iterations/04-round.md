@@ -92,3 +92,59 @@ proof) still stands, and no reviewer has produced two conflicting *certificates*
 But **the recovery design that D-7 selected does not work as specified**, and its own required review
 says so. The honest status is **blocked on the recovery design**, not converged. This is written down
 rather than disclosed as a limitation, because D2 step 5 forbids the latter.
+
+---
+
+## Round 4, fourth angle (proof / data / custody / accounting) — and a severity upgrade
+
+**Report:** `iterations/raw/round4-proof-binding-custody-accounting.md` — filed as 0 Critical, 3 High,
+5 Medium, 1 Low. **Adjudication: one finding is upgraded to Critical** under the severity guide ("enables
+loss of funds"), because it needs no adversary and no assumption failure.
+
+**R4-PB-01 (upgraded to Critical): the fee sweep can be redirected to the caller.** D-8 made the sweep
+permissionless and specified its L2 side, but never specified the L1 leg. Nothing in the specification
+names the bridge message that carries the funds, and the preserved Bridge lets the sender choose
+`srcOwner`, `destOwner`, `to` and `data`: a message whose data is not the expected invocation selector
+is marked done and **the entire value is refunded to a caller-chosen owner**, with no retry. Since the
+sweep is permissionless by rule, any account can build that message and take the whole L2 fee revenue —
+which is, by D-8, the security budget. The milder variants are just as bad for the design: a naive
+conforming message leaves the pool uncredited, or the funds retriable with the relayer unpaid. A
+sub-point: the specification says the bridge fee is "charged against the swept amount", but the
+preserved rule requires `value + fee == msg.value`, so the fee is additional ETH, not a deduction.
+
+**Other High findings from this angle:** `configHash` has no defined preimage anywhere, so the
+"configuration under which the batch was certified" binding is vacuous (R4-PB-02); the "recorded
+allocation policy" that fixes the per-epoch reward allocation is cited five times as an authority and
+defined nowhere, and the pool identity has no term for the proving-share outflow, so one inflow can be
+allocated twice (R4-PB-03); and L1-05 row 18 tells the contract to derive the blob challenge from a field
+subset that excludes the blob hashes and the newer rows, so contract-side and guest-side challenges
+cannot agree and **every honest blob batch would fail to land** (R4-PB-05).
+
+**Mediums:** the reporter-bounty bound is unsatisfiable with a constant split; `setVersion` is declared
+L1-derived but the staking contract stores no such pair; the correlated penalty may go uncollected
+because nothing pays for `applyCorrelated`; and the rule that L2 fees must reach the vault has no
+enforcement point in validity, in the offence catalogue or in the guest.
+
+## Revised round-4 totals
+
+| Angle | Critical | High | Medium | Low |
+|-------|----------|------|--------|-----|
+| Mode B selection / resistance (D2-required) | 2 | 4 | 3 | 0 |
+| Consensus safety × recovery | 1 | 2 | 2 | 1 |
+| Liveness / exposure / migration | 0 | 5 | 4 | 1 |
+| Proof / binding / custody / accounting | **1** | 3 | 5 | 1 |
+| **Total** | **4** | **14** | **14** | **3** |
+
+Four Critical findings now stand: the D2 step-5 obligation is unmet (R4-MB-01); the recovery
+authorization is a tautology, so discarded history can be re-proven and reinstated (R4-MB-02 and the
+consensus angle's Critical, one root cause); and the fee sweep can be redirected to the caller, taking
+the security budget with it (R4-PB-01, upgraded).
+
+## Consequence for Phase B
+
+`05-phase-b-plan.md` is amended in one respect: **S3 now owns a security-critical interface, not just a
+gas measurement.** The bridge message that carries the sweep must be fully specified — selector, sender,
+`destOwner`, `to`, data, fee handling, one-shot and replay rules — and that specification is a
+prerequisite for any sweep existing at all. Measuring the gas of an unspecified interface would be
+measuring the wrong thing.
+

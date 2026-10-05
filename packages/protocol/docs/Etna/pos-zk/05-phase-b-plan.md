@@ -95,6 +95,7 @@ the Fiat–Shamir transcript and the EIP-4844 evaluation-form convention.
 **Pass/fail.** Sound → blobs are a usable path. Unsound or unreviewable → calldata-only, which still
 satisfies D5; state the throughput consequence explicitly.
 
+PLACE_ADD
 ### S5 — Recovery mechanism repair (design, parallel)
 
 Not a measurement, but it must land before the D2 review can be re-run: bind the generation to the
