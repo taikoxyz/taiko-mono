@@ -8,7 +8,7 @@ use rpc::RpcClientError;
 use thiserror::Error;
 
 use crate::{derivation::manifest::ManifestFetcherError, sync::error::EngineSubmissionError};
-use protocol::shasta::AnchorTxConstructorError;
+use protocol::shasta::{AnchorTxConstructorError, ProtocolError};
 
 /// Errors emitted by derivation stages.
 #[derive(Debug, Error)]
@@ -84,6 +84,9 @@ pub enum DerivationError {
         /// Parent block number whose header was missing `base_fee_per_gas`.
         parent_block_number: u64,
     },
+    /// An Etna block's 13-byte `extraData` could not be decoded or encoded.
+    #[error("invalid Etna extraData")]
+    EtnaExtraData(#[source] ProtocolError),
     /// Generic error bucket.
     #[error(transparent)]
     Other(#[from] AnyhowError),
