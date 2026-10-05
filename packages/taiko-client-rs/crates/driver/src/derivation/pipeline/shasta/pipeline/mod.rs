@@ -625,6 +625,22 @@ async fn test_pipeline(
     }
 }
 
+/// Proposal 3 emitted in L1 block 60 at timestamp 1_012 with a 75% basefee share, shared by the
+/// payload and parent-state unit tests.
+#[cfg(test)]
+fn sample_meta() -> BundleMeta {
+    BundleMeta {
+        proposal_id: 3,
+        last_finalized_proposal_id: None,
+        proposal_timestamp: 1_012,
+        l1_block_number: 60,
+        l1_block_hash: B256::with_last_byte(0x60),
+        origin_block_number: 59,
+        proposer: Address::repeat_byte(0x22),
+        basefee_sharing_pctg: 75,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

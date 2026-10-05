@@ -1488,31 +1488,33 @@ mod tests {
         }
     }
 
-    /// Build context and fork fields of an Etna target on an Etna parent (block 42).
-    fn etna_target() -> (EngineBuildContext, EngineTargetForkFields) {
-        let ctx = engine_ctx(42, true, 45_000_000, SAMPLE_ETNA_TIMESTAMP + 12);
-        let fields = engine_target_fork_fields(
-            &ctx,
+    /// Fork fields of the sample proposal ([`SAMPLE_PCTG`], [`SAMPLE_PROPOSAL_ID`], anchored to
+    /// the sample L1 head) over `ctx`, with Etna at `etna_fork_timestamp`.
+    fn sample_fork_fields(
+        ctx: &EngineBuildContext,
+        etna_fork_timestamp: Option<u64>,
+    ) -> EngineTargetForkFields {
+        engine_target_fork_fields(
+            ctx,
             sample_l1_state_root(),
             SAMPLE_PCTG,
             SAMPLE_PROPOSAL_ID,
-            Some(SAMPLE_ETNA_TIMESTAMP),
+            etna_fork_timestamp,
         )
-        .expect("Etna fields");
+        .expect("fork fields")
+    }
+
+    /// Build context and fork fields of an Etna target on an Etna parent (block 42).
+    fn etna_target() -> (EngineBuildContext, EngineTargetForkFields) {
+        let ctx = engine_ctx(42, true, 45_000_000, SAMPLE_ETNA_TIMESTAMP + 12);
+        let fields = sample_fork_fields(&ctx, Some(SAMPLE_ETNA_TIMESTAMP));
         (ctx, fields)
     }
 
     /// Build context and fork fields of an Unzen target on an Unzen parent (block 42).
     fn unzen_target() -> (EngineBuildContext, EngineTargetForkFields) {
         let ctx = engine_ctx(42, false, 45_000_000, SAMPLE_ETNA_TIMESTAMP - 1);
-        let fields = engine_target_fork_fields(
-            &ctx,
-            sample_l1_state_root(),
-            SAMPLE_PCTG,
-            SAMPLE_PROPOSAL_ID,
-            Some(SAMPLE_ETNA_TIMESTAMP),
-        )
-        .expect("Unzen fields");
+        let fields = sample_fork_fields(&ctx, Some(SAMPLE_ETNA_TIMESTAMP));
         (ctx, fields)
     }
 
@@ -1582,14 +1584,7 @@ mod tests {
     fn engine_fields_for_an_etna_target_drop_the_anchor_and_carry_the_l1_state_root() {
         let ctx = engine_ctx(42, true, 45_000_000, SAMPLE_ETNA_TIMESTAMP + 12);
 
-        let fields = engine_target_fork_fields(
-            &ctx,
-            sample_l1_state_root(),
-            SAMPLE_PCTG,
-            SAMPLE_PROPOSAL_ID,
-            Some(SAMPLE_ETNA_TIMESTAMP),
-        )
-        .expect("Etna fields");
+        let fields = sample_fork_fields(&ctx, Some(SAMPLE_ETNA_TIMESTAMP));
 
         assert!(fields.target_is_etna);
         assert!(!fields.has_anchor_transaction(), "an Etna target has no anchor transaction");
@@ -1613,14 +1608,7 @@ mod tests {
         for etna_fork_timestamp in [None, Some(SAMPLE_ETNA_TIMESTAMP)] {
             let ctx = engine_ctx(42, false, 45_000_000, SAMPLE_ETNA_TIMESTAMP - 1);
 
-            let fields = engine_target_fork_fields(
-                &ctx,
-                sample_l1_state_root(),
-                SAMPLE_PCTG,
-                SAMPLE_PROPOSAL_ID,
-                etna_fork_timestamp,
-            )
-            .expect("Unzen fields");
+            let fields = sample_fork_fields(&ctx, etna_fork_timestamp);
 
             assert!(!fields.target_is_etna, "{etna_fork_timestamp:?}");
             assert!(fields.has_anchor_transaction(), "{etna_fork_timestamp:?}");
@@ -1641,14 +1629,7 @@ mod tests {
         // Unzen parent, Etna target: the parent's reserve goes and no new one is added.
         let ctx = engine_ctx(42, false, 45_000_000, SAMPLE_ETNA_TIMESTAMP);
 
-        let fields = engine_target_fork_fields(
-            &ctx,
-            sample_l1_state_root(),
-            SAMPLE_PCTG,
-            SAMPLE_PROPOSAL_ID,
-            Some(SAMPLE_ETNA_TIMESTAMP),
-        )
-        .expect("boundary fields");
+        let fields = sample_fork_fields(&ctx, Some(SAMPLE_ETNA_TIMESTAMP));
 
         assert!(fields.target_is_etna);
         assert_eq!(fields.gas_limit, 44_000_000);

@@ -458,10 +458,7 @@ impl ShastaDerivationPipeline {
             (Some(self.build_anchor_transaction(state, meta, anchor_inputs).await?), B256::ZERO)
         };
 
-        let mut transactions =
-            Vec::with_capacity(block.transactions.len() + usize::from(anchor_tx.is_some()));
-        transactions.extend(anchor_tx.clone());
-        transactions.extend(block.transactions.iter().cloned());
+        let transactions: Vec<_> = anchor_tx.iter().chain(&block.transactions).cloned().collect();
 
         let parent_hash = state.header.hash_slow();
 
@@ -1103,6 +1100,7 @@ mod tests {
         shasta::constants::{TAIKO_DEVNET_CHAIN_ID, min_base_fee_for_chain},
     };
 
+    use super::super::sample_meta;
     use crate::test_support::mock_client_with_asserters;
 
     /// Anchor contract address bound into every test pipeline.
@@ -1129,20 +1127,6 @@ mod tests {
             min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
             chain_id: TAIKO_DEVNET_CHAIN_ID,
             etna_fork_timestamp,
-        }
-    }
-
-    /// Proposal 3 emitted in L1 block 60 with a 75% basefee share.
-    fn sample_meta() -> BundleMeta {
-        BundleMeta {
-            proposal_id: 3,
-            last_finalized_proposal_id: None,
-            proposal_timestamp: 1_012,
-            l1_block_number: 60,
-            l1_block_hash: B256::with_last_byte(0x60),
-            origin_block_number: 59,
-            proposer: Address::repeat_byte(0x22),
-            basefee_sharing_pctg: 75,
         }
     }
 

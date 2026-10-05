@@ -123,6 +123,26 @@ fn preconf_injection_error(
     driver::DriverError::PreconfInjectionFailed { block_number: 1, source }.into()
 }
 
+/// POST the sample request to a server whose block builds fail with the error `make_error`
+/// produces, and return the response status.
+async fn preconf_blocks_status_for_build_error(
+    make_error: fn() -> crate::error::WhitelistPreconfirmationDriverError,
+) -> reqwest::StatusCode {
+    let api: Arc<dyn WhitelistApi> = Arc::new(FailingBuildApi { make_error });
+    let server = WhitelistApiServer::start(test_config(), api).await.expect("server starts");
+
+    let response = reqwest::Client::new()
+        .post(format!("{}/preconfBlocks", server.http_url()))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(sample_preconf_request())
+        .send()
+        .await
+        .expect("request should succeed");
+
+    server.stop().await;
+    response.status()
+}
+
 fn sample_preconf_request() -> Vec<u8> {
     let request = BuildPreconfBlockRequest {
         executable_data: Some(ExecutableData {
@@ -277,24 +297,12 @@ async fn preconf_blocks_maps_engine_fork_guard_errors_to_bad_request() {
     ];
 
     for make_error in cases {
-        let api: Arc<dyn WhitelistApi> = Arc::new(FailingBuildApi { make_error });
-        let server = WhitelistApiServer::start(test_config(), api).await.expect("server starts");
-
-        let response = reqwest::Client::new()
-            .post(format!("{}/preconfBlocks", server.http_url()))
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(sample_preconf_request())
-            .send()
-            .await
-            .expect("request should succeed");
         assert_eq!(
-            response.status(),
+            preconf_blocks_status_for_build_error(make_error).await,
             reqwest::StatusCode::BAD_REQUEST,
             "a deterministic payload fault must be a client error: {}",
             make_error()
         );
-
-        server.stop().await;
     }
 }
 
@@ -302,52 +310,28 @@ async fn preconf_blocks_maps_engine_fork_guard_errors_to_bad_request() {
 /// request, so it is reported as a server error.
 #[tokio::test]
 async fn preconf_blocks_maps_an_unresolved_etna_schedule_to_server_error() {
-    let api: Arc<dyn WhitelistApi> = Arc::new(FailingBuildApi {
-        make_error: || {
-            preconf_injection_error(
-                driver::sync::error::EngineSubmissionError::EtnaScheduleUnresolved {
-                    chain_id: 0,
-                    source: protocol::shasta::error::ForkConfigError::UnsupportedActivation,
-                },
-            )
-        },
-    });
-    let server = WhitelistApiServer::start(test_config(), api).await.expect("server starts");
-
-    let response = reqwest::Client::new()
-        .post(format!("{}/preconfBlocks", server.http_url()))
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .body(sample_preconf_request())
-        .send()
-        .await
-        .expect("request should succeed");
-    assert_eq!(response.status(), reqwest::StatusCode::INTERNAL_SERVER_ERROR);
-
-    server.stop().await;
+    let status = preconf_blocks_status_for_build_error(|| {
+        preconf_injection_error(
+            driver::sync::error::EngineSubmissionError::EtnaScheduleUnresolved {
+                chain_id: 0,
+                source: protocol::shasta::error::ForkConfigError::UnsupportedActivation,
+            },
+        )
+    })
+    .await;
+    assert_eq!(status, reqwest::StatusCode::INTERNAL_SERVER_ERROR);
 }
 
 #[tokio::test]
 async fn preconf_blocks_keeps_engine_invalid_block_as_server_error() {
-    let api: Arc<dyn WhitelistApi> = Arc::new(FailingBuildApi {
-        make_error: || {
-            preconf_injection_error(driver::sync::error::EngineSubmissionError::InvalidBlock(
-                1,
-                "invalid payload".to_string(),
-            ))
-        },
-    });
-    let server = WhitelistApiServer::start(test_config(), api).await.expect("server starts");
-
-    let response = reqwest::Client::new()
-        .post(format!("{}/preconfBlocks", server.http_url()))
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .body(sample_preconf_request())
-        .send()
-        .await
-        .expect("request should succeed");
-    assert_eq!(response.status(), reqwest::StatusCode::INTERNAL_SERVER_ERROR);
-
-    server.stop().await;
+    let status = preconf_blocks_status_for_build_error(|| {
+        preconf_injection_error(driver::sync::error::EngineSubmissionError::InvalidBlock(
+            1,
+            "invalid payload".to_string(),
+        ))
+    })
+    .await;
+    assert_eq!(status, reqwest::StatusCode::INTERNAL_SERVER_ERROR);
 }
 
 #[tokio::test]

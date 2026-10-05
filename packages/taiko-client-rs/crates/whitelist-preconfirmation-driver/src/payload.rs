@@ -6,6 +6,8 @@ use alloy_primitives::{B256, Bytes, U256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use protocol::shasta::{PayloadAttributesInput, build_payload_attributes_with_id};
 
+use crate::codec::WhitelistExecutionPayloadEnvelope;
+
 /// Build the [`TaikoPayloadAttributes`] submitted to the driver for a preconfirmation block.
 ///
 /// `tx_list` carries the already-decompressed transaction list bytes; the L1 origin
@@ -66,6 +68,35 @@ pub(crate) fn execution_payload_from_header(
         base_fee_per_gas: U256::from(base_fee_per_gas),
         block_hash: header.hash,
         transactions,
+    }
+}
+
+/// Build the signed wire envelope of an executed L2 block from its header, so a receiver can
+/// rebuild the block hash byte for byte.
+///
+/// The payload is [`execution_payload_from_header`] over the single `compressed_tx_list` entry.
+/// A zero `parent_beacon_block_root` is carried as `None` (both encode as the same 32 zero bytes
+/// on the wire), and the header difficulty (the block's zk gas) only when it is nonzero.
+pub(crate) fn signed_envelope_from_header(
+    header: &alloy_rpc_types::Header,
+    base_fee_per_gas: u64,
+    compressed_tx_list: Bytes,
+    parent_beacon_block_root: Option<B256>,
+    end_of_sequencing: Option<bool>,
+    is_forced_inclusion: Option<bool>,
+    signature: [u8; 65],
+) -> WhitelistExecutionPayloadEnvelope {
+    WhitelistExecutionPayloadEnvelope {
+        end_of_sequencing,
+        is_forced_inclusion,
+        parent_beacon_block_root: parent_beacon_block_root.filter(|root| !root.is_zero()),
+        header_difficulty: (!header.difficulty.is_zero()).then_some(header.difficulty),
+        execution_payload: execution_payload_from_header(
+            header,
+            base_fee_per_gas,
+            vec![compressed_tx_list],
+        ),
+        signature: Some(signature),
     }
 }
 

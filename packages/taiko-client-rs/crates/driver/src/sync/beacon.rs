@@ -641,6 +641,23 @@ mod tests {
         block
     }
 
+    /// Checkpoint-less syncer whose engine calls replay `l2_auth_asserter`, with Etna at
+    /// `etna_fork_timestamp`.
+    fn engine_syncer(l2_auth_asserter: Asserter, etna_fork_timestamp: Option<u64>) -> BeaconSyncer {
+        BeaconSyncer {
+            retry_interval: Duration::from_secs(1),
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                Asserter::new(),
+                l2_auth_asserter,
+                Default::default(),
+            ),
+            checkpoint: None,
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+            etna_fork_timestamp,
+        }
+    }
+
     /// An Unzen head keeps its zero root and difficulty, whether Etna is unscheduled or
     /// scheduled after it.
     #[test]
@@ -769,18 +786,7 @@ mod tests {
         let l2_auth_asserter = Asserter::new();
         l2_auth_asserter.push_success(&PayloadStatus::from_status(PayloadStatusEnum::Syncing));
         l2_auth_asserter.push_success(&ForkchoiceUpdated::from_status(PayloadStatusEnum::Syncing));
-        let syncer = BeaconSyncer {
-            retry_interval: Duration::from_secs(1),
-            rpc: mock_client_with_asserters(
-                Asserter::new(),
-                Asserter::new(),
-                l2_auth_asserter.clone(),
-                Default::default(),
-            ),
-            checkpoint: None,
-            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
-            etna_fork_timestamp: None,
-        };
+        let syncer = engine_syncer(l2_auth_asserter.clone(), None);
 
         syncer
             .submit_target_block(sample_checkpoint_block(U256::from(7u64), Some(B256::ZERO)))
@@ -794,19 +800,7 @@ mod tests {
     /// scripted reply, so a call would surface as an RPC error instead.
     #[tokio::test]
     async fn submit_target_block_rejects_etna_head_without_root_before_engine_calls() {
-        let l2_auth_asserter = Asserter::new();
-        let syncer = BeaconSyncer {
-            retry_interval: Duration::from_secs(1),
-            rpc: mock_client_with_asserters(
-                Asserter::new(),
-                Asserter::new(),
-                l2_auth_asserter,
-                Default::default(),
-            ),
-            checkpoint: None,
-            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
-            etna_fork_timestamp: Some(SAMPLE_CHECKPOINT_TIMESTAMP),
-        };
+        let syncer = engine_syncer(Asserter::new(), Some(SAMPLE_CHECKPOINT_TIMESTAMP));
 
         let err = syncer
             .submit_target_block(sample_checkpoint_block(U256::ZERO, Some(B256::ZERO)))
@@ -823,19 +817,7 @@ mod tests {
     /// has no scripted reply, so a call would surface as an RPC error instead.
     #[tokio::test]
     async fn submit_target_block_rejects_pre_etna_head_with_root_before_engine_calls() {
-        let l2_auth_asserter = Asserter::new();
-        let syncer = BeaconSyncer {
-            retry_interval: Duration::from_secs(1),
-            rpc: mock_client_with_asserters(
-                Asserter::new(),
-                Asserter::new(),
-                l2_auth_asserter,
-                Default::default(),
-            ),
-            checkpoint: None,
-            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
-            etna_fork_timestamp: Some(SAMPLE_CHECKPOINT_TIMESTAMP + 1),
-        };
+        let syncer = engine_syncer(Asserter::new(), Some(SAMPLE_CHECKPOINT_TIMESTAMP + 1));
 
         let err = syncer
             .submit_target_block(sample_checkpoint_block(

@@ -38,20 +38,15 @@ pub(super) fn published_envelope(
     is_forced_inclusion: Option<bool>,
     signature: [u8; 65],
 ) -> WhitelistExecutionPayloadEnvelope {
-    let base_fee_per_gas = inserted_header.base_fee_per_gas.unwrap_or(data.base_fee_per_gas);
-    WhitelistExecutionPayloadEnvelope {
+    crate::payload::signed_envelope_from_header(
+        inserted_header,
+        inserted_header.base_fee_per_gas.unwrap_or(data.base_fee_per_gas),
+        data.transactions.clone(),
+        data.parent_beacon_block_root,
         end_of_sequencing,
         is_forced_inclusion,
-        parent_beacon_block_root: data.parent_beacon_block_root.filter(|root| !root.is_zero()),
-        header_difficulty: (!inserted_header.difficulty.is_zero())
-            .then_some(inserted_header.difficulty),
-        execution_payload: crate::payload::execution_payload_from_header(
-            inserted_header,
-            base_fee_per_gas,
-            vec![data.transactions.clone()],
-        ),
-        signature: Some(signature),
-    }
+        signature,
+    )
 }
 
 /// Build driver payload attributes from the requested executable data, including its
