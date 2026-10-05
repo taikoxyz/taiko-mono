@@ -2,24 +2,35 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>08 &mdash; When things go wrong · Etna PoS + ZK engineer&rsquo;s course</title>
 <link rel="stylesheet" href="course.css"></head><body>
-<header class="site">
-  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">engineer&rsquo;s course</span>
-  <nav>
-    <a href="index.html">Contents</a>
-    <a href="01-what-is-etna.html">1&nbsp;Overview</a>
-    <a href="02-life-of-a-transaction.html">2&nbsp;Life of a transaction</a>
-    <a href="03-consensus.html">3&nbsp;Consensus</a>
-    <a href="04-staking-and-epochs.html">4&nbsp;Staking</a>
-    <a href="05-the-proof.html">5&nbsp;The proof</a>
-    <a href="06-data-and-proof-together.html">6&nbsp;Data&nbsp;+&nbsp;proof</a>
-    <a href="07-timing.html">7&nbsp;Timing</a>
-    <a href="08-when-things-go-wrong.html">8&nbsp;Failures</a>
-    <a href="09-censorship-and-the-bridge.html">9&nbsp;Censorship&nbsp;&amp;&nbsp;bridge</a>
-    <a href="10-economics.html">10&nbsp;Economics</a>
-    <a href="glossary.html">Glossary</a>
-    <a href="../spec/index.html">Specification</a>
-  </nav>
-</header>
+<div class="layout">
+<aside class="side">
+<span class="brand">Etna PoS + ZK</span>
+<span class="sub">engineer&rsquo;s course</span>
+<div class="grp">Lessons</div>
+<ol>
+<li><a href="index.html">Contents</a></li>
+<li><a href="01-what-is-etna.html">1. What Etna PoS + ZK is</a></li>
+<li><a href="02-life-of-a-transaction.html">2. Life of a transaction</a></li>
+<li><a href="03-consensus.html">3. How the chain agrees</a></li>
+<li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
+<li><a href="05-the-proof.html">5. What the proof proves</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data and proof together</a></li>
+<li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
+<li><a href="08-when-things-go-wrong.html" class="active">8. When things go wrong</a></li>
+<li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
+<li><a href="10-economics.html">10. Who pays, who earns</a></li>
+</ol>
+<div class="grp">Reference</div>
+<ol>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="limitations.html">Limitations</a></li>
+</ol>
+<div class="grp">Authoritative</div>
+<ol>
+<li><a class="ext" href="../spec/index.html">Specification &rarr;</a></li>
+</ol>
+</aside>
+<div class="content">
 <main>
 <h1>When things go wrong</h1>
 <p class="muted">This lesson gives you the failure-handling rules: what happens when a proposer hides a
@@ -50,20 +61,20 @@ the missing ingredient returns.</p>
 <h2>Situation &rarr; correct action</h2>
 <figure>
 <svg viewBox="0 0 960 560" role="img" aria-label="Decision diagram: each failure situation and the correct action">
-<defs> <marker id="arr8" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"> <path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker> </defs>
-<text x="20" y="24" fill="#9aa7b4" font-size="12">SITUATION</text> <text x="360" y="24" fill="#9aa7b4" font-size="12">CORRECT ACTION</text> <rect x="20" y="36" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/> <text x="34" y="59" fill="#e6edf3" font-size="12">Proposer hides the block body</text>
-<text x="34" y="78" fill="#9aa7b4" font-size="10">selective distribution</text> <rect x="360" y="36" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/> <text x="374" y="59" fill="#dbe3ec" font-size="11">Do not vote. Ask peers for the body. After the round budget, prevote nil</text> <text x="374" y="78" fill="#dbe3ec" font-size="11">and let the view change select the next proposer.</text> <path d="M320 64 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/>
-<rect x="20" y="102" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/> <text x="34" y="125" fill="#e6edf3" font-size="12">Votes or the certificate</text> <text x="34" y="144" fill="#e6edf3" font-size="12">do not arrive</text> <rect x="360" y="102" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/>
-<text x="374" y="125" fill="#dbe3ec" font-size="11">Keep the lock. Retry. Accept the certificate whenever it arrives, and never</text> <text x="374" y="144" fill="#dbe3ec" font-size="11">finalize a conflicting block at that height. A timeout proves nothing.</text> <path d="M320 130 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="168" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/>
-<text x="34" y="191" fill="#e6edf3" font-size="12">An entire validator set</text> <text x="34" y="210" fill="#e6edf3" font-size="12">goes offline</text> <rect x="360" y="168" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/> <text x="374" y="191" fill="#dbe3ec" font-size="11">No quorum, no finality. Correct validators halt, stop signing and keep their</text> <text x="374" y="210" fill="#dbe3ec" font-size="11">state. They do not fork and they do not adopt a lower checkpoint.</text>
-<path d="M320 196 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="234" width="300" height="56" rx="8" fill="#2a1f10" stroke="#5c4a1c"/> <text x="34" y="257" fill="#e6edf3" font-size="12">Data for a finalized or locked</text> <text x="34" y="276" fill="#e6edf3" font-size="12">block cannot be obtained</text>
-<rect x="360" y="234" width="580" height="56" rx="8" fill="#2a1f10" stroke="#5c4a1c"/> <text x="374" y="257" fill="#dbe3ec" font-size="11">Halt safely and keep serving what you hold. Do not roll back. If a holder</text> <text x="374" y="276" fill="#dbe3ec" font-size="11">returns with the data, the chain resumes; if not, the halt can be permanent.</text> <path d="M320 262 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/>
-<rect x="20" y="300" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/> <text x="34" y="323" fill="#e6edf3" font-size="12">No prover finishes</text> <text x="34" y="342" fill="#9aa7b4" font-size="10">the proof never lands</text> <rect x="360" y="300" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/> <text x="374" y="323" fill="#dbe3ec" font-size="11">Settlement stalls; another permissionless prover may take over. Unsettled</text>
-<text x="374" y="342" fill="#dbe3ec" font-size="11">depth grows, the cap binds, production stops, withdrawals wait.</text> <path d="M320 328 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="366" width="300" height="56" rx="8" fill="#2a1218" stroke="#5c2630"/> <text x="34" y="389" fill="#e6edf3" font-size="12">Two conflicting certificates</text>
-<text x="34" y="408" fill="#e6edf3" font-size="12">at one height</text> <rect x="360" y="366" width="580" height="56" rx="8" fill="#2a1218" stroke="#5c2630"/> <text x="374" y="389" fill="#dbe3ec" font-size="11">The assumptions failed. Halt, publish both signed certificates as evidence,</text> <text x="374" y="408" fill="#dbe3ec" font-size="11">and never choose a branch. Do not delegate the choice to an operator.</text> <path d="M320 394 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/>
-<rect x="20" y="432" width="300" height="56" rx="8" fill="#1c2330" stroke="#2d3743"/> <text x="34" y="455" fill="#e6edf3" font-size="12">The needed L1 fact or set</text> <text x="34" y="474" fill="#e6edf3" font-size="12">commitment is missing</text> <rect x="360" y="432" width="580" height="56" rx="8" fill="#161b22" stroke="#2d3743"/>
-<text x="374" y="455" fill="#dbe3ec" font-size="11">Halt at the highest finalized block and wait. Never continue on an</text> <text x="374" y="474" fill="#dbe3ec" font-size="11">unauthenticated set and never take a set from an unfinalized L1 block.</text> <path d="M320 460 H356" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="504" width="920" height="44" rx="8" fill="#0f2418" stroke="#2c5a3a"/>
-<text x="34" y="524" fill="#9ece6a" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; lower the accepted checkpoint &middot;</text> <text x="34" y="541" fill="#9ece6a" font-size="11">replace a finalized block &middot; let a privileged party choose a history or clear a halt.</text>
+<defs> <marker id="arr8" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"> <path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker> </defs>
+<text x="20" y="24" fill="#59636e" font-size="12">SITUATION</text> <text x="360" y="24" fill="#59636e" font-size="12">CORRECT ACTION</text> <rect x="20" y="36" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="59" fill="#24292f" font-size="12">Proposer hides the block body</text>
+<text x="34" y="78" fill="#59636e" font-size="10">selective distribution</text> <rect x="360" y="36" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="374" y="59" fill="#24292f" font-size="11">Do not vote. Ask peers for the body. After the round budget, prevote nil</text> <text x="374" y="78" fill="#24292f" font-size="11">and let the view change select the next proposer.</text> <path d="M320 64 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
+<rect x="20" y="102" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="125" fill="#24292f" font-size="12">Votes or the certificate</text> <text x="34" y="144" fill="#24292f" font-size="12">do not arrive</text> <rect x="360" y="102" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/>
+<text x="374" y="125" fill="#24292f" font-size="11">Keep the lock. Retry. Accept the certificate whenever it arrives, and never</text> <text x="374" y="144" fill="#24292f" font-size="11">finalize a conflicting block at that height. A timeout proves nothing.</text> <path d="M320 130 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="168" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/>
+<text x="34" y="191" fill="#24292f" font-size="12">An entire validator set</text> <text x="34" y="210" fill="#24292f" font-size="12">goes offline</text> <rect x="360" y="168" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="374" y="191" fill="#24292f" font-size="11">No quorum, no finality. Correct validators halt, stop signing and keep their</text> <text x="374" y="210" fill="#24292f" font-size="11">state. They do not fork and they do not adopt a lower checkpoint.</text>
+<path d="M320 196 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="234" width="300" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="34" y="257" fill="#24292f" font-size="12">Data for a finalized or locked</text> <text x="34" y="276" fill="#24292f" font-size="12">block cannot be obtained</text>
+<rect x="360" y="234" width="580" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="374" y="257" fill="#24292f" font-size="11">Halt safely and keep serving what you hold. Do not roll back. If a holder</text> <text x="374" y="276" fill="#24292f" font-size="11">returns with the data, the chain resumes; if not, the halt can be permanent.</text> <path d="M320 262 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
+<rect x="20" y="300" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="323" fill="#24292f" font-size="12">No prover finishes</text> <text x="34" y="342" fill="#59636e" font-size="10">the proof never lands</text> <rect x="360" y="300" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="374" y="323" fill="#24292f" font-size="11">Settlement stalls; another permissionless prover may take over. Unsettled</text>
+<text x="374" y="342" fill="#24292f" font-size="11">depth grows, the cap binds, production stops, withdrawals wait.</text> <path d="M320 328 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="366" width="300" height="56" rx="8" fill="#ffebe9" stroke="#5c2630"/> <text x="34" y="389" fill="#24292f" font-size="12">Two conflicting certificates</text>
+<text x="34" y="408" fill="#24292f" font-size="12">at one height</text> <rect x="360" y="366" width="580" height="56" rx="8" fill="#ffebe9" stroke="#5c2630"/> <text x="374" y="389" fill="#24292f" font-size="11">The assumptions failed. Halt, publish both signed certificates as evidence,</text> <text x="374" y="408" fill="#24292f" font-size="11">and never choose a branch. Do not delegate the choice to an operator.</text> <path d="M320 394 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
+<rect x="20" y="432" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="455" fill="#24292f" font-size="12">The needed L1 fact or set</text> <text x="34" y="474" fill="#24292f" font-size="12">commitment is missing</text> <rect x="360" y="432" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/>
+<text x="374" y="455" fill="#24292f" font-size="11">Halt at the highest finalized block and wait. Never continue on an</text> <text x="374" y="474" fill="#24292f" font-size="11">unauthenticated set and never take a set from an unfinalized L1 block.</text> <path d="M320 460 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="504" width="920" height="44" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/>
+<text x="34" y="524" fill="#1a7f37" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; lower the accepted checkpoint &middot;</text> <text x="34" y="541" fill="#1a7f37" font-size="11">replace a finalized block &middot; let a privileged party choose a history or clear a halt.</text>
 </svg>
 <figcaption>Every situation has one rule-legal action. None of them is &ldquo;roll back&rdquo; and none of them
 is &ldquo;ask an operator&rdquo;.</figcaption>
@@ -263,4 +274,6 @@ mode when they are not.</li>
 &middot; <a href="09-censorship-and-the-bridge.html">Next: Censorship and the bridge &rarr;</a></p>
 </main>
 <footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</div><!-- /content -->
+</div><!-- /layout -->
 </body></html>

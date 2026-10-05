@@ -4,24 +4,35 @@
 <title>Etna PoS + ZK — 5 What the proof proves</title>
 <link rel="stylesheet" href="course.css">
 </head><body>
-<header class="site">
-  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">engineer&rsquo;s course</span>
-  <nav>
-    <a href="index.html">Contents</a>
-    <a href="01-what-is-etna.html">1&nbsp;Overview</a>
-    <a href="02-life-of-a-transaction.html">2&nbsp;Life of a transaction</a>
-    <a href="03-consensus.html">3&nbsp;Consensus</a>
-    <a href="04-staking-and-epochs.html">4&nbsp;Staking</a>
-    <a href="05-the-proof.html">5&nbsp;The proof</a>
-    <a href="06-data-and-proof-together.html">6&nbsp;Data&nbsp;+&nbsp;proof</a>
-    <a href="07-timing.html">7&nbsp;Timing</a>
-    <a href="08-when-things-go-wrong.html">8&nbsp;Failures</a>
-    <a href="09-censorship-and-the-bridge.html">9&nbsp;Censorship&nbsp;&amp;&nbsp;bridge</a>
-    <a href="10-economics.html">10&nbsp;Economics</a>
-    <a href="glossary.html">Glossary</a>
-    <a href="../spec/index.html">Specification</a>
-  </nav>
-</header>
+<div class="layout">
+<aside class="side">
+<span class="brand">Etna PoS + ZK</span>
+<span class="sub">engineer&rsquo;s course</span>
+<div class="grp">Lessons</div>
+<ol>
+<li><a href="index.html">Contents</a></li>
+<li><a href="01-what-is-etna.html">1. What Etna PoS + ZK is</a></li>
+<li><a href="02-life-of-a-transaction.html">2. Life of a transaction</a></li>
+<li><a href="03-consensus.html">3. How the chain agrees</a></li>
+<li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
+<li><a href="05-the-proof.html" class="active">5. What the proof proves</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data and proof together</a></li>
+<li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
+<li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
+<li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
+<li><a href="10-economics.html">10. Who pays, who earns</a></li>
+</ol>
+<div class="grp">Reference</div>
+<ol>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="limitations.html">Limitations</a></li>
+</ol>
+<div class="grp">Authoritative</div>
+<ol>
+<li><a class="ext" href="../spec/index.html">Specification &rarr;</a></li>
+</ol>
+</aside>
+<div class="content">
 <main>
 
 <h1>What the proof proves</h1>
@@ -53,50 +64,50 @@ taken from Ethereum, and never something the prover chose.</p>
 <figure>
 <svg viewBox="0 0 940 430" role="img" aria-label="Public inputs, witness, guest program and the L1 verifier">
   <defs>
-    <marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7aa2f7"></path></marker>
-    <marker id="q" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#e0af68"></path></marker>
+    <marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"></path></marker>
+    <marker id="q" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9a6700"></path></marker>
   </defs>
-  <rect x="20" y="40" width="250" height="140" rx="9" fill="#161b22" stroke="#7aa2f7"></rect>
-  <text x="145" y="64" fill="#e6edf3" font-size="13" text-anchor="middle">Ethereum (L1) state</text>
-  <text x="36" y="88" fill="#9aa7b4" font-size="11">chain id &#183; epoch schedule (L, H_genesis, e_0)</text>
-  <text x="36" y="106" fill="#9aa7b4" font-size="11">per-epoch set root R_k and total power W</text>
-  <text x="36" y="124" fill="#9aa7b4" font-size="11">predecessor checkpoint (height, hash, root)</text>
-  <text x="36" y="142" fill="#9aa7b4" font-size="11">config hash &#183; quorum product 2 &#183; W</text>
-  <text x="36" y="160" fill="#9aa7b4" font-size="11">the accepting transaction&#8217;s calldata / blobs</text>
-  <rect x="20" y="250" width="250" height="140" rx="9" fill="#161b22" stroke="#e0af68"></rect>
-  <text x="145" y="274" fill="#e6edf3" font-size="13" text-anchor="middle">Witness (private to the prover)</text>
-  <text x="36" y="298" fill="#9aa7b4" font-size="11">set entries (pubkey, effStake) + Merkle paths</text>
-  <text x="36" y="316" fill="#9aa7b4" font-size="11">signatures over the head certificate</text>
-  <text x="36" y="334" fill="#9aa7b4" font-size="11">header chain from prevHeight + 1 to head</text>
-  <text x="36" y="352" fill="#9aa7b4" font-size="11">anchor certificate (only at an epoch boundary)</text>
-  <text x="36" y="370" fill="#9aa7b4" font-size="11">payload bytes &#183; pre-state for execution</text>
-  <rect x="360" y="90" width="230" height="270" rx="9" fill="#161b22" stroke="#bb9af7"></rect>
-  <text x="475" y="116" fill="#e6edf3" font-size="13" text-anchor="middle">One guest program</text>
-  <text x="376" y="148" fill="#9aa7b4" font-size="11">W1 consensus finality: the head block</text>
-  <text x="376" y="164" fill="#9aa7b4" font-size="11">carries a valid commit certificate over</text>
-  <text x="376" y="180" fill="#9aa7b4" font-size="11">more than two thirds of the epoch&#8217;s power</text>
-  <text x="376" y="208" fill="#9aa7b4" font-size="11">W2 execution: running the batch from</text>
-  <text x="376" y="224" fill="#9aa7b4" font-size="11">the predecessor state root yields the</text>
-  <text x="376" y="240" fill="#9aa7b4" font-size="11">claimed successor state root</text>
-  <text x="376" y="268" fill="#9aa7b4" font-size="11">W3 data binding: the bytes executed are</text>
-  <text x="376" y="284" fill="#9aa7b4" font-size="11">the bytes published in the accepting</text>
-  <text x="376" y="300" fill="#9aa7b4" font-size="11">L1 transaction</text>
-  <text x="376" y="330" fill="#9aa7b4" font-size="11">All three must hold, in one proof.</text>
-  <rect x="680" y="150" width="230" height="60" rx="9" fill="#161b22" stroke="#2d3743"></rect>
-  <text x="795" y="174" fill="#e6edf3" font-size="13" text-anchor="middle">Zero-knowledge proof</text>
-  <text x="795" y="194" fill="#9aa7b4" font-size="11" text-anchor="middle">bound to the statement hash</text>
-  <rect x="680" y="270" width="230" height="90" rx="9" fill="#161b22" stroke="#2d3743"></rect>
-  <text x="795" y="294" fill="#e6edf3" font-size="13" text-anchor="middle">Inbox verifier (L1)</text>
-  <text x="795" y="314" fill="#9aa7b4" font-size="11" text-anchor="middle">re-derives the journal itself,</text>
-  <text x="795" y="330" fill="#9aa7b4" font-size="11" text-anchor="middle">hashes it, checks the proof;</text>
-  <text x="795" y="346" fill="#9aa7b4" font-size="11" text-anchor="middle">only then writes the checkpoint</text>
-  <line x1="274" y1="110" x2="356" y2="150" stroke="#7aa2f7" marker-end="url(#p)"></line>
-  <text x="315" y="96" fill="#9aa7b4" font-size="10" text-anchor="middle">public inputs</text>
-  <line x1="274" y1="320" x2="356" y2="300" stroke="#e0af68" marker-end="url(#q)"></line>
-  <text x="315" y="340" fill="#9aa7b4" font-size="10" text-anchor="middle">witness</text>
-  <line x1="594" y1="200" x2="676" y2="180" stroke="#7aa2f7" marker-end="url(#p)"></line>
-  <line x1="795" y1="214" x2="795" y2="266" stroke="#7aa2f7" marker-end="url(#p)"></line>
-  <text x="600" y="404" fill="#9aa7b4" font-size="11">The verifier never accepts a caller-supplied copy of an L1-derived value. The witness never defines the validator set.</text>
+  <rect x="20" y="40" width="250" height="140" rx="9" fill="#ffffff" stroke="#0969da"></rect>
+  <text x="145" y="64" fill="#24292f" font-size="13" text-anchor="middle">Ethereum (L1) state</text>
+  <text x="36" y="88" fill="#59636e" font-size="11">chain id &#183; epoch schedule (L, H_genesis, e_0)</text>
+  <text x="36" y="106" fill="#59636e" font-size="11">per-epoch set root R_k and total power W</text>
+  <text x="36" y="124" fill="#59636e" font-size="11">predecessor checkpoint (height, hash, root)</text>
+  <text x="36" y="142" fill="#59636e" font-size="11">config hash &#183; quorum product 2 &#183; W</text>
+  <text x="36" y="160" fill="#59636e" font-size="11">the accepting transaction&#8217;s calldata / blobs</text>
+  <rect x="20" y="250" width="250" height="140" rx="9" fill="#ffffff" stroke="#9a6700"></rect>
+  <text x="145" y="274" fill="#24292f" font-size="13" text-anchor="middle">Witness (private to the prover)</text>
+  <text x="36" y="298" fill="#59636e" font-size="11">set entries (pubkey, effStake) + Merkle paths</text>
+  <text x="36" y="316" fill="#59636e" font-size="11">signatures over the head certificate</text>
+  <text x="36" y="334" fill="#59636e" font-size="11">header chain from prevHeight + 1 to head</text>
+  <text x="36" y="352" fill="#59636e" font-size="11">anchor certificate (only at an epoch boundary)</text>
+  <text x="36" y="370" fill="#59636e" font-size="11">payload bytes &#183; pre-state for execution</text>
+  <rect x="360" y="90" width="230" height="270" rx="9" fill="#ffffff" stroke="#8250df"></rect>
+  <text x="475" y="116" fill="#24292f" font-size="13" text-anchor="middle">One guest program</text>
+  <text x="376" y="148" fill="#59636e" font-size="11">W1 consensus finality: the head block</text>
+  <text x="376" y="164" fill="#59636e" font-size="11">carries a valid commit certificate over</text>
+  <text x="376" y="180" fill="#59636e" font-size="11">more than two thirds of the epoch&#8217;s power</text>
+  <text x="376" y="208" fill="#59636e" font-size="11">W2 execution: running the batch from</text>
+  <text x="376" y="224" fill="#59636e" font-size="11">the predecessor state root yields the</text>
+  <text x="376" y="240" fill="#59636e" font-size="11">claimed successor state root</text>
+  <text x="376" y="268" fill="#59636e" font-size="11">W3 data binding: the bytes executed are</text>
+  <text x="376" y="284" fill="#59636e" font-size="11">the bytes published in the accepting</text>
+  <text x="376" y="300" fill="#59636e" font-size="11">L1 transaction</text>
+  <text x="376" y="330" fill="#59636e" font-size="11">All three must hold, in one proof.</text>
+  <rect x="680" y="150" width="230" height="60" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
+  <text x="795" y="174" fill="#24292f" font-size="13" text-anchor="middle">Zero-knowledge proof</text>
+  <text x="795" y="194" fill="#59636e" font-size="11" text-anchor="middle">bound to the statement hash</text>
+  <rect x="680" y="270" width="230" height="90" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
+  <text x="795" y="294" fill="#24292f" font-size="13" text-anchor="middle">Inbox verifier (L1)</text>
+  <text x="795" y="314" fill="#59636e" font-size="11" text-anchor="middle">re-derives the journal itself,</text>
+  <text x="795" y="330" fill="#59636e" font-size="11" text-anchor="middle">hashes it, checks the proof;</text>
+  <text x="795" y="346" fill="#59636e" font-size="11" text-anchor="middle">only then writes the checkpoint</text>
+  <line x1="274" y1="110" x2="356" y2="150" stroke="#0969da" marker-end="url(#p)"></line>
+  <text x="315" y="96" fill="#59636e" font-size="10" text-anchor="middle">public inputs</text>
+  <line x1="274" y1="320" x2="356" y2="300" stroke="#9a6700" marker-end="url(#q)"></line>
+  <text x="315" y="340" fill="#59636e" font-size="10" text-anchor="middle">witness</text>
+  <line x1="594" y1="200" x2="676" y2="180" stroke="#0969da" marker-end="url(#p)"></line>
+  <line x1="795" y1="214" x2="795" y2="266" stroke="#0969da" marker-end="url(#p)"></line>
+  <text x="600" y="404" fill="#59636e" font-size="11">The verifier never accepts a caller-supplied copy of an L1-derived value. The witness never defines the validator set.</text>
 </svg>
 <figcaption>Figure 1 &mdash; One guest, three claims, one journal. The Inbox derives the public
 inputs from its own storage and from the transaction, then checks the proof against a hash of
@@ -208,14 +219,14 @@ nodes, not by the proof.</li>
 <table>
 <thead><tr><th>Quantity</th><th>Value in this example</th><th>Tag</th></tr></thead>
 <tbody>
-<tr><td>Batch span</td><td>32 blocks &asymp; 64 seconds at 2 s per block; the nominal batch length is a placeholder</td><td><span class="pill derived">derived</span> &middot; <span class="pill unmeasured">unmeasured</span> suitability</td></tr>
-<tr><td>Epoch</td><td><code>epoch_of(9,001) = epoch_of(9,032) = 10</code>, so one set root and one quorum denominator</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Predecessor</td><td>height 9,000, its block hash and state root from the Inbox checkpoint record</td><td><span class="pill sourced">sourced</span> from L1 state</td></tr>
-<tr><td>Epoch 10 total voting power <code>W</code></td><td>100,000,000 TAIKO (illustrative; real totals depend on who has bonded)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td>Quorum</td><td>signers must satisfy <code>3 &middot; s &gt; 200,000,000 TAIKO</code>, so <code>s &ge; 66,666,667 TAIKO</code>. A certificate carrying 70,000,000 TAIKO passes (210,000,000 &gt; 200,000,000)</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Signer bitmap</td><td><code>ceil(n / 8)</code> bytes for a set of <code>n</code> entries, bit <code>i</code> = canonical index <code>i</code>; the length is fixed by the set, not by how many signers there are</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Data commitment</td><td><code>keccak256(abi.encode("TAIKO_ETNA_DATA", chainId, 9001, 9032, 1, keccak256(_data)))</code> on the calldata path</td><td><span class="pill derived">derived</span> encoding</td></tr>
-<tr><td>Proving time</td><td>the design plans for up to 1,800 seconds per batch; actual latency is not yet measured</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Batch span</td><td>32 blocks &asymp; 64 seconds at 2 s per block; the nominal batch length is a placeholder</td><td><span class="tag">derived</span> &middot; <span class="tag">unmeasured</span> suitability</td></tr>
+<tr><td>Epoch</td><td><code>epoch_of(9,001) = epoch_of(9,032) = 10</code>, so one set root and one quorum denominator</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Predecessor</td><td>height 9,000, its block hash and state root from the Inbox checkpoint record</td><td><span class="tag">sourced</span> from L1 state</td></tr>
+<tr><td>Epoch 10 total voting power <code>W</code></td><td>100,000,000 TAIKO (illustrative; real totals depend on who has bonded)</td><td><span class="tag">unmeasured</span></td></tr>
+<tr><td>Quorum</td><td>signers must satisfy <code>3 &middot; s &gt; 200,000,000 TAIKO</code>, so <code>s &ge; 66,666,667 TAIKO</code>. A certificate carrying 70,000,000 TAIKO passes (210,000,000 &gt; 200,000,000)</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Signer bitmap</td><td><code>ceil(n / 8)</code> bytes for a set of <code>n</code> entries, bit <code>i</code> = canonical index <code>i</code>; the length is fixed by the set, not by how many signers there are</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Data commitment</td><td><code>keccak256(abi.encode("TAIKO_ETNA_DATA", chainId, 9001, 9032, 1, keccak256(_data)))</code> on the calldata path</td><td><span class="tag">derived</span> encoding</td></tr>
+<tr><td>Proving time</td><td>the design plans for up to 1,800 seconds per batch; actual latency is not yet measured</td><td><span class="tag">unmeasured</span></td></tr>
 </tbody></table>
 
 <h2>What this gives you</h2>
@@ -264,7 +275,7 @@ denominator. Keeping one epoch per batch keeps exactly one of each in the journa
 per-epoch arrays. A range that would cross a boundary is split; because each batch starts at the
 previous checkpoint&rsquo;s height plus one, no height is left out at the split.</p></details>
 
-<div class="warnbox">
+<div class="note assume">
 <p><strong>Assumptions.</strong> This lesson relies on: fewer than one third of the epoch&rsquo;s
 voting power breaking the signing and locking rules, and correct validators obeying them; the
 zkVM backend and the guest program being sound; the L1 values the contract reads being
@@ -280,4 +291,6 @@ together &rarr;</a></p>
 
 </main>
 <footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</div><!-- /content -->
+</div><!-- /layout -->
 </body></html>
