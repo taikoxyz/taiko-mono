@@ -520,7 +520,9 @@ impl ShastaDerivationPipeline {
                 l1_block_hash: Some(l1_block_hash),
                 is_forced_inclusion: position.is_forced_inclusion(),
                 signature: [0u8; 65],
-                parent_beacon_block_root: None,
+                // Pre-Etna builds send a zero root over `engine_forkchoiceUpdatedV3`; the payload
+                // fingerprint ignores it, so it matches the V2-era value.
+                parent_beacon_block_root: Some(B256::ZERO),
                 anchor_transaction: None,
             },
             &parent_hash,

@@ -2,7 +2,7 @@
 
 use std::{result::Result as StdResult, time::Duration};
 
-use alloy::primitives::B256;
+use alloy::primitives::{B256, U256};
 use anyhow::Error as AnyhowError;
 use rpc::error::RpcClientError;
 use thiserror::Error;
@@ -56,6 +56,19 @@ pub enum DriverError {
     /// Engine API returned invalid payload.
     #[error("engine API returned INVALID: {0}")]
     EngineInvalidPayload(String),
+
+    /// A checkpoint block's header difficulty (its zk gas) does not fit the u64
+    /// `headerDifficulty` of `engine_newPayloadV4`.
+    #[error(
+        "checkpoint block {block_number} difficulty {difficulty} exceeds the u64 header \
+         difficulty range"
+    )]
+    CheckpointDifficultyOverflow {
+        /// Number of the checkpoint block.
+        block_number: u64,
+        /// Header difficulty of the checkpoint block.
+        difficulty: U256,
+    },
 
     /// Preconfirmation payload injection failed with context.
     #[error("preconfirmation injection failed for block {block_number}: {source}")]

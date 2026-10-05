@@ -9,16 +9,13 @@
 
 use std::{sync::Arc, time::Duration};
 
-use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
 use alloy::providers::Provider;
 use alloy_consensus::{self, Block, TxEnvelope};
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::B256;
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
-use alloy_rpc_types_engine::{
-    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
-};
+use alloy_rpc_types_engine::{ExecutionPayloadV3, ForkchoiceState, PayloadStatusEnum};
 use anyhow::anyhow;
 use rpc::{
     client::{Client, connect_http_with_timeout},
@@ -123,34 +120,14 @@ impl BeaconSyncer {
     async fn submit_target_block(&self, block: RpcBlock<TxEnvelope>) -> Result<(), DriverError> {
         let block_number = block.header.number;
         let block_hash = block.hash();
-        let tx_root = block.header.transactions_root;
-        let header_difficulty = block.header.difficulty;
-        let withdrawals_root = block.header.withdrawals_root;
         debug!(block_number, ?block_hash, "submitting checkpoint block to execution engine");
 
-        let consensus_block: Block<TxEnvelope> = block.into();
-        let payload_field =
-            ExecutionPayloadFieldV2::from_block_unchecked(block_hash, &consensus_block);
-
-        let (execution_payload, withdrawals) = match payload_field {
-            ExecutionPayloadFieldV2::V1(v1) => (v1, None),
-            ExecutionPayloadFieldV2::V2(v2) => (v2.payload_inner, Some(v2.withdrawals)),
-        };
-
-        let payload_input = ExecutionPayloadInputV2 { execution_payload, withdrawals };
-        let sidecar = TaikoExecutionDataSidecar {
-            tx_hash: tx_root,
-            withdrawals_hash: withdrawals_root,
-            // Checkpoint import bypasses the local getPayload/newPayload round trip, so preserve
-            // the sealed block's header difficulty explicitly in the Taiko sidecar.
-            header_difficulty: Some(header_difficulty),
-            taiko_block: Some(true),
-            block_access_list: None,
-            slot_number: None,
-            osaka: None,
-        };
-
-        let payload_status = self.rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;
+        let CheckpointPayload { payload, header_difficulty, parent_beacon_block_root } =
+            checkpoint_payload(block)?;
+        let payload_status = self
+            .rpc
+            .engine_new_payload_v4(&payload, header_difficulty, parent_beacon_block_root)
+            .await?;
         match payload_status.status {
             PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
             PayloadStatusEnum::Syncing => {
@@ -172,7 +149,7 @@ impl BeaconSyncer {
             finalized_block_hash: block_hash,
         };
 
-        let forkchoice = self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
+        let forkchoice = self.rpc.engine_forkchoice_updated_v3(forkchoice_state, None).await?;
         resolve_checkpoint_forkchoice_status(&forkchoice.payload_status.status, block_number)?;
 
         info!(
@@ -183,6 +160,35 @@ impl BeaconSyncer {
         );
         Ok(())
     }
+}
+
+/// Arguments of the `engine_newPayloadV4` call that imports a sealed checkpoint block.
+#[derive(Debug)]
+struct CheckpointPayload {
+    /// Standard V3 payload of the sealed block.
+    payload: ExecutionPayloadV3,
+    /// The sealed header's difficulty, i.e. the block's zk gas (0 for an empty block).
+    header_difficulty: u64,
+    /// The sealed header's `parentBeaconBlockRoot`, zero when absent.
+    parent_beacon_block_root: B256,
+}
+
+/// Prepare a sealed checkpoint block for `engine_newPayloadV4`.
+///
+/// Checkpoint import bypasses the local getPayload/newPayload round trip, so the sealed header's
+/// difficulty and beacon root are passed through explicitly.
+fn checkpoint_payload(block: RpcBlock<TxEnvelope>) -> Result<CheckpointPayload, DriverError> {
+    let block_number = block.header.number;
+    let block_hash = block.hash();
+    let difficulty = block.header.difficulty;
+    let header_difficulty = u64::try_from(difficulty)
+        .map_err(|_| DriverError::CheckpointDifficultyOverflow { block_number, difficulty })?;
+    let parent_beacon_block_root = block.header.parent_beacon_block_root.unwrap_or_default();
+
+    let consensus_block: Block<TxEnvelope> = block.into();
+    let payload = ExecutionPayloadV3::from_block_unchecked(block_hash, &consensus_block);
+
+    Ok(CheckpointPayload { payload, header_difficulty, parent_beacon_block_root })
 }
 
 /// Classify the forkchoice status returned while importing a checkpoint block.
@@ -408,8 +414,10 @@ impl SyncStage for BeaconSyncer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy::{primitives::Bytes, sol_types::SolCall};
+    use alloy::{primitives::Bytes, rpc::types::eth::BlockTransactions, sol_types::SolCall};
+    use alloy_primitives::U256;
     use alloy_provider::ProviderBuilder;
+    use alloy_rpc_types_engine::{ForkchoiceUpdated, PayloadStatus};
     use alloy_transport::mock::Asserter;
     use bindings::inbox::{IInbox::CoreState, Inbox::getCoreStateCall};
 
@@ -564,5 +572,92 @@ mod tests {
     #[test]
     fn checkpoint_forkchoice_rejects_accepted_as_unexpected() {
         assert!(resolve_checkpoint_forkchoice_status(&PayloadStatusEnum::Accepted, 7).is_err());
+    }
+
+    /// Sealed checkpoint block 9 with the given header difficulty and beacon root.
+    fn sample_checkpoint_block(difficulty: U256, root: Option<B256>) -> RpcBlock<TxEnvelope> {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.hash = B256::with_last_byte(0x09);
+        block.header.inner.number = 9;
+        block.header.inner.timestamp = 100;
+        block.header.inner.difficulty = difficulty;
+        block.header.inner.parent_beacon_block_root = root;
+        block.transactions = BlockTransactions::Full(Vec::new());
+        block.withdrawals = Some(Default::default());
+        block
+    }
+
+    #[test]
+    fn unzen_checkpoint_head_uses_new_payload_v4_with_zero_root_and_its_difficulty() {
+        let payload =
+            checkpoint_payload(sample_checkpoint_block(U256::from(7u64), Some(B256::ZERO)))
+                .expect("Unzen checkpoint payload");
+
+        assert_eq!(
+            payload.payload.payload_inner.payload_inner.block_hash,
+            B256::with_last_byte(0x09)
+        );
+        assert_eq!(payload.payload.payload_inner.payload_inner.block_number, 9);
+        assert!(payload.payload.payload_inner.withdrawals.is_empty());
+        assert_eq!(payload.header_difficulty, 7);
+        assert_eq!(payload.parent_beacon_block_root, B256::ZERO);
+    }
+
+    #[test]
+    fn checkpoint_head_passes_its_own_header_root_and_zero_difficulty() {
+        let root = B256::with_last_byte(0xaa);
+        let payload = checkpoint_payload(sample_checkpoint_block(U256::ZERO, Some(root)))
+            .expect("checkpoint payload");
+
+        assert_eq!(payload.header_difficulty, 0, "an empty block keeps its zero zk gas");
+        assert_eq!(payload.parent_beacon_block_root, root);
+    }
+
+    #[test]
+    fn checkpoint_head_without_root_sends_zero_root() {
+        let payload = checkpoint_payload(sample_checkpoint_block(U256::from(7u64), None))
+            .expect("checkpoint payload");
+
+        assert_eq!(payload.parent_beacon_block_root, B256::ZERO);
+    }
+
+    #[test]
+    fn checkpoint_head_difficulty_beyond_u64_is_rejected() {
+        let difficulty = U256::from(u64::MAX) + U256::from(1u64);
+        let err = checkpoint_payload(sample_checkpoint_block(difficulty, Some(B256::ZERO)))
+            .expect_err("difficulty beyond u64 has no headerDifficulty encoding");
+
+        assert!(matches!(
+            err,
+            DriverError::CheckpointDifficultyOverflow { block_number: 9, difficulty: d }
+                if d == difficulty
+        ));
+    }
+
+    /// Checkpoint import submits the block with `newPayloadV4`, then promotes it with an
+    /// attribute-less `forkchoiceUpdatedV3`, consuming exactly those two engine replies.
+    #[tokio::test]
+    async fn submit_target_block_imports_then_promotes_the_checkpoint_head() {
+        let l2_auth_asserter = Asserter::new();
+        l2_auth_asserter.push_success(&PayloadStatus::from_status(PayloadStatusEnum::Syncing));
+        l2_auth_asserter.push_success(&ForkchoiceUpdated::from_status(PayloadStatusEnum::Syncing));
+        let syncer = BeaconSyncer {
+            retry_interval: Duration::from_secs(1),
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                Asserter::new(),
+                l2_auth_asserter.clone(),
+                Default::default(),
+            ),
+            checkpoint: None,
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+        };
+
+        syncer
+            .submit_target_block(sample_checkpoint_block(U256::from(7u64), Some(B256::ZERO)))
+            .await
+            .expect("SYNCING import and promotion are accepted");
+
+        assert!(l2_auth_asserter.read_q().is_empty());
     }
 }
