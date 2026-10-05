@@ -147,6 +147,7 @@ impl BeaconSyncer {
             taiko_block: Some(true),
             block_access_list: None,
             slot_number: None,
+            osaka: None,
         };
 
         let payload_status = self.rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;

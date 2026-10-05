@@ -2,7 +2,7 @@
 
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
-    builder::payload_id_taiko,
+    builder::{PAYLOAD_ID_VERSION_V2, payload_id_taiko},
 };
 use alloy::{
     primitives::{Address, B256, Bytes, U256, keccak256},
@@ -11,11 +11,6 @@ use alloy::{
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types_engine_2::{PayloadAttributes as EthPayloadAttributes, PayloadId};
-
-/// Engine API `engine_getPayloadV2` discriminator.
-///
-/// The 8-byte payload identifier prepends this version byte to match the Execution API spec.
-const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
 alloy::sol! {
     struct ShastaMixHashInput {
@@ -157,4 +152,50 @@ pub fn build_payload_attributes_with_id(
     let payload_id = payload_id_taiko(parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
     payload.l1_origin.build_payload_args_id = payload_id_to_bytes(payload_id);
     payload
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PayloadAttributesInput, build_payload_attributes_with_id, encode_extra_data};
+    use alloy::primitives::{Address, B256, Bytes, U256, hex};
+
+    /// Pre-Etna fingerprint of [`fingerprint_input`] without a beacon root, recorded with the
+    /// pre-Osaka alethia-reth pin (`0fb47d9`) so the Osaka pin is checked against V2-era IDs.
+    const PRE_ETNA_FINGERPRINT: [u8; 8] = hex!("02e3bcbe79b748d7");
+
+    /// Parent hash shared by the fingerprint vectors.
+    fn fingerprint_parent() -> B256 {
+        B256::with_last_byte(0x44)
+    }
+
+    /// Fixed pre-Etna attributes input whose only varying field is the beacon root.
+    fn fingerprint_input(parent_beacon_block_root: Option<B256>) -> PayloadAttributesInput {
+        PayloadAttributesInput {
+            beneficiary: Address::with_last_byte(0x11),
+            timestamp: 1_700_000_000,
+            mix_hash: B256::with_last_byte(0x22),
+            gas_limit: 30_000_000,
+            tx_list: Some(Bytes::from_static(&[0xc0])),
+            extra_data: encode_extra_data(50, 7),
+            base_fee_per_gas: U256::from(10_000_000u64),
+            block_number: 42,
+            l1_block_height: Some(U256::from(100u64)),
+            l1_block_hash: Some(B256::with_last_byte(0x33)),
+            is_forced_inclusion: false,
+            signature: [0; 65],
+            parent_beacon_block_root,
+            anchor_transaction: None,
+        }
+    }
+
+    #[test]
+    fn payload_id_ignores_zero_parent_beacon_root() {
+        let parent = fingerprint_parent();
+        let without_root = build_payload_attributes_with_id(fingerprint_input(None), &parent);
+        let zero_root =
+            build_payload_attributes_with_id(fingerprint_input(Some(B256::ZERO)), &parent);
+
+        assert_eq!(without_root.l1_origin.build_payload_args_id, PRE_ETNA_FINGERPRINT);
+        assert_eq!(zero_root.l1_origin.build_payload_args_id, PRE_ETNA_FINGERPRINT);
+    }
 }
