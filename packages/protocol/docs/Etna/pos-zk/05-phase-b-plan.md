@@ -162,3 +162,76 @@ depends on someone outside the team.
 3. The parameter table is re-derived; no parameter is a placeholder.
 4. The recovery design is repaired and has survived a fresh D2 review, or is explicitly abandoned.
 5. The specification is re-frozen, and the next review round starts from a clean snapshot.
+
+---
+
+## 8. The S1 target, as decided by the user (2026-10-05)
+
+**Decision: the L2 gas-throughput target is the rate at which L2 exactly consumes the L1 data-availability
+capacity available to it.** In other words the target is *derived from L1's settlement and DA ceiling*,
+not chosen as a round number. That is the right shape for a validity rollup whose binding constraint is
+data, and it makes S1's pass/fail decidable.
+
+### 8.1 The formula
+
+```
+G_L2_TARGET  =  DA_bytes_per_l1_block x blobs_per_block_target / L1_slot_seconds / b
+
+where
+  b            = compressed batch bytes per unit of L2 gas        (MEASURED by S1/S3, workload-dependent)
+  blobs_per_block_target, bytes per blob, L1 slot seconds        (SOURCED, re-derived when Ethereum changes)
+```
+
+Equivalently, per 2-second L2 block: `block_data_budget = DA_bytes_per_second x 2` and
+`G_L2_per_block = block_data_budget / b`.
+
+### 8.2 What is sourced, derived and still unknown
+
+| Quantity | Value | Tag |
+|---|---|---|
+| Bytes per blob | 131,072 | sourced (EIP-4844) |
+| Blobs per L1 block (target / maximum) | 6 / 9 | sourced (EIP-7691) |
+| L1 slot duration | 12 s | sourced, re-derived if Ethereum changes it |
+| DA bytes per L1 block (target) | 786,432 | derived |
+| DA throughput (target / maximum) | 65,536 / 98,304 bytes per second | derived |
+| Data budget per 2 s L2 block (target) | 131,072 bytes (one blob) | derived |
+| **`b`, bytes per L2 gas** | **unknown** | **unmeasured — this is S1's headline output** |
+
+Illustrative only, to show the sensitivity: at `b = 0.006` bytes/gas the target is ≈ 11 Mgas/s; at
+`b = 0.02` (calldata-heavy, poorly compressible workload) it is ≈ 3.3 Mgas/s. These are arithmetic on an
+invented `b` and must not be quoted as results — the point is that `b` moves the answer by 3–5x, which is
+exactly why S1 measures it rather than assuming it.
+
+### 8.3 The second bound, and the rule when they disagree
+
+The DA ceiling is not automatically achievable: the prover must also keep up. So
+
+```
+G_L2_TARGET = min( DA-bound rate , proving-bound rate )
+```
+
+**Pass:** proving-bound ≥ DA-bound with an affordable fleet, at which point the L2 is DA-limited and the
+target above stands. **Fail:** the L2 is proving-limited. Then the operating envelope is set by the
+prover, and the choice is explicit and belongs to the user: buy a bigger fleet, or throttle L2 throughput
+to the proving-bound rate. Throttling is contract-visible — it caps the block gas limit, which caps fee
+revenue, which caps the security budget under D-8. That chain is why this decision cannot stay implicit.
+
+### 8.4 The caveat that must not be lost
+
+The DA ceiling is a **capacity**, not a guarantee. Blob space is a market: the protocol must pay the blob
+base fee, and under congestion it can be priced out of the target rate. Therefore:
+
+1. `G_L2_TARGET` is defined at **nominal** blob prices; the sustained rate is whatever the fee budget buys.
+2. The unsettled-depth cap `D_MAX` must absorb congestion periods, and the fee model must be able to
+   raise the L2 fee so that batch publication stays funded.
+3. S3 must measure the **cost curve** of publication against blob price, not a single price point.
+4. If the protocol is priced out for longer than the retention window, the correct behaviour is the
+   backpressure halt, not a promise it cannot keep.
+
+### 8.5 What the specification must register
+
+The parameter table must gain `G_L2_TARGET` and `b` (bytes per L2 gas) as registered parameters: the
+former derived from the latter plus the sourced DA constants, both feeding the block gas limit, the batch
+size K, `D_MAX`, the fee model and the recovery bond sizing. **This registration is a Phase B exit
+criterion, not an optional extra** — the fee revenue that funds security under D-8 is a function of it.
+
