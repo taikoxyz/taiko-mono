@@ -2,7 +2,7 @@
 
 use alloy::primitives::{B256, U256};
 use anyhow::Error as AnyhowError;
-use protocol::shasta::error::ForkConfigError;
+use protocol::shasta::error::{ForkConfigError, ProtocolError};
 use rpc::RpcClientError;
 use thiserror::Error;
 
@@ -47,6 +47,16 @@ pub enum SyncError {
         block_number: u64,
         /// Reason anchor extraction failed.
         reason: &'static str,
+    },
+
+    /// Event sync: the Etna resume target's `extraData` does not carry its anchor block number.
+    #[error("invalid Etna extraData in l2 block {block_number}")]
+    InvalidEtnaExtraData {
+        /// L2 block number whose `extraData` was decoded.
+        block_number: u64,
+        /// Decoding failure.
+        #[source]
+        source: ProtocolError,
     },
 
     /// Event sync: failed to decode a proposal log from the inbox contract.
