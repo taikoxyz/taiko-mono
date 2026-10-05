@@ -235,3 +235,37 @@ former derived from the latter plus the sourced DA constants, both feeding the b
 size K, `D_MAX`, the fee model and the recovery bond sizing. **This registration is a Phase B exit
 criterion, not an optional extra** — the fee revenue that funds security under D-8 is a function of it.
 
+
+### 8.6 Derived constraint found while specifying S1: the blob quantisation binds K
+
+At the DA-bound rate the arithmetic is unusually clean: **one 2-second L2 block equals exactly one blob**
+(131,072 bytes), so a K-block batch carries about K blobs. D5 requires the batch's data **and** its proof
+in one L1 transaction, and EIP-7691 caps blobs per L1 block at **6 target / 9 maximum**. Therefore:
+
+```
+BATCH_BLOCKS x blobs_per_block  <=  blobs_per_L1_tx_max          (a hard ceiling: 9)
+BATCH_BLOCKS                    <=  blobs_per_L1_tx_target       (the sustainable value: 6)
+```
+
+The registered placeholder `BATCH_BLOCKS = 32` is **not publishable** at the DA-bound rate: it would need
+32 blobs in one transaction against a ceiling of 9. This is a derived bound, not a preference, and it
+propagates:
+
+| Consequence | Value at the target rate |
+|---|---|
+| Largest sustainable batch | 6 blocks = 12 s of L2 = exactly one L1 slot |
+| Unsettled batches inside the 30-minute envelope | 900 / 6 = **150** |
+| Proofs in flight (`L / Δ`) | **≈ 150 concurrent**, not the ≈ 28 the earlier placeholder implied |
+| Fleet sizing (S1) | must be evaluated at ≈ 150 in flight, not 28 |
+| Reward per batch | spreads over 6 blocks, not 32 — the per-batch reward floor from S3 must be read with this |
+
+Two ways out, and both are user-visible decisions rather than parameter tweaks: **cap the block gas limit**
+so each 2 s block carries less data (more blocks per batch, less throughput), or **accept more than one L1
+transaction per batch**, which D5 forbids for an accepted batch. S1 must report `blobCount` and `K <= 9`
+per cell for this reason, and S3 must price the constraint, because the fee revenue that funds security is
+a function of it.
+
+**Action.** The specification must register the constraint alongside `BATCH_BLOCKS` and `MAX_BATCH_BLOCKS`
+(cross-referencing L1-01/L1-05 and D5) as soon as the recovery-repair edits land, so that no implementer
+picks a batch size that cannot be published.
+

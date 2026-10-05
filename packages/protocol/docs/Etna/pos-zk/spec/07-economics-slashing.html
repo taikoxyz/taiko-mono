@@ -147,7 +147,7 @@ payouts. <em>(user decision D-6: forced inclusion removed; no forced-inclusion e
 remains in this accounting)</em> ETH in the pool is never collateral, never
 stake and never slashable: it is not counted in INV-A–INV-D (<a href="#ECON-01">ECON-01</a>), no slash may
 debit it, and no rule may borrow against it. Its inflows are the terms of clause 1 (L2 fee revenue, arriving by the sweep of clause 7, and
-<code>POOL_TOPUP</code>); the pool never carries a negative balance.
+<code>POOL_TOPUP</code>); the pool never carries a negative balance. Its outflows are exactly two, and they are disjoint draws on the same balance: the validator payout <code>Alloc(e)</code> of (5)(d) and the <strong>proving share</strong> <code>ProvingShare(e)</code> of (5)(e), which is credited to the Inbox prover reward ledger of <a href="04-l1-integration.html#L1-11">L1-11</a> only by a transfer that debits the pool in the same transaction. No inflow may be assigned to both: <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>, checked at the (5)(d) freeze, so one inflow cannot be allocated twice. <em>(S5 &sect;9: the pool identity includes the proving-share outflow.)</em>
 (b) <strong>Per-signer input.</strong> Participation is attested by the only object that can carry it to
 L1: the authenticated signer bitmap of the head certificate, exposed as the public input
 <code>signerBitmap</code> (<a href="05-proof-statement.html#PRF-02">PRF-02</a>) and verified in-guest
@@ -188,9 +188,10 @@ staking contract MUST resolve the committed entry and its <code>effStake</code> 
 for <code>e</code> (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2)), so the accumulator's key
 is the canonical signer index and <code>v</code> below denotes the entry committed at that index; an
 entry that did not sign is paid nothing, however much stake it holds. Then, exactly:</span>
-<pre><code>pool_after(e)   = pool_before(e) + inflow(e) - &Sigma;_{v &isin; P(e)} payout(v,e)
+<pre><code>pool_after(e)   = pool_before(e) + inflow(e) - &Sigma;_{v &isin; P(e)} payout(v,e) - ProvingShare(e)
 payout(v,e)     = floor( Alloc(e) &middot; effStake(v,e) / PS(e) )   // PS(e) frozen at evidenceClose(e)
-&Sigma;_v payout(v,e)  &le;  Alloc(e)  &le;  pool_before(e)     // no borrowing, no negative pool</code></pre>
+&Sigma;_v payout(v,e)  &le;  Alloc(e)                        // no borrowing, no negative pool
+Alloc(e) + ProvingShare(e)  &le;  pool_before(e)           // one inflow is never allocated twice</code></pre>
 <span class="norm"><code>Alloc(e)</code> MUST be fixed before the epoch's first claim and MUST NOT exceed
 the pool's realised net inflow for the period — the ETH that has actually arrived by the sweep of clause 7 plus <code>POOL_TOPUP</code> (clause 1); the floor-rounding remainder stays in the pool
 and is never minted. The identity <code>&Sigma;_v payout(v,e) &le; Alloc(e) &le; pool_before(e)</code>,
@@ -203,9 +204,9 @@ round 3 finding R3-CE-03: <code>P(e)</code> and the participating stake are froz
 change the payout denominator.</em> <em>This closes review round 3 finding R3-PRF-03: the per-epoch
 payout identity is computable from frozen state, the accumulator key is the canonical signer index
 resolved against the stored set root, and the identity is checked rather than asserted.</em>
-(e) <strong>What fixes <code>Alloc(e)</code>, and its consequence.</strong> The mechanism that moves L2 fee revenue
-to the L1 pool is clause 7, and the allocation policy is recorded with it. An empty pool pays nothing: while no ETH
-has arrived, <code>Alloc(e) = 0</code>, the pool has no inflow, and <strong>no validator reward can be paid at
+(e) <strong>What fixes <code>Alloc(e)</code>: the recorded allocation policy, its owner, its formula and the proving-share outflow.</strong> The mechanism that moves L2 fee revenue
+to the L1 pool is clause 7. The allocation policy is <strong>recorded in the L1 staking contract's storage as one policy record</strong>, written by the activation transaction, and it may be changed <strong>only by an upgrade under <a href="08-migration-upgrades.html#GOV-01">GOV-01</a></strong> that is recorded in the decision log before it takes effect and applies to future epochs only — never to an epoch already entered and never to an allocation already fixed. The policy is two non-negative integer shares in parts per million, <code>ALLOC_VAL_PPM</code> and <code>ALLOC_PRV_PPM</code>, with <code>ALLOC_VAL_PPM + ALLOC_PRV_PPM &le; 1_000_000</code>. The per-epoch quantities are computed from the pool's realised balance and fixed at the freeze of (5)(d): <code>Alloc(e) = floor(ALLOC_VAL_PPM &middot; pool_before(e) / 1_000_000)</code> and <code>ProvingShare(e) = floor(ALLOC_PRV_PPM &middot; pool_before(e) / 1_000_000)</code>, with <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>; the rounding remainder stays in the pool. <code>ProvingShare(e)</code> is the <strong>proving-share outflow</strong>: it is credited to the Inbox prover reward ledger of <a href="04-l1-integration.html#L1-11">L1-11</a> only by a permissionless transfer that debits the pool in the same transaction, and it is the only credit that ledger may receive from the pool (5)(a). Because both shares are computed from one balance under one sum bound, one inflow cannot be allocated twice. An empty pool pays nothing: while no ETH
+has arrived, <code>Alloc(e) = 0</code> and <code>ProvingShare(e) = 0</code>, the pool has no inflow, and <strong>no validator reward can be paid at
 all</strong> — the security budget A-ECO-1 compares against attack profit is zero, the schedule of clause 1 is
 unsatisfiable, and no rule may promise, budget or advertise a reward beyond what has arrived. That consequence is
 stated, not assumed away. <em>(user decision D-8: the funding path and its consequences are clause 7)</em>
@@ -226,27 +227,25 @@ revenue, <strong>MUST NOT</strong> be counted in clause 1, and <strong>MUST NOT<
 vault holds ETH only: it is never collateral, never stake, never slashable, and never part of the ledger of
 <a href="#ECON-01">ECON-01</a>. It has no discretion: no caller, operator, validator, DAO action or upgrade path may
 redirect its balance to any destination other than the sweep of (b).</span>
-<span class="norm">(b) <strong>The sweep, and who may sweep.</strong> The vault <strong>MUST</strong> expose one
-sweep that moves its accumulated ETH to L1 through the <strong>preserved Bridge</strong>
-(<a href="04-l1-integration.html#MSG-01">MSG-01</a>): an L2→L1 bridge message whose destination is exactly the
-single reward pool account of clause 5(a) — the segregated ETH pool of the L1 staking contract — and nothing else.
-The destination is a protocol constant recorded before launch, never a parameter the caller supplies. The sweep is
-the <strong>only</strong> route by which L2 fee revenue reaches L1: there is no direct L1 claim, no accounting entry
+<span class="norm">(b) <strong>The sweep: protocol-constructed, no destination argument, and the correct fee arithmetic.</strong> The vault <strong>MUST</strong> expose one
+sweep entry point that moves its accumulated ETH to L1 through the <strong>preserved Bridge</strong>
+(<a href="04-l1-integration.html#MSG-01">MSG-01</a>). The sweep takes <strong>no argument that influences the destination</strong>: it builds the bridge message itself from protocol constants — the canonical bridge invocation selector as its method data, the vault as sender, the reward-pool address of clause 5(a) as <code>destOwner</code>, and <code>to</code> set to that same pool — and nothing else. The destination is a protocol constant recorded before launch, never a parameter the caller supplies; the sweep is
+the <strong>only</strong> route by which L2 fee revenue reaches L1, and there is no direct L1 claim, no accounting entry
 against future settlement, no escrow, and no second destination. <strong>Who may sweep:</strong> any address, at any
 time, with no gate, allowlist, reservation or operator action; the caller chooses only <em>when</em>, never
-<em>where</em> or <em>how much is credited to whom</em>. <strong>Cadence:</strong> there is no protocol-mandated
+<em>where</em> or <em>how much is credited to whom</em>. <strong>Fee arithmetic, stated correctly.</strong> The preserved Bridge requires <code>value + fee == msg.value</code>. Here <code>value</code> is the <strong>whole swept amount</strong> and is credited to the pool in full; <code>fee</code> is <strong>additional ETH supplied in addition to the swept amount</strong> by the sweep transaction that carries it (the same caller that already pays the sweep's L2 gas), and it <strong>MUST NOT</strong> be deducted from <code>value</code>. A sweep that reduces the credited amount to cover the fee is non-conforming. The L1 release cost of the message is part of <code>C_bridge_ops</code> of clause 1 and is not a
+second charge on the pool. <strong>One shot and replay.</strong> Each sweep emits exactly one bridge message, is not batchable with any other message, and carries the vault's monotonic sweep counter as its nonce; a replayed or duplicated message is rejected by the domain- and nonce-scoped replay protection of <a href="04-l1-integration.html#MSG-02">MSG-02</a>, and a message that does not authenticate credits nothing. <strong>Cadence, and the zero-balance no-op:</strong> there is no protocol-mandated
 schedule and no keeper duty — the sweep <strong>MUST</strong> be callable whenever the vault's balance is non-zero,
 and the vault <strong>MUST NOT</strong> hold a balance that no rule-legal call can move; a sweep of a zero balance is
-a no-op and MUST NOT block anything. The L2 gas of the sweep is paid by its caller; the Bridge's message fee is
-charged against the swept amount; the L1 release cost is part of <code>C_bridge_ops</code> of clause 1 and is not a
-second charge. The sweep credits nothing by assertion: the L1 release credits the pool only when the preserved
-Bridge has authenticated the message (<a href="04-l1-integration.html#MSG-02">MSG-02</a>).</span>
-<span class="norm">(c) <strong>Arrival identity.</strong> Fees are revenue when they <em>arrive at the pool</em>, not
+a no-op and MUST NOT block anything, and no argument exists by which a caller could route or partially divert a non-zero balance. The sweep credits nothing by assertion: the L1 release credits the pool only when the preserved
+Bridge has authenticated the message (<a href="04-l1-integration.html#MSG-02">MSG-02</a>). <em>(S5 &sect;7: the sweep is protocol-constructed, takes no destination argument, and the Bridge fee is additional ETH rather than a deduction from the swept amount.)</em></span>
+<span class="norm">(c) <strong>Arrival identity, with the corrected fee arithmetic.</strong> Fees are revenue when they <em>arrive at the pool</em>, not
 when they are collected on L2 and not when a sweep is sent. Let <code>s</code> range over the sweeps whose bridge
-message releases to the pool in the period and let <code>bridgeFee(s)</code> be the message fee the Bridge charged
-against the swept amount (<span class="pill unmeasured">unmeasured</span>; part of <code>C_bridge_ops</code>).
+message releases to the pool in the period. The credited amount is the whole swept amount; the message fee
+<code>fee(s)</code> is additional ETH supplied with the sweep (clause (b)) and is <strong>not</strong> deducted from it
+(<span class="pill unmeasured">unmeasured</span>; a cost to the sweep caller, registered in <a href="#unmeasured">&sect;Unmeasured inputs</a>).
 Then, exactly:</span>
-<pre><code>arrival(s)           =  swept(s) − bridgeFee(s)
+<pre><code>arrival(s)           =  swept(s)                        // fee(s) is additional ETH, never a deduction
 pool_inflow(period)  =  Σ_s arrival(s) + POOL_TOPUP(period)
 Σ_s swept(s)         ≤  F_exec_L2 + F_priority_L2      // collected at or before the last L2 block
                                                         // covered by an L1 checkpoint at the period's end</code></pre>
@@ -254,8 +253,8 @@ pool_inflow(period)  =  Σ_s arrival(s) + POOL_TOPUP(period)
 upper bound on the left, never a promise: collection precedes arrival by at least the settlement pipeline, so a
 period's inflow cannot exceed the fees collected up to the last settled L2 block of that period, and the same ETH
 is counted exactly once — the identity of clause 1 is evaluated on the pool's realised inflow, never on fees in
-flight. <code>bridgeFee(s)</code> and every timing term here are <span class="pill unmeasured">unmeasured</span> and
-are registered in <a href="#unmeasured">§Unmeasured inputs</a>.</span>
+flight. <code>fee(s)</code> and every timing term here are <span class="pill unmeasured">unmeasured</span> and
+are registered in <a href="#unmeasured">§Unmeasured inputs</a>. <em>(S5 &sect;7: the fee is additional ETH, not a deduction from the swept amount; the arrival identity is corrected accordingly.)</em></span>
 <span class="norm">(d) <strong>Honest consequences, stated at the claim.</strong>
 (i) <strong>Rewards lag the settlement pipeline.</strong> The fee ETH is on L2 and crosses only inside a bridge
 message that L1 releases after a checkpoint covering the sweep's own L2 block is accepted on L1
@@ -405,7 +404,9 @@ divergence under withholding may leave no admissible evidence and is Assumed, no
 <td><code>id</code> as in clause 4</td></tr> <tr><td><strong>Invalid evidence submission</strong> — evidence that fails any check of clause 2, including a forged or malformed object</td>
 <td>not an offence against consensus; there is no slashable subject</td> <td>any address</td> <td>n/a — the transaction reverts; no window is opened or extended</td>
 <td><strong>none</strong>: no bond, deposit or stake is consumed; the submitter pays L1 gas only</td>
-<td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> </tbody></table>
+<td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> <tr><td><strong>Fee diversion</strong> — a proposal whose block does not credit the L2 fee vault with the execution fees and priority fees its own execution collects, or diverts, destroys or redirects any part of them to another beneficiary (<a href="02-consensus.html#CONS-01">CONS-01</a>(viii), <a href="05-proof-statement.html#PRF-06">PRF-06</a>)</td>
+<td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate re-executes the block from the committed pre-state and compares the fee-vault balance delta of <a href="#ECON-02">ECON-02</a> clause 7(a) with the execution base fees and priority fees the block's own execution collects; the executed bodies are decoded from the committed payload, never from a separate witness stream (<a href="05-proof-statement.html#PRF-06">PRF-06</a>). Re-execution is public but expensive, exactly as for execution validity (iv) of <a href="02-consensus.html#CONS-01">CONS-01</a></td>
+<td>any address</td> <td>as the equivocation row</td> <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the proposal's signer</td> <td><code>id</code> as in clause 4; a different offending block at another <code>(H,R)</code> is a distinct offence</td></tr> </tbody></table>
 <span class="norm">(5) <strong>What is not an offence.</strong> Alongside the non-receipt ban of clause 1: a
 validator that is offline or votes late; a proposer whose round times out; a node that halts under
 <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>; and a prover that is slow inside the D6 envelope. Ordering
@@ -532,17 +533,16 @@ bound applies to the total of every bounty paid for that identity, including any
 matrix can produce. <code>REPORTER_BOUNTY</code> is otherwise <span class="pill unmeasured">unmeasured</span>, and
 this clause does not weaken <a href="#ECON-08">ECON-08</a> clause 1: no bond may be forfeited on "not proven".
 <em>(review round 1, finding ECO-06)</em></span>
-<span class="norm">(6) <strong>The recovery bond's destination.</strong> The bond of
-<a href="06-recovery-exceptions.html#REC-02">REC-02</a> follows this rule: when a recovery <em>completes</em>, the
-bond is returned in full to the address that posted it, and when a recovery is <em>cancelled by honest progress</em>
-— the acceptance of a valid batch extending the current checkpoint before <code>T_RECOVERY_DELAY</code>, which
-REC-02 makes the only cancellation — the bond is slashed and the whole debit goes to the protocol treasury under
-clauses (1)–(2). No part of the bond is a reward or a bounty: a completed recovery returns the poster's own bond and
+<span class="norm">(6) <strong>The recovery bond's destination and split.</strong> The bond of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a> is split at invocation and each part has its own destination. The <strong>non-refundable component</strong> <code>B_REC_KEEP(e)</code> is transferred to the protocol treasury at invocation, on every attempt, whether or not the recovery completes (clauses (1)–(2)); it is never returned. When a recovery <em>completes</em>, only the refundable balance <code>B_REC(e) &minus; B_REC_KEEP(e)</code> is returned, and it is returned to the address that posted the bond, never to the caller of the completion transition. When a recovery is <em>cancelled by honest progress</em>
+— the acceptance of a valid batch extending the checkpoint recorded at invocation, before the completion transition is included, which
+REC-02 makes the only cancellation — the refundable balance is slashed and the <strong>whole bond</strong> is held by the protocol treasury under
+clauses (1)–(2). No part of the bond is a reward or a bounty: a completed recovery returns the poster's own refundable balance and
 pays it to nobody else, and a cancellation pays the treasury, never a reporter. The bond is not counted in
-<code>rewards_ETH</code> (clause 1). The amount, asset, posting and cancellation conditions are owned by
+<code>rewards_ETH</code> (clause 1). The amount, asset, posting, split and cancellation conditions are owned by
 <a href="06-recovery-exceptions.html#REC-02">REC-02</a> and are not restated here
-(<a href="index.html#GEN-03">GEN-03</a>); this clause owns the destination. <em>(user decision D-9: the recovery
-bond's debit goes to the treasury; the bond itself is REC-02 under user decision D-7)</em></span>
+(<a href="index.html#GEN-03">GEN-03</a>); this clause owns the destinations. <em>(user decision D-9: the recovery
+bond's debit goes to the treasury; the bond itself is REC-02 under user decision D-7)</em> <em>(S5 &sect;4: the non-refundable component is paid on every attempt and only the remainder is refundable on completion.)</em></span>
 <span class="why">Failure mode: leaving the destination unrecorded lets an implementer pick it; a destination that
 destroys the value weakens the deterrent relative to one that recycles it, and a bounty that can equal the debit
 turns the penalty into a refund to its payer. The repository's contradictory precedents are resolved by the recorded
@@ -1013,7 +1013,7 @@ now made there, together with the parameters the revised <code>D_MAX</code> and 
 <tr><td><code>D_subsidy</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>the subsidy draw, subtracted in the identity; a subsidy is not additional funding</td></tr>
 <tr><td><code>REPORTER_BOUNTY(id)</code></td><td>TAIKO</td><td><a href="#ECON-06">ECON-06</a></td><td><code>&lt; c(f(e,c)) · SlashBase(v,e) ≤ P(v,e)</code> and <code>&lt; charge(id)</code>: strictly less than the correlated component and strictly less than the total penalty actually debited (immediate plus correlated), so self-reporting is never profitable. The <code>REPORTER_BOUNTY</code> destination is a split with <code>reporterPpm &lt; 1_000_000</code>; the remainder goes to the protocol treasury and no part is destroyed (user decision D-9)</td></tr>
 <tr><td><code>t_root(e)</code></td><td>unix seconds</td><td><a href="#ECON-07">ECON-07</a></td><td>the stored anchor: the run-time-visible <code>block.timestamp</code> of the transaction that appended epoch <code>e</code>'s entry to the staking contract's per-epoch mapping (MEM-09 clause 2, amended to carry <code>rootCommittedAt</code>); never recomputed from logs, headers or <code>blockhash</code></td></tr>
-<tr><td><code>Alloc(e)</code></td><td>ETH per epoch</td><td><a href="#ECON-02">ECON-02</a></td><td>the validator payout the recorded allocation policy assigns to epoch <code>e</code>; bounded by the pool's realised net inflow delivered by the clause 7 sweep and by <code>pool_before(e)</code>. While nothing has arrived, <code>Alloc(e) = 0</code> and no validator reward is payable</td></tr>
+<tr><td><code>Alloc(e)</code></td><td>ETH per epoch</td><td><a href="#ECON-02">ECON-02</a></td><td><code>Alloc(e) = floor(ALLOC_VAL_PPM &middot; pool_before(e) / 1_000_000)</code>, with <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>; the validator payout the recorded allocation policy assigns to epoch <code>e</code>, fixed at the (5)(d) freeze and bounded by the pool's realised net inflow delivered by the clause 7 sweep. While nothing has arrived, <code>Alloc(e) = 0</code> and no validator reward is payable</td></tr>
 <tr><td><code>CHURN_LIMIT</code></td><td>fraction of voting power per epoch</td><td><a href="#ECON-03">ECON-03</a></td><td>maximum effective stake that may leave the set in one epoch; must be derived from the deterrence relation</td></tr>
 <tr><td><code>ACTIVATION_RATE_LIMIT</code></td><td>entries per epoch</td><td><a href="#ECON-09">ECON-09</a></td><td>bounds the activation rate independently of how many set versions are committed (MEM-09)</td></tr>
 <tr><td><code>T_PROOF_MAX_PERMITTED</code></td><td>seconds</td><td>HALT-03 (<a href="06-recovery-exceptions.html">06</a>)</td><td>the maximum proving latency the unsettled-depth cap and the evidence window admit; distinct from D6's planning envelope</td></tr>
@@ -1022,5 +1022,6 @@ now made there, together with the parameters the revised <code>D_MAX</code> and 
 <tr><td><code>E_EPOCH</code></td><td>seconds</td><td>CONS-13 (<a href="02-consensus.html#CONS-13">02</a>)</td><td><code>EPOCH_LEN_L2 · L2_BLOCK_INTERVAL</code>; derived</td></tr>
 <tr><td><code>MIN_STAKE</code></td><td>TAIKO</td><td><a href="#ECON-09">ECON-09</a></td><td><code>S_min ≥ C_op_annual / (r_gross − ρ_ops)</code>; no finite value exists when <code>r_gross ≤ ρ_ops</code></td></tr>
 <tr><td><code>subsidyCap</code>, <code>subsidyEnd</code></td><td>ETH / unix seconds</td><td><a href="#ECON-02">ECON-02</a></td><td>bounded and expiring; netted out of the identity as <code>D_subsidy</code>; no rule may extend or borrow against them</td></tr>
+<tr><td><code>ALLOC_VAL_PPM</code>, <code>ALLOC_PRV_PPM</code></td><td>parts per million</td><td><a href="#ECON-02">ECON-02</a> clause 5(e)</td><td>the recorded allocation policy's validator and proving shares; non-negative integers with <code>ALLOC_VAL_PPM + ALLOC_PRV_PPM &le; 1_000_000</code>, applied to <code>pool_before(e)</code> at the (5)(d) freeze and fixed for that epoch. The proving share is credited to the <a href="04-l1-integration.html#L1-11">L1-11</a> ledger by a transfer that debits the pool in the same transaction, so one inflow is never allocated twice</td></tr>
 </tbody></table>  </main> <footer class="site"> <p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are stated once and referenced by identifier.</p>
 </footer> </body></html>

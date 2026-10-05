@@ -103,12 +103,13 @@ transaction, and it recomputes the Fiat–Shamir challenge rather than trusting 
                              // the guest and the L1 contract; no stored or pre-computed
                              // threshold exists (CONS-03 owns the predicate)
                              //                                        (L1: recomputed)
-  bytes32 configHash;        // consensus-relevant config commitment: binds the exact
-                             // configuration under which the batch was certified and executed
-                             // (epoch schedule and L, quorum predicate, DA-mode rules, parameter
-                             // version and the recovery parameters), so a proof made under a
+  bytes32 configHash;        // the per-epoch configuration commitment for THIS batch's epoch,
+                             // read by L1 from the append-only registry of PARAM-04 and fixed
+                             // when the epoch's entry was written; it binds the exact configuration
+                             // under which the batch was certified and executed (the enumerated
+                             // field list and domain tag of constraint (5)), so a proof made under a
                              // different configuration cannot stand as this batch's
-                             //                                       (L1: Inbox storage)
+                             //                                       (L1: Inbox per-epoch registry)
   uint64  recoveryGeneration;// the recovery generation the batch was certified under: a
                              // monotonically increasing counter held with the accepted
                              // checkpoint and incremented by exactly one per completed recovery
@@ -174,13 +175,13 @@ and canonical <code>ETNA_SET_KEY</code> order; <a href="02-consensus.html#CONS-1
 <code>validators_hash</code> and <code>next_validators_hash</code> MUST be that same root under that
 same encoding, so the header-chain binding and the Merkle membership proof always check the same
 object. <em>(review round 1, findings B R1-03, B R1-05)</em> (4) <strong>Epoch-transition inputs are L1-derived.</strong> <code>setVersion</code>, <code>setVersionBlock</code>, <code>anchorSetRoot</code> and <code>anchorSetTotalVotingPower</code> are read by the L1 contract from the staking contract's per-epoch mapping and the stored predecessor checkpoint and are never supplied by the prover; the two anchor fields are zero exactly when <code>firstHeight</code> is not the first block of its epoch, and the guest MUST reject a witness whose zero/non-zero pattern disagrees with the L1-derived values. These are the public inputs against which PRF-05(ii)'s transition checks are recomputed. <em>This closes review round 3 finding R3A-04: the epoch-anchor checks named public inputs that did not exist in the journal, so the transition evidence could not be recomputed at all.</em>
-(5) <strong>The configuration and the recovery authorization are L1-derived, never prover-chosen.</strong>
-<code>configHash</code> and <code>recoveryGeneration</code> are read by the L1 contract from its own
-storage — the same record that holds the accepted predecessor checkpoint — and are never supplied by the
+(5) <strong>The configuration and the recovery authorization are L1-derived, never prover-chosen, and the configuration is per-epoch.</strong>
+<code>recoveryGeneration</code> is read by the L1 contract from its own
+storage — the same record that holds the accepted predecessor checkpoint — and is never supplied by the
 prover: the contract derives the current generation itself, from that record, and only then hashes the
 journal into <code>statementHash</code>. The guest MUST require the journal's
 <code>recoveryGeneration</code> to equal the generation the contract supplies as a public input, and MUST
-reject a batch whose generation is stale. Each of the two fields MUST have its own row in
+reject a batch whose generation is stale. <code>configHash</code> is the <strong>registry value for the batch's epoch</strong>: the L1 contract reads it from the append-only per-epoch configuration registry of <a href="09-parameters.html#PARAM-04">PARAM-04</a> (<a href="04-l1-integration.html#L1-05">L1-05</a> row 23), the entry is fixed once and immutable for that epoch, and a batch whose epoch has no entry MUST be rejected before proof verification. The guest MUST recompute <code>configHash</code> from the configuration fields it actually applied and reject the proof unless the recomputation equals the journal value. The preimage is a single canonical <code>abi.encode</code>, domain-tagged and chain-id-prefixed (<a href="index.html#GEN-05">GEN-05</a>), of exactly: <code>bytes32("TAIKO_ETNA_CONFIG_V1")</code>, <code>uint256 l1ChainId</code>, <code>uint256 l2ChainId</code>, <code>uint64 epoch</code>, <code>uint64 EPOCH_LEN_L2</code>, <code>uint64 H_0</code>, <code>uint64 e_0</code>, <code>uint64 L1_0</code>, <code>uint64 EPOCH_LEN_L1</code>, <code>uint64 L2_BLOCK_INTERVAL</code>, <code>uint8 quorumForm</code> (value 1: the predicate <code>3 &middot; s &gt; 2 &middot; W</code> of <a href="02-consensus.html#CONS-03">CONS-03</a>), <code>uint8 payloadFramingVersion</code> (<a href="#PRF-07">PRF-07</a>(0)), <code>uint32 MAX_BATCH_BLOCKS</code>, <code>uint8 daModesEnabled</code> (bit 0 calldata, bit 1 blob, bit 2 hybrid), <code>uint64 paramVersion</code>, and the recovery parameters <code>uint64 T_STALL</code>, <code>uint64 T_RECOVERY_DELAY</code>, <code>uint64 REC_COOLDOWN</code>, <code>uint256 B_REC_BASE</code>, <code>uint256 B_REC_KEEP</code>, <code>uint64 D_MAX</code>. The enumeration is closed at <code>paramVersion = 1</code>: adding, removing or reordering a field requires a new <code>paramVersion</code> and a new domain tag, so two different enumerations can never share a domain and upgrades take effect for future epochs only, never for an epoch already entered. <em>(S5 &sect;5: configHash is per-epoch, fixed in the registry and never changed for that epoch, and the preimage is the enumerated, domain-tagged list above rather than a vacuous commitment.)</em> Each of the two fields MUST have its own row in
 <a href="04-l1-integration.html#L1-05">L1-05</a> and its own line in
 <a href="04-l1-integration.html#input-reconciliation">L1-05 &sect;2.1</a>; by the preamble above, a field
 without a row is the declared protocol defect. <em>(user decision D-7: Mode B selected — the L1 contract
@@ -300,9 +301,9 @@ that each resulting state commitment equals the state root committed by that blo
 state commitment must equal <code>postStateRoot</code>. <strong>The executed block bodies are decoded from the committed payload, never taken from a separate witness stream.</strong> The guest MUST decode each block's body from the byte string the journal's <code>dataCommitment</code> binds — the canonical framing of <a href="#PRF-07">PRF-07</a>(0) — and MUST reject the proof unless the transactions it decodes for every height in <code>[firstHeight, lastHeight]</code> yield, under that header's own transactions-root construction, exactly the <code>transactions_root</code> committed by that height's header; a body that cannot be decoded from the committed bytes, or whose decoded transactions do not reproduce that root, invalidates the proof. The witness may not supply a block body independently of the committed payload: <a href="#PRF-03">PRF-03</a>(e) carries the committed payload bytes to the guest and MUST NOT be read as permitting a second, independent copy. This decode-and-root check is what makes <code>dataCommitment</code> a binding rather than a claim: without it the guest could execute a certified chain whose bodies came from somewhere other than the published bytes, and the accepting L1 transaction would commit to data that was never executed. <em>(review round 2, finding P-R2-01)</em> The state commitment function is
 Ethereum-compatible (Merkle–Patricia root over the account and storage tries), because the design
 preserves type-1 execution semantics; substituting a different commitment scheme is a normative change
-and not an implementation choice.</span>
+and not an implementation choice. <strong>Fee-vault credit is part of the execution check.</strong> For every block in the range the guest MUST compute the balance increase of the L2 fee vault of <a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 7(a) over that block's state transition and MUST reject the proof unless it equals the execution base fees and priority fees that block's own execution collects under the L2 fee rules; a block that diverts, destroys or redirects any part of those fees to any other beneficiary fails the check, so a proposal that does not credit the fee vault with the fees its own execution collects is not provable and not acceptable (<a href="02-consensus.html#CONS-01">CONS-01</a>(viii), <a href="07-economics-slashing.html#ECON-04">ECON-04</a>). <em>(S5 &sect;8: the guest checks the fee-vault credit as part of execution.)</em></span>
 <span class="why">Failure modes addressed: skipping blocks, reordering blocks, executing against a
-different pre-state, and a state-root scheme the bridge cannot verify.</span>
+different pre-state, fee diversion (the vault-delta check makes it unprovable), and a state-root scheme the bridge cannot verify.</span>
 <span class="pill proven">Proven</span> <span class="small">(premise: the L2 execution rules are fixed by the preserved EVM semantics)</span></div>
 
 <div class="rule" id="PRF-07"><span class="rid">PRF-07 — data-commitment binding for both data paths</span>

@@ -218,7 +218,7 @@ rule-checked write (validators can reject a bad payload) or as an unchecked writ
 consensus-verified observation — is an <strong>Open migration item</strong> (<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>). Consequence, stated rather than assumed away: if it
 can choose which fact to publish, or can withhold one, it is a discretion surface in ordinary operation and R1/R2 of the requirements matrix
 (<a href="../01-requirements-and-threat-model.md">01 §7</a>) are not yet satisfied; bridge authentication then rests on that sender's honesty and A-GOV-1, not on a consensus rule
-(*review round 1, finding B R1-09*).</span>
+(*review round 1, finding B R1-09*).<br>(h) <strong>Recovery-completion consumption.</strong> The completion record of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> — the L1 record that fixes <code>resumeHeight</code> and increments <code>recoveryGeneration</code> — is an L1 fact consumed by <strong>consensus rule</strong>, not carried in a block body: it governs which heights a correct validator may sign for and which history a correct node treats as canonical. It is Ethereum-final for a node only under (b), and until then the node MUST keep its pre-completion view, MUST NOT refuse to sign a batch that extends the checkpoint the completion would discard (accepting such a batch cancels the recovery, <a href="06-recovery-exceptions.html#REC-02">REC-02</a>), and MUST NOT act on the completion. Because the record is not carried in a block body, (c)'s body-commitment requirement does not apply to it; (d)'s re-verifiability applies to the L1 transaction that wrote it, which any node re-reads from canonical L1. <em>(S5 &sect;2: L2 nodes act on a completion only at the Ethereum-final depth defined here.)</em></span>
 <span class="why">Failure mode: a PoS-finalized L2 block whose execution or message authentication
 depends on a reorganisable L1 fact becomes unprovable against canonical L1; L1 admission then stalls
 at that batch, because <a href="04-l1-integration.html#L1-06">L1-06</a> accepts only extensions of its checkpoint. The chain
@@ -596,7 +596,7 @@ history as valid (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>,
 <a href="05-proof-statement.html#PRF-10">PRF-10</a>), (ii) preserve the D3 addresses and storage
 layouts (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>,
 <a href="08-migration-upgrades.html#MIG-06">MIG-06</a>), and (iii) introduce no privileged path in
-ordinary operation or in recovery (<a href="#SYS-04">SYS-04</a>). The DAO must not be required for block production,
+ordinary operation or in recovery (<a href="#SYS-04">SYS-04</a>), and (iv) record the allocation policy of <a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5(e) and the per-epoch configuration registry entries of <a href="09-parameters.html#PARAM-04">PARAM-04</a> before they take effect and for future epochs only, never editing an epoch already entered and never re-opening a height retired by a completed recovery (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>). <em>(S5 &sect;5 and &sect;9: parameter governance is recorded and future-epochs-only.)</em> The DAO must not be required for block production,
 finality, proof submission or acceptance, activation, exit, withdrawal or recovery, and has
 no rescue function (<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>). <strong>Recovery is
 outside the DAO's reach</strong>: the DAO may not invoke it, cancel it, extend it, choose the restored
