@@ -1,4 +1,3 @@
-use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH},
@@ -9,8 +8,9 @@ use alloy_consensus::{Header, TxEnvelope};
 use alloy_rpc_types::Transaction as RpcTransaction;
 use alloy_rpc_types_engine::PayloadId;
 use protocol::shasta::{
-    PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash,
-    encode_extra_data, encode_transactions,
+    PayloadAttributesInput, anchor_gas_reserve, build_payload_attributes_with_id,
+    calculate_shasta_mix_hash, encode_etna_extra_data, encode_extra_data, encode_transactions,
+    is_etna_at,
     manifest::{BlockManifest, DerivationSourceManifest},
     unzen_active_for_chain_timestamp,
 };
@@ -83,6 +83,12 @@ struct PayloadContext<'a> {
     parent_hash: B256,
     /// Positional data describing where the block sits within the proposal.
     position: BlockPosition,
+    /// Whether the block is an Etna block (decided by its final timestamp): no anchor
+    /// transaction, no anchor gas reserve and the 13-byte `extraData`.
+    is_etna: bool,
+    /// Root sent as `parentBeaconBlockRoot`: zero before Etna; for an Etna block, the state root
+    /// of the L1 block it anchors to (its `anchor_block_number`).
+    parent_beacon_block_root: B256,
 }
 
 /// Aggregated parameters required to assemble the anchor transaction.
@@ -130,13 +136,14 @@ impl BlockPosition {
 struct BlockDerivationContext {
     /// Payload attributes derived for this manifest block.
     payload: TaikoPayloadAttributes,
-    /// Anchor transaction paired with `payload`.
-    anchor_tx: TxEnvelope,
+    /// Anchor transaction paired with `payload`; `None` for an Etna block, which has none.
+    anchor_tx: Option<TxEnvelope>,
     /// Parent hash used to build the payload.
     parent_hash: B256,
     /// L2 block number expected from execution.
     block_number: u64,
-    /// Anchor block number encoded into the anchor transaction.
+    /// Final anchor block number of the block: encoded into the anchor transaction before Etna,
+    /// and into the 13-byte `extraData` of an Etna block.
     anchor_block_number: u64,
     /// Whether this block finalizes the proposal's derivation output.
     is_final_block: bool,
@@ -418,6 +425,10 @@ impl ShastaDerivationPipeline {
     ///
     /// The result is reused by the canonical-batch detector to avoid repeating heavy
     /// computations such as anchor assembly when we only need to validate existing blocks.
+    ///
+    /// `block` is final here (inherited metadata and validation already applied), so its
+    /// timestamp decides the fork. An Etna block gets no anchor transaction (no golden-touch nonce
+    /// query, no signature) and commits to its L1 anchor through `parentBeaconBlockRoot` instead.
     async fn prepare_block(
         &self,
         block: &BlockManifest,
@@ -427,9 +438,11 @@ impl ShastaDerivationPipeline {
         let BlockContext { meta, position } = ctx;
 
         let block_number = state.next_block_number();
+        let is_etna = is_etna_at(state.etna_fork_timestamp, block.timestamp);
         info!(
             proposal_id = meta.proposal_id,
             block_number,
+            is_etna,
             forced_inclusion = position.is_forced_inclusion(),
             transactions = block.transactions.len(),
             "processing manifest block"
@@ -438,13 +451,17 @@ impl ShastaDerivationPipeline {
         let parent_mix_hash = B256::from(state.header.difficulty.to_be_bytes::<32>());
         let mix_hash = calculate_shasta_mix_hash(parent_mix_hash, block_number);
 
-        let anchor_inputs = AnchorTxInputs { block, block_number, block_base_fee };
+        let (anchor_tx, parent_beacon_block_root) = if is_etna {
+            (None, self.resolve_etna_anchor_root(state, block.anchor_block_number).await?)
+        } else {
+            let anchor_inputs = AnchorTxInputs { block, block_number, block_base_fee };
+            (Some(self.build_anchor_transaction(state, meta, anchor_inputs).await?), B256::ZERO)
+        };
 
-        let anchor_tx = self.build_anchor_transaction(state, meta, anchor_inputs).await?;
-
-        let mut transactions = Vec::with_capacity(block.transactions.len() + 1);
-        transactions.push(anchor_tx.clone());
-        transactions.extend(block.transactions.clone());
+        let mut transactions =
+            Vec::with_capacity(block.transactions.len() + usize::from(anchor_tx.is_some()));
+        transactions.extend(anchor_tx.clone());
+        transactions.extend(block.transactions.iter().cloned());
 
         let parent_hash = state.header.hash_slow();
 
@@ -453,7 +470,9 @@ impl ShastaDerivationPipeline {
             block_number,
             block_base_fee,
             mix_hash = ?mix_hash,
-            transaction_count_with_anchor = transactions.len(),
+            transaction_count = transactions.len(),
+            has_anchor = anchor_tx.is_some(),
+            parent_beacon_block_root = ?parent_beacon_block_root,
             parent_hash = ?parent_hash,
             "calculated block parameters"
         );
@@ -468,8 +487,10 @@ impl ShastaDerivationPipeline {
                 block_number,
                 parent_hash,
                 position,
+                is_etna,
+                parent_beacon_block_root,
             },
-        );
+        )?;
 
         Ok(BlockDerivationContext {
             payload,
@@ -481,13 +502,55 @@ impl ShastaDerivationPipeline {
         })
     }
 
+    /// Resolve the `parentBeaconBlockRoot` of a new non-genesis Etna block anchored to L1 block
+    /// `anchor_block_number`: an Etna block commits to the state root of its L1 anchor block.
+    ///
+    /// A non-genesis Etna parent with the same anchor number shares its root, so it is reused
+    /// without an L1 call (inherited anchors keep the parent's number/root pair). Every other
+    /// case reads the state root of the L1 block by number: the first Etna block (whose pre-Etna
+    /// parent has a zero root) and a child of the Etna genesis (anchor 0) always fetch. A missing
+    /// parent root or a zero L1 state root is an error before any engine call.
+    async fn resolve_etna_anchor_root(
+        &self,
+        state: &ParentState,
+        anchor_block_number: u64,
+    ) -> Result<B256, DerivationError> {
+        if state.is_etna() &&
+            state.header.number != 0 &&
+            anchor_block_number == state.anchor_block_number
+        {
+            return match state.header.parent_beacon_block_root {
+                Some(root) if !root.is_zero() => Ok(root),
+                _ => Err(DerivationError::MissingEtnaParentRoot {
+                    parent_block_number: state.header.number,
+                }),
+            };
+        }
+
+        let (_, state_root) = self.resolve_anchor_block_fields(anchor_block_number).await?;
+        if state_root.is_zero() {
+            return Err(DerivationError::ZeroAnchorStateRoot { block_number: anchor_block_number });
+        }
+        Ok(state_root)
+    }
+
     /// Construct the `TaikoPayloadAttributes` structure that gets sent to the execution
     /// engine.
+    ///
+    /// The fork-dependent fields follow the block's own fork, decided by its timestamp:
+    /// - the header gas limit is the manifest gas limit plus the anchor gas reserve before Etna,
+    ///   and the manifest gas limit alone for an Etna block, which has no anchor transaction;
+    /// - `extraData` is the 7-byte `[basefeeSharingPctg | proposalId]` before Etna, and the 13-byte
+    ///   `[basefeeSharingPctg | proposalId | anchorBlockNumber]` for an Etna block;
+    /// - `parentBeaconBlockRoot` is zero before Etna, and the state root of the L1 anchor block for
+    ///   an Etna block.
+    ///
+    /// The transaction list is always explicit, so an empty block sends `0xc0`.
     fn create_payload_attributes(
         &self,
         transactions: &[TxEnvelope],
         ctx: PayloadContext<'_>,
-    ) -> TaikoPayloadAttributes {
+    ) -> Result<TaikoPayloadAttributes, DerivationError> {
         let PayloadContext {
             block,
             meta,
@@ -496,15 +559,26 @@ impl ShastaDerivationPipeline {
             block_number,
             parent_hash,
             position,
+            is_etna,
+            parent_beacon_block_root,
         } = ctx;
         let l1_block_hash = meta.l1_block_hash;
 
         let tx_list = encode_transactions(transactions);
-        let extra_data = encode_extra_data(meta.basefee_sharing_pctg, meta.proposal_id);
+        let extra_data = if is_etna {
+            encode_etna_extra_data(
+                meta.basefee_sharing_pctg,
+                meta.proposal_id,
+                block.anchor_block_number,
+            )
+            .map_err(DerivationError::EtnaExtraData)?
+        } else {
+            encode_extra_data(meta.basefee_sharing_pctg, meta.proposal_id)
+        };
 
-        // Gas limit in manifest excludes the reserved budget for the anchor transaction, so
-        // add it back here.
-        let gas_limit = block.gas_limit.saturating_add(ANCHOR_V3_V4_GAS_LIMIT);
+        // The manifest gas limit excludes the anchor reserve; add it back for pre-Etna blocks,
+        // whose anchor transaction runs on top of the manifest budget.
+        let gas_limit = block.gas_limit.saturating_add(anchor_gas_reserve(is_etna));
 
         let payload = build_payload_attributes_with_id(
             PayloadAttributesInput {
@@ -520,9 +594,9 @@ impl ShastaDerivationPipeline {
                 l1_block_hash: Some(l1_block_hash),
                 is_forced_inclusion: position.is_forced_inclusion(),
                 signature: [0u8; 65],
-                // Pre-Etna builds send a zero root over `engine_forkchoiceUpdatedV3`; the payload
-                // fingerprint ignores it, so it matches the V2-era value.
-                parent_beacon_block_root: Some(B256::ZERO),
+                // Zero before Etna (the payload fingerprint skips a zero root, so it matches the
+                // V2-era value); the nonzero L1 anchor state root for an Etna block.
+                parent_beacon_block_root: Some(parent_beacon_block_root),
                 anchor_transaction: None,
             },
             &parent_hash,
@@ -534,7 +608,7 @@ impl ShastaDerivationPipeline {
             "constructed payload attributes"
         );
 
-        payload
+        Ok(payload)
     }
 
     /// Synchronise the execution engine's L1 origin tables with the derived block metadata.
@@ -742,7 +816,7 @@ impl ShastaDerivationPipeline {
             return Ok(None);
         };
 
-        if first_tx != &derived_block.anchor_tx {
+        if Some(first_tx) != derived_block.anchor_tx.as_ref() {
             warn!(
                 proposal_id = meta.proposal_id,
                 block_id, "anchor transaction mismatch when confirming canonical block"
@@ -960,12 +1034,362 @@ impl ShastaDerivationPipeline {
 mod tests {
     use super::*;
     use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use alloy::rpc::types::eth::Block as RpcBlock;
     use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
     use alloy_eips::eip2930::AccessList;
-    use alloy_primitives::{Bytes, TxKind};
+    use alloy_primitives::{Bytes, Signature, TxKind};
+    use alloy_transport::mock::Asserter;
     use anyhow::Result;
 
-    use protocol::FixedKSigner;
+    use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
+    use protocol::{
+        FixedKSigner,
+        shasta::constants::{TAIKO_DEVNET_CHAIN_ID, min_base_fee_for_chain},
+    };
+
+    use crate::test_support::mock_client_with_asserters;
+
+    /// Anchor contract address bound into every test pipeline.
+    fn anchor_address() -> Address {
+        Address::repeat_byte(0x44)
+    }
+
+    /// Non-genesis parent block 6 at timestamp 1_000 (30M gas) anchored to L1 block 50, carrying
+    /// `root` as its `parentBeaconBlockRoot`.
+    fn sample_parent_state(etna_fork_timestamp: Option<u64>, root: Option<B256>) -> ParentState {
+        ParentState {
+            header: Header {
+                number: 6,
+                timestamp: 1_000,
+                gas_limit: 30_000_000,
+                base_fee_per_gas: Some(10_000_000),
+                difficulty: U256::from(1u64),
+                parent_beacon_block_root: root,
+                ..Default::default()
+            },
+            anchor_block_number: 50,
+            parent_block_time_delta_secs: 12,
+            shasta_fork_timestamp: 0,
+            min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+            chain_id: TAIKO_DEVNET_CHAIN_ID,
+            etna_fork_timestamp,
+        }
+    }
+
+    /// Proposal 3 emitted in L1 block 60 with a 75% basefee share.
+    fn sample_meta() -> BundleMeta {
+        BundleMeta {
+            proposal_id: 3,
+            last_finalized_proposal_id: None,
+            proposal_timestamp: 1_012,
+            l1_block_number: 60,
+            l1_block_hash: B256::with_last_byte(0x60),
+            origin_block_number: 59,
+            proposer: Address::repeat_byte(0x22),
+            basefee_sharing_pctg: 75,
+        }
+    }
+
+    /// Position of the only block of a single-segment proposal.
+    fn final_position() -> BlockPosition {
+        BlockPosition {
+            segment_index: 0,
+            segments_total: 1,
+            block_index: 0,
+            blocks_len: 1,
+            forced_inclusion: false,
+        }
+    }
+
+    /// Manifest block with a 29M manifest gas limit.
+    fn manifest_block(
+        timestamp: u64,
+        anchor_block_number: u64,
+        transactions: Vec<TxEnvelope>,
+    ) -> BlockManifest {
+        BlockManifest {
+            timestamp,
+            coinbase: Address::repeat_byte(0x33),
+            anchor_block_number,
+            gas_limit: 29_000_000,
+            transactions,
+        }
+    }
+
+    /// Ordinary signed user transaction calling `to` with `input`.
+    fn user_tx(nonce: u64, to: Address, input: Bytes) -> TxEnvelope {
+        let tx = TxEip1559 {
+            chain_id: TAIKO_DEVNET_CHAIN_ID,
+            nonce,
+            max_fee_per_gas: 1_000_000_000,
+            max_priority_fee_per_gas: 1,
+            gas_limit: 21_000,
+            to: TxKind::Call(to),
+            value: U256::ZERO,
+            access_list: AccessList::default(),
+            input,
+        };
+        let sighash = tx.signature_hash();
+        TxEnvelope::new_unchecked(
+            EthereumTypedTransaction::Eip1559(tx),
+            Signature::test_signature(),
+            sighash,
+        )
+    }
+
+    /// L1 mock answering one by-number header lookup for `number` with `state_root`.
+    fn l1_anchor_block(number: u64, state_root: B256) -> Asserter {
+        let l1_asserter = Asserter::new();
+        let mut anchor_block = RpcBlock::<TxEnvelope>::default();
+        anchor_block.header.hash = B256::with_last_byte(0xbb);
+        anchor_block.header.inner.number = number;
+        anchor_block.header.inner.state_root = state_root;
+        l1_asserter.push_success(&Some(anchor_block));
+        l1_asserter
+    }
+
+    /// L2 mock pre-loaded with the anchor constructor's chain-id probe. Nothing else is scripted,
+    /// so any golden-touch nonce query (anchor assembly) fails the test.
+    fn l2_with_chain_id() -> Asserter {
+        let l2_asserter = Asserter::new();
+        l2_asserter.push_success(&TAIKO_DEVNET_CHAIN_ID);
+        l2_asserter
+    }
+
+    /// Devnet pipeline over the given mocks with Etna at `etna_fork_timestamp`.
+    async fn pipeline_with(
+        l1_asserter: Asserter,
+        l2_asserter: Asserter,
+        etna_fork_timestamp: Option<u64>,
+    ) -> ShastaDerivationPipeline {
+        let client =
+            mock_client_with_asserters(l1_asserter, l2_asserter, Asserter::new(), anchor_address());
+        super::super::test_pipeline(
+            client,
+            anchor_address(),
+            TAIKO_DEVNET_CHAIN_ID,
+            etna_fork_timestamp,
+        )
+        .await
+    }
+
+    /// Prepare `block` on `state` for proposal [`sample_meta`].
+    async fn prepare(
+        pipeline: &ShastaDerivationPipeline,
+        block: &BlockManifest,
+        state: &ParentState,
+    ) -> Result<BlockDerivationContext, DerivationError> {
+        let meta = sample_meta();
+        pipeline
+            .prepare_block(block, state, BlockContext { meta: &meta, position: final_position() })
+            .await
+    }
+
+    #[tokio::test]
+    async fn etna_block_drops_the_anchor_and_commits_to_the_l1_state_root() {
+        let state_root = B256::with_last_byte(0x55);
+        let l1_asserter = l1_anchor_block(55, state_root);
+        let l2_asserter = l2_with_chain_id();
+        let pipeline = pipeline_with(l1_asserter.clone(), l2_asserter.clone(), Some(1_001)).await;
+        let user_txs = vec![
+            user_tx(0, Address::repeat_byte(0x01), Bytes::new()),
+            user_tx(1, Address::repeat_byte(0x02), Bytes::from_static(&[0xde, 0xad])),
+        ];
+
+        // First Etna block on an Unzen parent (zero root, anchor 50).
+        let derived = prepare(
+            &pipeline,
+            &manifest_block(1_001, 55, user_txs.clone()),
+            &sample_parent_state(Some(1_001), Some(B256::ZERO)),
+        )
+        .await
+        .expect("the Etna block prepares");
+
+        assert!(derived.anchor_tx.is_none());
+        let attributes = &derived.payload;
+        assert_eq!(attributes.payload_attributes.parent_beacon_block_root, Some(state_root));
+        assert_eq!(attributes.block_metadata.tx_list, Some(encode_transactions(&user_txs)));
+        assert_eq!(attributes.block_metadata.gas_limit, 29_000_000, "no anchor reserve");
+        assert_eq!(
+            attributes.block_metadata.extra_data,
+            encode_etna_extra_data(75, 3, 55).expect("extraData should encode")
+        );
+        assert_eq!(attributes.block_metadata.extra_data.len(), 13);
+        assert_eq!(derived.anchor_block_number, 55);
+        assert!(l1_asserter.read_q().is_empty(), "the anchor block header was read by number");
+        assert!(l2_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn empty_etna_block_sends_an_explicit_empty_list() {
+        let pipeline = pipeline_with(
+            l1_anchor_block(55, B256::with_last_byte(0x55)),
+            l2_with_chain_id(),
+            Some(1_001),
+        )
+        .await;
+
+        let derived = prepare(
+            &pipeline,
+            &manifest_block(1_001, 55, Vec::new()),
+            &sample_parent_state(Some(1_001), Some(B256::ZERO)),
+        )
+        .await
+        .expect("the empty Etna block prepares");
+
+        assert_eq!(
+            derived.payload.block_metadata.tx_list.as_ref().map(|list| list.as_ref()),
+            Some(&[0xc0u8][..]),
+            "an empty Etna block sends an explicit empty list, never a mempool request"
+        );
+    }
+
+    #[tokio::test]
+    async fn etna_block_reuses_the_root_of_an_etna_parent_with_the_same_anchor() {
+        let parent_root = B256::with_last_byte(0xaa);
+        // The empty L1 mock fails any anchor header lookup.
+        let pipeline = pipeline_with(Asserter::new(), l2_with_chain_id(), Some(900)).await;
+
+        let derived = prepare(
+            &pipeline,
+            &manifest_block(1_001, 50, Vec::new()),
+            &sample_parent_state(Some(900), Some(parent_root)),
+        )
+        .await
+        .expect("the Etna block reuses its parent's root");
+
+        assert_eq!(derived.payload.payload_attributes.parent_beacon_block_root, Some(parent_root));
+        assert_eq!(
+            derived.payload.block_metadata.extra_data,
+            encode_etna_extra_data(75, 3, 50).expect("extraData should encode")
+        );
+    }
+
+    #[tokio::test]
+    async fn etna_block_fetches_the_l1_root_when_its_anchor_moves_past_the_parent() {
+        let state_root = B256::with_last_byte(0x55);
+        let l1_asserter = l1_anchor_block(55, state_root);
+        let pipeline = pipeline_with(l1_asserter.clone(), l2_with_chain_id(), Some(900)).await;
+
+        let derived = prepare(
+            &pipeline,
+            &manifest_block(1_001, 55, Vec::new()),
+            &sample_parent_state(Some(900), Some(B256::with_last_byte(0xaa))),
+        )
+        .await
+        .expect("the Etna block prepares");
+
+        assert_eq!(derived.payload.payload_attributes.parent_beacon_block_root, Some(state_root));
+        assert!(l1_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn first_etna_block_fetches_the_l1_root_even_for_the_parent_anchor() {
+        // The Unzen parent also anchors to 50 but its root is zero: it is never reused.
+        let state_root = B256::with_last_byte(0x50);
+        let l1_asserter = l1_anchor_block(50, state_root);
+        let pipeline = pipeline_with(l1_asserter.clone(), l2_with_chain_id(), Some(1_001)).await;
+
+        let derived = prepare(
+            &pipeline,
+            &manifest_block(1_001, 50, Vec::new()),
+            &sample_parent_state(Some(1_001), Some(B256::ZERO)),
+        )
+        .await
+        .expect("the first Etna block prepares");
+
+        assert_eq!(derived.payload.payload_attributes.parent_beacon_block_root, Some(state_root));
+        assert!(l1_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn etna_block_on_the_etna_genesis_fetches_l1_block_zero() {
+        let state_root = B256::with_last_byte(0x01);
+        let l1_asserter = l1_anchor_block(0, state_root);
+        let pipeline = pipeline_with(l1_asserter.clone(), l2_with_chain_id(), Some(0)).await;
+        let mut genesis = sample_parent_state(Some(0), Some(B256::ZERO));
+        genesis.header.number = 0;
+        genesis.header.timestamp = 0;
+        genesis.anchor_block_number = 0;
+
+        let derived = prepare(&pipeline, &manifest_block(12, 0, Vec::new()), &genesis)
+            .await
+            .expect("block 1 on an Etna genesis prepares");
+
+        assert_eq!(derived.payload.payload_attributes.parent_beacon_block_root, Some(state_root));
+        assert!(l1_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn etna_block_rejects_a_zero_l1_state_root() {
+        let pipeline =
+            pipeline_with(l1_anchor_block(55, B256::ZERO), l2_with_chain_id(), Some(1_001)).await;
+
+        let err = prepare(
+            &pipeline,
+            &manifest_block(1_001, 55, Vec::new()),
+            &sample_parent_state(Some(1_001), Some(B256::ZERO)),
+        )
+        .await
+        .expect_err("a zero anchor root never reaches the engine");
+
+        assert!(
+            matches!(err, DerivationError::ZeroAnchorStateRoot { block_number: 55 }),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn etna_block_rejects_an_etna_parent_without_a_root_to_reuse() {
+        for parent_root in [None, Some(B256::ZERO)] {
+            let pipeline = pipeline_with(Asserter::new(), l2_with_chain_id(), Some(900)).await;
+
+            let err = prepare(
+                &pipeline,
+                &manifest_block(1_001, 50, Vec::new()),
+                &sample_parent_state(Some(900), parent_root),
+            )
+            .await
+            .expect_err("an Etna parent must carry the root it shares");
+
+            assert!(
+                matches!(err, DerivationError::MissingEtnaParentRoot { parent_block_number: 6 }),
+                "unexpected error: {err:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn pre_etna_block_keeps_the_anchor_the_reserve_and_a_zero_root() {
+        let l2_asserter = l2_with_chain_id();
+        l2_asserter.push_success(&U256::ZERO); // golden-touch nonce at the parent
+        let pipeline = pipeline_with(
+            l1_anchor_block(55, B256::with_last_byte(0x55)),
+            l2_asserter.clone(),
+            Some(2_000),
+        )
+        .await;
+        let user_txs = vec![user_tx(0, Address::repeat_byte(0x01), Bytes::new())];
+
+        let derived = prepare(
+            &pipeline,
+            &manifest_block(1_001, 55, user_txs.clone()),
+            &sample_parent_state(Some(2_000), Some(B256::ZERO)),
+        )
+        .await
+        .expect("the pre-Etna block prepares");
+
+        let anchor_tx = derived.anchor_tx.clone().expect("a pre-Etna block has an anchor");
+        let attributes = &derived.payload;
+        assert_eq!(attributes.payload_attributes.parent_beacon_block_root, Some(B256::ZERO));
+        assert_eq!(
+            attributes.block_metadata.tx_list,
+            Some(encode_transactions(&[vec![anchor_tx], user_txs].concat()))
+        );
+        assert_eq!(attributes.block_metadata.gas_limit, 29_000_000 + ANCHOR_V3_V4_GAS_LIMIT);
+        assert_eq!(attributes.block_metadata.extra_data, encode_extra_data(75, 3));
+        assert!(l2_asserter.read_q().is_empty(), "the anchor nonce was read");
+    }
 
     #[test]
     fn anchor_signature_recovers_to_golden_touch() -> Result<()> {
