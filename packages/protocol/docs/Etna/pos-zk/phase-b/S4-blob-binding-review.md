@@ -122,7 +122,7 @@ The reviewer receives a frozen, self-contained bundle: [DA-03](../spec/04-l1-int
 | RC-4 | commitment does not match the versioned hash | contract: precompile reverts |
 | RC-5 | opening proof is for a different `(z, y)` | contract: precompile reverts |
 | RC-6 | guest-computed `dataCommitment` differs from the journal value used to derive `z` | guest: equality check |
-| RC-7 | challenge recomputed by the guest differs from the contract's | differential test (S2 gate) |
+| RC-7 | challenge recomputed by the guest differs from the contract's | differential test (T2 gate) |
 | RC-8 | a second blob of the batch reuses the first blob's `z` (index not bound) | contract/guest: challenge includes `uint16(i)` |
 | RC-9 | blob slot has no blob in this transaction (`blobhash(i) == 0`) | contract: `BlobHashMismatch(i)` |
 
@@ -149,14 +149,14 @@ The reviewer receives a frozen, self-contained bundle: [DA-03](../spec/04-l1-int
 
 | # | Gate | Pass condition (mechanically checkable) | If it fails |
 |---|---|---|---|
-| S1 | **Soundness (implementation)** | Every §4.1 rejection case rejects, at the layer that owns it; the V1 and V3 convention cases fail; the correct-convention cases pass on both backends | Blobs are not usable as implemented; fix the harness if the defect is local, otherwise the design |
-| S2 | **Contract/guest identity** | Zero mismatches over 10,000 random journals, both seeds, including the modulus reduction and `uint16(i)` | Any mismatch reproduces R4-PB-05's class: every honest blob batch fails to land. Blob path blocked until fixed and re-run |
-| S3 | **Cryptographic review: sound** | No claim of §3.5 is marked **broken**, and no claim is left **not evaluable** | Blob path unsound or unreviewable → **calldata-only**; register the residual and restate the data budget |
-| S4 | **Cryptographic review: reachable** | The reviewer completes all five claims within the time-box, and states for each the attack model | A design that cannot be evaluated in the box is not reviewable; same routing as S3 |
-| S5 | **Cost (pre-registered hypothesis)** | With `T_PROOF_ENVELOPE = 1,800` s (*decided*, D6) and the pre-registered share `σ = 0.05` (*hypothesis*): the measured blob-evaluation time for n = 9 satisfies `t_blob(9) ≤ σ · T_PROOF_ENVELOPE = 90` s on the measured machine. If S1 has landed, the binding form is `n · t_blob(n=1) ≤ σ · t_batch(S1)` and the envelope form is secondary | The blob evaluation consumes a material share of the proving budget; the choice is calldata-only, or the RISC Zero patched-`c-kzg` candidate (A) is measured as a separate spike. Do not silently shrink σ |
-| S6 | **On-chain check holds the sourced constant** | Measured precompile component equals **50,000 gas** (*sourced*) and the return equals `abi.encode(4096, BLS_MODULUS)` on the pinned EVM | The pinned EVM and mainnet disagree; escalate as a version/`evm_version` finding before any gas number is used |
+| T1 | **Soundness (implementation)** | Every §4.1 rejection case rejects, at the layer that owns it; the V1 and V3 convention cases fail; the correct-convention cases pass on both backends | Blobs are not usable as implemented; fix the harness if the defect is local, otherwise the design |
+| T2 | **Contract/guest identity** | Zero mismatches over 10,000 random journals, both seeds, including the modulus reduction and `uint16(i)` | Any mismatch reproduces R4-PB-05's class: every honest blob batch fails to land. Blob path blocked until fixed and re-run |
+| T3 | **Cryptographic review: sound** | No claim of §3.5 is marked **broken**, and no claim is left **not evaluable** | Blob path unsound or unreviewable → **calldata-only**; register the residual and restate the data budget |
+| T4 | **Cryptographic review: reachable** | The reviewer completes all five claims within the time-box, and states for each the attack model | A design that cannot be evaluated in the box is not reviewable; same routing as T3 |
+| T5 | **Cost (pre-registered hypothesis)** | With `T_PROOF_ENVELOPE = 1,800` s (*decided*, D6) and the pre-registered share `σ = 0.05` (*hypothesis*): the measured blob-evaluation time for n = 9 satisfies `t_blob(9) ≤ σ · T_PROOF_ENVELOPE = 90` s on the measured machine. If S1 has landed, the binding form is `n · t_blob(n=1) ≤ σ · t_batch(S1)` and the envelope form is secondary | The blob evaluation consumes a material share of the proving budget; the choice is calldata-only, or the RISC Zero patched-`c-kzg` candidate (A) is measured as a separate spike. Do not silently shrink σ |
+| T6 | **On-chain check holds the sourced constant** | Measured precompile component equals **50,000 gas** (*sourced*) and the return equals `abi.encode(4096, BLS_MODULUS)` on the pinned EVM | The pinned EVM and mainnet disagree; escalate as a version/`evm_version` finding before any gas number is used |
 
-*Falsification.* S1 or S3 failing falsifies "the blob binding is sound and reviewable", which is the design decision D5's blob path rests on. S5 failing does not falsify soundness; it falsifies "the blob path is usable at the target rate" and moves the decision to the calldata-only branch with the plan §8 consequence stated in §2.
+*Falsification.* T1 or T3 failing falsifies "the blob binding is sound and reviewable", which is the design decision D5's blob path rests on. T5 failing does not falsify soundness; it falsifies "the blob path is usable at the target rate" and moves the decision to the calldata-only branch with the plan §8 consequence stated in §2.
 
 ## 7. Worked example of the arithmetic the engineer will do (symbolic only)
 
@@ -188,7 +188,7 @@ and a search over `q` candidate payloads wins with probability at most `q · 2^-
 **On-chain check.** With `cold = 2,600` gas (*sourced*, EIP-2929 cold account access) plus the measured input-memory cost `c_mem` and call overhead:
 
     gas_call_measured  = 50,000 (precompile, sourced) + cold + c_mem + overhead
-    require: gas_call_measured − (cold + c_mem + overhead) == 50,000     (S6)
+    require: gas_call_measured − (cold + c_mem + overhead) == 50,000     (T6)
 
 No symbol above may be replaced by a number this spike did not measure or cite.
 
@@ -205,7 +205,7 @@ No symbol above may be replaced by a number this spike did not measure or cite.
 | R7 | `z` equals an evaluation point `x_j` (measure-zero event) | division by zero or an implementation trap | the harness defines the behaviour explicitly and tests it with a constructed `z = x_j` |
 | R8 | Reviewer's model differs from the protocol's (ROM, KZG binding, canonicality) | a "not broken" verdict for the wrong game | §3.5 requires the model to be stated per claim; the premises are taken verbatim from [DA-03](../spec/04-l1-integration.html#DA-03) |
 | R9 | The spike's guest is not the production guest | the measured cost is not the production cost | the report labels it incremental and names every omitted part (EVM, consensus, journal encoding, wrap) |
-| R10 | The pinned EVM (`osaka`) and mainnet's current fork differ on the precompile | S6 passes locally and fails in production, or vice versa | record the pinned `evm_version`; S6 states the comparison to mainnet as a separate, owner-named check |
+| R10 | The pinned EVM (`osaka`) and mainnet's current fork differ on the precompile | T6 passes locally and fails in production, or vice versa | record the pinned `evm_version`; T6 states the comparison to mainnet as a separate, owner-named check |
 | R11 | Contract-side and guest-side hashing differ only in an untested corner (e.g., `i ≥ 2^16`, empty blob set, `daMode = 3`) | R4-PB-05 recurs | the differential matrix includes boundary journals: n = 0 (invalid), n = 9, `i = 0` and `i = 8`, hybrid mode |
 
 **Invalidating conditions.** The measurement is invalid if: the fixtures were generated by the same code being tested; the precompile call is mocked or `vm.etch`-ed; the guest's field arithmetic is not the pinned backend's; a cycle count is reported without the resolved dependency versions; or a review finding is recorded without the attack model.

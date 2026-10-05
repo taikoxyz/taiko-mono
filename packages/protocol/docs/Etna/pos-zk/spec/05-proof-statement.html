@@ -359,7 +359,7 @@ payloads and wins only when a hash output lands on a root of <code>(p_D - p_B)</
 candidate the probability is at most <code>4095/|F| &asymp; 2<sup>-243</sup></code>
 <span class="pill derived">derived</span>, so a search over <code>q</code> hash outputs succeeds with
 probability at most <code>q &middot; 2<sup>-243</sup></code> (plus the
-<code>2<sup>-127</sup></code> modular-reduction bias). <code>D</code> is not a free variable in any
+<code>2<sup>-254.9</sup></code> modular-reduction bias). <code>D</code> is not a free variable in any
 case: the executed payload is bound to the certified header chain — the certificate covers the head
 block id, the header chain links to the predecessor, and each header's transaction root fixes its
 transactions (<a href="#PRF-04">PRF-04</a>(v), <a href="#PRF-06">PRF-06</a>) — so a prover cannot vary
