@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>09 — Glossary and parameters · Etna PoS + ZK</title><link rel="stylesheet" href="spec.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">reference specification</span>
+  <nav><a href="index.html">Index</a><a href="01-system-model.html">Model &amp; roles</a>
+  <a href="02-consensus.html">Consensus</a><a href="03-membership-staking.html">Staking</a>
+  <a href="04-l1-integration.html">L1 integration</a><a href="05-proof-statement.html">Proof statement</a>
+  <a href="06-recovery-exceptions.html">Recovery</a><a href="07-economics-slashing.html">Economics</a>
+  <a href="08-migration-upgrades.html">Migration</a><a href="09-parameters.html">Parameters</a>
+  <a href="10-assurance.html">Assurance</a><a href="../learn/index.html">Learn</a></nav></header>
+<main>
+<h1>09 — Glossary, parameters and derivations</h1>
+
+<div class="rule" id="PARAM-01"><span class="rid">PARAM-01 — parameter-table discipline</span>
+<span class="norm">Every protocol parameter appears in the table below with: its identifier, unit,
+proposed value or formula, the <em>derivation or source</em>, and a tag from
+{derived, sourced, unmeasured, decided}. A parameter with no derivation and no source may not be given
+a value: it must be marked unmeasured with the experiment that would fix it. No proposed value may be
+described as a benchmark, and changing a value is a governance action recorded in the decision log.</span>
+<span class="why">Failure modes addressed: magic numbers, values copied from another system's workload,
+and proposed parameters read as measured results.</span>
+<span class="pill proven">Proven</span></div>
+
+<h2 id="glossary">Glossary</h2>
+<table>
+<thead><tr><th>Term</th><th>Definition</th></tr></thead>
+<tbody>
+<tr><td><strong>L2 PoS consensus</strong></td><td>The permissionless validator protocol that orders and finalizes L2 blocks. It is the sequencing authority in this design (D4).</td></tr>
+<tr><td><strong>PoS-sequenced validity rollup</strong></td><td>The honest name for this architecture: L2 PoS determines binding order; Ethereum provides data availability, proof verification and settlement (GEN-09).</td></tr>
+<tr><td><strong>Epoch</strong></td><td>A logical interval during which a fixed validator-set version is authoritative. Epochs are numbered; the set for epoch <em>e</em> is fixed before <em>e</em> begins.</td></tr>
+<tr><td><strong>Voting power</strong></td><td>The effective stake of a validator in an epoch's set. Only bonded, active TAIKO counts (INV-03).</td></tr>
+<tr><td><strong>Quorum / threshold</strong></td><td>More than two thirds of the epoch's voting power: the minimal integer <code>q</code> with <code>3q &gt; 2 · total</code>.</td></tr>
+<tr><td><strong>PoLC</strong></td><td>Proof of lock change: a set of more than two thirds of prevotes for a value at a given height and round, which is what allows a locked validator to unlock at a later round (CONS-04).</td></tr>
+<tr><td><strong>Commit certificate</strong></td><td>The evidence that more than two thirds of an epoch's voting power precommitted a block at a (height, round, block id). Its publication plus a receiver's own data check is what yields STATUS-04.</td></tr>
+<tr><td><strong>Certificate (epoch-scoped)</strong></td><td>A certificate is judged under its own epoch's set and remains valid forever (CONS-08).</td></tr>
+<tr><td><strong>Checkpoint</strong></td><td>The L1 record of the last accepted batch: height, block hash, state root, epoch and validator-set root (L1-07).</td></tr>
+<tr><td><strong>Batch</strong></td><td>A contiguous range of L2 blocks accepted on L1 by one transaction carrying both its data and its proof.</td></tr>
+<tr><td><strong>Unsettled depth</strong></td><td>The number of L2 blocks between the highest L1-accepted checkpoint and the block under consideration (HALT-03).</td></tr>
+<tr><td><strong>Data commitment</strong></td><td>The canonical commitment to a batch's data — keccak256 over the exact bytes, computed by the L1 contract on the calldata path, or by the guest on the blob path in addition to the KZG binding (DA-02, DA-03).</td></tr>
+<tr><td><strong>Proving latency</strong></td><td>The wall-clock time of the proof computation for one batch, measured from the moment the batch's blocks are final and the witness is available to the moment the proof exists. It <em>excludes</em> batch collection, witness generation, queueing, L1 inclusion and Ethereum finality.</td></tr>
+<tr><td><strong>Ethereum-final</strong></td><td>In a finalized Ethereum block, or at the configured finality depth. Only Ethereum-final L1 facts may enter L2 consensused state (SYS-02).</td></tr>
+<tr><td><strong>Weak subjectivity</strong></td><td>The trusted starting point a fresh node needs. Here the L1 checkpoint is the natural source (MEM-11).</td></tr>
+<tr><td><strong>Safe halt</strong></td><td>A correct participant stopping rather than choosing between histories (HALT-01). A correct outcome in Mode A.</td></tr>
+</tbody></table>
+
+<h2 id="params">Parameter table</h2>
+
+<div class="rule" id="PARAM-02"><span class="rid">PARAM-02 — derived quantities at the 2-second cadence</span>
+<span class="norm">These values follow arithmetically from fixed decisions and from sourced Ethereum
+parameters. They are <strong>derived</strong>, not measured, and must be recomputed if their inputs
+change.</span>
+<table>
+<thead><tr><th>Quantity</th><th>Value</th><th>Derivation</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>L2 blocks per 30 minutes</td><td><strong>900</strong></td><td><code>30 × 60 / 2</code>; the D6 planning envelope</td><td>derived (decided input)</td></tr>
+<tr><td>L2 blocks per hour</td><td>1,800</td><td><code>3600 / 2</code></td><td>derived</td></tr>
+<tr><td>Blob data capacity per L1 block (target)</td><td>786,432 bytes</td><td><code>6 blobs × 131,072 bytes</code> — EIP-7691 target</td><td>sourced</td></tr>
+<tr><td>Blob data capacity per L1 block (maximum)</td><td>1,179,648 bytes</td><td><code>9 × 131,072</code> — EIP-7691 maximum</td><td>sourced</td></tr>
+<tr><td>Sustained blob throughput (target, 12 s slot)</td><td>≈ 65,536 bytes/s</td><td><code>786,432 / 12</code></td><td>derived</td></tr>
+<tr><td>Sustained blob throughput (maximum, 12 s slot)</td><td>≈ 98,304 bytes/s</td><td><code>1,179,648 / 12</code></td><td>derived</td></tr>
+<tr><td>Per-L2-block data budget (target)</td><td>≈ 131,072 bytes</td><td>six 2 s L2 blocks per 12 s L1 slot at target capacity</td><td>derived</td></tr>
+<tr><td>Per-L2-block data budget (maximum)</td><td>≈ 196,608 bytes</td><td>six 2 s L2 blocks per 12 s L1 slot at maximum capacity</td><td>derived</td></tr>
+<tr><td>Data published per 900-block envelope (target)</td><td>≈ 118 MB</td><td><code>900 × 131,072</code>; the volume that must be retrievable while unsettled</td><td>derived</td></tr>
+<tr><td>Proofs in flight at the envelope limit</td><td><code>L / Δ</code></td><td>Little's law with proof latency bound <code>L</code> and batch time span <code>Δ</code>; at <code>L = 1800 s</code> and 32-block batches, ≈ 28.1</td><td>derived</td></tr>
+<tr><td>Ethereum finality depth for L1 facts</td><td>≈ 2 epochs (<span class="pill unmeasured">depends on the current Ethereum configuration</span>)</td><td>finality requires two justified epochs; the design consumes L1 facts only at that depth (SYS-02)</td><td>sourced parameter, derived use</td></tr>
+<tr><td>Quorum threshold</td><td><code>q = min{q : 3q &gt; 2 · total}</code></td><td>strict two-thirds, integer-safe</td><td>decided</td></tr>
+<tr><td>Blob KZG opening check cost</td><td>50,000 gas per blob</td><td>EIP-4844 <code>POINT_EVALUATION_PRECOMPILE_GAS</code></td><td>sourced</td></tr>
+</tbody></table>
+<span class="why">Failure mode: a reader treats these as measurements. They are arithmetic on decided or
+sourced inputs; the only <em>measured</em> quantity in this design is the EIP-4844 gas constant.</span>
+<span class="pill derived">derived</span> <span class="pill sourced">sourced</span></div>
+
+<h2 id="timing">Timing, membership and economics parameters</h2>
+<table>
+<thead><tr><th>Parameter</th><th>Unit</th><th>Proposed value or formula</th><th>Derivation / source</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td><code>L2_BLOCK_INTERVAL</code></td><td>seconds</td><td><strong>2</strong></td><td>Fixed decision D1. Note this is a <em>production cadence</em>, not a finality, proof or settlement latency (SYS-03)</td><td>decided</td></tr>
+<tr><td><code>EPOCH_LEN_L2</code></td><td>L2 blocks</td><td>300 (≈ 10 min) — placeholder</td><td>Chosen so that an epoch contains many consensus rounds while remaining short enough that stake changes take effect promptly; no measurement supports the value</td><td>unmeasured</td></tr>
+<tr><td><code>EPOCH_LEN_L1</code></td><td>L1 blocks</td><td>Formula: strictly greater than the L1 time needed to commit one set root with one-epoch lookahead</td><td>CONS-13, MEM-09</td><td>derived (inputs unmeasured)</td></tr>
+<tr><td><code>TIMEOUT_MIN</code>, <code>TIMEOUT_MAX</code></td><td>seconds</td><td>Adaptive ladder; floor and ceiling unset</td><td>Must exceed the observed round-trip plus dissemination time among correct validators under the assumed delay bound; expressed in seconds only (GEN-06)</td><td>unmeasured</td></tr>
+<tr><td><code>L1_FACT_MAX_AGE</code></td><td>L1 blocks</td><td>Bounded by the EVM's 256-block <code>blockhash</code> window; a fact older than the window must be re-established at L1, not by prover assertion</td><td>SYS-02; <code>L1_FINALITY_DEPTH</code> must be smaller than this window, or the design needs a different L1 history source</td><td>derived (sourced EVM constant)</td></tr>
+<tr><td><code>L1_FINALITY_DEPTH</code></td><td>L1 blocks / epochs</td><td>Two Ethereum epochs, expressed in seconds or L1 block numbers</td><td>SYS-02; the value must be re-derived whenever Ethereum's configuration changes</td><td>sourced → derived</td></tr>
+<tr><td><code>T_PROOF_ENVELOPE</code></td><td>seconds</td><td><strong>1,800</strong> (30 min)</td><td>Fixed by D6 as a <em>planning assumption</em>, explicitly not a worst-case bound</td><td>decided</td></tr>
+<tr><td><code>BATCH_BLOCKS</code> (K)</td><td>L2 blocks</td><td>32 (≈ 64 s) — placeholder</td><td>Trade-off: larger K means fewer proofs and a deeper pipeline; smaller K means more L1 transactions and more verifier gas. Constraint: the proof for K blocks must fit inside the envelope</td><td>unmeasured</td></tr>
+<tr><td><code>D_MAX</code></td><td>L2 blocks</td><td>Formula: <code>(retention window seconds) / L2_BLOCK_INTERVAL</code>, minus queueing and L1 inclusion margin</td><td>HALT-03. Placeholder 3,600 blocks (2 h) would require a 2-hour retrievability guarantee</td><td>unmeasured</td></tr>
+<tr><td><code>D_WITHDRAW</code></td><td>seconds</td><td><code>T_proof_bound + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_process + margin</code></td><td>MEM-05. Every term unmeasured. Must NOT be derived from nominal proving latency alone</td><td>derived formula, unmeasured inputs</td></tr>
+<tr><td><code>W_EVIDENCE</code></td><td>seconds</td><td>Formula: strictly less than <code>D_WITHDRAW</code></td><td>ECON-07; late evidence is the primary reason unbonding periods exist (Cosmos reasoning, <a href="../07-economics-slashing.html">07</a>)</td><td>derived formula</td></tr>
+<tr><td><code>ACTIVATION_DELAY</code></td><td>seconds</td><td>Formula: at least one L1 finality depth plus the set-commitment lookahead</td><td>MEM-03, CONS-13</td><td>derived</td></tr>
+<tr><td><code>MIN_STAKE</code></td><td>TAIKO</td><td><code>S_min ≥ C_op_annual / (r_gross − ρ_ops)</code></td><td>ECON-09. The binding constraint is operator economics, not attack cost. If the protocol cannot pay a rate above the operator's margin, there is no finite minimum</td><td>derived formula, unmeasured inputs</td></tr>
+<tr><td>Reward rate</td><td>TAIKO / year</td><td><code>Σ rewards ≤ fees + priority + MEV + explicit subsidy − L1 data − L1 verification − bridge ops</code></td><td>ECON-02, ECON-12. TAIKO has no mint path today, so an inflationary reward requires a user decision</td><td>derived identity, unmeasured inputs</td></tr>
+<tr><td>Correlated penalty</td><td>fraction of stake</td><td><code>min(m · f, 1)</code> with <code>m</code> chosen so the penalty saturates when the implicated fraction reaches the one-third safety threshold</td><td>ECON-05; the Ethereum form uses <code>m = 3</code></td><td>sourced form</td></tr>
+<tr><td><code>T_STALL</code> (Mode B only)</td><td>seconds</td><td><code>&gt; T_PROOF_ENVELOPE</code> plus witness, queue, inclusion and margin</td><td>REC-02. Not active: Mode B is not selected</td><td>inactive</td></tr>
+</tbody></table>
+
+<div class="rule" id="PARAM-03"><span class="rid">PARAM-03 — unmeasured register</span>
+<span class="norm">The following quantities are <strong>unmeasured</strong>. Each must be measured, with
+the workload, hardware and methodology recorded, before the corresponding value is fixed, and none may
+be replaced by an estimate from a different workload.</span>
+<table>
+<thead><tr><th>Quantity</th><th>What would measure it</th><th>What it blocks</th></tr></thead>
+<tbody>
+<tr><td>Proving latency for one batch of K L2 blocks, per backend</td><td>A proving benchmark on the pinned guest image, stated hardware and block mix</td><td><code>BATCH_BLOCKS</code>, the pipeline depth, launch feasibility</td></tr>
+<tr><td>Proof throughput per machine (proven cycle rate)</td><td>The same benchmark, reported as proven cycles or proven gas per second</td><td>LIVE-03 fleet sizing</td></tr>
+<tr><td>Proving cost per L2 gas (cycles per gas)</td><td>The same benchmark, normalised by executed gas</td><td>LIVE-03 rate inequality, reward budget</td></tr>
+<tr><td>Ed25519 verification cost in-guest versus one BLS aggregate</td><td>The measurement spike in <a href="../02-consensus-survey.md">02</a></td><td>The certificate-format decision (D-1, M1)</td></tr>
+<tr><td>In-guest cost of the blob polynomial evaluation (DA-03)</td><td>A benchmark of the Lagrange evaluation over 4,096 field elements on the pinned image</td><td>Whether the blob path is usable at scale, or calldata is the only path</td></tr>
+<tr><td>Round completion time at 2 s with a permissionless global set</td><td>A testnet with the intended validator count and geography, plus a fault-injection harness</td><td><code>TIMEOUT_MIN</code>/<code>TIMEOUT_MAX</code>, the 2 s cadence claim</td></tr>
+<tr><td>Retrievability duration of L2 data held by validators and nodes</td><td>A retention study with node-churn modelling</td><td><code>D_MAX</code>, <code>D_WITHDRAW</code></td></tr>
+<tr><td>TAIKO price, float, market depth and slippage at the relevant size</td><td>Market data at the time of the decision; must never be hard-coded</td><td>A-ECO-1, the deterrence claim, ECON-09/ECON-10</td></tr>
+<tr><td>Operator cost per validator (hardware, bandwidth, L1 gas)</td><td>An operations study</td><td><code>MIN_STAKE</code>, the participation barrier</td></tr>
+<tr><td>L2 fee and MEV revenue</td><td>Measured fee and ordering revenue on the deployed chain</td><td>The reward budget identity</td></tr>
+<tr><td>L1 verification gas of the atomic data-and-proof transaction</td><td>A gas benchmark of the inbox path per backend, at the chosen blob and batch sizes</td><td>Batch economics; the K trade-off</td></tr>
+<tr><td>Detection rates for withholding classes</td><td>Fault injection with an adversarial network model</td><td>WH-03's honest "unmeasured" label</td></tr>
+</tbody></table>
+<span class="why">Failure mode: fixing any of these by assumption and then quoting the resulting system
+behaviour as if it were established. The specification's feasibility claims are explicitly conditional
+on this register being closed by measurement before launch.</span>
+<span class="pill unmeasured">unmeasured</span></div>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK reference specification · <a href="index.html">rule index</a> · <a href="../learn/index.html">learning course</a></p></footer>
+</body></html>

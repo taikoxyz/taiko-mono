@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — 03 Membership, TAIKO staking, exits, weak subjectivity</title>
+<link rel="stylesheet" href="spec.css">
+</head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span>
+  <span class="tag">reference specification</span>
+  <span class="tag">rev 2026-10-05</span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="01-system-model.html">Model &amp; roles</a>
+    <a href="02-consensus.html">Consensus</a>
+    <a href="03-membership-staking.html">Staking</a>
+    <a href="04-l1-integration.html">L1 integration</a>
+    <a href="05-proof-statement.html">Proof statement</a>
+    <a href="06-recovery-exceptions.html">Recovery</a>
+    <a href="07-economics-slashing.html">Economics</a>
+    <a href="08-migration-upgrades.html">Migration</a>
+    <a href="09-parameters.html">Parameters</a>
+    <a href="10-assurance.html">Assurance</a>
+    <a href="../learn/index.html">Learn</a>
+  </nav>
+</header>
+<main>
+
+<h1>03 — Membership, TAIKO staking, exits, weak subjectivity</h1>
+
+<p class="small">This page owns the <code>MEM-*</code> rules: how existing TAIKO becomes consensus stake held on L1, how that stake becomes voting power in an epoch-scoped
+validator set, how validators enter and leave, how a consensus key is bound and retired, and what a node may and may not trust when it syncs. Status labels are
+<a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11">STATUS-11</a>; timing is expressed in seconds or L1 block numbers with no L1 proposer lookahead
+(<a href="index.html#GEN-06">GEN-06</a>); every protocol hash is one canonical <code>abi.encode</code> with a right-padded domain tag and the chain id first
+(<a href="index.html#GEN-05">GEN-05</a>). Nothing on this page is implemented, deployed, benchmarked or audited (<a href="index.html#GEN-01">GEN-01</a>).</p>
+
+<div class="warnbox small">
+<strong>What this page does not decide.</strong> Rewards, the offence catalogue, penalty sizes and the destination of slashed stake are
+<a href="07-economics-slashing.html#ECON-01">ECON-01</a>–<a href="07-economics-slashing.html#ECON-12">ECON-12</a>; the epoch schedule, certificate format and header fields are
+<a href="02-consensus.html#CONS-05">CONS-05</a>, <a href="02-consensus.html#CONS-10">CONS-10</a> and <a href="02-consensus.html#CONS-13">CONS-13</a>; the atomic accept path and
+checkpoint record are <a href="04-l1-integration.html#L1-01">L1-01</a>–<a href="04-l1-integration.html#L1-08">L1-08</a>; signature, bitmap and quorum checks in the guest are
+<a href="05-proof-statement.html#PRF-04">PRF-04</a> and epoch transitions are <a href="05-proof-statement.html#PRF-05">PRF-05</a>. Membership fixes only the ledger, the set and the
+trust boundary.
+</div>
+
+<div class="goodbox small">
+<strong>Fixed decisions applied here.</strong> Staking and slashable collateral are the existing TAIKO token and nothing else; gas stays ETH (<strong>D7</strong>). SignalService,
+Bridge and the three vaults keep their existing addresses by in-place upgrade (<strong>D3</strong>); the staking custody contract is a <em>new</em> contract at a <em>new</em>
+address, which D3 does not forbid. No rule on this page can invalidate a PoS-finalized block in Mode A (<strong>D2</strong>,
+<a href="06-recovery-exceptions.html#REC-01">REC-01</a>), no rule creates a data-first path (<strong>D5</strong>), and no rule depends on an L1 proposer or a fixed L1 slot duration
+(<a href="index.html#GEN-06">GEN-06</a>). Every safety claim below is conditional on the Byzantine-stake assumption <strong>A-CONS-1</strong> (&#60; 1/3 of the stake that counts
+toward quorum in the relevant set version) and, where it needs data to be served, on <strong>A-CONS-5</strong>/<strong>A-DA-2</strong>
+(<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4). Where a rule needs an assumption, it says so at the rule.
+</div>
+
+<h2 id="custody">1. Custody: one asset, one ledger</h2>
+
+<div class="rule" id="MEM-01"><span class="rid">MEM-01 — L1 staking custody of TAIKO at the existing token address</span>
+<span class="norm">The staked asset is the existing L1 ERC-20 <strong>TAIKO</strong> at <code>0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800</code> (<code>token.taiko.eth</code>). The
+address is verified in <a href="../research/taiko-baseline-contracts.md">taiko-baseline-contracts.md</a> §6.1, which records <code>TaikoToken (TKO)</code> at that proxy from
+<code>LibL1Addrs.sol:73</code> and <code>TaikoToken.sol:12-13</code>; the token has 18 decimals and a fixed supply of 1,000,000,000 ether minted once in <code>init</code>
+(<code>TaikoToken.sol:41</code>, sourced). <strong>No new token is created.</strong> No wrapped, bridged or L2-represented TAIKO counts as consensus stake — in particular the L2
+<code>BridgedTaikoToken</code> has no role in consensus — and neither ETH nor any other asset is accepted as consensus collateral. Gas remains ETH (D7).</span>
+<span class="norm">Custody is a <strong>new L1 contract at a new address</strong>. New addresses are permitted: D3 preserves only the SignalService, Bridge and vault addresses by
+in-place upgrade, and this contract is not one of them. Bonded amounts are stored as <code>uint256</code> <strong>TAIKO base units</strong> (18 decimals), never as a rounded
+integer multiple of gwei. The consensus ledger is <em>not</em> the Inbox's existing bond ledger: <code>Bond{uint64 balance; uint48 withdrawalRequestedAt}</code> is gwei-denominated
+with a ceiling of <code>2^64 − 1</code> gwei ≈ <strong>1.845e10 TAIKO</strong> and a granularity of ≈ <strong>18.4 TAIKO</strong> (derived,
+<a href="../research/economics-raw.md">economics-raw.md</a> §1.4, <code>LibBonds.sol:18</code>, <code>IBondManager.sol:13-19</code>), and its only slash path is a best-effort,
+offence-agnostic liveness debit (<code>LibBonds.sol:148-170</code>; economics-raw.md §1.4 point 2). Disposition of that ledger is a migration concern
+(<a href="08-migration-upgrades.html#MIG-03">MIG-03</a>).</span>
+<span class="norm">The custody contract holds only staked TAIKO. It never lends, pledges, rehypothecates or stakes the principal elsewhere; it exposes no arbitrary-call, no
+owner-triggered transfer and no upgrade-triggered transfer of bonded balances, and no party other than the objective rules of this page and of
+<a href="07-economics-slashing.html#ECON-01">ECON-01</a> / <a href="07-economics-slashing.html#ECON-05">ECON-05</a> can move a bonded balance. Ownership of the contract, if any, is
+limited to an upgrade authority that cannot move balances (<a href="01-system-model.html#SYS-04">SYS-04</a>). The token contract itself is neither replaced nor upgraded by this
+design; a DAO upgrade that changes the token's transfer semantics is a governance failure class (<a href="08-migration-upgrades.html#GOV-02">GOV-02</a>), not a staking rule.</span>
+<span class="why">Failure mode: a second token or a wrapped representation makes the security budget a function of a different market and breaks D7; reusing the gwei bond ledger
+puts rounding and a best-effort debit into the consensus path, where one base unit changes voting power and a failed debit silently converts a slash into no punishment; a
+transferable bonded balance reintroduces the withdrawal race that MEM-06 exists to defeat.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="small">gas of the deposit / exit / withdraw paths: <span class="pill unmeasured">unmeasured</span> — measured by a gas-report run of the pinned custody contract under
+L1 mainnet-equivalent conditions.</span></div>
+
+<div class="rule" id="MEM-02"><span class="rid">MEM-02 — Effective stake, voting power, and why getVotes is not an oracle</span>
+<span class="norm">(1) For set version <code>k</code> (<a href="#MEM-08">MEM-08</a>) the ledger exposes, as a pure function of Ethereum-final L1 state at the snapshot point defined
+in <a href="#MEM-09">MEM-09</a>: <code>effStake_k(v) = LedgerState(N(k)).active[v]</code>, where <code>active[v]</code> is the sum of TAIKO base units that entry <code>v</code> has
+bonded and that (i) completed activation (<a href="#MEM-03">MEM-03</a>), (ii) has not had an exit become effective (<a href="#MEM-05">MEM-05</a>), and (iii) has not been slashed
+away (<a href="#MEM-06">MEM-06</a>) <em>before</em> that snapshot. An entry with <code>effStake_k(v) = 0</code> is not in the set.</span>
+<span class="norm">(2) Voting power is exactly the effective stake: <code>VP_k(v) = effStake_k(v)</code> — one TAIKO base unit is one unit of weight. There is no multiplier, no age
+bonus, no quadratic, time-weighted or reputation term, and no discount for common ownership. The published set carries <code>TotalVP_k = Σ_v effStake_k(v)</code>; the quorum
+threshold applied to <code>TotalVP_k</code> is <a href="02-consensus.html#CONS-03">CONS-03</a>'s and is not restated here. Duplicate public keys within one set version are invalid
+(<a href="#MEM-08">MEM-08</a>); weight is counted per <code>(pubkey, effStake)</code> entry, and the protocol neither records nor infers beneficial ownership
+(<a href="#MEM-10">MEM-10</a>).</span>
+<span class="norm">(3) <strong><code>balanceOf</code>, <code>getVotes</code> and <code>getPastVotes</code> must never be read by a consensus rule.</strong> On the existing token,
+votes and balance demonstrably diverge: <code>renounceVotingPower()</code> is irreversible and zeroes a holder's votes while the balance and total supply are unchanged
+(<code>TaikoToken.sol:53-74</code>, <code>:92-96</code>; economics-raw.md §1.1 line 53); four accounts are hard-coded vote-excluded — <code>address(0)</code>,
+<code>TAIKO_FOUNDATION_TREASURY</code> <code>0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da</code>, <code>TAIKO_DAO_CONTROLLER</code>
+<code>0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3</code> and <code>TAIKO_ERC20_VAULT</code> <code>0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab</code>
+(<code>TaikoToken.sol:17-21</code>, <code>:130-136</code>; economics-raw.md §1.1 line 41); vote checkpoints are timestamp-based (<code>clock() = block.timestamp</code>,
+<code>TaikoTokenBase.sol:22-30</code>); and <code>delegate()</code> is blocked when a non-voting account is either party (<code>TaikoToken.sol:83-90</code>). Reusing that surface
+would let a <em>governance</em> action delete consensus weight, and would count accounts that never bonded and are not slashable, breaking
+<a href="10-assurance.html#INV-03">INV-03</a> ("no consensus without TAIKO at risk"), which is itself conditional on A-CONS-1.</span>
+<span class="why">Failure mode: the protocol counts weight that is not at risk and cannot be confiscated, so a certificate can be produced by parties who lose nothing when they
+equivocate; or a renunciation immediately zeroes a live validator's weight and the epoch loses quorum for reasons no staking participant chose.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span></div>
+
+<h3 id="custody-sketch">1.1 Custody interface sketch</h3>
+<p class="small">Sketch only: illustrative names, no compiled code, no gas figures, no audit. The rule ids are normative; the signatures are not.</p>
+<table>
+<thead><tr><th>Call</th><th>Caller</th><th>Effect</th><th>Rule</th></tr></thead>
+<tbody>
+<tr><td><code>bond(uint256 amount, bytes32 ed25519PubKey)</code></td><td>the validator's own L1 address only (<code>msg.sender</code> is the economic
+owner)</td><td><code>transferFrom</code> TAIKO into custody; credits <code>amount</code> to the entry; requires <code>amount ≥ S_min</code>; appends one FIFO activation entry keyed
+by <code>(block.number, txIndex, logIndex)</code>; rejects a retired key</td><td><a href="#MEM-01">MEM-01</a>, <a href="#MEM-03">MEM-03</a>, <a href="#MEM-07">MEM-07</a></td></tr>
+<tr><td><code>cancelActivation()</code></td><td>the owner only</td><td>before activation: entry stops activating and enters the exit path with the normal
+delay</td><td><a href="#MEM-03">MEM-03</a>, <a href="#MEM-05">MEM-05</a></td></tr>
+<tr><td><code>requestExit()</code></td><td>the owner only</td><td>state → exit-requested; the validator stays in every committed set and stays fully
+slashable</td><td><a href="#MEM-05">MEM-05</a></td></tr>
+<tr><td><code>cancelExit()</code></td><td>the owner only</td><td>permitted only before the exit becomes effective; restores active with the same key and the same ledger
+position</td><td><a href="#MEM-05">MEM-05</a></td></tr>
+<tr><td><code>withdraw()</code></td><td>the owner only</td><td>pays out at most <code>balance − max_exposure</code>; reverts while any delay or unsettled exposure is
+open</td><td><a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a></td></tr>
+<tr><td><code>rotateKey(bytes32 newPubKey)</code></td><td>the owner only</td><td>forward-only; effective from the first set version whose snapshot point is at or after the rotation
+transaction; retires the old key</td><td><a href="#MEM-07">MEM-07</a></td></tr>
+<tr><td><code>commitSet()</code></td><td>anyone; takes no arguments</td><td>appends a set version whose contents are the current ledger state — the caller chooses
+nothing</td><td><a href="#MEM-08">MEM-08</a>, <a href="#MEM-09">MEM-09</a></td></tr>
+<tr><td><code>slash(address v, uint256 epoch, bytes evidence)</code></td><td>anyone holding objective evidence</td><td>charges the penalty against <code>SlashBase(v, epoch)</code>;
+at most one application per offence</td><td><a href="#MEM-06">MEM-06</a>, <a href="07-economics-slashing.html#ECON-04">ECON-04</a>,
+<a href="07-economics-slashing.html#ECON-08">ECON-08</a></td></tr>
+</tbody></table>
+
+<h2 id="activation">2. Activation and the validator lifecycle</h2>
+
+<div class="rule" id="MEM-03"><span class="rid">MEM-03 — Activation: objective, permissionless, first-come queue</span>
+<span class="norm">(1) <strong>Entry is permissionless.</strong> Any L1 account may create an entry by bonding at least <code>S_min</code> TAIKO and registering a consensus key.
+There is no allowlist, no invitation, no operator approval, no identity requirement and no cap on the number of participants (R1). The gate is the objective predicate <code>amount
+≥ S_min</code>; the derivation of <code>S_min</code> is <a href="07-economics-slashing.html#ECON-09">ECON-09</a> and its value is a parameter subject to
+<a href="09-parameters.html#PARAM-01">PARAM-01</a>. No third-party on-ramp exists in v1: the bonded amount is credited to <code>msg.sender</code>, because separating the economic
+owner from the slashed party without a delegation contract is exactly what <a href="#MEM-04">MEM-04</a> rules out.</span>
+<span class="norm">(2) <strong>Ordering key.</strong> Activation entries are ordered by the strictly increasing tuple <code>(l1BlockNumber, txIndex, logIndex)</code> of the L1
+block that included the bonding transaction, where <code>logIndex</code> is the index of the entry's event in that block's log list. Ties cannot occur. Serving is FIFO by this key
+— first-come, first-served — and no fee, stake size, key attribute, entity or reputation can reorder, delay or front-run another entry. A per-set-version throughput limit
+<code>A_max</code> entries is permitted only as an objective FIFO quantity: it takes entries from the head of the queue in key order and never selects among them (the EIP-7514
+activation-churn cap is the sourced precedent for bounding set growth; economics-raw.md §2.5).</span>
+<span class="norm">(3) <strong>Activation delay.</strong> <code>D_activation</code> is expressed in seconds and must satisfy <code>D_activation ≥ T_L1_final(p_f) + E_epoch +
+M_act</code>, where <code>T_L1_final(p_f)</code> is the <code>p_f</code>-quantile time for the bonding transaction's L1 block to become Ethereum-final, <code>E_epoch</code> is one
+epoch duration, and <code>M_act</code> is a margin; the numerical values are <code>UNMEASURED</code> (see the register at the end of this page). An entry becomes <em>active</em>,
+and first enters a set root, at the first set version <code>k</code> whose snapshot point <code>N(k)</code> satisfies <code>timestamp(N(k)) ≥ timestamp(bondingBlock) +
+D_activation</code>, subject to the FIFO head order and <code>A_max</code> of clause (2). The delay exists so that (a) an L1 reorganisation cannot reorder or erase an entry after
+its stake has been counted, and (b) an operator has time to bring its signing key and node online before its stake is exposed to a downtime penalty.</span>
+<span class="norm">(4) <strong>An entry that never activates.</strong> If the key is never bound, or the operator never comes online, or the entry is never reached in the FIFO
+head, then: the stake stays in <code>activating</code>; it never appears in any set root; it is never part of <code>TotalVP_k</code>; it is never slashable for a consensus offence,
+because it never signs a vote; and it accrues no reward. An entry whose key binding is incomplete is <strong>skipped</strong> for throughput accounting and keeps its position, so
+one unfinished entry cannot block the queue behind it. Cancellation is owner-only (<code>cancelActivation()</code>), and no third party can cancel, reorder or consume another
+entry's position (griefing defence, <a href="../01-requirements-and-threat-model.md">threat model</a> T-13).</span>
+<span class="why">Failure mode: if the ordering key were a fee or a stake size, entry becomes an auction and R1's permissionlessness is nominal; if <code>D_activation</code> were
+zero, an entry included in the same L1 block as a snapshot could change the set of an epoch already being voted on, breaking the agreement precondition A-CONS-4; if a stalled entry
+could block the head of the queue, a griefer could freeze all activation for the price of one bond.</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(<code>T_L1_final(p_f)</code>, <code>E_epoch</code>, <code>M_act</code>, <code>A_max</code> — measured by the inclusion/finality distribution study and the
+consensus parameter table.)</span></div>
+
+<h3 id="lifecycle">2.1 Validator lifecycle</h3>
+
+<figure>
+<svg viewBox="0 0 1100 205" role="img" aria-label="Validator lifecycle state machine">
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M0,0 L10,5 L0,10 z" fill="#7aa2f7"></path></marker>
+<marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M0,0 L10,5 L0,10 z" fill="#f7768e"></path></marker>
+</defs>
+<g fill="#161b22" stroke="#2d3743" stroke-width="1.5">
+<rect x="10" y="40" width="150" height="46" rx="8"></rect>
+<rect x="190" y="40" width="150" height="46" rx="8"></rect>
+<rect x="370" y="40" width="150" height="46" rx="8"></rect>
+<rect x="550" y="40" width="150" height="46" rx="8"></rect>
+<rect x="730" y="40" width="150" height="46" rx="8"></rect>
+<rect x="910" y="40" width="150" height="46" rx="8"></rect>
+</g>
+<g fill="#e6edf3" font-size="12" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">
+<text x="85" y="68">inactive</text>
+<text x="265" y="68">activating</text>
+<text x="445" y="68">active</text>
+<text x="625" y="68">exit-requested</text>
+<text x="805" y="68">unbonding</text>
+<text x="985" y="68">withdrawn</text>
+</g>
+<g stroke="#7aa2f7" stroke-width="1.6" marker-end="url(#ah)">
+<line x1="162" y1="63" x2="184" y2="63"></line>
+<line x1="342" y1="63" x2="364" y2="63"></line>
+<line x1="522" y1="63" x2="544" y2="63"></line>
+<line x1="702" y1="63" x2="724" y2="63"></line>
+<line x1="882" y1="63" x2="904" y2="63"></line>
+</g>
+<g fill="#9aa7b4" font-size="11" text-anchor="middle">
+<text x="173" y="34">1</text><text x="353" y="34">2</text><text x="533" y="34">3</text>
+<text x="713" y="34">4</text><text x="893" y="34">5</text>
+</g>
+<path d="M445,40 C438,8 500,8 494,40" fill="none" stroke="#9ece6a" stroke-width="1.4" marker-end="url(#ah)"></path>
+<text x="470" y="14" fill="#9ece6a" font-size="10" text-anchor="middle">8</text>
+<path d="M265,86 C265,152 985,152 985,96" fill="none" stroke="#7aa2f7" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ah)"></path>
+<text x="625" y="149" fill="#9aa7b4" font-size="10" text-anchor="middle">6 cancelActivation (owner)</text>
+<path d="M445,196 L445,94" fill="none" stroke="#f7768e" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ahr)"></path>
+<text x="455" y="190" fill="#f7768e" font-size="10" text-anchor="start">7 objective evidence → slash (anyone); forced exit</text>
+</svg>
+<figcaption>Lifecycle states and the numbered transitions listed in the table below. Solid arrows are the normal path; dashed arrows are the cancel path (6) and the
+evidence-triggered path (7).</figcaption>
+</figure>
+
+<table>
+<thead><tr><th>#</th><th>From → to</th><th>Trigger — who may cause it</th><th>Exact condition</th><th>Effect on the set</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>inactive → activating</td><td>the owner (any L1 account); no approval</td><td><code>bond(amount, pk)</code> with <code>amount ≥ S_min</code>; a FIFO position is
+assigned at inclusion</td><td>none</td></tr>
+<tr><td>2</td><td>activating → active</td><td><strong>objective and permissionless</strong> (any keeper; the transition is a pure function of L1 state)</td><td>key bound
+(<a href="#MEM-07">MEM-07</a>); <code>D_activation</code> elapsed (<a href="#MEM-03">MEM-03</a>); entry served from the FIFO head within <code>A_max</code>; becomes effective at
+the next set snapshot</td><td><code>effStake &gt; 0</code>; entry enters <code>R_k</code> and <code>TotalVP_k</code></td></tr>
+<tr><td>3</td><td>active → exit-requested</td><td>the owner only</td><td><code>requestExit()</code>; irreversible except by 3b</td><td>unchanged: still in every committed set,
+still voting, still fully slashable</td></tr>
+<tr><td>3b</td><td>exit-requested → active</td><td>the owner only</td><td><code>cancelExit()</code> before the exit becomes effective</td><td>unchanged; same key, same
+position</td></tr>
+<tr><td>4</td><td>exit-requested → unbonding</td><td><strong>automatic</strong> at the first set snapshot at or after the request block</td><td>the version's snapshot point passes
+the request</td><td><code>effStake = 0</code> from that version; the entry leaves every later set root; still slashable for every epoch already committed
+(<a href="#MEM-06">MEM-06</a>)</td></tr>
+<tr><td>5</td><td>unbonding → withdrawn</td><td>the owner only</td><td>three conditions together: exit effective for ≥ <code>D_withdraw</code>; the evidence window is closed for
+every epoch the entry was in; no unsettled or collectible exposure remains</td><td>balance returned; entry closed; key retired</td></tr>
+<tr><td>6</td><td>activating → unbonding</td><td>the owner only</td><td><code>cancelActivation()</code> before activation; the normal delay then applies</td><td>never entered a
+set; never slashable for consensus offences</td></tr>
+<tr><td>7</td><td>any → reduced / forced exit</td><td><strong>anyone</strong> with objective evidence</td><td>valid evidence for offence at epoch <code>e</code> charges
+<code>SlashBase(v, e)</code>; if the remaining <code>effStake</code> falls below <code>S_min</code>, the entry is removed from the next set version and enters exit-requested
+automatically</td><td>weight reduced; forced exit is objective</td></tr>
+<tr><td>8</td><td>active → active (re-key)</td><td>the owner only</td><td><code>rotateKey(newPk)</code>; effective from the first set version whose snapshot point is at or after
+the rotation transaction</td><td>same stake, new key from that version; old key retired</td></tr>
+</tbody></table>
+<p class="small">Transitions that do not exist: no state is changed by a DAO vote, a governance action, an emergency operator, or a third party other than through objective
+evidence. A withdrawn entry cannot return to active: re-entry is a new bond, a new key and a new FIFO position. This is the membership-side realisation of
+<a href="01-system-model.html#SYS-04">SYS-04</a> (no DAO or emergency operator in ordinary operation).</p>
+
+<h2 id="delegation">3. Delegation</h2>
+
+<div class="rule" id="MEM-04"><span class="rid">MEM-04 — No delegation in v1 (recorded decision, alternative documented)</span>
+<span class="norm">v1 has exactly one economic owner per entry: the L1 address that bonded the stake is the only address that may request exit, cancel an exit, rotate the consensus
+key, or receive unbonded proceeds (<a href="#MEM-03">MEM-03</a>, <a href="#MEM-05">MEM-05</a>, <a href="#MEM-07">MEM-07</a>). No contract, pool, custodian or third party may hold
+stake on behalf of another party and appear in a set root, and no rule recognises delegated, re-delegated, pooled or liquid-staked TAIKO as consensus stake. The protocol does not
+attempt to prevent such markets from existing; it declines to count them (<a href="#MEM-10">MEM-10</a>, <a href="07-economics-slashing.html#ECON-10">ECON-10</a>). This is the
+decision recorded in <a href="../04-architecture-decision.md">04-architecture-decision.md</a> §3 ("v1 supports no delegation: self-bonded operator keys only") and in
+<a href="../DECISIONS.md">DECISIONS.md</a>; the alternative below is documented, not silently deferred.</span>
+<span class="norm">The reasons are structural, not paternalistic. (a) <strong>Slash pass-through.</strong> If slashing does not reduce delegator shares pro rata, delegators hold a
+free option on operator misbehaviour and the operator's own stake can be smaller than the harm caused. (b) <strong>Slashable exit and redelegation.</strong> The unbonding period
+only works if unbonding delegations and redelegations remain slashable for offences committed while the tokens were bonded to the source validator; Cosmos makes all three
+slashable, which is why its staking module is one of the largest and most intricate modules in the SDK (economics-raw.md §2.6, sourced). (c) <strong>Evidence attribution.</strong>
+Equivocation evidence is objective and attributable to a key, but allocating the loss across many beneficial owners requires a share accounting surface with unbonding entries and
+redelegations, which does not exist in v1 and cannot be improvised after an incident. (d) Polkadot's 2026 staking reform moves to self-stake-only slashing, direct evidence that the
+delegator/operator alignment problem is hard to solve even with the most sophisticated stake-allocation algorithm in production (economics-raw.md §2.6, sourced).</span>
+<span class="norm">If delegation is ever required — for example because the entry floor would exclude small holders — the minimum honest design is fixed now so that a future
+proposal cannot quietly ship less: <em>(i)</em> operator self-stake at least equal to its own bond floor, slashable <strong>first</strong>; <em>(ii)</em> explicit, documented
+pass-through of slashing to delegators, including unbonding delegations and redelegations; <em>(iii)</em> a recorded decision that the pass-through's simplicity limits are
+<em>accepted</em>, with the accepted loss distribution stated. Nothing weaker is honest (economics-raw.md §2.6, lines 386-389). Adopting it is a new user decision under
+<a href="index.html#GEN-02">GEN-02</a>, not an implementation detail.</span>
+<span class="why">Failure mode: shipping delegation without all three of pass-through, slashable unbonding and slashable redelegation sells an unpriced option to delegators and
+converts the protocol's safety claim into a claim about a contract that does not exist; or an "operator" with little of its own stake is bribed to equivocate while delegators keep
+the upside.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span></div>
+
+<h2 id="exit">4. Exit, unbonding, and slashing exposure</h2>
+
+<div class="rule" id="MEM-05"><span class="rid">MEM-05 — Exit request and unbonding delay derivation</span>
+<span class="norm">(1) <strong>Exit request.</strong> The owner calls <code>requestExit()</code>; the entry enters <code>exit-requested</code> and <strong>remains in every set it
+is already committed to, keeps voting, and remains fully slashable</strong> until the exit takes effect. This is a deliberate change from the existing bond ledger, where
+<code>hasSufficientBond</code> is false the moment a withdrawal is requested (<code>LibBonds.sol:130-141</code>; economics-raw.md §1.4 point 1): an exiting validator that stopped
+validating would silently shrink the set, and the exit delay would buy no protection at all.</span>
+<span class="norm">(2) <strong>Exit becomes effective</strong> at the first set version whose snapshot point is at or after the exit request transaction's L1 block; from that
+version the entry's <code>effStake = 0</code> and it appears in no later set root (<a href="#MEM-09">MEM-09</a>). It cannot be cancelled after that point.</span>
+<span class="norm">(3) <strong>Withdrawal.</strong> The owner may withdraw only when all three hold: (a) the exit has been effective for at least <code>D_withdraw</code>; (b) the
+evidence window <code>W_evidence</code> has closed for every epoch the entry was in; and (c) no unsettled or collectible slashing exposure remains
+(<a href="#MEM-06">MEM-06</a>).</span>
+<span class="norm">(4) <strong>Delay formula.</strong> <code>D_withdraw ≥ T_proof_bound + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_process + M</code>. Every
+term is <span class="pill unmeasured">unmeasured</span>; the table below states what measures each one. <code>T_L1_include(p)</code> must be a quantile, never a mean, and may not
+assume a fixed L1 slot duration (<a href="index.html#GEN-06">GEN-06</a>).</span>
+<span class="norm">(5) <strong>Why not nominal proving latency.</strong> D5 lands a batch's data and its proof in one L1 transaction, so there is <em>no</em> data-first window in
+which a third party could inspect a published batch and object before settlement. Detection therefore cannot rely on "the data sat on L1 for N hours before the proof arrived"; the
+delay must cover evidence that is generated only after settlement, or generated concurrently on L2 and then carried to L1. That makes <code>T_L1_include(p)</code> and
+<code>T_L1_final</code> load-bearing rather than rounding errors, and it makes 30 minutes of proving latency a lower bound on <em>nothing</em>: the evidence clock starts at the
+offence, which happens at L2 consensus time, possibly long before the batch is provable (economics-raw.md §2.5, lines 340-354).</span>
+<span class="norm">(6) <strong>Do not shorten it.</strong> If <code>D_withdraw</code> is judged too long for users, the correct response is to reduce the terms it depends on — for
+example a tighter, measured proof bound — never to set the delay below the formula. If a correlated penalty is adopted, <code>D_withdraw</code> must additionally exceed that
+penalty's application delay; the two must be chosen together or neither works (economics-raw.md §3.2 point 2; the penalty itself is
+<a href="07-economics-slashing.html#ECON-05">ECON-05</a>).</span>
+<span class="why">Failure mode: an offender equivocates at epoch <code>e</code>, requests exit, waits out a delay no longer than the proving latency, withdraws, and is slashed on a
+remainder — the documented withdrawal race that both Ethereum and Cosmos engineered against (economics-raw.md §2.4).</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(conditional on A-CONS-1 for the safety meaning of "slashable"; the delay itself is a liveness/accounting rule.)</span></div>
+
+<table>
+<thead><tr><th>Term</th><th>Meaning</th><th>Status and what would measure it</th></tr></thead>
+<tbody>
+<tr><td><code>T_proof_bound</code></td><td>Upper bound on proving latency for a batch</td><td><span class="pill sourced">sourced</span> as a <em>design constraint</em> D6 (minutes
+up to 30 min = 900 L2 blocks at 2 s, derived), <strong>not measured</strong> for the target configuration; measure the wall-clock proving-time distribution of the pinned guest and
+verifier on reference hardware.</td></tr>
+<tr><td><code>T_detect</code></td><td>Offence on L2 → a constructible evidence object in the hands of someone willing to
+submit</td><td><span class="pill unmeasured">unmeasured</span>; measure time from an L2 offence to a gossiped, complete evidence object, including the L2→L1 carrying
+step.</td></tr>
+<tr><td><code>T_evidence_submit</code></td><td>Building, signing and broadcasting the L1 evidence transaction</td><td><span class="pill unmeasured">unmeasured</span>; measure
+mempool-acceptance and broadcast latencies for evidence transactions.</td></tr>
+<tr><td><code>T_L1_include(p)</code></td><td><code>p</code>-quantile L1 inclusion delay for a valid transaction</td><td><span class="pill unmeasured">unmeasured</span>; measure
+empirical inclusion-delay quantiles for comparable transactions. A mean is not acceptable.</td></tr>
+<tr><td><code>T_L1_final</code></td><td>Time for the accepting L1 transaction to reach Ethereum finality</td><td><span class="pill sourced">sourced</span> that it is an Ethereum
+property; the <em>value</em> is <span class="pill unmeasured">unmeasured</span> and must be the measured bound at design time, not a nominal constant.</td></tr>
+<tr><td><code>T_process</code></td><td>L1 processing of the evidence and application of the slash, including any deliberate grace
+period</td><td><span class="pill unmeasured">unmeasured</span> as a choice; a governance grace period exists in production elsewhere (Polkadot, sourced), so both "immediate" and
+"delayed" are defensible and neither is measured here.</td></tr>
+<tr><td><code>M</code></td><td>Safety margin for L1 reorganisations, congestion spikes, and evidence arriving at the last
+moment</td><td><span class="pill unmeasured">unmeasured</span>; set by the stress scenario that maximises the sum of the terms above.</td></tr>
+</tbody></table>
+
+<div class="rule" id="MEM-06"><span class="rid">MEM-06 — Slashing follows stake at offence time</span>
+<span class="norm">(1) For every epoch <code>e</code> in which entry <code>v</code> appears in a set root, the ledger records <code>SlashBase(v, e) :=
+effStake_{setVersion(e)}(v)</code> and retains the pair <code>(e, SlashBase(v, e))</code> in L1 state until the later of (i) the end of the evidence window for <code>e</code> and
+(ii) settlement of any slash for <code>e</code>. An offence committed at epoch <code>e</code> is charged against <code>SlashBase(v, e)</code>, <strong>never</strong> against the
+balance at the time the evidence is submitted.</span>
+<span class="norm">(2) <strong>Exposure accounting.</strong> Let <code>max_exposure(v) = max{ SlashBase(v, e) : e open }</code> over epochs whose evidence window has not closed and
+whose slashes are not settled. At any moment the owner may withdraw at most <code>bonded(v) − max_exposure(v)</code>; equivalently, the contract retains at least the largest
+single-epoch exposure until every such epoch closes. Slashing is bounded by the bonded balance: the protocol has no claim on assets outside the custody contract, and an unpaid
+penalty is not collectible from the operator elsewhere (this limitation is stated for users under <a href="07-economics-slashing.html#ECON-11">ECON-11</a>).</span>
+<span class="norm">(3) <strong>The withdrawal-race defence, precisely.</strong> An offender's rational sequence is: equivocate at epoch <code>e</code>; request exit; wait
+<code>D_withdraw</code>; withdraw; be slashed on a remainder. It is defeated only because three rules hold together: (i) <code>SlashBase(v, e)</code> is fixed at epoch
+<code>e</code> and is the charge base; (ii) withdrawal is capped by the exposure of every open epoch, so the stake that could be charged cannot leave first; and (iii)
+<code>D_withdraw</code> is strictly longer than the time needed to detect, submit, include, finalise and process evidence (<a href="#MEM-05">MEM-05</a> clause 4). If any one of the
+three fails, the race succeeds — they are jointly necessary, and none of them is a parameter that may be relaxed alone.</span>
+<span class="norm">(4) A slash for a given offence is applied <strong>at most once</strong>: the identity of an offence is <code>(v, epoch, offence type, evidence digest)</code>,
+and a second submission of the same identity is a no-op. Duplicate, replay and false-accusation handling is <a href="07-economics-slashing.html#ECON-08">ECON-08</a>; the
+per-<code>(v, e)</code> charge base is this rule's.</span>
+<span class="why">Failure mode: slashing the current balance lets an offender withdraw first and be slashed on what is left — a real, documented failure mode that both Ethereum
+(<code>state.slashings[epoch]</code> plus the <code>withdrawable_epoch</code> clamp) and Cosmos ("we want to 'follow the stake'", <code>x/evidence</code>) specifically engineered
+against (economics-raw.md §2.4, sourced). A short delay plus a best-effort debit makes the penalty decorative.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="small">(the safety effect of the penalty is conditional on A-ECO-1 and on A-CONS-1, exactly as <a href="07-economics-slashing.html#ECON-01">ECON-01</a> states; this
+rule fixes attribution, not deterrence.)</span></div>
+
+<h2 id="keys">5. Keys: binding, rotation, stale keys</h2>
+
+<div class="rule" id="MEM-07"><span class="rid">MEM-07 — Key binding, rotation, and stale-key handling</span>
+<span class="norm">(1) <strong>One key per entry per set version.</strong> An entry has at most one consensus key at any set version: an Ed25519 public key in its canonical 32-byte
+compressed encoding (RFC 8032). Write <code>pk(v, k)</code> for the key of entry <code>v</code> at set version <code>k</code>; it is a field of the entry in the set root
+(<a href="#MEM-08">MEM-08</a>). A second key for the same entry at the same version is invalid, not an error to be resolved by preference.</span>
+<span class="norm">(2) <strong>Binding.</strong> A key enters a set root only through an L1 transaction signed by the entry's owner address, which sets the key for that entry; the
+transaction itself is the authentication, so no separate signature object is required. If an aggregate or threshold vote-signature scheme is ever adopted, the binding must
+additionally carry a proof of possession for the new key, because only then does a rogue-key attack exist (A-CRYPTO-2); with the individual Ed25519 scheme selected in
+<a href="../04-architecture-decision.md">04-architecture-decision.md</a> §2, a registered key whose secret the owner does not hold simply cannot vote, and that entry's own stake
+bears the consequence.</span>
+<span class="norm">(3) <strong>Rotation is forward-only and version-scoped.</strong> The owner calls <code>rotateKey(newPk)</code>. For every set version <code>k</code> already
+published, <code>pk(v, k)</code> is <strong>unchanged and unchangeable</strong>. The new key applies from the first version <code>k</code> whose snapshot point is at or after the
+rotation transaction, i.e. <code>pk(v, k) = newPk</code> for <code>N(k) ≥ rotationBlock</code> and <code>pk(v, k) = oldPk</code> for all earlier <code>k</code>. The old key is
+<strong>retired</strong> at that moment.</span>
+<span class="norm">(4) <strong>Stale keys cannot vote.</strong> A vote for epoch <code>e</code> carries the signer's key (or is matched by the guest to the key of the leaf at the
+signer's bitmap index). It is valid <strong>if and only if</strong> the signing key equals <code>pk(v, setVersion(e))</code> for the entry whose <code>effStake</code> is committed
+in <code>R_{setVersion(e)}</code>. A vote signed with a rotated-away key at an epoch that commits the new key is <em>invalid</em>: it must be discarded, must not count toward
+quorum (<a href="02-consensus.html#CONS-03">CONS-03</a>), and its signer is not slashable for it because it is not a vote under the protocol's rules. Symmetrically, a vote signed
+with the old key at an epoch that commits the old key remains valid <strong>forever</strong>, no matter how many rotations happened later
+(<a href="02-consensus.html#CONS-08">CONS-08</a>).</span>
+<span class="norm">(5) <strong>A later key must not rewrite past behaviour.</strong> No rule may validate a tallied vote against the validator's <em>current</em> key, and no
+rotation, exit or withdrawal may invalidate, reattribute or expunge a vote, vote conflict or evidence object from an epoch that committed the earlier key. Equivocation evidence
+under a retired key stays slashable against <code>SlashBase(v, e)</code> for the epochs in which that key was committed, exactly like any other evidence
+(<a href="#MEM-06">MEM-06</a>).</span>
+<span class="norm">(6) <strong>Keys are one-shot identities.</strong> A key that has ever appeared in a published set root is retired permanently: binding it again to any entry,
+including the same entry, is invalid. This keeps the mapping <code>(key, epoch) → entry</code> injective, so attribution of evidence never depends on how a key was later reused. A
+key may never be bound to two entries at the same time.</span>
+<span class="norm">(7) <strong>Compromise and loss.</strong> A compromised consensus key can equivocate and burn the entry's stake, but it can never move the stake: only the owner
+address can exit, withdraw or rotate (<a href="#MEM-01">MEM-01</a>, <a href="#MEM-05">MEM-05</a>). Rotation stops future damage but is not retroactive. A lost key is replaced by
+the same <code>rotateKey</code> path, effective only from the next set version, so votes signed under the lost key in committed epochs stand as signed. If the owner address itself
+is lost, the bonded stake is stranded: no rule of this specification can move it, and no DAO or emergency path exists to rescue it
+(<a href="01-system-model.html#SYS-04">SYS-04</a>, <a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>).</span>
+<span class="why">Failure mode: checking signatures against the current key instead of the epoch's committed key lets a rotation launder a past equivocation (the evidence no longer
+matches the "current" set) and rejects valid historical votes; allowing key reuse lets a pre-signed message be attributed to a different entry's stake.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(the un-forgeability of Ed25519 is A-CRYPTO-2; the rule is Proven given it.)</span></div>
+
+<h2 id="set">6. The validator set as an L1-committed object</h2>
+
+<div class="rule" id="MEM-08"><span class="rid">MEM-08 — Validator-set commitment construction</span>
+<span class="norm">(1) A <strong>published set</strong> is the tuple <code>(chainId, k, R_k, TotalVP_k, n_k, entries)</code>: the chain id, the set version <code>k</code>, the root
+<code>R_k</code>, the total effective stake, the entry count, and the full ordered entry list <code>[(pubkey_i, effStake_i)]</code>. The list is published so that any party can
+reconstruct the tree cheaply; the root is the authoritative commitment.</span>
+<span class="norm">(2) <strong>Canonical order.</strong> Entries are sorted ascending by <code>keccak256(abi.encode(DOMAIN_SET_KEY, chainId, pubkey))</code>. Public keys are unique
+within a version (<a href="#MEM-02">MEM-02</a>), so the order is total and ties cannot occur. Sorting makes the root independent of insertion order, snapshot iteration order and
+tree-building implementation. <code>index</code> is the 0-based position in this order; the signer bitmap used by <a href="05-proof-statement.html#PRF-04">PRF-04</a> indexes this
+same order, so bitmap bit <code>i</code> denotes entry <code>i</code>.</span>
+<span class="norm">(3) <strong>Leaves and interior nodes</strong> are domain-separated (<a href="index.html#GEN-05">GEN-05</a>): leaf and interior tags differ, and the empty-set
+tag differs from both, so no node can be reinterpreted at a different position or as a different object. Odd nodes are <strong>promoted unchanged</strong> to the next level; a node
+is never duplicated to fill a level, which removes the duplicate-last-node ambiguity. The full encoding is in the table below.</span>
+<span class="norm">(4) <strong>What the root commits to — exactly.</strong> <code>R_k</code> commits to the chain id, the set version <code>k</code>, and the ordered list of
+<code>(pubkey, effStake)</code> pairs — and nothing else. In particular it does <em>not</em> commit to the epoch mapping (which version governs which epoch is L1 Inbox state,
+<a href="#MEM-09">MEM-09</a>), to the validators' owner addresses, to bond age, tenure, reputation, region or any score, or to rotation history. Adding a field that affects voting
+power requires a new set version and a rule change; it may not be smuggled into an existing root.</span>
+<span class="norm">(5) <strong>Total.</strong> <code>TotalVP_k = Σ_i effStake_i</code> is published in the same L1 transaction as the root and is recomputed by the guest from the
+leaves; a mismatch, or a leaf with <code>effStake = 0</code>, invalidates the set. A sum is not derivable from a Merkle root, so the published total is a checked field, not a
+convenience.</span>
+<span class="norm">(6) <strong>Authority.</strong> The root is written into L1 state by the registry contract (<code>commitSet()</code>) and read from L1 state by the Inbox; it is
+never supplied by the prover. The proof's public input "validator-set commitment" is therefore an L1 fact (<a href="04-l1-integration.html#L1-05">L1-05</a>), the Inbox re-derives
+it when verifying, and a prover cannot choose it (<a href="05-proof-statement.html#PRF-03">PRF-03</a>). Membership in the guest is then: recompute the leaf from <code>(pubkey,
+effStake)</code>, verify its Merkle path to <code>R_k</code>, and require that the key which verified the vote signature is the leaf's <code>pubkey</code>
+(<a href="05-proof-statement.html#PRF-04">PRF-04</a>).</span>
+<span class="why">Failure mode: an ambiguous or prover-chosen set commitment lets a certificate be redeemed against a set that never signed it (set substitution, the A-CONS-4
+failure), and a root that silently commits extra fields lets voting power change without any consensus rule changing.</span>
+<span class="pill proven">Proven</span></div>
+
+<table>
+<thead><tr><th>Element</th><th>Type</th><th>Encoding</th></tr></thead>
+<tbody>
+<tr><td><code>DOMAIN_SET_LEAF</code></td><td><code>bytes32</code></td><td>right-padded ASCII <code>"ETNA_SET_LEAF"</code> (first field of every leaf preimage)</td></tr>
+<tr><td><code>DOMAIN_SET_NODE</code></td><td><code>bytes32</code></td><td>right-padded ASCII <code>"ETNA_SET_NODE"</code> (first field of every interior preimage)</td></tr>
+<tr><td><code>DOMAIN_SET_KEY</code></td><td><code>bytes32</code></td><td>right-padded ASCII <code>"ETNA_SET_KEY"</code> (sort key only; never part of a leaf)</td></tr>
+<tr><td><code>DOMAIN_SET_EMPTY</code></td><td><code>bytes32</code></td><td>right-padded ASCII <code>"ETNA_SET_EMPTY"</code> (distinguishes an empty set, which is invalid, from
+every other node)</td></tr>
+<tr><td><code>chainId</code></td><td><code>uint256</code></td><td>second field of every preimage, immediately after the tag (<a href="index.html#GEN-05">GEN-05</a>)</td></tr>
+<tr><td><code>k</code></td><td><code>uint256</code></td><td>set version, third field of every preimage</td></tr>
+<tr><td><code>index</code></td><td><code>uint256</code></td><td>0-based position in canonical order; leaf only</td></tr>
+<tr><td><code>pubkey</code></td><td><code>bytes32</code></td><td>Ed25519 compressed public key (RFC 8032); leaf only</td></tr>
+<tr><td><code>effStake</code></td><td><code>uint256</code></td><td>TAIKO base units, strictly greater than 0; leaf only</td></tr>
+<tr><td><code>leaf_i</code></td><td><code>bytes32</code></td><td><code>keccak256(abi.encode(DOMAIN_SET_LEAF, chainId, k, index, pubkey, effStake))</code></td></tr>
+<tr><td><code>node</code></td><td><code>bytes32</code></td><td><code>keccak256(abi.encode(DOMAIN_SET_NODE, chainId, k, left, right))</code></td></tr>
+<tr><td><code>R_k</code></td><td><code>bytes32</code></td><td><code>n = 0</code>: invalid set, never published; <code>n = 1</code>: the single leaf; <code>n &gt; 1</code>: the
+promoted-odd-node tree root</td></tr>
+<tr><td>encoding rule</td><td>—</td><td>one <code>abi.encode</code> of typed fields; <code>abi.encodePacked</code> and bare concatenation are forbidden
+(<a href="index.html#GEN-05">GEN-05</a>)</td></tr>
+</tbody></table>
+
+<div class="rule" id="MEM-09"><span class="rid">MEM-09 — Set snapshot timing and one-epoch lookahead</span>
+<span class="norm">(1) <strong>Publication.</strong> Set versions are append-only and are created by <code>commitSet()</code>, which takes no arguments and may be called by anyone.
+Its contents are fixed by the contract: the root and total of the ledger state <em>at the moment of the call</em>, inside the L1 block <code>N(k)</code> that includes the call. The
+caller chooses nothing — not the entries, not the total, not the block's position in the block (which only affects which earlier transactions of that block are included). A ledger
+mutation in a later transaction of the same block does not affect <code>R_k</code>.</span>
+<span class="norm">(2) <strong>Which L1 block defines the set for epoch <code>e</code>.</strong> Let <code>setVersion(e)</code> be the highest <code>k</code> such that the L1 block
+<code>N(k)</code> is <strong>Ethereum-final</strong> in the L1 view committed by the first L2 block of epoch <code>e</code>. Then <code>R_{setVersion(e)}</code> — read from L1
+state at <code>N(k)</code> — is the epoch's validator set, and the epoch's first block commits <code>(setVersion(e), N(setVersion(e)))</code>. The header field carrying this tuple
+is <a href="02-consensus.html#CONS-10">CONS-10</a>'s; its <em>value rule</em> is this clause. Because Ethereum finality is objective and permanent, all correct nodes that can read
+L1 compute the same value (A-CONS-4).</span>
+<span class="norm">(3) <strong>Monotonicity.</strong> <code>setVersion</code> never decreases: <code>setVersion(e) ≥ setVersion(e')</code> for <code>e &gt; e'</code>, and a first
+block that commits a lower version than its predecessor is invalid. A version can never be reverted to, re-used after being superseded, or amended.</span>
+<span class="norm">(4) <strong>Immutability of an epoch's mapping.</strong> Once epoch <code>e</code> has begun, no L1 transaction may change <code>setVersion(e)</code> or the
+record at <code>N(setVersion(e))</code>. A later set version applies only to epochs whose first block lies after its publication; it never governs an epoch that has already
+started.</span>
+<span class="norm">(5) <strong>Ethereum-finality requirement and the one-epoch lookahead.</strong> No L2 consensused state may depend on a non-final L1 fact
+(<a href="01-system-model.html#SYS-02">SYS-02</a>), so a validator must not produce the first block of epoch <code>e</code> unless the block <code>N(setVersion(e))</code> is
+already Ethereum-final. If no such version exists — for example settlement or L1 inclusion has stalled — the validators do not start the epoch: they hold the current epoch open or
+halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>, <a href="02-consensus.html#CONS-15">CONS-15</a>). They must never fall back to "the latest root the proposer has
+seen". The epoch length and the handoff schedule that make this a <em>one-epoch</em> lookahead in steady state are <a href="02-consensus.html#CONS-13">CONS-13</a>'s; this clause
+supplies the membership-side predicate <code>CONS-13</code> must satisfy: <strong>the version governing an epoch is committed and Ethereum-final strictly before that epoch
+starts</strong>.</span>
+<span class="why">Failure mode: if the set for an epoch could be chosen after the epoch's blocks were voted on — by the prover, the L1 caller of <code>commitSet()</code>, or a
+version committed mid-epoch — a certificate could be judged under a set that did not sign it (set substitution), and two nodes could disagree about which set governs the same epoch
+(the A-CONS-4 failure).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(conditional on A-L1-1 for L1 finality liveness and on A-CONS-4 for set agreement; if L1 finality cannot advance, clause 5 halts the epoch boundary, which is a
+liveness consequence, not a safety loss.)</span></div>
+
+<h2 id="sybil">7. Sybil resistance and concentration</h2>
+
+<div class="rule" id="MEM-10"><span class="rid">MEM-10 — Sybil resistance and the non-claim about per-address caps</span>
+<span class="norm">(1) <strong>There is no per-address, per-operator or per-validator cap on stake in v1.</strong> There is a floor <code>S_min</code> per entry, derived from cost
+recovery and permissionless entry (<a href="07-economics-slashing.html#ECON-09">ECON-09</a>), and the accounting rule that weight is counted per <code>(pubkey, effStake)</code>
+entry (<a href="#MEM-02">MEM-02</a>). One beneficial owner may hold many entries; the protocol does not require, verify, represent or attempt to detect beneficial ownership, and it
+makes no claim that splitting or merging identities is prevented.</span>
+<span class="norm">(2) <strong>What the design actually relies on.</strong> The cost of acquiring the float: <code>AttackCost(t) = b · S_total · P(t) · (1 + σ(t)) + OC(t) +
+E[Slash]</code> with <code>b = 1/3</code> under A-CONS-1, <code>P(t)</code> the TAIKO price and <code>σ(t)</code> the slippage and illiquidity premium for acquiring <code>b ·
+S_total</code> within the attack window — both <code>UNMEASURED</code> and time-varying (economics-raw.md §2.8). Splitting stake across identities does not change that term.</span>
+<span class="norm">(3) <strong>The cost-overhead argument, stated exactly.</strong> Let <code>C</code> be a per-address cap, <code>S_total</code> the total bonded stake, <code>k =
+S_total / C</code> the number of addresses needed to hold everything, and <code>k_op</code> the marginal cost of operating one additional validator identity (key generation and
+custody, monitoring, per-validator overhead, and any amortised flat bond). An adversary seeking a fraction <code>b</code> of stake acquires <code>b · S_total</code> tokens and
+spreads them over <code>b · k</code> addresses; the <em>capital</em> cost of the attack is unchanged, and the cap adds only <code>b · k · k_op</code>. The ratio (cap
+overhead)/(attack cost) is <code>k_op / C</code>: it shrinks as the cap rises and <strong>never cancels the dominant term</strong> (economics-raw.md §2.7 points 1-2). In the fuller
+form the acquisition term also carries <code>P(t) · (1 + σ(t))</code>, so the overhead is <code>k_op / (C · P(t) · (1 + σ(t)))</code> in the same units — the conclusion is
+unchanged: the cap constrains <em>labels</em>, not <em>capital</em>.</span>
+<span class="norm">(4) <strong>A cap never bounds concentration, and the only way to make it bind is to make entry expensive.</strong> <code>k</code> is unbounded above because
+addresses and keys are free to create; <code>k_op</code> is bounded above by the honest cost of entry, which R1 forbids making prohibitive. If the protocol caps <em>validator
+slots</em> instead, slot acquisition becomes the binding constraint and a wealthy adversary outbids honest operators for existing slots rather than acquiring tokens (a secondary
+market in slots); Cosmos' <code>MaxValidators</code> is a consensus-performance parameter, not a decentralisation mechanism, and Polkadot's 2026 self-stake minimum is a floor on
+operator commitment, not a cap on stake (economics-raw.md §2.7 point 3, sourced).</span>
+<span class="norm">(5) <strong>What actually constrains concentration</strong> is (a) the total cost of acquiring the float — a liquidity and slippage question, not an address
+question; (b) rewards that are concave in stake, so the marginal token is worth less to a large holder; and (c) transparency. The protocol can deliver (c) and does: the full entry
+list of every set version is public (<a href="#MEM-08">MEM-08</a>), so concentration is <em>observable even when it cannot be prevented</em> (economics-raw.md §2.7 point 5).</span>
+<span class="norm">(6) <strong>Any claim that a cap "prevents monopolisation" must be deleted or restated</strong> as the cost-overhead statement of clause (3), with
+<code>k_op</code> marked unmeasured. "Per-address caps prevent monopolization" is an explicit non-argument of this project
+(<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §6.4).</span>
+<span class="why">Failure mode: a cap is presented as decentralisation, so reviewers and users believe concentration is bounded when the only effect is an additive, sub-linear
+overhead; or the cap makes entry costly and excludes honest small participants while a wealthy adversary splits anyway.</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(<code>k_op</code>, <code>P(t)</code>, <code>σ(t)</code> and the resulting <code>AttackCost</code> are unmeasured; they are measured from a reference-validator
+cost study and from order-book depth and traded volume, respectively.)</span></div>
+
+<h2 id="ws">8. Weak subjectivity and long-range attacks</h2>
+
+<div class="rule" id="MEM-11"><span class="rid">MEM-11 — Weak subjectivity: the L1 checkpoint as the source, and the freshness window</span>
+<span class="norm">(1) <strong>The weak-subjectivity checkpoint is the L1 checkpoint.</strong> A node bootstraps from the checkpoint record most recently accepted by the L1 Inbox
+and Ethereum-final (<a href="04-l1-integration.html#L1-07">L1-07</a>, <a href="01-system-model.html#SYS-02">SYS-02</a>): an L2 height, block hash, state root, epoch and set
+version. The node reads it from L1 state; no social input, no peer vote and no checkpoint provider role is introduced. The reason is that this checkpoint is Ethereum-committed and
+publicly auditable, and it is exactly what L1 will accept as a predecessor — a node needs an L1 view anyway to verify settlement
+(<a href="../research/mode-a-feasibility-analysis.md">mode-a-feasibility-analysis.md</a> §C5).</span>
+<span class="norm">(2) <strong>Freshness window.</strong> A node must not bootstrap from a checkpoint older than <code>WS_max</code>, where <code>WS_max ≤ D_withdraw − (T_detect +
+T_evidence_submit + T_L1_include(p) + T_L1_final + T_process) − M_ws</code>. The derivation: an offence committed at the checkpoint's epoch remains slashable only until the
+offender's stake can be released, which is at least <code>D_withdraw</code> after its exit (<a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a>); if the anchor is older than
+that minus the time it takes to land evidence, then a checkpoint's signers may already be beyond reach and the anchor no longer carries the slashing guarantee it is trusted for.
+Substituting <a href="#MEM-05">MEM-05</a> clause 4 gives the <strong>derived</strong> upper bound <code>WS_max ≤ T_proof_bound + M − M_ws</code>. Every term is
+<code>UNMEASURED</code>; <code>M_ws</code> is the long-range margin.</span>
+<span class="norm">(3) <strong>It is an upper bound, not a target.</strong> <code>WS_max</code> is the largest age at which a checkpoint can still be defended by slashing; a
+smaller value is always safer, and the published value must be justified by measurement, not chosen for convenience (<a href="09-parameters.html#PARAM-03">PARAM-03</a>).</span>
+<span class="norm">(4) <strong>Disclosure.</strong> The freshness window, the current checkpoint's age, and the fact that a checkpoint was used to bootstrap must be visible to
+users of a node, in the vocabulary of <a href="index.html#STATUS-11">STATUS-11</a>. State synced from an anchor is never presented as verified beyond the anchor.</span>
+<span class="norm">(5) <strong>The assumption, stated at the claim.</strong> This rule rests on <strong>A-CONS-6</strong> (new joiners can obtain a checkpoint no older than the
+published window) and on <strong>A-L1-1</strong> (Ethereum liveness and safety). It is a trust requirement, not a cryptographic guarantee: if L1 cannot accept a checkpoint for
+longer than <code>WS_max</code> — an L2 halt, a proving outage, a blob-retention failure — then <em>no</em> fresh checkpoint exists and a new node cannot safely sync. The chain's
+liveness failure becomes a sync failure, and that consequence is disclosed rather than hidden.</span>
+<span class="why">Failure mode: a node that treats an arbitrarily old anchor as authoritative accepts a history whose signers can no longer be punished — the long-range attack of
+<a href="#MEM-12">MEM-12</a> — while believing it holds a protocol guarantee.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(the inequality is derived from <a href="#MEM-05">MEM-05</a>; its inputs are unmeasured, and the conditional is A-CONS-6 + A-L1-1.)</span></div>
+
+<div class="rule" id="MEM-12"><span class="rid">MEM-12 — Long-range attack handling; no silent trusted checkpoint provider</span>
+<span class="norm">(1) <strong>The attack, in this design.</strong> An attacker who held at least 1/3 of the stake at some past epoch <code>e</code> and has since exited retains
+the Ed25519 secrets committed in <code>R_{setVersion(e)}</code> and can produce an alternative L2 history branching at or before <code>e</code> whose signatures are
+cryptographically indistinguishable from honest ones. A defensive quorum of the old set can be reconstructed from the attacker's own keys, so no signature check can detect the
+fork, and the attacker cannot be punished once its stake has been released (<a href="../research/consensus-survey-raw.md">consensus-survey-raw.md</a> §7.4;
+<a href="../research/recovery-and-withholding-raw.md">recovery-and-withholding-raw.md</a> §10 item 10, which records that "weak subjectivity is objective/trustless" is a
+misconception).</span>
+<span class="norm">(2) <strong>Two defences, both required.</strong> (a) <em>Checkpoint anchoring</em>: a node must never adopt an L2 history that conflicts with its L1 checkpoint;
+the L1 checkpoint is a fork-choice revert limit, not merely a hint. (b) <em>Freshness</em> (<a href="#MEM-11">MEM-11</a>): a checkpoint older than <code>WS_max</code> is not
+usable, and the honest statement is that <strong>a very old checkpoint must not be used</strong>. Supporting membership-side defences: certificates are judged only under their own
+epoch's set (<a href="02-consensus.html#CONS-08">CONS-08</a>); <code>setVersion(e)</code> is immutable once the epoch starts (<a href="#MEM-09">MEM-09</a>); keys are retired on
+rotation so <code>(key, epoch) → entry</code> stays injective (<a href="#MEM-07">MEM-07</a>); and the unbonding delay keeps the stake that signed a history slashable long enough
+for evidence (<a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a>).</span>
+<span class="norm">(3) <strong>Validating from genesis is not a substitute.</strong> The L1 staking ledger is objective, but the epoch chain is not objective by itself: a
+long-range attacker can produce valid signatures from a historical TAIKO-staked set, so two internally valid histories exist and only L1 says which one the protocol accepts
+(consensus-survey-raw.md §7.4 point 2). A node that cannot obtain a fresh L1 checkpoint cannot resolve this by re-executing more history.</span>
+<span class="norm">(4) <strong>What a node must do when it cannot obtain a fresh checkpoint.</strong> If L1 is unreachable, or no Ethereum-final checkpoint is younger than
+<code>WS_max</code>, the node must: (i) refuse to treat any L2 history as protocol-verified; (ii) not report or relay a status above <a href="index.html#STATUS-03">STATUS-03</a>
+for such a history, and not present it as settlement-backed; (iii) not silently substitute a checkpoint obtained from a peer, an RPC endpoint, or any third-party service; and (iv)
+surface the condition to its operator, naming the checkpoint's age and the required bound. It may retry, and it may halt and wait
+(<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>). It must not "succeed" by trusting an unverified history.</span>
+<span class="norm">(5) <strong>No checkpoint provider role.</strong> This specification creates no registry, contract, address, role or reward for checkpoint distribution, and no
+node may treat one as authoritative. A node operator may configure an out-of-band anchor locally; that is a node-local trust decision outside the protocol, and it must then be
+labelled visibly as an operator-supplied anchor and must not be relayed to others as protocol-verified. Restart-from-checkpoint rules are
+<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>'s; this rule fixes the membership-side refusal to fabricate trust.</span>
+<span class="why">Failure mode: a node silently follows a fabricated history and reports it as verified, so users act on a chain the protocol never accepted; or an unstated
+third-party checkpoint provider becomes a privileged role, contradicting SYS-04 and silently re-introducing the operator R1/R2 forbid.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill open">Open</span>
+<span class="small">(the cryptographic indistinguishability of past-key signatures is Proven given A-CRYPTO-2; the freshness value is Open and unmeasured; the conditional is
+A-CONS-6.)</span></div>
+
+<h2 id="failure">9. What happens when a validator fails</h2>
+
+<table>
+<thead><tr><th>Failure</th><th>Protocol behaviour</th><th>Stake and evidence</th></tr></thead>
+<tbody>
+<tr><td><strong>Offline</strong> (no proposals, no votes)</td><td>Rounds and leader rotation proceed without it under the timeout policy
+(<a href="02-consensus.html#CONS-07">CONS-07</a>). Its weight stays in the set for the epochs it was committed to. If enough weight is offline that no certificate can gather quorum
+(participation, not Byzantine behaviour), the chain halts safely rather than finalising something else (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>) — a liveness
+failure, explicitly not a safety loss.</td><td>No reward for missed duties; downtime penalties are <a href="07-economics-slashing.html#ECON-05">ECON-05</a>'s. The entry stays
+slashable and can be exited by its owner at any time.</td></tr>
+<tr><td><strong>Slow</strong> (proposals or votes arrive after the round)</td><td>A vote outside its (height, round) is invalid for that round and is not counted
+(<a href="02-consensus.html#CONS-02">CONS-02</a>); the round advances. Degradation is liveness only and is bounded by A-CONS-2/A-CONS-3, which are assumptions, not
+guarantees.</td><td>Missed rewards; no slashing, because there is no objective evidence of an offence — non-receipt of a message is never evidence (threat model §6.4).</td></tr>
+<tr><td><strong>Equivocating</strong> (two conflicting signed votes or certificates at one height/round)</td><td>The offence is an objective predicate on two signed messages
+(<a href="02-consensus.html#CONS-11">CONS-11</a>); <strong>anyone</strong> may submit it and the slash is charged to <code>SlashBase(v, e)</code> (<a href="#MEM-06">MEM-06</a>).
+Rotation, exit and withdrawal do not launder it (<a href="#MEM-07">MEM-07</a>). Two conflicting finalized histories remain impossible only while A-CONS-1 holds (&#60; 1/3
+Byzantine); at or above 1/3, both may be cryptographically valid and ZK verification cannot repair that (F2).</td><td>Penalty per
+<a href="07-economics-slashing.html#ECON-05">ECON-05</a>, charged against the stake at offence time; below <code>S_min</code> the entry is removed from the next set version
+(lifecycle transition 7).</td></tr>
+<tr><td><strong>Exiting with stake at risk</strong></td><td>Exit is requested, but the validator keeps voting in every committed set and remains fully slashable
+(<a href="#MEM-05">MEM-05</a>). It leaves the set only at a set-version boundary and cannot withdraw until the delay and the evidence window have both closed
+(<a href="#MEM-06">MEM-06</a>).</td><td>Evidence that lands during unbonding is charged against the recorded <code>SlashBase(v, e)</code> and comes out of the unbonding balance;
+only the remainder is withdrawable.</td></tr>
+<tr><td><strong>Keys lost</strong> (consensus key, or the owner address)</td><td>Consensus key lost: the node stops voting; the owner binds a new key, effective only from the next
+set version, so votes already signed under the old key stand and remain slashable. Owner address lost: the stake is <strong>stranded</strong> — no rule, no DAO action and no
+emergency operator can move it (<a href="01-system-model.html#SYS-04">SYS-04</a>, <a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>).</td><td>An honest key-duplication or
+key-loss mistake is an operational failure (F3), not preventable by parameter choice; a correlated penalty on a small set makes one operator's mistake a large fraction of the set's
+loss — a disclosed limitation, not a solved problem (economics-raw.md §2.3, §4.1 L8).</td></tr>
+<tr><td><strong>Invalid transition</strong> (a settled batch whose proof was unsound)</td><td>This is a failure of A-CRYPTO-1, outside the slashing surface: no consensus offence is
+detectable on-chain and no rule of this page applies. Detection and disclosure, not prevention, is the honest response (F2).</td><td>Slashing cannot repair it; user-loss scope is
+<a href="07-economics-slashing.html#ECON-11">ECON-11</a>'s.</td></tr>
+</tbody></table>
+
+<h2 id="register">10. Quantities this page introduces</h2>
+<p class="small">Non-normative map. The canonical parameter register with values and units is <a href="09-parameters.html">09</a>
+(<a href="09-parameters.html#PARAM-01">PARAM-01</a>, <a href="09-parameters.html#PARAM-03">PARAM-03</a>). No value below is measured.</p>
+<table>
+<thead><tr><th>Quantity</th><th>Meaning</th><th>Status</th><th>Introduced by</th></tr></thead>
+<tbody>
+<tr><td><code>S_min</code></td><td>Minimum bonded TAIKO per entry (a floor, not a cap)</td><td><span class="pill unmeasured">unmeasured</span>; derivation in
+<a href="07-economics-slashing.html#ECON-09">ECON-09</a></td><td><a href="#MEM-03">MEM-03</a></td></tr>
+<tr><td><code>D_activation</code></td><td>Seconds between the bonding transaction and the first set version that may count the
+entry</td><td><span class="pill unmeasured">unmeasured</span>; needs <code>T_L1_final(p_f)</code>, <code>E_epoch</code>,
+<code>M_act</code></td><td><a href="#MEM-03">MEM-03</a></td></tr>
+<tr><td><code>A_max</code></td><td>Maximum activations served per set version, FIFO from the head</td><td><span class="pill unmeasured">unmeasured</span>; a throughput parameter,
+never a filter</td><td><a href="#MEM-03">MEM-03</a></td></tr>
+<tr><td><code>D_withdraw</code></td><td>Unbonding delay from the moment the exit takes effect</td><td><span class="pill unmeasured">unmeasured</span>; formula in
+<a href="#MEM-05">MEM-05</a></td><td><a href="#MEM-05">MEM-05</a></td></tr>
+<tr><td><code>W_evidence</code></td><td>Window in which evidence for an epoch's offence can still be submitted</td><td><span class="pill unmeasured">unmeasured</span>; bounded
+below by <code>T_replay</code> for non-equivocation faults (economics-raw.md §3.3)</td><td><a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a></td></tr>
+<tr><td><code>WS_max</code></td><td>Maximum age of an L1 checkpoint a node may bootstrap from</td><td><span class="pill derived">derived</span> upper bound <code>T_proof_bound + M
+− M_ws</code>; inputs <span class="pill unmeasured">unmeasured</span></td><td><a href="#MEM-11">MEM-11</a></td></tr>
+<tr><td><code>k_op</code>, <code>C</code></td><td>Marginal per-identity operating cost; per-address cap (not used in v1)</td><td><span class="pill unmeasured">unmeasured</span>;
+the ratio <code>k_op / C</code> is the cap-overhead argument</td><td><a href="#MEM-10">MEM-10</a></td></tr>
+<tr><td><code>P(t)</code>, <code>σ(t)</code></td><td>TAIKO price; slippage and illiquidity premium for acquiring <code>b ·
+S_total</code></td><td><span class="pill unmeasured">unmeasured</span> and time-varying; must never be hard-coded (economics-raw.md
+§3.5)</td><td><a href="#MEM-10">MEM-10</a></td></tr>
+<tr><td><code>N(k)</code>, <code>setVersion(e)</code></td><td>L1 block of set version <code>k</code>; the version governing epoch <code>e</code></td><td>FORMULA (L1 block numbers,
+per <a href="index.html#GEN-06">GEN-06</a>)</td><td><a href="#MEM-09">MEM-09</a></td></tr>
+</tbody></table>
+
+<div class="badbox small">
+<strong>Limitations stated on this page, not hidden.</strong> (i) Every safety claim here is conditional on A-CONS-1 and, where a slash must actually be collected, on A-ECO-1 at
+the prevailing price. (ii) Slashing is bounded by the bonded balance; the protocol has no claim on other assets. (iii) The unbonding delay and the freshness window are upper-bound
+constructions whose inputs are unmeasured; a shorter delay is not available without weakening the withdrawal-race defence. (iv) A cap does not exist in v1 and would not bound
+concentration if it did. (v) Weak subjectivity is a trust requirement: a node that cannot obtain a fresh L1 checkpoint must stop, and there is no third-party provider to rescue it.
+(vi) Losing the owner address strands the stake permanently.
+</div>
+
+</main>
+<footer class="site">
+<p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are
+stated once and referenced by identifier.</p>
+</footer>
+</body></html>
+

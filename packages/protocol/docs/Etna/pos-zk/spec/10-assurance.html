@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>10 — Assurance · Etna PoS + ZK</title><link rel="stylesheet" href="spec.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">reference specification</span>
+  <nav><a href="index.html">Index</a><a href="01-system-model.html">Model &amp; roles</a>
+  <a href="02-consensus.html">Consensus</a><a href="03-membership-staking.html">Staking</a>
+  <a href="04-l1-integration.html">L1 integration</a><a href="05-proof-statement.html">Proof statement</a>
+  <a href="06-recovery-exceptions.html">Recovery</a><a href="07-economics-slashing.html">Economics</a>
+  <a href="08-migration-upgrades.html">Migration</a><a href="09-parameters.html">Parameters</a>
+  <a href="10-assurance.html">Assurance</a><a href="../learn/index.html">Learn</a></nav></header>
+<main>
+<h1>10 — Invariants, conditional liveness, limitations and rejected alternatives</h1>
+
+<h2 id="inv">Safety invariants</h2>
+
+<div class="rule" id="INV-01"><span class="rid">INV-01 — unique finalized prefix</span>
+<span class="norm">Under the stated premises, at most one block per height ever reaches
+<a href="index.html#STATUS-04">STATUS-04</a>, and every finalized block is an ancestor of every later
+finalized block. <strong>Premises:</strong> (P1) fewer than one third of the voting power of every
+epoch is Byzantine (<code>A-CONS-1</code>); (P2) correct validators obey the vote-uniqueness rule
+(<a href="02-consensus.html#CONS-02">CONS-02</a>) and the lock rule
+(<a href="02-consensus.html#CONS-04">CONS-04</a>); (P3) the commit rule requires more than two thirds
+of the epoch's voting power, counted over distinct authenticated signers
+(<a href="02-consensus.html#CONS-03">CONS-03</a>); (P4) each epoch's set is the L1-committed set
+(<a href="02-consensus.html#CONS-10">CONS-10</a>, <a href="03-membership-staking.html#MEM-08">MEM-08</a>);
+(P5) the epoch-handoff rule carries locks across boundaries
+(<a href="02-consensus.html#CONS-09">CONS-09</a>).</span>
+<span class="why">Failure mode: if any premise fails, two conflicting certificates can both be
+cryptographically valid, and <strong>a ZK proof cannot detect it</strong>. Both proofs verify. The
+protocol's response to this class is disclosure, detection through objective evidence where it exists,
+and slashing — never a claim that the invariant holds.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(argument from the CometBFT Proof of Safety and the fork-accountability lemma,
+pinned in <a href="../02-consensus-survey.md">02</a>; P5 is review target F1)</span></div>
+
+<div class="rule" id="INV-02"><span class="rid">INV-02 — no batch is accepted without its data</span>
+<span class="norm">There is no state in which an accepted, checkpoint-advancing L1 record exists
+without (a) the batch data being retrievable from that same L1 transaction, and (b) a valid proof
+binding execution to exactly that data. This holds structurally: acceptance happens in one transaction
+that carries both, and the data commitment is bound by
+<a href="04-l1-integration.html#DA-02">DA-02</a> or <a href="04-l1-integration.html#DA-03">DA-03</a>.
+No recovery, outage, degraded mode, governance action or operator procedure may create an exception
+(<a href="06-recovery-exceptions.html#REC-01">REC-01</a> e,
+<a href="04-l1-integration.html#L1-02">L1-02</a>).</span>
+<span class="why">Failure mode: a data-first design creates exactly the class observed in this
+repository — <code>init3()</code> (<code>Inbox.sol:246-258</code>) had to void forced inclusions whose
+blob references expired before they could be derived. That class cannot occur for a pending batch
+here because data is published only with its proof.</span>
+<span class="pill proven">Proven</span> <span class="small">(inherited from D5; the in-repo incident is
+evidence that the alternative is not hypothetical)</span></div>
+
+<div class="rule" id="INV-03"><span class="rid">INV-03 — no consensus without TAIKO at risk</span>
+<span class="norm">Voting power exists only for stake that is bonded in the L1 staking contract and
+active in the epoch's set; a key with no eligible stake cannot vote, and a vote is counted only if the
+signer's stake is in the authenticated set. Slashing follows the stake held at the time of the offence
+(<a href="03-membership-staking.html#MEM-06">MEM-06</a>), so exiting after an offence does not escape
+the penalty.</span>
+<span class="why">Failure modes addressed: voting power acquired without at-risk capital, and the
+withdrawal race in which an offender unbonds between the offence and the evidence.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="INV-04"><span class="rid">INV-04 — no privilege or discretion in ordinary operation</span>
+<span class="norm">Every step of ordinary operation — activation, proposing, voting, proving, forced
+inclusion, evidence submission, reward claiming and exit — is reachable by any address satisfying the
+objective rules, with no allowlist, no owner approval, no DAO vote and no operator key. A privileged
+lever is permitted only for <em>upgrades</em>, and each such lever is enumerated with its scope in
+<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>.</span>
+<span class="why">Failure mode: a protocol that claims permissionless operation while a
+<code>ProverWhitelist</code> or an owner-only <code>init3()</code> can alter who may participate or what
+queued work survives.</span>
+<span class="pill proven">Proven</span> <span class="pill open">Open</span>
+<span class="small">(open for the operational audit of the completed migration: the rule is normative,
+but whether every lever has been removed is verified only at migration time)</span></div>
+
+<h2 id="liveness">Conditional liveness</h2>
+
+<div class="rule" id="LIVE-01"><span class="rid">LIVE-01 — the liveness statement and exactly where it ends</span>
+<span class="norm">The following is the complete liveness claim, and it is conditional on every clause.
+<strong>If</strong> (L1) more than two thirds of each epoch's voting power is online and message delay
+between correct validators is below the round-timeout bound for long enough to complete a round;
+(L2) a correct proposer is eventually selected by rotation when timeouts elapse;
+(L3) correct validators hold and can serve the data of the blocks they voted for, at least until
+settlement or the retention window ends; (L4) at least one adequately-resourced prover completes each
+committed batch inside the envelope, or another prover does;
+(L5) Ethereum includes valid transactions within a bounded delay and does not reorganise below the
+finality depth; (L6) the L1 staking contract commits each epoch's set root before the epoch begins;
+(L7) a new node can obtain a weak-subjectivity checkpoint within the freshness window;
+<strong>then</strong> L2 produces a block every 2 seconds, blocks reach
+<a href="index.html#STATUS-04">STATUS-04</a> within the round budget, and committed batches reach
+<a href="index.html#STATUS-06">STATUS-06</a> within the proof-queue envelope.</span>
+<span class="why">Liveness <strong>ends</strong> at the first clause that fails: (L1) fails → the chain
+halts rather than forks; (L3) fails → settlement halts, possibly permanently, unless a data holder
+returns; (L4) fails → settlement halts after the unsettled-depth cap binds; (L5) fails → nothing
+settles and forced inclusion is unavailable; (L6) fails → the chain cannot enter the next epoch;
+(L7) fails → a new node must not silently trust an unverified history. There is no clause whose failure
+licenses rewriting finalized history.</span>
+<span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(the timeout bound, the retention window and the envelope are parameters whose
+values require measurement, <a href="09-parameters.html">09</a>)</span></div>
+
+<div class="rule" id="LIVE-02"><span class="rid">LIVE-02 — backpressure and halt triggers</span>
+<span class="norm">Correct validators apply backpressure before liveness is lost, never by discarding
+committed history: (a) at unsettled depth <code>D_MAX</code> they refuse to vote for further blocks
+(<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>); (b) if the proof queue would exceed the
+retention window even at <code>D_MAX</code>, <code>D_MAX</code> itself is reduced by a published
+governance parameter change — an upgrade, not a runtime action; (c) they halt when
+<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a> conditions hold. A normal proof inside the
+D6 envelope (up to 30 minutes, 900 blocks at 2 s) must never trigger (a), (b) or any recovery
+action.</span>
+<span class="why">Failure mode: backpressure implemented as "drop the oldest unsettled batch", which is
+a silent Mode B and violates <a href="06-recovery-exceptions.html#REC-01">REC-01</a>.</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(<code>D_MAX</code>'s value and the retention window)</span></div>
+
+<div class="rule" id="LIVE-03"><span class="rid">LIVE-03 — throughput sustainability conditions</span>
+<span class="norm">The proving pipeline is sustainable if and only if three inequalities hold, all
+evaluated with measured inputs before launch: (i) <em>rate</em>: the fleet's sustained proven
+execution rate is at least the L2's sustained execution rate; (ii) <em>concurrency</em>: the number of
+proofs in flight is at least <code>L / Δ</code>, where <code>L</code> is the proof latency bound and
+<code>Δ</code> is the batch's L2 time span (a queueing identity, not a measurement); (iii)
+<em>data</em>: the L2's data production rate does not exceed the L1 data capacity available to the
+batches, which for blob data is the blob target/maximum per L1 block divided by the L1 slot duration.
+If any inequality fails, the backlog grows without bound and the correct response is
+<a href="#LIVE-02">LIVE-02</a> backpressure — not a longer latency assumption and not a rollback.</span>
+<span class="why">Failure modes addressed: "tolerate individual slow proofs" being mistaken for
+sustainable throughput, and a design that quietly assumes unlimited prover capacity. Every input to
+these inequalities is <span class="pill unmeasured">unmeasured</span> in this specification; the
+formulas are the deliverable.</span>
+<span class="pill open">Open</span> <span class="small">(requires measurement of cycles per L2 gas and
+proven cycles per second per machine, <a href="../03-zkvm-feasibility.md">03</a> §7)</span></div>
+
+<h2 id="lim">Limitations register</h2>
+
+<div class="rule" id="LIM-01"><span class="rid">LIM-01 — known limitations, stated once, with their consequence</span>
+<span class="norm">The following limitations are accepted and disclosed. Each is a statement about what
+the design does <strong>not</strong> establish; none may be presented elsewhere as a strength, and none
+may be silently dropped when the design is summarised to users.</span>
+<table>
+<thead><tr><th>Class</th><th>Limitation</th><th>Consequence if it bites</th></tr></thead>
+<tbody>
+<tr><td>Cryptographic</td><td>A soundness bug in an accepted zkVM backend, or in the guest program, forges batches</td><td>Bridge-theft class. Not repairable by the protocol; mitigation is audit, version discipline, and optionally the two-backend policy of <a href="05-proof-statement.html#PRF-09">PRF-09</a></td></tr>
+<tr><td>Cryptographic</td><td>One combined guest means a single trusted computing base; a common-mode defect is not caught by a second backend unless the policy requires both</td><td>Same as above, with a smaller detection surface</td></tr>
+<tr><td>Consensus</td><td>Safety holds only while fewer than one third of each epoch's voting power is Byzantine</td><td>Two conflicting valid certificates; the proof verifies both; the invariant <a href="#INV-01">INV-01</a> does not apply</td></tr>
+<tr><td>Consensus</td><td>The epoch-handoff lock-carry-over argument is argued, not machine-checked</td><td>A boundary-specific fork is the named review target F1</td></tr>
+<tr><td>Availability</td><td>Settlement depends on somebody retaining the data until the proof lands</td><td>A halt, possibly permanent, if every holder disappears. Disclosed; explicitly permitted by D2 step 1</td></tr>
+<tr><td>Availability</td><td>Retention is a duty, not a cryptographically enforceable property; a failure to serve is not provable on L1 for most classes</td><td>Unprovable faults; the honest response is disclosure, not a penalty (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>)</td></tr>
+<tr><td>Liveness</td><td>A minority outage halts the chain; there is no degraded mode</td><td>Unbounded halt duration outside the assumptions</td></tr>
+<tr><td>Liveness</td><td>A cartel of at least one third can halt the chain, though it cannot censor selectively while quorum exists</td><td>Denial of service, not a safety break</td></tr>
+<tr><td>Performance</td><td>The 2&nbsp;s cadence, the round budget, the proving envelope, the in-guest blob evaluation and the fleet sizing are all unmeasured</td><td><a href="#LIVE-03">LIVE-03</a>'s inequalities cannot be checked until measured</td></tr>
+<tr><td>Economic</td><td>No verified price, float or liquidity data; attack cost is time-varying and A-ECO-1 can fail with no rule change</td><td>The deterrence claim is conditional and must be re-evaluated with market data</td></tr>
+<tr><td>Economic</td><td>The reward budget's inputs are unmeasured, and the protocol cannot mint TAIKO today</td><td>Rewards may be unfundable without a user decision (treasury transfer or a token upgrade)</td></tr>
+<tr><td>Economic</td><td>Slashed-stake destination is an unresolved human decision</td><td>Deterrence, bounty and legal posture all differ (<a href="07-economics-slashing.html#ECON-06">ECON-06</a>)</td></tr>
+<tr><td>Economic</td><td>Delegation is out of scope in v1; liquid-staking derivatives are an unpriced attack surface</td><td>Concentration and LST attacks are not bounded by the cost-of-attack argument</td></tr>
+<tr><td>Governance</td><td>Governance can rewrite any rule, including this one</td><td>Malicious governance is outside the protocol's protection (<a href="08-migration-upgrades.html#GOV-02">GOV-02</a>)</td></tr>
+<tr><td>Migration</td><td>Migration requires a bounded window in which the legacy path is frozen</td><td>Availability gap during migration; the state machine and its stall behaviour are specified in <a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td>Scope</td><td>This is a specification; there is no implementation, audit, model or measurement</td><td>Every "Proven" in this document is an argued property, not a machine-checked or tested one</td></tr>
+</tbody></table>
+<span class="why">Failure mode: a limitation list that omits the ones that hurt — specifically the
+availability assumption, the unmeasured parameters, and the fact that the safety argument stops at the
+one-third boundary.</span>
+<span class="pill proven">Proven</span></div>
+
+<h2 id="rejected">Rejected alternatives</h2>
+
+<div class="rule" id="LIM-02"><span class="rid">LIM-02 — rejected alternatives and their tradeoffs</span>
+<span class="norm">Each alternative below was considered and rejected for a stated reason. A future
+change of direction must reopen the corresponding entry here rather than silently diverge.</span>
+<table>
+<thead><tr><th>Alternative</th><th>Why rejected</th><th>What would reopen it</th></tr></thead>
+<tbody>
+<tr><td>DAG-based BFT (Narwhal/Bullshark/Mysticeti)</td><td>Finality evidence is structural — many certificates and causal relations — so the guest would verify orders of magnitude more signatures per batch; no zk proof of a DAG-BFT commit exists</td><td>A commitment scheme with constant-size, independently verifiable finality evidence</td></tr>
+<tr><td>HotStuff-2 / Carry-the-Tail</td><td>Runner-up. Requires a threshold-signature subsystem (DKG/resharing) as a new liveness dependency, and its two-certificate commit rule complicates light-client-style checking; primary sources were partly unretrievable, so the exact rules remain unverified</td><td>A threshold-signature construction that survives permissionless set churn with an audited proof</td></tr>
+<tr><td>BLS aggregate commit certificates as the default</td><td>Would change the vote format (a protocol modification), and in-guest pairings/MSM are unverified on both backends</td><td>The measurement spike in <a href="../02-consensus-survey.md">02</a> §"measurement spike" showing the aggregate is materially cheaper in-guest</td></tr>
+<tr><td>Delegated stake in v1</td><td>Safe delegation requires slash pass-through, slashable unbonding delegations and slashable redelegations — the largest complexity surface in comparable staking systems — and complicates evidence attribution</td><td>A user decision plus a design that keeps delegators slashable</td></tr>
+<tr><td>Mode B (permissionless L1 recovery)</td><td>Mode A satisfies every requirement within its stated liveness assumptions; Mode B introduces a mechanism that can replace honestly confirmed history and its cheap-trigger resistance is unresolved (<a href="06-recovery-exceptions.html#REC-03">REC-03</a>)</td><td>A requirement that Mode A provably cannot satisfy inside its assumptions, established per D2 and independently reviewed</td></tr>
+<tr><td>A new consensus design</td><td>The brief prefers an established protocol with a defensible integration over a new collection of quorum, timeout and handoff rules</td><td>Evidence that no established family can carry the workload</td></tr>
+<tr><td>Reusing the prior Etna seat/sortition committee</td><td>A different security model: bonded seats are not stake-weighted voting power, and reusing it would misrepresent seat share as stake</td><td>Nothing — it would misdescribe the protocol</td></tr>
+<tr><td>Based sequencing (L1 proposers order L2 blocks)</td><td>Excluded by D4, which permits L2 PoS to determine order</td><td>A user decision reversing D4</td></tr>
+<tr><td>URC (preconfirmation registry) as a building block</td><td>Excluded by the brief</td><td>Nothing</td></tr>
+<tr><td>TEE-based attestation accepted as proof</td><td>A TEE's attestation is not a ZK proof and cannot be verified by an L1 contract to the standard required here</td><td>Nothing; TEEs may appear only as an auxiliary, never as an accepted proof</td></tr>
+<tr><td>Data-first publication with a later proof</td><td>Excluded by D5; also the exact mechanism that produced the June 2026 expiry incident</td><td>Nothing</td></tr>
+<tr><td>Per-address stake caps as an anti-concentration measure</td><td>A cap constrains labels, not capital; the overhead it adds is bounded by <code>kappa/C</code> and never cancels the dominant acquisition cost</td><td>Nothing — but per-validator minimums may still be used for operator-economics reasons</td></tr>
+<tr><td>Staking in ETH or a new token</td><td>Excluded by D7</td><td>Nothing</td></tr>
+<tr><td>Anchor-free L2 execution as the prior Etna project defined it</td><td>The prior work's anchor-free design is compatible in principle, but this design needs the L1 facts it consumes to be Ethereum-final (<a href="01-system-model.html#SYS-02">SYS-02</a>); whether the shared contracts can be served without an anchor at all is left OPEN</td><td>A migration analysis showing the retained surfaces need no anchor-derived fact</td></tr>
+</tbody></table>
+<span class="pill proven">Proven</span></div>
+
+<h2 id="redteam">Adversarial review and findings</h2>
+
+<div class="rule" id="LIM-03"><span class="rid">LIM-03 — red-team finding resolutions</span>
+<span class="norm">Every finding from the adversarial review rounds is recorded in
+<code>iterations/</code> with its exact rule or missing rule, preconditions, concrete attack trace,
+whether the attack is inside the claimed fault model, attacker resources and cost, harm, affected
+requirements, and either a resolution or an explicit acceptance. A finding is closed only when the
+original attack trace is retained and the specification states precisely why it no longer
+succeeds.</span>
+<table>
+<thead><tr><th>Round</th><th>Snapshot</th><th>Critical / High raised</th><th>Disposition</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>iterations/01-round.md</code></td><td colspan="2">see the round file; the finding ledger is authoritative</td></tr>
+</tbody></table>
+<span class="why">Failure mode: findings closed by editing the specification without recording the
+trace, so a later reader cannot tell what was attacked or whether the fix is the reason it
+fails.</span>
+<span class="pill open">Open</span> <span class="small">(populated by the review rounds;
+specification-level convergence is claimed only under the stopping rules of the project plan)</span></div>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK reference specification · <a href="index.html">rule index</a> · <a href="../learn/index.html">learning course</a></p></footer>
+</body></html>

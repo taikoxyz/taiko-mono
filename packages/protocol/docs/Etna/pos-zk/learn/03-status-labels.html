@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>03 — What "confirmed" actually means · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
+  <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
+  <a href="../spec/index.html">Specification</a></nav>
+</header>
+<main>
+<h1>03 — What "confirmed" actually means</h1>
+
+<div class="card">
+<p><strong>Problem this lesson solves.</strong> It gives the eight status labels with the evidence each
+one requires, the guarantee it carries and the condition that can revoke it, so that no interface or
+document has to invent a word like "confirmed".</p>
+</div>
+
+<h2 id="plain">In plain language</h2>
+
+<p>A status label is not decoration. Each one is a promise about <em>evidence</em>: what a participant
+must actually hold before the label is true. "proposed" means only that an object arrived. "voted"
+means a validator signed. "PoS-finalized" means a published certificate with more than two thirds of
+an epoch's voting power, plus the receiver's own data check. A word like "confirmed" names no evidence,
+so nobody can check it and nobody can be shown to have been wrong when they used it.</p>
+
+<p>The specification closes that hole twice. <a href="../spec/index.html#GEN-07">GEN-07</a> makes the
+status labels the controlled vocabulary and forbids introducing a synonym for one or redefining a
+glossary term locally. <a href="../spec/index.html#STATUS-11">STATUS-11</a> adds a disclosure
+obligation: any interface, document or learning page that shows a progress indicator must use these
+labels, must state which status is being shown, and — for anything shown before the label
+<em>accepted on L1</em> — must say that the batch's data and proof are not yet on Ethereum.</p>
+
+<p>There are <strong>eight</strong> labels
+(<a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §2,
+<a href="../spec/index.html#STATUS-01">STATUS-01</a>–<a href="../spec/index.html#STATUS-08">STATUS-08</a>).
+One of them carries two names because it has two modes: in the selected Mode A the label is
+<strong>PoS-finalized</strong> and it is permanent; in the unselected Mode B the same certificate would
+be labelled <strong>PoS-certified / provisional</strong> and would be revocable through the published
+recovery rules. The rest of the course uses the Mode A name because Mode A is what was selected, and
+says so whenever the difference matters.</p>
+
+<p>Rules about labels are not labels. Three more rule ids complete the picture:
+<a href="../spec/index.html#STATUS-09">STATUS-09</a> (a node's local possession is not availability for
+anyone else), <a href="../spec/index.html#STATUS-10">STATUS-10</a> (an elapsed timeout is never
+evidence that something does not exist) and STATUS-11 (the disclosure obligation). They constrain what
+may be claimed; they are not statuses a block can hold.</p>
+
+<h2 id="definitions">Precise definitions</h2>
+
+<ul>
+<li><strong>Status label.</strong> One of the eight names fixed by the specification, each with an
+evidence set, a guarantee, a revocation condition and an audience
+(<a href="../spec/index.html#status">STATUS-01–STATUS-11</a>,
+<a href="../spec/index.html#GEN-07">GEN-07</a>).</li>
+<li><strong>Evidence.</strong> What the holder of the status must have — not what it has heard about.
+For finality this includes a <em>published</em> commit certificate <em>and</em> the receiver's own data
+check (<a href="../spec/index.html#STATUS-04">STATUS-04</a>).</li>
+<li><strong>Guarantee.</strong> What a user may rely on once the evidence exists. For locally
+execution-valid it is local: this node will not build on an invalid block
+(<a href="../spec/index.html#STATUS-02">STATUS-02</a>).</li>
+<li><strong>Revocation.</strong> The condition that can take the status away. A vote can never be
+revoked — it is a signed commitment — while accepted on L1 is revocable by an L1 reorganisation below
+finality (<a href="../spec/index.html#STATUS-03">STATUS-03</a>,
+<a href="../spec/index.html#STATUS-06">STATUS-06</a>).</li>
+<li><strong>Disclosure obligation.</strong> The duty of any progress display to use the labels, to say
+which status it shows, and to carry the "data and proof are not yet on Ethereum" statement before
+accepted on L1 (<a href="../spec/index.html#STATUS-11">STATUS-11</a>).</li>
+</ul>
+
+<h2 id="table">The eight labels, with evidence and revocation</h2>
+
+<table>
+<thead><tr><th>#</th><th>Label (exact)</th><th>Evidence required</th><th>Guarantee</th><th>What revokes it</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><a href="../spec/index.html#STATUS-01">proposed</a></td><td>a block body received from a leader; the object itself</td><td>none — it may be invalid</td><td>discarded freely</td></tr>
+<tr><td>2</td><td><a href="../spec/index.html#STATUS-02">locally execution-valid</a></td><td>this node executed the block against a known parent state and every consensus and validity rule passed</td><td>this node will not build on an invalid block (visible to this node only)</td><td>yes — if the parent is displaced</td></tr>
+<tr><td>3</td><td><a href="../spec/index.html#STATUS-03">voted</a></td><td>a validator signed a vote for this block at a given (height, round)</td><td>the vote irreversibly constrains that validator's future votes through the lock rule (CONS-04); signing a conflicting vote is slashable equivocation (CONS-11)</td><td>never — it is a signed commitment</td></tr>
+<tr><td>4a</td><td><a href="../spec/index.html#STATUS-04">PoS-finalized</a> (Mode A)</td><td>a <em>published</em> commit certificate over (chain id, epoch, height, block hash) with strictly more than two thirds of the epoch's voting power, plus the receiver's own data-availability check</td><td>in Mode A permanent: no recovery, timeout, rotation, admission rule or normal upgrade may revoke it — conditional on INV-01's premises</td><td>never in Mode A</td></tr>
+<tr><td>4b</td><td><a href="../spec/index.html#STATUS-04">PoS-certified / provisional</a> (Mode B only; not selected)</td><td>the same certificate, with the protocol disclosing that a recovery event may supersede it before L1 acceptance</td><td>a strong, economically-backed confirmation that is explicitly <em>not</em> irreversible</td><td>yes — only through the published recovery rules</td></tr>
+<tr><td>5</td><td><a href="../spec/index.html#STATUS-05">proof-ready</a></td><td>a completed ZK proof bound to this batch's data commitment exists off-chain</td><td>the batch can be landed; a proof of a <em>different</em> batch is not a substitute</td><td>a better proof of the same data commitment may replace it</td></tr>
+<tr><td>6</td><td><a href="../spec/index.html#STATUS-06">accepted on L1</a></td><td>the Inbox accepted (data, proof) in <strong>one</strong> transaction and advanced its checkpoint (L1-01)</td><td>the batch's data is public on Ethereum and the transition is L1-committed</td><td>only an L1 reorganisation below finality</td></tr>
+<tr><td>7</td><td><a href="../spec/index.html#STATUS-07">Ethereum-finalized</a></td><td>the accepting L1 transaction is in a finalized Ethereum block, or the L1 fact the claim depends on is at the configured finality depth</td><td>the L1 fact can no longer be reorganised (per the rule's own wording)</td><td>effectively no, except a catastrophic Ethereum consensus failure</td></tr>
+<tr><td>8</td><td><a href="../spec/index.html#STATUS-08">withdrawal-eligible</a></td><td>status 6 or 7, plus the message-authentication path and any delay required by MSG-03</td><td>the withdrawal may proceed under those rules</td><td>bounded by those same rules</td></tr>
+</tbody></table>
+
+<p class="small">This table summarises; the <a href="../spec/index.html#status">specification text</a> is
+normative and wins on any disagreement. Where the table says "per the rule's own wording", the lesson
+has deliberately not strengthened it.</p>
+
+<h2 id="diagram">Diagram — the labels and the two words that are not labels</h2>
+
+<figure>
+<svg viewBox="0 0 900 300" role="img" aria-label="A vertical list of the eight labels on the left, and on the right a crossed-out box for the words confirmed and final, with an arrow showing how final conflates two different labels.">
+  <defs>
+    <marker id="ar-c1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#f7768e"/></marker>
+  </defs>
+  <rect x="20" y="20" width="320" height="255" rx="10" fill="#161b22" stroke="#2d3743"/>
+  <text x="40" y="46" fill="#e6edf3" font-size="13">The eight labels (specification)</text>
+  <text x="40" y="72" fill="#dbe3ec" font-size="11">1 · proposed (STATUS-01)</text>
+  <text x="40" y="94" fill="#dbe3ec" font-size="11">2 · locally execution-valid (STATUS-02)</text>
+  <text x="40" y="116" fill="#dbe3ec" font-size="11">3 · voted (STATUS-03)</text>
+  <text x="40" y="138" fill="#dbe3ec" font-size="11">4a · PoS-finalized (STATUS-04, Mode A)</text>
+  <text x="40" y="160" fill="#9aa7b4" font-size="11">4b · PoS-certified / provisional (Mode B only)</text>
+  <text x="40" y="182" fill="#dbe3ec" font-size="11">5 · proof-ready (STATUS-05)</text>
+  <text x="40" y="204" fill="#dbe3ec" font-size="11">6 · accepted on L1 (STATUS-06)</text>
+  <text x="40" y="226" fill="#dbe3ec" font-size="11">7 · Ethereum-finalized (STATUS-07)</text>
+  <text x="40" y="248" fill="#dbe3ec" font-size="11">8 · withdrawal-eligible (STATUS-08)</text>
+
+  <rect x="390" y="40" width="230" height="70" rx="10" fill="#2a1218" stroke="#5c2630"/>
+  <text x="505" y="68" fill="#f7768e" font-size="14" text-anchor="middle">"confirmed"</text>
+  <text x="505" y="90" fill="#f7768e" font-size="11" text-anchor="middle">not a status: no evidence, no guarantee</text>
+  <line x1="400" y1="50" x2="610" y2="100" stroke="#f7768e" stroke-width="2"/>
+  <line x1="610" y1="50" x2="400" y2="100" stroke="#f7768e" stroke-width="2"/>
+
+  <rect x="390" y="140" width="230" height="70" rx="10" fill="#33290f" stroke="#5c4a1c"/>
+  <text x="505" y="168" fill="#e0af68" font-size="14" text-anchor="middle">"final"</text>
+  <text x="505" y="190" fill="#e0af68" font-size="11" text-anchor="middle">hides which of two labels is meant</text>
+  <line x1="625" y1="175" x2="700" y2="145" stroke="#f7768e" stroke-width="1.4" marker-end="url(#ar-c1)"/>
+  <line x1="625" y1="175" x2="700" y2="240" stroke="#f7768e" stroke-width="1.4" marker-end="url(#ar-c1)"/>
+  <rect x="705" y="115" width="175" height="50" rx="8" fill="#1c2330" stroke="#bb9af7"/>
+  <text x="792" y="137" fill="#e6edf3" font-size="11" text-anchor="middle">PoS-finalized</text>
+  <text x="792" y="154" fill="#9aa7b4" font-size="10" text-anchor="middle">STATUS-04 · a certificate</text>
+  <rect x="705" y="215" width="175" height="50" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="792" y="237" fill="#e6edf3" font-size="11" text-anchor="middle">Ethereum-finalized</text>
+  <text x="792" y="254" fill="#9aa7b4" font-size="10" text-anchor="middle">STATUS-07 · an L1 block</text>
+  <text x="390" y="250" fill="#9aa7b4" font-size="11">GEN-07 bans synonyms for labels; the specification's</text>
+  <text x="390" y="268" fill="#9aa7b4" font-size="11">own warning names "confirmed" among the banned substitutions.</text>
+</svg>
+<figcaption>Two labels, two different pieces of evidence. One word, "final", can be made to cover
+either — which is exactly why the specification does not use it bare.</figcaption>
+</figure>
+
+<h2 id="example">Worked example — auditing one progress display</h2>
+
+<p>Suppose an interface shows three strings: <em>Pending</em>, <em>Confirmed ✓</em>, <em>Final</em>.
+The strings are invented here and are <span class="pill unmeasured">unmeasured</span> — this is not a
+survey. The label count is fixed by the specification.</p>
+
+<table>
+<thead><tr><th>Quantity</th><th>Value</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>Status labels fixed by the specification</td><td>8 (status 4 has two mode-specific names)</td><td><span class="pill sourced">sourced</span> — 01-requirements §2, STATUS-01–STATUS-08</td></tr>
+<tr><td>Distinct words in the hypothetical display</td><td>3</td><td><span class="pill unmeasured">unmeasured</span> — a made-up example</td></tr>
+<tr><td>Words in the display that are status labels</td><td>0 — neither "Pending" nor "Confirmed" nor "Final" is a fixed label</td><td><span class="pill derived">derived</span> from the list above</td></tr>
+<tr><td>Labels with no distinct display ("Pending" can stand for all three local ones)</td><td>at least 5: proof-ready, accepted on L1, Ethereum-finalized, withdrawal-eligible, and one of the local labels</td><td><span class="pill derived">derived</span> from the two rows above and the label definitions</td></tr>
+<tr><td>Words banned by name in the specification's vocabulary warning</td><td>"final", "irreversible", "confirmed" when substituted for a weaker status</td><td><span class="pill sourced">sourced</span> — specification index, status-labels warning</td></tr>
+</tbody></table>
+
+<p>Now the same display, rewritten. Each line names a status and carries the STATUS-11 sentence when it
+is shown before accepted on L1:</p>
+<ul>
+<li>"proposed — no guarantee" (STATUS-01).</li>
+<li>"locally execution-valid on this node — not agreement with anyone else" (STATUS-02).</li>
+<li>"PoS-finalized (Mode A) — the batch's data and proof are not yet on Ethereum" (STATUS-04 and
+STATUS-11). A display may only show this once a published certificate exists <em>and</em> the party
+showing it has done the data check the rule requires; otherwise it is showing evidence it does not
+hold.</li>
+<li>"proof-ready — still not settled on Ethereum" (STATUS-05).</li>
+<li>"accepted on L1 — data and proof are on Ethereum" (STATUS-06).</li>
+<li>"Ethereum-finalized" (STATUS-07) and then "withdrawal-eligible" (STATUS-08) once the message path
+and delay are satisfied.</li>
+</ul>
+
+<h2 id="prevents">Attacks this prevents</h2>
+<ul>
+<li><strong>Silent status inflation.</strong> A display that shows a weaker status with a stronger
+word, so a user acts on a guarantee the evidence does not support (STATUS-11, and the specification's
+warning against substituting "confirmed" for a weaker status).</li>
+<li><strong>Vocabulary drift across documents.</strong> The same word meaning different guarantees in
+the specification, a UI and a blog post (GEN-07).</li>
+<li><strong>Withdrawal on a "confirmation".</strong> A user treating a 2 s or certificate-time display
+as settlement when accepted on L1 has not happened (STATUS-06, STATUS-08).</li>
+<li><strong>Ambiguous "final".</strong> Collapsing PoS-finalized and Ethereum-finalized, which have
+different evidence and different revocation conditions (STATUS-04 vs STATUS-07).</li>
+</ul>
+
+<h2 id="not-prevents">Attacks this does not prevent</h2>
+<ul>
+<li>A dishonest interface that simply ignores the labels. The specification states the obligation and
+its failure mode; this course did not find a stated on-chain enforcement mechanism for STATUS-11 in the
+pages that exist at revision 2026-10-05 — a finding to report rather than paper over.</li>
+<li>The underlying failures the labels describe: an unavailable finalized block still halts settlement,
+and a one-third Byzantine coalition still breaks the uniqueness premise
+(<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>,
+<a href="../spec/10-assurance.html#INV-01">INV-01</a>).</li>
+<li>A user who reads the correct label and does not understand it.</li>
+<li>Anything outside the rule's trigger: STATUS-11 speaks of interfaces, documents and learning pages
+that show a progress indicator (the course's reading of its scope; the specification text governs).</li>
+</ul>
+
+<h2 id="selfcheck">Self-check</h2>
+<details><summary>Which two labels can the bare word "final" hide, and why does it matter?</summary>
+<p>PoS-finalized (STATUS-04, evidence: a published commit certificate plus the receiver's data check)
+and Ethereum-finalized (STATUS-07, evidence: the accepting L1 transaction in a finalized Ethereum
+block). They have different evidence and different revocation conditions, so collapsing them changes
+what a user may rely on.</p></details>
+<details><summary>What must accompany a "confirmation" shown before accepted on L1?</summary>
+<p>The statement that the batch's data and proof are not yet on Ethereum (STATUS-11), and the display
+must name the status it is actually showing.</p></details>
+<details><summary>My node holds the block body. May it report the block to a peer as accepted on L1?</summary>
+<p>No, twice over. Local possession is not availability (STATUS-09), and a node may not report a status
+above voted on the basis of local possession alone. Accepted on L1 requires the L1 transaction that
+carried data and proof (STATUS-06).</p></details>
+
+<div class="card">
+<p><strong>Challenge this.</strong> The lesson relied on: (i) the eight-label enumeration of
+01-requirements §2 with 4a/4b sharing one number and one mode being unselected; (ii) the claim that
+summarising a rule in a table does not restate it — the specification text remains normative and wins;
+(iii) the invented UI strings being an illustration, not a measurement of any real interface;
+(iv) the course's reading that STATUS-08 applies to a withdrawal claim rather than to a block, while
+the requirements document describes all eight as statuses "a block or batch may hold" — a tension the
+lesson flags rather than resolves; (v) "final" and "confirmed" being banned only when substituted for
+a weaker status, not as English words. Falsifier: find a table row whose guarantee is stronger than the
+linked rule's text.</p>
+</div>
+
+<h2 id="more">Where to read more</h2>
+<ul>
+<li><a href="../spec/index.html#status">The normative status labels</a> and the specification's
+status-labels warning; <a href="../spec/index.html#GEN-07">GEN-07</a> on controlled vocabulary.</li>
+<li><a href="../spec/01-system-model.html#SYS-03">SYS-03</a> for the six timelines a display must not
+equate; <a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a> for withdrawal delays.</li>
+<li><a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §2: the
+labels as first stated, including the local/public/L1 classification.</li>
+<li><a href="../06-recovery-exceptions.html">06 — recovery and exceptions</a> for the withholding rules
+that STATUS-10 and STATUS-11 depend on.</li>
+<li>Siblings: <a href="02-five-things-people-confuse.html">lesson 02</a> ·
+<a href="04-taiko-staking.html">lesson 04</a>.</li>
+</ul>
+</main>
+<footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·
+<a href="limitations.html">limitations</a></p></footer>
+</body></html>

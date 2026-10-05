@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>05 — Proof statement · Etna PoS + ZK</title><link rel="stylesheet" href="spec.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span>
+  <span class="tag">reference specification</span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="01-system-model.html">Model &amp; roles</a>
+    <a href="02-consensus.html">Consensus</a>
+    <a href="03-membership-staking.html">Staking</a>
+    <a href="04-l1-integration.html">L1 integration</a>
+    <a href="05-proof-statement.html">Proof statement</a>
+    <a href="06-recovery-exceptions.html">Recovery</a>
+    <a href="07-economics-slashing.html">Economics</a>
+    <a href="08-migration-upgrades.html">Migration</a>
+    <a href="09-parameters.html">Parameters</a>
+    <a href="10-assurance.html">Assurance</a>
+    <a href="../learn/index.html">Learn</a>
+  </nav>
+</header>
+<main>
+<h1>05 — Proof statement: what the ZK proof establishes, and what it does not</h1>
+
+<div class="warnbox">
+<p><strong>A ZK proof does not establish that no hidden competing chain exists.</strong> It establishes
+that <em>the evidence presented</em> is sufficient, under the stated consensus assumptions, for the
+claimed transition from an <em>authenticated predecessor</em> to a claimed successor. If at least one
+third of the epoch's voting power violates <code>A-CONS-1</code>, two conflicting certificates can both
+be cryptographically valid and both can produce accepting proofs. ZK verification does not repair
+failed consensus assumptions.</p>
+</div>
+
+<div class="rule" id="PRF-01"><span class="rid">PRF-01 — statement overview: one combined guest</span>
+<span class="norm">A single guest program proves the conjunction of two claims for one batch:
+<strong>(W1) consensus finality</strong> — that the batch's head block carries a valid commit
+certificate over (chain id, epoch, height, round, block id) signed by more than two thirds of the
+voting power of the epoch's validator set, where that set is authenticated from L1 state, and that
+every epoch boundary crossed by the batch is accompanied by an authenticated set transition; and
+<strong>(W2) execution</strong> — that executing the batch's blocks, in the order fixed by the
+consensus chain, from the predecessor state root yields the claimed successor state root. The guest
+also proves <strong>(W3) data binding</strong> — that the data it executed is the data the accepting
+L1 transaction publishes (see <a href="#PRF-07">PRF-07</a>). Acceptance requires all three.</span>
+<span class="why">Failure mode if split: a proof that a block was finalized without proving what it
+executed (or vice versa) admits a batch whose state transition was never agreed, or a state
+transition over data that was never certified.</span>
+<span class="pill proven">Proven</span> <span class="small">(argument; premises listed per rule)</span></div>
+
+<h2 id="inputs">Public inputs</h2>
+
+<div class="rule" id="PRF-02"><span class="rid">PRF-02 — public inputs (exact list, order is normative)</span>
+<span class="norm">The guest commits to exactly the following journal, encoded canonically per
+<a href="index.html#GEN-05">GEN-05</a>. The L1 verifier contract does not accept a caller-supplied
+journal: for every field marked <em>L1</em> it derives the value itself from L1 state or from the
+transaction, and it recomputes the Fiat–Shamir challenge rather than trusting the prover's value.</span>
+<pre><code>Journal {
+  bytes32 domain;            // "ETNA_JOURNAL_V1" right-padded ASCII    (L1: constant)
+  uint256 l1ChainId;         //                                        (L1: block.chainid)
+  uint256 l2ChainId;         //                                        (L1: config)
+  uint64  prevHeight;        // predecessor checkpoint height          (L1: Inbox storage)
+  bytes32 prevBlockHash;     // predecessor L2 block hash              (L1: Inbox storage)
+  bytes32 prevStateRoot;     // predecessor L2 state root              (L1: Inbox storage)
+  uint64  epoch;             // epoch of the head block                (L1: checked vs schedule)
+  bytes32 validatorSetRoot;  // canonical set commitment for that epoch(L1: staking contract)
+  uint256 totalVotingPower;  // sum of effective stake in that set     (L1: staking contract)
+  uint256 quorumThreshold;   // strict two-thirds threshold            (L1: recomputed)
+  bytes32 configHash;        // consensus-relevant config commitment   (L1: Inbox storage)
+  uint64  firstHeight;       // first L2 height in the batch           (L1: checked)
+  uint64  lastHeight;        // head height                            (L1: checked)
+  bytes32 headBlockHash;     // head block hash                        (L1: checked vs chain)
+  bytes32 postStateRoot;     // successor state root                   (L1: new checkpoint value)
+  bytes32 dataCommitment;    // keccak256 of the canonical batch data  (L1/D5 binding, DA-01..DA-03)
+  bytes32 blobHashesHash;    // keccak256 of ordered versioned hashes  (L1: from BLOBHASH)
+  bytes32 challengeZ;        // Fiat-Shamir point over all other fields(L1: recomputed; must match)
+  bytes32[] evaluationsY;    // one polynomial evaluation per blob     (L1: passed to precompile)
+}</code></pre>
+<span class="why">Failure mode if any field were caller-supplied: a prover could assert its own
+validator set, quorum threshold or predecessor, and the proof would be sound but meaningless. This is
+the highest-risk integration point identified in the zkVM research
+(<a href="../03-zkvm-feasibility.md">03</a>).</span>
+<span class="pill proven">Proven</span> <span class="small">(conditional on the L1 derivations being implemented as stated)</span></div>
+
+<div class="rule" id="PRF-03"><span class="rid">PRF-03 — private witness; the validator set is never prover-defined</span>
+<span class="norm">The witness contains, and the guest fully constrains, at least: (a) the epoch's
+validator entries — each a (public key, effective stake) pair — with Merkle inclusion and ordering
+proofs against <code>validatorSetRoot</code>; (b) the head block's commit evidence — per-signer
+signatures, the signer bitmap, and the canonical vote bytes each signature covers; (c) the header chain
+from <code>prevHeight + 1</code> to <code>lastHeight</code>, including each header's
+<code>validators_hash</code> and <code>next_validators_hash</code>; (d) for every epoch boundary
+crossed, the transition evidence required by <a href="#PRF-05">PRF-05</a>; (e) the batch's transaction
+data and the pre-state witness needed for execution; (f) the blob field elements used by
+<a href="#PRF-07">PRF-07</a>. <strong>No witness element may define the authoritative validator
+set.</strong> A set is accepted only if its recomputed commitment equals <code>validatorSetRoot</code>,
+and that root comes from L1 state, never from the proof payload.</span>
+<span class="why">Failure mode: a prover supplies a set it controls together with matching signatures,
+and the proof "verifies" a finality claim about a chain no independent validator ever saw.</span>
+<span class="pill proven">Proven</span> <span class="small">(premise: the PRF-02 L1 derivations)</span></div>
+
+<h2 id="checks">What the guest checks</h2>
+
+<div class="rule" id="PRF-04"><span class="rid">PRF-04 — consensus-evidence checks</span>
+<span class="norm">For the head block's commit certificate the guest checks, in this order:
+(i) every signature verifies under the corresponding public key from the authenticated set, over the
+canonical vote bytes for (domain tag, l2ChainId, epoch, height, round, block id);
+(ii) signers are distinct — the bitmap has exactly one bit per distinct signer and no bit outside the
+set;
+(iii) the sum of the effective stake of the signers, computed from the authenticated entries, is
+strictly greater than <code>quorumThreshold</code>, where the threshold is the minimal integer
+<code>q</code> with <code>3q &gt; 2 · totalVotingPower</code>, computed with the same rounding rule as
+the L1 contract so that no guest/contract mismatch is possible;
+(iv) <code>totalVotingPower</code> equals the sum of the authenticated entries' effective stakes;
+(v) the head block hash equals the hash of the reconstructed head header, and the header chain links
+back to <code>prevBlockHash</code> by parent hash with no gaps.</span>
+<span class="why">Failure modes addressed: double counting a signer, counting stake twice, a rounding
+discrepancy between guest and contract, and a certificate over a block that is not the one whose header
+chain was executed.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="PRF-05"><span class="rid">PRF-05 — epoch and set-transition checks</span>
+<span class="norm">For every epoch boundary inside the batch the guest checks that: (i) the last header
+of the closing epoch commits, in <code>next_validators_hash</code>, to the commitment of the opening
+epoch's set, encoded per <a href="02-consensus.html#CONS-10">CONS-10</a>; (ii) the first block of the
+new epoch commits, in its consensus evidence, to the last block finalized in the previous epoch
+(<a href="02-consensus.html#CONS-09">CONS-09</a>); (iii) each epoch's set commitment equals the value
+the L1 staking contract fixes for that epoch, supplied as a public input rather than as a witness;
+(iv) epoch numbers are strictly increasing across the batch. A batch that spans a boundary must carry
+the transition evidence; transitions may not be skipped.</span>
+<span class="why">Failure modes addressed: set substitution at a boundary, a fork created by switching
+sets at different heights on different branches, and a prover choosing an "easy" set.</span>
+<span class="pill proven">Proven</span> <span class="small">(the lock carry-over premise is
+<a href="02-consensus.html#CONS-09">CONS-09</a>, marked Assumed-with-argument)</span></div>
+
+<div class="rule" id="PRF-06"><span class="rid">PRF-06 — execution checks</span>
+<span class="norm">The guest executes every block in the range in consensus order, starting from
+<code>prevStateRoot</code>, applies each block's transactions under the L2 execution rules, and checks
+that each resulting state commitment equals the state root committed by that block's header; the final
+state commitment must equal <code>postStateRoot</code>. The state commitment function is
+Ethereum-compatible (Merkle–Patricia root over the account and storage tries), because the design
+preserves type-1 execution semantics; substituting a different commitment scheme is a normative change
+and not an implementation choice.</span>
+<span class="why">Failure modes addressed: skipping blocks, reordering blocks, executing against a
+different pre-state, and a state-root scheme the bridge cannot verify.</span>
+<span class="pill proven">Proven</span> <span class="small">(premise: the L2 execution rules are fixed by the preserved EVM semantics)</span></div>
+
+<div class="rule" id="PRF-07"><span class="rid">PRF-07 — data-commitment binding for both data paths</span>
+<span class="norm">Exactly one of the following holds, and the journal records which.
+<strong>(a) Calldata path.</strong> The L1 contract hashes the exact calldata slice carrying the batch
+data and requires <code>dataCommitment</code> to equal that hash; the guest independently recomputes
+the same hash over the data it executed and requires equality. Both sides hash the same bytes, so no
+probabilistic argument is needed.
+<strong>(b) Blob path.</strong> (i) For each index <code>i</code>, the contract requires
+<code>blobhash(i)</code> in this transaction to be non-zero and to equal the <code>i</code>-th
+versioned hash committed by the proof. (ii) The contract recomputes
+<code>challengeZ = H(all other journal fields)</code> and requires the proof's <code>challengeZ</code>
+to match, so the prover cannot choose the point after fixing its data. (iii) For each blob the
+contract calls the EIP-4844 point-evaluation precompile at <code>0x0A</code> with
+<code>(versionedHash_i, z, y_i, commitment_i, proof_i)</code>, which verifies both
+<code>kzg_to_versioned_hash(commitment_i) == versionedHash_i</code> and the KZG opening
+<code>p(z) = y_i</code>; the call costs 50,000 gas <span class="pill sourced">sourced</span> (EIP-4844).
+(iv) The guest computes, from the blob field elements it actually executed, the evaluation
+<code>p'(z)</code> of the polynomial those elements interpolate, and requires <code>p'(z) == y_i</code>
+for every blob. (v) The guest also requires <code>keccak256(executed data) == dataCommitment</code> as
+in (a).</span>
+<span class="why">Why (b) is sound: the published blob is fixed by the protocol's KZG commitment before
+the prover fixes <code>z</code>, because <code>z</code> is derived by the contract from the prover's own
+committed values. If the executed data and the published blob differ as polynomials, their evaluations
+agree at <code>z</code> with probability at most <code>deg/|F|</code> (about 2<sup>-243</sup>) per
+attempt, and each attempt requires a fresh commitment. Premises: KZG binding, the random-oracle model
+for the Fiat–Shamir derivation, canonical field elements, and correct in-guest field arithmetic. If any
+premise fails the blob path is unsound, which is why the calldata path remains unconditionally
+available.</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(in-guest cost of the evaluation is not measured; see <a href="../03-zkvm-feasibility.md">03</a>)</span></div>
+
+<div class="rule" id="PRF-08"><span class="rid">PRF-08 — why one certificate per batch suffices, and its premises</span>
+<span class="norm">The guest verifies the commit certificate of the <strong>head</strong> block only.
+Every other block in the batch is covered by the header hash chain back to <code>prevBlockHash</code>,
+which the contract has already accepted as a finalized checkpoint. No ancestor certificate is verified
+on-chain or in-guest.</span>
+<span class="why">Argument: under <a href="02-consensus.html#CONS-05">CONS-05</a> a validator
+precommits a block only after validating it and its parent relation, and a certificate requires more
+than two thirds of voting power, so at least one third of the voting power is correct and locked. A
+certificate for the head therefore implies the head is the unique finalized block at its height, hence
+that the entire prefix it commits to is the unique finalized prefix. <strong>Premises:</strong> fewer
+than one third of the epoch's voting power is Byzantine (<code>A-CONS-1</code>); correct validators
+obey <a href="02-consensus.html#CONS-02">CONS-02</a> and
+<a href="02-consensus.html#CONS-04">CONS-04</a>; the set is L1-authenticated. If a premise fails the
+argument fails with it, and the proof does not detect that.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(premises named above; this is the reasoning a light client uses)</span></div>
+
+<div class="rule" id="PRF-13"><span class="rid">PRF-13 — bindings must be cryptographically enforced, never asserted</span>
+<span class="norm">Any value a prover could otherwise choose freely — the validator set, the quorum
+threshold, the predecessor, the data commitment, the challenge point, the configuration hash and the
+program identity — must be derived by the L1 contract itself, or recomputed inside the guest from a
+value the contract derived, or checked by an L1 precompile. A binding that consists only of "the caller
+passed it" is not a binding and must not appear in this specification.</span>
+<span class="why">Failure mode: a proof that is sound in isolation but whose public inputs are
+attacker-chosen — the standard way ZK-rollup integrations fail.</span>
+<span class="pill proven">Proven</span></div>
+
+<h2 id="backends">Backends and lifecycle</h2>
+
+<div class="rule" id="PRF-09"><span class="rid">PRF-09 — both backends realise the same statement; acceptance policy</span>
+<span class="norm">RISC Zero and SP1 must both implement this statement with a byte-identical journal,
+so that a batch's proof is portable between backends. The Inbox accepts a proof from any registered
+verifier whose program-image identity is on the accepted list for the epoch's configuration.
+<strong>Acceptance policy:</strong> the protocol chooses between (a) any single accepted backend, and
+(b) two independent backends for every batch. Policy (a) is the default because two proofs per batch
+double the proving fleet requirement under <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>;
+policy (b) must be adopted if the measured soundness posture of either backend is unacceptable. Either
+way a soundness bug in an accepted backend is a bridge-theft-class failure not repairable by the
+protocol.</span>
+<span class="why">Failure mode: an unstated policy leaves an implementer to decide whether one or two
+proofs are required, which changes both the security argument and the fleet sizing.</span>
+<span class="pill open">Open</span> <span class="small">(resolved by the launch decision; both branches' consequences are stated)</span></div>
+
+<div class="rule" id="PRF-10"><span class="rid">PRF-10 — program-image, verifier and version upgrades</span>
+<span class="norm">The guest program identity (image id / verification key) is bound by the verifier
+contract, not by the prover. An upgrade adds a new accepted identity; it must not remove the ability to
+accept proofs for batches whose head block was finalized under the previous identity
+(<a href="08-migration-upgrades.html#MIG-05">MIG-05</a>,
+<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>). The Inbox may stop accepting an identity only
+after finality of — or a published deadline past — all batches that require it, and must never accept a
+withdrawn identity for new batches. Removing an accepted identity is a governance upgrade and is
+treated as malicious governance (<a href="08-migration-upgrades.html#GOV-02">GOV-02</a>).</span>
+<span class="why">Failure modes addressed: a verifier left accepting a superseded vulnerable identity;
+a proof generated under an old identity becoming unusable after an upgrade, which would strand an
+unsettled batch and — under Mode A — halt settlement.</span>
+<span class="pill assumed">Assumed</span> <span class="small">(the migration discipline is normative; its operational correctness is an implementation gate)</span></div>
+
+<div class="rule" id="PRF-11"><span class="rid">PRF-11 — syscall, hint and accelerator trust model</span>
+<span class="norm">Nothing computed by the host is trusted. Values entering the guest through host
+reads, hints or unconstrained regions are unverified assertions at the point they enter, and each must
+be constrained before use or verified by an explicit check. Accelerated primitives are trusted only to
+the extent the proof system's circuits constrain their input–output relation; the implementer must
+record for each primitive used (a) whether the backend documents it as circuit-accelerated or as guest
+software and (b) which constraint system enforces it. The guest must not treat a recovered public key,
+a decompressed point, or a claimed set membership as verified unless the corresponding relation is
+checked. Point validity, canonical field elements and the edge cases required by each backend's
+documented usage constraints are part of the trusted code base and must be checked explicitly.</span>
+<span class="why">Failure modes addressed: the host-controlled-input class of vulnerabilities
+(including published advisories against both backends) and backend-specific precompile traps, such as
+non-canonical field elements yielding unverifiable proofs, on-curve validity not being enforced by the
+precompile, and points at infinity being unsupported.</span>
+<span class="pill proven">Proven</span> <span class="small">(sourced constraints in <a href="../03-zkvm-feasibility.md">03</a>)</span></div>
+
+<div class="rule" id="PRF-12"><span class="rid">PRF-12 — recursion and aggregation: what it does and does not prove</span>
+<span class="norm">Proofs for several batches may be aggregated into one recursive proof before
+submission only if the aggregation program hard-codes the accepted inner program identities and
+exposes in its own journal the set of (predecessor, successor, data commitment) triples it verified.
+Aggregation is a cost/latency optimisation: it changes nothing about the statement, and an aggregated
+proof must fail to verify if any inner journal is inconsistent with the outer claim. The protocol must
+also be able to operate without aggregation, one proof per batch, because aggregation adds a recursion
+program to the trusted computing base.</span>
+<span class="why">Failure mode: an aggregation layer whose membership check is asserted rather than
+enforced turns many valid proofs into one arbitrary claim — the same class of recursion-circuit defect
+that a published advisory against one backend concerned.</span>
+<span class="pill assumed">Assumed</span> <span class="small">(design constraint stated; in-guest cost of aggregation is <span class="pill unmeasured">unmeasured</span>)</span></div>
+
+<h2 id="notproved">What the proof does not establish</h2>
+<table>
+<thead><tr><th>Not established</th><th>Why</th><th>What would be needed</th></tr></thead>
+<tbody>
+<tr><td>That no competing finalized chain exists</td><td>The certificate is evidence about signatures over one block; uniqueness follows only from the consensus safety argument under <code>A-CONS-1</code></td><td>Nothing cryptographic — only the assumption holding. Two conflicting certificates can both verify.</td></tr>
+<tr><td>That the batch data is retrievable by others</td><td>The proof binds data <em>content</em>; retrieval is a network property</td><td>Retention duties and the backlog cap (<a href="04-l1-integration.html#DA-05">DA-05</a>, <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>)</td></tr>
+<tr><td>That the L2 chain will continue</td><td>Liveness is conditional (<a href="10-assurance.html#LIVE-01">LIVE-01</a>)</td><td>Assumptions <code>A-CONS-2</code>, <code>A-CONS-5</code>, <code>A-DA-2</code>, <code>A-L1-1</code></td></tr>
+<tr><td>That an honest validator behaved correctly off-chain</td><td>Only signed statements are provable</td><td>Objective evidence rules (<a href="07-economics-slashing.html#ECON-04">ECON-04</a>)</td></tr>
+<tr><td>That the guest program itself is correct</td><td>Soundness is relative to the program</td><td>Independent audit; two-backend policy if required by <a href="#PRF-09">PRF-09</a></td></tr>
+</tbody></table>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK reference specification · <a href="index.html">rule index</a> · <a href="../learn/index.html">learning course</a></p></footer>
+</body></html>

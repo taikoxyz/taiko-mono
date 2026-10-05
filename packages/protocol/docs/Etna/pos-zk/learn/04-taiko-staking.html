@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>04 — Why TAIKO must be at risk · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
+  <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
+  <a href="../spec/index.html">Specification</a></nav>
+</header>
+<main>
+<h1>04 — Why TAIKO must be at risk</h1>
+
+<div class="card">
+<p><strong>Problem this lesson solves.</strong> It explains why a vote in this design only means
+something when it is backed by bonded TAIKO that can be taken away, and what the specification does and
+does not claim about concentration, penalties and rewards.</p>
+</div>
+
+<h2 id="plain">In plain language</h2>
+
+<p>A validator's vote is a promise about the future: "I will not sign a conflicting block at this
+height." A promise is only worth something if breaking it costs the promiser. So the protocol ties
+voting power to <strong>stake</strong>: TAIKO bonded in an L1 staking contract, active in the epoch's
+validator set. No eligible stake means the vote does not count, and the stake behind a vote can be
+slashed if the validator is shown to have broken a rule
+(<a href="../spec/10-assurance.html#INV-03">INV-03</a>).</p>
+
+<p><strong>Custody.</strong> The stake is the existing TAIKO ERC-20 held by an L1 staking contract. D7
+fixes the denomination: staking and slashable collateral are TAIKO, gas stays ETH, and there is no
+replacement staking token (<a href="../spec/index.html#fixed">D7</a>,
+<a href="../spec/03-membership-staking.html#MEM-01">MEM-01</a>). The Phase 3 decision document names the
+existing L1 mainnet token address; the rule itself says only "the existing token address", so the
+address is <span class="pill sourced">sourced</span> from that document, not from the rule
+(<a href="../04-architecture-decision.md">04 — architecture decision</a> §3).</p>
+
+<p><strong>Activation.</strong> Joining is objective and permissionless: bond TAIKO, bind an operator
+key, and enter the first-come activation queue (<a href="../spec/03-membership-staking.html#MEM-03">MEM-03</a>).
+The activation delay is a derived quantity — at least one L1 finality depth plus the set-commitment
+lookahead — because the epoch's set must be fixed from L1 state before the epoch begins
+(<a href="../spec/09-parameters.html#params">ACTIVATION_DELAY in 09</a>,
+<a href="../spec/02-consensus.html#CONS-13">CONS-13</a>).</p>
+
+<p><strong>Exit.</strong> Leaving is also objective: an unbonding queue whose delay is derived from the
+<em>whole</em> settlement pipeline, not from proving time alone
+(<a href="../spec/03-membership-staking.html#MEM-05">MEM-05</a>,
+<a href="../spec/07-economics-slashing.html#ECON-03">ECON-03</a>). The evidence window must be shorter
+than that delay, or a validator could unbond between the offence and the evidence
+(<a href="../spec/07-economics-slashing.html#ECON-07">ECON-07</a>).</p>
+
+<p><strong>Slashing follows stake at offence time.</strong> Exiting after an offence does not escape
+the penalty (<a href="../spec/03-membership-staking.html#MEM-06">MEM-06</a>,
+<a href="../spec/10-assurance.html#INV-03">INV-03</a>). Penalties also require objective evidence:
+equivocation, a lock-rule violation, or another objectively encodable offence. A message that did not
+arrive is local suspicion, never misconduct
+(<a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a>,
+<a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a>).</p>
+
+<p><strong>The penalty is convex.</strong> The specification's parameter table gives the correlated
+penalty as a fraction of stake of the form <code>min(m · f, 1)</code>, with <code>m</code> chosen so
+that the penalty saturates when the implicated fraction <code>f</code> reaches the one-third safety
+threshold, and records Ethereum's <code>m = 3</code> as the sourced form
+(<a href="../spec/07-economics-slashing.html#ECON-05">ECON-05</a>,
+<a href="../spec/09-parameters.html#params">09 — correlated penalty</a>). The consequence the project
+records is that the safety threshold and the confiscation threshold coincide
+(<a href="../DECISIONS.md">DECISIONS.md D-4</a>, <span class="pill sourced">sourced</span>).</p>
+
+<p><strong>A cap per address does not stop concentration.</strong> This is one of the project's
+explicit non-arguments: "per-address caps prevent monopolization" may not be used as evidence
+(<a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §6.4). The
+specification states it as a non-claim
+(<a href="../spec/03-membership-staking.html#MEM-10">MEM-10</a>,
+<a href="../spec/07-economics-slashing.html#ECON-10">ECON-10</a>). The reason is short: a cap limits
+<em>labels</em>, not <em>capital</em>. An attacker who wants a fraction b of the stake buys the same
+tokens and splits them over more addresses; the dominant cost, acquiring the tokens, is unchanged. The
+specification's rejected-alternatives entry reaches the same conclusion
+(<a href="../spec/10-assurance.html#LIM-02">LIM-02</a>). No claim is made that one operator will not
+control many addresses, and the honest statement is that concentration is observable, not prevented.</p>
+
+<p><strong>Rewards need a funding decision.</strong> The specification gives a funding identity rather
+than a rate: rewards cannot exceed fees plus priority fees plus MEV plus an explicit subsidy, minus L1
+data cost, L1 verification cost and bridge operations
+(<a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a>,
+<a href="../spec/07-economics-slashing.html#ECON-12">ECON-12</a>,
+<a href="../spec/09-parameters.html#params">09 — reward rate</a>). <strong>TAIKO has no mint path
+today.</strong> The specification records this in its limitations register and reaches the honest
+conclusion: rewards may be unfundable without a user decision — a treasury transfer or a token
+upgrade — and no token-appreciation assumption may substitute for funding
+(<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>,
+<a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a>).</p>
+
+<h2 id="definitions">Precise definitions</h2>
+
+<ul>
+<li><strong>Effective stake / voting power.</strong> The bonded, active TAIKO that counts in an epoch's
+set; only that counts (<a href="../spec/03-membership-staking.html#MEM-02">MEM-02</a>,
+<a href="../spec/09-parameters.html#glossary">glossary</a>). A live token-balance read is not the
+authority for it.</li>
+<li><strong>No consensus without stake at risk.</strong> A key with no eligible stake cannot vote, and a
+vote counts only if the signer's stake is in the authenticated set
+(<a href="../spec/10-assurance.html#INV-03">INV-03</a>).</li>
+<li><strong>Custody.</strong> The L1 staking contract holds the existing TAIKO ERC-20; no new token, no
+ETH bonds (<a href="../spec/03-membership-staking.html#MEM-01">MEM-01</a>,
+<a href="../spec/index.html#fixed">D7</a>).</li>
+<li><strong>Activation.</strong> Objective, permissionless, first-come queue
+(<a href="../spec/03-membership-staking.html#MEM-03">MEM-03</a>), with the delay of
+<a href="../spec/09-parameters.html#params">09 — ACTIVATION_DELAY</a>.</li>
+<li><strong>Exit delay.</strong> The unbonding queue's delay, derived from the complete settlement
+pipeline (<a href="../spec/03-membership-staking.html#MEM-05">MEM-05</a>,
+<a href="../spec/07-economics-slashing.html#ECON-03">ECON-03</a>).</li>
+<li><strong>Slashing at offence time.</strong> The penalty follows the stake the validator held at the
+time of the offence (<a href="../spec/03-membership-staking.html#MEM-06">MEM-06</a>).</li>
+<li><strong>Correlated penalty.</strong> A penalty that grows with the fraction of stake implicated, of
+the form <code>min(m · f, 1)</code>, saturating at the one-third threshold
+(<a href="../spec/07-economics-slashing.html#ECON-05">ECON-05</a>).</li>
+<li><strong>Cap non-claim.</strong> A per-address cap is not an anti-concentration measure and the
+protocol does not claim it is (<a href="../spec/03-membership-staking.html#MEM-10">MEM-10</a>,
+<a href="../spec/10-assurance.html#LIM-02">LIM-02</a>).</li>
+</ul>
+
+<h2 id="diagram">Diagram — the stake lifecycle and the penalty curve</h2>
+
+<figure>
+<svg viewBox="0 0 920 340" role="img" aria-label="Left: the stake lifecycle from TAIKO custody through activation and voting power to slashing and unbonding. Right: the penalty fraction min(3f,1) rising to saturation at one third of stake.">
+  <defs>
+    <marker id="ar-d1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker>
+    <marker id="ar-d2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#f7768e"/></marker>
+  </defs>
+  <rect x="15" y="20" width="470" height="300" rx="10" fill="#161b22" stroke="#2d3743"/>
+  <text x="35" y="46" fill="#e6edf3" font-size="13">Stake lifecycle (L1 custody, L2 consequences)</text>
+  <rect x="40" y="60" width="180" height="44" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="130" y="80" fill="#e6edf3" font-size="11" text-anchor="middle">existing TAIKO ERC-20</text>
+  <text x="130" y="95" fill="#9aa7b4" font-size="9" text-anchor="middle">MEM-01 · D7</text>
+  <rect x="260" y="60" width="180" height="44" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="350" y="80" fill="#e6edf3" font-size="11" text-anchor="middle">L1 staking contract</text>
+  <text x="350" y="95" fill="#9aa7b4" font-size="9" text-anchor="middle">custody</text>
+  <line x1="220" y1="82" x2="255" y2="82" stroke="#7aa2f7" marker-end="url(#ar-d1)"/>
+  <rect x="40" y="122" width="180" height="44" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="130" y="142" fill="#e6edf3" font-size="11" text-anchor="middle">activation queue</text>
+  <text x="130" y="157" fill="#9aa7b4" font-size="9" text-anchor="middle">MEM-03 · permissionless</text>
+  <line x1="130" y1="104" x2="130" y2="118" stroke="#7aa2f7" marker-end="url(#ar-d1)"/>
+  <rect x="260" y="122" width="180" height="44" rx="8" fill="#1c2330" stroke="#bb9af7"/>
+  <text x="350" y="142" fill="#e6edf3" font-size="11" text-anchor="middle">effective stake → voting power</text>
+  <text x="350" y="157" fill="#9aa7b4" font-size="9" text-anchor="middle">MEM-02 · INV-03</text>
+  <line x1="220" y1="144" x2="255" y2="144" stroke="#7aa2f7" marker-end="url(#ar-d1)"/>
+  <rect x="40" y="196" width="180" height="44" rx="8" fill="#2a1218" stroke="#5c2630"/>
+  <text x="130" y="216" fill="#f7768e" font-size="11" text-anchor="middle">offence + objective evidence</text>
+  <text x="130" y="231" fill="#9aa7b4" font-size="9" text-anchor="middle">ECON-04 · WH-02</text>
+  <line x1="130" y1="166" x2="130" y2="192" stroke="#f7768e" marker-end="url(#ar-d2)"/>
+  <rect x="260" y="196" width="180" height="44" rx="8" fill="#2a1218" stroke="#5c2630"/>
+  <text x="350" y="216" fill="#f7768e" font-size="11" text-anchor="middle">slash stake at offence time</text>
+  <text x="350" y="231" fill="#9aa7b4" font-size="9" text-anchor="middle">MEM-06 · correlated (ECON-05)</text>
+  <line x1="220" y1="218" x2="255" y2="218" stroke="#f7768e" marker-end="url(#ar-d2)"/>
+  <rect x="40" y="262" width="400" height="44" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="240" y="282" fill="#e6edf3" font-size="11" text-anchor="middle">exit request → unbonding delay → withdrawal</text>
+  <text x="240" y="297" fill="#9aa7b4" font-size="9" text-anchor="middle">MEM-05 · ECON-03 · evidence window shorter than the delay (ECON-07)</text>
+  <line x1="350" y1="240" x2="350" y2="258" stroke="#7aa2f7" marker-end="url(#ar-d1)"/>
+
+  <rect x="500" y="20" width="405" height="300" rx="10" fill="#161b22" stroke="#2d3743"/>
+  <text x="520" y="46" fill="#e6edf3" font-size="13">Correlated penalty, fraction of stake</text>
+  <line x1="545" y1="255" x2="875" y2="255" stroke="#2d3743" stroke-width="1.4"/>
+  <line x1="545" y1="255" x2="545" y2="90" stroke="#2d3743" stroke-width="1.4"/>
+  <polyline points="545,255 652,90 875,90" fill="none" stroke="#e0af68" stroke-width="2"/>
+  <line x1="652" y1="90" x2="652" y2="255" stroke="#5c4a1c" stroke-dasharray="4 3"/>
+  <text x="652" y="275" fill="#e0af68" font-size="10" text-anchor="middle">f = 1/3</text>
+  <text x="760" y="275" fill="#9aa7b4" font-size="10" text-anchor="middle">f = implicated fraction of voting power</text>
+  <text x="555" y="80" fill="#9aa7b4" font-size="10">penalty = min(3f, 1) · m = 3 is Ethereum's form, tagged "sourced form" in 09</text>
+  <text x="555" y="215" fill="#e0af68" font-size="10">saturation: at one third the penalty reaches the whole stake</text>
+  <text x="555" y="235" fill="#9aa7b4" font-size="10">m and the exact incidence are ECON-05 decisions, not this lesson's.</text>
+  <text x="545" y="310" fill="#9aa7b4" font-size="10">The curve is drawn from the formula in 09; no point on it is a measurement.</text>
+</svg>
+<figcaption>Left: what has to be true before a vote has weight. Right: why a coalition pays more than
+its size suggests — up to the one-third boundary, where the penalty takes the whole implicated stake.</figcaption>
+</figure>
+
+<h2 id="example">Worked example — quorum, penalty and a cap that changes nothing</h2>
+
+<p>All stake amounts here are <span class="pill unmeasured">unmeasured</span> illustrations: the
+specification does not fix a total supply figure or a set size for arithmetic. The formulas and the
+<code>m = 3</code> form are the specification's own.</p>
+
+<table>
+<thead><tr><th>Step</th><th>Arithmetic</th><th>Result</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>Illustrative total voting power</td><td>chosen for the example</td><td>300,000,000 units</td><td><span class="pill unmeasured">unmeasured</span> illustration</td></tr>
+<tr><td>Quorum threshold <code>q</code>: minimal integer with <code>3q &gt; 2 · total</code></td><td>3 × 200,000,000 = 600,000,000 is not greater; 3 × 200,000,001 = 600,000,003 is</td><td>q = 200,000,001</td><td><span class="pill derived">derived</span> from the decided form (CONS-03, STATUS-04)</td></tr>
+<tr><td>Stake at which the safety claim stops applying</td><td>total / 3</td><td>100,000,000 units</td><td><span class="pill sourced">sourced</span> assumption A-CONS-1; a boundary, not a measurement</td></tr>
+<tr><td>Implicated fraction f = 1%</td><td>min(3 × 0.01, 1)</td><td>3% of stake</td><td><span class="pill derived">derived</span> from the sourced form in 09</td></tr>
+<tr><td>f = 10%</td><td>min(3 × 0.10, 1)</td><td>30% of stake</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>f = 1/3</td><td>min(3 × 1/3, 1)</td><td>100% — saturation</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>f = 1/2</td><td>the formula is capped at 1</td><td>100% — no more to take</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Per-address cap C (illustrative)</td><td>1% of total stake</td><td>300 addresses to hold everything</td><td><span class="pill unmeasured">unmeasured</span> illustration; the argument is in <a href="../spec/10-assurance.html#LIM-02">LIM-02</a></td></tr>
+<tr><td>Attacker wants 40% of stake with the cap</td><td>40% / 1% per address</td><td>40 addresses; token purchase cost unchanged</td><td><span class="pill derived">derived</span>; the label overhead is additive and never cancels the acquisition cost (<a href="../spec/10-assurance.html#LIM-02">LIM-02</a>)</td></tr>
+</tbody></table>
+
+<p>Timing, with its inputs left visible. <code>ACTIVATION_DELAY</code> is at least one L1 finality
+depth plus the set-commitment lookahead
+(<a href="../spec/09-parameters.html#params">09</a>). Ethereum's own finality is about two epochs;
+at 32 slots of 12 s that is 768 s ≈ 12.8 min (<span class="pill derived">derived</span> from
+<span class="pill sourced">sourced</span> Ethereum configuration). One epoch here is a placeholder
+300 L2 blocks = 600 s = 10 min (<span class="pill derived">derived</span> from an
+<span class="pill unmeasured">unmeasured</span> parameter). So the floor is roughly 22.8 min
+(<span class="pill derived">derived</span>, with unmeasured inputs) before the extra depth
+<code>F_L1</code> is added — and <code>F_L1</code> is <span class="pill unmeasured">unmeasured</span>.
+The full exit delay <code>D_WITHDRAW</code> is a sum of six terms — proof bound, detection, evidence
+submission, L1 inclusion, L1 finality, processing — <em>every one of them unmeasured</em>, and it must
+not be derived from nominal proving latency alone
+(<a href="../spec/03-membership-staking.html#MEM-05">MEM-05</a>,
+<a href="../spec/09-parameters.html#params">09 — D_WITHDRAW</a>).</p>
+
+<h2 id="prevents">Attacks this prevents</h2>
+<ul>
+<li><strong>Voting power without at-risk capital.</strong> A key with no eligible stake cannot vote and
+is not counted (<a href="../spec/10-assurance.html#INV-03">INV-03</a>).</li>
+<li><strong>The exit race.</strong> Unbonding between an offence and the evidence does not escape the
+penalty, because slashing follows the stake at offence time and the evidence window is shorter than
+the withdrawal delay (<a href="../spec/03-membership-staking.html#MEM-06">MEM-06</a>,
+<a href="../spec/07-economics-slashing.html#ECON-07">ECON-07</a>).</li>
+<li><strong>Cheap coalition bribery.</strong> The correlated penalty makes the coalition's cost grow
+super-linearly with the implicated fraction and confiscates the implicated stake at the one-third
+boundary, so a bribe must compensate for a penalty that grows with the coalition
+(<a href="../spec/07-economics-slashing.html#ECON-05">ECON-05</a>).</li>
+<li><strong>False accusations.</strong> A penalty needs objective, self-contained, on-chain-verifiable
+evidence; silence is never proof of misconduct
+(<a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a>).</li>
+<li><strong>The "cap protects us" illusion.</strong> MEM-10 and LIM-02 state plainly that a cap
+constrains labels, not capital, so no one can rely on it as an anti-concentration guarantee.</li>
+</ul>
+
+<h2 id="not-prevents">Attacks this does not prevent</h2>
+<ul>
+<li>An attacker who acquires or borrows enough TAIKO to reach one third. Whether the attack is
+unprofitable is the assumption A-ECO-1, which depends on market value at the time and must be
+re-evaluated; the protocol must not claim deterrence
+(<a href="../01-requirements-and-threat-model.md">A-ECO-1</a>,
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
+<li>Concentration through liquid staking or lending markets: delegation is out of scope in v1, and the
+limitations register calls derivatives an unpriced attack surface
+(<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
+<li>Honest correlated-penalty accidents: on a small validator set, one operator running a duplicated
+key can trigger a correlated hit. The research records this as a real trade-off; its rates are
+<span class="pill unmeasured">unmeasured</span>
+(<a href="../research/economics-raw.md">research — economics</a> §2.3).</li>
+<li>Unfunded rewards. Since TAIKO has no mint path today, the reward identity may not balance without a
+user decision, and that is disclosed as a limitation rather than solved
+(<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
+<li>Compensation of users who lost funds: the specification states the scope of what is and is not
+compensated (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
+</ul>
+
+<h2 id="self-check">Self-check</h2>
+<details><summary>Why is voting weight not read from the token balance at vote time?</summary>
+<p>Voting power is the effective stake of the epoch's authenticated set
+(<a href="../spec/03-membership-staking.html#MEM-02">MEM-02</a>,
+<a href="../spec/03-membership-staking.html#MEM-08">MEM-08</a>). A live balance read is not the
+authority for it — the project records that <code>getVotes</code> is not a stake oracle because votes
+can be renounced while the balance stays intact
+(<a href="../DECISIONS.md">DECISIONS.md D-4</a>).</p></details>
+<details><summary>A validator exits one day after equivocating. Is it safe from slashing?</summary>
+<p>No. Slashing follows the stake held at the time of the offence, so exiting after the offence does
+not escape the penalty (<a href="../spec/03-membership-staking.html#MEM-06">MEM-06</a>,
+<a href="../spec/10-assurance.html#INV-03">INV-03</a>).</p></details>
+<details><summary>Does a per-address cap stop an attacker from controlling a third of the stake?</summary>
+<p>No. A cap limits how many tokens one address may hold, not how many tokens one owner may buy. The
+acquisition cost is unchanged and the added overhead of splitting across addresses is additive; the
+specification records this as a non-claim
+(<a href="../spec/03-membership-staking.html#MEM-10">MEM-10</a>,
+<a href="../spec/10-assurance.html#LIM-02">LIM-02</a>).</p></details>
+
+<div class="card">
+<p><strong>Challenge this.</strong> The lesson relied on: (i) TAIKO having a market value and being
+obtainable (A-ECO-2) and the economic assumption A-ECO-1 that slashed value plus lost rewards exceeds
+attack profit — an assumption, never a guarantee; (ii) the correlated penalty formula being a fraction
+of implicated stake, with <code>m = 3</code> tagged in 09 as a "sourced form" from Ethereum rather than
+a measured parameter of this design; (iii) the worked numbers (total voting power, the cap, the epoch
+length) being illustrations, since the specification fixes no such values; (iv) the exclusion of
+delegation in v1, which means the concentration analysis here does not cover liquid-staking
+derivatives; (v) rewards requiring a user funding decision because TAIKO has no mint path today
+(LIM-01). Falsifier: find a sentence in this lesson that claims an attack is unprofitable, or a
+penalty value that is presented as measured — both would be violations of GEN-01/GEN-04.</p>
+</div>
+
+<h2 id="more">Where to read more</h2>
+<ul>
+<li><a href="../spec/03-membership-staking.html#MEM-01">MEM-01</a>–<a href="../spec/03-membership-staking.html#MEM-12">MEM-12</a>
+— staking, activation, exit, key handling, set construction.</li>
+<li><a href="../spec/07-economics-slashing.html#ECON-01">ECON-01</a>–<a href="../spec/07-economics-slashing.html#ECON-12">ECON-12</a>
+— the offence catalogue, penalty structure, evidence windows, budget identity and the cap non-claim.</li>
+<li><a href="../spec/09-parameters.html#params">09 — parameters</a>: <code>MIN_STAKE</code>,
+<code>ACTIVATION_DELAY</code>, <code>D_WITHDRAW</code>, <code>W_EVIDENCE</code> and the correlated
+penalty, each with its tag.</li>
+<li><a href="../spec/10-assurance.html#INV-03">INV-03</a> (no consensus without TAIKO at risk) and
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a> (limitations, including reward funding and
+concentration).</li>
+<li><a href="../DECISIONS.md">DECISIONS.md D-4</a> and
+<a href="../research/economics-raw.md">research — economics</a> §2.3 and §2.7: the evidence behind the
+convex penalty and the cap argument.</li>
+<li>Siblings: <a href="02-five-things-people-confuse.html">lesson 02</a> ·
+<a href="05-validator-sets-and-epochs.html">lesson 05</a>.</li>
+</ul>
+</main>
+<footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·
+<a href="limitations.html">limitations</a></p></footer>
+</body></html>

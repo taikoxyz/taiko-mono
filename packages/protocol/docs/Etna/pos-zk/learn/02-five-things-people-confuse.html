@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>02 — Five things people confuse · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
+  <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
+  <a href="../spec/index.html">Specification</a></nav>
+</header>
+<main>
+<h1>02 — Five things people confuse</h1>
+
+<div class="card">
+<p><strong>Problem this lesson solves.</strong> It separates the five questions that a phrase like
+"my transaction is confirmed" collapses into one — execution validity, consensus agreement, data
+availability, economic accountability and Ethereum settlement — so that every later lesson can name
+which one it means.</p>
+</div>
+
+<h2 id="plain">In plain language</h2>
+
+<p>Five questions are usually asked as one:</p>
+<ol>
+<li><strong>Is this block execution-valid?</strong> Did running it produce the claimed result and pass
+the rules? Anyone who re-executes it can answer, alone.</li>
+<li><strong>Is it agreed?</strong> Have the participants who are empowered to choose the history
+signed this block into it? In this design that means the L2 validator set and its commit certificate.
+The selected consensus family is Tendermint/CometBFT-class BFT with single-slot finality
+(<a href="../04-architecture-decision.md">04 — architecture decision</a> §1, <span class="pill sourced">sourced</span> design decision).</li>
+<li><strong>Is the data available?</strong> Can anyone who needs the block's bytes actually obtain
+them — not "did I receive them", but "are they retrievable". The specification draws the line at
+<a href="../spec/index.html#STATUS-09">STATUS-09</a>: a node holding a block may not treat its own
+possession as availability for anyone else.</li>
+<li><strong>Is anyone economically accountable?</strong> If a participant breaks a rule, is there an
+objective, self-contained, on-chain-verifiable offence and stake that can be taken for it
+(<a href="../spec/06-recovery-exceptions.html#WH-02">WH-02</a>,
+<a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a>)?</li>
+<li><strong>Is it settled on Ethereum?</strong> Has an L1 transaction accepted the batch's data and a
+valid proof together, and is that transaction itself at the L1 finality the design requires
+(<a href="../spec/index.html#STATUS-06">STATUS-06</a>,
+<a href="../spec/index.html#STATUS-07">STATUS-07</a>)?</li>
+</ol>
+
+<p>One more separation holds the other five apart. <a href="../spec/01-system-model.html#SYS-03">SYS-03</a>
+lists <em>six</em> distinct timelines — block cadence T1, PoS finality latency T2, proof latency T3,
+L1 acceptance T4, Ethereum finality T5 and withdrawal availability T6 — and forbids any rule,
+parameter, interface or status display from equating two of them. A 2 s cadence is a production
+interval. It is not agreement, not availability, not settlement and not an exit.</p>
+
+<p>Why people collapse the five: each one, taken alone, sounds like "the transaction happened".
+Availability feels like a fact about the network rather than a duty somebody has to keep
+(<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>). Settlement feels like a formality once a
+proof exists. Economic accountability feels like a guarantee rather than a conditional argument about
+prices (<a href="../01-requirements-and-threat-model.md">A-ECO-1</a>). The five are separate because
+they can fail separately: a block can be execution-valid on your node and unavailable to everyone
+else; it can be PoS-finalized and never settle; it can be settled on L1 and later revoked by an L1
+reorganisation below finality (<a href="../spec/index.html#STATUS-06">STATUS-06</a>).</p>
+
+<h2 id="definitions">Precise definitions</h2>
+
+<ul>
+<li><strong>Execution validity.</strong> This node executed the block against a known parent state and
+every consensus and validity rule passed. Guarantee: this node will not build on an invalid block.
+Revocable if the parent is displaced; visible to this node only
+(<a href="../spec/index.html#STATUS-02">STATUS-02</a>).</li>
+<li><strong>Agreement (voted / PoS-finalized).</strong> A vote is one validator's signed commitment,
+irreversible for that validator and constraining through the lock rule
+(<a href="../spec/index.html#STATUS-03">STATUS-03</a>,
+<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>). Finality is a <em>published</em> commit
+certificate over (chain id, epoch, height, block hash) with strictly more than two thirds of the
+epoch's voting power, plus the receiver's own data check
+(<a href="../spec/index.html#STATUS-04">STATUS-04</a>).</li>
+<li><strong>Data availability.</strong> The property that the data can be obtained by those who need
+it. Canonical availability for a settled batch is the accepting L1 transaction
+(<a href="../spec/04-l1-integration.html#DA-01">DA-01</a>); before that it is a retention duty, not a
+cryptographic property (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>), and local possession is
+not availability (<a href="../spec/index.html#STATUS-09">STATUS-09</a>).</li>
+<li><strong>Economic accountability.</strong> Stake that is bonded and active can be slashed for
+objectively evidenced offences, and slashing follows the stake held at the time of the offence
+(<a href="../spec/10-assurance.html#INV-03">INV-03</a>,
+<a href="../spec/03-membership-staking.html#MEM-06">MEM-06</a>). The scope of user losses — what is and
+is not compensated — is its own rule
+(<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
+<li><strong>Ethereum settlement.</strong> The Inbox accepted data and proof in <strong>one</strong>
+transaction and advanced its checkpoint; then the accepting transaction reaches Ethereum finality
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>,
+<a href="../spec/index.html#STATUS-06">STATUS-06</a>,
+<a href="../spec/index.html#STATUS-07">STATUS-07</a>).</li>
+<li><strong>Cadence.</strong> T1, fixed at 2 s by D1 under stated operating assumptions; none of the
+other four questions is answered by it (<a href="../spec/01-system-model.html#SYS-03">SYS-03</a>).</li>
+</ul>
+
+<h2 id="diagram">Diagram — the eight labels, and where the five questions sit</h2>
+
+<figure>
+<svg viewBox="0 0 940 330" role="img" aria-label="A left-to-right chain of status labels from proposed to withdrawal-eligible, with a data-availability box below and a note that no batch data or proof is on Ethereum before accepted on L1.">
+  <defs>
+    <marker id="ar-b1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker>
+    <marker id="ar-b2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#e0af68"/></marker>
+  </defs>
+  <rect x="15" y="52" width="105" height="66" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="67" y="78" fill="#e6edf3" font-size="10" text-anchor="middle">proposed</text>
+  <text x="67" y="98" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-01</text>
+  <rect x="128" y="52" width="105" height="66" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="180" y="72" fill="#e6edf3" font-size="10" text-anchor="middle">locally</text>
+  <text x="180" y="86" fill="#e6edf3" font-size="10" text-anchor="middle">execution-valid</text>
+  <text x="180" y="104" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-02</text>
+  <rect x="241" y="52" width="105" height="66" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="293" y="78" fill="#e6edf3" font-size="10" text-anchor="middle">voted</text>
+  <text x="293" y="98" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-03</text>
+  <rect x="354" y="52" width="105" height="66" rx="8" fill="#1c2330" stroke="#bb9af7"/>
+  <text x="406" y="78" fill="#e6edf3" font-size="10" text-anchor="middle">PoS-finalized</text>
+  <text x="406" y="98" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-04</text>
+  <rect x="467" y="52" width="105" height="66" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="519" y="78" fill="#e6edf3" font-size="10" text-anchor="middle">proof-ready</text>
+  <text x="519" y="98" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-05</text>
+  <rect x="580" y="52" width="105" height="66" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="632" y="72" fill="#e6edf3" font-size="10" text-anchor="middle">accepted</text>
+  <text x="632" y="86" fill="#e6edf3" font-size="10" text-anchor="middle">on L1</text>
+  <text x="632" y="104" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-06</text>
+  <rect x="693" y="52" width="105" height="66" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="745" y="72" fill="#e6edf3" font-size="10" text-anchor="middle">Ethereum-</text>
+  <text x="745" y="86" fill="#e6edf3" font-size="10" text-anchor="middle">finalized</text>
+  <text x="745" y="104" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-07</text>
+  <rect x="806" y="52" width="115" height="66" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="863" y="72" fill="#e6edf3" font-size="10" text-anchor="middle">withdrawal-</text>
+  <text x="863" y="86" fill="#e6edf3" font-size="10" text-anchor="middle">eligible</text>
+  <text x="863" y="104" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-08</text>
+  <line x1="120" y1="85" x2="126" y2="85" stroke="#7aa2f7" marker-end="url(#ar-b1)"/>
+  <line x1="233" y1="85" x2="239" y2="85" stroke="#7aa2f7" marker-end="url(#ar-b1)"/>
+  <line x1="346" y1="85" x2="352" y2="85" stroke="#7aa2f7" marker-end="url(#ar-b1)"/>
+  <line x1="459" y1="85" x2="465" y2="85" stroke="#7aa2f7" marker-end="url(#ar-b1)"/>
+  <line x1="572" y1="85" x2="578" y2="85" stroke="#7aa2f7" marker-end="url(#ar-b1)"/>
+  <line x1="685" y1="85" x2="691" y2="85" stroke="#7aa2f7" marker-end="url(#ar-b1)"/>
+  <line x1="798" y1="85" x2="804" y2="85" stroke="#7aa2f7" marker-end="url(#ar-b1)"/>
+  <rect x="354" y="160" width="323" height="58" rx="8" fill="#161b22" stroke="#2d3743"/>
+  <text x="515" y="182" fill="#e6edf3" font-size="11" text-anchor="middle">data availability — a separate question</text>
+  <text x="515" y="200" fill="#9aa7b4" font-size="10" text-anchor="middle">STATUS-09: local receipt is not availability</text>
+  <line x1="406" y1="118" x2="440" y2="156" stroke="#e0af68" stroke-dasharray="4 3" marker-end="url(#ar-b2)"/>
+  <line x1="632" y1="118" x2="598" y2="156" stroke="#e0af68" stroke-dasharray="4 3" marker-end="url(#ar-b2)"/>
+  <text x="15" y="30" fill="#9aa7b4" font-size="11">before this point, no batch data and no proof are on Ethereum (STATUS-11 requires saying so)</text>
+  <line x1="15" y1="38" x2="570" y2="38" stroke="#9aa7b4" stroke-width="1"/>
+  <line x1="15" y1="34" x2="15" y2="42" stroke="#9aa7b4"/>
+  <line x1="570" y1="34" x2="570" y2="42" stroke="#9aa7b4"/>
+  <text x="15" y="270" fill="#9aa7b4" font-size="11">economic accountability is not a status: it is the stake and evidence rules underneath every arrow (INV-03, MEM-06, ECON-04).</text>
+  <text x="15" y="292" fill="#f7768e" font-size="11">The arrows show evidence order, not timing: T1–T6 are separate timelines and no two may be equated (SYS-03).</text>
+</svg>
+<figcaption>Five questions, eight labels. The two amber dashed arrows say that availability is checked
+at finality and made canonical only at L1 acceptance.</figcaption>
+</figure>
+
+<h2 id="example">Worked example — one transaction, and what may be concluded when</h2>
+
+<p>A user submits a swap at t = 0. The row labels use only the specification's status names. "May
+conclude" and "may not conclude" are read from the rule that defines the status — the specification
+text is authoritative and this is a summary
+(<a href="../spec/index.html#STATUS-01">STATUS-01</a>–<a href="../spec/index.html#STATUS-08">STATUS-08</a>).</p>
+
+<table>
+<thead><tr><th>Moment</th><th>Status</th><th>A user may conclude</th><th>A user may not conclude</th></tr></thead>
+<tbody>
+<tr><td>t = 0 s</td><td>proposed</td><td>nothing; this object may be invalid</td><td>anything about inclusion or outcome</td></tr>
+<tr><td>≈ t = 2 s <span class="pill derived">derived</span> from D1 cadence</td><td>locally execution-valid (on the node that executed it)</td><td>that node will not build on an invalid block</td><td>that other nodes agree, or that the bytes are retrievable by others (STATUS-09)</td></tr>
+<tr><td>T2 later — <span class="pill unmeasured">unmeasured</span></td><td>voted</td><td>that signing validator is committed by the lock rule</td><td>that the block is final</td></tr>
+<tr><td>T2 later — <span class="pill unmeasured">unmeasured</span></td><td>PoS-finalized (Mode A)</td><td>under INV-01's premises, the block is on the unique canonical chain permanently</td><td>that the batch is settled, or that a withdrawal is possible</td></tr>
+<tr><td>T3, envelope "a few minutes to 30 minutes" <span class="pill derived">derived</span> from D6 as a design envelope, not a bound; 30 min = 900 blocks <span class="pill derived">derived</span> from PARAM-02</td><td>proof-ready</td><td>that the batch can be landed</td><td>that it is settled; a proof of a different batch is not a substitute (STATUS-05)</td></tr>
+<tr><td>T4 — <span class="pill unmeasured">unmeasured</span>; one L1 transaction carrying data and proof (D5, L1-01)</td><td>accepted on L1</td><td>the batch data is public on Ethereum and the transition is L1-committed</td><td>that it cannot be reorganised: only an L1 reorg below finality revokes this status</td></tr>
+<tr><td>T5 = Ethereum's own finality plus F_L1 <span class="pill unmeasured">unmeasured</span>; ≈ 2 Ethereum epochs ≈ 12.8 min <span class="pill derived">derived</span> from sourced inputs</td><td>Ethereum-finalized</td><td>that the L1 fact can no longer be reorganised by Ethereum</td><td>that L2 will keep producing blocks afterwards</td></tr>
+<tr><td>T6 — <span class="pill unmeasured">unmeasured</span>; message path plus the MSG-03 delay</td><td>withdrawal-eligible</td><td>that the withdrawal may proceed under those rules</td><td>that the protocol compensates any loss (ECON-11 limits the scope)</td></tr>
+</tbody></table>
+
+<p>Two arithmetic illustrations, kept honest about their inputs. First, the quorum threshold is the
+minimal integer <code>q</code> with <code>3q &gt; 2 · total</code>
+(<a href="../spec/02-consensus.html#CONS-03">CONS-03</a>). With an <em>illustrative</em> total of 300
+units — the specification fixes no such total — the threshold is <strong>201</strong>
+(<span class="pill derived">derived</span>: 3 × 200 = 600 is not greater, 3 × 201 = 603 is). The
+specification's own numbers are the formula and the tags; the 300 is the course's illustration and is
+<span class="pill unmeasured">unmeasured</span> in the design. Second, 30 minutes is a planning
+envelope of 1,800 s (<span class="pill derived">derived</span>: D6; <code>T_PROOF_ENVELOPE</code> in
+<a href="../spec/09-parameters.html#params">09</a> is tagged <em>decided</em> and explicitly not a
+worst-case bound), and at 2 s that is 900 L2 blocks
+(<span class="pill derived">derived</span>, PARAM-02). A proof that takes longer is not misconduct and
+triggers no recovery action (<a href="../spec/06-recovery-exceptions.html#HALT-03">HALT-03</a>).</p>
+
+<h2 id="prevents">Attacks this prevents</h2>
+<ul>
+<li><strong>Premature value transfer.</strong> Treating an inclusion, a vote, or even PoS finality as
+settlement while the batch's data and proof are not on Ethereum — the failure mode STATUS-11 exists to
+prevent.</li>
+<li><strong>Availability inference.</strong> Concluding from one node's possession that the data is
+retrievable by others (STATUS-09), which hides the certified-but-unavailable failure class until a
+halt.</li>
+<li><strong>Proof-as-settlement.</strong> Treating proof-ready as accepted on L1, and therefore
+withdrawing early (STATUS-05 vs STATUS-06).</li>
+<li><strong>Timeout-as-absence.</strong> Concluding that a certificate, proof or block does not exist
+because a timer expired (STATUS-10); timeouts trigger local actions, never assertions about what
+exists elsewhere.</li>
+</ul>
+
+<h2 id="not-prevents">Attacks this does not prevent</h2>
+<ul>
+<li>A safety failure: one third or more of the relevant stake is Byzantine, in which case two
+conflicting certificates can both verify and a ZK proof cannot detect it
+(<a href="../01-requirements-and-threat-model.md">A-CONS-1</a>,
+<a href="../spec/10-assurance.html#INV-01">INV-01</a>).</li>
+<li>Data unavailability for a finalized block: settlement may halt, possibly permanently, if every
+holder disappears. The specification discloses this and calls a safe halt the correct outcome
+(<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>,
+<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>).</li>
+<li>An L1 reorganisation below the finality depth, which can revoke accepted-on-L1
+(STATUS-06).</li>
+<li>Ordering and MEV extraction by whoever may propose within the rules.</li>
+<li>Compensation of user losses: the specification states the scope of what is not compensated
+(ECON-11).</li>
+</ul>
+
+<h2 id="selfcheck">Self-check</h2>
+<details><summary>A block is locally execution-valid on my node. What have I learned about what other nodes think?</summary>
+<p>Only that this node will not build on an invalid block (STATUS-02). You have learned nothing about
+agreement, and nothing about whether others can obtain the data (STATUS-09).</p></details>
+<details><summary>The batch is proof-ready. May I withdraw?</summary>
+<p>No. Withdrawal requires accepted on L1 or Ethereum-finalized, plus the message-authentication path
+and the delay in MSG-03 (STATUS-08). Proof-ready means only that the batch can be landed
+(STATUS-05).</p></details>
+<details><summary>Which of the five questions does a "2 s" progress bar answer?</summary>
+<p>None. Cadence is separated from every other latency (SYS-03), and any display before accepted on L1
+must state that the batch's data and proof are not yet on Ethereum (STATUS-11).</p></details>
+
+<div class="card">
+<p><strong>Challenge this.</strong> The lesson relied on: (i) the five-question split being a teaching
+device, while the specification's own separation is the six timelines of SYS-03 — the mapping between
+them is the course's, not a normative taxonomy; (ii) PoS-finalized being read together with INV-01's
+premises, including the handoff premise that the assurance page marks as an assumed-and-argued review
+target; (iii) the "30 minutes" being an envelope fixed by D6 and tagged as a planning assumption, never
+a bound; (iv) Ethereum finality of about two epochs (≈ 12.8 min) being a sourced property of Ethereum's
+current configuration, tagged in 09 as depending on that configuration, with F_L1 unmeasured; (v) the
+availability of a finalized block being a retention duty, not a property, before L1 acceptance
+(LIM-01). Falsifier: find a cell in the worked table that asserts a guarantee stronger than the linked
+status rule — that is a defect, because the specification wins.</p>
+</div>
+
+<h2 id="more">Where to read more</h2>
+<ul>
+<li><a href="../spec/index.html#status">Status labels STATUS-01–STATUS-11</a> — the normative set.</li>
+<li><a href="../spec/01-system-model.html#SYS-03">SYS-03</a> and
+<a href="../spec/09-parameters.html#params">09 — parameters</a>: the six timelines and their tags.</li>
+<li><a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a> for what a proof does and does not
+establish; <a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a> for the correct response
+when one of the five cannot be obtained.</li>
+<li><a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §2 (the
+labels, as first stated) and §5 (the F1/F2/F3 fault boundary).</li>
+<li><a href="../04-architecture-decision.md">04 — architecture decision</a> §1: the selected consensus
+family and the atomic data-and-proof decision.</li>
+<li>Siblings: <a href="01-why-order-needs-consensus.html">lesson 01</a> ·
+<a href="03-status-labels.html">lesson 03</a>.</li>
+</ul>
+</main>
+<footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·
+<a href="limitations.html">limitations</a></p></footer>
+</body></html>

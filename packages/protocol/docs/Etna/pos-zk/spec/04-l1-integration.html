@@ -1,0 +1,642 @@
+<!doctype html> <html lang="en"><head><meta charset="utf-8"> <meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — 04 L1 integration</title> <link rel="stylesheet" href="spec.css"> </head><body> <header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span> <span class="tag">reference specification</span> <span class="tag">rev 2026-10-05</span>
+  <nav> <a href="index.html">Index</a> <a href="01-system-model.html">Model &amp; roles</a> <a href="02-consensus.html">Consensus</a>
+    <a href="03-membership-staking.html">Staking</a> <a href="04-l1-integration.html">L1 integration</a> <a href="05-proof-statement.html">Proof statement</a> <a href="06-recovery-exceptions.html">Recovery</a>
+    <a href="07-economics-slashing.html">Economics</a> <a href="08-migration-upgrades.html">Migration</a> <a href="09-parameters.html">Parameters</a>
+    <a href="10-assurance.html">Assurance</a> <a href="../learn/index.html">Learn</a> </nav> </header> <main>
+
+<h1>04 — L1 integration: atomic data + proof, data availability, forced inclusion, bridge anchoring</h1>
+
+<div class="verdict"> <p><strong>This page carries D5 and D8.</strong> It fixes how a batch becomes <a href="index.html#STATUS-06">STATUS-06 — accepted on L1</a>: one L1 transaction carrying the batch
+data <em>and</em> its validity proof, out of which the Inbox itself derives the data commitment, and out of which a single monotone checkpoint advance follows. It also fixes where that data is
+canonical (<a href="#DA-01">DA-01</a>), how the blob path binds data to the proof (<a href="#DA-03">DA-03</a>), how forced inclusion works without an override that could violate
+Mode A (<a href="#FI-01">FI-01</a>–<a href="#FI-05">FI-05</a>), and how the preserved SignalService/Bridge addresses authenticate against these checkpoints (<a href="#MSG-01">MSG-01</a>–<a href="#MSG-03">MSG-03</a>).</p>
+<p class="small">Baseline for every comparison to "today" on this page: Taiko monorepo revision <code>7718753c1</code> (2026-10-05), file <code>packages/protocol/contracts/layer1/core/impl/Inbox.sol</code>.
+Nothing on this page is implemented, deployed, audited or measured (<a href="index.html#GEN-01">GEN-01</a>). Every number is tagged derived / sourced / unmeasured.</p> </div>
+
+<div class="warnbox small"> <strong>Assumption disclosure.</strong> Acceptance here is a <em>liveness</em> path guarded by cryptography, not a safety guarantee by itself. Wherever a statement depends on
+<strong>&lt;1/3 Byzantine stake (A-CONS-1)</strong> or on the availability assumptions (<strong>A-CONS-5</strong>, <strong>A-DA-2</strong>) it says so at the claim
+(<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4). </div>
+
+<h2 id="atomic">1. One atomic acceptance</h2>
+
+<figure> <svg viewBox="0 0 980 210" role="img" aria-label="One L1 transaction carrying data and proof, from which the Inbox derives the data commitment and advances one checkpoint.">
+  <rect x="10" y="20" width="960" height="150" rx="10" fill="#161b22" stroke="#2d3743"/> <text x="26" y="44" fill="#9aa7b4" font-size="12" font-family="monospace">one L1 transaction (type-3 if blobs are used)</text>
+  <rect x="30" y="58" width="215" height="92" rx="8" fill="#1c2330" stroke="#7aa2f7"/> <text x="46" y="80" fill="#e6edf3" font-size="12">calldata slice</text>
+  <text x="46" y="99" fill="#9aa7b4" font-size="11">_batchData (bytes calldata)</text> <text x="46" y="118" fill="#9aa7b4" font-size="11">+ blob sidecars of this tx</text>
+  <text x="46" y="137" fill="#e6edf3" font-size="11">DA-01 / DA-02 / DA-03</text> <rect x="270" y="58" width="215" height="92" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="286" y="80" fill="#e6edf3" font-size="12">proof</text> <text x="286" y="99" fill="#9aa7b4" font-size="11">opaque bytes, one</text>
+  <text x="286" y="118" fill="#9aa7b4" font-size="11">active verifier route</text> <text x="286" y="137" fill="#e6edf3" font-size="11">L1-09</text>
+  <rect x="510" y="58" width="215" height="92" rx="8" fill="#1c2330" stroke="#9ece6a"/> <text x="526" y="80" fill="#e6edf3" font-size="12">Inbox computes</text>
+  <text x="526" y="99" fill="#9aa7b4" font-size="11">statementHash from</text> <text x="526" y="118" fill="#9aa7b4" font-size="11">L1 state + this tx</text>
+  <text x="526" y="137" fill="#e6edf3" font-size="11">L1-05, L1-03</text> <rect x="750" y="58" width="200" height="92" rx="8" fill="#1c2330" stroke="#bb9af7"/>
+  <text x="766" y="80" fill="#e6edf3" font-size="12">one checkpoint</text> <text x="766" y="99" fill="#9aa7b4" font-size="11">write, after the</text>
+  <text x="766" y="118" fill="#9aa7b4" font-size="11">verifier returns</text> <text x="766" y="137" fill="#e6edf3" font-size="11">L1-06, L1-07</text>
+  <path d="M245 104 H268" stroke="#7aa2f7" stroke-width="2" marker-end="url(#a)"/> <path d="M485 104 H508" stroke="#7aa2f7" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M725 104 H748" stroke="#7aa2f7" stroke-width="2" marker-end="url(#a)"/>
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"> <path d="M0 0 L8 4 L0 8 z" fill="#7aa2f7"/></marker></defs>
+</svg> <figcaption>There is no state on this path between "transaction exists" and "batch accepted": the data, the proof and the checkpoint write are the same transaction, and the contract — not the submitter —
+derives what the proof is checked against.</figcaption> </figure>
+
+<div class="rule" id="L1-01"><span class="rid">L1-01 — single atomic accept entry point; no data-first path</span> <span class="norm">The Inbox MUST expose exactly <strong>one</strong> function that can accept a batch
+and advance the checkpoint. Its name is <code>land(bytes calldata _proof, LandInput calldata _input)</code>. One call MUST carry, in one L1 transaction: (a) the batch range, given as
+<code>uint64 firstBlockHeight</code> and <code>uint64 lastBlockHeight</code> of L2 blocks; (b) the batch data, given as the <code>bytes calldata _batchData</code> argument and/or the blob
+sidecars of that same transaction; (c) the proof, given as <code>_proof</code>; and (d) the claimed post-state and finality values of <a href="#L1-05">L1-05</a>. Data and proof are inseparable: there
+MUST NOT exist any entry point, overload, fallback, multicall helper, or recovery path that records
+the data (or a commitment to it) in one transaction and the proof in another. There MUST NOT exist a "propose then prove" path in any mode.</span>
+<span class="why">Failure mode: the batch's data becomes public before any proof exists, so a batch can be published and never proven — the data occupies L1 capacity, consumes the settlement budget, and
+settles nothing. Allowing it in one mode re-opens D5 for every mode, because the recovery path becomes the cheapest way to publish data.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="small">(D5; contrast below)</span></div>
+
+<p><strong>Contrast with the baseline.</strong> At revision <code>7718753c1</code> the two paths are separate and there is no combined one:</p>
+<table> <thead><tr><th>Baseline element</th><th>Location</th><th>What it does</th></tr></thead> <tbody>
+<tr><td><code>propose(bytes _lookahead, bytes _data)</code></td><td><code>Inbox.sol:270</code></td><td>Accepts a <strong>data-only</strong> proposal. <code>ProposeInput</code> carries <code>deadline</code>, a <code>BlobReference</code> and a forced-inclusion count — <em>no proof argument at all</em>. Writes <code>_coreState.nextProposalId</code> and the proposal hash (<code>Inbox.sol:284-286</code>).</td></tr>
+<tr><td><code>prove(bytes _data, bytes _proof)</code></td><td><code>Inbox.sol:321</code></td><td>A <strong>separate</strong> external function carrying the proof. It re-reads nothing from blobs; the blob slice was frozen into the proposal hash at propose time.</td></tr>
+<tr><td><code>_proposalHashes[id % ringBuffer]</code></td><td><code>Inbox.sol:286</code>, read at <code>:349</code></td><td>The propose-time commitment becomes a <em>precondition</em>: <code>prove</code> requires <code>commitment.lastProposalHash == getProposalHash(lastProposalId)</code> or reverts <code>LastProposalHashMismatch</code>.</td></tr>
+</tbody></table> <p class="small">Verdict recorded in the baseline research: data and proof are submitted in separate L1 transactions today and that is the only supported flow
+(<a href="../research/taiko-baseline-contracts.md">research/taiko-baseline-contracts.md</a> §3.1). <a href="#L1-01">L1-01</a> deletes that flow rather than adding a third option.</p>
+
+<div class="rule" id="L1-02"><span class="rid">L1-02 — no entry point records a pending or incomplete batch</span> <span class="norm">No entry point of the Inbox — public, external, or reachable through an upgrade
+initialiser — may write a batch record, a predecessor link, a proposal hash, a data commitment, or a checkpoint <strong>pending a proof</strong>. The only accepted state that exists for a range is the
+checkpoint written by a successful <code>land</code> call. An "announce" / "intent" / "commit" function may exist <em>only if</em> all three hold: (i) nothing it writes is read by <code>land</code>,
+by the verifier route, or by any admission check; (ii) it cannot become a precondition for a later acceptance — in particular, a later <code>land</code> for the same range MUST succeed whether or not
+the announce function was ever called, and in any order; (iii) its failure or omission has no effect on liveness or on any other rule. The safest design has none, and this specification designs none.</span>
+<span class="why">Failure mode: an announce function that later becomes load-bearing converts "publish data" into a privileged step — the first caller of the announce function acquires a
+sponsorship right over the range, and a range whose announcement was never made (or was made and
+then made unreadable) is unlandable. This is the propose-then-prove failure of <a href="#L1-01">L1-01</a> arriving through the back door.</span> <span class="pill proven">Proven</span></div>
+
+<p class="small">Baseline for comparison: the propose-time hash is exactly such a load-bearing record (<code>Inbox.sol:286</code> → <code>Inbox.sol:348-351</code>), and <code>init2()</code>
+(<code>Inbox.sol:217-244</code>) is an <code>onlyOwner</code> initialiser that rewrites <code>lastFinalizedProposalId</code> and <code>lastFinalizedBlockHash</code> directly. Neither
+construct exists in this design; see <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>.</p>
+
+<div class="rule" id="L1-03"><span class="rid">L1-03 — failed verification leaves the batch unaccepted with no partial effect</span>
+<span class="norm"><code>land</code> MUST execute in this exact order: (1) decode and shape-check the input in memory only, with no state writes; (2) derive every contract-derived public input of
+<a href="#L1-05">L1-05</a> from L1 storage and from this transaction; (3) if blobs are used, perform the <a href="#DA-03">DA-03</a> checks and record the accepted <code>(versionedHash, z, y)</code>
+tuples in memory; (4) call the active verifier route with the statement hash; (5) treat the proof as <strong>invalid</strong> unless the call returns exactly <code>abi.encode(true)</code> — a revert, an
+empty return, or any other return value is invalid; (6) <em>only then</em> write the checkpoint record, advance the height pointer, mark covered forced inclusions consumed, and pay out
+<a href="#L1-11">L1-11</a>; (7) emit events last. If any step fails, <code>land</code> MUST revert with a typed error and produce <strong>no</strong> partial effect: no checkpoint, no height advance,
+no consumed forced inclusion, no payout, no event.</span> <span class="why">Failure mode: a checkpoint exists that no proof ever justified, or a forced
+inclusion is marked consumed by a batch that was never accepted. A "verify last, write first" ordering survives only as long as the verifier always reverts and nothing can swallow the revert;
+the moment a route returns <code>false</code>, or an upgrade or a low-level call absorbs the failure,
+the write becomes permanent and the chain's checkpoint advances without a proof.</span> <span class="pill proven">Proven</span></div>
+
+<p><strong>Why the baseline ordering is safe today, and why this design still changes it.</strong> At <code>7718753c1</code>, <code>prove()</code> writes the SignalService checkpoint
+(<code>Inbox.sol:364-370</code>), updates <code>_coreState</code> and emits <code>Proved</code>
+(<code>Inbox.sol:376-387</code>) <em>before</em> calling <code>_proofVerifier.verifyProof(...)</code> (<code>Inbox.sol:394-398</code>). That is not a
+vulnerability in that contract as written, for one stated reason: the verifier call is in the same transaction and a reverting verifier unwinds the whole transaction, restoring the checkpoint and the
+core state. The baseline research records exactly this: "the ordering is still structurally 'optimistic write, then verify' — a property a same-tx redesign
+must preserve" (<a href="../research/taiko-baseline-contracts.md">research/taiko-baseline-contracts.md</a> §3.3). This design does not rely on that property. Reasons, in order of importance: (a) the interface
+tolerates a verifier that <em>returns</em> <code>false</code> instead of reverting, and a <code>try/catch</code> or a future routing layer could absorb a revert; (b) the checkpoint is a public
+authentication anchor for the preserved bridge surface (<a href="#MSG-01">MSG-01</a>), so its integrity must not depend on an external contract's revert discipline; (c) correctness must be
+readable from the function body rather than inferred from EVM unwind semantics. Verify-first costs nothing in gas terms that this specification claims to know — the cost of <code>land</code> is
+<strong>UNMEASURED</strong> and would be measured by a gas-snapshot run over a batch of the target size; no such measurement exists.</p>
+
+<div class="rule" id="L1-04"><span class="rid">L1-04 — admission: no gate, no expiring range, any prover</span> <span class="norm">Any account MUST be able to call <code>land</code>. The admission rules of
+<code>land</code> MUST contain: no whitelist and no allowlist (of provers, proposers, or relayers); no owner-, DAO-, or operator-controlled approval; no minimum bond, stake, or reputation to submit;
+no <code>deadline</code>, timestamp, block-number or age condition that can make a range permanently unacceptable; and no dependency on <code>tx.origin</code>, <code>block.coinbase</code>, gas price, or
+L1 proposer identity (<a href="index.html#GEN-06">GEN-06</a>). For any unsettled range, any account that can produce a valid <code>(data, proof)</code> pair MUST be able to land it. Structural bounds
+are permitted and MUST be exactly these: the range must be contiguous and start at <code>lastLandedHeight + 1</code> (<a href="#L1-06">L1-06</a>); the batch must be non-empty; and every
+loop in <code>land</code> must be bounded by the transaction's own contents (its blob count, its forced-inclusion coverage list, its claimed range length), never by an unbounded external structure.
+Backpressure on <em>production</em> — the consensus-enforced unsettled-depth cap of <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a> and <a href="#DA-06">DA-06</a> — MUST NOT be
+implemented as an admission condition on <code>land</code>.</span> <span class="why">Failure mode: a validly PoS-finalized extension of the L1 checkpoint becomes
+permanently unacceptable, i.e. a legitimate extension of finalized history can never be settled. Under Mode A the protocol may halt but may not discard finalized history; an admission gate or an
+expiry is exactly a rule that discards it, because the only honest response left is to abandon settlement for that range. This rule is required <em>by</em> Mode A, not merely compatible with it
+(<a href="../04-architecture-decision.md">04-architecture-decision.md</a> §5.3,
+<code>L1-ADMIT-NO-EXPIRY</code>; <a href="../research/mode-a-feasibility-analysis.md">research/mode-a-feasibility-analysis.md</a> §4).</span>
+<span class="pill proven">Proven</span> <span class="small">(Mode A obligation)</span></div>
+
+<p class="small">Baseline mechanisms this rule deletes, each currently live: <code>ProverWhitelist</code> gating (<code>Inbox.sol:337</code>, <code>Inbox.sol:771-779</code>, error
+<code>ProverNotWhitelisted</code>); the <code>IProposerChecker</code> indirection whose mainnet implementation admits one operator per epoch (<code>PreconfWhitelist.sol:136-140</code>);
+<code>DeadlineExceeded</code> on propose (<code>Inbox.sol:764-766</code>); <code>_maxProofSubmissionDelay</code> (<code>Inbox.sol:102</code>); and the ring-buffer capacity
+check <code>NotEnoughCapacity</code> (<code>Inbox.sol:591-593</code>), which is the mechanism by which unproven history is silently discarded when the buffer wraps.</p> <h2 id="binding">2. What the proof is bound to</h2>
+
+<div class="rule" id="L1-05"><span class="rid">L1-05 — public-input binding list, and who derives what</span> <span class="norm">The statement the proof is checked against MUST bind every value in the table
+below, at the stated provenance. <em>L1-derived</em> values the contract reads from its own storage or from <code>block.chainid</code>; <em>tx-derived</em> values the contract recomputes from the
+transaction's calldata and blobs and MUST ignore any submitter-supplied copy; <em>claimed</em> values are supplied by the submitter and are bound by the proof, so a wrong claim makes the proof invalid
+rather than making the contract misbehave. The contract MUST NOT accept from the submitter any value in the L1-derived or tx-derived rows. The canonical byte encoding of these values into the guest's
+public-input vector, and the guest-side recomputation of each one, are fixed on <a href="05-proof-statement.html#PRF-02">PRF-02</a> and <a href="05-proof-statement.html#PRF-07">PRF-07</a>;
+this rule fixes <em>which</em> values L1 supplies and <em>how</em> it obtains them. The contract hashes the whole vector, with the domain tag and chain id first
+(<a href="index.html#GEN-05">GEN-05</a>), into <code>statementHash</code> and passes only that hash and the opaque proof to the verifier route of <a href="#L1-09">L1-09</a>.</span>
+<span class="why">Failure mode: a public input that the submitter can choose — a validator-set root, a predecessor, a data commitment, a threshold — lets a prover prove a true statement about the wrong
+object and land a batch the protocol never agreed to. A value that L1 could derive but accepts from the submitter is a permissioned design with extra steps.</span> <span class="pill proven">Proven</span></div>
+
+<table> <thead><tr><th>#</th><th>Value</th><th>Type</th><th>Provenance</th><th>How <code>land</code> obtains it / checks it</th></tr></thead> <tbody>
+<tr><td>1</td><td><code>chainId</code></td><td><code>uint256</code></td><td>L1-derived</td><td><code>block.chainid</code>. Binds every other hash to this chain (<a href="index.html#GEN-05">GEN-05</a>).</td></tr>
+<tr><td>2</td><td><code>previousCheckpointHash</code></td><td><code>bytes32</code></td><td>L1-derived</td><td><code>keccak256(abi.encode(bytes32("TAIKO_ETNA_CKPT"), chainId, ...))</code> over the stored record at <code>lastLandedHeight</code> (<a href="#L1-07">L1-07</a>).</td></tr>
+<tr><td>3</td><td><code>previousHeight</code></td><td><code>uint64</code></td><td>L1-derived</td><td><code>lastLandedHeight</code>. Also fixes <code>firstBlockHeight = previousHeight + 1</code>.</td></tr>
+<tr><td>4</td><td><code>previousBlockHash</code></td><td><code>bytes32</code></td><td>L1-derived</td><td>From the stored record; the L2 header chain MUST link to it (the guest check is <a href="05-proof-statement.html#PRF-06">PRF-06</a>).</td></tr>
+<tr><td>5</td><td><code>previousStateRoot</code></td><td><code>bytes32</code></td><td>L1-derived</td><td>From the stored record; the execution proof runs from this root.</td></tr>
+<tr><td>6</td><td><code>firstBlockHeight</code></td><td><code>uint64</code></td><td>L1-derived</td><td><code>previousHeight + 1</code>. A submitter-supplied value that differs MUST revert <code>RangeNotContiguous()</code>.</td></tr>
+<tr><td>7</td><td><code>lastBlockHeight</code></td><td><code>uint64</code></td><td>claimed</td><td>MUST satisfy <code>firstBlockHeight &lt;= lastBlockHeight &lt;= firstBlockHeight + MAX_BATCH_BLOCKS - 1</code>; proof-bound over the whole range.</td></tr>
+<tr><td>8</td><td><code>firstBlockTimestamp</code>, <code>lastBlockTimestamp</code></td><td><code>uint64</code></td><td>claimed</td><td>Header timestamps of the range ends, proof-bound. <code>firstBlockTimestamp</code> fixes forced-inclusion dueness (<a href="#FI-02">FI-02</a>); the pair fixes the drift bound.</td></tr>
+<tr><td>9</td><td><code>epoch</code></td><td><code>uint64</code></td><td>claimed</td><td>MUST be a committed epoch: the L1 staking contract MUST already hold a non-zero set commitment for it (<a href="03-membership-staking.html#MEM-09">MEM-09</a>).</td></tr>
+<tr><td>10</td><td><code>validatorSetRoot</code></td><td><code>bytes32</code></td><td>L1-derived</td><td>Read from the L1 staking contract's commitment for <code>epoch</code>. Any submitter-supplied copy MUST be ignored.</td></tr>
+<tr><td>11</td><td><code>validatorSetTotalPower</code></td><td><code>uint256</code></td><td>L1-derived</td><td>Read alongside the root; the denominator of quorum.</td></tr>
+<tr><td>12</td><td><code>quorumThreshold</code></td><td><code>uint256</code></td><td>L1-derived</td><td><code>floor(2 * validatorSetTotalPower / 3) + 1</code>, computed by the contract. A submitter-supplied threshold MUST be ignored.</td></tr>
+<tr><td>13</td><td><code>newBlockHash</code></td><td><code>bytes32</code></td><td>claimed</td><td>L2 head block hash at <code>lastBlockHeight</code>; proof-bound.</td></tr>
+<tr><td>14</td><td><code>newStateRoot</code></td><td><code>bytes32</code></td><td>claimed</td><td>L2 execution state root at <code>lastBlockHeight</code>; proof-bound.</td></tr>
+<tr><td>15</td><td><code>finalityCommitment</code></td><td><code>bytes32</code></td><td>claimed</td><td><code>keccak256(abi.encode(bytes32("TAIKO_ETNA_FIN"), chainId, epoch, lastBlockHeight, newBlockHash, round, bitmapHash, signatureSetHash))</code>; the guest re-derives it from the witness (<a href="05-proof-statement.html#PRF-04">PRF-04</a>).</td></tr>
+<tr><td>16</td><td><code>dataCommitment</code></td><td><code>bytes32</code></td><td>tx-derived</td><td>Computed by the contract from this transaction per <a href="#DA-02">DA-02</a> (calldata) and/or <a href="#DA-03">DA-03</a> (blobs). Never accepted from the submitter.</td></tr>
+<tr><td>17</td><td><code>daMode</code></td><td><code>uint8</code></td><td>tx-derived</td><td><code>1 = CALLDATA</code>, <code>2 = BLOB</code>, <code>3 = CALLDATA_AND_BLOB</code>; derived from which arguments/blobs are present, not from a submitter field.</td></tr>
+<tr><td>18</td><td><code>challengeZ[i]</code></td><td><code>bytes32</code></td><td>tx-derived</td><td>Fiat–Shamir over <code>statementCoreHash</code> (rows 1–17 excluding the challenges) per <a href="#DA-03">DA-03</a>(iii); <code>bytes32(0)</code> when <code>daMode = 1</code>.</td></tr>
+<tr><td>19</td><td><code>challengeY[i]</code></td><td><code>bytes32</code></td><td>tx-derived</td><td>The value the point-evaluation precompile accepted for <code>challengeZ[i]</code>; <code>bytes32(0)</code> when <code>daMode = 1</code>.</td></tr>
+<tr><td>20</td><td><code>forcedInclusionCommitment</code></td><td><code>bytes32</code></td><td>L1-derived over the covered set</td><td><code>keccak256(abi.encode(bytes32("TAIKO_ETNA_FI"), chainId, requestIds[]))</code> over the ordered ids <code>land</code> requires (<a href="#FI-02">FI-02</a>).</td></tr>
+<tr><td>21</td><td><code>feeRecipient</code></td><td><code>address</code></td><td>claimed</td><td>The L2 proposer payout address for the batch's first block, proof-bound to the header of block <code>firstBlockHeight</code>. It receives the forced-inclusion fees (<a href="#L1-11">L1-11</a>).</td></tr>
+</tbody></table> <p class="small">The <em>program image id</em> is deliberately <strong>not</strong> in this list: it is a
+routing parameter of the verifier, not a statement the guest proves (<a href="#L1-09">L1-09</a>).</p>
+
+<div class="rule" id="L1-06"><span class="rid">L1-06 — monotone checkpoint advancement</span> <span class="norm">Let <code>lastLandedHeight</code> be the height of the current checkpoint record
+(<code>0</code> before the first one). <code>land</code> MUST require <code>firstBlockHeight == lastLandedHeight + 1</code> and MUST reject with
+<code>RangeNotContiguous()</code> otherwise; for a duplicate or earlier range it MUST revert <code>AlreadyLanded()</code>. After a successful <code>land</code>,
+<code>lastLandedHeight = lastBlockHeight</code> strictly increases. No function in any mode — including an upgrade initialiser, a recovery path, or a governance call — may decrease
+<code>lastLandedHeight</code>, replace or delete a checkpoint record at a height <code>&le;</code> the current one, or write a checkpoint at a height greater than <code>lastLandedHeight + 1</code>. The
+only legitimate way a checkpoint disappears is an L1 reorganisation that reverts the entire <code>land</code> transaction (<a href="#L1-12">L1-12</a>) — the contract never chooses to move
+backwards. Genesis establishes the first checkpoint exactly once, and it is never rewritten (<a href="08-migration-upgrades.html#MIG-03">MIG-03</a>).</span>
+<span class="why">Failure mode: a non-monotone checkpoint lets a later transaction replace the state root that the bridge surface authenticates against, which retroactively invalidates messages already
+proven against it — a rewrite of L2-finalized history through the L1 anchor, forbidden by Mode A (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). A gap (writing
+<code>lastLandedHeight + 2</code>) is the same defect in weaker form: it leaves an unprovable hole in the authenticated chain.</span> <span class="pill proven">Proven</span></div>
+
+<p class="small">Contrast: <code>init2()</code> at <code>Inbox.sol:217-244</code> sets <code>lastFinalizedProposalId</code> and <code>lastFinalizedBlockHash</code> to arbitrary
+owner-chosen values, and <code>Inbox.sol:376-378</code> overwrites the finalised pointer on every <code>prove()</code>. Under <a href="#L1-06">L1-06</a> neither is expressible.</p>
+
+<div class="rule" id="L1-07"><span class="rid">L1-07 — checkpoint record contents and its exact encoding</span> <span class="norm">The Inbox MUST store one checkpoint record per landed height and MUST make it
+readable by height. The record fields are, in this order and with these types:</span>
+<pre><code>struct Checkpoint {
+    uint64  height;           // L2 block height of the head of this batch
+    bytes32 blockHash;        // L2 head block hash at height
+    bytes32 stateRoot;        // L2 execution state root at height
+    uint64  epoch;            // L2 epoch that contains height
+    bytes32 setRoot;          // validator-set commitment valid at epoch
+    bytes32 dataCommitment;   // data commitment of this batch (DA-02 / DA-03)
+    uint64  l1BlockNumber;    // PROVENANCE: L1 block that accepted it
+}</code></pre>
+<span class="norm">The record hash is <code>keccak256(abi.encode(bytes32("TAIKO_ETNA_CKPT"), uint256(block.chainid), height, blockHash, stateRoot, epoch, setRoot, dataCommitment, l1BlockNumber))</code>
+— a single canonical <code>abi.encode</code> with the right-padded ASCII domain tag and the chain id as the first two fields (<a href="index.html#GEN-05">GEN-05</a>). <code>l1BlockNumber</code> is
+required so that <a href="#L1-12">L1-12</a> and <a href="#MSG-03">MSG-03</a> can evaluate Ethereum finality depth from storage without reconstructing an event log; it is provenance, not part of the
+state-transition binding, and it is written once and never edited. The accepting transaction's hash is <strong>not</strong> a field: the EVM does not expose it to the executing contract, so consumers
+obtain it from the <code>BatchLanded</code> event. <code>blockHash</code>, <code>stateRoot</code>, <code>setRoot</code> and <code>dataCommitment</code> MUST be non-zero; a record that fails any of
+these MUST NOT be written. The record MUST be the same object the L1 SignalService authentication path resolves for that block number (<a href="#MSG-01">MSG-01</a>).</span>
+<span class="why">Failure modes: (a) storing only a hash of the batch — as the baseline does, since the only proof-side state persisted is <code>CoreState.lastFinalizedBlockHash</code> and a
+<code>Checkpoint{blockNumber, stateRoot, blockHash}</code> — makes the epoch, the validator-set commitment and the data commitment unauthenticated for every later consumer, in particular for the
+next proof's predecessor binding and for the bridge; (b) an encoding that is not a single canonical
+<code>abi.encode</code> admits a second preimage for the same record, so <code>previousCheckpointHash</code> no longer identifies one record.</span>
+<span class="pill proven">Proven</span> <span class="pill derived">derived</span></div> <h2 id="interface">3. Interface sketch</h2>
+
+<div class="rule" id="L1-08"><span class="rid">L1-08 — Inbox interface sketch, events, and required reverts</span> <span class="norm">The Inbox MUST expose exactly the acceptance surface below.
+<strong>This is a sketch, not compiled or audited code</strong>: parameter packing, storage layout and gas are implementation decisions, and the pause/upgrade plumbing of the preserved contracts
+(<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>) is out of scope here. Every function named below MUST exist with a compatible ABI; every custom error listed MUST be raised on the stated
+condition; and there MUST NOT be an additional state-changing entry point that accepts a batch or writes a checkpoint.</span>
+<span class="why">Failure mode: an unlisted setter or a "helper" entry point becomes the de-facto admission path, and reviewers audit an interface that is not the one deployed.</span>
+<span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span> <span class="small">(gas of every function below is UNMEASURED)</span></div>
+
+<pre><code>// ---------------------------------------------------------------
+// SKETCH ONLY — not compiled, not audited, not measured.
+// ---------------------------------------------------------------
+struct LandInput {
+    uint64   lastBlockHeight;        // L1-05 row 7   (claimed)
+    uint64   firstBlockTimestamp;    // L1-05 row 8   (claimed)
+    uint64   lastBlockTimestamp;     // L1-05 row 8   (claimed)
+    uint64   epoch;                  // L1-05 row 9   (claimed)
+    bytes32  newBlockHash;           // L1-05 row 13  (claimed)
+    bytes32  newStateRoot;           // L1-05 row 14  (claimed)
+    bytes32  finalityCommitment;     // L1-05 row 15  (claimed)
+    address  feeRecipient;           // L1-05 row 21  (claimed)
+    uint8    daMode;                 // must equal the derived mode, else DataModeMismatch()
+    // --- data path (exactly one shape is populated, matching daMode) ---
+    bytes    batchData;              // CALLDATA: canonical payload, hashed by the contract (DA-02)
+    uint16   blobIndexStart;         // BLOB / hybrid
+    uint16   blobCount;              // MUST satisfy blobhash(i) != 0 for all i in range (DA-03)
+    bytes32[] blobVersionedHashes;   // MUST equal blobhash(blobIndexStart + i) element-wise
+    bytes[]  blobCommitments;        // 48-byte compressed BLS12-381 G1 commitments
+    bytes[]  blobProofs;             // 48-byte compressed BLS12-381 G1 proofs
+    // --- forced inclusion ---
+    uint64[] coveredRequestIds;      // MUST equal the due set computed by the contract (FI-02)
+}
+
+/// @notice Accepts one batch: data and proof in this same transaction. L1-01.
+/// @return checkpointHash_ the hash of the checkpoint written (L1-07).
+function land(bytes calldata _proof, LandInput calldata _input)
+    external payable returns (bytes32 checkpointHash_);
+
+/// @notice Requests inclusion of _txData in a FUTURE L2 block. Calldata, not a blob: FI-01.
+function requestForcedInclusion(bytes calldata _txData) external payable returns (uint64 requestId_);
+
+function cancelForcedInclusion(uint64 _requestId) external;        // only before eligibility (FI-05)
+function refundForcedInclusionFee(uint64 _requestId) external;     // after the escape threshold (FI-03)
+function checkpointAt(uint64 _height) external view returns (Checkpoint memory);
+function lastCheckpoint() external view returns (Checkpoint memory);
+function currentForcedInclusionFee() external view returns (uint256);
+function activeVerifierRoute() external view returns (VerifierRoute memory);   // L1-09
+
+// ---------------------------------------------------------------
+// Events — acceptance, checkpoint advancement, forced inclusion
+// ---------------------------------------------------------------
+event BatchLanded(
+    uint64 indexed firstBlockHeight, uint64 indexed lastBlockHeight,
+    bytes32 indexed dataCommitment, bytes32 checkpointHash,
+    bytes32 newStateRoot, bytes32 newBlockHash, uint8 daMode,
+    address prover, uint256 rewardPaid, uint256 forcedInclusionFeesPaid);
+
+event CheckpointAdvanced(
+    uint64 indexed height, bytes32 indexed blockHash,
+    bytes32 stateRoot, uint64 indexed epoch, bytes32 setRoot,
+    bytes32 dataCommitment, bytes32 checkpointHash, uint64 l1BlockNumber);
+
+event ForcedInclusionRequested(
+    uint64 indexed requestId, address indexed requester, uint64 eligibleAtL1Timestamp,
+    uint256 feePaid, bytes32 payloadHash);
+
+event ForcedInclusionConsumed(
+    uint64 indexed requestId, uint64 indexed includedInBlockHeight, uint256 feePaid);
+
+event ForcedInclusionFeeRefunded(uint64 indexed requestId, address indexed requester, uint256 amount);
+
+event VerifierRouteChanged(uint64 indexed routeVersion, bytes32 programImageId, address verifier);
+
+// ---------------------------------------------------------------
+// Custom errors raised by land (abridged to the admission-relevant set)
+// ---------------------------------------------------------------
+error RangeNotContiguous(uint64 expectedFirstBlockHeight, uint64 supplied);
+error AlreadyLanded(uint64 firstBlockHeight);
+error EmptyBatch();
+error BatchTooLong(uint64 lastBlockHeight, uint64 firstBlockHeight);
+error DataModeMismatch(uint8 derivedMode, uint8 suppliedMode);
+error BlobHashMismatch(uint16 blobIndex);        // blobhash(i) == 0 or != supplied versioned hash
+error BlobOpeningFailed(uint16 blobIndex);       // precompile reverted or returned other data
+error EpochNotCommitted(uint64 epoch);
+error SetRootMismatch(bytes32 derivedSetRoot, bytes32 supplied);
+error InvalidProof();                            // verifier reverted, or did not return true
+error ForcedInclusionNotCovered(uint64 requestId);
+error ForcedInclusionOverdue(uint64 requestId);
+error BatchTimestampDrift(uint64 firstBlockTimestamp, uint256 l1Now);
+error FeeAccountingUnderflow();
+</code></pre>
+
+<div class="rule" id="L1-09"><span class="rid">L1-09 — proof-system policy, verifier routing and the L1 ability to move to a new circuit</span>
+<span class="norm">Exactly one <em>active route</em> MUST be consulted per <code>land</code> call. A route is the triple <code>(routeVersion : uint64, programImageId : bytes32, verifier : address)</code>.
+Routes MUST live in the Inbox's own storage — not in a mutable registry owned by another contract — because the baseline verifiers (<code>SP1Verifier</code>, <code>Risc0Verifier</code>) are
+non-upgradeable <code>Ownable2Step</code> contracts replaced by redeployment, and an upgrade of a verifier contract must never be able to change which statement the Inbox accepts. Both zkVM backends
+implement the same statement; whether the policy is "one backend active" or "either backend verifies" is fixed by <a href="05-proof-statement.html#PRF-09">PRF-09</a>, and <code>land</code> MUST implement
+that policy literally: with an either-verifies policy it MUST try each enabled route for the active image and accept the proof if any returns <code>true</code>; with a single-route policy it MUST call
+exactly the active route. Enabling a new route is additive and MUST NOT be rejectable by any account (<a href="#L1-04">L1-04</a>); every landed checkpoint MUST record the <code>routeVersion</code> used.
+Retiring an image is <strong>not</strong> an ordinary operation: it is permitted only under the same procedure that governs a rule change (<a href="08-migration-upgrades.html#GOV-02">GOV-02</a>,
+<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>), and MUST NOT be executed while any
+PoS-finalized-but-unsettled range could be proved only under the retired image. A new image MUST accept every history that the previous image accepted (<a href="05-proof-statement.html#PRF-10">PRF-10</a>).</span>
+<span class="why">Failure modes: (a) a mutable external registry lets the verifier be re-pointed without the specification changing — the statement is then whatever someone wired up; (b) retiring an
+image while an unsettled finalized range depends on it makes that range permanently unprovable, which is Mode A's forbidden outcome arriving through an upgrade
+(<a href="../04-architecture-decision.md">04-architecture-decision.md</a> §5.3, <code>UPG-PRESERVE</code>).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="small">(the retirement bar assumes A-GOV-1: the DAO does not execute a malicious upgrade)</span></div>
+<h2 id="races">4. Races, fees, and L1 reorganisation</h2>
+
+<div class="rule" id="L1-10"><span class="rid">L1-10 — submission races, re-submission, and what a proof is a proof <em>of</em></span>
+<span class="norm">The first valid submission wins. Concretely: <code>land</code> MUST be atomic with respect to the checkpoint pointer, so two transactions in one L1 block are ordered by L1, the first
+one advances <code>lastLandedHeight</code>, and the second MUST revert <code>AlreadyLanded()</code> if it targets an overlapping or duplicate range, or MUST be evaluated against the new checkpoint if
+it extends it. Re-submission of the <em>same</em> batch (same <code>dataCommitment</code>, same range) by a <strong>different</strong> account MUST be accepted whenever the first submission did not land;
+it MUST NOT be rejected because another account previously submitted, attempted, or announced the same range. A proof is a proof of exactly the statement of <a href="#L1-05">L1-05</a>: a proof for a
+different batch — a different range, a different predecessor, a different data commitment, a different epoch or set root — MUST NOT be usable as a substitute, and MUST fail verification because
+those values are in <code>statementHash</code>. The reward of <a href="#L1-11">L1-11</a> MUST be paid to <code>msg.sender</code>, the account that paid for the landing transaction; the protocol MUST NOT
+attempt to attribute it to any address named inside the proof. Consequently, a proof observed in the public mempool <em>can</em> be landed first by another account, which then collects the reward; this
+is an accepted property of permissionless landing, not a defect to be patched with a first-submitter reservation, and the mitigation available to provers is private orderflow or bundling.</span>
+<span class="why">Failure modes: (a) a first-submitter reservation is a permissioned gate that expires a range into unrecoverability when the reserving account disappears
+(<a href="#L1-04">L1-04</a>); (b) accepting a proof for a different batch lets a prover attach a valid proof to unrelated data — the whole point of binding the data commitment is that it cannot be done;
+(c) paying the reward to a proof-declared address lets anyone who copies a proof redirect the payout and makes the identity of the prover unfalsifiable.</span> <span class="pill proven">Proven</span></div>
+
+<div class="rule" id="L1-11"><span class="rid">L1-11 — fees and the reward accounting identity</span> <span class="norm">The Inbox MUST hold two separate ledgers and MUST enforce their conservation with
+checked arithmetic (no unchecked subtraction; violation reverts <code>FeeAccountingUnderflow()</code>): a <strong>forced-inclusion ledger</strong> holding requester fees, and a <strong>prover reward
+ledger</strong> funded by L2 fee revenue (<a href="07-economics-slashing.html#ECON-02">ECON-02</a>) and by any <code>msg.value</code> the submitter adds. On a successful <code>land</code> the identity is:</span>
+<pre><code>forcedInclusion_after = forcedInclusion_before
+                       - sum of feeHeld[r] for r in coveredRequestIds   // paid to feeRecipient
+proverReward_after    = proverReward_before + msg.value - rewardPaid
+rewardPaid            = min(REWARD_QUOTE, proverReward_before + msg.value)
+require(forcedInclusion_after &gt;= 0); require(proverReward_after &gt;= 0);
+require(rewardPaid &lt;= proverReward_before + msg.value);</code></pre>
+<span class="norm">Each covered request's fee MUST be paid at most once: <code>land</code> MUST mark the request consumed in the same write that pays it, and a second payment for the same
+<code>requestId</code> MUST be impossible. <code>land</code> MUST NOT require a non-zero <code>rewardPaid</code>: if the reward ledger is empty, the batch still lands with
+<code>rewardPaid = 0</code> and the event records <code>0</code>. <code>REWARD_QUOTE</code> MUST NOT
+depend on anything the submitter controls except the gas actually consumed, and MUST NOT depend on the proof's contents beyond validity.</span>
+<span class="why">Failure modes: (a) an empty reward pool blocking acceptance turns economics into an admission gate, which <a href="#L1-04">L1-04</a> forbids and which makes settlement depend on a
+treasury rather than on a proof; (b) paying a forced-inclusion fee twice is a direct drain of the ledger; (c) a reward that scales with a submitter-chosen quantity is a self-dealing surface.</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span> <span class="small">(<code>REWARD_QUOTE</code> and the gas cost of <code>land</code> are UNMEASURED;
+closing them requires a gas-snapshot run over batches of the target size, which does not exist)</span></div>
+
+<div class="rule" id="L1-12"><span class="rid">L1-12 — L1 reorganisation handling, and no unfinalised L1 fact is settled</span>
+<span class="norm">If the L1 block containing a <code>land</code> transaction is reorganised out below Ethereum finality, the transaction is undone by Ethereum: no checkpoint record exists, no height
+advanced, no request consumed, no fee paid, and no event is part of the canonical chain. The batch remains <a href="index.html#STATUS-04">PoS-finalized</a> in Mode A, and MUST be re-landable with the
+same <code>dataCommitment</code> under <a href="#L1-04">L1-04</a>. The Inbox MUST NOT contain any function that "repairs" a reorganisation by writing a chosen checkpoint, height, or state root: the
+only response is re-execution of <code>land</code>. Because a checkpoint chain is built by strict succession (<a href="#L1-06">L1-06</a>), a reorg that drops one <code>land</code> transaction also
+drops every later transaction that extended from it, since those transactions cannot satisfy <code>firstBlockHeight == lastLandedHeight + 1</code> on the new branch; a submitter whose transaction
+is invalidated this way MUST re-submit. Independently of the Inbox, <strong>no L2 rule may treat an unfinalised L1 fact as settled</strong>: L2 consensused state may consume only Ethereum-final L1
+facts, or L1 facts at the configured finality depth, per <a href="01-system-model.html#SYS-02">SYS-02</a> and <a href="index.html#STATUS-07">STATUS-07</a>.
+<code>Checkpoint.l1BlockNumber</code> (<a href="#L1-07">L1-07</a>) records inclusion, not finality; any consumer that needs finality MUST compare it against the configured depth.</span>
+<span class="why">Failure modes: (a) an owner-recovery setter for the checkpoint turns an L1 reorg into a discretionary rewrite of the L2 anchor; (b) an L2 rule that acts on an L1 fact at depth
+<code>0</code> can act on a fact that later disappears, so a PoS-finalized L2 block can be left
+depending on an L1 event that no longer exists — the exact condition under which a finalized L2 block becomes unprovable.</span> <span class="pill proven">Proven</span></div>
+
+<h2 id="da">5. Data availability (D8)</h2>
+
+<div class="rule" id="DA-01"><span class="rid">DA-01 — the canonical data-availability location is the accepting L1 transaction</span>
+<span class="norm">The canonical copy of a batch's data MUST be the accepting L1 transaction itself:
+its calldata and/or the blob sidecars of that same transaction, as bound by <a href="#DA-02">DA-02</a> and <a href="#DA-03">DA-03</a>. A batch is
+<a href="index.html#STATUS-06">accepted on L1</a> only together with that data. The design MUST NOT define a second canonical location, and MUST NOT treat any location outside that transaction as
+sufficient for <a href="index.html#STATUS-06">STATUS-06</a>.</span> <span class="why">Failure mode: two canonical locations means two answers to "what is the batch?", and
+the weaker one is the one an implementer will build against.</span> <span class="pill proven">Proven</span></div>
+
+<div class="rule" id="DA-02"><span class="rid">DA-02 — calldata path: the contract computes the data commitment itself</span>
+<span class="norm">In the calldata path the Inbox MUST compute the data commitment itself over the
+exact calldata slice supplied to <code>land</code>, and MUST pass <em>that</em> value as the public input. The construction is fixed as:</span>
+<pre><code>dataRoot       = keccak256(_batchData)                 // one byte string: no field ambiguity
+payloadRoot    = dataRoot
+dataCommitment = keccak256(abi.encode(
+                     bytes32("TAIKO_ETNA_DATA"),        // right-padded ASCII domain tag (GEN-05)
+                     uint256(block.chainid),            // chain id is the second field (GEN-05)
+                     uint64(firstBlockHeight),
+                     uint64(lastBlockHeight),
+                     uint8(daMode),                     // 1 = CALLDATA, 3 = CALLDATA_AND_BLOB
+                     payloadRoot))</code></pre>
+<span class="norm"><code>keccak256(_batchData)</code> hashes one opaque byte string rather than a concatenation of fields, so it introduces no second-preimage ambiguity and is not an
+<code>abi.encodePacked</code> of multiple values. The byte-level layout of <code>_batchData</code> — how L2 blocks serialise into the batch payload — is fixed once, on
+<a href="05-proof-statement.html#PRF-07">PRF-07</a>; this rule fixes only how L1 commits to it. The guest MUST recompute <code>dataCommitment</code> from the payload it actually executed, and MUST
+reject the batch if the recomputation differs. The Inbox MUST ignore any submitter-supplied <code>dataCommitment</code>; if one is present in the input it MUST either be absent from the ABI or
+be checked equal and rejected with <code>DataModeMismatch()</code> on mismatch.</span> <span class="why">Failure mode: taking the commitment from the submitter decouples the proof from the
+calldata, so a valid proof can be paired with arbitrary data in the same transaction — the strongest and simplest binding available is thrown away.</span> <span class="pill proven">Proven</span></div>
+<div class="rule" id="DA-03"><span class="rid">DA-03 — blob path: BLOBHASH, on-chain KZG opening, and in-guest evaluation at the challenge point</span>
+<span class="norm">For a batch whose data is in blobs, let <code>n = blobCount</code> and let blob index <code>i</code> range over <code>[blobIndexStart, blobIndexStart + n)</code>. The Inbox MUST
+perform (i) and (ii) for every <code>i</code>, and the guest MUST perform (iv).</span>
+
+<p><strong>(i) BLOBHASH equality.</strong> The Inbox MUST read the transaction's own blob versioned hash with the <code>BLOBHASH</code> opcode and require, for each <code>i</code>:</p>
+<pre><code>bytes32 vh = blobhash(i);
+require(vh != bytes32(0) &amp;&amp; vh == _input.blobVersionedHashes[i - blobIndexStart], BlobHashMismatch(i));</code></pre>
+<p class="small">A zero value means no blob at that index in <em>this</em> transaction; because <code>BLOBHASH</code> is transaction-scoped, no other transaction's blobs can be substituted. The
+loop is bounded by the transaction's own blob count, whose protocol limit is the Ethereum per-block
+limit — target <strong>6</strong>, maximum <strong>9</strong> blobs per block under EIP-7691 <span class="pill sourced">sourced</span>.</p>
+
+<p><strong>(ii) On-chain KZG point evaluation.</strong> The Inbox MUST call the EIP-4844 point-evaluation precompile at address <code>0x0A</code> with the 192-byte input
+<code>abi.encodePacked(vh, z_i, y_i, commitment_i, proof_i)</code> — <code>z_i</code> and <code>y_i</code> as 32-byte big-endian canonical field elements, <code>commitment_i</code> and
+<code>proof_i</code> as 48-byte compressed BLS12-381 G1 points. The call MUST succeed and MUST return
+exactly <code>abi.encode(4096, BLS_MODULUS)</code>; otherwise <code>land</code> reverts <code>BlobOpeningFailed(i)</code>. The precompile verifies <code>kzg_to_versioned_hash(commitment_i) == vh</code> <em>and</em>
+<code>verify_kzg_proof(commitment_i, z_i, y_i, proof_i)</code>, and rejects non-canonical field elements. Its gas cost is <strong>50,000</strong> per call <span class="pill sourced">sourced</span>
+(EIP-4844), so a batch using <code>n</code> blobs costs <code>50,000 &middot; n</code> gas for these
+calls <span class="pill derived">derived</span>; the total cost of <code>land</code> remains <strong>UNMEASURED</strong>.</p>
+
+<p><strong>(iii) The challenge point <code>z</code> is derived on-chain by Fiat–Shamir.</strong> It MUST NOT be supplied by the submitter. With <code>statementCoreHash</code> the hash of the public
+inputs of <a href="#L1-05">L1-05</a> <em>rows 1–17 excluding rows 18–19</em> (i.e. excluding the challenges themselves), the Inbox MUST compute, per blob index:</p>
+<pre><code>z_i = uint256(keccak256(abi.encode(
+          bytes32("TAIKO_ETNA_CHALLENGE"), uint256(block.chainid),
+          statementCoreHash, uint16(i)))) % BLS_MODULUS;</code></pre>
+<p class="small">The modulus reduction is required because a keccak-256 output is not automatically a canonical scalar (<code>BLS_MODULUS &lt; 2^255</code>), and the precompile rejects non-canonical
+elements. The reduction biases the distribution by at most <code>BLS_MODULUS / 2^256 &asymp; 2^-127</code> in statistical distance
+<span class="pill derived">derived</span>, which is irrelevant to the <code>2^-243</code> bound below. Index <code>i</code> is inside the domain so that two blobs of the same batch never share a challenge.</p>
+
+<p><strong>(iv) The guest proves the evaluation of the data it executed.</strong> The guest receives <code>(vh_i, z_i, y_i)</code> as public inputs and the blob bytes as part of the data it executed. It
+MUST interpret each 131,072-byte blob as 4096 coefficients <code>p(X) = &Sigma;<sub>j</sub> c<sub>j</sub> X<sup>j</sup></code>, where <code>c<sub>j</sub></code>
+is the big-endian integer of the <code>j</code>-th 32-byte chunk, and it MUST reject the batch if any chunk is <code>&ge; BLS_MODULUS</code>. It MUST recompute <code>p_data,i(z_i)</code> by Lagrange
+evaluation over those 4096 coefficients and MUST reject the batch unless <code>p_data,i(z_i) == y_i</code>.</p>
+
+<p><strong>Why this is sound.</strong> The chain is: (a) <code>blobhash(i)</code> names the blob that is in this transaction; (b) the precompile establishes
+<code>kzg_to_versioned_hash(commitment_i) == vh_i</code>, so <code>commitment_i</code> is the KZG commitment of that blob's polynomial <code>p_blob,i</code>; (c) the precompile's
+<code>verify_kzg_proof</code> establishes <code>p_blob,i(z_i) = y_i</code>; (d) the guest establishes <code>p_data,i(z_i) = y_i</code>. Therefore <code>(p_data,i - p_blob,i)(z_i) = 0</code>. If the two
+polynomials differ, their difference is a non-zero polynomial of degree <code>&le; 4095</code>, which has at most 4095 roots; over a uniform <code>z</code> the equality holds with probability at most
+<code>4095 / |F| &asymp; 2^-243</code> <span class="pill derived">derived</span>. The prover cannot choose <code>z</code> after choosing its data: <code>z_i</code> is a deterministic function of
+<code>statementCoreHash</code>, which contains <code>dataCommitment</code>, which for the blob path contains the versioned hashes, which are <code>kzg_to_versioned_hash</code> of the very commitments
+the prover must fix before <code>z_i</code> is computable. Grinding is therefore per-candidate-blob: for a real payload that differs from the committed blob polynomial, each candidate blob yields an
+independent random equation with success probability <code>&asymp; 2^-243</code>. Hence, with overwhelming probability, <code>p_data,i = p_blob,i</code>: the guest executed exactly the data the blob commits to.</p>
+
+<p><strong>Premises.</strong> This argument requires all four of: (1) KZG binding for blob commitments (A-CRYPTO-3); (2) the random-oracle model for the Fiat–Shamir derivation of
+<code>z_i</code>; (3) correct in-guest field arithmetic over the BLS12-381 scalar field, including the exact Lagrange evaluation and the 4096-coefficient interpretation; (4) canonical field elements
+in both the blob and the guest's coefficients. If any premise fails, the binding does not hold. This is a <strong>proof sketch with named premises</strong>, not a machine-checked theorem, and
+adversarial review question Q-A3 is carried against a grinding prover (<a href="../04-architecture-decision.md">04-architecture-decision.md</a> §7).</p>
+
+<p><strong>Provenance and honesty.</strong> This construction was <em>derived in this project</em> (<a href="../04-architecture-decision.md">04-architecture-decision.md</a> §4.1); it is not an
+established published design and has no implementation. Its <strong>in-guest cost is UNMEASURED</strong>; measuring it requires an implementation of the in-guest evaluation on both
+backends with cycle counts at a stated blob size, which does not exist (<a href="../04-architecture-decision.md">04-architecture-decision.md</a> §7, item F2). In-guest MSM
+and in-guest pairings are <strong>deliberately avoided</strong>, because the zkVM feasibility work found them <strong>UNVERIFIED on both backends</strong>: the guest performs field arithmetic and
+Lagrange evaluation only, and the pairing happens on L1 inside the precompile (<a href="05-proof-statement.html#PRF-11">PRF-11</a>). The alternative to measure is the RISC Zero
+patched <code>c-kzg</code> library, which would put a different and larger trusted computing base inside the guest. Precompile semantics, address and gas are cited from EIP-4844; blob counts from EIP-7691.</p>
+
+<span class="why">Failure modes: (a) a submitter-chosen <code>z</code> lets a prover pick the evaluation point after fixing its data, which reduces the binding to a single linear equation it can
+solve; (b) accepting <code>blobhash</code> from calldata instead of reading it lets a transaction reference blobs it did not publish; (c) performing the KZG opening in-guest would require MSM and
+pairings that are unverified on both backends, i.e. an unquantified soundness assumption; (d) without
+the canonical-field-element requirement the guest's polynomial is ambiguous, and two different byte strings map to the same polynomial.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span> <span class="pill open">Open</span>
+<span class="small">(measured in-guest cost; review question Q-A3)</span></div>
+
+<p><strong>Hybrid mode.</strong> When <code>daMode = CALLDATA_AND_BLOB</code>, the payload is <code>_batchData || blobChunk[0] || &hellip; || blobChunk[n-1]</code>, and</p>
+<pre><code>payloadRoot = keccak256(abi.encode(bytes32("TAIKO_ETNA_HYBRID"), uint256(block.chainid),
+                                  keccak256(_batchData), vh[0], ..., vh[n-1]));</code></pre>
+<p class="small">Both bindings then apply independently: the calldata part is bound by the contract's own hash, the blob parts by the construction above. A batch is invalid if either binding fails.</p>
+
+<div class="rule" id="DA-04"><span class="rid">DA-04 — no witness, certificate or off-chain store substitutes for on-chain data</span>
+<span class="norm">None of the following may be used, alone or in combination, to satisfy <a href="#DA-01">DA-01</a>: the prover's private witness or any hint stream; a validity proof of any
+kind; a committee, quorum, or validator attestation; a "data-availability certificate"; a blob <em>reference</em> (a versioned hash or blob index without the blob's presence in this transaction);
+an external DA layer, an off-chain store (HTTP, IPFS, S3, a node's local disk), or an operator promise. The guest MUST NOT be able to execute a batch whose payload it received only through a
+private witness while the corresponding public data is absent: the data commitment of <a href="#DA-02">DA-02</a>/<a href="#DA-03">DA-03</a> MUST be computed over data that is in the accepting transaction.</span>
+<span class="why">Failure mode: the protocol claims availability while the only party who can reconstruct the batch is the prover, which is exactly the "certified-but-unavailable" class that the
+architecture decision records as Mode A's strongest counterexample (<a href="../04-architecture-decision.md">04-architecture-decision.md</a> §5.1).</span> <span class="pill proven">Proven</span></div>
+<div class="rule" id="DA-05"><span class="rid">DA-05 — retrievability window, archive requirement, and the blob-retention limit</span>
+<span class="norm">Blobs are <strong>not</strong> a permanent store. Ethereum guarantees blob sidecar retrievability for <code>MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS = 4096</code> epochs
+<span class="pill sourced">sourced</span> (EIP-4844), which is roughly 18 days at Ethereum's present slot cadence <span class="pill derived">derived</span> — the design does not depend on that
+wall-clock figure and expresses the window in epochs and L1 block numbers (<a href="index.html#GEN-06">GEN-06</a>). Calldata is not permanent either: on the p2p layer clients
+stop serving historical headers, bodies and receipts older than 14,299 epochs <span class="pill sourced">sourced</span> (EIP-4444, recorded in
+<a href="../research/recovery-and-withholding-raw.md">research/recovery-and-withholding-raw.md</a>). The design therefore MUST specify, in <a href="09-parameters.html#PARAM-01">09</a>: (a) a
+<code>RETRIEVABILITY_WINDOW</code> in L1 block numbers, not shorter than the blob-retention window; (b) an <code>ARCHIVE_REQUIREMENT</code> fixing how many independent archive nodes must retain the full
+accepting-transaction calldata and full blob sidecars for at least that window, with the duty owned by <a href="01-system-model.html#ROLE-03">ROLE-03</a>; (c) the statement that past the window,
+retrievability depends on those archives and not on Ethereum. <strong>Under D5 this failure class cannot recur for a pending batch:</strong> data is published only in the transaction that proves it,
+so there is no interval in which a batch's data is on L1 while its proof is not. The retention clock starts at acceptance, not at a separate proposal.</span>
+<span class="why">In-repo evidence that this failure class is real, not hypothetical: at revision <code>7718753c1</code>, <code>init3()</code> (<code>Inbox.sol:246-258</code>) is a one-time
+<code>onlyOwner</code> function that voids queued forced inclusions by moving the queue head to the tail, and its NatSpec states the reason — the skipped entries' <em>blobs have expired from the blob
+retention window and can no longer be derived</em> after the June 2026 incident, and their fees remain in the contract. <a href="../04-architecture-decision.md">04-architecture-decision.md</a> §4 records
+the same finding. A design that publishes data before a proof re-creates exactly that state.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill derived">derived</span></div>
+
+<div class="rule" id="DA-06"><span class="rid">DA-06 — retention duty and its link to the backlog cap</span> <span class="norm">The consensus-enforced unsettled-depth cap of
+<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a> exists <em>because of</em> this rule. Define <code>unsettledAge</code> as the L1-block distance between the oldest PoS-finalized-but-not-landed L2
+block and the current L1 block. Correct validators MUST refuse to vote for a block that would make <code>unsettledAge</code> exceed <code>MAX_UNSETTLED_AGE</code>, so that the oldest unsettled batch
+never leaves the retrievability window before it can be proven and landed. The retention duty MUST satisfy <code>RETRIEVABILITY_WINDOW &ge; MAX_UNSETTLED_AGE + SETTLEMENT_PIPELINE + EVIDENCE_WINDOW</code>,
+where <code>SETTLEMENT_PIPELINE</code> is the worst-case proving plus L1-inclusion plus Ethereum-finality time (<a href="07-economics-slashing.html#ECON-03">ECON-03</a>) and <code>EVIDENCE_WINDOW</code> is the
+misconduct-evidence window (<a href="07-economics-slashing.html#ECON-07">ECON-07</a>). The cap is a rule on <em>production</em>; it MUST NOT be applied to <code>land</code>
+(<a href="#L1-04">L1-04</a>), because refusing an available, valid proof would strand finalized
+history. When the cap binds, the honest outcome is a safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>), never a rollback.</span>
+<span class="why">Failure mode: without the cap, blocks keep being finalized whose data ages out of the retention window before any proof exists; the batch then cannot be proven by anyone, and Mode A
+forbids discarding it, so the chain is permanently stuck on a range whose data no longer exists
+anywhere the protocol promised. The cap converts an unbounded, unrecoverable failure into a bounded, recoverable halt.</span> <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(<code>RETRIEVABILITY_WINDOW</code>, <code>MAX_UNSETTLED_AGE</code> and the pipeline terms are unmeasured parameters; all four are fixed in <a href="09-parameters.html#PARAM-01">09</a>)</span></div>
+
+<h2 id="forced">6. Forced inclusion</h2>
+
+<div class="rule" id="FI-01"><span class="rid">FI-01 — request format, bond/fee, and eligibility delay</span> <span class="norm">A user censored on L2 MUST be able to request inclusion by an L1 transaction:</span>
+<pre><code>function requestForcedInclusion(bytes calldata _txData) external payable returns (uint64 requestId_);
+
+struct ForcedInclusionRequest {
+    uint64  id;                       // FIFO, assigned in request order, never reused
+    address requester;                // receives a refund under FI-03
+    uint64  eligibleAtL1Timestamp;    // = block.timestamp + FORCED_INCLUSION_DELAY_SECONDS
+    bytes32 payloadHash;              // keccak256(_txData)
+    bytes   txData;                   // the transaction to be included, stored in L1 STATE
+}</code></pre>
+<span class="norm">The payload MUST be calldata carried in the request transaction and stored in the Inbox's own L1 storage — <strong>not</strong> a blob. A blob-backed request re-creates the
+<a href="#DA-05">DA-05</a> expiry class: the reference would outlive nothing, and after the retention window the request could neither be included nor refunded, which is precisely what happened to the
+queue voided by <code>init3()</code> (<code>Inbox.sol:246-258</code>). The requester MUST pay a fee at request time (formula and escalation in <a href="#FI-05">FI-05</a>); excess MUST be refunded. The
+delay parameter <code>FORCED_INCLUSION_DELAY_SECONDS</code> is expressed in <strong>seconds</strong> (<a href="index.html#GEN-06">GEN-06</a>) and its value is fixed in
+<a href="09-parameters.html#PARAM-01">09</a>; the baseline's <code>576</code> seconds (<code>MainnetInbox.sol:48</code>) is recorded as <em>today's value at 7718753c1</em>
+<span class="pill sourced">sourced</span>, not as this design's value <span class="pill unmeasured">unmeasured</span>. <code>_txData.length</code> MUST be bounded by
+<code>MAX_FORCED_INCLUSION_BYTES</code> so that the request's storage cost and its later inclusion are bounded. Requests are strictly FIFO by <code>id</code>; <code>id</code> is never reused.</span>
+<span class="why">Failure modes: (a) a blob-backed request expires and becomes unincludable and unrefundable; (b) an unbounded payload lets one request consume an entire L2 block, converting the
+censorship remedy into a denial-of-service tool; (c) a reused or reorderable <code>id</code> lets a proposer shuffle or selectively drop the queue.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill unmeasured">unmeasured</span></div>
+
+<div class="rule" id="FI-02"><span class="rid">FI-02 — the inclusion duty: an L2 validity rule with an L1 backstop</span> <span class="norm">The duty has two layers and both are normative. <strong>(a) L2 validity rule
+(<a href="02-consensus.html#CONS-01">CONS-01</a>).</strong> A proposal is invalid unless its first block includes, as transactions and in FIFO request order, every request that is eligible and has
+been observed at the configured Ethereum finality depth as of the proposal's parent; correct validators MUST reject a proposal that omits one. <strong>(b) L1 backstop in <code>land</code>.</strong>
+The Inbox MUST compute <code>due</code> and require exact equality with the covered set bound by the proof:</span>
+<pre><code>due = { r in queue : r.eligibleAtL1Timestamp &lt;= _input.firstBlockTimestamp &amp;&amp; !consumed[r] }
+require(keccak256(abi.encode(bytes32("TAIKO_ETNA_FI"), block.chainid, coveredIds))
+        == forcedInclusionCommitment);                       // L1-05 row 20
+require(setEquals(coveredIds, due));                         // else ForcedInclusionNotCovered(id)
+require(block.timestamp &lt;= _input.firstBlockTimestamp + FORCED_INCLUSION_MAX_DRIFT);
+                                                             // else BatchTimestampDrift(...)
+consume(coveredIds);                                         // each id exactly once, in FI-01 order</code></pre>
+<span class="norm"><code>coveredIds</code> MUST be strictly ascending and duplicate-free; a duplicate MUST revert <code>ForcedInclusionNotCovered()</code>. Exact equality — not containment — is required
+so that a proposer can neither omit a due request nor pad the batch with requests that are not due in order to change their relative order. <code>FORCED_INCLUSION_MAX_DRIFT</code> is the bound that stops
+a batch from back-dating <code>firstBlockTimestamp</code> to dodge requests that became eligible in the meantime; it is a liveness parameter whose value is fixed in
+<a href="09-parameters.html#PARAM-01">09</a> and is <strong>UNMEASURED</strong> — closing it requires
+measured L2/L1 clock skew under the stated operating assumptions. Because <code>firstBlockHeight</code> is forced to <code>lastLandedHeight + 1</code>
+(<a href="#L1-06">L1-06</a>), a proposer cannot move the batch boundary to escape the duty.</span> <span class="why">Failure modes: (a) without the L2 rule, the queue drains at proposer discretion and
+the duty is only a fee; (b) without the L1 backstop, a colluding quorum can omit a request forever while continuing to land batches; (c) containment instead of equality lets a proposer reorder due
+requests relative to each other; (d) without the drift bound, a proposer can label a batch with a timestamp older than a request's eligibility and legitimately claim the request was not yet due.</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span></div> <div class="rule" id="FI-03"><span class="rid">FI-03 — escape hatch under sustained censorship</span>
+<span class="norm">A request MUST NOT be voidable. There MUST NOT exist an owner, DAO, operator, or recovery function that removes a request from the queue, rewrites its
+<code>eligibleAtL1Timestamp</code>, or marks it consumed without a corresponding accepted batch — contrast <code>init3()</code> (<code>Inbox.sol:253-258</code>), which does exactly that. When a
+request has remained eligible and uncovered for longer than <code>FORCED_INCLUSION_ESCAPE_THRESHOLD</code> (seconds), the following MUST hold: (a) the request
+stays in the queue and remains coverable by any future batch, forever; (b) the requester becomes entitled to a refund of the fee it paid, claimable from the Inbox at any time thereafter, without
+removing the request or affecting its coverage obligation; (c) <code>land</code> continues to reject batches that fail <a href="#FI-02">FI-02</a>, so a chain that keeps producing without covering the
+request stops being able to settle, which is the halt defined by <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>; (d) honest participants MUST NOT respond
+by discarding, rolling back, or re-founding finalized history (<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>). The hatch deliberately does <em>not</em>
+provide an L1-side force-exit of L2-held value: the funds are in L2 state, and no rule here may invent an L1 path that mints or releases them. That limitation MUST be disclosed wherever the hatch is described.</span>
+<span class="why">Failure modes: (a) a voidable queue destroys the censorship remedy and destroys the evidence of the censorship (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>); (b) an "escape"
+that mints or releases L2-held value on L1 is a bridge exploit with an honest name; (c) an escape that invalidates finalized history is Mode B by the back door and is forbidden by D2 in ordinary operation.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="FI-04"><span class="rid">FI-04 — forced inclusion can only add to a future block; it can never reorder or revoke past history</span>
+<span class="norm">A covered request's payload MUST enter as a transaction in an L2 block whose height is strictly greater than <code>lastLandedHeight</code> — i.e. in a block of the batch currently being
+landed, or a future one, never in an already-landed block. A request MUST NOT be able to change the content, ordering, or state root of any block at a height <code>&le; lastLandedHeight</code>, and
+MUST NOT be able to change any checkpoint record (<a href="#L1-06">L1-06</a>). Within the batch that covers it, the request's position relative to other covered requests is fixed to FIFO request order
+(<a href="#FI-02">FI-02</a>); its position relative to non-forced transactions is a derivation rule owned by <a href="02-consensus.html#CONS-01">CONS-01</a>. A request that is never covered MUST remain
+queued rather than be discarded (<a href="#FI-03">FI-03</a>). There MUST NOT exist a code path that uses a forced inclusion, or the fact that one is overdue, to re-execute, invalidate or replace a
+landed batch (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>).</span> <span class="why">Failure mode: a censorship remedy that can reorder or revoke past history is a
+retroactive-reordering mechanism — the mechanism D2 forbids — and it would let an attacker use the
+forced-inclusion queue to rewrite settled outcomes, including bridge messages already authenticated against a checkpoint.</span> <span class="pill proven">Proven</span></div>
+
+<div class="rule" id="FI-05"><span class="rid">FI-05 — griefing controls and fee escalation</span> <span class="norm">The required fee for a request MUST escalate with queue depth:</span>
+<pre><code>fee = floor(BASE_FEE * (FEE_DOUBLE_THRESHOLD + pending) / FEE_DOUBLE_THRESHOLD)  // pending = queue length
+fee = min(fee, MAX_FEE);                                                          // no overflow, no unbounded grief</code></pre>
+<span class="norm">This is the shape used at revision <code>7718753c1</code> (<code>LibForcedInclusion.sol:89-93</code>, with <code>baseFee = 1_000_000</code> gwei and
+<code>threshold = 50</code> at <code>MainnetInbox.sol:49-50</code>) <span class="pill sourced">sourced</span>; this design's <code>BASE_FEE</code>, <code>FEE_DOUBLE_THRESHOLD</code> and <code>MAX_FEE</code> are set in
+<a href="09-parameters.html#PARAM-01">09</a> and are <strong>UNMEASURED</strong>. Additional controls
+are mandatory: (a) a request MUST NOT be cancellable once <code>block.timestamp &ge; eligibleAtL1Timestamp</code> — before that it is cancellable, and
+cancellation refunds the fee minus a fixed <code>CANCELLATION_COST</code>; (b) each request consumes exactly one slot of the L2 block space it eventually occupies, and the number of requests a single
+batch can cover MUST be bounded by <code>MAX_FORCED_INCLUSIONS_PER_BATCH</code>, so that both <code>land</code> and block production have bounded cost; (c) the queue length MUST be bounded
+relative to <code>MAX_UNSETTLED_AGE</code> so that the due set cannot grow faster than batches can clear it; (d) <code>land</code>'s due-set computation MUST be bounded by
+<code>MAX_FORCED_INCLUSIONS_PER_BATCH</code> plus the queue growth permitted by (c), never by an unbounded loop over all requests ever made.</span>
+<span class="why">Failure modes: (a) a free or cheap queue lets an attacker fill the due set so that every <code>land</code> reverts, stalling settlement at negligible cost; (b) an unbounded due-set
+loop makes <code>land</code> unaffordable or uncallable as the queue grows; (c) cancellable-after-eligible requests let an attacker withdraw the evidence of censorship exactly when it matters. Note honestly
+that this remains a <em>cost-imposing liveness attack</em> even with escalation: its profitability is
+<strong>UNMEASURED</strong>, and closing it requires the fee schedule and the measured cost of covering a request.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill unmeasured">unmeasured</span></div>
+
+<h3 id="fi-argument">Why a sub-threshold cartel cannot starve inclusion</h3> <p>This is a <em>conditional</em> liveness argument with named premises, not a guarantee. Proposer
+selection is by stake-weighted rotation (<a href="02-consensus.html#CONS-06">CONS-06</a>), and a cartel holding <code>f &lt; 1/3</code> of the stake that counts toward quorum (A-CONS-1) holds fewer
+than <code>1/3</code> of proposer slots in expectation over any window of <code>s</code> slots. Let <code>p = f</code> be the cartel's slot share. The probability that the cartel leads <code>s</code>
+slots in a row is <code>p^s</code>, so the expected waiting time for an honest slot is <code>1/(1-p) &le; 1.5</code> slots <span class="pill derived">derived</span>. An honest proposer MUST
+include the due set or its proposal is invalid (<a href="#FI-02">FI-02</a>a, <a href="02-consensus.html#CONS-01">CONS-01</a>), and honest validators precommit only valid
+proposals, so the request is covered as soon as an honest proposer leads. The cartel's residual power is to make coverage <em>late</em>, not to prevent it, and lateness is bounded by the rotation, not by
+a timeout judgement (<a href="index.html#STATUS-10">STATUS-10</a>). Two honest caveats: this holds only while A-CONS-1 holds — at <code>&ge;1/3</code> Byzantine stake the argument does not apply and
+the protocol claims nothing; and it assumes proposer selection is not predictable enough for the cartel to buy the specific slots in which a request becomes due, which is an assumption about the
+selection function that MUST be stated in <a href="02-consensus.html#CONS-06">CONS-06</a>, not here.</p>
+
+<h2 id="msg">7. SignalService and Bridge at the preserved addresses</h2>
+
+<div class="rule" id="MSG-01"><span class="rid">MSG-01 — message authentication anchored on the L1 checkpoint; the Inbox is the sole L1 checkpoint writer</span>
+<span class="norm">The preserved L1 SignalService's <code>_authorizedSyncer</code> MUST be the Inbox
+and MUST remain immutable for the lifetime of the deployment; the Inbox MUST be the only contract that writes a checkpoint into the L1 SignalService
+(<a href="../research/taiko-baseline-contracts.md">research/taiko-baseline-contracts.md</a> §8.2: <code>SignalService.sol:37</code>, <code>:174-175</code>, and the deployment that sets
+<code>authorizedSyncer = shastaInbox</code>). A cross-chain message's storage proof MUST be anchored to a checkpoint the Inbox wrote: verification resolves <code>_checkpoints[VERSION][blockId]</code>,
+requires <code>checkpoint.stateRoot == proof.rootHash</code>, and then verifies an MPT proof against that root for the remote SignalService account and the <code>SIGNAL</code>-derived slot
+(<code>SignalService.sol:253-297</code>). <strong>What changes when L1 acceptance is the anchor:</strong> today the checkpoint written by <code>prove()</code> is built from <em>claimed</em> values
+(<code>commitment.endStateRoot</code>, <code>commitment.transitions[...].blockHash</code>) and is written <em>before</em> <code>verifyProof</code> (<code>Inbox.sol:364-398</code>); under this
+specification the checkpoint MUST be written only after verification succeeds (<a href="#L1-03">L1-03</a>), MUST be monotone (<a href="#L1-06">L1-06</a>), and MUST carry the epoch,
+the set commitment and the data commitment (<a href="#L1-07">L1-07</a>) so that a bridge consumer can tell <em>which</em> consensus and <em>which</em> data produced the root it is proving against. The
+checkpoint key MUST remain the L2 block number, so that existing consumers' lookup path is unchanged.
+The preserved addresses MUST NOT be replaced (D3, <a href="08-migration-upgrades.html#MIG-06">MIG-06</a>); the SignalService, Bridge and the three
+vaults are upgraded in place (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>).</span> <span class="why">Failure modes: (a) a second checkpoint writer, or a mutable
+<code>_authorizedSyncer</code>, lets a non-Inbox source install a state root that bridge authentication trusts; (b) a checkpoint that omits the epoch/set root and data commitment gives a
+consumer no way to distinguish a root produced by the agreed consensus over the published data from one produced by anything else; (c) replacing the addresses abandons live message state and every
+cached proof (<a href="08-migration-upgrades.html#MIG-03">MIG-03</a>).</span> <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(the sole-writer property assumes A-GOV-1: no malicious upgrade retargets it)</span></div> <table>
+<thead><tr><th>Surface</th><th>Chain</th><th>Preserved address</th><th>Source</th></tr></thead> <tbody>
+<tr><td>SignalService</td><td>Ethereum L1 mainnet</td><td><code>0x9e0a24964e5397B566c1ed39258e21aB5E35C77C</code></td><td><code>research/taiko-baseline-contracts.md</code> §6.1</td></tr>
+<tr><td>Bridge</td><td>Ethereum L1 mainnet</td><td><code>0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC</code></td><td>§6.1</td></tr>
+<tr><td>ERC20Vault</td><td>Ethereum L1 mainnet</td><td><code>0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab</code></td><td>§6.1</td></tr>
+<tr><td>ERC721Vault</td><td>Ethereum L1 mainnet</td><td><code>0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa</code></td><td>§6.1</td></tr>
+<tr><td>ERC1155Vault</td><td>Ethereum L1 mainnet</td><td><code>0xaf145913EA4a56BE22E120ED9C24589659881702</code></td><td>§6.1</td></tr>
+<tr><td>Bridge</td><td>Taiko L2 mainnet</td><td><code>0x1670000000000000000000000000000000000001</code></td><td>§6.2</td></tr>
+<tr><td>ERC20Vault</td><td>Taiko L2 mainnet</td><td><code>0x1670000000000000000000000000000000000002</code></td><td>§6.2</td></tr>
+<tr><td>ERC721Vault</td><td>Taiko L2 mainnet</td><td><code>0x1670000000000000000000000000000000000003</code></td><td>§6.2</td></tr>
+<tr><td>ERC1155Vault</td><td>Taiko L2 mainnet</td><td><code>0x1670000000000000000000000000000000000004</code></td><td>§6.2</td></tr>
+<tr><td>SignalService</td><td>Taiko L2 mainnet</td><td><code>0x1670000000000000000000000000000000000005</code></td><td>§6.2</td></tr>
+<tr><td>Anchor</td><td>Taiko L2 mainnet</td><td><code>0x1670000000000000000000000000000000010001</code></td><td>§6.2</td></tr> </tbody></table>
+<p class="small">Addresses are as recorded in the repository and in the deployment logs at revision <code>7718753c1</code>; they were not chain-verified in this project
+(<a href="../research/taiko-baseline-contracts.md">research/taiko-baseline-contracts.md</a> §10 gap 8). The L2 Anchor's <code>GOLDEN_TOUCH_ADDRESS</code> gate (<code>Anchor.sol:86-89,124-127</code>) is the
+only L2 path to <code>saveCheckpoint</code> today and is unchanged by this page; the L1→L2 direction
+is governed by <a href="01-system-model.html#SYS-02">SYS-02</a> and <a href="08-migration-upgrades.html#MIG-02">MIG-02</a>.</p>
+
+<div class="rule" id="MSG-02"><span class="rid">MSG-02 — replay protection and domain separation</span> <span class="norm">The preserved surface keeps its existing encodings, and both MUST be frozen by
+<a href="08-migration-upgrades.html#MIG-02">MIG-02</a> because they determine every stored slot and every cached proof: the signal slot is
+<code>keccak256(abi.encodePacked("SIGNAL", chainId, app, signal))</code> (<code>SignalService.sol:160-171</code>), and the bridge message hash is
+<code>keccak256(abi.encode("TAIKO_MESSAGE", message))</code> with <code>Message.srcChainId</code> and <code>Message.destChainId</code> inside the struct (<code>Bridge.sol:536-539</code>). Because the
+chain id is inside the signal slot and inside the message struct, a signal or message produced for one chain MUST NOT verify on another; changing either encoding MUST be treated as a migration that
+invalidates every cached received-signal entry and every unproven message, and MUST be handled by
+<a href="08-migration-upgrades.html#MIG-03">MIG-03</a>. Replay on the same chain is prevented by the receiving Bridge's per-message status
+(<code>NEW / RETRIABLE / DONE / FAILED / RECALLED</code>, <code>IBridge.sol:9-15</code>): a message that is <code>DONE</code>, <code>FAILED</code> or <code>RECALLED</code> MUST NOT be processable again,
+and the failure signal is <code>msgHash ^ 3</code> (<code>Bridge.sol:544-546</code>). The received-signal cache is namespaced by the preserved SignalService's <code>VERSION</code> constant
+(<code>SignalService.sol:52</code>), which exists so that a version bump invalidates cached signals and their checkpoints together; the migration MUST either bump <code>VERSION</code> in the preserved
+implementation or explicitly reconcile every cached entry, and MUST NOT leave cache entries whose originating checkpoint no longer exists live. New hashes introduced by this specification use the
+<a href="index.html#GEN-05">GEN-05</a> construction with the domain tag and chain id as the first two fields: <code>TAIKO_ETNA_DATA</code>, <code>TAIKO_ETNA_CKPT</code>, <code>TAIKO_ETNA_FIN</code>,
+<code>TAIKO_ETNA_FI</code>, <code>TAIKO_ETNA_CHALLENGE</code>. The preserved encodings above are the
+<em>existing</em> published formats; <a href="index.html#GEN-05">GEN-05</a> governs new hashes and is not retroactively a defect in them.</span>
+<span class="why">Failure modes: (a) a signal verified on chain A being replayable on chain B — prevented only by the chain id being inside the hash; (b) a stale received-signal cache entry whose
+checkpoint was replaced by a different history, which would let a message be proven against a state root that is no longer the protocol's; (c) changing the slot derivation silently, which orphans every
+outstanding message and every cached proof without any event.</span> <span class="pill proven">Proven</span></div>
+
+<div class="rule" id="MSG-03"><span class="rid">MSG-03 — withdrawal eligibility and delays</span> <span class="norm">No value may leave the bridge surface on the strength of anything weaker than
+<a href="index.html#STATUS-06">STATUS-06</a>. An L2→L1 withdrawal or message authentication MUST require a checkpoint written by a successful <code>land</code> whose <code>stateRoot</code> covers the
+signal, plus the delay <code>WITHDRAWAL_DELAY</code> measured from that checkpoint's <code>l1BlockNumber</code>; where the claim depends on an L1 fact that can still be reorganised, it
+MUST additionally require <a href="index.html#STATUS-07">STATUS-07</a> — the accepting L1 transaction at the configured Ethereum finality depth. An L1→L2 release MUST require the Anchor to have observed
+the L1 deposit at that same finality depth (<a href="01-system-model.html#SYS-02">SYS-02</a>), never at inclusion depth. <code>WITHDRAWAL_DELAY</code> MUST be derived from the whole settlement pipeline
+— proving latency, L1 inclusion, Ethereum finality and the evidence window — and its derivation is owned by <a href="07-economics-slashing.html#ECON-03">ECON-03</a>; its value is in
+<a href="09-parameters.html#PARAM-01">09</a> and is <strong>UNMEASURED</strong>. No withdrawal path MUST depend on a private witness, a committee certificate, an off-chain store, or an operator action
+(<a href="#DA-04">DA-04</a>). The design MUST disclose, wherever withdrawal timing is described, that a settlement halt delays withdrawals indefinitely while losing nothing: under Mode A the funds are not
+forfeited, they are unavailable until settlement resumes (<a href="10-assurance.html#LIM-01">LIM-01</a>).</span> <span class="why">Failure modes: (a) releasing value against an inclusion-depth L1 fact lets an L1
+reorganisation make the release unbacked; (b) releasing against a checkpoint that a later transaction could replace is exactly the rewrite that Mode A forbids, executed on the bridge; (c) a delay shorter
+than the evidence window lets a proven-misbehaving party exit before its stake can be slashed (<a href="07-economics-slashing.html#ECON-07">ECON-07</a>).</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span></div>
+
+<h2 id="composition">8. How this page composes with the rest</h2> <table> <thead><tr><th>Concern stated here</th><th>Stated in full on</th></tr></thead> <tbody>
+<tr><td>The guest's statement, its canonical public-input encoding, and the in-guest data-commitment recomputation</td><td><a href="05-proof-statement.html#PRF-01">PRF-01</a>, <a href="05-proof-statement.html#PRF-02">PRF-02</a>, <a href="05-proof-statement.html#PRF-07">PRF-07</a></td></tr>
+<tr><td>Acceptance policy (one backend vs either), program-image and verifier upgrades</td><td><a href="05-proof-statement.html#PRF-09">PRF-09</a>, <a href="05-proof-statement.html#PRF-10">PRF-10</a></td></tr>
+<tr><td>Proposal validity, including the forced-inclusion duty on L2; leader rotation</td><td><a href="02-consensus.html#CONS-01">CONS-01</a>, <a href="02-consensus.html#CONS-06">CONS-06</a></td></tr>
+<tr><td>The unsettled-depth cap that backpressures production</td><td><a href="06-recovery-exceptions.html#HALT-03">HALT-03</a></td></tr>
+<tr><td>Withdrawal delay derivation; reward funding identity</td><td><a href="07-economics-slashing.html#ECON-03">ECON-03</a>, <a href="07-economics-slashing.html#ECON-02">ECON-02</a></td></tr>
+<tr><td>Preserved-contract upgrade list, storage layout, privilege removal, pending-state treatment</td><td><a href="08-migration-upgrades.html#MIG-02">MIG-02</a>, <a href="08-migration-upgrades.html#MIG-03">MIG-03</a>, <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>, <a href="08-migration-upgrades.html#MIG-06">MIG-06</a></td></tr>
+<tr><td>Every parameter value on this page, with units and tags</td><td><a href="09-parameters.html#PARAM-01">PARAM-01</a>, <a href="09-parameters.html#PARAM-03">PARAM-03</a></td></tr>
+<tr><td>The invariant this page serves: no batch is accepted without its data</td><td><a href="10-assurance.html#INV-02">INV-02</a></td></tr> </tbody></table>
+
+<div class="warnbox small"> <strong>Unmeasured register contributed by this page.</strong> Gas cost of <code>land</code>; gas cost
+of the in-guest Lagrange evaluation per blob; the full cost of a blob-path acceptance; every parameter value named above (<code>MAX_BATCH_BLOCKS</code>, <code>RETRIEVABILITY_WINDOW</code>,
+<code>MAX_UNSETTLED_AGE</code>, <code>ARCHIVE_REQUIREMENT</code>, <code>FORCED_INCLUSION_DELAY_SECONDS</code>, <code>FORCED_INCLUSION_MAX_DRIFT</code>,
+<code>FORCED_INCLUSION_ESCAPE_THRESHOLD</code>, <code>MAX_FORCED_INCLUSION_BYTES</code>, <code>MAX_FORCED_INCLUSIONS_PER_BATCH</code>, <code>BASE_FEE</code>,
+<code>FEE_DOUBLE_THRESHOLD</code>, <code>MAX_FEE</code>, <code>CANCELLATION_COST</code>, <code>WITHDRAWAL_DELAY</code>, <code>REWARD_QUOTE</code>); and the profitability of queue griefing.
+The only sourced figures on this page are the EIP-4844 constants (<code>0x0A</code>, <code>50,000</code> gas, 4096 coefficients per blob, 4096 epochs of sidecar retention), the EIP-7691
+blob counts (target 6, maximum 9), the EIP-4444 pruning horizon (14,299 epochs), and today's baseline values, which are not this design's values. </div>
+
+</main> <footer class="site"> <p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are stated once and referenced by identifier.</p> </footer> </body></html>

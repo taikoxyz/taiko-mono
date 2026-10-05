@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Learn — Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
+  <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
+  <a href="../spec/index.html">Specification</a></nav>
+</header>
+<main>
+<h1>Etna PoS + ZK — a course you can check</h1>
+
+<p class="muted">Thirteen short lessons that build one idea at a time, in dependency order. Every lesson
+has a diagram, a worked number, the attacks it does and does not stop, and questions with hidden
+answers. The <a href="../spec/index.html">specification</a> is authoritative: whenever this course and
+the specification disagree, the specification wins, and that is a bug in the course.</p>
+
+<div class="warnbox">
+<p><strong>Read this first.</strong> This describes a <em>design</em>. Nothing here is implemented,
+measured or audited. Numbers marked <em>unmeasured</em> are placeholders waiting for a test. If a
+lesson ever sounds more confident than the specification, trust the specification.</p>
+</div>
+
+<h2>Concept dependency map</h2>
+<figure>
+<svg viewBox="0 0 900 430" role="img" aria-label="Dependency map of the lessons">
+  <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker></defs>
+  <style>
+    .n{fill:#1c2330;stroke:#2d3743;rx:8}
+    .t{fill:#e6edf3;font:13px sans-serif}
+    .s{fill:#9aa7b4;font:11px sans-serif}
+    .e{stroke:#7aa2f7;stroke-width:1.4;fill:none;marker-end:url(#ar)}
+  </style>
+  <rect class="n" x="20"  y="20"  width="170" height="52"/><text class="t" x="34" y="42">1 · Order needs</text><text class="t" x="34" y="58">consensus</text>
+  <rect class="n" x="20"  y="110" width="170" height="52"/><text class="t" x="34" y="132">2 · Five things</text><text class="t" x="34" y="148">people confuse</text>
+  <rect class="n" x="230" y="110" width="170" height="52"/><text class="t" x="244" y="132">3 · Status labels</text>
+  <rect class="n" x="230" y="200" width="170" height="52"/><text class="t" x="244" y="222">4 · TAIKO at risk</text>
+  <rect class="n" x="440" y="110" width="180" height="52"/><text class="t" x="454" y="132">5 · Sets &amp; epochs</text>
+  <rect class="n" x="440" y="20"  width="180" height="52"/><text class="t" x="454" y="42">6 · Withheld</text><text class="t" x="454" y="58">certificates</text>
+  <rect class="n" x="440" y="200" width="180" height="52"/><text class="t" x="454" y="222">7 · 2 s &amp; 30 min</text>
+  <rect class="n" x="650" y="200" width="200" height="52"/><text class="t" x="664" y="222">8 · Atomic data+proof</text>
+  <rect class="n" x="650" y="110" width="200" height="52"/><text class="t" x="664" y="132">9 · What the proof proves</text>
+  <rect class="n" x="650" y="20"  width="200" height="52"/><text class="t" x="664" y="42">10 · Halt or roll back</text>
+  <rect class="n" x="230" y="290" width="170" height="52"/><text class="t" x="244" y="312">11 · Forced inclusion</text>
+  <rect class="n" x="440" y="290" width="180" height="52"/><text class="t" x="454" y="312">12 · Bridge &amp; addresses</text>
+  <rect class="n" x="650" y="290" width="200" height="52"/><text class="t" x="664" y="312">13 · Walkthrough</text>
+  <path class="e" d="M105,72 L105,110"/>
+  <path class="e" d="M190,136 L230,136"/>
+  <path class="e" d="M190,130 C210,130 210,220 230,222"/>
+  <path class="e" d="M400,136 L440,136"/>
+  <path class="e" d="M315,162 C315,260 380,300 440,312"/>
+  <path class="e" d="M530,110 C530,80 530,60 530,72" />
+  <path class="e" d="M620,136 L650,136"/>
+  <path class="e" d="M620,150 C640,160 640,200 650,215"/>
+  <path class="e" d="M530,72 C600,72 620,30 650,40"/>
+  <path class="e" d="M530,162 L530,200"/>
+  <path class="e" d="M620,226 L650,226"/>
+  <path class="e" d="M750,252 L750,290"/>
+  <path class="e" d="M620,316 L650,316"/>
+</svg>
+<figcaption>Each lesson only uses ideas introduced to its left. Lesson 13 uses all of them.</figcaption>
+</figure>
+
+<h2>The lessons</h2>
+<table><thead><tr><th style="width:34%">Lesson</th><th>What it gives you</th><th>Needs</th></tr></thead>
+<tbody>
+<tr><td><a href="01-why-order-needs-consensus.html">Why a blockchain needs someone to decide the order</a></td><td>What a rollup is; who orders transactions; what changes when L2 validators replace L1 proposers as the ordering authority.</td><td class="small">none</td></tr>
+<tr><td><a href="02-five-things-people-confuse.html">Five things people confuse</a></td><td>Execution validity, consensus agreement, data availability, economic accountability, Ethereum settlement — separated once, used everywhere afterwards.</td><td class="small">01</td></tr>
+<tr><td><a href="03-status-labels.html">What “confirmed” actually means</a></td><td>The eight status labels, their evidence, their guarantees, and what can revoke each one.</td><td class="small">02</td></tr>
+<tr><td><a href="04-taiko-staking.html">Why TAIKO must be at risk</a></td><td>Stake custody, voting power, slashing, exit delay, and why a cap per address does not stop concentration.</td><td class="small">02</td></tr>
+<tr><td><a href="05-validator-sets-and-epochs.html">Changing the validators without changing history</a></td><td>Epochs, set roots, one-epoch lookahead, and why an old certificate never expires.</td><td class="small">04</td></tr>
+<tr><td><a href="06-withheld-certificates.html">The certificate nobody can see</a></td><td>Locks, proof-of-lock-change, view changes, and why a timeout is never proof that something does not exist.</td><td class="small">05</td></tr>
+<tr><td><a href="07-two-seconds-and-thirty-minutes.html">Two seconds and thirty minutes</a></td><td>A timeline with 2-second blocks, a proof taking 30 minutes, L1 acceptance, Ethereum finality and withdrawal — without pretending the data is on Ethereum early.</td><td class="small">03</td></tr>
+<tr><td><a href="08-atomic-data-and-proof.html">Data and proof travel together</a></td><td>Why there is no data-first path, how blobs are bound to a proof, and the June 2026 failure this prevents.</td><td class="small">07</td></tr>
+<tr><td><a href="09-what-the-proof-proves.html">What the proof proves — and what it cannot</a></td><td>The proof statement, public inputs, the validator set, and the sentence it must never be used to say.</td><td class="small">08</td></tr>
+<tr><td><a href="10-halt-or-roll-back.html">Halt or roll back</a></td><td>The A-versus-B recovery tradeoff: why safety-first means stopping, and what a rollback would have to disclose.</td><td class="small">06</td></tr>
+<tr><td><a href="11-forced-inclusion.html">Getting in when nobody will include you</a></td><td>Forced inclusion, why it cannot reorder the past, and what it does not guarantee.</td><td class="small">03</td></tr>
+<tr><td><a href="12-bridge-and-addresses.html">The bridge and the addresses that must not move</a></td><td>SignalService, Bridge and the vaults; how a message is authenticated; why the addresses stay.</td><td class="small">03</td></tr>
+<tr><td><a href="13-walkthrough.html">Putting it all together</a></td><td>One batch followed end to end, from a user transaction to a withdrawal, naming the status at every step.</td><td class="small">all</td></tr>
+</tbody></table>
+
+<h2 id="five">The five distinctions, in one place</h2>
+<p>Almost every confused argument about rollups comes from collapsing these five questions into one.
+The course keeps them apart at every step.</p>
+<table>
+<thead><tr><th>Question</th><th>Who answers it</th><th>What it does NOT tell you</th></tr></thead>
+<tbody>
+<tr><td>Is this block <strong>execution-valid</strong>?</td><td>Anyone who re-executes it</td><td>Whether anyone else agrees, or whether you can still get the data tomorrow</td></tr>
+<tr><td>Is it <strong>agreed</strong> by consensus?</td><td>The L2 validator set (PoS)</td><td>Whether the state transition was computed correctly by everyone</td></tr>
+<tr><td>Is the <strong>data available</strong>?</td><td>Whoever holds and serves it, until it lands on L1</td><td>Whether the block is final, or whether a proof exists</td></tr>
+<tr><td>Is anyone <strong>economically accountable</strong>?</td><td>Stake and slashing rules</td><td>Whether you personally will be compensated</td></tr>
+<tr><td>Is it <strong>settled on Ethereum</strong>?</td><td>An L1 transaction containing data and a valid proof</td><td>Whether L2 will keep producing blocks afterwards</td></tr>
+</tbody></table>
+
+<details>
+<summary>Self-check: which of the five is missing when a user says “my transaction is confirmed but my withdrawal is stuck”?</summary>
+<p>Availability and settlement. The transaction was included and probably agreed by L2 consensus, but a
+withdrawal requires the batch to reach <a href="../spec/index.html#STATUS-06">STATUS-06</a> — accepted
+on L1 — which needs the data <em>and</em> a valid proof in the same L1 transaction.</p>
+</details>
+
+<div class="card">
+<p><strong>Challenge this.</strong> The course claims that a document can describe a protocol honestly
+without pretending it works. Try to falsify that: find a sentence in the course that states a guarantee
+stronger than the specification's, or a number presented as measured. If you find one, that is a
+finding — report it, because the course is required to stay consistent with the specification
+(R14).</p>
+</div>
+
+<h2>Where the assumptions live</h2>
+<p>Every lesson ends with a <em>“challenge this”</em> box naming the assumptions the lesson used. The
+full list is in the specification's <a href="../spec/10-assurance.html#LIVE-01">liveness statement</a>
+and in <a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a>. The
+short version: fewer than one third of stake is malicious, enough validators are online and timely,
+somebody keeps the data until the proof lands, at least one prover finishes the job, and Ethereum keeps
+working.</p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·
+<a href="limitations.html">limitations</a></p></footer>
+</body></html>

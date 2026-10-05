@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — Specification (index)</title>
+<link rel="stylesheet" href="spec.css">
+</head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span>
+  <span class="tag">reference specification</span>
+  <span class="tag">rev 2026-10-05</span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="01-system-model.html">Model &amp; roles</a>
+    <a href="02-consensus.html">Consensus</a>
+    <a href="03-membership-staking.html">Staking</a>
+    <a href="04-l1-integration.html">L1 integration</a>
+    <a href="05-proof-statement.html">Proof statement</a>
+    <a href="06-recovery-exceptions.html">Recovery</a>
+    <a href="07-economics-slashing.html">Economics</a>
+    <a href="08-migration-upgrades.html">Migration</a>
+    <a href="09-parameters.html">Parameters</a>
+    <a href="10-assurance.html">Assurance</a>
+    <a href="../learn/index.html">Learn</a>
+  </nav>
+</header>
+<main>
+
+<h1>Etna PoS + ZK — reference specification</h1>
+
+<div class="verdict">
+<p><strong>Verdict (Phase 3, 2026-10-05):</strong> a permissionless, TAIKO-staked <strong>L2 PoS
+consensus</strong> (Tendermint/CometBFT-class, single-slot finality) combined with <strong>ZK proofs
+of consensus finality and EVM execution</strong> can satisfy the requirements in
+<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a>
+<strong>under the stated assumptions</strong>, in <strong>Mode A</strong> — no recovery path may
+invalidate a legitimately PoS-finalized block; the protocol halts safely instead. This is a
+<em>specification-level</em> verdict: nothing here is implemented, benchmarked or deployed.</p>
+<p class="small">This is a <strong>PoS-sequenced validity rollup</strong>. Transaction order is
+determined by L2 PoS, not by Ethereum proposers. Ethereum provides data availability, proof
+verification, settlement, and bridge anchoring. It does <em>not</em> sequence L2 blocks.</p>
+</div>
+
+<div class="warnbox small">
+<strong>Status labels are normative.</strong> Every deliverable — specification, learning site, user
+interface text — must use the exact labels of <a href="#STATUS-01">STATUS-01</a>–<a href="#STATUS-11">STATUS-11</a>.
+No stronger word ("final", "irreversible", "confirmed") may be substituted for a weaker status.
+</div>
+
+<h2 id="fixed">Fixed decisions</h2>
+<table>
+<thead><tr><th>ID</th><th>Decision (constraint)</th></tr></thead>
+<tbody>
+<tr><td><strong>D1</strong></td><td>One L2 block every <strong>2&nbsp;s</strong> under stated operating assumptions. Cadence is not finality, proof, settlement or withdrawal latency.</td></tr>
+<tr><td><strong>D2</strong></td><td><strong>Mode A preferred and selected</strong>: no recovery, timeout, rotation, admission rule or normal upgrade may invalidate a legitimately PoS-finalized block; halt safely instead. <strong>Mode B</strong> (permissionless L1 recovery of <em>unsettled</em> history) is specified but <em>not selected</em>; selecting it would require the D2 evidence-and-review procedure.</td></tr>
+<tr><td><strong>D3</strong></td><td>Preserve the existing L1/L2 <strong>SignalService</strong>, <strong>Bridge</strong>, <strong>ERC20Vault</strong>, <strong>ERC721Vault</strong>, <strong>ERC1155Vault</strong> addresses by in-place upgrade. No replacement deployments.</td></tr>
+<tr><td><strong>D4</strong></td><td>L2 PoS determines binding transaction order. Result named honestly a <strong>PoS-sequenced validity rollup</strong>.</td></tr>
+<tr><td><strong>D5</strong></td><td>Batch data and its valid ZK proof land in the <strong>same L1 transaction</strong>; no data-first/proof-later path in any mode, including recovery.</td></tr>
+<tr><td><strong>D6</strong></td><td>Proving latency of a few minutes to <strong>30 minutes</strong> is normal operation; L2 keeps producing 2&nbsp;s blocks and reaching PoS finality throughout.</td></tr>
+<tr><td><strong>D7</strong></td><td>Staking and slashable collateral are denominated in the <strong>existing TAIKO</strong> token. Gas stays ETH. No replacement staking token.</td></tr>
+</tbody></table>
+
+<h2 id="reading">Reading map</h2>
+<div class="toc">
+<a href="01-system-model.html">01 — System model, participants, roles</a>
+<a href="02-consensus.html">02 — Consensus: proposals, votes, locks, finality, epochs</a>
+<a href="03-membership-staking.html">03 — Membership, TAIKO staking, exits, weak subjectivity</a>
+<a href="04-l1-integration.html">04 — L1 integration: atomic data+proof, DA, forced inclusion</a>
+<a href="05-proof-statement.html">05 — Proof statement, public inputs, witnesses, backends</a>
+<a href="06-recovery-exceptions.html">06 — Withholding, safe halt, restart, Mode B (not selected)</a>
+<a href="07-economics-slashing.html">07 — Economics, offences, penalties, rewards</a>
+<a href="08-migration-upgrades.html">08 — Migration from current Taiko, upgrades, governance</a>
+<a href="09-parameters.html">09 — Glossary and parameter table</a>
+<a href="10-assurance.html">10 — Invariants, liveness, limitations, rejected alternatives</a>
+</div>
+
+<h2 id="gen">General rules</h2>
+
+<div class="rule" id="GEN-01"><span class="rid">GEN-01 — what this document is</span>
+<span class="norm">This specification defines a protocol design. It contains no implementation, no
+deployment, and no measurement. No claim in any deliverable may describe a proposed parameter as a
+measured result, and no performance number may appear without a source or an explicit
+<em>unmeasured</em> tag.</span>
+<span class="why">Failure mode: an unaudited design is mistaken for a working system; reviewers and
+users cannot tell which claims are evidence-backed.</span>
+<span class="pill proven">Proven</span> <span class="pill derived">derived</span></div>
+
+<div class="rule" id="GEN-02"><span class="rid">GEN-02 — fixed decisions bind the design</span>
+<span class="norm">D1–D7 are constraints. A design element that conflicts with one of them is a
+defect, not a tradeoff. Changing one requires a new user decision recorded in the decision log.</span>
+<span class="why">Failure mode: silent relaxation of D5 or D7, which the user expressly
+forbade.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="GEN-03"><span class="rid">GEN-03 — one rule, one place, stable identifiers</span>
+<span class="norm">Every normative rule has exactly one stable identifier of the form
+<code>PREFIX-NN</code>, is stated in full on exactly one page, and is referenced elsewhere by link.
+Identifiers are never reused or renumbered; gaps are permitted.</span>
+<span class="why">Failure mode: divergent copies of a rule; an implementer cannot tell which version
+is normative.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="GEN-04"><span class="rid">GEN-04 — evidence tags</span>
+<span class="norm">Every rule carries <span class="pill proven">Proven</span> (argument with named
+premises), <span class="pill assumed">Assumed</span> (justification plus the consequence of failure),
+or <span class="pill open">Open</span> (the evidence that would close it). Every number carries
+<span class="pill derived">derived</span>, <span class="pill sourced">sourced</span>, or
+<span class="pill unmeasured">unmeasured</span>.</span>
+<span class="why">Failure mode: assumptions are read as guarantees; unmeasured numbers are read as
+benchmarks.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="GEN-05"><span class="rid">GEN-05 — hashing and domain separation</span>
+<span class="norm">Every protocol hash is <code>keccak256</code> over a single canonical
+<code>abi.encode</code> of typed fields, never <code>abi.encodePacked</code> and never a bare
+concatenation, with a right-padded ASCII domain tag and the chain id as the first two fields. Every
+signed message carries its own domain tag; a signature is invalid outside its domain.</span>
+<span class="why">Failure mode: cross-domain replay; second-preimage style ambiguity between
+concatenated fields.</span>
+<span class="pill proven">Proven</span> <span class="small">(reused from prior Etna C8-R02/R03 and
+verified as a sound convention)</span></div>
+
+<div class="rule" id="GEN-06"><span class="rid">GEN-06 — time, and the ban on L1 lookahead</span>
+<span class="norm">All timing parameters are expressed in <strong>seconds</strong> or
+<strong>L1 block numbers</strong>. Consensus rounds, epoch numbers and validator-set versions are
+logical identifiers. No normative rule may depend on Ethereum proposer lookahead, on a fixed L1 slot
+duration, or on reading a wall clock during validation; wall clocks may only pace local signing and
+timeout actions.</span>
+<span class="why">Failure mode: the protocol breaks when Ethereum changes its slot timing, or an
+implementer invents a timing rule the specification never fixed (R12).</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="GEN-07"><span class="rid">GEN-07 — controlled vocabulary</span>
+<span class="norm">Status labels are fixed by <a href="#STATUS-01">STATUS-01</a>–<a href="#STATUS-11">STATUS-11</a>;
+other terms are fixed by the glossary in <a href="09-parameters.html">09</a>. A document may not
+introduce a synonym for a status label or redefine a glossary term locally.</span>
+<span class="why">Failure mode: the same word means different guarantees in different
+deliverables.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="GEN-08"><span class="rid">GEN-08 — evidence categories for feasibility claims</span>
+<span class="norm">Every feasibility claim is classified as exactly one of: (1) compatibility in
+principle, (2) evidence from an existing implementation or published benchmark — with version,
+hardware, workload and methodology — (3) an analytical estimate, or (4) an unmeasured implementation
+question. Categories are never merged, and category (2) claims must state whether the measurement
+transfers to this workload.</span>
+<span class="why">Failure mode: a benchmark for a different workload is presented as evidence for
+this one.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="GEN-09"><span class="rid">GEN-09 — honest naming of the architecture</span>
+<span class="norm">The design is described as a <strong>PoS-sequenced validity rollup</strong>. The
+term <em>based rollup</em> must not be used for it, and no deliverable may imply that Ethereum
+proposers determine L2 transaction order.</span>
+<span class="why">Failure mode: users infer an L1-sequencing guarantee the design does not
+provide (D4).</span>
+<span class="pill proven">Proven</span></div>
+
+<h2 id="status">Status labels</h2>
+<p>Each label below is normative: it fixes the evidence a participant must hold, the guarantee a
+user may rely on, the conditions that can revoke it, and who can observe it.</p>
+
+<div class="rule" id="STATUS-01"><span class="rid">STATUS-01 — proposed</span>
+<span class="norm">A block body received from a leader. <strong>Evidence:</strong> the object itself.
+<strong>Guarantee:</strong> none — it may be invalid. <strong>Revocable:</strong> discarded freely.
+<strong>Visible to:</strong> whoever received it.</span>
+<span class="why">Treating a received proposal as progress is the origin of most "we saw it first"
+disputes.</span><span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-02"><span class="rid">STATUS-02 — locally execution-valid</span>
+<span class="norm">This node executed the block against a known parent state and every consensus and
+validity rule passed. <strong>Guarantee:</strong> this node will not build on an invalid block.
+<strong>Revocable:</strong> yes, if the parent is displaced. <strong>Visible to:</strong> this node
+only.</span>
+<span class="why">Local validity is not agreement and not availability
+(<a href="#STATUS-09">STATUS-09</a>).</span><span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-03"><span class="rid">STATUS-03 — voted</span>
+<span class="norm">A validator signed a vote for this block at a given (height, round).
+<strong>Guarantee:</strong> the vote irreversibly constrains that validator's future votes through
+the lock rule (<a href="02-consensus.html#CONS-04">CONS-04</a>). <strong>Revocable:</strong> never —
+a vote is a signed commitment; signing a conflicting vote is slashable equivocation
+(<a href="02-consensus.html#CONS-11">CONS-11</a>).</span>
+<span class="why">Votes are the only irreversible act a validator performs; everything else can be
+retried.</span><span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-04"><span class="rid">STATUS-04 — PoS-finalized (Mode A); PoS-certified / provisional (Mode B)</span>
+<span class="norm">A <strong>published</strong> commit certificate over (chain id, epoch, height,
+block hash) carrying <strong>strictly more than two thirds</strong> of the epoch's voting power (the
+integer threshold <code>q</code> is the minimal value with <code>3q &gt; 2 · total</code>), plus the
+receiver's own data-availability check for the block body. In Mode A this status is <strong>permanent</strong>:
+no recovery, timeout, rotation, admission rule or normal upgrade may revoke it. In the unselected
+Mode B it would be labelled <strong>provisional</strong> and revocable only through the published
+recovery rules.</span>
+<span class="why">This is the strongest L2-level guarantee the design offers, and the point where
+Mode A's "halt rather than roll back" promise attaches.</span>
+<span class="pill proven">Proven</span> <span class="small">(conditional on <a href="10-assurance.html#INV-01">INV-01</a>'s premises)</span></div>
+
+<div class="rule" id="STATUS-05"><span class="rid">STATUS-05 — proof-ready</span>
+<span class="norm">A completed ZK proof bound to this batch's data commitment exists off-chain.
+<strong>Guarantee:</strong> the batch can be landed. <strong>Revocable:</strong> a proof of a
+<em>different</em> batch is not a substitute; a better proof of the same data commitment may replace
+it.</span>
+<span class="why">Separating "a proof exists" from "the batch is settled" prevents premature
+withdrawal.</span><span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-06"><span class="rid">STATUS-06 — accepted on L1</span>
+<span class="norm">The Inbox accepted (data, proof) in <strong>one</strong> transaction and advanced
+its checkpoint (<a href="04-l1-integration.html#L1-01">L1-01</a>). <strong>Guarantee:</strong> the
+batch's data is public on Ethereum and the transition is L1-committed.
+<strong>Revocable:</strong> only by an L1 reorganisation below finality.</span>
+<span class="why">This is the status that unlocks bridge withdrawals and message
+authentication.</span><span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-07"><span class="rid">STATUS-07 — Ethereum-finalized</span>
+<span class="norm">The accepting L1 transaction is in a finalized Ethereum block, or the L1 fact the
+claim depends on is at the configured Ethereum finality depth
+(<a href="01-system-model.html#SYS-02">SYS-02</a>).</span>
+<span class="why">L2 state may only depend on L1 facts that can no longer be reorganised;
+otherwise a PoS-finalized L2 block can become unprovable.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-08"><span class="rid">STATUS-08 — withdrawal-eligible</span>
+<span class="norm">Status <a href="#STATUS-06">STATUS-06</a> or <a href="#STATUS-07">STATUS-07</a>
+plus the message-authentication path and any delay required by
+<a href="04-l1-integration.html#MSG-03">MSG-03</a>.</span>
+<span class="why">Withdrawal availability is strictly later than L1 acceptance.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-09"><span class="rid">STATUS-09 — local receipt is not availability</span>
+<span class="norm">A node that holds a block may not treat its own possession as evidence that the
+data is available to others, and may not report a status above
+<a href="#STATUS-03">STATUS-03</a> to another party on the basis of local possession alone.</span>
+<span class="why">Failure mode: users infer retrievability from a peer's claim; the
+certified-but-unavailable class of failures becomes invisible until a halt.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-10"><span class="rid">STATUS-10 — an elapsed timeout is never evidence of absence</span>
+<span class="norm">No rule may conclude that a certificate, proof, or block does not exist because a
+timeout elapsed. Timeouts trigger <em>local</em> actions (view change, retry, halt), never an
+assertion about what exists elsewhere, and never an invalidation
+(<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>).</span>
+<span class="why">Failure mode: a withheld-then-revealed certificate would invalidate a decision
+taken on the strength of a timeout.</span>
+<span class="pill proven">Proven</span></div>
+
+<div class="rule" id="STATUS-11"><span class="rid">STATUS-11 — label disclosure obligation</span>
+<span class="norm">Any interface, document or learning page that shows a progress indicator must use
+these labels and must state which status is being shown. A "confirmation" shown to a user before
+<a href="#STATUS-06">STATUS-06</a> must be accompanied by the statement that the batch's data and
+proof are not yet on Ethereum.</span>
+<span class="why">Failure mode: users treat a 2 s PoS confirmation as settlement (R14, D6 "user
+expectations").</span>
+<span class="pill proven">Proven</span></div>
+
+<h2 id="ruleindex">Rule index</h2>
+<p class="small">Registry of every normative rule and the page that states it in full. A rule's text
+is normative on its own page; this table is a map, not a second copy.</p>
+<table><thead><tr><th>ID</th><th>Rule</th><th>Page</th></tr></thead><tbody>
+<tr><td><code>GEN-01</code></td><td>What this specification is (and is not)</td><td>this page</td></tr>
+<tr><td><code>GEN-02</code></td><td>Fixed decisions D1–D7 bind the design</td><td>this page</td></tr>
+<tr><td><code>GEN-03</code></td><td>One rule, one place, stable identifiers</td><td>this page</td></tr>
+<tr><td><code>GEN-04</code></td><td>Evidence tags: Proven / Assumed / Open; derived / sourced / unmeasured</td><td>this page</td></tr>
+<tr><td><code>GEN-05</code></td><td>Hashing and domain separation</td><td>this page</td></tr>
+<tr><td><code>GEN-06</code></td><td>Time units; ban on L1 proposer lookahead and fixed slot duration</td><td>this page</td></tr>
+<tr><td><code>GEN-07</code></td><td>Controlled vocabulary</td><td>this page</td></tr>
+<tr><td><code>GEN-08</code></td><td>Evidence categories for feasibility claims</td><td>this page</td></tr>
+<tr><td><code>GEN-09</code></td><td>Honest naming: PoS-sequenced validity rollup</td><td>this page</td></tr>
+<tr><td><code>STATUS-01</code></td><td>proposed — evidence, guarantee, revocation</td><td>this page</td></tr>
+<tr><td><code>STATUS-02</code></td><td>locally execution-valid</td><td>this page</td></tr>
+<tr><td><code>STATUS-03</code></td><td>voted</td><td>this page</td></tr>
+<tr><td><code>STATUS-04</code></td><td>PoS-finalized (Mode A) / PoS-certified provisional (Mode B)</td><td>this page</td></tr>
+<tr><td><code>STATUS-05</code></td><td>proof-ready</td><td>this page</td></tr>
+<tr><td><code>STATUS-06</code></td><td>accepted on L1</td><td>this page</td></tr>
+<tr><td><code>STATUS-07</code></td><td>Ethereum-finalized</td><td>this page</td></tr>
+<tr><td><code>STATUS-08</code></td><td>withdrawal-eligible</td><td>this page</td></tr>
+<tr><td><code>STATUS-09</code></td><td>Local receipt is not availability</td><td>this page</td></tr>
+<tr><td><code>STATUS-10</code></td><td>An elapsed timeout is never evidence of absence</td><td>this page</td></tr>
+<tr><td><code>STATUS-11</code></td><td>Label disclosure obligation</td><td>this page</td></tr>
+<tr><td><code>SYS-01</code></td><td>Participants and channels</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>SYS-02</code></td><td>Only Ethereum-final L1 facts enter L2 consensused state</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>SYS-03</code></td><td>Cadence is separated from every other latency</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>SYS-04</code></td><td>No DAO or emergency operator in ordinary operation</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>ROLE-01</code></td><td>Validator role: entry, duties, resources, rewards, penalties, exit, failure</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>ROLE-02</code></td><td>Prover role</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>ROLE-03</code></td><td>Full and archive node role and retention duty</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>ROLE-04</code></td><td>User rights: inclusion, exit, disclosure</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>ROLE-05</code></td><td>DAO role: upgrades only</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>CONS-01</code></td><td>Proposal validity, including the forced-inclusion duty</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-02</code></td><td>Vote phases and vote uniqueness per (height, round)</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-03</code></td><td>Quorum: strictly more than 2/3 of epoch voting power, distinct signers, stake-weighted</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-04</code></td><td>Lock rule and unlocking by proof-of-lock-change</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-05</code></td><td>Commit rule: ≥ 2/3 precommits finalizes the block at that height</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-06</code></td><td>Leader selection and rotation</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-07</code></td><td>Round timeouts, view change, and adaptive timeout policy</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-08</code></td><td>Epoch-scoped certificates remain valid forever</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-09</code></td><td>Epoch handoff and lock carry-over</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-10</code></td><td>Validator-set authentication in block headers</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-11</code></td><td>Equivocation: definition and evidence</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-12</code></td><td>Safety invariant: uniqueness of the finalized prefix</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-13</code></td><td>Epoch length, set-commitment timing and one-epoch lookahead</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-14</code></td><td>Genesis, activation and first epoch</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-15</code></td><td>Halt on loss of the assumptions (pointer to HALT)</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>MEM-01</code></td><td>L1 staking custody of TAIKO at the existing token address</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-02</code></td><td>Effective stake, voting power, and why getVotes is not an oracle</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-03</code></td><td>Activation: objective, permissionless, first-come queue</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-04</code></td><td>No delegation in v1; documented alternative and its risks</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-05</code></td><td>Exit request and unbonding delay derivation</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-06</code></td><td>Slashing follows stake at offence time</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-07</code></td><td>Key binding, rotation, and stale-key handling</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-08</code></td><td>Validator-set commitment construction</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-09</code></td><td>Set snapshot timing and one-epoch lookahead</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-10</code></td><td>Sybil resistance and the non-claim about per-address caps</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-11</code></td><td>Weak subjectivity: L1 checkpoint as the source and the freshness window</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-12</code></td><td>Long-range attack handling; no silent trusted checkpoint provider</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>L1-01</code></td><td>Single atomic accept entry point; no data-first path</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-02</code></td><td>No entry point records a pending or incomplete batch</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-03</code></td><td>Failed verification leaves the batch unaccepted with no partial effect</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-04</code></td><td>Admission: no gate, no expiring range, any prover</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-05</code></td><td>Public-input binding list</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-06</code></td><td>Monotone checkpoint advancement</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-07</code></td><td>Checkpoint record contents</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-08</code></td><td>Inbox interface sketch and events</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-09</code></td><td>Proof-system policy and verifier routing</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-10</code></td><td>Submission races and re-submission of the same batch</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-11</code></td><td>Fees and reward accounting</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-12</code></td><td>L1 reorganisation handling</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>DA-01</code></td><td>Canonical data availability is the accepting L1 transaction</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>DA-02</code></td><td>Calldata path: the contract computes the data commitment</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>DA-03</code></td><td>Blob path: BLOBHASH + on-chain KZG opening + in-guest evaluation at the challenge point</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>DA-04</code></td><td>No witness, certificate or off-chain store substitutes for on-chain data</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>DA-05</code></td><td>Retrievability window, archive requirement, and the blob-retention limit</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>DA-06</code></td><td>Retention duty and its link to the backlog cap</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-01</code></td><td>Forced-inclusion request format, bond and fee</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-02</code></td><td>Inclusion duty and validity rule</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-03</code></td><td>Escape hatch under sustained censorship</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-04</code></td><td>Forced inclusion cannot reorder or revoke past history</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-05</code></td><td>Griefing controls and fee escalation</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>MSG-01</code></td><td>SignalService and Bridge authentication anchored at L1 checkpoints</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>MSG-02</code></td><td>Replay protection and domain separation</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>MSG-03</code></td><td>Withdrawal eligibility and delays</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>PRF-01</code></td><td>Statement overview: one combined guest</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-02</code></td><td>Public inputs (exact list)</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-03</code></td><td>Private witness (exact list); the validator set is never prover-defined</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-04</code></td><td>Consensus-evidence checks: signatures, bitmap, weight, quorum</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-05</code></td><td>Epoch and set-transition checks</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-06</code></td><td>Execution checks</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-07</code></td><td>Data-commitment binding for both data paths</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-08</code></td><td>Why one certificate per batch suffices, and its premises</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-09</code></td><td>Both backends realise the same statement; acceptance policy</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-10</code></td><td>Program-image, verifier and version upgrades</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-11</code></td><td>Syscall, hint and accelerator trust model</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-12</code></td><td>Recursion and aggregation: what it does and does not prove</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-13</code></td><td>Bindings must be cryptographically enforced, never asserted</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>REC-01</code></td><td>Mode A: no path may invalidate PoS-finalized history</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>REC-02</code></td><td>Mode B (specified, not selected): trigger, invoker, delay, boundaries, late evidence, replay</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>REC-03</code></td><td>Mode B D2-step-5 blocker recorded</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>HALT-01</code></td><td>Safe halt obligation</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>HALT-02</code></td><td>Restart rules</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>HALT-03</code></td><td>Consensus-enforced unsettled-depth cap (backpressure)</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>HALT-04</code></td><td>No emergency operator, no DAO rescue, no data-first recovery</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>WH-01</code></td><td>Withholding catalogue and the honest action for each class</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>WH-02</code></td><td>Objective evidence versus local suspicion</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>WH-03</code></td><td>False positives and negatives, labelled unmeasured</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>WH-04</code></td><td>Reveal-later certificate analysis across locks, view changes and reconfiguration</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>ECON-01</code></td><td>Stake ledger, custody and accounting</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-02</code></td><td>Rewards and their funding identity; no token-appreciation assumption</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-03</code></td><td>Withdrawal delay derived from the complete settlement pipeline</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-04</code></td><td>Offence catalogue and objective evidence encoding</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-05</code></td><td>Penalty structure, including the correlated penalty that saturates at one third</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-06</code></td><td>Destination of slashed stake (human decision, recorded)</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-07</code></td><td>Evidence window versus unbonding period</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-08</code></td><td>False accusations, duplicate evidence and replay</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-09</code></td><td>Minimum viable stake and the participation-cost derivation</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-10</code></td><td>Concentration, borrowing, liquid staking and the cap non-claim</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-11</code></td><td>Scope of user losses: what is and is not compensated</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-12</code></td><td>Budget identity and the cost of decentralisation</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>MIG-01</code></td><td>Migration boundary and preserved addresses</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>MIG-02</code></td><td>Per-contract upgrade list and storage-layout constraints</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>MIG-03</code></td><td>Treatment of pending proposals, bonds, inclusions, messages and withdrawals</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>MIG-04</code></td><td>Removal of operational privileges</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>MIG-05</code></td><td>Program-image and verifier upgrades; mixed-version clients</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>MIG-06</code></td><td>No replacement deployments for the preserved surfaces</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>GOV-01</code></td><td>DAO governs upgrades only; the trust assumption is stated</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>GOV-02</code></td><td>Malicious governance is a separate failure class</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>GOV-03</code></td><td>Upgrades must not invalidate finalized history</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
+<tr><td><code>PARAM-01</code></td><td>Parameter-table discipline</td><td><a href="09-parameters.html">09</a></td></tr>
+<tr><td><code>PARAM-02</code></td><td>Derived quantities at the 2 s cadence</td><td><a href="09-parameters.html">09</a></td></tr>
+<tr><td><code>PARAM-03</code></td><td>Unmeasured register</td><td><a href="09-parameters.html">09</a></td></tr>
+<tr><td><code>INV-01</code></td><td>Invariant: unique finalized prefix</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>INV-02</code></td><td>Invariant: no batch is accepted without its data</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>INV-03</code></td><td>Invariant: no consensus without TAIKO at risk</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>INV-04</code></td><td>Invariant: no privilege or discretion in ordinary operation</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIVE-01</code></td><td>Conditional liveness statement and the exact point where it ends</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIVE-02</code></td><td>Backpressure and halt triggers</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIVE-03</code></td><td>Throughput sustainability conditions</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIM-01</code></td><td>Known limitations register</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIM-02</code></td><td>Rejected alternatives and their tradeoffs</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIM-03</code></td><td>Red-team finding resolutions</td><td><a href="10-assurance.html">10</a></td></tr>
+</tbody></table>
+
+<h2 id="verdict">Verdict summary and its exact scope</h2>
+<div class="goodbox">
+<p><strong>Within scope:</strong> a specification-level design in which permissionless TAIKO-staked
+L2 validators finalize blocks every 2 s; batches settle on Ethereum only when their data and a ZK
+proof of consensus finality <em>and</em> execution land in one transaction; the shared
+SignalService/Bridge/vault addresses are preserved by in-place upgrade; and safety is preserved by
+halting rather than rolling back.</p>
+</div>
+<div class="badbox">
+<p><strong>Outside scope:</strong> that the design is implemented, audited, benchmarked or safe to
+deploy; that proving throughput or 2 s cadence has been measured; that any attack is unprofitable;
+that ZK verification repairs failed consensus assumptions; that a PoS confirmation before L1
+acceptance is irreversible in any mode other than Mode A's stated
+assumptions.</p>
+</div>
+
+<h2 id="provenance">Provenance</h2>
+<table><thead><tr><th>Source</th><th>Revision / version</th><th>Date</th></tr></thead><tbody>
+<tr><td>Taiko monorepo baseline</td><td><code>7718753c1</code></td><td>2026-10-05</td></tr>
+<tr><td>Prior accepted Etna research (read-only)</td><td><code>a829f79723de9a09205660d9895418577cfe9aa9</code></td><td>2026-10-05</td></tr>
+<tr><td>CometBFT specification (locking rule, Proof of Safety, fork accountability)</td><td>pinned commit <code>709fd12b…</code></td><td>retrieved 2026-10-05</td></tr>
+<tr><td>EIP-4844 point-evaluation precompile; EIP-7691 blob parameters</td><td>as published</td><td>retrieved 2026-10-05</td></tr>
+<tr><td>RISC Zero / SP1 pins</td><td>see <a href="05-proof-statement.html">05</a></td><td>retrieved 2026-10-05</td></tr>
+</tbody></table>
+
+</main>
+<footer class="site">
+<p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are
+stated once and referenced by identifier.</p>
+</footer>
+</body></html>

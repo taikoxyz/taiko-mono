@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — Specification 08: migration, upgrades and governance</title>
+<link rel="stylesheet" href="spec.css">
+</head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span>
+  <span class="tag">reference specification</span>
+  <span class="tag">rev 2026-10-05</span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="01-system-model.html">Model &amp; roles</a>
+    <a href="02-consensus.html">Consensus</a>
+    <a href="03-membership-staking.html">Staking</a>
+    <a href="04-l1-integration.html">L1 integration</a>
+    <a href="05-proof-statement.html">Proof statement</a>
+    <a href="06-recovery-exceptions.html">Recovery</a>
+    <a href="07-economics-slashing.html">Economics</a>
+    <a href="08-migration-upgrades.html">Migration</a>
+    <a href="09-parameters.html">Parameters</a>
+    <a href="10-assurance.html">Assurance</a>
+    <a href="../learn/index.html">Learn</a>
+  </nav>
+</header>
+<main>
+
+<h1>08 — Migration, upgrades and governance</h1>
+
+<div class="verdict">
+<p><strong>What this page owns.</strong> The migration boundary from the Shasta deployment at
+revision <code>7718753c1</code> (<a href="#MIG-01">MIG-01</a>), the per-contract upgrade list and
+storage-layout constraints (<a href="#MIG-02">MIG-02</a>), the disposition of everything in flight
+across the boundary (<a href="#MIG-03">MIG-03</a>), removal of operational privileges
+(<a href="#MIG-04">MIG-04</a>), program-image, verifier and mixed-client rules
+(<a href="#MIG-05">MIG-05</a>), the no-replacement-deployment rule
+(<a href="#MIG-06">MIG-06</a>), and governance (<a href="#GOV-01">GOV-01</a>–<a href="#GOV-03">GOV-03</a>).
+Status labels are those of <a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11">STATUS-11</a>;
+this page introduces no new label and no new status word.</p>
+<p class="small">Evidence base: <a href="../research/taiko-baseline-contracts.md">taiko-baseline-contracts.md</a>
+(the 800-line baseline, cited as <code>path:line</code>),
+<a href="../research/prior-etna-digest.md">prior-etna-digest.md</a>,
+<a href="../04-architecture-decision.md">04-architecture-decision.md</a> and
+<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4–§5.
+Nothing on this page is implemented, deployed or measured (<a href="index.html#GEN-01">GEN-01</a>).</p>
+</div>
+
+<div class="warnbox small">
+<strong>This page is a plan, not a deployment.</strong> Every address below is as <em>recorded</em> in
+the repository's address libraries and hand-maintained deployment logs; no on-chain read was
+performed (<a href="../research/taiko-baseline-contracts.md">baseline</a> §10 gap 8). The
+preconditions in <a href="#preconditions">§ Preconditions</a> must be executed against the live chain
+before a migration bundle is built, and the bundle itself is gas-<span class="pill unmeasured">unmeasured</span>.
+</div>
+
+<h2 id="boundary-shape">The boundary in one picture</h2>
+<p>The migration is a single, irreversible switch from the Shasta rule set to the Etna PoS&nbsp;+&nbsp;ZK
+rule set over the <em>same</em> preserved contract addresses. It is not a chain restart: the new
+consensus begins at the last Shasta state that Ethereum already accepted, and every later rule must
+accept that state as its own past (<a href="#GOV-03">GOV-03</a>).</p>
+
+<h2 id="state-machine">Migration state machine</h2>
+<figure>
+<svg viewBox="0 0 880 190" role="img" aria-label="Migration states: shasta-active, frozen, drained, etna-active">
+<defs><marker id="arw" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+<path d="M0,0 L9,4.5 L0,9 z" fill="#7aa2f7"/></marker></defs>
+<g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" fill="#e6edf3">
+<rect x="8" y="46" width="188" height="58" rx="9" fill="#161b22" stroke="#2d3743"/>
+<text x="26" y="70">SHASTA_ACTIVE</text><text x="26" y="88" fill="#9aa7b4" font-size="10">migrationState = 0</text>
+<rect x="236" y="46" width="150" height="58" rx="9" fill="#161b22" stroke="#2d3743"/>
+<text x="254" y="70">FROZEN</text><text x="254" y="88" fill="#9aa7b4" font-size="10">= 1</text>
+<rect x="426" y="46" width="150" height="58" rx="9" fill="#161b22" stroke="#2d3743"/>
+<text x="444" y="70">DRAINED</text><text x="444" y="88" fill="#9aa7b4" font-size="10">= 2</text>
+<rect x="616" y="46" width="246" height="58" rx="9" fill="#0f2418" stroke="#2c5a3a"/>
+<text x="634" y="70" fill="#9ece6a">ETNA_ACTIVE</text><text x="634" y="88" fill="#9aa7b4" font-size="10">= 3 · accept() only</text>
+<line x1="196" y1="75" x2="232" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
+<line x1="386" y1="75" x2="422" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
+<line x1="576" y1="75" x2="612" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
+<text x="150" y="36" fill="#9aa7b4" font-size="10">T1 DAO bundle</text>
+<text x="330" y="36" fill="#9aa7b4" font-size="10">T2 anyone</text>
+<text x="522" y="36" fill="#9aa7b4" font-size="10">T3 DAO bundle</text>
+<path d="M500,104 C500,150 300,150 200,116" fill="none" stroke="#e0af68" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arw)"/>
+<text x="250" y="166" fill="#e0af68" font-size="10">T2b unfreezeToFrozen() — only from DRAINED, migration-only selector</text>
+<text x="8" y="24" fill="#9aa7b4" font-size="10">prove() callable in states 0–2; accept(data,proof) callable in state 3 only — never both.</text>
+</g>
+</svg>
+<figcaption>Normative transitions, guards and effects are the table below; the diagram is a reading aid.</figcaption>
+</figure>
+
+<table>
+<thead><tr><th>#</th><th>Transition</th><th>Who may trigger</th><th>Exact guard (all conditions must hold)</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td>T1</td><td><code>SHASTA_ACTIVE</code> (0) → <code>FROZEN</code> (1)</td><td>DAO bundle:
+<code>MainnetDAOController.execute</code> (<code>MainnetDAOController.sol:24-31</code>) calling
+<code>upgradeToAndCall</code> on the preserved Inbox proxy</td>
+<td>The bundle installs the migration implementation and calls <code>freeze()</code> in the same
+transaction; <code>_coreState.nextProposalId &gt; 0</code>; sets <code>frozenAtL1Block = uint48(block.number)</code>. No pre-existing slot is written.</td>
+<td><code>propose()</code> and <code>saveForcedInclusion()</code> revert <code>MigrationFrozen()</code>;
+<code>prove()</code> is unchanged.</td></tr>
+<tr><td>T2</td><td><code>FROZEN</code> (1) → <code>DRAINED</code> (2)</td><td>anyone,
+permissionlessly, via <code>finishDrain()</code></td>
+<td><code>migrationState == FROZEN</code> <strong>and</strong>
+(<code>forcedInclusionHead == forcedInclusionTail</code>) <strong>and</strong> (<code>_coreState.lastFinalizedProposalId == _coreState.nextProposalId - 1</code>
+<strong>or</strong> <code>block.number &gt;= frozenAtL1Block + DRAIN_DEADLINE</code>)</td>
+<td><code>prove()</code> reverts <code>MigrationDrained()</code> permanently (unless T2b);
+legacy bond withdrawal and forced-inclusion refunds stay callable.</td></tr>
+<tr><td>T2b</td><td><code>DRAINED</code> (2) → <code>FROZEN</code> (1)</td><td>DAO bundle only</td>
+<td><code>migrationState == DRAINED</code>; re-entry of <code>freeze()</code> sets a new
+<code>frozenAtL1Block</code>. Legal because no rule has ever accepted new history in
+<code>DRAINED</code>.</td>
+<td><code>prove()</code> becomes callable again; no checkpoint, signal, message status or balance is
+touched. The selector is absent once <code>ETNA_ACTIVE</code> is reached.</td></tr>
+<tr><td>T3</td><td><code>DRAINED</code> (2) → <code>ETNA_ACTIVE</code> (3)</td><td>DAO bundle:
+<code>activateEtna(B*, S*)</code> in the same transaction that installs the settlement
+implementation</td>
+<td><code>migrationState == DRAINED</code>; <code>_coreState.lastFinalizedProposalId &gt; 0</code>;
+<code>signalService.getCheckpoint(B*).blockHash == _coreState.lastFinalizedBlockHash</code>;
+<code>signalService.getCheckpoint(B*).stateRoot == S*</code>; the staking contract reports a non-zero
+epoch-0 set root</td>
+<td><code>accept(data, proof)</code> becomes callable; <code>prove()</code> is disabled forever;
+<code>(B*, S*, H*)</code> is written to Inbox slots 259–260. <code>B*</code> is <em>derived</em> by the
+equality above, never chosen by the bundle.</td></tr>
+</tbody></table>
+<div class="card small">
+<p><strong>If a transition stalls, the honest behaviour.</strong></p>
+<table>
+<thead><tr><th>Stall</th><th>What is true</th><th>Release</th></tr></thead>
+<tbody>
+<tr><td>stuck in <code>FROZEN</code> (prover outage, blob expiry, L1 censorship of a proof —
+A-DA-2/A-DA-3)</td><td>nothing new settles; no finalized state is at risk; withdrawals already
+<a href="index.html#STATUS-08">withdrawal-eligible</a> remain eligible because their checkpoint and
+signal are untouched</td><td>the T2 deadline completes the drain unconditionally; no rule needs the stalled work</td></tr>
+<tr><td>stuck in <code>DRAINED</code> (no epoch-0 stake set, or the state at <code>S*</code> cannot be
+served)</td><td>a settlement <em>and</em> production halt, not a safety loss; no half-applied state exists</td><td>complete T3, or <code>unfreezeToFrozen()</code> and continue draining. Both are DAO bundles: this window is DAO-dependent and must be published with a bounded deadline in the migration announcement; the specification cannot bound it for you</td></tr>
+<tr><td>stuck after <code>ETNA_ACTIVE</code></td><td>the migration is complete; ordinary consensus
+liveness rules apply</td><td><a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>/
+<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>; no DAO action is or may be required for
+progress</td></tr>
+</tbody></table>
+<p class="small">The release for a stalled <code>ETNA_ACTIVE</code> chain is never a rollback: D2/Mode A
+forbids any rule that invalidates a PoS-finalized block (<a href="index.html#STATUS-04">STATUS-04</a>).</p>
+</div>
+<h2 id="rules">Normative rules</h2>
+<div class="rule" id="MIG-01"><span class="rid">MIG-01 — migration boundary and preserved addresses</span>
+<span class="norm">The migration boundary is the last Shasta state accepted on L1 before the freeze,
+the 4-tuple <code>(C*, B*, H*, S*)</code> where <code>C*</code> is the L2 chain id, <code>B*</code> the L2 block number of the last checkpoint written into the preserved L1 SignalService by a successful
+<code>Inbox.prove()</code> (<code>Inbox.sol:364-370</code>), <code>H*</code> the L2 block hash recorded
+for <code>B*</code>, and <code>S*</code> its L2 state root. <code>B*</code> is identified on-chain by the equality <code>_checkpoints[VERSION][B*].blockHash == IInbox.CoreState.lastFinalizedBlockHash</code> and <code>S*</code> by <code>_checkpoints[VERSION][B*].stateRoot</code>; the bundle supplies
+<code>(B*, S*)</code> and T3 reverts unless both equalities hold, so the boundary is derived from the
+finalized tip and never chosen. Uniqueness of <code>B*</code> rests on keccak-256 collision resistance (A-CRYPTO-3) and on the monotonicity of <a href="04-l1-integration.html#L1-06">L1-06</a>. The starting point is the deployed system at revision <code>7718753c1</code>: an Inbox with two separate entry points, <code>propose()</code> (<code>Inbox.sol:270-290</code>) and <code>prove()</code> (<code>Inbox.sol:321-400</code>), i.e. the data-first path D5 forbids; a disabled bond mechanism (<code>minBond = 0</code>, <code>livenessBond = 0</code>, <code>MainnetInbox.sol:37-38</code>) whose liveness settlement is additionally suppressed while a prover whitelist is enabled (<code>Inbox.sol:356-359</code>); a <code>ProverWhitelist</code> gating <code>prove()</code> (<code>Inbox.sol:337,771-779</code>; mainnet <code>0xEa798547d97e345395dA071a0D7ED8144CD612Ae</code>); a <code>PreconfWhitelist</code> as <code>IProposerChecker</code> selecting one operator per epoch (<code>PreconfWhitelist.sol:136-140</code>; mainnet <code>0xFD019460881e6EeC632258222393d5821029b2ac</code>); and a forced-inclusion queue already voided by the owner-only <code>init3()</code> via
+<code>head = tail</code> (<code>Inbox.sol:253-258</code>, called on mainnet in the Proposal0019 bundle,
+<code>deployments/mainnet-contract-logs-L1.md:222-223</code>).
+<strong>State that migrates</strong> (read once at T3, written to Inbox slots 258–260, then frozen and
+never re-interpreted): <code>H*</code>; the L1 SignalService checkpoint record for <code>B*</code>; the existing TAIKO ERC-20 balances at the preserved token address
+<code>0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800</code>, which are neither moved nor rewritten (new
+stake custody is a new L1 staking contract holding TAIKO via <code>transferFrom</code>,
+<a href="03-membership-staking.html#MEM-01">MEM-01</a>, D7); the Bridge state <code>nextMessageId</code>
+(Bridge slot 251) and <code>messageStatus</code> (slot 252); and the vault deposit maps
+<code>bridgedToCanonical</code>, <code>canonicalToBridged</code>, <code>btokenDenylist</code>,
+<code>lastMigrationStart</code> (ERC20Vault slots 301–304) and the two NFT vault maps (slots 301–302).
+<strong>State that does not migrate</strong>: Shasta proposals that were proposed and never proven —
+they are not part of any finalized prefix, they wrote no checkpoint and have no bridge effect; pending bond balances in the Inbox ledger (slot 257), which are not carried into the new stake ledger and never count as voting power, but stay claimable (MIG-03); and blob references whose blobs have left Ethereum's retention window (A-DA-3), which cannot be proven and must not be promised.</span>
+<span class="why">Failure mode: a migration whose bundle can pick the history splits the chain or
+anchors a non-finalized height; treating an unproven proposal, a legacy bond or an expired blob as migrated state strands user funds or manufactures voting power that no L1 stake backs.</span>
+<span class="pill proven">Proven</span> <span class="small">(premises: A-CRYPTO-3 for the uniqueness of
+<code>B*</code>, and A-CONS-1 — &lt; 1/3 Byzantine stake — for the uniqueness of the finalized prefix that the boundary inherits, A-GOV-1 for an honestly executed bundle)</span> <span class="pill sourced">sourced</span></div>
+<p class="small">The preserved surfaces named in MIG-01 are the D3 set —
+<strong>SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault</strong> — plus the settlement
+Inbox and the L2 Anchor, whose exact addresses and in-place-upgrade rule are stated once in
+<a href="#MIG-06">MIG-06</a>.</p>
+<div class="rule" id="MIG-02"><span class="rid">MIG-02 — per-contract upgrade list and storage-layout constraints</span>
+<span class="norm">Each upgraded or preserved proxy's storage is partitioned into (a) a frozen
+inherited prefix occupying slots 0–250, in which slot 0 holds <code>_initialized</code>/
+<code>_initializing</code>, slot 51 <code>_owner</code>, slot 101 <code>_pendingOwner</code> and slot
+201 <code>__reentry</code>/<code>__paused</code>, with the ranges 1–50, 52–100, 102–150, 151–200 and 202–250 byte-identical to the generated layouts at the pin; (b) the contract's own region, whose last used slot and trailing gap are fixed by the table below; and (c) nothing else. New state may be declared only after the last used slot of the contract's own region, and it consumes exactly one gap slot per 32 bytes declared (packed variables may share a slot; a declaration crossing a slot boundary consumes two); the trailing gap must shrink by exactly the number of slots consumed and keep the same final slot index (300 for the L1 contracts, 350/400/450/500 for the vaults). Deprecated slots are frozen, not free: they include <code>Anchor._pacayaSlots</code> (252–254),
+<code>Anchor._lastProposalId</code> (255), <code>SignalService._slotsUsedByPacaya</code> (251–252),
+<code>Bridge.__reserved1</code>/<code>__ctx</code>/<code>__reserved2</code>/<code>__reserved3</code>
+(251, 253, 255, 256), <code>PreconfWhitelist</code>'s three deprecated variables,
+<code>EssentialContract.__reentry</code> (201), and the Shasta <code>_proposalHashes</code> (Inbox 254)
+and <code>_bondStorage</code> (Inbox 257); a zeroed deprecated slot must not be reused, and
+<code>Bridge.init2()</code>'s recorded intent to reuse <code>__reserved1/2/3</code>
+(<code>Bridge.sol:197-202</code>) is superseded by this rule. If a deployed proxy routes through a
+<code>ForkRouter</code>, slots 0–150 must remain byte-identical (<code>ForkRouter.sol:18-20</code>) in
+the router, in the old fork and in the new fork; whether the deployed proxies route through a router must be established on-chain before the bundle (<a href="#preconditions">§ Preconditions</a>). The complete change list is the table below; any change not in it requires a new decision recorded in the decision log, and every upgraded contract's layout must be regenerated and diffed (<code>pnpm layout</code>) before and after.</span>
+<span class="why">Failure mode: a reordered, retyped or reused slot silently corrupts the checkpoint
+map, the message-status map, the received-signal cache or the vault maps, which is unrecoverable without rewriting user-visible history; carving new state out of the wrong range collides with a previously deployed fork.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="pill unmeasured">router presence unmeasured</span></div>
+<h3>Frozen prefix and per-contract free space (as recorded at the pin)</h3>
+<table>
+<thead><tr><th>Contract</th><th>Own region starts</th><th>Last used slot</th><th>First free slot</th><th>Trailing gap (slots)</th><th>Layout file</th></tr></thead>
+<tbody>
+<tr><td>Inbox / MainnetInbox</td><td>251</td><td>257 <code>_bondStorage</code></td><td>258</td><td>258–300 = <strong>43</strong></td><td><code>MainnetInbox_Layout.sol:21-26</code></td></tr>
+<tr><td>SignalService</td><td>251</td><td>254 <code>_checkpoints</code></td><td>255</td><td>255–300 = <strong>46</strong></td><td><code>SignalService_Layout.sol:21-24</code></td></tr>
+<tr><td>Bridge</td><td>251</td><td>256 <code>__reserved3</code></td><td>257</td><td>257–300 = <strong>44</strong></td><td><code>Bridge_Layout.sol:21-27</code></td></tr>
+<tr><td>ERC20Vault</td><td>301 (251–300 is a BaseVault gap)</td><td>304 <code>lastMigrationStart</code></td><td>305</td><td>305–350 = <strong>46</strong></td><td><code>ERC20Vault_Layout.sol:21-26</code></td></tr>
+<tr><td>ERC721Vault</td><td>301</td><td>302 <code>canonicalToBridged</code></td><td>303</td><td>303–350 (48) + 351–400 (50) = <strong>98</strong></td><td><code>ERC721Vault_Layout.sol:21-25</code></td></tr>
+<tr><td>ERC1155Vault</td><td>301</td><td>302 <code>canonicalToBridged</code></td><td>303</td><td>303–350 (48) + 351–500 (150) = <strong>198</strong></td><td><code>ERC1155Vault_Layout.sol:21-27</code></td></tr>
+<tr><td>Anchor (L2)</td><td>251</td><td>256 <code>_blockState</code> (spans 256–257)</td><td>258</td><td>258–300 = <strong>43</strong></td><td><code>Anchor_Layout.sol:21-25</code></td></tr>
+<tr><td>ProverWhitelist (inert after MIG-04)</td><td>251</td><td>252 <code>proverCount</code></td><td>253</td><td>253–300 = <strong>48</strong></td><td><code>ProverWhitelist_Layout.sol:21-23</code></td></tr>
+<tr><td>PreconfWhitelist (inert after MIG-04)</td><td>251</td><td>254 <code>ejecters</code></td><td>255</td><td>255–299 = <strong>45</strong></td><td><code>PreconfWhitelist_Layout.sol:21-29</code></td></tr>
+</tbody></table>
+<p class="small">All slot numbers above are <span class="pill sourced">sourced</span> from the
+auto-generated layout files at <code>7718753c1</code>.</p>
+<h3>Required changes and their exact slot budget</h3>
+<table>
+<thead><tr><th>Contract</th><th>Required change</th><th>New state (slot)</th><th>Slots consumed</th><th>Gap after</th></tr></thead>
+<tbody>
+<tr><td>Inbox (L1)</td><td>Replace <code>propose()</code>/<code>prove()</code> with one atomic
+<code>accept(data, proof)</code> (<a href="04-l1-integration.html#L1-01">L1-01</a>); add
+<code>freeze()</code>/<code>finishDrain()</code>/<code>activateEtna()</code> and the state gate of
+T1–T3; add the legacy <code>withdrawLegacyBond</code>/<code>refundForcedInclusion</code> selectors that read slots 257 and 255–256 in place; drop the ProverWhitelist and IProposerChecker calls</td>
+<td><code>migrationState</code>+<code>frozenAtL1Block</code>+<code>genesisL2BlockNumber</code>+<code>genesisTimestamp</code> (258);
+<code>genesisL2BlockHash</code> (259); <code>genesisL2StateRoot</code> (260);
+<code>acceptedProgramImage</code> map (261); <code>epochSetRoot</code> map (262);
+<code>lastAcceptedEpoch</code>+<code>lastAcceptedL2Block</code> (263)</td><td><strong>6</strong></td><td><strong>37</strong></td></tr>
+<tr><td>SignalService (L1 and L2)</td><td>No state change. The implementation is re-deployed with the
+<em>same</em> immutable values (<code>_authorizedSyncer</code>, <code>_remoteSignalService</code>,
+<code>VERSION = 1</code>) and the same checkpoint semantics; adding a monotone high-water mark is a
+permitted optional defence-in-depth change but is <em>not</em> required, because monotonicity is enforced by <a href="04-l1-integration.html#L1-06">L1-06</a></td><td>none</td><td>0</td><td>46</td></tr>
+<tr><td>Bridge (L1 and L2)</td><td>Remove the <code>quotaManager</code> dependency
+(<code>Bridge.sol:652-653</code>) and the pause/pauser runtime levers; bake peer addresses as immutables instead of resolving them at runtime</td><td>none</td><td>0</td><td>44</td></tr>
+<tr><td>ERC20Vault</td><td>Remove <code>changeBridgedToken</code> from the runtime ABI (MIG-04); remove
+the quota dependency; keep all four mappings and <code>lastMigrationStart</code> untouched</td>
+<td>none</td><td>0</td><td>46</td></tr>
+<tr><td>ERC721Vault</td><td>Remove the pause lever; keep both mappings untouched</td><td>none</td><td>0</td><td>98</td></tr>
+<tr><td>ERC1155Vault</td><td>Remove the pause lever; keep both mappings untouched</td><td>none</td><td>0</td><td>198</td></tr>
+<tr><td>Anchor (L2)</td><td>Remove the owner <code>withdraw</code> and pause levers; keep
+<code>blockHashes</code> (251), <code>_pacayaSlots</code> (252–254, frozen),
+<code>_lastProposalId</code> (255, frozen) and <code>_blockState</code> (256–257) exactly as they are;
+the anchor payload becomes a block-validity rule rather than an operator action</td><td>none</td>
+<td>0</td><td>43</td></tr>
+</tbody></table>
+<p class="small">The six Inbox slots are <span class="pill derived">derived</span> from the change list;
+the gap arithmetic is <span class="pill sourced">sourced</span>. If an implementer needs more Inbox state than the 37 remaining slots, the answer is a decision-log entry, not a reused deprecated slot.</p>
+<div class="rule" id="MIG-03"><span class="rid">MIG-03 — treatment of pending proposals, unproven batches, bonds, forced inclusions, bridge messages and withdrawals</span>
+<span class="norm">(1) <strong>One settlement path at a time.</strong> <code>accept(data, proof)</code>
+reverts unless <code>migrationState == ETNA_ACTIVE</code>; <code>prove()</code> reverts unless
+<code>migrationState</code> is <code>SHASTA_ACTIVE</code>, <code>FROZEN</code> or <code>DRAINED</code>.
+No state exists in which both are callable, so at most one path can advance the checkpoint.
+<code>FROZEN</code> is entered by the migration bundle, which in the same transaction disables
+<code>propose()</code> and <code>saveForcedInclusion()</code>; states advance only in the order of T1–T3
+and no transition is skippable. (2) <strong>Proposed but never proven.</strong> A proposal with no accepted <code>prove()</code> at the end of the drain window is void: it contributes no checkpoint, no state root and no bridge effect, and its proof path closes permanently at <code>DRAINED</code>. Because <code>propose()</code> is disabled at
+<code>FROZEN</code>, the proposal-hash ring buffer cannot be overwritten during the window (the
+overwrite at <code>Inbox.sol:626</code> happens only inside <code>propose()</code>), so every unproven proposal stays provable until the deadline subject only to data availability (A-DA-2, A-DA-3). The migration announcement must state the drain deadline in L1 block numbers and that L2 transactions inside unproven proposals are not carried over. (3) <strong>Bonds.</strong> Legacy bond balances (Inbox slot 257) are not converted into stake and confer no voting power. The post-migration implementation retains exactly one legacy selector,
+<code>withdrawLegacyBond(address _to, uint64 _amount)</code>, which debits that ledger under the
+<em>legacy</em> floor and delay baked at deployment from the pre-migration <code>getConfig()</code>
+(mainnet <code>minBond = 0</code>, <code>withdrawalDelay = 1 weeks</code>,
+<code>MainnetInbox.sol:37,39</code>), and it remains callable in every state. No new bond may be
+created after the freeze and no legacy balance may be slashed. (4) <strong>Forced inclusions.</strong> Every queue entry still present at <code>FROZEN</code> is either consumed by a Shasta <code>propose()</code> executed before the freeze, with its fee forwarded to that proposer exactly as today (<code>Inbox.sol:710</code>), or refunded in full (<code>feeInGwei × 1 gwei</code>) to the transaction sender of the <code>ForcedInclusionSaved</code> log for that queue index; the payer is not stored in the entry (<code>IForcedInclusionStore.sol:10-15</code>, <code>LibForcedInclusion.sol:59-66</code>) and must be recovered from L1 logs. A permissionless <code>refundForcedInclusion(uint48 index)</code> remains callable in every state. No entry may be voided silently, no <code>init3()</code>-style selector survives, and queued entries are never re-interpreted under the new
+<a href="04-l1-integration.html#FI-01">FI-01</a> request format.
+(5) <strong>Bridge messages.</strong> The migration upgrade must not reset
+<code>nextMessageId</code>, <code>messageStatus</code>, <code>_receivedSignals</code> or
+<code>_checkpoints</code>; must not change the <code>SIGNAL</code> slot derivation
+(<code>SignalService.sol:160-171,232-235</code>); and must not change
+<code>SignalService.VERSION</code>, because one version bump invalidates the received-signal cache and
+hides every checkpoint simultaneously (<code>SignalService.sol:52,63,179</code>). An L2→L1 message sent at height ≤ <code>B*</code> stays provable after activation because every post-activation checkpoint is a record of a state that contains its signal; an L1→L2 message stays provable while the Anchor keeps writing L1 checkpoints with <code>blockNumber</code> = L1 block number and monotone
+<code>_blockState.anchorBlockNumber</code> (<code>Anchor.sol:173-186</code>). A message is processed at
+most once because its status is set by <code>processMessage</code>, and MIG-01's boundary rule prevents a second history from producing a second proof of receipt. (6) <strong>Withdrawals.</strong> A withdrawal that was
+<a href="index.html#STATUS-08">withdrawal-eligible</a> at the freeze remains eligible during and after
+the migration: eligibility depends on a stored signal and a stored checkpoint, both preserved unchanged, and no delay is extended, restarted or re-based by any transition.</span>
+<span class="why">Failure modes: two live settlement paths produce two histories; silently voiding
+forced inclusions repeats the June 2026 failure class; a VERSION bump makes every in-flight message unprovable; counting a legacy bond as stake manufactures voting power no L1 stake backs.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="small">(the message-continuity claim also depends on A-CONS-5/A-DA-2 for the availability
+of the data behind the boundary state)</span></div>
+<h3>Disposition of every in-flight object</h3>
+<table>
+<thead><tr><th>Object</th><th>Where it lives at the pin</th><th>Disposition across the boundary</th></tr></thead>
+<tbody>
+<tr><td>Finalized tip <code>(B*, H*, S*)</code></td><td>Inbox slots 252–253 + L1 SignalService
+<code>_checkpoints[1][B*]</code></td><td>read once at T3, written to Inbox slots 259–260, frozen;
+never lowered (<a href="#GOV-03">GOV-03</a>(c))</td></tr>
+<tr><td>Proposed, unproven proposal</td><td><code>_proposalHashes</code> ring (slot 254), plus
+<code>Proposed</code> logs and blobs</td><td>void at <code>DRAINED</code>; no checkpoint, no bridge
+effect; announced in advance</td></tr>
+<tr><td>Forced-inclusion queue</td><td>Inbox slots 255–256 (<code>head</code>, <code>tail</code>)</td>
+<td>consumed before the freeze, or refunded at <code>feeInGwei × 1 gwei</code> to the recorded sender's
+log; never voided</td></tr>
+<tr><td>Legacy bond balances</td><td>Inbox slot 257</td><td>not stake, no voting power; claimable
+through <code>withdrawLegacyBond</code> under the legacy floor and delay; no new bonds, no liveness settlement</td></tr>
+<tr><td>TAIKO balances</td><td>token <code>0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800</code></td>
+<td>untouched; the new staking custody is a new contract (<a href="03-membership-staking.html#MEM-01">MEM-01</a>, D7)</td></tr>
+<tr><td>Bridge messages</td><td>Bridge slots 251–252; SignalService signal slots</td><td>untouched and
+monotone; each processed at most once; provable across the boundary because the new chain extends
+<code>(B*, H*, S*)</code></td></tr>
+<tr><td>Checkpoint namespace</td><td><code>VERSION = 1</code>, <code>_checkpoints</code> (slot 254),
+<code>_receivedSignals</code> (slot 253)</td><td>unchanged; the version must not be bumped</td></tr>
+<tr><td>Withdrawal eligibility</td><td>stored signals + stored checkpoints</td><td>unchanged; nothing
+already eligible is delayed or restarted</td></tr>
+<tr><td>Vault deposits and bridged-token maps</td><td>ERC20Vault 301–304; NFT vaults 301–302</td>
+<td>untouched; no runtime <code>changeBridgedToken</code> after the upgrade (MIG-04)</td></tr>
+</tbody></table>
+<div class="rule" id="MIG-04"><span class="rid">MIG-04 — removal of operational privileges</span>
+<span class="norm">Every lever in the table below is removed from the runtime ABI of the contract that
+holds it. Removal is a deliberate behaviour change of the preserved surfaces: D3 preserves addresses, not powers. After the removals, ordinary operation reads no owner, no whitelist, no resolver entry and no pause flag: block production, voting, proving, settlement, forced inclusion and exit complete with no privileged transaction. The only authority that remains is DAO upgrade authority —
+<code>MainnetDAOController.execute</code> (<code>MainnetDAOController.sol:24-31</code>, itself owned by
+the TaikoDAO) calling <code>upgradeToAndCall</code> through <code>_authorizeUpgrade</code> (<code>EssentialContract.sol:207</code>) — and it is never a runtime dependency (<a href="#GOV-01">GOV-01</a>). No runtime authority is created by the migration: the new staking contract, the new verifier route, and the forced-inclusion path are permissionless (<a href="03-membership-staking.html#MEM-03">MEM-03</a>,
+<a href="04-l1-integration.html#L1-04">L1-04</a>,
+<a href="04-l1-integration.html#FI-01">FI-01</a>), and any owner those new contracts have is upgrade
+authority only. Where a removal changes incident response (no runtime pause, no runtime image rotation, no runtime token remapping), the consequence is disclosed in the table and the remedy is a DAO upgrade, not a hidden key.</span>
+<span class="why">Failure mode: a surviving owner function is a capture target and a liveness
+dependency (R2), and makes the "no privilege or discretion in ordinary operation" invariant (<a href="10-assurance.html#INV-04">INV-04</a>) false; <code>init2()</code> in particular can rewrite
+<code>lastFinalizedBlockHash</code>, which Mode A forbids.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(the completeness of this table is a review obligation; the residual trust is
+A-GOV-1, and a DAO that does not execute the removals leaves the levers live)</span></div>
+<table>
+<thead><tr><th>Lever as found</th><th>Holder at the pin</th><th>Exercised at</th><th>What it becomes</th></tr></thead>
+<tbody>
+<tr><td><code>Inbox.activate(bytes32)</code></td><td>Inbox owner</td><td><code>Inbox.sol:188-201</code></td>
+<td>removed; replaced by the verified <code>activateEtna(B*, S*)</code> of T3, executable once</td></tr>
+<tr><td><code>Inbox.init2(uint48, bytes32)</code></td><td>Inbox owner</td><td><code>Inbox.sol:217-244</code></td>
+<td>removed; this lever rewrites the finalized tip and must not survive (D2, REC-01)</td></tr>
+<tr><td><code>Inbox.init3()</code></td><td>Inbox owner</td><td><code>Inbox.sol:253-258</code></td>
+<td>removed; the failure class it patched is removed by D5, and queued requests are processed or
+refunded (MIG-03(4))</td></tr>
+<tr><td><code>IProposerChecker</code> / <code>PreconfWhitelist</code> owner, ejecter,
+<code>_ejectorManager</code></td><td>preconf operators</td><td><code>PreconfWhitelist.sol:94-124,136-140</code></td>
+<td>removed; proposer selection is leader selection over the L1-committed set
+(<a href="02-consensus.html#CONS-06">CONS-06</a>, <a href="03-membership-staking.html#MEM-08">MEM-08</a>) with no admission gate; the whitelist contract is left inert</td></tr>
+<tr><td><code>ProverWhitelist.whitelistProver</code></td><td>owner <em>or</em>
+<code>_proverManager</code></td><td><code>ProverWhitelist.sol:74-80</code>; gate at
+<code>Inbox.sol:337,771-779</code></td><td>removed; <code>accept()</code> admits any valid
+(data, proof) pair from any sender (<a href="04-l1-integration.html#L1-04">L1-04</a>)</td></tr>
+<tr><td><code>Anchor.withdraw(address,address)</code></td><td>Anchor owner</td>
+<td><code>Anchor.sol:145-156</code></td><td>removed; the L2 base-fee recipient is moved off the Anchor
+at activation, and any residual balance becomes stranded and must be published — its amount is
+<span class="pill unmeasured">unmeasured</span> here and is measured by reading the Anchor balance at
+activation</td></tr>
+<tr><td><code>GOLDEN_TOUCH_ADDRESS</code> gate</td><td>hardcoded constant</td>
+<td><code>Anchor.sol:37,86-89,124-127</code></td><td>retained as the reserved system sender, with no
+discretion: the anchor payload is part of block validity (<a href="01-system-model.html#SYS-02">SYS-02</a>, <a href="02-consensus.html#CONS-01">CONS-01</a>) and monotone (<a href="04-l1-integration.html#L1-06">L1-06</a>), so a wrong or stale payload invalidates the block instead of being an operator choice. That the address is not key-controlled by any single party is a migration precondition, not a property proven here</td></tr>
+<tr><td><code>Anchor</code> pause / unpause</td><td>owner + pause authority</td>
+<td><code>EssentialContract.sol:150,159</code></td><td>removed</td></tr>
+<tr><td><code>SP1Verifier.setProgramTrusted</code></td><td>verifier owner</td>
+<td><code>SP1Verifier.sol:44-47</code></td><td>removed from runtime; the accepted program-image set is
+Inbox slot 261 and changes only by upgrade (MIG-05). Cost: an emergency image rotation needs a DAO upgrade</td></tr>
+<tr><td><code>Risc0Verifier.setImageIdTrusted</code></td><td>verifier owner</td>
+<td><code>Risc0Verifier.sol:43-46</code></td><td>as above</td></tr>
+<tr><td><code>QuotaManager.updateQuota</code> / <code>setQuotaPeriod</code></td>
+<td>QuotaManager owner (<code>admin.taiko.eth</code>)</td><td><code>QuotaManager.sol:70,81</code>;
+consumer at <code>Bridge.sol:652-653</code></td><td>dependency removed: the preserved Bridge and vaults must not call <code>consumeQuota</code>; any retained rate limit is an upgrade-set constant with no runtime setter</td></tr>
+<tr><td>Resolver address registration</td><td>resolver owner</td>
+<td><code>DefaultResolver.sol:37-44</code>; consumers at <code>Bridge.sol:517-524</code>,
+<code>BaseVault.sol:60,69</code></td><td>dependency removed: new implementations carry peer addresses
+as constructor immutables read from the resolver <em>before</em> the upgrade; the resolver keeps no runtime influence on the preserved surfaces</td></tr>
+<tr><td><code>ERC20Vault.changeBridgedToken</code></td><td>ERC20Vault owner</td>
+<td><code>ERC20Vault.sol:200-207</code></td><td>removed from runtime; a canonical-token change requires
+an upgrade that preserves slots 301–304 and every already-bridged balance</td></tr>
+<tr><td>Bridge / SignalService / vault <code>pause</code> / <code>unpause</code>; Bridge
+<code>pauser</code> <code>receive()</code> monopoly</td><td>owner + <code>pauser</code> immutables</td>
+<td><code>Bridge.sol:186-188,556</code>; <code>SignalService.sol:201</code>;
+<code>EssentialContract.sol:150,159</code></td><td>removed from the runtime ABI of the preserved
+surfaces; a suspected contract bug is handled by a DAO upgrade instead of a key</td></tr>
+</tbody></table>
+<p class="small">Not in the table on purpose: <code>TaikoToken</code>. The token is neither migrated nor
+replaced (D7); its balances are untouched by every transition, and no migration step calls a token owner function.</p>
+<div class="rule" id="MIG-05"><span class="rid">MIG-05 — program-image and verifier upgrades; mixed-version clients and in-flight proofs</span>
+<span class="norm">The set of program images accepted for an epoch <code>e</code> is the value of the
+registry (Inbox slot 261, <code>acceptedProgramImage[imageId] = acceptedFromEpoch</code>) at the same L1-committed boundary that fixes the validator-set root for <code>e</code> (<a href="03-membership-staking.html#MEM-09">MEM-09</a>), so an image change takes effect for epochs that start after the L1 transaction that recorded it. Registry entries are never deleted: an image that was accepted for an epoch remains accepted for that epoch forever (<a href="02-consensus.html#CONS-08">CONS-08</a>). An image may be given a
+<code>retiredAtEpoch</code> marker, after which it may not be used for batches whose epoch is at or
+after the marker, but retirement must not invalidate a certificate, a checkpoint or a settled batch. Consequently: a proof generated before an upgrade for a batch in an epoch whose accepted set contains its image remains acceptable after the upgrade and needs no re-proving; a proof whose image is not in the accepted set of the batch's epoch is rejected by the verifier route (<a href="04-l1-integration.html#L1-09">L1-09</a>); and <code>accept()</code> must never reject a valid (data, proof) pair merely because the proof's image was superseded for <em>later</em> epochs. There is no mixed-version consensus window: because the accepted set is a deterministic function of L1-committed state and the upgrade is epoch-gated, all clients that have processed the boundary L1 block derive the same set, and a client that disagrees is producing invalid blocks rather than a second rule set. Both backends must implement the same statement and the same acceptance policy (<a href="05-proof-statement.html#PRF-09">PRF-09</a>); the guest/verifier version registry itself is defined by <a href="05-proof-statement.html#PRF-10">PRF-10</a>, which this rule uses and does not restate.</span>
+<span class="why">Failure modes: a mid-epoch image switch splits which proofs are acceptable and lets
+an unsettled batch become unprovable; deleting an old image strands already-finalized history; a "mixed-version" leniency silently accepts two rule sets.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(premises: A-CRYPTO-1 soundness applies per image, and the epoch boundary is the
+L1-committed one of MEM-09; if the registry boundary and the set boundary ever diverge, the split risk in the failure mode above returns)</span></div>
+<table>
+<thead><tr><th>Scenario</th><th>Accepted after the upgrade?</th><th>Basis</th></tr></thead>
+<tbody>
+<tr><td>Proof generated before the upgrade for a batch in epoch <code>e &lt; E_activation</code>,
+under image <code>I_old</code> accepted for <code>e</code></td><td><strong>yes</strong></td>
+<td>accepted set is per-epoch and entries are never deleted</td></tr>
+<tr><td>Proof under <code>I_old</code> for a batch in an epoch at or after
+<code>I_old.retiredAtEpoch</code></td><td>no</td><td>verifier routing rejects a retired image for those
+epochs</td></tr>
+<tr><td>Proof under <code>I_new</code> for a batch whose epoch predates the activation of
+<code>I_new</code></td><td>no</td><td>the epoch's accepted set does not contain it</td></tr>
+<tr><td>Batch already accepted on L1 (<a href="index.html#STATUS-06">STATUS-06</a>)</td>
+<td>unaffected; never re-proved</td><td><a href="#GOV-03">GOV-03</a>(b)(c)</td></tr>
+<tr><td>Client that has not implemented <code>retiredAtEpoch</code></td><td>cannot follow the chain</td>
+<td>no mixed-version window exists; such a client must be upgraded or halt</td></tr>
+</tbody></table>
+<div class="rule" id="MIG-06"><span class="rid">MIG-06 — no replacement deployments for the preserved surfaces</span>
+<span class="norm">The migration is an in-place implementation upgrade of every proxy in the table
+below, at the address recorded there. No new contract is deployed to a new address to replace any of them, and no new address is introduced into any interface that a user or a peer contract resolves: the
+<code>SIGNAL</code> slot derivation, the resolver results for the Bridge and vault peers, and the L1/L2
+address libraries are unchanged. The settlement Inbox and the L2 Anchor are upgraded in place too, because the two immutable checkpoint-writer links are wired to those exact addresses — L1
+<code>SignalService._authorizedSyncer</code> is the Shasta Inbox
+(<code>SignalService.sol:35-37,174-175</code>; <code>DeployShastaContracts.s.sol:130</code>) and L2
+<code>SignalService._authorizedSyncer</code> is the Anchor proxy
+(<code>DeployShastaL2Contracts.s.sol:46-53</code>) — and because <code>Anchor.blockHashes</code> (slot 251) is a permanent L2 map that must keep answering <code>getBlockHash</code>. An implementer must know that these immutables are properties of the implementation code, not of proxy storage, so an implementation upgrade <em>can</em> change them; this rule therefore forbids changing them rather than relying on immutability to enforce it. A re-deployed SignalService implementation must be constructed with the same <code>_authorizedSyncer</code>, <code>_remoteSignalService</code> and
+<code>VERSION</code> values as the implementation it replaces. Verifiers, the L1 staking contract and
+the prover-reward path are <em>not</em> preserved surfaces: they are new deployments referenced by address from the upgraded Inbox (<a href="04-l1-integration.html#L1-09">L1-09</a>). TaikoToken is not deployed, moved or migrated.</span>
+<span class="why">Failure mode: a replacement deployment changes every address users and peer
+contracts have integrated, breaks the checkpoint-writer link (after which the preserved SignalService can never be checkpointed again and every cross-chain message stops verifying) and duplicates bridge state across two Bridges.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="pill unmeasured">router presence unmeasured</span></div>
+<table>
+<thead><tr><th>Chain</th><th>Contract</th><th>Proxy address (preserved)</th><th>Current implementation (recorded)</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>L1 mainnet</td><td>SignalService</td><td><code>0x9e0a24964e5397B566c1ed39258e21aB5E35C77C</code></td><td><code>0x1A06832992785766a105838C95c1E13a0045AC85</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:45</code></td></tr>
+<tr><td>L1 mainnet</td><td>Bridge</td><td><code>0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC</code></td><td><code>0x1c94D798CFA08F396E5BA9F81697289c53273381</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:43</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC20Vault</td><td><code>0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab</code></td><td><code>0x024253C6FDC27d3161aFd43fb0241411A28dDc3c</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:46</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC721Vault</td><td><code>0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa</code></td><td><code>0xA4C5c20aB33C96B1c281Dca37D03E23609274C49</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:47</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC1155Vault</td><td><code>0xaf145913EA4a56BE22E120ED9C24589659881702</code></td><td><code>0x838ed469db456b67EB3b0B74D759Be4DA999b9c8</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:48</code></td></tr>
+<tr><td>L1 mainnet</td><td>Inbox (settlement, upgraded in place)</td><td><code>0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f</code></td><td><code>0x5253D4C91e80b880DdB54B78E74082Abe066F6b9</code></td><td>baseline §6.1; <code>mainnet-contract-logs-L1.md:215-216</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>Anchor</td><td><code>0x1670000000000000000000000000000000010001</code></td><td><code>0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:9</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>Bridge</td><td><code>0x1670000000000000000000000000000000000001</code></td><td><code>0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:11</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>ERC20Vault</td><td><code>0x1670000000000000000000000000000000000002</code></td><td><code>0xb96AbB41b01E3ad519D00E80355a1c3801910F62</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:15</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>ERC721Vault</td><td><code>0x1670000000000000000000000000000000000003</code></td><td><code>0xd532f20a4751156C566Da7745db95E7f80145B36</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:16</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>ERC1155Vault</td><td><code>0x1670000000000000000000000000000000000004</code></td><td><code>0xBBBC4ad39488b990E095042fa6c59A90d3817846</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:17</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>SignalService</td><td><code>0x1670000000000000000000000000000000000005</code></td><td><code>0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:14</code></td></tr>
+</tbody></table>
+<p class="small">Hoodi rehearses the same pattern at chain id <code>167013</code>, where the L2 addresses
+are <code>0x167013…000N</code> (Anchor <code>…010001</code>, Bridge <code>…0001</code>, ERC20Vault
+<code>…0002</code>, ERC721Vault <code>…0003</code>, ERC1155Vault <code>…0004</code>, SignalService
+<code>…0005</code>; baseline §6.4). The rehearsal is a procedural mitigation, not a guarantee: its cost
+and duration are <span class="pill unmeasured">unmeasured</span>.</p>
+<h2 id="governance">Governance</h2>
+<div class="rule" id="GOV-01"><span class="rid">GOV-01 — DAO governs upgrades only; the trust assumption is stated</span>
+<span class="norm">The DAO's only authority over this protocol is the ability to execute an upgrade:
+<code>MainnetDAOController.execute(bytes)</code> (<code>onlyOwner</code>, owned by the TaikoDAO;
+<code>MainnetDAOController.sol:24-31</code>) calling <code>upgradeToAndCall</code> /
+<code>upgradeTo</code> on the proxies it owns (<code>EssentialContract.sol:207</code>), plus the
+migration transitions T1–T3 that are delivered <em>as</em> upgrades. After
+<code>ETNA_ACTIVE</code> no DAO-dependent runtime state may exist: no consensus rule, admission rule,
+forced-inclusion rule, proof-acceptance rule, exit rule or bridge rule may read a value the DAO can change without an upgrade, and no DAO transaction may be required for ordinary liveness — block production, voting, proving, settlement, forced inclusion and exit must all complete without one. The trust assumption is explicit and is not repairable by the protocol: A-GOV-1 (<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4.4) states that the DAO does not execute a malicious upgrade; if it does, the safety claims of this specification do not apply to the resulting rule set (failure class F2). For contrast, the prior Etna design recorded <em>exactly two</em> DAO-dependent states — CONFLICT after a provisional landing, and a certificate-free landing during a one-leaf outage (<code>prior-etna-digest.md:113,119</code>); this design has zero.</span>
+<span class="why">Failure modes: any runtime DAO lever is a capture target and a liveness dependency
+(R2); a hidden owner flag makes the no-privilege invariant (<a href="10-assurance.html#INV-04">INV-04</a>) false; describing A-GOV-1 as a guarantee is exactly the non-argument "the DAO would fix it".</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(proven relative to the MIG-04 removal table being complete; the residual trust is
+A-GOV-1, whose failure is GOV-02)</span></div>
+<div class="rule" id="GOV-02"><span class="rid">GOV-02 — malicious governance is a separate failure class</span>
+<span class="norm">A malicious or compromised DAO is failure class F2, not a protocol failure: no rule,
+contract, monitor or evidence object in this design detects, prevents or repairs it, and one upgrade can rewrite any rule — including this one — reassign any storage slot, or remove the staking requirement. The honest responses are exactly three: (i) before-the-fact disclosure, (ii) comparability, i.e. every upgrade bundle is published with the target implementation addresses, the storage-layout diff and the expected post-upgrade boundary object, so any deviation is publicly detectable, and (iii) the ability of users to exit before an announced upgrade takes effect, subject to the delays of <a href="04-l1-integration.html#MSG-03">MSG-03</a> and
+<a href="07-economics-slashing.html#ECON-03">ECON-03</a>. This design does not claim that a DAO upgrade
+cannot invalidate finalized history; it claims that no rule of this protocol can, and that a governance rewrite is reported as a rules change rather than as a recovery. The Mode A promise (<a href="index.html#STATUS-04">STATUS-04</a>, D2) is made relative to the rules in force, and after a governance rewrite it must be re-established by the new rules.</span>
+<span class="why">Failure mode: reading A-GOV-1 as a guarantee, or claiming that ZK verification,
+bonds or a timelock make governance capture safe; the prior Etna digest records the same conclusion ("the DAO is assumed honest; capture is out of scope", <code>prior-etna-digest.md:113</code>).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span></div>
+<div class="rule" id="GOV-03"><span class="rid">GOV-03 — upgrades must not invalidate finalized history</span>
+<span class="norm">Every upgrade, including the migration of MIG-01–MIG-06, must accept all history
+finalized under the rules in force before it: (a) a certificate valid under the epoch and validator-set rules of its own epoch remains valid forever (<a href="02-consensus.html#CONS-08">CONS-08</a>) and no post-upgrade rule may require it to be re-derived; (b) the post-upgrade verifier route must still accept a proof of any not-yet-settled batch under the program image that was in force for that batch's epoch (MIG-05), so no batch becomes unprovable because of an upgrade; (c) checkpoint advancement stays monotone (<a href="04-l1-integration.html#L1-06">L1-06</a>): an upgrade may not lower the finalized tip or rewrite the checkpoint record for any height at or below the boundary with different contents; and (d) at migration the accepted history is the boundary of MIG-01, and no alternative history at or below <code>B*</code> may ever be adopted afterwards (<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>). Compliance is checked by the published target/layout diff required by GOV-02 and, for (b), by an acceptance test that lands one already-generated pre-upgrade proof after the upgrade, on both backends (<a href="05-proof-statement.html#PRF-09">PRF-09</a>,
+<a href="05-proof-statement.html#PRF-10">PRF-10</a>).</span>
+<span class="why">Failure mode: a "normal upgrade" silently strands a proven-but-unsettled batch or
+rolls the checkpoint back — the Mode A violation D2 forbids and the class recorded as the prior Etna design's XS-FIN-01 finding (<code>prior-etna-digest.md:142</code>).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(premises: CONS-08, L1-06, A-CRYPTO-3, and A-CONS-1 — &lt; 1/3 Byzantine stake — for the uniqueness of the finalized prefix that (a) presupposes; a DAO that ignores this rule is handled by
+GOV-02, not by this rule)</span></div>
+<h2 id="risks">What could go wrong during migration</h2>
+<table>
+<thead><tr><th>Severity</th><th>Failure</th><th>Why it is possible</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td><span class="lvl crit">crit</span></td><td>Both settlement paths live at once; two histories
+are checkpointed into the same preserved SignalService</td><td>the old <code>prove()</code> and the new
+<code>accept()</code> would both be selectors on the same proxy if the state gate is missing or the
+upgrade is not atomic</td><td>MIG-03(1) gate; upgrade of implementation and state in one
+<code>execute</code> bundle; an assertion test that <code>prove()</code> reverts in
+<code>ETNA_ACTIVE</code> and <code>accept()</code> reverts in states 0–2</td></tr>
+<tr><td><span class="lvl crit">crit</span></td><td>The boundary object is wrong or chosen, so the new
+chain forks off a non-finalized height</td><td>a bundle can pass any <code>(B*, S*)</code> it likes unless the values are checked against stored state</td><td>T3's two equalities against
+<code>_checkpoints[VERSION][B*]</code> and <code>lastFinalizedBlockHash</code>; publish the expected
+<code>(B*, H*, S*)</code> before the bundle so any deviation is visible (GOV-02)</td></tr>
+<tr><td><span class="lvl high">high</span></td><td>No node can serve the L2 state at
+<code>S*</code>, so no prover can build the first post-migration batch</td><td>state availability is an
+assumption (A-CONS-5), not a protocol guarantee; the boundary state is only reconstructible from L1 data plus archive nodes</td><td>pre-activation availability gate: publish an attestation that at least one archive serves the full state at <code>B*</code>, and rehearse a proof from <code>S*</code> on a testnet before T3; if it fails, halt in <code>DRAINED</code> — no rule may synthesize the state</td></tr>
+<tr><td><span class="lvl high">high</span></td><td>Forced inclusions are voided again (the June 2026
+<code>init3()</code> class) with fees not returned</td><td>queue entries have no stored payer, so a
+careless abandon loses the refund</td><td>MIG-03(4): consume before the freeze or refund to the
+<code>ForcedInclusionSaved</code> sender; no void selector survives; the drain precondition requires
+<code>head == tail</code></td></tr>
+<tr><td><span class="lvl high">high</span></td><td>In-flight Bridge messages become unprovable or are
+processed twice</td><td>a VERSION bump hides all checkpoints at once; a reset or re-index of
+<code>messageStatus</code> forgets which messages were done</td><td>MIG-03(5): no reset, no VERSION
+change, no slot reuse; a migration test replays one message in each status (NEW / RETRIABLE / DONE / FAILED / RECALLED) across the upgrade</td></tr>
+<tr><td><span class="lvl high">high</span></td><td>Storage collision: a new variable lands in a slot a
+previously deployed fork already uses, or a deprecated slot is reused</td><td>the gaps are the only free space and a router's 0–150 footprint is invisible from the implementation's own layout</td>
+<td>MIG-02: append-only after the last used slot, gap shrinks by exactly the slots consumed, 0–150
+frozen for routed contracts, deprecated slots frozen; <code>pnpm layout</code> diff before and after, and an on-chain check of whether a router is present</td></tr>
+<tr><td><span class="lvl med">med</span></td><td>Image/verifier mismatch: the upgraded Inbox accepts a
+retired image, or the wrong image for the newest epoch</td><td>the image set and the verifier route are two places that must agree</td><td>MIG-05's per-epoch registry; publish the image inventory and the epoch boundary in the bundle; acceptance test on both backends (<a href="05-proof-statement.html#PRF-09">PRF-09</a>)</td></tr>
+<tr><td><span class="lvl med">med</span></td><td>Old Shasta clients keep producing a chain that cannot
+settle</td><td>an L2 client that does not implement the new genesis keeps running</td><td>the new chain has a different genesis object and the old <code>prove()</code> path is closed, so the old chain can neither activate the Bridge nor be accepted on L1; publish the new genesis hash and the L1 block at which it binds; cross-chain replay is excluded by chain-id domain separation (<a href="index.html#GEN-05">GEN-05</a>, <a href="04-l1-integration.html#MSG-02">MSG-02</a>)</td></tr>
+<tr><td><span class="lvl med">med</span></td><td>A long stall in <code>FROZEN</code>/<code>DRAINED</code>
+halts settlement for an unbounded time</td><td>the release of a failed T3 is a DAO bundle, i.e. a trust assumption</td><td>bound the window in the migration announcement; disclose that already-eligible withdrawals still work; measure the actual halt length and publish it —
+<span class="pill unmeasured">unmeasured</span></td></tr>
+</tbody></table>
+<h2 id="preconditions">Preconditions to establish on-chain before the bundle</h2>
+<table>
+<thead><tr><th>#</th><th>Question</th><th>How to answer it</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Do the deployed proxies route through a <code>ForkRouter</code>?</td><td>No concrete
+router subclass exists in the pin checkout, but the generated layouts exist; verify the proxy's implementation target and runtime code on-chain</td><td><span class="pill unmeasured">unmeasured</span> (baseline §10 gap 3)</td></tr>
+<tr><td>P2</td><td>Which verifier does the live Inbox point at?</td><td>read
+<code>Inbox.getConfig().proofVerifier</code> (<code>Inbox.sol:530</code>)</td>
+<td><span class="pill unmeasured">unmeasured</span> (baseline §10 gap 9)</td></tr>
+<tr><td>P3</td><td>Does the deployed Bridge reference a non-zero QuotaManager?</td><td>read
+<code>Bridge.quotaManager</code> (<code>Bridge.sol:106</code>)</td>
+<td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>P4</td><td>Is the golden-touch address key-controlled by any party?</td><td>published key-custody
+statement plus a check for outbound transactions from it</td>
+<td><span class="pill assumed">Assumed</span> (MIG-04)</td></tr>
+<tr><td>P5</td><td>What exactly is <code>(B*, H*, S*)</code>?</td><td>the last
+<code>CheckpointSaved(uint48 indexed blockNumber, bytes32 blockHash, bytes32 stateRoot)</code> log of
+the L1 SignalService, cross-checked against
+<code>Inbox.getCoreState().lastFinalizedBlockHash</code></td>
+<td><span class="pill sourced">sourced</span></td></tr>
+<tr><td>P6</td><td>Can an archive serve the full L2 state at <code>S*</code>?</td><td>availability
+attestation from at least one archive node plus a rehearsal proof on Hoodi</td>
+<td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>P7</td><td>Are the queued forced inclusions still provable, or must they be refunded?</td>
+<td>per entry, check the referenced blob against Ethereum's retention window</td>
+<td><span class="pill unmeasured">unmeasured</span> (A-DA-3)</td></tr>
+<tr><td>P8</td><td>Does the migration bundle fit an L1 block?</td><td>gas measurement of the bundle
+against the L1 block gas limit</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+</tbody></table>
+<h2 id="numbers">Numbers on this page, and their tags</h2>
+<table>
+<thead><tr><th>Number</th><th>Value</th><th>Tag</th><th>Basis</th></tr></thead>
+<tbody>
+<tr><td>Baseline revision</td><td><code>7718753c1</code></td><td><span class="pill sourced">sourced</span></td><td><a href="index.html#provenance">index §Provenance</a></td></tr>
+<tr><td>Inbox gap</td><td>43 slots (258–300)</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox_Layout.sol:26</code></td></tr>
+<tr><td>Inbox new state planned</td><td>6 slots</td><td><span class="pill derived">derived</span></td><td>MIG-02 change table</td></tr>
+<tr><td><code>minBond</code>, <code>livenessBond</code></td><td>0, 0</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:37-38</code></td></tr>
+<tr><td><code>withdrawalDelay</code></td><td>1 week</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:39</code></td></tr>
+<tr><td>Proposal ring buffer</td><td>21 600</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:18</code></td></tr>
+<tr><td><code>DRAIN_DEADLINE</code></td><td>21 600 L1 blocks</td><td><span class="pill derived">derived</span></td><td>ring-buffer capacity under the one-proposal-per-L1-block pacing (<code>Inbox.sol:590</code>); the wall-clock equivalent is illustrative, not a protocol constant (<a href="index.html#GEN-06">GEN-06</a>)</td></tr>
+<tr><td>Forced-inclusion refund</td><td><code>feeInGwei × 1 gwei</code></td><td><span class="pill derived">derived</span></td><td><code>LibForcedInclusion.sol:56-62</code>, <code>LibBonds.sol:18</code></td></tr>
+<tr><td><code>SignalService.VERSION</code></td><td>1</td><td><span class="pill sourced">sourced</span></td><td><code>SignalService.sol:52</code></td></tr>
+<tr><td>Migration bundle gas; stranded Anchor balance; halt duration; rehearsal cost</td><td>UNMEASURED</td><td><span class="pill unmeasured">unmeasured</span></td><td>what would measure them: a gas measurement of the bundle against the L1 block gas limit; a balance read at activation; a published timeline of the halt; a testnet rehearsal record</td></tr>
+</tbody></table>
+<h2 id="provenance">Provenance</h2>
+<table><thead><tr><th>Source</th><th>Revision / version</th><th>Use on this page</th></tr></thead><tbody>
+<tr><td><a href="../research/taiko-baseline-contracts.md">taiko-baseline-contracts.md</a></td><td><code>7718753c1</code></td><td>every address, slot, line citation and privileged lever</td></tr>
+<tr><td><a href="../research/prior-etna-digest.md">prior-etna-digest.md</a></td><td><code>a829f79723de9a09205660d9895418577cfe9aa9</code></td><td>DAO-dependent-state contrast; migration lessons (L17, L41, L42, XS-FIN-01)</td></tr>
+<tr><td><a href="../04-architecture-decision.md">04-architecture-decision.md</a></td><td>2026-10-05</td><td>UPG-PRESERVE obligation; atomic data+proof boundary</td></tr>
+<tr><td><a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a></td><td>2026-10-05</td><td>A-GOV-1, A-CONS-1, A-DA-2/A-DA-3, A-CONS-5, F2</td></tr>
+</tbody></table>
+</main>
+<footer class="site">
+<p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are
+stated once and referenced by identifier.</p>
+</footer>
+</body></html>
