@@ -171,13 +171,15 @@ struct VerifiedCanonicalBlock {
 impl ShastaDerivationPipeline {
     /// Resolve the last finalized proposal's canonical block height and hash if available.
     ///
-    /// Errors are logged but never propagated so payload application can proceed even when the
-    /// mapping is unavailable.
+    /// Missing checkpoint data returns `Ok(None)`. RPC errors propagate so finality refresh can
+    /// retry instead of marking the proposal as successfully processed.
     async fn finalized_block_for(
         &self,
         maybe_last_finalized_proposal_id: Option<u64>,
-    ) -> Option<NumHash> {
-        let last_finalized_proposal_id = maybe_last_finalized_proposal_id?;
+    ) -> Result<Option<NumHash>, DerivationError> {
+        let Some(last_finalized_proposal_id) = maybe_last_finalized_proposal_id else {
+            return Ok(None);
+        };
 
         let block_number = match self
             .rpc
@@ -190,7 +192,7 @@ impl ShastaDerivationPipeline {
                     proposal_id = last_finalized_proposal_id,
                     "no batch-to-block mapping for finalized proposal id"
                 );
-                return None;
+                return Ok(None);
             }
             Err(err) => {
                 warn!(
@@ -198,7 +200,7 @@ impl ShastaDerivationPipeline {
                     error = %err,
                     "failed to query finalized proposal block id"
                 );
-                return None;
+                return Err(err.into());
             }
         };
 
@@ -211,14 +213,14 @@ impl ShastaDerivationPipeline {
                     block_hash = ?block.header.hash,
                     "resolved finalized block hash from proposal core state"
                 );
-                Some(NumHash::new(block.header.number, block.header.hash))
+                Ok(Some(NumHash::new(block.header.number, block.header.hash)))
             }
             Ok(None) => {
                 warn!(
                     proposal_id = last_finalized_proposal_id,
                     block_number, "missing block for finalized proposal id"
                 );
-                None
+                Ok(None)
             }
             Err(err) => {
                 warn!(
@@ -227,9 +229,24 @@ impl ShastaDerivationPipeline {
                     error = %err,
                     "failed to fetch finalized block by number"
                 );
-                None
+                Err(err.into())
             }
         }
+    }
+
+    /// Resolve a finalized hash without blocking payload building on checkpoint RPC failures.
+    ///
+    /// The checkpoint lookup logs errors before they are discarded here. Canonical finality
+    /// refresh uses the fallible lookup directly so its failures remain retryable.
+    async fn finalized_block_hash_for(
+        &self,
+        maybe_last_finalized_proposal_id: Option<u64>,
+    ) -> Option<B256> {
+        self.finalized_block_for(maybe_last_finalized_proposal_id)
+            .await
+            .ok()
+            .flatten()
+            .map(|block| block.hash)
     }
 
     /// Process all manifest segments in order, materialising blocks via the execution engine.
@@ -250,7 +267,7 @@ impl ShastaDerivationPipeline {
         // Best-effort lookup of the last finalized block hash; missing data should not block
         // payload application.
         let finalized_block_hash =
-            self.finalized_block_for(meta.last_finalized_proposal_id).await.map(|block| block.hash);
+            self.finalized_block_hash_for(meta.last_finalized_proposal_id).await;
         info!(
             proposal_id = meta.proposal_id,
             segment_count = segments_total,
@@ -675,13 +692,13 @@ impl ShastaDerivationPipeline {
 
     /// Advance finality without rebuilding known blocks or rewinding the current unsafe head.
     ///
-    /// Missing checkpoint metadata is non-blocking. Replay never lowers finalized, and engine
-    /// failures propagate so the canonical proposal can be retried.
+    /// Missing checkpoint metadata is non-blocking. Replay never lowers finalized, and RPC or
+    /// engine failures propagate so the canonical proposal can be retried.
     async fn refresh_finalized_forkchoice(
         &self,
         last_finalized_proposal_id: Option<u64>,
     ) -> Result<(), DerivationError> {
-        let Some(checkpoint) = self.finalized_block_for(last_finalized_proposal_id).await else {
+        let Some(checkpoint) = self.finalized_block_for(last_finalized_proposal_id).await? else {
             return Ok(());
         };
         let finalized =

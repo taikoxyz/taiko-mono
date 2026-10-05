@@ -32,7 +32,7 @@ fn block_at(number: u64) -> RpcBlock<TxEnvelope> {
     sample_engine_outcome(number).block
 }
 
-async fn canonical_refresh_fixture() -> CanonicalRefreshFixture {
+async fn finality_fixture() -> CanonicalRefreshFixture {
     let l2 = Asserter::new();
     let engine = Asserter::new();
     let requests: RecordedRequests = Arc::default();
@@ -82,15 +82,33 @@ async fn canonical_refresh_fixture() -> CanonicalRefreshFixture {
         outcome: sample_engine_outcome(20),
         is_final_block: true,
     }];
-    // Origin lookup, origin update, confirmed-head update, and proposal mapping write.
-    l2.push_success(&None::<RpcL1Origin>);
-    engine.push_success(&None::<RpcL1Origin>);
-    engine.push_success(&U256::from(20));
-    engine.push_success(&U256::from(11));
     CanonicalRefreshFixture { pipeline, meta, blocks, l2, engine, requests }
 }
 
+async fn canonical_refresh_fixture() -> CanonicalRefreshFixture {
+    let fixture = finality_fixture().await;
+    fixture.origin_updates();
+    fixture
+}
+
 impl CanonicalRefreshFixture {
+    fn origin_updates(&self) {
+        // Origin lookup, origin update, confirmed-head update, and proposal mapping write.
+        self.l2.push_success(&None::<RpcL1Origin>);
+        self.engine.push_success(&None::<RpcL1Origin>);
+        self.engine.push_success(&U256::from(20));
+        self.engine.push_success(&U256::from(11));
+    }
+
+    fn checkpoint_rpc_failure(&self, mapping: bool) {
+        if mapping {
+            self.engine.push_failure_msg("mapping temporarily unavailable");
+        } else {
+            self.engine.push_success(&Some(U256::from(10)));
+            self.l2.push_failure_msg("checkpoint temporarily unavailable");
+        }
+    }
+
     fn checkpoint(&self) {
         self.engine.push_success(&Some(U256::from(10)));
         self.l2.push_success(&Some(block_at(10)));
@@ -161,12 +179,11 @@ async fn canonical_origin_refresh_preserves_equal_or_newer_finality() {
 
 #[tokio::test]
 async fn canonical_origin_refresh_tolerates_unresolved_checkpoints() {
-    for missing in 0..4 {
+    for missing in 0..3 {
         let mut fixture = canonical_refresh_fixture().await;
         match missing {
             0 => fixture.meta.last_finalized_proposal_id = None,
             1 => fixture.engine.push_success(&None::<U256>),
-            2 => fixture.engine.push_failure_msg("mapping temporarily unavailable"),
             _ => {
                 fixture.engine.push_success(&Some(U256::from(10)));
                 fixture.l2.push_success(&None::<RpcBlock<TxEnvelope>>);
@@ -246,4 +263,69 @@ async fn canonical_origin_refresh_retries_missing_head() {
         fixture.pipeline.update_canonical_proposal_origins(&fixture.meta, &fixture.blocks).await;
     assert!(result.is_err(), "missing current head must not use the older proposal head");
     fixture.assert_no_forkchoice();
+}
+
+#[tokio::test]
+async fn canonical_origin_refresh_retries_checkpoint_rpc_errors() {
+    for mapping in [true, false] {
+        let fixture = canonical_refresh_fixture().await;
+        fixture.checkpoint_rpc_failure(mapping);
+        let result = fixture
+            .pipeline
+            .update_canonical_proposal_origins(&fixture.meta, &fixture.blocks)
+            .await;
+        assert!(
+            matches!(result, Err(DerivationError::Rpc(_))),
+            "checkpoint RPC error must remain retryable: {result:?}"
+        );
+        fixture.assert_no_forkchoice();
+
+        // Origin persistence on the failed attempt must not prevent retrying the same proposal.
+        fixture.origin_updates();
+        fixture.checkpoint();
+        fixture.l2.push_success(&Some(block_at(8)));
+        fixture.l2.push_success(&Some(block_at(30)));
+        fixture.forkchoice_response("VALID");
+        fixture
+            .pipeline
+            .update_canonical_proposal_origins(&fixture.meta, &fixture.blocks)
+            .await
+            .unwrap();
+        assert_eq!(
+            fixture.requests.lock().unwrap().last().unwrap().0,
+            "engine_forkchoiceUpdatedV2"
+        );
+        assert!(fixture.engine.read_q().is_empty());
+        assert!(fixture.l2.read_q().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn payload_building_tolerates_checkpoint_rpc_errors() {
+    for mapping in [true, false] {
+        let fixture = finality_fixture().await;
+        fixture.checkpoint_rpc_failure(mapping);
+        let mut state = ParentState {
+            header: block_at(20).header.inner,
+            parent_block_time_delta_secs: 0,
+            anchor_block_number: 0,
+            shasta_fork_timestamp: 0,
+            min_base_fee_to_clamp: 0,
+            chain_id: 0,
+        };
+        let result = fixture
+            .pipeline
+            .build_payloads_from_sources(
+                Vec::new(),
+                &fixture.meta,
+                &mut state,
+                &fixture.pipeline.rpc,
+            )
+            .await;
+        assert!(
+            result.is_ok(),
+            "checkpoint RPC errors must not block payload building: {result:?}"
+        );
+        fixture.assert_no_forkchoice();
+    }
 }
