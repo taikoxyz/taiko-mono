@@ -148,6 +148,8 @@ impl Proposer {
         );
 
         let rpc_provider = Client::new(cfg.client.clone()).await?;
+        // Refuse to start when the L2 head contradicts the client's Etna fork schedule.
+        rpc_provider.check_etna_schedule().await?;
 
         let transaction_builder = ShastaProposalTransactionBuilder::new(
             rpc_provider.clone(),
