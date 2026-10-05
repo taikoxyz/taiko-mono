@@ -747,6 +747,20 @@ impl ShastaDerivationPipeline {
     }
 
     /// Verify that a derived block matches the canonical execution block at the same height.
+    ///
+    /// The fork is keyed on the derived block's timestamp. A pre-Etna block must start with the
+    /// derived anchor transaction and carry a zero root. An Etna block has no anchor (tx 0 is an
+    /// ordinary transaction and the block may be empty with zero difficulty) and its header must
+    /// carry the derived anchor root.
+    ///
+    /// Beyond a pre-Etna block's anchor, the body is never compared with the derived transaction
+    /// list. The execution engine's builder skips transactions it cannot include (a bad nonce or
+    /// balance, an unsupported type, everything after the zk gas runs out), so a canonical body
+    /// can be a strict, ordered subset of the derived list; requiring equality would re-insert
+    /// the block and reorg every later block, preconfirmed ones included. As for pre-Etna user
+    /// transactions, the binding is the stored nonzero payload fingerprint, required for every
+    /// fork: it hashes keccak(txList) together with the root, `extraData`, timestamp, prevRandao,
+    /// coinbase and parent.
     async fn verify_canonical_block(
         &self,
         meta: &BundleMeta,
@@ -754,6 +768,10 @@ impl ShastaDerivationPipeline {
     ) -> Result<Option<VerifiedCanonicalBlock>, DerivationError> {
         let block_id = derived_block.block_number;
         let payload_id = PayloadId::new(derived_block.payload.l1_origin.build_payload_args_id);
+        let is_etna = is_etna_at(
+            self.etna_fork_timestamp,
+            derived_block.payload.payload_attributes.timestamp,
+        );
 
         // Start by comparing payload IDs against the L1 origin record set during the first
         // derivation attempt.
@@ -808,20 +826,32 @@ impl ShastaDerivationPipeline {
             return Ok(None);
         };
 
-        let Some(first_tx) = txs.first() else {
-            debug!(
-                proposal_id = meta.proposal_id,
-                block_id, "canonical block missing transactions"
-            );
-            return Ok(None);
-        };
+        // An Etna block has no anchor transaction to compare: its tx 0 is ordinary (possibly
+        // anchor-shaped calldata from any sender) and the block may be empty.
+        if !is_etna {
+            let Some(anchor_tx) = derived_block.anchor_tx.as_ref() else {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "derived pre-Etna block has no anchor transaction"
+                );
+                return Ok(None);
+            };
 
-        if Some(first_tx) != derived_block.anchor_tx.as_ref() {
-            warn!(
-                proposal_id = meta.proposal_id,
-                block_id, "anchor transaction mismatch when confirming canonical block"
-            );
-            return Ok(None);
+            let Some(first_tx) = txs.first() else {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "canonical block missing transactions"
+                );
+                return Ok(None);
+            };
+
+            if first_tx != anchor_tx {
+                warn!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "anchor transaction mismatch when confirming canonical block"
+                );
+                return Ok(None);
+            }
         }
 
         if block.header.parent_hash != derived_block.parent_hash {
@@ -852,7 +882,8 @@ impl ShastaDerivationPipeline {
             .map_err(|err| DerivationError::Other(err.into()))?;
 
         if unzen_active {
-            if block.header.difficulty == U256::ZERO {
+            // The difficulty is the block's zk gas: an empty Etna block has none.
+            if !is_etna && block.header.difficulty == U256::ZERO {
                 debug!(proposal_id = meta.proposal_id, block_id, "difficulty zero during Unzen");
                 return Ok(None);
             }
@@ -867,8 +898,25 @@ impl ShastaDerivationPipeline {
                 return Ok(None);
             }
 
-            if block.header.parent_beacon_block_root != Some(B256::ZERO) {
-                debug!(proposal_id = meta.proposal_id, block_id, "parent beacon root mismatch");
+            // Before Etna the root is zero; an Etna block carries the nonzero derived anchor root.
+            let expected_root = if is_etna {
+                derived_block
+                    .payload
+                    .payload_attributes
+                    .parent_beacon_block_root
+                    .filter(|root| !root.is_zero())
+            } else {
+                Some(B256::ZERO)
+            };
+            if expected_root.is_none() || block.header.parent_beacon_block_root != expected_root {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id,
+                    is_etna,
+                    canonical_root = ?block.header.parent_beacon_block_root,
+                    expected_root = ?expected_root,
+                    "parent beacon root mismatch"
+                );
                 return Ok(None);
             }
 
@@ -1033,15 +1081,23 @@ impl ShastaDerivationPipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alethia_reth_consensus::anchor_constants::anchorV4Call;
     use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
-    use alloy::rpc::types::eth::Block as RpcBlock;
-    use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
+    use alloy::{
+        rpc::types::eth::{Block as RpcBlock, BlockTransactions},
+        sol_types::SolCall,
+    };
+    use alloy_consensus::{
+        EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope,
+        transaction::Recovered,
+    };
     use alloy_eips::eip2930::AccessList;
     use alloy_primitives::{Bytes, Signature, TxKind};
     use alloy_transport::mock::Asserter;
     use anyhow::Result;
 
     use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
+    use bindings::anchor::ICheckpointStore::Checkpoint;
     use protocol::{
         FixedKSigner,
         shasta::constants::{TAIKO_DEVNET_CHAIN_ID, min_base_fee_for_chain},
@@ -1426,5 +1482,232 @@ mod tests {
         let recovered = signed.recover_signer()?;
         assert_eq!(recovered, Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS));
         Ok(())
+    }
+
+    /// Etna activation used by the canonical-detection tests.
+    const CANONICAL_ETNA_TIMESTAMP: u64 = 1_000;
+
+    /// Derived block 7 on parent `0x…06` at `timestamp` with `transactions` after the optional
+    /// anchor, built the way `prepare_block` builds it for the block's fork.
+    fn derived_block(
+        timestamp: u64,
+        root: B256,
+        anchor_tx: Option<TxEnvelope>,
+        transactions: &[TxEnvelope],
+    ) -> BlockDerivationContext {
+        let is_etna = anchor_tx.is_none();
+        let parent_hash = B256::with_last_byte(0x06);
+        let all_transactions = anchor_tx.iter().chain(transactions).cloned().collect::<Vec<_>>();
+        let payload = build_payload_attributes_with_id(
+            PayloadAttributesInput {
+                beneficiary: Address::repeat_byte(0x33),
+                timestamp,
+                mix_hash: B256::with_last_byte(0x03),
+                gas_limit: 29_000_000 + anchor_gas_reserve(is_etna),
+                tx_list: Some(encode_transactions(&all_transactions)),
+                extra_data: if is_etna {
+                    encode_etna_extra_data(75, 3, 55).expect("extraData should encode")
+                } else {
+                    encode_extra_data(75, 3)
+                },
+                base_fee_per_gas: U256::from(10_000_000u64),
+                block_number: 7,
+                l1_block_height: Some(U256::from(60u64)),
+                l1_block_hash: Some(B256::with_last_byte(0x60)),
+                is_forced_inclusion: false,
+                signature: [0u8; 65],
+                parent_beacon_block_root: Some(root),
+                anchor_transaction: None,
+            },
+            &parent_hash,
+        );
+        BlockDerivationContext {
+            payload,
+            anchor_tx,
+            parent_hash,
+            block_number: 7,
+            anchor_block_number: 55,
+            is_final_block: true,
+        }
+    }
+
+    /// Canonical Unzen-shaped block matching `derived` field by field, with the given header root,
+    /// difficulty and body.
+    fn canonical_block(
+        derived: &BlockDerivationContext,
+        root: Option<B256>,
+        difficulty: u64,
+        transactions: &[TxEnvelope],
+    ) -> RpcBlock<RpcTransaction> {
+        let payload = &derived.payload;
+        let mut block = RpcBlock::<RpcTransaction>::default();
+        block.header.inner.parent_hash = derived.parent_hash;
+        block.header.inner.ommers_hash = keccak256([0xc0u8]);
+        block.header.inner.beneficiary = payload.payload_attributes.suggested_fee_recipient;
+        block.header.inner.difficulty = U256::from(difficulty);
+        block.header.inner.blob_gas_used = Some(0);
+        block.header.inner.excess_blob_gas = Some(0);
+        block.header.inner.parent_beacon_block_root = root;
+        block.header.inner.requests_hash = Some(EMPTY_REQUESTS_HASH);
+        block.header.inner.mix_hash = payload.payload_attributes.prev_randao;
+        block.header.inner.number = derived.block_number;
+        block.header.inner.gas_limit = payload.block_metadata.gas_limit;
+        block.header.inner.timestamp = payload.payload_attributes.timestamp;
+        block.header.inner.extra_data = payload.block_metadata.extra_data.clone();
+        block.header.inner.base_fee_per_gas = Some(payload.base_fee_per_gas.to::<u64>());
+        block.transactions = BlockTransactions::Full(
+            transactions
+                .iter()
+                .map(|tx| RpcTransaction {
+                    inner: Recovered::new_unchecked(tx.clone(), Address::repeat_byte(0x99)),
+                    block_hash: None,
+                    block_number: None,
+                    transaction_index: None,
+                    effective_gas_price: None,
+                })
+                .collect(),
+        );
+        block.withdrawals = Some(Default::default());
+        block
+    }
+
+    /// Verify `derived` against `canonical` on a devnet pipeline with Etna at
+    /// [`CANONICAL_ETNA_TIMESTAMP`]; the L2 mock replays the stored L1 origin, then the block.
+    async fn verify_against(
+        derived: &BlockDerivationContext,
+        canonical: RpcBlock<RpcTransaction>,
+    ) -> Option<VerifiedCanonicalBlock> {
+        let l2_asserter = l2_with_chain_id();
+        l2_asserter.push_success(&Some(derived.payload.l1_origin.clone()));
+        l2_asserter.push_success(&Some(canonical));
+        let pipeline =
+            pipeline_with(Asserter::new(), l2_asserter, Some(CANONICAL_ETNA_TIMESTAMP)).await;
+        pipeline.verify_canonical_block(&sample_meta(), derived).await.expect("checks run")
+    }
+
+    /// Ordinary transaction whose calldata is a well-formed `anchorV4` call to the anchor.
+    fn anchor_shaped_user_tx() -> TxEnvelope {
+        let checkpoint = Checkpoint {
+            blockNumber: alloy_primitives::aliases::U48::from(999u64),
+            blockHash: B256::with_last_byte(0x22),
+            stateRoot: B256::with_last_byte(0x33),
+        };
+        user_tx(0, anchor_address(), Bytes::from(anchorV4Call(checkpoint.into()).abi_encode()))
+    }
+
+    #[tokio::test]
+    async fn empty_etna_block_with_the_derived_root_and_zero_difficulty_is_canonical() {
+        let root = B256::with_last_byte(0x55);
+        let derived = derived_block(1_001, root, None, &[]);
+
+        let verified =
+            verify_against(&derived, canonical_block(&derived, Some(root), 0, &[])).await;
+
+        assert!(verified.is_some(), "no anchor and zero difficulty are expected for Etna");
+    }
+
+    #[tokio::test]
+    async fn etna_block_with_an_anchor_shaped_first_transaction_is_canonical() {
+        let root = B256::with_last_byte(0x55);
+        let transactions =
+            vec![anchor_shaped_user_tx(), user_tx(1, Address::repeat_byte(0x01), Bytes::new())];
+        let derived = derived_block(1_001, root, None, &transactions);
+
+        let verified =
+            verify_against(&derived, canonical_block(&derived, Some(root), 42, &transactions))
+                .await;
+
+        assert!(verified.is_some(), "tx 0 of an Etna block is an ordinary transaction");
+    }
+
+    /// The engine's builder skips derived transactions it cannot include, so a canonical Etna
+    /// body may be any ordered subset of the derived list (including none of it); the matching
+    /// stored fingerprint and root still make the block canonical.
+    #[tokio::test]
+    async fn etna_block_whose_body_skips_derived_transactions_is_canonical() {
+        let root = B256::with_last_byte(0x55);
+        let transactions = vec![
+            user_tx(0, Address::repeat_byte(0x01), Bytes::new()),
+            user_tx(1, Address::repeat_byte(0x02), Bytes::new()),
+            user_tx(2, Address::repeat_byte(0x03), Bytes::new()),
+        ];
+        let derived = derived_block(1_001, root, None, &transactions);
+
+        for (body, difficulty) in [
+            (vec![transactions[0].clone(), transactions[2].clone()], 42),
+            (vec![transactions[0].clone()], 42),
+            (Vec::new(), 0),
+        ] {
+            let verified =
+                verify_against(&derived, canonical_block(&derived, Some(root), difficulty, &body))
+                    .await;
+            assert!(verified.is_some(), "a body of {} derived txs must stay canonical", body.len());
+        }
+    }
+
+    /// The stored fingerprint is what binds an Etna body: a block whose L1 origin records another
+    /// (or no) payload ID is not canonical, even with a matching header.
+    #[tokio::test]
+    async fn etna_block_with_another_or_no_stored_fingerprint_is_not_canonical() {
+        let root = B256::with_last_byte(0x55);
+        let transactions = vec![user_tx(0, Address::repeat_byte(0x01), Bytes::new())];
+        let derived = derived_block(1_001, root, None, &transactions);
+        let other_list = derived_block(1_001, root, None, &[]);
+
+        for stored_id in [other_list.payload.l1_origin.build_payload_args_id, [0u8; 8]] {
+            let l2_asserter = l2_with_chain_id();
+            let mut origin = derived.payload.l1_origin.clone();
+            origin.build_payload_args_id = stored_id;
+            l2_asserter.push_success(&Some(origin));
+            l2_asserter.push_success(&Some(canonical_block(
+                &derived,
+                Some(root),
+                42,
+                &transactions,
+            )));
+            let pipeline =
+                pipeline_with(Asserter::new(), l2_asserter, Some(CANONICAL_ETNA_TIMESTAMP)).await;
+
+            let verified = pipeline
+                .verify_canonical_block(&sample_meta(), &derived)
+                .await
+                .expect("checks run");
+            assert!(verified.is_none(), "stored payload ID {stored_id:?} must not match");
+        }
+    }
+
+    #[tokio::test]
+    async fn etna_block_with_another_or_no_header_root_is_not_canonical() {
+        let derived = derived_block(1_001, B256::with_last_byte(0x55), None, &[]);
+
+        for header_root in [Some(B256::with_last_byte(0x56)), Some(B256::ZERO), None] {
+            let verified =
+                verify_against(&derived, canonical_block(&derived, header_root, 0, &[])).await;
+            assert!(verified.is_none(), "header root {header_root:?} must not match");
+        }
+    }
+
+    #[tokio::test]
+    async fn pre_etna_block_requires_its_anchor_and_a_zero_header_root() {
+        let anchor_tx = anchor_shaped_user_tx();
+        let derived = derived_block(999, B256::ZERO, Some(anchor_tx.clone()), &[]);
+
+        let canonical =
+            canonical_block(&derived, Some(B256::ZERO), 42, std::slice::from_ref(&anchor_tx));
+        assert!(verify_against(&derived, canonical).await.is_some(), "the Unzen block matches");
+
+        let etna_shaped =
+            canonical_block(&derived, Some(B256::with_last_byte(0x55)), 42, &[anchor_tx]);
+        assert!(verify_against(&derived, etna_shaped).await.is_none(), "nonzero root before Etna");
+
+        let anchorless = canonical_block(&derived, Some(B256::ZERO), 42, &[]);
+        assert!(verify_against(&derived, anchorless).await.is_none(), "missing anchor");
+
+        let zero_difficulty =
+            canonical_block(&derived, Some(B256::ZERO), 0, &[anchor_shaped_user_tx()]);
+        assert!(
+            verify_against(&derived, zero_difficulty).await.is_none(),
+            "zero difficulty before Etna"
+        );
     }
 }
