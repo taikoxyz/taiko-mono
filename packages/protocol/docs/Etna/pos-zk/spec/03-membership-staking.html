@@ -36,8 +36,8 @@ validator set, how validators enter and leave, how a consensus key is bound and 
 <div class="warnbox small">
 <strong>What this page does not decide.</strong> Rewards, the offence catalogue, penalty sizes and the destination of slashed stake are
 <a href="07-economics-slashing.html#ECON-01">ECON-01</a>–<a href="07-economics-slashing.html#ECON-12">ECON-12</a>; the epoch schedule, certificate format and header fields are
-<a href="02-consensus.html#CONS-05">CONS-05</a>, <a href="02-consensus.html#CONS-10">CONS-10</a> and <a href="02-consensus.html#CONS-13">CONS-13</a>; the atomic accept path and
-checkpoint record are <a href="04-l1-integration.html#L1-01">L1-01</a>–<a href="04-l1-integration.html#L1-08">L1-08</a>; signature, bitmap and quorum checks in the guest are
+<a href="02-consensus.html#CONS-05">CONS-05</a>, <a href="02-consensus.html#CONS-10">CONS-10</a> and <a href="02-consensus.html#CONS-13">CONS-13</a>; the atomic <code>land(data, proof)</code> path and
+checkpoint record are <a href="04-l1-integration.html#L1-01">L1-01</a>–<a href="04-l1-integration.html#L1-08">L1-08</a> (the name is fixed by L1-01, and clients, parameters and migration scripts MUST use it); signature, bitmap and quorum checks in the guest are
 <a href="05-proof-statement.html#PRF-04">PRF-04</a> and epoch transitions are <a href="05-proof-statement.html#PRF-05">PRF-05</a>. Membership fixes only the ledger, the set and the
 trust boundary.
 </div>
@@ -86,7 +86,7 @@ bonded and that (i) completed activation (<a href="#MEM-03">MEM-03</a>), (ii) ha
 away (<a href="#MEM-06">MEM-06</a>) <em>before</em> that snapshot. An entry with <code>effStake_k(v) = 0</code> is not in the set.</span>
 <span class="norm">(2) Voting power is exactly the effective stake: <code>VP_k(v) = effStake_k(v)</code> — one TAIKO base unit is one unit of weight. There is no multiplier, no age
 bonus, no quadratic, time-weighted or reputation term, and no discount for common ownership. The published set carries <code>TotalVP_k = Σ_v effStake_k(v)</code>; the quorum
-threshold applied to <code>TotalVP_k</code> is <a href="02-consensus.html#CONS-03">CONS-03</a>'s and is not restated here. Duplicate public keys within one set version are invalid
+predicate applied to <code>TotalVP_k</code> is <a href="02-consensus.html#CONS-03">CONS-03</a>'s and is not restated here. Duplicate public keys within one set version are invalid
 (<a href="#MEM-08">MEM-08</a>); weight is counted per <code>(pubkey, effStake)</code> entry, and the protocol neither records nor infers beneficial ownership
 (<a href="#MEM-10">MEM-10</a>).</span>
 <span class="norm">(3) <strong><code>balanceOf</code>, <code>getVotes</code> and <code>getPastVotes</code> must never be read by a consensus rule.</strong> On the existing token,
@@ -135,27 +135,33 @@ There is no allowlist, no invitation, no operator approval, no identity requirem
 ≥ S_min</code>; the derivation of <code>S_min</code> is <a href="07-economics-slashing.html#ECON-09">ECON-09</a> and its value is a parameter subject to
 <a href="09-parameters.html#PARAM-01">PARAM-01</a>. No third-party on-ramp exists in v1: the bonded amount is credited to <code>msg.sender</code>, because separating the economic
 owner from the slashed party without a delegation contract is exactly what <a href="#MEM-04">MEM-04</a> rules out.</span>
-<span class="norm">(2) <strong>Ordering key.</strong> Activation entries are ordered by the strictly increasing tuple <code>(l1BlockNumber, txIndex, logIndex)</code> of the L1
+<span class="norm">(2) <strong>Ordering key and per-epoch activation rate limit.</strong> Activation entries are ordered by the strictly increasing tuple <code>(l1BlockNumber, txIndex, logIndex)</code> of the L1
 block that included the bonding transaction, where <code>logIndex</code> is the index of the entry's event in that block's log list. Ties cannot occur. Serving is FIFO by this key
-— first-come, first-served — and no fee, stake size, key attribute, entity or reputation can reorder, delay or front-run another entry. A per-set-version throughput limit
-<code>A_max</code> entries is permitted only as an objective FIFO quantity: it takes entries from the head of the queue in key order and never selects among them (the EIP-7514
-activation-churn cap is the sourced precedent for bounding set growth; economics-raw.md §2.5).</span>
-<span class="norm">(3) <strong>Activation delay.</strong> <code>D_activation</code> is expressed in seconds and must satisfy <code>D_activation ≥ T_L1_final(p_f) + E_epoch +
-M_act</code>, where <code>T_L1_final(p_f)</code> is the <code>p_f</code>-quantile time for the bonding transaction's L1 block to become Ethereum-final, <code>E_epoch</code> is one
+— first-come, first-served at the protocol level — and, once an entry's coordinates are fixed, no fee, stake size, key attribute, entity or reputation can reorder it or make the
+protocol serve a later entry first. At most <code>ACTIVATION_RATE_LIMIT</code> entries may become active per epoch, taken from the head of the queue in key order; the limit never selects among
+entries and never cancels one. Two honest disclosures, because the ordering key is L1 inclusion order and L1 block builders and proposers can be influenced by priority fees:
+(a) FIFO is not a proof of fairness under adversarial L1 ordering — an adversary can pay to place its own bonding transactions earlier, and no in-protocol rule can prevent that;
+the protection this rule gives is that entry is <strong>delayed, never denied</strong>: the protocol never cancels an entry, never removes it from the queue except by its owner's
+<code>cancelActivation()</code> or its own failure to bind a key, never lets another entry pass it in the queue, and never refuses its eventual activation for any reason other than
+the per-epoch rate limit; (b) <code>ACTIVATION_RATE_LIMIT</code> bounds how fast the set grows, so a saturated queue lengthens every waiting entry's time-to-activation without changing any
+entry's position (the EIP-7514 activation-churn cap is the sourced precedent; economics-raw.md §2.5). (*review round 1, finding D ECO-09*)</span>
+<span class="norm">(3) <strong>Activation delay.</strong> <code>D_activation</code> is expressed in seconds and must satisfy <code>D_activation ≥ T_L1_final(p_f) + E_EPOCH +
+M_act</code>, where <code>T_L1_final(p_f)</code> is the <code>p_f</code>-quantile time for the bonding transaction's L1 block to become Ethereum-final, <code>E_EPOCH</code> is one
 epoch duration, and <code>M_act</code> is a margin; the numerical values are <code>UNMEASURED</code> (see the register at the end of this page). An entry becomes <em>active</em>,
 and first enters a set root, at the first set version <code>k</code> whose snapshot point <code>N(k)</code> satisfies <code>timestamp(N(k)) ≥ timestamp(bondingBlock) +
-D_activation</code>, subject to the FIFO head order and <code>A_max</code> of clause (2). The delay exists so that (a) an L1 reorganisation cannot reorder or erase an entry after
+D_activation</code>, subject to the FIFO head order and <code>ACTIVATION_RATE_LIMIT</code> of clause (2). The delay exists so that (a) an L1 reorganisation cannot reorder or erase an entry after
 its stake has been counted, and (b) an operator has time to bring its signing key and node online before its stake is exposed to a downtime penalty.</span>
 <span class="norm">(4) <strong>An entry that never activates.</strong> If the key is never bound, or the operator never comes online, or the entry is never reached in the FIFO
 head, then: the stake stays in <code>activating</code>; it never appears in any set root; it is never part of <code>TotalVP_k</code>; it is never slashable for a consensus offence,
 because it never signs a vote; and it accrues no reward. An entry whose key binding is incomplete is <strong>skipped</strong> for throughput accounting and keeps its position, so
-one unfinished entry cannot block the queue behind it. Cancellation is owner-only (<code>cancelActivation()</code>), and no third party can cancel, reorder or consume another
-entry's position (griefing defence, <a href="../01-requirements-and-threat-model.md">threat model</a> T-13).</span>
+one unfinished entry cannot block the queue behind it. Cancellation is owner-only (<code>cancelActivation()</code>); no third party can cancel an entry or consume another entry's
+position, and the only ways an entry is ever passed or delayed are the L1 ordering of clause (2) and the per-epoch rate limit (griefing defence,
+<a href="../01-requirements-and-threat-model.md">threat model</a> T-13).</span>
 <span class="why">Failure mode: if the ordering key were a fee or a stake size, entry becomes an auction and R1's permissionlessness is nominal; if <code>D_activation</code> were
 zero, an entry included in the same L1 block as a snapshot could change the set of an epoch already being voted on, breaking the agreement precondition A-CONS-4; if a stalled entry
 could block the head of the queue, a griefer could freeze all activation for the price of one bond.</span>
 <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
-<span class="small">(<code>T_L1_final(p_f)</code>, <code>E_epoch</code>, <code>M_act</code>, <code>A_max</code> — measured by the inclusion/finality distribution study and the
+<span class="small">(<code>T_L1_final(p_f)</code>, <code>E_EPOCH</code>, <code>M_act</code>, <code>ACTIVATION_RATE_LIMIT</code> — measured by the inclusion/finality distribution study and the
 consensus parameter table.)</span></div>
 
 <h3 id="lifecycle">2.1 Validator lifecycle</h3>
@@ -212,7 +218,7 @@ evidence-triggered path (7).</figcaption>
 <tr><td>1</td><td>inactive → activating</td><td>the owner (any L1 account); no approval</td><td><code>bond(amount, pk)</code> with <code>amount ≥ S_min</code>; a FIFO position is
 assigned at inclusion</td><td>none</td></tr>
 <tr><td>2</td><td>activating → active</td><td><strong>objective and permissionless</strong> (any keeper; the transition is a pure function of L1 state)</td><td>key bound
-(<a href="#MEM-07">MEM-07</a>); <code>D_activation</code> elapsed (<a href="#MEM-03">MEM-03</a>); entry served from the FIFO head within <code>A_max</code>; becomes effective at
+(<a href="#MEM-07">MEM-07</a>); <code>D_activation</code> elapsed (<a href="#MEM-03">MEM-03</a>); entry served from the FIFO head within the per-epoch <code>ACTIVATION_RATE_LIMIT</code> rate limit; becomes effective at
 the next set snapshot</td><td><code>effStake &gt; 0</code>; entry enters <code>R_k</code> and <code>TotalVP_k</code></td></tr>
 <tr><td>3</td><td>active → exit-requested</td><td>the owner only</td><td><code>requestExit()</code>; irreversible except by 3b</td><td>unchanged: still in every committed set,
 still voting, still fully slashable</td></tr>
@@ -273,7 +279,7 @@ version the entry's <code>effStake = 0</code> and it appears in no later set roo
 <span class="norm">(3) <strong>Withdrawal.</strong> The owner may withdraw only when all three hold: (a) the exit has been effective for at least <code>D_withdraw</code>; (b) the
 evidence window <code>W_evidence</code> has closed for every epoch the entry was in; and (c) no unsettled or collectible slashing exposure remains
 (<a href="#MEM-06">MEM-06</a>).</span>
-<span class="norm">(4) <strong>Delay formula.</strong> <code>D_withdraw ≥ T_proof_bound + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_process + M</code>. Every
+<span class="norm">(4) <strong>Delay formula.</strong> <code>D_withdraw ≥ T_PROOF_MAX_PERMITTED + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_process + M</code>. Every
 term is <span class="pill unmeasured">unmeasured</span>; the table below states what measures each one. <code>T_L1_include(p)</code> must be a quantile, never a mean, and may not
 assume a fixed L1 slot duration (<a href="index.html#GEN-06">GEN-06</a>).</span>
 <span class="norm">(5) <strong>Why not nominal proving latency.</strong> D5 lands a batch's data and its proof in one L1 transaction, so there is <em>no</em> data-first window in
@@ -293,7 +299,7 @@ remainder — the documented withdrawal race that both Ethereum and Cosmos engin
 <table>
 <thead><tr><th>Term</th><th>Meaning</th><th>Status and what would measure it</th></tr></thead>
 <tbody>
-<tr><td><code>T_proof_bound</code></td><td>Upper bound on proving latency for a batch</td><td><span class="pill sourced">sourced</span> as a <em>design constraint</em> D6 (minutes
+<tr><td><code>T_PROOF_MAX_PERMITTED</code></td><td>Upper bound on proving latency for a batch</td><td><span class="pill sourced">sourced</span> as a <em>design constraint</em> D6 (minutes
 up to 30 min = 900 L2 blocks at 2 s, derived), <strong>not measured</strong> for the target configuration; measure the wall-clock proving-time distribution of the pinned guest and
 verifier on reference hardware.</td></tr>
 <tr><td><code>T_detect</code></td><td>Offence on L2 → a constructible evidence object in the hands of someone willing to
@@ -425,27 +431,41 @@ promoted-odd-node tree root</td></tr>
 </tbody></table>
 
 <div class="rule" id="MEM-09"><span class="rid">MEM-09 — Set snapshot timing and one-epoch lookahead</span>
-<span class="norm">(1) <strong>Publication.</strong> Set versions are append-only and are created by <code>commitSet()</code>, which takes no arguments and may be called by anyone.
-Its contents are fixed by the contract: the root and total of the ledger state <em>at the moment of the call</em>, inside the L1 block <code>N(k)</code> that includes the call. The
-caller chooses nothing — not the entries, not the total, not the block's position in the block (which only affects which earlier transactions of that block are included). A ledger
-mutation in a later transaction of the same block does not affect <code>R_k</code>.</span>
-<span class="norm">(2) <strong>Which L1 block defines the set for epoch <code>e</code>.</strong> Let <code>setVersion(e)</code> be the highest <code>k</code> such that the L1 block
-<code>N(k)</code> is <strong>Ethereum-final</strong> in the L1 view committed by the first L2 block of epoch <code>e</code>. Then <code>R_{setVersion(e)}</code> — read from L1
-state at <code>N(k)</code> — is the epoch's validator set, and the epoch's first block commits <code>(setVersion(e), N(setVersion(e)))</code>. The header field carrying this tuple
-is <a href="02-consensus.html#CONS-10">CONS-10</a>'s; its <em>value rule</em> is this clause. Because Ethereum finality is objective and permanent, all correct nodes that can read
-L1 compute the same value (A-CONS-4).</span>
-<span class="norm">(3) <strong>Monotonicity.</strong> <code>setVersion</code> never decreases: <code>setVersion(e) ≥ setVersion(e')</code> for <code>e &gt; e'</code>, and a first
-block that commits a lower version than its predecessor is invalid. A version can never be reverted to, re-used after being superseded, or amended.</span>
-<span class="norm">(4) <strong>Immutability of an epoch's mapping.</strong> Once epoch <code>e</code> has begun, no L1 transaction may change <code>setVersion(e)</code> or the
-record at <code>N(setVersion(e))</code>. A later set version applies only to epochs whose first block lies after its publication; it never governs an epoch that has already
-started.</span>
+<span class="norm">(1) <strong>Publication.</strong> Set versions are append-only. <code>commitSet()</code> takes no arguments and may be called by anyone; each successful call
+appends exactly one entry to the L1 <strong>per-epoch mapping</strong> <code>epoch → (setRoot, totalVotingPower)</code> (clause (2)), namely the entry for the lowest epoch in the
+L1-committed schedule (<a href="02-consensus.html#CONS-13">CONS-13</a>(2)) that has no entry. Its contents are fixed by the contract: the root and total of the ledger state
+<em>at the moment of the call</em>, inside the L1 block <code>N(k)</code> that includes the call. The caller chooses nothing — not the epoch, not the entries, not the total, not the
+block's position in the block (which only affects which earlier transactions of that block are included). A ledger mutation in a later transaction of the same block does not affect
+<code>R_k</code>. A call MUST revert if the epoch's entry already exists (append-only; no overwrite), and MUST revert unless the immediately preceding epoch has already begun, derived by the
+contract from the Inbox's last accepted L2 height and the L1-committed schedule; this bounds the append to the one-epoch lookahead of
+<a href="02-consensus.html#CONS-13">CONS-13</a>(3) and stops any party from pre-committing far-future sets that could not include later activations. If the Inbox cannot accept a
+batch in epoch <code>e</code>, the entry for <code>e+1</code> cannot be appended, and the epoch boundary halts (<a href="02-consensus.html#CONS-13">CONS-13</a>(5)) rather than falling
+back to a non-final or caller-chosen root.</span>
+<span class="norm">(2) <strong>Which set governs epoch <code>e</code> — resolved on L1, not from an L2 view.</strong> The L1 staking contract stores the append-only mapping
+<code>epoch → (setRoot, totalVotingPower)</code>. <code>mapping[e]</code> is the validator set of epoch <code>e</code>: <code>setRoot</code> is <code>R_k</code> for the version
+<code>k</code> recorded by the same L1 transaction (<code>setVersion(e)</code>), and <code>totalVotingPower</code> is <code>Σ_i effStake_i</code> of that version. The entry is
+immutable once epoch <code>e</code> starts: after the first block of epoch <code>e</code> exists, no L1 transaction, reorganisation or upgrade may change it, and a batch of epoch
+<code>e</code> is accepted only against the entry that was Ethereum-final before <code>e</code> began (agreement on this is A-CONS-4). The epoch's first block commits
+<code>(setVersion(e), N(setVersion(e)))</code>. The L1 Inbox resolves the epoch itself: it computes <code>epoch_of</code> over the batch's heights from its own L1-committed schedule
+(<a href="02-consensus.html#CONS-13">CONS-13</a>(2)) and reads <code>mapping[epoch_of(...)]</code> from staking-contract state; it MUST reject a claimed epoch that differs from
+<code>epoch_of</code> of the batch's heights before any proof is verified, and it MUST resolve the root from that mapping rather than from the proof, the witness or the prover
+(<a href="05-proof-statement.html#PRF-02">PRF-02</a>, <a href="04-l1-integration.html#L1-05">L1-05</a>). The epoch → set version → set root chain is therefore an L1 fact end to
+end; no L2 view, no header and no witness participates in it. The header field carrying the tuple is <a href="02-consensus.html#CONS-10">CONS-10</a>'s; its <em>value rule</em> is this
+clause. (*review round 1, finding B R1-03*)</span>
+<span class="norm">(3) <strong>Monotonicity.</strong> Entries are appended in schedule order, so <code>setVersion</code> never decreases: <code>setVersion(e) ≥ setVersion(e')</code> for
+<code>e &gt; e'</code>, and a first block that commits a lower version than its predecessor is invalid. A version can never be reverted to, re-used after being superseded, or
+amended.</span>
+<span class="norm">(4) <strong>Immutability of an epoch's mapping.</strong> Once <code>mapping[e]</code> is written it is never edited: a later call appending the same epoch is
+rejected, and there is no "latest version wins" rule for an epoch that already has an entry. A later set version applies only to epochs whose entry is appended after it; it never
+governs an epoch that already has an entry. If two different roots for one epoch are nevertheless observable in L1 state, that is a contract defect or a consensus failure and the L2
+halts (<a href="02-consensus.html#CONS-15">CONS-15</a>) rather than choosing.</span>
 <span class="norm">(5) <strong>Ethereum-finality requirement and the one-epoch lookahead.</strong> No L2 consensused state may depend on a non-final L1 fact
-(<a href="01-system-model.html#SYS-02">SYS-02</a>), so a validator must not produce the first block of epoch <code>e</code> unless the block <code>N(setVersion(e))</code> is
-already Ethereum-final. If no such version exists — for example settlement or L1 inclusion has stalled — the validators do not start the epoch: they hold the current epoch open or
-halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>, <a href="02-consensus.html#CONS-15">CONS-15</a>). They must never fall back to "the latest root the proposer has
-seen". The epoch length and the handoff schedule that make this a <em>one-epoch</em> lookahead in steady state are <a href="02-consensus.html#CONS-13">CONS-13</a>'s; this clause
-supplies the membership-side predicate <code>CONS-13</code> must satisfy: <strong>the version governing an epoch is committed and Ethereum-final strictly before that epoch
-starts</strong>.</span>
+(<a href="01-system-model.html#SYS-02">SYS-02</a>), so <code>mapping[e]</code> must be Ethereum-final before any block of epoch <code>e</code> may be finalized; a validator must not
+produce the first block of epoch <code>e</code> unless <code>mapping[e]</code> is already Ethereum-final. If no such entry exists — because settlement or L1 inclusion has stalled, or
+because the append is not yet permitted under clause (1) — the validators do not start the epoch: they hold the current epoch open or halt
+(<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>, <a href="02-consensus.html#CONS-15">CONS-15</a>). They must never fall back to "the latest root the proposer has seen". The
+epoch length and the handoff schedule that make this a <em>one-epoch</em> lookahead in steady state are <a href="02-consensus.html#CONS-13">CONS-13</a>'s; this clause supplies the
+membership-side predicate <code>CONS-13</code> must satisfy: <strong>the entry governing an epoch is appended and Ethereum-final strictly before that epoch starts</strong>.</span>
 <span class="why">Failure mode: if the set for an epoch could be chosen after the epoch's blocks were voted on — by the prover, the L1 caller of <code>commitSet()</code>, or a
 version committed mid-epoch — a certificate could be judged under a set that did not sign it (set substitution), and two nodes could disagree about which set governs the same epoch
 (the A-CONS-4 failure).</span>
@@ -492,23 +512,30 @@ cost study and from order-book depth and traded volume, respectively.)</span></d
 <div class="rule" id="MEM-11"><span class="rid">MEM-11 — Weak subjectivity: the L1 checkpoint as the source, and the freshness window</span>
 <span class="norm">(1) <strong>The weak-subjectivity checkpoint is the L1 checkpoint.</strong> A node bootstraps from the checkpoint record most recently accepted by the L1 Inbox
 and Ethereum-final (<a href="04-l1-integration.html#L1-07">L1-07</a>, <a href="01-system-model.html#SYS-02">SYS-02</a>): an L2 height, block hash, state root, epoch and set
-version. The node reads it from L1 state; no social input, no peer vote and no checkpoint provider role is introduced. The reason is that this checkpoint is Ethereum-committed and
+version. The source is the <strong>latest L1-accepted checkpoint, regardless of how long a halt has lasted</strong>: a long halt does not make genesis, a peer's tip, a social
+checkpoint or an older record an admissible substitute, and it does not extend the freshness window of clause (2). The node reads it from L1 state; no social input, no peer vote and
+no checkpoint provider role is introduced. The reason is that this checkpoint is Ethereum-committed and
 publicly auditable, and it is exactly what L1 will accept as a predecessor — a node needs an L1 view anyway to verify settlement
 (<a href="../research/mode-a-feasibility-analysis.md">mode-a-feasibility-analysis.md</a> §C5).</span>
-<span class="norm">(2) <strong>Freshness window.</strong> A node must not bootstrap from a checkpoint older than <code>WS_max</code>, where <code>WS_max ≤ D_withdraw − (T_detect +
+<span class="norm">(2) <strong>Freshness window.</strong> A node must not bootstrap from a checkpoint older than <code>WS_MAX</code>, where <code>WS_MAX ≤ D_withdraw − (T_detect +
 T_evidence_submit + T_L1_include(p) + T_L1_final + T_process) − M_ws</code>. The derivation: an offence committed at the checkpoint's epoch remains slashable only until the
 offender's stake can be released, which is at least <code>D_withdraw</code> after its exit (<a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a>); if the anchor is older than
 that minus the time it takes to land evidence, then a checkpoint's signers may already be beyond reach and the anchor no longer carries the slashing guarantee it is trusted for.
-Substituting <a href="#MEM-05">MEM-05</a> clause 4 gives the <strong>derived</strong> upper bound <code>WS_max ≤ T_proof_bound + M − M_ws</code>. Every term is
-<code>UNMEASURED</code>; <code>M_ws</code> is the long-range margin.</span>
-<span class="norm">(3) <strong>It is an upper bound, not a target.</strong> <code>WS_max</code> is the largest age at which a checkpoint can still be defended by slashing; a
+Substituting <a href="#MEM-05">MEM-05</a> clause 4 gives the <strong>derived</strong> upper bound <code>WS_MAX ≤ T_PROOF_MAX_PERMITTED + M − M_ws</code>. Every term is
+<code>UNMEASURED</code>; <code>M_ws</code> is the long-range margin. The consequence of exceeding the window is fixed here and is not softened by the length of the halt: if the
+latest L1-accepted checkpoint is older than <code>WS_MAX</code>, a fresh node MUST NOT call the history it would sync <em>verified</em> — it is, at best, an unverifiable claim
+(<a href="index.html#STATUS-11">STATUS-11</a>) — and <strong>new entry is blocked until a newer checkpoint exists</strong>: a fresh validator cannot be admitted and a fresh node
+must not bootstrap from the stale anchor. Recovery then requires a new L1-accepted checkpoint, which requires a batch to land and be accepted under the settlement rules; no rule
+admits a stale checkpoint to restore entry. (*review round 1, finding D ECO-08*)</span>
+<span class="norm">(3) <strong>It is an upper bound, not a target.</strong> <code>WS_MAX</code> is the largest age at which a checkpoint can still be defended by slashing; a
 smaller value is always safer, and the published value must be justified by measurement, not chosen for convenience (<a href="09-parameters.html#PARAM-03">PARAM-03</a>).</span>
 <span class="norm">(4) <strong>Disclosure.</strong> The freshness window, the current checkpoint's age, and the fact that a checkpoint was used to bootstrap must be visible to
 users of a node, in the vocabulary of <a href="index.html#STATUS-11">STATUS-11</a>. State synced from an anchor is never presented as verified beyond the anchor.</span>
 <span class="norm">(5) <strong>The assumption, stated at the claim.</strong> This rule rests on <strong>A-CONS-6</strong> (new joiners can obtain a checkpoint no older than the
 published window) and on <strong>A-L1-1</strong> (Ethereum liveness and safety). It is a trust requirement, not a cryptographic guarantee: if L1 cannot accept a checkpoint for
-longer than <code>WS_max</code> — an L2 halt, a proving outage, a blob-retention failure — then <em>no</em> fresh checkpoint exists and a new node cannot safely sync. The chain's
-liveness failure becomes a sync failure, and that consequence is disclosed rather than hidden.</span>
+longer than <code>WS_MAX</code> — an L2 halt, a proving outage, a blob-retention failure — then <em>no</em> fresh checkpoint exists, a new node cannot safely sync, and new
+entry is blocked until a newer checkpoint exists; the node must not present the stale history as verified. The chain's liveness failure becomes a sync failure <em>and</em> an entry
+failure, and that consequence is disclosed rather than hidden.</span>
 <span class="why">Failure mode: a node that treats an arbitrarily old anchor as authoritative accepts a history whose signers can no longer be punished — the long-range attack of
 <a href="#MEM-12">MEM-12</a> — while believing it holds a protocol guarantee.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span>
@@ -522,7 +549,7 @@ fork, and the attacker cannot be punished once its stake has been released (<a h
 <a href="../research/recovery-and-withholding-raw.md">recovery-and-withholding-raw.md</a> §10 item 10, which records that "weak subjectivity is objective/trustless" is a
 misconception).</span>
 <span class="norm">(2) <strong>Two defences, both required.</strong> (a) <em>Checkpoint anchoring</em>: a node must never adopt an L2 history that conflicts with its L1 checkpoint;
-the L1 checkpoint is a fork-choice revert limit, not merely a hint. (b) <em>Freshness</em> (<a href="#MEM-11">MEM-11</a>): a checkpoint older than <code>WS_max</code> is not
+the L1 checkpoint is a fork-choice revert limit, not merely a hint. (b) <em>Freshness</em> (<a href="#MEM-11">MEM-11</a>): a checkpoint older than <code>WS_MAX</code> is not
 usable, and the honest statement is that <strong>a very old checkpoint must not be used</strong>. Supporting membership-side defences: certificates are judged only under their own
 epoch's set (<a href="02-consensus.html#CONS-08">CONS-08</a>); <code>setVersion(e)</code> is immutable once the epoch starts (<a href="#MEM-09">MEM-09</a>); keys are retired on
 rotation so <code>(key, epoch) → entry</code> stays injective (<a href="#MEM-07">MEM-07</a>); and the unbonding delay keeps the stake that signed a history slashable long enough
@@ -531,7 +558,7 @@ for evidence (<a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a>).</span
 long-range attacker can produce valid signatures from a historical TAIKO-staked set, so two internally valid histories exist and only L1 says which one the protocol accepts
 (consensus-survey-raw.md §7.4 point 2). A node that cannot obtain a fresh L1 checkpoint cannot resolve this by re-executing more history.</span>
 <span class="norm">(4) <strong>What a node must do when it cannot obtain a fresh checkpoint.</strong> If L1 is unreachable, or no Ethereum-final checkpoint is younger than
-<code>WS_max</code>, the node must: (i) refuse to treat any L2 history as protocol-verified; (ii) not report or relay a status above <a href="index.html#STATUS-03">STATUS-03</a>
+<code>WS_MAX</code>, the node must: (i) refuse to treat any L2 history as protocol-verified; (ii) not report or relay a status above <a href="index.html#STATUS-03">STATUS-03</a>
 for such a history, and not present it as settlement-backed; (iii) not silently substitute a checkpoint obtained from a peer, an RPC endpoint, or any third-party service; and (iv)
 surface the condition to its operator, naming the checkpoint's age and the required bound. It may retry, and it may halt and wait
 (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>). It must not "succeed" by trusting an unverified history.</span>
@@ -587,15 +614,15 @@ detectable on-chain and no rule of this page applies. Detection and disclosure, 
 <tr><td><code>S_min</code></td><td>Minimum bonded TAIKO per entry (a floor, not a cap)</td><td><span class="pill unmeasured">unmeasured</span>; derivation in
 <a href="07-economics-slashing.html#ECON-09">ECON-09</a></td><td><a href="#MEM-03">MEM-03</a></td></tr>
 <tr><td><code>D_activation</code></td><td>Seconds between the bonding transaction and the first set version that may count the
-entry</td><td><span class="pill unmeasured">unmeasured</span>; needs <code>T_L1_final(p_f)</code>, <code>E_epoch</code>,
+entry</td><td><span class="pill unmeasured">unmeasured</span>; needs <code>T_L1_final(p_f)</code>, <code>E_EPOCH</code>,
 <code>M_act</code></td><td><a href="#MEM-03">MEM-03</a></td></tr>
-<tr><td><code>A_max</code></td><td>Maximum activations served per set version, FIFO from the head</td><td><span class="pill unmeasured">unmeasured</span>; a throughput parameter,
-never a filter</td><td><a href="#MEM-03">MEM-03</a></td></tr>
+<tr><td><code>ACTIVATION_RATE_LIMIT</code></td><td>Maximum activations served per epoch, FIFO from the head</td><td><span class="pill unmeasured">unmeasured</span>; a rate limit,
+never a filter, a selection rule or a fairness guarantee</td><td><a href="#MEM-03">MEM-03</a></td></tr>
 <tr><td><code>D_withdraw</code></td><td>Unbonding delay from the moment the exit takes effect</td><td><span class="pill unmeasured">unmeasured</span>; formula in
 <a href="#MEM-05">MEM-05</a></td><td><a href="#MEM-05">MEM-05</a></td></tr>
 <tr><td><code>W_evidence</code></td><td>Window in which evidence for an epoch's offence can still be submitted</td><td><span class="pill unmeasured">unmeasured</span>; bounded
-below by <code>T_replay</code> for non-equivocation faults (economics-raw.md §3.3)</td><td><a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a></td></tr>
-<tr><td><code>WS_max</code></td><td>Maximum age of an L1 checkpoint a node may bootstrap from</td><td><span class="pill derived">derived</span> upper bound <code>T_proof_bound + M
+below by <a href="07-economics-slashing.html#ECON-07">ECON-07</a>'s formula, which requires the window to cover the whole settlement pipeline from the offence to the earliest detection (including <code>T_replay</code> for non-equivocation faults, economics-raw.md §3.3); the formula is not restated here</td><td><a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a></td></tr>
+<tr><td><code>WS_MAX</code></td><td>Maximum age of an L1 checkpoint a node may bootstrap from</td><td><span class="pill derived">derived</span> upper bound <code>T_PROOF_MAX_PERMITTED + M
 − M_ws</code>; inputs <span class="pill unmeasured">unmeasured</span></td><td><a href="#MEM-11">MEM-11</a></td></tr>
 <tr><td><code>k_op</code>, <code>C</code></td><td>Marginal per-identity operating cost; per-address cap (not used in v1)</td><td><span class="pill unmeasured">unmeasured</span>;
 the ratio <code>k_op / C</code> is the cap-overhead argument</td><td><a href="#MEM-10">MEM-10</a></td></tr>

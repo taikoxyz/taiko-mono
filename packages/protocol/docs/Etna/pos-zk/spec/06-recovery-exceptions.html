@@ -92,10 +92,19 @@ validator's own durable state, an implementation gate)</span></div>
 <div class="rule" id="HALT-03"><span class="rid">HALT-03 — consensus-enforced unsettled-depth cap (backpressure)</span>
 <span class="norm">Define the <em>unsettled depth</em> at a height as the number of L2 blocks between
 the highest L1-accepted checkpoint and the block being considered. A correct validator must not
-prevote or precommit a block whose unsettled depth would exceed <code>D_MAX</code>, where
-<code>D_MAX</code> is derived from the data-retention window and the L2 block rate and is recorded with
-its derivation in <a href="09-parameters.html">09</a>. The cap is a <strong>consensus rule</strong>: it
-is enforced by validators, not by an operator, and violating it is objectively detectable. When the cap
+prevote or precommit a block whose unsettled depth would exceed <code>D_MAX − MARGIN_V</code>, and
+<code>land</code> itself MUST reject any batch whose depth (computed by the contract as
+<code>lastHeight − prevHeight</code> from its own storage) exceeds <code>D_MAX</code>. <code>D_MAX</code>
+is derived from the retention window, the permitted proof latency and the settlement pipeline, and
+<strong>not</strong> from the retention window alone:
+<code>D_MAX = floor((RETENTION_WINDOW − T_PROOF_MAX_PERMITTED − T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL)</code>,
+recorded with its derivation in <a href="09-parameters.html">09</a>. <strong><code>MARGIN_V</code> is
+mandatory and is at least the number of L2 blocks produced during one Ethereum finality depth</strong>,
+because a validator's view of the L1 checkpoint is itself only usable at that depth (<a href="01-system-model.html#SYS-02">SYS-02</a>); without the margin a validator can systematically
+under-estimate depth and overshoot the cap. The cap is a <strong>consensus rule enforced in two places</strong>:
+validators refuse locally, and the L1 contract rejects a batch that exceeds it, so a violation is
+objectively detectable from the accepted batch itself and not merely asserted (*review round 1,
+findings R1-03, R1-05*). When the cap
 binds, production stops and the chain is in the safe-halt state until provers catch up. The cap must
 also account for queueing and L1 inclusion delay; <code>D_MAX</code> is a bound on <em>commitment
 creation</em>, not on proving latency, and a normal proof taking the whole of the

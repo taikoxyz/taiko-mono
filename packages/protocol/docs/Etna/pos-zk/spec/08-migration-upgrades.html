@@ -43,6 +43,7 @@ this page introduces no new label and no new status word.</p>
 <a href="../04-architecture-decision.md">04-architecture-decision.md</a> and
 <a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4–§5.
 Nothing on this page is implemented, deployed or measured (<a href="index.html#GEN-01">GEN-01</a>).</p>
+<p class="small">The atomic settlement entry point is named <code>land(data, proof)</code> by <a href="04-l1-integration.html#L1-01">L1-01</a>; that name is fixed, and clients, parameters and migration scripts MUST use it.</p>
 </div>
 
 <div class="warnbox small">
@@ -72,7 +73,7 @@ accept that state as its own past (<a href="#GOV-03">GOV-03</a>).</p>
 <rect x="426" y="46" width="150" height="58" rx="9" fill="#161b22" stroke="#2d3743"/>
 <text x="444" y="70">DRAINED</text><text x="444" y="88" fill="#9aa7b4" font-size="10">= 2</text>
 <rect x="616" y="46" width="246" height="58" rx="9" fill="#0f2418" stroke="#2c5a3a"/>
-<text x="634" y="70" fill="#9ece6a">ETNA_ACTIVE</text><text x="634" y="88" fill="#9aa7b4" font-size="10">= 3 · accept() only</text>
+<text x="634" y="70" fill="#9ece6a">ETNA_ACTIVE</text><text x="634" y="88" fill="#9aa7b4" font-size="10">= 3 · land(data, proof) only</text>
 <line x1="196" y1="75" x2="232" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
 <line x1="386" y1="75" x2="422" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
 <line x1="576" y1="75" x2="612" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
@@ -81,7 +82,7 @@ accept that state as its own past (<a href="#GOV-03">GOV-03</a>).</p>
 <text x="522" y="36" fill="#9aa7b4" font-size="10">T3 DAO bundle</text>
 <path d="M500,104 C500,150 300,150 200,116" fill="none" stroke="#e0af68" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arw)"/>
 <text x="250" y="166" fill="#e0af68" font-size="10">T2b unfreezeToFrozen() — only from DRAINED, migration-only selector</text>
-<text x="8" y="24" fill="#9aa7b4" font-size="10">prove() callable in states 0–2; accept(data,proof) callable in state 3 only — never both.</text>
+<text x="8" y="24" fill="#9aa7b4" font-size="10">prove() callable in states 0–2; land(data, proof) callable in state 3 only — never both.</text>
 </g>
 </svg>
 <figcaption>Normative transitions, guards and effects are the table below; the diagram is a reading aid.</figcaption>
@@ -117,7 +118,7 @@ implementation</td>
 <code>signalService.getCheckpoint(B*).blockHash == _coreState.lastFinalizedBlockHash</code>;
 <code>signalService.getCheckpoint(B*).stateRoot == S*</code>; the staking contract reports a non-zero
 epoch-0 set root</td>
-<td><code>accept(data, proof)</code> becomes callable; <code>prove()</code> is disabled forever;
+<td><code>land(data, proof)</code> becomes callable; <code>prove()</code> is disabled forever;
 <code>(B*, S*, H*)</code> is written to Inbox slots 259–260. <code>B*</code> is <em>derived</em> by the
 equality above, never chosen by the bundle.</td></tr>
 </tbody></table>
@@ -207,7 +208,7 @@ auto-generated layout files at <code>7718753c1</code>.</p>
 <thead><tr><th>Contract</th><th>Required change</th><th>New state (slot)</th><th>Slots consumed</th><th>Gap after</th></tr></thead>
 <tbody>
 <tr><td>Inbox (L1)</td><td>Replace <code>propose()</code>/<code>prove()</code> with one atomic
-<code>accept(data, proof)</code> (<a href="04-l1-integration.html#L1-01">L1-01</a>); add
+<code>land(data, proof)</code> (<a href="04-l1-integration.html#L1-01">L1-01</a>); add
 <code>freeze()</code>/<code>finishDrain()</code>/<code>activateEtna()</code> and the state gate of
 T1–T3; add the legacy <code>withdrawLegacyBond</code>/<code>refundForcedInclusion</code> selectors that read slots 257 and 255–256 in place; drop the ProverWhitelist and IProposerChecker calls</td>
 <td><code>migrationState</code>+<code>frozenAtL1Block</code>+<code>genesisL2BlockNumber</code>+<code>genesisTimestamp</code> (258);
@@ -234,7 +235,7 @@ the anchor payload becomes a block-validity rule rather than an operator action<
 <p class="small">The six Inbox slots are <span class="pill derived">derived</span> from the change list;
 the gap arithmetic is <span class="pill sourced">sourced</span>. If an implementer needs more Inbox state than the 37 remaining slots, the answer is a decision-log entry, not a reused deprecated slot.</p>
 <div class="rule" id="MIG-03"><span class="rid">MIG-03 — treatment of pending proposals, unproven batches, bonds, forced inclusions, bridge messages and withdrawals</span>
-<span class="norm">(1) <strong>One settlement path at a time.</strong> <code>accept(data, proof)</code>
+<span class="norm">(1) <strong>One settlement path at a time.</strong> <code>land(data, proof)</code>
 reverts unless <code>migrationState == ETNA_ACTIVE</code>; <code>prove()</code> reverts unless
 <code>migrationState</code> is <code>SHASTA_ACTIVE</code>, <code>FROZEN</code> or <code>DRAINED</code>.
 No state exists in which both are callable, so at most one path can advance the checkpoint.
@@ -321,7 +322,7 @@ refunded (MIG-03(4))</td></tr>
 (<a href="02-consensus.html#CONS-06">CONS-06</a>, <a href="03-membership-staking.html#MEM-08">MEM-08</a>) with no admission gate; the whitelist contract is left inert</td></tr>
 <tr><td><code>ProverWhitelist.whitelistProver</code></td><td>owner <em>or</em>
 <code>_proverManager</code></td><td><code>ProverWhitelist.sol:74-80</code>; gate at
-<code>Inbox.sol:337,771-779</code></td><td>removed; <code>accept()</code> admits any valid
+<code>Inbox.sol:337,771-779</code></td><td>removed; <code>land(data, proof)</code> admits any valid
 (data, proof) pair from any sender (<a href="04-l1-integration.html#L1-04">L1-04</a>)</td></tr>
 <tr><td><code>Anchor.withdraw(address,address)</code></td><td>Anchor owner</td>
 <td><code>Anchor.sol:145-156</code></td><td>removed; the L2 base-fee recipient is moved off the Anchor
@@ -360,7 +361,7 @@ replaced (D7); its balances are untouched by every transition, and no migration 
 <span class="norm">The set of program images accepted for an epoch <code>e</code> is the value of the
 registry (Inbox slot 261, <code>acceptedProgramImage[imageId] = acceptedFromEpoch</code>) at the same L1-committed boundary that fixes the validator-set root for <code>e</code> (<a href="03-membership-staking.html#MEM-09">MEM-09</a>), so an image change takes effect for epochs that start after the L1 transaction that recorded it. Registry entries are never deleted: an image that was accepted for an epoch remains accepted for that epoch forever (<a href="02-consensus.html#CONS-08">CONS-08</a>). An image may be given a
 <code>retiredAtEpoch</code> marker, after which it may not be used for batches whose epoch is at or
-after the marker, but retirement must not invalidate a certificate, a checkpoint or a settled batch. Consequently: a proof generated before an upgrade for a batch in an epoch whose accepted set contains its image remains acceptable after the upgrade and needs no re-proving; a proof whose image is not in the accepted set of the batch's epoch is rejected by the verifier route (<a href="04-l1-integration.html#L1-09">L1-09</a>); and <code>accept()</code> must never reject a valid (data, proof) pair merely because the proof's image was superseded for <em>later</em> epochs. There is no mixed-version consensus window: because the accepted set is a deterministic function of L1-committed state and the upgrade is epoch-gated, all clients that have processed the boundary L1 block derive the same set, and a client that disagrees is producing invalid blocks rather than a second rule set. Both backends must implement the same statement and the same acceptance policy (<a href="05-proof-statement.html#PRF-09">PRF-09</a>); the guest/verifier version registry itself is defined by <a href="05-proof-statement.html#PRF-10">PRF-10</a>, which this rule uses and does not restate.</span>
+after the marker, but retirement must not invalidate a certificate, a checkpoint or a settled batch. Consequently: a proof generated before an upgrade for a batch in an epoch whose accepted set contains its image remains acceptable after the upgrade and needs no re-proving; a proof whose image is not in the accepted set of the batch's epoch is rejected by the verifier route (<a href="04-l1-integration.html#L1-09">L1-09</a>); and <code>land(data, proof)</code> must never reject a valid (data, proof) pair merely because the proof's image was superseded for <em>later</em> epochs. There is no mixed-version consensus window: because the accepted set is a deterministic function of L1-committed state and the upgrade is epoch-gated, all clients that have processed the boundary L1 block derive the same set, and a client that disagrees is producing invalid blocks rather than a second rule set. Both backends must implement the same statement and the same acceptance policy (<a href="05-proof-statement.html#PRF-09">PRF-09</a>); the guest/verifier version registry itself is defined by <a href="05-proof-statement.html#PRF-10">PRF-10</a>, which this rule uses and does not restate.</span>
 <span class="why">Failure modes: a mid-epoch image switch splits which proofs are acceptable and lets
 an unsettled batch become unprovable; deleting an old image strands already-finalized history; a "mixed-version" leniency silently accepts two rule sets.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
@@ -455,10 +456,10 @@ GOV-02, not by this rule)</span></div>
 <tbody>
 <tr><td><span class="lvl crit">crit</span></td><td>Both settlement paths live at once; two histories
 are checkpointed into the same preserved SignalService</td><td>the old <code>prove()</code> and the new
-<code>accept()</code> would both be selectors on the same proxy if the state gate is missing or the
+<code>land(data, proof)</code> would both be selectors on the same proxy if the state gate is missing or the
 upgrade is not atomic</td><td>MIG-03(1) gate; upgrade of implementation and state in one
 <code>execute</code> bundle; an assertion test that <code>prove()</code> reverts in
-<code>ETNA_ACTIVE</code> and <code>accept()</code> reverts in states 0–2</td></tr>
+<code>ETNA_ACTIVE</code> and <code>land(data, proof)</code> reverts in states 0–2</td></tr>
 <tr><td><span class="lvl crit">crit</span></td><td>The boundary object is wrong or chosen, so the new
 chain forks off a non-finalized height</td><td>a bundle can pass any <code>(B*, S*)</code> it likes unless the values are checked against stored state</td><td>T3's two equalities against
 <code>_checkpoints[VERSION][B*]</code> and <code>lastFinalizedBlockHash</code>; publish the expected

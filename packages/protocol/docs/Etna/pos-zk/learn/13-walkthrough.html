@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>13 — Putting it all together: one batch end to end · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
+  <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
+  <a href="../spec/index.html">Specification</a></nav>
+</header>
+<main>
+<h1>13 — Putting it all together: one batch end to end</h1>
+
+<div class="card">
+<p><strong>Problem this lesson solves.</strong> It follows a single user transaction all the way from an L2 proposal to an eligible
+withdrawal, naming the exact status label, the evidence held and what could still go wrong at every step.</p>
+</div>
+
+<h2 id="plain">In plain language</h2>
+
+<p><strong>The batch.</strong> A user transaction enters the L2 mempool. The proposer selected by the epoch's weighted rotation
+(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>) builds a block at height <em>H</em> and proposes it; the block body is what a
+receiver first holds, which is only <a href="../spec/index.html#STATUS-01">proposed</a>. Each validator executes the block against the parent
+state and checks every consensus and validity rule — including the forced-inclusion duty
+(<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>) — which makes it
+<a href="../spec/index.html#STATUS-02">locally execution-valid</a> for that node only. Validators then prevote and precommit; once a commit
+certificate carrying strictly more than two thirds of the epoch's voting power is published and the node has checked data availability for
+itself, the block is <a href="../spec/index.html#STATUS-04">PoS-finalized</a> (Mode A). Under Mode A that status is never revoked.</p>
+
+<p><strong>The batch closes and the proof is built.</strong> A batch is a contiguous range of L2 blocks — the parameter table's placeholder
+is 32 blocks, about 64 seconds at the 2&nbsp;s cadence, and the value is
+<span class="pill unmeasured">unmeasured</span>. The batch data and the finality evidence are the witness for one combined guest program; a
+prover that finishes produces a proof bound to exactly this batch's data commitment, which is
+<a href="../spec/index.html#STATUS-05">proof-ready</a>. A normal proof may take the whole D6 envelope of up to 30 minutes — 900 L2 blocks —
+and that is not misconduct (<a href="../spec/10-assurance.html#LIVE-02">LIVE-02</a>). L2 keeps producing throughout, until the consensus-enforced
+unsettled-depth cap binds, at which point production stops safely
+(<a href="../spec/06-recovery-exceptions.html#HALT-03">HALT-03</a>).</p>
+
+<p><strong>Landing is one transaction.</strong> Anyone may call the Inbox's single acceptance entry point with the batch data and the proof;
+the Inbox derives every contract-derived public input itself, checks blob openings if blobs are used, runs the active verifier route, and
+only then writes one checkpoint and advances the height pointer
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>, <a href="../spec/04-l1-integration.html#L1-03">L1-03</a>). There is no state between
+"transaction exists" and "batch accepted": the data, the proof and the checkpoint write are the same transaction
+(<a href="../spec/04-l1-integration.html#DA-01">DA-01</a>). That is <a href="../spec/index.html#STATUS-06">accepted on L1</a>.</p>
+
+<p><strong>Ethereum finality and the exit.</strong> Once the accepting L1 transaction is in a finalized Ethereum block, the batch is
+<a href="../spec/index.html#STATUS-07">Ethereum-finalized</a>. Then, and only then plus the message-authentication path and
+<code>WITHDRAWAL_DELAY</code>, does a withdrawal become
+<a href="../spec/index.html#STATUS-08">withdrawal-eligible</a>: the checkpoint's <code>stateRoot</code> must cover the signal, and where the
+claim depends on a reorganisable L1 fact the accepting transaction must be Ethereum-final
+(<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>). The delay is a derived parameter whose terms are
+<span class="pill unmeasured">unmeasured</span>, and a settlement halt delays withdrawals indefinitely while forfeiting nothing.</p>
+
+<p><strong>What the labels force an interface to say.</strong> A progress indicator must use these labels and state which one it is showing;
+a "confirmation" shown before <a href="../spec/index.html#STATUS-06">accepted on L1</a> must be accompanied by the statement that the batch's
+data and proof are not yet on Ethereum (<a href="../spec/index.html#STATUS-11">STATUS-11</a>). Two statuses are local (proposed, locally
+execution-valid), one is a commitment (voted), and the rest are progressively stronger public states.</p>
+
+<h2 id="definitions">Precise definitions</h2>
+
+<ul>
+<li><strong>proposed</strong> — a block body received from a leader; evidence is the object itself; guarantee none; discarded freely
+(<a href="../spec/index.html#STATUS-01">STATUS-01</a>).</li>
+<li><strong>locally execution-valid</strong> — this node executed it against a known parent and all rules passed; the guarantee is only that
+this node will not build on an invalid block; revoked if the parent is displaced
+(<a href="../spec/index.html#STATUS-02">STATUS-02</a>).</li>
+<li><strong>voted</strong> — a validator signed a vote at a (height, round); the signature irreversibly constrains its future votes through the
+lock rule; conflicting votes are slashable equivocation
+(<a href="../spec/index.html#STATUS-03">STATUS-03</a>, <a href="../spec/02-consensus.html#CONS-11">CONS-11</a>).</li>
+<li><strong>PoS-finalized</strong> — a published commit certificate over (chain id, epoch, height, block hash) with strictly more than two
+thirds of the epoch's power, plus the receiver's own data-availability check; permanent in Mode A
+(<a href="../spec/index.html#STATUS-04">STATUS-04</a>).</li>
+<li><strong>proof-ready</strong> — a completed ZK proof bound to this batch's data commitment; a proof of a different batch is no substitute
+(<a href="../spec/index.html#STATUS-05">STATUS-05</a>).</li>
+<li><strong>accepted on L1</strong> — the Inbox accepted data and proof in one transaction and advanced its checkpoint; revocable only by an
+L1 reorganisation below finality (<a href="../spec/index.html#STATUS-06">STATUS-06</a>,
+<a href="../spec/04-l1-integration.html#L1-12">L1-12</a>).</li>
+<li><strong>Ethereum-finalized</strong> — the accepting L1 transaction is in a finalized block, or the L1 fact the claim depends on is at the
+configured finality depth (<a href="../spec/index.html#STATUS-07">STATUS-07</a>).</li>
+<li><strong>withdrawal-eligible</strong> — accepted on L1 or Ethereum-finalized, plus the message-authentication path and any delay required by
+<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a> (<a href="../spec/index.html#STATUS-08">STATUS-08</a>).</li>
+<li><strong>Local receipt is not availability</strong>, and an elapsed timeout is never evidence of absence
+(<a href="../spec/index.html#STATUS-09">STATUS-09</a>, <a href="../spec/index.html#STATUS-10">STATUS-10</a>).</li>
+</ul>
+
+<h2 id="diagram">Diagram — the life of one batch</h2>
+
+<figure>
+<svg viewBox="0 0 940 300" role="img" aria-label="Timeline from a user transaction through proposal, votes, PoS finality, proving, one L1 landing transaction, Ethereum finality and withdrawal eligibility.">
+  <defs>
+    <marker id="ar13" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker>
+  </defs>
+  <line x1="40" y1="150" x2="910" y2="150" stroke="#2d3743" stroke-width="2"/>
+  <circle cx="70" cy="150" r="5" fill="#7aa2f7"/>
+  <text x="70" y="180" fill="#e6edf3" font-size="10" text-anchor="middle">user tx</text>
+  <text x="70" y="194" fill="#9aa7b4" font-size="9" text-anchor="middle">submitted</text>
+  <circle cx="230" cy="150" r="5" fill="#7aa2f7"/>
+  <text x="230" y="180" fill="#e6edf3" font-size="10" text-anchor="middle">proposed</text>
+  <text x="230" y="194" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-01 → STATUS-02</text>
+  <circle cx="380" cy="150" r="5" fill="#bb9af7"/>
+  <text x="380" y="180" fill="#e6edf3" font-size="10" text-anchor="middle">voted</text>
+  <text x="380" y="194" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-03 · lock binds</text>
+  <circle cx="520" cy="150" r="7" fill="#9ece6a"/>
+  <text x="520" y="180" fill="#9ece6a" font-size="10" text-anchor="middle">PoS-finalized</text>
+  <text x="520" y="194" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-04 · permanent in Mode A</text>
+  <circle cx="660" cy="150" r="5" fill="#e0af68"/>
+  <text x="660" y="180" fill="#e0af68" font-size="10" text-anchor="middle">proof-ready</text>
+  <text x="660" y="194" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-05 · ≤ 30 min envelope</text>
+  <circle cx="790" cy="150" r="5" fill="#7dcfff"/>
+  <text x="790" y="180" fill="#7dcfff" font-size="10" text-anchor="middle">accepted on L1</text>
+  <text x="790" y="194" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-06 · one L1 tx</text>
+  <circle cx="890" cy="150" r="5" fill="#c0a6ff"/>
+  <text x="880" y="180" fill="#c0a6ff" font-size="10" text-anchor="middle">Ethereum-finalized</text>
+  <text x="880" y="194" fill="#9aa7b4" font-size="9" text-anchor="middle">STATUS-07</text>
+  <rect x="40" y="36" width="400" height="76" rx="8" fill="#161b22" stroke="#2d3743"/>
+  <text x="56" y="58" fill="#e6edf3" font-size="11">L2 (2 s cadence, one slot per height)</text>
+  <text x="56" y="78" fill="#9aa7b4" font-size="9">a batch is K = 32 placeholder blocks = 64 s · L2 keeps producing</text>
+  <text x="56" y="96" fill="#9aa7b4" font-size="9">unsettled depth must stay ≤ D_MAX or production halts (HALT-03)</text>
+  <rect x="500" y="36" width="410" height="76" rx="8" fill="#161b22" stroke="#2d3743"/>
+  <text x="516" y="58" fill="#e6edf3" font-size="11">Ethereum (settlement)</text>
+  <text x="516" y="78" fill="#9aa7b4" font-size="9">one atomic land(data, proof) tx · checkpoint write only after verify</text>
+  <text x="516" y="96" fill="#9aa7b4" font-size="9">then Ethereum finality (≈ 2 epochs) · then WITHDRAWAL_DELAY</text>
+  <line x1="520" y1="128" x2="520" y2="142" stroke="#9ece6a" marker-end="url(#ar13)"/>
+  <line x1="790" y1="128" x2="790" y2="142" stroke="#7dcfff" marker-end="url(#ar13)"/>
+  <rect x="40" y="228" width="870" height="56" rx="8" fill="#2a1f10" stroke="#5c4a1c"/>
+  <text x="56" y="250" fill="#e0af68" font-size="11">Each arrow is a planning envelope, not a measurement: the round budget, the proving envelope, the batch size and</text>
+  <text x="56" y="268" fill="#e0af68" font-size="11">WITHDRAWAL_DELAY are all unmeasured. The 2 s cadence is a production rate, never a finality or withdrawal latency.</text>
+</svg>
+<figcaption>One transaction, five labels and two chains: L2 finality comes first; the data and proof reach Ethereum together; withdrawal is
+strictly later.</figcaption>
+</figure>
+
+<h2 id="example">Worked example — the timeline, then the status table</h2>
+
+<p>Times are a planning envelope built from decided and placeholder inputs. Every entry is tagged; nothing here is a measurement.</p>
+
+<table>
+<thead><tr><th>Step</th><th>Planning time</th><th>Status label</th><th>Evidence held</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>User transaction signed and submitted</td><td>t = 0</td><td>none yet</td><td>the signed transaction in the mempool</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Proposer builds and gossips block H</td><td>t &#8776; 0–2&nbsp;s</td><td>proposed (STATUS-01)</td><td>the block body</td><td><span class="pill derived">derived</span> from D1's 2&nbsp;s cadence</td></tr>
+<tr><td>Node re-executes against the parent</td><td>t &#8776; 2&nbsp;s</td><td>locally execution-valid (STATUS-02)</td><td>this node's own execution result</td><td><span class="pill unmeasured">unmeasured</span> execution time</td></tr>
+<tr><td>Prevote and precommit</td><td>t &#8776; 2–4&nbsp;s</td><td>voted (STATUS-03)</td><td>the validator's signed vote</td><td><span class="pill unmeasured">unmeasured</span> round-trip (<code>A-CONS-2</code>)</td></tr>
+<tr><td>Commit certificate published and data checked</td><td>t &#8776; 4&nbsp;s</td><td>PoS-finalized (STATUS-04)</td><td>certificate with &gt; 2/3 power + own availability check</td><td><span class="pill derived">derived</span> from the round assumption</td></tr>
+<tr><td>Batch closes (32 placeholder blocks)</td><td>t &#8776; 64&nbsp;s</td><td>PoS-finalized (STATUS-04)</td><td>the finalized range and its data</td><td><span class="pill derived">derived</span> from <span class="pill unmeasured">unmeasured</span> K</td></tr>
+<tr><td>Proof completed</td><td>t &#8776; 64&nbsp;s + proving</td><td>proof-ready (STATUS-05)</td><td>proof bound to this data commitment</td><td><span class="pill unmeasured">unmeasured</span>; envelope ≤ 900 blocks (derived)</td></tr>
+<tr><td><code>land(data, proof)</code> in one L1 transaction</td><td>after proving</td><td>accepted on L1 (STATUS-06)</td><td>the accepting transaction and the advanced checkpoint</td><td><span class="pill derived">derived</span>; gas <span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Accepting transaction in a finalized L1 block</td><td>+ &#8776; 12.8&nbsp;min</td><td>Ethereum-finalized (STATUS-07)</td><td>the finalized Ethereum block containing the tx</td><td><span class="pill derived">derived</span> from <span class="pill sourced">sourced</span> Ethereum config</td></tr>
+<tr><td>Withdrawal delay elapsed and message authenticated</td><td>+ <code>WITHDRAWAL_DELAY</code></td><td>withdrawal-eligible (STATUS-08)</td><td>checkpoint state root covering the signal + delay</td><td><span class="pill unmeasured">unmeasured</span> delay (MSG-03)</td></tr>
+</tbody></table>
+
+<table>
+<thead><tr><th>Status label</th><th>Evidence held</th><th>What could still go wrong</th><th>Revocable?</th></tr></thead>
+<tbody>
+<tr><td>proposed (<a href="../spec/index.html#STATUS-01">STATUS-01</a>)</td><td>the block body</td><td>it may be invalid; the leader may equivocate or the body may be withheld</td><td>dropped freely</td></tr>
+<tr><td>locally execution-valid (<a href="../spec/index.html#STATUS-02">STATUS-02</a>)</td><td>this node's execution against a known parent</td><td>the parent may be displaced; it says nothing about other nodes or about availability</td><td>yes, if the parent moves</td></tr>
+<tr><td>voted (<a href="../spec/index.html#STATUS-03">STATUS-03</a>)</td><td>the signed vote</td><td>the vote locks the voter; a conflicting vote is slashable equivocation</td><td>never</td></tr>
+<tr><td>PoS-finalized (<a href="../spec/index.html#STATUS-04">STATUS-04</a>, Mode A)</td><td>published certificate &gt; 2/3 power + own data check</td><td>data holders can vanish (halt possibly permanent); the epoch-handoff argument is review target F1; ≥ 1/3 Byzantine breaks the premise</td><td>never in Mode A</td></tr>
+<tr><td>proof-ready (<a href="../spec/index.html#STATUS-05">STATUS-05</a>)</td><td>a proof bound to this data commitment</td><td>a proof of a different batch is not a substitute; a better proof of the same commitment may replace it</td><td>superseded, not revoked</td></tr>
+<tr><td>accepted on L1 (<a href="../spec/index.html#STATUS-06">STATUS-06</a>)</td><td>the accepting L1 transaction and checkpoint</td><td>an L1 reorg below finality undoes the transaction; the batch stays finalized and must be re-landed</td><td>only by that reorg</td></tr>
+<tr><td>Ethereum-finalized (<a href="../spec/index.html#STATUS-07">STATUS-07</a>)</td><td>the accepting tx in a finalized block</td><td>catastrophic Ethereum consensus failure only</td><td>effectively no</td></tr>
+<tr><td>withdrawal-eligible (<a href="../spec/index.html#STATUS-08">STATUS-08</a>)</td><td>STATUS-06/07 + authentication + delay</td><td>a settlement halt delays the exit indefinitely — funds are unavailable, not forfeited</td><td>bounded by MSG-03 rules</td></tr>
+</tbody></table>
+
+<h2 id="prevents">Attacks this prevents</h2>
+<ul>
+<li><strong>Premature withdrawal.</strong> No value leaves on a PoS confirmation: the path requires a checkpoint written by a verified
+<code>land</code>, plus the delay, plus finality where needed
+(<a href="../spec/index.html#STATUS-08">STATUS-08</a>, <a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>).</li>
+<li><strong>Data published without a proof.</strong> The one atomic entry point makes the data-first class impossible for a pending batch
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>, <a href="../spec/10-assurance.html#INV-02">INV-02</a>).</li>
+<li><strong>Checkpoint writes without verification.</strong> The Inbox verifies before it writes, so no partial effect and no accepted
+unproven batch exists (<a href="../spec/04-l1-integration.html#L1-03">L1-03</a>).</li>
+<li><strong>Witness-only execution.</strong> A batch whose payload arrived only through a private witness cannot land
+(<a href="../spec/04-l1-integration.html#DA-04">DA-04</a>).</li>
+</ul>
+
+<h2 id="not-prevents">Attacks this does not prevent</h2>
+<ul>
+<li><strong>Loss of the data before the proof exists.</strong> If every holder of a finalized block's data disappears, settlement halts and
+may be permanent (<a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>,
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
+<li><strong>≥ 1/3 Byzantine stake.</strong> Two conflicting certificates can both verify; the labels above do not repair it
+(<a href="../spec/10-assurance.html#INV-01">INV-01</a>).</li>
+<li><strong>Prover centralisation and slowness.</strong> Any prover may take over the same batch, but if nobody completes a proof the cap
+eventually binds and production stops (<a href="../spec/06-recovery-exceptions.html#HALT-03">HALT-03</a>,
+<a href="../spec/06-recovery-exceptions.html#WH-01">WH-01</a>).</li>
+<li><strong>Losses and speed.</strong> Penalties do not compensate, no universal bound on loss is claimed, and a halt delays withdrawals
+indefinitely (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>,
+<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>).</li>
+</ul>
+
+<h2 id="self-check">Self-check</h2>
+<details><summary>At which status may a user safely treat the transaction as settled on Ethereum?</summary>
+<p>At <a href="../spec/index.html#STATUS-06">accepted on L1</a>: the data and a valid proof are in one L1 transaction and the checkpoint has
+advanced. Withdrawal additionally needs the delay and, where relevant, <a href="../spec/index.html#STATUS-07">Ethereum-finalized</a>
+(<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>). Anything earlier must be labelled as not yet on Ethereum
+(<a href="../spec/index.html#STATUS-11">STATUS-11</a>).</p></details>
+<details><summary>A batch is PoS-finalized and its prover goes offline. Does another prover have to start from scratch?</summary>
+<p>No. Any permissionless prover may produce the proof for the <em>same</em> data commitment and land it; a proof of a different batch is not a
+substitute, and a slow proof inside the D6 envelope is not misconduct
+(<a href="../spec/04-l1-integration.html#L1-04">L1-04</a>, <a href="../spec/04-l1-integration.html#L1-10">L1-10</a>,
+<a href="../spec/06-recovery-exceptions.html#HALT-03">HALT-03</a>).</p></details>
+<details><summary>The L1 transaction lands, then an L1 reorg removes it. Is the L2 block no longer finalized?</summary>
+<p>It remains PoS-finalized under Mode A. The transaction is undone by Ethereum — no checkpoint, no fee paid — and the batch must be
+re-landed with the same data commitment; the Inbox must not "repair" a reorg by writing a chosen checkpoint
+(<a href="../spec/04-l1-integration.html#L1-12">L1-12</a>, <a href="../spec/index.html#STATUS-06">STATUS-06</a>).</p></details>
+
+<div class="card">
+<p><strong>Challenge this.</strong> The walkthrough relied on: (i) an honest proposer at this height and honest validators executing
+<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>; (ii) <code>A-CONS-1</code> and the partial-synchrony assumptions
+<code>A-CONS-2</code>/<code>A-CONS-3</code> for the four-second claim — an expectation, not a measurement; (iii) <code>A-CONS-5</code> and
+<code>A-DA-2</code> for retaining data and completing proofs; (iv) <code>A-L1-1</code> for L1 inclusion and finality; (v)
+<code>A-CRYPTO-1</code>/<code>A-CRYPTO-2</code> for proof soundness and signature unforgeability; (vi) every timing entry being a planning
+envelope built from decided or unmeasured inputs, with K = 32 blocks, <code>D_MAX</code>, the round budget and
+<code>WITHDRAWAL_DELAY</code> unmeasured; (vii) no halt occurring during the walkthrough. Falsifier: find a sentence in this lesson that
+presents a step's latency as measured, or that claims a status stronger than the label it names.</p>
+</div>
+
+<h2 id="more">Where to read more</h2>
+<ul>
+<li><a href="../spec/index.html#STATUS-01">STATUS-01</a>–<a href="../spec/index.html#STATUS-11">STATUS-11</a> — every label's evidence,
+guarantee and revocation condition.</li>
+<li><a href="../spec/02-consensus.html#CONS-01">CONS-01</a> and <a href="../spec/02-consensus.html#CONS-05">CONS-05</a> — proposal validity and
+the commit rule; <a href="../spec/02-consensus.html#CONS-13">CONS-13</a> — epochs and set commitments.</li>
+<li><a href="../spec/04-l1-integration.html#L1-01">L1-01</a>–<a href="../spec/04-l1-integration.html#L1-12">L1-12</a> — the atomic
+acceptance path, its bindings, races and reorg handling.</li>
+<li><a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a> — why one certificate per batch suffices for the whole prefix;
+<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a> — the statement.</li>
+<li><a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>, <a href="../spec/10-assurance.html#LIVE-03">LIVE-03</a> and
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a> — where the timeline stops being true, the throughput conditions and the limitations
+register.</li>
+<li>Siblings: <a href="07-two-seconds-and-thirty-minutes.html">lesson 07</a> ·
+<a href="08-atomic-data-and-proof.html">lesson 08</a> · <a href="12-bridge-and-addresses.html">lesson 12</a> ·
+<a href="limitations.html">limitations</a>.</li>
+</ul>
+</main>
+<footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·
+<a href="limitations.html">limitations</a></p></footer>
+</body></html>

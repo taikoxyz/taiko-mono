@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>09 — What the proof proves · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
+  <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
+  <a href="../spec/index.html">Specification</a></nav>
+</header>
+<main>
+<h1>09 — What the proof proves — and what it cannot</h1>
+<div class="card">
+<p><strong>Problem this lesson solves.</strong> It states in plain language what the ZK proof establishes
+about a batch, why the validator set and the predecessor must be derived from L1 rather than supplied by
+the prover, why one certificate per batch is enough, and which sentence the proof must never be used to
+support.</p>
+</div>
+<h2 id="plain">In plain language</h2>
+<p><strong>One guest, three claims.</strong> A single guest program proves the conjunction of three
+things for one batch (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>):
+<strong>W1</strong>, that the batch's head block carries a valid commit certificate over
+(chain id, epoch, height, round, block id) signed by more than two thirds of the voting power of the
+epoch's validator set, with that set authenticated from L1 state and every epoch boundary crossed
+accompanied by an authenticated set transition; <strong>W2</strong>, that executing the batch's blocks in
+the order the consensus chain fixed, starting from the predecessor state root, yields the claimed
+successor state root; and <strong>W3</strong>, that the data it executed is the data the accepting L1
+transaction publishes (<a href="../spec/05-proof-statement.html#PRF-07">PRF-07</a>). Acceptance requires all three.</p>
+<p><strong>Public inputs are what the verifier checks the proof against; the witness is what the prover
+supplies.</strong> The guest commits to a canonical journal whose field list and order are normative
+(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>). For every field that carries authority,
+the L1 verifier contract does not accept a caller-supplied value: it derives the value itself from L1
+state or from the transaction, and it recomputes the Fiat–Shamir challenge rather than trusting the
+prover's. The witness contains the evidence the guest must fully constrain — validator entries with
+Merkle proofs against the committed set root, per-signer signatures and the signer bitmap, the header
+chain, epoch-transition evidence, the batch's transaction data and the blob field elements
+(<a href="../spec/05-proof-statement.html#PRF-03">PRF-03</a>).</p>
+<p><strong>Why the validator set must come from L1.</strong> If the set were prover-supplied, a prover
+could hand in a set it controls together with matching signatures, and the proof would verify a finality
+claim about a chain no independent validator ever saw — sound in isolation, meaningless in fact. PRF-03
+therefore states that <em>no witness element may define the authoritative validator set</em>: a set is
+accepted only if its recomputed commitment equals the set root that L1 state supplies, never the proof
+payload. PRF-13 generalises this: any value a prover could otherwise choose freely — the set, the quorum
+threshold, the predecessor, the data commitment, the challenge point, the configuration hash, the
+program identity — must be derived by the contract, recomputed inside the guest from a contract-derived
+value, or checked by an L1 precompile. A binding that consists only of "the caller passed it" is not a
+binding (<a href="../spec/05-proof-statement.html#PRF-13">PRF-13</a>). And nothing computed by the host
+is trusted: values entering the guest through reads, hints or unconstrained regions are unverified
+assertions until an explicit check constrains them
+(<a href="../spec/05-proof-statement.html#PRF-11">PRF-11</a>).</p>
+<p><strong>What the guest checks for the head certificate (in order).</strong> Every signature verifies
+under the corresponding public key from the authenticated set, over the canonical vote bytes for the
+domain tag, chain id, epoch, height, round and block id; signers are distinct, with one bitmap bit per
+distinct signer and no bit outside the set; the effective stake of the signers is strictly greater than
+the quorum threshold; the threshold is the minimal integer <code>q</code> with <code>3q &gt; 2 ·
+totalVotingPower</code>, computed with the same rounding rule as the L1 contract so a guest/contract
+mismatch is impossible; the total equals the sum of the authenticated entries; and the head block hash
+equals the hash of the reconstructed head header, whose parent chain links without gaps back to the
+predecessor block hash the contract already accepted
+(<a href="../spec/05-proof-statement.html#PRF-04">PRF-04</a>). Epoch boundaries get their own checks
+(<a href="../spec/05-proof-statement.html#PRF-05">PRF-05</a>), and execution is checked block by block
+against each header's committed state root (<a href="../spec/05-proof-statement.html#PRF-06">PRF-06</a>).</p>
+<p><strong>Why only the head block's certificate is verified.</strong> The guest verifies the commit
+certificate of the head block only; every other block in the batch is covered by the header hash chain
+back to the predecessor checkpoint, and no ancestor certificate is verified on-chain or in-guest
+(<a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a>). The argument is the one a light client
+uses: under the commit rule a validator precommits a block only after validating it and its parent
+relation, and a certificate needs more than two thirds of the voting power, so at least one third of the
+power is correct and locked; a certificate for the head therefore implies the head is the unique
+finalized block at its height, and hence that the whole prefix it commits to is the unique finalized
+prefix. The premises are named: fewer than one third of the epoch's voting power is Byzantine, correct
+validators obey vote uniqueness and the lock rule, and the set is L1-authenticated. If a premise fails,
+the argument fails with it, and <em>the proof does not detect that</em>
+(<a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a>,
+<a href="../spec/02-consensus.html#CONS-12">CONS-12</a>).</p>
+<div class="badbox">
+<p><strong>The sentence the proof must never be used to say:</strong> "the proof verifies, therefore no
+hidden competing chain exists." A ZK proof does not establish that. It establishes that the evidence
+presented is sufficient, under the stated consensus assumptions, for the claimed transition from an
+authenticated predecessor to a claimed successor. If at least one third of the epoch's voting power
+violates the consensus assumptions, <strong>two conflicting certificates can both be cryptographically
+valid and both can produce accepting proofs</strong>. ZK verification does not repair failed consensus
+assumptions (<a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a>,
+<a href="../spec/05-proof-statement.html">the proof-statement page's opening warning</a>,
+<a href="../01-requirements-and-threat-model.md">01 §6.5</a>).</p>
+</div>
+<p><strong>What that leaves.</strong> The proof is evidence about one claimed transition, not a survey of
+the world. Among the things it does not establish: that no competing finalized chain exists; that the
+batch's data is retrievable by others; that the L2 chain will continue; that an honest validator behaved
+correctly off-chain; and that the guest program itself is correct
+(<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>–<a href="../spec/05-proof-statement.html#PRF-13">PRF-13</a>
+and the "what the proof does not establish" table on the proof-statement page).</p>
+<h2 id="definitions">Precise definitions</h2>
+<ul>
+<li><strong>Statement.</strong> The three-part claim W1 (consensus finality), W2 (execution) and W3 (data
+binding) that one guest proves for one batch; acceptance requires all three
+(<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</li>
+<li><strong>Public input / journal.</strong> The canonical, ordered list of values the guest commits to
+and the verifier checks against; the L1 contract derives the authoritative fields itself
+(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>).</li>
+<li><strong>Private witness.</strong> The evidence the prover supplies — set entries with inclusion
+proofs, signatures and bitmap, header chain, transition evidence, transaction data, blob field elements
+— none of which may define the authoritative validator set
+(<a href="../spec/05-proof-statement.html#PRF-03">PRF-03</a>).</li>
+<li><strong>Validator-set root.</strong> The canonical commitment to the epoch's set; the accepted value
+comes from L1 state, and a set is accepted only when its recomputed commitment equals that root
+(<a href="../spec/05-proof-statement.html#PRF-03">PRF-03</a>).</li>
+<li><strong>Quorum threshold.</strong> The minimal integer <code>q</code> with <code>3q &gt; 2 ·
+totalVotingPower</code>, computed with the same rounding rule on both sides
+(<a href="../spec/05-proof-statement.html#PRF-04">PRF-04</a>,
+<a href="../spec/02-consensus.html#CONS-03">CONS-03</a>).</li>
+<li><strong>Head-certificate-only verification.</strong> One certificate verified per batch; the rest of
+the batch is covered by header linkage back to the previously accepted checkpoint
+(<a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a>).</li>
+<li><strong>Host trust and enforced bindings.</strong> Host-computed values are unverified assertions until constrained, and accelerated primitives are trusted only as far as the circuits constrain them (<a href="../spec/05-proof-statement.html#PRF-11">PRF-11</a>); a caller-supplied value is not a binding (<a href="../spec/05-proof-statement.html#PRF-13">PRF-13</a>).</li>
+<li><strong>Acceptance policy.</strong> The Inbox accepts a proof from any registered verifier whose
+program identity is accepted for the epoch's configuration; whether one backend or two are required is
+recorded as an open launch decision (<a href="../spec/05-proof-statement.html#PRF-09">PRF-09</a>).</li>
+</ul>
+<h2 id="diagram">Diagram — what the verifier derives, what the prover supplies, and the one claim that is missing</h2>
+<figure>
+<svg viewBox="0 0 960 420" role="img" aria-label="Public inputs derived by the L1 Inbox feed the guest; the prover supplies the witness; the guest outputs a verdict that the L1 verifier accepts; a separate red box lists what the proof does not establish, chiefly that no competing finalized chain exists.">
+  <defs>
+    <marker id="ar-p1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#7aa2f7"/></marker>
+    <marker id="ar-p2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#9ece6a"/></marker>
+    <marker id="ar-p3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#f7768e"/></marker>
+  </defs>
+  <rect x="10" y="10" width="300" height="180" rx="10" fill="#161b22" stroke="#2d3743"/>
+  <text x="26" y="36" fill="#e6edf3" font-size="13">Derived by the L1 Inbox</text>
+  <text x="26" y="58" fill="#9aa7b4" font-size="11">chain ids · epoch · validator-set root</text>
+  <text x="26" y="76" fill="#9aa7b4" font-size="11">total voting power · quorum threshold</text>
+  <text x="26" y="94" fill="#9aa7b4" font-size="11">predecessor checkpoint (height, hash, state root)</text>
+  <text x="26" y="112" fill="#9aa7b4" font-size="11">first / last height · head block hash</text>
+  <text x="26" y="130" fill="#9aa7b4" font-size="11">post-state root · data commitment</text>
+  <text x="26" y="148" fill="#9aa7b4" font-size="11">blob versioned hashes · challenge z · evaluations y</text>
+  <text x="26" y="172" fill="#7aa2f7" font-size="11">No caller-supplied journal (PRF-02, PRF-13)</text>
+
+  <rect x="360" y="10" width="250" height="180" rx="10" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="376" y="36" fill="#e6edf3" font-size="13">One guest program</text>
+  <text x="376" y="60" fill="#9aa7b4" font-size="11">W1 consensus finality</text>
+  <text x="376" y="80" fill="#9aa7b4" font-size="11">W2 execution</text>
+  <text x="376" y="100" fill="#9aa7b4" font-size="11">W3 data binding</text>
+  <text x="376" y="128" fill="#9aa7b4" font-size="11">checks signatures, distinct signers,</text>
+  <text x="376" y="146" fill="#9aa7b4" font-size="11">stake strictly above threshold, header</text>
+  <text x="376" y="164" fill="#9aa7b4" font-size="11">chain, epoch transitions, execution</text>
+
+  <rect x="660" y="10" width="290" height="180" rx="10" fill="#161b22" stroke="#2d3743"/>
+  <text x="676" y="36" fill="#e6edf3" font-size="13">Supplied by the prover (witness)</text>
+  <text x="676" y="58" fill="#9aa7b4" font-size="11">set entries + Merkle inclusion proofs</text>
+  <text x="676" y="76" fill="#9aa7b4" font-size="11">signatures + signer bitmap</text>
+  <text x="676" y="94" fill="#9aa7b4" font-size="11">header chain + transition evidence</text>
+  <text x="676" y="112" fill="#9aa7b4" font-size="11">transaction data + blob field elements</text>
+  <text x="676" y="140" fill="#f7768e" font-size="11">May never define the validator set:</text>
+  <text x="676" y="158" fill="#f7768e" font-size="11">the root comes from L1 (PRF-03)</text>
+
+  <rect x="10" y="216" width="620" height="76" rx="10" fill="#161b22" stroke="#2d3743"/>
+  <text x="26" y="242" fill="#e6edf3" font-size="13">What the proof establishes</text>
+  <text x="26" y="266" fill="#9aa7b4" font-size="11">That the presented evidence is sufficient, under the stated consensus assumptions, for the claimed</text>
+  <text x="26" y="283" fill="#9aa7b4" font-size="11">transition from an authenticated predecessor to the claimed successor — and that the executed data is the published data.</text>
+
+  <rect x="660" y="216" width="290" height="186" rx="10" fill="#2a1218" stroke="#f7768e"/>
+  <text x="676" y="242" fill="#f7768e" font-size="13">What it never establishes</text>
+  <text x="676" y="266" fill="#e6edf3" font-size="11">That no hidden competing chain exists</text>
+  <text x="676" y="286" fill="#9aa7b4" font-size="11">two conflicting certificates can both</text>
+  <text x="676" y="303" fill="#9aa7b4" font-size="11">verify if one third of the power violates</text>
+  <text x="676" y="320" fill="#9aa7b4" font-size="11">the consensus assumptions</text>
+  <text x="676" y="346" fill="#9aa7b4" font-size="11">retrievability · chain continuation ·</text>
+  <text x="676" y="363" fill="#9aa7b4" font-size="11">honest off-chain behaviour · correctness</text>
+  <text x="676" y="380" fill="#9aa7b4" font-size="11">of the guest program itself</text>
+
+  <path d="M312 100 H358" stroke="#7aa2f7" stroke-width="1.4" marker-end="url(#ar-p1)"/>
+  <path d="M658 100 H612 V100" stroke="#7aa2f7" stroke-width="1.4" fill="none" marker-end="url(#ar-p1)"/>
+  <path d="M485 192 V214" stroke="#9ece6a" stroke-width="1.4" marker-end="url(#ar-p2)"/>
+  <path d="M612 254 H656" stroke="#f7768e" stroke-width="1.2" fill="none" marker-end="url(#ar-p3)"/>
+  <path d="M358 100 C330 100 340 254 300 254" stroke="#9ece6a" stroke-width="1.2" fill="none" marker-end="url(#ar-p2)"/>
+</svg>
+<figcaption>The left box is the part an implementation must get right; the right red box is the part no
+implementation can put into the proof.</figcaption>
+</figure>
+<h2 id="example">Worked example — quorum arithmetic and a prover-defined set</h2>
+<p>The stake unit is illustrative, as in lesson 06: the mapping from stake to integer voting power and
+its quantization error are <a href="../spec/03-membership-staking.html#MEM-02">MEM-02</a>'s and are
+<span class="pill unmeasured">unmeasured</span>. The arithmetic itself follows the normative rules.</p>
+<table>
+<thead><tr><th>Quantity</th><th>Value</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>Total voting power <code>W</code> in the epoch (illustrative)</td><td>900,000 units</td><td>a public input the contract derives from the staking contract (PRF-02); the unit itself is <span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Quorum threshold <code>q</code></td><td>600,001</td><td><span class="pill derived">derived</span> — <code>3 × 600,000 = 1,800,000</code> is not strictly greater than <code>2W</code>, so 600,000 fails</td></tr>
+<tr><td>A certificate with exactly 600,000 signing power</td><td>invalid — fails <code>3q &gt; 2 · W</code></td><td><span class="pill derived">derived</span> (CONS-03, PRF-04(iii))</td></tr>
+<tr><td>A certificate with 600,001 signing power</td><td>passes the threshold check (still subject to signature and distinctness checks)</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Two conflicting certificates at one (height, round), each at threshold</td><td>overlap of at least 600,001 + 600,001 − 900,000 = 300,002 &gt; 300,000 = W/3</td><td><span class="pill derived">derived</span> — more than one third must have double-signed, which is slashable evidence (CONS-11)</td></tr>
+<tr><td>Certificates verified per batch</td><td>1 — the head block's; ancestors are covered by header linkage</td><td><span class="pill derived">derived</span> from the rule PRF-08 — a design count, not a measurement; conditional on its named premises</td></tr>
+<tr><td>Counterfactual: validator set supplied by the prover as one key claiming 900,000 units</td><td>the same threshold arithmetic would "verify" a finality claim no independent validator signed</td><td><span class="pill proven">Proven</span> design failure mode — the reason PRF-03 forbids a prover-defined set</td></tr>
+<tr><td>Rounding rule for <code>q</code> in the guest versus the contract</td><td>must be identical, or a boundary certificate could be accepted by one side and rejected by the other</td><td><span class="pill proven">Proven</span> — PRF-04(iii) requires the same rule on both sides</td></tr>
+<tr><td>The sentence "the proof shows no competing chain exists"</td><td>false as a claim</td><td><span class="pill sourced">sourced</span> — the proof-statement page's opening warning; CONS-12's "when the premises fail"</td></tr>
+</tbody></table>
+<p>The counterfactual row is the whole lesson in one line: with a prover-chosen set and a prover-chosen
+total, every signature check in the guest can still pass, and the proof still means nothing about this
+chain. That is why the journal's authoritative fields are contract-derived, why the guest is required to
+recompute the commitment of any set it uses, and why a host-supplied value is treated as an unverified
+assertion until it is constrained (<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>,
+<a href="../spec/05-proof-statement.html#PRF-03">PRF-03</a>,
+<a href="../spec/05-proof-statement.html#PRF-11">PRF-11</a>,
+<a href="../spec/05-proof-statement.html#PRF-13">PRF-13</a>).</p>
+<h2 id="prevents">Attacks this prevents</h2>
+<ul>
+<li><strong>A prover-asserted validator set or quorum.</strong> Authority comes from L1 state, so a set
+the prover controls cannot be substituted together with matching signatures
+(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>,
+<a href="../spec/05-proof-statement.html#PRF-03">PRF-03</a>).</li>
+<li><strong>Asserted-not-enforced bindings.</strong> Anything the prover could otherwise choose freely
+must be derived, recomputed or precompile-checked
+(<a href="../spec/05-proof-statement.html#PRF-13">PRF-13</a>).</li>
+<li><strong>Host-controlled inputs.</strong> Values entering the guest from outside are unverified until
+explicitly constrained, including key recovery, point validity and set membership
+(<a href="../spec/05-proof-statement.html#PRF-11">PRF-11</a>).</li>
+<li><strong>Signature-counting errors.</strong> Distinct signers, one bitmap bit each, stake summed from
+the authenticated entries, and a threshold computed identically on both sides
+(<a href="../spec/05-proof-statement.html#PRF-04">PRF-04</a>).</li>
+<li><strong>A proof reused for another batch.</strong> The range, predecessor, epoch, set root and data
+commitment are in the statement, so a proof for a different batch cannot substitute
+(<a href="../spec/04-l1-integration.html#L1-10">L1-10</a>,
+<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>).</li>
+<li><strong>Overclaiming uniqueness.</strong> Naming the limit stops a verifier from reading an
+internally consistent certificate as a claim about the whole network
+(<a href="../spec/02-consensus.html#CONS-12">CONS-12</a>).</li>
+</ul>
+<h2 id="not-prevents">Attacks this does not prevent</h2>
+<ul>
+<li><strong>One third or more Byzantine stake, compromised keys or a client that breaks the lock
+rules.</strong> Then two conflicting certificates can both verify and both produce accepting proofs; ZK
+verification does not repair failed consensus assumptions
+(<a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a>,
+<a href="../spec/02-consensus.html#CONS-12">CONS-12</a>).</li>
+<li><strong>A soundness bug in an accepted backend or in the guest program.</strong> That is a
+bridge-theft-class failure the protocol cannot repair; the acceptance policy is recorded as open
+(<a href="../spec/05-proof-statement.html#PRF-09">PRF-09</a>).</li>
+<li><strong>Data unavailability.</strong> The proof binds data <em>content</em>; retrievability is a
+network property governed by the retention rules
+(<a href="../spec/04-l1-integration.html#DA-05">DA-05</a>).</li>
+<li><strong>A halt.</strong> Liveness is conditional and stated separately; the proof says nothing about
+whether the chain continues (<a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>).</li>
+<li><strong>Off-chain honesty.</strong> Only signed statements are provable; a validator that withheld
+data without signing a conflicting message has left no proof of misconduct
+(<a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a>).</li>
+</ul>
+<h2 id="selfcheck">Self-check</h2>
+<details><summary>Which journal field, if it were caller-supplied, would let a prover fabricate a finality claim?</summary>
+<p>The validator-set root and the total voting power (with the quorum threshold derived from them). A
+prover that could assert its own set and total could satisfy every signature check with keys it controls;
+that is why the contract derives these values from L1 state
+(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>,
+<a href="../spec/05-proof-statement.html#PRF-03">PRF-03</a>).</p></details>
+<details><summary>Why is verifying only the head block's certificate sufficient — and when is it not?</summary>
+<p>The batch's headers link by parent hash back to the already-accepted checkpoint, and the head's
+certificate plus the lock rule implies the head's prefix is unique — under the premises: fewer than one
+third Byzantine, correct validators obeying vote uniqueness and the lock rule, and an L1-authenticated
+set. If a premise fails, the argument fails with it and the proof does not detect that
+(<a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a>).</p></details>
+<details><summary>A proof verifies. Has the network agreed that no other finalized history exists?</summary>
+<p>No. Two conflicting certificates can both be cryptographically valid and both produce accepting proofs
+if at least one third of the epoch's power violates the consensus assumptions. Any uniqueness claim is
+relative to an L1-authenticated checkpoint and those assumptions
+(<a href="../spec/02-consensus.html#CONS-12">CONS-12</a>,
+<a href="../01-requirements-and-threat-model.md">01 §6.5</a>).</p></details>
+<div class="card">
+<p><strong>Challenge this.</strong> The lesson used: (i) <code>A-CONS-1</code> per epoch; (ii) correct
+validators obeying <a href="../spec/02-consensus.html#CONS-02">CONS-02</a> and
+<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>; (iii) the set being L1-authenticated, including
+the cross-epoch lock carry-over that <a href="../spec/02-consensus.html#CONS-09">CONS-09</a> marks
+assumed-with-argument (review target F1); (iv) PRF-08's argument as stated, with its premises attached;
+(v) the guest and both backends implementing the same statement
+(<a href="../spec/05-proof-statement.html#PRF-09">PRF-09</a>) and the program identity being bound by the
+verifier, not the prover (<a href="../spec/05-proof-statement.html#PRF-10">PRF-10</a>); (vi) the
+illustrative stake unit being unmeasured. Falsifier: find a sentence in this lesson that reads a
+verifying proof as evidence that no competing finalized chain exists, or that drops one of PRF-08's
+premises.</p>
+</div>
+<h2 id="more">Where to read more</h2>
+<ul>
+<li><a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>–<a href="../spec/05-proof-statement.html#PRF-13">PRF-13</a>,
+especially the journal (<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>), the witness
+(<a href="../spec/05-proof-statement.html#PRF-03">PRF-03</a>), the certificate checks
+(<a href="../spec/05-proof-statement.html#PRF-04">PRF-04</a>) and head-only verification
+(<a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a>).</li>
+<li><a href="../spec/02-consensus.html#CONS-03">CONS-03</a> (quorum), <a href="../spec/02-consensus.html#CONS-04">CONS-04</a>
+(lock), <a href="../spec/02-consensus.html#CONS-05">CONS-05</a> (commit), and
+<a href="../spec/02-consensus.html#CONS-12">CONS-12</a> (the safety invariant and every premise).</li>
+<li><a href="../spec/10-assurance.html#INV-01">INV-01</a> (unique finalized prefix) and
+<a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a> (conditional liveness).</li>
+<li><a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §6.4–§6.5,
+and <a href="../04-architecture-decision.md">04 — architecture decision</a> §6 and §7 (Q-A2, Q-A3).</li>
+<li>Previous: <a href="08-atomic-data-and-proof.html">lesson 08 — data and proof travel together</a>.
+Next: <a href="10-halt-or-roll-back.html">lesson 10 — halt or roll back</a>.</li>
+</ul>
+</main>
+<footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·
+<a href="limitations.html">limitations</a></p></footer>
+</body></html>

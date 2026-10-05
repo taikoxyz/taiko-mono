@@ -67,7 +67,10 @@ which status it shows, and to carry the "data and proof are not yet on Ethereum"
 accepted on L1 (<a href="../spec/index.html#STATUS-11">STATUS-11</a>).</li>
 </ul>
 
-<h2 id="table">The eight labels, with evidence and revocation</h2>
+<h3 id="table">The eight labels in detail</h3>
+
+<p>The table paraphrases each rule; every label links to the rule that states it in full, and the
+specification text is normative on any disagreement.</p>
 
 <table>
 <thead><tr><th>#</th><th>Label (exact)</th><th>Evidence required</th><th>Guarantee</th><th>What revokes it</th></tr></thead>
@@ -75,17 +78,17 @@ accepted on L1 (<a href="../spec/index.html#STATUS-11">STATUS-11</a>).</li>
 <tr><td>1</td><td><a href="../spec/index.html#STATUS-01">proposed</a></td><td>a block body received from a leader; the object itself</td><td>none — it may be invalid</td><td>discarded freely</td></tr>
 <tr><td>2</td><td><a href="../spec/index.html#STATUS-02">locally execution-valid</a></td><td>this node executed the block against a known parent state and every consensus and validity rule passed</td><td>this node will not build on an invalid block (visible to this node only)</td><td>yes — if the parent is displaced</td></tr>
 <tr><td>3</td><td><a href="../spec/index.html#STATUS-03">voted</a></td><td>a validator signed a vote for this block at a given (height, round)</td><td>the vote irreversibly constrains that validator's future votes through the lock rule (CONS-04); signing a conflicting vote is slashable equivocation (CONS-11)</td><td>never — it is a signed commitment</td></tr>
-<tr><td>4a</td><td><a href="../spec/index.html#STATUS-04">PoS-finalized</a> (Mode A)</td><td>a <em>published</em> commit certificate over (chain id, epoch, height, block hash) with strictly more than two thirds of the epoch's voting power, plus the receiver's own data-availability check</td><td>in Mode A permanent: no recovery, timeout, rotation, admission rule or normal upgrade may revoke it — conditional on INV-01's premises</td><td>never in Mode A</td></tr>
+<tr><td>4a</td><td><a href="../spec/index.html#STATUS-04">PoS-finalized</a> (Mode A)</td><td>a <em>published</em> commit certificate over (chain id, epoch, height, block hash) with strictly more than two thirds of the epoch's voting power, plus the receiver's own data-availability check</td><td>permanent in Mode A: the rule excludes revocation by recovery, timeout, rotation, admission rule or normal upgrade, and the guarantee is conditional on INV-01's premises</td><td>never in Mode A</td></tr>
 <tr><td>4b</td><td><a href="../spec/index.html#STATUS-04">PoS-certified / provisional</a> (Mode B only; not selected)</td><td>the same certificate, with the protocol disclosing that a recovery event may supersede it before L1 acceptance</td><td>a strong, economically-backed confirmation that is explicitly <em>not</em> irreversible</td><td>yes — only through the published recovery rules</td></tr>
 <tr><td>5</td><td><a href="../spec/index.html#STATUS-05">proof-ready</a></td><td>a completed ZK proof bound to this batch's data commitment exists off-chain</td><td>the batch can be landed; a proof of a <em>different</em> batch is not a substitute</td><td>a better proof of the same data commitment may replace it</td></tr>
 <tr><td>6</td><td><a href="../spec/index.html#STATUS-06">accepted on L1</a></td><td>the Inbox accepted (data, proof) in <strong>one</strong> transaction and advanced its checkpoint (L1-01)</td><td>the batch's data is public on Ethereum and the transition is L1-committed</td><td>only an L1 reorganisation below finality</td></tr>
-<tr><td>7</td><td><a href="../spec/index.html#STATUS-07">Ethereum-finalized</a></td><td>the accepting L1 transaction is in a finalized Ethereum block, or the L1 fact the claim depends on is at the configured finality depth</td><td>the L1 fact can no longer be reorganised (per the rule's own wording)</td><td>effectively no, except a catastrophic Ethereum consensus failure</td></tr>
+<tr><td>7</td><td><a href="../spec/index.html#STATUS-07">Ethereum-finalized</a></td><td>the accepting L1 transaction is in a finalized Ethereum block, or the L1 fact the claim depends on is at the configured finality depth</td><td>the L1 fact is at the depth the design requires before L2 state may depend on it (SYS-02)</td><td>effectively never; the requirements document allows only a catastrophic Ethereum consensus failure, while the rule itself states the evidence condition</td></tr>
 <tr><td>8</td><td><a href="../spec/index.html#STATUS-08">withdrawal-eligible</a></td><td>status 6 or 7, plus the message-authentication path and any delay required by MSG-03</td><td>the withdrawal may proceed under those rules</td><td>bounded by those same rules</td></tr>
 </tbody></table>
 
 <p class="small">This table summarises; the <a href="../spec/index.html#status">specification text</a> is
-normative and wins on any disagreement. Where the table says "per the rule's own wording", the lesson
-has deliberately not strengthened it.</p>
+normative and wins on any disagreement. Where the lesson could not find a guarantee sentence in a rule,
+the cell says what the rule does state instead of inventing one.</p>
 
 <h2 id="diagram">Diagram — the labels and the two words that are not labels</h2>
 

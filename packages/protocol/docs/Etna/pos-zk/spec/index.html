@@ -185,8 +185,10 @@ retried.</span><span class="pill proven">Proven</span></div>
 
 <div class="rule" id="STATUS-04"><span class="rid">STATUS-04 — PoS-finalized (Mode A); PoS-certified / provisional (Mode B)</span>
 <span class="norm">A <strong>published</strong> commit certificate over (chain id, epoch, height,
-block hash) carrying <strong>strictly more than two thirds</strong> of the epoch's voting power (the
-integer threshold <code>q</code> is the minimal value with <code>3q &gt; 2 · total</code>), plus the
+block hash) carrying signed voting power <code>s</code> that satisfies the predicate
+<code>3 * s &gt; 2 * W</code> (checked arithmetic, with <code>W</code> the epoch's total voting power; the L2 client,
+the zkVM guest and the L1 contract evaluate it identically, and a strict/non-strict mismatch would
+split chain acceptance from L1 acceptance), plus the
 receiver's own data-availability check for the block body. In Mode A this status is <strong>permanent</strong>:
 no recovery, timeout, rotation, admission rule or normal upgrade may revoke it. In the unselected
 Mode B it would be labelled <strong>provisional</strong> and revocable only through the published
@@ -282,7 +284,7 @@ is normative on its own page; this table is a map, not a second copy.</p>
 <tr><td><code>SYS-04</code></td><td>No DAO or emergency operator in ordinary operation</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>ROLE-01</code></td><td>Validator role: entry, duties, resources, rewards, penalties, exit, failure</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>ROLE-02</code></td><td>Prover role</td><td><a href="01-system-model.html">01</a></td></tr>
-<tr><td><code>ROLE-03</code></td><td>Full and archive node role and retention duty</td><td><a href="01-system-model.html">01</a></td></tr>
+<tr><td><code>ROLE-03</code></td><td>Full and archive node role and retention assumption</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>ROLE-04</code></td><td>User rights: inclusion, exit, disclosure</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>ROLE-05</code></td><td>DAO role: upgrades only</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>CONS-01</code></td><td>Proposal validity, including the forced-inclusion duty</td><td><a href="02-consensus.html">02</a></td></tr>
@@ -312,7 +314,7 @@ is normative on its own page; this table is a map, not a second copy.</p>
 <tr><td><code>MEM-10</code></td><td>Sybil resistance and the non-claim about per-address caps</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-11</code></td><td>Weak subjectivity: L1 checkpoint as the source and the freshness window</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-12</code></td><td>Long-range attack handling; no silent trusted checkpoint provider</td><td><a href="03-membership-staking.html">03</a></td></tr>
-<tr><td><code>L1-01</code></td><td>Single atomic accept entry point; no data-first path</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-01</code></td><td>Single atomic <code>land(data, proof)</code> entry point; no data-first path</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>L1-02</code></td><td>No entry point records a pending or incomplete batch</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>L1-03</code></td><td>Failed verification leaves the batch unaccepted with no partial effect</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>L1-04</code></td><td>Admission: no gate, no expiring range, any prover</td><td><a href="04-l1-integration.html">04</a></td></tr>

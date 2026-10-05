@@ -14,7 +14,7 @@
 <main>
 <h1>02 — Consensus: proposals, votes, locks, finality, epochs</h1>
 <p class="small">This page states <code>CONS-01</code>–<code>CONS-15</code> in full; they are listed once and referenced elsewhere by identifier (<a href="index.html#GEN-03">GEN-03</a>). The selected protocol is Tendermint/CometBFT-class BFT with one block per height, single-slot finality, Ed25519
-per-validator vote signatures, and validator sets that are derived from L1-committed TAIKO stake and quantized into epochs (<a href="../04-architecture-decision.html">04-architecture-decision</a> §1–§2; survey: <a href="../research/consensus-survey-raw.md">consensus-survey-raw.md</a>
+per-validator vote signatures, and validator sets that are derived from L1-committed TAIKO stake and quantized into epochs (<a href="../04-architecture-decision.md">04-architecture-decision</a> §1–§2; survey: <a href="../research/consensus-survey-raw.md">consensus-survey-raw.md</a>
 §3). The published lock / proof-of-lock-change rule of the CometBFT specification, pinned at commit <code>709fd12b…</code>, is retained unchanged and quoted in
 <a href="../research/recovery-and-withholding-raw.md">recovery-and-withholding-raw.md</a> §1.1.</p>
 <div class="warnbox small"> <strong>Scope of the claims on this page.</strong> Safety statements are conditional on <strong>A-CONS-1</strong> (Byzantine stake
@@ -44,7 +44,7 @@ signatures:bytes[]</code></td> <td>not signed as a whole: it is the aggregate of
 &lt;&lt; (i &amp; 7)</code> (least-significant bit first)</td> <td>bits <code>n</code>..<code>8*ceil(n/8)-1</code> MUST be zero; a non-zero pad bit invalidates
 the certificate.</td></tr>
 <tr><td><code>type</code></td> <td><code>0 = PROPOSAL</code>, <code>1 = PREVOTE</code>, <code>2 = PRECOMMIT</code></td> <td><code>timestamp</code> exists for
-wire compatibility with the CometBFT-native vote format (<a href="../04-architecture-decision.html">04 §2</a>); <strong>no validity rule on this page may read
+wire compatibility with the CometBFT-native vote format (<a href="../04-architecture-decision.md">04 §2</a>); <strong>no validity rule on this page may read
 it</strong> (<a href="index.html#GEN-06">GEN-06</a>: no wall clock in validation).</td></tr>
 </tbody></table>
 <table>
@@ -69,11 +69,7 @@ schedule (<a href="#CONS-13">CONS-13</a>). (ii) <code>P.proposer_index = propose
 verifies under the consensus public key committed at that index in <code>set_root(P.epoch)</code>. (iii) <code>block.parent_hash</code> is the hash of the block
 this validator has finalized at height <code>H-1</code> (<a href="#CONS-05">CONS-05</a>); for <code>H = H_0</code> the parent is the L1-committed genesis anchor
 (<a href="#CONS-14">CONS-14</a>). (iv) Local execution of <code>block</code> against the post-state of that parent succeeds and reproduces every header field it
-commits to (state root, receipts root, gas used, logs bloom, transaction root) — this is <a href="index.html#STATUS-02">STATUS-02</a>. (v) <strong>Every forced
-inclusion that is due at <code>H</code> is included.</strong> Let <code>Due(H)</code> be the set of L1 forced-inclusion requests that <a href="04-l1-integration.html#FI-02">FI-02</a> makes due at <code>H</code> (requests whose <code>include_by_height &le; H</code> and that are not already
-included in the finalized prefix below <code>H</code>). The block MUST contain each element of <code>Due(H)</code> exactly once, in the order FI-02 fixes,
-within the per-request gas limit FI-02 fixes. A block that omits a due request, duplicates one, includes one that is not yet due, or reorders the queue contrary
-to FI-02 is <strong>not valid</strong> at <code>(H,R)</code>. (vi) Every remaining validity rule of this specification holds (block gas limit, block size, DA
+commits to (state root, receipts root, gas used, logs bloom, transaction root) — this is <a href="index.html#STATUS-02">STATUS-02</a>. (v) <strong>The forced inclusions required at this height are included.</strong> <em>Dueness is defined in exactly one place</em>: <a href="04-l1-integration.html#FI-02">FI-02</a> computes, from L1 state, the ordered FIFO list of eligible uncovered requests, and this rule consumes that same list — there is no second definition and no height-based alternative. Let <code>DueCap(H)</code> be the first <code>min(|Due(H)|, MAX_FORCED_INCLUSIONS_PER_BATCH)</code> entries of that list. The block MUST contain every element of <code>DueCap(H)</code> exactly once, in FIFO order, and MUST NOT contain any request outside it. A block that omits a member of <code>DueCap(H)</code>, duplicates one, includes one that is not due in FIFO order, or reorders the queue contrary to FI-02 is <strong>not valid</strong> at <code>(H,R)</code>. Requiring the <em>capped prefix</em> and not the whole due set is what makes the duty satisfiable in bounded cost and prevents a permissionless queue-stuffing denial of service: an arbitrarily long queue can never make every proposal invalid, because each proposal must cover the oldest <code>MAX_FORCED_INCLUSIONS_PER_BATCH</code> eligible requests and the queue therefore drains at no less than that rate under continued production. (vi) Every remaining validity rule of this specification holds (block gas limit, block size, DA
 bounds; see <a href="04-l1-integration.html">04</a> and <a href="09-parameters.html">09</a>). A correct validator MUST NOT sign a prevote or a precommit for a
 proposal that fails (i)–(vi); its only legal alternative in that round is <code>NIL</code> (<a href="#CONS-02">CONS-02</a>). <strong>Slashing scope.</strong>
 Voting for an invalid proposal is an offence only where <strong>objective evidence exists</strong>: a deterministic checker whose inputs are (a) the signed
@@ -108,23 +104,29 @@ certificates possible without any party holding 1/3 of the stake. The uniqueness
 <span class="pill proven">Proven</span> <span class="small">(signing obligation: CometBFT signing spec, quoted in <a href="../research/recovery-and-withholding-raw.md">recovery-and-withholding-raw.md</a> §1.1)</span></div>
 <div class="rule" id="CONS-03"><span class="rid">CONS-03 — quorum: more than 2/3 of epoch voting power, distinct signers, stake-weighted</span> <span class="norm">Let epoch <code>e</code> have the committed set <code>v_0 … v_{n-1}</code> in canonical index order with integer voting powers <code>w_i &ge;
 1</code> and <code>W = &Sigma;_i w_i</code> (<a href="#CONS-10">CONS-10</a>; <a href="03-membership-staking.html#MEM-08">MEM-08</a> owns the L1-side
-construction). Voting power is taken only from that commitment — never from a vote, a certificate, a witness or a prover-supplied list (<a href="05-proof-statement.html#PRF-03">PRF-03</a>), and the same integers <code>w_i</code> are used for quorum and for proposer rotation (<a href="#CONS-06">CONS-06</a>); a design with two weight vectors has two different security thresholds and is a defect. For a set <code>Q</code> of distinct
+construction). Voting power is taken only from that commitment — never from a vote, a certificate, a witness or a prover-supplied list (<a href="05-proof-statement.html#PRF-03">PRF-03</a>), and the same integers <code>w_i</code> are used for quorum and for proposer selection (<a href="#CONS-06">CONS-06</a>); a design with two weight vectors has two different security thresholds and is a defect. For a set <code>Q</code> of distinct
 validator indices and a value <code>x</code> at <code>(H,R)</code> with <code>e = epoch_of(H)</code>:
-<br><code>power(Q) = &Sigma;_{i&isin;Q} w_i</code>
-<br><code>quorum(Q) &hArr; checked_mul(3, power(Q)) &gt; checked_mul(2, W)</code>
+<br><code>s = power(Q) = &Sigma;_{i&isin;Q} w_i</code>, the sum over the <strong>distinct authenticated signers</strong> in <code>Q</code> only
+<br><code>quorum(Q) &hArr; checked_mul(3, s) &gt; checked_mul(2, W)</code>
 <br><code>quorum_block(Q, B) &hArr; quorum(Q)</code> and every <code>i &isin; Q</code> signed <code>PRECOMMIT</code> for <code>BLOCK(B)</code> at
 <code>(H,R)</code>
 <br><code>polc(Q, x) &hArr; quorum(Q)</code> and every <code>i &isin; Q</code> signed <code>PREVOTE</code> for <code>x</code> at <code>(H,R)</code>, where
 <code>x &isin; BLOCK &cup; {NIL}</code>.
-<br><code>checked_mul</code> MUST abort on overflow, or the comparison MUST be evaluated in a type wide enough that <code>3·W</code> cannot wrap. Division,
-floating point, and any pre-rounded threshold are forbidden: the comparison is exactly <code>3·s &gt; 2·W</code>, so a set with <code>3·s = 2·W</code> does
-<strong>not</strong> reach quorum. The same comparison MUST be used by the L2 client, by the zkVM guest and by the L1 Inbox (<a href="05-proof-statement.html#PRF-04">PRF-04</a>); two implementations with different boundaries (strict vs non-strict) are a defect, because a certificate
-accepted by the chain would be rejected on L1 or the reverse (survey §3.2 records that the published CometBFT text does not expand its "+2/3" into a
-comparison).
+<br><strong>Exactly one predicate.</strong> The rule above is the whole quorum predicate, and it is the same predicate everywhere: the L2 client, the zkVM
+guest and the L1 Inbox MUST each evaluate exactly <code>3 * s &gt; 2 * W</code> over the same authenticated <code>s</code> and <code>W</code>, with checked
+arithmetic. <code>checked_mul</code> MUST abort on overflow, or the comparison MUST be evaluated in a type wide enough that <code>3·W</code> cannot wrap.
+Division, floating point, a stored or pre-computed threshold, a "<code>threshold + 1</code>" form and a "strictly greater than the threshold" form are all
+forbidden: the comparison is exactly <code>3·s &gt; 2·W</code>, so a set with <code>3·s = 2·W</code> does <strong>not</strong> reach quorum. A strict/non-strict
+mismatch, or a threshold compared instead of recomputed, is a protocol defect because it splits chain acceptance from L1 acceptance: a certificate the L2 accepts
+can be rejected by the guest or by the L1 contract, or the reverse, so a legitimately finalized block becomes unsettleable or a non-quorum certificate lands
+(survey §3.2 records that the published CometBFT text does not expand its "+2/3" into a comparison). <em>This closes review round 1 finding CS-09: the client
+already accepted <code>3s &gt; 2W</code> while the L1 threshold row and the guest predicate required <code>s</code> strictly greater than
+<code>floor(2W/3)+1</code>; <a href="04-l1-integration.html#L1-05">L1-05</a> row 12 and <a href="05-proof-statement.html#PRF-04">PRF-04</a>(iii) must be amended
+to this single predicate.</em>
 <br><strong>Distinct signers.</strong> A certificate carries (i) the <code>signers</code> bitmap of the encoding table and (ii) a list of exactly
 <code>popcount(signers)</code> signatures. Verification MUST require: <code>popcount(signers) = len(signatures)</code>; bit <code>i</code> set exactly when one
 signature by <code>v_i</code>'s committed Ed25519 key is present and verifies over the canonical vote bytes for <code>(H,R)</code>; no index counted twice; and
-<code>power</code> summed over set bits only. A duplicate signature, a signature whose bit is clear, a set bit with no signature, or a non-zero pad bit makes
+<code>s</code> summed over set bits only. A duplicate signature, a signature whose bit is clear, a set bit with no signature, or a non-zero pad bit makes
 the certificate invalid — never "partially counted". <code>NIL</code> votes never contribute to <code>quorum_block</code>.</span> <span class="why">Failure
 mode: a threshold computed by division accepts exactly 2/3 and lets a coalition of exactly one third block or forge finality; a signer counted twice inflates
 power; weight read from the certificate or the witness lets a prover mint its own quorum.</span>
@@ -153,7 +155,8 @@ round R, it's because it saw +2/3 of precommits at round R. This implies that 1/
 will remain locked until they see a PoLC at R' &gt; R, but this won't happen because 1/3+ are locked and honest, so at most -2/3 are available to vote for
 anything other than B.</em>" A certificate that exists but has not been published therefore can only <em>delay</em> a node that has not seen it; it cannot
 displace a decision already taken unless 1/3 or more of the epoch's power violates this rule or the signing rule, which is exactly the published
-fork-accountability lemma ("the union of the JSets for both commits … must include double-signing by at least 1/3+ of the validator set", S1). This claim is
+fork-accountability lemma ("the union of the JSets for both commits … must include double-signing by at least 1/3+ of the validator set", S1); that lemma's
+conclusion is conditional on the JSets being compilable, and its evidentiary reach is narrowed in <a href="#CONS-09">CONS-09</a>(4)(a). This claim is
 conditional on <strong>A-CONS-1</strong> and on correct validators executing (1)–(4).</span> <span class="why">Failure mode: an implementation that unlocks on a
 same-round PoLC, on a later round at another height, or on the proposal's <code>pol_round</code> field alone, admits a conflicting commit with no slashable
 signer; a validator that loses its lock on restart can vote for a conflicting block.</span>
@@ -178,36 +181,21 @@ Publication is a liveness aid: no safety argument on this page depends on any re
 unprovable negative; a withheld certificate then appears to invalidate a decision already taken, which is the failure Mode A forbids (D2).</span>
 <span class="pill proven">Proven</span> <span class="small">(the <code>&gt;2/3</code> boundary is <a href="#CONS-03">CONS-03</a>; data availability is checked
 locally and is non-transferable)</span></div>
-<div class="rule" id="CONS-06"><span class="rid">CONS-06 — leader selection: deterministic weighted rotation</span> <span class="norm">Let epoch <code>e</code>
-have committed weights <code>w_0 … w_{n-1}</code> (<code>w_i &ge; 1</code>), <code>W = &Sigma; w_i</code>, and cumulative sums <code>cum_i = w_0 + … +
-w_i</code> with <code>cum_{-1} = 0</code>. For a height <code>H</code> in epoch <code>e</code>, let <code>h_first(e) = H_0 + e·L</code> (<a href="#CONS-13">CONS-13</a>). The proposer of <code>(H,R)</code> is
-<br><code>pos(H,R) = ((H - h_first(e)) + R) mod W</code>
+<div class="rule" id="CONS-06"><span class="rid">CONS-06 — leader selection: deterministic stake-weighted selection</span> <span class="norm">Let epoch <code>e</code>
+have committed weights <code>w_0 … w_{n-1}</code> (<code>w_i &ge; 1</code>) in the canonical order of <code>set_root(e)</code> (<a href="03-membership-staking.html#MEM-08">MEM-08</a>), <code>W = &Sigma; w_i</code>, and cumulative sums <code>cum_i = w_0 + … +
+w_i</code> with <code>cum_{-1} = 0</code>. For a height <code>H</code> in epoch <code>e</code> and a round <code>R</code>, the proposer is selected uniformly in weight by a hash:
+<br><code>pos(H,R) = uint256(keccak256(abi.encode(DOMAIN_PROPOSER, chainId, epoch, H, R))) mod W</code>
 <br><code>proposer(H,R) = </code> the unique <code>i</code> with <code>cum_{i-1} &le; pos(H,R) &lt; cum_i</code>.
-<br>The intervals are half-open, so exactly one index matches whenever every <code>w_i &ge; 1</code>; there are no ties, and the half-open convention at an
-exact boundary is the whole tie-breaking rule: the <strong>lower index wins</strong>. <code>pos</code> is reduced modulo <code>W</code>, so it always lies in
-<code>[0, W)</code>. A set with <code>w_i = 0</code>, <code>n = 0</code> or <code>W = 0</code> is invalid (<a href="#CONS-10">CONS-10</a>).
-<br><strong>It is a pure function of <code>(epoch, H, R)</code>.</strong> This is required, not cosmetic: a scheme whose proposer depends on a node's local
-round history can put two different proposers at the same <code>(H,R)</code> and split the vote. Every correct node computes the same proposer for the same
-round regardless of the path by which it arrived.
-<br><strong>The rotation property.</strong> At any fixed round <code>R</code>, as <code>H</code> runs over any <code>W</code> consecutive heights of one epoch, the value
-<code>pos</code> takes each residue in <code>[0, W)</code> exactly once; hence validator <code>i</code> is proposer exactly <code>w_i</code> times in that
-window. Therefore any coalition <code>C</code> with <code>&Sigma;_{i&isin;C} w_i &lt; W/3</code> is proposer on strictly fewer than one third of the slots in
-every such window — a sub-threshold cartel never reaches one third of proposer slots. The same counting applies over any <code>W</code> consecutive slots <code>(H,R)</code> in row-major order within one epoch.
-<br><strong>What this does not claim.</strong> The property is over proposer <em>slots</em>, not over produced blocks: a cartel that forces timeouts on honest
-slots can increase its share of produced blocks. That is a liveness and ordering surface (threat T-6), handled by the timeout ladder (<a href="#CONS-07">CONS-07</a>) and the forced-inclusion escape hatch (<a href="04-l1-integration.html#FI-03">FI-03</a>); it is not a safety surface. Selection is
-a public deterministic function, so the next proposer is predictable far in advance; the disclosure obligation for that predictability, and any mitigation,
-belong to <a href="10-assurance.html#LIM-01">LIM-01</a>.
-<br><strong>Proposer privilege.</strong> A proposer may broadcast at most one proposal valid at <code>(H,R)</code> (two distinct signed proposals at one round
-are equivocation, <a href="#CONS-11">CONS-11</a>). It has no other power: it cannot finalize anything, cannot choose the validator set, and every validator
-checks <a href="#CONS-01">CONS-01</a> itself.
-<br><strong>Unit.</strong> <code>w_i</code> are the same integers used for quorum, and <a href="09-parameters.html#PARAM-01">PARAM-01</a> must fix their unit
-with <a href="03-membership-staking.html#MEM-02">MEM-02</a>. The count above is exact in those integers and practically meaningful only if <code>W</code> is a
-modest integer; the stake-to-unit mapping, its quantization error and its tag are MEM-02's and are <span class="pill unmeasured">unmeasured</span> here.</span>
-<span class="why">Failure mode: a proposer rule that depends on local state splits a round between two proposers; a rule with undefined tie-breaking lets two
-implementations disagree at a boundary; a rule that weights by anything other than the committed set (e.g. by hash without weights, or by arrival order) lets a
-sub-threshold coalition capture more than its share of slots.</span>
-<span class="pill proven">Proven</span> <span class="small">(the window identity is a counting argument over residues; see the modifications table,
-M6)</span></div>
+<br><code>DOMAIN_PROPOSER</code> is the right-padded ASCII tag <code>"TAIKO_ETNA_PROPOSER_V1"</code> with <code>chainId</code> as the second field, encoded by the one canonical
+<code>abi.encode</code> of <a href="index.html#GEN-05">GEN-05</a> (typed <code>u256, u64, u64, u32</code> after the tag); the tag is never used for another object. The intervals are half-open, so exactly one index matches whenever every <code>w_i &ge; 1</code>; there are no ties, and the half-open convention at an exact boundary is the whole tie-breaking rule: the <strong>lower index wins</strong>. <code>pos</code> is reduced modulo <code>W</code>, so it always lies in <code>[0, W)</code>. A set with <code>w_i = 0</code>, <code>n = 0</code> or <code>W = 0</code> is invalid (<a href="#CONS-10">CONS-10</a>).
+<br><strong>(a) Pure function of the committed inputs.</strong> The proposer of <code>(H,R)</code> is a pure function of <code>(chainId, epoch_of(H), H, R)</code> and the authenticated set <code>set_root(epoch_of(H))</code> — never of a node's local round history, arrival order, proposal or witness. Every correct node computes the same proposer for the same <code>(H,R)</code> regardless of the path by which it arrived, so a round cannot be split between two proposers.
+<br><strong>(b) Uniform in weight; the fairness claim is Assumed.</strong> Exactly <code>w_i</code> of the <code>W</code> residues in <code>[0, W)</code> lie in validator <code>i</code>'s interval, so if <code>pos</code> is uniform on <code>[0, W)</code> then validator <code>i</code> is proposer with probability exactly <code>w_i / W</code>, the residue structure is uniform (no interval is privileged by its position, so the lowest-sorted validator has no systematic advantage), and a coalition <code>C</code> with <code>&Sigma;_{i&isin;C} w_i &lt; W/3</code> proposes strictly fewer than one third of the slots <strong>in expectation</strong>. The counting argument is exact in the committed integers; the step that turns it into a probability statement — that <code>pos</code> is uniform — rests on keccak256 behaving as a random oracle, which A-CRYPTO-3 (collision resistance) does not supply, so the fairness claim is <strong>Assumed</strong>, not proven, and it is an expectation, not a bound on any finite window: unlike the superseded residue rotation, this rule does not claim that every <code>W</code>-height window contains exactly <code>w_i</code> proposer slots for validator <code>i</code>.
+<br><strong>(c) Modulo bias is negligible and bounded.</strong> The reduction <code>mod W</code> makes the probability of each residue differ from the uniform <code>1 / W</code> by at most <code>2^-256</code>, so validator <code>i</code>'s selection probability deviates from <code>w_i / W</code> by at most <code>w_i / 2^256 &le; W / 2^256</code>: for any <code>W ≪ 2^256</code> — the case for every TAIKO base-unit total, where <code>W</code> is far smaller than the 256-bit hash range — the bias is negligible. No second quantization of the weights is introduced to "help" the reduction: the <code>w_i</code> here are exactly the integers used for quorum (<a href="#CONS-03">CONS-03</a>).
+<br><strong>(d) Publicly verifiable from the set root alone.</strong> Anyone — a validator, a light client, a full node, an L1 contract, a user — holding the L1-committed <code>set_root(epoch_of(H))</code> and the tuple <code>(chainId, epoch_of(H), H, R)</code> can recompute <code>pos</code>, locate the interval and name the proposer, with no witness, certificate, proposal, participation proof or cooperation from any validator.
+<br><strong>What this does not claim.</strong> The property is over proposer <em>slots</em>, not over produced blocks: a cartel that forces timeouts on honest slots can increase its share of produced blocks. That is a liveness and ordering surface (threat T-6), handled by the timeout ladder (<a href="#CONS-07">CONS-07</a>) and the forced-inclusion escape hatch (<a href="04-l1-integration.html#FI-03">FI-03</a>); it is not a safety surface. Selection is a public deterministic function, so the next proposer is predictable far in advance; the disclosure obligation for that predictability, and any mitigation, belong to <a href="10-assurance.html#LIM-01">LIM-01</a>.
+<br><strong>Proposer privilege.</strong> A proposer may broadcast at most one proposal valid at <code>(H,R)</code> (two distinct signed proposals at one round are equivocation, <a href="#CONS-11">CONS-11</a>). It has no other power: it cannot finalize anything, cannot choose the validator set, and every validator checks <a href="#CONS-01">CONS-01</a> itself.
+<br><strong>Unit.</strong> <code>w_i</code> are the same integers used for quorum, and <a href="09-parameters.html#PARAM-01">PARAM-01</a> must fix their unit with <a href="03-membership-staking.html#MEM-02">MEM-02</a>. The stake-to-unit mapping, its quantization error and its tag are MEM-02's and are <span class="pill unmeasured">unmeasured</span> here. No modest value of <code>W</code> is required: the rule is well defined for every <code>W &ge; 1</code>, and the bound of (c) is what makes a large <code>W</code> safe.</span> <span class="why">Failure mode: a proposer rule that depends on local state splits a round between two proposers; a rule with undefined tie-breaking lets two implementations disagree at a boundary; a rule that weights by anything other than the committed set (e.g. by hash without weights, or by arrival order) lets a sub-threshold coalition capture more than its share of slots; a residue rotation whose index is in weight units makes the first-sorted validator the proposer of effectively every height.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="small">(determinism, well-definedness and the interval counting are proven in the committed integers; the uniform-weight fairness of (b) is Assumed on the hash's uniformity and is an expectation, not a per-window bound — see the modifications table, M6. <em>This closes review round 1 finding CS-02: the superseded residue rotation in weight units left every position inside the first weight interval, so one minimum-bond key proposed every height.</em>)</span></div>
 <div class="rule" id="CONS-07"><span class="rid">CONS-07 — round timeouts, view change and the adaptive ladder</span> <span class="norm">(1) Every timeout is a
 duration in <strong>seconds</strong>. No timeout is expressed in L1 slots, no rule depends on Ethereum proposer lookahead or on a fixed L1 slot duration, and no
 <em>validity</em> rule reads a wall clock (<a href="index.html#GEN-06">GEN-06</a>, R12); wall clocks pace local signing and timeout actions only. (2)
@@ -257,9 +245,10 @@ Mode A's permanence guarantee silently disappears (a D2 violation).</span>
 <div class="rule" id="CONS-09"><span class="rid">CONS-09 — epoch handoff and lock carry-over (the delicate modification, F1)</span> <span class="norm">Let
 <code>h_last(e) = H_0 + (e+1)·L - 1</code> be the last height of epoch <code>e</code>, <code>h_first(e+1) = h_last(e) + 1</code>, and <code>B_anchor</code> the
 block at <code>h_last(e)</code> finalized under epoch <code>e</code>'s set. (1) <strong>Anchor commitment.</strong> The first block of epoch <code>e+1</code>
-MUST carry in its header <code>epoch_anchor = (h_last(e), hash(B_anchor), cert_hash(e))</code>, where <code>cert_hash(e)</code> is the hash of
-<code>B_anchor</code>'s epoch-<code>e</code> commit certificate (<a href="index.html#GEN-05">GEN-05</a> encoding, domain tag
-<code>"TAIKO_ETNA_ANCHOR_V1"</code>). Its parent MUST be <code>B_anchor</code>. (2) <strong>Validator duty.</strong> A correct validator MUST NOT prevote or
+MUST carry in its header the <code>epoch_anchor</code> field defined in <a href="#CONS-10">CONS-10</a>(6): the canonical commitment under domain tag
+<code>"TAIKO_ETNA_ANCHOR_V1"</code> to the tuple <code>(h_last(e), hash(B_anchor), cert_hash(e))</code>, where <code>hash(B_anchor)</code> is the hash of the
+last block finalized in the closing epoch <code>e</code> and <code>cert_hash(e)</code> is the canonical certificate hash of <code>B_anchor</code>'s
+epoch-<code>e</code> commit certificate, with the exhaustive field list of <a href="#CONS-10">CONS-10</a>(6). Its parent MUST be <code>B_anchor</code>. (2) <strong>Validator duty.</strong> A correct validator MUST NOT prevote or
 precommit any block of epoch <code>e+1</code> unless it has itself verified a valid epoch-<code>e</code> commit certificate for <code>B_anchor</code> (<a href="#CONS-03">CONS-03</a>, <a href="#CONS-05">CONS-05</a>) and the parent linkage of (1). The certificate may be obtained by gossip from any peer; the check
 is on the object, not on the sender. A validator that cannot obtain it stays silent or prevotes <code>NIL</code>; the consequence is a stall at the boundary,
 which is a liveness failure, not a safety one. (3) <strong>Lock carry-over.</strong> Lock state (<a href="#CONS-04">CONS-04</a>) is NOT reset at the epoch
@@ -267,19 +256,28 @@ boundary. A validator locked at any height retains that lock and its obligations
 anchor check of (1)–(2) is what takes the lock's place for it — it must build on a block finalized by the previous set rather than on a block it merely
 received. (4) <strong>The argument.</strong> Suppose two conflicting blocks are finalized across the boundary. Heights are partitioned by epoch and a
 certificate for a height in epoch <code>e</code> can only be an epoch-<code>e</code> certificate (CONS-08(1)), so there are two cases. <em>(a)</em> The conflict
-is a pair of epoch-<code>e</code> certificates for one height. Two quorums of epoch <code>e</code> then signed conflicting precommits at that height, or
-violated the lock rule; by <a href="#CONS-03">CONS-03</a> the quorums intersect in more than one third of the epoch's power, and the published
-fork-accountability lemma applies: the union of the JSets of the two commits "must include double-signing by at least 1/3+ of the validator set" (S1). So at
-least one third of epoch <code>e</code>'s power is objectively slashable (<a href="#CONS-11">CONS-11</a>). <em>(b)</em> The conflict is between
+is a pair of epoch-<code>e</code> certificates for one height. Two quorums of epoch <code>e</code> then signed conflicting precommits at that height, so by
+<a href="#CONS-03">CONS-03</a> the quorums intersect in more than one third of the epoch's power. What that intersection proves is exactly this and no more:
+a signer that signed conflicting values at the <em>same</em> <code>(H,R)</code> has produced a same-<code>(height, round)</code> conflicting signed pair, which is
+<strong>always slashable</strong> and is the <strong>only lock-related offence with admissible evidence</strong> (<a href="#CONS-11">CONS-11</a>;
+<a href="07-economics-slashing.html#ECON-04">ECON-04</a>'s lock row). A signer that signed the two values at different rounds <code>R1 &lt; R2</code> may be fully
+compliant: <a href="#CONS-04">CONS-04</a>(2) permits unlocking against a PoLC at a round <code>p</code> with <code>R1 &lt; p &lt; R2</code> and
+<a href="#CONS-04">CONS-04</a>(4) requires exactly such a PoLC before precommitting the second value, so the two certificates alone do not prove misconduct. The
+published fork-accountability lemma's conclusion — "the union of the JSets for both commits, <em>if they can be compiled</em>, must include double-signing by at
+least 1/3+ of the validator set" (S1) — is conditional on that compilation, and a withholding adversary (T-4) that reveals only the two certificates prevents it.
+Therefore a cross-round or cross-epoch divergence may leave <strong>no admissible evidence</strong> under withholding, and the statement "at least one third is
+punishable" is <strong>Assumed</strong>, not established; it MUST NOT be presented as a deterrent guarantee, and the limitation row for it is owed to the
+<a href="10-assurance.html#LIM-01">LIM-01</a> register (page 10). <em>This closes review round 1 finding CS-07: objective slashability is narrowed to the
+same-(height, round) conflicting pair, and cross-round divergence under withholding is Assumed, not established.</em> <em>(b)</em> The conflict is between
 <code>B_anchor</code> and a block <code>B'</code> at <code>h_first(e+1)</code> that does not descend from it. <code>B'</code> needs more than 2/3 of epoch
 <code>e+1</code>'s precommits, and every correct signer among them verified an epoch-<code>e</code> certificate for <code>B'</code>'s parent <code>B''</code> at
 <code>h_last(e)</code> by (2). Now <code>B'' &ne; B_anchor</code> and both are at the same height with epoch-<code>e</code> certificates: that is case (a)
 again. Case (b) therefore offers no escape, and a conflicting history across the boundary requires at least one third of epoch <code>e</code>'s power to have
-violated the signing or lock rules. (5) <strong>Status: ASSUMED-WITH-ARGUMENT, not proven.</strong> The published CometBFT Proof of Safety assumes the validator
+violated the signing or lock rules — though, as (a) states, only the same-(height, round) part of that violation is objectively evidenced. (5) <strong>Status: ASSUMED-WITH-ARGUMENT, not proven.</strong> The published CometBFT Proof of Safety assumes the validator
 set for a height is known to all correct nodes and that application-driven updates are visible before use; the epoch-quantized, L1-authenticated handoff
-replaces that (<a href="../04-architecture-decision.html">04 §2.1</a>, M2) and <a href="../04-architecture-decision.html">04 §7</a> records it as open falsifier
+replaces that (<a href="../04-architecture-decision.md">04 §2.1</a>, M2) and <a href="../04-architecture-decision.md">04 §7</a> records it as open falsifier
 <strong>F1</strong>. What the argument above does not cover, and what an independent proof must cover: (i) that implementations actually execute (1)–(3) — a
-shortcut here removes the entire safety argument; (ii) the case where the anchor certificate is not disseminated (a stall, not a safety loss); (iii) the
+shortcut here removes the entire safety argument and is therefore forbidden (<a href="#CONS-10">CONS-10</a>(6), which fixes the fields the shortcut omits); (ii) the case where the anchor certificate is not disseminated (a stall, not a safety loss); (iii) the
 interaction with <code>next_validators_hash</code> authentication when <code>e+1</code>'s set root was committed during <code>e</code> (<a href="#CONS-10">CONS-10</a>, <a href="#CONS-13">CONS-13</a>); (iv) misconfigured epoch length or set commitments. Consequence of failure: fault class
 <strong>F2</strong> (<a href="../01-requirements-and-threat-model.md">01 §5</a>) — two conflicting histories can be finalized with nobody slashable, and every
 permanence claim of Mode A fails.</span> <span class="why">Failure mode: an implementation that lets epoch <code>e+1</code>'s set sign blocks without checking
@@ -288,37 +286,68 @@ the epoch-<code>e</code> anchor creates a fresh-quorum fork at the boundary in w
 <span class="pill assumed">Assumed</span> <span class="pill open">Open</span> <span class="small">(closed by the independent review of F1: a proof or a
 mechanized argument covering (i)–(iv); a concrete counterexample reopens the modification)</span></div>
 <div class="rule" id="CONS-10"><span class="rid">CONS-10 — validator-set authentication in block headers</span> <span class="norm">(1) Every block header
-carries two commitments: <code>validators_hash</code>, the commitment to the set of <code>epoch_of(H)</code>, and <code>next_validators_hash</code>, the
-commitment to the set of <code>epoch_of(H)+1</code>. Both use the single canonical encoding below. (2) Canonical encoding (<a href="index.html#GEN-05">GEN-05</a>: one <code>abi.encode</code>, domain tag and chain id first, never packed):
-<br><code>set_bytes(e) = abi.encode("TAIKO_ETNA_SET_V1", chain_id:u256, e:u64, n:u32, [(validator_index:u32, consensus_pubkey:bytes32, voting_power:u64,
-l1_account:address) for i in 0..n-1])</code>
-<br><code>set_root(e) = keccak256(set_bytes(e))</code>
-<br>The list is in ascending <code>validator_index</code> order; indices are <code>0 … n-1</code> with no gaps and are stable within the epoch;
-<code>consensus_pubkey</code> is the 32-byte Ed25519 key (RFC&nbsp;8032); <code>voting_power</code> is the <code>w_i</code> of <a href="#CONS-03">CONS-03</a>;
-<code>l1_account</code> is the stake owner and slashing target (<a href="03-membership-staking.html#MEM-06">MEM-06</a>). A set with <code>n = 0</code>, a
-duplicate or missing index, a zero <code>voting_power</code>, or a malformed key is invalid. (3) Transitions. The <code>validators_hash</code> of the first
+carries two set commitments, <code>validators_hash</code>, the commitment to the set of <code>epoch_of(H)</code>, and <code>next_validators_hash</code>, the
+commitment to the set of <code>epoch_of(H)+1</code>. Both <strong>are</strong> the L1-committed validator-set root of <a href="03-membership-staking.html#MEM-08">MEM-08</a>: <code>validators_hash = R_{setVersion(epoch_of(H))}</code> and <code>next_validators_hash = R_{setVersion(epoch_of(H)+1)}</code>. The header fields add no encoding of their own (*review round 1, finding B R1-05*). In addition to these two set commitments, the header carries the two
+epoch-transition fields defined in (6): <code>epoch_anchor</code> and <code>set_version_commit</code>. (2) <strong>Single owner of the encoding.</strong> <a href="03-membership-staking.html#MEM-08">MEM-08</a> is the sole owner; there is no second, flat or differently-typed encoding of a validator set in this specification, and this rule may not define one. In full:
+<br>A leaf is <code>keccak256(abi.encode(DOMAIN_SET_LEAF, chainId, k, index, pubkey, effStake))</code>; an interior node is
+<code>keccak256(abi.encode(DOMAIN_SET_NODE, chainId, k, left, right))</code>; entries are ordered ascending by
+<code>keccak256(abi.encode(DOMAIN_SET_KEY, chainId, pubkey))</code>; odd nodes are promoted unchanged and never duplicated; the domain tags, the empty-set
+tag, the field types and the invalid-set conditions are exactly <a href="03-membership-staking.html#MEM-08">MEM-08</a>'s. What the root commits to is
+<a href="03-membership-staking.html#MEM-08">MEM-08</a>(4)'s "exactly": the chain id, the set version <code>k</code> and the ordered
+<code>(pubkey, effStake)</code> pairs, where <code>effStake</code> is TAIKO base units as a <code>uint256</code> — never a truncated <code>u64</code> — and
+<em>not</em> owner addresses, bond age or any score. A set with <code>n = 0</code>, a duplicate or missing index, a zero effective stake, or a malformed key is
+invalid. Below, <code>set_root(e)</code> denotes the root this encoding produces for the set version governing epoch <code>e</code>, read from the L1
+per-epoch mapping of <a href="03-membership-staking.html#MEM-09">MEM-09</a>(2). (3) Transitions. The <code>validators_hash</code> of the first
 block of epoch <code>e</code> and the <code>next_validators_hash</code> of the last block of epoch <code>e-1</code> MUST both equal the L1-committed
 <code>set_root(e)</code> (<a href="03-membership-staking.html#MEM-08">MEM-08</a>, <a href="03-membership-staking.html#MEM-09">MEM-09</a>). The staking contract
-computes <code>set_root(e)</code> itself from its own state; no proposer, signer, relayer, witness or prover supplies it (<a href="05-proof-statement.html#PRF-03">PRF-03</a>). Because the encoding is fixed, a mismatch is detectable by anyone, and two different values for one epoch are
+computes <code>set_root(e)</code> itself from its own state and stores it in the L1 per-epoch mapping (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2)); no proposer, signer, relayer, witness or prover supplies it (<a href="05-proof-statement.html#PRF-03">PRF-03</a>). Because the encoding is fixed, a mismatch is detectable by anyone, and two different values for one epoch are
 a conflict that halts the L2 (<a href="#CONS-15">CONS-15</a>) rather than a choice. (4) Authentication procedure for a light client or a zkVM guest. Starting
 from an anchored header, walk the header chain by parent hash; at an epoch change require the new header's <code>validators_hash</code> to equal its
-predecessor's <code>next_validators_hash</code>; take the epoch-<code>e</code> set as a witness, recompute <code>keccak256(set_bytes(e))</code>, and require
+predecessor's <code>next_validators_hash</code>; take the epoch-<code>e</code> set as a witness, recompute the MEM-08 Merkle root from its leaves and interior nodes, and require
 equality with (i) the head's <code>validators_hash</code> and (ii) the epoch's L1-committed root exposed as a public input. Only after both equalities hold may
 the certificate's signer keys and weights be used (<a href="05-proof-statement.html#PRF-05">PRF-05</a>). A verifier that skips the comparison is trusting the
 witness. (5) The commitment is over the whole set, not over individual stakes; a verifier that recomputes the root from a different set and matches it has found
-a collision (assumption A-CRYPTO-3). The encoding has no ambiguity because it is a single <code>abi.encode</code> of typed fields; a second, ad-hoc encoding of
-the same set is a defect.</span> <span class="why">Failure mode: a prover-supplied or proposer-supplied set lets the attacker define the quorum that judges it;
+a collision (assumption A-CRYPTO-3). A second encoding is forbidden, not merely discouraged: if a flat hash or any other preimage were also admissible, one of the two bindings — the header-field equality of (1)/(3) or the Merkle membership proof of MEM-08(6)/PRF-03 — could be satisfied while the other failed silently, and a set substitution would pass whichever check the implementation happened to keep.<br>(6) <strong>Epoch-transition header fields and their canonical encodings.</strong> In this clause <code>e</code> is the epoch being closed and
+<code>e+1</code> the epoch being opened, as in <a href="#CONS-09">CONS-09</a>. The first block of epoch <code>e+1</code> MUST carry the two fields below; every other block header MUST carry both as zero, so the header hash stays a pure function of the block's own content. All three hashes are single
+canonical <a href="index.html#GEN-05">GEN-05</a> <code>abi.encode</code>s with their own right-padded ASCII domain tag, and each tag is used for exactly one
+object.
+<br><code>epoch_anchor = keccak256(abi.encode("TAIKO_ETNA_ANCHOR_V1", chainId, h_last(e), hash(B_anchor), cert_hash(e)))</code> — the canonical commitment to
+the tuple of <a href="#CONS-09">CONS-09</a>(1), where <code>hash(B_anchor)</code> is the hash of the block at <code>h_last(e)</code>, the last block finalized
+in the closing epoch <code>e</code>. A verifier that holds <code>B_anchor</code> and its certificate recomputes <code>hash(B_anchor)</code> and
+<code>cert_hash(e)</code> and compares; a header whose <code>epoch_anchor</code> does not recompute from the certificate it presents is invalid.
+<br><code>cert_hash = keccak256(abi.encode("TAIKO_ETNA_CERT_V1", chainId, epoch, height, round, block_id_kind, block_id_value, set_root, signers, signatures))</code>
+over exactly the fields of the <code>CommitCertificate</code> object of the encoding table: <code>block_id_kind</code>/<code>block_id_value</code> the
+tagged-union encoding of the certificate's block id, <code>set_root</code> the certificate's epoch set root, <code>signers</code> the <code>bytes</code>
+validator bitmap, and <code>signatures</code> the <code>bytes[]</code> list ordered by ascending signer index. The field list is exhaustive: a hash over any
+other field set, any other field order, or any other signature order is a different object and MUST NOT be accepted as <code>cert_hash</code>.
+<br><code>set_version_commit = keccak256(abi.encode("TAIKO_ETNA_SETVERSION_V1", chainId, epoch, set_version, N))</code> for the
+<strong>epoch the first block belongs to</strong> — <code>epoch = e+1</code> — where <code>(set_version, N)</code> is the pair
+<code>(setVersion(e+1), N(setVersion(e+1)))</code> of that epoch's L1 mapping entry, <code>N</code> being the L1 block number of the
+<code>commitSet()</code> call whose state produced <code>set_root(e+1)</code> (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2), which owns the value
+rule; this clause owns the encoding).
+<br><strong>The shortcut is forbidden.</strong> The handoff of <a href="#CONS-09">CONS-09</a> is sound only if implementations actually carry and check the
+anchor: omitting <code>epoch_anchor</code>, carrying a value that is never recomputed from <code>B_anchor</code>'s certificate, carrying a non-zero
+<code>set_version_commit</code> that does not recompute from the L1 mapping entry, or letting epoch <code>e+1</code>'s set sign without the check, removes the
+entire safety argument of <a href="#CONS-09">CONS-09</a>(4) — the shortcut named in <a href="#CONS-09">CONS-09</a>(5)(i) — and is therefore
+<strong>forbidden</strong>. <em>This closes review round 1 finding CS-08: CONS-09(1) and MEM-09(2) required header commitments that no rule encoded, and
+<code>cert_hash</code> had no canonical field list.</em></span> <span class="why">Failure mode: a prover-supplied or proposer-supplied set lets the attacker define the quorum that judges it;
 the L1 comparison must be checkable from a header field, not inferred from the certificate.</span>
 <span class="pill proven">Proven</span> <span class="small">(premise: A-CRYPTO-3, collision resistance of keccak256)</span></div>
 <div class="rule" id="CONS-11"><span class="rid">CONS-11 — equivocation: definition, evidence and who may submit</span> <span class="norm"><strong>Definition.</strong> Validator <code>v</code> equivocates at <code>(H,R)</code> if it produces two signed messages <code>m1 &ne; m2</code>
 with <code>type(m1) = type(m2) &isin; {PROPOSAL, PREVOTE, PRECOMMIT}</code>; identical <code>chain_id</code>, <code>height = H</code>, <code>round = R</code>
-and <code>validator_index = v</code>; and different signed values — for votes <code>block_id(m1) &ne; block_id(m2)</code>, where <code>NIL</code> differs from
-every <code>BLOCK(x)</code> by construction of the tagged union, and for proposals <code>block_hash(m1) &ne; block_hash(m2)</code>. Signing a prevote for
+and <code>validator_index = v</code>; and either different signed values — for votes <code>block_id(m1) &ne; block_id(m2)</code>, where <code>NIL</code> differs
+from every <code>BLOCK(x)</code> by construction of the tagged union, and for proposals <code>block_hash(m1) &ne; block_hash(m2)</code> — or different signed
+<code>epoch</code> fields. A pair of that second form is a conflict under the <strong>epoch-agreement check</strong>: at one <code>(H,R)</code> at most one epoch value can equal
+<code>epoch_of(H)</code> (<a href="#CONS-08">CONS-08</a>(1)), so a pair whose signed epochs differ is a conflict even when the block values coincide, and an
+epoch-mismatched pair MUST NOT be treated as a non-conflict. Signing a prevote for
 <code>X</code> and a precommit for <code>Y &ne; X</code> at the same <code>(H,R)</code> is <strong>not</strong> equivocation: it is the normal step sequence.
 Signing at different rounds or different heights is not equivocation.
 <br><strong>Evidence.</strong> The evidence object is the pair <code>(m1, m2)</code> with both signatures, plus <code>e = epoch_of(H)</code>. It is
-<strong>self-authenticating</strong>: a checker holding the L1-committed <code>set_root(e)</code> verifies both signatures against the public key at
-<code>v</code>'s index, checks that the objects are distinct and agree on <code>(chain_id, H, R, type, validator_index)</code>, and concludes the offence. No
+<strong>self-authenticating</strong>: a checker verifies each signature against the public key committed for <code>v</code> at its index in the set that the
+object's own signed <code>epoch</code> field names (<a href="03-membership-staking.html#MEM-07">MEM-07</a>(4)), with each named epoch's root reconstructible from
+L1 (<a href="#CONS-08">CONS-08</a>(3)); checks that the objects are distinct and agree on <code>(chain_id, H, R, type, validator_index)</code>; applies the
+epoch-agreement check — if the two signed epoch fields are equal, both MUST equal <code>epoch_of(H)</code>, and if they differ the pair is admitted as evidence
+and the object whose epoch field is not <code>epoch_of(H)</code> is itself an invalid vote under <a href="#CONS-08">CONS-08</a>(1) — and concludes the offence. No
 further witness, no P2P receipt, no participation proof and no other validator's cooperation is needed. Conversely, failure to receive a message is never
 evidence (threat T-15; <a href="index.html#STATUS-09">STATUS-09</a>).
 <br><strong>Who may submit.</strong> Any party — a validator, a full node, a user, a third party, or a contract — may assemble and submit evidence. The process
@@ -331,7 +360,9 @@ spec, quoted in <a href="../research/recovery-and-withholding-raw.md">recovery-a
 proposer misbehaviour that is objectively evidenced (<a href="#CONS-01">CONS-01</a>).</span> <span class="why">Failure mode: an under-specified definition — for
 example treating a prevote/precommit pair as a conflict, or requiring the two messages to be of different types — either makes honest validators slashable or
 makes real equivocation unprovable; requiring a validator as submitter leaves the offence unpunished by default.</span>
-<span class="pill proven">Proven</span> <span class="small">(evidence check needs only the two signed objects and the L1-committed set)</span></div>
+<span class="pill proven">Proven</span> <span class="small">(evidence check needs only the two signed objects and the L1-committed set. <em>This closes review
+round 1 finding CS-11: the evidence predicate did not require the two objects to agree on the signed epoch field, so an epoch-mismatched pair could escape the
+evidence rule.</em>)</span></div>
 <div class="rule" id="CONS-12"><span class="rid">CONS-12 — the safety invariant: uniqueness of the finalized prefix</span> <span class="norm"><strong>Invariant.</strong> Under the premises below, if certificate <code>C1</code> finalizes block <code>B1</code> at height <code>H1</code> and
 certificate <code>C2</code> finalizes block <code>B2</code> at height <code>H2 &le; H1</code> (each valid per <a href="#CONS-03">CONS-03</a> and <a href="#CONS-05">CONS-05</a>), then the ancestor of <code>B1</code> at <code>H2</code> is <code>B2</code>: the finalized prefix is unique.
 <br><strong>Premises (all of them; none may be silently dropped).</strong> (a) <strong>A-CONS-1</strong>: Byzantine stake is strictly below 1/3 of the stake
@@ -342,8 +373,13 @@ or a prover (<a href="05-proof-statement.html#PRF-03">PRF-03</a>). (d) The epoch
 <strong>ASSUMED-WITH-ARGUMENT, not proven</strong>. The cross-epoch component of this invariant therefore inherits that status.
 <br><strong>Argument within an epoch.</strong> Two quorums at one height each satisfy <code>3·s1 &gt; 2·W</code> and <code>3·s2 &gt; 2·W</code>, hence
 <code>3·(s1+s2) &gt; 4·W</code> and the intersection of the two signer sets exceeds <code>W/3</code>. The published Proof of Safety then shows that one third or
-more of honest, locked validators prevent a conflicting commit unless one third or more violate the lock or signing rules, and the fork-accountability lemma
-makes exactly that violation slashable (S1; survey §3.2). This argument transfers unchanged from CometBFT <strong>for a fixed epoch set</strong>.
+more of honest, locked validators prevent a conflicting commit unless one third or more violate the lock or signing rules. <strong>That violation is not
+automatically evidenced.</strong> The fork-accountability lemma concludes that the union of the JSets includes double-signing by at least 1/3+ only <em>if the
+JSets can be compiled</em> (S1; survey §3.2), and the admissible evidence predicate of <a href="#CONS-11">CONS-11</a> accepts only
+same-<code>(height, round)</code> pairs, so a cross-round or cross-epoch divergence under a withholding adversary may be unpunishable; the reading "at least one
+third is objectively slashable" is <strong>Assumed</strong>, not established (<a href="#CONS-09">CONS-09</a>(4)(a); the limitation row is owed to
+<a href="10-assurance.html#LIM-01">LIM-01</a>). This argument transfers unchanged from CometBFT <strong>for a fixed epoch set</strong>, and the safety invariant
+itself does not depend on slashing: it needs only that fewer than one third are faulty.
 <br><strong>When the premises fail.</strong> If 1/3 or more of one epoch's power is Byzantine, or keys are compromised, or clients mis-implement
 CONS-02/CONS-04, then <strong>two conflicting commit certificates can both be cryptographically valid</strong>. The ZK proof does <strong>not</strong> repair
 this: the proof attests that a certificate is internally consistent with a stated validator set and quorum rule — it cannot attest that no other certificate
@@ -353,9 +389,10 @@ relevant epochs. Under failure the honest response is detection, evidence public
 it, and never a recovery that invalidates a finalized block (D2, <a href="06-recovery-exceptions.html#REC-01">REC-01</a>).
 <br><strong>One certificate per batch.</strong> For a batch whose head block is <code>H</code>, verifying the certificate of <code>H</code> alone, plus the
 parent-hash linkage of the batch's headers back to the previously L1-accepted checkpoint, extends the invariant to every block of the batch, because finality of
-<code>B1</code> at <code>H1</code> implies its ancestors by the same invariant (<a href="../04-architecture-decision.html">04 §2</a>). The premise — correct
-validators enforce the parent relation (<a href="#CONS-01">CONS-01</a>(iii)) and the lock rule — is stated as such, and violations are objectively
-slashable.</span> <span class="why">Failure mode: reading the quorum rule as a guarantee of uniqueness without its premises, or claiming that the proof system
+<code>B1</code> at <code>H1</code> implies its ancestors by the same invariant (<a href="../04-architecture-decision.md">04 §2</a>). The premise — correct
+validators enforce the parent relation (<a href="#CONS-01">CONS-01</a>(iii)) and the lock rule — is stated as such, and a violation that takes the form of a
+same-(height, round) conflicting pair is objectively slashable (<a href="#CONS-11">CONS-11</a>); other lock violations are not independently provable
+(<a href="#CONS-09">CONS-09</a>(4)(a)).</span> <span class="why">Failure mode: reading the quorum rule as a guarantee of uniqueness without its premises, or claiming that the proof system
 upgrades a two-thirds assumption into a safety guarantee; both produce a system that misstates its own failure boundary.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="small">(cross-epoch component, per CONS-09/F1)</span></div>
 <div class="rule" id="CONS-13"><span class="rid">CONS-13 — epoch length, set-commitment timing and one-epoch lookahead</span> <span class="norm">(1)
@@ -364,20 +401,31 @@ upgrades a two-thirds assumption into a safety guarantee; both produce a system 
 30 minutes of L2 history, matching the project's arithmetic convention that 30 min = 900 L2 blocks (<a href="../01-requirements-and-threat-model.md">01 §3</a>)
 and the D6 proving envelope
 <span class="pill sourced">sourced</span> (D6). Suitability at the target set size is
-<span class="pill unmeasured">unmeasured</span>. (2) <code>epoch_of(H) = floor((H - H_0) / L)</code>, <code>h_first(e) = H_0 + e·L</code>, <code>h_last(e) = H_0
-+ (e+1)·L - 1</code>, with <code>H_0</code> the genesis height (<a href="#CONS-14">CONS-14</a>). (3) <strong>One-epoch lookahead.</strong> The L1 staking
-contract MUST commit <code>set_root(e+1)</code> (with the CONS-10 encoding and the corresponding <code>W</code>) during epoch <code>e</code>, before
-<code>h_last(e)</code> is finalized, and that commitment MUST be an <strong>Ethereum-final L1 fact</strong> before any block of epoch <code>e+1</code> may be
+<span class="pill unmeasured">unmeasured</span>. <code>L</code> is fixed, together with <code>H_genesis</code> and the epoch offset <code>e_0</code>, by the
+L1-committed epoch schedule recorded in the activation transaction (<a href="#CONS-14">CONS-14</a>); none of the three may be taken from a peer, a witness or the
+proof. (2) <code>epoch_of(H) = floor((H - H_genesis) / L) + e_0</code>, <code>h_first(e) = H_genesis + (e - e_0)·L</code>, <code>h_last(e) = H_genesis + (e - e_0 + 1)·L - 1</code>,
+with <code>H_genesis</code> the genesis L2 height (<code>H_0</code> of <a href="#CONS-14">CONS-14</a>). <code>epoch_of</code> is a pure function of the height and of
+L1-committed constants: no L2-derived view, no header, no witness and no proof participates in it. The L1 staking contract stores an
+<strong>append-only per-epoch mapping</strong> <code>epoch → (setRoot, totalVotingPower)</code>; an entry is immutable once its epoch starts, and the epoch key
+is not chosen by any caller (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(1)). The L1 Inbox resolves <code>epoch_of</code> over the batch's heights from
+its own schedule and reads that mapping; it MUST reject any batch whose claimed epoch differs from <code>epoch_of</code> of its heights before verifying the proof,
+and it MUST resolve the epoch to a set root from L1 state without trusting the proof, the witness or the prover
+(<a href="04-l1-integration.html#L1-05">L1-05</a>, <a href="05-proof-statement.html#PRF-02">PRF-02</a>) (*review round 1, finding B R1-03*). (3) <strong>One-epoch
+lookahead.</strong> The L1 staking contract MUST append the per-epoch mapping entry for epoch <code>e+1</code> — its <code>setRoot</code> computed with the
+MEM-08 encoding (<a href="03-membership-staking.html#MEM-08">MEM-08</a>) and the corresponding <code>totalVotingPower</code> — during epoch <code>e</code>, before
+<code>h_last(e)</code> is finalized, and that entry MUST be an <strong>Ethereum-final L1 fact</strong> before any block of epoch <code>e+1</code> may be
 finalized (<a href="01-system-model.html#SYS-02">SYS-02</a>). The L2 MUST NOT wait on an L1 transaction to continue voting inside an epoch: it reads the epoch's
 set from Ethereum-final L1 state at the boundary. The one-epoch window gives the commitment transaction the whole of epoch <code>e</code> — by construction of
 <code>L</code>, the D1 cadence and the D6 envelope, roughly 30 minutes
-<span class="pill derived">derived</span> — to be included and finalized; that budget, and the L1 block time it must absorb, are <span class="pill unmeasured">unmeasured</span> for a live deployment. (4) <strong>At most one commitment per epoch.</strong> <code>set_root(e+1)</code> is accepted at most once.
-A second, different commitment for the same epoch is either ignored (if the first is already Ethereum-final) or halts the L2 (if the ambiguity is observable);
-the choice of policy belongs to <a href="03-membership-staking.html#MEM-09">MEM-09</a>, but the L2 consequence is fixed here: it never uses two sets for one
-epoch, and it never re-derives the set from a non-final L1 block. (5) <strong>Halt condition.</strong> If, when the L2 reaches <code>h_first(e+1)</code>, no
-Ethereum-final commitment for <code>set_root(e+1)</code> is available, then correct validators MUST NOT propose, prevote or precommit any block at heights
+<span class="pill derived">derived</span> — to be included and finalized; that budget, and the L1 block time it must absorb, are <span class="pill unmeasured">unmeasured</span> for a live deployment. (4) <strong>At most one entry per epoch.</strong> The mapping is append-only: the L1 staking contract MUST reject any write whose epoch key already exists,
+and no later transaction, reorganisation or upgrade may overwrite an entry. A chain that nevertheless observes two different roots for one epoch is facing a contract
+defect or a consensus failure and MUST halt (<a href="#CONS-15">CONS-15</a>) rather than choose; it never uses two sets for one epoch, and it never re-derives the
+set from a non-final L1 block. The membership-side detail of the append is <a href="03-membership-staking.html#MEM-09">MEM-09</a>'s. (5) <strong>Halt condition.</strong> If, when the L2 reaches <code>h_first(e+1)</code>, no
+Ethereum-final mapping entry for epoch <code>e+1</code> is available, then correct validators MUST NOT propose, prevote or precommit any block at heights
 <code>&ge; h_first(e+1)</code>, MUST NOT continue into epoch <code>e+1</code> with epoch <code>e</code>'s set, and MUST halt at the highest finalized block of
-epoch <code>e</code> (<a href="#CONS-15">CONS-15</a>, <a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>). Continuing with the old set would put a height
+epoch <code>e</code> (<a href="#CONS-15">CONS-15</a>, <a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>). A late entry may only be used to resume at
+<code>h_first(e+1)</code> if no block of epoch <code>e+1</code> was ever produced; restart rules are <a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>'s and never
+roll back a finalized block. Continuing with the old set would put a height
 into an epoch whose set cannot be authenticated against L1 and would violate <a href="#CONS-08">CONS-08</a>(1); taking a set from an unfinalized L1 block would
 violate SYS-02 and assumption A-CONS-4 (all correct nodes agree on the set version for an epoch). A halt at the boundary is a liveness failure (class F1), and
 no recovery may roll the finalized prefix back (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>).</span> <span class="why">Failure mode: a set chosen
@@ -386,9 +434,9 @@ nodes judge one certificate under two different sets after a reorg, which is a s
 <span class="pill proven">Proven</span> <span class="small">(premise: SYS-02, Ethereum-final L1 facts only)</span></div>
 <div class="rule" id="CONS-14"><span class="rid">CONS-14 — genesis, activation and the first epoch</span> <span class="norm">(1) Activation is a single L1
 transaction against the existing Inbox (in-place upgrade, D3/<a href="08-migration-upgrades.html#MIG-01">MIG-01</a>) which records in contract storage:
-<code>chain_id</code>, <code>H_0</code> (the genesis L2 height), <code>genesis_block_hash</code>, <code>genesis_state_root</code>, <code>L</code> (<a href="#CONS-13">CONS-13</a>), and <code>set_root(0)</code> together with its total power <code>W_0</code>. The transaction MUST compute <code>set_root(0)</code>
-itself, from the L1 staking contract's state at that block, with the CONS-10 encoding; it MUST NOT accept a caller-supplied root, a peer-supplied root or a
-proof-supplied root. (2) Epoch 0 covers heights <code>[H_0, H_0 + L - 1]</code>; <code>epoch_of(H_0) = 0</code>; and the rotation position of <a href="#CONS-06">CONS-06</a> starts at <code>pos(H_0, 0) = 0</code>. The genesis block is the anchor of epoch 0 and has no certificate: it is trusted only
+<code>chain_id</code>, <code>H_0</code> (the genesis L2 height <code>H_genesis</code>), the epoch schedule's offset <code>e_0</code>, <code>genesis_block_hash</code>, <code>genesis_state_root</code>, <code>L</code> (<a href="#CONS-13">CONS-13</a>), and the first per-epoch mapping entry <code>e_0 → (set_root(e_0), W_0)</code>. The transaction MUST compute the entry's <code>setRoot</code>
+itself, from the L1 staking contract's state at that block, with the MEM-08 encoding (<a href="03-membership-staking.html#MEM-08">MEM-08</a>); it MUST NOT accept a caller-supplied root, a peer-supplied root or a
+proof-supplied root. (2) Epoch <code>e_0</code> covers heights <code>[H_0, H_0 + L - 1]</code>; <code>epoch_of(H_0) = e_0</code>, and the activation record fixes <code>e_0</code> explicitly (for the migration specified here <code>e_0 = 0</code>, so the first epoch is epoch 0); and the proposer of <code>(H_0, 0)</code> is determined by <a href="#CONS-06">CONS-06</a>'s hash-based selection over the epoch-0 set (there is no special initial position: <code>pos(H_0,0)</code> is whatever the canonical hash yields). The genesis block is the anchor of epoch 0 and has no certificate: it is trusted only
 through the L1 activation record. (3) The first epoch's set is authenticated exactly like every later one: every header of epoch 0 carries <code>validators_hash
 = set_root(0)</code> and <code>next_validators_hash = set_root(1)</code>, and a verifier checks both against L1 (<a href="#CONS-10">CONS-10</a>).
 <code>set_root(1)</code> is subject to the one-epoch lookahead of <a href="#CONS-13">CONS-13</a>(3); if it is missing, epoch 0 finalizes up to
@@ -416,7 +464,7 @@ to prevent.</span>
 <span class="pill proven">Proven</span> <span class="small">(the halt action is unconditional; the <em>triggers</em> are assumption failures, whose avoidance is
 not claimed)</span></div>
 <h2 id="modifications">Modifications and proof status</h2>
-<p class="small">The five modifications recorded in <a href="../04-architecture-decision.html">04 §2.1</a>, with the published proof that no longer applies
+<p class="small">The five modifications recorded in <a href="../04-architecture-decision.md">04 §2.1</a>, with the published proof that no longer applies
 verbatim and the argument that replaces it. M6 is added by this page: it fixes the exact leader-selection computation required by <a href="#CONS-06">CONS-06</a>
 and is flagged for the architecture decision log rather than silently assumed.</p>
 <table>
@@ -429,24 +477,30 @@ the proof, so neither a prover nor a proposer can choose it ( <a href="05-proof-
 <tr><td><strong>M2</strong></td><td>Epoch handoff: the first block of epoch <code>e+1</code> commits to the last block finalized in epoch <code>e</code>; locks
 carry over.</td> <td>CometBFT's validator-update path is application-driven and assumes the update is visible to all before it is used.</td> <td>The argument of
 <a href="#CONS-09">CONS-09</a>(4): case analysis over the two possible conflicts, both of which reduce to at least one third of the epoch-<code>e</code> power
-violating the signing or lock rules. <strong>ASSUMED-WITH-ARGUMENT</strong>; open falsifier <strong>F1</strong> (<a href="../04-architecture-decision.html">04
+violating the signing or lock rules — with the evidentiary reach of that conclusion narrowed in <a href="#CONS-09">CONS-09</a>(4)(a). <strong>ASSUMED-WITH-ARGUMENT</strong>; open falsifier <strong>F1</strong> (<a href="../04-architecture-decision.md">04
 §7</a>); this is the most delicate modification on this page.</td></tr>
 <tr><td><strong>M3</strong></td><td>Forced inclusion as a validity rule: a proposal that omits a due forced inclusion is invalid (<a href="#CONS-01">CONS-01</a>(v)).</td> <td>No CometBFT proof applies: the base protocol has no forced-inclusion concept.</td> <td>Safety is unaffected — the rule
-only restricts which blocks can gather votes. Liveness for forced inclusion follows from proposer rotation (<a href="#CONS-06">CONS-06</a>: a sub-threshold
-cartel holds fewer than one third of proposer slots in every <code>W</code>-height window) plus honest proposers including due requests, with <a href="04-l1-integration.html#FI-03">FI-03</a> as the escape hatch when a cartel forces timeouts on honest slots. <strong>Proven</strong> for the slots claim;
-the produced-block caveat is stated in CONS-06.</td></tr>
+only restricts which blocks can gather votes. Liveness for forced inclusion follows from stake-weighted selection (<a href="#CONS-06">CONS-06</a>: a sub-threshold
+cartel's expected share of proposer slots is strictly below one third, on the fairness claim of CONS-06(b)) plus honest proposers including due requests, with <a href="04-l1-integration.html#FI-03">FI-03</a> as the escape hatch when a cartel forces timeouts on honest slots. <strong>Proven</strong> for the slot arithmetic; the expected-share fairness claim is
+<strong>Assumed</strong> as stated in CONS-06(b), and the produced-block caveat is stated in CONS-06.</td></tr>
 <tr><td><strong>M4</strong></td><td>Cadence and timeouts are expressed in seconds with the adaptive ladder of <a href="#CONS-07">CONS-07</a>.</td>
 <td>CometBFT's liveness proof needs eventual synchrony and a correct proposer; its published defaults are tuned for a different cadence.</td> <td>Both
-requirements are preserved: eventual synchrony is A-CONS-2, and a correct proposer is supplied by the rotation plus the timeout ladder. No validity rule reads a
+requirements are preserved: eventual synchrony is A-CONS-2, and a correct proposer is supplied by stake-weighted selection plus the timeout ladder. No validity rule reads a
 wall clock (<a href="index.html#GEN-06">GEN-06</a>). <strong>Assumed</strong> for liveness (A-CONS-2/A-CONS-3); safety is timing-independent.</td></tr>
 <tr><td><strong>M5</strong></td><td>Removal of <code>timeout_commit</code> slack beyond the cadence budget.</td><td>None: it affects timing only.</td> <td>The
 commit rule is unchanged; a block is finalized by its certificate, not by a delay (<a href="#CONS-05">CONS-05</a>). <strong>Proven</strong> (no safety
 consequence), with the cadence claim itself <span class="pill unmeasured">unmeasured</span>.</td></tr>
-<tr><td><strong>M6</strong></td><td>Proposer selection by the cumulative-weight residue rotation of <a href="#CONS-06">CONS-06</a>, replacing CometBFT's
-proposer-priority state machine.</td> <td>CometBFT's proposer-priority fairness reasoning (its increment/decrement recurrence).</td> <td>The residue-window
-identity: at any fixed round, every <code>W</code> consecutive heights give validator <code>i</code> exactly <code>w_i</code> proposer slots, so a coalition
-with less than one third of the committed power has fewer than one third of the slots. <strong>Proven</strong> as a counting argument in the committed integers;
-not a published result, and flagged for the decision log. Safety is unaffected: the leader identity is irrelevant to <a href="#CONS-12">CONS-12</a>.</td></tr>
+<tr><td><strong>M6</strong></td><td>Hash-based uniform-in-weight proposer selection of <a href="#CONS-06">CONS-06</a>
+(<code>pos = uint256(keccak256(abi.encode(DOMAIN_PROPOSER, chainId, epoch, H, R))) mod W</code>, cumulative-weight half-open intervals in
+<code>set_root(e)</code>'s canonical order, lower index wins on a boundary), replacing CometBFT's proposer-priority state machine.</td>
+<td>CometBFT's proposer-priority fairness reasoning (its increment/decrement recurrence).</td> <td>The interval arithmetic is
+<strong>Proven</strong> in the committed integers: the half-open intervals partition <code>[0, W)</code>, so the proposer is uniquely determined, and exactly
+<code>w_i</code> of the <code>W</code> residues fall in validator <code>i</code>'s interval. The counting argument therefore gives probability
+<code>w_i / W</code> for a uniform <code>pos</code>, so a coalition below one third of the committed power proposes fewer than one third of the slots
+<strong>in expectation</strong>. That fairness claim is <strong>Assumed</strong>, not proven: it rests on keccak256 behaving as a uniform random oracle (an
+assumption A-CRYPTO-3 does not supply), and it is an expectation, not a per-window bound — the superseded revision's residue-window identity is not claimed.
+The modulo bias is at most <code>W / 2^256</code> and negligible for any base-unit total. Safety is unaffected: the leader identity is irrelevant to
+<a href="#CONS-12">CONS-12</a>.</td></tr>
 </tbody></table>
 <h2 id="timing">Worked timing trace at the 2 s cadence</h2>
 <p class="small">This trace is a <strong>target</strong>, not a measurement (<a href="index.html#GEN-01">GEN-01</a>, <a href="index.html#GEN-04">GEN-04</a>).
@@ -468,8 +522,7 @@ block.</td> <td><a href="#CONS-06">CONS-06</a>, <a href="#CONS-01">CONS-01</a></
 <tr><td>1.25</td><td>PoLC observed by all correct validators; each (re)locks on the block with <code>locked_round = 0</code> and broadcasts its
 precommit.</td><td>CONS-03, CONS-04</td> <td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td>1.50</td><td>More than 2/3 of the epoch's power has precommitted the block; every node that holds the body finalizes <code>H</code>, gossips the
-certificate and enters <code>H+1</code> at t = 1.50 s, inside the 2 s cadence interval. One proposal per height; <code>R</code> stays 0; the proposer rotates
-once per height (<a href="#CONS-06">CONS-06</a>).</td> <td><a href="#CONS-05">CONS-05</a></td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+certificate and enters <code>H+1</code> at t = 1.50 s, inside the 2 s cadence interval. One proposal per height; <code>R</code> stays 0; the proposer is selected anew for the height (<a href="#CONS-06">CONS-06</a>).</td> <td><a href="#CONS-05">CONS-05</a></td><td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td>1.50–2.00</td><td>Slack of 0.5 s inside the cadence interval.</td><td>—</td> <td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td>3.00</td><td>If instead the block or a vote phase does not complete, the round timer <code>T(H,0) = T_min</code> expires and the node advances to
 <code>(H,1)</code>; the ladder doubles on consecutive failures and resets on a PoLC (CONS-07(3)).</td><td>CONS-07</td> <td><span class="pill unmeasured">unmeasured</span></td></tr>
@@ -492,7 +545,7 @@ about what those keys will sign next.</td> <td>Nothing cryptographic: only A-CON
 future.</td> <td>Monitoring and the conditional liveness argument (<a href="10-assurance.html#LIVE-01">LIVE-01</a>), with the timeout ladder (<a href="#CONS-07">CONS-07</a>) and the halt policy (<a href="#CONS-15">CONS-15</a>) stating exactly where liveness ends.</td></tr>
 <tr><td><strong>Equivocation visibility</strong></td> <td>One certificate shows at most one vote per validator; a bare threshold or aggregate signature hides
 signer identity entirely, so a single certificate can never prove that a validator also signed something else.</td> <td>Two conflicting signed messages for the
-same <code>(H,R,type)</code> — the JSet pair of <a href="#CONS-11">CONS-11</a>. This is the reason the design keeps individual Ed25519 signatures (<a href="../04-architecture-decision.html">04 §2</a>, and the signature-scheme trade noted in the survey §10).</td></tr>
+same <code>(H,R,type)</code> — the JSet pair of <a href="#CONS-11">CONS-11</a>. This is the reason the design keeps individual Ed25519 signatures (<a href="../04-architecture-decision.md">04 §2</a>, and the signature-scheme trade noted in the survey §10).</td></tr>
 <tr><td><strong>Set authenticity</strong></td> <td>A certificate is only as authoritative as the set it is judged under; the certificate cannot prove that its
 own set is the right one.</td> <td>The header fields plus the L1 comparison of <a href="#CONS-10">CONS-10</a>(3)–(4) and <a href="05-proof-statement.html#PRF-03">PRF-03</a>.</td></tr>
 <tr><td><strong>Eventual settlement of a PoS-finalized block</strong></td> <td>PoS finality is not data availability and not a proof.</td> <td>The atomic (data,
@@ -504,10 +557,11 @@ proof) L1 transaction (D5, <a href="04-l1-integration.html#L1-01">L1-01</a>); <a
 <tbody>
 <tr><td>Proposal/vote/certificate encodings; the lock rule and its safety use; the commit rule; the signing-uniqueness rule; the fork-accountability lemma</td>
 <td>CometBFT consensus, signing and evidence specifications at pinned commit <code>709fd12b…</code>, quoted in <a href="../research/recovery-and-withholding-raw.md">recovery-and-withholding-raw.md</a> §1.1 and <a href="../research/consensus-survey-raw.md">consensus-survey-raw.md</a> §3.2.</td> <td><span class="pill sourced">sourced</span></td></tr>
-<tr><td>Quorum intersection, the residue-window proposer identity, the epoch-handoff case analysis</td> <td>Derivations on this page from the rules above; the
-handoff derivation is <strong>assumed-with-argument</strong>.</td> <td><span class="pill derived">derived</span></td></tr>
+<tr><td>Quorum intersection, the interval counting of hash-based weighted selection, the epoch-handoff case analysis</td> <td>Derivations on this page from the rules
+above; the selection fairness is derived from the counting argument only under the hash-uniformity assumption and is therefore <strong>Assumed</strong>, and the
+handoff derivation is <strong>assumed-with-argument</strong>.</td> <td><span class="pill derived">derived</span> <span class="pill assumed">Assumed</span></td></tr>
 <tr><td>All durations in the timing trace; the in-guest cost of the certificate; the bandwidth and signature-verification cost at the target set size</td>
-<td>Not measured. The measurement that would close each is named where it appears (F2/F3/F4 in <a href="../04-architecture-decision.html">04 §7</a>).</td>
+<td>Not measured. The measurement that would close each is named where it appears (F2/F3/F4 in <a href="../04-architecture-decision.md">04 §7</a>).</td>
 <td><span class="pill unmeasured">unmeasured</span></td></tr>
 </tbody></table>
 </main>

@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Limitations — what this design does not claim · Etna PoS + ZK</title><link rel="stylesheet" href="course.css"></head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span><span class="tag">learning course</span>
+  <nav><a href="index.html">Course map</a><a href="01-why-order-needs-consensus.html">Start</a>
+  <a href="../spec/index.html">Specification</a></nav>
+</header>
+<main>
+<h1>Limitations — what this design does not claim</h1>
+
+<div class="card">
+<p><strong>Problem this lesson solves.</strong> It collects, in one place, the assumptions the design rests on, the numbers that are not
+measured, the blockers that are still open, and how to report a finding — so a learner can tell a specification from a working system.</p>
+</div>
+
+<h2 id="plain">In plain language</h2>
+
+<p><strong>Nothing here is implemented, measured, audited or deployed.</strong> This is a design document. Interface sketches are not
+compiled code; there are no benchmarks produced by the project; the static site is a deliverable, not software
+(<a href="../spec/index.html#GEN-01">GEN-01</a>). Every "Proven" in the specification is an argued property with named premises, not a
+machine-checked or tested one (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, scope row).</p>
+
+<p><strong>How to read the tags.</strong> Rules carry <span class="pill proven">Proven</span> (an argument with named premises),
+<span class="pill assumed">Assumed</span> (a justification plus the consequence of failure) or <span class="pill open">Open</span> (the
+evidence that would close it). Numbers carry <span class="pill derived">derived</span> (arithmetic on decided or sourced inputs),
+<span class="pill sourced">sourced</span> (an external constant, cited) or <span class="pill unmeasured">unmeasured</span> (a placeholder
+with the experiment that would fix it). No proposed value may be described as a benchmark
+(<a href="../spec/index.html#GEN-04">GEN-04</a>, <a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a>).</p>
+
+<p><strong>The assumptions.</strong> The full list is in
+<a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> §4. The ones a reader should carry everywhere:
+fewer than one third of each epoch's voting power is Byzantine (<code>A-CONS-1</code>); message delivery among correct validators is timely
+often enough after a global stabilization time (<code>A-CONS-2</code>, <code>A-CONS-3</code>); correct validators hold and serve the data
+they voted for (<code>A-CONS-5</code>); at least one adequately-resourced prover completes each committed batch
+(<code>A-DA-2</code>); Ethereum includes valid transactions and does not reverse finality (<code>A-L1-1</code>); a new node can obtain a
+weak-subjectivity checkpoint within the freshness window (<code>A-CONS-6</code>); the zkVM is sound
+(<code>A-CRYPTO-1</code>); the economic assumption <code>A-ECO-1</code> holds at the relevant time; and the DAO does not execute a
+malicious upgrade (<code>A-GOV-1</code>).</p>
+
+<p><strong>Three failure classes, kept apart.</strong> <strong>F1 — liveness-assumption failure, safety intact:</strong> a quorum offline, a
+partition, a prover outage, blob expiry, L1 congestion. The protocol halts, backpressures, waits or replaces provers; it never rewrites
+finalized history. <strong>F2 — safety-assumption failure:</strong> one third or more Byzantine stake, key compromise, a zkVM soundness break,
+or a governance upgrade that changes the rules. The safety claims do not apply, and two conflicting certificates can both be
+cryptographically valid; ZK verification cannot repair this. Detection and disclosure is the honest response.
+<strong>F3 — implementation-assumption failure:</strong> a client, prover or contract bug; out of scope for this design project, but the
+specification must not make it undetectable (<a href="../01-requirements-and-threat-model.md">01</a> §5,
+<a href="../spec/10-assurance.html#INV-01">INV-01</a>).</p>
+
+<p><strong>What is explicitly not claimed.</strong> That any attack is unprofitable; that proving throughput or the 2&nbsp;s cadence has been
+measured; that ZK verification repairs failed consensus assumptions; that a PoS confirmation before
+<a href="../spec/index.html#STATUS-06">accepted on L1</a> is irreversible in any mode other than Mode A's stated assumptions; that a
+settlement halt is bounded in duration; that users will be compensated for losses — penalties are not compensation and no universal bound on
+economic loss exists (<a href="../spec/index.html#verdict">specification verdict</a>,
+<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
+
+<h2 id="definitions">Precise definitions</h2>
+
+<ul>
+<li><strong>Design-only claim.</strong> No implementation, deployment or measurement; no performance number without a source or an explicit
+<em>unmeasured</em> tag (<a href="../spec/index.html#GEN-01">GEN-01</a>).</li>
+<li><strong>Evidence tags.</strong> Proven / Assumed / Open for rules; derived / sourced / unmeasured for numbers, each used once and never
+merged (<a href="../spec/index.html#GEN-04">GEN-04</a>, <a href="../spec/index.html#GEN-08">GEN-08</a>).</li>
+<li><strong>Parameter discipline.</strong> A value with no derivation and no source may not be given: it is marked unmeasured with the
+experiment that would fix it; changing a value is a governance action
+(<a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a>).</li>
+<li><strong>Unmeasured register.</strong> The list of quantities that must be measured, with workload, hardware and methodology, before the
+corresponding value is fixed (<a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>).</li>
+<li><strong>Conditional liveness.</strong> The complete liveness claim with its clauses; liveness ends at the first clause that fails, and a
+safe halt is a permitted outcome (<a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>).</li>
+<li><strong>Sustainability inequalities.</strong> Three inequalities — rate, concurrency, data — that must be evaluated with measured inputs
+before launch; if any fails, the correct response is backpressure, not a longer latency assumption
+(<a href="../spec/10-assurance.html#LIVE-03">LIVE-03</a>).</li>
+<li><strong>Limitations register.</strong> The accepted limitations, stated once with their consequence, none of which may be presented as a
+strength or dropped from a summary (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
+<li><strong>Open blocker.</strong> An item that blocks a decision rather than being disclosed as a caveat; the Mode B cheap-trigger
+resistance is the named example (<a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a>).</li>
+<li><strong>Finding ledger.</strong> Every adversarial finding recorded with its rule, preconditions, attack trace, fault-model position,
+attacker resources, harm, affected requirements and resolution or explicit acceptance
+(<a href="../spec/10-assurance.html#LIM-03">LIM-03</a>).</li>
+</ul>
+
+<h2 id="diagram">Diagram — the assumption stack and the three failure classes</h2>
+
+<figure>
+<svg viewBox="0 0 940 330" role="img" aria-label="Six layers of assumptions from cryptography to governance, with F1 liveness failures leading to a safe halt, F2 safety failures voiding the claims, and F3 implementation failures kept detectable.">
+  <defs>
+    <marker id="arL" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#f7768e"/></marker>
+  </defs>
+  <rect x="20" y="18" width="470" height="42" rx="8" fill="#1c2330" stroke="#bb9af7"/>
+  <text x="36" y="36" fill="#e6edf3" font-size="11">Economic: A-ECO-1 deterrence · A-ECO-2 obtainable TAIKO</text>
+  <text x="36" y="52" fill="#9aa7b4" font-size="9">time-varying; no verified price, float or liquidity data</text>
+  <rect x="20" y="68" width="470" height="42" rx="8" fill="#1c2330" stroke="#bb9af7"/>
+  <text x="36" y="86" fill="#e6edf3" font-size="11">Governance: A-GOV-1 — the DAO does not execute a malicious upgrade</text>
+  <text x="36" y="102" fill="#9aa7b4" font-size="9">a trust assumption; one upgrade can rewrite any rule (GOV-02)</text>
+  <rect x="20" y="118" width="470" height="42" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="36" y="136" fill="#e6edf3" font-size="11">L1: A-L1-1 — Ethereum inclusion, no finality reversal; A-L1-2 features available</text>
+  <text x="36" y="152" fill="#9aa7b4" font-size="9">if it fails: nothing settles and forced inclusion is unavailable</text>
+  <rect x="20" y="168" width="470" height="42" rx="8" fill="#1c2330" stroke="#7aa2f7"/>
+  <text x="36" y="186" fill="#e6edf3" font-size="11">DA and proving: A-CONS-5 retention · A-DA-2 a prover completes · A-DA-4 witness reconstructible</text>
+  <text x="36" y="202" fill="#9aa7b4" font-size="9">if they fail: settlement halts, possibly permanently</text>
+  <rect x="20" y="218" width="470" height="42" rx="8" fill="#1c2330" stroke="#9ece6a"/>
+  <text x="36" y="236" fill="#e6edf3" font-size="11">Consensus: A-CONS-1 &lt; 1/3 Byzantine · A-CONS-2 partial synchrony · A-CONS-4 set agreement · A-CONS-6 freshness</text>
+  <text x="36" y="252" fill="#9aa7b4" font-size="9">if A-CONS-1 fails: two valid conflicting histories, and ZK cannot detect it</text>
+  <rect x="20" y="268" width="470" height="42" rx="8" fill="#1c2330" stroke="#9ece6a"/>
+  <text x="36" y="286" fill="#e6edf3" font-size="11">Cryptographic: A-CRYPTO-1 zkVM sound · A-CRYPTO-2 signatures unforgeable · A-CRYPTO-3 hashes binding</text>
+  <text x="36" y="302" fill="#9aa7b4" font-size="9">a soundness break is the bridge-theft class; not repairable by the protocol</text>
+  <rect x="520" y="18" width="400" height="82" rx="8" fill="#2a1f10" stroke="#5c4a1c"/>
+  <text x="536" y="40" fill="#e0af68" font-size="12">F1 — liveness-assumption failure</text>
+  <text x="536" y="60" fill="#e6edf3" font-size="10">safety intact: halt · backpressure · replace provers · wait</text>
+  <text x="536" y="78" fill="#9aa7b4" font-size="9">never rewrite finalized history; the halt may be permanent</text>
+  <rect x="520" y="112" width="400" height="82" rx="8" fill="#2a1218" stroke="#5c2630"/>
+  <text x="536" y="134" fill="#f7768e" font-size="12">F2 — safety-assumption failure</text>
+  <text x="536" y="154" fill="#e6edf3" font-size="10">the safety claims do not apply; detection and disclosure only</text>
+  <text x="536" y="172" fill="#9aa7b4" font-size="9">conflicting certificates may both verify; ZK does not repair it</text>
+  <rect x="520" y="206" width="400" height="82" rx="8" fill="#1c2330" stroke="#2d3743"/>
+  <text x="536" y="228" fill="#e6edf3" font-size="12">F3 — implementation-assumption failure</text>
+  <text x="536" y="248" fill="#e6edf3" font-size="10">out of scope for this design project</text>
+  <text x="536" y="266" fill="#9aa7b4" font-size="9">but the design must not make a bug undetectable</text>
+  <line x1="494" y1="150" x2="516" y2="150" stroke="#f7768e" marker-end="url(#arL)"/>
+</svg>
+<figcaption>Bottom-to-top: what has to hold for the design's claims to apply. The right column is what failure looks like —
+and none of the three classes is repaired by a proof.</figcaption>
+</figure>
+
+<h2 id="example">Worked example — the unmeasured register, counted</h2>
+
+<p>Counting is the honest illustration here: it shows how much of the design is still a promise. The counts are
+<span class="pill derived">derived</span> from the register tables at this revision; the individual items are
+<span class="pill unmeasured">unmeasured</span> until the stated experiment is done.</p>
+
+<table>
+<thead><tr><th>Register</th><th>Count</th><th>What it blocks</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>Derived quantities at the 2&nbsp;s cadence (PARAM-02)</td><td>13 rows, including 900 blocks per 30-minute envelope</td><td>nothing by itself; these are arithmetic on decided or sourced inputs</td><td><span class="pill derived">derived</span></td></tr>
+<tr><td>Unmeasured quantities (PARAM-03)</td><td>12 rows: proving latency, throughput, cycles per gas, Ed25519 cost, in-guest blob evaluation, round time, retention, TAIKO market data, operator cost, fee/MEV revenue, L1 verification gas, detection rates</td><td>every performance and economics value of the design</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Unmeasured register contributed by the L1 page</td><td>19 items: 3 measurements (gas of <code>land</code>, in-guest Lagrange cost, blob-path acceptance cost) + 15 parameters + queue-griefing profitability</td><td>batch economics and the fee schedule</td><td><span class="pill derived">derived</span> count of <span class="pill unmeasured">unmeasured</span> items</td></tr>
+<tr><td>Measurement gates carried by the architecture decision</td><td>4 items: F2 in-guest blob evaluation cost, F3 2&nbsp;s cadence with a permissionless global set, F4 proving throughput inputs, plus review target F1</td><td>whether the blob path, the cadence and the fleet size are feasible</td><td><span class="pill open">Open</span></td></tr>
+<tr><td>Throughput sustainability (LIVE-03)</td><td>3 inequalities, all with unmeasured inputs</td><td>launch feasibility; a failure means backpressure, not a longer assumption</td><td><span class="pill open">Open</span></td></tr>
+<tr><td>Withdrawal delay <code>D_withdraw</code></td><td>6 terms + margin, every term unmeasured</td><td>the exit path's safety against the withdrawal race</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Envelope versus placeholder backlog cap</td><td>900 blocks (derived) versus <code>D_MAX</code> = 3,600 blocks (placeholder)</td><td>whether a normal proof can ever hit the cap</td><td>first <span class="pill derived">derived</span>, second <span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>Measured quantities of this design</td><td>0</td><td>every performance claim; only Ethereum constants are <span class="pill sourced">sourced</span> (50,000 gas, 4096 epochs, 6/9 blobs, 14,299 epochs)</td><td><span class="pill sourced">sourced</span> for the constants; none measured here</td></tr>
+</tbody></table>
+
+<h2 id="blockers">Open blockers and unresolved human decisions</h2>
+<ul>
+<li><strong>REC-03 — Mode B cheap-trigger resistance.</strong> Within the stated normal-operation assumptions, it is not established that an
+ordinary malicious leader or sub-threshold coalition cannot cheaply trigger a recovery that replaces honestly confirmed history. Mode B is
+specified and <em>not selected</em>; inability to establish this is a blocker, not a disclosure item
+(<a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a>).</li>
+<li><strong>Migration audit obligations.</strong> Every upgraded contract's storage layout must be regenerated and diffed
+(<code>pnpm layout</code>); whether the deployed proxies route through a <code>ForkRouter</code> is unmeasured; the completeness of the
+privilege-removal table is a review obligation; and <a href="../spec/10-assurance.html#INV-04">INV-04</a> is <span class="pill open">Open</span>
+for the operational audit of the completed migration (<a href="../spec/08-migration-upgrades.html#MIG-02">MIG-02</a>,
+<a href="../spec/08-migration-upgrades.html#MIG-04">MIG-04</a>). The migration rehearses on Hoodi, but the rehearsal's cost and duration are
+unmeasured and it is a procedural mitigation, not a guarantee
+(<a href="../spec/08-migration-upgrades.html#MIG-06">MIG-06</a>).</li>
+<li><strong>Measurement gates.</strong> The gates above (F2, F3, F4, F1) plus the three LIVE-03 inequalities and every row of PARAM-03 must be
+closed by measurement, with workload, hardware and methodology recorded, before launch
+(<a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>, <a href="../spec/10-assurance.html#LIVE-03">LIVE-03</a>).</li>
+<li><strong>Adversarial review questions.</strong> Q-A1 (is the availability counterexample reachable inside the stated assumptions?),
+Q-A2 (is "one certificate per batch" sound for the whole prefix?), Q-A3 (does the blob binding hold against a grinding prover?) remain open,
+and the red-team ledger <a href="../spec/10-assurance.html#LIM-03">LIM-03</a> is <span class="pill open">Open</span>.</li>
+<li><strong>Human decisions.</strong> Where slashed stake goes is an unresolved human decision
+(<a href="../spec/07-economics-slashing.html#ECON-06">ECON-06</a>), and rewards may be unfundable because TAIKO has no mint path today — a
+treasury transfer or a token upgrade is a user decision, and no token-appreciation assumption may substitute for funding
+(<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, <a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a>).</li>
+</ul>
+
+<h2 id="prevents">Attacks this prevents</h2>
+<ul>
+<li><strong>Mistaking the design for a working system.</strong> GEN-01 and the scope row of LIM-01 state that there is no implementation,
+audit, model or measurement (<a href="../spec/index.html#GEN-01">GEN-01</a>,
+<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>).</li>
+<li><strong>Reading assumptions as guarantees.</strong> Every rule carries an evidence tag and every assumption carries the consequence of its
+failure (<a href="../spec/index.html#GEN-04">GEN-04</a>, <a href="../01-requirements-and-threat-model.md">01</a> §4).</li>
+<li><strong>Quoting a proposed number as measured.</strong> PARAM-01 and PARAM-03 make that a specification violation, not a rounding error
+(<a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a>, <a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>).</li>
+<li><strong>"The proof verifies, therefore the history is unique" and "the DAO would fix it".</strong> Both are explicit non-arguments; the
+invariant stops at the one-third boundary and governance capture is a separate failure class
+(<a href="../spec/10-assurance.html#INV-01">INV-01</a>, <a href="../spec/08-migration-upgrades.html#GOV-02">GOV-02</a>).</li>
+<li><strong>"A timeout proves something does not exist".</strong> Forbidden in every mode
+(<a href="../spec/index.html#STATUS-10">STATUS-10</a>).</li>
+</ul>
+
+<h2 id="not-prevents">Attacks this does not prevent</h2>
+<ul>
+<li><strong>F2 failures.</strong> One third or more Byzantine stake, key compromise, a zkVM soundness break or a malicious governance
+upgrade; the safety claims simply do not apply (<a href="../spec/10-assurance.html#INV-01">INV-01</a>,
+<a href="../spec/08-migration-upgrades.html#GOV-02">GOV-02</a>).</li>
+<li><strong>Implementation bugs (F3).</strong> Out of scope for this project, and the specification only promises they must not be made
+undetectable (<a href="../01-requirements-and-threat-model.md">01</a> §5).</li>
+<li><strong>Liveness limits.</strong> A minority outage halts the chain; there is no degraded mode; a halt, including a permanent one, is
+explicitly permitted (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>,
+<a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>).</li>
+<li><strong>Losses.</strong> Penalties are not compensation, no universal bound on economic loss exists, and no compensation channel is
+defined (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
+<li><strong>A reader who ignores this page.</strong> No document prevents someone from quoting a placeholder as a result; the defence is the
+tag and the finding process below.</li>
+</ul>
+
+<h2 id="self-check">Self-check</h2>
+<details><summary>Is the 2&nbsp;s block cadence a measured result?</summary>
+<p>No. It is a decided input (<a href="../spec/index.html#fixed">D1</a>) that holds "under stated operating assumptions". The measurement that
+would support it — round completion time at 2&nbsp;s with a permissionless global set — is on the unmeasured register
+(<a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a>), and D1 itself says cadence is not finality, proof, settlement or withdrawal
+latency.</p></details>
+<details><summary>A rule is tagged "Proven". Does that mean it has been tested?</summary>
+<p>No. "Proven" means an argument with named premises. The limitations register states plainly that every "Proven" is an argued property, not a
+machine-checked or tested one, because there is no implementation (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>,
+<a href="../spec/index.html#GEN-04">GEN-04</a>).</p></details>
+<details><summary>Mode B is fully specified. May an implementer switch it on if the chain halts?</summary>
+<p>No. Mode B is not selected; it may not be implemented, deployed or advertised, and nothing in it may be used to describe a PoS confirmation
+as anything other than irreversible under Mode A. Selecting it requires the D2 evidence-and-review procedure, and REC-03 blocks selection
+until its cheap-trigger resistance is established (<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>,
+<a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a>).</p></details>
+
+<h2 id="report">How to report a finding</h2>
+<ul>
+<li><strong>Security issues</strong> go to the project's security contact, <code>security@taiko.xyz</code>, not to a public issue. This
+design is pre-implementation, so a design-level break is still a security finding.</li>
+<li><strong>A specification finding</strong> should carry the elements the project's finding ledger requires: the exact rule (or the missing
+rule), its preconditions, a concrete attack trace, whether the attack is inside or outside the claimed fault model, attacker resources and
+cost, the harm, the affected requirements, and evidence or a worked counterexample
+(<a href="../spec/10-assurance.html#LIM-03">LIM-03</a>, <a href="../01-requirements-and-threat-model.md">01</a> §8). Findings are closed only
+when the attack trace is retained and the specification states why it no longer succeeds.</li>
+<li><strong>A course-versus-specification inconsistency</strong> is a finding too: R14 requires the learning site to match the
+specification. Quote both sentences and link the rule id; if this course ever states a stronger guarantee than the specification, the
+specification wins and the course is the bug (<a href="index.html">course map</a>,
+<a href="../01-requirements-and-threat-model.md">01</a> §7 R14).</li>
+<li><strong>Useful falsifiers to aim at.</strong> The availability counterexample reachable <em>inside</em> the stated assumptions (Q-A1); a
+number presented as measured; a rule stated more strongly than its premises; a privileged lever still live after migration
+(<a href="../spec/10-assurance.html#INV-04">INV-04</a>); or a violation of D2, D3, D5, D6 or D7
+(<a href="../spec/index.html#fixed">fixed decisions</a>).</li>
+</ul>
+
+<div class="card">
+<p><strong>Challenge this.</strong> This page relied on: (i) the register counts being read from the specification at this revision — the
+counts are derived from the text and will drift as the specification is edited, while the rule identifiers stay stable
+(<a href="../spec/index.html#GEN-03">GEN-03</a>); (ii) the fault-boundary mapping of F1/F2/F3 being the requirements document's, not this
+page's invention; (iii) the claim that zero performance numbers of this design are measured, with only Ethereum constants tagged sourced —
+if a measured number has since been added, this page is stale; (iv) the blockers list being complete only up to the recorded review questions
+Q-A1 to Q-A3; (v) the reporting route being the repository's stated security contact and the LIM-03 finding format. Falsifier: point at any
+number in this course that is presented as measured without a source, or any guarantee stronger than the specification's — that is exactly
+the finding this page exists to make possible.</p>
+</div>
+
+<h2 id="more">Where to read more</h2>
+<ul>
+<li><a href="../spec/10-assurance.html#LIM-01">LIM-01</a> — the limitations register; <a href="../spec/10-assurance.html#LIM-02">LIM-02</a> —
+rejected alternatives and their tradeoffs; <a href="../spec/10-assurance.html#LIM-03">LIM-03</a> — the finding ledger.</li>
+<li><a href="../spec/09-parameters.html#PARAM-03">PARAM-03</a> — the unmeasured register with the experiment that closes each item;
+<a href="../spec/09-parameters.html#PARAM-01">PARAM-01</a> — the parameter discipline.</li>
+<li><a href="../spec/10-assurance.html#LIVE-01">LIVE-01</a>–<a href="../spec/10-assurance.html#LIVE-03">LIVE-03</a> — the conditional
+liveness statement, backpressure, and the three sustainability inequalities.</li>
+<li><a href="../01-requirements-and-threat-model.md">01 — requirements and threat model</a> — the assumption list, the fault boundary and the
+mandatory adversarial schedule; <a href="../04-architecture-decision.md">04 — architecture decision</a> §7 — the open items and falsifiers.</li>
+<li><a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a> — the Mode B blocker;
+<a href="../spec/08-migration-upgrades.html#MIG-02">MIG-02</a> and <a href="../spec/08-migration-upgrades.html#MIG-04">MIG-04</a> — the
+migration audit obligations.</li>
+<li>Course: <a href="10-halt-or-roll-back.html">10 — halt or roll back</a> · <a href="11-forced-inclusion.html">11 — forced inclusion</a> ·
+<a href="12-bridge-and-addresses.html">12 — the bridge and the addresses</a> · <a href="13-walkthrough.html">13 — walkthrough</a>.</li>
+</ul>
+</main>
+<footer class="site"><p>Etna PoS + ZK learning course · <a href="../spec/index.html">specification</a> ·
+<a href="limitations.html">limitations</a></p></footer>
+</body></html>

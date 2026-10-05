@@ -1,80 +1,116 @@
 # Etna PoS + ZK — research and reference specification
 
-> **Status: in progress.** This directory is the working home of the *Etna PoS + ZK* redesign of
-> Taiko: a permissionless L2 proof-of-stake chain whose committed history is settled on Ethereum by
-> ZK proofs that always travel **with** their data.
+> **Status: complete draft, in adversarial review.** This directory is the working home of the
+> *Etna PoS + ZK* redesign of Taiko: a permissionless L2 proof-of-stake chain whose committed history
+> is settled on Ethereum by ZK proofs that always travel **with** their data.
 >
-> **This is a design project.** Nothing here is implemented, benchmarked or deployed. No number in
-> this directory is a measurement unless it is explicitly labelled as one with a source.
+> **This is a design project.** Nothing here is implemented, benchmarked or deployed. No number in this
+> directory is a measurement unless it is explicitly labelled as one with a source.
+
+## Current verdict
+
+**Mode A is feasible and selected, and the architecture satisfies the hard requirements under the
+stated assumptions — at specification level.**
+
+| Question | Answer |
+|----------|--------|
+| Consensus | Tendermint/CometBFT-class BFT, one block per height, single-slot finality, lock / proof-of-lock-change rule retained; Ed25519 votes; **one head commit certificate verified per batch** |
+| Membership | Permissionless, self-bonded **TAIKO on L1**; epoch-scoped validator-set roots committed with one-epoch lookahead; no delegation in v1 |
+| Settlement | Batch data **and** its valid ZK proof in the **same L1 transaction** (D5); no data-first path in any mode |
+| Proof | One combined guest proving consensus finality, execution and data binding; both RISC Zero and SP1 must realise the same statement |
+| Recovery | **Mode A** — halt safely; no path may invalidate a PoS-finalized block. Mode B is specified but **not selected**, and its D2-step-5 blocker is recorded as an open blocker |
+| Honest name | A **PoS-sequenced validity rollup**, not a based rollup |
+
+The verdict is *specification-level convergence under stated assumptions* — see
+[`10-assurance.html`](spec/10-assurance.html) and the review history in [`iterations/`](iterations/).
+It is **not** a claim that the design is implemented, audited, safe to deploy, or measured.
 
 ## Fixed decisions (constraints, not options)
 
 | ID | Decision |
 |----|----------|
-| **D1** | Target one L2 block every **2 s** under explicitly stated operating assumptions. Cadence ≠ finality ≠ proof ≠ Ethereum settlement ≠ withdrawal availability. |
-| **D2** | **Prefer Mode A** (a legitimately PoS-finalized block is never invalidated; halt safely instead). **Mode B** (permissionless L1 recovery that may discard *unsettled* PoS-certified history) is an authorized *fallback* that may be selected only after an evidenced infeasibility argument for Mode A plus independent review. |
-| **D3** | Preserve the existing L1+L2 **SignalService**, **Bridge**, **ERC20Vault**, **ERC721Vault**, **ERC1155Vault** addresses by in-place upgrade. No replacement deployments. |
-| **D4** | L2 PoS may determine binding transaction order. The result is honestly named a **PoS-sequenced validity rollup**, not a based rollup. |
-| **D5** | **Atomic data-and-proof submission**: batch data and its valid ZK proof land in the **same L1 transaction**. No data-first / proof-later path exists in any mode, including recovery. |
-| **D6** | Proving latency of **a few minutes to 30 minutes** is normal. L2 keeps producing 2 s blocks and reaching the selected mode's PoS confirmation throughout. 30 min = **900 L2 blocks**. |
-| **D7** | Staking and slashable collateral are denominated in the **existing TAIKO token**. Gas stays ETH. No replacement staking token. |
+| **D1** | One L2 block every **2 s** under stated operating assumptions. Cadence ≠ finality ≠ proof ≠ settlement ≠ withdrawal. |
+| **D2** | **Mode A** selected: no recovery, timeout, rotation, admission rule or normal upgrade may invalidate a legitimately PoS-finalized block; halt safely instead. **Mode B** (permissionless L1 recovery of *unsettled* history) specified, authorized, **not selected**. |
+| **D3** | Preserve L1+L2 **SignalService**, **Bridge**, **ERC20Vault**, **ERC721Vault**, **ERC1155Vault** addresses by in-place upgrade. No replacements. |
+| **D4** | L2 PoS determines binding order; the result is named a **PoS-sequenced validity rollup**. |
+| **D5** | Batch data and its valid proof land in the **same L1 transaction**; no data-first path, including in recovery. |
+| **D6** | Proving latency of a few minutes to **30 minutes** is normal (900 L2 blocks at 2 s). |
+| **D7** | Staking and slashable collateral in the **existing TAIKO token**; gas stays ETH. |
 
 ## Requirements checklist
 
-R1 permissionless roles · R2 DAO = upgrades only · R3 shared addresses preserved · R4 2 s cadence ·
-R5 consensus safety + mode confirmation guarantees · R6 conditional liveness · R7 complete proof
-statement (RISC Zero + SP1) · R8 public data bound to the proof · R9 D5 atomicity everywhere ·
-R10 censorship resistance + forced inclusion · R11 objective misconduct evidence · R12 no L1
-lookahead/fixed-slot dependence · R13 implementable specification · R14 learning site consistency.
-
-Live status: see [`01-requirements-and-threat-model.md`](01-requirements-and-threat-model.md) §7
-(matrix) and [`spec/index.html`](spec/index.html) (rule index).
-
-## Current verdict
-
-**Pending.** Phase 3 (architecture selection) has not yet been recorded. See
-[`DECISIONS.md`](DECISIONS.md) for the ordered decision log and the Mode A/B record.
+| ID | Requirement | Where satisfied | Status |
+|----|-------------|-----------------|--------|
+| R1 | Permissionless roles, objective entry/exit, TAIKO staking | [01](spec/01-system-model.html) ROLE-01..05, [03](spec/03-membership-staking.html) | specified |
+| R2 | DAO governs upgrades only | [08](spec/08-migration-upgrades.html) GOV-01..03 | specified |
+| R3 | Shared addresses preserved | [08](spec/08-migration-upgrades.html) MIG-02/06 | specified, migration audit open |
+| R4 | 2 s cadence, distinguished from every other latency | [01](spec/01-system-model.html) SYS-03, [09](spec/09-parameters.html) | specified, unmeasured |
+| R5 | Consensus safety and mode confirmation guarantees | [02](spec/02-consensus.html) CONS-01..15, [10](spec/10-assurance.html) INV-01 | argued; F1 open |
+| R6 | Conditional liveness with exact end conditions | [10](spec/10-assurance.html) LIVE-01..03 | specified |
+| R7 | Complete proof statement, both backends | [05](spec/05-proof-statement.html) PRF-01..13, [03](03-zkvm-feasibility.md) | specified |
+| R8 | Public data bound to the proof | [04](spec/04-l1-integration.html) DA-01..06 | specified |
+| R9 | D5 atomicity everywhere | [04](spec/04-l1-integration.html) L1-01..04, [06](spec/06-recovery-exceptions.html) REC-02 | specified |
+| R10 | Censorship resistance and forced inclusion | [04](spec/04-l1-integration.html) FI-01..05 | specified |
+| R11 | Objective misconduct evidence, collateral, exits | [07](spec/07-economics-slashing.html) ECON-04..08 | specified |
+| R12 | No L1 lookahead or fixed slot dependence | [index](spec/index.html) GEN-06 | specified |
+| R13 | Implementable without inventing rules | all pages; 128 registered rules | 128/128 stated once |
+| R14 | Learning site consistent with the specification | [learn/](learn/index.html) | in progress |
 
 ## Reading order
 
-1. [`00-baseline-and-lessons.md`](00-baseline-and-lessons.md) — what exists today, what the previous
-   Etna programme learned, pinned revisions.
+1. [`00-baseline-and-lessons.md`](00-baseline-and-lessons.md) — what exists today at `7718753c1`, what
+   the previous Etna programme learned, and which of its artefacts must not be reused.
 2. [`01-requirements-and-threat-model.md`](01-requirements-and-threat-model.md) — vocabulary, status
    labels, assumptions, fault boundary, threat model, acceptance matrix.
-3. [`02-consensus-survey.md`](02-consensus-survey.md) — materially different consensus families,
-   evaluated for this exact workload.
+3. [`02-consensus-survey.md`](02-consensus-survey.md) — materially different consensus families
+   evaluated against eleven attributes for this exact workload.
 4. [`03-zkvm-feasibility.md`](03-zkvm-feasibility.md) — RISC Zero and SP1 at pinned versions.
-5. [`04-architecture-decision.md`](04-architecture-decision.md) — candidate comparison, the
-   A-first decision procedure, final architecture.
-6. [`spec/index.html`](spec/index.html) — **the authoritative specification** (normative rules with
-   stable identifiers).
-7. [`learn/index.html`](learn/index.html) — the progressive learning course.
-8. [`iterations/`](iterations/) — frozen review rounds, findings, dispositions.
+5. [`04-architecture-decision.md`](04-architecture-decision.md) — candidate comparison, the A-first
+   decision procedure, the selected architecture and its six modifications.
+6. [`spec/index.html`](spec/index.html) — **the authoritative specification**, with the complete rule
+   index (128 rules, each stated exactly once).
+7. [`learn/index.html`](learn/index.html) — the progressive course.
+8. [`DECISIONS.md`](DECISIONS.md) — the ordered decision log, including the recorded dissent against
+   the Mode A selection.
+9. [`iterations/`](iterations/) — frozen review rounds, findings and dispositions.
 
 ## Research provenance
 
-| Source | Revision | Date | Use |
-|--------|----------|------|-----|
-| `taiko-mono` current baseline | `7718753c1` | 2026-10-05 | current contracts, to be migrated |
-| `taiko-mono` `etna/converged-spec` | `a829f79723de9a09205660d9895418577cfe9aa9` | 2026-10-05 | prior accepted Etna design and lessons (read-only) |
-| External protocols / zkVMs | pinned per artifact | 2026-10-05 | cited inline with retrieval dates |
+| Source | Revision / version | Date |
+|--------|--------------------|------|
+| `taiko-mono` baseline | `7718753c1` | 2026-10-05 |
+| Prior accepted Etna research (read-only) | `a829f79723de9a09205660d9895418577cfe9aa9` | 2026-10-05 |
+| Frozen review snapshot (round 1) | `dfcf067a5b91a1b0bacd4470f5f5054d1f861a24` | 2026-10-05 |
+| CometBFT specification | pinned commit `709fd12b…` | retrieved 2026-10-05 |
+| RISC Zero / SP1 | `v3.0.6` / `v6.8.1` (verifier contracts `v3.0.1` / `v6.1.1`) | retrieved 2026-10-05 |
+| EIP-4844, EIP-7691, EIP-4444 | as published | retrieved 2026-10-05 |
 
-Every external claim in this directory carries a source link and a retrieval date. Every claim
-about this repository carries a pinned file and line reference at revision `7718753c1`.
-Numbers are tagged **derived**, **sourced** or **unmeasured**; proposed parameters are never
-presented as results.
+Every external claim carries a source link and a retrieval date. Every claim about this repository
+carries a pinned file and line reference at `7718753c1`. Numbers are tagged **derived / sourced /
+unmeasured**; proposed parameters are never presented as results.
 
-## Delegation and model policy
+## Delegation, models and review coverage
 
-See [`DECISIONS.md`](DECISIONS.md) §"Delegation and model policy" for the recorded policy,
-actual assignments per phase, and any limitations (including unavailable usage accounting).
+See [`DECISIONS.md`](DECISIONS.md) §"Delegation and model policy" and the round files in
+[`iterations/`](iterations/) for actual assignments. Limitation: the harness did not expose a model
+selector for delegated work, so model assignment per sub-task could not be enforced in this session;
+this is recorded rather than papered over, and the independent-review structure (fresh reviewers per
+round, findings first, adjudication second) was used to obtain genuine independence instead.
 
 ## Outstanding blockers
 
-Tracked in [`DECISIONS.md`](DECISIONS.md) and the latest [`iterations/`](iterations/) round.
+| ID | Blocker | Consequence |
+|----|---------|-------------|
+| REC-03 | Mode B's resistance to cheap recovery triggering is unresolved | Mode B must not be selected on this specification alone |
+| F1 | Epoch-handoff lock carry-over (CONS-09) is argued, not proven | The named review target for round 1 |
+| F2 | In-guest blob polynomial-evaluation cost unmeasured | The blob data path is an implementation gate; calldata path is the fallback |
+| F3 | 2 s cadence with a permissionless global validator set unmeasured | Launch gate |
+| F4 | Prover fleet sizing inputs unmeasured | LIVE-03 throughput inequality cannot be evaluated |
+| MIG | Removal of every privileged lever is verified only at migration time | R1/R2 are conditional on the migration audit |
+| HUM | Slashed-stake destination (ECON-06) and reward funding (ECON-02) are human decisions | Cannot be resolved by this project |
 
 ## Boundaries
 
 No implementation, no deployments, no secrets, no live changes. Edits are confined to
-`packages/protocol/docs/Etna/pos-zk/`. Existing accepted Etna documents are preserved and only
-read.
+`packages/protocol/docs/Etna/pos-zk/`. Existing accepted Etna documents are preserved and were only
+read, from branch `etna/converged-spec`.

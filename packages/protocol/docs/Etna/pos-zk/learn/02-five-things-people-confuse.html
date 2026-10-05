@@ -71,7 +71,7 @@ epoch's voting power, plus the receiver's own data check
 (<a href="../spec/index.html#STATUS-04">STATUS-04</a>).</li>
 <li><strong>Data availability.</strong> The property that the data can be obtained by those who need
 it. Canonical availability for a settled batch is the accepting L1 transaction
-(<a href="../spec/04-l1-integration.html#DA-01">DA-01</a>); before that it is a retention duty, not a
+(<a href="../spec/04-l1-integration.html#DA-01">DA-01</a>); before that it is a retention assumption, not a
 cryptographic property (<a href="../spec/10-assurance.html#LIM-01">LIM-01</a>), and local possession is
 not availability (<a href="../spec/index.html#STATUS-09">STATUS-09</a>).</li>
 <li><strong>Economic accountability.</strong> Stake that is bonded and active can be slashed for
@@ -164,9 +164,13 @@ text is authoritative and this is a summary
 <tr><td>T2 later — <span class="pill unmeasured">unmeasured</span></td><td>PoS-finalized (Mode A)</td><td>under INV-01's premises, the block is on the unique canonical chain permanently</td><td>that the batch is settled, or that a withdrawal is possible</td></tr>
 <tr><td>T3, envelope "a few minutes to 30 minutes" <span class="pill derived">derived</span> from D6 as a design envelope, not a bound; 30 min = 900 blocks <span class="pill derived">derived</span> from PARAM-02</td><td>proof-ready</td><td>that the batch can be landed</td><td>that it is settled; a proof of a different batch is not a substitute (STATUS-05)</td></tr>
 <tr><td>T4 — <span class="pill unmeasured">unmeasured</span>; one L1 transaction carrying data and proof (D5, L1-01)</td><td>accepted on L1</td><td>the batch data is public on Ethereum and the transition is L1-committed</td><td>that it cannot be reorganised: only an L1 reorg below finality revokes this status</td></tr>
-<tr><td>T5 = Ethereum's own finality plus F_L1 <span class="pill unmeasured">unmeasured</span>; ≈ 2 Ethereum epochs ≈ 12.8 min <span class="pill derived">derived</span> from sourced inputs</td><td>Ethereum-finalized</td><td>that the L1 fact can no longer be reorganised by Ethereum</td><td>that L2 will keep producing blocks afterwards</td></tr>
+<tr><td>T5 = Ethereum's own finality plus F_L1 <span class="pill unmeasured">unmeasured</span>; ≈ 2 Ethereum epochs ≈ 12.8 min <span class="pill derived">derived</span> from sourced inputs</td><td>Ethereum-finalized</td><td>that the L1 fact is at the finality depth the design requires (SYS-02); the requirements document allows only a catastrophic Ethereum consensus failure to reverse it</td><td>that L2 will keep producing blocks afterwards</td></tr>
 <tr><td>T6 — <span class="pill unmeasured">unmeasured</span>; message path plus the MSG-03 delay</td><td>withdrawal-eligible</td><td>that the withdrawal may proceed under those rules</td><td>that the protocol compensates any loss (ECON-11 limits the scope)</td></tr>
 </tbody></table>
+
+<p>The row that matters most here is PoS-finalized: a block can be execution-valid, agreed and
+available, and still not settled on L1 — and the user may not withdraw. That is the whole reason the
+five questions are kept apart.</p>
 
 <p>Two arithmetic illustrations, kept honest about their inputs. First, the quorum threshold is the
 minimal integer <code>q</code> with <code>3q &gt; 2 · total</code>
@@ -233,7 +237,7 @@ premises, including the handoff premise that the assurance page marks as an assu
 target; (iii) the "30 minutes" being an envelope fixed by D6 and tagged as a planning assumption, never
 a bound; (iv) Ethereum finality of about two epochs (≈ 12.8 min) being a sourced property of Ethereum's
 current configuration, tagged in 09 as depending on that configuration, with F_L1 unmeasured; (v) the
-availability of a finalized block being a retention duty, not a property, before L1 acceptance
+availability of a finalized block being a retention assumption, not a property, before L1 acceptance
 (LIM-01). Falsifier: find a cell in the worked table that asserts a guarantee stronger than the linked
 status rule — that is a defect, because the specification wins.</p>
 </div>

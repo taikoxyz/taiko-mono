@@ -30,7 +30,7 @@
 <p class="small">This page states <code>SYS-01</code>–<code>SYS-04</code> and <code>ROLE-01</code>–<code>ROLE-05</code>
 in full. Every other rule is a reference by identifier to the page that states it
 (<a href="index.html#ruleindex">rule index</a>). Fixed decisions D1–D7, the status labels
-<a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11</a> and the assumption set
+<a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11">STATUS-11</a> and the assumption set
 (<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4) are inputs,
 not restated here. Nothing on this page is implemented, deployed or measured; every number carries a
 <span class="pill derived">derived</span>, <span class="pill sourced">sourced</span> or
@@ -111,7 +111,7 @@ availability, proof verification, settlement and bridge anchoring (D4/GEN-09).</
 <thead><tr><th>ID</th><th>Channel</th><th>Direction / medium</th><th>Carries</th><th>Delivery assumption</th><th>If it fails</th></tr></thead>
 <tbody>
 <tr><td><code>C1</code></td><td>L2 P2P <em>gossip</em></td><td>L2↔L2, many-to-many, best effort</td><td>proposals, block headers, votes, finality certificates, epoch/set commitments</td><td>partial synchrony after GST (<a href="../01-requirements-and-threat-model.md">A-CONS-2</a>)</td><td>liveness only (view change, slower confirmation)</td></tr>
-<tr><td><code>C2</code></td><td>L2 P2P <em>directed</em></td><td>L2↔L2, one-to-one request/response</td><td>block bodies, state, execution witnesses</td><td>none — a holder may refuse; this is what makes availability a duty, not a property (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>)</td><td>data unavailability → safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>); never a history rewrite</td></tr>
+<tr><td><code>C2</code></td><td>L2 P2P <em>directed</em></td><td>L2↔L2, one-to-one request/response</td><td>block bodies, state, execution witnesses</td><td>none — a holder may refuse; this is what makes availability a liveness assumption (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not a property and not an enforceable duty</td><td>data unavailability → safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>); never a history rewrite</td></tr>
 <tr><td><code>C3</code></td><td>L1 transaction inclusion</td><td>L2→L1, signed Ethereum transactions</td><td>staking/exit operations, forced-inclusion requests, atomic (data, proof) acceptance (<a href="04-l1-integration.html#L1-01">L1-01</a>)</td><td>Ethereum inclusion liveness (<a href="../01-requirements-and-threat-model.md">A-L1-1</a>); subject to censorship T-7</td><td>settlement and forced inclusion stall; L2 continues until the backlog cap binds (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>)</td></tr>
 <tr><td><code>C4</code></td><td>L1→L2 observation</td><td>L1→L2, each node reads L1 through a client it operates</td><td>L1 block hashes, state roots, logs and storage values</td><td>the reading node's own L1 client; only Ethereum-final facts may be committed (<a href="#SYS-02">SYS-02</a>)</td><td>the node must abstain rather than vote; it must not take L1 finality second-hand (<a href="index.html#STATUS-09">STATUS-09</a>)</td></tr>
 </tbody></table>
@@ -136,8 +136,10 @@ runtime role (<a href="#SYS-04">SYS-04</a>); L1 Ethereum is data availability, p
 settlement and bridge anchoring, and is never the sequencer (D4, <a href="index.html#GEN-09">GEN-09</a>).
 (b) No participant may rely on a channel for a guarantee the channel does not carry: finality exists
 only as the published commit certificate of <a href="index.html#STATUS-04">STATUS-04</a> over C1/C2;
-data availability exists only through C2/C3 plus the retention duty of
-<a href="04-l1-integration.html#DA-05">DA-05</a> and <a href="#ROLE-03">ROLE-03</a>; L1-derived state
+data availability exists only through C2/C3 plus the retention assumption of
+<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>/<a href="../01-requirements-and-threat-model.md">A-DA-2</a> and the best-effort service described in
+<a href="04-l1-integration.html#DA-05">DA-05</a> and <a href="#ROLE-03">ROLE-03</a> — retention is not an enforceable protocol duty, failure to serve is not provable on L1
+for most classes, and a holder's failure produces a halt, not a penalty (*review round 1, finding C R1-04*); L1-derived state
 exists only through C4 and only when Ethereum-final (<a href="#SYS-02">SYS-02</a>). (c) Every validator
 must run its own L2 consensus and execution client and must have access to an Ethereum client it can
 use to establish L1 finality itself; a validator must not accept L1 finality, or L2 block
@@ -206,7 +208,16 @@ operate at least ten geographically distributed validators with pinned L1 and L2
 one week and record the distribution of inclusion, finalized-checkpoint observation and certificate
 publication times. (f) Forced-inclusion requests and bridge messages inherit the same bound: an L1
 request may not become due, and an L1-anchored message may not be consumed by L2 state, before the
-carrying L1 transaction is Ethereum-final.</span>
+carrying L1 transaction is Ethereum-final. (g) <strong>L2-side checkpoint writer (reserved system sender) — reconciled, not assumed away.</strong> The write path that publishes an L1 fact into L2
+consensused state (today the L2 Anchor's golden-touch-gated <code>anchorV4</code>, migration <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>) <strong>remains a single reserved system
+sender</strong>; this rule does not claim the gate is gone. Its ONLY remaining power is to publish an L1 fact of the form (a) that this rule already constrains — an Ethereum-final L1 block
+hash and state root at the required coordinates, on the canonical chain, at the next height — and it may not choose which fact to publish beyond the SYS-02 rule: a payload that is not that
+fact, or that is not Ethereum-final for the validators consuming it, is invalid and correct validators reject the block that consumes it. Whether the retained sender is enforced as a
+rule-checked write (validators can reject a bad payload) or as an unchecked write (they cannot) is unresolved. Removal of the sender — a rule-checked system transaction or
+consensus-verified observation — is an <strong>Open migration item</strong> (<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>). Consequence, stated rather than assumed away: if it
+can choose which fact to publish, or can withhold one, it is a discretion surface in ordinary operation and R1/R2 of the requirements matrix
+(<a href="../01-requirements-and-threat-model.md">01 §7</a>) are not yet satisfied; bridge authentication then rests on that sender's honesty and A-GOV-1, not on a consensus rule
+(*review round 1, finding B R1-09*).</span>
 <span class="why">Failure mode: a PoS-finalized L2 block whose execution or message authentication
 depends on a reorganisable L1 fact becomes unprovable against canonical L1; L1 admission then stalls
 permanently at that batch and Mode A forbids the only fix, rolling the finalized L2 block back
@@ -214,7 +225,9 @@ permanently at that batch and Mode A forbids the only fix, rolling the finalized
 can never settle.</span>
 <span class="small">Premises: <a href="../01-requirements-and-threat-model.md">A-L1-1</a> and
 <a href="../01-requirements-and-threat-model.md">A-CONS-1</a>; the parameter values are unmeasured.</span>
-<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span></div>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span>
+<span class="pill open">Open</span> <span class="small">(open for the removal of the reserved checkpoint writer of SYS-02(g), migration item
+<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>)</span></div>
 
 <h3 id="anchor-change">3.1 Change from today's anchor behaviour</h3>
 
@@ -226,7 +239,7 @@ baseline research's <code>path:line</code> records at commit <code>7718753c1</co
 <table>
 <thead><tr><th>Baseline (commit 7718753c1)</th><th>Evidence</th><th>Under SYS-02</th></tr></thead>
 <tbody>
-<tr><td>The L2 Anchor is the only path to <code>saveCheckpoint</code>, hard-gated to a hardcoded golden-touch address</td><td><code>Anchor.sol:36-37</code>, <code>:86-89</code>, <code>:124-127</code>; research §8.5</td><td>The golden-touch gate is removed. L2 state derives from L1 facts verified at Ethereum-final depth, not from one privileged sender.</td></tr>
+<tr><td>The L2 Anchor is the only path to <code>saveCheckpoint</code>, hard-gated to a hardcoded golden-touch address</td><td><code>Anchor.sol:36-37</code>, <code>:86-89</code>, <code>:124-127</code>; research §8.5</td><td>The gate is <strong>retained as the reserved system sender</strong> for the L2-side checkpoint write; SYS-02(g) states its only remaining power — publishing the Ethereum-final L1 block hash and state root this rule already constrains, with no choice beyond it — and its removal is an Open migration item (<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>). The claim that no privileged sender remains is not made until that item closes (*review round 1, finding B R1-09*).</td></tr>
 <tr><td>The L2 SignalService has a single immutable checkpoint writer, fixed at construction, with no setter and no rotation</td><td><code>SignalService.sol:35-37</code>, <code>:174-177</code>; L2 wiring at <code>script/layer2/DeployShastaL2Contracts.s.sol:46-53</code>; research §8.2</td><td>The preserved address (D3) must be repointed by a layout-safe in-place upgrade (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>) to a write path that is not a single privileged address. No replacement deployment (<a href="08-migration-upgrades.html#MIG-06">MIG-06</a>).</td></tr>
 <tr><td>The L1 checkpoint content originates in <code>Inbox.prove()</code> in the same L1 block as proof verification, and L2 re-anchors it later</td><td><code>Inbox.sol:364-370</code>; <code>Anchor.sol:182-185</code>; research §8.2</td><td>An L1-accepted-but-not-yet-final checkpoint must not be consumed by L2 consensused state. L2 waits for the SYS-02 evidence, paying the latency of §3(e).</td></tr>
 <tr><td>The Anchor validates a rolling 255-block ancestor commitment and refuses arbitrary jumps</td><td><code>Anchor.sol:175-179</code>, <code>:194-229</code>; research §8.5</td><td>The replacement continuity rule for L2-side L1 observation belongs to <a href="04-l1-integration.html">04</a>/<a href="05-proof-statement.html">05</a>; the anchor's rule is not inherited implicitly.</td></tr>
@@ -298,8 +311,8 @@ required. Paths are relative to <code>packages/protocol/contracts/</code>.</p>
 <tr><td>Proposer permissioning</td><td><code>PreconfWhitelist.checkProposer</code> — <code>PreconfWhitelist.sol:127-141</code>; Inbox comment "Permissionless proposing is temporarily disabled" — <code>Inbox.sol:601-603</code></td><td>Replace the <code>IProposerChecker</code> indirection with stake-based selection (<a href="02-consensus.html#CONS-06">CONS-06</a>). <code>addOperator</code>/<code>removeOperator</code> (<code>PreconfWhitelist.sol:94,100,108</code>) and <code>setEjecter</code> (<code>:115-124</code>) disappear with it.</td></tr>
 <tr><td>Prover permissioning</td><td><code>whitelistProver</code> — <code>ProverWhitelist.sol:74-80</code> (modifier <code>:45-48</code>; immutable <code>_proverManager</code> <code>:18,56-59</code>); Inbox gate <code>_checkProver</code>/<code>ProverNotWhitelisted</code> — <code>Inbox.sol:337,771-779</code></td><td>Remove. Admission is <a href="04-l1-integration.html#L1-04">L1-04</a>: no gate, no expiry, any prover.</td></tr>
 <tr><td>Anchor owner</td><td><code>withdraw</code> — <code>Anchor.sol:145-156</code>; also <code>init</code> <code>:113</code>, pause/unpause, upgrade</td><td>The Anchor ceases to be the L2 checkpoint writer; its privileged surface is removed or made rule-governed (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>, <a href="08-migration-upgrades.html#MIG-03">MIG-03</a>).</td></tr>
-<tr><td>Golden touch</td><td><code>GOLDEN_TOUCH_ADDRESS</code> — <code>Anchor.sol:36-37</code>; <code>onlyValidSender</code> — <code>:86-89</code>; <code>anchorV4</code> — <code>:124-127</code></td><td>Remove as the checkpoint gate. L2 L1-observation follows <a href="#SYS-02">SYS-02</a> instead.</td></tr>
-<tr><td>SignalService single writer</td><td><code>_authorizedSyncer</code> immutable — <code>SignalService.sol:35-37</code>, <code>:174-177</code>; L2 wiring <code>script/layer2/DeployShastaL2Contracts.s.sol:46-53</code>; L1 writer <code>Inbox.sol:364-370</code></td><td>Keep the D3 address, replace the write path through a layout-safe upgrade (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>); no single privileged writer remains.</td></tr>
+<tr><td>Golden touch</td><td><code>GOLDEN_TOUCH_ADDRESS</code> — <code>Anchor.sol:36-37</code>; <code>onlyValidSender</code> — <code>:86-89</code>; <code>anchorV4</code> — <code>:124-127</code></td><td><strong>Reconcile, not remove (Open).</strong> Retained as the reserved system sender whose only power is to publish the Ethereum-final L1 fact <a href="#SYS-02">SYS-02</a>(a)–(d) already constrains (<a href="#SYS-02">SYS-02</a>(g)); no fact may be chosen beyond that rule. Removal — a rule-checked system transaction or consensus-verified observation — is an Open migration item (<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>). While it stands, a sender that can choose is a discretion surface, so R1/R2 are not satisfied by this lever alone.</td></tr>
+<tr><td>SignalService single writer</td><td><code>_authorizedSyncer</code> immutable — <code>SignalService.sol:35-37</code>, <code>:174-177</code>; L2 wiring <code>script/layer2/DeployShastaL2Contracts.s.sol:46-53</code>; L1 writer <code>Inbox.sol:364-370</code></td><td>Keep the D3 address, replace the write path through a layout-safe upgrade (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>); until that replacement lands, the write path is the reserved system sender of <a href="#SYS-02">SYS-02</a>(g), and the claim that no single privileged writer remains is not made (Open, <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>).</td></tr>
 <tr><td>Verifier-owner allowlists</td><td><code>SP1Verifier.setProgramTrusted</code> — <code>SP1Verifier.sol:44-47</code>; <code>Risc0Verifier.setImageIdTrusted</code> — <code>Risc0Verifier.sol:43-46</code>; <code>SgxVerifier.addInstances</code>/<code>deleteInstances</code> — <code>:224-227,236</code>, <code>setMrEnclave</code> <code>:258</code>, <code>setMrSigner</code> <code>:283</code>, <code>toggleLocalReportCheck</code> <code>:297</code>, <code>registerInstance</code> <code>:316-319</code> (owner fast-path <code>:455</code>); <code>SecureSgxVerifier.setEnclaveAttributePolicy</code> — <code>SecureSgxVerifier.sol:85-91</code></td><td>Replace discretionary allowlists with the additive program-image and verifier policy of <a href="05-proof-statement.html#PRF-10">PRF-10</a> and the routing of <a href="04-l1-integration.html#L1-09">L1-09</a>. Old images remain accepted for the epochs that used them.</td></tr>
 <tr><td>Bridge / vault pause and Bridge <code>pauser</code></td><td><code>Bridge.sol:186-188</code> (<code>receive()</code> restricted to the pauser), <code>:556</code> (<code>_authorizePause</code>)</td><td>Must not be able to block a message that is already withdrawal-eligible (<a href="04-l1-integration.html#MSG-03">MSG-03</a>); treated in <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>.</td></tr>
 <tr><td>Resolver owner</td><td><code>Bridge.sol:517-524</code>; <code>BaseVault.sol:60,69</code></td><td>Address registration for the preserved surfaces is frozen or rule-governed (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>).</td></tr>
@@ -307,15 +320,22 @@ required. Paths are relative to <code>packages/protocol/contracts/</code>.</p>
 
 <div class="rule" id="SYS-04"><span class="rid">SYS-04 — no DAO or emergency operator in ordinary operation</span>
 <span class="norm"><strong>Statement.</strong> (a) No DAO, owner, pauser, ejecter, prover manager,
-golden-touch key, verifier owner or emergency operator is required for any of: ordinary block
+verifier owner or emergency operator is required for any of: ordinary block
 production and finality; view change, timeout handling or leader rotation; epoch handoff and
 validator-set update; proof production, submission or acceptance; validator activation, key rotation
-or exit; forced inclusion; or withdrawal. (b) Every lever in the table above must be removed or made
+or exit; forced inclusion; or withdrawal. One exception is stated rather than hidden: the L2-side
+checkpoint writer retained by <a href="#SYS-02">SYS-02</a>(g) remains a reserved system sender in
+ordinary operation, its only power being to publish the SYS-02-constrained Ethereum-final L1 fact,
+and its removal is an Open migration item (<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>).
+(b) Every lever in the table above must be removed or made
 non-operative for ordinary operation by the migration (<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>),
-and no new lever of the same kind may be introduced. A lever is "non-operative" if no participant's
-required action depends on it and no failure of ordinary progress can be repaired by it. (c) The one
-privileged actor the design retains is the DAO, for upgrades only
-(<a href="08-migration-upgrades.html#GOV-01">GOV-01</a>). That retention is a trust assumption
+and no new lever of the same kind may be introduced. The retained checkpoint writer is <em>not</em>
+claimed to be non-operative: it fails the test below, so it is recorded as a residual privilege
+rather than as a removed lever. A lever is "non-operative" if no participant's
+required action depends on it and no failure of ordinary progress can be repaired by it. (c) The
+privileged actors the design retains are the DAO, for upgrades only
+(<a href="08-migration-upgrades.html#GOV-01">GOV-01</a>), and the reserved checkpoint writer of
+<a href="#SYS-02">SYS-02</a>(g). That retention is a trust assumption
 (<a href="../01-requirements-and-threat-model.md">A-GOV-1</a>), not a safety guarantee; an upgrade
 must accept every previously finalized history (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>,
 <a href="05-proof-statement.html#PRF-10">PRF-10</a>). (d) When ordinary progress is impossible the
@@ -326,8 +346,9 @@ no operator path to restart, rescue or roll back (<a href="06-recovery-exception
 class), censor proposing or proving, write or block the L2 checkpoint, or change which proofs count;
 each makes a role's permissionlessness and Mode A's no-rollback promise untrue in practice, and each
 is exactly the "the DAO/emergency key would fix it" non-argument the requirements forbid.</span>
-<span class="small">Assumed only in the retained DAO upgrade authority (A-GOV-1).</span>
-<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span></div>
+<span class="small">Assumed in the retained DAO upgrade authority (A-GOV-1) and in the reserved checkpoint writer's compliance with
+<a href="#SYS-02">SYS-02</a>(g) (Open migration item <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill open">Open</span></div>
 
 <h2 id="roles">6. Role catalogue</h2>
 
@@ -349,8 +370,9 @@ valid block within the round budget (<a href="02-consensus.html#CONS-06">CONS-06
 block it votes for against parent state; cast at most one vote per (height, round) and obey the lock
 rule and its unlocking condition (<a href="02-consensus.html#CONS-02">CONS-02</a>,
 <a href="02-consensus.html#CONS-04">CONS-04</a>); hold and serve the block data it voted for for at
-least the retention window (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>,
-<a href="04-l1-integration.html#DA-05">DA-05</a>); include due forced inclusions in proposals it
+least the retention window — a liveness assumption (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>,
+<a href="../01-requirements-and-threat-model.md">A-DA-2</a>, <a href="04-l1-integration.html#DA-05">DA-05</a>), not an enforceable protocol duty: failure to
+serve is not provable on L1 for most classes and produces a halt, not a penalty (*review round 1, finding C R1-04*); include due forced inclusions in proposals it
 builds (<a href="02-consensus.html#CONS-01">CONS-01</a>, <a href="04-l1-integration.html#FI-02">FI-02</a>).
 (c) <em>Required resources</em> — each item is UNMEASURED for this design and the measurement that
 would pin it is named: sustained bandwidth for C1 gossip plus C2 fetches at the observed block size
@@ -367,9 +389,18 @@ appreciation. (e) <em>Penalties.</em> Only for objectively verifiable offences, 
 windows and recipients of <a href="07-economics-slashing.html#ECON-04">ECON-04</a>,
 <a href="07-economics-slashing.html#ECON-05">ECON-05</a> and
 <a href="07-economics-slashing.html#ECON-07">ECON-07</a>: equivocation
-(<a href="02-consensus.html#CONS-11">CONS-11</a>), a vote that violates the lock rule, and the other
-listed offences. Local suspicion, mere non-receipt of a message, or elapsed time is never evidence
+(<a href="02-consensus.html#CONS-11">CONS-11</a>) and the other listed offences. A lock-rule violation is
+penalised only in the form in which it is objectively provable — a conflicting signed pair at the same
+(height, round), which is also the only lock-related offence with admissible evidence — because proving
+the <em>absence</em> of an unlocking proof-of-lock-change is not an admissible evidence object
+(<a href="07-economics-slashing.html#ECON-04">ECON-04</a>, <a href="02-consensus.html#CONS-11">CONS-11</a>). A cross-round or cross-epoch
+divergence under a withholding adversary may leave no such pair and therefore <strong>no admissible evidence</strong>:
+the claim that a safety-relevant divergence always implies at least one third objectively slashable is
+<strong>Assumed</strong>, not established, and the fork-accountability argument is not a deterrent guarantee
+(<a href="02-consensus.html#CONS-09">CONS-09</a>(4)(a); the limitation row is owed to
+<a href="10-assurance.html#LIM-01">LIM-01</a>). Local suspicion, mere non-receipt of a message, or elapsed time is never evidence
 (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>, <a href="index.html#STATUS-10">STATUS-10</a>).
+<em>This closes review round 1 finding CS-07 for this role rule: the penalised lock offence is the same-(height, round) conflicting pair, and everything else is local suspicion.</em>
 (f) <em>Exit.</em> An objective unbonding queue (<a href="03-membership-staking.html#MEM-05">MEM-05</a>)
 whose delay is derived from the whole settlement pipeline
 (<a href="07-economics-slashing.html#ECON-03">ECON-03</a>); exit never invalidates past votes, and
@@ -445,14 +476,16 @@ A-DA-4; resources unmeasured.</span>
 
 <div class="rule" id="ROLE-03"><span class="rid">ROLE-03 — full node and archive node role</span>
 <span class="norm"><strong>Statement.</strong> (a) <em>Entry.</em> Permissionless, no registration,
-no stake, no consensus role. (b) <em>Duties.</em> A full node executes and validates the chain it
-follows and serves block bodies, state and execution witnesses on C2 for at least the retention
+no stake, no consensus role. (b) <em>Duties and assumptions.</em> A full node executes and validates the chain it
+follows and, while it runs, serves block bodies, state and execution witnesses on C2 for at least the retention
 window; an archive node additionally retains history beyond the blob retention period so that old
 batches remain re-provable and auditable
 (<a href="04-l1-integration.html#DA-05">DA-05</a>, <a href="04-l1-integration.html#DA-06">DA-06</a>).
-A full node may refuse service — that is not misconduct — but a validator's retention duty under
+A full node may refuse service — that is not misconduct — but a validator's own retention obligation under
 <a href="#ROLE-01">ROLE-01</a>(b) is not discharged by another node's possession of the data
-(<a href="index.html#STATUS-09">STATUS-09</a>). (c) <em>Resources</em> (UNMEASURED): storage for
+(<a href="index.html#STATUS-09">STATUS-09</a>). Retention is a <strong>liveness assumption</strong>
+(<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable
+protocol duty: failure to serve is not provable on L1 for most classes, and a holder's failure produces a halt, not a penalty (*review round 1, finding C R1-04*). (c) <em>Resources</em> (UNMEASURED): storage for
 state plus the retention window, and the full history for an archive node; bandwidth to serve peers;
 CPU for execution and witness reconstruction. (d) <em>Rewards.</em> The protocol defines no payment
 for full or archive service; operators bear the cost, and that is a disclosed sustainability and

@@ -35,12 +35,13 @@ failed consensus assumptions.</p>
 <span class="norm">A single guest program proves the conjunction of two claims for one batch:
 <strong>(W1) consensus finality</strong> — that the batch's head block carries a valid commit
 certificate over (chain id, epoch, height, round, block id) signed by more than two thirds of the
-voting power of the epoch's validator set, where that set is authenticated from L1 state, and that
-every epoch boundary crossed by the batch is accompanied by an authenticated set transition; and
+voting power of the epoch's validator set, where that set is authenticated from L1 state and
+<code>epoch</code> is the L1-committed function of height; a batch never spans an epoch boundary
+(<a href="#PRF-05">PRF-05</a>), so exactly one epoch and one set root are in play; and
 <strong>(W2) execution</strong> — that executing the batch's blocks, in the order fixed by the
 consensus chain, from the predecessor state root yields the claimed successor state root. The guest
 also proves <strong>(W3) data binding</strong> — that the data it executed is the data the accepting
-L1 transaction publishes (see <a href="#PRF-07">PRF-07</a>). Acceptance requires all three.</span>
+L1 transaction publishes (see <a href="#PRF-07">PRF-07</a>). Acceptance requires all three. <em>(review round 1, findings B R1-03, B R1-04)</em></span>
 <span class="why">Failure mode if split: a proof that a block was finalized without proving what it
 executed (or vice versa) admits a batch whose state transition was never agreed, or a state
 transition over data that was never certified.</span>
@@ -60,20 +61,56 @@ transaction, and it recomputes the Fiat–Shamir challenge rather than trusting 
   uint64  prevHeight;        // predecessor checkpoint height          (L1: Inbox storage)
   bytes32 prevBlockHash;     // predecessor L2 block hash              (L1: Inbox storage)
   bytes32 prevStateRoot;     // predecessor L2 state root              (L1: Inbox storage)
-  uint64  epoch;             // epoch of the head block                (L1: checked vs schedule)
-  bytes32 validatorSetRoot;  // canonical set commitment for that epoch(L1: staking contract)
+  uint64  epoch;             // epoch_of(height) for every height in the batch, a pure function of
+                             // height under the L1-committed schedule        (L1: recomputed)
+  bytes32 validatorSetRoot;  // THE single canonical MEM-08 Merkle root R_k of that epoch
+                             // (leaf ETNA_SET_LEAF, node ETNA_SET_NODE), read from the staking
+                             // contract's per-epoch mapping, append-only and immutable once the
+                             // epoch starts                                  (L1: staking contract)
   uint256 totalVotingPower;  // sum of effective stake in that set     (L1: staking contract)
-  uint256 quorumThreshold;   // strict two-thirds threshold            (L1: recomputed)
+  uint256 quorumThreshold;   // NOT a threshold: the quorum predicate's right-hand product,
+                             // checked_mul(2, totalVotingPower). Quorum is the single checked
+                             // predicate 3 * s &gt; 2 * W, evaluated identically by the client,
+                             // the guest and the L1 contract; no stored or pre-computed
+                             // threshold exists (CONS-03 owns the predicate)
+                             //                                        (L1: recomputed)
   bytes32 configHash;        // consensus-relevant config commitment   (L1: Inbox storage)
   uint64  firstHeight;       // first L2 height in the batch           (L1: checked)
   uint64  lastHeight;        // head height                            (L1: checked)
   bytes32 headBlockHash;     // head block hash                        (L1: checked vs chain)
   bytes32 postStateRoot;     // successor state root                   (L1: new checkpoint value)
-  bytes32 dataCommitment;    // keccak256 of the canonical batch data  (L1/D5 binding, DA-01..DA-03)
+  bytes32 dataCommitment;    // commits the WHOLE published byte string (calldata payload, or
+                             // every full 131,072-byte blob, or both); never a prefix
+                             //                                       (L1/D5 binding, DA-01..DA-03)
   bytes32 blobHashesHash;    // keccak256 of ordered versioned hashes  (L1: from BLOBHASH)
-  bytes32 challengeZ;        // Fiat-Shamir point over all other fields(L1: recomputed; must match)
+  bytes32[] challengeZ;      // one Fiat-Shamir point z_i PER BLOB     (L1: derived per DA-03(iii))
   bytes32[] evaluationsY;    // one polynomial evaluation per blob     (L1: passed to precompile)
-}</code></pre>
+  bytes32 forcedInclusionCommitment; // keccak over the covered FI ids   (L1: recomputed from L1 state)
+}
+// INVARIANT: firstHeight and lastHeight lie in the SAME epoch. A batch may not span an
+// epoch boundary (PRF-05), so one epoch/set-root pair is sufficient and the journal needs
+// no per-epoch array. epoch MUST equal epoch_of(height) for every height in the range (a
+// pure function of height under the L1-committed schedule, CONS-13/CONS-14) and
+// validatorSetRoot MUST be the single canonical MEM-08 root L1 holds for that epoch
+// (review round 1, findings B R1-03, B R1-04, B R1-05). Review round 1, finding R1-CROSS:
+// an earlier revision carried a single epoch while PRF-05 required per-epoch checks, which
+// made a boundary-crossing batch unprovable.</code></pre>
+<span class="norm">Three constraints on this list are normative. (1) <code>epoch</code> is a pure
+function of height: for every height in <code>[firstHeight, lastHeight]</code>,
+<code>epoch = epoch_of(height)</code> under the L1-committed epoch schedule
+(<a href="02-consensus.html#CONS-13">CONS-13</a>, <a href="02-consensus.html#CONS-14">CONS-14</a>), and
+the L1 contract recomputes that equality from its own activation record, so a prover cannot label a
+batch with an epoch that judges it more favourably. (2) <code>validatorSetRoot</code> is read by the L1
+contract from the staking contract's per-epoch mapping for that epoch — L1 resolves epoch → root from
+its own state, without trusting the proof — and that mapping is append-only and immutable once the
+epoch starts (<a href="03-membership-staking.html#MEM-09">MEM-09</a>). (3) There is exactly
+<strong>one</strong> validator-set commitment in this specification: the
+<a href="03-membership-staking.html#MEM-08">MEM-08</a> Merkle root over
+<code>(chainId, k, index, pubkey, effStake)</code> leaves, with node domain <code>ETNA_SET_NODE</code>
+and canonical <code>ETNA_SET_KEY</code> order; <a href="02-consensus.html#CONS-10">CONS-10</a>'s
+<code>validators_hash</code> and <code>next_validators_hash</code> MUST be that same root under that
+same encoding, so the header-chain binding and the Merkle membership proof always check the same
+object. <em>(review round 1, findings B R1-03, B R1-05)</em></span>
 <span class="why">Failure mode if any field were caller-supplied: a prover could assert its own
 validator set, quorum threshold or predecessor, and the proof would be sound but meaningless. This is
 the highest-risk integration point identified in the zkVM research
@@ -86,8 +123,12 @@ validator entries — each a (public key, effective stake) pair — with Merkle 
 proofs against <code>validatorSetRoot</code>; (b) the head block's commit evidence — per-signer
 signatures, the signer bitmap, and the canonical vote bytes each signature covers; (c) the header chain
 from <code>prevHeight + 1</code> to <code>lastHeight</code>, including each header's
-<code>validators_hash</code> and <code>next_validators_hash</code>; (d) for every epoch boundary
-crossed, the transition evidence required by <a href="#PRF-05">PRF-05</a>; (e) the batch's transaction
+<code>validators_hash</code> and <code>next_validators_hash</code> — both MUST be the single canonical
+<a href="03-membership-staking.html#MEM-08">MEM-08</a> root of the set they commit to, under the one
+encoding fixed in <a href="#PRF-02">PRF-02</a>(3), so a header whose field is a hash of any other
+encoding is invalid; (d) the epoch-boundary evidence required by <a href="#PRF-05">PRF-05</a> — a batch
+never crosses a boundary, so this is the end-of-epoch or start-of-epoch evidence of the batch that
+touches the boundary; (e) the batch's transaction
 data and the pre-state witness needed for execution; (f) the blob field elements used by
 <a href="#PRF-07">PRF-07</a>. <strong>No witness element may define the authoritative validator
 set.</strong> A set is accepted only if its recomputed commitment equals <code>validatorSetRoot</code>,
@@ -101,35 +142,57 @@ and the proof "verifies" a finality claim about a chain no independent validator
 <div class="rule" id="PRF-04"><span class="rid">PRF-04 — consensus-evidence checks</span>
 <span class="norm">For the head block's commit certificate the guest checks, in this order:
 (i) every signature verifies under the corresponding public key from the authenticated set, over the
-canonical vote bytes for (domain tag, l2ChainId, epoch, height, round, block id);
+canonical vote bytes the guest <em>reconstructs</em> — never the witness-supplied bytes — with
+<code>type = PRECOMMIT</code> and the per-signature fields bound as
+<a href="02-consensus.html#CONS-02">CONS-02</a>/<a href="02-consensus.html#CONS-03">CONS-03</a>
+require: the signed message MUST be a PRECOMMIT at the certificate's (epoch, height, round, block id),
+with <code>validator_index</code> equal to the signer's position in the canonical set order (the same
+index the signer bitmap uses), and with the certificate's epoch, height and round equal to those of the
+head block. A vote whose <code>type</code>, <code>validator_index</code> or <code>block_id</code>
+differs from that reconstruction does not count, even if the signature verifies.
+<em>(review round 1, finding B R1-17)</em>
 (ii) signers are distinct — the bitmap has exactly one bit per distinct signer and no bit outside the
 set;
-(iii) the sum of the effective stake of the signers, computed from the authenticated entries, is
-strictly greater than <code>quorumThreshold</code>, where the threshold is the minimal integer
-<code>q</code> with <code>3q &gt; 2 · totalVotingPower</code>, computed with the same rounding rule as
-the L1 contract so that no guest/contract mismatch is possible;
+(iii) quorum holds under the single predicate <code>3 * s &gt; 2 * W</code> with checked
+arithmetic: <code>s</code> is the sum of the effective stake of the distinct signers, computed from the
+authenticated entries, and <code>W = totalVotingPower</code>; the guest evaluates
+<code>checked_mul(3, s) &gt; checked_mul(2, W)</code> — the journal's <code>quorumThreshold</code> is the
+predicate's right-hand product, <code>checked_mul(2, totalVotingPower)</code> per <a href="#PRF-02">PRF-02</a>,
+never a pre-computed threshold. No threshold is stored or compared and no "strictly greater than the
+threshold" form is permitted: the predicate is exactly <code>3 * s &gt; 2 * W</code>, evaluated
+identically by the L2 client, this guest and the L1 contract, with
+<a href="02-consensus.html#CONS-03">CONS-03</a> as its sole owner. A strict versus non-strict mismatch is
+a protocol defect because it splits chain acceptance from L1 acceptance: a certificate the L2 finalizes
+can be rejected by the guest or by the L1 contract, or the reverse, so a legitimately finalized block
+becomes unsettleable. <em>(review round 1, finding CS-09: the guest's
+<code>s &gt; floor(2 · totalVotingPower / 3) + 1</code> form required one more unit of signer power than
+the client's <code>3s &gt; 2W</code>, so a minimally finalized certificate could not be proven.)</em>
 (iv) <code>totalVotingPower</code> equals the sum of the authenticated entries' effective stakes;
 (v) the head block hash equals the hash of the reconstructed head header, and the header chain links
-back to <code>prevBlockHash</code> by parent hash with no gaps.</span>
+back to <code>prevBlockHash</code> by parent hash with no gaps; and (vi) <strong>the forced-inclusion
+check</strong>: the guest recomputes the capped FIFO prefix <code>DueCap(T)</code> defined by
+<a href="04-l1-integration.html#FI-02">FI-02</a> — the same predicate the L1 backstop in
+<code>land(data, proof)</code> computes, with <code>T</code> the batch's first-block timestamp — from
+the L1-stored queue (the queue head, the eligibility timestamps and the consumed set are L1 state,
+supplied as public inputs or derived from values the contract reads), and requires that the batch's
+first block contains exactly those requests,
+that <code>forcedInclusionCommitment</code> is the canonical hash of that ordered list, and that no other
+request is covered. <em>This check is what makes the L1 backstop real: without it, an L1-05 binding row
+that claims <code>forcedInclusionCommitment</code> is proof-bound is merely asserted, and a quorum could
+omit a forced inclusion, consume the request and collect its fee while every other check passes (review
+round 1, finding C R1-02).</em></span>
 <span class="why">Failure modes addressed: double counting a signer, counting stake twice, a rounding
 discrepancy between guest and contract, and a certificate over a block that is not the one whose header
 chain was executed.</span>
 <span class="pill proven">Proven</span></div>
 
-<div class="rule" id="PRF-05"><span class="rid">PRF-05 — epoch and set-transition checks</span>
-<span class="norm">For every epoch boundary inside the batch the guest checks that: (i) the last header
-of the closing epoch commits, in <code>next_validators_hash</code>, to the commitment of the opening
-epoch's set, encoded per <a href="02-consensus.html#CONS-10">CONS-10</a>; (ii) the first block of the
-new epoch commits, in its consensus evidence, to the last block finalized in the previous epoch
-(<a href="02-consensus.html#CONS-09">CONS-09</a>); (iii) each epoch's set commitment equals the value
-the L1 staking contract fixes for that epoch, supplied as a public input rather than as a witness;
-(iv) epoch numbers are strictly increasing across the batch. A batch that spans a boundary must carry
-the transition evidence; transitions may not be skipped.</span>
+<div class="rule" id="PRF-05"><span class="rid">PRF-05 — epoch and set checks; a batch never spans an epoch boundary</span>
+<span class="norm"><strong>A batch MUST NOT span an epoch boundary</strong> — <code>epoch_of(firstHeight) = epoch_of(lastHeight)</code>, and the guest rejects any witness for which this fails. This keeps the statement honest (one epoch, one set root, one quorum denominator) and removes the need for a per-epoch array in the journal. Batching therefore aligns with the L1-committed epoch schedule (<a href="02-consensus.html#CONS-13">CONS-13</a>); because a batch is far shorter than an epoch, this is a batching constraint and not a liveness cost: a height range that would cross a boundary MUST be split into two batches — one ending at the last height of the epoch, one opening the next — and because the split point is forced by the schedule (<a href="04-l1-integration.html#L1-06">L1-06</a>'s <code>lastLandedHeight + 1</code>), no height can be dropped at the split. Given that constraint, the guest checks that: (i) <strong>epoch is a pure function of height</strong>: for every height in the batch, <code>epoch = epoch_of(height)</code> under the L1-committed schedule (<a href="02-consensus.html#CONS-13">CONS-13</a>, <a href="02-consensus.html#CONS-14">CONS-14</a>), and the L1 contract recomputes the same equality from its own activation record, so the claimed epoch is never a free choice; (ii) the head header's <code>validators_hash</code> equals the epoch's set root, and if the batch's head is the last block of its epoch, that header's <code>next_validators_hash</code> commits to the next epoch's set (<a href="02-consensus.html#CONS-10">CONS-10</a>); if the batch's head is the first block of its epoch, the head header MUST carry the <code>epoch_anchor</code> field of <a href="02-consensus.html#CONS-10">CONS-10</a>(6) and the guest MUST recompute it from the anchor certificate it verifies — including the <code>cert_hash</code> of the closing epoch's commit certificate for <code>B_anchor</code>, the last block finalized in that epoch — and reject the header if <code>epoch_anchor</code> does not recompute; the canonical encodings of <code>epoch_anchor</code> and <code>cert_hash</code> are owned by <a href="02-consensus.html#CONS-10">CONS-10</a>(6) and are not restated here; the epoch-boundary evidence is checked by the batch on each side of the boundary and may not be skipped; (iii) the epoch's set commitment equals the value the L1 staking contract holds for that epoch, supplied as a public input rather than as a witness: the contract resolves epoch → root from its own per-epoch mapping (<a href="03-membership-staking.html#MEM-09">MEM-09</a>), which is append-only and immutable once the epoch starts, so L1 needs no trust in the proof to obtain it; when the batch's head opens its epoch, the head header's <code>set_version_commit</code> field MUST equal the <a href="02-consensus.html#CONS-10">CONS-10</a>(6) commitment to the L1 mapping entry <code>(set_version(e), N(set_version(e)))</code> of the batch's epoch <code>e</code>, recomputed by the guest against the same public input, and a non-zero <code>set_version_commit</code> that fails to recompute makes the header invalid; its canonical encoding is owned by <a href="02-consensus.html#CONS-10">CONS-10</a>(6) and is not restated here; <em>(review round 1, finding CS-08: the epoch-boundary checks now name the CONS-10(6) objects <code>epoch_anchor</code>, <code>cert_hash</code> and <code>set_version_commit</code> and defer their encodings to their owner.)</em> (iv) there is exactly <strong>one</strong> validator-set commitment in this specification: the <a href="03-membership-staking.html#MEM-08">MEM-08</a> Merkle root — leaves <code>keccak256(abi.encode(ETNA_SET_LEAF, chainId, k, index, pubkey, effStake))</code>, interior nodes <code>keccak256(abi.encode(ETNA_SET_NODE, chainId, k, left, right))</code>, canonical order by <code>keccak256(abi.encode(ETNA_SET_KEY, chainId, pubkey))</code>, odd nodes promoted unchanged. <a href="02-consensus.html#CONS-10">CONS-10</a>'s <code>validators_hash</code> and <code>next_validators_hash</code> MUST be that same root under that same encoding. A second, flat or ad-hoc encoding is forbidden: with two encodings the header-chain binding and the Merkle membership proof would check different objects, so one of the two bindings could fail silently while the other still passes, and the set would be authenticated by only one of the two L1 facts the design claims. <em>(review round 1, findings B R1-03, B R1-04, B R1-05)</em></span>
 <span class="why">Failure modes addressed: set substitution at a boundary, a fork created by switching
-sets at different heights on different branches, and a prover choosing an "easy" set.</span>
+sets at different heights on different branches, a long-range attacker relabelling a fork with a past
+epoch whose set it still controls, and a prover choosing an "easy" set.</span>
 <span class="pill proven">Proven</span> <span class="small">(the lock carry-over premise is
 <a href="02-consensus.html#CONS-09">CONS-09</a>, marked Assumed-with-argument)</span></div>
-
 <div class="rule" id="PRF-06"><span class="rid">PRF-06 — execution checks</span>
 <span class="norm">The guest executes every block in the range in consensus order, starting from
 <code>prevStateRoot</code>, applies each block's transactions under the L2 execution rules, and checks
@@ -144,34 +207,71 @@ different pre-state, and a state-root scheme the bridge cannot verify.</span>
 
 <div class="rule" id="PRF-07"><span class="rid">PRF-07 — data-commitment binding for both data paths</span>
 <span class="norm">Exactly one of the following holds, and the journal records which.
-<strong>(a) Calldata path.</strong> The L1 contract hashes the exact calldata slice carrying the batch
-data and requires <code>dataCommitment</code> to equal that hash; the guest independently recomputes
-the same hash over the data it executed and requires equality. Both sides hash the same bytes, so no
-probabilistic argument is needed.
-<strong>(b) Blob path.</strong> (i) For each index <code>i</code>, the contract requires
-<code>blobhash(i)</code> in this transaction to be non-zero and to equal the <code>i</code>-th
-versioned hash committed by the proof. (ii) The contract recomputes
-<code>challengeZ = H(all other journal fields)</code> and requires the proof's <code>challengeZ</code>
-to match, so the prover cannot choose the point after fixing its data. (iii) For each blob the
-contract calls the EIP-4844 point-evaluation precompile at <code>0x0A</code> with
-<code>(versionedHash_i, z, y_i, commitment_i, proof_i)</code>, which verifies both
+<strong>(a) Calldata path.</strong> The object committed by <code>dataCommitment</code> is the
+<em>whole</em> published byte string, not a prefix of it: here, the exact calldata payload the guest
+executes and L1 publishes. The L1 contract computes <code>dataCommitment</code> itself with the
+<a href="04-l1-integration.html#DA-02">DA-02</a> construction, whose <code>payloadRoot</code> is
+<code>keccak256(_data)</code>; the guest independently recomputes the same construction over the bytes
+it executed and requires equality. Both sides hash the same whole byte string, so <strong>the calldata
+path needs no probabilistic argument and remains the unconditionally sound path</strong>. <em>(review
+round 1, finding B R1-06)</em>
+<strong>(b) Blob path.</strong> The committed object is again the <em>whole</em> published byte string:
+for each blob in the transaction, all 4096 field elements — 131,072 bytes — including any unused
+remainder, in blob index order. No prefix-only commitment is permitted; the unused remainder of a blob
+MUST be committed too. A commitment over a prefix would fix the challenge point before the free suffix
+was chosen, and a prover could then choose the suffix to satisfy <code>p_D(z) = p_B(z)</code> by
+solving one linear equation — that was the round-1 attack. (i) For each index <code>i</code>, the
+contract requires <code>blobhash(i)</code> in this transaction to be non-zero and to equal the
+<code>i</code>-th versioned hash committed by the proof. (ii) The contract derives, per blob, the
+Fiat–Shamir point
+<code>z_i = uint256(keccak256(abi.encode(bytes32("TAIKO_ETNA_CHALLENGE"), l2ChainId, statementCoreHash,
+dataCommitment, blobHashesHash, uint16(i)))) % BLS_MODULUS</code>, where <code>dataCommitment</code> is
+the journal value the proof binds and <code>blobHashesHash</code> is the ordered versioned-hash hash,
+and requires the proof's <code>challengeZ[i]</code> to match. Because <code>dataCommitment</code>
+commits the whole published string, the challenge moves whenever the committed bytes move; the prover
+cannot choose a point after fixing its data. (iii) For each blob the contract calls the EIP-4844
+point-evaluation precompile at <code>0x0A</code> with
+<code>(versionedHash_i, z_i, y_i, commitment_i, proof_i)</code>, which verifies both
 <code>kzg_to_versioned_hash(commitment_i) == versionedHash_i</code> and the KZG opening
-<code>p(z) = y_i</code>; the call costs 50,000 gas <span class="pill sourced">sourced</span> (EIP-4844).
-(iv) The guest computes, from the blob field elements it actually executed, the evaluation
-<code>p'(z)</code> of the polynomial those elements interpolate, and requires <code>p'(z) == y_i</code>
-for every blob. (v) The guest also requires <code>keccak256(executed data) == dataCommitment</code> as
-in (a).</span>
-<span class="why">Why (b) is sound: the published blob is fixed by the protocol's KZG commitment before
-the prover fixes <code>z</code>, because <code>z</code> is derived by the contract from the prover's own
-committed values. If the executed data and the published blob differ as polynomials, their evaluations
-agree at <code>z</code> with probability at most <code>deg/|F|</code> (about 2<sup>-243</sup>) per
-attempt, and each attempt requires a fresh commitment. Premises: KZG binding, the random-oracle model
-for the Fiat–Shamir derivation, canonical field elements, and correct in-guest field arithmetic. If any
-premise fails the blob path is unsound, which is why the calldata path remains unconditionally
-available.</span>
+<code>p_B(z_i) = y_i</code>; the call costs 50,000 gas <span class="pill sourced">sourced</span> (EIP-4844).
+(iv) The guest MUST interpret each blob exactly as EIP-4844 does: the 4096 field elements are the
+<em>evaluations</em> of the committed polynomial in bit-reversed order over the 4096th roots of unity,
+exactly as <code>blob_to_kzg_commitment</code> defines it
+(<code>g1_lincomb(bit_reversal(setup_lagrange), blob)</code>) — not coefficients. The guest MUST use
+that same convention (inverse bit-reversal plus Lagrange interpolation, or an equivalent FFT) or every
+honest blob proof fails, and it MUST reject any element <code>&ge; BLS_MODULUS</code>. (v) The guest
+MUST recompute <code>dataCommitment</code> over the full blob byte strings it executed with the
+<a href="04-l1-integration.html#DA-03">DA-03</a>(0) construction and require equality with the journal
+value used in (ii); it MUST also require <code>p_D(z_i) = y_i</code> for every blob. <em>(review round
+1, findings B R1-01, B R1-02, B R1-06)</em></span>
+<span class="why">Why (b) is sound: the argument is over the <strong>joint event</strong>, not over a
+fixed challenge. The journal pins a payload <code>D</code> (the bytes the guest executed) and, per
+blob, a challenge <code>z_i(D)</code> derived from the transcript that contains
+<code>dataCommitment = f(keccak(D))</code>; the precompile pins the published blob polynomial
+<code>p_B</code> and a value <code>y_i</code>. To pass, a prover must exhibit a <code>D</code> with
+<code>p_D(z(D)) = p_B(z(D))</code> where <code>z</code> itself depends on <code>keccak(D)</code> — a
+fixed-point condition, not a linear equation in the free part of <code>D</code>. The earlier statement
+that the bound is "per attempt at a fixed challenge" is wrong: it described an experiment in which the
+payload is fixed before <code>z</code>. In the correct experiment the prover searches over candidate
+payloads and wins only when a hash output lands on a root of <code>(p_D - p_B)</code>; for any fixed
+candidate the probability is at most <code>4095/|F| &asymp; 2<sup>-243</sup></code>
+<span class="pill derived">derived</span>, so a search over <code>q</code> hash outputs succeeds with
+probability at most <code>q &middot; 2<sup>-243</sup></code> (plus the
+<code>2<sup>-127</sup></code> modular-reduction bias). <code>D</code> is not a free variable in any
+case: the executed payload is bound to the certified header chain — the certificate covers the head
+block id, the header chain links to the predecessor, and each header's transaction root fixes its
+transactions (<a href="#PRF-04">PRF-04</a>(v), <a href="#PRF-06">PRF-06</a>) — so a prover cannot vary
+<code>D</code> after the certificate is signed without invalidating it. Premises: KZG binding, the
+random-oracle model for the Fiat–Shamir derivation, canonical field elements, and correct in-guest
+field arithmetic in the EIP-4844 convention. <strong>The blob path is an implementation gate</strong>:
+it may not be relied on until this fixed-point argument has had independent cryptographic review and
+the in-guest evaluation cost has been measured. If any premise fails, or that review does not close,
+the blob path is unsound, which is why the calldata path remains unconditionally available.</span>
 <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
-<span class="small">(in-guest cost of the evaluation is not measured; see <a href="../03-zkvm-feasibility.md">03</a>)</span></div>
-
+<span class="pill open">Open</span>
+<span class="small">(blob path: independent cryptographic review of the fixed-point argument and the
+in-guest cost of the EIP-4844 evaluation are outstanding — see <a href="../03-zkvm-feasibility.md">03</a>
+and Q-A3)</span></div>
 <div class="rule" id="PRF-08"><span class="rid">PRF-08 — why one certificate per batch suffices, and its premises</span>
 <span class="norm">The guest verifies the commit certificate of the <strong>head</strong> block only.
 Every other block in the batch is covered by the header hash chain back to <code>prevBlockHash</code>,

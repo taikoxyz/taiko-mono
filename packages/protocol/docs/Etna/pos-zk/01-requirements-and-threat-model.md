@@ -42,7 +42,7 @@ in scope. The static website is a design deliverable, not software.
 
 ## 2. Vocabulary and status labels
 
-These eight labels are the only statuses a block or batch may hold. Each has an exact evidence
+These eight labels are the only statuses a block, batch or user claim may hold (STATUS-08 attaches to a withdrawal claim rather than to a block). Each has an exact evidence
 set, a guarantee, a revocation condition and an audience. Learning material and the specification
 must use exactly these names.
 

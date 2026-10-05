@@ -28,7 +28,7 @@ slashed if the validator is shown to have broken a rule
 fixes the denomination: staking and slashable collateral are TAIKO, gas stays ETH, and there is no
 replacement staking token (<a href="../spec/index.html#fixed">D7</a>,
 <a href="../spec/03-membership-staking.html#MEM-01">MEM-01</a>). The Phase 3 decision document names the
-existing L1 mainnet token address; the rule itself says only "the existing token address", so the
+existing L1 mainnet token address, <code>0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800</code>; the rule itself says only "the existing token address", so the
 address is <span class="pill sourced">sourced</span> from that document, not from the rule
 (<a href="../04-architecture-decision.md">04 — architecture decision</a> §3).</p>
 
@@ -115,7 +115,6 @@ the form <code>min(m · f, 1)</code>, saturating at the one-third threshold
 protocol does not claim it is (<a href="../spec/03-membership-staking.html#MEM-10">MEM-10</a>,
 <a href="../spec/10-assurance.html#LIM-02">LIM-02</a>).</li>
 </ul>
-
 <h2 id="diagram">Diagram — the stake lifecycle and the penalty curve</h2>
 
 <figure>
@@ -187,7 +186,7 @@ specification does not fix a total supply figure or a set size for arithmetic. T
 <tr><td>f = 10%</td><td>min(3 × 0.10, 1)</td><td>30% of stake</td><td><span class="pill derived">derived</span></td></tr>
 <tr><td>f = 1/3</td><td>min(3 × 1/3, 1)</td><td>100% — saturation</td><td><span class="pill derived">derived</span></td></tr>
 <tr><td>f = 1/2</td><td>the formula is capped at 1</td><td>100% — no more to take</td><td><span class="pill derived">derived</span></td></tr>
-<tr><td>Per-address cap C (illustrative)</td><td>1% of total stake</td><td>300 addresses to hold everything</td><td><span class="pill unmeasured">unmeasured</span> illustration; the argument is in <a href="../spec/10-assurance.html#LIM-02">LIM-02</a></td></tr>
+<tr><td>Per-address cap C (illustrative)</td><td>1% of total stake</td><td>100 addresses to hold everything</td><td><span class="pill unmeasured">unmeasured</span> illustration; the argument is in <a href="../spec/10-assurance.html#LIM-02">LIM-02</a></td></tr>
 <tr><td>Attacker wants 40% of stake with the cap</td><td>40% / 1% per address</td><td>40 addresses; token purchase cost unchanged</td><td><span class="pill derived">derived</span>; the label overhead is additive and never cancels the acquisition cost (<a href="../spec/10-assurance.html#LIM-02">LIM-02</a>)</td></tr>
 </tbody></table>
 
@@ -224,7 +223,6 @@ evidence; silence is never proof of misconduct
 <li><strong>The "cap protects us" illusion.</strong> MEM-10 and LIM-02 state plainly that a cap
 constrains labels, not capital, so no one can rely on it as an anti-concentration guarantee.</li>
 </ul>
-
 <h2 id="not-prevents">Attacks this does not prevent</h2>
 <ul>
 <li>An attacker who acquires or borrows enough TAIKO to reach one third. Whether the attack is
@@ -245,7 +243,6 @@ user decision, and that is disclosed as a limitation rather than solved
 <li>Compensation of users who lost funds: the specification states the scope of what is and is not
 compensated (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
 </ul>
-
 <h2 id="self-check">Self-check</h2>
 <details><summary>Why is voting weight not read from the token balance at vote time?</summary>
 <p>Voting power is the effective stake of the epoch's authenticated set

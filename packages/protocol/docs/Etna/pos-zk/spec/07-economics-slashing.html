@@ -1,32 +1,10 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Etna PoS + ZK — 07 · Economics, offences, penalties and rewards</title>
-<link rel="stylesheet" href="spec.css">
-</head><body>
-<header class="site">
-  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span>
-  <span class="tag">reference specification</span>
-  <span class="tag">rev 2026-10-05</span>
-  <nav>
-    <a href="index.html">Index</a>
-    <a href="01-system-model.html">Model &amp; roles</a>
-    <a href="02-consensus.html">Consensus</a>
-    <a href="03-membership-staking.html">Staking</a>
-    <a href="04-l1-integration.html">L1 integration</a>
-    <a href="05-proof-statement.html">Proof statement</a>
-    <a href="06-recovery-exceptions.html">Recovery</a>
-    <a href="07-economics-slashing.html">Economics</a>
-    <a href="08-migration-upgrades.html">Migration</a>
-    <a href="09-parameters.html">Parameters</a>
-    <a href="10-assurance.html">Assurance</a>
-    <a href="../learn/index.html">Learn</a>
-  </nav>
-</header>
-<main>
-
-<h1>07 — Economics, offences, penalties and rewards</h1>
-
+<!doctype html> <html lang="en"><head><meta charset="utf-8"> <meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — 07 · Economics, offences, penalties and rewards</title> <link rel="stylesheet" href="spec.css"> </head><body> <header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span>   <span class="tag">reference specification</span>   <span class="tag">rev 2026-10-05</span>   <nav>
+    <a href="index.html">Index</a>     <a href="01-system-model.html">Model &amp; roles</a>     <a href="02-consensus.html">Consensus</a>     <a href="03-membership-staking.html">Staking</a>
+    <a href="04-l1-integration.html">L1 integration</a>     <a href="05-proof-statement.html">Proof statement</a>     <a href="06-recovery-exceptions.html">Recovery</a>
+    <a href="07-economics-slashing.html">Economics</a>     <a href="08-migration-upgrades.html">Migration</a>     <a href="09-parameters.html">Parameters</a>
+    <a href="10-assurance.html">Assurance</a>     <a href="../learn/index.html">Learn</a>   </nav> </header> <main>  <h1>07 — Economics, offences, penalties and rewards</h1> 
 <p class="small">This page owns the <code>ECON-*</code> rules: the stake ledger and its accounting, the reward
 funding identity, the withdrawal delay's economic interactions, the closed offence catalogue and its evidence
 encoding, the penalty structure, the destination of slashed stake, evidence and unbonding windows, duplicate
@@ -38,30 +16,23 @@ the proof-side data binding is <a href="05-proof-statement.html#PRF-07">PRF-07</
 <a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11">STATUS-11</a>; timing is in seconds or
 L1 block numbers with no L1 proposer lookahead and no fixed L1 slot duration (<a href="index.html#GEN-06">GEN-06</a>);
 every protocol hash is one canonical <code>abi.encode</code> with a right-padded domain tag and the chain id first
-(<a href="index.html#GEN-05">GEN-05</a>). Nothing on this page is implemented, deployed, benchmarked or audited
-(<a href="index.html#GEN-01">GEN-01</a>).</p>
-
-<div class="warnbox small">
+(<a href="index.html#GEN-05">GEN-05</a>). Nothing on this page is implemented, deployed, benchmarked or audited (<a href="index.html#GEN-01">GEN-01</a>).</p>  <div class="warnbox small">
 <strong>Every monetary quantity on this page is UNMEASURED.</strong> The primary source is
 <a href="../research/economics-raw.md">economics-raw.md</a> (pinned revision <code>7718753c1</code>, external
 sources retrieved 2026-10-05), which carries the file:line evidence and the external source register. No price,
 market capitalisation, float, depth, yield or cost figure is stated here as a measurement, and no figure is
 hard-coded anywhere in this specification (<a href="#ECON-10">ECON-10</a> clause 5). A number below is tagged
 <span class="pill derived">derived</span>, <span class="pill sourced">sourced</span> or
-<span class="pill unmeasured">unmeasured</span>; a formula is a relation that must hold, not a value.</div>
-
-<div class="goodbox small">
+<span class="pill unmeasured">unmeasured</span>; a formula is a relation that must hold, not a value.</div>  <div class="goodbox small">
 <strong>Fixed decisions applied here.</strong> Staking and slashable consensus collateral are the existing TAIKO
-token and nothing else; gas stays ETH (<strong>D7</strong>). No rule creates a data-first path
+token and nothing else; gas stays ETH (<strong>D7</strong>). Validator rewards are denominated and paid in
+<strong>ETH</strong> (<a href="#ECON-02">ECON-02</a> clause 1): D7 fixes the staking asset, not the reward asset. No rule creates a data-first path
 (<strong>D5</strong>) — which is why the evidence window must extend past settlement (<a href="#ECON-07">ECON-07</a>).
 No recovery, timeout or penalty may invalidate a PoS-finalized block (<strong>D2</strong>,
 <a href="06-recovery-exceptions.html#REC-01">REC-01</a>); penalties debit stake, they never rewrite history.
 Every deterrence claim is conditional on the Byzantine-stake assumption <strong>A-CONS-1</strong> (&lt; 1/3 of the
 stake that counts toward quorum in the relevant set version) and on the economic assumption <strong>A-ECO-1</strong>,
-which is an <em>assumption</em>, not a guarantee. Where a claim needs an assumption, it says so at the claim.</div>
-
-<h2 id="ledger">1. The stake ledger, custody and accounting</h2>
-
+which is an <em>assumption</em>, not a guarantee. Where a claim needs an assumption, it says so at the claim.</div>  <h2 id="ledger">1. The stake ledger, custody and accounting</h2> 
 <div class="rule" id="ECON-01"><span class="rid">ECON-01 — stake ledger, custody and accounting</span>
 <span class="norm">(1) <strong>One ledger, one asset.</strong> Every bonded consensus balance is recorded in the
 single L1 custody contract of <a href="03-membership-staking.html#MEM-01">MEM-01</a>. The only asset it accepts is
@@ -75,11 +46,9 @@ interface or proof statement may use <code>balanceOf</code>, <code>getVotes</cod
 any ERC20Votes checkpoint as stake. Reasons, sourced: <code>renounceVotingPower()</code> sets a holder's votes to
 zero irreversibly while the balance is unchanged (<code>TaikoToken.sol:53-74</code>; economics-raw.md §1.1), and
 four hard-coded accounts are excluded from votes entirely (<code>TaikoToken.sol:17-21,130-136</code>). A quantity a
-holder can unilaterally zero cannot be an oracle for at-risk capital.</span>
-<span class="norm">(3) <strong>Accounting invariants.</strong> Write <code>b(v)</code> for an entry's bonded
+holder can unilaterally zero cannot be an oracle for at-risk capital.</span> <span class="norm">(3) <strong>Accounting invariants.</strong> Write <code>b(v)</code> for an entry's bonded
 balance, <code>D</code>, <code>W</code>, <code>S</code> for the cumulative deposits credited, withdrawals paid and
-slashes debited, and <code>TOTAL</code> for the ledger's stored bonded total. After every state-changing entry
-point, exactly:</span>
+slashes debited, and <code>TOTAL</code> for the ledger's stored bonded total. After every state-changing entry point, exactly:</span>
 <pre><code>INV-A   TOTAL == Σ_v b(v)                       (exact uint256 equality, no rounding)
 INV-B   TOTAL == D − W − S
 INV-C   a debit applies a = min(requested, b(v)); b(v) never becomes negative;
@@ -87,36 +56,28 @@ INV-C   a debit applies a = min(requested, b(v)); b(v) never becomes negative;
 INV-D   a deposit credits at most the TAIKO balance actually received by the contract
         between the pre-call and post-call reads (no fee-on-transfer credit, no reentrancy credit)</code></pre>
 <span class="norm">The contract <strong>MUST</strong> expose a view <code>checkInvariants() returns (bool)</code>
-evaluating INV-A–INV-D, and the implementation's differential/fuzz suite <strong>MUST</strong> assert it after
-every call. A violation is a critical defect, not a degraded mode.</span>
+evaluating INV-A–INV-D, and the implementation's differential/fuzz suite <strong>MUST</strong> assert it after every call. A violation is a critical defect, not a degraded mode.</span>
 <span class="norm">(4) <strong>Slashing base.</strong> For every epoch <code>e</code> in which an entry appears in
 a set root, the ledger retains <code>SlashBase(v,e)</code> — the entry's effective stake in that set version —
 until the later of the close of the evidence window for <code>e</code> and the settlement of any slash for
 <code>e</code> (<a href="03-membership-staking.html#MEM-06">MEM-06</a> clauses 1–2). An offence at epoch
-<code>e</code> is charged against <code>SlashBase(v,e)</code>, never against the balance at evidence time, and the
-total charge for <code>e</code> never exceeds it.</span>
+<code>e</code> is charged against <code>SlashBase(v,e)</code>, never against the balance at evidence time, and the total charge for <code>e</code> never exceeds it.</span>
 <span class="norm">(5) <strong>Entry points and error behaviour.</strong> <code>deposit(uint256 amount)</code>
 reverts if <code>amount == 0</code> or if the received TAIKO delta differs from <code>amount</code>.
-<code>requestExit()</code>, <code>cancelExit()</code>, <code>rotateKey(bytes32)</code> and
-<code>withdraw()</code> are the owner-only entry points of
+<code>requestExit()</code>, <code>cancelExit()</code>, <code>rotateKey(bytes32)</code> and <code>withdraw()</code> are the owner-only entry points of
 <a href="03-membership-staking.html#MEM-05">MEM-05</a>/<a href="03-membership-staking.html#MEM-07">MEM-07</a>;
 <code>slash(address v, uint256 epoch, bytes evidence)</code> is callable by any address holding objective evidence
 (MEM-06). <code>withdraw()</code> reverts while any delay or exposure of MEM-05 clause 3 remains. The ledger
 <strong>MUST NOT</strong> expose any owner-, DAO-, operator- or emergency-triggered path that moves a bonded
 balance (<a href="01-system-model.html#SYS-04">SYS-04</a>, <a href="10-assurance.html#INV-04">INV-04</a>); an
-upgrade authority may change code but must preserve INV-A–INV-D and every retained
-<code>(e, SlashBase(v,e))</code> pair.</span>
+upgrade authority may change code but must preserve INV-A–INV-D and every retained <code>(e, SlashBase(v,e))</code> pair.</span>
 <span class="why">Failure modes: reading stake from ERC20Votes makes voting power renounceable while the capital
 stays and lets a whale with zero votes still be counted (or the reverse); the existing gwei bond ledger caps stake
 near 1.845e10 TAIKO with ≈18.4 TAIKO granularity (derived, economics-raw.md §1.4), which is a rounding rule inside
 the consensus path; a best-effort, offence-agnostic debit makes a slash decorative; a ledger total that drifts from
-the sum of balances makes reward and penalty accounting unauditable and lets an offender leave with stake that
-should be at risk.</span>
-<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span></div>
-
-<table>
-<thead><tr><th>Field (interface sketch — not compiled)</th><th>Type</th><th>Meaning / owner rule</th></tr></thead>
-<tbody>
+the sum of balances makes reward and penalty accounting unauditable and lets an offender leave with stake that should be at risk.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span></div>  <table>
+<thead><tr><th>Field (interface sketch — not compiled)</th><th>Type</th><th>Meaning / owner rule</th></tr></thead> <tbody>
 <tr><td><code>owner</code></td><td><code>address</code></td><td>the only address that may exit, withdraw or rotate; set at first deposit (MEM-03, MEM-05)</td></tr>
 <tr><td><code>pubKey</code></td><td><code>bytes32</code></td><td>canonical 32-byte Ed25519 key of the current set version (MEM-07)</td></tr>
 <tr><td><code>bonded</code></td><td><code>uint256</code></td><td>TAIKO base units at 18 decimals (this rule, clause 1)</td></tr>
@@ -124,28 +85,32 @@ should be at risk.</span>
 <tr><td><code>exitRequestedAt</code></td><td><code>uint64</code></td><td>L1 block timestamp of <code>requestExit()</code>, 0 if none (MEM-05)</td></tr>
 <tr><td><code>slashBase[e]</code></td><td><code>mapping(uint64 =&gt; uint256)</code></td><td>retained per-epoch charge base (MEM-06, clause 4)</td></tr>
 <tr><td><code>applied[id]</code></td><td><code>mapping(bytes32 =&gt; bool)</code></td><td>permanent offence-identity marker; <code>id</code> is <a href="#ECON-04">ECON-04</a> clause 4's digest</td></tr>
-</tbody></table>
-
-<h2 id="rewards">2. Rewards and the funding identity</h2>
-
+</tbody></table>  <h2 id="rewards">2. Rewards and the funding identity</h2> 
 <div class="rule" id="ECON-02"><span class="rid">ECON-02 — rewards and their funding identity; no token-appreciation assumption</span>
-<span class="norm">(1) <strong>The funding identity.</strong> Over any accounting period, the sum of everything the
-protocol pays to validators, provers, reporters and any other role <strong>MUST</strong> satisfy</span>
-<pre><code>Σ rewards(period)  ≤  F_exec_L2 + F_priority_L2 + MEV_captured + S_explicit
-                      − C_L1_data − C_L1_verify − C_bridge_ops</code></pre>
-<table>
-<thead><tr><th>Term</th><th>Definition</th><th>Status</th></tr></thead>
-<tbody>
+<span class="norm">(1) <strong>Assets: stake in TAIKO, rewards in ETH.</strong> TAIKO is the staking and
+slashable-collateral asset and the only asset the ledger accepts (D7, <a href="#ECON-01">ECON-01</a> clause 1).
+<strong>Validator rewards are denominated and paid in ETH</strong>, collected on L1. D7 fixes the staking asset, not
+the reward asset, so ETH rewards are conforming and the budget identity below is single-currency (ETH) and
+evaluable. Over any accounting period, the sum of everything the protocol pays to validators, provers, reporters
+and any other role <strong>MUST</strong> satisfy</span>
+<pre><code>rewards_ETH(period)  ≤  F_exec_L2 + F_priority_L2 + POOL_TOPUP
+                        − C_L1_data − C_L1_verify − C_bridge_ops − D_subsidy</code></pre>
+<table> <thead><tr><th>Term</th><th>Definition</th><th>Status</th></tr></thead> <tbody>
 <tr><td><code>F_exec_L2</code>, <code>F_priority_L2</code></td><td>L2 execution fees (base and priority) actually collected in the period</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td><code>MEV_captured</code></td><td>the part of ordering value the protocol actually retains, as opposed to value that leaks to searchers/builders</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td><code>S_explicit</code></td><td>an explicit, budgeted, time-limited subsidy (clause 4)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td><code>POOL_TOPUP</code></td><td>any L1-side inflow to the reward pool in the period other than the two fee terms above, from a budgeted and recorded source. How L2 fee revenue reaches that pool is <strong>not specified</strong> (clause 7)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td><code>D_subsidy</code></td><td>the subsidy draw of the period: the amount moved out of the pool's inflow into the pre-funded, bounded, expiring subsidy account of clause 4, or paid out of it. A draw reduces the period's fee-funded reward capacity and <strong>MUST NOT</strong> be counted as inflow</td><td><span class="pill unmeasured">unmeasured</span>, human decision (clause 4)</td></tr>
 <tr><td><code>C_L1_data</code></td><td>blob/calldata cost of every settled batch (D5: data travels with the proof)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td><code>C_L1_verify</code></td><td>gas of the proof-verification and state-update transaction, per batch</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td><code>C_bridge_ops</code></td><td>any other protocol L1 operating cost</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-</tbody></table>
+<tr><td><code>C_bridge_ops</code></td><td>any other protocol L1 operating cost</td><td><span class="pill unmeasured">unmeasured</span></td></tr> </tbody></table>
+<span class="norm">An inflow that no mechanism of this specification actually captures <strong>MUST NOT</strong> be counted on the
+right-hand side: ordering value (MEV) that leaks to searchers or builders is not revenue, has no term in the identity
+above, and no rule, parameter, interface or document may budget it, present it as retained, or size a reward schedule
+on it until a capture mechanism is specified elsewhere in this specification and its realised inflow is measured
+(<a href="#unmeasured">§unmeasured</a> keeps the measurement that would then be required). <em>(review round 1, findings ECO-01,
+ECO-13)</em></span>
 <span class="norm">(2) <strong>No appreciation may be assumed.</strong> No rule, parameter, reward schedule,
 interface string, learning page or interface text may assume, require, promise or be conditioned on an increase
-in TAIKO's market price, market depth, float or reward-pool value. A reward is a nominal TAIKO amount fixed when
+in TAIKO's market price, market depth, float or reward-pool value. A reward is a nominal ETH amount fixed when
 it is awarded; the protocol states nothing about its fiat value. "Rewards are sustainable" is a claim that may be
 made only when the fee-only region is reached (clause 4, <a href="#ECON-12">ECON-12</a>), never on the strength of a
 reserve that still looks large (arXiv:2606.03587, quoted in economics-raw.md §2.9).</span>
@@ -153,49 +118,64 @@ reserve that still looks large (arXiv:2606.03587, quoted in economics-raw.md §2
 <code>init</code> (<code>TaikoToken.sol:41</code>) and no <code>mint</code> or <code>burn</code> exists on the L1
 token or its base; the L2 bridged representation's burn does not affect L1 supply (economics-raw.md §1.1, sourced).
 A reward funded by new TAIKO therefore requires a token upgrade — a DAO action under
-<a href="08-migration-upgrades.html#GOV-01">GOV-01</a> — and is not a standing funding source. The repository's
-recorded objective "No Built-In PoS Reward"
+<a href="08-migration-upgrades.html#GOV-01">GOV-01</a> — and is not a standing funding source. The repository's recorded objective "No Built-In PoS Reward"
 (<a href="../../../tokenomics_objective_metrics.md">tokenomics_objective_metrics.md</a>:19) forbids paying
 inflationary staking rewards; it may be reversed only by a new recorded user decision (<a href="index.html#GEN-02">GEN-02</a>),
-and until it is reversed the schedule <strong>MUST</strong> be fundable from clause 1 alone.</span>
-<span class="norm">(4) <strong>Every subsidy is bounded and expiring.</strong> <code>S_explicit</code> is a line
-item with (a) a maximum amount in TAIKO and in ETH, (b) a start and an end expressed in unix seconds, (c) a
-pre-funded account that no rule of this specification may top up or borrow against, and (d) no reward
-<em>obligation</em>: at every period boundary, accrued payouts may not exceed that period's realised inflow plus
-the remaining subsidy. When the subsidy is exhausted or expires, the protocol pays the fee-funded amount only and
-must remain coherent: the validator count is reduced through the objective exit path of
+and until it is reversed the schedule <strong>MUST</strong> be fundable from clause 1 alone. Because rewards are paid in ETH (clause 1), a TAIKO-denominated reward would in addition require a conversion rule and a price; no such rule exists here and no price constant is permitted (ECON-10 clause 5), which is a further reason the standing schedule is the ETH identity of clause 1 and nothing else.</span>
+<span class="norm">(4) <strong>Every subsidy is bounded, expiring, and netted out.</strong> The subsidy is one line
+item with (a) a maximum amount in <strong>ETH</strong> (the reward asset of clause 1 — a mixed TAIKO/ETH maximum is
+not a line item, it is two unaggregated assets), (b) a start and an end expressed in unix seconds, (c) a pre-funded
+account that no rule of this specification may top up or borrow against, and (d) no reward <em>obligation</em>: at
+every period boundary, accrued payouts may not exceed the realised net inflow of clause 1. The subsidy account is
+capitalised by the draw <code>D_subsidy</code> that clause 1 subtracts, so a subsidy is a transfer of the protocol's
+own inflow, not a second funding source: it can smooth timing within its term and can never make an unfunded schedule
+funded. When the subsidy is exhausted or expires, the protocol pays the fee-funded amount only and must remain
+coherent: the validator count is reduced through the objective exit path of
 <a href="03-membership-staking.html#MEM-05">MEM-05</a> (never by confiscation) or the chain halts safely
-(<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>). A design that is coherent only while the subsidy
-lasts is non-conforming.</span>
-<span class="norm">(5) <strong>Payment.</strong> Payment happens in the L1 acceptance transaction from the
-L1-committed reward pool; the allocation of inflow between role classes, and the exact claim interface, are
-<a href="04-l1-integration.html#L1-11">L1-11</a> and are not restated here. This rule fixes only: no payout may
-exceed the pool's realised inflow plus the remaining bounded subsidy, the pool never borrows and never carries a
-negative balance, and a shortfall is recorded as a public number that no later rule is obliged to honour. Within a
-class, payouts in a period are pro rata to effective stake.</span>
+(<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>). A design that is coherent only while the subsidy lasts is non-conforming. <em>(review round 1, finding ECO-01)</em></span>
+<span class="norm">(5) <strong>Payment, participation and the claim path.</strong> Payment happens in the L1
+acceptance transaction from the L1-committed reward pool; the allocation of inflow between role classes and the
+exact claim interface are <a href="04-l1-integration.html#L1-11">L1-11</a> and are not restated here. This rule fixes:
+(a) no payout may exceed the pool's realised net inflow of clause 1 for the period, the pool never borrows and never
+carries a negative balance, and a shortfall is recorded as a public number that no later rule is obliged to honour;
+(b) a payout to a validator is <strong>conditioned on attested participation</strong> in the epoch for which it is
+paid — the entry's consensus key must have signed that epoch's duties, and an entry that did not sign is paid nothing,
+however much stake it holds. The participation predicate is the attestation predicate owned by
+<a href="02-consensus.html#CONS-02">CONS-02</a> (vote phases and one vote per height and round) and
+<a href="02-consensus.html#CONS-05">CONS-05</a> (a block is finalized by more than two thirds of precommits), as
+recorded in the epoch's certificates; it is <strong>not restated here</strong> and it <strong>MUST NOT</strong> be
+replaced by presence in the set root, by bonded balance, or by any rule that pays an entry which did not sign. Among
+participating entries of a class, a period's payout is pro rata to effective stake. <em>(review round 1, findings
+ECO-10, ECO-15)</em></span>
 <span class="norm">(6) <strong>Rewards are not a safety claim.</strong> Paying rewards deters nothing by itself;
 deterrence is <a href="#ECON-05">ECON-05</a>'s argument and is conditional on A-ECO-1. A reward rate parameter is
 <em>unmeasured</em> until its inputs are measured (<a href="09-parameters.html#PARAM-03">PARAM-03</a>).</span>
+<span class="norm">(7) <strong>The L2-fee → L1-reward-pool transfer is not specified here.</strong> How L2 fee
+revenue (<code>F_exec_L2</code>, <code>F_priority_L2</code>) reaches the L1 reward pool — a canonical bridge, a fee
+sink claimed on L1, an accounting claim against settlement, or any other mechanism — is <strong>NOT</strong>
+specified by this page or by <a href="04-l1-integration.html#L1-11">L1-11</a>. It is <span class="pill open">Open</span>
+and requires a recorded design decision (<a href="../DECISIONS.md">DECISIONS.md</a>) before launch. The consequence is
+stated rather than assumed away: with no transfer, the pool has no inflow in the reward asset, an unfunded pool pays
+nothing, validators earn nothing, the security budget that A-ECO-1 compares against attack profit is zero, and the
+schedule of clause 1 is unsatisfiable. No rule may halt on a price or budget signal instead, because no objective
+on-chain signal for the security-budget ratio exists (<a href="#volatility">§TAIKO price volatility</a>: the inputs
+<code>P(t)</code>, <code>σ(t)</code>, <code>EV_extractable</code> and <code>OV_option</code> are off-chain), so
+"monitor and halt" is withdrawn as a response and the honest deliverable is disclosure plus a governance parameter
+change. <em>(review round 1, findings ECO-01, ECO-16)</em></span>
 <span class="why">Failure mode: promising a yield the protocol cannot fund converts the security budget into an
 unfunded liability and lets security degrade silently while nominal reserves still look large; assuming
 appreciation turns a market bet into a protocol guarantee that the protocol cannot keep; assuming an inflation
-path that does not exist produces a schedule that cannot be deployed without first reversing a recorded
-policy.</span>
-<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span></div>
-
-<h2 id="withdrawal">3. Withdrawal delay and the settlement pipeline</h2>
-
+path that does not exist produces a schedule that cannot be deployed without first reversing a recorded policy.</span>
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span> <span class="pill open">Open</span></div>  <h2 id="withdrawal">3. Withdrawal delay and the settlement pipeline</h2> 
 <div class="rule" id="ECON-03"><span class="rid">ECON-03 — withdrawal delay derived from the complete settlement pipeline</span>
 <span class="norm">(1) The withdrawal delay <code>D_withdraw</code> is the quantity derived in
 <a href="03-membership-staking.html#MEM-05">MEM-05</a>, clause 4. <strong>That formula is normative there and is not
-restated here</strong> (<a href="index.html#GEN-03">GEN-03</a>); this rule fixes the economic interactions that
-must hold around it.</span>
+restated here</strong> (<a href="index.html#GEN-03">GEN-03</a>); this rule fixes the economic interactions that must hold around it.</span>
 <span class="norm">(2) <code>D_withdraw</code> is a function of the <em>complete</em> settlement pipeline that
 MEM-05 defines — proof completion, detection, evidence submission, an L1-inclusion <em>quantile</em>
 <code>T_L1_include(p)</code>, L1 finality, processing and a margin. A delay derived from nominal proving latency
 alone is a defect: D5 lands data and proof in one transaction, so there is no data-first window in which a third
-party could object before settlement, and the evidence clock starts at the offence on L2, which may precede
-provability by hours (economics-raw.md §2.5).</span>
+party could object before settlement, and the evidence clock starts at the offence on L2, which may precede provability by hours (economics-raw.md §2.5).</span>
 <span class="norm">(3) <strong>One clock, three consumers.</strong> The same <code>D_withdraw</code> must
 simultaneously cover (a) the evidence window <code>W_evidence</code> of <a href="#ECON-07">ECON-07</a>, (b) the
 correlated-penalty application delay <code>CORR_DELAY</code> of <a href="#ECON-05">ECON-05</a>, and (c) L1
@@ -208,21 +188,27 @@ a deliberate change from the current bond ledger, in which <code>hasSufficientBo
 a withdrawal is requested (<code>LibBonds.sol:130-141</code>; economics-raw.md §1.4 point 1).</span>
 <span class="norm">(5) <strong>Representation.</strong> <code>D_withdraw</code> is a duration in seconds; the
 conditions of MEM-05 clause 3 are evaluated against L1 state (block timestamps and L1 block numbers), never
-against a wall clock during validation (<a href="index.html#GEN-06">GEN-06</a>), and
-<code>T_L1_include(p)</code> is a quantile measured from inclusion-delay data, never a mean or a nominal
-constant.</span>
+against a wall clock during validation (<a href="index.html#GEN-06">GEN-06</a>), and <code>T_L1_include(p)</code> is a quantile measured from inclusion-delay data, never a mean or a nominal
+constant.</span> <span class="norm">(6) <strong>Exit churn is capped per epoch.</strong> <code>CHURN_LIMIT</code> is the maximum
+fraction of an epoch's voting power that may leave the set at one epoch boundary: the L1 staking contract
+<strong>MUST NOT</strong> make more than <code>CHURN_LIMIT · TotalVP(e)</code> of effective stake inactive at any
+single epoch <code>e</code>. Exits beyond the cap are neither cancelled nor penalised; they are deferred to later
+epochs in the objective request order of <a href="03-membership-staking.html#MEM-05">MEM-05</a>, and a deferred entry
+remains in every set version it is already committed to and remains fully slashable (clause 4). The cap exists
+because otherwise a coordinated exit — every operator calling <code>requestExit()</code> in one L1 block, or the
+public end of the subsidy (ECON-02 clause 4) or a price move making exit rational for many operators at once — drops
+the stake that deters attack in a single step, after which an attacker acquires or rents a set that no longer
+satisfies the deterrence relation of <a href="#ECON-09">ECON-09</a> clause 2 and A-ECO-1. Deferral is a delay of an
+exit, never a denial of it and never a confiscation: <code>withdraw()</code> remains available once the delay and the
+exposure gates of MEM-05 are satisfied. <code>CHURN_LIMIT</code> is <span class="pill unmeasured">unmeasured</span>;
+it must be derived from the deterrence relation, not chosen for convenience. <em>(review round 1, finding ECO-07)</em></span>
 <span class="why">Failure mode: an offender equivocates at epoch <code>e</code>, requests exit, waits out a delay
 no longer than the proving latency, withdraws, and is slashed on a remainder — the documented withdrawal race that
 both Ethereum (<code>state.slashings</code> plus the <code>withdrawable_epoch</code> clamp) and Cosmos
-("follow the stake") engineered against (economics-raw.md §2.4). A short delay plus a best-effort debit makes the
-penalty an accounting entry rather than a cost.</span>
+("follow the stake") engineered against (economics-raw.md §2.4). A short delay plus a best-effort debit makes the penalty an accounting entry rather than a cost.</span>
 <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
-<span class="small">(the delay is an accounting/liveness rule; the safety meaning of "slashable" is conditional on
-A-CONS-1.)</span></div>
-
-<h2 id="offences">4. Offence catalogue and evidence encoding</h2>
-
-<div class="rule" id="ECON-04"><span class="rid">ECON-04 — offence catalogue and objective evidence encoding</span>
+<span class="small">(the delay is an accounting/liveness rule; the safety meaning of "slashable" is conditional on A-CONS-1.)</span></div> 
+<h2 id="offences">4. Offence catalogue and evidence encoding</h2>  <div class="rule" id="ECON-04"><span class="rid">ECON-04 — offence catalogue and objective evidence encoding</span>
 <span class="norm">(1) <strong>Closed catalogue.</strong> Only the offences of the table below may consume bonded
 stake, and only through <code>slash(address v, uint256 epoch, bytes evidence)</code>
 (<a href="03-membership-staking.html#MEM-06">MEM-06</a>). Behaviour not listed, however suspicious, consumes
@@ -230,108 +216,86 @@ nothing. In particular, <strong>mere non-receipt of a P2P message is not evidenc
 receiving a block, vote, proposal, PoLC, certificate, transition certificate, witness, proof or forced-inclusion
 record is never by itself an offence, and neither is an elapsed timeout, a slow round, a validator being offline,
 or a node disagreeing with a proposal it received (threat model §6.4; <a href="index.html#STATUS-09">STATUS-09</a>,
-<a href="index.html#STATUS-10">STATUS-10</a>, <a href="06-recovery-exceptions.html#WH-01">WH-01</a>,
-<a href="06-recovery-exceptions.html#WH-02">WH-02</a>).</span>
-<span class="norm">(2) <strong>Encoding.</strong> <code>evidence</code> is exactly one canonical
-<code>abi.encode</code> of the tuple
+<a href="index.html#STATUS-10">STATUS-10</a>, <a href="06-recovery-exceptions.html#WH-01">WH-01</a>, <a href="06-recovery-exceptions.html#WH-02">WH-02</a>).</span>
+<span class="norm">(2) <strong>Encoding.</strong> <code>evidence</code> is exactly one canonical <code>abi.encode</code> of the tuple
 <code>(bytes32 domainTag, uint256 chainId, uint8 offenceType, bytes payload)</code> where <code>domainTag</code> is
 the right-padded ASCII tag <code>"ETNA_EVIDENCE"</code> and <code>payload</code> is the per-offence structure of
 the table. The checker: decodes the tuple; checks tag and chain id; verifies every signature under the offender's
-registered consensus key for the epoch named by the <code>epoch</code> argument
-(<a href="03-membership-staking.html#MEM-07">MEM-07</a>) against the set root of that epoch, which must be
-reconstructible from L1 (<a href="02-consensus.html#CONS-08">CONS-08</a>); evaluates the predicate; and only then
-debits. Decoding failure, unknown <code>offenceType</code>, domain or chain mismatch, signature failure, wrong
-epoch or set version, an offender absent from the epoch's set, or a closed window makes the whole transaction
-revert: no state change, no balance touched, no replay marker written, and the submitter pays only L1 gas
-(<a href="#ECON-08">ECON-08</a>).</span>
+registered consensus key for the epoch named by the <code>epoch</code> argument (<a href="03-membership-staking.html#MEM-07">MEM-07</a>) against the set root of that epoch, which must be
+reconstructible from L1 (<a href="02-consensus.html#CONS-08">CONS-08</a>), with one admitted case for equivocation: two signed messages at the same
+<code>(height, round, type, validator_index)</code> whose signed <code>epoch</code> fields differ are also a conflict (<a href="02-consensus.html#CONS-11">CONS-11</a>), and
+each object's signature is then verified under the validator's key for <em>the epoch its own object names</em>, with both
+named epochs' set roots reconstructible from L1 (<a href="02-consensus.html#CONS-08">CONS-08</a>(3)); the <code>epoch</code> argument identifies the offence
+and is not a single epoch under which both objects must verify, so a checker MUST NOT reject such a pair as an epoch or
+set-version mismatch; evaluates the predicate; and only
+then debits. <em>This closes review round 1 finding CS-11: clause 2 verified both objects under one epoch, so an epoch-mismatched conflicting pair could be discarded before the predicate ran.</em> Decoding failure, unknown <code>offenceType</code>, domain or chain mismatch, signature failure, a wrong
+epoch or set version other than the admitted epoch-mismatched equivocation pair, an offender absent from any named epoch's set, or a closed window makes the whole transaction
+revert: no state change, no balance touched, no replay marker written, and the submitter pays only L1 gas (<a href="#ECON-08">ECON-08</a>).</span>
 <span class="norm">(3) <strong>Predicates are self-contained.</strong> Every predicate is a pure function of
 published signed objects and L1-committed state. A predicate requiring proof of the <em>absence</em> of a message
 is inadmissible and <strong>MUST NOT</strong> be added: the lock-rule row below shows the case where this bites.
 Deterrence claims are conditional on A-ECO-1 and, for the omission offence, on the data being retrievable
-(A-CONS-5 / A-DA-2); where data is unavailable the offence is simply not provable, and that limitation is
-disclosed rather than repaired by suspicion.</span>
+(A-CONS-5 / A-DA-2); where data is unavailable the offence is simply not provable, and that limitation is disclosed rather than repaired by suspicion.</span>
 <span class="norm">(4) <strong>Identity and duplicates.</strong> The identity of an offence is
 <code>id = (v, epoch, offenceType, keccak256(evidence))</code> (<a href="03-membership-staking.html#MEM-06">MEM-06</a>
 clause 4). The first accepted submission applies the penalty of <a href="#ECON-05">ECON-05</a>; a second submission
 of the same <code>id</code> is a <strong>no-op</strong>: it returns successfully, changes no state, pays no second
-bounty, does not extend any window, and emits <code>OffenceAlreadyApplied(id)</code>. Reverting on a duplicate is
-non-conforming because MEM-06 clause 4 fixes a no-op.</span>
-<table>
+bounty, does not extend any window, and emits <code>OffenceAlreadyApplied(id)</code>. Reverting on a duplicate is non-conforming because MEM-06 clause 4 fixes a no-op.</span> <table>
 <thead><tr><th>Offence</th><th>Objective evidence (<code>payload</code>)</th><th>Who may submit</th><th>Deadline</th><th>Collateral consumed</th><th>Duplicate handling</th></tr></thead>
-<tbody>
-<tr><td><strong>Equivocation</strong> — two conflicting signed messages by one validator at one
+<tbody> <tr><td><strong>Equivocation</strong> — two conflicting signed messages by one validator at one
 <code>(chain_id, H, R, type)</code>, type in {PROPOSAL, PREVOTE, PRECOMMIT} <a href="02-consensus.html#CONS-11">CONS-11</a></td>
 <td><code>(m1, m2, epoch_of(H), validator_index)</code> with both signatures; the predicate and the
-"not equivocation" cases (prevote/precommit pairs, different rounds, different heights) are defined by CONS-11 and
-not restated here</td>
-<td>any address (validator, full node, user, contract); no stake, identity or participation requirement
-(CONS-11)</td>
-<td>inclusion block's timestamp ≤ <code>evidenceClose(epoch_of(H))</code>, and the offender still exposed
-(<a href="#ECON-07">ECON-07</a>)</td>
+"not equivocation" cases (prevote/precommit pairs, different rounds, different heights) are defined by CONS-11 and not restated here</td>
+<td>any address (validator, full node, user, contract); no stake, identity or participation requirement (CONS-11)</td>
+<td>inclusion block's timestamp ≤ <code>evidenceClose(epoch_of(H))</code>, and the offender still exposed (<a href="#ECON-07">ECON-07</a>)</td>
 <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code></td>
-<td><code>id</code> as in clause 4; a different conflicting pair at another <code>(H,R)</code> is a distinct
-offence, each bounded by the same <code>SlashBase</code></td></tr>
-<tr><td><strong>Provable censorship of a due forced inclusion</strong> — a finalized block produced by the offender
-omits a forced-inclusion request that was due at that block</td>
+<td><code>id</code> as in clause 4; a different conflicting pair at another <code>(H,R)</code> is a distinct offence, each bounded by the same <code>SlashBase</code></td></tr>
+<tr><td><strong>Provable censorship of a due forced inclusion</strong> — a finalized block produced by the offender omits a forced-inclusion request that was due at that block</td>
 <td><code>(requestId, dueL1Block, blockB, dataCommitment(B), omissionProof, leaderEvidence)</code>: the request
 record of <a href="04-l1-integration.html#FI-01">FI-01</a> authenticated against the L1 record store; the block
 <code>B</code> whose data commitment is bound by an L1-accepted batch (<a href="04-l1-integration.html#L1-05">L1-05</a>,
 <a href="05-proof-statement.html#PRF-07">PRF-07</a>) so the body is public data (<a href="04-l1-integration.html#DA-01">DA-01</a>);
 a proof that no entry of <code>dataCommitment(B)</code> equals <code>keccak256(request.canonicalPayload)</code> and
-that <code>request</code> is unconsumed; and the leader identity for <code>B</code>'s height from
-<a href="02-consensus.html#CONS-06">CONS-06</a> under the epoch's L1-committed set root</td>
-<td>any address</td>
-<td>inclusion block's timestamp ≤ <code>evidenceClose(e)</code> for the epoch <code>e</code> in which
-<code>B</code> was finalized; the window opens at the L1 acceptance of the batch carrying <code>B</code> because
-that is when canonical data exists (D5, DA-01)</td>
+that <code>request</code> is unconsumed; and the leader identity for <code>B</code>'s height from <a href="02-consensus.html#CONS-06">CONS-06</a> under the epoch's L1-committed set root</td>
+<td>any address</td> <td>inclusion block's timestamp ≤ <code>evidenceClose(e)</code> for the epoch <code>e</code> in which
+<code>B</code> was finalized; the window opens at the L1 acceptance of the batch carrying <code>B</code> because that is when canonical data exists (D5, DA-01)</td>
 <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(leader, e)</code></td>
-<td><code>id</code> as in clause 4; distinct omitted requests are distinct offences, and the correlated fraction
-counts the offender once (ECON-05 clause 2)</td></tr>
-<tr><td><strong>Lock-rule violation</strong> — unlocking or precommitting contrary to
-<a href="02-consensus.html#CONS-04">CONS-04</a></td>
-<td>the <em>only</em> admissible evidence is a same-<code>(H,R)</code> conflicting signed pair, i.e. equivocation
-per CONS-11. A lock violation that leaves no such pair is <strong>not independently provable</strong> — its
-predicate would require proving that no unlocking PoLC existed — and MUST NOT be slashed. The fork-accountability
-lemma supplies the teeth: a safety-relevant divergence implies ≥1/3 double-signers, whose double-signatures are
-themselves CONS-11 evidence (recovery-and-withholding-raw.md §1.1 point 2)</td>
-<td>any address</td>
-<td>as the equivocation row</td>
-<td>as the equivocation row</td>
-<td><code>id</code> as in clause 4</td></tr>
-<tr><td><strong>Invalid evidence submission</strong> — evidence that fails any check of clause 2, including a
-forged or malformed object</td>
-<td>not an offence against consensus; there is no slashable subject</td>
-<td>any address</td>
-<td>n/a — the transaction reverts; no window is opened or extended</td>
+<td><code>id</code> as in clause 4; distinct omitted requests are distinct offences, and the correlated fraction counts the offender once (ECON-05 clause 2)</td></tr>
+<tr><td><strong>Lock-rule violation</strong> — unlocking or precommitting contrary to <a href="02-consensus.html#CONS-04">CONS-04</a></td>
+<td>a same-<code>(H,R)</code> conflicting signed pair, i.e. equivocation per <a href="02-consensus.html#CONS-11">CONS-11</a>, is
+<strong>always slashable</strong> and is the <em>only</em> lock-related offence with admissible evidence. A lock violation
+that leaves no such pair is <strong>not independently provable</strong> — its
+predicate would require proving that no unlocking PoLC existed — and MUST NOT be slashed. A cross-round or
+cross-epoch divergence may leave <strong>no admissible evidence</strong> under withholding: the fork-accountability
+lemma's conclusion is conditional on the JSets being compilable (<code>recovery-and-withholding-raw.md</code> §1.1
+point 2), and the two certificates alone do not prove misconduct, because <a href="02-consensus.html#CONS-04">CONS-04</a>
+permits a legal unlocking proof-of-lock-change between the rounds. The claim that "at least one third is objectively
+punishable" is therefore <strong>Assumed, not established</strong>, and MUST NOT be presented as a deterrent guarantee
+(<a href="02-consensus.html#CONS-09">CONS-09</a>(4)(a); <a href="02-consensus.html#CONS-11">CONS-11</a>).
+<em>This closes review round 1 finding CS-07: only the same-(height, round) pair is objectively slashable; a cross-round
+divergence under withholding may leave no admissible evidence and is Assumed, not an established deterrent.</em></td> <td>any address</td> <td>as the equivocation row</td> <td>as the equivocation row</td>
+<td><code>id</code> as in clause 4</td></tr> <tr><td><strong>Invalid evidence submission</strong> — evidence that fails any check of clause 2, including a forged or malformed object</td>
+<td>not an offence against consensus; there is no slashable subject</td> <td>any address</td> <td>n/a — the transaction reverts; no window is opened or extended</td>
 <td><strong>none</strong>: no bond, deposit or stake is consumed; the submitter pays L1 gas only</td>
-<td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr>
-</tbody></table>
+<td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> </tbody></table>
 <span class="norm">(5) <strong>What is not an offence.</strong> Alongside the non-receipt ban of clause 1: a
-proposal that includes a due request later within <code>FI-02</code>'s allowed delay; a validator that is offline
-or votes late; a proposer whose round times out; a node that halts under
+proposal that includes a due request later within <code>FI-02</code>'s allowed delay; a validator that is offline or votes late; a proposer whose round times out; a node that halts under
 <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>; and a prover that is slow inside the D6 envelope. Ordering
 and reordering of <em>included</em> transactions is not an offence at all; forced inclusion cannot reorder or
 revoke past history (<a href="04-l1-integration.html#FI-04">FI-04</a>). Objective key duplication <em>is</em>
-equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is
-stated in ECON-05 clause 7 and is not excused by this rule.</span>
+equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is stated in ECON-05 clause 7 and is not excused by this rule.</span>
 <span class="why">Failure modes: an open-ended "misconduct" clause lets an implementer invent a discretionary
 slash; a predicate that needs a missing message makes honest validators unprovable or innocent ones slashable; an
 encoding without domain separation allows replay of an evidence object on another chain or epoch; treating a
-missing message as proof of misbehaviour is the exact non-argument the threat model forbids.</span>
-<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
-<span class="small">(the omission predicate additionally needs A-CONS-5/A-DA-2 to hold so that bodies remain
-retrievable; without it the offence is unprovable, not forgiven.)</span></div>
-
-<h2 id="penalties">5. Penalty structure</h2>
-
-<div class="rule" id="ECON-05"><span class="rid">ECON-05 — penalty structure and the convex correlated penalty</span>
+missing message as proof of misbehaviour is the exact non-argument the threat model forbids.</span> <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="small">(the omission predicate additionally needs A-CONS-5/A-DA-2 to hold so that bodies remain retrievable; without it the offence is unprovable, not forgiven.)</span></div> 
+<h2 id="penalties">5. Penalty structure</h2>  <div class="rule" id="ECON-05"><span class="rid">ECON-05 — penalty structure and the convex correlated penalty</span>
 <span class="norm">(1) <strong>Parameters.</strong> <code>IMM_FRAC(c)</code> is the immediate penalty fraction for
 offence class <code>c</code>, a parameter with <code>0 &lt; IMM_FRAC(c) ≤ 1</code> so that every proven offence has
 a non-zero immediate cost (value <span class="pill unmeasured">unmeasured</span>, <a href="09-parameters.html#PARAM-01">PARAM-01</a>;
 Ethereum's precedent is a fixed fraction of the offender's effective balance, sourced in economics-raw.md §2.3).
 <code>F_SAT = 1/3</code> is the safety threshold, numerically equal to the <code>b</code> of A-CONS-1.
-<code>CORR_Q ∈ {1, 2}</code> selects the penalty shape. <code>CORR_DELAY</code> is a duration in seconds
-(clause 5).</span>
+<code>CORR_Q ∈ {1, 2}</code> selects the penalty shape. <code>CORR_DELAY</code> is a duration in seconds (clause 5).</span>
 <span class="norm">(2) <strong>Implicated fraction.</strong> For epoch <code>e</code> and offence class
 <code>c</code>, let <code>O(e,c)</code> be the set of entries with at least one applied offence of class
 <code>c</code> at <code>e</code>, each counted once, and let <code>TotalVP(e)</code> be the published total voting
@@ -344,8 +308,7 @@ charge  =  min( P(v,e) , bonded(v) , remaining_exposure(v,e) )</code></pre>
 reproduces Polkadot's <code>min((3x/n)^2, 1)</code> (economics-raw.md §2.3, sourced). Both are convex in
 <code>f</code> and both saturate at <code>f = F_SAT</code>: <code>c(F_SAT) = 1</code> by construction, so the
 confiscation threshold and the safety threshold coincide — a coalition that reaches the <code>1/3</code> of stake
-at which A-CONS-1 stops holding loses 100% of its epoch stake in the correlated component, in addition to the
-immediate component.</span>
+at which A-CONS-1 stops holding loses 100% of its epoch stake in the correlated component, in addition to the immediate component.</span>
 <span class="norm">(3) <strong>Bounded debit.</strong> The charge is bounded by the bonded balance and by the
 per-epoch charge base; the applied amount is debited, the unapplied remainder is recorded in the event and is
 <em>not</em> carried as a debt outside the ledger (<a href="03-membership-staking.html#MEM-06">MEM-06</a> clause 2,
@@ -358,93 +321,117 @@ before the evidence window for <code>e</code> closes, so the correlated componen
 <code>applyCorrelated(e, c)</code> call; until then the amount is locked against the exposure accounting of MEM-06.
 <code>CORR_DELAY</code> must satisfy <a href="#ECON-07">ECON-07</a>'s inequality with
 <code>D_withdraw</code> — a long delay is the price of a correlated penalty (Ethereum applies its correlated
-component up to <code>EPOCHS_PER_SLASHINGS_VECTOR/2</code>, ≈36.4 days after the slash; economics-raw.md §2.3,
-§3.2 point 2, sourced).</span>
+component up to <code>EPOCHS_PER_SLASHINGS_VECTOR/2</code>, ≈36.4 days after the slash; economics-raw.md §2.3, §3.2 point 2, sourced).</span>
 <span class="norm">(6) <strong>Premise, stated at the claim.</strong> This structure deters only if the slashed
 stake has value and is actually confiscated. Both halves are assumptions: A-ECO-1 (the dollar loss exceeds the
 attack profit at the relevant time) is <em>assumed</em>, and confiscation is possible only while the evidence
 window of <a href="#ECON-07">ECON-07</a> holds and the exposure accounting of MEM-06 is enforced. If TAIKO's
 market value or liquidity falls, the same token amount is a weaker deterrent; the specification states the derived
-price at which the design stops being secure rather than asserting security at an assumed price (see
-<a href="#volatility">TAIKO price volatility</a>).</span>
+price at which the design stops being secure rather than asserting security at an assumed price (see <a href="#volatility">TAIKO price volatility</a>).</span>
 <span class="norm">(7) <strong>Honest-mistake tail.</strong> On a small validator set, a correlated penalty makes
 one operator's duplicated key a correlated loss for a non-trivial fraction of the set. The mitigation is
 operational (slashing-protection databases, remote signers, key custody); no parameter choice removes the tail.
 The specification <strong>MUST</strong> disclose it and <strong>MUST NOT</strong> describe the correlated penalty
-as harmless. (Polkadot's documented incidents, all cloned keystores, are the sourced example; economics-raw.md
-§2.3.)</span>
+as harmless. (Polkadot's documented incidents, all cloned keystores, are the sourced example; economics-raw.md §2.3.)</span>
 <span class="why">Failure mode: a linear-only penalty makes the bribe for a coalition linear in its size and the
 confiscation threshold unrelated to the safety threshold, so "Byzantine stake &lt; 1/3" remains an assumption about
 intent rather than a statement about loss given attack; an unbounded or negative-capable debit breaks the ledger
-invariants; a correlated penalty whose application delay exceeds the withdrawal delay is uncollectible and
-therefore decorative.</span>
-<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
-<span class="pill unmeasured">unmeasured</span>
+invariants; a correlated penalty whose application delay exceeds the withdrawal delay is uncollectible and therefore decorative.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill unmeasured">unmeasured</span>
 <span class="small">(the saturation argument is conditional on A-CONS-1 and on the coincidence of
-<code>F_SAT</code> with the quorum denominator; the deterrence claim is conditional on A-ECO-1.)</span></div>
-
-<h2 id="destination">6. Destination of slashed stake — an unresolved human decision</h2>
-
+<code>F_SAT</code> with the quorum denominator; the deterrence claim is conditional on A-ECO-1.)</span></div> 
+<h2 id="destination">6. Destination of slashed stake — an unresolved human decision</h2> 
 <div class="rule" id="ECON-06"><span class="rid">ECON-06 — destination of slashed stake is a recorded human decision</span>
 <span class="norm">(1) <strong>No silent choice.</strong> The destination of every debited amount is a single human
 decision, recorded in <a href="../DECISIONS.md">DECISIONS.md</a> with its rationale <em>before</em> launch. Until it
 is recorded, this specification fixes only the interface and marks the choice <span class="pill open">Open</span>;
 an implementer <strong>MUST NOT</strong> choose it, and "leave the amount in the ledger" is not a conforming
-default (it would be neither a burn, nor a treasury transfer, nor a bounty, and would silently re-capitalise the
-offender's own ledger).</span>
+default (it would be neither a burn, nor a treasury transfer, nor a bounty, and would silently re-capitalise the offender's own ledger).</span>
 <span class="norm">(2) <strong>Choice.</strong> Exactly one of: <code>TREASURY</code>, <code>BURN</code>,
 <code>REPORTER_BOUNTY</code>, or a fixed integer split of the three. Interface sketch (not compiled):
 <code>slashDestination() returns (uint8 kind, uint16 treasuryPpm, uint16 burnPpm, uint16 reporterPpm, address treasury, address reporterSink)</code>,
 where the three shares sum to <code>1_000_000</code> ppm and <code>kind</code> enumerates the pure options and the
 split. The destination never changes the penalty amount: <code>P(v,e)</code> is independent of the split
-(ECON-05), and the split <strong>MUST NOT</strong> be chosen to make a budget balance.</span>
-<table>
-<thead><tr><th>Option</th><th>Mechanism</th><th>Deterrence consequence</th><th>Securities-law posture</th><th>Incentive to report</th></tr></thead>
-<tbody>
+(ECON-05), and the split <strong>MUST NOT</strong> be chosen to make a budget balance.</span> <table>
+<thead><tr><th>Option</th><th>Mechanism</th><th>Deterrence consequence</th><th>Securities-law posture</th><th>Incentive to report</th></tr></thead> <tbody>
 <tr><td><code>TREASURY</code></td><td>transfer to the recorded treasury address; today the foundation treasury is a hard-coded non-voting holder (<code>0x363e…B3Da</code>, economics-raw.md §1.6)</td><td>the attacker's loss is real, but value re-enters the ecosystem and can fund the same reward budget it was taken from</td><td>concentrates discretionary funds; needs a legal assessment (unresolved here). The whitepaper's stated policy is that forfeited bonds go to the L1 treasury (<a href="../../../tokenomics-whitepaper.tex">tokenomics-whitepaper.tex</a>:39) while the current code burns 50% of a settled liveness bond (<code>LibBonds.sol:161-165</code>): the repository contradicts itself and the decision must resolve it</td><td>none by itself; detection stays unpaid (economics-raw.md §4.1 L7)</td></tr>
 <tr><td><code>BURN</code></td><td>L1 TAIKO has no <code>burn</code> today, so this requires either a token upgrade (a DAO action under GOV-01) or a recorded unrecoverable sink address. <code>0x…dEaD</code> is not provably unrecoverable; whatever sink is chosen must be recorded</td><td>unambiguous destruction of the attacker's value</td><td>no discretionary recipient; but no rule may present deflation as price support (<a href="#ECON-02">ECON-02</a> clause 2)</td><td>none</td></tr>
 <tr><td><code>REPORTER_BOUNTY</code></td><td>a share paid to the submitter; Ethereum pays the whistleblower 7/8 of a pool sized at 1/512 of the offender's effective balance, with 1/8 to the including proposer (economics-raw.md §2.2, sourced)</td><td>unchanged for the attacker; strengthens the detection half of A-ECO-1</td><td>a payment for a service; characterisation needs a legal assessment (unresolved here)</td><td>makes detection self-enforcing, which is the answer to "who is paid to watch"; it also pays for honest-mistake incidents (ECON-05 clause 7)</td></tr>
-</tbody></table>
-<span class="norm">(3) <strong>Timing.</strong> Pending correlated amounts are dispatched only when
+</tbody></table> <span class="norm">(3) <strong>Timing.</strong> Pending correlated amounts are dispatched only when
 <code>applyCorrelated()</code> debits them (ECON-05 clause 5); a bounty is paid once per applied offence identity,
 never on a duplicate (ECON-04 clause 4) and never on a reverted submission (ECON-08).</span>
 <span class="norm">(4) <strong>Change control.</strong> Changing the destination is a DAO upgrade under
 <a href="08-migration-upgrades.html#GOV-01">GOV-01</a>; it may not alter already-applied slashes or the exposure
 accounting of MEM-06 (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>).</span>
+<span class="norm">(5) <strong>The reporter bounty is strictly less than the correlated penalty.</strong> Whatever
+destination is recorded, the total paid to reporting submitters for one applied offence identity <code>id</code> —
+including a submitter controlled by, or affiliated with, the offender — <strong>MUST</strong> satisfy</span>
+<pre><code>REPORTER_BOUNTY(id)  &lt;  c(f(e,c)) · SlashBase(v,e)  ≤  P(v,e)</code></pre>
+<span class="norm">with <code>c(f)</code> the correlated component of <a href="#ECON-05">ECON-05</a> clause 2 and
+<code>P(v,e)</code> the offender's charge; in particular <code>REPORTER_BOUNTY(id) &lt; charge(id)</code>. The reason
+is that evidence is public and first-come (ECON-04 clause 4): if the bounty can equal or exceed the debit, the
+offender — or an affiliate — submits its own evidence first and recovers its own penalty, leaving a net cost of L1
+gas, so the penalty becomes an accounting entry paid back to its payer and the deterrence half of A-ECO-1 fails. The
+bound applies to the total of every bounty paid for that identity, including any bounty dispatched when
+<code>applyCorrelated()</code> runs (clause 3), and it must hold for every offence class and every realised
+<code>f</code>. A fixed bounty amount is permitted only if it satisfies the inequality for the smallest charge the
+matrix can produce. <code>REPORTER_BOUNTY</code> is otherwise <span class="pill unmeasured">unmeasured</span>, and
+this clause does not weaken <a href="#ECON-08">ECON-08</a> clause 1: no bond may be forfeited on "not proven".
+<em>(review round 1, finding ECO-06)</em></span>
 <span class="why">Failure mode: leaving the destination unrecorded lets an implementer pick it, and the three
 options differ in deterrence, in legal exposure and in whether anyone is paid to detect offences; the repository
-currently contains contradictory precedents, so the choice cannot be inferred from the code.</span>
-<span class="pill open">Open</span>
-<span class="small">(closed by a recorded decision entry naming one option or one fixed ppm split, with the legal
-assessment attached.)</span></div>
-
-<h2 id="evidence-window">7. Evidence window versus unbonding period</h2>
-
+currently contains contradictory precedents, so the choice cannot be inferred from the code.</span> <span class="pill open">Open</span>
+<span class="small">(closed by a recorded decision entry naming one option or one fixed ppm split, with the legal assessment attached.)</span></div> 
+<h2 id="evidence-window">7. Evidence window versus unbonding period</h2> 
 <div class="rule" id="ECON-07"><span class="rid">ECON-07 — the evidence window is strictly shorter than the unbonding delay</span>
-<span class="norm">(1) <strong>The window.</strong> <code>W_evidence(e)</code> is a duration in seconds per epoch
-<code>e</code>. Evidence for an offence at <code>e</code> is admissible only if the block that includes the
-<code>slash()</code> transaction has <code>block.timestamp ≤ evidenceClose(e)</code>, where
-<code>evidenceClose(e)</code> is computed from L1 state (the L1 block that committed the set version of
-<code>e</code>, plus <code>W_evidence</code> seconds); a later inclusion reverts
-<code>EvidenceWindowClosed</code>. No window may be re-opened, extended or waived after the fact, by any party
-(<a href="01-system-model.html#SYS-04">SYS-04</a>).</span>
-<span class="norm">(2) <strong>Strict inequality.</strong> For every epoch,
-<code>W_evidence + T_process + CORR_DELAY + M_ev &lt; D_withdraw</code>, where <code>T_process</code> is the L1
+<span class="norm">(1) <strong>The window, anchored to the offence epoch's own set version.</strong>
+<code>W_evidence(e)</code> is a duration in seconds per epoch <code>e</code>. Evidence for an offence at epoch
+<code>e</code> is admissible only if the L1 block that includes the <code>slash()</code> transaction has
+<code>block.timestamp ≤ evidenceClose(e)</code>, where <code>evidenceClose(e) = t_root(e) + W_evidence(e)</code> and
+<code>t_root(e)</code> is the timestamp of the L1 block at which the commitment of <strong>epoch <code>e</code>'s own
+set root</strong> became an Ethereum-final L1 fact (<a href="02-consensus.html#CONS-13">CONS-13</a>(3), SYS-02) — the
+same set version against which the offence's signatures are checked (MEM-07, CONS-08). The anchor is the offence's
+epoch and its set version, never an arbitrary set-commit block: set versions may be created permissionlessly
+(MEM-09), and a later or unrelated commitment <strong>MUST NOT</strong> be used to compute, re-anchor, extend or
+shorten the window of <code>e</code>. No window may be re-opened, extended or waived after the fact, by any party
+(<a href="01-system-model.html#SYS-04">SYS-04</a>); a later inclusion reverts <code>EvidenceWindowClosed</code>.
+<em>(review round 1, findings ECO-04, ECO-05)</em></span>
+<span class="norm">(2) <strong>Strict inequality.</strong> For every epoch, <code>W_evidence + T_process + CORR_DELAY + M_ev &lt; D_withdraw</code>, where <code>T_process</code> is the L1
 processing time of a slash (MEM-05 clause 4), <code>CORR_DELAY</code> is ECON-05 clause 5's delay and
 <code>M_ev &gt; 0</code> is a margin. Equivalently, the first moment at which any stake exposed to <code>e</code>
-may be released is strictly later than the last moment at which in-window evidence can be applied. Equality is
-non-conforming: it turns the deadline into an L1-ordering race.</span>
+may be released is strictly later than the last moment at which in-window evidence can be applied. Equality is non-conforming: it turns the deadline into an L1-ordering race. The two bounds are simultaneous: a
+conforming <code>W_evidence</code> <strong>MUST</strong> satisfy clause 4's lower bound and this strict inequality at
+the same time, and if no value does, <code>D_withdraw</code> (<a href="03-membership-staking.html#MEM-05">MEM-05</a>
+clause 4) must be raised; the parameters are chosen together (ECON-03 clause 3), never one against the other.</span>
 <span class="norm">(3) <strong>Why the window exists.</strong> The unbonding period is not a user-experience
 choice; it is the window in which late-arriving evidence must still be able to confiscate the stake that caused
 the offence: "there can be a delay between an infraction occurring, and evidence of the infraction reaching the
 state machine (this is one of the primary reasons for the existence of the unbonding period)" (Cosmos SDK
 <code>x/slashing/README.md</code>, retrieved 2026-10-05, quoted in economics-raw.md §2.4).</span>
-<span class="norm">(4) <strong>Two classes, two lower bounds.</strong> Self-authenticating offences
-(equivocation, and omission offences whose body is bound to an accepted batch) require
-<code>W_evidence ≥ T_detect + T_evidence_submit</code>. Offences that require re-execution or reconstruction of a
-body additionally require <code>W_evidence ≥ T_replay</code> (economics-raw.md §3.3). The rule
-<strong>MUST</strong> name which term binds; all terms are <span class="pill unmeasured">unmeasured</span>.
-Do not invent a universal window.</span>
+<span class="norm">(4) <strong>The window must not be empty, and it must cover the whole pipeline.</strong> For
+every offence at epoch <code>e</code> the admissible interval <code>[t_offence, evidenceClose(e)]</code>
+<strong>MUST</strong> be non-empty and <strong>MUST</strong> contain the whole settlement pipeline from the offence to
+the earliest possible detection of it — permitted proof latency, L1 inclusion, L1 finality, then detection and
+submission. A parameterisation under which the interval can be empty — an offence that becomes provable only after
+the window has closed — is a <strong>defect, not a tuning choice</strong>: it makes the offence unpunishable by
+construction and turns the window into a rule that punishes only offenders who submit nothing. The inequalities that
+prevent it are</span>
+<pre><code>t_offence + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit  ≤  evidenceClose(e)
+                                                                    for every admissible offence at epoch e
+
+W_evidence(e)  ≥  2 · E_epoch + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit
+                 (+ T_replay  where the offence requires re-execution or reconstruction of a body)</code></pre>
+<span class="norm">The <code>2 · E_epoch</code> term is the anchor skew that makes the first inequality hold uniformly
+across the epoch: epoch <code>e</code>'s set root is committed with one-epoch lookahead (CONS-13(3)), so
+<code>t_root(e)</code> can precede the epoch's first height by up to <code>E_epoch</code>, while an offence can occur
+as late as <code>h_last(e)</code>, a further <code>E_epoch</code> later (<code>E_epoch = EPOCH_LEN_L2 ·
+L2_BLOCK_INTERVAL</code> <span class="pill derived">derived</span>). For an omission offence whose body is bound to an
+accepted batch (ECON-04), the object becomes constructible only at L1 acceptance of that batch, which is already
+later than the offence, so the same bound holds a fortiori. Self-authenticating offences (equivocation, and omission
+offences whose body is bound to an accepted batch) require the pipeline terms from the offence;
+offences requiring re-execution or reconstruction additionally require <code>T_replay</code> (economics-raw.md §3.3).
+All pipeline terms are <span class="pill unmeasured">unmeasured</span>. The rule <strong>MUST</strong> name which term
+binds. Do not invent a universal window. <em>(review round 1, findings ECO-04, ECO-05)</em></span>
 <span class="norm">(5) <strong>Enforcement in the ledger.</strong> <code>withdraw()</code> reverts while any open
 epoch's window has not closed or any exposure (including a pending correlated amount) is unsettled
 (<a href="03-membership-staking.html#MEM-05">MEM-05</a> clause 3, MEM-06 clause 2). The enforceable guarantee is
@@ -452,15 +439,12 @@ therefore structural, not discretionary: stake cannot leave before the window th
 <span class="norm">(6) <strong>Do not shorten it.</strong> If the delay is judged too long, the correct response is
 to reduce the pipeline terms it covers — for example a measured, tighter proof bound or a measured L1-inclusion
 quantile — never to set <code>W_evidence</code> or <code>D_withdraw</code> below the inequality (MEM-05 clause 6).
-Changing L1's inclusion or finality behaviour is outside protocol control and requires re-deriving both
-parameters.</span>
+Changing L1's inclusion or finality behaviour is outside protocol control and requires re-deriving both parameters.</span>
 <span class="why">Failure mode: with <code>W_evidence ≥ D_withdraw</code> the offender's withdrawal and the
 reporter's transaction race in the L1 mempool, and the penalty punishes only offenders who submit nothing. The
 withdrawal race is the documented failure both Ethereum and Cosmos engineered against.</span>
-<span class="pill proven">Proven</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span></div>
-
-<h2 id="false-accusations">8. False accusations, duplicates and replay</h2>
-
+<span class="pill proven">Proven</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span></div> 
+<h2 id="false-accusations">8. False accusations, duplicates and replay</h2> 
 <div class="rule" id="ECON-08"><span class="rid">ECON-08 — false accusations, duplicate evidence, replay and post-exit evidence</span>
 <span class="norm">(1) <strong>Cost of an invalid submission.</strong> A submission that fails any check of
 ECON-04 clause 2 reverts entirely; the submitter pays exactly the L1 gas. No bond, deposit or stake is consumed,
@@ -474,14 +458,12 @@ reporting a real offence. Its calibration is <span class="pill unmeasured">unmea
 <span class="norm">(2) <strong>Idempotence.</strong> For a valid submission the identity is
 <code>id = (v, epoch, offenceType, keccak256(evidence))</code> (<a href="03-membership-staking.html#MEM-06">MEM-06</a>
 clause 4); the first application sets <code>applied[id]</code> permanently, and a second submission of the same
-<code>id</code> is a no-op as defined in ECON-04 clause 4 — no additional debit, no second bounty, no window
-extension.</span>
+<code>id</code> is a no-op as defined in ECON-04 clause 4 — no additional debit, no second bounty, no window extension.</span>
 <span class="norm">(3) <strong>Distinct offences in one epoch.</strong> A distinct valid offence by the same
 <code>v</code> at the same epoch is a distinct <code>id</code> and is recorded. The total charge for the epoch
 remains bounded by <code>SlashBase(v,e)</code> (MEM-06 clause 2); once that cap is reached the remainder is
 recorded as unapplied and is not collected (ECON-05 clause 3). The correlated fraction <code>f(e,c)</code> counts
-each offender once and is applied to every offender of the class at <code>corrApplyAt(e,c)</code>, so later
-distinct offences still raise the correlated component for the whole class.</span>
+each offender once and is applied to every offender of the class at <code>corrApplyAt(e,c)</code>, so later distinct offences still raise the correlated component for the whole class.</span>
 <span class="norm">(4) <strong>Replay.</strong> Every evidence object carries the domain tag and the chain id
 (GEN-05, ECON-04 clause 2); an object is invalid under any other chain id, and signatures are checked against the
 set root of the epoch named in the evidence, so an object from another epoch or set version reverts.
@@ -496,73 +478,77 @@ entry was in has a closed window and no unsettled exposure. (b) Because every ep
 submitted <em>before</em> the withdrawal; after the withdrawal the window is closed, so a later submission reverts
 <code>EvidenceWindowClosed</code> and cannot debit a released balance. There is therefore no ordering of (exit,
 evidence) in which in-window evidence is unenforceable, and none in which late evidence touches released funds.
-Implementers <strong>MUST NOT</strong> add a "late evidence" path, and the constants must satisfy ECON-07 clause 2
-or this construction fails.</span>
+Implementers <strong>MUST NOT</strong> add a "late evidence" path, and the constants must satisfy ECON-07 clause 2 or this construction fails.</span>
 <span class="norm">(6) <strong>Disclosure.</strong> A reverted or duplicate submission produces no on-chain
 accusation record and <strong>MUST NOT</strong> be displayed as a finding: an interface may show an applied
-offence (with its transaction) and must not present an unproven or failed accusation as fact
-(<a href="06-recovery-exceptions.html#WH-02">WH-02</a>).</span>
+offence (with its transaction) and must not present an unproven or failed accusation as fact (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>).</span>
 <span class="why">Failure modes: a bond forfeited on "not proven" suppresses honest reporting, which kills the
 detection half of A-ECO-1; a challenge-response deadline lets an attacker slash an offline validator; a
-non-permanent replay marker lets one evidence object be applied twice or on a forked chain; a "late evidence"
-path would break the withdrawal gate.</span>
-<span class="pill proven">Proven</span></div>
-
-<h2 id="min-stake">9. Minimum viable stake</h2>
-
+non-permanent replay marker lets one evidence object be applied twice or on a forked chain; a "late evidence" path would break the withdrawal gate.</span>
+<span class="pill proven">Proven</span></div>  <h2 id="min-stake">9. Minimum viable stake</h2> 
 <div class="rule" id="ECON-09"><span class="rid">ECON-09 — minimum viable stake is set by operator economics, not attack cost</span>
-<span class="norm">(1) <strong>Derivation.</strong> The minimum bonded amount for one validator
-<code>S_min</code> must satisfy the operator break-even relation</span>
+<span class="norm">(1) <strong>Derivation, in ETH-revenue terms.</strong> The minimum bonded amount for one
+validator <code>S_min</code> must satisfy the operator break-even relation</span>
 <pre><code>S_min  ≥  C_op_annual / ( r_gross − ρ_ops )        equivalently  r_be = C_op_annual / S + ρ_ops</code></pre>
-<span class="norm">where <code>C_op_annual</code> is hardware, bandwidth, operations and L1 gas for one validator
-per year, <code>r_gross</code> is the annualised reward rate actually paid per unit of bonded stake out of the
-budget of <a href="#ECON-12">ECON-12</a>, and <code>ρ_ops</code> is the operator's required margin. If the design
-cannot pay <code>r_gross &gt; ρ_ops</code>, there is <strong>no finite <code>S_min</code></strong>: the operator
-set shrinks to the cheapest operators and ultimately collapses. The honest statement is that the design is
-unfunded; it is not a licence to lower the minimum until operators appear.</span>
+<span class="norm">where <code>C_op_annual</code> is hardware, bandwidth, operations and L1 gas for one validator per
+year, expressed in <strong>ETH</strong>; <code>r_gross</code> is the annualised <strong>ETH</strong> reward rate
+actually paid per unit of bonded TAIKO out of the budget of <a href="#ECON-12">ECON-12</a>, in ETH per TAIKO per year;
+and <code>ρ_ops</code> is the operator's required margin in the same unit. The relation is dimensionally closed
+(ETH/year ÷ ETH per TAIKO per year = TAIKO) and contains no price term, so no TAIKO price is assumed silently by the
+algebra; the price enters through the operators' required margin, which is exactly why <code>ρ_ops</code> is
+unmeasured and time-varying rather than a constant. If the pool cannot pay <code>r_gross &gt; ρ_ops</code>, the
+denominator is zero or negative and <strong>there is no finite <code>S_min</code></strong>. Entry is then closed
+<em>in practice</em>: the admission predicate <code>amount ≥ S_min</code> (MEM-03 clause 1) either admits no operator
+or is unimplementable, so <strong>R1's permissionless entry is unsatisfiable in that regime</strong> — the
+consequence must be recorded as an open conflict between R1 and the funding identity, never smoothed by lowering the
+minimum until operators appear or by assuming a price recovery. The honest statement is that the design is unfunded.
+<em>(review round 1, findings ECO-02, ECO-03)</em></span>
 <span class="norm">(2) <strong>The binding constraint, stated.</strong> Attack cost bounds the <em>aggregate</em>
 stake and never the individual validator:</span>
 <pre><code>S_total  ≥  Λ · ( EV_extractable + OV_option ) / ( b · P(t) · (1 + σ(t)) )</code></pre>
 <span class="norm">This inequality contains no individual <code>S</code>; no rule may derive <code>S_min</code>
-from it (economics-raw.md §3.1 constraint A). The parameter <code>Λ ≥ 1</code> is
-<span class="pill unmeasured">unmeasured</span>, and the claim is conditional on A-ECO-1.</span>
-<span class="norm">(3) <strong>Participation.</strong> <code>S_min ≤ S_affordable(median intended
-participant)</code>, or entry is permissionless only in name (R1). The resulting count
+from it (economics-raw.md §3.1 constraint A). The parameter <code>Λ ≥ 1</code> is <span class="pill unmeasured">unmeasured</span>, and the claim is conditional on A-ECO-1.</span>
+<span class="norm">(3) <strong>Participation.</strong> <code>S_min ≤ S_affordable(median intended participant)</code>, or entry is permissionless only in name (R1). The resulting count
 <code>n = S_total / S_min</code> must lie inside the consensus set-size window, which is a consensus-rule output
 and not an economics input, and the resulting <code>Budget(n)</code> must be fundable (ECON-12); if it is not,
-<code>S_min</code> and the participation target are in conflict and the conflict must be recorded, not
-smoothed.</span>
-<span class="norm">(4) <strong>Values.</strong> The numeric value of <code>S_min</code> is a
-<a href="09-parameters.html#PARAM-01">PARAM-01</a> parameter and is
+<code>S_min</code> and the participation target are in conflict and the conflict must be recorded, not smoothed.</span>
+<span class="norm">(4) <strong>Values.</strong> The numeric value of <code>S_min</code> is a <a href="09-parameters.html#PARAM-01">PARAM-01</a> parameter and is
 <span class="pill unmeasured">unmeasured</span> with respect to <code>C_op_annual</code>, <code>r_gross</code> and
 <code>ρ_ops</code>; <code>C_op_annual</code> must be measured for a reference host under the 2 s cadence, L2 state
 size, gossip bandwidth and L1 gas costs of this design, and must not be copied from Bitcoin or Ethereum validator
-costs (economics-raw.md §3.1). A published <code>S_min</code> may not be described as measured until that study
-exists.</span>
+costs (economics-raw.md §3.1). A published <code>S_min</code> may not be described as measured until that study exists.</span>
+<span class="norm">(5) <strong>Activation ordering and the rate limit (economics side).</strong> The ordering
+argument is owned by <a href="03-membership-staking.html#MEM-03">MEM-03</a> clause 2 and is not restated here:
+ordering by L1 inclusion is <strong>not proof-of-fairness</strong> under adversarial L1 ordering — priority fees and
+builders can move a bonding transaction ahead of a target — and the protection this design gives is that inclusion
+is <strong>delayed, never denied</strong>, under an objective key that no third party can cancel or pass. This rule
+fixes the economics consequence. <code>ACTIVATION_RATE_LIMIT</code> is that rule's per-epoch activation cap (called
+<code>A_max</code> there; it is one parameter, and the parameter table registers it as
+<code>ACTIVATION_RATE_LIMIT</code>). It is stated <strong>per epoch</strong>, not per set version, because set
+versions may be created permissionlessly (MEM-09) and a per-set-version cap would bound nothing. It is what makes the
+set growth assumed by <code>Budget_ETH(n)</code> (<a href="#ECON-12">ECON-12</a>) an input the protocol at least
+bounds; it bounds the rate and is not an anti-front-running mechanism, and it <strong>MUST NOT</strong> be described
+as one or as a fairness guarantee. <code>ACTIVATION_RATE_LIMIT</code> is
+<span class="pill unmeasured">unmeasured</span> and must be derived from the set growth that consensus and the
+budget can absorb. <em>(review round 1, finding ECO-09)</em></span>
 <span class="why">Failure mode: deriving a minimum from attack cost produces a number no operator can live on;
 the set then consists of the operators with the lowest outside option — possibly the attacker's — and the security
 argument silently rests on participants who are losing money. Conversely, choosing the minimum from participation
-goals alone without checking the budget produces a set that cannot be paid to operate.</span>
-<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
-<span class="small">(aggregate attack-cost bound conditional on A-ECO-1; safety meaning conditional on
-A-CONS-1.)</span></div>
-
-<h2 id="concentration">10. Concentration, borrowing and liquid staking</h2>
-
+goals alone without checking the budget produces a set that cannot be paid to operate.</span> <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(aggregate attack-cost bound conditional on A-ECO-1; safety meaning conditional on A-CONS-1.)</span></div> 
+<h2 id="concentration">10. Concentration, borrowing and liquid staking</h2> 
 <div class="rule" id="ECON-10"><span class="rid">ECON-10 — caps constrain labels, borrowing changes cost, liquid staking is unpriced</span>
 <span class="norm">(1) <strong>A per-address or per-validator cap constrains labels, not capital.</strong> Let
 <code>C</code> be the cap per address, <code>S_total</code> the total bonded stake, <code>k = S_total / C</code> the
 number of identities needed to hold it, and <code>k_op</code> the marginal annual cost of operating one additional
-identity (key generation, custody, monitoring, per-identity overhead). An adversary seeking fraction
-<code>b</code> of stake acquires <code>b · S_total</code> TAIKO and splits it across
+identity (key generation, custody, monitoring, per-identity overhead). An adversary seeking fraction <code>b</code> of stake acquires <code>b · S_total</code> TAIKO and splits it across
 <code>b · k</code> identities: the dominant capital term is unchanged, and the cap adds at most
 <code>b · k · k_op</code>. The ratio of cap overhead to acquisition cost is <code>k_op / C</code>, which shrinks
 as the cap rises and never cancels the dominant term. Therefore no rule, interface or document may claim that a
 cap "prevents monopolisation"; a design that keeps a cap <strong>MUST</strong> state this arithmetic, with
 <code>k_op</code> <span class="pill unmeasured">unmeasured</span>. A cap on validator slots is worse than a cap on
 addresses, because it also caps the honest set size and turns slot acquisition itself into the scarce resource
-(economics-raw.md §2.7; <a href="03-membership-staking.html#MEM-10">MEM-10</a>'s non-claim is not weakened
-here).</span>
+(economics-raw.md §2.7; <a href="03-membership-staking.html#MEM-10">MEM-10</a>'s non-claim is not weakened here).</span>
 <span class="norm">(2) <strong>Borrowing.</strong> The attacker must <em>control</em> <code>b · S_total</code>, not
 own it. Borrowed or leveraged stake changes the cost floor to the financing cost over the attack window plus the
 loss of the pledged collateral; the protocol cannot observe leverage, so no rule may assume a maximum leverage
@@ -580,8 +566,7 @@ recording beneficial ownership (<a href="03-membership-staking.html#MEM-02">MEM-
 <a href="03-membership-staking.html#MEM-04">MEM-04</a>). That removes the delegation surface; it does not remove
 the derivative market, because a derivative issuer can still bond TAIKO through its own entry. Hence (a) no claim
 on this page may be read as bounding attack profitability while a TAIKO liquid-staking or derivative market
-exists, and (b) every published concentration statistic <strong>MUST</strong> say that it is a statistic over
-ledger entries, not over beneficial owners.</span>
+exists, and (b) every published concentration statistic <strong>MUST</strong> say that it is a statistic over ledger entries, not over beneficial owners.</span>
 <span class="norm">(4) <strong>What actually constrains concentration.</strong> The cost of acquiring the float
 (a liquidity and slippage question, <code>σ(t)</code>, <span class="pill unmeasured">unmeasured</span>), reward
 schedules that are concave in stake, and transparency (entry-level stake is public). None is a guarantee;
@@ -592,30 +577,23 @@ argument, interface string or normative value anywhere in this specification or 
 Economics-raw.md §3.5 records every one of these as UNVERIFIED in this pass; a constant would be a claim that the
 value is stable, which is false, and each one is an input to <code>σ(t)</code>, <code>S_total</code> or
 <code>AttackProfit</code> — that is, each one can invalidate A-ECO-1. Statements of the form "an attack costs X"
-are prohibited for the same reason; the permitted statement is the derived price at which the design stops being
-secure, computed from measured inputs and dated.</span>
+are prohibited for the same reason; the permitted statement is the derived price at which the design stops being secure, computed from measured inputs and dated.</span>
 <span class="why">Failure modes: a cap presented as an anti-monopoly mechanism is a false security claim (threat
 model §6.4 non-argument); ignoring borrowing understates attack cost; ignoring liquid-staking derivatives leaves
 the <code>OV_option</code> term out of the accounting, so A-ECO-1 appears satisfied when it is not; a hard-coded
-price makes a market observation into a protocol rule that fails with no rule change.</span>
-<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
-<span class="pill unmeasured">unmeasured</span></div>
-
-<h2 id="user-losses">11. Scope of user losses</h2>
-
+price makes a market observation into a protocol rule that fails with no rule change.</span> <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="pill unmeasured">unmeasured</span></div>  <h2 id="user-losses">11. Scope of user losses</h2> 
 <div class="rule" id="ECON-11"><span class="rid">ECON-11 — what protocol penalties do and do not cover</span>
 <span class="norm">(1) <strong>What a penalty does.</strong> A penalty debits the bonded stake of an entry proven
 to have committed a listed offence, up to the charge base of MEM-06, and dispatches the amount per
 <a href="#ECON-06">ECON-06</a>. That is its entire effect. No penalty reverses a PoS-finalized block, returns a
-bridge message, re-orders history, or repairs a failed consensus assumption (D2, REC-01).</span>
-<span class="norm">(2) <strong>What penalties do not cover.</strong> Protocol penalties are
+bridge message, re-orders history, or repairs a failed consensus assumption (D2, REC-01).</span> <span class="norm">(2) <strong>What penalties do not cover.</strong> Protocol penalties are
 <strong>not compensation</strong> and do not cover: value extracted by an attacker before detection
 (<code>EV_extractable</code>); losses caused by F2 failures — ≥1/3 Byzantine stake (A-CONS-1 failing), key
 compromise, a zkVM soundness break, or a malicious governance upgrade — where the design's safety claims do not
 apply and no slashing rule repairs the failure; losses caused by F1 failures — halt, congestion, prover outage,
 blob expiry, unavailable data — where the honest response is to halt safely, not to redistribute; losses inside
-third-party contracts, bridges, DEXes and lending markets; losses from user error; losses from L1 reorganisation;
-and the loss of the fiat value of TAIKO itself.</span>
+third-party contracts, bridges, DEXes and lending markets; losses from user error; losses from L1 reorganisation; and the loss of the fiat value of TAIKO itself.</span>
 <span class="norm">(3) <strong>No universal bound.</strong> No rule, document, interface, learning page or
 marketing text may state or imply a universal bound on user economic loss. The threat model already forbids
 inventing one (D2 obligation 4), and economics-raw.md §4.1 L1 records why: loss depends on
@@ -625,73 +603,64 @@ remain the only progress vocabulary: a slash is not a confirmation, and a penalt
 <span class="norm">(4) <strong>No compensation channel is defined here.</strong> If the recorded
 <a href="#ECON-06">ECON-06</a> destination includes no compensation policy, users must expect none; a future
 compensation or insurance scheme is a new design with its own funding identity under ECON-02 and its own decision
-record, and may not be assumed by this specification (the "insurance" allocation discussed in arXiv:2401.05797 is
-an example of such a scheme, not a rule of this one).</span>
+record, and may not be assumed by this specification (the "insurance" allocation discussed in arXiv:2401.05797 is an example of such a scheme, not a rule of this one).</span>
 <span class="norm">(5) <strong>The honest commitment.</strong> The protocol's commitment to users is disclosure,
 the objective exit path of MEM-05, and the ability to halt safely; it is not a promise of reimbursement.</span>
 <span class="why">Failure mode: the most damaging economic failure is a user who reads "slashing" as "my loss will
-be covered" and sizes exposure on a guarantee the protocol never made.</span>
-<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
-<span class="small">(the exclusion of F2 losses restates the fault boundary:
-<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §5.)</span></div>
-
-<h2 id="budget">12. Budget identity and the cost of decentralisation</h2>
-
-<div class="rule" id="ECON-12"><span class="rid">ECON-12 — Budget(n) and the linear cost of splitting stake</span>
-<span class="norm">(1) <strong>Identity.</strong> With <code>n</code> validators each bonded at
-<code>S</code> (<code>S_total = n · S</code>), per-validator annual operating cost <code>C_op</code> and required
-return on locked capital <code>ρ_capital</code> (risk-free rate + illiquidity premium for
-<code>D_withdraw</code> + expected slashing loss + TAIKO price-risk premium):</span>
-<pre><code>Budget(n)       =  n · ( C_op + ρ_capital · S )
-n_max_fundable  =  NetFeeRevenue / ( C_op + ρ_capital · S )
-Runway          =  R_reserve / ( Budget(n) − NetFeeRevenue )     while NetFeeRevenue &lt; Budget(n)
-fee-only region reached  ⇔  NetFeeRevenue ≥ Budget(n)</code></pre>
-<span class="norm">with <code>NetFeeRevenue = F_exec_L2 + F_priority_L2 + MEV_captured + S_explicit − C_L1_data −
-C_L1_verify − C_bridge_ops</code> from <a href="#ECON-02">ECON-02</a> clause 1. Every term is
-<span class="pill unmeasured">unmeasured</span>.</span>
+be covered" and sizes exposure on a guarantee the protocol never made.</span> <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(the exclusion of F2 losses restates the fault boundary: <a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §5.)</span></div> 
+<h2 id="budget">12. Budget identity and the cost of decentralisation</h2>  <div class="rule" id="ECON-12"><span class="rid">ECON-12 — Budget(n) and the linear cost of splitting stake</span>
+<span class="norm">(1) <strong>Identity, in ETH.</strong> With <code>n</code> validators each bonded at
+<code>S</code> TAIKO (<code>S_total = n · S</code>), per-validator annual operating cost <code>C_op</code> in ETH and
+required ETH return on locked capital <code>ρ_capital</code> per unit of bonded TAIKO per year (risk-free rate +
+illiquidity premium for <code>D_withdraw</code> + expected slashing loss + TAIKO price-risk premium):</span>
+<pre><code>Budget_ETH(n)   =  n · ( C_op + ρ_capital · S )                     [ETH per year]
+NetETHInflow    =  F_exec_L2 + F_priority_L2 + POOL_TOPUP − C_L1_data − C_L1_verify − C_bridge_ops − D_subsidy
+n_max_fundable  =  NetETHInflow / ( C_op + ρ_capital · S )
+Runway          =  R_reserve / ( Budget_ETH(n) − NetETHInflow )     while NetETHInflow &lt; Budget_ETH(n)
+fee-only region reached  ⇔  NetETHInflow ≥ Budget_ETH(n)</code></pre>
+<span class="norm">with <code>NetETHInflow</code> the ETH identity of <a href="#ECON-02">ECON-02</a> clause 1 and
+<code>R_reserve</code> the reserve valued in ETH at a dated price — a TAIKO-denominated reserve is not a fixed ETH
+quantity. <code>ρ_capital</code> is not a constant: it is an unmeasured, time-varying function of the TAIKO/ETH price
+and of <code>D_withdraw</code>, so no numeric <code>Budget_ETH(n)</code> is computable without a dated price, and
+stating the identity assumes none. Every term is <span class="pill unmeasured">unmeasured</span>.
+<em>(review round 1, findings ECO-01, ECO-02, ECO-03, ECO-12)</em></span>
 <span class="norm">(2) <strong>Structural result.</strong> The capital component scales with
 <code>S_total</code> however it is split; the operating component scales with <code>n</code>. Splitting the same
 stake across more validators therefore raises the reward bill <strong>linearly in <code>n</code></strong> while
 fee revenue does not scale with <code>n</code>. Decentralisation is bought with operating-cost funding, and any
 rule that lowers <code>S_min</code> to admit small participants forces <code>n</code> up and the budget up
-proportionally. If <code>n &gt; n_max_fundable</code>, the difference must be paid from the bounded, expiring
-subsidy of ECON-02 clause 4, with the runway stated. When the subsidy expires or the reserve depletes, the
-validator count is reduced through MEM-05's objective exit path or the chain halts; no rule pays unfunded rewards
-(ECON-02 clause 5).</span>
+proportionally. If <code>n &gt; n_max_fundable</code>, the difference <strong>cannot be paid</strong>: the bounded, expiring
+subsidy of ECON-02 clause 4 is netted out of the identity (it is a transfer of the protocol's own inflow, not a
+second funding source), so the validator count is reduced through MEM-05's objective exit path or the chain halts;
+no rule pays unfunded rewards (ECON-02 clause 5).</span>
 <span class="norm">(3) <strong>Runway, not yield.</strong> The honest deliverable is a runway calculation, not a
 yield: "A protocol can have a large nominal reserve and still be close to security failure after adverse price or
 demand shocks" (arXiv:2606.03587, *Reserve Depletion and Security Runway in Proof-of-Stake Systems*, 2026-06-02,
 retrieved 2026-10-05, quoted in economics-raw.md §2.9). A design is "reward-sustainable" only when the fee-only
 region is reached before the reserve depletes; until then the correct description is "reserve-dependent".</span>
-<span class="norm">(4) <strong>Price reflexivity.</strong> Costs are fiat-denominated and rewards are paid in
-TAIKO, so a price fall raises the required token reward rate for the same security, increasing sell pressure —
-the reflexive loop of economics-raw.md §4.3. It must be disclosed and stress-tested, not parameterised
-away.</span>
+<span class="norm">(4) <strong>Price reflexivity.</strong> Costs and rewards are ETH-denominated while the locked
+capital is TAIKO-denominated, so a fall in TAIKO's ETH price raises the ETH reward per unit of locked stake needed to
+hold operator economics constant and raises <code>ρ_capital</code> (price-risk plus expected slashing-loss premia):
+the same net ETH inflow then funds fewer validators. This is the reflexive loop of economics-raw.md §4.3. It must be
+disclosed and stress-tested, not parameterised away; paying rewards in ETH removes the mixed-currency identity of
+ECON-02 clause 1 but does not remove the loop, which is a property of the capital asset.
+<em>(review round 1, finding ECO-03)</em></span>
 <span class="norm">(5) <strong>The launch table.</strong> Before launch, the following table must be filled with
-measurements, not estimates: for each candidate <code>n</code> — <code>S_min</code>, <code>r_req(n)</code>,
-<code>Budget(n)</code>/yr, <code>NetFeeRevenue</code>/yr, <code>S_explicit</code>/yr and the runway
-(economics-raw.md §3.4). No value in it may be published as measured until the measurement exists
-(<a href="09-parameters.html#PARAM-03">PARAM-03</a>).</span>
+measurements, not estimates: for each candidate <code>n</code> — <code>S_min</code>, <code>r_req(n)</code> in ETH
+per TAIKO per year, <code>Budget_ETH(n)</code>/yr, <code>NetETHInflow</code>/yr, <code>POOL_TOPUP</code>/yr,
+<code>D_subsidy</code>/yr and the runway (economics-raw.md §3.4). No value in it may be published as measured until the measurement exists (<a href="09-parameters.html#PARAM-03">PARAM-03</a>).</span>
 <span class="why">Failure mode: fixing <code>S_min</code> from participation goals without checking
 <code>Budget(n)</code> produces a set that either cannot be paid or silently centralises to the cheapest
-operators; a reward bill that grows linearly in <code>n</code> while revenue is flat is an unfunded
-decentralisation promise.</span>
-<span class="pill proven">Proven</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span></div>
-
-<h2 id="volatility">TAIKO price volatility: attack cost is time-varying</h2>
-
-<p>This subsection is explanatory; the normative content it depends on is
+operators; a reward bill that grows linearly in <code>n</code> while revenue is flat is an unfunded decentralisation promise.</span>
+<span class="pill proven">Proven</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span></div> 
+<h2 id="volatility">TAIKO price volatility: attack cost is time-varying</h2>  <p>This subsection is explanatory; the normative content it depends on is
 <a href="#ECON-10">ECON-10</a> clause 5 (no hard-coded market datum) and <a href="#ECON-09">ECON-09</a> clause 2
-(the aggregate bound). It exists because a specification that quietly assumes a price is the most common way an
-economic-security argument becomes false.</p>
-
+(the aggregate bound). It exists because a specification that quietly assumes a price is the most common way an economic-security argument becomes false.</p> 
 <pre><code>AttackCost(t)       =  b · S_total · P(t) · (1 + σ(t))  +  OC(t)  +  E[Slash]
 AttackProfit(t, W)  =  EV_extractable(t, W) + OV_option(t, W) − OC_attack(t)
 A-ECO-1 requires    AttackCost(t)  ≥  Λ · AttackProfit(t, W)      Λ ≥ 1, Λ UNMEASURED</code></pre>
-
-<table>
-<thead><tr><th>Symbol</th><th>Meaning</th><th>Status</th></tr></thead>
-<tbody>
+ <table> <thead><tr><th>Symbol</th><th>Meaning</th><th>Status</th></tr></thead> <tbody>
 <tr><td><code>b</code></td><td>Byzantine stake threshold of the protocol (1/3 under A-CONS-1)</td><td>formula</td></tr>
 <tr><td><code>S_total</code></td><td>aggregate slashable stake</td><td>parameter (PARAM-01)</td></tr>
 <tr><td><code>P(t)</code></td><td>TAIKO market price at time <code>t</code></td><td><span class="pill unmeasured">unmeasured</span>, time-varying</td></tr>
@@ -700,52 +669,42 @@ A-ECO-1 requires    AttackCost(t)  ≥  Λ · AttackProfit(t, W)      Λ ≥ 1, 
 <tr><td><code>E[Slash]</code></td><td>expected confiscation, <code>Λ_slash · SlashBase</code></td><td>formula</td></tr>
 <tr><td><code>EV_extractable(t, W)</code></td><td>value extractable during the reversion window <code>W</code> (double-spend against bridge withdrawals, DEX drains, …)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td><code>OV_option(t, W)</code></td><td>option value of holding the ability to attack, e.g. shorting TAIKO or an LST before the attack (ECON-10 clause 3)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td><code>W</code></td><td>attack window = time from the attack to the irreversible loss of the attacker's stake = <code>D_withdraw</code></td><td>formula</td></tr>
-</tbody></table>
-
+<tr><td><code>W</code></td><td>attack window = time from the attack to the irreversible loss of the attacker's stake = <code>D_withdraw</code></td><td>formula</td></tr> </tbody></table> 
 <p><strong>A-ECO-1 can fail with no rule change.</strong> <code>P(t)</code> and <code>σ(t)</code> move for reasons
 the protocol does not control; a design that passes A-ECO-1 at one price can fail at a lower one while every rule
 stays identical. The specification therefore never states "an attack costs X". It states the price at which the
 design stops being secure as a <em>derived</em> quantity, recomputed from measured inputs at review time
 (economics-raw.md §2.8 warnings 1–2, §4.3). Until <code>σ(t)</code> is measured from order-book depth and traded
-volume, any statement of the form "an attack costs X million" is UNVERIFIED and must not appear.</p>
-
-<p><strong>If the price falls.</strong> Attack cost falls roughly proportionally; the token-denominated reward
-rate must rise to hold operator economics constant; <code>ρ_capital</code> rises (price risk plus expected
-slashing loss); honest operators exit first; <code>S_total</code> declines only as fast as <code>D_withdraw</code>
-allows, which is the only mitigation the design has and is the strongest argument for choosing
-<code>D_withdraw</code> generously; slashed stake is worth less exactly when deterrence is needed most; and a
-repricing event is precisely what makes the liquid-staking monetisation of ECON-10 clause 3 profitable
-(economics-raw.md §4.3).</p>
-
+volume, any statement of the form "an attack costs X million" is UNVERIFIED and must not appear.</p> 
+<p><strong>If the price falls.</strong> Attack cost falls roughly proportionally; the ETH-denominated reward
+per unit of locked TAIKO must rise to hold operator economics constant; <code>ρ_capital</code> rises (price risk plus expected
+slashing loss); honest operators exit first; voting power declines by at most <code>CHURN_LIMIT</code> per epoch (<a href="#ECON-03">ECON-03</a> clause 6) and
+a balance cannot leave before <code>D_withdraw</code> (ECON-03 clause 4) — <code>D_withdraw</code> alone delays only
+the payout, not the loss of voting power, so the churn cap is what prevents a one-step drop; slashed stake is worth less exactly when deterrence is needed most; and a
+repricing event is precisely what makes the liquid-staking monetisation of ECON-10 clause 3 profitable (economics-raw.md §4.3). <em>(review round 1, findings ECO-03, ECO-07)</em></p> 
 <p><strong>The available responses</strong>, stated so that no rule invents a price guarantee: (a) disclose the
 derived price at which the design stops being secure; (b) treat <code>D_withdraw</code> as a two-sided trade-off —
 long protects against late evidence, short reduces exposure to a falling price — and state the trade-off;
-(c) diversify the security budget so the fee-only region is reached earlier (ECON-12); (d) monitor and halt, since
-a safe halt is a first-class outcome (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>). No parameter
-makes a PoS chain secured by a volatile token robust to that token's collapse, and the specification must not
-imply otherwise.</p>
-
-<h2 id="unmeasured">Unmeasured inputs</h2>
-
+(c) diversify the security budget so the fee-only region is reached earlier (ECON-12); (d) disclose the deterioration and change a governance parameter: there is <strong>no objective on-chain
+signal</strong> for the security-budget ratio <code>S_total / (Λ · (EV_extractable + OV_option))</code>, because
+<code>P(t)</code>, <code>σ(t)</code>, <code>EV_extractable</code> and <code>OV_option</code> are all off-chain, so no
+rule can halt on a price signal and "monitor and halt" is withdrawn here (<a href="#ECON-02">ECON-02</a> clause 7). No parameter
+makes a PoS chain secured by a volatile token robust to that token's collapse, and the specification must not imply otherwise. <em>(review round 1, finding ECO-16)</em></p>  <h2 id="unmeasured">Unmeasured inputs</h2> 
 <p class="small">The authoritative register is <a href="09-parameters.html#PARAM-03">PARAM-03</a>; the table below
 is this page's input to it. Every quantity must be measured with workload, hardware and methodology recorded
-before the corresponding parameter is fixed, and none may be replaced by an estimate from a different workload
-(<a href="index.html#GEN-08">GEN-08</a>).</p>
-
-<table>
-<thead><tr><th>Quantity</th><th>What it determines</th><th>What would measure it</th></tr></thead>
-<tbody>
+before the corresponding parameter is fixed, and none may be replaced by an estimate from a different workload (<a href="index.html#GEN-08">GEN-08</a>). <em>(review round 1, findings ECO-01, ECO-13)</em></p>  <table>
+<thead><tr><th>Quantity</th><th>What it determines</th><th>What would measure it</th></tr></thead> <tbody>
 <tr><td><code>C_op</code> (per validator-year)</td><td><code>S_min</code> (<a href="#ECON-09">ECON-09</a>), <code>Budget(n)</code></td><td>an operations study for a reference host: CPU, RAM, NVMe, 2 s cadence, gossip bandwidth, L1 gas for deposit/exit/evidence</td></tr>
 <tr><td><code>ρ_capital</code></td><td><code>Budget(n)</code>, <code>r_req</code></td><td>observed cost of capital for comparable locked, slashable, TAIKO-denominated positions; risk-free rate plus measured illiquidity and slashing-loss premia</td></tr>
 <tr><td><code>ρ_ops</code> (operator margin)</td><td><code>S_min</code> (break-even condition)</td><td>the return operators require to run the reference host instead of an alternative; an operator survey or observed entry/exit behaviour</td></tr>
 <tr><td><code>S_affordable</code> (median intended participant)</td><td>participation floor (R1)</td><td>a distribution of intended participants' capital, from a survey or an on-chain cohort study</td></tr>
 <tr><td><code>F_exec_L2</code>, <code>F_priority_L2</code></td><td>the funding identity (<a href="#ECON-02">ECON-02</a>)</td><td>historical L2 fee revenue at the target cadence, per day and per period</td></tr>
-<tr><td><code>MEV_captured</code></td><td>the funding identity</td><td>the fraction of ordering value retained by the protocol rather than leaked to searchers/builders, measured on the deployed chain</td></tr>
+<tr><td>L2→L1 reward-pool transfer (the mechanism behind <code>POOL_TOPUP</code> and fee revenue)</td><td>the funding identity (<a href="#ECON-02">ECON-02</a> clause 7), which is <span class="pill open">Open</span></td><td>a design decision plus its accounting; until it exists the identity cannot be evaluated and an unfunded pool pays nothing</td></tr>
+<tr><td><code>MEV_captured</code> (not a term today)</td><td>nothing: it is <strong>not</strong> counted in the funding identity until a capture mechanism is specified</td><td>the fraction of ordering value retained by the protocol rather than leaked to searchers/builders, measured on the deployed chain, <em>if</em> such a mechanism is ever specified</td></tr>
 <tr><td><code>C_L1_data</code> (per batch)</td><td>the funding identity</td><td>blob fee × blobs per batch at observed blob-market prices, plus the calldata fallback</td></tr>
 <tr><td><code>C_L1_verify</code> (per batch)</td><td>the funding identity</td><td>a gas benchmark of the atomic data-and-proof transaction per backend, at the chosen blob and batch sizes</td></tr>
 <tr><td><code>C_bridge_ops</code></td><td>the funding identity</td><td>accounting of any other protocol L1 operating cost</td></tr>
-<tr><td><code>S_explicit</code> (bounded, expiring)</td><td>the funding identity, runway</td><td>the recorded subsidy line item: amount, start, end, funded account</td></tr>
+<tr><td><code>D_subsidy</code> (bounded, expiring)</td><td>the funding identity, runway</td><td>the recorded subsidy line item: ETH amount, start, end, and the pre-funded account it is drawn from and paid into</td></tr>
 <tr><td><code>T_proof_bound</code></td><td><code>D_withdraw</code> (MEM-05)</td><td>the wall-clock proving-time distribution of the pinned guest and verifier on reference hardware; D6's 30 min is a design constraint, not a measurement</td></tr>
 <tr><td><code>T_detect</code></td><td><code>W_evidence</code> (<a href="#ECON-07">ECON-07</a>)</td><td>time from an L2 offence to a complete, constructible evidence object in a submitter's hands, including gossip</td></tr>
 <tr><td><code>T_evidence_submit</code></td><td><code>W_evidence</code></td><td>mempool-acceptance and broadcast latency for evidence transactions</td></tr>
@@ -761,30 +720,30 @@ before the corresponding parameter is fixed, and none may be replaced by an esti
 <tr><td>Maximum leverage available on TAIKO</td><td>ECON-10 clause 2</td><td>lending-market data for TAIKO and its derivatives</td></tr>
 <tr><td><code>EV_extractable(t, W)</code>, <code>OV_option(t, W)</code>, <code>Λ</code></td><td>the aggregate bound of ECON-09 clause 2 and A-ECO-1</td><td>value-at-risk modelling of the bridged assets and DEX depth, plus derivative-market data; <code>Λ</code> is a policy margin, not a measurement</td></tr>
 <tr><td>Honest key-duplication rate</td><td>the correlated-penalty tail (<a href="#ECON-05">ECON-05</a> clause 7)</td><td>incident data from comparable chains (the Polkadot incidents are the sourced examples) and operator practice</td></tr>
-</tbody></table>
-
-<h2 id="parameters-introduced">Parameter names introduced by this page</h2>
-
+</tbody></table>  <h2 id="parameters-introduced">Parameter names introduced by this page</h2> 
 <p class="small"><a href="09-parameters.html#PARAM-01">PARAM-01</a> owns the parameter table and
 <a href="09-parameters.html#PARAM-03">PARAM-03</a> owns the unmeasured register. The names below are introduced
 here because the rules above need them; their values are <span class="pill unmeasured">unmeasured</span> and must
-be entered in <a href="09-parameters.html">09</a> with units, derivation and tag before launch.</p>
-
-<table>
-<thead><tr><th>Name</th><th>Unit</th><th>Owner rule</th><th>Constraint</th></tr></thead>
-<tbody>
+be entered in <a href="09-parameters.html">09</a> with units, derivation and tag before launch. The registrations are
+now made there, together with the parameters the revised <code>D_MAX</code> and the evidence window depend on.
+<em>(review round 1, findings ECO-01, ECO-02, ECO-03, ECO-04, ECO-05, ECO-06, ECO-07, ECO-09, ECO-13, ECO-15)</em></p>  <table>
+<thead><tr><th>Name</th><th>Unit</th><th>Owner rule</th><th>Constraint</th></tr></thead> <tbody>
 <tr><td><code>IMM_FRAC(c)</code></td><td>fraction of <code>SlashBase</code></td><td><a href="#ECON-05">ECON-05</a></td><td><code>0 &lt; IMM_FRAC(c) ≤ 1</code>; per offence class</td></tr>
 <tr><td><code>F_SAT</code></td><td>fraction</td><td><a href="#ECON-05">ECON-05</a></td><td><code>= 1/3</code>, equal to the <code>b</code> of A-CONS-1; the coincidence is by construction</td></tr>
 <tr><td><code>CORR_Q</code></td><td>integer</td><td><a href="#ECON-05">ECON-05</a></td><td><code>∈ {1, 2}</code>; 1 = Ethereum form, 2 = Polkadot form</td></tr>
 <tr><td><code>CORR_DELAY</code></td><td>seconds</td><td><a href="#ECON-05">ECON-05</a></td><td><code>W_evidence + T_process + CORR_DELAY + M_ev &lt; D_withdraw</code></td></tr>
-<tr><td><code>W_EVIDENCE</code></td><td>seconds</td><td><a href="#ECON-07">ECON-07</a></td><td>strictly less than <code>D_withdraw</code> minus the other terms; per epoch</td></tr>
+<tr><td><code>W_EVIDENCE</code></td><td>seconds</td><td><a href="#ECON-07">ECON-07</a></td><td><code>≥ 2 · E_EPOCH + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit</code> (plus <code>T_replay</code> where re-execution is required), and <code>W_EVIDENCE + T_PROCESS + CORR_DELAY + M_ev &lt; D_WITHDRAW</code>; per epoch</td></tr>
+<tr><td><code>REWARD_ASSET</code></td><td>asset</td><td><a href="#ECON-02">ECON-02</a></td><td><strong>ETH</strong>; TAIKO is the staking and collateral asset only (D7)</td></tr>
+<tr><td><code>POOL_TOPUP</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>any L1-side inflow other than L2 fee revenue; the transfer mechanism is <span class="pill open">Open</span></td></tr>
+<tr><td><code>D_subsidy</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>the subsidy draw, subtracted in the identity; a subsidy is not additional funding</td></tr>
+<tr><td><code>REPORTER_BOUNTY(id)</code></td><td>TAIKO</td><td><a href="#ECON-06">ECON-06</a></td><td><code>&lt; c(f(e,c)) · SlashBase(v,e) ≤ P(v,e)</code>; strictly less than the correlated penalty</td></tr>
+<tr><td><code>CHURN_LIMIT</code></td><td>fraction of voting power per epoch</td><td><a href="#ECON-03">ECON-03</a></td><td>maximum effective stake that may leave the set in one epoch; must be derived from the deterrence relation</td></tr>
+<tr><td><code>ACTIVATION_RATE_LIMIT</code></td><td>entries per epoch</td><td><a href="#ECON-09">ECON-09</a></td><td>bounds the activation rate independently of how many set versions are committed (MEM-09)</td></tr>
+<tr><td><code>T_PROOF_MAX_PERMITTED</code></td><td>seconds</td><td>HALT-03 (<a href="06-recovery-exceptions.html">06</a>)</td><td>the maximum proving latency the unsettled-depth cap and the evidence window admit; distinct from D6's planning envelope</td></tr>
+<tr><td><code>RETENTION_WINDOW</code></td><td>seconds</td><td>HALT-03 (<a href="06-recovery-exceptions.html">06</a>)</td><td>the retrievability duration the cap assumes</td></tr>
+<tr><td><code>MARGIN_V</code></td><td>L2 blocks</td><td>HALT-03 (<a href="06-recovery-exceptions.html">06</a>)</td><td>validator finality margin: voting stops at unsettled depth <code>D_MAX − MARGIN_V</code></td></tr>
+<tr><td><code>E_EPOCH</code></td><td>seconds</td><td>CONS-13 (<a href="02-consensus.html#CONS-13">02</a>)</td><td><code>EPOCH_LEN_L2 · L2_BLOCK_INTERVAL</code>; derived</td></tr>
 <tr><td><code>MIN_STAKE</code></td><td>TAIKO</td><td><a href="#ECON-09">ECON-09</a></td><td><code>S_min ≥ C_op_annual / (r_gross − ρ_ops)</code>; no finite value exists when <code>r_gross ≤ ρ_ops</code></td></tr>
-<tr><td><code>subsidyCap</code>, <code>subsidyEnd</code></td><td>TAIKO / unix seconds</td><td><a href="#ECON-02">ECON-02</a></td><td>bounded and expiring; no rule may extend or borrow against them</td></tr>
-</tbody></table>
-
-</main>
-<footer class="site">
-<p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are
-stated once and referenced by identifier.</p>
-</footer>
-</body></html>
+<tr><td><code>subsidyCap</code>, <code>subsidyEnd</code></td><td>ETH / unix seconds</td><td><a href="#ECON-02">ECON-02</a></td><td>bounded and expiring; netted out of the identity as <code>D_subsidy</code>; no rule may extend or borrow against them</td></tr>
+</tbody></table>  </main> <footer class="site"> <p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are stated once and referenced by identifier.</p>
+</footer> </body></html>

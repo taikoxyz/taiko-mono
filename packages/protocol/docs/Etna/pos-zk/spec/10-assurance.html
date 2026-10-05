@@ -81,8 +81,11 @@ but whether every lever has been removed is verified only at migration time)</sp
 between correct validators is below the round-timeout bound for long enough to complete a round;
 (L2) a correct proposer is eventually selected by rotation when timeouts elapse;
 (L3) correct validators hold and can serve the data of the blocks they voted for, at least until
-settlement or the retention window ends; (L4) at least one adequately-resourced prover completes each
-committed batch inside the envelope, or another prover does;
+settlement or the retention window ends; (L4) <em>for every committed batch</em>, at least one adequately-resourced
+prover completes its proof inside the envelope, or another prover does — this is a per-batch statement,
+not a mean-rate one: a sustained average that meets the throughput inequality of
+<a href="#LIVE-03">LIVE-03</a> does <strong>not</strong> imply that no individual batch exceeds the
+envelope (*review round 1, finding R1-09*);
 (L5) Ethereum includes valid transactions within a bounded delay and does not reorganise below the
 finality depth; (L6) the L1 staking contract commits each epoch's set root before the epoch begins;
 (L7) a new node can obtain a weak-subjectivity checkpoint within the freshness window;
@@ -143,8 +146,8 @@ may be silently dropped when the design is summarised to users.</span>
 <tr><td>Cryptographic</td><td>One combined guest means a single trusted computing base; a common-mode defect is not caught by a second backend unless the policy requires both</td><td>Same as above, with a smaller detection surface</td></tr>
 <tr><td>Consensus</td><td>Safety holds only while fewer than one third of each epoch's voting power is Byzantine</td><td>Two conflicting valid certificates; the proof verifies both; the invariant <a href="#INV-01">INV-01</a> does not apply</td></tr>
 <tr><td>Consensus</td><td>The epoch-handoff lock-carry-over argument is argued, not machine-checked</td><td>A boundary-specific fork is the named review target F1</td></tr>
-<tr><td>Availability</td><td>Settlement depends on somebody retaining the data until the proof lands</td><td>A halt, possibly permanent, if every holder disappears. Disclosed; explicitly permitted by D2 step 1</td></tr>
-<tr><td>Availability</td><td>Retention is a duty, not a cryptographically enforceable property; a failure to serve is not provable on L1 for most classes</td><td>Unprovable faults; the honest response is disclosure, not a penalty (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>)</td></tr>
+<tr><td>Availability</td><td>Settlement depends on somebody retaining the data until the proof lands</td><td>A halt, possibly permanent, if every holder disappears. Retention is a liveness <strong>assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty. Disclosed; explicitly permitted by D2 step 1</td></tr>
+<tr><td>Availability</td><td>Retention is a <strong>liveness assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty: a failure to serve is not provable on L1 for most classes, and no evidence object exists for it (*review round 1, finding C R1-04*)</td><td>A holder's failure produces a <strong>halt, not a penalty</strong>; the honest response is disclosure, not a penalty (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>), and no rule may claim retention is enforced</td></tr>
 <tr><td>Liveness</td><td>A minority outage halts the chain; there is no degraded mode</td><td>Unbounded halt duration outside the assumptions</td></tr>
 <tr><td>Liveness</td><td>A cartel of at least one third can halt the chain, though it cannot censor selectively while quorum exists</td><td>Denial of service, not a safety break</td></tr>
 <tr><td>Performance</td><td>The 2&nbsp;s cadence, the round budget, the proving envelope, the in-guest blob evaluation and the fleet sizing are all unmeasured</td><td><a href="#LIVE-03">LIVE-03</a>'s inequalities cannot be checked until measured</td></tr>
@@ -190,16 +193,21 @@ change of direction must reopen the corresponding entry here rather than silentl
 
 <div class="rule" id="LIM-03"><span class="rid">LIM-03 — red-team finding resolutions</span>
 <span class="norm">Every finding from the adversarial review rounds is recorded in
-<code>iterations/</code> with its exact rule or missing rule, preconditions, concrete attack trace,
+<a href="../iterations/01-round.md"><code>iterations/</code></a> with its exact rule or missing rule, preconditions, concrete attack trace,
 whether the attack is inside the claimed fault model, attacker resources and cost, harm, affected
 requirements, and either a resolution or an explicit acceptance. A finding is closed only when the
 original attack trace is retained and the specification states precisely why it no longer
 succeeds.</span>
+<p class="small">After round 1's fixes were applied in place, the specification was re-reviewed in round 2 under the same rule-by-rule discipline; the round-2 row is left to the lead. Round-2 results are recorded below when the round closes.</p>
 <table>
-<thead><tr><th>Round</th><th>Snapshot</th><th>Critical / High raised</th><th>Disposition</th></tr></thead>
+<thead><tr><th>Round</th><th>Snapshot</th><th>Findings adjudicated</th><th>Disposition</th></tr></thead>
 <tbody>
-<tr><td>1</td><td><code>iterations/01-round.md</code></td><td colspan="2">see the round file; the finding ledger is authoritative</td></tr>
+<tr><td>1</td><td><code>dfcf067a5b91a1b0bacd4470f5f5054d1f861a24</code> (2026-10-05)</td><td><strong>3 Critical, 22 High, 14 Medium, 5 Low</strong> (duplicates merged), from four reviewers, one per assigned angle: consensus safety; proof soundness, bridge funds and stake custody; liveness, data availability and recovery; economics and permissionless entry</td><td>Per <a href="../iterations/01-round.md"><code>iterations/01-round.md</code></a>: fixes are applied in place and each states the finding it closes; <strong>the round is NOT converged</strong> — round 2 must re-attack the fixed rules with fresh reviewers, including a dedicated re-attack of the tightened blob binding (Q-A3)</td></tr>
 </tbody></table>
+<span class="small">Coverage limitations recorded for round 1 (from the same ledger, and not a substitute for a safety argument): the fifth required angle — compliance with atomic
+submission and preservation of shared addresses — was <strong>not</strong> assigned to a dedicated reviewer in round 1; and reviewer diversity is procedural (fresh context, independent
+verdicts, no mitigation narrative) rather than by model, because the session exposed one model. (*review round 1: this row replaces the placeholder record; the round is not
+converged*)</span>
 <span class="why">Failure mode: findings closed by editing the specification without recording the
 trace, so a later reader cannot tell what was attacked or whether the fix is the reason it
 fails.</span>
