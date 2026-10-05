@@ -32,7 +32,7 @@ No recovery, timeout or penalty may invalidate a PoS-finalized block (<strong>D2
 <a href="06-recovery-exceptions.html#REC-01">REC-01</a>); penalties debit stake, they never rewrite history.
 Every deterrence claim is conditional on the Byzantine-stake assumption <strong>A-CONS-1</strong> (&lt; 1/3 of the
 stake that counts toward quorum in the relevant set version) and on the economic assumption <strong>A-ECO-1</strong>,
-which is an <em>assumption</em>, not a guarantee. Where a claim needs an assumption, it says so at the claim.</div>  <h2 id="ledger">1. The stake ledger, custody and accounting</h2> 
+which is an <em>assumption</em>, not a guarantee. Where a claim needs an assumption, it says so at the claim. Security is funded from L2 fees (<strong>D-8</strong>, <a href="#ECON-02">ECON-02</a> clause 7), and slashed stake goes to the protocol treasury with no burn option (<strong>D-9</strong>, <a href="#ECON-06">ECON-06</a>).</div>  <h2 id="ledger">1. The stake ledger, custody and accounting</h2> 
 <div class="rule" id="ECON-01"><span class="rid">ECON-01 — stake ledger, custody and accounting</span>
 <span class="norm">(1) <strong>One ledger, one asset.</strong> Every bonded consensus balance is recorded in the
 single L1 custody contract of <a href="03-membership-staking.html#MEM-01">MEM-01</a>. The only asset it accepts is
@@ -102,8 +102,8 @@ ETH-denominated payouts to validators, provers and any other role <strong>MUST</
 <pre><code>rewards_ETH(period)  ≤  F_exec_L2 + F_priority_L2 + POOL_TOPUP
                         − C_L1_data − C_L1_verify − C_bridge_ops − D_subsidy</code></pre>
 <table> <thead><tr><th>Term</th><th>Definition</th><th>Status</th></tr></thead> <tbody>
-<tr><td><code>F_exec_L2</code>, <code>F_priority_L2</code></td><td>L2 execution fees (base and priority) actually collected in the period</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td><code>POOL_TOPUP</code></td><td>any L1-side inflow to the reward pool in the period other than the two fee terms above, from a budgeted and recorded source. How L2 fee revenue reaches that pool is <strong>not specified</strong> (clause 7)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td><code>F_exec_L2</code>, <code>F_priority_L2</code></td><td>L2 execution fees (base and priority) actually collected in the period into the L2 fee vault of clause 7</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td><code>POOL_TOPUP</code></td><td>any L1-side inflow to the reward pool in the period other than the two fee terms above, from a budgeted and recorded source. The two fee terms reach the pool only by the sweep of clause 7; the same ETH is counted once, when it arrives, and never again here</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td><code>D_subsidy</code></td><td>the subsidy <em>draw</em> of the period: the amount moved out of the pool's inflow into the pre-funded, bounded, expiring subsidy account of clause 4 (capitalisation only). It reduces the period's fee-funded reward capacity and <strong>MUST NOT</strong> be counted as inflow. A payout <em>out of</em> that pre-funded account is not a second term: it is charged against the account's own bounded cap and is excluded from <code>rewards_ETH(period)</code>, so the same ETH is never counted on both sides. <em>(review round 2, finding E-R2-10)</em></td><td><span class="pill unmeasured">unmeasured</span>, human decision (clause 4)</td></tr>
 <tr><td><code>C_L1_data</code></td><td>blob/calldata cost of every settled batch (D5: data travels with the proof)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td><code>C_L1_verify</code></td><td>gas of the proof-verification and state-update transaction, per batch</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
@@ -146,8 +146,8 @@ the L1 staking contract of <a href="03-membership-staking.html#MEM-01">MEM-01</a
 payouts. <em>(user decision D-6: forced inclusion removed; no forced-inclusion escrow, fee or refund term
 remains in this accounting)</em> ETH in the pool is never collateral, never
 stake and never slashable: it is not counted in INV-A–INV-D (<a href="#ECON-01">ECON-01</a>), no slash may
-debit it, and no rule may borrow against it. Its inflows are the terms of clause 1 (L2 fee revenue and
-<code>POOL_TOPUP</code>, once the transfer of clause 7 exists); the pool never carries a negative balance.
+debit it, and no rule may borrow against it. Its inflows are the terms of clause 1 (L2 fee revenue, arriving by the sweep of clause 7, and
+<code>POOL_TOPUP</code>); the pool never carries a negative balance.
 (b) <strong>Per-signer input.</strong> Participation is attested by the only object that can carry it to
 L1: the authenticated signer bitmap of the head certificate, exposed as the public input
 <code>signerBitmap</code> (<a href="05-proof-statement.html#PRF-02">PRF-02</a>) and verified in-guest
@@ -192,7 +192,7 @@ entry that did not sign is paid nothing, however much stake it holds. Then, exac
 payout(v,e)     = floor( Alloc(e) &middot; effStake(v,e) / PS(e) )   // PS(e) frozen at evidenceClose(e)
 &Sigma;_v payout(v,e)  &le;  Alloc(e)  &le;  pool_before(e)     // no borrowing, no negative pool</code></pre>
 <span class="norm"><code>Alloc(e)</code> MUST be fixed before the epoch's first claim and MUST NOT exceed
-the pool's realised net inflow for the period (clause 1); the floor-rounding remainder stays in the pool
+the pool's realised net inflow for the period — the ETH that has actually arrived by the sweep of clause 7 plus <code>POOL_TOPUP</code> (clause 1); the floor-rounding remainder stays in the pool
 and is never minted. The identity <code>&Sigma;_v payout(v,e) &le; Alloc(e) &le; pool_before(e)</code>,
 evaluated at the frozen denominators, is a <strong>checked condition, not an intention</strong>: the
 staking contract MUST expose a view that evaluates it for every epoch with an open claim — exactly as
@@ -203,25 +203,79 @@ round 3 finding R3-CE-03: <code>P(e)</code> and the participating stake are froz
 change the payout denominator.</em> <em>This closes review round 3 finding R3-PRF-03: the per-epoch
 payout identity is computable from frozen state, the accumulator key is the canonical signer index
 resolved against the stored set root, and the identity is checked rather than asserted.</em>
-(e) <strong>What is Open, and its consequence.</strong> The mechanism that moves L2 fee revenue to the L1
-pool — and therefore the realised <code>Alloc(e)</code> — is clause 7's Open item. Until a recorded
-decision defines the transfer and an allocation policy, <code>Alloc(e) = 0</code>, the pool has no inflow,
-and <strong>no validator reward can be paid at all</strong>: the security budget A-ECO-1 compares against
-attack profit is zero and the schedule of clause 1 is unsatisfiable. That consequence is stated, not
-assumed away. <em>(review round 2, finding E-R2-05: the pool holder, the per-signer input, the claimant and
-the per-epoch identity are now stated concretely; this closes round 1's ECO-10/ECO-15 by giving the
-participation condition they added a payment mechanism.)</em></span>
+(e) <strong>What fixes <code>Alloc(e)</code>, and its consequence.</strong> The mechanism that moves L2 fee revenue
+to the L1 pool is clause 7, and the allocation policy is recorded with it. An empty pool pays nothing: while no ETH
+has arrived, <code>Alloc(e) = 0</code>, the pool has no inflow, and <strong>no validator reward can be paid at
+all</strong> — the security budget A-ECO-1 compares against attack profit is zero, the schedule of clause 1 is
+unsatisfiable, and no rule may promise, budget or advertise a reward beyond what has arrived. That consequence is
+stated, not assumed away. <em>(user decision D-8: the funding path and its consequences are clause 7)</em>
+<em>(review round 2, finding E-R2-05: the pool holder, the per-signer input, the claimant and the per-epoch identity
+are now stated concretely; this closes round 1's ECO-10/ECO-15 by giving the participation condition they added a
+payment mechanism.)</em></span>
 <span class="norm">(6) <strong>Rewards are not a safety claim.</strong> Paying rewards deters nothing by itself;
 deterrence is <a href="#ECON-05">ECON-05</a>'s argument and is conditional on A-ECO-1. A reward rate parameter is
 <em>unmeasured</em> until its inputs are measured (<a href="09-parameters.html#PARAM-03">PARAM-03</a>).</span>
-<span class="norm">(7) <strong>The L2-fee → L1-reward-pool transfer is not specified here.</strong> How L2 fee
-revenue (<code>F_exec_L2</code>, <code>F_priority_L2</code>) reaches the L1 reward pool — a canonical bridge, a fee
-sink claimed on L1, an accounting claim against settlement, or any other mechanism — is <strong>NOT</strong>
-specified by this page or by <a href="04-l1-integration.html#L1-11">L1-11</a>. It is <span class="pill open">Open</span>
-and requires a recorded design decision (<a href="../DECISIONS.md">DECISIONS.md</a>) before launch. The consequence is
-stated rather than assumed away: with no transfer, the pool has no inflow in the reward asset, an unfunded pool pays
-nothing, validators earn nothing, the security budget that A-ECO-1 compares against attack profit is zero, and the
-schedule of clause 1 is unsatisfiable. No rule may halt on a price or budget signal instead, because no objective
+<span class="norm">(7) <strong>Funding path: the L2 fee vault, the permissionless sweep through the preserved Bridge, and the arrival identity.</strong> <em>(user decision D-8: security is funded from L2 fees; this clause is the path and the honest consequences of it)</em>
+(a) <strong>Collection — the L2 fee vault.</strong> One L2 account, the <strong>L2 fee vault</strong>
+(<code>L2FeeVault</code>, a new deployment whose address is recorded before launch; it is not one of the preserved
+addresses of D3/<a href="08-migration-upgrades.html#MIG-06">MIG-06</a>), accumulates the L2 fee revenue of clause 1:
+the execution base-fee component and the priority-fee component of every L2 transaction
+(<code>F_exec_L2</code>, <code>F_priority_L2</code>). The L2 fee policy <strong>MUST</strong> route both components
+to this vault; a component that is destroyed, paid to a block beneficiary, or otherwise diverted is not collected
+revenue, <strong>MUST NOT</strong> be counted in clause 1, and <strong>MUST NOT</strong> be promised as a reward. The
+vault holds ETH only: it is never collateral, never stake, never slashable, and never part of the ledger of
+<a href="#ECON-01">ECON-01</a>. It has no discretion: no caller, operator, validator, DAO action or upgrade path may
+redirect its balance to any destination other than the sweep of (b).</span>
+<span class="norm">(b) <strong>The sweep, and who may sweep.</strong> The vault <strong>MUST</strong> expose one
+sweep that moves its accumulated ETH to L1 through the <strong>preserved Bridge</strong>
+(<a href="04-l1-integration.html#MSG-01">MSG-01</a>): an L2→L1 bridge message whose destination is exactly the
+single reward pool account of clause 5(a) — the segregated ETH pool of the L1 staking contract — and nothing else.
+The destination is a protocol constant recorded before launch, never a parameter the caller supplies. The sweep is
+the <strong>only</strong> route by which L2 fee revenue reaches L1: there is no direct L1 claim, no accounting entry
+against future settlement, no escrow, and no second destination. <strong>Who may sweep:</strong> any address, at any
+time, with no gate, allowlist, reservation or operator action; the caller chooses only <em>when</em>, never
+<em>where</em> or <em>how much is credited to whom</em>. <strong>Cadence:</strong> there is no protocol-mandated
+schedule and no keeper duty — the sweep <strong>MUST</strong> be callable whenever the vault's balance is non-zero,
+and the vault <strong>MUST NOT</strong> hold a balance that no rule-legal call can move; a sweep of a zero balance is
+a no-op and MUST NOT block anything. The L2 gas of the sweep is paid by its caller; the Bridge's message fee is
+charged against the swept amount; the L1 release cost is part of <code>C_bridge_ops</code> of clause 1 and is not a
+second charge. The sweep credits nothing by assertion: the L1 release credits the pool only when the preserved
+Bridge has authenticated the message (<a href="04-l1-integration.html#MSG-02">MSG-02</a>).</span>
+<span class="norm">(c) <strong>Arrival identity.</strong> Fees are revenue when they <em>arrive at the pool</em>, not
+when they are collected on L2 and not when a sweep is sent. Let <code>s</code> range over the sweeps whose bridge
+message releases to the pool in the period and let <code>bridgeFee(s)</code> be the message fee the Bridge charged
+against the swept amount (<span class="pill unmeasured">unmeasured</span>; part of <code>C_bridge_ops</code>).
+Then, exactly:</span>
+<pre><code>arrival(s)           =  swept(s) − bridgeFee(s)
+pool_inflow(period)  =  Σ_s arrival(s) + POOL_TOPUP(period)
+Σ_s swept(s)         ≤  F_exec_L2 + F_priority_L2      // collected at or before the last L2 block
+                                                        // covered by an L1 checkpoint at the period's end</code></pre>
+<span class="norm">and the pool pays only from <code>pool_before(e)</code> (clause 5(d)). The right-hand side is an
+upper bound on the left, never a promise: collection precedes arrival by at least the settlement pipeline, so a
+period's inflow cannot exceed the fees collected up to the last settled L2 block of that period, and the same ETH
+is counted exactly once — the identity of clause 1 is evaluated on the pool's realised inflow, never on fees in
+flight. <code>bridgeFee(s)</code> and every timing term here are <span class="pill unmeasured">unmeasured</span> and
+are registered in <a href="#unmeasured">§Unmeasured inputs</a>.</span>
+<span class="norm">(d) <strong>Honest consequences, stated at the claim.</strong>
+(i) <strong>Rewards lag the settlement pipeline.</strong> The fee ETH is on L2 and crosses only inside a bridge
+message that L1 releases after a checkpoint covering the sweep's own L2 block is accepted on L1
+(<a href="index.html#STATUS-06">STATUS-06</a>) and the message is proven against that checkpoint
+(<a href="04-l1-integration.html#MSG-03">MSG-03</a>). The lag is therefore at least the settlement pipeline of
+<a href="#ECON-03">ECON-03</a> plus message proving and L1 release, and it can be longer; no reward may be paid,
+promised, budgeted or advertised from fees that have not arrived.
+(ii) <strong>An empty pool pays nothing.</strong> If arrival is zero — fees are zero, the vault has not been swept,
+or the bridge has not delivered — then <code>Alloc(e) = 0</code>, the per-epoch identity of clause 5(d) pays
+nothing, and no rule may borrow against future arrival, reopen a closed allocation, or present the fee stream as a
+reserve; the security budget <code>A-ECO-1</code> compares against attack profit is then zero, and saying so is part
+of the rule.
+(iii) <strong>A bridging failure stops rewards rather than creating a claim on future revenue.</strong> If the
+Bridge cannot carry a sweep — the L2 transaction fails, the message ends <code>FAILED</code> or
+<code>RECALLED</code> (<a href="04-l1-integration.html#MSG-02">MSG-02</a>), it is never proven, or no batch covering
+its L2 block is ever accepted — the ETH remains on L2 or is returned by the Bridge's own status handling, and it is
+revenue of no period. The protocol creates no receivable, no debt, no insurance and no promise of future revenue:
+providers are unpaid for the affected epochs, and the honest response is to disclose the outage and repair the path,
+never to pay from a balance the pool does not hold.</span>
+<span class="norm">No rule may halt on a price, budget or fee signal as a substitute for this path: no objective
 on-chain signal for the security-budget ratio exists (<a href="#volatility">§TAIKO price volatility</a>: the inputs
 <code>P(t)</code>, <code>σ(t)</code>, <code>EV_extractable</code> and <code>OV_option</code> are off-chain), so
 "monitor and halt" is withdrawn as a response and the honest deliverable is disclosure plus a governance parameter
@@ -230,7 +284,7 @@ change. <em>(review round 1, findings ECO-01, ECO-16)</em></span>
 unfunded liability and lets security degrade silently while nominal reserves still look large; assuming
 appreciation turns a market bet into a protocol guarantee that the protocol cannot keep; assuming an inflation
 path that does not exist produces a schedule that cannot be deployed without first reversing a recorded policy.</span>
-<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span> <span class="pill open">Open</span></div>  <h2 id="withdrawal">3. Withdrawal delay and the settlement pipeline</h2> 
+<span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span></div>  <h2 id="withdrawal">3. Withdrawal delay and the settlement pipeline</h2> 
 <div class="rule" id="ECON-03"><span class="rid">ECON-03 — withdrawal delay derived from the complete settlement pipeline</span>
 <span class="norm">(1) The withdrawal delay <code>D_WITHDRAW</code> is the quantity derived in
 <a href="03-membership-staking.html#MEM-05">MEM-05</a>, clause 4. <strong>That formula is normative there and is not
@@ -415,39 +469,50 @@ invariants; a correlated penalty whose application delay exceeds the withdrawal 
 <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span> <span class="pill unmeasured">unmeasured</span>
 <span class="small">(the saturation argument is conditional on A-CONS-1 and on the coincidence of
 <code>F_SAT</code> with the quorum denominator; the deterrence claim is conditional on A-ECO-1.)</span></div> 
-<h2 id="destination">6. Destination of slashed stake — an unresolved human decision</h2> 
-<div class="rule" id="ECON-06"><span class="rid">ECON-06 — destination of slashed stake is a recorded human decision</span>
-<span class="norm">(1) <strong>No silent choice.</strong> The destination of every debited amount is a single human
-decision, recorded in <a href="../DECISIONS.md">DECISIONS.md</a> with its rationale <em>before</em> launch. Until it
-is recorded, this specification fixes only the interface and marks the choice <span class="pill open">Open</span>;
-an implementer <strong>MUST NOT</strong> choose it, and "leave the amount in the ledger" is not a conforming
-default (it would be neither a burn, nor a treasury transfer, nor a bounty, and would silently re-capitalise the offender's own ledger).</span>
-<span class="norm">(2) <strong>Choice.</strong> Exactly one of: <code>TREASURY</code>, <code>BURN</code>,
-<code>REPORTER_BOUNTY</code>, or a fixed integer split of the three. Interface sketch (not compiled):
-<code>slashDestination() returns (uint8 kind, uint16 treasuryPpm, uint16 burnPpm, uint16 reporterPpm, address treasury, address reporterSink)</code>,
-where the three shares sum to <code>1_000_000</code> ppm and <code>kind</code> enumerates the pure options and the
-split. The destination never changes the penalty amount: <code>P(v,e)</code> is independent of the split
-(ECON-05), and the split <strong>MUST NOT</strong> be chosen to make a budget balance.
-<strong>The <code>REPORTER_BOUNTY</code> option is a split, not a full refund.</strong> Selecting it means
-<code>reporterPpm &lt; 1_000_000</code>, with the remainder <code>(1_000_000 &minus; reporterPpm)</code> burned or
-sent to the protocol treasury as the recorded destination decision specifies. The pure form in which the
-reporter receives the whole debit is <strong>not a conforming option</strong> and MUST NOT be selectable,
-because it would contradict clause 5's strict bound: the bounty is a fraction strictly less than the total
-penalty the offender actually pays (immediate plus correlated), so an offender cannot make itself whole by
-reporting its own offence. <em>(review round 2, finding E-R2-06: the menu no longer contains an option the
-bound forbids; the remainder has a named destination.)</em></span> <table>
+<h2 id="destination">6. Destination of slashed stake — the protocol treasury (user decision D-9)</h2> 
+<div class="rule" id="ECON-06"><span class="rid">ECON-06 — slashed stake goes to the protocol treasury; the reporter bounty is strictly smaller</span>
+<span class="norm">(1) <strong>The destination is fixed and recorded: the protocol treasury.</strong> Every debited
+amount of <a href="#ECON-05">ECON-05</a> goes to the <strong>protocol treasury</strong>, except the reporter bounty
+that clause (5) bounds strictly below the penalty. The treasury is <strong>one fixed address</strong>, recorded in
+<a href="../DECISIONS.md">DECISIONS.md</a> and in the launch record before it can receive anything (today the
+repository records <code>TAIKO_FOUNDATION_TREASURY</code>
+<code>0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da</code> as a hard-coded non-voting holder; economics-raw.md §1.6,
+sourced, and the launch record MUST name exactly one address). It is a constant of the deployment, not a value a
+caller, operator, validator or DAO rescue may supply, and no run-time path may redirect a debit once it is applied.
+"Leave the amount in the ledger" is not a conforming default: it would silently re-capitalise the offender's own
+ledger. <em>(user decision D-9: slashed stake goes to the protocol treasury, not burned)</em></span>
+<span class="norm">(2) <strong>The split: treasury plus a strictly partial reporter bounty.</strong> Of every
+debited amount the protocol treasury receives the whole debit except the reporter bounty. Interface sketch (not
+compiled): <code>treasury() returns (address)</code> and <code>reporterBountyPpm() returns (uint16)</code> with
+<code>reporterBountyPpm &lt; 1_000_000</code>, and <code>slashDestination() returns (uint8 kind, uint16 reporterPpm,
+address treasury, address reporterSink)</code>, where <code>kind</code> is the pure <code>TREASURY</code> or
+<code>REPORTER_BOUNTY</code> form (the two are the same rule at different <code>reporterPpm</code>) and the shares
+sum to <code>1_000_000</code> ppm with the remainder to the treasury. <strong>There is no <code>BURN</code> option
+and no burn share:</strong> no part of a penalty may be destroyed, sunk to an unrecoverable address, or sent
+anywhere other than the treasury and the reporter. The destination never changes the penalty amount:
+<code>P(v,e)</code> is independent of the split (ECON-05), and the split <strong>MUST NOT</strong> be chosen to make
+a budget balance. <strong>The bounty is a split, not a full refund.</strong>
+<code>reporterPpm &lt; 1_000_000</code> is required, so the pure form in which the reporter receives the whole debit
+is <strong>not a conforming option</strong> and MUST NOT be selectable: it would contradict clause 5's strict bound
+— the bounty is a fraction strictly less than the total penalty the offender actually pays (immediate plus
+correlated), so an offender cannot make itself whole by reporting its own offence. <em>(user decision D-9: no burn
+option and no burn share; the remainder goes to the treasury and the bounty stays strictly below the total
+penalty)</em> <em>(review round 2, finding E-R2-06: the menu no longer contains an option the bound forbids; the
+remainder has a named destination.)</em></span> <table>
 <thead><tr><th>Option</th><th>Mechanism</th><th>Deterrence consequence</th><th>Securities-law posture</th><th>Incentive to report</th></tr></thead> <tbody>
-<tr><td><code>TREASURY</code></td><td>transfer to the recorded treasury address; today the foundation treasury is a hard-coded non-voting holder (<code>0x363e…B3Da</code>, economics-raw.md §1.6)</td><td>the attacker's loss is real, but value re-enters the ecosystem and can fund the same reward budget it was taken from</td><td>concentrates discretionary funds; needs a legal assessment (unresolved here). The whitepaper's stated policy is that forfeited bonds go to the L1 treasury (<a href="../../../tokenomics-whitepaper.tex">tokenomics-whitepaper.tex</a>:39) while the current code burns 50% of a settled liveness bond (<code>LibBonds.sol:161-165</code>): the repository contradicts itself and the decision must resolve it</td><td>none by itself; detection stays unpaid (economics-raw.md §4.1 L7)</td></tr>
-<tr><td><code>BURN</code></td><td>L1 TAIKO has no <code>burn</code> today, so this requires either a token upgrade (a DAO action under GOV-01) or a recorded unrecoverable sink address. <code>0x…dEaD</code> is not provably unrecoverable; whatever sink is chosen must be recorded</td><td>unambiguous destruction of the attacker's value</td><td>no discretionary recipient; but no rule may present deflation as price support (<a href="#ECON-02">ECON-02</a> clause 2)</td><td>none</td></tr>
-<tr><td><code>REPORTER_BOUNTY</code></td><td>a <em>strictly partial</em> share paid to the submitter: <code>REPORTER_BOUNTY(id) &lt; charge(id)</code> (clause 5), with the remainder burned or sent to the treasury per the recorded destination; Ethereum pays the whistleblower 7/8 of a pool sized at 1/512 of the offender's effective balance, with 1/8 to the including proposer (economics-raw.md §2.2, sourced) — note that even that 7/8 is a fraction of a pool, never the whole penalty</td><td>unchanged for the attacker; strengthens the detection half of A-ECO-1</td><td>a payment for a service; characterisation needs a legal assessment (unresolved here)</td><td>makes detection self-enforcing, which is the answer to "who is paid to watch"; it also pays for honest-mistake incidents (ECON-05 clause 7)</td></tr>
+<tr><td><code>TREASURY</code></td><td>transfer of the whole debit to the fixed recorded treasury address (today the repository records <code>TAIKO_FOUNDATION_TREASURY</code> <code>0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da</code> as a hard-coded non-voting holder; economics-raw.md §1.6, sourced)</td><td>the attacker's loss is real and the value is not destroyed; it re-enters the ecosystem and can fund the same reward budget it was taken from</td><td>concentrates discretionary funds, and the legal characterisation of treasury custody remains unresolved (a disclosure, not a rule choice). The whitepaper's stated policy is that forfeited bonds go to the L1 treasury (<a href="../../../tokenomics-whitepaper.tex">tokenomics-whitepaper.tex</a>:39); the legacy code path that destroyed 50% of a settled liveness bond (<code>LibBonds.sol:161-165</code>) is superseded by user decision D-9</td><td>none by itself; detection stays unpaid (economics-raw.md §4.1 L7)</td></tr>
+<tr><td><code>REPORTER_BOUNTY</code></td><td>a <em>strictly partial</em> share paid to the submitter: <code>REPORTER_BOUNTY(id) &lt; charge(id)</code> (clause 5), with the remainder to the protocol treasury; Ethereum pays the whistleblower 7/8 of a pool sized at 1/512 of the offender's effective balance, with 1/8 to the including proposer (economics-raw.md §2.2, sourced) — note that even that 7/8 is a fraction of a pool, never the whole penalty</td><td>unchanged for the attacker; strengthens the detection half of A-ECO-1</td><td>a payment for a service; characterisation needs a legal assessment (unresolved here)</td><td>makes detection self-enforcing, which is the answer to "who is paid to watch"; it also pays for honest-mistake incidents (ECON-05 clause 7)</td></tr>
 </tbody></table> <span class="norm">(3) <strong>Timing.</strong> Pending correlated amounts are dispatched only when
 <code>applyCorrelated()</code> debits them (ECON-05 clause 5); a bounty is paid once per applied offence identity,
 never on a duplicate (ECON-04 clause 4) and never on a reverted submission (ECON-08).</span>
-<span class="norm">(4) <strong>Change control.</strong> Changing the destination is a DAO upgrade under
-<a href="08-migration-upgrades.html#GOV-01">GOV-01</a>; it may not alter already-applied slashes or the exposure
-accounting of MEM-06 (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>).</span>
-<span class="norm">(5) <strong>The reporter bounty is strictly less than the correlated penalty.</strong> Whatever
-destination is recorded, the total paid to reporting submitters for one applied offence identity <code>id</code> —
+<span class="norm">(4) <strong>Change control.</strong> The treasury address is fixed for the deployment and no
+run-time action redirects it; changing it is a migration under <a href="08-migration-upgrades.html#GOV-01">GOV-01</a>
+that applies only to future debits, MUST be recorded before it takes effect, and may not alter an already-applied
+slash, redirect an applied debit, or change the exposure accounting of MEM-06
+(<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>). <em>(user decision D-9: the treasury is a fixed address
+the protocol cannot redirect at run time)</em></span>
+<span class="norm">(5) <strong>The reporter bounty is strictly less than the correlated penalty.</strong> With the destination
+fixed by clause (2), the total paid to reporting submitters for one applied offence identity <code>id</code> —
 including a submitter controlled by, or affiliated with, the offender — <strong>MUST</strong> satisfy</span>
 <pre><code>REPORTER_BOUNTY(id)  &lt;  c(f(e,c)) · SlashBase(v,e)  ≤  P(v,e)
 REPORTER_BOUNTY(id)  &lt;  charge(id)  ≤  IMM_FRAC(c) · SlashBase(v,e) + c(f(e,c)) · SlashBase(v,e)</code></pre>
@@ -457,7 +522,7 @@ REPORTER_BOUNTY(id)  &lt;  charge(id)  ≤  IMM_FRAC(c) · SlashBase(v,e) + c(f(
 fraction strictly less than the <em>total</em> penalty the offender pays, immediate component included, so
 self-reporting is never profitable — an offender or affiliate that submits its own evidence first receives
 back strictly less than it pays and is worse off by <code>charge(id) &minus; REPORTER_BOUNTY(id) &gt; 0</code>
-plus L1 gas, for every offence class, every realised <code>f</code> and every recorded destination. The reason
+plus L1 gas, for every offence class, every realised <code>f</code> and the destination of clause (2). The reason
 is that evidence is public and first-come (ECON-04 clause 4): if the bounty can equal or exceed the debit, the
 offender — or an affiliate — submits its own evidence first and recovers its own penalty, leaving a net cost of L1
 gas, so the penalty becomes an accounting entry paid back to its payer and the deterrence half of A-ECO-1 fails. The
@@ -467,10 +532,22 @@ bound applies to the total of every bounty paid for that identity, including any
 matrix can produce. <code>REPORTER_BOUNTY</code> is otherwise <span class="pill unmeasured">unmeasured</span>, and
 this clause does not weaken <a href="#ECON-08">ECON-08</a> clause 1: no bond may be forfeited on "not proven".
 <em>(review round 1, finding ECO-06)</em></span>
-<span class="why">Failure mode: leaving the destination unrecorded lets an implementer pick it, and the three
-options differ in deterrence, in legal exposure and in whether anyone is paid to detect offences; the repository
-currently contains contradictory precedents, so the choice cannot be inferred from the code.</span> <span class="pill open">Open</span>
-<span class="small">(closed by a recorded decision entry naming one option or one fixed ppm split, with the legal assessment attached.)</span></div> 
+<span class="norm">(6) <strong>The recovery bond's destination.</strong> The bond of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a> follows this rule: when a recovery <em>completes</em>, the
+bond is returned in full to the address that posted it, and when a recovery is <em>cancelled by honest progress</em>
+— the acceptance of a valid batch extending the current checkpoint before <code>T_RECOVERY_DELAY</code>, which
+REC-02 makes the only cancellation — the bond is slashed and the whole debit goes to the protocol treasury under
+clauses (1)–(2). No part of the bond is a reward or a bounty: a completed recovery returns the poster's own bond and
+pays it to nobody else, and a cancellation pays the treasury, never a reporter. The bond is not counted in
+<code>rewards_ETH</code> (clause 1). The amount, asset, posting and cancellation conditions are owned by
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a> and are not restated here
+(<a href="index.html#GEN-03">GEN-03</a>); this clause owns the destination. <em>(user decision D-9: the recovery
+bond's debit goes to the treasury; the bond itself is REC-02 under user decision D-7)</em></span>
+<span class="why">Failure mode: leaving the destination unrecorded lets an implementer pick it; a destination that
+destroys the value weakens the deterrent relative to one that recycles it, and a bounty that can equal the debit
+turns the penalty into a refund to its payer. The repository's contradictory precedents are resolved by the recorded
+decision, not inferred from the code.</span> <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(destination fixed by user decision D-9; the treasury address and <code>reporterBountyPpm</code> are recorded before launch, and the legal characterisation of treasury custody remains outstanding — a disclosure, not a rule choice.)</span></div>
 <h2 id="evidence-window">7. Evidence window versus unbonding period</h2> 
 <div class="rule" id="ECON-07"><span class="rid">ECON-07 — the evidence window is strictly shorter than the unbonding delay</span>
 <span class="norm">(1) <strong>The window, anchored to the offence epoch's own set version, with the anchor stored on L1.</strong>
@@ -895,7 +972,7 @@ before the corresponding parameter is fixed, and none may be replaced by an esti
 <tr><td><code>ρ_ops</code> (operator margin)</td><td><code>S_min</code> (break-even condition)</td><td>the return operators require to run the reference host instead of an alternative; an operator survey or observed entry/exit behaviour</td></tr>
 <tr><td><code>S_affordable</code> (median intended participant)</td><td>participation floor (R1)</td><td>a distribution of intended participants' capital, from a survey or an on-chain cohort study</td></tr>
 <tr><td><code>F_exec_L2</code>, <code>F_priority_L2</code></td><td>the funding identity (<a href="#ECON-02">ECON-02</a>)</td><td>historical L2 fee revenue at the target cadence, per day and per period</td></tr>
-<tr><td>L2→L1 reward-pool transfer (the mechanism behind <code>POOL_TOPUP</code> and fee revenue)</td><td>the funding identity (<a href="#ECON-02">ECON-02</a> clause 7), which is <span class="pill open">Open</span></td><td>a design decision plus its accounting; until it exists the identity cannot be evaluated and an unfunded pool pays nothing</td></tr>
+<tr><td>Realised L2→L1 reward-pool delivery: <code>bridgeFee(s)</code>, the sweep's latency to L1 release, and the delivered amount per period</td><td>the arrival identity (<a href="#ECON-02">ECON-02</a> clause 7) and the funding identity</td><td>the deployed sweep and the preserved Bridge's message fees and release latency, and the amounts actually credited to the pool, measured per period on the deployed chain</td></tr>
 <tr><td><code>MEV_captured</code> (not a term today)</td><td>nothing: it is <strong>not</strong> counted in the funding identity until a capture mechanism is specified</td><td>the fraction of ordering value retained by the protocol rather than leaked to searchers/builders, measured on the deployed chain, <em>if</em> such a mechanism is ever specified</td></tr>
 <tr><td><code>C_L1_data</code> (per batch)</td><td>the funding identity</td><td>blob fee × blobs per batch at observed blob-market prices, plus the calldata fallback</td></tr>
 <tr><td><code>C_L1_verify</code> (per batch)</td><td>the funding identity</td><td>a gas benchmark of the atomic data-and-proof transaction per backend, at the chosen blob and batch sizes</td></tr>
@@ -910,7 +987,7 @@ before the corresponding parameter is fixed, and none may be replaced by an esti
 <tr><td><code>T_process</code></td><td><code>D_WITHDRAW</code></td><td>the chosen evidence-processing path, including any deliberate grace period</td></tr>
 <tr><td><code>M</code>, <code>M_ev</code></td><td>the margins in MEM-05 and <a href="#ECON-07">ECON-07</a></td><td>the stress scenario that maximises the sum of the terms above</td></tr>
 <tr><td><code>CORR_DELAY</code></td><td>the correlated penalty's applicability (<a href="#ECON-05">ECON-05</a>)</td><td>a choice, bounded above by <code>D_WITHDRAW</code>; no measurement closes it, only the decision</td></tr>
-<tr><td>Reward-pool funding and the per-epoch allocation <code>Alloc(e)</code></td><td>the validator payout identity (<a href="#ECON-02">ECON-02</a> clause 5)</td><td>the recorded transfer mechanism of clause 7 plus its accounting; until it exists the pool has no inflow, no validator reward can be paid, and the security budget is zero</td></tr>
+<tr><td>The per-epoch allocation <code>Alloc(e)</code></td><td>the validator payout identity (<a href="#ECON-02">ECON-02</a> clause 5)</td><td>the recorded allocation policy applied to the pool's realised inflow delivered by the clause 7 sweep; while nothing has arrived the pool has no inflow, <code>Alloc(e) = 0</code>, no validator reward can be paid, and the security budget is zero</td></tr>
 <tr><td>Head-certificate participation data (the <code>signerBitmap</code> public input)</td><td>the per-epoch participation accumulator (<a href="#ECON-02">ECON-02</a> clause 5)</td><td>no measurement: the bitmap is verified in-guest per landed batch (PRF-04(ii)–(iii)); what must be measured is the share of a set that typically signs a landed batch, which bounds how much of the set can be paid</td></tr>
 <tr><td><code>IMM_FRAC(c)</code></td><td>the immediate penalty</td><td>a decision informed by comparators (Ethereum's fraction of effective balance is the sourced precedent), not a measurement</td></tr>
 <tr><td><code>P(t)</code>, <code>σ(t)</code>, order-book depth and traded volume</td><td>A-ECO-1, <a href="#ECON-10">ECON-10</a></td><td>market data at the time of the decision; must never be hard-coded anywhere</td></tr>
@@ -932,11 +1009,11 @@ now made there, together with the parameters the revised <code>D_MAX</code> and 
 <tr><td><code>CORR_DELAY</code></td><td>seconds</td><td><a href="#ECON-05">ECON-05</a></td><td><code>W_evidence + T_process + CORR_DELAY + M_ev &lt; D_WITHDRAW</code></td></tr>
 <tr><td><code>W_EVIDENCE</code></td><td>seconds</td><td><a href="#ECON-07">ECON-07</a></td><td><code>≥ 3 · E_EPOCH + T_PROOF_MAX_PERMITTED + T_L1_include(p) + T_L1_final + T_detect + T_evidence_submit</code> (plus <code>T_BACKLOG_MAX + T_replay</code> where the offence requires the accepting batch's own data; <code>T_BACKLOG_MAX</code> and the joint bound with HALT-03 are clause (7)), and <code>W_EVIDENCE + T_PROCESS + CORR_DELAY + M_ev &lt; D_WITHDRAW</code>; per epoch</td></tr>
 <tr><td><code>REWARD_ASSET</code></td><td>asset</td><td><a href="#ECON-02">ECON-02</a></td><td><strong>ETH</strong>; TAIKO is the staking and collateral asset only (D7)</td></tr>
-<tr><td><code>POOL_TOPUP</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>any L1-side inflow other than L2 fee revenue; the transfer mechanism is <span class="pill open">Open</span></td></tr>
+<tr><td><code>POOL_TOPUP</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>any L1-side inflow other than L2 fee revenue; the two fee terms arrive by the sweep of clause 7, so the same ETH is never counted twice</td></tr>
 <tr><td><code>D_subsidy</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>the subsidy draw, subtracted in the identity; a subsidy is not additional funding</td></tr>
-<tr><td><code>REPORTER_BOUNTY(id)</code></td><td>TAIKO</td><td><a href="#ECON-06">ECON-06</a></td><td><code>&lt; c(f(e,c)) · SlashBase(v,e) ≤ P(v,e)</code> and <code>&lt; charge(id)</code>: strictly less than the correlated component and strictly less than the total penalty actually debited (immediate plus correlated), so self-reporting is never profitable. The <code>REPORTER_BOUNTY</code> destination is a split with <code>reporterPpm &lt; 1_000_000</code>; the remainder is burned or sent to the treasury</td></tr>
+<tr><td><code>REPORTER_BOUNTY(id)</code></td><td>TAIKO</td><td><a href="#ECON-06">ECON-06</a></td><td><code>&lt; c(f(e,c)) · SlashBase(v,e) ≤ P(v,e)</code> and <code>&lt; charge(id)</code>: strictly less than the correlated component and strictly less than the total penalty actually debited (immediate plus correlated), so self-reporting is never profitable. The <code>REPORTER_BOUNTY</code> destination is a split with <code>reporterPpm &lt; 1_000_000</code>; the remainder goes to the protocol treasury and no part is destroyed (user decision D-9)</td></tr>
 <tr><td><code>t_root(e)</code></td><td>unix seconds</td><td><a href="#ECON-07">ECON-07</a></td><td>the stored anchor: the run-time-visible <code>block.timestamp</code> of the transaction that appended epoch <code>e</code>'s entry to the staking contract's per-epoch mapping (MEM-09 clause 2, amended to carry <code>rootCommittedAt</code>); never recomputed from logs, headers or <code>blockhash</code></td></tr>
-<tr><td><code>Alloc(e)</code></td><td>ETH per epoch</td><td><a href="#ECON-02">ECON-02</a></td><td>the validator payout the recorded allocation policy assigns to epoch <code>e</code>; bounded by the pool's realised net inflow and by <code>pool_before(e)</code>. The funding mechanism is <span class="pill open">Open</span> (clause 7); until it exists <code>Alloc(e) = 0</code> and no validator reward is payable</td></tr>
+<tr><td><code>Alloc(e)</code></td><td>ETH per epoch</td><td><a href="#ECON-02">ECON-02</a></td><td>the validator payout the recorded allocation policy assigns to epoch <code>e</code>; bounded by the pool's realised net inflow delivered by the clause 7 sweep and by <code>pool_before(e)</code>. While nothing has arrived, <code>Alloc(e) = 0</code> and no validator reward is payable</td></tr>
 <tr><td><code>CHURN_LIMIT</code></td><td>fraction of voting power per epoch</td><td><a href="#ECON-03">ECON-03</a></td><td>maximum effective stake that may leave the set in one epoch; must be derived from the deterrence relation</td></tr>
 <tr><td><code>ACTIVATION_RATE_LIMIT</code></td><td>entries per epoch</td><td><a href="#ECON-09">ECON-09</a></td><td>bounds the activation rate independently of how many set versions are committed (MEM-09)</td></tr>
 <tr><td><code>T_PROOF_MAX_PERMITTED</code></td><td>seconds</td><td>HALT-03 (<a href="06-recovery-exceptions.html">06</a>)</td><td>the maximum proving latency the unsettled-depth cap and the evidence window admit; distinct from D6's planning envelope</td></tr>

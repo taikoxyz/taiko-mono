@@ -39,7 +39,7 @@ It is a design description: nothing here is implemented, measured, audited or de
 
 <h2>The idea</h2>
 <p>The design produces one L2 block every <strong>two seconds</strong>. That number is a production
-cadence. It is not how long a block takes to become final, not how long a proof takes, not when a
+cadence. It is not how long a block takes to become certified, not how long a proof takes, not when a
 batch reaches Ethereum, and not when a withdrawal becomes available. Those are five separate clocks,
 and the most common way to misread this protocol is to collapse them into one.</p>
 
@@ -63,8 +63,8 @@ of them (<a href="../spec/01-system-model.html#SYS-03">SYS-03</a>).</p>
 <thead><tr><th>Clock</th><th>From &rarr; to</th><th>Value in this design</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Block cadence</td><td>proposal &rarr; next proposal</td><td>2&nbsp;s</td><td><span class="chip">decided input</span></td></tr>
-<tr><td>Finality latency</td><td>proposal &rarr; published commit certificate</td><td>not yet measured; a few rounds in the normal case</td><td><span class="chip">unmeasured</span></td></tr>
-<tr><td>Proof latency</td><td>finalized batch &rarr; proof exists off-chain</td><td>minutes to 30&nbsp;minutes (900 L2 blocks)</td><td><span class="chip">unmeasured</span></td></tr>
+<tr><td>Certification latency</td><td>proposal &rarr; published commit certificate</td><td>not yet measured; a few rounds in the normal case</td><td><span class="chip">unmeasured</span></td></tr>
+<tr><td>Proof latency</td><td>certified batch &rarr; proof exists off-chain</td><td>minutes to 30&nbsp;minutes (900 L2 blocks)</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>L1 acceptance</td><td>proof exists &rarr; accepted on L1</td><td>one L1 transaction; inclusion delay not yet measured</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Ethereum finality</td><td>accepted on L1 &rarr; Ethereum-final</td><td>&asymp; 2 Ethereum epochs &asymp; 12.8&nbsp;min at 12&nbsp;s slots</td><td><span class="chip">sourced depth</span> <span class="chip">derived</span></td></tr>
 <tr><td>Withdrawal availability</td><td>accepted (or finalized) &rarr; withdrawal-eligible</td><td>plus <code>WITHDRAWAL_DELAY</code>, derived from the whole pipeline</td><td><span class="chip">unmeasured</span></td></tr>
@@ -72,12 +72,12 @@ of them (<a href="../spec/01-system-model.html#SYS-03">SYS-03</a>).</p>
 
 <h2>The timeline</h2>
 <figure>
-<svg viewBox="0 0 960 430" role="img" aria-label="Timeline: two-second production, finality, the proving window, L1 acceptance, Ethereum finality and withdrawal">
+<svg viewBox="0 0 960 430" role="img" aria-label="Timeline: two-second production, certification, the proving window, L1 acceptance, Ethereum finality and withdrawal">
 <defs> <marker id="arr7" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"> <path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker> </defs>
 <rect x="20" y="18" width="920" height="52" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="34" y="40" fill="#24292f" font-size="13">L2 production &mdash; one block every 2 s. It never stops to wait for a proof.</text> <line x1="34" y1="56" x2="926" y2="56" stroke="#d8dee4" stroke-dasharray="3 7"/> <text x="34" y="66" fill="#59636e" font-size="10">30 blocks per minute · 1,800 blocks per hour · an epoch is 900 blocks (&asymp; 30 min)</text>
 <line x1="24" y1="100" x2="944" y2="100" stroke="#0969da" stroke-width="1.5"/> <path d="M944 100 l-8 -4 v8 z" fill="#0969da"/> <rect x="24"  y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="138" fill="#24292f" font-size="11">Block proposed</text>
 <text x="34" y="156" fill="#59636e" font-size="10">orders the tx</text> <text x="34" y="174" fill="#59636e" font-size="10">STATUS-01</text> <text x="34" y="192" fill="#c0a6ff" font-size="10">2 s slot</text> <rect x="156" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/>
-<text x="166" y="138" fill="#24292f" font-size="11">PoS finality</text> <text x="166" y="156" fill="#59636e" font-size="10">&gt; 2/3 precommits</text> <text x="166" y="174" fill="#59636e" font-size="10">STATUS-04</text> <text x="166" y="192" fill="#9a6700" font-size="10">rounds, unmeasured</text>
+<text x="166" y="138" fill="#24292f" font-size="11">PoS-certified</text> <text x="166" y="156" fill="#59636e" font-size="10">&gt; 2/3 precommits</text> <text x="166" y="174" fill="#59636e" font-size="10">STATUS-04</text> <text x="166" y="192" fill="#9a6700" font-size="10">rounds, unmeasured</text>
 <rect x="288" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="298" y="138" fill="#24292f" font-size="11">Batch closes</text> <text x="298" y="156" fill="#59636e" font-size="10">contiguous range</text> <text x="298" y="174" fill="#59636e" font-size="10">nominal 32 blocks</text> <text x="298" y="192" fill="#9a6700" font-size="10">&asymp; 64 s, unmeasured</text>
 <rect x="420" y="116" width="120" height="92" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="430" y="138" fill="#24292f" font-size="11">Proof computed</text> <text x="430" y="156" fill="#59636e" font-size="10">minutes &rarr; 30 min</text> <text x="430" y="174" fill="#59636e" font-size="10">STATUS-05 (off-chain)</text>
 <text x="430" y="192" fill="#9a6700" font-size="10">&le; 900 blocks envelope</text> <rect x="552" y="116" width="120" height="92" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="562" y="138" fill="#24292f" font-size="11">land(data, proof)</text> <text x="562" y="156" fill="#59636e" font-size="10">one L1 transaction</text>
@@ -87,8 +87,8 @@ of them (<a href="../spec/01-system-model.html#SYS-03">SYS-03</a>).</p>
 <path d="M144 162 H152" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <path d="M276 162 H284" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <path d="M408 162 H416" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <path d="M540 162 H548" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <path d="M672 162 H680" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/>
 <path d="M804 162 H812" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <rect x="24" y="238" width="528" height="58" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="38" y="260" fill="#9a6700" font-size="12">NOT on Ethereum: data held by L2 validators and nodes</text> <text x="38" y="279" fill="#24292f" font-size="10">they serve the blocks while unsettled; retention is an assumption, not an on-chain duty</text>
 <rect x="552" y="238" width="384" height="58" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="566" y="260" fill="#1a7f37" font-size="12">Data and proof public on Ethereum</text> <text x="566" y="279" fill="#24292f" font-size="10">calldata and/or blob sidecars of the accepting transaction</text>
-<path d="M288 316 H552" stroke="#59636e" stroke-width="1"/> <path d="M288 312 v8 M552 312 v8" stroke="#59636e" stroke-width="1"/> <text x="420" y="334" fill="#59636e" font-size="11" text-anchor="middle">planning envelope: up to 900 L2 blocks = 30 min of history</text> <text x="24" y="372" fill="#59636e" font-size="11">Statuses along the way: proposed (STATUS-01) &rarr; locally valid (STATUS-02) &rarr; voted (STATUS-03) &rarr; PoS-finalized (STATUS-04)</text>
-<text x="24" y="390" fill="#59636e" font-size="11">&rarr; proof-ready off-chain (STATUS-05) &rarr; accepted on L1 (STATUS-06) &rarr; Ethereum-finalized (STATUS-07) &rarr; withdrawal-eligible (STATUS-08)</text> <text x="24" y="414" fill="#cf222e" font-size="11">A display before STATUS-06 must say that the batch&rsquo;s data and proof are not yet on Ethereum (STATUS-11).</text>
+<path d="M288 316 H552" stroke="#59636e" stroke-width="1"/> <path d="M288 312 v8 M552 312 v8" stroke="#59636e" stroke-width="1"/> <text x="420" y="334" fill="#59636e" font-size="11" text-anchor="middle">planning envelope: up to 900 L2 blocks = 30 min of history</text> <text x="24" y="372" fill="#59636e" font-size="11">Statuses along the way: proposed (STATUS-01) &rarr; locally valid (STATUS-02) &rarr; voted (STATUS-03) &rarr; PoS-certified (STATUS-04)</text>
+<text x="24" y="390" fill="#59636e" font-size="11">&rarr; proof-ready off-chain (STATUS-05) &rarr; accepted on L1 (STATUS-06) &rarr; Ethereum-finalized (STATUS-07) &rarr; withdrawal-eligible (STATUS-08)</text> <text x="24" y="414" fill="#cf222e" font-size="11">A display before STATUS-06 must say the confirmation is provisional and the batch&rsquo;s data and proof are not yet on Ethereum (STATUS-11).</text>
 </svg>
 <figcaption>The horizontal axis is a sequence of stages, not a scale: the white two-second cadence keeps
 running during the darker proving window. The shaded band marks the interval in which the data exists
@@ -100,16 +100,16 @@ only on L2 participants&rsquo; machines.</figcaption>
 <h3>A block every two seconds</h3>
 <p>Heights advance by one every two seconds in the design&rsquo;s operating assumptions. For each height
 the protocol selects a proposer by weighted hash, validators execute and vote, and the height becomes
-final when more than two thirds of the epoch&rsquo;s voting power precommits it
-(CONS-05). A height is finalized on its own; there is
-no long confirmation window. If a round does not complete, the round budget &mdash; a ladder of, for
+certified when more than two thirds of the epoch&rsquo;s voting power precommits it
+(CONS-05). A height is certified on its own; there is
+no long confirmation window. Above the latest checkpoint accepted on Ethereum that certification is provisional. <em>(D-7: confirmations above the last accepted checkpoint are provisional)</em> If a round does not complete, the round budget &mdash; a ladder of, for
 example, 3, 6, 12, 24, 30 seconds &mdash; moves the proposal to the next round
-(<a href="../spec/02-consensus.html#CONS-07">CONS-07</a>). Finality latency is therefore a small number
+(<a href="../spec/02-consensus.html#CONS-07">CONS-07</a>). Certification latency is therefore a small number
 of round trips, seconds at the proposed round budget, and it is not yet measured at the intended validator count and
 geography.</p>
 
 <h3>What a batch is, and when it exists</h3>
-<p>Batches are not created by consensus. Blocks finalize one at a time; a batch is the range that
+<p>Batches are not created by consensus. Blocks are certified one at a time; a batch is the range that
 somebody proves and lands. Any account may do this, and the first valid submission wins
 (L1-04). Three structural rules shape the choice of
 range:</p>
@@ -127,7 +127,7 @@ returns true (L1-03).</li>
 <h3>Pipelining: proving keeps pace with production</h3>
 <p>Proving a batch takes far longer than producing its blocks, so batches overlap. While batch
 <em>n</em> is being proven, the blocks of batch <em>n</em>+1 and <em>n</em>+2 are already being produced
-and finalized, and independent provers work on them in parallel. How many proofs must be in flight is a
+and certified, and independent provers work on them in parallel. How many proofs must be in flight is a
 queueing identity: <code>L / &Delta;</code>, where <code>L</code> is the proof-latency bound and
 <code>&Delta;</code> the batch&rsquo;s time span. With a 30-minute bound and 32-block (64-second)
 batches, that is about 28 proofs in flight.</p>
@@ -154,13 +154,15 @@ MARGIN_V</code> (<a href="../spec/06-recovery-exceptions.html#HALT-03">HALT-03</
 MARGIN_V &ge; the number of L2 blocks produced during one Ethereum finality depth</code></pre>
 <p>There is exactly <strong>one</strong> enforcement point: the validators. The acceptance function
 must not reject an over-depth batch that is otherwise valid, because that could make a legitimately
-finalized range permanently unlandable (L1-06).</p>
+certified range permanently unlandable (L1-06).</p>
 <p>The cap exists because retention is finite. Validators and full nodes are assumed to hold and serve
 unsettled data for a window; once a block&rsquo;s data has aged out of that window and no proof exists,
-nobody can prove that range, and the design forbids discarding finalized history. So the protocol stops
-creating new unsettled blocks before that can happen. When the cap binds, production stops and the
-chain sits in a safe halt until provers catch up. That is a designed stop, not a failure of the
-protocol, and it is never repaired by rolling back a finalized block.</p>
+nobody can prove that range. So the protocol stops creating new unsettled blocks before that can happen.
+When the cap binds, production stops and the chain sits in a safe halt until provers catch up. That is a
+designed stop, not a failure of the protocol. If the settlement stall passes
+<code>T_STALL</code>, a permissionless, bonded, delayed recovery may replace the unsettled range above
+the latest accepted checkpoint &mdash; it cannot reconstruct data at or below it, so a halt over missing
+accepted data can still be permanent. <em>(D-7: recovery replaces unsettled history above the last accepted checkpoint; it does not recover accepted data)</em></p>
 <p>Notice what the cap is <em>not</em>: it does not limit proving latency and it is not misconduct for a
 proof to consume the whole 30-minute envelope. The envelope is the planning assumption; the cap sits
 above it.</p>
@@ -187,7 +189,7 @@ fixed and what is arithmetic on inputs that still need measuring.</p>
 <tbody>
 <tr><td>Submitted</td><td>In an L2 mempool; no protocol status yet</td><td>&mdash;</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Proposed and executed</td><td>The RPC returns a receipt; locally execution-valid (STATUS-02), which is not agreement</td><td>&le; 2 s</td><td><span class="chip">decided cadence</span></td></tr>
-<tr><td>Voted and finalized</td><td>A commit certificate over the block; locked and irreversible (STATUS-03, STATUS-04)</td><td>a few rounds; unmeasured</td><td><span class="chip">unmeasured</span></td></tr>
+<tr><td>Voted and certified</td><td>A commit certificate over the block; the signed vote is not revocable, but above the latest accepted checkpoint the confirmation is provisional (STATUS-03, STATUS-04)</td><td>a few rounds; unmeasured</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Batch closes</td><td>The block&rsquo;s batch reaches its range end; its data still exists only on L2 nodes</td><td>0&ndash;64 s after the batch&rsquo;s first block</td><td><span class="chip">derived from unmeasured K</span></td></tr>
 <tr><td>Proof computed</td><td>A proof of consensus and execution exists off-chain (STATUS-05)</td><td>minutes to 30 min (900 blocks)</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Accepted on L1</td><td>One <code>land</code> transaction; data and proof public; bridge authentication anchors here (STATUS-06)</td><td>L1 inclusion, unmeasured</td><td><span class="chip">unmeasured</span></td></tr>
@@ -200,7 +202,7 @@ seconds of L1 blob capacity. That is a consistency check between the batch lengt
 not a measurement of this system.</p>
 <p>The intervals add. Only the two-second cadence and the arithmetic are fixed today; the provers,
 the L1 inclusion path and the withdrawal delay are all waiting on measurement. What the design fixes is
-the <em>order</em>: production, then finality, then a proof, then one atomic landing, then Ethereum
+the <em>order</em>: production, then certification, then a proof, then one atomic landing, then Ethereum
 finality, then withdrawal.</p>
 
 <h2>What this gives you</h2>
@@ -209,14 +211,14 @@ finality, then withdrawal.</p>
 <li>A batch that cannot reach Ethereum half-settled: data and proof land in the same transaction.</li>
 <li>A proving pipeline that overlaps production, so proving is not a stop-the-world step.</li>
 <li>A cap that stops production before data can age out of the retention assumption, instead of
-backing up forever and stranding a finalized range.</li>
+backing up forever and stranding a certified range.</li>
 <li>An unambiguous moment &mdash; L1 acceptance &mdash; at which the data becomes public on Ethereum
 and withdrawals can begin to be counted.</li>
 </ul>
 
 <h2>What it does not give you</h2>
 <ul>
-<li>Two-second finality, two-second settlement or two-second withdrawals. The cadence is only the
+<li>Two-second certification, two-second settlement or two-second withdrawals. The cadence is only the
 cadence.</li>
 <li>A guarantee that a proof finishes inside 30 minutes. The envelope is a planning assumption; a
 slower proof is not misconduct, and the cap eventually binds.</li>
@@ -228,15 +230,16 @@ withdrawal delay are all not yet measured.</li>
 
 <h2>Check yourself</h2>
 <details><summary>A user interface shows &ldquo;confirmed&rdquo; two seconds after submission. What has actually happened?</summary>
-<p>At most: the block was proposed, executed locally and voted on. It is not final, its batch&rsquo;s
-data is not on Ethereum, and no proof exists. A display before acceptance must say that the data and
-proof are not yet on Ethereum (<a href="../spec/index.html#STATUS-11">STATUS-11</a>).</p></details>
+<p>At most: the block was proposed, executed locally and voted on. It is not certified, and even a later
+confirmation above the latest checkpoint accepted on Ethereum would be provisional; its batch&rsquo;s
+data is not on Ethereum and no proof exists. A display before acceptance must say that the confirmation
+is provisional and that the data and proof are not yet on Ethereum (<a href="../spec/index.html#STATUS-11">STATUS-11</a>).</p></details>
 <details><summary>The unsettled-depth cap binds. Why can a valid proof for that same deep range still land on L1?</summary>
 <p>Because the cap is a production rule enforced by validators, not an admission rule on
-<code>land</code>. Refusing a valid proof at L1 could strand a legitimately finalized range, which the
+<code>land</code>. Refusing a valid proof at L1 could strand a legitimately certified range, which the
 design forbids. The correct sequence is: production stops, existing ranges are proven and landed, and
 production resumes as the checkpoint advances.</p></details>
-<details><summary>Ten minutes after a block is finalized, its proof is still running. Where is the block&rsquo;s data?</summary>
+<details><summary>Ten minutes after a block is certified, its proof is still running. Where is the block&rsquo;s data?</summary>
 <p>On L2 participants&rsquo; machines. Validators and full nodes hold and serve it while the batch is
 unsettled. The canonical copy is created only when the accepting L1 transaction publishes the calldata
 or blobs. Retention until then is a stated assumption, not something the protocol enforces.</p></details>

@@ -54,7 +54,8 @@ either that block or <code>NIL</code>. If more than two thirds of the epoch's vo
 that set of votes is a <strong>proof-of-lock-change</strong> (PoLC); in the <strong>precommit</strong> step validators
 sign again, and a validator that has seen a PoLC for a block locks on it. When more than two thirds of the voting
 power has precommitted the same block at the same height and round, those signatures are the block's
-<strong>commit certificate</strong> and the block is final.</p>
+<strong>commit certificate</strong> and the block is <strong>PoS-certified</strong> at a node that also holds its data. Above the
+latest checkpoint accepted on Ethereum that certification is provisional. <em>(D-7: confirmations above the last accepted checkpoint are provisional)</em></p>
 <p>Two rules make this safe rather than merely ordered. The <a href="../spec/02-consensus.html#CONS-02"><strong>signing rule</strong></a> says a validator may sign at
 most one message of each type per (chain id, height, round) — ever, including after a crash. The <a href="../spec/02-consensus.html#CONS-04"><strong>lock
 rule</strong></a> says that once a validator has locked on a block, it prevotes that block until a strictly later round of
@@ -96,7 +97,7 @@ proves anything about what other nodes hold, and it never invalidates a block.</
   <path d="M 360 164 L 360 235 L 120 235 L 120 168" fill="none" stroke="#9a6700" stroke-dasharray="5 4" marker-end="url(#a3w)"></path>
   <text x="240" y="252" fill="#59636e" font-size="11" text-anchor="middle">timeout T(H,R) expires — or a PoLC arrives and this node has completed its precommit: advance to R+1</text>
   <text x="30" y="40" fill="#24292f" font-size="12">A round ends in exactly two ways:</text>
-  <text x="30" y="60" fill="#59636e" font-size="11">a commit certificate at (H,R) — finality for H and progress to H+1; or a move to (H,R+1) with the lock unchanged.</text>
+  <text x="30" y="60" fill="#59636e" font-size="11">a commit certificate at (H,R) — certification for H and progress to H+1; or a move to (H,R+1) with the lock unchanged.</text>
   <text x="30" y="285" fill="#59636e" font-size="11">A locked validator advances rounds normally: the lock constrains which value it may sign for, not whether it may move on.</text>
 </svg>
 <figcaption>Figure 1 — One round. A timeout is a local event: it changes this node's round, never another node's
@@ -131,7 +132,7 @@ pre-hash.</p>
 <h4>Proposal validity</h4>
 <p>A proposal is valid at <code>(H,R)</code> only if the chain id, height, round and epoch match the L1-committed
 schedule; the proposer index matches the selection below and its signature verifies under the key committed at that
-index in the epoch's set root; the block's parent hash is the block this validator finalized at <code>H−1</code>; and
+index in the epoch's set root; the block's parent hash is the block this validator certified at <code>H−1</code>; and
 local execution of the block against that parent's post-state succeeds and reproduces every header field the block
 commits to (state root, receipts root, gas used, logs bloom, transaction root). A validator must not sign a prevote
 or precommit for a proposal that fails any of these; its only legal alternative in that round is <code>NIL</code>.</p>
@@ -170,10 +171,12 @@ failed: it halts and must not treat the certificate as an unlock.</p>
 <code>epoch = epoch_of(H)</code>, <code>set_root(epoch)</code> equals the L1-committed set root for that epoch, and
 more than two thirds of that set's voting power signed <code>PRECOMMIT</code> for <code>B</code> at
 <code>(H,R)</code>, with exactly one verified signature per set bit (<a href="../spec/02-consensus.html#CONS-05">CONS-05</a>). A node treats <code>B</code> as
-<a href="../spec/index.html#STATUS-04"><strong>final</strong></a> when it holds a valid certificate, <em>and</em> it has performed its own data-availability
-check for <code>B</code>'s body, <em>and</em> <code>parent(B)</code> is the block it finalized at
+<a href="../spec/index.html#STATUS-04"><strong>certified</strong></a> when it holds a valid certificate, <em>and</em> it has performed its own data-availability
+check for <code>B</code>'s body, <em>and</em> <code>parent(B)</code> is the block it certified at
 <code>H−1</code>. The local decision is a function of the certificate, the node's own data check and its own
-finalized prefix — nothing else.</p>
+certified prefix — nothing else. This rule prevents two conflicting <em>certificates</em>; what may happen above the latest
+checkpoint accepted on Ethereum is governed by the recovery rules, not by this one.
+<em>(D-7: the recovery rules govern history above the last accepted checkpoint)</em></p>
 </div>
 <div class="card">
 <h4>Proposer selection and view changes</h4>
@@ -231,7 +234,7 @@ a view change, a retry, or a halt.</p>
 set root and quorum checked locally, regardless of who sent it;</li>
 <li>if it holds a lock on a different block at that height and a valid conflicting certificate arrives, halt and
 publish the evidence it has, rather than choosing a branch;</li>
-<li>never invalidate a block, never roll back, and never delegate the choice to an operator.</li>
+<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; what may be replaced above the latest checkpoint accepted on Ethereum is decided by the recovery rules, not by a node. <em>(D-7: recovery, not a node, governs replacement above the last accepted checkpoint)</em></li>
 </ol>
 <p>Equivocation is the one thing a pair of signed objects can prove: two signed messages of the same type, at the
 same (chain id, height, round, validator index), with different signed values — or with different signed epoch
@@ -247,20 +250,20 @@ Suppose 800,000 units are held by correct validators and 200,000 by an adversary
 <thead><tr><th>Step</th><th>What happens</th><th>Number</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Round 0</td><td>More than two thirds prevote block <code>B</code> at <code>(H,0)</code>; that is a PoLC for <code>B</code>. Every correct validator that sees it locks on <code>B</code> with <code>locked_round = 0</code> and precommits <code>B</code>.</td><td>PoLC power ≥ 666,667 of 1,000,000</td><td><span class="tag">derived</span></td></tr>
-<tr><td>Certificate</td><td>Precommits for <code>B</code> exceed two thirds; the certificate finalizes <code>H</code>.</td><td><code>s ≥ 666,667</code></td><td><span class="tag">derived</span></td></tr>
+<tr><td>Certificate</td><td>Precommits for <code>B</code> exceed two thirds; the certificate certifies <code>H</code>.</td><td><code>s ≥ 666,667</code></td><td><span class="tag">derived</span></td></tr>
 <tr><td>Adversary tries a conflicting block <code>B'</code> at (H, R)</td><td>It needs a precommit quorum for <code>B'</code> with power ≥ 666,667. Two quorums each above 666,667 must intersect in more than 333,333 units.</td><td>666,667 + 666,667 − 1,000,000 = 333,334 minimum intersection</td><td><span class="tag">derived</span></td></tr>
 <tr><td>The intersection is locked</td><td>With at most 200,000 adversarial units, at least 133,334 units of the intersection are correct validators still locked on <code>B</code> with <code>locked_round = 0</code>. To precommit <code>B'</code> they would first need a PoLC for <code>B'</code> at some round <code>p</code> with <code>0 &lt; p &lt; R</code> — and that PoLC itself needs more than two thirds of prevotes for <code>B'</code>, which the locked correct validators will not give: they prevote their locked value until such a PoLC exists. The condition is circular, so no second quorum forms.</td><td>at most 200,000 adversarial units against a 333,334 intersection</td><td><span class="tag">derived</span></td></tr>
 <tr><td>If it happens anyway</td><td>More than one third of the epoch's power must have violated the signing or lock rules. A same-(height, round) conflicting signed pair is objectively provable and slashable; a cross-round divergence under withholding may leave no admissible evidence, so the design states the residual case rather than claiming deterrence it cannot deliver.</td><td>fault threshold: one third</td><td><span class="tag">derived</span></td></tr>
 </tbody>
 </table>
 <p>The same arithmetic works for the epoch boundary. The first block of a new epoch must descend from the last block
-finalized in the previous epoch, and every correct validator must itself verify the previous epoch's certificate for
+certified in the previous epoch, and every correct validator must itself verify the previous epoch's certificate for
 that anchor before it prevotes or precommits anything in the new epoch. A conflicting history across the boundary
 therefore reduces to the same case: at least one third of the previous epoch's power must have broken a rule.</p>
 <h2>What this gives you</h2>
 <ul>
-<li>Single-slot finality: one certificate per height, no confirmation depth, no probabilistic waiting.</li>
-<li>Certificates are epoch-scoped and stay valid forever, so validator rotation cannot re-judge or invalidate a past decision.</li>
+<li>Single-slot certification: one certificate per height, no confirmation depth, no probabilistic waiting.</li>
+<li>Certificates are epoch-scoped and stay valid forever as certificates, so validator rotation cannot re-judge or re-sign a past decision; rotation is not a replacement path &mdash; only recovery may replace history above the latest accepted checkpoint. <em>(D-7: recovery, not rotation, governs replacement above the last accepted checkpoint)</em></li>
 <li>A lock and a signed-vote rule that make the cost of a conflicting commit one third of the epoch's stake, and make the most damaging fault objectively provable when it appears as a same-height, same-round pair.</li>
 <li>A deterministic, publicly computable proposer schedule, so anyone can audit who was supposed to propose and when.</li>
 <li>Timeouts that affect liveness only: exceeding any timing bound slows the chain, never breaks safety.</li>
@@ -282,7 +285,7 @@ therefore reduces to the same case: at least one third of the previous epoch's p
 verifies the PoLC itself. The round-3 PoLC for X is irrelevant. A PoLC at the same round as the lock, at an earlier
 round, or for the already-locked value does not unlock; a PoLC at another height neither unlocks nor creates a
 lock.</p></details>
-<details><summary>Your node times out waiting for a certificate at height 100. Can you conclude the certificate does not exist and finalize something else?</summary>
+<details><summary>Your node times out waiting for a certificate at height 100. Can you conclude the certificate does not exist and certify something else?</summary>
 <p>No. An elapsed timeout is never evidence of absence. The timeout moves your node to the next round of height 100
 and nothing else. Fetch the certificate from peers and verify it as an object; if a valid certificate later appears
 for a block conflicting with your lock, halt and publish what you have.</p></details>

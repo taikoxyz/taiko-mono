@@ -246,3 +246,55 @@ no L1 forced-inclusion path; no override that violates D2 may be introduced."* R
 defects and are closed by removal. The round-2 Highs that depended on the forced-inclusion backstop are
 closed with them. R2A-01 (epoch-lookahead gate) is unaffected and is fixed by a two-epoch lookahead.
 
+
+---
+
+### D-7 — User decision: **Mode B selected** — permissionless L1 recovery of unsettled history (2026-10-05)
+
+**Instruction.** "I have to choose roll back, otherwise the chain will dead." This selects the fallback
+authorised in D2. It is a **material design change**: the guarantee attached to a PoS confirmation above
+the last Ethereum-finalized checkpoint becomes **provisional**, and the protocol gains a permissionless
+mechanism that can discard that history.
+
+**D2 procedure, completed.** (1) Mode A was investigated first and its obligations and constraints were
+written down. (2) The specific requirement it cannot satisfy is now concrete: D2 permits a safe halt, but
+the requirement set also demands a chain that keeps serving users, and an availability failure under
+Mode A produces an **unbounded halt** whose only remedies are outside the protocol. (3) The attempted
+safe-recovery constructions were enumerated in `research/mode-a-feasibility-analysis.md`; each either
+requires discarding unsettled history (this decision) or leaves the halt in place. (4) This entry records
+the selection; the resistance analysis required by D2 step 5 is written as rule `REC-03` in
+`spec/06-recovery-exceptions.html`, and an independent review of that analysis is required before the
+selection is treated as settled — it is scheduled for review round 4.
+
+**What does not change.** Ethereum-finalized checkpoints and every already-accepted batch remain valid;
+D5 holds unchanged and recovery may not introduce a data-first path; the recovery path is permissionless
+and bonded with no operator, no DAO rescue and no discretion over the restored checkpoint or the
+validator set.
+
+**Consequence that must be stated everywhere.** A confirmation above the last accepted checkpoint may be
+replaced. Every user-facing artifact must say so. The status label becomes **PoS-certified /
+provisional**, and no artifact may call such a confirmation irreversible.
+
+### D-8 — User decision: **security is funded from L2 fees** (2026-10-05)
+
+L2 execution and priority fees are the funding source for validator rewards and proving costs. The
+specification must define the path from an L2 fee vault to the L1 reward pool, using the preserved
+Bridge for the transfer, with the honest consequences: rewards are delayed by the settlement pipeline,
+an empty pool pays nothing, and a failure to bridge stops rewards rather than creating a claim on
+future revenue. Every term remains unmeasured until the economics spike.
+
+### D-9 — User decision: **slashed stake goes to the treasury** (2026-10-05)
+
+No burn. The penalty destination is the protocol treasury, with a reporter bounty paid as a fraction
+strictly less than the total penalty so that self-reporting is never profitable. The earlier "burn"
+option is removed from the specification and from the course.
+
+### D-10 — User decision: **forced inclusion is deferred to a protocol update** (2026-10-05)
+
+Forced inclusion is **not** part of the first version, to keep it simple, and is added later by an
+upgrade. The specification must therefore contain two things: the honest statement that v1 has no
+forced-inclusion path (rule `FI-REMOVED-01`), and a **planned-update clause** stating what the upgrade
+must preserve when it adds forced inclusion — no reordering or revocation of past history, no data-first
+path, no privileged operator, and the same atomic data-and-proof rule. Until that upgrade ships, R10
+remains satisfied only in its relaxed form.
+

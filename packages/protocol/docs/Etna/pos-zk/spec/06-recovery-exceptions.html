@@ -14,35 +14,65 @@
   </nav>
 </header>
 <main>
-<h1>06 — Withholding, safe halt, restart, and the unselected recovery fallback</h1>
+<h1>06 — Withholding, safe halt, restart, and permissionless recovery of unsettled history</h1>
 
-<div class="goodbox">
-<p><strong>This protocol has no history-replacement path.</strong> Mode A is selected
-(<a href="../04-architecture-decision.md">04 — architecture decision</a> §5): a legitimately
-PoS-finalized block is permanent, and when the protocol cannot continue without violating that, it
-<strong>halts</strong>. The fallback (Mode B) is specified here in
-<a href="#REC-02">REC-02</a> and <a href="#REC-03">REC-03</a> but is <strong>not selected</strong>, and
-nothing in it may be implemented, advertised or used without the D2 evidence-and-review procedure.</p>
+<div class="warnbox">
+<p><strong>A PoS confirmation above the latest L1-accepted checkpoint is provisional.</strong> Mode B is
+<strong>selected</strong> (user decision D-7): a permissionless, bonded, delayed L1 recovery may replace
+history <strong>strictly above the latest L1-accepted checkpoint</strong> — the checkpoint record written
+by the most recently accepted batch, which a completed recovery restores exactly
+(<a href="#REC-01">REC-01</a>, <a href="#REC-02">REC-02</a>); at or below it nothing may be changed by
+recovery, and Ethereum finality is the separate, stronger property of
+<a href="index.html#STATUS-07">STATUS-07</a>. The previous "never roll back" posture was replaced because an unbounded halt was judged worse
+than a bounded rollback: under Mode A an availability failure leaves the chain dead with no in-protocol
+remedy, and the requirement set also demands a chain that keeps serving users. Any interface that shows a
+confirmation above the last accepted checkpoint must say that it can be replaced.
+<a href="#REC-03">REC-03</a> states what the rollback does and does not protect against.
+<em>(user decision D-7: Mode B selected; the guarantee class of a confirmation above the checkpoint is
+provisional.)</em></p>
 </div>
 
-<div class="rule" id="REC-01"><span class="rid">REC-01 — Mode A: no path may invalidate PoS-finalized history</span>
+<div class="rule" id="REC-01"><span class="rid">REC-01 — recovery boundary: no path may replace history at or below the latest L1-accepted checkpoint</span>
 <span class="norm">No contract function, client rule, timeout, validator rotation, admission rule,
-governance proposal executed through the ordinary upgrade path, or operational procedure may change
-the canonical history at or below a height that reached <a href="index.html#STATUS-04">STATUS-04</a>.
-Concretely: (a) no function exists whose effect is to lower the accepted checkpoint, replace a
-finalized block hash at a height, or discard finalized state; (b) no admission rule may reject a batch
-that extends the current L1 checkpoint (<a href="04-l1-integration.html#L1-04">L1-04</a>); (c) a
-certificate is judged under the validator set of its own epoch and stays valid forever
-(<a href="02-consensus.html#CONS-08">CONS-08</a>), so validator rotation cannot re-judge it; (d) an
-upgrade must accept every history finalized under the previous rules
-(<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>); (e) no data-first path may be introduced to
-"work around" an unsettled batch, because that would let an unproven history be treated as settled
-(<a href="04-l1-integration.html#L1-02">L1-02</a>).</span>
-<span class="why">This rule is the entire content of Mode A. Its violation is not a bug to be
-mitigated; it changes the protocol's guarantee class from irreversible PoS finality to provisional
-confirmation, and would require the D2 procedure before it could be described as legitimate.</span>
-<span class="pill proven">Proven</span> <span class="small">(structural: the property is stated as an
-absence of mechanisms plus four positive obligations)</span></div>
+governance proposal executed through the ordinary upgrade path, operational procedure, or recovery
+invocation may change the canonical history at or below the latest L1-accepted checkpoint — the
+checkpoint record written by the most recently accepted batch — and a completed recovery restores
+exactly that checkpoint. Above it, history is <strong>provisional</strong> and may be replaced only by
+the recovery path of <a href="#REC-02">REC-02</a>, under its objective trigger, delay, bond and
+cancellation rules. <strong>Ethereum finality is a separate and stronger property, not the recovery
+floor:</strong> once the accepting L1 transaction is in a finalized Ethereum block, even an L1
+reorganisation cannot undo it (<a href="index.html#STATUS-07">STATUS-07</a>); until then an accepted
+checkpoint is revocable only by an L1 reorganisation below finality
+(<a href="index.html#STATUS-06">STATUS-06</a>, <a href="04-l1-integration.html#L1-12">L1-12</a>), so an
+implementer must never read that property back as the recovery floor. Concretely: (a) no function
+exists whose effect is to replace an accepted block hash at or below the latest L1-accepted checkpoint
+or to discard state at or below it; the only downward movement of the canonical L2 chain is a completed
+recovery restoring exactly that checkpoint (<a href="#REC-02">REC-02</a>); (b) no admission
+rule may reject a batch that extends the current L1 checkpoint
+(<a href="04-l1-integration.html#L1-04">L1-04</a>); (c) a certificate is judged under the validator set of
+its own epoch and stays valid as <em>evidence</em> forever
+(<a href="02-consensus.html#CONS-08">CONS-08</a>), so validator rotation cannot re-judge it, and a
+certificate above a restored checkpoint is void for canonical purposes but remains admissible as
+evidence (<a href="#REC-02">REC-02</a>); (d) no upgrade may be used as a substitute for recovery: an
+upgrade must accept every history at or below the latest L1-accepted checkpoint
+(<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>), and history above that checkpoint may be
+replaced only by <a href="#REC-02">REC-02</a>, never by a governance transaction; (e) no data-first path
+may be introduced to "work around" an unsettled batch, in recovery or otherwise, because that would let
+an unproven history be treated as settled
+(<a href="04-l1-integration.html#L1-02">L1-02</a>, <a href="#HALT-04">HALT-04</a>). <em>(user decision
+D-7: the previous "never roll back" posture is replaced — the invariant is now "no recovery may replace
+history at or below the latest L1-accepted checkpoint", and history above it is provisional; the
+Ethereum-finalized checkpoint is a separate, stronger object and is never the recovery floor.)</em></span>
+<span class="why">This rule is the boundary between the two guarantee classes: no recovery may change
+history at or below the latest L1-accepted checkpoint, and history above it is provisional. Its violation
+would turn the bounded rollback of <a href="#REC-02">REC-02</a> into unbounded history replacement, which
+no user decision authorises. Halting remains the correct local action when settlement cannot proceed;
+recovery is the only sanctioned way history above the checkpoint may be replaced, and it is permissionless,
+objective and bonded. <em>This closes the reviewer finding that made the Ethereum-finalized checkpoint the
+recovery floor: the floor is the latest L1-accepted checkpoint, and Ethereum finality is the separate,
+stronger property of STATUS-07 (D-7).</em></span>
+<span class="pill proven">Proven</span> <span class="small">(structural: the boundary of the replacement
+window plus four positive obligations)</span></div>
 
 <h2 id="halt">Safe halt</h2>
 
@@ -60,20 +90,30 @@ consensus view (<a href="01-system-model.html#SYS-02">SYS-02</a>);
 (<a href="02-consensus.html#CONS-13">CONS-13</a>);
 (e) the unsettled-depth cap would be exceeded (<a href="#HALT-03">HALT-03</a>).
 Halting is a <strong>correct outcome</strong>, not a failure of the protocol: it is the action that
-preserves Mode A. A node that halts must keep serving what it has, and must keep its state so it can
-resume. Halting never authorises discarding finalized history, and never authorises a data-first
-publication.</span>
-<span class="why">Failure mode: an implementer, faced with a stuck chain, invents an "unstick"
-action — which is precisely the Mode B behaviour that D2 requires to be authorised explicitly, not
-improvised.</span>
+preserves every height at or below the latest L1-accepted checkpoint and keeps the node inside
+its rules. A node that halts must keep serving what it has, and must keep its state so it can resume.
+Halting never authorises discarding history, and never authorises a data-first publication. A
+validator's halt is a local safety action and is <strong>not</strong> a recovery trigger: recovery is
+triggered only by the objective settlement-stall condition of <a href="#REC-02">REC-02</a>, which is
+observable on L1. A halt caused by a missing epoch-set entry (d) or by an unlandable batch is answered
+by retrying and by continuing to serve; if settlement nevertheless stalls past <code>T_STALL</code>, the
+permissionless recovery path of <a href="#REC-02">REC-02</a> is the sanctioned remedy, and it is never
+declared early by a participant's local view. <em>(user decision D-7: a halt is still correct, but it is
+no longer the only end state — recovery exists for the settlement-stall case and only for that
+case.)</em></span>
+<span class="why">Failure modes: an implementer, faced with a stuck chain, invents an "unstick" action;
+or a participant treats its own halt as authority to roll history back. Neither is permitted — the only
+sanctioned replacement path is <a href="#REC-02">REC-02</a>, invoked on L1 by any account, bonded, and
+cancelled by honest progress.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(the halt conditions are normative; whether they are met is assumed)</span></div>
 
 <div class="rule" id="HALT-02"><span class="rid">HALT-02 — restart rules</span>
 <span class="norm">After a halt, a correct participant resumes only from the highest finalized block
-whose <em>data</em> and <em>certificate</em> it can independently reconstruct. It must never adopt an
-alternative history at a height it has already finalized, and must never treat a timeout during the
-halt as evidence that a certificate does not exist
+whose <em>data</em> and <em>certificate</em> it can independently reconstruct, or — if a recovery has
+completed — from the checkpoint restored by that recovery (<a href="#REC-02">REC-02</a>). It must never
+adopt an alternative history at or below the latest L1-accepted checkpoint, and must never treat
+a timeout during the halt as evidence that a certificate does not exist
 (<a href="index.html#STATUS-10">STATUS-10</a>). On restart: (a) each validator enforces a signed-message
 uniqueness check over its own signing history — no message of the same type at the same height and
 round may be signed twice, including after a restart or a state resync, and a validator that cannot
@@ -82,7 +122,11 @@ as a signing fault, not as a fresh start); (b) a validator that resumes must re-
 for the height it is resuming at rather than trusting its cached set; (c) nodes must not accept a
 replayed historical message as new — every vote carries the epoch and round, and the receiving rules
 reject messages for heights already finalized; (d) a resumed node's first act is a data and certificate
-sync, not a proposal.</span>
+sync, not a proposal. After a completed recovery the restored checkpoint is the highest canonical
+checkpoint: a node must adopt it, must not treat a discarded block above it as finalized, and must apply
+every clause of this rule unchanged — no double signing, no replayed message, no ordering by timeout.
+<em>(user decision D-7: restart follows whichever checkpoint is canonical — the highest L1-accepted one —
+and a discarded provisional block is not a finalized height.)</em></span>
 <span class="why">Failure modes addressed: "amnesia" double-signing after a restart, replaying old
 votes, and a restart that silently adopts a competing branch — the classic way a safe halt becomes an
 unsafe restart.</span>
@@ -108,7 +152,12 @@ that costs: because the cap cannot be enforced at L1 without stranding a legitim
 that ignores it is <strong>not</strong> objectively punishable at L1, and a cap violation is therefore a
 liveness failure that is disclosed rather than a slashing offence
 (<a href="#WH-02">WH-02</a>, <a href="10-assurance.html#LIM-01">LIM-01</a>). When the cap
-binds, production stops and the chain is in the safe-halt state until provers catch up. The cap must
+binds, production stops and the chain is in the safe-halt state until provers catch up. Recovery does not
+relax the cap: a completed recovery restores the L1 checkpoint and production resumes under the same
+cap, the cap binding is a halt and not by itself a recovery trigger, and only the objective
+<code>T_STALL</code> condition of <a href="#REC-02">REC-02</a> can trigger recovery. <em>(user decision
+D-7: the unsettled-depth cap is unchanged by the selected recovery mode; recovery may not be used to
+advance past it or to bypass it.)</em> The cap must
 also be jointly satisfiable with the evidence window: the coupling inequality is stated normatively in
 <a href="07-economics-slashing.html#ECON-07">ECON-07</a>(7), and <code>D_MAX</code> must be reduced until
 it holds (*review round 2, finding P-R2-08*). It is also jointly constrained with the
@@ -143,15 +192,22 @@ proof as a fault.</span>
 <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
 <span class="small">(<code>D_MAX</code>'s value depends on measured retention and proving throughput)</span></div>
 
-<div class="rule" id="HALT-04"><span class="rid">HALT-04 — no emergency operator, no DAO rescue, no data-first recovery</span>
+<div class="rule" id="HALT-04"><span class="rid">HALT-04 — no emergency operator, no DAO rescue, no data-first path; recovery is the only sanctioned replacement</span>
 <span class="norm">No emergency key, guardian, DAO vote, or operational procedure may be required to
-preserve Mode A, and none may be introduced to "resolve" a halt. Specifically: there is no function
-that a privileged party can call to advance, rewind, or replace the checkpoint; no DAO intervention is
-permitted for liveness; and no data-first publication may be used to unblock settlement. If progress
-requires information or participation that no rule-legal action can obtain, the protocol says so and
-stops.</span>
-<span class="why">Failure mode: a halt is quietly "fixed" by an operator, which both violates R2 and
-disguises a liveness limitation as a functioning protocol.</span>
+preserve any invariant of this specification, and none may be introduced to "resolve" a halt.
+Specifically: there is no function that a privileged party can call to advance, rewind, or replace the
+checkpoint; no DAO intervention is permitted for liveness; and no data-first publication may be used to
+unblock settlement. The <strong>only</strong> sanctioned way that history above the latest
+L1-accepted checkpoint may be replaced is the permissionless, bonded, delayed recovery of
+<a href="#REC-02">REC-02</a>, which no operator, no DAO and no validator quorum controls, and which never
+replaces history at or below that checkpoint (<a href="#REC-01">REC-01</a>). If progress requires
+information or participation that no rule-legal action can obtain, the protocol says so and stops; it
+does not promote a privileged fix. <em>(user decision D-7: recovery is the only sanctioned way history
+above the checkpoint may be replaced, and it is discretionary in nothing — no operator, no DAO rescue,
+no data-first path.)</em></span>
+<span class="why">Failure modes: a halt is quietly "fixed" by an operator, which both violates R2 and
+disguises a liveness limitation as a functioning protocol; or recovery is captured by a privileged
+party, which would be the same failure under a different name.</span>
 <span class="pill proven">Proven</span> <span class="small">(enforced by the migration's removal of
 privileged levers, <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>)</span></div>
 
@@ -186,7 +242,11 @@ a rule whose inputs are entirely on-chain. Everything else — a message that di
 that did not advance, a proof that has not been submitted, a peer that did not answer a request — is
 <strong>local suspicion</strong>. Local suspicion may trigger local actions (retry, view change,
 reputation, peer selection, disclosure) but may never trigger a penalty, a recovery action, or a
-statement about what exists elsewhere. <em>(user decision D-6: forced inclusion is removed, so the
+statement about what exists elsewhere. The recovery trigger is not an exception: it is the objective
+settlement-stall condition of <a href="#REC-02">REC-02</a> measured on L1, no participant's local view of
+a stall may shorten <code>T_STALL</code> or declare recovery early, and non-receipt of a batch, proof or
+certificate remains local suspicion. <em>(user decision D-7: the trigger is objective and L1-observable;
+local suspicion still never triggers a penalty or a recovery action.)</em> <em>(user decision D-6: forced inclusion is removed, so the
 forced-inclusion omission offence is no longer one of this rule's evidence classes; the protocol has no
 inclusion duty, and <a href="10-assurance.html#LIVE-04">LIVE-04</a> states what inclusion resistance
 remains.)</em></span>
@@ -212,10 +272,16 @@ where the only safe path is perfect detection.</span>
 specification: (1) a proposer selectively distributes a block to a subset; (2) honest validators vote
 according to their <em>local</em> views; (3) the attacker privately obtains a finality-related
 certificate; (4) other participants attempt a leader change, a validator change, or a recovery;
-(5) the attacker reveals the certificate after the alternative path has progressed. The required
-conclusion is that <strong>two conflicting histories cannot both receive the mode's irreversible
-guarantee</strong>. That conclusion rests on the conjunction of three mechanisms, never on signature
-counting alone:</span>
+(5) the attacker reveals the certificate after the alternative path has progressed. A recovery is an
+alternative path only above the latest L1-accepted checkpoint, and it restores exactly that
+checkpoint: a certificate revealed later for a discarded height is evidence against an equivocator, never
+a second canonical history (<a href="#REC-02">REC-02</a>). The required conclusion is therefore that
+<strong>two conflicting histories cannot both be canonical at the same time</strong>: at or below the
+checkpoint neither conflicting history can receive a replacement guarantee at all, and above it a
+completed recovery leaves the restored checkpoint as the only canonical one. That conclusion rests on the
+conjunction of three mechanisms, never on signature counting alone: <em>(user decision D-7: the
+reveal-later schedule now includes a real recovery path, and the conclusion is scoped to the provisional
+window above the checkpoint.)</em></span>
 <ul>
 <li><strong>Locks.</strong> A validator that precommitted a block at round <code>R</code> is locked on
 it and will not prevote a conflicting block at that height unless it sees a proof-of-lock-change at a
@@ -249,86 +315,127 @@ not a surviving lock.</em></li>
 <span class="why">Failure mode: a design in which the alternative path <em>discards</em> the per-height
 lock within a height, or in which a validator-set change re-judges a certificate under a new set instead
 of under its own epoch's set (<a href="02-consensus.html#CONS-08">CONS-08</a>), in which case the
-reveal-later schedule succeeds and two irreversible histories can exist without any slashable
-equivocation.</span>
+reveal-later schedule succeeds and two conflicting histories can both be treated as canonical without
+any slashable equivocation. <em>(Under the selected mode the second history above the latest
+L1-accepted checkpoint can still be discarded by recovery, but the lock and reconfiguration
+mechanisms above are what prevent the conflict from arising in the first place.)</em></span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(premises: <code>A-CONS-1</code> in every epoch; correct validators enforce
 CONS-02/CONS-04; the boundary argument of CONS-09, which is the named review target F1)</span></div>
 
-<h2 id="modeb">The authorised fallback, specified but NOT selected</h2>
+<h2 id="modeb">Mode B — the selected recovery mode (user decision D-7)</h2>
 
-<div class="badbox">
-<p><strong>Mode B is not selected and is not part of the active protocol.</strong> The rules below exist
-for three reasons only: to show the authorised fallback is concrete rather than hand-waving; to
-enumerate the conditions under which a future decision could make it necessary; and to ensure Mode A is
-not designed in a way that makes the fallback unimplementable. Nothing here may be implemented,
-deployed, advertised, or used to describe a PoS confirmation as anything other than irreversible under
-Mode A. Selecting Mode B requires the D2 procedure: a documented specific requirement that Mode A
-cannot satisfy, the attempted safe-recovery constructions, an argument or counterexample, and
-independent review — recorded in the decision log.</p>
-<p class="small">Mode B is <strong>never</strong> described as satisfying Mode A's irreversible
-finality promise. Under Mode B the label is
-<a href="index.html#STATUS-04">PoS-certified / provisional</a>, and users must be told that.</p>
+<div class="warnbox">
+<p><strong>Mode B is selected and is part of the active protocol.</strong> Since user decision D-7, a
+permissionless, bonded, delayed L1 recovery may replace history above the latest L1-accepted
+checkpoint — the checkpoint record written by the most recently accepted batch, which a completed recovery
+restores exactly; at or below it nothing may be changed by recovery (<a href="#REC-01">REC-01</a>). The selection completed the
+D2 procedure: Mode A was investigated first, and the specific requirement it cannot satisfy is recorded
+in D-7 — an availability failure under Mode A produces an <strong>unbounded halt</strong> whose only
+remedies are outside the protocol, while the requirement set also demands a chain that keeps serving
+users. The resistance analysis required by D2 step 5 is <a href="#REC-03">REC-03</a>, and it requires
+independent review before the selection is treated as settled.</p>
+<p class="small">The guarantee attached to a confirmation above the last accepted checkpoint is
+<strong>PoS-certified / provisional</strong> (<a href="index.html#STATUS-04">STATUS-04</a>). Any interface
+that shows such a confirmation MUST say that it can be replaced; calling it irreversible is a defect. A
+PoS-certified block above the checkpoint may be discarded by a completed recovery, and its effects are
+handled by the replay rules of <a href="#REC-02">REC-02</a>. <em>(user decision D-7: Mode B is selected;
+the guarantee class above the checkpoint is provisional.)</em></p>
 </div>
 
-<div class="rule" id="REC-02"><span class="rid">REC-02 — Mode B: permissionless L1 recovery of unsettled history (not selected)</span>
-<span class="norm">If Mode B were selected, it would be defined by all of the following, which are
-stated so that the fallback is fully specified rather than sketched.</span>
+<div class="rule" id="REC-02"><span class="rid">REC-02 — permissionless L1 recovery of unsettled history (selected, user decision D-7)</span>
+<span class="norm">Mode B is <strong>selected</strong> and is defined by all of the following, which are
+normative. Every timing, bond and depth term below is unmeasured and is recorded with its derivation in
+<a href="09-parameters.html">09</a>; none is a measurement. <em>(user decision D-7: Mode B is selected;
+the trigger, invoker, escalating bond, delay, cancellation, no-discretion boundary, late evidence,
+replay, depth, duration, repetition, exposure, D5 and authorization-binding elements below are
+normative.)</em></span>
 <table>
 <thead><tr><th>Element</th><th>Rule</th></tr></thead>
 <tbody>
-<tr><td><strong>Invariant</strong></td><td>Recovery may only replace history strictly above the last <em>Ethereum-finalized</em> L1 checkpoint. Heights at or below it are untouchable by any recovery path. The new checkpoint after recovery is exactly that L1 checkpoint.</td></tr>
-<tr><td><strong>Objective trigger</strong></td><td>Only one trigger: a <em>settlement stall</em> — no batch extending the current L1 checkpoint has been accepted for <code>T_STALL</code>, where <code>T_STALL</code> is derived as the D6 proof envelope plus witness generation, queueing, L1 inclusion and a margin, and is recorded with its derivation. <code>T_STALL</code> must be strictly larger than the envelope so that a normal slow proof, or one prover failure inside the envelope, can never trigger recovery.</td></tr>
-<tr><td><strong>Who may invoke</strong></td><td>Anyone, permissionlessly, by posting a bond. No DAO, no operator, no validator quorum. The invocation is an L1 transaction containing only the claim and the bond.</td></tr>
-<tr><td><strong>Delay and cancellation</strong></td><td>The recovery takes effect only after <code>T_RECOVERY_DELAY</code>. During that window it is cancelled by the acceptance of any valid batch extending the current checkpoint. Acceptance is the only cancellation: neither the reveal of a certificate nor of a proof for a <em>discarded</em> height cancels it, because those heights are by construction not yet settled.</td></tr>
-<tr><td><strong>Checkpoint and configuration boundary</strong></td><td>The invoker does not choose the new checkpoint, the new validator set, or any configuration value. Recovery restores the L1-accepted checkpoint and re-enters the epoch schedule at that point; the validator set is whatever the L1 staking contract already fixes for that epoch. This is the rule that prevents recovery from becoming a configuration-capture mechanism.</td></tr>
-<tr><td><strong>Late certificates</strong></td><td>A certificate for a discarded height is void for canonical purposes but remains valid <em>evidence</em>: if the same validator set signed conflicting certificates, the evidence rules of <a href="07-economics-slashing.html#ECON-04">ECON-04</a> still apply, and a certificate that was revealed late is not thereby excused. Eligibility to invoke recovery must not depend on the absence of unpublished certificates.</td></tr>
-<tr><td><strong>Late proofs</strong></td><td>A proof whose batch lies above the restored checkpoint is void: its predecessor no longer exists. Its data commitment may be re-used only by a new batch proposed against the restored checkpoint.</td></tr>
-<tr><td><strong>Transaction replay</strong></td><td>L2 transactions in discarded blocks are not replayed automatically and are not guaranteed inclusion. Replay protection must hold across the recovery: message authentication, bridge execution and withdrawal claims are keyed by (chain id, domain, height, commitment) so that an effect executed before the rollback cannot be executed twice afterwards, and an effect that never executed can be submitted again. Deposits already executed on L1 must remain credited.</td></tr>
+<tr><td><strong>Invariant</strong></td><td>Recovery may only replace history strictly above the <strong>latest L1-accepted checkpoint</strong> — the checkpoint record written by the most recently accepted batch. Heights at or below it are untouchable by any recovery path, and the checkpoint after recovery is exactly that record. Ethereum finality is not this floor: it is the separate, stronger property that the accepting L1 transaction can no longer be reorganised out (<a href="index.html#STATUS-07">STATUS-07</a>). <em>(user decision D-7: the floor is the latest L1-accepted checkpoint, which recovery restores exactly; the Ethereum-finalized checkpoint must never be read as the floor.)</em></td></tr>
+<tr><td><strong>Objective trigger</strong></td><td>Exactly one trigger: a <em>settlement stall</em> — no batch extending the current L1 checkpoint has been accepted for <code>T_STALL = T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY + T_RECOVERY_MARGIN</code>. Every term is unmeasured and is recorded with its derivation in <a href="09-parameters.html">09</a>, and <code>T_STALL</code> must be strictly larger than the <a href="../01-requirements-and-threat-model.md">D6</a> envelope so that a normal slow proof, or one prover failure inside the envelope, can never trigger recovery. There is <strong>no other trigger</strong> and <strong>no early declaration</strong>: a participant's local view, a halt, a missing certificate, a slow proof and an over-depth cap are not triggers.</td></tr>
+<tr><td><strong>Who may invoke</strong></td><td>Any account, permissionlessly, by posting the bond <code>B_REC(e) = B_REC_BASE &middot; 2<sup>n</sup></code> <strong>in ETH on L1, paid at invocation</strong>, where <code>n</code> is the number of completed recoveries in the preceding <code>REC_WINDOW</code>; <code>B_REC_BASE</code> is denominated in ETH and its amount is unmeasured (<a href="09-parameters.html">09</a>). No DAO, no operator, no validator quorum. The invocation is an L1 transaction containing only the claim and the bond. The bond is an anti-spam and anti-manipulation deposit, not validator stake or slashable consensus collateral, so <a href="index.html#fixed">D7</a> — staking and slashable collateral denominated in TAIKO — is unaffected by it. <em>(user decision D-7: the bond asset is fixed as ETH on L1, paid at invocation; the amount remains unmeasured.)</em></td></tr>
+<tr><td><strong>Delay and cancellation</strong></td><td>The recovery takes effect only after <code>T_RECOVERY_DELAY</code>. During that window it is cancelled by the acceptance of <strong>any</strong> valid batch extending the current checkpoint. Acceptance is the only cancellation: neither the reveal of a certificate nor of a proof for a <em>discarded</em> height cancels it, because those heights are by construction not yet settled.</td></tr>
+<tr><td><strong>Bond outcome</strong></td><td>The bond is <strong>paid in ETH on L1 at invocation</strong>. It is returned in full when the recovery completes, and <strong>transferred to the protocol treasury</strong> when the recovery is cancelled by honest progress, so that spamming recovery costs money; the destination is the treasury and there is no burn (<a href="07-economics-slashing.html#ECON-06">ECON-06</a>(6)). The asset is ETH and not TAIKO because the bond is an anti-spam and anti-manipulation deposit, not validator stake or slashable consensus collateral, so <a href="index.html#fixed">D7</a> is unaffected by it; the amount is unmeasured.</td></tr>
+<tr><td><strong>No discretion</strong></td><td>The invoker chooses nothing: the restored checkpoint is the current L1 checkpoint, the validator set is the one the L1 staking contract already fixes for that epoch, and no configuration value may be changed by recovery. Recovery re-enters the epoch schedule at that point. This is the rule that prevents recovery from becoming a configuration-capture mechanism.</td></tr>
+<tr><td><strong>Late certificates</strong></td><td>A certificate for a discarded height is <strong>void for canonical purposes</strong> above the restored checkpoint, but remains admissible as <em>evidence</em>: if the same validator set signed conflicting certificates, the evidence rules of <a href="07-economics-slashing.html#ECON-04">ECON-04</a> still apply, and a certificate that was revealed late is not thereby excused. Eligibility to invoke recovery must not depend on the absence of unpublished certificates.</td></tr>
+<tr><td><strong>Late proofs</strong></td><td>A proof whose batch lies above the restored checkpoint is <strong>void</strong>: its predecessor no longer exists. Its data commitment may be re-used only by a new batch proposed against the restored checkpoint, by any proposer.</td></tr>
+<tr><td><strong>Transaction replay</strong></td><td>L2 transactions in discarded blocks are not replayed automatically and are not guaranteed inclusion. Replay protection must hold across the recovery: message authentication, bridge execution and withdrawal claims are keyed by <code>(chainId, domain, height, commitment)</code> so that an effect executed before the rollback cannot be executed twice afterwards, and an effect that never executed can be submitted again. Deposits already executed on L1 remain credited; unsettled withdrawals must be resubmitted.</td></tr>
 <tr><td><strong>Derived rollback depth</strong></td><td>At most <code>D_MAX</code> L2 blocks, because <a href="#HALT-03">HALT-03</a> caps the unsettled depth. <em>Conditional</em>: the bound holds only while the cap is enforced; it is not a bound on loss.</td></tr>
 <tr><td><strong>Derived rollback duration</strong></td><td><code>T_STALL + T_RECOVERY_DELAY + resume time</code>, all terms unmeasured except that <code>T_STALL</code> must exceed the D6 envelope by construction.</td></tr>
+<tr><td><strong>Repeated recovery</strong></td><td>A fresh stall is required for each recovery; the bond escalates with every completed recovery in the preceding <code>REC_WINDOW</code> (the formula above); and a cooldown <code>REC_COOLDOWN</code> follows each recovery. Repetition is expensive but is neither forbidden nor bounded by these rules alone (<a href="#REC-03">REC-03</a>).</td></tr>
 <tr><td><strong>User exposure</strong></td><td>Every L2 outcome above the checkpoint: inclusions, ordering, balances, bridge messages not yet settled, and any economic position built on them. <strong>No universal bound on economic loss exists</strong> and none may be claimed; losses are not compensated by protocol penalties (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>).</td></tr>
-<tr><td><strong>Obligations it must still satisfy</strong></td><td>D5 in full (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#L1-03">L1-03</a>): recovery is invoked by an L1 transaction whose effect does not accept any batch, and no data-first path may be introduced in its name. Mode B changes the <em>guarantee</em> attached to unsettled confirmations; it does not relax the data-and-proof rule.</td></tr>
+<tr><td><strong>D5 is unchanged</strong></td><td>Recovery is <strong>not a batch</strong>: it accepts no data, advances no checkpoint forward, and may not create a data-first path. D5 holds in full (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#L1-03">L1-03</a>), and the transaction that invokes recovery is not a batch-acceptance entry point. Mode B changes the <em>guarantee</em> attached to unsettled confirmations; it does not relax the data-and-proof rule.</td></tr>
+<tr><td><strong>Authorization binding</strong></td><td>The configuration hash and an integer <strong>recovery generation</strong> are public inputs of the proof statement (<a href="05-proof-statement.html#PRF-02">PRF-02</a>, <a href="04-l1-integration.html#L1-05">L1-05</a>). A batch certified under generation <code>g</code> is void once generation <code>g+1</code> is active, and the guest MUST check the generation, so an alternative history is never accepted on execution validity alone.</td></tr>
+<tr><td><strong>Permissionless, no rescue</strong></td><td>Recovery remains permissionless: no operator, no DAO rescue and no discretion over the restored checkpoint or the validator set. <a href="#HALT-04">HALT-04</a> stays in force.</td></tr>
 </tbody></table>
-<span class="why">Why this is specified even though it is not selected: without it, "we preferred Mode A"
-is unfalsifiable and an implementer facing a halt would improvise — the worst outcome for both safety
-and honesty.</span>
-<span class="pill assumed">Assumed</span> <span class="small">(conditional on the D2 procedure being satisfied before any use)</span></div>
+<span class="why">Why this is the bounded rollback the user selected: under Mode A an availability
+failure produces a halt with no in-protocol remedy, and the requirement set does not accept a chain that
+can stay dead indefinitely. Without this specification the fallback would be improvised by an
+implementer — the worst outcome for both safety and honesty — so the trigger, bond, delay, cancellation,
+replay and exposure are stated normatively and carried with the resistance analysis of
+<a href="#REC-03">REC-03</a>.</span>
+<span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(the mechanism is normative; every timing and bond term is unmeasured until the
+economics spike, and the resistance argument of <a href="#REC-03">REC-03</a> is not yet independently
+reviewed)</span></div>
 
-<div class="rule" id="REC-03"><span class="rid">REC-03 — the Mode B blocker is recorded, not waived</span>
-<span class="norm">Selection of Mode B is <strong>blocked</strong> until the following is established,
-and the blocker is recorded rather than disclosed as a minor caveat: within the stated normal-operation
-fault and liveness assumptions, an ordinary malicious leader or a sub-threshold coalition must not be
-able to cheaply trigger a recovery that replaces honestly confirmed history. The analysis must quantify
-attacker resources, the penalties the attempt incurs, and the rollback exposure it creates; it must
-separate legitimate failure handling (an actual stall caused by an actual outage) from attacks on the
-recovery mechanism itself (engineering a stall to force a rollback); and it must address repeated
-recovery and races with honest continuation.</span>
-<span class="why">This requirement cannot currently be established on the evidence available. The
-trigger is a settlement stall, and a settlement stall can be induced by an outage that an attacker may
-be able to cause or amplify; the delay and cancellation rules reduce but do not obviously eliminate the
-profitability of "force a stall, then roll back an unfavourable outcome". Because
-<strong>inability to establish this resistance is a blocker rather than a disclosure item</strong>, the
-correct status is: Mode B is specified and not selected, and it may not be selected on the strength of
-the analysis in this specification alone.</span>
-<span class="pill open">Open</span> <span class="small">(blocker; requires a quantified attack-resource
-analysis plus independent review)</span></div>
+<div class="rule" id="REC-03"><span class="rid">REC-03 — resistance analysis: what it costs to induce recovery, and what cannot be bounded</span>
+<span class="norm"><strong>Premises.</strong> Within the fault model — <code>A-CONS-1</code> (fewer than
+one third of the voting power is Byzantine), <code>A-CONS-2</code> (the network eventually delivers
+messages to honest validators), <code>A-DA-2</code> (data is served) and <code>A-L1-1</code> (L1 includes
+valid transactions) — the following all hold: (1) finalization continues with the honest
+supermajority; (2) proposer rotation prevents a leader from censoring indefinitely
+(<a href="02-consensus.html#CONS-06">CONS-06</a>); (3) data is served; (4) proving is permissionless and
+rewarded (<a href="04-l1-integration.html#L1-10">L1-10</a>); and (5) L1 includes valid transactions.
+Therefore batches keep landing, <code>T_STALL</code> never elapses, and a sub-threshold coalition
+<strong>cannot induce the trigger</strong>. <strong>What it would take.</strong> To induce the trigger an
+attacker must suppress <em>every</em> prover or censor the landing transaction at L1 — both outside the L2
+fault model: the absence of any prover is an availability failure rather than an attack inside
+<code>A-DA-2</code>, and L1 censorship contradicts <code>A-L1-1</code>. <strong>No selective
+rollback.</strong> Because recovery restores the checkpoint wholesale, there is no selective rollback: an
+attacker cannot revert one unfavourable transaction without destroying every L2 effect above that
+checkpoint, including their own. <strong>Residual, stated honestly.</strong> Off-chain profit from a
+rolled-back state is outside any protocol bound; an adversary who can censor L1 can attempt repeated
+recoveries, which the escalating bond and the cooldown make <em>expensive</em> but do not bound. Recovery
+is therefore a <strong>manipulation primitive with a price, not a free option</strong>.
+<strong>Falsifiers, stated explicitly.</strong> The argument fails if (a) proving ceases to be
+permissionless in practice; (b) <code>T_RECOVERY_DELAY</code> is shorter than the time an honest prover
+needs to land a batch; or (c) the bond were refundable on cancellation. <strong>Review
+requirement.</strong> This analysis requires independent review before the selection is treated as
+settled, and reviewers must attempt to break it. <em>(user decision D-7: the D2-step-5 blocker is
+replaced by this resistance analysis, whose premises, residuals and falsifiers are stated, with
+independent review still required.)</em></span>
+<span class="why">This analysis is an argument, not a proof, and it is only as strong as its premises:
+resistance to inducing the trigger is inherited from the L2 fault model, while L1-level censorship and
+genuine prover absence remain outside it. The residual is disclosed rather than hidden — repeated
+recovery by an L1-censoring adversary is priced, not prevented — and the falsifiers above are the
+conditions under which the argument must be withdrawn.</span>
+<span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span>
+<span class="pill open">Open</span> <span class="small">(premises <code>A-CONS-1</code>,
+<code>A-CONS-2</code>, <code>A-DA-2</code>, <code>A-L1-1</code>; independent review required before the
+D-7 selection is treated as settled — review round 4 must attempt to break it)</span></div>
 
 <h2 id="scenarios">Required scenario walk-throughs</h2>
 <table>
-<thead><tr><th>Scenario</th><th>Mode A behaviour</th><th>Requirement it stresses</th></tr></thead>
+<thead><tr><th>Scenario</th><th>Behaviour under the selected mode (D-7)</th><th>Requirement it stresses</th></tr></thead>
 <tbody>
-<tr><td>Halt after PoS finality but before proof submission</td><td>Settlement stalls; L2 may continue until the unsettled-depth cap binds, then halts. Finality is preserved. Another prover may complete the same batch (<a href="04-l1-integration.html#L1-10">L1-10</a>)</td><td>D6, R9, <a href="#HALT-03">HALT-03</a></td></tr>
-<tr><td>Unavailable validator quorum</td><td>Safe halt; no rollback; new entrants may join and continue from the tip if data is available</td><td>R6, <a href="#HALT-01">HALT-01</a></td></tr>
-<tr><td>Unavailable data for a finalized block</td><td>Safe halt, possibly permanent unless a holder returns. Disclosed as a liveness consequence, never repaired by rollback</td><td>Mode A, <code>A-CONS-5</code></td></tr>
-<tr><td>Fresh permissionless participants restarting the chain</td><td>They may resume only from the highest finalized block whose data and certificate they can reconstruct; they must not adopt an alternative history (<a href="#HALT-02">HALT-02</a>)</td><td>R1, R5</td></tr>
+<tr><td>Halt after PoS finality but before proof submission</td><td>Settlement stalls; L2 may continue until the unsettled-depth cap binds, then halts. History above the last L1 checkpoint is provisional. If no batch extending the checkpoint is accepted for <code>T_STALL</code>, any account may invoke recovery; acceptance of any valid batch cancels it and slashes the bond to the treasury (<a href="#REC-02">REC-02</a>)</td><td>D6, R9, <a href="#HALT-03">HALT-03</a>, <a href="#REC-02">REC-02</a></td></tr>
+<tr><td>Settlement stall past <code>T_STALL</code> (the recovery trigger)</td><td>Exactly one trigger: no batch extending the current checkpoint accepted for <code>T_STALL</code>. Any account may post the escalating bond; <code>T_RECOVERY_DELAY</code> runs; honest progress cancels and slashes; on completion the checkpoint is the current L1 checkpoint, late proofs are void and late certificates are evidence only (<a href="#REC-02">REC-02</a>, <a href="#REC-03">REC-03</a>)</td><td>D-7, <a href="#REC-02">REC-02</a>, <a href="#REC-03">REC-03</a></td></tr>
+<tr><td>Unavailable validator quorum</td><td>Safe halt; no replacement at or below the latest L1-accepted checkpoint. History above it is provisional, and a completed recovery restores the latest L1-accepted checkpoint so a new quorum can continue</td><td>R6, <a href="#HALT-01">HALT-01</a>, <a href="#REC-02">REC-02</a></td></tr>
+<tr><td>Unavailable data for a finalized block</td><td>Safe halt, possibly permanent unless a holder returns. If settlement stalls past <code>T_STALL</code>, permissionless recovery may discard the unprovable range above the checkpoint and restore the L1 checkpoint; history at or below the checkpoint is never repaired by rollback</td><td><a href="#REC-02">REC-02</a>, <code>A-CONS-5</code></td></tr>
+<tr><td>Fresh permissionless participants restarting the chain</td><td>They may resume only from the highest finalized block whose data and certificate they can reconstruct, or from the checkpoint restored by a completed recovery; they must never adopt an alternative history at or below the latest L1-accepted checkpoint (<a href="#HALT-02">HALT-02</a>)</td><td>R1, R5</td></tr>
 <tr><td>Expired or withdrawn validator keys</td><td>Keys are judged against the epoch set: a withdrawn key cannot vote in a later epoch, and cannot retroactively change votes it signed earlier (<a href="03-membership-staking.html#MEM-07">MEM-07</a>)</td><td>R11, <a href="02-consensus.html#CONS-08">CONS-08</a></td></tr>
-<tr><td>L1 censorship</td><td>L1 censorship stops data and proofs from landing; the chain reaches the unsettled-depth cap and halts safely, and the protocol offers no forced-inclusion escape. Sustained censorship is a disclosed limitation, not a protocol fault (<code>A-L1-1</code>; <a href="10-assurance.html#LIVE-04">LIVE-04</a>) <em>(user decision D-6: forced inclusion removed; this walk-through is re-based on LIVE-04)</em></td><td>R10, R6</td></tr>
-<tr><td>L1 reorganisation around an accepted batch</td><td>Only reorgs below Ethereum finality matter, and L2 consumes only Ethereum-final facts (<a href="01-system-model.html#SYS-02">SYS-02</a>); an L1 reorg never invalidates a PoS-finalized L2 block</td><td>R5, R12</td></tr>
+<tr><td>L1 censorship</td><td>L1 censorship stops data and proofs from landing; the chain reaches the unsettled-depth cap and halts safely, and the protocol offers no forced-inclusion escape. If it persists past <code>T_STALL</code>, recovery becomes available, and an adversary who can censor L1 can attempt repeated recoveries — the escalating bond and the cooldown make this expensive but do not bound it (<a href="#REC-03">REC-03</a>). Sustained censorship is a disclosed limitation, not a protocol fault (<code>A-L1-1</code>; <a href="10-assurance.html#LIVE-04">LIVE-04</a>) <em>(user decision D-6: forced inclusion removed; this walk-through is re-based on LIVE-04)</em></td><td>R10, R6, <a href="#REC-03">REC-03</a></td></tr>
+<tr><td>L1 reorganisation around an accepted batch</td><td>Only reorgs below Ethereum finality matter, and L2 consumes only Ethereum-final facts (<a href="01-system-model.html#SYS-02">SYS-02</a>); an L1 reorg never invalidates a PoS-finalized L2 block at or below the last Ethereum-finalized checkpoint — the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a> — while the recovery floor is the latest L1-accepted checkpoint (<a href="#REC-01">REC-01</a>)</td><td>R5, R12</td></tr>
 <tr><td>Proof delays beyond exit or freshness windows</td><td>Parameters are derived from the whole pipeline so a normal delay cannot outrun them (<a href="03-membership-staking.html#MEM-05">MEM-05</a>, <a href="09-parameters.html">09</a>)</td><td>D6, R11</td></tr>
-<tr><td>30-minute normal pipeline followed by one or more prover failures</td><td>Nothing special happens at 30 minutes; additional independent provers may take over; the cap eventually binds if no proof lands</td><td>D6, R9</td></tr>
-<tr><td>Delayed certificate vs missing certificate vs provable equivocation</td><td>Delayed: accept whenever it arrives. Missing: stall, never conclude. Equivocation: objective evidence and a penalty (<a href="07-economics-slashing.html#ECON-04">ECON-04</a>)</td><td>R11, <a href="#WH-02">WH-02</a></td></tr>
+<tr><td>30-minute normal pipeline followed by one or more prover failures</td><td>Nothing special happens at 30 minutes; additional independent provers may take over; the cap eventually binds if no proof lands, and a normal 30-minute proof is not misconduct and is not grounds for recovery (<a href="#HALT-03">HALT-03</a>)</td><td>D6, R9</td></tr>
+<tr><td>Delayed certificate vs missing certificate vs provable equivocation</td><td>Delayed: accept whenever it arrives. Missing: stall, never conclude. Equivocation: objective evidence and a penalty (<a href="07-economics-slashing.html#ECON-04">ECON-04</a>). Above a restored checkpoint a late certificate is void canonically but still admissible as evidence (<a href="#REC-02">REC-02</a>)</td><td>R11, <a href="#WH-02">WH-02</a></td></tr>
 </tbody></table>
+<p class="small"><em>(user decision D-7: the walk-throughs above are re-based from "halt, never roll back"
+onto the selected recovery mode; at or below the latest L1-accepted checkpoint nothing changes, and
+Ethereum finality remains the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>.)</em></p>
 
 </main>
 <footer class="site"><p>Etna PoS + ZK reference specification · <a href="index.html">rule index</a> · <a href="../learn/index.html">learning course</a></p></footer>

@@ -49,14 +49,16 @@ unmeasured placeholder. Where this page and the <a href="../spec/index.html">spe
 <p>A design earns trust by stating its own boundary. This page is that boundary: the guarantees the design does not make, the duties it
 does not enforce, and the dependencies it cannot remove. None of these is a temporary gap to be read past &mdash; each is part of the
 design as it stands.</p>
-<p>Two of them matter more than the rest for anyone sizing exposure. The protocol provides <strong>no forced-inclusion path</strong>, so
-a network-level adversary that can isolate a user can exclude that user&rsquo;s transactions indefinitely &mdash; including preventing
-the user from starting a withdrawal. And when the assumptions needed to continue safely are missing, the chain <strong>halts</strong>
-rather than rolling back; a halt can be long, and the design permits it to be permanent.</p>
+<p>Two of them matter more than the rest for anyone sizing exposure. The protocol provides <strong>no forced-inclusion path</strong> in
+this version, so a network-level adversary that can isolate a user can exclude that user&rsquo;s transactions indefinitely &mdash;
+including preventing the user from starting a withdrawal; forced inclusion is planned as a later protocol update, and recovery is not
+an inclusion remedy. And a confirmation above the last batch accepted on Ethereum is <strong>provisional</strong>: a bonded, delayed,
+permissionless recovery can replace that unsettled history. <em>(user decisions D-7 and D-10: recovery selected, forced inclusion
+deferred)</em></p>
 
 <h2 id="diagram">What each guarantee rests on</h2>
 <figure>
-<svg viewBox="0 0 960 330" role="img" aria-label="Five assumptions on the left, the guarantee each supports, and the consequence of failure on the right: a halt, no remedy, or an unpriced risk.">
+<svg viewBox="0 0 960 330" role="img" aria-label="Five assumptions on the left, the guarantee each supports, and the consequence of failure on the right: provisional history, no remedy, or an unpriced risk.">
   <defs>
     <marker id="arL" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker>
   </defs>
@@ -68,7 +70,7 @@ rather than rolling back; a halt can be long, and the design permits it to be pe
     <rect x="16" y="262" width="440" height="52" rx="8" stroke="#9a6700"/>
   </g>
   <text x="30" y="37" fill="#24292f" font-size="11">Fewer than one third of stake is malicious, and enough validators are online</text>
-  <text x="30" y="54" fill="#59636e" font-size="9">supports: PoS safety and continued finality</text>
+  <text x="30" y="54" fill="#59636e" font-size="9">supports: PoS safety and continued certification (provisional above the checkpoint)</text>
   <text x="30" y="97" fill="#24292f" font-size="11">Somebody retains the batch data until the proof lands</text>
   <text x="30" y="114" fill="#59636e" font-size="9">supports: settlement ever happening</text>
   <text x="30" y="157" fill="#24292f" font-size="11">Ethereum keeps producing and finalizing blocks</text>
@@ -79,10 +81,10 @@ rather than rolling back; a halt can be long, and the design permits it to be pe
   <text x="30" y="300" fill="#59636e" font-size="9">supports: safe sync by a new node, and the rules themselves</text>
   <rect x="580" y="30" width="364" height="120" rx="8" fill="#ffebe9" stroke="#5c2630"/>
   <text x="596" y="54" fill="#cf222e" font-size="12">If a liveness assumption fails</text>
-  <text x="596" y="76" fill="#24292f" font-size="10">the chain halts safely and waits; there is no</text>
-  <text x="596" y="93" fill="#24292f" font-size="10">rollback, no degraded mode and no emergency</text>
-  <text x="596" y="110" fill="#24292f" font-size="10">operator. A halt can last a long time, and it may</text>
-  <text x="596" y="127" fill="#24292f" font-size="10">be permanent.</text>
+  <text x="596" y="76" fill="#24292f" font-size="10">settlement can stall; confirmations above the last</text>
+  <text x="596" y="93" fill="#24292f" font-size="10">accepted checkpoint are provisional, and anyone</text>
+  <text x="596" y="110" fill="#24292f" font-size="10">may start a bonded, delayed recovery. A stall over</text>
+  <text x="596" y="127" fill="#24292f" font-size="10">data below the checkpoint still halts, possibly for good.</text>
   <rect x="580" y="170" width="364" height="120" rx="8" fill="#fff8e5" stroke="#5c4a1c"/>
   <text x="596" y="194" fill="#9a6700" font-size="12">If a safety or funding assumption fails</text>
   <text x="596" y="216" fill="#24292f" font-size="10">the guarantees do not apply and no rule repairs</text>
@@ -96,7 +98,8 @@ rather than rolling back; a halt can be long, and the design permits it to be pe
   <line x1="460" y1="288" x2="576" y2="250" stroke="#0969da" marker-end="url(#arL)"/>
 </svg>
 <figcaption>Left: what has to hold. Right: what failure looks like. None of it is repaired by a validity proof &mdash; a proof shows a
-transition is correct, not that the premises were met.</figcaption>
+transition is correct, not that the premises were met, and a recovery replaces unsettled history rather than repairing a broken premise.
+<em>(user decision D-7: Mode B selected)</em></figcaption>
 </figure>
 
 <h2 id="list">The honest list</h2>
@@ -107,13 +110,35 @@ transition is correct, not that the premises were met.</figcaption>
 market quantity of this design is <strong>unmeasured</strong>. The only measured-looking numbers in the course are Ethereum constants
 copied from published standards, and even those are properties of Ethereum rather than of this design.</p>
 
-<h3>The chain halts instead of rolling back</h3>
-<p>If the information or participation needed to continue safely is missing &mdash; too much of the validator set offline, a
-certificate withheld, data unavailable, proofs falling behind the cap on unsettled depth &mdash; correct participants stop rather than
-choose between histories. History that was finalized is never rewritten, and there is no recovery path that invalidates it, no
-emergency operator and no DAO rescue in ordinary operation. The price is that a halt can be long, and the design explicitly permits it
-to be permanent. Production also backpressures before that point: validators refuse to vote past the unsettled-depth cap, and a
-violation of that cap is not objectively punishable at L1 &mdash; its only enforcement is honest compliance.</p>
+<h3>Confirmations are provisional above the last accepted checkpoint</h3>
+<p>A PoS confirmation is not settlement. Every height above the last batch accepted on Ethereum can be replaced by a recovery: a
+permissionless, bonded, delayed L1 action that discards the unsettled range and resumes from that checkpoint. Ethereum-final
+checkpoints and accepted batches are never touched; a rolled-back L2 transaction is not replayed automatically and must be resubmitted,
+and off-chain losses are not compensated. Where recovery cannot help &mdash; data for a block at or below the accepted checkpoint is
+gone, the validator set is unavailable, or the stake assumption has failed &mdash; correct participants still halt, and a halt can be
+permanent. Production also backpressures before that point: validators refuse to vote past the unsettled-depth cap, and a violation of
+that cap is not objectively punishable at L1 &mdash; its only enforcement is honest compliance. <em>(user decision D-7: Mode B
+selected)</em></p>
+
+<h3>Off-chain loss exposure has no universal bound</h3>
+<p>Recovery replaces inclusions, ordering, balances and bridge messages that were only provisional, and any economic position built on
+them. The design states no universal bound on that loss and offers no compensation: penalties debit an offender&rsquo;s stake and are not
+a claims channel. The rollback depth is bounded by the unsettled-depth cap while the cap is enforced, but the cap is not a bound on
+loss. <em>(user decision D-7: Mode B selected)</em></p>
+
+<h3>Recovery is a manipulation primitive with a price</h3>
+<p>Because a settlement stall triggers recovery, an adversary who can cause or prolong a stall may be able to replace unfavourable
+unsettled history. The defences are the bond, the delay, cancellation by any valid batch, a penalty that sends the bond to the protocol
+treasury rather than back to the invoker, and the escalating-bond and cooldown limits on repeated recovery; within the stated L2 fault
+model a sub-threshold coalition cannot by itself force the trigger. The attempt is never free, but the design does not claim attempts
+are impossible, and it does not bound the off-chain profit of a successful manipulation. <em>(user decisions D-7 and D-9: Mode B
+selected, penalties go to the treasury)</em></p>
+
+<h3>The recovery-safety argument has conditions</h3>
+<p>The argument that recovery cannot be cheaply abused would fail if L1-level censorship keeps valid batches from landing for the whole
+delay, if no prover exists at all for the stalled range, or if the recovery parameters are mis-set relative to the measured proving and
+settlement pipeline. Those are the conditions under which it would fail; the argument is not a proof, and no rate or cost in
+it is measured. <em>(user decision D-7: Mode B selected)</em></p>
 
 <h3>Data retention is an assumption, not an enforced duty</h3>
 <p>Settlement requires that somebody still holds a batch&rsquo;s data and the witness needed to prove it. Retention is a
@@ -130,12 +155,17 @@ isolate a user from every honest proposer can exclude that user&rsquo;s transact
 an L2 transaction, the same adversary can prevent the user from <em>starting</em> a withdrawal. The protocol offers no remedy. Proposer
 selection is fully predictable, so buying or coercing the proposer of one specific slot is possible and no rule prices, detects or
 penalises it.</p>
+<p>Recovery is not an inclusion remedy. It can replace history that was only provisional, but it cannot put a transaction into a block
+or compel any proposer to include one, so it does not lift an exclusion. Forced inclusion is planned as a later protocol update; until
+that upgrade ships, this version has no L1 path by which a user can force a transaction into L2. <em>(user decision D-10: forced
+inclusion deferred)</em></p>
 
 <h3>Rewards depend on a funded pool</h3>
-<p>Validator and prover rewards are ETH, and they can only be paid out of ETH that has actually flowed into the reward pool. How L2 fee
-revenue reaches that pool is <strong>not specified</strong>; until that path exists the pool has no inflow, the per-epoch allocation is
-zero and no validator reward is payable. What an unfunded schedule does is not quietly shrink: the validator count falls through the
-objective exit path, or the chain halts. The subsidy, if one is funded, is bounded, expiring and netted out of the same inflow &mdash;
+<p>Validator and prover rewards are ETH, and they can only be paid out of ETH that has actually flowed into the reward pool. L2
+execution and priority fees are the funding source: the L2 fee vault is swept across the preserved Bridge into the L1 reward pool on a
+fixed cadence, so the honest consequences are that rewards lag the settlement pipeline, an empty pool pays nothing, and a bridging
+failure stops rewards rather than creating a claim on future revenue. <em>(user decision D-8: security funded from L2 fees)</em> What
+an unfunded schedule does is not quietly shrink: the validator count falls through the objective exit path, or the chain halts. The subsidy, if one is funded, is bounded, expiring and netted out of the same inflow &mdash;
 it is not a second funding source. TAIKO has no mint path today, so paying rewards in new TAIKO would require a token upgrade and is not
 a standing source. No rule may be conditioned on TAIKO&rsquo;s price rising, and there is no verified price, float or liquidity data in
 this design.</p>
@@ -178,7 +208,11 @@ malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
 <h2 id="gives">What this gives you</h2>
 <ul>
 <li>A clear boundary: which claims are arguments, which are arithmetic, and which numbers simply do not exist yet.</li>
-<li>An explicit statement that the chain halts rather than rewriting finalized history, and that the halt may be permanent.</li>
+<li>An explicit statement that a settled checkpoint is never rewritten while everything above it is provisional and can be replaced
+by a bonded, delayed recovery &mdash; and that where recovery cannot help, a halt can still be permanent.
+<em>(user decision D-7: Mode B selected)</em></li>
+<li>A priced recovery mechanism: anyone may start it, honest progress cancels it, and a cancelled attempt sends the invoker&rsquo;s bond to
+the protocol treasury.</li>
 <li>A precise statement of the inclusion limit: statistical resistance only, with no L1 escape path and no remedy against isolation.</li>
 <li>The dependencies named &mdash; retention, funding, weak subjectivity, governance &mdash; so they can be monitored and priced deliberately.</li>
 </ul>
@@ -187,16 +221,18 @@ malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
 <ul>
 <li>No implementation, deployment, audit, benchmark or model to point at.</li>
 <li>No measurement of any performance, cost or economic quantity of this design.</li>
-<li>No rollback, no recovery path over finalized history, no emergency operator and no degraded mode.</li>
+<li>No rewrite of settled history, no emergency operator and no degraded mode &mdash; but also no compensation for the off-chain losses
+a recovery can cause, and no universal bound on them.</li>
 <li>No inclusion guarantee, no retention enforcement and no compensation for loss.</li>
 <li>No protection against a malicious upgrade, or against a proof-system or cryptographic failure.</li>
 </ul>
 
 <h2 id="check">Check yourself</h2>
-<details><summary>The chain halts for a week. What does the design do about it?</summary>
-<p>Nothing automatic. It waits: correct participants stop rather than rewriting finalized history, and recovery means restoring the
-missing premise &mdash; validators back online, data served, proofs landed, a fresh checkpoint accepted on L1. If the missing premise
-never returns, the halt can be permanent. There is no rollback, no emergency operator and no DAO rescue in ordinary operation.</p></details>
+<details><summary>Settlement stalls for a week. What does the design do about it?</summary>
+<p>After the stall threshold, anyone may start a recovery by posting a bond. It waits for the delay, is cancelled by any valid batch
+(and the bond goes to the treasury), and otherwise replaces everything above the last checkpoint accepted on Ethereum and resumes from
+there. A transaction rolled back that way is not replayed automatically. If instead the missing ingredient is data at or below the
+accepted checkpoint, recovery cannot help and the halt can be permanent. <em>(user decision D-7: Mode B selected)</em></p></details>
 <details><summary>A user is isolated from every honest proposer. Can they withdraw anyway?</summary>
 <p>No. There is no forced-inclusion path, and a withdrawal is started by an L2 transaction, so an adversary that can keep the user&rsquo;s
 transactions away from every honest proposer can prevent the withdrawal from starting. The protocol offers no remedy; the honest
@@ -215,6 +251,8 @@ latency, throughput, operator cost, fee revenue, reward rates, evidence and with
 <li>The reward pool is funded by L2 fee revenue or a recorded top-up; otherwise no reward is payable.</li>
 <li>A fresh, Ethereum-final L1 checkpoint is available to a new node, and governance does not execute an upgrade that breaks these
 rules.</li>
+<li>The recovery trigger, bond, delay and cancellation values are unmeasured, and the argument that they cannot be abused rests on
+stated conditions rather than on measurement. <em>(user decision D-7: Mode B selected)</em></li>
 </ul>
 </div>
 

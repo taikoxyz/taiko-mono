@@ -35,8 +35,9 @@
 <h1>When things go wrong</h1>
 <p class="muted">This lesson gives you the failure-handling rules: what happens when a proposer hides a
 block, when votes or certificates do not arrive, when a set goes offline, when data cannot be found or
-when no prover finishes &mdash; and why the design stops instead of rewriting history. This is a design
-description; none of it is implemented, measured, audited or deployed.</p>
+when settlement stalls &mdash; and the guarantee class that follows: a confirmation above the last batch
+accepted on Ethereum is <strong>provisional</strong>, and a bonded, delayed, permissionless recovery can
+replace it. This is a design description; none of it is implemented, measured, audited or deployed.</p>
 
 <h2>The idea</h2>
 <p>Failures are ordinary inputs to this protocol, not exceptions bolted on afterwards. Two rules do
@@ -46,17 +47,41 @@ what it does &mdash; retry, change the view, halt &mdash; but it may not conclud
 certificate or a block does not exist somewhere else, and it may not invalidate anything
 (<a href="../spec/index.html#STATUS-10">STATUS-10</a>). A certificate that is revealed after everyone
 gave up is still the valid certificate.</p>
-<p><strong>A validator&rsquo;s lock keeps two histories from both being finalized.</strong> A validator
+<p><strong>A validator&rsquo;s lock keeps two histories from both being certified.</strong> A validator
 that precommits a block at a height is locked on it. It will not prevote a conflicting block at that
 height unless it sees a proof-of-lock-change at the same height and a strictly later round
-(<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>). A finalized height implies more than a third
-of the voting power is honest and locked, so a conflicting finality would need those validators to
+(<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>). A certified height implies more than a third
+of the voting power is honest and locked, so a conflicting certificate would need those validators to
 break the lock &mdash; which is exactly the behaviour the rule forbids and slashing punishes.</p>
-<p>And when the protocol cannot continue without choosing between histories, it <strong>halts</strong>.
-No timeout, rotation, admission rule or upgrade may lower the accepted checkpoint or replace a
-finalized block (<a href="../spec/06-recovery-exceptions.html#REC-01">REC-01</a>). A halt is a correct
-outcome: it preserves the guarantee that a finalized block is permanent, at the cost of liveness until
-the missing ingredient returns.</p>
+<p><strong>A confirmation above the last batch accepted on Ethereum is provisional.</strong> The L2
+certificate is real, and more than two thirds of the epoch&rsquo;s voting power signed it; but until the batch
+carrying it is accepted on L1 with its proof, the protocol&rsquo;s own rules can replace it. That is the
+guarantee class this design selected, and every interface that shows such a confirmation must say so
+(<a href="../spec/index.html#STATUS-04">STATUS-04</a>, <a href="../spec/index.html#STATUS-11">STATUS-11</a>).
+<em>(user decision D-7: Mode B selected)</em></p>
+<p><strong>A settlement stall is the one thing that triggers a recovery.</strong> A stall means that no
+batch extending the current L1 checkpoint has been accepted for <code>T_STALL</code> &mdash; long enough that
+a normal slow proof, or a single prover failure inside the normal envelope, cannot be the explanation
+(<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>). Anyone may then start a recovery,
+permissionlessly, by posting a bond on L1. There is no operator, no DAO vote and no validator quorum in the
+path.</p>
+<p><strong>The recovery is delayed, and honest progress cancels it.</strong> It takes effect only after
+<code>T_RECOVERY_DELAY</code>. If any valid batch extending the current checkpoint is accepted during that
+window, the recovery is cancelled &mdash; and the invoker&rsquo;s bond is slashed to the protocol treasury,
+so trying is not free. A certificate or a proof for a discarded height does not cancel it, because those
+heights are by construction not yet settled.</p>
+<p><strong>When it completes, unsettled history is replaced.</strong> Everything above the last checkpoint
+accepted on Ethereum &mdash; inclusions, ordering, balances and bridge messages that were only provisional
+&mdash; is discarded, and the chain resumes from that checkpoint. Checkpoints and batches already accepted
+on Ethereum are never touched, and neither is anything below them. A rolled-back L2 transaction is
+<strong>not replayed automatically</strong>: it must be resubmitted, and inclusion is not guaranteed.
+Off-chain losses are <strong>not compensated</strong> by any protocol penalty
+(<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
+<p><strong>Where recovery cannot help, the chain still halts.</strong> Halting remains the correct action
+for missing data at or below the accepted checkpoint, for a missing validator-set commitment, for an L1 view
+that disagrees with consensus, and for a failure of the stake assumption. In those cases no rule-legal
+action can restore progress, and a halt can be permanent
+(<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>).</p>
 
 <h2>Situation &rarr; correct action</h2>
 <figure>
@@ -65,19 +90,20 @@ the missing ingredient returns.</p>
 <text x="20" y="24" fill="#59636e" font-size="12">SITUATION</text> <text x="360" y="24" fill="#59636e" font-size="12">CORRECT ACTION</text> <rect x="20" y="36" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="59" fill="#24292f" font-size="12">Proposer hides the block body</text>
 <text x="34" y="78" fill="#59636e" font-size="10">selective distribution</text> <rect x="360" y="36" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="374" y="59" fill="#24292f" font-size="11">Do not vote. Ask peers for the body. After the round budget, prevote nil</text> <text x="374" y="78" fill="#24292f" font-size="11">and let the view change select the next proposer.</text> <path d="M320 64 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
 <rect x="20" y="102" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="125" fill="#24292f" font-size="12">Votes or the certificate</text> <text x="34" y="144" fill="#24292f" font-size="12">do not arrive</text> <rect x="360" y="102" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/>
-<text x="374" y="125" fill="#24292f" font-size="11">Keep the lock. Retry. Accept the certificate whenever it arrives, and never</text> <text x="374" y="144" fill="#24292f" font-size="11">finalize a conflicting block at that height. A timeout proves nothing.</text> <path d="M320 130 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="168" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/>
-<text x="34" y="191" fill="#24292f" font-size="12">An entire validator set</text> <text x="34" y="210" fill="#24292f" font-size="12">goes offline</text> <rect x="360" y="168" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="374" y="191" fill="#24292f" font-size="11">No quorum, no finality. Correct validators halt, stop signing and keep their</text> <text x="374" y="210" fill="#24292f" font-size="11">state. They do not fork and they do not adopt a lower checkpoint.</text>
-<path d="M320 196 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="234" width="300" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="34" y="257" fill="#24292f" font-size="12">Data for a finalized or locked</text> <text x="34" y="276" fill="#24292f" font-size="12">block cannot be obtained</text>
-<rect x="360" y="234" width="580" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="374" y="257" fill="#24292f" font-size="11">Halt safely and keep serving what you hold. Do not roll back. If a holder</text> <text x="374" y="276" fill="#24292f" font-size="11">returns with the data, the chain resumes; if not, the halt can be permanent.</text> <path d="M320 262 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
-<rect x="20" y="300" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="323" fill="#24292f" font-size="12">No prover finishes</text> <text x="34" y="342" fill="#59636e" font-size="10">the proof never lands</text> <rect x="360" y="300" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="374" y="323" fill="#24292f" font-size="11">Settlement stalls; another permissionless prover may take over. Unsettled</text>
-<text x="374" y="342" fill="#24292f" font-size="11">depth grows, the cap binds, production stops, withdrawals wait.</text> <path d="M320 328 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="366" width="300" height="56" rx="8" fill="#ffebe9" stroke="#5c2630"/> <text x="34" y="389" fill="#24292f" font-size="12">Two conflicting certificates</text>
+<text x="374" y="125" fill="#24292f" font-size="11">Keep the lock. Retry. Accept the certificate whenever it arrives, and never</text> <text x="374" y="144" fill="#24292f" font-size="11">certify a conflicting block at that height. A timeout proves nothing.</text> <path d="M320 130 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="168" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/>
+<text x="34" y="191" fill="#24292f" font-size="12">An entire validator set</text> <text x="34" y="210" fill="#24292f" font-size="12">goes offline</text> <rect x="360" y="168" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="374" y="191" fill="#24292f" font-size="11">No quorum, no certificate. Correct validators halt, stop signing and keep their</text> <text x="374" y="210" fill="#24292f" font-size="11">state. They do not fork and they do not adopt a lower checkpoint.</text>
+<path d="M320 196 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="234" width="300" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="34" y="257" fill="#24292f" font-size="12">Data for a certified or locked</text> <text x="34" y="276" fill="#24292f" font-size="12">block cannot be obtained</text>
+<rect x="360" y="234" width="580" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="374" y="257" fill="#24292f" font-size="11">Halt safely and keep serving what you hold. Recovery cannot replace this:</text> <text x="374" y="276" fill="#24292f" font-size="11">the data is at or below the checkpoint. If no holder returns, the halt can be permanent.</text> <path d="M320 262 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
+<rect x="20" y="300" width="300" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="34" y="323" fill="#24292f" font-size="12">Settlement stalls</text> <text x="34" y="342" fill="#59636e" font-size="10">no batch accepted for T_STALL</text> <rect x="360" y="300" width="580" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="374" y="323" fill="#24292f" font-size="11">Anyone may post a bond and start a recovery. It waits for a delay, is cancelled by any</text>
+<text x="374" y="342" fill="#24292f" font-size="11">valid batch (bond slashed to the treasury), and otherwise replaces history above the checkpoint.</text> <path d="M320 328 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="366" width="300" height="56" rx="8" fill="#ffebe9" stroke="#5c2630"/> <text x="34" y="389" fill="#24292f" font-size="12">Two conflicting certificates</text>
 <text x="34" y="408" fill="#24292f" font-size="12">at one height</text> <rect x="360" y="366" width="580" height="56" rx="8" fill="#ffebe9" stroke="#5c2630"/> <text x="374" y="389" fill="#24292f" font-size="11">The assumptions failed. Halt, publish both signed certificates as evidence,</text> <text x="374" y="408" fill="#24292f" font-size="11">and never choose a branch. Do not delegate the choice to an operator.</text> <path d="M320 394 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
 <rect x="20" y="432" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="455" fill="#24292f" font-size="12">The needed L1 fact or set</text> <text x="34" y="474" fill="#24292f" font-size="12">commitment is missing</text> <rect x="360" y="432" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/>
-<text x="374" y="455" fill="#24292f" font-size="11">Halt at the highest finalized block and wait. Never continue on an</text> <text x="374" y="474" fill="#24292f" font-size="11">unauthenticated set and never take a set from an unfinalized L1 block.</text> <path d="M320 460 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="504" width="920" height="44" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/>
-<text x="34" y="524" fill="#1a7f37" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; lower the accepted checkpoint &middot;</text> <text x="34" y="541" fill="#1a7f37" font-size="11">replace a finalized block &middot; let a privileged party choose a history or clear a halt.</text>
+<text x="374" y="455" fill="#24292f" font-size="11">Halt at the highest certified block and wait. Never continue on an</text> <text x="374" y="474" fill="#24292f" font-size="11">unauthenticated set and never take a set from an unfinalized L1 block.</text> <path d="M320 460 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="504" width="920" height="44" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/>
+<text x="34" y="524" fill="#1a7f37" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; touch a checkpoint or batch accepted on Ethereum &middot;</text> <text x="34" y="541" fill="#1a7f37" font-size="11">let a privileged party choose a history &middot; let an invoker keep the bond after a cancelled recovery.</text>
 </svg>
-<figcaption>Every situation has one rule-legal action. None of them is &ldquo;roll back&rdquo; and none of them
-is &ldquo;ask an operator&rdquo;.</figcaption>
+<figcaption>Every situation has one rule-legal action. For a settlement stall it is the bonded, delayed
+recovery &mdash; never an operator, and never a rewrite of accepted history. <em>(user decision D-7: Mode B
+selected)</em></figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -93,7 +119,7 @@ alone justifies slashing.</p>
 <tr><td>Block body</td><td>None: a validator never votes for a block it has not received and validated</td><td>A height cannot advance if fewer than two thirds can obtain the body</td><td>Do not vote; request the body; after the round budget prevote nil and let the view change</td></tr>
 <tr><td>Individual votes</td><td>None</td><td>Delays certificate formation</td><td>Continue; the round completes when more than two thirds are collected</td></tr>
 <tr><td>Aggregate signatures</td><td>None: the lock rule prevents a conflicting later commit</td><td>Stalls the height until a new round</td><td>View change; the next proposer re-proposes. Votes are gossiped independently of the aggregator</td></tr>
-<tr><td>Finality certificate</td><td>None while fewer than a third of power double-signs</td><td>Nodes that have not seen it may try to change view</td><td>Keep the lock; retry; accept the certificate whenever it arrives; never finalize a conflicting block</td></tr>
+<tr><td>Finality certificate</td><td>None while fewer than a third of power double-signs</td><td>Nodes that have not seen it may try to change view</td><td>Keep the lock; retry; accept the certificate whenever it arrives; never certify a conflicting block</td></tr>
 <tr><td>Validator-transition certificate</td><td>None: the transition is authenticated by header fields and the L1 set root</td><td>Can block entry to a new epoch</td><td>Do not enter the new epoch without the authenticated set; halt if it never arrives</td></tr>
 <tr><td>Execution witness</td><td>None</td><td>Prevents independent proving</td><td>A prover that cannot reconstruct the witness must report it, not pretend the batch is provable</td></tr>
 <tr><td>Completed proof</td><td>None</td><td>Prevents settlement of that batch and everything after it in order</td><td>Any prover may produce a proof for the same data commitment and land it; a slow proof is not misconduct</td></tr>
@@ -113,7 +139,7 @@ about what exists elsewhere. Silence is not provable.</p>
 It is <strong>per height</strong>: it constrains votes at that height only, it survives a restart while
 the height is unresolved, and it is released in exactly two ways:</p>
 <ul>
-<li>the height commits &mdash; once <code>H</code> is finalized the lock has done its work; or</li>
+<li>the height commits &mdash; once <code>H</code> commits the lock has done its work; or</li>
 <li>the validator sees a proof-of-lock-change at the same height <code>H</code>, for a different value,
 at a round strictly later than its <code>locked_round</code> and earlier than the current round.</li>
 </ul>
@@ -130,11 +156,11 @@ same height. The lock rule says the honest ones never do. A certificate that exi
 published can delay a node that has not seen it; it cannot displace a decision.</p>
 
 <h3>Halt: what it is, and what it costs</h3>
-<p>A correct validator halts &mdash; stops signing and stops advancing its finalized view &mdash; when
+<p>A correct validator halts &mdash; stops signing and stops advancing its certified view &mdash; when
 any of the following holds and no rule-legal action can resolve it
 (<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>):</p>
 <ul>
-<li>it cannot obtain the data for a finalized or locked block;</li>
+<li>it cannot obtain the data for a certified or locked block;</li>
 <li>it cannot obtain a quorum for a height within the timeout ladder;</li>
 <li>the L1 facts it must consume are not yet Ethereum-final, or its L1 view disagrees with the consensus
 view;</li>
@@ -146,28 +172,62 @@ serving what it has and keeps its state so it can resume. There is no emergency 
 override and no governance rescue that can advance, rewind or replace the checkpoint
 (HALT-04). If progress needs information that
 no rule-legal action can obtain, the protocol says so and stops.</p>
+<p>A pure settlement stall is different: it has a rule-legal action, the recovery. Halting remains the
+correct outcome when the missing ingredient is data or participation that recovery cannot replace
+&mdash; anything at or below the last checkpoint accepted on Ethereum. <em>(user decision D-7: Mode B
+selected)</em></p>
 
-<h3>What a safe halt means for users and operators</h3>
+<h3>Recovery, step by step</h3>
+<ol>
+<li><strong>Trigger.</strong> Only one condition starts it: a <em>settlement stall</em> &mdash; no batch
+extending the current L1 checkpoint has been accepted for <code>T_STALL</code>. The threshold is derived
+from the proof envelope plus witness generation, queueing, L1 inclusion and a margin, and it is strictly
+larger than the envelope, so a normal slow proof cannot trigger it.</li>
+<li><strong>Invocation.</strong> Anyone posts a bond in an L1 transaction containing only the claim and
+the bond. No DAO, operator or validator quorum is involved, and the invoker does not choose the restored
+checkpoint, the validator set or any configuration value.</li>
+<li><strong>Delay and cancellation.</strong> The recovery takes effect only after
+<code>T_RECOVERY_DELAY</code>. Acceptance of any valid batch extending the current checkpoint during that
+window cancels it and sends the bond to the protocol treasury. The reveal of a certificate or proof for a
+discarded height does not cancel it, because those heights are not yet settled.</li>
+<li><strong>Completion.</strong> Everything above the last checkpoint accepted on Ethereum is replaced,
+and the chain resumes from it, re-entering the epoch schedule at that point with whatever validator set
+the L1 staking contract already fixes. Ethereum-final checkpoints and accepted batches are untouched.</li>
+<li><strong>Afterwards.</strong> A late proof for a discarded height is void above the restored checkpoint,
+though its data commitment may be reused against it; a late certificate remains usable as evidence. A
+rolled-back transaction is not replayed and must be resubmitted. Repeated recovery is limited by an
+escalating bond and a cooldown.</li>
+</ol>
+<p><em>(user decision D-7: Mode B selected)</em></p>
+
+<h3>What a halt, and what a recovery, mean for users</h3>
 <ul>
-<li><strong>Funds are not lost; exit is delayed.</strong> A withdrawal needs the settlement pipeline to
-resume. A halt delays withdrawals indefinitely while nothing is forfeited
+<li><strong>Below the accepted checkpoint, funds are not lost; exit is delayed.</strong> A withdrawal
+needs the settlement pipeline to resume. A halt delays withdrawals while nothing is forfeited
 (MSG-03).</li>
-<li><strong>L1-accepted messages stay valid.</strong> Anything already anchored to an accepted
-checkpoint remains authenticated.</li>
+<li><strong>Above the accepted checkpoint, a confirmation can be replaced.</strong> A recovery discards
+that range and resumes from the last checkpoint accepted on Ethereum. A transaction in the replaced range
+is not replayed automatically and must be resubmitted. <em>(user decision D-7: Mode B selected)</em></li>
+<li><strong>Accepted history stays valid.</strong> Anything already anchored to a checkpoint or batch
+accepted on L1 remains authenticated, and recovery may not touch it.</li>
+<li><strong>Off-chain losses are not compensated.</strong> A trade, a signed message or a position built
+on a provisional confirmation has no protocol remedy
+(<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
 <li><strong>Validators are not punished for halting.</strong> Halting is the required behaviour when
 the rules say so.</li>
 <li><strong>Operators must not improvise.</strong> &ldquo;Unsticking&rdquo; the chain by publishing
-data without a proof, rewriting the checkpoint, or picking a branch converts a safe halt into an
-unsafe restart. The only legitimate actions are the rule-legal ones.</li>
-<li><strong>The halt may be permanent.</strong> If every holder of a finalized block&rsquo;s data has
-disappeared, nothing in the protocol can reconstruct it, and no rollback is permitted. That is a
-disclosed liveness cost of permanent finality.</li>
+data without a proof, or picking a branch, converts a safe halt into an unsafe restart. The only
+legitimate actions are the rule-legal ones, and for a settlement stall the rule-legal action is the
+published recovery.</li>
+<li><strong>A halt below the checkpoint may still be permanent.</strong> If every holder of an accepted
+block&rsquo;s data has disappeared, nothing in the protocol can reconstruct it, and recovery may not
+replace accepted history. That is a disclosed liveness cost of permanent settlement.</li>
 </ul>
 
 <h3>Restarting afterwards</h3>
-<p>After a halt, a correct participant resumes only from the <strong>highest finalized block whose data
+<p>After a halt, a correct participant resumes only from the <strong>highest certified block whose data
 and certificate it can independently reconstruct</strong> (<a href="../spec/06-recovery-exceptions.html#HALT-02">HALT-02</a>).
-It never adopts an alternative history at a height it has already finalized, and it never treats a
+It never adopts an alternative history at a height it has already certified, and it never treats a
 timeout during the halt as evidence that a certificate does not exist. On restart four rules apply:</p>
 <ol>
 <li>Each validator enforces a signed-message uniqueness check over its own signing history: no message
@@ -177,17 +237,27 @@ must not sign &mdash; lost memory is treated as a signing fault, not as a fresh 
 <li>A resuming validator re-verifies the epoch and the validator set for the height it is resuming at
 instead of trusting its cache.</li>
 <li>Replayed historical messages are rejected: every vote carries its epoch and round, and receiving
-rules reject messages for heights already finalized.</li>
+rules reject messages for heights already certified.</li>
 <li>A resumed node&rsquo;s first act is a data-and-certificate sync, not a proposal.</li>
 </ol>
+<p>Recovery is not a restart of settled history: it restores the last checkpoint accepted on Ethereum and
+resumes from there, and HALT-02&rsquo;s rules still govern what a node may do at heights it has already
+certified. <em>(user decision D-7: Mode B selected)</em></p>
 
-<h3>Why halt rather than roll back a finalized block</h3>
-<p>Rolling back one finalized block is not a local repair. It means deciding between two histories,
-which the protocol has no rule for; it would retroactively invalidate state that users, proofs and
-bridge messages were told was permanent; and it would change the design&rsquo;s guarantee from
-irreversible finality to provisional confirmation. So the design contains no mechanism that lowers the
-checkpoint, and the honest response to a situation that would require one is to stop. Halting keeps the
-safety property intact and pays in liveness; a rollback would pay with the property itself.</p>
+<h3>Why unsettled history is replaced instead of halting forever</h3>
+<p>An unbounded halt is not free: if settlement stops and nothing in the protocol can restart it, the
+chain stops serving users, and the only remedies are outside the protocol. The selected design keeps the
+settled part settled and makes the unsettled part explicitly provisional. A checkpoint or batch accepted
+on Ethereum is never rewritten; history above it can be replaced by a bonded, delayed, permissionless
+recovery whose invoker pays if honest progress arrives. That is the trade: an outage-free path back to a
+working chain, paid for with a weaker guarantee above the last accepted checkpoint. <em>(user decision
+D-7: Mode B selected)</em></p>
+<p>The resistance argument is not a claim that abuse is impossible. Recovery is a manipulation primitive
+with a price: an adversary who can cause or prolong a stall may be able to replace unfavourable unsettled
+history. The bond, the delay, cancellation by any valid batch, the treasury penalty and the limits on
+repeated recovery are the defences, and the conditions under which the argument would fail are stated with
+the rule (<a href="../spec/06-recovery-exceptions.html#REC-03">REC-03</a>). <em>(user decision D-7: Mode B
+selected)</em></p>
 
 <h2>Worked example</h2>
 <p>The numbers below are arithmetic on the rules and on illustrative inputs. The inputs are not design
@@ -211,12 +281,16 @@ than its locked round 2 and the value differs. If the proof is for round 2, or f
 stays locked and prevotes <code>B</code>. If instead it obtains a commit certificate for a different
 block at <code>H</code>, it halts &mdash; it does not treat the certificate as an unlock.</p>
 
-<p><strong>A prover that never finishes.</strong> A batch is finalized at time <code>t</code>. At
-<code>t</code> + 30 minutes there is still no proof. Nothing special happens: a proof consuming the
-whole envelope is normal, not misconduct. Other provers may produce a proof for the same data
-commitment and land it, and the first valid landing wins. If none lands, unsettled depth keeps growing
-until the cap binds; then production stops, the chain halts safely, and withdrawals wait. The recovery
-is a proof, not a rollback.</p>
+<p><strong>A prover that never finishes, and then a recovery.</strong> A batch is certified at time
+<code>t</code>. At <code>t</code> + 30 minutes there is still no proof. Nothing special happens yet: a
+proof consuming the whole envelope is normal, not misconduct; other provers may produce a proof for the
+same data commitment and land it, and the first valid landing wins. If in addition no batch extending the
+current checkpoint is accepted for <code>T_STALL</code>, the settlement-stall trigger is met. Anyone may
+then post a bond and start a recovery. During <code>T_RECOVERY_DELAY</code> any valid batch cancels it and
+the bond is slashed to the protocol treasury. If nothing lands, the recovery completes: the chain resumes
+from the last checkpoint accepted on Ethereum, and every block above it &mdash; including the certified
+batch and any transaction in it &mdash; is replaced. A rolled-back transaction must be resubmitted;
+nothing replays it. <em>(user decision D-7: Mode B selected)</em></p>
 
 <h2>What this gives you</h2>
 <ul>
@@ -224,26 +298,36 @@ is a proof, not a rollback.</p>
 run time.</li>
 <li>Safety that does not depend on seeing a certificate: the lock protects the decision, not the
 publication.</li>
-<li>A principled restart: resume from the highest finalized block whose data and certificate can be
+<li>A principled restart: resume from the highest certified block whose data and certificate can be
 reconstructed, never from a competing branch.</li>
-<li>A halt that preserves every guarantee already given, including L1-anchored messages and user
-funds.</li>
+<li>A settled prefix that is never rewritten and a rule-legal path for everything above it, so a
+settlement stall is not a permanent outage.</li>
+<li>A priced, permissionless recovery: no operator and no DAO, and the invoker&rsquo;s bond goes to the
+protocol treasury if honest progress cancels the attempt. <em>(user decision D-7: Mode B
+selected)</em></li>
 </ul>
 
 <h2>What it does not give you</h2>
 <ul>
-<li>Availability. If data is gone, the halt can be permanent; retention is an assumption, not an
-enforced duty.</li>
+<li>Availability. If data for a block at or below the accepted checkpoint is gone, the halt can be
+permanent; retention is an assumption, not an enforced duty.</li>
+<li>Permanent confirmations above the last accepted checkpoint. A certified block can be replaced by a
+recovery, a rolled-back transaction must be resubmitted, and off-chain losses are not compensated.
+<em>(user decision D-7: Mode B selected)</em></li>
+<li>A recovery that cannot itself be abused. It is a manipulation primitive with a price, and the
+argument that a sub-threshold coalition cannot force the trigger is conditional, not proven.</li>
 <li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that
 never answers is not slashable.</li>
 <li>A degraded or read-only mode. A minority outage halts the chain rather than continuing with reduced
 participation.</li>
-<li>An unstick button. No operator, DAO or emergency key can clear a halt; that is deliberate.</li>
-<li>Any measured detection rate, timeout value or retention window. Those are not yet measured.</li>
+<li>An operator unstick button. A settlement stall can be cleared only by the permissionless, bonded,
+delayed recovery &mdash; not by an operator, DAO or emergency key.</li>
+<li>Any measured detection rate, timeout value, recovery parameter or retention window. Those are not
+yet measured.</li>
 </ul>
 
 <h2>Check yourself</h2>
-<details><summary>Validators have waited past every timeout and seen no certificate for height H. May they finalize a different block at H?</summary>
+<details><summary>Validators have waited past every timeout and seen no certificate for height H. May they certify a different block at H?</summary>
 <p>No. A timeout changes local round state only. The lock still binds: without a proof-of-lock-change
 at H for a different value at a strictly later round, a validator prevotes its locked value. If a
 certificate for the locked block eventually appears, it is accepted then.</p></details>
@@ -254,7 +338,15 @@ one objectively punishable offence and the one that can break safety.</p></detai
 <details><summary>Why is publishing data without a proof not an acceptable way to unblock settlement?</summary>
 <p>It would create an accepted record before anything justifies it, break the rule that data and proof
 live in one transaction, and turn a safe halt into an unverified history. The design has no data-first
-path by construction, and no halt may introduce one.</p></details>
+path by construction, and no recovery may introduce one.</p></details>
+<details><summary>Is a PoS confirmation above the last accepted checkpoint final?</summary>
+<p>No. It is valid but provisional: after a settlement stall, anyone may start a bonded, delayed recovery
+that replaces history above the last checkpoint accepted on Ethereum. Accepted checkpoints and accepted
+batches are never touched, and a rolled-back transaction is not replayed &mdash; it must be resubmitted.</p></details>
+<details><summary>What does a recovery cost an invoker whose attempt is cancelled?</summary>
+<p>Its bond. If any valid batch extending the current checkpoint is accepted during the delay, the recovery
+is cancelled and the bond goes to the protocol treasury, so starting a recovery is never free. Repeated
+recovery is further limited by an escalating bond and a cooldown.</p></details>
 
 <div class="card">
 <h3>Assumptions</h3>
@@ -263,8 +355,12 @@ path by construction, and no halt may introduce one.</p></details>
 and vote-uniqueness rules.</li>
 <li>Enough validators are online to form quorums in normal operation; the protocol has no degraded
 mode when they are not.</li>
-<li>Somebody keeps the data for every finalized block until its proof lands.</li>
+<li>Somebody keeps the data for every certified block until its proof lands.</li>
 <li>At least one prover finishes each batch before the retention assumption expires.</li>
+<li>The recovery trigger, bond, delay and cancellation values are unmeasured placeholders, and the
+argument that they cannot be abused rests on stated conditions rather than on measurement.</li>
+<li>Outside L1-level censorship and the absence of any prover, a sub-threshold coalition cannot force the
+settlement-stall trigger.</li>
 <li>Ethereum itself keeps producing, including and finalizing blocks.</li>
 <li>The timeout values, the retention window and the cap are placeholders awaiting measurement.</li>
 </ul>

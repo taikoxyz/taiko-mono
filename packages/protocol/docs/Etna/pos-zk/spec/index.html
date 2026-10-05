@@ -28,13 +28,19 @@
 <h1>Etna PoS + ZK — reference specification</h1>
 
 <div class="verdict">
-<p><strong>Verdict (Phase 3, 2026-10-05):</strong> a permissionless, TAIKO-staked <strong>L2 PoS
-consensus</strong> (Tendermint/CometBFT-class, single-slot finality) combined with <strong>ZK proofs
-of consensus finality and EVM execution</strong> can satisfy the requirements in
+<p><strong>Verdict (Phase 3, 2026-10-05; guarantee class revised by change order 04):</strong> a
+permissionless, TAIKO-staked <strong>L2 PoS consensus</strong> (Tendermint/CometBFT-class, single-slot
+finality) combined with <strong>ZK proofs of consensus finality and EVM execution</strong> can satisfy
+the requirements in
 <a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a>
-<strong>under the stated assumptions</strong>, in <strong>Mode A</strong> — no recovery path may
-invalidate a legitimately PoS-finalized block; the protocol halts safely instead. This is a
-<em>specification-level</em> verdict: nothing here is implemented, benchmarked or deployed.</p>
+<strong>under the stated assumptions</strong>, in <strong>Mode B</strong>: the certificate and its
+evidence are unchanged, but a PoS confirmation above the last L1-accepted checkpoint is
+<strong>provisional</strong> — it MAY BE REPLACED by a permissionless recovery if its batch has not
+been accepted on L1 and settlement has stalled for <code>T_STALL</code>. At or below the last
+L1-accepted checkpoint no recovery, timeout, rotation, admission rule or published upgrade may change
+history, and a failure that the recovery does not cover still halts the chain rather than acting
+without a rule. This is a <em>specification-level</em> verdict: nothing here is implemented,
+benchmarked or deployed. <em>(user decision D-7: Mode B selected)</em></p>
 <p class="small">This is a <strong>PoS-sequenced validity rollup</strong>. Transaction order is
 determined by L2 PoS, not by Ethereum proposers. Ethereum provides data availability, proof
 verification, settlement, and bridge anchoring. It does <em>not</em> sequence L2 blocks.</p>
@@ -44,6 +50,9 @@ verification, settlement, and bridge anchoring. It does <em>not</em> sequence L2
 <strong>Status labels are normative.</strong> Every deliverable — specification, learning site, user
 interface text — must use the exact labels of <a href="#STATUS-01">STATUS-01</a>–<a href="#STATUS-11">STATUS-11</a>.
 No stronger word ("final", "irreversible", "confirmed") may be substituted for a weaker status.
+Above the last L1-accepted checkpoint no confirmation is stronger than
+<a href="#STATUS-04">PoS-certified / provisional</a>, and any interface that shows one must say that it
+can be replaced (<a href="#STATUS-11">STATUS-11</a>). <em>(user decision D-7: Mode B selected)</em>
 </div>
 
 <h2 id="fixed">Fixed decisions</h2>
@@ -51,7 +60,7 @@ No stronger word ("final", "irreversible", "confirmed") may be substituted for a
 <thead><tr><th>ID</th><th>Decision (constraint)</th></tr></thead>
 <tbody>
 <tr><td><strong>D1</strong></td><td>One L2 block every <strong>2&nbsp;s</strong> under stated operating assumptions. Cadence is not finality, proof, settlement or withdrawal latency.</td></tr>
-<tr><td><strong>D2</strong></td><td><strong>Mode A preferred and selected</strong>: no recovery, timeout, rotation, admission rule or normal upgrade may invalidate a legitimately PoS-finalized block; halt safely instead. <strong>Mode B</strong> (permissionless L1 recovery of <em>unsettled</em> history) is specified but <em>not selected</em>; selecting it would require the D2 evidence-and-review procedure.</td></tr>
+<tr><td><strong>D2</strong></td><td><strong>Mode B selected (user decision D-7)</strong> after the D2 procedure: a permissionless, bonded, delayed L1 recovery of <em>unsettled</em> history may replace L2 history above the last L1-accepted checkpoint, and a confirmation there is provisional. At or below the latest L1-accepted checkpoint no recovery, timeout, rotation, admission rule or normal upgrade may invalidate a legitimately accepted block, and at or below an Ethereum-finalized checkpoint even an L1 reorganisation cannot undo it (<a href="#STATUS-07">STATUS-07</a>); where the recovery does not apply, halt safely instead. Mode A remains the guarantee at and below that checkpoint and the correct behaviour for every failure class the recovery does not cover (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). <em>(user decision D-7: Mode B selected)</em></td></tr>
 <tr><td><strong>D3</strong></td><td>Preserve the existing L1/L2 <strong>SignalService</strong>, <strong>Bridge</strong>, <strong>ERC20Vault</strong>, <strong>ERC721Vault</strong>, <strong>ERC1155Vault</strong> addresses by in-place upgrade. No replacement deployments.</td></tr>
 <tr><td><strong>D4</strong></td><td>L2 PoS determines binding transaction order. Result named honestly a <strong>PoS-sequenced validity rollup</strong>.</td></tr>
 <tr><td><strong>D5</strong></td><td>Batch data and its valid ZK proof land in the <strong>same L1 transaction</strong>; no data-first/proof-later path in any mode, including recovery.</td></tr>
@@ -66,7 +75,7 @@ No stronger word ("final", "irreversible", "confirmed") may be substituted for a
 <a href="03-membership-staking.html">03 — Membership, TAIKO staking, exits, weak subjectivity</a>
 <a href="04-l1-integration.html">04 — L1 integration: atomic data+proof, DA, bridge anchoring</a>
 <a href="05-proof-statement.html">05 — Proof statement, public inputs, witnesses, backends</a>
-<a href="06-recovery-exceptions.html">06 — Withholding, safe halt, restart, Mode B (not selected)</a>
+<a href="06-recovery-exceptions.html">06 — Withholding, safe halt, restart, Mode B recovery (selected) <em>(user decision D-7: Mode B selected)</em></a>
 <a href="07-economics-slashing.html">07 — Economics, offences, penalties, rewards</a>
 <a href="08-migration-upgrades.html">08 — Migration from current Taiko, upgrades, governance</a>
 <a href="09-parameters.html">09 — Glossary and parameter table</a>
@@ -183,19 +192,37 @@ a vote is a signed commitment; signing a conflicting vote is slashable equivocat
 <span class="why">Votes are the only irreversible act a validator performs; everything else can be
 retried.</span><span class="pill proven">Proven</span></div>
 
-<div class="rule" id="STATUS-04"><span class="rid">STATUS-04 — PoS-finalized (Mode A); PoS-certified / provisional (Mode B)</span>
+<div class="rule" id="STATUS-04"><span class="rid">STATUS-04 — PoS-certified / provisional</span>
 <span class="norm">A <strong>published</strong> commit certificate over (chain id, epoch, height,
 block hash) carrying signed voting power <code>s</code> that satisfies the predicate
 <code>3 * s &gt; 2 * W</code> (checked arithmetic, with <code>W</code> the epoch's total voting power; the L2 client,
 the zkVM guest and the L1 contract evaluate it identically, and a strict/non-strict mismatch would
 split chain acceptance from L1 acceptance), plus the
-receiver's own data-availability check for the block body. In Mode A this status is <strong>permanent</strong>:
-no recovery, timeout, rotation, admission rule or normal upgrade may revoke it. In the unselected
-Mode B it would be labelled <strong>provisional</strong> and revocable only through the published
-recovery rules.</span>
-<span class="why">This is the strongest L2-level guarantee the design offers, and the point where
-Mode A's "halt rather than roll back" promise attaches.</span>
-<span class="pill proven">Proven</span> <span class="small">(conditional on <a href="10-assurance.html#INV-01">INV-01</a>'s premises)</span></div>
+receiver's own data-availability check for the block body. The certificate and its evidence are
+unchanged in every mode; the guarantee is that the block is <strong>certified by more than two thirds
+of the epoch's voting power</strong> under the published consensus rules, and that — above the last
+L1-accepted checkpoint — it <strong>MAY BE REPLACED</strong> by a permissionless recovery
+(<a href="06-recovery-exceptions.html#REC-02">REC-02</a>) if its batch has not been accepted on L1 and
+settlement has stalled for <code>T_STALL</code>; the exact replacement window and the restored
+checkpoint are owned by <a href="06-recovery-exceptions.html#REC-01">REC-01</a> and REC-02, which
+restore the latest L1-accepted checkpoint exactly and replace history wholesale, never selectively, and
+never at or below that checkpoint. For history at or below an Ethereum-finalized checkpoint even an L1
+reorganisation cannot change it (<a href="#STATUS-07">STATUS-07</a>).
+No timeout, rotation, admission rule, published upgrade or operator action may replace history at any
+height. This status is
+<strong>never</strong> the first status a user may rely on as irreversible: <a href="#STATUS-06">STATUS-06</a>
+and above are. No artifact may call a confirmation at this status "final", "settled" or
+"irreversible", and every interface that shows a confirmation above the last L1-accepted checkpoint
+must disclose that it can be replaced (<a href="#STATUS-11">STATUS-11</a>).</span>
+<span class="why">Failure mode: the certificate is the same evidence in every mode, so a reader assumes
+the guarantee is the same. Above the checkpoint it is not: the design accepts an outage-free,
+permissionless replacement of that history, and a user who treats the confirmation as settled can lose
+the outcome it describes. At or below the latest L1-accepted checkpoint the same label is
+backed by the rule that no path — recovery included — may change that history
+(<a href="06-recovery-exceptions.html#REC-01">REC-01</a>), and at or below an Ethereum-finalized checkpoint
+even an L1 reorganisation cannot change it (<a href="#STATUS-07">STATUS-07</a>).</span>
+<span class="pill proven">Proven</span> <span class="small">(conditional on <a href="10-assurance.html#INV-01">INV-01</a>'s premises)</span>
+<em>(user decision D-7: Mode B selected — the certificate and its evidence are unchanged, the guarantee is not)</em></div>
 
 <div class="rule" id="STATUS-05"><span class="rid">STATUS-05 — proof-ready</span>
 <span class="norm">A completed ZK proof bound to this batch's data commitment exists off-chain.
@@ -210,8 +237,12 @@ withdrawal.</span><span class="pill proven">Proven</span></div>
 its checkpoint (<a href="04-l1-integration.html#L1-01">L1-01</a>). <strong>Guarantee:</strong> the
 batch's data is public on Ethereum and the transition is L1-committed.
 <strong>Revocable:</strong> only by an L1 reorganisation below finality.</span>
-<span class="why">This is the status that unlocks bridge withdrawals and message
-authentication.</span><span class="pill proven">Proven</span></div>
+<span class="why">This is the first status a user may rely on as irreversible: no L2 rule —
+including the recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> — can revoke an
+accepted batch, and the only revocation is an L1 reorganisation below finality. It is the status that
+unlocks bridge withdrawals and message authentication. <em>(user decision D-7: Mode B selected —
+STATUS-04 is provisional above the checkpoint; STATUS-06 and above are the first irreversible
+statuses)</em></span><span class="pill proven">Proven</span></div>
 
 <div class="rule" id="STATUS-07"><span class="rid">STATUS-07 — Ethereum-finalized</span>
 <span class="norm">The accepting L1 transaction is in a finalized Ethereum block, or the L1 fact the
@@ -249,18 +280,27 @@ taken on the strength of a timeout.</span>
 <span class="norm">Any interface, document or learning page that shows a progress indicator must use
 these labels and must state which status is being shown. A "confirmation" shown to a user before
 <a href="#STATUS-06">STATUS-06</a> must be accompanied by the statement that the batch's data and
-proof are not yet on Ethereum.</span>
+proof are not yet on Ethereum. In addition, <strong>any interface that shows a confirmation above the
+last L1-accepted checkpoint must say that it can be replaced</strong>: the statement must name the
+sanctioned recovery (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>) and must not present the
+confirmation as final, settled or irreversible; a status indicator that shows only "confirmed" without
+the replacement disclosure violates this rule.</span>
 <span class="why">Failure mode: users treat a 2 s PoS confirmation as settlement (R14, D6 "user
-expectations").</span>
-<span class="pill proven">Proven</span></div>
+expectations"), now compounded by the fact that the confirmation can be discarded by the recovery.
+Disclosure is the only protection the protocol gives a user who acts on a provisional outcome, because
+losses are not compensated (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>).</span>
+<span class="pill proven">Proven</span>
+<em>(user decision D-7: Mode B selected — a confirmation above the last L1-accepted checkpoint must be disclosed as replaceable)</em></div>
 
 <h2 id="ruleindex">Rule index</h2>
 <p class="small">Registry of every normative rule and the page that states it in full. A rule's text
 is normative on its own page; this table is a map, not a second copy. Forced inclusion is removed
 (user decision D-6): <code>FI-01</code>–<code>FI-05</code> no longer exist as rules and are not
-indexed. The tombstone <code>FI-REMOVED-01</code> records the removal and
+indexed. The tombstone <code>FI-REMOVED-01</code> records the removal,
 <a href="10-assurance.html#LIVE-04">LIVE-04</a> owns the honest statement of what inclusion resistance
-remains. <em>(user decision D-6: forced inclusion removed)</em></p>
+remains, and <code>FI-PLANNED-01</code> states the deferred update and the invariants it must preserve.
+<em>(user decision D-6: forced inclusion removed)</em> <em>(user decision D-10: the forced-inclusion
+upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em></p>
 <table><thead><tr><th>ID</th><th>Rule</th><th>Page</th></tr></thead><tbody>
 <tr><td><code>GEN-01</code></td><td>What this specification is (and is not)</td><td>this page</td></tr>
 <tr><td><code>GEN-02</code></td><td>Fixed decisions D1–D7 bind the design</td><td>this page</td></tr>
@@ -274,14 +314,14 @@ remains. <em>(user decision D-6: forced inclusion removed)</em></p>
 <tr><td><code>STATUS-01</code></td><td>proposed — evidence, guarantee, revocation</td><td>this page</td></tr>
 <tr><td><code>STATUS-02</code></td><td>locally execution-valid</td><td>this page</td></tr>
 <tr><td><code>STATUS-03</code></td><td>voted</td><td>this page</td></tr>
-<tr><td><code>STATUS-04</code></td><td>PoS-finalized (Mode A) / PoS-certified provisional (Mode B)</td><td>this page</td></tr>
+<tr><td><code>STATUS-04</code></td><td><strong>PoS-certified / provisional</strong> — the certificate and its evidence are unchanged; above the last L1-accepted checkpoint it may be replaced by the sanctioned recovery <em>(user decision D-7: Mode B selected)</em></td><td>this page</td></tr>
 <tr><td><code>STATUS-05</code></td><td>proof-ready</td><td>this page</td></tr>
 <tr><td><code>STATUS-06</code></td><td>accepted on L1</td><td>this page</td></tr>
 <tr><td><code>STATUS-07</code></td><td>Ethereum-finalized</td><td>this page</td></tr>
 <tr><td><code>STATUS-08</code></td><td>withdrawal-eligible</td><td>this page</td></tr>
 <tr><td><code>STATUS-09</code></td><td>Local receipt is not availability</td><td>this page</td></tr>
 <tr><td><code>STATUS-10</code></td><td>An elapsed timeout is never evidence of absence</td><td>this page</td></tr>
-<tr><td><code>STATUS-11</code></td><td>Label disclosure obligation</td><td>this page</td></tr>
+<tr><td><code>STATUS-11</code></td><td>Label disclosure obligation, including the replaceability of a confirmation shown above the last L1-accepted checkpoint <em>(user decision D-7)</em></td><td>this page</td></tr>
 <tr><td><code>SYS-01</code></td><td>Participants and channels</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>SYS-02</code></td><td>Only Ethereum-final L1 facts enter L2 consensused state</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>SYS-03</code></td><td>Cadence is separated from every other latency</td><td><a href="01-system-model.html">01</a></td></tr>
@@ -337,6 +377,7 @@ remains. <em>(user decision D-6: forced inclusion removed)</em></p>
 <tr><td><code>DA-05</code></td><td>Retrievability window, archive requirement, and the blob-retention limit</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-06</code></td><td>Retention duty and its link to the backlog cap</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>FI-REMOVED-01</code></td><td>Forced inclusion removed (tombstone for the non-existent FI-01–FI-05); no L1 inclusion path, honest statement in <a href="10-assurance.html#LIVE-04">LIVE-04</a></td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-PLANNED-01</code></td><td>Planned update: forced inclusion may be added later, and the D2/D5/permissionlessness invariants the update MUST preserve <em>(user decision D-10: forced inclusion deferred to a protocol update)</em></td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-01</code></td><td>SignalService and Bridge authentication anchored at L1 checkpoints</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-02</code></td><td>Replay protection and domain separation</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-03</code></td><td>Withdrawal eligibility and delays</td><td><a href="04-l1-integration.html">04</a></td></tr>
@@ -353,9 +394,9 @@ remains. <em>(user decision D-6: forced inclusion removed)</em></p>
 <tr><td><code>PRF-11</code></td><td>Syscall, hint and accelerator trust model</td><td><a href="05-proof-statement.html">05</a></td></tr>
 <tr><td><code>PRF-12</code></td><td>Recursion and aggregation: what it does and does not prove</td><td><a href="05-proof-statement.html">05</a></td></tr>
 <tr><td><code>PRF-13</code></td><td>Bindings must be cryptographically enforced, never asserted</td><td><a href="05-proof-statement.html">05</a></td></tr>
-<tr><td><code>REC-01</code></td><td>Mode A: no path may invalidate PoS-finalized history</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
-<tr><td><code>REC-02</code></td><td>Mode B (specified, not selected): trigger, invoker, delay, boundaries, late evidence, replay</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
-<tr><td><code>REC-03</code></td><td>Mode B D2-step-5 blocker recorded</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>REC-01</code></td><td>Recovery boundary: history at or below the latest L1-accepted checkpoint may not be replaced, and recovery restores that checkpoint exactly; above it, only the sanctioned recovery may replace history — Ethereum finality is the separate, stronger property (STATUS-07) <em>(user decision D-7: Mode B selected)</em></td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>REC-02</code></td><td><strong>Mode B (selected)</strong> permissionless recovery: objective trigger <code>T_STALL</code>, any invoker, escalating ETH bond <code>B_REC</code> (<code>B_REC_BASE</code>, <code>REC_WINDOW</code>), delay <code>T_RECOVERY_DELAY</code>, cancellation by honest progress (bond slashed to the treasury), no discretion, late certificates and proofs, transaction replay, derived rollback depth and duration, cooldown <code>REC_COOLDOWN</code>, user exposure, D5 unchanged and authorization binding <em>(user decision D-7)</em></td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>REC-03</code></td><td>Required resistance analysis: premise-based sub-threshold-coalition argument, what inducing the trigger would take, no selective rollback, the unbounded residuals (off-chain profit, an L1-censoring adversary), the explicit falsifiers, and the independent review that must attempt to break it <em>(user decision D-7)</em></td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
 <tr><td><code>HALT-01</code></td><td>Safe halt obligation</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
 <tr><td><code>HALT-02</code></td><td>Restart rules</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
 <tr><td><code>HALT-03</code></td><td>Consensus-enforced unsettled-depth cap (backpressure)</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
@@ -369,7 +410,7 @@ remains. <em>(user decision D-6: forced inclusion removed)</em></p>
 <tr><td><code>ECON-03</code></td><td>Withdrawal delay derived from the complete settlement pipeline</td><td><a href="07-economics-slashing.html">07</a></td></tr>
 <tr><td><code>ECON-04</code></td><td>Offence catalogue and objective evidence encoding</td><td><a href="07-economics-slashing.html">07</a></td></tr>
 <tr><td><code>ECON-05</code></td><td>Penalty structure, including the correlated penalty that saturates at one third</td><td><a href="07-economics-slashing.html">07</a></td></tr>
-<tr><td><code>ECON-06</code></td><td>Destination of slashed stake (human decision, recorded)</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-06</code></td><td>Slashed stake goes to the <strong>protocol treasury</strong>, with a reporter bounty <strong>strictly below the total penalty</strong> and no burn <em>(user decision D-9: treasury, not burn)</em></td><td><a href="07-economics-slashing.html">07</a></td></tr>
 <tr><td><code>ECON-07</code></td><td>Evidence window versus unbonding period</td><td><a href="07-economics-slashing.html">07</a></td></tr>
 <tr><td><code>ECON-08</code></td><td>False accusations, duplicate evidence and replay</td><td><a href="07-economics-slashing.html">07</a></td></tr>
 <tr><td><code>ECON-09</code></td><td>Minimum viable stake and the participation-cost derivation</td><td><a href="07-economics-slashing.html">07</a></td></tr>
@@ -388,7 +429,7 @@ remains. <em>(user decision D-6: forced inclusion removed)</em></p>
 <tr><td><code>PARAM-01</code></td><td>Parameter-table discipline</td><td><a href="09-parameters.html">09</a></td></tr>
 <tr><td><code>PARAM-02</code></td><td>Derived quantities at the 2 s cadence</td><td><a href="09-parameters.html">09</a></td></tr>
 <tr><td><code>PARAM-03</code></td><td>Unmeasured register</td><td><a href="09-parameters.html">09</a></td></tr>
-<tr><td><code>INV-01</code></td><td>Invariant: unique finalized prefix</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>INV-01</code></td><td>Invariant: unique certified prefix relative to the authenticated checkpoint; replacement only by the sanctioned recovery <em>(user decision D-7)</em></td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>INV-02</code></td><td>Invariant: no batch is accepted without its data</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>INV-03</code></td><td>Invariant: no consensus without TAIKO at risk</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>INV-04</code></td><td>Invariant: no privilege or discretion in ordinary operation</td><td><a href="10-assurance.html">10</a></td></tr>
@@ -401,25 +442,43 @@ remains. <em>(user decision D-6: forced inclusion removed)</em></p>
 <tr><td><code>LIM-03</code></td><td>Red-team finding resolutions</td><td><a href="10-assurance.html">10</a></td></tr>
 </tbody></table>
 
+<p class="small">Recovery parameters introduced with the selected Mode B (change order 04, user decision
+D-7). This is a map, not a second register: each value, its derivation and its tag are stated in full by
+its owner, and the parameter table of <a href="09-parameters.html">09</a> is the single register.
+<em>(user decision D-7: Mode B selected)</em></p>
+<table><thead><tr><th>Parameter</th><th>What it fixes</th><th>Stated in full by</th></tr></thead><tbody>
+<tr><td><code>T_STALL</code></td><td>The objective settlement-stall trigger: no batch extending the current L1 checkpoint accepted for this long; strictly larger than the D6 proof envelope so that a normal slow proof or one prover failure inside the envelope can never trigger recovery</td><td><a href="06-recovery-exceptions.html#REC-02">REC-02</a>; registered with its derivation in <a href="09-parameters.html">09</a></td></tr>
+<tr><td><code>T_RECOVERY_MARGIN</code></td><td>The safety margin of the <code>T_STALL</code> formula</td><td><a href="06-recovery-exceptions.html#REC-02">REC-02</a>; registered with its derivation in <a href="09-parameters.html">09</a></td></tr>
+<tr><td><code>T_RECOVERY_DELAY</code></td><td>The delay between a bonded invocation and the replacement taking effect; during the window the acceptance of any valid batch extending the checkpoint cancels the recovery and slashes the bond to the treasury</td><td><a href="06-recovery-exceptions.html#REC-02">REC-02</a>; registered with its derivation in <a href="09-parameters.html">09</a></td></tr>
+<tr><td><code>B_REC</code>, <code>B_REC_BASE</code>, <code>REC_WINDOW</code></td><td>The bond an invoker posts <strong>in ETH on L1, paid at invocation</strong>, and its escalation <code>B_REC(e) = B_REC_BASE &middot; 2<sup>n</sup></code>, with <code>n</code> the completed recoveries in the preceding <code>REC_WINDOW</code>; the amount is unmeasured and the asset is ETH, not TAIKO <em>(user decision D-7: an anti-spam and anti-manipulation deposit, so D7's TAIKO staking and slashable collateral are unaffected)</em></td><td><a href="06-recovery-exceptions.html#REC-02">REC-02</a>; registered with its derivation in <a href="09-parameters.html">09</a></td></tr>
+<tr><td><code>REC_COOLDOWN</code></td><td>The minimum interval that follows each completed recovery</td><td><a href="06-recovery-exceptions.html#REC-02">REC-02</a>; registered with its derivation in <a href="09-parameters.html">09</a></td></tr>
+</tbody></table>
+
 <h2 id="verdict">Verdict summary and its exact scope</h2>
 <div class="goodbox">
 <p><strong>Within scope:</strong> a specification-level design in which permissionless TAIKO-staked
-L2 validators finalize blocks every 2 s; batches settle on Ethereum only when their data and a ZK
+L2 validators certify blocks every 2 s; batches settle on Ethereum only when their data and a ZK
 proof of consensus finality <em>and</em> execution land in one transaction; the shared
-SignalService/Bridge/vault addresses are preserved by in-place upgrade; and safety is preserved by
-halting rather than rolling back.</p>
+SignalService/Bridge/vault addresses are preserved by in-place upgrade; no discretionary path can
+change history at any height and nothing at or below the latest L1-accepted checkpoint can be
+changed by recovery (at or below an Ethereum-finalized checkpoint even an L1 reorganisation cannot
+change it, <a href="#STATUS-07">STATUS-07</a>); and above the latest L1-accepted checkpoint a confirmation is provisional, replaceable
+only by the permissionless, bonded and delayed recovery of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a>. <em>(user decision D-7: Mode B selected)</em></p>
 </div>
 <div class="badbox">
 <p><strong>Outside scope:</strong> that the design is implemented, audited, benchmarked or safe to
 deploy; that proving throughput or 2 s cadence has been measured; that any attack is unprofitable;
-that ZK verification repairs failed consensus assumptions; that a PoS confirmation before L1
-acceptance is irreversible in any mode other than Mode A's stated
-assumptions.</p>
+that ZK verification repairs failed consensus assumptions; that a PoS confirmation above the last
+L1-accepted checkpoint is irreversible (it is provisional); that the recovery of REC-02 is resistant
+to a cheaply induced settlement stall — that argument is not independently reviewed and no
+convergence is claimed — or that it compensates any loss it causes.</p>
 </div>
 
 <h2 id="provenance">Provenance</h2>
 <table><thead><tr><th>Source</th><th>Revision / version</th><th>Date</th></tr></thead><tbody>
 <tr><td>Taiko monorepo baseline</td><td><code>7718753c1</code></td><td>2026-10-05</td></tr>
+<tr><td>Change order 04 base (Mode B selected, D-7–D-10)</td><td><code>eaa01784c</code>, plus the course restyle <code>5111cd878</code></td><td>2026-10-05</td></tr>
 <tr><td>Prior accepted Etna research (read-only)</td><td><code>a829f79723de9a09205660d9895418577cfe9aa9</code></td><td>2026-10-05</td></tr>
 <tr><td>CometBFT specification (locking rule, Proof of Safety, fork accountability)</td><td>pinned commit <code>709fd12b…</code></td><td>retrieved 2026-10-05</td></tr>
 <tr><td>EIP-4844 point-evaluation precompile; EIP-7691 blob parameters</td><td>as published</td><td>retrieved 2026-10-05</td></tr>

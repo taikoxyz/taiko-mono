@@ -9,7 +9,7 @@
 
 ## Current verdict
 
-**Architecture level: answered.** Mode A is feasible and selected, and the chosen architecture
+**Architecture level: answered.** The chosen architecture
 (permissionless TAIKO-staked L2 PoS + combined ZK proof of consensus finality and execution, with data
 and proof in one L1 transaction) satisfies the hard requirements **under the stated assumptions**.
 
@@ -21,6 +21,13 @@ consequence that a network-level adversary able to isolate a user from every hon
 that user indefinitely — including preventing the user from *starting* a withdrawal — with no protocol
 remedy. The relaxation is recorded in DECISIONS.md D-6 and in the requirement matrix in
 01-requirements-and-threat-model.md.
+
+**Guarantee class changed (user decisions D-7 to D-10, 2026-10-05).** Mode B is selected: a permissionless,
+bonded, delayed recovery may replace L2 history above the last Ethereum-finalized checkpoint, so a PoS
+confirmation is **provisional** until its batch is accepted on L1. Ethereum-finalized checkpoints and every
+accepted batch remain untouchable, and D5 is unchanged. Security is funded from **L2 fees** swept through the
+preserved Bridge into an L1 reward pool; slashed stake goes to the **treasury** (no burn); and forced
+inclusion is **deferred to a later protocol update**, so version 1 still has no forced-inclusion path.
 
 **Specification level: NOT CONVERGED — the result is labelled _incomplete_.** Two full adversarial
 review rounds were run on frozen snapshots with four independent reviewers each. Round 1 found
@@ -53,7 +60,7 @@ itself needs a consistency pass before the next round.
 | Membership | Permissionless, self-bonded **TAIKO on L1**; epoch-scoped validator-set roots committed with one-epoch lookahead; no delegation in v1 |
 | Settlement | Batch data **and** its valid ZK proof in the **same L1 transaction** (D5); no data-first path in any mode |
 | Proof | One combined guest proving consensus finality, execution and data binding; both RISC Zero and SP1 must realise the same statement |
-| Recovery | **Mode A** — halt safely; no path may invalidate a PoS-finalized block. Mode B is specified but **not selected**, and its D2-step-5 blocker is recorded as an open blocker |
+| Recovery | **Mode B selected (user decision D-7)**: a permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; everything at or below it is untouchable. Confirmations above it are **provisional** |
 | Honest name | A **PoS-sequenced validity rollup**, not a based rollup |
 
 The verdict is *specification-level convergence under stated assumptions* — see
@@ -65,7 +72,7 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | ID | Decision |
 |----|----------|
 | **D1** | One L2 block every **2 s** under stated operating assumptions. Cadence ≠ finality ≠ proof ≠ settlement ≠ withdrawal. |
-| **D2** | **Mode A** selected: no recovery, timeout, rotation, admission rule or normal upgrade may invalidate a legitimately PoS-finalized block; halt safely instead. **Mode B** (permissionless L1 recovery of *unsettled* history) specified, authorized, **not selected**. |
+| **D2** | **Mode A was the preferred mode; the authorised fallback Mode B is now selected (user decision D-7).** A permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; at or below it nothing may change. A PoS confirmation above that checkpoint is therefore **provisional**. **Mode B** (permissionless L1 recovery of *unsettled* history) specified, authorized, **not selected**. |
 | **D3** | Preserve L1+L2 **SignalService**, **Bridge**, **ERC20Vault**, **ERC721Vault**, **ERC1155Vault** addresses by in-place upgrade. No replacements. |
 | **D4** | L2 PoS determines binding order; the result is named a **PoS-sequenced validity rollup**. |
 | **D5** | Batch data and its valid proof land in the **same L1 transaction**; no data-first path, including in recovery. |
@@ -80,13 +87,13 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | R2 | DAO governs upgrades only | [08](spec/08-migration-upgrades.html) GOV-01..03 | specified |
 | R3 | Shared addresses preserved | [08](spec/08-migration-upgrades.html) MIG-02/06 | specified, migration audit open |
 | R4 | 2 s cadence, distinguished from every other latency | [01](spec/01-system-model.html) SYS-03, [09](spec/09-parameters.html) | specified, unmeasured |
-| R5 | Consensus safety and mode confirmation guarantees | [02](spec/02-consensus.html) CONS-01..15, [10](spec/10-assurance.html) INV-01 | argued; F1 open |
-| R6 | Conditional liveness with exact end conditions | [10](spec/10-assurance.html) LIVE-01..03 | specified |
+| R5 | Consensus safety and the selected mode's confirmation guarantee | [06](spec/06-recovery-exceptions.html) REC-01..03, [02](spec/02-consensus.html) CONS-01..15, [10](spec/10-assurance.html) INV-01 | argued; **provisional above the last accepted checkpoint (D-7)**; F1 open; REC-03 awaits independent review |
+| R6 | Conditional liveness with exact end conditions | [10](spec/10-assurance.html) LIVE-01..04 | specified; a settlement stall is recoverable, a missing epoch-set entry or unavailable data still halts |
 | R7 | Complete proof statement, both backends | [05](spec/05-proof-statement.html) PRF-01..13, [03](03-zkvm-feasibility.md) | specified |
 | R8 | Public data bound to the proof | [04](spec/04-l1-integration.html) DA-01..06 | specified |
 | R9 | D5 atomicity everywhere | [04](spec/04-l1-integration.html) L1-01..04, [06](spec/06-recovery-exceptions.html) REC-02 | specified |
 | R10 | Censorship resistance — **relaxed by user decision D-6**: forced inclusion removed; statistical resistance only (proposer rotation under A-CONS-2), with the withdrawal-censorship consequence disclosed | [10](spec/10-assurance.html) LIVE-04, [04](spec/04-l1-integration.html) FI-REMOVED-01 | satisfied in relaxed form only |
-| R11 | Objective misconduct evidence, collateral, exits | [07](spec/07-economics-slashing.html) ECON-04..08 | specified |
+| R11 | Objective misconduct evidence, collateral, exits | [07](spec/07-economics-slashing.html) ECON-04..08 | specified; slashed stake goes to the **treasury** (D-9), reporter bounty strictly below the penalty |
 | R12 | No L1 lookahead or fixed slot dependence | [index](spec/index.html) GEN-06 | specified |
 | R13 | Implementable without inventing rules | all pages; 137 registered rules | 137/137 stated once |
 | R14 | Learning site consistent with the specification | [learn/](learn/index.html) — a 12-page engineer's course that carries **no review-process or decision-log content**; process archaeology stays in the specification, `DECISIONS.md` and `iterations/` | in progress |
@@ -138,7 +145,7 @@ round, findings first, adjudication second) was used to obtain genuine independe
 
 | ID | Blocker | Consequence |
 |----|---------|-------------|
-| REC-03 | Mode B's resistance to cheap recovery triggering is unresolved | Mode B must not be selected on this specification alone |
+| REC-03 | The recovery-resistance argument is written but **not yet independently reviewed** | The D-7 selection is not settled until review round 4 attempts to break it |
 | F1 | Epoch-handoff lock carry-over (CONS-09) is argued, not proven | The named review target for round 1 |
 | F2 | In-guest blob polynomial-evaluation cost unmeasured | The blob data path is an implementation gate; calldata path is the fallback |
 | F3 | 2 s cadence with a permissionless global validator set unmeasured | Launch gate |

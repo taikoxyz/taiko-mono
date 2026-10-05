@@ -163,7 +163,7 @@ window is about 60 minutes <span class="tag">derived</span>. The append is drive
 L1-side schedule alone, never by settlement progress: settlement lags production by the whole
 proving pipeline, so a gate keyed to it would stop production at every boundary. If the entry for
 the epoch being entered is missing or not yet Ethereum-final at the moment of entry, correct
-validators do not proceed: the chain halts at the last finalized block of the closing epoch rather
+validators do not proceed: the chain halts at the last certified block of the closing epoch rather
 than borrowing a set.</p>
 <p>Every block header commits to two set roots: <code>validators_hash</code>, the root of the epoch
 containing that block, and <code>next_validators_hash</code>, the root of the following epoch. The
@@ -194,8 +194,10 @@ offence epoch, not at the epoch the evidence arrives, so an exit cannot launder 
 L1-committed schedule. It is judged under that epoch&rsquo;s committed set root and no other, and
 once valid it stays valid forever: no expiry, no &ldquo;current set&rdquo; check, and no
 re-verification under a later set. Set roots are stored per epoch and are never overwritten. A
-validator that joins in a later epoch cannot cause a block finalized earlier to be re-judged,
-re-signed or discarded; rotation changes who may finalize future heights only.</p>
+validator that joins in a later epoch cannot cause a block certified earlier to be re-judged or
+re-signed; rotation changes who may certify future heights only. Rotation is not a replacement path: only
+the permissionless, bonded and delayed recovery may replace history above the latest checkpoint accepted
+on Ethereum. <em>(D-7: recovery, not rotation, replaces history above the last accepted checkpoint)</em></p>
 
 <h3>8. Weak subjectivity: where a new node starts</h3>
 <p>A fresh node bootstraps from the most recent checkpoint that the L1 Inbox accepted and that is

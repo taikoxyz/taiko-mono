@@ -14,10 +14,29 @@
 
 <h2 id="inv">Safety invariants</h2>
 
-<div class="rule" id="INV-01"><span class="rid">INV-01 — unique finalized prefix</span>
-<span class="norm">Under the stated premises, at most one block per height ever reaches
-<a href="index.html#STATUS-04">STATUS-04</a>, and every finalized block is an ancestor of every later
-finalized block. <strong>Premises:</strong> (P1) fewer than one third of the voting power of every
+<div class="rule" id="INV-01"><span class="rid">INV-01 — unique certified prefix, relative to the authenticated checkpoint</span>
+<span class="norm">Under the stated premises, at most one block per height ever receives a valid commit
+certificate under the consensus rules, and every such block is an ancestor of every later such block:
+the uniqueness of the finalized prefix holds <strong>for the certificates produced under the consensus
+rules</strong> (<a href="02-consensus.html#CONS-02">CONS-02</a>,
+<a href="02-consensus.html#CONS-03">CONS-03</a>, <a href="02-consensus.html#CONS-04">CONS-04</a>).
+Relative to the authenticated checkpoint (<a href="04-l1-integration.html#L1-07">L1-07</a>): history
+at or below the latest L1-accepted checkpoint can never be changed by recovery, and at or below an
+Ethereum-finalized checkpoint even an L1 reorganisation cannot change it
+(<a href="index.html#STATUS-07">STATUS-07</a>); above the latest L1-accepted checkpoint the certified
+history is canonical <em>except</em> that it <strong>may be
+replaced in whole by the sanctioned recovery of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a> — and by nothing else</strong>, with that
+rule's exact objective trigger (a settlement stall of <code>T_STALL</code>), its bond, its delay
+<code>T_RECOVERY_DELAY</code>, and cancellation by honest progress. The exact replacement window and
+the restored checkpoint are owned by <a href="06-recovery-exceptions.html#REC-01">REC-01</a> and
+REC-02: within it history is replaced wholesale, never selectively; no timeout, rotation, admission
+rule, governance upgrade, operator action or failure of a liveness assumption may replace history. Replacement is never justified by execution validity alone:
+the proof statement binds the configuration under which the batch was certified and carries the
+recovery authorization (<a href="05-proof-statement.html#PRF-02">PRF-02</a>), so an alternative
+history cannot be accepted merely because its execution is valid. A certificate produced before a
+recovery is void for canonical purposes above the restored checkpoint but remains admissible as
+evidence (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>). <strong>Premises:</strong> (P1) fewer than one third of the voting power of every
 epoch is Byzantine (<code>A-CONS-1</code>); (P2) correct validators obey the vote-uniqueness rule
 (<a href="02-consensus.html#CONS-02">CONS-02</a>) and the lock rule
 (<a href="02-consensus.html#CONS-04">CONS-04</a>); (P3) the commit rule requires more than two thirds
@@ -26,13 +45,18 @@ of the epoch's voting power, counted over distinct authenticated signers
 (<a href="02-consensus.html#CONS-10">CONS-10</a>, <a href="03-membership-staking.html#MEM-08">MEM-08</a>);
 (P5) the per-height lock of <a href="02-consensus.html#CONS-04">CONS-04</a> is enforced, and cross-height continuity is exactly the parent-validity condition of <a href="02-consensus.html#CONS-01">CONS-01</a>(iii) — no lock <em>state</em> crosses an epoch boundary, because the lock is per height (*review round 2, finding R2A-10*)
 (<a href="02-consensus.html#CONS-09">CONS-09</a>).</span>
-<span class="why">Failure mode: if any premise fails, two conflicting certificates can both be
-cryptographically valid, and <strong>a ZK proof cannot detect it</strong>. Both proofs verify. The
-protocol's response to this class is disclosure, detection through objective evidence where it exists,
-and slashing — never a claim that the invariant holds.</span>
+<span class="why">Failure mode: reading the certificate as the guarantee. The certificate is the same
+evidence in every mode, so a reader — or an interface — can conclude that a confirmation above the
+checkpoint is permanent; it is not, because the sanctioned recovery may replace that history. The other
+half matters equally: no premise failure and no other mechanism licenses a rollback, and if any
+premise fails, two conflicting certificates can both be cryptographically valid while <strong>a ZK
+proof cannot detect it</strong>. Both proofs verify. The protocol's response to that class remains
+disclosure, detection through objective evidence where it exists, and slashing — never a claim that
+the invariant holds.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(argument from the CometBFT Proof of Safety and the fork-accountability lemma,
-pinned in <a href="../02-consensus-survey.md">02</a>; P5 is review target F1)</span></div>
+pinned in <a href="../02-consensus-survey.md">02</a>; P5 is review target F1)</span>
+<em>(user decision D-7: Mode B selected — uniqueness holds for the certificates produced under the consensus rules, and above the last L1-accepted checkpoint the canonical history may be replaced only by the sanctioned recovery)</em></div>
 
 <div class="rule" id="INV-02"><span class="rid">INV-02 — no batch is accepted without its data</span>
 <span class="norm">There is no state in which an accepted, checkpoint-advancing L1 record exists
@@ -91,13 +115,25 @@ finality depth; (L6) the L1 staking contract commits each epoch's set root befor
 (L7) a new node can obtain a weak-subjectivity checkpoint within the freshness window;
 <strong>then</strong> L2 produces a block every 2 seconds, blocks reach
 <a href="index.html#STATUS-04">STATUS-04</a> within the round budget, and committed batches reach
-<a href="index.html#STATUS-06">STATUS-06</a> within the proof-queue envelope.</span>
-<span class="why">Liveness <strong>ends</strong> at the first clause that fails: (L1) fails → the chain
-halts rather than forks; (L3) fails → settlement halts, possibly permanently, unless a data holder
-returns; (L4) fails → settlement halts after the unsettled-depth cap binds; (L5) fails → nothing
-settles and no L1 inclusion path can restore progress (<a href="#LIVE-04">LIVE-04</a>); (L6) fails → the chain cannot enter the next epoch;
-(L7) fails → a new node must not silently trust an unverified history. There is no clause whose failure
-licenses rewriting finalized history.</span>
+<a href="index.html#STATUS-06">STATUS-06</a> within the proof-queue envelope. A settlement stall is no
+longer terminal by itself: after <code>T_STALL</code> the sanctioned recovery of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a> may replace the unsettled history above the
+last L1-accepted checkpoint, and the chain resumes from the restored checkpoint; until that recovery
+completes, the chain is halted.</span>
+<span class="why">Liveness <strong>ends</strong> at the first clause that fails. Where it ends has
+changed (D-7): (L1) fails → the chain halts rather than forks; (L3) fails for data above the last
+L1-accepted checkpoint → the chain halts, and the sanctioned recovery is the only rule that restores
+progress, by discarding that range — no rule treats the data as available; (L4) fails → settlement
+halts after the unsettled-depth cap binds, and after <code>T_STALL</code> the recovery may replace the
+unsettled range, so the stall is no longer terminal by itself; (L5) fails → nothing settles and no L1
+inclusion path can restore progress (<a href="#LIVE-04">LIVE-04</a>), and recovery is not an inclusion
+remedy; (L6) fails → the chain cannot enter the next epoch, and recovery cannot manufacture the missing
+L1 set commitment, so that halt persists until the entry is appended and Ethereum-final; (L7) fails → a
+new node must not silently trust an unverified history. A failed or cancelled recovery returns the chain
+to the halted state. There is no clause whose failure licenses rewriting history at or below the latest
+L1-accepted checkpoint, and above it a failure licenses nothing either: only the exact
+trigger, bond, delay and cancellation of REC-02 do.</span>
+<em>(user decision D-7: Mode B selected — a settlement stall is no longer terminal; the halt conditions recovery cannot clear remain)</em>
 <span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span>
 <span class="small">(the timeout bound, the retention window and the envelope are parameters whose
 values require measurement, <a href="09-parameters.html">09</a>)</span></div>
@@ -111,8 +147,11 @@ governance parameter change — an upgrade, not a runtime action; (c) they halt 
 <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a> conditions hold. A normal proof inside the
 D6 envelope (up to 30 minutes, 900 blocks at 2 s) must never trigger (a), (b) or any recovery
 action.</span>
-<span class="why">Failure mode: backpressure implemented as "drop the oldest unsettled batch", which is
-a silent Mode B and violates <a href="06-recovery-exceptions.html#REC-01">REC-01</a>.</span>
+<span class="why">Failure mode: backpressure implemented as "drop the oldest unsettled batch", which
+is an <em>unsanctioned</em> rollback — not the recovery of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a>, with its objective trigger, bond, delay and
+cancellation — and therefore violates <a href="06-recovery-exceptions.html#REC-01">REC-01</a>.
+<em>(user decision D-7: Mode B selected — only the sanctioned recovery may replace history, within the boundary owned by REC-01 and REC-02)</em></span>
 <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
 <span class="small">(<code>D_MAX</code>'s value and the retention window)</span></div>
 
@@ -154,7 +193,13 @@ that is a real but conditional resistance. A network-level adversary able to iso
 honest proposer can exclude that user's transactions indefinitely, and because a withdrawal is
 initiated by an L2 transaction, such an adversary can also prevent the user from starting a withdrawal.
 The protocol offers no remedy, and a partial relaxation of
-<a href="../01-requirements-and-threat-model.md">R10</a> is disclosed. <em>(user decision D-6: forced
+<a href="../01-requirements-and-threat-model.md">R10</a> is disclosed. The recovery of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a> is <strong>not an inclusion remedy</strong>: it
+replaces unsettled history above the last L1-accepted checkpoint, it cannot include a censored
+transaction, it does not compensate an exclusion, and it gives no user an L1 path into L2. A user whose
+transaction never reaches an honest proposer still has no way to force its inclusion. <em>(user
+decisions D-7 and D-10: recovery selected; forced inclusion deferred, and recovery is not a substitute
+for it)</em> <em>(user decision D-6: forced
 inclusion removed; a user-authorized partial relaxation of R10)</em> <em>This closes review round 3
 finding R3-CE-05: selection is stated to be fully predictable and slot-buying possible and cheap, and
 the resistance is bounded by the selection share plus the honest-proposer behaviour that
@@ -181,23 +226,28 @@ may be silently dropped when the design is summarised to users.</span>
 <tr><td>Consensus</td><td>The epoch-handoff argument (per-height locks released only by the commit at that height or a strictly later same-height proof-of-lock-change, with cross-height continuity carried by the parent-validity condition) is argued, not machine-checked</td><td>A boundary-specific fork is the named review target F1</td></tr>
 <tr><td>Consensus</td><td>Cross-round and cross-epoch divergence under withholding can leave <strong>no admissible evidence</strong>: the same-<code>(height, round)</code> conflicting pair is the only lock-related offence with admissible evidence, and a withholding adversary that reveals only the two certificates prevents the fork-accountability lemma's JSets from being compiled (<a href="02-consensus.html#CONS-09">CONS-09</a>(4)(a)); the epoch-handoff argument itself (per-height locks plus the parent-validity condition) is argued, not machine-checked</td><td>"At least one third is objectively slashable" is <strong>Assumed</strong>, not established, and must never be presented as a deterrent guarantee; a boundary-specific fork is the named review target F1</td></tr>
 <tr><td>Consensus</td><td>Proposer selection is a public deterministic function (<a href="02-consensus.html#CONS-06">CONS-06</a>(d)), so the proposer of any future slot is computable in advance and a coalition can buy or coerce the proposer of the specific slot in which a target transaction would be included; no rule prices, detects or penalises slot-buying</td><td>Censorship of a chosen transaction can be bought slot by slot; the remaining resistance is only the selection share (fewer than one third of slots in expectation below one third of the weight) plus the honest-proposer inclusion behaviour that <a href="01-system-model.html#ROLE-01">ROLE-01</a>(b) expressly does not impose</td></tr>
-<tr><td>Availability</td><td>Settlement depends on somebody retaining the data until the proof lands</td><td>A halt, possibly permanent, if every holder disappears. Retention is a liveness <strong>assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty. Disclosed; explicitly permitted by D2 step 1</td></tr>
+<tr><td>Guarantee class</td><td>A PoS confirmation above the last L1-accepted checkpoint is <strong>provisional</strong>: it may be replaced in whole by the sanctioned permissionless recovery (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>), with that rule's exact trigger, bond, delay and cancellation, and by nothing else</td><td>Outcomes above the checkpoint — inclusions, ordering, balances, unsettled bridge messages and any position built on them — can be discarded; no artifact may call such a confirmation final or settled, and every interface that shows one must disclose that it can be replaced (<a href="index.html#STATUS-04">STATUS-04</a>, <a href="index.html#STATUS-11">STATUS-11</a>) <em>(user decision D-7: Mode B selected)</em></td></tr>
+<tr><td>Availability</td><td>Settlement depends on somebody retaining the data until the proof lands</td><td>A halt if every holder disappears; since the D-7 selection the sanctioned recovery may replace the unsettled range after <code>T_STALL</code> instead of leaving the halt in place, and a failed or cancelled recovery leaves it. Retention is a liveness <strong>assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty. Disclosed; explicitly permitted by D2 step 1 <em>(user decision D-7: Mode B selected)</em></td></tr>
 <tr><td>Availability</td><td>Retention is a <strong>liveness assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty: a failure to serve is not provable on L1 for most classes, and no evidence object exists for it (*review round 1, finding C R1-04*)</td><td>A holder's failure produces a <strong>halt, not a penalty</strong>; the honest response is disclosure, not a penalty (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>), and no rule may claim retention is enforced</td></tr>
-<tr><td>Liveness</td><td>A minority outage halts the chain; there is no degraded mode</td><td>Unbounded halt duration outside the assumptions</td></tr>
+<tr><td>Liveness</td><td>A minority outage halts the chain; there is no degraded mode</td><td>A halt, but not necessarily an unbounded one: recovery bounds the halt caused by a settlement stall to <code>T_STALL + T_RECOVERY_DELAY</code> plus resume time, while a missing epoch-set entry or a failed recovery still has no in-protocol bound <em>(user decision D-7: Mode B selected)</em></td></tr>
 <tr><td>Liveness</td><td>A cartel of at least one third can halt the chain, though it cannot censor selectively while quorum exists</td><td>Denial of service, not a safety break</td></tr>
 <tr><td>Liveness</td><td>An unsettled-depth-cap violation is not objectively punishable: the cap has exactly one enforcement point — correct validators — and <code>land</code> MUST NOT reject an over-depth batch (<a href="04-l1-integration.html#L1-04">L1-04</a>, <a href="04-l1-integration.html#L1-06">L1-06</a>)</td><td>A quorum that ignores the cap pays no penalty, so R11's deterrence does not cover it; the cap's only force is honest compliance and the backpressure of <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a></td></tr>
 <tr><td>Liveness</td><td>A settlement halt longer than an epoch's evidence window can close that window while the epoch's heights are still unproduced; the L1 fact that would anchor the window's close to the epoch's production is not yet defined (<a href="07-economics-slashing.html#ECON-07">ECON-07</a>(1), <strong>Open</strong>)</td><td>Offences in the resumed epochs become inadmissible and stake exposed to them can be withdrawn before the offence is observable — voiding <a href="#INV-03">INV-03</a>'s premise for those heights — and an epoch with more than one third of its committed weight gone cannot be passed, so the chain can wedge permanently; the anchor must be fixed before launch</td></tr>
 <tr><td>Censorship</td><td>No per-transaction inclusion guarantee and no L1 forced-inclusion path: resistance is the conditional statistical property of <a href="#LIVE-04">LIVE-04</a> — hash-based, weighted proposer selection (<a href="02-consensus.html#CONS-06">CONS-06</a>) under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> <em>(user decision D-6: forced inclusion removed; the limitation is disclosed, not remedied)</em></td><td>A network-level adversary that isolates a user from every honest proposer can exclude that user's transactions indefinitely and can prevent the user from starting a withdrawal; the protocol offers no remedy — a user-authorized partial relaxation of R10, recorded as D-6</td></tr>
+<tr><td>Economic</td><td>The loss exposure created by a replacement has <strong>no universal bound</strong>: the protocol bounds the rollback depth only at <code>D_MAX</code> and only while the cap is enforced, and it bounds no off-chain position, unrealised profit or contract that depends on a discarded outcome</td><td>Losses are not compensated by protocol penalties (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>) and no compensation may be promised; the exposure must be disclosed to users, and a user who acts on a provisional outcome bears it <em>(user decision D-7: Mode B selected)</em></td></tr>
+<tr><td>Recovery</td><td>Recovery is itself a <strong>manipulation primitive with a price</strong>: an actor who can induce the objective trigger (<code>T_STALL</code>) may roll back an unfavourable provisional outcome; the bond, delay and cancellation price the attempt but do not make it impossible, and recovery is never a selective rollback — it restores the checkpoint wholesale, destroying every effect above it including the attacker's</td><td>The resistance analysis of <a href="06-recovery-exceptions.html#REC-03">REC-03</a> is the only argument that the price is not cheap; it is an argument under stated premises, not a proof, and it must be independently reviewed before the selection is treated as settled <em>(user decision D-7: Mode B selected)</em></td></tr>
+<tr><td>Recovery</td><td>The repeated-recovery limits are an <strong>escalating bond</strong> (<code>B_REC(e) = B_REC_BASE &middot; 2<sup>n</sup></code> over <code>REC_WINDOW</code>) and a <strong>cooldown</strong> (<code>REC_COOLDOWN</code>) (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>); they bound the price and the frequency of attempts, not the number of attempts a funded adversary can make, and an L1-censoring adversary is expressly outside the L2 fault model</td><td>A well-funded adversary can hold the chain in a stop-and-restart pattern; the bond schedule and cooldown are <span class="pill unmeasured">unmeasured</span> parameters, and a cancellation slashes the bond to the treasury without repairing the interruption it caused <em>(user decision D-7: Mode B selected)</em></td></tr>
+<tr><td>Recovery</td><td>The resistance argument of <a href="06-recovery-exceptions.html#REC-03">REC-03</a> is falsifiable, and its falsifiers are named there: proving ceasing to be permissionless in practice; <code>T_RECOVERY_DELAY</code> shorter than the time an honest prover needs to land a batch; a bond refundable on cancellation; and, outside the analysis, L1-level censorship and the genuine absence of any prover — with off-chain profit and platform-level censorship disclosed as unbounded</td><td>Any one of them withdraws the argument and reopens the Mode B selection under the D2 procedure; until an independent review attempts them the selection is <strong>not settled</strong>, and no convergence is claimed <em>(user decision D-7: Mode B selected)</em></td></tr>
 <tr><td>Performance</td><td>The 2&nbsp;s cadence, the round budget, the proving envelope, the in-guest blob evaluation and the fleet sizing are all unmeasured</td><td><a href="#LIVE-03">LIVE-03</a>'s inequalities cannot be checked until measured</td></tr>
 <tr><td>Economic</td><td>No verified price, float or liquidity data; attack cost is time-varying and A-ECO-1 can fail with no rule change</td><td>The deterrence claim is conditional and must be re-evaluated with market data</td></tr>
 <tr><td>Economic</td><td>The reward budget's inputs are unmeasured, and the protocol cannot mint TAIKO today</td><td>Rewards may be unfundable without a user decision (treasury transfer or a token upgrade)</td></tr>
-<tr><td>Economic</td><td>Slashed-stake destination is an unresolved human decision</td><td>Deterrence, bounty and legal posture all differ (<a href="07-economics-slashing.html#ECON-06">ECON-06</a>)</td></tr>
+<tr><td>Economic</td><td>The destination of slashed stake is the <strong>protocol treasury</strong>, with a reporter bounty strictly below the total penalty — there is no burn — but the per-identity bounty cap under the correlated penalty is still <span class="pill open">Open</span> (<a href="07-economics-slashing.html#ECON-06">ECON-06</a>)</td><td>The treasury/bounty split is decided; what is not settled is how a constant split is kept below the realised correlated component for every implicated fraction, and until that is fixed the registered non-profitability bound for self-reporting is not established <em>(user decision D-9: treasury, no burn)</em></td></tr>
 <tr><td>Economic</td><td>Delegation is out of scope in v1; liquid-staking derivatives are an unpriced attack surface</td><td>Concentration and LST attacks are not bounded by the cost-of-attack argument</td></tr>
 <tr><td>Governance</td><td>Governance can rewrite any rule, including this one</td><td>Malicious governance is outside the protocol's protection (<a href="08-migration-upgrades.html#GOV-02">GOV-02</a>)</td></tr>
 <tr><td>Migration</td><td>Migration requires a bounded window in which the legacy path is frozen</td><td>Availability gap during migration; the state machine and its stall behaviour are specified in <a href="08-migration-upgrades.html">08</a></td></tr>
 <tr><td>Scope</td><td>This is a specification; there is no implementation, audit, model or measurement</td><td>Every "Proven" in this document is an argued property, not a machine-checked or tested one</td></tr>
 </tbody></table>
-<span class="norm"><em>This closes review round 3 finding R3-LIV-04: the register now carries the rows the other rules delegate to it — the unpunishable unsettled-depth-cap violation, the publicly predictable and purchasable proposer slot, the unpunishable cross-round/cross-epoch divergence with the handoff argument's un-machine-checked status, and the halt-induced window lapse held Open — and no rule leaves a row owed from another page.</em></span>
+<span class="norm"><em>This closes review round 3 finding R3-LIV-04: the register now carries the rows the other rules delegate to it — the unpunishable unsettled-depth-cap violation, the publicly predictable and purchasable proposer slot, the unpunishable cross-round/cross-epoch divergence with the handoff argument's un-machine-checked status, and the halt-induced window lapse held Open — and no rule leaves a row owed from another page.</em> Change order 04 adds the rows for the provisional guarantee class, the unbounded off-chain exposure, recovery as a manipulation primitive with a price, the escalating-bond limit on repeated recovery and REC-03's falsifiers. <em>(user decision D-7: Mode B selected)</em></span>
 <span class="why">Failure mode: a limitation list that omits the ones that hurt — specifically the
 availability assumption, the unmeasured parameters, and the fact that the safety argument stops at the
 one-third boundary.</span>
@@ -215,7 +265,7 @@ change of direction must reopen the corresponding entry here rather than silentl
 <tr><td>HotStuff-2 / Carry-the-Tail</td><td>Runner-up. Requires a threshold-signature subsystem (DKG/resharing) as a new liveness dependency, and its two-certificate commit rule complicates light-client-style checking; primary sources were partly unretrievable, so the exact rules remain unverified</td><td>A threshold-signature construction that survives permissionless set churn with an audited proof</td></tr>
 <tr><td>BLS aggregate commit certificates as the default</td><td>Would change the vote format (a protocol modification), and in-guest pairings/MSM are unverified on both backends</td><td>The measurement spike in <a href="../02-consensus-survey.md">02</a> §"measurement spike" showing the aggregate is materially cheaper in-guest</td></tr>
 <tr><td>Delegated stake in v1</td><td>Safe delegation requires slash pass-through, slashable unbonding delegations and slashable redelegations — the largest complexity surface in comparable staking systems — and complicates evidence attribution</td><td>A user decision plus a design that keeps delegators slashable</td></tr>
-<tr><td>Mode B (permissionless L1 recovery)</td><td>Mode A satisfies every requirement within its stated liveness assumptions; Mode B introduces a mechanism that can replace honestly confirmed history and its cheap-trigger resistance is unresolved (<a href="06-recovery-exceptions.html#REC-03">REC-03</a>)</td><td>A requirement that Mode A provably cannot satisfy inside its assumptions, established per D2 and independently reviewed</td></tr>
+<tr><td>The unbounded safe halt (Mode A alone, with no history replacement)</td><td><strong>Selected against by user decision D-7.</strong> Mode A satisfies every requirement within its stated liveness assumptions, but an availability failure above the last L1-accepted checkpoint produces a halt whose duration is unbounded and whose only remedies are outside the protocol; the requirement set also demands a chain that keeps serving users, and D2 permits a safe halt without making it the only end state. Mode A's guarantee is retained at and below the latest L1-accepted checkpoint, where no protocol path — recovery included — may change it (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). This row replaces the earlier entry that rejected Mode B, which is superseded by D-7 and not deleted</td><td>A demonstration that the sanctioned recovery cannot be made resistant to a cheaply induced stall (<a href="06-recovery-exceptions.html#REC-03">REC-03</a>), or a user decision that an unbounded halt is preferable — i.e., a reversal of D-7</td></tr>
 <tr><td>A new consensus design</td><td>The brief prefers an established protocol with a defensible integration over a new collection of quorum, timeout and handoff rules</td><td>Evidence that no established family can carry the workload</td></tr>
 <tr><td>Reusing the prior Etna seat/sortition committee</td><td>A different security model: bonded seats are not stake-weighted voting power, and reusing it would misrepresent seat share as stake</td><td>Nothing — it would misdescribe the protocol</td></tr>
 <tr><td>Based sequencing (L1 proposers order L2 blocks)</td><td>Excluded by D4, which permits L2 PoS to determine order</td><td>A user decision reversing D4</td></tr>
@@ -239,6 +289,7 @@ original attack trace is retained and the specification states precisely why it 
 succeeds.</span>
 <p class="small">After round 1's fixes were applied in place, the specification was re-reviewed in round 2 under the same rule-by-rule discipline, on a frozen snapshot and with four fresh reviewers covering all five required angles (including the compliance angle round 1 missed).</p>
 <p class="small">Round 3 is not yet adjudicated: this revision applies change order 03 in place on the frozen base <code>f67458b45</code> — forced inclusion is removed under user decision D-6, and the remaining round-2 findings are dispositioned in <a href="../iterations/03-round.md"><code>iterations/03-round.md</code></a>. No round-3 finding has been reviewed, no earlier fix has been re-verified, and <strong>no convergence is claimed</strong>; the consecutive-clean-round count remains zero until a full round is reviewed clean on a frozen snapshot. <em>(change order 03, §4: round-3 placeholder, no convergence claim)</em></p>
+<p class="small"><strong>Change order 04 has been applied</strong> in place on the base <code>eaa01784c</code> (plus the course restyle <code>5111cd878</code>): Mode B is selected under user decision D-7, the status labels are restated so that <a href="index.html#STATUS-04">STATUS-04</a> is <strong>PoS-certified / provisional</strong> in all cases, and the recovery rules REC-01–REC-03 are rewritten on page <a href="06-recovery-exceptions.html">06</a>. <strong>No review round has yet examined the Mode B selection or REC-03's resistance analysis.</strong> An independent review that attempts to falsify both is required — scheduled as review round 4 in <code>DECISIONS.md</code> D-7 — before the selection may be treated as settled; the change order itself is not evidence for it. The round-3 record above is unchanged: no earlier fix has been re-verified, and <strong>no convergence is claimed</strong>; the consecutive-clean-round count remains zero. <em>(change order 04, §2: applied, with independent review required and not performed)</em></p>
 <table>
 <thead><tr><th>Round</th><th>Snapshot</th><th>Findings adjudicated</th><th>Disposition</th></tr></thead>
 <tbody>

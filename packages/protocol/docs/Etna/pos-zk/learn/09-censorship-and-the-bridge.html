@@ -35,8 +35,9 @@
 <h1>Censorship and the bridge</h1>
 <p class="muted">This lesson gives you two things: the honest inclusion statement &mdash; there is no
 forced-inclusion path and no per-transaction inclusion guarantee &mdash; and the bridge message path,
-including which contracts keep their addresses and what an integrator should check. This is a design
-description; nothing here is implemented, measured, audited or deployed.</p>
+including which contracts keep their addresses and what an integrator should check. It also states what
+recovery does not fix: recovery is not an inclusion remedy, and forced inclusion is planned as a later
+protocol update. This is a design description; nothing here is implemented, measured, audited or deployed.</p>
 
 <h2>The idea</h2>
 <p>Start with the uncomfortable half. This design has <strong>no forced-inclusion path</strong> and
@@ -44,6 +45,13 @@ description; nothing here is implemented, measured, audited or deployed.</p>
 FI-REMOVED-01). Your transaction gets
 included when an honest proposer includes it. There is no queue, no escrow, no refund and no L1 entry
 point that can force a transaction into L2 or start a withdrawal.</p>
+<p><strong>Recovery is not an inclusion remedy.</strong> A bonded, delayed recovery can replace unsettled
+history above the last checkpoint accepted on Ethereum
+(<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>), but it cannot put a transaction into a
+block or compel any proposer to include one, so it does not lift an exclusion. This version still has no
+forced-inclusion path, and forced inclusion is planned as a later protocol update
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>). <em>(user decision D-7: Mode B
+selected; D-10: forced inclusion deferred)</em></p>
 <p>Proposer selection is weighted random: a coalition with less than one third of the voting power is
 selected for fewer than one third of slots in expectation, so a transaction that reaches honest
 validators is included by the first honest proposer with room for it
@@ -74,15 +82,16 @@ the immutable checkpoint-writer links are all keyed to those exact addresses.</p
 <text x="36" y="270" fill="#24292f" font-size="13">The bridge: one message path, anchored on an L1 checkpoint</text> <rect x="36"  y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="48" y="314" fill="#24292f" font-size="11">L2 Bridge call</text> <text x="48" y="332" fill="#59636e" font-size="10">message + signal</text>
 <text x="48" y="350" fill="#59636e" font-size="10">status: NEW</text> <rect x="192" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="204" y="314" fill="#24292f" font-size="11">SignalService slot</text> <text x="204" y="332" fill="#59636e" font-size="10">keccak256(&ldquo;SIGNAL&rdquo;,</text>
 <text x="204" y="350" fill="#59636e" font-size="10">chainId, app, signal)</text> <rect x="348" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="360" y="314" fill="#24292f" font-size="11">L2 state root</text> <text x="360" y="332" fill="#59636e" font-size="10">the signal is inside</text>
-<text x="360" y="350" fill="#59636e" font-size="10">a finalized block</text> <rect x="504" y="292" width="140" height="70" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="516" y="314" fill="#24292f" font-size="11">land(data, proof)</text> <text x="516" y="332" fill="#59636e" font-size="10">one L1 transaction</text>
+<text x="360" y="350" fill="#59636e" font-size="10">a certified block</text> <rect x="504" y="292" width="140" height="70" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="516" y="314" fill="#24292f" font-size="11">land(data, proof)</text> <text x="516" y="332" fill="#59636e" font-size="10">one L1 transaction</text>
 <text x="516" y="350" fill="#1a7f37" font-size="10">data + proof together</text> <rect x="660" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="672" y="314" fill="#24292f" font-size="11">L1 checkpoint</text> <text x="672" y="332" fill="#59636e" font-size="10">{blockNumber,</text>
 <text x="672" y="350" fill="#59636e" font-size="10">stateRoot, blockHash}</text> <rect x="816" y="292" width="116" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="828" y="314" fill="#24292f" font-size="11">MPT proof</text> <text x="828" y="332" fill="#59636e" font-size="10">against that</text>
 <text x="828" y="350" fill="#59636e" font-size="10">state root</text> <path d="M176 327 H188" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M332 327 H344" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M488 327 H500" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/>
 <path d="M644 327 H656" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M800 327 H812" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <text x="36" y="392" fill="#59636e" font-size="11">Verification resolves the checkpoint by L2 block number, requires checkpoint.stateRoot == proof.rootHash, then verifies an MPT proof</text> <text x="36" y="410" fill="#59636e" font-size="11">for the remote SignalService account and the SIGNAL-derived slot. The Inbox&rsquo;s own record adds epoch, setRoot, dataCommitment and the accepting L1 block.</text>
-<text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">No forced-inclusion entry point exists anywhere in this picture: there is no L1 door a user can knock on.</text>
+<text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">No forced-inclusion entry point exists: recovery replaces unsettled history, it does not include a censored transaction.</text>
 </svg>
 <figcaption>The top panel shows why inclusion is a statistical property and not a guarantee; the bottom
-panel shows the only path by which a cross-chain message becomes trustworthy.</figcaption>
+panel shows the only path by which a cross-chain message becomes trustworthy. <em>(user decisions D-7 and
+D-10: recovery is not an inclusion remedy, and forced inclusion is deferred to a later protocol update.)</em></figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -104,7 +113,9 @@ withdrawal. The protocol offers no remedy; this is a disclosed limitation, not a
 <p>What remains is real but conditional: if a transaction reaches honest validators and an honest
 proposer has room for it, it is included. &ldquo;Room&rdquo; is a behavioural premise, not a protocol
 rule &mdash; nothing defines it, reserves block space, or constrains the proposer&rsquo;s ordering.
-Any interface that implies a per-transaction guarantee, or an L1 escape hatch, is wrong.</p>
+Any interface that implies a per-transaction guarantee, or an L1 escape hatch, is wrong. Recovery
+does not change that: it can replace history that was never settled, but it cannot include a censored
+transaction, so it is not a remedy against isolation. <em>(user decision D-7: Mode B selected)</em></p>
 
 <h3>How a message is authenticated</h3>
 <p>A cross-chain message is a signal inside L2 state, and L2 state is authenticated by the checkpoint
@@ -228,12 +239,16 @@ unchanged slot and message encodings.</li>
 <h2>What it does not give you</h2>
 <ul>
 <li>Any per-transaction inclusion guarantee, inclusion duty, or L1 path to force a transaction or start
-a withdrawal.</li>
+a withdrawal. Recovery does not change this: it replaces unsettled history, it does not include a censored
+transaction.</li>
 <li>Any remedy against an adversary that can isolate a user from every honest proposer; exclusion can
 be indefinite.</li>
 <li>Protection against slot-buying: selection is predictable and no rule prices or penalises it.</li>
-<li>Early exit: a withdrawal still needs the checkpoint and the delay, and a settlement halt delays it
-indefinitely.</li>
+<li>Early exit: a withdrawal still needs the checkpoint and the delay, and a settlement stall delays it
+until either a batch lands or a recovery completes &mdash; and a recovery can replace an unsettled
+withdrawal message. <em>(user decision D-7: Mode B selected)</em></li>
+<li>A remedy against isolation: this version has no forced-inclusion path, and forced inclusion is planned as
+a later protocol update <em>(user decision D-10: forced inclusion deferred)</em>.</li>
 <li>Confidence in the recorded addresses beyond the record: they were not chain-verified in the design
 work.</li>
 </ul>
@@ -243,7 +258,9 @@ work.</li>
 <p>It proposes fewer than 25% of slots in expectation, so by selection alone, no: the first honest
 proposer with room includes the transaction. But if the coalition can also cut the user off from every
 honest proposer at the network level, then yes &mdash; indefinitely, including preventing a withdrawal
-from being started &mdash; and the protocol has no remedy.</p></details>
+from being started &mdash; and the protocol has no remedy. A recovery is not a remedy either: it can replace
+unsettled history, but it cannot include the censored transaction. <em>(user decision D-7: Mode B selected;
+D-10: forced inclusion deferred)</em></p></details>
 <details><summary>What is the minimum evidence that an L2&rarr;L1 message may be released?</summary>
 <p>A checkpoint written by a successful <code>land(data, proof)</code> whose state root covers the
 signal, a matching Merkle&ndash;Patricia proof for the remote SignalService account and the

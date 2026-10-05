@@ -159,13 +159,15 @@ it, so it is available" errors that <a href="index.html#STATUS-01">STATUS-01</a>
 
 <p>L2 execution and bridge message authentication consume facts
 that originate on L1: an L1 block hash, an L1 state root, an L1 log, or an L1 storage value. Such a
-fact is <em>reorganisable</em> until Ethereum itself finalizes it. Under Mode A a PoS-finalized L2
-block may never be rolled back (D2, <a href="06-recovery-exceptions.html#REC-01">REC-01</a>). If a
+fact is <em>reorganisable</em> until Ethereum itself finalizes it. A height at or below the last L1-accepted checkpoint may never be rolled back
+(<a href="06-recovery-exceptions.html#REC-01">REC-01</a>); above that checkpoint, history is provisional and may be replaced only by the permissionless,
+bonded recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>. If a
 finalized L2 block's validity or execution depended on a reorganisable L1 fact, then after a
-reorganisation of that fact no correct proof of the block could be constructed, L1 admission would
-stall forever at that batch (<a href="04-l1-integration.html#L1-06">L1-06</a> accepts only
-extensions of its checkpoint), and Mode A would forbid the only remaining fix. The rule below removes
-that hazard structurally rather than hoping it does not occur.</p>
+reorganisation of that fact no correct proof of the block could be constructed and L1 admission would
+stall at that batch (<a href="04-l1-integration.html#L1-06">L1-06</a> accepts only
+extensions of its checkpoint). The rule below removes
+that hazard structurally rather than hoping it does not occur. <em>(user decision D-7: Mode B selected — the guarantee class above the last accepted
+checkpoint is provisional, and recovery is the only sanctioned replacement path.)</em></p>
 
 <table>
 <thead><tr><th>Parameter</th><th>Symbol</th><th>Unit</th><th>Meaning and admissible values</th><th>Tag</th></tr></thead>
@@ -219,9 +221,11 @@ can choose which fact to publish, or can withhold one, it is a discretion surfac
 (*review round 1, finding B R1-09*).</span>
 <span class="why">Failure mode: a PoS-finalized L2 block whose execution or message authentication
 depends on a reorganisable L1 fact becomes unprovable against canonical L1; L1 admission then stalls
-permanently at that batch and Mode A forbids the only fix, rolling the finalized L2 block back
-(<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). The chain halts with a finalized prefix it
-can never settle.</span>
+at that batch, because <a href="04-l1-integration.html#L1-06">L1-06</a> accepts only extensions of its checkpoint. The chain
+halts with a prefix it cannot settle until the block is provable again or the permissionless, bonded
+recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> replaces the unsettled history above
+the last accepted checkpoint. <em>(user decision D-7: Mode B selected — a stall above the accepted
+checkpoint is recoverable by rule, never by privileged discretion.)</em></span>
 <span class="small">Premises: <a href="../01-requirements-and-threat-model.md">A-L1-1</a> and
 <a href="../01-requirements-and-threat-model.md">A-CONS-1</a>; the parameter values are unmeasured.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span>
@@ -304,7 +308,7 @@ required. Paths are relative to <code>packages/protocol/contracts/</code>.</p>
 <thead><tr><th>Privileged lever</th><th>Exercising function (evidence)</th><th>Required treatment</th></tr></thead>
 <tbody>
 <tr><td>Inbox owner: bootstrap</td><td><code>activate</code> — <code>Inbox.sol:188-201</code></td><td>Replace with the deterministic genesis/activation rule (<a href="02-consensus.html#CONS-14">CONS-14</a>); no owner key participates.</td></tr>
-<tr><td>Inbox owner: state rewrite</td><td><code>init2</code> — <code>Inbox.sol:217-244</code></td><td>Remove. Rewriting the L1 checkpoint outside consensus is exactly the operation Mode A forbids (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>).</td></tr>
+<tr><td>Inbox owner: state rewrite</td><td><code>init2</code> — <code>Inbox.sol:217-244</code></td><td>Remove. Rewriting the L1 checkpoint outside consensus is exactly the class of operation the rules forbid: recovery restores the last accepted checkpoint by rule and gives an owner no such function (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>, <a href="06-recovery-exceptions.html#REC-02">REC-02</a>). <em>(user decision D-7: Mode B selected — no owner rewrite, only the bonded recovery path.)</em></td></tr>
 <tr><td>Inbox owner: queue reset</td><td><code>init3</code> — <code>Inbox.sol:253-258</code> (<code>head = tail</code>; fees not refunded)</td><td>Remove. This is the June 2026 failure class: an owner-only reset of queued work. No rule of this specification leaves any operator a voidable queue, and what inclusion resistance does and does not promise is stated in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. <em>(user decision D-6: forced inclusion removed)</em></td></tr>
 <tr><td>Inbox pause</td><td><code>pause</code>/<code>unpause</code> — <code>EssentialContract.sol:150,159</code>; no <code>whenNotPaused</code> exists in <code>Inbox.sol</code> (research §2.3, §9.4)</td><td>Keep non-operative for consensus, proving and settlement paths; do not add a pause gate in the redesign.</td></tr>
 <tr><td>Proposer permissioning</td><td><code>PreconfWhitelist.checkProposer</code> — <code>PreconfWhitelist.sol:127-141</code>; Inbox comment "Permissionless proposing is temporarily disabled" — <code>Inbox.sol:601-603</code></td><td>Replace the <code>IProposerChecker</code> indirection with stake-based selection (<a href="02-consensus.html#CONS-06">CONS-06</a>). <code>addOperator</code>/<code>removeOperator</code> (<code>PreconfWhitelist.sol:94,100,108</code>) and <code>setEjecter</code> (<code>:115-124</code>) disappear with it.</td></tr>
@@ -322,7 +326,7 @@ required. Paths are relative to <code>packages/protocol/contracts/</code>.</p>
 verifier owner or emergency operator is required for any of: ordinary block
 production and finality; view change, timeout handling or leader rotation; epoch handoff and
 validator-set update; proof production, submission or acceptance; validator activation, key rotation
-or exit; or withdrawal. One exception is stated rather than hidden: the L2-side
+or exit; withdrawal; or recovery above the last L1-accepted checkpoint (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>), which is permissionless and bonded and involves no privileged actor. <em>(user decision D-7: Mode B selected — recovery needs no operator or DAO.)</em> One exception is stated rather than hidden: the L2-side
 checkpoint writer retained by <a href="#SYS-02">SYS-02</a>(g) remains a reserved system sender in
 ordinary operation, its only power being to publish the SYS-02-constrained Ethereum-final L1 fact,
 and its removal is an Open migration item (<a href="08-migration-upgrades.html#MIG-04">MIG-04</a>).
@@ -339,12 +343,24 @@ privileged actors the design retains are the DAO, for upgrades only
 must accept every previously finalized history (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>,
 <a href="05-proof-statement.html#PRF-10">PRF-10</a>). (d) When ordinary progress is impossible the
 correct behaviour is a safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>); there is
-no operator path to restart, rescue or roll back (<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>,
-<a href="06-recovery-exceptions.html#REC-01">REC-01</a>).</span>
+no operator path to restart or rescue the chain (<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>).
+History above the last L1-accepted checkpoint has exactly <strong>one</strong> sanctioned replacement
+path: the permissionless, bonded recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>,
+invoked by any account on L1, effective only after its delay, cancelled by honest progress, and
+restoring the L1-accepted checkpoint. Heights at or below the last accepted checkpoint are untouchable
+by it. No operator, DAO, guardian, validator quorum or invoker holds any discretion in it: the trigger
+is the objective settlement stall, the bond and the delay are fixed by the rule, and the restored
+checkpoint, the validator set and every configuration value come from existing L1 state rather than
+from a choice. <em>(user decision D-7: Mode B selected — recovery is permissionless and bonded, it is
+the only sanctioned way history above the last L1-accepted checkpoint may be replaced, and no
+operator, DAO or discretion is involved.)</em></span>
 <span class="why">Failure mode: a lever left live can void queued work (the <code>init3</code>
 class), censor proposing or proving, write or block the L2 checkpoint, or change which proofs count;
-each makes a role's permissionlessness and Mode A's no-rollback promise untrue in practice, and each
-is exactly the "the DAO/emergency key would fix it" non-argument the requirements forbid.</span>
+each makes a role's permissionlessness and the recovery-only replacement rule untrue in practice, and each
+is exactly the "the DAO/emergency key would fix it" non-argument the requirements forbid, now that the
+sanctioned fix is the permissionless, bonded path of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>.
+<em>(user decision D-7: Mode B selected — an emergency lever remains a failure, not a remedy, because
+recovery is permissionless and bonded.)</em></span>
 <span class="small">Assumed in the retained DAO upgrade authority (A-GOV-1) and in the reserved checkpoint writer's compliance with
 <a href="#SYS-02">SYS-02</a>(g) (Open migration item <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>).</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill open">Open</span></div>
@@ -527,7 +543,11 @@ network-level adversary: such an adversary can exclude a user's transactions ind
 withdrawal is initiated by an L2 transaction, can also prevent the user from starting a withdrawal. This
 is the disclosed limitation of <a href="10-assurance.html#LIVE-04">LIVE-04</a> and
 <a href="10-assurance.html#LIM-01">LIM-01</a>, and no rule may present the rotation as a per-transaction
-guarantee. <em>(user decision D-6: forced inclusion removed; a user-authorized partial relaxation of
+guarantee. There is still <strong>no forced-inclusion path</strong> in v1: forced inclusion is deferred
+to a later upgrade, which must preserve the atomic data-and-proof rule, the preserved addresses and
+permissionlessness (<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a> and its
+planned-update clause). <em>(user decision D-10: forced inclusion is deferred to a protocol update.)</em>
+<em>(user decision D-6: forced inclusion removed; a user-authorized partial relaxation of
 R10)</em> (ii) <em>Exit</em> — a bridge withdrawal becomes
 <a href="index.html#STATUS-08">withdrawal-eligible</a> only through the message-authentication path
 and the delay of <a href="04-l1-integration.html#MSG-03">MSG-03</a>, derived from the full settlement
@@ -536,13 +556,26 @@ or reverse it outside those rules. (iii) <em>Disclosure</em> — any interface t
 use the <a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11">STATUS-11</a>
 labels and state which status it shows; a display before
 <a href="index.html#STATUS-06">STATUS-06</a> must state that the batch's data and proof are not yet
-on Ethereum. (c) <em>Resources.</em> L2 gas in ETH; an L1 account and ETH for bridge transactions; a client able to
+on Ethereum, and <strong>any display of a confirmation above the last L1-accepted checkpoint must say
+that the confirmation is provisional and can be replaced</strong> by the recovery rules of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a>. <em>(user decision D-7: Mode B selected — a
+PoS confirmation above the last accepted checkpoint is provisional, and every interface showing it
+must disclose that it can be replaced.)</em> (c) <em>Resources.</em> L2 gas in ETH; an L1 account and ETH for bridge transactions; a client able to
 follow the chain's status. (d) <em>Rewards.</em> The
 protocol pays users nothing; users are not a protocol payee. (e) <em>Penalties.</em> None beyond L2 gas and L1 transaction fees; a user is never slashed for a
-protocol offence. (f) <em>Exit and failure.</em> If the L2 halts, funds are not lost
-but exit is delayed; a halt is safe and is never resolved by invalidating finalized history (Mode A,
-<a href="06-recovery-exceptions.html#REC-01">REC-01</a>); L1-accepted messages remain valid
-(<a href="04-l1-integration.html#L1-06">L1-06</a>). (g) <em>Permissionlessness and barriers.</em> No
+protocol offence. (f) <em>Exit and failure.</em> If the L2 halts, funds at or below the last accepted
+checkpoint are not lost but exit is delayed while the chain is stopped; a halt is safe, is never repaired
+by a privileged actor (<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>), and is resolved, if at
+all, by participants resuming under <a href="06-recovery-exceptions.html#HALT-02">HALT-02</a> or by the
+permissionless, bonded recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>. A confirmation
+above the last accepted checkpoint is <strong>provisional</strong>: recovery may discard the blocks that
+carry it, and the L2 transactions in those blocks are <strong>not replayed automatically</strong> — their
+senders must resubmit them, and no inclusion is guaranteed. Any economic position built on discarded
+blocks may be lost and is not compensated by protocol penalties
+(<a href="07-economics-slashing.html#ECON-11">ECON-11</a>). L1-accepted messages remain valid
+(<a href="04-l1-integration.html#L1-06">L1-06</a>). <em>(user decision D-7: Mode B selected — a
+rolled-back L2 transaction is not replayed automatically and must be resubmitted; confirmations above
+the last accepted checkpoint can be replaced.)</em> (g) <em>Permissionlessness and barriers.</em> No
 KYC and no allowlist; the real barriers are the L1 gas cost of bridge exits, the need to hold ETH, and
 dependence on <a href="../01-requirements-and-threat-model.md">A-L1-1</a> for L1 inclusion liveness plus
 <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> for the statistical inclusion property.</span>
@@ -563,11 +596,18 @@ history as valid (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>,
 <a href="05-proof-statement.html#PRF-10">PRF-10</a>), (ii) preserve the D3 addresses and storage
 layouts (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>,
 <a href="08-migration-upgrades.html#MIG-06">MIG-06</a>), and (iii) introduce no privileged path in
-ordinary operation (<a href="#SYS-04">SYS-04</a>). The DAO must not be required for block production,
-finality, proof submission or acceptance, activation, exit or withdrawal, and has
-no rescue function (<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>). (c) <em>Resources.</em>
-None operational. (d) <em>Rewards.</em> None from this design; the destination of slashed stake is a
-separate human decision (<a href="07-economics-slashing.html#ECON-06">ECON-06</a>). (e)
+ordinary operation or in recovery (<a href="#SYS-04">SYS-04</a>). The DAO must not be required for block production,
+finality, proof submission or acceptance, activation, exit, withdrawal or recovery, and has
+no rescue function (<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>). <strong>Recovery is
+outside the DAO's reach</strong>: the DAO may not invoke it, cancel it, extend it, choose the restored
+checkpoint, the validator set or any configuration value it restores, or substitute a rescue of its own.
+The only actors in recovery are the permissionless invoker, who posts a bond, and the objective rules of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a>. <em>(user decision D-7: Mode B selected — the DAO
+stays out of ordinary operation, including recovery, which is permissionless and bonded.)</em> (c) <em>Resources.</em>
+None operational. (d) <em>Rewards.</em> None from this design; the destination of slashed stake is
+user decision D-9 — the protocol treasury, with a reporter bounty strictly below the total penalty
+(<a href="07-economics-slashing.html#ECON-06">ECON-06</a>). <em>(user decision D-9: slashed stake goes to
+the protocol treasury, not a burn.)</em> (e)
 <em>Penalties.</em> None: governance capture is a trust assumption and a separate failure class, not
 an offence (<a href="08-migration-upgrades.html#GOV-02">GOV-02</a>). (f) <em>Exit.</em> Not
 applicable; users do not exit governance, they exit funds by
@@ -579,9 +619,11 @@ prevention, and the trust assumption <a href="../01-requirements-and-threat-mode
 stated at every claim that depends on it. (h) <em>Concentration.</em> Governance power follows token
 holdings; this design neither fixes nor claims to fix that, and the non-claim of
 <a href="03-membership-staking.html#MEM-10">MEM-10</a> applies.</span>
-<span class="why">Failure mode: the DAO is quietly used as an emergency operator, contradicting the
-selected Mode A (<a href="index.html#fixed">D2</a>) and R2, and reviving the "the DAO would fix it"
-non-argument the requirements forbid.</span>
+<span class="why">Failure mode: the DAO is quietly used as an emergency operator, contradicting
+R2 and the rule that recovery is permissionless and bonded
+(<a href="06-recovery-exceptions.html#REC-02">REC-02</a>), and reviving the "the DAO would fix it"
+non-argument the requirements forbid. <em>(user decision D-7: Mode B selected — the DAO has no role in
+recovery, so an emergency use of governance remains a failure, not a remedy.)</em></span>
 <span class="small">Assumed on A-GOV-1; the assumption is disclosed, not discharged.</span>
 <span class="pill assumed">Assumed</span></div>
 
@@ -597,7 +639,7 @@ assurance page <a href="10-assurance.html">10</a>.</p>
 <tbody>
 <tr><td><a href="../01-requirements-and-threat-model.md">A-CONS-1</a> — Byzantine stake &lt; 1/3</td><td><strong>safety</strong></td><td>the uniqueness behind <a href="index.html#STATUS-04">STATUS-04</a>; <a href="#ROLE-01">ROLE-01</a>(g); <a href="#SYS-02">SYS-02</a>'s premise that a finalized prefix is settled</td><td>two conflicting finalized histories can exist; ZK verification cannot repair this and does not attest that no competing certificate exists</td></tr>
 <tr><td><a href="../01-requirements-and-threat-model.md">A-CONS-2</a> — partial synchrony, timely delivery after GST</td><td><strong>liveness</strong></td><td>T1/T2 of <a href="#SYS-03">SYS-03</a>; view change <a href="02-consensus.html#CONS-07">CONS-07</a>; <a href="#ROLE-01">ROLE-01</a>(g)</td><td>extended halts and view-change churn; <em>not</em> safety loss</td></tr>
-<tr><td><a href="../01-requirements-and-threat-model.md">A-CONS-5</a> — correct validators hold and serve the data they voted for</td><td><strong>liveness and data availability</strong></td><td><a href="#ROLE-01">ROLE-01</a>(b); <a href="#ROLE-03">ROLE-03</a>(b); the certification of <a href="index.html#STATUS-04">STATUS-04</a></td><td>finalized-but-unavailable data; the honest outcome is a safe halt, not a rollback</td></tr>
+<tr><td><a href="../01-requirements-and-threat-model.md">A-CONS-5</a> — correct validators hold and serve the data they voted for</td><td><strong>liveness and data availability</strong></td><td><a href="#ROLE-01">ROLE-01</a>(b); <a href="#ROLE-03">ROLE-03</a>(b); the certification of <a href="index.html#STATUS-04">STATUS-04</a></td><td>finalized-but-unavailable data; the honest outcome is a safe halt, and the only replacement of history above the last accepted checkpoint is the bonded recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>, never a client-side rollback <em>(user decision D-7: Mode B selected)</em></td></tr>
 <tr><td><a href="../01-requirements-and-threat-model.md">A-DA-2</a> — at least one honest, adequately-resourced prover per batch</td><td><strong>liveness</strong></td><td>T3 of <a href="#SYS-03">SYS-03</a>; <a href="#ROLE-02">ROLE-02</a>(b),(g); backlog cap <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a></td><td>settlement stalls; L2 keeps producing only until the backlog cap binds</td></tr>
 <tr><td><a href="../01-requirements-and-threat-model.md">A-L1-1</a> — Ethereum liveness and safety</td><td><strong>both</strong> (liveness and safety)</td><td><a href="#SYS-02">SYS-02</a>(b),(e); channels C3/C4; <a href="#ROLE-04">ROLE-04</a>(b)(i),(g)</td><td>L2 halts (liveness) or settled history is rewritten (safety) — outside this protocol's control</td></tr>
 <tr><td><a href="../01-requirements-and-threat-model.md">A-ECO-1</a> — attack cost exceeds attack profit at the relevant time</td><td><strong>safety (economic)</strong></td><td><a href="#ROLE-01">ROLE-01</a>(e); <a href="#ROLE-02">ROLE-02</a>(e); penalty structure <a href="07-economics-slashing.html#ECON-05">ECON-05</a></td><td>attacks can become profitable; the protocol must state the exposure rather than claim deterrence</td></tr>

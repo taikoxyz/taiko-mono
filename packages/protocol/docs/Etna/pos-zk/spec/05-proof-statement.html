@@ -42,7 +42,15 @@ voting power of the epoch's validator set, where that set is authenticated from 
 <a href="#PRF-06">PRF-06</a>, in the order fixed by the consensus chain, from the predecessor state root
 yields the claimed successor state root. The guest
 also proves <strong>(W3) data binding</strong> — that the data it executed is the data the accepting
-L1 transaction publishes (see <a href="#PRF-07">PRF-07</a>). Acceptance requires all three. <em>(review round 1, findings B R1-03, B R1-04)</em></span>
+L1 transaction publishes (see <a href="#PRF-07">PRF-07</a>) — and <strong>(W4) recovery authorization</strong>:
+that the batch was certified and executed under the configuration the L1 contract binds
+(<code>configHash</code>) and under the recovery generation the contract derives from its own storage
+(<code>recoveryGeneration</code>, <a href="#PRF-02">PRF-02</a>(5)–(6)); the guest checks that generation
+against the value the contract supplies as a public input and rejects a stale batch. Acceptance requires
+all four. <em>(user decision D-7: Mode B selected — the statement carries the recovery authorization, so
+an alternative history is never accepted on execution validity alone; a certificate from a previous
+generation is void for canonical purposes above the restored checkpoint but remains admissible as
+evidence.)</em> <em>(review round 1, findings B R1-03, B R1-04)</em></span>
 <span class="why">Failure mode if split: a proof that a block was finalized without proving what it
 executed (or vice versa) admits a batch whose state transition was never agreed, or a state
 transition over data that was never certified.</span>
@@ -95,7 +103,18 @@ transaction, and it recomputes the Fiat–Shamir challenge rather than trusting 
                              // the guest and the L1 contract; no stored or pre-computed
                              // threshold exists (CONS-03 owns the predicate)
                              //                                        (L1: recomputed)
-  bytes32 configHash;        // consensus-relevant config commitment   (L1: Inbox storage)
+  bytes32 configHash;        // consensus-relevant config commitment: binds the exact
+                             // configuration under which the batch was certified and executed
+                             // (epoch schedule and L, quorum predicate, DA-mode rules, parameter
+                             // version and the recovery parameters), so a proof made under a
+                             // different configuration cannot stand as this batch's
+                             //                                       (L1: Inbox storage)
+  uint64  recoveryGeneration;// the recovery generation the batch was certified under: a
+                             // monotonically increasing counter held with the accepted
+                             // checkpoint and incremented by exactly one per completed recovery
+                             // (REC-02), so a batch that extends the current checkpoint must
+                             // carry the current value and a stale value is rejectable
+                             //                                       (L1: Inbox storage)
   uint64  firstHeight;       // first L2 height in the batch           (L1: checked)
   uint64  lastHeight;        // head height                            (L1: checked)
   bytes32 headBlockHash;     // head block hash                        (L1: checked vs chain)
@@ -139,7 +158,7 @@ transaction, and it recomputes the Fiat–Shamir challenge rather than trusting 
 // (review round 1, findings B R1-03, B R1-04, B R1-05). Review round 1, finding R1-CROSS:
 // an earlier revision carried a single epoch while PRF-05 required per-epoch checks, which
 // made a boundary-crossing batch unprovable.</code></pre>
-<span class="norm">Four constraints on this list are normative. (1) <code>epoch</code> is a pure
+<span class="norm">Six constraints on this list are normative. <em>(user decision D-7: Mode B selected — constraints (5) and (6) are added so the journal carries the recovery authorization.)</em> (1) <code>epoch</code> is a pure
 function of height: for every height in <code>[firstHeight, lastHeight]</code>,
 <code>epoch = epoch_of(height)</code> under the L1-committed epoch schedule
 (<a href="02-consensus.html#CONS-13">CONS-13</a>, <a href="02-consensus.html#CONS-14">CONS-14</a>), and
@@ -155,6 +174,29 @@ and canonical <code>ETNA_SET_KEY</code> order; <a href="02-consensus.html#CONS-1
 <code>validators_hash</code> and <code>next_validators_hash</code> MUST be that same root under that
 same encoding, so the header-chain binding and the Merkle membership proof always check the same
 object. <em>(review round 1, findings B R1-03, B R1-05)</em> (4) <strong>Epoch-transition inputs are L1-derived.</strong> <code>setVersion</code>, <code>setVersionBlock</code>, <code>anchorSetRoot</code> and <code>anchorSetTotalVotingPower</code> are read by the L1 contract from the staking contract's per-epoch mapping and the stored predecessor checkpoint and are never supplied by the prover; the two anchor fields are zero exactly when <code>firstHeight</code> is not the first block of its epoch, and the guest MUST reject a witness whose zero/non-zero pattern disagrees with the L1-derived values. These are the public inputs against which PRF-05(ii)'s transition checks are recomputed. <em>This closes review round 3 finding R3A-04: the epoch-anchor checks named public inputs that did not exist in the journal, so the transition evidence could not be recomputed at all.</em>
+(5) <strong>The configuration and the recovery authorization are L1-derived, never prover-chosen.</strong>
+<code>configHash</code> and <code>recoveryGeneration</code> are read by the L1 contract from its own
+storage — the same record that holds the accepted predecessor checkpoint — and are never supplied by the
+prover: the contract derives the current generation itself, from that record, and only then hashes the
+journal into <code>statementHash</code>. The guest MUST require the journal's
+<code>recoveryGeneration</code> to equal the generation the contract supplies as a public input, and MUST
+reject a batch whose generation is stale. Each of the two fields MUST have its own row in
+<a href="04-l1-integration.html#L1-05">L1-05</a> and its own line in
+<a href="04-l1-integration.html#input-reconciliation">L1-05 &sect;2.1</a>; by the preamble above, a field
+without a row is the declared protocol defect. <em>(user decision D-7: Mode B selected — the L1 contract
+derives the current recovery generation from its own storage, so a prover cannot choose the generation it
+is judged under.)</em>
+(6) <strong>Execution validity alone is never sufficient.</strong> A batch is accepted only on the
+conjunction of (W1) finality, (W2) execution, (W3) data binding and the recovery authorization of (5). An
+alternative history may never be accepted on execution validity alone, and a stale-generation proof MUST
+be rejected even when its execution and data-binding claims are internally valid. A certificate produced
+under a previous generation is <strong>void for canonical purposes</strong> at every height above the
+restored checkpoint — the history it certifies is not the chain recovery restored — but it remains
+<strong>admissible as evidence</strong>: it is still a signed object, the evidence rules of
+<a href="07-economics-slashing.html#ECON-04">ECON-04</a> still read it, and a signer is not excused
+because a recovery intervened (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>, late
+certificates). <em>(user decision D-7: Mode B selected — a certificate from a previous generation is void
+for canonical purposes above the restored checkpoint but remains admissible as evidence.)</em>
 <strong>Vector contents, reconciled with L1-05.</strong> <code>daMode</code>,
 <code>firstBlockTimestamp</code>, <code>lastBlockTimestamp</code>, <code>finalityCommitment</code>,
 <code>feeRecipient</code> and <code>signerBitmap</code> are in this journal because each is load-bearing;
@@ -227,7 +269,18 @@ becomes unsettleable. <em>(review round 1, finding CS-09: the guest's
 the client's <code>3s &gt; 2W</code>, so a minimally finalized certificate could not be proven.)</em>
 (iv) <code>totalVotingPower</code> equals the sum of the authenticated entries' effective stakes;
 (v) the head block hash equals the hash of the reconstructed head header, and the header chain links
-back to <code>prevBlockHash</code> by parent hash with no gaps. (vii) <strong><code>finalityCommitment</code> is recomputed, never accepted.</strong> From the head certificate it verified in (i)–(iii), the guest MUST recompute the commitment in the canonical encoding of <a href="04-l1-integration.html#L1-05">L1-05</a> row 15 — over <code>chainId</code>, <code>epoch</code>, <code>lastHeight</code>, <code>headBlockHash</code>, the certificate's <code>round</code>, the hash of the authenticated signer bitmap of (ii), and the hash of the certificate's ordered signature list — and MUST require equality with the journal's <code>finalityCommitment</code>; a value taken from a host hint and echoed without recomputation, or any mismatch, invalidates the proof (<a href="#PRF-13">PRF-13</a>). <em>This closes review round 3 finding R3-PRF-02: the field was declared proof-bound and pointed at PRF-04 for its in-guest derivation, but no clause derived it, so the contract's only commitment to the finality evidence was chosen by the lander.</em> <em>(user decision D-6: clause (vi), the forced-inclusion check, is removed with forced inclusion; the remaining clauses keep their lettering — no clause is renumbered.)</em></span>
+back to <code>prevBlockHash</code> by parent hash with no gaps. (vii) <strong><code>finalityCommitment</code> is recomputed, never accepted.</strong> From the head certificate it verified in (i)–(iii), the guest MUST recompute the commitment in the canonical encoding of <a href="04-l1-integration.html#L1-05">L1-05</a> row 15 — over <code>chainId</code>, <code>epoch</code>, <code>lastHeight</code>, <code>headBlockHash</code>, the certificate's <code>round</code>, the hash of the authenticated signer bitmap of (ii), and the hash of the certificate's ordered signature list — and MUST require equality with the journal's <code>finalityCommitment</code>; a value taken from a host hint and echoed without recomputation, or any mismatch, invalidates the proof (<a href="#PRF-13">PRF-13</a>). <em>This closes review round 3 finding R3-PRF-02: the field was declared proof-bound and pointed at PRF-04 for its in-guest derivation, but no clause derived it, so the contract's only commitment to the finality evidence was chosen by the lander.</em> <em>(user decision D-6: clause (vi), the forced-inclusion check, is removed with forced inclusion; the remaining clauses keep their lettering — no clause is renumbered.)</em>
+ (viii) <strong>recovery authorization.</strong> The guest MUST require the journal's
+<code>recoveryGeneration</code> to equal the generation the L1 contract supplies as a public input for
+this batch, and MUST reject the proof when that generation is stale — when the batch's certified evidence
+belongs to an earlier generation than the one the contract derives from its own storage. It MUST likewise
+bind <code>configHash</code>: the configuration values it reads from the witness (epoch schedule, quorum
+predicate, DA-mode rules, parameter version and the recovery parameters) MUST hash to the journal's
+<code>configHash</code>, so a proof made under a different configuration cannot stand as this batch's. A
+stale-generation batch is rejected on this clause even when its finality, execution and data-binding
+checks all pass: execution validity alone never makes an alternative history acceptable.
+<em>(user decision D-7: Mode B selected — the guest check is generation equality with the
+contract-supplied value, and a batch whose generation is stale is rejected.)</em></span>
 <span class="why">Failure modes addressed: double counting a signer, counting stake twice, a rounding
 discrepancy between guest and contract, and a certificate over a block that is not the one whose header
 chain was executed.</span>
@@ -339,10 +392,12 @@ argument fails with it, and the proof does not detect that.</span>
 
 <div class="rule" id="PRF-13"><span class="rid">PRF-13 — bindings must be cryptographically enforced, never asserted</span>
 <span class="norm">Any value a prover could otherwise choose freely — the validator set, the quorum
-threshold, the predecessor, the data commitment, the challenge point, the configuration hash and the
-program identity — must be derived by the L1 contract itself, or recomputed inside the guest from a
-value the contract derived, or checked by an L1 precompile. A binding that consists only of "the caller
-passed it" is not a binding and must not appear in this specification.</span>
+threshold, the predecessor, the data commitment, the challenge point, the configuration hash, the
+recovery generation and the program identity — must be derived by the L1 contract itself, or recomputed
+inside the guest from a value the contract derived, or checked by an L1 precompile. A binding that
+consists only of "the caller passed it" is not a binding and must not appear in this specification.
+<em>(user decision D-7: Mode B selected — the recovery generation is one of the values the L1 contract
+must derive rather than accept from the caller.)</em></span>
 <span class="why">Failure mode: a proof that is sound in isolation but whose public inputs are
 attacker-chosen — the standard way ZK-rollup integrations fail.</span>
 <span class="pill proven">Proven</span></div>
@@ -385,7 +440,10 @@ withdrawn identity for new batches. Removing an accepted identity is a governanc
 treated as malicious governance (<a href="08-migration-upgrades.html#GOV-02">GOV-02</a>).</span>
 <span class="why">Failure modes addressed: a verifier left accepting a superseded vulnerable identity;
 a proof generated under an old identity becoming unusable after an upgrade, which would strand an
-unsettled batch and — under Mode A — halt settlement.</span>
+unsettled batch and halt settlement until the batch is re-proven or the permissionless, bonded recovery
+of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> takes effect. <em>(user decision D-7: Mode B
+selected — a stall above the last accepted checkpoint is resolved by resumed proving or by recovery,
+never by a privileged shortcut.)</em></span>
 <span class="pill assumed">Assumed</span> <span class="small">(the migration discipline is normative; its operational correctness is an implementation gate)</span></div>
 
 <div class="rule" id="PRF-11"><span class="rid">PRF-11 — syscall, hint and accelerator trust model</span>

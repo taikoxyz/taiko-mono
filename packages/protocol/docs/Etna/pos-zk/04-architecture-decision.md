@@ -6,8 +6,10 @@ Inputs: `01-requirements-and-threat-model.md`, `02-consensus-survey.md`, `03-zkv
 `research/prior-etna-digest.md`, `research/taiko-baseline-contracts.md`, `research/zkvm-feasibility-raw.md`,
 `research/consensus-survey-raw.md`, `research/economics-raw.md`.
 
-This document records the architecture selection and the D2 mode decision. Normative rules live in
-`spec/index.html`; this document explains **why** they are what they are and what was rejected.
+This document records the architecture selection and the D2 mode decision, as amended by user decisions
+D-7 (Mode B selected; §5), D-8 (security funded from L2 fees), D-9 (slashed stake to the treasury) and
+D-10 (forced inclusion deferred). Normative rules live in `spec/index.html`; this document explains
+**why** they are what they are and what was rejected.
 
 ---
 
@@ -16,11 +18,14 @@ This document records the architecture selection and the D2 mode decision. Norma
 | Question | Decision |
 |----------|----------|
 | Consensus family | **Tendermint / CometBFT-class BFT**, one block per height, single-slot finality, lock + proof-of-lock-change (PoLC) rules retained unchanged |
-| Vote/certificate cryptography | **Ed25519 individual vote signatures (CometBFT-native)** for the primary design; BLS12-381 aggregation kept as an evaluated optimisation (§4.3) |
+| Vote/certificate cryptography | **Ed25519 individual vote signatures (CometBFT-native)** for the primary design; BLS12-381 aggregation kept as an evaluated optimisation (§8) |
 | Membership | Permissionless, self-bonded **TAIKO** on **L1**; validator-set roots committed by an L1 staking contract; epoch-scoped sets |
 | Data + proof | **Atomic in one L1 transaction** (D5), with two sound data paths: calldata+keccak (contract-computed) and blob+KZG-opening (in-guest polynomial evaluation, on-chain point-evaluation precompile) |
 | Proof shape | **One combined guest** proving consensus evidence *and* execution; composition rejected as the default |
-| Recovery mode (D2) | **Mode A selected** — safety-first, halt rather than rollback. Mode B is specified but **not selected** (§5) |
+| Recovery mode (D2, amended by D-7) | **Mode B selected** *(user decision D-7, after the D2 procedure was completed)* — permissionless, bonded, delayed recovery of history strictly above the last latest L1-accepted checkpoint, cancelled by honest progress and never applied below that boundary (§5). Mode A was investigated first and rejected as the selection because an availability failure under it produces an unbounded halt the requirement set does not accept |
+| Security funding (D-8) | **L2 execution and priority fees**, collected in the L2 fee vault and swept permissionlessly through the preserved Bridge to the single L1 reward pool; fees are revenue when they arrive at the pool, not when collected, and an empty pool pays nothing (`ECON-02` clause 7; *user decision D-8*) |
+| Penalty destination (D-9) | **Protocol treasury, with no burn**, and a reporter bounty strictly below the total penalty so self-reporting is never profitable (`ECON-06`; *user decision D-9*) |
+| Forced inclusion (D-10) | **Deferred to a later protocol update**: v1 has no forced-inclusion path (`FI-REMOVED-01`), and the planned update must preserve the D2, D5 and permissionlessness invariants (`FI-PLANNED-01`; *user decision D-10*) |
 | Sequencing | **PoS-sequenced validity rollup** (D4), named honestly throughout both deliverables |
 
 ---
@@ -72,8 +77,8 @@ the L1-authenticated validator-set root.
 | # | Modification | Status of the published proof |
 |---|--------------|------------------------------|
 | M1 | The validator set for epoch *e* is **derived from L1-committed TAIKO stake**, not from application logic in `EndBlock`. | CometBFT's safety proof assumes a per-height validator set known to all. Supplied argument: the set for epoch *e* is a deterministic function of L1 state fixed before the epoch starts, so all correct nodes agree on it; the L1 Inbox re-derives the same commitment when verifying the proof, so a prover cannot choose it (`PRF-03`). |
-| M2 | **Epoch handoff**: the first block of epoch *e+1* must commit to the last finalized block of epoch *e*; locks carry across the boundary. | This is the delicate modification. CometBFT's validator-update path is application-driven and assumes the update is visible to all. Our argument: a certificate is judged **under the set of its own epoch and remains valid forever** (`CONS-EPOCH-CERT`); correct validators in *e+1* treat the last block finalized in *e* as locked and will not precommit a conflicting block at that height; therefore a conflicting history requires ≥1/3 equivocation across the boundary, which is objectively slashable. This argument is **assumed-with-argument**, not proven here, and is a named review target (§7 F2). |
-| M3 | **Forced inclusion as a validity rule**: a proposal that omits a due forced inclusion is invalid and correct validators reject it. | Safety is unaffected (it only restricts which blocks can gather votes). Liveness for forced inclusion follows from hash-based weighted proposer selection (`CONS-06`): a sub-threshold cartel holds fewer than 1/3 of proposer slots *in expectation*, and honest proposers include due inclusions. The slot-share step is the **Assumed** fairness claim of M6, not the hash assumption. |
+| M2 | **Epoch handoff**: the first block of epoch *e+1* must descend from the last block finalized in epoch *e*; **no lock state crosses the boundary**. | This is the delicate modification. CometBFT's validator-update path is application-driven and assumes the update is visible to all. Our argument: cross-height continuity is exactly the parent-validity condition (`CONS-01`(iii)), enforced at the boundary by the anchor duty of `CONS-09`(1)–(2); and a certificate is judged **under the set of its own epoch and remains valid forever** (`CONS-EPOCH-CERT`), so the closing epoch's decision is not re-judged by the new set and a conflicting history requires ≥1/3 equivocation across the boundary, which is objectively slashable. This argument is **assumed-with-argument**, not proven here, and is a named review target (§7 F1). *This closes review round 3 finding R3A-03: the retracted cross-height lock carry-over is removed, and the protection it names is parent validity plus epoch-scoped permanent certificates.* |
+| M3 | **Withdrawn** *(user decision D-6: forced inclusion removed)*: proposal validity no longer carries any forced-inclusion duty, and no forced-inclusion queue, parameter, public input or offence exists. | No CometBFT proof applied: the base protocol has no forced-inclusion concept. Inclusion resistance is instead the conditional statistical property of proposer rotation (`CONS-06`, `LIVE-04`), and the later upgrade that adds forced inclusion must preserve the D2, D5 and permissionlessness invariants (`FI-PLANNED-01`, user decision D-10). |
 | M4 | **Cadence and timeouts** are expressed in seconds with an adaptive timeout ladder. | CometBFT's liveness proof needs eventual synchrony and a correct proposer; both are preserved. No wall clock is read by any *validity* rule (`GEN-06`). |
 | M5 | **Removal of `timeout_commit` slack** beyond the cadence budget. | Only affects timing, not the safety proof. |
 | M6 | **Proposer selection** is hash-based weighted selection over the epoch set (`pos = keccak256(abi.encode(DOMAIN_PROPOSER, chainId, epoch, H, R)) mod W`, the proposer the owner of the half-open cumulative-weight interval containing `pos`, lower index winning ties; `CONS-06` owns the formula, the tag and the encoding) instead of CometBFT's proposer-priority state machine. | Chosen during specification writing because the priority recurrence could not be quoted from a source retrieved in this session, and because the first form — a cumulative-weight residue rotation in *weight units* — left the whole epoch inside the highest-weight validator's interval and made one minimum-bond key the proposer of every height, able to halt the chain or capture ordering. Safety is unaffected: leader identity does not enter the safety invariant (`CONS-12`). The fairness claim is **Assumed**, not supplied by the hash assumption: hashing gives a residue uniform on `[0, W)` only under a random-oracle assumption that `A-CRYPTO-3` (collision resistance) does not provide, and the claim that each validator holds exactly its weight share of residues is an expectation over the epoch's heights and rounds, not a finite-window bound. Review target: confirm the residue-share counting argument. <em>This closes review round 1 finding CS-02: the superseded residue rotation is replaced by hash-based weighted selection and the fairness step is stated as Assumed.</em> |
@@ -85,8 +90,10 @@ the L1-authenticated validator-set root.
 - Stake custody is an **L1 staking contract holding the existing TAIKO ERC-20**
   (`0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` on L1 mainnet). No new token, no ETH bonds.
 - Voting power is proportional to **effective stake** = bonded amount that has completed activation.
-- Validator-set roots are committed **before** the epoch that uses them (one-epoch lookahead), so L2
-  never waits on an L1 transaction inside an epoch.
+- Validator-set roots are committed **before** the epoch that uses them (**two-epoch lookahead**,
+  `MEM-09`(1), `CONS-13`(3)), so L2 never waits on an L1 transaction inside an epoch. *This closes
+  review round 2 finding R2A-01: keying the commit to the closing height stalled production at every
+  boundary, so the set root for epoch *e+2* is committed during epoch *e*.*
 - v1 supports **no delegation**: self-bonded operator keys only. Rationale and rejected alternatives
   are recorded in the specification's economics page; the decisive reasons are attribution of
   equivocation evidence and avoidance of delegator/operator alignment games.
@@ -127,9 +134,9 @@ binding.
 
 ---
 
-## 5. D2 decision — Mode A selected (with a recorded dissent)
+## 5. D2 decision — Mode B selected (user decision D-7)
 
-### 5.1 The procedure
+### 5.1 The procedure, completed
 
 1. Mode A's obligations and the structural constraints it imposes were written first
    (`research/mode-a-feasibility-analysis.md`).
@@ -138,58 +145,93 @@ binding.
    strongest counterexample is "certified-but-unavailable data": a quorum signs block *B* whose data
    lives only in node memory; the holders vanish; under D5 no proof can be built; Mode A forbids
    discarding *B*, so settlement halts.
-3. The lead's assessment **disagrees with that verdict**, for the reason recorded below, and the
-   disagreement is preserved rather than edited away.
+3. The lead's earlier assessment, recorded as D-3 and preserved here, **disagreed** with that verdict:
+   the counterexample is a failure of a conditional liveness assumption, and D2 step 1 permits a safe
+   halt outside the stated assumptions.
+4. D-7 completes the procedure and records the selection. The requirement Mode A cannot satisfy is now
+   concrete (`§5.2`), and the safe-recovery constructions that were attempted
+   (`research/mode-a-feasibility-analysis.md`) either discard unsettled history (this selection) or
+   leave the halt in place. The resistance analysis required by D2 step 5 is written as `REC-03` in
+   `spec/06-recovery-exceptions.html`.
 
-### 5.2 The disagreement, stated exactly
+### 5.2 What Mode A could not satisfy
 
-The counterexample is real, and the protocol must disclose it. It is **not**, however, evidence that
-Mode A is infeasible, because D2 step 1 states: *"A safe halt outside the stated liveness assumptions
-is permitted; its existence alone is not evidence that Mode A is infeasible."*
+The counterexample is real and is disclosed in the specification. The decisive point is not whether it
+is reachable *inside* the stated assumptions, but what the requirement set accepts as an end state: D2
+permits a safe halt, while the requirement set also demands a chain that keeps serving users. An
+availability failure under Mode A produces an **unbounded halt** whose only remedies are outside the
+protocol — no rule, contract or timeout can restart settlement without a new honest quorum and the
+data — and Mode A offers no in-protocol way out. That is the requirement Mode A cannot satisfy. The D-3
+assessment is retained, not edited away: it remains the record of why the counterexample alone was not
+treated as a disproof of Mode A, and D-7 is the decision that the resulting unbounded halt is
+unacceptable regardless.
 
-The counterexample is precisely a failure of a **liveness** assumption — that correct validators hold
-and serve the data they voted for, and that at least one adequately-resourced prover exists. Every
-requirement that Mode A must satisfy is either a safety requirement or an explicitly **conditional**
-liveness requirement:
+### 5.3 The mechanism, exactly as specified
 
-| Requirement | Conditional? | Satisfied under Mode A? |
-|-------------|--------------|-------------------------|
-| R5 consensus safety and confirmation guarantees | safety | Yes — CometBFT safety under <1/3 Byzantine; certificates are epoch-scoped and permanent |
-| R6 liveness | explicitly conditional in its own text | Yes, under stated assumptions; the specification states exactly where liveness ends |
-| R4 2 s cadence | "under explicit, justified assumptions" | Yes, under the stated participation/synchrony assumption |
-| D5, D6, R8, R9, R10, R11 | no liveness demand beyond stated assumptions | Yes |
-| D1/D2 instruction | — | A safe halt is explicitly permitted |
+Mode B is normative in `spec/06-recovery-exceptions.html` (`REC-02`), within the boundary of
+`REC-01`:
 
-Two further points support the assessment. First, **Mode B does not remove the counterexample's
-cause, only its symptom**: recovery requires a *new* honest quorum and the L1 checkpoint's data; if
-participation is permanently gone, recovery restores nothing, while it *does* introduce a
-permissionless mechanism that can rewrite unsettled history — the exact surface D2 step 5 makes a
-blocker. Second, **the failure mode is already present in the current, production Taiko design**
-(the June 2026 forced-inclusion void at `Inbox.sol:246-258`), which shows the class is real and must
-be *disclosed and mitigated*, not that it is disqualifying.
+- **Permissionless and bonded.** Any account may invoke it; there is no operator, no DAO rescue and no
+  validator quorum. The bond `B_REC(e) = B_REC_BASE · 2^n` escalates with the number of completed
+  recoveries in the preceding `REC_WINDOW`; it is returned in full when the recovery completes, and it
+  is slashed in whole to the protocol treasury when the recovery is cancelled (`ECON-06`(6)).
+- **Delayed, and cancelled by honest progress.** The recovery takes effect only after
+  `T_RECOVERY_DELAY`; during that window the acceptance of **any** valid batch extending the current
+  checkpoint cancels it. Late certificates and late proofs are void for canonical purposes above the
+  restored checkpoint, but a late certificate remains admissible as evidence.
+- **Strictly above the latest L1-accepted checkpoint.** Nothing at or below that checkpoint may
+  be changed by any path, and recovery restores the checkpoint rather than choosing a branch; it changes
+  no configuration value and no validator set, and it is not a batch, accepts no data and creates no
+  data-first path (D5 holds unchanged).
+- **One objective trigger only.** A settlement stall: no batch extending the current L1 checkpoint
+  accepted for `T_STALL = T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY + T_RECOVERY_MARGIN`,
+  which must be strictly larger than the D6 envelope. A participant's local view, a halt, a missing
+  certificate, a slow proof and an over-depth cap are not triggers.
+- **Bound into the proof statement.** `configHash` and `recoveryGeneration` are public inputs, and
+  the guest rejects a stale generation, so an alternative history is never accepted on execution
+  validity alone (`PRF-01` (W4), `PRF-02`(5)–(6)).
 
-**Therefore: Mode A is selected.** The dissent, the counterexample, and the mitigation obligations
-are recorded in `DECISIONS.md` D-3 and carried into adversarial review as review question Q-A1
-(§7). If a reviewer shows the counterexample is *reachable inside* the stated liveness assumptions
-(i.e. that the availability premise is vacuous rather than conditional), the selection must be
-revisited under D2 step 2 — that is the falsifier, and it is stated in the specification.
+Every timing, bond and depth term is **unmeasured** and is registered with its derivation in
+`spec/09-parameters.html`.
 
-### 5.3 Mode A's binding obligations (become normative rules)
+### 5.4 What does not change
 
-`L1-FINAL-ONLY` (L2 consumes only Ethereum-final L1 facts) · `CONS-EPOCH-CERT` (epoch-scoped,
-permanently valid certificates) · `L1-ADMIT-NO-EXPIRY` (no permissioned gate, no expiring range) ·
-`UPG-PRESERVE` (upgrades accept previously finalized history) · `DA-BACKLOG-CAP` (consensus-enforced
-unsettled-depth cap) · `HALT-RESTART` (resume only from reconstructible finalized state) ·
-`WITHDRAWAL-DELAY` (derived from the whole pipeline).
+Mode A's binding obligations remain normative, with the recovery boundary added: `L1-FINAL-ONLY` (L2
+consumes only Ethereum-final L1 facts) · `CONS-EPOCH-CERT` (epoch-scoped, permanently valid
+certificates) · `L1-ADMIT-NO-EXPIRY` (no permissioned gate, no expiring range) · `UPG-PRESERVE`
+(upgrades accept previously finalized history and are never a substitute for recovery, `GOV-03`(e)) ·
+`DA-BACKLOG-CAP` (consensus-enforced unsettled-depth cap) · `HALT-RESTART` (resume only from
+reconstructible finalized state, or from the checkpoint a completed recovery restored) ·
+`WITHDRAWAL-DELAY` (derived from the whole pipeline). Ethereum-finalized checkpoints and every
+already-accepted batch remain valid: recovery never revokes a batch accepted on L1 (`STATUS-06`).
 
-### 5.4 Mode B — specified, not selected
+### 5.5 Resistance analysis and review status
 
-Mode B is specified in `spec/06-recovery-exceptions.html` so that (a) the authorized fallback is
-concrete rather than hand-waving, (b) the trigger conditions that would make it necessary are
-enumerated, and (c) Mode A is not designed in a way that makes the fallback unimplementable. It is
-**never** described as satisfying Mode A's irreversible-finality promise, and its D2-step-5 blocker
-(cheap triggering of recovery that replaces honestly confirmed history) is recorded as unresolved in
-the specification.
+`REC-03` states what it would take to induce the trigger, why a sub-threshold coalition cannot
+induce it inside the L2 fault model, the conditions under which it could (L1-level censorship, the absence of any
+prover), and what cannot be bounded (off-chain profit, platform-level censorship). It is an argument,
+not a proof, and **it requires independent review before the D-7 selection is treated as settled**; the
+review must attempt to break it, and its named falsifiers — proving ceasing to be permissionless in
+practice, `T_RECOVERY_DELAY` shorter than the time an honest prover needs to land a batch, or a bond
+refundable on cancellation — withdraw the argument and reopen the selection under the D2 procedure.
+Review round 4 owns that attempt (§7, Q-B1).
+
+### 5.6 Related user decisions carried by the specification
+
+- **D-8 — security is funded from L2 fees.** L2 execution and priority fees are collected in the L2 fee
+  vault and swept permissionlessly through the preserved Bridge to the single L1 reward pool. Fees are
+  revenue when they arrive at the pool, not when collected; there is no direct L1 claim, no escrow and
+  no accounting entry against future settlement. The honest consequences are normative: rewards lag the
+  settlement pipeline, an empty pool pays nothing, and a failed bridge stops rewards rather than
+  creating a receivable (`ECON-02` clause 7). *(user decision D-8.)*
+- **D-9 — slashed stake goes to the treasury.** No burn. The penalties are paid to the protocol
+  treasury, and the reporter bounty is strictly below the total penalty so self-reporting is never
+  profitable (`ECON-06`). *(user decision D-9.)*
+- **D-10 — forced inclusion is deferred.** v1 has no forced-inclusion path and no per-transaction
+  inclusion guarantee (`FI-REMOVED-01`); the later upgrade that adds forced inclusion must preserve
+  the D2, D5 and permissionlessness invariants, including no reordering or revocation of past history
+  and no privileged operator (`FI-PLANNED-01`). Until it ships, R10 is satisfied only in its relaxed
+  form. *(user decision D-10.)*
 
 ---
 
@@ -201,8 +243,11 @@ the specification.
   re-introduces the exact bug class that a recent SP1 advisory was about (`03-zkvm-feasibility.md`
   §9).
 - Public inputs are **derived from L1 state** wherever they define authority: chain id, predecessor
-  checkpoint, epoch, validator-set root, quorum threshold, data commitment, new state root, and the
-  Fiat–Shamir challenge. A prover-supplied witness never defines the validator set (`PRF-03`).
+  checkpoint, epoch, validator-set root, quorum threshold, configuration hash, recovery generation, data
+  commitment, new state root, and the Fiat–Shamir challenge. A prover-supplied witness never defines the
+  validator set (`PRF-03`), and the configuration hash and recovery generation are L1-derived and
+  checked in-guest (`PRF-02`(5)–(6)), so an alternative history is never accepted on execution validity
+  alone. *(user decision D-7: the statement carries the recovery authorization.)*
 - Both RISC Zero and SP1 must implement the same statement. Acceptance policy, version pinning and
   upgrade rules are normative (`PRF-08`, `PRF-10`).
 
@@ -212,11 +257,12 @@ the specification.
 
 | ID | Item | Closed by |
 |----|------|-----------|
-| F1 | Epoch-handoff lock-preservation argument (M2) | independent review; explicit argument in `CONS` rules |
+| F1 | Epoch-handoff argument (M2): parent validity plus epoch-scoped certificates, with no cross-height lock carry-over | independent review; explicit argument in `CONS` rules (review round 3, R3A-03) |
 | F2 | In-guest cost of the blob-path polynomial evaluation | measurement gate (implementation); not needed for calldata path |
 | F3 | 2 s cadence under a permissionless global set | measurement gate + stated assumptions |
 | F4 | Proving throughput formula inputs (cycles per L2 gas; proven cycles/s per machine) | measurement gate |
-| Q-A1 | Is the Mode A availability counterexample reachable *inside* the stated assumptions? | adversarial review round 1 |
+| Q-A1 | Is the Mode A availability counterexample reachable *inside* the stated assumptions? | **closed by D-7**: the selection no longer depends on the answer — the requirement set does not accept the resulting unbounded halt either way |
+| Q-B1 | Does the `REC-03` resistance analysis survive independent review? Falsifiers: proving not permissionless in practice; `T_RECOVERY_DELAY` shorter than an honest prover needs to land a batch; a bond refundable on cancellation | adversarial review round 4, which must attempt to break it; *user decision D-7: the selection is not settled until that review attempts to break the analysis* |
 | Q-A2 | Is the "one certificate per batch" argument sound for the whole prefix? | adversarial review round 1 |
 | Q-A3 | Does the blob binding (FS challenge + on-chain opening + in-guest evaluation) hold against a grinding prover? | adversarial review round 1 |
 
@@ -230,7 +276,14 @@ the specification.
 - **BLS aggregate certificates as the default** — would modify the vote format and require in-guest
   pairings (unverified on both backends). Retained as an optimisation to be measured.
 - **Delegated stake in v1** — evidence attribution and alignment games.
-- **Mode B** — not selected; see §5.
+- **Mode A (halt without rollback)** — rejected at D-7: D2 permits a safe halt, but an availability
+  failure under Mode A produces an unbounded halt whose only remedies are outside the protocol, and the
+  requirement set demands a chain that keeps serving users. Mode B is selected; see §5.
+- **Burning slashed stake** — rejected by D-9: the penalty destination is the protocol treasury, with a
+  reporter bounty strictly below the total penalty (`ECON-06`).
+- **Forced inclusion in v1** — deferred by D-10, not adopted: v1 has no forced-inclusion path
+  (`FI-REMOVED-01`), and the later upgrade must preserve the D2, D5 and permissionlessness invariants
+  (`FI-PLANNED-01`).
 - **A new consensus design** — explicitly forbidden by the brief's preference for an established
   protocol.
 - **Reusing the prior Etna seat/sortition committee** — a different security model (bonded seats,

@@ -190,7 +190,10 @@ branch.
 <br><strong>Publication.</strong> On reaching (i)–(iii) the node MUST gossip <code>C</code> and treat <code>H</code> as finalized, and it MUST be able to serve
 <code>C</code> to a node that is behind in height (S1: "<em>Nodes gossip to nodes lagging in blockchain height with block commits for older blocks.</em>").
 Publication is a liveness aid: no safety argument on this page depends on any receiver having seen a certificate at a particular time.</span> <span class="why">Failure mode: a commit rule conditioned on the absence of other certificates makes the local decision non-monotone and makes it depend on an
-unprovable negative; a withheld certificate then appears to invalidate a decision already taken, which is the failure Mode A forbids (D2).</span>
+unprovable negative; a withheld certificate then appears to invalidate a decision already taken, which is the failure these rules forbid — the node's decision
+stays a function of the certificate, its own data check and its own finalized prefix, while replacement of unsettled history above the last accepted checkpoint
+remains the separate, rule-bound L1 path of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>. <em>(user decision D-7: Mode B selected — recovery never conditions the local commit
+rule; the rule of this clause is unchanged.)</em></span>
 <span class="pill proven">Proven</span> <span class="small">(the <code>&gt;2/3</code> boundary is <a href="#CONS-03">CONS-03</a>; data availability is checked
 locally and is non-transferable)</span></div>
 <div class="rule" id="CONS-06"><span class="rid">CONS-06 — leader selection: deterministic stake-weighted selection</span> <span class="norm">Let epoch <code>e</code>
@@ -247,12 +250,15 @@ age, a "current set" check, or a re-verification under a later set. The epoch's 
 L1 data for the lifetime of the chain; <a href="03-membership-staking.html#MEM-08">MEM-08</a>/<a href="03-membership-staking.html#MEM-09">MEM-09</a> must
 therefore store every epoch's root in storage that is never overwritten. Retention of set roots is a storage-layout obligation, not a soft policy. (4)
 Consequently, validator rotation cannot invalidate finality. A validator that joins in epoch <code>e+k</code> can never cause a block finalized in epoch
-<code>e</code> to be re-judged, re-signed or discarded; rotation changes who may finalize <em>future</em> heights only. This is the mechanism by which Mode A's
-permanence promise attaches to a certificate (D2): the guarantee travels with the certificate, not with the current set. (5) The security of an old certificate
+<code>e</code> to be re-judged, re-signed or discarded; rotation changes who may finalize <em>future</em> heights only. This is the mechanism by which a
+certificate's validity travels with the certificate, not with the current set: the judgement is fixed for ever, even though the canonical status of the
+history above the last accepted checkpoint is governed by the recovery rules (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>), and a certificate
+voided there remains admissible as evidence. <em>(user decision D-7: Mode B selected — recovery never re-judges a certificate under another set; it only
+replaces unsettled history above the accepted checkpoint.)</em> (5) The security of an old certificate
 is exactly the security of the set that signed it, at the stake that counted in that epoch. The current set's stake neither strengthens nor weakens it. Slashing
 of an old offence follows the stake at offence time (<a href="03-membership-staking.html#MEM-06">MEM-06</a>).</span> <span class="why">Failure mode: an
 implementation that verifies certificates against "the current validator set" makes rotation equivalent to a rollback — a later set can restate history — and
-Mode A's permanence guarantee silently disappears (a D2 violation).</span>
+the epoch rule of this clause silently disappears (a violation of <a href="#CONS-08">CONS-08</a> and <a href="08-migration-upgrades.html#GOV-02">GOV-02</a>).</span>
 <span class="pill proven">Proven</span> <span class="small">(premise: the epoch roots stay available from L1, which MEM-08 owns)</span></div>
 <div class="rule" id="CONS-09"><span class="rid">CONS-09 — epoch handoff and cross-height carry-over (the delicate modification, F1)</span> <span class="norm">Let
 <code>h_last(e) = H_0 + (e+1)·L - 1</code> be the last height of epoch <code>e</code>, <code>h_first(e+1) = h_last(e) + 1</code>, and <code>B_anchor</code> the
@@ -297,7 +303,9 @@ replaces that (<a href="../04-architecture-decision.md">04 §2.1</a>, M2) and <a
 shortcut here removes the entire safety argument and is therefore forbidden (<a href="#CONS-10">CONS-10</a>(6), which fixes the fields the shortcut omits); (ii) the case where the anchor certificate is not disseminated (a stall, not a safety loss); (iii) the
 interaction with <code>next_validators_hash</code> authentication when <code>e+1</code>'s set root was committed during <code>e</code> (<a href="#CONS-10">CONS-10</a>, <a href="#CONS-13">CONS-13</a>); (iv) misconfigured epoch length or set commitments. Consequence of failure: fault class
 <strong>F2</strong> (<a href="../01-requirements-and-threat-model.md">01 §5</a>) — two conflicting histories can be finalized with nobody slashable, and every
-permanence claim of Mode A fails.</span> <span class="why">Failure mode: an implementation that lets epoch <code>e+1</code>'s set sign blocks without checking
+uniqueness claim this specification makes for heights above the last accepted checkpoint fails; recovery is not a repair for it, because recovery restores
+the L1-accepted checkpoint and cannot adjudicate between two conflicting certificates. <em>(user decision D-7: Mode B selected — recovery replaces unsettled
+history under the rules; it does not repair a failure of <code>A-CONS-1</code>.)</em></span> <span class="why">Failure mode: an implementation that lets epoch <code>e+1</code>'s set sign blocks without checking
 the epoch-<code>e</code> anchor creates a fresh-quorum fork at the boundary in which no validator of the old set misbehaved; nothing is slashable and the
 "unique finalized prefix" claim becomes false while every local check still passes.</span>
 <span class="pill assumed">Assumed</span> <span class="pill open">Open</span> <span class="small">(closed by the independent review of F1: a proof or a
@@ -381,7 +389,7 @@ makes real equivocation unprovable; requiring a validator as submitter leaves th
 round 1 finding CS-11: the evidence predicate did not require the two objects to agree on the signed epoch field, so an epoch-mismatched pair could escape the
 evidence rule.</em>)</span></div>
 <div class="rule" id="CONS-12"><span class="rid">CONS-12 — the safety invariant: uniqueness of the finalized prefix</span> <span class="norm"><strong>Invariant.</strong> Under the premises below, if certificate <code>C1</code> finalizes block <code>B1</code> at height <code>H1</code> and
-certificate <code>C2</code> finalizes block <code>B2</code> at height <code>H2 &le; H1</code> (each valid per <a href="#CONS-03">CONS-03</a> and <a href="#CONS-05">CONS-05</a>), then the ancestor of <code>B1</code> at <code>H2</code> is <code>B2</code>: the finalized prefix is unique.
+certificate <code>C2</code> finalizes block <code>B2</code> at height <code>H2 &le; H1</code> (each valid per <a href="#CONS-03">CONS-03</a> and <a href="#CONS-05">CONS-05</a>), then the ancestor of <code>B1</code> at <code>H2</code> is <code>B2</code>: the finalized prefix is unique. <strong>The invariant is about the certificates produced under the rules</strong> — the objects <a href="#CONS-01">CONS-01</a>–<a href="#CONS-09">CONS-09</a> let honest validators produce — and it is <strong>relative to the authenticated checkpoint</strong>: it is anchored at the last L1-accepted checkpoint (<a href="03-membership-staking.html#MEM-11">MEM-11</a>, <a href="04-l1-integration.html#L1-04">L1-04</a>), and every claim below is a claim about the chain of such certificates that extends that checkpoint. Above the last accepted checkpoint the invariant is <strong>conditional on the recovery rules</strong>: a certificate at a height above that checkpoint is a claim on <em>provisional</em> history, and the permissionless, bonded recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> may replace that history without any certificate being forged or re-judged. At and below the last accepted checkpoint no recovery path may change the history at all. <em>(user decision D-7: Mode B selected — the invariant is restated relative to the authenticated checkpoint and made conditional on the recovery rules for history above it.)</em>
 <br><strong>Premises (all of them; none may be silently dropped).</strong> (a) <strong>A-CONS-1</strong>: Byzantine stake is strictly below 1/3 of the stake
 that counts toward quorum, <strong>in every epoch</strong> — the premise is per epoch because a certificate is judged under its own epoch's set (<a href="#CONS-08">CONS-08</a>). (b) Correct validators execute <a href="#CONS-02">CONS-02</a> (persistent vote uniqueness), <a href="#CONS-04">CONS-04</a> (lock
 and unlock) and <a href="#CONS-01">CONS-01</a>'s validity rule. (c) The set and its weights are L1-authenticated: <code>set_root(e)</code> is computed from
@@ -402,9 +410,12 @@ itself does not depend on slashing: it needs only that fewer than one third are 
 CONS-02/CONS-04, then <strong>two conflicting commit certificates can both be cryptographically valid</strong>. The ZK proof does <strong>not</strong> repair
 this: the proof attests that a certificate is internally consistent with a stated validator set and quorum rule — it cannot attest that no other certificate
 exists (<a href="../01-requirements-and-threat-model.md">01</a> §6.5; <a href="10-assurance.html#INV-01">INV-01</a>). Every uniqueness claim in this
-specification is therefore relative to (i) an L1-authenticated checkpoint (<a href="03-membership-staking.html#MEM-11">MEM-11</a>) and (ii) A-CONS-1 in the
-relevant epochs. Under failure the honest response is detection, evidence publication and disclosure (fault class F2) — never a rule that pretends to resolve
-it, and never a recovery that invalidates a finalized block (D2, <a href="06-recovery-exceptions.html#REC-01">REC-01</a>).
+specification is therefore relative to (i) an L1-authenticated checkpoint (<a href="03-membership-staking.html#MEM-11">MEM-11</a>), (ii) A-CONS-1 in the
+relevant epochs, and (iii) the recovery rules for heights above that checkpoint, since a certificate there is provisional
+(<a href="06-recovery-exceptions.html#REC-02">REC-02</a>). Under failure the honest response is detection, evidence publication and disclosure (fault class F2) — never a rule that pretends to resolve
+it, and never a path that rewrites history at or below the last accepted checkpoint. Above that checkpoint the only sanctioned replacement is the bonded
+recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>, which discards unsettled history by rule and grants no party discretion over the restored checkpoint.
+<em>(user decision D-7: Mode B selected — the uniqueness claim is conditional on the recovery rules above the last accepted checkpoint, and the only replacement path is permissionless and bonded.)</em>
 <br><strong>One certificate per batch.</strong> For a batch whose head block is <code>H</code>, verifying the certificate of <code>H</code> alone, plus the
 parent-hash linkage of the batch's headers back to the previously L1-accepted checkpoint, extends the invariant to every block of the batch, because finality of
 <code>B1</code> at <code>H1</code> implies its ancestors by the same invariant (<a href="../04-architecture-decision.md">04 §2</a>). The premise — correct
@@ -445,7 +456,9 @@ epoch <code>e</code> (<a href="#CONS-15">CONS-15</a>, <a href="06-recovery-excep
 roll back a finalized block. Continuing with the old set would put a height
 into an epoch whose set cannot be authenticated against L1 and would violate <a href="#CONS-08">CONS-08</a>(1); taking a set from an unfinalized L1 block would
 violate SYS-02 and assumption A-CONS-4 (all correct nodes agree on the set version for an epoch). A halt at the boundary is a liveness failure (class F1), and
-no recovery may roll the finalized prefix back (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>).</span> <span class="why">Failure mode: a set chosen
+no recovery may roll the L1-accepted prefix back: heights at or below the last accepted checkpoint are untouchable, while above it the permissionless, bonded
+recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> may replace unsettled history under its own trigger, bond and delay.
+<em>(user decision D-7: Mode B selected — the boundary halt stands, and the only replacement path above the checkpoint is REC-02.)</em></span> <span class="why">Failure mode: a set chosen
 inside the epoch it governs makes L2 progress depend on an L1 transaction that can be censored or reorged — the chain either stalls unpredictably, or worse, two
 nodes judge one certificate under two different sets after a reorg, which is a set-substitution attack with no slashable party.</span>
 <span class="pill proven">Proven</span> <span class="small">(premise: SYS-02, Ethereum-final L1 facts only)</span></div>
@@ -468,16 +481,23 @@ the first epoch, which is the epoch with the least evidence available to a new n
 <div class="rule" id="CONS-15"><span class="rid">CONS-15 — halt on loss of the assumptions (pointer to HALT)</span> <span class="norm">A correct validator
 <strong>halts rather than choosing between two histories</strong>. Halting means: stop signing (<a href="#CONS-02">CONS-02</a>); stop advancing the finalized
 checkpoint; keep serving the blocks, votes and certificates already held; publish the conflicting evidence assembled under <a href="#CONS-11">CONS-11</a>; and
-wait. It MUST NOT choose a branch, MUST NOT roll back, and MUST NOT delegate the choice to an operator. The halt obligations themselves — what a halt is,
-restart rules, the consensus-enforced unsettled-depth cap, and the ban on an emergency operator, a DAO rescue and a data-first recovery — are stated once in <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>–<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>. The consensus conditions on this page that
+wait. It MUST NOT choose a branch, MUST NOT roll back, and MUST NOT delegate the choice to an operator. A client that replaces history on its own is not
+performing recovery: the <strong>only</strong> sanctioned way history above the last L1-accepted checkpoint may be replaced is the permissionless, bonded
+recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>, which is invoked on L1 under its own trigger, bond, delay and cancellation rules, restores the L1-accepted
+checkpoint, and leaves no choice of checkpoint, validator set or configuration to any operator, DAO or invoker. The halt obligations themselves — what a halt is,
+restart rules, the consensus-enforced unsettled-depth cap, and the ban on an emergency operator, a DAO rescue and a data-first recovery — are stated once in <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>–<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a>, and the recovery
+rules are stated once in <a href="06-recovery-exceptions.html#REC-01">REC-01</a>–<a href="06-recovery-exceptions.html#REC-03">REC-03</a>; a correct node never substitutes its own rollback for them.
+<em>(user decision D-7: Mode B selected — recovery is a permissionless, bonded L1 path, and CONS-15 points at the recovery rules as well as the halt rules.)</em> The consensus conditions on this page that
 trigger a halt are: (1) two valid but conflicting commit certificates at one height (<a href="#CONS-05">CONS-05</a>, <a href="#CONS-12">CONS-12</a>); (2) a
 valid commit certificate for a block conflicting with the validator's own lock at that height (<a href="#CONS-04">CONS-04</a>); (3) an epoch boundary whose set
 commitment is missing or ambiguous (<a href="#CONS-13">CONS-13</a>(4)–(5)); (4) loss or corruption of the persistent sign-state store (<a href="#CONS-02">CONS-02</a>), where signing MUST stop and MUST NOT be restarted from an empty store; (5) exceeding the unsettled-depth cap (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>); (6) any observation irreconcilable with CONS-08's epoch rule, such as two <code>set_root(e)</code>
 values or a certificate whose epoch field contradicts the epoch schedule. A halt is a legitimate outcome and not a defect: it is the honest response to a
 detected assumption failure (<a href="../01-requirements-and-threat-model.md">01 §5</a>, class F1), and it never licenses an inference that some object does not
 exist (<a href="index.html#STATUS-10">STATUS-10</a>).</span> <span class="why">Failure mode: an implementation that "resolves" a fork by choosing the longer,
-heavier or operator-preferred branch converts a detected assumption failure into a silent rollback — the exact Mode A violation (D2) this specification exists
-to prevent.</span>
+heavier or operator-preferred branch converts a detected assumption failure into a silent rollback — the exact violation of <a href="#CONS-15">CONS-15</a> and
+<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a> this specification exists to prevent, since replacing history above the last accepted checkpoint is the
+business of the bonded recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> and of nothing else. <em>(user decision D-7: Mode B selected — a client-side or
+operator-side rollback remains forbidden; only the rule-bound recovery path may replace unsettled history.)</em></span>
 <span class="pill proven">Proven</span> <span class="small">(the halt action is unconditional; the <em>triggers</em> are assumption failures, whose avoidance is
 not claimed)</span></div>
 <h2 id="modifications">Modifications and proof status</h2>
