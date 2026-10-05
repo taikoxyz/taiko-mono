@@ -22,5 +22,6 @@ pub use constants::{
 pub use error::{ProtocolError, Result};
 pub use payload_helpers::{
     PayloadAttributesInput, build_payload_attributes, build_payload_attributes_with_id,
-    calculate_shasta_mix_hash, encode_extra_data, encode_transactions,
+    calculate_shasta_mix_hash, decode_etna_anchor_block_number, encode_etna_extra_data,
+    encode_extra_data, encode_transactions,
 };
