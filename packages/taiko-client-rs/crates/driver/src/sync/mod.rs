@@ -109,8 +109,14 @@ pub struct SyncPipeline {
 
 impl SyncPipeline {
     /// Construct a new pipeline from the runtime configuration.
+    ///
+    /// Refuses to start when the L2 head contradicts the client's Etna fork schedule
+    /// ([`Client::check_etna_schedule`]); this covers both the driver and the whitelist
+    /// preconfirmation driver.
     #[instrument(skip(cfg, rpc), name = "sync_pipeline_new")]
     pub async fn new(cfg: DriverConfig, rpc: Client) -> Result<Self, DriverError> {
+        rpc.check_etna_schedule().await?;
+
         // Shared cross-stage state: beacon sync writes the checkpoint head it caught up to,
         // event sync consumes that head as its resume anchor when checkpoint mode is enabled.
         let checkpoint_resume_head = Arc::new(CheckpointResumeHead::default());
