@@ -107,4 +107,32 @@ mod tests {
         assert_eq!(p2p.payload_attributes.parent_beacon_block_root, Some(B256::ZERO));
         assert_eq!(rest.l1_origin.build_payload_args_id, p2p.l1_origin.build_payload_args_id);
     }
+
+    /// The same Etna block built from a REST request (whose payload view zeroes the hash and
+    /// post-execution fields) and imported from a P2P envelope (which carries them) sends the
+    /// request's root, passes the gas limit through, and binds the same payload fingerprint,
+    /// which differs from the zero-root one.
+    #[test]
+    fn driver_payload_binds_the_etna_root_identically_for_rest_and_p2p_builds() {
+        let root = B256::from([0x5au8; 32]);
+        let mut p2p_payload = sample_execution_payload();
+        p2p_payload.extra_data = Bytes::from(vec![0x32u8; 13]);
+        let rest_payload = ExecutionPayloadV1 {
+            state_root: B256::ZERO,
+            receipts_root: B256::ZERO,
+            gas_used: 0,
+            block_hash: B256::ZERO,
+            ..p2p_payload.clone()
+        };
+
+        let rest = build_driver_payload(&rest_payload, vec![0xc0], Some(root), false, [0u8; 65]);
+        let p2p = build_driver_payload(&p2p_payload, vec![0xc0], Some(root), false, [0x22u8; 65]);
+        let zero_root = build_driver_payload(&p2p_payload, vec![0xc0], None, false, [0x22u8; 65]);
+
+        assert_eq!(rest.payload_attributes.parent_beacon_block_root, Some(root));
+        assert_eq!(p2p.payload_attributes.parent_beacon_block_root, Some(root));
+        assert_eq!(rest.block_metadata.gas_limit, p2p_payload.gas_limit);
+        assert_eq!(rest.l1_origin.build_payload_args_id, p2p.l1_origin.build_payload_args_id);
+        assert_ne!(p2p.l1_origin.build_payload_args_id, zero_root.l1_origin.build_payload_args_id);
+    }
 }
