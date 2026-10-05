@@ -57,7 +57,7 @@ validator that it can never take back. "PoS-certified" is a certificate from mor
 voting power plus your own check that you hold the data &mdash; a confirmation that is <strong>provisional</strong>
 until the batch is accepted on L1. "Accepted on L1" is a public fact on Ethereum and the first status the protocol's
 own rules can no longer replace. A user interface that collapses these into one green tick is not simplifying; it is
-lying about which question was answered. <em>(user decision D-7: Mode B selected)</em></p>
+lying about which question was answered.</p>
 
 <h2>The timeline</h2>
 <figure>
@@ -102,8 +102,7 @@ lying about which question was answered. <em>(user decision D-7: Mode B selected
 </svg>
 <figcaption>Figure 1 — The eight statuses in order. The gaps between them are not cosmetic: each one is a different
 piece of evidence, produced by a different party, and each is revocable (or not) in a different way. Above the last
-checkpoint accepted on Ethereum, the PoS-certified status is provisional. <em>(user decision D-7: Mode B
-selected)</em></figcaption>
+checkpoint accepted on Ethereum, the PoS-certified status is provisional. </figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -129,8 +128,11 @@ power has precommitted the same block at the same height and round, the block is
 only at a node that also holds the block body and can serve it, and the confirmation stays provisional until the
 batch is accepted on L1. A certificate without the data does not give you that status.</li>
 <li><strong>Batching.</strong> A contiguous range of certified blocks becomes a batch. The batch never spans an epoch
-boundary, so one epoch and one validator-set root govern every height in it (<a href="../spec/05-proof-statement.html#PRF-05">PRF-05</a>). The design's nominal batch length is a
-planning placeholder; the L1 admission bound is a separate parameter and is also unset.</li>
+boundary, so one epoch and one validator-set root govern every height in it (<a href="../spec/05-proof-statement.html#PRF-05">PRF-05</a>). Its length is bounded by
+data, not by preference: at the target rate one 2-second block is one 131,072-byte blob, EIP-7691 allows six
+blobs per L1 block as the target and nine as the maximum, and the data and the proof must share one
+transaction, so a batch is at most about six blocks at the target rate and nine is the hard ceiling
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>).</li>
 <li><strong>Proving.</strong> A prover — anyone, with no registration — assembles a witness and produces <a href="../spec/05-proof-statement.html#PRF-01">one proof for the batch</a>: that the head block carries a valid commit certificate over the epoch's authenticated set with more
 than two thirds of its voting power, that executing the batch's blocks from the predecessor state yields the claimed
 successor state root, and that the executed bytes are the published bytes. A completed proof bound to this batch's
@@ -138,12 +140,17 @@ data commitment is <strong>proof-ready</strong>; it is still only off-chain evid
 <li><strong>Landing.</strong> The prover calls one function, <code>land(data, proof)</code>, in one L1 transaction.
 The contract derives the public inputs it can derive itself, checks the blob openings if the blob path is used, calls
 the verifier, and only then writes a checkpoint. If verification fails the transaction reverts with no partial
-effect: no checkpoint, no height advance, no payout. The range must be contiguous with the previous checkpoint, and
-the checkpoint chain never moves backwards (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). First valid submission wins; re-submission of the same batch by anyone
+effect: no checkpoint, no height advance, no payout. The range must start at
+<code>max(lastLandedHeight + 1, resumeHeight)</code>: contiguous with the previous checkpoint and never at
+or below a height retired by a completed recovery, and the checkpoint chain never moves backwards
+(<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). First valid submission wins; re-submission of the same batch by anyone
 else is allowed while it has not landed.</li>
 <li><strong>Ethereum finality.</strong> The accepting L1 transaction can still be reorganised out until Ethereum
 finalizes the block that contains it, or until the configured finality depth is reached. An L1 reorganisation simply
-undoes the transaction; the batch stays certified on L2 and is re-landable with the same data commitment.</li>
+undoes the transaction; the batch stays certified on L2 and is re-landable with the same data commitment
+&mdash; unless a recovery has completed in the meantime, in which case the height has been retired and the
+generation has moved on, so only a new batch that starts at or above <code>resumeHeight</code> can be landed
+(<a href="../spec/04-l1-integration.html#L1-12">L1-12</a>).</li>
 <li><strong>Withdrawal.</strong> A bridge message authenticates against a checkpoint the Inbox wrote. Value leaves
 only with that checkpoint plus the message-authentication path plus the withdrawal delay (<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>), and the claim must rest on
 L1 facts at the configured finality depth, never at inclusion depth.</li>
@@ -153,14 +160,14 @@ L1 facts at the configured finality depth, never at inclusion depth.</li>
 <p>These are the statuses to use in tooling, RPC responses and interfaces. Each row is a different guarantee; a tool
 that shows one must say which (<a href="../spec/index.html#STATUS-11">STATUS-11</a>). Above the last checkpoint accepted on
 Ethereum, a confirmation must be labelled provisional and must say that it can be replaced; L1 acceptance onward is
-irreversible under the protocol's own rules. <em>(user decision D-7: Mode B selected)</em></p>
+irreversible under the protocol's own rules.</p>
 <table>
 <thead><tr><th>Status</th><th>What evidence exists</th><th>What it guarantees</th><th>What can still change it</th></tr></thead>
 <tbody>
 <tr><td><strong>proposed</strong></td><td>A block body you received from a leader</td><td>Nothing — it may be invalid</td><td>Anything; it can be discarded freely</td></tr>
 <tr><td><strong>locally execution-valid</strong></td><td>Your own execution of the block against a known parent, and the consensus checks passing</td><td>This node will not build on an invalid block</td><td>The parent can be displaced, which invalidates the whole basis of the check</td></tr>
 <tr><td><strong>voted</strong></td><td>A validator's signed prevote or precommit for this block at this height and round</td><td>It irreversibly constrains that validator's future votes through the lock rule</td><td>Never — a signed vote cannot be taken back; signing a conflicting one is slashable equivocation</td></tr>
-<tr><td><strong>PoS-certified (provisional)</strong></td><td>A published commit certificate carrying signed voting power <code>s</code> with <code>3·s &gt; 2·W</code> over the epoch's authenticated set, <em>plus your own data check</em></td><td>More than two thirds of the epoch's voting power committed to this block, so the certificate is valid &mdash; but a confirmation above the last checkpoint accepted on Ethereum is <strong>provisional</strong> and can be replaced</td><td>A recovery after a settlement stall, which replaces everything above the last checkpoint accepted on Ethereum; a failure of the stake assumption still halts rather than rewriting</td></tr>
+<tr><td><strong>PoS-certified (provisional)</strong></td><td>A published commit certificate carrying signed voting power <code>s</code> with <code>3·s &gt; 2·W</code> over the epoch's authenticated set, <em>plus your own data check</em></td><td>More than two thirds of the epoch's voting power committed to this block, so the certificate is valid &mdash; but a confirmation above the last checkpoint accepted on Ethereum is <strong>provisional</strong> and can be replaced</td><td>A recovery after a settlement stall, which replaces everything above the last checkpoint accepted on Ethereum and permanently retires the discarded heights; a failure of the stake assumption still halts rather than rewriting</td></tr>
 <tr><td><strong>proof-ready</strong></td><td>A completed ZK proof bound to this batch's data commitment, existing off-chain</td><td>The batch can be landed</td><td>A better proof of the same data commitment may replace it; a proof of a different batch is not a substitute</td></tr>
 <tr><td><strong>accepted on L1</strong></td><td>The accepting L1 transaction and the checkpoint record it wrote</td><td>The batch data is public on Ethereum and the transition is L1-committed; the protocol's own rules can no longer replace it, and recovery may not touch it</td><td>An L1 reorganisation below Ethereum finality can undo the transaction; nothing else</td></tr>
 <tr><td><strong>Ethereum-final</strong></td><td>The accepting transaction is in a finalized L1 block, or the fact it depends on is at the configured finality depth</td><td>L1 facts can no longer be reorganised</td><td>Nothing in the design; this is the end of L1 reorganisation risk</td></tr>
@@ -178,47 +185,56 @@ batch that carries it is 385–416. The numbers below are arithmetic on the desi
 <tr><td>Proposer of (412, 0)</td><td>the validator whose cumulative-weight interval contains <code>keccak256(abi.encode("TAIKO_ETNA_PROPOSER_V1", chainId, 0, 412, 0)) mod W</code></td><td>anyone with the epoch's set root can recompute this; the identity is not known until the set is fixed</td><td><span class="tag">derived</span> (the hash input is fixed; the identity itself is <span class="tag">unmeasured</span> until the set exists)</td></tr>
 <tr><td>Happy-path proposal → certificate</td><td>0.0 s → 1.5 s</td><td>at 250 ms one-way delay and 500 ms block execution, <code>round_trip = 4 × 250 ms + 500 ms = 1.5 s</code>; both inputs are assumptions, not measurements</td><td><span class="tag">unmeasured</span></td></tr>
 <tr><td>Quorum at this epoch</td><td><code>W = 900,000</code> TAIKO base units → need <code>s ≥ 600,001</code></td><td><code>3·s &gt; 2·W</code> is strict: <code>s = 600,000</code> is exactly two thirds and does not reach quorum</td><td><span class="tag">derived</span></td></tr>
-<tr><td>Batch range</td><td>385–416, head 416</td><td>32 blocks, the nominal batch length; contiguous with the previous landed height 384</td><td><span class="tag">derived</span> from <code>K = 32</code>, which is <span class="tag">unmeasured</span></td></tr>
-<tr><td>Batch time span</td><td>64 s of L2 history</td><td>32 × 2 s</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Batch range</td><td>385–390, head 390</td><td>6 blocks, the largest sustainable batch at the target data rate; contiguous with the previous landed height 384</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> blob constants</td></tr>
+<tr><td>Batch time span</td><td>12 s of L2 history</td><td>6 × 2 s</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Proof time</td><td>minutes to 30 min envelope</td><td>a planning assumption for normal operation; not measured</td><td><span class="tag">unmeasured</span></td></tr>
 <tr><td>L1 acceptance</td><td>L1 block <code>N</code>, one transaction</td><td><code>land(data, proof)</code>: contract-derived inputs, verifier call, then the checkpoint write; range must start at <code>lastLandedHeight + 1</code></td><td><span class="tag">derived</span> mechanics; gas and inclusion delay <span class="tag">unmeasured</span></td></tr>
-<tr><td>Checkpoint written at height 416</td><td>record <code>(height, blockHash, stateRoot, epoch, setRoot, dataCommitment, l1BlockNumber)</code></td><td>the record is the anchor the bridge resolves for that height</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Checkpoint written at height 390</td><td>record <code>(height, blockHash, stateRoot, epoch, setRoot, dataCommitment, l1BlockNumber)</code></td><td>the record is the anchor the bridge resolves for that height</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Ethereum finality for the checkpoint</td><td>Ethereum's own finality lag after block <code>N</code></td><td>two Ethereum epochs is the design's working figure; the value is a property of Ethereum and is not measured for a deployment of this design</td><td><span class="tag">sourced</span> property / value <span class="tag">unmeasured</span></td></tr>
 <tr><td>Withdrawal</td><td>checkpoint + message path + <code>WITHDRAWAL_DELAY</code></td><td>the delay is derived from the whole settlement pipeline — proving, detection, evidence submission, L1 inclusion, L1 finality, processing and a margin — and none of those terms is measured</td><td><span class="tag">unmeasured</span></td></tr>
 </tbody>
 </table>
 <p>Two things this example makes concrete. First, the transaction is <em>certified on L2</em> long before it is
 <em>settled on Ethereum</em>: 1.5 s of consensus versus minutes of proving and L1 time, and until settlement it is
-only provisional. Second, the batch head is 416, not 412: certification of a block and settlement of a batch are
+only provisional. Second, the batch head is 390, not 412: certification of a block and settlement of a batch are
 different objects, and the checkpoint records the batch head.</p>
 
 <h2>Worked example: a rollback at height <code>h</code></h2>
-<p>A transaction is included in block 830, and the batch containing it, with head 832, is PoS-certified. Nothing
-further is accepted on Ethereum: no batch extending the checkpoint at height 800 lands, and the stall passes the
-<code>T_STALL</code> threshold. Anyone may now start a recovery by posting a bond on L1. The recovery waits
-<code>T_RECOVERY_DELAY</code>; if a valid batch extending checkpoint 800 lands during that window the recovery is
-cancelled and the bond is slashed to the protocol treasury. If the delay passes with no batch, the chain resumes
-from checkpoint 800, and everything above it &mdash; including block 830 and the transaction in it &mdash; is
-replaced. <em>(user decision D-7: Mode B selected)</em></p>
+<p>A transaction is included in block 830, and the batch containing it, with head 832, is PoS-certified.
+Nothing further is accepted on Ethereum: no batch extending the checkpoint at height 800 lands, and the
+stall passes the <code>T_STALL</code> threshold. Anyone may now start a recovery by posting a bond on L1.
+The bond splits at invocation: a non-refundable component goes to the protocol treasury at once, and the
+rest is returned only if the recovery completes; a cooldown follows the attempt, and a further attempt
+costs a larger bond. The recovery waits <code>T_RECOVERY_DELAY</code>; if a valid batch extending
+checkpoint 800 is accepted at any time before the completion transaction is included, the recovery is
+cancelled and the whole bond goes to the protocol treasury. If the delay passes with no batch, the
+completion transition may be called, and the recovery takes effect only when that transaction is
+Ethereum-final. The chain then resumes from checkpoint 800, and everything above it &mdash; including
+block 830 and the transaction in it &mdash; is replaced and <strong>retired</strong>: heights
+801&ndash;832 can never be certified or landed again, by anyone, at any generation. The rollback is not
+selective: the whole unsettled range above the restored checkpoint goes, and nothing accepted on Ethereum
+is touched.</p>
 <table>
 <thead><tr><th>Step</th><th>What it means for the transaction</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Included at block 830; batch certified</td><td>Status <strong>PoS-certified (provisional)</strong>: valid now, replaceable until the batch is accepted on L1</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Settlement stall</td><td>No batch extending checkpoint 800 is accepted for <code>T_STALL</code>; the transaction is still only provisional</td><td><span class="tag">unmeasured</span> trigger value</td></tr>
-<tr><td>Recovery started</td><td>Someone posts a bond; a valid batch during the delay cancels the recovery, and the bond goes to the treasury</td><td><span class="tag">derived</span> mechanics</td></tr>
-<tr><td>Recovery completes</td><td>Chain resumes from checkpoint 800; block 830 and the transaction are no longer canonical. The transaction is <strong>not replayed automatically</strong> &mdash; the user must resubmit it, and inclusion is not guaranteed</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Recovery started</td><td>Someone posts a bond; the non-refundable component is paid at once, a valid batch before completion cancels the recovery and sends the whole bond to the treasury, and a cooldown follows every attempt</td><td><span class="tag">derived</span> mechanics</td></tr>
+<tr><td>Recovery completes</td><td>The completion transaction becomes Ethereum-final; the chain resumes from checkpoint 800, and heights 801&ndash;832 are permanently retired. Block 830 and the transaction are no longer canonical, and the transaction is <strong>not replayed automatically</strong> &mdash; the user must resubmit it, and inclusion is not guaranteed</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Locks at the discarded heights</td><td>Void. A validator locked on a block in 801&ndash;832 is not stuck, and the old locked value is not evidence of misbehaviour and not a reason to halt</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Effects it had</td><td>Off-chain effects &mdash; a trade, a signed message, a position built on the confirmation &mdash; are not compensated. An L1 effect already executed stays executed, and replay protection stops it executing twice</td><td><span class="tag">derived</span> from the replay rule; loss bound <span class="tag">unmeasured</span></td></tr>
 </tbody></table>
-<p>Two boundaries hold throughout. Heights at or below 800 are accepted on Ethereum and are never touched by recovery.
-And the rollback is finite in depth: at most <code>D_MAX</code> blocks, because validators stop producing past the
-unsettled-depth cap &mdash; a bound on depth, not on loss. <em>(user decision D-7: Mode B selected)</em></p>
+<p>Three boundaries hold throughout. Heights at or below 800 are accepted on Ethereum and are never
+touched by recovery. Heights 801&ndash;832 are retired: they can never be certified or landed again, so the
+replaced history cannot come back. And the rollback is finite in depth: at most <code>D_MAX</code> blocks,
+because validators stop producing past the unsettled-depth cap &mdash; a bound on depth, not on loss.</p>
 
 <div class="card">
 <h4>Rule for anything that displays status</h4>
 <p>Name the status from the ladder, state which evidence backs it, and say what is still missing. A confirmation
 shown before L1 acceptance must be labelled <strong>provisional</strong> and must say that it can be replaced by
 recovery. A "withdrawable" badge must say which checkpoint it anchors to. If a tool cannot say which status it is
-showing, it must not show one. <em>(user decision D-7: Mode B selected)</em></p>
+showing, it must not show one.</p>
 </div>
 
 <h2>What this gives you</h2>
@@ -226,8 +242,11 @@ showing, it must not show one. <em>(user decision D-7: Mode B selected)</em></p>
 <li>A single transaction-to-withdrawal path with a named, checkable status at every step.</li>
 <li>A separation between certification (seconds, validators), proof (minutes, provers) and settlement (L1 inclusion and Ethereum finality), so expectations and timeouts can be set per stage.</li>
 <li>A landing rule that is atomic and monotone: a batch's data and proof arrive together, and the checkpoint chain never moves backwards.</li>
-<li>A clear boundary between provisional and irreversible: a PoS confirmation above the last accepted checkpoint can be replaced by recovery, while L1 acceptance onward is not touched by it. <em>(user decision D-7: Mode B selected)</em></li>
-<li>Re-landability after an L1 reorganisation: the L2 batch is not lost, only its L1 record.</li>
+<li>A clear boundary between provisional and irreversible: a PoS confirmation above the last accepted
+checkpoint can be replaced by recovery, while L1 acceptance onward is not touched by it, and the replaced
+heights are permanently retired so they cannot come back.</li>
+<li>Re-landability after an L1 reorganisation: the L2 batch is not lost, only its L1 record &mdash; unless a
+recovery completed in the meantime, which retires the range and moves the generation on.</li>
 </ul>
 
 <h2>What it does not give you</h2>
@@ -235,7 +254,8 @@ showing, it must not show one. <em>(user decision D-7: Mode B selected)</em></p>
 <li><strong>No 2 s settlement.</strong> L2 certification is fast; proving and L1 acceptance are not.</li>
 <li><strong>No status stronger than its evidence.</strong> A certificate does not prove that data is retrievable by others; local possession is not availability.</li>
 <li><strong>No measured timings.</strong> The 1.5 s happy path, the 30-minute envelope, L1 inclusion and the withdrawal delay are all unmeasured.</li>
-<li><strong>No permanence above the accepted checkpoint.</strong> A certified block can be replaced by recovery after a settlement stall, a rolled-back transaction must be resubmitted, and off-chain losses are not compensated. <em>(user decision D-7: Mode B selected)</em></li>
+<li><strong>No permanence above the accepted checkpoint.</strong> A certified block can be replaced by recovery after a settlement stall, a rolled-back transaction must be resubmitted, and off-chain losses are not compensated.</li>
+<li><strong>No selective rollback and no way back for discarded history.</strong> Recovery restores the whole checkpoint and retires the entire discarded range; a retired height can never be certified or landed again, at any generation, by anyone.</li>
 <li><strong>No rescue of missing data at or below the accepted checkpoint.</strong> If nobody can produce a batch's data, the chain can halt with a certified prefix it cannot settle; recovery may not replace accepted history.</li>
 <li><strong>No inclusion guarantee.</strong> A transaction that reaches honest validators is included by the first honest proposer with room for it; an adversary that isolates a user from every honest proposer can exclude that user indefinitely.</li>
 </ul>
@@ -248,19 +268,21 @@ hash, not to bytes. The correct action is to keep asking peers for the body; if 
 rather than certifying on unknown data.</p></details>
 <details><summary>A block is PoS-certified with more than two thirds of the stake behind it. Can it still be replaced?</summary>
 <p>Yes, if it sits above the last checkpoint accepted on Ethereum and settlement stalls. The certificate is valid; the
-confirmation is provisional. Anyone may start a bonded, delayed recovery that replaces that history, and a rolled-back
-transaction must be resubmitted. Once the batch is accepted on L1, the protocol's own rules can no longer replace
-it.</p></details>
-<details><summary>A prover has produced a proof for batch 385–416 but has not yet sent the L1 transaction. Which status is the batch in, and what can still change it?</summary>
+confirmation is provisional. Anyone may start a bonded, delayed recovery that replaces that history and permanently
+retires the discarded heights, so the replaced range cannot be landed again; a rolled-back transaction must be
+resubmitted. Once the batch is accepted on L1, the protocol's own rules can no longer replace it.</p></details>
+<details><summary>A prover has produced a proof for batch 385–390 but has not yet sent the L1 transaction. Which status is the batch in, and what can still change it?</summary>
 <p>Proof-ready. The proof exists off-chain and the batch can be landed, but nothing is public on Ethereum yet. Any
 account can land the same batch first and collect the reward, and a better proof of the same data commitment could
 replace this one — but a proof for a different range or a different data commitment cannot be substituted.</p></details>
 <details><summary>Why must a batch's range start at the previous checkpoint plus one, and what happens after an L1 reorganisation?</summary>
-<p>The checkpoint chain is monotone and contiguous: <code>firstBlockHeight</code> must equal the last landed height
-plus one, so no height is skipped and no accepted height is rewritten. If an L1 reorganisation removes the accepting
-transaction, the checkpoint and everything built on it disappear from L1, but the L2 batch remains certified and can
-be re-landed with the same data commitment. The contract never repairs a reorganisation by writing a chosen
-checkpoint.</p></details>
+<p>The checkpoint chain is monotone and contiguous: <code>firstBlockHeight</code> must equal
+<code>max(lastLandedHeight + 1, resumeHeight)</code>, so no height is skipped, no accepted height is
+rewritten, and no retired height is re-opened. If an L1 reorganisation removes the accepting transaction,
+the checkpoint and everything built on it disappear from L1, but the L2 batch remains certified and can be
+re-landed with the same data commitment &mdash; unless a recovery has completed since, in which case the
+height is retired and only a new batch starting at or above <code>resumeHeight</code> can land. The
+contract never repairs a reorganisation by writing a chosen checkpoint.</p></details>
 
 <div class="card" id="assumptions">
 <h3>Assumptions</h3>
@@ -271,7 +293,7 @@ checkpoint.</p></details>
 <li>At least one adequately-resourced prover proves each committed batch inside the permitted window.</li>
 <li>Ethereum includes valid transactions, and the accepting transaction is not reorganised out below the finality depth.</li>
 <li>The bridge's message-authentication path and its delay are set from the same settlement pipeline the delay formula names.</li>
-<li>The recovery trigger, bond, delay and cancellation values are unmeasured placeholders, and the argument that they cannot be abused rests on stated conditions rather than on measurement.</li>
+<li>The recovery trigger, bond split, delay, escalation, cooldown and cancellation values are unmeasured placeholders, and the argument that they cannot be abused rests on stated conditions rather than on measurement.</li>
 </ul>
 </div>
 

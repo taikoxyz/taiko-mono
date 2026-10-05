@@ -53,8 +53,7 @@ design as it stands.</p>
 this version, so a network-level adversary that can isolate a user can exclude that user&rsquo;s transactions indefinitely &mdash;
 including preventing the user from starting a withdrawal; forced inclusion is planned as a later protocol update, and recovery is not
 an inclusion remedy. And a confirmation above the last batch accepted on Ethereum is <strong>provisional</strong>: a bonded, delayed,
-permissionless recovery can replace that unsettled history. <em>(user decisions D-7 and D-10: recovery selected, forced inclusion
-deferred)</em></p>
+permissionless recovery can replace that unsettled history &mdash; and permanently retires it, so it cannot come back.</p>
 
 <h2 id="diagram">What each guarantee rests on</h2>
 <figure>
@@ -99,7 +98,7 @@ deferred)</em></p>
 </svg>
 <figcaption>Left: what has to hold. Right: what failure looks like. None of it is repaired by a validity proof &mdash; a proof shows a
 transition is correct, not that the premises were met, and a recovery replaces unsettled history rather than repairing a broken premise.
-<em>(user decision D-7: Mode B selected)</em></figcaption>
+</figcaption>
 </figure>
 
 <h2 id="list">The honest list</h2>
@@ -112,33 +111,48 @@ copied from published standards, and even those are properties of Ethereum rathe
 
 <h3>Confirmations are provisional above the last accepted checkpoint</h3>
 <p>A PoS confirmation is not settlement. Every height above the last batch accepted on Ethereum can be replaced by a recovery: a
-permissionless, bonded, delayed L1 action that discards the unsettled range and resumes from that checkpoint. Ethereum-final
-checkpoints and accepted batches are never touched; a rolled-back L2 transaction is not replayed automatically and must be resubmitted,
-and off-chain losses are not compensated. Where recovery cannot help &mdash; data for a block at or below the accepted checkpoint is
+permissionless, bonded, delayed L1 action that discards the unsettled range and resumes from that checkpoint. The discarded
+heights are permanently retired &mdash; never certified or landed again, at any generation, by anyone &mdash; so the replaced history
+cannot come back, and locks at those heights are void. Ethereum-final checkpoints and accepted batches are never touched; a rolled-back
+L2 transaction is not replayed automatically and must be resubmitted, and off-chain losses are not compensated. Where recovery cannot help &mdash; data for a block at or below the accepted checkpoint is
 gone, the validator set is unavailable, or the stake assumption has failed &mdash; correct participants still halt, and a halt can be
 permanent. Production also backpressures before that point: validators refuse to vote past the unsettled-depth cap, and a violation of
-that cap is not objectively punishable at L1 &mdash; its only enforcement is honest compliance. <em>(user decision D-7: Mode B
-selected)</em></p>
+that cap is not objectively punishable at L1 &mdash; its only enforcement is honest compliance.</p>
 
 <h3>Off-chain loss exposure has no universal bound</h3>
 <p>Recovery replaces inclusions, ordering, balances and bridge messages that were only provisional, and any economic position built on
 them. The design states no universal bound on that loss and offers no compensation: penalties debit an offender&rsquo;s stake and are not
 a claims channel. The rollback depth is bounded by the unsettled-depth cap while the cap is enforced, but the cap is not a bound on
-loss. <em>(user decision D-7: Mode B selected)</em></p>
+loss.</p>
 
 <h3>Recovery is a manipulation primitive with a price</h3>
 <p>Because a settlement stall triggers recovery, an adversary who can cause or prolong a stall may be able to replace unfavourable
-unsettled history. The defences are the bond, the delay, cancellation by any valid batch, a penalty that sends the bond to the protocol
-treasury rather than back to the invoker, and the escalating-bond and cooldown limits on repeated recovery; within the stated L2 fault
-model a sub-threshold coalition cannot by itself force the trigger. The attempt is never free, but the design does not claim attempts
-are impossible, and it does not bound the off-chain profit of a successful manipulation. <em>(user decisions D-7 and D-9: Mode B
-selected, penalties go to the treasury)</em></p>
+unsettled history. The defences are the non-refundable bond component paid on every attempt, the delay, cancellation by any valid batch
+(which sends the whole bond to the protocol treasury rather than back to the invoker), the escalation that counts attempts, and the
+cooldown after every attempt; within the stated L2 fault model a sub-threshold coalition cannot by itself force the trigger. Completion
+is not free either: only the refundable balance returns, and the non-refundable component is already gone. The design does not claim
+attempts are impossible, and it does not bound the off-chain profit of a successful manipulation.</p>
 
-<h3>The recovery-safety argument has conditions</h3>
+<h3>The recovery-safety argument has conditions, and is not yet independently reviewed</h3>
 <p>The argument that recovery cannot be cheaply abused would fail if L1-level censorship keeps valid batches from landing for the whole
 delay, if no prover exists at all for the stalled range, or if the recovery parameters are mis-set relative to the measured proving and
 settlement pipeline. Those are the conditions under which it would fail; the argument is not a proof, and no rate or cost in
-it is measured. <em>(user decision D-7: Mode B selected)</em></p>
+it is measured. The mechanism has also not yet been independently reviewed, so its safety case stands as an argument from stated
+premises rather than as a checked result.</p>
+
+<h3>Recovery safety depends on a funded reward pool</h3>
+<p>The resistance argument assumes the landing market is funded: that the fee sweep actually credits the reward pool and that the
+reward available to a lander is not below the cost of landing. If the pool is empty or the reward is below cost, no rational prover
+lands, the settlement stall arrives with <strong>no adversary at all</strong>, and the trigger is reached by economics rather than by
+attack. Recovery cannot repair that: it restores a checkpoint and retires a range, and it changes no reward, no fee and no subsidy.
+Recovery is the remedy for a stalled chain, never for an unfunded reward pool.</p>
+
+<h3>Profit made off-chain from a rolled-back state is outside any protocol bound</h3>
+<p>A recovery replaces inclusions, ordering and balances above the restored checkpoint. Profit taken from that state outside the
+protocol &mdash; a position closed elsewhere, a withdrawal credited off-chain, MEV extracted around the discarded range &mdash; is
+outside any protocol bound. No rule measures it, no penalty recovers it, and protocol penalties are not a compensation channel
+(<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>). The losses on the other side of those trades are equally
+unbounded.</p>
 
 <h3>Data retention is an assumption, not an enforced duty</h3>
 <p>Settlement requires that somebody still holds a batch&rsquo;s data and the witness needed to prove it. Retention is a
@@ -157,14 +171,13 @@ selection is fully predictable, so buying or coercing the proposer of one specif
 penalises it.</p>
 <p>Recovery is not an inclusion remedy. It can replace history that was only provisional, but it cannot put a transaction into a block
 or compel any proposer to include one, so it does not lift an exclusion. Forced inclusion is planned as a later protocol update; until
-that upgrade ships, this version has no L1 path by which a user can force a transaction into L2. <em>(user decision D-10: forced
-inclusion deferred)</em></p>
+that upgrade ships, this version has no L1 path by which a user can force a transaction into L2.</p>
 
 <h3>Rewards depend on a funded pool</h3>
 <p>Validator and prover rewards are ETH, and they can only be paid out of ETH that has actually flowed into the reward pool. L2
 execution and priority fees are the funding source: the L2 fee vault is swept across the preserved Bridge into the L1 reward pool on a
 fixed cadence, so the honest consequences are that rewards lag the settlement pipeline, an empty pool pays nothing, and a bridging
-failure stops rewards rather than creating a claim on future revenue. <em>(user decision D-8: security funded from L2 fees)</em> What
+failure stops rewards rather than creating a claim on future revenue.  What
 an unfunded schedule does is not quietly shrink: the validator count falls through the objective exit path, or the chain halts. The subsidy, if one is funded, is bounded, expiring and netted out of the same inflow &mdash;
 it is not a second funding source. TAIKO has no mint path today, so paying rewards in new TAIKO would require a token upgrade and is not
 a standing source. No rule may be conditioned on TAIKO&rsquo;s price rising, and there is no verified price, float or liquidity data in
@@ -210,9 +223,9 @@ malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
 <li>A clear boundary: which claims are arguments, which are arithmetic, and which numbers simply do not exist yet.</li>
 <li>An explicit statement that a settled checkpoint is never rewritten while everything above it is provisional and can be replaced
 by a bonded, delayed recovery &mdash; and that where recovery cannot help, a halt can still be permanent.
-<em>(user decision D-7: Mode B selected)</em></li>
-<li>A priced recovery mechanism: anyone may start it, honest progress cancels it, and a cancelled attempt sends the invoker&rsquo;s bond to
-the protocol treasury.</li>
+</li>
+<li>A priced recovery mechanism: anyone may start it, every attempt pays a non-refundable component whether or not it completes,
+honest progress cancels it and sends the whole bond to the protocol treasury, and the discarded heights are permanently retired.</li>
 <li>A precise statement of the inclusion limit: statistical resistance only, with no L1 escape path and no remedy against isolation.</li>
 <li>The dependencies named &mdash; retention, funding, weak subjectivity, governance &mdash; so they can be monitored and priced deliberately.</li>
 </ul>
@@ -229,10 +242,12 @@ a recovery can cause, and no universal bound on them.</li>
 
 <h2 id="check">Check yourself</h2>
 <details><summary>Settlement stalls for a week. What does the design do about it?</summary>
-<p>After the stall threshold, anyone may start a recovery by posting a bond. It waits for the delay, is cancelled by any valid batch
-(and the bond goes to the treasury), and otherwise replaces everything above the last checkpoint accepted on Ethereum and resumes from
-there. A transaction rolled back that way is not replayed automatically. If instead the missing ingredient is data at or below the
-accepted checkpoint, recovery cannot help and the halt can be permanent. <em>(user decision D-7: Mode B selected)</em></p></details>
+<p>After the stall threshold, anyone may start a recovery by posting a bond; the non-refundable component is paid at once, and
+every attempt carries a cooldown. It waits for the delay, is cancelled by any valid batch (and the whole bond goes to the treasury), and
+otherwise replaces everything above the last checkpoint accepted on Ethereum, resumes from there, and permanently retires the discarded
+heights. A transaction rolled back that way is not replayed automatically. If instead the missing ingredient is data at or below the
+accepted checkpoint, recovery cannot help and the halt can be permanent. And if the real cause is an empty or below-cost reward pool,
+recovery does not fix it: it restores a checkpoint and retires a range, but it pays no reward and changes no fee.</p></details>
 <details><summary>A user is isolated from every honest proposer. Can they withdraw anyway?</summary>
 <p>No. There is no forced-inclusion path, and a withdrawal is started by an L2 transaction, so an adversary that can keep the user&rsquo;s
 transactions away from every honest proposer can prevent the withdrawal from starting. The protocol offers no remedy; the honest
@@ -251,8 +266,8 @@ latency, throughput, operator cost, fee revenue, reward rates, evidence and with
 <li>The reward pool is funded by L2 fee revenue or a recorded top-up; otherwise no reward is payable.</li>
 <li>A fresh, Ethereum-final L1 checkpoint is available to a new node, and governance does not execute an upgrade that breaks these
 rules.</li>
-<li>The recovery trigger, bond, delay and cancellation values are unmeasured, and the argument that they cannot be abused rests on
-stated conditions rather than on measurement. <em>(user decision D-7: Mode B selected)</em></li>
+<li>The recovery trigger, bond split, delay, escalation, cooldown and cancellation values are unmeasured, the argument that they
+cannot be abused rests on stated conditions rather than on measurement, and the mechanism has not yet been independently reviewed.</li>
 </ul>
 </div>
 

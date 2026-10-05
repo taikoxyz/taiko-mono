@@ -55,7 +55,7 @@ that set of votes is a <strong>proof-of-lock-change</strong> (PoLC); in the <str
 sign again, and a validator that has seen a PoLC for a block locks on it. When more than two thirds of the voting
 power has precommitted the same block at the same height and round, those signatures are the block's
 <strong>commit certificate</strong> and the block is <strong>PoS-certified</strong> at a node that also holds its data. Above the
-latest checkpoint accepted on Ethereum that certification is provisional. <em>(D-7: confirmations above the last accepted checkpoint are provisional)</em></p>
+latest checkpoint accepted on Ethereum that certification is provisional.</p>
 <p>Two rules make this safe rather than merely ordered. The <a href="../spec/02-consensus.html#CONS-02"><strong>signing rule</strong></a> says a validator may sign at
 most one message of each type per (chain id, height, round) — ever, including after a crash. The <a href="../spec/02-consensus.html#CONS-04"><strong>lock
 rule</strong></a> says that once a validator has locked on a block, it prevotes that block until a strictly later round of
@@ -176,7 +176,7 @@ check for <code>B</code>'s body, <em>and</em> <code>parent(B)</code> is the bloc
 <code>H−1</code>. The local decision is a function of the certificate, the node's own data check and its own
 certified prefix — nothing else. This rule prevents two conflicting <em>certificates</em>; what may happen above the latest
 checkpoint accepted on Ethereum is governed by the recovery rules, not by this one.
-<em>(D-7: the recovery rules govern history above the last accepted checkpoint)</em></p>
+</p>
 </div>
 <div class="card">
 <h4>Proposer selection and view changes</h4>
@@ -234,7 +234,7 @@ a view change, a retry, or a halt.</p>
 set root and quorum checked locally, regardless of who sent it;</li>
 <li>if it holds a lock on a different block at that height and a valid conflicting certificate arrives, halt and
 publish the evidence it has, rather than choosing a branch;</li>
-<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; what may be replaced above the latest checkpoint accepted on Ethereum is decided by the recovery rules, not by a node. <em>(D-7: recovery, not a node, governs replacement above the last accepted checkpoint)</em></li>
+<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; what may be replaced above the latest checkpoint accepted on Ethereum is decided by the recovery rules, not by a node. </li>
 </ol>
 <p>Equivocation is the one thing a pair of signed objects can prove: two signed messages of the same type, at the
 same (chain id, height, round, validator index), with different signed values — or with different signed epoch
@@ -263,7 +263,7 @@ therefore reduces to the same case: at least one third of the previous epoch's p
 <h2>What this gives you</h2>
 <ul>
 <li>Single-slot certification: one certificate per height, no confirmation depth, no probabilistic waiting.</li>
-<li>Certificates are epoch-scoped and stay valid forever as certificates, so validator rotation cannot re-judge or re-sign a past decision; rotation is not a replacement path &mdash; only recovery may replace history above the latest accepted checkpoint. <em>(D-7: recovery, not rotation, governs replacement above the last accepted checkpoint)</em></li>
+<li>Certificates are epoch-scoped and stay valid forever as certificates, so validator rotation cannot re-judge or re-sign a past decision; rotation is not a replacement path &mdash; only recovery may replace history above the latest accepted checkpoint. </li>
 <li>A lock and a signed-vote rule that make the cost of a conflicting commit one third of the epoch's stake, and make the most damaging fault objectively provable when it appears as a same-height, same-round pair.</li>
 <li>A deterministic, publicly computable proposer schedule, so anyone can audit who was supposed to propose and when.</li>
 <li>Timeouts that affect liveness only: exceeding any timing bound slows the chain, never breaks safety.</li>

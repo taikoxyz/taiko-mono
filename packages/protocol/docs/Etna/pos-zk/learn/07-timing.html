@@ -78,7 +78,7 @@ of them (<a href="../spec/01-system-model.html#SYS-03">SYS-03</a>).</p>
 <line x1="24" y1="100" x2="944" y2="100" stroke="#0969da" stroke-width="1.5"/> <path d="M944 100 l-8 -4 v8 z" fill="#0969da"/> <rect x="24"  y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="138" fill="#24292f" font-size="11">Block proposed</text>
 <text x="34" y="156" fill="#59636e" font-size="10">orders the tx</text> <text x="34" y="174" fill="#59636e" font-size="10">STATUS-01</text> <text x="34" y="192" fill="#c0a6ff" font-size="10">2 s slot</text> <rect x="156" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/>
 <text x="166" y="138" fill="#24292f" font-size="11">PoS-certified</text> <text x="166" y="156" fill="#59636e" font-size="10">&gt; 2/3 precommits</text> <text x="166" y="174" fill="#59636e" font-size="10">STATUS-04</text> <text x="166" y="192" fill="#9a6700" font-size="10">rounds, unmeasured</text>
-<rect x="288" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="298" y="138" fill="#24292f" font-size="11">Batch closes</text> <text x="298" y="156" fill="#59636e" font-size="10">contiguous range</text> <text x="298" y="174" fill="#59636e" font-size="10">nominal 32 blocks</text> <text x="298" y="192" fill="#9a6700" font-size="10">&asymp; 64 s, unmeasured</text>
+<rect x="288" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="298" y="138" fill="#24292f" font-size="11">Batch closes</text> <text x="298" y="156" fill="#59636e" font-size="10">contiguous range</text> <text x="298" y="174" fill="#59636e" font-size="10">at most 6 blocks</text> <text x="298" y="192" fill="#1a7f37" font-size="10">&asymp; 12 s, derived</text>
 <rect x="420" y="116" width="120" height="92" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="430" y="138" fill="#24292f" font-size="11">Proof computed</text> <text x="430" y="156" fill="#59636e" font-size="10">minutes &rarr; 30 min</text> <text x="430" y="174" fill="#59636e" font-size="10">STATUS-05 (off-chain)</text>
 <text x="430" y="192" fill="#9a6700" font-size="10">&le; 900 blocks envelope</text> <rect x="552" y="116" width="120" height="92" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="562" y="138" fill="#24292f" font-size="11">land(data, proof)</text> <text x="562" y="156" fill="#59636e" font-size="10">one L1 transaction</text>
 <text x="562" y="174" fill="#59636e" font-size="10">STATUS-06</text> <text x="562" y="192" fill="#1a7f37" font-size="10">data now on Ethereum</text> <rect x="684" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="694" y="138" fill="#24292f" font-size="11">Ethereum-final</text>
@@ -102,7 +102,7 @@ only on L2 participants&rsquo; machines.</figcaption>
 the protocol selects a proposer by weighted hash, validators execute and vote, and the height becomes
 certified when more than two thirds of the epoch&rsquo;s voting power precommits it
 (CONS-05). A height is certified on its own; there is
-no long confirmation window. Above the latest checkpoint accepted on Ethereum that certification is provisional. <em>(D-7: confirmations above the last accepted checkpoint are provisional)</em> If a round does not complete, the round budget &mdash; a ladder of, for
+no long confirmation window. Above the latest checkpoint accepted on Ethereum that certification is provisional.  If a round does not complete, the round budget &mdash; a ladder of, for
 example, 3, 6, 12, 24, 30 seconds &mdash; moves the proposal to the next round
 (<a href="../spec/02-consensus.html#CONS-07">CONS-07</a>). Certification latency is therefore a small number
 of round trips, seconds at the proposed round budget, and it is not yet measured at the intended validator count and
@@ -114,36 +114,45 @@ somebody proves and lands. Any account may do this, and the first valid submissi
 (L1-04). Three structural rules shape the choice of
 range:</p>
 <ul>
-<li>The range must be contiguous and must start exactly at <code>lastLandedHeight + 1</code>, one block
-after the last accepted batch (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). Landing is
-strictly in order.</li>
-<li>The range has an admission bound, <code>MAX_BATCH_BLOCKS</code>, whose value is not yet measured.
-The nominal planning length is <code>BATCH_BLOCKS</code> = 32 L2 blocks, about 64 seconds of history.
-That is a placeholder, not a tuned result.</li>
+<li>The range must be contiguous and must start exactly at
+<code>max(lastLandedHeight + 1, resumeHeight)</code>: one block after the last accepted batch, and never at
+or below a height retired by a completed recovery (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>).
+Landing is strictly in order, and a discarded range can never be landed.</li>
+<li>The batch length is bounded by data, not by preference. At the target rate one 2-second L2 block is one
+131,072-byte blob (EIP-4844, <span class="tag">sourced</span>); EIP-7691 allows 6 blobs per L1 block as the
+target and 9 as the maximum (<span class="tag">sourced</span>); and the batch&rsquo;s data and its proof must
+travel in <strong>one</strong> transaction (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>). A
+batch is therefore at most about 6 blocks at the target rate, and 9 blocks is the hard ceiling: the bound
+is <code>BATCH_BLOCKS &times; blobs_per_block &le; 9</code>, with 6 the sustainable value
+(<span class="tag">derived</span> from the sourced constants).</li>
 <li>Failed verification leaves no partial effect: the checkpoint write happens only after the verifier
 returns true (L1-03).</li>
 </ul>
 
 <h3>Pipelining: proving keeps pace with production</h3>
 <p>Proving a batch takes far longer than producing its blocks, so batches overlap. While batch
-<em>n</em> is being proven, the blocks of batch <em>n</em>+1 and <em>n</em>+2 are already being produced
+<em>n</em> is being proven, the blocks of batches <em>n</em>+1 and <em>n</em>+2 are already being produced
 and certified, and independent provers work on them in parallel. How many proofs must be in flight is a
 queueing identity: <code>L / &Delta;</code>, where <code>L</code> is the proof-latency bound and
-<code>&Delta;</code> the batch&rsquo;s time span. With a 30-minute bound and 32-block (64-second)
-batches, that is about 28 proofs in flight.</p>
+<code>&Delta;</code> the batch&rsquo;s time span. With a 30-minute bound and the largest sustainable batch
+of 6 blocks (12 seconds of history), that is about <strong>150 proofs in flight</strong>, not a handful:
+the data bound makes batches short, and short batches mean many of them are unsettled at once. Fleet
+sizing and the reward floor have to be read at that concurrency.</p>
 <table>
 <thead><tr><th>Quantity</th><th>Arithmetic</th><th>Result</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Blocks per 30 minutes</td><td>30 &times; 60 / 2</td><td>900</td><td><span class="chip">derived</span></td></tr>
-<tr><td>Nominal batch span</td><td>32 &times; 2 s</td><td>64 s</td><td><span class="chip">derived from unmeasured K</span></td></tr>
-<tr><td>Proofs in flight at the envelope</td><td>1,800 s / 64 s</td><td>&asymp; 28.1</td><td><span class="chip">derived</span></td></tr>
+<tr><td>Largest sustainable batch</td><td>6 blobs &divide; 1 blob per block</td><td>6 blocks = 12 s of history</td><td><span class="chip">derived</span> from <span class="chip">sourced</span> constants</td></tr>
+<tr><td>Hard batch ceiling</td><td>9 blobs &divide; 1 blob per block</td><td>9 blocks = 18 s</td><td><span class="chip">derived</span> from <span class="chip">sourced</span> constants</td></tr>
+<tr><td>Proofs in flight at the envelope</td><td>1,800 s / 12 s</td><td>&asymp; 150</td><td><span class="chip">derived</span></td></tr>
 <tr><td>Data per 900-block envelope</td><td>900 &times; 131,072 bytes (target budget)</td><td>&asymp; 118 MB</td><td><span class="chip">derived</span></td></tr>
 <tr><td>Blob capacity per L1 block</td><td>6 target / 9 maximum &times; 131,072 bytes</td><td>786,432 / 1,179,648 bytes</td><td><span class="chip">sourced</span></td></tr>
 </tbody></table>
 <p>Proofs may finish out of order, but they cannot <em>land</em> out of order, because each accepted
-batch must extend the previous checkpoint by exactly one block. A finished proof for a later range
-waits until the earlier range has landed. This keeps the L1 checkpoint a single unbroken chain of
-contiguous ranges.</p>
+batch must start at <code>max(lastLandedHeight + 1, resumeHeight)</code>. A finished proof for a later range
+waits until the earlier range has landed, and a range below the resume height can never be landed at all.
+This keeps the L1 checkpoint a single unbroken chain of contiguous ranges, permanently cut at every
+completed recovery.</p>
 
 <h3>The unsettled-depth cap</h3>
 <p>The <strong>unsettled depth</strong> at a height is the number of L2 blocks between the highest
@@ -161,16 +170,17 @@ nobody can prove that range. So the protocol stops creating new unsettled blocks
 When the cap binds, production stops and the chain sits in a safe halt until provers catch up. That is a
 designed stop, not a failure of the protocol. If the settlement stall passes
 <code>T_STALL</code>, a permissionless, bonded, delayed recovery may replace the unsettled range above
-the latest accepted checkpoint &mdash; it cannot reconstruct data at or below it, so a halt over missing
-accepted data can still be permanent. <em>(D-7: recovery replaces unsettled history above the last accepted checkpoint; it does not recover accepted data)</em></p>
+the latest accepted checkpoint &mdash; and it permanently retires the heights it discards, so the range it
+replaces can never be re-certified or landed again at any generation. It cannot reconstruct data at or
+below the checkpoint, so a halt over missing accepted data can still be permanent.</p>
 <p>Notice what the cap is <em>not</em>: it does not limit proving latency and it is not misconduct for a
 proof to consume the whole 30-minute envelope. The envelope is the planning assumption; the cap sits
 above it.</p>
 
 <h3>Landing, finality and exit</h3>
 <p>When a proof exists, anyone may submit <code>land(data, proof)</code>: one transaction carrying the
-range, the data (calldata and/or blobs) and the proof. The Inbox checks the range is contiguous,
-derives the public inputs from its own state, verifies the proof, and only then writes the checkpoint
+range, the data (calldata and/or blobs) and the proof. The Inbox checks that the range starts at
+<code>max(lastLandedHeight + 1, resumeHeight)</code>, derives the public inputs from its own state, verifies the proof, and only then writes the checkpoint
 record. There is no expiry, no allowlist and no pending record. The checkpoint carries the L2 height,
 block hash, state root, epoch, validator-set root, data commitment and the L1 block that accepted it.
 That transaction is the moment the data becomes canonical on Ethereum.</p>
@@ -190,16 +200,19 @@ fixed and what is arithmetic on inputs that still need measuring.</p>
 <tr><td>Submitted</td><td>In an L2 mempool; no protocol status yet</td><td>&mdash;</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Proposed and executed</td><td>The RPC returns a receipt; locally execution-valid (STATUS-02), which is not agreement</td><td>&le; 2 s</td><td><span class="chip">decided cadence</span></td></tr>
 <tr><td>Voted and certified</td><td>A commit certificate over the block; the signed vote is not revocable, but above the latest accepted checkpoint the confirmation is provisional (STATUS-03, STATUS-04)</td><td>a few rounds; unmeasured</td><td><span class="chip">unmeasured</span></td></tr>
-<tr><td>Batch closes</td><td>The block&rsquo;s batch reaches its range end; its data still exists only on L2 nodes</td><td>0&ndash;64 s after the batch&rsquo;s first block</td><td><span class="chip">derived from unmeasured K</span></td></tr>
+<tr><td>Batch closes</td><td>The block&rsquo;s batch reaches its range end; its data still exists only on L2 nodes</td><td>0&ndash;12 s after the batch&rsquo;s first block</td><td><span class="chip">derived</span> from <span class="chip">sourced</span> blob constants</td></tr>
 <tr><td>Proof computed</td><td>A proof of consensus and execution exists off-chain (STATUS-05)</td><td>minutes to 30 min (900 blocks)</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Accepted on L1</td><td>One <code>land</code> transaction; data and proof public; bridge authentication anchors here (STATUS-06)</td><td>L1 inclusion, unmeasured</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Ethereum-final</td><td>The accepting transaction is at the configured finality depth (STATUS-07)</td><td>&asymp; 12.8 min after acceptance</td><td><span class="chip">sourced depth</span> <span class="chip">derived</span></td></tr>
 <tr><td>Withdrawal-eligible</td><td>Checkpoint plus message path plus the delay (STATUS-08)</td><td>plus <code>WITHDRAWAL_DELAY</code></td><td><span class="chip">unmeasured</span></td></tr>
 </tbody></table>
-<p>At the target data budget of about 131,072 bytes per L2 block, a 32-block batch is about 4 MiB, which
-is about 32 blobs &mdash; about 5.3 L1 blocks at Ethereum&rsquo;s target of six blobs each, which is roughly 64
-seconds of L1 blob capacity. That is a consistency check between the batch length and the data budget,
-not a measurement of this system.</p>
+<p>At the target data budget of about 131,072 bytes per L2 block, one block is one blob, so a batch
+cannot be longer than the blob limit of the single transaction that carries it together with its proof:
+six blocks at Ethereum&rsquo;s target of six blobs per L1 block (786,432 bytes, exactly one L1 slot of blob
+capacity) and nine blocks at the hard maximum. Batch length is therefore set by data and by the atomic
+rule, not by preference &mdash; and because the batch is short, about 150 batches are unsettled inside the
+thirty-minute envelope, hence roughly 150 proofs in flight. That is arithmetic on sourced constants, not a
+measurement of this system.</p>
 <p>The intervals add. Only the two-second cadence and the arithmetic are fixed today; the provers,
 the L1 inclusion path and the withdrawal delay are all waiting on measurement. What the design fixes is
 the <em>order</em>: production, then certification, then a proof, then one atomic landing, then Ethereum
@@ -212,6 +225,8 @@ finality, then withdrawal.</p>
 <li>A proving pipeline that overlaps production, so proving is not a stop-the-world step.</li>
 <li>A cap that stops production before data can age out of the retention assumption, instead of
 backing up forever and stranding a certified range.</li>
+<li>A batch length fixed by data and atomicity rather than by preference: one blob per block at the target
+rate, and one transaction for data plus proof, give at most about six blocks per batch.</li>
 <li>An unambiguous moment &mdash; L1 acceptance &mdash; at which the data becomes public on Ethereum
 and withdrawals can begin to be counted.</li>
 </ul>
@@ -226,6 +241,9 @@ slower proof is not misconduct, and the cap eventually binds.</li>
 from L2 participants and is an assumption, not an on-chain duty.</li>
 <li>Any measured latency figure. L1 inclusion, the round budget, the retention window and the
 withdrawal delay are all not yet measured.</li>
+<li>A small proving fleet or a long batch. About 150 batches are unsettled inside the thirty-minute
+envelope, so roughly 150 proofs must be able to be in flight at once; that is a consequence of the data
+bound, not a target that can be tuned away.</li>
 </ul>
 
 <h2>Check yourself</h2>
@@ -244,6 +262,14 @@ production resumes as the checkpoint advances.</p></details>
 unsettled. The canonical copy is created only when the accepting L1 transaction publishes the calldata
 or blobs. Retention until then is a stated assumption, not something the protocol enforces.</p></details>
 
+<details><summary>Why is a batch at most about six blocks at the target rate, rather than a larger number chosen for convenience?</summary>
+<p>Because the data and the proof must travel in one L1 transaction
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>), and the batch&rsquo;s data rides in that
+transaction&rsquo;s blobs. At the target rate one 2-second block is one 131,072-byte blob, and EIP-7691
+allows 6 blobs per L1 block as the target and 9 as the maximum, so a 32-block batch would need about 32
+blobs in one transaction &mdash; far past the ceiling. The bound is a consequence of the data and of the
+atomic rule, not a tuning choice, and it is why roughly 150 proofs are in flight rather than a handful.</p></details>
+
 <div class="card">
 <h3>Assumptions</h3>
 <ul>
@@ -255,6 +281,8 @@ it does not exceed the cap.</li>
 <li>Ethereum includes valid transactions within a bounded delay and finalizes them.</li>
 <li>The 30-minute envelope, the retention window and the withdrawal delay are planning values awaiting
 measurement.</li>
+<li>Blob space is a market: the target rate is nominal, and sustained throughput is whatever the
+protocol&rsquo;s fee budget buys at the prevailing blob price.</li>
 </ul>
 </div>
 

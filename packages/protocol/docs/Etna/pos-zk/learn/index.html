@@ -50,18 +50,17 @@ authoritative rules — with identifiers, edge cases and exact encodings — are
 set, and the set for each epoch is fixed on Ethereum before the epoch starts.</li>
 <li><strong>Blocks come every two seconds</strong> and are PoS-certified once more than two thirds of the epoch&rsquo;s
 voting power has voted for them — normally a few rounds later. That confirmation stays <em>provisional</em> until the batch
-is accepted on Ethereum. <em>(user decision D-7: Mode B selected)</em></li>
+is accepted on Ethereum. </li>
 <li><strong>A batch lands on Ethereum only with its proof.</strong> One Ethereum transaction carries the batch data
 and a zero-knowledge proof of both the consensus certificate and correct execution, or the batch is not accepted at all.</li>
 <li><strong>Proving takes minutes, not seconds.</strong> Up to about thirty minutes is normal, so the chain keeps
 producing and certifying while proofs catch up.</li>
-<li><strong>Safety is preserved by never rewriting a settled checkpoint</strong>, while unsettled history can be
-replaced by a bonded, delayed, permissionless recovery. <em>(user decision D-7: Mode B selected)</em></li>
+<li><strong>A settled checkpoint is never rewritten</strong>, while unsettled history can be replaced by a
+bonded, delayed, permissionless recovery &mdash; and the discarded heights are permanently retired, so the
+history that was replaced can never come back.</li>
 </ol>
 
 <h2>Contents</h2>
-<p class="small"><em>(user decisions D-7 and D-10: recovery selected, forced inclusion deferred — the descriptions below
-reflect both.)</em></p>
 <table>
 <thead><tr><th style="width:30%">Page</th><th>What you get</th></tr></thead>
 <tbody>
@@ -70,13 +69,13 @@ reflect both.)</em></p>
 <tr><td><a href="03-consensus.html">How the chain agrees</a></td><td>Proposals, votes, the two-thirds quorum, locks, commit certificates, proposer selection and view changes.</td></tr>
 <tr><td><a href="04-staking-and-epochs.html">Stake, validators and epochs</a></td><td>Bonding TAIKO, joining an epoch&rsquo;s validator set, how voting power is counted, exits, and how a new node starts safely.</td></tr>
 <tr><td><a href="05-the-proof.html">What the proof proves</a></td><td>The zero-knowledge statement: the consensus certificate, execution, the data binding, and the configuration and recovery generation it binds — and what it deliberately does not prove.</td></tr>
-<tr><td><a href="06-data-and-proof-together.html">Data and proof travel together</a></td><td>One L1 transaction carries both: calldata and blob paths, the blob binding, the configuration and recovery generation the proof binds, and what a failed verification does.</td></tr>
-<tr><td><a href="07-timing.html">Two seconds and thirty minutes</a></td><td>Block cadence, certification, proving, L1 acceptance, Ethereum finality and withdrawals on one timeline.</td></tr>
-<tr><td><a href="08-when-things-go-wrong.html">When things go wrong</a></td><td>Withholding, missing certificates, offline validators, lost data, settlement stalls — and how a bonded, delayed, permissionless recovery replaces unsettled history above the last checkpoint accepted on Ethereum.</td></tr>
+<tr><td><a href="06-data-and-proof-together.html">Data and proof travel together</a></td><td>One L1 transaction carries both: calldata and blob paths, the blob binding, the per-epoch configuration registry and the recovery generation the proof binds, the retired height a discarded range can never cross, and what a failed verification does.</td></tr>
+<tr><td><a href="07-timing.html">Two seconds and thirty minutes</a></td><td>Block cadence, certification, proving, L1 acceptance, Ethereum finality and withdrawals on one timeline &mdash; including the data bound on batch length and the roughly 150 proofs in flight it implies.</td></tr>
+<tr><td><a href="08-when-things-go-wrong.html">When things go wrong</a></td><td>Withholding, missing certificates, offline validators, lost data, settlement stalls &mdash; and how a bonded, delayed, permissionless recovery replaces unsettled history above the last checkpoint accepted on Ethereum, retires the discarded heights for good, and treats locks there as void.</td></tr>
 <tr><td><a href="09-censorship-and-the-bridge.html">Censorship and the bridge</a></td><td>What censorship resistance this design does and does not provide — no forced inclusion in this version, with it planned as a later protocol update — plus how bridge messages are authenticated.</td></tr>
 <tr><td><a href="10-economics.html">Who pays, who earns, who loses</a></td><td>Validator costs and rewards, what a slashable offence needs, penalties, unbonding, and how minimum stake is derived.</td></tr>
 <tr><td><a href="glossary.html">Glossary</a></td><td>Every term used in the course, in one table.</td></tr>
-<tr><td><a href="limitations.html">What this design does not promise</a></td><td>The honest list: a design, not an implementation, provisional confirmations, unbounded off-chain loss, recovery as a priced manipulation primitive, and the guarantees it deliberately does not make.</td></tr>
+<tr><td><a href="limitations.html">What this design does not promise</a></td><td>The honest list: a design, not an implementation, provisional confirmations, unbounded off-chain loss, recovery as a priced manipulation primitive whose safety depends on a funded reward pool and which has not yet been independently reviewed, and the guarantees it deliberately does not make.</td></tr>
 </tbody></table>
 
 <h2>Suggested paths</h2>

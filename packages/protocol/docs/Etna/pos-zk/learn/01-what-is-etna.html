@@ -55,7 +55,7 @@ operating assumptions <span class="tag">derived</span>, not measured. A block be
 <strong>PoS-certified</strong> when <a href="../spec/02-consensus.html#CONS-03">more than two thirds</a> of the epoch's voting power has signed a precommit for it (<a href="../spec/02-consensus.html#CONS-05">CONS-05</a>).
 Certification is a consensus fact, established by validators alone in a few message round trips — it is not an Ethereum
 confirmation and it is not a proof. Above the latest checkpoint accepted on Ethereum it is <strong>provisional</strong>: the
-certificate is valid, and a permissionless, bonded, delayed recovery may still replace that history. <em>(D-7: confirmations above the last accepted checkpoint are provisional)</em></p>
+certificate is valid, and a permissionless, bonded, delayed recovery may still replace that history.</p>
 <p>Ethereum's job is different. Batches of L2 blocks are published to Ethereum together with a zero-knowledge proof
 that the batch's blocks were certified by the validator set <em>and</em> executed correctly. One Ethereum
 transaction carries the batch data and the proof, or the batch is not accepted at all (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>). There is no state on that
@@ -71,7 +71,7 @@ protocol stops producing and keeps serving what it has (<a href="../spec/06-reco
 Ethereum is never rewritten, and there is no operator key, pause button or emergency path that can rewrite it. History above that
 checkpoint is provisional: after a settlement stall a permissionless, bonded, delayed recovery
 (<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>) may replace it, and a transaction in the replaced range is not replayed
-automatically. <em>(D-7: history above the last accepted checkpoint is provisional and can be replaced)</em></p>
+automatically.</p>
 
 <h2>The picture</h2>
 <figure>
@@ -159,7 +159,7 @@ are correct.</figcaption>
 <li><strong>Ordering.</strong> The order of L2 transactions is decided by L2 PoS. No Ethereum proposer, builder or slot timing enters a validity rule.</li>
 <li><strong>Per-transaction inclusion.</strong> There is no inclusion duty and no L1 forced-inclusion path. Resistance to censorship is a conditional statistical property of proposer rotation, not a guarantee.</li>
 <li><strong>Instant settlement.</strong> L2 certification (a few round trips) is a different event from L1 acceptance (proof + inclusion) and from Ethereum finality (a further L1 finality lag).</li>
-<li><strong>Rollback of unsettled L2 history.</strong> It is never an Ethereum action and never applies at or below the latest accepted checkpoint, which no rule, timeout, rotation, admission rule or ordinary upgrade may invalidate. Above that checkpoint the history is provisional: a permissionless, bonded, delayed recovery may replace the range, while a failure below the checkpoint still leaves a halt rather than a rewrite. <em>(D-7: confirmations above the last accepted checkpoint are provisional)</em></li>
+<li><strong>Rollback of unsettled L2 history.</strong> It is never an Ethereum action and never applies at or below the latest accepted checkpoint, which no rule, timeout, rotation, admission rule or ordinary upgrade may invalidate. Above that checkpoint the history is provisional: a permissionless, bonded, delayed recovery may replace the range and permanently retires the heights it discards, so the replaced range can never be re-certified or landed again, while a failure below the checkpoint still leaves a halt rather than a rewrite. </li>
 </ul>
 </div>
 </div>
@@ -186,7 +186,7 @@ mode. A tool that shows "confirmed" must say which one it means.</p>
 <tr><td>L2 block cadence</td><td>2 s</td><td>the design's fixed production cadence — a cadence, not a finality or settlement latency</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Epoch length <code>L</code></td><td>900 heights</td><td>900 × 2 s = 1,800 s = 30 min; suitability at the target validator count is not measured</td><td><span class="tag">derived</span> / suitability <span class="tag">unmeasured</span></td></tr>
 <tr><td>Block at 824 s after height 0</td><td>height 412</td><td>412 × 2 s</td><td><span class="tag">derived</span></td></tr>
-<tr><td>Nominal batch length <code>K</code></td><td>32 blocks ≈ 64 s</td><td>a placeholder planning value; the L1 admission bound is a separate, unset parameter</td><td><span class="tag">unmeasured</span></td></tr>
+<tr><td>Batch length bound <code>K</code></td><td>6 blocks ≈ 12 s at the target rate; 9 blocks is the hard ceiling</td><td>one 2 s block is one 131,072-byte blob at the target rate, EIP-7691 allows 6 target / 9 maximum blobs per L1 block, and the data and the proof share one transaction (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>, <a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>)</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> constants</td></tr>
 <tr><td>Data per 12 s L1 slot at target blob capacity</td><td>786,432 bytes = 6 × 131,072</td><td>EIP-7691 target blob count</td><td><span class="tag">sourced</span></td></tr>
 <tr><td>Data budget per 2 s L2 block</td><td>≈ 131,072 bytes</td><td>six 2 s blocks per 12 s L1 slot at target capacity</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Data published per epoch envelope</td><td>≈ 118 MB</td><td>900 × 131,072 bytes — the volume that must stay retrievable while a batch is unsettled</td><td><span class="tag">derived</span></td></tr>
@@ -196,8 +196,8 @@ mode. A tool that shows "confirmed" must say which one it means.</p>
 </tbody>
 </table>
 <p>Read the table as a warning about wording: "2 s" is a production cadence, "30 min" is a proof envelope, "900" is an
-epoch length, and "more than two thirds" is a signing threshold. None of them is a settlement time. A batch of 32
-blocks spanning 64 s of history can be certified by validators within seconds and still take minutes to be proven
+epoch length, and "more than two thirds" is a signing threshold. None of them is a settlement time. A batch of six
+blocks spanning 12 s of history can be certified by validators within seconds and still take minutes to be proven
 and land on Ethereum; the interface must name which stage it is showing.</p>
 
 <h2>What this gives you</h2>

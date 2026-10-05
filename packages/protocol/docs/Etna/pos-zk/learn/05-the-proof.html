@@ -150,6 +150,11 @@ whose set judges it more favourably.</li>
 <li><strong>Validator set root.</strong> Read from the staking contract&rsquo;s per-epoch mapping,
 which is append-only and immutable once the epoch starts. The header&rsquo;s set commitments must
 be the same root under the same encoding.</li>
+<li><strong>Configuration.</strong> <code>configHash</code> is read from the Inbox&rsquo;s append-only
+per-epoch registry. Its entry is written before the epoch starts and is immutable once written, and an
+upgrade binds future epochs only, so a routine upgrade cannot change the configuration under which an
+in-flight proof was made and make it fail. The guest recomputes the hash from the configuration it
+actually applied (<a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>).</li>
 <li><strong>Quorum.</strong> Not a stored threshold: the predicate is exactly
 <code>3 &middot; s &gt; 2 &middot; W</code> with checked arithmetic, evaluated identically by the
 L2 client, the guest and the L1 contract. The journal&rsquo;s quorum field is the product
@@ -157,9 +162,12 @@ L2 client, the guest and the L1 contract. The journal&rsquo;s quorum field is th
 <li><strong>Predecessor.</strong> The previous checkpoint&rsquo;s height, block hash and state root
 come from the Inbox record, so the proof always runs from the state Ethereum already accepted.</li>
 <li><strong>Recovery generation.</strong> <code>recoveryGeneration</code> is read from L1 storage and
-required to equal the generation the contract supplies, so a batch certified under an older generation
-cannot be landed above the restored checkpoint even though its proof is otherwise valid; it remains
-admissible as evidence. <em>(D-7: the proof binds the recovery generation it was certified under)</em></li>
+required to equal the generation the contract supplies, so a batch certified under an older generation is
+rejected even though its proof is otherwise valid. The generation is a cheap invalidation of proofs that
+were already generated; the property that a discarded branch cannot be reinstated rests on the retired
+heights: a batch must start at <code>max(lastLandedHeight + 1, resumeHeight)</code>, so a range at or below
+<code>resumeHeight</code> can never be landed, at any generation, and locks at retired heights are void. A
+late proof or certificate for a discarded height remains admissible as evidence.</li>
 </ul>
 <p>If any of these could be chosen by the prover, the proof would be sound but meaningless: it
 would prove a true statement about a set, an epoch or a predecessor that the protocol never agreed
@@ -182,7 +190,8 @@ hash is the hash of the reconstructed head header.</li>
 <li>Recompute the finality commitment from the certificate the guest verified, rather than echoing
 a value from a hint.</li>
 <li>Check that <code>recoveryGeneration</code> equals the generation the L1 contract supplies as a
-public input, so a batch from an older generation is void above the restored checkpoint.</li>
+public input, and that the batch does not start at or below the retired height <code>resumeHeight</code>: a
+batch from an older generation is void, and a discarded range can never be landed, at any generation.</li>
 <li>Decode each block body from the committed payload, execute the blocks in order from the
 predecessor state root, and check that each block&rsquo;s transactions reproduce the transaction
 root committed by its header and that the final state root equals the claimed one.</li>
@@ -220,18 +229,18 @@ nodes, not by the proof.</li>
 </ul>
 
 <h2>Worked example</h2>
-<p>A batch of 32 blocks, heights 9,001&ndash;9,032, with the epoch length <code>L = 900</code> and
+<p>A batch of six blocks, heights 9,001&ndash;9,006, with the epoch length <code>L = 900</code> and
 <code>H_genesis = 0</code>, so both ends lie in epoch 10 (heights 9,000&ndash;9,899).</p>
 <table>
 <thead><tr><th>Quantity</th><th>Value in this example</th><th>Tag</th></tr></thead>
 <tbody>
-<tr><td>Batch span</td><td>32 blocks &asymp; 64 seconds at 2 s per block; the nominal batch length is a placeholder</td><td><span class="tag">derived</span> &middot; <span class="tag">unmeasured</span> suitability</td></tr>
-<tr><td>Epoch</td><td><code>epoch_of(9,001) = epoch_of(9,032) = 10</code>, so one set root and one quorum denominator</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Batch span</td><td>6 blocks &asymp; 12 seconds at 2 s per block; this is the largest sustainable batch at the target data rate</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> blob constants</td></tr>
+<tr><td>Epoch</td><td><code>epoch_of(9,001) = epoch_of(9,006) = 10</code>, so one set root and one quorum denominator</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Predecessor</td><td>height 9,000, its block hash and state root from the Inbox checkpoint record</td><td><span class="tag">sourced</span> from L1 state</td></tr>
 <tr><td>Epoch 10 total voting power <code>W</code></td><td>100,000,000 TAIKO (illustrative; real totals depend on who has bonded)</td><td><span class="tag">unmeasured</span></td></tr>
 <tr><td>Quorum</td><td>signers must satisfy <code>3 &middot; s &gt; 200,000,000 TAIKO</code>, so <code>s &ge; 66,666,667 TAIKO</code>. A certificate carrying 70,000,000 TAIKO passes (210,000,000 &gt; 200,000,000)</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Signer bitmap</td><td><code>ceil(n / 8)</code> bytes for a set of <code>n</code> entries, bit <code>i</code> = canonical index <code>i</code>; the length is fixed by the set, not by how many signers there are</td><td><span class="tag">derived</span></td></tr>
-<tr><td>Data commitment</td><td><code>keccak256(abi.encode("TAIKO_ETNA_DATA", chainId, 9001, 9032, 1, keccak256(_data)))</code> on the calldata path</td><td><span class="tag">derived</span> encoding</td></tr>
+<tr><td>Data commitment</td><td><code>keccak256(abi.encode("TAIKO_ETNA_DATA", chainId, 9001, 9006, 1, keccak256(_data)))</code> on the calldata path</td><td><span class="tag">derived</span> encoding</td></tr>
 <tr><td>Proving time</td><td>the design plans for up to 1,800 seconds per batch; actual latency is not yet measured</td><td><span class="tag">unmeasured</span></td></tr>
 </tbody></table>
 

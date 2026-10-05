@@ -57,8 +57,7 @@ not at all.</p>
 generation it belongs to</strong>. A proof is therefore evidence about one specific history: it cannot be
 replayed into a different configuration, and a batch certified before a recovery cannot be presented as an
 extension of the restored checkpoint. Execution validity alone is never enough to accept an alternative
-history (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>). <em>(user decision D-7: Mode B
-selected &mdash; the statement binds the configuration and the recovery generation)</em></p>
+history (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
 <p>Data can travel in two forms. <strong>Calldata</strong> is ordinary transaction input; the
 contract can read it, so the contract itself hashes the exact bytes and nothing is left to trust.
 <strong>Blobs</strong> are the cheaper bulk-data form introduced by EIP-4844, but the EVM cannot
@@ -75,7 +74,7 @@ at the same point. Together those two facts pin the executed bytes to the publis
   </defs>
   <rect x="20" y="20" width="250" height="86" rx="9" fill="#ffffff" stroke="#8250df"></rect>
   <text x="145" y="46" fill="#24292f" font-size="13" text-anchor="middle">L2: a certified batch</text>
-  <text x="36" y="68" fill="#59636e" font-size="11">32 blocks &#183; head commit certificate</text>
+  <text x="36" y="68" fill="#59636e" font-size="11">at most 6 blocks &#183; head commit certificate</text>
   <text x="36" y="86" fill="#59636e" font-size="11">payload bytes &#183; claimed new state root</text>
   <rect x="20" y="140" width="900" height="250" rx="10" fill="#ffffff" stroke="#d8dee4" stroke-dasharray="6 4"></rect>
   <text x="40" y="168" fill="#24292f" font-size="13">One L1 transaction: land(data, proof)</text>
@@ -203,20 +202,34 @@ accepted behaviour; a prover&rsquo;s mitigation is private orderflow or bundling
 (<a href="../spec/04-l1-integration.html#L1-10">L1-10</a>).</p>
 
 <h3>6. The proof binds the configuration and the recovery generation</h3>
-<p>The statement hash includes the protocol configuration under which the batch was certified and its
-recovery generation, so a proof that was valid for one configuration or generation cannot be reused under
-another. When a recovery completes, it restores the last checkpoint accepted on Ethereum and starts a new
-recovery generation. Any batch from an older generation is <strong>void above the restored
-checkpoint</strong>, because its predecessor no longer exists there &mdash; even though its proof is still
-perfectly valid evidence that the batch was certified and executed correctly. That distinction matters for
-accountability: a late certificate or proof for a replaced height is not excused, and it remains usable as
-evidence in a slashing case (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>,
-<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>). <em>(user decision D-7: Mode B
-selected)</em></p>
+<p>The statement hash includes the configuration under which the batch was certified and its recovery
+generation, so a proof that was valid for one configuration or generation cannot be reused under another.
+The configuration is not a single mutable global value: the Inbox keeps an <strong>append-only per-epoch
+registry</strong> mapping each epoch to its <code>configHash</code>. The entry is computed by the contract
+from its own storage and deployed code, written <strong>before the epoch starts</strong>, and
+<strong>immutable once written</strong>: no upgrade, recovery path or governance call may edit or rewrite
+the entry of an epoch that has already begun, so an upgrade binds future epochs only
+(<a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>). That immutability is what keeps upgrades from
+breaking settlement. If the configuration could change under a running epoch, a routine upgrade would move
+the configuration hash, and every in-flight proof &mdash; made under the configuration that was current
+when the batch was certified and executed &mdash; would fail verification, leaving its batch unlandable.</p>
+<p>The guest recomputes <code>configHash</code> from the configuration it actually applied and requires
+equality with the registry value the L1 contract supplies
+(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>). When a recovery completes, it restores the
+last checkpoint accepted on Ethereum and starts a new recovery generation. A batch from an older generation
+is <strong>void</strong>, and so is any batch whose range falls at or below the retired height: the
+completion transition records <code>resumeHeight</code>, and a batch must start at
+<code>max(lastLandedHeight + 1, resumeHeight)</code>, so a discarded range can never be landed, at any
+generation, by anyone (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>,
+<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>). The generation is a cheap invalidation of
+proofs that were already generated; the retired height is what makes the discarded range unlandable. That
+distinction matters for accountability: a late certificate or proof for a replaced height is not excused,
+and it remains usable as evidence in a slashing case
+(<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
 <p>What this rules out is the tempting shortcut of accepting an alternative history just because its
-execution is valid. A batch that does not descend from the current checkpoint, or that was certified under
-a superseded configuration or recovery generation, fails the statement check even if every execution step
-inside it is correct.</p>
+execution is valid. A batch that does not descend from the current checkpoint, that was certified under a
+stale recovery generation, or that begins at or below the retired height, fails acceptance even if every
+execution step inside it is correct.</p>
 
 <h3>7. What a failed verification does</h3>
 <p>Nothing is accepted. If the proof is invalid, if a blob opening fails, if the range is not
@@ -233,6 +246,7 @@ system.</p>
 <thead><tr><th>Quantity</th><th>Value in this example</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Payload size</td><td>6 blocks &times; ~100,000 bytes = 600,000 bytes (example input)</td><td><span class="tag">unmeasured</span> real payloads</td></tr>
+<tr><td>Target-rate payload</td><td>6 blocks &times; 131,072 bytes = 786,432 bytes = 6 blobs, exactly the EIP-7691 target</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> constants</td></tr>
 <tr><td>Calldata cost</td><td>600,000 &times; 16 gas per non-zero byte = 9,600,000 gas</td><td><span class="tag">derived</span> from a <span class="tag">sourced</span> constant (EIP-2028)</td></tr>
 <tr><td>Blob count</td><td>600,000 / 131,072 = 4.58, so 5 blobs; each blob is exactly 131,072 bytes = 4,096 field elements</td><td><span class="tag">derived</span> &middot; <span class="tag">sourced</span> blob size</td></tr>
 <tr><td>Blob opening cost</td><td>5 &times; 50,000 gas per point-evaluation call = 250,000 gas</td><td><span class="tag">derived</span> from a <span class="tag">sourced</span> constant (EIP-4844)</td></tr>
@@ -244,13 +258,20 @@ system.</p>
 bytes cost about 9.6 million execution gas as calldata and about 250,000 gas of execution for the
 blob openings, with the blob data itself paid on a separate market. Which is cheaper overall
 depends on blob prices and on the verifier&rsquo;s gas, neither of which is measured here.</p>
+<p class="small">The example payload is below the target-rate budget on purpose. At the target rate one
+2-second L2 block is one 131,072-byte blob, so the largest sustainable batch is six blocks &mdash; 786,432
+bytes, exactly the EIP-7691 target of six blobs per L1 block &mdash; and nine blocks (1,179,648 bytes) is
+the hard ceiling, because the data and the proof must travel in one transaction
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>).</p>
 
 <h2>What this gives you</h2>
 <ul>
 <li>One atomic rule to implement and to reason about: no checkpoint without both the data and a
 valid proof, and no way to create a pending state.</li>
-<li>A statement that also binds the configuration and the recovery generation, so an alternative history
-cannot be accepted on execution validity alone. <em>(user decision D-7: Mode B selected)</em></li>
+<li>A statement that also binds the per-epoch configuration and the recovery generation: the
+configuration entry for an epoch is fixed before the epoch starts and immutable once written, so an upgrade
+cannot move the configuration hash under an in-flight proof, and a batch at or below the retired height
+cannot land at any generation.</li>
 <li>A calldata path whose binding is a hash the contract computes itself, with no probabilistic
 argument.</li>
 <li>A blob path that still binds the executed bytes to the published blobs, using an L1 precompile
@@ -274,8 +295,9 @@ keeping the accepting transaction&rsquo;s bytes.</li>
 copying a public proof is allowed.</li>
 <li>No measured cost or in-guest blob-evaluation cost; the blob binding&rsquo;s fixed-point argument
 has not yet been independently checked.</li>
-<li>No way to land a batch from an older recovery generation above a restored checkpoint: it is void there,
-though its proof remains usable as evidence. <em>(user decision D-7: Mode B selected)</em></li>
+<li>No way to land a discarded range: a batch from an older generation is void, and a batch whose range
+starts at or below the retired height (<code>resumeHeight</code>) is rejected at every generation, by
+anyone, though its proof remains usable as evidence of what was certified and executed.</li>
 </ul>
 
 <h2>Check yourself</h2>
@@ -300,10 +322,17 @@ hash. A prover who wants to avoid this uses private orderflow or bundles its own
 transaction.</p></details>
 <details><summary>A batch certified before a recovery has a valid proof. Can it be landed above the
 restored checkpoint?</summary>
-<p>No. Its predecessor no longer exists above the restored checkpoint and the statement binds the recovery
-generation, so the proof is void for canonical purposes there even though the execution it attests to was
-correct. It stays usable as evidence, for example in a slashing case about what that validator set signed.
-<em>(user decision D-7: Mode B selected)</em></p></details>
+<p>No. Its range begins at or below the retired height <code>resumeHeight</code>, and the contiguity rule
+rejects such a batch at every generation, by anyone; the statement also binds the recovery generation, so
+the proof is void for canonical purposes even though the execution it attests to was correct. The
+generation only invalidates proofs that were already generated &mdash; the retired height is what makes the
+discarded range unlandable. It stays usable as evidence, for example in a slashing case about what that
+validator set signed.</p></details>
+<details><summary>Why can a routine upgrade not invalidate the proofs that are already in flight?</summary>
+<p>Because the configuration is registered per epoch. Each epoch&rsquo;s <code>configHash</code> is written
+before the epoch starts and is immutable once written, and an upgrade binds future epochs only. With a
+single mutable global configuration, an upgrade would move the hash under a running epoch, and every proof
+made under the previous configuration would fail verification, leaving its batch unlandable.</p></details>
 
 <div class="note assume">
 <p><strong>Assumptions.</strong> This lesson relies on: somebody publishing the data in the

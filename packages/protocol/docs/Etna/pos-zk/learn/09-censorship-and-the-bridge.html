@@ -50,8 +50,7 @@ history above the last checkpoint accepted on Ethereum
 (<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>), but it cannot put a transaction into a
 block or compel any proposer to include one, so it does not lift an exclusion. This version still has no
 forced-inclusion path, and forced inclusion is planned as a later protocol update
-(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>). <em>(user decision D-7: Mode B
-selected; D-10: forced inclusion deferred)</em></p>
+(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).</p>
 <p>Proposer selection is weighted random: a coalition with less than one third of the voting power is
 selected for fewer than one third of slots in expectation, so a transaction that reaches honest
 validators is included by the first honest proposer with room for it
@@ -90,8 +89,7 @@ the immutable checkpoint-writer links are all keyed to those exact addresses.</p
 <text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">No forced-inclusion entry point exists: recovery replaces unsettled history, it does not include a censored transaction.</text>
 </svg>
 <figcaption>The top panel shows why inclusion is a statistical property and not a guarantee; the bottom
-panel shows the only path by which a cross-chain message becomes trustworthy. <em>(user decisions D-7 and
-D-10: recovery is not an inclusion remedy, and forced inclusion is deferred to a later protocol update.)</em></figcaption>
+panel shows the only path by which a cross-chain message becomes trustworthy. </figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -115,7 +113,7 @@ proposer has room for it, it is included. &ldquo;Room&rdquo; is a behavioural pr
 rule &mdash; nothing defines it, reserves block space, or constrains the proposer&rsquo;s ordering.
 Any interface that implies a per-transaction guarantee, or an L1 escape hatch, is wrong. Recovery
 does not change that: it can replace history that was never settled, but it cannot include a censored
-transaction, so it is not a remedy against isolation. <em>(user decision D-7: Mode B selected)</em></p>
+transaction, so it is not a remedy against isolation.</p>
 
 <h3>How a message is authenticated</h3>
 <p>A cross-chain message is a signal inside L2 state, and L2 state is authenticated by the checkpoint
@@ -246,9 +244,9 @@ be indefinite.</li>
 <li>Protection against slot-buying: selection is predictable and no rule prices or penalises it.</li>
 <li>Early exit: a withdrawal still needs the checkpoint and the delay, and a settlement stall delays it
 until either a batch lands or a recovery completes &mdash; and a recovery can replace an unsettled
-withdrawal message. <em>(user decision D-7: Mode B selected)</em></li>
+withdrawal message. </li>
 <li>A remedy against isolation: this version has no forced-inclusion path, and forced inclusion is planned as
-a later protocol update <em>(user decision D-10: forced inclusion deferred)</em>.</li>
+a later protocol update .</li>
 <li>Confidence in the recorded addresses beyond the record: they were not chain-verified in the design
 work.</li>
 </ul>
@@ -259,8 +257,7 @@ work.</li>
 proposer with room includes the transaction. But if the coalition can also cut the user off from every
 honest proposer at the network level, then yes &mdash; indefinitely, including preventing a withdrawal
 from being started &mdash; and the protocol has no remedy. A recovery is not a remedy either: it can replace
-unsettled history, but it cannot include the censored transaction. <em>(user decision D-7: Mode B selected;
-D-10: forced inclusion deferred)</em></p></details>
+unsettled history, but it cannot include the censored transaction.</p></details>
 <details><summary>What is the minimum evidence that an L2&rarr;L1 message may be released?</summary>
 <p>A checkpoint written by a successful <code>land(data, proof)</code> whose state root covers the
 signal, a matching Merkle&ndash;Patricia proof for the remote SignalService account and the
