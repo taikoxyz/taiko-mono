@@ -1,11 +1,13 @@
-# D98 follow-through and the scheduled learning-site synchronization
+# D98/D99 follow-through and learning-site synchronization
 
 **Owner:** B. **Reviewers:** A and J. **[assumed: work order]** A's [schedule](https://github.com/taikoxyz/taiko-mono/pull/22191#issuecomment-5987852227) assigns B the D98 Low follow-ups and a course synchronization after the A-owned full-tree repairs merge. This record is a documentation follow-through, not a red-team round or readiness verdict.
+
+**[assumed: current source status; open: A/J review of B’s sync]** D99 is accepted at `0300904d6002768683e465cc13f102d337f9d1c6`. [B’s approval at `cceb3f7`](https://github.com/taikoxyz/taiko-mono/pull/22260#issuecomment-5988757559) closes the owner-review findings. The sections below preserve the earlier preparation and request-changes checkpoints as history; their pending-owner descriptions are superseded by the final D99 pass at the end. D44 item 5 remains 0 of 2.
 
 ## Accepted inputs and review boundary
 
 - **[assumed: accepted input]** D98 is `0dde5dd41c4901dfdacbbce391048c3476382671`, merging B's #22259 at `1451232eb28d9ee28d1fdfea84642bae8f0e1c49`. [A's approval and three Low follow-ups](https://github.com/taikoxyz/taiko-mono/pull/22259#issuecomment-5987881694) govern the S2 changes below.
-- **[open: dependent input]** A's full-tree repair PR and its accepted merge are not yet available at the start of this pass. No future V5, escrow or C2 finality text is treated as accepted merely because the schedule names it. This row will record the actual reviewed and merged commits before that part of the synchronization is complete.
+- **[assumed: accepted input, superseding the initial dependency]** A’s #22260 is accepted by D99 at `0300904d6002768683e465cc13f102d337f9d1c6`, after B’s `cceb3f7` approval and the nonblocking C3 wording fix. Earlier drafts did not treat the scheduled mechanisms as accepted before this merge.
 - **[assumed: audit reading adopted in D98]** Only full-tree rounds under J's two-refuter protocol count toward D44 item 5. The count is **0 of 2**. The earlier clean delta rounds remain historical evidence; a repair review is not a counting round.
 
 ## D98 Low follow-ups
@@ -49,3 +51,19 @@
 **[proven: static checks on this draft; assumed: tool output]** Against D98, all 21 changed paths are under Etna, WORK is byte-identical, and DECISIONS preserves the accepted bytes as a prefix. Fourteen HTML pages parse, all 33 inline SVGs parse, and 638 local link targets resolve (340 HTML, 298 Markdown). All 1,405 immutable links resolve against local Git objects (939 distinct targets, 155 blobs; 1,270 line links, 61 fragments, 74 whole blobs); all twenty D98 line-108 links identify D98. The complete raw D1 quotation is unchanged at 1,905 bytes, and the decoded lesson quotation matches it. S2 has 59 unique vector rows. `git diff --check` passes. These counts describe the candidate draft before the appended review-record links; later validation must recompute them.
 
 **[open: visual and implementation evidence]** A headless local Chromium attempt timed out without producing a screenshot; its owned scratch profile and log were deleted. No visual-render pass, compiled layout, executable fixture, gas measurement, production test or deployed-state audit is claimed.
+
+## Final D99 synchronization
+
+**[assumed: accepted owner sources; open: A/J review of this B pass]** D99 at `0300904d6002768683e465cc13f102d337f9d1c6` accepts A’s repair after B’s approval of `cceb3f7812a0126da283ccd43f6023a30eda5d89`. A also applied the remaining C3 prose clarification before the accepted head. The B branch incorporates D99 with a merge commit, preserving its published history. B’s P-B-FT-02/03 review statuses remain historical; P-B-FT-04 records the accepted disposition without editing an arbiter row.
+
+| Mechanism | Teaching and consumer change | Remaining boundary |
+|---|---|---|
+| Fixed-reference maturity | S2 cites C7’s gate for every fixed L1 reference; the lesson’s existing held-input rules, diagram and answers now require mature evaluable references. The honest-reference selection policy is 60 s under the stated 12-s head-spread premise, distinct from the 48-s validity/reset floor. | Head lag and delivery are unmeasured; L51 unsigned. No PH.timestamp delay is added. |
+| Announcement escrow | C4/S2 and operative landing, FI and migration text distinguish ordinary refunds from a class-A-voided announcement; paid-pin and forfeiture recipients use bound rewardTo. | Record placement, exact lazy-refund ABI and encoded fixtures remain open. |
+| Rotation and service | Course/indexes consume both non-emergency upgrade guards and P-SPI’s explicit assumed total waiting/proving/inclusion bound, with cumulative refresh work and a bounded served prefix. | Emergency upgrades and guard costs remain disclosed; P-SPI has no inferred user signature or measured value. |
+| Role/economic accounting | The course updates zero-seat reserve release, exact-next-term pin payment, live-key registration, strike-gap storage, both reserve-drain recipient cases, rounding and legacy ETH liabilities. | Economic illustrations are conditional, not measured floors; unsigned residuals remain unsigned. |
+| Finality and provenance | Covering-checkpoint publication finality governs the final label; stored confirmingLeaf remains the event provenance; forcedExit and exact live restart inputs remain taught. The 86-name error census and 49-byte Operator scalar count match D99. | Publication finality is not proof soundness. Counts are not implemented fixtures or audited layouts. |
+
+**[assumed: review method]** Independent narrow B reviewers rechecked the changed S2/C4 consumers, the rotation and timing fixes, and the operative course sentences against immutable owner sources. These reviews improved this documentation pass and do not stand in for A/J, the full-tree protocol, or implementation evidence. The complete D1 quotation remains unchanged; no production code or deployment work is included.
+
+**[proven: final static validation; assumed: tool output]** Against the accepted D99 base, the final pass changes 21 Etna-only files. WORK is byte-identical and DECISIONS preserves every accepted byte before B’s append-only proposals. Fourteen HTML pages and all 37 inline SVGs parse with no duplicate ids; 627 local targets resolve (329 HTML, 298 Markdown). All 1,451 immutable links resolve (950 distinct targets across 156 blobs; 1,316 line anchors, 61 fragments, 74 whole blobs); all 21 D99 line-109 and 25 D98 line-108 citations identify the correct decision rows. D1 remains exactly 1,905 raw Markdown bytes and matches the decoded lesson quotation. S2 has 59 unique vector rows, including V55. No external runtime assets were added. `git diff --check` passes. The earlier browser-render limitation remains: this is static validation, not a visual, production, fixture-execution or measurement result.
