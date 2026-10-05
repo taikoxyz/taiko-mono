@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PoS Preconfirmation Design</title>
+    <style>
+      /* Layout: a single reading column; summary first, then changes, lander, rules and open questions. */
+      :root {
+        --bg: #fbfaf8;
+        --surface: #f2f0ec;
+        --line: #dedad3;
+        --fg: #1f2328;
+        --muted: #5d6470;
+        --accent: #8a5a00;
+        --accent-soft: #f3e6cc;
+        --code-bg: #ebe8e2;
+        --font-body: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111418;
+          --surface: #181d23;
+          --line: #2a313a;
+          --fg: #e3e6ea;
+          --muted: #9aa4b0;
+          --accent: #d9b36c;
+          --accent-soft: #2b2416;
+          --code-bg: #1f252d;
+          color-scheme: dark;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--font-body);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+      main { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
+      header { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
+      .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--accent); margin: 0 0 10px; }
+      h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.25; margin: 0 0 10px; text-wrap: balance; }
+      .dek { color: var(--muted); margin: 0; }
+      h2 { font-size: 22px; margin: 44px 0 12px; padding-top: 20px; border-top: 1px solid var(--line); text-wrap: balance; }
+      h3 { font-size: 17px; margin: 28px 0 8px; }
+      p { margin: 0 0 12px; }
+      ul, ol { margin: 0 0 12px; padding-left: 1.4em; }
+      li { margin: 4px 0; }
+      li > ul { margin-top: 4px; }
+      code { font-family: var(--font-mono); font-size: 0.88em; background: var(--code-bg); border-radius: 4px; padding: 0.05em 0.35em; overflow-wrap: anywhere; }
+      a { color: var(--accent); }
+      .tldr { background: var(--accent-soft); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 20px 0 8px; }
+      .tldr strong { color: var(--accent); }
+      dl.glossary { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; }
+      dl.glossary dt { font-family: var(--font-mono); font-size: 14px; color: var(--accent); }
+      dl.glossary dd { margin: 0; }
+      .table-wrap { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--line); border-radius: 8px; }
+      table { border-collapse: collapse; width: 100%; font-size: 14px; }
+      th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-top: 1px solid var(--line); }
+      th { background: var(--surface); border-top: none; font-weight: 600; }
+      td:first-child { white-space: nowrap; }
+      .note { color: var(--muted); font-size: 14px; }
+      footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+      @media (max-width: 560px) { dl.glossary { grid-template-columns: 1fr; } td:first-child { white-space: normal; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Taiko protocol · design draft for discussion · 2026-10-05</p>
+        <h1>PoS Preconfirmation: a CometBFT Committee on Top of Etna</h1>
+        <p class="dek">
+          Remove the preconfirmation whitelist, address preconfirmation fair exchange, and keep the on-chain result
+          ZK-provable, with the smallest set of protocol changes.
+        </p>
+      </header>
+
+      <div class="tldr">
+        <p>
+          <strong>Summary.</strong> Add an open-stake CometBFT committee on top of Etna. Every validator votes on each
+          2-second block and only votes for blocks that include the transactions in the inclusion lists (ILs) that the
+          leader placed in the block. Each proposal carries the commit of its last block, and clients and raiko2 accept
+          it only if the commit verifies. Submitting to L1 rotates among validators per epoch as a duty with no separate
+          reward. Etna's L1 anchor rules, the bridge and L2 execution do not change. The Inbox only swaps its
+          implementation: forced inclusion is enforced by derivation instead of being inserted at landing.
+        </p>
+      </div>
+
+      <h2>Terms</h2>
+      <dl class="glossary">
+        <dt>seat</dt>
+        <dd>A fixed-size stake unit in the registry. Voting power, leader turns and lander turns are all counted in seats.</dd>
+        <dt>leader</dt>
+        <dd>The CometBFT proposer for a height. It rotates every block by CometBFT's weighted round robin.</dd>
+        <dt>lander</dt>
+        <dd>The validator allowed to call <code>Inbox.propose</code> during one 384 s epoch. It only posts committed blocks.</dd>
+        <dt>IL</dt>
+        <dd>Inclusion list: transactions a validator has witnessed and requires the next block to include, FOCIL-style.</dd>
+        <dt>FI</dt>
+        <dd>Forced inclusion: a transaction submitted to the L1 forced inclusion store.</dd>
+        <dt>commit</dt>
+        <dd>CometBFT's certificate for a block: precommit signatures from more than 2/3 of the voting power.</dd>
+      </dl>
+
+      <h2>1. Changes</h2>
+
+      <h3>1.1 L1: PreconfWhitelist becomes a staking registry; the Inbox swaps its implementation</h3>
+      <ul>
+        <li>
+          Open entry with a fixed bond per seat. The registry freezes a <code>committeeRoot</code> (a commitment to
+          validator keys and seat counts) once per epoch and exposes a double-sign slashing entry point.
+        </li>
+        <li>
+          Landing rights rotate per epoch. Reuse the existing per-epoch operator selection, drawing uniformly from active
+          seats (see <a href="#lander">Lander</a>).
+        </li>
+        <li>
+          No new Inbox is needed for the registry: <code>_proposerChecker</code> is immutable but points at the
+          PreconfWhitelist proxy, so swapping the proxy implementation is enough.
+        </li>
+        <li>
+          The Inbox swaps its implementation (same proxy) for forced inclusion only:
+          <ul>
+            <li>
+              <code>propose</code> no longer dequeues FIs or inserts FI blocks. The
+              <code>UnprocessedForcedInclusionIsDue</code> check is removed and <code>numForcedInclusions</code> is no
+              longer used. The FI store keeps accepting submissions.
+            </li>
+            <li>
+              The FI queue head advances at finalization by time. An FI older than its due time plus the anchor window,
+              relative to a finalized landing, has already been checked and can be dequeued. Without this the pending
+              count only grows, and the "fee doubles at 50 pending" rule would keep doubling the FI fee.
+            </li>
+            <li>
+              The "permissionless proposing after long-overdue FIs" path (mainnet multiplier 160, about 25.6 h) stays
+              disabled. It is disabled in today's code; enabling it would let anyone act as a lander.
+            </li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>1.2 Nodes: a CometBFT consensus layer</h3>
+      <ul>
+        <li>CometBFT drives the existing execution clients through the Engine API, the same structure as Berachain's BeaconKit.</li>
+        <li>
+          CometBFT's own mempool is disabled (<code>nop</code>). That requires producing empty blocks, so there is a
+          block every 2 s even when idle. Etna's empty blocks carry no transactions and are cheap to prove.
+        </li>
+        <li>
+          The ILs ride on the vote extensions, and <code>ProcessProposal</code> only checks data that is inside the
+          block. The check is therefore deterministic, as CometBFT requires, and an honest leader is never rejected
+          because some IL arrived late.
+        </li>
+      </ul>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ABCI++ hook</th><th>Called by</th><th>What the Taiko app does</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ExtendVote</code></td>
+              <td>Every validator, when precommitting height h−1</td>
+              <td>
+                Attaches its IL: transactions received at least 250 ms earlier that are still valid, capped at 8 KiB.
+                Precompute it so the precommit is not delayed.
+              </td>
+            </tr>
+            <tr>
+              <td><code>VerifyVoteExtension</code></td>
+              <td>Every validator, on others' precommits</td>
+              <td>Format and size checks only.</td>
+            </tr>
+            <tr>
+              <td><code>PrepareProposal</code></td>
+              <td>The leader of height h</td>
+              <td>
+                Places the vote extensions from <code>local_last_commit</code> (more than 2/3 of voting power, each
+                signed) into the block data unchanged as tx2. Builds the EVM block through the EL with the IL
+                transactions and the mempool, and places the EVM block hash as tx0 and the payload as tx1.
+              </td>
+            </tr>
+            <tr>
+              <td><code>ProcessProposal</code></td>
+              <td>Every validator</td>
+              <td>
+                Checks that tx0 matches tx1, executes the payload through <code>newPayload</code>, and verifies the IL
+                signatures and total power (as Cosmos SDK's <code>ValidateVoteExtensions</code> does). Then it runs the
+                append test on every IL in the block. If a missing transaction is still valid against the post-block
+                state (nonce, balance) and the remaining gas and zk gas can fit it, the result is REJECT (prevote nil).
+                Otherwise the omission is excused.
+              </td>
+            </tr>
+            <tr>
+              <td><code>FinalizeBlock</code></td>
+              <td>Every node, after the commit</td>
+              <td>Sets the block as the EL head via <code>forkchoiceUpdated</code> and stores the commit for the lander.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">
+        The append test is FOCIL's conditional inclusion (EIP-7805). It can move into the EL once alethia-reth picks up
+        upstream reth's FOCIL code: <code>newPayload</code> takes the ILs and returns <code>inclusionListSatisfied</code>.
+        The zk gas part is a Taiko-specific addition.
+      </p>
+
+      <h3>1.3 Derivation and proving: one fork on top of Etna</h3>
+      <p>
+        The base rules are the Etna section of
+        <a href="https://github.com/taikoxyz/taiko-mono/pull/22189">PR #22189</a>. Only additions and changes are listed
+        here.
+      </p>
+      <ul>
+        <li>
+          <strong>What a proposal carries.</strong> Per-block manifests do not change. Each proposal adds three items for
+          its last block:
+          <ul>
+            <li>
+              The commit: CometBFT's <code>Commit</code>, one <code>CommitSig</code> per validator (address, timestamp and
+              a 64-byte secp256k1 signature, about 100 B each). Each validator signs a <code>CanonicalVote</code> that
+              includes its own timestamp, so the messages differ and the signatures are verified one by one. The lander
+              includes just over 2/3 of the signatures and marks the rest absent. The commit for block T is not inside
+              block T; the lander takes it from its own node.
+            </li>
+            <li>
+              The CometBFT header, about 0.4 KB. A CometBFT block is a header plus Data (transactions), LastCommit and
+              Evidence. The header commits to the rest through hashes such as <code>DataHash</code>, and the
+              <code>block_id.hash</code> that validators sign is the header hash.
+            </li>
+            <li>
+              Two Merkle siblings (64 bytes). Data holds tx0 = EVM block hash, tx1 = payload and tx2 = ILs. The siblings
+              let the proof go from <code>DataHash</code> to the last EVM block hash without re-serializing the payload.
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Why only the last block.</strong> EVM parent hashes chain the segment. If the replayed segment ends in
+          the EVM block hash the commit certifies, the whole segment matches what was committed. CometBFT's own
+          <code>last_block_id</code> chain is not needed. The segment start is fixed by the previous proposal's proof; a
+          segment that does not connect cannot produce the same last hash.
+        </li>
+        <li>
+          <strong>New checks.</strong> Client derivation and the raiko2 guest use the same rules.
+          <ul>
+            <li>
+              Committee: the guest takes the L1 header for <code>originBlockHash</code>, gets its state root, and reads
+              the registry's <code>committeeRoot[epoch]</code> with an MPT storage proof. Clients read L1 directly. The
+              validator list in the witness (keys, seat counts) must hash to <code>committeeRoot</code> and must also
+              produce the header's <code>ValidatorsHash</code> under CometBFT's encoding. A proposal stays inside one
+              committee epoch.
+            </li>
+            <li>
+              Commit: the recomputed header hash equals <code>commit.block_id.hash</code>, and chain id and height match.
+              Each <code>CanonicalVote</code> is rebuilt, hashed with SHA-256 and checked against its secp256k1
+              signature. The signing seats must exceed 2/3. tendermint-rs's light client code can be reused; its
+              <code>secp256k1</code> feature uses k256 0.13, which both raiko2 guests already accelerate.
+            </li>
+            <li>Link to EVM: a <code>DataHash</code> Merkle path proves that tx0 equals the derived last EVM block hash.</li>
+            <li>
+              Cost (estimate, to be measured): at most about 67 signature checks, comparable to recovering 67 more
+              transaction senders. SHA-256 is accelerated and the MPT proof is about 1 M cycles. The total is a few
+              percent of the per-proposal fixed cost (about 512 M cycles in raiko2's RISC0 model).
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Public inputs do not change.</strong> The committee is read from <code>originBlockHash</code>, which the
+          proposal already contains. The commit and header sit in the blob, which existing blob checks cover. The L1
+          verifier does not change, and the Inbox does not change for the commit.
+        </li>
+        <li>
+          <strong>No landing-dependent fields.</strong> Derived blocks must equal committed blocks byte for byte. Etna's
+          13-byte extraData layout <code>[basefeeSharingPctg(1) | proposalId(6) | anchorBlockNumber(6)]</code> stays, but
+          bytes 1–6 change from the proposalId the Inbox assigns at landing to the CometBFT height. The EL only checks
+          the layout, and bytes 7–12 keep the anchor number. Code that decodes proposalId from extraData must take it
+          from derivation records or L1 events instead: Go's <code>DecodeShastaProposalID</code>
+          (<code>driver/preconf_blocks/api.go</code>, <code>driver/state/l1_current.go</code>,
+          <code>pkg/rpc/methods.go</code>) and Rust's <code>decode_shasta_proposal_id</code>
+          (<code>proposer/src/proposer.rs</code>).
+        </li>
+        <li>
+          <strong>Zero blocks on failed validation.</strong> If the lander's own segment fails validation, it derives to
+          zero blocks instead of Etna's default source, which would produce an empty block with the lander as coinbase.
+          Failures include an invalid or malformed commit, a committee mismatch, and blocks failing Etna's checks, for
+          example an anchor whose L1 block was reorged out. The proof must produce this zero-block result instead of
+          failing. Otherwise one bad commit would make the proposal unprovable and block every later proof.
+        </li>
+        <li>
+          <strong>Forced inclusion is checked by derivation.</strong> Each FI is checked once, at the block whose anchor
+          passes the FI's due time (enqueue time plus 576 s). Its transactions must already be on chain or be invalid in
+          the current state. Otherwise the proposal's own segment derives to zero blocks. A committee that refuses due
+          FIs can only halt the chain. The guest reads the FI queue with storage proofs against Etna's
+          <code>anchorStateRoot</code> and takes FI transactions from the FI blob, which it already verifies with KZG. A
+          lander therefore cannot insert any block, and an invalid landing at most wastes a turn.
+        </li>
+      </ul>
+
+      <h3>1.4 Wallets</h3>
+      <p>
+        Send transactions to validators holding more than 2/3 of the voting power (in practice, to all of them), not only
+        to the leader.
+      </p>
+
+      <h2 id="lander">2. Lander: a rotating duty</h2>
+      <ul>
+        <li>
+          <strong>Role.</strong> The lander on duty packs the blocks committed since the last landing into one proposal and
+          submits it to the Inbox. It cannot change the content, because coinbase and transactions are locked by the
+          commit.
+        </li>
+        <li>
+          <strong>Incentive: a duty with no separate reward.</strong> Fees go to the leaders that built the blocks. The
+          lander cannot be paid inside the blocks either, because who lands a block is unknown when the block is
+          committed.
+          <ul>
+            <li>
+              Stake per seat is fixed, landers are drawn uniformly per seat, and leaders rotate by seat weight. Each
+              validator's share of landing cost therefore matches its share of block revenue.
+            </li>
+            <li>
+              A miss (no landing during one's epoch) is recorded, not fined. It only counts when the epochs before and
+              after had landings, so halts do not trigger it. Repeated misses remove the seat from the active set. An
+              invalid landing derives to zero blocks and has the same effect as a miss. Detecting it on chain would need
+              the Inbox to store each proposal's last block hash.
+            </li>
+            <li>
+              Cost: about 75k gas plus one blob per landing. At about 225 landings per day and market tips, roughly
+              0.005–0.014 ETH per day (estimate), or 20–60% of current L2 revenue.
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Timing.</strong>
+          <ul>
+            <li>
+              Land once near the end of one's 384 s epoch, with 2–3 L1 slots of margin. Retry within the epoch if the
+              transaction does not land. Anything left over is landed by the next lander.
+            </li>
+            <li>
+              The only hard deadline comes from Etna's derivation windows (timestamp 6144 s, anchor 512 L1 blocks, about
+              1.7 h).
+            </li>
+            <li>Segment boundaries follow lander epochs. Committee epochs are a multiple of 384 s.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Data.</strong> Per-block manifests are unchanged (timestamp, coinbase, anchorBlockNumber, gasLimit,
+          transactions). A proposal adds the commit (about 100 B per validator, 7–10 KB for 100 validators), the
+          CometBFT header (about 0.4 KB) and two Merkle siblings (64 bytes). A proposal is about 4 KB today and about
+          15 KB with these additions, still one blob. The commit is not verified on L1, so L1 cost stays about the same.
+        </li>
+      </ul>
+
+      <h2>3. Unchanged</h2>
+      <p>
+        The propose and prove flow (apart from FI), FI store submission and its 576 s due time, Etna's L1 anchor rules
+        (<code>parentBeaconBlockRoot</code> holds the anchor state root and extraData bytes 7–12 hold the anchor number),
+        SignalService and the bridge, L2 execution, and the 2 s block time.
+      </p>
+
+      <h2>4. Rules</h2>
+      <ul>
+        <li>
+          <strong>Committee.</strong> All active seats vote; there is no sampling. Voting power is counted in seats, and a
+          commit needs more than 2/3. The number of seats is capped (about 100), and new seats queue for free slots.
+        </li>
+        <li>
+          <strong>Launch threshold.</strong> CometBFT requires signed power strictly greater than total power × 2 / 3
+          with integer division. Switching from the whitelist requires at least 4 active addresses (preferably 7) and no
+          address above 1/3 of the seats. Addresses of the same entity cannot be told apart on chain, so the threshold
+          is approximate. One entity with 1/3 of the seats or more can halt the chain alone, and one above 2/3 can forge
+          commits and censor alone. If exits push the set below the threshold after launch, CometBFT keeps producing with
+          lower fault tolerance. The switch happens at one fork height: the whitelist operator stops there, CometBFT
+          starts from that L2 head, and the two never produce blocks in parallel.
+        </li>
+      </ul>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Active validators (equal weight)</th><th>Votes needed for a commit</th><th>Failures tolerated</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>3</td><td>3 (all)</td><td>0</td></tr>
+            <tr><td>4</td><td>3</td><td>1</td></tr>
+            <tr><td>7</td><td>5</td><td>2</td></tr>
+            <tr><td>10</td><td>7</td><td>3</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li>
+          <strong>Keys.</strong> secp256k1 validator keys, which CometBFT v1.0.1 supports. L1 can check double-sign
+          evidence cheaply with <code>ecrecover</code>, and both raiko2 guests already accelerate k256.
+        </li>
+        <li>
+          <strong>What a preconfirmation means.</strong> The transaction is in a block that has a commit. Inclusion is
+          guaranteed; the execution result is not. Four states must be exposed separately: committed (about 2 s), on L1,
+          proven, and L1-finalized. The bridge and withdrawals only trust proven checkpoints.
+        </li>
+        <li>
+          <strong>Fair exchange.</strong> The tip is paid inside the transaction, so payment happens only on inclusion and
+          the exchange is atomic. The ILs a leader puts into a block must total more than 2/3 of the voting power, so it
+          can leave out less than 1/3. A transaction in the ILs of honest validators holding at least 1/3 therefore
+          always has at least one IL in the block and cannot be left out. The worst case is a delay of about one block
+          (about 2 s).
+        </li>
+        <li>
+          <strong>Slashing.</strong> Only CometBFT double signing (duplicate votes) is slashed. Withholding and lateness
+          are not slashed; they only cost the leader the commit and the block's revenue.
+        </li>
+        <li><strong>Loss of quorum.</strong> The chain halts. There is no based fallback and no rollback of committed blocks.</li>
+        <li>
+          <strong>Epoch handoff.</strong> The registry freezes the next epoch's set in advance. The app returns validator
+          updates from <code>FinalizeBlock</code> two heights before the boundary (CometBFT applies them at H+2), so the
+          first block of the new epoch already carries the new <code>ValidatorsHash</code>. If the new set is not ready,
+          the chain stops at the boundary instead of skipping the handoff.
+        </li>
+        <li>
+          <strong>L1 anchor depth.</strong> Validators only vote for blocks whose anchor is far enough behind the L1 head.
+          If the referenced L1 block is reorged out, committed blocks become invalid at derivation. Anchoring to finalized
+          L1 blocks is safest but delays L1→L2 messages by about 13 minutes; this needs a trade-off.
+        </li>
+        <li>
+          <strong>Data retention.</strong> Validators must have the full payload before voting and keep it until the
+          corresponding proposal is finalized on L1. Landing, and re-landing after an L1 reorg, depend on it.
+        </li>
+        <li>
+          <strong>Alignment with Etna derivation.</strong> Production stops when unlanded committed blocks approach the
+          derivation windows (timestamp 6144 s, anchor 512 L1 blocks), so they are never derived as default blocks. A
+          source holds at most 768 blocks (from Unzen). One epoch's segment is about 192 blocks, so one missed landing
+          still fits; a larger backlog is split into several proposals. A proposal never spans committee epochs.
+        </li>
+        <li>
+          <strong>Forced inclusion.</strong> The FI store stays as the L1 backstop and is enforced as described in 1.3.
+          Normally validators add FI transactions to their ILs and they are included within seconds. In the worst case a
+          malicious majority lags anchors to the edge of the window and delays an FI by about 1.7 h; after that it must
+          include it or halt.
+        </li>
+        <li>
+          <strong>Exit.</strong> Stake stays locked until the blocks it served are proven and finalized on L1, plus a
+          double-sign evidence window.
+        </li>
+      </ul>
+
+      <h2>5. Out of scope for now</h2>
+      <p>
+        Prepaid timely-fair-exchange tickets (pay only on timely delivery, otherwise refund), a shared base fee pool, an
+        encrypted mempool, a based fallback, sampled committees, and signed per-transaction receipts.
+      </p>
+
+      <h2>6. Open questions</h2>
+      <ul>
+        <li>
+          <strong>Economics.</strong> Measured L2 revenue was about 0.0225 ETH per day (2026-09-23 to 09-29), which cannot
+          support meaningful stake from fees alone. The stake asset (ETH or TAIKO) and any subsidy need to be decided
+          first.
+        </li>
+        <li>
+          <strong>Block stuffing to evade ILs.</strong> After Proposal0026 executes, the whole base fee goes to the block's
+          coinbase. A leader could then fill its own block cheaply and use the "block is full" exemption to skip IL
+          transactions; a full 46M-gas block at today's 0.01 gwei base fee is about 0.00046 ETH. Leaders rotate every
+          block, so this delays a transaction by one block per malicious leader slot. Measure the cost, and add a shared
+          base fee pool if needed.
+        </li>
+      </ul>
+
+      <footer>
+        <p><strong>References</strong></p>
+        <ul>
+          <li><a href="https://github.com/taikoxyz/taiko-mono/pull/22189">PR #22189</a>: Unzen and Etna rules in the derivation spec, the base for section 1.3.</li>
+          <li><a href="https://ethresear.ch/t/preconfirmation-fair-exchange/21891">Preconfirmation Fair Exchange</a> (ethresear.ch).</li>
+          <li><a href="https://eips.ethereum.org/EIPS/eip-7805">EIP-7805 (FOCIL)</a>: inclusion lists and conditional inclusion.</li>
+          <li><a href="https://github.com/cometbft/cometbft/tree/v1.0.1/spec/abci">CometBFT v1.0.1 ABCI++ spec</a>: vote extensions and <code>ProcessProposal</code>.</li>
+        </ul>
+        <p>Figures marked as estimates are calculations, not measurements.</p>
+      </footer>
+    </main>
+  </body>
+</html>
