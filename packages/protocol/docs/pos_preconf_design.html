@@ -146,7 +146,22 @@
 
       <h3>1.2 Nodes: a CometBFT consensus layer</h3>
       <ul>
-        <li>CometBFT drives the existing execution clients through the Engine API, the same structure as Berachain's BeaconKit.</li>
+        <li>
+          CometBFT v0.40 drives the existing execution clients through the Engine API, the same structure as Berachain's
+          BeaconKit. v1.0.1 has had no release since 2025-02, while v0.38, v0.39 and v0.40 are maintained.
+        </li>
+        <li>
+          The Taiko ABCI app (Go) runs in-process with CometBFT as a standalone component and is the only writer of the
+          EL head, through the Engine API. Either taiko-client or taiko-client-rs pairs with it for L1 derivation,
+          L1Origin and landing, over RPC only: committed blocks and commits come from CometBFT's <code>/block</code> and
+          <code>/commit</code>. When L1 derivation disagrees with the committed chain, the client tells the app to halt
+          and resync; it never writes the head itself.
+        </li>
+        <li>
+          Block cadence: the app returns <code>next_block_delay</code> from <code>FinalizeBlock</code>, computed from
+          wall-clock time so blocks align to a 2 s grid (supported from v0.40; nodes need synchronized clocks). A failed
+          round makes that block longer.
+        </li>
         <li>
           CometBFT's own mempool is disabled (<code>nop</code>). That requires producing empty blocks, so there is a
           block every 2 s even when idle. Etna's empty blocks carry no transactions and are cheap to prove.
@@ -199,7 +214,11 @@
             <tr>
               <td><code>FinalizeBlock</code></td>
               <td>Every node, after the commit</td>
-              <td>Sets the block as the EL head via <code>forkchoiceUpdated</code> and stores the commit for the lander.</td>
+              <td>
+                Sets the block as the EL head via <code>forkchoiceUpdated</code> and stores the commit for the lander.
+                Returns <code>next_block_delay</code> aligned to the 2 s grid, and validator updates two heights before an
+                epoch boundary.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -223,7 +242,7 @@
           <ul>
             <li>
               The commit: CometBFT's <code>Commit</code>, one <code>CommitSig</code> per validator (address, timestamp and
-              a 64-byte secp256k1 signature, about 100 B each). Each validator signs a <code>CanonicalVote</code> that
+              a 65-byte <code>secp256k1eth</code> signature, about 100 B each). Each validator signs a <code>CanonicalVote</code> that
               includes its own timestamp, so the messages differ and the signatures are verified one by one. The lander
               includes just over 2/3 of the signatures and marks the rest absent. The commit for block T is not inside
               block T; the lander takes it from its own node.
@@ -257,9 +276,10 @@
             </li>
             <li>
               Commit: the recomputed header hash equals <code>commit.block_id.hash</code>, and chain id and height match.
-              Each <code>CanonicalVote</code> is rebuilt, hashed with SHA-256 and checked against its secp256k1
-              signature. The signing seats must exceed 2/3. tendermint-rs's light client code can be reused; its
-              <code>secp256k1</code> feature uses k256 0.13, which both raiko2 guests already accelerate.
+              Each <code>CanonicalVote</code> is rebuilt and hashed with Keccak-256, and its signer is recovered with
+              k256. The signing seats must exceed 2/3. Header hashing can reuse tendermint-rs; if it lacks
+              <code>secp256k1eth</code> verification, write that part directly. k256 0.13 is the version both raiko2
+              guests already accelerate.
             </li>
             <li>Link to EVM: a <code>DataHash</code> Merkle path proves that tx0 equals the derived last EVM block hash.</li>
             <li>
@@ -301,10 +321,11 @@
         </li>
       </ul>
 
-      <h3>1.4 Wallets</h3>
+      <h3>1.4 Transaction entry</h3>
       <p>
-        Send transactions to validators holding more than 2/3 of the voting power (in practice, to all of them), not only
-        to the leader.
+        Wallets and RPC endpoints do not change. Transactions reach validators through public L2 transaction gossip, so
+        validator execution clients must join the public network with gossip on (behind sentry nodes is fine). Inclusion
+        takes about the gossip latency plus 250 ms plus at most one block.
       </p>
 
       <h2 id="lander">2. Lander: a rotating duty</h2>
@@ -351,7 +372,7 @@
         </li>
         <li>
           <strong>Data.</strong> Per-block manifests are unchanged (timestamp, coinbase, anchorBlockNumber, gasLimit,
-          transactions). A proposal adds the commit (about 100 B per validator, 7–10 KB for 100 validators), the
+          transactions). A proposal adds the commit (<code>secp256k1eth</code>, about 100 B per validator, 7–10 KB for 100 validators), the
           CometBFT header (about 0.4 KB) and two Merkle siblings (64 bytes). A proposal is about 4 KB today and about
           15 KB with these additions, still one blob. The commit is not verified on L1, so L1 cost stays about the same.
         </li>
@@ -395,8 +416,9 @@
       </div>
       <ul>
         <li>
-          <strong>Keys.</strong> secp256k1 validator keys, which CometBFT v1.0.1 supports. L1 can check double-sign
-          evidence cheaply with <code>ecrecover</code>, and both raiko2 guests already accelerate k256.
+          <strong>Keys.</strong> CometBFT v0.40's <code>secp256k1eth</code> validator keys: signatures over the
+          Keccak-256 hash, 65 bytes [R‖S‖V], with Ethereum addresses. L1 checks double-sign evidence directly with
+          <code>ecrecover</code>, and both raiko2 guests already accelerate k256.
         </li>
         <li>
           <strong>What a preconfirmation means.</strong> The transaction is in a block that has a commit. Inclusion is
@@ -470,13 +492,108 @@
         </li>
       </ul>
 
+      <h2>7. Minimal implementation checklist</h2>
+      <h3>Decide first</h3>
+      <ul>
+        <li>The stake asset (ETH or TAIKO) and where any subsidy comes from.</li>
+        <li>Registry parameters: seat bond, seat cap (about 100), epoch length, miss limit, evidence window, launch threshold.</li>
+      </ul>
+      <h3>Prerequisite: Etna (in progress)</h3>
+      <ul>
+        <li>
+          Derivation rules in #22189; clients in alethia-reth #248, the Go client #22207 and the Rust client #22263; Etna
+          support in raiko2.
+        </li>
+      </ul>
+      <h3>Contracts (taiko-mono/protocol)</h3>
+      <ul>
+        <li>
+          New PreconfWhitelist implementation: stake per seat with a queue when full; freeze <code>committeeRoot</code>
+          per epoch and draw landers uniformly per seat; <code>checkProposer</code> admits only the lander on duty and
+          records misses; double-sign slashing that checks <code>secp256k1eth</code> signatures with
+          <code>ecrecover</code>; exit locks; the launch threshold.
+        </li>
+        <li>
+          New Inbox implementation, forced inclusion only: <code>propose</code> no longer dequeues FIs or inserts
+          blocks, and the due check is removed; the FI queue head advances at finalization by time; the
+          "permissionless proposing after long-overdue FIs" path stays disabled.
+        </li>
+      </ul>
+      <h3>Consensus node (new code, the largest piece)</h3>
+      <ul>
+        <li>
+          The Taiko ABCI app (Go, in-process with CometBFT v0.40): <code>ExtendVote</code> builds the IL;
+          <code>VerifyVoteExtension</code> checks format only; <code>PrepareProposal</code> injects the ILs, builds the
+          block and lays out tx0, tx1 and tx2; <code>ProcessProposal</code> verifies IL signatures and runs the append
+          test, including zk gas; <code>FinalizeBlock</code> aligns <code>next_block_delay</code> to 2 s, returns
+          validator updates at epoch boundaries and stores the commit.
+        </li>
+        <li>
+          Node rules: sync each epoch's set from the L1 registry; anchor depth; back-pressure near the derivation
+          windows; add FI transactions to ILs automatically; keep payloads until L1 finality; <code>secp256k1eth</code>
+          keys with a signer that persists its state across restarts to avoid double signing; public transaction gossip
+          on the execution client.
+        </li>
+        <li>
+          Lander: at the end of its epoch, fetch committed blocks and the last commit from CometBFT's
+          <code>/block</code> and <code>/commit</code>, pack them into a blob and call <code>propose</code>, reusing the
+          existing proposers' blob building in both clients.
+        </li>
+      </ul>
+      <h3>Execution client (alethia-reth)</h3>
+      <ul>
+        <li>
+          An interface for the append test: whether a transaction is valid against the post-block state and fits the
+          remaining gas and zk gas. zk gas must be exact; otherwise every validator rejects an honest block the same
+          way and the chain stalls.
+        </li>
+        <li>
+          extraData bytes 1–6 change meaning: fork-gate the <code>BatchToLastBlock</code> write in
+          <code>forkchoiceUpdated</code>, and rebuild the RPC lookup fallback from L1 instead of scanning headers.
+        </li>
+      </ul>
+      <h3>Derivation (spec and both clients)</h3>
+      <ul>
+        <li>
+          Add the rules on top of #22189: proposals carry the last block's commit, header and two Merkle siblings;
+          verify the commit and committee; extraData bytes 1–6 hold the CometBFT height; a segment that fails validation
+          derives to zero blocks; forced inclusion is checked by anchor time.
+        </li>
+        <li>
+          Implement them in taiko-client and taiko-client-rs. Committed blocks are already in the execution client, so
+          derivation only checks hashes and fills in L1Origin. proposalId comes from derivation records (three Go call
+          sites, one Rust). When L1 derivation disagrees with the committed chain, the client tells the ABCI app to halt
+          and resync and never writes the head itself. Retire the whitelist preconfirmation P2P path.
+        </li>
+      </ul>
+      <h3>Proving (raiko2)</h3>
+      <ul>
+        <li>
+          Implement the derivation rules in the guest: read <code>committeeRoot</code> and the FI queue with storage
+          proofs; verify commit signatures one by one (Keccak-256 and k256 recovery); produce zero blocks on failure
+          instead of panicking. The host prepares the witness: validator list, storage proofs, FI blobs.
+        </li>
+      </ul>
+      <h3>Launch</h3>
+      <ul>
+        <li>
+          Devnet with at least 4 validators: measure the 2 s cadence, <code>ExtendVote</code> latency, IL propagation,
+          landing cost, and the accuracy of the zk gas append test.
+        </li>
+        <li>Audits: contracts, the ABCI app, the guest.</li>
+        <li>
+          DAO proposal: upgrade the PreconfWhitelist and Inbox implementations and set the fork height. The whitelist
+          stops at that height and CometBFT continues from it.
+        </li>
+      </ul>
+
       <footer>
         <p><strong>References</strong></p>
         <ul>
           <li><a href="https://github.com/taikoxyz/taiko-mono/pull/22189">PR #22189</a>: Unzen and Etna rules in the derivation spec, the base for section 1.3.</li>
           <li><a href="https://ethresear.ch/t/preconfirmation-fair-exchange/21891">Preconfirmation Fair Exchange</a> (ethresear.ch).</li>
           <li><a href="https://eips.ethereum.org/EIPS/eip-7805">EIP-7805 (FOCIL)</a>: inclusion lists and conditional inclusion.</li>
-          <li><a href="https://github.com/cometbft/cometbft/tree/v1.0.1/spec/abci">CometBFT v1.0.1 ABCI++ spec</a>: vote extensions and <code>ProcessProposal</code>.</li>
+          <li><a href="https://github.com/cometbft/cometbft/tree/v0.40.0/spec/abci">CometBFT v0.40 ABCI++ spec</a>: vote extensions, <code>ProcessProposal</code> and <code>next_block_delay</code>.</li>
         </ul>
         <p>Figures marked as estimates are calculations, not measurements.</p>
       </footer>
