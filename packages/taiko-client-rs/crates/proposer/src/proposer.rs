@@ -29,9 +29,9 @@ use protocol::shasta::{
         PROPOSAL_MAX_BLOB_BYTES, calculate_next_block_eip4396_base_fee_for_parent,
         min_base_fee_for_chain,
     },
-    encode_extra_data,
+    encode_extra_data, etna_fork_timestamp_for_chain, is_etna_at,
 };
-use rpc::{RpcClientError, client::Client};
+use rpc::{RpcClientError, TxPoolContentParams, client::Client};
 use serde_json::from_value;
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{error, info, instrument, warn};
@@ -57,9 +57,12 @@ pub struct EngineBuildContext {
     pub anchor_block_number: u64,
     /// The L2 parent block number used to derive the proposal payload.
     pub parent_block_number: u64,
+    /// Whether the L2 parent is an Etna block (decided by the parent's own timestamp); an Etna
+    /// parent's gas limit carries no anchor reserve.
+    pub parent_is_etna: bool,
     /// The timestamp used for the payload.
     pub timestamp: u64,
-    /// The gas limit for the block.
+    /// The L2 parent's header gas limit.
     pub gas_limit: u64,
 }
 
@@ -70,7 +73,12 @@ impl EngineBuildContext {
     /// The timestamp is taken from the L1 head rather than the local wall clock: driver
     /// validation rejects any manifest block stamped above the proposal's L1 inclusion
     /// timestamp, degrading the whole manifest to the default empty block.
-    pub async fn from_chain_heads(rpc: &Client) -> Result<(Self, Block)> {
+    ///
+    /// `etna_fork_timestamp` is the chain's resolved Etna activation time (`None` = never).
+    pub async fn from_chain_heads(
+        rpc: &Client,
+        etna_fork_timestamp: Option<u64>,
+    ) -> Result<(Self, Block)> {
         let parent = rpc
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
@@ -83,14 +91,23 @@ impl EngineBuildContext {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        let context = Self {
+        Ok((Self::from_snapshot(&parent, &l1_head, etna_fork_timestamp), parent))
+    }
+
+    /// Build a context from an L2 parent and the L1 head it is anchored to: the L1 head gives the
+    /// anchor block number and the payload timestamp, the parent its number, gas limit and fork.
+    pub(crate) fn from_snapshot(
+        parent: &Block,
+        l1_head: &Block,
+        etna_fork_timestamp: Option<u64>,
+    ) -> Self {
+        Self {
             anchor_block_number: l1_head.header.number,
-            parent_block_number: parent.number(),
+            parent_block_number: parent.header.number,
+            parent_is_etna: is_etna_at(etna_fork_timestamp, parent.header.timestamp),
             timestamp: l1_head.header.timestamp,
             gas_limit: parent.header.gas_limit,
-        };
-
-        Ok((context, parent))
+        }
     }
 }
 
@@ -108,6 +125,8 @@ pub struct Proposer {
     anchor_constructor: Option<AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>>,
     /// Chain-specific minimum base fee used by EIP-4396 clamping.
     min_base_fee_to_clamp: u64,
+    /// The chain's Etna activation time, resolved once at startup (`None` = never).
+    etna_fork_timestamp: Option<u64>,
     /// Runtime proposer configuration.
     cfg: ProposerConfigs,
 }
@@ -137,6 +156,9 @@ impl Proposer {
         // Match proposer-side base-fee clamping to chain policy used by derivation.
         let min_base_fee_to_clamp =
             min_base_fee_for_chain(rpc_provider.l2_provider.get_chain_id().await?);
+        let chain_id = rpc_provider.chain_id;
+        let etna_fork_timestamp = etna_fork_timestamp_for_chain(chain_id)
+            .map_err(|source| ProposerError::EtnaScheduleUnresolved { chain_id, source })?;
 
         // Initialize anchor transaction constructor only for engine mode.
         let anchor_constructor = if cfg.use_engine_mode {
@@ -165,6 +187,7 @@ impl Proposer {
             l1_proposer_address,
             anchor_constructor,
             min_base_fee_to_clamp,
+            etna_fork_timestamp,
             cfg,
         })
     }
@@ -327,7 +350,9 @@ impl Proposer {
     /// Fetch transaction pool content from the L2 execution engine, together with the
     /// chain-state snapshot the selection ran against.
     async fn fetch_pool_content(&self) -> Result<(TransactionLists, EngineBuildContext)> {
-        let (build_ctx, parent) = EngineBuildContext::from_chain_heads(&self.rpc_provider).await?;
+        let (build_ctx, parent) =
+            EngineBuildContext::from_chain_heads(&self.rpc_provider, self.etna_fork_timestamp)
+                .await?;
 
         let base_fee_u64 =
             u64::try_from(self.calculate_next_shasta_block_base_fee_for_parent(&parent).await?)
@@ -335,22 +360,11 @@ impl Proposer {
 
         let pool_content = self
             .rpc_provider
-            .tx_pool_content_with_min_tip(rpc::TxPoolContentParams {
-                beneficiary: self.cfg.l2_suggested_fee_recipient,
-                base_fee: Some(base_fee_u64),
-                // Fill up to the gas limit the manifest will actually declare (parent limit
-                // minus the anchor-gas discount) instead of the protocol minimum, which
-                // under-filled every list to 10M while blocks advertise ~45M. Derived from the
-                // same snapshot the manifest is built against.
-                block_max_gas_limit: manifest_gas_limit(
-                    build_ctx.parent_block_number,
-                    build_ctx.gas_limit,
-                ),
-                max_bytes_per_tx_list: PROPOSAL_MAX_BLOB_BYTES as u64,
-                locals: vec![],
-                max_transactions_lists: 1,
-                min_tip: 0,
-            })
+            .tx_pool_content_with_min_tip(pool_content_params(
+                self.cfg.l2_suggested_fee_recipient,
+                base_fee_u64,
+                &build_ctx,
+            ))
             .await?;
 
         info!(
@@ -507,12 +521,7 @@ impl Proposer {
 
         Ok((
             payload_attributes,
-            EngineBuildContext {
-                anchor_block_number,
-                parent_block_number: parent.header.number,
-                timestamp,
-                gas_limit: parent.header.gas_limit,
-            },
+            EngineBuildContext::from_snapshot(parent, &l1_block, self.etna_fork_timestamp),
         ))
     }
 
@@ -577,6 +586,29 @@ impl Proposer {
         );
 
         Ok((vec![txs], engine_params))
+    }
+}
+
+/// Build the `taikoAuth_txPoolContentWithMinTip` request for a pool-mode proposal.
+///
+/// The pool fills up to the gas limit the manifest will declare ([`manifest_gas_limit`]: the
+/// parent's limit minus its anchor reserve, none for a genesis or Etna parent) instead of the
+/// protocol minimum, which under-filled every list to 10M while blocks advertise ~45M. It is
+/// derived from the same snapshot the manifest is built against. No block context is sent: on an
+/// Etna parent the execution engine drops its own anchor zk-gas reserve.
+fn pool_content_params(
+    beneficiary: Address,
+    base_fee: u64,
+    ctx: &EngineBuildContext,
+) -> TxPoolContentParams {
+    TxPoolContentParams {
+        beneficiary,
+        base_fee: Some(base_fee),
+        block_max_gas_limit: manifest_gas_limit(ctx),
+        max_bytes_per_tx_list: PROPOSAL_MAX_BLOB_BYTES as u64,
+        locals: vec![],
+        max_transactions_lists: 1,
+        min_tip: 0,
     }
 }
 
@@ -761,11 +793,14 @@ mod tests {
     use base_tx_manager::TxManagerError;
 
     use super::{
-        calculate_next_shasta_block_base_fee_from_parent, engine_payload_user_transactions,
-        forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
+        EngineBuildContext, calculate_next_shasta_block_base_fee_from_parent,
+        engine_payload_user_transactions, forced_inclusion_is_permissionless,
+        is_operational_loop_error, next_shasta_proposal_id, pool_content_params,
         record_submission_attempt, record_submission_receipt, should_increment_loop_failure_metric,
     };
-    use crate::{error::ProposerError, metrics::ProposerMetrics};
+    use crate::{
+        error::ProposerError, metrics::ProposerMetrics, transaction_builder::manifest_gas_limit,
+    };
     use protocol::shasta::{
         constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
     };
@@ -1014,6 +1049,71 @@ mod tests {
             next_shasta_proposal_id(1, &Bytes::from_static(&[0x12, 0x34])),
             Err(crate::error::ProposerError::InvalidExtraData)
         ));
+    }
+
+    /// Etna activation time used by the fork-aware tests.
+    const SAMPLE_ETNA_TIMESTAMP: u64 = 1_000;
+
+    /// RPC block with the given header number, timestamp and gas limit.
+    fn header_block(number: u64, timestamp: u64, gas_limit: u64) -> RpcBlock {
+        RpcBlock {
+            header: RpcHeader {
+                hash: B256::with_last_byte(number as u8),
+                inner: ConsensusHeader { number, timestamp, gas_limit, ..Default::default() },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn build_context_records_the_parent_fork_from_the_parent_timestamp() {
+        let l1_head = header_block(77, SAMPLE_ETNA_TIMESTAMP + 12, 30_000_000);
+        // (case, parent timestamp, Etna activation time, expected `parent_is_etna`).
+        let cases = [
+            ("Etna not scheduled", SAMPLE_ETNA_TIMESTAMP, None, false),
+            ("parent before Etna", SAMPLE_ETNA_TIMESTAMP - 1, Some(SAMPLE_ETNA_TIMESTAMP), false),
+            ("parent at Etna", SAMPLE_ETNA_TIMESTAMP, Some(SAMPLE_ETNA_TIMESTAMP), true),
+        ];
+
+        for (case, parent_timestamp, etna_fork_timestamp, expected) in cases {
+            let parent = header_block(42, parent_timestamp, 45_000_000);
+            let ctx = EngineBuildContext::from_snapshot(&parent, &l1_head, etna_fork_timestamp);
+
+            assert_eq!(ctx.parent_is_etna, expected, "{case}");
+            assert_eq!(ctx.parent_block_number, 42, "{case}");
+            assert_eq!(ctx.gas_limit, 45_000_000, "{case}");
+            assert_eq!(ctx.anchor_block_number, 77, "{case}");
+            assert_eq!(ctx.timestamp, SAMPLE_ETNA_TIMESTAMP + 12, "{case}");
+        }
+    }
+
+    #[test]
+    fn pool_budget_equals_the_manifest_gas_limit() {
+        // (case, parent number, parent is Etna, expected budget).
+        let cases = [
+            ("genesis parent", 0, false, 45_000_000),
+            ("pre-Etna parent", 42, false, 44_000_000),
+            ("Etna parent", 42, true, 45_000_000),
+        ];
+
+        for (case, parent_block_number, parent_is_etna, expected) in cases {
+            let ctx = EngineBuildContext {
+                anchor_block_number: 77,
+                parent_block_number,
+                parent_is_etna,
+                timestamp: SAMPLE_ETNA_TIMESTAMP,
+                gas_limit: 45_000_000,
+            };
+
+            let params = pool_content_params(Address::repeat_byte(0x11), 7, &ctx);
+
+            assert_eq!(params.block_max_gas_limit, manifest_gas_limit(&ctx), "{case}");
+            assert_eq!(params.block_max_gas_limit, expected, "{case}");
+            assert_eq!(params.beneficiary, Address::repeat_byte(0x11), "{case}");
+            assert_eq!(params.base_fee, Some(7), "{case}");
+        }
     }
 
     #[test]
