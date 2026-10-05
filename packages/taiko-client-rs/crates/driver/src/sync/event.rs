@@ -21,6 +21,9 @@ use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, Notification, ScannerError, ScannerMessage};
+use protocol::shasta::{
+    decode_etna_anchor_block_number, etna_fork_timestamp_for_chain, is_etna_at,
+};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
@@ -420,6 +423,9 @@ pub struct EventSyncer {
     rpc: Client,
     /// Static driver configuration.
     cfg: DriverConfig,
+    /// Etna activation timestamp on this chain, or `None` while Etna is not scheduled; resolved
+    /// once at construction.
+    etna_fork_timestamp: Option<u64>,
     /// Beacon-sync checkpoint head shared by the sync pipeline.
     checkpoint_resume_head: Arc<CheckpointResumeHead>,
     /// Shared blob data source used for manifest fetches.
@@ -1110,6 +1116,8 @@ impl EventSyncer {
         rpc: Client,
         checkpoint_resume_head: Arc<CheckpointResumeHead>,
     ) -> Result<Self, SyncError> {
+        let etna_fork_timestamp = etna_fork_timestamp_for_chain(rpc.chain_id)
+            .map_err(|err| SyncError::Other(err.into()))?;
         let blob_source = Arc::new(
             BlobDataSource::new(
                 Some(cfg.l1_beacon_endpoint.clone()),
@@ -1129,6 +1137,7 @@ impl EventSyncer {
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
+            etna_fork_timestamp,
             checkpoint_resume_head,
             blob_source,
             preconf_tx,
@@ -1611,9 +1620,14 @@ impl EventSyncer {
         Ok(block_number)
     }
 
-    /// Parse the first transaction in `block` and recover the anchor block number from the
-    /// `anchorV4` calldata emitted by the goldentouch transaction. Falls back to the activation
-    /// block number when inspecting the genesis block.
+    /// Recover the L1 anchor block number of the target block that event sync resumes from.
+    ///
+    /// The genesis block maps to the inbox activation block. A pre-Etna block's number comes from
+    /// the `anchorV4` calldata of its first (golden-touch) transaction. An Etna block (decided by
+    /// its own timestamp) has no anchor transaction: its number comes from its 13-byte
+    /// `extraData`. Its tx 0 is never consulted, because [`decode_anchor_call`] only checks the
+    /// recipient, so anyone could otherwise place anchor-shaped calldata there and choose the L1
+    /// scan start.
     async fn decode_anchor_block_number(
         &self,
         block: &RpcBlock<TxEnvelope>,
@@ -1622,12 +1636,20 @@ impl EventSyncer {
         if block.header.number == 0 {
             return self.activation_block_number().await;
         }
+        if is_etna_at(self.etna_fork_timestamp, block.header.timestamp) {
+            return decode_etna_anchor_block_number(block.header.number, &block.header.extra_data)
+                .map_err(|source| SyncError::InvalidEtnaExtraData {
+                    block_number: block.header.number,
+                    source,
+                });
+        }
         Ok(decode_anchor_call(block, anchor_address)?._checkpoint.blockNumber.to::<u64>())
     }
 }
 
 /// Recover the proposal id from header extra data.
-/// Byte layout: basefeeSharingPctg (byte 0), proposalId uint48 (bytes 1..6, big-endian).
+/// Byte layout: basefeeSharingPctg (byte 0), proposalId uint48 (bytes 1..6, big-endian). The
+/// 13-byte Etna layout keeps these first 7 bytes, so this reads both forks.
 fn decode_anchor_proposal_id(block: &RpcBlock<TxEnvelope>) -> Result<u64, SyncError> {
     if block.header.number == 0 {
         return Ok(0);
@@ -1921,7 +1943,10 @@ mod tests {
     use super::*;
     use alethia_reth_primitives::payload::attributes::RpcL1Origin;
     use alloy::{
-        primitives::{Address, B256, Bytes, FixedBytes, U256, aliases::U48},
+        consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559},
+        eips::eip2930::AccessList,
+        primitives::{Address, B256, Bytes, FixedBytes, Signature, TxKind, U256, aliases::U48},
+        rpc::types::eth::BlockTransactions,
         transports::http::reqwest::Url,
     };
     use alloy_json_rpc::{RequestPacket, ResponsePacket};
@@ -1931,10 +1956,14 @@ mod tests {
         TransportError, TransportFut,
         mock::{Asserter, MockTransport},
     };
-    use bindings::inbox::{
-        IInbox::CoreState,
-        Inbox::{InboxInstance, getCoreStateCall},
+    use bindings::{
+        anchor::ICheckpointStore::Checkpoint,
+        inbox::{
+            IInbox::CoreState,
+            Inbox::{InboxInstance, activationTimestampCall, getCoreStateCall},
+        },
     };
+    use protocol::shasta::{encode_etna_extra_data, encode_extra_data};
     use rpc::{SubscriptionSource, blob::BlobDataSource, client::ClientConfig};
     use tower::Service;
 
@@ -2024,6 +2053,7 @@ mod tests {
         EventSyncer {
             rpc: mock_client_with_l1_asserter(Asserter::new()),
             cfg,
+            etna_fork_timestamp: None,
             checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
             blob_source: Arc::new(blob_source),
             preconf_tx: Some(preconf_tx),
@@ -3389,6 +3419,122 @@ mod tests {
         let resolved = resolve_resume_head_block_number(false, None, Some(64), None)
             .expect("missing rpc block number should fall back to local origin");
         assert_eq!(resolved, (64, "local head_l1_origin"));
+    }
+
+    /// Transaction 0 of an L2 block: `anchorV4` calldata naming L1 block 999, sent to `to`.
+    fn anchor_v4_shaped_tx(to: Address) -> TxEnvelope {
+        let checkpoint = Checkpoint {
+            blockNumber: U48::from(999u64),
+            blockHash: B256::with_last_byte(0x22),
+            stateRoot: B256::with_last_byte(0x33),
+        };
+        let tx = TxEip1559 {
+            chain_id: 167_001,
+            nonce: 0,
+            max_fee_per_gas: 1_000_000_000,
+            max_priority_fee_per_gas: 0,
+            gas_limit: 1_000_000,
+            to: TxKind::Call(to),
+            value: U256::ZERO,
+            access_list: AccessList::default(),
+            input: Bytes::from(anchorV4Call { _checkpoint: checkpoint }.abi_encode()),
+        };
+        let sighash = tx.signature_hash();
+        TxEnvelope::new_unchecked(
+            EthereumTypedTransaction::Eip1559(tx),
+            Signature::test_signature(),
+            sighash,
+        )
+    }
+
+    /// Resume target block 5 at `timestamp` whose tx 0 carries `anchorV4` calldata (L1 block 999)
+    /// to `anchor_address`.
+    fn resume_target(
+        timestamp: u64,
+        extra_data: Bytes,
+        anchor_address: Address,
+    ) -> RpcBlock<TxEnvelope> {
+        let mut target = RpcBlock::<TxEnvelope>::default();
+        target.header.number = 5;
+        target.header.timestamp = timestamp;
+        target.header.extra_data = extra_data;
+        target.transactions = BlockTransactions::Full(vec![anchor_v4_shaped_tx(anchor_address)]);
+        target
+    }
+
+    #[tokio::test]
+    async fn etna_start_point_comes_from_the_target_extra_data() {
+        // The empty L1 mock fails any lookup: the anchor number must come from the header alone.
+        let syncer = EventSyncer { etna_fork_timestamp: Some(100), ..build_syncer().await };
+        let anchor_address = Address::repeat_byte(0x44);
+        // Anyone can place anchor-shaped calldata at index 0 of an Etna block; it is ignored.
+        let target = resume_target(
+            112,
+            encode_etna_extra_data(50, 3, 55).expect("extraData should encode"),
+            anchor_address,
+        );
+
+        let anchor_block_number = syncer
+            .decode_anchor_block_number(&target, anchor_address)
+            .await
+            .expect("an Etna start point resolves from extraData");
+
+        assert_eq!(anchor_block_number, 55);
+    }
+
+    #[tokio::test]
+    async fn etna_start_point_rejects_pre_etna_extra_data() {
+        let syncer = EventSyncer { etna_fork_timestamp: Some(100), ..build_syncer().await };
+        let anchor_address = Address::repeat_byte(0x44);
+        let target = resume_target(112, encode_extra_data(50, 3), anchor_address);
+
+        let err = syncer
+            .decode_anchor_block_number(&target, anchor_address)
+            .await
+            .expect_err("a 7-byte extraData cannot name an Etna anchor");
+
+        assert!(
+            matches!(err, SyncError::InvalidEtnaExtraData { block_number: 5, .. }),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn pre_etna_start_point_comes_from_the_anchor_calldata() {
+        let anchor_address = Address::repeat_byte(0x44);
+        for etna_fork_timestamp in [None, Some(113)] {
+            let syncer = EventSyncer { etna_fork_timestamp, ..build_syncer().await };
+            let target = resume_target(112, encode_extra_data(50, 3), anchor_address);
+
+            let anchor_block_number = syncer
+                .decode_anchor_block_number(&target, anchor_address)
+                .await
+                .expect("a pre-Etna start point resolves from the anchor calldata");
+
+            assert_eq!(anchor_block_number, 999);
+        }
+    }
+
+    #[tokio::test]
+    async fn etna_genesis_start_point_keeps_the_activation_rule() {
+        let asserter = Asserter::new();
+        asserter
+            .push_success(&Bytes::from(activationTimestampCall::abi_encode_returns(&U48::ZERO)));
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            etna_fork_timestamp: Some(0),
+            ..build_syncer().await
+        };
+        let mut genesis = RpcBlock::<TxEnvelope>::default();
+        genesis.header.number = 0;
+
+        let anchor_block_number = syncer
+            .decode_anchor_block_number(&genesis, Address::repeat_byte(0x44))
+            .await
+            .expect("the genesis start point is the activation block");
+
+        assert_eq!(anchor_block_number, 0);
+        assert!(asserter.read_q().is_empty(), "the activation timestamp was read");
     }
 
     // -- resolve_target_with_optional_finalization tests --

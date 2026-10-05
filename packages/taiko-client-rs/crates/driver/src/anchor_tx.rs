@@ -7,9 +7,11 @@ use alloy_rpc_types::eth::Block as RpcBlock;
 /// Return the calldata of the block's first transaction after verifying it targets the anchor
 /// contract.
 ///
-/// Anchor transactions are injected as the first transaction of every non-genesis L2 block, so
-/// this is the shared admission preamble for every decoder that recovers anchor call data from
-/// a locally fetched block. On failure the static reason describes which structural expectation
+/// Anchor transactions are injected as the first transaction of every non-genesis pre-Etna L2
+/// block, so this is the shared admission preamble for every decoder that recovers anchor call
+/// data from a locally fetched block. It only checks the recipient: an Etna block has no anchor
+/// transaction and anyone can place anchor-shaped calldata at its index 0, so callers must never
+/// use it on Etna blocks. On failure the static reason describes which structural expectation
 /// broke; callers wrap it in their own error type.
 pub(crate) fn first_anchor_tx_input(
     block: &RpcBlock<TxEnvelope>,
