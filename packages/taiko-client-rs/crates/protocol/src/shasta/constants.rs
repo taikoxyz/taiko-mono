@@ -1,6 +1,6 @@
 //! Shasta protocol constants and limits.
 
-use std::{cmp::min, sync::OnceLock};
+use std::cmp::min;
 
 use crate::shasta::error::{ForkConfigError, ForkConfigResult};
 use alethia_reth_chainspec::hardfork::{
@@ -61,23 +61,6 @@ pub const PROPOSAL_MAX_BLOB_BYTES: usize = BYTES_PER_BLOB;
 
 /// Maximum number of forced inclusions processed per proposal.
 pub const MAX_FORCED_INCLUSIONS_PER_PROPOSAL: u16 = 10;
-
-/// Process-global override for the devnet Unzen activation timestamp.
-///
-/// Set once at startup (typically from a CLI flag mirroring alethia-reth's
-/// `--devnet-unzen-timestamp`) so client and node agree on devnet fork timing.
-/// Only the first call takes effect; subsequent calls are silently ignored.
-static DEVNET_UNZEN_OVERRIDE: OnceLock<u64> = OnceLock::new();
-
-/// Set the devnet Unzen activation timestamp override. Must be called before
-/// any fork-condition lookup runs for the internal devnet. Subsequent calls
-/// after the first are ignored. Logs the applied value on the first
-/// successful set so operators see confirmation at startup.
-pub fn set_devnet_unzen_override(timestamp: u64) {
-    if DEVNET_UNZEN_OVERRIDE.set(timestamp).is_ok() {
-        tracing::info!(timestamp, "applied devnet Unzen activation time override");
-    }
-}
 
 /// Returns the maximum anchor block offset for a Taiko chain.
 pub const fn max_anchor_offset_for_chain(chain_id: u64) -> u64 {
@@ -196,17 +179,10 @@ pub fn shasta_fork_condition_for_chain(chain_id: u64) -> ForkConfigResult<ForkCo
 
 /// Returns the configured Unzen fork condition for a given Taiko L2 chain ID.
 ///
-/// For the internal devnet, honors any override installed via
-/// `set_devnet_unzen_override`; falls back to the chainspec schedule otherwise.
+/// Every chain reads the chainspec schedule; the internal devnet activates Unzen at genesis,
+/// exactly as alethia-reth does.
 pub fn unzen_fork_condition_for_chain(chain_id: u64) -> ForkConfigResult<ForkCondition> {
-    match chain_id {
-        TAIKO_DEVNET_CHAIN_ID => Ok(DEVNET_UNZEN_OVERRIDE
-            .get()
-            .copied()
-            .map(ForkCondition::Timestamp)
-            .unwrap_or(fork_condition_for_chain(chain_id, TaikoHardfork::Unzen)?)),
-        _ => fork_condition_for_chain(chain_id, TaikoHardfork::Unzen),
-    }
+    fork_condition_for_chain(chain_id, TaikoHardfork::Unzen)
 }
 
 /// Returns the Shasta fork activation timestamp for a Taiko chain.
@@ -255,11 +231,13 @@ pub fn derivation_source_max_blocks_for_chain_timestamp(
 mod tests {
     use super::{
         DERIVATION_SOURCE_MAX_BLOCKS, ForkConfigError, MAX_ANCHOR_OFFSET,
-        MAX_ANCHOR_OFFSET_MAINNET, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
-        TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain,
-        shasta_fork_condition_for_chain, timestamp_max_offset_for_chain,
+        MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID,
+        TAIKO_MAINNET_CHAIN_ID, TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET,
+        max_anchor_offset_for_chain, shasta_fork_condition_for_chain,
+        timestamp_max_offset_for_chain, unzen_active_for_chain_timestamp,
         unzen_fork_condition_for_chain,
     };
+    use alloy_hardforks::ForkCondition;
 
     #[test]
     fn offsets_are_chain_aware() {
@@ -286,6 +264,20 @@ mod tests {
                     if error_chain_id == chain_id
             ));
         }
+    }
+
+    /// The devnet chainspec activates Unzen at genesis, matching alethia-reth, which no longer
+    /// has a devnet Unzen override.
+    #[test]
+    fn devnet_unzen_is_active_from_genesis() {
+        assert_eq!(
+            unzen_fork_condition_for_chain(TAIKO_DEVNET_CHAIN_ID).expect("devnet condition"),
+            ForkCondition::Timestamp(0)
+        );
+        assert!(
+            unzen_active_for_chain_timestamp(TAIKO_DEVNET_CHAIN_ID, 0).expect("devnet active"),
+            "devnet Unzen must be active at genesis"
+        );
     }
 
     #[test]

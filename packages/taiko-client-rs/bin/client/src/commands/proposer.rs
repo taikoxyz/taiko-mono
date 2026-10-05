@@ -5,7 +5,6 @@ use crate::error::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
-use protocol::shasta::set_devnet_unzen_override;
 
 use crate::{
     commands::{Subcommand, build_client_config},
@@ -73,7 +72,6 @@ impl Subcommand for ProposerSubCommand {
     /// Execute the proposer subcommand flow.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
-        set_devnet_unzen_override(self.common_flags.devnet_unzen_timestamp);
         self.init_metrics()?;
 
         let cfg = self.build_config()?;
