@@ -248,7 +248,17 @@ jobs:
 
   test:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
-    name: Tests
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Unzen from genesis, Etna never: the whole suite.
+          - name: Tests
+            etna_boundary: "false"
+          # Crosses Unzen -> Etna mid-run (the ignored etna_boundary scenario).
+          - name: Etna boundary
+            etna_boundary: "true"
     runs-on: ubuntu-latest
     timeout-minutes: 50
 
@@ -345,7 +355,8 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: "taiko-client-rs"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Only the full suite saves: the Etna boundary entry builds the driver crate alone.
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.name == 'Tests' }}
           workspaces: |
             packages/taiko-client-rs -> target
 
@@ -387,7 +398,19 @@ jobs:
         working-directory: packages/taiko-client-rs
         env:
           PROTOCOL_DIR: ${{ github.workspace }}/packages/protocol
-        run: just test
+          ETNA_BOUNDARY: ${{ matrix.etna_boundary }}
+          # The alethia-reth image built from taikoxyz/alethia-reth#248, until that PR merges;
+          # then drop this variable to return to alethia-reth:main.
+          ALETHIA_RETH_IMAGE: us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48
+        run: |
+          if [ "$ETNA_BOUNDARY" = "true" ]; then
+            # Build before the devnet starts: the scenario must propose before L1 time reaches Etna
+            # (about 47 minutes after `docker compose up`), and the entrypoint builds inside that window.
+            cargo nextest run -p driver --all-features --no-run
+            TEST_CRATE=driver just test --run-ignored only -E 'test(etna_boundary)'
+          else
+            just test
+          fi
 
       # The entrypoint's EXIT trap can be skipped on job cancellation/timeout;
       # leaked fixed-name containers would fail the next run on this runner. A real
