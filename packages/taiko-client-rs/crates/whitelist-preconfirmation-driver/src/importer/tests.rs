@@ -9,18 +9,31 @@ use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
-use protocol::{FixedKSigner, codec::ZlibTxListCodec, shasta::encode_etna_extra_data};
+use protocol::{
+    FixedKSigner,
+    codec::ZlibTxListCodec,
+    shasta::{constants::TAIKO_DEVNET_CHAIN_ID, encode_etna_extra_data},
+};
 
 use crate::{
-    codec::{MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope, decompress_tx_list},
+    codec::{
+        MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope,
+        decode_unsafe_response_message, decompress_tx_list, encode_envelope_ssz,
+        encode_unsafe_response_message,
+    },
     error::WhitelistPreconfirmationDriverError,
 };
 
 use super::{
-    cache_import::{CachedImportDisposition, classify_cached_import_error},
-    ingress::is_stale_at_confirmed_tip,
+    cache_import::{
+        CachedImportDisposition, classify_cached_import_error, driver_payload_from_envelope,
+    },
+    ingress::{is_stale_at_confirmed_tip, response_envelope_from_l2_block},
     should_enable_preconf_imports,
-    validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
+    validation::{
+        normalize_unsafe_payload_envelope, validate_envelope_for_import,
+        validate_envelope_header_difficulty, validate_execution_payload_for_preconf,
+    },
 };
 
 const TEST_CHAIN_ID: u64 = 167;
@@ -142,10 +155,58 @@ fn standard_signed_anchor_tx_bytes(
 }
 
 fn valid_anchor_tx_list(anchor_address: Address) -> Bytes {
+    valid_anchor_tx_list_for_chain(TEST_CHAIN_ID, anchor_address)
+}
+
+/// A compressed list holding one golden-touch anchor transaction signed for `chain_id`.
+fn valid_anchor_tx_list_for_chain(chain_id: u64, anchor_address: Address) -> Bytes {
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
-    let tx_bytes =
-        signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, anchor_address, *ANCHOR_V4_SELECTOR);
+    let tx_bytes = signed_anchor_tx_bytes(&signer, chain_id, anchor_address, *ANCHOR_V4_SELECTOR);
     encode_compressed_tx_list(vec![tx_bytes])
+}
+
+#[test]
+fn drops_cached_import_errors_for_engine_fork_guard_errors() {
+    use driver::sync::error::EngineSubmissionError;
+
+    let sources = [
+        EngineSubmissionError::EtnaTargetWithoutBeaconRoot {
+            block_number: 42,
+            timestamp: SAMPLE_TIMESTAMP,
+        },
+        EngineSubmissionError::PreEtnaTargetWithBeaconRoot {
+            block_number: 42,
+            timestamp: SAMPLE_TIMESTAMP,
+            root: SAMPLE_ETNA_ROOT,
+        },
+        EngineSubmissionError::PreUnzenTarget {
+            block_number: 42,
+            timestamp: SAMPLE_TIMESTAMP,
+            chain_id: TAIKO_DEVNET_CHAIN_ID,
+        },
+    ];
+    for source in sources {
+        let label = source.to_string();
+        let err = WhitelistPreconfirmationDriverError::Driver(
+            driver::DriverError::PreconfInjectionFailed { block_number: 42, source },
+        );
+        assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Drop, "{label}");
+    }
+}
+
+/// An Etna schedule the node cannot resolve is a fault of its own configuration, not of the
+/// envelope, so it aborts the drain loop instead of dropping the envelope.
+#[test]
+fn propagates_cached_import_errors_for_an_unresolved_etna_schedule() {
+    let err =
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfInjectionFailed {
+            block_number: 42,
+            source: driver::sync::error::EngineSubmissionError::EtnaScheduleUnresolved {
+                chain_id: 0,
+                source: protocol::shasta::error::ForkConfigError::UnsupportedChainId(0),
+            },
+        });
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Propagate);
 }
 
 #[test]
@@ -626,6 +687,21 @@ fn ordinary_tx_list() -> Bytes {
     encode_compressed_tx_list(vec![tx_bytes])
 }
 
+/// A P2P import hands the envelope's root to the driver: an Etna envelope's nonzero root as
+/// is, an absent one (a zero root slot decodes to `None`) as the zero root.
+#[test]
+fn driver_payload_from_envelope_sends_the_envelope_root() {
+    let etna = driver_payload_from_envelope(&sample_etna_envelope(vec![ordinary_tx_list()]))
+        .expect("Etna envelope builds");
+    assert_eq!(etna.payload_attributes.parent_beacon_block_root, Some(SAMPLE_ETNA_ROOT));
+
+    let pre_etna = driver_payload_from_envelope(&sample_execution_payload_with_transactions(vec![
+        valid_anchor_tx_list(sample_anchor_address()),
+    ]))
+    .expect("pre-Etna envelope builds");
+    assert_eq!(pre_etna.payload_attributes.parent_beacon_block_root, Some(B256::ZERO));
+}
+
 #[test]
 fn validate_payload_accepts_pre_etna_absent_or_zero_root() {
     let mut envelope = sample_execution_payload_with_transactions(vec![valid_anchor_tx_list(
@@ -732,6 +808,183 @@ fn validate_payload_still_decodes_the_etna_tx_list() {
         validate_envelope_payload(&envelope, ETNA_AT_SAMPLE),
         "only one transaction list is allowed",
     );
+}
+
+/// Build a valid Unzen envelope for the devnet (Unzen from genesis): anchor tx at tx[0], a zero
+/// root and a nonzero header difficulty.
+fn devnet_unzen_envelope() -> WhitelistExecutionPayloadEnvelope {
+    let mut envelope =
+        sample_execution_payload_with_transactions(vec![valid_anchor_tx_list_for_chain(
+            TAIKO_DEVNET_CHAIN_ID,
+            sample_anchor_address(),
+        )]);
+    envelope.parent_beacon_block_root = None;
+    envelope.header_difficulty = Some(U256::from(1_000_000u64));
+    envelope
+}
+
+/// Run the whole P2P import validation for a devnet envelope with the given Etna time.
+fn validate_devnet_import(
+    envelope: &WhitelistExecutionPayloadEnvelope,
+    etna_fork_timestamp: Option<u64>,
+) -> crate::Result<()> {
+    validate_envelope_for_import(
+        envelope,
+        TAIKO_DEVNET_CHAIN_ID,
+        sample_anchor_address(),
+        etna_fork_timestamp,
+    )
+}
+
+#[test]
+fn import_validation_accepts_a_valid_unzen_envelope() {
+    for etna_fork_timestamp in [None, ETNA_AFTER_SAMPLE] {
+        validate_devnet_import(&devnet_unzen_envelope(), etna_fork_timestamp)
+            .expect("a valid Unzen envelope must be imported");
+    }
+}
+
+#[test]
+fn import_validation_drops_an_unzen_envelope_with_a_nonzero_root() {
+    let mut envelope = devnet_unzen_envelope();
+    envelope.parent_beacon_block_root = Some(SAMPLE_ETNA_ROOT);
+    assert_invalid_payload(
+        validate_devnet_import(&envelope, ETNA_AFTER_SAMPLE),
+        "carries nonzero parent beacon block root",
+    );
+}
+
+#[test]
+fn import_validation_accepts_a_valid_etna_envelope_with_or_without_difficulty() {
+    let mut envelope = sample_etna_envelope(vec![encode_compressed_tx_list(vec![])]);
+    for header_difficulty in [None, Some(U256::from(21_000u64))] {
+        envelope.header_difficulty = header_difficulty;
+        validate_devnet_import(&envelope, ETNA_AT_SAMPLE)
+            .expect("a valid Etna envelope must be imported");
+    }
+}
+
+#[test]
+fn import_validation_drops_an_etna_envelope_whose_root_slot_is_zero() {
+    // A zero root slot decodes to `None` on the wire, which the import treats as zero.
+    let mut envelope = sample_etna_envelope(vec![ordinary_tx_list()]);
+    envelope.parent_beacon_block_root = Some(B256::ZERO);
+    let decoded = crate::codec::decode_envelope_ssz(&encode_envelope_ssz(&envelope))
+        .expect("decode envelope");
+    assert_eq!(decoded.parent_beacon_block_root, None);
+
+    assert_invalid_payload(
+        validate_devnet_import(&decoded, ETNA_AT_SAMPLE),
+        "requires a nonzero parent beacon block root",
+    );
+}
+
+#[test]
+fn header_difficulty_rule_requires_a_nonzero_difficulty_before_etna() {
+    for etna_fork_timestamp in [None, ETNA_AFTER_SAMPLE] {
+        for header_difficulty in [None, Some(U256::ZERO)] {
+            assert_invalid_payload(
+                validate_envelope_header_difficulty(
+                    TAIKO_DEVNET_CHAIN_ID,
+                    etna_fork_timestamp,
+                    SAMPLE_TIMESTAMP,
+                    header_difficulty,
+                ),
+                "envelope is missing header difficulty",
+            );
+        }
+        validate_envelope_header_difficulty(
+            TAIKO_DEVNET_CHAIN_ID,
+            etna_fork_timestamp,
+            SAMPLE_TIMESTAMP,
+            Some(U256::from(21_000u64)),
+        )
+        .expect("an Unzen envelope with a nonzero difficulty must pass");
+    }
+}
+
+#[test]
+fn header_difficulty_rule_accepts_an_absent_or_present_difficulty_after_etna() {
+    for header_difficulty in [None, Some(U256::ZERO), Some(U256::from(21_000u64))] {
+        validate_envelope_header_difficulty(
+            TAIKO_DEVNET_CHAIN_ID,
+            ETNA_AT_SAMPLE,
+            SAMPLE_TIMESTAMP,
+            header_difficulty,
+        )
+        .expect("an Etna envelope may omit its difficulty (an empty block has none)");
+    }
+}
+
+/// Build the header of an executed Etna block carrying `root`.
+fn sample_l2_header(
+    root: Option<B256>,
+    difficulty: U256,
+    extra_data: Bytes,
+) -> alloy_rpc_types::Header {
+    alloy_rpc_types::Header {
+        hash: B256::repeat_byte(0x15),
+        inner: alloy_consensus::Header {
+            parent_hash: B256::repeat_byte(0x10),
+            beneficiary: Address::repeat_byte(0x11),
+            number: 42,
+            gas_limit: 30_000_000,
+            timestamp: SAMPLE_TIMESTAMP,
+            extra_data,
+            mix_hash: B256::repeat_byte(0x14),
+            base_fee_per_gas: Some(1_000_000_000),
+            difficulty,
+            parent_beacon_block_root: root,
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+#[test]
+fn response_envelope_carries_the_etna_header_root() {
+    let extra_data = encode_etna_extra_data(0x32, 7, 1_234).expect("13-byte Etna extra data");
+    let header = sample_l2_header(Some(SAMPLE_ETNA_ROOT), U256::ZERO, extra_data);
+
+    let envelope = response_envelope_from_l2_block(
+        &header,
+        1_000_000_000,
+        encode_compressed_tx_list(vec![]),
+        None,
+        false,
+        [0x22u8; 65],
+    );
+    assert_eq!(envelope.parent_beacon_block_root, Some(SAMPLE_ETNA_ROOT));
+    assert_eq!(envelope.header_difficulty, None, "an empty Etna block has difficulty 0");
+    assert_eq!(envelope.execution_payload.block_hash, header.hash);
+
+    // A peer decodes the same root from the response topic and imports the block.
+    let decoded = decode_unsafe_response_message(
+        &encode_unsafe_response_message(&envelope).expect("encode response"),
+    )
+    .expect("decode response");
+    assert_eq!(decoded.parent_beacon_block_root, Some(SAMPLE_ETNA_ROOT));
+    validate_devnet_import(&decoded, ETNA_AT_SAMPLE)
+        .expect("the rebuilt Etna envelope must pass import validation");
+}
+
+#[test]
+fn response_envelope_carries_a_zero_or_absent_pre_etna_root_as_none() {
+    for root in [None, Some(B256::ZERO)] {
+        let header = sample_l2_header(root, U256::from(21_000u64), Bytes::from(vec![0x32u8; 7]));
+        let envelope = response_envelope_from_l2_block(
+            &header,
+            1_000_000_000,
+            encode_compressed_tx_list(vec![]),
+            Some(true),
+            true,
+            [0x22u8; 65],
+        );
+        assert_eq!(envelope.parent_beacon_block_root, None, "header root {root:?}");
+        assert_eq!(envelope.header_difficulty, Some(U256::from(21_000u64)));
+        assert_eq!(envelope.end_of_sequencing, Some(true));
+        assert_eq!(envelope.is_forced_inclusion, Some(true));
+    }
 }
 
 #[test]

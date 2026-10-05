@@ -164,6 +164,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
                 chain_id,
+                etna_fork_timestamp,
                 network_command_tx: network.command_tx.clone(),
                 state,
                 beacon_client,

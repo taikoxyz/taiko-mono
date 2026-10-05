@@ -27,15 +27,41 @@ use crate::{
 
 use super::{
     WhitelistPreconfirmationImporter,
-    validation::{
-        normalize_unsafe_payload_envelope, validate_envelope_header_difficulty,
-        validate_execution_payload_for_preconf,
-    },
+    validation::{normalize_unsafe_payload_envelope, validate_envelope_for_import},
 };
 
 /// Return whether an envelope is at or below a written event-confirmed tip.
 pub(super) fn is_stale_at_confirmed_tip(block_number: u64, confirmed_tip: Option<u64>) -> bool {
     confirmed_tip.is_some_and(|tip| block_number <= tip)
+}
+
+/// Build the response envelope for an executed L2 block, so a receiver can rebuild the
+/// sender's block hash byte for byte.
+///
+/// The envelope carries the block's `parentBeaconBlockRoot` (an Etna block's anchor root; a zero
+/// pre-Etna root is carried as `None`, which the wire encodes as the same 32 zero bytes) and its
+/// header difficulty (the block's zk gas) only when nonzero: a pre-Unzen block and an empty Etna
+/// block both have difficulty 0.
+pub(super) fn response_envelope_from_l2_block(
+    header: &alloy_rpc_types::Header,
+    base_fee_per_gas: u64,
+    compressed_tx_list: Bytes,
+    end_of_sequencing: Option<bool>,
+    is_forced_inclusion: bool,
+    signature: [u8; 65],
+) -> WhitelistExecutionPayloadEnvelope {
+    WhitelistExecutionPayloadEnvelope {
+        end_of_sequencing,
+        is_forced_inclusion: is_forced_inclusion.then_some(true),
+        parent_beacon_block_root: header.parent_beacon_block_root.filter(|root| !root.is_zero()),
+        header_difficulty: (!header.difficulty.is_zero()).then_some(header.difficulty),
+        execution_payload: crate::payload::execution_payload_from_header(
+            header,
+            base_fee_per_gas,
+            vec![compressed_tx_list],
+        ),
+        signature: Some(signature),
+    }
 }
 
 impl WhitelistPreconfirmationImporter {
@@ -137,18 +163,11 @@ impl WhitelistPreconfirmationImporter {
         envelope: WhitelistExecutionPayloadEnvelope,
         ingress_source: &'static str,
     ) -> Result<()> {
-        // P2P imports still apply the pre-Etna rules without a root check.
-        validate_execution_payload_for_preconf(
-            &envelope.execution_payload,
-            None,
-            None,
+        validate_envelope_for_import(
+            &envelope,
             self.chain_id,
             self.anchor_address,
-        )?;
-        validate_envelope_header_difficulty(
-            self.chain_id,
-            envelope.execution_payload.timestamp,
-            envelope.header_difficulty,
+            self.etna_fork_timestamp,
         )?;
         self.ingest_validated_envelope(Arc::new(envelope), ingress_source).await;
         Ok(())
@@ -269,28 +288,17 @@ impl WhitelistPreconfirmationImporter {
             ))
         })?;
 
-        Ok(Some(WhitelistExecutionPayloadEnvelope {
+        // Use the L1-origin signature as-is. This endpoint serves responses only from the local
+        // node; caller-side validation and allowlist checks are performed when importing the
+        // envelope.
+        Ok(Some(response_envelope_from_l2_block(
+            &block.header,
+            base_fee,
+            Bytes::from(compressed_tx_list),
             end_of_sequencing,
-            is_forced_inclusion: l1_origin.is_forced_inclusion.then_some(true),
-            // Intentionally None — the sequencer never populates this field
-            // in the envelope (see rest_handler.rs), and the SSZ wire format
-            // encodes None as 32 zero bytes which is the expected default.
-            parent_beacon_block_root: None,
-            // Carry Unzen header.difficulty (= block_zk_gas_used) so receivers
-            // can reconstruct the sender's block hash. Left `None` for Shasta
-            // blocks whose difficulty is zero.
-            header_difficulty: (!block.header.difficulty.is_zero())
-                .then_some(block.header.difficulty),
-            execution_payload: crate::payload::execution_payload_from_header(
-                &block.header,
-                base_fee,
-                vec![Bytes::from(compressed_tx_list)],
-            ),
-            // Use L1-origin signature as-is. This endpoint serves responses
-            // only from the local node; caller-side validation and allowlist
-            // checks are performed when importing the envelope.
-            signature: Some(l1_origin.signature),
-        }))
+            l1_origin.is_forced_inclusion,
+            l1_origin.signature,
+        )))
     }
 
     /// Queue an outbound network command and record the publish-queue outcome.

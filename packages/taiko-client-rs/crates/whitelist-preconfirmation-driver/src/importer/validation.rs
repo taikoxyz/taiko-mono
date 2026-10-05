@@ -155,16 +155,46 @@ pub(super) fn normalize_unsafe_payload_envelope(
     envelope
 }
 
-/// Reject envelopes whose `header_difficulty` presence contradicts the Unzen
-/// status at the payload timestamp.
+/// Run every payload-level check an inbound P2P envelope must pass before it is cached: the
+/// shared fork-aware payload validation with the envelope's root (a zero root slot decodes to
+/// `None`, which counts as zero), then the header-difficulty rule.
+pub(super) fn validate_envelope_for_import(
+    envelope: &WhitelistExecutionPayloadEnvelope,
+    chain_id: u64,
+    anchor_address: Address,
+    etna_fork_timestamp: Option<u64>,
+) -> Result<()> {
+    validate_execution_payload_for_preconf(
+        &envelope.execution_payload,
+        envelope.parent_beacon_block_root,
+        etna_fork_timestamp,
+        chain_id,
+        anchor_address,
+    )?;
+    validate_envelope_header_difficulty(
+        chain_id,
+        etna_fork_timestamp,
+        envelope.execution_payload.timestamp,
+        envelope.header_difficulty,
+    )
+}
+
+/// Reject envelopes whose `header_difficulty` presence contradicts the fork at the payload
+/// timestamp.
 ///
+/// - Etna                                         → any (an empty Etna block has difficulty 0)
 /// - Unzen active + `None` or zero                → error
 /// - Unzen inactive + `Some(non_zero)`            → error
 pub(crate) fn validate_envelope_header_difficulty(
     chain_id: u64,
+    etna_fork_timestamp: Option<u64>,
     timestamp: u64,
     header_difficulty: Option<alloy_primitives::U256>,
 ) -> Result<()> {
+    if is_etna_at(etna_fork_timestamp, timestamp) {
+        return Ok(());
+    }
+
     let unzen = unzen_active_for_chain_timestamp(chain_id, timestamp).map_err(|err| {
         WhitelistPreconfirmationDriverError::invalid_payload_with_context(
             &format!("unzen fork lookup failed for chain {chain_id} at timestamp {timestamp}"),
