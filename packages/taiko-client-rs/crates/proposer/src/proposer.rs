@@ -23,13 +23,14 @@ use alloy_rpc_types_engine::{ExecutionPayloadV3, ForkchoiceState};
 use base_tx_manager::{SimpleTxManager, TxManager, TxManagerError};
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use protocol::shasta::{
-    AnchorTxConstructor, AnchorV4Input, PayloadAttributesInput, build_payload_attributes,
-    calculate_shasta_mix_hash,
+    AnchorTxConstructor, AnchorV4Input, PayloadAttributesInput, anchor_gas_reserve,
+    build_payload_attributes, calculate_shasta_mix_hash,
     constants::{
         PROPOSAL_MAX_BLOB_BYTES, calculate_next_block_eip4396_base_fee_for_parent,
         min_base_fee_for_chain,
     },
-    encode_extra_data, etna_fork_timestamp_for_chain, is_etna_at,
+    encode_etna_extra_data, encode_extra_data, etna_fork_timestamp_for_chain, is_etna_at,
+    parent_manifest_gas_limit,
 };
 use rpc::{RpcClientError, TxPoolContentParams, client::Client};
 use serde_json::from_value;
@@ -49,11 +50,15 @@ pub type TransactionLists = Vec<Vec<Transaction>>;
 
 /// Chain-state snapshot a proposal is built against.
 /// Captured once per proposal attempt — from engine-mode payload building or from the
-/// proposer's own L1/L2 reads in pool mode — so transaction selection, the anchor transaction,
-/// and the block manifest all describe the same parent and L1 head.
+/// proposer's own L1/L2 reads in pool mode — so transaction selection, the anchor (the anchor
+/// transaction before Etna, the anchor root and `extraData` of an Etna block), and the block
+/// manifest all describe the same parent and L1 head.
 #[derive(Debug, Clone, Copy)]
 pub struct EngineBuildContext {
-    /// The L1 block number used for the anchor transaction.
+    /// The L1 block the proposal anchors to (the L1 head at capture time), declared as the
+    /// manifest's anchor block number. Before Etna it is the anchor transaction's checkpoint; an
+    /// Etna block carries it in its 13-byte `extraData` and commits to its state root as the
+    /// `parentBeaconBlockRoot`.
     pub anchor_block_number: u64,
     /// The L2 parent block number used to derive the proposal payload.
     pub parent_block_number: u64,
@@ -449,12 +454,16 @@ impl Proposer {
     }
 
     /// Build Taiko payload attributes for engine mode.
-    /// Constructs the payload attributes with anchor transaction and block metadata.
-    /// Returns the payload attributes and the engine payload parameters used.
+    ///
+    /// The target block is stamped with the L1 head timestamp, which also decides its fork. A
+    /// pre-Etna target carries the anchor transaction, a zero root and 7-byte `extraData`; an
+    /// Etna target carries no anchor transaction, the L1 head's state root and 13-byte
+    /// `extraData` naming the L1 head as its anchor block (see [`engine_target_fork_fields`]).
+    /// Returns the payload attributes, the build context, and the fork-dependent fields used.
     async fn build_payload_attributes(
         &self,
         parent: &Block,
-    ) -> Result<(TaikoPayloadAttributes, EngineBuildContext)> {
+    ) -> Result<(TaikoPayloadAttributes, EngineBuildContext, EngineTargetForkFields)> {
         let block_number = parent.number() + 1;
 
         // Get basefee sharing percentage from inbox config.
@@ -467,62 +476,58 @@ impl Proposer {
         // Calculate base fee for the new block.
         let base_fee = self.calculate_next_shasta_block_base_fee_for_parent(parent).await?;
 
-        // Get latest L1 block for anchor transaction.
+        // Get latest L1 block for the anchor.
         let l1_block = self
             .rpc_provider
             .l1_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
-        let anchor_block_number = l1_block.header.number;
         // Stamp the payload with the L1 head timestamp instead of the local wall clock: the
         // manifest timestamp must not exceed the proposal's L1 inclusion timestamp, or driver
         // validation degrades the whole manifest to the default empty block.
-        let timestamp = l1_block.header.timestamp;
+        let ctx = EngineBuildContext::from_snapshot(parent, &l1_block, self.etna_fork_timestamp);
+        let fork_fields = engine_target_fork_fields(
+            &ctx,
+            l1_block.header.inner.state_root,
+            basefee_sharing_pctg,
+            proposal_id,
+            self.etna_fork_timestamp,
+        )?;
 
-        // Build anchor transaction.
-        let anchor_tx = self
-            .anchor_constructor
-            .as_ref()
-            .ok_or(ProposerError::AnchorConstructorNotInitialized)?
-            .assemble_anchor_v4_tx(
-                parent.header.hash,
-                AnchorV4Input {
-                    anchor_block_number,
-                    anchor_block_hash: l1_block.header.hash,
-                    anchor_state_root: l1_block.header.inner.state_root,
-                    l2_height: block_number,
-                    base_fee,
-                },
-            )
-            .await?;
+        // Build the anchor transaction; an Etna target has none.
+        let anchor_transaction = if fork_fields.has_anchor_transaction() {
+            let anchor_tx = self
+                .anchor_constructor
+                .as_ref()
+                .ok_or(ProposerError::AnchorConstructorNotInitialized)?
+                .assemble_anchor_v4_tx(
+                    parent.header.hash,
+                    AnchorV4Input {
+                        anchor_block_number: ctx.anchor_block_number,
+                        anchor_block_hash: l1_block.header.hash,
+                        anchor_state_root: l1_block.header.inner.state_root,
+                        l2_height: block_number,
+                        base_fee,
+                    },
+                )
+                .await?;
+            Some(Bytes::from(anchor_tx.encoded_2718()))
+        } else {
+            None
+        };
 
-        // Calculate mix hash.
-        let mix_hash = calculate_shasta_mix_hash(parent.header.inner.mix_hash, block_number);
-
-        let payload_attributes = build_payload_attributes(PayloadAttributesInput {
+        let payload_attributes = engine_payload_attributes(EngineAttributesParams {
             beneficiary: self.cfg.l2_suggested_fee_recipient,
-            timestamp,
-            mix_hash,
-            gas_limit: parent.header.gas_limit,
-            // Engine mode: let the node select transactions from its mempool.
-            tx_list: None,
-            extra_data: encode_extra_data(basefee_sharing_pctg, proposal_id),
-            base_fee_per_gas: base_fee,
-            block_number,
-            l1_block_height: Some(U256::from(anchor_block_number)),
-            l1_block_hash: Some(l1_block.header.hash),
-            is_forced_inclusion: false,
-            signature: [0; 65],
-            // Pre-Etna builds send a zero root over `engine_forkchoiceUpdatedV3`.
-            parent_beacon_block_root: Some(B256::ZERO),
-            anchor_transaction: Some(Bytes::from(anchor_tx.encoded_2718())),
+            parent,
+            ctx: &ctx,
+            l1_head_hash: l1_block.header.hash,
+            fork_fields: &fork_fields,
+            base_fee,
+            anchor_transaction,
         });
 
-        Ok((
-            payload_attributes,
-            EngineBuildContext::from_snapshot(parent, &l1_block, self.etna_fork_timestamp),
-        ))
+        Ok((payload_attributes, ctx, fork_fields))
     }
 
     /// Fetch transactions using Engine API (FCU + get_payload).
@@ -534,14 +539,16 @@ impl Proposer {
         let (forkchoice_state, parent) = self.build_forkchoice_state().await?;
 
         // Build payload attributes and capture the engine parameters used.
-        let (payload_attributes, engine_params) = self.build_payload_attributes(&parent).await?;
+        let (payload_attributes, engine_params, fork_fields) =
+            self.build_payload_attributes(&parent).await?;
 
         info!(
             parent_number = parent.number(),
             parent_hash = %parent.header.hash,
             anchor_block_number = engine_params.anchor_block_number,
             timestamp = engine_params.timestamp,
-            gas_limit = engine_params.gas_limit,
+            target_is_etna = fork_fields.target_is_etna,
+            gas_limit = fork_fields.gas_limit,
             "sending forkchoice_updated with payload attributes"
         );
 
@@ -576,7 +583,7 @@ impl Proposer {
             return Ok((vec![vec![]], engine_params));
         }
 
-        let txs = engine_payload_user_transactions(execution_payload)?;
+        let txs = engine_payload_user_transactions(execution_payload, &fork_fields)?;
 
         info!(
             tx_count = txs.len(),
@@ -612,19 +619,134 @@ fn pool_content_params(
     }
 }
 
-/// Decode the user transactions of a payload built in engine mode.
+/// Fork-dependent fields of an engine-mode build, decided by [`engine_target_fork_fields`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EngineTargetForkFields {
+    /// Whether the target block (at the L1 head timestamp) is an Etna block.
+    target_is_etna: bool,
+    /// Header gas limit of the target: the parent's manifest gas limit plus the target's anchor
+    /// reserve.
+    gas_limit: u64,
+    /// `parentBeaconBlockRoot` of the attributes: zero before Etna, the L1 head's state root for
+    /// an Etna target.
+    parent_beacon_block_root: B256,
+    /// Header `extraData`: 7 bytes before Etna, 13 bytes naming the L1 head as the anchor block
+    /// for an Etna target.
+    extra_data: Bytes,
+}
+
+impl EngineTargetForkFields {
+    /// Whether the attributes carry an anchor transaction, which the execution engine then
+    /// places at index 0 of the built payload: every pre-Etna target, never an Etna one.
+    const fn has_anchor_transaction(&self) -> bool {
+        !self.target_is_etna
+    }
+}
+
+/// Decide the fork-dependent fields of an engine-mode build over `ctx`, whose L1 head (number
+/// `ctx.anchor_block_number`, time `ctx.timestamp`, state root `l1_head_state_root`) is the
+/// anchor and whose L1 head time is the target timestamp.
 ///
-/// Every pre-Etna payload starts with the anchor transaction the execution engine inserted from
-/// the attributes; it is not part of the proposal, so it is skipped.
+/// The header gas limit is `parent_manifest_gas_limit(parent) + anchor_gas_reserve(target)` for
+/// every target, as derivation computes it. For a non-genesis pre-Etna parent and a pre-Etna
+/// target it equals the parent's header gas limit; for a genesis parent and a pre-Etna target it
+/// is the genesis gas limit plus the 1,000,000 anchor gas reserve, as derivation does. Engine
+/// mode only previews the block: the proposal's gas comes from the manifest. An Etna target names
+/// the L1 head by its state root and in its 13-byte `extraData`; a pre-Etna target keeps a zero
+/// root and the 7-byte `extraData`.
+fn engine_target_fork_fields(
+    ctx: &EngineBuildContext,
+    l1_head_state_root: B256,
+    basefee_sharing_pctg: u8,
+    proposal_id: u64,
+    etna_fork_timestamp: Option<u64>,
+) -> Result<EngineTargetForkFields> {
+    let target_is_etna = is_etna_at(etna_fork_timestamp, ctx.timestamp);
+    let gas_limit =
+        parent_manifest_gas_limit(ctx.parent_block_number, ctx.gas_limit, ctx.parent_is_etna)
+            .saturating_add(anchor_gas_reserve(target_is_etna));
+
+    let (parent_beacon_block_root, extra_data) = if target_is_etna {
+        (
+            l1_head_state_root,
+            encode_etna_extra_data(basefee_sharing_pctg, proposal_id, ctx.anchor_block_number)?,
+        )
+    } else {
+        (B256::ZERO, encode_extra_data(basefee_sharing_pctg, proposal_id))
+    };
+
+    Ok(EngineTargetForkFields { target_is_etna, gas_limit, parent_beacon_block_root, extra_data })
+}
+
+/// Inputs of [`engine_payload_attributes`] for one engine-mode build.
+struct EngineAttributesParams<'a> {
+    /// Fee recipient of the target block.
+    beneficiary: Address,
+    /// L2 parent the target block builds on.
+    parent: &'a Block,
+    /// Build context: the target timestamp and the L1 head the target anchors to.
+    ctx: &'a EngineBuildContext,
+    /// Hash of the L1 head (block `ctx.anchor_block_number`).
+    l1_head_hash: B256,
+    /// Fork-dependent fields of the target, from [`engine_target_fork_fields`].
+    fork_fields: &'a EngineTargetForkFields,
+    /// Base fee of the target block.
+    base_fee: U256,
+    /// Encoded anchor transaction of a pre-Etna target; `None` for an Etna target.
+    anchor_transaction: Option<Bytes>,
+}
+
+/// Assemble the engine-mode payload attributes of the parent's child.
+///
+/// The fork-dependent gas limit, `extraData` and root come from `fork_fields`; the root is
+/// always sent (zero before Etna). The transaction list is left to the node's mempool.
+fn engine_payload_attributes(params: EngineAttributesParams<'_>) -> TaikoPayloadAttributes {
+    let EngineAttributesParams {
+        beneficiary,
+        parent,
+        ctx,
+        l1_head_hash,
+        fork_fields,
+        base_fee,
+        anchor_transaction,
+    } = params;
+    let block_number = parent.number() + 1;
+
+    build_payload_attributes(PayloadAttributesInput {
+        beneficiary,
+        timestamp: ctx.timestamp,
+        mix_hash: calculate_shasta_mix_hash(parent.header.inner.mix_hash, block_number),
+        gas_limit: fork_fields.gas_limit,
+        // Engine mode: let the node select transactions from its mempool.
+        tx_list: None,
+        extra_data: fork_fields.extra_data.clone(),
+        base_fee_per_gas: base_fee,
+        block_number,
+        l1_block_height: Some(U256::from(ctx.anchor_block_number)),
+        l1_block_hash: Some(l1_head_hash),
+        is_forced_inclusion: false,
+        signature: [0; 65],
+        parent_beacon_block_root: Some(fork_fields.parent_beacon_block_root),
+        anchor_transaction,
+    })
+}
+
+/// Decode the user transactions of a payload built in engine mode for a target with
+/// `fork_fields`.
+///
+/// A pre-Etna payload starts with the anchor transaction the execution engine inserted from the
+/// attributes; it is not part of the proposal, so it is skipped. An Etna payload has no anchor
+/// transaction, and its transaction 0 is a user transaction.
 fn engine_payload_user_transactions(
     execution_payload: &ExecutionPayloadV3,
+    fork_fields: &EngineTargetForkFields,
 ) -> Result<Vec<Transaction>> {
     execution_payload
         .payload_inner
         .payload_inner
         .transactions
         .iter()
-        .skip(1) // Skip anchor transaction
+        .skip(usize::from(fork_fields.has_anchor_transaction()))
         .enumerate()
         .map(|(index, tx_bytes): (usize, &Bytes)| {
             // Decode the transaction from RLP bytes.
@@ -773,6 +895,7 @@ fn should_increment_loop_failure_metric(err: &ProposerError) -> bool {
 #[cfg(test)]
 mod tests {
     use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
+    use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
     use alloy::{
         consensus::Header as ConsensusHeader,
         primitives::{Address, B256, Bytes, U256},
@@ -793,16 +916,19 @@ mod tests {
     use base_tx_manager::TxManagerError;
 
     use super::{
-        EngineBuildContext, calculate_next_shasta_block_base_fee_from_parent,
-        engine_payload_user_transactions, forced_inclusion_is_permissionless,
-        is_operational_loop_error, next_shasta_proposal_id, pool_content_params,
-        record_submission_attempt, record_submission_receipt, should_increment_loop_failure_metric,
+        EngineAttributesParams, EngineBuildContext, EngineTargetForkFields,
+        calculate_next_shasta_block_base_fee_from_parent, engine_payload_attributes,
+        engine_payload_user_transactions, engine_target_fork_fields,
+        forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
+        pool_content_params, record_submission_attempt, record_submission_receipt,
+        should_increment_loop_failure_metric,
     };
     use crate::{
         error::ProposerError, metrics::ProposerMetrics, transaction_builder::manifest_gas_limit,
     };
     use protocol::shasta::{
-        constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
+        constants::calculate_next_block_eip4396_base_fee_from_parent_values,
+        decode_etna_anchor_block_number, encode_etna_extra_data, encode_extra_data,
     };
     use rpc::RpcClientError;
 
@@ -1295,11 +1421,28 @@ mod tests {
         let payload =
             engine_payload(vec![signed_transfer(&signer, 0), signed_transfer(&signer, 1)]);
 
-        let txs = engine_payload_user_transactions(&payload).expect("decode user transactions");
+        let txs = engine_payload_user_transactions(&payload, &unzen_target().1)
+            .expect("decode user transactions");
 
         assert_eq!(txs.len(), 1);
         assert_eq!(txs[0].nonce(), 1);
         assert_eq!(txs[0].inner.signer(), signer.address());
+    }
+
+    /// An Etna payload has no anchor transaction: transaction 0 is a user transaction and must
+    /// stay in the proposal.
+    #[test]
+    fn engine_payload_user_transactions_keep_tx_zero_of_an_etna_payload() {
+        let signer = PrivateKeySigner::random();
+        let payload =
+            engine_payload(vec![signed_transfer(&signer, 0), signed_transfer(&signer, 1)]);
+
+        let txs = engine_payload_user_transactions(&payload, &etna_target().1)
+            .expect("decode user transactions");
+
+        assert_eq!(txs.len(), 2);
+        assert_eq!(txs[0].nonce(), 0);
+        assert_eq!(txs[1].nonce(), 1);
     }
 
     #[test]
@@ -1309,8 +1452,220 @@ mod tests {
             engine_payload(vec![signed_transfer(&signer, 0), Bytes::from_static(&[0xff])]);
 
         assert!(matches!(
-            engine_payload_user_transactions(&payload),
+            engine_payload_user_transactions(&payload, &unzen_target().1),
             Err(ProposerError::TxDecode { index: 0, .. })
         ));
+    }
+
+    /// Basefee sharing percentage used by the engine-mode field tests.
+    const SAMPLE_PCTG: u8 = 75;
+    /// Proposal id used by the engine-mode field tests.
+    const SAMPLE_PROPOSAL_ID: u64 = 10;
+    /// L1 head number (the anchor block) used by the engine-mode field tests.
+    const SAMPLE_L1_HEAD_NUMBER: u64 = 77;
+
+    /// L1 head state root used by the engine-mode field tests.
+    fn sample_l1_state_root() -> B256 {
+        B256::repeat_byte(0x5a)
+    }
+
+    /// Engine-mode build context over a parent with the given number, fork and header gas
+    /// limit, targeting the L1 head time `target_timestamp`.
+    fn engine_ctx(
+        parent_block_number: u64,
+        parent_is_etna: bool,
+        gas_limit: u64,
+        target_timestamp: u64,
+    ) -> EngineBuildContext {
+        EngineBuildContext {
+            anchor_block_number: SAMPLE_L1_HEAD_NUMBER,
+            parent_block_number,
+            parent_is_etna,
+            timestamp: target_timestamp,
+            gas_limit,
+        }
+    }
+
+    /// Build context and fork fields of an Etna target on an Etna parent (block 42).
+    fn etna_target() -> (EngineBuildContext, EngineTargetForkFields) {
+        let ctx = engine_ctx(42, true, 45_000_000, SAMPLE_ETNA_TIMESTAMP + 12);
+        let fields = engine_target_fork_fields(
+            &ctx,
+            sample_l1_state_root(),
+            SAMPLE_PCTG,
+            SAMPLE_PROPOSAL_ID,
+            Some(SAMPLE_ETNA_TIMESTAMP),
+        )
+        .expect("Etna fields");
+        (ctx, fields)
+    }
+
+    /// Build context and fork fields of an Unzen target on an Unzen parent (block 42).
+    fn unzen_target() -> (EngineBuildContext, EngineTargetForkFields) {
+        let ctx = engine_ctx(42, false, 45_000_000, SAMPLE_ETNA_TIMESTAMP - 1);
+        let fields = engine_target_fork_fields(
+            &ctx,
+            sample_l1_state_root(),
+            SAMPLE_PCTG,
+            SAMPLE_PROPOSAL_ID,
+            Some(SAMPLE_ETNA_TIMESTAMP),
+        )
+        .expect("Unzen fields");
+        (ctx, fields)
+    }
+
+    /// Hash of the sample L1 head.
+    fn sample_l1_head_hash() -> B256 {
+        B256::repeat_byte(0x77)
+    }
+
+    /// Engine-mode attributes of block 43 over `ctx` and `fields`, carrying `anchor_transaction`.
+    fn sample_engine_attributes(
+        ctx: &EngineBuildContext,
+        fields: &EngineTargetForkFields,
+        anchor_transaction: Option<Bytes>,
+    ) -> TaikoPayloadAttributes {
+        let parent = header_block(42, ctx.timestamp - 12, ctx.gas_limit);
+        engine_payload_attributes(EngineAttributesParams {
+            beneficiary: Address::with_last_byte(0x11),
+            parent: &parent,
+            ctx,
+            l1_head_hash: sample_l1_head_hash(),
+            fork_fields: fields,
+            base_fee: U256::from(7u64),
+            anchor_transaction,
+        })
+    }
+
+    /// An Etna target's attributes send the L1 head's state root as `parentBeaconBlockRoot`,
+    /// the 13-byte `extraData` and no anchor transaction, leaving the list to the mempool.
+    #[test]
+    fn engine_attributes_for_an_etna_target_send_the_l1_state_root_and_no_anchor() {
+        let (ctx, fields) = etna_target();
+
+        let attributes = sample_engine_attributes(&ctx, &fields, None);
+
+        assert_eq!(
+            attributes.payload_attributes.parent_beacon_block_root,
+            Some(sample_l1_state_root())
+        );
+        assert_eq!(attributes.payload_attributes.timestamp, ctx.timestamp);
+        assert_eq!(attributes.block_metadata.extra_data, fields.extra_data);
+        assert_eq!(attributes.block_metadata.extra_data.len(), 13);
+        assert_eq!(attributes.block_metadata.gas_limit, fields.gas_limit);
+        assert_eq!(attributes.block_metadata.tx_list, None);
+        assert_eq!(attributes.anchor_transaction, None);
+        assert_eq!(attributes.l1_origin.block_id, U256::from(43u64));
+        assert_eq!(attributes.l1_origin.l1_block_height, Some(U256::from(SAMPLE_L1_HEAD_NUMBER)));
+        assert_eq!(attributes.l1_origin.l1_block_hash, Some(sample_l1_head_hash()));
+    }
+
+    /// An Unzen target's attributes send the explicit zero root, the 7-byte `extraData` and the
+    /// anchor transaction.
+    #[test]
+    fn engine_attributes_for_an_unzen_target_send_a_zero_root_and_the_anchor() {
+        let (ctx, fields) = unzen_target();
+        let anchor_transaction = Bytes::from_static(&[0x02, 0xaa]);
+
+        let attributes = sample_engine_attributes(&ctx, &fields, Some(anchor_transaction.clone()));
+
+        assert_eq!(attributes.payload_attributes.parent_beacon_block_root, Some(B256::ZERO));
+        assert_eq!(attributes.block_metadata.extra_data, fields.extra_data);
+        assert_eq!(attributes.block_metadata.extra_data.len(), 7);
+        assert_eq!(attributes.block_metadata.gas_limit, fields.gas_limit);
+        assert_eq!(attributes.anchor_transaction, Some(anchor_transaction));
+    }
+
+    #[test]
+    fn engine_fields_for_an_etna_target_drop_the_anchor_and_carry_the_l1_state_root() {
+        let ctx = engine_ctx(42, true, 45_000_000, SAMPLE_ETNA_TIMESTAMP + 12);
+
+        let fields = engine_target_fork_fields(
+            &ctx,
+            sample_l1_state_root(),
+            SAMPLE_PCTG,
+            SAMPLE_PROPOSAL_ID,
+            Some(SAMPLE_ETNA_TIMESTAMP),
+        )
+        .expect("Etna fields");
+
+        assert!(fields.target_is_etna);
+        assert!(!fields.has_anchor_transaction(), "an Etna target has no anchor transaction");
+        assert_eq!(fields.parent_beacon_block_root, sample_l1_state_root());
+        assert_eq!(fields.extra_data.len(), 13);
+        assert_eq!(
+            fields.extra_data,
+            encode_etna_extra_data(SAMPLE_PCTG, SAMPLE_PROPOSAL_ID, SAMPLE_L1_HEAD_NUMBER)
+                .expect("encode Etna extraData")
+        );
+        assert_eq!(
+            decode_etna_anchor_block_number(43, &fields.extra_data).expect("decode anchor"),
+            SAMPLE_L1_HEAD_NUMBER
+        );
+        // An Etna parent carries no reserve and an Etna target adds none.
+        assert_eq!(fields.gas_limit, 45_000_000);
+    }
+
+    #[test]
+    fn engine_fields_for_an_unzen_target_keep_the_anchor_and_a_zero_root() {
+        for etna_fork_timestamp in [None, Some(SAMPLE_ETNA_TIMESTAMP)] {
+            let ctx = engine_ctx(42, false, 45_000_000, SAMPLE_ETNA_TIMESTAMP - 1);
+
+            let fields = engine_target_fork_fields(
+                &ctx,
+                sample_l1_state_root(),
+                SAMPLE_PCTG,
+                SAMPLE_PROPOSAL_ID,
+                etna_fork_timestamp,
+            )
+            .expect("Unzen fields");
+
+            assert!(!fields.target_is_etna, "{etna_fork_timestamp:?}");
+            assert!(fields.has_anchor_transaction(), "{etna_fork_timestamp:?}");
+            assert_eq!(fields.parent_beacon_block_root, B256::ZERO, "{etna_fork_timestamp:?}");
+            assert_eq!(
+                fields.extra_data,
+                encode_extra_data(SAMPLE_PCTG, SAMPLE_PROPOSAL_ID),
+                "{etna_fork_timestamp:?}"
+            );
+            assert_eq!(fields.extra_data.len(), 7, "{etna_fork_timestamp:?}");
+            // The parent's manifest gas (45M - 1M) plus the target's 1M anchor reserve.
+            assert_eq!(fields.gas_limit, 45_000_000, "{etna_fork_timestamp:?}");
+        }
+    }
+
+    #[test]
+    fn engine_fields_at_the_etna_boundary_drop_the_parent_reserve() {
+        // Unzen parent, Etna target: the parent's reserve goes and no new one is added.
+        let ctx = engine_ctx(42, false, 45_000_000, SAMPLE_ETNA_TIMESTAMP);
+
+        let fields = engine_target_fork_fields(
+            &ctx,
+            sample_l1_state_root(),
+            SAMPLE_PCTG,
+            SAMPLE_PROPOSAL_ID,
+            Some(SAMPLE_ETNA_TIMESTAMP),
+        )
+        .expect("boundary fields");
+
+        assert!(fields.target_is_etna);
+        assert_eq!(fields.gas_limit, 44_000_000);
+    }
+
+    #[test]
+    fn engine_fields_for_a_genesis_parent_add_the_reserve_before_etna() {
+        // Derivation gives block 1 the genesis gas limit as manifest gas plus the anchor reserve.
+        let ctx = engine_ctx(0, false, 45_000_000, SAMPLE_ETNA_TIMESTAMP - 1);
+
+        let fields = engine_target_fork_fields(
+            &ctx,
+            sample_l1_state_root(),
+            SAMPLE_PCTG,
+            1,
+            Some(SAMPLE_ETNA_TIMESTAMP),
+        )
+        .expect("genesis-parent fields");
+
+        assert_eq!(fields.gas_limit, 46_000_000);
     }
 }
