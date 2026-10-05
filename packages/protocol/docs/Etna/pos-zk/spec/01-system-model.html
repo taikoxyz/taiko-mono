@@ -379,11 +379,21 @@ plus the retention window; <strong>L1 RPC access</strong> through an Ethereum cl
 operates itself, able to produce the finalized-checkpoint evidence of
 <a href="#SYS-02">SYS-02</a>(b) — a third-party endpoint may serve advisory reads but must not be the
 sole source of finality evidence; TAIKO effective stake at or above the minimum of
-<a href="07-economics-slashing.html#ECON-09">ECON-09</a>. (d) <em>Rewards.</em> Paid only from the
-L1-committed reward pool in the same L1 transaction that accepts a batch
-(<a href="04-l1-integration.html#L1-11">L1-11</a>), with the funding identity of
-<a href="07-economics-slashing.html#ECON-02">ECON-02</a>; no reward may depend on TAIKO
-appreciation. (e) <em>Penalties.</em> Only for objectively verifiable offences, with the encodings,
+<a href="07-economics-slashing.html#ECON-09">ECON-09</a>. (d) <em>Rewards.</em> Denominated and paid in <strong>ETH</strong> from the segregated
+validator reward pool held by the L1 staking contract
+(<a href="07-economics-slashing.html#ECON-02">ECON-02</a>(1), (5)(a)) — never from the Inbox's
+prover-reward ledger (<a href="04-l1-integration.html#L1-11">L1-11</a>). Payment is conditioned on
+attested participation: the authenticated signer bitmap of the head certificate, recorded by
+<code>land</code> for every epoch the batch's heights cover
+(<a href="07-economics-slashing.html#ECON-02">ECON-02</a>(5)(b)). Claims are permissionless — any
+address may claim for the entry's recorded owner
+(<a href="07-economics-slashing.html#ECON-02">ECON-02</a>(5)(c)) — and open only after
+<code>evidenceClose(e)</code>, when the epoch's allocation and its frozen participant set are fixed
+(<a href="07-economics-slashing.html#ECON-02">ECON-02</a>(5)(c)–(d),
+<a href="07-economics-slashing.html#ECON-07">ECON-07</a>); a claim before then reverts. An entry that
+did not sign is paid nothing; no reward may depend on TAIKO appreciation. <em>This closes review round
+3 finding R3-CE-02: ROLE-01(d) no longer pays validator rewards in the batch-acceptance transaction,
+and it states the participation-conditioned, post-window, permissionless claim of ECON-02(5).</em> (e) <em>Penalties.</em> Only for objectively verifiable offences, with the encodings,
 windows and recipients of <a href="07-economics-slashing.html#ECON-04">ECON-04</a>,
 <a href="07-economics-slashing.html#ECON-05">ECON-05</a> and
 <a href="07-economics-slashing.html#ECON-07">ECON-07</a>: equivocation
@@ -395,7 +405,7 @@ the <em>absence</em> of an unlocking proof-of-lock-change is not an admissible e
 divergence under a withholding adversary may leave no such pair and therefore <strong>no admissible evidence</strong>:
 the claim that a safety-relevant divergence always implies at least one third objectively slashable is
 <strong>Assumed</strong>, not established, and the fork-accountability argument is not a deterrent guarantee
-(<a href="02-consensus.html#CONS-09">CONS-09</a>(4)(a); the limitation row is owed to
+(<a href="02-consensus.html#CONS-09">CONS-09</a>(4)(a); the limitation is recorded in the consensus rows of
 <a href="10-assurance.html#LIM-01">LIM-01</a>). Local suspicion, mere non-receipt of a message, or elapsed time is never evidence
 (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>, <a href="index.html#STATUS-10">STATUS-10</a>).
 <em>This closes review round 1 finding CS-07 for this role rule: the penalised lock offence is the same-(height, round) conflicting pair, and everything else is local suspicion.</em>

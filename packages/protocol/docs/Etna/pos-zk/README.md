@@ -13,6 +13,15 @@
 (permissionless TAIKO-staked L2 PoS + combined ZK proof of consensus finality and execution, with data
 and proof in one L1 transaction) satisfies the hard requirements **under the stated assumptions**.
 
+**Scope change (user decision D-6, 2026-10-05): forced inclusion was removed from the specification**
+— a user-authorized **partial relaxation of R10**. There is no L1 forced-inclusion path and no
+per-transaction inclusion guarantee; censorship resistance is stated honestly as a conditional
+statistical property of hash-based weighted proposer selection (rule LIVE-04) with the disclosed
+consequence that a network-level adversary able to isolate a user from every honest proposer can exclude
+that user indefinitely — including preventing the user from *starting* a withdrawal — with no protocol
+remedy. The relaxation is recorded in DECISIONS.md D-6 and in the requirement matrix in
+01-requirements-and-threat-model.md.
+
 **Specification level: NOT CONVERGED — the result is labelled _incomplete_.** Two full adversarial
 review rounds were run on frozen snapshots with four independent reviewers each. Round 1 found
 6 Critical and 28 High findings; the fixes were applied. Round 2, on the fixed snapshot, found
@@ -26,12 +35,17 @@ specification-level convergence is made. See [`iterations/01-round.md`](iteratio
 **closed** on re-attack; the single quorum predicate, single validator-set encoding, leader selection,
 epoch→root resolution and the atomic-submission rule were verified as fixed.
 
-**Open Critical defects that block convergence:** a forced-inclusion payload that cannot be a valid L2
-transaction can permanently block production (R2-LIV-01); the two-sided timestamp bound acts as an
-unstated landing deadline that a normal 30-minute proof makes unsatisfiable (R2-LIV-03); consumption
-scope is not closed between per-block and per-batch readings (R2-LIV-04); and the epoch lookahead gate
-stops production for at least one Ethereum finality period at every epoch boundary, contradicting D1/D6
-(R2A-01).
+**Round 3 (snapshot `3b0821f2f`, four fresh reviewers, all five angles): 0 Critical, 11 High, 17 Medium,
+8 Low** — a material improvement over round 2 (6 Critical, 23 High), and **no reviewer has found a
+two-conflicting-finalized-histories attack inside the fault model in any round**. The eleven Highs are all
+inside the fault model and most need no adversary; fixes were applied for nine of them and the remainder
+are recorded as open in `iterations/03-round.md`. Because eleven new Highs were raised, round 3 is **not**
+clean, the consecutive-clean-round count is **zero**, and the specification remains **not converged**.
+
+**What would finish the job:** rounds 4 and 5 as full-design rounds on frozen snapshots with fresh
+reviewers covering all five angles and no new Critical or High — four of the eight permitted rounds remain.
+Several round-3 Highs were introduced by the previous round's own amendments, so the amendment process
+itself needs a consistency pass before the next round.
 
 | Question | Answer |
 |----------|--------|

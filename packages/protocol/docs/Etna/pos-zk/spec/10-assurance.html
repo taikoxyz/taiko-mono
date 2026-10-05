@@ -135,17 +135,30 @@ proven cycles per second per machine, <a href="../03-zkvm-feasibility.md">03</a>
 
 <div class="rule" id="LIVE-04"><span class="rid">LIVE-04 — censorship resistance, stated honestly</span>
 <span class="norm">The protocol provides no per-transaction inclusion guarantee and no L1 forced-inclusion
-path. Censorship resistance is the conditional statistical property described in this rule:
-proposer selection is hash-based and weighted (<a href="02-consensus.html#CONS-06">CONS-06</a>), so a
-coalition with less than one third of the voting power is selected for strictly fewer than one third of
-slots in expectation, and a transaction that reaches honest validators is included by the first honest
-proposer with room for it. Under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> that is a
-real but conditional resistance. A network-level adversary able to isolate a user from every honest
-proposer can exclude that user's transactions indefinitely, and because a withdrawal is initiated by an
-L2 transaction, such an adversary can also prevent the user from starting a withdrawal. The protocol
-offers no remedy, and a partial relaxation of <a href="../01-requirements-and-threat-model.md">R10</a> is
-disclosed. <em>(user decision D-6: forced inclusion removed; a user-authorized partial relaxation of
-R10)</em></span>
+path. Censorship resistance is the conditional statistical property described in this rule.
+Proposer selection is hash-based and weighted (<a href="02-consensus.html#CONS-06">CONS-06</a>), and it
+is a public deterministic function (<a href="02-consensus.html#CONS-06">CONS-06</a>(d)), so it is
+<strong>fully predictable</strong>: a coalition can identify in advance the slot in which a target
+transaction would be included, and buying or coercing the scheduled proposer of a single slot is
+possible and cheap — no rule prices, detects or penalises slot-buying, and this specification assumes
+no cost floor that prevents it. What bounds sustained censorship is the selection share, not
+unpredictability: a coalition with less than one third of the voting power is selected for strictly
+fewer than one third of slots in expectation, and a transaction that reaches honest validators is
+included by the first honest proposer with room for it. That last clause is a behavioural premise, not
+a protocol rule, and it is the honest limit of this resistance: no inclusion duty attaches to a
+validator (<a href="01-system-model.html#ROLE-01">ROLE-01</a>(b)), omission is neither a
+proposal-validity failure nor an offence (<a href="02-consensus.html#CONS-01">CONS-01</a>,
+<a href="07-economics-slashing.html#ECON-04">ECON-04</a>), and no rule defines "room", reserves block
+space or constrains proposer ordering. Under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a>
+that is a real but conditional resistance. A network-level adversary able to isolate a user from every
+honest proposer can exclude that user's transactions indefinitely, and because a withdrawal is
+initiated by an L2 transaction, such an adversary can also prevent the user from starting a withdrawal.
+The protocol offers no remedy, and a partial relaxation of
+<a href="../01-requirements-and-threat-model.md">R10</a> is disclosed. <em>(user decision D-6: forced
+inclusion removed; a user-authorized partial relaxation of R10)</em> <em>This closes review round 3
+finding R3-CE-05: selection is stated to be fully predictable and slot-buying possible and cheap, and
+the resistance is bounded by the selection share plus the honest-proposer behaviour that
+ROLE-01(b) expressly does not impose.</em></span>
 <span class="why">Failure mode: presenting statistical inclusion under A-CONS-2 as a per-transaction
 guarantee, or implying an L1 escape path that does not exist, would let a user size exposure on a promise
 the protocol never makes.</span>
@@ -166,10 +179,14 @@ may be silently dropped when the design is summarised to users.</span>
 <tr><td>Cryptographic</td><td>One combined guest means a single trusted computing base; a common-mode defect is not caught by a second backend unless the policy requires both</td><td>Same as above, with a smaller detection surface</td></tr>
 <tr><td>Consensus</td><td>Safety holds only while fewer than one third of each epoch's voting power is Byzantine</td><td>Two conflicting valid certificates; the proof verifies both; the invariant <a href="#INV-01">INV-01</a> does not apply</td></tr>
 <tr><td>Consensus</td><td>The epoch-handoff argument (per-height locks released only by the commit at that height or a strictly later same-height proof-of-lock-change, with cross-height continuity carried by the parent-validity condition) is argued, not machine-checked</td><td>A boundary-specific fork is the named review target F1</td></tr>
+<tr><td>Consensus</td><td>Cross-round and cross-epoch divergence under withholding can leave <strong>no admissible evidence</strong>: the same-<code>(height, round)</code> conflicting pair is the only lock-related offence with admissible evidence, and a withholding adversary that reveals only the two certificates prevents the fork-accountability lemma's JSets from being compiled (<a href="02-consensus.html#CONS-09">CONS-09</a>(4)(a)); the epoch-handoff argument itself (per-height locks plus the parent-validity condition) is argued, not machine-checked</td><td>"At least one third is objectively slashable" is <strong>Assumed</strong>, not established, and must never be presented as a deterrent guarantee; a boundary-specific fork is the named review target F1</td></tr>
+<tr><td>Consensus</td><td>Proposer selection is a public deterministic function (<a href="02-consensus.html#CONS-06">CONS-06</a>(d)), so the proposer of any future slot is computable in advance and a coalition can buy or coerce the proposer of the specific slot in which a target transaction would be included; no rule prices, detects or penalises slot-buying</td><td>Censorship of a chosen transaction can be bought slot by slot; the remaining resistance is only the selection share (fewer than one third of slots in expectation below one third of the weight) plus the honest-proposer inclusion behaviour that <a href="01-system-model.html#ROLE-01">ROLE-01</a>(b) expressly does not impose</td></tr>
 <tr><td>Availability</td><td>Settlement depends on somebody retaining the data until the proof lands</td><td>A halt, possibly permanent, if every holder disappears. Retention is a liveness <strong>assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty. Disclosed; explicitly permitted by D2 step 1</td></tr>
 <tr><td>Availability</td><td>Retention is a <strong>liveness assumption</strong> (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not an enforceable protocol duty: a failure to serve is not provable on L1 for most classes, and no evidence object exists for it (*review round 1, finding C R1-04*)</td><td>A holder's failure produces a <strong>halt, not a penalty</strong>; the honest response is disclosure, not a penalty (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>), and no rule may claim retention is enforced</td></tr>
 <tr><td>Liveness</td><td>A minority outage halts the chain; there is no degraded mode</td><td>Unbounded halt duration outside the assumptions</td></tr>
 <tr><td>Liveness</td><td>A cartel of at least one third can halt the chain, though it cannot censor selectively while quorum exists</td><td>Denial of service, not a safety break</td></tr>
+<tr><td>Liveness</td><td>An unsettled-depth-cap violation is not objectively punishable: the cap has exactly one enforcement point — correct validators — and <code>land</code> MUST NOT reject an over-depth batch (<a href="04-l1-integration.html#L1-04">L1-04</a>, <a href="04-l1-integration.html#L1-06">L1-06</a>)</td><td>A quorum that ignores the cap pays no penalty, so R11's deterrence does not cover it; the cap's only force is honest compliance and the backpressure of <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a></td></tr>
+<tr><td>Liveness</td><td>A settlement halt longer than an epoch's evidence window can close that window while the epoch's heights are still unproduced; the L1 fact that would anchor the window's close to the epoch's production is not yet defined (<a href="07-economics-slashing.html#ECON-07">ECON-07</a>(1), <strong>Open</strong>)</td><td>Offences in the resumed epochs become inadmissible and stake exposed to them can be withdrawn before the offence is observable — voiding <a href="#INV-03">INV-03</a>'s premise for those heights — and an epoch with more than one third of its committed weight gone cannot be passed, so the chain can wedge permanently; the anchor must be fixed before launch</td></tr>
 <tr><td>Censorship</td><td>No per-transaction inclusion guarantee and no L1 forced-inclusion path: resistance is the conditional statistical property of <a href="#LIVE-04">LIVE-04</a> — hash-based, weighted proposer selection (<a href="02-consensus.html#CONS-06">CONS-06</a>) under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> <em>(user decision D-6: forced inclusion removed; the limitation is disclosed, not remedied)</em></td><td>A network-level adversary that isolates a user from every honest proposer can exclude that user's transactions indefinitely and can prevent the user from starting a withdrawal; the protocol offers no remedy — a user-authorized partial relaxation of R10, recorded as D-6</td></tr>
 <tr><td>Performance</td><td>The 2&nbsp;s cadence, the round budget, the proving envelope, the in-guest blob evaluation and the fleet sizing are all unmeasured</td><td><a href="#LIVE-03">LIVE-03</a>'s inequalities cannot be checked until measured</td></tr>
 <tr><td>Economic</td><td>No verified price, float or liquidity data; attack cost is time-varying and A-ECO-1 can fail with no rule change</td><td>The deterrence claim is conditional and must be re-evaluated with market data</td></tr>
@@ -180,6 +197,7 @@ may be silently dropped when the design is summarised to users.</span>
 <tr><td>Migration</td><td>Migration requires a bounded window in which the legacy path is frozen</td><td>Availability gap during migration; the state machine and its stall behaviour are specified in <a href="08-migration-upgrades.html">08</a></td></tr>
 <tr><td>Scope</td><td>This is a specification; there is no implementation, audit, model or measurement</td><td>Every "Proven" in this document is an argued property, not a machine-checked or tested one</td></tr>
 </tbody></table>
+<span class="norm"><em>This closes review round 3 finding R3-LIV-04: the register now carries the rows the other rules delegate to it — the unpunishable unsettled-depth-cap violation, the publicly predictable and purchasable proposer slot, the unpunishable cross-round/cross-epoch divergence with the handoff argument's un-machine-checked status, and the halt-induced window lapse held Open — and no rule leaves a row owed from another page.</em></span>
 <span class="why">Failure mode: a limitation list that omits the ones that hurt — specifically the
 availability assumption, the unmeasured parameters, and the fact that the safety argument stops at the
 one-third boundary.</span>

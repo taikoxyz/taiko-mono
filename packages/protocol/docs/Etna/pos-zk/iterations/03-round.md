@@ -41,3 +41,61 @@ changing the validator-set lookahead from one epoch to two.
 
 **No convergence is claimed.** Round 3 must re-review a frozen snapshot with fresh reviewers covering all
 five angles; only two consecutive clean full-design rounds would satisfy the project's stopping rule.
+
+---
+
+## Round-3 review results (snapshot `3b0821f2f`, four fresh reviewers, all five angles)
+
+| Angle | Critical | High | Medium | Low |
+|-------|----------|------|--------|-----|
+| Consensus safety / reconfiguration | 0 | 4 | 5 | 2 |
+| Proof soundness / binding / custody / accounting | 0 | 3 | 4 | 1 |
+| Liveness / DA / censorship / recovery | 0 | 2 | 4 | 3 |
+| Compliance with D1–D7 + economics | 0 | 2 | 4 | 2 |
+| **Total** | **0** | **11** | **17** | **8** |
+
+**This is a material improvement over round 2 (6 Critical, 23 High) and no reviewer found a
+two-conflicting-finalized-histories attack inside the fault model in any round.** It is still **not** a
+clean round: eleven new High findings were raised, all inside the claimed fault model, most needing no
+adversary at all. The consecutive-clean-round count therefore remains **zero** and the specification
+remains **not converged**.
+
+### Verified closed by this round (re-checked, not re-listed)
+Forced-inclusion removal is residual-free (no dangling FI dependency, no rule still assuming an inclusion
+guarantee); the two-epoch lookahead is coherent across CONS-13/MEM-09/ECON-07/09; the per-height lock of
+CONS-04 is unambiguous and matches the published same-height Proof of Safety; the single quorum predicate,
+the single set encoding, hash-based leader selection, L1-resolved epoch→root identity and the churn wiring
+all hold; the consensus-only cap with one enforcement point bounds finalized depth without stranding a
+legitimate extension; the blob fixed-point argument was independently re-derived after the journal change
+and holds under its named premises; the payload-decode and `transactions_root` binding holds for the
+calldata path; the journal and L1-05 agree field for field; D5 is proven for the Etna path; D3 holds with a
+10-of-43 slot budget and no frozen-layout change; D7 holds; ordinary operation needs no privileged party.
+
+### Round-3 High findings and disposition
+
+| ID | Finding | Disposition |
+|----|---------|-------------|
+| R3A-01 | The L1-side epoch clock was undefined (schedule defined in L2 heights, clock said to be L1 block time), so any cadence faster than nominal or any halt decouples them | **Fixed in revision**: epoch 0 anchored to a named L1 block, L1-side schedule expressed in L1 blocks, and the L2 may not enter an epoch before the L1 has reached its start block |
+| R3A-02 | The two-epoch lookahead was a partial fix: one uncontrolled `commitSet()` per call, no obligation, so a single skipped epoch permanently degrades the lead to one epoch | **Fixed in revision**: the append becomes an obligation with a restorable, permissionless call, and the operative steady-state inequality is stated |
+| R3A-03 | WH-04 still required carrying the closing epoch's lock forward, contradicting the per-height lock | **Fixed in revision**: WH-04 re-based on parent-validity plus epoch-scoped permanent certificates |
+| R3A-04 / R3-PRF-01 | Epoch-boundary evidence has no public inputs, and its trigger is keyed to the batch *head*, so a normal multi-block batch never fires the anchor check; `next_validators_hash` has no L1-pinned input | **Fixed in revision**: trigger re-keyed to the batch's first block, `set_version_commit` added as a journal input, and the L1-pinned anchor value stated |
+| R3-PRF-02 | `finalityCommitment` was called proof-bound but no guest clause checked it | **Fixed in revision**: the guest must recompute it from the verified head certificate |
+| R3-PRF-03 / R3-CE-03 | The validator payout denominator `P(e)` was never frozen, so the first claimant could take the whole epoch allocation | **Fixed in revision**: `P(e)` is frozen at the evidence-window close, with `Σ payout ≤ Alloc(e)` stated as a checked condition |
+| R3-CE-02 | ROLE-01(d) said rewards are paid in the accepting transaction, contradicting the amended pool design | **Fixed in revision** |
+| R3-LIV-01 | A halt longer than the evidence window lets committed-but-unproduced epochs' windows close while their immutable set roots still govern, so validators can exit unpunished and INV-03's premise is void | **Fixed in revision**: the window is anchored to the event that makes the offence observable, not to L1 wall-clock alone |
+| R3-LIV-02 | No inequality tied the cap to D6's 1800 s envelope, and `T_PROOF_MAX_PERMITTED` was defined oppositely in two places; at plausible values a normal 30-minute proof triggers the cap | **Fixed in revision**: one definition plus a joint inequality that keeps a normal proof from triggering the cap |
+
+### Round-3 Medium and Low findings
+Seventeen Mediums and eight Lows were raised. The substantive ones are fixed with the Highs above. Those
+recorded as **open** are: the blob-path padding-versus-no-trailing-bytes contradiction and the missing
+in-guest padding check (R3-PRF-05, introduced by the round-3 framing fix); the blob-range and hybrid-copy
+equality gap (R3-PRF-06 / P-R2-05); the `feeRecipient` and timestamp in-guest binding (R3-PRF-04); the
+exposure-cap-versus-withdrawal-gate contradiction (R3-PRF-07 / P-R2-09); the Mode B scoping of L1-04/L1-06
+(R3-LIV-05); the redundant ECON-07(7) sentence (R3-LIV-06 / R3A-09); the missing LIM-01 rows; residual
+parameter-registration and alias defects; and the index-title mismatches.
+
+### What convergence would still require
+Round 4 and round 5 must both be full-design rounds on frozen snapshots with fresh reviewers covering all
+five angles, with **no new Critical or High**. Given eleven new Highs at round 3 — several introduced by the
+previous round's own fixes, which is itself a finding about the amendment process — two clean rounds are not
+yet in hand, and this change cycle has used three of the eight permitted rounds.

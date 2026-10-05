@@ -162,16 +162,47 @@ root, on bonded balance, or on any unauthenticated claim.
 <strong>any address</strong>, so that no operator depends on a keeper. A claim pays the entry's recorded
 owner, never the caller, and each <code>(epoch, index)</code> may be claimed at most once. Claims for epoch
 <code>e</code> open only after <code>evidenceClose(e)</code> (<a href="#ECON-07">ECON-07</a>), when the
-epoch's allocation is fixed; a claim before then reverts.
-(d) <strong>Accounting identity per epoch.</strong> Let <code>Alloc(e)</code> be the ETH the recorded
-allocation policy assigns to epoch <code>e</code>'s validator payout, and <code>P(e) = { v :
-participated[e][v] }</code>. Then, exactly:</span>
+epoch's allocation is fixed and its participant set and participating stake are frozen (5)(d); a claim
+before then reverts.
+(d) <strong>Accounting identity per epoch, with the participant set frozen at the window's close.</strong>
+Let <code>Alloc(e)</code> be the ETH the recorded allocation policy assigns to epoch <code>e</code>'s
+validator payout. Let <code>P(e)</code> be the <strong>frozen participant set</strong>: the canonical
+signer indices whose participation bit for <code>e</code> was written by <code>land</code> at or before
+<code>evidenceClose(e)</code> (<a href="#ECON-07">ECON-07</a>(1)), and let
+<code>PS(e) = &Sigma;_{u &isin; P(e)} effStake(u,e)</code> be the participating stake frozen at that
+same instant. Neither <code>P(e)</code> nor <code>PS(e)</code> may be read from mutable state at claim
+time: the staking contract MUST compute and store both at the freeze, and the frozen denominators are
+what the identity below uses. <strong>Cutoff rule.</strong> A batch of epoch <code>e</code> that lands
+after <code>evidenceClose(e)</code> is legal — no admission rule may reject it
+(<a href="04-l1-integration.html#L1-04">L1-04</a>, <a href="04-l1-integration.html#L1-06">L1-06</a>) —
+but it <strong>MUST NOT</strong> change <code>P(e)</code> or <code>PS(e)</code>: its validators are
+recorded as participants on L1 and are <strong>not paid from epoch <code>e</code>'s allocation and not
+charged to any later epoch's allocation</strong> — the claim for <code>e</code> is closed by the freeze.
+Consequence, stated rather than assumed away: validators of an epoch whose batches settle only after
+that epoch's window closes are unpaid for that epoch, because no rule may reopen a final allocation or
+create a retroactive claim; any account may land a batch at any time
+(<a href="04-l1-integration.html#L1-04">L1-04</a>), so the remedy is timely settlement, not
+retroactivity. Participation bits written for an epoch whose own freeze has not yet passed are
+unaffected and enter that epoch's <code>P</code> normally. For each index in <code>P(e)</code> the
+staking contract MUST resolve the committed entry and its <code>effStake</code> from the set root stored
+for <code>e</code> (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2)), so the accumulator's key
+is the canonical signer index and <code>v</code> below denotes the entry committed at that index; an
+entry that did not sign is paid nothing, however much stake it holds. Then, exactly:</span>
 <pre><code>pool_after(e)   = pool_before(e) + inflow(e) - &Sigma;_{v &isin; P(e)} payout(v,e)
-payout(v,e)     = floor( Alloc(e) &middot; effStake(v,e) / &Sigma;_{u &isin; P(e)} effStake(u,e) )
+payout(v,e)     = floor( Alloc(e) &middot; effStake(v,e) / PS(e) )   // PS(e) frozen at evidenceClose(e)
 &Sigma;_v payout(v,e)  &le;  Alloc(e)  &le;  pool_before(e)     // no borrowing, no negative pool</code></pre>
 <span class="norm"><code>Alloc(e)</code> MUST be fixed before the epoch's first claim and MUST NOT exceed
 the pool's realised net inflow for the period (clause 1); the floor-rounding remainder stays in the pool
-and is never minted. An entry that did not sign is paid nothing, however much stake it holds.
+and is never minted. The identity <code>&Sigma;_v payout(v,e) &le; Alloc(e) &le; pool_before(e)</code>,
+evaluated at the frozen denominators, is a <strong>checked condition, not an intention</strong>: the
+staking contract MUST expose a view that evaluates it for every epoch with an open claim — exactly as
+<a href="#ECON-01">ECON-01</a>(3) requires the <code>checkInvariants()</code> view for INV-A–INV-D — and
+the implementation's differential/fuzz suite MUST assert it after every claim. <em>This closes review
+round 3 finding R3-CE-03: <code>P(e)</code> and the participating stake are frozen at
+<code>evidenceClose(e)</code>, and a batch of epoch <code>e</code> landing after that instant cannot
+change the payout denominator.</em> <em>This closes review round 3 finding R3-PRF-03: the per-epoch
+payout identity is computable from frozen state, the accumulator key is the canonical signer index
+resolved against the stored set root, and the identity is checked rather than asserted.</em>
 (e) <strong>What is Open, and its consequence.</strong> The mechanism that moves L2 fee revenue to the L1
 pool — and therefore the realised <code>Alloc(e)</code> — is clause 7's Open item. Until a recorded
 decision defines the transfer and an allocation policy, <code>Alloc(e) = 0</code>, the pool has no inflow,
@@ -445,7 +476,9 @@ currently contains contradictory precedents, so the choice cannot be inferred fr
 <span class="norm">(1) <strong>The window, anchored to the offence epoch's own set version, with the anchor stored on L1.</strong>
 <code>W_evidence(e)</code> is a duration in seconds per epoch <code>e</code>. Evidence for an offence at epoch
 <code>e</code> is admissible only if the L1 block that includes the <code>slash()</code> transaction has
-<code>block.timestamp ≤ evidenceClose(e)</code>, where <code>evidenceClose(e) = t_root(e) + W_evidence(e)</code>.
+<code>block.timestamp ≤ evidenceClose(e)</code>, where <code>evidenceClose(e)</code> opens at
+<code>t_root(e)</code> and closes no earlier than <code>max(t_root(e), t_observed(e)) + W_evidence(e)</code>
+(the production-anchored close and the Open anchor <code>t_observed(e)</code> are defined below).
 <strong>What <code>t_root(e)</code> is, concretely.</strong> It is the run-time-visible
 <code>block.timestamp</code> of the L1 transaction whose call to <code>commitSet()</code> appended epoch
 <code>e</code>'s entry to the staking contract's per-epoch mapping
@@ -465,7 +498,45 @@ Ethereum-final</strong>: the finality requirement is enforced where it belongs �
 L1 and would shorten the admissible interval by the finality lag; the stored commit timestamp is the value the
 non-emptiness inequality of clause (4) already assumes, and it is registered as <code>t_root(e)</code> in
 <a href="09-parameters.html#PARAM-01">09</a>. <em>(review round 2, finding E-R2-07: the anchor is a stored,
-run-time-visible L1 value rather than an event-log reconstruction, and the window is computable.)</em></span>
+run-time-visible L1 value rather than an event-log reconstruction, and the window is computable.)</em>
+<strong>The close may not precede the epoch's production.</strong> The commit timestamp is an L1 wall
+clock, and the two clocks diverge across a halt: L1 time and <code>commitSet()</code> keep advancing
+while L2 height production stops (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(1),
+<a href="02-consensus.html#CONS-13">CONS-13</a>), so after a halt longer than
+<code>W_evidence(e)</code>, <code>t_root(e) + W_evidence(e)</code> can fall before any height of epoch
+<code>e</code> exists. A conforming window therefore <strong>opens</strong> when the epoch's set root is
+committed — <code>t_root(e)</code> — but <strong>MUST NOT close</strong> before the epoch has been
+produced on L2 and its batches have had the full window to land: it closes no earlier than
+<code>max(t_root(e), t_observed(e)) + W_evidence(e)</code>, where <code>t_observed(e)</code> is the
+L1-observable instant of the event that makes an offence of epoch <code>e</code> observable and starts
+the epoch's full landing window. The anchor is the event that makes the offence observable, never L1
+wall-clock alone; no rule, implementation or interface may treat the commit-anchored instant as
+sufficient, and clause (4)'s non-empty-interval requirement is applied to this later close. The later
+close is fixed by this rule from the start from stored facts: it is not a re-opening, extension or
+waiver after the fact by any party, and the prohibition below on re-anchoring a window to a later or
+unrelated set-commit block is unaffected. <strong>Open anchor.</strong> Which L1 fact carries
+<code>t_observed(e)</code>, and where it is stored, is <strong>not fixed by this specification</strong>:
+<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2)'s stored tuple carries only the commit
+timestamp <code>rootCommittedAt</code>, and the Inbox checkpoint record of
+<a href="04-l1-integration.html#L1-07">L1-07</a> carries the accepting L1 block number rather than that
+block's timestamp, so no existing stored value carries the epoch's production or landing time.
+Candidate anchors, to be fixed by a recorded decision before launch, are the L1 timestamp at which the
+checkpoint record for the epoch's last height <code>h_last(e)</code> is first written, or a
+production/landing marker written into the per-epoch entry once the epoch's heights are known to have
+been produced. <strong>Consequence until that anchor is defined and stored:</strong> the
+commit-anchored close remains the only enforceable condition, and after a halt longer than
+<code>W_evidence(e)</code> the resumed epochs' offences are inadmissible — their heights are produced
+after <code>evidenceClose(e)</code> — while the ledger's release gate can already have opened
+(<a href="03-membership-staking.html#MEM-05">MEM-05</a> clause 3, clause (5) below), so stake exposed to
+those epochs can be withdrawn between the offence and the moment its evidence would become admissible,
+and <a href="10-assurance.html#INV-03">INV-03</a>'s premise that the stake counting toward quorum is
+slashable is void for every such height. The liveness consequence is the same defect: an epoch with
+more than one third of its committed weight withdrawn and offline can never reach quorum, so the chain
+can wedge permanently although the L1 ledger holds a healthy bonded set. That is clause (4)'s empty
+interval — a defect, not a tuning choice — and it MUST be closed before launch. <em>This closes review
+round 3 finding R3-LIV-01: the window's close is anchored to the event that makes the offence
+observable rather than to L1 wall-clock alone, and the L1 anchor that carries it is recorded as Open
+with its consequence instead of being assumed.</em></span>
 <span class="norm">The anchor is the offence's
 epoch and its set version, never an arbitrary set-commit block: set versions may be created permissionlessly
 (MEM-09), and a later or unrelated commitment <strong>MUST NOT</strong> be used to compute, re-anchor, extend or
@@ -522,7 +593,10 @@ window. <em>(review round 1, findings ECO-04, ECO-05)</em></span>
 <span class="norm">(5) <strong>Enforcement in the ledger.</strong> <code>withdraw()</code> reverts while any open
 epoch's window has not closed or any exposure (including a pending correlated amount) is unsettled
 (<a href="03-membership-staking.html#MEM-05">MEM-05</a> clause 3, MEM-06 clause 2). The enforceable guarantee is
-therefore structural, not discretionary: stake cannot leave before the window that charges it has closed.</span>
+therefore structural, not discretionary: stake cannot leave before the window that charges it has closed.
+Until the Open production anchor of clause (1) is defined and stored, this gate is only as strong as the
+commit-anchored close: it can open for an epoch whose heights were produced after that close, which is the
+release-before-admissibility path stated as clause (1)'s consequence.</span>
 <span class="norm">(6) <strong>Do not shorten it.</strong> If the delay is judged too long, the correct response is
 to reduce the pipeline terms it covers — for example a measured, tighter proof bound or a measured L1-inclusion
 quantile — never to set <code>W_evidence</code> or <code>D_WITHDRAW</code> below the inequality (MEM-05 clause 6).

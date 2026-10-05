@@ -111,7 +111,28 @@ liveness failure that is disclosed rather than a slashing offence
 binds, production stops and the chain is in the safe-halt state until provers catch up. The cap must
 also be jointly satisfiable with the evidence window: the coupling inequality is stated normatively in
 <a href="07-economics-slashing.html#ECON-07">ECON-07</a>(7), and <code>D_MAX</code> must be reduced until
-it holds (*review round 2, finding P-R2-08*); <code>D_MAX</code> is a bound on <em>commitment creation</em>,
+it holds (*review round 2, finding P-R2-08*). It is also jointly constrained with the
+<a href="../01-requirements-and-threat-model.md">D6</a> envelope, and <code>RETENTION_WINDOW</code> is
+chosen from that constraint rather than independently: a proof that consumes the whole envelope must
+leave an unsettled depth at or below the depth at which validators stop, so
+<code>D_MAX &middot; L2_BLOCK_INTERVAL &ge; T_PROOF_ENVELOPE + T_SETTLE_PIPELINE + MARGIN_V &middot; L2_BLOCK_INTERVAL</code>,
+equivalently <code>D_MAX &minus; MARGIN_V &ge; (T_PROOF_ENVELOPE + T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL</code>
+(the margin term is <code>MARGIN_V &middot; L2_BLOCK_INTERVAL</code>, in seconds, because
+<code>MARGIN_V</code> is measured in L2 blocks). Because this rule derives <code>D_MAX</code> from
+<code>RETENTION_WINDOW</code>, the inequality is also a lower bound on the retention window: in
+particular <code>RETENTION_WINDOW</code> MUST be large enough that
+<code>floor((RETENTION_WINDOW &minus; T_PROOF_MAX_PERMITTED &minus; T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL) &minus; MARGIN_V &ge; (T_PROOF_ENVELOPE + T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL</code>
+(a sufficient form is <code>RETENTION_WINDOW &ge; T_PROOF_ENVELOPE + T_PROOF_MAX_PERMITTED + 2 &middot; T_SETTLE_PIPELINE + MARGIN_V &middot; L2_BLOCK_INTERVAL + L2_BLOCK_INTERVAL</code>),
+so the retention window is derived backwards from the inequality, never selected on its own and checked
+afterwards. If the inequality is violated, <code>D_MAX &minus; MARGIN_V</code> can be zero or negative,
+in which case no block at a positive unsettled depth may be voted and production cannot advance past
+the current checkpoint. The envelope term is D6's planning assumption
+<code>T_PROOF_ENVELOPE</code>, not <code>T_PROOF_MAX_PERMITTED</code> (the permitted bound of
+<a href="09-parameters.html#PARAM-01">09</a>): the promise is that a <em>normal</em> proof never binds
+the cap. <em>This closes review round 3 finding R3-LIV-02: HALT-03 carries the joint cap/envelope
+inequality, so a normal 30-minute proof can never trigger the cap, and
+<code>RETENTION_WINDOW</code> is stated to be chosen from that inequality rather than independently.</em>
+<code>D_MAX</code> is a bound on <em>commitment creation</em>,
 not on proving latency, and a normal proof taking the whole of the
 <a href="../01-requirements-and-threat-model.md">D6</a> envelope (up to 30 minutes, i.e. 900 blocks at
 2&nbsp;s) is <strong>not</strong> misconduct and <strong>not</strong> grounds for any recovery
@@ -205,14 +226,31 @@ that protects the decision.</li>
 <li><strong>View changes.</strong> A view change may change the proposer, but it may not unlock a
 validator that has not seen a later-round proof-of-lock-change. Therefore step (4)'s "alternative path"
 cannot produce a conflicting commit merely because the original certificate was hidden.</li>
-<li><strong>Reconfiguration.</strong> At an epoch boundary the new set must carry forward the closing
-epoch's lock (<a href="02-consensus.html#CONS-09">CONS-09</a>), and certificates are epoch-scoped and
-permanent (<a href="02-consensus.html#CONS-08">CONS-08</a>). A stakeholder that rotates keys or changes
-its stake cannot thereby escape a lock it established in the previous epoch.</li>
+<li><strong>Reconfiguration.</strong> <strong>No lock <em>state</em> crosses an epoch
+boundary.</strong> The lock is per height (<a href="02-consensus.html#CONS-04">CONS-04</a>(1)): it is
+released by that height's commit or by a strictly later same-height proof-of-lock-change, and
+<a href="02-consensus.html#CONS-09">CONS-09</a>(3) states that a validator carries no lock state from a
+height of epoch <code>e</code> into <code>e+1</code>; a lock formed at a height of <code>e</code> on a
+value that did not finalize there is resolved at that height and is not carried forward as an
+independent constraint. Cross-height continuity is therefore exactly the parent-validity condition of
+<a href="02-consensus.html#CONS-01">CONS-01</a>(iii), enforced at the boundary by the anchor duty of
+<a href="02-consensus.html#CONS-09">CONS-09</a>(1)–(2): the first block of the new epoch must descend
+from the last block finalized in the closing epoch. The handoff's protection is that a certificate is
+judged under its own epoch's set and remains valid forever
+(<a href="02-consensus.html#CONS-08">CONS-08</a>), so the closing epoch's decision is not re-judged by
+the new set and a stakeholder that rotates keys or changes its stake cannot escape it; a validator that
+equivocates across the boundary is caught by a same-<code>(height, round)</code> conflicting pair, the
+only lock-related offence with admissible evidence
+(<a href="07-economics-slashing.html#ECON-04">ECON-04</a>). <em>This closes review round 3 finding
+R3A-03: the retracted cross-height lock carry-over is removed from WH-04's reconfiguration mechanism,
+and the protection it names is the parent-validity condition plus epoch-scoped permanent certificates,
+not a surviving lock.</em></li>
 </ul>
-<span class="why">Failure mode: a design in which the alternative path <em>discards</em> the lock, or in
-which a validator-set change resets locks, in which case the reveal-later schedule succeeds and two
-irreversible histories can exist without any slashable equivocation.</span>
+<span class="why">Failure mode: a design in which the alternative path <em>discards</em> the per-height
+lock within a height, or in which a validator-set change re-judges a certificate under a new set instead
+of under its own epoch's set (<a href="02-consensus.html#CONS-08">CONS-08</a>), in which case the
+reveal-later schedule succeeds and two irreversible histories can exist without any slashable
+equivocation.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(premises: <code>A-CONS-1</code> in every epoch; correct validators enforce
 CONS-02/CONS-04; the boundary argument of CONS-09, which is the named review target F1)</span></div>

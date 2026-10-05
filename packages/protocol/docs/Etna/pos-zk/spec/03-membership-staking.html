@@ -294,9 +294,9 @@ the resulting state; no caller supplies a churn input and no separate churn rule
 R2A-06: the cap is wired into the rule that owns exit effectiveness, and the lifecycle table and ECON-03(6) state the same
 condition.</em></span>
 <span class="norm">(3) <strong>Withdrawal.</strong> The owner may withdraw only when all three hold: (a) the exit has been effective for at least <code>D_WITHDRAW</code>; (b) the
-evidence window <code>W_evidence</code> has closed for every epoch the entry was in; and (c) no unsettled or collectible slashing exposure remains
+evidence window <code>W_EVIDENCE</code> has closed for every epoch the entry was in; and (c) no unsettled or collectible slashing exposure remains
 (<a href="#MEM-06">MEM-06</a>).</span>
-<span class="norm">(4) <strong>Delay formula.</strong> <code>D_WITHDRAW ≥ T_PROOF_MAX_PERMITTED + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_process + M</code>. Every
+<span class="norm">(4) <strong>Delay formula.</strong> <code>D_WITHDRAW ≥ T_PROOF_MAX_PERMITTED + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_PROCESS + M</code>. Every
 term is <span class="pill unmeasured">unmeasured</span>; the table below states what measures each one. <code>T_L1_include(p)</code> must be a quantile, never a mean, and may not
 assume a fixed L1 slot duration (<a href="index.html#GEN-06">GEN-06</a>).</span>
 <span class="norm">(5) <strong>Why not nominal proving latency.</strong> D5 lands a batch's data and its proof in one L1 transaction, so there is <em>no</em> data-first window in
@@ -316,9 +316,7 @@ remainder — the documented withdrawal race that both Ethereum and Cosmos engin
 <table>
 <thead><tr><th>Term</th><th>Meaning</th><th>Status and what would measure it</th></tr></thead>
 <tbody>
-<tr><td><code>T_PROOF_MAX_PERMITTED</code></td><td>Upper bound on proving latency for a batch</td><td><span class="pill sourced">sourced</span> as a <em>design constraint</em> D6 (minutes
-up to 30 min = 900 L2 blocks at 2 s, derived), <strong>not measured</strong> for the target configuration; measure the wall-clock proving-time distribution of the pinned guest and
-verifier on reference hardware.</td></tr>
+<tr><td><code>T_PROOF_MAX_PERMITTED</code></td><td>Upper bound on proving latency for a batch</td><td>the <strong>single registered name</strong> for the maximum proving latency the protocol permits a batch to consume (<a href="09-parameters.html#PARAM-01">09</a>); it MUST NOT be fixed below the D6 planning envelope <code>T_PROOF_ENVELOPE</code> (30 min = 1,800 s = 900 L2 blocks at 2 s), and it is the term this rule's <code>D_WITHDRAW</code> uses, as do HALT-03's <code>D_MAX</code>, ECON-07(4)'s <code>W_EVIDENCE</code> and MEM-11(2)'s <code>WS_MAX</code>. <span class="pill unmeasured">unmeasured</span> for the target configuration; measure the wall-clock proving-time distribution of the pinned guest and verifier on reference hardware. <em>This closes review round 3 finding R3-LIV-02: the quantity was defined here as D6's 30-minute design constraint and in <a href="09-parameters.html#PARAM-01">09</a> as a different, unset quantity; it is now one name with one definition, at or above the envelope, and the joint cap inequality is registered in <a href="09-parameters.html#PARAM-01">09</a>.</em></td></tr>
 <tr><td><code>T_detect</code></td><td>Offence on L2 → a constructible evidence object in the hands of someone willing to
 submit</td><td><span class="pill unmeasured">unmeasured</span>; measure time from an L2 offence to a gossiped, complete evidence object, including the L2→L1 carrying
 step.</td></tr>
@@ -328,7 +326,7 @@ mempool-acceptance and broadcast latencies for evidence transactions.</td></tr>
 empirical inclusion-delay quantiles for comparable transactions. A mean is not acceptable.</td></tr>
 <tr><td><code>T_L1_final</code></td><td>Time for the accepting L1 transaction to reach Ethereum finality</td><td><span class="pill sourced">sourced</span> that it is an Ethereum
 property; the <em>value</em> is <span class="pill unmeasured">unmeasured</span> and must be the measured bound at design time, not a nominal constant.</td></tr>
-<tr><td><code>T_process</code></td><td>L1 processing of the evidence and application of the slash, including any deliberate grace
+<tr><td><code>T_PROCESS</code></td><td>L1 processing of the evidence and application of the slash, including any deliberate grace
 period</td><td><span class="pill unmeasured">unmeasured</span> as a choice; a governance grace period exists in production elsewhere (Polkadot, sourced), so both "immediate" and
 "delayed" are defensible and neither is measured here.</td></tr>
 <tr><td><code>M</code></td><td>Safety margin for L1 reorganisations, congestion spikes, and evidence arriving at the last
@@ -451,23 +449,23 @@ promoted-odd-node tree root</td></tr>
 <span class="norm">(1) <strong>Publication and the append gate.</strong> Set versions are append-only. <code>commitSet()</code> takes no arguments and may be called by anyone; each successful call
 appends exactly one entry to the L1 <strong>per-epoch mapping</strong> <code>epoch → (setRoot, totalVotingPower, rootCommittedAt)</code> (clause (2)), namely the entry for the lowest epoch in the
 L1-committed schedule (<a href="02-consensus.html#CONS-13">CONS-13</a>(2)) that has no entry — in steady state that is the entry for
-epoch <code>e+2</code>, appended during the current epoch <code>e</code>, and the lowest-missing rule exists only to refill an epoch
+epoch <code>e+2</code>, appended during the current <em>L1-side</em> epoch <code>e</code> of <a href="02-consensus.html#CONS-13">CONS-13</a>(1), and the lowest-missing rule exists only to refill an epoch
 whose append was skipped. Its contents are fixed by the contract: the root, the total and the commit timestamp of the ledger
 state <em>at the moment of the call</em>, inside the L1 block <code>N(k)</code> that includes the call. The caller chooses nothing — not the epoch, not the entries, not the total, not the
 block's position in the block (which only affects which earlier transactions of that block are included). A ledger mutation in a later transaction of the same block does not affect
 <code>R_k</code>. A call MUST revert if the epoch's entry already exists (append-only; no overwrite), and MUST revert if the entry it would append is for an epoch later than
-<code>e+2</code>, where <code>e</code> is the epoch the L1-committed schedule has currently reached; the two-epoch lead is therefore the maximum, which stops any party from
-pre-committing far-future sets that could not include later activations.</span>
-<span class="norm"><strong>Two-epoch lookahead; the gate is L1 time, never L2 progress.</strong> The append MUST NOT be conditioned on the Inbox's last accepted L2 height, or on any
+<code>e+2</code>, where <code>e</code> is the L1-side epoch the L1-block clock of <a href="02-consensus.html#CONS-13">CONS-13</a>(1) has currently reached; the two-epoch lead is therefore the maximum <em>in that schedule</em>, which stops any party from
+pre-committing far-future sets that could not include later activations. The lead is a bound in the L1-side schedule, not in L2 heights: the L1 clock does not wait for the L2, so after an L2 halt entries for more than two L2 epochs may already exist when the L2 resumes; each was fixed before its epoch began and is immutable, and the resumed chain consumes them in order because the entry rule of <a href="02-consensus.html#CONS-13">CONS-13</a>(2) still forbids entering any epoch before its L1-side start. <em>This closes review round 3 finding R3A-01: the append's epoch is the L1-side epoch of an anchored L1-block clock, and the lead is stated as a bound in that schedule rather than as an unqualified bound in L2 epochs.</em></span>
+<span class="norm"><strong>Two-epoch lookahead; the gate is the L1-block clock, never L2 progress.</strong> The append MUST NOT be conditioned on the Inbox's last accepted L2 height, or on any
 other L2-derived value: under D5 that height lags production by the whole proving pipeline, and keying the append to it stops production at every epoch boundary. The contract derives
-the epoch <code>e</code> from the L1-committed schedule and L1 block time alone, so during epoch <code>e</code> the entry for epoch <code>e+2</code> is appended — the <strong>two-epoch
-lookahead</strong> of <a href="02-consensus.html#CONS-13">CONS-13</a>(3). The lead is normative, not a convention: <code>2 · E_EPOCH ≥ T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE +
+the epoch <code>e</code> from the L1-block schedule of <a href="02-consensus.html#CONS-13">CONS-13</a>(1) — the clock anchored at <code>L1_0</code> and recorded in the activation record — and from nothing else, so during the L1-side epoch <code>e</code> the entry for epoch <code>e+2</code> is appended — the <strong>two-epoch
+lookahead</strong> of <a href="02-consensus.html#CONS-13">CONS-13</a>(3). <strong>The append is an obligation with a deadline and a self-healing rule.</strong> <code>commitSet()</code> stays permissionless and takes no arguments, but the entry for the next uncovered epoch MUST be appended no later than one <code>EPOCH_LEN_L1</code> after it becomes coverable — in steady state, before the L1-side clock reaches epoch <code>e+1</code> — and anyone may perform that obligation by calling <code>commitSet()</code>. A missed append MUST be restorable by a later call: the lowest-missing rule above refills the skipped epoch, and any later call may restore the full lead, so one missed call cannot permanently reduce the design to a one-epoch lead. The operative steady-state inequality is <code>E_EPOCH_L1 &ge; L1_FINALITY + margin</code> with <code>E_EPOCH_L1 = EPOCH_LEN_L1 · L1_BLOCK_INTERVAL</code>: an entry appended at the last permitted moment still has one full L1-side epoch to become Ethereum-final before the L2 may enter the epoch it governs, and the two-epoch rule gives one full epoch of slack on top of that. The lead is normative, not a convention: <code>2 · E_EPOCH ≥ T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE +
 L1_FINALITY + margin</code>, where <code>E_EPOCH</code> is the epoch duration, <code>T_PROOF_MAX_PERMITTED</code> is the maximum proving latency the protocol permits a batch,
 <code>T_SETTLE_PIPELINE</code> is the settlement pipeline term, <code>L1_FINALITY</code> is the time for the commit transaction to become Ethereum-final and <code>margin</code> is the
 lookahead safety margin. The inequality is why two epochs suffice: an entry committed during <code>e</code> reaches Ethereum finality before <code>e+2</code> begins even when proving and
 settlement are at their permitted worst case, so the epoch boundary no longer waits on settlement progress. The terms are unmeasured and registered in
 <a href="09-parameters.html#PARAM-01">09</a>. If the Inbox cannot accept a batch in epoch <code>e</code>, the append for <code>e+2</code> is <em>not</em> blocked by that fact; what halts
-an epoch is the absence of the entry for <em>that</em> epoch when it is entered (clause (5)). <em>(review round 2, finding R2A-01)</em></span>
+an epoch is the absence of the entry for <em>that</em> epoch when it is entered (clause (5)). <span class="pill open">Open</span> <strong>Enforcement.</strong> Who pays for the append call and whether a keeper bounty exists is not decided; the consequence if no one calls is that the lead degrades to one epoch, the obligation window is missed, and the boundary halt of clause (5) becomes reachable — the entry remains appendable and restorable by anyone, so the state is recoverable without any rule change, but production stops at the boundary until a caller appends the missing entry and it becomes Ethereum-final. <em>This closes review round 3 finding R3A-02: the append now has a deadline, a permissionless performer and a restoration rule, the steady-state inequality actually in force <code>E_EPOCH_L1 &ge; L1_FINALITY + margin</code> is registered in <a href="09-parameters.html#PARAM-01">09</a>, and the enforcement question is marked Open with its consequence.</em> <em>(review round 2, finding R2A-01)</em></span>
 <span class="norm">(2) <strong>Which set governs epoch <code>e</code> — resolved on L1, not from an L2 view.</strong> The L1 staking contract stores the append-only mapping
 <code>epoch → (setRoot, totalVotingPower, rootCommittedAt)</code>. <code>mapping[e]</code> is the validator set of epoch <code>e</code>: <code>setRoot</code> is <code>R_k</code> for the version
 <code>k</code> recorded by the same L1 transaction (<code>setVersion(e)</code>), <code>totalVotingPower</code> is <code>Σ_i effStake_i</code> of that version, and
@@ -491,10 +489,10 @@ halts (<a href="02-consensus.html#CONS-15">CONS-15</a>) rather than choosing.</s
 <span class="norm">(5) <strong>Ethereum-finality requirement and the halt condition.</strong> No L2 consensused state may depend on a non-final L1 fact
 (<a href="01-system-model.html#SYS-02">SYS-02</a>), so <code>mapping[e]</code> must be Ethereum-final before any block of epoch <code>e</code> may be finalized; a validator must not
 produce the first block of epoch <code>e</code> unless <code>mapping[e]</code> is already Ethereum-final. <strong>The halt condition is the entry for the epoch being entered, and only
-that entry.</strong> If <code>mapping[e]</code> is absent — or not yet Ethereum-final — when the L2 reaches <code>h_first(e)</code>, the validators do not start the epoch: they hold the
+that entry.</strong> If <code>mapping[e]</code> is absent — or not yet Ethereum-final — when the L2 reaches <code>h_first(e)</code> <em>and</em> the L1-side clock of <a href="02-consensus.html#CONS-13">CONS-13</a>(1) has reached <code>L1_first(e)</code> — that is, at the moment of entry — the validators do not start the epoch: they hold the
 current epoch open or halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>, <a href="02-consensus.html#CONS-15">CONS-15</a>). A missing entry for a <em>future</em> epoch is
 <strong>not</strong> a halt condition: under the two-epoch lookahead of clause (1), <code>mapping[e+1]</code> or <code>mapping[e+2]</code> may legitimately not exist yet while epoch
-<code>e</code> produces, and the absence of <code>mapping[e+1]</code> becomes a halt only when the L2 reaches <code>h_first(e+1)</code>. They must never fall back to "the latest root the
+<code>e</code> produces, and the absence of <code>mapping[e+1]</code> becomes a halt only when the L2 reaches <code>h_first(e+1)</code>. The halt condition is evaluated at the moment of entry and at no earlier moment. <em>This closes review round 3 finding R3A-01: the halt is evaluated on the anchored L1-block clock at the moment of entry, and a missing future entry never halts.</em> They must never fall back to "the latest root the
 proposer has seen". The epoch length and the handoff schedule that make this a <em>two-epoch</em> lookahead in steady state are <a href="02-consensus.html#CONS-13">CONS-13</a>'s; this clause
 supplies the membership-side predicate <code>CONS-13</code> must satisfy: <strong>the entry governing an epoch is appended two epochs earlier and is Ethereum-final strictly before that
 epoch starts</strong>.</span>
@@ -550,7 +548,7 @@ no checkpoint provider role is introduced. The reason is that this checkpoint is
 publicly auditable, and it is exactly what L1 will accept as a predecessor — a node needs an L1 view anyway to verify settlement
 (<a href="../research/mode-a-feasibility-analysis.md">mode-a-feasibility-analysis.md</a> §C5).</span>
 <span class="norm">(2) <strong>Freshness window.</strong> A node must not bootstrap from a checkpoint older than <code>WS_MAX</code>, where <code>WS_MAX ≤ D_WITHDRAW − (T_detect +
-T_evidence_submit + T_L1_include(p) + T_L1_final + T_process) − M_ws</code>. The derivation: an offence committed at the checkpoint's epoch remains slashable only until the
+T_evidence_submit + T_L1_include(p) + T_L1_final + T_PROCESS) − M_ws</code>. The derivation: an offence committed at the checkpoint's epoch remains slashable only until the
 offender's stake can be released, which is at least <code>D_WITHDRAW</code> after its exit (<a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a>); if the anchor is older than
 that minus the time it takes to land evidence, then a checkpoint's signers may already be beyond reach and the anchor no longer carries the slashing guarantee it is trusted for.
 Substituting <a href="#MEM-05">MEM-05</a> clause 4 gives the <strong>derived</strong> upper bound <code>WS_MAX ≤ T_PROOF_MAX_PERMITTED + M − M_ws</code>. Every term is
@@ -652,7 +650,7 @@ entry</td><td><span class="pill unmeasured">unmeasured</span>; needs <code>T_L1_
 never a filter, a selection rule or a fairness guarantee</td><td><a href="#MEM-03">MEM-03</a></td></tr>
 <tr><td><code>D_WITHDRAW</code></td><td>Unbonding delay from the moment the exit takes effect</td><td><span class="pill unmeasured">unmeasured</span>; formula in
 <a href="#MEM-05">MEM-05</a></td><td><a href="#MEM-05">MEM-05</a></td></tr>
-<tr><td><code>W_evidence</code></td><td>Window in which evidence for an epoch's offence can still be submitted</td><td><span class="pill unmeasured">unmeasured</span>; bounded
+<tr><td><code>W_EVIDENCE</code></td><td>Window in which evidence for an epoch's offence can still be submitted</td><td><span class="pill unmeasured">unmeasured</span>; bounded
 below by <a href="07-economics-slashing.html#ECON-07">ECON-07</a>'s formula, which requires the window to cover the whole settlement pipeline from the offence to the earliest detection (including <code>T_replay</code> for non-equivocation faults, economics-raw.md §3.3); the formula is not restated here</td><td><a href="#MEM-05">MEM-05</a>, <a href="#MEM-06">MEM-06</a></td></tr>
 <tr><td><code>WS_MAX</code></td><td>Maximum age of an L1 checkpoint a node may bootstrap from</td><td><span class="pill derived">derived</span> upper bound <code>T_PROOF_MAX_PERMITTED + M
 − M_ws</code>; inputs <span class="pill unmeasured">unmeasured</span></td><td><a href="#MEM-11">MEM-11</a></td></tr>
