@@ -61,12 +61,23 @@ else
 fi
 
 COMPOSE_FILE="${TAIKO_TEST_COMPOSE_FILE:-tests/docker/docker-compose.test.yaml}"
+COMPOSE_ARGS=(-f "$COMPOSE_FILE")
+if [[ "${ETNA_BOUNDARY:-false}" == "true" ]]; then
+    # Pin L1 genesis two hours in the past and activate Etna one hour later, so the boundary
+    # test crosses it by moving L1 time. The in-process client reads the same
+    # DEVNET_ETNA_TIMESTAMP through ShastaEnv.
+    L1_START_TIMESTAMP=$(( $(date +%s) - 7200 ))
+    DEVNET_ETNA_TIMESTAMP=$(( L1_START_TIMESTAMP + 3600 ))
+    export L1_START_TIMESTAMP DEVNET_ETNA_TIMESTAMP
+    COMPOSE_ARGS+=(-f tests/docker/docker-compose.etna.yaml)
+    echo "Etna boundary: L1 start ${L1_START_TIMESTAMP}, Etna ${DEVNET_ETNA_TIMESTAMP}"
+fi
 cleanup() {
-    "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" down -v
+    "${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" down -v
 }
 
 echo "Starting docker compose services..."
-"${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" up -d
+"${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" up -d
 trap cleanup EXIT
 
 # Wait for an RPC endpoint to accept requests, bounded so a container that never
@@ -76,7 +87,7 @@ wait_for_rpc() {
     until cast chain-id --rpc-url "$url" > /dev/null 2>&1; do
         if (( SECONDS >= deadline )); then
             echo "ERROR: $name ($url) not ready after 120s"
-            "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" logs --tail=100
+            "${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" logs --tail=100
             exit 1
         fi
         sleep 1

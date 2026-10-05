@@ -4,8 +4,9 @@
 # Images default to pulling their moving tags on every run so CI always tests
 # against the current alethia-reth main; for fast local iteration export
 # PULL_POLICY=missing to reuse the images already present on the daemon.
+# ALETHIA_RETH_IMAGE overrides the image of both L2 nodes.
 x-l2-node: &l2-node
-  image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
+  image: ${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:main}
   pull_policy: ${PULL_POLICY:-always}
   volumes:
     - .:/host
