@@ -42,17 +42,30 @@ specification-level convergence is made. See [`iterations/01-round.md`](iteratio
 **closed** on re-attack; the single quorum predicate, single validator-set encoding, leader selection,
 epoch→root resolution and the atomic-submission rule were verified as fixed.
 
-**Round 3 (snapshot `3b0821f2f`, four fresh reviewers, all five angles): 0 Critical, 11 High, 17 Medium,
-8 Low** — a material improvement over round 2 (6 Critical, 23 High), and **no reviewer has found a
-two-conflicting-finalized-histories attack inside the fault model in any round**. The eleven Highs are all
-inside the fault model and most need no adversary; fixes were applied for nine of them and the remainder
-are recorded as open in `iterations/03-round.md`. Because eleven new Highs were raised, round 3 is **not**
-clean, the consecutive-clean-round count is **zero**, and the specification remains **not converged**.
+**Round 4 (snapshot `fe7373a13`, four fresh reviewers, all five angles, one of them the review D2 requires):
+4 Critical, 14 High, 14 Medium, 3 Low.** The design is **blocked on the recovery mechanism**, and the
+round-4 evidence is the reason:
 
-**What would finish the job:** rounds 4 and 5 as full-design rounds on frozen snapshots with fresh
-reviewers covering all five angles and no new Critical or High — four of the eight permitted rounds remain.
-Several round-3 Highs were introduced by the previous round's own amendments, so the amendment process
-itself needs a consistency pass before the next round.
+- **D2 step 5 is unmet** — the resistance claim is not quantified, and the specification converted that
+  blocker into disclosure text, which step 5 forbids.
+- **The recovery authorization is a tautology** (two angles, one root cause): no signed object carries the
+  recovery generation, so a discarded-but-certified branch can be re-proven under the new generation and
+  landed against the restored checkpoint. Discarded history can be reinstated by one permissionless prover.
+- **The fee sweep can be redirected to the caller** (upgraded to Critical on adjudication): D-8 made the
+  sweep permissionless but never specified its L1 bridge message, and the preserved Bridge pays a
+  caller-chosen owner. Since the sweep is the security budget, that is a fund redirection needing no adversary.
+- **The bond is refunded on success**, the trigger can be reached by rational inaction (an empty pool, and
+  `land` may pay zero), locks above the restored checkpoint survive and can wedge the chain, and a routine
+  upgrade can blank provisional history because `configHash` has no per-epoch registry.
+
+Round 4 is therefore **not** clean, the consecutive-clean-round count is **zero**, and the specification
+remains **not converged**. No reviewer has produced two conflicting *certificates* inside the fault model
+in any round — the consensus core still holds — but the recovery design that D-7 selected does not work as
+specified. See `iterations/04-round.md`.
+
+**Next:** `05-phase-b-plan.md` — the measurement spikes and the recovery repair, which run in parallel
+because the repair needs the numbers. Four of the eight permitted review rounds remain; the D2 review must
+be re-run on a repaired design before the selection can be called settled.
 
 | Question | Answer |
 |----------|--------|
