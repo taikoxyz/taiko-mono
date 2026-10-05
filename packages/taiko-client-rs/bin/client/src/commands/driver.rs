@@ -50,6 +50,7 @@ impl Subcommand for DriverSubCommand {
     /// Run the driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
+        self.common_flags.apply_devnet_fork_overrides();
         self.init_metrics()?;
 
         let cfg = self.build_config()?;
