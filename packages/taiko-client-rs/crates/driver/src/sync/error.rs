@@ -1,6 +1,6 @@
 //! Synchronization error types.
 
-use alloy::primitives::B256;
+use alloy::primitives::{B256, U256};
 use anyhow::Error as AnyhowError;
 use rpc::RpcClientError;
 use thiserror::Error;
@@ -116,6 +116,33 @@ pub enum EngineSubmissionError {
     /// Execution engine failed to return the inserted block via RPC.
     #[error("inserted block {0} not found via rpc provider")]
     MissingInsertedBlock(u64),
+    /// The target block is before Unzen (or its fork schedule cannot be resolved): the Osaka
+    /// Engine API methods neither build nor import pre-Unzen blocks.
+    #[error(
+        "cannot build block {block_number} (timestamp {timestamp}, chain {chain_id}) through the \
+         Engine API: it is before Unzen; pre-Unzen history can only come from P2P sync or a \
+         snapshot"
+    )]
+    PreUnzenTarget {
+        /// Number of the rejected target block.
+        block_number: u64,
+        /// Timestamp of the rejected target block.
+        timestamp: u64,
+        /// Chain id whose fork schedule was consulted.
+        chain_id: u64,
+    },
+    /// `engine_getPayloadV5` returned a `blockValue` (the block's zk gas) that does not fit the
+    /// u64 `headerDifficulty` of `engine_newPayloadV4`.
+    #[error(
+        "getPayloadV5 blockValue {block_value} of block {block_number} exceeds the u64 header \
+         difficulty range"
+    )]
+    HeaderDifficultyOverflow {
+        /// Number of the built block.
+        block_number: u64,
+        /// `blockValue` returned by the engine.
+        block_value: U256,
+    },
     /// The canonical block read back after promotion does not match the submitted payload.
     #[error("inserted block {block_number} hash mismatch: expected {expected}, got {actual}")]
     InsertedBlockHashMismatch {
