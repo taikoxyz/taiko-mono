@@ -9,8 +9,29 @@
 
 ## Current verdict
 
-**Mode A is feasible and selected, and the architecture satisfies the hard requirements under the
-stated assumptions — at specification level.**
+**Architecture level: answered.** Mode A is feasible and selected, and the chosen architecture
+(permissionless TAIKO-staked L2 PoS + combined ZK proof of consensus finality and execution, with data
+and proof in one L1 transaction) satisfies the hard requirements **under the stated assumptions**.
+
+**Specification level: NOT CONVERGED — the result is labelled _incomplete_.** Two full adversarial
+review rounds were run on frozen snapshots with four independent reviewers each. Round 1 found
+6 Critical and 28 High findings; the fixes were applied. Round 2, on the fixed snapshot, found
+**6 new Critical and 23 new High** findings, all inside the claimed fault model. Two of the six
+round-2 Criticals were fixed in revision while the round closed; four remain open, and none of those
+fixes has been re-reviewed. The consecutive-clean-round count is therefore **zero**, and no claim of
+specification-level convergence is made. See [`iterations/01-round.md`](iterations/01-round.md) and
+[`iterations/02-round.md`](iterations/02-round.md) for the finding ledgers and dispositions.
+
+**What stands regardless:** the round-1 Critical blob-binding attack was independently verified as
+**closed** on re-attack; the single quorum predicate, single validator-set encoding, leader selection,
+epoch→root resolution and the atomic-submission rule were verified as fixed.
+
+**Open Critical defects that block convergence:** a forced-inclusion payload that cannot be a valid L2
+transaction can permanently block production (R2-LIV-01); the two-sided timestamp bound acts as an
+unstated landing deadline that a normal 30-minute proof makes unsatisfiable (R2-LIV-03); consumption
+scope is not closed between per-block and per-batch readings (R2-LIV-04); and the epoch lookahead gate
+stops production for at least one Ethereum finality period at every epoch boundary, contradicting D1/D6
+(R2A-01).
 
 | Question | Answer |
 |----------|--------|

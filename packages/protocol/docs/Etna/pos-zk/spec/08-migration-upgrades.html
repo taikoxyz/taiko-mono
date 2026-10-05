@@ -82,7 +82,7 @@ accept that state as its own past (<a href="#GOV-03">GOV-03</a>).</p>
 <text x="522" y="36" fill="#9aa7b4" font-size="10">T3 DAO bundle</text>
 <path d="M500,104 C500,150 300,150 200,116" fill="none" stroke="#e0af68" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arw)"/>
 <text x="250" y="166" fill="#e0af68" font-size="10">T2b unfreezeToFrozen() — only from DRAINED, migration-only selector</text>
-<text x="8" y="24" fill="#9aa7b4" font-size="10">prove() callable in states 0–2; land(data, proof) callable in state 3 only — never both.</text>
+<text x="8" y="24" fill="#9aa7b4" font-size="10">prove() callable in states 0–1 (SHASTA_ACTIVE, FROZEN) and disabled from DRAINED (T2); land(data, proof) callable in state 3 only — never both.</text>
 </g>
 </svg>
 <figcaption>Normative transitions, guards and effects are the table below; the diagram is a reading aid.</figcaption>
@@ -97,30 +97,40 @@ accept that state as its own past (<a href="#GOV-03">GOV-03</a>).</p>
 <td>The bundle installs the migration implementation and calls <code>freeze()</code> in the same
 transaction; <code>_coreState.nextProposalId &gt; 0</code>; sets <code>frozenAtL1Block = uint48(block.number)</code>. No pre-existing slot is written.</td>
 <td><code>propose()</code> and <code>saveForcedInclusion()</code> revert <code>MigrationFrozen()</code>;
-<code>prove()</code> is unchanged.</td></tr>
+<code>prove()</code> is unchanged but remains callable only in <code>SHASTA_ACTIVE</code> and this state:
+T2 disables it (MIG-03(1)).</td></tr>
 <tr><td>T2</td><td><code>FROZEN</code> (1) → <code>DRAINED</code> (2)</td><td>anyone,
 permissionlessly, via <code>finishDrain()</code></td>
 <td><code>migrationState == FROZEN</code> <strong>and</strong>
 (<code>forcedInclusionHead == forcedInclusionTail</code>) <strong>and</strong> (<code>_coreState.lastFinalizedProposalId == _coreState.nextProposalId - 1</code>
 <strong>or</strong> <code>block.number &gt;= frozenAtL1Block + DRAIN_DEADLINE</code>)</td>
-<td><code>prove()</code> reverts <code>MigrationDrained()</code> permanently (unless T2b);
-legacy bond withdrawal and forced-inclusion refunds stay callable.</td></tr>
+<td><code>drainedAtL1Block = uint48(block.number)</code> is recorded; <code>prove()</code> reverts
+<code>MigrationDrained()</code> permanently (unless T2b), so the legacy path is disabled from this
+transition and no legacy checkpoint can be written in <code>DRAINED</code>; legacy bond withdrawal and
+forced-inclusion refunds stay callable.</td></tr>
 <tr><td>T2b</td><td><code>DRAINED</code> (2) → <code>FROZEN</code> (1)</td><td>DAO bundle only</td>
 <td><code>migrationState == DRAINED</code>; re-entry of <code>freeze()</code> sets a new
-<code>frozenAtL1Block</code>. Legal because no rule has ever accepted new history in
-<code>DRAINED</code>.</td>
+<code>frozenAtL1Block</code> and clears <code>drainedAtL1Block</code>. Legal because no rule accepts new
+history in <code>DRAINED</code>: <code>prove()</code> reverts there (T2, MIG-03(1)).</td>
 <td><code>prove()</code> becomes callable again; no checkpoint, signal, message status or balance is
 touched. The selector is absent once <code>ETNA_ACTIVE</code> is reached.</td></tr>
 <tr><td>T3</td><td><code>DRAINED</code> (2) → <code>ETNA_ACTIVE</code> (3)</td><td>DAO bundle:
 <code>activateEtna(B*, S*)</code> in the same transaction that installs the settlement
 implementation</td>
-<td><code>migrationState == DRAINED</code>; <code>_coreState.lastFinalizedProposalId &gt; 0</code>;
+<td><code>migrationState == DRAINED</code>; <code>block.number &ge; drainedAtL1Block + L1_FINALITY_DEPTH</code>
+(the boundary is an Ethereum-final L1 fact: <code>prove()</code> is disabled in <code>DRAINED</code>, so
+the last legacy checkpoint write is at least that deep — MIG-01, MIG-03(1)(b));
+<code>_coreState.lastFinalizedProposalId &gt; 0</code>;
 <code>signalService.getCheckpoint(B*).blockHash == _coreState.lastFinalizedBlockHash</code>;
 <code>signalService.getCheckpoint(B*).stateRoot == S*</code>; the staking contract reports a non-zero
 epoch-0 set root</td>
-<td><code>land(data, proof)</code> becomes callable; <code>prove()</code> is disabled forever;
-<code>(B*, S*, H*)</code> is written to Inbox slots 259–260. <code>B*</code> is <em>derived</em> by the
-equality above, never chosen by the bundle.</td></tr>
+<td><code>land(data, proof)</code> becomes callable; <code>prove()</code> is disabled forever: from this
+transition the legacy selector MUST be absent or MUST revert unconditionally, and no function may import
+a legacy checkpoint, proposal or proof into the Inbox or the SignalService. The boundary object is
+written as the <em>first legal L1-07 checkpoint record</em> with <code>lastLandedHeight = B*</code>
+(<a href="#genesis-record">&sect;genesis record</a>); <code>(B*, S*, H*)</code> occupy the
+migration/genesis slots 258–260. <code>B*</code> is <em>derived</em> by the equality above, never chosen
+by the bundle.</td></tr>
 </tbody></table>
 <div class="card small">
 <p><strong>If a transition stalls, the honest behaviour.</strong></p>
@@ -143,15 +153,19 @@ forbids any rule that invalidates a PoS-finalized block (<a href="index.html#STA
 </div>
 <h2 id="rules">Normative rules</h2>
 <div class="rule" id="MIG-01"><span class="rid">MIG-01 — migration boundary and preserved addresses</span>
-<span class="norm">The migration boundary is the last Shasta state accepted on L1 before the freeze,
+<span class="norm">The migration boundary is the last Shasta state accepted on L1 that is Ethereum-final at activation —
 the 4-tuple <code>(C*, B*, H*, S*)</code> where <code>C*</code> is the L2 chain id, <code>B*</code> the L2 block number of the last checkpoint written into the preserved L1 SignalService by a successful
-<code>Inbox.prove()</code> (<code>Inbox.sol:364-370</code>), <code>H*</code> the L2 block hash recorded
-for <code>B*</code>, and <code>S*</code> its L2 state root. <code>B*</code> is identified on-chain by the equality <code>_checkpoints[VERSION][B*].blockHash == IInbox.CoreState.lastFinalizedBlockHash</code> and <code>S*</code> by <code>_checkpoints[VERSION][B*].stateRoot</code>; the bundle supplies
+<code>Inbox.prove()</code> (<code>Inbox.sol:364-370</code>) before T3, <code>H*</code> the L2 block hash recorded
+for <code>B*</code>, and <code>S*</code> its L2 state root. "Last" is bounded by time, not chosen: T3
+additionally requires the write to be at least <code>L1_FINALITY_DEPTH</code> L1 blocks old because
+<code>prove()</code> is disabled in <code>DRAINED</code> (MIG-03(1)(b)), so the boundary is an
+Ethereum-final L1 fact rather than a tip the bundle can pick. <code>B*</code> is identified on-chain by the equality <code>_checkpoints[VERSION][B*].blockHash == IInbox.CoreState.lastFinalizedBlockHash</code> and <code>S*</code> by <code>_checkpoints[VERSION][B*].stateRoot</code>; the bundle supplies
 <code>(B*, S*)</code> and T3 reverts unless both equalities hold, so the boundary is derived from the
 finalized tip and never chosen. Uniqueness of <code>B*</code> rests on keccak-256 collision resistance (A-CRYPTO-3) and on the monotonicity of <a href="04-l1-integration.html#L1-06">L1-06</a>. The starting point is the deployed system at revision <code>7718753c1</code>: an Inbox with two separate entry points, <code>propose()</code> (<code>Inbox.sol:270-290</code>) and <code>prove()</code> (<code>Inbox.sol:321-400</code>), i.e. the data-first path D5 forbids; a disabled bond mechanism (<code>minBond = 0</code>, <code>livenessBond = 0</code>, <code>MainnetInbox.sol:37-38</code>) whose liveness settlement is additionally suppressed while a prover whitelist is enabled (<code>Inbox.sol:356-359</code>); a <code>ProverWhitelist</code> gating <code>prove()</code> (<code>Inbox.sol:337,771-779</code>; mainnet <code>0xEa798547d97e345395dA071a0D7ED8144CD612Ae</code>); a <code>PreconfWhitelist</code> as <code>IProposerChecker</code> selecting one operator per epoch (<code>PreconfWhitelist.sol:136-140</code>; mainnet <code>0xFD019460881e6EeC632258222393d5821029b2ac</code>); and a forced-inclusion queue already voided by the owner-only <code>init3()</code> via
 <code>head = tail</code> (<code>Inbox.sol:253-258</code>, called on mainnet in the Proposal0019 bundle,
 <code>deployments/mainnet-contract-logs-L1.md:222-223</code>).
-<strong>State that migrates</strong> (read once at T3, written to Inbox slots 258–260, then frozen and
+<strong>State that migrates</strong> (read once at T3, written to the migration/genesis slots 258–260 and
+— as the genesis checkpoint record — into the L1-07 checkpoint map of slot 264 (<a href="#genesis-record">&sect;genesis record</a>, MIG-02), then frozen and
 never re-interpreted): <code>H*</code>; the L1 SignalService checkpoint record for <code>B*</code>; the existing TAIKO ERC-20 balances at the preserved token address
 <code>0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800</code>, which are neither moved nor rewritten (new
 stake custody is a new L1 staking contract holding TAIKO via <code>transferFrom</code>,
@@ -208,13 +222,6 @@ auto-generated layout files at <code>7718753c1</code>.</p>
 <thead><tr><th>Contract</th><th>Required change</th><th>New state (slot)</th><th>Slots consumed</th><th>Gap after</th></tr></thead>
 <tbody>
 <tr><td>Inbox (L1)</td><td>Replace <code>propose()</code>/<code>prove()</code> with one atomic
-<code>land(data, proof)</code> (<a href="04-l1-integration.html#L1-01">L1-01</a>); add
-<code>freeze()</code>/<code>finishDrain()</code>/<code>activateEtna()</code> and the state gate of
-T1–T3; add the legacy <code>withdrawLegacyBond</code>/<code>refundForcedInclusion</code> selectors that read slots 257 and 255–256 in place; drop the ProverWhitelist and IProposerChecker calls</td>
-<td><code>migrationState</code>+<code>frozenAtL1Block</code>+<code>genesisL2BlockNumber</code>+<code>genesisTimestamp</code> (258);
-<code>genesisL2BlockHash</code> (259); <code>genesisL2StateRoot</code> (260);
-<code>acceptedProgramImage</code> map (261); <code>epochSetRoot</code> map (262);
-<code>lastAcceptedEpoch</code>+<code>lastAcceptedL2Block</code> (263)</td><td><strong>6</strong></td><td><strong>37</strong></td></tr>
 <tr><td>SignalService (L1 and L2)</td><td>No state change. The implementation is re-deployed with the
 <em>same</em> immutable values (<code>_authorizedSyncer</code>, <code>_remoteSignalService</code>,
 <code>VERSION = 1</code>) and the same checkpoint semantics; adding a monotone high-water mark is a
