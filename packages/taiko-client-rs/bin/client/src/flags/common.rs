@@ -84,14 +84,6 @@ pub struct CommonArgs {
         help = "Address to bind Prometheus metrics server"
     )]
     pub metrics_addr: String,
-    /// Override Unzen fork time for Taiko internal devnet (timestamp).
-    #[clap(
-        long = "devnet-unzen-timestamp",
-        env = "DEVNET_UNZEN_TIMESTAMP",
-        default_value_t = 0,
-        help = "Override Unzen fork time for Taiko internal devnet (timestamp). Must match the value passed to alethia-reth's --devnet-unzen-timestamp. Defaults to 0."
-    )]
-    pub devnet_unzen_timestamp: u64,
 }
 
 impl CommonArgs {
@@ -196,7 +188,6 @@ mod tests {
             metrics_enabled: false,
             metrics_port: 9090,
             metrics_addr: "0.0.0.0".to_string(),
-            devnet_unzen_timestamp: 0,
         };
 
         assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
@@ -237,31 +228,18 @@ mod tests {
         assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
     }
 
+    /// The devnet activates Unzen at genesis in the chainspec, so the old override flag is gone
+    /// and passing it fails startup instead of being silently ignored.
     #[test]
-    fn parses_devnet_unzen_timestamp_flag() {
+    fn rejects_removed_devnet_unzen_timestamp_flag() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let _clear_dut = EnvGuard::unset("DEVNET_UNZEN_TIMESTAMP");
         let mut argv: Vec<&'static str> = required_args().to_vec();
         argv.extend(["--l1.http", "http://localhost:8545"]);
-        argv.extend(["--devnet-unzen-timestamp", "12345"]);
+        argv.extend(["--devnet-unzen-timestamp", "5"]);
 
-        let args =
-            CommonArgs::try_parse_from(argv).expect("devnet unzen timestamp flag should parse");
+        let err = CommonArgs::try_parse_from(argv).expect_err("removed flag must be rejected");
 
-        assert_eq!(args.devnet_unzen_timestamp, 12345);
-    }
-
-    #[test]
-    fn devnet_unzen_timestamp_defaults_to_zero() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _clear = clear_l1_env();
-        let _clear_dut = EnvGuard::unset("DEVNET_UNZEN_TIMESTAMP");
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
-
-        let args = CommonArgs::try_parse_from(argv).expect("default parse should succeed");
-
-        assert_eq!(args.devnet_unzen_timestamp, 0);
+        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
     }
 }

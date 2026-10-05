@@ -14,9 +14,7 @@ pub use anchor::{
     validate_anchor_transaction,
 };
 pub use blob_coder::BlobCoder;
-pub use constants::{
-    set_devnet_unzen_override, unzen_active_for_chain_timestamp, unzen_fork_timestamp_for_chain,
-};
+pub use constants::{unzen_active_for_chain_timestamp, unzen_fork_timestamp_for_chain};
 pub use error::{ProtocolError, Result};
 pub use payload_helpers::{
     PayloadAttributesInput, build_payload_attributes, build_payload_attributes_with_id,
