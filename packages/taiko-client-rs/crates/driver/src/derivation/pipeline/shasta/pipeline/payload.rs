@@ -1173,7 +1173,10 @@ mod tests {
     use bindings::anchor::ICheckpointStore::Checkpoint;
     use protocol::{
         FixedKSigner,
-        shasta::constants::{TAIKO_DEVNET_CHAIN_ID, min_base_fee_for_chain},
+        shasta::{
+            constants::{TAIKO_DEVNET_CHAIN_ID, min_base_fee_for_chain},
+            parent_manifest_gas_limit,
+        },
     };
 
     use super::super::sample_meta;
@@ -1473,6 +1476,107 @@ mod tests {
                 "unexpected error: {err:?}"
             );
         }
+    }
+
+    /// Run a one-block forced-inclusion segment through manifest preparation (inheritance and
+    /// validation) and block preparation on `state`.
+    ///
+    /// The raw block is valid on its own (anchor 55, the parent's manifest gas limit), so
+    /// skipping inheritance would derive it as is rather than fall back to a default manifest.
+    async fn prepare_forced_inclusion(
+        pipeline: &ShastaDerivationPipeline,
+        state: &ParentState,
+    ) -> BlockDerivationContext {
+        let meta = sample_meta();
+        let mut raw =
+            manifest_block(1_001, 55, vec![user_tx(0, Address::repeat_byte(1), Bytes::new())]);
+        raw.gas_limit =
+            parent_manifest_gas_limit(state.header.number, state.header.gas_limit, state.is_etna());
+        let manifest = pipeline
+            .prepare_segment_manifest(
+                DerivationSourceManifest { blocks: vec![raw] },
+                state,
+                &meta,
+                0,
+                1,
+                true,
+            )
+            .await
+            .expect("the forced-inclusion segment prepares");
+        let position = BlockPosition { forced_inclusion: true, ..final_position() };
+        pipeline
+            .prepare_block(&manifest.blocks[0], state, BlockContext { meta: &meta, position })
+            .await
+            .expect("the forced-inclusion block prepares")
+    }
+
+    /// A forced-inclusion block on an Etna parent inherits the parent's anchor number, and with
+    /// it the parent's root, without an L1 call.
+    #[tokio::test]
+    async fn etna_forced_inclusion_block_reuses_the_parent_anchor_and_root() {
+        let parent_root = B256::with_last_byte(0xaa);
+        // The empty L1 mock fails any anchor header lookup.
+        let pipeline = pipeline_with(Asserter::new(), l2_with_chain_id(), Some(900)).await;
+
+        let derived =
+            prepare_forced_inclusion(&pipeline, &sample_parent_state(Some(900), Some(parent_root)))
+                .await;
+
+        let attributes = &derived.payload;
+        assert_eq!(derived.anchor_block_number, 50);
+        assert_eq!(attributes.payload_attributes.parent_beacon_block_root, Some(parent_root));
+        assert_eq!(
+            attributes.block_metadata.extra_data,
+            encode_etna_extra_data(75, 3, 50).expect("extraData should encode")
+        );
+        assert_eq!(attributes.block_metadata.gas_limit, 30_000_000, "an Etna parent's whole limit");
+        assert!(attributes.l1_origin.is_forced_inclusion);
+    }
+
+    /// A forced-inclusion first Etna block inherits its Unzen parent's anchor number, but never
+    /// the parent's zero root: it commits to the L1 state root of that anchor block, and its gas
+    /// limit is the parent's minus the parent's anchor reserve.
+    #[tokio::test]
+    async fn first_etna_forced_inclusion_block_reads_the_l1_root_of_the_inherited_anchor() {
+        let state_root = B256::with_last_byte(0x50);
+        let l1_asserter = l1_anchor_block(50, state_root);
+        let pipeline = pipeline_with(l1_asserter.clone(), l2_with_chain_id(), Some(1_001)).await;
+
+        let derived = prepare_forced_inclusion(
+            &pipeline,
+            &sample_parent_state(Some(1_001), Some(B256::ZERO)),
+        )
+        .await;
+
+        let attributes = &derived.payload;
+        assert!(derived.anchor_tx.is_none());
+        assert_eq!(derived.anchor_block_number, 50);
+        assert_eq!(attributes.payload_attributes.parent_beacon_block_root, Some(state_root));
+        assert_eq!(
+            attributes.block_metadata.extra_data,
+            encode_etna_extra_data(75, 3, 50).expect("extraData should encode")
+        );
+        assert_eq!(attributes.block_metadata.gas_limit, 30_000_000 - ANCHOR_V3_V4_GAS_LIMIT);
+        assert!(l1_asserter.read_q().is_empty(), "the inherited anchor's header was read");
+    }
+
+    /// The mix hash commits to the parent's difficulty (its zk gas), not the parent's mix hash,
+    /// so an empty Etna parent with zero difficulty contributes a zero word.
+    #[tokio::test]
+    async fn etna_block_on_a_zero_difficulty_parent_mixes_in_a_zero_word() {
+        let pipeline = pipeline_with(Asserter::new(), l2_with_chain_id(), Some(900)).await;
+        let mut parent = sample_parent_state(Some(900), Some(B256::with_last_byte(0xaa)));
+        parent.header.difficulty = U256::ZERO;
+        parent.header.mix_hash = B256::with_last_byte(0x77);
+
+        let derived = prepare(&pipeline, &manifest_block(1_001, 50, Vec::new()), &parent)
+            .await
+            .expect("the Etna block prepares");
+
+        assert_eq!(
+            derived.payload.payload_attributes.prev_randao,
+            calculate_shasta_mix_hash(B256::ZERO, 7)
+        );
     }
 
     #[tokio::test]
