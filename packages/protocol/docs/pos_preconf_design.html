@@ -440,9 +440,10 @@
               <td>Generation recovery</td>
               <td>None</td>
               <td>
-                The first proposal of a new generation carries the expiry evidence: the old generation's header and
-                commit for B, the child of the derived tip P_F. Derivation checks that the tip is P_F and that the
-                proposal's L1 time is past B's deadline; after that only the new chain_id is accepted.
+                The first proposal of a new generation carries the expiry evidence: B's CometBFT header, commit,
+                <code>DataHash</code>-to-tx0 Merkle path and EVM header from the old generation. Derivation checks that
+                B's EVM parent hash is the derived tip P_F and that, under Etna's windows (timestamp 6144 s, anchor 512
+                blocks), this proposal can no longer include B; after that only the new chain_id is accepted.
               </td>
               <td>
                 Expired blocks are recovered from under one rule, and the committee cannot drop committed blocks at will
@@ -513,7 +514,8 @@
               plus 6144 s. A transaction that waits in the mempool past it reverts instead of landing as zero blocks. L1
               has at most one block per 12 s slot, so meeting this time deadline keeps L1 within 511 blocks of the
               anchor, and the 512-block anchor window holds without a new field. The Inbox does not check that the
-              deadline is right; it protects the lander, and a wrong value is the lander's own fault.
+              deadline is right; it protects the lander, and a wrong value is the lander's own fault. This deadline is
+              conservative and only protects the lander; it is not the point at which blocks expire.
             </li>
             <li>
               Landers only land segments whose anchors are finalized, so an anchor reorg never turns a landing into
@@ -655,11 +657,15 @@
           preconfirmations. Recovery works in generations, and each recovery starts the next one:
           <ul>
             <li>
-              <strong>Triggered only by finalized L1.</strong> Let P be the last derived block and B its child on the
-              committed chain. B's deadline D is the earlier of B's timestamp plus 6144 s and the time of B's anchor L1
-              block plus 6144 s. B counts as expired only once the first L1 block later than D is finalized (the cutoff
-              F); until then validators only stop producing. Judging on unfinalized L1 would be wrong: after an L1
-              reorg, B may turn out to have landed in time, and blocks restarted from P could never land.
+              <strong>Etna's real failure condition, on finalized L1.</strong> Let P be the last derived block and B its
+              child on the committed chain. B's failure point, the cutoff F, is the first L1 block that meets either
+              condition: its time is past B's timestamp plus 6144 s, or its number minus 1 (its value as an origin) is
+              more than B's anchor block number plus 512. Both conditions only get worse over time, so from F on no
+              proposal can include B. B counts as expired only once F is finalized; until then validators only stop
+              producing. The lander's time-based deadline is too conservative for this: with missed L1 slots, 512 blocks
+              take longer than 6144 s, so B may still land legally after that deadline, and a malicious lander that sets
+              a later deadline could land part of the old chain after the recovery scan. Unfinalized L1 is not enough
+              either: after a reorg, B may turn out to have landed in time.
             </li>
             <li>
               <strong>Recovery parameters come from F.</strong> Process every Inbox proposal up to F to get the last
@@ -670,10 +676,26 @@
               generations from counting as double signing.
             </li>
             <li>
+              <strong>Signer state per generation.</strong> CometBFT's <code>FilePV</code> checks the last signed
+              height, round and step before it puts the chain_id into the sign bytes. After the old chain signed higher
+              heights, restarting at P_F's height plus 1 therefore fails with a height regression, and a new chain_id
+              does not avoid it. Signer state is kept per generation (chain_id): the old generation's record is kept and
+              frozen, and the old chain_id is never signed again. The switch is atomic: once finalized L1 fixes the
+              recovery parameters, the signer first marks the old generation closed, then creates the new generation's
+              state, then starts the new CometBFT, so a crash in between never returns to the old generation. Remote
+              signers such as tmkms and Horcrux already keep state per chain_id but need the same closed-generation
+              rule.
+            </li>
+            <li>
               <strong>Derivation checks the same rules.</strong> The new generation's first proposal must carry the
-              expiry evidence: B's CometBFT header and commit from the old generation. Client derivation and the raiko2
-              guest check that the derived tip is P_F (B's parent), that the commit verifies against the
-              <code>committeeRoot</code> of its epoch, and that the proposal's L1 time is past D. Only then are commits
+              expiry evidence from the old generation: B's CometBFT header and commit, the Merkle path from
+              <code>DataHash</code> to tx0 (two siblings), and B's EVM header, whose hash must equal tx0. The CometBFT
+              header alone is not enough: its <code>last_block_id</code> links CometBFT headers, not the EVM parent hash,
+              and it does not give B's timestamp or anchor. Client derivation and the raiko2 guest check that the commit
+              verifies against the <code>committeeRoot</code> of its epoch, that the EVM header's parent hash is the
+              derived tip P_F, and that B has failed under the conditions above, using the EVM header's timestamp and
+              its anchor number in extraData bytes 7–12 together with this proposal's L1 time and origin block number.
+              Only then are commits
               under the new chain_id accepted, and the old generation's commits are no longer accepted. Without this
               evidence the committee could switch generations at will and drop committed blocks that had not expired,
               and the new chain_id would keep that from counting as double signing.
@@ -698,7 +720,8 @@
         <li>
           <strong>Data retention.</strong> Validators must have the full payload before voting and keep it until the
           corresponding proposal is finalized on L1. Landing, and re-landing after an L1 reorg, depend on it. For
-          dropped blocks, B's header and commit are kept until the next generation's first proposal lands.
+          dropped blocks, B's CometBFT header, commit, <code>DataHash</code>-to-tx0 Merkle path and EVM header are
+          kept until the next generation's first proposal lands.
         </li>
         <li>
           <strong>Alignment with Etna derivation.</strong> Production stops when unlanded committed blocks approach the
@@ -895,8 +918,9 @@
           Node rules: sync each epoch's set from the L1 registry; anchor depth; back-pressure near the derivation
           windows; add FI transactions to ILs automatically; keep payloads until L1 finality; <code>secp256k1eth</code>
           keys with a signer that persists its state across restarts to avoid double signing; public transaction gossip
-          on the execution client; when committed blocks expire, waiting for the cutoff to finalize on L1 and then
-          starting the next generation by the fixed procedure.
+          on the execution client; when committed blocks expire, waiting for the failure point F to finalize on L1
+          and then starting the next generation by the fixed procedure, with signer state kept per generation and no
+          more signing for a closed generation.
         </li>
         <li>
           Lander: on duty (the first three quarters of its epoch), fetch committed blocks and the last commit from
@@ -926,7 +950,8 @@
           the last block's commit, header and two Merkle siblings; verify the commit and committee; a failed proposal
           derives to zero blocks; forced inclusion is checked by anchor time; extraData bytes 1–6 hold the CometBFT
           height and byte 0 becomes a fork constant; coinbase always comes from the manifest; the new rules apply by the
-          proposal's L1 landing time; after expiry, recovery by generation with the expiry evidence checked.
+          proposal's L1 landing time; after expiry, recovery by generation with the expiry evidence checked (B's
+          CometBFT header, commit, Merkle path and EVM header).
         </li>
         <li>
           Implement them in taiko-client and taiko-client-rs. Committed blocks are already in the execution client, so
