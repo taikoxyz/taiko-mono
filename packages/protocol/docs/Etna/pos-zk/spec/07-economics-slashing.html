@@ -228,7 +228,9 @@ deterrence is <a href="#ECON-05">ECON-05</a>'s argument and is conditional on A-
 <span class="norm">(7) <strong>Funding path: the L2 fee vault, the permissionless sweep through the preserved Bridge, and the arrival identity.</strong> <em>(user decision D-8: security is funded from L2 fees; this clause is the path and the honest consequences of it)</em>
 (a) <strong>Collection — the L2 fee vault.</strong> One L2 account, the <strong>L2 fee vault</strong>
 (<code>L2FeeVault</code>, a new deployment whose address is recorded before launch; it is not one of the preserved
-addresses of D3/<a href="08-migration-upgrades.html#MIG-06">MIG-06</a>), accumulates the L2 fee revenue of clause 1:
+addresses of D3/<a href="08-migration-upgrades.html#MIG-06">MIG-06</a>; its address and the reward-pool address of
+clause 5(a) are protocol constants recorded before launch, and the guest MUST take both from the recorded constants and
+MUST NOT accept either from a witness, a host hint or a header), accumulates the L2 fee revenue of clause 1:
 the execution base-fee component and the priority-fee component of every L2 transaction
 (<code>F_exec_L2</code>, <code>F_priority_L2</code>). The L2 fee policy <strong>MUST</strong> route both components
 to this vault; a component that is destroyed, paid to a block beneficiary, or otherwise diverted is not collected
@@ -236,10 +238,11 @@ revenue, <strong>MUST NOT</strong> be counted in clause 1, and <strong>MUST NOT<
 vault holds ETH only: it is never collateral, never stake, never slashable, and never part of the ledger of
 <a href="#ECON-01">ECON-01</a>. It has no discretion: no caller, operator, validator, DAO action or upgrade path may
 redirect its balance to any destination other than the sweep of (b). <strong>Fee accounting, and what is not fee
-revenue.</strong> The vault MUST maintain two monotone counters, written with the transfer each measures:
-<code>feeCredits</code>, incremented by exactly the ETH the L2 fee policy routes to the vault, and
-<code>feeSwept</code>, incremented by exactly the ETH each sweep of (b) moves out, with
-<code>feeSwept &le; feeCredits</code> at all times. ETH credited to the vault by any other route is a
+revenue.</strong> The vault MUST maintain two monotone counters, each written in the same execution step as the
+transfer it measures: <code>feeCredits</code>, which the L2 fee policy increments by exactly the ETH it routes to the
+vault, and <code>feeSwept</code>, which the vault increments by exactly the ETH each sweep of (b) moves out, with
+<code>feeSwept &le; feeCredits</code> at all times. ETH credited to the vault by any other route — and not consumed
+inside the same sweep call as the Bridge fee of (b) — is a
 <strong>forced credit</strong>: it cannot be prevented, it is not revenue, it MUST NOT increment
 <code>feeCredits</code>, it MUST NOT be counted in clause 1 or in <code>POOL_TOPUP</code>, and the sweep of (b)
 MUST leave it outstanding rather than move it. The per-block consequence is checked in-guest by
@@ -249,7 +252,7 @@ review comment 2, item 4; review comment 3, item 6: the vault's credited-fee rec
 the offence evidence read, so a legitimate sweep is not a fee shortfall and a forced credit cannot halt
 settlement.)</em></span>
 <span class="norm">(b) <strong>The sweep: protocol-constructed, no destination argument, and the correct fee arithmetic.</strong> The vault <strong>MUST</strong> expose one
-sweep entry point that moves its accumulated ETH to L1 through the <strong>preserved Bridge</strong>
+sweep entry point that moves its accumulated fee balance to L1 through the <strong>preserved Bridge</strong>
 (<a href="04-l1-integration.html#MSG-01">MSG-01</a>). The sweep takes <strong>no argument that influences the destination</strong>: it builds the bridge message itself from protocol constants — the canonical bridge invocation selector as its method data, the vault as sender, the reward-pool address of clause 5(a) as <code>destOwner</code>, and <code>to</code> set to that same pool — and nothing else. The destination is a protocol constant recorded before launch, never a parameter the caller supplies; the sweep is
 the <strong>only</strong> route by which L2 fee revenue reaches L1, and there is no direct L1 claim, no accounting entry
 against future settlement, no escrow, and no second destination. <strong>Who may sweep:</strong> any address, at any
@@ -439,8 +442,8 @@ divergence under withholding may leave no admissible evidence and is Assumed, no
 <td><code>id</code> as in clause 4</td></tr> <tr><td><strong>Invalid evidence submission</strong> — evidence that fails any check of clause 2, including a forged or malformed object</td>
 <td>not an offence against consensus; there is no slashable subject</td> <td>any address</td> <td>n/a — the transaction reverts; no window is opened or extended</td>
 <td><strong>none</strong>: no bond, deposit or stake is consumed; the submitter pays L1 gas only</td>
-<td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> <tr><td><strong>Fee diversion</strong> — a proposal whose block does not credit the L2 fee vault with the execution fees and priority fees its own execution collects, or diverts, destroys or redirects any part of them to another beneficiary (<a href="02-consensus.html#CONS-01">CONS-01</a>(viii), <a href="05-proof-statement.html#PRF-06">PRF-06</a>)</td>
-<td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate re-executes the block from the committed pre-state and compares the fee-vault balance delta of <a href="#ECON-02">ECON-02</a> clause 7(a) with the execution base fees and priority fees the block's own execution collects; the executed bodies are decoded from the committed payload, never from a separate witness stream (<a href="05-proof-statement.html#PRF-06">PRF-06</a>). Re-execution is public but expensive, exactly as for execution validity (iv) of <a href="02-consensus.html#CONS-01">CONS-01</a></td>
+<td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> <tr><td><strong>Fee diversion</strong> — a proposal whose block does not credit the L2 fee vault with the execution fees and priority fees its own execution collects, or diverts, destroys or redirects any part of them to another beneficiary (<a href="02-consensus.html#CONS-01">CONS-01</a>(viii), <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)). A block that contains a legitimate canonical sweep of <a href="#ECON-02">ECON-02</a> clause 7(b) is <strong>not</strong> an offence: the swept amount is attributed to the sweep's own canonical message and is never read as a fee shortfall (<a href="05-proof-statement.html#PRF-06">PRF-06</a>(F2), (F4))</td>
+<td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate re-executes the block from the committed pre-state and evaluates the same recomputable per-block accounting as <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)&ndash;(F4) — the credited-fee counter increment must equal the execution base fees and priority fees the block's own execution collects (F1), every vault debit must be a canonical sweep of <a href="#ECON-02">ECON-02</a> clause 7(b) whose message carries the swept amount (F2), and the balance identity must hold with forced credits accounted (F3). The evidence of the offence is the mismatch itself: a fee credit short of the collected fees, or any vault debit not attributable to a canonical sweep. An honest sweep and a forced credit are neither evidence nor punishable, and the predicate needs no private witness. The executed bodies are decoded from the committed payload, never from a separate witness stream. Re-execution is public but expensive, exactly as for execution validity (iv) of <a href="02-consensus.html#CONS-01">CONS-01</a>. <em>(PR #22262 review comment 2, item 4; review comment 3, item 6: the predicate is the same checkable accounting the guest performs, so diversion remains an offence, an honest sweep is not slashable, and the evidence stays third-party computable.)</em></td>
 <td>any address</td> <td>as the equivocation row</td> <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the proposal's signer</td> <td><code>id</code> as in clause 4; a different offending block at another <code>(H,R)</code> is a distinct offence</td></tr> </tbody></table>
 <span class="norm">(5) <strong>What is not an offence.</strong> Alongside the non-receipt ban of clause 1: a
 validator that is offline or votes late; a proposer whose round times out; a node that halts under
