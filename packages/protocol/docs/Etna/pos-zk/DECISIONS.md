@@ -298,3 +298,96 @@ must preserve when it adds forced inclusion — no reordering or revocation of p
 path, no privileged operator, and the same atomic data-and-proof rule. Until that upgrade ships, R10
 remains satisfied only in its relaxed form.
 
+
+
+## D-11 — Data may be published before the proof (relaxes D5)
+
+**Decision (design owner, 2026-10-06):** a batch's data MAY be published to blobs in an
+earlier L1 transaction; a later proof MAY reference blobs published in a previous
+transaction, or blobs carried in the same transaction. **Data sitting in blobs has no
+effect on the protocol's L1 state** — it becomes relevant only when a proof references it.
+Therefore there is no "data-first path" in the sense D5 forbade: the protocol state still
+advances only on a valid proof.
+
+**Why this is right.** D5 required data and proof in one transaction, which made a certified
+batch's data exist only in L2 gossip until landing: a window of roughly the proving envelope
+(30-60 minutes at nominal) in which the chain cannot be reconstructed from L1 alone, where
+data can be withheld, and where forced inclusion has nothing on L1 to anchor to. Posting data
+first collapses that window to the time between certification and publication, and since
+publication is permissionless, withholding then requires that *no* observer publish — a far
+stronger condition than a single proposer declining to land a batch.
+
+**What this changes downstream** (to be specified): the data-binding rule becomes a reference
+to recorded blob hashes rather than to the accepting transaction's own blobs, so publication
+must be recorded on L1 while the blobs are still retrievable; the June-2026 failure mode
+(blobs expiring before they are proven) is controlled by a proving deadline well inside blob
+retention, whose consequence must be defined; forced inclusion becomes anchorable again and
+D-6/D-10 must be revisited; and Mode B's trigger window shrinks but does not vanish.
+
+**Status:** decided; specification changes pending.
+
+
+
+## D-12 — Narrow forced inclusion ships in v1 (supersedes D-6 and D-10)
+
+**Decision (design owner, 2026-10-06):** v1 includes a **narrow forced-inclusion rule**, not a
+general inclusion list. Any account may publish a transaction's data to L1; the protocol then
+requires that published-but-unproven data be **proven within the deadline or discarded and
+re-published**, which bounds the time a censoring proposer can keep a user's transaction out
+of the chain while the chain otherwise runs.
+
+**Why it became possible.** D-6 removed forced inclusion and D-10 deferred it because, under
+the old D5, a batch's data existed only off-chain until landing, so an inclusion guarantee had
+nothing on L1 to anchor to. D-11 puts the data on L1 before the proof, which supplies the
+anchor.
+
+**Constraints on the rule (must be respected in the specification):**
+- The obligation is an **upper bound on exclusion, never a lower bound on inclusion**: the rule
+  fixes a deadline by which forced data must be proven, not a requirement that every batch
+  include it.
+- Inclusion is a **capped FIFO prefix** of the due set, so a backlog drains over successive
+  batches instead of halting the chain — the failure mode that produced review round 1's
+  critical finding (due-set versus per-batch cap) must not return.
+- The enforcement point is the **proof**, not an admission gate on `land`: the guest checks
+  the batch's execution against the due set it can derive from L1 state.
+- It does **not** give the protocol a pause or a discretion: no owner, DAO or operator may
+  suppress, reorder or extend forced data.
+
+**Status:** decided; specification changes pending, and expected to reopen the forced-inclusion
+machinery that D-6 deleted.
+
+
+
+## D-13 — One proof object per batch, aggregated n-of-m underneath
+
+**Decision (design owner, 2026-10-06):** the protocol accepts **exactly one proof per batch**,
+and underneath, that one proof is an **n-of-m aggregated proof**, which the protocol treats as
+a single proof. Verification cost on L1 stays one verification; the redundancy lives inside the
+aggregation, off-chain.
+
+**What this buys.** Settlement stops being "soundness of the weakest approved backend". A
+forged or unsound checkpoint now requires every one of the n independent implementations inside
+the aggregation to accept a false statement, while the on-chain cost is unchanged — the cost
+that a plain k-of-n requirement would have multiplied on every batch.
+
+**What the specification must define:**
+- **The aggregation program is itself a registered, rotatable image** and a single point of
+  trust for the inner checks; its rotation path matters more, not less, and must be bounded
+  rather than DAO-cycle-slow.
+- **The aggregation proof's public input must expose which backend families contributed** (a
+  bitmap or a commitment to the family set), so the **Inbox enforces the required count for the
+  purpose**: settlement needs at least 1, a **withdrawal root needs at least k**. This replaces
+  "k separate proofs verified on L1" in L1-13 with "one proof attesting at least k distinct
+  families", unifying settlement and withdrawal roots under one verification path.
+- **Every inner proof proves the same journal** under the same GEN-05 encoding; PRF-01 is
+  unchanged and the statement is not weakened by aggregation.
+- **The aggregation program must verify each inner proof** against its own registered
+  verifier, and must not be able to claim a family it did not verify; the L1 count check exists
+  because the program is trusted, not because it is assumed honest.
+- **Cost moves to the prover**: the aggregator's work grows with m, and S1 must measure
+  aggregation cost (verifying inner proofs inside a circuit is expensive) before n and m are
+  fixed. The Phase B plan's S1 gate must gain an aggregation line.
+
+**Status:** decided; specification changes pending. Supersedes the plain k-of-n-on-L1
+construction added earlier the same day.
+

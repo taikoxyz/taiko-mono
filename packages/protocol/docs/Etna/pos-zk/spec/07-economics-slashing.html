@@ -235,22 +235,38 @@ to this vault; a component that is destroyed, paid to a block beneficiary, or ot
 revenue, <strong>MUST NOT</strong> be counted in clause 1, and <strong>MUST NOT</strong> be promised as a reward. The
 vault holds ETH only: it is never collateral, never stake, never slashable, and never part of the ledger of
 <a href="#ECON-01">ECON-01</a>. It has no discretion: no caller, operator, validator, DAO action or upgrade path may
-redirect its balance to any destination other than the sweep of (b).</span>
+redirect its balance to any destination other than the sweep of (b). <strong>Fee accounting, and what is not fee
+revenue.</strong> The vault MUST maintain two monotone counters, written with the transfer each measures:
+<code>feeCredits</code>, incremented by exactly the ETH the L2 fee policy routes to the vault, and
+<code>feeSwept</code>, incremented by exactly the ETH each sweep of (b) moves out, with
+<code>feeSwept &le; feeCredits</code> at all times. ETH credited to the vault by any other route is a
+<strong>forced credit</strong>: it cannot be prevented, it is not revenue, it MUST NOT increment
+<code>feeCredits</code>, it MUST NOT be counted in clause 1 or in <code>POOL_TOPUP</code>, and the sweep of (b)
+MUST leave it outstanding rather than move it. The per-block consequence is checked in-guest by
+<a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)&ndash;(F4): the fee-credit increment must equal the fees
+that block's own execution collects, and every vault debit must be a canonical sweep of (b). <em>(PR #22262
+review comment 2, item 4; review comment 3, item 6: the vault's credited-fee record is the object the proof and
+the offence evidence read, so a legitimate sweep is not a fee shortfall and a forced credit cannot halt
+settlement.)</em></span>
 <span class="norm">(b) <strong>The sweep: protocol-constructed, no destination argument, and the correct fee arithmetic.</strong> The vault <strong>MUST</strong> expose one
 sweep entry point that moves its accumulated ETH to L1 through the <strong>preserved Bridge</strong>
 (<a href="04-l1-integration.html#MSG-01">MSG-01</a>). The sweep takes <strong>no argument that influences the destination</strong>: it builds the bridge message itself from protocol constants — the canonical bridge invocation selector as its method data, the vault as sender, the reward-pool address of clause 5(a) as <code>destOwner</code>, and <code>to</code> set to that same pool — and nothing else. The destination is a protocol constant recorded before launch, never a parameter the caller supplies; the sweep is
 the <strong>only</strong> route by which L2 fee revenue reaches L1, and there is no direct L1 claim, no accounting entry
 against future settlement, no escrow, and no second destination. <strong>Who may sweep:</strong> any address, at any
 time, with no gate, allowlist, reservation or operator action; the caller chooses only <em>when</em>, never
-<em>where</em> or <em>how much is credited to whom</em>. <strong>Fee arithmetic, stated correctly.</strong> The preserved Bridge requires <code>value + fee == msg.value</code>. Here <code>value</code> is the <strong>whole swept amount</strong> and is credited to the pool in full; <code>fee</code> is <strong>additional ETH supplied in addition to the swept amount</strong> by the sweep transaction that carries it (the same caller that already pays the sweep's L2 gas), and it <strong>MUST NOT</strong> be deducted from <code>value</code>. A sweep that reduces the credited amount to cover the fee is non-conforming. The L1 release cost of the message is part of <code>C_bridge_ops</code> of clause 1 and is not a
+<em>where</em> or <em>how much is credited to whom</em>. <strong>The amount is not a caller choice either:</strong> a sweep moves exactly the vault's outstanding recorded fee balance, <code>feeCredits &minus; feeSwept</code> of (a), in one message, and MUST NOT move a forced credit. The entry point MUST require <code>msg.value</code> to equal exactly the canonical fee the preserved Bridge charges for that one message and MUST revert on any other amount, so no caller can inject an arbitrary credit into the vault through the sweep path or make an honest block unprovable by overpaying. <strong>The sweep is an ordinary L2 transaction, not a system-level exclusion.</strong> Its effects, including the vault's reduced balance, are part of the execution the batch's post-state root commits to, and its debit is reconciled by <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F2)&ndash;(F4) rather than excluded from the proven execution accounting; no rule may reclassify it as a system operation outside that accounting. <strong>Fee arithmetic, stated correctly.</strong> The preserved Bridge requires <code>value + fee == msg.value</code>. Here <code>value</code> is the <strong>whole swept amount</strong> and is credited to the pool in full; <code>fee</code> is <strong>additional ETH supplied in addition to the swept amount</strong> by the sweep transaction that carries it (the same caller that already pays the sweep's L2 gas), and it <strong>MUST NOT</strong> be deducted from <code>value</code>. A sweep that reduces the credited amount to cover the fee is non-conforming. The L1 release cost of the message is part of <code>C_bridge_ops</code> of clause 1 and is not a
 second charge on the pool. <strong>One shot and replay.</strong> Each sweep emits exactly one bridge message, is not batchable with any other message, and carries the vault's monotonic sweep counter as its nonce; a replayed or duplicated message is rejected by the domain- and nonce-scoped replay protection of <a href="04-l1-integration.html#MSG-02">MSG-02</a>, and a message that does not authenticate credits nothing. <strong>Cadence, and the zero-balance no-op:</strong> there is no protocol-mandated
-schedule and no keeper duty — the sweep <strong>MUST</strong> be callable whenever the vault's balance is non-zero,
-and the vault <strong>MUST NOT</strong> hold a balance that no rule-legal call can move; a sweep of a zero balance is
-a no-op and MUST NOT block anything, and no argument exists by which a caller could route or partially divert a non-zero balance. The sweep credits nothing by assertion: the L1 release credits the pool only when the preserved
-Bridge has authenticated the message (<a href="04-l1-integration.html#MSG-02">MSG-02</a>). <em>(S5 &sect;7: the sweep is protocol-constructed, takes no destination argument, and the Bridge fee is additional ETH rather than a deduction from the swept amount.)</em></span>
+schedule and no keeper duty — the sweep <strong>MUST</strong> be callable whenever the vault's recorded fee balance is
+non-zero, and the vault <strong>MUST NOT</strong> hold accumulated fee revenue that no rule-legal call can move (a forced
+credit of (a) is not fee revenue and is excluded from the sweep, so it may remain outstanding; that is stated, not a
+defect); a sweep when the outstanding recorded fee balance is zero is a no-op — it moves nothing and MUST NOT block
+anything, even when a forced credit is present — and no argument exists by which a caller could route or partially
+divert a non-zero balance. The sweep credits nothing by assertion: the L1 release credits the pool only when the preserved
+Bridge has authenticated the message (<a href="04-l1-integration.html#MSG-02">MSG-02</a>). <em>(S5 &sect;7: the sweep is protocol-constructed, takes no destination argument, and the Bridge fee is additional ETH rather than a deduction from the swept amount.)</em> <em>(PR #22262 review comment 2, item 4; review comment 3, item 6: the sweep's amount, credit path and proof accounting are fixed so that a swept block is provable and a swept amount is never read as a fee shortfall.)</em></span>
 <span class="norm">(c) <strong>Arrival identity, with the corrected fee arithmetic.</strong> Fees are revenue when they <em>arrive at the pool</em>, not
 when they are collected on L2 and not when a sweep is sent. Let <code>s</code> range over the sweeps whose bridge
-message releases to the pool in the period. The credited amount is the whole swept amount; the message fee
+message releases to the pool in the period. The credited amount is the whole swept amount, and only the vault's
+recorded fee credits are swept (clauses (a) and (b)), so a forced credit is never a term of this identity; the message fee
 <code>fee(s)</code> is additional ETH supplied with the sweep (clause (b)) and is <strong>not</strong> deducted from it
 (<span class="pill unmeasured">unmeasured</span>; a cost to the sweep caller, registered in <a href="#unmeasured">&sect;Unmeasured inputs</a>).
 Then, exactly:</span>
@@ -262,8 +278,11 @@ pool_inflow(period)  =  Σ_s arrival(s) + POOL_TOPUP(period)
 upper bound on the left, never a promise: collection precedes arrival by at least the settlement pipeline, so a
 period's inflow cannot exceed the fees collected up to the last settled L2 block of that period, and the same ETH
 is counted exactly once — the identity of clause 1 is evaluated on the pool's realised inflow, never on fees in
-flight. <code>fee(s)</code> and every timing term here are <span class="pill unmeasured">unmeasured</span> and
-are registered in <a href="#unmeasured">§Unmeasured inputs</a>. <em>(S5 &sect;7: the fee is additional ETH, not a deduction from the swept amount; the arrival identity is corrected accordingly.)</em></span>
+flight. The inequality is structural under (a) and (b), not an assumption: <code>feeCredits</code> counts only fees
+and the sweep moves only <code>feeCredits &minus; feeSwept</code>, so a donation to the vault is excluded from the pool
+rather than silently inflating revenue. <code>fee(s)</code> and every timing term here are
+<span class="pill unmeasured">unmeasured</span> and
+are registered in <a href="#unmeasured">§Unmeasured inputs</a>. <em>(S5 &sect;7: the fee is additional ETH, not a deduction from the swept amount; the arrival identity is corrected accordingly.)</em> <em>(PR #22262 review comment 2, item 4; review comment 3, item 6: the arrival identity is entailed by the sweep's own accounting, so the D-8 inflow path is reachable and counted once.)</em></span>
 <span class="norm">(d) <strong>Honest consequences, stated at the claim.</strong>
 (i) <strong>Rewards lag the settlement pipeline.</strong> The fee ETH is on L2 and crosses only inside a bridge
 message that L1 releases after a checkpoint covering the sweep's own L2 block is accepted on L1
@@ -275,7 +294,12 @@ promised, budgeted or advertised from fees that have not arrived.
 or the bridge has not delivered — then <code>Alloc(e) = 0</code>, the per-epoch identity of clause 5(d) pays
 nothing, and no rule may borrow against future arrival, reopen a closed allocation, or present the fee stream as a
 reserve; the security budget <code>A-ECO-1</code> compares against attack profit is then zero, and saying so is part
-of the rule. The same zero arrival pays <code>REC_REWARD = 0</code> on a completed recovery (clause 5(f)): the
+of the rule. This is an empirical condition, not a structural one: a block containing a legitimate sweep is provable
+under <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F2)&ndash;(F4), and the vault's recorded fee credits reach the
+sweep by (a)&ndash;(b), so the D-8 path is not zero by construction — zero arrival means no fees were collected, or none
+were swept or settled, never that a swept block cannot be proven. <em>(PR #22262 review comment 2, item 4; review
+comment 3, item 6: the funding path is reachable; the zero case is the honest residual only when the fees themselves are
+zero or unsettled.)</em> The same zero arrival pays <code>REC_REWARD = 0</code> on a completed recovery (clause 5(f)): the
 honest trigger is then uncompensated as well, and recovery repairs a stalled chain, not an economics stall
 (<a href="06-recovery-exceptions.html#REC-03">REC-03</a>(3)). <em>(review comment 1, item 4: an unfunded pool is the honest residual of the repaired recovery economics.)</em>
 (iii) <strong>A bridging failure stops rewards rather than creating a claim on future revenue.</strong> If the
