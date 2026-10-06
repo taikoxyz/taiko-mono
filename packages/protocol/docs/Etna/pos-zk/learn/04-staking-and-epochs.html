@@ -46,6 +46,8 @@ deployed or measured, and every number is tagged
 <h2>The idea</h2>
 <p>A validator is not appointed. It is created by locking the existing TAIKO token on Ethereum in a staking contract, registering a signing key, and waiting for the protocol&rsquo;s own schedule to place it in a validator set. Holding TAIKO in a wallet does nothing: only stake that is bonded, activated and inside the set for an epoch counts as voting power.</p>
 <p>The chain is divided into <strong>epochs</strong> of fixed length. Each epoch has exactly one validator set, and that set is decided on Ethereum <em>before</em> the epoch starts, not during it. Every block header carries a commitment to the current set and to the next one, so a reader can check who was allowed to sign without trusting a peer.</p>
+<!-- <em>D-14: eligibility for a future set version requires an L1 heartbeat; no rule reduces weight.</em> -->
+<p>Being in a set is a recurring condition, not a one-off appointment. To be selected into a future set version, a validator must post a periodic liveness attestation &mdash; a <strong>heartbeat</strong> &mdash; on Ethereum. A validator that stops attesting is simply not selected next time: it keeps its stake, its weight and its standing, and attesting again restores eligibility for the following boundary. No rule reduces, decays or confiscates the weight of a validator that goes quiet.</p>
 <p>Voting power is the bonded stake: one base unit for one unit of weight, with no multipliers and no delegation. The L1 address that bonded the stake is the only address that can rotate its key, request an exit or receive the unbonded tokens.</p>
 <p>Leaving is deliberately slow. An exit request keeps the validator in every set it was already committed to, still voting and still slashable, until the exit takes effect at a later epoch boundary; the tokens then wait out a further delay before withdrawal. The delay exists so that misbehaviour committed while the stake was bonded remains punishable afterwards.</p>
 <p>A brand-new node does not replay the chain from genesis and call the result verified. It starts from the newest checkpoint Ethereum has already accepted &mdash; a height, a block hash, a state root, an epoch and a set version &mdash; and treats Ethereum as the only authority on which history is the real one.</p>
@@ -117,7 +119,8 @@ binds a key or never comes online never appears in any set root: it is not slash
 consensus offence and earns nothing, but it keeps its queue position
 (<a href="../spec/03-membership-staking.html#MEM-03">MEM-03</a>).</p>
 
-<h3>3. Keys: one per entry, rotated forward only</h3>
+<h3>3. Keys: a consensus key and a heartbeat key</h3>
+<!-- <em>D-14: a second, ECDSA heartbeat key is bound at bonding time.</em> -->
 <p>An entry has at most one consensus key per set version: an Ed25519 public key in its canonical
 32-byte compressed form. The key enters a set root only through an L1 transaction signed by the
 entry&rsquo;s owner, which is itself the authentication. Rotation is forward-only:
@@ -127,8 +130,42 @@ has ever appeared in a published set root is retired permanently, so the mapping
 to entry stays one-to-one. A vote is judged against the key committed for <em>that epoch</em>,
 never against the validator&rsquo;s current key; a vote signed with a rotated-away key at an epoch
 that commits the new key is invalid and does not count toward quorum.</p>
+<!-- <em>D-14: heartbeat key and the L1 attestation record.</em> -->
+<p>A second key does the liveness work. At bonding time the entry also binds an ECDSA
+(secp256k1) <strong>heartbeat key</strong>, distinct from its Ed25519 consensus key: Ethereum has no
+Ed25519 precompile, while <code>ecrecover</code> is cheap, so the heartbeat is verified on L1 with
+ordinary signature recovery. Both keys bind to the same entry. A heartbeat is a signature from that
+key, submitted in an L1 transaction; the protocol records <code>lastHeartbeatAt(v)</code> in L1
+state. Anyone may submit a heartbeat transaction, and a relayer may batch many validators&rsquo;
+signatures into one transaction &mdash; the protocol does not care who pays, only that the
+attestation is recorded.</p>
 
-<h3>4. The set is an Ethereum object</h3>
+<h3>4. Eligibility: a heartbeat before each set version</h3>
+<!-- <em>D-14: eligibility requires an L1 heartbeat; ineligible entries are excluded from the root, never decayed.</em> -->
+<p>Set versions are built from <em>eligible</em> entries. An entry is eligible for the set version
+committed for epoch <code>e</code> if and only if it has attested within
+<code>HEARTBEAT_WINDOW</code> ending at that version&rsquo;s commit point &mdash; the commit point
+that fixes the two-epoch lookahead of section 6. An entry that has not attested is
+<strong>excluded from the root</strong>: it is not in the published entry list, not in the total,
+and not in the quorum denominator of that version. Exclusion is not a penalty, not a confiscation
+and not an exit: the entry keeps its whole bonded balance, its owner, its exit rights and its full
+slashable exposure, and re-attesting restores eligibility for the following boundary.</p>
+<p>This is how a chain recovers when a cohort goes silent. Within a set version nothing changes:
+the committed weights still include the silent entries, so if enough of them stop signing that
+quorum cannot be met, production halts. At the next boundary the silent entries are not selected,
+the remaining eligible weight becomes the whole of <code>W&prime;</code>, and the quorum predicate
+<code>3 &middot; s &gt; 2 &middot; W&prime;</code> is reachable again. The L1-time rotation
+(<a href="../spec/02-consensus.html#CONS-16">CONS-16</a>) draws a stalled chain&rsquo;s restart set
+from eligible validators, so the halt lasts only while no reachable set can be drawn. No rule takes
+weight from anyone.</p>
+<p>Staying in a set has honest costs. It needs a periodic Ethereum transaction per validator per
+window, though anyone may submit it and a relayer may batch many signatures into one; it needs the
+second heartbeat key and its registration at bonding time; and an operational lapse becomes an
+outage, because a validator that forgets to attest is not selected into that version and returns
+only by attesting again. The window and the transaction cost are
+<span class="tag">unmeasured</span>.</p>
+
+<h3>5. The set is an Ethereum object</h3>
 <p>A set version <code>k</code> is published as
 <code>(chainId, k, R_k, TotalVP_k, n_k, entries)</code>: the Merkle root, the total voting power,
 the entry count and the full list of <code>(pubkey, effStake)</code> pairs. Leaves are
@@ -138,17 +175,20 @@ transaction as the root because a sum cannot be recovered from a Merkle root, an
 recomputes it from the leaves. The root is written by <code>commitSet()</code>, a function that
 takes no arguments and may be called by anyone: the caller chooses nothing, and the contract
 computes the contents from its own state
-(<a href="../spec/03-membership-staking.html#MEM-08">MEM-08</a>).</p>
+(<a href="../spec/03-membership-staking.html#MEM-08">MEM-08</a>). The entry list is filtered by eligibility first: the contract includes an entry only if <code>lastHeartbeatAt(v)</code> shows an attestation within <code>HEARTBEAT_WINDOW</code> at the snapshot, so an ineligible entry is absent from the root and its total rather than present with a reduced weight.</p>
+<!-- <em>D-14: eligibility filters the entry list; there is no reduced-weight entry.</em> -->
 
-<h3>5. Epochs, and why the set is fixed two epochs ahead</h3>
+<h3>6. Epochs, and why the set is fixed two epochs ahead</h3>
 <p>Heights are partitioned into epochs of <code>L = 900</code> blocks, which is 30 minutes at the
 2-second cadence <span class="tag">derived</span>; suitability at the target set size is
 <span class="tag">unmeasured</span>. The epoch of a height is a pure function of that
 height and of constants recorded on L1 when the chain activates
 (<a href="../spec/02-consensus.html#CONS-13">CONS-13</a>).</p>
+<!-- <em>D-14: the heartbeat window closes at the commit point that fixes the set.</em> -->
 <p>The staking contract has its own L1-side clock, expressed in L1 blocks and anchored at the
 activation transaction. During L1-side epoch <code>e</code> the contract appends the set entry for
-epoch <code>e+2</code>. That entry must be an Ethereum-final L1 fact before any block of
+epoch <code>e+2</code>, and the heartbeat window ends at that append: the eligible entries and their
+attestations are read from the same L1 state as the weights. That entry must be an Ethereum-final L1 fact before any block of
 <code>e+2</code> is proposed or voted on, and the L2 may not enter epoch <code>e</code> before the
 L1-side clock has reached the start of that epoch. The two-epoch lead is what makes the set
 immutable in practice: the entry for the epoch being entered was fixed while the previous one was
@@ -171,7 +211,7 @@ first block of an epoch and the last block of the previous one must agree on the
 the root itself is read from the staking contract&rsquo;s per-epoch mapping rather than from any
 header, witness or prover.</p>
 
-<h3>6. Exits, and why the delay exists</h3>
+<h3>7. Exits, and why the delay exists</h3>
 <p><code>requestExit()</code> moves the entry to <em>exit-requested</em>. It stays in every set
 version it is already committed to, keeps voting, and remains fully slashable. The exit becomes
 effective at the first snapshot whose point is at or after the request block and which the
@@ -189,7 +229,7 @@ L1-applied penalty: the offence clock starts on L2, possibly long before the bat
 data published to L1 before its proof settles nothing. Penalties are charged against the stake the entry held at the
 offence epoch, not at the epoch the evidence arrives, so an exit cannot launder an old offence.</p>
 
-<h3>7. Rotation cannot change who was allowed to vote</h3>
+<h3>8. Rotation cannot change who was allowed to vote</h3>
 <p>A certificate names its epoch, and that value must equal the epoch of its height under the
 L1-committed schedule. It is judged under that epoch&rsquo;s committed set root and no other, and
 once valid it stays valid forever: no expiry, no &ldquo;current set&rdquo; check, and no
@@ -199,7 +239,7 @@ re-signed; rotation changes who may certify future heights only. Rotation is not
 the permissionless, bonded and delayed recovery may replace history above the latest checkpoint accepted
 on Ethereum.</p>
 
-<h3>8. Weak subjectivity: where a new node starts</h3>
+<h3>9. Weak subjectivity: where a new node starts</h3>
 <p>A fresh node bootstraps from the most recent checkpoint that the L1 Inbox accepted and that is
 Ethereum-final: an L2 height, block hash, state root, epoch and set version. It reads this from L1
 state; there is no checkpoint provider role, no peer vote and no social input. The node must not
@@ -222,19 +262,19 @@ epoch 15 spans 13,500&ndash;14,399.</p>
 <table>
 <thead><tr><th>Step</th><th>What happens</th><th>Numbers</th><th>Tag</th></tr></thead>
 <tbody>
-<tr><td>1</td><td>Alice bonds TAIKO from her own L1 address and binds an Ed25519 key. Her queue key is fixed by the L1 coordinates of this transaction.</td><td>1,000,000 TAIKO = 1 &times; 10<sup>24</sup> base units at 18 decimals</td><td><span class="tag">sourced</span> decimals &middot; <span class="tag">unmeasured</span> S_min</td></tr>
+<tr><td>1</td><td>Alice bonds TAIKO from her own L1 address and binds an Ed25519 consensus key and an ECDSA heartbeat key. Her queue key is fixed by the L1 coordinates of this transaction.</td><td>1,000,000 TAIKO = 1 &times; 10<sup>24</sup> base units at 18 decimals</td><td><span class="tag">sourced</span> decimals &middot; <span class="tag">unmeasured</span> S_min</td></tr>
 <tr><td>2</td><td>The bond lands while epoch 13 is producing. Epoch 13&rsquo;s set entry already exists, so Alice cannot be in it; activation also waits for ACTIVATION_DELAY and the FIFO rate limit.</td><td>Epoch 13 = heights 11,700&ndash;12,599; the bond is at height 12,345</td><td><span class="tag">derived</span> schedule &middot; <span class="tag">unmeasured</span> delay</td></tr>
-<tr><td>3</td><td>During L1-side epoch 13 (the epoch containing height 12,345), <code>commitSet()</code> appends the entry for epoch 15. Alice&rsquo;s leaf is <code>(pubkey, 1,000,000 TAIKO)</code>, inside root <code>R_k</code>, with the total published beside it.</td><td>Epoch 15 = heights 13,500&ndash;14,399</td><td><span class="tag">derived</span> two-epoch lead</td></tr>
-<tr><td>4</td><td>Epoch 15 begins. Its first header commits <code>validators_hash = R_k</code>. Alice is a validator, with voting power exactly equal to her effective stake.</td><td>1,000,000 TAIKO of weight</td><td><span class="tag">derived</span></td></tr>
+<tr><td>3</td><td>During L1-side epoch 13 (the epoch containing height 12,345), <code>commitSet()</code> appends the entry for epoch 15. Alice&rsquo;s leaf is <code>(pubkey, 1,000,000 TAIKO)</code>, inside root <code>R_k</code>, with the total published beside it, because she attested within <code>HEARTBEAT_WINDOW</code> before this commit. Without a heartbeat her entry would be absent from that root and she would keep her stake.</td><td>Epoch 15 = heights 13,500&ndash;14,399</td><td><span class="tag">derived</span> two-epoch lead &middot; <span class="tag">unmeasured</span> window</td></tr>
+<tr><td>4</td><td>Epoch 15 begins. Its first header commits <code>validators_hash = R_k</code>. Alice is a validator, with voting power exactly equal to her effective stake; a place in later versions depends on attesting again before each commit point.</td><td>1,000,000 TAIKO of weight</td><td><span class="tag">derived</span></td></tr>
 <tr><td>5</td><td>Quorum check for a certificate from this epoch. The predicate is <code>3 &middot; s &gt; 2 &middot; W</code>, evaluated with checked arithmetic by the L2 client, the zkVM guest and the L1 contract alike.</td><td>If W = 100,000,000 TAIKO then s must be at least 66,666,667 TAIKO</td><td><span class="tag">derived</span></td></tr>
 <tr><td>6</td><td>Alice bonds an extra 500,000 TAIKO at height 14,200 &mdash; inside epoch 15, whose set is already committed. Her weight in epochs 15 and 16 does not change; the next root appended (for epoch 17) carries 1,500,000 TAIKO.</td><td>The change lands in epoch 17, two epochs after the epoch whose L1-side clock appended it</td><td><span class="tag">derived</span> timing</td></tr>
 <tr><td>7</td><td>Alice requests an exit in epoch 20. She stays in every committed set, keeps voting and remains slashable. The exit takes effect at the first snapshot at or after the request that the churn cap does not exclude; then D_WITHDRAW runs before withdrawal.</td><td>All delay terms</td><td><span class="tag">unmeasured</span></td></tr>
 <tr><td>8</td><td>If Alice equivocated in epoch 15, the penalty is charged against her stake as it stood in epoch 15 &mdash; 1,000,000 TAIKO &mdash; regardless of the later bond or exit.</td><td>SlashBase(v, 15) = 1,000,000 TAIKO</td><td><span class="tag">derived</span> from the rule</td></tr>
 </tbody></table>
 <p class="small">Steps 3, 4 and 6 assume the activation delay, the queue rate limit and the churn
-cap all admit Alice&rsquo;s entry or exit at the earliest possible snapshot. Those three values are
-<span class="tag">unmeasured</span>, so the epoch numbers here are the earliest
-possible, not a promise.</p>
+cap all admit Alice&rsquo;s entry or exit at the earliest possible snapshot. Those three values and
+<code>HEARTBEAT_WINDOW</code> are <span class="tag">unmeasured</span>, so the epoch numbers here are
+the earliest possible, not a promise.</p>
 
 <h2>What this gives you</h2>
 <ul>
@@ -248,6 +288,10 @@ reproduce.</li>
 offence epoch rather than the stake at the moment evidence arrives.</li>
 <li>A defined starting point for a new node: the newest Ethereum-final checkpoint, with a freshness
 bound.</li>
+<!-- <em>D-14: silence costs the slot, not stake; re-attesting restores eligibility.</em> -->
+<li>A rolling test of who is actually there: a validator must attest on Ethereum to be selected into a
+future set version, so a quiet validator drops out of the set without losing any stake, and attesting
+again puts it back.</li>
 </ul>
 
 <h2>What it does not give you</h2>
@@ -263,6 +307,13 @@ stranded, because no rule and no operator can move a bonded balance.</li>
 <code>S_min</code> would then have no finite value.</li>
 <li>No fresh checkpoint during a long halt: new nodes and new validators wait for a newer
 Ethereum-accepted checkpoint, and an old anchor must never be presented as verified.</li>
+<!-- <em>D-14: honest costs of the heartbeat, and the named falsifier.</em> -->
+<li>No free place in a set: staying in future versions costs a periodic Ethereum heartbeat transaction
+and a second heartbeat key, and a validator that forgets to attest loses its slot until it attests
+again. No stake is taken from it.</li>
+<li>No protection against L1 censorship of heartbeats: if an honest validator&rsquo;s attestation can
+be kept out of Ethereum, it can be excluded from future set versions even while it is online. That is
+the named falsifier of the exclusion argument, and it is <span class="tag">Open</span>.</li>
 </ul>
 
 <h2>Check yourself</h2>
@@ -285,11 +336,19 @@ does not resolve that; only Ethereum&rsquo;s accepted checkpoint does. A checkpo
 <code>WS_MAX</code> is not safe either, because its signers&rsquo; stake may already have been
 released and they can no longer be punished.</p></details>
 
+<!-- <em>D-14: a validator that goes quiet keeps its stake and returns by attesting.</em> -->
+<details><summary>I stopped attesting for a while. Do I lose my stake?</summary>
+<p>No. You are not selected into the set versions committed while you were not attesting, and you
+keep your whole bonded balance, your weight and your standing. Attest again and you are eligible for
+the following boundary. Within a set version that already contains you nothing changes: if enough
+validators stop signing that quorum cannot be met, production halts rather than continuing at a lower
+threshold, and the next boundary is where the silent entries drop out.</p></details>
+
 <div class="note assume">
 <p><strong>Assumptions.</strong> This lesson relies on: fewer than one third of the voting power of
-the relevant epoch&rsquo;s set breaking the rules; enough validators online for a quorum to form; at
+the relevant epoch&rsquo;s set breaking the rules; enough validators online for a quorum to form and posting their L1 heartbeats so each future set version is populated; at
 least one holder keeping each block&rsquo;s data until the batch is settled; Ethereum continuing to
-accept and finalize transactions so the L1 clock and the set commitments advance; a new node being
+accept, include and finalize transactions, including honest heartbeat transactions, so the L1 clock, the set commitments and future eligibility advance; a new node being
 able to obtain an Ethereum-final checkpoint no older than <code>WS_MAX</code>; and the reward pool
 paying enough that operating a validator is rational at <code>S_min</code>. If a checkpoint cannot
 be obtained, the honest outcome is a refusal to call the history verified, and new entry stops until

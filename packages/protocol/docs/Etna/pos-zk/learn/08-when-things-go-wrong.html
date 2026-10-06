@@ -34,7 +34,7 @@
 <main>
 <h1>When things go wrong</h1>
 <p class="muted">This lesson gives you the failure-handling rules: what happens when a proposer hides a
-block, when votes or certificates do not arrive, when a set goes offline, when data cannot be found or
+block, when votes or certificates do not arrive, when validators go offline, when data cannot be found or
 when settlement stalls &mdash; and the guarantee class that follows: a confirmation above the last batch
 accepted on Ethereum is <strong>provisional</strong>, and a bonded, delayed, permissionless recovery can
 replace it. This is a design description; none of it is implemented, measured, audited or deployed.</p>
@@ -144,6 +144,22 @@ likewise void for canonical purposes, though it remains admissible as evidence o
 reinstate. A completed recovery and a batch at a retired height cannot both be true, because a valid batch
 accepted before the completion transaction is Ethereum-final cancels the recovery outright.</figcaption>
 </figure>
+<!-- <em>D-14: a cohort that goes silent drops out at the next set boundary; no rule removes weight.</em> -->
+<p><strong>A cohort that goes silent loses its place at the boundary, not its stake.</strong> Within a set
+version nothing changes: the committed weights still include validators that have stopped signing, so
+if enough of them stop that quorum cannot be met, production halts &mdash; there is no degraded
+threshold. Selection into a future set version is different. To be in it, a validator must post a
+periodic attestation on Ethereum, a <strong>heartbeat</strong>. An entry that has not attested within
+<code>HEARTBEAT_WINDOW</code> ending at the version&rsquo;s commit point is excluded from the root
+&mdash; not decayed, not slashed, not confiscated &mdash; and keeps its whole bonded stake. At the
+next boundary the remaining eligible weight becomes the whole of the epoch&rsquo;s voting power, so
+the quorum predicate is reachable again without any rule removing weight, and the L1-time rotation
+(<a href="../spec/02-consensus.html#CONS-16">CONS-16</a>) draws a stalled chain&rsquo;s restart set
+from the eligible validators. A validator that forgot to attest loses its slot until it attests
+again; re-attesting restores eligibility for the following boundary. The costs are a periodic
+Ethereum transaction (anyone may submit it, and a relayer may batch signatures into one), a second
+heartbeat key, and the slot itself when an operator lapses.</p>
+
 <p><strong>Where recovery cannot help, the chain still halts.</strong> Halting remains the correct action
 for missing data at or below the accepted checkpoint, for a missing validator-set commitment, for an L1 view
 that disagrees with consensus, and for a failure of the stake assumption. In those cases no rule-legal
@@ -417,6 +433,10 @@ escalation counts attempts.</li>
 so a discarded branch cannot be re-proven and reinstated.</li>
 <li>Void locks at retired heights, so a validator locked on a discarded block is not wedged and the old
 locked value is not treated as misbehaviour.</li>
+<!-- <em>D-14: a quorum lost to silence is recoverable at a set boundary.</em> -->
+<li>A liveness rule that takes nothing from anyone: a validator that stops attesting is excluded from
+future set versions, keeps its stake, and returns by attesting, so a quorum lost to silence is
+recoverable at a boundary.</li>
 </ul>
 
 <h2>What it does not give you</h2>
@@ -436,9 +456,13 @@ inclusion is not guaranteed, so a party whose transaction was unwound must resub
 <li>A recovery that cannot itself be abused. It is a manipulation primitive with a price, and the
 argument that a sub-threshold coalition cannot force the trigger is conditional, not proven.</li>
 <li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that
-never answers is not slashable.</li>
-<li>A degraded or read-only mode. A minority outage halts the chain rather than continuing with reduced
-participation.</li>
+never answers is not slashable, and a missed heartbeat is not an offence either. A validator that goes
+quiet loses its place in future set versions, not its stake.</li>
+<li>A way to keep a set version producing after quorum is lost, and no rule that takes weight from
+anyone. Production halts rather than continuing at a lower threshold; the way back is at the boundary,
+where validators that have not posted a heartbeat are excluded from the next set version and the
+eligible remainder becomes the whole quorum denominator. No stake is reduced or taken, and re-attesting
+restores eligibility.</li>
 <li>An operator unstick button. A settlement stall can be cleared only by the permissionless, bonded,
 delayed recovery &mdash; not by an operator, DAO or emergency key.</li>
 <li>Any measured detection rate, timeout value, recovery parameter or retention window. Those are not
@@ -481,14 +505,27 @@ the boundary. A batch must start at <code>max(lastLandedHeight + 1, resumeHeight
 <code>resumeHeight</code> is the correct, landable case &mdash; it is the start the equality requires whenever
 <code>lastLandedHeight + 1 &le; resumeHeight</code>. The acceptance
 rule is about where a batch starts, not which proof was used.</p></details>
+<!-- <em>D-14: heartbeats decide the next set; the silent cohort keeps its stake.</em> -->
+<details><summary>A third of the voting power stops signing and never posts a heartbeat. Is the chain stuck?</summary>
+<p>Not permanently, and nothing is taken from the silent validators. For the set version already
+committed the silent weight still counts, so quorum can fail and production halts for that epoch. To be
+selected into a later set version an entry must
+attest on Ethereum within <code>HEARTBEAT_WINDOW</code>; the silent entries are excluded from the next
+committed root, the eligible remainder becomes the whole of the epoch&rsquo;s voting power, and the
+quorum predicate is reachable again. The excluded validators keep their stake, are not slashed, and
+become eligible again by attesting. The L1-time rotation
+(<a href="../spec/02-consensus.html#CONS-16">CONS-16</a>) can close a stalled epoch early and draw the
+restart set from eligible validators.</p></details>
 
 <div class="card">
 <h3>Assumptions</h3>
 <ul>
 <li>Fewer than one third of each epoch&rsquo;s voting power is malicious, and the rest follows the lock
 and vote-uniqueness rules.</li>
-<li>Enough validators are online to form quorums in normal operation; the protocol has no degraded
-mode when they are not.</li>
+<li>Enough validators are online to form quorums in normal operation, and enough post their L1
+heartbeats that each future set version can be populated. Inside a set version the protocol has no
+degraded mode; at a boundary, validators that have not attested are excluded from the next version
+while keeping their stake.</li>
 <li>Somebody keeps the data for every certified block until its proof lands, or publishes it to L1 while the blobs are retrievable.</li>
 <li>At least one prover finishes each batch before the retention assumption expires.</li>
 <li>The recovery trigger, bond split, delay, escalation, cooldown and cancellation values are unmeasured
@@ -504,7 +541,10 @@ recovery still completes.</li>
 below-cost pool reaches the settlement-stall trigger with no adversary at all.</li>
 <li>Outside L1-level censorship and the absence of any prover, a sub-threshold coalition cannot force the
 settlement-stall trigger.</li>
-<li>Ethereum itself keeps producing, including and finalizing blocks.</li>
+<li>Ethereum itself keeps producing, including and finalizing blocks, and includes honest heartbeat
+transactions. If honest heartbeats can be censored on L1, validators that are online can still be
+excluded from future set versions &mdash; the named falsifier of the exclusion argument, which is
+<span class="tag">Open</span>.</li>
 <li>The timeout values, the retention window and the cap are placeholders awaiting measurement.</li>
 </ul>
 </div>
