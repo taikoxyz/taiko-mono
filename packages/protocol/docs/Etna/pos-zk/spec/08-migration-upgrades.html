@@ -279,8 +279,8 @@ T1–T3; write the genesis record of T3 (<a href="#genesis-record">&sect;genesis
 (268) generation state, packed — <code>recoveryGeneration</code> (uint64; a signed field of the vote and header, <a href="04-l1-integration.html#L1-05">L1-05</a> row 31 and <a href="05-proof-statement.html#PRF-02">PRF-02</a>; held with the accepted checkpoint) + <code>paramVersion</code> (uint16; <a href="09-parameters.html#PARAM-04">PARAM-04</a>) = 10 of 32 bytes. The <code>govResumeQueuedAt</code>, <code>govResumeQueuedHeight</code> and <code>govResumeState</code> fields that D-15 packed here are <strong>withdrawn by D-16</strong> and MUST NOT be implemented, so no timelock, queued entry or void-on-progress state exists in v1; no bond, invoker or attempt ring exists either; this slot is the whole of the stall-resolution state;<br>
 (269) <code>configRegistry</code> map (<code>epoch =&gt; configHash</code>; PARAM-04's append-only per-epoch registry — the map base is one gap slot and each epoch's entry is an entry slot, not a gap slot);<br>
 (275) <code>publications</code> map (<code>bytes32 publicationId =&gt; Publication</code>; D-11's publication record, keyed by the <em>content-derived identity</em> the Inbox recomputes from the stored entry before accepting a reference (<a href="04-l1-integration.html#L1-05">L1-05</a> row 35). The entry holds the DA-07(2)/(3) field set — the ordered versioned hashes' commitment <code>blobHashesHash</code>, the claimed range, <code>daMode</code>, <code>dataCommitment</code>, <code>l1BlockNumber</code>, the monotone <code>sequence</code>, and the per-record deadline <code>l1BlockNumber + T_PROVE_DEADLINE</code> fixed at publication — and is <strong>immutable</strong> once written: whether it was consumed is recorded in <a href="04-l1-integration.html#L1-09">L1-09</a>'s side mapping with the accepted statement, never by mutating the record. Entries are entry slots, not gap slots, exactly like the <code>checkpoints</code> map's records);<br>
-(276) <code>publicationOrder</code> map (<code>uint64 seq =&gt; bytes32 publicationId</code>; the append-only register order the capped FIFO prefix drains, so the due set is a prefix of one sequence rather than a scan of the identity map — entries are entry slots);<br>
-(277) publication clock, packed — <code>nextSeq</code> (uint64; the next register position) + <code>dueHead</code> (uint64; the FIFO head the capped prefix drains from) + <code>dueTail</code> (uint64) + <code>dueCount</code> (uint32) + <code>pruneCursor</code> (uint32) = 32 bytes
+(276) <code>publicationOrder</code> map (<code>uint64 seq =&gt; bytes32 publicationId</code>; the append-only register order the <strong>withdrawn</strong> capped FIFO prefix would have drained (D-16; no v1 rule drains it), so the due set would have been a prefix of one sequence rather than a scan of the identity map — entries are entry slots);<br>
+(277) publication clock, packed — <code>nextSeq</code> (uint64; the next register position) + <code>dueHead</code> (uint64; the FIFO head the withdrawn capped prefix would have drained from) + <code>dueTail</code> (uint64) + <code>dueCount</code> (uint32) + <code>pruneCursor</code> (uint32) = 32 bytes <em>This closes review round 9 finding R9-AC-03: the purpose clauses for (276)/(277) read the deferred capped FIFO in the past/withdrawn tense, as the paragraph below states.</em>
 </td><td><strong>15</strong></td><td><strong>28</strong> (270–274, 278–300)</td></tr>
 <tr><td>SignalService (L1 and L2)</td><td>No state change. The implementation is re-deployed with the
 <em>same</em> immutable values (<code>_authorizedSyncer</code>, <code>_remoteSignalService</code>,
@@ -325,9 +325,9 @@ count and the free-slot figure are therefore re-derived, and no unmeasured input
 D-16: the govResume fields are withdrawn with the deferred governance stall resolution; the generation and
 the publication register remain, so the slot budget is unchanged at 15 consumed and 28 free, and the
 withdrawal is visible as packed bytes rather than as a slot.)</em></p>
-<strong>D-11's publication record, budgeted (slots 275–277).</strong> Data may be published before the proof,
-so the Inbox must hold the record the later proof references and the cursors that the due-set rule of
-<a href="04-l1-integration.html">04</a> drains: (275) is the <code>publications</code> map base — <code>bytes32
+<p><strong>D-11's publication record, budgeted (slots 275–277).</strong> Data may be published before the proof,
+so the Inbox must hold the record the later proof references and the cursors the <strong>withdrawn</strong> due-set rule of
+<a href="04-l1-integration.html">04</a> would have drained, deferred by D-16 (<em>this closes review round 9 finding R9-AC-03 for this clause: the due-set rule is read in the past/withdrawn tense</em>): (275) is the <code>publications</code> map base — <code>bytes32
 publicationId =&gt; Publication</code>, keyed by the content-derived identity the contract recomputes from the
 entry (<a href="04-l1-integration.html#L1-05">L1-05</a> row 35), whose <em>entry</em> slots hold the DA-07(2)/(3) field
 set (the ordered versioned hashes' commitment <code>blobHashesHash</code>, the claimed range, <code>daMode</code>,
@@ -335,8 +335,8 @@ set (the ordered versioned hashes' commitment <code>blobHashesHash</code>, the c
 <code>l1BlockNumber + T_PROVE_DEADLINE</code> fixed at publication) and are immutable once written;
 whether a record was consumed is recorded in <a href="04-l1-integration.html#L1-09">L1-09</a>'s side mapping with the
 accepted statement, never by mutating it; (276) is the append-only <code>publicationOrder</code> map
-(<code>uint64 seq =&gt; bytes32 publicationId</code>) that fixes the register order the capped FIFO prefix
-drains, so the due set is a prefix of one sequence and not a scan of the identity map; and (277) is one packed
+(<code>uint64 seq =&gt; bytes32 publicationId</code>) that was to fix the register order the withdrawn capped FIFO prefix
+would have drained, so the due set would have been a prefix of one sequence and not a scan of the identity map; and (277) is one packed
 clock: <code>nextSeq</code> (uint64) + <code>dueHead</code> (uint64) + <code>dueTail</code> (uint64) +
 <code>dueCount</code> (uint32) + <code>pruneCursor</code> (uint32) = 32 bytes. The clock's
 <code>dueHead</code>, <code>dueTail</code>, <code>dueCount</code> and <code>pruneCursor</code> are the state the deferred narrow
@@ -478,8 +478,8 @@ transaction (<code>Inbox.sol:270-290,321-400</code>). That is the <strong>unboun
 data-before-proof, and it is why the legacy reference is not carried over: it has no proving deadline, no
 permissionless expiration and no recorded publication — it can outlive Ethereum's retention window, and the
 only remedy in the baseline was the owner-only <code>init3()</code> — whereas the Etna path's publication
-record is bounded by <code>T_PROVE_DEADLINE</code> and drained by the due-set rule of
-<a href="04-l1-integration.html">04</a> (D-11, MIG-02 slots 275–277). The exception is bounded four ways:
+record is bounded by <code>T_PROVE_DEADLINE</code> and was to be drained by the <strong>withdrawn</strong> due-set rule of
+<a href="04-l1-integration.html">04</a> (D-11, MIG-02 slots 275–277). <em>This closes review round 9 finding R9-AC-03 for this clause: the drain reference is past/withdrawn.</em> The exception is bounded four ways:
 (i) <strong>the legacy entry points MUST be disabled no later than the activation transition T3</strong> —
 a named transition, not "eventually": <code>prove()</code> reverts <code>MigrationDrained()</code> from the
 moment the machine enters <code>DRAINED</code> (T2) and is absent or unconditionally reverting in

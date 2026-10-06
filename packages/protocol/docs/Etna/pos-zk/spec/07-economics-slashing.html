@@ -174,12 +174,17 @@ assumed is now enforced where the bit is written, so a late freeze computes the 
 owner, never the caller, and each <code>(epoch, index)</code> may be claimed at most once. Claims for epoch
 <code>e</code> open at <code>evidenceClose(e)</code> (<a href="#ECON-07">ECON-07</a>), the
 instant at which the epoch's allocation may be fixed and its participant set and participating stake are
-frozen (5)(d); a claim before then reverts. <strong>The claim is the freeze's backstop.</strong> The first
-claim of <code>e</code> MUST execute the freeze of
-(5)(d) as its first step if <code>e</code> is not yet frozen, so the party claiming is the party with the
-incentive to fix the allocation and no epoch depends on a separate keeper. <em>This closes review round 8
-finding R8-DPE-02: the permissionless claim is the freeze's guaranteed trigger, with the claimant's own
-payout as the incentive.</em> A successful claim is paid from the epoch's own fixed allocation only and reduces that epoch's outstanding reservation by exactly the amount paid, in the same call (5)(a), so the ETH behind a claim can never be drawn by another epoch. <em>(review round 7, finding R7-DPE-05: the claim is the reservation's release event, recorded where the payment is made.)</em>
+frozen (5)(d); a claim before then reverts. <strong>The claim is the freeze's backstop, in the bounded form of (5)(d).</strong> The first
+claim of <code>e</code> MUST execute the cascade of
+(5)(d) as its first step if <code>e</code> is not yet frozen, and MUST NOT pay unless <code>e</code> is frozen
+at the end of that first step: a claim whose epoch lies beyond the call's bounded prefix MUST revert with
+no effect, so no payment is ever made from an unfrozen allocation. Any address may advance the frontier with the
+permissionless, bounded <code>freezeEpoch</code> calls of (5)(d), so the party claiming is the party with the
+incentive to drain the backlog and fix the allocation, and no epoch depends on a separate keeper. <em>This closes review round 8
+finding R8-DPE-02: the permissionless claim is the freeze's guaranteed trigger once the frontier reaches its
+epoch, with the claimant's own payout as the incentive.</em> <em>This closes review round 9 finding R9-EBA F1:
+the backstop is stated in the bounded form — a claim is paid after a bounded, permissionless drain and never
+from an unfrozen epoch.</em> A successful claim is paid from the epoch's own fixed allocation only and reduces that epoch's outstanding reservation by exactly the amount paid, in the same call (5)(a), so the ETH behind a claim can never be drawn by another epoch. <em>(review round 7, finding R7-DPE-05: the claim is the reservation's release event, recorded where the payment is made.)</em>
 (d) <strong>Accounting identity per epoch, with the participant set frozen at the window's close.</strong>
 Let <code>Alloc(e)</code> be the ETH the recorded allocation policy assigns to epoch <code>e</code>'s
 validator payout. Let <code>P(e)</code> be the <strong>frozen participant set</strong>: the canonical
@@ -223,19 +228,45 @@ Alloc(e) + ProvingShare(e)  &le;  free_before(e)           // one inflow is neve
 and is never minted. <strong>The freeze's trigger and order, and why the amount is objective.</strong> An
 epoch <code>e</code> becomes freezable exactly when <code>evidenceClose(e)</code> has passed and MUST NOT be
 frozen before then; a call that would freeze it earlier MUST revert. The freeze is permissionless and needs no keeper: the staking contract MUST expose
-<code>freezeEpoch(uint64 epoch)</code> (name indicative), callable by <strong>any address</strong> once the
-epoch is freezable, and every call that can change the pool's balance or fix a later epoch's amounts — an
+<code>freezeEpoch(uint64 epoch)</code> (name indicative), callable by <strong>any address</strong>. <strong>The cascade is bounded and resumable.</strong> Call an epoch <em>pending</em>
+when <code>evidenceClose</code> has passed and it is not yet frozen. Every call that can change the pool's
+balance or fix a later epoch's amounts — an
 inflow credit, a validator claim, a proving-share transfer, or the freeze of a later epoch — MUST first
-execute the freeze of every freezable epoch not yet frozen, in <strong>ascending epoch order</strong>, before
-applying its own effect. Consequently no caller chooses when or whether an epoch's amounts are fixed: only an
+execute the pending epochs' freezes in <strong>ascending epoch order</strong>, starting from the earliest, and
+MUST freeze <strong>at most <code>FREEZE_MAX</code> epochs</strong> in one call (<code>FREEZE_MAX &ge; 1</code>,
+name indicative: the registered per-call maximum of this loop, <span class="pill unmeasured">unmeasured</span>
+— its value follows from the measured cost of one freeze at the deployed record layout and the block gas
+limit, neither measured here, so no value is stated and it must be fixed by a recorded decision before
+launch). A call MAY freeze that bounded ascending prefix and return; it MUST NOT freeze an epoch out of
+order or skip one. A call whose own effect needs an epoch frozen — a validator claim, a proving-share
+transfer, or the freeze of a later epoch — MUST apply that effect only if the epoch is inside the prefix the
+call can freeze, and MUST otherwise revert with no effect. A call that credits an inflow MUST NOT credit it
+while any pending epoch remains: it freezes the whole pending set when that set holds at most
+<code>FREEZE_MAX</code> epochs, and otherwise the authenticated message MUST revert and stay retriable under MSG-02's per-message status model
+(<a href="04-l1-integration.html#MSG-02">MSG-02</a>), to be re-submitted after the frontier has drained —
+so an arrival is never counted by an epoch whose <code>evidenceClose</code> precedes it. <strong>Resume
+path.</strong> <code>freezeEpoch(e)</code> freezes the pending epochs from the earliest through <code>e</code>
+in ascending order and MUST revert if <code>e</code> is not freezable or already frozen, or if the pending
+epochs up to and including <code>e</code> outnumber <code>FREEZE_MAX</code>; a backlog of <code>p</code> pending
+epochs therefore drains in <code>ceil(p / FREEZE_MAX)</code> permissionless calls, each bounded and callable
+by any address. This applies the loop discipline <a href="04-l1-integration.html#L1-04">L1-04</a> states for
+<code>land(data, proof)</code>: a loop in an L1 entry point is bounded by the transaction's own inputs and a
+registered maximum — here the caller's argument and <code>FREEZE_MAX</code> — never by an unbounded external
+structure such as the number of elapsed epochs. <em>This closes review round 9 finding R9-EBA F1: the cascade has a registered per-call
+bound, a bounded prefix may return, the backlog always drains in bounded permissionless calls, and the
+first-claim backstop of (5)(c) is stated in the same bounded form.</em> Consequently no caller chooses the order in which epochs are fixed, or the amounts they are fixed at: only an
 inflow changes the free balance (a claim and a proving-share transfer discharge a reservation against the
-same balance, so <code>free</code> is unchanged by them), and an inflow cannot credit before it has executed
-the pending freezes, so <code>Alloc(e)</code> and <code>ProvingShare(e)</code> are the amounts the free
+same balance, so <code>free</code> is unchanged by them), and an inflow cannot credit while any pending epoch
+remains unfrozen — the credit call freezes the whole pending set first, or reverts — so
+<code>Alloc(e)</code> and <code>ProvingShare(e)</code> are the amounts the free
 balance supports at the instant <code>evidenceClose(e)</code> passed — a function of L1 state and of no
 caller's timing, which is what the objective-reward requirement demands. A later epoch can never freeze
 before an earlier one, so <code>reserved_before(e)</code> counts every earlier epoch's outstanding and no
-later freeze dilutes <code>e</code>; an epoch cannot be skipped by inaction, because its own first claim
-executes its freeze (5)(c) and any address may submit that claim; and while no pool-touching call is ever
+later freeze dilutes <code>e</code>; an unfrozen epoch is never stranded by a rule gap, because a
+pool-touching call that applies its effect has first frozen a non-empty bounded prefix, the earliest
+pending epoch is always freezable by definition, and <code>freezeEpoch</code> lets any address drain a
+backlog of <code>p</code> epochs in <code>ceil(p / FREEZE_MAX)</code> bounded calls, so the first claim of
+(5)(c) can be paid once the frontier reaches its epoch; and while no pool-touching call is ever
 made, no allocation has been promised and no claim exists — the ordinary no-claim case, not a lost reward. A direct ETH credit that no call of the staking contract mediates (a forced credit) is the one thing that can raise the free balance without executing the cascade; because it can only increase the balance, it is a donation that raises every participant's allocation alike and is never a dilution, a denial or a caller's capture. <code>frozenAt</code> records the block time at which the freeze executes; the amounts it fixes are the
 close-time amounts above. The identity <code>&Sigma;_v payout(v,e) &le; Alloc(e) &le; free_before(e) &le; pool_before(e)</code>,
 evaluated at the frozen denominators, is a <strong>checked condition, not an intention</strong>: the
@@ -1162,6 +1193,7 @@ before the corresponding parameter is fixed, and none may be replaced by an esti
 <tr><td><code>M</code>, <code>M_ev</code></td><td>the margins in MEM-05 and <a href="#ECON-07">ECON-07</a></td><td>the stress scenario that maximises the sum of the terms above</td></tr>
 <tr><td><code>CORR_DELAY</code></td><td>the correlated penalty's applicability (<a href="#ECON-05">ECON-05</a>)</td><td>a choice, bounded above by <code>D_WITHDRAW</code>; no measurement closes it, only the decision</td></tr>
 <tr><td>The per-epoch allocation <code>Alloc(e)</code></td><td>the validator payout identity (<a href="#ECON-02">ECON-02</a> clause 5)</td><td>the recorded allocation policy applied to the pool's free balance at the (5)(d) freeze, funded by the realised inflow delivered by the clause 7 sweep; while nothing has arrived the pool has no inflow, <code>Alloc(e) = 0</code>, no validator reward can be paid, and the security budget is zero <em>(review round 7, finding R7-DPE-05: the base is the free balance, so earlier epochs' reservations are not measured as available budget.)</em></td></tr>
+<tr><td>The per-call freeze bound <code>FREEZE_MAX</code></td><td>the bounded cascade of <a href="#ECON-02">ECON-02</a> clause 5(d): how many epochs one call may freeze, and so the number of permissionless calls, <code>ceil(p / FREEZE_MAX)</code>, a backlog of <code>p</code> epochs takes to drain</td><td>a gas benchmark of one freeze at the deployed per-epoch record layout (the <code>allocRecord[e]</code> write and the reservation update) divided into the block gas limit with the margin PARAM-01 fixes; both the benchmark and the margin are measurements or recorded decisions, and no value may be estimated from a different workload (<a href="index.html#GEN-08">GEN-08</a>)</td></tr>
 <tr><td>Head-certificate participation data (the <code>signerBitmap</code> public input)</td><td>the per-epoch participation accumulator (<a href="#ECON-02">ECON-02</a> clause 5)</td><td>no measurement: the bitmap is verified in-guest per landed batch (PRF-04(ii)–(iii)); what must be measured is the share of a set that typically signs a landed batch, which bounds how much of the set can be paid</td></tr>
 <tr><td><code>IMM_FRAC(c)</code></td><td>the immediate penalty</td><td>a decision informed by comparators (Ethereum's fraction of effective balance is the sourced precedent), not a measurement</td></tr>
 <tr><td><code>P(t)</code>, <code>σ(t)</code>, order-book depth and traded volume</td><td>A-ECO-1, <a href="#ECON-10">ECON-10</a></td><td>market data at the time of the decision; must never be hard-coded anywhere</td></tr>
@@ -1209,6 +1241,7 @@ now made there, together with the parameters the revised <code>D_MAX</code> and 
 <tr><td><code>subsidyCap</code>, <code>subsidyEnd</code></td><td>ETH / unix seconds</td><td><a href="#ECON-02">ECON-02</a></td><td>bounded and expiring; netted out of the identity as <code>D_subsidy</code>; no rule may extend or borrow against them</td></tr>
 <tr><td><code>ALLOC_VAL_PPM</code>, <code>ALLOC_PRV_PPM</code> (<code>ALLOC_REC_PPM</code> <strong>WITHDRAWN</strong> — decisions D-15/D-16)</td><td>parts per million</td><td><a href="#ECON-02">ECON-02</a> clause 5(e)</td><td>the recorded allocation policy's validator and proving shares, both non-negative integers with <code>ALLOC_VAL_PPM + ALLOC_PRV_PPM &le; 1_000_000</code>, applied to <code>free_before(e) = pool_before(e) &minus; reserved_before(e)</code> at the (5)(d) freeze and fixed for that epoch; the remainder stays in the pool and reserved ETH is never part of a new allotment. <em>(review round 7, finding R7-DPE-05: the policy's base is the pool's free balance, not its raw balance.)</em> The proving share is credited to the <a href="04-l1-integration.html#L1-11">L1-11</a> ledger by a transfer that debits the pool in the same transaction. The former recovery share <code>ALLOC_REC_PPM</code> is <strong>withdrawn</strong> with the completion reward it funded and MUST NOT be used; it is retained as a tombstone name only. <em>(decisions D-15/D-16: one inflow is never allocated twice because there are exactly two shares and every earlier epoch's outstanding amount is reserved before the split is taken, and the recovery path the third share funded is deferred.)</em></td></tr>
 <tr><td><code>allocRecord[e]</code>, <code>outstanding(e)</code>, <code>reserved_before(e)</code>, <code>free_before(e)</code> <em>(stored record and derived terms — registered in <a href="09-parameters.html#params">09</a>)</em></td><td>—</td><td><a href="#ECON-02">ECON-02</a> clause 5(a)/(d)</td><td>the per-epoch allocation record <code>(frozenAt, reservedBefore(e), Alloc(e), ProvingShare(e), participantCount(e), claimedCount(e), paid(e), provingTransferred(e))</code> and the reservation and free-balance terms the (5)(d) freeze checks and the checked views evaluate, including the counts the last-claim release of clause 5(d) needs; not a tunable and not a new economic parameter; <a href="09-parameters.html#params">09</a> now carries a row for the record and for each derived term, each tagged as a stored record or a derived quantity rather than as an unmeasured parameter. <em>(review round 7, finding R7-DPE-05: the register rows page 07 owed are registered in 09.)</em></td></tr>
+<tr><td><code>FREEZE_MAX</code></td><td>epochs per call</td><td><a href="#ECON-02">ECON-02</a> clause 5(d)</td><td>the registered maximum number of epochs one call may freeze: the cascade freezes the earliest pending epochs in ascending order, at most <code>FREEZE_MAX</code> per call, and a backlog of <code>p</code> epochs drains in <code>ceil(p / FREEZE_MAX)</code> permissionless <code>freezeEpoch</code> calls. <span class="pill unmeasured">unmeasured</span>: its value follows from the measured cost of one freeze at the deployed record layout and the block gas limit, neither measured here, so no value is stated; the name must be entered in <a href="09-parameters.html">09</a> with unit, derivation and tag before launch. <em>This closes review round 9 finding R9-EBA F1: the cascade's per-call bound is registered and unmeasured, not invented.</em></td></tr>
 <tr><td><code>AGG_PROVER_PPM</code> <em>(WITHDRAWN — decision D-16)</em></td><td>—</td><td><a href="#ECON-02">ECON-02</a> clause 5(e), withdrawn</td><td><strong>Withdrawn by D-16 with the deferred aggregation; MUST NOT be used.</strong> The proving share <code>ProvingShare(e)</code> no longer pays an aggregator: v1 accepts exactly one proof object per batch from one registered backend, so no aggregation share exists and no aggregation-cost measurement is owed. Retained as a tombstone name only; the register entry is <a href="../DEFERRED.md">DEFERRED.md</a> §4. <em>(decision D-16.)</em></td></tr>
 <tr><td><code>M_AGG_MAX</code> <em>(WITHDRAWN — decision D-16)</em></td><td>—</td><td><a href="#ECON-02">ECON-02</a> clause 5(e), withdrawn</td><td><strong>Withdrawn by D-16 with the deferred aggregation; MUST NOT be used.</strong> The maximum inner-proof count of an aggregation object has no rule because no aggregation object exists in v1; registered as a tombstone in <a href="09-parameters.html">09</a>. <em>(decision D-16.)</em></td></tr>
 <tr><td><code>K_SETTLE_BACKENDS</code> <em>(WITHDRAWN — decision D-16)</em></td><td>—</td><td><a href="#ECON-02">ECON-02</a> clause 5(e), withdrawn</td><td><strong>Withdrawn by D-16 with the deferred aggregation; MUST NOT be used.</strong> Settlement's distinct-family count was a property of the aggregation object and is not a v1 parameter; the k-family requirement survives only for a <strong>withdrawal root</strong> as <code>K_PROOF_BACKENDS</code> (<a href="04-l1-integration.html#L1-13">L1-13</a>). <em>(decision D-16.)</em></td></tr>
