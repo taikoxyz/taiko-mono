@@ -27,9 +27,11 @@ height (<a href="02-consensus.html#CONS-08">CONS-08</a>,
 <a href="06-recovery-exceptions.html#REC-02">REC-02</a>). A completed rotation of
 <a href="02-consensus.html#CONS-16">CONS-16</a> is the second, narrower event of the same class: it re-partitions only heights that no
 validator produced, it never re-judges a produced height, and each height is judged only under the epoch the L1-committed boundary
-record assigns it, so a certificate carrying the superseded epoch for a re-partitioned height is void for canonical purposes and
+record assigns it; because a valid certificate entails that its height was produced and finalized
+(<a href="02-consensus.html#CONS-05">CONS-05</a>), no certificate can exist for a re-partitioned height, so
+<a href="02-consensus.html#CONS-08">CONS-08</a>(3) is not weakened by the re-partition itself; if the precondition is violated the offending certificate is void for canonical purposes and
 remains admissible as evidence (<a href="02-consensus.html#CONS-12">CONS-12</a>, <a href="02-consensus.html#CONS-16">CONS-16</a>(4); the
-precondition that no produced height is re-judged is Open, falsifier F7). <em>(S5 &sect;6: INV-01 is restated
+precondition that no produced height is re-judged is Open, falsifier F7). <em>(PR #22262 review comment 6011464863, item 2(a): the rotation is the second, narrower event of the generation class.)</em> <em>(S5 &sect;6: INV-01 is restated
 generation-scoped exactly as <a href="02-consensus.html#CONS-12">CONS-12</a> now is; the unconditional
 claim is deleted.)</em>
 Relative to the authenticated checkpoint (<a href="04-l1-integration.html#L1-07">L1-07</a>): history
@@ -133,7 +135,7 @@ last L1-accepted checkpoint, and the chain resumes from the restored checkpoint;
 completes, the chain is halted. <strong>Independent of every clause above</strong>, and therefore not conditional on (L1), (L2), (L4) or
 (L6): every L2&rarr;L1 message included at or below the latest L1-accepted checkpoint stays withdrawable on L1 with no new L2 block, no
 consensus participation, no quorum and no validator cooperation (<a href="03-membership-staking.html#MEM-15">MEM-15</a>), and settlement can keep raising that
-checkpoint over already-certified heights while production is halted.</span>
+checkpoint over already-certified heights while production is halted. <em>(PR #22262 review comment 6011464863, item 2(c): the exit path is a liveness guarantee in its own right, not a conditional clause.)</em></span>
 <span class="why">Liveness <strong>ends</strong> at the first clause that fails. Where it ends has
 changed (D-7): (L1) fails → the chain halts rather than forks; (L3) fails for data above the last
 L1-accepted checkpoint → the chain halts, and the sanctioned recovery is the only rule that restores
@@ -309,7 +311,7 @@ change of direction must reopen the corresponding entry here rather than silentl
 <tr><td>Based sequencing (L1 proposers order L2 blocks)</td><td>Excluded by D4, which permits L2 PoS to determine order</td><td>A user decision reversing D4</td></tr>
 <tr><td>URC (preconfirmation registry) as a building block</td><td>Excluded by the brief</td><td>Nothing</td></tr>
 <tr><td>TEE-based attestation accepted as proof</td><td>A TEE's attestation is not a ZK proof and cannot be verified by an L1 contract to the standard required here</td><td>Nothing; TEEs may appear only as an auxiliary, never as an accepted proof</td></tr>
-<tr><td>Per-validator L1 liveness attestations (a heartbeat naming the current checkpoint hash)</td><td>Considered as the way to make online-ness an L1-observable fact, which is exactly what would let the inactivity decay remove the cohort that has stopped (falsifier F6). Not adopted in v1: it adds a periodic L1 obligation and gas cost to every validator; it is a <em>declaration</em> rather than a proof of liveness, because a third party can pay for and post an absent validator's attestation, so it converts a free freeze into an L1 gas budget rather than into the discrimination the finding asks for; and it introduces a new surface with its own Sybil, griefing and MEV analysis. The decay of <a href="03-membership-staking.html#MEM-13">MEM-13</a> deliberately reads only evidence the protocol already writes.</td><td>A costed design showing the heartbeat's L1 burden is acceptable, that naming the current checkpoint hash really excludes a pre-signed or proxied attestation, and that its griefing surface is analysed &mdash; or a different construction that makes online-ness observable</td></tr>
+<tr><td>Per-validator L1 liveness attestations (a heartbeat naming the current checkpoint hash)</td><td>Considered as the way to make online-ness an L1-observable fact, which is exactly what would let the inactivity decay remove the cohort that has stopped (falsifier F6). Not adopted in v1: it adds a periodic L1 obligation and gas cost to every validator; it is a <em>declaration</em> rather than a proof of liveness, because a third party can pay for and post an absent validator's attestation, so it converts a free freeze into an L1 gas budget rather than into the discrimination the finding asks for; and it introduces a new surface with its own Sybil, griefing and MEV analysis. The decay of <a href="03-membership-staking.html#MEM-13">MEM-13</a> deliberately reads only evidence the protocol already writes.</td><td>A costed design showing the heartbeat's L1 burden is acceptable, that naming the current checkpoint hash really excludes a pre-signed or proxied attestation, and that its griefing surface is analysed &mdash; or a different construction that makes online-ness observable <em>(PR #22262 review comment 6011464863, item 2(a): this is the alternative that would close falsifier F6.)</em></td></tr>
 <tr><td>Data-first publication with a later proof</td><td>Excluded by D5; also the exact mechanism that produced the June 2026 expiry incident</td><td>Nothing</td></tr>
 <tr><td>Per-address stake caps as an anti-concentration measure</td><td>A cap constrains labels, not capital; the overhead it adds is bounded by <code>kappa/C</code> and never cancels the dominant acquisition cost</td><td>Nothing — but per-validator minimums may still be used for operator-economics reasons</td></tr>
 <tr><td>Staking in ETH or a new token</td><td>Excluded by D7</td><td>Nothing</td></tr>
