@@ -34,7 +34,7 @@ storage-layout constraints (<a href="#MIG-02">MIG-02</a>), the disposition of ev
 across the boundary (<a href="#MIG-03">MIG-03</a>), removal of operational privileges
 (<a href="#MIG-04">MIG-04</a>), program-image, verifier and mixed-client rules
 (<a href="#MIG-05">MIG-05</a>), the no-replacement-deployment rule
-(<a href="#MIG-06">MIG-06</a>), and governance (<a href="#GOV-01">GOV-01</a>–<a href="#GOV-03">GOV-03</a>).
+(<a href="#MIG-06">MIG-06</a>), and governance (<a href="#GOV-01">GOV-01</a>–<a href="#GOV-04">GOV-04</a>), including the timelocked, resume-only stall resolution of <a href="#GOV-04">GOV-04</a> that replaces the withdrawn permissionless recovery <em>(D-15)</em>.
 Status labels are those of <a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11">STATUS-11</a>;
 this page introduces no new label and no new status word.</p>
 <p class="small">Evidence base: <a href="../research/taiko-baseline-contracts.md">taiko-baseline-contracts.md</a>
@@ -58,14 +58,14 @@ before a migration bundle is built, and the bundle itself is gas-<span class="pi
 <p>The migration is a single, irreversible switch from the Shasta rule set to the Etna PoS&nbsp;+&nbsp;ZK
 rule set over the <em>same</em> preserved contract addresses. It is not a chain restart: the new
 consensus begins at the last Shasta state that Ethereum already accepted, and every later rule must
-accept that state as its own past (<a href="#GOV-03">GOV-03</a>). Under the selected recovery mode,
-history at or below the latest L1-accepted checkpoint — the checkpoint record written by the
-most recently accepted batch, which a completed recovery restores exactly — is untouchable by any protocol
-path, and history
-above it is provisional and may be replaced only by <a href="06-recovery-exceptions.html#REC-02">REC-02</a>
-(<a href="06-recovery-exceptions.html#REC-01">REC-01</a>); the migration itself is never a recovery and
-never a substitute for one. <em>(user decision D-7: Mode B selected — the boundary object is accepted as
-the past, and the guarantee classes above and below it are those of REC-01.)</em></p>
+accept that state as its own past (<a href="#GOV-03">GOV-03</a>). History at or below the latest
+L1-accepted checkpoint — the checkpoint record written by the most recently accepted batch — is
+untouchable by any protocol path, and history above it is provisional and may be replaced only by the
+timelocked, resume-only stall resolution of <a href="#GOV-04">GOV-04</a>, which discards everything
+above that checkpoint and resumes from it (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>);
+the migration itself is never a stall resolution and never a substitute for one.
+<em>(D-15: the permissionless recovery is withdrawn, the boundary of REC-01 is unchanged, and clearing a
+settlement stall depends on governance liveness.)</em></p>
 
 <h2 id="state-machine">Migration state machine</h2>
 <figure>
@@ -153,32 +153,35 @@ A-DA-2/A-DA-3)</td><td>nothing new settles; no finalized state is at risk; withd
 <a href="index.html#STATUS-08">withdrawal-eligible</a> remain eligible because their checkpoint and
 signal are untouched</td><td>the T2 deadline completes the drain unconditionally; no rule needs the stalled work</td></tr>
 <tr><td>stuck in <code>DRAINED</code> (no epoch-0 stake set, or the state at <code>S*</code> cannot be
-served)</td><td>a settlement <em>and</em> production halt, not a safety loss; no half-applied state exists; and the Etna recovery path does not exist yet — it begins only at <code>ETNA_ACTIVE</code> (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>), so no recovery can be in flight in this window <em>(user decision D-7: recovery exists only from <code>ETNA_ACTIVE</code>, so it cannot bound the migration window.)</em></td><td>complete T3, or <code>unfreezeToFrozen()</code> and continue draining. Both are DAO bundles: this window is DAO-dependent and must be published with a bounded deadline in the migration announcement; the specification cannot bound it for you</td></tr>
+served)</td><td>a settlement <em>and</em> production halt, not a safety loss; no half-applied state exists; and the Etna stall-resolution path does not exist yet — the trigger reads <code>lastAcceptedBatchTime</code> from a post-activation checkpoint record and the queue entry point exists only at <code>ETNA_ACTIVE</code> (<a href="#GOV-04">GOV-04</a>), so no stalled-resolution entry can be in flight in this window <em>(D-15: the stall resolution exists only from <code>ETNA_ACTIVE</code>, so it cannot bound the migration window.)</em></td><td>complete T3, or <code>unfreezeToFrozen()</code> and continue draining. Both are DAO bundles: this window is DAO-dependent and must be published with a bounded deadline in the migration announcement; the specification cannot bound it for you</td></tr>
 <tr><td>stuck after <code>ETNA_ACTIVE</code></td><td>the migration is complete; ordinary consensus
-liveness rules apply, and above the last accepted checkpoint a confirmation is provisional</td><td><a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>/<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a> for the halt itself; no DAO action is or may be required for progress; and if the stall is a settlement stall that persists past <code>T_STALL</code>, the permissionless recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> is the release — it replaces only history strictly above the latest L1-accepted checkpoint — the checkpoint record written by the most recently accepted batch, which it restores exactly — and never an accepted batch (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>, <a href="index.html#STATUS-06">STATUS-06</a>) <em>(user decision D-7: the settlement-stall release is REC-02, scoped by the REC-01 boundary.)</em></td></tr>
+liveness rules apply, and above the last accepted checkpoint a confirmation is provisional</td><td><a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>/<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a> for the halt itself; no DAO action is required for progress under the liveness assumptions; and if the stall is a settlement stall that persists past <code>T_STALL_GOV</code>, the timelocked, resume-only stall resolution of <a href="#GOV-04">GOV-04</a> is the release — it discards only history strictly above the latest L1-accepted checkpoint — the checkpoint record written by the most recently accepted batch, which is left untouched — and never an accepted batch (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>, <a href="index.html#STATUS-06">STATUS-06</a>) <em>(D-15: the settlement-stall release is GOV-04, scoped by the REC-01 boundary, and it depends on governance liveness.)</em></td></tr>
 </tbody></table>
 <p class="small">The release for a stalled <code>ETNA_ACTIVE</code> chain is never a rollback below the
 boundary: history at or below the latest L1-accepted checkpoint is untouchable by any protocol path
 (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>), and history above it is provisional and may be
-replaced only by the permissionless, bonded, delayed recovery of
-<a href="06-recovery-exceptions.html#REC-02">REC-02</a> — never by a DAO transaction and never by an
-upgrade. HALT-01/HALT-02 still govern the halt itself, and a settlement stall that persists past
-<code>T_STALL</code> is the one objective trigger for recovery. <em>(user decision D-7: Mode B selected —
-the old "never roll back" posture is replaced, and no upgrade may be used as a substitute for recovery
+replaced only by the timelocked, resume-only stall resolution of <a href="#GOV-04">GOV-04</a> — a
+governance action whose effect is fixed by rule, never by an ordinary upgrade and never by an ad-hoc DAO
+transaction. No upgrade may shorten the timelock of an entry already queued
+(<a href="#GOV-04">GOV-04</a>(d), <a href="#GOV-03">GOV-03</a>(e)). HALT-01/HALT-02 still govern the halt
+itself, and a settlement stall that persists past <code>T_STALL_GOV</code> is the one objective trigger for
+the stall resolution. <em>(D-15: the permissionless recovery is withdrawn; the replacement depends on
+governance liveness, which is a disclosed assumption, and no upgrade may be used as a substitute for it
 (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>(d)).)</em></p>
-<p class="small"><strong>If a recovery is in flight during a migration or upgrade window.</strong> The
-migration's own transitions T1–T3 cannot overlap a recovery: the recovery path exists only under
-<code>ETNA_ACTIVE</code> (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>) and the state machine
-has no transition out of <code>ETNA_ACTIVE</code>, so at the T1–T3 boundary there is no pending
-invocation. For a later upgrade, a pending recovery is L1-side state the upgrade must carry unchanged: it
-may not cancel it, shorten or extend <code>T_RECOVERY_DELAY</code>, alter the checkpoint it restores,
-change the bond destination, or substitute itself for it (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>(d),
-<a href="#GOV-03">GOV-03</a>(e)). Cancellation stays exactly where
-<a href="06-recovery-exceptions.html#REC-02">REC-02</a> puts it — the acceptance of any valid batch
-extending the current checkpoint — and the upgrade must preserve the checkpoint record and the generation
-counter across the implementation change (<a href="#GOV-03">GOV-03</a>(c),
-<a href="#MIG-05">MIG-05</a>). <em>(user decision D-7: the recovery is permissionless and bonded, and no
-upgrade may be used as a substitute for it.)</em></p>
+<p class="small"><strong>If a stall-resolution entry is queued during a migration or upgrade
+window.</strong> The migration's own transitions T1–T3 cannot overlap a queued entry: the trigger reads
+<code>lastAcceptedBatchTime</code> from a post-activation checkpoint record and the queue entry point
+exists only under <code>ETNA_ACTIVE</code> (<a href="#GOV-04">GOV-04</a>), and the state machine has no
+transition out of <code>ETNA_ACTIVE</code>, so at the T1–T3 boundary there is no pending entry. For a
+later upgrade, a queued entry is L1-side state the upgrade must carry unchanged: it may not cancel it,
+execute it early, shorten or extend <code>T_GOV_RESUME</code> for an entry already queued, alter the
+checkpoint it resumes from, or substitute itself for it (<a href="#GOV-04">GOV-04</a>,
+<a href="#GOV-03">GOV-03</a>(e)). Voiding stays exactly where <a href="#GOV-04">GOV-04</a> puts it — the
+advance of the checkpoint by the acceptance of any valid extending batch, with permissionless
+cancellation — and the upgrade must preserve the checkpoint record and the recovery generation across the
+implementation change (<a href="#GOV-03">GOV-03</a>(c), <a href="#MIG-05">MIG-05</a>).
+<em>(D-15: the queued object is a timelocked, resume-only governance entry; it is not a bond, a bundle or
+a certificate, and no upgrade may be used as a substitute for it.)</em></p>
 </div>
 <h2 id="rules">Normative rules</h2>
 <div class="rule" id="MIG-01"><span class="rid">MIG-01 — migration boundary and preserved addresses</span>
@@ -233,7 +236,7 @@ and <code>_bondStorage</code> (Inbox 257); a zeroed deprecated slot must not be 
 <code>Bridge.init2()</code>'s recorded intent to reuse <code>__reserved1/2/3</code>
 (<code>Bridge.sol:197-202</code>) is superseded by this rule. If a deployed proxy routes through a
 <code>ForkRouter</code>, slots 0–150 must remain byte-identical (<code>ForkRouter.sol:18-20</code>) in
-the router, in the old fork and in the new fork; whether the deployed proxies route through a router must be established on-chain before the bundle (<a href="#preconditions">§ Preconditions</a>). The complete change list is the table below; any change not in it requires a new decision recorded in the decision log, and every upgraded contract's layout must be regenerated and diffed (<code>pnpm layout</code>) before and after. <em>(A1: the change list now includes the recovery and configuration state of slots 268–274 — the REC-02 recovery record, the <code>REC_WINDOW</code> attempt history, the retirement and generation record and PARAM-04's per-epoch configuration registry — and D-11's publication register at 275–277 (the identity map, the append-only order map and the packed clock), so this completeness claim covers them.)</em></span>
+the router, in the old fork and in the new fork; whether the deployed proxies route through a router must be established on-chain before the bundle (<a href="#preconditions">§ Preconditions</a>). The complete change list is the table below; any change not in it requires a new decision recorded in the decision log, and every upgraded contract's layout must be regenerated and diffed (<code>pnpm layout</code>) before and after. <em>(A1, re-derived by D-15: the change list's recovery state is now one packed slot (268) holding the generation and the stall-resolution queue, plus PARAM-04's per-epoch configuration registry at 269; the withdrawn recovery record, bond, attempt history and retirement record free slots 270–274, and D-11's publication register remains at 275–277 (the identity map, the append-only order map and the packed clock).)</em></span>
 <span class="why">Failure mode: a reordered, retyped or reused slot silently corrupts the checkpoint
 map, the message-status map, the received-signal cache or the vault maps, which is unrecoverable without rewriting user-visible history; carving new state out of the wrong range collides with a previously deployed fork.</span>
 <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
@@ -261,8 +264,8 @@ auto-generated layout files at <code>7718753c1</code>.</p>
 <tr><td>Inbox (L1)</td><td>Replace <code>propose()</code>/<code>prove()</code> with one atomic
 <code>land(data, proof)</code> (<a href="04-l1-integration.html#L1-01">L1-01</a>); add
 <code>freeze()</code>/<code>finishDrain()</code>/<code>activateEtna()</code> and the state gate of
-T1–T3; write the genesis record of T3 (<a href="#genesis-record">&sect;genesis record</a>); add the legacy <code>withdrawLegacyBond</code> selector that reads slot 257 in place; add the REC-02 recovery record with its attempt history and the PARAM-04 per-epoch configuration registry (slots 268–274), and D-11's publication register with its order map and clock (slots 275–277); drop the ProverWhitelist and IProposerChecker calls</td>
-<td><strong>20 declaration slots, 258–277</strong> (each numbered line consumes one gap slot unless it is a packed group):<br>
+T1–T3; write the genesis record of T3 (<a href="#genesis-record">&sect;genesis record</a>); add the legacy <code>withdrawLegacyBond</code> selector that reads slot 257 in place; add the GOV-04 stall-resolution queue and the recovery generation (slot 268) and the PARAM-04 per-epoch configuration registry (slot 269), and D-11's publication register with its order map and clock (slots 275–277); drop the ProverWhitelist and IProposerChecker calls</td>
+<td><strong>15 declaration slots, 258–269 and 275–277</strong> (each numbered line consumes one gap slot unless it is a packed group):<br>
 (258) <code>migrationState</code>+<code>frozenAtL1Block</code>+<code>drainedAtL1Block</code>+<code>genesisL2BlockNumber</code>+<code>genesisTimestamp</code> (packed);<br>
 (259) <code>genesisL2BlockHash</code>;<br>
 (260) <code>genesisL2StateRoot</code>;<br>
@@ -273,17 +276,12 @@ T1–T3; write the genesis record of T3 (<a href="#genesis-record">&sect;genesis
 (265) <code>checkpointRouteVersion</code> map (L1-09: every landed checkpoint MUST record the routeVersion used; if the implementer records it in the <code>BatchLanded</code> event instead, this slot is freed and 27 gap slots remain) <em>(user decision D-6: re-derived after the five forced-inclusion slots were removed)</em>;<br>
 (266) <code>proverReward</code> (L1-11);<br>
 (267) <code>verifierRoutes</code> map (<code>routeVersion =&gt; (programImageId, verifier)</code>, L1-09);<br>
-(268) recovery record, packed standing fields — <code>recoveryGeneration</code> (uint64; the counter of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> and <a href="04-l1-integration.html#L1-05">L1-05</a> row 31) + <code>resumeHeight</code> (uint64; the retirement floor of <a href="04-l1-integration.html#L1-06">L1-06</a>) + <code>recoveryState</code> (uint8; none/pending/completed) + <code>attemptsInWindow</code> (uint32; the escalation exponent) + <code>attemptSeq</code> (uint64; the attempt ring's monotone write index) + <code>paramVersion</code> (uint16; <a href="09-parameters.html#PARAM-04">PARAM-04</a>) = 31 of 32 bytes;<br>
-(269) recovery clocks, packed — <code>lastAttemptAt</code> (uint64; the <code>REC_COOLDOWN</code> clock) + <code>recoveryInvokedAt</code> (uint64; the <code>T_RECOVERY_DELAY</code> clock) + <code>recoveryHInv</code> (uint64; the checkpoint the invocation is made against) + <code>recoveryCompletedAtL1Block</code> (uint64; the Ethereum-final depth of <a href="01-system-model.html#SYS-02">SYS-02</a>) = 32 bytes;<br>
-(270) pending invocation — <code>recoveryInvoker</code> (address; the refund recipient) = 20 of 32 bytes, and the remaining 12 bytes MUST be zero. <strong>The invoker-claimed resume height is deleted from the design:</strong> <code>resumeHeight</code> is derived by the completion transition from the certificate bundle it verifies (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>, Completion evidence), so the invocation stores no height, no hash and no claim. The slot still consumes one declaration slot, because the 20-byte address cannot be packed into slot 268 (31 of 32 bytes used) or slot 269 (32 of 32 bytes used). <em>This closes the retirement-endpoint Critical: the slot no longer carries an unauthenticated invoker claim (review comment 6014265254, item 3).</em><br>
-(271) <code>recoveryBondPosted</code> (uint256; ETH posted at invocation);<br>
-(272) <code>recoveryBondRefundable</code> (uint256; the component returned only on completion — <code>B_REC_KEEP</code> leaves custody in the invocation transaction and is <code>posted &minus; refundable</code>, so it has no standing slot);<br>
-(273) <code>recoveryAttempts</code> bounded ring (the attempt history that computes <code>B_REC_BASE &middot; 2<sup>attempts</sup></code> over <code>REC_WINDOW</code>: one dynamic-array base, whose single length slot is the gap slot, plus packed uint64 timestamps at derived positions — entry slots, not gap slots; live entries are at most <code>ceil(REC_WINDOW / REC_COOLDOWN) + 1</code> because <code>REC_COOLDOWN</code> follows every attempt, and their entry slots are unmeasured until both parameters are set);<br>
-(274) <code>configRegistry</code> map (<code>epoch =&gt; configHash</code>; PARAM-04's append-only per-epoch registry — the map base is one gap slot and each epoch's entry is an entry slot, not a gap slot);<br>
+(268) stall-resolution state, packed — <code>recoveryGeneration</code> (uint64; the counter incremented by the <a href="#GOV-04">GOV-04</a> action and carried as a signed field of the vote and header, <a href="04-l1-integration.html#L1-05">L1-05</a> row 31 and <a href="05-proof-statement.html#PRF-02">PRF-02</a>) + <code>govResumeQueuedAt</code> (uint64; the L1 timestamp at which the current entry was queued) + <code>govResumeQueuedHeight</code> (uint64; the <code>lastLandedHeight</code> the entry was queued against, whose advance voids it) + <code>govResumeState</code> (uint8; none/queued) + <code>paramVersion</code> (uint16; <a href="09-parameters.html#PARAM-04">PARAM-04</a>) = 27 of 32 bytes. <strong>No bond, no invoker, no attempt ring:</strong> the withdrawn recovery's records are deleted with it (D-15), and this slot is the whole of the stall-resolution state;<br>
+(269) <code>configRegistry</code> map (<code>epoch =&gt; configHash</code>; PARAM-04's append-only per-epoch registry — the map base is one gap slot and each epoch's entry is an entry slot, not a gap slot);<br>
 (275) <code>publications</code> map (<code>bytes32 publicationId =&gt; Publication</code>; D-11's publication record, keyed by the <em>content-derived identity</em> the Inbox recomputes from the stored entry before accepting a reference (<a href="04-l1-integration.html#L1-05">L1-05</a> row 35). The entry holds the DA-07(2)/(3) field set — the ordered versioned hashes' commitment <code>blobHashesHash</code>, the claimed range, <code>daMode</code>, <code>dataCommitment</code>, <code>l1BlockNumber</code>, the monotone <code>sequence</code>, and the per-record deadline <code>l1BlockNumber + T_PROVE_DEADLINE</code> fixed at publication — and is <strong>immutable</strong> once written: whether it was consumed is recorded in <a href="04-l1-integration.html#L1-09">L1-09</a>'s side mapping with the accepted statement, never by mutating the record. Entries are entry slots, not gap slots, exactly like the <code>checkpoints</code> map's records);<br>
 (276) <code>publicationOrder</code> map (<code>uint64 seq =&gt; bytes32 publicationId</code>; the append-only register order the capped FIFO prefix drains, so the due set is a prefix of one sequence rather than a scan of the identity map — entries are entry slots);<br>
 (277) publication clock, packed — <code>nextSeq</code> (uint64; the next register position) + <code>dueHead</code> (uint64; the FIFO head the capped prefix drains from) + <code>dueTail</code> (uint64) + <code>dueCount</code> (uint32) + <code>pruneCursor</code> (uint32) = 32 bytes
-</td><td><strong>20</strong></td><td><strong>23</strong> (278–300)</td></tr>
+</td><td><strong>15</strong></td><td><strong>28</strong> (270–274, 278–300)</td></tr>
 <tr><td>SignalService (L1 and L2)</td><td>No state change. The implementation is re-deployed with the
 <em>same</em> immutable values (<code>_authorizedSyncer</code>, <code>_remoteSignalService</code>,
 <code>VERSION = 1</code>) and the same checkpoint semantics; adding a monotone high-water mark is a
@@ -301,18 +299,19 @@ the quota dependency; keep all four mappings and <code>lastMigrationStart</code>
 the anchor payload becomes a block-validity rule rather than an operator action</td><td>none</td>
 <td>0</td><td>43</td></tr>
 </tbody></table>
-<p class="small">The 20 Inbox slots are <span class="pill derived">derived</span> from the change list:
+<p class="small">The 15 Inbox slots are <span class="pill derived">derived</span> from the change list:
 every object the Etna rules require is enumerated above with the contract that holds it, and
-20 &le; 43 at the sourced gap arithmetic (258–300): 23 slots remain (278–300). Every object of slots
-268–277 is Inbox state, and each is placed there by a rule that names the Inbox:
+15 &le; 43 at the sourced gap arithmetic (258–300): 28 slots remain (270–274, 278–300). Every object of
+slots 258–269 and 275–277 is Inbox state, and each is placed there by a rule that names the Inbox:
 <a href="09-parameters.html#PARAM-04">PARAM-04</a> requires <em>the Inbox</em> to keep the append-only
-per-epoch configuration registry (274), with <code>paramVersion</code> packed at 268; the recovery record
-of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> is L1 state held with the accepted predecessor
-checkpoint, which <a href="04-l1-integration.html#L1-05">L1-05</a> row 31 places in the Inbox's own
-storage, and <a href="#GOV-03">GOV-03</a>(e) requires an upgrade to carry a pending recovery unchanged
-(268–272); and <a href="04-l1-integration.html#L1-06">L1-06</a>'s contiguity rule reads its two inputs,
-<code>lastLandedHeight</code> (263) and <code>resumeHeight</code> (268), from the same checkpoint record.
-<code>lastAcceptedBatchTime</code> (L1-07; the stored acceptance time that <a href="06-recovery-exceptions.html#REC-02">REC-02</a>'s settlement-stall clock reads) is a field of that same checkpoint record, so it is carried in the <code>checkpoints</code> map's entry slots and packs with <code>l1BlockNumber</code> into one 32-byte word: the record's storage footprint is unchanged, the declaration count stays at <strong>20</strong> slots (258–277), and the <strong>23</strong> gap slots (278–300) remain. <strong>The arithmetic after deleting the invoker's claim, shown honestly:</strong> 43 sourced gap slots (258–300) &minus; 20 declaration slots (258–277) = 23 remaining (278–300); slot 270 is still one of the 17 recovery-and-configuration slots, so the deletion frees 12 bytes inside a consumed slot, not a slot — there is no honest way to pack a 20-byte address into 268 or 269, and splitting it is not permitted. The declaration count and the free-slot figure are therefore unchanged, and the retirement derivation adds no storage. <em>This closes the retirement-endpoint Critical's budget half (review comment 6014265254, item 3).</em> <em>This closes finding R1: the stall clock's source is placed in the slot budget where it fits, with its packing and the free count stated.</em>
+per-epoch configuration registry (269), with <code>paramVersion</code> packed at 268; the stall-resolution
+state of <a href="#GOV-04">GOV-04</a> — the generation counter and the queued entry — is L1 state held
+with the accepted predecessor checkpoint, which <a href="04-l1-integration.html#L1-05">L1-05</a> row 31
+places in the Inbox's own storage, and <a href="#GOV-03">GOV-03</a>(e) requires an upgrade to carry a
+queued entry and the generation unchanged (268); and <a href="04-l1-integration.html#L1-06">L1-06</a>'s
+contiguity rule reads its pointer <code>lastLandedHeight</code> (263) from the same checkpoint record,
+with the retired-height floor withdrawn (D-15).
+<code>lastAcceptedBatchTime</code> (L1-07; the stored acceptance time that <a href="#GOV-04">GOV-04</a>'s settlement-stall clock reads) is a field of that same checkpoint record, so it is carried in the <code>checkpoints</code> map's entry slots and packs with <code>l1BlockNumber</code> into one 32-byte word: the record's storage footprint is unchanged, the declaration count is <strong>15</strong> slots (258–269, 275–277), and <strong>28</strong> gap slots (270–274, 278–300) remain. <strong>The arithmetic after withdrawing the recovery records, shown honestly:</strong> 43 sourced gap slots (258–300) &minus; 15 declaration slots = 28 remaining, and the withdrawal of the bond ledger, the attempt ring and the invoker record frees whole slots (270–274) that the former design consumed; the one packed slot (268) still carries the generation, the queue timestamp, the queued height, the state byte and <code>paramVersion</code>. The declaration count and the free-slot figure are therefore re-derived, and no unmeasured input enters them (<a href="#GOV-04">GOV-04</a>). <em>D-15: the permissionless recovery's records are withdrawn and the slot budget shrinks with them; the publication register's slots (275–277) and the generation's packing are unaffected.</em>
 <strong>D-11's publication record, budgeted (slots 275–277).</strong> Data may be published before the proof,
 so the Inbox must hold the record the later proof references and the cursors that the due-set rule of
 <a href="04-l1-integration.html">04</a> drains: (275) is the <code>publications</code> map base — <code>bytes32
@@ -333,22 +332,16 @@ recomputed from a current parameter, because a later change to <code>T_PROVE_DEA
 deadline of an outstanding record (<a href="04-l1-integration.html#DA-09">DA-09</a>(2): re-publication starts a new clock, it never revives the old one); the capped rule needs only head, tail, count and the next position;
 and pruning after <code>PUB_RECORD_RETENTION</code> is a permissionless advance of <code>pruneCursor</code>, so
 the register does not grow without bound. The maps' entries are entry slots, exactly like the
-<code>checkpoints</code> map's records, so the declaration count rises by exactly three: <strong>20 of the 43
-sourced gap slots (258–300) are consumed and 23 remain (278–300)</strong>. The record is written only from
-<code>ETNA_ACTIVE</code> (MIG-03) and is initialised empty at T3
+<code>checkpoints</code> map's records, so the declaration count includes exactly three: <strong>15 of the 43
+sourced gap slots (258–300) are consumed and 28 remain (270–274, 278–300)</strong>. The record is written only from
 (<a href="#genesis-record">&sect;genesis record</a>). <em>(D-11: publication is new stored state; it is
 budgeted here with two map bases and one packed clock, and the entry slots are costed separately.)</em>
-The attempt history (273) must be an exact windowed ring rather than a decaying counter: the escalation
-counts attempts in the preceding <code>REC_WINDOW</code>, and a counter that cannot expire one attempt at a
-time would under-price a rapid second attempt. It is finite state because <code>REC_COOLDOWN</code> follows
-every attempt, so its live entries are bounded by <code>ceil(REC_WINDOW / REC_COOLDOWN) + 1</code>. Two
-quantities in that state are <em>entry</em> slots and not gap slots, exactly as the <code>checkpoints</code>
-map's records are entry slots: the ring's packed timestamps (<code>ceil(capacity / 4)</code> slots for
-<code>capacity = ceil(REC_WINDOW / REC_COOLDOWN) + 1</code>) and the configuration registry (one entry slot
-per epoch, append-only forever). Both are real storage cost: the ring's count is
-<span class="pill unmeasured">unmeasured</span> until <code>REC_WINDOW</code> and <code>REC_COOLDOWN</code>
-are fixed, and the registry adds one slot per epoch; neither changes the 20-slot declaration count, which
-has no unmeasured input. Two classes are deliberately <em>not</em> in the budget. <code>epochSetRoot</code>
+The withdrawn recovery objects (the bond ledger, the invoker record and the <code>REC_WINDOW</code>
+attempt ring) freed slots 270–274 in this budget (<a href="#GOV-04">GOV-04</a>; D-15). One quantity in
+the remaining state is an <em>entry</em> slot and not a gap slot, exactly as the <code>checkpoints</code>
+map's records are entry slots: the configuration registry (one entry slot per epoch, append-only
+forever). It is real storage cost — the registry adds one slot per epoch — and it does not change the
+15-slot declaration count, which has no unmeasured input.
 is not Inbox state: the per-epoch entry lives in the L1 staking contract's mapping as the exhaustive
 four-field tuple <code>epoch &rarr; (setRoot, totalVotingPower, rootCommittedAt, setVersionBlock)</code> of
 <a href="03-membership-staking.html#MEM-09">MEM-09</a>(2) — <code>rootCommittedAt</code> is the commit
@@ -363,30 +356,25 @@ and its segregated ETH reward pool (ECON-02 clause 5) are new-contract state, un
 prefixes and therefore outside this slot budget. Protocol parameters (<code>MAX_BATCH_BLOCKS</code>,
 <code>D_MAX</code>, <code>REWARD_QUOTE</code>, <code>WITHDRAWAL_DELAY</code>, the publication parameters
 <code>T_PROVE_DEADLINE</code>, <code>FI_MAX_PER_BATCH</code>, <code>FI_ITEM_MAX_BYTES</code> and
-<code>PUB_RECORD_RETENTION</code>, and the recovery
-parameters <code>T_STALL</code>, <code>T_RECOVERY_DELAY</code>, <code>B_REC_BASE</code>,
-<code>B_REC_KEEP</code>, <code>REC_WINDOW</code>, <code>REC_COOLDOWN</code>) are constructor immutables of
+<code>PUB_RECORD_RETENTION</code>, and the stall-resolution
+parameters <code>T_STALL_GOV</code> and <code>T_GOV_RESUME</code>) are constructor immutables of
 the settlement implementation, not storage: they change only by upgrade and consume no gap slot. The Shasta fee-config names <code>BASE_FEE</code>, <code>FEE_DOUBLE_THRESHOLD</code>, <code>MAX_FEE</code>
 and <code>CANCELLATION_COST</code> are baseline configuration carried by the wind-down, not parameters of this
 specification, and <a href="09-parameters.html">09</a> registers none of them. If an
-implementer needs more Inbox state than the 23 remaining slots, the answer is a decision-log entry or a new
+implementer needs more Inbox state than the 28 remaining slots, the answer is a decision-log entry or a new
 contract, not a reused deprecated slot. <em>(review round 2, finding E-R2-03: the budget now enumerates every
 required object — the L1-07 checkpoint map, the L1-11 ledgers, the L1-09 route registry, the MIG-05 image
-registry, the REC-02 recovery and attempt history and the PARAM-04 configuration registry — with its holder
+registry, the GOV-04 stall-resolution state and the PARAM-04 configuration registry — with its holder
 and slot cost, and the trailing gap suffices.)</em> <em>(user decision D-6: the five forced-inclusion slots
-of the previous revision (266–270) are removed with forced inclusion, and the arithmetic is re-derived — 20 of
-the 43 sourced gap slots (258–300) are consumed and 23 remain (278–300), including the D-11 publication register's three slots (275–277) and the A1 recovery and
-configuration state; the declaration count's only inputs are the sourced pin layouts
-and this change list, and no unmeasured input enters it; the ring's and registry's entry slots are costed
+of the previous revision (266–270) are removed with forced inclusion, and the arithmetic is re-derived — 15 of
+the 43 sourced gap slots (258–300) are consumed and 28 remain (270–274, 278–300), including the D-11 publication register's three slots (275–277) and the GOV-04 stall-resolution state (268) and the PARAM-04 registry (269), with the withdrawn recovery records freeing 270–274; the declaration count's only inputs are the sourced pin layouts
+and this change list, and no unmeasured input enters it; the registry's entry slots are costed
 separately above and are not gap slots. <a href="04-l1-integration.html#L1-11">L1-11</a>'s remaining ledger
-is the prover reward.)</em> <em>(A1 — S5 &sect;&sect;1/2/4/5, R4-LIV-03, R4-LIV-04: the budget now enumerates
-and prices the recovery record (invocation, <code>H_inv</code>, bond posted and split, pending/completed
-state), the <code>REC_WINDOW</code> attempt history, the <code>REC_COOLDOWN</code> clock, the retirement
-record (<code>resumeHeight</code>) and the generation counter, and PARAM-04's per-epoch configuration
-registry, all on the contract each rule names; the free-slot figures and the completeness claim are
-re-derived.)</em></p>
-
-<h3 id="genesis-record">The genesis checkpoint record written at activation</h3>
+is the prover reward.)</em> <em>(A1, re-derived by D-15: the budget enumerates and prices the GOV-04
+stall-resolution state (the generation counter, the queued timestamp and height and the queue state) and
+PARAM-04's per-epoch configuration registry, all on the contract each rule names; the withdrawn recovery
+record, bond, attempt history and retirement record are removed from the budget, freeing slots 270–274,
+and the free-slot figures and the completeness claim are re-derived.)</em></p>
 <p><strong>Normative.</strong> In the same transaction as T3 (MIG-03), <code>activateEtna(B*, S*)</code> MUST write the boundary object as the
 <em>first</em> L1-07 checkpoint record, and that write MUST satisfy every L1-07 MUST. The only fields the
 bundle may not derive are read from the equalities T3 already checks:</p>
@@ -553,10 +541,10 @@ the TaikoDAO) calling <code>upgradeToAndCall</code> through <code>_authorizeUpgr
 authority only. Where a removal changes incident response (no runtime pause, no runtime image rotation, no runtime token remapping), the consequence is disclosed in the table and the remedy is a DAO upgrade, not a hidden key. <em>(user decision D-6: forced inclusion is removed, so no inclusion path or inclusion lever exists in the post-migration ABI and none appears in the ordinary-operation enumeration above.)</em></span>
 <span class="why">Failure mode: a surviving owner function is a capture target and a liveness
 dependency (R2), and makes the "no privilege or discretion in ordinary operation" invariant (<a href="10-assurance.html#INV-04">INV-04</a>) false; <code>init2()</code> in particular can rewrite
-<code>lastFinalizedBlockHash</code>, which the recovery boundary forbids: no path may change history at
-or below the latest L1-accepted checkpoint, and above it only the permissionless recovery may
-(<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). <em>(user decision D-7: the prohibition is the
-boundary of REC-01, not a Mode A-only posture.)</em></span>
+<code>lastFinalizedBlockHash</code>, which the boundary of <a href="06-recovery-exceptions.html#REC-01">REC-01</a> forbids: no path may change history at
+or below the latest L1-accepted checkpoint, and above it only the stall resolution of <a href="#GOV-04">GOV-04</a> may
+(<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). <em>(D-15: the prohibition is the boundary of
+REC-01, and the only sanctioned replacement above it is the timelocked, resume-only governance action of GOV-04.)</em></span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(the completeness of this table is a review obligation; the residual trust is
 A-GOV-1, and a DAO that does not execute the removals leaves the levers live)</span></div>
@@ -659,7 +647,7 @@ epochs</td></tr>
 <tr><td>Proof under <code>I_new</code> for a batch whose epoch predates the activation of
 <code>I_new</code></td><td>no</td><td>the epoch's accepted set does not contain it</td></tr>
 <tr><td>Batch already accepted on L1 (<a href="index.html#STATUS-06">STATUS-06</a>)</td>
-<td>unaffected; never re-proved</td><td><a href="#GOV-03">GOV-03</a>(b)(c); <a href="index.html#STATUS-06">STATUS-06</a> — the recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> does not revoke an accepted batch <em>(user decision D-7: Mode B selected; the first irreversible status is unchanged)</em></td></tr>
+<td>unaffected; never re-proved</td><td><a href="#GOV-03">GOV-03</a>(b)(c); <a href="index.html#STATUS-06">STATUS-06</a> — the stall resolution of <a href="#GOV-04">GOV-04</a> does not revoke an accepted batch <em>(D-15: the first irreversible status is unchanged)</em></td></tr>
 <tr><td>Client that has not implemented <code>retiredAtEpoch</code></td><td>cannot follow the chain</td>
 <td>no mixed-version window exists; such a client must be upgraded or halt</td></tr>
 </tbody></table>
@@ -713,39 +701,114 @@ are <code>0x167013…000N</code> (Anchor <code>…010001</code>, Bridge <code>�
 and duration are <span class="pill unmeasured">unmeasured</span>.</p>
 <h2 id="governance">Governance</h2>
 <div class="rule" id="GOV-01"><span class="rid">GOV-01 — DAO governs upgrades only; the trust assumption is stated</span>
-<span class="norm">The DAO's only authority over this protocol is the ability to execute an upgrade:
+<span class="norm">The DAO's only authorities over this protocol are (i) the ability to execute an upgrade:
 <code>MainnetDAOController.execute(bytes)</code> (<code>onlyOwner</code>, owned by the TaikoDAO;
 <code>MainnetDAOController.sol:24-31</code>) calling <code>upgradeToAndCall</code> /
-<code>upgradeTo</code> on the proxies it owns (<code>EssentialContract.sol:207</code>), plus the
-migration transitions T1–T3 that are delivered <em>as</em> upgrades. After
-<code>ETNA_ACTIVE</code> no DAO-dependent runtime state may exist: no consensus rule, admission rule,
-proof-acceptance rule, exit rule or bridge rule may read a value the DAO can change without an upgrade, and no DAO transaction may be required for ordinary liveness — block production, voting, proving, settlement and exit must all complete without one. <em>(user decision D-6: forced inclusion is removed, so no inclusion rule exists and none appears in this enumeration; inclusion resistance is the conditional property of <a href="10-assurance.html#LIVE-04">LIVE-04</a>.)</em> The trust assumption is explicit and is not repairable by the protocol: A-GOV-1 (<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4.4) states that the DAO does not execute a malicious upgrade; if it does, the safety claims of this specification do not apply to the resulting rule set (failure class F2). For contrast, the prior Etna design recorded <em>exactly two</em> DAO-dependent states — CONFLICT after a provisional landing, and a certificate-free landing during a one-leaf outage (<code>prior-etna-digest.md:113,119</code>); this design has zero.</span>
+<code>upgradeTo</code> on the proxies it owns (<code>EssentialContract.sol:207</code>), including the
+migration transitions T1–T3; and (ii) queueing the stall-resolution action of <a href="#GOV-04">GOV-04</a>,
+which is the one runtime governance action this protocol admits. After
+<code>ETNA_ACTIVE</code> no other DAO-dependent runtime state may exist: no consensus rule, admission rule,
+proof-acceptance rule, exit rule or bridge rule may read a value the DAO can change without an upgrade, and no
+DAO transaction may be required for ordinary liveness — block production, voting, proving, settlement and
+exit must all complete without one. <strong>The named exception is a settlement stall:</strong> clearing a
+stall past <code>T_STALL_GOV</code> requires the queued, timelocked, resume-only action of GOV-04, so after a
+stall the protocol's progress depends on governance liveness. That dependency is disclosed as the trust
+assumption A-GOV-2 (<a href="10-assurance.html#LIM-01">LIM-01</a>), and it is not ordinary operation: it is
+the remedy for a failure of the liveness assumptions, and the exit guarantee of
+<a href="03-membership-staking.html#MEM-15">MEM-15</a> is independent of it. <em>(D-15: the DAO's
+stall-resolution authority is rule-bound — its trigger, effect, timelock and void-on-progress are fixed —
+and it lets governance choose nothing.)</em> <em>(user decision D-6: forced inclusion is removed, so no
+inclusion rule exists and none appears in this enumeration; inclusion resistance is the conditional
+property of <a href="10-assurance.html#LIVE-04">LIVE-04</a>.)</em> The trust assumption on the DAO's
+conduct is explicit and is not repairable by the protocol: A-GOV-1
+(<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4.4) states
+that the DAO does not execute a malicious upgrade; if it does, the safety claims of this specification do
+not apply to the resulting rule set (failure class F2). For contrast, the prior Etna design recorded
+<em>exactly two</em> DAO-dependent states — CONFLICT after a provisional landing, and a certificate-free
+landing during a one-leaf outage (<code>prior-etna-digest.md:113,119</code>); this design has one, the
+settlement stall that only a governed resume can clear.</span>
 <span class="why">Failure modes: any runtime DAO lever is a capture target and a liveness dependency
-(R2); a hidden owner flag makes the no-privilege invariant (<a href="10-assurance.html#INV-04">INV-04</a>) false; describing A-GOV-1 as a guarantee is exactly the non-argument "the DAO would fix it".</span>
+(R2); a hidden owner flag makes the no-privilege invariant (<a href="10-assurance.html#INV-04">INV-04</a>) false; describing A-GOV-1 as a guarantee is exactly the non-argument "the DAO would fix it"; and a chain whose only stall remedy is a governance action is only as live as its governance (A-GOV-2).</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(proven relative to the MIG-04 removal table being complete; the residual trust is
-A-GOV-1, whose failure is GOV-02)</span></div>
+A-GOV-1 for the DAO's conduct and A-GOV-2 for its liveness, whose failure is GOV-02)</span></div>
 <div class="rule" id="GOV-02"><span class="rid">GOV-02 — malicious governance is a separate failure class</span>
 <span class="norm">A malicious or compromised DAO is failure class F2, not a protocol failure: no rule,
 contract, monitor or evidence object in this design detects, prevents or repairs it, and one upgrade can rewrite any rule — including this one — reassign any storage slot, or remove the staking requirement. The honest responses are exactly three: (i) before-the-fact disclosure, (ii) comparability, i.e. every upgrade bundle is published with the target implementation addresses, the storage-layout diff and the expected post-upgrade boundary object, so any deviation is publicly detectable, and (iii) the ability of users to exit before an announced upgrade takes effect, subject to the delays of <a href="04-l1-integration.html#MSG-03">MSG-03</a> and
 <a href="07-economics-slashing.html#ECON-03">ECON-03</a>. This design does not claim that a DAO upgrade
-cannot invalidate finalized history; it claims that no rule of this protocol can, and that a governance rewrite is reported as a rules change rather than as a recovery. The status guarantee (<a href="index.html#STATUS-04">STATUS-04</a>, <a href="index.html#STATUS-06">STATUS-06</a>) is made relative to the rules in force — history at or below the latest L1-accepted checkpoint is untouchable by any protocol path (Ethereum finality is the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>), and history above it is provisional and replaceable only by the recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a>, never by a governance transaction (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>) — and after a governance rewrite it must be re-established by the new rules. <em>(user decision D-7: Mode B selected — a governance rewrite is still reported as a rules change, never as a recovery.)</em></span>
+cannot invalidate finalized history; it claims that no rule of this protocol can, and that a governance rewrite is reported as a rules change rather than as a stall resolution. <strong>A captured or coerced governance can also act opportunistically within the rules:</strong> the stall-resolution action of <a href="#GOV-04">GOV-04</a> is queued by governance, so a governance that can wait for any genuine stall can have an unfavourable provisional range discarded. The timelock <code>T_GOV_RESUME</code> (every user can exit via <a href="03-membership-staking.html#MEM-15">MEM-15</a> before it executes), the resume-only effect (governance chooses no state, checkpoint, height or subset) and the void-on-progress rule bound the harm; they do not remove the assumption. It is named A-GOV-2 and recorded in <a href="10-assurance.html#LIM-01">LIM-01</a>. The status guarantee (<a href="index.html#STATUS-04">STATUS-04</a>, <a href="index.html#STATUS-06">STATUS-06</a>) is made relative to the rules in force — history at or below the latest L1-accepted checkpoint is untouchable by any protocol path (Ethereum finality is the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>), and history above it is provisional and replaceable only by the completed stall resolution of <a href="#GOV-04">GOV-04</a> — a governance action whose trigger, effect, timelock and void-on-progress are fixed by rule — never by an ad-hoc governance transaction and never by an ordinary upgrade (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>) — and after a governance rewrite it must be re-established by the new rules. <em>(D-15: the sanctioned replacement above the checkpoint is the rule-bound stall resolution of GOV-04; any other governance rewrite is reported as a rules change, never as a stall resolution.)</em></span>
 <span class="why">Failure mode: reading A-GOV-1 as a guarantee, or claiming that ZK verification,
-bonds or a timelock make governance capture safe; the prior Etna digest records the same conclusion ("the DAO is assumed honest; capture is out of scope", <code>prior-etna-digest.md:113</code>).</span>
+bonds or a timelock make governance capture safe, or that a captured governance cannot use the stall resolution opportunistically; the prior Etna digest records the same conclusion ("the DAO is assumed honest; capture is out of scope", <code>prior-etna-digest.md:113</code>).</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span></div>
-<div class="rule" id="GOV-03"><span class="rid">GOV-03 — upgrades must not invalidate finalized history and are never a substitute for recovery</span>
+<div class="rule" id="GOV-03"><span class="rid">GOV-03 — upgrades must not invalidate finalized history and are never a substitute for the stall resolution</span>
 <span class="norm">Every upgrade, including the migration of MIG-01–MIG-06, must accept all history
-finalized under the rules in force before it: (a) a certificate valid under the epoch and validator-set rules of its own epoch remains valid forever (<a href="02-consensus.html#CONS-08">CONS-08</a>) and no post-upgrade rule may require it to be re-derived; (b) the post-upgrade verifier route must still accept a proof of any not-yet-settled batch under the program image that was in force for that batch's epoch (MIG-05), so no batch becomes unprovable because of an upgrade; (c) checkpoint advancement stays monotone (<a href="04-l1-integration.html#L1-06">L1-06</a>): an upgrade may not lower the finalized tip or rewrite the checkpoint record for any height at or below the boundary with different contents; and (d) at migration the accepted history is the boundary of MIG-01, and no alternative history at or below <code>B*</code> may ever be adopted afterwards (<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>); and (e) <strong>no upgrade may be used as a substitute for recovery</strong>: an upgrade MUST accept every history at or below the latest L1-accepted checkpoint, history above that checkpoint may be replaced only by the recovery path of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> and never by a governance transaction, and a pending recovery MUST survive the upgrade unchanged — the upgrade may not cancel it, shorten or extend <code>T_RECOVERY_DELAY</code>, alter the checkpoint it restores or the bond destination, or replace it with any other action (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>(d)) — and the completion evidence and restart linkage MUST survive it unchanged too: no upgrade may substitute a claimed <code>resumeHeight</code> for the derived one, relax the certificate verification of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> (Completion evidence), or alter the checkpoint link of <a href="06-recovery-exceptions.html#REC-04">REC-04</a>. <em>This closes the retirement-endpoint Critical at the upgrade boundary (review comment 6014265254, item 3).</em> Compliance is checked by the published target/layout diff required by GOV-02 and, for (b), by an acceptance test that lands one already-generated pre-upgrade proof after the upgrade, on both backends (<a href="05-proof-statement.html#PRF-09">PRF-09</a>,
-<a href="05-proof-statement.html#PRF-10">PRF-10</a>). <em>(user decision D-7: Mode B selected — an upgrade must never be used as a substitute for recovery, and it must carry a pending recovery unchanged.)</em> <strong>(f) A publication record and its deadline survive an
+finalized under the rules in force before it: (a) a certificate valid under the epoch and validator-set rules of its own epoch remains valid forever (<a href="02-consensus.html#CONS-08">CONS-08</a>) and no post-upgrade rule may require it to be re-derived; (b) the post-upgrade verifier route must still accept a proof of any not-yet-settled batch under the program image that was in force for that batch's epoch (MIG-05), so no batch becomes unprovable because of an upgrade; (c) checkpoint advancement stays monotone (<a href="04-l1-integration.html#L1-06">L1-06</a>): an upgrade may not lower the finalized tip or rewrite the checkpoint record for any height at or below the boundary with different contents; and (d) at migration the accepted history is the boundary of MIG-01, and no alternative history at or below <code>B*</code> may ever be adopted afterwards (<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>); and (e) <strong>no upgrade may be used as a substitute for the stall resolution</strong>: an upgrade MUST accept every history at or below the latest L1-accepted checkpoint, history above that checkpoint may be replaced only by the completed action of <a href="#GOV-04">GOV-04</a> — a governance action whose trigger, timelock and resume-only effect are fixed by rule — never by the upgrade itself and never by an ad-hoc governance transaction; a queued entry MUST survive the upgrade unchanged: the upgrade may not cancel it, execute it early, alter the checkpoint it resumes from, shorten or extend <code>T_GOV_RESUME</code> for it (<a href="#GOV-04">GOV-04</a>(d)), or replace it with any other action (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>(d)); and the recovery generation and its meaning in the signed vote and header bytes MUST survive it unchanged: no upgrade may reset the counter, accept a certificate carrying a superseded generation, or relax the acceptance rule that voids it. <em>(D-15: the pending object is a queued stall-resolution entry and the generation counter, not a recovery; both survive the upgrade, and the upgrade may not perform the resume itself.)</em> Compliance is checked by the published target/layout diff required by GOV-02 and, for (b), by an acceptance test that lands one already-generated pre-upgrade proof after the upgrade, on both backends (<a href="05-proof-statement.html#PRF-09">PRF-09</a>,
+<a href="05-proof-statement.html#PRF-10">PRF-10</a>). <em>(D-15: an upgrade must never be used as a substitute for the stall resolution, and it must carry a queued entry, its remaining timelock and the generation unchanged.)</em> <strong>(f) A publication record and its deadline survive an
 upgrade unchanged:</strong> no upgrade may delete, rewrite, re-order or re-deadline a publication, change the
 due-set cursors, or shorten or extend the deadline recorded for an outstanding publication; a change to
 <code>T_PROVE_DEADLINE</code> applies only to publications recorded after the upgrade, and the FIFO order of
 the due set is preserved. <em>(D-11/D-12: the publication record is the state the forced-inclusion bound
 reads, so an upgrade may not use it to suppress or accelerate forced inclusion.)</em></span>
-<span class="why">Failure mode: a "normal upgrade" silently strands a proven-but-unsettled batch, rolls the checkpoint back, cancels a pending recovery, or is used to replace history that only recovery may replace — the boundary violation <a href="06-recovery-exceptions.html#REC-01">REC-01</a> forbids, and the class recorded as the prior Etna design's XS-FIN-01 finding (<code>prior-etna-digest.md:142</code>). <em>(user decision D-7: the boundary of REC-01 and the recovery path of REC-02 are the only sanctioned history replacement.)</em></span>
+<span class="why">Failure mode: a "normal upgrade" silently strands a proven-but-unsettled batch, rolls the checkpoint back, cancels or accelerates a queued stall-resolution entry, or is used to replace history that only the stall resolution may replace — the boundary violation <a href="06-recovery-exceptions.html#REC-01">REC-01</a> forbids, and the class recorded as the prior Etna design's XS-FIN-01 finding (<code>prior-etna-digest.md:142</code>). <em>(D-15: the boundary of REC-01 and the completed stall resolution of GOV-04 are the only sanctioned history replacement.)</em></span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(premises: CONS-08, L1-06, A-CRYPTO-3, and A-CONS-1 — &lt; 1/3 Byzantine stake — for the uniqueness of the finalized prefix that (a) presupposes; a DAO that ignores this rule is handled by
 GOV-02, not by this rule)</span></div>
+<div class="rule" id="GOV-04"><span class="rid">GOV-04 — stall resolution: a timelocked, resume-only governance action; there is no permissionless recovery</span>
+<span class="norm"><strong>v1 has no permissionless recovery.</strong> A settlement stall is cleared only by the action this rule defines: a governance action that is queued, must wait out <code>T_GOV_RESUME</code>, and can do nothing but resume the chain from the latest L1-accepted checkpoint. The former Mode B recovery — the invocation, its bond and escalation, the certificate bundle, the completion transition, the retirement floor and the completion reward — is withdrawn and MUST NOT be reintroduced under any name, and the parameters that existed only to size it are tombstoned in <a href="09-parameters.html">09</a> <em>(D-15; this rule replaces the withdrawn <a href="06-recovery-exceptions.html#REC-02">REC-02</a> mechanism; the boundary of <a href="06-recovery-exceptions.html#REC-01">REC-01</a> is unchanged.)</em>
+<br>(a) <strong>Trigger, read from L1 state alone.</strong> An entry may be queued only while
+<code>block.timestamp &minus; lastAcceptedBatchTime &ge; T_STALL_GOV</code>, where
+<code>lastAcceptedBatchTime</code> is the L1 timestamp stored in the current checkpoint record
+(<a href="04-l1-integration.html#L1-07">L1-07</a>). No invoker claim, evidence object, certificate or bundle
+enters the predicate, and only the acceptance of an extending batch — which advances
+<code>lastAcceptedBatchTime</code> — can clear it. A queue attempt while the predicate is false MUST revert.
+<br>(b) <strong>Queued entry, and what it may not name.</strong> At most one entry may be pending at a time; a
+second queue attempt while one is pending MUST revert. Queueing records exactly three L1 facts:
+<code>govResumeQueuedAt</code> (uint64; the queueing transaction's <code>block.timestamp</code>),
+<code>govResumeQueuedHeight</code> (the <code>lastLandedHeight</code> at queue time) and
+<code>govResumeState = queued</code> (MIG-02 slot 268). The entry names <strong>no height, state root,
+checkpoint, range, subset or beneficiary</strong>, and no other value may be attached to it. Queueing is a
+DAO transaction through the authority of <a href="#GOV-01">GOV-01</a> and is the only runtime governance entry
+point this protocol has.
+<br>(c) <strong>Effect, resume-only.</strong> On execution the action sets
+<code>resumeHeight = lastLandedHeight + 1</code> — computed from the current L1-accepted checkpoint, never
+chosen — discards <strong>everything above that checkpoint</strong> (not a certified subset), leaves the
+checkpoint record itself untouched, and increments <code>recoveryGeneration</code> by exactly one. A completed
+stall resolution is the only sanctioned replacement of history above the latest L1-accepted checkpoint, and it
+may not touch history at or below it (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>,
+<a href="04-l1-integration.html#L1-06">L1-06</a>). Execution is permissionless: once the timelock has elapsed
+and the entry is not void, any account may execute it, and the executor has no discretion — the effect is
+fixed by this clause from L1 state alone.
+<br>(d) <strong>Timelock.</strong> A queued entry becomes executable no earlier than
+<code>govResumeQueuedAt + T_GOV_RESUME</code>. <code>T_GOV_RESUME</code> MUST be long enough that a user who
+observes the queued entry can complete the exit of <a href="03-membership-staking.html#MEM-15">MEM-15</a>,
+including the withdrawal delay of <a href="04-l1-integration.html#MSG-03">MSG-03</a>, before the action
+executes. <strong>An upgrade may not shorten the timelock of an entry already queued:</strong> a change to
+<code>T_GOV_RESUME</code> applies only to entries queued after it, and the remaining term of an existing entry
+is immutable (<a href="#GOV-03">GOV-03</a>(e)).
+<br>(e) <strong>Void on progress, with permissionless cancellation.</strong> If the checkpoint advances at any
+time before execution — <code>lastLandedHeight &gt; govResumeQueuedHeight</code> — the entry is
+<strong>void</strong>: execution MUST revert, and any account may cancel it, which clears
+<code>govResumeState</code>. A void or cancelled entry cannot be revived; a new entry requires a fresh trigger
+and a fresh timelock. No account may cancel an entry whose trigger still holds and whose checkpoint has not
+advanced.
+<br>(f) <strong>The generation is a signed field, not a retirement record.</strong>
+<code>recoveryGeneration</code> is a field of the <strong>signed</strong> vote and block-header bytes, so
+validators sign the generation they are certifying under; the action of (c) increments it, validators sign the
+new generation, and certificates of the discarded branch carry the old generation and are void at the
+acceptance rule (<a href="04-l1-integration.html#L1-05">L1-05</a> row 31,
+<a href="05-proof-statement.html#PRF-02">PRF-02</a>). No height is retired and no
+<code>max(lastLandedHeight + 1, resumeHeight)</code> contiguity form survives: the signed generation is what
+makes the discarded branch's certificates unlandable, and the discarded range is re-produced from
+<code>resumeHeight</code> under the new generation.
+<br>(g) <strong>Disclosed assumption.</strong> Clearing a settlement stall depends on governance liveness with
+no protocol bound: the trigger fixes when an entry <em>may</em> be queued, not that it will be. A captured or
+coerced governance could also act opportunistically within this rule, waiting for any genuine stall and having
+an unfavourable provisional range discarded. The rule-bound effect, the timelock and the exit window mitigate
+this; they do not remove it. The assumption is named <strong>A-GOV-2</strong> and recorded in
+<a href="10-assurance.html#LIM-01">LIM-01</a>.</span>
+<span class="why">Failure modes: an unbounded stall that no permissionless path can clear (the reason this rule exists); a governance action that picks which provisional transactions survive (forbidden by (b)-(c)); a stale queued entry executed to discard a range the trigger never justified (forbidden by (e)); a timelock shortened after queueing so the exit window disappears (forbidden by (d)); a certificate of the discarded branch re-landed because the generation was not signed (forbidden by (f), the fix that replaces the withdrawn retirement machinery).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(proven relative to A-GOV-1 for honest queueing and A-GOV-2 for governance liveness; a DAO that ignores this rule is handled by <a href="#GOV-02">GOV-02</a>, not by this rule)</span></div>
 <h2 id="risks">What could go wrong during migration</h2>
 <table>
 <thead><tr><th>Severity</th><th>Failure</th><th>Why it is possible</th><th>Mitigation</th></tr></thead>
@@ -791,9 +854,9 @@ retired image, or the wrong image for the newest epoch</td><td>the image set and
 <tr><td><span class="lvl med">med</span></td><td>Old Shasta clients keep producing a chain that cannot
 settle</td><td>an L2 client that does not implement the new genesis keeps running</td><td>the new chain has a different genesis object and the old <code>prove()</code> path is closed, so the old chain can neither activate the Bridge nor be accepted on L1; publish the new genesis hash and the L1 block at which it binds; cross-chain replay is excluded by chain-id domain separation (<a href="index.html#GEN-05">GEN-05</a>, <a href="04-l1-integration.html#MSG-02">MSG-02</a>)</td></tr>
 <tr><td><span class="lvl med">med</span></td><td>A long stall in <code>FROZEN</code>/<code>DRAINED</code>
-halts settlement for an unbounded time</td><td>the release of a failed T3 is a DAO bundle, i.e. a trust assumption, and the selected recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> does not exist in this window — it begins with <code>ETNA_ACTIVE</code> — so it cannot bound this stall; once the chain is <code>ETNA_ACTIVE</code>, a settlement stall past <code>T_STALL</code> is bounded by that recovery (<a href="index.html#STATUS-06">STATUS-06</a> still protects every accepted batch)</td><td>bound the window in the migration announcement; disclose that already-eligible withdrawals still work; measure the actual halt length and publish it —
-<span class="pill unmeasured">unmeasured</span> <em>(user decision D-7: recovery begins only at <code>ETNA_ACTIVE</code>.)</em></td></tr>
-<tr><td><span class="lvl high">high</span></td><td>An upgrade lands while a recovery is in flight and cancels it, accelerates it, rewrites the checkpoint it would restore, or is presented as the recovery itself</td><td>a pending recovery is ordinary L1-side state under <code>T_RECOVERY_DELAY</code>; an upgrade executes in one transaction and can rewrite the checkpoint record, the generation counter and the bond ledger, and governance capture is failure class F2 (<a href="#GOV-02">GOV-02</a>)</td><td><a href="#GOV-03">GOV-03</a>(e): no upgrade may be a substitute for recovery, a pending recovery must survive the upgrade unchanged, and cancellation stays solely with the acceptance of a valid batch extending the current checkpoint (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>), with its bond destination fixed by <a href="07-economics-slashing.html#ECON-06">ECON-06</a>(6); a bundle that discards a pending recovery is a rules change reported as such (<a href="#GOV-02">GOV-02</a>), not a recovery <em>(user decision D-7: no upgrade may be used as a substitute for recovery.)</em></td></tr>
+halts settlement for an unbounded time</td><td>the release of a failed T3 is a DAO bundle, i.e. a trust assumption, and the stall resolution of <a href="#GOV-04">GOV-04</a> does not exist in this window — its queue exists only from <code>ETNA_ACTIVE</code> — so it cannot bound this stall; once the chain is <code>ETNA_ACTIVE</code>, a settlement stall past <code>T_STALL_GOV</code> is cleared only by the queued governance action after its timelock, so its duration beyond the trigger is a function of governance liveness and not a protocol bound (<a href="index.html#STATUS-06">STATUS-06</a> still protects every accepted batch)</td><td>bound the window in the migration announcement; disclose that already-eligible withdrawals still work; measure the actual halt length and publish it —
+<span class="pill unmeasured">unmeasured</span> <em>(D-15: the stall resolution begins only at <code>ETNA_ACTIVE</code>, and its trigger-to-execution wait is a governance assumption.)</em></td></tr>
+<tr><td><span class="lvl high">high</span></td><td>An upgrade lands while a stall-resolution entry is queued and cancels it, executes it early, shortens its timelock, rewrites the checkpoint it resumes from, or is presented as the stall resolution itself</td><td>a queued entry is ordinary L1-side state with a fixed <code>T_GOV_RESUME</code> term; an upgrade executes in one transaction and can rewrite the queue record, the generation counter and the checkpoint, and governance capture is failure class F2 (<a href="#GOV-02">GOV-02</a>)</td><td><a href="#GOV-03">GOV-03</a>(e) and <a href="#GOV-04">GOV-04</a>(d): no upgrade may be a substitute for the stall resolution, a queued entry must survive the upgrade unchanged, its remaining timelock may not be shortened, and voiding stays solely with the advance of the checkpoint by an accepted extending batch; a bundle that discards a queued entry is a rules change reported as such (<a href="#GOV-02">GOV-02</a>), not a stall resolution <em>(D-15: no upgrade may be used as a substitute for the stall resolution.)</em></td></tr>
 </tbody></table>
 <h2 id="preconditions">Preconditions to establish on-chain before the bundle</h2>
 <table>
@@ -834,7 +897,7 @@ against the L1 block gas limit</td><td><span class="pill unmeasured">unmeasured<
 <tbody>
 <tr><td>Baseline revision</td><td><code>7718753c1</code></td><td><span class="pill sourced">sourced</span></td><td><a href="index.html#provenance">index §Provenance</a></td></tr>
 <tr><td>Inbox gap</td><td>43 slots (258–300)</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox_Layout.sol:26</code></td></tr>
-<tr><td>Inbox new state planned</td><td>20 slots (258–277); 23 gap slots remain (278–300)</td><td><span class="pill derived">derived</span></td><td>MIG-02 change table; every required object enumerated with its holder and slot cost, including the REC-02 recovery record, the <code>REC_WINDOW</code> attempt history, the retirement/generation record, the PARAM-04 per-epoch configuration registry added at 268–274 and D-11's publication record and clock (275–276). Re-derived after the D-6 removal of the five forced-inclusion slots (266–270), after the S5 repair and after the D-11 publication record was budgeted; the only inputs are the sourced pin layouts and the change list, so no unmeasured input enters the declaration count, and the map's entry slots (checkpoints, publications, configuration registry) are not gap slots <em>(D-6: forced inclusion removed; D-11: publication record added; finding E-R2-03's budget re-verified; A1: the recovery and configuration state is budgeted and the free-slot figure re-derived)</em></td></tr>
+<tr><td>Inbox new state planned</td><td>15 slots (258–269, 275–277); 28 gap slots remain (270–274, 278–300)</td><td><span class="pill derived">derived</span></td><td>MIG-02 change table; every required object enumerated with its holder and slot cost, including the GOV-04 stall-resolution state (the generation and the queued entry, slot 268), the PARAM-04 per-epoch configuration registry (269) and D-11's publication record and clock (275–277); the withdrawn recovery record, bond, attempt history and retirement record are removed and slots 270–274 are free. Re-derived after the D-6 removal of the five forced-inclusion slots (266–270), the D-11 publication budget and the D-15 withdrawal of the permissionless recovery; the only inputs are the sourced pin layouts and the change list, so no unmeasured input enters the declaration count, and the map's entry slots (checkpoints, publications, configuration registry) are not gap slots <em>(D-6: forced inclusion removed; D-11: publication record added; finding E-R2-03's budget re-verified; A1: the recovery and configuration state was budgeted; D-15 re-derives it after withdrawing the permissionless recovery)</em></td></tr>
 <tr><td><code>minBond</code>, <code>livenessBond</code></td><td>0, 0</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:37-38</code></td></tr>
 <tr><td><code>withdrawalDelay</code></td><td>1 week</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:39</code></td></tr>
 <tr><td>Proposal ring buffer</td><td>21 600</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:18</code></td></tr>

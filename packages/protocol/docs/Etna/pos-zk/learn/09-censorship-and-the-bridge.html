@@ -37,8 +37,9 @@
 forced-inclusion obligation over data published to L1, an upper bound on exclusion and never a
 per-transaction guarantee, plus what remains absent for data that never reaches L1 &mdash; and the bridge
 message path, including which contracts keep their addresses and what an integrator should check. It also
-states what recovery does not fix: recovery is not an inclusion remedy. This is a design description;
+states what a restart does not fix: it is not an inclusion remedy. This is a design description;
 nothing here is implemented, measured, audited or deployed.</p>
+<!-- <em>D-15: a stalled chain restarts by a timelocked, resume-only governance decision, and that restart is not an inclusion remedy.</em> -->
 
 <h2>The idea</h2>
 <p>Start with the uncomfortable half. If your transaction&rsquo;s data reaches L1, the protocol owes you a
@@ -52,11 +53,12 @@ record must be included by any particular height, and a backlog drains over succ
 stopping the chain. What does not exist is a <strong>general inclusion list</strong>: no queue of arbitrary
 transactions, no escrow, no refund and no L1 entry point that can force an <em>unpublished</em> transaction
 into L2 or start a withdrawal.</p>
-<p><strong>Recovery is not an inclusion remedy.</strong> A bonded, delayed recovery can replace unsettled
-history above the last checkpoint accepted on Ethereum
-(<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>), but it cannot put a transaction into a
+<p><strong>A restart is not an inclusion remedy.</strong> A timelocked, resume-only governance decision
+can restart the chain from the last checkpoint accepted on Ethereum and discard the history above it
+(<a href="../spec/08-migration-upgrades.html#GOV-04">GOV-04</a>), but it cannot put a transaction into a
 block or compel any proposer to include one, so it does not lift an exclusion. It also cannot make
 unpublished data includable: the narrow obligation begins only once the data is on L1.</p>
+<!-- <em>D-15: the restart is timelocked and resume-only, and it is not an inclusion remedy.</em> -->
 <p>For data that never reaches L1, resistance is statistical. Proposer selection is weighted random: a
 coalition with less than one third of the voting power is selected for fewer than one third of slots in
 expectation, so a transaction that reaches honest validators is included by the first honest proposer
@@ -94,7 +96,7 @@ the immutable checkpoint-writer links are all keyed to those exact addresses.</p
 <text x="672" y="350" fill="#59636e" font-size="10">stateRoot, blockHash}</text> <rect x="816" y="292" width="116" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="828" y="314" fill="#24292f" font-size="11">MPT proof</text> <text x="828" y="332" fill="#59636e" font-size="10">against that</text>
 <text x="828" y="350" fill="#59636e" font-size="10">state root</text> <path d="M176 327 H188" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M332 327 H344" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M488 327 H500" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/>
 <path d="M644 327 H656" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M800 327 H812" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <text x="36" y="392" fill="#59636e" font-size="11">Verification resolves the checkpoint by L2 block number, requires checkpoint.stateRoot == proof.rootHash, then verifies an MPT proof</text> <text x="36" y="410" fill="#59636e" font-size="11">for the remote SignalService account and the SIGNAL-derived slot. The Inbox&rsquo;s own record adds epoch, setRoot, dataCommitment and the accepting L1 block.</text>
-<text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">Narrow forced inclusion: a published record due on L1 must be resolved within the capped prefix; no general inclusion queue exists, and recovery does not include a censored transaction.</text>
+<text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">Narrow forced inclusion: a published record due on L1 must be resolved within the capped prefix; no general inclusion queue exists, and a restart does not include a censored transaction.</text>
 </svg>
 <figcaption>The top panel shows why inclusion is a statistical property and not a guarantee; the bottom
 panel shows the only path by which a cross-chain message becomes trustworthy.</figcaption>
@@ -129,8 +131,8 @@ no remedy; this is a disclosed limitation, not an oversight.</li>
 proposer has room for it, it is included. &ldquo;Room&rdquo; is a behavioural premise, not a protocol
 rule &mdash; nothing defines it, reserves block space, or constrains the proposer&rsquo;s ordering.
 Any interface that implies that the narrow obligation is a per-transaction guarantee, that it reaches
-unpublished data, or that an L1 escape hatch exists for arbitrary transactions, is wrong. Recovery
-does not change any of that: it can replace history that was never settled, but it cannot include a
+unpublished data, or that an L1 escape hatch exists for arbitrary transactions, is wrong. A restart
+does not change any of that: it discards history that was never settled, but it cannot include a
 censored transaction, so it is not a remedy against isolation.</p>
 
 <h3>How a message is authenticated</h3>
@@ -256,7 +258,7 @@ unchanged slot and message encodings.</li>
 <h2>What it does not give you</h2>
 <ul>
 <li>A general inclusion list, or any L1 path to force an <em>unpublished</em> transaction into L2 or to
-start a withdrawal. Recovery does not change this: it replaces unsettled history, it does not include a
+start a withdrawal. A restart does not change this: it discards unsettled history, it does not include a
 censored transaction.</li>
 <li>A promise that a published record is included at, before or by any particular height: the narrow
 obligation is an upper bound on exclusion, and it can discharge a record as void when the record&rsquo;s
@@ -264,9 +266,10 @@ transaction cannot execute.</li>
 <li>Any remedy against an adversary that can isolate a user from every honest proposer, or that can
 censor L1 inclusion itself: if the data never reaches L1, exclusion can be indefinite.</li>
 <li>Protection against slot-buying: selection is predictable and no rule prices or penalises it.</li>
-<li>Early exit: a withdrawal still needs the checkpoint and the delay, and a settlement stall delays it
-until either a batch lands or a recovery completes &mdash; and a recovery can replace an unsettled
-withdrawal message.</li>
+<li>Early exit for unsettled value: a withdrawal whose signal is above the last accepted checkpoint
+still needs a later batch or a restart, and a restart discards it; only a signal at or below the
+checkpoint stays executable on Ethereum alone
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>).</li>
 <li>Confidence in the recorded addresses beyond the record: they were not chain-verified in the design
 work.</li>
 </ul>
@@ -279,7 +282,7 @@ data off L1 &mdash; by cutting the user off from every honest proposer at the ne
 censoring L1 inclusion of the publication &mdash; then yes, indefinitely, including preventing a
 withdrawal from being started, and the protocol has no remedy. If the data does reach L1, the narrow
 obligation applies instead: a due record must be resolved within the capped prefix, so the coalition can
-delay but not ignore it. Recovery is not a remedy either way: it can replace unsettled history, but it
+delay but not ignore it. A restart is not a remedy either way: it discards unsettled history, but it
 cannot include the censored transaction.</p></details>
 <details><summary>What is the minimum evidence that an L2&rarr;L1 message may be released?</summary>
 <p>A checkpoint written by a successful <code>land(data, proof)</code> whose state root covers the
