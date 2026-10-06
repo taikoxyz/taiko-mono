@@ -436,6 +436,18 @@
               </td>
               <td>The new rules are proposal-level</td>
             </tr>
+            <tr>
+              <td>Generation recovery</td>
+              <td>None</td>
+              <td>
+                The first proposal of a new generation carries the expiry evidence: the old generation's header and
+                commit for B, the child of the derived tip P_F. Derivation checks that the tip is P_F and that the
+                proposal's L1 time is past B's deadline; after that only the new chain_id is accepted.
+              </td>
+              <td>
+                Expired blocks are recovered from under one rule, and the committee cannot drop committed blocks at will
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -477,8 +489,9 @@
               lists each proposal's <code>proposer</code> and end block hash, and an end hash equal to the previous one
               means zero blocks, so no extra storage is needed. Zero blocks must be the lander's fault for this to be
               fair: <code>propose</code> binds the previous proposal hash, so a transaction re-included after a reorg
-              reverts; landers never land a segment already past the derivation windows; anchors only reference deep
-              enough L1 blocks; and the guest produces zero blocks only for invalid proposal content. What remains is a
+              reverts; <code>ProposeInput.deadline</code> carries the segment's deadline, so a transaction that waits in
+              the mempool past it reverts; landers only land segments whose anchors are finalized; and the guest
+              produces zero blocks only for invalid proposal content. What remains is a
               committee that itself signed an invalid block, and by then the chain has halted.
             </li>
             <li>
@@ -493,6 +506,18 @@
             <li>
               Land once within the first three quarters of one's 384 s epoch, with 2–3 L1 slots of margin, and retry
               within that time if the transaction does not land.
+            </li>
+            <li>
+              Deadline on L1: every landing sets <code>ProposeInput.deadline</code> (an existing Inbox field) to the
+              earlier of the segment's earliest block timestamp plus 6144 s and the time of its earliest anchor L1 block
+              plus 6144 s. A transaction that waits in the mempool past it reverts instead of landing as zero blocks. L1
+              has at most one block per 12 s slot, so meeting this time deadline keeps L1 within 511 blocks of the
+              anchor, and the 512-block anchor window holds without a new field. The Inbox does not check that the
+              deadline is right; it protects the lander, and a wrong value is the lander's own fault.
+            </li>
+            <li>
+              Landers only land segments whose anchors are finalized, so an anchor reorg never turns a landing into
+              zero blocks (see L1 anchor depth in section 4).
             </li>
             <li>
               Fallback: the last quarter of the epoch is open to every active validator. Each one first runs derivation
@@ -627,11 +652,34 @@
           <strong>Expired committed blocks.</strong> Back-pressure stops new blocks but cannot stop existing commits
           from aging. If L1 censors or stalls, or landers keep failing, past the derivation windows (6144 s, 512 L1
           blocks, about 1.7 h), committed but unlanded blocks can never be landed. They are dropped, and so are their
-          preconfirmations. Recovery: when the client sees the oldest unlanded block expire, it tells the app to halt,
-          and all validators restart CometBFT from the last derived block. The new initial height, chain_id and
-          validator set are computed deterministically from L1 and that block, so nodes restart on their own without
-          manual coordination, and the different chain_id keeps votes on the old and new chains from counting as double
-          signing. This fork could also widen the derivation windows to make expiry less likely.
+          preconfirmations. Recovery works in generations, and each recovery starts the next one:
+          <ul>
+            <li>
+              <strong>Triggered only by finalized L1.</strong> Let P be the last derived block and B its child on the
+              committed chain. B's deadline D is the earlier of B's timestamp plus 6144 s and the time of B's anchor L1
+              block plus 6144 s. B counts as expired only once the first L1 block later than D is finalized (the cutoff
+              F); until then validators only stop producing. Judging on unfinalized L1 would be wrong: after an L1
+              reorg, B may turn out to have landed in time, and blocks restarted from P could never land.
+            </li>
+            <li>
+              <strong>Recovery parameters come from F.</strong> Process every Inbox proposal up to F to get the last
+              derived block P_F. The new generation's chain_id is the base chain_id plus the generation number, its
+              validator set is the committee the registry froze at F, and its initial height is P_F's height plus 1.
+              Honest validators share the committed chain and the finalized L1, so they compute the same parameters and
+              restart on their own without manual coordination. Different chain_ids keep votes from different
+              generations from counting as double signing.
+            </li>
+            <li>
+              <strong>Derivation checks the same rules.</strong> The new generation's first proposal must carry the
+              expiry evidence: B's CometBFT header and commit from the old generation. Client derivation and the raiko2
+              guest check that the derived tip is P_F (B's parent), that the commit verifies against the
+              <code>committeeRoot</code> of its epoch, and that the proposal's L1 time is past D. Only then are commits
+              under the new chain_id accepted, and the old generation's commits are no longer accepted. Without this
+              evidence the committee could switch generations at will and drop committed blocks that had not expired,
+              and the new chain_id would keep that from counting as double signing.
+            </li>
+            <li>This fork could also widen the derivation windows to make expiry less likely.</li>
+          </ul>
         </li>
         <li>
           <strong>Epoch handoff.</strong> The registry freezes the next epoch's set in advance. The app returns validator
@@ -641,12 +689,16 @@
         </li>
         <li>
           <strong>L1 anchor depth.</strong> Validators only vote for blocks whose anchor is far enough behind the L1 head.
-          If the referenced L1 block is reorged out, committed blocks become invalid at derivation. Anchoring to finalized
-          L1 blocks is safest but delays L1→L2 messages by about 13 minutes; this needs a trade-off.
+          If the referenced L1 block is reorged out, those committed blocks can never be landed; once their deadline
+          passes they are dropped by the recovery above, along with their preconfirmations. Landers only land segments
+          whose anchors are finalized, so they are never fined for this; the users of those preconfirmations bear the
+          loss. Anchoring to finalized L1 blocks removes the risk entirely but delays L1→L2 messages by about 13
+          minutes; this needs a trade-off.
         </li>
         <li>
           <strong>Data retention.</strong> Validators must have the full payload before voting and keep it until the
-          corresponding proposal is finalized on L1. Landing, and re-landing after an L1 reorg, depend on it.
+          corresponding proposal is finalized on L1. Landing, and re-landing after an L1 reorg, depend on it. For
+          dropped blocks, B's header and commit are kept until the next generation's first proposal lands.
         </li>
         <li>
           <strong>Alignment with Etna derivation.</strong> Production stops when unlanded committed blocks approach the
@@ -662,8 +714,10 @@
           include it or halt.
         </li>
         <li>
-          <strong>Exit.</strong> Stake stays locked until the blocks it served are proven and finalized on L1, plus a
-          double-sign evidence window.
+          <strong>Exit.</strong> For each generation a validator served, one of these must hold: the blocks it served are
+          proven and finalized on L1, or the generation was abandoned at a finalized cutoff F. A double-sign evidence
+          window then runs from that finalization or from F, and double-sign evidence under the old generation's
+          chain_id can still be submitted during it.
         </li>
       </ul>
 
@@ -841,14 +895,16 @@
           Node rules: sync each epoch's set from the L1 registry; anchor depth; back-pressure near the derivation
           windows; add FI transactions to ILs automatically; keep payloads until L1 finality; <code>secp256k1eth</code>
           keys with a signer that persists its state across restarts to avoid double signing; public transaction gossip
-          on the execution client; the fixed restart from the last derived block when committed blocks expire.
+          on the execution client; when committed blocks expire, waiting for the cutoff to finalize on L1 and then
+          starting the next generation by the fixed procedure.
         </li>
         <li>
           Lander: on duty (the first three quarters of its epoch), fetch committed blocks and the last commit from
           CometBFT's <code>/block</code> and <code>/commit</code>, pack them into a blob and call <code>propose</code>,
           reusing the existing proposers' blob building in both clients. In the fallback window, each validator first
-          derives the duty lander's proposal and lands only if it is missing or invalid. A segment already past the
-          derivation windows is never landed.
+          derives the duty lander's proposal and lands only if it is missing or invalid. Every landing sets
+          <code>ProposeInput.deadline</code> to the segment's deadline and covers only segments whose anchors are
+          finalized.
         </li>
       </ul>
       <h3>Execution client (alethia-reth)</h3>
@@ -870,7 +926,7 @@
           the last block's commit, header and two Merkle siblings; verify the commit and committee; a failed proposal
           derives to zero blocks; forced inclusion is checked by anchor time; extraData bytes 1–6 hold the CometBFT
           height and byte 0 becomes a fork constant; coinbase always comes from the manifest; the new rules apply by the
-          proposal's L1 landing time.
+          proposal's L1 landing time; after expiry, recovery by generation with the expiry evidence checked.
         </li>
         <li>
           Implement them in taiko-client and taiko-client-rs. Committed blocks are already in the execution client, so
