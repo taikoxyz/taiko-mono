@@ -115,7 +115,8 @@
       <ul>
         <li>
           Open entry with a fixed bond per seat. The registry freezes a <code>committeeRoot</code> (a commitment to
-          validator keys and seat counts) once per epoch and exposes a double-sign slashing entry point.
+          validator keys and seat counts) once per epoch and exposes entry points for double-sign slashing and for
+          removing absent validators.
         </li>
         <li>
           Landing rights rotate per epoch. Reuse the existing per-epoch operator selection, drawing uniformly from active
@@ -439,6 +440,38 @@
           to the L1 registry. After verifying them, the contract slashes the seat's bond, removes the seat from the set,
           and pays part of the slashed bond to the submitter. Section 5 covers the other kinds of misbehavior.
         </li>
+        <li>
+          <strong>Absence.</strong> No fine. An absent validator is only removed from the active set and can queue to
+          rejoin.
+          <ul>
+            <li>
+              <strong>Fully offline.</strong> The lander miss rule covers it, with a miss limit of 1–2. A missed landing
+              is visible on L1 and hard for others to fake. With the seats full, a seat is drawn about every 10.7 h, so
+              an offline validator is removed within half a day to a day on average.
+            </li>
+            <li>
+              <strong>Online but not voting.</strong> A validator that never votes can never double-sign, yet still
+              earns revenue as leader, so it needs its own count, modeled on Cosmos SDK's <code>x/slashing</code>. The
+              ABCI app counts the blocks each validator signed from <code>decided_last_commit</code> in
+              <code>FinalizeBlock</code>. The first block of each committee epoch must start with a leader transaction
+              that writes the previous epoch's counts to an L2 contract, and <code>ProcessProposal</code> rejects the
+              block if the counts are wrong. The contract emits a hash of the record through SignalService. Once that
+              segment is proven and finalized, anyone can submit the counts with the signal proof to the registry, using
+              the same verification as bridge withdrawals, and validators below the threshold are removed at the next
+              freeze. raiko2, the L1 verifier, the derivation rules and the execution client do not change.
+            </li>
+            <li>
+              <strong>Resisting manipulation.</strong> Holders of 1/3 or more can refuse to vote for honest leaders'
+              blocks so that only their own blocks commit, then leave a target's votes out of LastCommit to record it as
+              absent. So the threshold is low and the window long (for example, signing under 10% of blocks over a
+              day), and an epoch does not count when more than a set share of its heights (for example, 20%) committed
+              only at round &gt; 0. In a counted epoch, an attacker holding x cannot push an honest validator's signing
+              rate below 1 − x − that share. With the threshold and the share summing to at most 1/3, framing anyone
+              takes more than 2/3, which already controls the chain.
+            </li>
+            <li>Once absent validators reach 1/3, the chain has already halted; see Loss of quorum below.</li>
+          </ul>
+        </li>
         <li><strong>Loss of quorum.</strong> The chain halts. There is no based fallback and no rollback of committed blocks.</li>
         <li>
           <strong>Epoch handoff.</strong> The registry freezes the next epoch's set in advance. The app returns validator
@@ -529,11 +562,13 @@
             <tr>
               <td>A validator stops voting for a long time</td>
               <td>
-                A fully offline validator also misses its landing duty. Being marked absent in a commit is not evidence.
+                Fully offline: it misses its landing, which is visible on L1. Online but not voting: the ABCI app counts
+                signed blocks from <code>decided_last_commit</code>, writes the counts to L2 each epoch, and they reach
+                L1 through a signal.
               </td>
               <td>
-                A fully offline validator is removed by the miss rule, but only after days. One that stays online without
-                voting faces no consequence today; see open questions.
+                Removed from the active set at the next freeze, with no fine; it can rejoin. See Absence in section 4 for
+                the rule and the limits against manipulation.
               </td>
             </tr>
             <tr>
@@ -569,15 +604,6 @@
           base fee pool if needed.
         </li>
         <li>
-          <strong>Long-term absence.</strong> Validators that stop voting eat into the fault-tolerance margin. A fully
-          offline validator also misses its landing duty and is removed by the miss rule. With about 100 seats, though,
-          a seat is drawn only about once every 10.7 h, so removal takes days, and a validator that stays online without
-          voting is never caught. Being marked absent in a commit is not evidence: the lander includes only enough
-          signatures to pass 2/3, and late votes are also marked absent. A more precise rule would have the ABCI app
-          count missed votes over a window (like Cosmos SDK's x/slashing, using <code>decided_last_commit</code> from
-          <code>FinalizeBlock</code>). How to bring that count to L1 in a trustworthy way is still open.
-        </li>
-        <li>
           <strong>No penalty for signing invalid blocks.</strong> When more than 2/3 sign an invalid block together, the
           chain only halts and the signers are not punished. A mismatch between the commit and derivation is not enough
           to punish them: a lander could pair a valid commit with wrong data, derivation would mismatch the same way,
@@ -593,7 +619,11 @@
       <h3>Decide first</h3>
       <ul>
         <li>The stake asset (ETH or TAIKO) and where any subsidy comes from.</li>
-        <li>Registry parameters: seat bond, seat cap (about 100), epoch length, miss limit, evidence window, launch threshold.</li>
+        <li>
+          Registry parameters: seat bond, seat cap (about 100), epoch length, miss limit (1–2 suggested), evidence window,
+          launch threshold.
+        </li>
+        <li>Absence rule: signing threshold, window, and uncounted share (threshold plus share at most 1/3).</li>
       </ul>
       <h3>Prerequisite: Etna (in progress)</h3>
       <ul>
@@ -608,12 +638,17 @@
           New PreconfWhitelist implementation: stake per seat with a queue when full; freeze <code>committeeRoot</code>
           per epoch and draw landers uniformly per seat; <code>checkProposer</code> admits only the lander on duty and
           records misses; double-sign slashing that checks <code>secp256k1eth</code> signatures with
-          <code>ecrecover</code> and pays part of the slashed bond to the submitter; exit locks; the launch threshold.
+          <code>ecrecover</code> and pays part of the slashed bond to the submitter; absence removal that verifies the L2
+          count contract's signal proof and removes validators below the threshold; exit locks; the launch threshold.
         </li>
         <li>
           New Inbox implementation, forced inclusion only: <code>propose</code> no longer dequeues FIs or inserts
           blocks, and the due check is removed; the FI queue head advances at finalization by time; the
           "permissionless proposing after long-overdue FIs" path stays disabled.
+        </li>
+        <li>
+          L2 count contract: accepts only the first record for each committee epoch, and only during the next epoch;
+          emits the record's hash through SignalService.
         </li>
       </ul>
       <h3>Consensus node (new code, the largest piece)</h3>
@@ -624,6 +659,11 @@
           block and lays out tx0, tx1 and tx2; <code>ProcessProposal</code> verifies IL signatures and runs the append
           test, including zk gas; <code>FinalizeBlock</code> aligns <code>next_block_delay</code> to 2 s, returns
           validator updates at epoch boundaries and stores the commit.
+        </li>
+        <li>
+          Absence counting: from <code>decided_last_commit</code>, accumulate each validator's signed blocks and the
+          heights committed only at round &gt; 0; put the count transaction first in the first block of each committee
+          epoch and check it in <code>ProcessProposal</code>.
         </li>
         <li>
           Node rules: sync each epoch's set from the L1 registry; anchor depth; back-pressure near the derivation
