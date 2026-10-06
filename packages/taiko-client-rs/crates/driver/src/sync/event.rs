@@ -417,6 +417,52 @@ fn is_fatal_proposal_processing_error(err: &DriverError) -> bool {
     )
 }
 
+/// JSON-RPC code for an unknown method: the execution engine does not serve a called method.
+const JSON_RPC_METHOD_NOT_FOUND: i64 = -32601;
+
+/// JSON-RPC code for rejected parameters: the execution engine refused the request's shape, e.g.
+/// a `parentBeaconBlockRoot` that does not fit the target's fork under the engine's schedule.
+const JSON_RPC_INVALID_PARAMS: i64 = -32602;
+
+/// Return the operator remedy when a proposal-processing failure comes from the client or
+/// execution engine setup rather than from the proposal or a transient fault; `None` otherwise.
+///
+/// Such a failure repeats on every retry until an operator changes the setup. The caller still
+/// retries (upgrading or reconfiguring the engine then resumes sync without a client restart) but
+/// logs it at ERROR and counts it, so the stall is visible.
+fn proposal_setup_error_hint(err: &DriverError) -> Option<&'static str> {
+    let DriverError::Sync(SyncError::Derivation(DerivationError::Engine(err))) = err else {
+        return None;
+    };
+    match err {
+        EngineSubmissionError::Rpc(RpcClientError::Rpc(err)) => {
+            match err.as_error_resp().map(|payload| payload.code) {
+                Some(JSON_RPC_METHOD_NOT_FOUND) => Some(
+                    "the execution engine lacks an Engine API method this client calls; run an \
+                     alethia-reth release that serves engine_forkchoiceUpdatedV3, \
+                     engine_getPayloadV5 and engine_newPayloadV4",
+                ),
+                Some(JSON_RPC_INVALID_PARAMS) => Some(
+                    "the execution engine refused the request's parameters; the client's Etna \
+                     activation time must match the execution engine's (on a devnet, set \
+                     --devnet-etna-timestamp to the execution engine's Etna time)",
+                ),
+                _ => None,
+            }
+        }
+        EngineSubmissionError::PreUnzenTarget { .. } |
+        EngineSubmissionError::EtnaScheduleUnresolved { .. } |
+        EngineSubmissionError::MissingBeaconRoot { .. } |
+        EngineSubmissionError::EtnaTargetWithoutBeaconRoot { .. } |
+        EngineSubmissionError::PreEtnaTargetWithBeaconRoot { .. } |
+        EngineSubmissionError::HeaderDifficultyOverflow { .. } => Some(
+            "the client refuses to send this block to the execution engine, and retrying the same \
+             proposal is refused the same way",
+        ),
+        _ => None,
+    }
+}
+
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer {
     /// RPC client shared with derivation pipeline.
@@ -873,12 +919,23 @@ impl EventSyncer {
         canonicality: ProposalLogCanonicality,
     ) -> ProposalRetryError {
         if !is_fatal_proposal_processing_error(&err) {
-            warn!(
-                ?err,
-                tx_hash = ?log.transaction_hash,
-                block_number = log.block_number,
-                "proposal derivation failed; retrying"
-            );
+            if let Some(hint) = proposal_setup_error_hint(&err) {
+                DriverMetrics::event_proposal_setup_errors_total().inc();
+                error!(
+                    ?err,
+                    hint,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "proposal derivation failed on the client or execution engine setup; retrying"
+                );
+            } else {
+                warn!(
+                    ?err,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "proposal derivation failed; retrying"
+                );
+            }
             return ProposalRetryError::Retry(err);
         }
 
@@ -1949,7 +2006,7 @@ mod tests {
         rpc::types::eth::BlockTransactions,
         transports::http::reqwest::Url,
     };
-    use alloy_json_rpc::{RequestPacket, ResponsePacket};
+    use alloy_json_rpc::{ErrorPayload, RequestPacket, ResponsePacket};
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_client::RpcClient;
     use alloy_transport::{
@@ -1976,7 +2033,7 @@ mod tests {
     };
 
     fn push_geth_server_error(asserter: &Asserter, message: &str) {
-        asserter.push_failure(alloy_json_rpc::ErrorPayload {
+        asserter.push_failure(ErrorPayload {
             code: -32000,
             message: message.to_owned().into(),
             data: None,
@@ -2796,6 +2853,55 @@ mod tests {
             RpcClientError::Provider("boom".into())
         ))));
         assert!(!is_fatal_proposal_processing_error(&DriverError::Other(anyhow!("boom"))));
+    }
+
+    #[test]
+    fn setup_errors_are_engine_method_and_param_refusals_and_client_guards() {
+        let engine = |err: EngineSubmissionError| {
+            DriverError::Sync(SyncError::Derivation(DerivationError::Engine(err)))
+        };
+        let engine_rpc = |payload: ErrorPayload| {
+            engine(EngineSubmissionError::Rpc(RpcClientError::Rpc(TransportError::ErrorResp(
+                payload,
+            ))))
+        };
+
+        let hint = proposal_setup_error_hint(&engine_rpc(ErrorPayload::method_not_found()))
+            .expect("an engine without the method is a setup error");
+        assert!(hint.contains("engine_newPayloadV4"), "{hint}");
+        let hint = proposal_setup_error_hint(&engine_rpc(ErrorPayload::invalid_params()))
+            .expect("refused parameters are a setup error");
+        assert!(hint.contains("--devnet-etna-timestamp"), "{hint}");
+        for guard in [
+            EngineSubmissionError::PreUnzenTarget { block_number: 1, timestamp: 1, chain_id: 1 },
+            EngineSubmissionError::MissingBeaconRoot { block_number: 1, timestamp: 1 },
+            EngineSubmissionError::EtnaTargetWithoutBeaconRoot { block_number: 1, timestamp: 1 },
+            EngineSubmissionError::PreEtnaTargetWithBeaconRoot {
+                block_number: 1,
+                timestamp: 1,
+                root: B256::with_last_byte(1),
+            },
+            EngineSubmissionError::HeaderDifficultyOverflow {
+                block_number: 1,
+                block_value: U256::MAX,
+            },
+        ] {
+            assert!(proposal_setup_error_hint(&engine(guard)).is_some());
+        }
+
+        // Transient or payload-content failures keep the WARN retry path.
+        for transient in [
+            engine_rpc(ErrorPayload::internal_error()),
+            engine(EngineSubmissionError::Rpc(RpcClientError::Provider("boom".into()))),
+            engine(EngineSubmissionError::EngineSyncing(1)),
+            engine(EngineSubmissionError::InvalidBlock(1, "invalid".into())),
+            DriverError::Sync(SyncError::Derivation(DerivationError::Rpc(RpcClientError::Rpc(
+                TransportError::ErrorResp(ErrorPayload::method_not_found()),
+            )))),
+            DriverError::Other(anyhow!("boom")),
+        ] {
+            assert!(proposal_setup_error_hint(&transient).is_none(), "{transient:?}");
+        }
     }
 
     #[test_log::test(tokio::test(start_paused = true))]
