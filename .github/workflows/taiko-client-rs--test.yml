@@ -356,7 +356,7 @@ jobs:
           cache-on-failure: true
           shared-key: "taiko-client-rs"
           # Only the full suite saves: the Etna boundary entry builds the driver crate alone.
-          save-if: ${{ github.ref == 'refs/heads/main' && matrix.name == 'Tests' }}
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.etna_boundary == 'false' }}
           workspaces: |
             packages/taiko-client-rs -> target
 

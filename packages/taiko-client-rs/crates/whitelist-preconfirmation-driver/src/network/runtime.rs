@@ -1393,6 +1393,7 @@ fn log_inbound_envelope(
         base_fee_per_gas = %execution_payload.base_fee_per_gas,
         extra_data = %alloy_primitives::hex::encode(&execution_payload.extra_data),
         parent_hash = %execution_payload.parent_hash,
+        parent_beacon_block_root = ?envelope.parent_beacon_block_root,
         end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false),
         is_forced_inclusion = envelope.is_forced_inclusion.unwrap_or(false),
         "{message}"
