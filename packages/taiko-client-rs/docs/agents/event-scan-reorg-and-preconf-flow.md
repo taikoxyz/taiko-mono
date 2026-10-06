@@ -161,11 +161,13 @@ Primary Rust behavior anchors:
 - `crates/driver/src/derivation/pipeline/shasta/pipeline/payload.rs`
   - `verify_canonical_block` later accepts the preconfirmed block only if its stored payload ID
     and its header fields (root, `extraData`, gas limit, timestamp, base fee, mix hash, coinbase,
-    parent) match what derivation builds from the proposal. The body itself is not compared
-    (before Etna only the anchor tx 0 is checked): the builder may skip invalid transactions, so a
-    canonical body can be a strict subset of the derived list. The payload ID binds the body
-    instead: it hashes keccak(txList) together with the root, `extraData`, timestamp, prevRandao,
-    coinbase and parent.
+    parent) match what derivation builds from the proposal, and the stored L1 origin names the
+    canonical block's hash. The body itself is not compared (before Etna only the anchor tx 0 is
+    checked): the builder may skip invalid transactions, so a canonical body can be a strict subset
+    of the derived list. The payload ID binds the body instead: it hashes keccak(txList) together
+    with the root, `extraData`, timestamp, prevRandao, coinbase and parent. The hash check matters
+    because the engine stores a build's origin before the block is inserted: a build interrupted
+    before promotion leaves a matching payload ID over another canonical block.
 
 Rules:
 
