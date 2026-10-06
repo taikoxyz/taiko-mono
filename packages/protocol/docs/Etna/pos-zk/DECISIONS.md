@@ -517,3 +517,46 @@ and every parameter that existed only to size them.
 
 **Status:** decided; specification changes in flight. This supersedes D-7.
 
+
+
+## D-16 — v1 ships the core; the add-on mechanisms are deferred to a register (Option A)
+
+**Decision (design owner, 2026-10-06):** v1 ships the **core** only. Four mechanisms are **deferred**
+to a later protocol update, each with its guarantee explicitly disclosed as absent. A durable
+**deferred-work register** (`DEFERRED.md`) records each one, its findings and its revive criteria so
+none of the work is lost.
+
+**Evidence.** Six review rounds, zero clean. Every Critical in rounds 4, 5 and 6 sits in a mechanism
+layered on the core, while the core itself - consensus safety per set version, the proof statement,
+the fee reconciliation, the data binding, locks, uniqueness and the checkpoint boundary - has been
+re-attacked in every round and has not broken. Three repairs introduced defects of the same class as
+the finding they closed. The remaining two rounds cannot supply a review cycle to four new mechanisms.
+
+**Kept in v1.**
+- L1-anchored PoS sequencing with TAIKO stake on L1 (D1, D4, D7).
+- Validity-proof settlement with the batch data bound to the accepting transaction, carried or
+  referenced through a publication record (D-11), including the proving deadline.
+- The checkpoint **boundary**: nothing at or below the latest L1-accepted checkpoint is ever
+  rewritten; a confirmation above it is provisional.
+- The **exit** from the last settled state (MEM-15), once its contradiction with the
+  withdrawal-root path is resolved.
+- k-of-n withdrawal roots attested by distinct backend families, and the rule-triggered,
+  self-expiring withdrawal veto. Without aggregation, a root is k attestations verified on L1.
+- The signed **recovery generation** as the mechanism that scopes certificates, locks and
+  uniqueness.
+
+**Deferred, with disclosure.**
+1. **Narrow forced inclusion (D-12)** - the FI machinery. v1 has no inclusion obligation; a proposer
+   that excludes a transaction is not in breach. Disclosed as the censorship gap, which is the
+   R10 relaxation already recorded.
+2. **Heartbeat eligibility (D-14)** - membership has no liveness gate. A cohort that stops
+   participating halts production until an upgrade, and `A-CONS-1` is unchanged.
+3. **The governance stall resolution (D-15)** - v1 has **no recovery path of any kind**: permissionless
+   or governance-mediated. A settlement stall halts the chain; funds are safe and the exit works, but
+   clearing the stall requires a **future protocol update whose procedure is not yet specified**.
+   That last clause is the honest disclosure, and it is the price of dropping D-15.
+4. **Aggregation (D-13)** - settlement accepts one proof from one registered backend, so soundness is
+   that of the weakest approved backend. Disclosed; withdrawal roots keep the k-family requirement.
+
+**Status:** decided; rollback in flight.
+
