@@ -66,6 +66,7 @@
       td:first-child { white-space: nowrap; }
       table.misbehavior td:first-child { white-space: normal; width: 24%; }
       table.misbehavior td:nth-child(2) { width: 34%; }
+      table.derivation td:first-child { white-space: normal; width: 16%; }
       .note { color: var(--muted); font-size: 14px; }
       footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
       @media (max-width: 560px) { dl.glossary { grid-template-columns: 1fr; } td:first-child { white-space: normal; } }
@@ -120,14 +121,15 @@
         </li>
         <li>
           Landing rights rotate per epoch. Reuse the existing per-epoch operator selection, drawing uniformly from active
-          seats (see <a href="#lander">Lander</a>).
+          seats. The last part of each epoch is open to every active validator as a fallback (see
+          <a href="#lander">Lander</a>).
         </li>
         <li>
           No new Inbox is needed for the registry: <code>_proposerChecker</code> is immutable but points at the
           PreconfWhitelist proxy, so swapping the proxy implementation is enough.
         </li>
         <li>
-          The Inbox swaps its implementation (same proxy) for forced inclusion only:
+          The Inbox swaps its implementation (same proxy):
           <ul>
             <li>
               <code>propose</code> no longer dequeues FIs or inserts FI blocks. The
@@ -142,6 +144,14 @@
             <li>
               The "permissionless proposing after long-overdue FIs" path (mainnet multiplier 160, about 25.6 h) stays
               disabled. It is disabled in today's code; enabling it would let anyone act as a lander.
+            </li>
+            <li>
+              <code>prove</code> finds proposals that derived to zero blocks (end block hash equal to the previous one),
+              records a miss for the lander and pays a small fine to the prover.
+            </li>
+            <li>
+              <code>propose</code> takes the expected proposal ID and reverts on a mismatch, so racing fallback landings
+              fail instead of deriving to zero blocks.
             </li>
           </ul>
         </li>
@@ -236,7 +246,7 @@
       <p>
         The base rules are the Etna section of
         <a href="https://github.com/taikoxyz/taiko-mono/pull/22189">PR #22189</a>. Only additions and changes are listed
-        here.
+        here; the table at the end of this section lists every consensus change.
       </p>
       <ul>
         <li>
@@ -305,7 +315,9 @@
           from derivation records or L1 events instead: Go's <code>DecodeShastaProposalID</code>
           (<code>driver/preconf_blocks/api.go</code>, <code>driver/state/l1_current.go</code>,
           <code>pkg/rpc/methods.go</code>) and Rust's <code>decode_shasta_proposal_id</code>
-          (<code>proposer/src/proposer.rs</code>).
+          (<code>proposer/src/proposer.rs</code>). Byte 0, <code>basefeeSharingPctg</code>, also comes from the
+          proposal at landing (an Inbox setting) and sets the base fee split, so an Inbox upgrade that changed it would
+          make committed blocks underivable. It becomes a fork constant that only a hard fork changes.
         </li>
         <li>
           <strong>Zero blocks on failed validation.</strong> If the lander's own segment fails validation, it derives to
@@ -323,6 +335,97 @@
           lander therefore cannot insert any block, and an invalid landing at most wastes a turn.
         </li>
       </ul>
+      <p>
+        <strong>Consensus changes to derivation.</strong> Derivation is consensus: clients and raiko2 must derive the
+        same chain. Relative to the Etna rules in #22189, these must change:
+      </p>
+      <div class="table-wrap">
+        <table class="derivation">
+          <thead>
+            <tr><th>Rule</th><th>Etna (#22189)</th><th>Changed to</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Result of failed validation</td>
+              <td>Only the failing source is replaced, by the default source: one empty block with the proposer as coinbase</td>
+              <td>
+                The whole proposal derives to zero blocks, and its end block hash equals the previous proposal's. The
+                proof must produce this result, not fail.
+              </td>
+              <td>
+                A default block depends on who lands and when, so it would fork from the committed chain. Zero blocks
+                leave the chain alone, and the blocks are simply landed again.
+              </td>
+            </tr>
+            <tr>
+              <td>Proposal data</td>
+              <td>Per-block manifests only</td>
+              <td>
+                A new manifest version in the blob that also carries the last block's commit, CometBFT header and two
+                Merkle siblings
+              </td>
+              <td>Proves that the committee confirmed the segment</td>
+            </tr>
+            <tr>
+              <td>Committee and commit</td>
+              <td>None</td>
+              <td>
+                Read the registry's <code>committeeRoot[epoch]</code> from the L1 state at <code>originBlockHash</code>.
+                Check the header hash, chain id, height and <code>ValidatorsHash</code>; verify each signature and
+                require more than 2/3 of seats; a <code>DataHash</code> Merkle path must reach the derived last EVM block
+                hash. The proposal stays in one committee epoch.
+              </td>
+              <td>Only the chain the committee confirmed is accepted</td>
+            </tr>
+            <tr>
+              <td>Forced inclusion</td>
+              <td>
+                The Inbox inserts due FIs at propose time as separate sources placed first, one block each, with the
+                proposer as coinbase
+              </td>
+              <td>
+                A proposal has only the lander's source. Derivation checks each FI at the block whose anchor passes its
+                due time: its transactions are on chain or invalid, otherwise zero blocks.
+              </td>
+              <td>Inserting blocks at landing would change the committed chain</td>
+            </tr>
+            <tr>
+              <td>extraData bytes 1–6</td>
+              <td>proposalId, assigned by the Inbox at landing</td>
+              <td>The CometBFT height</td>
+              <td>Independent of landing</td>
+            </tr>
+            <tr>
+              <td>extraData byte 0 (base fee split)</td>
+              <td><code>basefeeSharingPctg</code> from the proposal at landing (an Inbox setting)</td>
+              <td>A fork constant; changing it takes a hard fork</td>
+              <td>An Inbox upgrade that changed it would make committed blocks underivable</td>
+            </tr>
+            <tr>
+              <td>Coinbase</td>
+              <td>The proposer for FI and default blocks; the manifest otherwise</td>
+              <td>Always the manifest (the leader's, locked by the commit)</td>
+              <td>FI sources and default blocks are gone</td>
+            </tr>
+            <tr>
+              <td>Fork activation</td>
+              <td>
+                Each block follows the fork at its own timestamp; the per-source limit follows the proposal's L1 time
+              </td>
+              <td>
+                The new rules apply by the proposal's L1 landing time. Blocks from the whitelist era must all be landed
+                before the fork time.
+              </td>
+              <td>The new rules are proposal-level</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">
+        Unchanged: the timestamp, anchor and gasLimit range checks (a failure follows the first row), the 768-block
+        per-source limit, zk gas, extraData bytes 7–12 and <code>parentBeaconBlockRoot</code>, and the base fee
+        calculation.
+      </p>
 
       <h3>1.4 Transaction entry</h3>
       <p>
@@ -349,9 +452,12 @@
             </li>
             <li>
               A miss (no landing during one's epoch) is recorded, not fined. It only counts when the epochs before and
-              after had landings, so halts do not trigger it. Repeated misses remove the seat from the active set. An
-              invalid landing derives to zero blocks and has the same effect as a miss. Detecting it on chain would need
-              the Inbox to store each proposal's last block hash.
+              after had landings, so halts do not trigger it. Repeated misses remove the seat from the active set. A
+              landing that derives to zero blocks also counts as a miss and pays a small fine, about the cost of proving
+              one proposal, to the prover that proves it. L1 sees it at <code>prove</code> time: the commitment already
+              lists each proposal's <code>proposer</code> and end block hash, and an end hash equal to the previous one
+              means zero blocks, so no extra storage is needed. An honest lander can only be blamed if the committee
+              itself signed an invalid block, and by then the chain has halted.
             </li>
             <li>
               Cost: about 75k gas plus one blob per landing. At about 225 landings per day and market tips, roughly
@@ -363,8 +469,16 @@
           <strong>Timing.</strong>
           <ul>
             <li>
-              Land once near the end of one's 384 s epoch, with 2–3 L1 slots of margin. Retry within the epoch if the
-              transaction does not land. Anything left over is landed by the next lander.
+              Land once within the first three quarters of one's 384 s epoch, with 2–3 L1 slots of margin, and retry
+              within that time if the transaction does not land.
+            </li>
+            <li>
+              Fallback: the last quarter of the epoch is open to every active validator. Each one first runs derivation
+              itself to confirm that the lander on duty did not land or landed something invalid, then lands; anything
+              left over goes to the next lander. Without this, about 16 consecutive epochs without a valid landing (the
+              6144 s window) would push committed but unlanded blocks out of the window and reorg up to about 1.7 h of
+              blocks. Landers are drawn per seat at random, so a coalition holding half the seats would hit such a
+              streak about once a year.
             </li>
             <li>
               The only hard deadline comes from Etna's derivation windows (timestamp 6144 s, anchor 512 L1 blocks, about
@@ -383,7 +497,7 @@
 
       <h2>3. Unchanged</h2>
       <p>
-        The propose and prove flow (apart from FI), FI store submission and its 576 s due time, Etna's L1 anchor rules
+        The main propose and prove flow (apart from the changes in 1.1), FI store submission and its 576 s due time, Etna's L1 anchor rules
         (<code>parentBeaconBlockRoot</code> holds the anchor state root and extraData bytes 7–12 hold the anchor number),
         SignalService and the bridge, L2 execution, and the 2 s block time.
       </p>
@@ -490,7 +604,8 @@
         </li>
         <li>
           <strong>Alignment with Etna derivation.</strong> Production stops when unlanded committed blocks approach the
-          derivation windows (timestamp 6144 s, anchor 512 L1 blocks), so they are never derived as default blocks. A
+          derivation windows (timestamp 6144 s, anchor 512 L1 blocks), because blocks past the windows can never be
+          landed. A
           source holds at most 768 blocks (from Unzen). One epoch's segment is about 192 blocks, so one missed landing
           still fits; a larger backlog is split into several proposals. A proposal never spans committee epochs.
         </li>
@@ -540,10 +655,13 @@
             </tr>
             <tr>
               <td>A lander submits an invalid commit or wrong data</td>
-              <td>Found at derivation; the segment derives to zero blocks.</td>
               <td>
-                Same effect as a miss. L1 cannot tell it apart yet; that would need the Inbox to store each proposal's
-                last block hash.
+                It derives to zero blocks. At <code>prove</code> time its end block hash equals the previous proposal's,
+                so L1 sees it directly.
+              </td>
+              <td>
+                A miss plus a small fine (about one proposal's proving cost) paid to the prover. No reorg: a fallback
+                lander or the next lander lands the blocks again.
               </td>
             </tr>
             <tr>
@@ -621,7 +739,8 @@
         <li>The stake asset (ETH or TAIKO) and where any subsidy comes from.</li>
         <li>
           Registry parameters: seat bond, seat cap (about 100), epoch length, miss limit (1–2 suggested), evidence window,
-          launch threshold.
+          launch threshold, the fine for an invalid landing, and the fallback window (for example, the last quarter of
+          an epoch).
         </li>
         <li>Absence rule: signing threshold, window, and uncounted share (threshold plus share at most 1/3).</li>
       </ul>
@@ -636,15 +755,17 @@
       <ul>
         <li>
           New PreconfWhitelist implementation: stake per seat with a queue when full; freeze <code>committeeRoot</code>
-          per epoch and draw landers uniformly per seat; <code>checkProposer</code> admits only the lander on duty and
-          records misses; double-sign slashing that checks <code>secp256k1eth</code> signatures with
+          per epoch and draw landers uniformly per seat; <code>checkProposer</code> admits only the lander on duty early in
+          the epoch and any active validator in the fallback window, and records misses; double-sign slashing that checks <code>secp256k1eth</code> signatures with
           <code>ecrecover</code> and pays part of the slashed bond to the submitter; absence removal that verifies the L2
           count contract's signal proof and removes validators below the threshold; exit locks; the launch threshold.
         </li>
         <li>
-          New Inbox implementation, forced inclusion only: <code>propose</code> no longer dequeues FIs or inserts
-          blocks, and the due check is removed; the FI queue head advances at finalization by time; the
-          "permissionless proposing after long-overdue FIs" path stays disabled.
+          New Inbox implementation: <code>propose</code> no longer dequeues FIs or inserts blocks, and the due check is
+          removed; the FI queue head advances at finalization by time; the "permissionless proposing after long-overdue
+          FIs" path stays disabled; <code>propose</code> takes the expected proposal ID and reverts on a mismatch;
+          <code>prove</code> finds proposals whose end block hash equals the previous one, records a miss for the
+          proposer and pays a small fine to the prover.
         </li>
         <li>
           L2 count contract: accepts only the first record for each committee epoch, and only during the next epoch;
@@ -672,9 +793,10 @@
           on the execution client.
         </li>
         <li>
-          Lander: at the end of its epoch, fetch committed blocks and the last commit from CometBFT's
-          <code>/block</code> and <code>/commit</code>, pack them into a blob and call <code>propose</code>, reusing the
-          existing proposers' blob building in both clients.
+          Lander: on duty (the first three quarters of its epoch), fetch committed blocks and the last commit from
+          CometBFT's <code>/block</code> and <code>/commit</code>, pack them into a blob and call <code>propose</code>,
+          reusing the existing proposers' blob building in both clients. In the fallback window, each validator first
+          derives the duty lander's proposal and lands only if it is missing or invalid.
         </li>
       </ul>
       <h3>Execution client (alethia-reth)</h3>
@@ -692,9 +814,11 @@
       <h3>Derivation (spec and both clients)</h3>
       <ul>
         <li>
-          Add the rules on top of #22189: proposals carry the last block's commit, header and two Merkle siblings;
-          verify the commit and committee; extraData bytes 1–6 hold the CometBFT height; a segment that fails validation
-          derives to zero blocks; forced inclusion is checked by anchor time.
+          Add the rules on top of #22189, as listed in the consensus-change table in 1.3: a new manifest version carries
+          the last block's commit, header and two Merkle siblings; verify the commit and committee; a failed proposal
+          derives to zero blocks; forced inclusion is checked by anchor time; extraData bytes 1–6 hold the CometBFT
+          height and byte 0 becomes a fork constant; coinbase always comes from the manifest; the new rules apply by the
+          proposal's L1 landing time.
         </li>
         <li>
           Implement them in taiko-client and taiko-client-rs. Committed blocks are already in the execution client, so
