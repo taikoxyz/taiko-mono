@@ -193,10 +193,14 @@ Ethereum-final L1 fact rather than a tip the bundle can pick. <code>B*</code> is
 finalized tip and never chosen. Uniqueness of <code>B*</code> rests on keccak-256 collision resistance (A-CRYPTO-3) and on the monotonicity of <a href="04-l1-integration.html#L1-06">L1-06</a>. The starting point is the deployed system at revision <code>7718753c1</code>: an Inbox with two separate entry points, <code>propose()</code> (<code>Inbox.sol:270-290</code>) and <code>prove()</code> (<code>Inbox.sol:321-400</code>), i.e. the data-first path D5 forbids; a disabled bond mechanism (<code>minBond = 0</code>, <code>livenessBond = 0</code>, <code>MainnetInbox.sol:37-38</code>) whose liveness settlement is additionally suppressed while a prover whitelist is enabled (<code>Inbox.sol:356-359</code>); a <code>ProverWhitelist</code> gating <code>prove()</code> (<code>Inbox.sol:337,771-779</code>; mainnet <code>0xEa798547d97e345395dA071a0D7ED8144CD612Ae</code>); a <code>PreconfWhitelist</code> as <code>IProposerChecker</code> selecting one operator per epoch (<code>PreconfWhitelist.sol:136-140</code>; mainnet <code>0xFD019460881e6EeC632258222393d5821029b2ac</code>); and the June 2026 blob-expiry incident, in which queued blob references outlived Ethereum's retention
 window and the owner-only <code>init3()</code> voided them with fees retained
 (<code>Inbox.sol:246-258</code>, called on mainnet in the Proposal0019 bundle,
-<code>deployments/mainnet-contract-logs-L1.md:222-223</code>) — the recorded instance of the data-first
-failure class that D5 removes. The new design has no inclusion queue and no pending data reference for a
-censored transaction; its replacement is the honest statement of
-<a href="10-assurance.html#LIVE-04">LIVE-04</a>.
+<code>deployments/mainnet-contract-logs-L1.md:222-223</code>) — the recorded instance of the <em>unbounded</em> data-first
+failure class. The new design has no inclusion queue and no owner-voidable data reference; it has instead
+D-11's permissionless publication record, whose outstanding entries are bounded by the proving deadline and
+discarded and re-published if unproven (MIG-02 slots 275–276), and D-12's narrow forced inclusion, which is
+enforced at the proof over the published due set rather than by an admission gate or a privileged queue. For
+unpublished transactions, the honest statement of what inclusion resistance remains is
+<a href="10-assurance.html#LIVE-04">LIVE-04</a>. <em>(D-11: data may be published before the proof; D-12:
+narrow forced inclusion ships in v1 and supersedes D-6/D-10.)</em>
 <strong>State that migrates</strong> (read once at T3, written to the migration/genesis slots 258–260 and
 — as the genesis checkpoint record — into the L1-07 checkpoint map of slot 264 (<a href="#genesis-record">&sect;genesis record</a>, MIG-02), then frozen and
 never re-interpreted): <code>H*</code>; the L1 SignalService checkpoint record for <code>B*</code>; the existing TAIKO ERC-20 balances at the preserved token address
@@ -207,7 +211,7 @@ stake custody is a new L1 staking contract holding TAIKO via <code>transferFrom<
 <code>bridgedToCanonical</code>, <code>canonicalToBridged</code>, <code>btokenDenylist</code>,
 <code>lastMigrationStart</code> (ERC20Vault slots 301–304) and the two NFT vault maps (slots 301–302).
 <strong>State that does not migrate</strong>: Shasta proposals that were proposed and never proven —
-they are not part of any finalized prefix, they wrote no checkpoint and have no bridge effect; pending bond balances in the Inbox ledger (slot 257), which are not carried into the new stake ledger and never count as voting power, but stay claimable (MIG-03); and blob references whose blobs have left Ethereum's retention window (A-DA-3), which cannot be proven and must not be promised. <em>(user decision D-6: forced inclusion is removed — no inclusion queue, refund path, fee, escrow or request format migrates, and none exists in the new design; the June 2026 blob-expiry incident is kept only as historical evidence of the data-first failure class, and what does migrate is enumerated above.)</em></span>
+they are not part of any finalized prefix, they wrote no checkpoint and have no bridge effect; pending bond balances in the Inbox ledger (slot 257), which are not carried into the new stake ledger and never count as voting power, but stay claimable (MIG-03); and blob references whose blobs have left Ethereum's retention window (A-DA-3), which cannot be proven and must not be promised. <em>(D-6 removed forced inclusion and D-12 supersedes it with narrow forced inclusion over published data: no legacy inclusion queue, refund path, fee, escrow or request format migrates, and the new design's publication record and due set are new objects created only from <code>ETNA_ACTIVE</code> (MIG-02 slots 275–276); the June 2026 blob-expiry incident is kept only as historical evidence of the unbounded data-first failure class, and what does migrate is enumerated above.)</em></span>
 <span class="why">Failure mode: a migration whose bundle can pick the history splits the chain or
 anchors a non-finalized height; treating an unproven proposal, a legacy bond or an expired blob as migrated state strands user funds or manufactures voting power that no L1 stake backs.</span>
 <span class="pill proven">Proven</span> <span class="small">(premises: A-CRYPTO-3 for the uniqueness of
@@ -258,7 +262,7 @@ auto-generated layout files at <code>7718753c1</code>.</p>
 <code>land(data, proof)</code> (<a href="04-l1-integration.html#L1-01">L1-01</a>); add
 <code>freeze()</code>/<code>finishDrain()</code>/<code>activateEtna()</code> and the state gate of
 T1–T3; write the genesis record of T3 (<a href="#genesis-record">&sect;genesis record</a>); add the legacy <code>withdrawLegacyBond</code> selector that reads slot 257 in place; add the REC-02 recovery record with its attempt history and the PARAM-04 per-epoch configuration registry (slots 268–274); drop the ProverWhitelist and IProposerChecker calls</td>
-<td><strong>17 declaration slots, 258–274</strong> (each numbered line consumes one gap slot unless it is a packed group):<br>
+<td><strong>19 declaration slots, 258–276</strong> (each numbered line consumes one gap slot unless it is a packed group):<br>
 (258) <code>migrationState</code>+<code>frozenAtL1Block</code>+<code>drainedAtL1Block</code>+<code>genesisL2BlockNumber</code>+<code>genesisTimestamp</code> (packed);<br>
 (259) <code>genesisL2BlockHash</code>;<br>
 (260) <code>genesisL2StateRoot</code>;<br>
@@ -275,8 +279,10 @@ T1–T3; write the genesis record of T3 (<a href="#genesis-record">&sect;genesis
 (271) <code>recoveryBondPosted</code> (uint256; ETH posted at invocation);<br>
 (272) <code>recoveryBondRefundable</code> (uint256; the component returned only on completion — <code>B_REC_KEEP</code> leaves custody in the invocation transaction and is <code>posted &minus; refundable</code>, so it has no standing slot);<br>
 (273) <code>recoveryAttempts</code> bounded ring (the attempt history that computes <code>B_REC_BASE &middot; 2<sup>attempts</sup></code> over <code>REC_WINDOW</code>: one dynamic-array base, whose single length slot is the gap slot, plus packed uint64 timestamps at derived positions — entry slots, not gap slots; live entries are at most <code>ceil(REC_WINDOW / REC_COOLDOWN) + 1</code> because <code>REC_COOLDOWN</code> follows every attempt, and their entry slots are unmeasured until both parameters are set);<br>
-(274) <code>configRegistry</code> map (<code>epoch =&gt; configHash</code>; PARAM-04's append-only per-epoch registry — the map base is one gap slot and each epoch's entry is an entry slot, not a gap slot)
-</td><td><strong>17</strong></td><td><strong>26</strong> (275–300)</td></tr>
+(274) <code>configRegistry</code> map (<code>epoch =&gt; configHash</code>; PARAM-04's append-only per-epoch registry — the map base is one gap slot and each epoch's entry is an entry slot, not a gap slot);<br>
+(275) <code>publications</code> map (<code>uint64 publicationId =&gt; Publication</code>; D-11's publication record: the entry slot holds the publisher, the publication timestamp, the item's byte length, the data commitment, the recorded blob versioned hashes, the per-publication deadline <code>publishedAt + T_PROVE_DEADLINE</code> fixed at publication, and the status <code>PUBLISHED | PROVEN | DISCARDED</code> — entries are entry slots, not gap slots, exactly like the <code>checkpoints</code> map's records);<br>
+(276) publication clock, packed — <code>nextPublicationId</code> (uint64) + <code>dueHead</code> (uint64; the FIFO head the capped prefix drains from) + <code>dueTail</code> (uint64) + <code>dueCount</code> (uint32) + <code>pruneCursor</code> (uint32) = 32 bytes
+</td><td><strong>19</strong></td><td><strong>24</strong> (277–300)</td></tr>
 <tr><td>SignalService (L1 and L2)</td><td>No state change. The implementation is re-deployed with the
 <em>same</em> immutable values (<code>_authorizedSyncer</code>, <code>_remoteSignalService</code>,
 <code>VERSION = 1</code>) and the same checkpoint semantics; adding a monotone high-water mark is a
@@ -294,9 +300,9 @@ the quota dependency; keep all four mappings and <code>lastMigrationStart</code>
 the anchor payload becomes a block-validity rule rather than an operator action</td><td>none</td>
 <td>0</td><td>43</td></tr>
 </tbody></table>
-<p class="small">The 17 Inbox slots are <span class="pill derived">derived</span> from the change list:
+<p class="small">The 19 Inbox slots are <span class="pill derived">derived</span> from the change list:
 every object the Etna rules require is enumerated above with the contract that holds it, and
-17 &le; 43 at the sourced gap arithmetic (258–300): 26 slots remain (275–300). Every object of slots
+19 &le; 43 at the sourced gap arithmetic (258–300): 24 slots remain (277–300). Every object of slots
 268–274 is Inbox state, and each is placed there by a rule that names the Inbox:
 <a href="09-parameters.html#PARAM-04">PARAM-04</a> requires <em>the Inbox</em> to keep the append-only
 per-epoch configuration registry (274), with <code>paramVersion</code> packed at 268; the recovery record
@@ -305,7 +311,26 @@ checkpoint, which <a href="04-l1-integration.html#L1-05">L1-05</a> row 31 places
 storage, and <a href="#GOV-03">GOV-03</a>(e) requires an upgrade to carry a pending recovery unchanged
 (268–272); and <a href="04-l1-integration.html#L1-06">L1-06</a>'s contiguity rule reads its two inputs,
 <code>lastLandedHeight</code> (263) and <code>resumeHeight</code> (268), from the same checkpoint record.
-<code>lastAcceptedBatchTime</code> (L1-07; the stored acceptance time that <a href="06-recovery-exceptions.html#REC-02">REC-02</a>'s settlement-stall clock reads) is a field of that same checkpoint record, so it is carried in the <code>checkpoints</code> map's entry slots and packs with <code>l1BlockNumber</code> into one 32-byte word: the record's storage footprint is unchanged, the declaration count stays at <strong>17</strong> slots (258–274), and the <strong>26</strong> gap slots (275–300) remain. <strong>The arithmetic after deleting the invoker's claim, shown honestly:</strong> 43 sourced gap slots (258–300) &minus; 17 declaration slots (258–274) = 26 remaining (275–300); slot 270 is still one of the 17, so the deletion frees 12 bytes inside a consumed slot, not a slot — there is no honest way to pack a 20-byte address into 268 or 269, and splitting it is not permitted. The declaration count and the free-slot figure are therefore unchanged, and the retirement derivation adds no storage. <em>This closes the retirement-endpoint Critical's budget half (review comment 6014265254, item 3).</em> <em>This closes finding R1: the stall clock's source is placed in the slot budget where it fits, with its packing and the free count stated.</em>
+<code>lastAcceptedBatchTime</code> (L1-07; the stored acceptance time that <a href="06-recovery-exceptions.html#REC-02">REC-02</a>'s settlement-stall clock reads) is a field of that same checkpoint record, so it is carried in the <code>checkpoints</code> map's entry slots and packs with <code>l1BlockNumber</code> into one 32-byte word: the record's storage footprint is unchanged, the declaration count stays at <strong>19</strong> slots (258–276), and the <strong>24</strong> gap slots (277–300) remain. <strong>The arithmetic after deleting the invoker's claim, shown honestly:</strong> 43 sourced gap slots (258–300) &minus; 19 declaration slots (258–276) = 24 remaining (277–300); slot 270 is still one of the 17 recovery-and-configuration slots, so the deletion frees 12 bytes inside a consumed slot, not a slot — there is no honest way to pack a 20-byte address into 268 or 269, and splitting it is not permitted. The declaration count and the free-slot figure are therefore unchanged, and the retirement derivation adds no storage. <em>This closes the retirement-endpoint Critical's budget half (review comment 6014265254, item 3).</em> <em>This closes finding R1: the stall clock's source is placed in the slot budget where it fits, with its packing and the free count stated.</em>
+<strong>D-11's publication record, budgeted (slots 275–276).</strong> Data may be published before the proof,
+so the Inbox must hold the record the later proof references and the cursors that the due-set rule of
+<a href="04-l1-integration.html">04</a> drains: (275) is the <code>publications</code> map base — <code>uint64
+publicationId =&gt; Publication</code>, whose <em>entry</em> slots hold the publisher, the publication
+timestamp, the item's byte length, the data commitment, the recorded blob versioned hashes, the
+per-publication deadline <code>publishedAt + T_PROVE_DEADLINE</code> fixed at publication, and the status
+<code>PUBLISHED | PROVEN | DISCARDED</code> — and (276) is one packed clock: <code>nextPublicationId</code>
+(uint64) + <code>dueHead</code> (uint64) + <code>dueTail</code> (uint64) + <code>dueCount</code> (uint32) +
+<code>pruneCursor</code> (uint32) = 32 bytes. Two declaration slots are sufficient and the arithmetic is
+exact: the deadline is stored <em>per entry</em> rather than recomputed from a current parameter, because a
+later change to <code>T_PROVE_DEADLINE</code> MUST NOT move the deadline of an outstanding publication; the
+FIFO prefix the capped rule drains needs only head, tail and count; and pruning after
+<code>PUB_RECORD_RETENTION</code> is a permissionless advance of <code>pruneCursor</code>, so the record does
+not grow without bound. The map's entries are entry slots, exactly like the <code>checkpoints</code> map's
+records, so the declaration count rises by exactly two: <strong>19 of the 43 sourced gap slots (258–300) are
+consumed and 24 remain (277–300)</strong>. The record is written only from <code>ETNA_ACTIVE</code> (MIG-03)
+and is initialised empty at T3 (<a href="#genesis-record">&sect;genesis record</a>). <em>(D-11: publication is
+new stored state; it is budgeted here with one map base and one packed clock, and the entry slots are costed
+separately.)</em>
 The attempt history (273) must be an exact windowed ring rather than a decaying counter: the escalation
 counts attempts in the preceding <code>REC_WINDOW</code>, and a counter that cannot expire one attempt at a
 time would under-price a rapid second attempt. It is finite state because <code>REC_COOLDOWN</code> follows
@@ -329,12 +354,15 @@ single-slot fields plus the packed third) and this table's budget is unaffected.
 per-epoch mapping, its participation accumulator, its retained <code>(epoch, SlashBase(v,e))</code> pairs
 and its segregated ETH reward pool (ECON-02 clause 5) are new-contract state, unconstrained by the preserved
 prefixes and therefore outside this slot budget. Protocol parameters (<code>MAX_BATCH_BLOCKS</code>,
-<code>D_MAX</code>, <code>REWARD_QUOTE</code>, <code>BASE_FEE</code>, <code>FEE_DOUBLE_THRESHOLD</code>,
-<code>MAX_FEE</code>, <code>CANCELLATION_COST</code>, <code>WITHDRAWAL_DELAY</code>, and the recovery
+<code>D_MAX</code>, <code>REWARD_QUOTE</code>, <code>WITHDRAWAL_DELAY</code>, the publication parameters
+<code>T_PROVE_DEADLINE</code>, <code>FI_PREFIX_CAP</code>, <code>FI_ITEM_MAX_BYTES</code> and
+<code>PUB_RECORD_RETENTION</code>, and the recovery
 parameters <code>T_STALL</code>, <code>T_RECOVERY_DELAY</code>, <code>B_REC_BASE</code>,
 <code>B_REC_KEEP</code>, <code>REC_WINDOW</code>, <code>REC_COOLDOWN</code>) are constructor immutables of
-the settlement implementation, not storage: they change only by upgrade and consume no gap slot. If an
-implementer needs more Inbox state than the 26 remaining slots, the answer is a decision-log entry or a new
+the settlement implementation, not storage: they change only by upgrade and consume no gap slot. The Shasta fee-config names <code>BASE_FEE</code>, <code>FEE_DOUBLE_THRESHOLD</code>, <code>MAX_FEE</code>
+and <code>CANCELLATION_COST</code> are baseline configuration carried by the wind-down, not parameters of this
+specification, and <a href="09-parameters.html">09</a> registers none of them. If an
+implementer needs more Inbox state than the 24 remaining slots, the answer is a decision-log entry or a new
 contract, not a reused deprecated slot. <em>(review round 2, finding E-R2-03: the budget now enumerates every
 required object — the L1-07 checkpoint map, the L1-11 ledgers, the L1-09 route registry, the MIG-05 image
 registry, the REC-02 recovery and attempt history and the PARAM-04 configuration registry — with its holder

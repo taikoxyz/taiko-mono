@@ -26,8 +26,9 @@ hard-coded anywhere in this specification (<a href="#ECON-10">ECON-10</a> clause
 <span class="pill unmeasured">unmeasured</span>; a formula is a relation that must hold, not a value.</div>  <div class="goodbox small">
 <strong>Fixed decisions applied here.</strong> Staking and slashable consensus collateral are the existing TAIKO
 token and nothing else; gas stays ETH (<strong>D7</strong>). Validator rewards are denominated and paid in
-<strong>ETH</strong> (<a href="#ECON-02">ECON-02</a> clause 1): D7 fixes the staking asset, not the reward asset. No rule creates a data-first path
-(<strong>D5</strong>) — which is why the evidence window must extend past settlement (<a href="#ECON-07">ECON-07</a>).
+<strong>ETH</strong> (<a href="#ECON-02">ECON-02</a> clause 1): D7 fixes the staking asset, not the reward asset. No rule advances the checkpoint without a valid proof
+(<strong>D5</strong>, as relaxed by <strong>D-11</strong>: a batch's data may be published and recorded before the proof, but a publication
+is not settlement) — which is why the evidence window must extend past settlement (<a href="#ECON-07">ECON-07</a>).
 No recovery, timeout or penalty may invalidate a PoS-finalized block (<strong>D2</strong>,
 <a href="06-recovery-exceptions.html#REC-01">REC-01</a>); penalties debit stake, they never rewrite history.
 Every deterrence claim is conditional on the Byzantine-stake assumption <strong>A-CONS-1</strong> (&lt; 1/3 of the
@@ -101,7 +102,7 @@ fraction of what the collection call collects, with the bounty and the fee toget
 collected for that offence. They therefore need no TAIKO/ETH price and do not make this identity
 mixed-currency; the left-hand term <code>rewards_ETH</code> counts only ETH-denominated payouts.
 <em>This closes A5: the collection keeper fee is registered as a TAIKO payout of the same debit as the reporter bounty, so the funding identity stays single-currency (ETH).</em> Over any accounting period, the sum of those
-ETH-denominated payouts to validators, provers, the invoker of a completed recovery (the completion reward of clause 5(f)) and any other role <strong>MUST</strong> satisfy</span> <em>(review comment 1, item 4: the completion reward is an ETH payout counted in the funding identity, so it can never exceed what the L2 fees actually delivered.)</em>
+ETH-denominated payouts to validators, provers (including an aggregator paid from the proving share under clause 5(e), D-13), the invoker of a completed recovery (the completion reward of clause 5(f)) and any other role <strong>MUST</strong> satisfy</span> <em>(review comment 1, item 4: the completion reward is an ETH payout counted in the funding identity, so it can never exceed what the L2 fees actually delivered.)</em>
 <pre><code>rewards_ETH(period)  ≤  F_exec_L2 + F_priority_L2 + POOL_TOPUP
                         − C_L1_data − C_L1_verify − C_bridge_ops − D_subsidy</code></pre>
 <table> <thead><tr><th>Term</th><th>Definition</th><th>Status</th></tr></thead> <tbody>
@@ -146,11 +147,12 @@ coherent: the validator count is reduced through the objective exit path of
 (a) <strong>Custody.</strong> The validator reward pool is an ETH balance held in a segregated account of
 the L1 staking contract of <a href="03-membership-staking.html#MEM-01">MEM-01</a> — not in the Inbox, whose
 <a href="04-l1-integration.html#L1-11">L1-11</a> ledger (the prover reward) is not touched by validator
-payouts. <em>(user decision D-6: forced inclusion removed; no forced-inclusion escrow, fee or refund term
-remains in this accounting)</em> ETH in the pool is never collateral, never
+payouts. <em>(D-6 removed forced inclusion and D-12 supersedes D-6 with the narrow forced-inclusion breach
+of <a href="#ECON-04">ECON-04</a> clause (6); no escrow, publication fee or refund term exists in this
+accounting, and a publication is paid by its publisher and is not a pool outflow (<a href="#ECON-13">ECON-13</a>))</em> ETH in the pool is never collateral, never
 stake and never slashable: it is not counted in INV-A–INV-D (<a href="#ECON-01">ECON-01</a>), no slash may
 debit it, and no rule may borrow against it. Its inflows are the terms of clause 1 (L2 fee revenue, arriving by the sweep of clause 7, and
-<code>POOL_TOPUP</code>); the pool never carries a negative balance. Its outflows are exactly three, and they are disjoint draws on the same balance: the validator payout <code>Alloc(e)</code> of (5)(d), the <strong>proving share</strong> <code>ProvingShare(e)</code> of (5)(e), which is credited to the Inbox prover reward ledger of <a href="04-l1-integration.html#L1-11">L1-11</a> only by a transfer that debits the pool in the same transaction, and the <strong>recovery-completion reward</strong> <code>REC_REWARD(e)</code> of (5)(f), paid to the invoker of a completed recovery. No inflow may be assigned twice: <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>, checked at the (5)(d) freeze, and the completion reward is computed from the pool's realised balance at the completion transaction and paid only while that balance covers it, so it cannot draw an inflow already frozen into an epoch allocation. <em>(review comment 1, item 4: the reward that pays an honest recovery is a draw on the same fee-funded pool, not a second funding source.)</em> <em>(S5 &sect;9: the pool identity includes the proving-share outflow.)</em>
+<code>POOL_TOPUP</code>); the pool never carries a negative balance. Its outflows are exactly three, and they are disjoint draws on the same balance: the validator payout <code>Alloc(e)</code> of (5)(d), the <strong>proving share</strong> <code>ProvingShare(e)</code> of (5)(e), which is credited to the Inbox prover reward ledger of <a href="04-l1-integration.html#L1-11">L1-11</a> only by a transfer that debits the pool in the same transaction and which funds all off-chain proving work, including the aggregation of the one proof object per batch (clause 5(e), D-13), and the <strong>recovery-completion reward</strong> <code>REC_REWARD(e)</code> of (5)(f), paid to the invoker of a completed recovery. No inflow may be assigned twice: <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>, checked at the (5)(d) freeze, and the completion reward is computed from the pool's realised balance at the completion transaction and paid only while that balance covers it, so it cannot draw an inflow already frozen into an epoch allocation. <em>(review comment 1, item 4: the reward that pays an honest recovery is a draw on the same fee-funded pool, not a second funding source.)</em> <em>(S5 &sect;9: the pool identity includes the proving-share outflow.)</em>
 (b) <strong>Per-signer input.</strong> Participation is attested by the only object that can carry it to
 L1: the authenticated signer bitmap of the head certificate, exposed as the public input
 <code>signerBitmap</code> (<a href="05-proof-statement.html#PRF-02">PRF-02</a>) and verified in-guest
@@ -210,7 +212,7 @@ change the payout denominator.</em> <em>This closes review round 3 finding R3-PR
 payout identity is computable from frozen state, the accumulator key is the canonical signer index
 resolved against the stored set root, and the identity is checked rather than asserted.</em>
 (e) <strong>What fixes <code>Alloc(e)</code>: the recorded allocation policy, its owner, its formula and the proving-share outflow.</strong> The mechanism that moves L2 fee revenue
-to the L1 pool is clause 7. The allocation policy is <strong>recorded in the L1 staking contract's storage as one policy record</strong>, written by the activation transaction, and it may be changed <strong>only by an upgrade under <a href="08-migration-upgrades.html#GOV-01">GOV-01</a></strong> that is recorded in the decision log before it takes effect and applies to future epochs only — never to an epoch already entered and never to an allocation already fixed. The policy is three non-negative integer shares in parts per million, <code>ALLOC_VAL_PPM</code>, <code>ALLOC_PRV_PPM</code> and <code>ALLOC_REC_PPM</code>, with <code>ALLOC_VAL_PPM + ALLOC_PRV_PPM + ALLOC_REC_PPM &le; 1_000_000</code>. The per-epoch quantities are computed from the pool's realised balance and fixed at the freeze of (5)(d): <code>Alloc(e) = floor(ALLOC_VAL_PPM &middot; pool_before(e) / 1_000_000)</code> and <code>ProvingShare(e) = floor(ALLOC_PRV_PPM &middot; pool_before(e) / 1_000_000)</code>, with <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>; the rounding remainder stays in the pool. <code>ProvingShare(e)</code> is the <strong>proving-share outflow</strong>: it is credited to the Inbox prover reward ledger of <a href="04-l1-integration.html#L1-11">L1-11</a> only by a permissionless transfer that debits the pool in the same transaction, and it is the only credit that ledger may receive from the pool (5)(a). Because the shares are computed from one balance under one sum bound — and the completion reward of (5)(f) is a draw on the realised balance at the instant it is taken — one inflow cannot be allocated twice. An empty pool pays nothing: while no ETH
+to the L1 pool is clause 7. The allocation policy is <strong>recorded in the L1 staking contract's storage as one policy record</strong>, written by the activation transaction, and it may be changed <strong>only by an upgrade under <a href="08-migration-upgrades.html#GOV-01">GOV-01</a></strong> that is recorded in the decision log before it takes effect and applies to future epochs only — never to an epoch already entered and never to an allocation already fixed. The policy is three non-negative integer shares in parts per million, <code>ALLOC_VAL_PPM</code>, <code>ALLOC_PRV_PPM</code> and <code>ALLOC_REC_PPM</code>, with <code>ALLOC_VAL_PPM + ALLOC_PRV_PPM + ALLOC_REC_PPM &le; 1_000_000</code>. The per-epoch quantities are computed from the pool's realised balance and fixed at the freeze of (5)(d): <code>Alloc(e) = floor(ALLOC_VAL_PPM &middot; pool_before(e) / 1_000_000)</code> and <code>ProvingShare(e) = floor(ALLOC_PRV_PPM &middot; pool_before(e) / 1_000_000)</code>, with <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>; the rounding remainder stays in the pool. <code>ProvingShare(e)</code> is the <strong>proving-share outflow</strong>: it is credited to the Inbox prover reward ledger of <a href="04-l1-integration.html#L1-11">L1-11</a> only by a permissionless transfer that debits the pool in the same transaction, and it is the only credit that ledger may receive from the pool (5)(a). <strong>Aggregation (D-13).</strong> The protocol accepts exactly one proof object per batch and the Inbox verifies it once on L1; underneath, that object MAY be an <code>n</code>-of-<code>m</code> aggregated proof over inner proofs from distinct registered backend families (<a href="04-l1-integration.html#L1-13">L1-13</a>, <a href="05-proof-statement.html#PRF-14">PRF-14</a>), so the aggregation work is an <em>off-chain</em> proving cost and the on-chain verification cost stays at one verification. <code>ProvingShare(e)</code> is the <strong>natural and only registered source</strong> for that work: the recorded allocation policy MUST also fix the share <code>AGG_PROVER_PPM</code> of <code>ProvingShare(e)</code> assigned to the aggregation that produced the epoch's proof objects, with the remainder assigned to the inner-prover work, <code>AGG_PROVER_PPM &le; 1_000_000</code>, recorded before launch and changeable only by a recorded upgrade for future epochs. Where the aggregator and the batch prover are distinct parties, the split is applied at the <a href="04-l1-integration.html#L1-11">L1-11</a> prover-reward payout or settles privately between them; the specification creates no second payout path and adds no term to the funding identity of clause 1, because the whole amount is already counted as a prover payout. <strong>Honest limit, Open with a named falsifier:</strong> if no recorded policy actually pays the aggregator — the share is not implemented on-chain and no private arrangement holds — aggregation does not happen, D-13's <code>n</code>-of-<code>m</code> property does not materialise, and settlement soundness remains that of a single backend; the falsifier is an epoch in which the required family count of <a href="04-l1-integration.html#L1-13">L1-13</a> is not met because no aggregator was paid, and no artifact may claim the aggregated property while it holds. <code>AGG_PROVER_PPM</code> and the aggregation cost line of S1 are <span class="pill unmeasured">unmeasured</span> Phase B outputs (<a href="09-parameters.html#PARAM-03">PARAM-03</a>). <em>(D-13: one proof object per batch, aggregated underneath; the aggregator must be paid out of the proving share, and the on-chain cost stays one verification.)</em> Because the shares are computed from one balance under one sum bound — and the completion reward of (5)(f) is a draw on the realised balance at the instant it is taken — one inflow cannot be allocated twice. An empty pool pays nothing: while no ETH
 has arrived, <code>Alloc(e) = 0</code> and <code>ProvingShare(e) = 0</code>, the pool has no inflow, and <strong>no validator reward can be paid at
 all</strong> — the security budget A-ECO-1 compares against attack profit is zero, the schedule of clause 1 is
 unsatisfiable, and no rule may promise, budget or advertise a reward beyond what has arrived. That consequence is
@@ -408,10 +410,15 @@ revert: no state change, no balance touched, no replay marker written, and the s
 <span class="norm">(3) <strong>Predicates are self-contained.</strong> Every predicate is a pure function of
 published signed objects and L1-committed state. A predicate requiring proof of the <em>absence</em> of a message
 is inadmissible and <strong>MUST NOT</strong> be added: the lock-rule row below shows the case where this bites.
-Deterrence claims are conditional on A-ECO-1. There is no censorship or omission offence: inclusion
-resistance is the conditional statistical property of <a href="10-assurance.html#LIVE-04">LIVE-04</a>, not
-something a penalty can enforce, and the protocol provides no L1 inclusion path and no remedy against a
-network-level adversary.</span>
+Deterrence claims are conditional on A-ECO-1. There is <strong>no general censorship or omission
+offence</strong>: omission of a transaction that was never published remains unpunishable, inclusion
+resistance for unpublished transactions is the conditional statistical property of
+<a href="10-assurance.html#LIVE-04">LIVE-04</a>, and for them the protocol provides no L1 inclusion path and
+no remedy against a network-level adversary. The one exception is the <strong>narrow forced-inclusion
+breach</strong> of clause (6) — the omission of <em>published</em> data past its proving deadline — which
+D-12 makes an offence precisely because it is objectively decidable from L1 state; it creates no general
+inclusion duty. <em>(D-12: narrow forced inclusion returns in v1 and supersedes D-6/D-10; the offence is
+bounded to published data and an elapsed deadline.)</em></span>
 <span class="norm">(4) <strong>Identity and duplicates.</strong> The identity of an offence is
 <code>id = (v, epoch, offenceType, keccak256(evidence))</code> (<a href="03-membership-staking.html#MEM-06">MEM-06</a>
 clause 4). The first accepted submission applies the penalty of <a href="#ECON-05">ECON-05</a>; a second submission
@@ -444,14 +451,46 @@ divergence under withholding may leave no admissible evidence and is Assumed, no
 <td><strong>none</strong>: no bond, deposit or stake is consumed; the submitter pays L1 gas only</td>
 <td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> <tr><td><strong>Fee diversion</strong> — a proposal whose block does not credit the L2 fee vault with the execution fees and priority fees its own execution collects, or diverts, destroys or redirects any part of them to another beneficiary (<a href="02-consensus.html#CONS-01">CONS-01</a>(viii), <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)). A block that contains a legitimate canonical sweep of <a href="#ECON-02">ECON-02</a> clause 7(b) is <strong>not</strong> an offence: the swept amount is attributed to the sweep's own canonical message and is never read as a fee shortfall (<a href="05-proof-statement.html#PRF-06">PRF-06</a>(F2), (F4))</td>
 <td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate re-executes the block from the committed pre-state and evaluates the same recomputable per-block accounting as <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)&ndash;(F4) — the credited-fee counter increment must equal the execution base fees and priority fees the block's own execution collects (F1), every vault debit must be a canonical sweep of <a href="#ECON-02">ECON-02</a> clause 7(b) whose message carries the swept amount (F2), and the balance identity must hold with forced credits accounted (F3). The evidence of the offence is the mismatch itself: a fee credit short of the collected fees, or any vault debit not attributable to a canonical sweep. An honest sweep and a forced credit are neither evidence nor punishable, and the predicate needs no private witness. The executed bodies are decoded from the committed payload, never from a separate witness stream. Re-execution is public but expensive, exactly as for execution validity (iv) of <a href="02-consensus.html#CONS-01">CONS-01</a>. <em>(PR #22262 review comment 2, item 4; review comment 3, item 6: the predicate is the same checkable accounting the guest performs, so diversion remains an offence, an honest sweep is not slashable, and the evidence stays third-party computable.)</em></td>
-<td>any address</td> <td>as the equivocation row</td> <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the proposal's signer</td> <td><code>id</code> as in clause 4; a different offending block at another <code>(H,R)</code> is a distinct offence</td></tr> </tbody></table>
+<td>any address</td> <td>as the equivocation row</td> <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the proposal's signer</td> <td><code>id</code> as in clause 4; a different offending block at another <code>(H,R)</code> is a distinct offence</td></tr>
+<tr><td><strong>Forced-inclusion breach</strong> — a signed proposal over a batch that omits published, unproven data past its proving deadline where the due-set rule of <a href="04-l1-integration.html">04</a> requires the capped FIFO prefix to be included (D-12)</td>
+<td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate derives the <strong>due set</strong> from L1 state alone — the recorded publications past their deadline and not yet proven — computes the <strong>capped FIFO prefix</strong> the batch was required to include, and checks the committed payload against it. The deadline, the due-set derivation, the prefix cap and the guest's check are owned by the L1-integration and proof-statement rules (<a href="04-l1-integration.html">04</a>, <a href="05-proof-statement.html">05</a>) and are not restated here; this page owns only the offence, its evidence class and its penalty. The executed bodies are decoded from the committed payload, never from a separate witness stream</td>
+<td>any address</td>
+<td>inclusion block's timestamp ≤ the close of the evidence window for <code>epoch_of(H)</code>, and while the omitted publication is still retrievable (<a href="#ECON-07">ECON-07</a>)</td>
+<td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the proposal's signer, and no burn applies — the destination is <a href="#ECON-06">ECON-06</a>'s split (treasury plus reporter bounty, D-9)</td>
+<td><code>id</code> as in clause 4; a different omitting block at another <code>(H,R)</code> is a distinct offence</td></tr> </tbody></table>
 <span class="norm">(5) <strong>What is not an offence.</strong> Alongside the non-receipt ban of clause 1: a
 validator that is offline or votes late; a proposer whose round times out; a node that halts under
 <a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>; and a prover that is slow inside the D6 envelope. Ordering
 and reordering of <em>included</em> transactions is not an offence at all, and neither is the omission of a
-particular transaction: the catalogue contains no censorship or omission offence, and what inclusion resistance
-the protocol does and does not provide is stated once in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. Objective key duplication <em>is</em>
-equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is stated in ECON-05 clause 7 and is not excused by this rule. <em>(user decision D-6: forced inclusion removed; the censorship/omission offence is deleted from the closed catalogue)</em></span>
+particular transaction <em>that was never published</em>: the catalogue contains no general censorship or
+omission offence, and what inclusion resistance the protocol does and does not provide for unpublished
+transactions is stated once in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. The single inclusion-related
+offence is the narrow forced-inclusion breach of clause (6), which requires published data, an elapsed
+deadline and a committed payload that omits the required prefix; the obligation it carries is an
+<strong>upper bound on exclusion, never a lower bound on inclusion</strong>.
+<em>(D-12 supersedes D-6's complete removal: exactly one narrow inclusion offence exists, and the general
+omission offence still does not.)</em> Objective key duplication <em>is</em>
+equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is stated in ECON-05 clause 7 and is not excused by this rule. <em>(D-6 removed the general censorship/omission offence; D-12 supersedes D-6 and adds exactly one narrow inclusion offence at clause (6), so the general offence remains deleted)</em></span>
+<span class="norm">(6) <strong>The narrow forced-inclusion breach (D-12), and the limits of the
+offence.</strong> Publication of data to L1 is permissionless (<a href="#ECON-13">ECON-13</a>); once data is
+published and recorded, the protocol requires it to be <em>proven</em> within the proving deadline or
+discarded and re-published, and a proposal whose batch does not carry the required capped FIFO prefix of the
+due set past that deadline is the breach in the table above. <strong>The deadline is an upper bound on
+exclusion, never a lower bound on inclusion:</strong> it fixes the latest moment by which published data
+must be proven, not a requirement that any particular batch include any particular transaction, and the
+capped prefix drains a backlog over successive batches instead of requiring the whole due set at once. The
+predicate is objective and L1-decidable — a recorded publication, an elapsed deadline and a signed,
+committed payload that omits the required prefix — and it creates no general censorship or omission offence:
+the omission of a transaction that was never published remains unpunishable, no rule punishes the reordering
+of <em>included</em> transactions, and the protocol still provides no inclusion guarantee and no L1 inclusion
+path for unpublished data (<a href="10-assurance.html#LIVE-04">LIVE-04</a>). The penalty is
+<a href="#ECON-05">ECON-05</a>'s ordinary charge, the destination is <a href="#ECON-06">ECON-06</a>'s split
+with no burn (D-9), and the incentive to report it is the reporter bounty of <a href="#ECON-06">ECON-06</a>
+clause (5); the publication and reporting economics are stated in <a href="#ECON-13">ECON-13</a>. The
+predicate re-executes the omitting batch's committed payload, so its admissible interval carries the
+<code>T_BACKLOG_MAX + T_replay</code> terms of <a href="#ECON-07">ECON-07</a> clause (4) exactly as the
+fee-diversion offence does. <em>(D-12: narrow forced inclusion ships in v1 and supersedes D-6/D-10; the
+offence is recorded here, and the mechanism is owned by the consensus, L1 and proof rules.)</em></span>
 <span class="why">Failure modes: an open-ended "misconduct" clause lets an implementer invent a discretionary
 slash; a predicate that needs a missing message makes honest validators unprovable or innocent ones slashable; an
 encoding without domain separation allows replay of an evidence object on another chain or epoch; treating a
@@ -569,7 +608,11 @@ bounty can equal or exceed the debit, the offender — or an affiliate — submi
 recovers its own penalty, leaving a net cost of L1 gas, so the penalty becomes an accounting entry paid
 back to its payer and the deterrence half of A-ECO-1 fails. The bound applies to the total of every bounty
 paid for that identity, including any bounty dispatched when <code>applyCorrelated()</code> runs (clause 3),
-and it must hold for every offence class and every realised <code>f</code>. <code>BOUNTY_GAS_FLOOR</code>
+and it must hold for every offence class and every realised <code>f</code>. The bounty applies to every
+offence of <a href="#ECON-04">ECON-04</a>'s closed catalogue, including the narrow forced-inclusion breach
+of <a href="#ECON-04">ECON-04</a> clause (6): any address may submit the evidence, so enforcement of the
+deadline does not depend on the censored user being the reporter. <em>(D-12: the incentive to report the
+breach is the ordinary reporter bounty; no new reward and no new reporter bond is created.)</em> <code>BOUNTY_GAS_FLOOR</code>
 is the floor that makes reporting rational: the registered parameters MUST be calibrated so that the
 permitted bounty covers the reporter's L1 gas for every offence the bounty is meant to incentivise; where
 a realised charge is too small for the floor and the strict bound to hold together, the strict bound
@@ -711,9 +754,11 @@ closed catalogue are
 self-authenticating: a signed-conflict pair is constructible from the offence itself and does not wait on settlement, so they
 require the pipeline terms from the offence; an offence that requires the accepting batch's own accepted data (re-execution or
 reconstruction) additionally requires <code>T_BACKLOG_MAX</code> and <code>T_replay</code> (economics-raw.md §3.3), where
-<code>T_BACKLOG_MAX</code> is defined in clause (7). <em>(user decision D-6: forced inclusion removed; the omission-offence
-term is deleted from the window derivation. This closes review round 2 finding R2A-01's evidence-window consequence: the lower
-bound is re-derived for the two-epoch lookahead of CONS-13(3).)</em>
+<code>T_BACKLOG_MAX</code> is defined in clause (7). <em>(D-6 removed the general omission offence and deleted its window term; D-12 supersedes D-6 with the
+narrow forced-inclusion breach of <a href="#ECON-04">ECON-04</a> clause (6), whose predicate re-executes the omitting batch's
+committed payload and therefore carries the <code>T_BACKLOG_MAX + T_replay</code> terms of the code block above, exactly as the
+fee-diversion offence does. This closes review round 2 finding R2A-01's evidence-window consequence: the lower bound is
+re-derived for the two-epoch lookahead of CONS-13(3).)</em>
 <strong>Every input is unmeasured except <code>E_EPOCH</code>, which is derived from the sourced cadence.</strong>
 <code>T_PROOF_MAX_PERMITTED</code>, <code>T_L1_include(p)</code>, <code>T_L1_final</code>, <code>T_detect</code>,
 <code>T_evidence_submit</code>, <code>T_replay</code> and <code>T_BACKLOG_MAX</code> are each
@@ -980,6 +1025,61 @@ per TAIKO per year, <code>Budget_ETH(n)</code>/yr, <code>NetETHInflow</code>/yr,
 <code>Budget(n)</code> produces a set that either cannot be paid or silently centralises to the cheapest
 operators; a reward bill that grows linearly in <code>n</code> while revenue is flat is an unfunded decentralisation promise.</span>
 <span class="pill proven">Proven</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span></div> 
+<div class="rule" id="ECON-13"><span class="rid">ECON-13 — publication of data before the proof: permissionlessness, who pays, and the economics of the forced-inclusion deadline</span>
+<span class="norm">(1) <strong>Publication is permissionless and decides nothing by itself.</strong> Under D-11 a
+batch's data (and, for the narrow forced inclusion of D-12, a transaction's data) MAY be published to L1 in a
+transaction of its own, by <strong>any account</strong> — the batch's proposer, the transaction's sender, a
+relayer, a prover or an unrelated observer — and recorded in the Inbox's publication record. No permission,
+allowlist, proposer status, validator quorum, bond, stake or DAO action is required; no rule may reject a
+publication because of who published it, and no rule may require the publisher to be the party the data
+concerns. Publication is <strong>not a batch</strong>: it accepts no proof, advances no checkpoint, changes no
+validator set and creates no claim on L2 state, and the record becomes relevant only when a proof references
+it (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#L1-02">L1-02</a>).</span>
+<span class="norm">(2) <strong>Who pays, and whether it is rewarded.</strong> The publisher pays the L1 gas and
+blob cost of its own publication transaction, <code>C_PUBLISH</code>. Publication is <strong>not a protocol
+payout</strong>: it has no term in the funding identity of <a href="#ECON-02">ECON-02</a> clause 1, it is not
+paid from the reward pool, the treasury, a bond or a validator allocation, and no rule may budget or promise a
+publication reward that has no arrived funding. Whether the protocol ever pays for publication is
+<strong>Open</strong>, with a named falsifier: if no party publishes a censored batch's data while some
+observer holds it — because the act is unpaid while it costs gas — then the D-11 collapse of the withholding
+window does not hold in practice, residual (4) of <a href="06-recovery-exceptions.html#REC-03">REC-03</a>
+stands, and the honest response is a recorded, fee-funded publication reward whose funding identity is
+re-derived and whose spam surface is answered explicitly (paying for arbitrary data publication is an
+unbounded outflow unless the reward is conditioned on data that is later proven), not an assertion that
+publication is incentive-compatible. Closing the Open requires a recorded decision, not a measurement
+alone.</span>
+<span class="norm">(3) <strong>The deadline and the capped prefix are upper bounds, owned elsewhere.</strong>
+The proving deadline, the due set derived from the publication record, the capped FIFO prefix and the guest's
+check are owned by the L1-integration and proof-statement rules (<a href="04-l1-integration.html">04</a>,
+<a href="05-proof-statement.html">05</a>) and are not redefined here. The obligation they carry is an
+<strong>upper bound on exclusion, never a lower bound on inclusion</strong>: the deadline fixes the latest
+moment by which published-but-unproven data must be proven or be discarded and re-published (D-11's bound on
+the June-2026 expiry class), and the cap makes the prefix drain over successive batches instead of requiring
+the whole due set at once, so a backlog cannot halt the chain.</span>
+<span class="norm">(4) <strong>The breach, its penalty and the incentive to report it.</strong> A proposal
+whose batch omits the required prefix past the deadline commits the forced-inclusion breach of
+<a href="#ECON-04">ECON-04</a> clause (6). The penalty is <a href="#ECON-05">ECON-05</a>'s ordinary charge
+against <code>SlashBase</code>; the destination is <a href="#ECON-06">ECON-06</a>'s split — protocol treasury
+with no burn (D-9) — and the reporter bounty of <a href="#ECON-06">ECON-06</a> clause (5) is the incentive to
+report it. The predicate is objective and L1-decidable, so reporting needs no local suspicion and no
+privileged reporter (<a href="06-recovery-exceptions.html#WH-02">WH-02</a>); the bounty is a capped fraction
+of the charge actually collected and is strictly smaller than it, so reporting is rational for a sufficiently
+large charge and self-reporting is never profitable. <strong>Honest limits.</strong> The charged amount is
+bounded by the offender's <code>SlashBase</code> and by the evidence window
+(<a href="#ECON-07">ECON-07</a>); where the charge is too small for the bounty to cover the reporter's L1 gas,
+the strict bound governs and the bounty may fall below gas (<a href="#ECON-06">ECON-06</a> clause 5), so
+enforcement is weaker for small offenders and is disclosed rather than subsidised. And a breach that is never
+reported is not detected by the protocol: the offence punishes what the deadline makes objectively decidable,
+not what no one reports.</span>
+<span class="why">Failure modes: a publication path that requires permission turns D-11's window collapse into
+a privilege; counting publication as a protocol payout creates an unbounded outflow the funding identity
+cannot cover; treating the deadline as a duty to include a particular transaction converts an anti-censorship
+bound into a liveness hazard; and describing the breach as general censorship enforcement overstates what an
+objective predicate can punish, because unpublished transactions still have no remedy
+(<a href="10-assurance.html#LIVE-04">LIVE-04</a>).</span>
+<span class="pill proven">Proven</span> <span class="pill open">Open</span> <span class="pill unmeasured">unmeasured</span>
+<span class="small">(permissionlessness, the cost bearer and the breach's penalty are normative; the publication
+reward is Open with the falsifier stated, and every cost term is a Phase B output)</span></div>
 <h2 id="volatility">TAIKO price volatility: attack cost is time-varying</h2>  <p>This subsection is explanatory; the normative content it depends on is
 <a href="#ECON-10">ECON-10</a> clause 5 (no hard-coded market datum) and <a href="#ECON-09">ECON-09</a> clause 2
 (the aggregate bound). It exists because a specification that quietly assumes a price is the most common way an economic-security argument becomes false.</p> 
@@ -1049,6 +1149,11 @@ before the corresponding parameter is fixed, and none may be replaced by an esti
 <tr><td><code>EV_extractable(t, W)</code>, <code>OV_option(t, W)</code>, <code>Λ</code></td><td>the aggregate bound of ECON-09 clause 2 and A-ECO-1</td><td>value-at-risk modelling of the bridged assets and DEX depth, plus derivative-market data; <code>Λ</code> is a policy margin, not a measurement</td></tr>
 <tr><td>Honest key-duplication rate</td><td>the correlated-penalty tail (<a href="#ECON-05">ECON-05</a> clause 7)</td><td>incident data from comparable chains (the Polkadot incidents are the sourced examples) and operator practice</td></tr>
 <tr><td>The cost of a spurious trigger (<code>C_SPURIOUS</code>: <code>C_GAS_REC</code>, <code>C_REORG</code>, <code>C_DISRUPTION</code>) and the recovery-completion reward's inputs (<code>REC_REWARD_CAP</code>, <code>ALLOC_REC_PPM</code>)</td><td>the anti-spam sizing of the recovery bond and the honest-incentive calibration of the completion reward (<a href="06-recovery-exceptions.html#REC-03">REC-03</a>)</td><td>an S3 gas measurement of the invocation and completion transactions; a cost measurement of re-finalizing and re-settling a discarded range and of the stall-plus-delay outage; the pool's measured net inflow per period from the clause 7 sweep</td></tr>
+<tr><td><code>C_PUBLISH</code> (per publication transaction)</td><td>the publication economics
+(<a href="#ECON-13">ECON-13</a>) and the Open publication-reward question</td><td>a gas and blob-cost
+measurement of a publication transaction at the observed blob-market price and the recorded item sizes, plus
+the observed rate at which third parties publish censored data on a testnet; whether the protocol rewards
+publication is a recorded decision, not a measurement</td></tr>
 </tbody></table>  <h2 id="parameters-introduced">Parameter names introduced by this page</h2> 
 <p class="small"><a href="09-parameters.html#PARAM-01">PARAM-01</a> owns the parameter table and
 <a href="09-parameters.html#PARAM-03">PARAM-03</a> owns the unmeasured register. The names below are introduced
@@ -1082,5 +1187,7 @@ now made there, together with the parameters the revised <code>D_MAX</code> and 
 <tr><td><code>MIN_STAKE</code></td><td>TAIKO</td><td><a href="#ECON-09">ECON-09</a></td><td><code>S_min ≥ C_op_annual / (r_gross − ρ_ops)</code>; no finite value exists when <code>r_gross ≤ ρ_ops</code></td></tr>
 <tr><td><code>subsidyCap</code>, <code>subsidyEnd</code></td><td>ETH / unix seconds</td><td><a href="#ECON-02">ECON-02</a></td><td>bounded and expiring; netted out of the identity as <code>D_subsidy</code>; no rule may extend or borrow against them</td></tr>
 <tr><td><code>ALLOC_VAL_PPM</code>, <code>ALLOC_PRV_PPM</code>, <code>ALLOC_REC_PPM</code></td><td>parts per million</td><td><a href="#ECON-02">ECON-02</a> clause 5(e)</td><td>the recorded allocation policy's validator, proving and recovery-reward shares; non-negative integers with <code>ALLOC_VAL_PPM + ALLOC_PRV_PPM + ALLOC_REC_PPM &le; 1_000_000</code>, the first two applied to <code>pool_before(e)</code> at the (5)(d) freeze and fixed for that epoch, and <code>ALLOC_REC_PPM</code> applied to the pool's realised balance at each completion (clause 5(f)). The proving share is credited to the <a href="04-l1-integration.html#L1-11">L1-11</a> ledger by a transfer that debits the pool in the same transaction, and the recovery share is paid in the completion transaction, so one inflow is never allocated twice</td></tr>
+<tr><td><code>AGG_PROVER_PPM</code></td><td>parts per million of <code>ProvingShare(e)</code></td><td><a href="#ECON-02">ECON-02</a> clause 5(e)</td><td>the aggregation share of the proving outflow (D-13): the remainder is assigned to inner-prover work, <code>AGG_PROVER_PPM &le; 1_000_000</code>, recorded before launch and changeable only by a recorded upgrade for future epochs. If no recorded policy pays the aggregator, the <code>n</code>-of-<code>m</code> property does not materialise (the Open item of clause 5(e))</td></tr>
+<tr><td><code>C_PUBLISH</code></td><td>ETH per publication transaction</td><td><a href="#ECON-13">ECON-13</a></td><td>the publisher's own L1 gas and blob cost; not a protocol payout and not a term of the funding identity. Unmeasured, and the publication-reward question is Open</td></tr>
 </tbody></table>  </main> <footer class="site"> <p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are stated once and referenced by identifier.</p>
 </footer> </body></html>

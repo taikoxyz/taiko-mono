@@ -58,10 +58,16 @@ certificate above a restored checkpoint is void for canonical purposes but remai
 evidence (<a href="#REC-02">REC-02</a>); (d) no upgrade may be used as a substitute for recovery: an
 upgrade must accept every history at or below the latest L1-accepted checkpoint
 (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>), and history above that checkpoint may be
-replaced only by <a href="#REC-02">REC-02</a>, never by a governance transaction; (e) no data-first path
-may be introduced to "work around" an unsettled batch, in recovery or otherwise, because that would let
-an unproven history be treated as settled
-(<a href="04-l1-integration.html#L1-02">L1-02</a>, <a href="#HALT-04">HALT-04</a>). <em>(user decision
+replaced only by <a href="#REC-02">REC-02</a>, never by a governance transaction; (e) no data-first path in the sense this rule fixes may be introduced to "work around" an unsettled
+batch, in recovery or otherwise, because that would let an unproven history be treated as settled
+(<a href="04-l1-integration.html#L1-02">L1-02</a>, <a href="#HALT-04">HALT-04</a>). <strong>Publication is
+not that path (D-11):</strong> a batch's data MAY be published to L1 before its proof and recorded as a
+publication record, because publication writes no checkpoint, advances no protocol state and becomes
+relevant only when a later proof references it; what D5 forbids, and what this clause forbids, is a path by
+which a checkpoint or any other protocol state advances on data alone. The proving deadline that bounds a
+published-but-unproven record, and its discard-and-republish consequence, are owned by
+<a href="04-l1-integration.html">04</a> and are not restated here. <em>(D-11: data may be published before
+the proof; publication writes no checkpoint, so it is not a data-first path in this rule's sense.)</em> <em>(user decision
 D-7: the previous "never roll back" posture is replaced — the invariant is now "no recovery may replace
 history at or below the latest L1-accepted checkpoint", and history above it is provisional; the
 Ethereum-finalized checkpoint is a separate, stronger object and is never the recovery floor.)</em></span>
@@ -94,7 +100,9 @@ consensus view (<a href="01-system-model.html#SYS-02">SYS-02</a>);
 Halting is a <strong>correct outcome</strong>, not a failure of the protocol: it is the action that
 preserves every height at or below the latest L1-accepted checkpoint and keeps the node inside
 its rules. A node that halts must keep serving what it has, and must keep its state so it can resume.
-Halting never authorises discarding history, and never authorises a data-first publication. A
+Halting never authorises discarding history, and never authorises treating a publication as settlement:
+publishing a batch's data before its proof is permitted (D-11), but a publication record advances no
+checkpoint, so no participant may act on it as if a batch had landed (<a href="#REC-01">REC-01</a>(e)). A
 validator's halt is a local safety action and is <strong>not</strong> a recovery trigger: recovery is
 triggered only by the objective settlement-stall condition of <a href="#REC-02">REC-02</a>, which is
 observable on L1. A halt caused by an unlandable batch is answered by retrying and by continuing to serve;
@@ -203,8 +211,10 @@ proof as a fault.</span>
 <span class="norm">No emergency key, guardian, DAO vote, or operational procedure may be required to
 preserve any invariant of this specification, and none may be introduced to "resolve" a halt.
 Specifically: there is no function that a privileged party can call to advance, rewind, or replace the
-checkpoint; no DAO intervention is permitted for liveness; and no data-first publication may be used to
-unblock settlement. The <strong>only</strong> sanctioned way that history above the latest
+checkpoint; no DAO intervention is permitted for liveness; and no publication may be used to
+unblock settlement: publishing a batch's data before its proof is permitted (D-11), but the publication
+record advances no checkpoint and confers no status, so it can never substitute for a proof
+(<a href="#REC-01">REC-01</a>(e)). The <strong>only</strong> sanctioned way that history above the latest
 L1-accepted checkpoint may be replaced is the permissionless, bonded, delayed recovery of
 <a href="#REC-02">REC-02</a>, which no operator, no DAO and no validator quorum controls, and which never
 replaces history at or below that checkpoint (<a href="#REC-01">REC-01</a>). If progress requires
@@ -228,13 +238,14 @@ slashing (<a href="07-economics-slashing.html#ECON-04">ECON-04</a>).</span>
 <table>
 <thead><tr><th>Withheld object</th><th>Safety effect</th><th>Liveness effect</th><th>Honest action</th><th>Objective evidence?</th></tr></thead>
 <tbody>
-<tr><td><strong>Block body</strong> (selective distribution)</td><td>None: a validator never votes for a block it has not received and validated</td><td>Height cannot advance if fewer than two thirds can obtain the body</td><td>Do not vote; request the body from peers; after the round budget, prevote <code>nil</code> and let the view change</td><td>No — but a signed vote for a block proves the signer held it, which is what makes the availability argument in <a href="#WH-04">WH-04</a> work</td></tr>
+<tr><td><strong>Block body</strong> (selective distribution)</td><td>None: a validator never votes for a block it has not received and validated</td><td>Height cannot advance if fewer than two thirds can obtain the body</td><td>Do not vote; request the body from peers; after the round budget, prevote <code>nil</code> and let the view change; and, once the height is certified, any holder SHOULD publish the body's data to L1 (D-11) — publication needs no proposer status, bond or permission</td><td>No — but a signed vote for a block proves the signer held it, which is what makes the availability argument in <a href="#WH-04">WH-04</a> work</td></tr>
+<tr><td><strong>Certified data not yet published</strong> (the D-11 window: the body reached a quorum but no publication transaction exists yet)</td><td>None for history at or below the latest L1-accepted checkpoint; above it the batch is provisional and, meanwhile, reconstructible only from gossip</td><td>Reconstruction from L1 alone is impossible until someone publishes; if no holder publishes, certified data can still be lost and a settlement stall can follow</td><td>Any holder MAY and SHOULD publish the data to L1 — publication is permissionless (<a href="07-economics-slashing.html#ECON-13">ECON-13</a>); until it is published, do not report the batch as reconstructible from L1, and once it is published the proving deadline of <a href="04-l1-integration.html">04</a> bounds how long it may stay unproven</td><td>No: silence by a party that never held the body proves nothing, and a third party's publication always closes the window, so this class is not an offence (<a href="#WH-02">WH-02</a>)</td></tr>
 <tr><td><strong>Individual votes</strong></td><td>None</td><td>Delays certificate formation</td><td>Continue; the round completes when more than two thirds are collected</td><td>No</td></tr>
 <tr><td><strong>Aggregate signatures</strong> (a proposer that collects votes and never publishes the aggregate)</td><td>None: the lock rule prevents a conflicting later commit</td><td>Stalls the height until a new round; the votes themselves are usually already gossiped</td><td>View change; the next proposer re-proposes. The design must gossip votes independently of the aggregator so that one silent aggregator cannot hide a quorum</td><td>No, unless a conflicting signed message exists</td></tr>
 <tr><td><strong>Finality certificate</strong> (commit certificate withheld, revealed later)</td><td>None under <code>A-CONS-1</code>: the lock rule is what protects safety, not the certificate's visibility</td><td>Nodes that have not seen it may attempt a view change; correct behaviour is to stall rather than conclude</td><td>Keep the lock; retry; accept the certificate whenever it arrives; never finalize a conflicting block at that height</td><td>Only equivocation is provable, never silence</td></tr>
 <tr><td><strong>Validator-transition certificate</strong></td><td>None: the transition is authenticated by header fields and, at the boundary, by the L1-committed set root</td><td>Can block entry to a new epoch</td><td>Do not enter the new epoch without the authenticated set; halt if it never arrives (<a href="#HALT-01">HALT-01</a> d)</td><td>No</td></tr>
 <tr><td><strong>Execution witness</strong> (state or pre-state needed by an independent prover)</td><td>None</td><td>Prevents independent proving, centralising proving</td><td>Provers must be able to reconstruct the witness from public L2 data and state (<code>A-DA-4</code>); a node that detects it cannot reconstruct must report it and must not pretend the batch is provable</td><td>No; this is why <code>A-DA-4</code> is an economic and liveness assumption, not an enforceable duty</td></tr>
-<tr><td><strong>Completed ZK proof</strong></td><td>None</td><td>Prevents settlement of that batch and everything after it in order</td><td>Any permissionless prover may produce the proof for the same data commitment and land it (<a href="04-l1-integration.html#L1-04">L1-04</a>, <a href="04-l1-integration.html#L1-10">L1-10</a>). A normal proof taking up to 30 minutes is not misconduct</td><td>No</td></tr>
+<tr><td><strong>Completed ZK proof</strong></td><td>None</td><td>Prevents settlement of that batch and everything after it in order</td><td>Any permissionless prover may produce the proof for the same data commitment and land it (<a href="04-l1-integration.html#L1-04">L1-04</a>, <a href="04-l1-integration.html#L1-10">L1-10</a>); where the data is already published and recorded (D-11), the proof references that publication and the proving deadline of <a href="04-l1-integration.html">04</a> bounds how long it may stay unproven. A normal proof taking up to 30 minutes is not misconduct</td><td>No</td></tr>
 </tbody></table>
 <span class="why">Failure mode: treating a missing message as a provable fault produces false
 accusations; treating a missing message as proof of absence produces exactly the reveal-later attack
@@ -377,7 +388,7 @@ normative.)</em></span>
 <tr><td><strong>Derived rollback duration</strong></td><td><code>T_STALL + T_RECOVERY_DELAY + resume time</code>, all terms unmeasured except that <code>T_STALL</code> must exceed the D6 envelope by construction.</td></tr>
 <tr><td><strong>Repeated recovery</strong></td><td>There is no "freshness" condition, because none would be observable; what the rules enforce is a <strong>cooldown plus escalation</strong>. A new invocation is permitted only after <code>REC_COOLDOWN</code> has elapsed since the previous attempt &mdash; <code>block.timestamp &minus; lastAttemptAt &ge; REC_COOLDOWN</code>, read from the stored attempt clock &mdash; and only while the objective trigger predicate above holds; the non-refundable component <code>B_REC_KEEP(e)</code> escalates with the number of <em>attempts</em> in the preceding <code>REC_WINDOW</code> (invocations, not completions, per the formula above), so the amount that is never returned rises with repetition. A repeat invocation after a completed recovery is permitted, and is a harmless no-op when nothing above the checkpoint has been certified since: retirement retires nothing new, <code>resumeHeight</code> is monotone so a later completion cannot lower it, and the checkpoint and state are unchanged; the invoker gains nothing on the state and pays the escalated non-refundable component. The completion reward does not make the repeat profitable either: it is capped at the invoker's unrecovered cost at the base attempt (<code>B_REC_KEEP + C_GAS_REC</code>, <a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5(f)) while escalation counts every attempt, so a second or later attempt returns at most the first attempt's cost and costs more than it returns (<a href="#REC-03">REC-03</a> falsifier (g)); the repeat is nonetheless a drain on the reward pool and is disclosed as one. Repetition is expensive but is neither forbidden nor bounded by these rules alone (<a href="#REC-03">REC-03</a>). <em>This closes review round 4 finding R4-MB-03: the unimplementable "fresh stall" requirement is replaced by the enforceable cooldown gate and attempts-based escalation, and the harmless repeat is stated honestly.</em> <em>(S5 &sect;4: escalation counts attempts, and the cooldown follows every attempt.)</em></td></tr>
 <tr><td><strong>User exposure</strong></td><td>Every L2 outcome above the checkpoint: inclusions, ordering, balances, bridge messages not yet settled, and any economic position built on them. <strong>No universal bound on economic loss exists</strong> and none may be claimed; losses are not compensated by protocol penalties (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>).</td></tr>
-<tr><td><strong>D5 is unchanged</strong></td><td>Recovery is <strong>not a batch</strong>: it accepts no data, advances no checkpoint forward, and may not create a data-first path. D5 holds in full (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#L1-03">L1-03</a>), and the transaction that invokes recovery is not a batch-acceptance entry point. Mode B changes the <em>guarantee</em> attached to unsettled confirmations; it does not relax the data-and-proof rule.</td></tr>
+<tr><td><strong>D5 as relaxed by D-11</strong></td><td>Recovery is <strong>not a batch</strong>: it accepts no data, advances no checkpoint forward, and may not introduce a path by which protocol state advances on data alone. A batch's data MAY have been published to L1 and recorded in an earlier transaction (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#L1-02">L1-02</a>), so what D5 now fixes is that the checkpoint advances only on a valid proof; the transaction that invokes recovery is not a batch-acceptance entry point. Recovery may neither create, suppress nor re-deadline a publication record: publication is permissionless and stays available while a recovery is pending, and the proving deadline that bounds a published-but-unproven record is owned by <a href="04-l1-integration.html">04</a>. Mode B changes the <em>guarantee</em> attached to unsettled confirmations; it does not relax the proof requirement. <em>(D-11: publication before the proof writes no state that decides anything until a proof references it; D-12: the publication record anchors the forced-inclusion deadline and no recovery path may suppress it.)</em></td></tr>
 <tr><td><strong>Authorization binding</strong></td><td>The configuration hash and an integer <strong>recovery generation</strong> are public inputs of the proof statement (<a href="05-proof-statement.html#PRF-02">PRF-02</a>, <a href="04-l1-integration.html#L1-05">L1-05</a>). A batch certified under generation <code>g</code> is void once generation <code>g+1</code> is active, and the guest MUST check the generation, so an alternative history is never accepted on execution validity alone. The generation counter stays, but only as a cheap invalidation of in-flight proofs: the security property rests on the retired heights below <code>resumeHeight</code>, which no generation can re-open. <em>(S5 &sect;1: the generation stays as a cheap invalidation; the security property rests on retired heights.)</em></td></tr>
 <tr><td><strong>Permissionless, no rescue</strong></td><td>Recovery remains permissionless: no operator, no DAO rescue and no discretion over the restored checkpoint or the validator set. <a href="#HALT-04">HALT-04</a> stays in force.</td></tr>
 </tbody></table>
@@ -399,8 +410,12 @@ fewer than one third of the voting power is Byzantine, in every epoch; <strong>(
 <code>A-CONS-2</code> — after GST, delivery among correct validators is timely, so finalization continues
 with the honest supermajority (<a href="02-consensus.html#CONS-07">CONS-07</a>); <strong>(P3)</strong>
 <code>A-DA-2</code> — at least one honest, adequately-resourced prover completes each committed batch's
-proof inside the envelope, with the batch data obtainable (<code>A-CONS-5</code>,
-<a href="04-l1-integration.html#DA-01">DA-01</a>); <strong>(P4)</strong> <code>A-L1-1</code> — L1 includes
+proof inside the envelope, and the batch data is obtainable by it; under D-11 the data reaching L1 no
+longer waits for the proof, so this premise is that the data is either served off-chain
+(<code>A-CONS-5</code>) or <strong>published to L1 by any observer</strong> before the proving deadline,
+with the publication recorded on L1 while the blobs are retrievable
+(<a href="04-l1-integration.html#DA-01">DA-01</a>; the deadline and its discard-and-republish consequence
+are owned by <a href="04-l1-integration.html">04</a>); <strong>(P4)</strong> <code>A-L1-1</code> — L1 includes
 valid transactions within a bounded delay and does not reorganise below finality; <strong>(P5)</strong>
 <strong>the landing market is funded</strong> — the fee sweep actually credits the reward pool, the
 reward available to a lander is not below the cost of landing, so landing is not a zero-reward race, and
@@ -419,8 +434,10 @@ sub-threshold coalition — any set of participants holding less than one third 
 <strong>cannot induce the trigger</strong>. The argument uses only the repaired mechanism: finalization
 continues with the honest supermajority (P1, P2); proposer selection is weighted by committed stake and
 the slot rotates, so a coalition selected for strictly fewer than one third of slots in expectation cannot
-censor indefinitely (<a href="02-consensus.html#CONS-06">CONS-06</a>); data is served (P3); proving is
-permissionless and rewarded, and any account may land a proof and collect the reward
+censor indefinitely (<a href="02-consensus.html#CONS-06">CONS-06</a>); data is served (P3) and, where a
+holder has the body, publication is permissionless, so any account may put it on L1 in its own transaction
+(<a href="07-economics-slashing.html#ECON-13">ECON-13</a>) and withholding now requires that <em>no</em>
+observer publish; proving is permissionless and rewarded, and any account may land a proof and collect the reward
 (<a href="04-l1-integration.html#L1-10">L1-10</a>,
 <a href="04-l1-integration.html#L1-11">L1-11</a>); and L1 includes the landing transaction (P4). The
 checkpoint therefore keeps advancing: <code>lastLandedHeight</code> strictly increases,
@@ -516,7 +533,15 @@ stall is economics rather than attack. The same empty pool pays <code>REC_REWARD
 so the honest invoker is uncompensated there too and the completion reward of
 <a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5(f) cannot make the trigger rational in that regime. <strong>Recovery cannot repair an economics stall</strong> — it
 restores a checkpoint and retires a range, and it changes no reward, no fee and no subsidy — so recovery
-must never be presented as the remedy for an unfunded reward pool. <em>(S5 &sect;10: the off-chain-profit
+must never be presented as the remedy for an unfunded reward pool. (4) The certified-but-unavailable
+window under D-11 <strong>shrinks but does not vanish</strong>: publication collapses the interval in which
+a certified batch's data is not on L1 to the time between certification and publication, but if the only
+holders of the body are the withholding coalition — no honest observer ever received it — then no observer
+can publish, and if L1 is censored the publication transaction cannot land either. In those cases the
+withholding class of <a href="#WH-01">WH-01</a> is unchanged, and a batch whose published data is not proven
+before the proving deadline is discarded and may be re-published, which bounds the June-2026 expiry class
+but does not by itself guarantee that the data is re-published
+(<a href="07-economics-slashing.html#ECON-13">ECON-13</a>). <em>(S5 &sect;10: the off-chain-profit
 residual stays outside any protocol bound; S5 &sect;7 and &sect;9: the sweep is protocol-constructed and
 the pool identity includes the proving-share outflow, which is what makes the funded-market premise
 checkable; round 4, "T_STALL has no inclusion-delay term" and "the landing market is unpriced" — the
@@ -546,7 +571,10 @@ together leave a positive return from a trigger the invoker itself induced or fr
 <strong>(h)</strong> the completion reward is calibrated below the invoker's unrecovered cost while the reward
 pool's realised balance can pay it, so a legitimate recovery is again a pure public good and the trigger is
 again left unanswered with no adversary and no rule breach
-(<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5(f)). A reviewer who exhibits any of (a)–(h) falsifies the resistance claim and reopens the D-7
+(<a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5(f)); <strong>(i)</strong> publication is
+not incentive-compatible and no party publishes a censored batch's data while some observer holds it, so the
+D-11 collapse of the withholding window does not hold in practice and residual (4) stands
+(<a href="07-economics-slashing.html#ECON-13">ECON-13</a>). A reviewer who exhibits any of (a)–(i) falsifies the resistance claim and reopens the D-7
 selection. <em>(S5 &sect;10: the falsifier list is completed — the empty-pool, bond-sizing and
 bought-delay cases are added, and the superseded "bond refundable on cancellation" falsifier is removed
 with the mechanism it described.)</em>

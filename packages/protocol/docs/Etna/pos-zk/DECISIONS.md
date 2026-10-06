@@ -391,3 +391,31 @@ that a plain k-of-n requirement would have multiplied on every batch.
 **Status:** decided; specification changes pending. Supersedes the plain k-of-n-on-L1
 construction added earlier the same day.
 
+
+### Correction to D-11's implementation note (found by the D-11 agent, 2026-10-06)
+
+The lead's brief asserted that "the EIP-4844 point-evaluation precompile only operates on blobs
+carried by the executing transaction, so a proof referencing a previously published blob cannot
+use it". **That is false.** What is transaction-scoped is the **BLOBHASH opcode**, which returns
+zero for a blob the executing transaction does not carry. The precompile at `0x0A` is not: its
+192-byte input is `(versioned_hash, z, y, commitment, proof)`, and it checks
+`kzg_to_versioned_hash(commitment) == versioned_hash` and verifies the KZG opening of the
+**supplied** commitment at `z`. Verified against the execution-specs reference implementation
+and the EIP-4844 text.
+
+**Consequence — better than the design the brief anticipated.** The reference landing path keeps
+the **full DA-03 opening check**: replace `blobhash(i)` with the *recorded* versioned hash from
+the publication record, then require `kzg_to_versioned_hash(commitment_i) == recordedVh_i` and
+`verify_kzg_proof(commitment_i, z_i, y_i, proof_i)`, with `z_i` still derived on-chain from the
+landing statement's transcript. The recorded versioned hash is trustworthy because the consensus
+layer already verified the publication transaction's `blob_versioned_hashes` against the actual
+blob sidecars. **Content binding is not weakened**; what is lost is same-transaction equality and
+same-transaction availability of the bytes — the latter covered by the archive duty and the
+proving deadline.
+
+**The variant the brief anticipated is unsound and is recorded as rejected**: a recorded hash
+plus only an in-guest evaluation ties the bytes to nothing, because the guest computes that
+evaluation from the very bytes it already executed. A precompile-less reference path would
+require the guest to recompute each blob's KZG commitment (MSM) or verify the opening (pairings)
+in-guest, and both are recorded as UNVERIFIED on both backends.
+
