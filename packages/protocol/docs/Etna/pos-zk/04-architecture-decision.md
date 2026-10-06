@@ -8,7 +8,9 @@ Inputs: `01-requirements-and-threat-model.md`, `02-consensus-survey.md`, `03-zkv
 
 This document records the architecture selection and the D2 mode decision, as amended by user decisions
 D-7 (Mode B selected; §5), D-8 (security funded from L2 fees), D-9 (slashed stake to the treasury) and
-D-10 (forced inclusion deferred). Normative rules live in `spec/index.html`; this document explains
+D-10 (forced inclusion deferred), and then by D-11 (data may be published before the proof; it relaxed
+D5), D-12 (narrow forced inclusion ships in v1; it supersedes D-6 and D-10) and D-13 (one aggregated
+proof object per batch). Normative rules live in `spec/index.html`; this document explains
 **why** they are what they are and what was rejected.
 
 ---
@@ -20,12 +22,12 @@ D-10 (forced inclusion deferred). Normative rules live in `spec/index.html`; thi
 | Consensus family | **Tendermint / CometBFT-class BFT**, one block per height, single-slot finality, lock + proof-of-lock-change (PoLC) rules retained unchanged |
 | Vote/certificate cryptography | **Ed25519 individual vote signatures (CometBFT-native)** for the primary design; BLS12-381 aggregation kept as an evaluated optimisation (§8) |
 | Membership | Permissionless, self-bonded **TAIKO** on **L1**; validator-set roots committed by an L1 staking contract; epoch-scoped sets |
-| Data + proof | **Atomic in one L1 transaction** (D5), with two sound data paths: calldata+keccak (contract-computed) and blob+KZG-opening (in-guest polynomial evaluation, on-chain point-evaluation precompile) |
+| Data + proof | **Proof-gated acceptance in one L1 transaction** (D5 as relaxed by D-11): the checkpoint advances only on a valid proof, and the batch's data is either carried by the accepting transaction or bound to a live publication record published earlier. Two sound data paths: calldata+keccak (contract-computed) and blob+KZG-opening (in-guest polynomial evaluation, on-chain point-evaluation precompile; recorded versioned hashes on the referenced path) |
 | Proof shape | **One combined guest** proving consensus evidence *and* execution; composition rejected as the default |
 | Recovery mode (D2, amended by D-7) | **Mode B selected** *(user decision D-7, after the D2 procedure was completed)* — permissionless, bonded, delayed recovery of history strictly above the last latest L1-accepted checkpoint, cancelled by honest progress and never applied below that boundary (§5). Mode A was investigated first and rejected as the selection because an availability failure under it produces an unbounded halt the requirement set does not accept |
 | Security funding (D-8) | **L2 execution and priority fees**, collected in the L2 fee vault and swept permissionlessly through the preserved Bridge to the single L1 reward pool; fees are revenue when they arrive at the pool, not when collected, and an empty pool pays nothing (`ECON-02` clause 7; *user decision D-8*) |
 | Penalty destination (D-9) | **Protocol treasury, with no burn**, and a reporter bounty strictly below the total penalty so self-reporting is never profitable (`ECON-06`; *user decision D-9*) |
-| Forced inclusion (D-10) | **Deferred to a later protocol update**: v1 has no forced-inclusion path (`FI-REMOVED-01`), and the planned update must preserve the D2, D5 and permissionlessness invariants (`FI-PLANNED-01`; *user decision D-10*) |
+| Forced inclusion (D-12 supersedes D-10) | **Narrow forced inclusion ships in v1**: any account may publish a transaction's data, and a due record must be resolved by the capped FIFO prefix of the due set, included in a proven batch or discharged as void on objective grounds, enforced at the proof (`FI-10`–`FI-14`). It is an upper bound on exclusion, never a lower bound on inclusion. The **general inclusion list** remains deferred to a later protocol update, which must preserve the D2, D5 and permissionlessness invariants (`FI-REMOVED-01`, `FI-PLANNED-01`; *user decisions D-12 and D-10*) |
 | Sequencing | **PoS-sequenced validity rollup** (D4), named honestly throughout both deliverables |
 
 ---
@@ -78,7 +80,7 @@ the L1-authenticated validator-set root.
 |---|--------------|------------------------------|
 | M1 | The validator set for epoch *e* is **derived from L1-committed TAIKO stake**, not from application logic in `EndBlock`. | CometBFT's safety proof assumes a per-height validator set known to all. Supplied argument: the set for epoch *e* is a deterministic function of L1 state fixed before the epoch starts, so all correct nodes agree on it; the L1 Inbox re-derives the same commitment when verifying the proof, so a prover cannot choose it (`PRF-03`). |
 | M2 | **Epoch handoff**: the first block of epoch *e+1* must descend from the last block finalized in epoch *e*; **no lock state crosses the boundary**. | This is the delicate modification. CometBFT's validator-update path is application-driven and assumes the update is visible to all. Our argument: cross-height continuity is exactly the parent-validity condition (`CONS-01`(iii)), enforced at the boundary by the anchor duty of `CONS-09`(1)–(2); and a certificate is judged **under the set of its own epoch and remains valid forever** (`CONS-EPOCH-CERT`), so the closing epoch's decision is not re-judged by the new set and a conflicting history requires ≥1/3 equivocation across the boundary, which is objectively slashable. This argument is **assumed-with-argument**, not proven here, and is a named review target (§7 F1). *This closes review round 3 finding R3A-03: the retracted cross-height lock carry-over is removed, and the protection it names is parent validity plus epoch-scoped permanent certificates.* |
-| M3 | **Withdrawn** *(user decision D-6: forced inclusion removed)*: proposal validity no longer carries any forced-inclusion duty, and no forced-inclusion queue, parameter, public input or offence exists. | No CometBFT proof applied: the base protocol has no forced-inclusion concept. Inclusion resistance is instead the conditional statistical property of proposer rotation (`CONS-06`, `LIVE-04`), and the later upgrade that adds forced inclusion must preserve the D2, D5 and permissionlessness invariants (`FI-PLANNED-01`, user decision D-10). |
+| M3 | **Reinstated in narrow form** *(user decision D-12: narrow forced inclusion ships in v1; D-12 supersedes D-6 and D-10, and D-11 supplies the L1 anchor)*: proposal validity again carries an inclusion condition — the capped FIFO prefix of the due set over **published** data (`CONS-01`(v)) — enforced at the proof and never as an admission gate (`FI-10`–`FI-14`). The general inclusion list remains deferred. | No new CometBFT proof applies: the narrow rule is an added validity condition on the block, and its non-halt argument is `FI-12`'s counting argument over the batch's own gas capacity, conditional on the registered capacity relation and its named falsifiers. For unpublished transactions, inclusion resistance remains the conditional statistical property of proposer rotation (`CONS-06`, `LIVE-04`). A later widening must preserve the D2, D5 and permissionlessness invariants (`FI-PLANNED-01`). |
 | M4 | **Cadence and timeouts** are expressed in seconds with an adaptive timeout ladder. | CometBFT's liveness proof needs eventual synchrony and a correct proposer; both are preserved. No wall clock is read by any *validity* rule (`GEN-06`). |
 | M5 | **Removal of `timeout_commit` slack** beyond the cadence budget. | Only affects timing, not the safety proof. |
 | M6 | **Proposer selection** is hash-based weighted selection over the epoch set (`pos = keccak256(abi.encode(DOMAIN_PROPOSER, chainId, epoch, H, R)) mod W`, the proposer the owner of the half-open cumulative-weight interval containing `pos`, lower index winning ties; `CONS-06` owns the formula, the tag and the encoding) instead of CometBFT's proposer-priority state machine. | Chosen during specification writing because the priority recurrence could not be quoted from a source retrieved in this session, and because the first form — a cumulative-weight residue rotation in *weight units* — left the whole epoch inside the highest-weight validator's interval and made one minimum-bond key the proposer of every height, able to halt the chain or capture ordering. Safety is unaffected: leader identity does not enter the safety invariant (`CONS-12`). The fairness claim is **Assumed**, not supplied by the hash assumption: hashing gives a residue uniform on `[0, W)` only under a random-oracle assumption that `A-CRYPTO-3` (collision resistance) does not provide, and the claim that each validator holds exactly its weight share of residues is an expectation over the epoch's heights and rounds, not a finite-window bound. Review target: confirm the residue-share counting argument. <em>This closes review round 1 finding CS-02: the superseded residue rotation is replaced by hash-based weighted selection and the fairness step is stated as Assumed.</em> |
@@ -102,20 +104,25 @@ the L1-authenticated validator-set root.
 
 ---
 
-## 4. Data availability and atomic submission (D5)
+## 4. Data availability and proof-gated submission (D5 as relaxed by D-11)
 
 The current Inbox exposes separate `propose()` (`Inbox.sol:270`) and `prove()` (`Inbox.sol:321`)
-paths — a data-first design that D5 forbids. The baseline research also found the *observed* cost of
-that design: `init3()` (`Inbox.sol:246-258`) is a one-time owner function that voids forced
-inclusions whose blob references **expired from the retention window** after the June 2026 incident,
-and `Inbox.sol:601-603` records that permissionless proposing is temporarily disabled.
+paths — a data-first *admission* design that D5 forbids, because `propose()` advances proposal state
+before any proof. The baseline research also found the *observed* cost of that design: `init3()`
+(`Inbox.sol:246-258`) is a one-time owner function that voids forced inclusions whose blob references
+**expired from the retention window** after the June 2026 incident, and `Inbox.sol:601-603` records that
+permissionless proposing is temporarily disabled. **D-11 separates the two questions:** *publishing* a
+batch's bytes before its proof is permitted, because a publication record advances no checkpoint and
+confers no status; what remains forbidden is a data-first *admission* path, in which any protocol state
+advances on data alone. The June-2026 expiry class is controlled by the publication deadline
+(`DA-09`), not by forbidding publication.
 
-### 4.1 Two sound data paths, both atomic with the proof
+### 4.1 Two sound data paths; the proof, not the bytes, is atomic with acceptance
 
 | Path | Binding mechanism | Soundness |
 |------|-------------------|-----------|
 | **Calldata** | The Inbox hashes the exact calldata slice itself and passes the digest as a public input. | Contract-computed; no guest trust; no proof-side assumption. |
-| **Blob** | (i) `BLOBHASH(i)` of the same transaction; (ii) on-chain KZG point-evaluation precompile (`0x0A`, 50 000 gas, EIP-4844) checks an opening of the published blob at a Fiat–Shamir challenge point *z* against the blob's versioned hash; (iii) the guest proves that the polynomial evaluation of the witness data it actually executed at *z* equals the value *y* the precompile accepted. | Two commitments to the same object: the protocol's KZG commitment (what L1 DA addresses) and the guest's data commitment. The equality at a random point makes disagreement succeed with probability ≈ deg/|F| ≈ 2^-243 per attempt; the challenge is derived on-chain from all public inputs, so the prover cannot choose *z* after choosing its data. |
+| **Blob** | (i) the blob's versioned hash — read with `BLOBHASH(i)` when the accepting transaction carries the blob, or the **recorded** versioned hash of a live publication when the proof references one (D-11); (ii) on-chain KZG point-evaluation precompile (`0x0A`, 50 000 gas, EIP-4844) checks an opening of the published blob at a Fiat–Shamir challenge point *z* against the blob's versioned hash; (iii) the guest proves that the polynomial evaluation of the witness data it actually executed at *z* equals the value *y* the precompile accepted. | Two commitments to the same object: the protocol's KZG commitment (what L1 DA addresses) and the guest's data commitment. The equality at a random point makes disagreement succeed with probability ≈ deg/|F| ≈ 2^-243 per attempt; the challenge is derived on-chain from all public inputs, so the prover cannot choose *z* after choosing its data. |
 
 The blob path deliberately **avoids in-guest MSM and in-guest pairings**, which the zkVM research
 found unverified for both backends: the guest performs field arithmetic and a Lagrange evaluation
@@ -126,11 +133,12 @@ binding.
 
 ### 4.2 Consequences accepted
 
-- Blob data is *published with the proof*, never before it, so the June-2026 "blob pointer expired
-  while unproven" failure class cannot recur for pending batches.
-- If a prover fails, another prover completes the proof for the **same** data commitment; no
-  data-first re-publication is needed because the data is retrievable from the L2 network until the
-  batch lands.
+- Blob data MAY be published before the proof (D-11) and referenced by it, so long as the record is
+  live and inside its proving deadline; the June-2026 "blob pointer expired while unproven" failure
+  class is controlled by that deadline rather than by forbidding publication.
+- If a prover fails, another prover completes the proof for the **same** data commitment against the
+  same live publication record, or re-publishes the data under a fresh record; the data is
+  retrievable from L1 (the record's blobs) or from the L2 network until the record's deadline.
 
 ---
 
@@ -143,7 +151,7 @@ binding.
 2. An independent research stream was asked to *break* Mode A and returned the verdict
    **"Mode A is not feasible as stated"** (`research/recovery-and-withholding-raw.md` §3.3), whose
    strongest counterexample is "certified-but-unavailable data": a quorum signs block *B* whose data
-   lives only in node memory; the holders vanish; under D5 no proof can be built; Mode A forbids
+   lives only in node memory; the holders vanish; with no holder able to publish, no proof can be built; Mode A forbids
    discarding *B*, so settlement halts.
 3. The lead's earlier assessment, recorded as D-3 and preserved here, **disagreed** with that verdict:
    the counterexample is a failure of a conditional liveness assumption, and D2 step 1 permits a safe
@@ -188,7 +196,7 @@ Mode B is normative in `spec/06-recovery-exceptions.html` (`REC-02`), within the
 - **Strictly above the latest L1-accepted checkpoint.** Nothing at or below that checkpoint may
   be changed by any path, and recovery restores the checkpoint rather than choosing a branch; it changes
   no configuration value and no validator set, and it is not a batch, accepts no data and creates no
-  data-first path (D5 holds unchanged).
+  data-first admission path (D5 as relaxed by D-11: publication is permitted and advances no state; the checkpoint still advances only on a valid proof).
 - **One objective trigger only.** A settlement stall: no batch extending the current L1 checkpoint
   accepted for `T_STALL = T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY + T_RECOVERY_MARGIN`,
   which must be strictly larger than the D6 envelope. A participant's local view, a halt, a missing
@@ -233,11 +241,14 @@ Review round 4 owns that attempt (§7, Q-B1).
 - **D-9 — slashed stake goes to the treasury.** No burn. The penalties are paid to the protocol
   treasury, and the reporter bounty is strictly below the total penalty so self-reporting is never
   profitable (`ECON-06`). *(user decision D-9.)*
-- **D-10 — forced inclusion is deferred.** v1 has no forced-inclusion path and no per-transaction
-  inclusion guarantee (`FI-REMOVED-01`); the later upgrade that adds forced inclusion must preserve
-  the D2, D5 and permissionlessness invariants, including no reordering or revocation of past history
-  and no privileged operator (`FI-PLANNED-01`). Until it ships, R10 is satisfied only in its relaxed
-  form. *(user decision D-10.)*
+- **D-12 — narrow forced inclusion ships in v1, superseding D-6 and D-10.** Any account may publish
+  a transaction's data; from its due point the record must be resolved by the capped FIFO prefix of
+  the due set, included in a proven batch or discharged as void on objective grounds, enforced at the
+  proof (`FI-10`–`FI-14`). It is an upper bound on exclusion, never a lower bound on inclusion. The
+  **general inclusion list** — arbitrary unpublished transactions, a queue, escrow or fee — remains
+  deferred: the later upgrade must preserve the D2, D5 and permissionlessness invariants, including no
+  reordering or revocation of past history and no privileged operator (`FI-PLANNED-01`). R10 is
+  satisfied in its narrowed form. *(user decisions D-12 and D-10; D-11 supplies the L1 anchor.)*
 
 ---
 
@@ -287,9 +298,9 @@ Review round 4 owns that attempt (§7, Q-B1).
   requirement set demands a chain that keeps serving users. Mode B is selected; see §5.
 - **Burning slashed stake** — rejected by D-9: the penalty destination is the protocol treasury, with a
   reporter bounty strictly below the total penalty (`ECON-06`).
-- **Forced inclusion in v1** — deferred by D-10, not adopted: v1 has no forced-inclusion path
-  (`FI-REMOVED-01`), and the later upgrade must preserve the D2, D5 and permissionlessness invariants
-  (`FI-PLANNED-01`).
+- **A general inclusion list in v1** — deferred by D-10 and D-12, not adopted: what ships is the
+  narrow obligation over *published* data (`FI-10`–`FI-14`), and the later upgrade that adds a general
+  list must preserve the D2, D5 and permissionlessness invariants (`FI-PLANNED-01`).
 - **A new consensus design** — explicitly forbidden by the brief's preference for an established
   protocol.
 - **Reusing the prior Etna seat/sortition committee** — a different security model (bonded seats,

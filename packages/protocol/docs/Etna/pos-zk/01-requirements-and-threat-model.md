@@ -27,12 +27,16 @@ this project does not reopen them for convenience.
 | D2 | Prefer **Mode A** (PoS finality is never invalidated). Only after an evidenced infeasibility argument plus independent review may **Mode B** (permissionless L1 recovery of *unsettled* history) be selected | R5 fails / unauthorized relaxation |
 | D3 | Preserve existing L1+L2 **SignalService, Bridge, ERC20/721/1155 Vault** addresses; upgrade in place | R3 fails |
 | D4 | L2 PoS may determine binding order (departure from based sequencing). The result must be described honestly as a **PoS-sequenced validity rollup** | Misrepresentation |
-| D5 | Batch data **and** its valid ZK proof land in the **same L1 transaction**. No data-first/proof-later path, in any mode, including recovery | R9 fails |
+| D5 | Proof-gated acceptance: a batch's data **and** its valid ZK proof are settled in one L1 transaction — the checkpoint advances only on a valid proof. **Relaxed by D-11 (2026-10-06):** a batch's data MAY be published and recorded in an **earlier** L1 transaction and referenced by the proof; publication advances no protocol state, so no data-first *admission* path exists. No data-first admission in any mode, including recovery | R9 fails |
 | D6 | Proving latency of **a few minutes up to 30 minutes** is normal operation. L2 keeps producing 2 s blocks and reaching the selected mode's PoS confirmation throughout | R4/R9 fail |
 | D7 | Staking and slashable consensus collateral are denominated in the **existing TAIKO token**. Gas stays ETH. No replacement staking token | R1/R11 fail |
 
-Explicit non-relaxations (from the user): D5 may not be relaxed to obtain earlier data
-publication, and D7 may not be relaxed to substitute ETH staking.
+Explicit non-relaxations (from the user): D7 may not be relaxed to substitute ETH staking. D5's
+one-transaction requirement for **state advance** stands — the checkpoint advances only on a valid
+proof in the accepting transaction. The sole recorded relaxation of D5 is decision D-11: data may be
+published before the proof and referenced by it (the earlier draft of this line forbade even that, and
+D-11 supersedes it). D5's ban on a data-first *admission* path is not relaxed, in any mode including
+recovery.
 
 **Out of scope:** contract/client/consensus/proving implementation, deployments, live operations,
 benchmarks produced by us. Interface sketches, pseudocode, traces and mathematical arguments are
@@ -193,7 +197,7 @@ Each of these must have a named normative rule or an explicit "accepted limitati
 - an unavailable validator quorum; unavailable data for a finalized block;
 - fresh permissionless participants attempting to restart the chain from a checkpoint;
 - expired/withdrawn validator keys voting or being counted;
-- L1 censorship of data, proof, or forced-inclusion transactions;
+- L1 censorship of data, proof, or publication (forced-data) transactions;
 - L1 reorganization around an accepted batch;
 - proof delay exceeding exit/freshness windows; one or more prover failures after 30 min;
 - backlog growth beyond the retention window;
@@ -242,7 +246,7 @@ decision needed). Numbers are tagged **derived**, **sourced**, or **unmeasured**
 | R7 | Complete proof statement for execution + selected mode's consensus/finality/recovery rules; credible on RISC Zero **and** SP1 | *(Phase 2/4)* | *(Phase 2/4)* | Open |
 | R8 | Sufficient data on Ethereum (blobs/calldata) bound to the accepted proof; no private witness/committee certificate as a substitute | *(Phase 4)* | *(Phase 4)* | Open |
 | R9 | D5 atomicity for every accepted batch, incl. during recovery and prover failure; no bypass | *(Phase 4)* | *(Phase 4)* | Open |
-| R10 | Censorship resistance and forced inclusion, without an override that violates D2 — **restated by user decision D-6**: state censorship resistance honestly; the protocol provides statistical resistance from proposer rotation and gossip under A-CONS-2 and provides **no** L1 forced-inclusion path; no override that violates D2 may be introduced | enforced by `LIVE-04` (spec/10) and `FI-REMOVED-01` (spec/04) | Proven (statement honesty) / Assumed (A-CONS-2) | Satisfied **in its relaxed form only**; the original form is explicitly not satisfied (D-6) |
+| R10 | Censorship resistance and forced inclusion, without an override that violates D2 — **restated by decisions D-6/D-12**: state censorship resistance honestly. v1 carries a **narrow forced-inclusion obligation over published data** — a due record must be resolved by the capped FIFO prefix of the due set, or discharged as void on objective grounds, enforced at the proof and never as an admission gate — and it is an **upper bound on exclusion, never a lower bound on inclusion**. The **general inclusion list** (arbitrary unpublished transactions, with a queue, escrow or fee) remains deferred; for unpublished data the protocol provides only statistical resistance from proposer rotation and gossip under A-CONS-2, and a network-level adversary able to isolate a user — or to censor L1 inclusion itself (A-L1-1) — can exclude that user indefinitely and can prevent the user from starting a withdrawal, with no protocol remedy. No override that violates D2 may be introduced | enforced by `LIVE-04` (spec/10) and `FI-10`–`FI-14` (spec/04); the deferred general list is `FI-PLANNED-01` | Proven (statement honesty) / Assumed (A-CONS-2, A-L1-1) | Satisfied **in its narrowed form**; the general inclusion list is explicitly not satisfied (D-12 supersedes D-6/D-10) |
 | R11 | Objective misconduct evidence, collateral, payouts, exit delays, false-accusation handling; no "non-receipt = misconduct" | *(Phase 4)* | *(Phase 4)* | Open |
 | R12 | No dependence on L1 proposer lookahead or fixed L1 slot duration; seconds or L1 block numbers | *(Phase 4)* | *(Phase 4)* | Open |
 | R13 | Every security-relevant transition/message/proof input/exceptional path specified enough to implement without inventing rules | *(Phase 4)* | *(Phase 4)* | Open |
@@ -294,7 +298,10 @@ decision needed). Numbers are tagged **derived**, **sourced**, or **unmeasured**
 Phase 3 must consume: (a) the consensus survey (≥3 materially different families),
 (b) the zkVM feasibility study (RISC Zero and SP1, pinned versions), (c) the current-Taiko
 baseline including the fact that **today's Inbox exposes separate `propose()` and `prove()`
-entry points, i.e. a data-first path that D5 forbids** (`packages/protocol/contracts/layer1/core/impl/Inbox.sol:270,321`),
+entry points, i.e. a data-first *admission* path that D5 forbids — it advances proposal state before a
+proof, which is what produced the June 2026 expiry class
+(`packages/protocol/contracts/layer1/core/impl/Inbox.sol:270,321`); D-11's permission to publish data
+before the proof is different in kind, because a publication advances no protocol state**,
 (d) the prior-Etna lessons digest, and (e) this document.
 
 The Phase 3 outputs are: the selected consensus protocol (established-first, modifications named

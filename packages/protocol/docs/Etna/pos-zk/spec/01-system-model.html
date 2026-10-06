@@ -112,7 +112,7 @@ availability, proof verification, settlement and bridge anchoring (D4/GEN-09).</
 <tbody>
 <tr><td><code>C1</code></td><td>L2 P2P <em>gossip</em></td><td>L2↔L2, many-to-many, best effort</td><td>proposals, block headers, votes, finality certificates, epoch/set commitments</td><td>partial synchrony after GST (<a href="../01-requirements-and-threat-model.md">A-CONS-2</a>)</td><td>liveness only (view change, slower confirmation)</td></tr>
 <tr><td><code>C2</code></td><td>L2 P2P <em>directed</em></td><td>L2↔L2, one-to-one request/response</td><td>block bodies, state, execution witnesses</td><td>none — a holder may refuse; this is what makes availability a liveness assumption (<a href="../01-requirements-and-threat-model.md">A-CONS-5</a>, <a href="../01-requirements-and-threat-model.md">A-DA-2</a>), not a property and not an enforceable duty</td><td>data unavailability → safe halt (<a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>); never a history rewrite</td></tr>
-<tr><td><code>C3</code></td><td>L1 transaction inclusion</td><td>L2→L1, signed Ethereum transactions</td><td>staking/exit operations, atomic (data, proof) acceptance (<a href="04-l1-integration.html#L1-01">L1-01</a>)</td><td>Ethereum inclusion liveness (<a href="../01-requirements-and-threat-model.md">A-L1-1</a>); subject to censorship T-7</td><td>settlement stalls; L2 continues until the backlog cap binds (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>)</td></tr>
+<tr><td><code>C3</code></td><td>L1 transaction inclusion</td><td>L2→L1, signed Ethereum transactions</td><td>staking/exit operations, proof-gated acceptance — the data carried by the accepting transaction or bound to a live publication record (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#DA-08">DA-08</a>; D-11)</td><td>Ethereum inclusion liveness (<a href="../01-requirements-and-threat-model.md">A-L1-1</a>); subject to censorship T-7</td><td>settlement stalls; L2 continues until the backlog cap binds (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>)</td></tr>
 <tr><td><code>C4</code></td><td>L1→L2 observation</td><td>L1→L2, each node reads L1 through a client it operates</td><td>L1 block hashes, state roots, logs and storage values</td><td>the reading node's own L1 client; only Ethereum-final facts may be committed (<a href="#SYS-02">SYS-02</a>)</td><td>the node must abstain rather than vote; it must not take L1 finality second-hand (<a href="index.html#STATUS-09">STATUS-09</a>)</td></tr>
 </tbody></table>
 
@@ -309,7 +309,7 @@ required. Paths are relative to <code>packages/protocol/contracts/</code>.</p>
 <tbody>
 <tr><td>Inbox owner: bootstrap</td><td><code>activate</code> — <code>Inbox.sol:188-201</code></td><td>Replace with the deterministic genesis/activation rule (<a href="02-consensus.html#CONS-14">CONS-14</a>); no owner key participates.</td></tr>
 <tr><td>Inbox owner: state rewrite</td><td><code>init2</code> — <code>Inbox.sol:217-244</code></td><td>Remove. Rewriting the L1 checkpoint outside consensus is exactly the class of operation the rules forbid: recovery restores the last accepted checkpoint by rule and gives an owner no such function (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>, <a href="06-recovery-exceptions.html#REC-02">REC-02</a>). <em>(user decision D-7: Mode B selected — no owner rewrite, only the bonded recovery path.)</em></td></tr>
-<tr><td>Inbox owner: queue reset</td><td><code>init3</code> — <code>Inbox.sol:253-258</code> (<code>head = tail</code>; fees not refunded)</td><td>Remove. This is the June 2026 failure class: an owner-only reset of queued work. No rule of this specification leaves any operator a voidable queue, and what inclusion resistance does and does not promise is stated in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. <em>(user decision D-6: forced inclusion removed)</em></td></tr>
+<tr><td>Inbox owner: queue reset</td><td><code>init3</code> — <code>Inbox.sol:253-258</code> (<code>head = tail</code>; fees not refunded)</td><td>Remove. This is the June 2026 failure class: an owner-only reset of queued work. No rule of this specification leaves any operator a voidable queue, and what inclusion resistance does and does not promise is stated in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. <em>(D-6: the queue was removed; D-12 restores a narrow, proof-enforced obligation over published data with no operator and no queue, so no rule leaves an operator a voidable queue.)</em></td></tr>
 <tr><td>Inbox pause</td><td><code>pause</code>/<code>unpause</code> — <code>EssentialContract.sol:150,159</code>; no <code>whenNotPaused</code> exists in <code>Inbox.sol</code> (research §2.3, §9.4)</td><td>Keep non-operative for consensus, proving and settlement paths; do not add a pause gate in the redesign.</td></tr>
 <tr><td>Proposer permissioning</td><td><code>PreconfWhitelist.checkProposer</code> — <code>PreconfWhitelist.sol:127-141</code>; Inbox comment "Permissionless proposing is temporarily disabled" — <code>Inbox.sol:601-603</code></td><td>Replace the <code>IProposerChecker</code> indirection with stake-based selection (<a href="02-consensus.html#CONS-06">CONS-06</a>). <code>addOperator</code>/<code>removeOperator</code> (<code>PreconfWhitelist.sol:94,100,108</code>) and <code>setEjecter</code> (<code>:115-124</code>) disappear with it.</td></tr>
 <tr><td>Prover permissioning</td><td><code>whitelistProver</code> — <code>ProverWhitelist.sol:74-80</code> (modifier <code>:45-48</code>; immutable <code>_proverManager</code> <code>:18,56-59</code>); Inbox gate <code>_checkProver</code>/<code>ProverNotWhitelisted</code> — <code>Inbox.sol:337,771-779</code></td><td>Remove. Admission is <a href="04-l1-integration.html#L1-04">L1-04</a>: no gate, no expiry, any prover.</td></tr>
@@ -467,8 +467,10 @@ prover; the protocol's liveness requires at least one honest, adequately-resourc
 committed batch within the assumed envelope
 (<a href="../01-requirements-and-threat-model.md">A-DA-2</a>). A prover that publishes a proof must
 bind exactly the public inputs of <a href="05-proof-statement.html#PRF-02">PRF-02</a> — including the
-SYS-02 coordinates of every consumed L1 fact — and must land data and proof in one L1 transaction
-(D5, <a href="04-l1-integration.html#L1-01">L1-01</a>). (c) <em>Resources</em> (each UNMEASURED): an
+SYS-02 coordinates of every consumed L1 fact — and must land the batch so that the accepting
+transaction either carries the data or binds a live publication record, with the checkpoint advancing
+only on the verified proof (D5 as relaxed by D-11; <a href="04-l1-integration.html#L1-01">L1-01</a>,
+<a href="04-l1-integration.html#DA-08">DA-08</a>). (c) <em>Resources</em> (each UNMEASURED): an
 L2 node able to reconstruct the execution witness from public data
 (<a href="../01-requirements-and-threat-model.md">A-DA-4</a>); proving hardware with the throughput
 given by batch gas × cycles per gas; bandwidth and storage to fetch bodies, state and witnesses;
@@ -485,7 +487,8 @@ replacement and, if no prover appears, the consensus-enforced backlog cap
 registered role and may stop at any time without affecting safety or finality; no unbonding applies.
 (g) <em>Failure behaviour.</em> If proving stops, settlement stalls while L2 keeps producing until
 the backlog cap binds; the honest responses are waiting and replacement by another prover for the
-same data commitment — never a data-first path (D5) and never invalidation of finalized history
+same data commitment — never a data-first <em>admission</em> path (D5; D-11 permits publication before
+the proof, which advances no protocol state) and never invalidation of finalized history
 (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). (h) <em>Barriers and concentration.</em>
 Proving hardware and witness-reconstruction cost create economies of scale; the premise limiting
 centralisation is <a href="../01-requirements-and-threat-model.md">A-DA-4</a> (anyone can rebuild the
@@ -534,21 +537,31 @@ into an unstated assumption with no cost accounting.</span>
 <span class="norm"><strong>Statement.</strong> (a) <em>Entry.</em> None: any account may submit L2
 transactions and use the preserved bridge and signal surface (D3,
 <a href="04-l1-integration.html#MSG-01">MSG-01</a>) without registration and without holding TAIKO.
-(b) <em>Rights and duties.</em> (i) <em>Inclusion</em> — a user may submit a transaction and rely only
-on the statistical proposer rotation of <a href="02-consensus.html#CONS-06">CONS-06</a> under
+(b) <em>Rights and duties.</em> (i) <em>Inclusion</em> — two mechanisms, stated separately.
+<strong>Published data.</strong> Any account may publish a transaction's data to L1 through the
+permissionless path of <a href="04-l1-integration.html#DA-07">DA-07</a>; the protocol then owes the narrow
+forced-inclusion obligation of <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>:
+once a record is due, a batch must resolve it by the capped FIFO prefix of the due set, or discharge it as
+void on <a href="04-l1-integration.html#FI-13">FI-13</a>'s objective grounds, and a record whose
+<a href="04-l1-integration.html#DA-09">DA-09</a> deadline passes unresolved is discarded and may be
+re-published. That is an <strong>upper bound on exclusion, never a lower bound on inclusion</strong>: no
+rule requires inclusion at, before or by any height, and the enforcement point is the proof
+(<a href="04-l1-integration.html#FI-11">FI-11</a>), not an admission gate. <strong>Unpublished data.</strong>
+A user whose transaction's data never reaches L1 has no inclusion path and relies only on the conditional
+statistical proposer rotation of <a href="02-consensus.html#CONS-06">CONS-06</a> under
 <a href="../01-requirements-and-threat-model.md">A-CONS-2</a>: proposer selection is hash-based and
 weighted, so a transaction that reaches honest validators is included by the first honest proposer with
-room for it. There is <strong>no forced-inclusion path</strong> and no protocol remedy against a
-network-level adversary: such an adversary can exclude a user's transactions indefinitely and, because a
-withdrawal is initiated by an L2 transaction, can also prevent the user from starting a withdrawal. This
-is the disclosed limitation of <a href="10-assurance.html#LIVE-04">LIVE-04</a> and
-<a href="10-assurance.html#LIM-01">LIM-01</a>, and no rule may present the rotation as a per-transaction
-guarantee. There is still <strong>no forced-inclusion path</strong> in v1: forced inclusion is deferred
-to a later upgrade, which must preserve the atomic data-and-proof rule, the preserved addresses and
-permissionlessness (<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a> and its
-planned-update clause). <em>(user decision D-10: forced inclusion is deferred to a protocol update.)</em>
-<em>(user decision D-6: forced inclusion removed; a user-authorized partial relaxation of
-R10)</em> (ii) <em>Exit</em> — a bridge withdrawal becomes
+room for it. A network-level adversary able to isolate a user from every honest proposer — or to censor L1
+inclusion itself (<a href="../01-requirements-and-threat-model.md">A-L1-1</a>) — can prevent the data from
+being published and so exclude the user's transactions indefinitely, and because a withdrawal is initiated
+by an L2 transaction, can also prevent the user from starting a withdrawal. <strong>There is no general
+inclusion list</strong>: no queue of arbitrary transactions, no escrow and no forced-inclusion fee; that is
+what remains deferred (<a href="04-l1-integration.html#FI-PLANNED-01">FI-PLANNED-01</a>). This is the
+disclosed limitation of <a href="10-assurance.html#LIVE-04">LIVE-04</a> and
+<a href="10-assurance.html#LIM-01">LIM-01</a>, and no rule may present either mechanism as a
+per-transaction guarantee. <em>(user decision D-12: narrow forced inclusion over published data ships in
+v1 and supersedes D-6/D-10; the general inclusion list is what is deferred. D-11: publication before the
+proof is what the narrow rule anchors to.)</em> (ii) <em>Exit</em> — a bridge withdrawal becomes
 <a href="index.html#STATUS-08">withdrawal-eligible</a> only through the message-authentication path
 and the delay of <a href="04-l1-integration.html#MSG-03">MSG-03</a>, derived from the full settlement
 pipeline (<a href="07-economics-slashing.html#ECON-03">ECON-03</a>); no operator can accelerate, block

@@ -2,7 +2,9 @@
 
 > **Status: complete draft, in adversarial review.** This directory is the working home of the
 > *Etna PoS + ZK* redesign of Taiko: a permissionless L2 proof-of-stake chain whose committed history
-> is settled on Ethereum by ZK proofs that always travel **with** their data.
+> is settled on Ethereum by ZK proofs that bind data already on Ethereum — carried in the accepting
+> transaction or published and recorded in an earlier one, with the checkpoint advancing only on the
+> verified proof (D-11).
 >
 > **This is a design project.** Nothing here is implemented, benchmarked or deployed. No number in this
 > directory is a measurement unless it is explicitly labelled as one with a source.
@@ -10,24 +12,34 @@
 ## Current verdict
 
 **Architecture level: answered.** The chosen architecture
-(permissionless TAIKO-staked L2 PoS + combined ZK proof of consensus finality and execution, with data
-and proof in one L1 transaction) satisfies the hard requirements **under the stated assumptions**.
+(permissionless TAIKO-staked L2 PoS + combined ZK proof of consensus finality and execution, with
+proof-gated acceptance and the batch's data either carried by the accepting transaction or bound to a
+live publication record) satisfies the hard requirements **under the stated assumptions**.
 
-**Scope change (user decision D-6, 2026-10-05): forced inclusion was removed from the specification**
-— a user-authorized **partial relaxation of R10**. There is no L1 forced-inclusion path and no
-per-transaction inclusion guarantee; censorship resistance is stated honestly as a conditional
-statistical property of hash-based weighted proposer selection (rule LIVE-04) with the disclosed
-consequence that a network-level adversary able to isolate a user from every honest proposer can exclude
-that user indefinitely — including preventing the user from *starting* a withdrawal — with no protocol
-remedy. The relaxation is recorded in DECISIONS.md D-6 and in the requirement matrix in
-01-requirements-and-threat-model.md.
+**Scope change (user decision D-6, 2026-10-05; superseded for version 1 by D-12, 2026-10-06): narrow
+forced inclusion ships in v1.** Any account may publish a transaction's data to L1; from its due point
+the record must be resolved by the capped FIFO prefix of the due set — included in a proven batch or
+discharged as void on objective grounds — and a record whose proving deadline passes unresolved is
+discarded and may be re-published. That is an **upper bound on exclusion, never a lower bound on
+inclusion**, and its enforcement point is the proof, not an admission gate. What remains absent is the
+**general inclusion list**: no queue of arbitrary transactions, no escrow and no forced-inclusion fee,
+and no L1 entry point for data that never reaches L1. A user whose transaction is never published still
+relies only on the conditional statistical resistance of hash-based weighted proposer selection (rule
+LIVE-04) under A-CONS-2, and a network-level adversary able to isolate that user from every honest
+proposer — or to censor L1 inclusion itself — can still exclude the user indefinitely, including
+preventing the user from *starting* a withdrawal, with no protocol remedy. R10 is therefore satisfied in
+its **narrowed form**: the relaxation D-6 recorded is narrowed, not withdrawn. The changes are recorded
+in DECISIONS.md D-11/D-12 and in the requirement matrix in 01-requirements-and-threat-model.md.
 
-**Guarantee class changed (user decisions D-7 to D-10, 2026-10-05).** Mode B is selected: a permissionless,
-bonded, delayed recovery may replace L2 history above the last Ethereum-finalized checkpoint, so a PoS
-confirmation is **provisional** until its batch is accepted on L1. Ethereum-finalized checkpoints and every
-accepted batch remain untouchable, and D5 is unchanged. Security is funded from **L2 fees** swept through the
-preserved Bridge into an L1 reward pool; slashed stake goes to the **treasury** (no burn); and forced
-inclusion is **deferred to a later protocol update**, so version 1 still has no forced-inclusion path.
+**Guarantee class changed (user decisions D-7 to D-10, 2026-10-05; amended by D-11, 2026-10-06).** Mode B is
+selected: a permissionless, bonded, delayed recovery may replace L2 history above the last L1-accepted
+checkpoint, so a PoS confirmation is **provisional** until its batch is accepted on L1. Ethereum-finalized
+checkpoints and every accepted batch remain untouchable, and D5 is relaxed only as D-11 states: a batch's
+data may be published and recorded in an earlier L1 transaction, and what D5 continues to require is that the
+checkpoint advances only on a valid proof. Security is funded from **L2 fees** swept through the preserved
+Bridge into an L1 reward pool; slashed stake goes to the **treasury** (no burn); and forced inclusion is
+**not deferred wholesale**: the narrow rule over published data ships in v1 (D-12), and only the general
+inclusion list is deferred to a later protocol update.
 
 **Specification level: NOT CONVERGED — the result is labelled _incomplete_.** Two full adversarial
 review rounds were run on frozen snapshots with four independent reviewers each. Round 1 found
@@ -71,7 +83,7 @@ be re-run on a repaired design before the selection can be called settled.
 |----------|--------|
 | Consensus | Tendermint/CometBFT-class BFT, one block per height, single-slot finality, lock / proof-of-lock-change rule retained; Ed25519 votes; **one head commit certificate verified per batch** |
 | Membership | Permissionless, self-bonded **TAIKO on L1**; epoch-scoped validator-set roots committed with one-epoch lookahead; no delegation in v1 |
-| Settlement | Batch data **and** its valid ZK proof in the **same L1 transaction** (D5); no data-first path in any mode |
+| Settlement | Proof-gated acceptance in one L1 transaction: the batch's data is carried by that transaction or bound to a live publication record published earlier (D5 as relaxed by D-11); no publication advances a checkpoint |
 | Proof | One combined guest proving consensus finality, execution and data binding; both RISC Zero and SP1 must realise the same statement |
 | Recovery | **Mode B selected (user decision D-7)**: a permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; everything at or below it is untouchable. Confirmations above it are **provisional** |
 | Honest name | A **PoS-sequenced validity rollup**, not a based rollup |
@@ -85,10 +97,10 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | ID | Decision |
 |----|----------|
 | **D1** | One L2 block every **2 s** under stated operating assumptions. Cadence ≠ finality ≠ proof ≠ settlement ≠ withdrawal. |
-| **D2** | **Mode A was the preferred mode; the authorised fallback Mode B is now selected (user decision D-7).** A permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; at or below it nothing may change. A PoS confirmation above that checkpoint is therefore **provisional**. **Mode B** (permissionless L1 recovery of *unsettled* history) specified, authorized, **not selected**. |
+| **D2** | **Mode A was the preferred mode; the authorised fallback Mode B is now selected (user decision D-7).** A permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; at or below it nothing may change. A PoS confirmation above that checkpoint is therefore **provisional**. **Mode B** (permissionless L1 recovery of *unsettled* history) is the selected mode (D-7). |
 | **D3** | Preserve L1+L2 **SignalService**, **Bridge**, **ERC20Vault**, **ERC721Vault**, **ERC1155Vault** addresses by in-place upgrade. No replacements. |
 | **D4** | L2 PoS determines binding order; the result is named a **PoS-sequenced validity rollup**. |
-| **D5** | Batch data and its valid proof land in the **same L1 transaction**; no data-first path, including in recovery. |
+| **D5** | Proof-gated acceptance: the checkpoint advances only on a valid proof, in one L1 transaction. **Relaxed by D-11:** the batch's data may be published and recorded in an earlier L1 transaction and referenced by the proof; no publication advances protocol state, and no recovery may introduce a data-first *admission* path. |
 | **D6** | Proving latency of a few minutes to **30 minutes** is normal (900 L2 blocks at 2 s). |
 | **D7** | Staking and slashable collateral in the **existing TAIKO token**; gas stays ETH. |
 
@@ -104,8 +116,8 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | R6 | Conditional liveness with exact end conditions | [10](spec/10-assurance.html) LIVE-01..04 | specified; a settlement stall is recoverable, a missing epoch-set entry or unavailable data still halts |
 | R7 | Complete proof statement, both backends | [05](spec/05-proof-statement.html) PRF-01..13, [03](03-zkvm-feasibility.md) | specified |
 | R8 | Public data bound to the proof | [04](spec/04-l1-integration.html) DA-01..06 | specified |
-| R9 | D5 atomicity everywhere | [04](spec/04-l1-integration.html) L1-01..04, [06](spec/06-recovery-exceptions.html) REC-02 | specified |
-| R10 | Censorship resistance — **relaxed by user decision D-6**: forced inclusion removed; statistical resistance only (proposer rotation under A-CONS-2), with the withdrawal-censorship consequence disclosed | [10](spec/10-assurance.html) LIVE-04, [04](spec/04-l1-integration.html) FI-REMOVED-01 | satisfied in relaxed form only |
+| R9 | D5 proof-gated acceptance everywhere (data carried or published-and-referenced, D-11) | [04](spec/04-l1-integration.html) L1-01..04, [06](spec/06-recovery-exceptions.html) REC-02 | specified |
+| R10 | Censorship resistance — **narrowed by decisions D-6/D-12**: a narrow, proof-enforced forced-inclusion obligation over **published** data ships in v1 (an upper bound on exclusion), the **general inclusion list** remains deferred, and unpublished transactions have statistical resistance only (proposer rotation under A-CONS-2), with the withdrawal-censorship consequence disclosed | [10](spec/10-assurance.html) LIVE-04, [04](spec/04-l1-integration.html) FI-10..FI-14 and FI-REMOVED-01/FI-PLANNED-01 | satisfied in narrowed form only |
 | R11 | Objective misconduct evidence, collateral, exits | [07](spec/07-economics-slashing.html) ECON-04..08 | specified; slashed stake goes to the **treasury** (D-9), reporter bounty strictly below the penalty |
 | R12 | No L1 lookahead or fixed slot dependence | [index](spec/index.html) GEN-06 | specified |
 | R13 | Implementable without inventing rules | all pages; 137 registered rules | 137/137 stated once |

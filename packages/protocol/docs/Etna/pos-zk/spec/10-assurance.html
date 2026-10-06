@@ -73,19 +73,25 @@ pinned in <a href="../02-consensus-survey.md">02</a>; P5 is review target F1)</s
 
 <div class="rule" id="INV-02"><span class="rid">INV-02 — no batch is accepted without its data</span>
 <span class="norm">There is no state in which an accepted, checkpoint-advancing L1 record exists
-without (a) the batch data being retrievable from that same L1 transaction, and (b) a valid proof
-binding execution to exactly that data. This holds structurally: acceptance happens in one transaction
-that carries both, and the data commitment is bound by
+without (a) the batch data being retrievable from the transaction the accepted statement binds — the
+accepting transaction when the data is carried, the live publication record when it is referenced
+(<a href="04-l1-integration.html#DA-01">DA-01</a>, <a href="04-l1-integration.html#DA-08">DA-08</a>) —
+and (b) a valid proof binding execution to exactly that data. This holds structurally: acceptance happens
+in one transaction whose proof the Inbox verifies, and the data commitment is bound by
 <a href="04-l1-integration.html#DA-02">DA-02</a> or <a href="04-l1-integration.html#DA-03">DA-03</a>.
-No recovery, outage, degraded mode, governance action or operator procedure may create an exception
+A publication advances no checkpoint and is not a batch record, so the data-first <em>admission</em> path
+remains excluded (<a href="04-l1-integration.html#L1-02">L1-02</a>). No recovery, outage, degraded mode,
+governance action or operator procedure may create an exception
 (<a href="06-recovery-exceptions.html#REC-01">REC-01</a> e,
 <a href="04-l1-integration.html#L1-02">L1-02</a>).</span>
-<span class="why">Failure mode: a data-first design creates exactly the class observed in this
-repository — <code>init3()</code> (<code>Inbox.sol:246-258</code>) had to void queued requests whose
-blob references expired before they could be derived. That class cannot occur for a pending batch
-here because data is published only with its proof.</span>
-<span class="pill proven">Proven</span> <span class="small">(inherited from D5; the in-repo incident is
-evidence that the alternative is not hypothetical)</span></div>
+<span class="why">Failure mode: a data-first <em>admission</em> design creates exactly the class observed
+in this repository — <code>init3()</code> (<code>Inbox.sol:246-258</code>) had to void queued requests
+whose blob references expired before they could be derived. That class is controlled here by
+<a href="04-l1-integration.html#DA-09">DA-09</a>'s proving deadline: a pending batch exists only as a
+publication record bounded by that deadline, never as an advanceable checkpoint.</span>
+<span class="pill proven">Proven</span> <span class="small">(D5 as relaxed by D-11: data may be published
+before the proof, and acceptance still happens only with a valid proof that binds it; the in-repo incident
+is evidence that the alternative is not hypothetical)</span></div>
 
 <div class="rule" id="INV-03"><span class="rid">INV-03 — no consensus without TAIKO at risk</span>
 <span class="norm">Voting power exists only for stake that is bonded in the L1 staking contract and
@@ -194,37 +200,52 @@ formulas are the deliverable.</span>
 proven cycles per second per machine, <a href="../03-zkvm-feasibility.md">03</a> §7)</span></div>
 
 <div class="rule" id="LIVE-04"><span class="rid">LIVE-04 — censorship resistance, stated honestly</span>
-<span class="norm">The protocol provides no per-transaction inclusion guarantee and no L1 forced-inclusion
-path. Censorship resistance is the conditional statistical property described in this rule.
-Proposer selection is hash-based and weighted (<a href="02-consensus.html#CONS-06">CONS-06</a>), and it
-is a public deterministic function (<a href="02-consensus.html#CONS-06">CONS-06</a>(d)), so it is
-<strong>fully predictable</strong>: a coalition can identify in advance the slot in which a target
-transaction would be included, and buying or coercing the scheduled proposer of a single slot is
-possible and cheap — no rule prices, detects or penalises slot-buying, and this specification assumes
-no cost floor that prevents it. What bounds sustained censorship is the selection share, not
-unpredictability: a coalition with less than one third of the voting power is selected for strictly
-fewer than one third of slots in expectation, and a transaction that reaches honest validators is
-included by the first honest proposer with room for it. That last clause is a behavioural premise, not
-a protocol rule, and it is the honest limit of this resistance: no inclusion duty attaches to a
-validator (<a href="01-system-model.html#ROLE-01">ROLE-01</a>(b)), omission is neither a
-proposal-validity failure nor an offence (<a href="02-consensus.html#CONS-01">CONS-01</a>,
-<a href="07-economics-slashing.html#ECON-04">ECON-04</a>), and no rule defines "room", reserves block
-space or constrains proposer ordering. Under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a>
-that is a real but conditional resistance. A network-level adversary able to isolate a user from every
-honest proposer can exclude that user's transactions indefinitely, and because a withdrawal is
-initiated by an L2 transaction, such an adversary can also prevent the user from starting a withdrawal.
-The protocol offers no remedy, and a partial relaxation of
+<span class="norm">Censorship resistance has two parts, and neither is a per-transaction guarantee.
+<strong>(1) Published data.</strong> The protocol provides a narrow, L1-anchored inclusion obligation: any
+account may publish a transaction's data (<a href="04-l1-integration.html#DA-07">DA-07</a>), and from the
+record's due point a batch must resolve it by the capped FIFO prefix of the due set or discharge it as void
+on <a href="04-l1-integration.html#FI-13">FI-13</a>'s objective grounds
+(<a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-13">FI-13</a>),
+enforced at the proof (<a href="04-l1-integration.html#FI-11">FI-11</a>) and never by an admission gate on
+<code>land</code>. Omission of a due record within the required prefix is a proposal-validity failure
+(<a href="02-consensus.html#CONS-01">CONS-01</a>(v)) and a breach
+(<a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause (6),
+<a href="07-economics-slashing.html#ECON-13">ECON-13</a>). The obligation is an <strong>upper bound on
+exclusion, never a lower bound on inclusion</strong>: it fixes no height or time by which inclusion must
+begin, a backlog drains over successive batches by the cap, and it reaches only data that reached L1.
+<strong>No general inclusion list exists</strong>: there is no queue of arbitrary transactions, no escrow
+and no forced-inclusion fee, and no L1 entry point for unpublished data
+(<a href="04-l1-integration.html#FI-PLANNED-01">FI-PLANNED-01</a>). <strong>(2) Unpublished data.</strong>
+For a transaction whose data never reaches L1, resistance is the conditional statistical property
+described here. Proposer selection is hash-based and weighted
+(<a href="02-consensus.html#CONS-06">CONS-06</a>), and it is a public deterministic function
+(<a href="02-consensus.html#CONS-06">CONS-06</a>(d)), so it is <strong>fully predictable</strong>: a
+coalition can identify in advance the slot in which a target transaction would be included, and buying or
+coercing the scheduled proposer of a single slot is possible and cheap — no rule prices, detects or
+penalises slot-buying, and this specification assumes no cost floor that prevents it. What bounds sustained
+censorship is the selection share, not unpredictability: a coalition with less than one third of the voting
+power is selected for strictly fewer than one third of slots in expectation, and a transaction that reaches
+honest validators is included by the first honest proposer with room for it. That last clause is a
+behavioural premise, not a protocol rule, and it is the honest limit of this resistance: no inclusion duty
+attaches to a validator for unpublished data (<a href="01-system-model.html#ROLE-01">ROLE-01</a>(b)), and
+omission outside the narrow rule's due prefix is neither a proposal-validity failure nor an offence
+(<a href="02-consensus.html#CONS-01">CONS-01</a>, <a href="07-economics-slashing.html#ECON-04">ECON-04</a>),
+and no rule defines "room", reserves block space or constrains proposer ordering. Under
+<a href="../01-requirements-and-threat-model.md">A-CONS-2</a> the statistical half is real but conditional.
+A network-level adversary able to isolate a user from every honest proposer can prevent the data from ever
+being published — and so can an adversary able to censor L1 inclusion itself
+(<a href="../01-requirements-and-threat-model.md">A-L1-1</a>) — and because a withdrawal is initiated by an
+L2 transaction, such an adversary can also prevent the user from starting a withdrawal. The protocol offers
+no remedy against either, and a partial relaxation of
 <a href="../01-requirements-and-threat-model.md">R10</a> is disclosed. The recovery of
 <a href="06-recovery-exceptions.html#REC-02">REC-02</a> is <strong>not an inclusion remedy</strong>: it
-replaces unsettled history above the last L1-accepted checkpoint, it cannot include a censored
-transaction, it does not compensate an exclusion, and it gives no user an L1 path into L2. A user whose
-transaction never reaches an honest proposer still has no way to force its inclusion. <em>(user
-decisions D-7 and D-10: recovery selected; forced inclusion deferred, and recovery is not a substitute
-for it)</em> <em>(user decision D-6: forced
-inclusion removed; a user-authorized partial relaxation of R10)</em> <em>This closes review round 3
-finding R3-CE-05: selection is stated to be fully predictable and slot-buying possible and cheap, and
-the resistance is bounded by the selection share plus the honest-proposer behaviour that
-ROLE-01(b) expressly does not impose.</em></span>
+replaces unsettled history above the last L1-accepted checkpoint, it cannot include a transaction, it does
+not compensate an exclusion, and it gives no user an L1 path into L2. <em>(user decisions D-12 and D-11:
+narrow forced inclusion over published data ships in v1 and supersedes D-6/D-10; D-11 supplies the L1
+anchor the narrow rule reads. D-7: recovery is selected, and it is not a substitute for inclusion.)</em>
+<em>This closes review round 3 finding R3-CE-05: selection is stated to be fully predictable and
+slot-buying possible and cheap, and the resistance is bounded by the selection share plus the
+honest-proposer behaviour that ROLE-01(b) expressly does not impose.</em></span>
 <span class="why">Failure mode: presenting statistical inclusion under A-CONS-2 as a per-transaction
 guarantee, or implying an L1 escape path that does not exist, would let a user size exposure on a promise
 the protocol never makes.</span>
@@ -269,11 +290,11 @@ may be silently dropped when the design is summarised to users.</span>
 <tr><td>Consensus</td><td>The inactivity decay of <a href="03-membership-staking.html#MEM-13">MEM-13</a> changes the set that judges future heights, and <code>A-CONS-1</code> is stated <em>per set version</em>; whether the deterrence threshold survives the shrink is <strong>not established</strong> (falsifier F5)</td><td>A coalition below one third of the pre-decay set can exceed one third of the post-decay set once the protocol has removed weight by rule, and the decay can be induced by stalling settlement or isolating validators at no slashable cost. The harm class is an L1-accepted state root chosen by a sub-threshold coalition (bridge theft), not a fork of settled history: within one set version <a href="02-consensus.html#CONS-12">CONS-12</a> is unchanged, and no height is ever judged by two sets. No rule may claim the transfer holds</td></tr>
 <tr><td>Liveness</td><td>The L1 activity record cannot distinguish a cohort that stops at the freeze from one that stays online: <code>lastObserved</code> is frozen at the last accepted batch, and a quorum that cannot form accepts none (falsifier F6, <a href="03-membership-staking.html#MEM-13">MEM-13</a>(5)(b))</td><td>The decay expires only the attrition class; a simultaneous stop of one third or more has <strong>no production-time bound</strong>, and no summary, interface or course material may claim otherwise. Value at or below the last accepted checkpoint remains escapable (<a href="03-membership-staking.html#MEM-15">MEM-15</a>), and that is the load-bearing mitigation for this class</td></tr>
 <tr><td>Liveness</td><td>The rotation's precondition &mdash; no produced height is ever re-judged &mdash; is not enforceable from L1 state as the transition is specified (falsifier F7, <a href="02-consensus.html#CONS-16">CONS-16</a>(5))</td><td>A rotation could complete while finalized-but-unsettled heights remain above the checkpoint and strand them, which is a replacement of provisional history outside <a href="06-recovery-exceptions.html#REC-02">REC-02</a> &mdash; a <a href="06-recovery-exceptions.html#REC-01">REC-01</a> defect, not a safety break. Closing it needs an L1 fact this specification does not record (a last-finalized marker, a composite transition, or REC-02's record and delay) plus amendments owned by pages 04, 05 and 08; until then the rotation's liveness bound is conditional and the rotation may not be described as production-ready</td></tr>
-<tr><td>Guarantee class</td><td>The exit guarantee of <a href="03-membership-staking.html#MEM-15">MEM-15</a> reaches only signals already at or below the latest L1-accepted checkpoint</td><td>Value above that checkpoint, and value never messaged, cannot leave while production is halted; this is the disclosed <a href="../DECISIONS.md">D-6</a> consequence and no rule removes it. A network-level adversary able to prevent a user from <em>starting</em> a withdrawal is likewise unaffected (<a href="#LIVE-04">LIVE-04</a>)</td></tr>
+<tr><td>Guarantee class</td><td>The exit guarantee of <a href="03-membership-staking.html#MEM-15">MEM-15</a> reaches only signals already at or below the latest L1-accepted checkpoint</td><td>Value above that checkpoint, and value never messaged, cannot leave while production is halted; this is the disclosed consequence that <a href="../DECISIONS.md">D-6</a> recorded and <a href="../DECISIONS.md">D-12</a> narrows but does not remove for data that never reaches L1; no rule removes it. A network-level adversary able to prevent a user from <em>starting</em> a withdrawal is likewise unaffected (<a href="#LIVE-04">LIVE-04</a>)</td></tr>
 <tr><td>Liveness</td><td>A cartel of at least one third can halt the chain, though it cannot censor selectively while quorum exists</td><td>Denial of service, not a safety break</td></tr>
 <tr><td>Liveness</td><td>An unsettled-depth-cap violation is not objectively punishable: the cap has exactly one enforcement point — correct validators — and <code>land</code> MUST NOT reject an over-depth batch (<a href="04-l1-integration.html#L1-04">L1-04</a>, <a href="04-l1-integration.html#L1-06">L1-06</a>)</td><td>A quorum that ignores the cap pays no penalty, so R11's deterrence does not cover it; the cap's only force is honest compliance and the backpressure of <a href="06-recovery-exceptions.html#HALT-03">HALT-03</a></td></tr>
 <tr><td>Liveness</td><td>A settlement halt longer than an epoch's evidence window can close that window while the epoch's heights are still unproduced; the L1 fact that would anchor the window's close to the epoch's production is not yet defined (<a href="07-economics-slashing.html#ECON-07">ECON-07</a>(1), <strong>Open</strong>)</td><td>Offences in the resumed epochs become inadmissible and stake exposed to them can be withdrawn before the offence is observable — voiding <a href="#INV-03">INV-03</a>'s premise for those heights — and an epoch with more than one third of its committed weight gone cannot be passed, so the chain can wedge permanently; the anchor must be fixed before launch</td></tr>
-<tr><td>Censorship</td><td>No per-transaction inclusion guarantee and no L1 forced-inclusion path: resistance is the conditional statistical property of <a href="#LIVE-04">LIVE-04</a> — hash-based, weighted proposer selection (<a href="02-consensus.html#CONS-06">CONS-06</a>) under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> <em>(user decision D-6: forced inclusion removed; the limitation is disclosed, not remedied)</em></td><td>A network-level adversary that isolates a user from every honest proposer can exclude that user's transactions indefinitely and can prevent the user from starting a withdrawal; the protocol offers no remedy — a user-authorized partial relaxation of R10, recorded as D-6</td></tr>
+<tr><td>Censorship</td><td>Two-part, and neither part is a per-transaction guarantee (<a href="#LIVE-04">LIVE-04</a>): for <em>published</em> data, the narrow forced-inclusion obligation of <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>, an upper bound on exclusion enforced at the proof; for <em>unpublished</em> data, only the conditional statistical resistance of hash-based, weighted proposer selection (<a href="02-consensus.html#CONS-06">CONS-06</a>) under <a href="../01-requirements-and-threat-model.md">A-CONS-2</a> <em>(user decision D-12: narrow forced inclusion ships and supersedes D-6/D-10; the general inclusion list is what remains absent)</em></td><td>A network-level adversary that isolates a user from every honest proposer, or censors L1 inclusion itself (<a href="../01-requirements-and-threat-model.md">A-L1-1</a>), can prevent the data from being published, exclude that user's transactions indefinitely and prevent the user from starting a withdrawal; the protocol offers no remedy — a partial relaxation of R10, recorded as D-6 and narrowed by D-12</td></tr>
 <tr><td>Economic</td><td>The loss exposure created by a replacement has <strong>no universal bound</strong>: the protocol bounds the rollback depth only at <code>D_MAX</code> and only while the cap is enforced, and it bounds no off-chain position, unrealised profit or contract that depends on a discarded outcome</td><td>Losses are not compensated by protocol penalties (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>) and no compensation may be promised; the exposure must be disclosed to users, and a user who acts on a provisional outcome bears it <em>(user decision D-7: Mode B selected)</em></td></tr>
 <tr><td>Recovery</td><td>Recovery is itself a <strong>manipulation primitive with a price</strong>: an actor who can induce the objective trigger (<code>T_STALL</code>) may roll back an unfavourable provisional outcome; the bond, delay and cancellation price the attempt but do not make it impossible, and recovery is never a selective rollback: it restores the checkpoint whole and rewinds the contiguous range above it wholesale, and the invoker has no choice about which transactions inside that range survive, so it cannot be used to pick winners — but that is a statement about the rewind, not a promise about the outcome, because unwound transactions are not replayed automatically and their inclusion is not guaranteed, so a party whose transaction was unwound must resubmit it and the design does not promise that the same set of transactions will end up included. <em>This closes finding R2: the selective-outcome guarantee is replaced by the enforceable wholesale-rewind property and the resubmission consequence.</em></td><td>The resistance analysis of <a href="06-recovery-exceptions.html#REC-03">REC-03</a> is the only argument that the price is not cheap; it is an argument under stated premises, not a proof, and it must be independently reviewed before the selection is treated as settled <em>(user decision D-7: Mode B selected)</em></td></tr>
 <tr><td>Recovery</td><td>The repeated-recovery limits are an <strong>escalating bond</strong> (<code>B_REC(e) = B_REC_BASE &middot; 2<sup>attempts</sup></code> over <code>REC_WINDOW</code>, where <code>attempts</code> counts every invocation &mdash; completed, cancelled or otherwise failed) and a <strong>cooldown</strong> (<code>REC_COOLDOWN</code>) (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>). The bond is split at invocation: the non-refundable <code>B_REC_KEEP</code> goes to the protocol treasury on <em>every</em> attempt, whether or not the recovery completes, and only the refundable balance is returned, and only on completion; the sizing target is <code>B_REC_KEEP &ge; value_at_risk(D_MAX)</code> &mdash; the fees and bridge value inside the provisional range, <span class="pill unmeasured">unmeasured</span> and a Phase B output. They bound the price and the frequency of attempts, not the number of attempts a funded adversary can make, and an L1-censoring adversary is expressly outside the L2 fault model</td><td>A well-funded adversary can hold the chain in a stop-and-restart pattern; the bond schedule, its non-refundable split and the cooldown are <span class="pill unmeasured">unmeasured</span> parameters, and a cancellation sends the whole bond to the treasury without repairing the interruption it caused <em>(user decision D-7: Mode B selected; S5 &sect;4: escalation counts attempts, the bond is non-refundable in part, and the sizing target is <code>B_REC_KEEP &ge; value_at_risk(D_MAX)</code>, unmeasured.)</em></td></tr>
@@ -312,7 +333,7 @@ change of direction must reopen the corresponding entry here rather than silentl
 <tr><td>URC (preconfirmation registry) as a building block</td><td>Excluded by the brief</td><td>Nothing</td></tr>
 <tr><td>TEE-based attestation accepted as proof</td><td>A TEE's attestation is not a ZK proof and cannot be verified by an L1 contract to the standard required here</td><td>Nothing; TEEs may appear only as an auxiliary, never as an accepted proof</td></tr>
 <tr><td>Per-validator L1 liveness attestations (a heartbeat naming the current checkpoint hash)</td><td>Considered as the way to make online-ness an L1-observable fact, which is exactly what would let the inactivity decay remove the cohort that has stopped (falsifier F6). Not adopted in v1: it adds a periodic L1 obligation and gas cost to every validator; it is a <em>declaration</em> rather than a proof of liveness, because a third party can pay for and post an absent validator's attestation, so it converts a free freeze into an L1 gas budget rather than into the discrimination the finding asks for; and it introduces a new surface with its own Sybil, griefing and MEV analysis. The decay of <a href="03-membership-staking.html#MEM-13">MEM-13</a> deliberately reads only evidence the protocol already writes.</td><td>A costed design showing the heartbeat's L1 burden is acceptable, that naming the current checkpoint hash really excludes a pre-signed or proxied attestation, and that its griefing surface is analysed &mdash; or a different construction that makes online-ness observable <em>(PR #22262 review comment 6011464863, item 2(a): this is the alternative that would close falsifier F6.)</em></td></tr>
-<tr><td>Data-first publication with a later proof</td><td>Excluded by D5; also the exact mechanism that produced the June 2026 expiry incident</td><td>Nothing</td></tr>
+<tr><td>Data-first publication with a later proof</td><td><strong>Re-opened by D-11:</strong> publication before the proof is now permitted because it advances no protocol state, and the June 2026 expiry class is controlled by <a href="04-l1-integration.html#DA-09">DA-09</a>'s proving deadline rather than by forbidding publication. What remains excluded is a data-first <em>admission</em> path — no publication accepts a batch or advances a checkpoint (D5)</td><td>A publication path that writes batch state, gates acceptance or escapes <a href="04-l1-integration.html#DA-09">DA-09</a>'s deadline</td></tr>
 <tr><td>Per-address stake caps as an anti-concentration measure</td><td>A cap constrains labels, not capital; the overhead it adds is bounded by <code>kappa/C</code> and never cancels the dominant acquisition cost</td><td>Nothing — but per-validator minimums may still be used for operator-economics reasons</td></tr>
 <tr><td>Staking in ETH or a new token</td><td>Excluded by D7</td><td>Nothing</td></tr>
 <tr><td>Anchor-free L2 execution as the prior Etna project defined it</td><td>The prior work's anchor-free design is compatible in principle, but this design needs the L1 facts it consumes to be Ethereum-final (<a href="01-system-model.html#SYS-02">SYS-02</a>); whether the shared contracts can be served without an anchor at all is left OPEN</td><td>A migration analysis showing the retained surfaces need no anchor-derived fact</td></tr>
@@ -329,7 +350,7 @@ requirements, and either a resolution or an explicit acceptance. A finding is cl
 original attack trace is retained and the specification states precisely why it no longer
 succeeds.</span>
 <p class="small">After round 1's fixes were applied in place, the specification was re-reviewed in round 2 under the same rule-by-rule discipline, on a frozen snapshot and with four fresh reviewers covering all five required angles (including the compliance angle round 1 missed).</p>
-<p class="small">Round 3 is not yet adjudicated: this revision applies change order 03 in place on the frozen base <code>f67458b45</code> — forced inclusion is removed under user decision D-6, and the remaining round-2 findings are dispositioned in <a href="../iterations/03-round.md"><code>iterations/03-round.md</code></a>. No round-3 finding has been reviewed, no earlier fix has been re-verified, and <strong>no convergence is claimed</strong>; the consecutive-clean-round count remains zero until a full round is reviewed clean on a frozen snapshot. <em>(change order 03, §4: round-3 placeholder, no convergence claim)</em></p>
+<p class="small">Round 3 is not yet adjudicated: this revision applies change order 03 in place on the frozen base <code>f67458b45</code> — forced inclusion was removed under user decision D-6 and is restored in narrow form by D-12 (the change orders of 2026-10-06 supersede that posture; see <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>), and the remaining round-2 findings are dispositioned in <a href="../iterations/03-round.md"><code>iterations/03-round.md</code></a>. No round-3 finding has been reviewed, no earlier fix has been re-verified, and <strong>no convergence is claimed</strong>; the consecutive-clean-round count remains zero until a full round is reviewed clean on a frozen snapshot. <em>(change order 03, §4: round-3 placeholder, no convergence claim)</em></p>
 <p class="small"><strong>Change order 04 has been applied</strong> in place on the base <code>eaa01784c</code> (plus the course restyle <code>5111cd878</code>): Mode B is selected under user decision D-7, the status labels are restated so that <a href="index.html#STATUS-04">STATUS-04</a> is <strong>PoS-certified / provisional</strong> in all cases, and the recovery rules REC-01–REC-03 are rewritten on page <a href="06-recovery-exceptions.html">06</a>. <strong>No review round has yet examined the Mode B selection or REC-03's resistance analysis.</strong> An independent review that attempts to falsify both is required — scheduled as review round 4 in <code>DECISIONS.md</code> D-7 — before the selection may be treated as settled; the change order itself is not evidence for it. The round-3 record above is unchanged: no earlier fix has been re-verified, and <strong>no convergence is claimed</strong>; the consecutive-clean-round count remains zero. <em>(change order 04, §2: applied, with independent review required and not performed)</em></p>
 <table>
 <thead><tr><th>Round</th><th>Snapshot</th><th>Findings adjudicated</th><th>Disposition</th></tr></thead>
