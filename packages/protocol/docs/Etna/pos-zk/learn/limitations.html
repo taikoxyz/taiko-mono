@@ -49,18 +49,17 @@ unmeasured placeholder. Where this page and the <a href="../spec/index.html">spe
 <p>A design earns trust by stating its own boundary. This page is that boundary: the guarantees the design does not make, the duties it
 does not enforce, and the dependencies it cannot remove. None of these is a temporary gap to be read past &mdash; each is part of the
 design as it stands.</p>
-<p>Two of them matter more than the rest for anyone sizing exposure. Forced inclusion in this version is <strong>narrow</strong>: any
-account may publish a transaction&rsquo;s data to L1, and once the published record is due a batch must resolve it within the capped
-first-in-first-out prefix of the due set &mdash; include it in proven execution, or discharge it as void on objective grounds &mdash;
-and a record that is not proven before its deadline is discarded and can be re-published. That makes exclusion
-<strong>time-bounded</strong>, not certain to end in inclusion: it fixes no height by which inclusion must begin, and a backlog drains
-over successive batches instead of halting the chain. What is still absent is the <strong>general inclusion list</strong>, so a
-network-level adversary that can isolate a user &mdash; or that can censor L1 inclusion of the publication itself &mdash; can keep the
-data off L1 and exclude that user indefinitely, including preventing the user from starting a withdrawal; the general inclusion list is
-planned as a later protocol update, and a restart is not an inclusion remedy. And a confirmation above the last batch accepted on
-Ethereum is <strong>provisional</strong>: a timelocked, resume-only governance decision can restart the chain from that checkpoint and
-discard the unsettled history above it.</p>
-<!-- <em>D-15: the settled checkpoint is never rewritten, and the provisional range above it is discarded only by a timelocked, resume-only restart.</em> -->
+<p>Two of them matter more than the rest for anyone sizing exposure. Forced inclusion is <strong>not a
+mechanism in v1</strong>: any account may publish a transaction&rsquo;s data to L1, but publication is
+permissionless, advances no protocol state and accepts nothing, no rule obliges any proposer to include a
+published transaction, and excluding one &mdash; published or not &mdash; is not a breach. What remains
+absent is the <strong>general inclusion list</strong>: no queue, no escrow, no fee, and no L1 entry point
+for an <em>unpublished</em> transaction. A network-level adversary that can isolate a user &mdash; or that
+can censor L1 inclusion of the publication itself &mdash; can keep the data off L1 and exclude that user
+indefinitely, including preventing the user from starting a withdrawal, and the protocol offers no remedy.
+And a confirmation above the last batch accepted on Ethereum is <strong>provisional</strong>: nothing at or
+below the checkpoint is ever rewritten, and v1 has no path that replaces the history above it &mdash; a
+settlement stall halts the chain safely and clearing it needs a future protocol update.</p>
 
 <h2 id="diagram">What each guarantee rests on</h2>
 <figure>
@@ -83,14 +82,14 @@ discard the unsettled history above it.</p>
   <text x="30" y="174" fill="#59636e" font-size="9">supports: every L1-anchored status</text>
   <text x="30" y="217" fill="#24292f" font-size="11">The ETH reward pool is actually funded</text>
   <text x="30" y="234" fill="#59636e" font-size="9">supports: validator rewards of any size</text>
-  <text x="30" y="283" fill="#9a6700" font-size="11">A fresh L1 checkpoint exists and governance acts after a stall</text>
-  <text x="30" y="300" fill="#59636e" font-size="9">supports: safe sync by a new node, the rules, and liveness after a stall</text>
+<text x="30" y="283" fill="#9a6700" font-size="11">A fresh, Ethereum-final L1 checkpoint exists</text>
+<text x="30" y="300" fill="#59636e" font-size="9">supports: safe sync by a new node and every L1-anchored status</text>
   <rect x="580" y="30" width="364" height="120" rx="8" fill="#ffebe9" stroke="#5c2630"/>
   <text x="596" y="54" fill="#cf222e" font-size="12">If a liveness assumption fails</text>
-  <text x="596" y="76" fill="#24292f" font-size="10">settlement can stall; confirmations above the last</text>
-  <text x="596" y="93" fill="#24292f" font-size="10">accepted checkpoint are provisional, and the chain</text>
-  <text x="596" y="110" fill="#24292f" font-size="10">restarts only if governance acts. A stall over data</text>
-  <text x="596" y="127" fill="#24292f" font-size="10">below the checkpoint still halts, possibly for good.</text>
+<text x="596" y="76" fill="#24292f" font-size="10">settlement can stall; confirmations above the last</text>
+<text x="596" y="93" fill="#24292f" font-size="10">accepted checkpoint are provisional, and the chain stays</text>
+<text x="596" y="110" fill="#24292f" font-size="10">halted: v1 has no way to clear a stall. A stall over data</text>
+<text x="596" y="127" fill="#24292f" font-size="10">below the checkpoint still halts, possibly for good.</text>
   <rect x="580" y="170" width="364" height="120" rx="8" fill="#fff8e5" stroke="#5c4a1c"/>
   <text x="596" y="194" fill="#9a6700" font-size="12">If a safety or funding assumption fails</text>
   <text x="596" y="216" fill="#24292f" font-size="10">the guarantees do not apply and no rule repairs</text>
@@ -104,9 +103,8 @@ discard the unsettled history above it.</p>
   <line x1="460" y1="288" x2="576" y2="250" stroke="#0969da" marker-end="url(#arL)"/>
 </svg>
 <figcaption>Left: what has to hold. Right: what failure looks like. None of it is repaired by a validity proof &mdash; a proof shows a
-transition is correct, not that the premises were met, and a restart discards unsettled history rather than repairing a broken premise.
+transition is correct, not that the premises were met, and no recovery path repairs a broken premise.
 </figcaption>
-<!-- <em>D-15: a stall exposes the governance-liveness dependency, which no validity proof repairs.</em> -->
 </figure>
 
 <h2 id="list">The honest list</h2>
@@ -118,51 +116,49 @@ market quantity of this design is <strong>unmeasured</strong>. The only measured
 copied from published standards, and even those are properties of Ethereum rather than of this design.</p>
 
 <h3>Confirmations are provisional above the last accepted checkpoint</h3>
-<p>A PoS confirmation is not settlement. Every height above the last batch accepted on Ethereum can be discarded when the chain
-restarts: a timelocked, resume-only governance decision resumes from that checkpoint and discards everything above it. Governance
-chooses no state, checkpoint or height, cannot shorten the timelock once queued, and the decision is void if a batch extending the
-checkpoint is accepted first. The restart advances the recovery generation, so certificates from the discarded range are void at the
-acceptance rule, and locks taken there do not bind the new generation. Ethereum-final checkpoints and accepted batches are never
-touched; a discarded L2 transaction is lost, is not replayed automatically and must be resubmitted, and off-chain losses are not
-compensated. Where no restart can help &mdash; data for a block at or below the accepted checkpoint is
-gone, the validator set is unavailable, or the stake assumption has failed &mdash; correct participants still halt, and a halt can be
-permanent. Production also backpressures before that point: validators refuse to vote past the unsettled-depth cap, and a violation of
-that cap is not objectively punishable at L1 &mdash; its only enforcement is honest compliance.</p>
-<!-- <em>D-15: a restart discards the range above the checkpoint and advances the recovery generation; nothing at or below the checkpoint changes.</em> -->
+<p>A PoS confirmation is not settlement. A height above the last batch accepted on Ethereum is provisional:
+the certificate is valid, but no v1 rule makes it permanent, and v1 has no path that replaces it. A
+settlement stall halts the chain safely: nothing at or below the last accepted checkpoint is ever
+rewritten, and the recovery generation &mdash; the signed field that scopes certificates and locks &mdash;
+never advances, so no height is retired. Ethereum-final checkpoints and accepted batches are the settled
+part of the chain; value above the checkpoint, or value never messaged, has no L1-provable claim while
+production is halted, and no protocol penalty compensates an off-chain loss. Correct participants halt
+rather than choose a branch, and a halt can be permanent when the missing ingredient is data for a block at
+or below the accepted checkpoint, the validator set, or the stake assumption. Production also backpressures
+before that point: validators refuse to vote past the unsettled-depth cap, and a violation of that cap is
+not objectively punishable at L1 &mdash; its only enforcement is honest compliance.</p>
 
 <h3>Off-chain loss exposure has no universal bound</h3>
-<p>A restart discards inclusions, ordering, balances and bridge messages that were only provisional, and any economic position built on
-them. The design states no universal bound on that loss and offers no compensation: penalties debit an offender&rsquo;s stake and are not
-a claims channel. The discarded depth is bounded by the unsettled-depth cap while the cap is enforced, but the cap is not a bound on
-loss.</p>
+<p>History above the last accepted checkpoint is unsettled: its inclusions, ordering, balances and bridge
+messages are provisional, and any economic position built on them is exposed. The design states no universal
+bound on that loss and offers no compensation: penalties debit an offender&rsquo;s stake and are not a
+claims channel. The unsettled depth is bounded by the cap while the cap is enforced, but the cap is not a
+bound on loss.</p>
 
-<h3>A stalled chain resumes only if governance acts</h3>
-<p>The design has no automatic and no permissionless recovery, and it gives no protocol-level guarantee of liveness after a stall.
-Clearing a stall depends on governance queueing and executing the timelocked, resume-only decision; if governance does not act, the
-chain stays halted, and a user&rsquo;s only exit is the withdrawal path that works from the last settled state on Ethereum alone
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). This is a <strong>social-layer trust assumption</strong>, stated as
-one (recorded as the trust assumption A-GOV-2 in the specification&rsquo;s assurance register): it is not priced by a bond, not
-enforced by a rule, and not bounded by any protocol parameter. Governance chooses when the
-decision executes, but not what it does &mdash; the resume point and the discarded range are fixed by L1 state &mdash; and progress
-before execution voids the decision and lets any account cancel the queued entry. A captured or coerced
-governance can also use the rule opportunistically: it can wait for a genuine stall and let an unfavourable
-provisional range be discarded. The rule-bound effect, the timelock and the exit window mitigate that; they
-do not remove it.</p>
-<!-- <em>D-15: liveness after a stall depends on governance acting; the limitation page states it plainly as a trust assumption.</em> -->
+<h3>A stalled chain has no way forward in v1</h3>
+<p>The design has no automatic and no permissionless recovery, and no governance-mediated one either: v1 has
+no recovery path of any kind, and it gives no protocol-level guarantee of liveness after a stall. A
+settlement stall halts the chain, and clearing it needs a future protocol update whose procedure is not yet
+specified. Until then the chain stays halted, and a user&rsquo;s only exit is the withdrawal path that works
+from the last settled state on Ethereum alone
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). This is a <strong>social-layer
+assumption</strong>, stated as one: nothing in v1 prices the halt with a bond, enforces a bound on it, or
+lets any party choose a state, a checkpoint or a height above the last accepted checkpoint.</p>
 
 <h3>A funded reward pool is what keeps settlement moving</h3>
 <p>Settlement assumes the landing market is funded: that the fee sweep actually credits the reward pool and that the
 reward available to a lander is not below the cost of landing. If the pool is empty or the reward is below cost, no rational prover
-lands, the settlement stall arrives with <strong>no adversary at all</strong>, and the trigger is reached by economics rather than by
-attack. A restart cannot repair that: it resumes from a checkpoint and discards a range, and it changes no reward, no fee and no subsidy.
-The restart is a way past a stalled chain, never a remedy for an unfunded reward pool.</p>
+lands, the settlement stall arrives with <strong>no adversary at all</strong>, and it is reached by economics rather than by
+attack. No v1 path repairs that: a future protocol update could clear the halt but would change no reward, no fee and no subsidy.
+Clearing a stall is never a remedy for an unfunded reward pool.</p>
 
-<h3>Profit made off-chain from a discarded state is outside any protocol bound</h3>
-<p>A restart discards inclusions, ordering and balances above the restored checkpoint. Profit taken from that state outside the
-protocol &mdash; a position closed elsewhere, a withdrawal credited off-chain, MEV extracted around the discarded range &mdash; is
-outside any protocol bound. No rule measures it, no penalty recovers it, and protocol penalties are not a compensation channel
-(<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>). The losses on the other side of those trades are equally
-unbounded.</p>
+<h3>Profit made off-chain from unsettled state is outside any protocol bound</h3>
+<p>Inclusions, ordering and balances above the last accepted checkpoint are provisional. Profit taken from
+that state outside the protocol &mdash; a position closed elsewhere, a withdrawal credited off-chain, MEV
+extracted around the unsettled range &mdash; is outside any protocol bound. No rule measures it, no penalty
+recovers it, and protocol penalties are not a compensation channel
+(<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>). The losses on the other side of those
+trades are equally unbounded.</p>
 
 <h3>Data retention is an assumption, not an enforced duty</h3>
 <p>Settlement requires that somebody still holds a batch&rsquo;s data and the witness needed to prove it. Retention is a
@@ -170,28 +166,27 @@ unbounded.</p>
 a penalty. No rule may claim retention is enforced, and no reward or bond makes serving data a duty a validator can be slashed for
 breaching.</p>
 
-<h3>Forced inclusion is narrow, and there is no remedy for isolation</h3>
-<p>The protocol provides no per-transaction inclusion guarantee. What it provides is narrower: any account may publish a
-transaction&rsquo;s data to L1, and once the published record is due, a batch must resolve it within the capped first-in-first-out
-prefix of the due set &mdash; include it in proven execution, or discharge it as void on objective grounds &mdash; and a record that
-is not proven before its deadline is discarded and can be re-published
-(<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>&ndash;<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>).
-That is an <strong>upper bound on exclusion</strong>: it fixes no height by which inclusion must begin, it is never a promise that a
-particular transaction is included, and because the obligation is a capped prefix a backlog drains over successive batches instead of
-halting the chain. What does not exist is the <strong>general inclusion list</strong>: no queue of arbitrary transactions, no escrow, no
-fee and no L1 entry point that can force an <em>unpublished</em> transaction into L2. Proposer selection is weighted and public, so a
-coalition holding less than a third of voting power is selected for fewer than a third of slots in expectation, and a transaction that
-reaches honest validators is included by the first honest proposer with room for it &mdash; but that last clause is behavioural, not a
-rule: no inclusion duty attaches to a validator for a transaction that has not been published and become due, and omitting one is not
-an offence. A network-level adversary able to isolate a user from every honest proposer, or to censor L1 inclusion of the publication
-itself, can keep the data off L1 and exclude that user&rsquo;s transactions indefinitely; because a withdrawal is started by an L2
-transaction, the same adversary can prevent the user from <em>starting</em> a withdrawal. The protocol offers no remedy. Proposer
-selection is fully predictable, so buying or coercing the proposer of one specific slot is possible and no rule prices, detects or
-penalises it.</p>
-<p>A restart is not an inclusion remedy. It can discard history that was only provisional, but it cannot put a transaction into a block
-or compel any proposer to include one, so it does not lift an exclusion. The <strong>general inclusion list</strong> is planned as a
-later protocol update; until that upgrade ships, this version has no L1 path by which a user can force an <em>unpublished</em>
-transaction into L2, and a publication that L1 refuses to include is outside the narrow rule as well.</p>
+<h3>There is no inclusion obligation, and no remedy for isolation</h3>
+<p>The protocol provides no per-transaction inclusion guarantee, and v1 provides no inclusion obligation at
+all. Any account may publish a transaction&rsquo;s data to L1, but publication is permissionless, writes a
+record and nothing else, and accepts nothing: no rule requires a batch to include, resolve or prove that
+data, so a proposer that excludes a transaction &mdash; published or not &mdash; is not in breach, and no
+due set or omission offence exists (<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>). What does not
+exist is the <strong>general inclusion list</strong>: no queue of arbitrary transactions, no escrow, no fee
+and no L1 entry point that can force an <em>unpublished</em> transaction into L2. Proposer selection is
+weighted and public, so a coalition holding less than a third of voting power is selected for fewer than a
+third of slots in expectation, and a transaction that reaches honest validators is included by the first
+honest proposer with room for it &mdash; but that last clause is behavioural, not a rule. A network-level
+adversary able to isolate a user from every honest proposer, or to censor L1 inclusion of the publication
+itself, can keep the data off L1 and exclude that user&rsquo;s transactions indefinitely; because a
+withdrawal is started by an L2 transaction, the same adversary can prevent the user from <em>starting</em> a
+withdrawal. The protocol offers no remedy. Proposer selection is fully predictable, so buying or coercing
+the proposer of one specific slot is possible and no rule prices, detects or penalises it.</p>
+<p>A settlement stall is not an inclusion remedy. It halts the chain, and v1 has no path that clears it; it
+cannot put a transaction into a block or compel any proposer to include one, so it does not lift an
+exclusion. The <strong>general inclusion list</strong> is planned as a later protocol update; until that
+update ships, this version has no L1 path by which a user can force an <em>unpublished</em> transaction into
+L2, and nothing changes that for published data either.</p>
 
 <h3>Rewards depend on a funded pool</h3>
 <p>Validator and prover rewards are ETH, and they can only be paid out of ETH that has actually flowed into the reward pool. L2
@@ -216,12 +211,12 @@ history it syncs as verified, and new validators cannot be admitted until a newe
 describes. Malicious or captured governance is outside the protocol&rsquo;s protection: the staking ledger, the offence catalogue and
 the reward identity are all rules that an upgrade could replace. The design's protection in ordinary operation is the absence of an
 emergency operator or an owner-triggered path that moves bonded stake &mdash; not an assumption that governance will always behave.
-Liveness after a stall is the one place where the design depends on governance doing something: that dependency is stated as a trust
-assumption above, not hidden inside this section.</p>
+Clearing a settlement stall needs a future protocol update, and v1 itself offers no path at all: the halt is disclosed
+as a fact of the design, not delegated to a party that must act.</p>
 
 <h3>No measured numbers, and no compensation</h3>
 <p>Proving latency, throughput, bandwidth, storage, retention, operator cost, fee revenue, reward schedules, L1 verification gas,
-evidence windows and the withdrawal delay are all unmeasured. Penalties are not compensation and no universal bound on user loss exists:
+evidence windows and the withdrawal delay are all unmeasured, and v1 has no stall-resolution parameter at all. Penalties are not compensation and no universal bound on user loss exists:
 a penalty debits an offender&rsquo;s stake, and losses from a broken safety assumption, a key compromise, a proof-system failure, a
 malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
 
@@ -243,47 +238,50 @@ malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
 <h2 id="gives">What this gives you</h2>
 <ul>
 <li>A clear boundary: which claims are arguments, which are arithmetic, and which numbers simply do not exist yet.</li>
-<li>An explicit statement that a settled checkpoint is never rewritten while everything above it is provisional and can be discarded
-by a timelocked, resume-only restart &mdash; and that where no restart can help, a halt can still be permanent.
-</li>
-<li>A restart that is narrow by construction: it resumes from the last accepted checkpoint, chooses no state, checkpoint or height,
-cannot be shortened once queued, is void if the chain makes progress first, and advances the recovery generation so certificates from
-the discarded range are void.</li>
-<li>A precise statement of the inclusion limit: a narrow, proof-enforced obligation over data published to L1 (an upper bound on
-exclusion), no general inclusion list, and for unpublished data only statistical resistance, with no remedy against isolation.</li>
-<li>The dependencies named &mdash; retention, funding, weak subjectivity, governance, and governance liveness after a stall &mdash; so they can be monitored and priced deliberately.</li>
+<li>An explicit statement that a settled checkpoint is never rewritten while everything above it is provisional, and that v1 has no
+path that replaces it &mdash; a settlement stall halts the chain, and clearing it needs a future protocol update. Where nothing can
+help, a halt can still be permanent.</li>
+<li>A recovery generation that is narrow by construction: it is a signed field that scopes certificates and locks, v1 never advances
+it, no state, checkpoint or height can be chosen through it, and no height is retired.</li>
+<li>A precise statement of the inclusion limit: no inclusion obligation in v1, no general inclusion list, and for unpublished data
+only statistical resistance, with no remedy against isolation.</li>
+<li>The dependencies named &mdash; retention, funding, weak subjectivity, governance, and the absence of any recovery path &mdash; so they can be monitored and priced deliberately.</li>
 </ul>
 
 <h2 id="not">What it does not give you</h2>
 <ul>
 <li>No implementation, deployment, audit, benchmark or model to point at.</li>
 <li>No measurement of any performance, cost or economic quantity of this design.</li>
-<li>No rewrite of settled history, no emergency operator and no degraded mode &mdash; but also no compensation for the off-chain losses
-a restart can cause, and no universal bound on them; and no protocol-level guarantee that a stalled chain resumes at all.</li>
-<li>No per-transaction inclusion guarantee, no general inclusion list, no retention enforcement and no compensation for loss.</li>
+<li>No rewrite of settled history, no emergency operator and no degraded mode &mdash; but also no compensation for the off-chain
+losses that provisional history can cause, and no universal bound on them; and no protocol-level guarantee that a stalled chain
+resumes at all.</li>
+<li>No per-transaction inclusion guarantee, no inclusion obligation over published data, no general inclusion list, no retention
+enforcement and no compensation for loss.</li>
 <li>No protection against a malicious upgrade, or against a proof-system or cryptographic failure.</li>
 </ul>
 
 <h2 id="check">Check yourself</h2>
 <details><summary>Settlement stalls for a week. What does the design do about it?</summary>
-<p>After the stall threshold the chain halts safely: nothing at or below the last checkpoint accepted on Ethereum is rewritten, and a
-withdrawal whose signal is at or below that checkpoint stays executable on Ethereum alone. Restarting takes a governance decision:
-a timelocked, resume-only restart that resumes from the last accepted checkpoint and discards everything above it, void if a batch
-lands first. A transaction in the discarded range is lost and must be resubmitted. If the missing ingredient is data at or below the
-accepted checkpoint, no restart can help and the halt can be permanent. And if the real cause is an empty or below-cost reward pool,
-a restart does not fix it: it resumes from a checkpoint and discards a range, but it pays no reward and changes no fee. Whether the
-chain resumes at all depends on governance acting &mdash; there is no protocol-level liveness guarantee.</p></details>
-<details><summary>What happens if governance never acts after a stall?</summary>
-<p>The chain stays halted. The design has no automatic or permissionless restart, and no protocol-level guarantee of liveness after a
-stall. Users can still exit from the last settled state on Ethereum alone
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>), but unsettled value above the checkpoint has no L1-provable claim
-until a later checkpoint covers it. This is the disclosed social-layer trust assumption, not a temporary gap.</p></details>
+<p>The chain halts safely: nothing at or below the last checkpoint accepted on Ethereum is rewritten, and a
+withdrawal whose signal is at or below that checkpoint stays executable on Ethereum alone. v1 has no path
+that clears the stall &mdash; no automatic, permissionless or governance-mediated route &mdash; so clearing
+it needs a future protocol update whose procedure is not yet specified. If the missing ingredient is data at
+or below the accepted checkpoint, nothing can help and the halt can be permanent. And if the real cause is an
+empty or below-cost reward pool, no update that merely clears the halt would fix it: it would change no
+reward and no fee.</p></details>
+<details><summary>What clears a settlement stall in v1?</summary>
+<p>Nothing. There is no automatic path, no permissionless path and no governance-mediated path in v1, and no
+protocol-level guarantee of liveness after a stall. Users can still exit from the last settled state on
+Ethereum alone (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>), but unsettled value above
+the checkpoint has no L1-provable claim until a later checkpoint covers it. Clearing the stall is left to a
+future protocol update, whose procedure is not yet specified.</p></details>
 <details><summary>A user is isolated from every honest proposer. Can they withdraw anyway?</summary>
-<p>Only if the transaction&rsquo;s data reaches L1. Publishing is permissionless, and once the published record is due a batch must
-resolve it within the capped prefix, so exclusion is time-bounded and the withdrawal can start. But the narrow rule begins only at
-publication: an adversary that can also keep the data off L1 &mdash; by cutting the user off from every honest proposer, or by censoring
-L1 inclusion of the publication itself &mdash; can still prevent the withdrawal from starting, indefinitely, and the protocol offers no
-remedy. For data that never reaches L1, inclusion resistance is a conditional statistical property, not a guarantee.</p></details>
+<p>Only if the transaction&rsquo;s data reaches L1, and even then no rule obliges anyone to include it:
+publication is permissionless and accepts nothing, and no inclusion obligation exists in v1. An adversary
+that can also keep the data off L1 &mdash; by cutting the user off from every honest proposer, or by
+censoring L1 inclusion of the publication itself &mdash; can still prevent the withdrawal from starting,
+indefinitely, and the protocol offers no remedy. For data that never reaches L1, inclusion resistance is a
+conditional statistical property, not a guarantee.</p></details>
 <details><summary>Which numbers in this course are measured?</summary>
 <p>None of this design&rsquo;s own numbers. Ethereum constants such as the blob gas cost and blob sizes are copied from published
 standards, and quantities like 900 blocks per thirty minutes are arithmetic on the two-second cadence. Everything else &mdash; proving
@@ -294,17 +292,15 @@ latency, throughput, operator cost, fee revenue, reward rates, evidence and with
 <ul>
 <li>Fewer than one third of the voting power in each epoch is malicious, and enough validators stay online to reach quorum.</li>
 <li>Somebody retains each batch&rsquo;s data and witness until its proof lands.</li>
-<li>Somebody publishes a transaction&rsquo;s data to L1 while the blobs are retrievable, and L1 includes that publication; if the data
-never reaches L1, the narrow obligation never begins.</li>
+<li>Somebody publishes a transaction&rsquo;s data to L1 while the blobs are retrievable; publication creates no inclusion
+obligation either way, so if the data never reaches L1 the protocol has no remedy.</li>
 <li>Ethereum keeps producing and finalizing blocks, and L1 facts become Ethereum-final at a known depth.</li>
 <li>The reward pool is funded by L2 fee revenue or a recorded top-up; otherwise no reward is payable.</li>
 <li>A fresh, Ethereum-final L1 checkpoint is available to a new node, and governance does not execute an upgrade that breaks these
 rules.</li>
-<li>The stall trigger <code>T_STALL_GOV</code> and the timelock <code>T_GOV_RESUME</code> are unmeasured, and the timelock is long
-enough that every user can exit from the last settled state before a restart executes.</li>
-<li>Governance acts to restart a stalled chain. The design has no protocol-level guarantee of liveness after a stall; this is a
-social-layer trust assumption, and it is the dependency the limitations above state plainly.</li>
-<!-- <em>D-15: the stall trigger and timelock are unmeasured, and restarting a stalled chain depends on governance acting.</em> -->
+<li>v1 has no stall parameter and no recovery path: a settlement stall halts the chain and clearing it needs a future protocol
+update, so there is no protocol-level guarantee of liveness after a stall. The exit from the last settled state stays available on
+Ethereum alone.</li>
 </ul>
 </div>
 
@@ -312,9 +308,9 @@ social-layer trust assumption, and it is the dependency the limitations above st
 limitations stated as rules are <a href="../spec/10-assurance.html#LIM-01">LIM-01</a>, with the safe-halt obligation
 <a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>, the unsettled-depth cap
 <a href="../spec/06-recovery-exceptions.html#HALT-03">HALT-03</a>, the exit from the last settled state
-<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>, the stall-resolution rule
-<a href="../spec/08-migration-upgrades.html#GOV-04">GOV-04</a>, inclusion resistance stated honestly
-<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> and the narrow obligation
+<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>, the recovery boundary
+<a href="../spec/06-recovery-exceptions.html#REC-01">REC-01</a>, inclusion stated honestly
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> and the v1 inclusion position
 <a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>, the reward funding identity
 <a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a> and weak subjectivity
 <a href="../spec/03-membership-staking.html#MEM-11">MEM-11</a>.</p>

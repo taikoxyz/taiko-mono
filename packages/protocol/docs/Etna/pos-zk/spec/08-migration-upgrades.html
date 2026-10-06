@@ -338,17 +338,17 @@ accepted statement, never by mutating it; (276) is the append-only <code>publica
 (<code>uint64 seq =&gt; bytes32 publicationId</code>) that fixes the register order the capped FIFO prefix
 drains, so the due set is a prefix of one sequence and not a scan of the identity map; and (277) is one packed
 clock: <code>nextSeq</code> (uint64) + <code>dueHead</code> (uint64) + <code>dueTail</code> (uint64) +
-<code>dueCount</code> (uint32) + <code>pruneCursor</code> (uint32) = 32 bytes. The due-set cursors
-<code>dueHead</code>, <code>dueTail</code> and <code>dueCount</code> are the state the deferred narrow
-forced-inclusion rule would drain; no v1 rule reads them and the rule that would consume them MUST NOT be
+<code>dueCount</code> (uint32) + <code>pruneCursor</code> (uint32) = 32 bytes. The clock's
+<code>dueHead</code>, <code>dueTail</code>, <code>dueCount</code> and <code>pruneCursor</code> are the state the deferred narrow
+forced-inclusion and expiry machinery would drain; no v1 rule reads or advances them, because the prune entry point that advanced
+<code>pruneCursor</code> was deleted with that machinery (<a href="04-l1-integration.html#L1-08">L1-08</a> has no prune function) and the rule that would drain the due set MUST NOT be
 implemented (D-16; <a href="../DEFERRED.md">DEFERRED.md</a> §1), so they are retained only as budgeted
 register state. Three declaration slots are
 sufficient and the arithmetic is exact: the identity map needs a keyed store and the FIFO needs an order store,
 and neither is derivable from the other without a scan; the deadline is stored <em>per entry</em> rather than
 recomputed from a current parameter, because a later change to <code>T_PROVE_DEADLINE</code> MUST NOT move the
 deadline of an outstanding record (<a href="04-l1-integration.html#DA-09">DA-09</a>(2): re-publication starts a new clock, it never revives the old one); the capped rule needs only head, tail, count and the next position;
-and pruning after <code>PUB_RECORD_RETENTION</code> is a permissionless advance of <code>pruneCursor</code>, so
-the register does not grow without bound. The maps' entries are entry slots, exactly like the
+and pruning after <code>PUB_RECORD_RETENTION</code> would be a permissionless advance of <code>pruneCursor</code>, but <strong>v1 has no prune entry point</strong>: the expiry prune was deleted with the machinery D-16 defers, so no rule advances <code>pruneCursor</code>, no record or order entry is ever reclaimed, and <strong>the register grows by one entry per publication for the life of the deployment</strong>. <code>PUB_RECORD_RETENTION</code> remains a readability floor (<a href="04-l1-integration.html#DA-09">DA-09</a>(1)) that any future reclamation must respect, not a live prune schedule. The slot arithmetic is unchanged: the clock is one packed 32-byte word with or without <code>pruneCursor</code> (8+8+8+4+4&nbsp;=&nbsp;32 bytes; without it, 28), so the declaration count remains <strong>15 consumed and 28 free (270–274, 278–300)</strong>. <em>This closes review round 7 finding R7-RB-08: the permissionless-prune claim is replaced by what v1 does — nothing reclaims a record, and removing the field would free no gap slot.</em> The maps' entries are entry slots, exactly like the
 <code>checkpoints</code> map's records, so the declaration count includes exactly three: <strong>15 of the 43
 sourced gap slots (258–300) are consumed and 28 remain (270–274, 278–300)</strong>. The record is written only from
 (<a href="#genesis-record">&sect;genesis record</a>). <em>(D-11: publication is new stored state; it is
@@ -427,12 +427,12 @@ and in <code>_receivedSignals</code> is unchanged (MIG-03(6)).</p>
 (MIG-02 slots 275–277) are new state written only by the Etna path: at T3 the contract MUST initialise
 <code>nextSeq = 0</code> and <code>dueHead = dueTail = dueCount = pruneCursor = 0</code> with empty
 <code>publications</code> and <code>publicationOrder</code> maps, so the
-first post-activation batch faces an <strong>empty due set</strong> and no publication can be retroactively
-brought into breach: a record's due point and its proving deadline are both fixed at publication from the
+first post-activation batch faces an <strong>empty register</strong> (the due set is not a v1 object) and no publication can be retroactively
+burdened: a record's proving deadline is fixed at publication from the
 record's own L1 block, so neither a later anchor, a later re-publication nor a delay in detection can move
-them or extend a record's obligation. <em>This closes the breach-clock wording: the guarantee is that the due
-point and the deadline are both fixed at publication from the record's own L1 block, not that no publication
-can be in breach of the deadline.</em> The genesis record is <strong>not</strong> a publication: its tagged
+it or extend a record's deadline obligation. <em>This closes the breach-clock wording: the guarantee is that the
+deadline is fixed at publication from the record's own L1 block, not that no publication
+can miss its deadline. The due-set half is deferred with D-16 and no v1 rule reads it (R7-RB-08).</em> The genesis record is <strong>not</strong> a publication: its tagged
 <code>dataCommitment</code> commits to the boundary object only, and the first genuine batch's
 <code>dataCommitment</code> comes only from a successful <code>land(data, proof)</code> that references a
 recorded publication (or carries its data in the accepting transaction)
@@ -650,7 +650,8 @@ registered backend families verified on L1 (<a href="04-l1-integration.html#L1-1
 rule ids are <a href="05-proof-statement.html#PRF-15">PRF-15</a> and
 <a href="04-l1-integration.html#L1-14">L1-14</a>; the register entry is
 <a href="../DEFERRED.md">DEFERRED.md</a> §4. <em>(decision D-16: aggregation is deferred, settlement
-accepts one proof from one backend, and the withdrawal roots keep the k-family requirement.)</em></span>bounded rather than DAO-cycle-slow.)</em></span>
+accepts one proof from one backend, and the withdrawal roots keep the k-family requirement; the aggregation
+program whose rotation path would have had to be bounded rather than DAO-cycle-slow does not exist in v1.)</em> <em>This closes review round 7 finding R7-RB-06: stranded aggregation text left by the deferral sweep no longer breaks the rule span.</em></span>
 <span class="why">Failure modes: a mid-epoch image switch splits which proofs are acceptable and lets
 an unsettled batch become unprovable; deleting an old image strands already-finalized history; a "mixed-version" leniency silently accepts two rule sets.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
@@ -759,7 +760,7 @@ A-GOV-1 for the DAO's conduct and A-GOV-2 for its liveness, whose failure is GOV
 <span class="norm">A malicious or compromised DAO is failure class F2, not a protocol failure: no rule,
 contract, monitor or evidence object in this design detects, prevents or repairs it, and one upgrade can rewrite any rule — including this one — reassign any storage slot, or remove the staking requirement. The honest responses are exactly three: (i) before-the-fact disclosure, (ii) comparability, i.e. every upgrade bundle is published with the target implementation addresses, the storage-layout diff and the expected post-upgrade boundary object, so any deviation is publicly detectable, and (iii) the ability of users to exit before an announced upgrade takes effect, subject to the delays of <a href="04-l1-integration.html#MSG-03">MSG-03</a> and
 <a href="07-economics-slashing.html#ECON-03">ECON-03</a>. This design does not claim that a DAO upgrade
-cannot invalidate finalized history; it claims that no rule of this protocol can, and that a governance rewrite is reported as a rules change rather than as a stall resolution. <strong>A captured or coerced governance can still rewrite the rules by upgrade, but the opportunistic stall-resolution surface does not exist in v1:</strong> the governance stall resolution is <strong>deferred by D-16</strong> and MUST NOT be implemented (<a href="../DEFERRED.md">DEFERRED.md</a> §3), so no rule lets governance discard a provisional range. It is named A-GOV-2 and recorded in <a href="10-assurance.html#LIM-01">LIM-01</a>. The status guarantee (<a href="index.html#STATUS-04">STATUS-04</a>, <a href="index.html#STATUS-06">STATUS-06</a>) is made relative to the rules in force — history at or below the latest L1-accepted checkpoint is untouchable by any protocol path (Ethereum finality is the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>), and history above it is provisional, with no v1 path that replaces it; a recovery mechanism is deferred by D-16 and MUST NOT be implemented, and a rules change by upgrade is never presented as recovery, never as an ad-hoc governance transaction, and never by an ordinary upgrade (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>) — and after a governance rewrite it must be re-established by the new rules. <em>(D-15: the sanctioned replacement above the checkpoint is the rule-bound stall resolution of GOV-04; any other governance rewrite is reported as a rules change, never as a stall resolution.)</em></span>
+cannot invalidate finalized history; it claims that no rule of this protocol can, and that a governance rewrite is reported as a rules change rather than as a stall resolution. <strong>A captured or coerced governance can still rewrite the rules by upgrade, but the opportunistic stall-resolution surface does not exist in v1:</strong> the governance stall resolution is <strong>deferred by D-16</strong> and MUST NOT be implemented (<a href="../DEFERRED.md">DEFERRED.md</a> §3), so no rule lets governance discard a provisional range. It is named A-GOV-2 and recorded in <a href="10-assurance.html#LIM-01">LIM-01</a>. The status guarantee (<a href="index.html#STATUS-04">STATUS-04</a>, <a href="index.html#STATUS-06">STATUS-06</a>) is made relative to the rules in force — history at or below the latest L1-accepted checkpoint is untouchable by any protocol path (Ethereum finality is the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>), and history above it is provisional, with no v1 path that replaces it; a recovery mechanism is deferred by D-16 and MUST NOT be implemented, and a rules change by upgrade is never presented as recovery, never as an ad-hoc governance transaction, and never by an ordinary upgrade (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>) — and after a governance rewrite it must be re-established by the new rules. <em>(D-15 and D-16: the rule-bound stall resolution of GOV-04 that D-15 specified is deferred and MUST NOT be implemented, so v1 has no sanctioned replacement above the checkpoint; a governance rewrite is reported as a rules change, never as recovery or a stall resolution.)</em> <em>This closes review round 7 finding R7-RB-06: the italic no longer presents a deferred action as the sanctioned replacement.</em></span>
 <span class="why">Failure mode: reading A-GOV-1 as a guarantee, or claiming that ZK verification,
 bonds or a timelock make governance capture safe, or that v1 has a stall-resolution surface a captured
 governance could use (the mechanism is deferred by D-16); the prior Etna digest records the same conclusion ("the DAO is assumed honest; capture is out of scope", <code>prior-etna-digest.md:113</code>).</span>
