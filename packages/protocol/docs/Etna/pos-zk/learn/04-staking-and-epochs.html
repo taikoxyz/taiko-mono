@@ -259,6 +259,7 @@ remove the problem: two internally valid histories can both exist.</p>
 <code>epoch_of(h) = floor((h &minus; H_genesis) / L) + e_0</code> with <code>H_genesis = 0</code>,
 <code>e_0 = 0</code> and <code>L = 900</code>, so epoch 13 spans heights 11,700&ndash;12,599 and
 epoch 15 spans 13,500&ndash;14,399.</p>
+<!-- <em>D-14: the worked example now carries the heartbeat key and the eligibility window.</em> -->
 <table>
 <thead><tr><th>Step</th><th>What happens</th><th>Numbers</th><th>Tag</th></tr></thead>
 <tbody>
@@ -344,6 +345,7 @@ the following boundary. Within a set version that already contains you nothing c
 validators stop signing that quorum cannot be met, production halts rather than continuing at a lower
 threshold, and the next boundary is where the silent entries drop out.</p></details>
 
+<!-- <em>D-14: future sets depend on heartbeats being includable on L1.</em> -->
 <div class="note assume">
 <p><strong>Assumptions.</strong> This lesson relies on: fewer than one third of the voting power of
 the relevant epoch&rsquo;s set breaking the rules; enough validators online for a quorum to form and posting their L1 heartbeats so each future set version is populated; at

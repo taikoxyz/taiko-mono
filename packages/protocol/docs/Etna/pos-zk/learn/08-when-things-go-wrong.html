@@ -38,6 +38,7 @@ block, when votes or certificates do not arrive, when validators go offline, whe
 when settlement stalls &mdash; and the guarantee class that follows: a confirmation above the last batch
 accepted on Ethereum is <strong>provisional</strong>, and a bonded, delayed, permissionless recovery can
 replace it. This is a design description; none of it is implemented, measured, audited or deployed.</p>
+<!-- <em>D-14: validators going offline are handled by heartbeat eligibility at a set boundary.</em> -->
 
 <h2>The idea</h2>
 <p>Failures are ordinary inputs to this protocol, not exceptions bolted on afterwards. Two rules do
@@ -439,6 +440,7 @@ future set versions, keeps its stake, and returns by attesting, so a quorum lost
 recoverable at a boundary.</li>
 </ul>
 
+<!-- <em>D-14: no rule takes weight; the way back from a silent cohort is the next set boundary.</em> -->
 <h2>What it does not give you</h2>
 <ul>
 <li>Availability. If data for a block at or below the accepted checkpoint is gone, the halt can be

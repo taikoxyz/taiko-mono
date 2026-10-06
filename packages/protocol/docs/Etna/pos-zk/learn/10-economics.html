@@ -103,6 +103,7 @@
 <figcaption>The reward pool pays only what has flowed into it. Fees are ETH, the pool is ETH, the payouts are ETH; TAIKO never leaves the custody ledger except through an owner withdrawal, and a proven offence debits it there and sends the debit to the protocol treasury, less a reporter bounty strictly below the total penalty.</figcaption>
 </figure>
 
+<!-- <em>D-14: heartbeat gas and keys are validator costs; selectability is separate from reward.</em> -->
 <h2 id="how">How it works</h2>
 <h3>1. What a validator pays for</h3>
 <p>A validator runs a node and holds capital. The node costs are ETH: hardware able to execute a worst-case block inside the two-second cadence, bandwidth for gossip and block fetches, storage for L2 state plus the retention window, an Ethereum client of its own for L1 finality evidence, L1 gas for bonding, exiting, submitting evidence and posting the periodic liveness heartbeat (anyone may submit it and a relayer may batch many signatures into one transaction, though the gas is still paid by someone), plus the second heartbeat key, and the labour to operate all of it. The capital cost is the TAIKO it locks plus the opportunity cost of locking it for the duration of the unbonding delay.</p>
@@ -135,6 +136,7 @@ nothing (<code>Alloc(e) = 0</code>), and a bridging failure stops rewards rather
 <h3>3. Why rewards cannot assume token appreciation</h3>
 <p>TAIKO has no mint function today: the supply was minted once and no inflation path exists on L1. A reward funded by new TAIKO therefore requires a token upgrade, which is a governance action, and it is not a standing funding source. Because rewards are paid in ETH, a TAIKO-denominated reward would additionally need a conversion rule and a price; no price constant is permitted anywhere in the design.</p>
 <p>A reward is a nominal ETH amount fixed when it is awarded. No rule, parameter, user interface or learning page may assume, require, promise or be conditioned on an increase in TAIKO&rsquo;s market price, market depth, float or pool value. &ldquo;Rewards are sustainable&rdquo; is a claim that holds only once fee-only inflow covers the validator bill; until then the honest description is that the schedule is reserve-dependent.</p>
+<!-- <em>D-14: a missed heartbeat is not an offence and consumes no stake.</em> -->
 <h3>4. What can be slashed, and what evidence a penalty needs</h3>
 <p>The offence catalogue is closed. Only behaviour on the list consumes bonded stake, and only through
 <code>slash(address v, uint epoch, bytes evidence)</code>, which any address may call.</p>
@@ -253,6 +255,7 @@ inequality.</li>
 keeps its stake, and attesting again restores eligibility.</li>
 </ul>
 
+<!-- <em>D-14: the heartbeat costs a transaction and a key, and its falsifier is L1 censorship.</em> -->
 <h2 id="not">What it does not give you</h2>
 <ul>
 <li>No reward from an empty pool: L2 fees must be swept from the L2 fee vault through the preserved Bridge, rewards lag the settlement pipeline, and a bridging failure stops rewards instead of creating a claim on future revenue.</li>
@@ -273,6 +276,7 @@ an online validator can still be excluded from future versions &mdash; the named
 on this page.</li>
 </ul>
 
+<!-- <em>D-14: an offline validator loses the slot and the rewards, never stake.</em> -->
 <h2 id="check">Check yourself</h2>
 <details><summary>A validator is offline for a day and misses its rounds. Is it slashed?</summary>
 <p>No. Being offline, voting late and timing out are not offences; the only slashable consensus behaviour is objectively signed
