@@ -465,3 +465,55 @@ majority's L1 heartbeats can be censored, exclusion returns — recorded as the 
 
 **Status:** decided; specification changes in flight.
 
+
+
+## D-15 — v1 has no permissionless recovery; a governance stall-resolution rule replaces it
+
+**Decision (design owner, 2026-10-06):** Mode B's permissionless bonded recovery
+(`REC-02`/`REC-03`/`REC-04`) is **withdrawn from v1** and replaced by a **timelocked,
+resume-only governance action**. Users are protected by the existing exit guarantee, not by a
+recovery mechanism.
+
+**Why.** Recovery failed independent review three times: round 4 found the authorization was a
+tautology; the repair introduced an invoker-claimed retirement endpoint; the repair of that failed
+on bundle maximality (any account can complete with a one-certificate bundle and wedge the chain
+permanently) and on L1's inability to verify the evidence at all (no Ed25519 precompile, no
+per-signer weights stored). Each repair was correct against the previous finding and opened a new
+one. The remaining path needs proof-based completion plus maximality plus anchor recency — new
+mechanism with no review history, and the part of the design with the worst evidence behind it.
+
+**What is kept.** `REC-01`'s boundary is unchanged and remains the safety property: nothing at or
+below the latest L1-accepted checkpoint is ever rewritten, and a confirmation above it is
+**provisional**. `MEM-15`'s exit — a withdrawal proven against the last accepted checkpoint with no
+new L2 blocks, no quorum and no validator — is unchanged and is what makes a slower fallback
+tolerable.
+
+**The replacement — `GOV-04` (stall resolution).**
+- **Trigger:** settlement stalls, `block.timestamp − lastAcceptedBatchTime ≥ T_STALL_GOV`.
+- **Effect:** resume from the latest L1-accepted checkpoint, discarding **everything above it** —
+  not a certified subset. So `resumeHeight = lastLandedHeight + 1`: the boundary is fixed by L1
+  state alone, and there is no bundle, no certificate, no maximality question and nothing for L1 to
+  verify beyond its own record.
+- **Timelock:** `T_GOV_RESUME`, long enough that every user can exit via `MEM-15` before it
+  executes. Governance cannot shorten it for a queue entry already posted.
+- **Resume-only.** Governance may not choose a state, a checkpoint or a height; all three are fixed
+  by the rule from L1 state. Nothing at or below the accepted checkpoint may be touched.
+- **Void on progress:** if the checkpoint advances before execution, the action is void, and any
+  account may cancel the queued entry.
+- **Disclosed:** the guarantee class states that clearing a stall depends on **governance liveness**,
+  with no protocol-level bound. This is a social-layer assumption and is recorded as one.
+
+**The generation fix that makes this sound.** Under a full-range discard, the discarded branch's
+certificates must not be re-landable. The round-4 finding was that the generation bound the proof
+and not the history. The fix is now affordable because there is no recovery bundle to carry: **the
+recovery generation is a field of the signed vote and header bytes**, the governance action
+increments it, and validators sign the new generation. Old certificates carry the old generation and
+are void at the acceptance rule. This replaces the retirement-range machinery entirely.
+
+**Withdrawn with it:** the recovery bond and its escalation, the completion transition and its
+cancellation predicate, the certificate bundle and its verification, the recovery reward and its
+allocation share, the recovery anchor, the `max(lastLandedHeight + 1, resumeHeight)` contiguity form,
+and every parameter that existed only to size them.
+
+**Status:** decided; specification changes in flight. This supersedes D-7.
+
