@@ -48,17 +48,28 @@ that height **within the current generation**, or by a strictly later same-heigh
 power can wedge the new chain at the discarded height — reintroducing the unbounded halt D-7 exists to
 avoid. `CONS-09(3)`: "resolved at that height" gets the operative release rule it currently lacks.
 
-## 4. The bond must be at risk even when the recovery succeeds
+## 4. The bond prices a spurious trigger, and a completion is rewarded
 
 **Decision.** The invoker pays a **non-refundable component** on every invocation, whether or not the
-recovery completes, sized against the value a rollback can destroy; escalation counts **attempts**, not
-completions. Refund only the remainder on success.
+recovery completes, sized against the cost of a **spurious trigger** — the abuse the bond prices, not the
+value a rollback destroys; escalation counts **attempts**, not completions. Refund only the remainder on
+success. Because the bond prices spam and manipulation only, a legitimate completion is **rewarded** from
+the fee-funded reward pool.
 
 **Rule changes.** `REC-02`: `B_REC(e) = B_REC_BASE · 2^attempts`, split into a non-refundable
 `B_REC_KEEP` (to the treasury) and a refundable balance returned on completion; `REC_COOLDOWN` after
-every attempt. `ECON-06(6)`: the destination split. Sizing rule: `B_REC_KEEP >= value_at_risk(D_MAX)`,
-where `value_at_risk` is the fees and bridge value inside the provisional range — **unmeasured**, and a
-Phase B output.
+every attempt. `ECON-06(6)`: the destination split. Sizing rule: `B_REC_KEEP >= C_SPURIOUS`,
+`C_SPURIOUS := C_GAS_REC + C_REORG + C_DISRUPTION` — the L1 gas of the invocation and the completion
+transition, the cost of forcing a reorg (re-finalizing, re-proving and re-settling the discarded range of
+up to `D_MAX` blocks), and the cost of the outage (`T_STALL + T_RECOVERY_DELAY` plus resume) — all
+**unmeasured** Phase B outputs, and all registered in `09-parameters.html`. The rule
+`B_REC_KEEP >= value_at_risk(D_MAX)` is **withdrawn**: `value_at_risk(D_MAX)` remains only as a
+disclosure-only exposure statistic that sizes nothing. `ECON-02(5)(f)`: a completed recovery pays
+`REC_REWARD = min(REC_REWARD_CAP, floor(ALLOC_REC_PPM · pool_now / 1_000_000))` to the address that
+posted the bond, from the pool's realised balance and only while it covers the payment — an empty pool pays
+`0` and the recovery still completes; `REC_REWARD_CAP <= B_REC_KEEP + C_GAS_REC` at the base attempt,
+and `ALLOC_REC_PPM` joins the three-share policy bound
+`ALLOC_VAL_PPM + ALLOC_PRV_PPM + ALLOC_REC_PPM <= 1_000_000`. All Phase B outputs.
 
 ## 5. A per-epoch configuration registry, and a defined configHash preimage
 
@@ -105,14 +116,22 @@ allocated twice. Closes R4-PB-03.
 
 ## 10. What is not fixed here
 
-- The **bond sizing** and the **value at risk** need Phase B numbers.
+- The **bond sizing** (`C_SPURIOUS` with `C_GAS_REC`, `C_REORG`, `C_DISRUPTION`) and the
+  **completion-reward inputs** (`REC_REWARD_CAP`, `ALLOC_REC_PPM`) need Phase B numbers;
+  `value_at_risk(D_MAX)` is disclosure only and sizes nothing.
 - The **off-chain profit** available from a rollback remains outside any protocol bound (disclosed).
 - `REC-03`'s resistance analysis must be **rewritten around the repaired mechanism** and re-reviewed; the
   D2 selection stays blocked until that review is clean.
-- `B_REC_KEEP`, `REC_COOLDOWN`, `attempts` window and the registry epoch semantics all need values.
+- `B_REC_KEEP`, `C_SPURIOUS` with `C_GAS_REC`/`C_REORG`/`C_DISRUPTION`, `REC_REWARD_CAP`,
+  `ALLOC_REC_PPM`, `REC_COOLDOWN`, the `attempts` window and the registry epoch semantics all need
+  values.
 
 ## 11. Ordering
 
 1. Apply §1, §3, §6 first — they are the safety fixes (retirement, locks, uniqueness).
-2. Then §2, §4, §5, §7, §8, §9 — the mechanism and economic fixes.
-3. Then rewrite `REC-03` around the repaired design, re-freeze, and re-run the D2 review.
+2. Then §2, §4, §5, §7, §8, §9 — the mechanism and economic fixes, with the §4 sizing terms
+   (`C_SPURIOUS` and its terms) and the completion-reward parameters (`REC_REWARD`, `REC_REWARD_CAP`,
+   `ALLOC_REC_PPM`) registered in `09-parameters.html`.
+3. Then rewrite `REC-03` around the repaired design — the abuse-pricing floor
+   `B_REC_KEEP >= C_SPURIOUS`, the withdrawal of the `value_at_risk(D_MAX)` sizing rule and the
+   fee-funded completion reward `REC_REWARD` of §4 — re-freeze, and re-run the D2 review.

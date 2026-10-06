@@ -71,9 +71,15 @@ The invocation splits the bond at once: a <em>non-refundable component</em> goes
 is never returned, and only the remainder &mdash; the refundable balance &mdash; is returned if the recovery
 completes. The invoker pays the non-refundable component on every attempt, whether the recovery completes,
 is cancelled, or fails in any other way, and a cooldown follows every attempt. The bond escalates with the
-number of attempts in a rolling window, counting attempts and never completions. That is deliberate: a
-rollback that succeeds destroys provisional history, so it must not be free, and a rollback that fails must
-cost something too, so recovery cannot be spammed against honest progress.</p>
+number of attempts in a rolling window, counting attempts and never completions. The non-refundable
+component is sized to the cost of a spurious trigger
+(<code>B_REC_KEEP &ge; C_SPURIOUS = C_GAS_REC + C_REORG + C_DISRUPTION</code>): it prices spam and
+manipulation, not the value the rollback destroys. That is deliberate: a rollback that succeeds destroys
+provisional history, so it must not be free, and a rollback that fails must cost something too, so recovery
+cannot be spammed against honest progress. A completed recovery is not unpaid: the invoker receives the
+fee-funded completion reward <code>REC_REWARD</code> from the reward pool, which pays what the
+pool&rsquo;s realised balance can cover and nothing when the pool cannot pay, while the recovery still
+completes.</p>
 <p><strong>Honest progress cancels it, and cancellation runs to Ethereum finality.</strong> The recovery
 takes effect only when its completion transaction is Ethereum-final. If any valid batch extending the
 checkpoint recorded at invocation is accepted after the invocation and before the completion transaction is
@@ -264,10 +270,12 @@ does not cancel it, because those heights are not yet settled.</li>
 <li><strong>Completion, at Ethereum finality.</strong> The recovery takes effect only when its completion
 transaction is Ethereum-final; L2 nodes do not act on the completion record before that depth. The
 transition writes <code>resumeHeight</code> &mdash; the last discarded height plus one &mdash; and
-increments the recovery generation by exactly one. Because cancellation and effect are both resolved at
-finality, there is no instant at which a completed recovery and a batch at a discarded height are both
-true. If the completion transaction is reorganised out below finality it never took effect: the
-pre-recovery history stands and the refundable balance stays posted.</li>
+increments the recovery generation by exactly one. It also pays the invoker the fee-funded completion
+reward <code>REC_REWARD</code> from the reward pool, bounded by what the pool&rsquo;s realised balance can
+cover: an empty pool pays nothing and the recovery still completes. Because cancellation and effect are
+both resolved at finality, there is no instant at which a completed recovery and a batch at a discarded
+height are both true. If the completion transaction is reorganised out below finality it never took
+effect: the pre-recovery history stands and the refundable balance stays posted.</li>
 <li><strong>Retired heights.</strong> Every discarded height is permanently retired: it can never be
 certified or landed again, by anyone, at any generation. A batch must start at
 <code>max(lastLandedHeight + 1, resumeHeight)</code>, so a start below
@@ -484,8 +492,12 @@ mode when they are not.</li>
 <li>The recovery trigger, bond split, delay, escalation, cooldown and cancellation values are unmeasured
 placeholders, and the argument that they cannot be abused rests on stated conditions rather than on
 measurement.</li>
-<li>The non-refundable bond component is at least the value at risk inside the provisional range
-(<code>B_REC_KEEP &ge; value_at_risk(D_MAX)</code>), a sizing rule whose value is unmeasured.</li>
+<li>The non-refundable bond component is sized to the cost of a spurious trigger
+(<code>B_REC_KEEP &ge; C_SPURIOUS = C_GAS_REC + C_REORG + C_DISRUPTION</code>): it prices spam and
+manipulation, and its value is unmeasured. The refundable balance returns only on completion, and a
+completed recovery earns the fee-funded completion reward <code>REC_REWARD</code>; that reward is bounded
+by the reward pool&rsquo;s realised balance and is zero when the pool cannot pay, in which case the
+recovery still completes.</li>
 <li>The reward pool is actually funded and the reward is not below the cost of landing; an empty or
 below-cost pool reaches the settlement-stall trigger with no adversary at all.</li>
 <li>Outside L1-level censorship and the absence of any prover, a sub-threshold coalition cannot force the

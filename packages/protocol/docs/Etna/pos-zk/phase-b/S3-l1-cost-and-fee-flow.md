@@ -31,7 +31,7 @@ Feeds the recovery repair: [S5-recovery-repair.md](./S5-recovery-repair.md) §1 
 
 1. **`REWARD_QUOTE` is set, or the throughput target is changed.** The pass condition is plan §1 S3 and §5: *fee revenue at the target throughput covers landing plus proving with a positive margin*. If it does not, the choice among (a) raise L2 fees, (b) cap throughput, (c) a bounded, expiring subsidy, (d) change K/data budget is a **product decision** (D-8 funding, D1 cadence) — not a parameter tweak. This spike produces the break-even fee level at which that decision is made.
 2. **`MAX_BATCH_BLOCKS` / K.** The blob path is bounded by the per-transaction blob maximum (**9**, *sourced*, EIP-7691) at the same time as by gas. At the target per-2 s-block data budget of 131,072 bytes (*derived*, plan §8.2: 786,432 bytes per L1 block ÷ 6 L2 blocks), a K-block batch carries K × 131,072 bytes = K blobs, so `n_blobs = K` and `K ≤ 9` for one atomic blob-path transaction (*derived*). K = 32 and K = 128 are therefore either multi-transaction batches or batches with a reduced per-block data budget; the spike measures both regimes and the report states the largest atomic K.
-3. **S5's recovery-state budget and bond sizing.** `gas_per_new_slot` and the number of slots written on the acceptance path are the units S5 uses to size the retired-height record and to compare the bond with `value_at_risk(D_MAX)` (S5 §1, §4).
+3. **S5's recovery-state budget and bond sizing.** `gas_per_new_slot` and the number of slots written on the acceptance path are the units S5 uses to size the retired-height record, and the measured gas of the recovery invocation and completion transactions is the `C_GAS_REC` term of the spurious-trigger cost that sizes the non-refundable bond component (`B_REC_KEEP >= C_SPURIOUS = C_GAS_REC + C_REORG + C_DISRUPTION`; S5 §1, §4). `value_at_risk(D_MAX)` is a disclosure-only exposure statistic and is no longer a bond-sizing input.
 4. **The sweep interface becomes normative.** The measured interface is written into `ECON-02(7)` and `L1-11`; if the conforming message does not credit the pool exactly and only through the authenticated invocation, the interface is wrong and the D-8 funding path stays Open.
 5. **The fee-vault credit check.** If the check cannot be stated as a total predicate over executed state and receipts, D-8's funding path is unenforceable and the round-4 High (fee diversion with no enforcement point) stands.
 
@@ -179,7 +179,9 @@ Let `g_d` = measured total gas of `land` for data path `d` at batch size K and p
         (6/9 sourced, EIP-7691; the resulting constraint on K is the P2 output)
 
     recovery budget:  gas_recovery_state = slots_recovery · gas_per_new_slot
-        value_at_risk(D_MAX) per S5 §4 is then compared with B_REC_KEEP in the same ETH units.
+        C_GAS_REC is the measured L1 gas of the recovery invocation and completion; C_SPURIOUS =
+        C_GAS_REC + C_REORG + C_DISRUPTION per S5 §4 is then compared with B_REC_KEEP in the same ETH units.
+        (value_at_risk(D_MAX) is a disclosure-only exposure statistic and sizes nothing.)
 
 No symbol above may be replaced by a number that this spike did not measure or cite.
 

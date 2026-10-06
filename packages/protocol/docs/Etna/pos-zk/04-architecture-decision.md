@@ -172,9 +172,15 @@ Mode B is normative in `spec/06-recovery-exceptions.html` (`REC-02`), within the
 `REC-01`:
 
 - **Permissionless and bonded.** Any account may invoke it; there is no operator, no DAO rescue and no
-  validator quorum. The bond `B_REC(e) = B_REC_BASE · 2^n` escalates with the number of completed
-  recoveries in the preceding `REC_WINDOW`; it is returned in full when the recovery completes, and it
-  is slashed in whole to the protocol treasury when the recovery is cancelled (`ECON-06`(6)).
+  validator quorum. The bond `B_REC(e) = B_REC_BASE · 2^n` escalates with the number of **attempts** in
+  the preceding `REC_WINDOW`; it splits at invocation into a non-refundable component `B_REC_KEEP`,
+  transferred to the protocol treasury on every attempt and sized to the cost of a spurious trigger
+  (`B_REC_KEEP >= C_SPURIOUS = C_GAS_REC + C_REORG + C_DISRUPTION`), and a refundable balance returned
+  only when the recovery completes; cancellation sends the whole bond to the protocol treasury
+  (`ECON-06`(6)). A completed recovery also pays the invoker the fee-funded completion reward
+  `REC_REWARD = min(REC_REWARD_CAP, floor(ALLOC_REC_PPM · pool_now / 1_000_000))` — bounded by the reward
+  pool's realised balance and `0` when the pool cannot pay, while the recovery still completes
+  (`ECON-02` clause 5(f)).
 - **Delayed, and cancelled by honest progress.** The recovery takes effect only after
   `T_RECOVERY_DELAY`; during that window the acceptance of **any** valid batch extending the current
   checkpoint cancels it. Late certificates and late proofs are void for canonical purposes above the
