@@ -31,7 +31,7 @@ preventing the user from *starting* a withdrawal, with no protocol remedy. R10 i
 its **narrowed form**: the relaxation D-6 recorded is narrowed, not withdrawn. The changes are recorded
 in DECISIONS.md D-11/D-12 and in the requirement matrix in 01-requirements-and-threat-model.md.
 
-**Guarantee class changed (user decisions D-7 to D-10, 2026-10-05; amended by D-11, 2026-10-06).** Mode B is
+**Guarantee class changed (user decisions D-7 to D-10, 2026-10-05; amended by D-11, D-12 and D-13, 2026-10-06).** Mode B is
 selected: a permissionless, bonded, delayed recovery may replace L2 history above the last L1-accepted
 checkpoint, so a PoS confirmation is **provisional** until its batch is accepted on L1. Ethereum-finalized
 checkpoints and every accepted batch remain untouchable, and D5 is relaxed only as D-11 states: a batch's
@@ -39,7 +39,7 @@ data may be published and recorded in an earlier L1 transaction, and what D5 con
 checkpoint advances only on a valid proof. Security is funded from **L2 fees** swept through the preserved
 Bridge into an L1 reward pool; slashed stake goes to the **treasury** (no burn); and forced inclusion is
 **not deferred wholesale**: the narrow rule over published data ships in v1 (D-12), and only the general
-inclusion list is deferred to a later protocol update.
+inclusion list is deferred to a later protocol update. D-11 narrows the Mode B trigger window (data may be published and recorded before the proof), D-12 supersedes D-6/D-10 with the narrow forced-inclusion rule, and D-13 makes the per-batch proof one aggregated object; none of the three changes the selected mode. *This closes the stale amendment list: D-11/D-12/D-13 are named together and their effect on the mode is stated.*
 
 **Specification level: NOT CONVERGED — the result is labelled _incomplete_.** Two full adversarial
 review rounds were run on frozen snapshots with four independent reviewers each. Round 1 found
@@ -82,7 +82,7 @@ be re-run on a repaired design before the selection can be called settled.
 | Question | Answer |
 |----------|--------|
 | Consensus | Tendermint/CometBFT-class BFT, one block per height, single-slot finality, lock / proof-of-lock-change rule retained; Ed25519 votes; **one head commit certificate verified per batch** |
-| Membership | Permissionless, self-bonded **TAIKO on L1**; epoch-scoped validator-set roots committed with one-epoch lookahead; no delegation in v1 |
+| Membership | Permissionless, self-bonded **TAIKO on L1**; epoch-scoped validator-set roots committed with **two-epoch lookahead** (the root for epoch *e*+2 is committed during epoch *e* — CONS-13(3), MEM-09 clause (1)); no delegation in v1. *This corrects the summary row: the design's lookahead is two epochs, not one.* |
 | Settlement | Proof-gated acceptance in one L1 transaction: the batch's data is carried by that transaction or bound to a live publication record published earlier (D5 as relaxed by D-11); no publication advances a checkpoint |
 | Proof | One combined guest proving consensus finality, execution and data binding; both RISC Zero and SP1 must realise the same statement |
 | Recovery | **Mode B selected (user decision D-7)**: a permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; everything at or below it is untouchable. Confirmations above it are **provisional** |
@@ -97,7 +97,7 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | ID | Decision |
 |----|----------|
 | **D1** | One L2 block every **2 s** under stated operating assumptions. Cadence ≠ finality ≠ proof ≠ settlement ≠ withdrawal. |
-| **D2** | **Mode A was the preferred mode; the authorised fallback Mode B is now selected (user decision D-7).** A permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; at or below it nothing may change. A PoS confirmation above that checkpoint is therefore **provisional**. **Mode B** (permissionless L1 recovery of *unsettled* history) is the selected mode (D-7). |
+| **D2** | **Mode A was selected first (D-3, which records the dissent against Mode A's feasibility verdict); the authorised fallback Mode B is now selected (user decision D-7).** A permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; at or below it nothing may change. A PoS confirmation above that checkpoint is therefore **provisional**. **Mode B** (permissionless L1 recovery of *unsettled* history) is the selected mode (D-7). D-11/D-12/D-13 record no further mode change: D-11 narrows the trigger window by allowing publication before the proof, D-12 replaces D-6/D-10 with narrow forced inclusion over published data, and D-13 makes the per-batch proof one aggregated object. *This closes the D2-history check against DECISIONS.md: D-3's selection and its dissent, D-7's Mode B selection, and the D-11/D-12/D-13 entries are stated as the log records them.* |
 | **D3** | Preserve L1+L2 **SignalService**, **Bridge**, **ERC20Vault**, **ERC721Vault**, **ERC1155Vault** addresses by in-place upgrade. No replacements. |
 | **D4** | L2 PoS determines binding order; the result is named a **PoS-sequenced validity rollup**. |
 | **D5** | Proof-gated acceptance: the checkpoint advances only on a valid proof, in one L1 transaction. **Relaxed by D-11:** the batch's data may be published and recorded in an earlier L1 transaction and referenced by the proof; no publication advances protocol state, and no recovery may introduce a data-first *admission* path. |
@@ -120,7 +120,7 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | R10 | Censorship resistance — **narrowed by decisions D-6/D-12**: a narrow, proof-enforced forced-inclusion obligation over **published** data ships in v1 (an upper bound on exclusion), the **general inclusion list** remains deferred, and unpublished transactions have statistical resistance only (proposer rotation under A-CONS-2), with the withdrawal-censorship consequence disclosed | [10](spec/10-assurance.html) LIVE-04, [04](spec/04-l1-integration.html) FI-10..FI-14 and FI-REMOVED-01/FI-PLANNED-01 | satisfied in narrowed form only |
 | R11 | Objective misconduct evidence, collateral, exits | [07](spec/07-economics-slashing.html) ECON-04..08 | specified; slashed stake goes to the **treasury** (D-9), reporter bounty strictly below the penalty |
 | R12 | No L1 lookahead or fixed slot dependence | [index](spec/index.html) GEN-06 | specified |
-| R13 | Implementable without inventing rules | all pages; 137 registered rules | 137/137 stated once |
+| R13 | Implementable without inventing rules | all pages; **160** registered rules | **160/160** stated once. *This corrects the count: 160 rule ids exist across `spec/*.html` and the rule index lists the same 160.* |
 | R14 | Learning site consistent with the specification | [learn/](learn/index.html) — a 12-page engineer's course that carries **no review-process or decision-log content**; process archaeology stays in the specification, `DECISIONS.md` and `iterations/` | in progress |
 
 ## Reading order
@@ -135,12 +135,13 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 5. [`04-architecture-decision.md`](04-architecture-decision.md) — candidate comparison, the A-first
    decision procedure, the selected architecture and its six modifications.
 6. [`spec/index.html`](spec/index.html) — **the authoritative specification**, with the complete rule
-   index (128 rules, each stated exactly once).
+   index (**160** rules, each stated exactly once). *This corrects the count from 128 to 160 — the number of rule ids across `spec/*.html` — so it agrees with the checklist.*
 7. [`learn/index.html`](learn/index.html) — the engineer's course: twelve plain-language pages covering the
    design from first principles. It deliberately contains no review history, no finding identifiers and no
    decision-log references; those live in `DECISIONS.md` and `iterations/`.
-8. [`DECISIONS.md`](DECISIONS.md) — the ordered decision log, including the recorded dissent against
-   the Mode A selection.
+8. [`DECISIONS.md`](DECISIONS.md) — the ordered decision log: D-3's Mode A selection and the
+   dissent recorded against its feasibility verdict, D-7's Mode B selection, and the D-11/D-12/D-13
+   amendments. *This closes the D2-history check: the reading order names the log's actual entries.*
 9. [`iterations/`](iterations/) — frozen review rounds, findings and dispositions.
 
 ## Research provenance
