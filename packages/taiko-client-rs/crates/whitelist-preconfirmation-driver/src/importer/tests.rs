@@ -15,16 +15,21 @@ use protocol::{
     shasta::{constants::TAIKO_DEVNET_CHAIN_ID, encode_etna_extra_data},
 };
 
+use tokio::sync::mpsc;
+
 use crate::{
+    cache::SharedPreconfState,
     codec::{
         MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope,
         decode_unsafe_response_message, decompress_tx_list, encode_envelope_ssz,
         encode_unsafe_response_message,
     },
     error::WhitelistPreconfirmationDriverError,
+    test_support::OfflineDeps,
 };
 
 use super::{
+    WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams,
     cache_import::{
         CachedImportDisposition, classify_cached_import_error, driver_payload_from_envelope,
     },
@@ -862,6 +867,41 @@ fn import_validation_accepts_a_valid_etna_envelope_with_or_without_difficulty() 
         validate_devnet_import(&envelope, ETNA_AT_SAMPLE)
             .expect("a valid Etna envelope must be imported");
     }
+}
+
+/// Build an importer over offline dependencies with Etna at `etna_fork_timestamp`.
+fn offline_importer(
+    deps: &OfflineDeps,
+    etna_fork_timestamp: Option<u64>,
+) -> WhitelistPreconfirmationImporter {
+    let (network_command_tx, _) = mpsc::channel(1);
+    WhitelistPreconfirmationImporter::new(WhitelistPreconfirmationImporterParams {
+        event_syncer: deps.event_syncer.clone(),
+        rpc: deps.rpc.clone(),
+        chain_id: deps.rpc.chain_id,
+        etna_fork_timestamp,
+        network_command_tx,
+        state: SharedPreconfState::new(0),
+        beacon_client: deps.beacon_client.clone(),
+    })
+}
+
+/// A gossiped envelope is validated under the importer's own Etna schedule: a valid Etna
+/// envelope is accepted once Etna is active at its timestamp and dropped while Etna is not
+/// scheduled.
+#[tokio::test]
+async fn gossip_validation_follows_the_importer_etna_schedule() {
+    let deps = OfflineDeps::new(TAIKO_DEVNET_CHAIN_ID, sample_anchor_address()).await;
+    let envelope = sample_etna_envelope(vec![ordinary_tx_list()]);
+
+    offline_importer(&deps, ETNA_AT_SAMPLE)
+        .handle_unsafe_response(envelope.clone())
+        .await
+        .expect("an Etna envelope is accepted once Etna is active");
+    assert_invalid_payload(
+        offline_importer(&deps, None).handle_unsafe_response(envelope).await,
+        "carries nonzero parent beacon block root",
+    );
 }
 
 #[test]
