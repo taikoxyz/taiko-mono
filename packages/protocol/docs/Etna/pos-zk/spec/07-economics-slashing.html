@@ -576,8 +576,7 @@ decision, not inferred from the code.</span> <span class="pill proven">Proven</s
 <code>block.timestamp</code> of the L1 transaction whose call to <code>commitSet()</code> appended epoch
 <code>e</code>'s entry to the staking contract's per-epoch mapping
 (<a href="03-membership-staking.html#MEM-09">MEM-09</a> clause 2, the transaction <code>N(k)</code>). The staking
-contract <strong>MUST</strong> persist that timestamp with the entry — <code>epoch &rarr; (setRoot, totalVotingPower,
-rootCommittedAt)</code> — written once in the same call and immutable thereafter, and the Inbox and
+contract <strong>MUST</strong> persist that timestamp — the anchor this window needs — with the entry, which is the exhaustive four-field tuple <code>epoch &rarr; (setRoot, totalVotingPower, rootCommittedAt, setVersionBlock)</code> of <a href="03-membership-staking.html#MEM-09">MEM-09</a>(2): <code>rootCommittedAt</code> is the stored <code>block.timestamp</code>, and <code>setVersionBlock = N(k)</code> is the L1 block number of the same <code>commitSet()</code> call, a <code>uint64</code> packed with <code>rootCommittedAt</code> in the entry's third slot, so the tuple still consumes three slots. The entry is written once in the same call and immutable thereafter, and the Inbox and
 <code>slash()</code> MUST read the anchor from that stored field. It MUST NOT be recomputed from
 <code>blockhash</code>, reconstructed from an event log after the EVM's 256-block window, or taken from the L2
 header field <code>set_version_commit</code> (which L1 cannot read); a missing entry means no window
@@ -609,8 +608,8 @@ close is fixed by this rule from the start from stored facts: it is not a re-ope
 waiver after the fact by any party, and the prohibition below on re-anchoring a window to a later or
 unrelated set-commit block is unaffected. <strong>Open anchor.</strong> Which L1 fact carries
 <code>t_observed(e)</code>, and where it is stored, is <strong>not fixed by this specification</strong>:
-<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2)'s stored tuple carries only the commit
-timestamp <code>rootCommittedAt</code>, and the Inbox checkpoint record of
+<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2)'s stored tuple carries the commit
+timestamp <code>rootCommittedAt</code> and the commit block number <code>setVersionBlock</code>, and the Inbox checkpoint record of
 <a href="04-l1-integration.html#L1-07">L1-07</a> carries the accepting L1 block number rather than that
 block's timestamp, so no existing stored value carries the epoch's production or landing time.
 Candidate anchors, to be fixed by a recorded decision before launch, are the L1 timestamp at which the

@@ -130,7 +130,7 @@ likewise void for canonical purposes, though it remains admissible as evidence o
   <path d="M856 94 v14" stroke="#1a7f37" stroke-width="1.4" marker-end="url(#arr8b)"/>
   <line x1="796" y1="38" x2="796" y2="104" stroke="#0969da" stroke-dasharray="4 3"/>
   <text x="790" y="30" fill="#0969da" font-size="11" text-anchor="end">completion transaction becomes Ethereum-final: resumeHeight = 833</text>
-  <text x="20" y="188" fill="#24292f" font-size="11">A batch must start at max(lastLandedHeight + 1, resumeHeight); a batch that starts at or below resumeHeight is rejected at every generation, by anyone.</text>
+  <text x="20" y="188" fill="#24292f" font-size="11">A batch must start at max(lastLandedHeight + 1, resumeHeight); a start below resumeHeight is rejected; one exactly at it is the correct, landable case.</text>
   <text x="20" y="210" fill="#24292f" font-size="11">An L1 reorganisation of the completion transaction below finality means the recovery never took effect: the pre-recovery history stands and the refundable balance stays posted.</text>
   <text x="20" y="232" fill="#24292f" font-size="11">Locks at retired heights are void: a validator locked there is not stuck, and the old locked value is not evidence of misbehaviour and not a reason to halt.</text>
 </svg>
@@ -270,8 +270,9 @@ true. If the completion transaction is reorganised out below finality it never t
 pre-recovery history stands and the refundable balance stays posted.</li>
 <li><strong>Retired heights.</strong> Every discarded height is permanently retired: it can never be
 certified or landed again, by anyone, at any generation. A batch must start at
-<code>max(lastLandedHeight + 1, resumeHeight)</code>, so a batch that starts at or below
-<code>resumeHeight</code> is rejected. Correct validators must not sign a proposal below it, and a retired
+<code>max(lastLandedHeight + 1, resumeHeight)</code>, so a start below
+<code>resumeHeight</code> is rejected while a start exactly at <code>resumeHeight</code> is the correct,
+landable case. Correct validators must not sign a proposal below it, and a retired
 height can never be re-certified. The generation counter stays as a cheap invalidation of proofs that were
 already generated; the property that a discarded branch cannot come back rests on the retired heights,
 because the acceptance rule is about where a batch starts, not which proof was used.</li>
@@ -465,8 +466,10 @@ reason to halt. Only a genuinely conflicting pair of signed messages is evidence
 for a discarded height is usable as evidence of what was signed, not as a claim on canonical history.</p></details>
 <details><summary>A discarded branch is re-proven under the new recovery generation. Can it land?</summary>
 <p>No. The generation counter only invalidates proofs that were already generated; it is not what protects
-the boundary. A batch must start at <code>max(lastLandedHeight + 1, resumeHeight)</code>, and a batch that
-starts at or below <code>resumeHeight</code> is rejected at every generation, by anyone. The acceptance
+the boundary. A batch must start at <code>max(lastLandedHeight + 1, resumeHeight)</code>: a start below
+<code>resumeHeight</code> is rejected at every generation, by anyone, while a batch that starts exactly at
+<code>resumeHeight</code> is the correct, landable case &mdash; it is the start the equality requires whenever
+<code>lastLandedHeight + 1 &le; resumeHeight</code>. The acceptance
 rule is about where a batch starts, not which proof was used.</p></details>
 
 <div class="card">
