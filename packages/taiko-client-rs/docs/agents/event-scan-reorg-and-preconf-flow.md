@@ -176,7 +176,10 @@ Rules:
   parent's root only when the parent is a non-genesis Etna block with the same anchor number; the
   first Etna block (whose pre-Etna parent has a zero root) and a child of the Etna genesis always
   use the anchor block's L1 state root.
-- The gas limit carries no anchor reserve and is passed through.
+- An Etna header carries no anchor reserve: its gas limit is the parent's manifest gas limit,
+  which is an Etna parent's own limit but, for the first Etna block, its Unzen parent's limit minus
+  the 1,000,000 anchor reserve. The driver passes the request's gas limit through; derivation's
+  canonical check enforces the rule.
 - The driver does not check the root against L1, as it never checked anchor calldata: a block
   that breaks the contract fails derivation's canonical check and is replaced when its proposal is
   derived.
