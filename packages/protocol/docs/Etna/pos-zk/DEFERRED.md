@@ -56,9 +56,19 @@ program while adding a proving cost that S1 has not measured.
 ## Cross-cutting items that outlive all four
 
 - **The round-5/6 findings not specific to a deferred mechanism** are listed in
-  `iterations/raw/round5t-*.md` and `round6-*.md`. The load-bearing ones for v1 are the exit
-  contradiction (`G-2`/`F1`/`F2`) and the un-relaxed-D5 premises still present in a few rows.
+  `iterations/raw/round5t-*.md` and `round6-*.md`; the round-8 pass is in
+  `iterations/raw/round8-*.md`. The exit contradiction is **repaired** (`MEM-15`(2a)/(2b) +
+  `L1-13`(5)/`L1-11`): the exit's funding and witness dependencies are stated with their falsifier.
+  What remains is disclosed rather than repaired — the unenforced proving split (`R8-EBA F3`, now a
+  disclosed policy target of `ECON-02`(5)(e), not an on-chain bound) and the witness half of the exit
+  assumption and falsifier (`R8-EBA F4`, a retention assumption no rule of the exit enforces). The
+  un-relaxed-D5 wording had one surviving site, the blob-quantisation row of `09-parameters.html`,
+  and it is re-based on D-11 in round 8; no other row argues from the superseded one-transaction
+  form. *This closes review round 8 finding R8-EBA F7: the note lists the current residuals instead
+  of calling repaired defects load-bearing.*
 - **Phase B measurements** remain as planned: nothing in this register can be revived honestly
   without them.
-- **The learning site** must be re-synced whenever a deferred mechanism returns, because it teaches
-  the design as it stands.
+- **The learning site** must be re-synced on **any** specification change, not only when a deferred
+  mechanism returns, because it teaches the design as it stands; it was out of sync with the v1 exit
+  until round 8 (`R8-EBA F2`). *This closes review round 8 finding R8-EBA F7: the sync trigger is any
+  change to a live rule, not only the return of a deferred mechanism.*
