@@ -3,6 +3,17 @@
 **Base snapshot:** `f67458b45` · **Decision:** D-6 (user-authorized removal of forced inclusion) ·
 **Change order:** `03-change-order.md` · **Status:** changes applied, awaiting review round 3.
 
+> **Historical record — annotate, do not read as current.** This round records the state on
+> 2026-10-05, when user decision D-6 removed forced inclusion and D5 still required data and proof in
+> one transaction. Both postures were changed on 2026-10-06: **D-11 relaxed D5** (a batch's data may
+> be published and recorded in an earlier L1 transaction; the checkpoint still advances only on a
+> valid proof) and **D-12 superseded D-6 and D-10** (narrow, proof-enforced forced inclusion over
+> published data ships in v1; only the general inclusion list remains deferred). The entries below are
+> kept as written so the audit trail is intact; where they say forced inclusion is absent, or that
+> data and proof must travel in one transaction, the current statement is the one in
+> `spec/04-l1-integration.html` (`FI-10`–`FI-14`, `DA-07`–`DA-10`) and `spec/index.html`'s
+> rule index. The round-3 verdicts below likewise refer to the snapshot they name.
+
 ## Why this round exists
 
 Round 2 (six Critical, twenty-three High) left four Criticals open. The user authorized removing forced
@@ -14,8 +25,8 @@ changing the validator-set lookahead from one epoch to two.
 
 | Item | Finding(s) closed | Where |
 |------|-------------------|-------|
-| Forced inclusion removed in full: FI-01…FI-05, the L1 queue, fee, escrow, events, errors, interface functions, the `forcedInclusionCommitment` public input and its guest check, the inclusion duty in proposal validity, the censorship offence, the escape hatch, and every cross-reference | R2-LIV-01, R2-LIV-03, R2-LIV-04 and the forced-inclusion Highs | spec/01, 02, 04, 05, 06, 07, 08, 09, 10, index |
-| Tombstone rule `FI-REMOVED-01` and honest statement rule `LIVE-04` added; R10 restated in the requirements matrix and README | D-6 | spec/04, spec/10, 01-requirements, README |
+| Forced inclusion removed in full: FI-01…FI-05, the L1 queue, fee, escrow, events, errors, interface functions, the `forcedInclusionCommitment` public input and its guest check, the inclusion duty in proposal validity, the censorship offence, the escape hatch, and every cross-reference — **superseded 2026-10-06: D-12 restores a narrow, proof-enforced obligation over *published* data (`FI-10`–`FI-14`); the general FI-01–FI-05 machinery is not restored** | R2-LIV-01, R2-LIV-03, R2-LIV-04 and the forced-inclusion Highs | spec/01, 02, 04, 05, 06, 07, 08, 09, 10, index |
+| Tombstone rule `FI-REMOVED-01` and honest statement rule `LIVE-04` added; R10 restated in the requirements matrix and README — **superseded in part 2026-10-06: D-12 narrows the D-6 posture, so FI-REMOVED-01/FI-PLANNED-01 now describe only the general-list deferral and LIVE-04 states the two-part property** | D-6 | spec/04, spec/10, 01-requirements, README |
 | Two-epoch lookahead: the staking contract commits the set root for epoch `e+2` during epoch `e`, with the normative inequality `2·E_EPOCH ≥ T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY + margin`; a missing *future* entry is not a halt condition | R2A-01, R2A-02 | spec/02 CONS-13, spec/03 MEM-03/09, spec/09 |
 | Unsettled-depth cap made **consensus-only** with a single enforcement point; the L1 rejection deleted because it could strand a legitimate extension; the honest cost stated (a violating quorum is not objectively punishable) | R2-LIV-07, R2-LIV-08 (partly) | spec/04, spec/06 HALT-03 |
 | One cap in one unit: `D_MAX` in L2 blocks from `RETENTION_WINDOW`; `MAX_UNSETTLED_AGE` deleted as redundant; `RETRIEVABILITY_WINDOW` stated as a different object (post-acceptance archive duty, L1 blocks) | R2-LIV-08 | spec/04 DA-05/DA-06, spec/09 |
@@ -62,13 +73,17 @@ remains **not converged**.
 
 ### Verified closed by this round (re-checked, not re-listed)
 Forced-inclusion removal is residual-free (no dangling FI dependency, no rule still assuming an inclusion
-guarantee); the two-epoch lookahead is coherent across CONS-13/MEM-09/ECON-07/09; the per-height lock of
+guarantee) *[superseded 2026-10-06: D-12 re-introduces the `FI-10`–`FI-14` dependency on the
+publication record of D-11, and the residual-free claim holds only for the D-6 snapshot this round
+reviewed]*; the two-epoch lookahead is coherent across CONS-13/MEM-09/ECON-07/09; the per-height lock of
 CONS-04 is unambiguous and matches the published same-height Proof of Safety; the single quorum predicate,
 the single set encoding, hash-based leader selection, L1-resolved epoch→root identity and the churn wiring
 all hold; the consensus-only cap with one enforcement point bounds finalized depth without stranding a
 legitimate extension; the blob fixed-point argument was independently re-derived after the journal change
 and holds under its named premises; the payload-decode and `transactions_root` binding holds for the
-calldata path; the journal and L1-05 agree field for field; D5 is proven for the Etna path; D3 holds with a
+calldata path; the journal and L1-05 agree field for field; D5 is proven for the Etna path *[as D5 then
+read: data and proof in one transaction. D-11 (2026-10-06) relaxes that to proof-gated acceptance with
+data carried or published-and-referenced, so the current claim is the one in `L1-01`/`L1-02`]*; D3 holds with a
 10-of-43 slot budget and no frozen-layout change; D7 holds; ordinary operation needs no privileged party.
 
 ### Round-3 High findings and disposition

@@ -246,12 +246,14 @@ anchor the narrow rule reads. D-7: recovery is selected, and it is not a substit
 <em>This closes review round 3 finding R3-CE-05: selection is stated to be fully predictable and
 slot-buying possible and cheap, and the resistance is bounded by the selection share plus the
 honest-proposer behaviour that ROLE-01(b) expressly does not impose.</em></span>
-<span class="why">Failure mode: presenting statistical inclusion under A-CONS-2 as a per-transaction
-guarantee, or implying an L1 escape path that does not exist, would let a user size exposure on a promise
-the protocol never makes.</span>
+<span class="why">Failure mode: presenting the narrow obligation as a per-transaction inclusion guarantee,
+or letting a user believe it reaches data that was never published — or that a general L1 escape hatch
+exists — would let the user size exposure on a promise the protocol never makes.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
-<span class="small">(the absence of an L1 path is structural; the resistance claim is conditional on
-<a href="../01-requirements-and-threat-model.md">A-CONS-2</a>)</span></div>
+<span class="small">(the narrow obligation is structural and proof-enforced, and the absence of a general
+inclusion path is structural; the residual resistance claim is conditional on
+<a href="../01-requirements-and-threat-model.md">A-CONS-2</a> and
+<a href="../01-requirements-and-threat-model.md">A-L1-1</a>)</span></div>
 
 <div class="rule" id="LIVE-05"><span class="rid">LIVE-05 — halts caused by offline validators: escapability, time bounds, and what remains unbounded</span>
 <span class="norm">This rule states, for each way validators can stop the chain without being Byzantine, exactly what a user can still do and what the protocol does <strong>not</strong> bound. It adds no mechanism: the mechanisms are <a href="03-membership-staking.html#MEM-13">MEM-13</a> (inactivity decay and lapse), <a href="02-consensus.html#CONS-16">CONS-16</a> (L1-time-keyed rotation), <a href="03-membership-staking.html#MEM-15">MEM-15</a> (exit from the last settled state) and <a href="06-recovery-exceptions.html#REC-02">REC-02</a> (recovery), and each bound below is exactly as conditional as the rule it comes from.</span>

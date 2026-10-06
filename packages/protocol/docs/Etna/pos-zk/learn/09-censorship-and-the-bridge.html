@@ -33,34 +33,42 @@
 <div class="content">
 <main>
 <h1>Censorship and the bridge</h1>
-<p class="muted">This lesson gives you two things: the honest inclusion statement &mdash; there is no
-forced-inclusion path and no per-transaction inclusion guarantee &mdash; and the bridge message path,
-including which contracts keep their addresses and what an integrator should check. It also states what
-recovery does not fix: recovery is not an inclusion remedy, and forced inclusion is planned as a later
-protocol update. This is a design description; nothing here is implemented, measured, audited or deployed.</p>
+<p class="muted">This lesson gives you two things: the honest inclusion statement &mdash; the narrow
+forced-inclusion obligation over data published to L1, an upper bound on exclusion and never a
+per-transaction guarantee, plus what remains absent for data that never reaches L1 &mdash; and the bridge
+message path, including which contracts keep their addresses and what an integrator should check. It also
+states what recovery does not fix: recovery is not an inclusion remedy. This is a design description;
+nothing here is implemented, measured, audited or deployed.</p>
 
 <h2>The idea</h2>
-<p>Start with the uncomfortable half. This design has <strong>no forced-inclusion path</strong> and
-<strong>no per-transaction inclusion guarantee</strong> (<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>,
-FI-REMOVED-01). Your transaction gets
-included when an honest proposer includes it. There is no queue, no escrow, no refund and no L1 entry
-point that can force a transaction into L2 or start a withdrawal.</p>
+<p>Start with the uncomfortable half. If your transaction&rsquo;s data reaches L1, the protocol owes you a
+<strong>narrow inclusion obligation</strong>: anyone may publish the data
+(<a href="../spec/04-l1-integration.html#DA-07">DA-07</a>), and from the moment the published record is
+due, a batch must resolve it &mdash; include it in a proven batch, or discharge it as void on objective
+grounds &mdash; within the capped prefix of the due set
+(<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>&ndash;<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>).
+This is an <strong>upper bound on exclusion, never a lower bound on inclusion</strong>: no rule says a
+record must be included by any particular height, and a backlog drains over successive batches instead of
+stopping the chain. What does not exist is a <strong>general inclusion list</strong>: no queue of arbitrary
+transactions, no escrow, no refund and no L1 entry point that can force an <em>unpublished</em> transaction
+into L2 or start a withdrawal.</p>
 <p><strong>Recovery is not an inclusion remedy.</strong> A bonded, delayed recovery can replace unsettled
 history above the last checkpoint accepted on Ethereum
 (<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>), but it cannot put a transaction into a
-block or compel any proposer to include one, so it does not lift an exclusion. This version still has no
-forced-inclusion path, and forced inclusion is planned as a later protocol update
-(<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).</p>
-<p>Proposer selection is weighted random: a coalition with less than one third of the voting power is
-selected for fewer than one third of slots in expectation, so a transaction that reaches honest
-validators is included by the first honest proposer with room for it
-(<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>). But the selection is a public deterministic
-function, so the slot in which a target transaction would be included can be computed in advance and
-bought or coerced, and no rule prices, detects or penalises that. Worse, an adversary that can cut a
-user off from <em>every</em> honest proposer can exclude that user indefinitely &mdash; and because a
-withdrawal is begun by an L2 transaction, the same adversary can prevent the user from starting a
-withdrawal at all. The protocol offers no remedy. That is the whole statement; anything softer would be
-inaccurate.</p>
+block or compel any proposer to include one, so it does not lift an exclusion. It also cannot make
+unpublished data includable: the narrow obligation begins only once the data is on L1.</p>
+<p>For data that never reaches L1, resistance is statistical. Proposer selection is weighted random: a
+coalition with less than one third of the voting power is selected for fewer than one third of slots in
+expectation, so a transaction that reaches honest validators is included by the first honest proposer
+with room for it (<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>). But the selection is a public
+deterministic function, so the slot in which a target transaction would be included can be computed in
+advance and bought or coerced, and no rule prices, detects or penalises that. Worse, an adversary that can
+cut a user off from <em>every</em> honest proposer &mdash; or that can censor L1 inclusion itself &mdash;
+can keep the data off L1 and so exclude that user indefinitely; and because a withdrawal is begun by an L2
+transaction, the same adversary can prevent the user from starting a withdrawal at all. The protocol
+offers no remedy against that. Publishing the data yourself is what moves you from the statistical half to
+the narrow obligation, and only L1 inclusion of that publication is needed for it. That is the whole
+statement; anything softer would be inaccurate.</p>
 <p>The second half is the bridge. A cross-chain message is authenticated against an L1
 <strong>checkpoint</strong> that the settlement Inbox writes when a batch lands with its data and its
 proof. The SignalService, the Bridge and the three vaults keep the addresses they have today, on both
@@ -82,11 +90,11 @@ the immutable checkpoint-writer links are all keyed to those exact addresses.</p
 <text x="48" y="350" fill="#59636e" font-size="10">status: NEW</text> <rect x="192" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="204" y="314" fill="#24292f" font-size="11">SignalService slot</text> <text x="204" y="332" fill="#59636e" font-size="10">keccak256(&ldquo;SIGNAL&rdquo;,</text>
 <text x="204" y="350" fill="#59636e" font-size="10">chainId, app, signal)</text> <rect x="348" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="360" y="314" fill="#24292f" font-size="11">L2 state root</text> <text x="360" y="332" fill="#59636e" font-size="10">the signal is inside</text>
 <text x="360" y="350" fill="#59636e" font-size="10">a certified block</text> <rect x="504" y="292" width="140" height="70" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="516" y="314" fill="#24292f" font-size="11">land(data, proof)</text> <text x="516" y="332" fill="#59636e" font-size="10">one L1 transaction</text>
-<text x="516" y="350" fill="#1a7f37" font-size="10">data + proof together</text> <rect x="660" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="672" y="314" fill="#24292f" font-size="11">L1 checkpoint</text> <text x="672" y="332" fill="#59636e" font-size="10">{blockNumber,</text>
+<text x="516" y="350" fill="#1a7f37" font-size="10">data carried, or published earlier</text> <rect x="660" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="672" y="314" fill="#24292f" font-size="11">L1 checkpoint</text> <text x="672" y="332" fill="#59636e" font-size="10">{blockNumber,</text>
 <text x="672" y="350" fill="#59636e" font-size="10">stateRoot, blockHash}</text> <rect x="816" y="292" width="116" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="828" y="314" fill="#24292f" font-size="11">MPT proof</text> <text x="828" y="332" fill="#59636e" font-size="10">against that</text>
 <text x="828" y="350" fill="#59636e" font-size="10">state root</text> <path d="M176 327 H188" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M332 327 H344" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M488 327 H500" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/>
 <path d="M644 327 H656" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M800 327 H812" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <text x="36" y="392" fill="#59636e" font-size="11">Verification resolves the checkpoint by L2 block number, requires checkpoint.stateRoot == proof.rootHash, then verifies an MPT proof</text> <text x="36" y="410" fill="#59636e" font-size="11">for the remote SignalService account and the SIGNAL-derived slot. The Inbox&rsquo;s own record adds epoch, setRoot, dataCommitment and the accepting L1 block.</text>
-<text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">No forced-inclusion entry point exists: recovery replaces unsettled history, it does not include a censored transaction.</text>
+<text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">Narrow forced inclusion: a published record due on L1 must be resolved within the capped prefix; no general inclusion queue exists, and recovery does not include a censored transaction.</text>
 </svg>
 <figcaption>The top panel shows why inclusion is a statistical property and not a guarantee; the bottom
 panel shows the only path by which a cross-chain message becomes trustworthy.</figcaption>
@@ -94,26 +102,36 @@ panel shows the only path by which a cross-chain message becomes trustworthy.</f
 
 <h2>How it works</h2>
 
-<h3>Censorship, in four sentences</h3>
+<h3>Censorship, in five sentences</h3>
 <ol>
-<li>There is no inclusion duty on any validator: omitting a transaction is not a proposal-validity
-failure and not an offence (CONS-06).</li>
+<li>Publish your transaction&rsquo;s data to L1 and the protocol owes you a narrow obligation: once the
+record is due, a batch must resolve it by the capped FIFO prefix of the due set &mdash; include it in a
+proven batch or discharge it as void on objective grounds
+(<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>&ndash;<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>).
+It is an upper bound on exclusion, not a promise of inclusion at any particular height.</li>
+<li>That obligation reaches only data that is on L1. There is no general inclusion list: no queue, no
+escrow, no fee, and no way to force an unpublished transaction into L2.</li>
+<li>For unpublished data there is no inclusion duty on any validator: omitting a transaction is not a
+proposal-validity failure and not an offence (CONS-06; outside the due prefix the same is true of
+published data).</li>
 <li>Proposer selection is weighted by committed stake and is a pure public function, so a coalition
 holding less than one third of the voting power proposes fewer than one third of slots in expectation
-&mdash; an expectation over windows, not a bound on any particular window.</li>
-<li>Because the schedule is public and deterministic, the slot in which a target transaction would be
-included is computable in advance, and buying or coercing the proposer of that single slot is possible
-and cheap; no rule prices, detects or penalises it.</li>
-<li>A network-level adversary able to isolate a user from every honest proposer can exclude that
-user&rsquo;s transactions indefinitely, and can therefore also prevent the user from starting a
-withdrawal. The protocol offers no remedy; this is a disclosed limitation, not an oversight.</li>
+&mdash; an expectation over windows, not a bound on any particular window. Because the schedule is
+public and deterministic, the slot in which a target transaction would be included is computable in
+advance, and buying or coercing that single slot is possible and cheap; no rule prices, detects or
+penalises it.</li>
+<li>A network-level adversary able to isolate a user from every honest proposer &mdash; or to censor L1
+inclusion itself &mdash; can keep the data off L1 and so exclude that user&rsquo;s transactions
+indefinitely, and can therefore also prevent the user from starting a withdrawal. The protocol offers
+no remedy; this is a disclosed limitation, not an oversight.</li>
 </ol>
 <p>What remains is real but conditional: if a transaction reaches honest validators and an honest
 proposer has room for it, it is included. &ldquo;Room&rdquo; is a behavioural premise, not a protocol
 rule &mdash; nothing defines it, reserves block space, or constrains the proposer&rsquo;s ordering.
-Any interface that implies a per-transaction guarantee, or an L1 escape hatch, is wrong. Recovery
-does not change that: it can replace history that was never settled, but it cannot include a censored
-transaction, so it is not a remedy against isolation.</p>
+Any interface that implies that the narrow obligation is a per-transaction guarantee, that it reaches
+unpublished data, or that an L1 escape hatch exists for arbitrary transactions, is wrong. Recovery
+does not change any of that: it can replace history that was never settled, but it cannot include a
+censored transaction, so it is not a remedy against isolation.</p>
 
 <h3>How a message is authenticated</h3>
 <p>A cross-chain message is a signal inside L2 state, and L2 state is authenticated by the checkpoint
@@ -225,8 +243,9 @@ included the L2 block; it cares that the state root in the checkpoint covers the
 
 <h2>What this gives you</h2>
 <ul>
-<li>An honest inclusion statement you can build a risk model on: no guarantee, statistical resistance
-bounded by the selection share, and a named isolation failure with no remedy.</li>
+<li>An honest inclusion statement you can build a risk model on: a narrow, proof-enforced obligation
+over data published to L1 (an upper bound on exclusion), no general inclusion list, and for unpublished
+data only statistical resistance bounded by the selection share, with a named isolation failure.</li>
 <li>A message authentication path anchored on L1-accepted data and proof, with replay protection,
 domain separation and per-message status.</li>
 <li>Stable integration points: the same SignalService, Bridge and vault addresses on both chains, and
@@ -236,17 +255,18 @@ unchanged slot and message encodings.</li>
 
 <h2>What it does not give you</h2>
 <ul>
-<li>Any per-transaction inclusion guarantee, inclusion duty, or L1 path to force a transaction or start
-a withdrawal. Recovery does not change this: it replaces unsettled history, it does not include a censored
-transaction.</li>
-<li>Any remedy against an adversary that can isolate a user from every honest proposer; exclusion can
-be indefinite.</li>
+<li>A general inclusion list, or any L1 path to force an <em>unpublished</em> transaction into L2 or to
+start a withdrawal. Recovery does not change this: it replaces unsettled history, it does not include a
+censored transaction.</li>
+<li>A promise that a published record is included at, before or by any particular height: the narrow
+obligation is an upper bound on exclusion, and it can discharge a record as void when the record&rsquo;s
+transaction cannot execute.</li>
+<li>Any remedy against an adversary that can isolate a user from every honest proposer, or that can
+censor L1 inclusion itself: if the data never reaches L1, exclusion can be indefinite.</li>
 <li>Protection against slot-buying: selection is predictable and no rule prices or penalises it.</li>
 <li>Early exit: a withdrawal still needs the checkpoint and the delay, and a settlement stall delays it
 until either a batch lands or a recovery completes &mdash; and a recovery can replace an unsettled
 withdrawal message.</li>
-<li>A remedy against isolation: this version has no forced-inclusion path, and forced inclusion is planned as
-a later protocol update.</li>
 <li>Confidence in the recorded addresses beyond the record: they were not chain-verified in the design
 work.</li>
 </ul>
@@ -254,10 +274,13 @@ work.</li>
 <h2>Check yourself</h2>
 <details><summary>A coalition holds 25% of the stake. Can it keep one specific transaction out forever?</summary>
 <p>It proposes fewer than 25% of slots in expectation, so by selection alone, no: the first honest
-proposer with room includes the transaction. But if the coalition can also cut the user off from every
-honest proposer at the network level, then yes &mdash; indefinitely, including preventing a withdrawal
-from being started &mdash; and the protocol has no remedy. A recovery is not a remedy either: it can replace
-unsettled history, but it cannot include the censored transaction.</p></details>
+proposer with room includes the transaction. But if the coalition can also keep the transaction&rsquo;s
+data off L1 &mdash; by cutting the user off from every honest proposer at the network level, or by
+censoring L1 inclusion of the publication &mdash; then yes, indefinitely, including preventing a
+withdrawal from being started, and the protocol has no remedy. If the data does reach L1, the narrow
+obligation applies instead: a due record must be resolved within the capped prefix, so the coalition can
+delay but not ignore it. Recovery is not a remedy either way: it can replace unsettled history, but it
+cannot include the censored transaction.</p></details>
 <details><summary>What is the minimum evidence that an L2&rarr;L1 message may be released?</summary>
 <p>A checkpoint written by a successful <code>land(data, proof)</code> whose state root covers the
 signal, a matching Merkle&ndash;Patricia proof for the remote SignalService account and the
@@ -280,6 +303,8 @@ behavioural premise.</li>
 <li>Users can reach honest proposers at the network level; under isolation this lesson&rsquo;s resistance
 statement does not apply and there is no remedy.</li>
 <li>Ethereum includes transactions and finalizes them; L2 consumes only Ethereum-final L1 facts.</li>
+<li>Somebody publishes a censored transaction&rsquo;s data while an observer holds it; if no observer
+ever holds it, or if L1 inclusion is censored, the narrow obligation never begins.</li>
 <li>Somebody retains accepted batch data and blob sidecars for the retrieval window.</li>
 <li>Preserved addresses are taken from the repository and deployment logs and were not chain-verified
 here.</li>
