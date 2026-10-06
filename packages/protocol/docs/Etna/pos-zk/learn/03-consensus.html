@@ -186,10 +186,10 @@ checkpoint accepted on Ethereum is governed by the recovery rules, not by this o
 proposer is the unique <code>i</code> with <code>cum_{i−1} ≤ pos &lt; cum_i</code>. The intervals are half-open, so
 the proposer is unique and the tie-break is fixed (the lower index wins) (<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>). Anyone holding the epoch's set root can
 recompute the proposer — which also means the next proposer is publicly predictable.</p>
-<p>The round timer is <code>T(H,R) = min(T_max, T_min · 2^min(R − R_progress, R_cap))</code> seconds (<a href="../spec/02-consensus.html#CONS-07">CONS-07</a>), where
+<p>The round timer is <code>T(H,R) = min(TIMEOUT_MAX, TIMEOUT_MIN · 2^min(R − R_progress, R_cap))</code> seconds (<a href="../spec/02-consensus.html#CONS-07">CONS-07</a>), where
 <code>R_progress</code> is the highest round at which this node saw a PoLC or a commit certificate, and
-<code>R_cap = ceil(log2(T_max / T_min))</code>. Proposed values are <code>T_min = 3 s</code> and
-<code>T_max = 30 s</code>, giving a ladder of 3, 6, 12, 24, 30, 30, … seconds; both values are unmeasured, because
+<code>R_cap = ceil(log2(TIMEOUT_MAX / TIMEOUT_MIN))</code>. Proposed values are <code>TIMEOUT_MIN = 3 s</code> and
+<code>TIMEOUT_MAX = 30 s</code>, giving a ladder of 3, 6, 12, 24, 30, 30, … seconds; both values are unmeasured, because
 they depend on the unmeasured message-delay and execution bounds. A correct validator advances to
 <code>(H,R+1)</code> when either the timer expires or it has received a PoLC at <code>(H,R)</code> and completed
 its own precommit step; it must not advance past a commit. A locked validator advances normally — the lock
@@ -272,7 +272,7 @@ therefore reduces to the same case: at least one third of the previous epoch's p
 <h2>What it does not give you</h2>
 <ul>
 <li><strong>No safety without the stake assumption.</strong> With one third or more of an epoch's power malicious or compromised, two conflicting certificates can both be valid, and the ZK proof verifies both.</li>
-<li><strong>No measured timing.</strong> <code>T_min</code>, <code>T_max</code>, the message-delay bound and the block-execution bound are unmeasured; the 3 s / 30 s ladder is a proposal, not a result.</li>
+<li><strong>No measured timing.</strong> <code>TIMEOUT_MIN</code>, <code>TIMEOUT_MAX</code>, the message-delay bound and the block-execution bound are unmeasured; the 3 s / 30 s ladder is a proposal, not a result.</li>
 <li><strong>No liveness guarantee.</strong> A permanently withheld PoLC stalls a locked validator by design; the honest outcome is that it cannot make progress, not that it invents a rule.</li>
 <li><strong>No machine-checked epoch handoff.</strong> The safety argument across an epoch boundary — per-height locks, the parent-validity condition and the epoch anchor — is an argued property, not a machine-checked one. A cross-round divergence under withholding can also leave no admissible evidence, so the claim that at least one third is always objectively punishable is not made.</li>
 <li><strong>No hidden evidence.</strong> A certificate shows one vote per signer; it can never prove that a validator did <em>not</em> also sign something else. Only a conflicting signed pair does that.</li>

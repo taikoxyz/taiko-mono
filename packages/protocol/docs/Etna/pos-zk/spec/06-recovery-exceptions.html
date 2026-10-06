@@ -191,7 +191,7 @@ leave an unsettled depth at or below the depth at which validators stop, so
 <code>D_MAX &middot; L2_BLOCK_INTERVAL &ge; T_PROOF_ENVELOPE + T_SETTLE_PIPELINE + MARGIN_V &middot; L2_BLOCK_INTERVAL</code>,
 equivalently <code>D_MAX &minus; MARGIN_V &ge; (T_PROOF_ENVELOPE + T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL</code>
 (the margin term is <code>MARGIN_V &middot; L2_BLOCK_INTERVAL</code>, in seconds, because
-<code>MARGIN_V</code> is measured in L2 blocks). Because this rule derives <code>D_MAX</code> from
+<code>MARGIN_V</code> is measured in L2 blocks). <em>(registration audit: the seconds-form allowance of this inequality is the registered <code>MARGIN_D</code>, with <code>MARGIN_D &ge; MARGIN_V &middot; L2_BLOCK_INTERVAL</code>, as stated in <a href="09-parameters.html#PARAM-01">09</a>.)</em> Because this rule derives <code>D_MAX</code> from
 <code>RETENTION_WINDOW</code>, the inequality is also a lower bound on the retention window: in
 particular <code>RETENTION_WINDOW</code> MUST be large enough that
 <code>floor((RETENTION_WINDOW &minus; T_PROOF_MAX_PERMITTED &minus; T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL) &minus; MARGIN_V &ge; (T_PROOF_ENVELOPE + T_SETTLE_PIPELINE) / L2_BLOCK_INTERVAL</code>
