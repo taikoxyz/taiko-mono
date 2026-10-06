@@ -137,6 +137,14 @@ impl Client {
         Ok(block_state.anchorBlockNumber.to::<u64>())
     }
 
+    /// Refuse an execution engine this client cannot drive: one without the Osaka Engine API
+    /// methods ([`Client::check_engine_capabilities`]), or one whose L2 head contradicts the
+    /// client's Etna fork schedule ([`Client::check_etna_schedule`]).
+    pub async fn check_execution_engine(&self) -> Result<()> {
+        self.check_engine_capabilities().await?;
+        self.check_etna_schedule().await
+    }
+
     /// Verify that the L2 `latest` head agrees with the client's Etna fork schedule.
     ///
     /// The execution engine gives every non-genesis Etna block a nonzero `parentBeaconBlockRoot`
