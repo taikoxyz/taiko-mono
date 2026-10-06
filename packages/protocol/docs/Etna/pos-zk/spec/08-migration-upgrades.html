@@ -375,6 +375,8 @@ stall-resolution state (the generation counter, the queued timestamp and height 
 PARAM-04's per-epoch configuration registry, all on the contract each rule names; the withdrawn recovery
 record, bond, attempt history and retirement record are removed from the budget, freeing slots 270–274,
 and the free-slot figures and the completeness claim are re-derived.)</em></p>
+
+<h3 id="genesis-record">The genesis checkpoint record written at activation</h3>
 <p><strong>Normative.</strong> In the same transaction as T3 (MIG-03), <code>activateEtna(B*, S*)</code> MUST write the boundary object as the
 <em>first</em> L1-07 checkpoint record, and that write MUST satisfy every L1-07 MUST. The only fields the
 bundle may not derive are read from the equalities T3 already checks:</p>
@@ -799,7 +801,7 @@ acceptance rule (<a href="04-l1-integration.html#L1-05">L1-05</a> row 31,
 <a href="05-proof-statement.html#PRF-02">PRF-02</a>). No height is retired and no
 <code>max(lastLandedHeight + 1, resumeHeight)</code> contiguity form survives: the signed generation is what
 makes the discarded branch's certificates unlandable, and the discarded range is re-produced from
-<code>resumeHeight</code> under the new generation.
+<code>lastLandedHeight + 1</code> under the new generation.
 <br>(g) <strong>Disclosed assumption.</strong> Clearing a settlement stall depends on governance liveness with
 no protocol bound: the trigger fixes when an entry <em>may</em> be queued, not that it will be. A captured or
 coerced governance could also act opportunistically within this rule, waiting for any genuine stall and having
