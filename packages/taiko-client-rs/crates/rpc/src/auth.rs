@@ -23,6 +23,11 @@ use crate::{
 /// Re-export of Taiko's pre-built transaction list type using untyped transactions.
 pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
 
+/// The Engine API methods this client calls, for every fork: the Osaka methods alethia-reth
+/// serves since it removed the V2 methods.
+pub const REQUIRED_ENGINE_METHODS: [&str; 3] =
+    ["engine_forkchoiceUpdatedV3", "engine_getPayloadV5", "engine_newPayloadV4"];
+
 /// Parameters for fetching pre-built transaction lists with minimum tip.
 pub struct TxPoolContentParams {
     /// Beneficiary used for txpool list filtering on the engine side.
@@ -104,7 +109,35 @@ fn engine_forkchoice_updated_v3_params(
     Ok((forkchoice_state, payload_attributes))
 }
 
+/// Check the execution engine's advertised Engine API methods against
+/// [`REQUIRED_ENGINE_METHODS`], returning [`RpcClientError::EngineMethodsUnsupported`] naming the
+/// missing ones.
+pub fn check_engine_capabilities(advertised: Vec<String>) -> Result<()> {
+    let missing = REQUIRED_ENGINE_METHODS
+        .into_iter()
+        .filter(|method| !advertised.iter().any(|advertised| advertised == method))
+        .collect::<Vec<_>>();
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(RpcClientError::EngineMethodsUnsupported { missing, advertised })
+    }
+}
+
 impl Client {
+    /// Verify through `engine_exchangeCapabilities` that the execution engine serves every
+    /// method in [`REQUIRED_ENGINE_METHODS`] ([`check_engine_capabilities`]).
+    ///
+    /// An execution engine from before the Osaka switch advertises only the V2 methods, so pairing
+    /// it with this client fails here at startup instead of on the first Engine API call.
+    pub async fn check_engine_capabilities(&self) -> Result<()> {
+        let advertised = self
+            .l2_auth_provider
+            .raw_request(Cow::Borrowed("engine_exchangeCapabilities"), (REQUIRED_ENGINE_METHODS,))
+            .await?;
+        check_engine_capabilities(advertised)
+    }
+
     /// Issue an L1-origin lookup against the given provider, mapping ignorable engine errors to
     /// `Ok(None)` and converting the transport wrapper into the public [`RpcL1Origin`] type.
     pub(crate) async fn request_l1_origin<Params: RpcSend>(
@@ -306,6 +339,35 @@ mod tests {
     use super::*;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types_engine::{ExecutionPayloadV1, ExecutionPayloadV2, ExecutionPayloadV3};
+
+    /// Owned capability list naming `methods`.
+    fn advertised(methods: &[&str]) -> Vec<String> {
+        methods.iter().map(|method| method.to_string()).collect()
+    }
+
+    #[test]
+    fn engine_capabilities_require_every_osaka_method() {
+        assert!(check_engine_capabilities(advertised(&REQUIRED_ENGINE_METHODS)).is_ok());
+        let mut superset = advertised(&REQUIRED_ENGINE_METHODS);
+        superset.push("engine_getBlobsV1".to_string());
+        assert!(check_engine_capabilities(superset).is_ok());
+
+        let v2 = ["engine_forkchoiceUpdatedV2", "engine_getPayloadV2", "engine_newPayloadV2"];
+        let err = check_engine_capabilities(advertised(&v2)).unwrap_err();
+        assert!(
+            matches!(
+                &err,
+                RpcClientError::EngineMethodsUnsupported { missing, advertised: list }
+                    if missing == &REQUIRED_ENGINE_METHODS && list == &advertised(&v2)
+            ),
+            "unexpected error: {err:?}"
+        );
+
+        let err = check_engine_capabilities(advertised(&REQUIRED_ENGINE_METHODS[..2]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains(r#"["engine_newPayloadV4"]"#), "{err}");
+    }
 
     #[test]
     fn ignorable_origin_errors_cover_all_engine_lookup_miss_messages() {

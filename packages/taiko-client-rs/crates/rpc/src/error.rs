@@ -68,6 +68,19 @@ pub enum RpcClientError {
         expected_fork: &'static str,
     },
 
+    /// The execution engine does not advertise every Engine API method the client calls.
+    #[error(
+        "the execution engine does not serve {missing:?} (it advertises {advertised:?}); this \
+         client calls only engine_forkchoiceUpdatedV3, engine_getPayloadV5 and \
+         engine_newPayloadV4, so it needs an alethia-reth release with the Osaka Engine API"
+    )]
+    EngineMethodsUnsupported {
+        /// Required methods missing from the engine's list.
+        missing: Vec<&'static str>,
+        /// Methods the engine advertised through `engine_exchangeCapabilities`.
+        advertised: Vec<String>,
+    },
+
     /// Generic error
     #[error(transparent)]
     Other(#[from] anyhow::Error),
