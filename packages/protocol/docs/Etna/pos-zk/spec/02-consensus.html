@@ -427,7 +427,7 @@ parent-hash linkage of the batch's headers back to the previously L1-accepted ch
 <code>B1</code> at <code>H1</code> implies its ancestors by the same invariant (<a href="../04-architecture-decision.md">04 §2</a>). The premise — correct
 validators enforce the parent relation (<a href="#CONS-01">CONS-01</a>(iii)) and the lock rule — is stated as such, and a violation that takes the form of a
 same-(height, round) conflicting pair is objectively slashable (<a href="#CONS-11">CONS-11</a>); other lock violations are not independently provable
-(<a href="#CONS-09">CONS-09</a>(4)(a)).</span> <span class="why">Failure mode: reading the quorum rule as a guarantee of uniqueness without its premises, or claiming that the proof system
+(<a href="#CONS-09">CONS-09</a>(4)(a)). <em>This closes the parent-gap finding in the per-batch certificate argument (pr-reply-3 item 4).</em></span> <span class="why">Failure mode: reading the quorum rule as a guarantee of uniqueness without its premises, or claiming that the proof system
 upgrades a two-thirds assumption into a safety guarantee; both produce a system that misstates its own failure boundary.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="small">(cross-epoch component, per CONS-09/F1)</span></div>
 <div class="rule" id="CONS-13"><span class="rid">CONS-13 — epoch length, set-commitment timing and two-epoch lookahead</span> <span class="norm">(1)
@@ -544,7 +544,7 @@ height</strong> <code>h_close(e)</code> — the highest height any validator has
 <code>h_first(e')</code> therefore stays non-decreasing in <code>e'</code>, every epoch before <code>e+1</code> keeps the boundary it had, and no boundary that has governed a produced height
 is ever changed. Heights <code>h_close(e)+1 &hellip; h_last(e)</code> — none of which any validator produced — are thereby assigned to <code>e_r</code>. <strong>The rotation retires no
 height and writes no <code>resumeHeight</code>:</strong> <a href="06-recovery-exceptions.html#REC-02">REC-02</a>'s record remains the only retirement record and
-<a href="04-l1-integration.html#L1-06">L1-06</a>'s contiguity equality is untouched, because the height sequence stays contiguous; the parent of the first block of <code>e_r</code> is the
+<a href="04-l1-integration.html#L1-06">L1-06</a>'s contiguity equality is untouched — the rotation introduces no gap of its own (a gap left by an earlier completed retirement is <a href="06-recovery-exceptions.html#REC-04">REC-04</a>'s and is neither created nor closed here) — and the parent of the first block of <code>e_r</code> is the
 block at <code>h_close(e)</code>, and the anchor duty of <a href="#CONS-09">CONS-09</a>(1) applies with <code>h_close(e)</code> in place of <code>h_last(e)</code>. Nothing at or below
 the latest L1-accepted checkpoint changes (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>), no produced block is discarded, and no produced height is re-judged.
 <br>(4) <strong>Interaction with the two-epoch lookahead and the L1-derived set roots.</strong> The epoch&rarr;set-root chain stays an L1 fact end to end. The L1-side clock keeps
