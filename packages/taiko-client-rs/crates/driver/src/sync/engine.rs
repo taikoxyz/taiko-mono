@@ -340,7 +340,7 @@ fn ensure_valid_payload_status(
 /// referenced head (which can be unknown or temporarily unprocessable) rather than a
 /// deterministic verdict on the submitted payload's content, so callers must remain free to
 /// retry it.
-fn ensure_valid_forkchoice_status(
+pub(crate) fn ensure_valid_forkchoice_status(
     block_number: u64,
     status: PayloadStatusEnum,
 ) -> Result<(), EngineSubmissionError> {
