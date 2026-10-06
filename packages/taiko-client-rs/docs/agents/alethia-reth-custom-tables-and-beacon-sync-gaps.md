@@ -73,7 +73,8 @@ backward from the head (`alethia-reth/crates/rpc/src/eth/auth/lookup.rs`). The s
 block without transactions or whose tx 0 calldata does not start with the `anchorV4` selector (it
 does not check the sender or recipient). Etna blocks have no anchor transaction and may be empty,
 so the scan usually stops at the first Etna block it meets and reports the batch as not found.
-This is still open in alethia-reth #248.
+This is still open in alethia-reth #248. Keying the scan on the `proposalId` in bytes 1..7 of
+`extraData`, which both the 7-byte and the 13-byte layouts carry, would fix it without the anchor.
 
 Until it is fixed, a node that beacon-syncs onto Etna history has no batch-mapping rows for those
 blocks, and derivation's parent lookup (`load_parent_block` in
