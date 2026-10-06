@@ -7,12 +7,14 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_rpc_types::Header as RpcHeader;
 use alloy_signer_local::PrivateKeySigner;
 use flate2::{Compression, write::ZlibEncoder};
+use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
+use tokio::sync::mpsc;
 
 use crate::{
     api::{
         service::{
             HAND_OVER_WINDOW_SLOTS, SHUTDOWN_BLOCK_WINDOW, SHUTDOWN_IMMINENCE_MARGIN_SLOTS,
-            WhitelistApiService, can_shutdown_for,
+            WhitelistApiService, WhitelistApiServiceParams, can_shutdown_for,
             payload_build::{driver_payload_from_request, published_envelope},
         },
         types::ExecutableData,
@@ -23,6 +25,7 @@ use crate::{
         decompress_tx_list, encode_envelope_ssz,
     },
     error::WhitelistPreconfirmationDriverError,
+    test_support::OfflineDeps,
 };
 
 /// Mainnet slots-per-epoch used by the shutdown tests.
@@ -118,6 +121,42 @@ fn sample_inserted_header(difficulty: U256, base_fee_per_gas: Option<u64>) -> Rp
         },
         ..Default::default()
     }
+}
+
+/// Build the REST service over offline dependencies with Etna at `etna_fork_timestamp`.
+fn offline_service(deps: &OfflineDeps, etna_fork_timestamp: Option<u64>) -> WhitelistApiService {
+    let (network_command_tx, _) = mpsc::channel(1);
+    WhitelistApiService::new(WhitelistApiServiceParams {
+        event_syncer: deps.event_syncer.clone(),
+        rpc: deps.rpc.clone(),
+        chain_id: deps.rpc.chain_id,
+        etna_fork_timestamp,
+        signer: PrivateKeySigner::random(),
+        beacon_client: deps.beacon_client.clone(),
+        operator_set: Default::default(),
+        state: SharedPreconfState::new(0),
+        network_command_tx,
+    })
+}
+
+/// A build request is validated under the service's own Etna schedule: an Etna request (no
+/// anchor, a nonzero root, 13-byte `extraData`) passes once Etna is active at its timestamp and
+/// is refused while Etna is not scheduled.
+#[tokio::test]
+async fn build_request_validation_follows_the_service_etna_schedule() {
+    let deps = OfflineDeps::new(TAIKO_DEVNET_CHAIN_ID, Address::repeat_byte(0x44)).await;
+    let data = sample_executable_data(Some(SAMPLE_ETNA_ROOT));
+
+    offline_service(&deps, Some(data.timestamp))
+        .validate_request_payload(&data, B256::ZERO)
+        .expect("an Etna request passes once Etna is active");
+    let err = offline_service(&deps, None)
+        .validate_request_payload(&data, B256::ZERO)
+        .expect_err("an Etna request is refused while Etna is not scheduled");
+    assert!(
+        matches!(err, WhitelistPreconfirmationDriverError::InvalidPayload(_)),
+        "unexpected error: {err:?}"
+    );
 }
 
 #[test]
