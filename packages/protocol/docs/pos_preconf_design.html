@@ -721,7 +721,9 @@
           <strong>Data retention.</strong> Validators must have the full payload before voting and keep it until the
           corresponding proposal is finalized on L1. Landing, and re-landing after an L1 reorg, depend on it. For
           dropped blocks, B's CometBFT header, commit, <code>DataHash</code>-to-tx0 Merkle path and EVM header are
-          kept until the next generation's first proposal lands.
+          kept until the next generation's first proposal is proven and its L1 block is finalized. Keeping them only
+          until it lands is not enough: an L1 reorg can remove that landing, landing again needs the same evidence, and
+          a reorged-out blob may not be retrievable. A proof of zero blocks also means landing again.
         </li>
         <li>
           <strong>Alignment with Etna derivation.</strong> Production stops when unlanded committed blocks approach the
