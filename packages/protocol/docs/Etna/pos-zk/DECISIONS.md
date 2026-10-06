@@ -419,3 +419,49 @@ evaluation from the very bytes it already executed. A precompile-less reference 
 require the guest to recompute each blob's KZG commitment (MSM) or verify the opening (pairings)
 in-guest, and both are recorded as UNVERIFIED on both backends.
 
+
+
+## D-14 — Liveness by L1 heartbeat eligibility; no rule removes weight (resolves F5, closes F6)
+
+**Decision (design owner, 2026-10-06):** the inactivity decay is **withdrawn**. No rule reduces a
+validator's weight. Instead, eligibility for a future epoch's set version requires an **L1
+liveness attestation (heartbeat)** within a window: a validator that stops attesting is simply
+**not selected** into the next committed set version. Its stake, weight and standing are
+untouched, and re-attesting restores eligibility for the following boundary.
+
+**Why B over the bounded-decay option.** Decay bounds the F5 hazard but does not remove it, and
+— decisively — it cannot repair the failure it was commissioned for: participation evidence is
+written by `land`, so a full stall writes none, every validator's record goes stale together,
+decay becomes uniform, and ratios are preserved. It therefore covered **attrition only**, and
+only up to a third offline (the safety guard blocks removal beyond that). A ransom attack is a
+cohort going silent *at a moment*, which is exactly the case decay is blind to.
+
+**Mechanism.**
+- A validator registers an **ECDSA (secp256k1) heartbeat key on L1 at bonding time**, distinct
+  from its Ed25519 consensus vote key, because L1 has no Ed25519 precompile and `ecrecover` is
+  cheap. Both keys bind to the same entry.
+- `lastHeartbeatAt(v)` is recorded on L1; anyone may submit a heartbeat, and a relayer MAY batch
+  many signatures in one transaction — the protocol does not care who pays.
+- A validator is **eligible** for the set version committed for epoch *e* iff it attested within
+  `HEARTBEAT_WINDOW` ending at that version's commit point (the existing two-epoch lookahead).
+  Ineligible entries are **excluded from the root**, never decayed.
+- `CONS-16`'s L1-time rotation draws the restart epoch's set from eligible validators, so a
+  stalled chain resumes with a set that is demonstrably reachable.
+- No confiscation, no slashing, no weight change: D7 and D-9 are untouched.
+
+**Safety.** No rule removes weight within a set version, so a coalition below one third cannot
+gain share by rule and `A-CONS-1`'s per-set-version framing stands unmodified. Excluding an
+honest validator requires **censoring its own L1 heartbeat**, a far stronger assumption than an
+L2 stall.
+
+**Liveness.** A cohort that stops attesting is excluded at the next boundary; the remaining
+eligible weight becomes the whole of `W'`, so the quorum predicate is reachable and production
+resumes.
+
+**Honest costs, to be stated in the specification.** A periodic L1 transaction per validator per
+window; a second key per validator and its registration; an operational lapse becomes an outage
+(a validator that forgets to attest loses its slot until it re-enters); and if the honest
+majority's L1 heartbeats can be censored, exclusion returns — recorded as the new falsifier.
+
+**Status:** decided; specification changes in flight.
+
