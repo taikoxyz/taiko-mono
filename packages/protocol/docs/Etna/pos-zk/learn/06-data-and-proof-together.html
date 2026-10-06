@@ -93,9 +93,9 @@ blobs.</p>
   <text x="299" y="55" fill="#59636e" font-size="10" text-anchor="middle">publish</text>
   <line x1="602" y1="63" x2="656" y2="63" stroke="#9a6700" marker-end="url(#e)"></line>
   <text x="629" y="55" fill="#59636e" font-size="10" text-anchor="middle">record</text>
-  <line x1="145" y1="108" x2="145" y2="176" stroke="#0969da" marker-end="url(#d)"></line>
-  <text x="152" y="140" fill="#59636e" font-size="10">carried</text>
-  <polyline points="790,108 790,130 470,130 470,176" fill="none" stroke="#9a6700" marker-end="url(#e)"></polyline>
+  <polyline points="250,106 250,150 175,150 175,178" fill="none" stroke="#0969da" marker-end="url(#d)"></polyline>
+  <text x="256" y="132" fill="#59636e" font-size="10">carried</text>
+  <polyline points="790,108 790,130 470,130 470,178" fill="none" stroke="#9a6700" marker-end="url(#e)"></polyline>
   <text x="600" y="124" fill="#59636e" font-size="10">referenced while live</text>
   <rect x="20" y="140" width="900" height="190" rx="10" fill="#ffffff" stroke="#d8dee4" stroke-dasharray="6 4"></rect>
   <text x="40" y="166" fill="#24292f" font-size="13">One accepting transaction: land(data, proof)</text>
@@ -336,8 +336,7 @@ argument.</li>
 <li>A blob path that still binds the executed bytes to the published blobs when they were carried in the
 accepting transaction or referenced through a publication record, using an L1 precompile for the
 cryptographic opening and in-guest field arithmetic for the evaluation.</li>
-<li>Permissionless landing: any account may submit a valid submission &mdash; data carried or bound to a
-live publication record, plus a proof &mdash; and re-submission is allowed until one lands.</li>
+<li>Permissionless landing: any account may land a batch with a valid proof and data carried or bound to a live publication record, and re-submission is allowed until one lands.</li>
 <li>A clean failure story: a failed verification reverts and changes nothing, and an expired publication
 is simply replaced, so there is nothing to reconcile afterwards.</li>
 </ul>
