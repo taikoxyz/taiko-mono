@@ -39,8 +39,8 @@
 <p class="muted">This lesson explains how a batch&rsquo;s data reaches Ethereum and how the accepting
 transaction binds it: one proof-gated call, carrying the proof and either the data itself or a reference
 to a live publication record. It covers publication before the proof and what publication writes, the
-calldata and blob bindings, how the proof binds the configuration and recovery generation it was
-certified under, and what happens when verification fails. This is a design: nothing is deployed, and
+calldata and blob bindings, how the proof binds the configuration and the signed recovery
+generation, and what happens when verification fails. This is a design: nothing is deployed, and
 the costs below are arithmetic on published constants, not measurements of this system.</p>
 
 <h2>The idea</h2>
@@ -58,9 +58,11 @@ only when a proof references it. A publication that is not proven before its dea
 can be published again &mdash; it never becomes a second acceptance path.</p>
 <p>The statement also binds <strong>the configuration under which the batch was certified and the recovery
 generation it belongs to</strong>. A proof is therefore evidence about one specific history: it cannot be
-replayed into a different configuration, and a batch certified before a recovery cannot be presented as an
-extension of the restored checkpoint. Execution validity alone is never enough to accept an alternative
-history (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
+replayed into a different configuration, and a batch whose certificate carries a superseded generation is
+void at the acceptance rule. v1 has no recovery path, so the generation never advances here and no height is
+ever retired; the binding is the scoping rule a future update would exercise, not a rule that fires in v1.
+Execution validity alone is never enough to accept an alternative history
+(<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
 <p>Data can travel in two forms. <strong>Calldata</strong> is ordinary transaction input; the
 contract can read it, so the contract itself hashes the exact bytes and nothing is left to trust.
 <strong>Blobs</strong> are the cheaper bulk-data form introduced by EIP-4844, but the EVM cannot
@@ -258,7 +260,7 @@ generation, so a proof that was valid for one configuration or generation cannot
 The configuration is not a single mutable global value: the Inbox keeps an <strong>append-only per-epoch
 registry</strong> mapping each epoch to its <code>configHash</code>. The entry is computed by the contract
 from its own storage and deployed code, written <strong>before the epoch starts</strong>, and
-<strong>immutable once written</strong>: no upgrade, recovery path or governance call may edit or rewrite
+immutable once written</strong>: no upgrade or governance call may edit or rewrite
 the entry of an epoch that has already begun, so an upgrade binds future epochs only
 (<a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>). That immutability is what keeps upgrades from
 breaking settlement. If the configuration could change under a running epoch, a routine upgrade would move
@@ -266,22 +268,20 @@ the configuration hash, and every in-flight proof &mdash; made under the configu
 when the batch was certified and executed &mdash; would fail verification, leaving its batch unlandable.</p>
 <p>The guest recomputes <code>configHash</code> from the configuration it actually applied and requires
 equality with the registry value the L1 contract supplies
-(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>). When a recovery completes, it restores the
-last checkpoint accepted on Ethereum and starts a new recovery generation. A batch from an older generation
-is <strong>void</strong>, and so is any batch that starts below the retired height: the
-completion transition records <code>resumeHeight</code>, and a batch must start at
-<code>max(lastLandedHeight + 1, resumeHeight)</code>, so a discarded range can never be landed or certified,
-at any generation, by anyone, while a batch that starts exactly at <code>resumeHeight</code> is the intended
-resumption point and is landable (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>,
-<a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>). The generation is a cheap invalidation of
-proofs that were already generated; the retired height is what makes the discarded range unlandable. That
-distinction matters for accountability: a late certificate or proof for a replaced height is not excused,
-and it remains usable as evidence in a slashing case
+(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>). The recovery generation is carried in the
+signed vote and header bytes and is part of the statement. A certificate carrying a superseded generation is
+<strong>void</strong> at the acceptance rule, and that is what stops a branch scoped to an older generation
+from ever being accepted again. v1 has no recovery path, so nothing increments the generation here: there is
+no restoration, no retired height and no <code>resumeHeight</code>. Every batch starts at
+<code>lastLandedHeight + 1</code>, the ordinary contiguity rule
+(<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). The generation scoping is the rule a future
+protocol update would have to exercise; in v1 it is inert, and a certificate from any generation remains
+usable as evidence of what was signed
 (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
 <p>What this rules out is the tempting shortcut of accepting an alternative history just because its
-execution is valid. A batch that does not descend from the current checkpoint, that was certified under a
-stale recovery generation, or that begins below the retired height, fails acceptance even if every
-execution step inside it is correct.</p>
+execution is valid. A batch that does not descend from the current checkpoint, or whose certificate carries
+a generation other than the one the contract supplies, fails acceptance even if every execution step inside
+it is correct.</p>
 
 <h3>7. What a failed verification does</h3>
 <p>Nothing is accepted. If the proof is invalid, if a blob opening fails, if a referenced publication is
@@ -326,11 +326,10 @@ when the data is carried, or the publication transaction when it is published ea
 to create a pending batch state, and no second path that can accept a batch.</li>
 <li>A permissionless publication path: data can be on Ethereum before the proof, publishing writes no
 batch state, and a record that is not proven before its deadline is discarded and re-published by anyone.</li>
-<li>A statement that also binds the per-epoch configuration and the recovery generation: the
+<li>A statement that also binds the per-epoch configuration and the signed recovery generation: the
 configuration entry for an epoch is fixed before the epoch starts and immutable once written, so an upgrade
-cannot move the configuration hash under an in-flight proof, and a batch that starts below the retired
-height cannot land at any generation, while a batch that starts exactly at <code>resumeHeight</code> is the
-intended resumption point and does land.</li>
+cannot move the configuration hash under an in-flight proof, and a certificate carrying a superseded
+generation is void at the acceptance rule.</li>
 <li>A calldata path whose binding is a hash the contract computes itself, with no probabilistic
 argument.</li>
 <li>A blob path that still binds the executed bytes to the published blobs when they were carried in the
@@ -358,9 +357,9 @@ keeping the accepting or publication transaction&rsquo;s bytes.</li>
 copying a public proof is allowed.</li>
 <li>No measured cost or in-guest blob-evaluation cost; the blob binding&rsquo;s fixed-point argument
 has not yet been independently checked.</li>
-<li>No way to land a discarded range: a batch from an older generation is void, and a batch whose range
-starts below the retired height (<code>resumeHeight</code>) is rejected at every generation, by
-anyone, though its proof remains usable as evidence of what was certified and executed.</li>
+<li>No way to land a batch whose certificate carries a superseded generation once a future update advances
+it, though its proof remains usable as evidence of what was certified and executed. In v1 the generation
+never advances, nothing is retired and no range is discarded.</li>
 </ul>
 
 <h2>Check yourself</h2>
@@ -391,15 +390,14 @@ assumptions.</p></details>
 for a different batch, because the range, predecessor, data commitment, epoch and set root are all inside
 the statement hash. A prover who wants to avoid this uses private orderflow or bundles its own landing
 transaction.</p></details>
-<details><summary>A batch certified before a recovery has a valid proof. Can it be landed above the
-restored checkpoint?</summary>
-<p>No. Its range begins below the retired height <code>resumeHeight</code>, and the contiguity rule
-rejects such a batch at every generation, by anyone; the statement also binds the recovery generation, so
-the proof is void for canonical purposes even though the execution it attests to was correct. A batch that
-starts exactly at <code>resumeHeight</code>, by contrast, is the intended resumption point and does land.
-The generation only invalidates proofs that were already generated &mdash; the retired height is what makes
-the discarded range unlandable. It stays usable as evidence, for example in a slashing case about what that
-validator set signed.</p></details>
+<details><summary>The statement binds a recovery generation. What does that mean in v1?</summary>
+<p>It scopes certificates: a certificate carrying a generation other than the one the L1 contract supplies is
+void at the acceptance rule, so a branch certified under a superseded generation can never be accepted
+again. v1 has no recovery path, so nothing advances the generation and no height is retired; every batch
+still starts at <code>lastLandedHeight + 1</code>. A settlement stall halts the chain instead of replacing
+history, funds at or below the last accepted checkpoint stay safe and the exit works, and clearing the stall
+needs a future protocol update. A certificate from any generation remains usable as evidence of what its
+signers signed.</p></details>
 <details><summary>Why can a routine upgrade not invalidate the proofs that are already in flight?</summary>
 <p>Because the configuration is registered per epoch. Each epoch&rsquo;s <code>configHash</code> is written
 before the epoch starts and is immutable once written, and an upgrade binds future epochs only. With a

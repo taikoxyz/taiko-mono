@@ -44,7 +44,7 @@
 <h2 id="idea">The idea</h2>
 <p>Two assets do two different jobs. <strong>TAIKO</strong> is what a validator bonds and can lose: it is the staking and slashable collateral asset, held in one L1 custody ledger. <strong>ETH</strong> is what the chain earns and spends: L2 execution fees are paid in ETH, L1 data and verification costs are paid in ETH, and validator rewards are denominated and paid in ETH. Gas stays ETH.</p>
 <p>A reward is a nominal ETH amount fixed when it is awarded. The protocol says nothing about its fiat value, and no rule may be conditioned on TAIKO&rsquo;s price rising. A reward schedule that only works if the token appreciates is an unfunded promise: TAIKO has no mint function today, so a reward funded by new TAIKO would need a token upgrade, and the reward pool can pay out only what has actually flowed into it.</p>
-<p>A penalty is not a mood and not a discretion. Exactly two kinds of behaviour are objectively provable from signed messages, and only a proven offence consumes stake. The size of the penalty is a function of how much of the epoch&rsquo;s voting power the offence implicated, so a single misbehaving validator pays a small amount while a coalition that approaches the one-third safety boundary loses everything it bonded for that epoch. Silence is not on the offence list: a validator that stops attesting keeps its stake, loses its place in future set versions until it attests again, and forfeits only the rewards it did not earn.</p>
+<p>A penalty is not a mood and not a discretion. Exactly two kinds of behaviour are objectively provable from signed messages, and only a proven offence consumes stake. The size of the penalty is a function of how much of the epoch&rsquo;s voting power the offence implicated, so a single misbehaving validator pays a small amount while a coalition that approaches the one-third safety boundary loses everything it bonded for that epoch. Silence is not on the offence list: a validator that stops attesting keeps its stake and its place in every committed set version, and forfeits only the rewards it did not earn.</p>
 <p>Exit is an ordered queue, not a switch. A validator that asks to leave keeps validating and stays fully slashable until its exit takes effect, and even then its stake is held until every evidence window it was exposed to has closed. The delay exists because the offence clock starts on L2, possibly long before the batch is provable, and publishing data to L1 before its proof settles nothing: the delay has to cover the whole path from offence to L1-applied penalty.</p>
 
 <h2 id="diagram">The money path</h2>
@@ -103,10 +103,9 @@
 <figcaption>The reward pool pays only what has flowed into it. Fees are ETH, the pool is ETH, the payouts are ETH; TAIKO never leaves the custody ledger except through an owner withdrawal, and a proven offence debits it there and sends the debit to the protocol treasury, less a reporter bounty strictly below the total penalty.</figcaption>
 </figure>
 
-<!-- <em>D-14: heartbeat gas and keys are validator costs; selectability is separate from reward.</em> -->
 <h2 id="how">How it works</h2>
 <h3>1. What a validator pays for</h3>
-<p>A validator runs a node and holds capital. The node costs are ETH: hardware able to execute a worst-case block inside the two-second cadence, bandwidth for gossip and block fetches, storage for L2 state plus the retention window, an Ethereum client of its own for L1 finality evidence, L1 gas for bonding, exiting, submitting evidence and posting the periodic liveness heartbeat (anyone may submit it and a relayer may batch many signatures into one transaction, though the gas is still paid by someone), plus the second heartbeat key, and the labour to operate all of it. The capital cost is the TAIKO it locks plus the opportunity cost of locking it for the duration of the unbonding delay.</p>
+<p>A validator runs a node and holds capital. The node costs are ETH: hardware able to execute a worst-case block inside the two-second cadence, bandwidth for gossip and block fetches, storage for L2 state plus the retention window, an Ethereum client of its own for L1 finality evidence, L1 gas for bonding, exiting and submitting evidence, and the labour to operate all of it. The capital cost is the TAIKO it locks plus the opportunity cost of locking it for the duration of the unbonding delay.</p>
 <p>Write <code>C_op</code> for the annual operating cost of one validator in ETH, <code>S</code> for the TAIKO it bonds, and
 <code>&rho;_capital</code> for the annual ETH return it requires per unit of bonded TAIKO (risk-free rate plus an illiquidity premium for the unbonding delay, an expected-slashing-loss premium and a price-risk premium). The annual bill for <code>n</code> validators is
 <code>n &middot; (C_op + &rho;_capital &middot; S)</code> ETH. Every term is <span class="tag">unmeasured</span> for this design: there is no operations study, no cost-of-capital observation and no measured node cost.</p>
@@ -119,8 +118,7 @@
 <p>Payment runs through the reward pool held by the L1 staking contract:</p>
 <ul>
 <li><strong>Participation is attested, not assumed.</strong> When <code>land(data, proof)</code> accepts a batch it writes the head certificate&rsquo;s authenticated signer bitmap into the staking contract&rsquo;s per-epoch participation accumulator. Nothing else may set a participation bit, and a payout is never made on presence in the set or on bonded balance alone.</li>
-<!-- <em>D-14: heartbeat eligibility is separate from participation rewards.</em> -->
-<li><strong>Staying selectable is a separate duty from being paid.</strong> A payout requires a signature that a landed batch attests through the signer bitmap; selection into a future set version requires a heartbeat on L1. A validator that misses both loses the slot and the rewards that come with it, and loses no stake.</li>
+<li><strong>Being in the set is not a duty a validator renews.</strong> A payout requires a signature that a landed batch attests through the signer bitmap, so a validator that does not sign earns nothing for the batches it did not sign. Membership itself has no liveness gate: the set version was committed on L1 two epochs ahead, and no rule removes an entry from it for going quiet. Silence loses the unearned rewards and no stake.</li>
 <li><strong>Each epoch has one allocation.</strong> <code>Alloc(e)</code> is fixed before the first claim and may not exceed the pool&rsquo;s realised net inflow. The participant set and the participating stake <code>PS(e)</code> are frozen when the epoch&rsquo;s evidence window closes; each signer receives <code>floor(Alloc(e) &middot; effStake / PS(e))</code>, and floor-rounding remainders stay in the pool.</li>
 <li><strong>Claims are permissionless.</strong> Anyone may call <code>claimValidatorReward(epoch, index)</code>; the payout goes to the entry&rsquo;s recorded owner, once per (epoch, index). Claims open only after the epoch&rsquo;s evidence window closes, because only then is the allocation fixed. A batch of epoch <code>e</code> that lands after that instant does not change <code>PS(e)</code>; its validators are recorded as participants but are not paid from epoch <code>e</code>&rsquo;s allocation.</li>
 <li><strong>The pool is not collateral.</strong> ETH in the pool is never stake, never counted as bonded balance, never slashable and never borrowed against.</li>
@@ -136,7 +134,6 @@ nothing (<code>Alloc(e) = 0</code>), and a bridging failure stops rewards rather
 <h3>3. Why rewards cannot assume token appreciation</h3>
 <p>TAIKO has no mint function today: the supply was minted once and no inflation path exists on L1. A reward funded by new TAIKO therefore requires a token upgrade, which is a governance action, and it is not a standing funding source. Because rewards are paid in ETH, a TAIKO-denominated reward would additionally need a conversion rule and a price; no price constant is permitted anywhere in the design.</p>
 <p>A reward is a nominal ETH amount fixed when it is awarded. No rule, parameter, user interface or learning page may assume, require, promise or be conditioned on an increase in TAIKO&rsquo;s market price, market depth, float or pool value. &ldquo;Rewards are sustainable&rdquo; is a claim that holds only once fee-only inflow covers the validator bill; until then the honest description is that the schedule is reserve-dependent.</p>
-<!-- <em>D-14: a missed heartbeat is not an offence and consumes no stake.</em> -->
 <h3>4. What can be slashed, and what evidence a penalty needs</h3>
 <p>The offence catalogue is closed. Only behaviour on the list consumes bonded stake, and only through
 <code>slash(address v, uint epoch, bytes evidence)</code>, which any address may call.</p>
@@ -151,7 +148,7 @@ nothing (<code>Alloc(e) = 0</code>), and a bridging failure stops rewards rather
 <td>the same kind of pair. A violation whose proof would require showing that <em>no</em> unlocking proof-of-lock-change existed is not provable and is not slashable, and a cross-round or cross-epoch divergence under withholding can leave no admissible evidence at all.</td>
 <td>as above</td></tr>
 <tr><td><strong>Nothing else</strong></td>
-<td>Being offline, voting late, missing an L1 heartbeat, a round that times out, a prover that is slow inside the thirty-minute envelope, and the omission of a particular transaction are not offences. Mere non-receipt of a message is never evidence of misconduct.</td>
+<td>Being offline, voting late, a round that times out, a prover that is slow inside the thirty-minute envelope, and the omission of a particular transaction are not offences. Mere non-receipt of a message is never evidence of misconduct.</td>
 <td>no stake</td></tr>
 </tbody>
 </table>
@@ -170,7 +167,6 @@ charge   = min( P(v, e) , bonded(v) , remaining_exposure(v, e) )</code></pre>
 <p>The immediate component is debited when the accepted evidence transaction executes. The correlated component cannot be known before the window closes, so it is computed once at <code>evidenceClose(e) + CORR_DELAY</code> and debited by the permissionless
 <code>applyCorrelated(e, class)</code>. A debit is bounded by the bonded balance and by the per-epoch base; the applied amount is taken, the remainder is recorded in the event and is not carried as a debt outside the ledger.</p>
 <p>The destination is fixed: every debited amount goes to the <strong>protocol treasury</strong>, except a <strong>reporter bounty</strong> that is strictly less than the total penalty actually debited, so that self-reporting is never profitable, and, when a correlated penalty is collected, a <strong>keeper fee</strong> of <code>CORR_KEEPER_PPM</code> of the amount collected paid to the caller. Such a collection has three named destinations: the caller&rsquo;s keeper fee, the reporter bounty where a separate evidence submitter is entitled to it, and the remainder to the protocol treasury. There is no burn option and no burn share: the treasury is where penalties end up, not a burn address. The destination never changes the size of the penalty (<a href="../spec/07-economics-slashing.html#ECON-06">ECON-06</a>).</p>
-<!-- <em>D-15: there is no recovery bond and no completion reward, so no bond destination is debited.</em> -->
 <div class="warnbox small"><strong>The honest tail.</strong> On a small validator set, a correlated penalty makes one operator&rsquo;s duplicated key a correlated loss for a non-trivial fraction of the set. The mitigation is operational: slashing-protection databases, remote signers, disciplined key custody. No parameter choice removes the tail, and the correlated penalty is not harmless.</div>
 <h3>6. Exit and unbonding</h3>
 <p>Exit is a request plus a wait, and the wait has three gates.</p>
@@ -251,41 +247,33 @@ saturating at the one-third safety boundary.</li>
 <li>A withdrawal gate that makes it impossible to release stake before the window that could charge it has closed.</li>
 <li>A minimum stake derived from what it costs to run a validator, and an aggregate attack-cost bound that is stated as a separate
 inequality.</li>
-<!-- <em>D-14: the slot is renewed by an L1 heartbeat, not by stake alone.</em> -->
-<li>A place in future set versions that has to be renewed by an L1 attestation: a missed heartbeat costs the slot, the validator
-keeps its stake, and attesting again restores eligibility.</li>
+<li>A place in a set version that is fixed on L1 two epochs ahead, so it cannot be lost to a liveness check a validator forgets to send.</li>
 </ul>
 
-<!-- <em>D-14: the heartbeat costs a transaction and a key, and its falsifier is L1 censorship.</em> -->
 <h2 id="not">What it does not give you</h2>
 <ul>
 <li>No reward from an empty pool: L2 fees must be swept from the L2 fee vault through the preserved Bridge, rewards lag the settlement pipeline, and a bridging failure stops rewards instead of creating a claim on future revenue.</li>
 <li>No compensation to users. A penalty debits an offender&rsquo;s stake and does nothing else: it does not restore discarded history,
 return a bridge message or cover a loss, and there is no universal bound on user losses.</li>
-<li>No penalty for being offline, for missing a heartbeat, for censoring a transaction or for omitting it. Those are
-liveness or inclusion questions, not offences: a validator that stops attesting loses its place in future set versions until
-it attests again, and no stake is taken from it.</li>
+<li>No penalty for being offline, for censoring a transaction or for omitting it. Those are
+liveness or inclusion questions, not offences: a validator that stops signing keeps its stake and its place in every
+committed set version, and no stake is taken from it.</li>
 <li>No deterrent guarantee. The deterrence argument is conditional on slashed stake having value and being confiscated, and it can fail
 with no rule changing if the market moves.</li>
 <li>No protection from the correlated-penalty tail, in which one operator&rsquo;s key mishap costs honest peers.</li>
-<!-- <em>D-14: the heartbeat has an operational cost and a named L1-censorship falsifier.</em> -->
-<li>No free place in a set: staying selectable costs a periodic Ethereum heartbeat transaction and a second heartbeat key, and a
-validator that forgets to attest waits out the set versions committed without it. If honest heartbeats can be censored on L1,
-an online validator can still be excluded from future versions &mdash; the named falsifier of the exclusion argument, which is
-<span class="tag">Open</span>.</li>
+<li>No free place in a set: a validator that goes quiet keeps its place, and a cohort that stops signing can halt
+production instead of being replaced. There is no rule that renews membership and no rule that removes it.</li>
 <li>No measured cost, revenue, reward or market figure. There are no operations study, fee history or liquidity data behind any value
 on this page.</li>
 </ul>
 
-<!-- <em>D-14: an offline validator loses the slot and the rewards, never stake.</em> -->
 <h2 id="check">Check yourself</h2>
 <details><summary>A validator is offline for a day and misses its rounds. Is it slashed?</summary>
 <p>No. Being offline, voting late and timing out are not offences; the only slashable consensus behaviour is objectively signed
-conflict. The validator loses the rewards it did not attest &mdash; no participation bit, no payout &mdash; and if it also misses
-its L1 heartbeats it is not selected into the set versions committed while it was quiet; it keeps its stake and becomes eligible
-again by attesting. If enough of the set stops signing that quorum cannot be met, production halts for that set version rather
-than continuing at a lower threshold, and the next boundary is where the silent entries drop out. The withdrawal gate still
-applies to stake already exposed to an open epoch.</p></details>
+conflict. The validator loses the rewards it did not attest &mdash; no participation bit, no payout &mdash; and it keeps its stake
+and its place in every committed set version, because membership has no liveness gate. If enough of the set stops signing that
+quorum cannot be met, production halts rather than continuing at a lower threshold, and v1 has no rule that clears the halt or
+removes the silent weight. The withdrawal gate still applies to stake already exposed to an open epoch.</p></details>
 <details><summary>Two validators equivocate in the same epoch. Why is the second offence&rsquo;s marginal cost much larger than the
 first&rsquo;s?</summary>
 <p>Because the correlated component is a convex function of the fraction <code>f</code> of the epoch&rsquo;s voting power implicated by
@@ -311,9 +299,8 @@ others.</li>
 <li>The evidence window&rsquo;s close is anchored to the epoch&rsquo;s set-root commit. The L1 fact that would tie the close to the
 epoch&rsquo;s production is not fixed, so a settlement halt longer than the window can make a resumed epoch&rsquo;s offences
 inadmissible.</li>
-<li>Ethereum keeps producing blocks, including and finalizing them, and includes honest heartbeat transactions; the whole
-settlement and evidence path is denominated in L1 time. If honest heartbeats can be censored, an online validator can be excluded
-from future set versions (the exclusion argument is <span class="tag">Open</span> with that named falsifier).</li>
+<li>Ethereum keeps producing blocks, including and finalizing them; the whole settlement and evidence path is denominated in L1
+time.</li>
 </ul>
 </div>
 
