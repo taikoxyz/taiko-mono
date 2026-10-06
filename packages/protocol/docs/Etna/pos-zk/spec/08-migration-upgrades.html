@@ -418,8 +418,12 @@ and in <code>_receivedSignals</code> is unchanged (MIG-03(6)).</p>
 (MIG-02 slots 275–277) are new state written only by the Etna path: at T3 the contract MUST initialise
 <code>nextSeq = 0</code> and <code>dueHead = dueTail = dueCount = pruneCursor = 0</code> with empty
 <code>publications</code> and <code>publicationOrder</code> maps, so the
-first post-activation batch faces an <strong>empty due set</strong> and no publication can be retroactively in
-breach of the deadline. The genesis record is <strong>not</strong> a publication: its tagged
+first post-activation batch faces an <strong>empty due set</strong> and no publication can be retroactively
+brought into breach: a record's due point and its proving deadline are both fixed at publication from the
+record's own L1 block, so neither a later anchor, a later re-publication nor a delay in detection can move
+them or extend a record's obligation. <em>This closes the breach-clock wording: the guarantee is that the due
+point and the deadline are both fixed at publication from the record's own L1 block, not that no publication
+can be in breach of the deadline.</em> The genesis record is <strong>not</strong> a publication: its tagged
 <code>dataCommitment</code> commits to the boundary object only, and the first genuine batch's
 <code>dataCommitment</code> comes only from a successful <code>land(data, proof)</code> that references a
 recorded publication (or carries its data in the accepting transaction)
