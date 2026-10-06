@@ -215,17 +215,17 @@ w_i</code> with <code>cum_{-1} = 0</code>. For a height <code>H</code> in epoch 
 <div class="rule" id="CONS-07"><span class="rid">CONS-07 — round timeouts, view change and the adaptive ladder</span> <span class="norm">(1) Every timeout is a
 duration in <strong>seconds</strong>. No timeout is expressed in L1 slots, no rule depends on Ethereum proposer lookahead or on a fixed L1 slot duration, and no
 <em>validity</em> rule reads a wall clock (<a href="index.html#GEN-06">GEN-06</a>, R12); wall clocks pace local signing and timeout actions only. (2)
-Parameters, fixed by <a href="09-parameters.html#PARAM-01">PARAM-01</a>: <code>T_min</code> (base round budget) and <code>T_max</code> (ceiling). Proposed
-values: <code>T_min = 3 s</code>
-<span class="pill derived">derived</span> from <code>round_trip = 4·&Delta;_max + X_max</code> with <code>T_min &ge; 2·round_trip</code>, and <code>T_max = 30
+Parameters, fixed by <a href="09-parameters.html#PARAM-01">PARAM-01</a>: <code>TIMEOUT_MIN</code> (base round budget) and <code>TIMEOUT_MAX</code> (ceiling) — the registered spellings of <a href="09-parameters.html">09</a>, which this rule reads. Proposed
+values: <code>TIMEOUT_MIN = 3 s</code>
+<span class="pill derived">derived</span> from <code>round_trip = 4·&Delta;_max + X_max</code> with <code>TIMEOUT_MIN &ge; 2·round_trip</code>, and <code>TIMEOUT_MAX = 30
 s</code>
 <span class="pill derived">derived</span> as a bound small relative to the 30-minute proving envelope of D6 <span class="pill sourced">sourced</span> (D6) so
 that a stall is detected long before settlement deadlines bind. <code>&Delta;_max</code> (advisory one-way delay between correct validators) and
 <code>X_max</code> (local execution time for one block) are <strong>UNMEASURED</strong>; the measurement that would fix them is telemetry of the p99 one-way
-message delay and of block execution time at the target validator count, topology and block size. Both <code>T_min</code> and <code>T_max</code> are therefore
+message delay and of block execution time at the target validator count, topology and block size. Both <code>TIMEOUT_MIN</code> and <code>TIMEOUT_MAX</code> are therefore
 <span class="pill unmeasured">unmeasured</span> in practice. (3) The ladder. Let <code>R_progress</code> be the highest round <code>&le; R</code> at which this
-node received a PoLC or a commit certificate for height <code>H</code> (0 if none), and let <code>R_cap = ceil(log2(T_max / T_min))</code>. Then
-<br><code>T(H,R) = min(T_max, T_min · 2^min(R - R_progress, R_cap))</code> seconds,
+node received a PoLC or a commit certificate for height <code>H</code> (0 if none), and let <code>R_cap = ceil(log2(TIMEOUT_MAX / TIMEOUT_MIN))</code>. Then
+<br><code>T(H,R) = min(TIMEOUT_MAX, TIMEOUT_MIN · 2^min(R - R_progress, R_cap))</code> seconds,
 <br>evaluated in integer arithmetic only (with the proposed values the ladder is 3, 6, 12, 24, 30, 30, … s). The exponential term is the response to round
 failures; the <code>R_progress</code> reset is the adaptation to observed round completion: a round that produced a PoLC or a commit resets the backoff to base,
 so a transient stall does not permanently inflate the timeouts. Timeouts are local and have no normative effect on any other node. (4) Advancement. A correct
@@ -530,7 +530,7 @@ reachability half of the eligibility rule of <a href="03-membership-staking.html
 stall trigger (<code>T_STALL_GOV</code>): <code>block.timestamp &minus; lastAcceptedBatchTime &ge; T_ROTATE</code>, where <code>lastAcceptedBatchTime</code> is the checkpoint record's stored acceptance timestamp
 (<a href="04-l1-integration.html#L1-07">L1-07</a>) and <code>T_ROTATE</code> is a registered parameter (<a href="09-parameters.html#PARAM-01">09</a>) strictly greater than
 <code>T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY</code>, so no normal proving or settlement pipeline can open one, and
-the withdrawal of <code>T_INACTIVE</code> leaves this threshold's relation to the eligibility layer <strong>owed to <a href="03-membership-staking.html#MEM-13">MEM-13</a> and <a href="09-parameters.html#PARAM-01">PARAM-01</a></strong>: the withdrawn <code>T_ROTATE &ge; T_INACTIVE + 2 &middot; E_EPOCH</code> constraint is not replaced by an invented one here, and the inequality that must hold — between <code>T_ROTATE</code>, <code>HEARTBEAT_WINDOW</code>, <code>EPOCH_LEN_L1</code> and a set version's commit point — is to be fixed when <code>HEARTBEAT_WINDOW</code> is registered (D-14). The heartbeat does not wait on the settlement pipeline: it is a validator's own L1 transaction, not a bit written by <code>land</code>, so during a stall the L1 has strictly fresher eligibility evidence than the withdrawn decay could ever have had. L1 can see neither which validators are online nor where the L2 tip is; the rotation is therefore restricted to
+the withdrawal of <code>T_INACTIVE</code> leaves this threshold's relation to the eligibility layer <strong>stated by <a href="03-membership-staking.html#MEM-13">MEM-13</a>(6)</strong>: the withdrawn <code>T_ROTATE &ge; T_INACTIVE + 2 &middot; E_EPOCH</code> constraint is not replaced by an invented one here, and the registered inequality is <code>T_ROTATE &ge; HEARTBEAT_WINDOW</code> — both names are now registered in <a href="09-parameters.html#PARAM-01">09</a> — so a cohort that has stopped attesting is already ineligible for the set version the resumed heights are assigned to (D-14). The heartbeat does not wait on the settlement pipeline: it is a validator's own L1 transaction, not a bit written by <code>land</code>, so during a stall the L1 has strictly fresher eligibility evidence than the withdrawn decay could ever have had. L1 can see neither which validators are online nor where the L2 tip is; the rotation is therefore restricted to
 heights no validator has produced, and its precondition is clause (5).
 <br>(2) <strong>Invocation, delay, cancellation.</strong> While the trigger of (1) holds and the L1-side clock of <a href="#CONS-13">CONS-13</a>(1) is past
 <code>L1_first(e+1)</code>, any account MAY invoke a rotation against the current L1-accepted checkpoint. The invocation is objective, takes no argument that influences the outcome,
@@ -636,7 +636,7 @@ Every duration is
 <span class="pill unmeasured">unmeasured</span>. The exact assumption used is A-CONS-3 instantiated as <code>&Delta;_max = 250 ms</code> of one-way message
 delay between correct validators and <code>X_max = 500 ms</code> of local execution for one block — both unmeasured, both to be fixed by p99 telemetry at the
 target validator count, topology and block size. Under that assumption <code>round_trip = 4·&Delta;_max + X_max = 1.5 s</code>, the happy path below costs 1.5 s
-of the 2 s cadence interval <span class="pill sourced">sourced</span> (D1), and the base round budget is <code>T_min = 2·round_trip = 3 s</code> (<a href="#CONS-07">CONS-07</a>(2)).</p>
+of the 2 s cadence interval <span class="pill sourced">sourced</span> (D1), and the base round budget is <code>TIMEOUT_MIN = 2·round_trip = 3 s</code> (<a href="#CONS-07">CONS-07</a>(2)).</p>
 <table>
 <thead><tr><th>t (s), happy path, one height</th><th>Event</th><th>Rule</th><th>Tag</th></tr></thead>
 <tbody>
@@ -652,7 +652,7 @@ precommit.</td><td>CONS-03, CONS-04</td> <td><span class="pill unmeasured">unmea
 <tr><td>1.50</td><td>More than 2/3 of the epoch's power has precommitted the block; every node that holds the body finalizes <code>H</code>, gossips the
 certificate and enters <code>H+1</code> at t = 1.50 s, inside the 2 s cadence interval. One proposal per height; <code>R</code> stays 0; the proposer is selected anew for the height (<a href="#CONS-06">CONS-06</a>).</td> <td><a href="#CONS-05">CONS-05</a></td><td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td>1.50–2.00</td><td>Slack of 0.5 s inside the cadence interval.</td><td>—</td> <td><span class="pill unmeasured">unmeasured</span></td></tr>
-<tr><td>3.00</td><td>If instead the block or a vote phase does not complete, the round timer <code>T(H,0) = T_min</code> expires and the node advances to
+<tr><td>3.00</td><td>If instead the block or a vote phase does not complete, the round timer <code>T(H,0) = TIMEOUT_MIN</code> expires and the node advances to
 <code>(H,1)</code>; the ladder doubles on consecutive failures and resets on a PoLC (CONS-07(3)).</td><td>CONS-07</td> <td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td>—</td><td>Data availability is not part of this trace: a node that has not executed and retrieved the body cannot finalize <code>H</code> even with a
 valid certificate.</td> <td><a href="#CONS-05">CONS-05</a>(ii)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>

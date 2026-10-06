@@ -216,13 +216,17 @@ proof as a fault.</span>
 <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
 <span class="small">(<code>D_MAX</code>'s value depends on measured retention and proving throughput)</span></div>
 
-<div class="rule" id="HALT-04"><span class="rid">HALT-04 — no emergency operator, no DAO rescue, no data-first path; the timelocked stall resolution is the only sanctioned replacement</span>
-<span class="norm">No emergency key, guardian, DAO vote, or operational procedure may be required to
+<div class="rule" id="HALT-04"><span class="rid">HALT-04 — no emergency operator, no discretionary DAO rescue, no data-first path; the timelocked, resume-only stall resolution is the only named exception</span>
+<span class="norm">No emergency key, guardian, or operational procedure may be required to
 preserve any invariant of this specification, and none may be introduced to "resolve" a halt.
-Specifically: there is no function that a privileged party can call to advance, rewind, or replace the
-checkpoint; no DAO intervention is permitted for liveness beyond the rule-bound, resume-only stall resolution of
-<a href="#REC-02">REC-02</a>/<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>, which chooses no state,
-no checkpoint and no height; and no publication may be used to
+<strong>There is exactly one named exception:</strong> the rule-bound, timelocked, resume-only stall resolution of
+<a href="#REC-02">REC-02</a>/<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>. It is not a DAO rescue:
+governance chooses no state, no checkpoint, no height, no validator set and no configuration value; its effect is
+resume-only; its timelock <code>T_GOV_RESUME</code> cannot be shortened for an entry already posted and is the exit
+window of <a href="03-membership-staking.html#MEM-15">MEM-15</a>; and an accepted extending batch voids the entry,
+which any account may cancel permissionlessly. Nothing else may be required and no other DAO intervention is
+permitted: specifically, there is no function that a privileged party can call to advance, rewind, or replace the
+checkpoint; and no publication may be used to
 unblock settlement: publishing a batch's data before its proof is permitted (D-11), but the publication
 record advances no checkpoint and confers no status, so it can never substitute for a proof
 (<a href="#REC-01">REC-01</a>(e)). The <strong>only</strong> sanctioned way that history above the latest
@@ -233,8 +237,8 @@ information or participation that no rule-legal action can obtain, the protocol 
 does not promote a privileged fix. A stall that no valid action can clear — including one governance never
 queues or never executes — stays a disclosed halt rather than being "fixed" outside the rules; clearing a
 stall therefore depends on governance liveness with no protocol-level bound. <em>(user decision D-15: the timelocked stall resolution is the only sanctioned way history
-above the checkpoint may be replaced, and it is discretionary in nothing — no operator, no DAO rescue,
-no data-first path.)</em></span>
+above the checkpoint may be replaced, and it is discretionary in nothing — no emergency operator, no discretionary DAO rescue,
+no data-first path; the exception is named once, at the top of this rule, and the governance-liveness disclosure above is kept.)</em></span>
 <span class="why">Failure modes: a halt is quietly "fixed" by an operator, which both violates R2 and
 disguises a liveness limitation as a functioning protocol; or recovery is captured by a privileged
 party, which would be the same failure under a different name.</span>
