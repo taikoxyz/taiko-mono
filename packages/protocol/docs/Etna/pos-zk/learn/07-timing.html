@@ -135,7 +135,7 @@ returns true (L1-03).</li>
 and certified, and independent provers work on them in parallel. How many proofs must be in flight is a
 queueing identity: <code>L / &Delta;</code>, where <code>L</code> is the proof-latency bound and
 <code>&Delta;</code> the batch&rsquo;s time span. With a 30-minute bound and the largest sustainable batch
-of 6 blocks (12 seconds of history), that is about <strong>150 proofs in flight</strong>, not a handful:
+of the maximum sustainable 6 blocks (12 seconds of history), that is about <strong>150 proofs in flight</strong>, not a handful. A shorter batch means proportionally less unsettled history and fewer proofs in flight, and the submitter may always choose a shorter one:
 the data bound makes batches short, and short batches mean many of them are unsettled at once. Fleet
 sizing and the reward floor have to be read at that concurrency.</p>
 <table>
@@ -225,7 +225,7 @@ finality, then withdrawal.</p>
 <li>A proving pipeline that overlaps production, so proving is not a stop-the-world step.</li>
 <li>A cap that stops production before data can age out of the retention assumption, instead of
 backing up forever and stranding a certified range.</li>
-<li>A batch length fixed by data and atomicity rather than by preference: one blob per block at the target
+<li>A batch length <em>bounded</em> by data and atomicity but <em>chosen by the submitter</em> within that bound: one blob per block at the target
 rate, and one transaction for data plus proof, give at most about six blocks per batch.</li>
 <li>An unambiguous moment &mdash; L1 acceptance &mdash; at which the data becomes public on Ethereum
 and withdrawals can begin to be counted.</li>
