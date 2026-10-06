@@ -131,7 +131,7 @@ batch is accepted on L1. A certificate without the data does not give you that s
 boundary, so one epoch and one validator-set root govern every height in it (<a href="../spec/05-proof-statement.html#PRF-05">PRF-05</a>). Its length is bounded by
 data, not by preference: at the target rate one 2-second block is one 131,072-byte blob, EIP-7691 allows six
 blobs per L1 block as the target and nine as the maximum, and the data and the proof must share one
-transaction, so a batch is at most about six blocks at the target rate and nine is the hard ceiling. Within that bound the submitter chooses the length; nothing fixes it
+transaction, so a batch is at most about six blocks at the target rate and nine is the hard ceiling. Within that bound the submitter chooses the length; nothing fixes it. And the bound is on bytes rather than on blocks: six is the count when every block is full of data, so lightly loaded blocks let one batch cover proportionally more of them
 (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>).</li>
 <li><strong>Proving.</strong> A prover — anyone, with no registration — assembles a witness and produces <a href="../spec/05-proof-statement.html#PRF-01">one proof for the batch</a>: that the head block carries a valid commit certificate over the epoch's authenticated set with more
 than two thirds of its voting power, that executing the batch's blocks from the predecessor state yields the claimed

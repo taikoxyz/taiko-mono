@@ -135,7 +135,7 @@ returns true (L1-03).</li>
 and certified, and independent provers work on them in parallel. How many proofs must be in flight is a
 queueing identity: <code>L / &Delta;</code>, where <code>L</code> is the proof-latency bound and
 <code>&Delta;</code> the batch&rsquo;s time span. With a 30-minute bound and the largest sustainable batch
-of the maximum sustainable 6 blocks (12 seconds of history), that is about <strong>150 proofs in flight</strong>, not a handful. A shorter batch means proportionally less unsettled history and fewer proofs in flight, and the submitter may always choose a shorter one:
+of the maximum sustainable 6 blocks (12 seconds of history), that is about <strong>150 proofs in flight</strong>, not a handful. That figure assumes every block carries the full target data budget; a batch of lighter blocks covers more blocks but the same amount of <em>data</em>, so what scales the pipeline is data, not block count. A shorter batch means proportionally less unsettled history and fewer proofs in flight, and the submitter may always choose a shorter one:
 the data bound makes batches short, and short batches mean many of them are unsettled at once. Fleet
 sizing and the reward floor have to be read at that concurrency.</p>
 <table>
