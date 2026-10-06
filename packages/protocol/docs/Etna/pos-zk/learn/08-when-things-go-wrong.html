@@ -36,11 +36,10 @@
 <p class="muted">This lesson gives you the failure-handling rules: what happens when a proposer hides a
 block, when votes or certificates do not arrive, when validators go offline, when data cannot be found or
 when settlement stalls &mdash; and the guarantee class that follows: a confirmation above the last batch
-accepted on Ethereum is <strong>provisional</strong>. A settlement stall halts the chain safely, and it
-restarts only if governance queues and executes a timelocked, resume-only decision from the last accepted
-checkpoint. This is a design description; none of it is implemented, measured, audited or deployed.</p>
-<!-- <em>D-15: v1 has no automatic or permissionless recovery; a stall halts the chain and a timelocked, resume-only governance decision restarts it from the last accepted checkpoint.</em> -->
-<!-- <em>D-14: validators going offline are handled by heartbeat eligibility at a set boundary.</em> -->
+accepted on Ethereum is <strong>provisional</strong>. A settlement stall halts the chain safely: nothing at
+or below the last accepted checkpoint changes, value at or below it still exits on Ethereum alone, and v1 has
+no path that clears the stall. This is a design description; none of it is implemented, measured, audited or
+deployed.</p>
 
 <h2>The idea</h2>
 <p>Failures are ordinary inputs to this protocol, not exceptions bolted on afterwards. Two rules do
@@ -58,113 +57,79 @@ of the voting power is honest and locked, so a conflicting certificate would nee
 break the lock &mdash; which is exactly the behaviour the rule forbids and slashing punishes.</p>
 <p><strong>A confirmation above the last batch accepted on Ethereum is provisional.</strong> The L2
 certificate is real, and more than two thirds of the epoch&rsquo;s voting power signed it; but until the batch
-carrying it is accepted on L1 with its proof, the protocol&rsquo;s own rules can discard it when the chain
-restarts from that checkpoint. That is the guarantee class of every confirmation above the checkpoint, and
-every interface that shows one must say so
+carrying it is accepted on L1 with its proof, no v1 rule makes it permanent, and v1 has no path that
+replaces it. That is the guarantee class of every confirmation above the checkpoint, and every interface that
+shows one must say so
 (<a href="../spec/index.html#STATUS-04">STATUS-04</a>, <a href="../spec/index.html#STATUS-11">STATUS-11</a>).
 </p>
-<!-- <em>D-15: a provisional confirmation is discarded by a restart from the last accepted checkpoint.</em> -->
 <p><strong>A settlement stall halts the chain, and the halt is safe.</strong> A stall means that no
-batch extending the current L1 checkpoint has been accepted for <code>T_STALL_GOV</code> &mdash; long enough
-that a normal slow proof, or a single prover failure inside the normal envelope, cannot be the explanation.
-The condition is measured on L1, so no participant&rsquo;s local view can declare it early
-(<a href="../spec/08-migration-upgrades.html#GOV-04">GOV-04</a>). When it holds, the chain stops making progress,
-and nothing restarts it automatically or permissionlessly. Everything at or below the last accepted
-checkpoint is preserved exactly; every confirmation above it stays provisional and may be discarded by a
-restart.</p>
+batch extending the current L1 checkpoint has been accepted for long enough that a normal slow proof, or a
+single prover failure inside the normal envelope, cannot be the explanation. When it holds, the chain stops
+making progress, and nothing restarts it. Everything at or below the last accepted checkpoint is preserved
+exactly; every confirmation above it stays provisional, and v1 has no rule that discards it either.</p>
 <p><strong>A user can always leave from the last settled state.</strong> While the chain is halted, a
 withdrawal whose signal is already inside the last accepted checkpoint stays executable on Ethereum alone:
 it needs no new L2 blocks, no quorum and no validator, only the withdrawal delay measured on L1
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). That exit is what makes a slower restart
-tolerable. Value above the last accepted checkpoint, or value that was never messaged, has no L1-provable
-claim while the chain is halted; it becomes withdrawable only when a later checkpoint covers it.</p>
-<!-- <em>D-15: a settlement stall halts the chain; there is no automatic or permissionless recovery, and the exit from the last settled state needs no L2 liveness.</em> -->
-<p><strong>Restarting takes a governance decision, and the decision is narrow.</strong> When the chain
-has stalled past the threshold, governance may queue a restart under a timelock
-<code>T_GOV_RESUME</code>, long enough that every user can exit from the last settled state first. Once
-queued, the decision cannot be shortened. It is <strong>resume-only</strong>: the chain restarts from the
-latest checkpoint accepted on Ethereum and discards everything above it &mdash; not a certified subset, not
-a height governance prefers, and not a state governance picks. Governance chooses no state, no checkpoint
-and no height; all three come from L1 state alone. Once the timelock has elapsed and the entry is not void,
-any account may execute it, and the executor chooses nothing either.</p>
-<p><strong>Progress voids the decision.</strong> If a batch extending the checkpoint is accepted before
-the queued decision executes, the action is <strong>void</strong>, and any account may cancel the queued
-entry. A certificate or a proof for a discarded height is not progress, because neither is accepted
-settlement. The restart resumes from the last L1-accepted checkpoint and touches nothing at or below it.</p>
-<p><strong>When the restart executes, everything above the accepted checkpoint is discarded.</strong>
-Inclusions, ordering, balances and bridge messages that were only provisional cease to be part of the
-chain, and the recovery generation advances. The generation is carried in the signed vote and header bytes:
-validators sign the new generation, and certificates carrying the old generation are void at the acceptance
-rule (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). A transaction in the discarded range is
-<strong>not replayed automatically</strong>: it is lost, it must be resubmitted, and its inclusion is not
-guaranteed. Off-chain losses are <strong>not compensated</strong> by any protocol penalty
-(<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
-<!-- <em>D-15: the restart is timelocked, resume-only and void on progress; it advances the recovery generation, and lost transactions must be resubmitted.</em> -->
-<p><strong>Locks taken in the discarded range belong to the old generation.</strong> A validator that
-was locked on a block above the accepted checkpoint is not stuck when the chain restarts: a lock
-constrains votes only within the generation it was taken in, so it does not bind the validator in the new
-generation, it is not evidence that the validator misbehaved, and it is not a reason to halt. Without that,
-a locked third of the power could wedge the new chain. A late certificate for a discarded height is
-likewise void for canonical purposes, though it remains admissible as evidence of what its signers signed
-(<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>,
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). That exit is what keeps a halted chain
+safe for holders. Value above the last accepted checkpoint, or value that was never messaged, has no
+L1-provable claim while the chain is halted; it becomes withdrawable only when a later checkpoint covers it.</p>
+<p><strong>Nothing in v1 clears a stall.</strong> There is no automatic path, no permissionless path and no
+governance-mediated path: clearing the stall needs a future protocol update whose procedure is not yet
+specified. The chain stays halted until then. Nothing at or below the last accepted checkpoint is touched by
+any rule, and no rule discards the provisional range above it either; the halt simply stops production.
+Value above the checkpoint stays provisional, a transaction in that range is not settled and not replayed,
+and inclusion is not guaranteed (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
+<p><strong>Locks are scoped by generation.</strong> A lock constrains votes at its height within the
+generation it was taken in, and it is released only by the rules above. v1 never begins a new generation, so
+no lock is ever superseded and no lock can wedge the chain through a restart. A certificate carrying a
+superseded generation would be void at the acceptance rule, though it remains admissible as evidence of what
+its signers signed (<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>,
 <a href="../spec/02-consensus.html#CONS-12">CONS-12</a>).</p>
-<!-- <em>D-15: a lock belongs to the generation it was taken in; a restart begins a new generation, so old locks do not wedge the restarted chain.</em> -->
 
 <figure>
-<svg viewBox="0 0 960 270" role="img" aria-label="Timeline: a restart resumes from the last accepted checkpoint, discards everything above it, and advances the recovery generation">
+<svg viewBox="0 0 960 270" role="img" aria-label="Timeline: a settlement stall halts production; the last accepted checkpoint and everything at or below it is never rewritten, the range above it stays provisional, and the exit at or below the checkpoint stays executable on Ethereum alone">
   <defs>
     <marker id="arr8b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker>
-</defs>
+  </defs>
   <text x="20" y="24" fill="#59636e" font-size="12">L2 HEIGHTS</text>
   <rect x="60" y="48" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/>
   <text x="90" y="68" fill="#1a7f37" font-size="11" text-anchor="middle">800</text>
   <text x="90" y="84" fill="#59636e" font-size="9" text-anchor="middle">checkpoint</text>
   <rect x="128" y="48" width="660" height="46" rx="6" fill="#fff8e5" stroke="#5c4a1c" stroke-dasharray="5 3"/>
-  <text x="458" y="68" fill="#9a6700" font-size="11" text-anchor="middle">discarded: 801&ndash;832 was certified on L2, never accepted on Ethereum</text>
-  <text x="458" y="85" fill="#59636e" font-size="9" text-anchor="middle">inclusions &middot; ordering &middot; balances &middot; bridge messages are lost, and must be resubmitted</text>
-  <rect x="796" y="48" width="120" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/>
-  <text x="856" y="68" fill="#1a7f37" font-size="11" text-anchor="middle">801 &hellip;</text>
-  <text x="856" y="84" fill="#59636e" font-size="9" text-anchor="middle">restarted history</text>
-  <rect x="128" y="112" width="660" height="40" rx="6" fill="#ffebe9" stroke="#5c2630" stroke-dasharray="5 3"/>
-  <text x="458" y="130" fill="#cf222e" font-size="11" text-anchor="middle">RESTART: the chain resumes at 801, the first height above the last accepted checkpoint</text>
-  <text x="458" y="146" fill="#59636e" font-size="9" text-anchor="middle">the recovery generation advances &middot; certificates from the old generation are void at the acceptance rule</text>
+  <text x="458" y="68" fill="#9a6700" font-size="11" text-anchor="middle">provisional: 801&ndash;832 is certified on L2, never accepted on Ethereum</text>
+  <text x="458" y="85" fill="#59636e" font-size="9" text-anchor="middle">no v1 rule discards this range, and none makes it settled; the chain simply stops producing</text>
+  <rect x="796" y="48" width="120" height="46" rx="6" fill="#f6f8fa" stroke="#d8dee4" stroke-dasharray="5 3"/>
+  <text x="856" y="68" fill="#59636e" font-size="11" text-anchor="middle">no progress</text>
+  <text x="856" y="84" fill="#59636e" font-size="9" text-anchor="middle">until a future update</text>
+  <rect x="128" y="112" width="660" height="40" rx="6" fill="#e6f4ea" stroke="#2c5a3a" stroke-dasharray="5 3"/>
+  <text x="458" y="130" fill="#1a7f37" font-size="11" text-anchor="middle">HALT: production stops; the checkpoint at 800 and everything below it is untouched</text>
+  <text x="458" y="146" fill="#59636e" font-size="9" text-anchor="middle">the recovery generation never advances &middot; nothing is retired &middot; a future protocol update would have to preserve the boundary</text>
   <path d="M90 94 v14" stroke="#1a7f37" stroke-width="1.4" marker-end="url(#arr8b)"/>
-  <path d="M458 94 v14" stroke="#cf222e" stroke-width="1.4" marker-end="url(#arr8b)"/>
-  <path d="M856 94 v14" stroke="#1a7f37" stroke-width="1.4" marker-end="url(#arr8b)"/>
+  <path d="M458 94 v14" stroke="#9a6700" stroke-width="1.4" marker-end="url(#arr8b)"/>
   <line x1="796" y1="38" x2="796" y2="104" stroke="#0969da" stroke-dasharray="4 3"/>
   <text x="790" y="30" fill="#0969da" font-size="11" text-anchor="end">nothing at or below 800 is ever rewritten</text>
-  <text x="20" y="188" fill="#24292f" font-size="11">A restart is a timelocked (T_GOV_RESUME), resume-only governance decision: it chooses no state, no checkpoint and no height.</text>
-  <text x="20" y="210" fill="#24292f" font-size="11">If a batch extending the checkpoint is accepted before the decision executes, the decision is void and any account may cancel the queued entry.</text>
-  <text x="20" y="232" fill="#24292f" font-size="11">The restart advances the recovery generation: validators sign the new generation, and old-generation certificates are void at the acceptance rule.</text>
-  <text x="20" y="254" fill="#24292f" font-size="11">While the chain is halted, a withdrawal at or below the checkpoint stays executable on Ethereum alone (MEM-15); discarded transactions are lost.</text>
+  <text x="20" y="188" fill="#24292f" font-size="11">A stalled chain does not resume in v1: clearing the stall needs a future protocol update whose procedure is not yet specified.</text>
+  <text x="20" y="210" fill="#24292f" font-size="11">While it is halted, a withdrawal whose signal is at or below the last accepted checkpoint stays executable on Ethereum alone (MEM-15).</text>
+  <text x="20" y="232" fill="#24292f" font-size="11">The recovery generation is carried in the signed vote and header bytes; v1 never advances it, so no height is retired.</text>
+  <text x="20" y="254" fill="#24292f" font-size="11">A transaction above the checkpoint is not settled and is not replayed; inclusion is never guaranteed.</text>
 </svg>
-<figcaption>A restart resumes from the last accepted checkpoint and discards everything above it. The
-generation advance is what stops a discarded branch from being accepted again; nothing at or below the
-checkpoint is rewritten, and the decision itself chooses no state, checkpoint or height.</figcaption>
-<!-- <em>D-15: the restart resumes from the last accepted checkpoint, discards the range above it and advances the recovery generation.</em> -->
+<figcaption>A settlement stall halts the chain. The last accepted checkpoint is never rewritten, the range
+above it stays provisional, and the exit at or below the checkpoint needs no L2 liveness. No v1 path clears
+the stall; a future protocol update would have to preserve the boundary.</figcaption>
 </figure>
-<!-- <em>D-14: a cohort that goes silent drops out at the next set boundary; no rule removes weight.</em> -->
-<p><strong>A cohort that goes silent loses its place at the boundary, not its stake.</strong> Within a set
-version nothing changes: the committed weights still include validators that have stopped signing, so
-if enough of them stop that quorum cannot be met, production halts &mdash; there is no degraded
-threshold. Selection into a future set version is different. To be in it, a validator must post a
-periodic attestation on Ethereum, a <strong>heartbeat</strong>. An entry that has not attested within
-<code>HEARTBEAT_WINDOW</code> ending at the version&rsquo;s commit point is excluded from the root
-&mdash; not decayed, not slashed, not confiscated &mdash; and keeps its whole bonded stake. At the
-next boundary the remaining eligible weight becomes the whole of the epoch&rsquo;s voting power, so
-the quorum predicate is reachable again without any rule removing weight, and the L1-time rotation
-(<a href="../spec/02-consensus.html#CONS-16">CONS-16</a>) draws a stalled chain&rsquo;s restart set
-from the eligible validators. A validator that forgot to attest loses its slot until it attests
-again; re-attesting restores eligibility for the following boundary. The costs are a periodic
-Ethereum transaction (anyone may submit it, and a relayer may batch signatures into one), a second
-heartbeat key, and the slot itself when an operator lapses.</p>
+<p><strong>A cohort that goes silent takes production with it.</strong> Within a set version nothing changes:
+the committed weights still include validators that have stopped signing, so if enough of them stop that quorum
+cannot be met, production halts &mdash; there is no degraded threshold. Nothing replaces the silent weight
+either. Membership has no liveness gate, so an entry that goes quiet stays in every committed set version, and
+v1 has no rule that removes it or that draws a replacement set. The silent validators keep their whole bonded
+stake; they forfeit only the rewards they did not earn. Clearing the halt needs a future protocol update, not
+a rotation.</p>
 
-<p><strong>Where no restart can help, the chain still halts.</strong> Halting remains the correct action
-for missing data at or below the accepted checkpoint, for a missing validator-set commitment, for an L1 view
-that disagrees with consensus, and for a failure of the stake assumption. In those cases no rule-legal
-action can restore progress, and a halt can be permanent
+<p><strong>The halt can still be permanent.</strong> Halting remains the correct action for missing data at or
+below the accepted checkpoint, for a missing validator-set commitment, for an L1 view that disagrees with
+consensus, and for a failure of the stake assumption. In those cases no rule-legal action can restore
+progress, and a halt can be permanent
 (<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>).</p>
-<!-- <em>D-15: a restart clears a settlement stall only; halts over data or participation at or below the checkpoint can still be permanent.</em> -->
 
 <h2>Situation &rarr; correct action</h2>
 <figure>
@@ -176,18 +141,17 @@ action can restore progress, and a halt can be permanent
 <text x="374" y="125" fill="#24292f" font-size="11">Keep the lock. Retry. Accept the certificate whenever it arrives, and never</text> <text x="374" y="144" fill="#24292f" font-size="11">certify a conflicting block at that height. A timeout proves nothing.</text> <path d="M320 130 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="168" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/>
 <text x="34" y="191" fill="#24292f" font-size="12">An entire validator set</text> <text x="34" y="210" fill="#24292f" font-size="12">goes offline</text> <rect x="360" y="168" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="374" y="191" fill="#24292f" font-size="11">No quorum, no certificate. Correct validators halt, stop signing and keep their</text> <text x="374" y="210" fill="#24292f" font-size="11">state. They do not fork and they do not adopt a lower checkpoint.</text>
 <path d="M320 196 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="234" width="300" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="34" y="257" fill="#24292f" font-size="12">Data for a certified or locked</text> <text x="34" y="276" fill="#24292f" font-size="12">block cannot be obtained</text>
-<rect x="360" y="234" width="580" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="374" y="257" fill="#24292f" font-size="11">Halt safely and keep serving what you hold. A restart cannot replace this:</text> <text x="374" y="276" fill="#24292f" font-size="11">the data is at or below the checkpoint. If no holder returns, the halt can be permanent.</text> <path d="M320 262 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
-<rect x="20" y="300" width="300" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="34" y="323" fill="#24292f" font-size="12">Settlement stalls</text> <text x="34" y="342" fill="#59636e" font-size="10">no batch accepted for T_STALL_GOV</text> <rect x="360" y="300" width="580" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="374" y="323" fill="#24292f" font-size="11">Halt safely; nothing at or below the accepted checkpoint is rewritten, and a user can still exit on Ethereum</text>
-<text x="374" y="342" fill="#24292f" font-size="11">alone. A timelocked, resume-only governance decision can restart from the checkpoint; progress voids it.</text> <path d="M320 328 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="366" width="300" height="56" rx="8" fill="#ffebe9" stroke="#5c2630"/> <text x="34" y="389" fill="#24292f" font-size="12">Two conflicting certificates</text>
+<rect x="360" y="234" width="580" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="374" y="257" fill="#24292f" font-size="11">Halt safely and keep serving what you hold. Nothing can replace this:</text> <text x="374" y="276" fill="#24292f" font-size="11">the data is at or below the checkpoint. If no holder returns, the halt can be permanent.</text> <path d="M320 262 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
+<rect x="20" y="300" width="300" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="34" y="323" fill="#24292f" font-size="12">Settlement stalls</text> <text x="34" y="342" fill="#59636e" font-size="10">no batch accepted for a long time</text> <rect x="360" y="300" width="580" height="56" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="374" y="323" fill="#24292f" font-size="11">Halt safely; nothing at or below the accepted checkpoint is rewritten, and a user can still exit on Ethereum</text>
+<text x="374" y="342" fill="#24292f" font-size="11">alone. No v1 rule clears the stall; clearing it needs a future protocol update.</text> <path d="M320 328 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
 <text x="34" y="408" fill="#24292f" font-size="12">at one height</text> <rect x="360" y="366" width="580" height="56" rx="8" fill="#ffebe9" stroke="#5c2630"/> <text x="374" y="389" fill="#24292f" font-size="11">The assumptions failed. Halt, publish both signed certificates as evidence,</text> <text x="374" y="408" fill="#24292f" font-size="11">and never choose a branch. Do not delegate the choice to an operator.</text> <path d="M320 394 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
 <rect x="20" y="432" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="455" fill="#24292f" font-size="12">The needed L1 fact or set</text> <text x="34" y="474" fill="#24292f" font-size="12">commitment is missing</text> <rect x="360" y="432" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/>
 <text x="374" y="455" fill="#24292f" font-size="11">Halt at the highest certified block and wait. Never continue on an</text> <text x="374" y="474" fill="#24292f" font-size="11">unauthenticated set and never take a set from an unfinalized L1 block.</text> <path d="M320 460 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="504" width="920" height="44" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/>
-<text x="34" y="524" fill="#1a7f37" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; touch a checkpoint or batch accepted on Ethereum &middot; let governance</text> <text x="34" y="541" fill="#1a7f37" font-size="11">or an operator choose a state, a checkpoint or a height &middot; execute a queued restart after the chain makes progress &middot; treat a lock in a discarded range as a reason to halt.</text>
+<text x="34" y="524" fill="#1a7f37" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; touch a checkpoint or batch accepted on Ethereum &middot; let governance</text> <text x="34" y="541" fill="#1a7f37" font-size="11">or an operator choose a state, a checkpoint or a height &middot; expect any v1 path to clear a settlement stall.</text>
 </svg>
-<figcaption>Every situation has one rule-legal action. For a settlement stall it is a safe halt, the exit
-path that needs no L2 liveness, and &mdash; if governance acts &mdash; a timelocked, resume-only restart;
-never an operator, and never a rewrite of accepted history.</figcaption>
-<!-- <em>D-15: the stall action is a safe halt plus a timelocked resume-only restart, not a bonded permissionless recovery.</em> -->
+<figcaption>Every situation has one rule-legal action. For a settlement stall it is a safe halt and the exit
+path that needs no L2 liveness; no v1 rule clears the stall, and no operator and no update may rewrite
+accepted history.</figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -228,15 +192,15 @@ validator locked on commits, the lock has done its work; or</li>
 <li>the validator sees a proof-of-lock-change at the same height <code>H</code>, for a different value,
 at a round strictly later than its <code>locked_round</code> and earlier than the current round.</li>
 </ul>
-<!-- <em>D-15: the retired-height release is withdrawn; a restart begins a new generation, and a lock from the discarded range does not bind it.</em> -->
 <p>Nothing else unlocks. A proof-of-lock-change at the same round, at an earlier round, or for the
 value already locked does not unlock; a proof-of-lock-change at another height neither unlocks this
 height nor creates a lock there. The <code>pol_round</code> field carried in a proposal is only a hint;
 the validator must verify the proof itself. And a validator that holds a lock at a height and then sees
 a valid commit certificate for a <em>different</em> block at that height has evidence that the
-assumptions failed: it halts, and it does not treat the certificate as an unlock. The discarded-range case
-is the exception: after a restart a certificate from the old generation is void at the acceptance rule, the
-lock does not bind the new generation, and the validator is neither stuck nor required to halt.</p>
+assumptions failed: it halts, and it does not treat the certificate as an unlock or as a reason to
+abandon the halt. v1 never begins a new generation, so no lock is ever superseded by a restart; a certificate
+carrying a superseded generation would be void at the acceptance rule, and the lock remains in force until
+the ordinary rules release it.</p>
 <p>Why this protects safety: a commit certificate requires more than two thirds of the epoch&rsquo;s
 voting power. If a second, conflicting commit certificate existed, the two signer sets would overlap in
 more than one third of the power, and those validators would have had to sign conflicting blocks at the
@@ -257,51 +221,34 @@ view;</li>
 </ul>
 <p>Halting is not a fork, not a rollback and not a vote to abandon the chain. A halting node keeps
 serving what it has and keeps its state so it can resume. There is no emergency key and no operator
-override; the only way the chain moves again after a stall is the timelocked, resume-only restart, and only
-when its own rule allows it (<a href="../spec/06-recovery-exceptions.html#HALT-04">HALT-04</a>). If progress
-needs information that no rule-legal action can obtain, the protocol says so and stops.</p>
-<p>A pure settlement stall is different: it has a rule-legal way forward, the timelocked restart. Halting
-remains the correct outcome when the missing ingredient is data or participation that no restart can
+override, and v1 has no recovery path of any kind: a settlement stall halts the chain, funds at or below the
+last accepted checkpoint are safe, the exit works, and clearing the stall needs a future protocol update
+whose procedure is not yet specified (<a href="../spec/06-recovery-exceptions.html#HALT-04">HALT-04</a>). If
+progress needs information that no rule-legal action can obtain, the protocol says so and stops.</p>
+<p>Halting remains the correct outcome for a settlement stall and for a missing ingredient that no action can
 replace &mdash; anything at or below the last checkpoint accepted on Ethereum.</p>
-<!-- <em>D-15: no emergency key or operator override; a stall is cleared only by the timelocked, resume-only restart.</em> -->
 
-<h3>Clearing a stall, step by step</h3>
+<h3>A settlement stall, step by step</h3>
 <ol>
-<li><strong>Trigger.</strong> One condition starts the process: a <em>settlement stall</em> &mdash; no
-batch extending the current L1 checkpoint has been accepted for <code>T_STALL_GOV</code>. The threshold is
-strictly larger than the proof envelope, so a normal slow proof or a single prover failure cannot trigger
-it. It is measured on L1, and no participant&rsquo;s local view can declare it early.</li>
+<li><strong>Production stops.</strong> No batch extending the current L1 checkpoint is accepted for long
+enough that a normal slow proof or a single prover failure cannot be the explanation. Nothing declares the
+stall early from a local view: the condition is a fact about the checkpoint, which every observer reads from
+Ethereum.</li>
 <li><strong>Halt.</strong> Correct validators stop signing and keep their state and the data they hold.
 The chain serves what it has. Nothing at or below the last accepted checkpoint changes, and every
-confirmation above it stays provisional and may be discarded by a restart.</li>
+confirmation above it stays provisional.</li>
 <li><strong>Exit while halted.</strong> A withdrawal whose signal is at or below the last accepted
 checkpoint stays executable on Ethereum alone, subject only to the withdrawal delay on the L1 clock
 (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). Value above the checkpoint, or value that
 was never messaged, has no L1-provable claim until a later checkpoint covers it.</li>
-<li><strong>The decision.</strong> Governance may queue a restart under the timelock
-<code>T_GOV_RESUME</code>, long enough that every user can exit before it executes. Once queued, the
-timelock cannot be shortened. The decision is <strong>resume-only</strong>: it may not choose a state, a
-checkpoint or a height, and nothing at or below the accepted checkpoint may be touched. Once the timelock
-has elapsed and the entry is not void, any account may execute it, and the executor has no discretion: the
-effect is fixed by the rule from L1 state alone.</li>
-<li><strong>Void on progress.</strong> If a batch extending the checkpoint is accepted before the queued
-decision executes, the action is void, and any account may cancel the queued entry. A certificate or a
-proof for a discarded height is not progress, because neither is accepted settlement.</li>
-<li><strong>Effect.</strong> The chain restarts from the latest checkpoint accepted on Ethereum and
-discards everything above it. The restart advances the recovery generation, which is carried in the signed
-vote and header bytes, so validators sign the new generation and certificates from the old generation are
-void at the acceptance rule. A transaction in the discarded range is lost: it is not replayed
-automatically, it must be resubmitted, and its inclusion is not guaranteed.</li>
-<li><strong>Locks in the discarded range.</strong> A lock belongs to the generation it was taken in. A
-validator locked on a discarded block is not stuck, the old locked value is not evidence of misbehaviour,
-and it is not a reason to halt. A late certificate for a discarded height is void for canonical purposes
-but remains admissible as evidence of what was signed.</li>
-<li><strong>Afterwards.</strong> The chain resumes from the last accepted checkpoint
-(<code>lastLandedHeight + 1</code>) under the new generation. Nothing restarts automatically and there is
-no permissionless path: if governance does not queue and execute the decision, the chain stays halted. That
-dependency is stated as a trust assumption, not as a guarantee.</li>
+<li><strong>No recovery path.</strong> Nothing in v1 clears the stall. There is no automatic route, no
+permissionless route and no governance-mediated route, and the design gives no protocol-level guarantee of
+liveness after a stall. Clearing it needs a future protocol update whose procedure is not yet specified.</li>
+<li><strong>What is preserved.</strong> The last accepted checkpoint and everything at or below it are never
+rewritten; the recovery generation is carried in the signed vote and header bytes and v1 never advances it,
+so no height is retired and no branch is discarded. A transaction above the checkpoint is unsettled rather
+than replayed, and its inclusion is not guaranteed.</li>
 </ol>
-<!-- <em>D-15: the stall is cleared by a timelocked, resume-only governance decision that restarts from the last accepted checkpoint and advances the recovery generation.</em> -->
 
 <h3>What a stall means for users</h3>
 <ul>
@@ -309,34 +256,32 @@ dependency is stated as a trust assumption, not as a guarantee.</li>
 withdrawal whose signal is at or below the checkpoint stays executable on Ethereum alone, subject only to
 the withdrawal delay on the L1 clock (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). A
 halt does not forfeit it.</li>
-<li><strong>Above the accepted checkpoint, a confirmation can be discarded.</strong> A restart resumes
-from the last checkpoint accepted on Ethereum and discards everything above it. A transaction in the
-discarded range is lost: it is not replayed automatically and must be resubmitted.</li>
+<li><strong>Above the accepted checkpoint, a confirmation stays provisional.</strong> No v1 rule makes it
+permanent, and no v1 rule discards it either; it simply is not settled, and value above the checkpoint has
+no L1-provable claim until a later checkpoint covers it.</li>
 <li><strong>Accepted history stays valid.</strong> Anything at or below a checkpoint or batch accepted on
-L1 is never touched by a restart.</li>
+L1 is never touched by any rule.</li>
 <li><strong>Off-chain losses are not compensated.</strong> A trade, a signed message or a position built
 on a provisional confirmation has no protocol remedy
 (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
 <li><strong>Validators are not punished for halting.</strong> Halting is the required behaviour when
-the rules say so, and a lock in the discarded range does not stick.</li>
+the rules say so, and a lock that the ordinary rules release is not treated as misconduct.</li>
 <li><strong>Operators must not improvise.</strong> Publishing data without a proof accepts nothing
 &mdash; publication writes no batch state &mdash; so it cannot unstick the chain; picking a branch, by
-contrast, converts a safe halt into an unsafe restart. The only legitimate restart is the timelocked,
-resume-only decision, and there is no operator unstick button.</li>
+contrast, converts a safe halt into an unsafe divergence. No operator action clears a stall: v1 offers no
+path at all.</li>
 <li><strong>A halt below the checkpoint may still be permanent.</strong> If every holder of an accepted
-block&rsquo;s data has disappeared, nothing in the protocol can reconstruct it, and a restart may not
+block&rsquo;s data has disappeared, nothing in the protocol can reconstruct it, and no rule may
 replace accepted history. That is a disclosed liveness cost of permanent settlement.</li>
-<li><strong>A stalled chain resumes only if governance acts.</strong> There is no automatic or
-permissionless path, and no protocol-level bound on how long a halt lasts. This is a social-layer trust
-assumption, stated as one.</li>
+<li><strong>A stalled chain does not resume in v1.</strong> Clearing the stall needs a future protocol
+update whose procedure is not yet specified, and there is no protocol-level bound on how long a halt lasts.</li>
 </ul>
-<!-- <em>D-15: users exit from the last settled state on Ethereum alone; a restart discards the range above the checkpoint, and liveness after a stall depends on governance.</em> -->
 
-<h3>Restarting afterwards</h3>
+<h3>Resuming a node afterwards</h3>
 <p>After a halt, a correct participant resumes only from the <strong>highest certified block whose data
 and certificate it can independently reconstruct</strong> (<a href="../spec/06-recovery-exceptions.html#HALT-02">HALT-02</a>).
 It never adopts an alternative history at a height it has already certified, and it never treats a
-timeout during the halt as evidence that a certificate does not exist. On restart four rules apply:</p>
+timeout during the halt as evidence that a certificate does not exist. On resuming four rules apply:</p>
 <ol>
 <li>Each validator enforces a signed-message uniqueness check over its own signing history: no message
 of the same type at the same height and round may be signed twice, including after a restart or a
@@ -348,27 +293,22 @@ instead of trusting its cache.</li>
 rules reject messages for heights already certified.</li>
 <li>A resumed node&rsquo;s first act is a data-and-certificate sync, not a proposal.</li>
 </ol>
-<p>A restart is not a rewrite of settled history: it restores the last checkpoint accepted on Ethereum and
-resumes from there, and HALT-02&rsquo;s rules still govern what a node may do at heights it has already
-certified. A node must not treat a discarded height as certified, and a lock taken in the discarded range
-neither binds it nor obliges it to halt.</p>
-<!-- <em>D-15: the restart resumes from the accepted checkpoint; discarded heights are not certified, and old-generation locks do not bind.</em> -->
+<p>A node-level resync is not a rewrite of settled history: it starts from the last checkpoint accepted on
+Ethereum and resumes from there, and HALT-02&rsquo;s rules govern what a node may do at heights it has already
+certified. No v1 rule discards an unsettled height or rewrites a certified one.</p>
 
-<h3>Why unsettled history can be discarded instead of halting forever</h3>
+<h3>Why the chain halts instead of discarding unsettled history</h3>
 <p>An unbounded halt is not free: if settlement stops and nothing restarts it, the chain stops serving
 users, and the only remedies are outside the protocol. The design keeps the settled part settled and makes
-the unsettled part explicitly provisional. A checkpoint or batch accepted on Ethereum is never rewritten;
-history above it can be discarded by a timelocked, resume-only governance decision that resumes from the
-checkpoint, and the generation advance makes certificates from the discarded range void. That is the trade:
-a defined way back to a working chain, paid for with a weaker guarantee above the last accepted checkpoint
-and with a restart that governance must choose to make.</p>
-<p>The honest costs are disclosed, not priced away. Transactions in the discarded range are lost and must
-be resubmitted, and whether the chain resumes depends on governance queueing and executing the decision:
-there is <strong>no protocol-level guarantee of liveness after a stall</strong>. Governance can choose when
-the decision executes, but not what it does &mdash; the resume point, the discarded range and the new
-generation are fixed by L1 state and the rule &mdash; and a batch accepted before execution voids the
-decision entirely.</p>
-<!-- <em>D-15: a restart is defined but not guaranteed; its costs are lost transactions and a liveness dependency on governance.</em> -->
+the unsettled part explicitly provisional. A checkpoint or batch accepted on Ethereum is never rewritten,
+and the history above it is never discarded by a v1 rule either; it simply is not settled, and the halt
+continues until a future protocol update supplies a path back. That is the trade: a strict boundary at the
+last accepted checkpoint, paid for with a liveness cost that no v1 rule removes.</p>
+<p>The honest costs are disclosed, not priced away. Transactions above the checkpoint are not settled and
+their inclusion is not guaranteed; whether the chain resumes at all is left to a future protocol update whose
+procedure is not yet specified, and the design states <strong>no protocol-level guarantee of liveness after a
+stall</strong>. Nothing in v1 lets any party choose a state, a checkpoint or a height, and nothing in v1
+prices the halt with a bond.</p>
 
 <h2>Worked example</h2>
 <p>The numbers below are arithmetic on the rules and on illustrative inputs. The inputs are not design
@@ -390,25 +330,21 @@ verify the proof-of-lock-change itself. If that proof is for <code>B&prime;</cod
 <code>(H, round 4)</code>, it unlocks and prevotes <code>B&prime;</code>, because 4 is strictly later
 than its locked round 2 and the value differs. If the proof is for round 2, or for <code>B</code>, it
 stays locked and prevotes <code>B</code>. If instead it obtains a commit certificate for a different
-block at <code>H</code>, it halts &mdash; it does not treat the certificate as an unlock. If the chain has
-since restarted from the checkpoint, however, the lock belongs to the old generation: the validator does
-not halt on the old value and takes part in the new history from the resume point onward.</p>
+block at <code>H</code>, it halts &mdash; it does not treat the certificate as an unlock. v1 never begins a
+new generation, so no restart can supersede the lock; it stays in force until the rules above release it, and
+the conflicting certificate remains evidence that the assumptions failed.</p>
 
 <p><strong>A prover that never finishes, and then a stall.</strong> A batch is certified at time
 <code>t</code>. At <code>t</code> + 30 minutes there is still no proof. Nothing special happens yet: a
 proof consuming the whole envelope is normal, not misconduct; other provers may produce a proof for the
 same data commitment and land it, and the first valid landing wins. If in addition no batch extending the
-current checkpoint is accepted for <code>T_STALL_GOV</code>, the settlement-stall trigger is met. The chain
-halts: correct validators stop signing and keep serving what they hold, and nothing restarts it
-automatically or permissionlessly. While it is halted, a user whose withdrawal signal is at or below the
-last accepted checkpoint can still exit on Ethereum alone, subject only to the L1 withdrawal delay.
-Restarting requires governance to queue a timelocked decision; the decision is resume-only, so the chain
-restarts from the last checkpoint accepted on Ethereum and every block above it &mdash; including the
-certified batch and any transaction in it &mdash; is discarded. The restart advances the recovery
-generation: validators sign the new generation, and certificates from the old generation are void at the
-acceptance rule. A transaction in the discarded range is lost and must be resubmitted; nothing replays
-it.</p>
-<!-- <em>D-15: a prover outage reaches the stall trigger, the chain halts, and only a timelocked resume-only governance decision restarts it.</em> -->
+current checkpoint is accepted for long enough that a normal slow proof cannot explain it, the chain stalls.
+Correct validators stop signing and keep serving what they hold, and nothing in v1 clears the stall. While
+it is halted, a user whose withdrawal signal is at or below the last accepted checkpoint can still exit on
+Ethereum alone, subject only to the L1 withdrawal delay. Nothing above the checkpoint is discarded by any
+rule, and nothing is replayed; the certified batch and the transactions in it are simply unsettled, their
+inclusion is not guaranteed, and clearing the stall needs a future protocol update whose procedure is not
+yet specified.</p>
 
 <h2>What this gives you</h2>
 <ul>
@@ -416,54 +352,41 @@ it.</p>
 run time.</li>
 <li>Safety that does not depend on seeing a certificate: the lock protects the decision, not the
 publication.</li>
-<li>A principled restart: resume from the highest certified block whose data and certificate can be
+<li>A principled resume: a node restarts from the highest certified block whose data and certificate can be
 reconstructed, never from a competing branch.</li>
-<li>A settled prefix that is never rewritten and a defined way to restart above it, so a settlement stall
-has a rule-legal route back when governance acts.</li>
-<li>A restart that cannot choose history: it resumes from the last accepted checkpoint, discards
-everything above it wholesale, and advances the generation so old-generation certificates are void at the
-acceptance rule.</li>
+<li>A settled prefix that is never rewritten: history above it is provisional, and no v1 rule replaces or
+discards it.</li>
+<li>A recovery generation that cannot be steered: it is a signed field that scopes certificates, v1 never
+advances it, and no state, checkpoint or height can be chosen through it.</li>
 <li>An exit that needs no L2 liveness: a withdrawal whose signal is at or below the last accepted
 checkpoint is executable on Ethereum alone (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>).</li>
-<li>Locks that do not survive a restart: a validator locked on a discarded block is not wedged, and the old
-locked value is not treated as misbehaviour.</li>
-<!-- <em>D-15: no priced recovery and no retired heights; a resume-only restart, a generation advance and the L1-only exit replace them.</em> -->
-<!-- <em>D-14: a quorum lost to silence is recoverable at a set boundary.</em> -->
-<li>A liveness rule that takes nothing from anyone: a validator that stops attesting is excluded from
-future set versions, keeps its stake, and returns by attesting, so a quorum lost to silence is
-recoverable at a boundary.</li>
+<li>Locks scoped by generation: a lock constrains votes at its height within the generation it was taken in,
+and v1 never begins a new one.</li>
+<li>A clear account of silence: an entry that stops signing keeps its stake and its place in every committed
+set version, and a cohort that stops signing halts production rather than shedding weight.</li>
 </ul>
 
-<!-- <em>D-14: no rule takes weight; the way back from a silent cohort is the next set boundary.</em> -->
 <h2>What it does not give you</h2>
 <ul>
 <li>Availability. If data for a block at or below the accepted checkpoint is gone, the halt can be
 permanent; retention is an assumption, not an enforced duty.</li>
-<li>Permanent confirmations above the last accepted checkpoint. A certified block can be discarded when
-the chain restarts from the checkpoint, a discarded transaction is lost and must be resubmitted, and
-off-chain losses are not compensated.</li>
-<li>Guaranteed liveness after a stall. Clearing a stall depends on governance queueing and executing the
-timelocked decision; there is no bond, reward or permissionless path that substitutes for it, and no
-protocol-level bound on how long a halt lasts.</li>
-<li>A selective restart, or a route back for the discarded range. The restart resumes from the checkpoint
-and discards the contiguous range above it wholesale: governance has no choice about which transactions
-inside that range survive, so the action cannot be used to pick winners. That is a property of the
-wholesale discard, not a promise about the outcome &mdash; discarded transactions are not replayed
-automatically and their inclusion is not guaranteed, so a party whose transaction was discarded must
-resubmit it.</li>
-<li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that
-never answers is not slashable, and a missed heartbeat is not an offence either. A validator that goes
-quiet loses its place in future set versions, not its stake.</li>
-<li>A way to keep a set version producing after quorum is lost, and no rule that takes weight from
-anyone. Production halts rather than continuing at a lower threshold; the way back is at the boundary,
-where validators that have not posted a heartbeat are excluded from the next set version and the
-eligible remainder becomes the whole quorum denominator. No stake is reduced or taken, and re-attesting
-restores eligibility.</li>
-<li>An instant or operator unstick button. A settlement stall is cleared only by the timelocked,
-resume-only decision, and only when governance queues and executes it &mdash; not by an operator, an
-emergency key or a bond.</li>
-<li>Any measured detection rate, timeout value, stall-resolution parameter or retention window. Those are
-not yet measured.</li>
+<li>Permanent confirmations above the last accepted checkpoint. A certified block there is provisional: no
+v1 rule makes it permanent, and off-chain losses are not compensated.</li>
+<li>Guaranteed liveness after a stall. v1 has no way to clear one &mdash; no automatic, permissionless or
+governance-mediated path &mdash; and clearing it needs a future protocol update whose procedure is not yet
+specified, with no protocol-level bound on how long a halt lasts.</li>
+<li>A way to move or discard history. No v1 rule discards the confirmation above the checkpoint or replaces
+it, so a stalled chain waits: transactions above the checkpoint are not settled, their inclusion is not
+guaranteed, and a party that needs one must be prepared to resubmit it later.</li>
+<li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that never
+answers is not slashable, and a validator that goes quiet loses neither its place in the committed set nor
+its stake.</li>
+<li>A way to keep producing after quorum is lost, and no rule that takes weight from anyone. Production
+halts; the committed set does not change, and nothing removes the silent weight or draws a replacement
+set.</li>
+<li>An instant or operator unstick button. No v1 path clears a settlement stall: not governance, not an
+operator, not an emergency key and not a bond.</li>
+<li>Any measured detection rate, timeout value or retention window. Those are not yet measured.</li>
 </ul>
 
 <h2>Check yourself</h2>
@@ -481,75 +404,54 @@ nothing and advances no height, so settlement resumes only when a valid proof la
 never proven before its deadline is discarded and can be published again, so it never becomes a second
 acceptance path.</p></details>
 <details><summary>Is a PoS confirmation above the last accepted checkpoint final?</summary>
-<p>No. It is valid but provisional: if the chain stalls and governance executes a restart from the last
-checkpoint accepted on Ethereum, the confirmation is discarded with everything else above that checkpoint.
-Accepted checkpoints and accepted batches are never touched, and a discarded transaction is not replayed
-&mdash; it must be resubmitted.</p></details>
+<p>No. It is valid but provisional: no v1 rule makes it permanent, and v1 has no path that replaces or
+discards it either. Accepted checkpoints and accepted batches are never touched. Value above the checkpoint
+has no L1-provable claim until a later checkpoint covers it, and no protocol penalty compensates an off-chain
+loss.</p></details>
 <details><summary>What clears a settlement stall?</summary>
-<p>A timelocked, resume-only governance decision. It restarts the chain from the last accepted checkpoint
-and discards everything above it; it cannot choose a state, a checkpoint or a height, and once queued it
-cannot be shortened. If a batch extending the checkpoint is accepted first, the decision is void and any
-account may cancel the queued entry. Nothing restarts automatically or permissionlessly, and there is no
-bond and no reward in the path.</p></details>
-<details><summary>A validator is locked on a block in a range that a restart discards. Is it stuck, and must it halt?</summary>
-<p>No. The lock belongs to the generation it was taken in, and the restart begins a new generation, so the
-validator is free to participate in the new history from the resume point onward. The old locked value is
-not evidence of misbehaviour and is not a reason to halt. Only a genuinely conflicting pair of signed
-messages is evidence, and a late certificate for a discarded height is usable as evidence of what was
-signed, not as a claim on canonical history.</p></details>
-<details><summary>The chain has stalled and governance has not acted. Does anything restart it?</summary>
-<p>No. There is no automatic or permissionless restart. The chain stays halted until governance queues and
-executes the timelocked, resume-only decision, or until settlement makes progress on its own &mdash; in
-which case any queued decision becomes void and any account may cancel it. That liveness dependency on
-governance is a disclosed trust assumption, not a protocol guarantee. A user can still exit from the last
+<p>Nothing in v1. There is no automatic path, no permissionless path and no governance-mediated path, and
+there is no protocol-level guarantee of liveness after a stall. Clearing it needs a future protocol update
+whose procedure is not yet specified. Nothing at or below the last accepted checkpoint is touched, and the
+exit from that state stays available on Ethereum alone.</p></details>
+<details><summary>Does a lock survive a generation change?</summary>
+<p>v1 never begins a new generation, so no lock is ever superseded and no validator is freed by a restart;
+the lock stays in force at its height until the commit of the locked value or a strictly later
+proof-of-lock-change releases it. A certificate carrying a superseded generation would be void at the
+acceptance rule, which is what the signed generation scopes.</p></details>
+<details><summary>The chain has stalled. Does anything restart it?</summary>
+<p>No. v1 has no recovery path of any kind: nothing automatic, nothing permissionless and nothing
+governance-mediated restarts the chain. The chain stays halted until a future protocol update supplies a
+path, and there is no protocol-level bound on how long that takes. A user can still exit from the last
 settled state on Ethereum alone while the halt lasts.</p></details>
-<details><summary>What makes a certificate from before a restart unusable?</summary>
-<p>The restart advances the recovery generation, which is carried in the signed vote and header bytes.
-Validators sign the new generation, and a certificate carrying the old generation is void at the
-acceptance rule. The generation advance is what stops a discarded branch from being accepted again.</p></details>
-<!-- <em>D-14: heartbeats decide the next set; the silent cohort keeps its stake.</em> -->
-<details><summary>A third of the voting power stops signing and never posts a heartbeat. Is the chain stuck?</summary>
-<p>Not permanently, and nothing is taken from the silent validators. For the set version already
-committed the silent weight still counts, so quorum can fail and production halts for that epoch. To be
-selected into a later set version an entry must
-attest on Ethereum within <code>HEARTBEAT_WINDOW</code>; the silent entries are excluded from the next
-committed root, the eligible remainder becomes the whole of the epoch&rsquo;s voting power, and the
-quorum predicate is reachable again. The excluded validators keep their stake, are not slashed, and
-become eligible again by attesting. The L1-time rotation
-(<a href="../spec/02-consensus.html#CONS-16">CONS-16</a>) can close a stalled epoch early and draw the
-restart set from eligible validators.</p></details>
+<details><summary>What is the recovery generation for?</summary>
+<p>It is a counter carried in the signed vote and header bytes that scopes certificates, locks and
+uniqueness: a certificate carrying a superseded generation is void at the acceptance rule, so a branch
+scoped to an older generation could never be accepted again. v1 has no recovery path, so the generation never
+advances here and no height is retired.</p></details>
+<details><summary>A third of the voting power stops signing. Is the chain stuck?</summary>
+<p>For the set version already committed the silent weight still counts, so quorum can fail and production
+halts. Nothing is taken from the silent validators: membership has no liveness gate, so they keep their
+stake and their place in every committed set version. There is no rotation and no replacement set, so v1 has
+no rule that clears the halt; clearing it needs a future protocol update.</p></details>
 
 <div class="card">
 <h3>Assumptions</h3>
 <ul>
 <li>Fewer than one third of each epoch&rsquo;s voting power is malicious, and the rest follows the lock
 and vote-uniqueness rules.</li>
-<li>Enough validators are online to form quorums in normal operation, and enough post their L1
-heartbeats that each future set version can be populated. Inside a set version the protocol has no
-degraded mode; at a boundary, validators that have not attested are excluded from the next version
-while keeping their stake.</li>
+<li>Enough validators are online to form quorums in normal operation. Inside a set version the protocol has
+no degraded mode, and no rule removes a validator that goes quiet, so a silent cohort halts production.</li>
 <li>Somebody keeps the data for every certified block until its proof lands, or publishes it to L1 while the blobs are retrievable.</li>
 <li>At least one prover finishes each batch before the retention assumption expires.</li>
-<li>The stall trigger <code>T_STALL_GOV</code> and the timelock <code>T_GOV_RESUME</code> are unmeasured
-placeholders. The timelock is long enough that every user can exit from the last settled state before a
-restart executes, and governance cannot shorten it once the decision is queued.</li>
-<li>Clearing a stall depends on governance queueing and executing the decision. This is a social-layer
-trust assumption with no protocol-level bound: if governance does not act, the chain stays halted. There is
-no bond, reward or permissionless path to restart it. A captured or coerced governance can also act
-opportunistically within the rule, waiting for a genuine stall and letting an unfavourable provisional
-range be discarded; the narrow effect, the timelock and the exit window mitigate this without removing
-it.</li>
-<!-- <em>D-15: the stall trigger and timelock are unmeasured, and restarting a stalled chain depends on governance acting.</em> -->
+<li>v1 has no stall parameter and no recovery path. A settlement stall halts the chain, the exit from the
+last settled state stays available on Ethereum alone, and clearing the stall needs a future protocol update
+whose procedure is not yet specified; there is no protocol-level bound on how long a halt lasts.</li>
 <li>The reward pool is actually funded and the reward is not below the cost of landing; an empty or
-below-cost pool reaches the settlement-stall trigger with no adversary at all.</li>
-<li>Outside L1-level censorship and the absence of any prover, a sub-threshold coalition cannot force the
-settlement-stall trigger.</li>
-<li>Ethereum itself keeps producing, including and finalizing blocks, and includes honest heartbeat
-transactions. If honest heartbeats can be censored on L1, validators that are online can still be
-excluded from future set versions &mdash; the named falsifier of the exclusion argument, which is
-<span class="tag">Open</span>.</li>
-<li>The timeout values, the retention window, the cap, the stall threshold and the timelock are
-placeholders awaiting measurement.</li>
+below-cost pool reaches a settlement stall with no adversary at all.</li>
+<li>Outside L1-level censorship and the absence of any prover, a sub-threshold coalition cannot force a
+settlement stall.</li>
+<li>Ethereum itself keeps producing, including and finalizing blocks.</li>
+<li>The timeout values, the retention window and the cap are placeholders awaiting measurement.</li>
 </ul>
 </div>
 

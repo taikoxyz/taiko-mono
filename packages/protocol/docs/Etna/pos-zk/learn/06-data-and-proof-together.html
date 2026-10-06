@@ -260,7 +260,7 @@ generation, so a proof that was valid for one configuration or generation cannot
 The configuration is not a single mutable global value: the Inbox keeps an <strong>append-only per-epoch
 registry</strong> mapping each epoch to its <code>configHash</code>. The entry is computed by the contract
 from its own storage and deployed code, written <strong>before the epoch starts</strong>, and
-immutable once written</strong>: no upgrade or governance call may edit or rewrite
+<strong>immutable once written</strong>: no upgrade or governance call may edit or rewrite
 the entry of an epoch that has already begun, so an upgrade binds future epochs only
 (<a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>). That immutability is what keeps upgrades from
 breaking settlement. If the configuration could change under a running epoch, a routine upgrade would move

@@ -47,7 +47,7 @@ published transaction, no rule treats an excluded transaction as a breach, and t
 capped prefix and no deadline discharge. There is no <strong>general inclusion list</strong> either:
 no queue of arbitrary transactions, no escrow, no refund and no L1 entry point that can force an
 <em>unpublished</em> transaction into L2 or start a withdrawal.</p>
-<p>A stalemate is not an inclusion remedy either. v1 has no recovery path of any kind: a settlement stall
+<p>A settlement stall is not an inclusion remedy either. v1 has no recovery path of any kind: a settlement stall
 halts the chain, value at or below the last accepted checkpoint still exits on Ethereum alone, and clearing
 the stall needs a future protocol update. None of that can put a transaction into a block or compel any
 proposer to include one, and none of it makes unpublished data includable.</p>
