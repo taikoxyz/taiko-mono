@@ -92,12 +92,15 @@ TAIKO is the staking and
 slashable-collateral asset and the only asset the ledger accepts (D7, <a href="#ECON-01">ECON-01</a> clause 1).
 <strong>Validator and prover rewards are denominated and paid in ETH</strong>, collected on L1. D7 fixes the staking asset, not
 the reward asset, so ETH rewards are conforming and the identity below is single-currency (ETH) and
-evaluable. The one TAIKO-denominated protocol payout in this specification is the reporter bounty
-(<a href="#ECON-06">ECON-06</a>), and it is <em>not</em> a charge on the ETH fee inflow: it is paid out of
-TAIKO collateral already debited from a proven offender by <code>slash()</code>, it can be paid only when
-such a debit was applied, and ECON-06 clause 5 bounds it to be strictly smaller than that debit. It
-therefore needs no TAIKO/ETH price and does not make this identity mixed-currency; the left-hand term
-<code>rewards_ETH</code> counts only ETH-denominated payouts. Over any accounting period, the sum of those
+evaluable. The TAIKO-denominated protocol payouts in this specification are the reporter bounty
+(<a href="#ECON-06">ECON-06</a>) and the correlated-collection keeper fee (<a href="#ECON-05">ECON-05</a>
+clause 5), and neither is a charge on the ETH fee inflow: both are paid out of TAIKO collateral already
+debited from a proven offender by <code>slash()</code> and can be paid only when such a debit was applied —
+the bounty is bounded by ECON-06 clause 5 to be strictly smaller than that debit, and the keeper fee is a
+fraction of what the collection call collects, with the bounty and the fee together bounded by the amount
+collected for that offence. They therefore need no TAIKO/ETH price and do not make this identity
+mixed-currency; the left-hand term <code>rewards_ETH</code> counts only ETH-denominated payouts.
+<em>This closes A5: the collection keeper fee is registered as a TAIKO payout of the same debit as the reporter bounty, so the funding identity stays single-currency (ETH).</em> Over any accounting period, the sum of those
 ETH-denominated payouts to validators, provers and any other role <strong>MUST</strong> satisfy</span>
 <pre><code>rewards_ETH(period)  ≤  F_exec_L2 + F_priority_L2 + POOL_TOPUP
                         − C_L1_data − C_L1_verify − C_bridge_ops − D_subsidy</code></pre>
@@ -451,7 +454,7 @@ before the evidence window for <code>e</code> closes, so the correlated componen
 <code>applyCorrelated(e, c)</code> call; until then the amount is locked against the exposure accounting of MEM-06.
 <code>CORR_DELAY</code> must satisfy <a href="#ECON-07">ECON-07</a>'s inequality with
 <code>D_WITHDRAW</code> — a long delay is the price of a correlated penalty (Ethereum applies its correlated
-component up to <code>EPOCHS_PER_SLASHINGS_VECTOR/2</code>, ≈36.4 days after the slash; economics-raw.md §2.3, §3.2 point 2, sourced).</span>
+component up to <code>EPOCHS_PER_SLASHINGS_VECTOR/2</code>, ≈36.4 days after the slash; economics-raw.md §2.3, §3.2 point 2, sourced). <strong>Who is paid to collect it.</strong> The collection call is permissionless and MUST pay its caller: of the amount the call collects, the caller receives the <strong>keeper fee</strong> <code>floor(CORR_KEEPER_PPM &middot; collected / 1_000_000)</code>, a separate evidence submitter entitled to the reporter bounty for that identity under <a href="#ECON-06">ECON-06</a> clause (5) receives that bounty, and the remainder goes to the protocol treasury (user decision D-9: no burn). The keeper fee and the bounty together MUST NOT exceed the amount collected, and the registered parameters MUST be set so that this holds for every identity the call can collect. A caller MAY collect several identities in one call, so that one keeper fee covers the L1 gas of the batch. <strong>Honest limit.</strong> The protocol MUST NOT rebate below the L1 gas cost from the treasury: a collection whose keeper fee would be below its L1 gas cost may simply not be worth making, so collection is weaker for tiny penalties than for large ones. That weakness is disclosed rather than subsidised — the treasury never tops the fee up, and no rule may promise a subsidy for a collection. <em>This closes A5: the correlated penalty names its collector's keeper fee, the entitled reporter's bounty and the treasury remainder, permits batching several identities in one call, and discloses the unsubsidised tiny-penalty case.</em></span>
 <span class="norm">(6) <strong>Premise, stated at the claim.</strong> This structure deters only if the slashed
 stake has value and is actually confiscated. Both halves are assumptions: A-ECO-1 (the dollar loss exceeds the
 attack profit at the relevant time) is <em>assumed</em>, and confiscation is possible only while the evidence
@@ -474,7 +477,7 @@ invariants; a correlated penalty whose application delay exceeds the withdrawal 
 <div class="rule" id="ECON-06"><span class="rid">ECON-06 — slashed stake goes to the protocol treasury; the reporter bounty is strictly smaller</span>
 <span class="norm">(1) <strong>The destination is fixed and recorded: the protocol treasury.</strong> Every debited
 amount of <a href="#ECON-05">ECON-05</a> goes to the <strong>protocol treasury</strong>, except the reporter bounty
-that clause (5) bounds strictly below the penalty. The treasury is <strong>one fixed address</strong>, recorded in
+that clause (5) bounds strictly below the penalty and the keeper fee that <a href="#ECON-05">ECON-05</a> clause (5) pays to the caller of <code>applyCorrelated</code>. The treasury is <strong>one fixed address</strong>, recorded in
 <a href="../DECISIONS.md">DECISIONS.md</a> and in the launch record before it can receive anything (today the
 repository records <code>TAIKO_FOUNDATION_TREASURY</code>
 <code>0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da</code> as a hard-coded non-voting holder; economics-raw.md §1.6,
@@ -482,15 +485,15 @@ sourced, and the launch record MUST name exactly one address). It is a constant 
 caller, operator, validator or DAO rescue may supply, and no run-time path may redirect a debit once it is applied.
 "Leave the amount in the ledger" is not a conforming default: it would silently re-capitalise the offender's own
 ledger. <em>(user decision D-9: slashed stake goes to the protocol treasury, not burned)</em></span>
-<span class="norm">(2) <strong>The split: treasury plus a strictly partial reporter bounty.</strong> Of every
-debited amount the protocol treasury receives the whole debit except the reporter bounty. Interface sketch (not
-compiled): <code>treasury() returns (address)</code> and <code>reporterBountyPpm() returns (uint16)</code> with
-<code>reporterBountyPpm &lt; 1_000_000</code>, and <code>slashDestination() returns (uint8 kind, uint16 reporterPpm,
+<span class="norm">(2) <strong>The split: treasury plus a strictly partial reporter bounty and the collection keeper fee.</strong> Of every
+debited amount the protocol treasury receives the whole debit except the reporter bounty and the collection keeper fee. Interface sketch (not
+compiled): <code>treasury() returns (address)</code>, <code>reporterBountyPpm() returns (uint16)</code> and <code>corrKeeperPpm() returns (uint16)</code> with
+<code>reporterBountyPpm &lt; 1_000_000</code> and <code>corrKeeperPpm &lt; 1_000_000</code>, and <code>slashDestination() returns (uint8 kind, uint16 reporterPpm,
 address treasury, address reporterSink)</code>, where <code>kind</code> is the pure <code>TREASURY</code> or
-<code>REPORTER_BOUNTY</code> form (the two are the same rule at different <code>reporterPpm</code>) and the shares
+<code>REPORTER_BOUNTY</code> form (the two are the same rule at different <code>reporterPpm</code>) and the destination shares (reporter bounty, collection keeper fee, treasury remainder)
 sum to <code>1_000_000</code> ppm with the remainder to the treasury. <strong>There is no <code>BURN</code> option
 and no burn share:</strong> no part of a penalty may be destroyed, sunk to an unrecoverable address, or sent
-anywhere other than the treasury and the reporter. The destination never changes the penalty amount:
+anywhere other than the treasury, the reporter and the collection keeper of <a href="#ECON-05">ECON-05</a> clause (5). The destination never changes the penalty amount:
 <code>P(v,e)</code> is independent of the split (ECON-05), and the split <strong>MUST NOT</strong> be chosen to make
 a budget balance. <strong>The bounty is a split, not a full refund.</strong>
 <code>reporterPpm &lt; 1_000_000</code> is required, so the pure form in which the reporter receives the whole debit
@@ -499,40 +502,53 @@ is <strong>not a conforming option</strong> and MUST NOT be selectable: it would
 correlated), so an offender cannot make itself whole by reporting its own offence. <em>(user decision D-9: no burn
 option and no burn share; the remainder goes to the treasury and the bounty stays strictly below the total
 penalty)</em> <em>(review round 2, finding E-R2-06: the menu no longer contains an option the bound forbids; the
-remainder has a named destination.)</em></span> <table>
+remainder has a named destination.)</em> <em>This closes A5: the collection keeper fee is a named destination beside the treasury and the entitled reporter bounty, and the interface split carries all three.</em></span> <table>
 <thead><tr><th>Option</th><th>Mechanism</th><th>Deterrence consequence</th><th>Securities-law posture</th><th>Incentive to report</th></tr></thead> <tbody>
 <tr><td><code>TREASURY</code></td><td>transfer of the whole debit to the fixed recorded treasury address (today the repository records <code>TAIKO_FOUNDATION_TREASURY</code> <code>0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da</code> as a hard-coded non-voting holder; economics-raw.md §1.6, sourced)</td><td>the attacker's loss is real and the value is not destroyed; it re-enters the ecosystem and can fund the same reward budget it was taken from</td><td>concentrates discretionary funds, and the legal characterisation of treasury custody remains unresolved (a disclosure, not a rule choice). The whitepaper's stated policy is that forfeited bonds go to the L1 treasury (<a href="../../../tokenomics-whitepaper.tex">tokenomics-whitepaper.tex</a>:39); the legacy code path that destroyed 50% of a settled liveness bond (<code>LibBonds.sol:161-165</code>) is superseded by user decision D-9</td><td>none by itself; detection stays unpaid (economics-raw.md §4.1 L7)</td></tr>
 <tr><td><code>REPORTER_BOUNTY</code></td><td>a <em>strictly partial</em> share paid to the submitter: <code>REPORTER_BOUNTY(id) &lt; charge(id)</code> (clause 5), with the remainder to the protocol treasury; Ethereum pays the whistleblower 7/8 of a pool sized at 1/512 of the offender's effective balance, with 1/8 to the including proposer (economics-raw.md §2.2, sourced) — note that even that 7/8 is a fraction of a pool, never the whole penalty</td><td>unchanged for the attacker; strengthens the detection half of A-ECO-1</td><td>a payment for a service; characterisation needs a legal assessment (unresolved here)</td><td>makes detection self-enforcing, which is the answer to "who is paid to watch"; it also pays for honest-mistake incidents (ECON-05 clause 7)</td></tr>
 </tbody></table> <span class="norm">(3) <strong>Timing.</strong> Pending correlated amounts are dispatched only when
-<code>applyCorrelated()</code> debits them (ECON-05 clause 5); a bounty is paid once per applied offence identity,
-never on a duplicate (ECON-04 clause 4) and never on a reverted submission (ECON-08).</span>
+<code>applyCorrelated()</code> debits them (ECON-05 clause 5), paying in that transaction the collection keeper fee, any bounty the entitled submitter has not already received, and the treasury remainder; a bounty is paid once per applied offence identity,
+never on a duplicate (ECON-04 clause 4) and never on a reverted submission (ECON-08). <em>This closes A5: the dispatch transaction is where the keeper fee, the entitled bounty and the treasury remainder are paid.</em></span>
 <span class="norm">(4) <strong>Change control.</strong> The treasury address is fixed for the deployment and no
 run-time action redirects it; changing it is a migration under <a href="08-migration-upgrades.html#GOV-01">GOV-01</a>
 that applies only to future debits, MUST be recorded before it takes effect, and may not alter an already-applied
 slash, redirect an applied debit, or change the exposure accounting of MEM-06
 (<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>). <em>(user decision D-9: the treasury is a fixed address
 the protocol cannot redirect at run time)</em></span>
-<span class="norm">(5) <strong>The reporter bounty is strictly less than the correlated penalty.</strong> With the destination
+<span class="norm">(5) <strong>The reporter bounty is a bounded fraction of the charge actually collected.</strong> With the destination
 fixed by clause (2), the total paid to reporting submitters for one applied offence identity <code>id</code> —
 including a submitter controlled by, or affiliated with, the offender — <strong>MUST</strong> satisfy</span>
-<pre><code>REPORTER_BOUNTY(id)  &lt;  c(f(e,c)) · SlashBase(v,e)  ≤  P(v,e)
-REPORTER_BOUNTY(id)  &lt;  charge(id)  ≤  IMM_FRAC(c) · SlashBase(v,e) + c(f(e,c)) · SlashBase(v,e)</code></pre>
+<pre><code>REPORTER_BOUNTY(id)  =  min( floor(BOUNTY_FRAC_PPM · charge(id) / 1_000_000) , BOUNTY_CAP )
+REPORTER_BOUNTY(id)  &lt;  charge(id)  ≤  IMM_FRAC(c) · SlashBase(v,e) + c(f(e,c)) · SlashBase(v,e)
+BOUNTY_GAS_FLOOR  ≤  min( floor(BOUNTY_FRAC_PPM · charge(id) / 1_000_000) , BOUNTY_CAP )   for every offence class the bounty is meant to incentivise</code></pre>
 <span class="norm">with <code>c(f)</code> the correlated component of <a href="#ECON-05">ECON-05</a> clause 2,
 <code>P(v,e)</code> the offender's charge and <code>charge(id)</code> the amount actually debited
-(ECON-05 clause 3). The second line states the property the menu must not contradict: the bounty is a
-fraction strictly less than the <em>total</em> penalty the offender pays, immediate component included, so
-self-reporting is never profitable — an offender or affiliate that submits its own evidence first receives
-back strictly less than it pays and is worse off by <code>charge(id) &minus; REPORTER_BOUNTY(id) &gt; 0</code>
-plus L1 gas, for every offence class, every realised <code>f</code> and the destination of clause (2). The reason
-is that evidence is public and first-come (ECON-04 clause 4): if the bounty can equal or exceed the debit, the
-offender — or an affiliate — submits its own evidence first and recovers its own penalty, leaving a net cost of L1
-gas, so the penalty becomes an accounting entry paid back to its payer and the deterrence half of A-ECO-1 fails. The
-bound applies to the total of every bounty paid for that identity, including any bounty dispatched when
-<code>applyCorrelated()</code> runs (clause 3), and it must hold for every offence class and every realised
-<code>f</code>. A fixed bounty amount is permitted only if it satisfies the inequality for the smallest charge the
-matrix can produce. <code>REPORTER_BOUNTY</code> is otherwise <span class="pill unmeasured">unmeasured</span>, and
-this clause does not weaken <a href="#ECON-08">ECON-08</a> clause 1: no bond may be forfeited on "not proven".
-<em>(review round 1, finding ECO-06)</em></span>
+(ECON-05 clause 3): the bounty is a fraction of the <em>charge actually collected for that offence</em> —
+immediate plus correlated — capped at <code>BOUNTY_CAP</code>, with the remainder of the charge to the
+protocol treasury. The strict bound <code>REPORTER_BOUNTY(id) &lt; charge(id)</code> is what makes
+self-reporting unprofitable: an offender or affiliate that submits its own evidence first receives back
+strictly less than it pays and is worse off by <code>charge(id) &minus; REPORTER_BOUNTY(id) &gt; 0</code>
+plus L1 gas — the offender always pays the difference to the treasury — for every offence class and every
+realised <code>f</code>. The reason is that evidence is public and first-come (ECON-04 clause 4): if the
+bounty can equal or exceed the debit, the offender — or an affiliate — submits its own evidence first and
+recovers its own penalty, leaving a net cost of L1 gas, so the penalty becomes an accounting entry paid
+back to its payer and the deterrence half of A-ECO-1 fails. The bound applies to the total of every bounty
+paid for that identity, including any bounty dispatched when <code>applyCorrelated()</code> runs (clause 3),
+and it must hold for every offence class and every realised <code>f</code>. <code>BOUNTY_GAS_FLOOR</code>
+is the floor that makes reporting rational: the registered parameters MUST be calibrated so that the
+permitted bounty covers the reporter's L1 gas for every offence the bounty is meant to incentivise; where
+a realised charge is too small for the floor and the strict bound to hold together, the strict bound
+governs and the bounty may fall below gas — the tiny-penalty case is disclosed in
+<a href="#ECON-05">ECON-05</a> clause (5), not subsidised. <strong>The earlier per-component bound is
+withdrawn.</strong> The bound <code>REPORTER_BOUNTY(id) &lt; c(f(e,c)) · SlashBase(v,e)</code> is
+<strong>withdrawn as unsatisfiable</strong>: for a single small offender in a large set the realised
+correlated component can fall below the L1 gas cost of reporting, so no constant split can satisfy it for
+every realised <code>f</code>; the bound was on the correlated component rather than on the charge
+collected, and the self-reporting property it was meant to secure follows from
+<code>REPORTER_BOUNTY(id) &lt; charge(id)</code> alone. <code>REPORTER_BOUNTY</code> is otherwise
+<span class="pill unmeasured">unmeasured</span>, and this clause does not weaken
+<a href="#ECON-08">ECON-08</a> clause 1: no bond may be forfeited on "not proven".
+<em>This closes A4: the bounty is a capped fraction of the charge actually collected with a gas floor, the unsatisfiable per-component bound is withdrawn with its reason, and the new parameters are registered in 09.</em></span>
 <span class="norm">(6) <strong>The recovery bond's destination and split.</strong> The bond of
 <a href="06-recovery-exceptions.html#REC-02">REC-02</a> is split at invocation and each part has its own destination. The <strong>non-refundable component</strong> <code>B_REC_KEEP(e)</code> is transferred to the protocol treasury at invocation, on every attempt, whether or not the recovery completes (clauses (1)–(2)); it is never returned. When a recovery <em>completes</em>, only the refundable balance <code>B_REC(e) &minus; B_REC_KEEP(e)</code> is returned, and it is returned to the address that posted the bond, never to the caller of the completion transition. When a recovery is <em>cancelled by honest progress</em>
 — the acceptance of a valid batch extending the checkpoint recorded at invocation, before the completion transition is included, which
@@ -1011,7 +1027,9 @@ now made there, together with the parameters the revised <code>D_MAX</code> and 
 <tr><td><code>REWARD_ASSET</code></td><td>asset</td><td><a href="#ECON-02">ECON-02</a></td><td><strong>ETH</strong>; TAIKO is the staking and collateral asset only (D7)</td></tr>
 <tr><td><code>POOL_TOPUP</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>any L1-side inflow other than L2 fee revenue; the two fee terms arrive by the sweep of clause 7, so the same ETH is never counted twice</td></tr>
 <tr><td><code>D_subsidy</code></td><td>ETH per period</td><td><a href="#ECON-02">ECON-02</a></td><td>the subsidy draw, subtracted in the identity; a subsidy is not additional funding</td></tr>
-<tr><td><code>REPORTER_BOUNTY(id)</code></td><td>TAIKO</td><td><a href="#ECON-06">ECON-06</a></td><td><code>&lt; c(f(e,c)) · SlashBase(v,e) ≤ P(v,e)</code> and <code>&lt; charge(id)</code>: strictly less than the correlated component and strictly less than the total penalty actually debited (immediate plus correlated), so self-reporting is never profitable. The <code>REPORTER_BOUNTY</code> destination is a split with <code>reporterPpm &lt; 1_000_000</code>; the remainder goes to the protocol treasury and no part is destroyed (user decision D-9)</td></tr>
+<tr><td><code>REPORTER_BOUNTY(id)</code></td><td>TAIKO</td><td><a href="#ECON-06">ECON-06</a></td><td><code>= min(floor(BOUNTY_FRAC_PPM · charge(id) / 1_000_000), BOUNTY_CAP)</code>, and strictly <code>&lt; charge(id)</code>: a capped fraction of the charge actually collected for the offence (immediate plus correlated), so self-reporting is never profitable — the offender always pays the difference to the treasury. <code>BOUNTY_GAS_FLOOR</code> is the calibration floor that makes reporting rational; where a realised charge is too small for the floor and the strict bound together, the strict bound governs. The earlier per-component bound <code>&lt; c(f(e,c)) · SlashBase(v,e)</code> is withdrawn as unsatisfiable. The <code>REPORTER_BOUNTY</code> destination is a split with <code>reporterPpm &lt; 1_000_000</code>; the remainder goes to the protocol treasury and no part is destroyed (user decision D-9). <em>This closes A4.</em></td></tr>
+<tr><td><code>BOUNTY_FRAC_PPM</code>, <code>BOUNTY_CAP</code>, <code>BOUNTY_GAS_FLOOR</code></td><td>parts per million of the collected charge; TAIKO; TAIKO</td><td><a href="#ECON-06">ECON-06</a></td><td>the bounty fraction, the per-identity cap and the reporter gas floor; registered with their units and tags in <a href="09-parameters.html#PARAM-01">09</a>. <em>This closes A4.</em></td></tr>
+<tr><td><code>CORR_KEEPER_PPM</code></td><td>parts per million of the amount collected</td><td><a href="#ECON-05">ECON-05</a></td><td>the collection keeper fee paid to the caller of <code>applyCorrelated</code>, with the entitled reporter bounty and the treasury remainder as the other destinations; registered in <a href="09-parameters.html#PARAM-01">09</a>. <em>This closes A5.</em></td></tr>
 <tr><td><code>t_root(e)</code></td><td>unix seconds</td><td><a href="#ECON-07">ECON-07</a></td><td>the stored anchor: the run-time-visible <code>block.timestamp</code> of the transaction that appended epoch <code>e</code>'s entry to the staking contract's per-epoch mapping (MEM-09 clause 2, amended to carry <code>rootCommittedAt</code>); never recomputed from logs, headers or <code>blockhash</code></td></tr>
 <tr><td><code>Alloc(e)</code></td><td>ETH per epoch</td><td><a href="#ECON-02">ECON-02</a></td><td><code>Alloc(e) = floor(ALLOC_VAL_PPM &middot; pool_before(e) / 1_000_000)</code>, with <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>; the validator payout the recorded allocation policy assigns to epoch <code>e</code>, fixed at the (5)(d) freeze and bounded by the pool's realised net inflow delivered by the clause 7 sweep. While nothing has arrived, <code>Alloc(e) = 0</code> and no validator reward is payable</td></tr>
 <tr><td><code>CHURN_LIMIT</code></td><td>fraction of voting power per epoch</td><td><a href="#ECON-03">ECON-03</a></td><td>maximum effective stake that may leave the set in one epoch; must be derived from the deterrence relation</td></tr>
