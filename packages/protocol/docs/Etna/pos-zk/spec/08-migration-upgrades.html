@@ -265,7 +265,7 @@ T1–T3; write the genesis record of T3 (<a href="#genesis-record">&sect;genesis
 (261) <code>acceptedProgramImage</code> map (<code>imageId =&gt; acceptedFromEpoch</code>; MIG-05);<br>
 (262) <code>retiredAtEpoch</code> map (<code>imageId =&gt; epoch</code>; MIG-05);<br>
 (263) <code>lastLandedHeight</code>+<code>lastAcceptedEpoch</code>+<code>activeRouteVersion</code>+<code>routeCount</code> (packed; <code>lastLandedHeight</code> is L1-06's pointer, not a renamed deleted slot);<br>
-(264) <code>checkpoints</code> map (<code>uint64 height =&gt; Checkpoint</code>, the seven L1-07 fields; the map base is one slot, and each record's 4–7 storage slots are entry slots, not gap slots);<br>
+(264) <code>checkpoints</code> map (<code>uint64 height =&gt; Checkpoint</code>, the eight L1-07 fields including <code>lastAcceptedBatchTime</code>; the map base is one slot, each record's 4–7 storage slots are entry slots and not gap slots, and the new field packs with <code>l1BlockNumber</code> into one 32-byte word, so it consumes no gap slot);<br>
 (265) <code>checkpointRouteVersion</code> map (L1-09: every landed checkpoint MUST record the routeVersion used; if the implementer records it in the <code>BatchLanded</code> event instead, this slot is freed and 27 gap slots remain) <em>(user decision D-6: re-derived after the five forced-inclusion slots were removed)</em>;<br>
 (266) <code>proverReward</code> (L1-11);<br>
 (267) <code>verifierRoutes</code> map (<code>routeVersion =&gt; (programImageId, verifier)</code>, L1-09);<br>
@@ -305,6 +305,7 @@ checkpoint, which <a href="04-l1-integration.html#L1-05">L1-05</a> row 31 places
 storage, and <a href="#GOV-03">GOV-03</a>(e) requires an upgrade to carry a pending recovery unchanged
 (268–272); and <a href="04-l1-integration.html#L1-06">L1-06</a>'s contiguity rule reads its two inputs,
 <code>lastLandedHeight</code> (263) and <code>resumeHeight</code> (268), from the same checkpoint record.
+<code>lastAcceptedBatchTime</code> (L1-07; the stored acceptance time that <a href="06-recovery-exceptions.html#REC-02">REC-02</a>'s settlement-stall clock reads) is a field of that same checkpoint record, so it is carried in the <code>checkpoints</code> map's entry slots and packs with <code>l1BlockNumber</code> into one 32-byte word: the record's storage footprint is unchanged, the declaration count stays at <strong>17</strong> slots (258–274), and the <strong>26</strong> gap slots (275–300) remain. <em>This closes finding R1: the stall clock's source is placed in the slot budget where it fits, with its packing and the free count stated.</em>
 The attempt history (273) must be an exact windowed ring rather than a decaying counter: the escalation
 counts attempts in the preceding <code>REC_WINDOW</code>, and a counter that cannot expire one attempt at a
 time would under-price a rapid second attempt. It is finite state because <code>REC_COOLDOWN</code> follows
@@ -357,7 +358,8 @@ bundle may not derive are read from the equalities T3 already checks:</p>
     setRoot:        staking.epochSetRoot(0),  // bytes32; non-zero — T3 requires the epoch-0 set root
     dataCommitment: keccak256(abi.encode(bytes32("TAIKO_ETNA_GENESIS"), uint256(block.chainid),
                                          uint64(B*), H*, S*)),   // non-zero by construction
-    l1BlockNumber:  uint64(block.number)      // the activation block, written once, never edited
+    l1BlockNumber:  uint64(block.number),     // the activation block, written once, never edited
+    lastAcceptedBatchTime: uint64(block.timestamp)  // the activation timestamp, written once, never edited
 });
 lastLandedHeight = B*;                  // in the same write
 </code></pre>

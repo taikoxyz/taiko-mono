@@ -165,7 +165,7 @@ charge   = min( P(v, e) , bonded(v) , remaining_exposure(v, e) )</code></pre>
 <span class="tag">sourced</span>. <code>IMM_FRAC</code> is a per-class fraction with <code>0 &lt; IMM_FRAC &le; 1</code>, so every proven offence has a non-zero immediate cost; its value is <span class="tag">unmeasured</span>.</p>
 <p>The immediate component is debited when the accepted evidence transaction executes. The correlated component cannot be known before the window closes, so it is computed once at <code>evidenceClose(e) + CORR_DELAY</code> and debited by the permissionless
 <code>applyCorrelated(e, class)</code>. A debit is bounded by the bonded balance and by the per-epoch base; the applied amount is taken, the remainder is recorded in the event and is not carried as a debt outside the ledger.</p>
-<p>The destination is fixed: every debited amount goes to the <strong>protocol treasury</strong>, except a <strong>reporter bounty</strong> that is strictly less than the total penalty actually debited, so that self-reporting is never profitable. There is no burn option and no second destination; a cancelled recovery&rsquo;s bond is debited the same way and goes to the treasury, never to a reporter. The destination never changes the size of the penalty (<a href="../spec/07-economics-slashing.html#ECON-06">ECON-06</a>).</p>
+<p>The destination is fixed: every debited amount goes to the <strong>protocol treasury</strong>, except a <strong>reporter bounty</strong> that is strictly less than the total penalty actually debited, so that self-reporting is never profitable, and, when a correlated penalty is collected, a <strong>keeper fee</strong> of <code>CORR_KEEPER_PPM</code> of the amount collected paid to the caller. Such a collection has three named destinations: the caller&rsquo;s keeper fee, the reporter bounty where a separate evidence submitter is entitled to it, and the remainder to the protocol treasury. There is no burn option and no burn share: the treasury is where penalties end up, not a burn address. A cancelled recovery&rsquo;s bond is debited the same way and goes to the treasury, never to a reporter. The destination never changes the size of the penalty (<a href="../spec/07-economics-slashing.html#ECON-06">ECON-06</a>).</p>
 <div class="warnbox small"><strong>The honest tail.</strong> On a small validator set, a correlated penalty makes one operator&rsquo;s duplicated key a correlated loss for a non-trivial fraction of the set. The mitigation is operational: slashing-protection databases, remote signers, disciplined key custody. No parameter choice removes the tail, and the correlated penalty is not harmless.</div>
 <h3>6. Exit and unbonding</h3>
 <p>Exit is a request plus a wait, and the wait has three gates.</p>
@@ -238,8 +238,9 @@ difference, or it reduces the validator count through the exit path. Each valida
 <li>A reward that is a nominal ETH amount with a stated funding identity, not a yield promise tied to a token price.</li>
 <li>Penalties that require objective, self-authenticating evidence, that any address can submit, and that credit no one&rsquo;s
 discretion.</li>
-<li>A fixed penalty destination: the protocol treasury receives every debit except a reporter bounty strictly below the total
-penalty, with no burn option.</li>
+<li>Fixed penalty destinations: the protocol treasury receives the remainder of every debit, beside a reporter bounty strictly
+below the total penalty and, when a correlated penalty is collected, a keeper fee of <code>CORR_KEEPER_PPM</code> to the caller.
+No burn option exists: the treasury is where penalties end up, not a burn address.</li>
 <li>Proportional cost: the more stake an offence implicates, the larger the fraction of each offender&rsquo;s stake that is taken,
 saturating at the one-third safety boundary.</li>
 <li>A withdrawal gate that makes it impossible to release stake before the window that could charge it has closed.</li>

@@ -282,8 +282,12 @@ purposes but remains admissible as evidence of what was signed.</li>
 <li><strong>Afterwards.</strong> A late proof for a discarded height is void because the height is retired;
 its data commitment may be re-batched by any proposer, but only as part of a new batch that starts at or
 above <code>resumeHeight</code> and is proved against the restored checkpoint. A rolled-back transaction is
-not replayed and must be resubmitted. Repeated recovery requires a fresh stall, escalates with every
-attempt and carries a cooldown after each attempt.</li>
+not replayed and must be resubmitted. A new recovery can be invoked only after the cooldown that follows
+every attempt has elapsed, and each attempt costs more because the bond carries a non-refundable component
+that is never returned and grows with the number of attempts in the window. A repeat after a recovery has
+already completed is permitted but harmless when nothing above the checkpoint has been certified since: it
+retires nothing new, cannot lower the retirement floor, and leaves the checkpoint and its state unchanged,
+so the invoker gains nothing and pays the non-refundable component.</li>
 </ol>
 
 <h3>What a halt, and what a recovery, mean for users</h3>
@@ -413,9 +417,12 @@ permanent; retention is an assumption, not an enforced duty.</li>
 recovery, a rolled-back transaction must be resubmitted, and off-chain losses are not compensated.</li>
 <li>A free successful rollback. Completion returns only the refundable balance; the non-refundable
 component is already gone, and every failed attempt costs one too.</li>
-<li>A selective rollback, or a route back for discarded history. Recovery restores the whole checkpoint and
-retires the entire discarded range; heights at or below <code>resumeHeight</code> can never be certified
-or landed again, at any generation.</li>
+<li>A selective rollback, or a route back for discarded history. Recovery restores the checkpoint whole
+and rewinds the contiguous range above it wholesale: the invoker has no choice about which transactions
+inside that range survive, so recovery cannot be used to pick winners. That is a property of the rewind,
+not a promise about the outcome &mdash; unwound transactions are not replayed automatically and their
+inclusion is not guaranteed, so a party whose transaction was unwound must resubmit it. Heights below
+<code>resumeHeight</code> can never be certified or landed again, at any generation.</li>
 <li>A recovery that cannot itself be abused. It is a manipulation primitive with a price, and the
 argument that a sub-threshold coalition cannot force the trigger is conditional, not proven.</li>
 <li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that
