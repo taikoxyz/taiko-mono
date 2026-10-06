@@ -798,7 +798,7 @@ impl ShastaDerivationPipeline {
             safe_block_hash: checkpoint.hash,
             finalized_block_hash: checkpoint.hash,
         };
-        let response = self.rpc.engine_forkchoice_updated_v2(state, None).await?;
+        let response = self.rpc.engine_forkchoice_updated_v3(state, None).await?;
         ensure_valid_forkchoice_status(head.header.number, response.payload_status.status)?;
         Ok(())
     }
