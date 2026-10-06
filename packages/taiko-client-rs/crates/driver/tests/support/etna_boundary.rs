@@ -16,8 +16,9 @@ use driver::{PreconfPayload, PreconfSubmissionOutcome, metrics::DriverMetrics};
 use protocol::shasta::{
     PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash,
     constants::{calculate_next_block_eip4396_base_fee_for_parent, min_base_fee_for_chain},
-    decode_etna_anchor_block_number, encode_etna_extra_data, encode_transactions,
+    decode_etna_anchor_block_number, encode_etna_extra_data, encode_transactions, is_etna_at,
     manifest::{BlockManifest, DerivationSourceManifest},
+    parent_manifest_gas_limit,
 };
 use test_harness::{advance_l1_time, mine_l1_blocks};
 
@@ -95,12 +96,13 @@ async fn build_undecodable_proposal(
 /// contract requires and as derivation recomputes them when the block's proposal arrives.
 ///
 /// The block has no anchor transaction and an empty list (`0xc0`), anchors to `anchor` (its L1
-/// state root is the block's root, its number goes into the 13-byte `extraData` with the
-/// predicted `proposal_id`), keeps the parent's gas limit (an Etna parent has no anchor reserve),
-/// and takes its timestamp from `anchor`: derivation bounds a block's timestamp by the L1
-/// timestamp of the block that includes its proposal. The base fee is the parent's EIP-4396
-/// successor and the mix hash hashes the parent's difficulty with the block number, as
-/// derivation computes them.
+/// state root is the block's root, even on the Unzen parent of the first Etna block, whose zero
+/// root is never reused; its number goes into the 13-byte `extraData` with the predicted
+/// `proposal_id`), and takes its timestamp from `anchor`: derivation bounds a block's timestamp
+/// by the L1 timestamp of the block that includes its proposal. Its gas limit is the parent's
+/// manifest gas limit: an Etna parent's own, an Unzen parent's minus the anchor reserve. The base
+/// fee is the parent's EIP-4396 successor and the mix hash hashes the parent's difficulty with
+/// the block number, as derivation computes them.
 async fn etna_preconfirmation_payload(
     client: &Client,
     parent: &alloy_rpc_types::Block,
@@ -126,13 +128,19 @@ async fn etna_preconfirmation_payload(
     let basefee_sharing_pctg = client.shasta.inbox.getConfig().call().await?.basefeeSharingPctg;
     let block_number = parent.header.number + 1;
     let parent_difficulty = B256::from(parent.header.difficulty.to_be_bytes::<32>());
+    let parent_is_etna =
+        is_etna_at(etna_fork_timestamp_for_chain(client.chain_id)?, parent.header.timestamp);
 
     Ok(build_payload_attributes_with_id(
         PayloadAttributesInput {
             beneficiary,
             timestamp: anchor.timestamp,
             mix_hash: calculate_shasta_mix_hash(parent_difficulty, block_number),
-            gas_limit: parent.header.gas_limit,
+            gas_limit: parent_manifest_gas_limit(
+                parent.header.number,
+                parent.header.gas_limit,
+                parent_is_etna,
+            ),
             tx_list: Some(encode_transactions(&[])),
             extra_data: encode_etna_extra_data(basefee_sharing_pctg, proposal_id, anchor.number)?,
             base_fee_per_gas: U256::from(base_fee),
@@ -199,8 +207,10 @@ async fn etna_boundary(env: &mut ShastaEnv) -> Result<()> {
         let unzen_anchor_state =
             anchor_block_state(&driver_client, unzen_block.header.hash).await?;
 
-        // 2. Move L1 past Etna and propose: the first Etna block has no anchor transaction, drops
-        //    the anchor gas reserve and commits to its anchor's L1 state root.
+        // 2. Move L1 past Etna, build the proposer's proposal, preconfirm the first Etna block it
+        //    describes on the Unzen head, then propose: derivation must recognize the preconfirmed
+        //    block as canonical. The first Etna block has no anchor transaction, drops the anchor
+        //    gas reserve and commits to its anchor's L1 state root, never its parent's zero root.
         let l1_head = driver_client
             .l1_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
@@ -209,9 +219,37 @@ async fn etna_boundary(env: &mut ShastaEnv) -> Result<()> {
         let jump = etna_timestamp.saturating_sub(l1_head.header.timestamp) + ETNA_JUMP_MARGIN_SECS;
         advance_l1_time(&driver_client, jump).await?;
 
-        let etna_request = build_empty_proposal(env, &proposer).await?;
+        let (build_ctx, _) =
+            EngineBuildContext::from_chain_heads(&proposer, Some(etna_timestamp)).await?;
+        let etna_request =
+            ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient)
+                .build(vec![Vec::new()], build_ctx)
+                .await?;
         beacon_stub.add_default_blob_sidecar(etna_request.blob_sidecar());
+        let anchor_header = driver_client
+            .l1_provider
+            .get_block_by_number(build_ctx.anchor_block_number.into())
+            .await?
+            .context("missing the proposal's anchor block")?
+            .header;
         let baseline = batch_row_baseline(&driver_client).await?;
+        let payload = etna_preconfirmation_payload(
+            &driver_client,
+            &unzen_block,
+            &anchor_header,
+            env.l2_suggested_fee_recipient,
+            baseline.proposal_id,
+        )
+        .await?;
+        let outcome = syncer
+            .syncer
+            .submit_preconfirmation_payload(PreconfPayload::new(payload, unzen_block.header.hash))
+            .await?;
+        let PreconfSubmissionOutcome::Inserted { block_hash: preconf_hash } = outcome else {
+            anyhow::bail!("the first Etna preconfirmation was not inserted: {outcome:?}");
+        };
+
+        let hits_before = DriverMetrics::derivation_canonical_hits();
         let (proposal_id, _) = submit_proposal(env, etna_request).await?;
         ensure!(proposal_id == baseline.proposal_id, "proposal id diverged from core state");
         let etna_head = wait_for_proposal_processed(
@@ -222,7 +260,15 @@ async fn etna_boundary(env: &mut ShastaEnv) -> Result<()> {
             ETNA_PROPOSAL_TIMEOUT,
         )
         .await?;
+        ensure!(
+            DriverMetrics::derivation_canonical_hits() == hits_before + 1,
+            "derivation must recognize the preconfirmed first Etna block as canonical"
+        );
         let etna_block = full_block(&driver_client, etna_head).await?;
+        ensure!(
+            etna_block.header.hash == preconf_hash,
+            "confirming the preconfirmed first Etna block must not rebuild it"
+        );
         ensure!(etna_block.header.timestamp >= etna_timestamp, "the second block must be Etna");
         ensure!(etna_block.transactions.is_empty(), "an Etna block has no anchor transaction");
         ensure!(
