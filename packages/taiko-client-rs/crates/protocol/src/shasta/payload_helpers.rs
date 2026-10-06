@@ -230,6 +230,11 @@ mod tests {
     /// pre-Osaka alethia-reth pin (`0fb47d9`) so the Osaka pin is checked against V2-era IDs.
     const PRE_ETNA_FINGERPRINT: [u8; 8] = hex!("02e3bcbe79b748d7");
 
+    /// Etna fingerprint of [`fingerprint_input`] with root `0x…55` and the 13-byte `extraData`
+    /// for anchor block 123456, recorded with the alethia-reth pin `53d2cd8`, so a re-pin that
+    /// changes the Etna preimage fails here instead of silently changing stored payload IDs.
+    const ETNA_FINGERPRINT: [u8; 8] = hex!("0291cb0f178787cf");
+
     /// Parent hash shared by the fingerprint vectors.
     fn fingerprint_parent() -> B256 {
         B256::with_last_byte(0x44)
@@ -284,6 +289,7 @@ mod tests {
         let extra_data = encode_etna_extra_data(50, 7, 123_456).expect("fields fit uint48");
         let etna = payload_id(Some(root), extra_data.clone());
 
+        assert_eq!(etna, ETNA_FINGERPRINT);
         assert_ne!(etna, PRE_ETNA_FINGERPRINT);
         assert_ne!(etna, payload_id(Some(B256::ZERO), extra_data.clone()), "zero root");
         assert_ne!(etna, payload_id(None, extra_data.clone()), "missing root");
