@@ -165,9 +165,10 @@ come from the Inbox record, so the proof always runs from the state Ethereum alr
 required to equal the generation the contract supplies, so a batch certified under an older generation is
 rejected even though its proof is otherwise valid. The generation is a cheap invalidation of proofs that
 were already generated; the property that a discarded branch cannot be reinstated rests on the retired
-heights: a batch must start at <code>max(lastLandedHeight + 1, resumeHeight)</code>, so a range at or below
-<code>resumeHeight</code> can never be landed, at any generation, and locks at retired heights are void. A
-late proof or certificate for a discarded height remains admissible as evidence.</li>
+heights: a batch must start at <code>max(lastLandedHeight + 1, resumeHeight)</code>, so a batch that starts
+below <code>resumeHeight</code> can never be landed or certified, at any generation, while a batch that starts
+exactly at <code>resumeHeight</code> is the intended resumption point and is landable; locks at retired
+heights are void. A late proof or certificate for a discarded height remains admissible as evidence.</li>
 </ul>
 <p>If any of these could be chosen by the prover, the proof would be sound but meaningless: it
 would prove a true statement about a set, an epoch or a predecessor that the protocol never agreed
@@ -190,8 +191,10 @@ hash is the hash of the reconstructed head header.</li>
 <li>Recompute the finality commitment from the certificate the guest verified, rather than echoing
 a value from a hint.</li>
 <li>Check that <code>recoveryGeneration</code> equals the generation the L1 contract supplies as a
-public input, and that the batch does not start at or below the retired height <code>resumeHeight</code>: a
-batch from an older generation is void, and a discarded range can never be landed, at any generation.</li>
+public input, and that the batch does not start below the retired height <code>resumeHeight</code>: a batch
+from an older generation is void, and a discarded range can never be landed or certified, at any generation,
+while a batch starting exactly at <code>resumeHeight</code> is the intended resumption point and is
+landable.</li>
 <li>Decode each block body from the committed payload, execute the blocks in order from the
 predecessor state root, and check that each block&rsquo;s transactions reproduce the transaction
 root committed by its header and that the final state root equals the claimed one.</li>

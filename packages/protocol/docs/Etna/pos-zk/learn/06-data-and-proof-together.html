@@ -217,10 +217,11 @@ when the batch was certified and executed &mdash; would fail verification, leavi
 equality with the registry value the L1 contract supplies
 (<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>). When a recovery completes, it restores the
 last checkpoint accepted on Ethereum and starts a new recovery generation. A batch from an older generation
-is <strong>void</strong>, and so is any batch whose range falls at or below the retired height: the
+is <strong>void</strong>, and so is any batch that starts below the retired height: the
 completion transition records <code>resumeHeight</code>, and a batch must start at
-<code>max(lastLandedHeight + 1, resumeHeight)</code>, so a discarded range can never be landed, at any
-generation, by anyone (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>,
+<code>max(lastLandedHeight + 1, resumeHeight)</code>, so a discarded range can never be landed or certified,
+at any generation, by anyone, while a batch that starts exactly at <code>resumeHeight</code> is the intended
+resumption point and is landable (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>,
 <a href="../spec/06-recovery-exceptions.html#REC-02">REC-02</a>). The generation is a cheap invalidation of
 proofs that were already generated; the retired height is what makes the discarded range unlandable. That
 distinction matters for accountability: a late certificate or proof for a replaced height is not excused,
@@ -228,7 +229,7 @@ and it remains usable as evidence in a slashing case
 (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
 <p>What this rules out is the tempting shortcut of accepting an alternative history just because its
 execution is valid. A batch that does not descend from the current checkpoint, that was certified under a
-stale recovery generation, or that begins at or below the retired height, fails acceptance even if every
+stale recovery generation, or that begins below the retired height, fails acceptance even if every
 execution step inside it is correct.</p>
 
 <h3>7. What a failed verification does</h3>
@@ -270,8 +271,9 @@ the hard ceiling, because the data and the proof must travel in one transaction
 valid proof, and no way to create a pending state.</li>
 <li>A statement that also binds the per-epoch configuration and the recovery generation: the
 configuration entry for an epoch is fixed before the epoch starts and immutable once written, so an upgrade
-cannot move the configuration hash under an in-flight proof, and a batch at or below the retired height
-cannot land at any generation.</li>
+cannot move the configuration hash under an in-flight proof, and a batch that starts below the retired
+height cannot land at any generation, while a batch that starts exactly at <code>resumeHeight</code> is the
+intended resumption point and does land.</li>
 <li>A calldata path whose binding is a hash the contract computes itself, with no probabilistic
 argument.</li>
 <li>A blob path that still binds the executed bytes to the published blobs, using an L1 precompile
@@ -296,7 +298,7 @@ copying a public proof is allowed.</li>
 <li>No measured cost or in-guest blob-evaluation cost; the blob binding&rsquo;s fixed-point argument
 has not yet been independently checked.</li>
 <li>No way to land a discarded range: a batch from an older generation is void, and a batch whose range
-starts at or below the retired height (<code>resumeHeight</code>) is rejected at every generation, by
+starts below the retired height (<code>resumeHeight</code>) is rejected at every generation, by
 anyone, though its proof remains usable as evidence of what was certified and executed.</li>
 </ul>
 
@@ -322,11 +324,12 @@ hash. A prover who wants to avoid this uses private orderflow or bundles its own
 transaction.</p></details>
 <details><summary>A batch certified before a recovery has a valid proof. Can it be landed above the
 restored checkpoint?</summary>
-<p>No. Its range begins at or below the retired height <code>resumeHeight</code>, and the contiguity rule
+<p>No. Its range begins below the retired height <code>resumeHeight</code>, and the contiguity rule
 rejects such a batch at every generation, by anyone; the statement also binds the recovery generation, so
-the proof is void for canonical purposes even though the execution it attests to was correct. The
-generation only invalidates proofs that were already generated &mdash; the retired height is what makes the
-discarded range unlandable. It stays usable as evidence, for example in a slashing case about what that
+the proof is void for canonical purposes even though the execution it attests to was correct. A batch that
+starts exactly at <code>resumeHeight</code>, by contrast, is the intended resumption point and does land.
+The generation only invalidates proofs that were already generated &mdash; the retired height is what makes
+the discarded range unlandable. It stays usable as evidence, for example in a slashing case about what that
 validator set signed.</p></details>
 <details><summary>Why can a routine upgrade not invalidate the proofs that are already in flight?</summary>
 <p>Because the configuration is registered per epoch. Each epoch&rsquo;s <code>configHash</code> is written
