@@ -64,6 +64,8 @@
       th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-top: 1px solid var(--line); }
       th { background: var(--surface); border-top: none; font-weight: 600; }
       td:first-child { white-space: nowrap; }
+      table.misbehavior td:first-child { white-space: normal; width: 24%; }
+      table.misbehavior td:nth-child(2) { width: 34%; }
       .note { color: var(--muted); font-size: 14px; }
       footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
       @media (max-width: 560px) { dl.glossary { grid-template-columns: 1fr; } td:first-child { white-space: normal; } }
@@ -433,8 +435,9 @@
           (about 2 s).
         </li>
         <li>
-          <strong>Slashing.</strong> Only CometBFT double signing (duplicate votes) is slashed. Withholding and lateness
-          are not slashed; they only cost the leader the commit and the block's revenue.
+          <strong>Slashing.</strong> Only CometBFT double signing is slashed. Anyone can submit the two conflicting votes
+          to the L1 registry. After verifying them, the contract slashes the seat's bond, removes the seat from the set,
+          and pays part of the slashed bond to the submitter. Section 5 covers the other kinds of misbehavior.
         </li>
         <li><strong>Loss of quorum.</strong> The chain halts. There is no based fallback and no rollback of committed blocks.</li>
         <li>
@@ -470,13 +473,88 @@
         </li>
       </ul>
 
-      <h2>5. Out of scope for now</h2>
+      <h2>5. Misbehavior: detection and consequences</h2>
+      <div class="table-wrap">
+        <table class="misbehavior">
+          <thead>
+            <tr><th>Misbehavior</th><th>How it is detected</th><th>Consequence</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Double signing: two different blocks signed at the same height and round</td>
+              <td>
+                CometBFT spots the conflicting votes in consensus messages and puts <code>DuplicateVoteEvidence</code>
+                into a later block; the app receives it in the <code>misbehavior</code> field of
+                <code>FinalizeBlock</code>. Anyone holding the two votes can also build the evidence.
+              </td>
+              <td>
+                Anyone submits the two votes to the L1 registry. The contract rebuilds each <code>CanonicalVote</code>,
+                hashes it with Keccak-256, recovers the signer with <code>ecrecover</code> and matches it to the
+                registered address. If the height and round match, the block IDs differ, the chain_id is Taiko's and the
+                evidence window is still open, it slashes the seat's bond, removes the seat and pays part of the bond to
+                the submitter.
+              </td>
+            </tr>
+            <tr>
+              <td>A leader leaves out IL transactions or proposes an invalid block</td>
+              <td><code>ProcessProposal</code> is deterministic, so every honest validator rejects the block.</td>
+              <td>The round fails and the next leader takes over; the leader loses this block's revenue. No fine.</td>
+            </tr>
+            <tr>
+              <td>A lander on duty does not land</td>
+              <td>Visible on L1: no <code>propose</code> during its epoch.</td>
+              <td>A miss is recorded; repeated misses remove the seat from the active set. No fine.</td>
+            </tr>
+            <tr>
+              <td>A lander submits an invalid commit or wrong data</td>
+              <td>Found at derivation; the segment derives to zero blocks.</td>
+              <td>
+                Same effect as a miss. L1 cannot tell it apart yet; that would need the Inbox to store each proposal's
+                last block hash.
+              </td>
+            </tr>
+            <tr>
+              <td>More than 2/3 collude to censor an FI</td>
+              <td>Derivation rule: a due FI must be included.</td>
+              <td>
+                Proposals that skip a due FI derive to zero blocks, so the chain can only halt; it cannot keep producing
+                blocks while censoring.
+              </td>
+            </tr>
+            <tr>
+              <td>A validator fills its IL with junk</td>
+              <td>ILs are capped at 8 KiB, and the append test excuses invalid transactions.</td>
+              <td>Harmless; not punished.</td>
+            </tr>
+            <tr>
+              <td>A validator stops voting for a long time</td>
+              <td>
+                A fully offline validator also misses its landing duty. Being marked absent in a commit is not evidence.
+              </td>
+              <td>
+                A fully offline validator is removed by the miss rule, but only after days. One that stays online without
+                voting faces no consequence today; see open questions.
+              </td>
+            </tr>
+            <tr>
+              <td>More than 2/3 sign an invalid block together</td>
+              <td>The hash computed by derivation does not match the commit.</td>
+              <td>
+                The segment derives to zero blocks and the chain halts. State cannot be tampered with, but the signers
+                are not punished today; see open questions.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>6. Out of scope for now</h2>
       <p>
         Prepaid timely-fair-exchange tickets (pay only on timely delivery, otherwise refund), a shared base fee pool, an
         encrypted mempool, a based fallback, sampled committees, and signed per-transaction receipts.
       </p>
 
-      <h2>6. Open questions</h2>
+      <h2>7. Open questions</h2>
       <ul>
         <li>
           <strong>Economics.</strong> Measured L2 revenue was about 0.0225 ETH per day (2026-09-23 to 09-29), which cannot
@@ -490,9 +568,28 @@
           block, so this delays a transaction by one block per malicious leader slot. Measure the cost, and add a shared
           base fee pool if needed.
         </li>
+        <li>
+          <strong>Long-term absence.</strong> Validators that stop voting eat into the fault-tolerance margin. A fully
+          offline validator also misses its landing duty and is removed by the miss rule. With about 100 seats, though,
+          a seat is drawn only about once every 10.7 h, so removal takes days, and a validator that stays online without
+          voting is never caught. Being marked absent in a commit is not evidence: the lander includes only enough
+          signatures to pass 2/3, and late votes are also marked absent. A more precise rule would have the ABCI app
+          count missed votes over a window (like Cosmos SDK's x/slashing, using <code>decided_last_commit</code> from
+          <code>FinalizeBlock</code>). How to bring that count to L1 in a trustworthy way is still open.
+        </li>
+        <li>
+          <strong>No penalty for signing invalid blocks.</strong> When more than 2/3 sign an invalid block together, the
+          chain only halts and the signers are not punished. A mismatch between the commit and derivation is not enough
+          to punish them: a lander could pair a valid commit with wrong data, derivation would mismatch the same way,
+          and honest signers would be framed. Punishing them needs fault attribution. The proof would walk the CometBFT
+          headers' <code>last_block_id</code> chain to check that every block's data was signed (about 0.4 KB of header
+          per block). Only when the data matches and derivation still rejects it are the signers at fault, and the proof
+          would then have to expose that result, which changes the verifier. Assets are safe either way, so halting
+          alone is acceptable for now.
+        </li>
       </ul>
 
-      <h2>7. Minimal implementation checklist</h2>
+      <h2>8. Minimal implementation checklist</h2>
       <h3>Decide first</h3>
       <ul>
         <li>The stake asset (ETH or TAIKO) and where any subsidy comes from.</li>
@@ -511,7 +608,7 @@
           New PreconfWhitelist implementation: stake per seat with a queue when full; freeze <code>committeeRoot</code>
           per epoch and draw landers uniformly per seat; <code>checkProposer</code> admits only the lander on duty and
           records misses; double-sign slashing that checks <code>secp256k1eth</code> signatures with
-          <code>ecrecover</code>; exit locks; the launch threshold.
+          <code>ecrecover</code> and pays part of the slashed bond to the submitter; exit locks; the launch threshold.
         </li>
         <li>
           New Inbox implementation, forced inclusion only: <code>propose</code> no longer dequeues FIs or inserts
