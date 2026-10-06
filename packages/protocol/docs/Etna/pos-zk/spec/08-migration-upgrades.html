@@ -360,7 +360,7 @@ the remaining state is an <em>entry</em> slot and not a gap slot, exactly as the
 map's records are entry slots: the configuration registry (one entry slot per epoch, append-only
 forever). It is real storage cost — the registry adds one slot per epoch — and it does not change the
 15-slot declaration count, which has no unmeasured input.
-is not Inbox state: the per-epoch entry lives in the L1 staking contract's mapping as the exhaustive
+<strong>The per-epoch set root and total are not Inbox state:</strong> the per-epoch entry lives in the L1 staking contract's mapping as the exhaustive
 four-field tuple <code>epoch &rarr; (setRoot, totalVotingPower, rootCommittedAt, setVersionBlock)</code> of
 <a href="03-membership-staking.html#MEM-09">MEM-09</a>(2) — <code>rootCommittedAt</code> is the commit
 timestamp that <a href="07-economics-slashing.html#ECON-07">ECON-07</a>(1) reads as the evidence anchor and
@@ -368,7 +368,7 @@ timestamp that <a href="07-economics-slashing.html#ECON-07">ECON-07</a>(1) reads
 <a href="04-l1-integration.html#L1-05">L1-05</a> row 28 — and the Inbox reads the root and total from it, so a second copy would
 be a second source of truth. The slot arithmetic is unchanged: the fourth field is a <code>uint64</code> packed with
 <code>rootCommittedAt</code> in the entry's third slot, so the entry still consumes three slots (two
-single-slot fields plus the packed third) and this table's budget is unaffected. The staking contract is a <em>new deployment</em>, not a preserved proxy: its
+single-slot fields plus the packed third) and this table's budget is unaffected. <em>This closes the reported mid-sentence defect in this paragraph: its missing subject is restored from the paragraph's own context — the per-epoch set root and total, which MEM-09(2) holds in the staking contract and the Inbox only reads — so the entry is deliberately not Inbox state and the 15-slot declaration count is unchanged.</em> The staking contract is a <em>new deployment</em>, not a preserved proxy: its
 per-epoch mapping, its participation accumulator, its retained <code>(epoch, SlashBase(v,e))</code> pairs
 and its segregated ETH reward pool (ECON-02 clause 5) are new-contract state, unconstrained by the preserved
 prefixes and therefore outside this slot budget. Protocol parameters (<code>MAX_BATCH_BLOCKS</code>,
