@@ -56,11 +56,9 @@ proof of both the consensus certificate and correct execution, together with the
 publication that already holds it, or the batch is not accepted at all.</li>
 <li><strong>Proving takes minutes, not seconds.</strong> Up to about thirty minutes is normal, so the chain keeps
 producing and certifying while proofs catch up.</li>
-<li><strong>A settled checkpoint is never rewritten</strong>, while unsettled history can be discarded only
-when a timelocked, resume-only governance decision restarts the chain from that checkpoint &mdash; and the
-restart advances the recovery generation, so certificates from the discarded range cannot be accepted
-again.</li>
-<!-- <em>D-15: no automatic or permissionless recovery; a timelocked, resume-only restart discards the range above the accepted checkpoint.</em> -->
+<li><strong>A settled checkpoint is never rewritten</strong>, and everything above it is provisional. v1 has no
+recovery path of any kind: a settlement stall halts the chain, value at or below the last accepted checkpoint
+still exits on Ethereum alone, and clearing the stall needs a future protocol update.</li>
 </ol>
 
 <h2>Contents</h2>
@@ -71,14 +69,14 @@ again.</li>
 <tr><td><a href="02-life-of-a-transaction.html">The life of a transaction</a></td><td>One transaction end to end, and the eight statuses you will see in tooling — including the provisional PoS-certified status, and what each one actually guarantees.</td></tr>
 <tr><td><a href="03-consensus.html">How the chain agrees</a></td><td>Proposals, votes, the two-thirds quorum, locks, commit certificates, proposer selection and view changes.</td></tr>
 <tr><td><a href="04-staking-and-epochs.html">Stake, validators and epochs</a></td><td>Bonding TAIKO, joining an epoch&rsquo;s validator set, how voting power is counted, exits, and how a new node starts safely.</td></tr>
-<tr><td><a href="05-the-proof.html">What the proof proves</a></td><td>The zero-knowledge statement: the consensus certificate, execution, the data binding, the configuration it binds and the recovery generation carried in the signed votes and headers — and what it deliberately does not prove.</td></tr>
-<tr><td><a href="06-data-and-proof-together.html">Data first, proof binds</a></td><td>One accepting transaction binds the data and the proof — the data carried, or a live publication record referenced — plus the calldata and blob paths, the blob binding, the per-epoch configuration registry and the recovery generation a restart advances, which makes certificates from the discarded range void, and what a failed verification does.</td></tr>
+<tr><td><a href="05-the-proof.html">What the proof proves</a></td><td>The zero-knowledge statement: the consensus certificate, execution, the data binding, the configuration it binds and the signed recovery generation that scopes certificates — and what it deliberately does not prove.</td></tr>
+<tr><td><a href="06-data-and-proof-together.html">Data first, proof binds</a></td><td>One accepting transaction binds the data and the proof — the data carried, or a live publication record referenced — plus the calldata and blob paths, the blob binding, the per-epoch configuration registry and the signed recovery generation, which voids a certificate from a superseded generation but never advances in v1, and what a failed verification does.</td></tr>
 <tr><td><a href="07-timing.html">Two seconds and thirty minutes</a></td><td>Block cadence, certification, proving, L1 acceptance, Ethereum finality and withdrawals on one timeline &mdash; including the data bound on batch length and the roughly 150 proofs in flight it implies.</td></tr>
-<tr><td><a href="08-when-things-go-wrong.html">When things go wrong</a></td><td>Withholding, missing certificates, offline validators, lost data, settlement stalls &mdash; and how a stall halts the chain safely, keeps every accepted checkpoint untouched and the L1-only exit open, and is cleared only by a timelocked, resume-only governance decision that restarts from the last accepted checkpoint and discards everything above it.</td></tr>
-<tr><td><a href="09-censorship-and-the-bridge.html">Censorship and the bridge</a></td><td>What censorship resistance this design does and does not provide — a narrow, proof-enforced inclusion obligation over data published to L1, an upper bound on exclusion, with the general inclusion list planned as a later protocol update — plus how bridge messages are authenticated.</td></tr>
+<tr><td><a href="08-when-things-go-wrong.html">When things go wrong</a></td><td>Withholding, missing certificates, offline validators, lost data, settlement stalls &mdash; and how a stall halts the chain safely, keeps every accepted checkpoint untouched and the L1-only exit open. v1 has no way to clear the stall; that needs a future protocol update.</td></tr>
+<tr><td><a href="09-censorship-and-the-bridge.html">Censorship and the bridge</a></td><td>What censorship resistance this design does and does not provide — no inclusion obligation in v1, permissionless publication that accepts nothing, statistical resistance for unpublished data, and no remedy against isolation — plus how bridge messages are authenticated.</td></tr>
 <tr><td><a href="10-economics.html">Who pays, who earns, who loses</a></td><td>Validator costs and rewards, what a slashable offence needs, penalties, unbonding, and how minimum stake is derived.</td></tr>
 <tr><td><a href="glossary.html">Glossary</a></td><td>Every term used in the course, in one table.</td></tr>
-<tr><td><a href="limitations.html">What this design does not promise</a></td><td>The honest list: a design, not an implementation, provisional confirmations, unbounded off-chain loss, a stall that halts safely and resumes only if governance acts &mdash; with no protocol-level liveness guarantee &mdash; and the guarantees it deliberately does not make.</td></tr>
+<tr><td><a href="limitations.html">What this design does not promise</a></td><td>The honest list: a design, not an implementation, provisional confirmations, unbounded off-chain loss, a stall that halts safely and is not cleared in v1, with no protocol-level liveness guarantee and no recovery path of any kind, and the guarantees it deliberately does not make.</td></tr>
 </tbody></table>
 
 <h2>Suggested paths</h2>
