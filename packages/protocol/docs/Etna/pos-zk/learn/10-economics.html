@@ -261,7 +261,7 @@ committed set version, and no stake is taken from it.</li>
 <li>No deterrent guarantee. The deterrence argument is conditional on slashed stake having value and being confiscated, and it can fail
 with no rule changing if the market moves.</li>
 <li>No protection from the correlated-penalty tail, in which one operator&rsquo;s key mishap costs honest peers.</li>
-<li>No free place in a set: a validator that goes quiet keeps its place, and a cohort that stops signing can halt
+<li>No liveness-discounted membership: a validator that goes quiet keeps its place, and a cohort that stops signing can halt
 production instead of being replaced. There is no rule that renews membership and no rule that removes it.</li>
 <li>No measured cost, revenue, reward or market figure. There are no operations study, fee history or liquidity data behind any value
 on this page.</li>
@@ -297,7 +297,7 @@ Both are market facts the protocol does not control and cannot observe on-chain.
 <li>Operators use slashing protection and disciplined key custody, because the correlated penalty makes one duplicated key expensive for
 others.</li>
 <li>The evidence window&rsquo;s close is anchored to the epoch&rsquo;s set-root commit. The L1 fact that would tie the close to the
-epoch&rsquo;s production is not fixed, so a settlement halt longer than the window can make a resumed epoch&rsquo;s offences
+epoch&rsquo;s production is not fixed, so a settlement halt longer than the window can make a later epoch&rsquo;s offences
 inadmissible.</li>
 <li>Ethereum keeps producing blocks, including and finalizing them; the whole settlement and evidence path is denominated in L1
 time.</li>
