@@ -137,9 +137,15 @@
               longer used. The FI store keeps accepting submissions.
             </li>
             <li>
-              The FI queue head advances at finalization by time. An FI older than its due time plus the anchor window,
-              relative to a finalized landing, has already been checked and can be dequeued. Without this the pending
-              count only grows, and the "fee doubles at 50 pending" rule would keep doubling the FI fee.
+              The FI queue head advances by proven progress. <code>prove</code> also takes the proven end block's L2
+              header, checks its hash against the proven end block hash, and reads its anchor block number from
+              extraData bytes 7–12. An FI whose enqueue block plus 48 (576 s) is at or below that number has been
+              checked and can be dequeued; the FI store records the enqueue block number for this. A proposal that
+              derives to zero blocks does not move the end block, so it does not move the queue. Advancing by landing
+              time would be wrong: zero-block landings are finalized too, so unchecked FIs would be dequeued, and a
+              committee could halt, wait for the FI to leave the queue, then resume without it. Never dequeuing is not an
+              option either: the pending count would only grow, and the "fee doubles at 50 pending" rule would keep
+              doubling the FI fee.
             </li>
             <li>
               The "permissionless proposing after long-overdue FIs" path (mainnet multiplier 160, about 25.6 h) stays
@@ -150,8 +156,9 @@
               records a miss for the lander and pays a small fine to the prover.
             </li>
             <li>
-              <code>propose</code> takes the expected proposal ID and reverts on a mismatch, so racing fallback landings
-              fail instead of deriving to zero blocks.
+              <code>propose</code> takes the expected hash of the previous proposal (the Inbox already computes
+              <code>parentProposalHash</code>) and reverts on a mismatch. Racing fallback landings, and transactions
+              re-included after an L1 reorg, then fail instead of deriving to zero blocks.
             </li>
           </ul>
         </li>
@@ -171,9 +178,11 @@
           and resync; it never writes the head itself.
         </li>
         <li>
-          Block cadence: the app returns <code>next_block_delay</code> from <code>FinalizeBlock</code>, computed from
-          wall-clock time so blocks align to a 2 s grid (supported from v0.40; nodes need synchronized clocks). A failed
-          round makes that block longer.
+          Block cadence: v0.40 has no <code>next_block_delay</code>. The field is missing from v0.40.0's
+          <code>ResponseFinalizeBlock</code>; it arrived with ADR-115 in v1.x. The gap between blocks comes from
+          <code>timeout_commit</code>, the wait after a commit before the next height. Setting it to 2 s minus one
+          consensus round gives about one block every 2 s, without alignment to a wall-clock grid, so block intervals
+          jitter. A failed round makes that block longer. Exact alignment would need a CometBFT patch.
         </li>
         <li>
           CometBFT's own mempool is disabled (<code>nop</code>). That requires producing empty blocks, so there is a
@@ -221,7 +230,9 @@
                 signatures and total power (as Cosmos SDK's <code>ValidateVoteExtensions</code> does). Then it runs the
                 append test on every IL in the block. If a missing transaction is still valid against the post-block
                 state (nonce, balance) and the remaining gas and zk gas can fit it, the result is REJECT (prevote nil).
-                Otherwise the omission is excused.
+                Otherwise the omission is excused. At the first height after launch or a restart, the previous height
+                has no vote extensions, so the IL check is skipped, as Cosmos SDK's
+                <code>ValidateVoteExtensions</code> does before the enable height.
               </td>
             </tr>
             <tr>
@@ -229,8 +240,7 @@
               <td>Every node, after the commit</td>
               <td>
                 Sets the block as the EL head via <code>forkchoiceUpdated</code> and stores the commit for the lander.
-                Returns <code>next_block_delay</code> aligned to the 2 s grid, and validator updates two heights before an
-                epoch boundary.
+                Returns validator updates two heights before an epoch boundary.
               </td>
             </tr>
           </tbody>
@@ -324,7 +334,14 @@
           zero blocks instead of Etna's default source, which would produce an empty block with the lander as coinbase.
           Failures include an invalid or malformed commit, a committee mismatch, and blocks failing Etna's checks, for
           example an anchor whose L1 block was reorged out. The proof must produce this zero-block result instead of
-          failing. Otherwise one bad commit would make the proposal unprovable and block every later proof.
+          failing. Otherwise one bad commit would make the proposal unprovable and block every later proof. Only
+          invalid proposal content derives to zero blocks: bad encoding, too few signatures, a header or
+          <code>DataHash</code> path that does not match, blocks outside the windows, or a missing due FI. If the
+          witness from the host fails authentication, the guest must refuse to prove. That covers an L1 header chain
+          that does not reach <code>originBlockHash</code>, a storage proof that does not match the state root, a
+          validator list that does not hash to <code>committeeRoot</code>, and an FI blob that fails KZG. Otherwise a
+          malicious prover could feed a bad witness, prove a valid proposal as zero blocks and finalize it, forking the
+          L1 chain away from the committed chain and collecting the invalid-landing fine.
         </li>
         <li>
           <strong>Forced inclusion is checked by derivation.</strong> Each FI is checked once, at the block whose anchor
@@ -350,7 +367,8 @@
               <td>Only the failing source is replaced, by the default source: one empty block with the proposer as coinbase</td>
               <td>
                 The whole proposal derives to zero blocks, and its end block hash equals the previous proposal's. The
-                proof must produce this result, not fail.
+                proof must produce this result, not fail. This applies only to invalid proposal content; a witness that
+                fails authentication makes the guest refuse to prove.
               </td>
               <td>
                 A default block depends on who lands and when, so it would fork from the committed chain. Zero blocks
@@ -431,7 +449,8 @@
       <p>
         Wallets and RPC endpoints do not change. Transactions reach validators through public L2 transaction gossip, so
         validator execution clients must join the public network with gossip on (behind sentry nodes is fine). Inclusion
-        takes about the gossip latency plus 250 ms plus at most one block.
+        takes about the gossip latency plus 250 ms plus at most one block, unless blocks are full (see Fair exchange
+        in section 4).
       </p>
 
       <h2 id="lander">2. Lander: a rotating duty</h2>
@@ -456,8 +475,11 @@
               landing that derives to zero blocks also counts as a miss and pays a small fine, about the cost of proving
               one proposal, to the prover that proves it. L1 sees it at <code>prove</code> time: the commitment already
               lists each proposal's <code>proposer</code> and end block hash, and an end hash equal to the previous one
-              means zero blocks, so no extra storage is needed. An honest lander can only be blamed if the committee
-              itself signed an invalid block, and by then the chain has halted.
+              means zero blocks, so no extra storage is needed. Zero blocks must be the lander's fault for this to be
+              fair: <code>propose</code> binds the previous proposal hash, so a transaction re-included after a reorg
+              reverts; landers never land a segment already past the derivation windows; anchors only reference deep
+              enough L1 blocks; and the guest produces zero blocks only for invalid proposal content. What remains is a
+              committee that itself signed an invalid block, and by then the chain has halted.
             </li>
             <li>
               Cost: about 75k gas plus one blob per landing. At about 225 landings per day and market tips, roughly
@@ -546,12 +568,16 @@
           <strong>Fair exchange.</strong> The tip is paid inside the transaction, so payment happens only on inclusion and
           the exchange is atomic. The ILs a leader puts into a block must total more than 2/3 of the voting power, so it
           can leave out less than 1/3. A transaction in the ILs of honest validators holding at least 1/3 therefore
-          always has at least one IL in the block and cannot be left out. The worst case is a delay of about one block
-          (about 2 s).
+          always has at least one IL in the block, so it cannot be left out unless the block is full (gas or zk gas)
+          or the transaction is no longer valid (its nonce or balance changed within the block). Normally the delay is
+          at most about one block (about 2 s); a leader that stuffs its block can delay it further (see Block stuffing
+          in the open questions).
         </li>
         <li>
-          <strong>Slashing.</strong> Only CometBFT double signing is slashed. Anyone can submit the two conflicting votes
-          to the L1 registry. After verifying them, the contract slashes the seat's bond, removes the seat from the set,
+          <strong>Slashing.</strong> Only CometBFT double signing is slashed: one validator signing two different
+          BlockIDs (nil counts as one) for the same height, round and vote type (prevote or precommit). Prevoting a
+          block and then precommitting nil is legitimate and is not double signing. Anyone can submit the two votes to
+          the L1 registry. After verifying them, the contract slashes the seat's bond, removes the seat from the set,
           and pays part of the slashed bond to the submitter. Section 5 covers the other kinds of misbehavior.
         </li>
         <li>
@@ -579,14 +605,34 @@
               blocks so that only their own blocks commit, then leave a target's votes out of LastCommit to record it as
               absent. So the threshold is low and the window long (for example, signing under 10% of blocks over a
               day), and an epoch does not count when more than a set share of its heights (for example, 20%) committed
-              only at round &gt; 0. In a counted epoch, an attacker holding x cannot push an honest validator's signing
-              rate below 1 − x − that share. With the threshold and the share summing to at most 1/3, framing anyone
-              takes more than 2/3, which already controls the chain.
+              only at round &gt; 0. In a counted epoch, as long as an honest validator's votes arrive in time, an attacker
+              holding x cannot push its signing rate below 1 − x − that share. With the threshold and the share summing
+              to at most 1/3, getting it below the threshold takes more than 2/3.
+            </li>
+            <li>
+              <strong>A performance rule, not a framing guarantee.</strong> The bound above has a premise. CometBFT
+              ignores precommits for the previous height that arrive after the commit timeout, so a validator on a slow
+              or DoS-ed network can have a low recorded rate even though it always signs. With no fine and the option to
+              rejoin, a wrong removal costs little. Validators should use sentries and redundant links so their votes
+              arrive in time.
             </li>
             <li>Once absent validators reach 1/3, the chain has already halted; see Loss of quorum below.</li>
           </ul>
         </li>
-        <li><strong>Loss of quorum.</strong> The chain halts. There is no based fallback and no rollback of committed blocks.</li>
+        <li>
+          <strong>Loss of quorum.</strong> The chain halts. There is no based fallback and no rollback of committed
+          blocks, except for expired blocks (next item).
+        </li>
+        <li>
+          <strong>Expired committed blocks.</strong> Back-pressure stops new blocks but cannot stop existing commits
+          from aging. If L1 censors or stalls, or landers keep failing, past the derivation windows (6144 s, 512 L1
+          blocks, about 1.7 h), committed but unlanded blocks can never be landed. They are dropped, and so are their
+          preconfirmations. Recovery: when the client sees the oldest unlanded block expire, it tells the app to halt,
+          and all validators restart CometBFT from the last derived block. The new initial height, chain_id and
+          validator set are computed deterministically from L1 and that block, so nodes restart on their own without
+          manual coordination, and the different chain_id keeps votes on the old and new chains from counting as double
+          signing. This fork could also widen the derivation windows to make expiry less likely.
+        </li>
         <li>
           <strong>Epoch handoff.</strong> The registry freezes the next epoch's set in advance. The app returns validator
           updates from <code>FinalizeBlock</code> two heights before the boundary (CometBFT applies them at H+2), so the
@@ -629,18 +675,19 @@
           </thead>
           <tbody>
             <tr>
-              <td>Double signing: two different blocks signed at the same height and round</td>
+              <td>Double signing: two different BlockIDs signed for the same height, round and vote type</td>
               <td>
                 CometBFT spots the conflicting votes in consensus messages and puts <code>DuplicateVoteEvidence</code>
                 into a later block; the app receives it in the <code>misbehavior</code> field of
                 <code>FinalizeBlock</code>. Anyone holding the two votes can also build the evidence.
               </td>
               <td>
-                Anyone submits the two votes to the L1 registry. The contract rebuilds each <code>CanonicalVote</code>,
-                hashes it with Keccak-256, recovers the signer with <code>ecrecover</code> and matches it to the
-                registered address. If the height and round match, the block IDs differ, the chain_id is Taiko's and the
-                evidence window is still open, it slashes the seat's bond, removes the seat and pays part of the bond to
-                the submitter.
+                Anyone submits the two votes to the L1 registry. The contract applies CometBFT's
+                <code>VerifyDuplicateVote</code> conditions. It rebuilds both <code>CanonicalVote</code>s, hashes them
+                with Keccak-256 and recovers the same registered address with <code>ecrecover</code>, and that validator
+                must be in the committee of the epoch at that height. Height, round and type must match and the BlockIDs
+                must differ; both votes must carry the same Taiko chain_id; the evidence window must still be open. It
+                then slashes the seat's bond, removes the seat and pays part of the bond to the submitter.
               </td>
             </tr>
             <tr>
@@ -757,13 +804,16 @@
           New PreconfWhitelist implementation: stake per seat with a queue when full; freeze <code>committeeRoot</code>
           per epoch and draw landers uniformly per seat; <code>checkProposer</code> admits only the lander on duty early in
           the epoch and any active validator in the fallback window, and records misses; double-sign slashing that checks <code>secp256k1eth</code> signatures with
-          <code>ecrecover</code> and pays part of the slashed bond to the submitter; absence removal that verifies the L2
+          <code>ecrecover</code> under CometBFT's <code>VerifyDuplicateVote</code> conditions (same height, round and type,
+          different BlockIDs) and pays part of the slashed bond to the submitter; absence removal that verifies the L2
           count contract's signal proof and removes validators below the threshold; exit locks; the launch threshold.
         </li>
         <li>
           New Inbox implementation: <code>propose</code> no longer dequeues FIs or inserts blocks, and the due check is
-          removed; the FI queue head advances at finalization by time; the "permissionless proposing after long-overdue
-          FIs" path stays disabled; <code>propose</code> takes the expected proposal ID and reverts on a mismatch;
+          removed; at <code>prove</code> time the FI queue head advances by the proven end block's anchor (the end
+          header is checked against the proven hash, and the FI store records enqueue block numbers); the
+          "permissionless proposing after long-overdue FIs" path stays disabled; <code>propose</code> takes the
+          expected hash of the previous proposal and reverts on a mismatch;
           <code>prove</code> finds proposals whose end block hash equals the previous one, records a miss for the
           proposer and pays a small fine to the prover.
         </li>
@@ -778,8 +828,9 @@
           The Taiko ABCI app (Go, in-process with CometBFT v0.40): <code>ExtendVote</code> builds the IL;
           <code>VerifyVoteExtension</code> checks format only; <code>PrepareProposal</code> injects the ILs, builds the
           block and lays out tx0, tx1 and tx2; <code>ProcessProposal</code> verifies IL signatures and runs the append
-          test, including zk gas; <code>FinalizeBlock</code> aligns <code>next_block_delay</code> to 2 s, returns
-          validator updates at epoch boundaries and stores the commit.
+          test, including zk gas, skipping it when the previous height has no vote extensions;
+          <code>FinalizeBlock</code> returns validator updates at epoch boundaries and stores the commit;
+          <code>timeout_commit</code> is tuned for about 2 s blocks.
         </li>
         <li>
           Absence counting: from <code>decided_last_commit</code>, accumulate each validator's signed blocks and the
@@ -790,13 +841,14 @@
           Node rules: sync each epoch's set from the L1 registry; anchor depth; back-pressure near the derivation
           windows; add FI transactions to ILs automatically; keep payloads until L1 finality; <code>secp256k1eth</code>
           keys with a signer that persists its state across restarts to avoid double signing; public transaction gossip
-          on the execution client.
+          on the execution client; the fixed restart from the last derived block when committed blocks expire.
         </li>
         <li>
           Lander: on duty (the first three quarters of its epoch), fetch committed blocks and the last commit from
           CometBFT's <code>/block</code> and <code>/commit</code>, pack them into a blob and call <code>propose</code>,
           reusing the existing proposers' blob building in both clients. In the fallback window, each validator first
-          derives the duty lander's proposal and lands only if it is missing or invalid.
+          derives the duty lander's proposal and lands only if it is missing or invalid. A segment already past the
+          derivation windows is never landed.
         </li>
       </ul>
       <h3>Execution client (alethia-reth)</h3>
@@ -831,8 +883,9 @@
       <ul>
         <li>
           Implement the derivation rules in the guest: read <code>committeeRoot</code> and the FI queue with storage
-          proofs; verify commit signatures one by one (Keccak-256 and k256 recovery); produce zero blocks on failure
-          instead of panicking. The host prepares the witness: validator list, storage proofs, FI blobs.
+          proofs; verify commit signatures one by one (Keccak-256 and k256 recovery); produce zero blocks when the
+          proposal content is invalid instead of panicking, but refuse to prove when the witness fails authentication.
+          The host prepares the witness: validator list, storage proofs, FI blobs.
         </li>
       </ul>
       <h3>Launch</h3>
@@ -854,7 +907,7 @@
           <li><a href="https://github.com/taikoxyz/taiko-mono/pull/22189">PR #22189</a>: Unzen and Etna rules in the derivation spec, the base for section 1.3.</li>
           <li><a href="https://ethresear.ch/t/preconfirmation-fair-exchange/21891">Preconfirmation Fair Exchange</a> (ethresear.ch).</li>
           <li><a href="https://eips.ethereum.org/EIPS/eip-7805">EIP-7805 (FOCIL)</a>: inclusion lists and conditional inclusion.</li>
-          <li><a href="https://github.com/cometbft/cometbft/tree/v0.40.0/spec/abci">CometBFT v0.40 ABCI++ spec</a>: vote extensions, <code>ProcessProposal</code> and <code>next_block_delay</code>.</li>
+          <li><a href="https://github.com/cometbft/cometbft/tree/v0.40.0/spec/abci">CometBFT v0.40 ABCI++ spec</a>: vote extensions and <code>ProcessProposal</code>.</li>
         </ul>
         <p>Figures marked as estimates are calculations, not measurements.</p>
       </footer>
