@@ -35,12 +35,15 @@ the requirements in
 <a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a>
 <strong>under the stated assumptions</strong>, in <strong>Mode B</strong>: the certificate and its
 evidence are unchanged, but a PoS confirmation above the last L1-accepted checkpoint is
-<strong>provisional</strong> — it MAY BE REPLACED by a permissionless recovery if its batch has not
-been accepted on L1 and settlement has stalled for <code>T_STALL</code>. At or below the last
-L1-accepted checkpoint no recovery, timeout, rotation, admission rule or published upgrade may change
-history, and a failure that the recovery does not cover still halts the chain rather than acting
-without a rule. This is a <em>specification-level</em> verdict: nothing here is implemented,
-benchmarked or deployed. <em>(user decision D-7: Mode B selected)</em></p>
+<strong>provisional</strong> — it MAY BE REPLACED by the timelocked, resume-only stall resolution of
+<a href="08-migration-upgrades.html#GOV-04">GOV-04</a> if settlement has stalled for <code>T_STALL_GOV</code>.
+At or below the last
+L1-accepted checkpoint no stall resolution, timeout, rotation, admission rule or published upgrade may change
+history, and a failure that the stall resolution does not cover still halts the chain rather than acting
+without a rule. <strong>Clearing a settlement stall depends on governance liveness with no protocol bound</strong> —
+the assumption A-GOV-2, recorded in <a href="10-assurance.html#LIM-01">LIM-01</a> — while the exit guarantee of
+<a href="03-membership-staking.html#MEM-15">MEM-15</a> is independent of it. This is a <em>specification-level</em> verdict: nothing here is implemented,
+benchmarked or deployed. <em>(D-15: v1 has no permissionless recovery; the replacement is a rule-bound governance action.)</em></p>
 <p class="small">This is a <strong>PoS-sequenced validity rollup</strong>. Transaction order is
 determined by L2 PoS, not by Ethereum proposers. Ethereum provides data availability, proof
 verification, settlement, and bridge anchoring. It does <em>not</em> sequence L2 blocks.</p>
@@ -52,7 +55,7 @@ interface text — must use the exact labels of <a href="#STATUS-01">STATUS-01</
 No stronger word ("final", "irreversible", "confirmed") may be substituted for a weaker status.
 Above the last L1-accepted checkpoint no confirmation is stronger than
 <a href="#STATUS-04">PoS-certified / provisional</a>, and any interface that shows one must say that it
-can be replaced (<a href="#STATUS-11">STATUS-11</a>). <em>(user decision D-7: Mode B selected)</em>
+can be replaced (<a href="#STATUS-11">STATUS-11</a>), and no interface may promise that a stalled chain resumes without governance: that depends on the governance-liveness assumption A-GOV-2 (<a href="10-assurance.html#LIM-01">LIM-01</a>). <em>(D-15: the replacement is the timelocked, resume-only stall resolution of <a href="08-migration-upgrades.html#GOV-04">GOV-04</a>.)</em>
 </div>
 
 <h2 id="fixed">Fixed decisions</h2>
@@ -60,10 +63,10 @@ can be replaced (<a href="#STATUS-11">STATUS-11</a>). <em>(user decision D-7: Mo
 <thead><tr><th>ID</th><th>Decision (constraint)</th></tr></thead>
 <tbody>
 <tr><td><strong>D1</strong></td><td>One L2 block every <strong>2&nbsp;s</strong> under stated operating assumptions. Cadence is not finality, proof, settlement or withdrawal latency.</td></tr>
-<tr><td><strong>D2</strong></td><td><strong>Mode B selected (user decision D-7)</strong> after the D2 procedure: a permissionless, bonded, delayed L1 recovery of <em>unsettled</em> history may replace L2 history above the last L1-accepted checkpoint, and a confirmation there is provisional. At or below the latest L1-accepted checkpoint no recovery, timeout, rotation, admission rule or normal upgrade may invalidate a legitimately accepted block, and at or below an Ethereum-finalized checkpoint even an L1 reorganisation cannot undo it (<a href="#STATUS-07">STATUS-07</a>); where the recovery does not apply, halt safely instead. Mode A remains the guarantee at and below that checkpoint and the correct behaviour for every failure class the recovery does not cover (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). <em>(user decision D-7: Mode B selected)</em></td></tr>
+<tr><td><strong>D2</strong></td><td><strong>Mode B selected (user decision D-7); the permissionless recovery it carried is withdrawn by decision D-15.</strong> A confirmation above the last L1-accepted checkpoint remains provisional, and it may be replaced only by the timelocked, resume-only stall resolution of <a href="08-migration-upgrades.html#GOV-04">GOV-04</a> — objective trigger <code>T_STALL_GOV</code>, timelock <code>T_GOV_RESUME</code>, resume-only, void on progress with permissionless cancellation, no bond and no invoker — so clearing a stall depends on governance liveness (assumption A-GOV-2, <a href="10-assurance.html#LIM-01">LIM-01</a>). At or below the latest L1-accepted checkpoint no stall resolution, timeout, rotation, admission rule or normal upgrade may invalidate a legitimately accepted block, and at or below an Ethereum-finalized checkpoint even an L1 reorganisation cannot undo it (<a href="#STATUS-07">STATUS-07</a>); where the stall resolution does not apply, halt safely instead. Mode A remains the guarantee at and below that checkpoint and the correct behaviour for every failure class the stall resolution does not cover (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). <em>(D-15: the boundary is unchanged; the replacement is a governance action with a fixed effect.)</em></td></tr>
 <tr><td><strong>D3</strong></td><td>Preserve the existing L1/L2 <strong>SignalService</strong>, <strong>Bridge</strong>, <strong>ERC20Vault</strong>, <strong>ERC721Vault</strong>, <strong>ERC1155Vault</strong> addresses by in-place upgrade. No replacement deployments.</td></tr>
 <tr><td><strong>D4</strong></td><td>L2 PoS determines binding transaction order. Result named honestly a <strong>PoS-sequenced validity rollup</strong>.</td></tr>
-<tr><td><strong>D5</strong></td><td>Batch data and its valid ZK proof land in the <strong>same L1 transaction</strong>; no data-first/proof-later path in any mode, including recovery. <strong>Relaxed by D-11 (recorded project decision, 2026-10-06):</strong> a batch's data MAY be published and recorded in an <em>earlier</em> L1 transaction, because blobs alone advance no protocol state — what D5 continues to require is that the checkpoint advances only on a valid proof. The publication record is bounded by the proving deadline, and the original "no data-first/proof-later path" wording is superseded in that one respect. <em>(D-11; see <a href="07-economics-slashing.html#ECON-13">ECON-13</a> and <a href="08-migration-upgrades.html#MIG-02">MIG-02</a> slots 275–276.)</em></td></tr>
+<tr><td><strong>D5</strong></td><td>Batch data and its valid ZK proof land in the <strong>same L1 transaction</strong>; no data-first/proof-later path in any mode, including the stall resolution. <strong>Relaxed by D-11 (recorded project decision, 2026-10-06):</strong> a batch's data MAY be published and recorded in an <em>earlier</em> L1 transaction, because blobs alone advance no protocol state — what D5 continues to require is that the checkpoint advances only on a valid proof. The publication record is bounded by the proving deadline, and the original "no data-first/proof-later path" wording is superseded in that one respect. <em>(D-11; see <a href="07-economics-slashing.html#ECON-13">ECON-13</a> and <a href="08-migration-upgrades.html#MIG-02">MIG-02</a> slots 275–277.)</em></td></tr>
 <tr><td><strong>D6</strong></td><td>Proving latency of a few minutes to <strong>30 minutes</strong> is normal operation; L2 keeps producing 2&nbsp;s blocks and reaching PoS finality throughout.</td></tr>
 <tr><td><strong>D7</strong></td><td>Staking and slashable collateral are denominated in the <strong>existing TAIKO</strong> token. Gas stays ETH. No replacement staking token.</td></tr>
 </tbody></table>
@@ -75,7 +78,7 @@ can be replaced (<a href="#STATUS-11">STATUS-11</a>). <em>(user decision D-7: Mo
 <a href="03-membership-staking.html">03 — Membership, TAIKO staking, exits, weak subjectivity</a>
 <a href="04-l1-integration.html">04 — L1 integration: atomic data+proof, DA, bridge anchoring</a>
 <a href="05-proof-statement.html">05 — Proof statement, public inputs, witnesses, backends</a>
-<a href="06-recovery-exceptions.html">06 — Withholding, safe halt, restart, Mode B recovery (selected) <em>(user decision D-7: Mode B selected)</em></a>
+<a href="06-recovery-exceptions.html">06 — Withholding, safe halt, restart (the D-7 permissionless recovery is withdrawn; the stall resolution is <a href="08-migration-upgrades.html#GOV-04">GOV-04</a> on page 08) <em>(D-15)</em></a>
 <a href="07-economics-slashing.html">07 — Economics, offences, penalties, rewards</a>
 <a href="08-migration-upgrades.html">08 — Migration from current Taiko, upgrades, governance</a>
 <a href="09-parameters.html">09 — Glossary and parameter table</a>
@@ -99,9 +102,10 @@ defect, not a tradeoff. Changing one requires a new user decision recorded in th
 <span class="why">Failure mode: silent relaxation of D5 or D7, which the user expressly
 forbade. A <em>recorded</em> project decision may relax or supersede a fixed decision only where the decision
 log records it and names what survives: <strong>D-11 relaxes D5</strong> (data may be published before the
-proof; the checkpoint still advances only on a valid proof) and <strong>D-12 supersedes D-6/D-10</strong>
-(narrow forced inclusion over published data; what remains absent and deferred is the general inclusion list, not inclusion itself). Any other
-change to D1–D7 is a defect. <em>(D-11, D-12: the recorded relaxations and supersessions are named here so
+proof; the checkpoint still advances only on a valid proof), <strong>D-12 supersedes D-6/D-10</strong>
+(narrow forced inclusion over published data; what remains absent and deferred is the general inclusion list, not inclusion itself) and <strong>D-15 supersedes D-7</strong>
+(the permissionless bonded recovery is withdrawn; the boundary of <a href="06-recovery-exceptions.html#REC-01">REC-01</a> is kept, and the timelocked, resume-only stall resolution of <a href="08-migration-upgrades.html#GOV-04">GOV-04</a> replaces the mechanism, which makes clearing a settlement stall depend on governance liveness — the assumption A-GOV-2). Any other
+change to D1–D7 is a defect. <em>(D-11, D-12, D-15: the recorded relaxations and supersessions are named here so
 that GEN-02 and the decision log cannot diverge.)</em></span>
 <span class="pill proven">Proven</span></div>
 
@@ -206,34 +210,35 @@ split chain acceptance from L1 acceptance), plus the
 receiver's own data-availability check for the block body. The certificate and its evidence are
 unchanged in every mode; the guarantee is that the block is <strong>certified by more than two thirds
 of the epoch's voting power</strong> under the published consensus rules, and that — above the last
-L1-accepted checkpoint — it <strong>MAY BE REPLACED</strong> by a permissionless recovery
-(<a href="06-recovery-exceptions.html#REC-02">REC-02</a>) if its batch has not been accepted on L1 and
-settlement has stalled for <code>T_STALL</code>; the exact replacement window and the restored
-checkpoint are owned by <a href="06-recovery-exceptions.html#REC-01">REC-01</a> and REC-02, which
-restore the latest L1-accepted checkpoint exactly and rewind the contiguous range above it wholesale:
-the invoker has no choice about which transactions inside that range survive, so a recovery cannot be
-used to pick winners. That is a statement about the rewind, not a promise about the outcome: the unwound
+L1-accepted checkpoint — it <strong>MAY BE REPLACED</strong> by a completed stall resolution
+(<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>) if no batch extending the current checkpoint has
+been accepted for <code>T_STALL_GOV</code>; the exact trigger, timelock and effect are owned by
+<a href="06-recovery-exceptions.html#REC-01">REC-01</a> and GOV-04, which leave the latest L1-accepted
+checkpoint exactly as it is and discard everything above it wholesale:
+the action has no choice about which transactions inside that range survive, so a stall resolution cannot be
+used to pick winners. That is a statement about the discard, not a promise about the outcome: the discarded
 transactions are not replayed automatically and their inclusion is not guaranteed, so every party whose
-transaction was unwound must resubmit it, and the design does not promise that the same set of
+transaction was discarded must resubmit it, and the design does not promise that the same set of
 transactions will end up included; history at or below that checkpoint is never replaced.
-<em>This closes review round 4 finding R4-MB-05: the wholesale rewind is what recovery enforces, and the
+<em>This closes review round 4 finding R4-MB-05: the wholesale discard is what the stall resolution enforces, and the
 resubmission consequence is stated instead of a non-selective outcome guarantee.</em> For history at or below an Ethereum-finalized checkpoint even an L1
 reorganisation cannot change it (<a href="#STATUS-07">STATUS-07</a>).
 No timeout, rotation, admission rule, published upgrade or operator action may replace history at any
-height. This status is
+height; only a completed stall resolution may, and only above the latest L1-accepted checkpoint. This status is
 <strong>never</strong> the first status a user may rely on as irreversible: <a href="#STATUS-06">STATUS-06</a>
 and above are. No artifact may call a confirmation at this status "final", "settled" or
 "irreversible", and every interface that shows a confirmation above the last L1-accepted checkpoint
 must disclose that it can be replaced (<a href="#STATUS-11">STATUS-11</a>).</span>
 <span class="why">Failure mode: the certificate is the same evidence in every mode, so a reader assumes
-the guarantee is the same. Above the checkpoint it is not: the design accepts an outage-free,
-permissionless replacement of that history, and a user who treats the confirmation as settled can lose
+the guarantee is the same. Above the checkpoint it is not: the design accepts a governance-gated
+replacement of that history — the timelock buys the exit window, but the trigger-to-queue wait is not
+protocol-bounded — and a user who treats the confirmation as settled can lose
 the outcome it describes. At or below the latest L1-accepted checkpoint the same label is
-backed by the rule that no path — recovery included — may change that history
+backed by the rule that no path — the stall resolution included — may change that history
 (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>), and at or below an Ethereum-finalized checkpoint
 even an L1 reorganisation cannot change it (<a href="#STATUS-07">STATUS-07</a>).</span>
 <span class="pill proven">Proven</span> <span class="small">(conditional on <a href="10-assurance.html#INV-01">INV-01</a>'s premises)</span>
-<em>(user decision D-7: Mode B selected — the certificate and its evidence are unchanged, the guarantee is not)</em></div>
+<em>(D-15: the certificate and its evidence are unchanged, the guarantee is not; the replacement is the timelocked, resume-only stall resolution of GOV-04, and clearing a stall depends on governance liveness)</em></div>
 
 <div class="rule" id="STATUS-05"><span class="rid">STATUS-05 — proof-ready</span>
 <span class="norm">A completed ZK proof bound to this batch's data commitment exists off-chain.
@@ -249,11 +254,10 @@ its checkpoint (<a href="04-l1-integration.html#L1-01">L1-01</a>). <strong>Guara
 batch's data is public on Ethereum and the transition is L1-committed.
 <strong>Revocable:</strong> only by an L1 reorganisation below finality.</span>
 <span class="why">This is the first status a user may rely on as irreversible: no L2 rule —
-including the recovery of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> — can revoke an
+including the stall resolution of <a href="08-migration-upgrades.html#GOV-04">GOV-04</a> — can revoke an
 accepted batch, and the only revocation is an L1 reorganisation below finality. It is the status that
-unlocks bridge withdrawals and message authentication. <em>(user decision D-7: Mode B selected —
-STATUS-04 is provisional above the checkpoint; STATUS-06 and above are the first irreversible
-statuses)</em></span><span class="pill proven">Proven</span></div>
+unlocks bridge withdrawals and message authentication. <em>(D-15: STATUS-04 is provisional above the checkpoint; STATUS-06 and above are the first irreversible
+statuses, and the stall resolution touches nothing at or below an accepted batch)</em></span><span class="pill proven">Proven</span></div>
 
 <div class="rule" id="STATUS-07"><span class="rid">STATUS-07 — Ethereum-finalized</span>
 <span class="norm">The accepting L1 transaction is in a finalized Ethereum block, or the L1 fact the
@@ -302,17 +306,17 @@ these labels and must state which status is being shown. A "confirmation" shown 
 <a href="#STATUS-06">STATUS-06</a> must be accompanied by the statement that the batch's data and
 proof are not yet on Ethereum. In addition, <strong>any interface that shows a confirmation above the
 last L1-accepted checkpoint must say that it can be replaced</strong>: the statement must name the
-sanctioned recovery (<a href="06-recovery-exceptions.html#REC-02">REC-02</a>) and must not present the
-confirmation as final, settled or irreversible; a status indicator that shows only "confirmed" without
+sanctioned stall resolution (<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>), must not present the
+confirmation as final, settled or irreversible, and must not promise that a stalled chain resumes without
+governance (the assumption A-GOV-2); a status indicator that shows only "confirmed" without
 the replacement disclosure violates this rule.
 <strong>The protocol MUST expose, as public facts an interface can read:</strong> (i) the height of the
 latest L1-accepted checkpoint &mdash; the Inbox's current pointer <code>lastLandedHeight</code> and its
 record, not an Ethereum-final view (<a href="04-l1-integration.html#L1-06">L1-06</a>,
-<a href="04-l1-integration.html#L1-07">L1-07</a>); (ii) <code>resumeHeight</code>
-(<a href="06-recovery-exceptions.html#REC-02">REC-02</a>); (iii) whether a recovery is pending and when
-its invocation was made (<code>recoveryState</code>, <code>recoveryInvokedAt</code>,
-<a href="06-recovery-exceptions.html#REC-02">REC-02</a>), so that the cancellation race &mdash; a batch
-accepted after the invocation cancels the pending recovery &mdash; is observable; and (iv) whether the
+<a href="04-l1-integration.html#L1-07">L1-07</a>); (ii) the resume point &mdash; <code>lastLandedHeight + 1</code>, derived from L1 state, with no stored retirement floor (<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>(c)); (iii) whether a stall-resolution entry is queued and when it was queued
+(<code>govResumeState</code>, <code>govResumeQueuedAt</code>,
+<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>(b)), so that the void-on-progress race &mdash; a batch
+accepted after queueing voids the pending entry &mdash; is observable; and (iv) whether the
 chain is currently halted for backpressure, which validators enforce and the consensus client exposes
 because no L1 contract can enforce the cap (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>,
 <a href="10-assurance.html#LIVE-02">LIVE-02</a>); and (v) whether a <strong>withdrawal root</strong> exists
@@ -324,17 +328,19 @@ and must not present a proven withdrawal as executable while an unexpired veto s
 interface can state exactly when it ends.)</em> <em>(D-13 and MSG-04 are also the reason STATUS-08 now names
 the root and the veto: the first irreversible status is unchanged, but what unlocks a release is not.)</em> An interface <strong>MUST NOT</strong> present a
 confirmation above the latest L1-accepted checkpoint as final, and <strong>MUST</strong> be able to tell
-that a pending recovery exists: otherwise the cancellation race is unobservable by rule and the
+that a stall-resolution entry is queued, and <strong>MUST</strong> state both waits honestly —
+<code>T_STALL_GOV</code> is when an entry <em>may</em> be queued, not when one will be: otherwise the
+void-on-progress race is unobservable by rule and the
 replacement disclosure this rule requires cannot be made truthfully. <em>This closes review round 4
-findings R4-LIV-10 and STATUS-11: the boundary, <code>resumeHeight</code>, a pending recovery with its
-invocation time and the backpressure halt are readable facts, so an interface can state replaceability
-and observe the cancellation race.</em></span>
+findings R4-LIV-10 and STATUS-11: the boundary, the derived resume point, a queued entry with its
+queueing time and the backpressure halt are readable facts, so an interface can state replaceability,
+observe the void race and disclose the governance-liveness assumption (A-GOV-2).</em></span>
 <span class="why">Failure mode: users treat a 2 s PoS confirmation as settlement (R14, D6 "user
-expectations"), now compounded by the fact that the confirmation can be discarded by the recovery.
+expectations"), now compounded by the fact that the confirmation can be discarded by the stall resolution, and by the fact that clearing a stall depends on governance liveness.
 Disclosure is the only protection the protocol gives a user who acts on a provisional outcome, because
 losses are not compensated (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>).</span>
 <span class="pill proven">Proven</span>
-<em>(user decision D-7: Mode B selected — a confirmation above the last L1-accepted checkpoint must be disclosed as replaceable)</em></div>
+<em>(D-15: a confirmation above the last L1-accepted checkpoint must be disclosed as replaceable, and the governance-liveness assumption behind the replacement — A-GOV-2 — must be disclosed with it)</em></div>
 
 <h2 id="ruleindex">Rule index</h2>
 <p class="small">Registry of every normative rule and the page that states it in full. A rule's text

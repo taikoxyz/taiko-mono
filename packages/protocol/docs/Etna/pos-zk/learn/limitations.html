@@ -141,7 +141,8 @@ loss.</p>
 Clearing a stall depends on governance queueing and executing the timelocked, resume-only decision; if governance does not act, the
 chain stays halted, and a user&rsquo;s only exit is the withdrawal path that works from the last settled state on Ethereum alone
 (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). This is a <strong>social-layer trust assumption</strong>, stated as
-one: it is not priced by a bond, not enforced by a rule, and not bounded by any protocol parameter. Governance chooses when the
+one (recorded as the trust assumption A-GOV-2 in the specification&rsquo;s assurance register): it is not priced by a bond, not
+enforced by a rule, and not bounded by any protocol parameter. Governance chooses when the
 decision executes, but not what it does &mdash; the resume point and the discarded range are fixed by L1 state &mdash; and progress
 before execution voids the decision and lets any account cancel the queued entry. A captured or coerced
 governance can also use the rule opportunistically: it can wait for a genuine stall and let an unfavourable
