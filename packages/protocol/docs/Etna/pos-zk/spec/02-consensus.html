@@ -443,7 +443,9 @@ with <code>H_genesis</code> the genesis L2 height (<code>H_0</code> of <a href="
 boundary schedule. <code>epoch_of</code>, <code>h_first</code> and <code>h_last</code> are in every rule read from the <strong>L1-committed epoch-boundary record</strong>, which is this
 default schedule extended by any completed rotation of <a href="#CONS-16">CONS-16</a> and by nothing else: a rotation may move the boundary of the resumed epoch earlier, never to or below
 a height a validator has produced. <code>epoch_of</code> remains a pure function of the height and of Ethereum-final L1 state: no L2-derived view, no header, no witness, no proof and no
-caller participates in it, and the record is append-only and monotone. <em>This answers PR #22262 review comment 6011464863, item 2(a): the height schedule is still the default, and the
+caller participates in it. The record's per-epoch first heights are <strong>non-decreasing in the epoch</strong>, and a boundary that has already governed a produced height is
+<strong>immutable</strong>: only a completed rotation of <a href="#CONS-16">CONS-16</a> may lower the boundaries of epochs that govern no produced height, never to or below a produced
+height, and never a boundary that has already been entered. <em>This answers PR #22262 review comment 6011464863, item 2(a): the height schedule is still the default, and the
 only thing that can move a boundary is the L1-time-keyed rotation, read from L1 state.</em> <strong>The two schedules are reconciled by one entry rule:</strong> the L2 MUST NOT enter epoch <code>e</code> — no proposer may propose and no validator may prevote or precommit a block at a height <code>&ge; h_first(e)</code> — until the L1-side clock of (1) has reached <code>L1_first(e)</code>. The boundary is still defined by L2 height; the L1 clock only forbids entering an epoch early. A faster-than-nominal L2 cadence therefore <em>waits</em> at the boundary for the L1 clock instead of outrunning it — no boundary halt can arise from cadence drift — and a slower cadence never has to wait. <em>This closes review round 3 finding R3A-01: the L2-side height schedule and the L1-side block schedule are now related by an explicit entry rule, so the height-derived <code>epoch_of</code> and the L1-side clock can no longer drift apart at a realised cadence other than the nominal one.</em> The L1 staking contract stores an
 <strong>append-only per-epoch mapping</strong> <code>epoch → (setRoot, totalVotingPower)</code>; an entry is immutable once its epoch starts, and the epoch key
 is not chosen by any caller (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(1)). The L1 Inbox resolves <code>epoch_of</code> over the batch's heights from
@@ -514,11 +516,81 @@ business of the bonded recovery of <a href="06-recovery-exceptions.html#REC-02">
 operator-side rollback remains forbidden; only the rule-bound recovery path may replace unsettled history.)</em></span>
 <span class="pill proven">Proven</span> <span class="small">(the halt action is unconditional; the <em>triggers</em> are assumption failures, whose avoidance is
 not claimed)</span></div>
+<div class="rule" id="CONS-16"><span class="rid">CONS-16 — L1-time-keyed rotation: closing a stalled epoch early</span> <span class="norm">This rule is the
+reachability half of the inactivity rule of <a href="03-membership-staking.html#MEM-13">MEM-13</a>. The decay it applies changes only <em>future</em> set versions, so without a way to
+leave an epoch whose set cannot form a quorum, a decayed set version is unreachable and the stalled epoch keeps its set for ever — the structural half of the freeze this rule answers.
+(1) <strong>What L1 can see, and the trigger.</strong> A <em>production stall</em> is observable on L1 only through the same stored clock as <a href="06-recovery-exceptions.html#REC-02">REC-02</a>'s
+trigger: <code>block.timestamp &minus; lastAcceptedBatchTime &ge; T_ROTATE</code>, where <code>lastAcceptedBatchTime</code> is the checkpoint record's stored acceptance timestamp
+(<a href="04-l1-integration.html#L1-07">L1-07</a>) and <code>T_ROTATE</code> is a registered parameter (<a href="09-parameters.html#PARAM-01">09</a>) strictly greater than
+<code>T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY</code>, so no normal proving or settlement pipeline can open one, and
+<code>T_ROTATE &ge; T_INACTIVE + 2 &middot; E_EPOCH</code>, so that an entry the L1 has stopped observing can already have been decayed out of a committed entry before a rotation can
+complete (<a href="03-membership-staking.html#MEM-13">MEM-13</a>(6)). L1 can see neither which validators are online nor where the L2 tip is; the rotation is therefore restricted to
+heights no validator has produced, and its precondition is clause (5).
+<br>(2) <strong>Invocation, delay, cancellation.</strong> While the trigger of (1) holds and the L1-side clock of <a href="#CONS-13">CONS-13</a>(1) is past
+<code>L1_first(e+1)</code>, any account MAY invoke a rotation against the current L1-accepted checkpoint. The invocation is objective, takes no argument that influences the outcome,
+and records the checkpoint height <code>H_inv</code> and the invocation timestamp. It is cancelled by <strong>exactly REC-02's cancellation predicate</strong>: if a valid batch extending
+the checkpoint recorded at invocation is accepted on L1 after the invocation and before completion, the rotation MUST revert at completion. No earlier than <code>T_ROTATE_DELAY</code>
+after the invocation, and only while the cancellation predicate does not hold, the <strong>completion transition</strong> — callable by any account — performs (3). At most one rotation
+invocation may be pending at a time (the pending invocation needs its own L1 record, clause (5)), a rotation MUST NOT be invoked while a recovery invocation of
+<a href="06-recovery-exceptions.html#REC-02">REC-02</a> is pending, and a recovery MUST NOT be invoked while a rotation is pending: the two transitions are mutually exclusive, because a
+recovery restores the checkpoint a pending rotation computed its closing height against, and a rotation would re-partition heights a pending recovery is about to discard.
+<br>(3) <strong>Effect: the closing height, the resumed epoch, and the re-partition.</strong> A completed rotation closes the stalled epoch <code>e</code> at the <strong>closing
+height</strong> <code>h_close(e)</code> — the highest height any validator has produced in <code>e</code>, and never a height any batch has claimed or landed — and resumes at epoch
+<code>e_r</code>, the lowest epoch whose <code>mapping[e_r]</code> entry is an Ethereum-final L1 fact and whose stored <code>t_root(e_r)</code> is at or after the invocation timestamp of
+(2) (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(1), (2)). The epoch-boundary record of <a href="#CONS-13">CONS-13</a>(2) records, for each epoch <code>e'</code> in
+<code>[e+1, e_r]</code>, the first height it governs: <code>h_first(e') = h_close(e) + 1</code> for every <code>e'</code> in <code>[e+1, e_r]</code>, so the epochs strictly between
+<code>e+1</code> and <code>e_r</code> govern <strong>no height at all</strong> and <code>e_r</code> begins at <code>h_close(e)+1</code>; <code>h_first(e_r+1)</code> becomes
+<code>h_close(e) + L + 1</code>, and every later boundary is the default schedule shifted by the same amount <code>h_last(e) &minus; h_close(e)</code>. The sequence
+<code>h_first(e')</code> therefore stays non-decreasing in <code>e'</code>, every epoch before <code>e+1</code> keeps the boundary it had, and no boundary that has governed a produced height
+is ever changed. Heights <code>h_close(e)+1 &hellip; h_last(e)</code> — none of which any validator produced — are thereby assigned to <code>e_r</code>. <strong>The rotation retires no
+height and writes no <code>resumeHeight</code>:</strong> <a href="06-recovery-exceptions.html#REC-02">REC-02</a>'s record remains the only retirement record and
+<a href="04-l1-integration.html#L1-06">L1-06</a>'s contiguity equality is untouched, because the height sequence stays contiguous; the parent of the first block of <code>e_r</code> is the
+block at <code>h_close(e)</code>, and the anchor duty of <a href="#CONS-09">CONS-09</a>(1) applies with <code>h_close(e)</code> in place of <code>h_last(e)</code>. Nothing at or below
+the latest L1-accepted checkpoint changes (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>), no produced block is discarded, and no produced height is re-judged.
+<br>(4) <strong>Interaction with the two-epoch lookahead and the L1-derived set roots.</strong> The epoch&rarr;set-root chain stays an L1 fact end to end. The L1-side clock keeps
+appending entries during an L2 halt (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(1)), so the entry for <code>e_r</code> was appended two L1-side epochs earlier, is immutable
+and is Ethereum-final well before the rotation completes; the entry rule of <a href="#CONS-13">CONS-13</a>(2) is satisfied because the clock has long passed
+<code>L1_first(e_r)</code>; and <code>setVersion(e_r) = e_r &minus; e_0 + 1</code> (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2)) is unchanged by the rotation. The rotation
+rewrites no entry and chooses no root: it changes which immutable entry the next height is judged under, and every height is judged only under the epoch the boundary record assigns to it,
+so no height ever has two governing roots. A certificate carrying the superseded epoch for a re-partitioned height is void for canonical purposes and can never be landed, because the
+Inbox resolves the epoch from L1 state (<a href="#CONS-12">CONS-12</a>, <a href="04-l1-integration.html#L1-05">L1-05</a>); <a href="#CONS-08">CONS-08</a>(3) is unchanged and such a
+certificate remains admissible as evidence. Entries for the epochs <code>e+1 &hellip; e_r&minus;1</code> are never consumed by a height and stay in the append-only mapping
+(<a href="03-membership-staking.html#MEM-09">MEM-09</a>(4)); nothing is deleted and nothing is overwritten.
+<br>(5) <strong>Precondition this transition cannot verify from L1 — <span class="pill open">Open</span>.</strong> A rotation is legal only if <strong>no height of epoch
+<code>e</code> above <code>h_close(e)</code> has been finalized by any validator</strong>, i.e. every produced height is at or below the closing height. L1 state does not carry the L2
+tip, and the cancellation predicate of (2) reacts only to <em>accepted</em> batches, so a rotation can complete while finalized-but-unsettled heights remain above the checkpoint. Those
+heights would then be unlandable, which is a replacement of provisional history above the checkpoint by a path other than <a href="06-recovery-exceptions.html#REC-02">REC-02</a> — a
+<a href="06-recovery-exceptions.html#REC-01">REC-01</a> defect, not a safety break, but a defect this page cannot close. Closing it needs an L1 fact this specification does not yet
+record: a stored last-finalized marker, a composite transition whose proof carries the head batch, or REC-02's own record and delay. The corresponding amendments &mdash; the boundary record and the pending-rotation record themselves, the
+epoch resolution the Inbox performs over a batch's heights (<a href="04-l1-integration.html#L1-05">L1-05</a>, <a href="04-l1-integration.html#L1-06">L1-06</a>), and the
+storage those two records need (<a href="08-migration-upgrades.html#MIG-02">MIG-02</a>) &mdash; are owned by those pages and are <strong>not made here</strong>. <strong>Falsifier F7:</strong> an implementation that enforces this precondition from L1 state alone — or a proof that the precondition may be dropped — without
+stranding a produced height and without amending REC-01's "only by REC-02" clause.
+<br>(6) <strong>No discretion; funding Open.</strong> The invoker chooses nothing: the closing height is a function of L1 state, <code>e_r</code> is the lowest epoch satisfying (3), and
+the resumed set is <code>set_root(e_r)</code> exactly as the staking contract already fixed it (<a href="03-membership-staking.html#MEM-08">MEM-08</a>,
+<a href="03-membership-staking.html#MEM-09">MEM-09</a>). No operator, DAO or invoker selects a checkpoint, a validator set or a configuration value, and
+<a href="06-recovery-exceptions.html#HALT-04">HALT-04</a> is unaffected. Whether a completed rotation is paid from the fee-funded pool, like REC-02's completion reward
+(<a href="07-economics-slashing.html#ECON-02">ECON-02</a>(5)(f)), is <span class="pill open">Open</span> and must be decided with that rule's funding; if it is not paid, the honest
+consequence is that nobody may be willing to invoke it, so the bound it provides is conditional on someone acting — disclosed, not asserted.
+<br>(7) <strong>Not a rollback, and not a cure by itself.</strong> A rotation discards nothing produced, restores no checkpoint, moves no history downward and grants no client the right
+to change history; a node that has not seen the completion record continues under the rules it holds (<a href="#CONS-15">CONS-15</a>). It is also not sufficient on its own: if
+<a href="03-membership-staking.html#MEM-13">MEM-13</a>'s decay has removed no weight — the case of a simultaneous stop by one third of the set, which L1 cannot distinguish from an
+online cohort (falsifier F6 there) — then the resumed epoch carries the same stalled cohort and the rotation buys nothing, which MUST be said wherever the rotation is summarised. Its
+safety/deterrence residual is F5 of <a href="03-membership-staking.html#MEM-13">MEM-13</a>, and it is disclosed in <a href="10-assurance.html#LIVE-05">LIVE-05</a> and
+<a href="10-assurance.html#LIM-01">LIM-01</a>.</span> <span class="why">Failure mode: a set that can change only with L2 height cannot rotate out of a quorum that has stopped voting,
+so one third of the stake holds the chain at no slashable cost; but a rotation that re-partitions a produced height, rewrites a committed entry, lowers <code>resumeHeight</code>, or is
+performable by a client on its own converts the escape into the history replacement <a href="06-recovery-exceptions.html#REC-01">REC-01</a> forbids.</span>
+<span class="pill open">Open</span> <span class="pill unmeasured">unmeasured</span> <span class="small">(the mechanism is normative and its L1-time trigger, cancellation predicate and
+set-root interaction are specified; the enforcement of clause (5) is Open with falsifier F7, and <code>T_ROTATE</code>/<code>T_ROTATE_DELAY</code> are unmeasured. <em>This answers
+PR #22262 review comment 6011464863, item 2(a): the epoch can now be closed on L1 time rather than L2 height, so a decayed set version is reachable and a stalled epoch cannot keep its
+set for ever — with the part that cannot be completed stated as Open rather than asserted.</em>)</span></div>
+
 <h2 id="modifications">Modifications and proof status</h2>
 <p class="small">The modifications recorded in <a href="../04-architecture-decision.md">04 §2.1</a>, with the published proof that no longer applies
 verbatim and the argument that replaces it. M3 is withdrawn — forced inclusion was removed from the specification by user decision D-6 — and its row is kept
 as the record of that removal. M6 is added by this page: it fixes the exact leader-selection computation required by <a href="#CONS-06">CONS-06</a>
-and is flagged for the architecture decision log rather than silently assumed.</p>
+and is flagged for the architecture decision log rather than silently assumed. <strong>M7</strong> is added by this page under PR #22262 review comment 6011464863, item 2(a): the
+L1-time-keyed rotation of <a href="#CONS-16">CONS-16</a> and the L1-observed inactivity decay of <a href="03-membership-staking.html#MEM-13">MEM-13</a>, whose safety and liveness
+residuals are Open with the named falsifiers F5, F6 and F7.</p>
 <table>
 <thead><tr><th>#</th><th>Modification</th><th>Published proof that no longer applies verbatim</th><th>Replacement argument / status</th></tr></thead>
 <tbody>
@@ -549,6 +621,7 @@ consequence), with the cadence claim itself <span class="pill unmeasured">unmeas
 assumption A-CRYPTO-3 does not supply), and it is an expectation, not a per-window bound — the superseded revision's residue-window identity is not claimed.
 The modulo bias is at most <code>W / 2^256</code> and negligible for any base-unit total. Safety is unaffected: the leader identity is irrelevant to
 <a href="#CONS-12">CONS-12</a>.</td></tr>
+<tr><td><strong>M7</strong></td><td>L1-time-keyed rotation and L1-observed inactivity decay (<a href="#CONS-16">CONS-16</a>, <a href="03-membership-staking.html#MEM-13">MEM-13</a>): an epoch that has stalled on the L1 clock can be closed early and its unproduced heights re-partitioned into the lowest epoch whose set was committed after the stall, and entries the L1 has not observed participating decay and finally lapse in future set versions.</td> <td>CometBFT has no such mechanism: its validator updates are application-driven and its liveness proof needs a correct proposer and more than two thirds online, so it stalls; its accountability lemma is orthogonal to set membership. The published Proof of Safety is unaffected, because it is applied set version by set version.</td> <td>The set-root half is <strong>Proven within the existing frame</strong>: entries are immutable, each height is judged only under the root the L1 boundary record assigns it, no height is ever judged by two sets, and a re-partitioned height can never be certified under the superseded epoch (<a href="#CONS-12">CONS-12</a>). Three things are <strong>Open</strong> and must not be read as established: the deterrence transfer (<strong>F5</strong> &mdash; <code>A-CONS-1</code> is per set version, and a coalition below one third of the pre-decay set can exceed one third of the post-decay set); the L1 evidence cannot distinguish a cohort that stops at the freeze from one that stays online (<strong>F6</strong>), so no production-time bound may be claimed for a simultaneous stop; and the rotation's precondition is not enforceable from L1 state as specified (<strong>F7</strong>). The load-bearing mitigation for a simultaneous stop remains the exit guarantee of <a href="03-membership-staking.html#MEM-15">MEM-15</a>. <em>This answers PR #22262 review comment 6011464863, item 2(a).</em></td></tr>
 </tbody></table>
 <h2 id="timing">Worked timing trace at the 2 s cadence</h2>
 <p class="small">This trace is a <strong>target</strong>, not a measurement (<a href="index.html#GEN-01">GEN-01</a>, <a href="index.html#GEN-04">GEN-04</a>).
