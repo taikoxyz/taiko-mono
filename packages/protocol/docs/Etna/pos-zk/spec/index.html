@@ -63,7 +63,7 @@ can be replaced (<a href="#STATUS-11">STATUS-11</a>). <em>(user decision D-7: Mo
 <tr><td><strong>D2</strong></td><td><strong>Mode B selected (user decision D-7)</strong> after the D2 procedure: a permissionless, bonded, delayed L1 recovery of <em>unsettled</em> history may replace L2 history above the last L1-accepted checkpoint, and a confirmation there is provisional. At or below the latest L1-accepted checkpoint no recovery, timeout, rotation, admission rule or normal upgrade may invalidate a legitimately accepted block, and at or below an Ethereum-finalized checkpoint even an L1 reorganisation cannot undo it (<a href="#STATUS-07">STATUS-07</a>); where the recovery does not apply, halt safely instead. Mode A remains the guarantee at and below that checkpoint and the correct behaviour for every failure class the recovery does not cover (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). <em>(user decision D-7: Mode B selected)</em></td></tr>
 <tr><td><strong>D3</strong></td><td>Preserve the existing L1/L2 <strong>SignalService</strong>, <strong>Bridge</strong>, <strong>ERC20Vault</strong>, <strong>ERC721Vault</strong>, <strong>ERC1155Vault</strong> addresses by in-place upgrade. No replacement deployments.</td></tr>
 <tr><td><strong>D4</strong></td><td>L2 PoS determines binding transaction order. Result named honestly a <strong>PoS-sequenced validity rollup</strong>.</td></tr>
-<tr><td><strong>D5</strong></td><td>Batch data and its valid ZK proof land in the <strong>same L1 transaction</strong>; no data-first/proof-later path in any mode, including recovery.</td></tr>
+<tr><td><strong>D5</strong></td><td>Batch data and its valid ZK proof land in the <strong>same L1 transaction</strong>; no data-first/proof-later path in any mode, including recovery. <strong>Relaxed by D-11 (recorded project decision, 2026-10-06):</strong> a batch's data MAY be published and recorded in an <em>earlier</em> L1 transaction, because blobs alone advance no protocol state — what D5 continues to require is that the checkpoint advances only on a valid proof. The publication record is bounded by the proving deadline, and the original "no data-first/proof-later path" wording is superseded in that one respect. <em>(D-11; see <a href="07-economics-slashing.html#ECON-13">ECON-13</a> and <a href="08-migration-upgrades.html#MIG-02">MIG-02</a> slots 275–276.)</em></td></tr>
 <tr><td><strong>D6</strong></td><td>Proving latency of a few minutes to <strong>30 minutes</strong> is normal operation; L2 keeps producing 2&nbsp;s blocks and reaching PoS finality throughout.</td></tr>
 <tr><td><strong>D7</strong></td><td>Staking and slashable collateral are denominated in the <strong>existing TAIKO</strong> token. Gas stays ETH. No replacement staking token.</td></tr>
 </tbody></table>
@@ -97,7 +97,12 @@ users cannot tell which claims are evidence-backed.</span>
 <span class="norm">D1–D7 are constraints. A design element that conflicts with one of them is a
 defect, not a tradeoff. Changing one requires a new user decision recorded in the decision log.</span>
 <span class="why">Failure mode: silent relaxation of D5 or D7, which the user expressly
-forbade.</span>
+forbade. A <em>recorded</em> project decision may relax or supersede a fixed decision only where the decision
+log records it and names what survives: <strong>D-11 relaxes D5</strong> (data may be published before the
+proof; the checkpoint still advances only on a valid proof) and <strong>D-12 supersedes D-6/D-10</strong>
+(narrow forced inclusion over published data, with the general omission offence still absent). Any other
+change to D1–D7 is a defect. <em>(D-11, D-12: the recorded relaxations and supersessions are named here so
+that GEN-02 and the decision log cannot diverge.)</em></span>
 <span class="pill proven">Proven</span></div>
 
 <div class="rule" id="GEN-03"><span class="rid">GEN-03 — one rule, one place, stable identifiers</span>
@@ -259,10 +264,19 @@ otherwise a PoS-finalized L2 block can become unprovable.</span>
 <span class="pill proven">Proven</span></div>
 
 <div class="rule" id="STATUS-08"><span class="rid">STATUS-08 — withdrawal-eligible</span>
-<span class="norm">Status <a href="#STATUS-06">STATUS-06</a> or <a href="#STATUS-07">STATUS-07</a>
-plus the message-authentication path and any delay required by
-<a href="04-l1-integration.html#MSG-03">MSG-03</a>.</span>
-<span class="why">Withdrawal availability is strictly later than L1 acceptance.</span>
+<span class="norm">Status <a href="#STATUS-06">STATUS-06</a> or <a href="#STATUS-07">STATUS-07</a>,
+a <strong>withdrawal root</strong> at a height not below the signal's height — an epoch-boundary checkpoint
+carrying an aggregation proof that attests at least <code>K_PROOF_BACKENDS</code> distinct registered backend
+families (<a href="04-l1-integration.html#L1-13">L1-13</a>) — the message-authentication path, the delay
+required by <a href="04-l1-integration.html#MSG-03">MSG-03</a> measured from the root's
+<code>l1BlockNumber</code>, and the absence of an unexpired <strong>withdrawal veto</strong>; an ordinary
+checkpoint that is not a withdrawal root MUST NOT anchor a value release, and a veto delays but never cancels
+an already-proven withdrawal (<a href="04-l1-integration.html#MSG-04">MSG-04</a>).</span>
+<span class="why">Withdrawal availability is strictly later than L1 acceptance, and under D-13 the root costs
+one verification of an aggregated proof rather than <code>k</code> verifications; the two user-visible delays
+(up to one epoch plus the slowest inner proof, and up to <code>T_VETO</code>) are disclosed rather than hidden.
+<em>(D-13: settlement and root attestation share the one-verification aggregation path; MSG-04's veto is a
+bounded delay, not a pause lever.)</em></span>
 <span class="pill proven">Proven</span></div>
 
 <div class="rule" id="STATUS-09"><span class="rid">STATUS-09 — local receipt is not availability</span>
@@ -301,7 +315,14 @@ its invocation was made (<code>recoveryState</code>, <code>recoveryInvokedAt</co
 accepted after the invocation cancels the pending recovery &mdash; is observable; and (iv) whether the
 chain is currently halted for backpressure, which validators enforce and the consensus client exposes
 because no L1 contract can enforce the cap (<a href="06-recovery-exceptions.html#HALT-03">HALT-03</a>,
-<a href="10-assurance.html#LIVE-02">LIVE-02</a>). An interface <strong>MUST NOT</strong> present a
+<a href="10-assurance.html#LIVE-02">LIVE-02</a>); and (v) whether a <strong>withdrawal root</strong> exists
+for a height and, while a <strong>withdrawal veto</strong> is active, the timestamp at which it ends
+(<a href="04-l1-integration.html#L1-13">L1-13</a>, <a href="04-l1-integration.html#MSG-04">MSG-04</a>), because
+an interface that shows a withdrawal must state the two additional delays of <a href="#STATUS-08">STATUS-08</a>
+and must not present a proven withdrawal as executable while an unexpired veto stands.
+<em>(D-13: the root and its family count are public facts; MSG-04: the veto is public and self-expiring, so an
+interface can state exactly when it ends.)</em> <em>(D-13 and MSG-04 are also the reason STATUS-08 now names
+the root and the veto: the first irreversible status is unchanged, but what unlocks a release is not.)</em> An interface <strong>MUST NOT</strong> present a
 confirmation above the latest L1-accepted checkpoint as final, and <strong>MUST</strong> be able to tell
 that a pending recovery exists: otherwise the cancellation race is unobservable by rule and the
 replacement disclosure this rule requires cannot be made truthfully. <em>This closes review round 4
@@ -317,13 +338,17 @@ losses are not compensated (<a href="07-economics-slashing.html#ECON-11">ECON-11
 
 <h2 id="ruleindex">Rule index</h2>
 <p class="small">Registry of every normative rule and the page that states it in full. A rule's text
-is normative on its own page; this table is a map, not a second copy. Forced inclusion is removed
-(user decision D-6): <code>FI-01</code>–<code>FI-05</code> no longer exist as rules and are not
-indexed. The tombstone <code>FI-REMOVED-01</code> records the removal,
-<a href="10-assurance.html#LIVE-04">LIVE-04</a> owns the honest statement of what inclusion resistance
-remains, and <code>FI-PLANNED-01</code> states the deferred update and the invariants it must preserve.
-<em>(user decision D-6: forced inclusion removed)</em> <em>(user decision D-10: the forced-inclusion
-upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em></p>
+is normative on its own page; this table is a map, not a second copy. The general forced-inclusion rules
+<code>FI-01</code>–<code>FI-05</code> of the earlier revision do not exist and are not indexed. <strong>D-12
+supersedes D-6 and D-10:</strong> v1 carries a <em>narrow</em> forced inclusion over <em>published</em> data —
+a proposal that omits the capped FIFO prefix of the due set past the proving deadline is in breach
+(<a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause 6, <a href="07-economics-slashing.html#ECON-13">ECON-13</a>),
+enforced at the proof and never by an admission gate — while <a href="10-assurance.html#LIVE-04">LIVE-04</a>
+still owns the honest statement of what inclusion resistance remains for <em>unpublished</em> transactions.
+The tombstone <code>FI-REMOVED-01</code> and the planned-update clause <code>FI-PLANNED-01</code> describe
+the superseded posture, and the preservation duties they list remain binding on any later widening.
+<em>(D-11: data may be published before the proof, which is what anchors the narrow rule; D-12: narrow forced
+inclusion ships in v1 and supersedes D-6/D-10.)</em></p>
 <table><thead><tr><th>ID</th><th>Rule</th><th>Page</th></tr></thead><tbody>
 <tr><td><code>GEN-01</code></td><td>What this specification is (and is not)</td><td>this page</td></tr>
 <tr><td><code>GEN-02</code></td><td>Fixed decisions D1–D7 bind the design</td><td>this page</td></tr>
@@ -344,7 +369,7 @@ upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em>
 <tr><td><code>STATUS-08</code></td><td>withdrawal-eligible</td><td>this page</td></tr>
 <tr><td><code>STATUS-09</code></td><td>Local receipt is not availability</td><td>this page</td></tr>
 <tr><td><code>STATUS-10</code></td><td>An elapsed timeout is never evidence of absence</td><td>this page</td></tr>
-<tr><td><code>STATUS-11</code></td><td>Label disclosure obligation, including the replaceability of a confirmation shown above the last L1-accepted checkpoint <em>(user decision D-7)</em></td><td>this page</td></tr>
+<tr><td><code>STATUS-11</code></td><td>Label disclosure obligation, including the replaceability of a confirmation shown above the last L1-accepted checkpoint, and the public facts an interface must expose — the checkpoint boundary, <code>resumeHeight</code>, a pending recovery with its invocation time, the backpressure halt, the withdrawal root and an unexpired veto <em>(user decisions D-7, D-13)</em></td><td>this page</td></tr>
 <tr><td><code>SYS-01</code></td><td>Participants and channels</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>SYS-02</code></td><td>Only Ethereum-final L1 facts enter L2 consensused state</td><td><a href="01-system-model.html">01</a></td></tr>
 <tr><td><code>SYS-03</code></td><td>Cadence is separated from every other latency</td><td><a href="01-system-model.html">01</a></td></tr>
@@ -369,6 +394,7 @@ upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em>
 <tr><td><code>CONS-13</code></td><td>Epoch length, set-commitment timing and two-epoch lookahead</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-14</code></td><td>Genesis, activation and first epoch</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>CONS-15</code></td><td>Halt on loss of the assumptions (pointer to HALT)</td><td><a href="02-consensus.html">02</a></td></tr>
+<tr><td><code>CONS-16</code></td><td>L1-time-keyed rotation: closing a stalled epoch early — opening threshold <code>T_ROTATE</code>, delay <code>T_ROTATE_DELAY</code>, cancellation by honest progress, and the no-produced-height-re-judged precondition that is <span class="pill open">Open</span> (falsifier F7)</td><td><a href="02-consensus.html">02</a></td></tr>
 <tr><td><code>MEM-01</code></td><td>L1 staking custody of TAIKO at the existing token address</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-02</code></td><td>Effective stake, voting power, and why getVotes is not an oracle</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-03</code></td><td>Activation: objective, permissionless, first-come queue</td><td><a href="03-membership-staking.html">03</a></td></tr>
@@ -381,6 +407,9 @@ upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em>
 <tr><td><code>MEM-10</code></td><td>Sybil resistance and the non-claim about per-address caps</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-11</code></td><td>Weak subjectivity: L1 checkpoint as the source and the freshness window</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>MEM-12</code></td><td>Long-range attack handling; no silent trusted checkpoint provider</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-13</code></td><td>Inactivity decay and membership lapse, keyed on L1-observed participation (<code>T_INACTIVE</code>, <code>D_LAPSE_MAX</code>, the stored record <code>lastObserved(v)</code>); it is a decay, not a penalty, and the simultaneous-stop residual (falsifier F6) is stated</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-14</code></td><td>Maximum validator-set size <code>N_MAX</code>: an objective admission bound on entries, not a stake cap — it caps the honest set size and does not bound concentration</td><td><a href="03-membership-staking.html">03</a></td></tr>
+<tr><td><code>MEM-15</code></td><td>Exit from the last settled state: value at or below the latest L1-accepted checkpoint is withdrawable on L1 with no L2 liveness, no quorum and no validator</td><td><a href="03-membership-staking.html">03</a></td></tr>
 <tr><td><code>L1-01</code></td><td>Single atomic <code>land(data, proof)</code> entry point; no data-first path</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>L1-02</code></td><td>No entry point records a pending or incomplete batch</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>L1-03</code></td><td>Failed verification leaves the batch unaccepted with no partial effect</td><td><a href="04-l1-integration.html">04</a></td></tr>
@@ -393,17 +422,19 @@ upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em>
 <tr><td><code>L1-10</code></td><td>Submission races and re-submission of the same batch</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>L1-11</code></td><td>Fees and reward accounting</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>L1-12</code></td><td>L1 reorganisation handling</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>L1-13</code></td><td>Withdrawal roots: epoch-boundary checkpoints carrying one aggregation proof that attests at least <code>K_PROOF_BACKENDS</code> distinct registered backend families, the per-epoch cost, the exit-path liveness limit (unbounded when fewer than <code>k</code> families operate) and the affordability gate <em>(D-13: one proof object per purpose, family count inside it)</em></td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-01</code></td><td>Canonical data availability is the accepting L1 transaction</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-02</code></td><td>Calldata path: the contract computes the data commitment</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-03</code></td><td>Blob path: BLOBHASH + on-chain KZG opening + in-guest evaluation at the challenge point</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-04</code></td><td>No witness, certificate or off-chain store substitutes for on-chain data</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-05</code></td><td>Retrievability window, archive requirement, and the blob-retention limit</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>DA-06</code></td><td>Retention duty and its link to the backlog cap</td><td><a href="04-l1-integration.html">04</a></td></tr>
-<tr><td><code>FI-REMOVED-01</code></td><td>Forced inclusion removed (tombstone for the non-existent FI-01–FI-05); no L1 inclusion path, honest statement in <a href="10-assurance.html#LIVE-04">LIVE-04</a></td><td><a href="04-l1-integration.html">04</a></td></tr>
-<tr><td><code>FI-PLANNED-01</code></td><td>Planned update: forced inclusion may be added later, and the D2/D5/permissionlessness invariants the update MUST preserve <em>(user decision D-10: forced inclusion deferred to a protocol update)</em></td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-REMOVED-01</code></td><td>Forced inclusion in its <em>general</em> form removed (tombstone for the non-existent FI-01–FI-05); <strong>superseded in part by D-12</strong>, which ships narrow forced inclusion over published data in v1, while <a href="10-assurance.html#LIVE-04">LIVE-04</a> still owns the statement for unpublished transactions</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>FI-PLANNED-01</code></td><td>Planned update: forced inclusion may be <em>widened</em> later, and the D2/D5/permissionlessness invariants any widening MUST preserve; <strong>superseded in part by D-12</strong>, which brings the narrow rule into v1, so what remains is the preservation duty on any later widening <em>(D-12 supersedes D-10)</em></td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-01</code></td><td>SignalService and Bridge authentication anchored at L1 checkpoints</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-02</code></td><td>Replay protection and domain separation</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>MSG-03</code></td><td>Withdrawal eligibility and delays</td><td><a href="04-l1-integration.html">04</a></td></tr>
+<tr><td><code>MSG-04</code></td><td>Rule-triggered, time-limited withdrawal veto: one objective trigger (an on-chain-verified proof contradiction), permissionless, self-expiring at <code>startedAt + T_VETO</code>, delaying and never cancelling a proven withdrawal</td><td><a href="04-l1-integration.html">04</a></td></tr>
 <tr><td><code>PRF-01</code></td><td>Statement overview: one combined guest</td><td><a href="05-proof-statement.html">05</a></td></tr>
 <tr><td><code>PRF-02</code></td><td>Public inputs (exact list)</td><td><a href="05-proof-statement.html">05</a></td></tr>
 <tr><td><code>PRF-03</code></td><td>Private witness (exact list); the validator set is never prover-defined</td><td><a href="05-proof-statement.html">05</a></td></tr>
@@ -417,9 +448,12 @@ upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em>
 <tr><td><code>PRF-11</code></td><td>Syscall, hint and accelerator trust model</td><td><a href="05-proof-statement.html">05</a></td></tr>
 <tr><td><code>PRF-12</code></td><td>Recursion and aggregation: what it does and does not prove</td><td><a href="05-proof-statement.html">05</a></td></tr>
 <tr><td><code>PRF-13</code></td><td>Bindings must be cryptographically enforced, never asserted</td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-14</code></td><td>Backend independence: what the <code>k</code>-family count buys at the withdrawal roots, and its residual — common-mode defects, the single-backend settlement path, the stop-not-theft residual, and the aggregation program as a new single point of trust <em>(D-13)</em></td><td><a href="05-proof-statement.html">05</a></td></tr>
+<tr><td><code>PRF-15</code></td><td>One proof object per purpose, <code>n</code>-of-<code>m</code> aggregated underneath: the object, the unchanged inner statement, the canonical public input (<code>statementHash</code>, <code>routeSetHash</code>, <code>familyBitmap</code>), what the aggregation program MUST do, the per-purpose count L1 enforces, and registration/rotation/cost <em>(D-13)</em></td><td><a href="05-proof-statement.html">05</a></td></tr>
 <tr><td><code>REC-01</code></td><td>Recovery boundary: history at or below the latest L1-accepted checkpoint may not be replaced, and recovery restores that checkpoint exactly; above it, only the sanctioned recovery may replace history — Ethereum finality is the separate, stronger property (STATUS-07) <em>(user decision D-7: Mode B selected)</em></td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
-<tr><td><code>REC-02</code></td><td><strong>Mode B (selected)</strong> permissionless recovery: objective trigger <code>T_STALL</code>, any invoker, escalating ETH bond <code>B_REC</code> (<code>B_REC_BASE</code>, <code>REC_WINDOW</code>, escalation over <strong>attempts</strong>) split into a non-refundable <code>B_REC_KEEP</code> sized to the cost of a spurious trigger (<code>B_REC_KEEP &ge; C_SPURIOUS = C_GAS_REC + C_REORG + C_DISRUPTION</code>) and a refundable balance returned only on completion, delay <code>T_RECOVERY_DELAY</code>, a named <strong>completion transition</strong> (any caller, effective for L2 nodes only at the Ethereum-final depth) that writes <code>resumeHeight</code>, permanently retires the discarded heights (a retired height can never be re-certified), and pays the invoker the fee-funded completion reward <code>REC_REWARD</code>, which is <code>0</code> when the pool cannot pay and is never a condition of completion; cancellation by honest progress (whole bond slashed to the treasury), no discretion, late certificates and proofs, transaction replay, derived rollback depth and duration, cooldown <code>REC_COOLDOWN</code>, user exposure, D5 unchanged and authorization binding <em>(user decision D-7; S5 &sect;1 and &sect;2: completion transition, retired heights and the attempts-based split bond.)</em></td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>REC-02</code></td><td><strong>Mode B (selected)</strong> permissionless recovery: objective trigger <code>T_STALL</code>, any invoker, escalating ETH bond <code>B_REC</code> (<code>B_REC_BASE</code>, <code>REC_WINDOW</code>, escalation over <strong>attempts</strong>) split into a non-refundable <code>B_REC_KEEP</code> sized to the cost of a spurious trigger (<code>B_REC_KEEP &ge; C_SPURIOUS = C_GAS_REC + C_REORG + C_DISRUPTION</code>) and a refundable balance returned only on completion, delay <code>T_RECOVERY_DELAY</code>, a named <strong>completion transition</strong> (any caller, effective for L2 nodes only at the Ethereum-final depth) that writes <code>resumeHeight</code>, permanently retires the discarded heights (a retired height can never be re-certified), and pays the invoker the fee-funded completion reward <code>REC_REWARD</code>, which is <code>0</code> when the pool cannot pay and is never a condition of completion; cancellation by honest progress (whole bond slashed to the treasury), no discretion, late certificates and proofs, transaction replay, derived rollback depth and duration, cooldown <code>REC_COOLDOWN</code>, user exposure, D5 as relaxed by D-11 (recovery accepts no data and advances no checkpoint; a batch's data may have been published earlier, and only a valid proof advances the checkpoint) and authorization binding, and recovery may neither create, suppress nor re-deadline a publication record <em>(user decision D-7; S5 &sect;1 and &sect;2: completion transition, retired heights and the attempts-based split bond; D-11/D-12: a publication survives a pending or completed recovery unchanged and is never a recovery input.)</em></td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
 <tr><td><code>REC-03</code></td><td>Required resistance analysis: premise-based sub-threshold-coalition argument, what inducing the trigger would take, the wholesale rewind and its replay consequence, the unbounded residuals (off-chain profit, an L1-censoring adversary), the explicit falsifiers, and the independent review that must attempt to break it <em>(user decision D-7; round 4, R4-MB-05: the rewind is wholesale, the outcome is not promised)</em></td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
+<tr><td><code>REC-04</code></td><td>Recovery restart: predecessor linkage to the restored checkpoint, the height origin <code>resumeHeight</code> and the recovery anchor for an epoch-opening restart (the retired anchor height has no canonical block)</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
 <tr><td><code>HALT-01</code></td><td>Safe halt obligation</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
 <tr><td><code>HALT-02</code></td><td>Restart rules</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
 <tr><td><code>HALT-03</code></td><td>Consensus-enforced unsettled-depth cap (backpressure)</td><td><a href="06-recovery-exceptions.html">06</a></td></tr>
@@ -440,6 +474,7 @@ upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em>
 <tr><td><code>ECON-10</code></td><td>Concentration, borrowing, liquid staking and the cap non-claim</td><td><a href="07-economics-slashing.html">07</a></td></tr>
 <tr><td><code>ECON-11</code></td><td>Scope of user losses: what is and is not compensated</td><td><a href="07-economics-slashing.html">07</a></td></tr>
 <tr><td><code>ECON-12</code></td><td>Budget identity and the cost of decentralisation</td><td><a href="07-economics-slashing.html">07</a></td></tr>
+<tr><td><code>ECON-13</code></td><td>Publication of data before the proof: permissionless and unprivileged, the publisher pays its own <code>C_PUBLISH</code>, no publication reward in the funding identity (whether to add one is <span class="pill open">Open</span> with its falsifier), the deadline and capped prefix as upper bounds owned by 04/05, and the forced-inclusion breach, its penalty, its no-burn destination and its reporter incentive <em>(D-11, D-12)</em></td><td><a href="07-economics-slashing.html">07</a></td></tr>
 <tr><td><code>MIG-01</code></td><td>Migration boundary and preserved addresses</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
 <tr><td><code>MIG-02</code></td><td>Per-contract upgrade list and storage-layout constraints</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
 <tr><td><code>MIG-03</code></td><td>Treatment of pending proposals, bonds, inclusions, messages and withdrawals</td><td><a href="08-migration-upgrades.html">08</a></td></tr>
@@ -460,18 +495,22 @@ upgrade is deferred and its preservation duties are owned by FI-PLANNED-01)</em>
 <tr><td><code>LIVE-01</code></td><td>Conditional liveness statement and the exact point where it ends</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIVE-02</code></td><td>Backpressure and halt triggers</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIVE-03</code></td><td>Throughput sustainability conditions</td><td><a href="10-assurance.html">10</a></td></tr>
-<tr><td><code>LIVE-04</code></td><td>Censorship resistance, stated honestly: no per-transaction inclusion guarantee and no L1 forced-inclusion path</td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIVE-04</code></td><td>Censorship resistance, stated honestly: no per-transaction inclusion guarantee and no general L1 forced-inclusion path <em>for unpublished transactions</em>; the narrow forced-inclusion breach over <em>published</em> data is <a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause (6) / <a href="07-economics-slashing.html#ECON-13">ECON-13</a> <em>(D-12 supersedes D-6)</em></td><td><a href="10-assurance.html">10</a></td></tr>
+<tr><td><code>LIVE-05</code></td><td>Halts caused by offline validators: what is escapable and time-bounded (settlement stall, attrition) and what is not (a simultaneous stop of one third or more, falsifier F6); value at or below the last accepted checkpoint exits on L1 with no L2 liveness (<a href="03-membership-staking.html#MEM-15">MEM-15</a>)</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIM-01</code></td><td>Known limitations register</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIM-02</code></td><td>Rejected alternatives and their tradeoffs</td><td><a href="10-assurance.html">10</a></td></tr>
 <tr><td><code>LIM-03</code></td><td>Red-team finding resolutions</td><td><a href="10-assurance.html">10</a></td></tr>
 </tbody></table>
 
-<p class="small">Parameters introduced or restated by change order 04 and the S5 recovery repair
-(the recovery mechanism, the per-epoch configuration registry and the allocation policy). This is a map,
+<p class="small">Parameters introduced or restated by change order 04, the S5 recovery repair
+(the recovery mechanism, the per-epoch configuration registry and the allocation policy) and change
+order 06 (D-11/D-12/D-13: the publication and proving-deadline set, the aggregation and proof-policy set,
+and the liveness set of the rotation and decay rules). This is a map,
 not a second register: each value, its derivation and its tag are stated in full by its owner, and the
 parameter table of <a href="09-parameters.html">09</a> is the single register. <em>(user decision D-7:
 Mode B selected; S5 &sect;5 and &sect;9: the registry and allocation parameters are registered alongside
-the recovery ones.)</em></p>
+the recovery ones; D-11/D-12/D-13: the change-order-06 sets are registered in 09 with units, owners and
+tags, and every rule-side name has a row there.)</em></p>
 <table><thead><tr><th>Parameter</th><th>What it fixes</th><th>Stated in full by</th></tr></thead><tbody>
 <tr><td><code>T_STALL</code></td><td>The objective settlement-stall trigger: no batch extending the current L1 checkpoint accepted for this long; strictly larger than the D6 proof envelope so that a normal slow proof or one prover failure inside the envelope can never trigger recovery</td><td><a href="06-recovery-exceptions.html#REC-02">REC-02</a>; registered with its derivation in <a href="09-parameters.html">09</a></td></tr>
 <tr><td><code>T_RECOVERY_MARGIN</code></td><td>The safety margin of the <code>T_STALL</code> formula</td><td><a href="06-recovery-exceptions.html#REC-02">REC-02</a>; registered with its derivation in <a href="09-parameters.html">09</a></td></tr>
@@ -482,13 +521,23 @@ the recovery ones.)</em></p>
 <tr><td><code>resumeHeight</code>, <code>recoveryGeneration</code></td><td>Written by the completion transition: <code>resumeHeight</code> is the last discarded height plus one, so the discarded heights are <strong>permanently retired</strong> and can never be certified or landed again at any generation, by anyone; <code>recoveryGeneration</code> increments by one and only invalidates in-flight proofs. <code>resumeHeight</code> is zero before the first completed recovery, monotone, and bounded by <code>resumeHeight &minus; lastLandedHeight &le; D_MAX</code> <em>(S5 &sect;1: discarded heights are retired, not re-opened by a new generation.)</em></td><td><a href="06-recovery-exceptions.html#REC-02">REC-02</a>, <a href="04-l1-integration.html#L1-06">L1-06</a>; registered with their derivations in <a href="09-parameters.html">09</a></td></tr>
 <tr><td><code>configHash(e)</code> per epoch</td><td>The per-epoch registry entry: computed by the Inbox from its own storage and deployed code, written before the epoch starts and immutable for that epoch; the journal field of <a href="05-proof-statement.html#PRF-02">PRF-02</a> whose preimage is a closed, domain-tagged enumeration <em>(S5 &sect;5: a per-epoch configuration registry with a defined preimage.)</em></td><td><a href="09-parameters.html#PARAM-04">PARAM-04</a> (registry) and <a href="05-proof-statement.html#PRF-02">PRF-02</a> (preimage); registered in <a href="09-parameters.html">09</a></td></tr>
 <tr><td><code>ALLOC_VAL_PPM</code>, <code>ALLOC_PRV_PPM</code>, <code>ALLOC_REC_PPM</code></td><td>The recorded allocation policy's validator, proving and recovery-reward shares, with <code>ALLOC_VAL_PPM + ALLOC_PRV_PPM + ALLOC_REC_PPM &le; 1_000_000</code> and the remainder staying in the pool; <code>Alloc(e) = floor(ALLOC_VAL_PPM &middot; pool_before(e) / 1_000_000)</code> and <code>ProvingShare(e) = floor(ALLOC_PRV_PPM &middot; pool_before(e) / 1_000_000)</code> with <code>Alloc(e) + ProvingShare(e) &le; pool_before(e)</code>, while <code>ALLOC_REC_PPM</code> is applied to the pool's realised balance at each completion in <code>REC_REWARD = min(REC_REWARD_CAP, floor(ALLOC_REC_PPM &middot; pool_now / 1_000_000))</code>, which pays <code>0</code> when the pool cannot pay. Changeable only by a recorded upgrade and only for future epochs <em>(S5 &sect;9: the allocation policy and the proving-share outflow are written down; review comment 1, item 4: the recovery share and the completion reward are registered.)</em></td><td><a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5(e) and clause 5(f); registered with its derivation in <a href="09-parameters.html">09</a></td></tr>
+<tr><td><code>T_PROVE_DEADLINE</code>, <code>PUB_RECORD_RETENTION</code></td><td>The interval from a publication's L1 record to the latest moment its data may still be referenced by a proof, and the minimum life of a publication record before permissionless pruning; the deadline MUST sit well inside Ethereum's blob retention so the June-2026 expiry class cannot recur</td><td>the publication rules of <a href="04-l1-integration.html">04</a> (<a href="04-l1-integration.html#DA-07">DA-07</a>–<a href="04-l1-integration.html#DA-09">DA-09</a>); registered with unit, derivation and tag in <a href="09-parameters.html">09</a>. <em>(D-11: the deadline is what bounds a published-but-unproven record; it is a liveness control, never an admission gate.)</em></td></tr>
+<tr><td><code>FI_PREFIX_CAP</code>, <code>FI_ITEM_MAX_BYTES</code></td><td>The capped FIFO prefix of the due set that each batch must carry (items per batch), and the maximum size of a single published item so that at least one item always fits the blob-quantisation bound; the obligation is an upper bound on exclusion, never a lower bound on inclusion</td><td>the due-set and publication rules of <a href="04-l1-integration.html">04</a> (<a href="04-l1-integration.html#DA-10">DA-10</a>) and the offence in <a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause (6); registered in <a href="09-parameters.html">09</a>. <em>(D-12: the cap drains a backlog over successive batches instead of halting the chain.)</em></td></tr>
+<tr><td><code>K_SETTLE_BACKENDS</code>, <code>K_PROOF_BACKENDS</code>, <code>N_PROOF_BACKENDS</code>, <code>M_AGG_MAX</code></td><td>The required distinct-family counts per purpose — settlement <code>K_SETTLE_BACKENDS = 1</code>, withdrawal root <code>K_PROOF_BACKENDS</code> — the number of registered backend families <code>N_PROOF_BACKENDS</code> (the upper bound on the aggregation's inner proofs), and the maximum inner proofs one aggregation object may carry, <code>M_AGG_MAX</code></td><td>the withdrawal-root and aggregation rules of <a href="04-l1-integration.html">04</a> and <a href="05-proof-statement.html">05</a> (<a href="04-l1-integration.html#L1-13">L1-13</a>, <a href="04-l1-integration.html#L1-14">L1-14</a>, <a href="05-proof-statement.html#PRF-15">PRF-15</a>); registered in <a href="09-parameters.html">09</a>. <em>(D-13: the count is inside one proof object, so L1 performs one verification per purpose.)</em></td></tr>
+<tr><td><code>AGG_PROVER_PPM</code></td><td>The share of the proving outflow <code>ProvingShare(e)</code> assigned to the aggregation that produced the epoch's proof objects, remainder to inner-prover work; if no recorded policy pays the aggregator, the <code>n</code>-of-<code>m</code> property does not materialise</td><td><a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 5(e); registered with unit and tag in <a href="09-parameters.html">09</a>. <em>(D-13: aggregation is a proving cost paid from the proving share, with the on-chain cost unchanged.)</em></td></tr>
+<tr><td><code>T_AGG_ROTATE_MAX</code></td><td>The maximum protocol-side delay between an upgrade that retires or replaces the aggregation-program image and that image's effect for new epochs; it bounds the protocol's own gating, not the DAO's decision latency (A-GOV-1)</td><td><a href="08-migration-upgrades.html#MIG-05">MIG-05</a> and <a href="05-proof-statement.html#PRF-10">PRF-10</a>/<a href="05-proof-statement.html#PRF-15">PRF-15</a>(6); registered in <a href="09-parameters.html">09</a>. <em>(D-13: the aggregation program is a single point of trust, so its rotation path must be bounded rather than DAO-cycle-slow.)</em></td></tr>
+<tr><td><code>W_ROOT_WAIT_MAX</code>, <code>T_VETO</code>, <code>WITHDRAWAL_DELAY</code></td><td>The maximum additional wait for a withdrawal root <em>while <code>K_PROOF_BACKENDS</code> families operate</em>, the self-expiring veto window, and the L2&rarr;L1 release delay measured from the root's <code>l1BlockNumber</code> — distinct from <code>D_WITHDRAW</code>, which is the validator unbonding delay of MEM-05 and is not an alias</td><td><a href="04-l1-integration.html#L1-13">L1-13</a>(5), <a href="04-l1-integration.html#MSG-04">MSG-04</a>(3), <a href="04-l1-integration.html#MSG-03">MSG-03</a>; registered in <a href="09-parameters.html">09</a> (the alias hazard is resolved there).</td></tr>
+<tr><td><code>T_INACTIVE</code>, <code>D_LAPSE_MAX</code>, <code>N_MAX</code>, <code>T_ROTATE</code>, <code>T_ROTATE_DELAY</code>, <code>lastObserved(v)</code></td><td>The inactivity interval and lapse count of the decay, the entry-count admission bound (not a stake cap), the rotation's opening threshold and delay, and the stored L1 timestamp of the most recent accepted batch that recorded <code>v</code>'s participation bit</td><td><a href="03-membership-staking.html#MEM-13">MEM-13</a>, <a href="03-membership-staking.html#MEM-14">MEM-14</a>, <a href="02-consensus.html#CONS-16">CONS-16</a>; registered in <a href="09-parameters.html">09</a> with their derived lower bounds and unmeasured values.</td></tr>
 </tbody></table>
 
 <h2 id="verdict">Verdict summary and its exact scope</h2>
 <div class="goodbox">
 <p><strong>Within scope:</strong> a specification-level design in which permissionless TAIKO-staked
-L2 validators certify blocks every 2 s; batches settle on Ethereum only when their data and a ZK
-proof of consensus finality <em>and</em> execution land in one transaction; the shared
+L2 validators certify blocks every 2 s; batches settle on Ethereum only when a ZK
+proof of consensus finality <em>and</em> execution lands and advances the checkpoint — the batch's data MAY
+have been published and recorded in an earlier L1 transaction under D-11, and a publication alone settles
+nothing — and that one proof object is an <code>n</code>-of-<code>m</code> aggregation the protocol verifies
+once (D-13); the shared
 SignalService/Bridge/vault addresses are preserved by in-place upgrade; no discretionary path can
 change history at any height and nothing at or below the latest L1-accepted checkpoint can be
 changed by recovery (at or below an Ethereum-finalized checkpoint even an L1 reorganisation cannot

@@ -407,12 +407,25 @@ and its epoch and set root are L1-derived, the genesis record and the preserved 
 checkpoint for <code>B*</code> cannot diverge (<a href="04-l1-integration.html#MSG-01">MSG-01</a>). The
 record MUST NOT be used to restart a withdrawal delay: eligibility already stored in the SignalService
 and in <code>_receivedSignals</code> is unchanged (MIG-03(6)).</p>
+<p><strong>The publication record at activation (D-11).</strong> The publication record and its clock
+(MIG-02 slots 275–276) are new state written only by the Etna path: at T3 the contract MUST initialise
+<code>nextPublicationId = 0</code> and <code>dueHead = dueTail = dueCount = pruneCursor = 0</code>, so the
+first post-activation batch faces an <strong>empty due set</strong> and no publication can be retroactively in
+breach of the deadline. The genesis record is <strong>not</strong> a publication: its tagged
+<code>dataCommitment</code> commits to the boundary object only, and the first genuine batch's
+<code>dataCommitment</code> comes only from a successful <code>land(data, proof)</code> that references a
+recorded publication (or carries its data in the accepting transaction)
+(<a href="04-l1-integration.html#DA-01">DA-01</a>–<a href="04-l1-integration.html#DA-03">DA-03</a>). A
+publication is admissible only from <code>ETNA_ACTIVE</code>: before T3 the selector does not exist, and the
+legacy path's blob references are not publication records and confer no due-set position. <em>(D-11:
+publication is recorded on L1 while the blobs are retrievable, and the record begins at activation.)</em></p>
 <p><strong>What the genesis <code>dataCommitment</code> is, and is not.</strong> It is the tagged commitment
 to the boundary object itself, and it is the only record in this specification whose commitment is not a
 batch data commitment. It MUST NOT be presented as, or used as, evidence that any batch's data was
-published in the activation transaction; it MUST NOT be spliced into a proof's public inputs; and the
-first genuine batch's <code>dataCommitment</code> MUST come only from a successful
-<code>land(data, proof)</code> (<a href="04-l1-integration.html#DA-01">DA-01</a>–<a href="04-l1-integration.html#DA-03">DA-03</a>).
+published in the activation transaction or in any earlier transaction; it MUST NOT be spliced into a proof's
+public inputs; and the first genuine batch's <code>dataCommitment</code> MUST come only from a successful
+<code>land(data, proof)</code>, whose data MAY have been published and recorded in an earlier transaction
+under D-11 (<a href="04-l1-integration.html#DA-01">DA-01</a>–<a href="04-l1-integration.html#DA-03">DA-03</a>).
 Inventing a batch-shaped non-zero commitment for the boundary, or treating the boundary record as a batch
 acceptance, is exactly what D5/DA-01 forbid. <em>(review round 2, findings E-R2-01 and E-R2-03: the
 genesis is now a legal L1-07 record with a defined, non-zero predecessor, written in the transaction that
@@ -429,8 +442,9 @@ No state exists in which both are callable, so at most one path can advance the 
 <code>FROZEN</code> is entered by the migration bundle, which in the same transaction disables
 <code>propose()</code>; states advance only in the order of T1–T3
 and no transition is skippable.
-<br><strong>D5's scope, stated honestly.</strong> D5 — one L1 transaction carrying a batch's data <em>and</em>
-its proof, out of which the checkpoint advances — governs every batch accepted by the <em>Etna path</em>,
+<br><strong>D5's scope, stated honestly.</strong> D5, as relaxed by D-11 — <strong>no checkpoint advances
+except on a valid proof</strong>, while a batch's data MAY have been published and recorded in an earlier L1
+transaction and be referenced by that proof — governs every batch accepted by the <em>Etna path</em>,
 i.e. every call to <code>land(data, proof)</code>. The Shasta wind-down is a <strong>different
 protocol</strong> whose rule set is <code>propose()</code> + <code>prove()</code>: its batches are never
 Etna batches, can never be accepted by <code>land(data, proof)</code> (the gate above makes that call
@@ -439,8 +453,12 @@ checkpoint chain begins at the genesis record T3 writes (<a href="#genesis-recor
 and every later record is written only by <code>land(data, proof)</code>. What the legacy path <em>can</em>
 do during the wind-down — and this is the exception, named rather than denied — is advance the preserved
 L1 SignalService checkpoint from a proposal whose data was published in an earlier <code>propose()</code>
-transaction (<code>Inbox.sol:270-290,321-400</code>); that is exactly the data-first flow D5 forbids for
-this protocol. The exception is bounded four ways:
+transaction (<code>Inbox.sol:270-290,321-400</code>). That is the <strong>unbounded</strong> form of
+data-before-proof, and it is why the legacy reference is not carried over: it has no proving deadline, no
+permissionless expiration and no recorded publication — it can outlive Ethereum's retention window, and the
+only remedy in the baseline was the owner-only <code>init3()</code> — whereas the Etna path's publication
+record is bounded by <code>T_PROVE_DEADLINE</code> and drained by the due-set rule of
+<a href="04-l1-integration.html">04</a> (D-11, MIG-02 slots 275–276). The exception is bounded four ways:
 (i) <strong>the legacy entry points MUST be disabled no later than the activation transition T3</strong> —
 a named transition, not "eventually": <code>prove()</code> reverts <code>MigrationDrained()</code> from the
 moment the machine enters <code>DRAINED</code> (T2) and is absent or unconditionally reverting in
@@ -467,9 +485,10 @@ overwrite at <code>Inbox.sol:626</code> happens only inside <code>propose()</cod
 <em>legacy</em> floor and delay baked at deployment from the pre-migration <code>getConfig()</code>
 (mainnet <code>minBond = 0</code>, <code>withdrawalDelay = 1 weeks</code>,
 <code>MainnetInbox.sol:37,39</code>), and it remains callable in every state. No new bond may be
-created after the freeze and no legacy balance may be slashed. <em>(user decision D-6: clause (4) of the
-previous revision, forced inclusions, is deleted with forced inclusion — there is no request format, queue,
-fee, escrow or refund path to carry across the boundary, and no legacy inclusion selector survives. The
+created after the freeze and no legacy balance may be slashed. <em>(D-6 removed forced inclusion and D-12 supersedes it with narrow forced inclusion in v1: clause (4) of
+the previous revision, forced inclusions, stays deleted — there is no legacy request format, queue, fee,
+escrow or refund path to carry across the boundary, and no legacy inclusion selector survives; the new
+design's publication record and due set are new objects created only from <code>ETNA_ACTIVE</code>. The
 remaining clauses keep their numbers: nothing is renumbered, so existing cross-references stay valid.)</em>
 (5) <strong>Bridge messages.</strong> The migration upgrade must not reset
 <code>nextMessageId</code>, <code>messageStatus</code>, <code>_receivedSignals</code> or
@@ -537,12 +556,15 @@ A-GOV-1, and a DAO that does not execute the removals leaves the levers live)</s
 <tr><td><code>Inbox.init2(uint48, bytes32)</code></td><td>Inbox owner</td><td><code>Inbox.sol:217-244</code></td>
 <td>removed; this lever rewrites the finalized tip and must not survive (D2, REC-01)</td></tr>
 <tr><td><code>Inbox.init3()</code></td><td>Inbox owner</td><td><code>Inbox.sol:253-258</code></td>
-<td>removed; the June 2026 blob-expiry class it patched is removed <em>within the Etna path</em> by D5 —
-data and proof land in one transaction, so no queued data reference can outlive the retention window and
-there is nothing to void. The legacy path's own data-first flow is the named exception of MIG-03(1),
-bounded there and disabled at T2/T3; no <code>init3()</code>-style selector survives it <em>(user decision
-D-6: forced inclusion removed; the incident is kept as historical evidence of the data-first failure class,
-and the new design has no inclusion queue.)</em></td></tr>
+<td>removed; the June 2026 blob-expiry class it patched is <strong>bounded</strong> within the Etna path
+by D-11's proving deadline — data may be published before the proof, but the publication record carries a
+deadline well inside Ethereum's blob retention and published-but-unproven data is discarded and re-published —
+so no queued reference can outlive retention by construction of the deadline and no owner-only void selector
+exists or is needed. The legacy path's own unbounded data-before-proof flow is the named exception of
+MIG-03(1), bounded there and disabled at T2/T3; no <code>init3()</code>-style selector survives it <em>(D-6
+removed forced inclusion and D-12 supersedes it with narrow forced inclusion over published data; the incident
+is kept as historical evidence of the unbounded data-first failure class, and the new design has no
+owner-voidable inclusion queue.)</em></td></tr>
 <tr><td><code>IProposerChecker</code> / <code>PreconfWhitelist</code> owner, ejecter,
 <code>_ejectorManager</code></td><td>preconf operators</td><td><code>PreconfWhitelist.sol:94-124,136-140</code></td>
 <td>removed; proposer selection is leader selection over the L1-committed set
@@ -593,7 +615,21 @@ registry is slot 267, and both are written only by the Inbox implementation inst
 owner-only registration entry point MUST NOT exist, and a route whose verifier is not a deployed, audited
 contract MUST NOT be registered. <em>(review round 2, finding E-R2-04)</em> <em>(user decision D-6: the route registry is renumbered to slot 267 after the five forced-inclusion slots were removed from the Inbox budget; MIG-02 owns the re-derived arithmetic.)</em> An image may be given a
 <code>retiredAtEpoch</code> marker, after which it may not be used for batches whose epoch is at or
-after the marker, but retirement must not invalidate a certificate, a checkpoint or a settled batch. Consequently: a proof generated before an upgrade for a batch in an epoch whose accepted set contains its image remains acceptable after the upgrade and needs no re-proving; a proof whose image is not in the accepted set of the batch's epoch is rejected by the verifier route (<a href="04-l1-integration.html#L1-09">L1-09</a>); and <code>land(data, proof)</code> must never reject a valid (data, proof) pair merely because the proof's image was superseded for <em>later</em> epochs. There is no mixed-version consensus window: because the accepted set is a deterministic function of L1-committed state and the upgrade is epoch-gated, all clients that have processed the boundary L1 block derive the same set, and a client that disagrees is producing invalid blocks rather than a second rule set. Both backends must implement the same statement and the same acceptance policy (<a href="05-proof-statement.html#PRF-09">PRF-09</a>); the guest/verifier version registry itself is defined by <a href="05-proof-statement.html#PRF-10">PRF-10</a>, which this rule uses and does not restate.</span>
+after the marker, but retirement must not invalidate a certificate, a checkpoint or a settled batch. Consequently: a proof generated before an upgrade for a batch in an epoch whose accepted set contains its image remains acceptable after the upgrade and needs no re-proving; a proof whose image is not in the accepted set of the batch's epoch is rejected by the verifier route (<a href="04-l1-integration.html#L1-09">L1-09</a>); and <code>land(data, proof)</code> must never reject a valid (data, proof) pair merely because the proof's image was superseded for <em>later</em> epochs. There is no mixed-version consensus window: because the accepted set is a deterministic function of L1-committed state and the upgrade is epoch-gated, all clients that have processed the boundary L1 block derive the same set, and a client that disagrees is producing invalid blocks rather than a second rule set. Both backends must implement the same statement and the same acceptance policy (<a href="05-proof-statement.html#PRF-09">PRF-09</a>); the guest/verifier version registry itself is defined by <a href="05-proof-statement.html#PRF-10">PRF-10</a>, which this rule uses and does not restate.
+<span class="norm"><strong>The aggregation program is a registered image (D-13).</strong> The one proof object
+per batch of <a href="05-proof-statement.html#PRF-14">PRF-14</a> and <a href="04-l1-integration.html#L1-13">L1-13</a>
+may be an <code>n</code>-of-<code>m</code> aggregation over inner proofs, so the aggregation program is itself
+a registered program image under this rule: its <code>(programImageId, verifier, backendFamily)</code> route is
+written only by an upgrade (slots 261/267), it is subject to the same per-epoch acceptance and retirement
+discipline, and because it is a single point of trust for the inner checks its rotation path MUST be bounded —
+an upgrade that retires or replaces an aggregation image MUST NOT gate the change on a delay longer than
+<code>T_AGG_ROTATE_MAX</code> between the upgrade transaction and the image's effect for new epochs, and a
+retirement MUST NOT invalidate an already-landed checkpoint or an in-flight settlement proof for an epoch in
+which the image was accepted. <strong>The bound covers the protocol's own gating, not the DAO's decision
+latency:</strong> how long the DAO takes to vote is outside the protocol
+(<a href="#GOV-01">GOV-01</a>, <a href="#GOV-02">GOV-02</a>) and no artifact may claim the rotation is bounded
+end-to-end. <em>(D-13: the aggregation program is a registered, rotatable image and its rotation path must be
+bounded rather than DAO-cycle-slow.)</em></span>
 <span class="why">Failure modes: a mid-epoch image switch splits which proofs are acceptable and lets
 an unsettled batch become unprovable; deleting an old image strands already-finalized history; a "mixed-version" leniency silently accepts two rule sets.</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
@@ -688,7 +724,12 @@ bonds or a timelock make governance capture safe; the prior Etna digest records 
 <div class="rule" id="GOV-03"><span class="rid">GOV-03 — upgrades must not invalidate finalized history and are never a substitute for recovery</span>
 <span class="norm">Every upgrade, including the migration of MIG-01–MIG-06, must accept all history
 finalized under the rules in force before it: (a) a certificate valid under the epoch and validator-set rules of its own epoch remains valid forever (<a href="02-consensus.html#CONS-08">CONS-08</a>) and no post-upgrade rule may require it to be re-derived; (b) the post-upgrade verifier route must still accept a proof of any not-yet-settled batch under the program image that was in force for that batch's epoch (MIG-05), so no batch becomes unprovable because of an upgrade; (c) checkpoint advancement stays monotone (<a href="04-l1-integration.html#L1-06">L1-06</a>): an upgrade may not lower the finalized tip or rewrite the checkpoint record for any height at or below the boundary with different contents; and (d) at migration the accepted history is the boundary of MIG-01, and no alternative history at or below <code>B*</code> may ever be adopted afterwards (<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>); and (e) <strong>no upgrade may be used as a substitute for recovery</strong>: an upgrade MUST accept every history at or below the latest L1-accepted checkpoint, history above that checkpoint may be replaced only by the recovery path of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> and never by a governance transaction, and a pending recovery MUST survive the upgrade unchanged — the upgrade may not cancel it, shorten or extend <code>T_RECOVERY_DELAY</code>, alter the checkpoint it restores or the bond destination, or replace it with any other action (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>(d)) — and the completion evidence and restart linkage MUST survive it unchanged too: no upgrade may substitute a claimed <code>resumeHeight</code> for the derived one, relax the certificate verification of <a href="06-recovery-exceptions.html#REC-02">REC-02</a> (Completion evidence), or alter the checkpoint link of <a href="06-recovery-exceptions.html#REC-04">REC-04</a>. <em>This closes the retirement-endpoint Critical at the upgrade boundary (review comment 6014265254, item 3).</em> Compliance is checked by the published target/layout diff required by GOV-02 and, for (b), by an acceptance test that lands one already-generated pre-upgrade proof after the upgrade, on both backends (<a href="05-proof-statement.html#PRF-09">PRF-09</a>,
-<a href="05-proof-statement.html#PRF-10">PRF-10</a>). <em>(user decision D-7: Mode B selected — an upgrade must never be used as a substitute for recovery, and it must carry a pending recovery unchanged.)</em></span>
+<a href="05-proof-statement.html#PRF-10">PRF-10</a>). <em>(user decision D-7: Mode B selected — an upgrade must never be used as a substitute for recovery, and it must carry a pending recovery unchanged.)</em> <strong>(f) A publication record and its deadline survive an
+upgrade unchanged:</strong> no upgrade may delete, rewrite, re-order or re-deadline a publication, change the
+due-set cursors, or shorten or extend the deadline recorded for an outstanding publication; a change to
+<code>T_PROVE_DEADLINE</code> applies only to publications recorded after the upgrade, and the FIFO order of
+the due set is preserved. <em>(D-11/D-12: the publication record is the state the forced-inclusion bound
+reads, so an upgrade may not use it to suppress or accelerate forced inclusion.)</em></span>
 <span class="why">Failure mode: a "normal upgrade" silently strands a proven-but-unsettled batch, rolls the checkpoint back, cancels a pending recovery, or is used to replace history that only recovery may replace — the boundary violation <a href="06-recovery-exceptions.html#REC-01">REC-01</a> forbids, and the class recorded as the prior Etna design's XS-FIN-01 finding (<code>prior-etna-digest.md:142</code>). <em>(user decision D-7: the boundary of REC-01 and the recovery path of REC-02 are the only sanctioned history replacement.)</em></span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(premises: CONS-08, L1-06, A-CRYPTO-3, and A-CONS-1 — &lt; 1/3 Byzantine stake — for the uniqueness of the finalized prefix that (a) presupposes; a DAO that ignores this rule is handled by
@@ -719,10 +760,12 @@ retention window (A-DA-3) and on a holder still serving the data (A-DA-2) — ne
 (<a href="09-parameters.html">09</a>), and the baseline records the incident's cause as unverified
 (<a href="../00-baseline-and-lessons.md">00-baseline-and-lessons.md</a> §3.5)</td><td>MIG-01/MIG-03(2):
 the drain deadline is published in L1 block numbers before T1, unproven proposals are declared void in
-advance rather than voided silently, and the Etna path creates no pending data reference at all —
-<code>land(data, proof)</code> carries data and proof in one transaction (D5) <em>(user decision D-6:
-forced inclusion removed; the historical incident is described without a forced-inclusion queue, and the
-new design has none.)</em></td></tr>
+advance rather than voided silently, and the Etna path's own publication record carries a per-publication
+deadline <code>T_PROVE_DEADLINE</code> well inside blob retention, with published-but-unproven data discarded
+and re-published rather than voided by an owner (D-11, MIG-02 slots 275–276), so no pending data reference can
+outlive retention by construction of the deadline <em>(D-6 removed forced inclusion and D-12 supersedes it with
+narrow forced inclusion over published data; the historical incident is described without a legacy
+forced-inclusion queue, and the new design has none.)</em></td></tr>
 <tr><td><span class="lvl high">high</span></td><td>In-flight Bridge messages become unprovable or are
 processed twice</td><td>a VERSION bump hides all checkpoints at once; a reset or re-index of
 <code>messageStatus</code> forgets which messages were done</td><td>MIG-03(5): no reset, no VERSION
@@ -779,7 +822,7 @@ against the L1 block gas limit</td><td><span class="pill unmeasured">unmeasured<
 <tbody>
 <tr><td>Baseline revision</td><td><code>7718753c1</code></td><td><span class="pill sourced">sourced</span></td><td><a href="index.html#provenance">index §Provenance</a></td></tr>
 <tr><td>Inbox gap</td><td>43 slots (258–300)</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox_Layout.sol:26</code></td></tr>
-<tr><td>Inbox new state planned</td><td>17 slots (258–274); 26 gap slots remain (275–300)</td><td><span class="pill derived">derived</span></td><td>MIG-02 change table; every required object enumerated with its holder and slot cost, including the REC-02 recovery record, the <code>REC_WINDOW</code> attempt history, the retirement/generation record and the PARAM-04 per-epoch configuration registry added at 268–274. Re-derived after the D-6 removal of the five forced-inclusion slots (266–270) and after the S5 repair; the only inputs are the sourced pin layouts and the change list, so no unmeasured input enters the declaration count, and the ring's and registry's entry slots are not gap slots <em>(user decision D-6: forced inclusion removed; finding E-R2-03's budget re-verified; A1: the recovery and configuration state is now budgeted and the free-slot figure re-derived)</em></td></tr>
+<tr><td>Inbox new state planned</td><td>19 slots (258–276); 24 gap slots remain (277–300)</td><td><span class="pill derived">derived</span></td><td>MIG-02 change table; every required object enumerated with its holder and slot cost, including the REC-02 recovery record, the <code>REC_WINDOW</code> attempt history, the retirement/generation record, the PARAM-04 per-epoch configuration registry added at 268–274 and D-11's publication record and clock (275–276). Re-derived after the D-6 removal of the five forced-inclusion slots (266–270), after the S5 repair and after the D-11 publication record was budgeted; the only inputs are the sourced pin layouts and the change list, so no unmeasured input enters the declaration count, and the map's entry slots (checkpoints, publications, configuration registry) are not gap slots <em>(D-6: forced inclusion removed; D-11: publication record added; finding E-R2-03's budget re-verified; A1: the recovery and configuration state is budgeted and the free-slot figure re-derived)</em></td></tr>
 <tr><td><code>minBond</code>, <code>livenessBond</code></td><td>0, 0</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:37-38</code></td></tr>
 <tr><td><code>withdrawalDelay</code></td><td>1 week</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:39</code></td></tr>
 <tr><td>Proposal ring buffer</td><td>21 600</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:18</code></td></tr>
