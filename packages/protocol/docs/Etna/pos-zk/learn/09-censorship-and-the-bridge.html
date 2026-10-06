@@ -48,7 +48,8 @@ capped prefix and no deadline discharge. There is no <strong>general inclusion l
 no queue of arbitrary transactions, no escrow, no refund and no L1 entry point that can force an
 <em>unpublished</em> transaction into L2 or start a withdrawal.</p>
 <p>A settlement stall is not an inclusion remedy either. v1 has no recovery path of any kind: a settlement stall
-halts the chain, value at or below the last accepted checkpoint still exits on Ethereum alone, and clearing
+halts the chain, value at or below the last accepted checkpoint still exits on Ethereum alone through a
+withdrawal root that <code>k</code> distinct backend families attest, and clearing
 the stall needs a future protocol update. None of that can put a transaction into a block or compel any
 proposer to include one, and none of it makes unpublished data includable.</p>
 <p>For data that never reaches L1, resistance is statistical. Proposer selection is weighted random: a
@@ -88,7 +89,7 @@ the immutable checkpoint-writer links are all keyed to those exact addresses.</p
 <text x="672" y="350" fill="#59636e" font-size="10">stateRoot, blockHash}</text> <rect x="816" y="292" width="116" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="828" y="314" fill="#24292f" font-size="11">MPT proof</text> <text x="828" y="332" fill="#59636e" font-size="10">against that</text>
 <text x="828" y="350" fill="#59636e" font-size="10">state root</text> <path d="M176 327 H188" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M332 327 H344" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M488 327 H500" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/>
 <path d="M644 327 H656" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M800 327 H812" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <text x="36" y="392" fill="#59636e" font-size="11">Verification resolves the checkpoint by L2 block number, requires checkpoint.stateRoot == proof.rootHash, then verifies an MPT proof</text> <text x="36" y="410" fill="#59636e" font-size="11">for the remote SignalService account and the SIGNAL-derived slot. The Inbox&rsquo;s own record adds epoch, setRoot, dataCommitment and the accepting L1 block.</text>
-<text x="36" y="434" fill="#59636e" font-size="11">A withdrawal then needs WITHDRAWAL_DELAY measured from that checkpoint&rsquo;s l1BlockNumber, plus Ethereum finality where the claim rests on a reorgable L1 fact.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">No inclusion obligation: publication is permissionless and accepts nothing, a proposer that excludes a transaction is not in breach, and v1 has no recovery path that would include it.</text>
+<text x="36" y="428" fill="#59636e" font-size="11">A withdrawal needs a withdrawal root: k attestations from k distinct backend families over an accepted checkpoint &mdash; no new L2 block, no quorum.</text> <text x="36" y="444" fill="#59636e" font-size="11">Then WITHDRAWAL_DELAY runs from the root record&rsquo;s l1BlockNumber, and no unexpired veto may stand.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">No inclusion obligation: publication is permissionless and accepts nothing, a proposer that excludes a transaction is not in breach, and v1 has no recovery path that would include it.</text>
 </svg>
 <figcaption>The top panel shows why inclusion is a statistical property and not a guarantee; the bottom
 panel shows the only path by which a cross-chain message becomes trustworthy.</figcaption>
@@ -148,17 +149,33 @@ inside the struct; per-message status is <code>NEW / RETRIABLE / DONE / FAILED /
 message that is <code>DONE</code>, <code>FAILED</code> or <code>RECALLED</code> cannot be processed
 again; the failure signal is <code>msgHash ^ 3</code>
 (<a href="../spec/04-l1-integration.html#MSG-02">MSG-02</a>).</li>
-<li><strong>A withdrawal waits.</strong> No value leaves on anything weaker than L1 acceptance: the
-checkpoint must cover the signal, and <code>WITHDRAWAL_DELAY</code> &mdash; derived from the whole
-settlement pipeline and not yet measured &mdash; is measured from the checkpoint&rsquo;s
-<code>l1BlockNumber</code>. Where the claim depends on an L1 fact that can still be reorganized, the
-transaction must additionally be at the configured Ethereum finality depth
-(<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>). An L1&rarr;L2 release requires the Anchor
-to have observed the deposit at that same finality depth, never at inclusion depth.</li>
+<li><strong>A withdrawal waits for a withdrawal root, then for its delay.</strong> No value leaves on
+anything weaker than L1 acceptance, and the release is proven against a <strong>withdrawal root</strong>:
+<code>k</code> attestations of an already-accepted checkpoint&rsquo;s statement from <code>k</code> distinct
+registered backend families, each verified on L1, one verification per attestation. Forming a root needs no
+new L2 block, no settlement progress, no quorum and no permission &mdash; any account may carry the
+attestations, and the latest accepted checkpoint is attestable while the chain is halted. The root&rsquo;s
+state root must cover the signal, and an ordinary checkpoint that is not a withdrawal root anchors no
+release. <code>WITHDRAWAL_DELAY</code> &mdash; derived from the whole settlement pipeline and not yet
+measured &mdash; runs from the root checkpoint record&rsquo;s own <code>l1BlockNumber</code>, never from the
+attestation transaction, and an unexpired, rule-triggered <strong>withdrawal veto</strong> can add up to
+<code>T_VETO</code>, delaying but never cancelling a proven withdrawal. Where the claim depends on an L1
+fact that can still be reorganized, the transaction must additionally be at the configured Ethereum finality
+depth (<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>,
+<a href="../spec/04-l1-integration.html#MSG-04">MSG-04</a>). An L1&rarr;L2 release requires the Anchor to
+have observed the deposit at that same finality depth, never at inclusion depth.</li>
 </ol>
 <p>Nothing else authenticates a message: not a committee certificate, not a data-availability
 certificate, not an off-chain store, not a private witness, and not an operator
 (DA-04).</p>
+<p>The <code>k&minus;1</code> further attestations are not derivable from L1 state. Producing each one is
+off-chain proving work that needs the recorded certificate, the checkpoint&rsquo;s data and the pre-state
+witness; the proving share funds that work through the Inbox ledger, best-effort and never gating a
+submission. The exit therefore depends on a <strong>funded proving market</strong> and on the data still
+being retrievable: if fewer than <code>k</code> families operate, if nobody is paid to produce the proofs, or
+if the data has aged out of every archive, no root forms and the release condition is never met
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). That is a stated assumption, not a
+guarantee &mdash; the price of proving the exit instead of trusting a committee.</p>
 
 <h3>Which contracts keep their addresses, and why</h3>
 <p>The preserved surfaces are <strong>SignalService, Bridge, ERC20Vault, ERC721Vault and
@@ -206,11 +223,14 @@ which data produced that root; the three-field SignalService record alone does n
 <code>epoch</code>, <code>setRoot</code> or <code>dataCommitment</code>.</li>
 <li>Check the chain ids inside the message and the signal slot, and the message status: a message that
 is <code>DONE</code>, <code>FAILED</code> or <code>RECALLED</code> is finished.</li>
-<li>Check that <code>WITHDRAWAL_DELAY</code> has elapsed since the checkpoint&rsquo;s
-<code>l1BlockNumber</code>, and wait for Ethereum finality if the claim depends on an L1 fact that can
-still be reorganized.</li>
-<li>Check the basis of the claim: accepted data and proof, not a committee certificate, data-availability
-certificate, off-chain store or operator promise.</li>
+<li>Confirm a <strong>withdrawal root</strong> exists for the height &mdash; attestations from
+<code>k</code> distinct backend families, one verification each &mdash; and not merely a checkpoint: an
+ordinary checkpoint anchors no release. Check that <code>WITHDRAWAL_DELAY</code> has run from the root
+checkpoint record&rsquo;s <code>l1BlockNumber</code>, that no veto is unexpired, and wait for Ethereum
+finality if the claim depends on an L1 fact that can still be reorganized.</li>
+<li>Check the basis of the claim: accepted data and proof, and a funded proving market that produced the
+<code>k&minus;1</code> further attestations from data that is still retrievable &mdash; not a committee
+certificate, data-availability certificate, off-chain store or operator promise.</li>
 </ol>
 
 <h2>Worked example</h2>
@@ -226,19 +246,23 @@ certificate, off-chain store or operator promise.</li>
 <p><strong>A withdrawal, end to end.</strong> A user calls the L2 Bridge; the message gets status
 <code>NEW</code> and its hash is <code>keccak256(abi.encode("TAIKO_MESSAGE", message))</code>. The
 signal sits at its <code>SIGNAL</code>-derived slot in L2 state. When a batch containing that state
-lands, the accepting transaction writes the checkpoint. The L1 verifier resolves it, matches
-<code>stateRoot</code> to the proof root, and verifies the Merkle&ndash;Patricia proof for the
-SignalService account and slot. From there the value can leave once <code>WITHDRAWAL_DELAY</code> has
-elapsed and any required Ethereum finality is reached. The bridge does not know or care which proposer
-included the L2 block; it cares that the state root in the checkpoint covers the signal.</p>
+lands, the accepting transaction writes the checkpoint. A <strong>withdrawal root</strong> then forms over
+that accepted checkpoint&rsquo;s statement: <code>k</code> attestations from <code>k</code> distinct backend
+families, each verified on L1, carried permissionlessly by anyone and produced by provers paid, best-effort,
+from the proving share. The L1 verifier resolves the root&rsquo;s checkpoint state root, matches it to the
+message&rsquo;s Merkle&ndash;Patricia proof for the SignalService account and slot. From there the value can
+leave once <code>WITHDRAWAL_DELAY</code> has run from the root record&rsquo;s <code>l1BlockNumber</code>, no
+veto is unexpired, and any required Ethereum finality is reached. The bridge does not know or care which
+proposer included the L2 block; it cares that the state root the root attests covers the signal.</p>
 
 <h2>What this gives you</h2>
 <ul>
 <li>An honest inclusion statement you can build a risk model on: no inclusion obligation in v1, publication
 that accepts nothing, no general inclusion list, and for unpublished data only statistical resistance
 bounded by the selection share, with a named isolation failure.</li>
-<li>A message authentication path anchored on L1-accepted data and proof, with replay protection,
-domain separation and per-message status.</li>
+<li>A message authentication path anchored on L1-accepted data and proof, whose value release needs a
+withdrawal root that <code>k</code> distinct backend families attest, with replay protection, domain
+separation and per-message status.</li>
 <li>Stable integration points: the same SignalService, Bridge and vault addresses on both chains, and
 unchanged slot and message encodings.</li>
 <li>A concrete checklist for deciding when a cross-chain message is trustworthy.</li>
@@ -255,8 +279,10 @@ creates no obligation at all.</li>
 censor L1 inclusion itself: if the data never reaches L1, exclusion can be indefinite.</li>
 <li>Protection against slot-buying: selection is predictable and no rule prices or penalises it.</li>
 <li>Early exit for unsettled value: a withdrawal whose signal is above the last accepted checkpoint
-still needs a later accepted batch, and v1 has no other path to it; only a signal at or below the
-checkpoint stays executable on Ethereum alone
+still needs a later accepted batch, and v1 has no other path to it; a signal at or below the checkpoint
+stays executable on Ethereum alone, but only once a withdrawal root of <code>k</code> distinct-family
+attestations forms over it, funded by a proving market that can produce the <code>k&minus;1</code> further
+proofs from data that is still retrievable
 (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>).</li>
 <li>Confidence in the recorded addresses beyond the record: they were not chain-verified in the design
 work.</li>
@@ -273,10 +299,14 @@ changes by rule: publication creates no obligation, so no one must include it. v
 either way, so nothing later includes the censored transaction.</p></details>
 <details><summary>What is the minimum evidence that an L2&rarr;L1 message may be released?</summary>
 <p>A checkpoint written by a successful <code>land(data, proof)</code> whose state root covers the
-signal, a matching Merkle&ndash;Patricia proof for the remote SignalService account and the
-<code>SIGNAL</code> slot, correct chain ids, the message not already finished, the withdrawal delay
-elapsed since the checkpoint&rsquo;s <code>l1BlockNumber</code>, and Ethereum finality if the claim
-depends on an L1 fact that can still be reorganized.</p></details>
+signal, a <strong>withdrawal root</strong> over it &mdash; <code>k</code> attestations from <code>k</code>
+distinct backend families, each verified on L1, for which a funded proving market must produce the
+<code>k&minus;1</code> further proofs from data that is still retrievable &mdash; a matching
+Merkle&ndash;Patricia proof for the remote SignalService account and the <code>SIGNAL</code> slot, correct
+chain ids, the message not already finished, the withdrawal delay elapsed since the <em>root</em>
+checkpoint record&rsquo;s <code>l1BlockNumber</code>, no unexpired veto, and Ethereum finality if the claim
+depends on an L1 fact that can still be reorganized
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</p></details>
 <details><summary>Why not deploy a fresh Bridge at a new address after an upgrade?</summary>
 <p>Because live state is keyed to the existing address: message ids and statuses, vault deposit maps,
 cached received signals and cached proofs, the signal slot derivation, resolver results, and both
@@ -296,6 +326,9 @@ statement does not apply and there is no remedy.</li>
 <li>Somebody publishes a censored transaction&rsquo;s data while an observer holds it; publication creates
 no obligation to include it either way, so the protocol has no remedy if it is never published.</li>
 <li>Somebody retains accepted batch data and blob sidecars for the retrieval window.</li>
+<li>A funded proving market produces the <code>k&minus;1</code> further attestation proofs a withdrawal
+root needs, from data and a witness that are still retrievable; if it does not, no root forms and the exit
+waits indefinitely (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
 <li>Preserved addresses are taken from the repository and deployment logs and were not chain-verified
 here.</li>
 </ul>

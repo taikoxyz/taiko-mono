@@ -150,9 +150,15 @@ else is allowed while it has not landed.</li>
 finalizes the block that contains it, or until the configured finality depth is reached. An L1 reorganisation simply
 undoes the transaction; the batch stays certified on L2 and is re-landable with the same data commitment
 (<a href="../spec/04-l1-integration.html#L1-12">L1-12</a>).</li>
-<li><strong>Withdrawal.</strong> A bridge message authenticates against a checkpoint the Inbox wrote. Value leaves
-only with that checkpoint plus the message-authentication path plus the withdrawal delay (<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>), and the claim must rest on
-L1 facts at the configured finality depth, never at inclusion depth.</li>
+<li><strong>Withdrawal.</strong> A bridge message authenticates against a checkpoint the Inbox wrote, but value
+leaves only with a <strong>withdrawal root</strong> over an already-accepted checkpoint: <code>k</code>
+attestations from <code>k</code> distinct backend families, each verified on L1, which need no new L2 block,
+no settlement progress, no quorum and no permission. <code>WITHDRAWAL_DELAY</code> runs from the root
+checkpoint record&rsquo;s <code>l1BlockNumber</code>, an unexpired veto can add up to <code>T_VETO</code>, and
+the <code>k&minus;1</code> further proofs must be produced by a funded proving market from data that is still
+retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b),
+<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>). The claim must rest on L1 facts at the configured
+finality depth, never at inclusion depth.</li>
 </ol>
 
 <h3>The status ladder</h3>
@@ -170,7 +176,7 @@ irreversible under the protocol's own rules.</p>
 <tr><td><strong>proof-ready</strong></td><td>A completed ZK proof bound to this batch's data commitment, existing off-chain</td><td>The batch can be landed</td><td>A better proof of the same data commitment may replace it; a proof of a different batch is not a substitute</td></tr>
 <tr><td><strong>accepted on L1</strong></td><td>The accepting L1 transaction and the checkpoint record it wrote</td><td>The batch data is bound on Ethereum — carried by the accepting transaction or held in the live publication record it references — and the transition is L1-committed; the protocol's own rules can no longer replace it, and no rule of v1 touches it</td><td>An L1 reorganisation below Ethereum finality can undo the transaction; nothing else</td></tr>
 <tr><td><strong>Ethereum-final</strong></td><td>The accepting transaction is in a finalized L1 block, or the fact it depends on is at the configured finality depth</td><td>L1 facts can no longer be reorganised</td><td>Nothing in the design; this is the end of L1 reorganisation risk</td></tr>
-<tr><td><strong>withdrawal-eligible</strong></td><td>Accepted (or Ethereum-final) plus the message-authentication path plus the required delay</td><td>Value may leave the bridge</td><td>Nothing on the protocol's own side, except that a settlement stall delays the path for later messages until a batch lands; a message above the last accepted checkpoint is not withdrawable while the chain is halted</td></tr>
+<tr><td><strong>withdrawal-eligible</strong></td><td>Accepted (or Ethereum-final) plus a <strong>withdrawal root</strong> at or above the signal's height &mdash; <code>k</code> attestations from <code>k</code> distinct backend families, one verification each &mdash; plus the message-authentication path, the delay measured from the root checkpoint record's <code>l1BlockNumber</code>, and no unexpired withdrawal veto</td><td>Value may leave the bridge, once the funded proving market has produced the <code>k&minus;1</code> further proofs from data that is still retrievable</td><td>A veto window can delay it; a settlement stall stops later roots from forming until a batch lands; a message above the last accepted checkpoint is not withdrawable while the chain is halted; if fewer than <code>k</code> families operate or the data is gone, no root forms</td></tr>
 </tbody>
 </table>
 
@@ -190,7 +196,7 @@ batch that carries it is 385–416. The numbers below are arithmetic on the desi
 <tr><td>L1 acceptance</td><td>L1 block <code>N</code>, one accepting transaction</td><td><code>land(data, proof)</code>: the data is carried or a live publication record is referenced, contract-derived inputs are computed, the verifier is called, and only then is the checkpoint written; range must start at <code>lastLandedHeight + 1</code></td><td><span class="tag">derived</span> mechanics; gas and inclusion delay <span class="tag">unmeasured</span></td></tr>
 <tr><td>Checkpoint written at height 390</td><td>record <code>(height, blockHash, stateRoot, epoch, setRoot, dataCommitment, l1BlockNumber, lastAcceptedBatchTime)</code></td><td>the record is the anchor the bridge resolves for that height</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Ethereum finality for the checkpoint</td><td>Ethereum's own finality lag after block <code>N</code></td><td>two Ethereum epochs is the design's working figure; the value is a property of Ethereum and is not measured for a deployment of this design</td><td><span class="tag">sourced</span> property / value <span class="tag">unmeasured</span></td></tr>
-<tr><td>Withdrawal</td><td>checkpoint + message path + <code>WITHDRAWAL_DELAY</code></td><td>the delay is derived from the whole settlement pipeline — proving, detection, evidence submission, L1 inclusion, L1 finality, processing and a margin — and none of those terms is measured</td><td><span class="tag">unmeasured</span></td></tr>
+<tr><td>Withdrawal</td><td>withdrawal root (<code>k</code> attestations from <code>k</code> distinct families, one verification each) + message path + <code>WITHDRAWAL_DELAY</code> from the root record</td><td>the delay is derived from the whole settlement pipeline — proving, detection, evidence submission, L1 inclusion, L1 finality, processing and a margin — and none of those terms is measured; the <code>k&minus;1</code> further proofs are funded proving work that needs the checkpoint's data and witness (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b))</td><td><span class="tag">unmeasured</span></td></tr>
 </tbody>
 </table>
 <p>Two things this example makes concrete. First, the transaction is <em>certified on L2</em> long before it is
@@ -213,7 +219,7 @@ then.</p>
 <tr><td>Included at block 830; batch certified</td><td>Status <strong>PoS-certified (provisional)</strong>: valid now, not settled until the batch is accepted on L1</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Settlement stall</td><td>No batch extending checkpoint 800 is accepted; the transaction remains provisional and the chain halts safely</td><td><span class="tag">derived</span>; halt duration <span class="tag">unmeasured</span></td></tr>
 <tr><td>No recovery</td><td>Nothing in v1 replaces the history above checkpoint 800: there is no bonded recovery and no governance resume, and no height is retired</td><td><span class="tag">derived</span></td></tr>
-<tr><td>The exit still works</td><td>A message at or below checkpoint 800 is withdrawable on L1 with no new L2 block, no quorum and no validator; a message above the checkpoint, including one in block 830, cannot leave while the halt lasts</td><td><span class="tag">derived</span></td></tr>
+<tr><td>The exit still works</td><td>A message at or below checkpoint 800 can be released on L1 with no new L2 block, no quorum and no validator, once a withdrawal root of <code>k</code> distinct-family attestations forms over that checkpoint and the delay runs from the root record; a root forms only if a funded proving market produces the <code>k&minus;1</code> further proofs from data that is still retrievable. A message above the checkpoint, including one in block 830, cannot leave while the halt lasts</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Clearing the stall</td><td>Requires a future protocol update whose procedure is not specified; v1 itself cannot resume the chain</td><td><span class="tag">derived</span></td></tr>
 </tbody></table>
 <p>Two boundaries hold throughout. Heights at or below 800 are accepted on Ethereum and are never
@@ -226,7 +232,7 @@ producing past the unsettled-depth cap — a bound on depth, not on the length o
 <h4>Rule for anything that displays status</h4>
 <p>Name the status from the ladder, state which evidence backs it, and say what is still missing. A confirmation
 shown before L1 acceptance must be labelled <strong>provisional</strong> and must say that a settlement stall halts the chain and
-that no rule of v1 replaces it. A "withdrawable" badge must say which checkpoint it anchors to. If a tool cannot say which status it is
+that no rule of v1 replaces it. A "withdrawable" badge must say which checkpoint its withdrawal root anchors to, and whether the root exists, the delay has run and any veto has expired. If a tool cannot say which status it is
 showing, it must not show one.</p>
 </div>
 
@@ -247,6 +253,7 @@ re-landed with the same data commitment.</li>
 <li><strong>No status stronger than its evidence.</strong> A certificate does not prove that data is retrievable by others; local possession is not availability.</li>
 <li><strong>No measured timings.</strong> The 1.5 s happy path, the 30-minute envelope, L1 inclusion and the withdrawal delay are all unmeasured.</li>
 <li><strong>No settlement above the accepted checkpoint.</strong> A certified block is provisional; if the settlement stall persists, v1 has no recovery path and the chain halts — a transaction above the checkpoint cannot be withdrawn while the halt lasts, and off-chain losses are not compensated.</li>
+<li><strong>No unconditional exit.</strong> Even a message at or below the last accepted checkpoint needs a withdrawal root: <code>k</code> distinct backend families must attest, the <code>k&minus;1</code> further proofs must be funded and produced from data that is still retrievable, and an unexpired veto can delay the release (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b), <a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>).</li>
 <li><strong>No replacement path.</strong> No rule of v1 rewrites history above the last accepted checkpoint: nothing is discarded, nothing is retired and nothing is replayed, so no one can pick winners inside the provisional range — there is no replacement to invoke. If a future protocol update adds one, its scope must be wholesale, and unwound transactions would not be replayed automatically.</li>
 <li><strong>No rescue of missing data at or below the accepted checkpoint.</strong> If nobody can produce a batch's data, the chain can halt with a certified prefix it cannot settle; no rule of v1 replaces accepted history, so the halt persists until a future protocol update.</li>
 <li><strong>No inclusion guarantee.</strong> v1 has no inclusion obligation: a proposer that excludes a transaction — published or not — is not in breach, and an adversary that isolates a user from every honest proposer can exclude that user indefinitely.</li>
