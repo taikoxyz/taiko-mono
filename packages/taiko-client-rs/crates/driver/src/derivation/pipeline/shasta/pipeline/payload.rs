@@ -817,7 +817,10 @@ impl ShastaDerivationPipeline {
     /// the block and reorg every later block, preconfirmed ones included. As for pre-Etna user
     /// transactions, the binding is the stored nonzero payload fingerprint, required for every
     /// fork: it hashes keccak(txList) together with the root, `extraData`, timestamp, prevRandao,
-    /// coinbase and parent.
+    /// coinbase and parent. The stored origin must also name the canonical block's hash: the
+    /// engine writes the origin as soon as a build finishes, before the block is inserted, so a
+    /// build interrupted before promotion leaves a matching fingerprint over another canonical
+    /// block.
     async fn verify_canonical_block(
         &self,
         meta: &BundleMeta,
@@ -874,6 +877,17 @@ impl ShastaDerivationPipeline {
             );
             return Ok(None);
         };
+
+        if origin.l2_block_hash != block.header.hash {
+            warn!(
+                proposal_id = meta.proposal_id,
+                block_id,
+                origin_block_hash = ?origin.l2_block_hash,
+                canonical_block_hash = ?block.header.hash,
+                "stored L1 origin names another block when checking canonical proposal"
+            );
+            return Ok(None);
+        }
 
         let Some(txs) = block.transactions.as_transactions() else {
             debug!(
@@ -1139,7 +1153,9 @@ impl ShastaDerivationPipeline {
 mod tests {
     use super::*;
     use alethia_reth_consensus::anchor_constants::anchorV4Call;
-    use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use alethia_reth_primitives::{
+        addresses::TAIKO_GOLDEN_TOUCH_ADDRESS, payload::attributes::RpcL1Origin,
+    };
     use alloy::{
         rpc::types::eth::{Block as RpcBlock, BlockTransactions},
         sol_types::SolCall,
@@ -1575,6 +1591,9 @@ mod tests {
         }
     }
 
+    /// Hash of every canonical block built by [`canonical_block`].
+    const CANONICAL_BLOCK_HASH: B256 = B256::repeat_byte(0x07);
+
     /// Canonical Unzen-shaped block matching `derived` field by field, with the given header root,
     /// difficulty and body.
     fn canonical_block(
@@ -1585,6 +1604,7 @@ mod tests {
     ) -> RpcBlock<RpcTransaction> {
         let payload = &derived.payload;
         let mut block = RpcBlock::<RpcTransaction>::default();
+        block.header.hash = CANONICAL_BLOCK_HASH;
         block.header.inner.parent_hash = derived.parent_hash;
         block.header.inner.ommers_hash = keccak256([0xc0u8]);
         block.header.inner.beneficiary = payload.payload_attributes.suggested_fee_recipient;
@@ -1615,18 +1635,36 @@ mod tests {
         block
     }
 
-    /// Verify `derived` against `canonical` on a devnet pipeline with Etna at
-    /// [`CANONICAL_ETNA_TIMESTAMP`]; the L2 mock replays the stored L1 origin, then the block.
-    async fn verify_against(
+    /// L1 origin the engine stores for `derived` once its build produced the block `block_hash`.
+    fn stored_origin(derived: &BlockDerivationContext, block_hash: B256) -> RpcL1Origin {
+        let mut origin = derived.payload.l1_origin.clone();
+        origin.l2_block_hash = block_hash;
+        origin
+    }
+
+    /// Verify `derived` against `canonical` with `origin` stored, on a devnet pipeline with Etna
+    /// at [`CANONICAL_ETNA_TIMESTAMP`].
+    async fn verify_with_origin(
         derived: &BlockDerivationContext,
+        origin: RpcL1Origin,
         canonical: RpcBlock<RpcTransaction>,
     ) -> Option<VerifiedCanonicalBlock> {
         let l2_asserter = l2_with_chain_id();
-        l2_asserter.push_success(&Some(derived.payload.l1_origin.clone()));
+        l2_asserter.push_success(&Some(origin));
         l2_asserter.push_success(&Some(canonical));
         let pipeline =
             pipeline_with(Asserter::new(), l2_asserter, Some(CANONICAL_ETNA_TIMESTAMP)).await;
         pipeline.verify_canonical_block(&sample_meta(), derived).await.expect("checks run")
+    }
+
+    /// Verify `derived` against `canonical`, with the origin the engine stored when it built
+    /// `canonical` from `derived`.
+    async fn verify_against(
+        derived: &BlockDerivationContext,
+        canonical: RpcBlock<RpcTransaction>,
+    ) -> Option<VerifiedCanonicalBlock> {
+        let origin = stored_origin(derived, canonical.header.hash);
+        verify_with_origin(derived, origin, canonical).await
     }
 
     /// Ordinary transaction whose calldata is a well-formed `anchorV4` call to the anchor.
@@ -1699,25 +1737,46 @@ mod tests {
         let other_list = derived_block(1_001, root, None, &[]);
 
         for stored_id in [other_list.payload.l1_origin.build_payload_args_id, [0u8; 8]] {
-            let l2_asserter = l2_with_chain_id();
-            let mut origin = derived.payload.l1_origin.clone();
+            let mut origin = stored_origin(&derived, CANONICAL_BLOCK_HASH);
             origin.build_payload_args_id = stored_id;
-            l2_asserter.push_success(&Some(origin));
-            l2_asserter.push_success(&Some(canonical_block(
-                &derived,
-                Some(root),
-                42,
-                &transactions,
-            )));
-            let pipeline =
-                pipeline_with(Asserter::new(), l2_asserter, Some(CANONICAL_ETNA_TIMESTAMP)).await;
+            let canonical = canonical_block(&derived, Some(root), 42, &transactions);
 
-            let verified = pipeline
-                .verify_canonical_block(&sample_meta(), &derived)
-                .await
-                .expect("checks run");
+            let verified = verify_with_origin(&derived, origin, canonical).await;
             assert!(verified.is_none(), "stored payload ID {stored_id:?} must not match");
         }
+    }
+
+    /// The engine stores the origin of a build before the built block is inserted. If the driver
+    /// stops between the two, the canonical block at that height can be another one with the same
+    /// header fields (e.g. a preconfirmed block built from another list): the stored fingerprint
+    /// then matches the derived one, but the origin names the unpromoted build, not this block.
+    #[tokio::test]
+    async fn block_whose_stored_origin_names_another_build_is_not_canonical() {
+        let root = B256::with_last_byte(0x55);
+        let derived_list = vec![user_tx(0, Address::repeat_byte(0x01), Bytes::new())];
+        let preconfirmed_list = vec![user_tx(0, Address::repeat_byte(0x02), Bytes::new())];
+        let derived = derived_block(1_001, root, None, &derived_list);
+        let preconfirmed = canonical_block(&derived, Some(root), 42, &preconfirmed_list);
+
+        for origin_hash in [B256::repeat_byte(0x08), B256::ZERO] {
+            let origin = stored_origin(&derived, origin_hash);
+            let verified = verify_with_origin(&derived, origin, preconfirmed.clone()).await;
+            assert!(verified.is_none(), "an origin naming {origin_hash} must not match");
+        }
+
+        let anchor_tx = anchor_shaped_user_tx();
+        let derived = derived_block(999, B256::ZERO, Some(anchor_tx.clone()), &derived_list);
+        let preconfirmed = canonical_block(
+            &derived,
+            Some(B256::ZERO),
+            42,
+            &[vec![anchor_tx], preconfirmed_list].concat(),
+        );
+        let origin = stored_origin(&derived, B256::repeat_byte(0x08));
+        assert!(
+            verify_with_origin(&derived, origin, preconfirmed).await.is_none(),
+            "a pre-Etna block is bound to the stored origin's hash too"
+        );
     }
 
     #[tokio::test]
