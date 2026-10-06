@@ -417,10 +417,14 @@ offence</strong>: omission of a transaction that was never published remains unp
 resistance for unpublished transactions is the conditional statistical property of
 <a href="10-assurance.html#LIVE-04">LIVE-04</a>, and for them the protocol provides no L1 inclusion path and
 no remedy against a network-level adversary. The one exception is the <strong>narrow forced-inclusion
-breach</strong> of clause (6) — the omission of <em>published</em> data past its proving deadline — which
+breach</strong> of clause (6) — the omission of <em>published</em> data past its <strong>due point</strong>
+(the record's own <code>l1BlockNumber + FI_INCLUSION_DELAY</code>, <a href="04-l1-integration.html#FI-10">FI-10</a>) — which
 D-12 makes an offence precisely because it is objectively decidable from L1 state; it creates no general
 inclusion duty. <em>(D-12: narrow forced inclusion returns in v1 and supersedes D-6/D-10; the offence is
-bounded to published data and an elapsed deadline.)</em></span>
+bounded to published data and an elapsed due point, and the record's proving deadline is only the upper
+bound on exclusion.)</em> <em>This closes the wrong clock in clause (3): the breach begins at the record's
+due point, not at its proving deadline, which is a separate death clock for the record itself and past
+which no proof may be required to include it (FI-10).</em></span>
 <span class="norm">(4) <strong>Identity and duplicates.</strong> The identity of an offence is
 <code>id = (v, epoch, offenceType, keccak256(evidence))</code> (<a href="03-membership-staking.html#MEM-06">MEM-06</a>
 clause 4). The first accepted submission applies the penalty of <a href="#ECON-05">ECON-05</a>; a second submission
@@ -454,11 +458,11 @@ divergence under withholding may leave no admissible evidence and is Assumed, no
 <td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> <tr><td><strong>Fee diversion</strong> — a proposal whose block does not credit the L2 fee vault with the execution fees and priority fees its own execution collects, or diverts, destroys or redirects any part of them to another beneficiary (<a href="02-consensus.html#CONS-01">CONS-01</a>(viii), <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)). A block that contains a legitimate canonical sweep of <a href="#ECON-02">ECON-02</a> clause 7(b) is <strong>not</strong> an offence: the swept amount is attributed to the sweep's own canonical message and is never read as a fee shortfall (<a href="05-proof-statement.html#PRF-06">PRF-06</a>(F2), (F4))</td>
 <td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate re-executes the block from the committed pre-state and evaluates the same recomputable per-block accounting as <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)&ndash;(F4) — the credited-fee counter increment must equal the execution base fees and priority fees the block's own execution collects (F1), every vault debit must be a canonical sweep of <a href="#ECON-02">ECON-02</a> clause 7(b) whose message carries the swept amount (F2), and the balance identity must hold with forced credits accounted (F3). The evidence of the offence is the mismatch itself: a fee credit short of the collected fees, or any vault debit not attributable to a canonical sweep. An honest sweep and a forced credit are neither evidence nor punishable, and the predicate needs no private witness. The executed bodies are decoded from the committed payload, never from a separate witness stream. Re-execution is public but expensive, exactly as for execution validity (iv) of <a href="02-consensus.html#CONS-01">CONS-01</a>. <em>(PR #22262 review comment 2, item 4; review comment 3, item 6: the predicate is the same checkable accounting the guest performs, so diversion remains an offence, an honest sweep is not slashable, and the evidence stays third-party computable.)</em></td>
 <td>any address</td> <td>as the equivocation row</td> <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the proposal's signer</td> <td><code>id</code> as in clause 4; a different offending block at another <code>(H,R)</code> is a distinct offence</td></tr>
-<tr><td><strong>Forced-inclusion breach</strong> — a signed proposal over a batch that omits published, unproven data past its proving deadline where the due-set rule of <a href="04-l1-integration.html">04</a> requires the capped FIFO prefix to be included (D-12)</td>
-<td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate derives the <strong>due set</strong> from L1 state alone — the recorded publications past their deadline and not yet proven — computes the <strong>capped FIFO prefix</strong> the batch was required to include, and checks the committed payload against it. The deadline, the due-set derivation, the prefix cap and the guest's check are owned by the L1-integration and proof-statement rules (<a href="04-l1-integration.html">04</a>, <a href="05-proof-statement.html">05</a>) and are not restated here; this page owns only the offence, its evidence class and its penalty. The executed bodies are decoded from the committed payload, never from a separate witness stream</td>
+<tr><td><strong>Forced-inclusion breach</strong> — a signed proposal whose block, at its own anchored L1 view <code>A</code>, omits a published, unproven record that is <em>due</em> at <code>A</code> (<code>record.l1BlockNumber + FI_INCLUSION_DELAY &le; A</code>) and inside the required capped FIFO prefix, while that record is still live (<code>A &le; record.deadlineBlock</code>); the due-set rule of <a href="04-l1-integration.html">04</a> owns the obligation (D-12)</td>
+<td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate derives the <strong>due set</strong> from L1 state alone at the block's anchored view <code>A</code> — the recorded publications <em>due</em> at <code>A</code> and not yet resolved — computes the <strong>capped FIFO prefix</strong> the batch was required to include, and checks the committed payload against it; it is the predicate of <a href="04-l1-integration.html#FI-10">FI-10</a> and <a href="04-l1-integration.html#FI-11">FI-11</a> as the per-block clause <a href="02-consensus.html#CONS-01">CONS-01</a>(v) states it, with the proving deadline read only as the outer bound that ends the obligation. The due point, the deadline, the due-set derivation, the prefix cap and the guest's check are owned by the L1-integration and proof-statement rules (<a href="04-l1-integration.html">04</a>, <a href="05-proof-statement.html">05</a>) and are not restated here; this page owns only the offence, its evidence class and its penalty. The executed bodies are decoded from the committed payload, never from a separate witness stream. <em>This closes the row's wrong clock: the offence is judged at the block's own anchored view, where the record is due and still live, and the proving deadline is only the upper bound on exclusion.</em></td>
 <td>any address</td>
-<td>inclusion block's timestamp ≤ the close of the evidence window for <code>epoch_of(H)</code>, and while the omitted publication is still retrievable (<a href="#ECON-07">ECON-07</a>)</td>
-<td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the proposal's signer, and no burn applies — the destination is <a href="#ECON-06">ECON-06</a>'s split (treasury plus reporter bounty, D-9)</td>
+<td>inclusion block's timestamp ≤ the close of the evidence window for <code>epoch_of(H)</code>, and while the batch's committed payload and the record's published bytes are still retrievable (<a href="#ECON-07">ECON-07</a>)</td>
+<td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the signer of the omitting block's proposal at <code>(H,R)</code>, and no burn applies — the destination is <a href="#ECON-06">ECON-06</a>'s split (treasury plus reporter bounty, D-9)</td>
 <td><code>id</code> as in clause 4; a different omitting block at another <code>(H,R)</code> is a distinct offence</td></tr> </tbody></table>
 <span class="norm">(5) <strong>What is not an offence.</strong> Alongside the non-receipt ban of clause 1: a
 validator that is offline or votes late; a proposer whose round times out; a node that halts under
@@ -468,36 +472,64 @@ particular transaction <em>that was never published</em>: the catalogue contains
 omission offence, and what inclusion resistance the protocol does and does not provide for unpublished
 transactions is stated once in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. The single inclusion-related
 offence is the narrow forced-inclusion breach of clause (6), which requires published data, an elapsed
-deadline and a committed payload that omits the required prefix; the obligation it carries is an
+due point (<a href="04-l1-integration.html#FI-10">FI-10</a>) and a committed payload that omits the required
+prefix; the obligation it carries is an
 <strong>upper bound on exclusion, never a lower bound on inclusion</strong>.
 <em>(D-12 supersedes D-6's complete removal: exactly one narrow inclusion offence exists, and the general
-omission offence still does not.)</em> Objective key duplication <em>is</em>
+omission offence still does not.)</em> <em>This closes the same wrong clock in clause (5): the required
+element is an elapsed due point, not an elapsed proving deadline.</em> Objective key duplication <em>is</em>
 equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is stated in ECON-05 clause 7 and is not excused by this rule. <em>(D-6 removed the general censorship/omission offence; D-12 supersedes D-6 and adds exactly one narrow inclusion offence at clause (6), so the general offence remains deleted)</em></span>
 <span class="norm">(6) <strong>The narrow forced-inclusion breach (D-12), and the limits of the
-offence.</strong> Publication of data to L1 is permissionless (<a href="#ECON-13">ECON-13</a>); once data is
-published and recorded, the protocol requires it to be <em>proven</em> within the proving deadline or
-discarded and re-published, and a proposal whose batch does not carry the required capped FIFO prefix of the
-due set past that deadline is the breach in the table above. <strong>The deadline is an upper bound on
-exclusion, never a lower bound on inclusion:</strong> it fixes the latest moment by which published data
-must be proven, not a requirement that any particular batch include any particular transaction, and the
-capped prefix drains a backlog over successive batches instead of requiring the whole due set at once. The
-predicate is objective and L1-decidable — a recorded publication, an elapsed deadline and a signed,
-committed payload that omits the required prefix — and it creates no general censorship or omission offence:
+offence.</strong> Publication of data to L1 is permissionless (<a href="#ECON-13">ECON-13</a>), and the
+obligation attaches at the record's <strong>due point</strong>: a record is <em>due</em> at the batch's
+anchored L1 view <code>A</code> iff <code>record.l1BlockNumber + FI_INCLUSION_DELAY &le; A</code>
+(<a href="04-l1-integration.html#FI-10">FI-10</a>). The breach is a signed proposal whose block, judged at
+its own anchored view <code>A</code>, does not carry the required capped FIFO prefix of the due set: the due
+set, the prefix, the cap, the includability discharge and the guest's check are fixed by
+<a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-13">FI-13</a> and
+<a href="05-proof-statement.html#PRF-04">PRF-04</a>(vi), and the per-block obligation is
+<a href="02-consensus.html#CONS-01">CONS-01</a>(v). It is <em>omission past the due point</em>, never
+omission past the proving deadline: a predicate that fired at
+<code>deadlineBlock = record.l1BlockNumber + T_PROVE_DEADLINE</code> would fire only once the record is
+dead, and <a href="04-l1-integration.html#FI-10">FI-10</a> says no proof may be required to include a dead
+record — so the offence could never be established. <strong>The proving deadline remains an upper bound on
+exclusion, never a lower bound on inclusion:</strong> a record can be required only while it is due and
+still <code>PUBLISHED</code> at the batch's anchored view (<code>due point &le; A &le; record.deadlineBlock</code>,
+<a href="04-l1-integration.html#DA-09">DA-09</a>); at an anchored view past the deadline the record is
+discarded and re-publishable, its omission is a liveness event and not an offence, and the capped prefix
+drains a backlog over successive batches instead of requiring the whole due set at once. The predicate is
+objective and L1-decidable — a recorded publication due at the batch's anchored view, that view itself, and
+a signed, committed payload that omits the required prefix — and it creates no general censorship or omission offence:
 the omission of a transaction that was never published remains unpunishable, no rule punishes the reordering
 of <em>included</em> transactions, and the protocol still provides no inclusion guarantee and no L1 inclusion
 path for unpublished data (<a href="10-assurance.html#LIVE-04">LIVE-04</a>). The penalty is
 <a href="#ECON-05">ECON-05</a>'s ordinary charge, the destination is <a href="#ECON-06">ECON-06</a>'s split
 with no burn (D-9), and the incentive to report it is the reporter bounty of <a href="#ECON-06">ECON-06</a>
-clause (5); the publication and reporting economics are stated in <a href="#ECON-13">ECON-13</a>. The
-predicate re-executes the omitting batch's committed payload, so its admissible interval carries the
-<code>T_BACKLOG_MAX + T_replay</code> terms of <a href="#ECON-07">ECON-07</a> clause (4) exactly as the
-fee-diversion offence does. <em>(D-12: narrow forced inclusion ships in v1 and supersedes D-6/D-10; the
-offence is recorded here, and the mechanism is owned by the consensus, L1 and proof rules.)</em></span>
+clause (5), which is paid for the offence this clause defines — the due-point omission — and not for a
+record's death at its deadline; the publication and reporting economics are stated in
+<a href="#ECON-13">ECON-13</a>. <strong>The offender is the signer of the omitting block's proposal at
+<code>(H,R)</code></strong>: the anchored view that made the record due is that block's own
+(<a href="02-consensus.html#CONS-01">CONS-01</a>(v)), so one omission is one offence per omitting block,
+and the batch's lander and the record's publisher are not offenders. The predicate re-executes the omitting
+batch's committed payload, so its admissible evidence interval is the one
+<a href="#ECON-07">ECON-07</a> clause (4) measures for an offence that requires the accepting batch's own
+data: with <code>e = epoch_of(H)</code> the interval is <code>[t_offence, evidenceClose(e)]</code>,
+<code>t_offence</code> is the offence itself — the signed, omitting proposal at <code>(H,R)</code> — and
+the lower bound carries the <code>T_BACKLOG_MAX + T_replay</code> terms in addition to the pipeline terms
+exactly as the fee-diversion offence does, so the window must still be open when the batch's payload has
+landed and been re-executed. Neither the record's proving deadline, nor its re-publication under a fresh
+record (<a href="04-l1-integration.html#DA-09">DA-09</a>(2)), nor the moment a reporter notices the omission
+opens, closes or extends that window (<a href="#ECON-07">ECON-07</a> clause (4), clause (7)). <em>(D-12:
+narrow forced inclusion ships in v1 and supersedes D-6/D-10; the offence is recorded here, and the mechanism
+is owned by the consensus, L1 and proof rules.)</em> <em>This closes the wrong-clock defect in clause (6):
+the predicate is the due point of FI-10/FI-11 and CONS-01(v), the DA-09 deadline is only the upper bound on
+exclusion, the offender is the omitting block's proposer, and the re-execution evidence interval is the
+ECON-07(4) interval with its T_BACKLOG_MAX + T_replay terms, not a window anchored to the deadline.</em></span>
 <span class="why">Failure modes: an open-ended "misconduct" clause lets an implementer invent a discretionary
 slash; a predicate that needs a missing message makes honest validators unprovable or innocent ones slashable; an
 encoding without domain separation allows replay of an evidence object on another chain or epoch; treating a
 missing message as proof of misbehaviour is the exact non-argument the threat model forbids.</span> <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
-<span class="small">(the catalogue contains no censorship or omission offence; the honest, conditional statement of what inclusion resistance exists is <a href="10-assurance.html#LIVE-04">LIVE-04</a>.)</span></div> 
+<span class="small">(the catalogue contains no <em>general</em> censorship or omission offence; its only inclusion offence is the narrow forced-inclusion breach of clause (6), and the honest, conditional statement of what inclusion resistance exists is <a href="10-assurance.html#LIVE-04">LIVE-04</a>.)</span> <em>This corrects the rule's own summary: D-12's narrow breach is an offence, so the unqualified "no omission offence" reading is withdrawn.</em></div>
 <h2 id="penalties">5. Penalty structure</h2>  <div class="rule" id="ECON-05"><span class="rid">ECON-05 — penalty structure and the convex correlated penalty</span>
 <span class="norm">(1) <strong>Parameters.</strong> <code>IMM_FRAC(c)</code> is the immediate penalty fraction for
 offence class <code>c</code>, a parameter with <code>0 &lt; IMM_FRAC(c) ≤ 1</code> so that every proven offence has
@@ -613,8 +645,10 @@ paid for that identity, including any bounty dispatched when <code>applyCorrelat
 and it must hold for every offence class and every realised <code>f</code>. The bounty applies to every
 offence of <a href="#ECON-04">ECON-04</a>'s closed catalogue, including the narrow forced-inclusion breach
 of <a href="#ECON-04">ECON-04</a> clause (6): any address may submit the evidence, so enforcement of the
-deadline does not depend on the censored user being the reporter. <em>(D-12: the incentive to report the
-breach is the ordinary reporter bounty; no new reward and no new reporter bond is created.)</em> <code>BOUNTY_GAS_FLOOR</code>
+due point does not depend on the censored user being the reporter. <em>(D-12: the incentive to report the
+breach is the ordinary reporter bounty; no new reward and no new reporter bond is created.)</em>
+<em>This closes the same wrong clock in the bounty rule: what is enforced is the record's due point, and
+the bounty is paid for that offence, never for a record's death at its proving deadline.</em> <code>BOUNTY_GAS_FLOOR</code>
 is the floor that makes reporting rational: the registered parameters MUST be calibrated so that the
 permitted bounty covers the reporter's L1 gas for every offence the bounty is meant to incentivise; where
 a realised charge is too small for the floor and the strict bound to hold together, the strict bound
@@ -1050,16 +1084,21 @@ re-derived and whose spam surface is answered explicitly (paying for arbitrary d
 unbounded outflow unless the reward is conditioned on data that is later proven), not an assertion that
 publication is incentive-compatible. Closing the Open requires a recorded decision, not a measurement
 alone.</span>
-<span class="norm">(3) <strong>The deadline and the capped prefix are upper bounds, owned elsewhere.</strong>
-The proving deadline, the due set derived from the publication record, the capped FIFO prefix and the guest's
-check are owned by the L1-integration and proof-statement rules (<a href="04-l1-integration.html">04</a>,
+<span class="norm">(3) <strong>The due point, the proving deadline and the capped prefix are owned elsewhere.</strong>
+The due point, the proving deadline, the due set derived from the publication record, the capped FIFO prefix
+and the guest's check are owned by the L1-integration and proof-statement rules (<a href="04-l1-integration.html">04</a>,
 <a href="05-proof-statement.html">05</a>) and are not redefined here. The obligation they carry is an
-<strong>upper bound on exclusion, never a lower bound on inclusion</strong>: the deadline fixes the latest
-moment by which published-but-unproven data must be proven or be discarded and re-published (D-11's bound on
-the June-2026 expiry class), and the cap makes the prefix drain over successive batches instead of requiring
-the whole due set at once, so a backlog cannot halt the chain.</span>
+<strong>upper bound on exclusion, never a lower bound on inclusion</strong>: the due point
+(<code>record.l1BlockNumber + FI_INCLUSION_DELAY</code>, <a href="04-l1-integration.html#FI-10">FI-10</a>) is
+where exclusion becomes a breach, the deadline fixes the latest moment by which published-but-unproven data
+must be proven or be discarded and re-published (D-11's bound on the June-2026 expiry class) and is the point
+past which no proof may be required to include the record at all, and the cap makes the prefix drain over
+successive batches instead of requiring the whole due set at once, so a backlog cannot halt the chain.
+<em>This closes the same wrong clock in the publication-economics rule: the offence attaches at the due
+point, and the deadline is only the upper bound on exclusion.</em></span>
 <span class="norm">(4) <strong>The breach, its penalty and the incentive to report it.</strong> A proposal
-whose batch omits the required prefix past the deadline commits the forced-inclusion breach of
+whose block omits the required prefix past its <strong>due point</strong> while the record is still live
+commits the forced-inclusion breach of
 <a href="#ECON-04">ECON-04</a> clause (6). The penalty is <a href="#ECON-05">ECON-05</a>'s ordinary charge
 against <code>SlashBase</code>; the destination is <a href="#ECON-06">ECON-06</a>'s split — protocol treasury
 with no burn (D-9) — and the reporter bounty of <a href="#ECON-06">ECON-06</a> clause (5) is the incentive to
@@ -1071,11 +1110,12 @@ bounded by the offender's <code>SlashBase</code> and by the evidence window
 (<a href="#ECON-07">ECON-07</a>); where the charge is too small for the bounty to cover the reporter's L1 gas,
 the strict bound governs and the bounty may fall below gas (<a href="#ECON-06">ECON-06</a> clause 5), so
 enforcement is weaker for small offenders and is disclosed rather than subsidised. And a breach that is never
-reported is not detected by the protocol: the offence punishes what the deadline makes objectively decidable,
-not what no one reports.</span>
+reported is not detected by the protocol: the offence punishes what the due point makes objectively decidable,
+not what no one reports. <em>This closes the breach sentence's wrong clock in clause (4): the omission is
+judged at the record's due point while the record is live, not at its proving deadline.</em></span>
 <span class="why">Failure modes: a publication path that requires permission turns D-11's window collapse into
 a privilege; counting publication as a protocol payout creates an unbounded outflow the funding identity
-cannot cover; treating the deadline as a duty to include a particular transaction converts an anti-censorship
+cannot cover; treating the due point as a duty to include a particular transaction converts an anti-censorship
 bound into a liveness hazard; and describing the breach as general censorship enforcement overstates what an
 objective predicate can punish, because unpublished transactions still have no remedy
 (<a href="10-assurance.html#LIVE-04">LIVE-04</a>).</span>

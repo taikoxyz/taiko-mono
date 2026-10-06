@@ -15,7 +15,7 @@
 <li><a href="03-consensus.html">3. How the chain agrees</a></li>
 <li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
 <li><a href="05-the-proof.html">5. What the proof proves</a></li>
-<li><a href="06-data-and-proof-together.html">6. Data and proof together</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
 <li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
 <li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
 <li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
@@ -49,8 +49,8 @@ are in the <a href="../spec/index.html">specification</a>.</p>
 <h2>The idea</h2>
 <p>A transaction passes through three machines that run at different speeds. The L2 validator set orders it and makes
 it certified in a few message round trips. Execution turns it into state that any node can check. Then a prover and
-Ethereum settle it: the batch containing the transaction is proven, its data and proof land in one L1 transaction, and
-the resulting checkpoint becomes the anchor that bridge messages authenticate against.</p>
+Ethereum settle it: the batch containing the transaction is proven, one L1 transaction accepts the proof and binds the data
+it carries or references, and the resulting checkpoint becomes the anchor that bridge messages authenticate against.</p>
 <p>Each stage produces a different kind of evidence, so each stage deserves a different word. "Proposed" is a claim
 someone made. "Locally execution-valid" is something <em>you</em> checked. "Voted" is a signed commitment by one
 validator that it can never take back. "PoS-certified" is a certificate from more than two thirds of an epoch's
@@ -61,7 +61,7 @@ lying about which question was answered.</p>
 
 <h2>The timeline</h2>
 <figure>
-<svg viewBox="0 0 980 330" role="img" aria-label="A transaction's timeline: submission and gossip, ordering into a block, execution and voting, PoS certification, batching and proof, one atomic L1 transaction, Ethereum finality, then withdrawal eligibility.">
+<svg viewBox="0 0 980 330" role="img" aria-label="A transaction's timeline: submission and gossip, ordering into a block, execution and voting, PoS certification, batching and proof, one proof-gated L1 transaction, Ethereum finality, then withdrawal eligibility.">
   <defs>
     <marker id="t2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"></path>
@@ -87,7 +87,7 @@ lying about which question was answered.</p>
   <text x="550" y="120" fill="#24292f" font-size="12" text-anchor="middle">batched + proven</text>
   <text x="550" y="182" fill="#59636e" font-size="10" text-anchor="middle">proof-ready (off-chain)</text>
   <text x="670" y="120" fill="#24292f" font-size="12" text-anchor="middle">accepted on L1</text>
-  <text x="670" y="182" fill="#59636e" font-size="10" text-anchor="middle">one tx: data + proof</text>
+  <text x="670" y="182" fill="#59636e" font-size="10" text-anchor="middle">one tx: proof + data or record</text>
   <text x="790" y="120" fill="#24292f" font-size="12" text-anchor="middle">Ethereum-final</text>
   <text x="790" y="182" fill="#59636e" font-size="10" text-anchor="middle">finality depth</text>
   <text x="910" y="120" fill="#24292f" font-size="12" text-anchor="middle">withdrawable</text>
@@ -97,7 +97,7 @@ lying about which question was answered.</p>
   <text x="550" y="88" fill="#59636e" font-size="10" text-anchor="middle">minutes</text>
   <text x="790" y="88" fill="#59636e" font-size="10" text-anchor="middle">L1 time</text>
   <text x="30" y="235" fill="#59636e" font-size="11">The first four steps are L2 consensus and cost round trips. Proving costs minutes and changes nothing on L2.</text>
-  <text x="30" y="255" fill="#59636e" font-size="11">L1 acceptance is one atomic transaction. Ethereum finality and the withdrawal delay come after it — never before.</text>
+  <text x="30" y="255" fill="#59636e" font-size="11">L1 acceptance is one proof-gated transaction: the data may have been published earlier. Ethereum finality and the withdrawal delay come after it — never before.</text>
   <text x="30" y="285" fill="#59636e" font-size="11">A tool that shows progress must name the step it is showing; "confirmed" alone is not a status.</text>
 </svg>
 <figcaption>Figure 1 — The eight statuses in order. The gaps between them are not cosmetic: each one is a different
@@ -130,16 +130,18 @@ batch is accepted on L1. A certificate without the data does not give you that s
 <li><strong>Batching.</strong> A contiguous range of certified blocks becomes a batch. The batch never spans an epoch
 boundary, so one epoch and one validator-set root govern every height in it (<a href="../spec/05-proof-statement.html#PRF-05">PRF-05</a>). Its length is bounded by
 data, not by preference: at the target rate one 2-second block is one 131,072-byte blob, EIP-7691 allows six
-blobs per L1 block as the target and nine as the maximum, and the data and the proof must share one
-transaction, so a batch is at most about six blocks at the target rate and nine is the hard ceiling. Within that bound the submitter chooses the length; nothing fixes it. And the bound is on bytes rather than on blocks: six is the count when every block is full of data, so lightly loaded blocks let one batch cover proportionally more of them
+blobs per L1 block as the target and nine as the maximum, and a batch's data must fit in one L1 transaction — the accepting
+one when it is carried, the publication one when it is published earlier — so a batch is at most about six blocks at the target rate and nine is the hard ceiling. Within that bound the submitter chooses the length; nothing fixes it. And the bound is on bytes rather than on blocks: six is the count when every block is full of data, so lightly loaded blocks let one batch cover proportionally more of them
 (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>).</li>
 <li><strong>Proving.</strong> A prover — anyone, with no registration — assembles a witness and produces <a href="../spec/05-proof-statement.html#PRF-01">one proof for the batch</a>: that the head block carries a valid commit certificate over the epoch's authenticated set with more
 than two thirds of its voting power, that executing the batch's blocks from the predecessor state yields the claimed
 successor state root, and that the executed bytes are the published bytes. A completed proof bound to this batch's
 data commitment is <strong>proof-ready</strong>; it is still only off-chain evidence until it lands.</li>
 <li><strong>Landing.</strong> The prover calls one function, <code>land(data, proof)</code>, in one L1 transaction.
-The contract derives the public inputs it can derive itself, checks the blob openings if the blob path is used, calls
-the verifier, and only then writes a checkpoint. If verification fails the transaction reverts with no partial
+The data argument carries the batch data or names a live publication record that already holds it; publishing the data
+earlier is permissionless and writes no batch state. The contract derives the public inputs it can derive itself,
+checks the blob openings against this transaction's own versioned hashes or the referenced record's recorded hashes,
+calls the verifier, and only then writes a checkpoint. If verification fails the transaction reverts with no partial
 effect: no checkpoint, no height advance, no payout. The range must start at
 <code>max(lastLandedHeight + 1, resumeHeight)</code>: contiguous with the previous checkpoint and never at
 or below a height retired by a completed recovery, and the checkpoint chain never moves backwards
@@ -169,7 +171,7 @@ irreversible under the protocol's own rules.</p>
 <tr><td><strong>voted</strong></td><td>A validator's signed prevote or precommit for this block at this height and round</td><td>It irreversibly constrains that validator's future votes through the lock rule</td><td>Never — a signed vote cannot be taken back; signing a conflicting one is slashable equivocation</td></tr>
 <tr><td><strong>PoS-certified (provisional)</strong></td><td>A published commit certificate carrying signed voting power <code>s</code> with <code>3·s &gt; 2·W</code> over the epoch's authenticated set, <em>plus your own data check</em></td><td>More than two thirds of the epoch's voting power committed to this block, so the certificate is valid &mdash; but a confirmation above the last checkpoint accepted on Ethereum is <strong>provisional</strong> and can be replaced</td><td>A recovery after a settlement stall, which replaces everything above the last checkpoint accepted on Ethereum and permanently retires the discarded heights; a failure of the stake assumption still halts rather than rewriting</td></tr>
 <tr><td><strong>proof-ready</strong></td><td>A completed ZK proof bound to this batch's data commitment, existing off-chain</td><td>The batch can be landed</td><td>A better proof of the same data commitment may replace it; a proof of a different batch is not a substitute</td></tr>
-<tr><td><strong>accepted on L1</strong></td><td>The accepting L1 transaction and the checkpoint record it wrote</td><td>The batch data is public on Ethereum and the transition is L1-committed; the protocol's own rules can no longer replace it, and recovery may not touch it</td><td>An L1 reorganisation below Ethereum finality can undo the transaction; nothing else</td></tr>
+<tr><td><strong>accepted on L1</strong></td><td>The accepting L1 transaction and the checkpoint record it wrote</td><td>The batch data is bound on Ethereum — carried by the accepting transaction or held in the live publication record it references — and the transition is L1-committed; the protocol's own rules can no longer replace it, and recovery may not touch it</td><td>An L1 reorganisation below Ethereum finality can undo the transaction; nothing else</td></tr>
 <tr><td><strong>Ethereum-final</strong></td><td>The accepting transaction is in a finalized L1 block, or the fact it depends on is at the configured finality depth</td><td>L1 facts can no longer be reorganised</td><td>Nothing in the design; this is the end of L1 reorganisation risk</td></tr>
 <tr><td><strong>withdrawal-eligible</strong></td><td>Accepted (or Ethereum-final) plus the message-authentication path plus the required delay</td><td>Value may leave the bridge</td><td>Nothing on the protocol's own side, except that a settlement stall delays the path for later messages until a batch lands or a recovery completes &mdash; and a recovery can replace an unsettled message</td></tr>
 </tbody>
@@ -188,7 +190,7 @@ batch that carries it is 385–416. The numbers below are arithmetic on the desi
 <tr><td>Batch range</td><td>385–390, head 390</td><td>6 blocks, the largest sustainable batch at the target data rate; contiguous with the previous landed height 384</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> blob constants</td></tr>
 <tr><td>Batch time span</td><td>12 s of L2 history</td><td>6 × 2 s</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Proof time</td><td>minutes to 30 min envelope</td><td>a planning assumption for normal operation; not measured</td><td><span class="tag">unmeasured</span></td></tr>
-<tr><td>L1 acceptance</td><td>L1 block <code>N</code>, one transaction</td><td><code>land(data, proof)</code>: contract-derived inputs, verifier call, then the checkpoint write; range must start at <code>lastLandedHeight + 1</code></td><td><span class="tag">derived</span> mechanics; gas and inclusion delay <span class="tag">unmeasured</span></td></tr>
+<tr><td>L1 acceptance</td><td>L1 block <code>N</code>, one accepting transaction</td><td><code>land(data, proof)</code>: the data is carried or a live publication record is referenced, contract-derived inputs are computed, the verifier is called, and only then is the checkpoint written; range must start at <code>lastLandedHeight + 1</code></td><td><span class="tag">derived</span> mechanics; gas and inclusion delay <span class="tag">unmeasured</span></td></tr>
 <tr><td>Checkpoint written at height 390</td><td>record <code>(height, blockHash, stateRoot, epoch, setRoot, dataCommitment, l1BlockNumber, lastAcceptedBatchTime)</code></td><td>the record is the anchor the bridge resolves for that height</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Ethereum finality for the checkpoint</td><td>Ethereum's own finality lag after block <code>N</code></td><td>two Ethereum epochs is the design's working figure; the value is a property of Ethereum and is not measured for a deployment of this design</td><td><span class="tag">sourced</span> property / value <span class="tag">unmeasured</span></td></tr>
 <tr><td>Withdrawal</td><td>checkpoint + message path + <code>WITHDRAWAL_DELAY</code></td><td>the delay is derived from the whole settlement pipeline — proving, detection, evidence submission, L1 inclusion, L1 finality, processing and a margin — and none of those terms is measured</td><td><span class="tag">unmeasured</span></td></tr>
@@ -241,7 +243,7 @@ showing, it must not show one.</p>
 <ul>
 <li>A single transaction-to-withdrawal path with a named, checkable status at every step.</li>
 <li>A separation between certification (seconds, validators), proof (minutes, provers) and settlement (L1 inclusion and Ethereum finality), so expectations and timeouts can be set per stage.</li>
-<li>A landing rule that is atomic and monotone: a batch's data and proof arrive together, and the checkpoint chain never moves backwards.</li>
+<li>A landing rule that is proof-gated and monotone: one transaction binds the proof and the data it carries or references, and the checkpoint chain never moves backwards.</li>
 <li>A clear boundary between provisional and irreversible: a PoS confirmation above the last accepted
 checkpoint can be replaced by recovery, while L1 acceptance onward is not touched by it, and the replaced
 heights are permanently retired so they cannot come back.</li>
@@ -272,7 +274,8 @@ confirmation is provisional. Anyone may start a bonded, delayed recovery that re
 retires the discarded heights, so the replaced range cannot be landed again; a rolled-back transaction must be
 resubmitted. Once the batch is accepted on L1, the protocol's own rules can no longer replace it.</p></details>
 <details><summary>A prover has produced a proof for batch 385–390 but has not yet sent the L1 transaction. Which status is the batch in, and what can still change it?</summary>
-<p>Proof-ready. The proof exists off-chain and the batch can be landed, but nothing is public on Ethereum yet. Any
+<p>Proof-ready. The proof exists off-chain and the batch can be landed, but no checkpoint exists yet. The data may
+already be on Ethereum, since anyone may publish it before the proof and publication writes no batch state. Any
 account can land the same batch first and collect the reward, and a better proof of the same data commitment could
 replace this one — but a proof for a different range or a different data commitment cannot be substituted.</p></details>
 <details><summary>Why must a batch's range start at the previous checkpoint plus one, and what happens after an L1 reorganisation?</summary>
@@ -289,7 +292,7 @@ contract never repairs a reorganisation by writing a chosen checkpoint.</p></det
 <ul>
 <li>Fewer than one third of each epoch's voting power is malicious, so no two conflicting certificates exist.</li>
 <li>More than two thirds of the epoch's validators are online and message delay is within the round-timeout bound, so rounds complete.</li>
-<li>Validators and nodes hold the block data they voted for and can serve it; somebody keeps the data until the proof lands.</li>
+<li>Validators and nodes hold the block data they voted for and can serve it; somebody keeps the data until the proof lands, and anyone may publish it to L1 first.</li>
 <li>At least one adequately-resourced prover proves each committed batch inside the permitted window.</li>
 <li>Ethereum includes valid transactions, and the accepting transaction is not reorganised out below the finality depth.</li>
 <li>The bridge's message-authentication path and its delay are set from the same settlement pipeline the delay formula names.</li>

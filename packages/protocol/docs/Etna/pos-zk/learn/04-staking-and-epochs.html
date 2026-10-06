@@ -16,7 +16,7 @@
 <li><a href="03-consensus.html">3. How the chain agrees</a></li>
 <li><a href="04-staking-and-epochs.html" class="active">4. Stake, validators, epochs</a></li>
 <li><a href="05-the-proof.html">5. What the proof proves</a></li>
-<li><a href="06-data-and-proof-together.html">6. Data and proof together</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
 <li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
 <li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
 <li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
@@ -184,9 +184,9 @@ for every epoch the entry was in; and no unsettled or collectible penalty remain
 <p><code>D_WITHDRAW</code> is bounded below by the whole accountability pipeline:
 <code>T_PROOF_MAX_PERMITTED + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_PROCESS + M</code>.
 Each term is <span class="tag">unmeasured</span>, and the inclusion term must be a
-quantile, never a mean. The delay is long because data and proof land together: there is no window
-in which published data sits on L1 waiting for a proof, so evidence is typically generated after
-settlement or concurrently on L2. Penalties are charged against the stake the entry held at the
+quantile, never a mean. The delay is long because it must cover the whole path from offence to an
+L1-applied penalty: the offence clock starts on L2, possibly long before the batch is provable, and
+data published to L1 before its proof settles nothing. Penalties are charged against the stake the entry held at the
 offence epoch, not at the epoch the evidence arrives, so an exit cannot launder an old offence.</p>
 
 <h3>7. Rotation cannot change who was allowed to vote</h3>

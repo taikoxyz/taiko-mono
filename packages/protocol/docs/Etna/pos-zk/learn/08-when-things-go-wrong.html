@@ -14,7 +14,7 @@
 <li><a href="03-consensus.html">3. How the chain agrees</a></li>
 <li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
 <li><a href="05-the-proof.html">5. What the proof proves</a></li>
-<li><a href="06-data-and-proof-together.html">6. Data and proof together</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
 <li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
 <li><a href="08-when-things-go-wrong.html" class="active">8. When things go wrong</a></li>
 <li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
@@ -315,8 +315,9 @@ on a provisional confirmation has no protocol remedy
 (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</li>
 <li><strong>Validators are not punished for halting.</strong> Halting is the required behaviour when
 the rules say so.</li>
-<li><strong>Operators must not improvise.</strong> &ldquo;Unsticking&rdquo; the chain by publishing
-data without a proof, or picking a branch, converts a safe halt into an unsafe restart. The only
+<li><strong>Operators must not improvise.</strong> Publishing data without a proof accepts nothing
+&mdash; publication writes no batch state &mdash; so it cannot unstick the chain; picking a branch, by
+contrast, converts a safe halt into an unsafe restart. The only
 legitimate actions are the rule-legal ones, and for a settlement stall the rule-legal action is the
 published recovery.</li>
 <li><strong>A halt below the checkpoint may still be permanent.</strong> If every holder of an accepted
@@ -453,10 +454,11 @@ certificate for the locked block eventually appears, it is accepted then.</p></d
 <p>It must not sign for any <code>(height, round, type)</code> it cannot prove it has not already
 signed. Lost memory is treated as a signing fault, not as a fresh start, because double-signing is the
 one objectively punishable offence and the one that can break safety.</p></details>
-<details><summary>Why is publishing data without a proof not an acceptable way to unblock settlement?</summary>
-<p>It would create an accepted record before anything justifies it, break the rule that data and proof
-live in one transaction, and turn a safe halt into an unverified history. The design has no data-first
-path by construction, and no recovery may introduce one.</p></details>
+<details><summary>Is publishing a batch&rsquo;s data to L1 without a proof a way to unblock settlement?</summary>
+<p>No. Publication is permissionless, but it writes a publication record and no batch state: it accepts
+nothing and advances no height, so settlement resumes only when a valid proof lands. A publication that is
+never proven before its deadline is discarded and can be published again, so it never becomes a second
+acceptance path.</p></details>
 <details><summary>Is a PoS confirmation above the last accepted checkpoint final?</summary>
 <p>No. It is valid but provisional: after a settlement stall, anyone may start a bonded, delayed recovery
 that replaces history above the last checkpoint accepted on Ethereum and permanently retires the discarded
@@ -487,7 +489,7 @@ rule is about where a batch starts, not which proof was used.</p></details>
 and vote-uniqueness rules.</li>
 <li>Enough validators are online to form quorums in normal operation; the protocol has no degraded
 mode when they are not.</li>
-<li>Somebody keeps the data for every certified block until its proof lands.</li>
+<li>Somebody keeps the data for every certified block until its proof lands, or publishes it to L1 while the blobs are retrievable.</li>
 <li>At least one prover finishes each batch before the retention assumption expires.</li>
 <li>The recovery trigger, bond split, delay, escalation, cooldown and cancellation values are unmeasured
 placeholders, and the argument that they cannot be abused rests on stated conditions rather than on

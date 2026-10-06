@@ -14,7 +14,7 @@
 <li><a href="03-consensus.html">3. How the chain agrees</a></li>
 <li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
 <li><a href="05-the-proof.html">5. What the proof proves</a></li>
-<li><a href="06-data-and-proof-together.html">6. Data and proof together</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
 <li><a href="07-timing.html" class="active">7. Two seconds, thirty minutes</a></li>
 <li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
 <li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
@@ -44,16 +44,18 @@ batch reaches Ethereum, and not when a withdrawal becomes available. Those are f
 and the most common way to misread this protocol is to collapse them into one.</p>
 
 <p>A <strong>batch</strong> is a contiguous range of L2 blocks that is accepted on Ethereum by one
-transaction carrying two things together: the batch data, and a validity proof over it
-(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>). There is no state on Ethereum in which the
-data has arrived and the proof has not, or the reverse. One transaction, both objects, one checkpoint
-advance.</p>
+proof-gated transaction: it carries a validity proof over the range, and it binds the range&rsquo;s
+data by carrying it or by referencing a live publication record that already holds it
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>, <a href="../spec/04-l1-integration.html#DA-08">DA-08</a>).
+The checkpoint advances only when the proof verifies; a publication on its own accepts nothing.
+Data may be published to Ethereum before the proof.</p>
 
 <blockquote>
-<p>While a batch is being proven, <strong>its data is not on Ethereum</strong>. It exists on L2
+<p>While a batch is being proven, its data may not be on Ethereum yet. It exists on L2
 participants&rsquo; machines &mdash; the validators and full nodes that hold the blocks and serve them
-&mdash; until the batch is accepted in the L1 transaction that carries the data and the proof together.
-Only from that transaction onward is the canonical copy of the data on Ethereum.</p>
+&mdash; until somebody publishes it. Anyone may publish it to L1 in blobs before the proof, which writes
+a publication record and no batch state; only the accepting transaction, carrying the data or referencing
+a live publication record, makes the binding canonical.</p>
 </blockquote>
 
 <p>Here is the whole model in one table. Each clock is distinct; no rule or interface may equate two
@@ -81,18 +83,18 @@ of them (<a href="../spec/01-system-model.html#SYS-03">SYS-03</a>).</p>
 <rect x="288" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="298" y="138" fill="#24292f" font-size="11">Batch closes</text> <text x="298" y="156" fill="#59636e" font-size="10">contiguous range</text> <text x="298" y="174" fill="#59636e" font-size="10">at most 6 blocks</text> <text x="298" y="192" fill="#1a7f37" font-size="10">&asymp; 12 s, derived</text>
 <rect x="420" y="116" width="120" height="92" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="430" y="138" fill="#24292f" font-size="11">Proof computed</text> <text x="430" y="156" fill="#59636e" font-size="10">minutes &rarr; 30 min</text> <text x="430" y="174" fill="#59636e" font-size="10">STATUS-05 (off-chain)</text>
 <text x="430" y="192" fill="#9a6700" font-size="10">&le; 900 blocks envelope</text> <rect x="552" y="116" width="120" height="92" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="562" y="138" fill="#24292f" font-size="11">land(data, proof)</text> <text x="562" y="156" fill="#59636e" font-size="10">one L1 transaction</text>
-<text x="562" y="174" fill="#59636e" font-size="10">STATUS-06</text> <text x="562" y="192" fill="#1a7f37" font-size="10">data now on Ethereum</text> <rect x="684" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="694" y="138" fill="#24292f" font-size="11">Ethereum-final</text>
+<text x="562" y="174" fill="#59636e" font-size="10">STATUS-06</text> <text x="562" y="192" fill="#1a7f37" font-size="10">checkpoint written</text> <rect x="684" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="694" y="138" fill="#24292f" font-size="11">Ethereum-final</text>
 <text x="694" y="156" fill="#59636e" font-size="10">&asymp; 2 epochs</text> <text x="694" y="174" fill="#59636e" font-size="10">STATUS-07</text> <text x="694" y="192" fill="#7dcfff" font-size="10">&asymp; 12.8 min (derived)</text> <rect x="816" y="116" width="120" height="92" rx="8" fill="#f6f8fa" stroke="#d8dee4"/>
 <text x="826" y="138" fill="#24292f" font-size="11">Withdrawal</text> <text x="826" y="156" fill="#59636e" font-size="10">+ WITHDRAWAL_DELAY</text> <text x="826" y="174" fill="#59636e" font-size="10">STATUS-08</text> <text x="826" y="192" fill="#9a6700" font-size="10">unmeasured</text>
 <path d="M144 162 H152" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <path d="M276 162 H284" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <path d="M408 162 H416" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <path d="M540 162 H548" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <path d="M672 162 H680" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/>
 <path d="M804 162 H812" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr7)"/> <rect x="24" y="238" width="528" height="58" rx="8" fill="#fff8e5" stroke="#5c4a1c"/> <text x="38" y="260" fill="#9a6700" font-size="12">NOT on Ethereum: data held by L2 validators and nodes</text> <text x="38" y="279" fill="#24292f" font-size="10">they serve the blocks while unsettled; retention is an assumption, not an on-chain duty</text>
-<rect x="552" y="238" width="384" height="58" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="566" y="260" fill="#1a7f37" font-size="12">Data and proof public on Ethereum</text> <text x="566" y="279" fill="#24292f" font-size="10">calldata and/or blob sidecars of the accepting transaction</text>
+<rect x="552" y="238" width="384" height="58" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="566" y="260" fill="#1a7f37" font-size="12">Data bound on Ethereum, proof verified</text> <text x="566" y="279" fill="#24292f" font-size="10">carried by the accepting transaction, or published earlier and referenced</text>
 <path d="M288 316 H552" stroke="#59636e" stroke-width="1"/> <path d="M288 312 v8 M552 312 v8" stroke="#59636e" stroke-width="1"/> <text x="420" y="334" fill="#59636e" font-size="11" text-anchor="middle">planning envelope: up to 900 L2 blocks = 30 min of history</text> <text x="24" y="372" fill="#59636e" font-size="11">Statuses along the way: proposed (STATUS-01) &rarr; locally valid (STATUS-02) &rarr; voted (STATUS-03) &rarr; PoS-certified (STATUS-04)</text>
-<text x="24" y="390" fill="#59636e" font-size="11">&rarr; proof-ready off-chain (STATUS-05) &rarr; accepted on L1 (STATUS-06) &rarr; Ethereum-finalized (STATUS-07) &rarr; withdrawal-eligible (STATUS-08)</text> <text x="24" y="414" fill="#cf222e" font-size="11">A display before STATUS-06 must say the confirmation is provisional and the batch&rsquo;s data and proof are not yet on Ethereum (STATUS-11).</text>
+<text x="24" y="414" fill="#cf222e" font-size="11">A display before STATUS-06 must say the confirmation is provisional; the data may already be published, but no checkpoint exists yet (STATUS-11).</text>
 </svg>
 <figcaption>The horizontal axis is a sequence of stages, not a scale: the white two-second cadence keeps
 running during the darker proving window. The shaded band marks the interval in which the data exists
-only on L2 participants&rsquo; machines.</figcaption>
+only on L2 participants&rsquo; machines, unless an account publishes it to L1 first.</figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -120,8 +122,9 @@ or below a height retired by a completed recovery (<a href="../spec/04-l1-integr
 Landing is strictly in order, and a discarded range can never be landed.</li>
 <li>The batch length is bounded by data, not by preference. At the target rate one 2-second L2 block is one
 131,072-byte blob (EIP-4844, <span class="tag">sourced</span>); EIP-7691 allows 6 blobs per L1 block as the
-target and 9 as the maximum (<span class="tag">sourced</span>); and the batch&rsquo;s data and its proof must
-travel in <strong>one</strong> transaction (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>). A
+target and 9 as the maximum (<span class="tag">sourced</span>); and the batch&rsquo;s data must fit in
+<strong>one</strong> L1 transaction &mdash; the accepting one when it is carried, or the publication one
+when it is published earlier (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>). A
 batch is therefore at most about 6 blocks at the target rate, and 9 blocks is the hard ceiling: the bound
 is <code>BATCH_BLOCKS &times; blobs_per_block &le; 9</code>, with 6 the sustainable value
 (<span class="tag">derived</span> from the sourced constants).</li>
@@ -179,11 +182,14 @@ above it.</p>
 
 <h3>Landing, finality and exit</h3>
 <p>When a proof exists, anyone may submit <code>land(data, proof)</code>: one transaction carrying the
-range, the data (calldata and/or blobs) and the proof. The Inbox checks that the range starts at
-<code>max(lastLandedHeight + 1, resumeHeight)</code>, derives the public inputs from its own state, verifies the proof, and only then writes the checkpoint
-record. There is no expiry, no allowlist and no pending record. The checkpoint carries the L2 height,
+range, the proof, and the data either as calldata or blobs or as a reference to a live publication record.
+The Inbox checks that the range starts at
+<code>max(lastLandedHeight + 1, resumeHeight)</code>, derives the public inputs from its own state, checks the
+data binding, verifies the proof, and only then writes the checkpoint
+record. There is no expiry, no allowlist and no pending batch record. The checkpoint carries the L2 height,
 block hash, state root, epoch, validator-set root, data commitment and the L1 block that accepted it.
-That transaction is the moment the data becomes canonical on Ethereum.</p>
+That transaction is the moment the batch is accepted and its data binding is recorded; the data itself may
+have been on Ethereum since an earlier publication.</p>
 <p>A bridge withdrawal then needs the checkpoint whose state root covers the signal, plus
 <code>WITHDRAWAL_DELAY</code> measured from that checkpoint&rsquo;s <code>l1BlockNumber</code>; where the
 claim depends on an L1 fact that can still be reorganized, it additionally needs Ethereum finality
@@ -200,33 +206,34 @@ fixed and what is arithmetic on inputs that still need measuring.</p>
 <tr><td>Submitted</td><td>In an L2 mempool; no protocol status yet</td><td>&mdash;</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Proposed and executed</td><td>The RPC returns a receipt; locally execution-valid (STATUS-02), which is not agreement</td><td>&le; 2 s</td><td><span class="chip">decided cadence</span></td></tr>
 <tr><td>Voted and certified</td><td>A commit certificate over the block; the signed vote is not revocable, but above the latest accepted checkpoint the confirmation is provisional (STATUS-03, STATUS-04)</td><td>a few rounds; unmeasured</td><td><span class="chip">unmeasured</span></td></tr>
-<tr><td>Batch closes</td><td>The block&rsquo;s batch reaches its range end; its data still exists only on L2 nodes</td><td>0&ndash;12 s after the batch&rsquo;s first block</td><td><span class="chip">derived</span> from <span class="chip">sourced</span> blob constants</td></tr>
+<tr><td>Batch closes</td><td>The block&rsquo;s batch reaches its range end; its data exists on L2 nodes until an account publishes it</td><td>0&ndash;12 s after the batch&rsquo;s first block</td><td><span class="chip">derived</span> from <span class="chip">sourced</span> blob constants</td></tr>
 <tr><td>Proof computed</td><td>A proof of consensus and execution exists off-chain (STATUS-05)</td><td>minutes to 30 min (900 blocks)</td><td><span class="chip">unmeasured</span></td></tr>
-<tr><td>Accepted on L1</td><td>One <code>land</code> transaction; data and proof public; bridge authentication anchors here (STATUS-06)</td><td>L1 inclusion, unmeasured</td><td><span class="chip">unmeasured</span></td></tr>
+<tr><td>Accepted on L1</td><td>One proof-gated <code>land</code> transaction; the checkpoint and the data binding are recorded; bridge authentication anchors here (STATUS-06)</td><td>L1 inclusion, unmeasured</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Ethereum-final</td><td>The accepting transaction is at the configured finality depth (STATUS-07)</td><td>&asymp; 12.8 min after acceptance</td><td><span class="chip">sourced depth</span> <span class="chip">derived</span></td></tr>
 <tr><td>Withdrawal-eligible</td><td>Checkpoint plus message path plus the delay (STATUS-08)</td><td>plus <code>WITHDRAWAL_DELAY</code></td><td><span class="chip">unmeasured</span></td></tr>
 </tbody></table>
 <p>At the target data budget of about 131,072 bytes per L2 block, one block is one blob, so a batch
-cannot be longer than the blob limit of the single transaction that carries it together with its proof:
+cannot be longer than the blob limit of the single L1 transaction that holds its data &mdash; the accepting
+transaction when it is carried, or the earlier publication transaction when it is published first:
 six blocks at Ethereum&rsquo;s target of six blobs per L1 block (786,432 bytes, exactly one L1 slot of blob
-capacity) and nine blocks at the hard maximum. Batch length is therefore set by data and by the atomic
-rule, not by preference &mdash; and because the batch is short, about 150 batches are unsettled inside the
+capacity) and nine blocks at the hard maximum. Batch length is therefore set by data and by the
+one-transaction publication rule, not by preference &mdash; and because the batch is short, about 150 batches are unsettled inside the
 thirty-minute envelope, hence roughly 150 proofs in flight. That is arithmetic on sourced constants, not a
 measurement of this system.</p>
 <p>The intervals add. Only the two-second cadence and the arithmetic are fixed today; the provers,
 the L1 inclusion path and the withdrawal delay are all waiting on measurement. What the design fixes is
-the <em>order</em>: production, then certification, then a proof, then one atomic landing, then Ethereum
+the <em>order</em>: production, then certification, then a proof, then one proof-gated landing, then Ethereum
 finality, then withdrawal.</p>
 
 <h2>What this gives you</h2>
 <ul>
 <li>Six separate clocks with names, so a latency claim can be checked instead of assumed.</li>
-<li>A batch that cannot reach Ethereum half-settled: data and proof land in the same transaction.</li>
+<li>A batch that cannot reach Ethereum half-settled: the checkpoint advances only when a valid proof lands, and a publication on its own accepts nothing.</li>
 <li>A proving pipeline that overlaps production, so proving is not a stop-the-world step.</li>
 <li>A cap that stops production before data can age out of the retention assumption, instead of
 backing up forever and stranding a certified range.</li>
-<li>A batch length <em>bounded</em> by data and atomicity but <em>chosen by the submitter</em> within that bound: one blob per block at the target
-rate, and one transaction for data plus proof, give at most about six blocks per batch.</li>
+<li>A batch length <em>bounded</em> by data and by one-transaction publication but <em>chosen by the submitter</em> within that bound: one blob per block at the target
+rate, and the data fitting in a single L1 transaction &mdash; the accepting one or the publication one &mdash; give at most about six blocks per batch.</li>
 <li>An unambiguous moment &mdash; L1 acceptance &mdash; at which the data becomes public on Ethereum
 and withdrawals can begin to be counted.</li>
 </ul>
@@ -237,8 +244,9 @@ and withdrawals can begin to be counted.</li>
 cadence.</li>
 <li>A guarantee that a proof finishes inside 30 minutes. The envelope is a planning assumption; a
 slower proof is not misconduct, and the cap eventually binds.</li>
-<li>Data availability on Ethereum during the proving window. That window&rsquo;s availability comes
-from L2 participants and is an assumption, not an on-chain duty.</li>
+<li>A guarantee that the data is on Ethereum during the proving window: anyone may publish it to L1
+before the proof, but nothing forces publication, and publication settles nothing. If nobody publishes,
+the window&rsquo;s availability comes from L2 participants and is an assumption, not an on-chain duty.</li>
 <li>Any measured latency figure. L1 inclusion, the round budget, the retention window and the
 withdrawal delay are all not yet measured.</li>
 <li>A small proving fleet or a long batch. About 150 batches are unsettled inside the thirty-minute
@@ -250,25 +258,28 @@ bound, not a target that can be tuned away.</li>
 <details><summary>A user interface shows &ldquo;confirmed&rdquo; two seconds after submission. What has actually happened?</summary>
 <p>At most: the block was proposed, executed locally and voted on. It is not certified, and even a later
 confirmation above the latest checkpoint accepted on Ethereum would be provisional; its batch&rsquo;s
-data is not on Ethereum and no proof exists. A display before acceptance must say that the confirmation
-is provisional and that the data and proof are not yet on Ethereum (<a href="../spec/index.html#STATUS-11">STATUS-11</a>).</p></details>
+data may not be on Ethereum: nothing has published it, and no proof has landed. A display before acceptance must say that the confirmation
+is provisional, that the data may already be published, and that no checkpoint exists yet (<a href="../spec/index.html#STATUS-11">STATUS-11</a>).</p></details>
 <details><summary>The unsettled-depth cap binds. Why can a valid proof for that same deep range still land on L1?</summary>
 <p>Because the cap is a production rule enforced by validators, not an admission rule on
 <code>land</code>. Refusing a valid proof at L1 could strand a legitimately certified range, which the
 design forbids. The correct sequence is: production stops, existing ranges are proven and landed, and
 production resumes as the checkpoint advances.</p></details>
 <details><summary>Ten minutes after a block is certified, its proof is still running. Where is the block&rsquo;s data?</summary>
-<p>On L2 participants&rsquo; machines. Validators and full nodes hold and serve it while the batch is
-unsettled. The canonical copy is created only when the accepting L1 transaction publishes the calldata
-or blobs. Retention until then is a stated assumption, not something the protocol enforces.</p></details>
+<p>On L2 participants&rsquo; machines, unless an account has published it to L1: publication is
+permissionless, writes a publication record and no batch state, and can happen at any time before the
+proof. The batch is not accepted, and its data binding is not recorded, until the accepting L1 transaction
+lands &mdash; carrying the data or referencing a live publication record. Retention before then is a stated
+assumption, not something the protocol enforces.</p></details>
 
 <details><summary>Why is a batch at most about six blocks at the target rate, rather than a larger number chosen for convenience?</summary>
-<p>Because the data and the proof must travel in one L1 transaction
-(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>), and the batch&rsquo;s data rides in that
-transaction&rsquo;s blobs. At the target rate one 2-second block is one 131,072-byte blob, and EIP-7691
+<p>Because the batch&rsquo;s data must fit in one L1 transaction
+(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>) &mdash; the accepting transaction when it is
+carried, or the publication transaction when it is published earlier &mdash; and at the target rate the data
+rides in that transaction&rsquo;s blobs. One 2-second block is one 131,072-byte blob, and EIP-7691
 allows 6 blobs per L1 block as the target and 9 as the maximum, so a 32-block batch would need about 32
 blobs in one transaction &mdash; far past the ceiling. The bound is a consequence of the data and of the
-atomic rule, not a tuning choice, and it is why roughly 150 proofs are in flight rather than a handful.</p></details>
+one-transaction publication rule, not a tuning choice, and it is why roughly 150 proofs are in flight rather than a handful.</p></details>
 
 <div class="card">
 <h3>Assumptions</h3>
@@ -286,7 +297,7 @@ protocol&rsquo;s fee budget buys at the prevailing blob price.</li>
 </ul>
 </div>
 
-<p class="small"><a href="06-data-and-proof-together.html">&larr; Previous: Data and proof together</a>
+<p class="small"><a href="06-data-and-proof-together.html">&larr; Previous: Data first, proof binds</a>
 &middot; <a href="08-when-things-go-wrong.html">Next: When things go wrong &rarr;</a></p>
 </main>
 <footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>

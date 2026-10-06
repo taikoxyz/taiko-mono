@@ -13,7 +13,7 @@
 <li><a href="03-consensus.html">3. How the chain agrees</a></li>
 <li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
 <li><a href="05-the-proof.html">5. What the proof proves</a></li>
-<li><a href="06-data-and-proof-together.html">6. Data and proof together</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
 <li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
 <li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
 <li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
@@ -70,7 +70,7 @@ history that was replaced can never come back.</li>
 <tr><td><a href="03-consensus.html">How the chain agrees</a></td><td>Proposals, votes, the two-thirds quorum, locks, commit certificates, proposer selection and view changes.</td></tr>
 <tr><td><a href="04-staking-and-epochs.html">Stake, validators and epochs</a></td><td>Bonding TAIKO, joining an epoch&rsquo;s validator set, how voting power is counted, exits, and how a new node starts safely.</td></tr>
 <tr><td><a href="05-the-proof.html">What the proof proves</a></td><td>The zero-knowledge statement: the consensus certificate, execution, the data binding, and the configuration and recovery generation it binds — and what it deliberately does not prove.</td></tr>
-<tr><td><a href="06-data-and-proof-together.html">Data and proof travel together</a></td><td>One accepting transaction binds the data and the proof — the data carried, or a live publication record referenced — plus the calldata and blob paths, the blob binding, the per-epoch configuration registry and the recovery generation the proof binds, the retired height a discarded range can never cross, and what a failed verification does.</td></tr>
+<tr><td><a href="06-data-and-proof-together.html">Data first, proof binds</a></td><td>One accepting transaction binds the data and the proof — the data carried, or a live publication record referenced — plus the calldata and blob paths, the blob binding, the per-epoch configuration registry and the recovery generation the proof binds, the retired height a discarded range can never cross, and what a failed verification does.</td></tr>
 <tr><td><a href="07-timing.html">Two seconds and thirty minutes</a></td><td>Block cadence, certification, proving, L1 acceptance, Ethereum finality and withdrawals on one timeline &mdash; including the data bound on batch length and the roughly 150 proofs in flight it implies.</td></tr>
 <tr><td><a href="08-when-things-go-wrong.html">When things go wrong</a></td><td>Withholding, missing certificates, offline validators, lost data, settlement stalls &mdash; and how a bonded, delayed, permissionless recovery replaces unsettled history above the last checkpoint accepted on Ethereum, retires the discarded heights for good, and treats locks there as void.</td></tr>
 <tr><td><a href="09-censorship-and-the-bridge.html">Censorship and the bridge</a></td><td>What censorship resistance this design does and does not provide — a narrow, proof-enforced inclusion obligation over data published to L1, an upper bound on exclusion, with the general inclusion list planned as a later protocol update — plus how bridge messages are authenticated.</td></tr>
@@ -85,7 +85,7 @@ history that was replaced can never come back.</li>
 one transaction from submission to withdrawal and shows what each status really guarantees.</p></div>
 <div class="card"><h4>Implementing a client</h4><p><a href="03-consensus.html">Consensus</a> for messages and voting,
 <a href="04-staking-and-epochs.html">Staking and epochs</a> for membership, then
-<a href="05-the-proof.html">the proof</a> and <a href="06-data-and-proof-together.html">data + proof</a>.</p></div>
+<a href="05-the-proof.html">the proof</a> and <a href="06-data-and-proof-together.html">data first, proof binds</a>.</p></div>
 <div class="card"><h4>Running a node</h4><p><a href="07-timing.html">Timing</a>,
 <a href="08-when-things-go-wrong.html">Failures</a> and <a href="10-economics.html">Economics</a>: what to run,
 what to watch, and what to do when settlement stalls.</p></div>

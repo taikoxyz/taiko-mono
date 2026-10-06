@@ -16,7 +16,7 @@
 <li><a href="03-consensus.html">3. How the chain agrees</a></li>
 <li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
 <li><a href="05-the-proof.html">5. What the proof proves</a></li>
-<li><a href="06-data-and-proof-together.html">6. Data and proof together</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
 <li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
 <li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
 <li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
@@ -45,7 +45,7 @@
 <p>Two assets do two different jobs. <strong>TAIKO</strong> is what a validator bonds and can lose: it is the staking and slashable collateral asset, held in one L1 custody ledger. <strong>ETH</strong> is what the chain earns and spends: L2 execution fees are paid in ETH, L1 data and verification costs are paid in ETH, and validator rewards are denominated and paid in ETH. Gas stays ETH.</p>
 <p>A reward is a nominal ETH amount fixed when it is awarded. The protocol says nothing about its fiat value, and no rule may be conditioned on TAIKO&rsquo;s price rising. A reward schedule that only works if the token appreciates is an unfunded promise: TAIKO has no mint function today, so a reward funded by new TAIKO would need a token upgrade, and the reward pool can pay out only what has actually flowed into it.</p>
 <p>A penalty is not a mood and not a discretion. Exactly two kinds of behaviour are objectively provable from signed messages, and only a proven offence consumes stake. The size of the penalty is a function of how much of the epoch&rsquo;s voting power the offence implicated, so a single misbehaving validator pays a small amount while a coalition that approaches the one-third safety boundary loses everything it bonded for that epoch.</p>
-<p>Exit is an ordered queue, not a switch. A validator that asks to leave keeps validating and stays fully slashable until its exit takes effect, and even then its stake is held until every evidence window it was exposed to has closed. The delay exists because batch data and its proof land in one L1 transaction, so nobody can inspect a published batch before settlement: the delay has to cover the whole path from offence to L1-applied penalty.</p>
+<p>Exit is an ordered queue, not a switch. A validator that asks to leave keeps validating and stays fully slashable until its exit takes effect, and even then its stake is held until every evidence window it was exposed to has closed. The delay exists because the offence clock starts on L2, possibly long before the batch is provable, and publishing data to L1 before its proof settles nothing: the delay has to cover the whole path from offence to L1-applied penalty.</p>
 
 <h2 id="diagram">The money path</h2>
 <figure>
@@ -178,7 +178,7 @@ charge   = min( P(v, e) , bonded(v) , remaining_exposure(v, e) )</code></pre>
 </ol>
 <pre><code>D_WITHDRAW &ge; T_PROOF_MAX_PERMITTED + T_detect + T_evidence_submit
              + T_L1_include(p) + T_L1_final + T_PROCESS + M</code></pre>
-<p><code>T_L1_include(p)</code> must be a quantile of L1 inclusion delay, never a mean and never a fixed slot duration. The delay may not be derived from nominal proving latency alone: because data and proof land together, there is no data-first window in which a third party could object before settlement, and the offence clock starts on L2, possibly long before the batch is provable. If the delay is judged too long, the answer is to reduce the pipeline terms it covers, never to set it below the formula. Every term is
+<p><code>T_L1_include(p)</code> must be a quantile of L1 inclusion delay, never a mean and never a fixed slot duration. The delay may not be derived from nominal proving latency alone: the offence clock starts on L2, possibly long before the batch is provable, and data published to L1 before its proof settles nothing, so the window has to cover the whole pipeline. If the delay is judged too long, the answer is to reduce the pipeline terms it covers, never to set it below the formula. Every term is
 <span class="tag">unmeasured</span>.</p>
 <h3>7. Minimum stake is an economic question</h3>
 <p>The minimum bonded amount for one validator is fixed by the operator break-even relation, in ETH-revenue terms:</p>
