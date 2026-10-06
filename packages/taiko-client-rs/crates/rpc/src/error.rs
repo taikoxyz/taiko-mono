@@ -68,6 +68,19 @@ pub enum RpcClientError {
         expected_fork: &'static str,
     },
 
+    /// The devnet Etna override is set on a devnet-chain-id L2 whose genesis is not the
+    /// canonical devnet genesis, where alethia-reth ignores its own `--devnet-etna-timestamp`.
+    #[error(
+        "--devnet-etna-timestamp applies only to the canonical devnet genesis {expected}, the only \
+         chain alethia-reth applies its own flag to, but this chain's genesis is {genesis_hash}; \
+         drop the flag or run the canonical devnet",
+        expected = protocol::shasta::constants::TAIKO_DEVNET_GENESIS_HASH
+    )]
+    DevnetEtnaOverrideOnForeignGenesis {
+        /// Hash of the connected L2 genesis block.
+        genesis_hash: B256,
+    },
+
     /// The execution engine does not advertise every Engine API method the client calls.
     #[error(
         "the execution engine does not serve {missing:?} (it advertises {advertised:?}); this \

@@ -91,7 +91,7 @@ pub struct CommonArgs {
         long = "devnet-etna-timestamp",
         env = "DEVNET_ETNA_TIMESTAMP",
         value_name = "TIMESTAMP",
-        help = "Activate the Etna fork on the Taiko internal devnet at this Unix timestamp. Must match the value passed to alethia-reth's --devnet-etna-timestamp. Unset means Etna never activates; 0 activates it at genesis. Ignored on other chains."
+        help = "Activate the Etna fork on the Taiko internal devnet at this Unix timestamp. Must match the value passed to alethia-reth's --devnet-etna-timestamp. Unset means Etna never activates; 0 activates it at genesis. Ignored on other chains; startup fails on the devnet chain id with a genesis other than the canonical devnet one, where alethia-reth ignores its flag."
     )]
     pub devnet_etna_timestamp: Option<u64>,
 }

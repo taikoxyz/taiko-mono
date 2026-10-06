@@ -15,9 +15,9 @@ pub use anchor::{
 };
 pub use blob_coder::BlobCoder;
 pub use constants::{
-    anchor_gas_reserve, etna_active_for_chain_timestamp, etna_fork_timestamp_for_chain, is_etna_at,
-    parent_manifest_gas_limit, set_devnet_etna_override, unzen_active_for_chain_timestamp,
-    unzen_fork_timestamp_for_chain,
+    anchor_gas_reserve, devnet_etna_override, etna_active_for_chain_timestamp,
+    etna_fork_timestamp_for_chain, is_etna_at, parent_manifest_gas_limit, set_devnet_etna_override,
+    unzen_active_for_chain_timestamp, unzen_fork_timestamp_for_chain,
 };
 pub use error::{ProtocolError, Result};
 pub use payload_helpers::{
