@@ -137,7 +137,7 @@ vector, so the two sides cannot disagree about what was proven
 <thead><tr><th>Kind</th><th>Values</th><th>Where it comes from</th></tr></thead>
 <tbody>
 <tr><td>Authority-defining (public inputs)</td><td>chain ids; <code>epoch</code>; <code>validatorSetRoot</code>; <code>totalVotingPower</code>; <code>setVersion</code> and <code>setVersionBlock</code>; the closing epoch&rsquo;s anchor root and total; predecessor height, block hash and state root; configuration hash; <code>recoveryGeneration</code>; the quorum product <code>2 &middot; W</code></td><td>Derived by the L1 contract from its own storage and from the transaction. A submitter-supplied copy must be ignored.</td></tr>
-<tr><td>Claimed but proof-bound (public inputs)</td><td>head block hash; post-state root; first and last height; block timestamps; <code>dataCommitment</code> on the blob path; <code>finalityCommitment</code>; <code>signerBitmap</code>; data mode; blob versioned-hash hash; challenge points and evaluations; fee recipient; the forced-data boundary (one commitment over which forced records were due and where the batch settled them)</td><td>Supplied with the transaction but <em>bound</em>: a wrong value makes the proof fail rather than making the contract misbehave.</td></tr>
+<tr><td>Claimed but proof-bound (public inputs)</td><td>head block hash; post-state root; first and last height; block timestamps; <code>dataCommitment</code> on the blob path; <code>finalityCommitment</code>; <code>signerBitmap</code>; data mode; blob versioned-hash hash; challenge points and evaluations; fee recipient</td><td>Supplied with the transaction but <em>bound</em>: a wrong value makes the proof fail rather than making the contract misbehave.</td></tr>
 <tr><td>Witness (private)</td><td>set entries with Merkle inclusion proofs; the commit certificate&rsquo;s signatures; the header chain; the anchor certificate at an epoch boundary; the committed payload bytes; the pre-state needed for execution</td><td>Produced by the prover. No witness element may define the validator set or the epoch.</td></tr>
 </tbody></table>
 
@@ -163,12 +163,11 @@ L2 client, the guest and the L1 contract. The journal&rsquo;s quorum field is th
 come from the Inbox record, so the proof always runs from the state Ethereum already accepted.</li>
 <li><strong>Recovery generation.</strong> <code>recoveryGeneration</code> is read from L1 storage and
 required to equal the generation the contract supplies, so a batch certified under an older generation is
-rejected even though its proof is otherwise valid. The generation is a cheap invalidation of proofs that
-were already generated; the property that a discarded branch cannot be reinstated rests on the retired
-heights: a batch must start at <code>max(lastLandedHeight + 1, resumeHeight)</code>, so a batch that starts
-below <code>resumeHeight</code> can never be landed or certified, at any generation, while a batch that starts
-exactly at <code>resumeHeight</code> is the intended resumption point and is landable; locks at retired
-heights are void. A late proof or certificate for a discarded height remains admissible as evidence.</li>
+rejected even though its proof is otherwise valid. It is a signed field of the vote and block-header bytes
+and the mechanism that scopes certificates, locks and uniqueness: a lock or certificate from a superseded
+generation cannot land a batch. v1 has no recovery path, so the generation does not advance here — the
+action that would increment it is not part of v1 — and no height is retired. A certificate from a
+superseded generation remains admissible as evidence of what was signed.</li>
 </ul>
 <p>If any of these could be chosen by the prover, the proof would be sound but meaningless: it
 would prove a true statement about a set, an epoch or a predecessor that the protocol never agreed
@@ -191,10 +190,8 @@ hash is the hash of the reconstructed head header.</li>
 <li>Recompute the finality commitment from the certificate the guest verified, rather than echoing
 a value from a hint.</li>
 <li>Check that <code>recoveryGeneration</code> equals the generation the L1 contract supplies as a
-public input, and that the batch does not start below the retired height <code>resumeHeight</code>: a batch
-from an older generation is void, and a discarded range can never be landed or certified, at any generation,
-while a batch starting exactly at <code>resumeHeight</code> is the intended resumption point and is
-landable.</li>
+public input: a batch certified under a superseded generation is void. v1 does not advance the generation,
+so this is the scoping rule a future update would exercise, not a rule that fires in v1.</li>
 <li>Decode each block body from the committed payload, execute the blocks in order from the
 predecessor state root, and check that each block&rsquo;s transactions reproduce the transaction
 root committed by its header and that the final state root equals the claimed one.</li>
@@ -219,7 +216,9 @@ published bytes. Whether anybody still serves them later is a retention question
 question.</li>
 <li><strong>That the chain keeps producing.</strong> Liveness &mdash; enough validators online,
 enough provers working &mdash; is an assumption about participants, not a theorem about the
-statement.</li>
+statement. There is also no recovery path: if settlement stalls, the chain halts safely, value at or below
+the last accepted checkpoint still exits on L1, and clearing the stall needs a future protocol update whose
+procedure is not specified.</li>
 <li><strong>That validators behaved.</strong> If at least one third of an epoch&rsquo;s voting
 power breaks the signing or locking rules, two conflicting certificates can both be
 cryptographically valid and both can produce accepting proofs. ZK verification does not repair a
@@ -271,6 +270,7 @@ will still be served tomorrow.</li>
 <li>No proof of liveness or of future production.</li>
 <li>No protection against a soundness bug in the zkVM backend or the guest program; that is a
 bridge-theft class failure which the protocol cannot repair.</li>
+<li>No aggregation: v1 accepts one proof per batch from one registered backend, so an accepted batch's soundness is that of that backend. The <code>n</code>-of-<code>m</code> aggregation over independent backends is not part of v1, and the redundancy it would add does not hold here.</li>
 <li>No cost figure: the in-guest blob evaluation and the total proving cost are not yet
 measured.</li>
 </ul>

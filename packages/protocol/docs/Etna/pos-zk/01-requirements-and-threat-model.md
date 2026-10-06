@@ -24,10 +24,10 @@ this project does not reopen them for convenience.
 | ID | Fixed decision | Consequence if violated |
 |----|----------------|-------------------------|
 | D1 | One L2 block every **2 s** under stated operating assumptions | R4 fails |
-| D2 | Prefer **Mode A** (PoS finality is never invalidated). Only after an evidenced infeasibility argument plus independent review may **Mode B** be selected. **Mode B is selected by user decision D-7, and D-15 withdraws the permissionless L1 recovery it carried:** the replacement is the rule-bound, timelocked, resume-only stall resolution of `GOV-04` (spec/08), so clearing a settlement stall depends on governance liveness (A-GOV-2) | R5 fails / unauthorized relaxation |
+| D2 | Prefer **Mode A** (PoS finality is never invalidated). Only after an evidenced infeasibility argument plus independent review may **Mode B** be selected. **Mode B was selected by user decision D-7; D-15 withdrew the permissionless L1 recovery it carried and replaced it with the governance stall resolution of `GOV-04`; D-16 defers that replacement too. v1 therefore has no recovery path of any kind**, and clearing a settlement stall requires a future protocol update whose procedure is not specified (`DEFERRED.md` §3) | R5 fails / unauthorized relaxation |
 | D3 | Preserve existing L1+L2 **SignalService, Bridge, ERC20/721/1155 Vault** addresses; upgrade in place | R3 fails |
 | D4 | L2 PoS may determine binding order (departure from based sequencing). The result must be described honestly as a **PoS-sequenced validity rollup** | Misrepresentation |
-| D5 | Proof-gated acceptance: a batch's data **and** its valid ZK proof are settled in one L1 transaction — the checkpoint advances only on a valid proof. **Relaxed by D-11 (2026-10-06):** a batch's data MAY be published and recorded in an **earlier** L1 transaction and referenced by the proof; publication advances no protocol state, so no data-first *admission* path exists. No data-first admission in any mode, including the D-15 stall resolution, which accepts no data | R9 fails |
+| D5 | Proof-gated acceptance: a batch's data **and** its valid ZK proof are settled in one L1 transaction — the checkpoint advances only on a valid proof. **Relaxed by D-11 (2026-10-06):** a batch's data MAY be published and recorded in an **earlier** L1 transaction and referenced by the proof; publication advances no protocol state, so no data-first *admission* path exists. No data-first admission in any mode; v1 has no recovery path, so nothing discards unsettled history or manufactures a checkpoint (D-16) | R9 fails |
 | D6 | Proving latency of **a few minutes up to 30 minutes** is normal operation. L2 keeps producing 2 s blocks and reaching the selected mode's PoS confirmation throughout | R4/R9 fail |
 | D7 | Staking and slashable consensus collateral are denominated in the **existing TAIKO token**. Gas stays ETH. No replacement staking token | R1/R11 fail |
 
@@ -35,8 +35,8 @@ Explicit non-relaxations (from the user): D7 may not be relaxed to substitute ET
 one-transaction requirement for **state advance** stands — the checkpoint advances only on a valid
 proof in the accepting transaction. The sole recorded relaxation of D5 is decision D-11: data may be
 published before the proof and referenced by it (the earlier draft of this line forbade even that, and
-D-11 supersedes it). D5's ban on a data-first *admission* path is not relaxed, in any mode including the
-D-15 stall resolution (which accepts no data).
+D-11 supersedes it). D5's ban on a data-first *admission* path is not relaxed, in any mode; v1 has no recovery
+path, so no rule accepts data or advances a checkpoint without a valid proof (D-16).
 
 **Out of scope:** contract/client/consensus/proving implementation, deployments, live operations,
 benchmarks produced by us. Interface sketches, pseudocode, traces and mathematical arguments are
@@ -56,7 +56,7 @@ must use exactly these names.
 | 2 | **locally execution-valid** | The receiver executed the block against a known parent state and all consensus rules passed | this node will not build on an invalid block | dropped if the parent is displaced |
 | 3 | **voted** | The receiver (a validator) signed a vote for this block at its height/view | a vote is a commitment: it constrains the voter's future votes by the lock rule | never (voting is irreversible for the voter) |
 | 4a | **PoS-finalized** (Mode A) | A published quorum certificate over (chain, epoch, height, block hash) meeting the stake threshold, plus a data-availability check by the node | under <1/3 Byzantine stake and the stated synchrony assumptions this block is on the unique canonical chain, permanently | **never** in Mode A |
-| 4b | **PoS-certified / provisional** (selected Mode B) | Same certificate; above the last L1-accepted checkpoint the protocol discloses that a completed stall resolution (`GOV-04`, D-15) may replace it, and the permissionless recovery is withdrawn | a strong, economically-backed confirmation that is explicitly **not** irreversible | yes, only via the rule-bound, timelocked, resume-only stall resolution of `GOV-04` (D-15) |
+| 4b | **PoS-certified / provisional** (selected Mode B) | Same certificate; above the last L1-accepted checkpoint the confirmation is explicitly **provisional**, and v1 has no rule that replaces it — the permissionless recovery was withdrawn and its governance replacement is deferred by D-16 | a strong, economically-backed confirmation that is explicitly **not** irreversible | no protocol path replaces it in v1; clearing a settlement stall requires a future protocol update whose procedure is not specified (`DEFERRED.md` §3) |
 | 5 | **proof-ready** | A completed ZK proof bound to this batch's data commitment exists off-chain | the batch can now be posted | superseded by a better proof of the same batch; a proof of a *different* batch is not a substitute |
 | 6 | **accepted on L1** | The L1 Inbox accepted the batch in one transaction — its data carried in it or bound to an earlier live publication record under D-11, plus a valid proof — and advanced its checkpoint | the batch's data is public on Ethereum and the transition is L1-committed | only by L1 reorg below finality |
 | 7 | **Ethereum-finalized** | The accepting L1 transaction is in a finalized Ethereum block | irreversible except by a catastrophic Ethereum consensus failure | effectively no |
@@ -74,9 +74,9 @@ never treat "no certificate arrived within T" as "no certificate exists".
 - **Validators** — permissionless; stake TAIKO; propose/vote; produce consensus evidence.
 - **Provers** — permissionless; convert committed L2 history into ZK proofs; paid for accepted proofs.
 - **Full nodes / archive nodes** — execute, serve data, hold witnesses.
-- **Users** — submit L2 transactions; bridge assets; publish a transaction's data to L1 for the narrow forced-inclusion obligation over *published* data (D-12 — an upper bound on exclusion, not an inclusion guarantee).
+- **Users** — submit L2 transactions; bridge assets; may publish a transaction's data to L1, which advances no protocol state and carries no inclusion obligation in v1 (the narrow forced-inclusion machinery is deferred by D-16).
 - **L1 Ethereum** — settlement, DA, proof verification, bridge anchoring, governance.
-- **DAO** — upgrades, plus exactly one rule-bound failure action: the timelocked, resume-only stall resolution of `GOV-04` (D-15). Never a runtime dependency for ordinary progress; clearing a settlement stall does depend on governance liveness (A-GOV-2).
+- **DAO** — upgrades under the published upgrade rules. v1 gives the DAO no rule-bound failure action: the governance stall resolution of `GOV-04` is deferred by D-16, and no DAO transaction is needed for ordinary progress.
 
 **Channels.** L2 P2P (gossip + directed), L2↔L1 (L1 transactions; L1→L2 observation of L1 state),
 and the shared bridge/signal surface.
@@ -132,8 +132,8 @@ the assumption holds — it is a claim that *if* it fails, a named consequence f
 | A-L1-2 | Ethereum's blob/DA and proof-verification features used by the design are available with the semantics verified in §7.3 of the spec | liveness | cannot launch / must use the stated fallback |
 | A-ECO-1 | The market value of slashed TAIKO plus the loss of future rewards exceeds the profit from any attack the protocol claims to deter, **at the relevant time** | safety (economic) | attacks become profitable; the protocol must state the exposure honestly rather than claim deterrence |
 | A-ECO-2 | TAIKO is obtainable and transferable enough that entry is genuinely permissionless | liveness (R1) | effective permissioning by market access |
-| A-GOV-1 | The DAO does not execute a malicious upgrade | safety | an upgrade can rewrite any rule; explicitly a **trust assumption** (R2). D-15's stall resolution is *not* an upgrade: it is rule-bound, resume-only and owned by `GOV-04`, and its own exposure is A-GOV-2, not this row |
-| A-GOV-2 | **Governance liveness and opportunistic use of the stall resolution** (new trust assumption, D-15). Clearing a settlement stall depends on governance queueing and executing the rule-bound, timelocked, resume-only action of `GOV-04`; no protocol rule can force it. A captured or coerced governance can also act **opportunistically within the rule** — waiting for a genuine stall to have an unfavourable provisional range discarded. Mitigations are partial: the `T_GOV_RESUME` timelock is the `MEM-15` exit window, the effect is resume-only (no state, checkpoint, height, range, subset or beneficiary), a checkpoint advance voids the entry, and any account may cancel a void entry | liveness (with a governance-capture safety nuance; F2 / T-10) | a settlement stall persists for an unbounded time and value above the last accepted checkpoint cannot leave; an unfavourable provisional range can be discarded and must be re-produced, and no protocol rule detects, prevents or repairs the capture; losses are not compensated (`ECON-11`). Disclosed rather than mitigated to zero (`LIM-01`, spec/10) |
+| A-GOV-1 | The DAO does not execute a malicious upgrade | safety | an upgrade can rewrite any rule; explicitly a **trust assumption** (R2). v1 has no rule-bound failure action beyond upgrades: the stall resolution of `GOV-04` is deferred by D-16, and the re-scoped A-GOV-2 records what clearing a stall now depends on |
+| A-GOV-2 | **Clearing a settlement stall depends on a future protocol update** (re-scoped by D-16; the former governance-liveness and opportunistic-use assumption is withdrawn with the deferred `GOV-04`). v1 has no recovery path of any kind: a settlement stall halts the chain, no protocol rule replaces history above the last L1-accepted checkpoint, and the procedure that would clear the stall is **not specified**. What remains guaranteed is the exit of `MEM-15` for value at or below the last accepted checkpoint | liveness | a settlement stall persists for an unbounded time and value above the last accepted checkpoint cannot leave; v1 makes no claim about when or how it ends. Disclosed rather than mitigated (`LIM-01`, spec/10) |
 
 **Weak subjectivity.** Any PoS chain with dynamic membership needs a freshness assumption for
 syncing. If the design needs one, the exact trust and freshness requirement is stated in the
@@ -148,7 +148,7 @@ distinct in **all** deliverables:
 
 | Class | Meaning | Protocol behaviour |
 |-------|---------|--------------------|
-| **F1 — liveness-assumption failure, safety intact** | e.g. quorum offline, partition, prover outage, blob expiry, L1 congestion | Actively correct behaviour: halt, backpressure, replace provers, wait. Never rewrite finalized history (Mode A) |
+| **F1 — liveness-assumption failure, safety intact** | e.g. quorum offline, partition, prover outage, blob expiry, L1 congestion | Actively correct behaviour: halt, backpressure, replace provers, wait. Never rewrite history above the last accepted checkpoint — and v1 has no recovery path, so a cohort that stops participating halts production with no production-time bound until a future protocol update (D-16). Value at or below the checkpoint remains withdrawable (`MEM-15`) |
 | **F2 — safety-assumption failure** | ≥1/3 Byzantine stake, key compromise, zkVM soundness break, or a governance upgrade that changes the rules | The protocol's safety claims **do not apply**. Conflicting certificates may both verify; ZK verification does not repair failed consensus assumptions. Detection and disclosure, not prevention, is the honest response |
 | **F3 — implementation-assumption failure** | a specific client/prover/contract bug | out of scope for this design project, but the specification must not make F3 undetectable (auditability, evidence encoding, escape hatches that do not weaken Mode A) |
 
@@ -178,15 +178,14 @@ check:
 1. A leader selectively distributes a block to a subset.
 2. Honest validators vote according to their **local** views.
 3. The attacker privately holds a finality-related certificate.
-4. Other participants initiate a leader change, validator change, or the D-15 stall resolution (the permissionless recovery is withdrawn).
+4. Other participants initiate a leader change or a validator change; in v1 there is no recovery action to initiate (the permissionless recovery was withdrawn by D-15 and the governance replacement is deferred by D-16).
 5. The attacker reveals the certificate after the alternative path has progressed.
 
 Required conclusions: under A-CONS-1/A-CONS-2, two conflicting histories cannot **both** obtain
 the mode's irreversible guarantee — the argument must combine **locks, view changes and
-reconfiguration**, not just signature counting. In Mode B, the exact stall-resolution exception is
-exposed (D-15: the only replacement path is rule-bound, timelocked and resume-only), and the
-eligibility/checkpoint rules — including the signed recovery generation — must handle late conflicting
-evidence consistently.
+reconfiguration**, not just signature counting. v1 has no history-replacement path: no rule discards or rewrites history above the last
+L1-accepted checkpoint, so a late certificate cannot force one; the eligibility/checkpoint rules —
+including the signed recovery generation — must still handle late conflicting evidence consistently.
 
 ### 6.3 Attack catalogue to be addressed in the specification
 
@@ -204,8 +203,8 @@ Each of these must have a named normative rule or an explicit "accepted limitati
 - L1 reorganization around an accepted batch;
 - proof delay exceeding exit/freshness windows; one or more prover failures after 30 min;
 - backlog growth beyond the retention window;
-- cheap attacker-triggered history replacement (Mode B): after D-15 the trigger is the objective settlement stall and the path is governance-only, so the exposure is governance capture or opportunistic use of a genuine stall (A-GOV-2), not a priced permissionless invocation;
-- forced-inclusion exploitation (using inclusion to stall or to grief);
+- cheap attacker-triggered halt instead of a history replacement: v1 has no replacement path — the permissionless recovery was withdrawn by D-15 and the governance replacement is deferred by D-16 — so the exposure is an **unbounded halt**: a sub-threshold coalition, or a cohort that simply stops participating, can halt the chain and no rule of v1 restores it; disclosed, not priced;
+- forced-inclusion exploitation (using inclusion to stall or to grief) — not applicable in v1, where the narrow forced-inclusion machinery is deferred by D-16;
 - bridge accounting, replay protection, and message authentication after a fork;
 - TAIKO price collapse, borrowing, delegation concentration, exit races.
 
@@ -227,8 +226,8 @@ If ≥1/3 of stake (A-CONS-1) violates the consensus assumptions, **two conflict
 certificates can both be cryptographically valid**. The ZK proof attests that each certificate is
 internally consistent with a stated validator set and quorum rule; it cannot attest that no other
 certificate exists. The specification must state that any claim of uniqueness is relative to an
-**authenticated checkpoint** and the consensus assumptions, and Mode B must describe how L1
-prevents conflicting accepted continuations.
+**authenticated checkpoint** and the consensus assumptions, and that v1 has no history-replacement
+path: no accepted continuation above the checkpoint is replaced by any rule (D-16).
 
 ---
 
@@ -241,15 +240,15 @@ decision needed). Numbers are tagged **derived**, **sourced**, or **unmeasured**
 | ID | Requirement (abridged) | Design response | Evidence | Status |
 |----|------------------------|-----------------|----------|--------|
 | R1 | All operational roles permissionless, objective entry/exit, no whitelist; staking per D7 | *(Phase 4)* | *(Phase 4)* | Open |
-| R2 | DAO governs upgrades only, plus exactly one rule-bound failure action — the timelocked, resume-only stall resolution of `GOV-04` (D-15), which chooses no state, checkpoint or height and is not an intervention in ordinary progress; no other DAO intervention in ordinary progress/failure/roles; its liveness and opportunistic-use exposure is A-GOV-2 | *(Phase 4)* | *(Phase 4)* | Open |
+| R2 | DAO governs upgrades only; v1 gives it **no rule-bound failure action** — the governance stall resolution of `GOV-04` is deferred by D-16 — and no other DAO intervention in ordinary progress/failure/roles | *(Phase 4)* | *(Phase 4)* | Open |
 | R3 | Preserve D3 shared-contract addresses with a concrete migration plan | *(Phase 4)* | *(Phase 4)* | Open |
 | R4 | 2 s L2 block production under explicit assumptions; cadence distinguished from every confirmation and settlement latency | *(Phase 4)* | *(Phase 4)* | Open |
-| R5 | Consensus safety + selected mode's confirmation guarantees across leader change, set change, proof delays, and the D-15 stall resolution (the permissionless recovery is withdrawn); Mode A preferred, Mode B selected by D-7 with the D-15 replacement | *(Phase 3)* | *(Phase 3)* | Open |
+| R5 | Consensus safety and the selected mode's confirmation guarantees across leader change, set change and proof delays; Mode A preferred, Mode B selected by D-7 but its recovery paths are withdrawn (D-15) or deferred (D-16), so v1 ships the safe halt with the checkpoint boundary and the exit | *(Phase 3)* | *(Phase 3)* | Open |
 | R6 | Conditional liveness under explicit network/honest-stake/DA/L1 assumptions; exact conditions where liveness ends | *(Phase 4)* | *(Phase 4)* | Open |
-| R7 | Complete proof statement for execution + selected mode's consensus/finality rules, including the D-15 signed recovery generation that voids superseded certificates and the D-13 aggregation public input; credible on RISC Zero **and** SP1 | *(Phase 2/4)* | *(Phase 2/4)* | Open |
+| R7 | Complete proof statement for execution + the selected mode's consensus/finality rules, including the signed recovery generation that scopes certificates, locks and uniqueness (kept by D-16); credible on RISC Zero **and** SP1. Aggregation is deferred by D-16 and is not part of the v1 statement | *(Phase 2/4)* | *(Phase 2/4)* | Open |
 | R8 | Sufficient data on Ethereum (blobs/calldata) bound to the accepted proof; no private witness/committee certificate as a substitute | *(Phase 4)* | *(Phase 4)* | Open |
-| R9 | D5's proof-gated acceptance for every accepted batch, as relaxed by D-11 (data may be published and recorded earlier; the checkpoint still advances only on a valid proof), including during prover failure and the D-15 stall resolution, which accepts no data; no bypass of the proof | *(Phase 4)* | *(Phase 4)* | Open |
-| R10 | Censorship resistance and forced inclusion, without an override that violates D2 — **restated by decisions D-6/D-12**: state censorship resistance honestly. v1 carries a **narrow forced-inclusion obligation over published data** — a due record must be resolved by the capped FIFO prefix of the due set, or discharged as void on objective grounds, enforced at the proof and never as an admission gate — and it is an **upper bound on exclusion, never a lower bound on inclusion**. The **general inclusion list** (arbitrary unpublished transactions, with a queue, escrow or fee) remains deferred; for unpublished data the protocol provides only statistical resistance from proposer rotation and gossip under A-CONS-2, and a network-level adversary able to isolate a user — or to censor L1 inclusion itself (A-L1-1) — can exclude that user indefinitely and can prevent the user from starting a withdrawal, with no protocol remedy. No override that violates D2 may be introduced | enforced by `LIVE-04` (spec/10) and `FI-10`–`FI-14` (spec/04); the deferred general list is `FI-PLANNED-01` | Proven (statement honesty) / Assumed (A-CONS-2, A-L1-1) | Satisfied **in its narrowed form**; the general inclusion list is explicitly not satisfied (D-12 supersedes D-6/D-10) |
+| R9 | D5's proof-gated acceptance for every accepted batch, as relaxed by D-11 (data may be published and recorded earlier; the checkpoint still advances only on a valid proof), including during prover failure; v1 has no recovery path, so no rule accepts data or advances a checkpoint without a proof | *(Phase 4)* | *(Phase 4)* | Open |
+| R10 | Censorship resistance and forced inclusion, without an override that violates D2 — **restated by D-6/D-10/D-12/D-16**: state censorship resistance honestly. v1 has **no inclusion obligation**: the narrow forced-inclusion machinery of D-12 is deferred by D-16, is not normative in v1 and MUST NOT be implemented, and there is no general inclusion list either. Resistance for any data — published or not — is only the conditional statistical property of proposer rotation and gossip under A-CONS-2; a network-level adversary able to isolate a user — or to censor L1 inclusion itself (A-L1-1) — can exclude that user indefinitely and can prevent the user from starting a withdrawal, with no protocol remedy. No override that violates D2 may be introduced | stated by `LIVE-04` (spec/10); the deferred machinery is recorded in `DEFERRED.md` §1 and its ids are tombstones in spec/04 | Proven (statement honesty) / Assumed (A-CONS-2, A-L1-1) | Satisfied **only in its relaxed form**: v1 has no inclusion obligation, and the general inclusion list is explicitly not satisfied (D-16 defers D-12) |
 | R11 | Objective misconduct evidence, collateral, payouts, exit delays, false-accusation handling; no "non-receipt = misconduct" | *(Phase 4)* | *(Phase 4)* | Open |
 | R12 | No dependence on L1 proposer lookahead or fixed L1 slot duration; seconds or L1 block numbers | *(Phase 4)* | *(Phase 4)* | Open |
 | R13 | Every security-relevant transition/message/proof input/exceptional path specified enough to implement without inventing rules | *(Phase 4)* | *(Phase 4)* | Open |
@@ -273,10 +272,11 @@ decision needed). Numbers are tagged **derived**, **sourced**, or **unmeasured**
    replaces honestly confirmed history — with quantified attacker resources, penalties and
    rollback exposure. Inability to establish this is a **blocker**, not a disclosure item.
 
-*D-15: obligations 4 and 5 are answered by the rule-bound stall resolution of `GOV-04`/`REC-02` and its
-resistance analysis `REC-03`; the exposure a permissionless recovery would have priced is now the
-governance-liveness and opportunistic-use assumption A-GOV-2, and the item-5 blocker is carried there with
-its falsifier — a measured worst-case `MEM-15` exit exceeding the recorded `T_GOV_RESUME`.*
+*D-16: the Mode B obligations 4 and 5 are not discharged by a live mechanism. The permissionless
+recovery was withdrawn by D-15, and its replacement, the governance stall resolution of `GOV-04`, is
+deferred by D-16; v1 therefore has no recovery path and the item-5 resistance analysis is deferred with the
+mechanism. What replaces it as a disclosure is the re-scoped v1 assumption A-GOV-2: clearing a stall
+depends on a future protocol update whose procedure is not specified.*
 
 ---
 
@@ -313,5 +313,6 @@ before the proof is different in kind, because a publication advances no protoco
 (d) the prior-Etna lessons digest, and (e) this document.
 
 The Phase 3 outputs are: the selected consensus protocol (established-first, modifications named
-with the proofs that no longer apply), the selected recovery mode with the D2 record, and the
-architecture decision log entry with tradeoffs.
+with the proofs that no longer apply), the selected recovery mode and the record of its disposition under
+the D2 procedure (D-15 withdrew the permissionless recovery; D-16 deferred the governance replacement,
+so v1 has no recovery path), and the architecture decision log entry with tradeoffs.

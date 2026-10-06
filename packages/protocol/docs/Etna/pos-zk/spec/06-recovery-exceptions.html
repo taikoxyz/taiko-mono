@@ -14,53 +14,59 @@
   </nav>
 </header>
 <main>
-<h1>06 — Withholding, safe halt, restart, and governance stall resolution of unsettled history</h1>
+<h1>06 — Withholding, safe halt, restart, and the absence of recovery in v1</h1>
 
 <div class="warnbox">
 <p><strong>A PoS confirmation above the latest L1-accepted checkpoint is provisional.</strong> Under
-<strong>user decision D-15</strong> the permissionless, bonded recovery is <strong>withdrawn from v1</strong>
-and replaced by a <strong>timelocked, resume-only governance action</strong> (<a href="#REC-02">REC-02</a>,
-owned by <a href="08-migration-upgrades.html#GOV-04">GOV-04</a>): settlement may resume from the latest
-L1-accepted checkpoint — the checkpoint record written by the most recently accepted batch — and
-<strong>everything above it is discarded</strong> (<a href="#REC-01">REC-01</a>, <a href="#REC-02">REC-02</a>).
-At or below that checkpoint nothing may be changed, and Ethereum finality is the separate, stronger property
-of <a href="index.html#STATUS-07">STATUS-07</a>. Users are protected by the exit guarantee of
+<strong>decision D-16</strong> v1 ships the core only and has <strong>no recovery path of any kind</strong>:
+the permissionless bonded recovery was withdrawn by <strong>D-15</strong>, and the governance stall
+resolution that replaced it is <strong>deferred</strong> together with narrow forced inclusion (D-12),
+heartbeat eligibility (D-14) and aggregation (D-13) — see the deferred-work register
+<a href="../DEFERRED.md">DEFERRED.md</a>. A settlement stall therefore <strong>halts the chain</strong>:
+funds are safe, the boundary of <a href="#REC-01">REC-01</a> holds and the exit guarantee of
 <a href="03-membership-staking.html#MEM-15">MEM-15</a> — a withdrawal proven against the last accepted
-checkpoint, with no new L2 blocks, no quorum and no validator — which the timelock
-<code>T_GOV_RESUME</code> must cover, not by a recovery mechanism; whether it does is Open in
-<a href="#REC-03">REC-03</a>. Any interface that shows a confirmation above the last accepted checkpoint
-must say that it can be replaced. <em>(user decision D-15: the permissionless recovery of D-7 is withdrawn;
-the guarantee class of a confirmation above the checkpoint is provisional and the fallback is a timelocked,
-resume-only governance action that discards every height above the checkpoint.)</em></p>
+checkpoint, with no new L2 blocks, no quorum and no validator — works, but <strong>clearing the stall
+requires a future protocol update whose procedure is not yet specified</strong>. At or below the latest
+L1-accepted checkpoint — the checkpoint record written by the most recently accepted batch — nothing may be
+changed; above it history is provisional, and no protocol path in v1 replaces it. Ethereum finality is the
+separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>. Any interface that shows a
+confirmation above the last accepted checkpoint must say that it is provisional and that v1 provides no
+in-protocol path that replaces it. <em>(decision D-16: v1 ships the core only; the governance stall
+resolution, narrow forced inclusion, heartbeat eligibility and aggregation are deferred, and clearing a
+settlement stall requires a future protocol update whose procedure is not yet specified.)</em></p>
 </div>
 
 <div class="rule" id="REC-01"><span class="rid">REC-01 — recovery boundary: no path may replace history at or below the latest L1-accepted checkpoint</span>
 <span class="norm">No contract function, client rule, timeout, validator rotation, admission rule,
 governance proposal executed through the ordinary upgrade path, operational procedure, or recovery
 invocation may change the canonical history at or below the latest L1-accepted checkpoint — the
-checkpoint record written by the most recently accepted batch — and an executed stall
-resolution restores exactly that checkpoint. Above it, history is <strong>provisional</strong> and may be
-replaced only by the stall-resolution path of <a href="#REC-02">REC-02</a>, under its objective trigger,
-timelock, resume-only and void-on-progress rules. <strong>Ethereum finality is a separate and stronger property, not the recovery
+checkpoint record written by the most recently accepted batch. Above it, history is <strong>provisional</strong>:
+in v1 <strong>no protocol path replaces it</strong>, because every replacement mechanism is deferred by
+D-16 — the permissionless recovery was withdrawn by D-15, and the governance stall resolution, narrow
+forced inclusion, heartbeat eligibility and aggregation are deferred with it
+(<a href="../DEFERRED.md">DEFERRED.md</a>). A future protocol update that adds a replacement path must
+preserve this boundary. <strong>Ethereum finality is a separate and stronger property, not the recovery
 floor:</strong> once the accepting L1 transaction is in a finalized Ethereum block, even an L1
 reorganisation cannot undo it (<a href="index.html#STATUS-07">STATUS-07</a>); until then an accepted
 checkpoint is revocable only by an L1 reorganisation below finality
 (<a href="index.html#STATUS-06">STATUS-06</a>, <a href="04-l1-integration.html#L1-12">L1-12</a>), so an
 implementer must never read that property back as the recovery floor. Concretely: (a) no function
 exists whose effect is to replace an accepted block hash at or below the latest L1-accepted checkpoint
-or to discard state at or below it; the only downward movement of the canonical L2 chain is an executed stall
-resolution restoring exactly that checkpoint (<a href="#REC-02">REC-02</a>); (b) no admission
+or to discard state at or below it, and no function that discards state above it exists either — v1 has
+no downward movement of the canonical L2 chain; (b) no admission
 rule may reject a batch that extends the current L1 checkpoint
 (<a href="04-l1-integration.html#L1-04">L1-04</a>); (c) a certificate is judged under the validator set of
 its own epoch and stays valid as <em>evidence</em> forever
-(<a href="02-consensus.html#CONS-08">CONS-08</a>), so validator rotation cannot re-judge it, and a
-certificate above a restored checkpoint is void for canonical purposes once its signed generation is
-superseded, but remains admissible as evidence (<a href="#REC-02">REC-02</a>); (d) no upgrade may be used as a substitute for recovery: an
-upgrade must accept every history at or below the latest L1-accepted checkpoint
-(<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>), and history above that checkpoint may be
-replaced only by the rule-bound stall resolution of <a href="#REC-02">REC-02</a> and never by the ordinary
-upgrade path (<a href="08-migration-upgrades.html#GOV-04">GOV-04</a> is that rule-bound action, and it is
-resume-only rather than a discretionary rescue); (e) no data-first path in the sense this rule fixes may be introduced to "work around" an unsettled
+(<a href="02-consensus.html#CONS-08">CONS-08</a>), so validator rotation cannot re-judge it; the signed
+recovery generation scopes certificates, locks and uniqueness
+(<a href="02-consensus.html#CONS-04">CONS-04</a>, <a href="02-consensus.html#CONS-12">CONS-12</a>), and in
+v1 no rule increments it, because the action that would is deferred by D-16
+(<a href="09-parameters.html">09</a>); (d) no upgrade may be used as a substitute for recovery:
+an upgrade must accept every history at or below the latest L1-accepted checkpoint
+(<a href="08-migration-upgrades.html#GOV-03">GOV-03</a>), and no upgrade may discard history above it
+either, because no rule specifies a stall-clearing action and clearing a stall requires a future protocol
+update whose procedure is not yet specified (D-16; <a href="../DEFERRED.md">DEFERRED.md</a> §3); (e) no
+data-first path in the sense this rule fixes may be introduced to "work around" an unsettled
 batch, in recovery or otherwise, because that would let an unproven history be treated as settled
 (<a href="04-l1-integration.html#L1-02">L1-02</a>, <a href="#HALT-04">HALT-04</a>). <strong>Publication is
 not that path (D-11):</strong> a batch's data MAY be published to L1 before its proof and recorded as a
@@ -69,19 +75,19 @@ relevant only when a later proof references it; what D5 forbids, and what this c
 which a checkpoint or any other protocol state advances on data alone. The proving deadline that bounds a
 published-but-unproven record, and its discard-and-republish consequence, are owned by
 <a href="04-l1-integration.html">04</a> and are not restated here. <em>(D-11: data may be published before
-the proof; publication writes no checkpoint, so it is not a data-first path in this rule's sense.)</em> <em>(user decision
-D-15: the boundary is unchanged — nothing at or below the latest L1-accepted checkpoint is ever rewritten and
-history above it is provisional; what changes is the replacement path, now the timelocked, resume-only
-governance stall resolution of <a href="#REC-02">REC-02</a> rather than the permissionless bonded recovery
-of D-7.)</em></span>
-<span class="why">This rule is the boundary between the two guarantee classes: no recovery may change
+the proof; publication writes no checkpoint, so it is not a data-first path in this rule's sense.)</em> <em>(decision
+D-16: the boundary is unchanged — nothing at or below the latest L1-accepted checkpoint is ever rewritten and
+history above it is provisional; what changes is that v1 has no replacement path at all, because the
+governance stall resolution and the other add-on mechanisms are deferred and clearing a stall requires a
+future protocol update whose procedure is not yet specified.)</em></span>
+<span class="why">This rule is the boundary between the two guarantee classes: no path may change
 history at or below the latest L1-accepted checkpoint, and history above it is provisional. Its violation
-would turn the bounded rollback of <a href="#REC-02">REC-02</a> into unbounded history replacement, which
-no user decision authorises. Halting remains the correct local action when settlement cannot proceed;
-the stall resolution is the only sanctioned way history above the checkpoint may be replaced, and it is
-objective, timelocked and resume-only. <em>This closes the reviewer finding that made the Ethereum-finalized
-checkpoint the recovery floor: the floor is the latest L1-accepted checkpoint, and Ethereum finality is the
-separate, stronger property of STATUS-07 (D-15).</em></span>
+would turn a bounded rollback into unbounded history replacement, which no user decision authorises.
+Halting remains the correct local action when settlement cannot proceed, and in v1 nothing replaces
+history: the deferred mechanisms are not implemented (<a href="../DEFERRED.md">DEFERRED.md</a>).
+<em>This closes the reviewer finding that made the Ethereum-finalized checkpoint the recovery floor: the
+floor is the latest L1-accepted checkpoint, and Ethereum finality is the separate, stronger property of
+STATUS-07 (D-15; restated by D-16).</em></span>
 <span class="pill proven">Proven</span> <span class="small">(structural: the boundary of the replacement
 window plus four positive obligations)</span></div>
 
@@ -106,30 +112,32 @@ its rules. A node that halts must keep serving what it has, and must keep its st
 Halting never authorises discarding history, and never authorises treating a publication as settlement:
 publishing a batch's data before its proof is permitted (D-11), but a publication record advances no
 checkpoint, so no participant may act on it as if a batch had landed (<a href="#REC-01">REC-01</a>(e)). A
-validator's halt is a local safety action and is <strong>not</strong> a stall-resolution trigger: the action
-is available only while the objective settlement-stall condition of <a href="#REC-02">REC-02</a> holds, which
-is observable on L1. A halt caused by an unlandable batch is answered by retrying and by continuing to serve;
-if settlement nevertheless stalls past <code>T_STALL_GOV</code>, the timelocked, resume-only stall resolution
-of <a href="#REC-02">REC-02</a> is the sanctioned remedy for that stall, and it is never declared early by a participant's local view. <strong>Recovery does not clear every halt:</strong> it changes no
-validator set and cannot manufacture a missing epoch-set entry or an unavailable quorum, so a halt under (b) or (d) persists until the entry is appended and
-Ethereum-final or the quorum returns, and invoking the stall resolution there discards the provisional range without restoring liveness
-(<a href="10-assurance.html#LIVE-01">LIVE-01</a>). One legal route can restore a quorum, and it is not the stall resolution: an entry that has not attested within
-<code>HEARTBEAT_WINDOW</code> is excluded from a future set version's root and the rotation of <a href="02-consensus.html#CONS-16">CONS-16</a> can move the resumed heights onto
-that version, so where (b) is caused by validators that have stopped attesting the halt is escapable at a later boundary — both rules are stated once on their own pages and
-are <em>cross-referenced, not restated, here</em>. <em>(decision D-14: heartbeat eligibility plus the rotation, not recovery, is the route out of an unattested-quorum halt.)</em> <em>This closes review round 4 finding R4-LIV-09: recovery is no longer presented as the remedy for halts it cannot clear.</em> <em>(user decision D-15: a halt is still correct, but it is
-no longer the only end state — the timelocked, resume-only stall resolution exists for the settlement-stall
-case and only for that case, and no participant can invoke it on its own.)</em></span>
+validator's halt is a local safety action and is <strong>not</strong> a recovery trigger: v1 has no
+recovery path of any kind, so there is no stall-resolution action to invoke and no early declaration. A
+halt caused by an unlandable batch is answered by retrying and by continuing to serve; if settlement
+nevertheless stalls, the chain stays halted, funds remain safe, the boundary of
+<a href="#REC-01">REC-01</a> holds and the exit of <a href="03-membership-staking.html#MEM-15">MEM-15</a>
+works, but <strong>clearing the stall requires a future protocol update whose procedure is not yet
+specified</strong> (<a href="../DEFERRED.md">DEFERRED.md</a> §3). <strong>No recovery exists to clear any
+halt:</strong> no mechanism changes a validator set or manufactures a missing epoch-set entry or an
+unavailable quorum, so a halt under (b) or (d) persists until the entry is appended and Ethereum-final or
+the quorum returns (<a href="10-assurance.html#LIVE-01">LIVE-01</a>). The heartbeat-eligibility route that
+would have excluded a non-attesting cohort at a later boundary is <strong>deferred by D-16</strong>
+(D-14; <a href="../DEFERRED.md">DEFERRED.md</a> §2) and MUST NOT be implemented; where (b) is caused by
+validators that have stopped attesting, the halt is not escapable by any rule of v1. <em>This closes
+review round 4 finding R4-LIV-09: recovery is not presented as the remedy for halts it cannot clear.</em>
+<em>(decision D-16: v1 has no recovery path of any kind, the heartbeat route is deferred, and clearing a
+settlement stall requires a future protocol update whose procedure is not yet specified.)</em></span>
 <span class="why">Failure modes: an implementer, faced with a stuck chain, invents an "unstick" action;
-or a participant treats its own halt as authority to roll history back. Neither is permitted — the only
-sanctioned replacement path is <a href="#REC-02">REC-02</a>, a timelocked governance action that honest
-progress voids and that no participant can invoke on its own.</span>
+or a participant treats its own halt as authority to roll history back. Neither is permitted — v1 has no
+sanctioned replacement path at all, and the mechanisms that could have provided one are deferred
+(<a href="../DEFERRED.md">DEFERRED.md</a>).</span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(the halt conditions are normative; whether they are met is assumed)</span></div>
 
 <div class="rule" id="HALT-02"><span class="rid">HALT-02 — restart rules</span>
 <span class="norm">After a halt, a correct participant resumes only from the highest finalized block
-whose <em>data</em> and <em>certificate</em> it can independently reconstruct, or — if a stall resolution has
-executed — from the checkpoint restored by that resolution (<a href="#REC-02">REC-02</a>). It must never
+whose <em>data</em> and <em>certificate</em> it can independently reconstruct. It must never
 adopt an alternative history at or below the latest L1-accepted checkpoint, and must never treat
 a timeout during the halt as evidence that a certificate does not exist
 (<a href="index.html#STATUS-10">STATUS-10</a>). On restart: (a) each validator enforces a signed-message
@@ -140,17 +148,16 @@ as a signing fault, not as a fresh start); (b) a validator that resumes must re-
 for the height it is resuming at rather than trusting its cached set; (c) nodes must not accept a
 replayed historical message as new — every vote carries the epoch and round, and the receiving rules
 reject messages for heights already finalized; (d) a resumed node's first act is a data and certificate
-sync, not a proposal. After an executed stall resolution the restored checkpoint is the highest canonical
-checkpoint: a node must adopt it, must not treat a discarded block above it as finalized, and must apply
-every clause of this rule unchanged — no double signing, no replayed message, no ordering by timeout.
-The resumed chain begins at <code>resumeHeight = lastLandedHeight + 1</code>; the restored checkpoint block
-is its immediate predecessor, there are no skipped heights and no recovery anchor, and the ordinary
-contiguity rule of <a href="02-consensus.html#CONS-01">CONS-01</a>(iii) and the ordinary anchor duty of
-<a href="02-consensus.html#CONS-09">CONS-09</a>(1)–(2) apply unchanged, with <code>B_anchor</code> the
-restored checkpoint block at <code>firstHeight &minus; 1</code> (<a href="#REC-04">REC-04</a>). Nothing in
-the discarded range is ever a header a node must obtain, and no discarded block is ever a finalized height.
-<em>(user decision D-15: restart follows the highest L1-accepted checkpoint, the resumed chain has no height
-gap, and the withdrawn recovery linkage and recovery anchor do not apply.)</em></span>
+sync, not a proposal. The restart-after-resolution linkage that D-15 specified — resuming from a
+checkpoint restored by an executed stall resolution, the resume point
+<code>resumeHeight = lastLandedHeight + 1</code>, and the withdrawn recovery linkage and recovery anchor —
+is <strong>deferred by D-16</strong> with the governance stall resolution and MUST NOT be implemented; it
+is kept as the tombstone <a href="#REC-04">REC-04</a> and in <a href="../DEFERRED.md">DEFERRED.md</a> §3.
+In v1 there is no restored-checkpoint case to link to, and the ordinary contiguity rule of
+<a href="02-consensus.html#CONS-01">CONS-01</a>(iii) and the ordinary anchor duty of
+<a href="02-consensus.html#CONS-09">CONS-09</a>(1)–(2) apply unchanged.
+<em>(decision D-16: the governance stall resolution and its restart linkage are deferred, so the restart
+rules are the ordinary ones.)</em></span>
 <span class="why">Failure modes addressed: "amnesia" double-signing after a restart, replaying old
 votes, and a restart that silently adopts a competing branch — the classic way a safe halt becomes an
 unsafe restart.</span>
@@ -176,12 +183,11 @@ that costs: because the cap cannot be enforced at L1 without stranding a legitim
 that ignores it is <strong>not</strong> objectively punishable at L1, and a cap violation is therefore a
 liveness failure that is disclosed rather than a slashing offence
 (<a href="#WH-02">WH-02</a>, <a href="10-assurance.html#LIM-01">LIM-01</a>). When the cap
-binds, production stops and the chain is in the safe-halt state until provers catch up. The stall resolution
-does not relax the cap: after execution the L1 checkpoint is restored and production resumes under the same
-cap, the cap binding is a halt and not by itself a resolution trigger, and only the objective
-<code>T_STALL_GOV</code> condition of <a href="#REC-02">REC-02</a> can make the action available. <em>(user
-decision D-15: the unsettled-depth cap is unchanged by the selected fallback; the stall resolution may not
-be used to advance past it or to bypass it.)</em> The cap must
+binds, production stops and the chain is in the safe-halt state until provers catch up. No recovery action
+relaxes the cap, and none exists in v1: v1 has no recovery path of any kind (D-16), a cap binding is a halt
+and not a trigger for any action, and production resumes only when provers catch up and the unsettled depth
+falls back under the cap. <em>(decision D-16: the unsettled-depth cap is unchanged; the deferred stall
+resolution is not implemented, and no mechanism may be used to advance past the cap or to bypass it.)</em> The cap must
 also be jointly satisfiable with the evidence window: the coupling inequality is stated normatively in
 <a href="07-economics-slashing.html#ECON-07">ECON-07</a>(7), and <code>D_MAX</code> must be reduced until
 it holds (*review round 2, finding P-R2-08*). It is also jointly constrained with the
@@ -209,39 +215,37 @@ inequality, so a normal 30-minute proof can never trigger the cap, and
 not on proving latency, and a normal proof taking the whole of the
 <a href="../01-requirements-and-threat-model.md">D6</a> envelope (up to 30 minutes, i.e. 900 blocks at
 2&nbsp;s) is <strong>not</strong> misconduct and <strong>not</strong> grounds for any recovery
-action.</span>
+action (none exists in v1, D-16).</span>
 <span class="why">Failure modes addressed: unbounded growth of unsettled history (which is exactly the
 state in which an availability failure becomes unrecoverable), and an implementer treating a slow
 proof as a fault.</span>
 <span class="pill proven">Proven</span> <span class="pill unmeasured">unmeasured</span>
 <span class="small">(<code>D_MAX</code>'s value depends on measured retention and proving throughput)</span></div>
 
-<div class="rule" id="HALT-04"><span class="rid">HALT-04 — no emergency operator, no discretionary DAO rescue, no data-first path; the timelocked, resume-only stall resolution is the only named exception</span>
+<div class="rule" id="HALT-04"><span class="rid">HALT-04 — no emergency operator, no discretionary DAO rescue, and no recovery path in v1</span>
 <span class="norm">No emergency key, guardian, or operational procedure may be required to
 preserve any invariant of this specification, and none may be introduced to "resolve" a halt.
-<strong>There is exactly one named exception:</strong> the rule-bound, timelocked, resume-only stall resolution of
-<a href="#REC-02">REC-02</a>/<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>. It is not a DAO rescue:
-governance chooses no state, no checkpoint, no height, no validator set and no configuration value; its effect is
-resume-only; its timelock <code>T_GOV_RESUME</code> cannot be shortened for an entry already posted and is the exit
-window of <a href="03-membership-staking.html#MEM-15">MEM-15</a>; and an accepted extending batch voids the entry,
-which any account may cancel permissionlessly. Nothing else may be required and no other DAO intervention is
-permitted: specifically, there is no function that a privileged party can call to advance, rewind, or replace the
-checkpoint; and no publication may be used to
+<strong>There is no exception, named or unnamed:</strong> v1 has no recovery path of any kind — neither
+permissionless nor governance-mediated — because the four add-on mechanisms are deferred by D-16
+(<a href="../DEFERRED.md">DEFERRED.md</a>). No operator, DAO or governance actor may advance, rewind or
+replace the checkpoint, and no queued or timelocked action exists. Nothing may be required and no DAO
+intervention is permitted: specifically, there is no function that a privileged party can call to advance,
+rewind, or replace the checkpoint; and no publication may be used to
 unblock settlement: publishing a batch's data before its proof is permitted (D-11), but the publication
 record advances no checkpoint and confers no status, so it can never substitute for a proof
-(<a href="#REC-01">REC-01</a>(e)). The <strong>only</strong> sanctioned way that history above the latest
-L1-accepted checkpoint may be replaced is the timelocked, resume-only stall resolution of
-<a href="#REC-02">REC-02</a>, which grants no operator, no DAO and no validator quorum any discretion, and which never
-replaces history at or below that checkpoint (<a href="#REC-01">REC-01</a>). If progress requires
+(<a href="#REC-01">REC-01</a>(e)). If progress requires
 information or participation that no rule-legal action can obtain, the protocol says so and stops; it
-does not promote a privileged fix. A stall that no valid action can clear — including one governance never
-queues or never executes — stays a disclosed halt rather than being "fixed" outside the rules; clearing a
-stall therefore depends on governance liveness with no protocol-level bound. <em>(user decision D-15: the timelocked stall resolution is the only sanctioned way history
-above the checkpoint may be replaced, and it is discretionary in nothing — no emergency operator, no discretionary DAO rescue,
-no data-first path; the exception is named once, at the top of this rule, and the governance-liveness disclosure above is kept.)</em></span>
+does not promote a privileged fix. A settlement stall therefore stays a <strong>disclosed halt</strong>:
+funds are safe, the boundary holds and the exit of <a href="03-membership-staking.html#MEM-15">MEM-15</a>
+works, but <strong>clearing the stall requires a future protocol update whose procedure is not yet
+specified</strong>, and that dependency is a disclosed assumption rather than a v1 mechanism. <em>(decision
+D-16: v1 has no recovery path of any kind; no operator, DAO or governance rescue exists, the one-named-
+exception wording added for D-15 is removed, and the future-update dependency is disclosed with its
+register entry.)</em></span>
 <span class="why">Failure modes: a halt is quietly "fixed" by an operator, which both violates R2 and
 disguises a liveness limitation as a functioning protocol; or recovery is captured by a privileged
-party, which would be the same failure under a different name.</span>
+party, which would be the same failure under a different name. In v1 there is no recovery mechanism to
+capture, and the halt is disclosed instead.</span>
 <span class="pill proven">Proven</span> <span class="small">(enforced by the migration's removal of
 privileged levers, <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>)</span></div>
 
@@ -256,7 +260,7 @@ slashing (<a href="07-economics-slashing.html#ECON-04">ECON-04</a>).</span>
 <thead><tr><th>Withheld object</th><th>Safety effect</th><th>Liveness effect</th><th>Honest action</th><th>Objective evidence?</th></tr></thead>
 <tbody>
 <tr><td><strong>Block body</strong> (selective distribution)</td><td>None: a validator never votes for a block it has not received and validated</td><td>Height cannot advance if fewer than two thirds can obtain the body</td><td>Do not vote; request the body from peers; after the round budget, prevote <code>nil</code> and let the view change; and, once the height is certified, any holder SHOULD publish the body's data to L1 (D-11) — publication needs no proposer status, bond or permission</td><td>No — but a signed vote for a block proves the signer held it, which is what makes the availability argument in <a href="#WH-04">WH-04</a> work</td></tr>
-<tr><td><strong>Certified data not yet published</strong> (the D-11 window: the body reached a quorum but no publication transaction exists yet)</td><td>None for history at or below the latest L1-accepted checkpoint; above it the batch is provisional and, meanwhile, reconstructible only from gossip</td><td>Reconstruction from L1 alone is impossible until someone publishes; if no holder publishes, certified data can still be lost and a settlement stall can follow</td><td>Any holder MAY and SHOULD publish the data to L1 — publication is permissionless (<a href="07-economics-slashing.html#ECON-13">ECON-13</a>); until it is published, do not report the batch as reconstructible from L1, and once it is published the proving deadline of <a href="04-l1-integration.html">04</a> bounds how long it may stay unproven</td><td>No: silence by a party that never held the body proves nothing, and a third party's publication always closes the window, so this class is not an offence (<a href="#WH-02">WH-02</a>)</td></tr>
+<tr><td><strong>Certified data not yet published</strong> (the D-11 window: the body reached a quorum but no publication transaction exists yet)</td><td>None for history at or below the latest L1-accepted checkpoint; above it the batch is provisional and, meanwhile, reconstructible only from gossip</td><td>Reconstruction from L1 alone is impossible until someone publishes; if no holder publishes, certified data can still be lost and a settlement stall can follow; in v1 no protocol action clears such a stall, and clearing it requires a future protocol update whose procedure is not yet specified (D-16; <a href="../DEFERRED.md">DEFERRED.md</a> §3)</td><td>Any holder MAY and SHOULD publish the data to L1 — publication is permissionless (<a href="07-economics-slashing.html#ECON-13">ECON-13</a>); until it is published, do not report the batch as reconstructible from L1, and once it is published the proving deadline of <a href="04-l1-integration.html">04</a> bounds how long it may stay unproven</td><td>No: silence by a party that never held the body proves nothing, and a third party's publication always closes the window, so this class is not an offence (<a href="#WH-02">WH-02</a>)</td></tr>
 <tr><td><strong>Individual votes</strong></td><td>None</td><td>Delays certificate formation</td><td>Continue; the round completes when more than two thirds are collected</td><td>No</td></tr>
 <tr><td><strong>Aggregate signatures</strong> (a proposer that collects votes and never publishes the aggregate)</td><td>None: the lock rule prevents a conflicting later commit</td><td>Stalls the height until a new round; the votes themselves are usually already gossiped</td><td>View change; the next proposer re-proposes. The design must gossip votes independently of the aggregator so that one silent aggregator cannot hide a quorum</td><td>No, unless a conflicting signed message exists</td></tr>
 <tr><td><strong>Finality certificate</strong> (commit certificate withheld, revealed later)</td><td>None under <code>A-CONS-1</code>: the lock rule is what protects safety, not the certificate's visibility</td><td>Nodes that have not seen it may attempt a view change; correct behaviour is to stall rather than conclude</td><td>Keep the lock; retry; accept the certificate whenever it arrives; never finalize a conflicting block at that height</td><td>Only equivocation is provable, never silence</td></tr>
@@ -277,17 +281,18 @@ a rule whose inputs are entirely on-chain. Everything else — a message that di
 that did not advance, a proof that has not been submitted, a peer that did not answer a request — is
 <strong>local suspicion</strong>. Local suspicion may trigger local actions (retry, view change,
 reputation, peer selection, disclosure) but may never trigger a penalty, a recovery action, or a
-statement about what exists elsewhere. The stall-resolution trigger is not an exception: it is the settlement-stall
-condition of <a href="#REC-02">REC-02</a> measured on L1, no participant's local view of
-a stall may shorten <code>T_STALL_GOV</code> or declare the stall resolved early, and non-receipt of a batch, proof or
-certificate remains local suspicion. <em>(user decision D-15: the trigger remains an objective
-L1-observable predicate; local suspicion still never triggers a penalty or a stall-resolution action.)</em> <em>(D-12 supersedes D-6 here:
-the omission of a <em>due published record</em> within the capped FIFO prefix is a proposal-validity
-failure (<a href="02-consensus.html#CONS-01">CONS-01</a>(v)) and a breach
-(<a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause (6)), established by the proof-enforced
-predicate of <a href="04-l1-integration.html#FI-11">FI-11</a> and its own evidence encoding in <a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause (6),
-never by non-receipt or local suspicion; the obligation is bounded to a published, recorded item and survives a completed recovery unchanged (<a href="04-l1-integration.html#FI-14">FI-14</a>), so a rollback cannot launder an omission and the narrow rule can never reach a publication that L1 refuses to include; for unpublished transactions the protocol has no inclusion duty,
-and <a href="10-assurance.html#LIVE-04">LIVE-04</a> states what inclusion resistance remains.)</em> <em>(D-12 / L1-censorship residual: this note crosses to <a href="04-l1-integration.html#FI-14">FI-14</a>'s recovery-survival clause and to <a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause (6) rather than restating them, and states that a publication L1 refuses to include never becomes a record the narrow rule can reach.)</em></span>
+statement about what exists elsewhere. There is no stall-resolution trigger in v1: the objective
+settlement-stall predicate of the deferred action is <strong>deferred by D-16</strong> and MUST NOT be
+implemented (<a href="../DEFERRED.md">DEFERRED.md</a> §3), so non-receipt of a batch, proof or certificate
+remains local suspicion and nothing on L1 can convert a stall into a history-changing action.
+<em>(decision D-16: v1 has no recovery path, the deferred trigger is not normative, and local suspicion
+never triggers a penalty or any recovery action.)</em> <em>(decision D-16, narrow forced inclusion: the
+forced-inclusion machinery of D-12 — the due set, the capped FIFO prefix, the proposal-validity failure of
+<a href="02-consensus.html#CONS-01">CONS-01</a>(v) and the breach of
+<a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause (6) — is <strong>deferred</strong> and MUST
+NOT be implemented; v1 has no inclusion obligation, a proposer that excludes a transaction is not in
+breach, and for unpublished transactions the protocol has no inclusion duty
+(<a href="10-assurance.html#LIVE-04">LIVE-04</a>; <a href="../DEFERRED.md">DEFERRED.md</a> §1).)</em></span>
 <span class="why">Failure modes addressed: false accusations, and the more dangerous error of treating
 a timeout as a fault ("the sequencer was slashed after a landing deadline" is exactly the reasoning
 this rule forbids).</span>
@@ -309,17 +314,16 @@ where the only safe path is perfect detection.</span>
 <span class="norm">The protocol must resist the following schedule, which is mandatory in this
 specification: (1) a proposer selectively distributes a block to a subset; (2) honest validators vote
 according to their <em>local</em> views; (3) the attacker privately obtains a finality-related
-certificate; (4) other participants attempt a leader change, a validator change, or a stall resolution;
-(5) the attacker reveals the certificate after the alternative path has progressed. A stall resolution is an
-alternative path only above the latest L1-accepted checkpoint, and it restores exactly that
-checkpoint: a certificate revealed later for a discarded height is evidence against an equivocator when it
-conflicts under the same generation, never a second canonical history (<a href="#REC-02">REC-02</a>). The required conclusion is therefore that
+certificate; (4) other participants attempt a leader change or a validator change; (5) the attacker
+reveals the certificate after the alternative path has progressed. The required conclusion is that
 <strong>two conflicting histories cannot both be canonical at the same time</strong>: at or below the
-checkpoint neither conflicting history can receive a replacement guarantee at all, and above it a
-completed recovery leaves the restored checkpoint as the only canonical one. That conclusion rests on the
-conjunction of three mechanisms, never on signature counting alone: <em>(user decision D-15: the
-reveal-later schedule now includes a rule-bound stall-resolution path, and the conclusion is scoped to the
-provisional window above the checkpoint.)</em></span>
+latest L1-accepted checkpoint no conflicting history can receive a replacement guarantee at all, and above
+it no protocol path in v1 replaces the canonical history, so a certificate revealed later is evidence
+against an equivocator when it conflicts under the same generation, never a second canonical history. That
+conclusion rests on the conjunction of three mechanisms, never on signature counting alone:
+<em>(decision D-16: the reveal-later schedule no longer includes any recovery path, because the governance
+stall resolution and the other add-on mechanisms are deferred; the conclusion is scoped to the rules v1
+actually has.)</em></span>
 <ul>
 <li><strong>Locks.</strong> A validator that precommitted a block at round <code>R</code> is locked on
 it and will not prevote a conflicting block at that height unless it sees a proof-of-lock-change at a
@@ -342,9 +346,10 @@ independent constraint. Cross-height continuity is therefore exactly the parent-
 from the last block finalized in the closing epoch. The handoff's protection is that a certificate is
 judged under its own epoch's set and remains valid forever
 (<a href="02-consensus.html#CONS-08">CONS-08</a>), so the closing epoch's decision is not re-judged by
-the new set and a stakeholder that rotates keys or changes its stake cannot escape it; a certificate's canonical status is generation-scoped — an executed stall resolution voids
-certificates of the superseded generation at the acceptance rule while leaving their evidentiary value
-untouched (<a href="02-consensus.html#CONS-12">CONS-12</a>, <a href="#REC-02">REC-02</a>) — and a validator that
+the new set and a stakeholder that rotates keys or changes its stake cannot escape it; the signed
+recovery generation is part of the lock and uniqueness rules
+(<a href="02-consensus.html#CONS-12">CONS-12</a>), and no rule of v1 increments it because the action
+that would is deferred by D-16 — and a validator that
 equivocates across the boundary is caught by a same-<code>(height, round)</code> conflicting pair under the same
 generation, the
 only lock-related offence with admissible evidence
@@ -357,115 +362,113 @@ not a surviving lock.</em></li>
 lock within a height, or in which a validator-set change re-judges a certificate under a new set instead
 of under its own epoch's set (<a href="02-consensus.html#CONS-08">CONS-08</a>), in which case the
 reveal-later schedule succeeds and two conflicting histories can both be treated as canonical without
-any slashable equivocation. <em>(Under the selected fallback the second history above the latest
-L1-accepted checkpoint can still be discarded by a stall resolution, but the lock and reconfiguration
-mechanisms above are what prevent the conflict from arising in the first place, and the generation barrier is
-what keeps the discarded branch out of canonical history.)</em></span>
+any slashable equivocation. <em>(No path of v1 discards a second history above the latest L1-accepted
+checkpoint; the lock and reconfiguration mechanisms above are what prevent the conflict from arising in
+the first place, and the signed generation is the barrier any future replacement path must use — D-16.)</em></span>
 <span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
 <span class="small">(premises: <code>A-CONS-1</code> in every epoch; correct validators enforce
 CONS-02/CONS-04; the boundary argument of CONS-09, which is the named review target F1)</span></div>
 
-<h2 id="modeb">Governance stall resolution — the selected fallback (user decision D-15)</h2>
+<h2 id="modeb">Governance stall resolution — deferred by decision D-16 (tombstone)</h2>
 
 <div class="warnbox">
-<p><strong>The governance stall-resolution action is part of the active protocol (user decision D-15).</strong>
-A timelocked, resume-only governance action may resume settlement from the latest L1-accepted checkpoint and
-<strong>discard everything above it</strong> — the checkpoint record written by the most recently accepted
-batch, which the action restores exactly; at or below it nothing may be changed (<a href="#REC-01">REC-01</a>).
-The action chooses no state, no checkpoint and no height: <code>resumeHeight = lastLandedHeight + 1</code> is
-fixed by L1 state alone (<a href="#REC-02">REC-02</a>). User protection is the exit guarantee of
-<a href="03-membership-staking.html#MEM-15">MEM-15</a>, not a recovery mechanism; the action exists because an
-unbounded halt was judged worse than a bounded, rule-fixed discard, and its execution depends on governance
-liveness, which has no protocol-level bound (a disclosed social-layer assumption).</p>
+<p><strong>v1 has no recovery path of any kind, permissionless or governance-mediated (decision D-16).</strong>
+The timelocked, resume-only governance stall resolution that D-15 selected is <strong>deferred</strong>,
+together with narrow forced inclusion (D-12), heartbeat eligibility (D-14) and aggregation (D-13). A
+settlement stall halts the chain: funds are safe, the boundary of <a href="#REC-01">REC-01</a> holds and the
+exit of <a href="03-membership-staking.html#MEM-15">MEM-15</a> works, but <strong>clearing the stall
+requires a future protocol update whose procedure is not yet specified</strong>. The rules below are kept
+only as tombstones and MUST NOT be implemented; the register entry is
+<a href="../DEFERRED.md">DEFERRED.md</a> §3.</p>
 <p class="small">The guarantee attached to a confirmation above the last accepted checkpoint is
 <strong>PoS-certified / provisional</strong> (<a href="index.html#STATUS-04">STATUS-04</a>). Any interface that
-shows such a confirmation MUST say that it can be replaced; calling it irreversible is a defect. A
-PoS-certified block above the checkpoint is discarded by an executed stall resolution, its transactions are
-not replayed and must be resubmitted, and its effects are handled by the replay rules of
-<a href="#REC-02">REC-02</a>. <em>(user decision D-15: the fallback is a timelocked, resume-only governance
-action; the guarantee class above the checkpoint is provisional.)</em></p>
+shows such a confirmation MUST say that it is provisional and that v1 provides no in-protocol path that
+replaces it; calling it irreversible is a defect. <em>(decision D-16: the replacement mechanism is
+deferred, the guarantee class above the checkpoint remains provisional, and no artifact may present a
+stalled chain as resumable by a v1 rule.)</em></p>
 </div>
 
-<div class="rule" id="REC-02"><span class="rid">REC-02 — timelocked, resume-only governance stall resolution (user decision D-15)</span>
-<span class="norm">The permissionless, bonded recovery of D-7 is <strong>withdrawn from v1</strong> and replaced
-by a single <strong>timelocked, resume-only governance action</strong>, defined here and owned by
-<a href="08-migration-upgrades.html#GOV-04">GOV-04</a> (stall resolution). All of the following are normative.
-Every timing term below is <strong>unmeasured</strong> and is recorded with its derivation in
-<a href="09-parameters.html">09</a>; none is a measurement. <em>(user decision D-15: the permissionless
-recovery is withdrawn; the trigger, the timelock, the full-range discard, the resume-only effect, the
-void-on-progress cancellation and the governance-liveness disclosure below replace it.)</em></span>
-<table>
-<thead><tr><th>Element</th><th>Rule</th></tr></thead>
-<tbody>
-<tr><td><strong>Invariant</strong></td><td>A stall resolution may only discard history strictly above the <strong>latest L1-accepted checkpoint</strong> — the checkpoint record written by the most recently accepted batch. Heights at or below it are untouchable by any path, and the checkpoint after execution is exactly that record. Ethereum finality is not this floor: it is the separate, stronger property that the accepting L1 transaction can no longer be reorganised out (<a href="index.html#STATUS-07">STATUS-07</a>). <em>(user decision D-15: the boundary of <a href="#REC-01">REC-01</a> is unchanged; the floor is the latest L1-accepted checkpoint, which the action restores exactly.)</em></td></tr>
-<tr><td><strong>Objective trigger</strong></td><td>Exactly one trigger, stated as a predicate over stored L1 state: a <em>settlement stall</em> holds iff <code>block.timestamp &minus; lastAcceptedBatchTime &ge; T_STALL_GOV</code> when the action is evaluated, where <code>lastAcceptedBatchTime</code> is the stored L1 timestamp at which the most recent batch was accepted &mdash; the instant the current L1-accepted checkpoint was written (<a href="04-l1-integration.html#L1-07">L1-07</a>). Only the acceptance of a batch extending the checkpoint resets the clock; an executed action changes neither <code>lastAcceptedBatchTime</code> nor the checkpoint, so it does not restart the window except by allowing production to resume. <code>T_STALL_GOV</code> is registered with its unit and tag in <a href="09-parameters.html">09</a>, is built from the permitted proof latency, the settlement pipeline, L1 finality and a margin, and MUST be strictly larger than the <a href="../01-requirements-and-threat-model.md">D6</a> envelope so that a normal slow proof, or one prover failure inside the envelope, can never make the action available; every term is unmeasured. There is <strong>no other trigger</strong> and <strong>no early declaration</strong>: a participant's local view, a halt, a missing certificate, a slow proof and an over-depth cap are not triggers. <em>(user decision D-15: the trigger is an objective L1-observable predicate; the action is never available on anyone's local view of a stall.)</em></td></tr>
-<tr><td><strong>Who acts, and what it costs</strong></td><td>The action is taken by <strong>governance</strong>, through the ordinary governance path of <a href="08-migration-upgrades.html#GOV-01">GOV-01</a>, by queueing the transition of <a href="08-migration-upgrades.html#GOV-04">GOV-04</a>; there is <strong>no permissionless invoker, no bond, no escalation, no cooldown, no completion reward and no treasury transfer</strong>. Nothing is bought or sold: the action either clears a stall or is void, and the protocol pays no one for invoking it. Because there is no permissionless entry point, there is no spam surface for a bond to price and no reward to farm; the user-protection mechanism is the timelock below, not an economic bond. <em>(user decision D-15: the bond, its escalation, the cooldown, the completion transition, its cancellation predicate and the completion reward are withdrawn with the permissionless invoker they priced.)</em></td></tr>
-<tr><td><strong>Effect: full-range discard, <code>resumeHeight</code> fixed by L1 state alone</strong></td><td>Execution discards <strong>everything above the latest L1-accepted checkpoint</strong> — not a certified subset — and resumes from that checkpoint. The first batch accepted afterwards begins at <code>firstHeight = resumeHeight = lastLandedHeight + 1</code>, where <code>lastLandedHeight</code> is the height of the checkpoint record: <strong>the boundary is fixed by L1 state alone</strong>. There is <strong>no bundle, no certificate submission, no maximality question and nothing for L1 to verify beyond its own record</strong>: the action accepts no calldata that names a height, a hash or a claim, and the Inbox derives the resumed height from the checkpoint it already stores (<a href="04-l1-integration.html#L1-06">L1-06</a>, <a href="04-l1-integration.html#L1-07">L1-07</a>). A batch or certificate for a discarded height cannot be landed afterwards because its signed generation is superseded (<em>Generation fix</em> below). <em>(user decision D-15: the full-range discard with <code>resumeHeight = lastLandedHeight + 1</code> replaces the certified-subset retirement and its derivation.)</em></td></tr>
-<tr><td><strong>Timelock</strong></td><td>The queued entry MUST NOT execute before <code>T_GOV_RESUME</code> has elapsed since it was posted, and <code>T_GOV_RESUME</code> MUST be long enough that every user can exit via <a href="03-membership-staking.html#MEM-15">MEM-15</a> &mdash; a withdrawal proven against the last accepted checkpoint, with no new L2 blocks, no quorum and no validator &mdash; before execution. Governance <strong>cannot shorten the timelock for a queue entry already posted</strong>: the delay is fixed when the entry is queued and no later transaction may reduce it. Whether the recorded value covers the worst-case exit time is <strong>unmeasured</strong> and is carried as Open in <a href="#REC-03">REC-03</a> with its falsifier. <em>(user decision D-15: the timelock, not a bond, is what protects users; the action cannot execute before every user has had the chance to exit.)</em></td></tr>
-<tr><td><strong>Resume-only; no discretion</strong></td><td>Governance chooses <strong>nothing</strong>: no state, no checkpoint, no height, no validator set and no configuration value. The restored checkpoint is the current L1 checkpoint, <code>resumeHeight = lastLandedHeight + 1</code> follows from it, and the resumed heights are judged under the L1-committed set versions the epoch schedule assigns them (<a href="03-membership-staking.html#MEM-09">MEM-09</a>, <a href="02-consensus.html#CONS-13">CONS-13</a>). No rule changes a member's weight within a set version, and the only way a set changes is the eligibility boundary of <a href="03-membership-staking.html#MEM-13">MEM-13</a> combined with the rotation of <a href="02-consensus.html#CONS-16">CONS-16</a> (D-14). Nothing at or below the accepted checkpoint may be touched. This is the rule that keeps the action from becoming a configuration-capture or history-editing mechanism. <em>(user decision D-15: the action is resume-only; it cannot choose a state, a checkpoint or a height.)</em></td></tr>
-<tr><td><strong>Void on progress, and permissionless cancellation</strong></td><td>If a valid batch extending the checkpoint recorded when the entry was queued is accepted on L1 before the entry executes, the action is <strong>void</strong>: it MUST revert or be cancelled, and <strong>any account may cancel the queued entry permissionlessly</strong>. There is no bond to transfer and no treasury destination on cancellation; cancellation costs only the gas of the cancellation transaction, and the queued entry carries no value. Neither the reveal of a certificate nor of a proof for a discarded height voids the action by itself; only acceptance of an extending batch does. Execution takes effect for L2 nodes only when the executing transaction is Ethereum-final under <a href="01-system-model.html#SYS-02">SYS-02</a>; if it is reorganised out below that depth it never took effect and the pre-resolution history stands. <em>(user decision D-15: progress voids the action, and cancellation is permissionless and bondless.)</em></td></tr>
-<tr><td><strong>Generation fix: the generation is signed into the history</strong></td><td>Execution increments the <strong>recovery generation</strong> by exactly one. The generation is a field of the <strong>signed vote</strong> and of the <strong>header bytes</strong> (<a href="02-consensus.html#CONS-01">CONS-01</a>, <a href="02-consensus.html#CONS-02">CONS-02</a>, <a href="02-consensus.html#CONS-10">CONS-10</a>), and a certificate carries it and is valid only under the current generation (<a href="02-consensus.html#CONS-05">CONS-05</a>, <a href="02-consensus.html#CONS-12">CONS-12</a>). Validators sign the new generation after the increment, so <strong>old certificates are void at the acceptance rule</strong>, not merely stale in the proof: a batch whose certificate carries a superseded generation is rejected even though its proof verifies and even though every signature in it is authentic. This closes the round-4 finding that the generation bound the proof and not the history; because there is no recovery bundle to carry, the generation needs no retirement range to be sound. <em>(user decision D-15: the recovery generation is a field of the signed vote and header bytes; the governance action increments it and validators sign the new generation.)</em></td></tr>
-<tr><td><strong>Late certificates</strong></td><td>A certificate under a superseded generation is <strong>void for canonical purposes</strong> above the restored checkpoint, but remains admissible as <em>evidence</em>: if the same validator set signed conflicting certificates under the <em>same</em> generation, the evidence rules of <a href="07-economics-slashing.html#ECON-04">ECON-04</a> still apply, and a certificate revealed late is not thereby excused. A pair whose signed generations differ is not a same-generation conflict (<a href="02-consensus.html#CONS-11">CONS-11</a>). Eligibility to queue the action must not depend on the absence of unpublished certificates. <em>(user decision D-15: superseded-generation certificates are void canonically and remain evidence; the generation is part of the conflict predicate.)</em></td></tr>
-<tr><td><strong>Late proofs and stalled transactions</strong></td><td>A proof for a batch certified under a superseded generation is <strong>void</strong> at the acceptance rule, even though its height is not permanently retired: the height may be re-produced by any proposer as part of a new batch that begins at <code>resumeHeight = lastLandedHeight + 1</code>, descends from the restored checkpoint and is certified under the new generation (<a href="04-l1-integration.html#L1-06">L1-06</a>). <strong>Transactions in discarded blocks are not replayed automatically and are not guaranteed inclusion</strong>; they must be resubmitted by their senders under the new generation. Replay protection is expressed only in the preserved encodings of <a href="04-l1-integration.html#MSG-02">MSG-02</a>: a stall resolution MUST NOT introduce an additional replay key. <strong>(i) L1&rarr;L2 messages.</strong> The Bridge authenticates an L1&rarr;L2 message by the <code>SIGNAL</code> storage slot <code>keccak256(abi.encodePacked("SIGNAL", chainId, app, signal))</code> and the execution receipt is L2 state: a message whose receipt lies inside the discarded range is rolled back with that range, becomes unexecuted again, and <strong>MAY be relayed again</strong>; a message whose receipt is at or below the restored checkpoint persists and <strong>MUST NOT execute twice</strong>. <strong>(ii) L2&rarr;L1 withdrawals.</strong> A withdrawal is executed on L1 against <code>keccak256(abi.encode("TAIKO_MESSAGE", message))</code>, proved against a stored checkpoint's state root (<a href="04-l1-integration.html#MSG-03">MSG-03</a>): everything already executed on L1 was proved against a checkpoint at or below the restored checkpoint, so it remains backed by canonical L2 state; no L1-side record of an executed withdrawal is ever reversed (the resolution writes no L1 bridge state). <strong>(iii) Deposits.</strong> The L1-side deposit transaction is never reversed; a deposit credit inside the discarded range is <strong>erased with the range</strong> and MUST be re-relayed through the preserved L1&rarr;L2 path against the restored checkpoint. <em>(user decision D-15: discarded transactions are not replayed and must be resubmitted; the preserved encodings and the L1-backed withdrawal guarantee are unchanged.)</em></td></tr>
-<tr><td><strong>Derived discard depth</strong></td><td>At most <code>D_MAX</code> L2 blocks, because <a href="#HALT-03">HALT-03</a> caps the unsettled depth. <em>Conditional</em>: the bound holds only while the cap is enforced; it is not a bound on loss, and an over-depth history is discarded in full too. <em>(user decision D-15: the discard is the whole unsettled range above the checkpoint.)</em></td></tr>
-<tr><td><strong>Derived stall duration</strong></td><td><code>T_STALL_GOV + T_GOV_RESUME + resume time</code>, all terms unmeasured except that <code>T_STALL_GOV</code> must exceed the D6 envelope by construction. <em>(user decision D-15: the duration is the trigger window plus the timelock plus resume.)</em></td></tr>
-<tr><td><strong>Repeated action</strong></td><td>There is no protocol-level cooldown and no bond to escalate: while the trigger still holds, another entry may be queued and executed after its own timelock. Each execution increments the generation again and thereby voids the in-flight proofs and certificates of the then-current provisional range; when nothing above the checkpoint has been produced, the repeat is a no-op for state but still increments the generation. Repetition is limited by governance liveness and by nothing in these rules, and it is disclosed as such; no bond paces it, so the timelock and the governance process are the only pacing. <em>(user decision D-15: repetition is unbounded by protocol rules and is part of the governance-liveness disclosure; there is no cooldown because there is no permissionless invoker.)</em></td></tr>
-<tr><td><strong>User exposure</strong></td><td>Every L2 outcome above the checkpoint: inclusions, ordering, balances, bridge messages not yet settled, and any economic position built on them. <strong>No universal bound on economic loss exists</strong> and none may be claimed; losses are not compensated by protocol penalties (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>). <em>(user decision D-15: the provisional range is at risk and its transactions must be resubmitted.)</em></td></tr>
-<tr><td><strong>D5 as relaxed by D-11</strong></td><td>The action is <strong>not a batch</strong>: it accepts no data, advances no checkpoint forward, and may not introduce a path by which protocol state advances on data alone. A batch's data MAY have been published to L1 and recorded in an earlier transaction (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#L1-02">L1-02</a>), so what D5 fixes is that the checkpoint advances only on a valid proof; the transaction that executes the action is not a batch-acceptance entry point. The action may neither create, suppress nor re-deadline a publication record: publication is permissionless and stays available while an entry is queued, and the proving deadline that bounds a published-but-unproven record is owned by <a href="04-l1-integration.html">04</a> (the obligation survives an executed action unchanged, <a href="04-l1-integration.html#FI-14">FI-14</a>). D-15 changes the <em>guarantee</em> attached to unsettled confirmations and the path that clears a stall; it does not relax the proof requirement. <em>(D-11/D-12: publication writes no state that decides anything until a proof references it, and no path may suppress the forced-inclusion record.)</em></td></tr>
-<tr><td><strong>Authorization binding</strong></td><td>The configuration hash and the <strong>recovery generation</strong> are public inputs of the proof statement (<a href="05-proof-statement.html#PRF-02">PRF-02</a>, <a href="04-l1-integration.html#L1-05">L1-05</a>), and under D-15 the generation is <em>also</em> a field of the signed vote and header bytes, so it binds the signed history and not only the proof. A batch certified under generation <code>g</code> is void once generation <code>g+1</code> is active, at the acceptance rule and not merely in the guest; the guest MUST still check the generation it is given, and the signed-vote and header fields are what make the older certificate inadmissible in the first place. <em>(user decision D-15: the generation binding moves from the proof alone to the signed vote and header bytes, which is what closes the round-4 finding.)</em></td></tr>
-<tr><td><strong>Governance liveness disclosed; no privilege beyond the rule</strong></td><td>Clearing a stall depends on <strong>governance liveness, with no protocol-level bound</strong>. This is a social-layer assumption and is recorded as one: if governance never queues or never executes a valid action, the stall persists and the chain stays halted; the halt is safe but not live without governance (<a href="#HALT-01">HALT-01</a>, <a href="#REC-03">REC-03</a>, <a href="10-assurance.html#LIVE-01">LIVE-01</a>). The action grants no emergency power: no operator, DAO or governance actor may choose a state, a checkpoint, a height, a validator set or a configuration value, and <a href="#HALT-04">HALT-04</a> stays in force with its exception narrowed to this rule-bound transition. <em>(user decision D-15: the fallback is a social-layer assumption, disclosed, and the action is resume-only.)</em></td></tr>
-</tbody></table>
-<span class="why">Why this replaces the permissionless recovery: recovery failed independent review three times
-(authorization tautology, an invoker-claimed retirement, and a completion transition L1 could not verify that
-a one-certificate bundle could wedge), and each repair opened a new finding. The replacement needs no bundle,
-no certificate, no maximality argument and no reference to a discarded branch's tip, because it discards the
-whole range above the checkpoint by a boundary fixed in L1 state alone. What it costs is a disclosed
-dependence on governance liveness and a generation change that voids certificates rather than retiring
-heights. The honest residual — a stalled transaction must be resubmitted, and a range L1 censors or never
-publishes cannot be forced — is stated in <a href="#REC-03">REC-03</a>.</span>
-<span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span> <span class="pill open">Open</span>
-<span class="small">(the mechanism is normative; every timing term is unmeasured, and whether <code>T_GOV_RESUME</code>
-covers the worst-case MEM-15 exit is carried as Open in <a href="#REC-03">REC-03</a>)</span></div>
+<div class="rule" id="REC-02"><span class="rid">REC-02 — governance stall resolution: DEFERRED by D-16 (tombstone)</span>
+<span class="norm"><strong>Deferred by decision D-16; not normative in v1 and MUST NOT be implemented.</strong>
+This id formerly stated the timelocked, resume-only governance stall resolution selected by D-15 —
+objective trigger <code>T_STALL_GOV</code>, queued entry, timelock <code>T_GOV_RESUME</code>, full-range
+discard, void-on-progress cancellation and the signed generation increment. The mechanism is deferred to
+the register: <a href="../DEFERRED.md">DEFERRED.md</a> §3. The v1 position is the opposite of a recovery
+rule: <strong>v1 has no recovery path of any kind</strong>. A settlement stall <strong>halts the
+chain</strong>; funds are safe, the boundary of <a href="#REC-01">REC-01</a> holds and the exit guarantee
+of <a href="03-membership-staking.html#MEM-15">MEM-15</a> works, and <strong>clearing the stall requires a
+future protocol update whose procedure is not yet specified</strong>. The parameters that existed only for
+this mechanism (<code>T_STALL_GOV</code>, <code>T_GOV_RESUME</code>, <code>govResumeQueuedAt</code>,
+<code>govResumeQueuedHeight</code>, <code>govResumeState</code>) are tombstoned with a MUST-NOT-USE reason
+in <a href="09-parameters.html">09</a>; the signed recovery generation survives as the scoping record for
+certificates, locks and uniqueness and no v1 rule increments it. <em>(decision D-16: the governance stall
+resolution is deferred with the other add-on mechanisms, and clearing a settlement stall depends on a
+future protocol update whose procedure is not yet specified.)</em></span>
+<span class="why">Failure mode: an implementer reads an id that is still present and builds the withdrawn
+governance action, or presents a stalled chain as resumable by a v1 rule. Neither is permitted; the id is
+retained so the work is not lost and so the name cannot be reintroduced silently.</span>
+<span class="pill open">deferred by D-16</span> <span class="small">(tombstone; the register entry is
+<a href="../DEFERRED.md">DEFERRED.md</a> §3)</span></div>
 
-<div class="rule" id="REC-03"><span class="rid">REC-03 — resistance analysis, residuals and falsifiers for the governance path (user decision D-15)</span>
-<span class="norm"><strong>Premises, stated separately from the conclusion.</strong> The claim below is conditional on all four, and none may be silently dropped: <strong>(P1)</strong> <code>A-CONS-1</code> — fewer than one third of the voting power is Byzantine, in every epoch; <strong>(P2)</strong> <code>A-CONS-2</code> — after GST, delivery among correct validators is timely, so finalization continues with the honest supermajority (<a href="02-consensus.html#CONS-07">CONS-07</a>); <strong>(P3)</strong> <code>A-DA-2</code> — at least one honest, adequately-resourced prover completes each committed batch's proof inside the envelope, and the batch data is obtainable by it; under D-11 the data reaching L1 no longer waits for the proof, so this premise is that the data is either served off-chain (<code>A-CONS-5</code>) or <strong>published to L1 by any observer</strong> before the proving deadline, with the publication recorded on L1 while the blobs are retrievable (<a href="04-l1-integration.html#DA-01">DA-01</a>); <strong>(P4)</strong> <code>A-L1-1</code> — L1 includes valid transactions within a bounded delay and does not reorganise below finality. All four are assumptions, not measurements, and the economic conditions they touch are unmeasured until Phase B (<a href="09-parameters.html">09</a>). <em>(user decision D-15: the analysis is re-derived around the timelocked governance action; the bond, reward and invoker-incentive premises of the withdrawn analysis are removed with the mechanism they priced.)</em>
-<br><strong>The claim, restricted to what the replacement supports.</strong> Within P1&ndash;P4, a sub-threshold coalition — any set of participants holding less than one third of the voting power — <strong>cannot make the stall-resolution trigger true</strong>. Finalization continues with the honest supermajority (P1, P2); proposer selection is weighted by committed stake and the slot rotates, so a coalition selected for strictly fewer than one third of slots in expectation cannot censor indefinitely (<a href="02-consensus.html#CONS-06">CONS-06</a>); data is served (P3) and, where a holder has the body, publication is permissionless, so any account may put it on L1 in its own transaction (<a href="07-economics-slashing.html#ECON-13">ECON-13</a>); proving is permissionless and rewarded, and any account may land a proof and collect the reward (<a href="04-l1-integration.html#L1-10">L1-10</a>, <a href="04-l1-integration.html#L1-11">L1-11</a>); and L1 includes the landing transaction (P4). The checkpoint therefore keeps advancing, <code>lastLandedHeight</code> strictly increases, <code>T_STALL_GOV</code> is built from the permitted proof latency, the settlement pipeline, L1 finality and a margin and is strictly larger than the D6 envelope (<a href="#REC-02">REC-02</a>), and no interval of length <code>T_STALL_GOV</code> passes without an accepted batch extending the checkpoint (<a href="04-l1-integration.html#L1-06">L1-06</a>), so the trigger never becomes true and no entry can be validly queued. This is a claim about rule-legal behaviour under P1&ndash;P4; everything outside them is a residual or a falsifier below.
-<br><strong>What making the trigger true would actually require.</strong> It means holding the checkpoint still for the whole window, so it requires breaking P3 or P4, and there are exactly three ways: <strong>(i) suppress every prover</strong>, so no proof exists to land (P3 fails); <strong>(ii) censor every landing transaction at L1</strong>, so a produced proof is never included (P4 fails); or <strong>(iii) price the protocol out of the blob market for the whole stall window</strong>, so no landing transaction is includable at a payable cost — an L1 block-space and market-power condition, not an L2 action (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="07-economics-slashing.html#ECON-02">ECON-02</a> clause 1).
-<br><strong>What the replacement removes, and why that matters to resistance.</strong> There is no bond to size, no escalation, no cooldown, no completion transition, no cancellation predicate to define, no certificate bundle for L1 to verify, no maximality question about which certified heights to retire, and no completion reward: the action has no calldata that influences its outcome and no value transfer at all. An adversary therefore cannot buy a trigger, cannot farm a completion, and cannot exploit an under- or over-sized bundle; the only thing it can do is what (i)&ndash;(iii) describe — keep the checkpoint still — and the only response is governance executing a transition whose entire effect is fixed by L1 state. Conversely, a <strong>selective</strong> outcome is impossible by construction: the discard is the whole range above the checkpoint, so an attacker inside that range cannot save its own effects while destroying a counterparty's; above the restored checkpoint the ordinary replay rules apply uniformly (<a href="#REC-02">REC-02</a>, Late proofs and stalled transactions). <em>(user decision D-15: removing the permissionless machinery also removes the abuse surfaces the permissionless design had to price.)</em>
-<br><strong>The generation fix closes the round-4 finding.</strong> A full-range discard is sound only if the discarded branch cannot be re-landed. The generation is now a field of the signed vote and header bytes (<a href="02-consensus.html#CONS-01">CONS-01</a>, <a href="02-consensus.html#CONS-02">CONS-02</a>, <a href="02-consensus.html#CONS-10">CONS-10</a>), the action increments it, validators sign the new generation, and a certificate whose generation is not current is void at the acceptance rule (<a href="02-consensus.html#CONS-05">CONS-05</a>, <a href="02-consensus.html#CONS-12">CONS-12</a>). A discarded block at <code>resumeHeight = lastLandedHeight + 1</code> descends from the same restored checkpoint as the resumed first block, so contiguity alone cannot separate them; the signed generation is exactly what does. No retired-height record and no recovery anchor remain, and the lock scoping follows the generation rather than a separate carve-out (<a href="02-consensus.html#CONS-04">CONS-04</a>(2), <a href="#REC-04">REC-04</a>).
-<br><strong>Residuals, stated honestly.</strong> <strong>(1) Governance liveness.</strong> Clearing a stall depends on governance queueing and executing a valid action, and there is <strong>no protocol-level bound</strong> on that; this is a social-layer assumption. If governance is absent, captured or slow, the stall persists: the halt is safe but not live without governance (<a href="10-assurance.html#LIVE-01">LIVE-01</a>). <strong>(2) Stalled transactions are discarded.</strong> Transactions in the discarded range are not replayed and are not guaranteed inclusion; they must be resubmitted by their senders, and protocol penalties are not compensation (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>). <strong>(3) An L1-censored or never-published range cannot be forced.</strong> The action cannot make data available, force a publication into L1, or land a proof L1 refuses to include; a range whose data never reaches L1 is discarded and lost, and the narrow forced-inclusion rule of <a href="04-l1-integration.html#FI-10">FI-10</a> cannot reach a publication L1 censors out (<a href="10-assurance.html#LIVE-04">LIVE-04</a>). <strong>(4) An economics stall is not repaired.</strong> If the fee sweep does not credit the reward pool, or the landing reward is below the cost of landing, the stall can arise with <strong>no adversary at all</strong>; the action resumes from a checkpoint and changes no reward, no fee and no subsidy, so it must never be presented as the remedy for an unfunded landing market (<a href="07-economics-slashing.html#ECON-02">ECON-02</a>). <strong>(5) Off-chain profit and loss</strong> from the discarded range are outside any protocol bound, and there is no universal bound on economic loss. <strong>(6) Repetition is unbounded by these rules</strong>: no cooldown and no bond pace repeated actions, so a second entry may be queued and executed while the trigger still holds, incrementing the generation again; this is part of the governance-liveness disclosure and not a guarantee. <strong>(7) The timelock's sufficiency is unmeasured</strong>: whether <code>T_GOV_RESUME</code> is long enough for every user to exit via <a href="03-membership-staking.html#MEM-15">MEM-15</a> is not established here. <em>(user decision D-15: the residuals are the social-layer dependence, the discarded transactions, the unforceable censored range, the economics stall, unbounded repetition and the unmeasured timelock.)</em>
-<br><strong>Falsifiers, explicitly listed and complete.</strong> This analysis must be withdrawn if any of the following holds: <strong>(a)</strong> any path other than the rule-bound action of <a href="08-migration-upgrades.html#GOV-04">GOV-04</a>/<a href="#REC-02">REC-02</a> can replace history above the latest L1-accepted checkpoint, including an upgrade (<a href="#REC-01">REC-01</a>(d)); <strong>(b)</strong> the action has any discretionary parameter — a state, a checkpoint, a height, a validator set, a configuration value — or can execute before its timelock; <strong>(c)</strong> a measured worst-case time to exit via <a href="03-membership-staking.html#MEM-15">MEM-15</a> exceeds the recorded <code>T_GOV_RESUME</code>; <strong>(d)</strong> the generation is not a field of the signed vote and header bytes in an implementation, or a validator signs or an acceptance path admits a certificate under a superseded generation, so a discarded branch can be re-landed (<a href="02-consensus.html#CONS-12">CONS-12</a>); <strong>(e)</strong> acceptance admits a batch whose first height is not <code>lastLandedHeight + 1</code> or whose ancestry descends from a discarded block; <strong>(f)</strong> the action can change history at or below the latest L1-accepted checkpoint; <strong>(g)</strong> a stalled-but-published range can be carried into the new generation without a fresh batch beginning at <code>resumeHeight</code> and descending from the restored checkpoint; <strong>(h)</strong> governance can shorten the timelock of a queue entry already posted. A reviewer who exhibits any of (a)&ndash;(h) falsifies the resistance claim; the Open items are (c) and the registered derivation of <code>T_STALL_GOV</code> in <a href="09-parameters.html">09</a>.
-<br><strong>Review requirement.</strong> This analysis is an argument, not a measurement and not a proof, and it requires independent review before the D-15 selection is treated as settled. Reviewers must answer three questions: <strong>(1)</strong> can any rule-legal path other than the governed action replace history above the last accepted checkpoint? <strong>(2)</strong> is the generation binding complete end to end — signed vote, header bytes, certificate, guest and acceptance rule — so that no superseded-generation certificate can be landed? <strong>(3)</strong> can governance extract any discretion from the action, or shorten its own timelock, through calldata, queueing, upgrade or execution ordering? Until all three are answered and (a)&ndash;(h) are checked, the selection is <strong>not settled</strong>. <em>(user decision D-15: the review is re-run on the governance path, and the two Open items are named with their falsifiers.)</em></span>
-<span class="why">This analysis is an argument, not a proof, and it is only as strong as P1&ndash;P4. The claim is deliberately narrow — a sub-threshold L2 coalition cannot make the trigger true while proving and publication remain permissionless — and everything outside that boundary is stated as a residual: governance liveness with no protocol bound, transactions discarded and requiring resubmission, an L1-censored or never-published range that cannot be forced, an unfunded landing market that stalls with no adversary, and repetition that no rule paces. The withdrawn analysis's bond, reward and invoker-incentive claims are not carried over with the mechanism they described.</span>
-<span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span> <span class="pill open">Open</span> <span class="small">(premises <code>A-CONS-1</code>, <code>A-CONS-2</code>, <code>A-DA-2</code>, <code>A-L1-1</code>; <strong>awaiting independent review</strong>, and Open on falsifier (c) — the measured MEM-15 exit time against <code>T_GOV_RESUME</code> — and on the registered derivation of <code>T_STALL_GOV</code> in <a href="09-parameters.html">09</a>)</span></div>
+<div class="rule" id="REC-03"><span class="rid">REC-03 — governance stall resolution: resistance analysis — DEFERRED by D-16 (tombstone)</span>
+<span class="norm"><strong>Deferred by decision D-16; not normative in v1 and MUST NOT be implemented.</strong>
+This id formerly carried the resistance analysis, residuals and falsifiers for the timelocked governance
+stall resolution of D-15. It is withdrawn to the register,
+<a href="../DEFERRED.md">DEFERRED.md</a> §3, together with the mechanism it analysed. The v1 position is
+the disclosure it was written to support, stated without an analysis of a mechanism that does not exist:
+<strong>v1 has no recovery path of any kind</strong>; a settlement stall <strong>halts the chain</strong>;
+funds are safe, the boundary of <a href="#REC-01">REC-01</a> holds and the exit of
+<a href="03-membership-staking.html#MEM-15">MEM-15</a> works; and <strong>clearing the stall requires a
+future protocol update whose procedure is not yet specified</strong>. Its premises
+(<code>A-CONS-1</code>, <code>A-CONS-2</code>, <code>A-DA-2</code>, <code>A-L1-1</code>) and its Open
+items are not v1 obligations, and <strong>no measurement is owed</strong> for its falsifiers: the register
+keeps the findings so a future revival starts from them. <em>(decision D-16: the governance stall
+resolution is deferred, so its resistance analysis is a tombstone and its Open items are closed by
+withdrawal rather than by measurement.)</em></span>
+<span class="why">Failure mode: an implementer treats a tombstoned analysis as a live obligation and
+builds the withdrawn mechanism, or presents the v1 halt as bounded by rules that do not exist. The id is
+retained so the reviewed analysis is not lost.</span>
+<span class="pill open">deferred by D-16</span> <span class="small">(tombstone; register entry
+<a href="../DEFERRED.md">DEFERRED.md</a> §3)</span></div>
 
-<div class="rule" id="REC-04"><span class="rid">REC-04 — restart linkage after an executed stall resolution: the ordinary contiguity rule applies</span>
-<span class="norm">With <code>resumeHeight = lastLandedHeight + 1</code> fixed by L1 state alone (<a href="#REC-02">REC-02</a>), a stall resolution leaves <strong>no height gap</strong>, so the ordinary rules apply unchanged and the former predecessor-linkage and recovery-anchor rules are withdrawn. <em>(user decision D-15: a full-range discard with <code>resumeHeight = lastLandedHeight + 1</code> replaces the <code>max(lastLandedHeight + 1, resumeHeight)</code> linkage and the recovery anchor.)</em>
-<br><strong>(1) The ordinary linkage.</strong> Let <code>lastLandedHeight</code> be the height of the restored checkpoint record (<a href="04-l1-integration.html#L1-07">L1-07</a>); the next accepted batch MUST begin at <code>firstHeight = lastLandedHeight + 1</code>, its <code>prevHeight</code> is <code>lastLandedHeight</code>, and <code>prevBlockHash</code> and <code>prevStateRoot</code> are the <code>blockHash</code> and <code>stateRoot</code> of that L1-07 record. The batch's first header MUST carry <code>parent_hash = prevBlockHash</code>, and the guest proves execution from <code>prevStateRoot</code> (<a href="05-proof-statement.html#PRF-06">PRF-06</a>). This is exactly the parent-validity condition of <a href="02-consensus.html#CONS-01">CONS-01</a>(iii) and the header walk of <a href="05-proof-statement.html#PRF-04">PRF-04</a>(v): there is no skipped height, no substituted parent and no anchor duty that cannot be discharged.
-<br><strong>(2) The withdrawn rules.</strong> The following existed only for the case <code>resumeHeight &gt; lastLandedHeight + 1</code> and are <strong>withdrawn</strong>, not left for a case that can no longer occur: the <code>max(lastLandedHeight + 1, resumeHeight)</code> contiguity form; the skipped heights of a retirement between <code>lastLandedHeight + 1</code> and <code>resumeHeight &minus; 1</code>; the <strong>recovery anchor</strong> <code>keccak256(abi.encode("TAIKO_ETNA_RECOVERY_ANCHOR_V1", &hellip;))</code> and its header domain tag in <a href="02-consensus.html#CONS-10">CONS-10</a>(6); and the validator substitute duty that replaced <a href="02-consensus.html#CONS-09">CONS-09</a>(2). No rule may reintroduce a height gap across a stall resolution. If the restart height is the first height of its epoch, the ordinary anchor duty of <a href="02-consensus.html#CONS-09">CONS-09</a>(1)&ndash;(2) applies with <code>B_anchor</code> the restored checkpoint block at <code>h_last(e&minus;1) = firstHeight &minus; 1</code>, a canonical block with its own epoch certificate, and <code>set_version_commit</code> is computed as usual from the L1 mapping (<a href="02-consensus.html#CONS-10">CONS-10</a>(6)). <em>(user decision D-15: the recovery-anchor commitment is withdrawn from CONS-09/CONS-10 rather than kept for a case that can no longer occur.)</em>
-<br><strong>(3) Why a discarded block still cannot be landed, and where the boundary is.</strong> A discarded block's certificate carries the superseded generation and is void at the acceptance rule (<a href="#REC-02">REC-02</a>, Generation fix; <a href="02-consensus.html#CONS-05">CONS-05</a>, <a href="02-consensus.html#CONS-12">CONS-12</a>). For a height <code>&gt; resumeHeight</code>, the canonical parent at <code>height &minus; 1</code> is a block of the resumed chain, so a discarded descendant also fails the parent-validity condition of <a href="02-consensus.html#CONS-01">CONS-01</a>(iii). At <code>height = resumeHeight</code> the discarded block and the resumed first block both descend from the restored checkpoint, so contiguity alone cannot separate them and the <strong>signed generation is the binding mechanism</strong>: a new-generation block at that height is new history signed by the validators under the new generation, while the discarded block's old-generation certificate can never be accepted. That is why no retirement record is needed and why the lock scoping follows the generation (<a href="02-consensus.html#CONS-04">CONS-04</a>(2)). <em>(user decision D-15: the generation, not a retirement range, keeps the discarded branch out; the separate retired-height lock carve-out is withdrawn with it.)</em>
-<br><strong>(4) Validator duty at the restart.</strong> A correct validator MUST NOT prevote or precommit any block at <code>firstHeight</code> unless it has itself verified, from Ethereum-final L1 state, the checkpoint record at <code>prevHeight</code> and that <code>firstHeight = lastLandedHeight + 1</code>; a validator that cannot obtain them stays silent or prevotes <code>NIL</code>, which is a stall and not a safety loss (<a href="02-consensus.html#CONS-15">CONS-15</a>, <a href="#HALT-02">HALT-02</a>). It MUST also verify that the header's <code>recovery_generation</code> is the generation the Inbox holds (<a href="02-consensus.html#CONS-10">CONS-10</a>(1)). <em>(user decision D-15: the substitute recovery-anchor duty is replaced by the ordinary checkpoint and generation checks.)</em></span>
-<span class="why">Failure mode: an implementer keeps a recovery-anchor code path or a <code>max(&hellip;)</code> contiguity form for a case that can no longer occur, and so invents a rule the specification withdrew; or lets the first post-resolution block name a discarded block as its parent. The single checkpoint link of (1) and the signed generation of (3) are the two answers, and neither needs a retired anchor.</span>
-<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
-<span class="small">(the linkage is the ordinary contiguity rule; the validator duty rests on each validator's own Ethereum-final L1 view, SYS-02)</span></div>
+<div class="rule" id="REC-04"><span class="rid">REC-04 — restart linkage after a stall resolution — DEFERRED by D-16 (tombstone)</span>
+<span class="norm"><strong>Deferred by decision D-16; not normative in v1 and MUST NOT be implemented.</strong>
+This id formerly stated the restart linkage after an executed governance stall resolution: the restored
+checkpoint, the resume point <code>resumeHeight = lastLandedHeight + 1</code>, and the withdrawal of the
+former predecessor-linkage and recovery-anchor rules. It is withdrawn to the register,
+<a href="../DEFERRED.md">DEFERRED.md</a> §3, because v1 has <strong>no recovery path of any kind</strong>
+and therefore <strong>no discard and no restart-after-resolution case at all</strong>. The restart rules
+that remain normative are <a href="#HALT-02">HALT-02</a>: a correct participant resumes only from the
+highest finalized block whose data and certificate it can independently reconstruct, and the ordinary
+contiguity rule of <a href="02-consensus.html#CONS-01">CONS-01</a>(iii), the ordinary anchor duty of
+<a href="02-consensus.html#CONS-09">CONS-09</a>(1)–(2), and the signed generation check
+(<a href="02-consensus.html#CONS-10">CONS-10</a>) apply unchanged. No retired-height record, recovery
+anchor or height gap exists in v1, and none may be introduced for a case that cannot occur.
+<em>(decision D-16: the restart linkage is deferred with the governance stall resolution; the ordinary
+restart rules are the only ones.)</em></span>
+<span class="why">Failure mode: an implementer keeps a recovery-anchor code path for a case that no v1
+rule creates, and so invents a rule the specification withdrew. The id is retained so the reviewed
+linkage is not lost.</span>
+<span class="pill open">deferred by D-16</span> <span class="small">(tombstone; register entry
+<a href="../DEFERRED.md">DEFERRED.md</a> §3)</span></div>
 
 <h2 id="scenarios">Required scenario walk-throughs</h2>
 <table>
-<thead><tr><th>Scenario</th><th>Behaviour under the selected fallback (D-15)</th><th>Requirement it stresses</th></tr></thead>
+<thead><tr><th>Scenario</th><th>Behaviour in v1 (D-16: the core only)</th><th>Requirement it stresses</th></tr></thead>
 <tbody>
-<tr><td>Halt after PoS finality but before proof submission</td><td>Settlement stalls; L2 may continue until the unsettled-depth cap binds, then halts. History above the last L1 checkpoint is provisional. If no batch extending the checkpoint is accepted for <code>T_STALL_GOV</code>, governance may queue the stall-resolution action of <a href="#REC-02">REC-02</a>; acceptance of any valid extending batch before execution voids it, and any account may cancel the queued entry permissionlessly</td><td>D6, R9, <a href="#HALT-03">HALT-03</a>, <a href="#REC-02">REC-02</a></td></tr>
-<tr><td>Settlement stall past <code>T_STALL_GOV</code> (the stall-resolution trigger)</td><td>Exactly one trigger: no batch extending the current checkpoint accepted for <code>T_STALL_GOV</code>. Governance queues the action; <code>T_GOV_RESUME</code> runs, during which every user may exit via <a href="03-membership-staking.html#MEM-15">MEM-15</a>; progress voids and cancels the entry; on execution the checkpoint is the current L1 checkpoint, everything above it is discarded, and a certificate under the superseded generation is void (<a href="#REC-02">REC-02</a>, <a href="#REC-03">REC-03</a>)</td><td>D-15, <a href="#REC-02">REC-02</a>, <a href="#REC-03">REC-03</a></td></tr>
-<tr><td>Unavailable validator quorum</td><td>Safe halt; no replacement at or below the latest L1-accepted checkpoint, and the stall resolution cannot clear it: it changes no validator set and cannot manufacture a quorum, so it restores the checkpoint and discards the provisional range while the halt persists until a quorum is available again (<a href="#HALT-01">HALT-01</a>, <a href="10-assurance.html#LIVE-01">LIVE-01</a>). History above the checkpoint remains provisional. <strong>What can change the set is not the resolution but the boundary:</strong> under <a href="03-membership-staking.html#MEM-13">MEM-13</a> an entry that has not attested within <code>HEARTBEAT_WINDOW</code> is excluded from a future set version's root, and the rotation of <a href="02-consensus.html#CONS-16">CONS-16</a> can move the resumed heights onto a later committed version whose roster was drawn from eligible validators — so a quorum lost to validators that have stopped attesting is escapable without any resolution, while a cohort that keeps attesting and withholds its votes is not, and the resolution helps in neither case. <em>(decision D-14: eligibility, not the resolution, is what changes the set; the rotation is what makes the change reachable.)</em></td><td>R6, <a href="#HALT-01">HALT-01</a>, <a href="#REC-02">REC-02</a>, <a href="10-assurance.html#LIVE-01">LIVE-01</a></td></tr>
-<tr><td>Unavailable data for a finalized block</td><td>Safe halt, possibly permanent unless a holder returns. If settlement stalls past <code>T_STALL_GOV</code>, the governed action may discard the unprovable range above the checkpoint and resume from it; a range whose data never reaches L1 cannot be forced, and history at or below the checkpoint is never repaired by a discard</td><td><a href="#REC-02">REC-02</a>, <a href="#REC-03">REC-03</a>, <code>A-CONS-5</code></td></tr>
-<tr><td>Fresh permissionless participants restarting the chain</td><td>They may resume only from the highest finalized block whose data and certificate they can reconstruct, or from the checkpoint restored by an executed stall resolution; they must never adopt an alternative history at or below the latest L1-accepted checkpoint (<a href="#HALT-02">HALT-02</a>)</td><td>R1, R5</td></tr>
+<tr><td>Halt after PoS finality but before proof submission</td><td>Settlement stalls; L2 may continue until the unsettled-depth cap binds, then halts. History above the last L1 checkpoint is provisional. v1 has no action that clears the stall: funds are safe, the boundary holds and the exit works, and clearing the stall requires a future protocol update whose procedure is not yet specified (<a href="../DEFERRED.md">DEFERRED.md</a> §3)</td><td>D6, R9, <a href="#HALT-03">HALT-03</a>, <a href="#REC-01">REC-01</a></td></tr>
+<tr><td>Settlement stall of any duration (the deferred trigger)</td><td>There is no in-protocol trigger and no action in v1. The predicate and the governance action of the deferred rule (<code>T_STALL_GOV</code>, <code>T_GOV_RESUME</code>, the queued entry) MUST NOT be implemented and are tombstoned in <a href="09-parameters.html">09</a>; the stall persists, safely, until a future protocol update specifies a procedure (<a href="../DEFERRED.md">DEFERRED.md</a> §3)</td><td>R6, <a href="08-migration-upgrades.html#GOV-04">GOV-04</a> (tombstone), <a href="#HALT-01">HALT-01</a>, <a href="10-assurance.html#LIVE-01">LIVE-01</a></td></tr>
+<tr><td>Unavailable validator quorum</td><td>Safe halt; no replacement at or below the latest L1-accepted checkpoint, and no recovery mechanism exists in v1. The heartbeat-eligibility route that would have excluded a non-attesting cohort at a later boundary is deferred (D-16; <a href="../DEFERRED.md">DEFERRED.md</a> §2), so a quorum lost to validators that stopped attesting is not escapable by any v1 rule; the halt persists until a quorum returns (<a href="#HALT-01">HALT-01</a>, <a href="10-assurance.html#LIVE-01">LIVE-01</a>)</td><td>R6, <a href="#HALT-01">HALT-01</a>, <a href="10-assurance.html#LIVE-01">LIVE-01</a></td></tr>
+<tr><td>Unavailable data for a finalized block</td><td>Safe halt, possibly permanent unless a holder returns. No v1 action discards the unprovable range, and a range whose data never reaches L1 cannot be forced because the narrow forced-inclusion rule is deferred (D-16; <a href="../DEFERRED.md">DEFERRED.md</a> §1); history at or below the checkpoint is never repaired by a discard</td><td><a href="#REC-01">REC-01</a>, <code>A-CONS-5</code></td></tr>
+<tr><td>Fresh permissionless participants restarting the chain</td><td>They may resume only from the highest finalized block whose data and certificate they can reconstruct; they must never adopt an alternative history at or below the latest L1-accepted checkpoint (<a href="#HALT-02">HALT-02</a>)</td><td>R1, R5</td></tr>
 <tr><td>Expired or withdrawn validator keys</td><td>Keys are judged against the epoch set: a withdrawn key cannot vote in a later epoch, and cannot retroactively change votes it signed earlier (<a href="03-membership-staking.html#MEM-07">MEM-07</a>)</td><td>R11, <a href="02-consensus.html#CONS-08">CONS-08</a></td></tr>
-<tr><td>L1 censorship</td><td>L1 censorship stops data and proofs from landing; the chain reaches the unsettled-depth cap and halts safely. The narrow forced-inclusion rule of <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a> (D-12) anchors on data already published and cannot reach a publication that L1 refuses to include, so an adversary that censors L1 inclusion itself is outside it and the protocol offers no escape from that class; the breach offence of <a href="07-economics-slashing.html#ECON-04">ECON-04</a> clause (6) is bounded the same way, and <a href="04-l1-integration.html#FI-14">FI-14</a>'s survival clause keeps an already-published record due across an executed stall resolution without manufacturing one for the censored case. If it persists past <code>T_STALL_GOV</code>, the governed action becomes available but cannot force the censored range; clearing the stall then depends on governance liveness, which has no protocol bound, and repeated actions are unbounded by these rules (<a href="#REC-03">REC-03</a>). Sustained censorship is a disclosed limitation, not a protocol fault (<code>A-L1-1</code>; <a href="10-assurance.html#LIVE-04">LIVE-04</a>)</td><td>R10, R6, <a href="#REC-03">REC-03</a></td></tr>
-<tr><td>L1 reorganisation around an accepted batch</td><td>Only reorgs below Ethereum finality matter, and L2 consumes only Ethereum-final facts (<a href="01-system-model.html#SYS-02">SYS-02</a>); an L1 reorg never invalidates a PoS-finalized L2 block at or below the last Ethereum-finalized checkpoint — the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a> — while the boundary is the latest L1-accepted checkpoint (<a href="#REC-01">REC-01</a>); an executing transaction reorganised out below finality never took effect</td><td>R5, R12</td></tr>
+<tr><td>L1 censorship</td><td>L1 censorship stops data and proofs from landing; the chain reaches the unsettled-depth cap and halts safely. v1 has no L1 inclusion path (the narrow forced-inclusion rule is deferred, D-16) and no recovery action, so an adversary that censors L1 inclusion itself is outside every protocol remedy; sustained censorship is a disclosed limitation, not a protocol fault (<code>A-L1-1</code>; <a href="10-assurance.html#LIVE-04">LIVE-04</a>)</td><td>R10, R6</td></tr>
+<tr><td>L1 reorganisation around an accepted batch</td><td>Only reorgs below Ethereum finality matter, and L2 consumes only Ethereum-final facts (<a href="01-system-model.html#SYS-02">SYS-02</a>); an L1 reorg never invalidates a PoS-finalized L2 block at or below the last Ethereum-finalized checkpoint — the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a> — while the boundary is the latest L1-accepted checkpoint (<a href="#REC-01">REC-01</a>)</td><td>R5, R12</td></tr>
 <tr><td>Proof delays beyond exit or freshness windows</td><td>Parameters are derived from the whole pipeline so a normal delay cannot outrun them (<a href="03-membership-staking.html#MEM-05">MEM-05</a>, <a href="09-parameters.html">09</a>)</td><td>D6, R11</td></tr>
-<tr><td>30-minute normal pipeline followed by one or more prover failures</td><td>Nothing special happens at 30 minutes; additional independent provers may take over; the cap eventually binds if no proof lands, and a normal 30-minute proof is not misconduct and is not grounds for a stall resolution (<a href="#HALT-03">HALT-03</a>)</td><td>D6, R9</td></tr>
-<tr><td>Delayed certificate vs missing certificate vs provable equivocation</td><td>Delayed: accept whenever it arrives. Missing: stall, never conclude. Equivocation: objective evidence and a penalty (<a href="07-economics-slashing.html#ECON-04">ECON-04</a>). A certificate under a superseded generation is void canonically but still admissible as evidence; a pair whose signed generations differ is not a same-generation conflict (<a href="#REC-02">REC-02</a>, <a href="02-consensus.html#CONS-11">CONS-11</a>)</td><td>R11, <a href="#WH-02">WH-02</a></td></tr>
+<tr><td>30-minute normal pipeline followed by one or more prover failures</td><td>Nothing special happens at 30 minutes; additional independent provers may take over; the cap eventually binds if no proof lands, and a normal 30-minute proof is not misconduct and is not grounds for any recovery action (none exists in v1, D-16) (<a href="#HALT-03">HALT-03</a>)</td><td>D6, R9</td></tr>
+<tr><td>Delayed certificate vs missing certificate vs provable equivocation</td><td>Delayed: accept whenever it arrives. Missing: stall, never conclude. Equivocation: objective evidence and a penalty (<a href="07-economics-slashing.html#ECON-04">ECON-04</a>). No path of v1 replaces history above the checkpoint, so a late certificate is evidence rather than a second canonical history; a pair whose signed generations differ is not a same-generation conflict (<a href="02-consensus.html#CONS-11">CONS-11</a>)</td><td>R11, <a href="#WH-02">WH-02</a></td></tr>
 </tbody></table>
-<p class="small"><em>(user decision D-15: the walk-throughs are re-based from the withdrawn permissionless recovery onto the timelocked, resume-only governance action; at or below the latest L1-accepted checkpoint nothing changes, and Ethereum finality remains the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>.)</em></p>
+<p class="small"><em>(decision D-16: the walk-throughs are re-based from the withdrawn permissionless recovery and the deferred governance action onto the v1 position — the core only; at or below the latest L1-accepted checkpoint nothing changes, and clearing a settlement stall requires a future protocol update whose procedure is not yet specified.)</em></p>
 
 </main>
 <footer class="site"><p>Etna PoS + ZK reference specification · <a href="index.html">rule index</a> · <a href="../learn/index.html">learning course</a></p></footer>

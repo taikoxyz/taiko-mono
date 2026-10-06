@@ -117,9 +117,9 @@ somebody proves and lands. Any account may do this, and the first valid submissi
 range:</p>
 <ul>
 <li>The range must be contiguous and must start exactly at
-<code>max(lastLandedHeight + 1, resumeHeight)</code>: one block after the last accepted batch, and never at
-or below a height retired by a completed recovery (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>).
-Landing is strictly in order, and a discarded range can never be landed.</li>
+<code>lastLandedHeight + 1</code>: one block after the last accepted batch
+(<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>).
+Landing is strictly in order.</li>
 <li>The batch length is bounded by data, not by preference. At the target rate one 2-second L2 block is one
 131,072-byte blob (EIP-4844, <span class="tag">sourced</span>); EIP-7691 allows 6 blobs per L1 block as the
 target and 9 as the maximum (<span class="tag">sourced</span>); and the batch&rsquo;s data must fit in
@@ -152,10 +152,9 @@ sizing and the reward floor have to be read at that concurrency.</p>
 <tr><td>Blob capacity per L1 block</td><td>6 target / 9 maximum &times; 131,072 bytes</td><td>786,432 / 1,179,648 bytes</td><td><span class="chip">sourced</span></td></tr>
 </tbody></table>
 <p>Proofs may finish out of order, but they cannot <em>land</em> out of order, because each accepted
-batch must start at <code>max(lastLandedHeight + 1, resumeHeight)</code>. A finished proof for a later range
-waits until the earlier range has landed, and a range below the resume height can never be landed at all.
-This keeps the L1 checkpoint a single unbroken chain of contiguous ranges, permanently cut at every
-completed recovery.</p>
+batch must start at <code>lastLandedHeight + 1</code>. A finished proof for a later range
+waits until the earlier range has landed. This keeps the L1 checkpoint a single unbroken chain of
+contiguous ranges.</p>
 
 <h3>The unsettled-depth cap</h3>
 <p>The <strong>unsettled depth</strong> at a height is the number of L2 blocks between the highest
@@ -171,11 +170,10 @@ certified range permanently unlandable (L1-06).</p>
 unsettled data for a window; once a block&rsquo;s data has aged out of that window and no proof exists,
 nobody can prove that range. So the protocol stops creating new unsettled blocks before that can happen.
 When the cap binds, production stops and the chain sits in a safe halt until provers catch up. That is a
-designed stop, not a failure of the protocol. If the settlement stall passes
-<code>T_STALL</code>, a permissionless, bonded, delayed recovery may replace the unsettled range above
-the latest accepted checkpoint &mdash; and it permanently retires the heights it discards, so the range it
-replaces can never be re-certified or landed again at any generation. It cannot reconstruct data at or
-below the checkpoint, so a halt over missing accepted data can still be permanent.</p>
+designed stop, not a failure of the protocol. v1 has no recovery path: if the stall persists, the chain
+stays halted, and clearing it requires a future protocol update whose procedure is not specified. Value at
+or below the last accepted checkpoint can still leave on L1 through the exit path, and nothing reconstructs
+data at or below the checkpoint, so a halt over missing accepted data can be permanent.</p>
 <p>Notice what the cap is <em>not</em>: it does not limit proving latency and it is not misconduct for a
 proof to consume the whole 30-minute envelope. The envelope is the planning assumption; the cap sits
 above it.</p>
@@ -184,7 +182,7 @@ above it.</p>
 <p>When a proof exists, anyone may submit <code>land(data, proof)</code>: one transaction carrying the
 range, the proof, and the data either as calldata or blobs or as a reference to a live publication record.
 The Inbox checks that the range starts at
-<code>max(lastLandedHeight + 1, resumeHeight)</code>, derives the public inputs from its own state, checks the
+<code>lastLandedHeight + 1</code>, derives the public inputs from its own state, checks the
 data binding, verifies the proof, and only then writes the checkpoint
 record. There is no expiry, no allowlist and no pending batch record. The checkpoint carries the L2 height,
 block hash, state root, epoch, validator-set root, data commitment and the L1 block that accepted it.
@@ -249,6 +247,7 @@ before the proof, but nothing forces publication, and publication settles nothin
 the window&rsquo;s availability comes from L2 participants and is an assumption, not an on-chain duty.</li>
 <li>Any measured latency figure. L1 inclusion, the round budget, the retention window and the
 withdrawal delay are all not yet measured.</li>
+<li>No way to clear a stall inside the protocol. If settlement stalls for good, the chain stays halted: v1 has no recovery path, and clearing the stall requires a future protocol update whose procedure is not specified. Value at or below the last accepted checkpoint still exits on L1 (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>).</li>
 <li>A small proving fleet or a long batch. About 150 batches are unsettled inside the thirty-minute
 envelope, so roughly 150 proofs must be able to be in flight at once; that is a consequence of the data
 bound, not a target that can be tuned away.</li>
@@ -264,7 +263,8 @@ is provisional, that the data may already be published, and that no checkpoint e
 <p>Because the cap is a production rule enforced by validators, not an admission rule on
 <code>land</code>. Refusing a valid proof at L1 could strand a legitimately certified range, which the
 design forbids. The correct sequence is: production stops, existing ranges are proven and landed, and
-production resumes as the checkpoint advances.</p></details>
+production resumes as the checkpoint advances. If no proof ever lands, the chain stays halted — v1 has no
+recovery path, and clearing the stall requires a future protocol update whose procedure is not specified.</p></details>
 <details><summary>Ten minutes after a block is certified, its proof is still running. Where is the block&rsquo;s data?</summary>
 <p>On L2 participants&rsquo; machines, unless an account has published it to L1: publication is
 permissionless, writes a publication record and no batch state, and can happen at any time before the
@@ -292,6 +292,7 @@ it does not exceed the cap.</li>
 <li>Ethereum includes valid transactions within a bounded delay and finalizes them.</li>
 <li>The 30-minute envelope, the retention window and the withdrawal delay are planning values awaiting
 measurement.</li>
+<li>The chain resumes after a settlement stall only through a future protocol update: no rule of v1 provides a recovery path, and the exit from the last settled checkpoint works on L1 without any L2 liveness.</li>
 <li>Blob space is a market: the target rate is nominal, and sustained throughput is whatever the
 protocol&rsquo;s fee budget buys at the prevailing blob price.</li>
 </ul>

@@ -174,8 +174,9 @@ more than two thirds of that set's voting power signed <code>PRECOMMIT</code> fo
 <a href="../spec/index.html#STATUS-04"><strong>certified</strong></a> when it holds a valid certificate, <em>and</em> it has performed its own data-availability
 check for <code>B</code>'s body, <em>and</em> <code>parent(B)</code> is the block it certified at
 <code>H−1</code>. The local decision is a function of the certificate, the node's own data check and its own
-certified prefix — nothing else. This rule prevents two conflicting <em>certificates</em>; what may happen above the latest
-checkpoint accepted on Ethereum is governed by the recovery rules, not by this one.
+certified prefix — nothing else. This rule prevents two conflicting <em>certificates</em>; above the latest
+checkpoint accepted on Ethereum a confirmation is provisional, and v1 has no rule that replaces it — a
+settlement stall halts the chain rather than forking it.
 </p>
 </div>
 <div class="card">
@@ -234,7 +235,7 @@ a view change, a retry, or a halt.</p>
 set root and quorum checked locally, regardless of who sent it;</li>
 <li>if it holds a lock on a different block at that height and a valid conflicting certificate arrives, halt and
 publish the evidence it has, rather than choosing a branch;</li>
-<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; what may be replaced above the latest checkpoint accepted on Ethereum is decided by the recovery rules, not by a node.</li>
+<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; no node may replace history above the latest checkpoint accepted on Ethereum, and v1 has no rule that does.</li>
 </ol>
 <p>Equivocation is the one thing a pair of signed objects can prove: two signed messages of the same type, at the
 same (chain id, height, round, validator index), with different signed values — or with different signed epoch
@@ -263,7 +264,7 @@ therefore reduces to the same case: at least one third of the previous epoch's p
 <h2>What this gives you</h2>
 <ul>
 <li>Single-slot certification: one certificate per height, no confirmation depth, no probabilistic waiting.</li>
-<li>Certificates are epoch-scoped and stay valid forever as certificates, so validator rotation cannot re-judge or re-sign a past decision; rotation is not a replacement path &mdash; only recovery may replace history above the latest accepted checkpoint.</li>
+<li>Certificates are epoch-scoped and stay valid forever as certificates, so validator rotation cannot re-judge or re-sign a past decision; rotation is not a replacement path &mdash; no rule of v1 replaces history above the latest accepted checkpoint.</li>
 <li>A lock and a signed-vote rule that make the cost of a conflicting commit one third of the epoch's stake, and make the most damaging fault objectively provable when it appears as a same-height, same-round pair.</li>
 <li>A deterministic, publicly computable proposer schedule, so anyone can audit who was supposed to propose and when.</li>
 <li>Timeouts that affect liveness only: exceeding any timing bound slows the chain, never breaks safety.</li>
@@ -273,7 +274,7 @@ therefore reduces to the same case: at least one third of the previous epoch's p
 <ul>
 <li><strong>No safety without the stake assumption.</strong> With one third or more of an epoch's power malicious or compromised, two conflicting certificates can both be valid, and the ZK proof verifies both.</li>
 <li><strong>No measured timing.</strong> <code>TIMEOUT_MIN</code>, <code>TIMEOUT_MAX</code>, the message-delay bound and the block-execution bound are unmeasured; the 3 s / 30 s ladder is a proposal, not a result.</li>
-<li><strong>No liveness guarantee.</strong> A permanently withheld PoLC stalls a locked validator by design; the honest outcome is that it cannot make progress, not that it invents a rule.</li>
+<li><strong>No liveness guarantee.</strong> A permanently withheld PoLC stalls a locked validator by design; the honest outcome is that it cannot make progress, not that it invents a rule. A settlement stall halts the chain safely: value at or below the last accepted checkpoint can still leave on L1, and clearing the stall requires a future protocol update whose procedure is not specified.</li>
 <li><strong>No machine-checked epoch handoff.</strong> The safety argument across an epoch boundary — per-height locks, the parent-validity condition and the epoch anchor — is an argued property, not a machine-checked one. A cross-round divergence under withholding can also leave no admissible evidence, so the claim that at least one third is always objectively punishable is not made.</li>
 <li><strong>No hidden evidence.</strong> A certificate shows one vote per signer; it can never prove that a validator did <em>not</em> also sign something else. Only a conflicting signed pair does that.</li>
 <li><strong>No unpurchasable proposer slot.</strong> Selection is public and predictable, so a coalition can identify the slot in which a target transaction would be included. No rule prices or penalises slot-buying.</li>
