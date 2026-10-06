@@ -132,8 +132,11 @@ the committed weights still include validators that have stopped signing, so if 
 cannot be met, production halts &mdash; there is no degraded threshold. Nothing replaces the silent weight
 either. Membership has no liveness gate, so an entry that goes quiet stays in every committed set version, and
 v1 has no rule that removes it or that draws a replacement set. The silent validators keep their whole bonded
-stake; they forfeit only the rewards they did not earn. Clearing the halt needs a future protocol update, not
-a rotation.</p>
+stake; they forfeit only the rewards they did not earn. The halt ends with no protocol change when the
+committed cohort of the epoch containing the next unfinalised height returns to vote, and it is permanent only
+while that cohort never does: that epoch is already committed and its roster immutable, so no rotation can
+clear it. Changing the set, the schedule or the mechanism is what would need a protocol update, not the
+cohort's return.</p>
 
 <p><strong>The halt can still be permanent.</strong> Halting remains the correct action for missing data at or
 below the accepted checkpoint, for a missing validator-set commitment, for an L1 view that disagrees with

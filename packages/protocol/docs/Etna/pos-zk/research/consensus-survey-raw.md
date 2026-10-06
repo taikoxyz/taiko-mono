@@ -48,8 +48,10 @@ The target is fixed by the task and is not re-litigated here:
 
 ### 1.2 Grounding in this repository
 
-- The existing L1 entry points are [Inbox.sol](packages/protocol/contracts/layer1/core/impl/Inbox.sol) with a `propose(...)` function (line 270) and a separate `prove(...)` function (line 321), plus an `IProofVerifier` abstraction (line 17, 71). The target design removes the data-first/proof-later split for Mode A; the `propose`/proof-later path is exactly the path that must not be able to finalize.
-- The staking asset already exists as [TaikoToken.sol](packages/protocol/contracts/layer1/mainnet/TaikoToken.sol) — an L1 ERC-20, which is what makes "validator set authenticated from L1" implementable as a staking-contract state commitment rather than a witness.
+- The existing L1 entry points are [Inbox.sol](../../../../contracts/layer1/core/impl/Inbox.sol) with a `propose(...)` function (line 270) and a separate `prove(...)` function (line 321), plus an `IProofVerifier` abstraction (line 17, 71). The target design removes the data-first/proof-later split for Mode A; the `propose`/proof-later path is exactly the path that must not be able to finalize.
+- The staking asset already exists as [TaikoToken.sol](../../../../contracts/layer1/mainnet/TaikoToken.sol) — an L1 ERC-20, which is what makes "validator set authenticated from L1" implementable as a staking-contract state commitment rather than a witness.
+
+*Repository-relative link paths in this file are repointed to correct targets (the same path appears in §8.6, item 4); this closes review round 9 finding R9-AC-02.*
 
 ## 2. Candidate set
 
@@ -425,7 +427,7 @@ These belong in the Inbox and are what actually makes "no recovery path invalida
 1. **Monotone finalization:** lastFinalizedHeight only increases; every accepted batch must extend lastFinalizedRoot.
 2. **Uniqueness:** at most one finalized block hash per height; a conflicting certificate reverts.
 3. **Epoch monotonicity:** a certificate is accepted only for the current epoch or a recorded successor; a certificate from a superseded epoch is rejected unless it is exactly the height that epoch transitioned at.
-4. **Prove-only-with-data (Mode A):** the entry point takes data + proof in one transaction; the legacy data-first path ([Inbox.propose](packages/protocol/contracts/layer1/core/impl/Inbox.sol)) must not be able to create a finalizable artifact.
+4. **Prove-only-with-data (Mode A):** the entry point takes data + proof in one transaction; the legacy data-first path ([Inbox.propose](../../../../contracts/layer1/core/impl/Inbox.sol)) must not be able to create a finalizable artifact.
 5. **Mode B cannot override:** any recovery entry point must be coded to revert if the height it targets is already finalized. This must be a tested invariant, not a convention.
 6. **Safe halt:** on failure of any assumption (no valid certificate, set transition not finalized on L1), progress stops rather than falls back.
 
