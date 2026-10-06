@@ -58,6 +58,11 @@ impl DriverMetrics {
         &METRICS.event_confirmed_sync_probe_errors_total
     }
 
+    /// Return the counter of proposal attempts failed by the client or execution engine setup.
+    pub(crate) fn event_proposal_setup_errors_total() -> &'static IntCounter {
+        &METRICS.event_proposal_setup_errors_total
+    }
+
     /// Return the proposal log counter.
     pub(crate) fn event_proposals_total() -> &'static IntCounter {
         &METRICS.event_proposals_total
@@ -201,6 +206,8 @@ struct DriverMetricHandles {
     event_scanner_errors_total: IntCounter,
     /// Failures while probing confirmed-sync readiness.
     event_confirmed_sync_probe_errors_total: IntCounter,
+    /// Proposal attempts that failed on the client or execution engine setup and keep retrying.
+    event_proposal_setup_errors_total: IntCounter,
     /// Proposal logs processed by the driver.
     event_proposals_total: IntCounter,
     /// Skipped proposals.
@@ -286,6 +293,12 @@ impl DriverMetricHandles {
             event_confirmed_sync_probe_errors_total: counter(
                 "driver_event_confirmed_sync_probe_errors_total",
                 "Errors emitted while probing confirmed-sync readiness in event sync",
+            ),
+            event_proposal_setup_errors_total: counter(
+                "driver_event_proposal_setup_errors_total",
+                "Proposal attempts that failed on the client or execution engine setup (an \
+                 unsupported Engine API method, refused parameters, or a block the client refuses \
+                 to send); they repeat until the setup changes",
             ),
             event_proposals_total: counter(
                 "driver_event_proposals_total",
