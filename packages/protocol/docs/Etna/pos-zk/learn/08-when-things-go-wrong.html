@@ -37,8 +37,9 @@
 block, when votes or certificates do not arrive, when validators go offline, when data cannot be found or
 when settlement stalls &mdash; and the guarantee class that follows: a confirmation above the last batch
 accepted on Ethereum is <strong>provisional</strong>. A settlement stall halts the chain safely: nothing at
-or below the last accepted checkpoint changes, value at or below it still exits on Ethereum alone, and v1 has
-no path that clears the stall. This is a design description; none of it is implemented, measured, audited or
+or below the last accepted checkpoint changes, value at or below it still exits on Ethereum alone through a
+withdrawal root of <code>k</code> distinct-family attestations funded over data that is still retrievable,
+and v1 has no path that clears the stall. This is a design description; none of it is implemented, measured, audited or
 deployed.</p>
 
 <h2>The idea</h2>
@@ -69,10 +70,18 @@ making progress, and nothing restarts it. Everything at or below the last accept
 exactly; every confirmation above it stays provisional, and v1 has no rule that discards it either.</p>
 <p><strong>A user can always leave from the last settled state.</strong> While the chain is halted, a
 withdrawal whose signal is already inside the last accepted checkpoint stays executable on Ethereum alone:
-it needs no new L2 blocks, no quorum and no validator, only the withdrawal delay measured on L1
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). That exit is what keeps a halted chain
-safe for holders. Value above the last accepted checkpoint, or value that was never messaged, has no
-L1-provable claim while the chain is halted; it becomes withdrawable only when a later checkpoint covers it.</p>
+it needs no new L2 blocks, no quorum and no validator. The release is proven against a <strong>withdrawal
+root</strong> &mdash; <code>k</code> attestations from <code>k</code> distinct backend families over the
+already-accepted checkpoint, each verified on L1, one verification per attestation &mdash; and the delay runs
+on the L1 clock from the root record&rsquo;s own <code>l1BlockNumber</code>, with an unexpired veto able to add
+up to <code>T_VETO</code> (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>,
+<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>). Forming the root is not free: the
+<code>k&minus;1</code> further proofs are off-chain work that a funded proving market must produce from the
+checkpoint&rsquo;s still-retrievable data and witness, so if that market or the data is absent, no root forms
+and the exit waits, unboundedly (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). That exit
+is what keeps a halted chain safe for holders. Value above the last accepted checkpoint, or value that was
+never messaged, has no L1-provable claim while the chain is halted; it becomes withdrawable only when a later
+checkpoint covers it.</p>
 <p><strong>Nothing in v1 clears a stall.</strong> There is no automatic path, no permissionless path and no
 governance-mediated path: clearing the stall needs a future protocol update whose procedure is not yet
 specified. The chain stays halted until then. Nothing at or below the last accepted checkpoint is touched by
@@ -109,13 +118,14 @@ its signers signed (<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>,
   <line x1="796" y1="38" x2="796" y2="104" stroke="#0969da" stroke-dasharray="4 3"/>
   <text x="790" y="30" fill="#0969da" font-size="11" text-anchor="end">nothing at or below 800 is ever rewritten</text>
   <text x="20" y="188" fill="#24292f" font-size="11">A stalled chain does not resume in v1: clearing the stall needs a future protocol update whose procedure is not yet specified.</text>
-  <text x="20" y="210" fill="#24292f" font-size="11">While it is halted, a withdrawal whose signal is at or below the last accepted checkpoint stays executable on Ethereum alone (MEM-15).</text>
+  <text x="20" y="210" fill="#24292f" font-size="11">While it is halted, a withdrawal whose signal is at or below the last accepted checkpoint stays executable on Ethereum alone once k distinct families attest its withdrawal root (MEM-15).</text>
   <text x="20" y="232" fill="#24292f" font-size="11">The recovery generation is carried in the signed vote and header bytes; v1 never advances it, so no height is retired.</text>
   <text x="20" y="254" fill="#24292f" font-size="11">A transaction above the checkpoint is not settled and is not replayed; inclusion is never guaranteed.</text>
 </svg>
 <figcaption>A settlement stall halts the chain. The last accepted checkpoint is never rewritten, the range
-above it stays provisional, and the exit at or below the checkpoint needs no L2 liveness. No v1 path clears
-the stall; a future protocol update would have to preserve the boundary.</figcaption>
+above it stays provisional, and the exit at or below the checkpoint needs no L2 liveness &mdash; only a
+withdrawal root that a funded proving market produces from data that is still retrievable. No v1 path
+clears the stall; a future protocol update would have to preserve the boundary.</figcaption>
 </figure>
 <p><strong>A cohort that goes silent takes production with it.</strong> Within a set version nothing changes:
 the committed weights still include validators that have stopped signing, so if enough of them stop that quorum
@@ -238,9 +248,11 @@ Ethereum.</li>
 The chain serves what it has. Nothing at or below the last accepted checkpoint changes, and every
 confirmation above it stays provisional.</li>
 <li><strong>Exit while halted.</strong> A withdrawal whose signal is at or below the last accepted
-checkpoint stays executable on Ethereum alone, subject only to the withdrawal delay on the L1 clock
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). Value above the checkpoint, or value that
-was never messaged, has no L1-provable claim until a later checkpoint covers it.</li>
+checkpoint stays executable on Ethereum alone, subject to the withdrawal delay on the L1 clock and to a
+withdrawal root over that checkpoint: <code>k</code> distinct backend families must attest it, and the
+<code>k&minus;1</code> further proofs are off-chain work a funded proving market must produce from data that
+is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). Value above the
+checkpoint, or value that was never messaged, has no L1-provable claim until a later checkpoint covers it.</li>
 <li><strong>No recovery path.</strong> Nothing in v1 clears the stall. There is no automatic route, no
 permissionless route and no governance-mediated route, and the design gives no protocol-level guarantee of
 liveness after a stall. Clearing it needs a future protocol update whose procedure is not yet specified.</li>
@@ -253,9 +265,11 @@ than replayed, and its inclusion is not guaranteed.</li>
 <h3>What a stall means for users</h3>
 <ul>
 <li><strong>Below the accepted checkpoint, funds are not lost, and exit needs no L2 liveness.</strong> A
-withdrawal whose signal is at or below the checkpoint stays executable on Ethereum alone, subject only to
-the withdrawal delay on the L1 clock (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). A
-halt does not forfeit it.</li>
+withdrawal whose signal is at or below the checkpoint stays executable on Ethereum alone, subject to the
+withdrawal delay on the L1 clock and to a withdrawal root that <code>k</code> distinct backend families must
+attest; the <code>k&minus;1</code> further proofs must be funded and their data still retrievable
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). A halt does not forfeit the claim, but
+it can delay the root.</li>
 <li><strong>Above the accepted checkpoint, a confirmation stays provisional.</strong> No v1 rule makes it
 permanent, and no v1 rule discards it either; it simply is not settled, and value above the checkpoint has
 no L1-provable claim until a later checkpoint covers it.</li>
@@ -341,7 +355,8 @@ same data commitment and land it, and the first valid landing wins. If in additi
 current checkpoint is accepted for long enough that a normal slow proof cannot explain it, the chain stalls.
 Correct validators stop signing and keep serving what they hold, and nothing in v1 clears the stall. While
 it is halted, a user whose withdrawal signal is at or below the last accepted checkpoint can still exit on
-Ethereum alone, subject only to the L1 withdrawal delay. Nothing above the checkpoint is discarded by any
+Ethereum alone, subject to the L1 withdrawal delay and to a withdrawal root that <code>k</code> distinct
+backend families must attest from data that is still retrievable. Nothing above the checkpoint is discarded by any
 rule, and nothing is replayed; the certified batch and the transactions in it are simply unsettled, their
 inclusion is not guaranteed, and clearing the stall needs a future protocol update whose procedure is not
 yet specified.</p>
@@ -359,7 +374,9 @@ discards it.</li>
 <li>A recovery generation that cannot be steered: it is a signed field that scopes certificates, v1 never
 advances it, and no state, checkpoint or height can be chosen through it.</li>
 <li>An exit that needs no L2 liveness: a withdrawal whose signal is at or below the last accepted
-checkpoint is executable on Ethereum alone (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>).</li>
+checkpoint is executable on Ethereum alone through a withdrawal root of <code>k</code> distinct-family
+attestations, subject to the funded proving market and to the data still being retrievable
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
 <li>Locks scoped by generation: a lock constrains votes at its height within the generation it was taken in,
 and v1 never begins a new one.</li>
 <li>A clear account of silence: an entry that stops signing keeps its stake and its place in every committed

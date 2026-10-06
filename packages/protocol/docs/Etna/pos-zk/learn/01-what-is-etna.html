@@ -76,8 +76,9 @@ protocol stops producing and keeps serving what it has (<a href="../spec/06-reco
 Ethereum is never rewritten, and there is no operator key, pause button or emergency path that can rewrite it. History above that
 checkpoint is provisional. If settlement stalls, v1 has no recovery path — no permissionless recovery
 and no governance action — so the chain simply halts; value at or below the last checkpoint stays
-withdrawable on L1, and clearing the stall needs a future protocol update whose procedure is not yet
-specified.</p>
+withdrawable on L1 through a withdrawal root that <code>k</code> distinct backend families attest (subject
+to the funded proving market and to the data still being retrievable), and clearing the stall needs a future
+protocol update whose procedure is not yet specified.</p>
 
 <h2>The picture</h2>
 <figure>
@@ -156,7 +157,7 @@ are correct.</figcaption>
 <li><strong>Data availability.</strong> The canonical copy of a batch's data is the accepting L1 transaction — its calldata and/or its blob sidecars — or the live publication record that transaction references. A batch is never accepted without data that is retrievable.</li>
 <li><strong>Proof verification.</strong> An L1 contract checks the proof and writes the checkpoint only if verification succeeds, in the same transaction.</li>
 <li><strong>Settlement.</strong> A monotone checkpoint chain records, per landed height, the L2 block hash, state root, epoch, validator-set root, data commitment and the L1 block that accepted it.</li>
-<li><strong>Bridge anchoring.</strong> Cross-chain messages authenticate against a checkpoint that the Inbox wrote; value leaves only on the strength of an L1-accepted checkpoint plus the required delay.</li>
+<li><strong>Bridge anchoring.</strong> Cross-chain messages authenticate against a checkpoint that the Inbox wrote; value leaves only on the strength of an L1-accepted checkpoint, a withdrawal root at or above that height, and the delay measured from the root&rsquo;s record.</li>
 </ul>
 </div>
 <div class="card">
@@ -210,7 +211,7 @@ and land on Ethereum; the interface must name which stage it is showing.</p>
 <ul>
 <li>A clear split of responsibilities: validators order and certify; provers and Ethereum settle; the bridge authenticates against settled checkpoints.</li>
 <li>Permissionless roles with objective entry conditions — bond TAIKO to validate, produce a proof to land a batch — and no allowlists in ordinary operation.</li>
-<li>An architecture whose failure mode for missing information is a halt: history at or below the accepted checkpoint is never rewritten, no rule of v1 rewrites it above either, and the exit from the last settled checkpoint keeps working.</li>
+<li>An architecture whose failure mode for missing information is a halt: history at or below the accepted checkpoint is never rewritten, no rule of v1 rewrites it above either, and the exit from the last settled checkpoint keeps working through a withdrawal root of <code>k</code> distinct-family attestations, subject to the funded proving market and to the data still being retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
 <li>A vocabulary — the eight statuses used across this course — that lets a tool say exactly which guarantee it is showing.</li>
 </ul>
 
@@ -218,7 +219,7 @@ and land on Ethereum; the interface must name which stage it is showing.</p>
 <ul>
 <li><strong>No implementation.</strong> There is no compiled client, contract deployment, audit, benchmark or testnet result behind any of this.</li>
 <li><strong>No measured performance.</strong> The 2 s cadence, the 30-minute proving envelope, the round budget and the fleet sizing are all unmeasured; the arithmetic in this lesson is arithmetic, not evidence.</li>
-<li><strong>No recovery path.</strong> If settlement stalls, the chain halts: v1 has no permissionless recovery and no governance action that resumes it, and clearing the stall requires a future protocol update whose procedure is not specified. Value at or below the last accepted checkpoint can still leave on L1.</li>
+<li><strong>No recovery path.</strong> If settlement stalls, the chain halts: v1 has no permissionless recovery and no governance action that resumes it, and clearing the stall requires a future protocol update whose procedure is not specified. Value at or below the last accepted checkpoint can still leave on L1 through a withdrawal root, but only if a funded proving market produces the <code>k&minus;1</code> further attestations from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
 <li><strong>No safety beyond the stake assumption.</strong> If one third or more of an epoch's voting power is malicious or compromised, two conflicting certificates can both be valid, and the proof verifies both.</li>
 <li><strong>No per-transaction inclusion guarantee.</strong> v1 has no inclusion obligation at all: a proposer that excludes a transaction — published or not — is not in breach, and there is no L1 path that forces a transaction into L2. Proposer selection is public and predictable, so resistance rests only on the selection share.</li>
 <li><strong>No fully trustless L2 checkpoint write yet.</strong> The design retains one reserved system sender for the L2-side checkpoint write; its only permitted action is to publish the Ethereum-final L1 fact that the rule already constrains.</li>

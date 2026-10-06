@@ -217,8 +217,10 @@ question.</li>
 <li><strong>That the chain keeps producing.</strong> Liveness &mdash; enough validators online,
 enough provers working &mdash; is an assumption about participants, not a theorem about the
 statement. There is also no recovery path: if settlement stalls, the chain halts safely, value at or below
-the last accepted checkpoint still exits on L1, and clearing the stall needs a future protocol update whose
-procedure is not specified.</li>
+the last accepted checkpoint still exits on L1 through a withdrawal root that <code>k</code> distinct backend
+families attest, produced by a funded proving market from data that is still retrievable
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), and clearing the stall needs a future
+protocol update whose procedure is not specified.</li>
 <li><strong>That validators behaved.</strong> If at least one third of an epoch&rsquo;s voting
 power breaks the signing or locking rules, two conflicting certificates can both be
 cryptographically valid and both can produce accepting proofs. ZK verification does not repair a

@@ -140,8 +140,9 @@ bound on loss.</p>
 no recovery path of any kind, and it gives no protocol-level guarantee of liveness after a stall. A
 settlement stall halts the chain, and clearing it needs a future protocol update whose procedure is not yet
 specified. Until then the chain stays halted, and a user&rsquo;s only exit is the withdrawal path that works
-from the last settled state on Ethereum alone
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>). This is a <strong>social-layer
+from the last settled state on Ethereum alone &mdash; through a withdrawal root of <code>k</code>
+distinct-family attestations, which needs a funded proving market and data that is still retrievable
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). This is a <strong>social-layer
 assumption</strong>, stated as one: nothing in v1 prices the halt with a bond, enforces a bound on it, or
 lets any party choose a state, a checkpoint or a height above the last accepted checkpoint.</p>
 
@@ -263,7 +264,9 @@ enforcement and no compensation for loss.</li>
 <h2 id="check">Check yourself</h2>
 <details><summary>Settlement stalls for a week. What does the design do about it?</summary>
 <p>The chain halts safely: nothing at or below the last checkpoint accepted on Ethereum is rewritten, and a
-withdrawal whose signal is at or below that checkpoint stays executable on Ethereum alone. v1 has no path
+withdrawal whose signal is at or below that checkpoint stays executable on Ethereum alone once a withdrawal
+root of <code>k</code> distinct-family attestations forms over it and the delay runs from the root&rsquo;s
+record with no unexpired veto standing. v1 has no path
 that clears the stall &mdash; no automatic, permissionless or governance-mediated route &mdash; so clearing
 it needs a future protocol update whose procedure is not yet specified. If the missing ingredient is data at
 or below the accepted checkpoint, nothing can help and the halt can be permanent. And if the real cause is an
@@ -272,7 +275,9 @@ reward and no fee.</p></details>
 <details><summary>What clears a settlement stall in v1?</summary>
 <p>Nothing. There is no automatic path, no permissionless path and no governance-mediated path in v1, and no
 protocol-level guarantee of liveness after a stall. Users can still exit from the last settled state on
-Ethereum alone (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>), but unsettled value above
+Ethereum alone through a withdrawal root that <code>k</code> distinct backend families must attest from data
+that is still retrievable and that an unexpired veto can delay
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), but unsettled value above
 the checkpoint has no L1-provable claim until a later checkpoint covers it. Clearing the stall is left to a
 future protocol update, whose procedure is not yet specified.</p></details>
 <details><summary>A user is isolated from every honest proposer. Can they withdraw anyway?</summary>
@@ -291,7 +296,9 @@ latency, throughput, operator cost, fee revenue, reward rates, evidence and with
 <div class="note assume">
 <ul>
 <li>Fewer than one third of the voting power in each epoch is malicious, and enough validators stay online to reach quorum.</li>
-<li>Somebody retains each batch&rsquo;s data and witness until its proof lands.</li>
+<li>Somebody retains each batch&rsquo;s data and witness until its proof lands, and a funded proving market
+produces the <code>k&minus;1</code> further attestations a withdrawal root needs from data that is still
+retrievable.</li>
 <li>Somebody publishes a transaction&rsquo;s data to L1 while the blobs are retrievable; publication creates no inclusion
 obligation either way, so if the data never reaches L1 the protocol has no remedy.</li>
 <li>Ethereum keeps producing and finalizing blocks, and L1 facts become Ethereum-final at a known depth.</li>

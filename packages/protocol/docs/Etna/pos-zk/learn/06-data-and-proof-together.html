@@ -395,8 +395,10 @@ transaction.</p></details>
 void at the acceptance rule, so a branch certified under a superseded generation can never be accepted
 again. v1 has no recovery path, so nothing advances the generation and no height is retired; every batch
 still starts at <code>lastLandedHeight + 1</code>. A settlement stall halts the chain instead of replacing
-history, funds at or below the last accepted checkpoint stay safe and the exit works, and clearing the stall
-needs a future protocol update. A certificate from any generation remains usable as evidence of what its
+history, funds at or below the last accepted checkpoint stay safe and the exit works through a withdrawal
+root that <code>k</code> distinct families attest, funded proving work over data that is still retrievable
+(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), and clearing the stall needs a future
+protocol update. A certificate from any generation remains usable as evidence of what its
 signers signed.</p></details>
 <details><summary>Why can a routine upgrade not invalidate the proofs that are already in flight?</summary>
 <p>Because the configuration is registered per epoch. Each epoch&rsquo;s <code>configHash</code> is written
