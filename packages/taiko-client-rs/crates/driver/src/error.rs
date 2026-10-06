@@ -75,13 +75,14 @@ pub enum DriverError {
     /// `parentBeaconBlockRoot` or a zero one.
     ///
     /// The block already hashes to the L1-recorded checkpoint, so it is canonical and the
-    /// execution engine built it before Etna: the client's Etna schedule is misconfigured, and
-    /// retrying cannot help.
+    /// network built it before Etna: the client's Etna schedule is misconfigured, and retrying
+    /// cannot help.
     #[error(
         "Etna checkpoint block {block_number} (timestamp {timestamp}) has a zero or missing \
-         parentBeaconBlockRoot although it matches the L1-recorded checkpoint; the client's Etna \
-         activation time must match the execution engine's (on a devnet, set \
-         --devnet-etna-timestamp to the execution engine's Etna time)"
+         parentBeaconBlockRoot although it matches the L1-recorded checkpoint, so the network \
+         built it before Etna; the client's Etna activation time must be the network's (on a \
+         devnet, set --devnet-etna-timestamp to the network's Etna time, the same value on the \
+         client and alethia-reth)"
     )]
     EtnaCheckpointWithoutBeaconRoot {
         /// Number of the checkpoint block.
@@ -94,13 +95,14 @@ pub enum DriverError {
     /// nonzero `parentBeaconBlockRoot`.
     ///
     /// The block already hashes to the L1-recorded checkpoint, so it is canonical and the
-    /// execution engine built it as an Etna block: the client's Etna activation time is later
-    /// than the execution engine's, and retrying cannot help.
+    /// network built it as an Etna block: the client's Etna activation time is later than the
+    /// network's, and retrying cannot help.
     #[error(
         "pre-Etna checkpoint block {block_number} (timestamp {timestamp}) has a nonzero \
-         parentBeaconBlockRoot {root} although it matches the L1-recorded checkpoint; the \
-         client's Etna activation time must match the execution engine's (on a devnet, set \
-         --devnet-etna-timestamp to the execution engine's Etna time)"
+         parentBeaconBlockRoot {root} although it matches the L1-recorded checkpoint, so the \
+         network built it as an Etna block; the client's Etna activation time must be the \
+         network's (on a devnet, set --devnet-etna-timestamp to the network's Etna time, the \
+         same value on the client and alethia-reth)"
     )]
     PreEtnaCheckpointWithBeaconRoot {
         /// Number of the checkpoint block.

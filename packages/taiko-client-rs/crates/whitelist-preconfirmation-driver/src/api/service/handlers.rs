@@ -48,6 +48,7 @@ fn log_build_preconf_block_entry(
         base_fee_per_gas = data.base_fee_per_gas,
         extra_data = %alloy_primitives::hex::encode(&data.extra_data),
         parent_hash = %data.parent_hash,
+        parent_beacon_block_root = ?data.parent_beacon_block_root,
         end_of_sequencing = end_of_sequencing.unwrap_or(false),
         is_forced_inclusion = is_forced_inclusion.unwrap_or(false),
         "🏗️ New preconfirmation block building request"

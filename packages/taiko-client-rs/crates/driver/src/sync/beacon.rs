@@ -897,7 +897,7 @@ mod tests {
             Some(DriverError::EtnaCheckpointWithoutBeaconRoot { block_number: 9, .. })
         ));
         assert!(
-            error.to_string().contains("set --devnet-etna-timestamp to the execution engine's"),
+            error.to_string().contains("set --devnet-etna-timestamp to the network's Etna time"),
             "missing operator hint: {error}"
         );
     }
@@ -920,7 +920,7 @@ mod tests {
             Some(DriverError::PreEtnaCheckpointWithBeaconRoot { block_number: 9, .. })
         ));
         assert!(
-            error.to_string().contains("set --devnet-etna-timestamp to the execution engine's"),
+            error.to_string().contains("set --devnet-etna-timestamp to the network's Etna time"),
             "missing operator hint: {error}"
         );
     }
