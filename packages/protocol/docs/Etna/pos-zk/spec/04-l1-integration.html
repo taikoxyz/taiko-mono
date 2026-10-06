@@ -387,14 +387,13 @@ error FeeAccountingUnderflow();
 // ---------------------------------------------------------------
 // Withdrawal-root and veto errors (L1-13, MSG-04)
 // ---------------------------------------------------------------
-error NotEpochBoundary(uint64 height, uint64 expectedBoundaryHeight);
 error StatementMismatch(bytes32 expected, bytes32 supplied);
-error InsufficientFamiliesForRoot(uint8 attested, uint8 required); // L1-13(1),(3)
 error RouteNotAcceptedForEpoch(bytes32 programImageId, uint64 epoch);
 error FamilyAlreadyAttested(bytes32 backendFamily); // L1-13(3): family already attested this height
 error NotAConflictingStatement();
 error ContradictionAlreadyConsumed(bytes32 contradictionHash);
 </code></pre>
+<p class="small"><em>This closes review round 7 finding R7-DPE-09: <code>NotEpochBoundary</code> and <code>InsufficientFamiliesForRoot</code> are deleted with the conditions that no longer exist — <a href="#L1-13">L1-13</a>(1) admits any already-accepted checkpoint, the latest included, so no boundary test remains, and <a href="#L1-13">L1-13</a>(3) takes one proof per call and marks the root when the <code>k</code>-th family attests, with no count argument and no count check.</em></p>
 
 <div class="rule" id="L1-09"><span class="rid">L1-09 — proof-system policy, verifier routing and the L1 ability to move to a new circuit</span>
 <span class="norm"><strong>One closed acceptance policy: exactly one route per proof object.</strong> A batch is accepted only on exactly one valid proof object, checked against exactly one registered route. A route is the triple <code>(programImageId : bytes32, verifier : address, backendFamily : bytes32)</code>; <code>routeVersion</code> is only the storage key that names the route, not a fourth semantic component. A route is ordinary; an <strong>aggregation route</strong> may exist only if a future update revives the deferred aggregation object, and <strong>in v1 there MUST NOT be an aggregation route</strong> (decision D-16: <a href="05-proof-statement.html#PRF-15">PRF-15</a> and <a href="#L1-14">L1-14</a> are tombstones, and no aggregation program may be registered or relied on). The <code>verifier</code> MUST be a deployed contract (<code>verifier.code.length &gt; 0</code>) that implements the statement of <a href="05-proof-statement.html#PRF-01">PRF-01</a> and has been audited to it; a route whose verifier is not deployed, not audited, or whose checked image id differs from <code>programImageId</code> MUST NOT be registered, and a registration that would install one MUST revert. Acceptance is first-valid-wins (<a href="#L1-10">L1-10</a>): two provers may submit proofs under different registered routes for the same range, and the first proof that verifies lands — but each individual proof is verified by exactly one route, and <code>land(data, proof)</code> MUST NOT require, and MUST NOT accept as a substitute, a second proof (this is <a href="05-proof-statement.html#PRF-09">PRF-09</a>'s closed policy).
