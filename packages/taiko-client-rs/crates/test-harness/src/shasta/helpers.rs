@@ -275,6 +275,8 @@ async fn fork_to(
     let gas_limit = block.header.gas_limit;
     let extra_data = block.header.extra_data.clone();
     let base_fee = block.header.base_fee_per_gas.unwrap_or_default();
+    // Rebuild with the block's own root: zero before Etna, the L1 anchor state root for Etna.
+    let parent_beacon_block_root = block.header.parent_beacon_block_root.unwrap_or_default();
 
     let tx_list: Bytes = block
         .transactions
@@ -299,9 +301,7 @@ async fn fork_to(
         l1_block_hash: l1_origin.l1_block_hash,
         is_forced_inclusion: l1_origin.is_forced_inclusion,
         signature: l1_origin.signature,
-        // Pre-Etna builds send a zero root (and, via the builder, empty withdrawals) over
-        // `engine_forkchoiceUpdatedV3`.
-        parent_beacon_block_root: Some(B256::ZERO),
+        parent_beacon_block_root: Some(parent_beacon_block_root),
         anchor_transaction: None,
     });
 
@@ -331,7 +331,7 @@ async fn fork_to(
     let block_hash = execution_payload.payload_inner.payload_inner.block_hash;
 
     let exec_status = client
-        .engine_new_payload_v4(&execution_payload, header_difficulty, B256::ZERO)
+        .engine_new_payload_v4(&execution_payload, header_difficulty, parent_beacon_block_root)
         .await
         .context("engine_newPayloadV4 failed")?;
     let exec_status_value = &exec_status.status;
