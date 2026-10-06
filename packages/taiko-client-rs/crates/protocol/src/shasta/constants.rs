@@ -7,7 +7,7 @@ use alethia_reth_chainspec::hardfork::{
     TAIKO_DEVNET_HARDFORKS, TAIKO_HOODI_HARDFORKS, TAIKO_MAINNET_HARDFORKS, TaikoHardfork,
 };
 pub use alethia_reth_chainspec::{
-    TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
+    TAIKO_DEVNET_CHAIN_ID, TAIKO_DEVNET_GENESIS_HASH, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
 };
 use alethia_reth_consensus::{
     anchor_constants::ANCHOR_V3_V4_GAS_LIMIT,
@@ -75,12 +75,18 @@ static DEVNET_ETNA_OVERRIDE: OnceLock<u64> = OnceLock::new();
 
 /// Set the devnet Etna activation timestamp override (`0` activates Etna at genesis). Must be
 /// called before any fork-condition lookup runs for the internal devnet. Subsequent calls after
-/// the first are ignored. Logs the applied value on the first successful set so operators see
-/// confirmation at startup.
+/// the first are ignored.
+///
+/// The override takes effect only on the devnet chain id; whether it applies to the connected
+/// chain is reported once the chain is known (see `rpc::Client::check_devnet_etna_override`).
 pub fn set_devnet_etna_override(timestamp: u64) {
-    if DEVNET_ETNA_OVERRIDE.set(timestamp).is_ok() {
-        tracing::info!(timestamp, "applied devnet Etna activation time override");
-    }
+    let _ = DEVNET_ETNA_OVERRIDE.set(timestamp);
+}
+
+/// Returns the devnet Etna activation timestamp installed by [`set_devnet_etna_override`], if
+/// any.
+pub fn devnet_etna_override() -> Option<u64> {
+    DEVNET_ETNA_OVERRIDE.get().copied()
 }
 
 /// Returns the maximum anchor block offset for a Taiko chain.

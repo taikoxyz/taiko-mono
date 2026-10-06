@@ -24,11 +24,13 @@ use hyper_util::{
     rt::TokioExecutor,
 };
 use protocol::shasta::{
-    etna_fork_timestamp_for_chain, is_etna_at, unzen_active_for_chain_timestamp,
+    constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_DEVNET_GENESIS_HASH},
+    devnet_etna_override, etna_fork_timestamp_for_chain, is_etna_at,
+    unzen_active_for_chain_timestamp,
 };
 use reqwest::Client as ReqwestClient;
 use tower::{ServiceBuilder, timeout::TimeoutLayer};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{
     SubscriptionSource,
@@ -138,11 +140,44 @@ impl Client {
     }
 
     /// Refuse an execution engine this client cannot drive: one without the Osaka Engine API
-    /// methods ([`Client::check_engine_capabilities`]), or one whose L2 head contradicts the
+    /// methods ([`Client::check_engine_capabilities`]), a chain the devnet Etna override cannot
+    /// apply to ([`Client::check_devnet_etna_override`]), or an L2 head that contradicts the
     /// client's Etna fork schedule ([`Client::check_etna_schedule`]).
     pub async fn check_execution_engine(&self) -> Result<()> {
         self.check_engine_capabilities().await?;
+        self.check_devnet_etna_override().await?;
         self.check_etna_schedule().await
+    }
+
+    /// Report whether the devnet Etna override ([`devnet_etna_override`]) applies to this chain.
+    ///
+    /// The client keys the override on the devnet chain id, while alethia-reth applies its own
+    /// `--devnet-etna-timestamp` only to the canonical devnet genesis and ignores it elsewhere.
+    /// On another chain id the override is ignored, and logged as such. On the devnet chain id,
+    /// the L2 genesis must be the canonical one ([`check_devnet_etna_genesis`]): otherwise the
+    /// engine would keep Etna unscheduled while the client applies the override.
+    pub async fn check_devnet_etna_override(&self) -> Result<()> {
+        let Some(timestamp) = devnet_etna_override() else {
+            return Ok(());
+        };
+        if self.chain_id != TAIKO_DEVNET_CHAIN_ID {
+            warn!(
+                timestamp,
+                chain_id = self.chain_id,
+                "ignoring the devnet Etna activation time override: it applies only to the \
+                 internal devnet"
+            );
+            return Ok(());
+        }
+
+        let genesis = self
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(0))
+            .await?
+            .ok_or_else(|| RpcClientError::Provider("missing L2 genesis block".to_string()))?;
+        check_devnet_etna_genesis(genesis.header.hash)?;
+        info!(timestamp, "applied the devnet Etna activation time override");
+        Ok(())
     }
 
     /// Verify that the L2 `latest` head agrees with the client's Etna fork schedule.
@@ -171,6 +206,16 @@ impl Client {
                 extra_data_len: head.header.extra_data.len(),
             },
         )
+    }
+}
+
+/// Refuse a devnet-chain-id L2 genesis other than alethia-reth's canonical devnet genesis, the
+/// only chain its `--devnet-etna-timestamp` applies to.
+pub fn check_devnet_etna_genesis(genesis_hash: B256) -> Result<()> {
+    if genesis_hash == TAIKO_DEVNET_GENESIS_HASH {
+        Ok(())
+    } else {
+        Err(RpcClientError::DevnetEtnaOverrideOnForeignGenesis { genesis_hash })
     }
 }
 
@@ -331,6 +376,23 @@ mod tests {
     /// Run the schedule check for the devnet chain, whose Unzen fork is active from genesis.
     fn check(etna_fork_timestamp: Option<u64>, head: EtnaScheduleHead) -> Result<()> {
         check_etna_schedule_for_head(TAIKO_DEVNET_CHAIN_ID, etna_fork_timestamp, head)
+    }
+
+    #[test]
+    fn devnet_etna_override_requires_the_canonical_devnet_genesis() {
+        assert!(check_devnet_etna_genesis(TAIKO_DEVNET_GENESIS_HASH).is_ok());
+
+        let foreign = B256::with_last_byte(1);
+        let err = check_devnet_etna_genesis(foreign).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                RpcClientError::DevnetEtnaOverrideOnForeignGenesis { genesis_hash }
+                    if genesis_hash == foreign
+            ),
+            "unexpected error: {err:?}"
+        );
+        assert!(err.to_string().contains("--devnet-etna-timestamp"), "{err}");
     }
 
     #[test]
