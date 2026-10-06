@@ -56,16 +56,20 @@ operating assumptions <span class="tag">derived</span>, not measured. A block be
 Certification is a consensus fact, established by validators alone in a few message round trips — it is not an Ethereum
 confirmation and it is not a proof. Above the latest checkpoint accepted on Ethereum it is <strong>provisional</strong>: the
 certificate is valid, and a permissionless, bonded, delayed recovery may still replace that history.</p>
-<p>Ethereum's job is different. Batches of L2 blocks are published to Ethereum together with a zero-knowledge proof
+<p>Ethereum's job is different. Batches of L2 blocks are settled on Ethereum by a zero-knowledge proof
 that the batch's blocks were certified by the validator set <em>and</em> executed correctly. One Ethereum
-transaction carries the batch data and the proof, or the batch is not accepted at all (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>). There is no state on that
+transaction carries the proof and the checkpoint write, and it carries the batch data or a reference to a
+publication that already holds it; without a valid proof the batch is not accepted at all (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>). There is no state on that
 path between "transaction exists" and "batch accepted": the contract derives what the proof is checked against, the
-proof verifies, and only then is a checkpoint written. A batch whose data is missing cannot be accepted, and a
-batch is never recorded before its proof verifies.</p>
-<p>Data and proof travel together because the alternative has a known failure mode: data published first, proof
-never produced, and then the data expires from Ethereum's blob window while the batch is still unsettled. Here the
-canonical copy of a batch's data <em>is</em> the accepting L1 transaction — its calldata or its blob sidecars — so
-acceptance and publication are the same event (<a href="../spec/04-l1-integration.html#DA-01">DA-01</a>).</p>
+proof verifies, and only then is a checkpoint written. A batch whose data is missing — neither carried nor
+retrievable from the publication it references — cannot be accepted, and a batch is never recorded before its
+proof verifies.</p>
+<p>Data may be published to Ethereum before its proof, and the failure mode that used to forbid it is controlled
+rather than denied: publication writes no batch state, a later proof can reference the published record, and a record
+that is not proven before its deadline is discarded and can be re-published. The canonical copy of a batch's data is
+the accepting L1 transaction — its calldata or its blob sidecars — or the live publication record that transaction
+references, so acceptance is what advances the checkpoint and publication on its own advances nothing
+(<a href="../spec/04-l1-integration.html#DA-01">DA-01</a>, <a href="../spec/04-l1-integration.html#DA-07">DA-07</a>, <a href="../spec/04-l1-integration.html#DA-09">DA-09</a>).</p>
 <p>Finally, safety beats progress. When the information or participation needed to continue safely is missing, the
 protocol stops producing and keeps serving what it has (<a href="../spec/06-recovery-exceptions.html#HALT-01">HALT-01</a>). History at or below the latest checkpoint accepted on
 Ethereum is never rewritten, and there is no operator key, pause button or emergency path that can rewrite it. History above that
@@ -75,7 +79,7 @@ automatically.</p>
 
 <h2>The picture</h2>
 <figure>
-<svg viewBox="0 0 960 430" role="img" aria-label="Users submit transactions to L2 validators, who order and certify blocks; a prover proves each certified batch; one Ethereum transaction carries the batch data and the proof, advancing a checkpoint that the bridge reads.">
+<svg viewBox="0 0 960 430" role="img" aria-label="Users submit transactions to L2 validators, who order and certify blocks; a prover proves each certified batch; one Ethereum transaction carries the proof and the batch data or a reference to a publication that holds it, advancing a checkpoint that the bridge reads.">
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"></path>
@@ -133,10 +137,10 @@ are correct.</figcaption>
 <thead><tr><th>Participant</th><th>How it enters</th><th>What it does</th><th>What it never does</th></tr></thead>
 <tbody>
 <tr><td><strong>Validators</strong></td><td>Permissionless: bond TAIKO on Ethereum, bind a signing key, join a first-come activation queue (<a href="../spec/01-system-model.html#ROLE-01">ROLE-01</a>)</td><td>Propose blocks when selected, execute and check every block they vote for, prevote and precommit, hold and serve the data they voted for</td><td>They do not get to choose the validator set, and holding TAIKO gives no protocol right other than this role</td></tr>
-<tr><td><strong>Provers</strong></td><td>Permissionless: no registration, no bond, no allowlist</td><td>Prove a certified batch and submit data + proof in one L1 transaction; the first valid landing wins and is paid</td><td>They do not choose the validator set, the predecessor, the data commitment or the threshold — all are derived from L1 state</td></tr>
+<tr><td><strong>Provers</strong></td><td>Permissionless: no registration, no bond, no allowlist</td><td>Prove a certified batch and land it in one L1 transaction that carries the proof and the data or a reference to a publication holding it; the first valid landing wins and is paid</td><td>They do not choose the validator set, the predecessor, the data commitment or the threshold — all are derived from L1 state</td></tr>
 <tr><td><strong>Full nodes</strong></td><td>Permissionless</td><td>Execute the chain, check validity, serve blocks, state and witnesses</td><td>They have no vote and no role in certification</td></tr>
-<tr><td><strong>Archive nodes</strong></td><td>Permissionless</td><td>Retain the full accepting-transaction calldata and blob sidecars, and L2 history, past the window in which Ethereum serves them</td><td>Retention is an assumption the design relies on, not a duty the protocol can enforce today</td></tr>
-<tr><td><strong>Users</strong></td><td>No registration, no TAIKO</td><td>Submit L2 transactions and bridge messages</td><td>They have no L1 path that forces a transaction into L2</td></tr>
+<tr><td><strong>Archive nodes</strong></td><td>Permissionless</td><td>Retain the full accepting-transaction calldata and blob sidecars — and, for data published earlier, the publication transaction's blob sidecars — and L2 history, past the window in which Ethereum serves them</td><td>Retention is an assumption the design relies on, not a duty the protocol can enforce today</td></tr>
+<tr><td><strong>Users</strong></td><td>No registration, no TAIKO</td><td>Submit L2 transactions and bridge messages, and may publish a transaction's data to L1</td><td>They have no L1 path that forces an <em>unpublished</em> transaction into L2</td></tr>
 <tr><td><strong>Ethereum</strong></td><td>External</td><td>Stores the batch data, verifies proofs, settles checkpoints, anchors the bridge</td><td>It does not order L2 transactions and does not see them before they are certified</td></tr>
 <tr><td><strong>The DAO</strong></td><td>Existing L1 governance</td><td>Upgrades contracts under the published upgrade rules</td><td>It has no role in ordinary block production, voting, proving or withdrawal</td></tr>
 </tbody>
@@ -147,7 +151,7 @@ are correct.</figcaption>
 <div class="card">
 <h4>Still provided by Ethereum</h4>
 <ul>
-<li><strong>Data availability.</strong> The canonical copy of a batch's data is the accepting L1 transaction itself: its calldata and/or its blob sidecars. A batch is never accepted without it.</li>
+<li><strong>Data availability.</strong> The canonical copy of a batch's data is the accepting L1 transaction — its calldata and/or its blob sidecars — or the live publication record that transaction references. A batch is never accepted without data that is retrievable.</li>
 <li><strong>Proof verification.</strong> An L1 contract checks the proof and writes the checkpoint only if verification succeeds, in the same transaction.</li>
 <li><strong>Settlement.</strong> A monotone checkpoint chain records, per landed height, the L2 block hash, state root, epoch, validator-set root, data commitment and the L1 block that accepted it.</li>
 <li><strong>Bridge anchoring.</strong> Cross-chain messages authenticate against a checkpoint that the Inbox wrote; value leaves only on the strength of an L1-accepted checkpoint plus the required delay.</li>
@@ -157,7 +161,7 @@ are correct.</figcaption>
 <h4>No longer provided by Ethereum</h4>
 <ul>
 <li><strong>Ordering.</strong> The order of L2 transactions is decided by L2 PoS. No Ethereum proposer, builder or slot timing enters a validity rule.</li>
-<li><strong>Per-transaction inclusion.</strong> There is no inclusion duty and no L1 forced-inclusion path. Resistance to censorship is a conditional statistical property of proposer rotation, not a guarantee.</li>
+<li><strong>Per-transaction inclusion.</strong> There is no general inclusion list and no L1 path that forces an <em>unpublished</em> transaction in. Forced inclusion is narrower: any account may publish a transaction's data to L1, and once the record is due a batch must resolve it within the capped first-in-first-out prefix — an upper bound on exclusion, never a promise that any particular transaction is included (<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>–<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>). For data that never reaches L1, resistance to censorship is a conditional statistical property of proposer rotation, not a guarantee.</li>
 <li><strong>Instant settlement.</strong> L2 certification (a few round trips) is a different event from L1 acceptance (proof + inclusion) and from Ethereum finality (a further L1 finality lag).</li>
 <li><strong>Rollback of unsettled L2 history.</strong> It is never an Ethereum action and never applies at or below the latest accepted checkpoint, which no rule, timeout, rotation, admission rule or ordinary upgrade may invalidate. Above that checkpoint the history is provisional: a permissionless, bonded, delayed recovery may replace the range and permanently retires the heights it discards, so the replaced range can never be re-certified or landed again, while a failure below the checkpoint still leaves a halt rather than a rewrite.</li>
 </ul>
@@ -172,9 +176,9 @@ mode. A tool that shows "confirmed" must say which one it means.</p>
 <tbody>
 <tr><td><strong>Execution validity</strong></td><td>Does this block follow from its parent under the execution rules?</td><td>This node's own re-execution of the block against a known parent state</td><td>Nothing about what other nodes did or agreed to.</td></tr>
 <tr><td><strong>Consensus agreement</strong></td><td>Did more than two thirds of the epoch's voting power sign for this block at this height?</td><td>A published commit certificate: signed precommits from distinct validators, weighted by bonded stake</td><td>Nothing about whether the data is retrievable, and nothing about Ethereum.</td></tr>
-<tr><td><strong>Data availability</strong></td><td>Can someone other than the current holder actually retrieve the block body or the batch data?</td><td>Your own retrieval, and later the accepting L1 transaction. A certificate commits to a block hash, not to bytes.</td><td>A holder's local possession is not evidence that others can get the data.</td></tr>
+<tr><td><strong>Data availability</strong></td><td>Can someone other than the current holder actually retrieve the block body or the batch data?</td><td>Your own retrieval, and later the accepting L1 transaction or the live publication record it references. A certificate commits to a block hash, not to bytes.</td><td>A holder's local possession is not evidence that others can get the data.</td></tr>
 <tr><td><strong>Economic accountability</strong></td><td>If a validator broke a consensus rule, is there objective evidence that anyone can submit, and stake that can be taken?</td><td>The offence catalogue and the slashing rules, which act on signed objects and L1-committed stake</td><td>It does not prevent a break. Safety still assumes fewer than one third of the voting power is malicious.</td></tr>
-<tr><td><strong>Ethereum settlement</strong></td><td>Is the transition committed on Ethereum with its data in the same transaction?</td><td>The Inbox checkpoint record and the accepting L1 transaction</td><td>It does not decide the ordering or the contents, and it can be reorganised until Ethereum finalizes it.</td></tr>
+<tr><td><strong>Ethereum settlement</strong></td><td>Is the transition committed on Ethereum by a valid proof, with its data carried or published and still retrievable?</td><td>The Inbox checkpoint record, the accepting L1 transaction, and the live publication record it references when the data was published earlier</td><td>It does not decide the ordering or the contents, and it can be reorganised until Ethereum finalizes it.</td></tr>
 </tbody>
 </table>
 
@@ -186,7 +190,7 @@ mode. A tool that shows "confirmed" must say which one it means.</p>
 <tr><td>L2 block cadence</td><td>2 s</td><td>the design's fixed production cadence — a cadence, not a finality or settlement latency</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Epoch length <code>L</code></td><td>900 heights</td><td>900 × 2 s = 1,800 s = 30 min; suitability at the target validator count is not measured</td><td><span class="tag">derived</span> / suitability <span class="tag">unmeasured</span></td></tr>
 <tr><td>Block at 824 s after height 0</td><td>height 412</td><td>412 × 2 s</td><td><span class="tag">derived</span></td></tr>
-<tr><td>Batch length bound <code>K</code></td><td>at most 6 blocks ≈ 12 s at the target rate; 9 blocks is the hard ceiling — <strong>the submitter chooses the length within this bound</strong>, so batches close when the data is worth publishing rather than on a fixed clock. The bound is on <em>bytes</em>, not on blocks: 6 is the count when every block carries the full target data budget, so lighter blocks mean proportionally more blocks per batch</td><td>one 2 s block is one 131,072-byte blob at the target rate, EIP-7691 allows 6 target / 9 maximum blobs per L1 block, and the data and the proof share one transaction (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>, <a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>)</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> constants</td></tr>
+<tr><td>Batch length bound <code>K</code></td><td>at most 6 blocks ≈ 12 s at the target rate; 9 blocks is the hard ceiling — <strong>the submitter chooses the length within this bound</strong>, so batches close when the data is worth publishing rather than on a fixed clock. The bound is on <em>bytes</em>, not on blocks: 6 is the count when every block carries the full target data budget, so lighter blocks mean proportionally more blocks per batch</td><td>one 2 s block is one 131,072-byte blob at the target rate, EIP-7691 allows 6 target / 9 maximum blobs per L1 block, and a batch's data must fit in one L1 transaction — the accepting one, or the one that publishes it earlier (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>, <a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>)</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> constants</td></tr>
 <tr><td>Data per 12 s L1 slot at target blob capacity</td><td>786,432 bytes = 6 × 131,072</td><td>EIP-7691 target blob count</td><td><span class="tag">sourced</span></td></tr>
 <tr><td>Data budget per 2 s L2 block</td><td>≈ 131,072 bytes</td><td>six 2 s blocks per 12 s L1 slot at target capacity</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Data published per epoch envelope</td><td>≈ 118 MB</td><td>900 × 131,072 bytes — the volume that must stay retrievable while a batch is unsettled</td><td><span class="tag">derived</span></td></tr>
@@ -213,7 +217,7 @@ and land on Ethereum; the interface must name which stage it is showing.</p>
 <li><strong>No implementation.</strong> There is no compiled client, contract deployment, audit, benchmark or testnet result behind any of this.</li>
 <li><strong>No measured performance.</strong> The 2 s cadence, the 30-minute proving envelope, the round budget and the fleet sizing are all unmeasured; the arithmetic in this lesson is arithmetic, not evidence.</li>
 <li><strong>No safety beyond the stake assumption.</strong> If one third or more of an epoch's voting power is malicious or compromised, two conflicting certificates can both be valid, and the proof verifies both.</li>
-<li><strong>No inclusion guarantee.</strong> Proposer selection is public and predictable; the protocol has no per-transaction inclusion promise and no L1 escape hatch.</li>
+<li><strong>No per-transaction inclusion guarantee.</strong> Proposer selection is public and predictable; a published record must be resolved within the capped prefix, but nothing promises that a particular transaction is included, and there is no general inclusion list or L1 path for an unpublished transaction.</li>
 <li><strong>No fully trustless L2 checkpoint write yet.</strong> The design retains one reserved system sender for the L2-side checkpoint write; its only permitted action is to publish the Ethereum-final L1 fact that the rule already constrains.</li>
 <li><strong>No unconditional blob-path binding.</strong> Batch data can travel as calldata or as blobs. The calldata commitment is the unconditional path; the blob path's fixed-point argument must be independently checked and its in-guest evaluation cost measured before it is relied on.</li>
 </ul>
@@ -223,10 +227,11 @@ and land on Ethereum; the interface must name which stage it is showing.</p>
 <p>Which of the eight statuses it means. A 2 s PoS confirmation says a validator set agreed on ordering; it does not
 say the batch data and proof are on Ethereum. Until the accepting L1 transaction exists and is final, a settlement
 or bridge action cannot safely rely on it.</p></details>
-<details><summary>Why can a batch not be published to Ethereum before its proof?</summary>
-<p>Because the canonical copy of the data is the accepting transaction. If data could be published first, it could
-sit on Ethereum unproven, age out of the blob window, and leave a settled-looking obligation that no one can prove —
-exactly the data-first failure the atomic rule exists to prevent. So data and proof are one atomic acceptance or nothing.</p></details>
+<details><summary>Can a batch's data be published to Ethereum before its proof?</summary>
+<p>Yes. Publication is permissionless, writes no batch state and accepts nothing on its own; a later proof can
+reference the published record, and the checkpoint still advances only when a valid proof lands. The publication
+deadline keeps the window bounded: a record that is not proven in time is discarded and can be re-published, and
+once a record is due a batch must resolve it within the capped prefix.</p></details>
 <details><summary>Ethereum verifies the proof. Does that mean the L2 history is safe even if one third of validators misbehave?</summary>
 <p>No. The proof attests that the presented certificate is internally consistent with the authenticated validator
 set and the quorum rule. It cannot attest that no competing certificate exists. If the stake assumption fails, two
@@ -238,6 +243,7 @@ conflicting certificates can both be cryptographically valid and both can produc
 <li>Fewer than one third of each epoch's voting power is malicious or compromised.</li>
 <li>More than two thirds of each epoch's voting power is online and messages arrive within the round-timeout bound often enough to complete rounds.</li>
 <li>Validators and full nodes hold and serve the data of blocks they voted for, at least until settlement; somebody keeps the data until the proof lands.</li>
+<li>Somebody publishes a transaction's data to L1 while the blobs are retrievable, and L1 includes that publication; the narrow obligation begins only at publication.</li>
 <li>At least one adequately-resourced prover completes each committed batch.</li>
 <li>Ethereum includes valid transactions within a bounded delay and does not reorganise below the finality depth it reports.</li>
 <li>TAIKO has a market, and the stake bonded is worth enough that slashing matters.</li>
