@@ -26,21 +26,27 @@ environment while its expiry discharge had no proof-side ground.
 (`l1BlockNumber + FI_INCLUSION_DELAY ≤ A`), every batch that lands must advance the settlement frontier
 past the capped FIFO prefix of the due set, and the obligation is enforced **in the proof** (PRF-04(vi)),
 never as an admission gate on `land` — L1-04's no-gate property survives. A position is resolved by exactly
-one of three modes, under the per-transaction walk of FI-13(1): **executed** — the record is live and,
-walking its transactions in the record's own order, each transaction either executes or is **discharged**
-at its turn, where its turn's pre-state is computed in the batch's own execution, after the record's own
-preceding transactions and after every transaction the batch executes before that point, and the discharge
-holds only if the transaction's declared nonce does not equal the sender's nonce at that pre-state, or the
-sender's balance at that pre-state is below `gasLimit × maxFeePerGas + value` — with at least one
-transaction executing, so a mixed record is resolved with its executed transactions recorded as executed
-and its discharged ones as discharged; **void** — over a registered bound, or containing a transaction
-that can never be executed from the record's own bytes (for example a chain id that does not match
-FI-13(2)(iii)), so it can neither execute nor be discharged, or live with every one of its transactions
-discharged, so none of them executes; or **dead** (the record's own stored `l1BlockNumber` plus the
-registered `T_PROVE_DEADLINE` at or below the anchored view). *(FI-13(1)–(5): the ground is per
-transaction with that batch-wide turn pre-state, and the record-level form "no transaction forceable at any
-pre-state of the batch" is superseded; a record whose remaining transactions cannot execute is fully
-discharged rather than left unresolved, so every position resolves in a bounded number of batches.)*
+one of three modes, under the per-transaction walk of FI-13(1) and its stated precedence:
+**executed** — the record is live at `A`, not over-bound and containing no transaction that can never be
+executed from the record's own bytes, and walking its transactions in the record's own order, each
+transaction either executes or is **discharged** at its turn, where its turn's pre-state is computed in the
+batch's own execution, after the record's own preceding transactions and after every transaction the batch
+executes before that point, and the discharge holds only if the transaction's declared nonce does not equal
+the sender's nonce at that pre-state, or the sender's balance at that pre-state is below
+`gasLimit × maxFeePerGas + value` — with at least one transaction executing, so a mixed record is resolved
+with its executed transactions recorded as executed and its discharged ones as discharged; **void** — the
+record is live at `A` and over a registered bound (this limb is tested before executed, so a live
+over-bound record is void even if one of its transactions appears in the executed payload), or live at `A`
+and containing a transaction that can never be executed from the record's own bytes (for example a chain id
+that does not match FI-13(2)(iii)), so it can neither execute nor be discharged, or live at `A` with every
+one of its transactions discharged, so none of them executes; or **dead** (the record's own stored
+`l1BlockNumber` plus the registered `T_PROVE_DEADLINE` at or below the anchored view) — tested first and
+unconditionally, so a record that is dead at `A` is dead whatever its size, contents or discharge state.
+*(FI-13(1)–(5): the ground is per transaction with that batch-wide turn pre-state, applied in the rule's
+dead-first and void-limb-first precedence so the three modes partition every position; the record-level form
+"no transaction forceable at any pre-state of the batch" is superseded; a record whose remaining
+transactions cannot execute is fully discharged rather than left unresolved, so every position resolves in a
+bounded number of batches.)*
 The advance is unconditional and monotone:
 `c' ≥ min(d(A), c + FI_MAX_PER_BATCH)`, `c' ≤ nextSeq(A)`, `c' ≥ c`, and every position in `[c, c')`
 must be resolved. `CONS-01(v)` is an **order and non-omission** duty only, with no per-block count and no

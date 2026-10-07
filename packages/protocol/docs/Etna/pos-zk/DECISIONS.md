@@ -716,10 +716,15 @@ batch executes before that point. The discharge condition is the **exact complem
 condition of `FI-13(2)(v)`** and uses **BALANCE**, not "free balance": the transaction is discharged iff its
 declared nonce does not equal the sender's nonce at that pre-state, or the sender's balance there is below
 `gasLimit × maxFeePerGas + value`; a transaction that can execute at its turn and does not appear is neither
-executed nor discharged, and the position is unresolved. **Void gains its immutable half**: a record
+executed nor discharged, and the position is unresolved. **Void gains its immutable half**: a **live** record
 containing a transaction that can never be executed from the record's own bytes — for example a chain id
 that does not match `FI-13(2)(iii)` — is void, because such a transaction can neither execute nor be
-discharged; the over-bound and all-discharged grounds stand. **Totality and the anti-void property are rule
+discharged; the over-bound and all-discharged grounds stand. The modes are applied in the rule's stated
+precedence so that they partition the positions: **dead** is tested first and unconditionally — a record
+that is dead at `A` is dead whatever its size, contents or discharge state — and, for a record live at `A`,
+the over-bound and byte-invalid limbs of void are tested before executed, so a live over-bound record is
+void even if one of its transactions appears in the executed payload.
+**Totality and the anti-void property are rule
 properties**: every position resolves in a bounded number of batches, so no published record can pin the
 frontier or halt settlement, and a record whose remaining transactions cannot execute is fully discharged
 rather than left unresolved; only that account's own signed transactions move its nonce or balance, so a
