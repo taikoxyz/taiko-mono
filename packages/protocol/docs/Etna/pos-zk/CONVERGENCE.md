@@ -66,10 +66,16 @@ aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads o
 > record, not the current state. **And of the three absences recorded at convergence, the first is now
 > addressed and shipped**: a narrow inclusion obligation (FI-10..FI-14) is now live in the specification,
 > so "no inclusion obligation" describes v1 as it converged, not the current draft. **The other two stand
-> unchanged**: there is still **no recovery path of any kind**, and settlement soundness still rests on a
-> single proof backend. The **deferred set is now two mechanisms plus the rotation within increment 2**:
-> aggregation (increment 3, gated on Phase B's S1 measurement) and the governance stall resolution
-> (increment 5, last), with `CONS-16`'s rotation still gated on an L1-verifiable h_close. **Increment 3** remains gated on Phase B's S1 measurement - its
+> **now addressed in draft**: the governance stall resolution (increment 5) is implemented and in
+> review - a timelocked, resume-only action that clears a settlement stall by advancing the signed
+> generation, consumes its entry on execution, and **cannot rewrite anything at or below the latest
+> accepted checkpoint**. It is not yet shipped: it ships only on the same bar, two consecutive clean
+> rounds. What it does NOT claim is stated with it: the window is a **notice** window, **value above the
+> last accepted checkpoint is unprotected** (discard, resubmit, no compensation), and governance liveness
+> is unbounded. The third absence is unchanged: settlement soundness still rests on a single proof
+> backend. The **deferred set is now ONE mechanism plus the rotation within increment 2**: aggregation
+> (increment 3, gated on Phase B's S1 measurement), with `CONS-16`'s rotation still gated on an
+> L1-verifiable h_close. **Increment 3** remains gated on Phase B's S1 measurement - its
 > aggregation parameters cannot be set before that cost is measured - and **increment 5**, the governance
 > stall resolution, is last.
 
