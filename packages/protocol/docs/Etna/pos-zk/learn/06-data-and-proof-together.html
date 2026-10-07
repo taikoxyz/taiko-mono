@@ -41,16 +41,17 @@
 transaction binds it: one proof-gated call, carrying the proof and either the data itself or a reference
 to a live publication record. It covers publication before the proof and what publication writes, the
 calldata and blob bindings, how the proof binds the configuration and the signed recovery
-generation, and what happens when verification fails. This is a design: nothing is deployed, and
-the costs below are arithmetic on published constants, not measurements of this system.</p>
+generation, and what a failed verification leaves behind. It
+stands on its own: every term it needs is defined where it is used. This is a design; nothing is
+deployed, and the costs below are arithmetic on published constants, not measurements of this system.</p>
 
 <h2>The idea</h2>
 <p>There is exactly one function that can advance the chain&rsquo;s L1 checkpoint:
 <code>land(data, proof)</code>. One call, one transaction, carries the batch&rsquo;s block range, the
-zero-knowledge proof of the previous lesson, and the batch data &mdash; either in the transaction itself
+validity proof over that range, and the batch data &mdash; either in the transaction itself
 (as calldata, as blob sidecars, or both) or as a reference to a <strong>live publication record</strong>
 that already holds it. The Inbox verifies the proof against a statement hash it derives itself, and only
-then writes the new checkpoint (<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>).</p>
+then writes the new checkpoint.</p>
 <p>That gives the design a property worth stating in plain words: <strong>the protocol state advances
 only on a valid proof, and only the accepting transaction writes a checkpoint.</strong> Data may be
 published to Ethereum before the proof. Publication is permissionless, records where the data is, and
@@ -60,10 +61,15 @@ the record is dead at any view past it, decided from its own stored block number
 &mdash; and it can be published again. It never becomes a second acceptance path.</p>
 <p>The statement also binds <strong>the configuration under which the batch was certified and the recovery
 generation it belongs to</strong>. A proof is therefore evidence about one specific history: it cannot be
-replayed into a different configuration, and a batch whose certificate carries a superseded generation is
-void at the acceptance rule. The generation advances only through an executed stall resolution — one entry, queued by the DAO during a settlement stall, executed once by any account after its stored deadline — and no height is ever retired: the binding is the scoping rule that voids a discarded branch, and a block at or below the accepted checkpoint is judged under the generation in its own header.
-Execution validity alone is never enough to accept an alternative history
-(<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
+replayed into a different configuration. A batch that extends the current checkpoint must carry the current
+generation in its head certificate, in the votes that contribute to that certificate and in its head header;
+a certificate for a block at or below the checkpoint carries the generation in that block&rsquo;s own header and is
+never compared with the current one. A certificate whose signed generation has been superseded is void at the
+acceptance rule and can no longer serve as a batch&rsquo;s head evidence, while the blocks it covers stay valid
+history that a later batch can extend under the new generation. The generation advances only through an
+executed stall resolution &mdash; one entry, queued by the DAO during a settlement stall, executed once by any
+account after its stored deadline &mdash; and no height is retired. Execution validity alone is never enough to
+accept an alternative history.</p>
 <p>Data can travel in two forms. <strong>Calldata</strong> is ordinary transaction input; the
 contract can read it, so the contract itself hashes the exact bytes and nothing is left to trust.
 <strong>Blobs</strong> are the cheaper bulk-data form introduced by EIP-4844, but the EVM cannot
@@ -73,6 +79,7 @@ versioned hashes the accepting transaction carries or the recorded versioned has
 it references, and the proof guest shows that the data <em>it actually executed</em> is a polynomial that
 takes the same value at the same point. Together those two facts pin the executed bytes to the published
 blobs.</p>
+<p class="small">Where this is specified: <a href="../spec/04-l1-integration.html#L1-01">L1-01</a>.</p>
 
 <figure>
 <svg viewBox="0 0 940 480" role="img" aria-label="A certified batch; any account may publish its data to blobs first, writing a publication record and no batch state; one accepting transaction takes the proof and the data it carries or the live publication record it references, feeds one statement hash, and writes the checkpoint only if the proof verifies.">
@@ -82,7 +89,7 @@ blobs.</p>
   </defs>
   <rect x="20" y="20" width="250" height="86" rx="9" fill="#ffffff" stroke="#8250df"></rect>
   <text x="145" y="46" fill="#24292f" font-size="13" text-anchor="middle">L2: a certified batch</text>
-  <text x="36" y="68" fill="#59636e" font-size="11">at most 6 blocks &#183; head commit certificate</text>
+  <text x="36" y="68" fill="#59636e" font-size="11">at most 14 blocks at the target budget &#183; head commit certificate</text>
   <text x="36" y="86" fill="#59636e" font-size="11">payload bytes &#183; claimed new state root</text>
   <rect x="330" y="20" width="270" height="86" rx="9" fill="#ffffff" stroke="#9a6700"></rect>
   <text x="465" y="46" fill="#24292f" font-size="13" text-anchor="middle">publish(data) &#8212; permissionless</text>
@@ -149,8 +156,8 @@ range, data mode, data commitment and recorded versioned hashes to agree with th
 the record to be live; call the active verifier with the statement hash; treat a revert, an empty return
 or any return other than exactly <code>abi.encode(true)</code> as invalid; only then write the
 checkpoint, advance the height, record the signer bitmap and pay the reward; emit events last. If any
-step fails, the call reverts with a typed error and leaves no partial effect
-(<a href="../spec/04-l1-integration.html#L1-03">L1-03</a>).</p>
+step fails, the call reverts with a typed error and leaves no partial effect.</p>
+<p class="small">Where this is specified: <a href="../spec/04-l1-integration.html#L1-03">L1-03</a>.</p>
 
 <h3>2. Data may be published first; publication writes no batch state</h3>
 <p>Any account may publish a batch&rsquo;s data to L1 in a transaction of its own. The publication
@@ -158,12 +165,12 @@ transaction carries the whole committed byte string in blobs, and the Inbox writ
 <strong>publication record</strong>: the ordered blob versioned hashes, the claimed batch range, the data
 mode and data commitment it was published for, the L1 block number and a sequence number; its proving
 deadline is derived from that stored block number and a registered constant, never stored, and the record
-carries no status field (<a href="../spec/04-l1-integration.html#DA-07">DA-07</a>).</p>
+carries no status field.</p>
 <p>What the record does <em>not</em> write matters as much as what it does. It is not a batch, not a
 proposal and not a pending checkpoint: it writes no batch record, no predecessor link, no claimed
 post-state and no value that any admission check reads. No entry point may record a batch, a predecessor
-link or a data commitment pending a proof
-(<a href="../spec/04-l1-integration.html#L1-02">L1-02</a>). Data in blobs changes no protocol state; it
+link or a data commitment pending a proof.
+Data in blobs changes no protocol state; it
 becomes relevant only when a proof references it, and the carried path &mdash; data and proof in one
 transaction &mdash; always remains available for any unsettled range and never needs a publication
 record.</p>
@@ -173,15 +180,19 @@ retrievable, so withholding it requires that <em>no</em> observer publish. The e
 deadline inside Ethereum&rsquo;s blob-retention window: <strong>a publication that is not proven before
 its deadline is dead</strong> &mdash; decided from its own stored block number, with no status field &mdash;
 a proof referencing it is rejected, and the same data can be published again. Re-publication creates a new
-record with a fresh clock and a new identity; it revives nothing and accepts nothing
-(<a href="../spec/04-l1-integration.html#DA-09">DA-09</a>). The same record is the forced-data record of
-<a href="11-forced-inclusion.html">lesson 11</a>: once it is due, a landing batch must advance the settlement
-frontier past it by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has
-passed at the anchored view, decided from its own stored block number; otherwise, while the record is live,
-the walk reads its transactions in the record&rsquo;s own order, each one either runs or is set aside at its turn,
-and a live record all of whose transactions are set aside is void. The range itself is never discarded with the
-record: it stays landable from carried data or against a fresh publication of the same data
-(<a href="../spec/04-l1-integration.html#L1-04">L1-04</a>).</p>
+record with a fresh clock and a new identity; it revives nothing and accepts nothing.</p>
+<p>The same publication record is also a forced-data record. Once it is due, a batch that lands must advance
+a settlement frontier past it by resolving it, and that resolution is checked inside the proof, never at
+admission. A record is resolved in exactly one of three modes. <strong>Dead</strong> is tested first and
+unconditionally: a record whose own deadline has passed at the anchored view is dead whatever its size or
+contents. Otherwise, while the record is live, it is <strong>void</strong> if it is over its size bound or
+contains a transaction that cannot be executed from the record&rsquo;s own bytes, or if every one of its
+transactions is set aside at its turn. Otherwise it is <strong>executed</strong>: the walk reads its
+transactions in the record&rsquo;s own order, each one either runs or is set aside at its turn, and a record with
+at least one transaction running is executed even when other transactions are set aside. The range itself is
+never discarded with the record: it stays landable from carried data or against a fresh publication of the
+same data.</p>
+<p class="small">Where this is specified: <a href="../spec/04-l1-integration.html#DA-07">DA-07</a>.</p>
 
 <h3>3. The calldata path: the contract hashes the bytes</h3>
 <p>On this path the Inbox computes the commitment itself over the exact calldata slice:
@@ -190,9 +201,9 @@ record: it stays landable from carried data or against a fresh publication of th
 The committed object is the whole byte string, never a prefix, and a submitter-supplied copy of the
 commitment must be ignored. The guest decodes the payload from those bytes, executes it, and
 recomputes the same commitment; a mismatch invalidates the batch. Because both sides hash the same
-single byte string, this path needs no probabilistic argument at all
-(<a href="../spec/04-l1-integration.html#DA-02">DA-02</a>). Calldata is the carried form: it travels in
+single byte string, this path needs no probabilistic argument at all. Calldata is the carried form: it travels in
 the accepting transaction, and the publication record carries blob versioned hashes.</p>
+<p class="small">Where this is specified: <a href="../spec/04-l1-integration.html#DA-02">DA-02</a>.</p>
 
 <h3>4. The blob path: an opening on L1 and an evaluation in the guest</h3>
 <p>A blob is 131,072 bytes: 4,096 field elements of a polynomial over the BLS12-381 scalar field.
@@ -207,8 +218,7 @@ be substituted, and a zero value means no blob at that index. If the input refer
 record and the transaction does not carry the blobs, <code>BLOBHASH</code> cannot be used &mdash; it
 returns zero for a blob this transaction does not carry &mdash; so the Inbox takes each versioned hash
 from the record, after checking that the record&rsquo;s identity, range, data mode and data commitment
-match the statement and that the record is live
-(<a href="../spec/04-l1-integration.html#DA-08">DA-08</a>).</li>
+match the statement and that the record is live.</li>
 <li>It calls the EIP-4844 point-evaluation precompile at address <code>0x0A</code>, which checks
 that the supplied commitment hashes to the supplied versioned hash and that the polynomial opens to the
 claimed value at the claimed point. The precompile is not transaction-scoped: it verifies the
@@ -230,28 +240,28 @@ requires equality with the journal value used to derive the challenge.</li>
 two polynomials has a root at <code>z</code>. But <code>z</code> is not fixed while the prover
 chooses its data &mdash; it is derived from a transcript that contains the commitment to that data.
 A cheating prover would need a fixed point: data whose hash-derived challenge is a root of the
-difference polynomial. For any candidate payload the chance is at most 4,095 / |F| &asymp;
-2<sup>&minus;243</sup> <span class="tag">derived</span>, so searching <code>q</code>
-candidates gives at most <code>q &middot; 2<sup>&minus;243</sup></code>, under the random-oracle
-model for the challenge and the binding property of KZG
-(<a href="../spec/04-l1-integration.html#DA-03">DA-03</a>). The recorded versioned hash is the identity
+difference polynomial. For any candidate payload the chance of the polynomial-root event is at most
+4,095 / |F| &asymp; 2<sup>&minus;243</sup>, and with the modular-reduction term the union bound re-bases
+the exponent to at most 2<sup>&minus;242.4</sup> <span class="tag">derived</span>, so searching
+<code>q</code> candidates gives at most <code>q &middot; 2<sup>&minus;242.4</sup></code>, under the
+random-oracle model for the challenge and the binding property of KZG. The recorded versioned hash is the identity
 consensus already checked against the published blob sidecars when the publication block was processed,
 so referencing it loses same-transaction equality and not the content binding.</p>
 <p>When both calldata and blobs are used, the whole published string is the calldata payload
 followed by the full blobs, and both bindings apply independently: a batch is invalid if either
 fails. When the accepting transaction both carries blobs and references a record, the two ordered sets
-must agree element-wise (<a href="../spec/04-l1-integration.html#DA-08">DA-08</a>).</p>
+must agree element-wise.</p>
+<p class="small">Where this is specified: <a href="../spec/04-l1-integration.html#DA-08">DA-08</a>.</p>
 
 <h3>5. Any prover may land a batch</h3>
 <p>Admission has no gate: no whitelist, no approval, no bond, no reputation and no deadline that
 could make an unsettled range permanently unacceptable. A publication record&rsquo;s deadline expires
 that record, never the range: after it, the range is still landable with carried data or against a fresh
 publication of the same data. The inclusion obligation over a due record is checked inside the proof of a
-landing batch, never in this admission rule (<a href="11-forced-inclusion.html">lesson 11</a>). The structural
+landing batch, never in this admission rule. The structural
 bounds are exactly three:
 the range must be contiguous and start at the previous checkpoint&rsquo;s height plus one; the batch
-must be non-empty; and every loop must be bounded by the transaction&rsquo;s own contents
-(<a href="../spec/04-l1-integration.html#L1-04">L1-04</a>).</p>
+must be non-empty; and every loop must be bounded by the transaction&rsquo;s own contents.</p>
 <p>The first valid submission wins. Two transactions in the same L1 block are ordered by Ethereum,
 so the first advances the checkpoint and the second either reverts or is evaluated against the new
 one. Re-submitting the same batch after a failed attempt is accepted, and it is never rejected
@@ -260,8 +270,8 @@ exactly one statement: the same proof presented with a different range, predeces
 commitment, epoch, set root, configuration or recovery generation fails verification, because all of
 those values are inside the statement hash. The reward goes to the account that paid for the L1 transaction, not to an address
 named inside the proof, and copying a proof from the public mempool and landing it first is
-accepted behaviour; a prover&rsquo;s mitigation is private orderflow or bundling
-(<a href="../spec/04-l1-integration.html#L1-10">L1-10</a>).</p>
+accepted behaviour; a prover&rsquo;s mitigation is private orderflow or bundling.</p>
+<p class="small">Where this is specified: <a href="../spec/04-l1-integration.html#L1-04">L1-04</a>.</p>
 
 <h3>6. The proof binds the configuration and the recovery generation</h3>
 <p>The statement hash includes the configuration under which the batch was certified and its recovery
@@ -270,22 +280,28 @@ The configuration is not a single mutable global value: the Inbox keeps an <stro
 registry</strong> mapping each epoch to its <code>configHash</code>. The entry is computed by the contract
 from its own storage and deployed code, written <strong>before the epoch starts</strong>, and
 <strong>immutable once written</strong>: no upgrade or governance call may edit or rewrite
-the entry of an epoch that has already begun, so an upgrade binds future epochs only
-(<a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>). That immutability is what keeps upgrades from
+the entry of an epoch that has already begun, so an upgrade binds future epochs only. That immutability is what keeps upgrades from
 breaking settlement. If the configuration could change under a running epoch, a routine upgrade would move
 the configuration hash, and every in-flight proof &mdash; made under the configuration that was current
 when the batch was certified and executed &mdash; would fail verification, leaving its batch unlandable.</p>
 <p>The guest recomputes <code>configHash</code> from the configuration it actually applied and requires
-equality with the registry value the L1 contract supplies
-(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>). The recovery generation is carried in the
-signed vote and header bytes and is part of the statement. A certificate carrying a superseded generation is
-<strong>void</strong> at the acceptance rule, and that is what stops a branch scoped to an older generation
-from ever being accepted again. The generation increments only when a stall resolution executes: a DAO-queued entry, a stored deadline, one permissionless execution, discarding the whole range above the checkpoint so the resumed chain continues from that checkpoint. There is no restoration record, no retired height and no <code>resumeHeight</code>; every batch starts at <code>lastLandedHeight + 1</code>, the ordinary contiguity rule (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). A certificate from any generation remains usable as evidence of what was signed
-(<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
+equality with the registry value the L1 contract supplies.</p>
+<p>The recovery generation is carried in the signed vote and header bytes and is part of the statement.
+A batch that extends the current checkpoint must carry the current generation in its head certificate, in the
+votes contributing to that certificate and in its head header; a certificate for a block at or below the
+checkpoint carries the generation in that block&rsquo;s own header and is never compared with the current one.
+A certificate whose signed generation has been superseded is <strong>void</strong> at the acceptance rule:
+it can no longer serve as a batch&rsquo;s head evidence, while the blocks it covers stay valid history that a
+later batch can extend under the new generation, and the certificate itself stays admissible as evidence of
+what was signed. The generation increments only when a stall resolution executes: a DAO-queued entry, a stored
+deadline, one permissionless execution, resuming settlement from that checkpoint without erasing the range
+above it. There is no retirement record, no recovery anchor and no stored resume height; the next batch always
+starts one block after the last accepted checkpoint, derived from L1 state alone.</p>
 <p>What this rules out is the tempting shortcut of accepting an alternative history just because its
-execution is valid. A batch that does not descend from the current checkpoint, or whose certificate carries
-a generation other than the one the contract supplies, fails acceptance even if every execution step inside
-it is correct.</p>
+execution is valid. A batch that does not descend from the current checkpoint, or whose head certificate,
+contributing votes and head header do not carry the current generation, fails acceptance even if every
+execution step inside it is correct.</p>
+<p class="small">Where this is specified: <a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>.</p>
 
 <h3>7. What a failed verification does</h3>
 <p>Nothing is accepted. If the proof is invalid, if a blob opening fails, if a referenced publication is
@@ -303,26 +319,25 @@ system.</p>
 <thead><tr><th>Quantity</th><th>Value in this example</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Payload size</td><td>6 blocks &times; ~100,000 bytes = 600,000 bytes (example input)</td><td><span class="tag">unmeasured</span> real payloads</td></tr>
-<tr><td>Target-rate payload</td><td>6 blocks &times; 131,072 bytes = 786,432 bytes = 6 blobs, exactly the EIP-7691 target</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> constants</td></tr>
+<tr><td>Target-rate payload</td><td>14 blocks &times; 131,072 bytes = 1,835,008 bytes = 14 blobs, the target blob capacity of one L1 block</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> constants</td></tr>
 <tr><td>Publication record</td><td>written by a permissionless publication transaction before the proof; it records the blob hashes, the L1 block and a sequence, and advances nothing</td><td><span class="tag">derived</span> mechanics</td></tr>
 <tr><td>Proving deadline</td><td>derived at publication from the record&rsquo;s own L1 block number, measured in L1 blocks and inside the blob-retention window</td><td><span class="tag">derived</span> form &middot; value <span class="tag">unmeasured</span></td></tr>
 <tr><td>Calldata cost</td><td>600,000 &times; 16 gas per non-zero byte = 9,600,000 gas</td><td><span class="tag">derived</span> from a <span class="tag">sourced</span> constant (EIP-2028)</td></tr>
 <tr><td>Blob count</td><td>600,000 / 131,072 = 4.58, so 5 blobs; each blob is exactly 131,072 bytes = 4,096 field elements</td><td><span class="tag">derived</span> &middot; <span class="tag">sourced</span> blob size</td></tr>
 <tr><td>Blob opening cost</td><td>5 &times; 50,000 gas per point-evaluation call = 250,000 gas</td><td><span class="tag">derived</span> from a <span class="tag">sourced</span> constant (EIP-4844)</td></tr>
 <tr><td>Blob data cost</td><td>paid separately as blob gas at the Ethereum blob market price; not part of execution gas</td><td><span class="tag">sourced</span> mechanism &middot; <span class="tag">unmeasured</span> price</td></tr>
-<tr><td>Blob limits</td><td>5 blobs fits under Ethereum&rsquo;s target of 6 blobs per block; the maximum is 9</td><td><span class="tag">sourced</span> (EIP-7691)</td></tr>
+<tr><td>Blob limits</td><td>5 blobs fits under the target of 14 blobs per L1 block; the maximum in force is 21</td><td><span class="tag">sourced</span> (BPO2, EIP-7892)</td></tr>
 <tr><td>Total cost of <code>land(data, proof)</code></td><td>not stated; it depends on the verifier route, the batch size and the proof system</td><td><span class="tag">unmeasured</span></td></tr>
 </tbody></table>
 <p class="small">The comparison between the two data forms is the engineering point: the same 600,000
 bytes cost about 9.6 million execution gas as calldata and about 250,000 gas of execution for the
 blob openings, with the blob data itself paid on a separate market. Which is cheaper overall
 depends on blob prices and on the verifier&rsquo;s gas, neither of which is measured here.</p>
-<p class="small">The example payload is below the target-rate budget on purpose. At the target rate one
-2-second L2 block is one 131,072-byte blob, so the largest sustainable batch is six blocks &mdash; 786,432
-bytes, exactly the EIP-7691 target of six blobs per L1 block &mdash; and nine blocks (1,179,648 bytes) is
-the hard ceiling, because a batch&rsquo;s data must fit in one L1 transaction: the accepting transaction
-when the data is carried, or the publication transaction when it is published earlier
-(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>).</p>
+<p class="small">The example payload is below the target-rate budget on purpose. One 2-second L2 block is
+one 131,072-byte blob, and a batch&rsquo;s data must fit in one L1 transaction &mdash; the accepting
+transaction when it is carried, or the publication transaction when it is published earlier &mdash; so the
+batch is bounded by the blob capacity of a single L1 block: 14 blocks (1,835,008 bytes, 28 seconds of
+history) at the target capacity in force and 21 blocks (2,752,512 bytes, 42 seconds) at the maximum.</p>
 
 <h2>What this gives you</h2>
 <ul>
@@ -333,7 +348,8 @@ batch state, and a record that is not proven before its deadline is dead &mdash;
 <li>A statement that also binds the per-epoch configuration and the signed recovery generation: the
 configuration entry for an epoch is fixed before the epoch starts and immutable once written, so an upgrade
 cannot move the configuration hash under an in-flight proof, and a certificate carrying a superseded
-generation is void at the acceptance rule.</li>
+generation is void at the acceptance rule and can no longer serve as a batch&rsquo;s head evidence, while the
+blocks it covers stay valid history that a later batch can extend.</li>
 <li>A calldata path whose binding is a hash the contract computes itself, with no probabilistic
 argument.</li>
 <li>A blob path that still binds the executed bytes to the published blobs when they were carried in the
@@ -361,7 +377,10 @@ keeping the accepting or publication transaction&rsquo;s bytes.</li>
 copying a public proof is allowed.</li>
 <li>No measured cost or in-guest blob-evaluation cost; the blob binding&rsquo;s fixed-point argument
 has not yet been independently checked.</li>
-<li>No way to land a batch whose certificate carries a superseded generation once the generation advances, though its proof remains usable as evidence of what was certified and executed. The generation advances only through an executed stall resolution; nothing is retired, and only the provisional range above the checkpoint is discarded.</li>
+<li>No way for a certificate from a superseded generation to serve as a batch&rsquo;s head evidence once the
+generation advances: the certificate is void at the acceptance rule, while the blocks it covers stay valid
+history that a later batch can extend and the certificate stays usable as evidence of what was signed. The
+generation advances only through an executed stall resolution, and nothing is retired.</li>
 </ul>
 
 <h2>Check yourself</h2>
@@ -384,8 +403,8 @@ the versioned hashes come from the publication record and the precompile checks 
 against them, so the opening still holds. To cheat, a prover would need
 executed data whose hash-derived challenge is a root of the difference between its polynomial and
 the blob&rsquo;s polynomial &mdash; a fixed point, not a linear equation &mdash; which succeeds with
-probability at most about 2<sup>&minus;243</sup> per candidate payload under the stated
-assumptions.</p></details>
+probability at most about 2<sup>&minus;242.4</sup> per candidate payload under the stated assumptions
+(2<sup>&minus;243</sup> for the polynomial-root event, re-based by the modular-reduction term).</p></details>
 <details><summary>Someone copies your proof from the mempool and lands it first. What happens?</summary>
 <p>The batch lands &mdash; it is the same data, the same publication reference and the same statement
 &mdash; and the reward goes to the account that paid for the L1 transaction. The proof cannot be reused
@@ -393,10 +412,19 @@ for a different batch, because the range, predecessor, data commitment, epoch an
 the statement hash. A prover who wants to avoid this uses private orderflow or bundles its own landing
 transaction.</p></details>
 <details><summary>The statement binds a recovery generation. What does that mean in v1?</summary>
-<p>It scopes certificates: a certificate carrying a generation other than the one the L1 contract supplies is
-void at the acceptance rule, so a branch certified under a superseded generation can never be accepted
-again. The generation advances only through an executed stall resolution: during a settlement stall the DAO may queue one entry, and after its stored deadline anyone may execute it once, which discards the whole range above the checkpoint and resumes from it. No height is retired and every batch still starts at <code>lastLandedHeight + 1</code>. A stall governance does not act on halts the chain instead; funds at or below the last accepted checkpoint stay safe and the exit works through a withdrawal root that <code>k</code> distinct families attest, funded proving work over data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), and a discarded block is not replayed. A certificate from any generation remains usable as evidence of what its
-signers signed.</p></details>
+<p>It scopes certificates. A batch that extends the current checkpoint must carry the current generation in
+its head certificate, in the votes contributing to it and in its head header; a certificate for a block at or
+below the checkpoint carries the generation in that block&rsquo;s own header and is never compared with the current
+one. A certificate signed under a superseded generation is void at the acceptance rule, so it can never serve
+as a batch&rsquo;s head evidence again, while the blocks it covers stay valid history that a later batch can
+extend under the new generation and the certificate stays usable as evidence of what its signers signed. The
+generation advances only through an executed stall resolution: during a settlement stall the DAO may queue one
+entry, and after its stored deadline anyone may execute it once, which resumes settlement from the checkpoint
+without erasing the range above it. No height is retired, and every batch still starts one block after the last
+accepted checkpoint. A stall that governance does not act on halts the chain instead; funds at or below the
+last accepted checkpoint stay safe and the exit works through a withdrawal root that <code>k</code> distinct
+families attest, funded proving work over data that is still retrievable. A transaction above the checkpoint is
+not carried into the resumed settlement or replayed.</p></details>
 <details><summary>Why can a routine upgrade not invalidate the proofs that are already in flight?</summary>
 <p>Because the configuration is registered per epoch. Each epoch&rsquo;s <code>configHash</code> is written
 before the epoch starts and is immutable once written, and an upgrade binds future epochs only. With a

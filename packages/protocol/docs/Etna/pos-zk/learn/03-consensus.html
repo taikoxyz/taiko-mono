@@ -36,15 +36,15 @@
 <main>
 
 <h1>How the chain agrees</h1>
-<p class="muted">This lesson gives an implementer the exact consensus objects, the round procedure, the two-thirds
+<p class="muted">This page gives an implementer the exact consensus objects, the round procedure, the two-thirds
 quorum, the lock rule, the commit rule, proposer selection and view changes — and the two things a validator must
 never do.</p>
 
 <div class="note assume">
 <p><strong>This is a design, not a running system.</strong> Nothing described here is implemented, deployed, audited or
-measured. Timeouts, round-trip times and set sizes are unmeasured. The authoritative rules — including every edge case
-of the lock and epoch rules — are stated once in <a href="../spec/02-consensus.html">specification 02</a>; this lesson
-links to them rather than restating them.</p>
+measured. Timeouts, round-trip times and set sizes are unmeasured. This page states the consensus procedure and the rules
+an implementer must enforce; the authoritative statement of the same rules is in the
+<a href="../spec/index.html">specification</a>.</p>
 </div>
 
 <h2>The idea</h2>
@@ -57,9 +57,9 @@ sign again, and a validator that has seen a PoLC for a block locks on it. When m
 power has precommitted the same block at the same height and round, those signatures are the block's
 <strong>commit certificate</strong> and the block is <strong>PoS-certified</strong> at a node that also holds its data. Above the
 latest checkpoint accepted on Ethereum that certification is provisional.</p>
-<p>Two rules make this safe rather than merely ordered. The <a href="../spec/02-consensus.html#CONS-02"><strong>signing rule</strong></a> says a validator may sign at
-most one message of each type per (chain id, height, round) — ever, including after a crash. The <a href="../spec/02-consensus.html#CONS-04"><strong>lock
-rule</strong></a> says that once a validator has locked on a block, it prevotes that block until a strictly later round of
+<p>Two rules make this safe rather than merely ordered. The <strong>signing rule</strong> says a validator may sign at
+most one message of each type per (chain id, height, round, generation) — ever, including after a crash. The <strong>lock
+rule</strong> says that once a validator has locked on a block, it prevotes that block until a strictly later round of
 the same height shows a PoLC for something else; it must never unlock on the proposer's say-so, on a same-round PoLC,
 or on a PoLC from a different height. Together they mean a conflicting certificate would require at least one third of
 the epoch's power to break a rule, and the breaking would be visible in signed evidence.</p>
@@ -127,7 +127,7 @@ pre-hash.</p>
 <li><code>signers</code> is a bitmap of <code>ceil(n/8)</code> bytes for a set of <code>n</code> entries. Validator index <code>i</code> owns byte <code>i &gt;&gt; 3</code>, bit <code>1 &lt;&lt; (i &amp; 7)</code> (least-significant bit first); bits above <code>n</code> must be zero, and a non-zero pad bit invalidates the certificate. <code>validator_index</code> is the signer's position in the canonical order of the epoch's set root.</li>
 <li><code>signatures</code> is ordered by ascending signer index and must contain exactly <code>popcount(signers)</code> entries.</li>
 </ul>
-<p>The vote and the certificate both carry the recovery generation, matching the specification&rsquo;s encoding table.</p>
+<p>The vote and the certificate both carry the recovery generation as a signed field.</p>
 
 <h3>The rules an implementer must enforce</h3>
 <div class="card">
@@ -143,7 +143,7 @@ or precommit for a proposal that fails any of these; its only legal alternative 
 <h4>Quorum: more than two thirds, distinct signers, stake-weighted</h4>
 <p>Let the epoch have committed voting powers <code>w_i ≥ 1</code> from its L1-committed set and
 <code>W = Σ w_i</code>. For a set <code>Q</code> of distinct authenticated signers with
-<code>s = Σ_{i∈Q} w_i</code>, quorum holds exactly when <code>3·s &gt; 2·W</code> in checked arithmetic (<a href="../spec/02-consensus.html#CONS-03">CONS-03</a>). The
+<code>s = Σ_{i∈Q} w_i</code>, quorum holds exactly when <code>3·s &gt; 2·W</code> in checked arithmetic. The
 comparison is strict: <code>3·s = 2·W</code> does not reach quorum. Voting power comes only from the L1-committed
 set — never from a vote, a certificate, a witness or a prover-supplied list — and the same integers are used for
 quorum and for proposer selection. Verification requires <code>popcount(signers) = len(signatures)</code>, no index
@@ -154,34 +154,45 @@ strict/non-strict mismatch would split chain acceptance from L1 acceptance.</p>
 <div class="card">
 <h4>The lock rule, and how a validator unlocks</h4>
 <p>A validator's lock is a persistent local triple <code>(locked_height, locked_value, locked_round)</code>. It is
-<strong>per height</strong>: it constrains votes at height <code>H</code> only, survives restart while <code>H</code>
-is unresolved, and is released by (a) the commit of <code>H</code>, after which it has done its work and constrains
-no later height, or (b) an unlock. Unlock happens <em>only</em> against a PoLC at <code>(H, p)</code> for a
+<strong>per height and per generation</strong>: it constrains votes at height <code>H</code> under the generation it
+was formed under, survives restart while <code>H</code> is unresolved, and is released by (a) the commit of <em>the
+locked value</em> at <code>H</code> under that generation, after which it has done its work and constrains no later
+height, or (b) an unlock. A commit at <code>H</code> of a different value does not release it: a validator that also
+holds a conflicting certificate halts. If the generation is superseded by an executed stall resolution, a lock formed
+under the superseded generation is void at every height above the restored checkpoint: it constrains nothing, needs no
+PoLC, and is not a halt condition. Unlock happens <em>only</em> against a PoLC at <code>(H, p)</code> for a
 <em>different</em> value with <code>locked_round &lt; p &lt; R</code> — strictly later, same height, different
 value. A PoLC at the same round, at an earlier round, or for the value already locked does not unlock; a PoLC at
 another height neither unlocks this height's lock nor creates a lock at that other height. A validator must not
 precommit a block without holding a PoLC for that block at that (height, round), and while locked and not unlocked
 it must prevote its locked value. The <code>pol_round</code> field of a proposal is only a hint: a validator must
 verify the PoLC itself and must never treat the field as evidence. A validator that holds a lock at <code>H</code>
-and then sees a valid commit certificate at <code>H</code> for a different block has evidence that its assumptions
-failed: it halts and must not treat the certificate as an unlock.</p>
+and then sees a valid commit certificate at <code>H</code> for a different block <em>under the current generation</em>
+has evidence that its assumptions failed: it halts and must not treat the certificate as an unlock. A certificate
+under a superseded generation is neither a conflicting finality nor an unlock for this purpose.</p>
 </div>
 <div class="card">
 <h4>The commit rule</h4>
 <p>A commit certificate at <code>(H,R)</code> for block <code>B</code> is
 <code>(chain_id, epoch, recovery_generation, H, R, B, set_root(epoch), signers, signatures)</code>. It is valid only if
-<code>epoch = epoch_of(H)</code>, <code>set_root(epoch)</code> equals the L1-committed set root for that epoch,
-<code>recovery_generation</code> equals the generation the L1 contract holds and the generation signed by every
-contributing vote, and more than two thirds of that set's voting power signed <code>PRECOMMIT</code> for <code>B</code> at
-<code>(H,R)</code>, with exactly one verified signature per set bit (<a href="../spec/02-consensus.html#CONS-05">CONS-05</a>).
-A node treats <code>B</code> as
-<a href="../spec/index.html#STATUS-04"><strong>certified</strong></a> when it holds a valid certificate, <em>and</em> it has performed its own data-availability
+<code>epoch = epoch_of(H)</code>, <code>set_root(epoch)</code> equals the L1-committed set root for that epoch, its
+generation passes the case that applies to it, and more than two thirds of that set's voting power signed
+<code>PRECOMMIT</code> for <code>B</code> at <code>(H,R)</code>, with exactly one verified signature per set bit.</p>
+<p><strong>The generation has two cases.</strong> A certificate presented as the head evidence of a batch that extends
+the current checkpoint must carry the generation the L1 contract holds, and so must every contributing vote and the head
+header. A certificate for a block at or below the last accepted checkpoint carries the generation written in that
+block&rsquo;s own header, as must every contributing vote, and it is never compared with the current generation. For a
+historical certificate the contract also checks that its generation is not above the current one — a relation the
+monotone generation makes true, but one the rules still require to be checked. A certificate that fails its case is
+void at the acceptance rule even though every signature verifies; it is still admissible as evidence of what was
+signed.</p>
+<p>A node treats <code>B</code> as <strong>certified</strong> when it holds a valid certificate, <em>and</em> it has performed its own data-availability
 check for <code>B</code>'s body, <em>and</em> <code>parent(B)</code> is the block it certified at
 <code>H−1</code>. The local decision is a function of the certificate, the node's own data check and its own
 certified prefix — nothing else. This rule prevents two conflicting <em>certificates</em>; above the latest
-checkpoint accepted on Ethereum a confirmation is provisional, and v1 has no rule that replaces it — a
-settlement stall halts the chain rather than forking it.
-</p>
+checkpoint accepted on Ethereum a confirmation is provisional, and the one rule-bound action on that range resumes
+settlement and invalidates a superseded certificate only as a batch's head evidence — a settlement stall halts the
+chain rather than forking it.</p>
 </div>
 <div class="card">
 <h4>Proposer selection and view changes</h4>
@@ -189,9 +200,9 @@ settlement stall halts the chain rather than forking it.
 <code>cum_i</code> and total <code>W</code>:
 <code>pos(H,R) = uint256(keccak256(abi.encode("TAIKO_ETNA_PROPOSER_V1", chainId, e, H, R))) mod W</code>, and the
 proposer is the unique <code>i</code> with <code>cum_{i−1} ≤ pos &lt; cum_i</code>. The intervals are half-open, so
-the proposer is unique and the tie-break is fixed (the lower index wins) (<a href="../spec/02-consensus.html#CONS-06">CONS-06</a>). Anyone holding the epoch's set root can
+the proposer is unique and the tie-break is fixed (the lower index wins). Anyone holding the epoch's set root can
 recompute the proposer — which also means the next proposer is publicly predictable.</p>
-<p>The round timer is <code>T(H,R) = min(TIMEOUT_MAX, TIMEOUT_MIN · 2^min(R − R_progress, R_cap))</code> seconds (<a href="../spec/02-consensus.html#CONS-07">CONS-07</a>), where
+<p>The round timer is <code>T(H,R) = min(TIMEOUT_MAX, TIMEOUT_MIN · 2^min(R − R_progress, R_cap))</code> seconds, where
 <code>R_progress</code> is the highest round at which this node saw a PoLC or a commit certificate, and
 <code>R_cap = ceil(log2(TIMEOUT_MAX / TIMEOUT_MIN))</code>. Proposed values are <code>TIMEOUT_MIN = 3 s</code> and
 <code>TIMEOUT_MAX = 30 s</code>, giving a ladder of 3, 6, 12, 24, 30, 30, … seconds; both values are unmeasured, because
@@ -203,21 +214,24 @@ constrains what it signs, not whether it moves on.</p>
 <h3>What a validator signs, and what it must never sign</h3>
 <div class="grid">
 <div class="card">
-<h4>At most one of each, per (chain id, H, R)</h4>
+<h4>At most one of each, per (chain id, height, round, generation)</h4>
 <ul>
 <li>one <code>PROPOSAL</code>, if it is the selected proposer;</li>
 <li>one <code>PREVOTE</code>: its locked value if it is locked and not unlocked, otherwise the valid proposal it knows, otherwise <code>NIL</code>;</li>
 <li>one <code>PRECOMMIT</code>: a block it holds a PoLC for at that round, otherwise <code>NIL</code>.</li>
 </ul>
 <p>The uniqueness rule applies to <code>NIL</code> too. Before signing, the client consults a persistent store of
-every <code>(round, value)</code> it has already signed per <code>(chain id, height, type)</code>; the store must be
-written durably before the signature is broadcast and must survive restart. If the store is missing, unreadable or
+every <code>(round, value)</code> it has already signed per <code>(chain id, height, type, generation)</code>; the
+store must be written durably before the signature is broadcast and must survive restart, and it is never erased:
+entries from a superseded generation are set aside for new signing but remain the record of what was signed. The
+scope includes the generation, so a pair of messages whose generations differ is not a conflict — that is what lets a
+height be re-produced under a new generation without becoming equivocation. If the store is missing, unreadable or
 corrupt, the validator must not sign and must not start fresh — re-signing after a restart is the amnesia fault.</p>
 </div>
 <div class="card">
 <h4>Never</h4>
 <ul>
-<li>a second message of the same type at the same <code>(chain id, height, round)</code>, including a second <code>NIL</code>;</li>
+<li>a second message of the same type at the same <code>(chain id, height, round, generation)</code>, including a second <code>NIL</code>;</li>
 <li>a prevote for anything other than the locked value while locked and not validly unlocked;</li>
 <li>a precommit for a block without holding a PoLC for that block at that (height, round);</li>
 <li>anything for a proposal that fails the validity check;</li>
@@ -230,7 +244,7 @@ corrupt, the validator must not sign and must not start fresh — re-signing aft
 <h3>Why a missing certificate is not evidence that it does not exist</h3>
 <p>A certificate is an object that travels over a best-effort network; not receiving it is a fact about your mailbox,
 not about the world. An elapsed timeout is therefore <strong>never</strong> evidence of absence, and no rule may
-conclude from a timeout that a certificate, proof or block does not exist (<a href="../spec/index.html#STATUS-10">STATUS-10</a>). Timeouts trigger local actions only:
+conclude from a timeout that a certificate, proof or block does not exist. Timeouts trigger local actions only:
 a view change, a retry, or a halt.</p>
 <p>What a node should do instead, in order:</p>
 <ol>
@@ -239,13 +253,14 @@ a view change, a retry, or a halt.</p>
 set root and quorum checked locally, regardless of who sent it;</li>
 <li>if it holds a lock on a different block at that height and a valid conflicting certificate arrives, halt and
 publish the evidence it has, rather than choosing a branch;</li>
-<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; no node may replace history above the latest checkpoint accepted on Ethereum, and v1 has no rule that does.</li>
+<li>never invalidate a block or help form a second conflicting certificate, and never delegate the choice to an operator; no node may replace history above the latest checkpoint accepted on Ethereum, and no rule of v1 does: the one rule-bound action there, the stall resolution, resumes settlement without erasing the range.</li>
 </ol>
 <p>Equivocation is the one thing a pair of signed objects can prove: two signed messages of the same type, at the
-same (chain id, height, round, validator index), with different signed values — or with different signed epoch
-fields — are self-authenticating evidence, and any party may submit them (<a href="../spec/02-consensus.html#CONS-11">CONS-11</a>). A prevote for one value and a precommit
-for another at the same round is not equivocation; it is the normal step sequence. Signing at different rounds or
-different heights is not equivocation either.</p>
+same (chain id, height, round, validator index) and under the same signed generation, with different signed values —
+or with different signed epoch fields — are self-authenticating evidence, and any party may submit them. A pair whose
+signed generations differ is not a conflict: it is a re-production under a new generation, which is how a superseded
+height is settled again. A prevote for one value and a precommit for another at the same round is not equivocation; it
+is the normal step sequence. Signing at different rounds or different heights is not equivocation either.</p>
 
 <h2>Worked example: why a locked validator prevents two conflicting commits</h2>
 <p>Take an epoch with total voting power <code>W = 1,000,000</code> TAIKO base units. The quorum predicate is strict:
@@ -268,8 +283,8 @@ therefore reduces to the same case: at least one third of the previous epoch's p
 <h2>What this gives you</h2>
 <ul>
 <li>Single-slot certification: one certificate per height, no confirmation depth, no probabilistic waiting.</li>
-<li>Certificates are epoch-scoped and stay valid forever as certificates, so validator rotation cannot re-judge or re-sign a past decision; rotation is not a replacement path &mdash; no rule of v1 replaces history above the latest accepted checkpoint.</li>
-<li>A lock and a signed-vote rule that make the cost of a conflicting commit one third of the epoch's stake, and make the most damaging fault objectively provable when it appears as a same-height, same-round pair.</li>
+<li>Certificates are judged under their own epoch's set and stay valid forever <em>in that judgement</em>: rotation cannot re-judge or re-sign a past decision. Being valid forever is about how a certificate is judged, not about canonical status: once a new generation supersedes it, the certificate can no longer serve as a batch's head evidence above the restored checkpoint, though it remains admissible as evidence. Rotation is not a replacement path, and the one rule-bound action on history above the latest accepted checkpoint resumes settlement there without erasing the range.</li>
+<li>A lock and a signed-vote rule that make the cost of a conflicting commit one third of the epoch's stake, and make the most damaging fault objectively provable when it appears as a same-height, same-round pair under one generation.</li>
 <li>A deterministic, publicly computable proposer schedule, so anyone can audit who was supposed to propose and when.</li>
 <li>Timeouts that affect liveness only: exceeding any timing bound slows the chain, never breaks safety.</li>
 </ul>

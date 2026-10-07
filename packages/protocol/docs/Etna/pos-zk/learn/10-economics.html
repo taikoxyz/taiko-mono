@@ -36,7 +36,10 @@
 <div class="content">
 <main>
 <h1>10 &mdash; Who pays, who earns, who loses</h1>
-<p>What a validator spends, where its ETH rewards come from, what has to be proven before any stake is taken, and why the minimum stake is an operator-economics number rather than a security threshold.</p>
+<p>This lesson establishes the economics of running the protocol: what a validator spends, where its ETH
+rewards come from, what has to be proven before any stake is taken, how far a penalty reaches, and why the
+minimum stake is an operator-economics number rather than a security threshold. It is self-contained: every
+relation is stated with the terms it uses.</p>
 <div class="note assume">
 <p><strong>This is a design.</strong> Nothing on this page is implemented, deployed, audited or measured. Numbers are tagged
 <span class="tag">derived</span> (arithmetic on stated inputs), <span class="tag">sourced</span> (from an Ethereum constant or a published rule) or <span class="tag">unmeasured</span> (a value with no measurement behind it yet). A formula is a relation the design has to satisfy, not a value.</p>
@@ -129,9 +132,8 @@
 <strong>preserved Bridge</strong> to the pool, crediting the pool only when the Bridge has authenticated the message; the
 destination is a protocol constant, and the caller chooses only when to sweep. There is no protocol-mandated schedule and no
 keeper duty. The honest consequences are stated with the path: rewards lag the settlement pipeline, an empty pool pays
-nothing (<code>Alloc(e) = 0</code>), and a bridging failure stops rewards rather than creating a claim on future revenue
-(<a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a> clause 7).
-</p>
+nothing (<code>Alloc(e) = 0</code>), and a bridging failure stops rewards rather than creating a claim on future revenue.</p>
+<p class="small">Where this is specified: <a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a>.</p>
 <h3>3. Why rewards cannot assume token appreciation</h3>
 <p>TAIKO has no mint function today: the supply was minted once and no inflation path exists on L1. A reward funded by new TAIKO therefore requires a token upgrade, which is a governance action, and it is not a standing funding source. Because rewards are paid in ETH, a TAIKO-denominated reward would additionally need a conversion rule and a price; no price constant is permitted anywhere in the design.</p>
 <p>A reward is a nominal ETH amount fixed when it is awarded. No rule, parameter, user interface or learning page may assume, require, promise or be conditioned on an increase in TAIKO&rsquo;s market price, market depth, float or pool value. &ldquo;Rewards are sustainable&rdquo; is a claim that holds only once fee-only inflow covers the validator bill; until then the honest description is that the schedule is reserve-dependent.</p>
@@ -157,6 +159,7 @@ nothing (<code>Alloc(e) = 0</code>), and a bridging failure stops rewards rather
 <code>(validator, epoch, offenceType, keccak256(evidence))</code>; a second submission of the same identity is a no-op that pays no second bounty and does not extend any window.</p>
 <p>The deadline is an L1 timestamp: evidence is admissible only if the block that includes the <code>slash</code> transaction has
 <code>block.timestamp &le; evidenceClose(epoch)</code>. The window opens when the epoch&rsquo;s set root is committed and closes no earlier than the event that makes the offence observable plus the window length. <code>W_EVIDENCE</code> must cover the entire pipeline &mdash; permitted proving latency, L1 inclusion at a chosen quantile, L1 finality, detection, and submission &mdash; and it must satisfy the strict inequality <code>W_EVIDENCE + T_PROCESS + CORR_DELAY + M_ev &lt; D_WITHDRAW</code>. Equality is non-conforming: it turns a deadline into an L1 ordering race. Every term is <span class="tag">unmeasured</span>.</p>
+<p class="small">Where this is specified: <a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a>.</p>
 <h3>5. Why penalties scale with implicated stake</h3>
 <p>For epoch <code>e</code>, each entry retains <code>SlashBase(v, e)</code>, its effective stake in that epoch&rsquo;s set version, and an offence at <code>e</code> is charged against that base, never against the balance at evidence time. Let <code>f</code> be the fraction of the epoch&rsquo;s total voting power held by entries with an applied offence of the class. Then</p>
 <pre><code>c(f)     = min( (f / F_SAT) ^ CORR_Q , 1 )      with F_SAT = 1/3, CORR_Q in {1, 2}
@@ -167,8 +170,9 @@ charge   = min( P(v, e) , bonded(v) , remaining_exposure(v, e) )</code></pre>
 <span class="tag">sourced</span>. <code>IMM_FRAC</code> is a per-class fraction with <code>0 &lt; IMM_FRAC &le; 1</code>, so every proven offence has a non-zero immediate cost; its value is <span class="tag">unmeasured</span>.</p>
 <p>The immediate component is debited when the accepted evidence transaction executes. The correlated component cannot be known before the window closes, so it is computed once at <code>evidenceClose(e) + CORR_DELAY</code> and debited by the permissionless
 <code>applyCorrelated(e, class)</code>. A debit is bounded by the bonded balance and by the per-epoch base; the applied amount is taken, the remainder is recorded in the event and is not carried as a debt outside the ledger.</p>
-<p>The destination is fixed: every debited amount goes to the <strong>protocol treasury</strong>, except a <strong>reporter bounty</strong> that is strictly less than the total penalty actually debited, so that self-reporting is never profitable, and, when a correlated penalty is collected, a <strong>keeper fee</strong> of <code>CORR_KEEPER_PPM</code> of the amount collected paid to the caller. Such a collection has three named destinations: the caller&rsquo;s keeper fee, the reporter bounty where a separate evidence submitter is entitled to it, and the remainder to the protocol treasury. There is no burn option and no burn share: the treasury is where penalties end up, not a burn address. The destination never changes the size of the penalty (<a href="../spec/07-economics-slashing.html#ECON-06">ECON-06</a>).</p>
+<p>The destination is fixed: every debited amount goes to the <strong>protocol treasury</strong>, except a <strong>reporter bounty</strong> that is strictly less than the total penalty actually debited, so that self-reporting is never profitable, and, when a correlated penalty is collected, a <strong>keeper fee</strong> of <code>CORR_KEEPER_PPM</code> of the amount collected paid to the caller. Such a collection has three named destinations: the caller&rsquo;s keeper fee, the reporter bounty where a separate evidence submitter is entitled to it, and the remainder to the protocol treasury. There is no burn option and no burn share: the treasury is where penalties end up, not a burn address. The destination never changes the size of the penalty.</p>
 <div class="warnbox small"><strong>The honest tail.</strong> On a small validator set, a correlated penalty makes one operator&rsquo;s duplicated key a correlated loss for a non-trivial fraction of the set. The mitigation is operational: slashing-protection databases, remote signers, disciplined key custody. No parameter choice removes the tail, and the correlated penalty is not harmless.</div>
+<p class="small">Where this is specified: <a href="../spec/07-economics-slashing.html#ECON-06">ECON-06</a>.</p>
 <h3>6. Exit and unbonding</h3>
 <p>Exit is a request plus a wait, and the wait has three gates.</p>
 <ol>
@@ -182,6 +186,7 @@ charge   = min( P(v, e) , bonded(v) , remaining_exposure(v, e) )</code></pre>
              + T_L1_include(p) + T_L1_final + T_PROCESS + M</code></pre>
 <p><code>T_L1_include(p)</code> must be a quantile of L1 inclusion delay, never a mean and never a fixed slot duration. The delay may not be derived from nominal proving latency alone: the offence clock starts on L2, possibly long before the batch is provable, and data published to L1 before its proof settles nothing, so the window has to cover the whole pipeline. If the delay is judged too long, the answer is to reduce the pipeline terms it covers, never to set it below the formula. Every term is
 <span class="tag">unmeasured</span>.</p>
+<p class="small">Where this is specified: <a href="../spec/03-membership-staking.html#MEM-05">MEM-05</a>.</p>
 <h3>7. Minimum stake is an economic question</h3>
 <p>The minimum bonded amount for one validator is fixed by the operator break-even relation, in ETH-revenue terms:</p>
 <pre><code>S_min &ge; C_op_annual / ( r_gross &minus; &rho;_ops )</code></pre>
@@ -200,6 +205,7 @@ minimum from it. The minimum must also be at or below what a median intended par
 permissionless only in name. Borrowed and leveraged stake changes the cost floor to a financing cost, and the protocol cannot observe
 leverage; per-address caps constrain labels, not capital. Every value here is <span class="tag">unmeasured</span>, and no
 figure may be copied from Bitcoin or Ethereum validator costs, whose workloads differ.</p>
+<p class="small">Where this is specified: <a href="../spec/07-economics-slashing.html#ECON-09">ECON-09</a>.</p>
 
 <h2 id="example">Worked example</h2>
 <p>The numbers below are chosen to make the arithmetic visible. Unless a row says otherwise they are
@@ -254,7 +260,7 @@ inequality.</li>
 <h2 id="not">What it does not give you</h2>
 <ul>
 <li>No reward from an empty pool: L2 fees must be swept from the L2 fee vault through the preserved Bridge, rewards lag the settlement pipeline, and a bridging failure stops rewards instead of creating a claim on future revenue.</li>
-<li>No compensation to users. A penalty debits an offender&rsquo;s stake and does nothing else: it does not restore discarded history,
+<li>No compensation to users. A penalty debits an offender&rsquo;s stake and does nothing else: it does not restore a transaction the resumed settlement did not carry,
 return a bridge message or cover a loss, and there is no universal bound on user losses.</li>
 <li>No penalty for being offline, for censoring a transaction or for omitting it. Those are
 liveness or inclusion questions, not offences: a validator that stops signing keeps its stake and its place in every
@@ -306,17 +312,12 @@ epoch&rsquo;s production is not fixed, so a settlement halt longer than the wind
 inadmissible.</li>
 <li>Ethereum keeps producing blocks, including and finalizing them; the whole settlement and evidence path is denominated in L1
 time, and honest heartbeat transactions are included inside their windows &mdash; one attestation per window of <code>HEARTBEAT_WINDOW</code> L1 blocks, whose spacing in seconds moves with L1 block time and is <span class="tag">unmeasured</span>. A lapse costs future slots and not stake, and
-censoring honest heartbeats can exclude honest validators from future versions (F8).</li>
+censoring honest heartbeats can exclude honest validators from future versions.</li>
 </ul>
 </div>
 
-<p class="small">Previous: <a href="09-censorship-and-the-bridge.html">9 &mdash; Censorship &amp; the bridge</a> &middot; Next:
-<a href="glossary.html">Glossary</a> &middot; The exact rules are <a href="../spec/07-economics-slashing.html#ECON-05">ECON-05</a>
-(penalties), <a href="../spec/07-economics-slashing.html#ECON-04">ECON-04</a> (offences and evidence),
-<a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a> (rewards and funding),
-<a href="../spec/07-economics-slashing.html#ECON-07">ECON-07</a> (evidence window),
-<a href="../spec/03-membership-staking.html#MEM-05">MEM-05</a> (exit and unbonding) and
-<a href="../spec/07-economics-slashing.html#ECON-09">ECON-09</a> (minimum stake).</p>
+<p class="small"><a href="09-censorship-and-the-bridge.html">&larr; Previous: Censorship and the bridge</a>
+&middot; <a href="glossary.html">Next: Glossary &rarr;</a></p>
 
 </main>
 <footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course &middot; the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>

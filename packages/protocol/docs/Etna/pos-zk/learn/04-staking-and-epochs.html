@@ -37,17 +37,18 @@
 <main>
 
 <h1>Stake, validators and epochs</h1>
-<p class="muted">This lesson follows one bonded TAIKO stake from the L1 transaction that creates
+<p class="muted">This page follows one bonded TAIKO stake from the L1 transaction that creates
 it, through activation and the L1 heartbeat that keeps it selectable, into the epoch that first
 counts it, and out again through the exit queue. It closes with where a brand-new node starts. Everything here is a design: nothing is
 deployed or measured, and every number is tagged
 <span class="tag">derived</span>, <span class="tag">sourced</span> or
-<span class="tag">unmeasured</span>.</p>
+<span class="tag">unmeasured</span>. The authoritative statement of the rules behind these steps is in the
+<a href="../spec/index.html">specification</a>.</p>
 
 <h2>The idea</h2>
 <p>A validator is not appointed. It is created by locking the existing TAIKO token on Ethereum in a staking contract, registering a signing key, and waiting for the protocol&rsquo;s own schedule to place it in a validator set. Holding TAIKO in a wallet does nothing: only stake that is bonded, activated and inside the set for an epoch counts as voting power.</p>
 <p>The chain is divided into <strong>epochs</strong> of fixed length. Each epoch has exactly one validator set, and that set is decided on Ethereum <em>before</em> the epoch starts, not during it. Every block header carries a commitment to the current set and to the next one, so a reader can check who was allowed to sign without trusting a peer.</p>
-<p>Being in a set is a recurring condition, and it is renewed by an act on Ethereum. To be selected into the set version committed for a future epoch, a validator must post a periodic attestation on L1 &mdash; a <strong>heartbeat</strong> &mdash; at least once in every window of <code>HEARTBEAT_WINDOW</code> L1 blocks. The window that judges a version is fixed by the L1 block at which the version first became coverable &mdash; two L1-side epochs before the epoch it governs &mdash; not by the block that carries the commit, so when inside its window an attestation lands cannot change who is selected. For the first two versions after activation, the judging window is fixed one full window after activation, so everyone has the same full window in which to attest. One that stops attesting is simply not selected next time: it keeps its whole stake and can rejoin the future rosters by attesting again. A version already committed is never changed, and a silent cohort that keeps attesting keeps its weight, so this changes who is in the next set, not how much participation a committed set needs.</p>
+<p>Being in a set is a recurring condition, and it is renewed by an act on Ethereum. To be selected into the set version committed for a future epoch, a validator must post a periodic attestation on L1 &mdash; a <strong>heartbeat</strong> &mdash; at least once in every window of <code>HEARTBEAT_WINDOW</code> L1 blocks. The window that judges a version is fixed by the L1 block at which the version first became coverable &mdash; two L1-side epochs before the epoch it governs &mdash; not by the block that carries the commit, so when inside its window an attestation lands cannot change who is selected. For the first two versions after activation the schedule moves the judging instant two windows forward from the window that contains the activation block, so no roster is fixed before a full window measured from activation has closed and every entry has that whole window in which to attest. One that stops attesting is simply not selected next time: it keeps its whole stake and can rejoin the future rosters by attesting again. A version already committed is never changed, and a silent cohort that keeps attesting keeps its weight, so this changes who is in the next set, not how much participation a committed set needs.</p>
 <p>Voting power is the bonded stake: one base unit for one unit of weight, with no multipliers and no delegation. Bonding registers two keys &mdash; an Ed25519 key for consensus votes and an ECDSA key for heartbeats &mdash; and the L1 address that bonded the stake is the only address that can rotate either key, request an exit or receive the unbonded tokens.</p>
 <p>Leaving is deliberately slow. An exit request keeps the validator in every set it was already committed to, still voting and still slashable, until the exit takes effect at a later epoch boundary; the tokens then wait out a further delay before withdrawal. The delay exists so that misbehaviour committed while the stake was bonded remains punishable afterwards.</p>
 <p>A brand-new node does not replay the chain from genesis and call the result verified. It starts from the newest checkpoint Ethereum has already accepted &mdash; a height, a block hash, a state root, an epoch and a set version &mdash; and treats Ethereum as the only authority on which history is the real one.</p>
@@ -88,7 +89,7 @@ deployed or measured, and every number is tagged
   <text x="700" y="384" fill="#59636e" font-size="11">the chain halts at the boundary.</text>
 </svg>
 <figcaption>Figure 1 &mdash; The six lifecycle states, the eight transitions, and the two-epoch
-set commitment. The exact conditions are in the specification&rsquo;s staking page.</figcaption>
+set commitment.</figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -119,8 +120,7 @@ after it was counted and an operator has time to bring a node online. The delay,
 and <code>S_min</code> are all <span class="tag">unmeasured</span>. An entry that never
 binds its keys never appears in any set root, and an active entry that never attests is absent from the
 versions judged against windows its record does not cover: neither is slashable for a consensus offence and neither
-earns anything, but both keep their stake, and an entry still in the queue keeps its position
-(<a href="../spec/03-membership-staking.html#MEM-03">MEM-03</a>).</p>
+earns anything, but both keep their stake, and an entry still in the queue keeps its position.</p>
 
 <h3>3. Keys: one consensus key per set version</h3>
 <p>An entry has at most one consensus key per set version: an Ed25519 public key in its canonical
@@ -213,15 +213,13 @@ so the root is independent of insertion order. <code>TotalVP_k</code> is publish
 transaction as the root because a sum cannot be recovered from a Merkle root, and the proof guest
 recomputes it from the leaves. The root is written by <code>commitSet()</code>, a function that
 takes no arguments and may be called by anyone: the caller chooses nothing, and the contract
-computes the contents from its own state
-(<a href="../spec/03-membership-staking.html#MEM-08">MEM-08</a>). The entry list contains every active <em>and eligible</em> entry: the contract includes each such entry with its full effective stake, and an entry whose heartbeat does not cover the version&rsquo;s evaluation window is simply absent from the root, the total and the count &mdash; never present at a reduced weight.</p>
+computes the contents from its own state. The entry list contains every active <em>and eligible</em> entry: the contract includes each such entry with its full effective stake, and an entry whose heartbeat does not cover the version&rsquo;s evaluation window is simply absent from the root, the total and the count &mdash; never present at a reduced weight.</p>
 
 <h3>6. Epochs, and why the set is fixed two epochs ahead</h3>
 <p>Heights are partitioned into epochs of <code>L = 900</code> blocks, which is 30 minutes at the
 2-second cadence <span class="tag">derived</span>; suitability at the target set size is
 <span class="tag">unmeasured</span>. The epoch of a height is a pure function of that
-height and of constants recorded on L1 when the chain activates
-(<a href="../spec/02-consensus.html#CONS-13">CONS-13</a>).</p>
+height and of constants recorded on L1 when the chain activates.</p>
 <p>The staking contract has its own L1-side clock, expressed in L1 blocks and anchored at the
 activation transaction. During L1-side epoch <code>e</code> the contract appends the set entry for
 epoch <code>e+2</code>, and the committed entries and their weights are read from the same L1 state
@@ -231,7 +229,7 @@ heartbeat predicate is evaluated inside the same call, from L1 state, and the ca
 L1-side clock has reached the start of that epoch. The two-epoch lead is what makes the set
 immutable in practice: the entry for the epoch being entered was fixed while the previous one was
 still producing, so no prover, caller or late arrival can influence who judges an epoch after its
-blocks exist (<a href="../spec/03-membership-staking.html#MEM-09">MEM-09</a>).</p>
+blocks exist.</p>
 <p>The lead must satisfy
 <code>2 &middot; E_EPOCH &ge; T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY + margin</code>,
 where <code>E_EPOCH</code> is the epoch duration and the terms are the longest permitted proving
@@ -259,8 +257,7 @@ per-epoch churn cap does not exclude; the cap may defer exits to later snapshots
 order, but never cancels or penalises one. From the effective version the entry&rsquo;s effective
 stake is zero and it appears in no later set root. Withdrawal then requires three things together:
 the exit has been effective for at least <code>D_WITHDRAW</code>; the evidence window has closed
-for every epoch the entry was in; and no unsettled or collectible penalty remains
-(<a href="../spec/03-membership-staking.html#MEM-05">MEM-05</a>).</p>
+for every epoch the entry was in; and no unsettled or collectible penalty remains.</p>
 <p><code>D_WITHDRAW</code> is bounded below by the whole accountability pipeline:
 <code>T_PROOF_MAX_PERMITTED + T_detect + T_evidence_submit + T_L1_include(p) + T_L1_final + T_PROCESS + M</code>.
 Each term is <span class="tag">unmeasured</span>, and the inclusion term must be a
@@ -271,11 +268,19 @@ offence epoch, not at the epoch the evidence arrives, so an exit cannot launder 
 
 <h3>8. Rotation cannot change who was allowed to vote</h3>
 <p>A certificate names its epoch, and that value must equal the epoch of its height under the
-L1-committed schedule. It is judged under that epoch&rsquo;s committed set root and no other, and
-once valid it stays valid forever: no expiry, no &ldquo;current set&rdquo; check, and no
+L1-committed schedule. It is judged under that epoch&rsquo;s committed set root and no other. Once valid
+it stays valid forever <em>as that judgement</em>: no expiry, no &ldquo;current set&rdquo; check, and no
 re-verification under a later set. Set roots are stored per epoch and are never overwritten. A
 validator that joins in a later epoch cannot cause a block certified earlier to be re-judged or
-re-signed; rotation changes who may certify future heights only. Rotation is not a recovery path, and it stays deferred: the one rule that can replace history above the latest checkpoint accepted on Ethereum is the stall resolution — a DAO-queued entry with a stored deadline, executed once by any account, discarding the whole provisional range and resuming from the checkpoint — and everything above that checkpoint is provisional. Rotation would re-partition only heights no validator produced, which is a different and unused mechanism, and a settlement stall halts the chain until the resolution runs.</p>
+re-signed; rotation changes who may certify future heights only.</p>
+<p>Being valid forever is not the same as being canonical above the latest accepted checkpoint. The one
+rule that can act on history there is the stall resolution &mdash; a DAO-queued entry with a stored
+deadline, executed once by any account &mdash; and it resumes settlement above the checkpoint without
+erasing anything: a certificate from a superseded generation can no longer serve as a batch&rsquo;s head
+evidence, though it remains admissible as evidence, and the range above the checkpoint stays valid history
+that a later batch can extend. Everything above that checkpoint is provisional. Rotation would re-partition
+only heights no validator produced, which is a different and unused mechanism, and a settlement stall halts
+the chain until the resolution runs.</p>
 
 <h3>9. Weak subjectivity: where a new node starts</h3>
 <p>A fresh node bootstraps from the most recent checkpoint that the L1 Inbox accepted and that is
@@ -288,8 +293,7 @@ attacks: an attacker who held stake in a past epoch keeps those signatures, and 
 a past set is cryptographically indistinguishable from the real one. Only Ethereum&rsquo;s accepted
 checkpoint says which history the protocol accepts. If the newest accepted checkpoint is older than
 the window, the node must not call the history it would sync verified, and new entry is blocked
-until a newer checkpoint exists
-(<a href="../spec/03-membership-staking.html#MEM-11">MEM-11</a>). Replaying from genesis does not
+until a newer checkpoint exists. Replaying from genesis does not
 remove the problem: two internally valid histories can both exist.</p>
 
 <h2>Worked example</h2>
@@ -351,10 +355,10 @@ Ethereum-accepted checkpoint, and an old anchor must never be presented as verif
 cohort that keeps attesting and withholds its votes keeps its weight and can still halt production. Nor does
 it repair a version already committed: a chain stalled inside an epoch whose committed roster cannot form
 quorum has no replacement set in v1 &mdash; the committed roster is immutable and the halt ends when that
-cohort returns &mdash; and the range above the last accepted checkpoint is replaced only by an executed stall
-resolution, which needs governance to act, cannot touch anything at or below that checkpoint, and whose
-window is a notice window, not an exit guarantee for value above the checkpoint. <em>Corrected: this sentence
-previously said the stall clears only when the cohort returns or the rules change.</em></li>
+cohort returns. A settlement stall is answered only by an executed stall resolution, which needs governance
+to act, resumes settlement above the last accepted checkpoint without erasing the range there, invalidates a
+superseded certificate only as a batch&rsquo;s head evidence, and cannot touch anything at or below that
+checkpoint; its window is a notice window, not an exit guarantee for value above the checkpoint.</li>
 </ul>
 
 <h2>Check yourself</h2>

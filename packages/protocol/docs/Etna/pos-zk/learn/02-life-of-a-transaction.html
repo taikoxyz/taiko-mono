@@ -36,7 +36,7 @@
 <main>
 
 <h1>The life of a transaction</h1>
-<p class="muted">This lesson follows one transaction from submission to withdrawal and gives you the status ladder that
+<p class="muted">This page follows one transaction from submission to withdrawal and gives you the status ladder that
 tooling and RPCs should show — including which confirmations are only provisional — with the evidence, the
 guarantee and the remaining risk at each step.</p>
 
@@ -113,28 +113,28 @@ checkpoint accepted on Ethereum, the PoS-certified status is provisional.</figca
 <li><strong>Submission.</strong> A user sends a transaction to an L2 node. The node checks it loosely, adds it to its
 mempool and gossips it to peers over the best-effort L2 P2P channel. Nothing about this step is final or ordered.</li>
 <li><strong>Ordering.</strong> For each height <code>H</code> and round <code>R</code>, exactly one validator is the
-<a href="../spec/02-consensus.html#CONS-06">proposer</a>: a hash of <code>(chain id, epoch, H, R)</code> selects a point in the epoch set's cumulative-weight
+<strong>proposer</strong>: a hash of <code>(chain id, epoch, H, R)</code> selects a point in the epoch set's cumulative-weight
 intervals, so the proposer is computable by anyone holding the set root and cannot be disputed. The proposer builds a
 block, executes it and signs one proposal. Two distinct signed proposals at one round are equivocation and are
 slashable. The proposer has no other power: it cannot certify anything and cannot choose the validator set.</li>
 <li><strong>Local execution and validity.</strong> Every other validator executes the block against the parent state
 it certified and checks the consensus rules: right proposer and signature, right parent, execution reproduces every
-header field, and the remaining block limits hold (<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>). A validator that is not satisfied votes <code>NIL</code> rather
+header field, and the remaining block limits hold. A validator that is not satisfied votes <code>NIL</code> rather
 than signing for a block it could not check. This is a local guarantee only: it says this node will not build on an
 invalid block, not that anyone else agrees.</li>
 <li><strong>Votes and certification.</strong> Validators prevote and then precommit. A precommit is a signed,
-irreversible commitment: the lock rule ties a validator to the value it precommitted and only a strictly later
-same-height proof-of-lock-change for a different value releases it. When more than two thirds of the epoch's voting
-power has precommitted the same block at the same height and round, the block is <strong>PoS-certified</strong> (<a href="../spec/02-consensus.html#CONS-05">CONS-05</a>) — but
+irreversible commitment: the lock rule ties a validator to the value it precommitted, and the lock ends only when
+that value commits at its height, is void if the generation is superseded, or is released by a strictly later
+same-height proof-of-lock-change for a different value. When more than two thirds of the epoch's voting
+power has precommitted the same block at the same height and round, the block is <strong>PoS-certified</strong> — but
 only at a node that also holds the block body and can serve it, and the confirmation stays provisional until the
 batch is accepted on L1. A certificate without the data does not give you that status.</li>
 <li><strong>Batching.</strong> A contiguous range of certified blocks becomes a batch. The batch never spans an epoch
-boundary, so one epoch and one validator-set root govern every height in it (<a href="../spec/05-proof-statement.html#PRF-05">PRF-05</a>). Its length is bounded by
+boundary, so one epoch and one validator-set root govern every height in it. Its length is bounded by
 data, not by preference: at the target rate one 2-second block is one 131,072-byte blob, EIP-7691 allows six
 blobs per L1 block as the target and nine as the maximum, and a batch's data must fit in one L1 transaction — the accepting
-one when it is carried, the publication one when it is published earlier — so a batch is at most about six blocks at the target rate and nine is the hard ceiling. Within that bound the submitter chooses the length; nothing fixes it. And the bound is on bytes rather than on blocks: six is the count when every block is full of data, so lightly loaded blocks let one batch cover proportionally more of them
-(<a href="../spec/04-l1-integration.html#L1-01">L1-01</a>).</li>
-<li><strong>Proving.</strong> A prover — anyone, with no registration — assembles a witness and produces <a href="../spec/05-proof-statement.html#PRF-01">one proof for the batch</a>: that the head block carries a valid commit certificate over the epoch's authenticated set with more
+one when it is carried, the publication one when it is published earlier — so a batch is at most about six blocks at the target rate and nine is the hard ceiling. Within that bound the submitter chooses the length; nothing fixes it. And the bound is on bytes rather than on blocks: six is the count when every block is full of data, so lightly loaded blocks let one batch cover proportionally more of them.</li>
+<li><strong>Proving.</strong> A prover — anyone, with no registration — assembles a witness and produces <strong>one proof for the batch</strong>: that the head block carries a valid commit certificate over the epoch's authenticated set with more
 than two thirds of its voting power, that executing the batch's blocks from the predecessor state yields the claimed
 successor state root, and that the executed bytes are the published bytes. A completed proof bound to this batch's
 data commitment is <strong>proof-ready</strong>; it is still only off-chain evidence until it lands.</li>
@@ -145,35 +145,34 @@ checks the blob openings against this transaction's own versioned hashes or the 
 calls the verifier, and only then writes a checkpoint. If verification fails the transaction reverts with no partial
 effect: no checkpoint, no height advance, no payout. The range must start at
 <code>lastLandedHeight + 1</code>: contiguous with the previous checkpoint, and the checkpoint chain never
-moves backwards (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). First valid submission wins; re-submission of the same batch by anyone
+moves backwards. First valid submission wins; re-submission of the same batch by anyone
 else is allowed while it has not landed.</li>
 <li><strong>Ethereum finality.</strong> The accepting L1 transaction can still be reorganised out until Ethereum
 finalizes the block that contains it, or until the configured finality depth is reached. An L1 reorganisation simply
-undoes the transaction; the batch stays certified on L2 and is re-landable with the same data commitment
-(<a href="../spec/04-l1-integration.html#L1-12">L1-12</a>).</li>
+undoes the transaction; the batch stays certified on L2 and is re-landable with the same data commitment.</li>
 <li><strong>Withdrawal.</strong> A bridge message authenticates against a checkpoint the Inbox wrote, but value
 leaves only with a <strong>withdrawal root</strong> over an already-accepted checkpoint: <code>k</code>
 attestations from <code>k</code> distinct backend families, each verified on L1, which need no new L2 block,
 no settlement progress, no quorum and no permission. <code>WITHDRAWAL_DELAY</code> runs from the root
 checkpoint record&rsquo;s <code>l1BlockNumber</code>, an unexpired veto can add up to <code>T_VETO</code>, and
 the <code>k&minus;1</code> further proofs must be produced by a funded proving market from data that is still
-retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b),
-<a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>). The claim must rest on L1 facts at the configured
+retrievable. The claim must rest on L1 facts at the configured
 finality depth, never at inclusion depth.</li>
 </ol>
 
 <h3>The status ladder</h3>
 <p>These are the statuses to use in tooling, RPC responses and interfaces. Each row is a different guarantee; a tool
-that shows one must say which (<a href="../spec/index.html#STATUS-11">STATUS-11</a>). Above the last checkpoint accepted on
-Ethereum, a confirmation must be labelled provisional; no rule of v1 replaces it, and L1 acceptance onward is
-irreversible under the protocol's own rules.</p>
+that shows one must say which. Above the last checkpoint accepted on
+Ethereum, a confirmation must be labelled provisional; no rule of v1 replaces it &mdash; the one action on that range
+resumes settlement and invalidates a superseded certificate only as a batch's head evidence &mdash; and L1 acceptance
+onward is irreversible under the protocol's own rules.</p>
 <table>
 <thead><tr><th>Status</th><th>What evidence exists</th><th>What it guarantees</th><th>What can still change it</th></tr></thead>
 <tbody>
 <tr><td><strong>proposed</strong></td><td>A block body you received from a leader</td><td>Nothing — it may be invalid</td><td>Anything; it can be discarded freely</td></tr>
 <tr><td><strong>locally execution-valid</strong></td><td>Your own execution of the block against a known parent, and the consensus checks passing</td><td>This node will not build on an invalid block</td><td>The parent can be displaced, which invalidates the whole basis of the check</td></tr>
 <tr><td><strong>voted</strong></td><td>A validator's signed prevote or precommit for this block at this height and round</td><td>It irreversibly constrains that validator's future votes through the lock rule</td><td>Never — a signed vote cannot be taken back; signing a conflicting one is slashable equivocation</td></tr>
-<tr><td><strong>PoS-certified (provisional)</strong></td><td>A published commit certificate carrying signed voting power <code>s</code> with <code>3·s &gt; 2·W</code> over the epoch's authenticated set, <em>plus your own data check</em></td><td>More than two thirds of the epoch's voting power committed to this block, so the certificate is valid &mdash; but a confirmation above the last checkpoint accepted on Ethereum is <strong>provisional</strong> and not settled</td><td>A settlement stall halts the chain until the stall resolution runs: a DAO-queued entry, a stored deadline, one execution by any account, discarding the whole unsettled range above the checkpoint. Nothing obliges governance to act, so the halt can last. A failure of the stake assumption still halts rather than rewriting</td></tr>
+<tr><td><strong>PoS-certified (provisional)</strong></td><td>A published commit certificate carrying signed voting power <code>s</code> with <code>3·s &gt; 2·W</code> over the epoch's authenticated set, <em>plus your own data check</em></td><td>More than two thirds of the epoch's voting power committed to this block, so the certificate is valid &mdash; but a confirmation above the last checkpoint accepted on Ethereum is <strong>provisional</strong> and not settled</td><td>A settlement stall halts the chain until the stall resolution runs: a DAO-queued entry, a stored deadline, one execution by any account, resuming settlement above the checkpoint without erasing the unsettled range and invalidating a superseded certificate only as a batch's head evidence. Nothing obliges governance to act, so the halt can last. A failure of the stake assumption still halts rather than rewriting</td></tr>
 <tr><td><strong>proof-ready</strong></td><td>A completed ZK proof bound to this batch's data commitment, existing off-chain</td><td>The batch can be landed</td><td>A better proof of the same data commitment may replace it; a proof of a different batch is not a substitute</td></tr>
 <tr><td><strong>accepted on L1</strong></td><td>The accepting L1 transaction and the checkpoint record it wrote</td><td>The batch data is bound on Ethereum — carried by the accepting transaction or held in the live publication record it references — and the transition is L1-committed; the protocol's own rules can no longer replace it, and no rule of v1 touches it</td><td>An L1 reorganisation below Ethereum finality can undo the transaction; nothing else</td></tr>
 <tr><td><strong>Ethereum-final</strong></td><td>The accepting transaction is in a finalized L1 block, or the fact it depends on is at the configured finality depth</td><td>L1 facts can no longer be reorganised</td><td>Nothing in the design; this is the end of L1 reorganisation risk</td></tr>
@@ -197,7 +196,7 @@ batch that carries it is 385–416. The numbers below are arithmetic on the desi
 <tr><td>L1 acceptance</td><td>L1 block <code>N</code>, one accepting transaction</td><td><code>land(data, proof)</code>: the data is carried or a live publication record is referenced, contract-derived inputs are computed, the verifier is called, and only then is the checkpoint written; range must start at <code>lastLandedHeight + 1</code></td><td><span class="tag">derived</span> mechanics; gas and inclusion delay <span class="tag">unmeasured</span></td></tr>
 <tr><td>Checkpoint written at height 390</td><td>record <code>(height, blockHash, stateRoot, epoch, setRoot, dataCommitment, l1BlockNumber, lastAcceptedBatchTime)</code></td><td>the record is the anchor the bridge resolves for that height</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Ethereum finality for the checkpoint</td><td>Ethereum's own finality lag after block <code>N</code></td><td>two Ethereum epochs is the design's working figure; the value is a property of Ethereum and is not measured for a deployment of this design</td><td><span class="tag">sourced</span> property / value <span class="tag">unmeasured</span></td></tr>
-<tr><td>Withdrawal</td><td>withdrawal root (<code>k</code> attestations from <code>k</code> distinct families, one verification each) + message path + <code>WITHDRAWAL_DELAY</code> from the root record</td><td>the delay is derived from the whole settlement pipeline — proving, detection, evidence submission, L1 inclusion, L1 finality, processing and a margin — and none of those terms is measured; the <code>k&minus;1</code> further proofs are funded proving work that needs the checkpoint's data and witness (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b))</td><td><span class="tag">unmeasured</span></td></tr>
+<tr><td>Withdrawal</td><td>withdrawal root (<code>k</code> attestations from <code>k</code> distinct families, one verification each) + message path + <code>WITHDRAWAL_DELAY</code> from the root record</td><td>the delay is derived from the whole settlement pipeline — proving, detection, evidence submission, L1 inclusion, L1 finality, processing and a margin — and none of those terms is measured; the <code>k&minus;1</code> further proofs are funded proving work that needs the checkpoint's data and witness</td><td><span class="tag">unmeasured</span></td></tr>
 </tbody>
 </table>
 <p>Two things this example makes concrete. First, the transaction is <em>certified on L2</em> long before it is
@@ -208,24 +207,24 @@ different objects, and the checkpoint records the batch head.</p>
 <h2>Worked example: a settlement stall at height 830</h2>
 <p>A transaction is included in block 830, and the batch containing it, with head 832, is PoS-certified.
 Nothing further is accepted on Ethereum: no batch extending the checkpoint at height 800 lands, and the
-stall persists. One rule can end it: the stall resolution. The DAO may queue a single entry once the stall passes its trigger, the entry stores its own deadline, and after that deadline anyone may execute it — once — to discard the range above checkpoint 800 and let production resume from the checkpoint. Nothing obliges governance to act, no account can execute before the stored deadline, and an executed entry cannot be run again. If no entry is queued, the chain simply halts: the certificate for the batch stays valid and the confirmation stays provisional, while value at or below checkpoint 800 can still leave on L1 through the exit path, with no new L2 block, no quorum and no validator. Block 830 is discarded by an executed resolution and is not replayed automatically; its sender must resubmit it.</p>
+stall persists. One rule can end it: the stall resolution. The DAO may queue a single entry once the stall passes its trigger, the entry stores its own deadline, and after that deadline anyone may execute it — once — to resume settlement above checkpoint 800 without erasing the range above it. Nothing obliges governance to act, no account can execute before the stored deadline, and an executed entry cannot be run again. If no entry is queued, the chain simply halts: the certificate for the batch stays valid and the confirmation stays provisional, while value at or below checkpoint 800 can still leave on L1 through the exit path, with no new L2 block, no quorum and no validator. Block 830 is not carried into the resumed settlement: it is not replayed automatically, and its sender must resubmit it.</p>
 <table>
 <thead><tr><th>Step</th><th>What it means for the transaction</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Included at block 830; batch certified</td><td>Status <strong>PoS-certified (provisional)</strong>: valid now, not settled until the batch is accepted on L1</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Settlement stall</td><td>No batch extending checkpoint 800 is accepted; the transaction remains provisional and the chain halts safely</td><td><span class="tag">derived</span>; halt duration <span class="tag">unmeasured</span></td></tr>
-<tr><td>The one route out</td><td>The stall resolution can replace the whole range above checkpoint 800: a DAO-queued entry with a stored deadline, executed once by any account, discards that range and resumes production from checkpoint 800. It cannot touch anything at or below 800, and if governance never queues an entry the chain stays halted</td><td><span class="tag">derived</span></td></tr>
+<tr><td>The one route out</td><td>The stall resolution resumes settlement above checkpoint 800: a DAO-queued entry with a stored deadline, executed once by any account, does not erase the range above it — a superseded certificate cannot head a batch, and the range stays valid history that a later batch can extend. It cannot touch anything at or below 800, and if governance never queues an entry the chain stays halted</td><td><span class="tag">derived</span></td></tr>
 <tr><td>The exit still works</td><td>A message at or below checkpoint 800 can be released on L1 with no new L2 block, no quorum and no validator, once a withdrawal root of <code>k</code> distinct-family attestations forms over that checkpoint and the delay runs from the root record; a root forms only if a funded proving market produces the <code>k&minus;1</code> further proofs from data that is still retrievable. A message above the checkpoint, including one in block 830, cannot leave while the halt lasts</td><td><span class="tag">derived</span></td></tr>
-<tr><td>Clearing the stall</td><td>The stall resolution, if governance queues an entry and someone executes it after the stored deadline; otherwise the chain stays halted. Nothing at or below checkpoint 800 is discarded, and the block-830 transaction is not replayed — it must be resubmitted</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Clearing the stall</td><td>The stall resolution, if governance queues an entry and someone executes it after the stored deadline; otherwise the chain stays halted. Nothing at or below checkpoint 800 is ever discarded, and the block-830 transaction is not carried into the resumed settlement or replayed — it must be resubmitted</td><td><span class="tag">derived</span></td></tr>
 </tbody></table>
 <p>Two boundaries hold throughout. Heights at or below 800 are accepted on Ethereum and are never
-rewritten. Heights above 800 are provisional: only an executed stall resolution discards them, it discards them wholesale, and when it does the transaction is not replayed automatically — it must be resubmitted. No height is retired. The unsettled depth is still bounded by <code>D_MAX</code>, because validators stop
+rewritten. Heights above 800 are provisional: an executed stall resolution treats them alike — it names nothing and selects nothing — and when it runs the transaction is not carried into the resumed settlement or replayed automatically — it must be resubmitted. No height is retired. The unsettled depth is still bounded by <code>D_MAX</code>, because validators stop
 producing past the unsettled-depth cap — a bound on depth, not on the length of a halt.</p>
 
 <div class="card">
 <h4>Rule for anything that displays status</h4>
 <p>Name the status from the ladder, state which evidence backs it, and say what is still missing. A confirmation
-shown before L1 acceptance must be labelled <strong>provisional</strong> and must say that a settlement stall halts the chain, that the stall resolution is the one rule that can replace the provisional range (DAO-queued, timelocked, executed once), and that nothing obliges governance to use it. A "withdrawable" badge must say which checkpoint its withdrawal root anchors to, and whether the root exists, the delay has run and any veto has expired. If a tool cannot say which status it is
+shown before L1 acceptance must be labelled <strong>provisional</strong> and must say that a settlement stall halts the chain, that the stall resolution is the one rule that can act on the provisional range (DAO-queued, timelocked, executed once), resuming settlement without erasing it and invalidating a superseded certificate only as a batch's head evidence, and that nothing obliges governance to use it. A "withdrawable" badge must say which checkpoint its withdrawal root anchors to, and whether the root exists, the delay has run and any veto has expired. If a tool cannot say which status it is
 showing, it must not show one.</p>
 </div>
 
@@ -245,11 +244,11 @@ re-landed with the same data commitment.</li>
 <li><strong>No 2 s settlement.</strong> L2 certification is fast; proving and L1 acceptance are not.</li>
 <li><strong>No status stronger than its evidence.</strong> A certificate does not prove that data is retrievable by others; local possession is not availability.</li>
 <li><strong>No measured timings.</strong> The 1.5 s happy path, the 30-minute envelope, L1 inclusion and the withdrawal delay are all unmeasured.</li>
-<li><strong>No settlement above the accepted checkpoint.</strong> A certified block is provisional; if the settlement stall persists, the chain halts — a transaction above the checkpoint cannot be withdrawn while the halt lasts, and the stall resolution, when it runs, discards that range without replaying it or compensating off-chain losses.</li>
-<li><strong>No unconditional exit.</strong> Even a message at or below the last accepted checkpoint needs a withdrawal root: <code>k</code> distinct backend families must attest, the <code>k&minus;1</code> further proofs must be funded and produced from data that is still retrievable, and an unexpired veto can delay the release (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b), <a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>).</li>
-<li><strong>No selective replacement.</strong> The only rule that rewrites history above the last accepted checkpoint is the stall resolution, and its scope is wholesale: it discards the entire provisional range, names no height, subset or beneficiary, retires no height and replays nothing, so no one can pick winners inside the range. Its use depends on governance queueing an entry and someone executing it.</li>
+<li><strong>No settlement above the accepted checkpoint.</strong> A certified block is provisional; if the settlement stall persists, the chain halts — a transaction above the checkpoint cannot be withdrawn while the halt lasts, and the stall resolution, when it runs, does not carry that range into the resumed settlement: it does not replay it or compensate off-chain losses.</li>
+<li><strong>No unconditional exit.</strong> Even a message at or below the last accepted checkpoint needs a withdrawal root: <code>k</code> distinct backend families must attest, the <code>k&minus;1</code> further proofs must be funded and produced from data that is still retrievable, and an unexpired veto can delay the release.</li>
+<li><strong>No selective replacement.</strong> The only rule that acts on history above the last accepted checkpoint is the stall resolution, and it treats the whole range alike: it names no height, subset or beneficiary, retires no height, erases nothing and carries nothing from the range into the resumed settlement, so no one can pick winners inside it. Its use depends on governance queueing an entry and someone executing it.</li>
 <li><strong>No rescue of missing data at or below the accepted checkpoint.</strong> If nobody can produce a batch's data, the chain can halt with a certified prefix it cannot settle; no rule replaces accepted history, and the stall resolution cannot touch anything at or below the checkpoint, so the halt persists until the data reappears.</li>
-<li><strong>No latency guarantee, and no remedy for isolation.</strong> A published record carries an inclusion obligation enforced inside the proof: a landing batch must advance the settlement frontier past it by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has passed at the anchored view, decided from its own stored block number; otherwise, while the record is live, the walk reads its transactions in the record&rsquo;s own order, each one either runs or is set aside at its turn, and a live record all of whose transactions are set aside is void. That is not a promise about time, and an adversary that isolates a user from every honest proposer — or censors the publication itself — can keep the data off L1 and exclude the user indefinitely (<a href="11-forced-inclusion.html">lesson 11</a>).</li>
+<li><strong>No latency guarantee, and no remedy for isolation.</strong> A published record carries an inclusion obligation enforced inside the proof: a landing batch must advance the settlement frontier past it by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has passed at the anchored view, decided from its own stored block number; otherwise, while the record is live, the walk reads its transactions in the record&rsquo;s own order, each one either runs or is set aside at its turn, and a live record all of whose transactions are set aside is void. That is not a promise about time, and an adversary that isolates a user from every honest proposer — or censors the publication itself — can keep the data off L1 and exclude the user indefinitely.</li>
 </ul>
 
 <h2>Check yourself</h2>
@@ -259,7 +258,7 @@ the body, be able to serve it, and see the parent chain link back without gaps. 
 hash, not to bytes. The correct action is to keep asking peers for the body; if it never arrives, the node halts
 rather than certifying on unknown data.</p></details>
 <details><summary>A block is PoS-certified with more than two thirds of the stake behind it. Can it still be replaced?</summary>
-<p>The protocol has exactly one rule that replaces it: the stall resolution, which discards the whole provisional range above the last accepted checkpoint after a DAO-queued entry and a stored deadline, and is executed once by any account. Nothing obliges governance to use it, so a settlement stall may leave the chain halted, and a discarded block is not replayed. Value at or below the last accepted checkpoint can still leave on L1. Once the batch is accepted on L1, no protocol rule can replace it.</p></details>
+<p>The protocol has exactly one rule that acts on it: the stall resolution, which resumes settlement above the last accepted checkpoint after a DAO-queued entry and a stored deadline, and is executed once by any account; it does not erase the provisional range, and it invalidates a superseded certificate only as a batch's head evidence. Nothing obliges governance to use it, so a settlement stall may leave the chain halted, and a block above the checkpoint is not carried into the resumed settlement or replayed. Value at or below the last accepted checkpoint can still leave on L1. Once the batch is accepted on L1, no protocol rule can replace it.</p></details>
 <details><summary>A prover has produced a proof for batch 385–390 but has not yet sent the L1 transaction. Which status is the batch in, and what can still change it?</summary>
 <p>Proof-ready. The proof exists off-chain and the batch can be landed, but no checkpoint exists yet. The data may
 already be on Ethereum, since anyone may publish it before the proof and publication writes no batch state. Any

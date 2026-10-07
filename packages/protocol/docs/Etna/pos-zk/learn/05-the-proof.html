@@ -37,10 +37,11 @@
 <main>
 
 <h1>What the proof proves</h1>
-<p class="muted">This lesson states the zero-knowledge statement an engineer has to implement,
+<p class="muted">This page states the zero-knowledge statement an engineer has to implement,
 separates public inputs from witness, and lists precisely what a valid proof does
 <em>not</em> establish. It is a design: nothing here is deployed, and the proving costs and
-latencies are not yet measured.</p>
+latencies are not yet measured. The authoritative statement of the same rules is in the
+<a href="../spec/05-proof-statement.html">specification</a>.</p>
 
 <h2>The idea</h2>
 <p>A batch of L2 blocks is a proposed transition: some range of blocks, a claimed new state root,
@@ -121,19 +122,19 @@ them.</figcaption>
 <p>One guest program proves W1, W2 and W3 together, and one proof is accepted per batch. There is
 no separate &ldquo;finality proof&rdquo; and &ldquo;execution proof&rdquo; that could be paired
 with the wrong counterpart: a proof that a block was certified without proving what it executed,
-or an execution proof over data that was never certified, is exactly the failure this avoids
-(<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>). A batch never spans an epoch
+or an execution proof over data that was never certified, is exactly the failure this avoids.
+A batch never spans an epoch
 boundary, so exactly one epoch, one validator set root and one quorum denominator appear in the
 statement; a range that would cross a boundary is split, and because every batch starts at the
-previous checkpoint&rsquo;s height plus one, no height can be dropped at the split
-(<a href="../spec/05-proof-statement.html#PRF-05">PRF-05</a>).</p>
+previous checkpoint&rsquo;s height plus one, no height can be dropped at the split. When a batch opens an epoch,
+the guest also verifies the certificate of the closing epoch&rsquo;s last block &mdash; the anchor &mdash; under
+that block&rsquo;s own header generation, as the historical case of the two-case generation rule below.</p>
 
 <h3>2. Public inputs versus witness</h3>
 <p>The public-input vector is a single canonical list, encoded with a domain tag and the chain id
 first, and its order is normative. The L1 contract hashes that vector into a statement hash and
 passes only the hash and the opaque proof to the verifier. The guest commits to exactly the same
-vector, so the two sides cannot disagree about what was proven
-(<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>).</p>
+vector, so the two sides cannot disagree about what was proven.</p>
 <table>
 <thead><tr><th>Kind</th><th>Values</th><th>Where it comes from</th></tr></thead>
 <tbody>
@@ -141,6 +142,12 @@ vector, so the two sides cannot disagree about what was proven
 <tr><td>Claimed but proof-bound (public inputs)</td><td>head block hash; post-state root; first and last height; block timestamps; <code>dataCommitment</code> on the blob path; <code>finalityCommitment</code>; <code>signerBitmap</code>; data mode; blob versioned-hash hash; challenge points and evaluations; fee recipient</td><td>Supplied with the transaction but <em>bound</em>: a wrong value makes the proof fail rather than making the contract misbehave.</td></tr>
 <tr><td>Witness (private)</td><td>set entries with Merkle inclusion proofs; the commit certificate&rsquo;s signatures; the header chain; the anchor certificate at an epoch boundary; the committed payload bytes; the pre-state needed for execution</td><td>Produced by the prover. No witness element may define the validator set or the epoch.</td></tr>
 </tbody></table>
+<p>The batch&rsquo;s data reaches Ethereum in one of two forms, and the proof binds whichever is used: the
+accepting transaction carries it as calldata or blobs, or it names a live publication record written earlier
+&mdash; publication is permissionless and writes no batch state. On the calldata path the contract binds the
+bytes with a hash it computes itself; on the blob path the contract checks a KZG opening against the
+transaction&rsquo;s or the record&rsquo;s own blob hashes, and the guest re-checks that the bytes it executed
+are the bytes the commitment covers.</p>
 
 <h3>3. Why every authority value comes from L1</h3>
 <p>Four values decide who was allowed to speak, and all four are L1 facts:</p>
@@ -155,19 +162,30 @@ be the same root under the same encoding.</li>
 per-epoch registry. Its entry is written before the epoch starts and is immutable once written, and an
 upgrade binds future epochs only, so a routine upgrade cannot change the configuration under which an
 in-flight proof was made and make it fail. The guest recomputes the hash from the configuration it
-actually applied (<a href="../spec/09-parameters.html#PARAM-04">PARAM-04</a>).</li>
+actually applied.</li>
 <li><strong>Quorum.</strong> Not a stored threshold: the predicate is exactly
 <code>3 &middot; s &gt; 2 &middot; W</code> with checked arithmetic, evaluated identically by the
 L2 client, the guest and the L1 contract. The journal&rsquo;s quorum field is the product
 <code>2 &middot; W</code>, so no division or rounding can differ between the three.</li>
 <li><strong>Predecessor.</strong> The previous checkpoint&rsquo;s height, block hash and state root
 come from the Inbox record, so the proof always runs from the state Ethereum already accepted.</li>
-<li><strong>Recovery generation.</strong> <code>recoveryGeneration</code> is read from L1 storage and required to equal the generation the contract supplies for the height being built, so a batch certified under an older generation is rejected even though its proof is otherwise valid — with one case: a certificate for a block at or below the last accepted checkpoint is judged under the generation in that block's own header, never compared with the current one. It is a signed field of the vote and block-header bytes and the mechanism that scopes certificates, locks and uniqueness. The generation advances only when a stall resolution is executed: the DAO queues one entry during a settlement stall, its deadline is stored in the entry, and after that deadline anyone may execute it once, which increments the generation and discards the provisional range above the checkpoint, so the discarded branch can never land. No height is retired. A certificate from a superseded generation remains admissible as evidence of what was signed.</li>
+<li><strong>Recovery generation.</strong> <code>recoveryGeneration</code> is a signed field of the vote and
+block-header bytes, read by the contract from L1 storage, and it has two cases. A batch that extends the
+current checkpoint must carry the current generation in its head certificate, in every vote that contributes
+to that certificate, and in the head header; nothing else in the batch is compared, so a batch whose
+intermediate headers were produced under an earlier generation is still provable. A certificate for a block
+at or below the last accepted checkpoint is judged under the generation written in that block&rsquo;s own
+header, and is never compared with the current one. The generation advances only when a stall resolution is
+executed: the DAO queues one entry during a settlement stall, its deadline is stored, and after that deadline
+anyone may execute it once. A certificate that fails its case is void at the acceptance rule, so a batch
+certified under a superseded generation is rejected even though its proof is otherwise valid; it stays
+admissible as evidence of what was signed, the head role is the only thing it loses, and the range above the
+checkpoint stays valid history that a later batch can extend under the new generation. No height is
+retired.</li>
 </ul>
 <p>If any of these could be chosen by the prover, the proof would be sound but meaningless: it
 would prove a true statement about a set, an epoch or a predecessor that the protocol never agreed
-to. That is why the guest rejects a witness-supplied root even when the arithmetic is consistent
-(<a href="../spec/05-proof-statement.html#PRF-03">PRF-03</a>).</p>
+to. That is why the guest rejects a witness-supplied root even when the arithmetic is consistent.</p>
 
 <h3>4. What the guest actually checks</h3>
 <ol>
@@ -184,12 +202,29 @@ authenticated leaves&rsquo; effective stakes.</li>
 hash is the hash of the reconstructed head header.</li>
 <li>Recompute the finality commitment from the certificate the guest verified, rather than echoing
 a value from a hint.</li>
-<li>Check that <code>recoveryGeneration</code> equals the generation the L1 contract supplies as a public input for the height being built: a batch certified under a superseded generation is void. The generation advances only through an executed stall resolution — once per entry, after a DAO queue and the entry's stored deadline — and a block at or below the latest accepted checkpoint is judged under the generation in its own header.</li>
+<li>Check the generation under the case that applies: for a batch extending the checkpoint, the head
+certificate, every contributing vote and the head header carry the current generation the contract supplies as
+a public input, and nothing else is compared; for a certificate at or below the last accepted checkpoint, the
+certificate and every contributing vote carry the generation written in that block&rsquo;s own header and are
+never compared with the current one. A certificate that fails its case is void at the acceptance rule.</li>
 <li>Decode each block body from the committed payload, execute the blocks in order from the
 predecessor state root, and check that each block&rsquo;s transactions reproduce the transaction
 root committed by its header and that the final state root equals the claimed one.</li>
 <li>Recompute the data commitment over the bytes it executed and compare it with the journal.</li>
-<li>Recompute the forced-inclusion boundary from the anchored register state and require it to match the journal, then require every position the settlement frontier advances past to be resolved &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has passed at the anchored view, decided from its own stored block number; otherwise, for a live record, void when it is over a registered bound or every transaction is set aside; otherwise executed by walking the record&rsquo;s transactions in the record&rsquo;s own order, running each that can run at its turn and setting aside each that cannot, with at least one running &mdash; before the new frontier is written (<a href="../spec/04-l1-integration.html#FI-11">FI-11</a>, <a href="11-forced-inclusion.html">lesson 11</a>).</li>
+<li>Recompute the forced-inclusion boundary from the anchored register state and require it to match the
+journal, then require every position the settlement frontier advances past to be resolved by exactly one of
+three modes, tested in order. A record that is dead at the anchored view &mdash; its own stored deadline has
+passed &mdash; is dead whatever it contains, and the other two modes apply only to a record that is live
+there. A live record is void when it is over the registered bound, when it contains a transaction that cannot
+be executed from its own bytes, or when every one of its transactions is set aside. Otherwise it is executed
+by walking its transactions in the record&rsquo;s own order, running each transaction that can run at its turn
+and setting aside each that cannot, with at least one running. Setting aside is judged per transaction, at the
+pre-state that transaction&rsquo;s turn reaches: a nonce that does not match, a balance below the fee and value
+the transaction declares, or a sender with code at that pre-state. A transaction that could have run but does
+not appear is set aside only if the block its turn falls in had no room for it at that turn &mdash; the room
+test reads that one block, so a later block&rsquo;s room neither rescues nor condemns a transaction whose turn
+has passed. A block that presents a record&rsquo;s transactions out of the record&rsquo;s own order is invalid,
+not merely unresolved.</li>
 </ol>
 
 <h3>5. Why one certificate is enough</h3>
@@ -197,7 +232,7 @@ root committed by its header and that the final state root equals the claimed on
 covered by the header hash chain back to the predecessor, which Ethereum already accepted as a
 checkpoint. Under the fault assumption, a certificate for the head implies the head is the unique
 certified block at its height, and therefore that the whole prefix it commits to is the unique
-certified prefix (<a href="../spec/05-proof-statement.html#PRF-08">PRF-08</a>). If that assumption
+certified prefix. If that assumption
 is broken, the argument goes with it, and the proof cannot detect that.</p>
 
 <h3>6. What the proof does not prove</h3>
@@ -210,7 +245,7 @@ published bytes. Whether anybody still serves them later is a retention question
 question.</li>
 <li><strong>That the chain keeps producing.</strong> Liveness &mdash; enough validators online,
 enough provers working &mdash; is an assumption about participants, not a theorem about the
-statement. It also proves nothing about recovery: if settlement stalls, the chain halts safely until a stall resolution is executed — the DAO may queue one entry, and after its stored deadline anyone may execute it once to discard the provisional range above the checkpoint and resume production. Value at or below the last accepted checkpoint still exits on L1 through a withdrawal root that <code>k</code> distinct backend families attest, produced by a funded proving market from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), but nothing obliges governance to queue or execute an entry, so a stall may persist.</li>
+statement. It also proves nothing about recovery: if settlement stalls, the chain halts safely until a stall resolution is executed — the DAO may queue one entry, and after its stored deadline anyone may execute it once, and settlement resumes above the checkpoint without erasing the range above it; a superseded certificate loses only its use as a batch's head evidence, and the range's transactions are not carried into the resumed settlement, so they must be resubmitted. Value at or below the last accepted checkpoint still exits on L1 through a withdrawal root that <code>k</code> distinct backend families attest, produced by a funded proving market from data that is still retrievable, but nothing obliges governance to queue or execute an entry, so a stall may persist.</li>
 <li><strong>That validators behaved.</strong> If at least one third of an epoch&rsquo;s voting
 power breaks the signing or locking rules, two conflicting certificates can both be
 cryptographically valid and both can produce accepting proofs. ZK verification does not repair a
