@@ -118,7 +118,7 @@
 <p>Payment runs through the reward pool held by the L1 staking contract:</p>
 <ul>
 <li><strong>Participation is attested, not assumed.</strong> When <code>land(data, proof)</code> accepts a batch it writes the head certificate&rsquo;s authenticated signer bitmap into the staking contract&rsquo;s per-epoch participation accumulator. Nothing else may set a participation bit, and a payout is never made on presence in the set or on bonded balance alone.</li>
-<li><strong>Being selectable is a duty a validator renews on L1.</strong> A payout requires a signature that a landed batch attests through the signer bitmap, so a validator that does not sign earns nothing for the batches it did not sign. Membership in a future set version has an L1 condition: the entry must have posted a heartbeat inside the window containing that version&rsquo;s commit point. Silence loses the unearned rewards, and a lapse costs slots in future versions and no stake: re-attesting restores the entry at a later commit point, and a cohort that keeps attesting while withholding its votes keeps its weight.</li>
+<li><strong>Being selectable is a duty a validator renews on L1.</strong> A payout requires a signature that a landed batch attests through the signer bitmap, so a validator that does not sign earns nothing for the batches it did not sign. Membership in a future set version has an L1 condition: the entry&rsquo;s last heartbeat must cover the window that version is judged against &mdash; derived from the L1 block at which the version&rsquo;s epoch became coverable, or the one immediately before it. Silence loses the unearned rewards, and a lapse costs slots in future versions and no stake: re-attesting restores the entry at a later commit point, and a cohort that keeps attesting while withholding its votes keeps its weight.</li>
 <li><strong>Each epoch has one allocation.</strong> <code>Alloc(e)</code> is fixed before the first claim and may not exceed the pool&rsquo;s realised net inflow. The participant set and the participating stake <code>PS(e)</code> are frozen when the epoch&rsquo;s evidence window closes; each signer receives <code>floor(Alloc(e) &middot; effStake / PS(e))</code>, and floor-rounding remainders stay in the pool.</li>
 <li><strong>Claims are permissionless.</strong> Anyone may call <code>claimValidatorReward(epoch, index)</code>; the payout goes to the entry&rsquo;s recorded owner, once per (epoch, index). Claims open only after the epoch&rsquo;s evidence window closes, because only then is the allocation fixed. A batch of epoch <code>e</code> that lands after that instant does not change <code>PS(e)</code>; its validators are recorded as participants but are not paid from epoch <code>e</code>&rsquo;s allocation.</li>
 <li><strong>The pool is not collateral.</strong> ETH in the pool is never stake, never counted as bonded balance, never slashable and never borrowed against.</li>
@@ -247,7 +247,7 @@ saturating at the one-third safety boundary.</li>
 <li>A withdrawal gate that makes it impossible to release stake before the window that could charge it has closed.</li>
 <li>A minimum stake derived from what it costs to run a validator, and an aggregate attack-cost bound that is stated as a separate
 inequality.</li>
-<li>A set version fixed on L1 two epochs ahead and drawn from the entries that attested on L1 in the window containing its commit point, so selectability is renewed by the validator&rsquo;s own L1 act &mdash; and a lapse costs future slots, never stake.</li>
+<li>A set version fixed on L1 two epochs ahead and drawn from the entries whose last heartbeat covers the window the version is judged against, so selectability is renewed by the validator&rsquo;s own L1 act &mdash; and a lapse costs future slots, never stake.</li>
 </ul>
 
 <h2 id="not">What it does not give you</h2>
@@ -258,13 +258,13 @@ return a bridge message or cover a loss, and there is no universal bound on user
 <li>No penalty for being offline, for censoring a transaction or for omitting it. Those are
 liveness or inclusion questions, not offences: a validator that stops signing keeps its stake and its place in every
 committed set version, and no stake is taken from it. A lapse in the L1 heartbeat is not an offence either; it only
-removes the entry from the versions committed while it is not covered.</li>
+removes the entry from the versions judged against later windows.</li>
 <li>No deterrent guarantee. The deterrence argument is conditional on slashed stake having value and being confiscated, and it can fail
 with no rule changing if the market moves.</li>
 <li>No protection from the correlated-penalty tail, in which one operator&rsquo;s key mishap costs honest peers.</li>
 <li>No liveness-discounted membership: no rule takes stake or a committed place from a validator that goes quiet. But
 membership in a future version is renewed by an L1 heartbeat, so a validator that stops attesting is absent from the versions
-committed while it is not covered, and a cohort that keeps attesting while withholding its votes can still halt production
+judged against later windows, and a cohort that keeps attesting while withholding its votes can still halt production
 instead of being replaced. No v1 rule draws a replacement set for a version already committed.</li>
 <li>No measured cost, revenue, reward or market figure. There are no operations study, fee history or liquidity data behind any value
 on this page.</li>
@@ -274,8 +274,8 @@ on this page.</li>
 <details><summary>A validator is offline for a day and misses its rounds. Is it slashed?</summary>
 <p>No. Being offline, voting late and timing out are not offences; the only slashable consensus behaviour is objectively signed
 conflict. The validator loses the rewards it did not attest &mdash; no participation bit, no payout &mdash; and it keeps its stake
-and its place in every committed set version. If it also misses a heartbeat window, it is absent from the versions committed in
-that window and re-attesting restores it at a later commit point; if enough of the committed set stops signing, quorum can fail,
+and its place in every committed set version. If it also misses a heartbeat window, it is absent from the versions judged against
+that window and re-attesting restores it at a later version; if enough of the committed set stops signing, quorum can fail,
 production halts rather than continuing at a lower threshold, and v1 has no rule that clears the halt or removes the silent
 weight from a committed version. The withdrawal gate still applies to stake already exposed to an open epoch.</p></details>
 <details><summary>Two validators equivocate in the same epoch. Why is the second offence&rsquo;s marginal cost much larger than the
@@ -304,7 +304,7 @@ others.</li>
 epoch&rsquo;s production is not fixed, so a settlement halt longer than the window can make a later epoch&rsquo;s offences
 inadmissible.</li>
 <li>Ethereum keeps producing blocks, including and finalizing them; the whole settlement and evidence path is denominated in L1
-time, and honest heartbeat transactions are included inside their windows. A lapse costs future slots and not stake, and
+time, and honest heartbeat transactions are included inside their windows &mdash; one attestation per window of <code>HEARTBEAT_WINDOW</code> L1 blocks, whose spacing in seconds moves with L1 block time and is <span class="tag">unmeasured</span>. A lapse costs future slots and not stake, and
 censoring honest heartbeats can exclude honest validators from future versions (F8).</li>
 </ul>
 </div>

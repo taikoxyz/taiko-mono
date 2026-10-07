@@ -70,15 +70,18 @@ of them (<a href="../spec/01-system-model.html#SYS-03">SYS-03</a>).</p>
 <tr><td>L1 acceptance</td><td>proof exists &rarr; accepted on L1</td><td>one L1 transaction; inclusion delay not yet measured</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Ethereum finality</td><td>accepted on L1 &rarr; Ethereum-final</td><td>&asymp; 2 Ethereum epochs &asymp; 12.8&nbsp;min at 12&nbsp;s slots</td><td><span class="chip">sourced depth</span> <span class="chip">derived</span></td></tr>
 <tr><td>Withdrawal availability</td><td>accepted (or finalized) &rarr; withdrawal-eligible</td><td>a withdrawal root over an accepted checkpoint (<code>k</code> distinct-family attestations, one verification each) plus <code>WITHDRAWAL_DELAY</code> from the root record, with no unexpired veto</td><td><span class="chip">unmeasured</span></td></tr>
-<tr><td>Heartbeat eligibility</td><td>L1 heartbeat accepted &rarr; the set version whose commit point lies in that window is selectable &rarr; the epoch that version governs</td><td>one L1 transaction per validator per heartbeat window; the version committed in that window governs an epoch two L1-side epochs later</td><td><span class="chip">unmeasured</span></td></tr>
+<tr><td>Heartbeat eligibility</td><td>L1 heartbeat accepted &rarr; the window it names is covered, and the one after it &rarr; the set version judged against one of those windows is selectable &rarr; the epoch that version governs</td><td>one L1 transaction per validator per window of <code>HEARTBEAT_WINDOW</code> L1 blocks; the version judged against that window governs an epoch two L1-side epochs later</td><td><span class="chip">unmeasured</span></td></tr>
 </tbody></table>
 <p>One clock in that table belongs to membership rather than to a transaction. A set version&rsquo;s roster
-is decided two L1-side epochs before the version governs an epoch, and it is drawn from the entries that
-attested on L1 in the heartbeat window containing the version&rsquo;s commit point. A heartbeat accepted in
-a window therefore makes an entry selectable for the version committed in that window, and that version is
-the one that governs an epoch two epochs later; a missed window costs the slots in the version committed in
-it, and re-attesting restores the entry at a later commit point. The window length and the bounded age of
-the L1 block a heartbeat binds are <span class="tag">unmeasured</span>.</p>
+is decided two L1-side epochs before the version governs an epoch, and it is drawn from the entries whose
+last heartbeat covers the window the version is judged against &mdash; the window containing the first L1
+block of the epoch in which the version becomes coverable, or the window immediately before it. The window
+is a count of L1 blocks, so the duty is one attestation per <code>HEARTBEAT_WINDOW</code> L1 blocks and its
+spacing in seconds moves with L1 block time. A heartbeat accepted in a window therefore makes an entry
+selectable for versions judged against that window or the next one, and the version it selects governs an
+epoch two epochs later; a missed window costs the slots in the versions judged against later windows, and
+re-attesting restores the entry at a later version. The window length, the bounded age of the L1 block a
+heartbeat binds, and the real-time spacing of the duty are <span class="tag">unmeasured</span>.</p>
 
 <h2>The timeline</h2>
 <figure>
@@ -272,9 +275,10 @@ withdrawal delay are all not yet measured.</li>
 <li>A small proving fleet or a long batch. About 150 batches are unsettled inside the thirty-minute
 envelope, so roughly 150 proofs must be able to be in flight at once; that is a consequence of the data
 bound, not a target that can be tuned away.</li>
-<li>A set place that renews itself. Eligibility is renewed by an L1 heartbeat inside each heartbeat window,
-so a validator that stops attesting is absent from the versions committed while it is not covered; a missed
-window costs future slots and never stake, and a re-attestation restores it at a later commit point.</li>
+<li>A set place that renews itself. Eligibility is renewed by an L1 heartbeat once per window of
+<code>HEARTBEAT_WINDOW</code> L1 blocks, so a validator that stops attesting is absent from the versions
+judged against later windows; a missed window costs future slots and never stake, and a re-attestation
+restores it at a later version.</li>
 </ul>
 
 <h2>Check yourself</h2>

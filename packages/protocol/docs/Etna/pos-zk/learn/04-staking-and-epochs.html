@@ -46,7 +46,7 @@ deployed or measured, and every number is tagged
 <h2>The idea</h2>
 <p>A validator is not appointed. It is created by locking the existing TAIKO token on Ethereum in a staking contract, registering a signing key, and waiting for the protocol&rsquo;s own schedule to place it in a validator set. Holding TAIKO in a wallet does nothing: only stake that is bonded, activated and inside the set for an epoch counts as voting power.</p>
 <p>The chain is divided into <strong>epochs</strong> of fixed length. Each epoch has exactly one validator set, and that set is decided on Ethereum <em>before</em> the epoch starts, not during it. Every block header carries a commitment to the current set and to the next one, so a reader can check who was allowed to sign without trusting a peer.</p>
-<p>Being in a set is a recurring condition, and it is renewed by an act on Ethereum. To be selected into the set version committed for a future epoch, a validator must post a periodic attestation on L1 &mdash; a <strong>heartbeat</strong> &mdash; inside the heartbeat window that contains that version&rsquo;s commit point. One that stops attesting is simply not selected next time: it keeps its whole stake and can rejoin the future rosters by attesting again. A version already committed is never changed, and a silent cohort that keeps attesting keeps its weight, so this changes who is in the next set, not how much participation a committed set needs.</p>
+<p>Being in a set is a recurring condition, and it is renewed by an act on Ethereum. To be selected into the set version committed for a future epoch, a validator must post a periodic attestation on L1 &mdash; a <strong>heartbeat</strong> &mdash; at least once in every window of <code>HEARTBEAT_WINDOW</code> L1 blocks. The window that judges a version is fixed by the L1 block at which the version first became coverable &mdash; two L1-side epochs before the epoch it governs &mdash; not by the block that carries the commit, so when inside its window an attestation lands cannot change who is selected. One that stops attesting is simply not selected next time: it keeps its whole stake and can rejoin the future rosters by attesting again. A version already committed is never changed, and a silent cohort that keeps attesting keeps its weight, so this changes who is in the next set, not how much participation a committed set needs.</p>
 <p>Voting power is the bonded stake: one base unit for one unit of weight, with no multipliers and no delegation. Bonding registers two keys &mdash; an Ed25519 key for consensus votes and an ECDSA key for heartbeats &mdash; and the L1 address that bonded the stake is the only address that can rotate either key, request an exit or receive the unbonded tokens.</p>
 <p>Leaving is deliberately slow. An exit request keeps the validator in every set it was already committed to, still voting and still slashable, until the exit takes effect at a later epoch boundary; the tokens then wait out a further delay before withdrawal. The delay exists so that misbehaviour committed while the stake was bonded remains punishable afterwards.</p>
 <p>A brand-new node does not replay the chain from genesis and call the result verified. It starts from the newest checkpoint Ethereum has already accepted &mdash; a height, a block hash, a state root, an epoch and a set version &mdash; and treats Ethereum as the only authority on which history is the real one.</p>
@@ -74,7 +74,7 @@ deployed or measured, and every number is tagged
   <path d="M 440 86 C 480 96, 560 96, 600 86" fill="none" stroke="#d8dee4" stroke-dasharray="4 3"></path><text x="520" y="103" fill="#59636e" font-size="10">8 rotateKey (forward only)</text>
   <text x="20" y="230" fill="#59636e" font-size="12">1 bond &#8805; S_min &#183; 2 both keys bound + ACTIVATION_DELAY + FIFO rate limit &#183; 3 requestExit() &#183; 3b cancelExit() (back to active)</text>
   <text x="20" y="248" fill="#59636e" font-size="12">4 exit effective at a snapshot the churn cap does not exclude &#183; 5 D_WITHDRAW + evidence window closed + no exposure &#183; 6 cancel &#183; 7 slash</text>
-  <text x="20" y="266" fill="#59636e" font-size="12">Eligibility: a version selects the active entries that heartbeated on L1 in the window containing its commit point</text>
+  <text x="20" y="266" fill="#59636e" font-size="12">Eligibility: a version selects the active entries whose heartbeat covers the L1-block window its epoch start fixes</text>
   <text x="20" y="292" fill="#59636e" font-size="12">Epoch ladder: the entry for epoch e+2 is committed on L1 during epoch e, and must be Ethereum-final before epoch e+2 begins</text>
   <rect x="30" y="310" width="180" height="52" rx="8" fill="#ffffff" stroke="#d8dee4"></rect><text x="120" y="331" fill="#24292f" font-size="12" text-anchor="middle">L1-side epoch e</text><text x="120" y="348" fill="#59636e" font-size="10" text-anchor="middle">commitSet() appends set root for e+2</text>
   <rect x="260" y="310" width="180" height="52" rx="8" fill="#ffffff" stroke="#d8dee4"></rect><text x="350" y="331" fill="#24292f" font-size="12" text-anchor="middle">epoch e+1</text><text x="350" y="348" fill="#59636e" font-size="10" text-anchor="middle">root becomes Ethereum-final</text>
@@ -117,7 +117,7 @@ bonding transaction plus the two-epoch lookahead below, so a reorganisation cann
 after it was counted and an operator has time to bring a node online. The delay, the rate limit
 and <code>S_min</code> are all <span class="tag">unmeasured</span>. An entry that never
 binds its keys never appears in any set root, and an active entry that never attests is absent from the
-versions committed while it is not covered: neither is slashable for a consensus offence and neither
+versions judged against windows its record does not cover: neither is slashable for a consensus offence and neither
 earns anything, but both keep their stake, and an entry still in the queue keeps its position
 (<a href="../spec/03-membership-staking.html#MEM-03">MEM-03</a>).</p>
 
@@ -140,27 +140,32 @@ freshness. The heartbeat key can never vote, move stake, request an exit or trig
 power is the eligibility attestation described next.</p>
 
 <h3>4. Membership is renewed by an L1 heartbeat</h3>
-<p>A set version is built from the entries that are active <em>and eligible</em> at its commit point.
+<p>A set version is built from the entries that are active <em>and eligible</em> when it is committed.
 Eligibility is an L1 act of the entry itself: to be selected into the version committed for an epoch,
-a validator must have posted a <strong>heartbeat</strong> inside the heartbeat window containing that
-version&rsquo;s commit point. The window is a fixed-length interval of the L1 clock; its length is
-<span class="tag">unmeasured</span>, and it is sized to cover at least one L1-side epoch plus the
-jitter of an L1 inclusion, so an operator that attests once per L1-side epoch has a signing occasion
-in every window. A heartbeat is a signature by the entry&rsquo;s heartbeat key and it costs one L1
+a validator must have posted a <strong>heartbeat</strong> in the window that version is judged against
+&mdash; the window containing the first L1 block of the epoch in which the version&rsquo;s entry
+becomes coverable, or the window immediately before it. The window is a fixed number of L1 blocks, not
+a fixed amount of time; its length is <span class="tag">unmeasured</span>, and it is sized to cover at
+least one L1-side epoch plus the jitter of an L1 inclusion, so an operator that attests once per
+L1-side epoch has a signing occasion in every window. Because the window is fixed from that L1 block,
+the block that carries the commit, and the moment inside the window when an attestation lands, cannot
+change who is selected. A heartbeat is a signature by the entry&rsquo;s heartbeat key and it costs one L1
 transaction; anyone may carry it, and a relayer may batch many in one transaction, because validity
 depends on the signature and not on the carrier.</p>
 <p>A heartbeat is a per-window credential, not a standing one. The signed message names exactly one
 window and binds a recent L1 block &mdash; its number and its hash &mdash; and the contract records the
-<em>start</em> instant of the named window, never the time the carrying transaction landed. A signature
-cannot be replayed in a later window, a signature for a future window cannot be recorded before that
-window begins, and a signature cannot be produced long before the window it names, because the L1 block
-it binds must be no older than a bounded anchor age <span class="tag">unmeasured</span>. A key that stops
-signing is therefore covered only to the end of its last window plus that bounded term.</p>
+<em>start L1 block</em> of the named window, never the time or the block number of the carrying
+transaction. A signature cannot be replayed in a later window, a signature for a future window cannot
+be recorded before that window begins, and a signature cannot be produced long before the window it
+names, because the L1 block it binds must be no older than a bounded anchor age
+<span class="tag">unmeasured</span>. A key that stops signing therefore stays eligible only for versions
+judged against the window it last named or the one after it, with the bounded pre-signing term allowing
+one further window.</p>
 <p>An entry that is not eligible is <strong>excluded from the committed roster</strong> &mdash; from the
 root, the total voting power and the entry count &mdash; and nothing else changes. It is not decayed,
 discounted, zeroed or removed: it keeps its whole bonded balance, its owner, its exit and cancel-exit
 rights, and its full exposure for every epoch it was committed to, and it is eligible again at the first
-commit point that falls in a window it has attested for. No rule removes weight. If no active entry is
+version judged against a window it has attested for, or the one after it. No rule removes weight. If no active entry is
 eligible when the append is due, <code>commitSet()</code> reverts and the append is missed, so the
 boundary halt of &sect;6 becomes reachable until a later append succeeds &mdash; an honest cost, written
 down as one and not a penalty.</p>
@@ -173,13 +178,16 @@ halts. And an entry &mdash; or a whole cohort &mdash; that keeps heartbeating bu
 keeps its weight, stays in future versions and can still stall them. A heartbeat is a declaration of
 presence on L1, not proof of participation: the mechanism changes who is <em>selectable</em>, never what
 a committed version requires.</p>
-<p>The honest costs are three. A periodic L1 transaction per validator per window, paid by the validator
+<p>The honest costs are four. A periodic L1 transaction per validator per window, paid by the validator
 or by whoever relays it, and the relayer needs a recent L1 block hash at signing time, so signing fully
-offline for long periods is over. A second key to register, rotate and keep custody of. And an
+offline for long periods is over. A second key to register, rotate and keep custody of. An
 operational lapse becomes an outage: the validator loses its slots in future versions until it re-attests
-and the next commit point passes, while losing no stake, because silence is still not an offence.</p>
+and a later version passes, while losing no stake, because silence is still not an offence. And a window
+measured in L1 blocks rather than in seconds: the duty is one attestation per
+<code>HEARTBEAT_WINDOW</code> L1 blocks, so its spacing in real time moves with L1 block time and is
+<span class="tag">unmeasured</span>.</p>
 <div class="note plain">
-<span class="lbl">Two named falsifiers</span>
+<span class="lbl">Two named falsifiers, and one open gap</span>
 <p><strong>F8.</strong> An adversary able to censor, delay past a window, or price out honest
 entries&rsquo; L1 heartbeat transactions excludes honest validators from future set versions at no
 slashable cost, and because exclusion changes future composition it can raise the adversary&rsquo;s own
@@ -188,6 +196,11 @@ share of those versions. The protocol does not attempt to detect or resist this.
 bounded anchor age before the window it names is accepted in that window, so an entry can be absent for
 up to that term around a window boundary without losing coverage, and the same term makes an append
 window in which no active entry is eligible reachable.</p>
+<p><strong>The window length itself.</strong> The window a version is judged against is derived when the
+version is committed, so a change to the window length that takes effect while an epoch is in flight can
+leave an entry outside that one version even though the grid in force when it signed covered it. Nothing
+in the design delays such a change to an epoch boundary or freezes a window per epoch: this is stated as
+an open gap, not repaired.</p>
 </div>
 
 <h3>5. The set is an Ethereum object</h3>
@@ -200,7 +213,7 @@ transaction as the root because a sum cannot be recovered from a Merkle root, an
 recomputes it from the leaves. The root is written by <code>commitSet()</code>, a function that
 takes no arguments and may be called by anyone: the caller chooses nothing, and the contract
 computes the contents from its own state
-(<a href="../spec/03-membership-staking.html#MEM-08">MEM-08</a>). The entry list contains every active <em>and eligible</em> entry: the contract includes each such entry with its full effective stake, and an entry that has not attested for the commit point&rsquo;s window is simply absent from the root, the total and the count &mdash; never present at a reduced weight.</p>
+(<a href="../spec/03-membership-staking.html#MEM-08">MEM-08</a>). The entry list contains every active <em>and eligible</em> entry: the contract includes each such entry with its full effective stake, and an entry whose heartbeat does not cover the version&rsquo;s evaluation window is simply absent from the root, the total and the count &mdash; never present at a reduced weight.</p>
 
 <h3>6. Epochs, and why the set is fixed two epochs ahead</h3>
 <p>Heights are partitioned into epochs of <code>L = 900</code> blocks, which is 30 minutes at the
@@ -290,8 +303,8 @@ epoch 15 spans 13,500&ndash;14,399.</p>
 <tbody>
 <tr><td>1</td><td>Alice bonds TAIKO from her own L1 address and registers her two keys: an Ed25519 consensus key and an ECDSA heartbeat key. Her queue key is fixed by the L1 coordinates of this transaction.</td><td>1,000,000 TAIKO = 1 &times; 10<sup>24</sup> base units at 18 decimals</td><td><span class="tag">sourced</span> decimals &middot; <span class="tag">unmeasured</span> S_min</td></tr>
 <tr><td>2</td><td>The bond lands while epoch 13 is producing. Epoch 13&rsquo;s set entry already exists, so Alice cannot be in it; activation also waits for ACTIVATION_DELAY and the FIFO rate limit.</td><td>Epoch 13 = heights 11,700&ndash;12,599; the bond is at height 12,345</td><td><span class="tag">derived</span> schedule &middot; <span class="tag">unmeasured</span> delay</td></tr>
-<tr><td>3</td><td>During L1-side epoch 13 (the epoch containing height 12,345), <code>commitSet()</code> appends the entry for epoch 15. Alice&rsquo;s leaf is <code>(pubkey, 1,000,000 TAIKO)</code>, inside root <code>R_k</code>, with the total published beside it, because her stake is bonded and active at the commit point and she attested on L1 in the heartbeat window containing it.</td><td>Epoch 15 = heights 13,500&ndash;14,399</td><td><span class="tag">derived</span> two-epoch lead</td></tr>
-<tr><td>4</td><td>Epoch 15 begins. Its first header commits <code>validators_hash = R_k</code>. Alice is a validator, with voting power exactly equal to her effective stake; her place in later versions depends on her stake remaining bonded and active and on her attesting in the window containing each later commit point.</td><td>1,000,000 TAIKO of weight</td><td><span class="tag">derived</span></td></tr>
+<tr><td>3</td><td>During L1-side epoch 13 (the epoch containing height 12,345), <code>commitSet()</code> appends the entry for epoch 15. Alice&rsquo;s leaf is <code>(pubkey, 1,000,000 TAIKO)</code>, inside root <code>R_k</code>, with the total published beside it, because her stake is bonded and active at the commit point and she attested on L1 in the window the version is judged against &mdash; fixed by the L1 block at which epoch 15 became coverable.</td><td>Epoch 15 = heights 13,500&ndash;14,399</td><td><span class="tag">derived</span> two-epoch lead</td></tr>
+<tr><td>4</td><td>Epoch 15 begins. Its first header commits <code>validators_hash = R_k</code>. Alice is a validator, with voting power exactly equal to her effective stake; her place in later versions depends on her stake remaining bonded and active and on her heartbeat covering each later version&rsquo;s window.</td><td>1,000,000 TAIKO of weight</td><td><span class="tag">derived</span></td></tr>
 <tr><td>5</td><td>Quorum check for a certificate from this epoch. The predicate is <code>3 &middot; s &gt; 2 &middot; W</code>, evaluated with checked arithmetic by the L2 client, the zkVM guest and the L1 contract alike.</td><td>If W = 100,000,000 TAIKO then s must be at least 66,666,667 TAIKO</td><td><span class="tag">derived</span></td></tr>
 <tr><td>6</td><td>Alice bonds an extra 500,000 TAIKO at height 14,200 &mdash; inside epoch 15, whose set is already committed. Her weight in epochs 15 and 16 does not change; the next root appended (for epoch 17) carries 1,500,000 TAIKO.</td><td>The change lands in epoch 17, two epochs after the epoch whose L1-side clock appended it</td><td><span class="tag">derived</span> timing</td></tr>
 <tr><td>7</td><td>Alice requests an exit in epoch 20. She stays in every committed set, keeps voting and remains slashable. The exit takes effect at the first snapshot at or after the request that the churn cap does not exclude; then D_WITHDRAW runs before withdrawal.</td><td>All delay terms</td><td><span class="tag">unmeasured</span></td></tr>
@@ -301,8 +314,8 @@ epoch 15 spans 13,500&ndash;14,399.</p>
 cap all admit Alice&rsquo;s entry or exit at the earliest possible snapshot. Those three values are
 <span class="tag">unmeasured</span>, so the epoch numbers here are the earliest possible, not a
 promise. An entry that misses a heartbeat window keeps its stake and its committed places, but it is
-absent from the versions committed in that window; re-attesting restores it at the next commit point
-whose window it names.</p>
+absent from the versions judged against that window; re-attesting restores it at the first version
+whose window it names, or the one after it.</p>
 
 <h2>What this gives you</h2>
 <ul>
@@ -316,9 +329,10 @@ reproduce.</li>
 offence epoch rather than the stake at the moment evidence arrives.</li>
 <li>A defined starting point for a new node: the newest Ethereum-final checkpoint, with a freshness
 bound.</li>
-<li>A set version decided on Ethereum two epochs ahead from the entries that renewed their eligibility on L1
-in the window containing its commit point: a missed heartbeat costs future slots and never stake, and
-re-attesting restores the entry at the next commit point.</li>
+<li>A set version decided on Ethereum two epochs ahead from the entries whose heartbeat covers the window
+the version is judged against &mdash; fixed by the L1 block at which its epoch became coverable: a
+missed heartbeat costs future slots and never stake, and re-attesting restores the entry at a later
+version.</li>
 </ul>
 
 <h2>What it does not give you</h2>
@@ -363,11 +377,12 @@ released and they can no longer be punished.</p></details>
 
 <details><summary>I stopped attesting for a while. Do I lose my stake or my place?</summary>
 <p>Not your stake, and not the places you were already committed to. Eligibility is a filter on future set
-versions: a heartbeat must name the window containing a version&rsquo;s commit point, so a lapse makes you
-absent from the versions committed while you were not covered, with your whole bonded balance, your owner and
-your exit rights intact. Re-attesting restores you at the first commit point that falls in a window you have
-attested for, and you must keep attesting to stay selectable. A committed version is never re-drawn, so a
-version that already contains a quiet cohort still counts that cohort&rsquo;s weight.</p></details>
+versions: a heartbeat must cover the window a version is judged against &mdash; fixed from the L1 block at
+which that version&rsquo;s epoch became coverable &mdash; so a lapse makes you absent from the versions
+judged against later windows, with your whole bonded balance, your owner and your exit rights intact.
+Re-attesting restores you at the first version whose window you have attested for, or the one after it,
+and you must keep attesting to stay selectable. A committed version is never re-drawn, so a version that
+already contains a quiet cohort still counts that cohort&rsquo;s weight.</p></details>
 <details><summary>Why is eligibility an L1 transaction rather than a message among validators?</summary>
 <p>Because the roster is an Ethereum object and the rule that builds it runs there. A heartbeat is
 affirmative, self-authenticated evidence that does not depend on any batch landing, so it still works while

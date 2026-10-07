@@ -131,7 +131,7 @@ clears the stall; a future protocol update would have to preserve the boundary.<
 the committed weights still include validators that have stopped signing, so if enough of them stop that quorum
 cannot be met, production halts &mdash; there is no degraded threshold and no replacement set for a version
 already committed. The L1 heartbeat changes who is in <em>future</em> versions: a cohort that stops attesting
-is excluded from the versions whose commit point falls in a window it did not attest for, so those versions
+is excluded, once its coverage ends, from the versions judged against later windows, so those versions
 are drawn from the entries that keep attesting and quorum is reachable there. A cohort that keeps attesting
 and withholds its votes keeps its weight and stays in them: a heartbeat is a declaration of presence on L1,
 not proof of participation. The silent validators keep their whole bonded stake either way; they forfeit only
@@ -459,8 +459,8 @@ advances here and no height is retired.</p></details>
 <details><summary>A third of the voting power stops signing. Is the chain stuck?</summary>
 <p>For the set version already committed the silent weight still counts, so quorum can fail and production
 halts, and no v1 rule replaces that committed roster. What changes is the next versions: if the cohort stops
-attesting on L1, it is excluded from the versions whose commit point falls in a window it did not attest
-for, and those versions are drawn from the entries that keep attesting, so quorum is reachable there. If the
+attesting on L1, it is excluded, once its coverage ends, from the versions judged against later windows,
+and those versions are drawn from the entries that keep attesting, so quorum is reachable there. If the
 cohort keeps attesting and only withholds its votes, it keeps its weight and can stall again. Nothing is
 taken from the silent validators either way: a lapse costs future slots and never stake, and clearing a halt
 inside an already-committed epoch still needs the cohort to return or a future protocol update.</p></details>
@@ -471,7 +471,7 @@ inside an already-committed epoch still needs the cohort to return or a future p
 <li>Fewer than one third of each epoch&rsquo;s voting power is malicious, and the rest follows the lock
 and vote-uniqueness rules.</li>
 <li>Enough validators are online to form quorums in normal operation, and honest L1 heartbeat transactions
-are included inside their windows. Inside a set version the protocol has no degraded mode and no rule removes
+are included inside their windows, one per window of <code>HEARTBEAT_WINDOW</code> L1 blocks. Inside a set version the protocol has no degraded mode and no rule removes
 a validator that goes quiet, so a silent cohort halts production; the heartbeat excludes a cohort that stops
 attesting from future versions only, and an adversary that censors honest heartbeats can exclude honest
 validators (F8).</li>

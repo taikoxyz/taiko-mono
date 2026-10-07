@@ -147,18 +147,23 @@ assumption</strong>, stated as one: nothing in v1 prices the halt with a bond, e
 lets any party choose a state, a checkpoint or a height above the last accepted checkpoint.</p>
 
 <h3>Membership has a liveness gate, and it does not compel participation</h3>
-<p>Membership in a <em>future</em> set version is renewed on L1: an entry must have posted a heartbeat
-inside the window containing that version&rsquo;s commit point, or it is simply not selected into it. The
+<p>Membership in a <em>future</em> set version is renewed on L1: an entry&rsquo;s last heartbeat must cover
+the window that version is judged against &mdash; the window derived from the L1 block at which the
+version&rsquo;s epoch became coverable, or the one immediately before it &mdash; or it is simply not selected
+into it. The
 design states what that does and does not buy. It does not repair a version already committed: a chain
 stalled inside an epoch whose roster cannot form quorum is not released by the heartbeat, and no v1 rule
 draws a replacement set for that epoch. It does not compel participation: a cohort that keeps attesting
 while withholding its votes keeps its weight and can stall again. It does not punish a lapse: a missed
 heartbeat costs slots in future versions and never stake, and re-attesting restores the entry at a later
-commit point. And it adds its own dependency: the mechanism works only if honest heartbeat transactions
+version. And it adds its own dependency: the mechanism works only if honest heartbeat transactions
 are included on L1, so an adversary able to censor them, delay them past their window, or price them out
 can exclude honest validators from future versions and thereby raise its own share of those versions
 &mdash; falsifier F8. The bounded term within which a signature may be produced before the window it
-names is falsifier F9. Both are stated as open limits, not repaired.</p>
+names is falsifier F9. A change to the window length that takes effect while an epoch is in flight can also
+leave an entry outside the version being evaluated even though it attested on the grid in force when it
+signed; the design delays no such change to an epoch boundary and freezes no window per epoch, so this case
+is another stated limit rather than a repaired one. All of these are carried as open limits, not repaired.</p>
 
 <h3>A funded reward pool is what keeps settlement moving</h3>
 <p>Settlement assumes the landing market is funded: that the fee sweep actually credits the reward pool and that the
@@ -319,7 +324,7 @@ retrievable.</li>
 <li>Somebody publishes a transaction&rsquo;s data to L1 while the blobs are retrievable; publication creates no inclusion
 obligation either way, so if the data never reaches L1 the protocol has no remedy.</li>
 <li>Ethereum keeps producing and finalizing blocks, and L1 facts become Ethereum-final at a known depth. Validators post an
-L1 heartbeat inside each window and Ethereum includes those transactions; a lapse costs future slots and not stake, and
+L1 heartbeat once per window of <code>HEARTBEAT_WINDOW</code> L1 blocks and Ethereum includes those transactions; a lapse costs future slots and not stake, and
 censoring honest heartbeats can exclude honest validators from future versions (F8).</li>
 <li>The reward pool is funded by L2 fee revenue or a recorded top-up; otherwise no reward is payable.</li>
 <li>A fresh, Ethereum-final L1 checkpoint is available to a new node, and governance does not execute an upgrade that breaks these

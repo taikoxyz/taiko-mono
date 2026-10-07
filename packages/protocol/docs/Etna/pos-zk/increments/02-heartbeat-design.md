@@ -33,7 +33,7 @@ with it.
 
 | # | Decision | Where |
 |---|---|---|
-| 1 | **MEM-13 is revived as a live rule**: eligibility for a set version requires an L1 heartbeat inside `HEARTBEAT_WINDOW` ending at that version's commit point; ineligible entries are excluded from the committed roster, never decayed or slashed; the ECDSA heartbeat key is registered at bonding and is not a consensus key; anyone may carry and a relayer may batch; the payload binds a domain tag, chain id, the entry, a window index, a sequence number **and a recent L1 block hash**; eligibility is recorded as the **start of the named window**; non-current, already-recorded, non-advancing, duplicate and stale-anchor heartbeats are rejected. | §2 |
+| 1 | **MEM-13 is revived as a live rule**: eligibility for a set version requires the last accepted heartbeat to have named the window derived from the L1-side schedule — `I*(e) = floor(L1_first(max(e − LOOKAHEAD_EPOCHS, e_0)) / HEARTBEAT_WINDOW) · HEARTBEAT_WINDOW`, the window containing the epoch start at which the version became coverable, or the one before it, all on an L1 block-height grid *(F1 realisation: the commit point's own window is withdrawn)*; ineligible entries are excluded from the committed roster, never decayed or slashed; the ECDSA heartbeat key is registered at bonding and is not a consensus key; anyone may carry and a relayer may batch; the payload binds a domain tag, chain id, the entry, a window index, a sequence number **and a recent L1 block hash**; eligibility is recorded as the **start of the named window**; non-current, already-recorded, non-advancing, duplicate and stale-anchor heartbeats are rejected. | §2 |
 | 2 | **The pre-signing horizon is bounded, not closed to zero**: the payload binds `(hbAnchorBlock, hbAnchor = blockhash(hbAnchorBlock))` and acceptance requires the anchor block to be at most `HEARTBEAT_ANCHOR_AGE` L1 blocks old. Full closure (a per-window in-window challenge) is rejected on cost: it adds one permissionless transaction per window *and* makes a single censored transaction exclude the entire roster. | §5 |
 | 3 | **CONS-16 is revived in text with a hard gate**: the R6-D12-06 race is closed by the resumed-epoch rule (§3.3); every REC-02/generation/mutual-exclusion clause is deleted because v1 has no recovery path; and its precondition is carried as an explicit Open — sharpened: the *closing height itself* has no L1 referent, so the rule MUST NOT be implemented until the gate is closed. | §3, §9 |
 | 4 | **Consequence of the gate, stated plainly**: MEM-13 alone changes the composition of set versions the chain can reach; a chain stalled inside an epoch whose committed roster cannot form quorum still does not resume by rule (that needs CONS-16, or the deferred governance path). | §3.5, §6 |
@@ -90,12 +90,31 @@ condition of completion, not an assertion (§3.2–§3.3).
 > evaluation from the block in which it takes effect (MEM-13(2); 09's `HEARTBEAT_WINDOW` row;
 > R-INCR2-01). (3) Acceptance compares the **absolute instant** `hbWindow · HEARTBEAT_WINDOW >
 > lastHeartbeatAt(v)`, strictly greater, and the stored window index — grid-relative — is **never
-> compared across grids** (MEM-13(2a)(d), (2b)). (4) The coverage argument at (2a) shows that a change
+> compared across grids** (MEM-13(2a)(d), (2b)); the compared quantity is an L1 block height, item (5)
+> below. (4) The coverage argument at (2a) shows that a change
 > can shorten or lengthen coverage but can never open a gap, lower a record, or by itself empty the
 > roster (MEM-13(3), (6)). Two further review corrections are recorded in the clauses below: the
 > heartbeat key MUST be **non-zero** at bonding and at rotation, so `ecrecover`'s `address(0)` failure
 > return can never satisfy acceptance (R-INCR2-02), and there is **one live entry per bonding address**,
-> an identifier-uniqueness condition and **not a stake cap** (R-INCR2-03).
+> an identifier-uniqueness condition and **not a stake cap** (R-INCR2-03). (5) The heartbeat grid is
+> measured in **L1 block height, not wall-clock seconds**: window `w` is the half-open interval of L1
+> block numbers `[w · HEARTBEAT_WINDOW, (w+1) · HEARTBEAT_WINDOW)`, `hbWindowOf(n) = floor(n /
+> HEARTBEAT_WINDOW)` for an L1 block number `n`, acceptance requires the named window to be the
+> current block's window ((2a)(b)), and `lastHeartbeatAt(v)` is that window's **start block**, never a
+> carrier's `block.timestamp` or `block.number`. The eligibility instant is **derived, not written**:
+> `I*(e) = floor(L1_first(C(e)) / HEARTBEAT_WINDOW) · HEARTBEAT_WINDOW` with `C(e) = max(e −
+> LOOKAHEAD_EPOCHS, e_0)` and `L1_first(C(e)) = L1_0 + (C(e) − e_0) · EPOCH_LEN_L1`, computed inside
+> `commitSet()` from the activation record and the epoch, so it needs no writer, keeper or oracle,
+> reads no past block's timestamp, and is identical for two calls in the same block. This supersedes
+> the wall-clock readings this document first drafted at clauses (2), (2a)(b), (2b), (3), (6) and the
+> `t_root(e)` predicate: eligibility is `lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`, the window
+> containing `I*(e)`, the one before it, or any later window, and the old reading — the window
+> containing the commit point — is withdrawn. Two consequences are carried openly rather than hidden:
+> the window's **wall-clock duration now varies with L1 block time**, so the duty is one attestation
+> per `HEARTBEAT_WINDOW` L1 blocks and not per fixed duration (an unmeasured operational cost, no
+> value invented), and clause (6) carries an **Open** on a `HEARTBEAT_WINDOW` change that lands in
+> flight, with its falsifier, which §6.2 and §9 repeat. *(F1 realisation: the unit change is what makes
+> the caller-independent instant realisable from L1 state.)*
 
 > Normative text below. It replaces the tombstone in `spec/03-membership-staking.html`; it is written
 > as the rule will read in the specification, with identifiers that the register and index must match.
@@ -148,16 +167,23 @@ it is `unmeasured` and is not a condition on eligibility. `HEARTBEAT_MIN_INTERVA
 **operational cadence bound the contract does not enforce** (see clause (6)): the once-per-window rule
 of (2a)(d) already admits at most one heartbeat per entry per window, so an enforced interval would be
 dominated by the window rule and could only make eligibility harder to attain. **Windows** are
-tumbling, non-overlapping intervals of length `HEARTBEAT_WINDOW` on the L1 clock: window `w` is the
-half-open interval `[w · HEARTBEAT_WINDOW, (w+1) · HEARTBEAT_WINDOW)`, and `hbWindowOf(t) =
-floor(t / HEARTBEAT_WINDOW)` is the window containing the run-time-visible `block.timestamp` `t`. A
-change to `HEARTBEAT_WINDOW` **re-grids the windows for blocks from the block in which it takes
-effect**: it *does* re-label intervals that have begun, and it MUST NOT be described as never
-re-labelling a window that has begun. What the rule guarantees instead is that the re-labelling cannot
-touch a record: `lastHeartbeatAt(v)` is an absolute instant and the guard of (2a)(d) compares instants,
-never window indices, so a change can neither reject a legitimate advance nor lower a recorded value.
+tumbling, non-overlapping intervals of `HEARTBEAT_WINDOW` **L1 blocks**, on the same L1-block clock as
+the L1-side epoch schedule of CONS-13(1): at a block that evaluates the parameter with value `W`,
+window `w` is the half-open interval of L1 block numbers `[w · W, (w+1) · W)`, and
+`hbWindowOf(n) = floor(n / W)` is the window containing the L1 block number `n`. Acceptance requires
+the window the signature names to be the window that contains the including L1 block ((2a)(b)), so no
+wall-clock conversion or past-block read is involved. A change to `HEARTBEAT_WINDOW` **re-grids the
+windows for blocks from the block in which it takes effect**: it *does* re-label intervals that have
+begun, and it MUST NOT be described as never re-labelling a window that has begun. What the rule
+guarantees instead is that the re-labelling cannot touch a record: `lastHeartbeatAt(v)` is an absolute
+L1 block number and the guard of (2a)(d) compares block heights, never window indices, so a change can
+neither reject a legitimate advance nor lower a recorded value. *(F1 realisation: this clause first
+derived the window from the run-time-visible `block.timestamp`; the grid is measured in L1 block
+height because the evaluation instant of clause (3) is a block number derived from the activation
+record — an L1 contract cannot read a past block's `block.timestamp`, and a wall-clock grid would
+need one stored per epoch.)*
 
-**(2a) Acceptance: current window, advancing sequence, strictly advancing recorded instant, fresh
+**(2a) Acceptance: current window, advancing sequence, strictly advancing recorded height, fresh
 anchor.** The staking contract verifies the signature with `ecrecover` and MUST accept a heartbeat
 only if **all** of the
 following hold:
@@ -166,30 +192,31 @@ following hold:
   `address(0)` that `ecrecover` returns for a malformed or unrecognisable signature can never satisfy
   this check — `v` is a registered entry, and the key is not retired, retirement being permanent
   (clause (1));
-- (b) `hbWindow = hbWindowOf(block.timestamp)` — **the window the signature names is the window that
-  contains the including block**; a heartbeat whose window is in the past or in the future MUST be
-  rejected;
+- (b) `hbWindow = hbWindowOf(block.number)` — **the window the signature names is the window that
+  contains the including L1 block**; a heartbeat whose window is in the past or in the future MUST be
+  rejected *(F1 realisation: acceptance reads the carrier's block number, so the named window is a
+  block-height interval and no wall-clock conversion or past-block read is involved)*;
 - (c) `hbSeq > lastHeartbeatSeq(v)` — a duplicate, a replay or an out-of-order submission MUST be
   rejected;
 - (d) if `lastHeartbeatSeq(v) > 0`, then `hbWindow · HEARTBEAT_WINDOW > lastHeartbeatAt(v)`, with
-  `HEARTBEAT_WINDOW` the value in force at the including block — **the start instant of the window the
-  signature names, exactly the value (2b) would record, MUST be strictly later than the instant
-  already recorded**, so a heartbeat that would not advance the record MUST be rejected and at most one
-  heartbeat per entry per window is recorded; the comparison is on **absolute instants, never window
-  indices**, so it is unaffected by a change to `HEARTBEAT_WINDOW`;
+  `HEARTBEAT_WINDOW` the value in force at the including block — **the start L1 block number of the
+  window the signature names, exactly the value (2b) would record, MUST be strictly later than the
+  block height already recorded**, so a heartbeat that would not advance the record MUST be rejected
+  and at most one heartbeat per entry per window is recorded; the comparison is on **absolute L1 block
+  heights, never window indices**, so it is unaffected by a change to `HEARTBEAT_WINDOW`;
 - (e) `hbAnchorBlock < block.number`, `block.number − hbAnchorBlock ≤ HEARTBEAT_ANCHOR_AGE`,
   `blockhash(hbAnchorBlock) = hbAnchor`, and `hbAnchor ≠ 0` — **the anchor must be a real L1 block
   no older than `HEARTBEAT_ANCHOR_AGE` blocks**; a stale anchor, a future anchor block, an anchor
   that names no block, or an anchor whose hash does not match MUST be rejected.
 
 **A grid change can shorten or lengthen coverage, but it can never open a gap.** Every record is an
-absolute instant. For a record `lastHeartbeatAt(v) = A` and a current window length
+absolute L1 block number. For a record `lastHeartbeatAt(v) = A` and a current window length
 `HEARTBEAT_WINDOW = W`, coverage under the old record lasts exactly to `A + W`: the entry stays
-eligible for every commit point with `t_root ≤ A + W` (clause (3)). The first boundary of the new grid
+eligible for every version with `I*(e) ≤ A + W` (clause (3)). The first boundary of the new grid
 strictly after `A`, call it `B`, satisfies `A < B ≤ A + W`, so an **attestation opportunity always
-exists at or before the last instant the old record covers** — the window named at `B` has start
+exists at or before the last block height the old record covers** — the window named at `B` has start
 `B > A` and passes (2a)(d). A change can therefore lengthen coverage (a larger `W`) or shorten it (a
-smaller `W`), but it can never open a gap, can never lower a recorded instant, and can never empty the
+smaller `W`), but it can never open a gap, can never lower a recorded height, and can never empty the
 eligible roster by itself; an entry that fails to re-attest is excluded by the ordinary duty of (2c)
 alone. This is the coverage argument the specification carries at MEM-13(3)/(6) and in 09's
 `HEARTBEAT_WINDOW` row (R-INCR2-01).
@@ -201,13 +228,14 @@ cannot be recorded.
 
 **(2b) The recorded eligibility instant is derived from the payload, is monotone, and cannot be
 advanced by replay.** On acceptance the contract MUST record `lastHeartbeatAt(v) = hbWindow ·
-HEARTBEAT_WINDOW` — **the start instant of the window the signature names** — together with
-`lastHeartbeatWindow(v) = hbWindow` and `lastHeartbeatSeq(v) = hbSeq`. The recorded instant is a
-pure function of the signed payload and is **never** the `block.timestamp` of the including
-transaction, so a signature cannot be made fresh by submitting it later, by batching it with others, by
-paying more gas, or by any other property of the carrier. The recorded instant is **monotone**:
-acceptance requires the named window's start instant to be strictly later than the value already
-recorded ((2a)(d)), so `lastHeartbeatAt(v)` strictly increases on every acceptance and never
+HEARTBEAT_WINDOW` — **the start L1 block number of the window the signature names**, the recorded
+eligibility point, whose unit is L1 blocks everywhere it is read — together with
+`lastHeartbeatWindow(v) = hbWindow` and `lastHeartbeatSeq(v) = hbSeq`. The recorded point is a
+pure function of the signed payload and is **never** the `block.timestamp` or `block.number` of the
+including transaction, so a signature cannot be made fresh by submitting it later, by batching it with
+others, by paying more gas, or by any other property of the carrier. The recorded point is
+**monotone**: acceptance requires the named window's start block to be strictly later than the value
+already recorded ((2a)(d)), so `lastHeartbeatAt(v)` strictly increases on every acceptance and never
 decreases, whatever value `HEARTBEAT_WINDOW` takes; the stored index `lastHeartbeatWindow(v)` is the
 label that window had under the grid in force when it was accepted, so unlike the instant it is
 **grid-relative**, it may be numerically lower than a previously stored index after a change to
@@ -215,9 +243,11 @@ label that window had under the grid in force when it was accepted, so unlike th
 test. An entry with no accepted heartbeat has `lastHeartbeatAt(v) =
 0`, `lastHeartbeatWindow(v)` unset and `lastHeartbeatSeq(v) = 0`, and is ineligible until its
 first accepted heartbeat. It **cannot be advanced by replay**: resubmitting an accepted signature, or
-any signature naming a window that is not current or whose start instant is not strictly later than the
-recorded instant, is rejected and writes nothing; replaying with a different anchor is impossible
-because the anchor is inside the signed preimage.
+any signature naming a window that is not current or whose start block is not strictly later than the
+recorded block height, is rejected and writes nothing; replaying with a different anchor is impossible
+because the anchor is inside the signed preimage. *(F1 realisation: the record is an L1 block number —
+the window's start height — not a clock time; this clause first called it an instant and allowed no
+comparison with a timestamp.)*
 
 **(2c) What the window and the anchor buy, and the residual.** Because the signed message names exactly
 one window, is accepted only inside that window, and binds an L1 block that must be no more than
@@ -225,9 +255,13 @@ one window, is accepted only inside that window, and binds an L1 block that must
 be pre-minted**: (i) a captured signature cannot be replayed in any later window; (ii) a signature
 naming a future window cannot be recorded before that window begins; and (iii) a signature cannot be
 produced materially before the window it names, because the anchor block it binds must exist and be
-recent. A key that stops signing can therefore cover **at most the remainder of the window in which it
-last signed plus `HEARTBEAT_ANCHOR_AGE` L1 blocks**; after that it is ineligible at every commit
-point. **Residual, stated honestly:** the bound is not zero. A signature made in the last
+recent. A key that stops signing therefore remains eligible only for versions whose evaluation window
+`w*(e)` is the window it last named or the one immediately after it, and the pre-signing residual
+below can extend that by one further window; after that it is ineligible at every evaluation instant.
+*(F1 realisation: coverage is stated against the fixed evaluation instant of clause (3), not against
+the commit's own window; the window, the anchor age and the coverage bound are all L1 block counts, so
+the argument never converts through `L1_BLOCK_INTERVAL`.)*
+**Residual, stated honestly:** the bound is not zero. A signature made in the last
 `HEARTBEAT_ANCHOR_AGE` blocks of a window can name the following window and be submitted early in
 it, so an absent key can retain coverage across one window boundary by up to `HEARTBEAT_ANCHOR_AGE`
 blocks. This is the named falsifier **F9** (clause (7)). No rule requires the key to have been online
@@ -235,28 +269,47 @@ at the moment of inclusion: the mechanism attests that a fresh signature was pro
 was running when the carrier landed.
 
 **(3) Eligibility, and exclusion instead of decay.** Entry `v` is **eligible** for set version `k` —
-the version committed for epoch `e` — if and only if `lastHeartbeatAt(v) ≥ t_root(e) −
-HEARTBEAT_WINDOW`, where `t_root(e)` is the commit timestamp stored with the entry as
-`rootCommittedAt` (MEM-09(2)) and written by the same `commitSet()` call that fixes `R_k`
-(MEM-09(1)). With the recorded value of (2b) and an unchanged window grid, this is equivalently the
-requirement that **the last accepted heartbeat named the heartbeat window containing
-`t_root(e)`**; a commit timestamp exactly on a window boundary is covered by the window that ends
-there, and no other window can qualify, because acceptance requires the named window to be current.
+the version committed for epoch `e` — if and only if `lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`,
+where `I*(e)` is the version's **evaluation instant**: let `C(e) = max(e − LOOKAHEAD_EPOCHS, e_0)` be
+the L1-side epoch in which the version's entry first becomes coverable — the two-epoch lookahead of
+CONS-13(3), and the activation epoch `e_0` for the first entry after activation, `e = e_0 + 1` — let
+`L1_first(C(e)) = L1_0 + (C(e) − e_0) · EPOCH_LEN_L1` be the first L1 block of that epoch — a block
+*number* fixed once by the schedule the activation transaction records (CONS-13(1), CONS-14(1)) and in
+the future when the entry is appended, so it is computed from L1 state by arithmetic and never read
+from a past block — let `w*(e) = floor(L1_first(C(e)) / HEARTBEAT_WINDOW)` be the heartbeat window
+containing that L1 block on the block-height grid of clause (2), and let
+`I*(e) = w*(e) · HEARTBEAT_WINDOW` be that window's **start L1 block number**. **The instant is
+derived, not written.** `commitSet()` computes `w*(e)` and `I*(e)` inside the call by integer
+arithmetic over `(L1_0, e_0, EPOCH_LEN_L1, e, HEARTBEAT_WINDOW)` — the activation record, the epoch
+the append targets and the parameter value in force at the evaluating block, all L1 state — so no
+per-epoch record, no writer, no keeper, no oracle and no past-block read is needed; no transaction can
+write the value, the mechanism adds no storage at all, and it is caller-independent by construction:
+two calls in one block compute the same instant. With the recorded value of (2b) and an unchanged
+window grid, the predicate is equivalently the requirement that **the last accepted heartbeat named
+`w*(e)`, the window immediately before it, or any later window** — every named window whose start
+height is at or after `(w*(e) − 1) · HEARTBEAT_WINDOW` — because records are monotone. *(F1 repair:
+the predicate is keyed to the derived evaluation instant `I*(e)`, not to `t_root(e)` or the commit's
+own window, which this clause first drafted.)*
 Across a change to `HEARTBEAT_WINDOW` the predicate stays the absolute one written above and reads
-instants, not indices: a change re-grids evaluation from the block in which it takes effect and never
-edits, re-derives or re-interprets a recorded value (clauses (2a)(d) and (6)). The predicate is
+block heights, not indices: a change re-grids evaluation from the block in which it takes effect and
+never edits, re-derives or re-interprets a recorded value (clauses (2a)(d) and (6)); the change-timing
+residual is the Open in clause (6). The predicate is
 evaluated **inside that call, from L1 state at `N(k)`**; the caller chooses nothing and there is no
-second evaluation instant. **A later window
-cannot reach back:** a signature naming a window later than `hbWindowOf(t_root(e))` cannot be
+second evaluation instant, and timing the append can only let in entries that have attested since, never
+remove one that was eligible when the entry first became coverable. **A later window
+cannot reach back:** a signature naming a window later than `w*(e)` cannot be
 accepted before that window begins ((2a)(b)), so it cannot be recorded in time to affect `R_k`; if it
-is accepted later, it can change only commits whose own `t_root` lies in that later window. A
+is accepted later, it can change only versions whose own evaluation instant lies in that later window. A
 signature for a later window MUST NOT retroactively make an entry eligible for an earlier set version,
-and no rule may re-open, amend or re-derive a committed `R_k`.
+and no rule may re-open, amend or re-derive a committed `R_k`. *(F1 realisation: the window is found by
+integer division on the L1 block-height grid from the activation record, so the instant is computed from
+L1 state at `N(k)` and nothing is written per epoch.)*
 
 An entry that is `active` (MEM-02(1)) but not eligible is **excluded from `R_k`, from
 `TotalVP_k` and from `n_k`**: it is *not selected*, and it is never decayed, discounted, zeroed or
-removed from the ledger. Its effective stake is unchanged, and the next version whose commit point
-falls in a window the entry has attested for includes it again with exactly that stake. **If no active
+removed from the ledger. Its effective stake is unchanged, and the next version whose evaluation
+window is the window named by a heartbeat the entry has since had accepted, or the window immediately
+after it, includes it again with exactly that stake. **If no active
 entry is eligible, `commitSet()` MUST revert and MUST NOT append an empty or otherwise invalid
 version** (MEM-08(5): `n = 0` is an invalid set, never published). The append obligation is missed and
 is restored by a later successful call under MEM-09(1)'s lowest-missing rule; the boundary
@@ -269,8 +322,8 @@ misbehaviour: not signing, not being reachable and not answering are still non-e
 WH-02). An excluded entry keeps its whole bonded balance, its owner, its position, its exit,
 cancel-exit and consensus-key rotation rights (MEM-05, MEM-07) and its full slashable exposure for
 every epoch in which it was committed: `SlashBase(v, e)` is fixed per epoch and is never restated
-(MEM-06(1)). **Re-attesting restores eligibility** at the first commit point whose window the new
-heartbeat names, with no re-entry, no new bond and no penalty; the restored entry must keep signing to
+(MEM-06(1)). **Re-attesting restores eligibility** at the first version whose evaluation window is the window the
+new heartbeat names or the one immediately after it, with no re-entry, no new bond and no penalty; the restored entry must keep signing to
 stay eligible ((2c)). The only paths by which a validator's weight changes are its owner's own exit
 (MEM-05) and a slashing for an offence (MEM-06); no liveness rule reduces it. The per-epoch
 participation accumulator of ECON-02(5) is **unchanged** and remains the reward condition; it is no
@@ -282,11 +335,14 @@ unchanged; the withdrawn decay's post-shrink transfer question (F5) does not ari
 entry out of a *future* roster only, never re-weights a committed one, and every height is still judged
 under exactly one immutable root (MEM-09(3), (4)). **Across versions, selection changes composition,
 and that is a real power:** an adversary able to prevent an honest entry's heartbeat from being
-accepted removes that entry from future versions and thereby raises its own share of those versions'
-`TotalVP`; excluding an honest validator requires preventing or delaying its own L1 heartbeat, which
-is the F8 falsifier and is not repaired by this rule. **Liveness:** a cohort that stops signing is
-ineligible for every set version whose commit point falls after the end of its last covered window plus
-`HEARTBEAT_ANCHOR_AGE` L1 blocks ((2c)); from then on the remaining eligible weight becomes the whole
+accepted throughout the window immediately before a version's evaluation instant removes that entry
+from that version and thereby raises its own share of its `TotalVP`; timing the append cannot do this
+— `I*(e)` is derived from the L1-side schedule on the block-height grid, so the append's block,
+timestamp and position change nothing — but suppressing the entry's own L1 heartbeat for a full window
+still can, which is the F8 falsifier and is not repaired by this rule. **Liveness:** a cohort that
+stops signing is ineligible for every set version whose evaluation window is later than the last window
+it named by more than one ((2c)), the pre-signing residual allowing one further window; from then on
+the remaining eligible weight becomes the whole
 of `W'` for the versions committed afterwards, so the quorum predicate `3·s > 2·W'` of CONS-03
 becomes reachable by the entries that keep heartbeating. **This is a statement about versions committed
 from then on.** A version already committed is unchanged, so a chain stalled inside an epoch whose
@@ -297,10 +353,14 @@ freeze the eligibility evidence. CONS-16's rotation consumes only versions the c
 this predicate.
 
 **(6) Registered relations, and the sizing that is owed.** The parameters are registered in 09 and
-every term is `unmeasured`. `HEARTBEAT_WINDOW ≥ E_EPOCH_L1 + T_L1_include(p) + margin`, where
-`E_EPOCH_L1 = EPOCH_LEN_L1 · L1_BLOCK_INTERVAL`: an entry that submits one heartbeat per L1-side
-epoch is not excluded by inclusion jitter, and an operator that signs once per L1-side epoch has a
-signing occasion in every heartbeat window. `HEARTBEAT_ANCHOR_AGE ≥
+every term is `unmeasured`. `HEARTBEAT_WINDOW ≥ EPOCH_LEN_L1 + ceil(T_L1_include(p) /
+L1_BLOCK_INTERVAL) + margin`, **every term a count of L1 blocks** — the unit of the grid: an entry
+that submits one heartbeat per L1-side epoch is not excluded by inclusion jitter, an operator that
+signs once per L1-side epoch has a signing occasion in every heartbeat window, and clause (3)'s
+one-window slack means such an entry is eligible at every evaluation instant. *(F1 realisation: the
+relation is blocks-to-blocks and reads no block-time assumption; `L1_BLOCK_INTERVAL` enters only to
+convert the inclusion-time target `T_L1_include(p)` into blocks, exactly as in the
+`HEARTBEAT_ANCHOR_AGE` relation below.)* `HEARTBEAT_ANCHOR_AGE ≥
 ceil(T_L1_include(p) / L1_BLOCK_INTERVAL) + margin` **and** `HEARTBEAT_ANCHOR_AGE ≤ 256` (the
 `blockhash` availability window): an honest signer's anchor must not age out before its carrier lands,
 and the term must remain verifiable on L1. `HEARTBEAT_BATCH_CAP ≥ 1` MUST be small enough that a
@@ -315,7 +375,20 @@ Evaluation uses the parameter value in force at the block in which it is made: a
 `HEARTBEAT_WINDOW` re-grids the windows for blocks from the block in which it takes effect, and a
 change to `HEARTBEAT_ANCHOR_AGE` changes the freshness bound for acceptances from that block onward;
 neither may edit, re-derive or re-interpret a recorded `lastHeartbeatAt(v)`, `lastHeartbeatWindow(v)`
-or `lastHeartbeatSeq(v)`. The rotation's own bounds are `T_ROTATE >
+or `lastHeartbeatSeq(v)`; a version's evaluation instant `I*(e)` is recomputed inside the evaluating
+call from the L1-side schedule and the value in force at that block (clause (3)), so a change re-grids
+evaluation from the block in which it takes effect and can never lower a recorded height. **Open —
+change timing against an instant in flight.** Because the instant is derived at evaluation time, a
+change to `HEARTBEAT_WINDOW` that lands after the first boundary of the new grid strictly following
+some active entry's record, and before the append that evaluates an epoch whose coverable start
+precedes the change, can exclude that entry from that one version although the cadence of the old grid
+would have kept it eligible; the rule neither delays the new value nor freezes a per-epoch grid.
+Falsifier: such a change, at such a block, excluding such an entry from such a version. What would
+close it: a registered delay making a new value effective only from a future L1-side epoch boundary,
+or a per-epoch frozen grid — neither is registered, the first adds a parameter and the second needs
+the per-epoch write this realisation removes. *(F1 realisation: this is the one consequence of deriving
+the instant instead of writing it; it is disclosed, not hidden, and §6.2 and §9 repeat it.)* The
+rotation's own bounds are `T_ROTATE >
 T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY` and `T_ROTATE_DELAY ≥ L1_FINALITY +
 T_L1_include(p) + margin` (CONS-16(1)–(2)); the completion's resumed-epoch condition is CONS-16(3)'s
 and is the only bound on how long the restart set may lag the invocation.
@@ -333,9 +406,13 @@ slips past the anchor age, must re-sign — at worst one commit point, never a p
 entry is eligible in a window in which the append is due, `commitSet()` reverts (clause (3)), the
 append deadline is missed, and the boundary halt of MEM-09(5) becomes reachable until a later append
 succeeds; (f) a cohort that keeps signing but withholds L2 participation keeps its weight (see the
-non-fix). **Falsifier F8, Open (carried, sharpened):** an adversary able to censor, delay past the
-window, or price out honest entries' L1 heartbeat transactions excludes honest validators from future
-set versions at no slashable cost, and because exclusion changes future composition it can *raise* the
+non-fix); (g) the window is a count of L1 blocks, so its wall-clock duration varies with L1 block
+time: a validator's duty is one attestation per `HEARTBEAT_WINDOW` L1 blocks, not per fixed duration,
+and the cadence expressed in seconds is variable and `unmeasured` — an honest consequence stated
+rather than a value invented. **Falsifier F8, Open (carried, sharpened):** an adversary able to
+censor, delay past the window, or price out honest entries' L1 heartbeat transactions throughout the
+window immediately before a version's evaluation instant excludes honest validators from that future
+version at no slashable cost, and because exclusion changes future composition it can *raise* the
 adversary's share of those versions. The protocol does not attempt to detect or resist this. The
 premise it leans on is `A-L1-1`; F8 is Open because this specification neither bounds
 single-transaction L1 censorship nor measures the honest heartbeat's gas profile against it. What would
@@ -359,10 +436,10 @@ This mechanism changes **who is selectable**, never what a committed version req
 > window, so a silent cohort stayed eligible for ever. The revived rule breaks every link of that
 > trace: the payload binds the named window, the sequence and the anchor (so one signature is not a
 > credential); acceptance requires the named window to be current and the named instant to strictly
-> advance the recorded one (so a replay is rejected, not merely detectable); the recorded instant is
-> the named window's start (so submission time cannot refresh it); and the rotation's resumed version
-> is drawn from a commit point after the last covered window (so a pre-signed inventory cannot hold
-> the roster — if it is not refreshed).
+> advance the recorded one (so a replay is rejected, not merely detectable); the recorded value is the
+> named window's **start L1 block**, never the carrier's time (so submission time cannot refresh it);
+> and the rotation's resumed version is drawn from an evaluation window after the last window the
+> cohort could have named (so a pre-signed inventory cannot hold the roster — if it is not refreshed).
 
 ---
 
@@ -374,8 +451,10 @@ This mechanism changes **who is selectable**, never what a committed version req
 ### CONS-16 — L1-time-keyed rotation: consuming an eligible set version when an epoch stalls
 
 This rule is the **reachability half** of MEM-13: an entry is eligible for the set version committed
-for an epoch only if it attested on L1 within `HEARTBEAT_WINDOW` ending at that version's commit
-point, and an ineligible entry is excluded from the root rather than decayed. Eligibility therefore
+for an epoch only if `lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`, on the L1 block-height grid —
+clause (3)'s derived evaluation instant, not the commit point's own window — and an ineligible entry
+is excluded from the root rather than decayed. *(F1 realisation: this sentence first keyed eligibility
+to the commit point's window.)* Eligibility therefore
 changes only *future* set versions and leaves committed versions intact, so without a way to leave an
 epoch whose committed set cannot form a quorum the chain keeps that set for ever. This rule is that
 way. It is **not a recovery path**: it discards no produced block, restores no checkpoint, writes no
@@ -389,8 +468,9 @@ registered parameter strictly greater than `T_PROOF_MAX_PERMITTED + T_SETTLE_PIP
 so no normal proving or settlement pipeline can open one. The trigger carries **no** inference about
 how recently the committed cohort attested: `T_ROTATE` bounds the stall, not the cohort's last
 heartbeat (this deletes the round-6 finding R6-D12-06 inference from the trigger; the exclusion of a
-cohort that stops signing is established at clause (3), from `t_root` and the invocation time, not
-from `T_ROTATE`). L1 can see neither which validators are online nor where the L2 tip is; the
+cohort that stops signing is established at clause (3), from the derived evaluation instant and the
+invocation block, not from `T_ROTATE`). *(F1 realisation: the instant is a block number derived from
+the activation record.)* L1 can see neither which validators are online nor where the L2 tip is; the
 rotation is therefore restricted to heights no validator has produced, and its precondition is clause
 (5).
 
@@ -411,18 +491,22 @@ against an epoch `e_r` satisfying **all** of:
 
 - (a) `mapping[e_r]` exists and is an Ethereum-final L1 fact at completion, and the L1-side clock has
   reached `L1_first(e_r)`;
-- (b) `e_r` is the **lowest** epoch satisfying (a) with
-  `t_root(e_r) ≥ (hbWindowOf(T_inv) + 2) · HEARTBEAT_WINDOW + HEARTBEAT_ANCHOR_AGE ·
-  L1_BLOCK_INTERVAL`.
+- (b) `e_r` is the **lowest** epoch satisfying (a) whose derived evaluation instant lies at or after
+  the third window following the invocation block's window: `w*(e_r) ≥ hbWindowOf(N_inv) + 3`, where
+  `N_inv` is the L1 block number in which the invocation lands and every term is an L1 block count.
 
 The bound in (b) is derived, not invented: an accepted heartbeat is valid only in the window it names
 and only with an anchor block at most `HEARTBEAT_ANCHOR_AGE` blocks old (MEM-13(2a), (2c)), so an
-entry whose heartbeat key stops signing at or before `T_inv` cannot be eligible for any set version
-whose commit point is at or after the end of the window following the invocation window, plus the
-anchor age. The roster of `setVersion(e_r)` is therefore drawn from entries that attested **after the
+entry whose heartbeat key stops signing at or before the invocation can have named at most the
+invocation window `hbWindowOf(N_inv)` or, through the pre-signing residual, the window immediately
+after it, and eligibility extends one window beyond the window named (MEM-13(2c)); it therefore cannot
+be eligible for a set version whose evaluation window is `hbWindowOf(N_inv) + 3` or later.
+*(F1 realisation: the bound is re-derived on the L1 block-height grid; the time-grid version this
+clause first drafted compared `t_root(e_r)` with a converted anchor age and no longer type-checks
+against MEM-13's `hbWindowOf`, which takes an L1 block number.)* The roster of `setVersion(e_r)` is therefore drawn from entries that attested **after the
 invocation**, and the restart set is exactly the immutable version the staking contract committed at
 its own commit point from MEM-13(3)'s predicate. The invoker chooses nothing: `e_r` is a function of
-`T_inv` and L1 state. If no such `e_r` exists yet, completion MUST revert and MAY be retried later.
+`N_inv` (the invocation block), the L1-side schedule and L1 state. If no such `e_r` exists yet, completion MUST revert and MAY be retried later.
 Entries that keep heartbeating remain eligible and may remain in `setVersion(e_r)` — this is intended:
 the rule excludes the cohort that **stops signing**, and it does not and cannot exclude a cohort that
 keeps attesting while withholding L2 votes (clause (7)).
@@ -500,17 +584,19 @@ this document** (see §7).
 The revival has to be read against the converged set-commitment machinery, not the machinery of the
 preserved snapshot. The interaction is:
 
-1. **The commit point is the only evaluation instant.** `commitSet()` takes no arguments, may be
-   called by anyone, and appends exactly one entry — the lowest epoch in the L1-committed schedule
-   without one — in steady state the entry for `e+2` during L1-side epoch `e` (MEM-09(1),
+1. **The evaluation instant is derived inside the commit call.** `commitSet()` takes no arguments,
+   may be called by anyone, and appends exactly one entry — the lowest epoch in the L1-committed
+   schedule without one — in steady state the entry for `e+2` during L1-side epoch `e` (MEM-09(1),
    CONS-13(1), (3)). MEM-13(3) is evaluated inside that call, from L1 state at `N(k)`, against
-   `t_root(e)` written by the same call. The caller chooses nothing; the roster is the active entries
-   that are eligible at that instant.
-2. **Two-epoch lookahead means exclusion lands two epochs later.** A heartbeat accepted in the window
-   containing `t_root(e)` is what makes an entry eligible for the version governing `e`; a heartbeat
-   missed in that window excludes it from that version, and the *next* version that can include it is
-   the one whose own commit point falls in a window it attested for. No rule re-evaluates or amends a
-   committed version (MEM-09(2), (4)).
+   `I*(e) = floor(L1_first(C(e)) / HEARTBEAT_WINDOW) · HEARTBEAT_WINDOW` derived from the activation
+   record — not against `t_root(e)` and not against the call's own window. The caller chooses
+   nothing; the roster is the active entries that are eligible at that derived instant.
+   *(F1 realisation: the commit point is where the predicate is evaluated, not what it reads.)*
+2. **Two-epoch lookahead means exclusion lands two epochs later.** A heartbeat accepted in the
+   version's evaluation window `w*(e)`, or the window immediately before it, is what makes an entry
+   eligible for the version governing `e`; a heartbeat missed there excludes it from that version,
+   and the *next* version that can include it is the one whose own evaluation window its record
+   covers. No rule re-evaluates or amends a committed version (MEM-09(2), (4)).
 3. **The L1 clock runs during an L2 stall.** `commitSet()` is keyed to the L1-side schedule, never to
    L2 progress (MEM-09(1), CONS-13(3)), so during a production stall the staking contract keeps
    appending entries — including entries whose rosters were filtered by MEM-13 against fresh
@@ -565,8 +651,9 @@ disclosed bound; it is an open horizon.
   `blockhash(block.number − 1)`), and every heartbeat in `w` must bind it. This closes the horizon
   to zero. Cost: **one permissionless L1 transaction per window** *and* a new single-transaction
   censorship surface — if no challenge is posted in a window, **no entry is eligible for any version
-  committed in that window**, so one censored transaction per window halts the roster instead of one
-  censored transaction per validator. That trades a bounded pre-signing residual for a strictly worse
+  whose evaluation window is that window or the one before it**, so one censored transaction per
+  window halts the roster instead of one censored transaction per validator. *(F1 realisation:
+  eligibility is keyed to the derived evaluation window, not to versions committed in the window.)* That trades a bounded pre-signing residual for a strictly worse
   liveness dependency, and it requires new global state to hold the per-window challenge.
 - **(iii) Bound it with an L1-block freshness term (chosen).** The payload binds
   `(hbAnchorBlock, hbAnchor = blockhash(hbAnchorBlock))`; acceptance requires the anchor block to be
@@ -581,8 +668,9 @@ disclosed bound; it is an open horizon.
 window `w`, the entry needs a signature over an anchor block no older than `HEARTBEAT_ANCHOR_AGE`
 blocks at acceptance; the anchor block must exist before the signature is produced; therefore the key
 must produce a fresh signature within `HEARTBEAT_ANCHOR_AGE` L1 blocks of each submission, i.e.
-essentially once per window. A key that stops signing covers **at most the remainder of its last window
-plus `HEARTBEAT_ANCHOR_AGE` L1 blocks**. With `HEARTBEAT_ANCHOR_AGE` calibrated in the low tens of
+essentially once per window. A key that stops signing remains eligible only for versions whose
+evaluation window is the window it last named or the one immediately after it, the pre-signing
+residual (F9) extending that by one further window. With `HEARTBEAT_ANCHOR_AGE` calibrated in the low tens of
 blocks (relation in MEM-13(6)) and a window of at least one L1-side epoch, that is less than one
 window: "excluded at the next boundary" becomes true to within a bounded, measured term.
 
@@ -617,13 +705,17 @@ enforce.
    heartbeat key can only cost the entry its future slots, never stake (it cannot vote, exit or
    slash).
 3. An operational lapse becomes an outage: an entry that misses a window loses its slots in the
-   versions committed in that window; re-attesting restores it at the next commit point.
+   versions judged against later windows once its coverage ends; re-attesting restores it at the
+   first version whose evaluation window it names or the one after it.
 4. Boundary and inclusion jitter now cost a re-sign, because acceptance requires the named window and
    a fresh anchor.
 5. If no active entry is eligible when an append is due, `commitSet()` reverts, the append deadline
    is missed, and the MEM-09(5) boundary halt becomes reachable until a later append succeeds.
 6. An entry that keeps heartbeating keeps its weight — the declared non-fix below — so the mechanism
    can change *who is selectable* without ever being able to compel participation.
+7. The window is a count of L1 blocks, so its wall-clock duration varies with L1 block time and the
+   attestation duty is one per `HEARTBEAT_WINDOW` L1 blocks rather than per fixed duration; the
+   cadence expressed in seconds is variable and `unmeasured`.
 
 ### 6.2 Falsifiers
 
@@ -631,6 +723,7 @@ enforce.
 |---|---|---|---|
 | **F8** | An adversary able to censor, delay past the window, or price out honest entries' L1 heartbeats excludes honest validators from future set versions at no slashable cost, and can *raise* its own share of those versions' `TotalVP`. | Open (carried, sharpened) | A measured L1 censorship bound at the honest heartbeat gas profile, or a mechanism by which exclusion requires more than withholding one L1 transaction per entry per window. |
 | **F9** | The pre-signing horizon is bounded, not closed: a signature made within `HEARTBEAT_ANCHOR_AGE` blocks before the window it names is accepted in it, so an entry can be absent for up to that term around a boundary; the same term makes the all-ineligible append window of §6.1(5) reachable. | Open (new) | An L1 value that cannot exist before the named window begins (a per-window challenge), rejected in §5.2(ii) on the cost of a chain-wide censorship surface. |
+| **Change timing (MEM-13(6) Open)** | A change to `HEARTBEAT_WINDOW` that lands after the first boundary of the new grid strictly following some active entry's record, and before the append that evaluates an epoch whose coverable start precedes the change, can exclude that entry from that one version although the cadence of the old grid would have kept it eligible. Falsifier: such a change, at such a block, excluding such an entry from such a version. | Open (new) | A registered delay making a new value effective only from a future L1-side epoch boundary, or a per-epoch frozen grid — neither is registered, the first adds a parameter and the second needs the per-epoch write this realisation removes. |
 | **F7** | The rotation's precondition (no finalized height above `h_close`) and its `h_close` referent are not L1-verifiable; a false `h_close` re-judges a produced height, makes its certificate unverifiable and strands value above the checkpoint. | Open (carried, sharpened) | A stored last-finalized marker / composite transition L1 can verify, or the governed stall resolution (deferred; out of scope). Until then CONS-16 MUST NOT be implemented. |
 
 ### 6.3 What the mechanism does NOT fix (state this wherever it is summarised)
@@ -664,7 +757,10 @@ anchors refer to the converged snapshot this delta was written against.
 - **Un-withdraw and restate** rows 213–222: `HEARTBEAT_WINDOW`, `HEARTBEAT_MIN_INTERVAL`,
   `HEARTBEAT_BATCH_CAP`, `heartbeatKey(v)`, `lastHeartbeatAt(v)`, `lastHeartbeatWindow(v)`,
   `lastHeartbeatSeq(v)`, `hbWindow`, `hbSeq`, `DOMAIN_HEARTBEAT` — each with unit, derivation,
-  tag and an owner link to the revived MEM-13. The MUST-NOT-USE reason is replaced by the revived
+  tag and an owner link to the revived MEM-13. `HEARTBEAT_WINDOW` is the window length in L1 blocks and
+  `lastHeartbeatAt(v)` is the start L1 block number of the named window, so the evaluation instant is
+  pure integer arithmetic over stored L1 state *(F1 realisation: window indices are grid-relative
+  labels; the recorded height is the record)*. The MUST-NOT-USE reason is replaced by the revived
   statement; `DOMAIN_HEARTBEAT` registers `"ETNA_HEARTBEAT_V2"`.
 - **Un-withdraw rows 210–211** (`T_ROTATE`, `T_ROTATE_DELAY`) with the registered relations of
   MEM-13(6)/CONS-16(1)–(2), and an owner link to the revived CONS-16 — annotated that CONS-16 is
@@ -690,8 +786,9 @@ anchors refer to the converged snapshot this delta was written against.
   forward-only) alongside the Ed25519 consensus key; delete the "no heartbeat key is registered"
   sentence. **MEM-03(3), (4)** (lines ~134, ~155, ~161): "no liveness predicate and no exclusion" and
   "an entry that activates but never signs a vote is not lapsed and cannot be lapsed" become: it is not
-  lapsed and no stake is touched, but it is not *selected* into versions whose commit points fall in
-  windows it did not attest for; exclusion is a selection filter, not a lapse.
+  lapsed and no stake is touched, but it is not *selected* into versions whose evaluation windows its
+  record does not cover; exclusion is a selection filter, not a lapse. *(F1 realisation: selection is
+  keyed to the derived evaluation window, not to the commit point's own window.)*
 - **MEM-02** (lines ~86, ~89): "every active entry is in the root" → "every active **and eligible**
   entry"; "no liveness rule reduces a validator's weight, and v1 has no liveness rule at all" → "no
   liveness rule reduces weight; MEM-13 excludes from future rosters only".
@@ -707,8 +804,9 @@ anchors refer to the converged snapshot this delta was written against.
 - **MEM-09(1)** (and (2)): replace the two "the heartbeat eligibility of MEM-13 is deferred by D-16,
   so no liveness test filters the roster" sentences with the eligibility filter and the empty-roster
   revert rule; the rest of the append gate is unchanged. The stored `setVersionBlock(e)`/`t_root(e)`
-  tuple remains exactly as it is — MEM-13 reads it and adds no field, so no journal, proof or storage
-  shape changes.
+  tuple remains exactly as it is — the derived instant reads only the activation record, so MEM-13
+  adds no field and no per-epoch record, and no journal, proof or storage shape changes.
+  *(F1 realisation: the predicate no longer reads `t_root(e)` at all.)*
 - **MEM-14**: `n_k` counts eligible entries; the admission bound and its consequences are unchanged.
 - **MEM-15(5)**: one sentence that the exit path reads no membership record and that exclusion neither
   gates nor accelerates withdrawal.
@@ -747,7 +845,8 @@ anchors refer to the converged snapshot this delta was written against.
 
 - `LIVE-05` (rule text ~lines 312–332) and the assurance rows ~349–361: rows 352–357 (F5, F6, F7, F8,
   the operational-lapse cost) are rewritten from "Deferred by D-16" to the revived mechanism, the
-  bounded exclusion, the F8/F9 falsifiers and the F7 gate; row 359's "no v1 rule can exclude it or
+  bounded exclusion, the F8/F9 falsifiers and the F7 gate, with the MEM-13(6) change-timing Open and
+  the variable wall-clock cadence of the L1-block window added to the register; row 359's "no v1 rule can exclude it or
   re-partition the stuck epoch" is updated for the gated rotation.
 - LIM-01 rows, the rejected-alternatives row ~406 ("Per-validator L1 liveness attestations") and the
   D-16 applied note ~427 are updated to record the revival and the gate.
@@ -817,8 +916,9 @@ the ones that must change:
 - `learn/08-when-things-go-wrong.html` — lines ~133, ~237, ~259, ~442–466: the halt page must teach
   the eligibility-exclusion path, the boundary-halt resume that already benefits, and the gated
   rotation; the "no recovery path" statements stay.
-- `learn/07-timing.html` — lines ~173, ~263, ~280, ~308: add the eligibility delay (commit point →
-  two-epoch lookahead → the epoch it governs) and the rotation's wait when gated/unGated.
+- `learn/07-timing.html` — lines ~173, ~263, ~280, ~308: add the eligibility delay (the derived
+  evaluation instant → two-epoch lookahead → the epoch it governs) and the rotation's wait when
+  gated/unGated. *(F1 realisation: the delay starts from the derived instant, not the commit point.)*
 - `learn/10-economics.html` — lines ~121, ~274: "being in the set is not a duty a validator renews"
   becomes "the L1 liveness duty is what renews selectability; rewards still require a landed
   participation bit, and silence still costs no stake".
@@ -838,9 +938,12 @@ the ones that must change:
   staking contract as a new deployment whose epoch mapping is new-contract state of the class MIG-02
   places outside the frozen Inbox budget. The heartbeat adds, per entry: `heartbeatKey(v)` and its
   rotation block; `lastHeartbeatAt(v)`, `lastHeartbeatWindow(v)`, `lastHeartbeatSeq(v)`
-  (packable into one slot with the timestamp). **No new global state** is needed for the anchor check
-  (`blockhash` is read at submission), and **no Inbox, SignalService, Bridge or vault slot is
-  touched**; no proof public input, journal field or config-hash preimage element is added.
+  (packable into one slot; `lastHeartbeatAt(v)` is an L1 block number, not a timestamp, so the F1
+  realisation changes the record's unit and not the state shape). **No new global state** is needed for
+  the anchor check (`blockhash` is read at submission) and none for the derived instant (it is
+  computed from the activation record, not stored per epoch), and **no Inbox, SignalService, Bridge or
+  vault slot is touched**; no proof public input, journal field or config-hash preimage element is
+  added.
 - **Interface change.** The bonding interface (MEM-03(1)) gains the heartbeat key (or a
   `setHeartbeatKey` call before activation). The migration's interface/churn tables in 08 that
   enumerate what a bonding call carries must include it, and the migration announcement must state
@@ -912,8 +1015,16 @@ the ones that must change:
    gains the anchor pair; if the review prefers to keep `V1` (no released implementation exists),
    nothing else changes.
 8. **Migration runbook.** Whether existing entries must produce a heartbeat before activation at T3
-   (proposed: the key is registered with bonding and the normal window applies from the first commit
-   point after activation; the announcement must say so).
+   (proposed: the key is registered with bonding and the normal window applies from the first set
+   version committed after activation; the announcement must say so).
+9. **A `HEARTBEAT_WINDOW` change landing in flight (MEM-13(6), Open).** Because `I*(e)` is derived at
+   evaluation time, a change to `HEARTBEAT_WINDOW` that lands after the first boundary of the new grid
+   strictly following an active entry's record, and before an append whose epoch's coverable start
+   precedes the change, can exclude that entry from that one version although the cadence of the old
+   grid would have kept it eligible. Falsifier: such a change, at such a block, excluding such an entry
+   from such a version. This is not a reason to write the instant per epoch; closing it would take a
+   registered delay making a new value effective only from a future L1-side epoch boundary, or a
+   per-epoch frozen grid, and neither is registered.
 
 ---
 
@@ -924,20 +1035,25 @@ the ones that must change:
 | MEM-13(1) | ECDSA key at bonding, owner-only forward-only rotation, not a consensus key | Kept, plus: rotation does not reset the eligibility records | Closes the "rotate to refresh freshness" corner |
 | MEM-13(2) | tag, chain id, entry, window, sequence | tag, chain id, entry, window, sequence **+ hbAnchorBlock, hbAnchor**; tag V1 → V2 | Bounds pre-signing (§5); the tag version is part of the domain separation |
 | MEM-13(2a) | key/entry/retired; window current; seq advances; window not recorded; batch atomic | Kept, plus (e) anchor real/past/within `HEARTBEAT_ANCHOR_AGE` | The freshness term, with its own rejection rule |
-| MEM-13(2b) | instant = named window start; monotone; not carrier time | Kept unchanged | The round-6 checked repair is the right one |
+| MEM-13(2b) | instant = named window start; monotone; not carrier time | Kept; the instant is read as the named window's **start L1 block number** | The round-6 repair was right; the grid is measured in L1 blocks (F1 realisation) |
 | MEM-13(2c) | pre-signing "finite and deliberate", horizon = windows signed | Pre-signing bounded to `HEARTBEAT_ANCHOR_AGE` L1 blocks; residual named F9 | The horizon was adversary-chosen |
-| MEM-13(3) | predicate at the commit point; exclusion from root/TotalVP/n | Kept, plus the empty-roster revert rule | `n = 0` is an invalid set; the halt consequence must be explicit |
+| MEM-13(3) | predicate at the commit point; exclusion from root/TotalVP/n | Predicate keyed to the derived instant `I*(e)` on the L1 block-height grid, plus the empty-roster revert rule | The commit's own window is caller-influenced and a past timestamp is unreadable; `n = 0` is an invalid set |
 | MEM-13(4) | no rule removes weight | Kept unchanged | D-14's property |
 | MEM-13(5) | safety per set version; liveness "excluded at the next boundary" | Kept, plus: the claim is about versions committed from then on; exclusion can raise an adversary's share (F8); a stalled committed version is not repaired by this rule | The old claim silently assumed the chain could reach the next boundary |
-| MEM-13(6) | window sizing; `T_ROTATE ≥ HEARTBEAT_WINDOW` | Kept; `HEARTBEAT_ANCHOR_AGE` relation; `T_ROTATE` relation restated; the stale-inference sentence deleted | R6-D12-06 |
-| MEM-13(7) | costs (a)–(e); F8 | Kept; costs (e)/(f) added (all-ineligible append; declared non-fix); F9 added | Honest cost accounting for the new rule |
+| MEM-13(6) | window sizing; `T_ROTATE ≥ HEARTBEAT_WINDOW` | Kept; `HEARTBEAT_ANCHOR_AGE` relation; `T_ROTATE` relation restated; the stale-inference sentence deleted; sizing, change semantics and the change-timing Open stated in L1 blocks | R6-D12-06; F1 realisation |
+| MEM-13(7) | costs (a)–(e); F8 | Kept; costs (e)/(f) added (all-ineligible append; declared non-fix); cost (g) added (the L1-block window's variable wall-clock duration); F9 added | Honest cost accounting for the new rule |
 | CONS-16(1) | trigger + "cohort already ineligible because `T_ROTATE ≥ HEARTBEAT_WINDOW`" | Trigger kept; the inference deleted (exclusion is established at (3)) | R6-D12-06 |
 | CONS-16(2) | invoke/delay/cancel; mutual exclusion with REC-02 | Kept minus REC-02; `T_ROTATE_DELAY` relation registered | R5T-H-1; v1 has no REC-02 |
-| CONS-16(3) | `e_r` = lowest final epoch with `t_root ≥ T_inv` | `e_r` = lowest final epoch with `t_root ≥ (hbWindowOf(T_inv)+2)·W + age` | Excludes a cohort that stopped signing |
+| CONS-16(3) | `e_r` = lowest final epoch with `t_root ≥ T_inv` | `e_r` = lowest final epoch with `w*(e_r) ≥ hbWindowOf(N_inv) + 3` (F1 realisation: on the L1 block-height grid, `N_inv` the invocation block) | Excludes a cohort that stopped signing |
 | CONS-16(4) | boundary amendment, no generation | Kept; `h_close` explicitly named as an L2 fact | Feeds the gate |
 | CONS-16(5) | precondition Open, F7; h_close described as produced-tip | Precondition Open **and** the `h_close` referent missing; hard gate | The preserved text asserted a referent L1 does not have |
 | CONS-16(6)(7) | no discretion; funding Open; not a rollback; not a cure | Kept, with the F8/non-fix restatement | D-14 honest limits |
 | CONS-16(8) | — | New: reads no deferred name; no client-side enforcement | D-16 discipline |
+
+*(F1 realisation, applied after this table was written: the heartbeat window is an interval of L1 block
+numbers, `lastHeartbeatAt(v)` is the start block of the window a signature names, and MEM-13(3)'s
+predicate is keyed to the derived instant `I*(e)` rather than the commit point or `t_root(e)`. The
+rows above read accordingly; the preserved-text column is unchanged.)*
 
 ## Appendix B — Replay and pre-signing vectors against the revived rule
 
