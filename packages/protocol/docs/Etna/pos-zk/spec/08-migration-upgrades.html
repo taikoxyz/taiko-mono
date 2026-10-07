@@ -416,7 +416,7 @@ record MUST NOT be used to restart a withdrawal delay: eligibility already store
 and in <code>_receivedSignals</code> is unchanged (MIG-03(6)).</p>
 <p><strong>The publication record at activation (D-11).</strong> The publication record and its clock
 (MIG-02 slots 275–277) are new state written only by the Etna path: at T3 the contract MUST initialise
-<code>nextSeq = 0</code> and <code>dueHead = dueTail = dueCount = pruneCursor = 0</code> with empty
+<code>nextSeq = 0</code> and <code>pruneCursor = 0</code> — the register's whole mutable clock; no deleted due-queue field is initialised (<em>increment 04 reconciliation: <code>dueHead</code>/<code>dueTail</code>/<code>dueCount</code> are deleted by the revived register shape, see the (277) row</em>) — with empty
 <code>publications</code> and <code>publicationOrder</code> maps, so the
 first post-activation batch faces an <strong>empty register</strong> (the due set is not a v1 object) and no publication can be retroactively
 burdened: a record's proving deadline is fixed at publication from the
