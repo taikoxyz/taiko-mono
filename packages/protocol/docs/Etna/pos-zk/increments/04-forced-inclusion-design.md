@@ -272,13 +272,16 @@ it.
 > **(d)** `c' ≥ c` — the frontier never decreases; and
 > **(e)** the contract MUST reject a view that is not Ethereum-final at landing
 > (`A ≤ block.number − L1_FINALITY_DEPTH`), a view older than the predecessor's recorded
-> `anchoredL1Block`, and a frontier below the predecessor's `settledCount`
+> `anchoredL1Block`, and a view whose age at landing exceeds the registered `FI_ANCHOR_MAX_AGE`
+> (`ForcedViewStale`), MUST reject a frontier below the predecessor's `settledCount`
 > (`ForcedFrontierRegression`), and MUST reject `settledAfter > nextSeq(A)`
 > (`ForcedFrontierBeyondRegister`).
 
 *There is no other clause and no exception. (a) is the binding sentence FI-11 always had in its
 "exclusion deadline" paragraph; the preserved hedge ("unless the window is shorter…") is deleted, and
 with it R6-DPE-01. (b)–(d) are the preserved repairs R5T-PDE-03 and the monotonicity bar.*
+
+*(F1 (review round 5, quotations-and-counts): (e) now carries the registered age check and `ForcedViewStale` the live FI-11(3)(e) states, so the items above are a contiguous substring of the current rule.)*
 
 **(4) The per-block rule — order and non-omission at the transaction's turn, and nothing else.** The
 same predicate is the per-block clause `CONS-01(v)`, and the two checks MUST agree; a disagreement is a
@@ -405,7 +408,122 @@ protocol defect. `CONS-01(v)` reads, in full:
 > this duty reads that state and the same remaining gas, the range's last block's final state
 > included.)*
 
-*(increment 04 consistency repair: the quotation previously stopped at the R4R4-NR-01 note and restated the clause's remaining sentences outside it, so "reads, in full" was false; it now reproduces the specification's CONS-01(v) from its heading to the clause's end, word for word.)*
+*(increment 04 consistency repair: the quotation previously stopped at the R4R4-NR-01 note and restated the clause's remaining sentences outside it, so "reads, in full" was false; it now reproduces the specification's CONS-01(v) from its heading to the clause's end, word for word. F1 (review round 5, quotations-and-counts): the quotation had gone stale with the R4R5-NR-02 no-room-width repair and is re-transcribed from the current `spec/02` CONS-01(v) — stripped of markdown emphasis and tags and whitespace-normalised, the quoted span is 10988 characters, a contiguous substring of the live clause, its heading and review notes included — and the transcription it replaces is kept immediately below, explicitly labelled as history.)*
+
+*(History — F1 (review round 5, quotations-and-counts): the transcription as it stood at the review round 5 snapshot (`5887d600a`, unchanged through `5c90da73c`), before the R4R5-NR-02 no-room-width repair and this correction. It is kept only as the delta's record of the earlier text and is **not** the live clause: its discharge-grounds sentence still read "a turn at which no block of the range at or after it had room to carry the transaction", which the R4R5-NR-02 repair superseded, and it does not carry the clause's current review note. The current transcription is the one under "reads, in full" above. The still earlier round-3/4 body F1's measurement quotes — "at every pre-state of `h`", without the round-4 block-validity order requirement — had already been superseded by the RC-7/RC-8 tail-turn re-pin and the round-5 completion of this quotation; it is recorded in the review-corrections block and in the note above, not reprinted here.)*
+
+> (v) **Forced-data inclusion — the per-block order and non-omission duty, scoped to the
+> transaction's turn.** For every block `h` of the range, at every state `h`'s own execution
+> reaches — every pre-state of `h` and, when `h` is the range's last block, the state its body
+> ends in: if a forced transaction `t` of a record `j` that is due at the batch's anchored view
+> `A`, live at `A`, and not dead at `A` **is at its turn at that state and forceable there** —
+> `t`'s turn is the state FI-13(1)(a) pins by position: the pre-state immediately before `t`'s own
+> position in the executed payload when `t` appears, the pre-state immediately before the record's
+> next transaction in the record's own order that appears in the executed payload when `t` does
+> not appear, and, when no later transaction of the record appears, the state the batch reaches
+> immediately after the record's last earlier transaction that appears in the range has executed —
+> the pre-state of the next transaction the batch executes, or the initial pre-state of the next
+> block of the range when it executes none after it, or, that transaction being the last
+> transaction of the range's last block, the state that block's body ends in, at which that
+> block's own remaining gas is read — so no earlier transaction of the record can execute after
+> the turn and leave `t` judged on a state from before that earlier transaction's effect; and,
+> when no earlier transaction of the record appears either, the pre-state immediately before the
+> last block of the range's body — a state a real block of the range reaches in its own execution,
+> never a state no block of the range reaches; when the record's last transaction appears, the
+> first case applies and its turn is the pre-state immediately before its own position, as before
+> — and `t` has not been executed in an earlier block of the range, then `h`'s body MUST contain
+> `t` before it contains any forced transaction of a record `k > j`, and MUST contain `t` if its
+> remaining gas at that point is at least the gas limit `t` declares. **The duty applies at the
+> transaction's turn and only there**, so it applies to exactly the transactions the proof-side
+> walk of FI-13(1)(a) would execute and **never** to one the walk discharges: at the turn the walk
+> reaches `t` with every earlier transaction of `j` already resolved, its verdict on `t` is
+> *executable* exactly when `t` is forceable there under FI-13(2) and no discharge ground of
+> FI-13(1)(a) holds at that state — the predicate carries the same byte-decidable requirements the
+> void limb enumerates: the intrinsic-gas floor of (2)(ii), the registered fee-cap floor of
+> (2)(vi) — a declared `maxFeePerGas` below `FI_MIN_EXEC_FEE_CAP` is void under (1)(b)(E) — the
+> malformed-fee-market and initcode-cap classes of (2)(vii)–(viii) — a declared
+> `maxPriorityFeePerGas` above the transaction's own `maxFeePerGas`, or a create transaction whose
+> declared initcode exceeds the EIP-3860 cap, is void under (1)(b)(F)–(G) — and signature recovery
+> in (2)(iv), so a transaction this clause demands is one a valid block can carry for a reason the
+> predicate or the enumerated classes (A)–(G) cover — none at all within that enumeration under
+> the Open fee-schedule premise the register records with `FI_MIN_EXEC_FEE_CAP` (the floor is at
+> or above the maximum execution base fee the L2 fee schedule can produce; F-FI-7), with the
+> residual the enumeration does not decide carried Open and falsified by F-FI-8 — while the
+> discharge grounds it inherits from the walk are the nonce, the balance, a sender that has code
+> at that pre-state (EIP-3607), and a turn at which no block of the range at or after it had room
+> to carry the transaction — and *discharged* otherwise, and this clause fires only in the first
+> case. A transaction the walk has discharged at its turn is not demanded here at any later
+> pre-state, even when it has become forceable there, and no transaction of a record resolved
+> **(b) void** is ever demanded, because the walk does not reach it. The per-block duty and the
+> proof-side walk MUST share **one predicate** — a disagreement is a protocol defect — and a duty
+> that demanded a transaction the walk has discharged would be unsatisfiable by construction,
+> because a discharge is fixed by the record's own order and the batch's own execution, never by a
+> block's contents. The **"increasing transaction index"** condition of FI-13(1)(a) governs only
+> the transactions the walk **executes**: a discharged transaction does not appear at all, so it
+> cannot violate that order and no block is ever required to include one. **Order of appearance —
+> the block-validity counterpart.** A block MUST NOT contain a transaction of a forced record once
+> a higher-index transaction of that same record has already appeared in the executed payload of
+> the range: a block whose body contains a transaction of record `j` when a transaction of `j`
+> with a higher index has already appeared earlier in the executed payload of the same range,
+> including earlier positions in the same block, is **invalid**, exactly as a block that had room
+> to carry a transaction this clause demands and omitted it is invalid, so the inclusion order a
+> batch may use is the record's own payload order. The rule and the proof-side condition of
+> FI-13(1)(a) are the two halves of one requirement: FI-13(1)(a) resolves a record only when the
+> appearances it sees are in increasing index order, and this clause makes any block that would
+> present them in any other order un-certifiable, so a batch built by a rule-following producer
+> satisfies the condition the walk checks. The rule is scoped to the record's own transactions and
+> the range's executed payload: it does not forbid a block from carrying a record's transaction
+> whose higher-index record transactions have not appeared yet — the walk resolves those at their
+> own turns — and it does not touch a discharged transaction, which does not appear at all. A
+> transaction that appears out of the record's own order is handled by this block-validity rule —
+> the block is invalid — and never silently by the walk: the discharge grounds of FI-13(1)(a) —
+> the nonce, the balance, a sender with code at that pre-state (EIP-3607) and the mirrored no-room
+> ground — and the tail-turn pin govern only a transaction that does not appear, and the walk MUST
+> NOT read an out-of-order appearance as an execution or resolve it as a discharge. This is a
+> block-validity condition of this clause: a correct validator MUST NOT sign a prevote or a
+> precommit for a block that violates it, exactly as for any other failure of (i)–(viii), and no
+> new slashable offence attaches to it. *(review round 4, R4R4-NR-01: the index-order condition
+> was proof-only, so a producer could include a nonce-descending record's two transactions in the
+> only order they can execute — the higher index first — making the executed payload's indices
+> descend and leaving the position in no mode; the order requirement above is the consensus-side
+> counterpart, and this clause, FI-13(1)(a) and PRF-04(vi) name each other.)* The clause has **no
+> per-block record count, no per-block gas quota and no per-block capacity constant**: the number
+> of records a batch must resolve is FI-12's cap, in **positions per batch**. **A block that can
+> carry forced work and carries none is invalid; a block that cannot is not. **One rule, one
+> predicate, both sides read the same quantity:** a block with room to carry the transaction MUST
+> carry it, and the walk discharges the transaction only when, at its turn, no block of the range
+> at or after the turn had room to carry it — the block's own remaining gas at that turn, the same
+> quantity this clause reads. A transaction the walk so discharges is not demanded here, and a
+> block that had room and omitted it leaves the position unresolved and makes the proof invalid.**
+> The obligation itself is enforced in the proof, never in the admission rules of `land(data,
+> proof)` (FI-11(1), PRF-04(vi)), and **no new slashable offence is created**: a validator that
+> signs a block violating this clause commits no new offence, the forced-inclusion offence rows of
+> ECON-04 stay tombstoned and MUST NOT be implemented, and the rejected proof is the whole
+> enforcement. *(increment 04: the clause is revived as the order-and-non-omission duty, in one
+> unit with FI-12; the per-block count that R6-D12-03 found unpayable is deleted, and no per-block
+> gas floor is added.)* *(review round 3, R4R3-T-01/R4R3-NR-01: the duty is scoped to the
+> transaction's turn, so the per-block check and the proof-side walk are one predicate; the seam
+> that made a nonce-descending record unprovable — a duty demanding a transaction the walk had
+> already discharged — is closed, and the "increasing transaction index" condition constrains only
+> the transactions the walk executes.)* *(review round 4, finding F1: the round-3 intrinsic-gas
+> floor left the fee dimension out, so a low- or zero-cap transaction was demanded while no valid
+> block can carry it — the same settlement-halt class the increment exists to close; the fifth
+> void class of FI-13(1)(b)(E) and the registered floor of FI-13(2)(vi) close it from the record's
+> own bytes, and the agreement stated above now holds for the reasons the predicate or the
+> enumerated classes cover, and unconditionally only under the Open fee-schedule premise F-FI-7.
+> (review round 4, findings S-01 and S-02: this clause's agreement now also carries the
+> byte-decidable fee-order and initcode classes of FI-13(2)(vii)–(viii) and (1)(b)(F)–(G); the
+> walk's discharge ground gains the sender-with-code case (EIP-3607) and the mirrored no-room
+> case, and the tail turn is pinned to a state of a real block of the range, so the duty and the
+> walk read the same turn and the same remaining gas; the enumeration residual is Open with
+> falsifier F-FI-8.)* *(review round 4 follow-up, S-02 edge: the immediately-before-the-last-block
+> form of the tail turn let a producer place an earlier transaction of the record in the last
+> block and have the later omitted transaction judged on the pre-state before that earlier
+> transaction executed — a stale read that discharged it without filling any block, and under
+> which the same-nonce shape made this duty's demand unsatisfiable for that batch; the tail turn
+> is now the state the batch reaches after the record's last earlier appearing transaction, and
+> this duty reads that state and the same remaining gas, the range's last block's final state
+> included.)*
 
 *(This is the
 single-unit restatement R6-D12-03 asked for: the obligation lives at the batch, the ordering lives at
@@ -1026,12 +1144,14 @@ event (§7.1).
 |---|---|---|---|
 | **F-FI-1** | A registration or fork that breaks `FI_MAX_PER_BATCH × FI_MAX_TX_PER_RECORD × FI_RECORD_GAS_MAX ≤ MAX_BATCH_BLOCKS × L2_BLOCK_GAS_LIMIT`, **or** an L2 gas-limit schedule under which a `MAX_BATCH_BLOCKS`-block batch whose headers each carry at least `L2_BLOCK_GAS_LIMIT` gas cannot be produced, makes FI-12(5)(ii) false and can re-open a halt. | Open (carried) | A registered rule that constrains the L2 gas-limit schedule constructively (not merely committing the value), or a consensus-enforced per-block floor on header gas limits. Neither exists; the relation is a value constraint, and the schedule premise is an assumption this specification states rather than maintains. |
 | **F-FI-2** | The bound on **time**, not on work: if the arrival rate of livable records permanently exceeds `FI_MAX_PER_BATCH` per accepted batch, the queue grows without bound and the wait of a given record grows without bound. The mechanism does not halt, but the deadline is then an exit, not a latency guarantee. | **Open — NOT fixed by this increment** | A bounded arrival rate or a bounded live-register depth. §9.1 specifies the candidate (a per-publisher live-record bound) and recommends it to the review round; it is not adopted here because it is a publication-time admission condition not in D-12's scope, and because "the user publishes first" is a partial counter (§6.3). |
-| **F-FI-3** | A transaction discharged at its turn may become executable later through the sender's own further signed transactions — the sender tops up, or a later nonce reaches it; the sender's own competing transaction can consume the nonce first — or through a credit from any account, ordered by anyone: only the nonce is producer-immovable, while the balance can be moved by anyone, the producer included, and the credit's position relative to the turn decides the outcome — a credit landing before the turn makes a transaction that is unaffordable there without it forceable and it must execute, while a credit landing after the turn cannot rescue it and it is discharged as unaffordable at its turn; a credit can only ever enable a transaction, never discharge one. Remedy for a record whose transactions were discharged is re-publication; the discharge itself is objective and irreversible for that record. *(R4R3-T-02: the sender-only form was incomplete — a third-party credit is a second route, the discharge is judged at the turn FI-13(1)(a) pins by position, and the credit-ordering edge is the disclosed residual F-FI-3, not a new ground and not a producer-manufactured discharge for someone else's transaction.)* | Open (carried, sharpened) | Nothing in-protocol; this is the disclosed price of an objective discharge ground. A predicate that could "un-discharge" a position would need a mutable status, which R5T-PDE-10 and FI-10(2) forbid, and a producer could never be given the power to revive an obligation the sender's own state discharged. |
-| **F-FI-4** | **New.** A record whose deadline passes before the frontier reaches it is discharged by expiry, not included: a settlement stall longer than `T_PROVE_DEADLINE`, or a queue that drains slower than records age, means a user can pay one L1 publication per deadline window and still never be included while the chain runs. Expiry is a *discharge*, not a guarantee. | Open (new) | A longer `T_PROVE_DEADLINE` (bounded above by blob retrievability, DA-05) or a faster pipeline; both are Phase B measurements, not rule changes. This is the honest consequence of blocker 4: the expiry ground that makes a dead record deterministically dischargeable is the same ground that lets a stale record be discharged without inclusion. |
-| **F-FI-5** | **New.** The guarantee is conditional on a non-censoring L1 and on at least one honest or rational batch producer: a censor that can front-run a user's publication with its own records, or that is the only producer, reduces the obligation to "the frontier may not advance". This increment bounds exclusion against a *producer* that must land batches, not against an L1-level adversary (`A-L1-1`). | Open (new) | Nothing in-protocol; this is the disclosed boundary of the narrowed R10 form (Fi-REMOVED-01(b)) and the same assumption LIVE-04 already owns. |
-| **F-FI-6** | **New.** A certified range whose landing is delayed past `FI_ANCHOR_MAX_AGE` (and past blob retrievability) is permanently unacceptable outside the sanctioned stall resolution. Bound (i) of FI-11(7) makes this impossible inside the registered envelope; the residual is deliberate delay past both registered bounds. | Open (new) | The three candidate repairs in §9.2; the recommended one is the registered relation of FI-11(7)(i), which is what this delta writes. A consensus anchor-freshness duty would close it more strongly and is left to the review round. |
+| **F-FI-3** | A transaction discharged at its turn may become executable later through the sender's own further signed transactions — the sender tops up, or a later nonce reaches it; the sender's own competing transaction can consume the nonce first — or through a credit from any account, ordered by anyone: only the nonce is producer-immovable, while the balance can be moved by anyone, the producer included, and the credit's position relative to the turn decides the outcome — a credit landing before the turn makes a transaction that is unaffordable there without it forceable and it must execute, while a credit landing after the turn cannot rescue it and it is discharged as unaffordable at its turn; a credit can only ever enable a transaction, never discharge one. Remedy for a record whose transactions were discharged is re-publication; the discharge itself is objective and irreversible for that record. *(R4R3-T-02: the sender-only form was incomplete — a third-party credit is a second route, the discharge is judged at the turn FI-13(1)(a) pins by position, and the credit-ordering edge is the disclosed residual F-FI-3, not a new ground and not a producer-manufactured discharge for someone else's transaction.)* | Disclosed residual (carried, sharpened) | Nothing in-protocol; this is the disclosed price of an objective discharge ground. A predicate that could "un-discharge" a position would need a mutable status, which R5T-PDE-10 and FI-10(2) forbid, and a producer could never be given the power to revive an obligation the sender's own state discharged. |
+| **F-FI-4** | **New.** A record whose deadline passes before the frontier reaches it is discharged by expiry, not included: a settlement stall longer than `T_PROVE_DEADLINE`, or a queue that drains slower than records age, means a user can pay one L1 publication per deadline window and still never be included while the chain runs. Expiry is a *discharge*, not a guarantee. | Disclosed property (new) — a designed discharge, not a defect | A longer `T_PROVE_DEADLINE` (bounded above by blob retrievability, DA-05) or a faster pipeline; both are Phase B measurements, not rule changes. This is the honest consequence of blocker 4: the expiry ground that makes a dead record deterministically dischargeable is the same ground that lets a stale record be discharged without inclusion. |
+| **F-FI-5** | **New.** The guarantee is conditional on a non-censoring L1 and on at least one honest or rational batch producer: a censor that can front-run a user's publication with its own records, or that is the only producer, reduces the obligation to "the frontier may not advance". This increment bounds exclusion against a *producer* that must land batches, not against an L1-level adversary (`A-L1-1`). | Disclosed condition (new) | Nothing in-protocol; this is the disclosed boundary of the narrowed R10 form (Fi-REMOVED-01(b)) and the same assumption LIVE-04 already owns. |
+| **F-FI-6** | **New.** A certified range whose landing is delayed past `FI_ANCHOR_MAX_AGE` (and past blob retrievability) is permanently unacceptable outside the sanctioned stall resolution. Bound (i) of FI-11(7) makes this impossible inside the registered envelope; the residual is deliberate delay past both registered bounds. | Disclosed residual (new) — closed inside the registered envelope by FI-11(7)(i)'s relations | The three candidate repairs in §9.2; the recommended one is the registered relation of FI-11(7)(i), which is what this delta writes. A consensus anchor-freshness duty would close it more strongly and is left to the review round. |
 | **F-FI-7** | **New (review round 4, finding F1; RC-6).** The registered fee floor's schedule premise: `FI_MIN_EXEC_FEE_CAP` is at or above the maximum execution base fee the L2 fee schedule can produce in any window, and no registered rule maintains that. A schedule that can exceed the floor makes a transaction the predicate calls forceable — and the per-block duty demands — one no valid block can carry: the record is live, none of the byte classes' complement applies, every proof in `[c, c + R)` is rejected, and settlement freezes until the record dies, one permissionless publication per `T_PROVE_DEADLINE`. | Open (new premise) | A registered rule that constrains the L2 fee schedule (not merely reading its value), or a schedule bound demonstrated at or below the floor. The floor itself closes only the classes the predicate can decide from the record's bytes; as with the capacity relation's gas-schedule premise (F-FI-1), this one is stated rather than maintained. |
 | **F-FI-8** | **New (review round 4, finding S-01; RC-7).** The **enumeration residual**: a transaction that FI-13(2) calls forceable at its turn and that no discharge ground of FI-13(1)(a) covers, yet that no valid block of the range can carry for a reason outside the classes (A)–(G) and outside the turn pre-state this rule fixes. The class list is the exhaustive set this specification enumerates; an execution-validity rule it does not enumerate is a counterexample to any claim stronger than the enumeration. | Open (new) | A further byte-decidable class, a pre-state-decidable discharge ground, or an argument that no such rule exists for the L2's Ethereum-equivalent execution; the rule states the boundary instead of re-asserting a universal claim. |
+
+*Statuses apply LIM-01's convention (`spec/10-assurance.html`): F-FI-1, F-FI-2, F-FI-7 and F-FI-8 are Open; F-FI-3, F-FI-4, F-FI-5 and F-FI-6 are disclosed limits or conditions, not Opens. This closes the Open-set split in this table.*
 
 ### 6.2 Costs and honest accounting
 
@@ -1200,7 +1320,7 @@ anchors refer to the converged snapshot this delta was written against.
 ### 7.6 `spec/10-assurance.html`, `spec/07-economics-slashing.html`, `spec/01-system-model.html`, `spec/08-migration-upgrades.html`
 
 - `10-assurance.html` (~L260, ~L358, ~L394, ~L420): the censorship row and the rejected-alternatives row
-  move from "no inclusion obligation" to the revived obligation with its falsifiers (F-FI-1…F-FI-8: RC-6 adds F-FI-7, the fee floor's Open schedule premise, and RC-7 adds F-FI-8, the enumeration residual, with F-FI-2, F-FI-4, F-FI-7 and F-FI-8 carried Open — owed to spec/10's LIVE-04/LIM-01 rows by the owner of those files; *(R4R5-NR-01: the set runs to F-FI-8 and the open list is F-FI-2, F-FI-4, F-FI-7 and F-FI-8)*) and
+  move from "no inclusion obligation" to the revived obligation with its falsifiers (F-FI-1…F-FI-8: RC-6 adds F-FI-7, the fee floor's Open schedule premise, and RC-7 adds F-FI-8, the enumeration residual, with F-FI-1, F-FI-2, F-FI-7 and F-FI-8 carried Open and F-FI-3, F-FI-4, F-FI-5 and F-FI-6 disclosed rather than Open — owed to spec/10's LIVE-04/LIM-01 rows by the owner of those files; *(R4R5-NR-01: the set runs to F-FI-8. Open-set split applied here: F-FI-4 is a disclosed property — expiry is the design's discharge — and the Open set is F-FI-1, F-FI-2, F-FI-7 and F-FI-8. This closes the Open-set split in the change map.)* and
   the narrowed disclosure; `LIVE-04`'s statement gains the distinction between the published case
   (this rule) and the unpublished case (proposer rotation only).
 - `07-economics-slashing.html` (~L489, ~L526–551, ~L1110): **no forced-inclusion offence row is
@@ -1702,8 +1822,10 @@ The S-02 repair (RC-7(b)) pinned the turn of a transaction that does not appear 
 
 **The superseded forms MUST NOT be restored.** A tail turn at "the end of the batch's execution"; a tail turn at the pre-state immediately before the last block of the range's body, on which an earlier transaction of the record that is placed in that block has not yet executed (RC-8); a duty that compels a transaction no block of the range at or after its turn had room for; a walk that demands a transaction the per-block duty excuses; an unqualified "no valid block can carry" claim; a predicate or void list without the fee-order and initcode classes; a discharge ground read from the live base fee; and a record object that is not DA-07(1)'s PRF-07(0) payload; and an index-order condition that is proof-only, or a consensus rule that leaves the inclusion order of a record's transactions to the producer — the block-validity order requirement of `CONS-01(v)`/FI-11(4) is what closes the inclusion-side halt (R4R4-NR-01).
 
+**F1 (review round 5, quotations-and-counts) — the FI-11(4) transcription of `CONS-01(v)` is re-transcribed, and the copy it replaces is kept as history.** The quotation under "reads, in full" had gone stale with the R4R5-NR-02 no-room-width repair; it now reproduces the current `spec/02` `CONS-01(v)` from its heading to the clause's end, word for word — stripped of markdown emphasis and tags and whitespace-normalised, 10988 characters, a contiguous substring of the live clause — and the transcription it replaces is kept immediately below it, explicitly labelled as the text as it stood at the review round 5 snapshot (`5887d600a`). The still earlier round-3/4 body F1's measurement quotes ("at every pre-state of `h`", without the round-4 block-validity order requirement) had already been superseded by the RC-7/RC-8 tail-turn re-pin; it is recorded in the repair note and RC-5 addendum 2 and is not reprinted. The same normalised check closed one further drift in §2's rule text: FI-11(3)(e) now carries the registered age check and `ForcedViewStale` the live clause states, so FI-11(3)'s items are 994 characters and a contiguous substring of the live rule.
+
 *Owner decisions 1–6 above are unchanged by these corrections; RC-1 … RC-4 reconcile the delta's clause
 text with the ratified, implemented rules and 09's register row, and RC-5 is the design owner's ruling
 on review round 1's Critical R4R1-M-01: it corrects §2's FI-13 text in place, so a later reader cannot
 restore the record-level ground, the old F-FI-3 wording, or the superseded mode-precedence forms its
-addendum names; RC-6 is the design owner's ruling on review round 4's Critical F1 (the fee seam): it extends §2's FI-13 text in place with the fifth byte class of (1)(b)(E) and the predicate floor of (2)(vi), registers the fee floor's Open premise F-FI-7, and qualifies the 'no valid block can carry' claims to the reasons the predicate or the classes cover. RC-7 is the design owner's ruling on review round 4's mechanism findings S-01, S-02 and S-03: it adds the byte-decidable fee-order and initcode classes (1)(b)(F)–(G)/(2)(vii)–(viii) to the predicate and the void limb, puts EIP-3607 and the mirrored no-room escape in the discharge ground of (1)(a), pins the tail turn immediately before the last block of the range's body, and pins the record's object and framing in DA-07(1); **RC-8** subsequently supersedes that tail pin with the state the batch reaches after the record's last earlier appearing transaction, because a sibling placed in the last block left the later transaction judged on a pre-state from before the sibling executed (the S-02 edge). RC-5 addendum 2's closure argument is corrected in place (review round 4, R4R4-NR-01): it assumed the batch contains only the transactions the walk executes, and the block-validity order requirement of `CONS-01(v)`/FI-11(4) now enforces that assumption, so including a nonce-descending record's transactions in their only executable order makes the block invalid instead of the range unprovable. A later reader MUST NOT restore a predicate or void list without the fee-cap floor, an unqualified 'no valid block can carry' claim, a discharge ground read from the live base fee, or any superseded form RC-7 or RC-8 names.*
+addendum names; RC-6 is the design owner's ruling on review round 4's Critical F1 (the fee seam): it extends §2's FI-13 text in place with the fifth byte class of (1)(b)(E) and the predicate floor of (2)(vi), registers the fee floor's Open premise F-FI-7, and qualifies the 'no valid block can carry' claims to the reasons the predicate or the classes cover. RC-7 is the design owner's ruling on review round 4's mechanism findings S-01, S-02 and S-03: it adds the byte-decidable fee-order and initcode classes (1)(b)(F)–(G)/(2)(vii)–(viii) to the predicate and the void limb, puts EIP-3607 and the mirrored no-room escape in the discharge ground of (1)(a), pins the tail turn immediately before the last block of the range's body, and pins the record's object and framing in DA-07(1); **RC-8** subsequently supersedes that tail pin with the state the batch reaches after the record's last earlier appearing transaction, because a sibling placed in the last block left the later transaction judged on a pre-state from before the sibling executed (the S-02 edge). RC-5 addendum 2's closure argument is corrected in place (review round 4, R4R4-NR-01): it assumed the batch contains only the transactions the walk executes, and the block-validity order requirement of `CONS-01(v)`/FI-11(4) now enforces that assumption, so including a nonce-descending record's transactions in their only executable order makes the block invalid instead of the range unprovable. A later reader MUST NOT restore a predicate or void list without the fee-cap floor, an unqualified 'no valid block can carry' claim, a discharge ground read from the live base fee, or any superseded form RC-7 or RC-8 names. F1 (review round 5, quotations-and-counts) re-transcribes the §2 `CONS-01(v)` quotation from the current clause and keeps the copy it replaces as labelled history.*
