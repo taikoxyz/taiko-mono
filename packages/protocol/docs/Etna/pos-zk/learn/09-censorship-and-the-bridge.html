@@ -120,7 +120,9 @@ proof checks it. The record is the forced-data record; there is no flag, no escr
 unpublished transaction into L2.</li>
 <li>The per-block duty is order and non-omission only: a block never takes a later record&rsquo;s forced
 transaction ahead of an earlier one, and must carry a forceable forced transaction when its own remaining
-gas covers it. There is no per-block count and no per-block gas quota, and no new slashable offence: the
+gas covers it. The duty is scoped to the transaction&rsquo;s turn: the no-room set-aside turns on the remaining
+gas, at that turn, of the block in which the turn lies, and a later block&rsquo;s room neither rescues nor
+condemns a transaction whose turn has passed. There is no per-block count and no per-block gas quota, and no new slashable offence: the
 rejected proof is the whole enforcement (CONS-01(v), CONS-06).</li>
 <li>Proposer selection is weighted by committed stake and is a pure public function, so a coalition
 holding less than one third of the voting power proposes fewer than one third of slots in expectation

@@ -107,13 +107,15 @@ in a bounded number of batches, and no published record can pin the frontier.</p
 A transaction runs at its turn only if the record&rsquo;s published byte string is within its registered
 bounds, the chain id matches, its declared nonce is the sender&rsquo;s nonce at that point, the
 sender&rsquo;s balance there covers the transaction&rsquo;s <em>own declared maximum charge</em> &mdash;
-gas limit &times; max fee per gas + value &mdash; the sender has no code there, and a block of the range at
-or after the turn has room to carry it. It is set aside at its turn on any of four grounds: the nonce is not
+gas limit &times; max fee per gas + value &mdash; the sender has no code there, and the block in which the
+turn lies has room to carry it. It is set aside at its turn on any of four grounds: the nonce is not
 the sender&rsquo;s there; the balance is below that charge; the sender has code there, so no valid block may
-execute a transaction from it; or no block of the range at or after the turn had room &mdash; the remaining
-gas at that turn is below the gas limit the transaction declares, the same remaining gas the per-block duty
-reads, so a block that had room and omitted it leaves the position unresolved. The including block&rsquo;s base
-fee and gas limit are not inputs; the room ground reads only the block&rsquo;s remaining gas at the turn. Execution follows the record&rsquo;s own order: a producer cannot insert a transaction
+execute a transaction from it; or the block in which the turn lies had no room &mdash; the remaining
+gas, at that turn, of that block is below the gas limit the transaction declares, the same remaining gas
+the per-block duty reads, so a block that had room and omitted it leaves the position unresolved. A later
+block&rsquo;s room neither rescues nor condemns a transaction whose turn has passed: the duty is scoped to
+the turn, and the walk reads the same turn. The base fee and gas limit of the block at the turn are not
+inputs; the room ground reads only that block&rsquo;s remaining gas at the turn. Execution follows the record&rsquo;s own order: a producer cannot insert a transaction
 into the record, reorder its transactions or drop one from the walk, and it cannot alter the
 record&rsquo;s own bytes. What a producer does set is the batch&rsquo;s own executed state, and so the
 pre-state each turn is judged against: a third-party credit placed <em>before</em> a turn can make a
@@ -360,7 +362,8 @@ transaction that can never run from the record&rsquo;s own bytes, or if every on
 aside at its turn. Only then does the walk run, reading the record&rsquo;s transactions in the record&rsquo;s
 own order: each one either runs or is set aside at its turn &mdash; its declared nonce is not the
 account&rsquo;s nonce at that point, or the account cannot pay the transaction&rsquo;s own declared maximum
-charge, or the account has code there, or no block of the range at or after that turn had room to carry it
+charge, or the account has code there, or the block in which that turn lies had no room to carry it
+(a later block&rsquo;s room neither rescues nor condemns a transaction whose turn has passed)
 &mdash; and at least one runs, so the record resolves as executed with each set-aside transaction
 discharged. There is no other answer, and the frontier cannot pass a position that is none of the three.</p></details>
 <details><summary>Can a producer make a due record void by filling blocks and pushing the base fee above the record&rsquo;s max fee per gas?</summary>
@@ -383,8 +386,8 @@ set aside.</p></details>
 <details><summary>A record holds two transactions: one that can run at its turn and one whose declared nonce is unreachable. Does the position resolve?</summary>
 <p>Yes. The walk runs the first in the record&rsquo;s own order and sets the second aside, because at its turn
 its nonce is not the account&rsquo;s nonce there. The same turn reads the other three set-aside grounds &mdash;
-a balance below the charge the transaction declares, a sender that has code, and no room in any block of the
-range at or after the turn &mdash; and any one of them would set a transaction aside in the same way. At least
+a balance below the charge the transaction declares, a sender that has code, and no room in the block in
+which the turn lies &mdash; and any one of them would set a transaction aside in the same way. At least
 one transaction runs, so the record resolves as executed, and the transaction set aside is discharged. The
 position is not left unresolved waiting for a mode that fits the whole record.</p></details>
 <details><summary>A censor refuses to include the record at the front of the queue. What happens?</summary>

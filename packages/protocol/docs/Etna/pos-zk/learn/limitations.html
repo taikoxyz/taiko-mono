@@ -195,7 +195,9 @@ breaching.</p>
 point, a batch that lands must advance a settlement frontier past it by resolving the record &mdash; dead first and unconditionally, when the record&rsquo;s own deadline
 has passed at the anchored view, decided from its own stored block number; otherwise, while the
 record is live, the walk reads its transactions in the record&rsquo;s own order, each one either
-runs or is set aside at its turn because it cannot run there, and a live record all of whose
+runs or is set aside at its turn because it cannot run there (the no-room ground turns on the remaining
+gas, at that turn, of the block in which the turn lies, and a later block&rsquo;s room neither rescues nor
+condemns a transaction whose turn has passed), and a live record all of whose
 transactions are set aside is void
 (<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>&ndash;<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>,
 <a href="11-forced-inclusion.html">lesson 11</a>). It is not a per-transaction latency guarantee: a transaction set aside may
