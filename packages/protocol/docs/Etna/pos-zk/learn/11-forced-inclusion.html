@@ -59,34 +59,54 @@ passes (<a href="../spec/04-l1-integration.html#FI-11">FI-11</a>,
 proof that does not satisfy the obligation simply does not verify
 (<a href="../spec/04-l1-integration.html#L1-04">L1-04</a>).</p>
 <p><strong>A published record cannot be quietly passed over.</strong> While it is live, no batch that lands
-may advance the settlement frontier beyond it: the producer must execute it, prove it void under the
-objective predicate, or stop settling. That is the whole force of the obligation &mdash; and it is why the
-honest statement is about the censor&rsquo;s cost, not the user&rsquo;s wait: the record can still end as dead,
-discharged by its own deadline rather than included.</p>
+may advance the settlement frontier beyond it: the proof must resolve the record &mdash; transaction by
+transaction, in the record&rsquo;s own order, each one either run or set aside at its turn &mdash; or the
+batch does not settle. That is the whole force of the obligation &mdash; and it is why the honest statement
+is about the censor&rsquo;s cost, not the user&rsquo;s wait: the record can still end as dead, discharged by
+its own deadline rather than included. <em>(R4R1-M-01: the walk resolves the record&rsquo;s own
+transactions.)</em></p>
 <p>A record is resolved in exactly one of three ways, and no party chooses which
-(<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>):</p>
+(<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>). Resolution walks the record&rsquo;s transactions
+in the record&rsquo;s own order, and each transaction either runs or is set aside at its turn.
+<em>(R4R1-M-01: the ground is per transaction, not per record.)</em></p>
 <ul>
-<li><strong>Executed</strong> &mdash; all of the record&rsquo;s transactions appear in the batch&rsquo;s
-executed payload, each exactly once, in order.</li>
-<li><strong>Void</strong> &mdash; the record cannot be executed because of what it <em>is</em>: it is over a
-registered bound, or none of its transactions is <em>forceable</em> at any pre-state of the batch.</li>
+<li><strong>Executed</strong> &mdash; the record is live, and walking its transactions in the record&rsquo;s
+own order, each one runs or is set aside at its turn, with at least one running. Every transaction that runs
+appears in the batch&rsquo;s executed payload exactly once, in that order; each one set aside is void
+individually and may be re-published.</li>
+<li><strong>Void</strong> &mdash; the record is over a registered bound, or it is live and every one of its
+transactions is set aside at its turn, so none of them runs.</li>
 <li><strong>Dead</strong> &mdash; the record&rsquo;s own deadline has passed at the batch&rsquo;s anchored L1
 view: its stored block number plus the registered <code>T_PROVE_DEADLINE</code> is at or below that view.
 Dead takes one stored number and nothing else: no bytes, no blobs, no execution and no L1 call.</li>
 </ul>
-<p><strong>Void is a property of the record&rsquo;s bytes, not of the block it met.</strong> A transaction is
-forceable only if the record&rsquo;s published byte string is within its registered bounds, the chain id
-matches, the sender&rsquo;s nonce matches, and the sender&rsquo;s balance covers the transaction&rsquo;s
-<em>own declared maximum charge</em> &mdash; gas limit &times; max fee per gas + value. The including
-block&rsquo;s base fee, its gas limit, its remaining room and the producer&rsquo;s ordering are not inputs. A
-producer cannot make a due record void by filling blocks or by moving the base fee, and a record that is
-genuinely non-forceable stays void in every batch and at every view
-(<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>(2)).</p>
+<p><strong>Every position settles, whatever mix the record holds.</strong> A proof is accepted only when
+every position in its required window is resolved, so a rule that could not settle <em>some</em> record would
+let one publication stall the chain: the frontier could not pass that position, and no later batch could
+settle either. The walk closes that hole. Because each transaction is dealt with at its turn, a record with
+one transaction that can run and one that cannot still resolves &mdash; the runnable one runs, the other is
+set aside &mdash; and a record whose remaining transactions cannot run is fully set aside by that outcome
+rather than left standing. Every live position therefore resolves in a bounded number of batches, and no
+published record can pin the frontier. <em>(R4R1-M-01: the per-transaction walk makes every position
+settle.)</em></p>
+<p><strong>Setting a transaction aside is a property of the turn it reaches, not of the block it met.</strong>
+A transaction runs at its turn only if the record&rsquo;s published byte string is within its registered
+bounds, the chain id matches, its declared nonce is the sender&rsquo;s nonce at that point, and the
+sender&rsquo;s free balance there covers the transaction&rsquo;s <em>own declared maximum charge</em> &mdash;
+gas limit &times; max fee per gas + value. The including block&rsquo;s base fee, its gas limit, its remaining
+room and the producer&rsquo;s ordering are not inputs. Execution follows the record&rsquo;s own order, and the
+only things that move an account&rsquo;s nonce or free balance are that account&rsquo;s own signed
+transactions, so a producer cannot manufacture a set-aside ground for someone else&rsquo;s transaction: one
+that can run at its turn must run, and one that genuinely cannot run at its turn is set aside in every batch
+and at every view (<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>(2)&ndash;(3)).
+<em>(R4R1-M-01: the walk reads the sender&rsquo;s own state, never the producer&rsquo;s environment.)</em></p>
 <p><strong>No new slashable offence.</strong> A validator that signs a block violating the per-block duty
 gains no new offence and is not slashed for it: the proof is rejected, and that rejection is the whole
 enforcement. There is no fee, escrow, bond or refund either; a forced transaction pays its own L2 gas if it
-executes, and after a void or an expired record the user&rsquo;s remedy is permissionless re-publication,
-which creates a new record with a fresh clock.</p>
+runs, a transaction set aside at its turn may become runnable later through the sender&rsquo;s own further
+signed transactions, and in either case the remedy is permissionless re-publication, which creates a new
+record with a fresh clock. <em>(R4R1-M-01: setting a transaction aside is not a cancellation, and
+re-publication is the exit.)</em></p>
 <p><strong>The exit never reads it.</strong> No forced-inclusion condition attaches to a withdrawal root, to
 its attestations, to the withdrawal veto or to a user&rsquo;s eligibility to withdraw; nothing on that path
 reads the register, the settlement frontier or the boundary commitment. The register is a settlement-side
@@ -140,7 +160,7 @@ three ways.</figcaption>
 <tr><td>Settlement frontier <code>c</code></td><td>The predecessor checkpoint&rsquo;s own recorded settled count.</td><td>The proof starts exactly where the last accepted batch stopped, not where a submitter says it did.</td></tr>
 <tr><td>Due frontier <code>d(A)</code></td><td>The number of records whose due point has passed at <code>A</code>, recomputed over the anchored register state by a bounded binary search.</td><td>The required work is counted in one unit: register positions per batch.</td></tr>
 <tr><td>The advance</td><td><code>c&prime; &ge; min(d(A), c + FI_MAX_PER_BATCH)</code>, <code>c&prime; &le; nextSeq(A)</code> and <code>c&prime; &ge; c</code>.</td><td>The lower bound is unconditional &mdash; no exception waives it &mdash; and the frontier never decreases and never passes the register.</td></tr>
-<tr><td>The walk</td><td>Every position in <code>[c, c&prime;)</code> is resolved &mdash; executed, void or dead &mdash; and every position in that range holds a record at <code>A</code>.</td><td>A live, forceable record cannot be skipped, and a hole in the register makes the proof invalid.</td></tr>
+<tr><td>The walk</td><td>Every position in <code>[c, c&prime;)</code> is resolved &mdash; executed, void or dead &mdash; by walking its record&rsquo;s transactions in the record&rsquo;s own order, each one run or set aside at its turn, and every position in that range holds a record at <code>A</code>. <em>(R4R1-M-01: resolution is per transaction, in the record&rsquo;s order.)</em></td><td>A live record with a transaction that can run at its turn cannot be skipped, and a hole in the register makes the proof invalid.</td></tr>
 <tr><td>Capacity</td><td>With an outstanding obligation the batch&rsquo;s own header gas must cover the work, and the required window cannot collapse to zero: the registered floor <code>FI_MIN_DRAIN</code> (<code>1 &le; FI_MIN_DRAIN &le; FI_MAX_PER_BATCH</code>) makes <code>R = 0</code> impossible.</td><td>The cap is part of proof validity, not an admission rule, and it cannot be chosen down to zero by taking a one-block batch.</td></tr>
 <tr><td>The per-block duty</td><td>Order and non-omission only (<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>(v)): a block never executes a later record&rsquo;s forced transaction ahead of an earlier one, and must carry a forceable forced transaction when its own remaining gas covers the gas that transaction declares.</td><td>There is no per-block count and no per-block gas quota, so no registered value is used in two units and no block is asked for more than it can hold.</td></tr>
 <tr><td>The commitment</td><td>One <code>forcedBoundary</code> value in the proof&rsquo;s journal, recomputed by the guest and required to match.</td><td>The L1-derived view reaches the proof as a single commitment, never as a submitter-supplied frontier or due list.</td></tr>
@@ -167,7 +187,7 @@ time.</p>
 <table>
 <thead><tr><th>If you expect&hellip;</th><th>What actually happens</th></tr></thead>
 <tbody>
-<tr><td>A published record is included by some deadline.</td><td>No. A record can be discharged without being executed &mdash; as void, or as dead once its own deadline passes. Expiry is a discharge, not an inclusion.</td></tr>
+<tr><td>A published record is included by some deadline.</td><td>No. A record can be discharged without being executed &mdash; as void, when every one of its transactions is set aside at its turn, or as dead once its own deadline passes. Expiry is a discharge, not an inclusion, and a transaction set aside is not cancelled: it may become runnable later through the sender&rsquo;s own further transactions, and re-publication is the remedy. <em>(R4R1-M-01: the walk settles each transaction at its turn.)</em></td></tr>
 <tr><td>A censor that refuses the front record keeps censoring.</td><td>It halts its own settlement. The frontier cannot skip an outstanding live record, so no later range settles while that record stands. That is a real cost to the censor, but it is a halt of the honest pipeline, not a fee paid to the censored user.</td></tr>
 <tr><td>Re-publication defeats a publishing censor.</td><td>It costs the censor roughly one L1 publication per deadline window to keep a target behind its own records. That is the bound: exclusion per unit of L1 spending, not per unit of time.</td></tr>
 <tr><td>Data that never reaches L1 can be forced.</td><td>No. The obligation begins at publication. An adversary that censors the publication transaction, or isolates the user from every honest producer, can keep the record from existing at all &mdash; and the same adversary can prevent the user from starting a withdrawal, which is an L2 transaction.</td></tr>
@@ -185,9 +205,12 @@ bound on time, not on work: if the arrival rate of livable records permanently e
 obligation forces, waits grow without bound. The mechanism still does not halt, but the deadline is then an
 exit, not a latency guarantee. No bound on who may publish is imposed: that would be a publish-time admission
 condition, and any account must be able to publish.</li>
-<li><strong>F-FI-3 &mdash; void now, forceable later.</strong> A record voided because no transaction was
-forceable in this batch may become forceable later. The void outcome is objective and final for that record;
-the remedy is re-publication, because a predicate that could un-void it would need a mutable status field.</li>
+<li><strong>F-FI-3 &mdash; set aside now, runnable later.</strong> A transaction set aside at its turn may
+become runnable later, but only through the sender&rsquo;s own further signed transactions: they can move the
+account&rsquo;s nonce or spend its free balance, and nothing a producer sets can. The outcome is objective and
+final for the batch that resolves the position, and the remedy for a record whose transactions were set aside
+is re-publication; a predicate that could reopen the position would need a mutable status field.
+<em>(R4R1-M-01: the discharge ground reads only the sender&rsquo;s own state.)</em></li>
 <li><strong>F-FI-4 &mdash; expiry outruns the frontier.</strong> A settlement stall longer than the
 record&rsquo;s deadline, or a queue that drains more slowly than records age, discharges a record by expiry
 rather than including it. Expiry is a discharge, not a guarantee.</li>
@@ -201,23 +224,29 @@ residual stays disclosed.</li>
 
 <h2>Worked example &mdash; walking the frontier</h2>
 <p>The counts below are symbols, not values: every <code>FI_*</code> quantity is
-<span class="tag">unmeasured</span>. The walk is what matters.</p>
+<span class="tag">unmeasured</span>. The walk is what matters, and it is per transaction: the record&rsquo;s
+transactions are read in the record&rsquo;s own order, and each one either runs or is set aside at its turn.
+<em>(R4R1-M-01: resolution is a per-transaction walk.)</em></p>
 <table>
 <thead><tr><th>The proof reaches position&hellip;</th><th>What it finds there</th><th>What it may do</th></tr></thead>
 <tbody>
 <tr><td>a position below <code>c</code></td><td>Already settled: executed or void in the batch that carried the frontier past it, or dead when it was discharged.</td><td>Nothing; the walk starts at <code>c</code>, and pruning may have deleted the slot entirely.</td></tr>
-<tr><td>an outstanding position whose record is live and forceable</td><td>The record&rsquo;s transactions exist and can execute in this batch.</td><td>Execute all of them, in order; nothing else resolves this position.</td></tr>
-<tr><td>an outstanding position whose record cannot be executed</td><td>Over a registered bound, or no transaction forceable at any pre-state of the batch.</td><td>Record it void and move on. No re-supply of its bytes is required, and the published bytes stay on L1.</td></tr>
+<tr><td>an outstanding position whose record is live</td><td>The walk reads its transactions in the record&rsquo;s own order: each one can run at its turn, or cannot and is set aside there &mdash; its declared nonce is not the account&rsquo;s nonce at that point, or the account&rsquo;s free balance there is below gas limit &times; max fee per gas + value.</td><td>Run each transaction that can run, in the record&rsquo;s own order, and set aside each that cannot; at least one runs, so the position resolves as executed and each set-aside transaction is void individually. Nothing else resolves this position. <em>(R4R1-M-01: each transaction runs or is set aside at its turn.)</em></td></tr>
+<tr><td>an outstanding position whose record cannot be executed</td><td>Over a registered bound, or live with every one of its transactions set aside at its turn.</td><td>Record it void and move on. No re-supply of its bytes is required, and the published bytes stay on L1. <em>(R4R1-M-01: void is the outcome when nothing in the record can run.)</em></td></tr>
 <tr><td>an outstanding position whose record is dead</td><td>Its stored block number plus the registered deadline is at or below the anchored view.</td><td>Discharge it by expiry and move on; one comparison, no bytes and no L1 call.</td></tr>
-<tr><td>a position that is none of those</td><td>A live record with a forceable transaction that the batch did not execute.</td><td>Nothing: the position cannot be passed, so the proof does not verify and no settlement record is written.</td></tr>
+<tr><td>a position that is none of those</td><td>A live record with a transaction that can run at its turn and was not run.</td><td>Nothing: the position cannot be passed, so the proof does not verify and no settlement record is written. <em>(R4R1-M-01: a runnable transaction is only ever run, never set aside by a producer&rsquo;s choice.)</em></td></tr>
 </tbody>
 </table>
 <p><strong>Two producers, one position.</strong> Suppose the record at the settlement frontier is live and
-forceable. A producer that would rather exclude it has three options: execute it; show it void, which
-requires that no transaction of the record is forceable at any pre-state of the batch; or stop settling, so
-the frontier never moves and no later range lands either. There is no fourth option in which the record is
-skipped and settlement continues. That is the whole mechanism, and it is why the honest statement is about
-the censor&rsquo;s cost rather than about a user&rsquo;s wait.</p>
+at least one of its transactions can run at its turn. A producer that would rather exclude it has three
+options: run every transaction that can run, in the record&rsquo;s own order, setting aside only those that
+cannot run at their turn; show it void, which requires that the record is over a registered bound or that
+every one of its transactions is set aside at its turn; or stop settling, so the frontier never moves and no
+later range lands either. There is no fourth option in which the record is skipped and settlement continues,
+and a producer cannot manufacture the set-aside ground: only the sender&rsquo;s own signed transactions move
+its nonce or free balance. That is the whole mechanism, and it is why the honest statement is about the
+censor&rsquo;s cost rather than about a user&rsquo;s wait. <em>(R4R1-M-01: a transaction that can run is only
+ever run.)</em></p>
 
 <h2>What this gives you</h2>
 <ul>
@@ -225,9 +254,14 @@ the censor&rsquo;s cost rather than about a user&rsquo;s wait.</p>
 drain floor and the capacity relation are all stated in that unit, and the per-block rule is order and
 non-omission only.</li>
 <li>A published record that cannot be silently skipped while it is live: settlement cannot continue past it,
-so the only ways forward are execution, an objective void ground or expiry.</li>
-<li>A void predicate no producer&rsquo;s block contents can manufacture or steer, and an expiry ground that
-needs only the record&rsquo;s own stored block number and one registered constant.</li>
+and the proof resolves it transaction by transaction, in the record&rsquo;s own order, so the only ways forward
+are that resolution, an objective void ground or expiry.</li>
+<li>A walk that is total: each transaction either runs or is set aside at its turn, so every live position
+settles in a bounded number of batches and no single publication can pin the frontier.
+<em>(R4R1-M-01: no published record can pin the frontier.)</em></li>
+<li>A set-aside ground no producer&rsquo;s block contents can manufacture or steer, and an expiry ground that
+needs only the record&rsquo;s own stored block number and one registered constant.
+<em>(R4R1-M-01: the ground reads the sender&rsquo;s own state, not the producer&rsquo;s environment.)</em></li>
 <li>Enforcement in the proof only: the admission rule of <code>land</code> is unchanged, there is no escrow
 or fee, there is no new slashable offence, and no forced-inclusion state is read by the exit.</li>
 <li>An honest bound: exclusion per unit of the censor&rsquo;s L1 spending, conditional on a producer that
@@ -252,28 +286,43 @@ schedule premise are placeholders with no measurement behind them, and nothing o
 
 <h2>Check yourself</h2>
 <details><summary>A record is published and a producer lands a batch whose anchored view has passed the record&rsquo;s due point. What must the proof show about that record?</summary>
-<p>That the position is resolved: the record&rsquo;s transactions were executed in the batch, or the record is
-void (over a registered bound, or no transaction forceable at any pre-state of the batch), or the record is
-dead (its stored block number plus the registered deadline is at or below the anchored view). There is no
-fourth answer, and the frontier cannot pass a position that is none of the three.</p></details>
+<p>That the position is resolved. The walk reads the record&rsquo;s transactions in the record&rsquo;s own
+order, and each one either runs or is set aside at its turn &mdash; its declared nonce is not the
+account&rsquo;s nonce at that point, or the account cannot pay the transaction&rsquo;s own declared maximum
+charge. At least one runs, so the record resolves as executed with each set-aside transaction void
+individually; if none runs, the record is void, and so is a record over a registered bound; and a record is
+dead when its stored block number plus the registered deadline is at or below the anchored view. There is no
+fourth answer, and the frontier cannot pass a position that is none of the three. <em>(R4R1-M-01: every
+position resolves, so no record can pin the frontier.)</em></p></details>
 <details><summary>Can a producer make a due record void by filling blocks and pushing the base fee above the record&rsquo;s max fee per gas?</summary>
-<p>No. Forceability reads the record&rsquo;s own immutable bytes, the registered constants, the sender&rsquo;s
-nonce and the sender&rsquo;s balance against the transaction&rsquo;s own declared maximum charge. The base
-fee, the including block&rsquo;s gas limit and its remaining room are not inputs, so a block producer cannot
-manufacture a void ground out of the environment. A record that is genuinely non-forceable is void in every
-producer&rsquo;s hands.</p></details>
+<p>No. The walk reads the record&rsquo;s own immutable bytes, the registered constants, and the sender&rsquo;s
+nonce and free balance at the transaction&rsquo;s turn, against the transaction&rsquo;s own declared maximum
+charge. The base fee, the including block&rsquo;s gas limit and its remaining room are not inputs, so a block
+producer cannot manufacture a set-aside ground out of the environment, and it cannot discharge a transaction
+that the sender has not itself superseded or defunded. A transaction that genuinely cannot run at its turn is
+set aside in every producer&rsquo;s hands. <em>(R4R1-M-01: the discharge ground cannot be steered.)</em></p></details>
+<details><summary>A record holds two transactions: one that can run at its turn and one whose declared nonce is unreachable. Does the position resolve?</summary>
+<p>Yes. The walk runs the first in the record&rsquo;s own order and sets the second aside, because at its turn
+its nonce is not the account&rsquo;s nonce there. At least one transaction runs, so the record resolves as
+executed, and the transaction set aside is void individually. The position is not left unresolved waiting for
+a mode that fits the whole record. <em>(R4R1-M-01: a record with a mixed profile resolves by the
+per-transaction walk.)</em></p></details>
 <details><summary>A censor refuses to include the record at the front of the queue. What happens?</summary>
 <p>Settlement halts with it. The frontier cannot skip an outstanding live record, so no later range can land
-while the record stands. The censor&rsquo;s other options are to show it void or to let it age out to dead,
-which means not settling past it for its whole deadline window. Re-publication creates a new record with a
-fresh clock, so keeping a target out indefinitely costs the censor roughly one L1 publication per deadline
-window. That is the bound &mdash; exclusion per unit of the censor&rsquo;s L1 spending, not per unit of
-time.</p></details>
+while the record stands, and the censor cannot set a transaction aside to dodge it: only a transaction that
+cannot run at its turn is set aside, so every transaction that can run must run, in the record&rsquo;s own
+order. Its other options are to show the record void &mdash; over a registered bound, or with every
+transaction set aside at its turn &mdash; or to let it age out to dead, which means not settling past it for
+its whole deadline window. Re-publication creates a new record with a fresh clock, so keeping a target out
+indefinitely costs the censor roughly one L1 publication per deadline window. That is the bound &mdash;
+exclusion per unit of the censor&rsquo;s L1 spending, not per unit of time. <em>(R4R1-M-01: a runnable
+transaction cannot be set aside by the producer&rsquo;s choice.)</em></p></details>
 <details><summary>Does the obligation delay a withdrawal?</summary>
 <p>No. Nothing on the withdrawal path &mdash; forming a root, attesting it, verifying it, the veto or exit
 eligibility &mdash; reads the register, the settlement frontier or the boundary commitment. A due record
-freezes only settlement, and it can always be discharged by inclusion, void or expiry, so the freeze is
-bounded by the record&rsquo;s own deadline at the outside.</p></details>
+freezes only settlement, and it always resolves: its transactions run or are set aside at their turn, or the
+record is void, or it expires, so the freeze is bounded by the record&rsquo;s own deadline at the outside.
+<em>(R4R1-M-01: every position settles, so the freeze is bounded.)</em></p></details>
 
 <div class="card">
 <h3>Assumptions</h3>

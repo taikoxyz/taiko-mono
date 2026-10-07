@@ -197,7 +197,7 @@ so this is the scoping rule a future update would exercise, not a rule that fire
 predecessor state root, and check that each block&rsquo;s transactions reproduce the transaction
 root committed by its header and that the final state root equals the claimed one.</li>
 <li>Recompute the data commitment over the bytes it executed and compare it with the journal.</li>
-<li>Recompute the forced-inclusion boundary from the anchored register state and require it to match the journal, then require every position the settlement frontier advances past to be resolved &mdash; executed, void or dead &mdash; before the new frontier is written (<a href="../spec/04-l1-integration.html#FI-11">FI-11</a>, <a href="11-forced-inclusion.html">lesson 11</a>).</li>
+<li>Recompute the forced-inclusion boundary from the anchored register state and require it to match the journal, then require every position the settlement frontier advances past to be resolved &mdash; executed by walking the record&rsquo;s transactions in the record&rsquo;s own order, running each that can run at its turn and setting aside each that cannot, with at least one running; void, when the record is over a registered bound or every transaction is set aside; or dead &mdash; before the new frontier is written (<a href="../spec/04-l1-integration.html#FI-11">FI-11</a>, <a href="11-forced-inclusion.html">lesson 11</a>). <em>(R4R1-M-01: resolution walks the record&rsquo;s own transactions, one by one.)</em></li>
 </ol>
 
 <h3>5. Why one certificate is enough</h3>
