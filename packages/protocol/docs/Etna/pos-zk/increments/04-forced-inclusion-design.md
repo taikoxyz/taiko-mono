@@ -48,13 +48,13 @@ is enforced **in the proof**, never as an admission gate on `land` (`L1-04` surv
 |---|---|---|
 | 1 | **One unit of account: the batch, counted in register positions.** A batch resolves a **contiguous prefix of the due set**; the obligation, the capacity relation and the no-halt argument are all stated in *positions per batch* backed by *gas per batch*. The per-block requirement is demoted to a **local order-and-non-omission duty** with no per-block count and no per-block gas quota (this closes R6-D12-03). | FI-12(1)–(3), §3.2 |
 | 2 | **The frontier advance is mandatory and unconditional.** The waived lower bound of FI-11(5)/PRF-04(vi) is replaced by a two-sided bound with **no exception**: `c' ≥ min(d(A), c + FI_MAX_PER_BATCH)` **and** every position in `[c, c')` resolved, where resolved means *executed*, *void* or ***dead***. There is no waiver clause, so no reading makes the obligation vacuous (this closes R6-DPE-01 and R6-D12-04). | FI-11(3) |
-| 3 | **A per-transaction resolution ground with no producer-set input to the predicate.** The includability test loses the base fee and the block gas limit entirely; each transaction is executed or **discharged** at its turn, the pre-state pinned by position in FI-13(1)(a) so that a guest and a block producer compute the same one, and a live position is **void** only when the record is over-bound, contains a transaction that can never be executed from its own bytes, or every one of its transactions is discharged (*dead-first and void-limb-first precedence, so the three modes partition — RC-5 addendum*). The ground reads the record's **immutable bytes**, **registered constants** (including the registered fee floor `FI_MIN_EXEC_FEE_CAP`, whose Open schedule premise is F-FI-7 — RC-6) and two facts read at the turn (the sender's nonce, which only its own signed transactions can move, and its balance, which anyone can move — a credit can only make a transaction executable, never discharged), so it excludes every producer-set quantity from the predicate (the credit's ordering relative to the turn is the disclosed **F-FI-3** residual; this closes R6-D12-05 and corrects R4R3-T-02) and is **total**, so no mixed-forceability record can pin the frontier (this closes R4R1-M-01 — RC-5). | FI-13(1)–(3), FI-13(5) |
+| 3 | **A per-transaction resolution ground with no producer-set input to the predicate.** The includability test loses the base fee and the block gas limit entirely; each transaction is executed or **discharged** at its turn, the pre-state pinned by position in FI-13(1)(a) so that a guest and a block producer compute the same one, and a live position is **void** only when the record is over-bound, contains a transaction that can never be executed from its own bytes, or every one of its transactions is discharged (*dead-first and void-limb-first precedence, so the three modes partition — RC-5 addendum*). The ground reads the record's **immutable bytes**, **registered constants** (including the registered fee floor `FI_MIN_EXEC_FEE_CAP`, whose Open schedule premise is F-FI-7 — RC-6, and the byte-decidable fee-order and initcode classes of FI-13(2)(vii)–(viii)/(1)(b)(F)–(G) — S-01) and the facts read at the turn (the sender's nonce, which only its own signed transactions can move; its balance, which anyone can move — a credit can only make a transaction executable, never discharged; and its code, which no producer can set by block contents), so it excludes every producer-set quantity from the predicate (the credit's ordering relative to the turn is the disclosed **F-FI-3** residual; this closes R6-D12-05 and corrects R4R3-T-02) and is **total**, so no mixed-forceability record can pin the frontier (this closes R4R1-M-01 — RC-5); the duty and the walk read one turn and the same remaining gas, the walk discharging a transaction no block of the range at or after its turn had room for, with the tail turn pinned to the pre-state immediately before the last block of the range's body (S-02). | FI-13(1)–(3), FI-13(5) |
 | 4 | **Expiry is an objective proof-side discharge ground keyed on the record's own deadline.** A record is *dead* at the anchored view `A` iff `deadlineBlock ≤ A`, and dead-at-`A` is a third resolution mode the proof applies with no execution, no witness and no L1 call. The pruning is made consistent by making it **deletion only, behind the settlement frontier** — the prune returns no frontier and advances nothing (this closes R6-D12-01). | FI-10(2)/(7), §4.2 |
 | 5 | **The forced-data record is the D-11 publication record: one register, no flag.** The register is `publish(...)`/`publicationAt(...)`; the FI family adds a settlement record per accepted height, the `forcedBoundary` commitment, the prune, the frontier event and the errors — **no second entry point, no "forced" flag, no escrow and no fee**. | FI-10(1) |
 | 6 | **Enforcement is the proof, never the gate.** `land` gains no rejection that depends on the register being non-empty; the capacity check is part of proof validity; the single expiry prune is not an acceptance condition (this preserves L1-04's no-gate property). | FI-11(1) |
 | 7 | **Recovery-free survival.** With D-15/D-16 there is no recovery path and no generation of forced data to re-derive: the register and the settlement frontier are **monotone L1 state**, no rule may lower the frontier, and the two clauses of the preserved FI-14 that read the withdrawn stall resolution are **deleted** rather than carried. | §4 |
 | 8 | **The exit is never blocked.** No forced-inclusion obligation attaches to the withdrawal root, its attestation, the veto, or exit eligibility; the reason is structural (the register is a settlement-side queue, not an exit dependency). | §5 |
-| 9 | **Falsifiers narrowed and named.** F-FI-1 (capacity), F-FI-2 (arrival > drain — **not fixed**), F-FI-3 (discharged-then-executable), **F-FI-4 new** (deadline expiry during a stall), **F-FI-5 new** (the publication race that makes the guarantee conditional on a non-censoring L1), and **F-FI-7 new** (review round 4, finding F1 — RC-6: the fee floor's schedule premise; a schedule that can exceed `FI_MIN_EXEC_FEE_CAP` makes a demanded transaction one no valid block can carry). | §6 |
+| 9 | **Falsifiers narrowed and named.** F-FI-1 (capacity), F-FI-2 (arrival > drain — **not fixed**), F-FI-3 (discharged-then-executable), **F-FI-4 new** (deadline expiry during a stall), **F-FI-5 new** (the publication race that makes the guarantee conditional on a non-censoring L1), **F-FI-7 new** (review round 4, finding F1 — RC-6: the fee floor's schedule premise; a schedule that can exceed `FI_MIN_EXEC_FEE_CAP` makes a demanded transaction one no valid block can carry) and **F-FI-8 new** (review round 4, finding S-01 — RC-7: the enumeration residual; a transaction the predicate calls forceable and the discharge grounds do not cover, yet no valid block of the range can carry). | §6 |
 | 10 | **The increment does not reopen a v1 decision**: the boundary, the exit, D-8/D-9, D-11 and "no rule removes weight" are untouched; no recovery path returns. | §8 |
 
 ---
@@ -289,14 +289,20 @@ protocol defect. `CONS-01(v)` reads, in full:
 > that pre-state and forceable there** — `t`'s turn is the pre-state FI-13(1)(a) pins by position: the
 > pre-state immediately before `t`'s own position in the executed payload when `t` appears, the
 > pre-state immediately before the record's next transaction in the record's own order that appears in
-> the executed payload when `t` does not appear, and the pre-state at the end of the batch's execution
-> when no later transaction of the record appears — and `t` has not been executed in an earlier block
+> the executed payload when `t` does not appear, and, when no later transaction of the record appears,
+> the pre-state immediately before the last block of the range's body — a real block's pre-state of the
+> range, never the end of the batch's execution; when the record's last transaction appears in that
+> block, the first case applies and its turn is the pre-state immediately before its own position, as
+> before — and `t` has not been executed in an earlier block
 > of the range, then `h`'s body MUST contain `t` before it contains any forced transaction of a record
 > `k > j`, and MUST contain `t` if its remaining gas at that point is at least the gas limit `t`
 > declares. **The duty applies at the transaction's turn and only there**, so it applies to exactly the
 > transactions the proof-side walk of FI-13(1)(a) would execute and **never** to one the walk
 > discharges: at the turn the walk's verdict on `t` is *executable* exactly when `t` is forceable there
-> under FI-13(2) and *discharged* otherwise, and the clause fires only in the first case. A transaction
+> under FI-13(2) and no discharge ground of FI-13(1)(a) holds at that pre-state, and *discharged*
+> otherwise, and the clause fires only in the first case. The discharge grounds it inherits are the
+> nonce, the balance, a sender that has code at that pre-state (EIP-3607), and a turn at which no block
+> of the range at or after it had room to carry the transaction. A transaction
 > the walk has discharged at its turn is not demanded at any later pre-state, even when it has become
 > forceable there, and no transaction of a record resolved **(b) void** is ever demanded, because the
 > walk does not reach it. The per-block duty and the proof-side walk MUST share **one predicate** — a
@@ -309,13 +315,22 @@ protocol defect. `CONS-01(v)` reads, in full:
 
 The clause has **no per-block record count, no per-block gas quota and no per-block capacity
 constant**: the number of records a batch must resolve is FI-12's cap, in positions per batch. A block
-that can carry forced work and carries none is invalid; a block that cannot is not. *(This is the
+that can carry forced work and carries none is invalid; a block that cannot is not. **One rule, one
+predicate, both sides read the same quantity:** a block with room to carry the transaction MUST carry
+it, and the walk discharges the transaction only when, at its turn, no block of the range at or after
+the turn had room to carry it — the block's own remaining gas at that turn, the same quantity the duty
+reads. A block that had room and omitted it leaves the position unresolved and makes the proof invalid.
+*(This is the
 single-unit restatement R6-D12-03 asked for: the obligation lives at the batch, the ordering lives at
 the block, and no registered constant is used in two units.)* *(Review round 3,
 R4R3-T-01/R4R3-NR-01: the duty is scoped to the transaction's turn so that it and the walk share one
 predicate — the seam that made a nonce-descending record unprovable, a duty demanding a transaction the
 walk had already discharged, is closed, and the "increasing transaction index" condition constrains
-only the transactions the walk executes.)*
+only the transactions the walk executes. Review round 4, findings S-01 and S-02 — RC-7: the duty's
+predicate also carries the byte-decidable fee-order and initcode classes of FI-13(2)(vii)–(viii), the
+discharge grounds of FI-13(1)(a) include the sender-with-code and no-room cases, and the tail turn is
+pinned to the pre-state immediately before the last block of the range's body, so the duty and the
+walk read the same turn and the same remaining gas.)*
 
 **(5) What the guest may rely on.** Only: the anchored L1 view written into L2 state by the anchor step
 it re-executes; the register's fields and identity as fixed by DA-07 and DA-10; the opening checks the
@@ -456,15 +471,23 @@ none to execute.
   increasing transaction index within the record, with the record's transactions recovered from its
   published byte string as FI-13(2) fixes) or is **discharged** — it does not appear, and at the pre-state
   **its turn** reaches in the batch's own execution it cannot execute: its
-  declared nonce does not equal the sender's nonce at that pre-state (ahead of it, or already consumed),
-  or the sender's balance at that pre-state is below `t.gasLimit × t.maxFeePerGas + t.value` — with at
-  least one of them executing; a position all of whose transactions executed is **executed**, and the
+  declared nonce does not equal the sender's nonce at that pre-state (ahead of it, or already consumed);
+  or the sender's balance at that pre-state is below `t.gasLimit × t.maxFeePerGas + t.value`; or the
+  sender has code at that pre-state — no valid block may execute a transaction from a sender with code
+  (EIP-3607); or, at that turn, **no block of the range at or after the turn had room to carry it** —
+  the remaining gas, at that turn, of the block whose pre-state the turn is was below the gas limit `t`
+  declares, the same remaining gas the per-block duty of CONS-01(v)/FI-11(4) reads at the same turn, so
+  a block that had room and omitted `t` is a breach and leaves the position unresolved — with at least
+  one of them executing; a position all of whose transactions executed is **executed**, and the
   mixed case is **resolved** with the executed transactions recorded as executed and the discharged ones
   recorded as discharged. **The turn, pinned by position:** a transaction that appears in the executed
   payload has its turn at the pre-state immediately before its own position; a transaction that does not
   appear has its turn at the pre-state immediately before the record's next transaction in the record's
-  own order that appears in the executed payload, and at the pre-state at the end of the batch's
-  execution when no later transaction of the record appears. The turn is a function of the record's own
+  own order that appears in the executed payload, and, when no later transaction of the record appears,
+  at the pre-state immediately before the last block of the range's body — a real block's pre-state of
+  the range, never the end of the batch's execution; when the record's last transaction appears in that
+  block, the first case applies and its turn is the pre-state immediately before its own position, as
+  before. The turn is a function of the record's own
   order and the batch's own executed payload alone — never of a witness-supplied position, a block
   boundary, or a producer's claim about where "that point" is — so two guests computing the same batch
   reach the same pre-state for a transaction that never appears, and its forceability and its discharge
@@ -486,14 +509,21 @@ none to execute.
   cannot be executed from the record's own bytes, in one of these exhaustive classes, each decided by
   the record's published byte string, the registered constants and the chain id alone — and, for (E), the
   Open fee-schedule premise its register row records — so no batch can
-  execute it at any pre-state: (A) the record's published byte string does not decode under PRF-07(0),
-  so its transactions cannot be recovered at all (FI-13(2)(i)); (B) a transaction's chain id does not
+  execute it at any pre-state: (A) the record's published byte string does not decode under PRF-07(0)
+  as the frame sequence of its own stored claimed range (DA-07(1)) — a length prefix past the committed
+  end, a frame count other than the claimed range's, or trailing bytes — so its transactions cannot be
+  recovered at all (FI-13(2)(i)); (B) a transaction's chain id does not
   match FI-13(2)(iii); (C) a transaction's signature does not recover to a sender, so the transaction
   has no sender for FI-13(2)(iv)–(v); (D) a transaction's declared gas limit is below the intrinsic
-  gas of its own data, a fixed function of that transaction's own bytes; or (E) a transaction's declared
+  gas of its own data, a fixed function of that transaction's own bytes; (E) a transaction's declared
   `maxFeePerGas` is below the registered floor `FI_MIN_EXEC_FEE_CAP` — one registered constant compared
   against the transaction's own declared cap, under the Open fee-schedule premise its register row
-  records (F-FI-7), so a transaction that declares less is executable by no valid block; a transaction that fails only
+  records (F-FI-7), so a transaction that declares less is executable by no valid block; (F) a
+  transaction's declared `maxPriorityFeePerGas` exceeds its declared `maxFeePerGas` — a malformed fee
+  market, a property of the transaction's own bytes, so no valid block can carry it (EIP-1559); or (G)
+  a create transaction whose declared initcode exceeds the EIP-3860 initcode size cap — its own bytes,
+  and (D)'s intrinsic-gas floor prices initcode per word without capping it, so no valid block can
+  carry it; a transaction that fails only
   FI-13(2)(iv)–(v) is not in this limb: whether it executes is decided at its turn by the discharge
   ground of (a), not by the record's own bytes; or every one of its transactions is
   discharged (a record with no transactions at all is void under this limb: there is nothing to
@@ -518,9 +548,11 @@ is (c) alone, whatever its size, contents or discharge state (the reviewer's edg
 over-bound record is (b) alone, never also (a); a record with no transactions is (b); and a position in
 no mode is unresolved only because a transaction that can execute at its turn was omitted, which
 FI-11(3)(c) makes invalid.)* *(Review round 3, finding F1: the byte-invalid limb's decision classes are
-enumerated in (1)(b) — decode failure, chain-id mismatch, an unrecoverable signature, and a declared
-gas limit below the intrinsic gas of the transaction's own data, and (review round 4, finding F1 —
-RC-6) a declared `maxFeePerGas` below `FI_MIN_EXEC_FEE_CAP` — and PRF-04(vi) names the same
+enumerated in (1)(b) — decode failure, chain-id mismatch, an unrecoverable signature, a declared
+gas limit below the intrinsic gas of the transaction's own data, a declared `maxFeePerGas` below
+`FI_MIN_EXEC_FEE_CAP` (review round 4, finding F1 — RC-6), a declared `maxPriorityFeePerGas` above the
+transaction's own `maxFeePerGas` and a create transaction whose declared initcode exceeds the EIP-3860
+cap (review round 4, finding S-01 — RC-7) — and PRF-04(vi) names the same
 exhaustive list, so the rule and a guest implementation agree on the whole set; each class is decided
 by the record's own bytes, the registered constants and the chain id, never by L1 state, a producer
 input or an oracle.)*
@@ -528,8 +560,10 @@ input or an oracle.)*
 **(2) The predicate — record bytes, registered constants, pre-state, and nothing else.**
 
 > A transaction `t` of a record is **forceable** at a pre-state iff all of: (i) the record's published
-> byte string is at most `FI_ITEM_MAX_BYTES` bytes and decodes under PRF-07(0) to at most
-> `FI_MAX_TX_PER_RECORD` transactions; (ii) `t`'s gas limit is at most `FI_RECORD_GAS_MAX` and **at
+> byte string is at most `FI_ITEM_MAX_BYTES` bytes and decodes under PRF-07(0) as the frame sequence of
+> the record's own stored claimed range (DA-07(1)) to frames whose block bodies carry at most
+> `FI_MAX_TX_PER_RECORD` transactions in total — those are the record's transactions, recovered in
+> frame order; (ii) `t`'s gas limit is at most `FI_RECORD_GAS_MAX` and **at
 > least the intrinsic gas of `t`'s own data** — a fixed function of the transaction's own bytes, so a
 > transaction that declares less is executable by no valid block — and the record's transactions' gas
 > limits sum to at most `FI_MAX_TX_PER_RECORD × FI_RECORD_GAS_MAX`; (iii) the chain id matches; (iv)
@@ -540,15 +574,25 @@ input or an oracle.)*
 > `t.gasLimit × t.maxFeePerGas + t.value` — **`t`'s own declared maximum charge**; and (vi) `t`'s
 > declared `maxFeePerGas` is at least the registered floor `FI_MIN_EXEC_FEE_CAP` — one registered
 > constant compared against the transaction's own declared cap, under the Open fee-schedule premise its
-> register row records (F-FI-7), so a transaction that declares less is executable by no valid block.
+> register row records (F-FI-7), so a transaction that declares less is executable by no valid block;
+> (vii) `t`'s declared `maxPriorityFeePerGas` is at most its declared `maxFeePerGas` — a malformed fee
+> market is a property of the transaction's own bytes, and no valid block can carry it (EIP-1559); and
+> (viii) `t` is not a create transaction whose declared initcode exceeds the EIP-3860 initcode size
+> cap — the cap is decided by the transaction's own bytes, and (ii)'s intrinsic-gas floor prices
+> initcode per word without capping it.
 
 **So the predicate calls no unexecutable transaction forceable:** a transaction that fails (ii)'s
-intrinsic-gas floor, (vi)'s fee-cap floor or (iv)'s signature recovery is not forceable at any pre-state, exactly as one that
+intrinsic-gas floor, (vi)'s fee-cap floor, (vii)'s fee-order test, (viii)'s initcode cap or (iv)'s signature recovery is not forceable at any pre-state, exactly as one that
 fails (iii)'s chain-id test, and those are the same byte-decidable classes that void the record under
 (1)(b) — no transaction exists that FI-13(2) calls forceable and that no valid block can carry **for a
-reason this predicate or the enumerated classes cover**, and none at all under the Open fee-schedule
-premise its register row records with `FI_MIN_EXEC_FEE_CAP` (the floor is at or above the maximum
-execution base fee the L2 fee schedule can produce; F-FI-7).
+reason this predicate or the enumerated classes (A)–(G) cover**, and none at all within that
+enumeration under the Open fee-schedule premise its register row records with `FI_MIN_EXEC_FEE_CAP` (the floor is at or above the maximum
+execution base fee the L2 fee schedule can produce; F-FI-7). **The residual is stated, not denied:** a
+predicate over the record's bytes and the turn pre-state cannot rule out a reason that depends on
+neither — the enumerated instance is F-FI-7's fee-schedule premise, and any execution-validity rule
+outside the classes (A)–(G) and the turn pre-state this rule fixes is carried as an **Open** with
+falsifier **F-FI-8**: a transaction that (2) calls forceable and (1)(a) does not discharge at its turn,
+yet no valid block of the range can carry it.
 *(04-coordination.md §5, closing the seam the round-3 F1 enumeration left: the predicate carries the
 intrinsic-gas floor of (1)(b)(D), the fee-cap floor of (1)(b)(E) and the signature-recovery requirement
 of (1)(b)(C) itself, so the per-block duty inherits the corrected predicate and the two agree by
@@ -570,7 +614,7 @@ is discharged as unaffordable at its turn; a competing transaction of the sender
 can likewise consume the nonce or spend the balance before the turn. That credit-ordering edge is the
 disclosed residual **F-FI-3** — the producer's ordering does decide that discharge — and the delta does
 not claim otherwise. Whether a record is void is a function of the record's own published byte string
-— fixed at publication and immutable (DA-07(3)) — of registered constants, and of two L2-state facts
+— fixed at publication and immutable (DA-07(3)) — of registered constants, and of the L2-state facts
 read at the transaction's turn (1)(a) pins: the sender's **nonce**, which only that account's own
 signed transactions can move, and the sender's **balance**, which **anyone can move** — a third-party
 credit can only make a transaction executable, never discharged, and the producer's ordering decides
@@ -591,9 +635,12 @@ make a transaction executable, never discharged.)* *(correction, R4R3-T-02: the 
 No producer, prover, validator or submitter can manufacture a discharge ground by choosing block
 contents: it cannot move a nonce, reduce a balance, alter the record's own bytes, or change the order
 in which the record's transactions are walked; the terms it could previously move (base fee, block
-gas limit, room) are gone from (2), and the terms the walk reads are the record's own bytes, the
-registered constants, and the sender's nonce and balance
-at the transaction's turn, pinned by position as (1)(a) fixes. What it does choose is the batch's own
+gas limit) are gone from (2); the terms the walk reads are the record's own bytes, the registered
+constants, and the sender's nonce, balance and code at the transaction's turn, pinned by position as
+(1)(a) fixes — the code, like the nonce, is the account's own state, and no producer can put code at
+another account's address by block contents — while the room the mirrored discharge ground reads is the
+block's own remaining gas at that turn, the same quantity the per-block duty reads, so that ground
+cannot be manufactured for a transaction a block with room could carry. What it does choose is the batch's own
 executed state, and so the **pre-state** each turn is judged against: a third-party credit placed before
 a turn can rescue a transaction that is unaffordable there without it (which must then execute), one
 placed after the turn cannot, and a competing transaction of the sender that the batch carries can
@@ -602,7 +649,7 @@ R4R3-T-02: the original sentence said no producer can make a due record void by 
 that is false in the credit-ordering case — a record whose only transaction a credit placed before its
 turn would rescue is discharged, and so void, when the credit is placed after the turn — while the
 shortfall itself is not producer-manufactured.)* Execution follows the record's own
-order. Of the two facts the walk reads, only the **nonce** is producer-immovable — only that account's
+order. Of the facts the walk reads, only the **nonce** is producer-immovable — only that account's
 own signed transactions can move it — while the **balance** can be moved by anyone: an incoming credit
 can only make a transaction **executable**, never discharged, and what a producer's ordering decides is
 only whether a credit lands before the turn (the transaction is forceable there and must execute) or
@@ -730,11 +777,17 @@ validators applying the clause literally must vote NIL for ever. The revived cla
 2. **non-omission** — if the block's remaining gas is at least the gas limit the forced transaction
    itself declares, the block must contain it.
 
+The walk mirrors that escape exactly: a transaction that does not appear is **discharged** at its turn
+only if no block of the range at or after the turn had room for it — the same remaining gas the duty
+reads, at the same turn — and the tail turn is the pre-state immediately before the last block of the
+range's body, a real block's pre-state where this duty can fire *(review round 4, finding S-02 — RC-7)*.
+
 Neither requirement is a count or a quota, and both are decidable from the block's own body and its
 pre-state. The proof-side check (FI-11(2)(4)) is what makes the duty bite: a batch whose execution
-omits a forced transaction of a live, non-dead record must show the record **void**, which requires
-that the transaction was not forceable at *any* pre-state in the batch — so a producer that omitted a
-forceable transaction cannot obtain a valid proof. **The two checks agree by construction**: both read
+omits a forced transaction of a live, non-dead record must have the transaction **discharged at its
+turn** under FI-13(1)(a) — the nonce, the balance, the sender's code, or a turn no block at or after it
+had room for — so a producer that omitted a transaction executable at its turn cannot obtain a valid
+proof. **The two checks agree by construction**: both read
 the same three resolution modes from the same anchored register state, one per block and one per batch.
 
 ### 3.3 Why the obligation cannot halt (the counting argument, in one unit)
@@ -876,6 +929,7 @@ event (§7.1).
 | **F-FI-5** | **New.** The guarantee is conditional on a non-censoring L1 and on at least one honest or rational batch producer: a censor that can front-run a user's publication with its own records, or that is the only producer, reduces the obligation to "the frontier may not advance". This increment bounds exclusion against a *producer* that must land batches, not against an L1-level adversary (`A-L1-1`). | Open (new) | Nothing in-protocol; this is the disclosed boundary of the narrowed R10 form (Fi-REMOVED-01(b)) and the same assumption LIVE-04 already owns. |
 | **F-FI-6** | **New.** A certified range whose landing is delayed past `FI_ANCHOR_MAX_AGE` (and past blob retrievability) is permanently unacceptable outside the sanctioned stall resolution. Bound (i) of FI-11(7) makes this impossible inside the registered envelope; the residual is deliberate delay past both registered bounds. | Open (new) | The three candidate repairs in §9.2; the recommended one is the registered relation of FI-11(7)(i), which is what this delta writes. A consensus anchor-freshness duty would close it more strongly and is left to the review round. |
 | **F-FI-7** | **New (review round 4, finding F1; RC-6).** The registered fee floor's schedule premise: `FI_MIN_EXEC_FEE_CAP` is at or above the maximum execution base fee the L2 fee schedule can produce in any window, and no registered rule maintains that. A schedule that can exceed the floor makes a transaction the predicate calls forceable — and the per-block duty demands — one no valid block can carry: the record is live, none of the byte classes' complement applies, every proof in `[c, c + R)` is rejected, and settlement freezes until the record dies, one permissionless publication per `T_PROVE_DEADLINE`. | Open (new premise) | A registered rule that constrains the L2 fee schedule (not merely reading its value), or a schedule bound demonstrated at or below the floor. The floor itself closes only the classes the predicate can decide from the record's bytes; as with the capacity relation's gas-schedule premise (F-FI-1), this one is stated rather than maintained. |
+| **F-FI-8** | **New (review round 4, finding S-01; RC-7).** The **enumeration residual**: a transaction that FI-13(2) calls forceable at its turn and that no discharge ground of FI-13(1)(a) covers, yet that no valid block of the range can carry for a reason outside the classes (A)–(G) and outside the turn pre-state this rule fixes. The class list is the exhaustive set this specification enumerates; an execution-validity rule it does not enumerate is a counterexample to any claim stronger than the enumeration. | Open (new) | A further byte-decidable class, a pre-state-decidable discharge ground, or an argument that no such rule exists for the L2's Ethereum-equivalent execution; the rule states the boundary instead of re-asserting a universal claim. |
 
 ### 6.2 Costs and honest accounting
 
@@ -1203,8 +1257,8 @@ publication-time admission condition. Two candidates were considered and one is 
 | 5 | The frontier's lower bound is waived by the "unless the window is shorter" exception, so `c' = c` passes and the rule is dead (R6-DPE-01) | FI-11(3)(a): unconditional bound, no exception exists in the text |
 | 6 | `cap = 0` by choosing a one-block batch; the drain rate is the submitter's choice (R6-D12-04) | FI-12(1)–(2) and FI-11(2)(3): capacity condition is proof validity; `R ≥ 1` whenever the outstanding obligation is non-empty (`R ≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding — RC-2) |
 | 7 | The per-block clause demands more records than a block can carry (R6-D12-03) | FI-11(4): order + non-omission, no per-block count or quota; FI-11(3)(a) carries the count at the batch |
-| 8 | The environment (base fee, block gas limit, block room) makes a due record void without executing anything (R6-D12-05, R5T-H-4/F4) | FI-13(2)–(3): those terms are removed from forceability; the void ground is producer-independent |
-| 9 | A full block is read as "not a member of its body", so the record can be neither included nor voided (R6-D12-05 alternative reading) | FI-11(4) non-omission + FI-13(1)(a)/(b): a transaction that can execute at its turn must be executed; one that cannot is discharged, and the walk is total (RC-5) |
+| 8 | The environment (base fee, block gas limit, block room) makes a due record void without executing anything (R6-D12-05, R5T-H-4/F4) | FI-13(2)–(3): those terms are removed from forceability; the void ground is producer-independent. (Review round 4, finding S-02: the block's own remaining gas is read by the mirrored **discharge** ground at the turn, never by forceability or voidness — the walk discharges only a transaction no block of the range at or after the turn had room for, the same quantity the duty reads.) |
+| 9 | A full block is read as "not a member of its body", so the record can be neither included nor voided (R6-D12-05 alternative reading) | FI-11(4) non-omission + FI-13(1)(a)/(b): a transaction that can execute at its turn must be executed; one that cannot is discharged, and the walk is total (RC-5). (Review round 4, finding S-02: a turn at which no block of the range at or after it had room is itself a discharge ground, mirroring the duty's escape, so a block that had room cannot use this route.) |
 | 10 | A dead record has no proof-side discharge; it blocks the prefix for ever, or the prune moves enforcement off the proof (R6-D12-01 horns A/B) | FI-13(1)(c) + FI-10(7): dead-at-`A` is a resolution mode; §4.2: the prune deletes only behind the frontier and returns nothing |
 | 11 | A pruned or blob-expired record cannot be evaluated at all, and `FI-11(5)` rejects a position with no record (R6-D12-01 step 4) | §4.2: the prune is behind the frontier, so a needed position is never deleted; and a dead record needs only its stored `l1BlockNumber` |
 | 12 | The record must be immutable yet must carry a mutating `PUBLISHED/PROVEN/DISCARDED` status (R5T-PDE-10) | FI-10(2): no status flag; live/dead is derived from the stored block number and a registered constant |
@@ -1225,6 +1279,11 @@ publication-time admission condition. Two candidates were considered and one is 
 | 27 | An over-bound or byte-invalid record that is also dead satisfies (b)'s unconditional record-level limbs **and** (c), so "exactly one mode" fails and the position is unresolvable; every proof in the computed window is invalid until expiry — the same halt, repeatable for one publication per deadline | FI-13(1)'s stated precedence: (c) dead is tested first and unconditionally, and (b)'s record-level limbs are live-only; FI-13(1) states that the modes partition, FI-13(4) is corrected to agree, and FI-11(2)(4) and PRF-04(vi) restate the same order (RC-5 addendum — the reviewer's edge case) |
 | 28 | A live over-bound record one of whose transactions appears in the executed payload satisfies both (a) and (b) under the old wording, so "exactly one mode" fails again and the payload's contents decide whether the record executed or voided | FI-13(1): the over-bound limb is tested before (a) and (a) requires the record not be over-bound, so an over-bound record is (b) void from its own immutable bytes whatever the payload contains — the classification keeps no producer-set input (RC-5 addendum) |
 | 29 | A live, byte-valid record whose transaction declares a fee cap below the block's base fee (`maxFeePerGas = 0` or 1 wei) is called forceable by FI-13(2) and demanded by FI-11(4) while no valid block can carry it, so every proof in the computed window is rejected and settlement freezes until expiry — one permissionless publication per `T_PROVE_DEADLINE` (review round 4, finding F1, Critical) | FI-13(1)(b)(E) + FI-13(2)(vi): a declared `maxFeePerGas` below the registered floor `FI_MIN_EXEC_FEE_CAP` is void from the record's own bytes and not forceable, so the predicate, the void classes and the per-block duty agree; the block's base fee stays out of the predicate, and the floor's schedule premise is the Open falsifier F-FI-7 (RC-6) |
+| 30 | A live, byte-valid record whose transaction declares `maxPriorityFeePerGas` above its own `maxFeePerGas` is called forceable by FI-13(2), demanded by FI-11(4), is not void under the old classes, and is rejected by every valid block — the same settlement halt, byte-decidable (review round 4, finding S-01, Critical) | FI-13(1)(b)(F) + FI-13(2)(vii): a malformed fee market is void from the record's own bytes and not forceable, so the predicate and the classes agree (RC-7) |
+| 31 | A create transaction whose declared initcode exceeds the EIP-3860 cap is forceable and demanded but carried by no valid block — the same halt, its own bytes (review round 4, finding S-01, Critical) | FI-13(1)(b)(G) + FI-13(2)(viii): the cap is a byte-decidable class, and the intrinsic-gas floor does not cap initcode (RC-7) |
+| 32 | A transaction whose sender has code at its turn pre-state passes FI-13(2) but no valid block may execute it (EIP-3607), so the walk would demand it while no inclusion is possible (review round 4, finding S-01, Critical) | FI-13(1)(a): a sender with code at the turn pre-state is a discharge ground alongside the nonce and the balance — L2 state, not a byte class — and the duty's scoping inherits the discharge grounds, so the two checks agree (RC-7) |
+| 33 | A transaction that does not appear and has no later appearing transaction of its record has its turn at the end of the batch's execution — a pre-state of no block — so the walk demands what no block is required to carry; and a producer that fills the one block holding a transaction's turn omits it with impunity while the walk rejects the range (review round 4, finding S-02, Critical) | FI-13(1)(a): the tail turn is pinned to the pre-state immediately before the last block of the range's body — a real block's pre-state where the duty fires — and the walk gains the mirrored discharge ground (a turn at which no block of the range at or after it had room), so the duty and the walk read the same turn and the same remaining gas (RC-7) |
+| 34 | The record's object type is defined twice and differently: DA-07 publishes a PRF-07(0) batch payload while FI-13(2)(i) and the 09 row read a transaction list, so the walk's transaction recovery is unpinned and one register has no type flag (review round 4, finding S-03, Medium) | DA-07(1): the record's published byte string is pinned as the PRF-07(0) batch payload of its own claimed range, and its transactions are the transactions of its frames' block bodies; FI-13(1)(b)(A)/FI-13(2)(i) and the 09 rows read that same object (RC-7) |
 
 ---
 
@@ -1524,8 +1583,20 @@ this batch may become forceable later; the remedy is re-publication". A later re
 them restores the Critical. Discharge is not a censoring instrument: it never removes the duty to
 execute a transaction that can execute at its turn.
 
+**RC-7 — the owner's ruling on review round 4's mechanism findings S-01, S-02 and S-03.**
+
+**(a) S-01 — the byte-decidable EIP validity conditions, and what is left.** The round-3 repair enumerated the intrinsic-gas floor, and RC-6 added the fee-cap floor, but two further byte-decidable conditions make a transaction uncarryable by every valid block: a declared `maxPriorityFeePerGas` above the transaction's own `maxFeePerGas` (EIP-1559 — a malformed fee market is a property of the transaction's own bytes) and a create transaction whose declared initcode exceeds the EIP-3860 initcode size cap (its own bytes; the intrinsic-gas floor prices initcode per word without capping it). FI-13(1)(b) gains classes **(F)** and **(G)** and FI-13(2) gains the matching predicate clauses **(vii)** and **(viii)**, so the predicate and the classes agree exactly as the intrinsic-gas floor already did. EIP-3607 (a sender with code) is **not** a byte class: it is L2 state, decided at the turn from the batch's own execution, so it joins the discharge ground of FI-13(1)(a) alongside the nonce and the balance — and the duty's scoping sentence now inherits the discharge grounds, not the bare predicate, so the two checks still agree. The base-fee dimension stays RC-6's registered floor with its Open premise F-FI-7; no live base-fee input enters the discharge ground, so R6-D12-05's producer steering is not reopened. The three former "no valid block can carry" claims are corrected at the same time: FI-13(2)'s now reads "...for a reason this predicate or the enumerated classes (A)–(G) cover, and none at all within that enumeration under the Open fee-schedule premise", CONS-01(v)'s reads "a transaction this clause demands is one a valid block can carry for a reason the predicate or the enumerated classes (A)–(G) cover", and the `spec/09` row's version likewise. **The residual is stated as an Open, not re-asserted:** a predicate over the record's bytes and the turn pre-state cannot rule out a reason that depends on neither — carried as **F-FI-8**, falsified by a transaction that (2) calls forceable and (1)(a) does not discharge at its turn, yet no valid block of the range can carry it.
+
+**(b) S-02 — the tail turn and the mirrored discharge.** The turn of a transaction that does not appear and has no later appearing transaction of its record was "the pre-state at the end of the batch's execution", a pre-state of no block, so the walk demanded what no block-level duty could compel. It is now pinned to **the pre-state immediately before the last block of the range's body** — a real block's pre-state, where the duty of `CONS-01(v)`/FI-11(4) fires; when the record's last transaction appears in that block, the first case applies and its turn is immediately before its own position, as before. The walk gains the mirrored discharge ground: a transaction that does not appear is discharged at its turn when **no block of the range at or after the turn had room to carry it** — the block's own remaining gas at the turn, the same quantity the duty reads — so the duty compels a block with room and the walk discharges only a transaction no block with room could carry: one predicate, the same rule as round 3's turn scoping. A producer can omit a forced transaction only by filling blocks (the disclosed cost dimension of F-FI-2/F-FI-4), and a block that had room and omitted it is a breach under `CONS-01(v)`.
+
+**(c) S-03 — the record's one object.** A publication record's published byte string is pinned in DA-07(1) as the batch payload of PRF-07(0) — the framed block payload of the record's own claimed range — never a bare transaction list and never a second object behind a flag; the record's transactions are the transactions of its frames' block bodies, recovered in frame order, at most `FI_MAX_TX_PER_RECORD`, with `FI_ITEM_MAX_BYTES` bounding the payload. FI-13(2)(i), FI-13(1)(b)(A) and the `spec/09` `FI_ITEM_MAX_BYTES` and `FI_MAX_TX_PER_RECORD` rows now read that same object, so the walk's transaction recovery is pinned and no reader has to guess which object a record carries.
+
+**Where RC-7 is written.** `spec/04-l1-integration.html` DA-07(1), FI-13(1)(a)–(b), FI-13(2)(i), (vii)–(viii) and the corrected claims, FI-13(3), FI-13(5), FI-11(4); `spec/02-consensus.html` CONS-01(v); `spec/05-proof-statement.html` PRF-04(vi); `spec/09-parameters.html` the `FI_ITEM_MAX_BYTES`, `FI_RECORD_GAS_MAX` and `FI_MAX_TX_PER_RECORD` rows and the censorship row's falsifier list; `spec/index.html` the FI-10, FI-11 and FI-13 rows; and this delta (§0 rows 3 and 9, §2's FI-11 and FI-13, §3.2, §6.1's F-FI-8, and Appendix B).
+
+**The superseded forms MUST NOT be restored.** A tail turn at "the end of the batch's execution"; a duty that compels a transaction no block of the range at or after its turn had room for; a walk that demands a transaction the per-block duty excuses; an unqualified "no valid block can carry" claim; a predicate or void list without the fee-order and initcode classes; a discharge ground read from the live base fee; and a record object that is not DA-07(1)'s PRF-07(0) payload.
+
 *Owner decisions 1–6 above are unchanged by these corrections; RC-1 … RC-4 reconcile the delta's clause
 text with the ratified, implemented rules and 09's register row, and RC-5 is the design owner's ruling
 on review round 1's Critical R4R1-M-01: it corrects §2's FI-13 text in place, so a later reader cannot
 restore the record-level ground, the old F-FI-3 wording, or the superseded mode-precedence forms its
-addendum names; RC-6 is the design owner's ruling on review round 4's Critical F1 (the fee seam): it extends §2's FI-13 text in place with the fifth byte class of (1)(b)(E) and the predicate floor of (2)(vi), registers the fee floor's Open premise F-FI-7, and qualifies the 'no valid block can carry' claims to the reasons the predicate or the classes cover. A later reader MUST NOT restore a predicate or void list without the fee-cap floor, an unqualified 'no valid block can carry' claim, or a discharge ground read from the live base fee.*
+addendum names; RC-6 is the design owner's ruling on review round 4's Critical F1 (the fee seam): it extends §2's FI-13 text in place with the fifth byte class of (1)(b)(E) and the predicate floor of (2)(vi), registers the fee floor's Open premise F-FI-7, and qualifies the 'no valid block can carry' claims to the reasons the predicate or the classes cover. RC-7 is the design owner's ruling on review round 4's mechanism findings S-01, S-02 and S-03: it adds the byte-decidable fee-order and initcode classes (1)(b)(F)–(G)/(2)(vii)–(viii) to the predicate and the void limb, puts EIP-3607 and the mirrored no-room escape in the discharge ground of (1)(a), pins the tail turn to the pre-state immediately before the last block of the range's body, and pins the record's object and framing in DA-07(1). A later reader MUST NOT restore a predicate or void list without the fee-cap floor, an unqualified 'no valid block can carry' claim, a discharge ground read from the live base fee, or any superseded form RC-7 names.*
