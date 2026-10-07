@@ -616,7 +616,9 @@ only after its own review round is clean.
 
 **Further addendum (increment 02, third review round, R3-LT-01).** The addendum above records the derived instant `I*(e) = floor(L1_first(C(e)) / HEARTBEAT_WINDOW) · HEARTBEAT_WINDOW` and the sequence guard, but not the launch transition; this further addendum records the correction and leaves the entry and the addendum above as history. For exactly the two epochs whose clamp resolves to `e_0` — `e = e_0 + 1` and `e = e_0 + 2`, the first two filtered versions — the instant is shifted forward by two full heartbeat windows: `w*(e) = floor(L1_0 / HEARTBEAT_WINDOW) + 2` and `I*(e) = (floor(L1_0 / HEARTBEAT_WINDOW) + 2) · HEARTBEAT_WINDOW`; the predicate's one-window slack therefore admits the counting window `[(floor(L1_0 / HEARTBEAT_WINDOW) + 1) · HEARTBEAT_WINDOW, (floor(L1_0 / HEARTBEAT_WINDOW) + 2) · HEARTBEAT_WINDOW)`, which starts at or after `L1_0` with the full length `HEARTBEAT_WINDOW` whichever block of its window `L1_0` falls in, so a prepared entry cannot win a one-block race and fix the first two filtered rosters. The entries for those two epochs MUST NOT be appended before that counting window closes — the gate applies to every appender alike and names no entry or caller — and from `e_0 + 3` the unshifted definition resumes, a lower later threshold admitting, never excluding. The cost is recorded: the first two filtered appends are gated by up to two heartbeat windows rather than one, and the missing-entry halt of `CONS-13(5)` gains up to one full window, up to two windows in blocks in total, unbounded in wall clock because the register bounds `HEARTBEAT_WINDOW` only from below (`PARAM-01`). At low heights the guard is load-bearing: eligibility is `lastHeartbeatSeq(v) > 0` **and** `lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`, and a never-attested entry whose record is `0` is ineligible regardless of the arithmetic (R2-DI-01). *(R3-LT-01: the further correction is appended here; D-14, D-16 and the entry above are untouched.)* The relative statement above is also an inevitability, and its size is absolute: the gate opens at `(floor(L1_0 / HEARTBEAT_WINDOW) + 2) · HEARTBEAT_WINDOW` while the first L1-side epoch boundary is `L1_0 + EPOCH_LEN_L1`, and with `EPOCH_LEN_L1 < HEARTBEAT_WINDOW` their difference `2 · HEARTBEAT_WINDOW − (L1_0 mod HEARTBEAT_WINDOW) − EPOCH_LEN_L1` is at least `HEARTBEAT_WINDOW + 1 − EPOCH_LEN_L1 > 0`, so the append for `e_0 + 1` can never be made before that epoch is entered — the halt is guaranteed whenever the L2 keeps pace — and it runs between `HEARTBEAT_WINDOW − EPOCH_LEN_L1 + 1` and `2 · HEARTBEAT_WINDOW − EPOCH_LEN_L1` blocks before the append, plus Ethereum finality. The gate can also pass the second boundary `L1_0 + 2 · EPOCH_LEN_L1` whenever `2 · (HEARTBEAT_WINDOW − EPOCH_LEN_L1) > (L1_0 mod HEARTBEAT_WINDOW)`, and the finality lag can make the entry for `e_0 + 2` late in most alignments, so the launch may need two recovery cycles rather than one. *(R4-LT-01: appended to this record — the launch halt is guaranteed and sized in blocks beside the kept relative comparison.)*
 
-## D-18 — Narrow forced inclusion revived in one unit, with an unconditional frontier, a non-steerable void predicate and expiry as proof-side discharge
+## D-18 — Narrow forced inclusion revived in one unit, with an unconditional frontier, a non-manufacturable void predicate whose producer-set steering edges are disclosed, and expiry as proof-side discharge
+
+*(FI-13(3) shorthand correction: "non-steerable" overstated the property. A producer cannot manufacture a discharge ground — it cannot alter a record's bytes or the order its transactions are walked — but the batch's executed state is its choice, and where a third-party credit lands relative to a turn can decide whether an unaffordable transaction is executed or discharged; that credit-ordering edge is the disclosed residual F-FI-3.)*
 
 *Increment 04. Append-only: D-12 and D-16 stay as written; this entry records what changed.*
 
@@ -751,5 +753,22 @@ through the sender's own further signed transactions or through such a credit, a
 balance": the reward pool's `free_before(e)` is a different term. D-12 and D-16 are untouched.
 *(R4R3-T-02: the correction is appended here; the entry and the addenda above are preserved as history,
 and each superseded form is quoted and corrected beside this note rather than edited in place.)*
+
+**Further addendum (increment 04, FI-13(3) shorthand correction).** The entry and the addenda above stand as
+the historical record; this further addendum corrects the shorthand by which they name the property. The
+heading's "non-steerable", the entry's "two facts a producer cannot move — the sender's nonce and free
+balance" and "no block producer can manufacture a void ground", and the addenda's "only that account's own
+signed transactions move its nonce or balance" and "a producer cannot manufacture a discharge ground for
+someone else's transaction" are **superseded as names of the property**: each implies a producer cannot steer
+a discharge at all, while `FI-13(2)`–`(3)` claims **non-manufacturability with the producer-set inputs that
+steer it disclosed**. A producer cannot move a nonce, reduce a balance, alter a record's own bytes, or change
+the order in which its transactions are walked — but the batch's own executed state is its choice, so where a
+third-party credit lands relative to a turn decides whether an unaffordable transaction is rescued and must
+execute (credit before the turn) or is discharged as unaffordable (credit after it), and a competing
+transaction of the sender that the batch carries can consume the nonce or spend the balance before the turn.
+That credit-ordering edge is the disclosed residual **F-FI-3**, and the rule no longer claims
+producer-independence. The heading is amended in place; the superseded forms inside the entry and the addenda
+are preserved as history.
+*(R4R3-T-02 follow-up: the correction is appended here; the entry and the addenda above are not rewritten.)*
 
 
