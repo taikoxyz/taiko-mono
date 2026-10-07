@@ -167,8 +167,8 @@ queue, so the obligation can delay settlement but never a release.</p>
   <text x="20" y="242" fill="#59636e" font-size="10">Dead records are still positions the frontier must pass; they are discharged by one comparison, not removed. Pruning deletes only behind the frontier.</text>
 </svg>
 <figcaption>The settlement frontier is where the last accepted batch stopped; the due frontier counts the
-records whose delay has passed. The proof walks the range between them and resolves every position, one of
-three ways.</figcaption>
+records whose delay has passed. The proof walks the range between them and resolves every position in a
+fixed order: dead first and unconditionally, then the live-only void grounds, then the walk.</figcaption>
 </figure>
 <table>
 <thead><tr><th>What</th><th>The rule</th><th>Why it is there</th></tr></thead>
@@ -276,12 +276,17 @@ drain floor and the capacity relation are all stated in that unit, and the per-b
 non-omission only.</li>
 <li>A published record that cannot be silently skipped while it is live: settlement cannot continue past it,
 and the proof resolves it transaction by transaction, in the record&rsquo;s own order, so the only ways forward
-are that resolution, an objective void ground or expiry.</li>
-<li>A walk that is total: each transaction either runs or is set aside at its turn, so every live position
-settles in a bounded number of batches and no single publication can pin the frontier.
+are that resolution, a void ground the record&rsquo;s own live bytes fix, or expiry &mdash; and expiry is
+tested first, so a record that is dead at the anchored view is dead whatever its size, contents or set-aside
+state.</li>
+<li>A walk that is total once the dead and void grounds are out of the way: a live record that is over a
+registered bound or holds a transaction that can never run from its own bytes is void before the walk, and
+otherwise each transaction either runs or is set aside at its turn, so every live position settles in a
+bounded number of batches and no single publication can pin the frontier.
 <em>(R4R1-M-01: no published record can pin the frontier.)</em></li>
-<li>A set-aside ground no producer&rsquo;s block contents can manufacture or steer, and an expiry ground that
-needs only the record&rsquo;s own stored block number and one registered constant.
+<li>A set-aside ground no producer&rsquo;s block contents can manufacture or steer, a void ground fixed by
+the record&rsquo;s own published bytes, and an expiry ground that needs only the record&rsquo;s own stored
+block number and one registered constant.
 <em>(R4R1-M-01: the ground reads the sender&rsquo;s own state, not the producer&rsquo;s environment.)</em></li>
 <li>Enforcement in the proof only: the admission rule of <code>land</code> is unchanged, there is no escrow
 or fee, there is no new slashable offence, and no forced-inclusion state is read by the exit.</li>
@@ -307,14 +312,17 @@ schedule premise are placeholders with no measurement behind them, and nothing o
 
 <h2>Check yourself</h2>
 <details><summary>A record is published and a producer lands a batch whose anchored view has passed the record&rsquo;s due point. What must the proof show about that record?</summary>
-<p>That the position is resolved. The walk reads the record&rsquo;s transactions in the record&rsquo;s own
-order, and each one either runs or is set aside at its turn &mdash; its declared nonce is not the
+<p>That the position is resolved. The dead test comes first and needs one stored number: if the
+record&rsquo;s block number plus the registered deadline is at or below the anchored view, the record is dead,
+whatever its size, its contents or how many of its transactions are set aside. Otherwise it is live, and the
+void grounds are tested before the walk: a live record is void if it is over a registered bound, if it holds a
+transaction that can never run from the record&rsquo;s own bytes, or if every one of its transactions is set
+aside at its turn. Only then does the walk run, reading the record&rsquo;s transactions in the record&rsquo;s
+own order: each one either runs or is set aside at its turn &mdash; its declared nonce is not the
 account&rsquo;s nonce at that point, or the account cannot pay the transaction&rsquo;s own declared maximum
-charge. At least one runs, so the record resolves as executed with each set-aside transaction
-discharged; if none runs, the record is void, and so is a record over a registered bound; and a record is
-dead when its stored block number plus the registered deadline is at or below the anchored view. There is no
-fourth answer, and the frontier cannot pass a position that is none of the three. <em>(R4R1-M-01: every
-position resolves, so no record can pin the frontier.)</em></p></details>
+charge &mdash; and at least one runs, so the record resolves as executed with each set-aside transaction
+discharged. There is no fourth answer, and the frontier cannot pass a position that is none of the three.
+<em>(R4R1-M-01: every position resolves, so no record can pin the frontier.)</em></p></details>
 <details><summary>Can a producer make a due record void by filling blocks and pushing the base fee above the record&rsquo;s max fee per gas?</summary>
 <p>No. The walk reads the record&rsquo;s own immutable bytes, the registered constants, and the sender&rsquo;s
 nonce and balance at the transaction&rsquo;s turn, against the transaction&rsquo;s own declared maximum
@@ -332,17 +340,19 @@ per-transaction walk.)</em></p></details>
 <p>Settlement halts with it. The frontier cannot skip an outstanding live record, so no later range can land
 while the record stands, and the censor cannot set a transaction aside to dodge it: only a transaction that
 cannot run at its turn is set aside, so every transaction that can run must run, in the record&rsquo;s own
-order. Its other options are to show the record void &mdash; over a registered bound, or with every
-transaction set aside at its turn &mdash; or to let it age out to dead, which means not settling past it for
-its whole deadline window. Re-publication creates a new record with a fresh clock, so keeping a target out
+order. Its other options are the live-only void grounds &mdash; the record is over a registered bound, holds
+a transaction that can never run from its own bytes, or has every transaction set aside at its turn &mdash; or
+to let it age out to dead, the test that runs first at any view past its deadline, which means not settling
+past it for its whole deadline window. Re-publication creates a new record with a fresh clock, so keeping a target out
 indefinitely costs the censor roughly one L1 publication per deadline window. That is the bound &mdash;
 exclusion per unit of the censor&rsquo;s L1 spending, not per unit of time. <em>(R4R1-M-01: a runnable
 transaction cannot be set aside by the producer&rsquo;s choice.)</em></p></details>
 <details><summary>Does the obligation delay a withdrawal?</summary>
 <p>No. Nothing on the withdrawal path &mdash; forming a root, attesting it, verifying it, the veto or exit
 eligibility &mdash; reads the register, the settlement frontier or the boundary commitment. A due record
-freezes only settlement, and it always resolves: its transactions run or are set aside at their turn, or the
-record is void, or it expires, so the freeze is bounded by the record&rsquo;s own deadline at the outside.
+freezes only settlement, and it always resolves: dead is tested first, a live record is void on a ground its
+own bytes and the sender&rsquo;s own state fix, or its transactions run or are set aside at their turn, so the
+freeze is bounded by the record&rsquo;s own deadline at the outside.
 <em>(R4R1-M-01: every position settles, so the freeze is bounded.)</em></p></details>
 
 <div class="card">
