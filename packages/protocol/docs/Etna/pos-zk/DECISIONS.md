@@ -732,4 +732,24 @@ producer cannot manufacture a discharge ground for someone else's transaction. T
 above's "sender's free balance" wording to BALANCE. D-12 and D-16 are untouched. *(R4R1-M-01: the completed
 per-transaction ruling is appended here; the entry and the addendum above are preserved as history.)*
 
+**Further addendum (increment 04, review round 3, R4R3-T-02).** The entry and the addenda above stand as
+the historical record; this further addendum records the correction, which is the wording `FI-13(2)`–`(3)`
+now carries. The entry's "two facts a producer cannot move — the sender's nonce and free balance" and the
+addendum above's "a discharged transaction may become executable later only through the sender's own
+further signed transactions" are **superseded**, and so is the balance half of the same claim in the
+addenda above — "only that account's own signed transactions can move its nonce or free balance" and "only
+that account's own signed transactions move its nonce or balance". Only the **nonce** is
+producer-immovable: only that account's own signed transactions can move it. The **balance** can be moved
+by **anyone**, the producer included, which is why the discharge is evaluated **at the transaction's
+turn** — the pre-state `FI-13(1)(a)` pins by position — and why an incoming credit can only ever make a
+transaction **executable**, never discharged: where a third-party credit lands relative to the turn of a
+transaction that is unaffordable there without it decides whether the transaction is forceable at that turn
+and must execute or is discharged as unaffordable at its turn. That credit-ordering edge remains the
+disclosed residual **F-FI-3**, not a new ground; a discharged transaction may become executable later
+through the sender's own further signed transactions or through such a credit, and re-publication
+(`DA-09(2)`) is the remedy. The discharge term's name is **BALANCE**, the sender's balance, not "free
+balance": the reward pool's `free_before(e)` is a different term. D-12 and D-16 are untouched.
+*(R4R3-T-02: the correction is appended here; the entry and the addenda above are preserved as history,
+and each superseded form is quoted and corrected beside this note rather than edited in place.)*
+
 

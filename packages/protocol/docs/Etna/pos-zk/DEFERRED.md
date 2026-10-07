@@ -63,9 +63,16 @@ through a stored prune cursor; it returns no frontier and is never read by `land
    FIFO order and non-omission.
 3. *The steerable void predicate.* Closed: the includability test loses the base fee and the block gas
    limit entirely; forceability is a function of the record's immutable bytes, the registered constants and
-   two facts a block producer cannot move — the sender's nonce and balance, checked against the
-   transaction's own declared maximum charge. *(FI-13(2)(v): the forceability term is the sender's balance,
-   not a "free balance".)*
+   the sender's nonce and balance at the transaction's turn, checked against the transaction's own declared
+   maximum charge. Only the **nonce** is producer-immovable — only that account's own signed transactions
+   can move it — while the **balance** can be moved by **anyone**, the producer included, and an incoming
+   credit can only make a transaction **executable**, never discharged. This is why the discharge is judged
+   at the turn: where a third-party credit lands relative to the turn of a transaction that is unaffordable
+   there without it decides whether that transaction is forceable there and must execute, or is discharged
+   as unaffordable at its turn — so a producer ordering a credit can decide a discharge. That
+   credit-ordering edge is the disclosed residual **F-FI-3**. *(FI-13(1)(a), FI-13(2)(v), FI-13(3): the
+   forceability term is the sender's balance, not a "free balance", and the earlier "two facts a block
+   producer cannot move" form is superseded.)*
 4. *Expiry with no proof-side ground, and the prune that contradicted it.* Closed: dead-at-`A` is a third
    resolution mode computed from the record's own stored `l1BlockNumber` and `T_PROVE_DEADLINE`, needing
    no bytes, blobs, execution or L1 call; the mutable status flag is not restored; and
@@ -79,8 +86,13 @@ and which would change DA-07(1)'s "any account MUST be able to publish". F-FI-2 
 holds only while the arrival rate of livable records stays within the drain the obligation can force. The
 disclosed residue travels with the revived rules rather than as deferred work: **F-FI-1** (the capacity
 relation constrains a value, and no registered rule maintains the L2 gas-limit schedule premise),
-**F-FI-3** (a transaction discharged at its turn may become executable later only through the sender's own
-further signed transactions; re-publication is the remedy), **F-FI-4** (a record
+**F-FI-3** (the credit-ordering edge: a transaction discharged at its turn may become executable later
+through the sender's own further signed transactions or through a third-party credit, and where such a
+credit lands relative to the turn of a transaction that is unaffordable there without it — before it, the
+transaction is forceable there and must execute; after it, the transaction is discharged as unaffordable
+at its turn — is the producer-set ordering that can decide a discharge, because the discharge is judged at
+the turn and a credit can never discharge a transaction, only enable it; re-publication is the remedy),
+**F-FI-4** (a record
 can age out to dead rather than be included), **F-FI-5** (the guarantee is conditional on a non-censoring
 L1 and on at least one honest or rational producer) and **F-FI-6** (a certified range deliberately delayed
 past the anchor-age envelope is permanently unacceptable; the registered relations close the in-envelope
