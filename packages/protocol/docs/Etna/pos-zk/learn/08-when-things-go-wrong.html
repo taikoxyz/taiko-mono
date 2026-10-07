@@ -129,14 +129,17 @@ clears the stall; a future protocol update would have to preserve the boundary.<
 </figure>
 <p><strong>A cohort that goes silent takes production with it.</strong> Within a set version nothing changes:
 the committed weights still include validators that have stopped signing, so if enough of them stop that quorum
-cannot be met, production halts &mdash; there is no degraded threshold. Nothing replaces the silent weight
-either. Membership has no liveness gate, so an entry that goes quiet stays in every committed set version, and
-v1 has no rule that removes it or that draws a replacement set. The silent validators keep their whole bonded
-stake; they forfeit only the rewards they did not earn. The halt ends with no protocol change when the
-committed cohort of the epoch containing the next unfinalised height returns to vote, and it is permanent only
-while that cohort never does: that epoch is already committed and its roster immutable, so no rotation can
-clear it. Changing the set, the schedule or the mechanism is what would need a protocol update, not the
-cohort's return.</p>
+cannot be met, production halts &mdash; there is no degraded threshold and no replacement set for a version
+already committed. The L1 heartbeat changes who is in <em>future</em> versions: a cohort that stops attesting
+is excluded from the versions whose commit point falls in a window it did not attest for, so those versions
+are drawn from the entries that keep attesting and quorum is reachable there. A cohort that keeps attesting
+and withholds its votes keeps its weight and stays in them: a heartbeat is a declaration of presence on L1,
+not proof of participation. The silent validators keep their whole bonded stake either way; they forfeit only
+the rewards they did not earn. The halt inside an already-committed epoch ends with no protocol change when
+the committed cohort of the epoch containing the next unfinalised height returns to vote, and it is permanent
+only while that cohort never does: that epoch is already committed and its roster immutable, and no v1 rule
+draws a replacement set for it. Changing the set, the schedule or the mechanism is what would need a protocol
+update, not the cohort's return.</p>
 
 <p><strong>The halt can still be permanent.</strong> Halting remains the correct action for missing data at or
 below the accepted checkpoint, for a missing validator-set commitment, for an L1 view that disagrees with
@@ -291,7 +294,9 @@ path at all.</li>
 block&rsquo;s data has disappeared, nothing in the protocol can reconstruct it, and no rule may
 replace accepted history. That is a disclosed liveness cost of permanent settlement.</li>
 <li><strong>A stalled chain does not resume in v1.</strong> Clearing the stall needs a future protocol
-update whose procedure is not yet specified, and there is no protocol-level bound on how long a halt lasts.</li>
+update whose procedure is not yet specified, and there is no protocol-level bound on how long a halt lasts.
+The heartbeat rule does not change this: it filters future set versions and cannot replace the roster of an
+epoch already committed.</li>
 </ul>
 
 <h3>Resuming a node afterwards</h3>
@@ -383,7 +388,8 @@ attestations, subject to the funded proving market and to the data still being r
 <li>Locks scoped by generation: a lock constrains votes at its height within the generation it was taken in,
 and v1 never begins a new one.</li>
 <li>A clear account of silence: an entry that stops signing keeps its stake and its place in every committed
-set version, and a cohort that stops signing halts production rather than shedding weight.</li>
+set version, a validator that stops attesting loses its slots in future versions until it attests again, and
+a cohort that keeps attesting while withholding its votes halts production rather than shedding weight.</li>
 </ul>
 
 <h2>What it does not give you</h2>
@@ -399,11 +405,13 @@ specified, with no protocol-level bound on how long a halt lasts.</li>
 it, so a stalled chain waits: transactions above the checkpoint are not settled, their inclusion is not
 guaranteed, and a party that needs one must be prepared to resubmit it later.</li>
 <li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that never
-answers is not slashable, and a validator that goes quiet loses neither its place in the committed set nor
-its stake.</li>
+answers is not slashable, and a validator that goes quiet keeps its stake and its place in every committed
+set version. Attestation is a selection filter, not a penalty: a lapse costs slots in future versions and
+no stake.</li>
 <li>A way to keep producing after quorum is lost, and no rule that takes weight from anyone. Production
-halts; the committed set does not change, and nothing removes the silent weight or draws a replacement
-set.</li>
+halts; the committed set does not change, nothing removes the silent weight from it, and no v1 rule draws a
+replacement set for it. A cohort that keeps attesting while withholding its votes keeps its weight in the
+versions that follow.</li>
 <li>An instant or operator unstick button. No v1 path clears a settlement stall: not governance, not an
 operator, not an emergency key and not a bond.</li>
 <li>Any measured detection rate, timeout value or retention window. Those are not yet measured.</li>
@@ -450,17 +458,23 @@ scoped to an older generation could never be accepted again. v1 has no recovery 
 advances here and no height is retired.</p></details>
 <details><summary>A third of the voting power stops signing. Is the chain stuck?</summary>
 <p>For the set version already committed the silent weight still counts, so quorum can fail and production
-halts. Nothing is taken from the silent validators: membership has no liveness gate, so they keep their
-stake and their place in every committed set version. There is no rotation and no replacement set, so v1 has
-no rule that clears the halt; clearing it needs a future protocol update.</p></details>
+halts, and no v1 rule replaces that committed roster. What changes is the next versions: if the cohort stops
+attesting on L1, it is excluded from the versions whose commit point falls in a window it did not attest
+for, and those versions are drawn from the entries that keep attesting, so quorum is reachable there. If the
+cohort keeps attesting and only withholds its votes, it keeps its weight and can stall again. Nothing is
+taken from the silent validators either way: a lapse costs future slots and never stake, and clearing a halt
+inside an already-committed epoch still needs the cohort to return or a future protocol update.</p></details>
 
 <div class="card">
 <h3>Assumptions</h3>
 <ul>
 <li>Fewer than one third of each epoch&rsquo;s voting power is malicious, and the rest follows the lock
 and vote-uniqueness rules.</li>
-<li>Enough validators are online to form quorums in normal operation. Inside a set version the protocol has
-no degraded mode, and no rule removes a validator that goes quiet, so a silent cohort halts production.</li>
+<li>Enough validators are online to form quorums in normal operation, and honest L1 heartbeat transactions
+are included inside their windows. Inside a set version the protocol has no degraded mode and no rule removes
+a validator that goes quiet, so a silent cohort halts production; the heartbeat excludes a cohort that stops
+attesting from future versions only, and an adversary that censors honest heartbeats can exclude honest
+validators (F8).</li>
 <li>Somebody keeps the data for every certified block until its proof lands, or publishes it to L1 while the blobs are retrievable.</li>
 <li>At least one prover finishes each batch before the retention assumption expires.</li>
 <li>v1 has no stall parameter and no recovery path. A settlement stall halts the chain, the exit from the

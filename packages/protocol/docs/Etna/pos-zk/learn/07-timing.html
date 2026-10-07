@@ -70,7 +70,15 @@ of them (<a href="../spec/01-system-model.html#SYS-03">SYS-03</a>).</p>
 <tr><td>L1 acceptance</td><td>proof exists &rarr; accepted on L1</td><td>one L1 transaction; inclusion delay not yet measured</td><td><span class="chip">unmeasured</span></td></tr>
 <tr><td>Ethereum finality</td><td>accepted on L1 &rarr; Ethereum-final</td><td>&asymp; 2 Ethereum epochs &asymp; 12.8&nbsp;min at 12&nbsp;s slots</td><td><span class="chip">sourced depth</span> <span class="chip">derived</span></td></tr>
 <tr><td>Withdrawal availability</td><td>accepted (or finalized) &rarr; withdrawal-eligible</td><td>a withdrawal root over an accepted checkpoint (<code>k</code> distinct-family attestations, one verification each) plus <code>WITHDRAWAL_DELAY</code> from the root record, with no unexpired veto</td><td><span class="chip">unmeasured</span></td></tr>
+<tr><td>Heartbeat eligibility</td><td>L1 heartbeat accepted &rarr; the set version whose commit point lies in that window is selectable &rarr; the epoch that version governs</td><td>one L1 transaction per validator per heartbeat window; the version committed in that window governs an epoch two L1-side epochs later</td><td><span class="chip">unmeasured</span></td></tr>
 </tbody></table>
+<p>One clock in that table belongs to membership rather than to a transaction. A set version&rsquo;s roster
+is decided two L1-side epochs before the version governs an epoch, and it is drawn from the entries that
+attested on L1 in the heartbeat window containing the version&rsquo;s commit point. A heartbeat accepted in
+a window therefore makes an entry selectable for the version committed in that window, and that version is
+the one that governs an epoch two epochs later; a missed window costs the slots in the version committed in
+it, and re-attesting restores the entry at a later commit point. The window length and the bounded age of
+the L1 block a heartbeat binds are <span class="tag">unmeasured</span>.</p>
 
 <h2>The timeline</h2>
 <figure>
@@ -264,6 +272,9 @@ withdrawal delay are all not yet measured.</li>
 <li>A small proving fleet or a long batch. About 150 batches are unsettled inside the thirty-minute
 envelope, so roughly 150 proofs must be able to be in flight at once; that is a consequence of the data
 bound, not a target that can be tuned away.</li>
+<li>A set place that renews itself. Eligibility is renewed by an L1 heartbeat inside each heartbeat window,
+so a validator that stops attesting is absent from the versions committed while it is not covered; a missed
+window costs future slots and never stake, and a re-attestation restores it at a later commit point.</li>
 </ul>
 
 <h2>Check yourself</h2>
@@ -302,7 +313,9 @@ one-transaction publication rule, not a tuning choice, and it is why roughly 150
 <li>Validators and full nodes keep and serve unsettled data until the batch lands.</li>
 <li>At least one adequately resourced prover finishes each batch; a normal proof consumes the envelope,
 it does not exceed the cap.</li>
-<li>Ethereum includes valid transactions within a bounded delay and finalizes them.</li>
+<li>Ethereum includes valid transactions within a bounded delay and finalizes them, including honest
+heartbeat transactions inside their windows; a validator that lapses loses future slots and not stake, and
+censoring honest heartbeats can exclude honest validators from future versions (F8).</li>
 <li>The 30-minute envelope, the retention window and the withdrawal delay are planning values awaiting
 measurement.</li>
 <li>The chain resumes after a settlement stall only through a future protocol update: no rule of v1 provides a recovery path, and the exit from the last settled checkpoint works on L1 without any L2 liveness, through a withdrawal root that a funded proving market produces from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>

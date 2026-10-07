@@ -146,6 +146,20 @@ distinct-family attestations, which needs a funded proving market and data that 
 assumption</strong>, stated as one: nothing in v1 prices the halt with a bond, enforces a bound on it, or
 lets any party choose a state, a checkpoint or a height above the last accepted checkpoint.</p>
 
+<h3>Membership has a liveness gate, and it does not compel participation</h3>
+<p>Membership in a <em>future</em> set version is renewed on L1: an entry must have posted a heartbeat
+inside the window containing that version&rsquo;s commit point, or it is simply not selected into it. The
+design states what that does and does not buy. It does not repair a version already committed: a chain
+stalled inside an epoch whose roster cannot form quorum is not released by the heartbeat, and no v1 rule
+draws a replacement set for that epoch. It does not compel participation: a cohort that keeps attesting
+while withholding its votes keeps its weight and can stall again. It does not punish a lapse: a missed
+heartbeat costs slots in future versions and never stake, and re-attesting restores the entry at a later
+commit point. And it adds its own dependency: the mechanism works only if honest heartbeat transactions
+are included on L1, so an adversary able to censor them, delay them past their window, or price them out
+can exclude honest validators from future versions and thereby raise its own share of those versions
+&mdash; falsifier F8. The bounded term within which a signature may be produced before the window it
+names is falsifier F9. Both are stated as open limits, not repaired.</p>
+
 <h3>A funded reward pool is what keeps settlement moving</h3>
 <p>Settlement assumes the landing market is funded: that the fee sweep actually credits the reward pool and that the
 reward available to a lander is not below the cost of landing. If the pool is empty or the reward is below cost, no rational prover
@@ -258,6 +272,9 @@ losses that provisional history can cause, and no universal bound on them; and n
 resumes at all.</li>
 <li>No per-transaction inclusion guarantee, no inclusion obligation over published data, no general inclusion list, no retention
 enforcement and no compensation for loss.</li>
+<li>No liveness gate that compels participation: the L1 heartbeat decides who is in future set versions, and an entry that
+stops attesting loses its slots there and no stake. A committed version is never re-drawn, and a cohort that keeps attesting
+while withholding its votes keeps its weight.</li>
 <li>No protection against a malicious upgrade, or against a proof-system or cryptographic failure.</li>
 </ul>
 
@@ -301,7 +318,9 @@ produces the <code>k&minus;1</code> further attestations a withdrawal root needs
 retrievable.</li>
 <li>Somebody publishes a transaction&rsquo;s data to L1 while the blobs are retrievable; publication creates no inclusion
 obligation either way, so if the data never reaches L1 the protocol has no remedy.</li>
-<li>Ethereum keeps producing and finalizing blocks, and L1 facts become Ethereum-final at a known depth.</li>
+<li>Ethereum keeps producing and finalizing blocks, and L1 facts become Ethereum-final at a known depth. Validators post an
+L1 heartbeat inside each window and Ethereum includes those transactions; a lapse costs future slots and not stake, and
+censoring honest heartbeats can exclude honest validators from future versions (F8).</li>
 <li>The reward pool is funded by L2 fee revenue or a recorded top-up; otherwise no reward is payable.</li>
 <li>A fresh, Ethereum-final L1 checkpoint is available to a new node, and governance does not execute an upgrade that breaks these
 rules.</li>

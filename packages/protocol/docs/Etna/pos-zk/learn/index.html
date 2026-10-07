@@ -47,7 +47,8 @@ authoritative rules — with identifiers, edge cases and exact encodings — are
 <h2>The design in five sentences</h2>
 <ol>
 <li><strong>Validators order the chain.</strong> Anyone who bonds the TAIKO token on Ethereum can join the validator
-set, and the set for each epoch is fixed on Ethereum before the epoch starts.</li>
+set, the set for each epoch is fixed on Ethereum before the epoch starts, and staying selectable for future
+versions is renewed by a periodic L1 heartbeat.</li>
 <li><strong>Blocks come every two seconds</strong> and are PoS-certified once more than two thirds of the epoch&rsquo;s
 voting power has voted for them — normally a few rounds later. That confirmation stays <em>provisional</em> until the batch
 is accepted on Ethereum.</li>
@@ -70,7 +71,7 @@ update.</li>
 <tr><td><a href="01-what-is-etna.html">What Etna PoS + ZK is</a></td><td>The shape of the system: who does what, what Ethereum still provides, and the five questions people mix up.</td></tr>
 <tr><td><a href="02-life-of-a-transaction.html">The life of a transaction</a></td><td>One transaction end to end, and the eight statuses you will see in tooling — including the provisional PoS-certified status, and what each one actually guarantees.</td></tr>
 <tr><td><a href="03-consensus.html">How the chain agrees</a></td><td>Proposals, votes, the two-thirds quorum, locks, commit certificates, proposer selection and view changes.</td></tr>
-<tr><td><a href="04-staking-and-epochs.html">Stake, validators and epochs</a></td><td>Bonding TAIKO, joining an epoch&rsquo;s validator set, how voting power is counted, exits, and how a new node starts safely.</td></tr>
+<tr><td><a href="04-staking-and-epochs.html">Stake, validators and epochs</a></td><td>Bonding TAIKO, joining an epoch&rsquo;s validator set, the L1 heartbeat that renews eligibility, how voting power is counted, exits, and how a new node starts safely.</td></tr>
 <tr><td><a href="05-the-proof.html">What the proof proves</a></td><td>The zero-knowledge statement: the consensus certificate, execution, the data binding, the configuration it binds and the signed recovery generation that scopes certificates — and what it deliberately does not prove.</td></tr>
 <tr><td><a href="06-data-and-proof-together.html">Data first, proof binds</a></td><td>One accepting transaction binds the data and the proof — the data carried, or a live publication record referenced — plus the calldata and blob paths, the blob binding, the per-epoch configuration registry and the signed recovery generation, which voids a certificate from a superseded generation but never advances in v1, and what a failed verification does.</td></tr>
 <tr><td><a href="07-timing.html">Two seconds and thirty minutes</a></td><td>Block cadence, certification, proving, L1 acceptance, Ethereum finality and withdrawals on one timeline &mdash; including the data bound on batch length and the roughly 150 proofs in flight it implies.</td></tr>

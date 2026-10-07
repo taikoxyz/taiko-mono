@@ -2,7 +2,9 @@
 
 Mechanisms **excluded from v1** by decision D-16, with what each was for, why it was deferred, what
 blocked it, and what would revive it. Nothing here is abandoned: each entry is a scoped piece of work
-with its findings preserved in `iterations/raw/`.
+with its findings preserved in `iterations/raw/`. **Three mechanisms remain deferred**; heartbeat
+eligibility was revived in part by increment 02 — the eligibility rule is live, the rotation that
+consumes it is not (§2).
 
 ## 1. Narrow forced inclusion (D-12)
 
@@ -20,17 +22,53 @@ expiry as an objective proof-side discharge ground.
 **Preserved:** `FI-10`-`FI-14` text in git history at `7917ba264` and the findings in
 `iterations/raw/round5t-*.md` and `round6-d12-d14-repairs.md`.
 
-## 2. Heartbeat eligibility (D-14)
+## 2. Heartbeat eligibility (D-14) — REVIVED IN PART (increment 02)
 
-**For:** letting a chain recover when a cohort stops participating, without removing anyone's weight.
-**Why deferred:** its round-5 Critical (one signature was a permanent credential) was fixed, but the
-fix has not been re-reviewed, and the mechanism depends on the stall-resolution path that is itself
-deferred.
-**Blocked by:** the per-window payload binding needs a fresh review; the pre-signing residual is
-disclosed but open.
-**Revive criteria:** review of the window-bound payload; a decision on whether the pre-signing
-horizon needs closing.
-**Preserved:** `MEM-13` text at `7917ba264`; finding `R5T-C-2`.
+*Revived by increment 02: L1 heartbeat eligibility is a live rule; the rotation that consumes it stays
+deferred and tombstoned.*
+
+**What was revived.** `MEM-13` is live as the rule it was re-derived to be: a set version's roster is
+the active entries that posted a heartbeat inside the heartbeat window containing that version's commit
+point, and an entry that did not is excluded from the root, the total and the count — never decayed,
+slashed or removed — and is restored by re-attesting at a later commit point. The heartbeat is an ECDSA
+signature checked on L1 with `ecrecover`; anyone may carry it and a relayer may batch. The payload
+binds a versioned domain tag, the chain id, the entry, a window index, a strictly increasing sequence
+number, and a recent L1 block (its number and its hash); acceptance requires the named window to be
+current and unrecorded and the anchor block to be at most `HEARTBEAT_ANCHOR_AGE` L1 blocks old. The
+domain tag is `"ETNA_HEARTBEAT_V2"`, bumped because the preimage gains the anchor pair. No rule
+removes weight (D-14's property); the boundary, the exit, D-8/D-9 and D-11 are not reopened.
+
+**What increment 02 changed, against the two blockers recorded here.** (a) *The per-window payload
+needed a fresh review.* The payload is restated as the normative surface, every recorded replay vector
+is mapped to the check that rejects it, and the increment ships only after its own review round is
+clean — the fresh review is that round's, not this record's. (b) *The pre-signing residual was
+disclosed but open.* It is now bounded, not closed, by the `HEARTBEAT_ANCHOR_AGE` freshness term, and
+the residual is the named falsifier **F9**. **F8** is carried and sharpened: an adversary able to
+censor, delay past the window, or price out honest L1 heartbeats excludes honest validators from future
+set versions at no slashable cost and can raise its own share of those versions; it remains Open. The
+declared non-fix is stated wherever the mechanism is summarised: a declaration of presence is not proof
+of participation, so a cohort that keeps heartbeating keeps its weight.
+
+**What remains deferred in it: the rotation.** `CONS-16` stays deferred and tombstoned. Its
+precondition is sharpened rather than resolved: the closing height `h_close(e)` is an L2 fact, L1
+state holds neither the L2 tip nor the highest produced height, and the completion record's value would
+be an unverifiable claim by the completer — a false one re-judges a produced height, makes its
+certificate unverifiable against the boundary record and strands value above the accepted checkpoint.
+The preserved rule's falsifier **F7** is carried and sharpened accordingly. What would close the gate:
+an L1-verifiable referent for `h_close` — a stored last-finalized marker written by a rule L1 can
+verify (noted as not constructible in v1, because a proof can attest that a height *is* finalized but
+cannot prove that no higher height is), or a composite transition carrying the head batch with the same
+"highest" absence problem, or the governed stall resolution (D-15), whose revival would reopen a v1
+decision.
+
+**What a future revival would need.** Close the `h_close` gate as above, then the rotation's own
+review round; its conditional budget is the boundary-record amendment storage and the pending-rotation
+record, and its completion rule would add the `REC-01(a)` qualification for heights no validator
+produced. Until then `CONS-16` MUST NOT be implemented, and v1 keeps the disclosed consequence that a
+quorum-loss halt inside an epoch is cleared only by the cohort returning or by a future protocol update.
+
+**Preserved:** `MEM-13` and `CONS-16` text at `7917ba264`; findings `R5T-C-2`, `R6-D12-06` and
+`R5T-H-1`; falsifiers F7, F8, F9.
 
 ## 3. Governance stall resolution (D-15)
 
@@ -53,7 +91,7 @@ program while adding a proving cost that S1 has not measured.
 **Revive criteria:** S1's aggregation-cost line, then a review of the family-bitmap enforcement.
 **Preserved:** `PRF-15`, `L1-14`, `L1-13` text at `7917ba264`; `round6-data-proof-economics.md`.
 
-## Cross-cutting items that outlive all four
+## Cross-cutting items that outlive all three
 
 - **The round-5/6 findings not specific to a deferred mechanism** are listed in
   `iterations/raw/round5t-*.md` and `round6-*.md`; the round-8 pass is in
@@ -67,8 +105,12 @@ program while adding a proving cost that S1 has not measured.
   form. *This closes review round 8 finding R8-EBA F7: the note lists the current residuals instead
   of calling repaired defects load-bearing.*
 - **Phase B measurements** remain as planned: nothing in this register can be revived honestly
-  without them.
+  without them. The revived heartbeat reinstates its own measurement line — per-signature `ecrecover`
+  and anchor-check cost, batch fit in one L1 block, relayer cost, and the L1 inclusion quantile at that
+  gas profile — and `HEARTBEAT_WINDOW`/`HEARTBEAT_ANCHOR_AGE` stay unmeasured until it runs.
 - **The learning site** must be re-synced on **any** specification change, not only when a deferred
   mechanism returns, because it teaches the design as it stands; it was out of sync with the v1 exit
   until round 8 (`R8-EBA F2`). *This closes review round 8 finding R8-EBA F7: the sync trigger is any
-  change to a live rule, not only the return of a deferred mechanism.*
+  change to a live rule, not only the return of a deferred mechanism.* Increment 02 re-synced the course
+  for the revived heartbeat (lessons 4, 7, 8, 10, the glossary, the index and the limitations page) and
+  deliberately does not teach the deferred rotation.

@@ -560,3 +560,55 @@ the finding they closed. The remaining two rounds cannot supply a review cycle t
 
 **Status:** decided; rollback in flight.
 
+
+
+## D-17 — Heartbeat eligibility revived with a bounded pre-signing horizon; the rotation stays deferred
+
+*Increment 02. Append-only: D-14 and D-16 stay as written; this entry records what changed.*
+
+**Decision (design owner, 2026-10-07):** increment 02 revives **MEM-13** (L1 heartbeat eligibility) as a
+live rule. It does **not** revive **CONS-16**: the L1-time-keyed rotation stays deferred and tombstoned,
+because its precondition has no L1 referent and a completer would supply the closing height as an
+unverifiable claim (**F7**, carried and sharpened). The increment ships MEM-13 alone; the pre-signing
+horizon is handled by the bounded `HEARTBEAT_ANCHOR_AGE` term of the new payload, not by a per-window
+challenge.
+
+**What is live.** Eligibility for a set version requires an accepted heartbeat inside the heartbeat
+window containing that version's commit point. The payload binds a versioned domain tag
+(`DOMAIN_HEARTBEAT`, `"ETNA_HEARTBEAT_V2"`), the chain id, the entry, a window index, a strictly
+increasing sequence number, an L1 anchor block number and the anchor block hash; acceptance requires the
+named window to be current and unrecorded, the sequence to advance, and the anchor to be a real L1 block
+no more than `HEARTBEAT_ANCHOR_AGE` blocks old. The recorded eligibility instant is the named window's
+start, never the carrier's time, so a signature cannot be replayed or refreshed by submitting it later.
+The key is an ECDSA heartbeat key registered at bonding, distinct from the Ed25519 consensus key,
+owner-rotatable forward-only, and never a consensus key. Ineligible entries are excluded from `R_k`,
+`TotalVP_k` and `n_k` — never decayed, slashed or removed — and re-attesting restores eligibility at
+the next commit point. If no active entry is eligible when an append is due, `commitSet()` reverts and
+the append is missed. No rule removes weight: D-14 is unchanged, and the boundary, the exit, D-8/D-9 and
+D-11 are not reopened.
+
+**The pre-signing horizon.** It is bounded by the `HEARTBEAT_ANCHOR_AGE` term of the new payload, not
+closed by a per-window challenge: full closure would add one permissionless transaction per window and
+make a single censored transaction exclude the whole roster. The residual — a signature made within the
+anchor age before the window it names can be accepted in that window — is the named falsifier **F9**.
+**F8** is carried and sharpened: an adversary able to censor, delay past the window, or price out honest
+L1 heartbeats excludes honest validators from future set versions at no slashable cost and can raise its
+own share of those versions; the protocol does not detect or resist it. The declared non-fix is stated
+wherever the mechanism is summarised: a declaration of presence is not proof of participation, so a
+cohort that keeps heartbeating keeps its weight, and the rule changes who is selectable, never what a
+committed version requires. The new terms (`HEARTBEAT_WINDOW`, `HEARTBEAT_ANCHOR_AGE`,
+`HEARTBEAT_BATCH_CAP`) remain `unmeasured` with stated relations, never values.
+
+**Why CONS-16 is not revived.** `h_close(e)` — the highest height any validator produced in a stalled
+epoch — is an L2 fact. L1 state holds neither the L2 tip nor the highest produced height,
+`lastLandedHeight` is only a lower bound, and the completion record's value would be a claim by the
+completer; a false claim re-judges a produced height, makes its certificate unverifiable against the
+boundary record and strands value above the latest accepted checkpoint, which is the class of
+history-replacing transition `REC-01(a)` forbids. CONS-16 therefore MUST NOT be implemented — by any
+client, contract, parameter, interface, migration script or later text — until an L1-verifiable referent
+for `h_close` exists, and its tombstone and its `DEFERRED.md` pointer stay intact. While the gate is
+open, `REC-01`'s text is literally unchanged and `DEFERRED.md` §2 records what a revival would need.
+
+**Status:** decided; specification, register, index and course changes in flight. The increment ships
+only after its own review round is clean.
+
