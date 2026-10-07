@@ -1,6 +1,6 @@
 # Increment 04 — Narrow forced inclusion (D-12): design delta
 
-**Status: design delta, NOT APPLIED.** No specification, register, index, course or decision file has
+**Status: IMPLEMENTED, IN REVIEW.** The rules are written into the specification (FI-10..FI-14 live, PRF-04(vi) enforcing, the register and the course updated) and the increment is going through its own review rounds. It has NOT shipped: it ships only when two consecutive rounds come back with no Critical and no High, and its ship record will follow, exactly as `increments/02-ship-record.md` did for increment 2. This file began as a design delta, NOT APPLIED - No specification, register, index, course or decision file has
 been edited by this pass. This document is what the implementation and its adversarial review round are
 built from; the review round is the authority that closes the four blockers named in
 [DEFERRED.md](../DEFERRED.md) §1.

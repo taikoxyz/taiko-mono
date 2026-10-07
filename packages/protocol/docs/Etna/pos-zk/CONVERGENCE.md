@@ -61,7 +61,11 @@ aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads o
 > implementation is complete, and its first review round has run). It is **not yet shipped**: it ships on
 > the same bar, two consecutive rounds with no Critical and no High, and its own ship record will follow.
 > Until then the sentences above describing forced inclusion as merely designed are the increment-2-era
-> record, not the current state. **Increment 3** remains gated on Phase B's S1 measurement - its
+> record, not the current state. **And of the three absences recorded at convergence, the first is now
+> addressed in draft**: a narrow inclusion obligation exists in the specification (FI-10..FI-14) while
+> increment 4 is in review, so "no inclusion obligation" describes v1 as it converged, not the current
+> draft. The other two stand unchanged: there is still **no recovery path of any kind**, and settlement
+> soundness still rests on a single proof backend. **Increment 3** remains gated on Phase B's S1 measurement - its
 > aggregation parameters cannot be set before that cost is measured - and **increment 5**, the governance
 > stall resolution, is last.
 
