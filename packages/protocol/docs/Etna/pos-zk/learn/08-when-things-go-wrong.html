@@ -88,7 +88,7 @@ governance-mediated path: clearing the stall needs a future protocol update whos
 specified. The chain stays halted until then. Nothing at or below the last accepted checkpoint is touched by
 any rule, and no rule discards the provisional range above it either; the halt simply stops production.
 Value above the checkpoint stays provisional, a transaction in that range is not settled and not replayed,
-and inclusion is not guaranteed: a published record that is outstanding across the halt can be discharged by its own deadline rather than included, and no rule bounds the wait (<a href="11-forced-inclusion.html">lesson 11</a>, <a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
+and inclusion is not guaranteed: a published record that is outstanding across the halt can be discharged as dead by its own deadline rather than included, and no rule bounds the wait (<a href="11-forced-inclusion.html">lesson 11</a>, <a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
 <p><strong>Locks are scoped by generation.</strong> A lock constrains votes at its height within the
 generation it was taken in, and it is released only by the rules above. v1 never begins a new generation, so
 no lock is ever superseded and no lock can wedge the chain through a restart. A certificate carrying a
@@ -404,7 +404,7 @@ governance-mediated path &mdash; and clearing it needs a future protocol update 
 specified, with no protocol-level bound on how long a halt lasts.</li>
 <li>A way to move or discard history. No v1 rule discards the confirmation above the checkpoint or replaces
 it, so a stalled chain waits: transactions above the checkpoint are not settled, their inclusion is not a latency
-guarantee &mdash; a published record can be discharged by its own deadline &mdash; and a party that needs one
+guarantee &mdash; a published record can be discharged as dead by its own deadline &mdash; and a party that needs one
 must be prepared to resubmit it later (<a href="11-forced-inclusion.html">lesson 11</a>).</li>
 <li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that never
 answers is not slashable, and a validator that goes quiet keeps its stake and its place in every committed
@@ -431,8 +431,13 @@ one objectively punishable offence and the one that can break safety.</p></detai
 <details><summary>Is publishing a batch&rsquo;s data to L1 without a proof a way to unblock settlement?</summary>
 <p>No. Publication is permissionless, but it writes a publication record and no batch state: it accepts
 nothing and advances no height, so settlement resumes only when a valid proof lands. A publication that is
-never proven before its deadline is discarded and can be published again, so it never becomes a second
-acceptance path.</p></details>
+never proven before its deadline is dead &mdash; derived from its own stored block number and the registered
+deadline, with no status field &mdash; and the proof discharges it as dead by one comparison, needing neither
+its bytes nor any execution. Re-publication is the remedy for a user whose record expired: the same data can
+be published again as a new record with a fresh clock, so publication never becomes a second acceptance path.
+A due record is resolved in the proof as executed, void or dead: the walk reads the record&rsquo;s transactions
+in the record&rsquo;s own order, each one either runs or is set aside at its turn; a record all of whose
+transactions are set aside is void, and a record past its deadline is dead.</p></details>
 <details><summary>Is a PoS confirmation above the last accepted checkpoint final?</summary>
 <p>No. It is valid but provisional: no v1 rule makes it permanent, and v1 has no path that replaces or
 discards it either. Accepted checkpoints and accepted batches are never touched. Value above the checkpoint
