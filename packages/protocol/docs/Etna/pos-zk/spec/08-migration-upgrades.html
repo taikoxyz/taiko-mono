@@ -416,14 +416,14 @@ record MUST NOT be used to restart a withdrawal delay: eligibility already store
 and in <code>_receivedSignals</code> is unchanged (MIG-03(6)).</p>
 <p><strong>The publication record at activation (D-11).</strong> The publication record and its clock
 (MIG-02 slots 275–277) are new state written only by the Etna path: at T3 the contract MUST initialise
-<code>nextSeq = 0</code> and <code>pruneCursor = 0</code> — the register's whole mutable clock; no deleted due-queue field is initialised (<em>increment 04 reconciliation: <code>dueHead</code>/<code>dueTail</code>/<code>dueCount</code> are deleted by the revived register shape, see the (277) row</em>) — with empty
+<code>nextSeq = 0</code> and <code>pruneCursor = 0</code> — the register's whole mutable clock; no deleted due-queue field is initialised (<em>finding F3: the deleted <code>dueHead</code>/<code>dueTail</code>/<code>dueCount</code> fields are not initialised and are free bytes, not slots (MIG-02's (277) row); the due set is derived from the register, not stored, and the settlement frontier is the predecessor checkpoint's recorded <code>settledCount</code> (<a href="04-l1-integration.html#FI-10">FI-10</a>(5)).</em>) — with empty
 <code>publications</code> and <code>publicationOrder</code> maps, so the
-first post-activation batch faces an <strong>empty register</strong> (the due set is not a v1 object) and no publication can be retroactively
+first post-activation batch faces an <strong>empty register</strong> (the due set is recomputed from the register, not carried or stored) and no publication can be retroactively
 burdened: a record's proving deadline is fixed at publication from the
 record's own L1 block, so neither a later anchor, a later re-publication nor a delay in detection can move
 it or extend a record's deadline obligation. <em>This closes the breach-clock wording: the guarantee is that the
 deadline is fixed at publication from the record's own L1 block, not that no publication
-can miss its deadline. The due-set half is deferred with D-16 and no v1 rule reads it (R7-RB-08).</em> The genesis record is <strong>not</strong> a publication: its tagged
+can miss its deadline. The due-set half is live again with this register as <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a> (D-18, <a href="../increments/04-forced-inclusion-design.md">increment 04</a>), enforced in the proof and never as an admission gate, and the deletion-only <code>prunePublications(uint32)</code> of <a href="04-l1-integration.html#L1-08">L1-08</a> is the entry point R7-RB-08 found missing (finding F3).</em> The genesis record is <strong>not</strong> a publication: its tagged
 <code>dataCommitment</code> commits to the boundary object only, and the first genuine batch's
 <code>dataCommitment</code> comes only from a successful <code>land(data, proof)</code> that references a
 recorded publication (or carries its data in the accepting transaction)
