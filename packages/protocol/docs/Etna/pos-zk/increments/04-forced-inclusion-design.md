@@ -445,8 +445,15 @@ none to execute.
   over-bound under FI-13(2)(i)–(ii) (this limb is tested **before (a)**, so a live over-bound record is
   void even if one of its transactions appears in the batch's executed payload, and its mode is fixed by
   its own immutable bytes, never by the producer's inclusion choice); it contains a transaction that
-  cannot be executed from the record's own bytes (for example its chain id does not match
-  FI-13(2)(iii)), so no batch can execute it at any pre-state; or every one of its transactions is
+  cannot be executed from the record's own bytes, in one of these exhaustive classes, each decided by
+  the record's published byte string, the registered constants and the chain id alone, so no batch can
+  execute it at any pre-state: (A) the record's published byte string does not decode under PRF-07(0),
+  so its transactions cannot be recovered at all (FI-13(2)(i)); (B) a transaction's chain id does not
+  match FI-13(2)(iii); (C) a transaction's signature does not recover to a sender, so the transaction
+  has no sender for FI-13(2)(iv)–(v); or (D) a transaction's declared gas limit is below the intrinsic
+  gas of its own data, a fixed function of that transaction's own bytes; a transaction that fails only
+  FI-13(2)(iv)–(v) is not in this limb: whether it executes is decided at its turn by the discharge
+  ground of (a), not by the record's own bytes; or every one of its transactions is
   discharged (a record with no transactions at all is void under this limb: there is nothing to
   execute), so none of them executes; or
 - **(c) dead** — the record at `j` is **dead at `A`** (FI-10(2), FI-10(7)): this test is **first and
@@ -460,13 +467,20 @@ neither executed nor discharged: the position is then unresolved, and FI-11(3)(c
 invalid — that is the obligation of FI-11. *(R4R1-M-01: the ground is per transaction, in the record's
 own order; the record-level forms "all of its transactions" and "none of whose transactions is
 forceable" are superseded and MUST NOT be restored. A transaction that can never be executed from the
-record's own bytes — a chain id that does not match FI-13(2)(iii) — is a record-level void ground, not a
-discharge at a turn, so the walk stays total over both halves of FI-13(2).)* *(Dead-first and
+record's own bytes — any one of the exhaustive classes (1)(b) enumerates, of which the chain id is one
+— is a record-level void ground, not a discharge at a turn, so the walk stays total over both halves of
+FI-13(2). F1: the classes are the exhaustive list (1)(b) states, so a reader who takes the chain id for
+the whole set leaves the other classes unresolved.)* *(Dead-first and
 void-limb-first precedence: the three modes partition every record at every anchored view — a dead record
 is (c) alone, whatever its size, contents or discharge state (the reviewer's edge case); a live
 over-bound record is (b) alone, never also (a); a record with no transactions is (b); and a position in
 no mode is unresolved only because a transaction that can execute at its turn was omitted, which
-FI-11(3)(c) makes invalid.)*
+FI-11(3)(c) makes invalid.)* *(Review round 3, finding F1: the byte-invalid limb's decision classes are
+enumerated in (1)(b) — decode failure, chain-id mismatch, an unrecoverable signature, and a declared
+gas limit below the intrinsic gas of the transaction's own data — and PRF-04(vi) names the same
+exhaustive list, so the rule and a guest implementation agree on the whole set; each class is decided
+by the record's own bytes, the registered constants and the chain id, never by L1 state, a producer
+input or an oracle.)*
 
 **(2) The predicate — record bytes, registered constants, pre-state, and nothing else.**
 
@@ -506,7 +520,7 @@ F-FI-3.)*
 
 **(4) What a record that genuinely cannot execute does.** A **live** record above any registered bound,
 or a live one containing a transaction that cannot be executed from the record's own bytes at any
-pre-state (for example a chain id that does not match FI-13(2)(iii)), is **void** — a record that is
+pre-state (any one of the exhaustive classes (1)(b) enumerates), is **void** — a record that is
 dead at `A` is resolved by (c) whatever its bounds or contents, and is discharged even more cheaply
 below — and so is a live record every one of whose transactions is discharged at its turn, so that none
 of them executes: in both cases the frontier advances past the position, the proof requires **no
@@ -519,7 +533,8 @@ fresh clock; the user's own permissionless re-publication is the exit, and nothi
 touches any height, checkpoint or batch. *(R4R1-M-01: a record whose remaining transactions cannot
 execute is fully discharged by that discharge, not left unresolved.)* *(Dead-first precedence: the
 record-level limbs of (1)(b) are live-only, so this clause's "a record above any registered bound is
-void" is corrected here to agree with (1)(b).)*
+void" is corrected here to agree with (1)(b). F1: this clause's byte-invalid classes are the exhaustive
+ones (1)(b) enumerates, not the chain-id example.)*
 
 **(5) The walk is total; the discharge is bounded.** **Totality is a rule property:** for every live
 position `j`, either a limb of (1)(b) resolves it as void from its own bytes, or the walk of (1)
@@ -820,7 +835,8 @@ anchors refer to the converged snapshot this delta was written against.
   withdrawn.
 - **`FI-10`–`FI-14` (~L691–699)**: tombstones replaced by §2's text — with FI-13's resolution ground as
   corrected in place by RC-5 (per-transaction execution or discharge at the transaction's turn, and
-  FI-13(5)'s totality property). `FI-14`'s four stall-resolution clauses are dropped (no mechanism
+  FI-13(5)'s totality property) and by F1 (the byte-invalid limb's decision classes are the exhaustive
+  list of FI-13(1)(b)). `FI-14`'s four stall-resolution clauses are dropped (no mechanism
   reads them in v1).
 - **`DA-07`(2) (~L654)**: restate the register's ordered view: each record carries `l1BlockNumber` and
   `sequence`; `deadlineBlock` is derived (`l1BlockNumber + T_PROVE_DEADLINE`), never stored; the
@@ -860,7 +876,8 @@ anchors refer to the converged snapshot this delta was written against.
   numbering and the "one commitment" form.
 - **PRF-04(vi) (~L269)**: replace the clause with FI-11(2)'s five checks and FI-11(3)(a)–(d), including
   the three resolution modes of FI-13(1) — restated as the per-transaction walk and its totality (RC-5),
-  never the record-level "none of whose transactions is forceable" ground — and the capacity condition
+  with the exhaustive byte-invalid classes named as FI-13(1)(b) lists them (F1), never the record-level
+  "none of whose transactions is forceable" ground — and the capacity condition
   of FI-12(1)–(2). The clause MUST NOT contain the deleted exception.
 - **PRF-04's other clauses**: unchanged; the new clause reads only data PRF-04 already re-executes.
 
@@ -1289,9 +1306,23 @@ the exit non-interaction paragraph; `spec/05-proof-statement.html` PRF-04(vi); a
 rows 25–28. The addendum above writes the precedence at the same places (FI-13(1), FI-13(4), FI-13(5),
 FI-11(2)(4), PRF-04(vi), and FI-12(6)'s over-bound sentence), and Appendix B rows 27–28 record the
 overlaps it closes. The immutable half of FI-13(2) is kept as a record-level void ground: a transaction that can
-never be executed from the record's own bytes — a chain id that does not match FI-13(2)(iii) — is not
-discharged at a turn but voids the record (FI-13(1)(b), FI-13(4)), so the walk stays total over both
-halves of the forceability predicate.
+never be executed from the record's own bytes — any one of the exhaustive classes FI-13(1)(b)
+enumerates, of which the chain id is one — is not discharged at a turn but voids the record
+(FI-13(1)(b), FI-13(4)), so the walk stays total over both halves of the forceability predicate.
+
+**F1 — the byte-invalid limb's decision classes are enumerated (review round 3, partition-and-proof).**
+The limb was stated by example ("for example its chain id does not match FI-13(2)(iii)"), so a guest
+implementation that checked only the chain id left a transaction that is byte-invalid for another reason
+— a byte string that does not decode under PRF-07(0), an unrecoverable signature, or a declared gas
+limit below the intrinsic gas of its own data — neither executed nor discharged, and FI-11(3)(c)
+rejected every proof in the window until the record was dead. The classes are now enumerated in
+FI-13(1)(b) and named identically in PRF-04(vi): decode failure (FI-13(2)(i)), chain-id mismatch
+(FI-13(2)(iii)), an unrecoverable signature, and a declared gas limit below the transaction's own
+intrinsic gas. Every class is decided by the record's published byte string, the registered constants
+and the chain id — no L1 state, no producer input, no oracle — and the nonce and balance tests of
+FI-13(2)(iv)–(v) are deliberately not in the list: they are not byte-decidable and are the discharge
+ground of FI-13(1)(a). Written at `spec/04-l1-integration.html` FI-13(1)(b) and FI-13(4),
+`spec/05-proof-statement.html` PRF-04(vi), and this delta's §2 FI-13(1)(b) and (4).
 
 **The record-level ground MUST NOT be restored.** The superseded forms are: FI-13(1)(a)'s requirement
 that **all** of the record's transactions appear, FI-13(4)'s "a record none of whose transactions is
