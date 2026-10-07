@@ -284,7 +284,7 @@ the chain until the resolution runs.</p>
 
 <h3>9. Weak subjectivity: where a new node starts</h3>
 <p>A fresh node bootstraps from the most recent checkpoint that the L1 Inbox accepted and that is
-Ethereum-final: an L2 height, block hash, state root, epoch and set version. It reads this from L1
+Ethereum-finalized: an L2 height, block hash, state root, epoch and set version. It reads this from L1
 state; there is no checkpoint provider role, no peer vote and no social input. The node must not
 start from a checkpoint older than <code>WS_MAX</code>, whose derived upper bound is
 <code>T_PROOF_MAX_PERMITTED + M &minus; M_ws</code>; the value is
@@ -330,7 +330,7 @@ entry list is published, so concentration is at least observable.</li>
 reproduce.</li>
 <li>An exit path that is slow but predictable, and a penalty that follows the stake held at the
 offence epoch rather than the stake at the moment evidence arrives.</li>
-<li>A defined starting point for a new node: the newest Ethereum-final checkpoint, with a freshness
+<li>A defined starting point for a new node: the newest Ethereum-finalized checkpoint, with a freshness
 bound.</li>
 <li>A set version decided on Ethereum two epochs ahead from the entries whose heartbeat covers the window
 the version is judged against &mdash; fixed by the L1 block at which its epoch became coverable: a
@@ -409,7 +409,7 @@ validator getting an L1 heartbeat transaction included inside each window, which
 validators selectable and is the assumption F8 leans on; at
 least one holder keeping each block&rsquo;s data until the batch is settled; Ethereum continuing to
 accept, include and finalize transactions, so the L1 clock and the set commitments advance; a new node being
-able to obtain an Ethereum-final checkpoint no older than <code>WS_MAX</code>; and the reward pool
+able to obtain an Ethereum-finalized checkpoint no older than <code>WS_MAX</code>; and the reward pool
 paying enough that operating a validator is rational at <code>S_min</code>. If a checkpoint cannot
 be obtained, the honest outcome is a refusal to call the history verified, and new entry stops until
 one exists.</p>
