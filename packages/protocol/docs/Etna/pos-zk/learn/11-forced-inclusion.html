@@ -105,10 +105,15 @@ producer&rsquo;s inclusion choice can turn it into an executed record. Every liv
 in a bounded number of batches, and no published record can pin the frontier.</p>
 <p><strong>Setting a transaction aside is a property of the turn it reaches, not of the block it met.</strong>
 A transaction runs at its turn only if the record&rsquo;s published byte string is within its registered
-bounds, the chain id matches, its declared nonce is the sender&rsquo;s nonce at that point, and the
+bounds, the chain id matches, its declared nonce is the sender&rsquo;s nonce at that point, the
 sender&rsquo;s balance there covers the transaction&rsquo;s <em>own declared maximum charge</em> &mdash;
-gas limit &times; max fee per gas + value. The including block&rsquo;s base fee, its gas limit and its remaining
-room are not inputs. Execution follows the record&rsquo;s own order: a producer cannot insert a transaction
+gas limit &times; max fee per gas + value &mdash; the sender has no code there, and a block of the range at
+or after the turn has room to carry it. It is set aside at its turn on any of four grounds: the nonce is not
+the sender&rsquo;s there; the balance is below that charge; the sender has code there, so no valid block may
+execute a transaction from it; or no block of the range at or after the turn had room &mdash; the remaining
+gas at that turn is below the gas limit the transaction declares, the same remaining gas the per-block duty
+reads, so a block that had room and omitted it leaves the position unresolved. The including block&rsquo;s base
+fee and gas limit are not inputs; the room ground reads only the block&rsquo;s remaining gas at the turn. Execution follows the record&rsquo;s own order: a producer cannot insert a transaction
 into the record, reorder its transactions or drop one from the walk, and it cannot alter the
 record&rsquo;s own bytes. What a producer does set is the batch&rsquo;s own executed state, and so the
 pre-state each turn is judged against: a third-party credit placed <em>before</em> a turn can make a
@@ -116,9 +121,12 @@ transaction that is unaffordable there without it runnable there, and the transa
 placed <em>after</em> the turn cannot rescue it, and it is set aside as unaffordable at its turn. A credit
 can only ever make a transaction runnable, never set one aside, and only the nonce is out of a
 producer&rsquo;s reach: only the account&rsquo;s own signed transactions move it, while the balance can be
-moved by anyone. So a producer cannot manufacture a set-aside ground for someone else&rsquo;s transaction:
-one that can run at its turn must run, and one that cannot run there is set aside there. Where a credit
-lands relative to the turn is the one producer-set input that can decide a discharge, the disclosed
+moved by anyone and no producer can put code at another account&rsquo;s address by block contents. So a
+producer cannot manufacture a set-aside ground for someone else&rsquo;s transaction that a block with room
+could carry: one that can run at its turn must run, and one that cannot run there is set aside there. The
+one ground its own block contents do reach is the room ground: filling the blocks at the turn leaves a
+forced transaction with no room, and that sets it aside at a cost in L1 gas. Where a credit lands relative
+to the turn is the one producer-set ordering that can decide a discharge, the disclosed
 residual F-FI-3 (<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>(2)&ndash;(3)).</p>
 <p><strong>No new slashable offence.</strong> A validator that signs a block violating the per-block duty
 gains no new offence and is not slashed for it: the proof is rejected, and that rejection is the whole
@@ -226,11 +234,11 @@ exit, not a latency guarantee. No bound on who may publish is imposed: that woul
 condition, and any account must be able to publish.</li>
 <li><strong>F-FI-3 &mdash; set aside now, runnable later, and the credit-ordering edge.</strong> A
 transaction set aside at its turn may become runnable later through the sender&rsquo;s own further signed
-transactions or through a credit from any account. Only the nonce is out of a producer&rsquo;s reach, while
-the balance can be moved by anyone, and a credit can only ever make a transaction runnable, never set one
-aside: where a credit lands relative to the turn decides whether an unaffordable transaction runs there
-(credit before the turn) or is set aside (credit after it), the one producer-set input that can decide a
-discharge. The outcome is objective and final for the batch that resolves the position, and the remedy for a
+transactions or through a credit from any account. Only the nonce and the account&rsquo;s own code are out of
+a producer&rsquo;s reach, while the balance can be moved by anyone, and a credit can only ever make a
+transaction runnable, never set one aside: where a credit lands relative to the turn decides whether an
+unaffordable transaction runs there (credit before the turn) or is set aside (credit after it), the one
+producer-set ordering that can decide a discharge. The outcome is objective and final for the batch that resolves the position, and the remedy for a
 record whose transactions were set aside is re-publication; a predicate that could reopen the position would
 need a mutable status field.</li>
 <li><strong>F-FI-4 &mdash; expiry outruns the frontier.</strong> A settlement stall longer than the
@@ -272,7 +280,7 @@ transactions are read in the record&rsquo;s own order, and each one either runs 
 <tr><td>a position below <code>c</code></td><td>Already settled: executed or void in the batch that carried the frontier past it, or dead at the view that discharged it.</td><td>Nothing; the walk starts at <code>c</code>, and pruning may have deleted the slot entirely.</td></tr>
 <tr><td>an outstanding position whose record is dead at the anchored view</td><td>Its stored block number plus the registered deadline is at or below that view.</td><td>Record it dead and move on. The test is first and unconditional, so it costs one comparison, no bytes and no L1 call, and a dead record is dead whatever its size, its contents or how much of it is set aside.</td></tr>
 <tr><td>an outstanding position whose record is live but outside its own bytes</td><td>Over a registered bound, or holding a transaction that can never run at any pre-state from the record&rsquo;s own bytes &mdash; a chain id that does not match, for example.</td><td>Record it void and move on. The ground is fixed by the record&rsquo;s own published bytes, so it holds at every view at which the record is live, even if one of its transactions appears in the executed payload. No re-supply of its bytes is required, and the published bytes stay on L1.</td></tr>
-<tr><td>an outstanding position whose record is live and every one of whose transactions is set aside at its turn</td><td>The walk reaches each transaction and none can run: for each, its declared nonce is not the account&rsquo;s nonce at that point, or the account&rsquo;s balance there is below gas limit &times; max fee per gas + value. A record with no transactions at all is void here too.</td><td>Record it void and move on; the record is fully set aside by that outcome rather than left standing.</td></tr>
+<tr><td>an outstanding position whose record is live and every one of whose transactions is set aside at its turn</td><td>The walk reaches each transaction and none can run: for each, its declared nonce is not the account&rsquo;s nonce at that point; or the account&rsquo;s balance there is below gas limit &times; max fee per gas + value; or the account has code at that point, so no valid block may execute a transaction from it; or no block of the range at or after that turn had room to carry it, judged on the same remaining gas the per-block duty reads. A record with no transactions at all is void here too.</td><td>Record it void and move on; the record is fully set aside by that outcome rather than left standing.</td></tr>
 <tr><td>an outstanding position whose record is live and at least one of whose transactions can run at its turn</td><td>The walk reads its transactions in the record&rsquo;s own order: each one can run at its turn, or cannot and is set aside there.</td><td>Run each transaction that can run, in the record&rsquo;s own order, and set aside each that cannot; at least one runs, so the position resolves as executed, with each set-aside transaction discharged. Nothing else resolves this position.</td></tr>
 <tr><td>a position that is none of those</td><td>A live record with a transaction that can run at its turn and was not run.</td><td>Nothing: the position cannot be passed, so the proof does not verify and no settlement record is written.</td></tr>
 </tbody>
@@ -286,9 +294,11 @@ live with every one of its transactions set aside at its turn; or stop settling,
 and no later range lands either &mdash; and then, once the record&rsquo;s deadline has passed, the dead test
 runs first at the new anchored view and the frontier can pass the position by that one comparison. There is
 no fourth option in which the record is skipped and settlement continues, and a producer cannot manufacture
-the set-aside ground: it cannot change the record&rsquo;s own bytes or the order in which its transactions
-are walked, and only the sender&rsquo;s own signed transactions move its nonce, while its balance can be
-moved by anyone. What that leaves is where a third-party credit lands relative to a turn: before the turn it
+a set-aside ground for a transaction a block with room could carry: it cannot change the record&rsquo;s own
+bytes or the order in which its transactions are walked, and only the sender&rsquo;s own signed transactions
+move its nonce, while its balance can be moved by anyone. The one ground its own block contents do reach is
+the room ground: filling the blocks at its turn leaves a forced transaction with no room and sets it aside,
+at a cost in L1 gas. What remains producer-set is where a third-party credit lands relative to a turn: before the turn it
 makes an unaffordable transaction runnable there, and the transaction must run; after the turn it cannot
 rescue it, and the transaction is set aside. A credit can only ever enable a transaction, never set one
 aside; that credit-ordering edge is the disclosed residual F-FI-3, and the remedy for a transaction
@@ -309,9 +319,12 @@ state.</li>
 registered bound or holds a transaction that can never run from its own bytes is void before the walk, and
 otherwise each transaction either runs or is set aside at its turn, so every live position settles in a
 bounded number of batches and no single publication can pin the frontier.</li>
-<li>A set-aside ground no producer&rsquo;s block contents can manufacture &mdash; it cannot change the
-record&rsquo;s own bytes or the order in which its transactions are walked &mdash; a void ground fixed by
-the record&rsquo;s own published bytes, and an expiry ground that needs only the record&rsquo;s own stored
+<li>A set-aside ground no producer&rsquo;s block contents can manufacture for a transaction a block with
+room could carry &mdash; it cannot change the record&rsquo;s own bytes or the order in which its transactions
+are walked &mdash; and the room ground&rsquo;s honest limit: filling the blocks at a turn leaves a forced
+transaction with no room and sets it aside, and the L1 gas that costs is why the guarantee is exclusion per
+unit of the censor&rsquo;s L1 spending rather than a promise about latency. A void ground fixed by the
+record&rsquo;s own published bytes, and an expiry ground that needs only the record&rsquo;s own stored
 block number and one registered constant. The pre-state a turn is judged against is the batch&rsquo;s own
 executed state, which the producer does set, so where a third-party credit lands relative to the turn decides
 whether an unaffordable transaction runs or is set aside (F-FI-3).</li>
@@ -347,32 +360,42 @@ transaction that can never run from the record&rsquo;s own bytes, or if every on
 aside at its turn. Only then does the walk run, reading the record&rsquo;s transactions in the record&rsquo;s
 own order: each one either runs or is set aside at its turn &mdash; its declared nonce is not the
 account&rsquo;s nonce at that point, or the account cannot pay the transaction&rsquo;s own declared maximum
-charge &mdash; and at least one runs, so the record resolves as executed with each set-aside transaction
-discharged. There is no fourth answer, and the frontier cannot pass a position that is none of the three.</p></details>
+charge, or the account has code there, or no block of the range at or after that turn had room to carry it
+&mdash; and at least one runs, so the record resolves as executed with each set-aside transaction
+discharged. There is no other answer, and the frontier cannot pass a position that is none of the three.</p></details>
 <details><summary>Can a producer make a due record void by filling blocks and pushing the base fee above the record&rsquo;s max fee per gas?</summary>
 <p>No. The walk reads the record&rsquo;s own immutable bytes, the registered constants, and the sender&rsquo;s
-nonce and balance at the transaction&rsquo;s turn, against the transaction&rsquo;s own declared maximum
-charge. The base fee, the including block&rsquo;s gas limit and its remaining room are not inputs, so a block
-producer cannot manufacture a set-aside ground out of the environment: it cannot change the record&rsquo;s
-own bytes or the order in which its transactions are walked, and only the sender&rsquo;s own signed
-transactions move its nonce, while its balance can be moved by anyone. The one thing the producer does set
-is the batch&rsquo;s own executed state, and so where a third-party credit lands relative to the turn: a
+nonce, balance and code at the transaction&rsquo;s turn, against the transaction&rsquo;s own declared
+maximum charge. The base fee and the including block&rsquo;s gas limit are not inputs, and the block&rsquo;s
+own remaining gas at the turn is read only by the room ground, so a block producer cannot manufacture a
+set-aside ground out of the environment for a transaction a block with room could carry: it cannot change
+the record&rsquo;s own bytes or the order in which its transactions are walked, and only the sender&rsquo;s own
+signed transactions move its nonce, while its balance can be moved by anyone, and no producer can put code
+at another account&rsquo;s address by block contents. The room ground is the one its own blocks do reach:
+filling the blocks at the turn leaves a forced transaction with no room and sets it aside, and the L1 gas
+that costs is why the guarantee is about the censor&rsquo;s L1 spending and not about latency. The other thing
+the producer does set is the batch&rsquo;s own executed state, and so where a third-party credit lands relative
+to the turn: a
 credit placed before the turn can make a transaction that is unaffordable there without it runnable, so the
 transaction must run, while the same credit placed after the turn leaves it set aside. A credit can only
 ever enable a transaction, never set one aside, and re-publication is the remedy for a transaction that was
 set aside.</p></details>
 <details><summary>A record holds two transactions: one that can run at its turn and one whose declared nonce is unreachable. Does the position resolve?</summary>
 <p>Yes. The walk runs the first in the record&rsquo;s own order and sets the second aside, because at its turn
-its nonce is not the account&rsquo;s nonce there. At least one transaction runs, so the record resolves as
-executed, and the transaction set aside is discharged. The position is not left unresolved waiting for
-a mode that fits the whole record.</p></details>
+its nonce is not the account&rsquo;s nonce there. The same turn reads the other three set-aside grounds &mdash;
+a balance below the charge the transaction declares, a sender that has code, and no room in any block of the
+range at or after the turn &mdash; and any one of them would set a transaction aside in the same way. At least
+one transaction runs, so the record resolves as executed, and the transaction set aside is discharged. The
+position is not left unresolved waiting for a mode that fits the whole record.</p></details>
 <details><summary>A censor refuses to include the record at the front of the queue. What happens?</summary>
 <p>Settlement halts with it. The frontier cannot skip an outstanding live record, so no later range can land
-while the record stands, and the censor cannot manufacture a set-aside ground: only a transaction that
-cannot run at its turn is set aside, so every transaction that can run must run, in the record&rsquo;s own
-order. The one thing the censor&rsquo;s own ordering decides is where a third-party credit lands relative to
-a turn &mdash; before it, an unaffordable transaction runs; after it, the transaction is set aside
-(F-FI-3). Its other options are the live-only void grounds &mdash; the record is over a registered bound, holds
+while the record stands, and the censor cannot manufacture a set-aside ground for a transaction a block
+with room could carry: only a transaction that cannot run at its turn is set aside, so every transaction
+that can run must run, in the record&rsquo;s own order. The ground its own blocks do reach is the room ground:
+filling the blocks at a turn leaves a forced transaction with no room and sets it aside, at a cost in L1 gas
+&mdash; the same spending the bound below measures. The other thing the censor&rsquo;s own ordering decides is
+where a third-party credit lands relative to a turn &mdash; before it, an unaffordable transaction runs;
+after it, the transaction is set aside (F-FI-3). Its other options are the live-only void grounds &mdash; the record is over a registered bound, holds
 a transaction that can never run from its own bytes, or has every transaction set aside at its turn &mdash; or
 to let it age out to dead, the test that runs first at any view past its deadline, which means not settling
 past it for its whole deadline window. Re-publication creates a new record with a fresh clock, so keeping a target out
