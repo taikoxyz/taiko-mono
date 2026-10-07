@@ -95,3 +95,30 @@ View-freshness rejections map to the single `ForcedViewStale` rather than the de
 gaining `ForcedViewNotFinal`/`ForcedViewRegression`; `forcedSettlementAt(uint64)` is the settlement-record
 read the delta names the pair for but gives no view; and `pruneCursor` has no view function. Round 1 of
 increment 4 should decide whether any of the three needs its own surface.
+
+## 5. Seam left visible by the byte-class enumeration (F1) - to close with the per-block duty fix
+
+The enumerated byte-invalid classes are the four that are genuinely decidable from the record's published
+byte string, the registered constants and the chain id alone: (A) the byte string fails to decode so no
+transaction can be recovered; (B) a chain id that does not match; (C) a signature that does not recover
+to a sender; (D) a declared gas limit below the intrinsic gas of the transaction's own data. Classes
+(2)(iv)-(v) - nonce and balance at the turn pre-state - are deliberately NOT in the void limb, because
+they are not byte-decidable; they remain the discharge ground of `(1)(a)`. That split is correct.
+
+**The seam:** `FI-13(2)` as shipped contains no literal intrinsic-gas floor and no literal
+signature-recovery requirement. Both classes are still byte-decidable, which is why they belong in the
+void limb - but the consequence is that a below-intrinsic-gas transaction still SATISFIES `(2)`'s
+forceability predicate, so `CONS-01(v)`'s per-block duty ('forceable at that pre-state under
+`FI-13(2)`') would demand that a block carry it, although no valid block can. That is the same defect
+class as the round-3 Critical: **the per-block duty and the block's own validity disagree about the same
+transaction.**
+
+**Decision:** tighten `FI-13(2)(ii)` with the intrinsic-gas floor and state the signature-recovery
+requirement in `(2)(iv)-(v)` as shipped, so the forceability predicate matches what a valid block can
+contain; the per-block duty then inherits the corrected predicate and the two agree by construction. This
+must land in the same pass as the `CONS-01(v)` turn-scoping fix, because both change the same
+predicate, and it touches `spec/02`, `spec/04`, `spec/05` and the delta.
+
+**Round 4 must verify:** that a below-intrinsic-gas transaction is neither forceable under `(2)` nor
+demanded by the per-block duty; that a transaction whose signature does not recover is likewise neither;
+and that no transaction exists which `(2)` calls forceable but which no valid block can carry.
