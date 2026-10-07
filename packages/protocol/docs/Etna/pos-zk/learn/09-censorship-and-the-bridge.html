@@ -50,7 +50,7 @@ turn, a record all of whose transactions are set aside is void, and a record pas
 and that duty is checked inside the proof (<a href="11-forced-inclusion.html">lesson 11</a>). It is
 <strong>not a latency guarantee</strong>: a transaction can be set aside and a record can be discharged
 without being executed, a settlement stall can let it age out, and arrivals beyond the drain make waits
-unbounded. <em>(R4R1-M-01: every position settles, so one publication cannot stall the chain.)</em> What
+unbounded. What
 remains absent is different: there is no <strong>general inclusion list</strong>, so no queue of arbitrary
 transactions, no
 escrow, no refund and no L1 entry point can force an <em>unpublished</em> transaction into L2 or start a
@@ -113,8 +113,7 @@ carries; the bottom panel shows the only path by which a cross-chain message bec
 delay, every batch that lands must advance a settlement frontier past it by resolving it &mdash; its
 transactions are read in the record&rsquo;s own order and each one either runs or is set aside at its turn, a
 record all of whose transactions are set aside is void, and a record past its deadline is dead &mdash; and the
-proof checks it. The record is the forced-data record; there is no flag, no escrow and no fee.
-<em>(R4R1-M-01: the walk settles each transaction at its turn.)</em></li>
+proof checks it. The record is the forced-data record; there is no flag, no escrow and no fee.</li>
 <li>There is no general inclusion list either: no queue, no escrow, no fee, and no way to force an
 unpublished transaction into L2.</li>
 <li>The per-block duty is order and non-omission only: a block never takes a later record&rsquo;s forced
@@ -294,8 +293,7 @@ so there is no later event that includes a censored transaction.</li>
 be set aside at its turn, a record can be void or dead instead of included, and the obligation bounds the
 censor&rsquo;s L1 spending rather than the user&rsquo;s wait. A transaction set aside may become runnable
 later through the sender&rsquo;s own further transactions, and re-publication is the remedy
-(<a href="11-forced-inclusion.html">lesson 11</a>). <em>(R4R1-M-01: resolution is per transaction, in the
-record&rsquo;s own order.)</em></li>
+(<a href="11-forced-inclusion.html">lesson 11</a>).</li>
 <li>Any remedy against an adversary that can isolate a user from every honest proposer, or that can
 censor L1 inclusion itself: if the data never reaches L1, exclusion can be indefinite.</li>
 <li>Protection against slot-buying: selection is predictable and no rule prices or penalises it.</li>
@@ -317,8 +315,7 @@ obligation of <a href="11-forced-inclusion.html">lesson 11</a>: while the record
 past it, and it must run every transaction that can run at its turn &mdash; only a transaction that cannot
 run there may be set aside &mdash; so keeping the record out means showing it void, letting it age out to
 dead without settling, or halting its own frontier. Re-publication starts a fresh record, so the
-censor&rsquo;s cost is roughly one L1 publication per deadline window. <em>(R4R1-M-01: a producer cannot
-manufacture a set-aside ground.)</em> But if the coalition can also keep the data off L1 &mdash; by cutting the
+censor&rsquo;s cost is roughly one L1 publication per deadline window. But if the coalition can also keep the data off L1 &mdash; by cutting the
 user off from every honest proposer at the network level, or by censoring L1 inclusion of the publication
 &mdash; then yes, indefinitely, including preventing a withdrawal from being started, and the protocol has no
 remedy. The obligation is per unit of L1 spending, not a latency bound, and v1 has no recovery path either

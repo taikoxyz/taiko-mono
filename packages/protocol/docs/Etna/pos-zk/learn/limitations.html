@@ -55,8 +55,7 @@ exists, but it is <strong>not a latency guarantee</strong>: a record is resolved
 in its own order, each transaction run or set aside at its turn, and a transaction can be set aside and a
 record can be void or dead instead of included, a settlement stall can let it age out, arrivals beyond the
 drain leave waits unbounded, and the guarantee is exclusion per unit of the censor&rsquo;s L1 spending,
-conditional on at least one honest or rational producer and on an L1 that includes the publication.
-<em>(R4R1-M-01: every position settles, so no single publication stalls the chain.)</em> What remains absent is the <strong>general inclusion list</strong>:
+conditional on at least one honest or rational producer and on an L1 that includes the publication. What remains absent is the <strong>general inclusion list</strong>:
 no queue, no escrow, no fee, and no L1 entry point for an <em>unpublished</em> transaction. A network-level
 adversary that can isolate a user &mdash; or that can censor L1 inclusion of the publication itself &mdash;
 can keep the data off L1 and exclude that user indefinitely, including preventing the user from starting a
@@ -197,8 +196,7 @@ reads its transactions in the record&rsquo;s own order, each one either runs or 
 because it cannot run there, a record all of whose transactions are set aside is void, and a record past its
 deadline is dead
 (<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>&ndash;<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>,
-<a href="11-forced-inclusion.html">lesson 11</a>). <em>(R4R1-M-01: every position settles, so no published
-record can pin the frontier.)</em> It is not a per-transaction latency guarantee: a transaction set aside may
+<a href="11-forced-inclusion.html">lesson 11</a>). It is not a per-transaction latency guarantee: a transaction set aside may
 become runnable later only through the sender&rsquo;s own further transactions, and re-publication is the
 remedy. A record can be discharged without being executed; a settlement stall longer than the record&rsquo;s deadline, or a
 queue that drains more slowly than records age, discharges it by expiry; if livable records permanently
@@ -327,8 +325,7 @@ future protocol update, whose procedure is not yet specified.</p></details>
 guarantee: a batch that lands must advance the settlement frontier past the record by resolving it &mdash;
 each transaction run or set aside at its turn, a record all of whose transactions are set aside is void, and a
 record past its deadline is dead &mdash; but a transaction can be set aside and a record can be discharged
-without being executed, and a stall can let it age out (<a href="11-forced-inclusion.html">lesson 11</a>).
-<em>(R4R1-M-01: resolution walks the record&rsquo;s own transactions.)</em> An adversary that can also keep the data off L1 &mdash;
+without being executed, and a stall can let it age out (<a href="11-forced-inclusion.html">lesson 11</a>). An adversary that can also keep the data off L1 &mdash;
 by cutting the user off from every honest proposer, or by censoring L1 inclusion of the publication itself
 &mdash; can still prevent the withdrawal from starting, indefinitely, and the protocol offers no remedy. For
 data that never reaches L1, inclusion resistance is a conditional statistical property, not a
