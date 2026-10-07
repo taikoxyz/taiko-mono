@@ -515,7 +515,7 @@ the layout; this delta only records that the field exists and why.
 No other transition exists. There is no `queue()` from a live `queued` state, no `execute()` from
 `executed`, no `cancel()` of a live entry, and no path that writes the generation outside the last row.
 
-*(R5R1-G-03(a) / R5R1-NR-04: correction — the grouped table above previously folded `none` and `executed` together under
+*(F2 (boundary-and-shipped) / R5R1-G-03(a) / R5R1-NR-04: correction — the grouped table above previously folded `none` and `executed` together under
 `NoQueuedEntry`; that was stale delta bookkeeping, not a rule. The artifact was already correct: the
 implemented state table of [`spec/08`](../spec/08-migration-upgrades.html) and §2(d)'s four-error table
 both give `none` → `NoQueuedEntry` and `executed` → `EntryAlreadyExecuted` for every caller, in every
