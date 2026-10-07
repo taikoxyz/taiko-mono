@@ -2,6 +2,16 @@
 
 Owner: design lead. Budget: generous (up to ~5 days). Nothing here stops for budget.
 
+## Standing instruction from the design owner: Phase B goes on a NEW branch and a NEW PR
+
+**Do not add Phase B work to the current PR (#22262, branch `etna-pos-zk`).** When Phase B starts - the four
+measurement spikes S1-S4 plus the independent cryptographic review of the blob binding - it gets its own
+branch created **on top of** this one, and its own pull request. The reason is that this PR is a design
+artifact with its own review history, and measurement results are a different kind of change: they carry
+numbers, hardware, and conclusions that revise parameters, and mixing them would make the design PR's
+history unreadable and its review unrepeatable. Until that branch exists, Phase B material stays in
+`phase-b/` as specification only.
+
 ## Phase 1 - converge v1 (in progress)
 
 1. **Round 8** on snapshot `fb67df660` (four reviewers, all committed material frozen).

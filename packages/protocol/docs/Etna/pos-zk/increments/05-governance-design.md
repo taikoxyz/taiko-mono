@@ -503,13 +503,20 @@ the layout; this delta only records that the field exists and why.
 | `queued` | `cancel()` | void | `none` | clears the entry fields |
 | `queued` (live) | `cancel()` | — | reverts `EntryNotVoid` | none |
 | `executed` | `cancel()` | — | reverts `NothingToCancel` | none |
-| `none`, `executed` | `execute()` | — | reverts `NoQueuedEntry` | none |
+| `none` | `execute()` | — | reverts `NoQueuedEntry` | none |
+| `executed` | `execute()` | — | reverts `EntryAlreadyExecuted` | none |
 | `queued` (void) | `execute()` | — | reverts `EntryVoid` | none |
 | `queued` (live) | `execute()` | `block.timestamp < govResumeExecutableAt` | reverts `TimelockNotElapsed` | none |
 | `queued` (live) | `execute()` | all checks pass | `executed` | `recoveryGeneration += 1`, state `executed`, event |
 
 No other transition exists. There is no `queue()` from a live `queued` state, no `execute()` from
 `executed`, no `cancel()` of a live entry, and no path that writes the generation outside the last row.
+
+*(F2: correction — the grouped table above previously folded `none` and `executed` together under
+`NoQueuedEntry`; that was stale delta bookkeeping, not a rule. The artifact was already correct: the
+implemented state table of [`spec/08`](../spec/08-migration-upgrades.html) and §2(d)'s four-error table
+both give `none` → `NoQueuedEntry` and `executed` → `EntryAlreadyExecuted` for every caller, in every
+block, with every calldata, and the two rows above now agree with both.)*
 
 ### 3.3 Invariants
 
@@ -565,7 +572,11 @@ additional proofs are funded proving work under `L1-13(5)`, and `k` is fixed by 
 `MARGIN` is a stated, unmeasured margin. The relation is a **constructor-time assertion**: an
 implementation that does not satisfy it MUST refuse to initialise. Every term is unmeasured; Phase B
 measures them. The relation is **conditional** on `MEM-15(2b)`'s two dependencies — a funded proving
-market and retained inputs — and this condition is stated wherever the window is summarised.
+market and retained inputs — and this condition is stated wherever the window is summarised. Every
+term is registered in [`spec/09`](../spec/09-parameters.html)'s parameter table: `W_root` and `MARGIN`
+each have their own row there, with `REC-02` as owner and an unmeasured tag, alongside
+`WITHDRAWAL_DELAY` and `T_VETO` *(F1: the relation is read from those rows, so a reader who looks up a
+term finds a row of its own rather than an inline definition inside another row)*.
 
 ### 4.3 What a user still above the checkpoint has, stated plainly
 
