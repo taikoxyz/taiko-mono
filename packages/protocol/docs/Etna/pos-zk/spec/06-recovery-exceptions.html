@@ -14,29 +14,36 @@
   </nav>
 </header>
 <main>
-<h1>06 — Withholding, safe halt, restart, and the absence of recovery in v1</h1>
+<h1>06 — Withholding, safe halt, restart, and the one named stall resolution</h1>
 
 <div class="warnbox">
-<p><strong>A PoS confirmation above the latest L1-accepted checkpoint is provisional.</strong> Under
-<strong>decision D-16</strong> v1 ships the core only and has <strong>no recovery path of any kind</strong>:
-the permissionless bonded recovery was withdrawn by <strong>D-15</strong>, and the governance stall
-resolution that replaced it is <strong>deferred</strong> together with aggregation (D-13); narrow forced inclusion (D-12) has since been revived as a live inclusion obligation by <a href="../increments/04-forced-inclusion-design.md">increment 04</a> (it replaces no history, adds no recovery path and reads no recovery mechanism), and heartbeat eligibility (D-14) has since been revived as a live rule by
-<a href="../increments/02-heartbeat-design.md">increment 02</a>, while the rotation that would consume it
-(<a href="02-consensus.html#CONS-16">CONS-16</a>) stays a gated tombstone — see the deferred-work register
-<a href="../DEFERRED.md">DEFERRED.md</a>. A settlement stall therefore <strong>halts the chain</strong>:
+<p><strong>A PoS confirmation above the latest L1-accepted checkpoint is provisional.</strong> The
+permissionless bonded recovery was withdrawn by <strong>D-15</strong>; the timelocked, resume-only governance
+stall resolution that replaced it is <strong>live again</strong> as
+<a href="08-migration-upgrades.html#GOV-04">GOV-04</a> under <strong>increment 05</strong> — one DAO-queued
+entry, a <strong>stored</strong> <code>T_GOV_RESUME</code> deadline, a permissionless <code>execute()</code>
+that <strong>consumes the entry</strong>, and a full-range discard of everything strictly above the latest
+L1-accepted checkpoint. It is the <strong>one named exception</strong> short of recovery; aggregation (D-13)
+and the heartbeat rotation (<a href="02-consensus.html#CONS-16">CONS-16</a>) stay deferred and tombstoned,
+while narrow forced inclusion (D-12) and heartbeat eligibility (D-14) are live again by
+<a href="../increments/04-forced-inclusion-design.md">increment 04</a> and
+<a href="../increments/02-heartbeat-design.md">increment 02</a> — see the deferred-work register
+<a href="../DEFERRED.md">DEFERRED.md</a>. A settlement stall <strong>halts the chain</strong>:
 funds are safe, the boundary of <a href="#REC-01">REC-01</a> holds and the exit guarantee of
 <a href="03-membership-staking.html#MEM-15">MEM-15</a> — a withdrawal proven against the last accepted
-checkpoint, with no new L2 blocks, no quorum and no validator — works, but <strong>clearing the stall
-requires a future protocol update whose procedure is not yet specified</strong>. At or below the latest
-L1-accepted checkpoint — the checkpoint record written by the most recently accepted batch — nothing may be
-changed; above it history is provisional, and no protocol path in v1 replaces it. Ethereum finality is the
+checkpoint, with no new L2 blocks, no quorum and no validator — works; the stall is cleared only by the
+executed GOV-04 action, and clearing it still <strong>depends on governance liveness with no protocol
+bound</strong> (F-GOV-1, A-GOV-2). At or below the latest L1-accepted checkpoint — the checkpoint record
+written by the most recently accepted batch — nothing may be changed; above it history is provisional, and
+the only protocol path that replaces it is the executed GOV-04 action. Ethereum finality is the
 separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>. Any interface that shows a
-confirmation above the last accepted checkpoint must say that it is provisional and that v1 provides no
-in-protocol path that replaces it. <em>(decision D-16: v1 ships the core; the governance stall
-resolution and aggregation remain deferred, clearing a
-settlement stall requires a future protocol update whose procedure is not yet specified, and the narrow forced inclusion revived by <a href="../increments/04-forced-inclusion-design.md">increment 04</a> is an inclusion rule that replaces no history. Increment 02:
-heartbeat eligibility is live but is a selection filter on future set versions, not a history-replacing
-path, so this warning stands.)</em></p>
+confirmation above the last accepted checkpoint must say that it is provisional, must name the one
+rule-bound action that may replace it (<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>), and must not
+present that action as a guarantee that a resolution will ever be queued or executed. <em>(increment 05: the
+governance stall resolution is live with a consumed entry and a stored deadline, and clearing a settlement
+stall still depends on governance liveness; value above the last accepted checkpoint has no L1-provable
+claim and is not protected by the window. Increment 02: heartbeat eligibility is live but is a selection
+filter on future set versions, not a history-replacing path.)</em></p>
 </div>
 
 <div class="rule" id="REC-01"><span class="rid">REC-01 — recovery boundary: no path may replace history at or below the latest L1-accepted checkpoint</span>
