@@ -795,10 +795,13 @@ anchors refer to the converged snapshot this delta was written against.
   move from "no inclusion obligation" to the revived obligation with its falsifiers (F-FI-1…F-FI-6) and
   the narrowed disclosure; `LIVE-04`'s statement gains the distinction between the published case
   (this rule) and the unpublished case (proposer rotation only).
-- `07-economics-slashing.html` (~L489, ~L526–551, ~L1110): the forced-inclusion breach row is revived
-  with the new grounds — a signer that signs a block violating FI-11(4), or a batch whose proof omits
-  the resolution of a required position (which fails verification rather than being slashed) — and the
-  no-fee terms of FI-10(8) are restated; ECON-04's offence table and ECON-13's reference are re-pointed.
+- `07-economics-slashing.html` (~L489, ~L526–551, ~L1110): **no forced-inclusion offence row is
+  revived and no slash is added** — a signer that signs a block violating FI-11(4) is not subject to a
+  new offence, a batch whose proof omits the resolution of a required position simply fails
+  verification rather than being slashed, and the rejected proof is the whole enforcement; ECON-04's
+  forced-inclusion offence row and ECON-13's forced-inclusion reference stay tombstoned exactly as
+  D-16 left them and MUST NOT be implemented, and the no-fee terms of FI-10(8) are restated.
+  *(Appended decision 6.)*
 - `01-system-model.html` (~L532): the D-16 sentence naming the whole `FI-*` machinery as withdrawn is
   reworded for the revival.
 - `08-migration-upgrades.html` (~L377): the storage-budget note for the register and the removed
@@ -841,14 +844,15 @@ consensus core (CONS-02–CONS-16), membership rules, or the recovery-free state
   attestations; the veto is untouched.
 - **D-8 / D-9.** No fee, reward, penalty or destination is introduced or moved: a forced record carries
   no escrow or bond (FI-10(8)), a forced transaction pays its own L2 gas, and L1-10/L1-11's terms are
-  unchanged. The one revived offence row in 07 slashes for a *signing* violation under the existing
-  evidence rules; it creates no new funding path and moves TAIKO to the treasury as D-9 says.
+  unchanged. The forced-inclusion offence rows in 07 stay tombstoned exactly as D-16 left them: no
+  *signing* offence is revived and no slash is added — the rejected proof is the whole enforcement
+  *(appended decision 6)* — so no funding path is created and D-9's destinations are untouched.
 - **D-11.** The forced-data record **is** the D-11 publication record (FI-10(1)); this increment adds a
   derived deadline, a view, a settlement record and a prune whose semantics change, and it changes no
   data-binding check, no identity preimage field, and no publication rule. It is the D-11 mechanism
   being *used*, as D-12 intended.
 - **No rule removes weight (D-14).** Nothing here decays, discounts, zeroes, confiscates or exits a
-  validator's stake; the only new offence is outside membership accounting.
+  validator's stake; no new offence is created anywhere in this increment *(appended decision 6)*.
 - **No recovery path (D-15/D-16).** FI-14(2) *deletes* the preserved text's recovery clauses rather
   than carrying them; the increment adds no history-replacing path and no generation increment. If a
   recovery is ever revived (PLAN.md Phase 2's last item), FI-14(2) is the rule that must be re-derived
@@ -901,9 +905,10 @@ publication-time admission condition. Two candidates were considered and one is 
    prune-behind-the-frontier guard; whether a *ring* (overwriting old slots) or an *append* (unbounded
    storage) is used is an implementation decision with a storage-budget consequence (§7.6), and the
    migration audit must derive it.
-4. **The offence's exact boundary in 07.** Whether a *validator* that signs a block violating FI-11(4)
-   is slashable, or only the prover's invalid proof is rejected. The delta leaves the enforcement on the
-   proof (D-12's chosen point) and revives the offence row conservatively.
+4. **The offence's exact boundary in 07 — settled by appended decision 6.** A *validator* that signs
+   a block violating FI-11(4) is not subject to a new slashable offence: only the prover's invalid
+   proof is rejected. The delta leaves the enforcement on the proof (D-12's chosen point), revives no
+   offence row, and the forced-inclusion rows in 07 stay tombstoned exactly as D-16 left them.
 5. **Whether the FI family needs a measurement line for the register's binary search** (one row per
    batch's `dueFrontier` recomputation) — recommended yes, with S1/S3's gas work.
 
