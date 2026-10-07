@@ -80,8 +80,10 @@ steady state (`d(A) − c < cap`), so the lower bound was waived exactly when it
 the deployment's life. **Resolution:** FI-11(3)(a) — the lower bound is unconditional and the exception is
 deleted; the upper bound `c' ≤ nextSeq(A)` is kept as the separate guard R5T-PDE-03 added, and the
 "every position in `[c, c')` is resolved" walk is what makes an advance past an unresolved record
-impossible. Nothing is waived. The drain relation `R ≥ FI_MIN_DRAIN ≥ 1` (FI-12(2)) independently
-forbids `R = 0`, which is the reachable `cap = 0` of `R6-D12-04`.
+impossible. Nothing is waived. The drain requirement of FI-11(2)(3) — `R ≥ 1` whenever the
+outstanding obligation is non-empty, which the capacity condition turns into
+`R ≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding — independently forbids
+`R = 0`, which is the reachable `cap = 0` of `R6-D12-04`.
 
 **(c) The steerable void predicate (`R6-D12-05`, carried from round 5's F4).** The preserved
 includability test was "the sender's balance covers the maximum charge the transaction can impose **at
@@ -232,7 +234,10 @@ it.
    L1-derived view reaches the guest only as the single `forcedBoundary` commitment (L1-05 row 36) —
    the guest recomputes that commitment and requires the journal's value to match;
 3. recompute `W`, `R` and the capacity condition of FI-12(1) from the batch's own headers and the
-   anchored state, and reject the proof unless the condition holds and `R ≥ FI_MIN_DRAIN`;
+3. recompute `W`, `R` and the capacity condition of FI-12(1) from the batch's own headers and the
+   anchored state, and reject the proof unless the condition holds and `R ≥ 1` whenever the
+   outstanding obligation at `A` is non-empty (the capacity condition turns this into
+   `R ≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding — RC-2);
 4. require that every position in `[c, c + R)` is **resolved** under FI-13's three modes, and
    recompute `c' = c + R`; and
 5. require that **every** position in `[c, c')` holds a record at `A` — a position with no record at
@@ -316,25 +321,28 @@ The obligation of FI-11 is over **positions per batch**, and the cap is
 
 > `cap(batch) = min(FI_MAX_PER_BATCH, floor(batchGasCapacity / itemGasBound))`.
 
-A batch that can be required to do the work MUST carry `batchGasCapacity ≥
 FI_MAX_PER_BATCH × itemGasBound`, **either** because every header it commits to states at least the
-registered per-block bound (FI-12(1)(i)) **or** because the batch contains a block whose header gas
-limit is at least that bound (FI-12(1)(ii)). In both cases `cap(batch) = FI_MAX_PER_BATCH`. A batch with
+per-block bound `FI_MAX_PER_BATCH × itemGasBound` (FI-12(1)(i)) **or** because the batch contains a
+block whose header gas limit is at least `FI_MAX_PER_BATCH × itemGasBound` (FI-12(1)(ii)). In both
+cases `cap(batch) = FI_MAX_PER_BATCH`.
 a non-empty outstanding obligation and `batchGasCapacity < FI_MAX_PER_BATCH × itemGasBound` is
 **invalid**: the guest rejects it under FI-11(2)(3). *(This is the enforcement point R6-D12-04 found
-missing. `cap = 0` is now unreachable: FI-12(2) requires `R ≥ FI_MIN_DRAIN ≥ 1` whenever the
-outstanding obligation is non-empty.)*
+missing. `cap = 0` is now unreachable: FI-11(2)(3) requires `R ≥ 1` whenever the outstanding
+obligation is non-empty — with the capacity condition, `R ≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live
+record is outstanding — RC-2.)*
 
 **(2) The two counts.** With `c` and `d(A)` as in FI-10(5), let
 
-> `W` = the number of positions in `[c, min(d(A), c + FI_MAX_PER_BATCH))` whose record is **live** at
-> `A` — the **work count**, positions; and
-> `R` = `min(W, FI_MAX_PER_BATCH)` when `W > 0`, and `R = min(d(A) − c, FI_MAX_PER_BATCH)` when
-> `W = 0` — the **resolved count**, positions.
+> `R` = `min(d(A) − c, FI_MAX_PER_BATCH)` — the **resolved count**, the size of the required window,
+> positions, zero when nothing is outstanding; and
+> `W` = the number of positions in `[c, c + R)` whose record is **live** at `A` — the **work count**,
+> positions, the only positions whose resolution can demand gas.
 
 The batch MUST satisfy `batchGasCapacity ≥ W × itemGasBound`, and MUST resolve exactly `R` positions
 (`c' = c + R`). Dead positions in the window are resolved by expiry without gas, which is why the gas
 condition is stated against `W` and not against `R`.
+
+*(Ratified correction — RC-1: `R` is the **window**, `min(d(A) − c, FI_MAX_PER_BATCH)`, not the live count. `d(A)` counts dead records and FI-11(3)(a) demands the advance unconditionally, so the earlier `R = min(W, cap)` made any window containing a dead record unsatisfiable. `W` is the live positions in `[c, c + R)` — the work and gas count — so dead positions cost no gas.)*
 
 **(3) The two claims, in one unit.** (1) A batch that resolves the window
 `[c, min(d(A), c + FI_MAX_PER_BATCH))` is compliant even when the backlog is arbitrarily large: the
@@ -358,11 +366,19 @@ an Open assumption, exactly as the preserved text had it (F-FI-1).*
 (ii) A compliant batch always exists **given the two premises this specification states rather than
 maintains**: the registered relation (4) holds, and the L2 gas-limit schedule permits a batch of
 `MAX_BATCH_BLOCKS` blocks whose headers each carry at least `L2_BLOCK_GAS_LIMIT` gas. Under both, such
-a batch has `batchGasCapacity ≥ FI_MAX_PER_BATCH × itemGasBound`, so it satisfies the capacity
-condition of (1) and the guest check passes for the resulting range. The second premise is an **Open
 assumption**, not an invariant any registered rule maintains: no rule registered here constrains the
-L2 gas-limit schedule, and while the per-epoch configuration of PARAM-04 commits `L2_BLOCK_GAS_LIMIT`
-through the `paramVersion = 2` preimage of PRF-02(5), that commitment only records the value. F-FI-1
+L2 gas-limit schedule, and the capacity relation reads `L2_BLOCK_GAS_LIMIT` from the **anchored L1
+view** the proof already fixes — the value is bound by that view, needs no config-preimage
+commitment, and no preimage changes; PRF-02(5)'s live (version-3) field list is untouched, and the
+historical `paramVersion = 2` enumeration remains valid only for an epoch already entered under it
+and MUST NOT be used for a new epoch. F-FI-1
+is its named falsifier and the FI capacity relation row of 09 records it as Open.
+
+*(Ratified correction — RC-4: this clause claimed PARAM-04 commits `L2_BLOCK_GAS_LIMIT` through the
+`paramVersion = 2` preimage of PRF-02(5). That is wrong and MUST NOT be implemented: V2 is historical,
+valid only for epochs already entered under it, and the live preimage is V3, whose field list does not
+contain the value. The relation reads it from the anchored view, so it is bound without any preimage
+change.)*
 is its named falsifier and the FI capacity relation row of 09 records it as Open. (iii) On acceptance
 the frontier advances by at least `min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding, so
 the frontier can never be held by a dead or void position and the queue always drains at a rate of at
@@ -373,7 +389,7 @@ A-CONS-5, HALT-03).
 
 **(6) The round-1 critical is not repeated.** Review round 1 found exact equality between the required
 set and the whole due set, combined with a per-batch cap below it: a backlog then made every proposal
-invalid and the halt permanent. Here the required set is `min(W, cap)` positions, a batch that reaches
+invalid and the halt permanent. Here the required set is `min(d(A) − c, cap)` positions, a batch that reaches
 the cap is compliant, and everything above the cap stays outstanding for later batches. The content
 route (round 1's class arriving through record content) remains closed by FI-13's per-record bounds: a
 record above the bound is void in every block of every batch from its own immutable bytes, consumes no
@@ -484,12 +500,12 @@ Everything the mechanism does is counted in **positions of one register per batc
 
 | Object | Unit | Boundary |
 |---|---|---|
-| the obligation | positions per **batch** | `R = min(W, cap)` (`FI-12`(2)) |
+| the obligation | positions per **batch** | `R = min(d(A) − c, FI_MAX_PER_BATCH)` (`FI-12`(2)) — the window; `W`, the live positions in `[c, c + R)`, is the work and gas count |
 | the cap | positions per **batch** | `FI_MAX_PER_BATCH` |
 | the frontier advance | positions per **batch** | `c' = c + R`, `c' ≥ min(d(A), c + FI_MAX_PER_BATCH)` |
 | the work bound per position | gas | `itemGasBound = FI_MAX_TX_PER_RECORD × FI_RECORD_GAS_MAX` |
 | the capacity relation | gas per **batch** | `FI_MAX_PER_BATCH × itemGasBound ≤ MAX_BATCH_BLOCKS × L2_BLOCK_GAS_LIMIT` |
-| the drain rate | positions per **batch** | `≥ FI_MIN_DRAIN ≥ 1` |
+| the drain rate | positions per **batch** | `≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding |
 | the per-block duty | order and non-omission | **no count, no gas quota** |
 
 `FI_MAX_PER_BATCH` is used in exactly one unit — positions per batch — in all four places it appears
@@ -659,7 +675,8 @@ event (§7.1).
 ### 6.3 The arrival-exceeds-drain case, stated exactly
 
 The FIFO queue is filled by permissionless publications, so **arrival is unbounded** while the drain is
-`FI_MIN_DRAIN`…`FI_MAX_PER_BATCH` positions per accepted batch. Three consequences, all honest:
+`min(W, FI_MIN_DRAIN)`…`FI_MAX_PER_BATCH` positions per accepted batch (at least one whenever a live
+record is outstanding — RC-2). Three consequences, all honest:
 
 1. **A record can be forced to age out.** A publisher that puts `q` records ahead of a target delays
    the target by at least `ceil(q / FI_MAX_PER_BATCH)` accepted batches; if that exceeds the deadline
@@ -928,7 +945,7 @@ publication-time admission condition. Two candidates were considered and one is 
 | FI-11 L1-side checks | view final, non-stale, age-bounded; frontier regression/overshoot | kept, plus the registered envelope relations (7) | R6-D12-02 |
 | FI-11 "greatest anchored view" | kept | kept | R5T-PDE-07; no shrink by range choice |
 | CONS-01(v) | per-**block** prefix up to `FI_MAX_PER_BATCH` records | per-**block** order + non-omission; no count, no quota | R6-D12-03/-04 (unit mismatch) |
-| FI-12 cap | `min(FI_MAX_PER_BATCH, floor(batchGasCapacity/itemGasBound))` | kept **and enforced** in the guest, with `R ≥ FI_MIN_DRAIN` | R6-D12-04: no enforcement point existed |
+| FI-12 cap | `min(FI_MAX_PER_BATCH, floor(batchGasCapacity/itemGasBound))` | kept **and enforced** in the guest, with `R ≥ 1` whenever the outstanding obligation is non-empty (`R ≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding — RC-2) | R6-D12-04: no enforcement point existed |
 | FI-12 claims (1)–(4) | counting argument | restated in positions per batch with `W` (live) and `R` (resolved) | one unit; dead records cost no gas |
 | FI-13 predicate | chain id, nonce, balance **at that block's base fee**, gas limit **fits the block** | chain id, nonce, balance against `t`'s **own declared maximum charge**, gas limit `≤ FI_RECORD_GAS_MAX`; **base fee and block gas limit removed** | R6-D12-05 (environment steering) |
 | FI-13 discharge | included or void "only if not includable in any block of the batch" | executed, void, **or dead**; void = over-bound or no transaction forceable at any pre-state | R6-D12-01; the "block full" ambiguity removed |
@@ -944,12 +961,12 @@ publication-time admission condition. Two candidates were considered and one is 
 
 | # | Vector (finding) | Now rejected by |
 |---|---|---|
-| 1 | Required set = whole due set with a cap below it: one publication halts the chain (R2-LIV-01, round 1) | FI-12(3)(1): the required set is `min(W, cap)` **positions**; a batch at the cap is compliant |
+| 1 | Required set = whole due set with a cap below it: one publication halts the chain (R2-LIV-01, round 1) | FI-12(3)(1): the required set is `min(d(A) − c, cap)` **positions**; a batch at the cap is compliant |
 | 2 | A record carrying `FI_MAX_PER_BATCH + 1` includable transactions halts the prefix (R5T-PDE-01) | FI-13(2)(i)–(ii): over-bound records are void from their own immutable bytes; they consume no gas |
 | 3 | One proof writes the frontier past the register and empties the prefix (R5T-PDE-03) | FI-11(3)(b): `c' ≤ nextSeq(A)`, plus `ForcedFrontierBeyondRegister` at L1 |
 | 4 | A stale anchored view postpones the due set without limit (R5T-C-1/F3/R5T-PDE-07) | FI-11(2)(1) greatest-anchored-view + FI-11(6) age bound + FI-10(4) |
 | 5 | The frontier's lower bound is waived by the "unless the window is shorter" exception, so `c' = c` passes and the rule is dead (R6-DPE-01) | FI-11(3)(a): unconditional bound, no exception exists in the text |
-| 6 | `cap = 0` by choosing a one-block batch; the drain rate is the submitter's choice (R6-D12-04) | FI-12(1)–(2): capacity condition is proof validity; `R ≥ FI_MIN_DRAIN ≥ 1`; FI-11(2)(3) |
+| 6 | `cap = 0` by choosing a one-block batch; the drain rate is the submitter's choice (R6-D12-04) | FI-12(1)–(2) and FI-11(2)(3): capacity condition is proof validity; `R ≥ 1` whenever the outstanding obligation is non-empty (`R ≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding — RC-2) |
 | 7 | The per-block clause demands more records than a block can carry (R6-D12-03) | FI-11(4): order + non-omission, no per-block count or quota; FI-11(3)(a) carries the count at the batch |
 | 8 | The environment (base fee, block gas limit, block room) makes a due record void without executing anything (R6-D12-05, R5T-H-4/F4) | FI-13(2)–(3): those terms are removed from forceability; the void ground is producer-independent |
 | 9 | A full block is read as "not a member of its body", so the record can be neither included nor voided (R6-D12-05 alternative reading) | FI-11(4) non-omission + FI-13(1)(a)/(b): a block that could carry forced work must; a record that was forceable cannot be called void |
@@ -980,7 +997,8 @@ happened, and nothing here has been applied to the specification.*
 
 **Appended decision record.** This section records the owner's dispositions of §9's open calls. It
 changes nothing above it: the rule text of §2, the derivations of §§3–5, the falsifiers of §6 and
-the change lists of §7 stand as written. The one open call not named here — §9.3's measurement-line
+the change lists of §7 stand as written — except where the review-corrections block at the end of
+this document corrects them against the owner-ratified readings. The one open call not named here — §9.3's measurement-line
 question — keeps its recorded recommendation for the review round.
 
 **1. The per-publisher live-record bound (F-FI-2) is not adopted in this increment.** F-FI-2
@@ -1048,3 +1066,48 @@ owner decisions close the open calls they name; they do not substitute for that 
 closing note above stands — the fresh adversarial pass has not happened and nothing here has been
 applied to the specification.
 
+
+---
+
+## Review corrections (reconciliation pass, increment 4)
+
+The rules implementer did not transcribe two clauses of §2 literally, because as written they are
+unsatisfiable. The owner ratified both implemented readings (`04-coordination.md` §4): **the delta is
+what is corrected here, not the rule.** These corrections are part of the delta; a later reader MUST
+NOT restore the superseded forms.
+
+**RC-1 — FI-12(2): the resolved count is the window, not the live count.** The clause wrote
+`R = min(W, FI_MAX_PER_BATCH)` with `W` the live count. `d(A)` counts **dead** records (FI-10(5))
+and FI-11(3)(a) demands `c' ≥ min(d(A), c + FI_MAX_PER_BATCH)` **unconditionally**, so that form makes
+any window containing a dead record unsatisfiable: no proof could land, and the frontier would be
+pinned by expiry positions — the obligation would be dead in exactly the case expiry exists to
+discharge. Corrected to `R = min(d(A) − c, FI_MAX_PER_BATCH)` (the resolved count, the window), with
+`W` the **live** positions in `[c, c + R)` (the work and gas count). Then `c' = c + R` meets the
+advance condition with equality and dead positions cost no gas. (§2 FI-12(2); §3.1 table; Appendix A;
+Appendix B rows 1 and 6.)
+
+**RC-2 — FI-11(2)(3): the floor is a floor of one, not a rejection threshold.** The clause wrote
+"reject the proof unless … `R ≥ FI_MIN_DRAIN`". That is a deadlock when fewer than `FI_MIN_DRAIN`
+positions are outstanding — the obligation would become unsatisfiable precisely when little is owed.
+Corrected to require `R ≥ 1` whenever the outstanding obligation at `A` is non-empty; the capacity
+condition turns it into `R ≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding.
+`FI_MIN_DRAIN` remains the registered floor `1 ≤ FI_MIN_DRAIN ≤ FI_MAX_PER_BATCH`, whose purpose is to
+remove the reachable cap-of-zero. (This is the reading 09's `FI_MIN_DRAIN` row states; the update to
+09 is the register-row reconciliation.)
+
+**RC-3 — FI-12(1)(i)/(ii): the per-block bound is `FI_MAX_PER_BATCH × itemGasBound`.** The clause left
+the per-block bound unnamed. It is `FI_MAX_PER_BATCH × itemGasBound`, the only reading under which
+"in both cases `cap(batch) = FI_MAX_PER_BATCH`" holds; it is now written explicitly in the clause.
+
+**RC-4 — FI-12(5)(ii): `L2_BLOCK_GAS_LIMIT` is bound by the anchored L1 view, not by a config
+preimage.** The clause claimed the per-epoch configuration of PARAM-04 commits the value through the
+`paramVersion = 2` preimage of PRF-02(5). That is wrong and MUST NOT be implemented: V2 is historical,
+valid only for epochs already entered under it, and the live preimage is V3, whose field list does not
+contain the value. Corrected: the capacity relation reads the value from the anchored L1 view the proof
+already fixes, so it is bound without any preimage change; PRF-02(5)'s field list is left alone, and
+PARAM-04's text and 09's un-withdrawn `L2_BLOCK_GAS_LIMIT` row state that no preimage enumeration
+changes.
+
+*Owner decisions 1–6 above are unchanged by these corrections; RC-1 … RC-4 reconcile the delta's
+clause text with the ratified, implemented rules and 09's register row, so a later reader cannot
+restore the unsatisfiable forms or the preimage claim.*
