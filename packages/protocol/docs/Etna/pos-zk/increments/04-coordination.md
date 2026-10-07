@@ -53,3 +53,45 @@ Round 1 of increment 4 must check all three: that the deferral count reads three
 above everywhere; that the settlement pair genuinely consumes no additional gap slot and that the
 migration budget arithmetic still balances; and that no rule commits `L2_BLOCK_GAS_LIMIT` through any
 config preimage and that the capacity relation's input is bound by the anchored view.
+
+## 4. Owner ratification of two in-text repairs of the design delta
+
+The rules implementer did not copy two clauses of `04-forced-inclusion-design.md` literally, because as written
+they are unsatisfiable. **Both readings are ratified**; the DELTA is what must be corrected, not the rule.
+
+### 4a. `FI-12(2)`: the resolved count, not the live count
+
+The delta wrote `R = min(W, FI_MAX_PER_BATCH)` with `W` the live count. But `d(A)` counts **dead** records
+(`FI-10(5)`) and `FI-11(3)(a)` demands `c' >= min(d(A), c + FI_MAX_PER_BATCH)` **unconditionally**, so the
+delta's form makes any window containing a dead record **unsatisfiable**: no proof could land, and the
+frontier would be pinned by expiry positions - the obligation would be dead in exactly the case expiry
+exists to discharge.
+
+**Ratified:** `R = min(d(A) - c, FI_MAX_PER_BATCH)` is the resolved count (the window), and `W` is the
+**live** positions in `[c, c + R)` (the work and gas count). Then `c' = c + R` meets the advance condition
+with equality and dead positions cost no gas. **The delta's clause must be corrected to this form**, and the
+reason recorded there, so a future reader does not restore the unsatisfiable one.
+
+### 4b. `FI-11(2)(3)`: the floor cannot be a rejection threshold
+
+The delta's literal 'reject unless `R >= FI_MIN_DRAIN`' is a **deadlock** when fewer than `FI_MIN_DRAIN`
+positions are outstanding - the obligation would become unsatisfiable precisely when little is owed.
+
+**Ratified:** the clause requires `R >= 1` whenever the outstanding obligation at `A` is non-empty; the
+capacity condition then turns it into `R >= min(W, FI_MIN_DRAIN) >= 1` whenever a live record is
+outstanding. `FI_MIN_DRAIN` remains the registered floor `1 <= FI_MIN_DRAIN <= FI_MAX_PER_BATCH`, whose
+purpose is to remove the reachable cap-of-zero. This also settles item 1 of this file: **the register row
+must be reworded to match the clause**, since the row currently claims the floor itself drives the
+advance.
+
+### 4c. `FI-12(1)(i)/(ii)`: the unnamed per-block bound
+
+Ratified as read: `FI_MAX_PER_BATCH * itemGasBound` is `cap(batch)`, the only reading under which the
+delta's 'in both cases `cap(batch) = FI_MAX_PER_BATCH`' holds. Stated explicitly in the rule.
+
+### 4d. Left to the review round (not owner calls)
+
+View-freshness rejections map to the single `ForcedViewStale` rather than the delta's five-error list
+gaining `ForcedViewNotFinal`/`ForcedViewRegression`; `forcedSettlementAt(uint64)` is the settlement-record
+read the delta names the pair for but gives no view; and `pruneCursor` has no view function. Round 1 of
+increment 4 should decide whether any of the three needs its own surface.

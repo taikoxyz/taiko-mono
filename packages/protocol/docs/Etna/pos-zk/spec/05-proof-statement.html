@@ -166,7 +166,7 @@ transaction, and it recomputes the Fiat–Shamir challenge rather than trusting 
                              // settledAfter, forcedOpeningsHash), recomputed in-guest against the
                              // anchored register state and required equal to the journal value
                              // (PRF-04(vi), FI-11(2)); never a submitter-chosen boundary
-                             //                            (L1: claimed + L1-derived, proof-bound)
+                             //                            (L1: claimed + L1-derived, proof-bound; increment 04)
 }
 // INVARIANT: firstHeight and lastHeight lie in the SAME epoch. A batch may not span an
 // epoch boundary (PRF-05), so one epoch/set-root pair is sufficient and the journal needs
