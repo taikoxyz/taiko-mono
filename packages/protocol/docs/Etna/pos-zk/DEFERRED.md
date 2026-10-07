@@ -8,7 +8,7 @@ aggregation (§4). Heartbeat eligibility was revived in part by increment 02 —
 live, the rotation that consumes it is not — and narrow forced inclusion was revived by increment 04
 (§1); both leave the deferred set, and the rotation inside §2 stays named on its own.
 
-## 1. Narrow forced inclusion (D-12) — REVIVED (increment 04, in review)
+## 1. Narrow forced inclusion (D-12) — REVIVED AND SHIPPED (increment 04, see increments/04-ship-record.md)
 
 *Revived by increment 04: the FI-10–FI-14 family is re-derived as a live rule family against the converged
 v1 rather than restored from its tombstone, and the general inclusion list stays absent. The increment is
