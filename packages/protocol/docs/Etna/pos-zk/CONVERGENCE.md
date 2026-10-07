@@ -65,8 +65,8 @@ aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads o
 > Until then the sentences above describing forced inclusion as merely designed are the increment-2-era
 > record, not the current state. **And of the three absences recorded at convergence, the first is now
 > addressed and shipped**: a narrow inclusion obligation (FI-10..FI-14) is now live in the specification,
-> so "no inclusion obligation" describes v1 as it converged, not the current draft. **The other two stand
-> **now addressed in draft**: the governance stall resolution (increment 5) is implemented and in
+> so "no inclusion obligation" describes v1 as it converged, not the current draft. **The second absence is
+> now addressed in draft**: the governance stall resolution (increment 5) is implemented and in
 > review - a timelocked, resume-only action that clears a settlement stall by advancing the signed
 > generation, consumes its entry on execution, and **cannot rewrite anything at or below the latest
 > accepted checkpoint**. It is not yet shipped: it ships only on the same bar, two consecutive clean
