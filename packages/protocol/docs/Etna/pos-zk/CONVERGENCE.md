@@ -57,15 +57,19 @@ aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads o
 > whose counting window starts at or after the activation block with full length. **CONS-16 remains
 > deferred**, so the recovery gap and the F8/F9 falsifiers stand.
 >
-> **Increment 4 - narrow forced inclusion - is in review** (its design delta and D-18 are recorded, the
-> implementation is complete, and its first review round has run). It is **not yet shipped**: it ships on
-> the same bar, two consecutive rounds with no Critical and no High, and its own ship record will follow.
+> **Increment 4 - narrow forced inclusion - has since SHIPPED** (see `increments/04-ship-record.md`). It
+> reached the same bar: **two consecutive clean rounds** (rounds 5 and 6, after four rounds that produced
+> six Criticals - every one the class of two clauses individually true and jointly false, and every one
+> created by a repair rather than by the design). Round 5's Medium changed rule text, so round 6
+> re-confirmed the fixed artifact rather than shipping on the pair as it stood.
 > Until then the sentences above describing forced inclusion as merely designed are the increment-2-era
 > record, not the current state. **And of the three absences recorded at convergence, the first is now
-> addressed in draft**: a narrow inclusion obligation exists in the specification (FI-10..FI-14) while
-> increment 4 is in review, so "no inclusion obligation" describes v1 as it converged, not the current
-> draft. The other two stand unchanged: there is still **no recovery path of any kind**, and settlement
-> soundness still rests on a single proof backend. **Increment 3** remains gated on Phase B's S1 measurement - its
+> addressed and shipped**: a narrow inclusion obligation (FI-10..FI-14) is now live in the specification,
+> so "no inclusion obligation" describes v1 as it converged, not the current draft. **The other two stand
+> unchanged**: there is still **no recovery path of any kind**, and settlement soundness still rests on a
+> single proof backend. The **deferred set is now two mechanisms plus the rotation within increment 2**:
+> aggregation (increment 3, gated on Phase B's S1 measurement) and the governance stall resolution
+> (increment 5, last), with `CONS-16`'s rotation still gated on an L1-verifiable h_close. **Increment 3** remains gated on Phase B's S1 measurement - its
 > aggregation parameters cannot be set before that cost is measured - and **increment 5**, the governance
 > stall resolution, is last.
 
