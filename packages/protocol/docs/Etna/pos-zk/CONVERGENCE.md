@@ -66,11 +66,12 @@ aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads o
 > record, not the current state. **And of the three absences recorded at convergence, the first is now
 > addressed and shipped**: a narrow inclusion obligation (FI-10..FI-14) is now live in the specification,
 > so "no inclusion obligation" describes v1 as it converged, not the current draft. **The second absence is
-> now addressed in draft**: the governance stall resolution (increment 5) is implemented and in
-> review - a timelocked, resume-only action that clears a settlement stall by advancing the signed
-> generation, consumes its entry on execution, and **cannot rewrite anything at or below the latest
-> accepted checkpoint**. It is not yet shipped: it ships only on the same bar, two consecutive clean
-> rounds. What it does NOT claim is stated with it: the window is a **notice** window, **value above the
+> now addressed and SHIPPED** (see `increments/05-ship-record.md`): the governance stall resolution
+> (increment 5) is live - a timelocked, resume-only action that clears a settlement stall by advancing
+> the signed generation, consumes its entry on execution, and **cannot rewrite anything at or below the
+> latest accepted checkpoint**. It reached the same bar: **two consecutive clean rounds** (rounds 1 and
+> 2, with no Critical and no High in either - and round 1 was the first opening round in this programme
+> where a new mechanism produced neither). What it does NOT claim is stated with it: the window is a **notice** window, **value above the
 > last accepted checkpoint is unprotected** (discard, resubmit, no compensation), and governance liveness
 > is unbounded. The third absence is unchanged: settlement soundness still rests on a single proof
 > backend. The **deferred set is now ONE mechanism plus the rotation within increment 2**: aggregation
