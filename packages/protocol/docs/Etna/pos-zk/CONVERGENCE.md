@@ -46,6 +46,16 @@ aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads o
 > remains deferred and tombstoned (D-17); accordingly **three mechanisms remain deferred** - narrow
 > forced inclusion, the governance stall resolution and aggregation - and the four-mechanism sentence
 > above is the converged-state record, not the current one.
+>
+> **Increment 2 has since SHIPPED** (rounds 2-4 of its own review; see `increments/02-ship-record.md`).
+> It reached the same bar v1 did - two consecutive rounds with no Critical and no High - and round 4
+> re-confirmed the artifact after round 3's Medium changed the rules. `MEM-13` heartbeat eligibility is
+> now a live rule: an L1 heartbeat key, an L1-block-number window grid, a **derived and caller-independent**
+> evaluation instant, a guarded predicate, exclusion that never reduces weight, and a launch transition
+> whose counting window starts at or after the activation block with full length. **CONS-16 remains
+> deferred**, so the recovery gap and the F8/F9 falsifiers stand. Increments 3, 4 and 5 remain queued:
+> aggregation waits on Phase B's S1 measurement, forced inclusion has a design delta but no
+> implementation, and the governance stall resolution is last.
 
 ## What convergence does NOT mean
 
