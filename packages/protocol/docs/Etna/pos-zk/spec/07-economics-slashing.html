@@ -303,9 +303,14 @@ addresses of D3/<a href="08-migration-upgrades.html#MIG-06">MIG-06</a>; its addr
 clause 5(a) are protocol constants recorded before launch, and the guest MUST take both from the recorded constants and
 MUST NOT accept either from a witness, a host hint or a header), accumulates the L2 fee revenue of clause 1:
 the execution base-fee component and the priority-fee component of every L2 transaction
-(<code>F_exec_L2</code>, <code>F_priority_L2</code>). The L2 fee policy <strong>MUST</strong> route both components
-to this vault; a component that is destroyed, paid to a block beneficiary, or otherwise diverted is not collected
-revenue, <strong>MUST NOT</strong> be counted in clause 1, and <strong>MUST NOT</strong> be promised as a reward. The
+(<code>F_exec_L2</code>, <code>F_priority_L2</code>). The L2 fee policy <strong>MUST</strong> route
+<strong>100% of the execution base fee</strong> — no proposer, beneficiary or Anchor share of it — <strong>and the
+priority fee</strong> to this vault; a component that is destroyed, paid to a block beneficiary, or otherwise diverted
+is not collected revenue, <strong>MUST NOT</strong> be counted in clause 1, and <strong>MUST NOT</strong> be promised
+as a reward. <em>(Phase B fee decision, keeping D-9's no-burn substance — nothing is destroyed: routing the whole
+L2 base fee to the security budget removes the measured 0.867x proposer-share case, in which only 75% of the base fee
+plus the priority fee was the proposer's share; the relevant median ratio becomes 1.075x, derived from the measured
+figures. The migration removes the Anchor's L2 base-fee recipient, <a href="08-migration-upgrades.html#MIG-04">MIG-04</a>.)</em> The
 vault holds ETH only: it is never collateral, never stake, never slashable, and never part of the ledger of
 <a href="#ECON-01">ECON-01</a>. It has no discretion: no caller, operator, validator, DAO action or upgrade path may
 redirect its balance to any destination other than the sweep of (b). <strong>Fee accounting, and what is not fee
@@ -380,6 +385,7 @@ its L2 block is ever accepted — the ETH remains on L2 or is returned by the Br
 revenue of no period. The protocol creates no receivable, no debt, no insurance and no promise of future revenue:
 providers are unpaid for the affected epochs, and the honest response is to disclose the outage and repair the path,
 never to pay from a balance the pool does not hold.</span>
+<span class="norm">(e) <strong>Coverage of the L1 landing cost: what the measured fee flow settles, what it does not, and why D-8 stays Open.</strong> <em>(Phase B fee decision; the figures below are the measured Phase B public-data report's unless marked derived.)</em> <strong>Measured.</strong> L2 fee revenue covers the L1 landing cost by <strong>1.135x</strong> at the median, but only <strong>0.867x</strong> for the proposer's actual share (75% of base fee plus priority fee) and <strong>0.85x</strong> at the p90 L1 price; the break-even L1 prices are <strong>1.567 / 1.484 / 1.196 gwei</strong> (8 batches with both sides measured in the same hour). <strong>Every ratio is an upper bound</strong>, because the off-chain prover fee is negotiated off-chain and is in none of them. The measured batch-cost decomposition is <strong>71.4% priority fee, 24.1% base fee and 2.4% blob cost</strong> (1,575 batches, 7 days); the priority fee is a <strong>discretionary bid by the submitter</strong>, not a cost the chain imposes. <strong>Three changes.</strong> (1) Coverage is computed against <strong>base fee plus blob cost</strong>, never the observed total: on the measured decomposition that is <strong>0.0432 ETH per batch against 0.1634 observed</strong>, so on the same fee revenue the ratio is computed against a smaller cost. <strong>This is a definitional choice about what the protocol must cover, not a measured improvement</strong>: the priority fee is still spent by someone. The measurement set supports only the pair it actually contains — <strong>1.135x against 1.075x</strong>. <em>(Phase B arithmetic review PB-AR-02/03: the earlier figure of roughly 3.8x rescaled cost with revenue held fixed and is not traceable to the measurement set, so it is withdrawn; the decomposition it rested on covers 1,542 of 1,575 batches, and its shares sum to 97.85%, not 100%.)</em> (2) Clause (a) routes <strong>100% of the L2 base fee</strong> to the security budget, so the proposer-share case of 0.867x does not exist; the median ratio is <strong>1.075x</strong> (derived from the measured figures). (3) The L2 base fee floor stays <strong>a floor, not revenue</strong>: the base fee is pinned at its measured <strong>0.01 gwei</strong> floor with blocks <strong>0.28% full</strong>, so revenue is <strong>demand-limited, not price-limited</strong> — coverage rises with usage, and no parameter fixes it without pricing users out at current demand. <strong>The reward floor is bounded below only: <code>REWARD_QUOTE ≥ 0.0002146 ETH per batch</code>, excluding proving cost.</strong> <strong>Status: D-8 is bounded-and-improved, not settled.</strong> Its remaining falsifier is a measured off-chain proving cost that exceeds what this fee model leaves; the design point's proving cost is unmeasured (S1 could bound per-machine throughput only). <em>(Phase B: the ratio is improved by removing the submitter's discretionary bid and the diverted share, not by a new revenue source.)</em></span>
 <span class="norm">No rule may halt on a price, budget or fee signal as a substitute for this path: no objective
 on-chain signal for the security-budget ratio exists (<a href="#volatility">§TAIKO price volatility</a>: the inputs
 <code>P(t)</code>, <code>σ(t)</code>, <code>EV_extractable</code> and <code>OV_option</code> are off-chain), so
@@ -934,7 +940,7 @@ window" is deleted and re-expressed as the budget bound plus the unmeasured cons
 specification defines such a window, and none is implied.</em></span>
 <span class="norm">(4) <strong>Values.</strong> The numeric value of <code>S_min</code> is a <a href="09-parameters.html#PARAM-01">PARAM-01</a> parameter and is
 <span class="pill unmeasured">unmeasured</span> with respect to <code>C_op_annual</code>, <code>r_gross</code> and
-<code>ρ_ops</code>; <code>C_op_annual</code> must be measured for a reference host under the 2 s cadence, L2 state
+<code>ρ_ops</code>; <code>C_op_annual</code> must be measured for a reference host under the Phase B 4 s cadence, L2 state
 size, gossip bandwidth and L1 gas costs of this design, and must not be copied from Bitcoin or Ethereum validator
 costs (economics-raw.md §3.1). A published <code>S_min</code> may not be described as measured until that study exists.</span>
 <span class="norm">(5) <strong>Activation ordering and the rate limit (economics side).</strong> The ordering
@@ -1161,7 +1167,7 @@ makes a PoS chain secured by a volatile token robust to that token's collapse, a
 is this page's input to it. Every quantity must be measured with workload, hardware and methodology recorded
 before the corresponding parameter is fixed, and none may be replaced by an estimate from a different workload (<a href="index.html#GEN-08">GEN-08</a>). <em>(review round 1, findings ECO-01, ECO-13)</em></p>  <table>
 <thead><tr><th>Quantity</th><th>What it determines</th><th>What would measure it</th></tr></thead> <tbody>
-<tr><td><code>C_op</code> (per validator-year)</td><td><code>S_min</code> (<a href="#ECON-09">ECON-09</a>), <code>Budget(n)</code></td><td>an operations study for a reference host: CPU, RAM, NVMe, 2 s cadence, gossip bandwidth, L1 gas for deposit/exit/evidence</td></tr>
+<tr><td><code>C_op</code> (per validator-year)</td><td><code>S_min</code> (<a href="#ECON-09">ECON-09</a>), <code>Budget(n)</code></td><td>an operations study for a reference host: CPU, RAM, NVMe, the Phase B 4 s cadence, gossip bandwidth, L1 gas for deposit/exit/evidence</td></tr>
 <tr><td><code>ρ_capital</code></td><td><code>Budget(n)</code>, <code>r_req</code></td><td>observed cost of capital for comparable locked, slashable, TAIKO-denominated positions; risk-free rate plus measured illiquidity and slashing-loss premia</td></tr>
 <tr><td><code>ρ_ops</code> (operator margin)</td><td><code>S_min</code> (break-even condition)</td><td>the return operators require to run the reference host instead of an alternative; an operator survey or observed entry/exit behaviour</td></tr>
 <tr><td><code>S_affordable</code> (median intended participant)</td><td>participation floor (R1)</td><td>a distribution of intended participants' capital, from a survey or an on-chain cohort study</td></tr>

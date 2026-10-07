@@ -89,6 +89,23 @@ expressed in seconds; M5 removal of commit slack. See `04-architecture-decision.
 
 **Dissent.** None at Phase 3; DAG-BFT is retained as a v2 candidate in LIM-02.
 
+**Addendum (Phase B, 2026-10-07) — the user's fixed decision D1 cadence: 2 s superseded by 4 s.** The
+D-1 entry above stands as the historical record: only the cadence premise stated in its question is
+superseded, and the consensus-family decision it records is untouched. The owner's Phase B decision sets
+the L2 block time at **4 seconds**, conditioned on the intended validator count staying near or below
+128 — above that the measured evidence says about 6 s, so cadence and n are one decision. Measured basis:
+Ethereum L1 quantisation is **12 s with a p99.9 of 24 s**; shipped CometBFT configurations run **2.87 s at
+n = 95** (Celestia) and **5.70 s at n = 180** (Cosmos Hub); Tendermint's controlled measurements are
+**2.14–2.53 s at n = 16–128** including a 1 s commit wait; and the live Taiko cadence of **2.000 s is
+produced by two coinbase addresses** and is therefore no evidence about a BFT set. At 2 s the design would
+have claimed a round time better than every production configuration measured at comparable n; at 4 s it
+sits inside the observed envelope up to n ≈ 128. Consequences: the epoch length in L1 blocks and every
+L2-block-denominated bound move with it (a 14-block batch is 56 s, not 28 s), and `TIMEOUT_MIN`/`TIMEOUT_MAX`
+remain unmeasured and are set by the S2 harness consistent with 4 s. **F-CADENCE-1 stays Open, sharpened:**
+an S2 run at the pinned engine release showing a round cannot complete inside 4 s at the registered
+`N_MAX` falsifies the decision, where it would merely have embarrassed 2 s. This is a bounded decision on
+public evidence, not a first-party measurement of the design point. See **D-20** below.
+
 ---
 
 ### D-2 — One combined guest; blob binding without in-guest MSM or pairings (2026-10-05)
@@ -946,4 +963,70 @@ data or an economics stall.
 
 **Status:** decided; specification, register, index and course changes in flight. The increment ships only
 after its own review rounds are clean.
+
+---
+
+## D-20 — Phase B owner decisions: batch length 14, block time 4 s, and D-8 bounded-and-improved (2026-10-07)
+
+**Source, and what these are not.** The authoritative statement is `20-decisions-phase-b.md`, which
+carries the measured evidence and the reasoning; the Phase B reports themselves live in the stacked Phase
+B pull request. **None of the three decisions is a first-party measurement of the design point** — they
+are decisions taken on the best available public evidence, each with its falsifier named, which is a
+different and more honest thing than a validated parameter. Each states which part is measured, which is
+derived, and which stays a design assumption.
+
+**1. `BATCH_BLOCKS` (K) = 14**, replacing the 32-block planning placeholder. Measured basis: the
+one-transaction blob ceiling in force is the EIP-7892 BPO2 set — target 14, maximum 21 — confirmed
+on-chain; 14 is the **target**, so the batch is publishable in one L1 transaction *by construction* and
+never depends on the network tolerating a max-blob block. Why not smaller: settlement latency is dominated
+by proving (measured proposal-to-proof p50 684 s, p95 2,580 s), so a 14-block batch is 56 s at 4 s — about
+8% of the median proving latency — and a smaller K buys latency the system cannot use. Why not 32: 32
+blocks would need 32 blobs against a maximum of 21 — unpublishable arithmetic. **The bound is a product,
+not a constant:** `K <= capacity / per-block data`, so if the per-block data budget rises above 131,072
+bytes then K must fall below 14. **Left open (disclosed):** the per-block data budget (131,072 B per L2
+block) is a **design assumption, not a measurement** — the live network runs at about 0.5% of its own DA
+bound — so a workload whose real per-block data exceeds one blob invalidates the choice.
+
+**2. Block time = 4 seconds, superseding D1's 2 seconds.** Measured basis: L1 quantisation 12 s with
+p99.9 24 s; shipped CometBFT 2.87 s at n = 95 and 5.70 s at n = 180; Tendermint 2.14–2.53 s at n = 16–128
+including a 1 s commit wait; and the live 2.000 s cadence is produced by two coinbase addresses and is no
+evidence about a BFT set. **The condition is part of the decision:** 4 s is conditioned on the intended
+validator count staying near or below 128; above that the evidence says about 6 s, so cadence and n are
+one decision, not two. **Left open:** `TIMEOUT_MIN`/`TIMEOUT_MAX` are still unmeasured and need the S2
+harness; the derived epoch cascade (at `L = 900` heights, `E_EPOCH` becomes 3,600 s and `EPOCH_LEN_L1`
+300 L1 blocks) is arithmetic, not measurement; the D6 30-minute envelope no longer coincides with `L = 900`
+heights, and whether to halve `L` is *not* decided here; **F-CADENCE-1 stays Open**, sharpened to 4 s at
+the registered `N_MAX`. The D-1 addendum above records the supersession of the cadence premise; the D1
+records in `01-requirements-and-threat-model.md`, the index, the README and the spec pages are amended in
+place.
+
+**3. D-8's margin: bounded-and-improved, not settled.** Measured basis: L2 fee revenue covers L1 landing
+cost by 1.135x at the median, 0.867x for the proposer's share (75% of base fee plus priority fee) and
+0.85x at the p90 L1 price, with break-even L1 prices 1.567 / 1.484 / 1.196 gwei (8 batches with both
+sides measured in the same hour); the batch-cost decomposition is 71.4% priority fee, 24.1% base fee and
+2.4% blob cost (1,575 batches, 7 days); the L2 base fee is pinned at its 0.01 gwei floor with blocks
+0.28% full. Three changes: (a) coverage is computed against **base fee plus blob cost**, not the observed
+total — the priority fee is a discretionary bid by the submitter — which on the measured decomposition is
+0.0432 ETH against 0.1634 observed, improving the ratio by roughly a factor of 3.8 (*derived from the
+measured decomposition, not a new measurement*); (b) **100% of the L2 base fee is routed to the security
+budget** (no burn; D-9's no-burn substance is kept), which removes the 0.867x proposer-share case and
+makes the relevant median ratio 1.075x (*derived from the measured figures*); (c) the L2 base fee floor
+stays a floor, not revenue — revenue is **demand-limited, not price-limited** (blocks 0.28% full), so
+coverage rises with usage and no parameter fixes it without pricing users out at current demand. **Left
+open (disclosed):** the off-chain prover fee is outside every ratio, so **all ratios are upper bounds**;
+`REWARD_QUOTE` is bounded below only at **>= 0.0002146 ETH per batch, excluding proving cost**; the
+design point's proving cost is unmeasured (S1 could bound per-machine throughput only). **D-8's remaining
+falsifier is a measured off-chain proving cost that exceeds what the fee model leaves.**
+
+**What the three do not do.** They do not make increment 3 or the rotation actionable: aggregation still
+needs S1's cost line and the rotation still needs an L1-verifiable `h_close`. They do not replace the S2
+harness: the cadence and the timeouts stay partly unmeasured. And they do not turn any of the three into a
+measured parameter of the design point.
+
+**Where applied.** `spec/09` (PARAM-02 and the parameter table), `spec/04` (L1-05 row 7 and the
+batch-length consequence), `spec/07` (ECON-02 clause 7(a) and the new clause 7(e) fee model), `spec/10`
+(LIM-01 Performance), `spec/02` (CONS-13(1) and the timing trace), `spec/01` (SYS-03), `spec/03`
+(MEM-14 and the mirror register), `spec/06` (HALT-03's envelope note), `spec/index.html` (fixed
+decisions, rule index, parameter map, verdict), `README.md`, `01-requirements-and-threat-model.md`, and
+the D-1 addendum above.
 

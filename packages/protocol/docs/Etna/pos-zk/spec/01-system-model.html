@@ -202,7 +202,7 @@ finality lag (a property of Ethereum, not measured here), <code>T_l1slot</code> 
 duration (not fixed by this specification, GEN-06 — a runtime input), <code>T_obs</code> is the time
 for a validator's own L1 client to observe the finalized checkpoint (UNMEASURED), and
 <code>T_l2_rt</code> is the L2 round trip to <a href="index.html#STATUS-04">STATUS-04</a>
-(UNMEASURED). D1 does not require this latency to be 2 s. The measurement that would pin the terms:
+(UNMEASURED). The cadence (2 s under the superseded D1, 4 s under the Phase B cadence decision) does not require this latency to equal it. The measurement that would pin the terms:
 operate at least ten geographically distributed validators with pinned L1 and L2 clients for at least
 one week and record the distribution of inclusion, finalized-checkpoint observation and certificate
 publication times. (f) Bridge messages inherit the same bound: an L1-anchored message may not be consumed by L2 state
@@ -249,7 +249,7 @@ baseline research's <code>path:line</code> records at commit <code>7718753c1</co
 <span class="norm"><strong>Statement.</strong> The six timelines below are distinct. No rule,
 parameter, interface or status display may equate any two of them, and no parameter may be derived by
 assuming any two are equal. (a) <strong>T1 block cadence</strong> is the interval between consecutive
-L2 proposals under the stated operating assumptions, fixed at 2 s by D1; it is a production cadence,
+L2 proposals under the stated operating assumptions, fixed at 4 s by the Phase B cadence decision (D1's 2 s superseded, conditioned on the intended validator count staying near or below 128); it is a production cadence,
 not a guarantee that a block at any given height exists, is final, is provable, is settled or is
 withdrawable. (b) <strong>T2 PoS finality latency</strong> is proposal to published commit
 certificate (<a href="index.html#STATUS-04">STATUS-04</a>); its structure is owned by
@@ -264,10 +264,10 @@ discretion. (e) <strong>T5 Ethereum finality</strong> is accepted on L1 to
 <a href="index.html#STATUS-08">STATUS-08</a>; it depends on T4/T5, the message-authentication path
 and the delay of <a href="04-l1-integration.html#MSG-03">MSG-03</a>, derived from the whole pipeline
 (<a href="07-economics-slashing.html#ECON-03">ECON-03</a>). (g) Any user-facing progress display must
-follow <a href="index.html#STATUS-11">STATUS-11</a> and state which timeline it shows; a "2 s
-confirmation" display before <a href="index.html#STATUS-06">STATUS-06</a> must say that the batch's
+follow <a href="index.html#STATUS-11">STATUS-11</a> and state which timeline it shows; a "4 s
+confirmation" display <em>(the Phase B cadence decision)</em> before <a href="index.html#STATUS-06">STATUS-06</a> must say that the batch's
 data and proof are not yet on Ethereum.</span>
-<span class="why">Failure mode: users and reviewers read "2 s blocks" as 2 s finality, settlement or
+<span class="why">Failure mode: users and reviewers read "4 s blocks" <em>(the Phase B cadence decision)</em> as 4 s finality, settlement or
 withdrawal; R4 and D6 explicitly separate these, and <a href="index.html#STATUS-11">STATUS-11</a>
 makes the conflation a disclosure violation.</span>
 <span class="pill proven">Proven</span> <span class="pill derived">derived</span>
@@ -276,7 +276,7 @@ makes the conflation a disclosure violation.</span>
 <table>
 <thead><tr><th>#</th><th>Timeline</th><th>From → to</th><th>Depends on</th><th>Value here</th></tr></thead>
 <tbody>
-<tr><td>T1</td><td>Block cadence</td><td>proposal → next proposal</td><td>leader schedule, round budget, honest-participation and synchrony assumptions (<a href="../01-requirements-and-threat-model.md">A-CONS-2</a>); no L1 interaction</td><td><strong>2 s</strong> <span class="pill derived">derived</span> (D1, not measured)</td></tr>
+<tr><td>T1</td><td>Block cadence</td><td>proposal → next proposal</td><td>leader schedule, round budget, honest-participation and synchrony assumptions (<a href="../01-requirements-and-threat-model.md">A-CONS-2</a>); no L1 interaction</td><td><strong>4 s</strong> <span class="pill derived">derived</span> (the Phase B cadence decision superseding D1's 2 s; not measured)</td></tr>
 <tr><td>T2</td><td>PoS finality latency</td><td>proposal → published commit certificate</td><td>round trips inside the epoch's validator set, timeout ladder, set size (<a href="02-consensus.html#CONS-07">CONS-07</a>)</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td>T3</td><td>Proof latency</td><td>finalized batch → proof-ready</td><td>batch gas, cycles per gas, prover hardware, witness reconstruction (<a href="../01-requirements-and-threat-model.md">A-DA-2</a>, <a href="../01-requirements-and-threat-model.md">A-DA-4</a>)</td><td>normal-operation envelope "minutes to 30 min" <span class="pill derived">derived</span> from D6; <span class="pill unmeasured">unmeasured</span></td></tr>
 <tr><td>T4</td><td>L1 acceptance</td><td>proof-ready → accepted on L1</td><td>L1 inclusion (fee market, censorship T-7), admission rules <a href="04-l1-integration.html#L1-04">L1-04</a></td><td><span class="pill unmeasured">unmeasured</span></td></tr>
@@ -626,7 +626,7 @@ this page may make F3 undetectable.</p>
 <p><strong>What this model does NOT claim.</strong></p>
 <ul>
 <li><strong>No whitelist-free performance guarantee.</strong> Permissionless entry and objective
-admission are structural properties (R1); they are not a promise of 2 s cadence, proving throughput,
+admission are structural properties (R1); they are not a promise of 4 s cadence <em>(the Phase B cadence decision)</em>, proving throughput,
 settlement time or withdrawal latency. Those values are <span class="pill unmeasured">unmeasured</span>
 and registered in <a href="09-parameters.html#PARAM-03">PARAM-03</a>.</li>
 <li><strong>No liveness outside the assumptions.</strong> Outside

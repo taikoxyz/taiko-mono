@@ -96,12 +96,12 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 
 | ID | Decision |
 |----|----------|
-| **D1** | One L2 block every **2 s** under stated operating assumptions. Cadence ≠ finality ≠ proof ≠ settlement ≠ withdrawal. |
+| **D1** | One L2 block every **4 s** under stated operating assumptions *(the owner's Phase B decision of 2026-10-07 supersedes the original 2 s; conditioned on the intended validator count staying near or below 128 — above that the evidence says about 6 s, so cadence and n are one decision)*. Cadence ≠ finality ≠ proof ≠ settlement ≠ withdrawal. |
 | **D2** | **Mode A was selected first (D-3, which records the dissent against Mode A's feasibility verdict); the authorised fallback Mode B is now selected (user decision D-7).** A permissionless, bonded, delayed L1 recovery may replace history **above** the last Ethereum-finalized checkpoint; at or below it nothing may change. A PoS confirmation above that checkpoint is therefore **provisional**. **Mode B** (permissionless L1 recovery of *unsettled* history) is the selected mode (D-7). D-11/D-12/D-13 record no further mode change: D-11 narrows the trigger window by allowing publication before the proof, D-12 replaces D-6/D-10 with narrow forced inclusion over published data, and D-13 makes the per-batch proof one aggregated object. *This closes the D2-history check against DECISIONS.md: D-3's selection and its dissent, D-7's Mode B selection, and the D-11/D-12/D-13 entries are stated as the log records them.* |
 | **D3** | Preserve L1+L2 **SignalService**, **Bridge**, **ERC20Vault**, **ERC721Vault**, **ERC1155Vault** addresses by in-place upgrade. No replacements. |
 | **D4** | L2 PoS determines binding order; the result is named a **PoS-sequenced validity rollup**. |
 | **D5** | Proof-gated acceptance: the checkpoint advances only on a valid proof, in one L1 transaction. **Relaxed by D-11:** the batch's data may be published and recorded in an earlier L1 transaction and referenced by the proof; no publication advances protocol state, and no recovery may introduce a data-first *admission* path. |
-| **D6** | Proving latency of a few minutes to **30 minutes** is normal (900 L2 blocks at 2 s). |
+| **D6** | Proving latency of a few minutes to **30 minutes** is normal (450 L2 blocks at the Phase B 4 s cadence; 900 at the superseded 2 s). |
 | **D7** | Staking and slashable collateral in the **existing TAIKO token**; gas stays ETH. |
 
 ## Requirements checklist
@@ -111,7 +111,7 @@ It is **not** a claim that the design is implemented, audited, safe to deploy, o
 | R1 | Permissionless roles, objective entry/exit, TAIKO staking | [01](spec/01-system-model.html) ROLE-01..05, [03](spec/03-membership-staking.html) | specified |
 | R2 | DAO governs upgrades only | [08](spec/08-migration-upgrades.html) GOV-01..03 | specified |
 | R3 | Shared addresses preserved | [08](spec/08-migration-upgrades.html) MIG-02/06 | specified, migration audit open |
-| R4 | 2 s cadence, distinguished from every other latency | [01](spec/01-system-model.html) SYS-03, [09](spec/09-parameters.html) | specified, unmeasured |
+| R4 | 4 s cadence (the Phase B decision; D1's 2 s superseded), distinguished from every other latency | [01](spec/01-system-model.html) SYS-03, [09](spec/09-parameters.html) | specified, unmeasured |
 | R5 | Consensus safety and the selected mode's confirmation guarantee | [06](spec/06-recovery-exceptions.html) REC-01..04, [02](spec/02-consensus.html) CONS-01..16, [10](spec/10-assurance.html) INV-01 | argued; **provisional above the last accepted checkpoint (D-7)**; F1 open; REC-03 awaits independent review. *This closes the stale ranges: REC-04 and CONS-16 exist and are now cited.* |
 | R6 | Conditional liveness with exact end conditions | [10](spec/10-assurance.html) LIVE-01..05 | specified; a settlement stall is recoverable, a missing epoch-set entry or unavailable data still halts. *This closes the stale range: LIVE-05 exists and is now cited.* |
 | R7 | Complete proof statement, both backends | [05](spec/05-proof-statement.html) PRF-01..15, [03](03-zkvm-feasibility.md) | specified. *This closes the stale range: PRF-14 and PRF-15 exist and are now cited.* |
@@ -174,7 +174,7 @@ round, findings first, adjudication second) was used to obtain genuine independe
 | REC-03 | The recovery-resistance argument is written but **not yet independently reviewed** | The D-7 selection is not settled until review round 4 attempts to break it |
 | F1 | Epoch-handoff lock carry-over (CONS-09) is argued, not proven | The named review target for round 1 |
 | F2 | In-guest blob polynomial-evaluation cost unmeasured | The blob data path is an implementation gate; calldata path is the fallback |
-| F3 | 2 s cadence with a permissionless global validator set unmeasured | Launch gate |
+| F3 | 4 s cadence with a permissionless global validator set unmeasured; F-CADENCE-1 stays Open, sharpened: an S2 run at the pinned engine release showing a round cannot complete inside 4 s at the registered `N_MAX` falsifies the cadence decision | Launch gate |
 | F4 | Prover fleet sizing inputs unmeasured | LIVE-03 throughput inequality cannot be evaluated |
 | MIG | Removal of every privileged lever is verified only at migration time | R1/R2 are conditional on the migration audit |
 | HUM | Slashed-stake destination (ECON-06) and reward funding (ECON-02) are human decisions | Cannot be resolved by this project |

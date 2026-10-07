@@ -250,8 +250,7 @@ inequality, so a normal 30-minute proof can never trigger the cap, and
 <code>RETENTION_WINDOW</code> is stated to be chosen from that inequality rather than independently.</em>
 <code>D_MAX</code> is a bound on <em>commitment creation</em>,
 not on proving latency, and a normal proof taking the whole of the
-<a href="../01-requirements-and-threat-model.md">D6</a> envelope (up to 30 minutes, i.e. 900 blocks at
-2&nbsp;s) is <strong>not</strong> misconduct and <strong>not</strong> grounds for a
+<a href="../01-requirements-and-threat-model.md">D6</a> envelope (up to 30 minutes, i.e. 450 blocks at the Phase B 4&nbsp;s cadence; 900 at the superseded 2&nbsp;s) is <strong>not</strong> misconduct and <strong>not</strong> grounds for a
 stall-resolution trigger: a slow proof neither makes the trigger true (it is strictly larger than the D6
 envelope) nor justifies any action (<a href="08-migration-upgrades.html#GOV-04">GOV-04</a>(a), (g)).</span>
 <span class="why">Failure modes addressed: unbounded growth of unsettled history (which is exactly the

@@ -23,12 +23,12 @@ this project does not reopen them for convenience.
 
 | ID | Fixed decision | Consequence if violated |
 |----|----------------|-------------------------|
-| D1 | One L2 block every **2 s** under stated operating assumptions | R4 fails |
+| D1 | One L2 block every **4 s** under stated operating assumptions *(the owner's Phase B decision of 2026-10-07 supersedes the original 2 s; conditioned on the intended validator count staying near or below 128 — above that the evidence says about 6 s, so cadence and n are one decision)* | R4 fails |
 | D2 | Prefer **Mode A** (PoS finality is never invalidated). Only after an evidenced infeasibility argument plus independent review may **Mode B** be selected. **Mode B was selected by user decision D-7; D-15 withdrew the permissionless L1 recovery it carried and replaced it with the governance stall resolution of `GOV-04`; D-16 deferred that replacement (history), and increment 05 revived it as the live, timelocked, resume-only action (`GOV-04`, with `REC-01`–`REC-04`). The only rule-bound replacement of unsettled history above the last L1-accepted checkpoint is the executed `GOV-04`: it discards exactly the provisional range above the checkpoint and writes no checkpoint, so no rule accepts data or advances a checkpoint without a valid proof. Clearing a settlement stall still depends on governance queueing and executing an entry, with no protocol-level bound (A-GOV-2, F-GOV-1). The D-16 deferral and its `DEFERRED.md` §3 entry are history** *(R5R1-NR-01: re-based on the live `GOV-04`.)* | R5 fails / unauthorized relaxation |
 | D3 | Preserve existing L1+L2 **SignalService, Bridge, ERC20/721/1155 Vault** addresses; upgrade in place | R3 fails |
 | D4 | L2 PoS may determine binding order (departure from based sequencing). The result must be described honestly as a **PoS-sequenced validity rollup** | Misrepresentation |
 | D5 | Proof-gated acceptance: a batch's data **and** its valid ZK proof are settled in one L1 transaction — the checkpoint advances only on a valid proof. **Relaxed by D-11 (2026-10-06):** a batch's data MAY be published and recorded in an **earlier** L1 transaction and referenced by the proof; publication advances no protocol state, so no data-first *admission* path exists. No data-first admission in any mode; the one rule that removes anything above the last L1-accepted checkpoint is the executed `GOV-04`, which discards the provisional range and manufactures no checkpoint, and no rule accepts data or advances a checkpoint without a valid proof (`GOV-04`, `REC-01`; increment 05) *(R5R1-NR-01: re-based; the former absolute-absence form is superseded.)* | R9 fails |
-| D6 | Proving latency of **a few minutes up to 30 minutes** is normal operation. L2 keeps producing 2 s blocks and reaching the selected mode's PoS confirmation throughout | R4/R9 fail |
+| D6 | Proving latency of **a few minutes up to 30 minutes** is normal operation. L2 keeps producing 4 s blocks (the Phase B cadence decision superseding D1's 2 s) and reaching the selected mode's PoS confirmation throughout | R4/R9 fail |
 | D7 | Staking and slashable consensus collateral are denominated in the **existing TAIKO token**. Gas stays ETH. No replacement staking token | R1/R11 fail |
 
 Explicit non-relaxations (from the user): D7 may not be relaxed to substitute ETH staking. D5's
@@ -84,7 +84,7 @@ and the shared bridge/signal surface.
 parameters are expressed in **seconds** or **L1 block numbers** (R12). No parameter may depend on
 Ethereum proposer lookahead or a fixed L1 slot duration.
 
-**Target cadence.** One L2 block per 2 s. For arithmetic in this project, 30 min = 900 L2 blocks.
+**Target cadence.** One L2 block per 4 s (the Phase B cadence decision; D1's 2 s superseded, conditioned on the intended validator count staying near or below 128). For arithmetic in this project, 30 min = 450 L2 blocks at 4 s (900 at the superseded 2 s).
 
 ---
 
@@ -243,7 +243,7 @@ decision needed). Numbers are tagged **derived**, **sourced**, or **unmeasured**
 | R1 | All operational roles permissionless, objective entry/exit, no whitelist; staking per D7 | *(Phase 4)* | *(Phase 4)* | Open |
 | R2 | DAO governs upgrades only, plus the one rule-bound runtime action of `GOV-04` (queueing a stall-resolution entry whose trigger, stored timelock, consumed execution and resume-only effect the rule fixes); no other DAO intervention in ordinary progress, failure or roles *(R5R1-NR-01: `GOV-04` is live again by increment 05.)* | *(Phase 4)* | *(Phase 4)* | Open |
 | R3 | Preserve D3 shared-contract addresses with a concrete migration plan | *(Phase 4)* | *(Phase 4)* | Open |
-| R4 | 2 s L2 block production under explicit assumptions; cadence distinguished from every confirmation and settlement latency | *(Phase 4)* | *(Phase 4)* | Open |
+| R4 | 4 s L2 block production under explicit assumptions *(the Phase B cadence decision; D1's 2 s superseded)*; cadence distinguished from every confirmation and settlement latency | *(Phase 4)* | *(Phase 4)* | Open |
 | R5 | Consensus safety and the selected mode's confirmation guarantees across leader change, set change and proof delays; Mode A preferred, Mode B selected by D-7. The permissionless recovery stays withdrawn (D-15); the replacement is live again by increment 05 as the timelocked, resume-only `GOV-04` with `REC-01`–`REC-04`, and its resistance analysis is `REC-03` (conditional on P1–P4, falsifiers F-GOV-1–F-GOV-6, its own review owed). Above the last L1-accepted checkpoint a confirmation stays provisional and value is unprotected; v1 ships the safe halt with the checkpoint boundary and the exit *(R5R1-NR-01: re-based.)* | *(Phase 3)* | *(Phase 3)* | Open |
 | R6 | Conditional liveness under explicit network/honest-stake/DA/L1 assumptions; exact conditions where liveness ends | *(Phase 4)* | *(Phase 4)* | Open |
 | R7 | Complete proof statement for execution + the selected mode's consensus/finality rules, including the **signed** recovery generation that scopes certificates, locks and uniqueness — a field of the vote and block-header bytes and a signed journal input, with the two-case rule for certificates at or below the checkpoint versus above it (`GOV-04`(h), `L1-05` row 31, `PRF-02`/`PRF-05`; increment 05). Credible on RISC Zero **and** SP1. Aggregation remains deferred (D-16/D-13) and is not part of the v1 statement *(R5R1-NR-01: the signed generation is live, not merely "kept".)* | *(Phase 2/4)* | *(Phase 2/4)* | Open |
