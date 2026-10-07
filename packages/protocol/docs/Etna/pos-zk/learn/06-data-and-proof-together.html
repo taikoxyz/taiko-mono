@@ -361,9 +361,7 @@ keeping the accepting or publication transaction&rsquo;s bytes.</li>
 copying a public proof is allowed.</li>
 <li>No measured cost or in-guest blob-evaluation cost; the blob binding&rsquo;s fixed-point argument
 has not yet been independently checked.</li>
-<li>No way to land a batch whose certificate carries a superseded generation once a future update advances
-it, though its proof remains usable as evidence of what was certified and executed. In v1 the generation
-never advances, nothing is retired and no range is discarded.</li>
+<li>No way to land a batch whose certificate carries a superseded generation once the generation advances, though its proof remains usable as evidence of what was certified and executed. The generation advances only through an executed stall resolution; nothing is retired, and only the provisional range above the checkpoint is discarded.</li>
 </ul>
 
 <h2>Check yourself</h2>

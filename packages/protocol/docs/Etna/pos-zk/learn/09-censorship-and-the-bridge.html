@@ -136,7 +136,7 @@ reaches honest validators and an honest proposer has room for it, it is included
 <a href="11-forced-inclusion.html">lesson 11</a> binds a producer that lands batches, and it bounds exclusion
 per unit of the censor&rsquo;s L1 spending rather than by time. Any interface that claims a latency
 guarantee, that the obligation reaches <em>unpublished</em> data, or that an L1 escape hatch exists for
-arbitrary transactions, is wrong. A settlement stall changes none of that: the stall resolution clears a settlement stall but includes nothing, no rule of the inclusion mechanism operates while no batch lands, and there is still no remedy against isolation.
+arbitrary transactions, is wrong. A settlement stall changes none of that: the stall resolution clears a settlement stall but includes nothing, no rule of the inclusion mechanism operates while no batch lands, and there is still no remedy against isolation.</p>
 
 <h3>How a message is authenticated</h3>
 <p>A cross-chain message is a signal inside L2 state, and L2 state is authenticated by the checkpoint
@@ -318,7 +318,7 @@ it is live, or halting its own frontier. Re-publication starts a fresh record, s
 censor&rsquo;s cost is roughly one L1 publication per deadline window. But if the coalition can also keep the data off L1 &mdash; by cutting the
 user off from every honest proposer at the network level, or by censoring L1 inclusion of the publication
 &mdash; then yes, indefinitely, including preventing a withdrawal from being started, and the protocol has no
-remedy. The obligation is per unit of L1 spending, not a latency bound, and the stall resolution changes none of that.
+remedy. The obligation is per unit of L1 spending, not a latency bound, and the stall resolution changes none of that.</p></details>
 <details><summary>What is the minimum evidence that an L2&rarr;L1 message may be released?</summary>
 <p>A checkpoint written by a successful <code>land(data, proof)</code> whose state root covers the
 signal, a <strong>withdrawal root</strong> over it &mdash; <code>k</code> attestations from <code>k</code>

@@ -61,9 +61,7 @@ no queue, no escrow, no fee, and no L1 entry point for an <em>unpublished</em> t
 adversary that can isolate a user &mdash; or that can censor L1 inclusion of the publication itself &mdash;
 can keep the data off L1 and exclude that user indefinitely, including preventing the user from starting a
 withdrawal, and the protocol offers no remedy. And a confirmation above the last batch accepted on Ethereum
-is <strong>provisional</strong>: nothing at or below the checkpoint is ever rewritten, and v1 has no path
-that replaces the history above it &mdash; a settlement stall halts the chain safely and clearing it needs a
-future protocol update (<a href="11-forced-inclusion.html">lesson 11</a>).</p>
+is <strong>provisional</strong>: nothing at or below the checkpoint is ever rewritten, and the one path that replaces the history above it is the stall resolution &mdash; a DAO-queued entry, a stored deadline, one execution by any account, discarding that whole range. A settlement stall halts the chain safely until that happens, and nothing obliges governance to act (<a href="11-forced-inclusion.html">lesson 11</a>).</p>
 
 <h2 id="diagram">What each guarantee rests on</h2>
 <figure>
@@ -92,7 +90,7 @@ future protocol update (<a href="11-forced-inclusion.html">lesson 11</a>).</p>
   <text x="596" y="54" fill="#cf222e" font-size="12">If a liveness assumption fails</text>
 <text x="596" y="76" fill="#24292f" font-size="10">settlement can stall; confirmations above the last</text>
 <text x="596" y="93" fill="#24292f" font-size="10">accepted checkpoint are provisional, and the chain stays</text>
-<text x="596" y="110" fill="#24292f" font-size="10">halted: v1 has no way to clear a stall. A stall over data</text>
+<text x="596" y="110" fill="#24292f" font-size="10">halted unless the stall resolution runs. A stall over data</text>
 <text x="596" y="127" fill="#24292f" font-size="10">below the checkpoint still halts, possibly for good.</text>
   <rect x="580" y="170" width="364" height="120" rx="8" fill="#fff8e5" stroke="#5c4a1c"/>
   <text x="596" y="194" fill="#9a6700" font-size="12">If a safety or funding assumption fails</text>
@@ -107,7 +105,7 @@ future protocol update (<a href="11-forced-inclusion.html">lesson 11</a>).</p>
   <line x1="460" y1="288" x2="576" y2="250" stroke="#0969da" marker-end="url(#arL)"/>
 </svg>
 <figcaption>Left: what has to hold. Right: what failure looks like. None of it is repaired by a validity proof &mdash; a proof shows a
-transition is correct, not that the premises were met, and no recovery path repairs a broken premise.
+transition is correct, not that the premises were met, and no resolution repairs a broken premise.
 </figcaption>
 </figure>
 
@@ -121,10 +119,7 @@ copied from published standards, and even those are properties of Ethereum rathe
 
 <h3>Confirmations are provisional above the last accepted checkpoint</h3>
 <p>A PoS confirmation is not settlement. A height above the last batch accepted on Ethereum is provisional:
-the certificate is valid, but no v1 rule makes it permanent, and v1 has no path that replaces it. A
-settlement stall halts the chain safely: nothing at or below the last accepted checkpoint is ever
-rewritten, and the recovery generation &mdash; the signed field that scopes certificates and locks &mdash;
-never advances, so no height is retired. Ethereum-final checkpoints and accepted batches are the settled
+the certificate is valid; no rule makes it permanent, and the only rule that replaces it is the stall resolution &mdash; a DAO-queued entry, a stored deadline, one execution by any account &mdash; which discards the whole provisional range. A settlement stall halts the chain safely: nothing at or below the last accepted checkpoint is ever rewritten, and the recovery generation &mdash; the signed field that scopes certificates and locks &mdash; advances only through an executed stall resolution, so no height is retired. Ethereum-final checkpoints and accepted batches are the settled
 part of the chain; value above the checkpoint, or value never messaged, has no L1-provable claim while
 production is halted, and no protocol penalty compensates an off-chain loss. Correct participants halt
 rather than choose a branch, and a halt can be permanent when the missing ingredient is data for a block at
@@ -139,16 +134,8 @@ bound on that loss and offers no compensation: penalties debit an offender&rsquo
 claims channel. The unsettled depth is bounded by the cap while the cap is enforced, but the cap is not a
 bound on loss.</p>
 
-<h3>A stalled chain has no way forward in v1</h3>
-<p>The design has no automatic and no permissionless recovery, and no governance-mediated one either: v1 has
-no recovery path of any kind, and it gives no protocol-level guarantee of liveness after a stall. A
-settlement stall halts the chain, and clearing it needs a future protocol update whose procedure is not yet
-specified. Until then the chain stays halted, and a user&rsquo;s only exit is the withdrawal path that works
-from the last settled state on Ethereum alone &mdash; through a withdrawal root of <code>k</code>
-distinct-family attestations, which needs a funded proving market and data that is still retrievable
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). This is a <strong>social-layer
-assumption</strong>, stated as one: nothing in v1 prices the halt with a bond, enforces a bound on it, or
-lets any party choose a state, a checkpoint or a height above the last accepted checkpoint.</p>
+<h3>A stalled chain has one way forward, and it depends on governance</h3>
+<p>The design has no automatic and no permissionless recovery. The one route out is the stall resolution: during the stall the DAO may queue a single entry, the entry stores its own deadline, and after that deadline anyone may execute it once to discard the whole provisional range above the checkpoint and resume production. Nothing obliges governance to queue or execute an entry, so the design gives no protocol-level guarantee of liveness after a stall, and the chain stays halted until one runs. A user&rsquo;s only exit in the meantime is the withdrawal path that works from the last settled state on Ethereum alone &mdash; through a withdrawal root of <code>k</code> distinct-family attestations, which needs a funded proving market and data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). This is a <strong>social-layer assumption</strong>, stated as one: nothing prices the halt with a bond, enforces a bound on it, or lets any party choose a state, a checkpoint or a height above the last accepted checkpoint &mdash; the resolution names nothing and discards the whole range.</p>
 
 <h3>Membership has a liveness gate, and it does not compel participation</h3>
 <p>Membership in a <em>future</em> set version is renewed on L1: an entry&rsquo;s last heartbeat must cover
@@ -173,7 +160,7 @@ is another stated limit rather than a repaired one. All of these are carried as 
 <p>Settlement assumes the landing market is funded: that the fee sweep actually credits the reward pool and that the
 reward available to a lander is not below the cost of landing. If the pool is empty or the reward is below cost, no rational prover
 lands, the settlement stall arrives with <strong>no adversary at all</strong>, and it is reached by economics rather than by
-attack. No v1 path repairs that: a future protocol update could clear the halt but would change no reward, no fee and no subsidy.
+attack. No rule repairs that: the stall resolution could clear the halt but would change no reward, no fee and no subsidy.
 Clearing a stall is never a remedy for an unfunded reward pool.</p>
 
 <h3>Profit made off-chain from unsettled state is outside any protocol bound</h3>
@@ -234,9 +221,7 @@ transactions indefinitely; because a withdrawal is started by an L2 transaction,
 prevent the user from <em>starting</em> a withdrawal. The protocol offers no remedy for that case.
 Proposer selection is fully predictable, so buying or coercing the proposer of one specific slot is possible
 and no rule prices, detects or penalises it.</p>
-<p>A settlement stall is not an inclusion remedy. It halts the chain, and v1 has no path that clears it;
-the obligation binds a batch that lands, so nothing operates while settlement is stopped, and the stall
-cannot lift an exclusion. The <strong>general inclusion list</strong> is planned as a later protocol update;
+<p>A settlement stall is not an inclusion remedy. The stall resolution can clear it, but it includes nothing; the obligation binds a batch that lands, so nothing operates while settlement is stopped, and the stall cannot lift an exclusion. The <strong>general inclusion list</strong> is planned as a later protocol update;
 until that update ships, this version has no L1 path by which a user can force an <em>unpublished</em>
 transaction into L2.</p>
 
@@ -263,12 +248,11 @@ history it syncs as verified, and new validators cannot be admitted until a newe
 describes. Malicious or captured governance is outside the protocol&rsquo;s protection: the staking ledger, the offence catalogue and
 the reward identity are all rules that an upgrade could replace. The design's protection in ordinary operation is the absence of an
 emergency operator or an owner-triggered path that moves bonded stake &mdash; not an assumption that governance will always behave.
-Clearing a settlement stall needs a future protocol update, and v1 itself offers no path at all: the halt is disclosed
-as a fact of the design, not delegated to a party that must act.</p>
+The one runtime action governance has is the stall resolution &mdash; DAO-queued, timelocked, resume-only, and it moves no stake &mdash; and a settlement stall is cleared only if governance acts: the halt&rsquo;s continuation is disclosed as a fact of the design and depends on a party choosing to act.</p>
 
 <h3>No measured numbers, and no compensation</h3>
 <p>Proving latency, throughput, bandwidth, storage, retention, operator cost, fee revenue, reward schedules, L1 verification gas,
-evidence windows and the withdrawal delay are all unmeasured, and v1 has no stall-resolution parameter at all. Penalties are not compensation and no universal bound on user loss exists:
+evidence windows and the withdrawal delay are all unmeasured, and the stall resolution&rsquo;s window is a stated, unmeasured relation, not a number. Penalties are not compensation and no universal bound on user loss exists:
 a penalty debits an offender&rsquo;s stake, and losses from a broken safety assumption, a key compromise, a proof-system failure, a
 malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
 
@@ -290,15 +274,12 @@ malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
 <h2 id="gives">What this gives you</h2>
 <ul>
 <li>A clear boundary: which claims are arguments, which are arithmetic, and which numbers simply do not exist yet.</li>
-<li>An explicit statement that a settled checkpoint is never rewritten while everything above it is provisional, and that v1 has no
-path that replaces it &mdash; a settlement stall halts the chain, and clearing it needs a future protocol update. Where nothing can
-help, a halt can still be permanent.</li>
-<li>A recovery generation that is narrow by construction: it is a signed field that scopes certificates and locks, v1 never advances
-it, no state, checkpoint or height can be chosen through it, and no height is retired.</li>
+<li>An explicit statement that a settled checkpoint is never rewritten while everything above it is provisional, and that the one path which replaces it is the stall resolution &mdash; DAO-queued, timelocked, executed once, discarding the whole range &mdash; while the halt lasts as long as governance does not act. Where nothing can help, a halt can still be permanent.</li>
+<li>A recovery generation that is narrow by construction: it is a signed field that scopes certificates and locks, it advances only through an executed stall resolution (once per entry), no state, checkpoint or height can be chosen through it, and no height is retired.</li>
 <li>A precise statement of the inclusion limit: a proof-enforced obligation over published data that is not
 a latency guarantee and states its conditions, no general inclusion list, and for unpublished data only
 statistical resistance, with no remedy against isolation.</li>
-<li>The dependencies named &mdash; retention, funding, weak subjectivity, governance, and the absence of any recovery path &mdash; so they can be monitored and priced deliberately.</li>
+<li>The dependencies named &mdash; retention, funding, weak subjectivity, and governance liveness for the one recovery rule &mdash; so they can be monitored and priced deliberately.</li>
 </ul>
 
 <h2 id="not">What it does not give you</h2>
@@ -306,8 +287,7 @@ statistical resistance, with no remedy against isolation.</li>
 <li>No implementation, deployment, audit, benchmark or model to point at.</li>
 <li>No measurement of any performance, cost or economic quantity of this design.</li>
 <li>No rewrite of settled history, no emergency operator and no degraded mode &mdash; but also no compensation for the off-chain
-losses that provisional history can cause, and no universal bound on them; and no protocol-level guarantee that a stalled chain
-resumes at all.</li>
+losses that provisional history can cause, and no universal bound on them; and no protocol-level guarantee that a stalled chain resumes at all, since the one route back depends on governance acting.</li>
 <li>No latency guarantee, no general inclusion list, no way to force an <em>unpublished</em> transaction
 in, no retention enforcement and no compensation for loss.</li>
 <li>No liveness gate that compels participation: the L1 heartbeat decides who is in future set versions, and an entry that
@@ -322,19 +302,12 @@ while withholding its votes keeps its weight.</li>
 withdrawal whose signal is at or below that checkpoint stays executable on Ethereum alone once a withdrawal
 root of <code>k</code> distinct-family attestations forms over it and the delay runs from the root&rsquo;s
 record with no unexpired veto standing. v1 has no path
-that clears the stall &mdash; no automatic, permissionless or governance-mediated route &mdash; so clearing
-it needs a future protocol update whose procedure is not yet specified. If the missing ingredient is data at
+that clears the stall except the stall resolution &mdash; the DAO queues a single entry, and after its stored deadline anyone may execute it once to discard the whole provisional range above the checkpoint and resume &mdash; and nothing obliges governance to act. If the missing ingredient is data at
 or below the accepted checkpoint, nothing can help and the halt can be permanent. And if the real cause is an
 empty or below-cost reward pool, no update that merely clears the halt would fix it: it would change no
 reward and no fee.</p></details>
 <details><summary>What clears a settlement stall in v1?</summary>
-<p>Nothing. There is no automatic path, no permissionless path and no governance-mediated path in v1, and no
-protocol-level guarantee of liveness after a stall. Users can still exit from the last settled state on
-Ethereum alone through a withdrawal root that <code>k</code> distinct backend families must attest from data
-that is still retrievable and that an unexpired veto can delay
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), but unsettled value above
-the checkpoint has no L1-provable claim until a later checkpoint covers it. Clearing the stall is left to a
-future protocol update, whose procedure is not yet specified.</p></details>
+<p>The stall resolution: a DAO-queued entry, a stored deadline, one execution by any account, discarding the whole provisional range above the checkpoint and resuming production from it. It is not automatic and nothing obliges governance to act, so there is no protocol-level guarantee of liveness after a stall. Users can still exit from the last settled state on Ethereum alone through a withdrawal root that <code>k</code> distinct backend families must attest from data that is still retrievable and that an unexpired veto can delay (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), but unsettled value above the checkpoint has no L1-provable claim until a later checkpoint covers it. Clearing the stall is left to governance using that rule.</p></details>
 <details><summary>A user is isolated from every honest proposer. Can they withdraw anyway?</summary>
 <p>Only if the transaction&rsquo;s data reaches L1, and even then the obligation it starts is not a latency
 guarantee: a batch that lands must advance the settlement frontier past the record by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has
@@ -368,8 +341,7 @@ censoring honest heartbeats can exclude honest validators from future versions (
 <li>The reward pool is funded by L2 fee revenue or a recorded top-up; otherwise no reward is payable.</li>
 <li>A fresh, Ethereum-final L1 checkpoint is available to a new node, and governance does not execute an upgrade that breaks these
 rules.</li>
-<li>v1 has no stall parameter and no recovery path: a settlement stall halts the chain and clearing it needs a future protocol
-update, so there is no protocol-level guarantee of liveness after a stall. The exit from the last settled state stays available on
+<li>The stall resolution is the one route out of a settlement stall &mdash; a DAO-queued entry, a stored deadline, one execution by any account &mdash; and nothing obliges governance to act, so there is no protocol-level guarantee of liveness after a stall. The exit from the last settled state stays available on
 Ethereum alone.</li>
 </ul>
 </div>

@@ -198,7 +198,7 @@ quorum-loss halt inside an epoch is cleared only by the cohort returning or by a
 and the `T_STALL_GOV`/`T_GOV_RESUME`/`govResume*` registrations) is re-derived as a live, rule-bound action
 against the converged v1 rather than restored from its tombstone. The increment is in review and ships
 only after two consecutive clean review rounds; this section is the revival record — what was revived,
-how each of the three blockers recorded above was closed, what remains Open, and what a future increment
+how each of the three blockers recorded here was closed, what remains Open, and what a future increment
 would need.*
 
 **For:** clearing a settlement stall without a permissionless recovery. **Why it was deferred:** it did
