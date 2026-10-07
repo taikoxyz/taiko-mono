@@ -201,7 +201,7 @@ execution rate is at least the L2's sustained execution rate; (ii) <em>concurren
 proofs in flight is at least <code>L / Δ</code>, where <code>L</code> is the proof latency bound and
 <code>Δ</code> is the batch's L2 time span (a queueing identity, not a measurement); (iii)
 <em>data</em>: the L2's data production rate does not exceed the L1 data capacity available to the
-batches, which for blob data is the blob target/maximum per L1 block divided by the L1 slot duration.
+batches, which for blob data is the blob target/maximum per L1 block divided by the L1 slot duration — 14/21 blobs per L1 block under the EIP-7892 BPO2 set in force (<code>1,835,008</code> / <code>2,752,512</code> bytes per L1 block; <code>≈ 152,917</code> / <code>229,376</code> bytes/s at 12 s). <em>(Phase B public-data report: the set in force over the measured window — target 14, maximum 21, base-fee update fraction 11,684,671 — confirmed on-chain by <code>blobGasPrice == fake_exponential(1, excessBlobGas, 11,684,671)</code> on 18/18 sampled blob blocks; a future fork changes it.)</em>
 If any inequality fails, the backlog grows without bound and the correct response is
 <a href="#LIVE-02">LIVE-02</a> backpressure — not a longer latency assumption and not a rollback.</span>
 <span class="why">Failure modes addressed: "tolerate individual slow proofs" being mistaken for
