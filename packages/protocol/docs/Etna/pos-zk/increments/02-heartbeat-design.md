@@ -80,6 +80,23 @@ condition of completion, not an assertion (§3.2–§3.3).
 
 ## 2. Revived MEM-13 — exact rule text
 
+> **Review corrections (increment 02, first review round).** The rule text below is the text that
+> shipped, but it is not the text as first drafted: this delta is a historical record, and the clauses
+> the review round corrected are marked here rather than silently rewritten as if they had always said
+> this. (1) Heartbeat-key **retirement is permanent**, not a status at acceptance: a retired key is
+> invalid whenever the signature was produced and MUST NOT be re-bound to any entry (MEM-13(1),
+> MEM-07(1), MEM-07(6); R-INCR2-04). (2) The promise that a `HEARTBEAT_WINDOW` change **never re-labels
+> a window that has begun** is **withdrawn** as false of a global tumbling grid: a change re-grids
+> evaluation from the block in which it takes effect (MEM-13(2); 09's `HEARTBEAT_WINDOW` row;
+> R-INCR2-01). (3) Acceptance compares the **absolute instant** `hbWindow · HEARTBEAT_WINDOW >
+> lastHeartbeatAt(v)`, strictly greater, and the stored window index — grid-relative — is **never
+> compared across grids** (MEM-13(2a)(d), (2b)). (4) The coverage argument at (2a) shows that a change
+> can shorten or lengthen coverage but can never open a gap, lower a record, or by itself empty the
+> roster (MEM-13(3), (6)). Two further review corrections are recorded in the clauses below: the
+> heartbeat key MUST be **non-zero** at bonding and at rotation, so `ecrecover`'s `address(0)` failure
+> return can never satisfy acceptance (R-INCR2-02), and there is **one live entry per bonding address**,
+> an identifier-uniqueness condition and **not a stake cap** (R-INCR2-03).
+
 > Normative text below. It replaces the tombstone in `spec/03-membership-staking.html`; it is written
 > as the rule will read in the specification, with identifiers that the register and index must match.
 
@@ -89,8 +106,15 @@ condition of completion, not an assertion (§3.2–§3.3).
 time**, distinct from its Ed25519 consensus vote key (MEM-07): L1 has no Ed25519 precompile and
 `ecrecover` is cheap, so L1-side liveness evidence must be ECDSA. Both keys bind to the same entry.
 The entry's owner address alone may set or rotate the heartbeat key, and rotation is **forward-only**:
-the rotation transaction's L1 block is stored with the entry, a heartbeat signed under a key that was
-retired at the block of acceptance is invalid, and a heartbeat key MUST NOT be bound to two entries.
+the rotation transaction's L1 block is stored with the entry, a heartbeat signed under a retired key
+is invalid **whenever the signature was produced**, retirement is **permanent** — a key that has ever
+been retired MUST NOT be re-bound to any entry, including the entry it was retired from (MEM-07(6)'s
+one-shot-identity principle) — and a heartbeat key MUST NOT be bound to two entries. **The heartbeat
+key MUST be non-zero at bonding and at rotation:** `address(0)` is the value `ecrecover` returns for
+any signature it cannot recover, so a zero key is a signature wildcard rather than a key; a bond or
+rotation naming `address(0)` MUST be rejected — a rejected bond creates no entry, and a rejected
+rotation leaves the entry's stored key, its rotation block and every heartbeat record exactly as they
+were.
 Rotating the heartbeat key **does not reset** `lastHeartbeatAt(v)`, `lastHeartbeatWindow(v)` or
 `lastHeartbeatSeq(v)`: a rotation is not a freshness reset. The heartbeat key is **not a consensus
 key** — it cannot vote, it never appears in a set root or in a `(pubkey, effStake)` leaf (MEM-08), it
@@ -101,8 +125,10 @@ slash. Its only power is to attest the entry's liveness for clause (3).
 heartbeat key's signature over one canonical `abi.encode` preimage (GEN-05) binding, in order: the
 **versioned domain tag** `DOMAIN_HEARTBEAT` (right-padded ASCII `"ETNA_HEARTBEAT_V2"`), the **chain
 id**, the **validator entry** `v` (the entry identifier the ledger uses — the bonding address of
-MEM-03(1)), the **window index** `hbWindow` the signature is for, the entry's **heartbeat sequence
-number** `hbSeq` (a strictly increasing per-entry nonce, `hbSeq ≥ 1`), the **anchor block number**
+MEM-03(1), which carries **at most one live entry** so `v` names exactly one entry; an
+identifier-uniqueness condition, **not a stake cap**), the **window index** `hbWindow` the signature
+is for, the entry's **heartbeat sequence number** `hbSeq` (a strictly increasing per-entry nonce,
+`hbSeq ≥ 1`), the **anchor block number**
 `hbAnchorBlock` (an L1 block number), and the **anchor block hash** `hbAnchor`:
 
 ~~~
@@ -111,7 +137,10 @@ keccak256(abi.encode(DOMAIN_HEARTBEAT, chainId, v, hbWindow, hbSeq, hbAnchorBloc
 
 The tag version is bumped from the preserved draft's `V1` because the preimage gains the anchor pair;
 no V1 implementation ever existed, so the bump costs nothing and keeps cross-version replay
-structurally impossible. **Anyone may submit a heartbeat**, and a relayer MAY batch many signatures in
+structurally impossible. **The identifier is unique without touching the preimage:** the one-live-entry
+rule for bonding addresses was chosen over adding a new entry id to the payload, which would have
+changed the preimage layout, forced a `V2`→`V3` tag bump and rippled through the register (R-INCR2-03).
+**Anyone may submit a heartbeat**, and a relayer MAY batch many signatures in
 one transaction: validity depends only on the payload, the signature and the entry's registered key
 `heartbeatKey(v)`, never on `msg.sender` — the signature is the entry's own act, the carrying
 transaction is not. `HEARTBEAT_BATCH_CAP` bounds the signatures one batching transaction may carry;
@@ -122,27 +151,48 @@ dominated by the window rule and could only make eligibility harder to attain. *
 tumbling, non-overlapping intervals of length `HEARTBEAT_WINDOW` on the L1 clock: window `w` is the
 half-open interval `[w · HEARTBEAT_WINDOW, (w+1) · HEARTBEAT_WINDOW)`, and `hbWindowOf(t) =
 floor(t / HEARTBEAT_WINDOW)` is the window containing the run-time-visible `block.timestamp` `t`. A
-change to `HEARTBEAT_WINDOW` applies only to windows that begin after it takes effect and never
-re-labels a window that has begun.
+change to `HEARTBEAT_WINDOW` **re-grids the windows for blocks from the block in which it takes
+effect**: it *does* re-label intervals that have begun, and it MUST NOT be described as never
+re-labelling a window that has begun. What the rule guarantees instead is that the re-labelling cannot
+touch a record: `lastHeartbeatAt(v)` is an absolute instant and the guard of (2a)(d) compares instants,
+never window indices, so a change can neither reject a legitimate advance nor lower a recorded value.
 
-**(2a) Acceptance: current window, advancing sequence, unrecorded window, fresh anchor.** The staking
-contract verifies the signature with `ecrecover` and MUST accept a heartbeat only if **all** of the
+**(2a) Acceptance: current window, advancing sequence, strictly advancing recorded instant, fresh
+anchor.** The staking contract verifies the signature with `ecrecover` and MUST accept a heartbeat
+only if **all** of the
 following hold:
 
-- (a) the recovered key is exactly `heartbeatKey(v)`, `v` is a registered entry, and the key is not
-  retired (clause (1));
+- (a) the recovered key is exactly `heartbeatKey(v)` — which is **non-zero** (clause (1)), so the
+  `address(0)` that `ecrecover` returns for a malformed or unrecognisable signature can never satisfy
+  this check — `v` is a registered entry, and the key is not retired, retirement being permanent
+  (clause (1));
 - (b) `hbWindow = hbWindowOf(block.timestamp)` — **the window the signature names is the window that
   contains the including block**; a heartbeat whose window is in the past or in the future MUST be
   rejected;
 - (c) `hbSeq > lastHeartbeatSeq(v)` — a duplicate, a replay or an out-of-order submission MUST be
   rejected;
-- (d) if `lastHeartbeatSeq(v) > 0`, then `hbWindow > lastHeartbeatWindow(v)` — **a window already
-  recorded for that entry MUST be rejected**, so at most one heartbeat per entry is recorded per
-  window;
+- (d) if `lastHeartbeatSeq(v) > 0`, then `hbWindow · HEARTBEAT_WINDOW > lastHeartbeatAt(v)`, with
+  `HEARTBEAT_WINDOW` the value in force at the including block — **the start instant of the window the
+  signature names, exactly the value (2b) would record, MUST be strictly later than the instant
+  already recorded**, so a heartbeat that would not advance the record MUST be rejected and at most one
+  heartbeat per entry per window is recorded; the comparison is on **absolute instants, never window
+  indices**, so it is unaffected by a change to `HEARTBEAT_WINDOW`;
 - (e) `hbAnchorBlock < block.number`, `block.number − hbAnchorBlock ≤ HEARTBEAT_ANCHOR_AGE`,
   `blockhash(hbAnchorBlock) = hbAnchor`, and `hbAnchor ≠ 0` — **the anchor must be a real L1 block
   no older than `HEARTBEAT_ANCHOR_AGE` blocks**; a stale anchor, a future anchor block, an anchor
   that names no block, or an anchor whose hash does not match MUST be rejected.
+
+**A grid change can shorten or lengthen coverage, but it can never open a gap.** Every record is an
+absolute instant. For a record `lastHeartbeatAt(v) = A` and a current window length
+`HEARTBEAT_WINDOW = W`, coverage under the old record lasts exactly to `A + W`: the entry stays
+eligible for every commit point with `t_root ≤ A + W` (clause (3)). The first boundary of the new grid
+strictly after `A`, call it `B`, satisfies `A < B ≤ A + W`, so an **attestation opportunity always
+exists at or before the last instant the old record covers** — the window named at `B` has start
+`B > A` and passes (2a)(d). A change can therefore lengthen coverage (a larger `W`) or shorten it (a
+smaller `W`), but it can never open a gap, can never lower a recorded instant, and can never empty the
+eligible roster by itself; an entry that fails to re-attest is excluded by the ordinary duty of (2c)
+alone. This is the coverage argument the specification carries at MEM-13(3)/(6) and in 09's
+`HEARTBEAT_WINDOW` row (R-INCR2-01).
 
 A rejected heartbeat writes nothing: it advances no recorded value, it is not an attestation for any
 purpose, and it is never evidence of anything. The checks are per signature; a batching transaction
@@ -155,14 +205,19 @@ HEARTBEAT_WINDOW` — **the start instant of the window the signature names** �
 `lastHeartbeatWindow(v) = hbWindow` and `lastHeartbeatSeq(v) = hbSeq`. The recorded instant is a
 pure function of the signed payload and is **never** the `block.timestamp` of the including
 transaction, so a signature cannot be made fresh by submitting it later, by batching it with others, by
-paying more gas, or by any other property of the carrier. The recorded value is **monotone**: accepted
-windows strictly increase ((2a)(d)) and the window grid is increasing, so `lastHeartbeatAt(v)` never
-decreases and is never edited downward. An entry with no accepted heartbeat has `lastHeartbeatAt(v) =
+paying more gas, or by any other property of the carrier. The recorded instant is **monotone**:
+acceptance requires the named window's start instant to be strictly later than the value already
+recorded ((2a)(d)), so `lastHeartbeatAt(v)` strictly increases on every acceptance and never
+decreases, whatever value `HEARTBEAT_WINDOW` takes; the stored index `lastHeartbeatWindow(v)` is the
+label that window had under the grid in force when it was accepted, so unlike the instant it is
+**grid-relative**, it may be numerically lower than a previously stored index after a change to
+`HEARTBEAT_WINDOW`, it **MUST NOT be compared across grids**, and no rule may read it as a recency
+test. An entry with no accepted heartbeat has `lastHeartbeatAt(v) =
 0`, `lastHeartbeatWindow(v)` unset and `lastHeartbeatSeq(v) = 0`, and is ineligible until its
 first accepted heartbeat. It **cannot be advanced by replay**: resubmitting an accepted signature, or
-any signature naming a window that has already been recorded or that is not current, is rejected and
-writes nothing; replaying with a different anchor is impossible because the anchor is inside the signed
-preimage.
+any signature naming a window that is not current or whose start instant is not strictly later than the
+recorded instant, is rejected and writes nothing; replaying with a different anchor is impossible
+because the anchor is inside the signed preimage.
 
 **(2c) What the window and the anchor buy, and the residual.** Because the signed message names exactly
 one window, is accepted only inside that window, and binds an L1 block that must be no more than
@@ -183,13 +238,15 @@ was running when the carrier landed.
 the version committed for epoch `e` — if and only if `lastHeartbeatAt(v) ≥ t_root(e) −
 HEARTBEAT_WINDOW`, where `t_root(e)` is the commit timestamp stored with the entry as
 `rootCommittedAt` (MEM-09(2)) and written by the same `commitSet()` call that fixes `R_k`
-(MEM-09(1)). With the recorded value of (2b) and the window grid of (2), this is equivalently the
+(MEM-09(1)). With the recorded value of (2b) and an unchanged window grid, this is equivalently the
 requirement that **the last accepted heartbeat named the heartbeat window containing
 `t_root(e)`**; a commit timestamp exactly on a window boundary is covered by the window that ends
-there, and no other window can qualify, because acceptance requires the named window to be current. A
-later change to `HEARTBEAT_WINDOW` never edits a recorded value and applies only to windows that
-begin after it (clause (6)). The predicate is evaluated **inside that call, from L1 state at
-`N(k)`**; the caller chooses nothing and there is no second evaluation instant. **A later window
+there, and no other window can qualify, because acceptance requires the named window to be current.
+Across a change to `HEARTBEAT_WINDOW` the predicate stays the absolute one written above and reads
+instants, not indices: a change re-grids evaluation from the block in which it takes effect and never
+edits, re-derives or re-interprets a recorded value (clauses (2a)(d) and (6)). The predicate is
+evaluated **inside that call, from L1 state at `N(k)`**; the caller chooses nothing and there is no
+second evaluation instant. **A later window
 cannot reach back:** a signature naming a window later than `hbWindowOf(t_root(e))` cannot be
 accepted before that window begins ((2a)(b)), so it cannot be recorded in time to affect `R_k`; if it
 is accepted later, it can change only commits whose own `t_root` lies in that later window. A
@@ -254,10 +311,11 @@ only make eligibility unattainable; if the review prefers an enforced bound, it 
 acceptance timestamp, which buys nothing this rule needs. The window index, the sequence number, the
 anchor block number and the anchor hash are **record contents** — fields of the signed payload and
 stored records — not tunables, not proof public inputs and not values any submitter or prover chooses.
-Evaluation uses the parameter value in force at the block in which it is made; a change to
-`HEARTBEAT_WINDOW` or `HEARTBEAT_ANCHOR_AGE` applies only to windows that begin after it takes
-effect and MUST NOT edit, re-derive or re-interpret a recorded `lastHeartbeatAt(v)`,
-`lastHeartbeatWindow(v)` or `lastHeartbeatSeq(v)`. The rotation's own bounds are `T_ROTATE >
+Evaluation uses the parameter value in force at the block in which it is made: a change to
+`HEARTBEAT_WINDOW` re-grids the windows for blocks from the block in which it takes effect, and a
+change to `HEARTBEAT_ANCHOR_AGE` changes the freshness bound for acceptances from that block onward;
+neither may edit, re-derive or re-interpret a recorded `lastHeartbeatAt(v)`, `lastHeartbeatWindow(v)`
+or `lastHeartbeatSeq(v)`. The rotation's own bounds are `T_ROTATE >
 T_PROOF_MAX_PERMITTED + T_SETTLE_PIPELINE + L1_FINALITY` and `T_ROTATE_DELAY ≥ L1_FINALITY +
 T_L1_include(p) + margin` (CONS-16(1)–(2)); the completion's resumed-epoch condition is CONS-16(3)'s
 and is the only bound on how long the restart set may lag the invocation.
@@ -300,10 +358,11 @@ This mechanism changes **who is selectable**, never what a committed version req
 > instant taken from the including transaction let one captured signature be replayed in every later
 > window, so a silent cohort stayed eligible for ever. The revived rule breaks every link of that
 > trace: the payload binds the named window, the sequence and the anchor (so one signature is not a
-> credential); acceptance requires the named window to be current and unrecorded (so a replay is
-> rejected, not merely detectable); the recorded instant is the named window's start (so submission
-> time cannot refresh it); and the rotation's resumed version is drawn from a commit point after the
-> last covered window (so a pre-signed inventory cannot hold the roster — if it is not refreshed).
+> credential); acceptance requires the named window to be current and the named instant to strictly
+> advance the recorded one (so a replay is rejected, not merely detectable); the recorded instant is
+> the named window's start (so submission time cannot refresh it); and the rotation's resumed version
+> is drawn from a commit point after the last covered window (so a pre-signed inventory cannot hold
+> the roster — if it is not refreshed).
 
 ---
 
