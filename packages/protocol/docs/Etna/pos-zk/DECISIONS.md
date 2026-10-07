@@ -795,4 +795,22 @@ therefore runs **F-FI-1–F-FI-7** wherever it is enumerated (the `FI_MIN_EXEC_F
 floor. D-12 and D-16 are untouched. *(review round 4, finding F1: the fee floor and F-FI-7 are appended
 here; the entry and the addenda above are preserved as history.)*
 
+**Further addendum (increment 04, review round 4, finding S-01).** The entry and the addenda above stand as
+the historical record; this further addendum records the residual the specification now carries. The
+forceability predicate of `FI-13(2)` is a predicate over the record's own bytes and the turn pre-state it
+fixes. The repair closed the reason classes that predicate and the enumerated classes `(A)`–`(G)` can see,
+but it does not deny that a valid block may enforce an execution-validity rule that depends on neither: any
+such rule, and any transaction the predicate calls forceable and the discharge ground of `FI-13(1)(a)` does
+not discharge at its turn that no valid block of the range can carry, is carried **Open** rather than ruled
+out. The residual is stated, not denied.
 
+**New falsifier F-FI-8.** The falsifier is exactly that transaction: one `FI-13(2)` calls forceable, one the
+discharge ground does not discharge at its turn, and one no valid block of the range can carry. The
+consequence is the settlement-halt class the enumerated repairs closed: the walk of `FI-13(1)` demands an
+execution no valid block can perform, so every proof in the computed window `[c, c + R)` fails and the
+position cannot resolve until the record is dead or the transaction is superseded. The falsifier set
+therefore runs **F-FI-1–F-FI-8** wherever it is enumerated (the `FI_MIN_EXEC_FEE_CAP` row of `09`, `FI-13`,
+`LIVE-04` and `LIM-01` of `10`, and `DEFERRED.md` §1), and F-FI-8 joins F-FI-7 as the honest residual of its
+repair — F-FI-7 of the fee-floor repair, F-FI-8 of the enumeration repair. D-12 and D-16 are untouched.
+*(review round 4, finding S-01: the enumeration residual and F-FI-8 are appended here; the entry and the
+addenda above are preserved as history.)*

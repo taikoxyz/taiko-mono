@@ -211,6 +211,15 @@ lands batches, and while L1 includes the user&rsquo;s publication. A pure censor
 record halts its own frontier rather than censoring; a publishing censor pays roughly one L1 publication per
 deadline window; an L1-censored publication cannot be forced at all. No new slashable offence is created:
 the rejected proof is the whole enforcement.</p>
+<p>The forceability test is exact over the record&rsquo;s own bytes and the state at a transaction&rsquo;s
+turn, and over the validity requirements the rule enumerates; it cannot rule out a further execution-validity
+rule a valid block enforces that depends on neither. That gap is carried open, not denied. What would show it
+is a transaction the rule calls forceable and the walk does not set aside at its turn, yet no valid block of
+the range can carry it: the walk would demand an execution that cannot happen, the position could not
+resolve, and settlement would halt until the record&rsquo;s deadline passed &mdash; the same settlement halt
+the enumerated validity classes would otherwise cause (<strong>F-FI-8</strong>). <em>F-FI-8 is the enumeration residual:
+the rule&rsquo;s demand is exact only over the reasons its own inputs and the enumerated validity classes
+decide.</em></p>
 <p>What does not exist is the <strong>general inclusion list</strong>: no queue of arbitrary transactions,
 no escrow, no fee and no L1 entry point that can force an <em>unpublished</em> transaction into L2, and no
 remedy for an adversary that keeps the data off L1. Proposer selection is weighted and public, so a

@@ -110,9 +110,15 @@ case, the residual stays disclosed) and **F-FI-7** (the registered fee floor `FI
 above the maximum execution base fee the L2 fee schedule can produce — the fee analogue of F-FI-1, stated
 rather than maintained: no registered rule constrains the L2 fee schedule, and a schedule that can exceed
 the floor makes a transaction the predicate calls forceable one no valid block can carry, the review round
-4 finding F1 Critical again; falsifier: a schedule that can exceed the floor). *(FI-13(3)/(5): F-FI-3 is stated per transaction, and the record-level
+4 finding F1 Critical again; falsifier: a schedule that can exceed the floor) and **F-FI-8** (the enumeration
+residual: the predicate decides the record's own bytes and the turn pre-state it fixes, so an
+execution-validity rule a valid block enforces that depends on neither is carried Open rather than denied;
+falsifier: a transaction the predicate calls forceable and the discharge ground does not discharge at its
+turn that no valid block of the range can carry — the walk then demands an execution no valid block can
+perform and the position cannot resolve, the settlement-halt class the enumerated repairs closed). *(FI-13(3)/(5): F-FI-3 is stated per transaction, and the record-level
 "a voided record may become forceable later" form is superseded. Review round 4, finding F1: F-FI-7 and the
-fifth byte class are carried with the floor, and the floor stays unmeasured with its stated relation only.)*
+fifth byte class are carried with the floor, and the floor stays unmeasured with its stated relation only.
+Review round 4, finding S-01: F-FI-8 is carried as the enumeration residual, Open; the set runs to F-FI-8.)*
 
 **What a future increment would need.** Two things, neither of which this increment may do:
 (i) a decision on the per-publisher live-record bound, or another publish-time bound, as an explicit change
@@ -130,8 +136,9 @@ floor is unmeasured with a stated relation only.)*
 
 **Preserved:** `FI-10`-`FI-14` text in git history at `7917ba264`; the findings disposed of above
 (`R6-D12-01`, `R6-D12-02`, `R6-D12-03`, `R6-D12-04`, `R6-D12-05`, `R6-DPE-01` and the rounds
-5–6 findings named in `increments/04-forced-inclusion-design.md`); falsifiers F-FI-1–F-FI-7. *(F-FI-7,
-the registered fee floor `FI_MIN_EXEC_FEE_CAP`'s Open schedule premise — review round 4, finding F1.)* The design
+5–6 findings named in `increments/04-forced-inclusion-design.md`); falsifiers F-FI-1–F-FI-8. *(F-FI-7,
+the registered fee floor `FI_MIN_EXEC_FEE_CAP`'s Open schedule premise; F-FI-8, the enumeration residual —
+review round 4, findings F1 and S-01.)* The design
 delta and its owner decisions are the increment's authority.
 
 ## 2. Heartbeat eligibility (D-14) — REVIVED IN PART (increment 02)

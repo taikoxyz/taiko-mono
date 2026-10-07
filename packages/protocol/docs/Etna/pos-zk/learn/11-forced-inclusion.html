@@ -242,6 +242,23 @@ honest or rational producer and on an L1 that includes the publication; an L1-le
 delayed past the registered anchor age, and past blob retrievability, is permanently unacceptable. The
 registered relations are chosen to make this impossible inside the normal envelope; the deliberate-delay
 residual stays disclosed.</li>
+<li><strong>F-FI-7 &mdash; the fee floor&rsquo;s schedule premise.</strong> A forced transaction must declare a
+maximum fee per gas at or above one registered floor, so a transaction below it is ruled out by the
+record&rsquo;s own bytes. The premise is that the floor sits at or above the highest execution base fee the L2
+fee schedule can produce, and no registered rule maintains that schedule. If the schedule can rise above the
+floor, a transaction the rule calls forceable &mdash; and the per-block duty demands &mdash; is one no valid
+block can carry: the proof cannot show it run, the position cannot resolve, and settlement waits until the
+record expires. The floor itself is <span class="tag">unmeasured</span>.</li>
+<li><strong>F-FI-8 &mdash; the enumeration residual.</strong> The forceability test reads the
+record&rsquo;s own published bytes and the state at the transaction&rsquo;s turn, and it rules out the reasons
+those two inputs and the enumerated validity classes decide. It cannot rule out a reason that depends on
+neither &mdash; some further execution-validity rule a valid block enforces that is not one of the enumerated
+classes. That gap is carried open rather than denied. What would show it: a transaction the test calls
+forceable and the walk does not set aside at its turn, yet no valid block of the range can carry it. The walk
+would then demand an execution no valid block can perform; the position cannot resolve, settlement halts
+until the record is dead, and that is the same halt the enumerated reasons would otherwise cause. <em>The rule
+is exact over the reasons its own inputs and the enumerated classes decide; a reason outside them stays open
+as F-FI-8.</em></li>
 </ul>
 
 <h2>Worked example &mdash; walking the frontier</h2>
