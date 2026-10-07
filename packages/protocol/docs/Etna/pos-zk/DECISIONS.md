@@ -771,4 +771,28 @@ producer-independence. The heading is amended in place; the superseded forms ins
 are preserved as history.
 *(R4R3-T-02 follow-up: the correction is appended here; the entry and the addenda above are not rewritten.)*
 
+**Further addendum (increment 04, review round 4, finding F1).** The entry and the addenda above stand as
+the historical record; this further addendum records the correction the specification now carries. Review
+round 4 found the fee cap absent from **both** the forceability predicate and the enumerated byte classes:
+a transaction declaring a `maxFeePerGas` below the execution base fee passed every check, was not void and
+was not discharged at its turn, and no valid block could include it — so the walk demanded an execution
+that cannot happen and settlement froze until the record expired, the same settlement-halt class the
+fee-floor repair closes. The repair adds a **fifth byte class**, keyed on the registered floor
+**`FI_MIN_EXEC_FEE_CAP`**: a live record containing a transaction whose declared `maxFeePerGas` is below the
+floor is **void** under `FI-13(1)(b)(E)`, and the same floor is a requirement of the predicate under
+`FI-13(2)(vi)`, so the predicate, the void classes and the per-block duty of `FI-11(4)` agree from the
+record's own bytes. The floor is read from the record's own bytes and the registered constant alone,
+**never** from the including block's base fee (reading it would reopen R6-D12-05's producer steering), and it
+is **unmeasured**: no value is proposed and the row states a relation only.
+
+**New falsifier F-FI-7.** The floor registered as `FI_MIN_EXEC_FEE_CAP` is at or above the maximum execution
+base fee the L2 fee schedule can produce. It is needed because a schedule that can exceed the floor makes a
+transaction the predicate calls forceable — and the per-block duty demands — one no valid block can carry,
+returning the settlement-halt class the fee-floor repair closed; it is **Open** in exactly the way the
+capacity relation's F-FI-1 is, and no registered rule maintains the L2 fee schedule. The falsifier set
+therefore runs **F-FI-1–F-FI-7** wherever it is enumerated (the `FI_MIN_EXEC_FEE_CAP` row of `09`, `FI-13`,
+`LIVE-04` and `LIM-01` of `10`, and `DEFERRED.md` §1), and its falsifier is a schedule that can exceed the
+floor. D-12 and D-16 are untouched. *(review round 4, finding F1: the fee floor and F-FI-7 are appended
+here; the entry and the addenda above are preserved as history.)*
+
 

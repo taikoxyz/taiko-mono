@@ -37,8 +37,11 @@ the sender's nonce at that pre-state, or the sender's balance at that pre-state 
 with its executed transactions recorded as executed and its discharged ones as discharged; **void** — the
 record is live at `A` and over a registered bound (this limb is tested before executed, so a live
 over-bound record is void even if one of its transactions appears in the executed payload), or live at `A`
-and containing a transaction that can never be executed from the record's own bytes (for example a chain id
-that does not match FI-13(2)(iii)), so it can neither execute nor be discharged, or live at `A` with every
+and containing a transaction that can never be executed from the record's own bytes (the exhaustive
+classes of FI-13(1)(b): decode failure, a chain id that does not match FI-13(2)(iii), an unrecoverable
+signature, a declared gas limit below the transaction's own intrinsic gas, and the fifth class added by
+review round 4, finding F1 — a declared `maxFeePerGas` below the registered floor `FI_MIN_EXEC_FEE_CAP`,
+which FI-13(2)(vi) mirrors as a forceability requirement), so it can neither execute nor be discharged, or live at `A` with every
 one of its transactions discharged, so none of them executes; or **dead** (the record's own stored
 `l1BlockNumber` plus the registered `T_PROVE_DEADLINE` at or below the anchored view) — tested first and
 unconditionally, so a record that is dead at `A` is dead whatever its size, contents or discharge state.
@@ -46,7 +49,9 @@ unconditionally, so a record that is dead at `A` is dead whatever its size, cont
 dead-first and void-limb-first precedence so the three modes partition every position; the record-level form
 "no transaction forceable at any pre-state of the batch" is superseded; a record whose remaining
 transactions cannot execute is fully discharged rather than left unresolved, so every position resolves in a
-bounded number of batches.)*
+bounded number of batches; review round 4, finding F1: the byte-invalid set gains its fifth class, the
+registered fee floor `FI_MIN_EXEC_FEE_CAP` — a declared `maxFeePerGas` below it is not forceable
+(FI-13(2)(vi)) and voids a live record (FI-13(1)(b)(E)) — whose Open schedule premise is F-FI-7.)*
 The advance is unconditional and monotone:
 `c' ≥ min(d(A), c + FI_MAX_PER_BATCH)`, `c' ≤ nextSeq(A)`, `c' ≥ c`, and every position in `[c, c')`
 must be resolved. `CONS-01(v)` is an **order and non-omission** duty only, with no per-block count and no
@@ -64,7 +69,8 @@ through a stored prune cursor; it returns no frontier and is never read by `land
 3. *The steerable void predicate.* Closed: the includability test loses the base fee and the block gas
    limit entirely; forceability is a function of the record's immutable bytes, the registered constants and
    the sender's nonce and balance at the transaction's turn, checked against the transaction's own declared
-   maximum charge. Only the **nonce** is producer-immovable — only that account's own signed transactions
+   maximum charge and, since review round 4 finding F1, against the registered floor `FI_MIN_EXEC_FEE_CAP`
+   (FI-13(2)(vi)). Only the **nonce** is producer-immovable — only that account's own signed transactions
    can move it — while the **balance** can be moved by **anyone**, the producer included, and an incoming
    credit can only make a transaction **executable**, never discharged. This is why the discharge is judged
    at the turn: where a third-party credit lands relative to the turn of a transaction that is unaffordable
@@ -72,7 +78,11 @@ through a stored prune cursor; it returns no frontier and is never read by `land
    as unaffordable at its turn — so a producer ordering a credit can decide a discharge. That
    credit-ordering edge is the disclosed residual **F-FI-3**. *(FI-13(1)(a), FI-13(2)(v), FI-13(3): the
    forceability term is the sender's balance, not a "free balance", and the earlier "two facts a block
-   producer cannot move" form is superseded.)*
+   producer cannot move" form is superseded. Review round 4, finding F1: the predicate also carries the
+   registered fee floor of FI-13(2)(vi) — the fifth byte-invalid class of FI-13(1)(b)(E), a declared
+   `maxFeePerGas` below `FI_MIN_EXEC_FEE_CAP` — so a zero- or low-cap transaction is neither forceable nor
+   demanded, the floor is never read from the including block's base fee, and its Open schedule premise is
+   F-FI-7: a schedule that can exceed the floor makes a demanded transaction one no valid block can carry.)*
 4. *Expiry with no proof-side ground, and the prune that contradicted it.* Closed: dead-at-`A` is a third
    resolution mode computed from the record's own stored `l1BlockNumber` and `T_PROVE_DEADLINE`, needing
    no bytes, blobs, execution or L1 call; the mutable status flag is not restored; and
@@ -94,10 +104,15 @@ at its turn — is the producer-set ordering that can decide a discharge, becaus
 the turn and a credit can never discharge a transaction, only enable it; re-publication is the remedy),
 **F-FI-4** (a record
 can age out to dead rather than be included), **F-FI-5** (the guarantee is conditional on a non-censoring
-L1 and on at least one honest or rational producer) and **F-FI-6** (a certified range deliberately delayed
+L1 and on at least one honest or rational producer), **F-FI-6** (a certified range deliberately delayed
 past the anchor-age envelope is permanently unacceptable; the registered relations close the in-envelope
-case, the residual stays disclosed). *(FI-13(3)/(5): F-FI-3 is stated per transaction, and the record-level
-"a voided record may become forceable later" form is superseded.)*
+case, the residual stays disclosed) and **F-FI-7** (the registered fee floor `FI_MIN_EXEC_FEE_CAP` is at or
+above the maximum execution base fee the L2 fee schedule can produce — the fee analogue of F-FI-1, stated
+rather than maintained: no registered rule constrains the L2 fee schedule, and a schedule that can exceed
+the floor makes a transaction the predicate calls forceable one no valid block can carry, the review round
+4 finding F1 Critical again; falsifier: a schedule that can exceed the floor). *(FI-13(3)/(5): F-FI-3 is stated per transaction, and the record-level
+"a voided record may become forceable later" form is superseded. Review round 4, finding F1: F-FI-7 and the
+fifth byte class are carried with the floor, and the floor stays unmeasured with its stated relation only.)*
 
 **What a future increment would need.** Two things, neither of which this increment may do:
 (i) a decision on the per-publisher live-record bound, or another publish-time bound, as an explicit change
@@ -105,13 +120,18 @@ to DA-07(1), with its economic bypass — a censor with many funded addresses �
 is; and (ii) Phase B's measurements, because every `FI_*` value, the capacity relation and the schedule
 premise remain unmeasured placeholders. The measurement line is publication gas, `forcedBoundary`
 recomputation gas, the per-batch capacity under a target batch size, the register's bounded-binary-search
-cost, and the L2 gas-limit schedule check. F-FI-1 would close only with a registered rule that constrains
-the L2 gas-limit schedule constructively, or with a consensus-enforced per-block floor on header gas
-limits; neither exists.
+cost, the L2 gas-limit schedule check, and an observation of the deployed L2 fee schedule against the
+registered floor's premise — the maximum execution base fee it can produce. F-FI-1 would close only with a
+registered rule that constrains the L2 gas-limit schedule constructively, or with a consensus-enforced
+per-block floor on header gas limits; F-FI-7 would close only with a registered rule that constrains the L2
+fee schedule so that it cannot exceed `FI_MIN_EXEC_FEE_CAP`, or with a measured schedule shown unable to;
+neither exists. *(review round 4, finding F1: the fee-schedule clause is what measures F-FI-7, and the
+floor is unmeasured with a stated relation only.)*
 
 **Preserved:** `FI-10`-`FI-14` text in git history at `7917ba264`; the findings disposed of above
 (`R6-D12-01`, `R6-D12-02`, `R6-D12-03`, `R6-D12-04`, `R6-D12-05`, `R6-DPE-01` and the rounds
-5–6 findings named in `increments/04-forced-inclusion-design.md`); falsifiers F-FI-1–F-FI-6. The design
+5–6 findings named in `increments/04-forced-inclusion-design.md`); falsifiers F-FI-1–F-FI-7. *(F-FI-7,
+the registered fee floor `FI_MIN_EXEC_FEE_CAP`'s Open schedule premise — review round 4, finding F1.)* The design
 delta and its owner decisions are the increment's authority.
 
 ## 2. Heartbeat eligibility (D-14) — REVIVED IN PART (increment 02)
