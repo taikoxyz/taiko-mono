@@ -15,22 +15,32 @@ Owner: design lead. Budget: generous (up to ~5 days). Nothing here stops for bud
 ## Phase 2 - revive the deferred mechanisms, one at a time
 
 Each gets its own design pass and its own review round; none returns by reverting a tombstone.
-Order is by value and by readiness, not by size.
+The list is in increment order; the status on each item says what is actually moving, and the work
+order is by value and by readiness, not by size.
 
-1. **Heartbeat eligibility (D-14)** - simplest unlock. Its round-5 Critical (a heartbeat signature
-   as a permanent credential) was fixed with the window-and-sequence payload; that fix has never
-   been re-reviewed. Revive criteria: a review of the window-bound payload and a decision on the
-   pre-signing horizon.
-2. **Aggregation (D-13)** - gated on Phase B: n and m cannot be fixed before S1 measures the
-   aggregation cost. Design work can proceed, parameterisation cannot.
-3. **Narrow forced inclusion (D-12)** - four named blockers: one unit of account for the
-   obligation, a mandatory frontier advance with no waiver, a void predicate computed from the
-   record's immutable bytes and registered constants only, and expiry as an objective proof-side
-   discharge ground. All four are specified in DEFERRED.md section 1.
-4. **The governance stall resolution (D-15)** - last, because it was the newest and least
+1. **Increment 2 - heartbeat eligibility (D-14): SHIPPED.** Its round-5 Critical (a heartbeat
+   signature as a permanent credential) was fixed with the window-and-sequence payload, the fix was
+   reviewed, and the increment reached the convergence bar - two consecutive rounds with no Critical
+   and no High - with round 4 re-confirming the fixed artifact
+   (`increments/02-ship-record.md`). `MEM-13` is live; the rotation that consumes it stays deferred
+   and tombstoned (`DEFERRED.md` section 2).
+2. **Increment 3 - aggregation (D-13): gated on Phase B's S1 measurement.** n and m cannot be fixed
+   before S1 measures the aggregation cost. Design work can proceed; parameterisation cannot.
+3. **Increment 4 - narrow forced inclusion (D-12): IN REVIEW.** Its four named blockers - one unit
+   of account for the obligation, a mandatory frontier advance with no waiver, a void predicate
+   computed from the record's immutable bytes and registered constants only, and expiry as an
+   objective proof-side discharge ground - are closed by
+   `increments/04-forced-inclusion-design.md`, and `DEFERRED.md` section 1 is the revival record.
+   The implementation and the increment's own review round are in flight; it ships only after two
+   consecutive clean rounds. F-FI-2 (arrivals exceeding the drain) ships open and disclosed, with no
+   per-publisher bound added.
+4. **Increment 5 - the governance stall resolution (D-15): last.** It was the newest and least
    reviewed. Its blockers: an entry state machine with an `executed` state, the resolved exit
    contradiction (already fixed for v1 by MEM-15(2b)), and a generation rule for the anchor
    certificate.
+
+Order of work: increment 2 is shipped, increment 4 is in review while increment 3 waits on S1, and
+increment 5 is last.
 
 Reviving a mechanism must not reopen a v1 decision: the boundary, the exit, D-8/D-9, D-11 and the
 "no rule removes weight" property (D-14) stay as they are unless the owner changes them.

@@ -58,6 +58,11 @@ passes (<a href="../spec/04-l1-integration.html#FI-11">FI-11</a>,
 <code>land(data, proof)</code>: any account may still submit, the register is not an admission condition, and a
 proof that does not satisfy the obligation simply does not verify
 (<a href="../spec/04-l1-integration.html#L1-04">L1-04</a>).</p>
+<p><strong>A published record cannot be quietly passed over.</strong> While it is live, no batch that lands
+may advance the settlement frontier beyond it: the producer must execute it, prove it void under the
+objective predicate, or stop settling. That is the whole force of the obligation &mdash; and it is why the
+honest statement is about the censor&rsquo;s cost, not the user&rsquo;s wait: the record can still end as dead,
+discharged by its own deadline rather than included.</p>
 <p>A record is resolved in exactly one of three ways, and no party chooses which
 (<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>):</p>
 <ul>
@@ -136,7 +141,7 @@ three ways.</figcaption>
 <tr><td>Due frontier <code>d(A)</code></td><td>The number of records whose due point has passed at <code>A</code>, recomputed over the anchored register state by a bounded binary search.</td><td>The required work is counted in one unit: register positions per batch.</td></tr>
 <tr><td>The advance</td><td><code>c&prime; &ge; min(d(A), c + FI_MAX_PER_BATCH)</code>, <code>c&prime; &le; nextSeq(A)</code> and <code>c&prime; &ge; c</code>.</td><td>The lower bound is unconditional &mdash; no exception waives it &mdash; and the frontier never decreases and never passes the register.</td></tr>
 <tr><td>The walk</td><td>Every position in <code>[c, c&prime;)</code> is resolved &mdash; executed, void or dead &mdash; and every position in that range holds a record at <code>A</code>.</td><td>A live, forceable record cannot be skipped, and a hole in the register makes the proof invalid.</td></tr>
-<tr><td>Capacity</td><td>With an outstanding obligation the batch&rsquo;s own header gas must cover the work, and the batch must resolve at least <code>FI_MIN_DRAIN</code> positions.</td><td>The cap is part of proof validity, not an admission rule, and it cannot be chosen down to zero by taking a one-block batch.</td></tr>
+<tr><td>Capacity</td><td>With an outstanding obligation the batch&rsquo;s own header gas must cover the work, and the required window cannot collapse to zero: the registered floor <code>FI_MIN_DRAIN</code> (<code>1 &le; FI_MIN_DRAIN &le; FI_MAX_PER_BATCH</code>) makes <code>R = 0</code> impossible.</td><td>The cap is part of proof validity, not an admission rule, and it cannot be chosen down to zero by taking a one-block batch.</td></tr>
 <tr><td>The per-block duty</td><td>Order and non-omission only (<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>(v)): a block never executes a later record&rsquo;s forced transaction ahead of an earlier one, and must carry a forceable forced transaction when its own remaining gas covers the gas that transaction declares.</td><td>There is no per-block count and no per-block gas quota, so no registered value is used in two units and no block is asked for more than it can hold.</td></tr>
 <tr><td>The commitment</td><td>One <code>forcedBoundary</code> value in the proof&rsquo;s journal, recomputed by the guest and required to match.</td><td>The L1-derived view reaches the proof as a single commitment, never as a submitter-supplied frontier or due list.</td></tr>
 </tbody>
@@ -175,13 +180,13 @@ time.</p>
 relation, or an L2 gas-limit schedule under which a maximum-length batch at the registered per-block bound
 cannot be produced, makes the &ldquo;a compliant batch exists&rdquo; premise false and can re-open a halt.
 No registered rule maintains that schedule premise.</li>
-<li><strong>F-FI-2 &mdash; arrivals exceed the drain.</strong> <em>Open, and not fixed.</em> This is the
+<li><strong>F-FI-2 &mdash; arrivals exceed the drain.</strong> <em>Carried open; not fixed.</em> This is the
 bound on time, not on work: if the arrival rate of livable records permanently exceeds the drain the
 obligation forces, waits grow without bound. The mechanism still does not halt, but the deadline is then an
-exit, not a latency guarantee. A bound on who may publish was considered and deliberately not adopted: it
-would be a publish-time admission condition, and any account must be able to publish.</li>
+exit, not a latency guarantee. No bound on who may publish is imposed: that would be a publish-time admission
+condition, and any account must be able to publish.</li>
 <li><strong>F-FI-3 &mdash; void now, forceable later.</strong> A record voided because no transaction was
-forceable in this batch may become forceable later. The void decision is objective and final for that record;
+forceable in this batch may become forceable later. The void outcome is objective and final for that record;
 the remedy is re-publication, because a predicate that could un-void it would need a mutable status field.</li>
 <li><strong>F-FI-4 &mdash; expiry outruns the frontier.</strong> A settlement stall longer than the
 record&rsquo;s deadline, or a queue that drains more slowly than records age, discharges a record by expiry
@@ -223,8 +228,8 @@ non-omission only.</li>
 so the only ways forward are execution, an objective void ground or expiry.</li>
 <li>A void predicate no producer&rsquo;s block contents can manufacture or steer, and an expiry ground that
 needs only the record&rsquo;s own stored block number and one registered constant.</li>
-<li>Enforcement in the proof only: no gate on landing, no new entry point, no escrow or fee, no new slashable
-offence, and no forced-inclusion state read by the exit.</li>
+<li>Enforcement in the proof only: the admission rule of <code>land</code> is unchanged, there is no escrow
+or fee, there is no new slashable offence, and no forced-inclusion state is read by the exit.</li>
 <li>An honest bound: exclusion per unit of the censor&rsquo;s L1 spending, conditional on a producer that
 lands batches and on an L1 that includes the publication.</li>
 </ul>
@@ -242,7 +247,7 @@ the user is isolated from every honest producer, the obligation never starts.</l
 to L2 execution; whether it succeeds is the execution rules&rsquo; business, and a producer can order a block
 so a forced transaction reverts.</li>
 <li><strong>No measured parameters.</strong> Every <code>FI_*</code> term, the capacity relation and the
-schedule premise are placeholders; Phase B measures them, and nothing on this page is a value.</li>
+schedule premise are placeholders with no measurement behind them, and nothing on this page is a value.</li>
 </ul>
 
 <h2>Check yourself</h2>

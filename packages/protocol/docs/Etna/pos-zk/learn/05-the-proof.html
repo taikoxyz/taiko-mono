@@ -137,7 +137,7 @@ vector, so the two sides cannot disagree about what was proven
 <table>
 <thead><tr><th>Kind</th><th>Values</th><th>Where it comes from</th></tr></thead>
 <tbody>
-<tr><td>Authority-defining (public inputs)</td><td>chain ids; <code>epoch</code>; <code>validatorSetRoot</code>; <code>totalVotingPower</code>; <code>setVersion</code> and <code>setVersionBlock</code>; the closing epoch&rsquo;s anchor root and total; predecessor height, block hash and state root; configuration hash; <code>recoveryGeneration</code>; the quorum product <code>2 &middot; W</code></td><td>Derived by the L1 contract from its own storage and from the transaction. A submitter-supplied copy must be ignored.</td></tr>
+<tr><td>Authority-defining (public inputs)</td><td>chain ids; <code>epoch</code>; <code>validatorSetRoot</code>; <code>totalVotingPower</code>; <code>setVersion</code> and <code>setVersionBlock</code>; the closing epoch&rsquo;s anchor root and total; predecessor height, block hash and state root; the forced-inclusion boundary commitment <code>forcedBoundary</code>; configuration hash; <code>recoveryGeneration</code>; the quorum product <code>2 &middot; W</code></td><td>Derived by the L1 contract from its own storage and from the transaction. A submitter-supplied copy must be ignored.</td></tr>
 <tr><td>Claimed but proof-bound (public inputs)</td><td>head block hash; post-state root; first and last height; block timestamps; <code>dataCommitment</code> on the blob path; <code>finalityCommitment</code>; <code>signerBitmap</code>; data mode; blob versioned-hash hash; challenge points and evaluations; fee recipient</td><td>Supplied with the transaction but <em>bound</em>: a wrong value makes the proof fail rather than making the contract misbehave.</td></tr>
 <tr><td>Witness (private)</td><td>set entries with Merkle inclusion proofs; the commit certificate&rsquo;s signatures; the header chain; the anchor certificate at an epoch boundary; the committed payload bytes; the pre-state needed for execution</td><td>Produced by the prover. No witness element may define the validator set or the epoch.</td></tr>
 </tbody></table>
@@ -197,6 +197,7 @@ so this is the scoping rule a future update would exercise, not a rule that fire
 predecessor state root, and check that each block&rsquo;s transactions reproduce the transaction
 root committed by its header and that the final state root equals the claimed one.</li>
 <li>Recompute the data commitment over the bytes it executed and compare it with the journal.</li>
+<li>Recompute the forced-inclusion boundary from the anchored register state and require it to match the journal, then require every position the settlement frontier advances past to be resolved &mdash; executed, void or dead &mdash; before the new frontier is written (<a href="../spec/04-l1-integration.html#FI-11">FI-11</a>, <a href="11-forced-inclusion.html">lesson 11</a>).</li>
 </ol>
 
 <h3>5. Why one certificate is enough</h3>

@@ -50,17 +50,18 @@ unmeasured placeholder. Where this page and the <a href="../spec/index.html">spe
 <p>A design earns trust by stating its own boundary. This page is that boundary: the guarantees the design does not make, the duties it
 does not enforce, and the dependencies it cannot remove. None of these is a temporary gap to be read past &mdash; each is part of the
 design as it stands.</p>
-<p>Two of them matter more than the rest for anyone sizing exposure. Forced inclusion is <strong>not a
-mechanism in v1</strong>: any account may publish a transaction&rsquo;s data to L1, but publication is
-permissionless, advances no protocol state and accepts nothing, no rule obliges any proposer to include a
-published transaction, and excluding one &mdash; published or not &mdash; is not a breach. What remains
-absent is the <strong>general inclusion list</strong>: no queue, no escrow, no fee, and no L1 entry point
-for an <em>unpublished</em> transaction. A network-level adversary that can isolate a user &mdash; or that
-can censor L1 inclusion of the publication itself &mdash; can keep the data off L1 and exclude that user
-indefinitely, including preventing the user from starting a withdrawal, and the protocol offers no remedy.
-And a confirmation above the last batch accepted on Ethereum is <strong>provisional</strong>: nothing at or
-below the checkpoint is ever rewritten, and v1 has no path that replaces the history above it &mdash; a
-settlement stall halts the chain safely and clearing it needs a future protocol update.</p>
+<p>Two of them matter more than the rest for anyone sizing exposure. Forced inclusion over published data
+exists, but it is <strong>not a latency guarantee</strong>: a record can be void or dead instead of included,
+a settlement stall can let it age out, arrivals beyond the drain leave waits unbounded, and the guarantee is
+exclusion per unit of the censor&rsquo;s L1 spending, conditional on at least one honest or rational producer
+and on an L1 that includes the publication. What remains absent is the <strong>general inclusion list</strong>:
+no queue, no escrow, no fee, and no L1 entry point for an <em>unpublished</em> transaction. A network-level
+adversary that can isolate a user &mdash; or that can censor L1 inclusion of the publication itself &mdash;
+can keep the data off L1 and exclude that user indefinitely, including preventing the user from starting a
+withdrawal, and the protocol offers no remedy. And a confirmation above the last batch accepted on Ethereum
+is <strong>provisional</strong>: nothing at or below the checkpoint is ever rewritten, and v1 has no path
+that replaces the history above it &mdash; a settlement stall halts the chain safely and clearing it needs a
+future protocol update (<a href="11-forced-inclusion.html">lesson 11</a>).</p>
 
 <h2 id="diagram">What each guarantee rests on</h2>
 <figure>
@@ -187,27 +188,37 @@ trades are equally unbounded.</p>
 a penalty. No rule may claim retention is enforced, and no reward or bond makes serving data a duty a validator can be slashed for
 breaching.</p>
 
-<h3>There is no inclusion obligation, and no remedy for isolation</h3>
-<p>The protocol provides no per-transaction inclusion guarantee, and v1 provides no inclusion obligation at
-all. Any account may publish a transaction&rsquo;s data to L1, but publication is permissionless, writes a
-record and nothing else, and accepts nothing: no rule requires a batch to include, resolve or prove that
-data, so a proposer that excludes a transaction &mdash; published or not &mdash; is not in breach, and no
-due set or omission offence exists (<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a>). What does not
-exist is the <strong>general inclusion list</strong>: no queue of arbitrary transactions, no escrow, no fee
-and no L1 entry point that can force an <em>unpublished</em> transaction into L2. Proposer selection is
-weighted and public, so a coalition holding less than a third of voting power is selected for fewer than a
-third of slots in expectation, and a transaction that reaches honest validators is included by the first
-honest proposer with room for it &mdash; but that last clause is behavioural, not a rule. A network-level
-adversary able to isolate a user from every honest proposer, or to censor L1 inclusion of the publication
-itself, can keep the data off L1 and exclude that user&rsquo;s transactions indefinitely; because a
-withdrawal is started by an L2 transaction, the same adversary can prevent the user from <em>starting</em> a
-withdrawal. The protocol offers no remedy. Proposer selection is fully predictable, so buying or coercing
-the proposer of one specific slot is possible and no rule prices, detects or penalises it.</p>
-<p>A settlement stall is not an inclusion remedy. It halts the chain, and v1 has no path that clears it; it
-cannot put a transaction into a block or compel any proposer to include one, so it does not lift an
-exclusion. The <strong>general inclusion list</strong> is planned as a later protocol update; until that
-update ships, this version has no L1 path by which a user can force an <em>unpublished</em> transaction into
-L2, and nothing changes that for published data either.</p>
+<h3>Inclusion is conditional: no latency guarantee, and no remedy for isolation</h3>
+<p>Published data carries a narrow inclusion obligation, enforced in the proof: after a record&rsquo;s due
+point, a batch that lands must advance a settlement frontier past it, execute it, or record it void or dead
+(<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>&ndash;<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>,
+<a href="11-forced-inclusion.html">lesson 11</a>). It is not a per-transaction latency guarantee. A record
+can be discharged without being executed; a settlement stall longer than the record&rsquo;s deadline, or a
+queue that drains more slowly than records age, discharges it by expiry; if livable records permanently
+arrive faster than the drain the obligation can force, waits grow without bound (F-FI-2); and the mechanism
+bounds exclusion per unit of the censor&rsquo;s L1 spending, not per unit of time. The condition is part of
+the guarantee: it holds while arrivals stay within the drain, while at least one honest or rational producer
+lands batches, and while L1 includes the user&rsquo;s publication. A pure censor that refuses the front
+record halts its own frontier rather than censoring; a publishing censor pays roughly one L1 publication per
+deadline window; an L1-censored publication cannot be forced at all. No new slashable offence is created:
+the rejected proof is the whole enforcement.</p>
+<p>What does not exist is the <strong>general inclusion list</strong>: no queue of arbitrary transactions,
+no escrow, no fee and no L1 entry point that can force an <em>unpublished</em> transaction into L2, and no
+remedy for an adversary that keeps the data off L1. Proposer selection is weighted and public, so a
+coalition holding less than a third of voting power is selected for fewer than a third of slots in
+expectation, and an unpublished transaction that reaches honest validators is included by the first honest
+proposer with room for it &mdash; but that last clause is behavioural, not a rule, and it does not reach
+data that never reaches L1. A network-level adversary able to isolate a user from every honest proposer, or
+to censor L1 inclusion of the publication itself, can keep the data off L1 and exclude that user&rsquo;s
+transactions indefinitely; because a withdrawal is started by an L2 transaction, the same adversary can
+prevent the user from <em>starting</em> a withdrawal. The protocol offers no remedy for that case.
+Proposer selection is fully predictable, so buying or coercing the proposer of one specific slot is possible
+and no rule prices, detects or penalises it.</p>
+<p>A settlement stall is not an inclusion remedy. It halts the chain, and v1 has no path that clears it;
+the obligation binds a batch that lands, so nothing operates while settlement is stopped, and the stall
+cannot lift an exclusion. The <strong>general inclusion list</strong> is planned as a later protocol update;
+until that update ships, this version has no L1 path by which a user can force an <em>unpublished</em>
+transaction into L2.</p>
 
 <h3>Rewards depend on a funded pool</h3>
 <p>Validator and prover rewards are ETH, and they can only be paid out of ETH that has actually flowed into the reward pool. L2
@@ -264,8 +275,9 @@ path that replaces it &mdash; a settlement stall halts the chain, and clearing i
 help, a halt can still be permanent.</li>
 <li>A recovery generation that is narrow by construction: it is a signed field that scopes certificates and locks, v1 never advances
 it, no state, checkpoint or height can be chosen through it, and no height is retired.</li>
-<li>A precise statement of the inclusion limit: no inclusion obligation in v1, no general inclusion list, and for unpublished data
-only statistical resistance, with no remedy against isolation.</li>
+<li>A precise statement of the inclusion limit: a proof-enforced obligation over published data that is not
+a latency guarantee and states its conditions, no general inclusion list, and for unpublished data only
+statistical resistance, with no remedy against isolation.</li>
 <li>The dependencies named &mdash; retention, funding, weak subjectivity, governance, and the absence of any recovery path &mdash; so they can be monitored and priced deliberately.</li>
 </ul>
 
@@ -276,8 +288,8 @@ only statistical resistance, with no remedy against isolation.</li>
 <li>No rewrite of settled history, no emergency operator and no degraded mode &mdash; but also no compensation for the off-chain
 losses that provisional history can cause, and no universal bound on them; and no protocol-level guarantee that a stalled chain
 resumes at all.</li>
-<li>No per-transaction inclusion guarantee, no inclusion obligation over published data, no general inclusion list, no retention
-enforcement and no compensation for loss.</li>
+<li>No latency guarantee, no general inclusion list, no way to force an <em>unpublished</em> transaction
+in, no retention enforcement and no compensation for loss.</li>
 <li>No liveness gate that compels participation: the L1 heartbeat decides who is in future set versions, and an entry that
 stops attesting loses its slots there and no stake. A committed version is never re-drawn, and a cohort that keeps attesting
 while withholding its votes keeps its weight.</li>
@@ -304,12 +316,14 @@ that is still retrievable and that an unexpired veto can delay
 the checkpoint has no L1-provable claim until a later checkpoint covers it. Clearing the stall is left to a
 future protocol update, whose procedure is not yet specified.</p></details>
 <details><summary>A user is isolated from every honest proposer. Can they withdraw anyway?</summary>
-<p>Only if the transaction&rsquo;s data reaches L1, and even then no rule obliges anyone to include it:
-publication is permissionless and accepts nothing, and no inclusion obligation exists in v1. An adversary
-that can also keep the data off L1 &mdash; by cutting the user off from every honest proposer, or by
-censoring L1 inclusion of the publication itself &mdash; can still prevent the withdrawal from starting,
-indefinitely, and the protocol offers no remedy. For data that never reaches L1, inclusion resistance is a
-conditional statistical property, not a guarantee.</p></details>
+<p>Only if the transaction&rsquo;s data reaches L1, and even then the obligation it starts is not a latency
+guarantee: a batch that lands must advance the settlement frontier past the record, execute it, or record it
+void or dead, but a record can be discharged without being executed and a stall can let it age out
+(<a href="11-forced-inclusion.html">lesson 11</a>). An adversary that can also keep the data off L1 &mdash;
+by cutting the user off from every honest proposer, or by censoring L1 inclusion of the publication itself
+&mdash; can still prevent the withdrawal from starting, indefinitely, and the protocol offers no remedy. For
+data that never reaches L1, inclusion resistance is a conditional statistical property, not a
+guarantee.</p></details>
 <details><summary>Which numbers in this course are measured?</summary>
 <p>None of this design&rsquo;s own numbers. Ethereum constants such as the blob gas cost and blob sizes are copied from published
 standards, and quantities like 900 blocks per thirty minutes are arithmetic on the two-second cadence. Everything else &mdash; proving
@@ -322,8 +336,10 @@ latency, throughput, operator cost, fee revenue, reward rates, evidence and with
 <li>Somebody retains each batch&rsquo;s data and witness until its proof lands, and a funded proving market
 produces the <code>k&minus;1</code> further attestations a withdrawal root needs from data that is still
 retrievable.</li>
-<li>Somebody publishes a transaction&rsquo;s data to L1 while the blobs are retrievable; publication creates no inclusion
-obligation either way, so if the data never reaches L1 the protocol has no remedy.</li>
+<li>Somebody publishes a transaction&rsquo;s data to L1 while the blobs are retrievable; publication starts
+the inclusion obligation but not a latency guarantee, so if the data never reaches L1 the protocol has no
+remedy. Arrivals of livable records stay within the drain the obligation can force, and at least one honest
+or rational producer lands batches.</li>
 <li>Ethereum keeps producing and finalizing blocks, and L1 facts become Ethereum-final at a known depth. Validators post an
 L1 heartbeat once per window of <code>HEARTBEAT_WINDOW</code> L1 blocks and Ethereum includes those transactions; a lapse costs future slots and not stake, and
 censoring honest heartbeats can exclude honest validators from future versions (F8).</li>
@@ -342,8 +358,8 @@ limitations stated as rules are <a href="../spec/10-assurance.html#LIM-01">LIM-0
 <a href="../spec/06-recovery-exceptions.html#HALT-03">HALT-03</a>, the exit from the last settled state
 <a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>, the recovery boundary
 <a href="../spec/06-recovery-exceptions.html#REC-01">REC-01</a>, inclusion stated honestly
-<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> and the v1 inclusion position
-<a href="../spec/04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>, the reward funding identity
+<a href="../spec/10-assurance.html#LIVE-04">LIVE-04</a> and the inclusion obligation
+<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>&ndash;<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>, the reward funding identity
 <a href="../spec/07-economics-slashing.html#ECON-02">ECON-02</a> and weak subjectivity
 <a href="../spec/03-membership-staking.html#MEM-11">MEM-11</a>.</p>
 

@@ -1,26 +1,84 @@
 # Deferred work register
 
 Mechanisms **excluded from v1** by decision D-16, with what each was for, why it was deferred, what
-blocked it, and what would revive it. Nothing here is abandoned: each entry is a scoped piece of work
-with its findings preserved in `iterations/raw/`. **Three mechanisms remain deferred**; heartbeat
-eligibility was revived in part by increment 02 — the eligibility rule is live, the rotation that
-consumes it is not (§2).
+blocked it, and what would revive it — and, where an increment has since revived one, the revival record. Nothing here is abandoned: each entry is a scoped piece of work
+with its findings preserved in `iterations/raw/`. **Three deferred items remain**, counted by mechanism
+with its own rule id: the heartbeat rotation (`CONS-16`, §2), the governance stall resolution (§3) and
+aggregation (§4). Heartbeat eligibility was revived in part by increment 02 — the eligibility rule is
+live, the rotation that consumes it is not — and narrow forced inclusion was revived by increment 04
+(§1); both leave the deferred set, and the rotation inside §2 stays named on its own.
 
-## 1. Narrow forced inclusion (D-12)
+## 1. Narrow forced inclusion (D-12) — REVIVED (increment 04, in review)
 
-**For:** bounding the time a proposer can keep a published transaction out of the chain.
-**Why deferred:** two independent round-6 reviewers found it **non-functional as written** - the
-settled-frontier bound is waived by an exception with no referent, so under the only non-vacuous
-reading the frontier never advances and the obligation is dead for the life of the deployment. A
-separate finding shows `CONS-01(v)` is per-block at `FI_MAX_PER_BATCH` while the cap is per-batch,
-which permits a configuration where no block can carry the prefix.
-**Blocked by:** the frontier-advance rule, the unit mismatch, a steerable void predicate, and an
-expiry discharge with no proof-side ground (`R6-D12-01`, carried unrepaired from round 5).
-**Revive criteria:** one unit of account for the obligation; a mandatory frontier advance with no
-waiver; a void predicate computed from the record's immutable bytes and registered constants only;
-expiry as an objective proof-side discharge ground.
-**Preserved:** `FI-10`-`FI-14` text in git history at `7917ba264` and the findings in
-`iterations/raw/round5t-*.md` and `round6-d12-d14-repairs.md`.
+*Revived by increment 04: the FI-10–FI-14 family is re-derived as a live rule family against the converged
+v1 rather than restored from its tombstone, and the general inclusion list stays absent. The increment is
+in review and ships only after two consecutive clean review rounds; this section is kept as the revival
+record — what was revived, how each blocker recorded here was disposed of, what remains deferred inside the
+mechanism, and what a future increment would need.*
+
+**For:** bounding the time a proposer can keep a *published* transaction out of the chain, without a
+general inclusion list. **Why it was deferred:** it was non-functional as written — the settled-frontier
+bound was waived by an exception with no referent, the per-block clause and the per-batch cap used
+`FI_MAX_PER_BATCH` in two different units, and its void predicate could be steered by the producing
+environment while its expiry discharge had no proof-side ground.
+
+**What was revived.** A publication record *is* the forced-data record: after its due point
+(`l1BlockNumber + FI_INCLUSION_DELAY ≤ A`), every batch that lands must advance the settlement frontier
+past the capped FIFO prefix of the due set, and the obligation is enforced **in the proof** (PRF-04(vi)),
+never as an admission gate on `land` — L1-04's no-gate property survives. A position is resolved by exactly
+one of three modes: **executed**; **void** (over a registered bound, or no transaction forceable at any
+pre-state of the batch); or **dead** (the record's own stored `l1BlockNumber` plus the registered
+`T_PROVE_DEADLINE` at or below the anchored view). The advance is unconditional and monotone:
+`c' ≥ min(d(A), c + FI_MAX_PER_BATCH)`, `c' ≤ nextSeq(A)`, `c' ≥ c`, and every position in `[c, c')`
+must be resolved. `CONS-01(v)` is an **order and non-omission** duty only, with no per-block count and no
+per-block gas quota. The register appends, and pruning is deletion only, behind the settlement frontier
+through a stored prune cursor; it returns no frontier and is never read by `land`.
+
+**Disposition of the four blockers recorded here.**
+1. *The frontier-advance rule.* Closed: FI-11(3)(a) states the lower bound **unconditionally**; the
+   preserved "unless the window is shorter" exception is deleted, not narrowed, and the two-sided bound
+   plus the `[c, c')` resolution walk leaves no reading under which `c' = c` passes. The drain relation
+   `1 ≤ FI_MIN_DRAIN ≤ FI_MAX_PER_BATCH` independently forbids `R = 0`.
+2. *The unit mismatch.* Closed: one unit of account — register positions per batch — used by the
+   obligation, the cap, the capacity relation and the frontier bound; the per-block requirement keeps only
+   FIFO order and non-omission.
+3. *The steerable void predicate.* Closed: the includability test loses the base fee and the block gas
+   limit entirely; forceability is a function of the record's immutable bytes, the registered constants and
+   two facts a block producer cannot move — the sender's nonce and free balance, checked against the
+   transaction's own declared maximum charge.
+4. *Expiry with no proof-side ground, and the prune that contradicted it.* Closed: dead-at-`A` is a third
+   resolution mode computed from the record's own stored `l1BlockNumber` and `T_PROVE_DEADLINE`, needing
+   no bytes, blobs, execution or L1 call; the mutable status flag is not restored; and
+   `pruneExpiredPublications(uint32) returns (uint64)` is replaced by a deletion-only
+   `prunePublications(uint32)` that must stay strictly behind the settlement frontier.
+
+**What remains deferred inside the mechanism.** The **per-publisher live-record bound** — the candidate
+remedy for F-FI-2 — is **not adopted**: it is a condition on `publish()`, which D-12 does not authorise
+and which would change DA-07(1)'s "any account MUST be able to publish". F-FI-2 therefore stays an
+**open, unfixed falsifier**, and the guarantee is stated with its condition wherever it is summarised: it
+holds only while the arrival rate of livable records stays within the drain the obligation can force. The
+disclosed residue travels with the revived rules rather than as deferred work: **F-FI-1** (the capacity
+relation constrains a value, and no registered rule maintains the L2 gas-limit schedule premise),
+**F-FI-3** (a voided record may become forceable later; re-publication is the remedy), **F-FI-4** (a record
+can age out to dead rather than be included), **F-FI-5** (the guarantee is conditional on a non-censoring
+L1 and on at least one honest or rational producer) and **F-FI-6** (a certified range deliberately delayed
+past the anchor-age envelope is permanently unacceptable; the registered relations close the in-envelope
+case, the residual stays disclosed).
+
+**What a future increment would need.** Two things, neither of which this increment may do:
+(i) a decision on the per-publisher live-record bound, or another publish-time bound, as an explicit change
+to DA-07(1), with its economic bypass — a censor with many funded addresses — reviewed as the residual it
+is; and (ii) Phase B's measurements, because every `FI_*` value, the capacity relation and the schedule
+premise remain unmeasured placeholders. The measurement line is publication gas, `forcedBoundary`
+recomputation gas, the per-batch capacity under a target batch size, the register's bounded-binary-search
+cost, and the L2 gas-limit schedule check. F-FI-1 would close only with a registered rule that constrains
+the L2 gas-limit schedule constructively, or with a consensus-enforced per-block floor on header gas
+limits; neither exists.
+
+**Preserved:** `FI-10`-`FI-14` text in git history at `7917ba264`; the findings disposed of above
+(`R6-D12-01`, `R6-D12-02`, `R6-D12-03`, `R6-D12-04`, `R6-D12-05`, `R6-DPE-01` and the rounds
+5–6 findings named in `increments/04-forced-inclusion-design.md`); falsifiers F-FI-1–F-FI-6. The design
+delta and its owner decisions are the increment's authority.
 
 ## 2. Heartbeat eligibility (D-14) — REVIVED IN PART (increment 02)
 
@@ -97,6 +155,9 @@ program while adding a proving cost that S1 has not measured.
 
 ## Cross-cutting items that outlive all three
 
+The deferred set is three: the heartbeat rotation (`CONS-16`, §2), the governance stall resolution (§3)
+and aggregation (§4). The items below outlive all three.
+
 - **The round-5/6 findings not specific to a deferred mechanism** are listed in
   `iterations/raw/round5t-*.md` and `round6-*.md`; the round-8 pass is in
   `iterations/raw/round8-*.md`. The exit contradiction is **repaired** (`MEM-15`(2a)/(2b) +
@@ -117,4 +178,6 @@ program while adding a proving cost that S1 has not measured.
   until round 8 (`R8-EBA F2`). *This closes review round 8 finding R8-EBA F7: the sync trigger is any
   change to a live rule, not only the return of a deferred mechanism.* Increment 02 re-synced the course
   for the revived heartbeat (lessons 4, 7, 8, 10, the glossary, the index and the limitations page) and
-  deliberately does not teach the deferred rotation.
+  deliberately does not teach the deferred rotation. Increment 04 re-synced it for the revived narrow forced
+  inclusion — lesson 9's censorship half, the new lesson 11, lessons 1, 2, 5, 6 and 8, the glossary, the
+  index and the limitations page — and deliberately does not teach the general inclusion list.

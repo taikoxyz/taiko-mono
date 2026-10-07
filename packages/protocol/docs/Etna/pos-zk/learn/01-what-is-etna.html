@@ -144,7 +144,7 @@ are correct.</figcaption>
 <tr><td><strong>Provers</strong></td><td>Permissionless: no registration, no bond, no allowlist</td><td>Prove a certified batch and land it in one L1 transaction that carries the proof and the data or a reference to a publication holding it; the first valid landing wins and is paid</td><td>They do not choose the validator set, the predecessor, the data commitment or the threshold — all are derived from L1 state</td></tr>
 <tr><td><strong>Full nodes</strong></td><td>Permissionless</td><td>Execute the chain, check validity, serve blocks, state and witnesses</td><td>They have no vote and no role in certification</td></tr>
 <tr><td><strong>Archive nodes</strong></td><td>Permissionless</td><td>Retain the full accepting-transaction calldata and blob sidecars — and, for data published earlier, the publication transaction's blob sidecars — and L2 history, past the window in which Ethereum serves them</td><td>Retention is an assumption the design relies on, not a duty the protocol can enforce today</td></tr>
-<tr><td><strong>Users</strong></td><td>No registration, no TAIKO</td><td>Submit L2 transactions and bridge messages, and may publish a transaction's data to L1</td><td>They have no L1 path that forces a transaction into L2: v1 has no inclusion obligation, for published or unpublished data</td></tr>
+<tr><td><strong>Users</strong></td><td>No registration, no TAIKO</td><td>Submit L2 transactions and bridge messages, and may publish a transaction's data to L1</td><td>They have no L1 path that forces an <em>unpublished</em> transaction into L2; publishing a transaction's data starts an inclusion obligation over that record, enforced in the proof (<a href="11-forced-inclusion.html">lesson 11</a>)</td></tr>
 <tr><td><strong>Ethereum</strong></td><td>External</td><td>Stores the batch data, verifies proofs, settles checkpoints, anchors the bridge</td><td>It does not order L2 transactions and does not see them before they are certified</td></tr>
 <tr><td><strong>The DAO</strong></td><td>Existing L1 governance</td><td>Upgrades contracts under the published upgrade rules</td><td>It has no role in ordinary block production, voting, proving or withdrawal</td></tr>
 </tbody>
@@ -165,7 +165,7 @@ are correct.</figcaption>
 <h4>No longer provided by Ethereum</h4>
 <ul>
 <li><strong>Ordering.</strong> The order of L2 transactions is decided by L2 PoS. No Ethereum proposer, builder or slot timing enters a validity rule.</li>
-<li><strong>Per-transaction inclusion.</strong> v1 has no inclusion obligation of any kind: the narrow forced-inclusion machinery over published data is not part of v1, and there is no general inclusion list or L1 path that forces a transaction in. Resistance to censorship is a conditional statistical property of proposer rotation, not a guarantee.</li>
+<li><strong>Per-transaction inclusion.</strong> Published data carries a narrow inclusion obligation, enforced in the proof: once a record is due, a landing batch must advance a settlement frontier past it or show it void or dead. That is not a latency guarantee, and there is no general inclusion list or L1 path that forces an <em>unpublished</em> transaction in. For unpublished data, resistance to censorship is a conditional statistical property of proposer rotation, not a guarantee (<a href="11-forced-inclusion.html">lesson 11</a>).</li>
 <li><strong>Instant settlement.</strong> L2 certification (a few round trips) is a different event from L1 acceptance (proof + inclusion) and from Ethereum finality (a further L1 finality lag).</li>
 <li><strong>Rollback of unsettled L2 history.</strong> No rule of v1 rewrites history above the latest accepted checkpoint. A settlement stall halts the chain; nothing replaces the unsettled range, and clearing the stall needs a future protocol update whose procedure is not yet specified.</li>
 </ul>
@@ -222,7 +222,7 @@ and land on Ethereum; the interface must name which stage it is showing.</p>
 <li><strong>No measured performance.</strong> The 2 s cadence, the 30-minute proving envelope, the round budget and the fleet sizing are all unmeasured; the arithmetic in this lesson is arithmetic, not evidence.</li>
 <li><strong>No recovery path.</strong> If settlement stalls, the chain halts: v1 has no permissionless recovery and no governance action that resumes it, and clearing the stall requires a future protocol update whose procedure is not specified. Value at or below the last accepted checkpoint can still leave on L1 through a withdrawal root, but only if a funded proving market produces the <code>k&minus;1</code> further attestations from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
 <li><strong>No safety beyond the stake assumption.</strong> If one third or more of an epoch's voting power is malicious or compromised, two conflicting certificates can both be valid, and the proof verifies both.</li>
-<li><strong>No per-transaction inclusion guarantee.</strong> v1 has no inclusion obligation at all: a proposer that excludes a transaction — published or not — is not in breach, and there is no L1 path that forces a transaction into L2. Proposer selection is public and predictable, so resistance rests only on the selection share.</li>
+<li><strong>No latency guarantee, and no path for unpublished data.</strong> A published record starts an inclusion obligation that a landing batch must satisfy in its proof, but the obligation can be discharged as void or by the record's own deadline, and arrivals beyond the drain leave waits unbounded. No L1 path forces an <em>unpublished</em> transaction into L2, and proposer selection is public and predictable, so resistance for unpublished data rests only on the selection share (<a href="11-forced-inclusion.html">lesson 11</a>).</li>
 <li><strong>No fully trustless L2 checkpoint write yet.</strong> The design retains one reserved system sender for the L2-side checkpoint write; its only permitted action is to publish the Ethereum-final L1 fact that the rule already constrains.</li>
 <li><strong>No unconditional blob-path binding.</strong> Batch data can travel as calldata or as blobs. The calldata commitment is the unconditional path; the blob path's fixed-point argument must be independently checked and its in-guest evaluation cost measured before it is relied on.</li>
 </ul>
@@ -235,8 +235,10 @@ or bridge action cannot safely rely on it.</p></details>
 <details><summary>Can a batch's data be published to Ethereum before its proof?</summary>
 <p>Yes. Publication is permissionless, writes no batch state and accepts nothing on its own; a later proof can
 reference the published record, and the checkpoint still advances only when a valid proof lands. The publication
-deadline keeps the window bounded: a record that is not proven in time is discarded and can be re-published,
-and publication carries no inclusion obligation.</p></details>
+deadline keeps the window bounded: a record that is not proven in time is dead at any later view and can be
+re-published, and publication also starts the inclusion obligation &mdash; once the record is due, a
+landing batch must advance the settlement frontier past it, execute it, or record it void or dead
+(<a href="11-forced-inclusion.html">lesson 11</a>).</p></details>
 <details><summary>Ethereum verifies the proof. Does that mean the L2 history is safe even if one third of validators misbehave?</summary>
 <p>No. The proof attests that the presented certificate is internally consistent with the authenticated validator
 set and the quorum rule. It cannot attest that no competing certificate exists. If the stake assumption fails, two
@@ -248,7 +250,7 @@ conflicting certificates can both be cryptographically valid and both can produc
 <li>Fewer than one third of each epoch's voting power is malicious or compromised.</li>
 <li>More than two thirds of each epoch's voting power is online and messages arrive within the round-timeout bound often enough to complete rounds.</li>
 <li>Validators and full nodes hold and serve the data of blocks they voted for, at least until settlement; somebody keeps the data until the proof lands.</li>
-<li>Somebody publishes a transaction's data to L1 while the blobs are retrievable, and L1 includes that publication; publication is permissionless, advances no protocol state and carries no inclusion obligation.</li>
+<li>Somebody publishes a transaction's data to L1 while the blobs are retrievable, and L1 includes that publication; publication is permissionless and advances no protocol state, and it starts an inclusion obligation over the record that binds a producer landing batches but is not a latency guarantee and cannot reach data that never reaches L1 (<a href="11-forced-inclusion.html">lesson 11</a>).</li>
 <li>At least one adequately-resourced prover completes each committed batch.</li>
 <li>Ethereum includes valid transactions within a bounded delay and does not reorganise below the finality depth it reports.</li>
 <li>TAIKO has a market, and the stake bonded is worth enough that slashing matters.</li>

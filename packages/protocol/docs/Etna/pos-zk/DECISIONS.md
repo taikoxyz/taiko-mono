@@ -616,3 +616,68 @@ only after its own review round is clean.
 
 **Further addendum (increment 02, third review round, R3-LT-01).** The addendum above records the derived instant `I*(e) = floor(L1_first(C(e)) / HEARTBEAT_WINDOW) · HEARTBEAT_WINDOW` and the sequence guard, but not the launch transition; this further addendum records the correction and leaves the entry and the addendum above as history. For exactly the two epochs whose clamp resolves to `e_0` — `e = e_0 + 1` and `e = e_0 + 2`, the first two filtered versions — the instant is shifted forward by two full heartbeat windows: `w*(e) = floor(L1_0 / HEARTBEAT_WINDOW) + 2` and `I*(e) = (floor(L1_0 / HEARTBEAT_WINDOW) + 2) · HEARTBEAT_WINDOW`; the predicate's one-window slack therefore admits the counting window `[(floor(L1_0 / HEARTBEAT_WINDOW) + 1) · HEARTBEAT_WINDOW, (floor(L1_0 / HEARTBEAT_WINDOW) + 2) · HEARTBEAT_WINDOW)`, which starts at or after `L1_0` with the full length `HEARTBEAT_WINDOW` whichever block of its window `L1_0` falls in, so a prepared entry cannot win a one-block race and fix the first two filtered rosters. The entries for those two epochs MUST NOT be appended before that counting window closes — the gate applies to every appender alike and names no entry or caller — and from `e_0 + 3` the unshifted definition resumes, a lower later threshold admitting, never excluding. The cost is recorded: the first two filtered appends are gated by up to two heartbeat windows rather than one, and the missing-entry halt of `CONS-13(5)` gains up to one full window, up to two windows in blocks in total, unbounded in wall clock because the register bounds `HEARTBEAT_WINDOW` only from below (`PARAM-01`). At low heights the guard is load-bearing: eligibility is `lastHeartbeatSeq(v) > 0` **and** `lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`, and a never-attested entry whose record is `0` is ineligible regardless of the arithmetic (R2-DI-01). *(R3-LT-01: the further correction is appended here; D-14, D-16 and the entry above are untouched.)* The relative statement above is also an inevitability, and its size is absolute: the gate opens at `(floor(L1_0 / HEARTBEAT_WINDOW) + 2) · HEARTBEAT_WINDOW` while the first L1-side epoch boundary is `L1_0 + EPOCH_LEN_L1`, and with `EPOCH_LEN_L1 < HEARTBEAT_WINDOW` their difference `2 · HEARTBEAT_WINDOW − (L1_0 mod HEARTBEAT_WINDOW) − EPOCH_LEN_L1` is at least `HEARTBEAT_WINDOW + 1 − EPOCH_LEN_L1 > 0`, so the append for `e_0 + 1` can never be made before that epoch is entered — the halt is guaranteed whenever the L2 keeps pace — and it runs between `HEARTBEAT_WINDOW − EPOCH_LEN_L1 + 1` and `2 · HEARTBEAT_WINDOW − EPOCH_LEN_L1` blocks before the append, plus Ethereum finality. The gate can also pass the second boundary `L1_0 + 2 · EPOCH_LEN_L1` whenever `2 · (HEARTBEAT_WINDOW − EPOCH_LEN_L1) > (L1_0 mod HEARTBEAT_WINDOW)`, and the finality lag can make the entry for `e_0 + 2` late in most alignments, so the launch may need two recovery cycles rather than one. *(R4-LT-01: appended to this record — the launch halt is guaranteed and sized in blocks beside the kept relative comparison.)*
 
+## D-18 — Narrow forced inclusion revived in one unit, with an unconditional frontier, a non-steerable void predicate and expiry as proof-side discharge
+
+*Increment 04. Append-only: D-12 and D-16 stay as written; this entry records what changed.*
+
+**Decision (design owner, 2026-10-07):** increment 04 revives **narrow forced inclusion (D-12)** as the
+**FI-10–FI-14** family, re-derived against the converged v1 rather than restored from its tombstone. It is
+**in review**: it ships only after its own review round, and the bar is the one v1 and increment 02 met —
+**two consecutive rounds with no Critical and no High**. The general inclusion list (`FI-PLANNED-01`)
+stays absent, only the FI family's names (FI-10–FI-14 and FI-REMOVED-01) leave their tombstones and
+every other tombstone stays exactly as D-16 left it, and no v1 decision is reopened.
+
+**One unit of account.** The obligation is registered **positions per batch**. `FI_MAX_PER_BATCH` is used
+in exactly one unit in all four places it appears — the obligation, the cap, the capacity relation and the
+frontier bound — and `CONS-01(v)` is demoted to a per-block **order and non-omission** duty with **no
+per-block count and no per-block gas quota**. The new registered parameter **`FI_MIN_DRAIN`**
+(`1 ≤ FI_MIN_DRAIN ≤ FI_MAX_PER_BATCH`) removes the reachable cap-of-zero: a batch with a live outstanding
+record must resolve at least one position, so `R = 0` is unreachable. The four blockers recorded in
+`DEFERRED.md` §1 are disposed of in `increments/04-forced-inclusion-design.md`: the frontier waiver is
+deleted, the units are unified, the environment half of the void predicate is removed, and expiry gains its
+proof-side ground with the prune made deletion-only.
+
+**An unconditional, monotone frontier.** A record is **due** at
+`l1BlockNumber + FI_INCLUSION_DELAY ≤ A` and **dead** at `l1BlockNumber + T_PROVE_DEADLINE ≤ A`; its
+deadline is **derived, never stored**, and the record carries **no mutable status field**. A batch must
+satisfy `c' ≥ min(d(A), c + FI_MAX_PER_BATCH)` **with no exception** — the preserved "unless the window is
+shorter" waiver is deleted, not narrowed — together with `c' ≤ nextSeq(A)`, `c' ≥ c`, and the walk that
+resolves every position in `[c, c')` as **executed**, **void** or **dead**. Void is a function of the
+record's immutable bytes, the registered constants and two facts a producer cannot move — the sender's nonce
+and free balance, checked against the transaction's own declared maximum charge — so **base fee and block
+gas limit are removed** from the predicate and no block producer can manufacture a void ground. Expiry is an
+objective **proof-side discharge**: dead-at-`A` needs one stored number, no bytes, no execution and no L1
+call. The register appends; the prune is **deletion only**, behind the settlement frontier through a stored
+prune cursor, never returns a frontier, never writes a settlement record, is never read by `land`, and no
+rule may lower the frontier. D-12's text is kept wherever it is consistent and superseded only where its
+preserved rules were defective: the waiver, the status flag, the per-block unit, the environment predicate
+and the prune's return value.
+
+**Enforcement is in the proof, never a gate.** `land` gains no rejection that depends on the register;
+L1-04's no-gate property survives, and the capacity condition is part of proof validity rather than an
+admission rule. No forced-inclusion state is read by the withdrawal root, its attestation, the veto or exit
+eligibility. **No new slashable offence is created**: the forced-inclusion offence rows in ECON-04/ECON-13
+stay tombstoned exactly as D-16 left them, a validator that signs a block violating FI-11(4) is not subject
+to a new offence, and the rejected proof is the whole enforcement. No fee, escrow, bond or refund is
+introduced, a forced transaction pays its own L2 gas, and D-8/D-9's funding shares and destinations are
+untouched.
+
+**This is not a latency guarantee.** What the mechanism bounds is **exclusion per unit of the censor's L1
+spending**, conditional on at least one honest or rational batch producer and on an L1 that includes the
+user's publication. A pure censor that refuses the front record halts its own frontier rather than censoring
+it; a publishing censor can front-run re-publications at roughly one L1 publication per deadline window; an
+L1-censored publication still cannot be forced. **F-FI-2 (arrivals exceeding the drain) is left open and
+unfixed**: no per-publisher live-record bound is adopted, because a condition on `publish()` is outside what
+D-12 authorises and would change DA-07(1)'s "any account MUST be able to publish". The guarantee's condition
+is therefore stated wherever it is summarised: it holds only while arrivals stay within the drain the
+obligation can force. The other falsifiers travel disclosed: **F-FI-1** (the capacity relation constrains a
+value, and no registered rule maintains the L2 gas-limit schedule premise), **F-FI-3** (a voided record may
+become forceable later; re-publication is the remedy), **F-FI-4** (a record can age out to dead instead of
+being included), **F-FI-5** (the producer and L1 condition) and **F-FI-6** (the deliberate-delay anchor-age
+residual, closed inside the envelope by the registered relations). Every `FI_*` value, the capacity
+relation and the schedule premise remain unmeasured.
+
+**Status:** decided; specification, register, index and course changes in flight. The increment ships only
+after its own review rounds are clean.
+
+

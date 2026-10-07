@@ -147,8 +147,7 @@ coherent: the validator count is reduced through the objective exit path of
 (a) <strong>Custody.</strong> The validator reward pool is an ETH balance held in a segregated account of
 the L1 staking contract of <a href="03-membership-staking.html#MEM-01">MEM-01</a> — not in the Inbox, whose
 <a href="04-l1-integration.html#L1-11">L1-11</a> ledger (the prover reward) is not touched by validator
-payouts. <em>(D-6 removed forced inclusion and D-16 defers even the narrow rule D-12 proposed, so v1 has no inclusion
-obligation and <a href="#ECON-04">ECON-04</a> clause (6) is a tombstone; no escrow, publication fee or refund term exists in this
+payouts. <em>(D-6 removed the general inclusion list and D-16 deferred even the narrow rule D-12 proposed; <a href="../increments/04-forced-inclusion-design.md">increment 04</a> revives that narrow rule as a live obligation (<a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>), but <a href="#ECON-04">ECON-04</a> clause (6) stays a tombstone: no offence, penalty or bounty is revived, and the rejected proof is the whole enforcement. A forced record carries no escrow, bond, refund or protocol fee (<a href="04-l1-integration.html#FI-10">FI-10</a>(8)); no escrow, publication fee or refund term exists in this
 accounting, and a publication is paid by its publisher and is not a pool outflow (<a href="#ECON-13">ECON-13</a>))</em> ETH in the pool is never collateral, never
 stake and never slashable: it is not counted in INV-A–INV-D (<a href="#ECON-01">ECON-01</a>), no slash may
 debit it, and no rule may borrow against it. Its inflows are the terms of clause 1 (L2 fee revenue, arriving by the sweep of clause 7, and
@@ -480,16 +479,11 @@ revert: no state change, no balance touched, no replay marker written, and the s
 published signed objects and L1-committed state. A predicate requiring proof of the <em>absence</em> of a message
 is inadmissible and <strong>MUST NOT</strong> be added: the lock-rule row below shows the case where this bites.
 Deterrence claims are conditional on A-ECO-1. There is <strong>no general censorship or omission
-offence</strong>, and under decision D-16 there is no narrow one either: v1 has <strong>no inclusion
-obligation</strong>, so excluding a transaction — published or not — is not a breach and consumes
+offence</strong>, and the narrow forced-inclusion <em>offence</em> stays deferred: <a href="../increments/04-forced-inclusion-design.md">increment 04</a> revives the obligation (<a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>), but <strong>no new slashable offence</strong> is created with it — a validator signing a block that violates <a href="04-l1-integration.html#FI-11">FI-11</a>(4) is not subject to a new offence, a batch whose proof omits a required resolution simply fails verification, and the rejected proof is the whole enforcement, so excluding a transaction through an invalid batch consumes
 no stake. Inclusion resistance for unpublished transactions is the conditional statistical property of
-<a href="10-assurance.html#LIVE-04">LIVE-04</a>, and for published data the protocol provides no L1
-inclusion path and no remedy against a network-level adversary either: the narrow forced-inclusion rule of
-D-12 is deferred with the whole <code>FI-*</code> machinery
-(<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>, <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a> are
-tombstones; <a href="../DEFERRED.md">DEFERRED.md</a> §1), and the censorship gap is disclosed rather than
-penalised. Clause (6) is retained only as a tombstone. <em>(decision D-16: the narrow forced-inclusion
-machinery is deferred, v1 has no inclusion obligation, and excluding a transaction is not an offence.)</em></span>
+<a href="10-assurance.html#LIVE-04">LIVE-04</a>; for published data the live obligation is proof-side and provides no remedy against an L1-level adversary, because an L1-censored publication cannot be forced. The forced-inclusion offence rows of <a href="#ECON-04">ECON-04</a> clause (6) and <a href="#ECON-13">ECON-13</a>(4) stay
+tombstones with MUST-NOT-USE reasons (<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a> now covers the general list only), and the censorship gap is disclosed rather than
+penalised. Clause (6) is retained only as a tombstone. <em>(decision D-16; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>, appended decision 6: the obligation is live, no offence is revived with it, and excluding a transaction remains no offence.)</em></span>
 <span class="norm">(4) <strong>Identity and duplicates.</strong> The identity of an offence is
 <code>id = (v, epoch, offenceType, keccak256(evidence))</code> (<a href="03-membership-staking.html#MEM-06">MEM-06</a>
 clause 4). The first accepted submission applies the penalty of <a href="#ECON-05">ECON-05</a>; a second submission
@@ -523,11 +517,11 @@ divergence under withholding may leave no admissible evidence and is Assumed, no
 <td>no state and no marker are written, so a failed submission never blocks a later correct one (ECON-08)</td></tr> <tr><td><strong>Fee diversion</strong> — a proposal whose block does not credit the L2 fee vault with the execution fees and priority fees its own execution collects, or diverts, destroys or redirects any part of them to another beneficiary (<a href="02-consensus.html#CONS-01">CONS-01</a>(viii), <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)). A block that contains a legitimate canonical sweep of <a href="#ECON-02">ECON-02</a> clause 7(b) is <strong>not</strong> an offence: the swept amount is attributed to the sweep's own canonical message and is never read as a fee shortfall (<a href="05-proof-statement.html#PRF-06">PRF-06</a>(F2), (F4))</td>
 <td><code>(signed proposal at (H,R), block, epoch_of(H), validator_index, committed payload)</code>: the predicate re-executes the block from the committed pre-state and evaluates the same recomputable per-block accounting as <a href="05-proof-statement.html#PRF-06">PRF-06</a>(F1)&ndash;(F4) — the credited-fee counter increment must equal the execution base fees and priority fees the block's own execution collects (F1), every vault debit must be a canonical sweep of <a href="#ECON-02">ECON-02</a> clause 7(b) whose message carries the swept amount (F2), and the balance identity must hold with forced credits accounted (F3). The evidence of the offence is the mismatch itself: a fee credit short of the collected fees, or any vault debit not attributable to a canonical sweep. An honest sweep and a forced credit are neither evidence nor punishable, and the predicate needs no private witness. The executed bodies are decoded from the committed payload, never from a separate witness stream. Re-execution is public but expensive, exactly as for execution validity (iv) of <a href="02-consensus.html#CONS-01">CONS-01</a>. <em>(PR #22262 review comment 2, item 4; review comment 3, item 6: the predicate is the same checkable accounting the guest performs, so diversion remains an offence, an honest sweep is not slashable, and the evidence stays third-party computable.)</em></td>
 <td>any address</td> <td>as the equivocation row</td> <td><a href="#ECON-05">ECON-05</a> charge against <code>SlashBase(v, epoch_of(H))</code>; the offender is the proposal's signer</td> <td><code>id</code> as in clause 4; a different offending block at another <code>(H,R)</code> is a distinct offence</td></tr>
-<tr><td><strong>Forced-inclusion breach — DEFERRED by D-16 (tombstone).</strong> <strong>Not normative in v1 and MUST NOT be implemented.</strong> This row formerly defined the D-12 offence of a signed proposal whose block, at its own anchored L1 view <code>A</code>, omits a published, unproven record that is <em>due</em> at <code>A</code> (<code>record.l1BlockNumber + FI_INCLUSION_DELAY &le; A</code>) and inside the required capped FIFO prefix. v1 has <strong>no inclusion obligation</strong>: a proposer that excludes a transaction — published or not — is not in breach, and the censorship gap is disclosed rather than penalised (<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>; <a href="../DEFERRED.md">DEFERRED.md</a> §1). <em>(decision D-16: the narrow forced-inclusion machinery is deferred and no censorship offence exists in v1.)</em></td>
-<td><strong>Withdrawn with the deferred rule (tombstone).</strong> The due set, the capped FIFO prefix, the includability discharge and the guest check of <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-13">FI-13</a> and <a href="05-proof-statement.html#PRF-04">PRF-04</a>(vi) are tombstones; no predicate exists and no evidence object may be defined for this row. <em>(decision D-16.)</em></td>
+<tr><td><strong>Forced-inclusion breach — DEFERRED by D-16 (tombstone); the obligation is live and creates no offence.</strong> <strong>Not normative in v1 and MUST NOT be implemented.</strong> This row formerly defined the D-12 offence of a signed proposal whose block, at its own anchored L1 view <code>A</code>, omits a published, unproven record that is <em>due</em> at <code>A</code> (<code>record.l1BlockNumber + FI_INCLUSION_DELAY &le; A</code>) and inside the required capped FIFO prefix. The obligation is live again (<a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>, <a href="../increments/04-forced-inclusion-design.md">increment 04</a>), but <strong>no offence is revived with it</strong>: a validator signing a block that violates <a href="04-l1-integration.html#FI-11">FI-11</a>(4) gets no new offence, a batch whose proof omits a required resolution fails verification, and the rejected proof is the whole enforcement, so no penalty or bounty attaches and the censorship gap is disclosed rather than penalised. <em>(decision D-16; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>, appended decision 6: no new slashable offence and no censorship offence exists.)</em></td>
+<td><strong>Withdrawn with the deferred offence (tombstone).</strong> The due set, the capped FIFO prefix, the three resolution modes and the guest check of <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-13">FI-13</a> and <a href="05-proof-statement.html#PRF-04">PRF-04</a>(vi) are <strong>live rules</strong> (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>), but <strong>no evidence object may be defined for this row</strong> and no slash predicate exists: omitting a required resolution is proof invalidity, not an offence. <em>(decision D-16; increment 04.)</em></td>
 <td>n/a — there is no offence to report</td>
 <td>n/a — no evidence window exists for a non-offence</td>
-<td><strong>none</strong> — v1 has no inclusion obligation and excluding a transaction consumes no stake <em>(decision D-16)</em></td>
+<td><strong>none</strong> — the obligation creates no offence, and a batch that omits a required resolution consumes no stake because it simply fails verification <em>(decision D-16; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>)</em></td>
 <td>n/a — no offence identity exists; clause 4's <code>id</code> applies only to the live catalogue <em>(decision D-16)</em></td></tr> </tbody></table>
 <span class="norm">(5) <strong>What is not an offence.</strong> Alongside the non-receipt ban of clause 1: a
 validator that is offline or votes late; a proposer whose round times out; a node that halts under
@@ -535,35 +529,33 @@ validator that is offline or votes late; a proposer whose round times out; a nod
 and reordering of <em>included</em> transactions is not an offence at all, and neither is the omission of a
 particular transaction <em>that was never published</em>: the catalogue contains no general censorship or
 omission offence, and what inclusion resistance the protocol does and does not provide for unpublished
-transactions is stated once in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. The single inclusion-related
-offence that D-12 proposed — the narrow forced-inclusion breach of clause (6) — is <strong>deferred by
-D-16</strong> with the whole <code>FI-*</code> machinery, so v1 has <strong>no inclusion offence at
+transactions is stated once in <a href="10-assurance.html#LIVE-04">LIVE-04</a>. For <em>published</em> data the obligation of <a href="04-l1-integration.html#FI-11">FI-11</a> is live again (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>), and a block that omits a due, forceable forced transaction is invalid under <a href="02-consensus.html#CONS-01">CONS-01</a>(v)/<a href="04-l1-integration.html#FI-11">FI-11</a>(4) — but that is <strong>proof invalidity, not an offence</strong>: the enforced consequence is the rejected proof. The single inclusion-related
+offence that D-12 proposed — the narrow forced-inclusion breach of clause (6) — stays <strong>deferred by
+D-16</strong>, so v1 has <strong>no inclusion offence at
 all</strong>: excluding a transaction, published or not, consumes no stake
-(<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>; <a href="../DEFERRED.md">DEFERRED.md</a> §1).
+(<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a> now covers the general list only; <a href="#ECON-04">ECON-04</a> clause (6) is the tombstone).
 Objective key duplication <em>is</em>
-equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is stated in ECON-05 clause 7 and is not excused by this rule. <em>(decision D-16: the narrow inclusion offence is deferred, the censorship gap is disclosed rather than penalised, and D-6's removal of the general offence is unchanged.)</em></span>
-<span class="norm">(6) <strong>The narrow forced-inclusion breach — DEFERRED by D-16 (tombstone).</strong>
+equivocation by predicate even when caused by a cloned keystore; the correlated penalty's honest-mistake tail is stated in ECON-05 clause 7 and is not excused by this rule. <em>(decision D-16; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>: the inclusion offence is not revived with the live obligation, the censorship gap is disclosed rather than penalised, and D-6's removal of the general offence is unchanged.)</em></span>
+<span class="norm">(6) <strong>The narrow forced-inclusion breach — DEFERRED by D-16 (tombstone); the obligation is live and creates no offence.</strong>
 <strong>Deferred by decision D-16; not normative in v1 and MUST NOT be implemented.</strong> This clause
 formerly stated the D-12 offence and its limits: publication of data to L1 being permissionless, the
 record's <strong>due point</strong> (<code>record.l1BlockNumber + FI_INCLUSION_DELAY &le; A</code>,
 <a href="04-l1-integration.html#FI-10">FI-10</a>), the capped FIFO prefix the omitting block had to carry,
-the includability discharge, the offender, and the re-execution evidence interval. The mechanism — and with
-it the offence — is deferred with the whole <code>FI-*</code> machinery: <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>
-are tombstones and the register entry is <a href="../DEFERRED.md">DEFERRED.md</a> §1. v1 has <strong>no
-inclusion obligation</strong>: there is no due point, no required prefix and no breach, and a proposer that
-excludes a transaction — published or not — consumes no stake
-(<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>). The published text is preserved in git
-history at <code>7917ba264</code>. The censorship gap that the deferred rule would have narrowed is
+the resolution modes, the offender, and the re-execution evidence interval. The mechanism is <strong>live</strong> again: <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>
+are live rules (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>). <strong>The offence is not revived</strong>: there is a due point, a required prefix and a proof-side resolution duty, and omitting a required resolution makes the batch's proof fail — but a proposer that
+excludes a transaction — published or not — consumes no stake, because the enforcement is the rejected proof and not a slash
+(<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a> now covers the general list only). The published text is preserved in git
+history at <code>7917ba264</code>. The censorship gap that the live rule bounds is
 <strong>disclosed rather than penalised</strong>: a network-level adversary able to keep a user's data off
 L1, or to censor L1 inclusion itself, has no protocol remedy against it
 (<a href="10-assurance.html#LIVE-04">LIVE-04</a>, <a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>).
-<em>(decision D-16: the narrow forced-inclusion machinery is deferred, so clause (6) is a tombstone for a
+<em>(decision D-16; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>, appended decision 6: clause (6) stays a tombstone for a
 non-offence; no penalty and no bounty attaches to excluding any transaction.)</em></span>
 <span class="why">Failure modes: an open-ended "misconduct" clause lets an implementer invent a discretionary
 slash; a predicate that needs a missing message makes honest validators unprovable or innocent ones slashable; an
 encoding without domain separation allows replay of an evidence object on another chain or epoch; treating a
 missing message as proof of misbehaviour is the exact non-argument the threat model forbids.</span> <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
-<span class="small">(the catalogue contains no censorship or omission offence of any kind: D-16 defers the narrow forced-inclusion breach of clause (6), so v1 has no inclusion obligation and the honest, conditional statement of what inclusion resistance exists is <a href="10-assurance.html#LIVE-04">LIVE-04</a>.)</span> <em>(decision D-16: the narrow breach is deferred with the FI machinery, so the catalogue's inclusion-related entry is a tombstone and excluding a transaction is not an offence.)</em></div>
+<span class="small">(the catalogue contains no censorship or omission offence of any kind: the live obligation of <a href="04-l1-integration.html#FI-11">FI-11</a> (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>) is enforced by proof rejection, and D-16's narrow forced-inclusion breach of clause (6) stays a tombstone, so the honest, conditional statement of what inclusion resistance exists is <a href="10-assurance.html#LIVE-04">LIVE-04</a>.)</span> <em>(decision D-16; increment 04: the obligation is live, the offence row is not, and excluding a transaction is still not an offence.)</em></div>
 <h2 id="penalties">5. Penalty structure</h2>  <div class="rule" id="ECON-05"><span class="rid">ECON-05 — penalty structure and the convex correlated penalty</span>
 <span class="norm">(1) <strong>Parameters.</strong> <code>IMM_FRAC(c)</code> is the immediate penalty fraction for
 offence class <code>c</code>, a parameter with <code>0 &lt; IMM_FRAC(c) ≤ 1</code> so that every proven offence has
@@ -678,9 +670,9 @@ back to its payer and the deterrence half of A-ECO-1 fails. The bound applies to
 paid for that identity, including any bounty dispatched when <code>applyCorrelated()</code> runs (clause 3),
 and it must hold for every offence class and every realised <code>f</code>. The bounty applies to every
 <em>live</em> offence of <a href="#ECON-04">ECON-04</a>'s closed catalogue; the narrow forced-inclusion
-breach of <a href="#ECON-04">ECON-04</a> clause (6) is <strong>deferred by D-16</strong>, so it is not an
-offence, no evidence object exists for it and no bounty is payable for it
-(<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>; <a href="../DEFERRED.md">DEFERRED.md</a> §1).
+breach of <a href="#ECON-04">ECON-04</a> clause (6) stays <strong>deferred by D-16</strong>, so it is not an
+offence, no evidence object exists for it and no bounty is payable for it — including after the obligation itself was revived by <a href="../increments/04-forced-inclusion-design.md">increment 04</a>, whose whole enforcement is the rejected proof
+(<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>; <a href="#ECON-04">ECON-04</a> clause (6)).
 <em>(decision D-16: the incentive to report is the ordinary reporter bounty for the live catalogue only,
 and no new reward or reporter bond is created for a deferred offence.)</em> <code>BOUNTY_GAS_FLOOR</code>
 is the floor that makes reporting rational: the registered parameters MUST be calibrated so that the
@@ -813,7 +805,7 @@ self-authenticating: a signed-conflict pair is constructible from the offence it
 require the pipeline terms from the offence; an offence that requires the accepting batch's own accepted data (re-execution or
 reconstruction) additionally requires <code>T_BACKLOG_MAX</code> and <code>T_replay</code> (economics-raw.md §3.3), where
 <code>T_BACKLOG_MAX</code> is defined in clause (7). <em>(decision D-16: D-6 removed the general omission offence and deleted its window term, and the narrow
-forced-inclusion breach of <a href="#ECON-04">ECON-04</a> clause (6) that D-12 proposed is deferred with the whole <code>FI-*</code> machinery, so it adds
+forced-inclusion breach of <a href="#ECON-04">ECON-04</a> clause (6) that D-12 proposed stays deferred even though <a href="../increments/04-forced-inclusion-design.md">increment 04</a> revives the obligation itself, so it adds
 no offence to the catalogue and no <code>T_BACKLOG_MAX + T_replay</code> window term. Review round 2 finding R2A-01's evidence-window consequence stands,
 re-derived for the two-epoch lookahead of CONS-13(3).)</em>
 <strong>Every input is unmeasured except <code>E_EPOCH</code>, which is derived from the sourced cadence.</strong>
@@ -1082,16 +1074,16 @@ per TAIKO per year, <code>Budget_ETH(n)</code>/yr, <code>NetETHInflow</code>/yr,
 <code>Budget(n)</code> produces a set that either cannot be paid or silently centralises to the cheapest
 operators; a reward bill that grows linearly in <code>n</code> while revenue is flat is an unfunded decentralisation promise.</span>
 <span class="pill proven">Proven</span> <span class="pill derived">derived</span> <span class="pill unmeasured">unmeasured</span></div> 
-<div class="rule" id="ECON-13"><span class="rid">ECON-13 — publication of data before the proof: permissionlessness and who pays (the forced-inclusion deadline is deferred by D-16)</span>
+<div class="rule" id="ECON-13"><span class="rid">ECON-13 — publication of data before the proof: permissionlessness and who pays (the forced-inclusion obligation is live; its breach is not an offence)</span>
 <span class="norm">(1) <strong>Publication is permissionless and decides nothing by itself.</strong> Under D-11 a
-batch's data (and a transaction's data, which in v1 creates no inclusion obligation because D-16 defers the narrow forced-inclusion rule) MAY be published to L1 in a
+batch's data (and a transaction's data, which after <a href="../increments/04-forced-inclusion-design.md">increment 04</a> enters the live narrow obligation of <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>) MAY be published to L1 in a
 transaction of its own, by <strong>any account</strong> — the batch's proposer, the transaction's sender, a
 relayer, a prover or an unrelated observer — and recorded in the Inbox's publication record. No permission,
 allowlist, proposer status, validator quorum, bond, stake or DAO action is required; no rule may reject a
 publication because of who published it, and no rule may require the publisher to be the party the data
 concerns. Publication is <strong>not a batch</strong>: it accepts no proof, advances no checkpoint, changes no
-validator set and creates no claim on L2 state, and the record becomes relevant only when a proof references
-it (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#L1-02">L1-02</a>).</span>
+validator set and creates no claim on L2 state, and the record becomes relevant when a proof references
+it under D-11 (<a href="04-l1-integration.html#L1-01">L1-01</a>, <a href="04-l1-integration.html#L1-02">L1-02</a>) — and, from its due point, to the inclusion obligation of <a href="04-l1-integration.html#FI-11">FI-11</a>, which reads it as the forced-data register (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>).</span>
 <span class="norm">(2) <strong>Who pays, and whether it is rewarded.</strong> The publisher pays the L1 gas and
 blob cost of its own publication transaction, <code>C_PUBLISH</code>. Publication is <strong>not a protocol
 payout</strong>: it has no term in the funding identity of <a href="#ECON-02">ECON-02</a> clause 1, it is not
@@ -1104,36 +1096,30 @@ re-derived and whose spam surface is answered explicitly (paying for arbitrary d
 unbounded outflow unless the reward is conditioned on data that is later proven), not an assertion that
 publication is incentive-compatible. Closing the Open requires a recorded decision, not a measurement
 alone.</span>
-<span class="norm">(3) <strong>The forced-inclusion due point and prefix — DEFERRED by D-16 (tombstone).</strong>
-<strong>Not normative in v1 and MUST NOT be implemented.</strong> The due point, the proving deadline, the
-due set derived from the publication record, the capped FIFO prefix and the guest's check were owned by
-the L1-integration and proof-statement rules (<a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>,
-<a href="05-proof-statement.html#PRF-04">PRF-04</a>(vi)), which are tombstones. v1 has <strong>no inclusion
-obligation</strong>: no due point exists, no prefix is required, and a publication record is never read as
-a duty to include anything (<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>;
-<a href="../DEFERRED.md">DEFERRED.md</a> §1). The publication record's own deadline
+<span class="norm">(3) <strong>The forced-inclusion due point and prefix are owned by live rules; this page's economic reference stays a tombstone.</strong>
+The due point, the proving deadline, the
+due set derived from the publication record, the capped FIFO prefix and the guest's check are <strong>live rules</strong> of
+the L1-integration and proof-statement pages (<a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>,
+<a href="05-proof-statement.html#PRF-04">PRF-04</a>(vi); <a href="../increments/04-forced-inclusion-design.md">increment 04</a>). <strong>This clause does not restate them, and no penalty, bounty or fee attaches to them here</strong> (clause (4)). The publication record's own deadline
 (<code>deadlineBlock = record.l1BlockNumber + T_PROVE_DEADLINE</code>, <a href="04-l1-integration.html#DA-09">DA-09</a>)
-is unchanged and is a property of the record, not an inclusion clock. <em>(decision D-16: the
-forced-inclusion deadline is deferred with the machinery, and publication creates no obligation.)</em></span>
-<span class="norm">(4) <strong>The forced-inclusion breach — DEFERRED by D-16 (tombstone).</strong>
+is unchanged and is a property of the record. <em>(decision D-16; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>: the mechanism is live at its owner rules, and the economic tombstone here covers only this page's inclusion terms.)</em></span>
+<span class="norm">(4) <strong>The forced-inclusion breach — DEFERRED by D-16 (tombstone); the obligation is live and creates no offence.</strong>
 <strong>Not normative in v1 and MUST NOT be implemented.</strong> This clause formerly made a proposal
 whose block omits the required prefix past its due point the forced-inclusion breach of
 <a href="#ECON-04">ECON-04</a> clause (6) and assigned it the ordinary penalty and the reporter bounty.
-Both are deferred with the machinery, and v1 has <strong>no inclusion offence</strong>: a proposer that
-excludes a transaction — published or not — is not in breach, no evidence object exists, no penalty
-applies and no bounty is payable (<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a>;
-<a href="../DEFERRED.md">DEFERRED.md</a> §1). The censorship gap is disclosed instead of penalised: a
+<strong>No offence is revived with the obligation</strong>: a validator signing a block that violates <a href="04-l1-integration.html#FI-11">FI-11</a>(4) gets no new offence, a batch whose proof omits a required resolution fails verification, and the rejected proof is the whole enforcement; no evidence object exists, no penalty
+applies and no bounty is payable (<a href="04-l1-integration.html#FI-REMOVED-01">FI-REMOVED-01</a> now covers the general list only;
+<a href="#ECON-04">ECON-04</a> clause (6) is the tombstone). The censorship gap is disclosed instead of penalised: a
 network-level adversary able to keep a user's data off L1 has no protocol remedy against it
-(<a href="10-assurance.html#LIVE-04">LIVE-04</a>). <em>(decision D-16: the narrow forced-inclusion
-machinery is deferred, so its breach is a tombstone and no penalty or bounty attaches to it.)</em></span>
+(<a href="10-assurance.html#LIVE-04">LIVE-04</a>). <em>(decision D-16; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>, appended decision 6: no new slashable offence, no penalty and no bounty for the live obligation.)</em></span>
 <span class="why">Failure modes: a publication path that requires permission turns D-11's window collapse into
 a privilege; counting publication as a protocol payout creates an unbounded outflow the funding identity
-cannot cover; and leaving the withdrawn forced-inclusion breach in place would promise a penalty the
-protocol does not owe, because v1 has no inclusion obligation and unpublished transactions have no remedy
-either (<a href="10-assurance.html#LIVE-04">LIVE-04</a>). <em>(decision D-16: the breach is deferred and the
+cannot cover; and reviving the withdrawn forced-inclusion breach would promise a penalty the
+protocol does not owe: the obligation is live but no offence is created with it (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>), and unpublished transactions have no remedy
+either (<a href="10-assurance.html#LIVE-04">LIVE-04</a>). <em>(decision D-16; increment 04: the breach is deferred, the enforcement is the rejected proof, and the
 gap is disclosed rather than penalised.)</em></span>
 <span class="pill proven">Proven</span> <span class="pill open">Open</span> <span class="pill unmeasured">unmeasured</span>
-<span class="small">(permissionlessness and the cost bearer are normative; the forced-inclusion deadline and breach are D-16 tombstones, the publication
+<span class="small">(permissionlessness and the cost bearer are normative; the forced-inclusion due point and prefix are live at FI-10–FI-14 and this page's breach reference stays a D-16 tombstone — no penalty or bounty is added (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>); the publication
 reward is Open with the falsifier stated, and every cost term is a Phase B output)</span></div>
 <h2 id="volatility">TAIKO price volatility: attack cost is time-varying</h2>  <p>This subsection is explanatory; the normative content it depends on is
 <a href="#ECON-10">ECON-10</a> clause 5 (no hard-coded market datum) and <a href="#ECON-09">ECON-09</a> clause 2

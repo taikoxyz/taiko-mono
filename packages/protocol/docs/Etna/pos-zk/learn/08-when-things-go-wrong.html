@@ -88,7 +88,7 @@ governance-mediated path: clearing the stall needs a future protocol update whos
 specified. The chain stays halted until then. Nothing at or below the last accepted checkpoint is touched by
 any rule, and no rule discards the provisional range above it either; the halt simply stops production.
 Value above the checkpoint stays provisional, a transaction in that range is not settled and not replayed,
-and inclusion is not guaranteed (<a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
+and inclusion is not guaranteed: a published record that is outstanding across the halt can be discharged by its own deadline rather than included, and no rule bounds the wait (<a href="11-forced-inclusion.html">lesson 11</a>, <a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
 <p><strong>Locks are scoped by generation.</strong> A lock constrains votes at its height within the
 generation it was taken in, and it is released only by the rules above. v1 never begins a new generation, so
 no lock is ever superseded and no lock can wedge the chain through a restart. A certificate carrying a
@@ -121,7 +121,7 @@ its signers signed (<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>,
   <text x="20" y="188" fill="#24292f" font-size="11">A stalled chain does not resume in v1: clearing the stall needs a future protocol update whose procedure is not yet specified.</text>
   <text x="20" y="210" fill="#24292f" font-size="11">While it is halted, a withdrawal whose signal is at or below the last accepted checkpoint stays executable on Ethereum alone once k distinct families attest its withdrawal root (MEM-15).</text>
   <text x="20" y="232" fill="#24292f" font-size="11">The recovery generation is carried in the signed vote and header bytes; v1 never advances it, so no height is retired.</text>
-  <text x="20" y="254" fill="#24292f" font-size="11">A transaction above the checkpoint is not settled and is not replayed; inclusion is never guaranteed.</text>
+  <text x="20" y="254" fill="#24292f" font-size="11">A transaction above the checkpoint is not settled and is not replayed; inclusion is not a latency guarantee, and a published record can expire unexecuted (lesson 11).</text>
 </svg>
 <figcaption>A settlement stall halts the chain. The last accepted checkpoint is never rewritten, the range
 above it stays provisional, and the exit at or below the checkpoint needs no L2 liveness &mdash; only a
@@ -403,8 +403,9 @@ v1 rule makes it permanent, and off-chain losses are not compensated.</li>
 governance-mediated path &mdash; and clearing it needs a future protocol update whose procedure is not yet
 specified, with no protocol-level bound on how long a halt lasts.</li>
 <li>A way to move or discard history. No v1 rule discards the confirmation above the checkpoint or replaces
-it, so a stalled chain waits: transactions above the checkpoint are not settled, their inclusion is not
-guaranteed, and a party that needs one must be prepared to resubmit it later.</li>
+it, so a stalled chain waits: transactions above the checkpoint are not settled, their inclusion is not a latency
+guarantee &mdash; a published record can be discharged by its own deadline &mdash; and a party that needs one
+must be prepared to resubmit it later (<a href="11-forced-inclusion.html">lesson 11</a>).</li>
 <li>Punishment for silence. Only conflicting signed messages are objectively provable; a node that never
 answers is not slashable, and a validator that goes quiet keeps its stake and its place in every committed
 set version. Attestation is a selection filter, not a penalty: a lapse costs slots in future versions and
