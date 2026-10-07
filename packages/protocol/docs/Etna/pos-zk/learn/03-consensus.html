@@ -126,7 +126,7 @@ pre-hash.</p>
 <li><code>signers</code> is a bitmap of <code>ceil(n/8)</code> bytes for a set of <code>n</code> entries. Validator index <code>i</code> owns byte <code>i &gt;&gt; 3</code>, bit <code>1 &lt;&lt; (i &amp; 7)</code> (least-significant bit first); bits above <code>n</code> must be zero, and a non-zero pad bit invalidates the certificate. <code>validator_index</code> is the signer's position in the canonical order of the epoch's set root.</li>
 <li><code>signatures</code> is ordered by ascending signer index and must contain exactly <code>popcount(signers)</code> entries.</li>
 </ul>
-<p><em>This closes round-10 finding R10-CC-01: the vote and the certificate both carry the recovery generation, matching the specification&rsquo;s encoding table.</em></p>
+<p>The vote and the certificate both carry the recovery generation, matching the specification&rsquo;s encoding table.</p>
 
 <h3>The rules an implementer must enforce</h3>
 <div class="card">
@@ -173,7 +173,6 @@ failed: it halts and must not treat the certificate as an unlock.</p>
 <code>recovery_generation</code> equals the generation the L1 contract holds and the generation signed by every
 contributing vote, and more than two thirds of that set's voting power signed <code>PRECOMMIT</code> for <code>B</code> at
 <code>(H,R)</code>, with exactly one verified signature per set bit (<a href="../spec/02-consensus.html#CONS-05">CONS-05</a>).
-<em>This closes round-10 finding R10-CC-01: the certificate tuple and its validity condition carry the recovery generation too.</em>
 A node treats <code>B</code> as
 <a href="../spec/index.html#STATUS-04"><strong>certified</strong></a> when it holds a valid certificate, <em>and</em> it has performed its own data-availability
 check for <code>B</code>'s body, <em>and</em> <code>parent(B)</code> is the block it certified at

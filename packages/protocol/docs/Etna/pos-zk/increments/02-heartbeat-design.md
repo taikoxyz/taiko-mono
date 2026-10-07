@@ -1,13 +1,16 @@
 # Increment 02 — Heartbeat eligibility (D-14): design delta
 
-**Status: design delta, NOT APPLIED.** No specification, register, index, course or decision file has
-been edited by this pass. This document is what the implementation and its adversarial review round
-are built from; the review round is the authority that closes the two blockers named in
-[DEFERRED.md](../DEFERRED.md) §2.
+**Status: APPLIED — increment 02 was implemented in commits `e135656f4`, `75b960652` and
+`cea431c37`.** **MEM-13** (L1 heartbeat eligibility) is live as specified here. **CONS-16** was
+**not** revived: D-17 keeps the L1-time-keyed rotation deferred and tombstoned, so the CONS-16 rule
+text in §3 below is the gated proposal, not the shipped rule. This document remains the design record
+the implementation and its adversarial review round were built from.
 
-**Scope.** This increment revives **MEM-13** (L1 heartbeat eligibility) as a live rule, revives
-**CONS-16** (the L1-time-keyed rotation that consumes it) as a *specified but gated* rule, decides the
-pre-signing horizon, and lists every other artifact that must move with them.
+**Scope.** This increment revives **MEM-13** (L1 heartbeat eligibility) as a live rule. It does
+**not** revive **CONS-16** (the L1-time-keyed rotation that consumes it): consistent with D-17, the
+rotation stays deferred and tombstoned, and the rule text in §3 is a *specified but gated* proposal
+only. The increment also decides the pre-signing horizon and lists every other artifact that must move
+with it.
 
 **Bases.**
 

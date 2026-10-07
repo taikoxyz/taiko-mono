@@ -40,6 +40,13 @@ protocol update whose procedure is not yet specified), and single-backend settle
 `DEFERRED.md`: narrow forced inclusion, heartbeat eligibility, the governance stall resolution, and
 aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads one.
 
+> **Increment note (added after convergence).** This record states what v1 was when it converged in
+> rounds 9 and 10, and v1 remains converged in every respect increment 2 did not change. Increment 2
+> revived **MEM-13** heartbeat eligibility as a live rule and did **not** revive **CONS-16**, which
+> remains deferred and tombstoned (D-17); accordingly **three mechanisms remain deferred** - narrow
+> forced inclusion, the governance stall resolution and aggregation - and the four-mechanism sentence
+> above is the converged-state record, not the current one.
+
 ## What convergence does NOT mean
 
 1. **Not that the design is implemented.** No code exists. The specification is the deliverable.
