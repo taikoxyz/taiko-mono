@@ -107,14 +107,27 @@ condition of completion, not an assertion (§3.2–§3.3).
 > `commitSet()` from the activation record and the epoch, so it needs no writer, keeper or oracle,
 > reads no past block's timestamp, and is identical for two calls in the same block. This supersedes
 > the wall-clock readings this document first drafted at clauses (2), (2a)(b), (2b), (3), (6) and the
-> `t_root(e)` predicate: eligibility is `lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`, the window
-> containing `I*(e)`, the one before it, or any later window, and the old reading — the window
-> containing the commit point — is withdrawn. Two consequences are carried openly rather than hidden:
+> `t_root(e)` predicate: eligibility is `lastHeartbeatSeq(v) > 0` **and** `lastHeartbeatAt(v) ≥
+> I*(e) − HEARTBEAT_WINDOW` — an entry with no accepted heartbeat is ineligible regardless of the
+> arithmetic — that is, the named window is the window containing `I*(e)`, the one before it, or any
+> later window, and the old reading — the window containing the commit point — is withdrawn. Two
+> consequences are carried openly rather than hidden:
 > the window's **wall-clock duration now varies with L1 block time**, so the duty is one attestation
 > per `HEARTBEAT_WINDOW` L1 blocks and not per fixed duration (an unmeasured operational cost, no
 > value invented), and clause (6) carries an **Open** on a `HEARTBEAT_WINDOW` change that lands in
 > flight, with its falsifier, which §6.2 and §9 repeat. *(F1 realisation: the unit change is what makes
 > the caller-independent instant realisable from L1 state.)*
+>
+> **(6) Second review round (R2-DI-01, R2-DI-02).** The eligibility predicate gains the guard
+> `lastHeartbeatSeq(v) > 0`: a never-attested entry (`lastHeartbeatAt(v) = 0`) is ineligible regardless
+> of the arithmetic, so a low-height L1 cannot admit it before its first accepted heartbeat
+> (MEM-13(3); R2-DI-01). The change-timing Open is re-sized as a **contiguous run** of versions — every
+> version evaluated before the entry re-attests whose evaluation instant falls in `(A + W', A + W_old]`,
+> about `(W_old − W') / EPOCH_LEN_L1` of them when a backlog is drained in a single block — and names
+> the sole remaining caller influence on `I*(e)`: an append caller's ordering relative to a *pending*
+> `HEARTBEAT_WINDOW` change selects the old or the new value for that version, bounded to the pending
+> change and of F8's ordering class (MEM-13(6); R2-DI-02). The corrected clauses carry their
+> (R2-DI-01)/(R2-DI-02) markers rather than being silently rewritten.
 
 > Normative text below. It replaces the tombstone in `spec/03-membership-staking.html`; it is written
 > as the rule will read in the specification, with identifiers that the register and index must match.
@@ -269,8 +282,9 @@ at the moment of inclusion: the mechanism attests that a fresh signature was pro
 was running when the carrier landed.
 
 **(3) Eligibility, and exclusion instead of decay.** Entry `v` is **eligible** for set version `k` —
-the version committed for epoch `e` — if and only if `lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`,
-where `I*(e)` is the version's **evaluation instant**: let `C(e) = max(e − LOOKAHEAD_EPOCHS, e_0)` be
+the version committed for epoch `e` — if and only if `lastHeartbeatSeq(v) > 0` **and**
+`lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`, where `I*(e)` is the version's **evaluation
+instant**: let `C(e) = max(e − LOOKAHEAD_EPOCHS, e_0)` be
 the L1-side epoch in which the version's entry first becomes coverable — the two-epoch lookahead of
 CONS-13(3), and the activation epoch `e_0` for the first entry after activation, `e = e_0 + 1` — let
 `L1_first(C(e)) = L1_0 + (C(e) − e_0) · EPOCH_LEN_L1` be the first L1 block of that epoch — a block
@@ -284,7 +298,12 @@ arithmetic over `(L1_0, e_0, EPOCH_LEN_L1, e, HEARTBEAT_WINDOW)` — the activat
 the append targets and the parameter value in force at the evaluating block, all L1 state — so no
 per-epoch record, no writer, no keeper, no oracle and no past-block read is needed; no transaction can
 write the value, the mechanism adds no storage at all, and it is caller-independent by construction:
-two calls in one block compute the same instant. With the recorded value of (2b) and an unchanged
+two calls in one block compute the same instant. **An entry with no accepted heartbeat is ineligible
+regardless of the arithmetic**: `lastHeartbeatSeq(v) = 0` fails the guard even though
+`lastHeartbeatAt(v) = 0` would satisfy the inequality whenever `I*(e) ≤ HEARTBEAT_WINDOW`, so a
+never-attested entry cannot enter a roster on a low-height L1, exactly as (2b) requires
+*(R2-DI-01: the predicate carries the non-zero-sequence guard (2a)(d) already uses, so the unguarded
+low-height admission is closed.)*. With the recorded value of (2b) and an unchanged
 window grid, the predicate is equivalently the requirement that **the last accepted heartbeat named
 `w*(e)`, the window immediately before it, or any later window** — every named window whose start
 height is at or after `(w*(e) − 1) · HEARTBEAT_WINDOW` — because records are monotone. *(F1 repair:
@@ -295,7 +314,11 @@ block heights, not indices: a change re-grids evaluation from the block in which
 never edits, re-derives or re-interprets a recorded value (clauses (2a)(d) and (6)); the change-timing
 residual is the Open in clause (6). The predicate is
 evaluated **inside that call, from L1 state at `N(k)`**; the caller chooses nothing and there is no
-second evaluation instant, and timing the append can only let in entries that have attested since, never
+second evaluation instant — the one bounded exception is an append ordered against a *pending* change
+to `HEARTBEAT_WINDOW`, which selects whether the version is evaluated under the old or the new value,
+the sole remaining caller influence on `I*(e)`, bounded to the pending change and of F8's ordering
+class (clause (6)) *(R2-DI-02: the caller-independence claim names its one bounded exception instead
+of denying it)* — and timing the append can only let in entries that have attested since, never
 remove one that was eligible when the entry first became coverable. **A later window
 cannot reach back:** a signature naming a window later than `w*(e)` cannot be
 accepted before that window begins ((2a)(b)), so it cannot be recorded in time to affect `R_k`; if it
@@ -380,10 +403,21 @@ call from the L1-side schedule and the value in force at that block (clause (3))
 evaluation from the block in which it takes effect and can never lower a recorded height. **Open —
 change timing against an instant in flight.** Because the instant is derived at evaluation time, a
 change to `HEARTBEAT_WINDOW` that lands after the first boundary of the new grid strictly following
-some active entry's record, and before the append that evaluates an epoch whose coverable start
-precedes the change, can exclude that entry from that one version although the cadence of the old grid
-would have kept it eligible; the rule neither delays the new value nor freezes a per-epoch grid.
-Falsifier: such a change, at such a block, excluding such an entry from such a version. What would
+some active entry's record `A`, and before the append that evaluates an epoch whose coverable start
+precedes the change, can exclude that entry: the affected set is not one version — every version
+evaluated before the entry re-attests whose evaluation instant falls in `(A + W', A + W_old]`, where
+`W_old` is the old value and `W'` the new one, excludes it, so a backlog drained in a single block
+loses a **contiguous run** of versions, about `(W_old − W') / EPOCH_LEN_L1` of them and bounded by the
+backlog actually drained before the incumbent's re-attestation. The rule neither delays the new value
+nor freezes a per-epoch grid. **The pending change is also the one remaining caller influence on
+`I*(e)`:** while a change is pending, an append caller's ordering relative to it selects whether the
+version is evaluated under `W_old` or `W_new`; this is binary, it is bounded to the pending change, it
+cannot name an arbitrary instant, and it needs the ordering control of F8's class rather than a new
+capability. Falsifier: such a change, at such a block, excluding such an entry from such a run of
+versions, or an append ordered at a pending change selecting the grid that excludes it *(R2-DI-02:
+the residual is sized as the contiguous run a drained backlog loses, and the sole remaining caller
+influence on the instant — a pending change's ordering selection between two grids — is named and
+bounded to F8's class; the Open stays an Open, not a guarantee.)*. What would
 close it: a registered delay making a new value effective only from a future L1-side epoch boundary,
 or a per-epoch frozen grid — neither is registered, the first adds a parameter and the second needs
 the per-epoch write this realisation removes. *(F1 realisation: this is the one consequence of deriving
@@ -451,10 +485,12 @@ This mechanism changes **who is selectable**, never what a committed version req
 ### CONS-16 — L1-time-keyed rotation: consuming an eligible set version when an epoch stalls
 
 This rule is the **reachability half** of MEM-13: an entry is eligible for the set version committed
-for an epoch only if `lastHeartbeatAt(v) ≥ I*(e) − HEARTBEAT_WINDOW`, on the L1 block-height grid —
-clause (3)'s derived evaluation instant, not the commit point's own window — and an ineligible entry
+for an epoch only if `lastHeartbeatSeq(v) > 0` **and** `lastHeartbeatAt(v) ≥ I*(e) −
+HEARTBEAT_WINDOW`, on the L1 block-height grid — clause (3)'s derived evaluation instant, not the
+commit point's own window — and an ineligible entry
 is excluded from the root rather than decayed. *(F1 realisation: this sentence first keyed eligibility
-to the commit point's window.)* Eligibility therefore
+to the commit point's window. R2-DI-01: the sentence carries the predicate's non-zero-sequence
+guard.)* Eligibility therefore
 changes only *future* set versions and leaves committed versions intact, so without a way to leave an
 epoch whose committed set cannot form a quorum the chain keeps that set for ever. This rule is that
 way. It is **not a recovery path**: it discards no produced block, restores no checkpoint, writes no
@@ -723,7 +759,7 @@ enforce.
 |---|---|---|---|
 | **F8** | An adversary able to censor, delay past the window, or price out honest entries' L1 heartbeats excludes honest validators from future set versions at no slashable cost, and can *raise* its own share of those versions' `TotalVP`. | Open (carried, sharpened) | A measured L1 censorship bound at the honest heartbeat gas profile, or a mechanism by which exclusion requires more than withholding one L1 transaction per entry per window. |
 | **F9** | The pre-signing horizon is bounded, not closed: a signature made within `HEARTBEAT_ANCHOR_AGE` blocks before the window it names is accepted in it, so an entry can be absent for up to that term around a boundary; the same term makes the all-ineligible append window of §6.1(5) reachable. | Open (new) | An L1 value that cannot exist before the named window begins (a per-window challenge), rejected in §5.2(ii) on the cost of a chain-wide censorship surface. |
-| **Change timing (MEM-13(6) Open)** | A change to `HEARTBEAT_WINDOW` that lands after the first boundary of the new grid strictly following some active entry's record, and before the append that evaluates an epoch whose coverable start precedes the change, can exclude that entry from that one version although the cadence of the old grid would have kept it eligible. Falsifier: such a change, at such a block, excluding such an entry from such a version. | Open (new) | A registered delay making a new value effective only from a future L1-side epoch boundary, or a per-epoch frozen grid — neither is registered, the first adds a parameter and the second needs the per-epoch write this realisation removes. |
+| **Change timing (MEM-13(6) Open)** | A change to `HEARTBEAT_WINDOW` that lands after the first boundary of the new grid strictly following some active entry's record `A`, and before the append that evaluates an epoch whose coverable start precedes the change, can exclude that entry from one or more versions although the cadence of the old grid would have kept it eligible: the affected versions are a **contiguous run** — every version evaluated before the entry re-attests whose evaluation instant falls in `(A + W', A + W_old]`, about `(W_old − W') / EPOCH_LEN_L1` of them when a backlog is drained in a single block — and, while the change is pending, an append caller's ordering relative to it selects whether the version is evaluated under the old or the new value, the sole remaining caller influence on `I*(e)`, bounded to the pending change and of F8's ordering class. Falsifier: such a change, at such a block, excluding such an entry from such a run of versions, or an append ordered at a pending change selecting the grid that excludes it. | Open (new) | A registered delay making a new value effective only from a future L1-side epoch boundary, or a per-epoch frozen grid — neither is registered, the first adds a parameter and the second needs the per-epoch write this realisation removes. |
 | **F7** | The rotation's precondition (no finalized height above `h_close`) and its `h_close` referent are not L1-verifiable; a false `h_close` re-judges a produced height, makes its certificate unverifiable and strands value above the checkpoint. | Open (carried, sharpened) | A stored last-finalized marker / composite transition L1 can verify, or the governed stall resolution (deferred; out of scope). Until then CONS-16 MUST NOT be implemented. |
 
 ### 6.3 What the mechanism does NOT fix (state this wherever it is summarised)
@@ -1019,12 +1055,18 @@ the ones that must change:
    version committed after activation; the announcement must say so).
 9. **A `HEARTBEAT_WINDOW` change landing in flight (MEM-13(6), Open).** Because `I*(e)` is derived at
    evaluation time, a change to `HEARTBEAT_WINDOW` that lands after the first boundary of the new grid
-   strictly following an active entry's record, and before an append whose epoch's coverable start
-   precedes the change, can exclude that entry from that one version although the cadence of the old
-   grid would have kept it eligible. Falsifier: such a change, at such a block, excluding such an entry
-   from such a version. This is not a reason to write the instant per epoch; closing it would take a
-   registered delay making a new value effective only from a future L1-side epoch boundary, or a
-   per-epoch frozen grid, and neither is registered.
+   strictly following an active entry's record `A`, and before an append whose epoch's coverable start
+   precedes the change, can exclude that entry from one or more versions although the cadence of the old
+   grid would have kept it eligible: the affected versions are a **contiguous run** — every version
+   evaluated before the entry re-attests whose evaluation instant falls in `(A + W', A + W_old]`
+   (`W_old` the old value, `W'` the new), about `(W_old − W') / EPOCH_LEN_L1` of them when a backlog is
+   drained in a single block — and, while the change is pending, an append caller's ordering relative to
+   it selects whether the version is evaluated under the old or the new value, the sole remaining caller
+   influence on `I*(e)`, bounded to the pending change and of F8's ordering class. Falsifier: such a
+   change, at such a block, excluding such an entry from such a run of versions, or an append ordered at
+   a pending change selecting the grid that excludes it. This is not a reason to write the instant per
+   epoch; closing it would take a registered delay making a new value effective only from a future
+   L1-side epoch boundary, or a per-epoch frozen grid, and neither is registered.
 
 ---
 
