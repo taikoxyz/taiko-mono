@@ -104,8 +104,8 @@ set aside &mdash; and a record whose remaining transactions cannot run is fully 
 rather than left standing. A live record that is over a registered bound, or that holds a transaction which
 can never run from its own bytes, is void from its own immutable bytes before the walk reaches it, so no
 producer&rsquo;s inclusion choice can turn it into an executed record. Every live position therefore resolves
-in a bounded number of batches, and no published record can pin the frontier. <em>(R4R1-M-01: the per-transaction walk makes every position
-settle.)</em></p>
+in a bounded number of batches, and no published record can pin the frontier. <em>(R4R1-M-01: the
+per-transaction walk makes every position settle.)</em></p>
 <p><strong>Setting a transaction aside is a property of the turn it reaches, not of the block it met.</strong>
 A transaction runs at its turn only if the record&rsquo;s published byte string is within its registered
 bounds, the chain id matches, its declared nonce is the sender&rsquo;s nonce at that point, and the
@@ -265,9 +265,9 @@ live with every one of its transactions set aside at its turn; or stop settling,
 and no later range lands either &mdash; and then, once the record&rsquo;s deadline has passed, the dead test
 runs first at the new anchored view and the frontier can pass the position by that one comparison. There is
 no fourth option in which the record is skipped and settlement continues, and a producer cannot manufacture
-the set-aside ground: only the sender&rsquo;s own signed transactions move its nonce or balance. That is the whole mechanism, and it is why the honest statement is about the
-censor&rsquo;s cost rather than about a user&rsquo;s wait. <em>(R4R1-M-01: a transaction that can run is only
-ever run.)</em></p>
+the set-aside ground: only the sender&rsquo;s own signed transactions move its nonce or balance. That is
+the whole mechanism, and it is why the honest statement is about the censor&rsquo;s cost rather than about
+a user&rsquo;s wait. <em>(R4R1-M-01: a transaction that can run is only ever run.)</em></p>
 
 <h2>What this gives you</h2>
 <ul>
