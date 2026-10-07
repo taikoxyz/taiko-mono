@@ -968,3 +968,78 @@ publication-time admission condition. Two candidates were considered and one is 
 
 *End of increment 04. The review round owns the fresh adversarial pass; nothing here claims it has
 happened, and nothing here has been applied to the specification.*
+
+---
+
+## Owner decisions on the open items
+
+**Appended decision record.** This section records the owner's dispositions of §9's open calls. It
+changes nothing above it: the rule text of §2, the derivations of §§3–5, the falsifiers of §6 and
+the change lists of §7 stand as written. The one open call not named here — §9.3's measurement-line
+question — keeps its recorded recommendation for the review round.
+
+**1. The per-publisher live-record bound (F-FI-2) is not adopted in this increment.** F-FI-2
+(publish arrivals exceeding the drain rate) stays an **open, unfixed falsifier**, with the candidate
+remedy of §9.1 recorded for a future increment. A bound on `publish()` is a new restriction on the
+publication path; D-12 authorises an inclusion **obligation**, not a new publish-time condition, and
+§9.1 already records that the candidate would change DA-07(1)'s "any account MUST be able to
+publish". Adding a constraint on users to rescue an unfixed falsifier is the failure mode this
+project has already been caught by three times: the honest resolution is to state the guarantee's
+condition rather than engineer around it with an admission rule. The guarantee therefore holds only
+while arrivals stay within the drain the obligation can force, and the text MUST say so wherever the
+guarantee is summarised — §6.3(3) and the F-FI-2 row are the places that do.
+
+**2. The anchor-age residual (F-FI-6) is closed inside the envelope by the registered relation, with
+the residual disclosed** — the option the delta already writes at FI-11(7)(i)–(ii). There is **no
+consensus anchor-freshness duty** and **no re-anchoring path**: both would add a rule to the
+consensus path — the duty at `CONS-01`, the re-anchor path through the certified batch header, which
+§9.2 records as reopening REC-01/CREC-01 — to buy back an edge the envelope relation already bounds.
+§9.2's candidate 1 is the disposition; candidates 2 and 3 are closed rather than left to the review
+round, and F-FI-6 stays disclosed as the deliberate-delay residual.
+
+**3. `FI_MIN_DRAIN` is a registered parameter, not a derived term.** Its value is unmeasured, as
+every `FI_*` value is; it satisfies `1 ≤ FI_MIN_DRAIN ≤ FI_MAX_PER_BATCH`, as FI-12(4) already
+registers it; and it exists to remove the reachable cap-of-zero case — the `R = 0` that R6-D12-04
+found reachable under a one-block batch. A derived form would require a quantity the specification
+does not compute; the registered relation is the form the rules consume. §9.3's first open call is
+settled: registered, unmeasured, floor of one.
+
+**4. The per-block clause gets no gas floor.** FI-11(4)/`CONS-01(v)` stays a per-block **order and
+non-omission** duty with no per-block gas quota, as §2 and §7.3 write it. Any gas floor — the "fill
+remaining gas with forced work" option of §9.3 — would reintroduce exactly the steerability that
+blocker 3 (§1(c), the void predicate's environment half) exists to remove: a producer able to move a
+threshold can move the obligation, and the guest would need a definition of "remaining" it can
+check. The duty stays decidable from the block's own body and its pre-state; §9.3's second open call
+is settled against the floor.
+
+**5. The register is append-with-a-prune-cursor, not a ring.** The register appends, and the prune
+of §4.2 deletes only positions behind the settlement frontier through the stored `pruneCursor`, with
+`PUB_RECORD_RETENTION ≥ T_PROVE_DEADLINE` (FI-14(3), DA-09(1)) keeping a referenceable record
+readable. Append matches the D-11 publication record already specified (FI-10(1)), keeps the
+frontier monotone, and its migration budget is the one §7.6 already states. A ring would add
+wraparound state and a migration risk for no gain the prune cursor does not already give. §9.3's
+third open call is settled in favour of append.
+
+**6. A validator signing a block that violates FI-11(4) is not subject to a new slashable offence.**
+The proof is rejected, and that rejection is the whole enforcement: no new offence is created,
+consistent with D-16's disposition that tombstoned the forced-inclusion offences. The consequence is
+stated where the enforcement is described — FI-11(1)'s proof-side point and PRF-04(vi) — so an
+implementer does not invent a penalty. This settles §9.3's fourth open call; to that extent the
+"revived offence row" wording in §7.6 and §8 is superseded by this decision, and no signing slash
+is to be implemented.
+
+**The guarantee, in the delta's own honest terms.** This mechanism is **not a latency guarantee**.
+A pure censor that refuses to include the front record halts its own frontier rather than censoring:
+the frontier cannot skip an outstanding live record, so settlement stops with it (§6.3(2)). A
+publishing censor can front-run a user's re-publications at roughly one L1 publication per deadline
+window (§6.3(3)), and an L1-censored publication still cannot be forced (§6.4(1)). The guarantee is
+therefore **exclusion per unit of the censor's L1 spending**, conditional on at least one honest or
+rational batch producer (F-FI-5) and on a non-censoring L1 — D-12's upper bound on exclusion in the
+only form this mechanism delivers.
+
+**Ship condition.** This increment ships only after its implementation and its own review round are
+clean; **two consecutive clean rounds are required, exactly as increment 2 was reviewed**. These
+owner decisions close the open calls they name; they do not substitute for that review, and the
+closing note above stands — the fresh adversarial pass has not happened and nothing here has been
+applied to the specification.
+
