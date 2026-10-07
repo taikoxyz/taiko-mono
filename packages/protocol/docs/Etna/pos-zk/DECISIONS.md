@@ -707,4 +707,24 @@ remedy for a record whose transactions were discharged is re-publication (DA-09(
 untouched. *(R4R1-M-01: the correction is recorded by addendum; the entry above, D-12 and D-16 are preserved
 as history, and the record-level ground MUST NOT be restored.)*
 
+**Further addendum (increment 04, completed ruling R4R1-M-01).** The entry and the addendum above stand as
+the historical record; this further addendum records the completed ruling in the terms the specification now
+carries. The walk of `FI-13(1)` is **per transaction, in the record's own order**: each transaction either
+executes or is **discharged** at its turn, and its turn's **pre-state is computed in the batch's own
+execution** — after the record's own preceding transactions have executed and after every transaction the
+batch executes before that point. The discharge condition is the **exact complement of the forceability
+condition of `FI-13(2)(v)`** and uses **BALANCE**, not "free balance": the transaction is discharged iff its
+declared nonce does not equal the sender's nonce at that pre-state, or the sender's balance there is below
+`gasLimit × maxFeePerGas + value`; a transaction that can execute at its turn and does not appear is neither
+executed nor discharged, and the position is unresolved. **Void gains its immutable half**: a record
+containing a transaction that can never be executed from the record's own bytes — for example a chain id
+that does not match `FI-13(2)(iii)` — is void, because such a transaction can neither execute nor be
+discharged; the over-bound and all-discharged grounds stand. **Totality and the anti-void property are rule
+properties**: every position resolves in a bounded number of batches, so no published record can pin the
+frontier or halt settlement, and a record whose remaining transactions cannot execute is fully discharged
+rather than left unresolved; only that account's own signed transactions move its nonce or balance, so a
+producer cannot manufacture a discharge ground for someone else's transaction. This corrects the addendum
+above's "sender's free balance" wording to BALANCE. D-12 and D-16 are untouched. *(R4R1-M-01: the completed
+per-transaction ruling is appended here; the entry and the addendum above are preserved as history.)*
+
 

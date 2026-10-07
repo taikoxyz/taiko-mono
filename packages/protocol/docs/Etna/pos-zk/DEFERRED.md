@@ -26,9 +26,22 @@ environment while its expiry discharge had no proof-side ground.
 (`l1BlockNumber + FI_INCLUSION_DELAY ≤ A`), every batch that lands must advance the settlement frontier
 past the capped FIFO prefix of the due set, and the obligation is enforced **in the proof** (PRF-04(vi)),
 never as an admission gate on `land` — L1-04's no-gate property survives. A position is resolved by exactly
-one of three modes: **executed**; **void** (over a registered bound, or no transaction forceable at any
-pre-state of the batch); or **dead** (the record's own stored `l1BlockNumber` plus the registered
-`T_PROVE_DEADLINE` at or below the anchored view). The advance is unconditional and monotone:
+one of three modes, under the per-transaction walk of FI-13(1): **executed** — the record is live and,
+walking its transactions in the record's own order, each transaction either executes or is **discharged**
+at its turn, where its turn's pre-state is computed in the batch's own execution, after the record's own
+preceding transactions and after every transaction the batch executes before that point, and the discharge
+holds only if the transaction's declared nonce does not equal the sender's nonce at that pre-state, or the
+sender's balance at that pre-state is below `gasLimit × maxFeePerGas + value` — with at least one
+transaction executing, so a mixed record is resolved with its executed transactions recorded as executed
+and its discharged ones as discharged; **void** — over a registered bound, or containing a transaction
+that can never be executed from the record's own bytes (for example a chain id that does not match
+FI-13(2)(iii)), so it can neither execute nor be discharged, or live with every one of its transactions
+discharged, so none of them executes; or **dead** (the record's own stored `l1BlockNumber` plus the
+registered `T_PROVE_DEADLINE` at or below the anchored view). *(FI-13(1)–(5): the ground is per
+transaction with that batch-wide turn pre-state, and the record-level form "no transaction forceable at any
+pre-state of the batch" is superseded; a record whose remaining transactions cannot execute is fully
+discharged rather than left unresolved, so every position resolves in a bounded number of batches.)*
+The advance is unconditional and monotone:
 `c' ≥ min(d(A), c + FI_MAX_PER_BATCH)`, `c' ≤ nextSeq(A)`, `c' ≥ c`, and every position in `[c, c')`
 must be resolved. `CONS-01(v)` is an **order and non-omission** duty only, with no per-block count and no
 per-block gas quota. The register appends, and pruning is deletion only, behind the settlement frontier
@@ -44,8 +57,9 @@ through a stored prune cursor; it returns no frontier and is never read by `land
    FIFO order and non-omission.
 3. *The steerable void predicate.* Closed: the includability test loses the base fee and the block gas
    limit entirely; forceability is a function of the record's immutable bytes, the registered constants and
-   two facts a block producer cannot move — the sender's nonce and free balance, checked against the
-   transaction's own declared maximum charge.
+   two facts a block producer cannot move — the sender's nonce and balance, checked against the
+   transaction's own declared maximum charge. *(FI-13(2)(v): the forceability term is the sender's balance,
+   not a "free balance".)*
 4. *Expiry with no proof-side ground, and the prune that contradicted it.* Closed: dead-at-`A` is a third
    resolution mode computed from the record's own stored `l1BlockNumber` and `T_PROVE_DEADLINE`, needing
    no bytes, blobs, execution or L1 call; the mutable status flag is not restored; and
@@ -59,11 +73,13 @@ and which would change DA-07(1)'s "any account MUST be able to publish". F-FI-2 
 holds only while the arrival rate of livable records stays within the drain the obligation can force. The
 disclosed residue travels with the revived rules rather than as deferred work: **F-FI-1** (the capacity
 relation constrains a value, and no registered rule maintains the L2 gas-limit schedule premise),
-**F-FI-3** (a voided record may become forceable later; re-publication is the remedy), **F-FI-4** (a record
+**F-FI-3** (a transaction discharged at its turn may become executable later only through the sender's own
+further signed transactions; re-publication is the remedy), **F-FI-4** (a record
 can age out to dead rather than be included), **F-FI-5** (the guarantee is conditional on a non-censoring
 L1 and on at least one honest or rational producer) and **F-FI-6** (a certified range deliberately delayed
 past the anchor-age envelope is permanently unacceptable; the registered relations close the in-envelope
-case, the residual stays disclosed).
+case, the residual stays disclosed). *(FI-13(3)/(5): F-FI-3 is stated per transaction, and the record-level
+"a voided record may become forceable later" form is superseded.)*
 
 **What a future increment would need.** Two things, neither of which this increment may do:
 (i) a decision on the per-publisher live-record bound, or another publish-time bound, as an explicit change

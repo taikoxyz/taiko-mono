@@ -67,13 +67,15 @@ its own deadline rather than included. <em>(R4R1-M-01: the walk resolves the rec
 transactions.)</em></p>
 <p>A record is resolved in exactly one of three ways, and no party chooses which
 (<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>). Resolution walks the record&rsquo;s transactions
-in the record&rsquo;s own order, and each transaction either runs or is set aside at its turn.
+in the record&rsquo;s own order, and each transaction either runs or is set aside at its turn &mdash; here,
+&ldquo;set aside&rdquo; is the plain word for the rule&rsquo;s <em>discharged</em>: a transaction that cannot
+run at its turn.
 <em>(R4R1-M-01: the ground is per transaction, not per record.)</em></p>
 <ul>
 <li><strong>Executed</strong> &mdash; the record is live, and walking its transactions in the record&rsquo;s
 own order, each one runs or is set aside at its turn, with at least one running. Every transaction that runs
-appears in the batch&rsquo;s executed payload exactly once, in that order; each one set aside is void
-individually and may be re-published.</li>
+appears in the batch&rsquo;s executed payload exactly once, in that order; each one set aside is
+discharged and may be re-published.</li>
 <li><strong>Void</strong> &mdash; the record is over a registered bound, or it is live and every one of its
 transactions is set aside at its turn, so none of them runs.</li>
 <li><strong>Dead</strong> &mdash; the record&rsquo;s own deadline has passed at the batch&rsquo;s anchored L1
@@ -231,7 +233,7 @@ transactions are read in the record&rsquo;s own order, and each one either runs 
 <thead><tr><th>The proof reaches position&hellip;</th><th>What it finds there</th><th>What it may do</th></tr></thead>
 <tbody>
 <tr><td>a position below <code>c</code></td><td>Already settled: executed or void in the batch that carried the frontier past it, or dead when it was discharged.</td><td>Nothing; the walk starts at <code>c</code>, and pruning may have deleted the slot entirely.</td></tr>
-<tr><td>an outstanding position whose record is live</td><td>The walk reads its transactions in the record&rsquo;s own order: each one can run at its turn, or cannot and is set aside there &mdash; its declared nonce is not the account&rsquo;s nonce at that point, or the account&rsquo;s free balance there is below gas limit &times; max fee per gas + value.</td><td>Run each transaction that can run, in the record&rsquo;s own order, and set aside each that cannot; at least one runs, so the position resolves as executed and each set-aside transaction is void individually. Nothing else resolves this position. <em>(R4R1-M-01: each transaction runs or is set aside at its turn.)</em></td></tr>
+<tr><td>an outstanding position whose record is live</td><td>The walk reads its transactions in the record&rsquo;s own order: each one can run at its turn, or cannot and is set aside there &mdash; its declared nonce is not the account&rsquo;s nonce at that point, or the account&rsquo;s free balance there is below gas limit &times; max fee per gas + value.</td><td>Run each transaction that can run, in the record&rsquo;s own order, and set aside each that cannot; at least one runs, so the position resolves as executed and each set-aside transaction is discharged. Nothing else resolves this position. <em>(R4R1-M-01: each transaction runs or is set aside at its turn.)</em></td></tr>
 <tr><td>an outstanding position whose record cannot be executed</td><td>Over a registered bound, or live with every one of its transactions set aside at its turn.</td><td>Record it void and move on. No re-supply of its bytes is required, and the published bytes stay on L1. <em>(R4R1-M-01: void is the outcome when nothing in the record can run.)</em></td></tr>
 <tr><td>an outstanding position whose record is dead</td><td>Its stored block number plus the registered deadline is at or below the anchored view.</td><td>Discharge it by expiry and move on; one comparison, no bytes and no L1 call.</td></tr>
 <tr><td>a position that is none of those</td><td>A live record with a transaction that can run at its turn and was not run.</td><td>Nothing: the position cannot be passed, so the proof does not verify and no settlement record is written. <em>(R4R1-M-01: a runnable transaction is only ever run, never set aside by a producer&rsquo;s choice.)</em></td></tr>
@@ -289,8 +291,8 @@ schedule premise are placeholders with no measurement behind them, and nothing o
 <p>That the position is resolved. The walk reads the record&rsquo;s transactions in the record&rsquo;s own
 order, and each one either runs or is set aside at its turn &mdash; its declared nonce is not the
 account&rsquo;s nonce at that point, or the account cannot pay the transaction&rsquo;s own declared maximum
-charge. At least one runs, so the record resolves as executed with each set-aside transaction void
-individually; if none runs, the record is void, and so is a record over a registered bound; and a record is
+charge. At least one runs, so the record resolves as executed with each set-aside transaction
+discharged; if none runs, the record is void, and so is a record over a registered bound; and a record is
 dead when its stored block number plus the registered deadline is at or below the anchored view. There is no
 fourth answer, and the frontier cannot pass a position that is none of the three. <em>(R4R1-M-01: every
 position resolves, so no record can pin the frontier.)</em></p></details>
@@ -304,7 +306,7 @@ set aside in every producer&rsquo;s hands. <em>(R4R1-M-01: the discharge ground 
 <details><summary>A record holds two transactions: one that can run at its turn and one whose declared nonce is unreachable. Does the position resolve?</summary>
 <p>Yes. The walk runs the first in the record&rsquo;s own order and sets the second aside, because at its turn
 its nonce is not the account&rsquo;s nonce there. At least one transaction runs, so the record resolves as
-executed, and the transaction set aside is void individually. The position is not left unresolved waiting for
+executed, and the transaction set aside is discharged. The position is not left unresolved waiting for
 a mode that fits the whole record. <em>(R4R1-M-01: a record with a mixed profile resolves by the
 per-transaction walk.)</em></p></details>
 <details><summary>A censor refuses to include the record at the front of the queue. What happens?</summary>
