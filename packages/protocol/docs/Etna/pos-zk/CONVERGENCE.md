@@ -43,8 +43,10 @@ aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads o
 > **Increment note (added after convergence).** This record states what v1 was when it converged in
 > rounds 9 and 10, and v1 remains converged in every respect increment 2 did not change. Increment 2
 > revived **MEM-13** heartbeat eligibility as a live rule and did **not** revive **CONS-16**, which
-> remains deferred and tombstoned (D-17); accordingly **three mechanisms remain deferred** - narrow
-> forced inclusion, the governance stall resolution and aggregation - and the four-mechanism sentence
+> remains deferred and tombstoned (D-17). The deferred set is counted **by mechanism with its own rule id**,
+> and increment 4 has since moved forced inclusion out of it, so the current set is **three: CONS-16's
+> rotation, the governance stall resolution and aggregation** - see the second note below - while the
+> four-mechanism sentence
 > above is the converged-state record, not the current one.
 >
 > **Increment 2 has since SHIPPED** (rounds 2-4 of its own review; see `increments/02-ship-record.md`).
@@ -53,9 +55,15 @@ aggregation. Every tombstone carries a MUST-NOT-USE reason; no live rule reads o
 > now a live rule: an L1 heartbeat key, an L1-block-number window grid, a **derived and caller-independent**
 > evaluation instant, a guarded predicate, exclusion that never reduces weight, and a launch transition
 > whose counting window starts at or after the activation block with full length. **CONS-16 remains
-> deferred**, so the recovery gap and the F8/F9 falsifiers stand. Increments 3, 4 and 5 remain queued:
-> aggregation waits on Phase B's S1 measurement, forced inclusion has a design delta but no
-> implementation, and the governance stall resolution is last.
+> deferred**, so the recovery gap and the F8/F9 falsifiers stand.
+>
+> **Increment 4 - narrow forced inclusion - is in review** (its design delta and D-18 are recorded, the
+> implementation is complete, and its first review round has run). It is **not yet shipped**: it ships on
+> the same bar, two consecutive rounds with no Critical and no High, and its own ship record will follow.
+> Until then the sentences above describing forced inclusion as merely designed are the increment-2-era
+> record, not the current state. **Increment 3** remains gated on Phase B's S1 measurement - its
+> aggregation parameters cannot be set before that cost is measured - and **increment 5**, the governance
+> stall resolution, is last.
 
 ## What convergence does NOT mean
 
