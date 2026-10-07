@@ -111,12 +111,12 @@ condition of completion, not an assertion (§3.2–§3.3).
 > I*(e) − HEARTBEAT_WINDOW` — an entry with no accepted heartbeat is ineligible regardless of the
 > arithmetic — that is, the named window is the window containing `I*(e)`, the one before it, or any
 > later window, and the old reading — the window containing the commit point — is withdrawn. Two
-> consequences are carried openly rather than hidden:
-> the window's **wall-clock duration now varies with L1 block time**, so the duty is one attestation
-> per `HEARTBEAT_WINDOW` L1 blocks and not per fixed duration (an unmeasured operational cost, no
-> value invented), and clause (6) carries an **Open** on a `HEARTBEAT_WINDOW` change that lands in
-> flight, with its falsifier, which §6.2 and §9 repeat. *(F1 realisation: the unit change is what makes
-> the caller-independent instant realisable from L1 state.)*
+> consequences are carried openly rather than hidden: the window's **wall-clock duration now varies
+> with L1 block time**, so the duty is one attestation per `HEARTBEAT_WINDOW` L1 blocks and not per
+> fixed duration (an unmeasured operational cost, no value invented), and clause (6) carries an
+> **Open** on a `HEARTBEAT_WINDOW` change that lands in flight, with its falsifier, which §6.2 and §9
+> repeat. *(F1 realisation: the unit change is what makes the caller-independent instant realisable
+> from L1 state.)*
 >
 > **(6) Second review round (R2-DI-01, R2-DI-02).** The eligibility predicate gains the guard
 > `lastHeartbeatSeq(v) > 0`: a never-attested entry (`lastHeartbeatAt(v) = 0`) is ineligible regardless
@@ -487,11 +487,10 @@ This mechanism changes **who is selectable**, never what a committed version req
 This rule is the **reachability half** of MEM-13: an entry is eligible for the set version committed
 for an epoch only if `lastHeartbeatSeq(v) > 0` **and** `lastHeartbeatAt(v) ≥ I*(e) −
 HEARTBEAT_WINDOW`, on the L1 block-height grid — clause (3)'s derived evaluation instant, not the
-commit point's own window — and an ineligible entry
-is excluded from the root rather than decayed. *(F1 realisation: this sentence first keyed eligibility
-to the commit point's window. R2-DI-01: the sentence carries the predicate's non-zero-sequence
-guard.)* Eligibility therefore
-changes only *future* set versions and leaves committed versions intact, so without a way to leave an
+commit point's own window — and an ineligible entry is excluded from the root rather than decayed.
+*(F1 realisation: this sentence first keyed eligibility to the commit point's window. R2-DI-01: the
+sentence carries the predicate's non-zero-sequence guard.)* Eligibility therefore changes only
+*future* set versions and leaves committed versions intact, so without a way to leave an
 epoch whose committed set cannot form a quorum the chain keeps that set for ever. This rule is that
 way. It is **not a recovery path**: it discards no produced block, restores no checkpoint, writes no
 `resumeHeight`, increments no generation and voids no certificate; nothing at or below the latest
