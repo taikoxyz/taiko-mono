@@ -400,10 +400,13 @@ bundle may not derive are read from the equalities T3 already checks:</p>
     dataCommitment: keccak256(abi.encode(bytes32("TAIKO_ETNA_GENESIS"), uint256(block.chainid),
                                          uint64(B*), H*, S*)),   // non-zero by construction
     l1BlockNumber:  uint64(block.number),     // the activation block, written once, never edited
-    lastAcceptedBatchTime: uint64(block.timestamp)  // the activation timestamp, written once, never edited
+    lastAcceptedBatchTime: uint64(block.timestamp),  // the activation timestamp, written once, never edited
+    settledCount:   0,                        // uint64; 0 at genesis — nothing is settled before the first checkpoint
+    anchoredL1Block: uint64(block.number)     // uint64; L1_0, the activation block above — the genesis checkpoint's anchor by definition
 });
 lastLandedHeight = B*;                  // in the same write
 </code></pre>
+<p><em>(increment 04 migration reconciliation, closing the MIG-02 (264) checkpoint-entry row's leftover: the row attributes the settlement pair <code>(settledCount, anchoredL1Block)</code> to every per-height checkpoint record, and this genesis literal now carries the same pair as every later record — <code>settledCount = 0</code>, because nothing is settled before the first checkpoint, and <code>anchoredL1Block = L1_0</code>, the L1 block this activation transaction is included in, because the genesis checkpoint's anchor is that block by definition. Both are initialisation values written once with the record, and neither is an input to L1-07's canonical record hash.)</em></p>
 <p><strong>Defined predecessor.</strong> The first <code>land(data, proof)</code> after activation MUST compute
 <a href="04-l1-integration.html#L1-05">L1-05</a> row 2's <code>previousCheckpointHash</code> from this record
 with L1-07's canonical encoding. It is non-zero by construction and a <strong>zero or undefined
