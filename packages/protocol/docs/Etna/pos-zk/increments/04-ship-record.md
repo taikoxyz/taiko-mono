@@ -77,8 +77,9 @@ The verified property, as the confirming round stated it: with the duty and the 
 the turn pinned by position, the order rule plus the proof-side condition, classes (A)-(G), the four
 discharge conditions read at the same turn against the same remaining gas, and the fee floor's premise -
 **there is no admissible block, publisher input or producer choice that leaves a position in no mode or
-makes a certifiable range unprovable within the stated premises**, and the five Open falsifiers are what
-would break it.
+makes a certifiable range unprovable within the stated premises**, and the four Open falsifiers
+(F-FI-1, F-FI-2, F-FI-7, F-FI-8 - the set the register fixes, with F-FI-3, F-FI-4, F-FI-5 and F-FI-6
+classed as disclosed limits or conditions rather than Open) are what would break it.
 
 Three habits earned that result, and they are the increment's real output: **replace a universal claim
 with an enumeration plus a named residual**; **give every duty its consensus-side or proof-side

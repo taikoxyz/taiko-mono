@@ -120,7 +120,7 @@ proof checks it. The record is the forced-data record; there is no flag, no escr
 unpublished transaction into L2.</li>
 <li>The per-block duty is order and non-omission only: a block never takes a later record&rsquo;s forced
 transaction ahead of an earlier one, and must carry a forceable forced transaction when its own remaining
-gas covers it. The duty is scoped to the transaction&rsquo;s turn: the no-room set-aside turns on the remaining
+gas covers it, and a block that contains a transaction of a forced record once a higher-index transaction of that same record has already appeared in the executed payload of the range is invalid, on the same footing as one that had room to carry a demanded transaction and omitted it. The duty is scoped to the transaction&rsquo;s turn: the no-room set-aside turns on the remaining
 gas, at that turn, of the block in which the turn lies, and a later block&rsquo;s room neither rescues nor
 condemns a transaction whose turn has passed. There is no per-block count and no per-block gas quota, and no new slashable offence: the
 rejected proof is the whole enforcement (CONS-01(v), CONS-06).</li>
