@@ -560,6 +560,13 @@
         base fee, not a full cost commitment for the new deployment. There is no dedicated lander reward and no proving
         liveness bond; normal submission, proving and DA costs must be estimated per the appendix.
       </p>
+      <p>
+        At launch, the operator organizes and funds ordinary batch proving and submission, covering both proof backends,
+        proving compute, DA, L1 gas and failed or competing retries. Batch ranges and jobs are coordinated off-chain, including
+        re-batching or re-aggregation when a starting head becomes stale. This grants no exclusive submission right and does
+        not change coinbase fee allocation. Long-term fee sharing or a proving market is not decided in this version;
+        operator funding and proof supply remain liveness assumptions.
+      </p>
 
       <h2>8. Pause, recovery and migration</h2>
       <p>
@@ -693,6 +700,13 @@
             and the UI must separate the L1 enqueue gas and DA cost, the escrowed service fee and the actual L2 execution fee,
             and must not advertise one processing opportunity as guaranteed successful execution or a refund on halt.
           </p>
+          <p>
+            FI pricing must use the measured worst-case processing cost from A.3, covering dual-proof work and settlement
+            overhead. In particular, measure a first transaction that executes near the zk-gas limit, then exceeds it and
+            aborts, leaving an empty block: both guests must still replay the original input to verify the abort, while that
+            transaction pays no L2 execution fee. The base fee and congestion curve must account for this cost with margin,
+            rather than estimating only successful maximal blocks, final recorded zk gas or expected execution-fee revenue.
+          </p>
 
           <h3>A.3 Required acceptance</h3>
           <div class="table-wrap">
@@ -721,9 +735,12 @@
                 <td>
                   Fix <code>M ≥ 2</code>, FI_DELAY, the base fee and congestion curve, per-item limits and
                   <code>MAX_FI_PER_BATCH</code>. Test visibility and due boundaries, mandatory consumption in service slots, no
-                  consumption in ordinary slots, ordinary blocks in idle slots, a first-transaction abort or empty output, bad
-                  witnesses not consuming, and complete fee attribution; a mandatory FI block with its necessary envelope must
-                  be submittable on its own.
+                  consumption in ordinary slots, ordinary blocks in idle slots, bad witnesses not consuming, and complete fee
+                  attribution; a mandatory FI block with its necessary envelope must be submittable on its own. Cost workloads
+                  must include a first transaction that executes near the zk-gas limit, exceeds it and aborts, leaving an empty
+                  block and no L2 execution fee from that transaction. Verify that both guests replay the original input;
+                  measure witness generation, compute and latency for both proof backends, and DA/L1 settlement costs, and use
+                  them for the worst-case FI pricing in A.2.
                 </td>
               </tr>
               <tr>
