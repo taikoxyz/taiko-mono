@@ -680,4 +680,31 @@ relation and the schedule premise remain unmeasured.
 **Status:** decided; specification, register, index and course changes in flight. The increment ships only
 after its own review rounds are clean.
 
+**Addendum (increment 04 review round 1, R4R1-M-01).** The entry above stands as the historical record; this
+addendum records the correction. The owner's ruling (2026-10-07) is **per-transaction resolvability**: a
+position resolves when walking the record's transactions in the record's own order each one either
+**executes** or is **discharged** — it cannot execute at the state its turn reaches, because its declared
+nonce is not the sender's nonce there or the sender's free balance there is below
+`gasLimit × maxFeePerGas + value` — with at least one executing; a live record all of whose transactions are
+discharged is **void** (as is an over-bound record), and a record past its deadline is **dead**. The
+correction closes review round 1's Critical R4R1-M-01, the chain-wide settlement freeze: a record-level
+ground that resolved a position only when **all** of a record's transactions executed, or when **none** of
+them was forceable, or when the record was dead, left a record with one forceable and one never-forceable
+transaction resolved by none of the three modes while it was live; because every position in the computed
+window `[c, c + R)` was mandatory, every batch's proof was invalid — no new checkpoint and no new withdrawal
+root — and one fresh poison per `T_PROVE_DEADLINE` kept settlement frozen chain-wide indefinitely for the
+cost of one permissionless L1 publication. **Totality is a rule property:** every position resolves in a
+bounded number of batches — the frontier advances at least one position per accepted batch and a record's
+transactions are finite — so no published record can pin the frontier; and the **anti-void property is
+preserved**: execution follows the record's own order and only that account's own signed transactions can
+move its nonce or free balance, so a producer cannot manufacture a discharge ground for someone else's
+transaction. **The record-level grounds are superseded and MUST NOT be restored**: the requirement that
+**all** of a record's transactions execute, the form "a record none of whose transactions is forceable at
+any block's pre-state in the batch is void", and the F-FI-3 sentence "a record voided in this batch may
+become forceable later" — restoring any of them restores the Critical. F-FI-3 is restated: a discharged
+transaction may become executable later only through the sender's own further signed transactions, and the
+remedy for a record whose transactions were discharged is re-publication (DA-09(2)). D-12 and D-16 are
+untouched. *(R4R1-M-01: the correction is recorded by addendum; the entry above, D-12 and D-16 are preserved
+as history, and the record-level ground MUST NOT be restored.)*
+
 
