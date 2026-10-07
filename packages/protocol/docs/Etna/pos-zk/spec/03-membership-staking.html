@@ -104,7 +104,7 @@ equivocate; or a renunciation immediately zeroes a live validator's weight and t
 <span class="pill proven">Proven</span> <span class="pill sourced">sourced</span></div>
 
 <h3 id="custody-sketch">1.1 Custody interface sketch</h3>
-<p class="small">Sketch only: illustrative names, no compiled code, no gas figures, no audit. The rule ids are normative; the signatures are not.</p>
+<p class="small">Sketch only: illustrative names, no compiled code, no gas figures, no audit. The rule ids are normative; the signatures are not. <em>(increment 02: the bonding, heartbeat-key rotation and heartbeat-submission rows are revived; the heartbeat key is not a consensus key.)</em></p>
 <table>
 <thead><tr><th>Call</th><th>Caller</th><th>Effect</th><th>Rule</th></tr></thead>
 <tbody>
@@ -680,7 +680,7 @@ detectable on-chain and no rule of this page applies. Detection and disclosure, 
 
 <h2 id="register">10. Quantities this page introduces</h2>
 <p class="small">Non-normative map. The canonical parameter register with values and units is <a href="09-parameters.html">09</a>
-(<a href="09-parameters.html#PARAM-01">PARAM-01</a>, <a href="09-parameters.html#PARAM-03">PARAM-03</a>). No value below is measured.</p>
+(<a href="09-parameters.html#PARAM-01">PARAM-01</a>, <a href="09-parameters.html#PARAM-03">PARAM-03</a>). No value below is measured. <em>(increment 02: the heartbeat set and <code>HEARTBEAT_ANCHOR_AGE</code> are revived or added; the decay tombstones (<code>T_INACTIVE</code>, <code>D_LAPSE_MAX</code>, <code>lastObserved(v)</code>) and the rotation tombstones (<code>T_ROTATE</code>, <code>T_ROTATE_DELAY</code>) stay withdrawn.)</em></p>
 <table>
 <thead><tr><th>Quantity</th><th>Meaning</th><th>Status</th><th>Introduced by</th></tr></thead>
 <tbody>

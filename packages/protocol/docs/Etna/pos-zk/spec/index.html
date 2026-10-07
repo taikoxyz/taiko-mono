@@ -40,7 +40,7 @@ evidence are unchanged, but a PoS confirmation above the last L1-accepted checkp
 referenced (D-11), the checkpoint boundary, the exit from the last settled state (MEM-15, whose <code>k&minus;1</code> attestation proofs are funded proving work resting on the funded proving market of <a href="03-membership-staking.html#MEM-15">MEM-15</a>(2b) and on inputs that remain retrievable &mdash; the recorded certificate, the batch's data and the pre-state witness), k-of-n withdrawal
 roots attested by distinct backend families with the rule-triggered veto, and the signed recovery
 generation — and <strong>three mechanisms remain deferred</strong> to a register: narrow forced inclusion
-(D-12), the governance stall resolution (D-15) and aggregation (D-13) — while <strong>heartbeat eligibility (D-14) was revived</strong> by <a href="../increments/02-heartbeat-design.md">increment 02</a> as <a href="03-membership-staking.html#MEM-13">MEM-13</a> (live; the rotation <a href="02-consensus.html#CONS-16">CONS-16</a> stays a gated tombstone).
+(D-12), the governance stall resolution (D-15) and aggregation (D-13) — while <strong>heartbeat eligibility (D-14) was revived</strong> by <a href="../increments/02-heartbeat-design.md">increment 02</a> as <a href="03-membership-staking.html#MEM-13">MEM-13</a> (live; the rotation <a href="02-consensus.html#CONS-16">CONS-16</a> stays a gated tombstone). <em>(increment 02: heartbeat eligibility revived; the rotation stays gated.)</em>
 Register entry: <a href="../DEFERRED.md">DEFERRED.md</a>. Consequently <strong>v1 has no recovery path of any kind</strong>:
 a settlement stall <strong>halts the chain</strong>; funds are safe, the boundary holds and the exit works
 while the funded proving market of <a href="03-membership-staking.html#MEM-15">MEM-15</a>(2b) produces its <code>k&minus;1</code> attestation proofs
@@ -354,7 +354,7 @@ losses are not compensated (<a href="07-economics-slashing.html#ECON-11">ECON-11
 is normative on its own page; this table is a map, not a second copy. The general forced-inclusion rules
 <code>FI-01</code>–<code>FI-05</code> of the earlier revision do not exist and are not indexed.
 <strong>Decision D-16 deferred four add-on mechanisms</strong> — narrow forced inclusion (D-12), heartbeat
-eligibility (D-14), the governance stall resolution (D-15) and aggregation (D-13). <strong><a href="../increments/02-heartbeat-design.md">Increment 02</a> has since revived heartbeat eligibility</strong> (<a href="03-membership-staking.html#MEM-13">MEM-13</a> is live, with its F8/F9 falsifiers Open), so <strong>three mechanisms remain deferred</strong> — forced inclusion, the governance stall resolution and aggregation — and their rule ids, together with the rotation <a href="02-consensus.html#CONS-16">CONS-16</a> (gated: its <code>h_close</code> precondition has no L1 referent, falsifier F7), are
+eligibility (D-14), the governance stall resolution (D-15) and aggregation (D-13). <strong><a href="../increments/02-heartbeat-design.md">Increment 02</a> has since revived heartbeat eligibility</strong> (<a href="03-membership-staking.html#MEM-13">MEM-13</a> is live, with its F8/F9 falsifiers Open <em>(increment 02: MEM-13 moves out of the tombstone set; CONS-16 stays gated)</em>), so <strong>three mechanisms remain deferred</strong> — forced inclusion, the governance stall resolution and aggregation — and their rule ids, together with the rotation <a href="02-consensus.html#CONS-16">CONS-16</a> (gated: its <code>h_close</code> precondition has no L1 referent, falsifier F7), are
 <strong>tombstones</strong>: they keep their numbers, are not normative in v1, and MUST NOT be implemented
 (<a href="../DEFERRED.md">DEFERRED.md</a>). v1 is the <strong>core plus the revived eligibility filter</strong> and has <strong>no
 recovery path of any kind</strong>: a settlement stall halts the chain; funds are safe, the boundary of
@@ -534,7 +534,7 @@ plus the deferred register; increment 02: MEM-13 moves out of the tombstone set 
 <p class="small">Parameters introduced or restated by change order 04, the S5 recovery repair
 (the per-epoch configuration registry and the allocation policy), change order 06 (D-11/D-12/D-13: the
 publication and proving-deadline set, the aggregation and proof-policy set, and the liveness set of the
-heartbeat-eligibility and rotation rules — the heartbeat set is live below by <a href="../increments/02-heartbeat-design.md">increment 02</a>, and the aggregation and rotation sets remain withdrawn by D-16)
+heartbeat-eligibility and rotation rules — the heartbeat set is live below by <a href="../increments/02-heartbeat-design.md">increment 02</a> <em>(increment 02: heartbeat set live; the rotation set stays withdrawn)</em>, and the aggregation and rotation sets remain withdrawn by D-16)
 and decisions D-15/D-16 (the stall resolution and the signed
 recovery generation, then the deferral of the add-on mechanisms). This is a map,
 not a second register: each value, its derivation and its tag are stated in full by its owner, and the
@@ -582,7 +582,7 @@ that ZK verification repairs failed consensus assumptions; that a PoS confirmati
 L1-accepted checkpoint is irreversible (it is provisional and v1 provides no path that replaces it); that a
 settlement stall can be cleared by any v1 rule — it cannot, so a stalled chain may stay halted for an
 unbounded time and clearing it requires a future protocol update whose procedure is not yet specified
-(D-16); that forced inclusion or aggregation exist in v1 (they are deferred), that heartbeat eligibility is still absent (it is live, <a href="../increments/02-heartbeat-design.md">increment 02</a>: it changes which entries future set versions commit and repairs no committed version), or that the gated rotation <a href="02-consensus.html#CONS-16">CONS-16</a> exists; or
+(D-16); that forced inclusion or aggregation exist in v1 (they are deferred), that heartbeat eligibility is still absent (<em>increment 02: it is live and changes which entries future set versions commit, repairing no committed version</em>), or that the gated rotation <a href="02-consensus.html#CONS-16">CONS-16</a> exists; or
 that any loss a discard causes is compensated.</p>
 </div>
 
@@ -591,7 +591,7 @@ that any loss a discard causes is compensated.</p>
 <tr><td>Taiko monorepo baseline</td><td><code>7718753c1</code></td><td>2026-10-05</td></tr>
 <tr><td>Change order 04 base (Mode B selected, D-7–D-10)</td><td><code>eaa01784c</code>, plus the course restyle <code>5111cd878</code></td><td>2026-10-05</td></tr>
 <tr><td>Decision D-15 (v1 has no permissionless recovery; timelocked resume-only stall resolution)</td><td><code>4a912886a</code></td><td>2026-10-06</td></tr>
-<tr><td>Decision D-16 (v1 ships the core; the four add-on mechanisms are deferred to the register — three remain deferred after <a href="../increments/02-heartbeat-design.md">increment 02</a> revived heartbeat eligibility)</td><td><code>fa2d61701</code></td><td>2026-10-06</td></tr>
+<tr><td>Decision D-16 (v1 ships the core; the four add-on mechanisms are deferred to the register — <em>increment 02: heartbeat eligibility revived; three mechanisms remain deferred</em>)</td><td><code>fa2d61701</code></td><td>2026-10-06</td></tr>
 <tr><td>Prior accepted Etna research (read-only)</td><td><code>a829f79723de9a09205660d9895418577cfe9aa9</code></td><td>2026-10-05</td></tr>
 <tr><td>CometBFT specification (locking rule, Proof of Safety, fork accountability)</td><td>pinned commit <code>709fd12b…</code></td><td>retrieved 2026-10-05</td></tr>
 <tr><td>EIP-4844 point-evaluation precompile; EIP-7691 blob parameters</td><td>as published</td><td>retrieved 2026-10-05</td></tr>
