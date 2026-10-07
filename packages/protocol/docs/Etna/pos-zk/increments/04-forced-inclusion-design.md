@@ -48,7 +48,7 @@ is enforced **in the proof**, never as an admission gate on `land` (`L1-04` surv
 |---|---|---|
 | 1 | **One unit of account: the batch, counted in register positions.** A batch resolves a **contiguous prefix of the due set**; the obligation, the capacity relation and the no-halt argument are all stated in *positions per batch* backed by *gas per batch*. The per-block requirement is demoted to a **local order-and-non-omission duty** with no per-block count and no per-block gas quota (this closes R6-D12-03). | FI-12(1)–(3), §3.2 |
 | 2 | **The frontier advance is mandatory and unconditional.** The waived lower bound of FI-11(5)/PRF-04(vi) is replaced by a two-sided bound with **no exception**: `c' ≥ min(d(A), c + FI_MAX_PER_BATCH)` **and** every position in `[c, c')` resolved, where resolved means *executed*, *void* or ***dead***. There is no waiver clause, so no reading makes the obligation vacuous (this closes R6-DPE-01 and R6-D12-04). | FI-11(3) |
-| 3 | **A producer-independent, per-transaction resolution ground.** The includability test loses the base fee and the block gas limit entirely; each transaction is executed or **discharged** at its turn — the state after the record's own preceding transactions — and a position is **void** only when it is over-bound or every one of its transactions is discharged. The ground reads the record's **immutable bytes**, **registered constants** and two facts the producer cannot move (the sender's nonce and free balance), so it excludes every producer-set quantity (this closes R6-D12-05) and is **total**, so no mixed-forceability record can pin the frontier (this closes R4R1-M-01 — RC-5). | FI-13(1)–(3), FI-13(5) |
+| 3 | **A producer-independent, per-transaction resolution ground.** The includability test loses the base fee and the block gas limit entirely; each transaction is executed or **discharged** at its turn in the batch's own execution — after the record's own preceding transactions and every transaction the batch executes before that point — and a position is **void** only when the record is over-bound, contains a transaction that can never be executed from its own bytes, or every one of its transactions is discharged. The ground reads the record's **immutable bytes**, **registered constants** and two facts the producer cannot move (the sender's nonce and balance), so it excludes every producer-set quantity (this closes R6-D12-05) and is **total**, so no mixed-forceability record can pin the frontier (this closes R4R1-M-01 — RC-5). | FI-13(1)–(3), FI-13(5) |
 | 4 | **Expiry is an objective proof-side discharge ground keyed on the record's own deadline.** A record is *dead* at the anchored view `A` iff `deadlineBlock ≤ A`, and dead-at-`A` is a third resolution mode the proof applies with no execution, no witness and no L1 call. The pruning is made consistent by making it **deletion only, behind the settlement frontier** — the prune returns no frontier and advances nothing (this closes R6-D12-01). | FI-10(2)/(7), §4.2 |
 | 5 | **The forced-data record is the D-11 publication record: one register, no flag.** The register is `publish(...)`/`publicationAt(...)`; the FI family adds a settlement record per accepted height, the `forcedBoundary` commitment, the prune, the frontier event and the errors — **no second entry point, no "forced" flag, no escrow and no fee**. | FI-10(1) |
 | 6 | **Enforcement is the proof, never the gate.** `land` gains no rejection that depends on the register being non-empty; the capacity check is part of proof validity; the single expiry prune is not an acceptance condition (this preserves L1-04's no-gate property). | FI-11(1) |
@@ -95,13 +95,14 @@ obligation discharged with nothing executed, repeatable at one L1 publication pe
 ("a full block does not admit the transaction") gave the same outcome by ambiguity.
 **Resolution:** FI-13(1)–(3) — **every producer-set term is removed from the predicate.** Whether a
 position resolves is a function of the record's immutable byte string, the registered constants, and two
-L2-state facts the producer cannot move (the sender's nonce and free balance): each transaction executes,
+L2-state facts the producer cannot move (the sender's nonce and balance): each transaction executes,
 or is **discharged** at its turn because it cannot execute there, and a position is void only when it is
-over-bound or every one of its transactions is discharged. Base fee, block gas limit and block space are
+over-bound, contains a transaction that can never be executed from its own bytes, or every one of its
+transactions is discharged. Base fee, block gas limit and block space are
 not inputs to any execution, discharge or due test. The "block full" excuse is removed by the per-block
 duty (FI-11(4)) plus the proof-side resolution walk, not by an argument about room. **The walk is total**
 (FI-13(5)): because execution follows the record's own order and only the sender's own signed
-transactions can move its nonce or free balance, no producer can leave a transaction unresolved by its
+transactions can move its nonce or balance, no producer can leave a transaction unresolved by its
 own choices, and a record with one executable and one never-executable transaction is resolved by
 discharging the second — the record-level ground that left exactly that record unresolved is R4R1-M-01's
 Critical, superseded here (RC-5).
@@ -248,9 +249,11 @@ it.
    record's transactions — RC-5);
 4. require that every position in `[c, c + R)` is **resolved** under FI-13(1)'s three modes, each of
    the record's transactions executed or discharged at its turn by the per-transaction walk (a position
-   with at least one execution is (a) executed with its discharged transactions void individually; a
-   position all of whose transactions are discharged is (b) void; no position can be left unresolved
-   because the walk is total — RC-5), and recompute `c' = c + R`; and
+   with at least one execution is (a) executed, with its executed transactions recorded as executed and
+   its discharged ones recorded as discharged; a position whose record is over-bound or contains a
+   transaction that can never be executed from its own bytes, or all of whose transactions are
+   discharged, is (b) void; no position can be left unresolved because the walk is total — RC-5), and
+   recompute `c' = c + R`; and
 5. require that **every** position in `[c, c')` holds a record at `A` — a position with no record at
    `A` (a hole in the register) is neither executed, void nor dead and MUST make the proof invalid —
    and that the journal's `settledAfter` equals `c'`.
@@ -422,13 +425,18 @@ latency guarantee. **F-FI-2 is not fixed by this increment** (§6.3).
 - **(a) executed** — the record at `j` is live at `A`, and walking its transactions in the record's own
   order each one either **executes** (appears in the batch's executed payload, each exactly once, in
   increasing transaction index within the record, with the record's transactions recovered from its
-  published byte string as FI-13(2) fixes) or is **discharged** — it does not appear, and at the state
-  its turn reaches, after the record's own preceding transactions have executed, it cannot execute: its
-  declared nonce is then not the sender's nonce (ahead of it, or already consumed), or the sender's free
-  balance there is below `t.gasLimit × t.maxFeePerGas + t.value`; at least one of them executes, and each
-  discharged one is **void individually**;
-- **(b) void** — the record at `j` is over-bound under FI-13(2)(i)–(ii), or it is live at `A` and every
-  one of its transactions is discharged, so none of them executes; or
+  published byte string as FI-13(2) fixes) or is **discharged** — it does not appear, and at the pre-state
+  its turn reaches in the batch's own execution, after the record's own preceding transactions have
+  executed and after every transaction the batch executes before that point, it cannot execute: its
+  declared nonce does not equal the sender's nonce at that pre-state (ahead of it, or already consumed),
+  or the sender's balance at that pre-state is below `t.gasLimit × t.maxFeePerGas + t.value` — with at
+  least one of them executing; a position all of whose transactions executed is **executed**, and the
+  mixed case is **resolved** with the executed transactions recorded as executed and the discharged ones
+  recorded as discharged;
+- **(b) void** — the record at `j` is over-bound under FI-13(2)(i)–(ii), or it contains a transaction
+  that cannot be executed from the record's own bytes (for example its chain id does not match
+  FI-13(2)(iii)), so no batch can execute it at any pre-state, or it is live at `A` and every one of its
+  transactions is discharged, so none of them executes; or
 - **(c) dead** — the record at `j` is **dead at `A`** (FI-10(2), FI-10(7)).
 
 No other ground resolves a record, at any layer: not a proposer's claim, not a validator's vote, not a
@@ -437,7 +445,9 @@ pruned slot. A transaction that can execute at its turn and does not appear in t
 neither executed nor discharged: the position is then unresolved, and FI-11(3)(c) makes the proof
 invalid — that is the obligation of FI-11. *(R4R1-M-01: the ground is per transaction, in the record's
 own order; the record-level forms "all of its transactions" and "none of whose transactions is
-forceable" are superseded and MUST NOT be restored.)*
+forceable" are superseded and MUST NOT be restored. A transaction that can never be executed from the
+record's own bytes — a chain id that does not match FI-13(2)(iii) — is a record-level void ground, not a
+discharge at a turn, so the walk stays total over both halves of FI-13(2).)*
 
 **(2) The predicate — record bytes, registered constants, pre-state, and nothing else.**
 
@@ -453,31 +463,32 @@ The predicate has **no other input**. In particular the including block's **base
 limit**, its **remaining gas**, and the producer's ordering are **not** inputs to forceability,
 voidness or dueness. Whether a record is void is a function of the record's own published byte string
 — fixed at publication and immutable (DA-07(3)) — of registered constants, and of two L2-state facts
-the producer cannot move (a nonce and a free balance). It is identical in every batch and at every view
+the producer cannot move (a nonce and a balance). It is identical in every batch and at every view
 that reaches the record.
 
 **(3) The discharge ground cannot be steered — and the producer's environment cannot manufacture it.**
 No producer, prover, validator or submitter can make a due record void by choosing block contents: the
 terms it could previously move (base fee, block gas limit, room) are gone from (2), and the terms the
-walk reads are the record's own bytes, the registered constants, and the sender's nonce and free balance
+walk reads are the record's own bytes, the registered constants, and the sender's nonce and balance
 at the transaction's turn. Execution follows the record's own order, and the only things that can move an
-account's nonce or free balance are that account's own signed transactions — nothing a block producer
+account's nonce or balance are that account's own signed transactions — nothing a block producer
 sets — so a producer cannot manufacture a discharge ground for someone else's transaction: if the sender
 has signed no other transaction that supersedes or defunds it, a transaction that can execute at its
 turn must be executed, never discharged, and a producer that omits it makes the proof invalid. Nor can
 the ground be steered in the other direction: a transaction that genuinely cannot execute at its turn
-(its nonce ahead and unreachable, or its free balance short of its own declared maximum charge) is
+(its nonce ahead and unreachable, or its balance short of its own declared maximum charge) is
 discharged in every batch, at every view, in every producer's hands. *(R4R1-M-01: the per-transaction
 ground keeps R6-D12-05's removal of the environment half and makes the walk total; the residual for a
 transaction discharged by the sender's own further signed transaction, or unaffordable at its turn, is
 F-FI-3.)*
 
-**(4) What a record that genuinely cannot execute does.** A record above any registered bound is
-**void**, and so is a live record every one of whose transactions is discharged at its turn, so that
-none of them executes: in both cases the frontier advances past the position, the proof requires **no
+**(4) What a record that genuinely cannot execute does.** A record above any registered bound, or one
+containing a transaction that cannot be executed from the record's own bytes at any pre-state (for
+example a chain id that does not match FI-13(2)(iii)), is **void**, and so is a live record every one of
+whose transactions is discharged at its turn, so that none of them executes: in both cases the frontier advances past the position, the proof requires **no
 execution and no re-supply of its bytes**, and the published bytes remain on L1. A record with some
-transactions executed and some discharged is resolved as (a): the executed ones are executed, each
-discharged one is **void individually**, and the sender may re-publish it. A dead record (mode (c)) is
+transactions executed and some discharged is resolved as (a): the executed ones are recorded as
+executed, the discharged ones as discharged, and the sender may re-publish any discharged transaction. A dead record (mode (c)) is
 discharged the same way and even more cheaply: only its stored `l1BlockNumber` is read. In every case
 the remedy is **re-publication** under DA-09(2), which creates a new record with a new sequence and a
 fresh clock; the user's own permissionless re-publication is the exit, and nothing about any path
@@ -491,7 +502,7 @@ advances at least one position per accepted batch and a record's transactions ar
 published record can pin the frontier or halt settlement**: a record whose remaining transactions cannot
 execute is fully discharged by that discharge, not left unresolved, and a batch exists that resolves it.
 The property holds because execution follows the record's own order and the only things that can move an
-account's nonce or free balance are that account's own signed transactions (3): a producer cannot
+account's nonce or balance are that account's own signed transactions (3): a producer cannot
 manufacture a discharge ground for a transaction the sender has not itself superseded or defunded, so it
 cannot make a forceable transaction unexecutable by its own choices, and it cannot leave a position
 unresolved that the record's own bytes and the sender's own state do not already discharge. Void is
@@ -998,7 +1009,7 @@ publication-time admission condition. Two candidates were considered and one is 
 | FI-12 cap | `min(FI_MAX_PER_BATCH, floor(batchGasCapacity/itemGasBound))` | kept **and enforced** in the guest, with `R ≥ 1` whenever the outstanding obligation is non-empty (`R ≥ min(W, FI_MIN_DRAIN) ≥ 1` whenever a live record is outstanding — RC-2) | R6-D12-04: no enforcement point existed |
 | FI-12 claims (1)–(4) | counting argument | restated in positions per batch with `W` (live) and `R` (resolved) | one unit; dead records cost no gas |
 | FI-13 predicate | chain id, nonce, balance **at that block's base fee**, gas limit **fits the block** | chain id, nonce, balance against `t`'s **own declared maximum charge**, gas limit `≤ FI_RECORD_GAS_MAX`; **base fee and block gas limit removed** | R6-D12-05 (environment steering) |
-| FI-13 discharge | included or void "only if not includable in any block of the batch" | executed, void, **or dead**; a transaction is executed or **discharged at its turn**, and void = over-bound or every transaction discharged (RC-5) | R6-D12-01; R4R1-M-01; the "block full" ambiguity removed |
+| FI-13 discharge | included or void "only if not includable in any block of the batch" | executed, void, **or dead**; a transaction is executed or **discharged at its turn**, and void = over-bound, a transaction that can never be executed from its own bytes, or every transaction discharged (RC-5) | R6-D12-01; R4R1-M-01; the "block full" ambiguity removed |
 | FI-13 "no other ground" | "not the record's own age while it is still live" | dropped; age is now a named ground when dead | the qualifier implied a ground no rule had |
 | FI-14 no discretion | list forbids "skips a prefix element except by include-or-void under FI-13" | "except by executed, void or dead under FI-13(1)" | blocker 4 |
 | FI-14 across a stall resolution | four clauses reading REC-02/REC-04 | **deleted**; replaced by monotone L1 state, L1-reorg carry, and the explicit no-recovery non-interaction | D-15/D-16: v1 has no recovery |
@@ -1036,6 +1047,7 @@ publication-time admission condition. Two candidates were considered and one is 
 | 23 | A proposal omits a required record and the proof accepts it (FI-11/FI-13) | FI-11(2)(4), FI-11(3)(c): every position in `[c, c')` must be resolved; an unconditional walk |
 | 24 | A per-block count forces validators to vote NIL, halting certification (R6-D12-03) | FI-11(4): the block duty is decidable from the block's own body; no count is imposed |
 | 25 | A live record with one executable and one never-executable transaction is neither executed, void nor dead, so every proof in the window is invalid until expiry — a permissionless, repeatable, chain-wide settlement halt (R4R1-M-01, round 1 Critical) | FI-13(1) + FI-13(5): the resolution ground is per transaction and total — the executable transaction must execute, the non-executable one is discharged at its turn, and no published record can pin the frontier (RC-5) |
+| 26 | A live record with one executable transaction and one that can never be executed from its own bytes (a chain id that does not match FI-13(2)(iii)) is neither executed nor discharged at a turn — the same halt in its immutable half | FI-13(1)(b)/(4): the immutable half of the forceability predicate is a record-level void ground, so the record resolves void and the frontier advances (R4R1-M-01) |
 
 ---
 
@@ -1184,13 +1196,13 @@ executing the record's transactions **in the record's own order**. Each transact
 transactions have executed, it cannot execute at that pre-state (its nonce is ahead of, or already
 consumed past, the account's resulting nonce, or it is unaffordable there). A position is **resolved**
 when every one of its transactions has either executed or been discharged; it is **executed** when at
-least one executes, with the discharged ones **void individually**, and **void** when none executes;
+least one executes, with the discharged ones recorded as discharged, and **void** when none executes;
 **dead** is unchanged. **Totality is a rule property**: every position resolves in a bounded number of
 batches, so no published record can pin the frontier and halt settlement — a record whose remaining
 transactions cannot execute is fully discharged by that discharge, not left unresolved. **The anti-void
 property is preserved exactly**: a producer still MUST NOT be able to make a forceable transaction
 unexecutable by its own choices, because execution follows the record's own order and the only things
-that can move an account's nonce or free balance are that account's own signed transactions — a producer
+that can move an account's nonce or balance are that account's own signed transactions — a producer
 cannot manufacture a discharge ground for someone else's transaction. **F-FI-3 is restated** for the new
 semantics: a discharged transaction may become executable later only through the sender's own further
 signed transactions, and the remedy for a record whose transactions were discharged is re-publication
@@ -1201,7 +1213,10 @@ walk), FI-13(3) (non-steerability and the anti-void property), FI-13(4) (the voi
 FI-13(5) (totality as a rule property) and its F-FI-3 disclosure, FI-11(2)(3)–(4) (the window walk), and
 the exit non-interaction paragraph; `spec/05-proof-statement.html` PRF-04(vi); and this delta — §0 row 3,
 §1(c), §2's FI-11(2)(4) and FI-13, §3.3, §3.4, §6.1's F-FI-3 row, §7.1–7.2, Appendix A and Appendix B
-row 25.
+rows 25–26. The immutable half of FI-13(2) is kept as a record-level void ground: a transaction that can
+never be executed from the record's own bytes — a chain id that does not match FI-13(2)(iii) — is not
+discharged at a turn but voids the record (FI-13(1)(b), FI-13(4)), so the walk stays total over both
+halves of the forceability predicate.
 
 **The record-level ground MUST NOT be restored.** The superseded forms are: FI-13(1)(a)'s requirement
 that **all** of the record's transactions appear, FI-13(4)'s "a record none of whose transactions is
