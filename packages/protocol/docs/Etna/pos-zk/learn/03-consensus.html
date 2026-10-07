@@ -115,9 +115,9 @@ pre-hash.</p>
 <thead><tr><th>Object</th><th>Fields (canonical order)</th><th>Signed domain tag</th></tr></thead>
 <tbody>
 <tr><td><code>Proposal</code></td><td><code>chain_id:u256, epoch:u64, height:u64, round:u32, proposer_index:u32, block_hash:bytes32, parent_hash:bytes32, pol_round:Option&lt;u32&gt;</code></td><td><code>"TAIKO_ETNA_PROPOSAL_V1"</code> (with a kind byte and value for the optional <code>pol_round</code>)</td></tr>
-<tr><td><code>Vote</code></td><td><code>chain_id:u256, epoch:u64, height:u64, round:u32, type:u8, block_id, validator_index:u32, timestamp:u64</code></td><td><code>"TAIKO_ETNA_VOTE_V1"</code></td></tr>
+<tr><td><code>Vote</code></td><td><code>chain_id:u256, epoch:u64, recovery_generation:u64, height:u64, round:u32, type:u8, block_id, validator_index:u32, timestamp:u64</code></td><td><code>"TAIKO_ETNA_VOTE_V1"</code></td></tr>
 <tr><td><code>block_id</code></td><td>tagged union: <code>kind = 0</code> is <code>NIL</code> (value zero), <code>kind = 1</code> is <code>BLOCK(bytes32)</code>. The tag keeps <code>NIL</code> distinct from every 32-byte value, including zero.</td><td>inside the vote encoding</td></tr>
-<tr><td><code>CommitCertificate</code></td><td><code>chain_id:u256, epoch:u64, height:u64, round:u32, block_id, set_root:bytes32, signers:bytes, signatures:bytes[]</code></td><td>not signed as a whole: it is the aggregate of per-validator <code>PRECOMMIT</code> signatures, and its own hash uses <code>"TAIKO_ETNA_CERT_V1"</code></td></tr>
+<tr><td><code>CommitCertificate</code></td><td><code>chain_id:u256, epoch:u64, recovery_generation:u64, height:u64, round:u32, block_id, set_root:bytes32, signers:bytes, signatures:bytes[]</code></td><td>not signed as a whole: it is the aggregate of per-validator <code>PRECOMMIT</code> signatures, and its own hash uses <code>"TAIKO_ETNA_CERT_V1"</code></td></tr>
 </tbody>
 </table>
 <ul>
@@ -126,6 +126,7 @@ pre-hash.</p>
 <li><code>signers</code> is a bitmap of <code>ceil(n/8)</code> bytes for a set of <code>n</code> entries. Validator index <code>i</code> owns byte <code>i &gt;&gt; 3</code>, bit <code>1 &lt;&lt; (i &amp; 7)</code> (least-significant bit first); bits above <code>n</code> must be zero, and a non-zero pad bit invalidates the certificate. <code>validator_index</code> is the signer's position in the canonical order of the epoch's set root.</li>
 <li><code>signatures</code> is ordered by ascending signer index and must contain exactly <code>popcount(signers)</code> entries.</li>
 </ul>
+<p><em>This closes round-10 finding R10-CC-01: the vote and the certificate both carry the recovery generation, matching the specification&rsquo;s encoding table.</em></p>
 
 <h3>The rules an implementer must enforce</h3>
 <div class="card">
@@ -167,10 +168,13 @@ failed: it halts and must not treat the certificate as an unlock.</p>
 <div class="card">
 <h4>The commit rule</h4>
 <p>A commit certificate at <code>(H,R)</code> for block <code>B</code> is
-<code>(chain_id, epoch, H, R, B, set_root(epoch), signers, signatures)</code>. It is valid only if
-<code>epoch = epoch_of(H)</code>, <code>set_root(epoch)</code> equals the L1-committed set root for that epoch, and
-more than two thirds of that set's voting power signed <code>PRECOMMIT</code> for <code>B</code> at
-<code>(H,R)</code>, with exactly one verified signature per set bit (<a href="../spec/02-consensus.html#CONS-05">CONS-05</a>). A node treats <code>B</code> as
+<code>(chain_id, epoch, recovery_generation, H, R, B, set_root(epoch), signers, signatures)</code>. It is valid only if
+<code>epoch = epoch_of(H)</code>, <code>set_root(epoch)</code> equals the L1-committed set root for that epoch,
+<code>recovery_generation</code> equals the generation the L1 contract holds and the generation signed by every
+contributing vote, and more than two thirds of that set's voting power signed <code>PRECOMMIT</code> for <code>B</code> at
+<code>(H,R)</code>, with exactly one verified signature per set bit (<a href="../spec/02-consensus.html#CONS-05">CONS-05</a>).
+<em>This closes round-10 finding R10-CC-01: the certificate tuple and its validity condition carry the recovery generation too.</em>
+A node treats <code>B</code> as
 <a href="../spec/index.html#STATUS-04"><strong>certified</strong></a> when it holds a valid certificate, <em>and</em> it has performed its own data-availability
 check for <code>B</code>'s body, <em>and</em> <code>parent(B)</code> is the block it certified at
 <code>H−1</code>. The local decision is a function of the certificate, the node's own data check and its own

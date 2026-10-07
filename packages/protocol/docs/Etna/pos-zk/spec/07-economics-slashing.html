@@ -239,8 +239,11 @@ name indicative: the registered per-call maximum of this loop, <span class="pill
 limit, neither measured here, so no value is stated and it must be fixed by a recorded decision before
 launch). A call MAY freeze that bounded ascending prefix and return; it MUST NOT freeze an epoch out of
 order or skip one. A call whose own effect needs an epoch frozen — a validator claim, a proving-share
-transfer, or the freeze of a later epoch — MUST apply that effect only if the epoch is inside the prefix the
-call can freeze, and MUST otherwise revert with no effect. A call that credits an inflow MUST NOT credit it
+transfer, or the freeze of a later epoch — MUST apply that effect only if the epoch is frozen at the end
+of that prefix step (it was already frozen, or it lies inside the bounded prefix this call freezes), and
+MUST otherwise revert with no effect. <em>This closes review round 10 finding R10-EBA F1: the condition is
+read over the epoch's state at the end of the prefix step, so an already-frozen target is not required to
+lie inside the pending prefix.</em> A call that credits an inflow MUST NOT credit it
 while any pending epoch remains: it freezes the whole pending set when that set holds at most
 <code>FREEZE_MAX</code> epochs, and otherwise the authenticated message MUST revert and stay retriable under MSG-02's per-message status model
 (<a href="04-l1-integration.html#MSG-02">MSG-02</a>), to be re-submitted after the frontier has drained —
