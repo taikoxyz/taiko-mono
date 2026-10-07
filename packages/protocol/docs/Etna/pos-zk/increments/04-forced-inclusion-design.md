@@ -542,8 +542,18 @@ intrinsic-gas floor of (1)(b)(D) and the signature-recovery requirement of (1)(b
 per-block duty inherits the corrected predicate and the two agree by construction.)*
 
 The predicate has **no other input**. In particular the including block's **base fee**, its **gas
-limit**, its **remaining gas**, and the producer's ordering are **not** inputs to forceability,
-voidness or dueness. Whether a record is void is a function of the record's own published byte string
+limit** and its **remaining gas** are **not** inputs to forceability, voidness or dueness, and a
+producer's own transactions are never part of the record. The **record's own ordering** enters the
+walk only through the sender's own signed order: the record's transactions are recovered from its
+published byte string and walked in that order, so a producer cannot insert, reorder or drop one of
+them from the walk. The **pre-state** each turn is judged against is a different thing: it is the
+batch's own executed state, whose content the producer does choose, so a third-party credit it places
+**before** a turn can make a transaction that is unaffordable there without it executable at that turn
+(it is forceable there and must execute), while one placed **after** the turn cannot rescue it and it
+is discharged as unaffordable at its turn; a competing transaction of the sender that the batch carries
+can likewise consume the nonce or spend the balance before the turn. That credit-ordering edge is the
+disclosed residual **F-FI-3** — the producer's ordering does decide that discharge — and the delta does
+not claim otherwise. Whether a record is void is a function of the record's own published byte string
 — fixed at publication and immutable (DA-07(3)) — of registered constants, and of two L2-state facts
 read at the transaction's turn (1)(a) pins: the sender's **nonce**, which only that account's own
 signed transactions can move, and the sender's **balance**, which **anyone can move** — a third-party
@@ -552,19 +562,30 @@ only whether such a credit precedes the turn (the transaction is forceable there
 follows it (the transaction is discharged as unaffordable at its turn, the residual F-FI-3) — together
 with the record's own liveness at `A`, which its stored block number and one registered constant decide
 (FI-10(2)). Apart from the sender's own further signed transactions and the arrival time of third-party
-credits, and the anchored view's relation to that stored number, no batch-to-batch movement in the
-walk's verdict comes from anything the producer sets. *(Liveness: voidness is a function of the record's
+credits, which the producer's own ordering places relative to a turn (the residual **F-FI-3**), and
+the anchored view's relation to that stored number, no batch-to-batch movement in the walk's verdict
+comes from anything **else** the producer sets. *(Liveness: voidness is a function of the record's
 own bytes, registered constants, the sender's own state and the record's own clock — the live-only
 limbs of (1)(b) add no producer-set input. R4R3-T-02: "two facts the producer cannot move" was false
 for the balance — anyone can credit it, and the producer's ordering of that credit decides whether it
 precedes or follows the turn; only the nonce is producer-immovable, and an incoming credit can only
-make a transaction executable, never discharged.)*
+make a transaction executable, never discharged.)* *(correction, R4R3-T-02: the record's own ordering is producer-proof, but the turn pre-state is the batch's own executed state — a credit placed before a turn can rescue an otherwise-unaffordable transaction and one placed after cannot, so the producer's ordering does decide that discharge, the disclosed residual F-FI-3.)*
 
-**(3) The discharge ground cannot be steered — and the producer's environment cannot manufacture it.**
-No producer, prover, validator or submitter can make a due record void by choosing block contents: the
-terms it could previously move (base fee, block gas limit, room) are gone from (2), and the terms the
-walk reads are the record's own bytes, the registered constants, and the sender's nonce and balance
-at the transaction's turn, pinned by position as (1)(a) fixes. Execution follows the record's own
+**(3) The discharge ground cannot be manufactured — and the producer-set inputs that steer it are disclosed.**
+No producer, prover, validator or submitter can manufacture a discharge ground by choosing block
+contents: it cannot move a nonce, reduce a balance, alter the record's own bytes, or change the order
+in which the record's transactions are walked; the terms it could previously move (base fee, block
+gas limit, room) are gone from (2), and the terms the walk reads are the record's own bytes, the
+registered constants, and the sender's nonce and balance
+at the transaction's turn, pinned by position as (1)(a) fixes. What it does choose is the batch's own
+executed state, and so the **pre-state** each turn is judged against: a third-party credit placed before
+a turn can rescue a transaction that is unaffordable there without it (which must then execute), one
+placed after the turn cannot, and a competing transaction of the sender that the batch carries can
+consume the nonce or spend the balance before the turn — the disclosed residual **F-FI-3**. *(correction,
+R4R3-T-02: the original sentence said no producer can make a due record void by choosing block contents;
+that is false in the credit-ordering case — a record whose only transaction a credit placed before its
+turn would rescue is discharged, and so void, when the credit is placed after the turn — while the
+shortfall itself is not producer-manufactured.)* Execution follows the record's own
 order. Of the two facts the walk reads, only the **nonce** is producer-immovable — only that account's
 own signed transactions can move it — while the **balance** can be moved by anyone: an incoming credit
 can only make a transaction **executable**, never discharged, and what a producer's ordering decides is
@@ -1416,7 +1437,8 @@ transaction is likewise neither; and no transaction exists that (2) calls forcea
 block can carry.
 
 **Where the ruling is written.** `spec/04-l1-integration.html` FI-13(1) (the modes and the per-transaction
-walk), FI-13(3) (non-steerability and the anti-void property), FI-13(4) (the void and mixed cases),
+walk), FI-13(3) (the anti-manufacture and anti-void property, with the producer-set steering
+edges disclosed), FI-13(4) (the void and mixed cases),
 FI-13(5) (totality as a rule property) and its F-FI-3 disclosure, FI-11(2)(3)–(4) (the window walk), the
 per-block duty of `CONS-01(v)`/FI-11(4) (scoped to the transaction's turn — addendum 2), and the exit
 non-interaction paragraph; `spec/05-proof-statement.html` PRF-04(vi) (the turn pinned by position); and
