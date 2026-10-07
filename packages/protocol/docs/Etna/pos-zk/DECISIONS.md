@@ -814,3 +814,14 @@ therefore runs **F-FI-1–F-FI-8** wherever it is enumerated (the `FI_MIN_EXEC_F
 repair — F-FI-7 of the fee-floor repair, F-FI-8 of the enumeration repair. D-12 and D-16 are untouched.
 *(review round 4, finding S-01: the enumeration residual and F-FI-8 are appended here; the entry and the
 addenda above are preserved as history.)*
+
+**Further addendum (increment 04, the settled Open/disclosed split).** The entry and the addenda above stand
+as the historical record; this further addendum records the final split now stated in the `LIM-01` preamble
+of `10` and supersedes the entry's sentence beginning "The other falsifiers travel disclosed". In the one
+sense that preamble fixes — **Open** names a premise or residual no rule currently closes and whose
+falsification would be a defect, while an inherent limit or condition of the design is **disclosed**, not
+Open — the split is **Open: F-FI-1, F-FI-2, F-FI-7 and F-FI-8**; **disclosed: F-FI-3, F-FI-4, F-FI-5 and
+F-FI-6**. The superseded sentence counted F-FI-1 among the disclosed and did not carry F-FI-7 and F-FI-8,
+which are Open; F-FI-2 is Open as the entry already states. D-12 and D-16 are untouched. *(correction: the
+entry's "the other falsifiers travel disclosed" list is superseded by the final split; the entry and the
+addenda above are preserved as history.)*

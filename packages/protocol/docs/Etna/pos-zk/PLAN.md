@@ -32,8 +32,11 @@ order is by value and by readiness, not by size.
    objective proof-side discharge ground - are closed by
    `increments/04-forced-inclusion-design.md`, and `DEFERRED.md` section 1 is the revival record.
    The implementation and the increment's own review round are in flight; it ships only after two
-   consecutive clean rounds. F-FI-2 (arrivals exceeding the drain) ships open and disclosed, with no
-   per-publisher bound added.
+   consecutive clean rounds. F-FI-2 (arrivals exceeding the drain) ships **Open** and unfixed by design:
+   no per-publisher bound on `publish()` is added, because a condition on publication is outside what
+   D-12 authorises. Open is what the design says of a premise no rule closes whose falsification would be
+   a defect; disclosed is what it says of an inherent limit, and F-FI-2 is the former. *(correction: this
+   line read "ships open and disclosed"; the two classes are exclusive and F-FI-2 is Open, not disclosed.)*
 4. **Increment 5 - the governance stall resolution (D-15): last.** It was the newest and least
    reviewed. Its blockers: an entry state machine with an `executed` state, the resolved exit
    contradiction (already fixed for v1 by MEM-15(2b)), and a generation rule for the anchor

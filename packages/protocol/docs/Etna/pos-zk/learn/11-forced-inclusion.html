@@ -191,7 +191,7 @@ fixed order: dead first and unconditionally, then the live-only void grounds, th
 <tr><td>The advance</td><td><code>c&prime; &ge; min(d(A), c + FI_MAX_PER_BATCH)</code>, <code>c&prime; &le; nextSeq(A)</code> and <code>c&prime; &ge; c</code>.</td><td>The lower bound is unconditional &mdash; no exception waives it &mdash; and the frontier never decreases and never passes the register.</td></tr>
 <tr><td>The walk</td><td>Every position in <code>[c, c&prime;)</code> is resolved &mdash; executed, void or dead &mdash; in the fixed order: dead first and unconditionally, then, for a live record, the void grounds (over a registered bound, a transaction that can never run from the record&rsquo;s own bytes, or every transaction set aside at its turn), and only then the walk of the record&rsquo;s transactions in the record&rsquo;s own order, each one run or set aside at its turn; every position in that range holds a record at <code>A</code>.</td><td>A live record with a transaction that can run at its turn cannot be skipped, and a hole in the register makes the proof invalid.</td></tr>
 <tr><td>Capacity</td><td>With an outstanding obligation the batch&rsquo;s own header gas must cover the work, and the required window cannot collapse to zero: the registered floor <code>FI_MIN_DRAIN</code> (<code>1 &le; FI_MIN_DRAIN &le; FI_MAX_PER_BATCH</code>) makes <code>R = 0</code> impossible.</td><td>The cap is part of proof validity, not an admission rule, and it cannot be chosen down to zero by taking a one-block batch.</td></tr>
-<tr><td>The per-block duty</td><td>Order and non-omission only (<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>(v)): a block never executes a later record&rsquo;s forced transaction ahead of an earlier one, and must carry a forceable forced transaction when its own remaining gas covers the gas that transaction declares.</td><td>There is no per-block count and no per-block gas quota, so no registered value is used in two units and no block is asked for more than it can hold.</td></tr>
+<tr><td>The per-block duty</td><td>Order and non-omission only (<a href="../spec/02-consensus.html#CONS-01">CONS-01</a>(v)): a block never executes a later record&rsquo;s forced transaction ahead of an earlier one, and must carry a forceable forced transaction when its own remaining gas covers the gas that transaction declares. A block that contains a transaction of a forced record once a higher-index transaction of that same record has already appeared in the executed payload of the range is invalid, on the same footing as a block that had room to carry a demanded transaction and omitted it. <em>This closes the block-validity order rule: an out-of-order block is invalid, not merely unsettled.</em></td><td>There is no per-block count and no per-block gas quota, so no registered value is used in two units and no block is asked for more than it can hold.</td></tr>
 <tr><td>The commitment</td><td>One <code>forcedBoundary</code> value in the proof&rsquo;s journal, recomputed by the guest and required to match.</td><td>The L1-derived view reaches the proof as a single commitment, never as a submitter-supplied frontier or due list.</td></tr>
 </tbody>
 </table>
@@ -228,7 +228,8 @@ time.</p>
 <li><strong>F-FI-1 &mdash; capacity and schedule.</strong> A registration or fork that breaks the capacity
 relation, or an L2 gas-limit schedule under which a maximum-length batch at the registered per-block bound
 cannot be produced, makes the &ldquo;a compliant batch exists&rdquo; premise false and can re-open a halt.
-No registered rule maintains that schedule premise.</li>
+No registered rule maintains that schedule premise: it is a premise nothing in the protocol maintains, not
+a property the design guarantees.</li>
 <li><strong>F-FI-2 &mdash; arrivals exceed the drain.</strong> <em>Carried open; not fixed.</em> This is the
 bound on time, not on work: if the arrival rate of livable records permanently exceeds the drain the
 obligation forces, waits grow without bound. The mechanism still does not halt, but the deadline is then an
@@ -242,12 +243,15 @@ transaction runnable, never set one aside: where a credit lands relative to the 
 unaffordable transaction runs there (credit before the turn) or is set aside (credit after it), the one
 producer-set ordering that can decide a discharge. The outcome is objective and final for the batch that resolves the position, and the remedy for a
 record whose transactions were set aside is re-publication; a predicate that could reopen the position would
-need a mutable status field.</li>
+need a mutable status field. That path is the design&rsquo;s own disclosed price, not a question the design
+leaves unclosed.</li>
 <li><strong>F-FI-4 &mdash; expiry outruns the frontier.</strong> A settlement stall longer than the
 record&rsquo;s deadline, or a queue that drains more slowly than records age, discharges a record by expiry
-rather than including it. Expiry is a discharge, not a guarantee.</li>
+rather than including it. Expiry is a discharge, not a guarantee: it is the design&rsquo;s own way of ending
+a record&rsquo;s wait, not a defect in the design.</li>
 <li><strong>F-FI-5 &mdash; the producer and the L1.</strong> The guarantee is conditional on at least one
-honest or rational producer and on an L1 that includes the publication; an L1-level adversary is outside it.</li>
+honest or rational producer and on an L1 that includes the publication; an L1-level adversary is outside it.
+Those conditions are the boundary the guarantee itself states, not a gap left in it.</li>
 <li><strong>F-FI-6 &mdash; the anchor-age residual.</strong> A certified range whose landing is deliberately
 delayed past the registered anchor age, and past blob retrievability, is permanently unacceptable. The
 registered relations are chosen to make this impossible inside the normal envelope; the deliberate-delay
@@ -258,7 +262,8 @@ record&rsquo;s own bytes. The premise is that the floor sits at or above the hig
 fee schedule can produce, and no registered rule maintains that schedule. If the schedule can rise above the
 floor, a transaction the rule calls forceable &mdash; and the per-block duty demands &mdash; is one no valid
 block can carry: the proof cannot show it run, the position cannot resolve, and settlement waits until the
-record expires. The floor itself is <span class="tag">unmeasured</span>.</li>
+record expires. The floor itself is <span class="tag">unmeasured</span>. The fee-schedule premise is one
+nothing in the protocol maintains: no rule keeps the L2 fee schedule at or below the floor.</li>
 <li><strong>F-FI-8 &mdash; the enumeration residual.</strong> The forceability test reads the
 record&rsquo;s own published bytes and the state at the transaction&rsquo;s turn, and it rules out the reasons
 those two inputs and the enumerated validity classes decide. It cannot rule out a reason that depends on
@@ -270,6 +275,8 @@ until the record is dead, and that is the same halt the enumerated reasons would
 is exact over the reasons its own inputs and the enumerated classes decide; a reason outside them stays open
 as F-FI-8.</em></li>
 </ul>
+<p><em>Each entry above now says whether it is a premise nothing in the protocol maintains or a price or
+condition the design states for itself &mdash; a distinction the list previously left unstated.</em></p>
 
 <h2>Worked example &mdash; walking the frontier</h2>
 <p>The counts below are symbols, not values: every <code>FI_*</code> quantity is

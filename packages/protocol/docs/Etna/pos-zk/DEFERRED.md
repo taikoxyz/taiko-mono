@@ -94,24 +94,25 @@ remedy for F-FI-2 — is **not adopted**: it is a condition on `publish()`, whic
 and which would change DA-07(1)'s "any account MUST be able to publish". F-FI-2 therefore stays an
 **open, unfixed falsifier**, and the guarantee is stated with its condition wherever it is summarised: it
 holds only while the arrival rate of livable records stays within the drain the obligation can force. The
-disclosed residue travels with the revived rules rather than as deferred work: **F-FI-1** (the capacity
-relation constrains a value, and no registered rule maintains the L2 gas-limit schedule premise),
-**F-FI-3** (the credit-ordering edge: a transaction discharged at its turn may become executable later
+residue travels with the revived rules rather than as deferred work, and each entry says which class it
+is in: **F-FI-1** (**Open** — the capacity relation constrains a value, and no registered rule maintains the
+L2 gas-limit schedule premise),
+**F-FI-3** (**disclosed** — the credit-ordering edge: a transaction discharged at its turn may become executable later
 through the sender's own further signed transactions or through a third-party credit, and where such a
 credit lands relative to the turn of a transaction that is unaffordable there without it — before it, the
 transaction is forceable there and must execute; after it, the transaction is discharged as unaffordable
 at its turn — is the producer-set ordering that can decide a discharge, because the discharge is judged at
 the turn and a credit can never discharge a transaction, only enable it; re-publication is the remedy),
-**F-FI-4** (a record
-can age out to dead rather than be included), **F-FI-5** (the guarantee is conditional on a non-censoring
-L1 and on at least one honest or rational producer), **F-FI-6** (a certified range deliberately delayed
-past the anchor-age envelope is permanently unacceptable; the registered relations close the in-envelope
-case, the residual stays disclosed) and **F-FI-7** (the registered fee floor `FI_MIN_EXEC_FEE_CAP` is at or
+**F-FI-4** (**disclosed** — a record can age out to dead rather than be included), **F-FI-5**
+(**disclosed** — the guarantee is conditional on a non-censoring L1 and on at least one honest or rational
+producer), **F-FI-6** (**disclosed** — a certified range deliberately delayed past the anchor-age envelope is
+permanently unacceptable; the registered relations close the in-envelope case, the residual stays disclosed)
+and **F-FI-7** (**Open** — the registered fee floor `FI_MIN_EXEC_FEE_CAP` is at or
 above the maximum execution base fee the L2 fee schedule can produce — the fee analogue of F-FI-1, stated
 rather than maintained: no registered rule constrains the L2 fee schedule, and a schedule that can exceed
 the floor makes a transaction the predicate calls forceable one no valid block can carry, the review round
-4 finding F1 Critical again; falsifier: a schedule that can exceed the floor) and **F-FI-8** (the enumeration
-residual: the predicate decides the record's own bytes and the turn pre-state it fixes, so an
+4 finding F1 Critical again; falsifier: a schedule that can exceed the floor) and **F-FI-8** (**Open** — the
+enumeration residual: the predicate decides the record's own bytes and the turn pre-state it fixes, so an
 execution-validity rule a valid block enforces that depends on neither is carried Open rather than denied;
 falsifier: a transaction the predicate calls forceable and the discharge ground does not discharge at its
 turn that no valid block of the range can carry — the walk then demands an execution no valid block can
@@ -119,6 +120,8 @@ perform and the position cannot resolve, the settlement-halt class the enumerate
 "a voided record may become forceable later" form is superseded. Review round 4, finding F1: F-FI-7 and the
 fifth byte class are carried with the floor, and the floor stays unmeasured with its stated relation only.
 Review round 4, finding S-01: F-FI-8 is carried as the enumeration residual, Open; the set runs to F-FI-8.)*
+*(correction: this list was headed "the disclosed residue" and counted F-FI-1, F-FI-7 and F-FI-8 among the
+disclosed; the three are Open, and every entry now names its class.)*
 
 **What a future increment would need.** Two things, neither of which this increment may do:
 (i) a decision on the per-publisher live-record bound, or another publish-time bound, as an explicit change

@@ -773,7 +773,40 @@ exhaustive list, so the rule and a guest implementation agree on the whole set; 
 by the record's own bytes, the registered constants and the chain id, never by L1 state, a producer
 input or an oracle.)*
 
-**(2) The predicate — record bytes, registered constants, pre-state, and nothing else.**
+**(2) The predicate — record bytes, registered constants, pre-state, and nothing else.** `FI-13(2)` reads, in full:
+
+> A transaction `t` of a record is **forceable** at a pre-state iff all of: (i) the record's
+> published byte string is at most `FI_ITEM_MAX_BYTES` bytes and decodes under PRF-07(0) as the
+> frame sequence of the record's own stored claimed range (DA-07(1)) to frames whose block bodies
+> carry at most `FI_MAX_TX_PER_RECORD` transactions in total — those are the record's transactions,
+> recovered in frame order; (ii) `t`'s gas limit is at most `FI_RECORD_GAS_MAX` and **at least the
+> intrinsic gas of `t`'s own data** — a fixed function of the transaction's own bytes, so a
+> transaction that declares less is executable by no valid block — and the record's transactions'
+> gas limits sum to at most `FI_MAX_TX_PER_RECORD × FI_RECORD_GAS_MAX`; (iii) the chain id matches;
+> (iv) `t`'s signature **recovers to a sender** — a transaction whose signature does not recover has
+> no sender, so no valid block can execute it — and `t`'s nonce equals that sender's nonce at that
+> pre-state; (v) the sender's balance at that pre-state is at least `t.gasLimit × t.maxFeePerGas +
+> t.value` — **`t`'s own declared maximum charge**; and (vi) `t`'s declared `maxFeePerGas` is at
+> least the registered floor `FI_MIN_EXEC_FEE_CAP` — one registered constant compared against the
+> transaction's own declared cap: a deliberate **policy requirement**, so a transaction that
+> declares less is not forceable and the record that contains it is void by rule rather than because
+> no valid block could carry it, since a cap below the floor can still exceed the current base fee
+> and be perfectly carryable; the boundary is drawn on the registered constant so that the predicate
+> need not read the live base fee, which a producer can move (reading it would reopen R6-D12-05's
+> producer steering), and the Open fee-schedule premise the 09 row records (F-FI-7) is what makes it
+> safe — under it the floor is at or above the maximum execution base fee the L2 fee schedule can
+> produce, so a transaction the predicate calls forceable is never refused by a block for its fee
+> cap *(review round 5, finding S-03: the floor voids a below-floor declaration by rule; it is not
+> a claim that such a transaction is executable by no valid block.)*; (vii) `t`'s declared
+> `maxPriorityFeePerGas` is at most its declared `maxFeePerGas` — a malformed fee market is a
+> property of the transaction's own bytes, and no valid block can carry it (EIP-1559); and (viii)
+> `t` is not a create transaction whose declared initcode exceeds the EIP-3860 initcode size cap —
+> the cap is decided by the transaction's own bytes, and (ii)'s intrinsic-gas floor prices initcode
+> per word without capping it.
+
+*(F2 (review round 5, quotations-and-counts): the transcription below had been taken from the clause's mid-round-5 text and is re-transcribed from the current `spec/04` FI-13(2), word for word. Stripped of tags, blockquote markers, backticks and emphasis and whitespace-normalised, the span above is 2556 characters and a contiguous substring of the live clause; the transcription it replaces was 2482 characters and not contiguous. The copy it replaces is kept immediately below, explicitly labelled as the text as it stood at the round it was taken from.)*
+
+*(History — F2 (review round 5, quotations-and-counts): the transcription as it was taken at review round 5 (commit `e6f650541`), when the clause's (vi) and its S-03 note were still being reworded. It is kept only as the delta's record of the earlier text and is **not** the live clause: its (vi) read "rather than because no valid block could carry it — a cap below the floor can still exceed the current base fee and be carryable", named "its register row" rather than the `09` row, and its S-03 note read "below-floor caps are void by rule, not uncarryable in every state". The current transcription is the one under "reads, in full" above.)*
 
 > A transaction `t` of a record is **forceable** at a pre-state iff all of: (i) the record's published
 > byte string is at most `FI_ITEM_MAX_BYTES` bytes and decodes under PRF-07(0) as the frame sequence of
@@ -1823,6 +1856,8 @@ The S-02 repair (RC-7(b)) pinned the turn of a transaction that does not appear 
 **The superseded forms MUST NOT be restored.** A tail turn at "the end of the batch's execution"; a tail turn at the pre-state immediately before the last block of the range's body, on which an earlier transaction of the record that is placed in that block has not yet executed (RC-8); a duty that compels a transaction no block of the range at or after its turn had room for; a walk that demands a transaction the per-block duty excuses; an unqualified "no valid block can carry" claim; a predicate or void list without the fee-order and initcode classes; a discharge ground read from the live base fee; and a record object that is not DA-07(1)'s PRF-07(0) payload; and an index-order condition that is proof-only, or a consensus rule that leaves the inclusion order of a record's transactions to the producer — the block-validity order requirement of `CONS-01(v)`/FI-11(4) is what closes the inclusion-side halt (R4R4-NR-01).
 
 **F1 (review round 5, quotations-and-counts) — the FI-11(4) transcription of `CONS-01(v)` is re-transcribed, and the copy it replaces is kept as history.** The quotation under "reads, in full" had gone stale with the R4R5-NR-02 no-room-width repair; it now reproduces the current `spec/02` `CONS-01(v)` from its heading to the clause's end, word for word — stripped of markdown emphasis and tags and whitespace-normalised, 10988 characters, a contiguous substring of the live clause — and the transcription it replaces is kept immediately below it, explicitly labelled as the text as it stood at the review round 5 snapshot (`5887d600a`). The still earlier round-3/4 body F1's measurement quotes ("at every pre-state of `h`", without the round-4 block-validity order requirement) had already been superseded by the RC-7/RC-8 tail-turn re-pin; it is recorded in the repair note and RC-5 addendum 2 and is not reprinted. The same normalised check closed one further drift in §2's rule text: FI-11(3)(e) now carries the registered age check and `ForcedViewStale` the live clause states, so FI-11(3)'s items are 994 characters and a contiguous substring of the live rule.
+
+**F2 (review round 5, quotations-and-counts) — the §2 `FI-13(2)` transcription is re-transcribed from the current clause, and the copy it replaces is kept as history.** The blockquote under §2's FI-13(2) had been taken from the clause's mid-round-5 text, while §2's predicate was being reworded: its (vi) lacked the clause's "policy requirement" and "perfectly carryable" wording and its `09` register-row reference, and its S-03 note was an earlier phrasing, so the quoted span was 2482 characters and not a contiguous substring of the live clause. It is re-transcribed word for word from the current `spec/04` FI-13(2) — stripped of tags, blockquote markers, backticks and emphasis and whitespace-normalised, 2556 characters and a contiguous substring of the live clause — and the transcription it replaces is kept immediately below it, explicitly labelled as the text as it stood at review round 5 (commit `e6f650541`), not the live clause. *This closes the same defect F1 closed in `CONS-01(v)`: a reader comparing the delta against the specification found two different predicate clauses, so any later edit to FI-13(2) MUST be followed by this normalised comparison.*
 
 *Owner decisions 1–6 above are unchanged by these corrections; RC-1 … RC-4 reconcile the delta's clause
 text with the ratified, implemented rules and 09's register row, and RC-5 is the design owner's ruling
