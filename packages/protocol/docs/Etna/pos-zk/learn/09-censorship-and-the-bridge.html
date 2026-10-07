@@ -292,7 +292,9 @@ so there is no later event that includes a censored transaction.</li>
 <li>A promise that a published record is included at, before or by any particular height: a transaction can
 be set aside at its turn, a record can be void or dead instead of included, and the obligation bounds the
 censor&rsquo;s L1 spending rather than the user&rsquo;s wait. A transaction set aside may become runnable
-later through the sender&rsquo;s own further transactions, and re-publication is the remedy
+later through the sender&rsquo;s own further transactions or through a credit from any account &mdash; a
+credit can only ever enable a transaction, never set one aside, and where a credit lands relative to a turn
+is the producer&rsquo;s ordering decision &mdash; and re-publication is the remedy
 (<a href="11-forced-inclusion.html">lesson 11</a>).</li>
 <li>Any remedy against an adversary that can isolate a user from every honest proposer, or that can
 censor L1 inclusion itself: if the data never reaches L1, exclusion can be indefinite.</li>

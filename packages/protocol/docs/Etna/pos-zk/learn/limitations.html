@@ -197,7 +197,9 @@ because it cannot run there, a record all of whose transactions are set aside is
 deadline is dead
 (<a href="../spec/04-l1-integration.html#FI-10">FI-10</a>&ndash;<a href="../spec/04-l1-integration.html#FI-14">FI-14</a>,
 <a href="11-forced-inclusion.html">lesson 11</a>). It is not a per-transaction latency guarantee: a transaction set aside may
-become runnable later only through the sender&rsquo;s own further transactions, and re-publication is the
+become runnable later through the sender&rsquo;s own further transactions or through a credit from any
+account &mdash; a credit can only ever enable a transaction, never set one aside, and where it lands relative
+to a turn is the producer&rsquo;s ordering decision (F-FI-3) &mdash; and re-publication is the
 remedy. A record can be discharged without being executed; a settlement stall longer than the record&rsquo;s deadline, or a
 queue that drains more slowly than records age, discharges it by expiry; if livable records permanently
 arrive faster than the drain the obligation can force, waits grow without bound (F-FI-2); and the mechanism

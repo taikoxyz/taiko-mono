@@ -107,18 +107,25 @@ in a bounded number of batches, and no published record can pin the frontier.</p
 A transaction runs at its turn only if the record&rsquo;s published byte string is within its registered
 bounds, the chain id matches, its declared nonce is the sender&rsquo;s nonce at that point, and the
 sender&rsquo;s balance there covers the transaction&rsquo;s <em>own declared maximum charge</em> &mdash;
-gas limit &times; max fee per gas + value. The including block&rsquo;s base fee, its gas limit, its remaining
-room and the producer&rsquo;s ordering are not inputs. Execution follows the record&rsquo;s own order, and the
-only things that move an account&rsquo;s nonce or balance are that account&rsquo;s own signed
-transactions, so a producer cannot manufacture a set-aside ground for someone else&rsquo;s transaction: one
-that can run at its turn must run, and one that genuinely cannot run at its turn is set aside in every batch
-and at every view (<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>(2)&ndash;(3)).</p>
+gas limit &times; max fee per gas + value. The including block&rsquo;s base fee, its gas limit and its remaining
+room are not inputs. Execution follows the record&rsquo;s own order: a producer cannot insert a transaction
+into the record, reorder its transactions or drop one from the walk, and it cannot alter the
+record&rsquo;s own bytes. What a producer does set is the batch&rsquo;s own executed state, and so the
+pre-state each turn is judged against: a third-party credit placed <em>before</em> a turn can make a
+transaction that is unaffordable there without it runnable there, and the transaction must then run; one
+placed <em>after</em> the turn cannot rescue it, and it is set aside as unaffordable at its turn. A credit
+can only ever make a transaction runnable, never set one aside, and only the nonce is out of a
+producer&rsquo;s reach: only the account&rsquo;s own signed transactions move it, while the balance can be
+moved by anyone. So a producer cannot manufacture a set-aside ground for someone else&rsquo;s transaction:
+one that can run at its turn must run, and one that cannot run there is set aside there. Where a credit
+lands relative to the turn is the one producer-set input that can decide a discharge, the disclosed
+residual F-FI-3 (<a href="../spec/04-l1-integration.html#FI-13">FI-13</a>(2)&ndash;(3)).</p>
 <p><strong>No new slashable offence.</strong> A validator that signs a block violating the per-block duty
 gains no new offence and is not slashed for it: the proof is rejected, and that rejection is the whole
 enforcement. There is no fee, escrow, bond or refund either; a forced transaction pays its own L2 gas if it
 runs, a transaction set aside at its turn may become runnable later through the sender&rsquo;s own further
-signed transactions, and in either case the remedy is permissionless re-publication, which creates a new
-record with a fresh clock.</p>
+signed transactions or through a credit from any account, and in either case the remedy is permissionless
+re-publication, which creates a new record with a fresh clock.</p>
 <p><strong>The exit never reads it.</strong> No forced-inclusion condition attaches to a withdrawal root, to
 its attestations, to the withdrawal veto or to a user&rsquo;s eligibility to withdraw; nothing on that path
 reads the register, the settlement frontier or the boundary commitment. The register is a settlement-side
@@ -199,7 +206,7 @@ time.</p>
 <table>
 <thead><tr><th>If you expect&hellip;</th><th>What actually happens</th></tr></thead>
 <tbody>
-<tr><td>A published record is included by some deadline.</td><td>No. A record can be discharged without being executed, and the order is fixed. Dead is tested first and unconditionally: once its own deadline passes, the record is dead whatever its size, its contents or how much of it is set aside. A record that is still live at the anchored view is void when it is over a registered bound, when it contains a transaction that can never run from its own bytes, or when every one of its transactions is set aside at its turn. Expiry is a discharge, not an inclusion, and a transaction set aside is not cancelled: it may become runnable later through the sender&rsquo;s own further transactions, and re-publication is the remedy.</td></tr>
+<tr><td>A published record is included by some deadline.</td><td>No. A record can be discharged without being executed, and the order is fixed. Dead is tested first and unconditionally: once its own deadline passes, the record is dead whatever its size, its contents or how much of it is set aside. A record that is still live at the anchored view is void when it is over a registered bound, when it contains a transaction that can never run from its own bytes, or when every one of its transactions is set aside at its turn. Expiry is a discharge, not an inclusion, and a transaction set aside is not cancelled: it may become runnable later through the sender&rsquo;s own further transactions or through a credit from any account, and re-publication is the remedy.</td></tr>
 <tr><td>A censor that refuses the front record keeps censoring.</td><td>It halts its own settlement. The frontier cannot skip an outstanding live record, so no later range settles while that record stands. That is a real cost to the censor, but it is a halt of the honest pipeline, not a fee paid to the censored user.</td></tr>
 <tr><td>Re-publication defeats a publishing censor.</td><td>It costs the censor roughly one L1 publication per deadline window to keep a target behind its own records. That is the bound: exclusion per unit of L1 spending, not per unit of time.</td></tr>
 <tr><td>Data that never reaches L1 can be forced.</td><td>No. The obligation begins at publication. An adversary that censors the publication transaction, or isolates the user from every honest producer, can keep the record from existing at all &mdash; and the same adversary can prevent the user from starting a withdrawal, which is an L2 transaction.</td></tr>
@@ -217,11 +224,15 @@ bound on time, not on work: if the arrival rate of livable records permanently e
 obligation forces, waits grow without bound. The mechanism still does not halt, but the deadline is then an
 exit, not a latency guarantee. No bound on who may publish is imposed: that would be a publish-time admission
 condition, and any account must be able to publish.</li>
-<li><strong>F-FI-3 &mdash; set aside now, runnable later.</strong> A transaction set aside at its turn may
-become runnable later, but only through the sender&rsquo;s own further signed transactions: they can move the
-account&rsquo;s nonce or spend its balance, and nothing a producer sets can. The outcome is objective and
-final for the batch that resolves the position, and the remedy for a record whose transactions were set aside
-is re-publication; a predicate that could reopen the position would need a mutable status field.</li>
+<li><strong>F-FI-3 &mdash; set aside now, runnable later, and the credit-ordering edge.</strong> A
+transaction set aside at its turn may become runnable later through the sender&rsquo;s own further signed
+transactions or through a credit from any account. Only the nonce is out of a producer&rsquo;s reach, while
+the balance can be moved by anyone, and a credit can only ever make a transaction runnable, never set one
+aside: where a credit lands relative to the turn decides whether an unaffordable transaction runs there
+(credit before the turn) or is set aside (credit after it), the one producer-set input that can decide a
+discharge. The outcome is objective and final for the batch that resolves the position, and the remedy for a
+record whose transactions were set aside is re-publication; a predicate that could reopen the position would
+need a mutable status field.</li>
 <li><strong>F-FI-4 &mdash; expiry outruns the frontier.</strong> A settlement stall longer than the
 record&rsquo;s deadline, or a queue that drains more slowly than records age, discharges a record by expiry
 rather than including it. Expiry is a discharge, not a guarantee.</li>
@@ -258,9 +269,14 @@ live with every one of its transactions set aside at its turn; or stop settling,
 and no later range lands either &mdash; and then, once the record&rsquo;s deadline has passed, the dead test
 runs first at the new anchored view and the frontier can pass the position by that one comparison. There is
 no fourth option in which the record is skipped and settlement continues, and a producer cannot manufacture
-the set-aside ground: only the sender&rsquo;s own signed transactions move its nonce or balance. That is
-the whole mechanism, and it is why the honest statement is about the censor&rsquo;s cost rather than about
-a user&rsquo;s wait.</p>
+the set-aside ground: it cannot change the record&rsquo;s own bytes or the order in which its transactions
+are walked, and only the sender&rsquo;s own signed transactions move its nonce, while its balance can be
+moved by anyone. What that leaves is where a third-party credit lands relative to a turn: before the turn it
+makes an unaffordable transaction runnable there, and the transaction must run; after the turn it cannot
+rescue it, and the transaction is set aside. A credit can only ever enable a transaction, never set one
+aside; that credit-ordering edge is the disclosed residual F-FI-3, and the remedy for a transaction
+that was set aside is re-publication. That is the whole mechanism, and it is why the honest statement is
+about the censor&rsquo;s cost rather than about a user&rsquo;s wait.</p>
 
 <h2>What this gives you</h2>
 <ul>
@@ -276,9 +292,12 @@ state.</li>
 registered bound or holds a transaction that can never run from its own bytes is void before the walk, and
 otherwise each transaction either runs or is set aside at its turn, so every live position settles in a
 bounded number of batches and no single publication can pin the frontier.</li>
-<li>A set-aside ground no producer&rsquo;s block contents can manufacture or steer, a void ground fixed by
+<li>A set-aside ground no producer&rsquo;s block contents can manufacture &mdash; it cannot change the
+record&rsquo;s own bytes or the order in which its transactions are walked &mdash; a void ground fixed by
 the record&rsquo;s own published bytes, and an expiry ground that needs only the record&rsquo;s own stored
-block number and one registered constant.</li>
+block number and one registered constant. The pre-state a turn is judged against is the batch&rsquo;s own
+executed state, which the producer does set, so where a third-party credit lands relative to the turn decides
+whether an unaffordable transaction runs or is set aside (F-FI-3).</li>
 <li>Enforcement in the proof only: the admission rule of <code>land</code> is unchanged, there is no escrow
 or fee, there is no new slashable offence, and no forced-inclusion state is read by the exit.</li>
 <li>An honest bound: exclusion per unit of the censor&rsquo;s L1 spending, conditional on a producer that
@@ -317,9 +336,14 @@ discharged. There is no fourth answer, and the frontier cannot pass a position t
 <p>No. The walk reads the record&rsquo;s own immutable bytes, the registered constants, and the sender&rsquo;s
 nonce and balance at the transaction&rsquo;s turn, against the transaction&rsquo;s own declared maximum
 charge. The base fee, the including block&rsquo;s gas limit and its remaining room are not inputs, so a block
-producer cannot manufacture a set-aside ground out of the environment, and it cannot discharge a transaction
-that the sender has not itself superseded or defunded. A transaction that genuinely cannot run at its turn is
-set aside in every producer&rsquo;s hands.</p></details>
+producer cannot manufacture a set-aside ground out of the environment: it cannot change the record&rsquo;s
+own bytes or the order in which its transactions are walked, and only the sender&rsquo;s own signed
+transactions move its nonce, while its balance can be moved by anyone. The one thing the producer does set
+is the batch&rsquo;s own executed state, and so where a third-party credit lands relative to the turn: a
+credit placed before the turn can make a transaction that is unaffordable there without it runnable, so the
+transaction must run, while the same credit placed after the turn leaves it set aside. A credit can only
+ever enable a transaction, never set one aside, and re-publication is the remedy for a transaction that was
+set aside.</p></details>
 <details><summary>A record holds two transactions: one that can run at its turn and one whose declared nonce is unreachable. Does the position resolve?</summary>
 <p>Yes. The walk runs the first in the record&rsquo;s own order and sets the second aside, because at its turn
 its nonce is not the account&rsquo;s nonce there. At least one transaction runs, so the record resolves as
@@ -327,9 +351,11 @@ executed, and the transaction set aside is discharged. The position is not left 
 a mode that fits the whole record.</p></details>
 <details><summary>A censor refuses to include the record at the front of the queue. What happens?</summary>
 <p>Settlement halts with it. The frontier cannot skip an outstanding live record, so no later range can land
-while the record stands, and the censor cannot set a transaction aside to dodge it: only a transaction that
+while the record stands, and the censor cannot manufacture a set-aside ground: only a transaction that
 cannot run at its turn is set aside, so every transaction that can run must run, in the record&rsquo;s own
-order. Its other options are the live-only void grounds &mdash; the record is over a registered bound, holds
+order. The one thing the censor&rsquo;s own ordering decides is where a third-party credit lands relative to
+a turn &mdash; before it, an unaffordable transaction runs; after it, the transaction is set aside
+(F-FI-3). Its other options are the live-only void grounds &mdash; the record is over a registered bound, holds
 a transaction that can never run from its own bytes, or has every transaction set aside at its turn &mdash; or
 to let it age out to dead, the test that runs first at any view past its deadline, which means not settling
 past it for its whole deadline window. Re-publication creates a new record with a fresh clock, so keeping a target out
