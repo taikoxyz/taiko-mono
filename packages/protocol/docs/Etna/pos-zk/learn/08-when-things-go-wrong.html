@@ -37,10 +37,7 @@
 <p class="muted">This lesson gives you the failure-handling rules: what happens when a proposer hides a
 block, when votes or certificates do not arrive, when validators go offline, when data cannot be found or
 when settlement stalls &mdash; and the guarantee class that follows: a confirmation above the last batch
-accepted on Ethereum is <strong>provisional</strong>. A settlement stall halts the chain safely: nothing at
-or below the last accepted checkpoint changes, value at or below it still exits on Ethereum alone through a
-withdrawal root of <code>k</code> distinct-family attestations funded over data that is still retrievable,
-and v1 has no path that clears the stall. This is a design description; none of it is implemented, measured, audited or
+accepted on Ethereum is <strong>provisional</strong>. A settlement stall halts the chain safely, and one timelocked governance action can clear it: during the stall the DAO may queue a single entry, and after the entry's stored deadline anyone may execute it once to discard the provisional range above the checkpoint and resume production. Nothing obliges governance to act, so a stall it does not act on halts the chain; nothing at or below the last accepted checkpoint changes, and value at or below it still exits on Ethereum alone through a withdrawal root of <code>k</code> distinct-family attestations funded over data that is still retrievable. This is a design description; none of it is implemented, measured, audited or
 deployed.</p>
 
 <h2>The idea</h2>
@@ -67,8 +64,7 @@ shows one must say so
 <p><strong>A settlement stall halts the chain, and the halt is safe.</strong> A stall means that no
 batch extending the current L1 checkpoint has been accepted for long enough that a normal slow proof, or a
 single prover failure inside the normal envelope, cannot be the explanation. When it holds, the chain stops
-making progress, and nothing restarts it. Everything at or below the last accepted checkpoint is preserved
-exactly; every confirmation above it stays provisional, and v1 has no rule that discards it either.</p>
+making progress. Everything at or below the last accepted checkpoint is preserved exactly; every confirmation above it stays provisional. One rule can discard that provisional range and restart production: the stall resolution &mdash; a DAO-queued entry, a stored deadline, one execution by any account. Nothing obliges governance to queue or execute it, and no other rule replaces the range.</p>
 <p><strong>A user can always leave from the last settled state.</strong> While the chain is halted, a
 withdrawal whose signal is already inside the last accepted checkpoint stays executable on Ethereum alone:
 it needs no new L2 blocks, no quorum and no validator. The release is proven against a <strong>withdrawal
@@ -83,12 +79,7 @@ and the exit waits, unboundedly (<a href="../spec/03-membership-staking.html#MEM
 is what keeps a halted chain safe for holders. Value above the last accepted checkpoint, or value that was
 never messaged, has no L1-provable claim while the chain is halted; it becomes withdrawable only when a later
 checkpoint covers it.</p>
-<p><strong>Nothing in v1 clears a stall.</strong> There is no automatic path, no permissionless path and no
-governance-mediated path: clearing the stall needs a future protocol update whose procedure is not yet
-specified. The chain stays halted until then. Nothing at or below the last accepted checkpoint is touched by
-any rule, and no rule discards the provisional range above it either; the halt simply stops production.
-Value above the checkpoint stays provisional, a transaction in that range is not settled and not replayed,
-and inclusion is not guaranteed: a published record that is outstanding across the halt can be discharged as dead by its own deadline rather than included, and no rule bounds the wait (<a href="11-forced-inclusion.html">lesson 11</a>, <a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
+<p><strong>One rule can clear a stall, and it is not automatic.</strong> The stall resolution is the only route: during the stall the DAO may queue a single entry, the entry stores its own deadline, and after that deadline anyone may execute it once, which discards the whole provisional range above the last accepted checkpoint and lets production resume from the checkpoint. Nothing at or below the checkpoint is touched. Nothing obliges governance to queue or execute an entry, so a stall it does not act on leaves the chain halted with no protocol-level bound. Value above the checkpoint is discarded rather than replayed, and inclusion is not guaranteed: a published record that is outstanding across the halt can be discharged as dead by its own deadline rather than included, and no rule bounds the wait (<a href="11-forced-inclusion.html">lesson 11</a>, <a href="../spec/07-economics-slashing.html#ECON-11">ECON-11</a>).</p>
 <p><strong>Locks are scoped by generation.</strong> A lock constrains votes at its height within the
 generation it was taken in, and it is released only by the rules above. v1 never begins a new generation, so
 no lock is ever superseded and no lock can wedge the chain through a restart. A certificate carrying a
@@ -118,9 +109,9 @@ its signers signed (<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>,
   <path d="M458 94 v14" stroke="#9a6700" stroke-width="1.4" marker-end="url(#arr8b)"/>
   <line x1="796" y1="38" x2="796" y2="104" stroke="#0969da" stroke-dasharray="4 3"/>
   <text x="790" y="30" fill="#0969da" font-size="11" text-anchor="end">nothing at or below 800 is ever rewritten</text>
-  <text x="20" y="188" fill="#24292f" font-size="11">A stalled chain does not resume in v1: clearing the stall needs a future protocol update whose procedure is not yet specified.</text>
+  <text x="20" y="188" fill="#24292f" font-size="11">A stalled chain resumes only when a stall resolution is executed: a DAO-queued entry, a stored deadline, one execution by any account. Nothing obliges governance to act.</text>
   <text x="20" y="210" fill="#24292f" font-size="11">While it is halted, a withdrawal whose signal is at or below the last accepted checkpoint stays executable on Ethereum alone once k distinct families attest its withdrawal root (MEM-15).</text>
-  <text x="20" y="232" fill="#24292f" font-size="11">The recovery generation is carried in the signed vote and header bytes; v1 never advances it, so no height is retired.</text>
+  <text x="20" y="232" fill="#24292f" font-size="11">The recovery generation is carried in the signed vote and header bytes; an executed stall resolution advances it by one, so the discarded branch can never land. No height is retired.</text>
   <text x="20" y="254" fill="#24292f" font-size="11">A transaction above the checkpoint is not settled and is not replayed; inclusion is not a latency guarantee, and a published record can expire unexecuted (lesson 11).</text>
 </svg>
 <figcaption>A settlement stall halts the chain. The last accepted checkpoint is never rewritten, the range
@@ -164,11 +155,10 @@ progress, and a halt can be permanent
 <text x="34" y="408" fill="#24292f" font-size="12">at one height</text> <rect x="360" y="366" width="580" height="56" rx="8" fill="#ffebe9" stroke="#5c2630"/> <text x="374" y="389" fill="#24292f" font-size="11">The assumptions failed. Halt, publish both signed certificates as evidence,</text> <text x="374" y="408" fill="#24292f" font-size="11">and never choose a branch. Do not delegate the choice to an operator.</text> <path d="M320 394 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/>
 <rect x="20" y="432" width="300" height="56" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="34" y="455" fill="#24292f" font-size="12">The needed L1 fact or set</text> <text x="34" y="474" fill="#24292f" font-size="12">commitment is missing</text> <rect x="360" y="432" width="580" height="56" rx="8" fill="#ffffff" stroke="#d8dee4"/>
 <text x="374" y="455" fill="#24292f" font-size="11">Halt at the highest certified block and wait. Never continue on an</text> <text x="374" y="474" fill="#24292f" font-size="11">unauthenticated set and never take a set from an unfinalized L1 block.</text> <path d="M320 460 H356" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr8)"/> <rect x="20" y="504" width="920" height="44" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/>
-<text x="34" y="524" fill="#1a7f37" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; touch a checkpoint or batch accepted on Ethereum &middot; let governance</text> <text x="34" y="541" fill="#1a7f37" font-size="11">or an operator choose a state, a checkpoint or a height &middot; expect any v1 path to clear a settlement stall.</text>
+<text x="34" y="524" fill="#1a7f37" font-size="11">Never: treat an elapsed timeout as proof that something does not exist &middot; touch a checkpoint or batch accepted on Ethereum &middot; let governance</text> <text x="34" y="541" fill="#1a7f37" font-size="11">or an operator choose a state, a checkpoint or a height &middot; expect any automatic path to clear a settlement stall.</text>
 </svg>
 <figcaption>Every situation has one rule-legal action. For a settlement stall it is a safe halt and the exit
-path that needs no L2 liveness; no v1 rule clears the stall, and no operator and no update may rewrite
-accepted history.</figcaption>
+path that needs no L2 liveness; the stall resolution is the one rule that clears it, and no operator and no upgrade may rewrite accepted history.</figcaption>
 </figure>
 
 <h2>How it works</h2>
@@ -237,10 +227,7 @@ view;</li>
 <li>the unsettled-depth cap would be exceeded.</li>
 </ul>
 <p>Halting is not a fork, not a rollback and not a vote to abandon the chain. A halting node keeps
-serving what it has and keeps its state so it can resume. There is no emergency key and no operator
-override, and v1 has no recovery path of any kind: a settlement stall halts the chain, funds at or below the
-last accepted checkpoint are safe, the exit works, and clearing the stall needs a future protocol update
-whose procedure is not yet specified (<a href="../spec/06-recovery-exceptions.html#HALT-04">HALT-04</a>). If
+serving what it has and keeps its state so it can resume. There is no emergency key and no operator override. The one runtime governance action is the stall resolution &mdash; a DAO-queued entry, a stored deadline, one execution by any account &mdash; and it clears only a settlement stall: funds at or below the last accepted checkpoint are safe, the exit works, and a stall governance does not act on leaves the chain halted (<a href="../spec/06-recovery-exceptions.html#HALT-04">HALT-04</a>). If
 progress needs information that no rule-legal action can obtain, the protocol says so and stops.</p>
 <p>Halting remains the correct outcome for a settlement stall and for a missing ingredient that no action can
 replace &mdash; anything at or below the last checkpoint accepted on Ethereum.</p>
@@ -260,13 +247,8 @@ withdrawal root over that checkpoint: <code>k</code> distinct backend families m
 <code>k&minus;1</code> further proofs are off-chain work a funded proving market must produce from data that
 is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). Value above the
 checkpoint, or value that was never messaged, has no L1-provable claim until a later checkpoint covers it.</li>
-<li><strong>No recovery path.</strong> Nothing in v1 clears the stall. There is no automatic route, no
-permissionless route and no governance-mediated route, and the design gives no protocol-level guarantee of
-liveness after a stall. Clearing it needs a future protocol update whose procedure is not yet specified.</li>
-<li><strong>What is preserved.</strong> The last accepted checkpoint and everything at or below it are never
-rewritten; the recovery generation is carried in the signed vote and header bytes and v1 never advances it,
-so no height is retired and no branch is discarded. A transaction above the checkpoint is unsettled rather
-than replayed, and its inclusion is not guaranteed.</li>
+<li><strong>The one route out.</strong> The stall resolution can clear the stall: the DAO queues a single entry, its deadline is stored in the entry, and after that deadline anyone may execute it once to discard the range above the checkpoint and resume production. There is no automatic route and no permissionless recovery, and the design gives no protocol-level guarantee that governance will act.</li>
+<li><strong>What is preserved.</strong> The last accepted checkpoint and everything at or below it are never rewritten; the recovery generation is carried in the signed vote and header bytes and advances only through an executed stall resolution, so no height is retired. An executed resolution discards the whole range above the checkpoint &mdash; wholesale, never selectively &mdash; and a transaction in it is not replayed, so its inclusion is not guaranteed.</li>
 </ol>
 
 <h3>What a stall means for users</h3>
@@ -277,9 +259,7 @@ withdrawal delay on the L1 clock and to a withdrawal root that <code>k</code> di
 attest; the <code>k&minus;1</code> further proofs must be funded and their data still retrievable
 (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)). A halt does not forfeit the claim, but
 it can delay the root.</li>
-<li><strong>Above the accepted checkpoint, a confirmation stays provisional.</strong> No v1 rule makes it
-permanent, and no v1 rule discards it either; it simply is not settled, and value above the checkpoint has
-no L1-provable claim until a later checkpoint covers it.</li>
+<li><strong>Above the accepted checkpoint, a confirmation stays provisional.</strong> No rule makes it permanent; the only rule that discards it is an executed stall resolution, which discards the whole range and resumes from the checkpoint. It is not settled, and value above the checkpoint has no L1-provable claim until a later checkpoint covers it.</li>
 <li><strong>Accepted history stays valid.</strong> Anything at or below a checkpoint or batch accepted on
 L1 is never touched by any rule.</li>
 <li><strong>Off-chain losses are not compensated.</strong> A trade, a signed message or a position built
@@ -289,15 +269,11 @@ on a provisional confirmation has no protocol remedy
 the rules say so, and a lock that the ordinary rules release is not treated as misconduct.</li>
 <li><strong>Operators must not improvise.</strong> Publishing data without a proof accepts nothing
 &mdash; publication writes no batch state &mdash; so it cannot unstick the chain; picking a branch, by
-contrast, converts a safe halt into an unsafe divergence. No operator action clears a stall: v1 offers no
-path at all.</li>
+contrast, converts a safe halt into an unsafe divergence. No operator action clears a stall: the only route is the DAO-queued, consumed stall resolution.</li>
 <li><strong>A halt below the checkpoint may still be permanent.</strong> If every holder of an accepted
 block&rsquo;s data has disappeared, nothing in the protocol can reconstruct it, and no rule may
 replace accepted history. That is a disclosed liveness cost of permanent settlement.</li>
-<li><strong>A stalled chain does not resume in v1.</strong> Clearing the stall needs a future protocol
-update whose procedure is not yet specified, and there is no protocol-level bound on how long a halt lasts.
-The heartbeat rule does not change this: it filters future set versions and cannot replace the roster of an
-epoch already committed.</li>
+<li><strong>A stalled chain resumes only if governance acts.</strong> The stall resolution is the one route back, and nothing obliges governance to queue or execute an entry, so there is no protocol-level bound on how long a halt lasts. The heartbeat rule does not change this: it filters future set versions and cannot replace the roster of an epoch already committed.</li>
 </ul>
 
 <h3>Resuming a node afterwards</h3>
@@ -318,20 +294,16 @@ rules reject messages for heights already certified.</li>
 </ol>
 <p>A node-level resync is not a rewrite of settled history: it starts from the last checkpoint accepted on
 Ethereum and resumes from there, and HALT-02&rsquo;s rules govern what a node may do at heights it has already
-certified. No v1 rule discards an unsettled height or rewrites a certified one.</p>
+certified. No rule discards an unsettled height except the executed stall resolution, which discards the whole unsettled range above the checkpoint and nothing certified; no rule rewrites a certified one.</p>
 
 <h3>Why the chain halts instead of discarding unsettled history</h3>
 <p>An unbounded halt is not free: if settlement stops and nothing restarts it, the chain stops serving
 users, and the only remedies are outside the protocol. The design keeps the settled part settled and makes
 the unsettled part explicitly provisional. A checkpoint or batch accepted on Ethereum is never rewritten,
-and the history above it is never discarded by a v1 rule either; it simply is not settled, and the halt
-continues until a future protocol update supplies a path back. That is the trade: a strict boundary at the
+and the history above it is discarded only by an executed stall resolution, which replaces the whole provisional range and nothing accepted; without one the history simply is not settled, and the halt continues until one runs. That is the trade: a strict boundary at the
 last accepted checkpoint, paid for with a liveness cost that no v1 rule removes.</p>
 <p>The honest costs are disclosed, not priced away. Transactions above the checkpoint are not settled and
-their inclusion is not guaranteed; whether the chain resumes at all is left to a future protocol update whose
-procedure is not yet specified, and the design states <strong>no protocol-level guarantee of liveness after a
-stall</strong>. Nothing in v1 lets any party choose a state, a checkpoint or a height, and nothing in v1
-prices the halt with a bond.</p>
+their inclusion is not guaranteed; whether the chain resumes at all is left to governance queueing an entry and someone executing it, and the design states <strong>no protocol-level guarantee of liveness after a stall</strong>. Nothing lets any party choose a state, a checkpoint or a height &mdash; the resolution names nothing and discards the whole range &mdash; and nothing prices the halt with a bond.</p>
 
 <h2>Worked example</h2>
 <p>The numbers below are arithmetic on the rules and on illustrative inputs. The inputs are not design

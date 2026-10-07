@@ -825,3 +825,125 @@ F-FI-6**. The superseded sentence counted F-FI-1 among the disclosed and did not
 which are Open; F-FI-2 is Open as the entry already states. D-12 and D-16 are untouched. *(correction: the
 entry's "the other falsifiers travel disclosed" list is superseded by the final split; the entry and the
 addenda above are preserved as history.)*
+
+## D-19 — Governance stall resolution revived, consumption-only: a consumed entry, a stored deadline, a scoped window and a two-case generation rule
+
+*Increment 05. Append-only: D-15 and D-16 stay as written; this entry records what changed. The design
+delta and the four owner decisions below are the increment's authority.*
+
+**Decision (design owner, 2026-10-07):** increment 05 revives the **timelocked, resume-only governance
+stall resolution of D-15** (`GOV-04`, with `REC-02`–`REC-04`) as a live, rule-bound action, re-derived
+against the converged v1 rather than restored from its tombstone. It is **in review**: it ships only after
+its own review rounds are clean, and the bar is the one v1 and increments 02 and 04 met — **two consecutive
+rounds with no Critical and no High**. Only the names this increment needs leave their tombstones —
+`GOV-04`, `REC-02`, `REC-03`, `REC-04`, `T_STALL_GOV`, `T_GOV_RESUME` and the `govResume*` /
+`govResumeExecutableAt` registrations — and every other tombstone stays exactly as D-16 left it. The
+increment adds no permissionless recovery, no bond, no reward, no invoker, no certificate bundle, no
+retirement record and no new entry point on the exit, inclusion, staking or proof paths; `CONS-16` (the
+rotation) and aggregation (D-13) are not revived, and no v1 decision is reopened.
+
+**The state machine, and consumption is the increment.** `govResumeState ∈ {none, queued, executed}`.
+Queueing is a DAO transaction through the authority of `GOV-01` and is the only runtime governance entry
+point the protocol has; it is allowed only while the trigger holds, and it records
+`govResumeQueuedAt = block.timestamp`, `govResumeQueuedHeight = lastLandedHeight` and
+`govResumeExecutableAt = block.timestamp + T_GOV_RESUME`. A live `queued` entry blocks a second queue; a
+void entry (the checkpoint advanced) may be cancelled by any account **or replaced by the next queue**; an
+`executed` entry is terminal for that entry and blocks nothing. `execute()` is permissionless, takes no
+argument that influences the outcome, MUST revert unless the state is exactly `queued` and past the stored
+deadline, and MUST revert if the entry is void. On success it MUST, in one transaction, increment
+`recoveryGeneration` by exactly one and set the state to `executed`. It writes nothing else:
+`resumeHeight = lastLandedHeight + 1` is derived and never stored, the checkpoint record is untouched, and
+only history strictly above the latest L1-accepted checkpoint is discarded. The generation is incremented
+**nowhere else** — no initialiser, upgrade, governance call, cancellation or client path — and no entry can
+be executed twice. The invariants are SM-1 (single writer), SM-2 (one execution per entry), SM-3 (terminal
+`executed`), SM-4 (the deadline is read from the entry, never recomputed), SM-5 (void is replaceable),
+SM-6 (all five objects carry with L1 state across a reorg) and SM-7 (the trigger can become false only by
+the acceptance that voids the entry). The trigger itself is read from L1 state alone:
+`block.timestamp - lastAcceptedBatchTime >= T_STALL_GOV`.
+
+**The withdrawn claim, and what the window actually is.** The preserved `GOV-04(d)` claim that
+`T_GOV_RESUME` "MUST be long enough that **every user** can exit via `MEM-15`" is **withdrawn**
+wherever it appeared (`GOV-04`, `REC-02`, `HALT-04`, the `A-GOV-2` row, the index, the course).
+The correct statement is scoped to three classes. **Class A** — a signal already included in L2 state at
+or below the last accepted checkpoint at queue time — has a real exit window, because execution leaves the
+checkpoint record untouched and the withdrawal root of an already-accepted checkpoint, in particular the
+latest, stays attestable with no new L2 block and no settlement progress (`L1-13(1)`/`(3)`). Its length
+is the registered, **unmeasured** relation
+`T_GOV_RESUME >= W_root + WITHDRAWAL_DELAY + T_VETO + MARGIN`, where `W_root` is the worst-case time to
+produce and record the checkpoint's `k` attestations, and it is conditional on `MEM-15`(2b)'s funded
+proving market and retained inputs. **Class B** — an unmessaged L2 balance at or below the checkpoint — is
+untouched and was never covered by `MEM-15`(1). **Class C** — value or signals above the checkpoint —
+has no L1-provable claim (`MEM-15`(4)), is discarded by rule and is **not protected by any window**; its
+holders have the prior provisional disclosure, the notice the queued entry gives, and resubmission, with
+no protocol compensation (`ECON-11`). The stronger property the claim does not need is stated too:
+execution removes no claim at or below the checkpoint, so the window is a **notice-and-opportunity**
+window, not what makes class A safe.
+
+**The two-case generation rule.** A certificate carries the generation of the history it certifies.
+**Head case (unchanged):** a certificate presented as the finality evidence of a batch extending the
+current checkpoint must carry the current generation, every contributing vote must carry it, and the head
+header must carry it — so a discarded branch, whose certificate carries the superseded generation, cannot
+be re-landed. **Historical case (new):** a certificate for a block at or below the last accepted checkpoint
+must carry the generation of that block's **own header**, every contributing vote must carry the same
+value, and it MUST NOT be compared with the current generation; the value is not witness-supplied because
+the checkpoint record commits the block's hash (`prevBlockHash`) and the block's header bytes are what L1
+already fixes. **Anchor case (explicit):** when a batch opens an epoch, `B_anchor` is the block whose hash
+equals `prevBlockHash`, and the guest verifies its certificate under the historical case and recomputes
+`cert_hash` into the header's `epoch_anchor`. The first post-resolution epoch-opening batch is therefore
+provable: the anchor certificate is judged under the restored block's own (pre-resolution) generation and
+the batch's own certificate, head header and votes under the new one, so the two checks read two different
+objects. The rule is invariant under repeated resolutions because `B_anchor`'s header never changes. The
+generation is **not** stored in the checkpoint record.
+
+**The four owner decisions (binding).**
+1. **The churn rule is CONSUMPTION-ONLY.** The progress-earned candidate — no new entry until the
+   checkpoint advances past the previous execution's restore point — is **not adopted**: it would deadlock
+   the certified-but-unprovable case, and L1 cannot decide whether such a range exists (the `h_close`
+   referent class that gates `CONS-16`). An entry is consumed by execution and the generation increments
+   exactly once per executed entry; governance-driven churn stays **disclosed** as **F-GOV-3** (one
+   generation per fresh DAO transaction plus a full window) rather than constrained. This is the same call
+   as increment 04's: do not add a new condition to rescue an existing falsifier — state the condition
+   instead.
+2. **Slot 268 is a migration-audit item, not a design decision.** The design **requirement** is a stored
+   `govResumeExecutableAt`, written once when the entry is queued and read by `execute()`. Whether the
+   preserved 27-of-32-byte packing at slot 268 is repacked or a slot is added is the **migration audit's**
+   call, named as an explicit open obligation; it is not assumed to fit and it MUST NOT be carved from a
+   deprecated slot.
+3. **A superseded-generation proposal is NOT a new offence.** No slashable offence is created or revived,
+   consistent with increment 04's owner decision 6 and D-16's tombstoning of the offence rows. A proposal
+   or vote under a superseded generation is invalid, and the enforcement is the rejected proof or the
+   reverted call — nothing else.
+4. **The smaller items stay as the delta states them.** The trigger's conforming floor strength, the
+   contents of `MARGIN` and the window relation remain **symbolic and unmeasured**; there is **no distinct
+   `cancelled` state** (a cancelled entry is not queued, and adding a state adds surface without adding a
+   property); and the generation is **not** stored in the checkpoint record — it is read from that block's
+   own header, which is what the two-case rule above already does.
+
+**Falsifiers, with their classes.** **F-GOV-1** (**Open**) — clearing a stall depends on governance
+liveness with no protocol bound: if governance never queues, or queues and never has the entry executed,
+the stall persists; a captured or coerced governance can also wait for a genuine stall and have an
+unfavourable provisional range discarded. **F-GOV-2** (**Open**) — the window relation and its terms
+(`W_root`, `WITHDRAWAL_DELAY`, `T_VETO`, `MARGIN`) are unmeasured and conditional on `MEM-15`(2b).
+**F-GOV-3** (**Disclosed**) — governance-driven churn, as owner decision 1 states it. **F-GOV-4**
+(**Disclosed**) — future-entry parameter discretion: one published rules change may move `T_STALL_GOV` and
+`T_GOV_RESUME` to their conforming minima for entries queued afterwards, while an already-queued entry's
+stored deadline is protected and the relations are constructor-time assertions. **F-GOV-5** (**Open**,
+implementation-verified) — the anchor rule depends on the deployment pinning `B_anchor` by `prevBlockHash`
+and on no client comparing the anchor certificate with the current generation. **F-GOV-6** (**Open**,
+implementation-verified) — a resolution could be implemented so that it re-clocks a publication record,
+lowers the settlement frontier, gates a withdrawal root or delays the exit; the non-interaction clauses
+forbid it.
+
+**What the action does not do.** It does not give any account a recovery entry point; it does not let any
+caller choose a height, state, checkpoint, range, subset, beneficiary or generation; it does not rewrite,
+re-judge or delay history at or below the checkpoint; it creates no bond, reward, escrow, fee, treasury
+transfer or slashable offence; it reduces no validator's weight and rotates no set; it does not gate the
+exit, the root, the veto, forced inclusion, settlement or staking exits; it does not retire a height or
+store a resume record; it does not bound the number of resolutions (pacing is the DAO transaction plus the
+stored window, F-GOV-3); it does not revive `CONS-16` or aggregation; and it does not promise that a
+resolution will ever be queued, executed or needed. It also cannot clear an unavailable quorum, unavailable
+data or an economics stall.
+
+**Status:** decided; specification, register, index and course changes in flight. The increment ships only
+after its own review rounds are clean.
+

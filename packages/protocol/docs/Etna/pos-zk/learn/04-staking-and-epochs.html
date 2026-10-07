@@ -275,9 +275,7 @@ L1-committed schedule. It is judged under that epoch&rsquo;s committed set root 
 once valid it stays valid forever: no expiry, no &ldquo;current set&rdquo; check, and no
 re-verification under a later set. Set roots are stored per epoch and are never overwritten. A
 validator that joins in a later epoch cannot cause a block certified earlier to be re-judged or
-re-signed; rotation changes who may certify future heights only. Rotation is not a recovery path: v1 has no way to replace history above the latest checkpoint accepted
-on Ethereum, and everything above that checkpoint is provisional. A settlement stall halts the chain rather
-than replacing anything.</p>
+re-signed; rotation changes who may certify future heights only. Rotation is not a recovery path, and it stays deferred: the one rule that can replace history above the latest checkpoint accepted on Ethereum is the stall resolution — a DAO-queued entry with a stored deadline, executed once by any account, discarding the whole provisional range and resuming from the checkpoint — and everything above that checkpoint is provisional. Rotation would re-partition only heights no validator produced, which is a different and unused mechanism, and a settlement stall halts the chain until the resolution runs.
 
 <h3>9. Weak subjectivity: where a new node starts</h3>
 <p>A fresh node bootstraps from the most recent checkpoint that the L1 Inbox accepted and that is

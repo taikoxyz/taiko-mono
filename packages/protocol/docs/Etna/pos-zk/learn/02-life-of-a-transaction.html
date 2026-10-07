@@ -208,32 +208,24 @@ different objects, and the checkpoint records the batch head.</p>
 <h2>Worked example: a settlement stall at height 830</h2>
 <p>A transaction is included in block 830, and the batch containing it, with head 832, is PoS-certified.
 Nothing further is accepted on Ethereum: no batch extending the checkpoint at height 800 lands, and the
-stall persists. In v1 there is no recovery path. No bond can be posted, no recovery can be started, and no
-governance action resumes the chain: the certificate for the batch stays valid and the confirmation stays
-provisional, while the chain simply halts. Value at or below checkpoint 800 can still leave on L1 through
-the exit path, with no new L2 block, no quorum and no validator. Clearing the stall is left to a future
-protocol update whose procedure is not yet specified, and block 830 remains exactly where it is until
-then.</p>
+stall persists. One rule can end it: the stall resolution. The DAO may queue a single entry once the stall passes its trigger, the entry stores its own deadline, and after that deadline anyone may execute it — once — to discard the range above checkpoint 800 and let production resume from the checkpoint. Nothing obliges governance to act, no account can execute before the stored deadline, and an executed entry cannot be run again. If no entry is queued, the chain simply halts: the certificate for the batch stays valid and the confirmation stays provisional, while value at or below checkpoint 800 can still leave on L1 through the exit path, with no new L2 block, no quorum and no validator. Block 830 is discarded by an executed resolution and is not replayed automatically; its sender must resubmit it.</p>
 <table>
 <thead><tr><th>Step</th><th>What it means for the transaction</th><th>Tag</th></tr></thead>
 <tbody>
 <tr><td>Included at block 830; batch certified</td><td>Status <strong>PoS-certified (provisional)</strong>: valid now, not settled until the batch is accepted on L1</td><td><span class="tag">derived</span></td></tr>
 <tr><td>Settlement stall</td><td>No batch extending checkpoint 800 is accepted; the transaction remains provisional and the chain halts safely</td><td><span class="tag">derived</span>; halt duration <span class="tag">unmeasured</span></td></tr>
-<tr><td>No recovery</td><td>Nothing in v1 replaces the history above checkpoint 800: there is no bonded recovery and no governance resume, and no height is retired</td><td><span class="tag">derived</span></td></tr>
+<tr><td>The one route out</td><td>The stall resolution can replace the whole range above checkpoint 800: a DAO-queued entry with a stored deadline, executed once by any account, discards that range and resumes production from checkpoint 800. It cannot touch anything at or below 800, and if governance never queues an entry the chain stays halted</td><td><span class="tag">derived</span></td></tr>
 <tr><td>The exit still works</td><td>A message at or below checkpoint 800 can be released on L1 with no new L2 block, no quorum and no validator, once a withdrawal root of <code>k</code> distinct-family attestations forms over that checkpoint and the delay runs from the root record; a root forms only if a funded proving market produces the <code>k&minus;1</code> further proofs from data that is still retrievable. A message above the checkpoint, including one in block 830, cannot leave while the halt lasts</td><td><span class="tag">derived</span></td></tr>
-<tr><td>Clearing the stall</td><td>Requires a future protocol update whose procedure is not specified; v1 itself cannot resume the chain</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Clearing the stall</td><td>The stall resolution, if governance queues an entry and someone executes it after the stored deadline; otherwise the chain stays halted. Nothing at or below checkpoint 800 is discarded, and the block-830 transaction is not replayed — it must be resubmitted</td><td><span class="tag">derived</span></td></tr>
 </tbody></table>
 <p>Two boundaries hold throughout. Heights at or below 800 are accepted on Ethereum and are never
-rewritten. Heights above 800 are provisional: v1 does not discard them, does not retire them and does not
-replay them, so the transaction keeps its place; whether a future update replaces that range is not
-specified here. The unsettled depth is still bounded by <code>D_MAX</code>, because validators stop
+rewritten. Heights above 800 are provisional: only an executed stall resolution discards them, it discards them wholesale, and when it does the transaction is not replayed automatically — it must be resubmitted. No height is retired. The unsettled depth is still bounded by <code>D_MAX</code>, because validators stop
 producing past the unsettled-depth cap — a bound on depth, not on the length of a halt.</p>
 
 <div class="card">
 <h4>Rule for anything that displays status</h4>
 <p>Name the status from the ladder, state which evidence backs it, and say what is still missing. A confirmation
-shown before L1 acceptance must be labelled <strong>provisional</strong> and must say that a settlement stall halts the chain and
-that no rule of v1 replaces it. A "withdrawable" badge must say which checkpoint its withdrawal root anchors to, and whether the root exists, the delay has run and any veto has expired. If a tool cannot say which status it is
+shown before L1 acceptance must be labelled <strong>provisional</strong> and must say that a settlement stall halts the chain, that the stall resolution is the one rule that can replace the provisional range (DAO-queued, timelocked, executed once), and that nothing obliges governance to use it. A "withdrawable" badge must say which checkpoint its withdrawal root anchors to, and whether the root exists, the delay has run and any veto has expired. If a tool cannot say which status it is
 showing, it must not show one.</p>
 </div>
 
@@ -253,10 +245,10 @@ re-landed with the same data commitment.</li>
 <li><strong>No 2 s settlement.</strong> L2 certification is fast; proving and L1 acceptance are not.</li>
 <li><strong>No status stronger than its evidence.</strong> A certificate does not prove that data is retrievable by others; local possession is not availability.</li>
 <li><strong>No measured timings.</strong> The 1.5 s happy path, the 30-minute envelope, L1 inclusion and the withdrawal delay are all unmeasured.</li>
-<li><strong>No settlement above the accepted checkpoint.</strong> A certified block is provisional; if the settlement stall persists, v1 has no recovery path and the chain halts — a transaction above the checkpoint cannot be withdrawn while the halt lasts, and off-chain losses are not compensated.</li>
+<li><strong>No settlement above the accepted checkpoint.</strong> A certified block is provisional; if the settlement stall persists, the chain halts — a transaction above the checkpoint cannot be withdrawn while the halt lasts, and the stall resolution, when it runs, discards that range without replaying it or compensating off-chain losses.</li>
 <li><strong>No unconditional exit.</strong> Even a message at or below the last accepted checkpoint needs a withdrawal root: <code>k</code> distinct backend families must attest, the <code>k&minus;1</code> further proofs must be funded and produced from data that is still retrievable, and an unexpired veto can delay the release (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b), <a href="../spec/04-l1-integration.html#MSG-03">MSG-03</a>).</li>
-<li><strong>No replacement path.</strong> No rule of v1 rewrites history above the last accepted checkpoint: nothing is discarded, nothing is retired and nothing is replayed, so no one can pick winners inside the provisional range — there is no replacement to invoke. If a future protocol update adds one, its scope must be wholesale, and unwound transactions would not be replayed automatically.</li>
-<li><strong>No rescue of missing data at or below the accepted checkpoint.</strong> If nobody can produce a batch's data, the chain can halt with a certified prefix it cannot settle; no rule of v1 replaces accepted history, so the halt persists until a future protocol update.</li>
+<li><strong>No selective replacement.</strong> The only rule that rewrites history above the last accepted checkpoint is the stall resolution, and its scope is wholesale: it discards the entire provisional range, names no height, subset or beneficiary, retires no height and replays nothing, so no one can pick winners inside the range. Its use depends on governance queueing an entry and someone executing it.</li>
+<li><strong>No rescue of missing data at or below the accepted checkpoint.</strong> If nobody can produce a batch's data, the chain can halt with a certified prefix it cannot settle; no rule replaces accepted history, and the stall resolution cannot touch anything at or below the checkpoint, so the halt persists until the data reappears.</li>
 <li><strong>No latency guarantee, and no remedy for isolation.</strong> A published record carries an inclusion obligation enforced inside the proof: a landing batch must advance the settlement frontier past it by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has passed at the anchored view, decided from its own stored block number; otherwise, while the record is live, the walk reads its transactions in the record&rsquo;s own order, each one either runs or is set aside at its turn, and a live record all of whose transactions are set aside is void. That is not a promise about time, and an adversary that isolates a user from every honest proposer — or censors the publication itself — can keep the data off L1 and exclude the user indefinitely (<a href="11-forced-inclusion.html">lesson 11</a>).</li>
 </ul>
 
@@ -267,7 +259,7 @@ the body, be able to serve it, and see the parent chain link back without gaps. 
 hash, not to bytes. The correct action is to keep asking peers for the body; if it never arrives, the node halts
 rather than certifying on unknown data.</p></details>
 <details><summary>A block is PoS-certified with more than two thirds of the stake behind it. Can it still be replaced?</summary>
-<p>No rule of v1 replaces it. The certificate is valid and the confirmation above the last checkpoint accepted on Ethereum is provisional, but there is no recovery path: if settlement stalls, the chain halts. Value at or below the last accepted checkpoint can still leave on L1, and clearing the stall requires a future protocol update whose procedure is not specified. Once the batch is accepted on L1, the protocol's own rules can no longer replace it.</p></details>
+<p>The protocol has exactly one rule that replaces it: the stall resolution, which discards the whole provisional range above the last accepted checkpoint after a DAO-queued entry and a stored deadline, and is executed once by any account. Nothing obliges governance to use it, so a settlement stall may leave the chain halted, and a discarded block is not replayed. Value at or below the last accepted checkpoint can still leave on L1. Once the batch is accepted on L1, no protocol rule can replace it.</p></details>
 <details><summary>A prover has produced a proof for batch 385–390 but has not yet sent the L1 transaction. Which status is the batch in, and what can still change it?</summary>
 <p>Proof-ready. The proof exists off-chain and the batch can be landed, but no checkpoint exists yet. The data may
 already be on Ethereum, since anyone may publish it before the proof and publication writes no batch state. Any
@@ -289,7 +281,7 @@ contract never repairs a reorganisation by writing a chosen checkpoint.</p></det
 <li>At least one adequately-resourced prover proves each committed batch inside the permitted window.</li>
 <li>Ethereum includes valid transactions, and the accepting transaction is not reorganised out below the finality depth.</li>
 <li>The bridge's message-authentication path and its delay are set from the same settlement pipeline the delay formula names.</li>
-<li>v1 has no recovery path: a settlement stall halts the chain, and clearing it depends on a future protocol update whose procedure is not specified.</li>
+<li>The stall resolution is the one rule that can clear a settlement stall, and it depends on governance queueing an entry and someone executing it after the stored deadline; nothing obliges either.</li>
 </ul>
 </div>
 

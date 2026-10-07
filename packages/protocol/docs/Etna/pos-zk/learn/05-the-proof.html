@@ -162,13 +162,7 @@ L2 client, the guest and the L1 contract. The journal&rsquo;s quorum field is th
 <code>2 &middot; W</code>, so no division or rounding can differ between the three.</li>
 <li><strong>Predecessor.</strong> The previous checkpoint&rsquo;s height, block hash and state root
 come from the Inbox record, so the proof always runs from the state Ethereum already accepted.</li>
-<li><strong>Recovery generation.</strong> <code>recoveryGeneration</code> is read from L1 storage and
-required to equal the generation the contract supplies, so a batch certified under an older generation is
-rejected even though its proof is otherwise valid. It is a signed field of the vote and block-header bytes
-and the mechanism that scopes certificates, locks and uniqueness: a lock or certificate from a superseded
-generation cannot land a batch. v1 has no recovery path, so the generation does not advance here — the
-action that would increment it is not part of v1 — and no height is retired. A certificate from a
-superseded generation remains admissible as evidence of what was signed.</li>
+<li><strong>Recovery generation.</strong> <code>recoveryGeneration</code> is read from L1 storage and required to equal the generation the contract supplies for the height being built, so a batch certified under an older generation is rejected even though its proof is otherwise valid — with one case: a certificate for a block at or below the last accepted checkpoint is judged under the generation in that block's own header, never compared with the current one. It is a signed field of the vote and block-header bytes and the mechanism that scopes certificates, locks and uniqueness. The generation advances only when a stall resolution is executed: the DAO queues one entry during a settlement stall, its deadline is stored in the entry, and after that deadline anyone may execute it once, which increments the generation and discards the provisional range above the checkpoint, so the discarded branch can never land. No height is retired. A certificate from a superseded generation remains admissible as evidence of what was signed.</li>
 </ul>
 <p>If any of these could be chosen by the prover, the proof would be sound but meaningless: it
 would prove a true statement about a set, an epoch or a predecessor that the protocol never agreed
@@ -190,9 +184,7 @@ authenticated leaves&rsquo; effective stakes.</li>
 hash is the hash of the reconstructed head header.</li>
 <li>Recompute the finality commitment from the certificate the guest verified, rather than echoing
 a value from a hint.</li>
-<li>Check that <code>recoveryGeneration</code> equals the generation the L1 contract supplies as a
-public input: a batch certified under a superseded generation is void. v1 does not advance the generation,
-so this is the scoping rule a future update would exercise, not a rule that fires in v1.</li>
+<li>Check that <code>recoveryGeneration</code> equals the generation the L1 contract supplies as a public input for the height being built: a batch certified under a superseded generation is void. The generation advances only through an executed stall resolution — once per entry, after a DAO queue and the entry's stored deadline — and a block at or below the latest accepted checkpoint is judged under the generation in its own header.</li>
 <li>Decode each block body from the committed payload, execute the blocks in order from the
 predecessor state root, and check that each block&rsquo;s transactions reproduce the transaction
 root committed by its header and that the final state root equals the claimed one.</li>
@@ -218,11 +210,7 @@ published bytes. Whether anybody still serves them later is a retention question
 question.</li>
 <li><strong>That the chain keeps producing.</strong> Liveness &mdash; enough validators online,
 enough provers working &mdash; is an assumption about participants, not a theorem about the
-statement. There is also no recovery path: if settlement stalls, the chain halts safely, value at or below
-the last accepted checkpoint still exits on L1 through a withdrawal root that <code>k</code> distinct backend
-families attest, produced by a funded proving market from data that is still retrievable
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), and clearing the stall needs a future
-protocol update whose procedure is not specified.</li>
+statement. It also proves nothing about recovery: if settlement stalls, the chain halts safely until a stall resolution is executed — the DAO may queue one entry, and after its stored deadline anyone may execute it once to discard the provisional range above the checkpoint and resume production. Value at or below the last accepted checkpoint still exits on L1 through a withdrawal root that <code>k</code> distinct backend families attest, produced by a funded proving market from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), but nothing obliges governance to queue or execute an entry, so a stall may persist.</li>
 <li><strong>That validators behaved.</strong> If at least one third of an epoch&rsquo;s voting
 power breaks the signing or locking rules, two conflicting certificates can both be
 cryptographically valid and both can produce accepting proofs. ZK verification does not repair a

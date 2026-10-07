@@ -37,13 +37,20 @@ order is by value and by readiness, not by size.
    D-12 authorises. Open is what the design says of a premise no rule closes whose falsification would be
    a defect; disclosed is what it says of an inherent limit, and F-FI-2 is the former. *(correction: this
    line read "ships open and disclosed"; the two classes are exclusive and F-FI-2 is Open, not disclosed.)*
-4. **Increment 5 - the governance stall resolution (D-15): last.** It was the newest and least
-   reviewed. Its blockers: an entry state machine with an `executed` state, the resolved exit
-   contradiction (already fixed for v1 by MEM-15(2b)), and a generation rule for the anchor
-   certificate.
+4. **Increment 5 - the governance stall resolution (D-15): IMPLEMENTED, IN REVIEW.** Its three
+   blockers are closed by `increments/05-governance-design.md` against the converged v1: the entry
+   state machine with a consuming `executed` transition (one execution per entry, one generation
+   increment, no other writer), the exit contradiction resolved by withdrawing the "every user can
+   exit" claim and scoping the window to signals already at or below the last accepted checkpoint
+   (value above it is stated unprotected), and a two-case generation rule under which the anchor
+   certificate is judged under the restored block's own header generation while the batch's
+   certificate carries the current one. `DEFERRED.md` section 3 is the revival record, D-19 records
+   the decision, and the F-GOV-1-F-GOV-6 falsifiers are stated with their classes. The implementation
+   and the increment's own review round are in flight; it ships only after two consecutive clean
+   rounds. Its parameters and window relation remain unmeasured.
 
-Order of work: increment 2 is shipped, increment 4 is in review while increment 3 waits on S1, and
-increment 5 is last.
+Order of work: increment 2 is shipped; increments 4 and 5 are implemented and in review while
+increment 3 waits on S1.
 
 Reviving a mechanism must not reopen a v1 decision: the boundary, the exit, D-8/D-9, D-11 and the
 "no rule removes weight" property (D-14) stay as they are unless the owner changes them.

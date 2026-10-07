@@ -2,11 +2,7 @@
 
 Mechanisms **excluded from v1** by decision D-16, with what each was for, why it was deferred, what
 blocked it, and what would revive it — and, where an increment has since revived one, the revival record. Nothing here is abandoned: each entry is a scoped piece of work
-with its findings preserved in `iterations/raw/`. **Three deferred items remain**, counted by mechanism
-with its own rule id: the heartbeat rotation (`CONS-16`, §2), the governance stall resolution (§3) and
-aggregation (§4). Heartbeat eligibility was revived in part by increment 02 — the eligibility rule is
-live, the rotation that consumes it is not — and narrow forced inclusion was revived by increment 04
-(§1); both leave the deferred set, and the rotation inside §2 stays named on its own.
+with its findings preserved in `iterations/raw/`. **Two deferred items remain**, counted by mechanism with its own rule id: the heartbeat rotation (`CONS-16`, §2) and aggregation (§4). Heartbeat eligibility was revived in part by increment 02 — the eligibility rule is live, the rotation that consumes it is not — narrow forced inclusion was revived by increment 04 (§1) and the governance stall resolution was revived by increment 05 (§3); all three leave the deferred set, and the rotation inside §2 stays named on its own.
 
 ## 1. Narrow forced inclusion (D-12) — REVIVED AND SHIPPED (increment 04, see increments/04-ship-record.md)
 
@@ -196,18 +192,93 @@ quorum-loss halt inside an epoch is cleared only by the cohort returning or by a
 **Preserved:** `MEM-13` and `CONS-16` text at `7917ba264`; findings `R5T-C-2`, `R6-D12-06` and
 `R5T-H-1`; falsifiers F7, F8, F9.
 
-## 3. Governance stall resolution (D-15)
+## 3. Governance stall resolution (D-15) — REVIVED (increment 05, in review)
 
-**For:** clearing a settlement stall without a permissionless recovery.
-**Why deferred:** it did not survive its first review. A Critical showed that nothing consumes the
-queued entry on execution, so any account can re-execute it and churn the generation - a
-permissionless, gas-priced settlement-denial loop (`G-1`). Two reviewers independently showed the
-timelock cannot be the exit window the rule claims (`G-2`, and round-5 `F1`/`F2`), and the
-generation binding makes the first epoch-opening batch after a resolution unprovable (`G-3`).
-**Blocked by:** an entry state machine with an `executed` state; a resolved exit contradiction; a
-generation rule for the anchor certificate.
-**Revive criteria:** fix the three Criticals and re-review the whole path.
-**Preserved:** `GOV-04` text at `7917ba264`; `round6-gov-generations.md`.
+*Revived by increment 05: the timelocked, resume-only stall resolution (`GOV-04`, with `REC-02`–`REC-04`
+and the `T_STALL_GOV`/`T_GOV_RESUME`/`govResume*` registrations) is re-derived as a live, rule-bound action
+against the converged v1 rather than restored from its tombstone. The increment is in review and ships
+only after two consecutive clean review rounds; this section is the revival record — what was revived,
+how each of the three blockers recorded above was closed, what remains Open, and what a future increment
+would need.*
+
+**For:** clearing a settlement stall without a permissionless recovery. **Why it was deferred:** it did
+not survive its first review. A Critical showed that nothing consumed the queued entry on execution, so
+any account could re-execute it and churn the generation — a permissionless, gas-priced settlement-denial
+loop (`G-1`). Two reviewers independently showed the timelock could not be the exit window the rule
+claimed (`G-2`, and round-5 `F1`/`F2`), and the generation binding made the first epoch-opening batch
+after a resolution unprovable (`G-3`). **Blocked by:** an entry state machine with an `executed` state; a
+resolved exit contradiction; a generation rule for the anchor certificate — all three now disposed of.
+**Revive criteria were:** fix the three blockers and re-review the whole path; the review round is owed
+and not claimed here. **Preserved:** `GOV-04` text at `7917ba264`; `round6-gov-generations.md`; the
+`REC-01`–`REC-04`, `HALT-01`–`HALT-04`, `CONS-05`/`CONS-08`/`CONS-10`/`CONS-12` and
+`PRF-04`/`PRF-05` anchors as re-derived; falsifiers F-GOV-1–F-GOV-6 attached to the revived rules.
+
+**What was revived.** `GOV-04` is live as the protocol's one runtime governance action. A DAO transaction
+may queue a single entry only while the L1-state trigger holds
+(`block.timestamp - lastAcceptedBatchTime >= T_STALL_GOV`); the entry is the tuple
+`(govResumeQueuedAt, govResumeQueuedHeight, govResumeExecutableAt, govResumeState)` with
+`govResumeState ∈ {none, queued, executed}` and a **stored** deadline
+`govResumeExecutableAt = govResumeQueuedAt + T_GOV_RESUME` that no upgrade, initialiser or parameter
+change may move. `execute()` is permissionless, takes no outcome-affecting argument, requires the live
+`queued` state and a passed stored deadline, and **consumes** the entry: in one transaction it sets
+`executed` and increments the signed `recoveryGeneration` by exactly one — the generation's only writer,
+one execution per entry. It writes nothing else: `resumeHeight = lastLandedHeight + 1` is derived, the
+checkpoint record is untouched, and only history strictly above the latest L1-accepted checkpoint is
+discarded (`REC-01`). A void entry (the checkpoint advanced) may be cancelled by any account or replaced
+by the next queue; an `executed` entry is terminal for that entry and does not block a fresh one.
+`REC-02`–`REC-04` are revived with the corrected entry/effect/timelock table, the falsifier set and the
+ordinary restart linkage (derived resume point, no recovery anchor, no retired height). The action adds no
+bond, no reward, no invoker, no bundle, no history-editing power at or below the checkpoint and no
+slashable offence.
+
+**Disposition of the three blockers recorded here** (one Critical, two High).
+1. *`G-1`, Critical — the unconsumed entry.* Closed: `execute()` MUST revert unless the state is exactly
+   `queued`; success sets `executed` and increments the generation in the same transaction; no other
+   path, initialiser, upgrade, governance call or cancellation may increment it; a second call reverts for
+   every caller, in every block, with every calldata. The permissionless loop is dead, and the remaining
+   governance-driven repetition is disclosed as **F-GOV-3** rather than denied: one generation per fresh
+   DAO transaction plus a full stored window.
+2. *`G-2`, High — the timelock as an exit window.* Closed by correcting and scoping the claim: the window
+   is the notice window of the resolution and the exit window of `MEM-15` for signals already at or below
+   the last accepted checkpoint at queue time, with the registered, unmeasured relation
+   `T_GOV_RESUME >= W_root + WITHDRAWAL_DELAY + T_VETO + MARGIN`; execution removes no claim at or below
+   the checkpoint, so a user who misses the window can still complete the exit afterwards. Value above the
+   checkpoint has no L1-provable claim (`MEM-15(4)`), is discarded by rule and is **not** protected by any
+   window. The sentence "the timelock gives every user the exit window" is withdrawn.
+3. *`G-3`, High — the anchor certificate's generation.* Closed by a two-case rule: a certificate for a
+   block at or below the checkpoint carries the generation of that block's **own header** and MUST NOT be
+   compared with the current generation; a certificate for a batch extending the checkpoint carries the
+   current generation. `B_anchor` is the restored checkpoint block pinned by `prevBlockHash`, so the first
+   post-resolution epoch-opening batch judges the anchor certificate under the pre-resolution generation
+   and its own certificate under the new one — two different objects, so no single value has to satisfy
+   both, and the rule is invariant under repeated resolutions.
+
+**What remains Open.**
+- **F-GOV-1** (Open) — clearing a stall depends on governance liveness with no protocol bound; a captured
+  or coerced governance can also wait for a genuine stall and have an unfavourable provisional range
+  discarded.
+- **F-GOV-2** (Open) — the window relation and its terms (`W_root`, `WITHDRAWAL_DELAY`, `T_VETO`,
+  `MARGIN`) are unmeasured and conditional on `MEM-15`(2b).
+- **F-GOV-5**, **F-GOV-6** (Open, implementation-verified) — the anchor pinning and the non-interaction
+  clauses are verified by acceptance and conformance vectors, not by rule text alone.
+- **F-GOV-3**, **F-GOV-4** (disclosed) — governance-driven churn at one generation per DAO transaction plus
+  a full window, and future-entry parameter discretion in a published rules change. The "progress-earned"
+  queue rule that would remove the churn is **not adopted**: it would deadlock the certified-but-unprovable
+  case, which L1 cannot decide.
+- The smaller calls stay as the delta states them: the trigger's conforming floor strength, the contents of
+  `MARGIN` and the window relation's exact terms stay symbolic and unmeasured; there is no distinct
+  `cancelled` state (a cancelled entry is `none`); and the generation is not stored in the checkpoint
+  record (it is read from the block's own header). The added `govResumeExecutableAt` makes the slot-268
+  packing a **migration-audit obligation**: the field is required, written once at queue time and read by
+  `execute()`, while whether the layout is repacked or a slot is added is the audit's call and is not
+  assumed to fit.
+
+**What a future increment would need.** Phase B's measurements — the exit-time measurement, the trigger
+derivation and the cost of the checkpoint's `k` attestations — so the registered relations and floors stop
+being symbolic; and, if churn is ever to be constrained, a rule that does not require L1 to decide whether
+a certified-but-unprovable range exists. Aggregation (§4) is therefore the **only mechanism still awaiting
+its gate**; `CONS-16`'s rotation (§2) is gated on its own missing `h_close` referent, not on Phase B
+alone, and both remain MUST-NOT-IMPLEMENT tombstones.
 
 ## 4. Aggregation (D-13)
 
@@ -217,10 +288,9 @@ program while adding a proving cost that S1 has not measured.
 **Revive criteria:** S1's aggregation-cost line, then a review of the family-bitmap enforcement.
 **Preserved:** `PRF-15`, `L1-14`, `L1-13` text at `7917ba264`; `round6-data-proof-economics.md`.
 
-## Cross-cutting items that outlive all three
+## Cross-cutting items that outlive both
 
-The deferred set is three: the heartbeat rotation (`CONS-16`, §2), the governance stall resolution (§3)
-and aggregation (§4). The items below outlive all three.
+The deferred set is two: the heartbeat rotation (`CONS-16`, §2) and aggregation (§4). The items below outlive both.
 
 - **The round-5/6 findings not specific to a deferred mechanism** are listed in
   `iterations/raw/round5t-*.md` and `round6-*.md`; the round-8 pass is in
@@ -243,5 +313,7 @@ and aggregation (§4). The items below outlive all three.
   change to a live rule, not only the return of a deferred mechanism.* Increment 02 re-synced the course
   for the revived heartbeat (lessons 4, 7, 8, 10, the glossary, the index and the limitations page) and
   deliberately does not teach the deferred rotation. Increment 04 re-synced it for the revived narrow forced
-  inclusion — lesson 9's censorship half, the new lesson 11, lessons 1, 2, 5, 6 and 8, the glossary, the
-  index and the limitations page — and deliberately does not teach the general inclusion list.
+inclusion — lesson 9's censorship half, the new lesson 11, lessons 1, 2, 5, 6 and 8, the glossary, the
+index and the limitations page — and deliberately does not teach the general inclusion list. Increment 05
+re-syncs it for the revived stall resolution (the lessons that taught the absence, the glossary and the
+limitations page) and deliberately teaches neither the permissionless recovery nor any withdrawn parameter.

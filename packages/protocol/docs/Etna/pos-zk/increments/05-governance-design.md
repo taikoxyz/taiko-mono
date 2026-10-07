@@ -1,11 +1,12 @@
 # Increment 05 — Governance stall resolution (D-15): design delta
 
-**Status: DESIGN DELTA, NOT APPLIED.** No specification, register, index, course or decision file has
-been edited by this pass. This document is what the implementation and its adversarial review round are
-built from; the review round is the authority that closes the three blockers named in
-[DEFERRED.md](../DEFERRED.md) §3 and in the brief that ordered this delta. It has NOT shipped: an
-increment ships only when two consecutive rounds come back with no Critical and no High, and its ship
-record follows, exactly as `increments/02-ship-record.md` and `increments/04-ship-record.md` did.
+**Status: IMPLEMENTED, IN REVIEW.** The design delta has been applied to the specification, register,
+index, course and decision files by increment 05's implementation pass; the four owner decisions that
+answered §10 are appended verbatim in §11 and recorded as D-19. This document remains what the
+increment's adversarial review round is built from, and the review round is the authority that closes the
+three blockers named in [DEFERRED.md](../DEFERRED.md) §3. It has NOT shipped: an increment ships only when
+two consecutive rounds come back with no Critical and no High, and its ship record follows, exactly as
+`increments/02-ship-record.md` and `increments/04-ship-record.md` did.
 
 **Scope.** This increment revives the **timelocked, resume-only governance stall resolution of D-15**
 (`GOV-04`, with its analysis family `REC-02`/`REC-03`/`REC-04`) as a live, rule-bound action: a single
@@ -744,8 +745,9 @@ draft must be re-based to name it — §9).
 
 ## 9. What this increment changes outside the revived rules (listed, not made)
 
-Every item below is a required change for the increment to be consistent; **none has been made**. Line
-anchors are approximate and refer to the current draft.
+Every item below is a required change for the increment to be consistent; **items 1–15 have been made**
+by the implementation pass and **item 16 remains the review round's test obligation**. Line anchors are
+approximate and refer to the draft the delta was written against.
 
 1. **`spec/08-migration-upgrades.html`**
    - `GOV-04` tombstone (~L782): replaced by §2's rule text, with the three-state machine, the stored
@@ -945,5 +947,19 @@ delta does not create one.
 
 ---
 
-*End of increment 05. The review round owns the fresh adversarial pass; nothing here claims it has
-happened, and nothing here has been applied to the specification.*
+*End of increment 05. The review round owns the fresh adversarial pass and nothing here claims it has
+happened; the change list's items 1–15 have been applied and item 16 is the review round's test
+obligation.*
+
+## 11. Owner decisions (binding, appended verbatim)
+
+**The owner answered the four items §10 returned on 2026-10-07. The decisions below are reproduced
+verbatim and are binding on this increment; they are recorded as D-19 in `DECISIONS.md`.**
+
+1. **The churn rule is CONSUMPTION-ONLY.** The progress-earned candidate is NOT adopted: it deadlocks the certified-but-unprovable case and L1 cannot decide h_close. So an entry is consumed by execution and the generation increments exactly once per executed entry; governance-driven churn stays DISCLOSED as F-GOV-3 (one generation per fresh DAO transaction plus a full window) rather than being constrained. This is the same call as increment 4's: do not add a new condition to rescue an existing falsifier - state the condition instead.
+2. **Slot 268 is a migration-audit item, not a design decision.** State the design REQUIREMENT (a stored govResumeExecutableAt, written once when the entry is queued and read by execute()), and leave the layout - repack the preserved bytes or add a slot - to the migration audit, named as an explicit open obligation in the change list. Do not assume it fits.
+3. **A superseded-generation proposal is NOT a new offence.** No slashable offence is created or revived, consistent with increment 4's owner decision 6 and D-16's tombstoning of the offence rows. The enforcement is the rejected proof or the reverted call, nothing else.
+4. **The smaller items stay as the delta states them**: trigger floor strength, MARGIN contents and the window relation all remain symbolic and unmeasured; there is NO distinct 'cancelled' state (cancelled means not queued - adding a state adds surface without adding a property); and the generation is NOT stored in the checkpoint record (it is read from that block's own header, which is what G-3's two-case rule already does - do not add storage).
+
+*End of the owner decisions. Nothing above reopens D-15, D-16 or any v1 decision.*
+

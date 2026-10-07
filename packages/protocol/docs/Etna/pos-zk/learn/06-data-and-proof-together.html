@@ -61,8 +61,7 @@ the record is dead at any view past it, decided from its own stored block number
 <p>The statement also binds <strong>the configuration under which the batch was certified and the recovery
 generation it belongs to</strong>. A proof is therefore evidence about one specific history: it cannot be
 replayed into a different configuration, and a batch whose certificate carries a superseded generation is
-void at the acceptance rule. v1 has no recovery path, so the generation never advances here and no height is
-ever retired; the binding is the scoping rule a future update would exercise, not a rule that fires in v1.
+void at the acceptance rule. The generation advances only through an executed stall resolution — one entry, queued by the DAO during a settlement stall, executed once by any account after its stored deadline — and no height is ever retired: the binding is the scoping rule that voids a discarded branch, and a block at or below the accepted checkpoint is judged under the generation in its own header.
 Execution validity alone is never enough to accept an alternative history
 (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
 <p>Data can travel in two forms. <strong>Calldata</strong> is ordinary transaction input; the
@@ -281,12 +280,7 @@ equality with the registry value the L1 contract supplies
 (<a href="../spec/05-proof-statement.html#PRF-02">PRF-02</a>). The recovery generation is carried in the
 signed vote and header bytes and is part of the statement. A certificate carrying a superseded generation is
 <strong>void</strong> at the acceptance rule, and that is what stops a branch scoped to an older generation
-from ever being accepted again. v1 has no recovery path, so nothing increments the generation here: there is
-no restoration, no retired height and no <code>resumeHeight</code>. Every batch starts at
-<code>lastLandedHeight + 1</code>, the ordinary contiguity rule
-(<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). The generation scoping is the rule a future
-protocol update would have to exercise; in v1 it is inert, and a certificate from any generation remains
-usable as evidence of what was signed
+from ever being accepted again. The generation increments only when a stall resolution executes: a DAO-queued entry, a stored deadline, one permissionless execution, discarding the whole range above the checkpoint so the resumed chain continues from that checkpoint. There is no restoration record, no retired height and no <code>resumeHeight</code>; every batch starts at <code>lastLandedHeight + 1</code>, the ordinary contiguity rule (<a href="../spec/04-l1-integration.html#L1-06">L1-06</a>). A certificate from any generation remains usable as evidence of what was signed
 (<a href="../spec/05-proof-statement.html#PRF-01">PRF-01</a>).</p>
 <p>What this rules out is the tempting shortcut of accepting an alternative history just because its
 execution is valid. A batch that does not descend from the current checkpoint, or whose certificate carries
@@ -403,12 +397,7 @@ transaction.</p></details>
 <details><summary>The statement binds a recovery generation. What does that mean in v1?</summary>
 <p>It scopes certificates: a certificate carrying a generation other than the one the L1 contract supplies is
 void at the acceptance rule, so a branch certified under a superseded generation can never be accepted
-again. v1 has no recovery path, so nothing advances the generation and no height is retired; every batch
-still starts at <code>lastLandedHeight + 1</code>. A settlement stall halts the chain instead of replacing
-history, funds at or below the last accepted checkpoint stay safe and the exit works through a withdrawal
-root that <code>k</code> distinct families attest, funded proving work over data that is still retrievable
-(<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), and clearing the stall needs a future
-protocol update. A certificate from any generation remains usable as evidence of what its
+again. The generation advances only through an executed stall resolution: during a settlement stall the DAO may queue one entry, and after its stored deadline anyone may execute it once, which discards the whole range above the checkpoint and resumes from it. No height is retired and every batch still starts at <code>lastLandedHeight + 1</code>. A stall governance does not act on halts the chain instead; funds at or below the last accepted checkpoint stay safe and the exit works through a withdrawal root that <code>k</code> distinct families attest, funded proving work over data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)), and a discarded block is not replayed. A certificate from any generation remains usable as evidence of what its
 signers signed.</p></details>
 <details><summary>Why can a routine upgrade not invalidate the proofs that are already in flight?</summary>
 <p>Because the configuration is registered per epoch. Each epoch&rsquo;s <code>configHash</code> is written

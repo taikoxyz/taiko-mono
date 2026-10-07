@@ -182,12 +182,7 @@ certified range permanently unlandable (L1-06).</p>
 unsettled data for a window; once a block&rsquo;s data has aged out of that window and no proof exists,
 nobody can prove that range. So the protocol stops creating new unsettled blocks before that can happen.
 When the cap binds, production stops and the chain sits in a safe halt until provers catch up. That is a
-designed stop, not a failure of the protocol. v1 has no recovery path: if the stall persists, the chain
-stays halted, and clearing it requires a future protocol update whose procedure is not specified. Value at
-or below the last accepted checkpoint can still leave on L1 through the exit path &mdash; a withdrawal root
-of <code>k</code> distinct-family attestations over that checkpoint, subject to the funded proving market
-and to the data still being retrievable &mdash; and nothing reconstructs data at or below the checkpoint,
-so a halt over missing accepted data can be permanent.</p>
+designed stop, not a failure of the protocol. If the stall persists, the chain stays halted until a stall resolution runs: the DAO may queue one entry, and after its stored deadline anyone may execute it once to discard the provisional range above the checkpoint and resume production. Nothing obliges governance to act, so the halt can last. Value at or below the last accepted checkpoint can still leave on L1 through the exit path &mdash; a withdrawal root of <code>k</code> distinct-family attestations over that checkpoint, subject to the funded proving market and to the data still being retrievable &mdash; and nothing reconstructs data at or below the checkpoint, so a halt over missing accepted data can be permanent.</p>
 <p>Notice what the cap is <em>not</em>: it does not limit proving latency and it is not misconduct for a
 proof to consume the whole 30-minute envelope. The envelope is the planning assumption; the cap sits
 above it.</p>
@@ -272,7 +267,7 @@ before the proof, but nothing forces publication, and publication settles nothin
 the window&rsquo;s availability comes from L2 participants and is an assumption, not an on-chain duty.</li>
 <li>Any measured latency figure. L1 inclusion, the round budget, the retention window and the
 withdrawal delay are all not yet measured.</li>
-<li>No way to clear a stall inside the protocol. If settlement stalls for good, the chain stays halted: v1 has no recovery path, and clearing the stall requires a future protocol update whose procedure is not specified. Value at or below the last accepted checkpoint still exits on L1 through a withdrawal root &mdash; but only if a funded proving market produces the <code>k&minus;1</code> further attestations from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
+<li>No automatic way to clear a stall. If settlement stalls, the chain stays halted until the stall resolution runs &mdash; a DAO-queued entry, a stored deadline, one execution by any account &mdash; and nothing obliges governance to queue or execute it, so the halt can last indefinitely. Value at or below the last accepted checkpoint still exits on L1 through a withdrawal root &mdash; but only if a funded proving market produces the <code>k&minus;1</code> further attestations from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
 <li>A small proving fleet or a long batch. About 150 batches are unsettled inside the thirty-minute
 envelope, so roughly 150 proofs must be able to be in flight at once; that is a consequence of the data
 bound, not a target that can be tuned away.</li>
@@ -292,8 +287,7 @@ is provisional, that the data may already be published, and that no checkpoint e
 <p>Because the cap is a production rule enforced by validators, not an admission rule on
 <code>land</code>. Refusing a valid proof at L1 could strand a legitimately certified range, which the
 design forbids. The correct sequence is: production stops, existing ranges are proven and landed, and
-production resumes as the checkpoint advances. If no proof ever lands, the chain stays halted — v1 has no
-recovery path, and clearing the stall requires a future protocol update whose procedure is not specified.</p></details>
+production resumes as the checkpoint advances. If no proof ever lands, the chain stays halted until a stall resolution is executed: the DAO may queue one entry, and after its stored deadline anyone may execute it once; if governance never queues one, it stays halted indefinitely.</p></details>
 <details><summary>Ten minutes after a block is certified, its proof is still running. Where is the block&rsquo;s data?</summary>
 <p>On L2 participants&rsquo; machines, unless an account has published it to L1: publication is
 permissionless, writes a publication record and no batch state, and can happen at any time before the
@@ -323,7 +317,7 @@ heartbeat transactions inside their windows; a validator that lapses loses futur
 censoring honest heartbeats can exclude honest validators from future versions (F8).</li>
 <li>The 30-minute envelope, the retention window and the withdrawal delay are planning values awaiting
 measurement.</li>
-<li>The chain resumes after a settlement stall only through a future protocol update: no rule of v1 provides a recovery path, and the exit from the last settled checkpoint works on L1 without any L2 liveness, through a withdrawal root that a funded proving market produces from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
+<li>The chain resumes after a settlement stall only through the stall resolution &mdash; a DAO-queued entry executed once by any account after its stored deadline &mdash; and nothing obliges governance to act; the exit from the last settled checkpoint works on L1 without any L2 liveness, through a withdrawal root that a funded proving market produces from data that is still retrievable (<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>(2b)).</li>
 <li>Blob space is a market: the target rate is nominal, and sustained throughput is whatever the
 protocol&rsquo;s fee budget buys at the prevailing blob price.</li>
 </ul>

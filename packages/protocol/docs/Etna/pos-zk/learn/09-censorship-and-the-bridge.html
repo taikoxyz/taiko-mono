@@ -56,12 +56,7 @@ remains absent is different: there is no <strong>general inclusion list</strong>
 transactions, no
 escrow, no refund and no L1 entry point can force an <em>unpublished</em> transaction into L2 or start a
 withdrawal.</p>
-<p>A settlement stall is not an inclusion remedy either. v1 has no recovery path of any kind: a settlement stall
-halts the chain, value at or below the last accepted checkpoint still exits on Ethereum alone through a
-withdrawal root that <code>k</code> distinct backend families attest, and clearing
-the stall needs a future protocol update. A stall is not an inclusion remedy either: the obligation binds a
-batch that lands, so none of it operates while settlement is stopped, and none of it makes unpublished data
-includable.</p>
+<p>A settlement stall is not an inclusion remedy either. The stall resolution can clear it &mdash; a DAO-queued entry, a stored deadline, one execution by any account, discarding the provisional range above the checkpoint &mdash; but it is no remedy for exclusion: it reads no inclusion state and includes nothing. A settlement stall halts the chain until it runs, value at or below the last accepted checkpoint still exits on Ethereum alone through a withdrawal root that <code>k</code> distinct backend families attest, and nothing obliges governance to act. The obligation binds a batch that lands, so none of it operates while settlement is stopped, and none of it makes unpublished data includable.</p>
 <p>For data that never reaches L1, resistance is statistical. Proposer selection is weighted random: a
 coalition with less than one third of the voting power is selected for fewer than one third of slots in
 expectation, so a transaction that reaches honest validators is included by the first honest proposer
@@ -141,8 +136,7 @@ reaches honest validators and an honest proposer has room for it, it is included
 <a href="11-forced-inclusion.html">lesson 11</a> binds a producer that lands batches, and it bounds exclusion
 per unit of the censor&rsquo;s L1 spending rather than by time. Any interface that claims a latency
 guarantee, that the obligation reaches <em>unpublished</em> data, or that an L1 escape hatch exists for
-arbitrary transactions, is wrong. A settlement stall changes none of that: v1 has no recovery path, no rule
-of the mechanism operates while no batch lands, and there is still no remedy against isolation.</p>
+arbitrary transactions, is wrong. A settlement stall changes none of that: the stall resolution clears a settlement stall but includes nothing, no rule of the inclusion mechanism operates while no batch lands, and there is still no remedy against isolation.
 
 <h3>How a message is authenticated</h3>
 <p>A cross-chain message is a signal inside L2 state, and L2 state is authenticated by the checkpoint
@@ -291,8 +285,7 @@ unchanged slot and message encodings.</li>
 <h2>What it does not give you</h2>
 <ul>
 <li>A general inclusion list, or any L1 path to force an <em>unpublished</em> transaction into L2 or to
-start a withdrawal. Nothing changes this: the obligation begins at publication, and v1 has no recovery path,
-so there is no later event that includes a censored transaction.</li>
+start a withdrawal. Nothing changes this: the obligation begins at publication, and the stall resolution clears a stall rather than including a censored transaction, so there is no later event that includes one.</li>
 <li>A promise that a published record is included at, before or by any particular height: a transaction can
 be set aside at its turn, a record can be discharged as dead by its own deadline, decided from its own stored block number, or
 as void while it is live, instead of included, and the obligation bounds the
@@ -325,8 +318,7 @@ it is live, or halting its own frontier. Re-publication starts a fresh record, s
 censor&rsquo;s cost is roughly one L1 publication per deadline window. But if the coalition can also keep the data off L1 &mdash; by cutting the
 user off from every honest proposer at the network level, or by censoring L1 inclusion of the publication
 &mdash; then yes, indefinitely, including preventing a withdrawal from being started, and the protocol has no
-remedy. The obligation is per unit of L1 spending, not a latency bound, and v1 has no recovery path either
-way.</p></details>
+remedy. The obligation is per unit of L1 spending, not a latency bound, and the stall resolution changes none of that.
 <details><summary>What is the minimum evidence that an L2&rarr;L1 message may be released?</summary>
 <p>A checkpoint written by a successful <code>land(data, proof)</code> whose state root covers the
 signal, a <strong>withdrawal root</strong> over it &mdash; <code>k</code> attestations from <code>k</code>
