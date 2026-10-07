@@ -188,15 +188,16 @@ measured in L1 blocks rather than in seconds: the duty is one attestation per
 <code>HEARTBEAT_WINDOW</code> L1 blocks, so its spacing in real time moves with L1 block time and is
 <span class="tag">unmeasured</span>.</p>
 <div class="note plain">
-<span class="lbl">Two named falsifiers, and one open gap</span>
-<p><strong>F8.</strong> An adversary able to censor, delay past a window, or price out honest
-entries&rsquo; L1 heartbeat transactions excludes honest validators from future set versions at no
-slashable cost, and because exclusion changes future composition it can raise the adversary&rsquo;s own
-share of those versions. The protocol does not attempt to detect or resist this.</p>
-<p><strong>F9.</strong> The pre-signing horizon is bounded, not closed: a signature made within the
+<span class="lbl">Two heartbeat limits, and one open gap</span>
+<p><strong>Heartbeat censorship.</strong> An adversary able to censor, delay past a window, or price
+out honest entries&rsquo; L1 heartbeat transactions excludes honest validators from future set versions
+at no slashable cost, and because exclusion changes future composition it can raise the
+adversary&rsquo;s own share of those versions. The protocol does not attempt to detect or resist this,
+so the limit is open: no rule closes it.</p>
+<p><strong>The pre-signing horizon.</strong> It is bounded, not closed: a signature made within the
 bounded anchor age before the window it names is accepted in that window, so an entry can be absent for
 up to that term around a window boundary without losing coverage, and the same term makes an append
-window in which no active entry is eligible reachable.</p>
+window in which no active entry is eligible reachable. That residual stays open: no rule closes it.</p>
 <p><strong>The window length itself.</strong> The window a version is judged against is derived when the
 version is committed, so a change to the window length that takes effect while an epoch is in flight can
 leave an entry outside that one version even though the grid in force when it signed covered it. Nothing
@@ -398,7 +399,7 @@ slot when the attestation lapses.</p></details>
 <details><summary>Can an adversary keep an honest validator out of the next set?</summary>
 <p>Yes, if it can censor or delay that validator&rsquo;s L1 heartbeat past its window: exclusion then requires
 withholding one L1 transaction per entry per window, and the protocol neither detects nor resists it. That is
-falsifier F8, and it is a real power, because removing an honest validator from future versions raises the
+the heartbeat-censorship limit, and it is a real power, because removing an honest validator from future versions raises the
 adversary&rsquo;s share of those versions&rsquo; total. It is not a stake loss for the excluded validator,
 which can re-attest.</p></details>
 
@@ -406,7 +407,7 @@ which can re-attest.</p></details>
 <p><strong>Assumptions.</strong> This lesson relies on: fewer than one third of the voting power of
 the relevant epoch&rsquo;s set breaking the rules; enough validators online for a quorum to form; each
 validator getting an L1 heartbeat transaction included inside each window, which is what makes honest
-validators selectable and is the assumption F8 leans on; at
+validators selectable and is the assumption heartbeat censorship leans on; at
 least one holder keeping each block&rsquo;s data until the batch is settled; Ethereum continuing to
 accept, include and finalize transactions, so the L1 clock and the set commitments advance; a new node being
 able to obtain an Ethereum-finalized checkpoint no older than <code>WS_MAX</code>; and the reward pool
