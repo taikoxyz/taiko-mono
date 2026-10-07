@@ -36,13 +36,15 @@ order is by value and by readiness, not by size.
    and tombstoned (`DEFERRED.md` section 2).
 2. **Increment 3 - aggregation (D-13): gated on Phase B's S1 measurement.** n and m cannot be fixed
    before S1 measures the aggregation cost. Design work can proceed; parameterisation cannot.
-3. **Increment 4 - narrow forced inclusion (D-12): IN REVIEW.** Its four named blockers - one unit
+3. **Increment 4 - narrow forced inclusion (D-12): SHIPPED.** Its four named blockers - one unit
    of account for the obligation, a mandatory frontier advance with no waiver, a void predicate
    computed from the record's immutable bytes and registered constants only, and expiry as an
    objective proof-side discharge ground - are closed by
    `increments/04-forced-inclusion-design.md`, and `DEFERRED.md` section 1 is the revival record.
-   The implementation and the increment's own review round are in flight; it ships only after two
-   consecutive clean rounds. F-FI-2 (arrivals exceeding the drain) ships **Open** and unfixed by design:
+   The implementation and the increment's own review round are complete: it reached the bar - two
+   consecutive clean rounds (rounds 5 and 6) - and shipped (`increments/04-ship-record.md`).
+   *(This closes increment-5 round-1 finding RDC-04: the status line said the increment was in
+   review after the ship record existed.)* F-FI-2 (arrivals exceeding the drain) ships **Open** and unfixed by design:
    no per-publisher bound on `publish()` is added, because a condition on publication is outside what
    D-12 authorises. Open is what the design says of a premise no rule closes whose falsification would be
    a defect; disclosed is what it says of an inherent limit, and F-FI-2 is the former. *(correction: this
@@ -59,8 +61,9 @@ order is by value and by readiness, not by size.
    and the increment's own review round are in flight; it ships only after two consecutive clean
    rounds. Its parameters and window relation remain unmeasured.
 
-Order of work: increment 2 is shipped; increments 4 and 5 are implemented and in review while
-increment 3 waits on S1.
+Order of work: increments 2 and 4 are shipped; increment 5 is implemented and in review while
+increment 3 waits on S1. *(This closes increment-5 round-1 finding RDC-04: the order line follows
+the increment-4 ship record.)*
 
 Reviving a mechanism must not reopen a v1 decision: the boundary, the exit, D-8/D-9, D-11 and the
 "no rule removes weight" property (D-14) stay as they are unless the owner changes them.

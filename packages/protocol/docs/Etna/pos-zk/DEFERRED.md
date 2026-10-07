@@ -7,10 +7,14 @@ with its findings preserved in `iterations/raw/`. **Two deferred items remain**,
 ## 1. Narrow forced inclusion (D-12) — REVIVED AND SHIPPED (increment 04, see increments/04-ship-record.md)
 
 *Revived by increment 04: the FI-10–FI-14 family is re-derived as a live rule family against the converged
-v1 rather than restored from its tombstone, and the general inclusion list stays absent. The increment is
-in review and ships only after two consecutive clean review rounds; this section is kept as the revival
-record — what was revived, how each blocker recorded here was disposed of, what remains deferred inside the
-mechanism, and what a future increment would need.*
+v1 rather than restored from its tombstone, and the general inclusion list stays absent. The increment
+reached the bar — two consecutive clean review rounds (rounds 5 and 6) — and shipped
+(`increments/04-ship-record.md`); this section is kept as the revival record — what was revived, how each
+blocker recorded here was disposed of, what remains deferred inside the mechanism, and what a future
+increment would need.*
+
+*This closes increment-5 round-1 finding RDC-04: the section body had said the increment was in review
+under the SHIPPED header; the ship record is now named.*
 
 **For:** bounding the time a proposer can keep a *published* transaction out of the chain, without a
 general inclusion list. **Why it was deferred:** it was non-functional as written — the settled-frontier

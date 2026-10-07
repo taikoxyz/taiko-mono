@@ -56,10 +56,12 @@ of the voting power is honest and locked, so a conflicting certificate would nee
 break the lock &mdash; which is exactly the behaviour the rule forbids and slashing punishes.</p>
 <p><strong>A confirmation above the last batch accepted on Ethereum is provisional.</strong> The L2
 certificate is real, and more than two thirds of the epoch&rsquo;s voting power signed it; but until the batch
-carrying it is accepted on L1 with its proof, no v1 rule makes it permanent, and v1 has no path that
-replaces it. That is the guarantee class of every confirmation above the checkpoint, and every interface that
-shows one must say so
+carrying it is accepted on L1 with its proof, no v1 rule makes it permanent, and the one rule that discards
+it is an executed stall resolution. That is the guarantee class of every confirmation above the checkpoint,
+and every interface that shows one must say so
 (<a href="../spec/index.html#STATUS-04">STATUS-04</a>, <a href="../spec/index.html#STATUS-11">STATUS-11</a>).
+<em>Corrected: this paragraph previously said v1 has no path that replaces a provisional confirmation; the
+one rule that discards it is an executed stall resolution, which needs governance to act.</em>
 </p>
 <p><strong>A settlement stall halts the chain, and the halt is safe.</strong> A stall means that no
 batch extending the current L1 checkpoint has been accepted for long enough that a normal slow proof, or a
@@ -97,10 +99,10 @@ its signers signed (<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>,
   <text x="90" y="84" fill="#59636e" font-size="9" text-anchor="middle">checkpoint</text>
   <rect x="128" y="48" width="660" height="46" rx="6" fill="#fff8e5" stroke="#5c4a1c" stroke-dasharray="5 3"/>
   <text x="458" y="68" fill="#9a6700" font-size="11" text-anchor="middle">provisional: 801&ndash;832 is certified on L2, never accepted on Ethereum</text>
-  <text x="458" y="85" fill="#59636e" font-size="9" text-anchor="middle">no v1 rule discards this range, and none makes it settled; the chain simply stops producing</text>
+  <text x="458" y="85" fill="#59636e" font-size="9" text-anchor="middle">the range is never settled; an executed stall resolution is the one rule that replaces it, and nothing at or below the checkpoint is touched</text>
   <rect x="796" y="48" width="120" height="46" rx="6" fill="#f6f8fa" stroke="#d8dee4" stroke-dasharray="5 3"/>
   <text x="856" y="68" fill="#59636e" font-size="11" text-anchor="middle">no progress</text>
-  <text x="856" y="84" fill="#59636e" font-size="9" text-anchor="middle">until a future update</text>
+  <text x="856" y="84" fill="#59636e" font-size="9" text-anchor="middle">until a resolution runs</text>
   <rect x="128" y="112" width="660" height="40" rx="6" fill="#e6f4ea" stroke="#2c5a3a" stroke-dasharray="5 3"/>
   <text x="458" y="130" fill="#1a7f37" font-size="11" text-anchor="middle">HALT: production stops; the checkpoint at 800 and everything below it is untouched</text>
   <text x="458" y="146" fill="#59636e" font-size="9" text-anchor="middle">the recovery generation advances only when a stall resolution executes &middot; nothing is retired &middot; the checkpoint and everything below it is preserved</text>
@@ -115,7 +117,7 @@ its signers signed (<a href="../spec/02-consensus.html#CONS-04">CONS-04</a>,
 </svg>
 <figcaption>A settlement stall halts the chain. The last accepted checkpoint is never rewritten, the range
 above it stays provisional, and the exit at or below the checkpoint needs no L2 liveness &mdash; only a
-withdrawal root that a funded proving market produces from data that is still retrievable. The stall resolution is the one path that clears the stall; it discards exactly the range above the checkpoint and preserves the boundary.</figcaption>
+withdrawal root that a funded proving market produces from data that is still retrievable. The stall resolution is the one path that clears the stall; it discards exactly the range above the checkpoint and preserves the boundary. It needs governance to act, and its window is a notice window for value at or below the checkpoint, not an exit guarantee for value above it. <em>Corrected: the figure&rsquo;s range and progress labels previously said no rule discards the range and that progress waits for a future update; the one rule that replaces it is an executed stall resolution.</em></figcaption>
 </figure>
 <p><strong>A cohort that goes silent takes production with it.</strong> Within a set version nothing changes:
 the committed weights still include validators that have stopped signing, so if enough of them stop that quorum
@@ -203,7 +205,7 @@ height nor creates a lock there. The <code>pol_round</code> field carried in a p
 the validator must verify the proof itself. And a validator that holds a lock at a height and then sees
 a valid commit certificate for a <em>different</em> block at that height has evidence that the
 assumptions failed: it halts, and it does not treat the certificate as an unlock or as a reason to
-abandon the halt. an executed stall resolution begins a new generation, so a lock formed under the superseded generation is not superseded by the restart itself; a certificate carrying a superseded generation is void at the acceptance rule, and the lock remains in force until the ordinary rules release it.</p>
+abandon the halt. An executed stall resolution begins a new generation, so a lock formed under the superseded generation cannot constrain votes under the new one; a certificate carrying a superseded generation is void at the acceptance rule, and otherwise the lock remains in force until the ordinary rules release it. <em>Corrected: this sentence previously said that a lock formed under the superseded generation is not superseded by the restart itself.</em></p>
 <p>Why this protects safety: a commit certificate requires more than two thirds of the epoch&rsquo;s
 voting power. If a second, conflicting commit certificate existed, the two signer sets would overlap in
 more than one third of the power, and those validators would have had to sign conflicting blocks at the
@@ -321,9 +323,11 @@ verify the proof-of-lock-change itself. If that proof is for <code>B&prime;</cod
 <code>(H, round 4)</code>, it unlocks and prevotes <code>B&prime;</code>, because 4 is strictly later
 than its locked round 2 and the value differs. If the proof is for round 2, or for <code>B</code>, it
 stays locked and prevotes <code>B</code>. If instead it obtains a commit certificate for a different
-block at <code>H</code>, it halts &mdash; it does not treat the certificate as an unlock. v1 never begins a
-new generation, so no restart can supersede the lock; it stays in force until the rules above release it, and
-the conflicting certificate remains evidence that the assumptions failed.</p>
+block at <code>H</code>, it halts &mdash; it does not treat the certificate as an unlock. An executed stall
+resolution begins a new generation, so a lock formed under the superseded generation cannot constrain votes
+under the new one; otherwise the lock stays in force until the rules above release it, and the conflicting
+certificate remains evidence that the assumptions failed. <em>Corrected: this sentence previously said v1
+never begins a new generation, so no restart can supersede the lock.</em></p>
 
 <p><strong>A prover that never finishes, and then a stall.</strong> A batch is certified at time
 <code>t</code>. At <code>t</code> + 30 minutes there is still no proof. Nothing special happens yet: a
@@ -340,10 +344,14 @@ run time.</li>
 publication.</li>
 <li>A principled resume: a node restarts from the highest certified block whose data and certificate can be
 reconstructed, never from a competing branch.</li>
-<li>A settled prefix that is never rewritten: history above it is provisional, and no v1 rule replaces or
-discards it.</li>
-<li>A recovery generation that cannot be steered: it is a signed field that scopes certificates, v1 never
-advances it, and no state, checkpoint or height can be chosen through it.</li>
+<li>A settled prefix that is never rewritten: history above it is provisional, and the range above it is
+replaced only by an executed stall resolution, which needs governance to act and touches nothing at or below
+the checkpoint. <em>Corrected: this line previously said no v1 rule replaces or discards history above the
+checkpoint.</em></li>
+<li>A recovery generation that cannot be steered: it is a signed field that scopes certificates, v1 advances
+it only through an executed stall resolution &mdash; once per entry &mdash; and no state, checkpoint or height
+can be chosen through it. <em>Corrected: this line previously said v1 never advances the recovery
+generation.</em></li>
 <li>An exit that needs no L2 liveness: a withdrawal whose signal is at or below the last accepted
 checkpoint is executable on Ethereum alone through a withdrawal root of <code>k</code> distinct-family
 attestations, subject to the funded proving market and to the data still being retrievable

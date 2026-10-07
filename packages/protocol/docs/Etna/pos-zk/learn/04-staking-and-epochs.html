@@ -350,8 +350,11 @@ Ethereum-accepted checkpoint, and an old anchor must never be presented as verif
 <li>No rule that compels participation. The heartbeat changes who is selected into future set versions, but a
 cohort that keeps attesting and withholds its votes keeps its weight and can still halt production. Nor does
 it repair a version already committed: a chain stalled inside an epoch whose committed roster cannot form
-quorum has no replacement set in v1, and clears only if that cohort returns or a future update changes the
-rules.</li>
+quorum has no replacement set in v1 &mdash; the committed roster is immutable and the halt ends when that
+cohort returns &mdash; and the range above the last accepted checkpoint is replaced only by an executed stall
+resolution, which needs governance to act, cannot touch anything at or below that checkpoint, and whose
+window is a notice window, not an exit guarantee for value above the checkpoint. <em>Corrected: this sentence
+previously said the stall clears only if that cohort returns or a future update changes the rules.</em></li>
 </ul>
 
 <h2>Check yourself</h2>
