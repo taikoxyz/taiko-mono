@@ -284,51 +284,121 @@ with it R6-DPE-01. (b)–(d) are the preserved repairs R5T-PDE-03 and the monoto
 same predicate is the per-block clause `CONS-01(v)`, and the two checks MUST agree; a disagreement is a
 protocol defect. `CONS-01(v)` reads, in full:
 
-> For every block `h` of the range, at every state `h`'s own execution reaches — every pre-state of `h`
-> and, when `h` is the range's last block, the state its body ends in: if a forced transaction `t` of a record
-> `j` that is due at the batch's anchored view `A`, live at `A`, and not dead at `A` **is at its turn at that
-> state and forceable there** — `t`'s turn is the state FI-13(1)(a) pins by position: the pre-state
-> immediately before `t`'s own position in the executed payload when `t` appears, the pre-state immediately
-> before the record's next transaction in the record's own order that appears in the executed payload when
-> `t` does not appear, and, when no later transaction of the record appears, the state the batch reaches
-> immediately after the record's last earlier transaction that appears in the range has executed — the
-> pre-state of the next transaction the batch executes, or the initial pre-state of the next block of the
-> range when it executes none after it, or, that transaction being the last transaction of the range's last
-> block, the state that block's body ends in, at which that block's own remaining gas is read — so no
-> earlier transaction of the record can execute after the turn and leave `t` judged on a state from before
-> that earlier transaction's effect; and, when no earlier transaction of the record appears either, the
-> pre-state immediately before the last block of the range's body — a state a real block of the range
-> reaches in its own execution, never a state no block of the range reaches; when the record's last
-> transaction appears, the first case applies and its turn is the pre-state immediately before its own
-> position, as before — and `t` has not been executed in an earlier block
-> of the range, then `h`'s body MUST contain `t` before it contains any forced transaction of a record
-> `k > j`, and MUST contain `t` if its remaining gas at that point is at least the gas limit `t`
-> declares. **The duty applies at the transaction's turn and only there**, so it applies to exactly the
-> transactions the proof-side walk of FI-13(1)(a) would execute and **never** to one the walk
-> discharges: at the turn the walk's verdict on `t` is *executable* exactly when `t` is forceable there
-> under FI-13(2) and no discharge ground of FI-13(1)(a) holds at that pre-state, and *discharged*
-> otherwise, and the clause fires only in the first case. The discharge grounds it inherits are the
-> nonce, the balance, a sender that has code at that pre-state (EIP-3607), and a turn at which no block
-> of the range at or after it had room to carry the transaction. A transaction
-> the walk has discharged at its turn is not demanded at any later pre-state, even when it has become
-> forceable there, and no transaction of a record resolved **(b) void** is ever demanded, because the
-> walk does not reach it. The per-block duty and the proof-side walk MUST share **one predicate** — a
-> disagreement is a protocol defect — and a duty that demanded a transaction the walk has discharged
-> would be unsatisfiable by construction, because a discharge is fixed by the record's own order and
-> the batch's own execution, never by a block's contents. The **"increasing transaction index"**
-> condition of FI-13(1)(a) governs only the transactions the walk **executes**: a discharged
-> transaction does not appear at all, so it cannot violate that order and no block is ever required to
-> include one.
->
-> **Order of appearance — the block-validity counterpart.** A block MUST NOT contain a transaction of a forced record once a higher-index transaction of that same record has already appeared in the executed payload of the range: a block whose body contains a transaction of record `j` when a transaction of `j` with a higher index has already appeared earlier in the executed payload of the same range, including earlier positions in the same block, is **invalid**, exactly as a block that had room to carry a transaction this clause demands and omitted it is invalid, so the inclusion order a batch may use is the record's own payload order. The rule and the proof-side condition of FI-13(1)(a) are the two halves of one requirement: FI-13(1)(a) resolves a record only when the appearances it sees are in increasing index order, and this clause makes any block that would present them in any other order un-certifiable, so a batch built by a rule-following producer satisfies the condition the walk checks. The rule is scoped to the record's own transactions and the range's executed payload: it does not forbid a block from carrying a record's transaction whose higher-index record transactions have not appeared yet — the walk resolves those at their own turns — and it does not touch a discharged transaction, which does not appear at all. A transaction that appears out of the record's own order is handled by this block-validity rule — the block is invalid — and never silently by the walk: the discharge grounds of FI-13(1)(a) — the nonce, the balance, a sender with code at that pre-state (EIP-3607) and the mirrored no-room ground — and the tail-turn pin govern only a transaction that does not appear, and the walk MUST NOT read an out-of-order appearance as an execution or resolve it as a discharge. This is a block-validity condition of this clause: a correct validator MUST NOT sign a prevote or a precommit for a block that violates it, exactly as for any other failure of (i)–(viii), and no new slashable offence attaches to it. *(review round 4, R4R4-NR-01: the index-order condition was proof-only, so a producer could include a nonce-descending record's two transactions in the only order they can execute — the higher index first — making the executed payload's indices descend and leaving the position in no mode; the order requirement above is the consensus-side counterpart, and this clause, FI-13(1)(a) and PRF-04(vi) name each other.)*
+> (v) **Forced-data inclusion — the per-block order and non-omission duty, scoped to the
+> transaction's turn.** For every block `h` of the range, at every state `h`'s own execution
+> reaches — every pre-state of `h` and, when `h` is the range's last block, the state its body
+> ends in: if a forced transaction `t` of a record `j` that is due at the batch's anchored view
+> `A`, live at `A`, and not dead at `A` **is at its turn at that state and forceable there** —
+> `t`'s turn is the state FI-13(1)(a) pins by position: the pre-state immediately before `t`'s own
+> position in the executed payload when `t` appears, the pre-state immediately before the record's
+> next transaction in the record's own order that appears in the executed payload when `t` does
+> not appear, and, when no later transaction of the record appears, the state the batch reaches
+> immediately after the record's last earlier transaction that appears in the range has executed —
+> the pre-state of the next transaction the batch executes, or the initial pre-state of the next
+> block of the range when it executes none after it, or, that transaction being the last
+> transaction of the range's last block, the state that block's body ends in, at which that
+> block's own remaining gas is read — so no earlier transaction of the record can execute after
+> the turn and leave `t` judged on a state from before that earlier transaction's effect; and,
+> when no earlier transaction of the record appears either, the pre-state immediately before the
+> last block of the range's body — a state a real block of the range reaches in its own execution,
+> never a state no block of the range reaches; when the record's last transaction appears, the
+> first case applies and its turn is the pre-state immediately before its own position, as before
+> — and `t` has not been executed in an earlier block of the range, then `h`'s body MUST contain
+> `t` before it contains any forced transaction of a record `k > j`, and MUST contain `t` if its
+> remaining gas at that point is at least the gas limit `t` declares. **The duty applies at the
+> transaction's turn and only there**, so it applies to exactly the transactions the proof-side
+> walk of FI-13(1)(a) would execute and **never** to one the walk discharges: at the turn the walk
+> reaches `t` with every earlier transaction of `j` already resolved, its verdict on `t` is
+> *executable* exactly when `t` is forceable there under FI-13(2) and no discharge ground of
+> FI-13(1)(a) holds at that state — the predicate carries the same byte-decidable requirements the
+> void limb enumerates: the intrinsic-gas floor of (2)(ii), the registered fee-cap floor of
+> (2)(vi) — a declared `maxFeePerGas` below `FI_MIN_EXEC_FEE_CAP` is void under (1)(b)(E) — the
+> malformed-fee-market and initcode-cap classes of (2)(vii)–(viii) — a declared
+> `maxPriorityFeePerGas` above the transaction's own `maxFeePerGas`, or a create transaction whose
+> declared initcode exceeds the EIP-3860 cap, is void under (1)(b)(F)–(G) — and signature recovery
+> in (2)(iv), so a transaction this clause demands is one a valid block can carry for a reason the
+> predicate or the enumerated classes (A)–(G) cover — none at all within that enumeration under
+> the Open fee-schedule premise the register records with `FI_MIN_EXEC_FEE_CAP` (the floor is at
+> or above the maximum execution base fee the L2 fee schedule can produce; F-FI-7), with the
+> residual the enumeration does not decide carried Open and falsified by F-FI-8 — while the
+> discharge grounds it inherits from the walk are the nonce, the balance, a sender that has code
+> at that pre-state (EIP-3607), and a turn at which no block of the range at or after it had room
+> to carry the transaction — and *discharged* otherwise, and this clause fires only in the first
+> case. A transaction the walk has discharged at its turn is not demanded here at any later
+> pre-state, even when it has become forceable there, and no transaction of a record resolved
+> **(b) void** is ever demanded, because the walk does not reach it. The per-block duty and the
+> proof-side walk MUST share **one predicate** — a disagreement is a protocol defect — and a duty
+> that demanded a transaction the walk has discharged would be unsatisfiable by construction,
+> because a discharge is fixed by the record's own order and the batch's own execution, never by a
+> block's contents. The **"increasing transaction index"** condition of FI-13(1)(a) governs only
+> the transactions the walk **executes**: a discharged transaction does not appear at all, so it
+> cannot violate that order and no block is ever required to include one. **Order of appearance —
+> the block-validity counterpart.** A block MUST NOT contain a transaction of a forced record once
+> a higher-index transaction of that same record has already appeared in the executed payload of
+> the range: a block whose body contains a transaction of record `j` when a transaction of `j`
+> with a higher index has already appeared earlier in the executed payload of the same range,
+> including earlier positions in the same block, is **invalid**, exactly as a block that had room
+> to carry a transaction this clause demands and omitted it is invalid, so the inclusion order a
+> batch may use is the record's own payload order. The rule and the proof-side condition of
+> FI-13(1)(a) are the two halves of one requirement: FI-13(1)(a) resolves a record only when the
+> appearances it sees are in increasing index order, and this clause makes any block that would
+> present them in any other order un-certifiable, so a batch built by a rule-following producer
+> satisfies the condition the walk checks. The rule is scoped to the record's own transactions and
+> the range's executed payload: it does not forbid a block from carrying a record's transaction
+> whose higher-index record transactions have not appeared yet — the walk resolves those at their
+> own turns — and it does not touch a discharged transaction, which does not appear at all. A
+> transaction that appears out of the record's own order is handled by this block-validity rule —
+> the block is invalid — and never silently by the walk: the discharge grounds of FI-13(1)(a) —
+> the nonce, the balance, a sender with code at that pre-state (EIP-3607) and the mirrored no-room
+> ground — and the tail-turn pin govern only a transaction that does not appear, and the walk MUST
+> NOT read an out-of-order appearance as an execution or resolve it as a discharge. This is a
+> block-validity condition of this clause: a correct validator MUST NOT sign a prevote or a
+> precommit for a block that violates it, exactly as for any other failure of (i)–(viii), and no
+> new slashable offence attaches to it. *(review round 4, R4R4-NR-01: the index-order condition
+> was proof-only, so a producer could include a nonce-descending record's two transactions in the
+> only order they can execute — the higher index first — making the executed payload's indices
+> descend and leaving the position in no mode; the order requirement above is the consensus-side
+> counterpart, and this clause, FI-13(1)(a) and PRF-04(vi) name each other.)* The clause has **no
+> per-block record count, no per-block gas quota and no per-block capacity constant**: the number
+> of records a batch must resolve is FI-12's cap, in **positions per batch**. **A block that can
+> carry forced work and carries none is invalid; a block that cannot is not. **One rule, one
+> predicate, both sides read the same quantity:** a block with room to carry the transaction MUST
+> carry it, and the walk discharges the transaction only when, at its turn, no block of the range
+> at or after the turn had room to carry it — the block's own remaining gas at that turn, the same
+> quantity this clause reads. A transaction the walk so discharges is not demanded here, and a
+> block that had room and omitted it leaves the position unresolved and makes the proof invalid.**
+> The obligation itself is enforced in the proof, never in the admission rules of `land(data,
+> proof)` (FI-11(1), PRF-04(vi)), and **no new slashable offence is created**: a validator that
+> signs a block violating this clause commits no new offence, the forced-inclusion offence rows of
+> ECON-04 stay tombstoned and MUST NOT be implemented, and the rejected proof is the whole
+> enforcement. *(increment 04: the clause is revived as the order-and-non-omission duty, in one
+> unit with FI-12; the per-block count that R6-D12-03 found unpayable is deleted, and no per-block
+> gas floor is added.)* *(review round 3, R4R3-T-01/R4R3-NR-01: the duty is scoped to the
+> transaction's turn, so the per-block check and the proof-side walk are one predicate; the seam
+> that made a nonce-descending record unprovable — a duty demanding a transaction the walk had
+> already discharged — is closed, and the "increasing transaction index" condition constrains only
+> the transactions the walk executes.)* *(review round 4, finding F1: the round-3 intrinsic-gas
+> floor left the fee dimension out, so a low- or zero-cap transaction was demanded while no valid
+> block can carry it — the same settlement-halt class the increment exists to close; the fifth
+> void class of FI-13(1)(b)(E) and the registered floor of FI-13(2)(vi) close it from the record's
+> own bytes, and the agreement stated above now holds for the reasons the predicate or the
+> enumerated classes cover, and unconditionally only under the Open fee-schedule premise F-FI-7.
+> (review round 4, findings S-01 and S-02: this clause's agreement now also carries the
+> byte-decidable fee-order and initcode classes of FI-13(2)(vii)–(viii) and (1)(b)(F)–(G); the
+> walk's discharge ground gains the sender-with-code case (EIP-3607) and the mirrored no-room
+> case, and the tail turn is pinned to a state of a real block of the range, so the duty and the
+> walk read the same turn and the same remaining gas; the enumeration residual is Open with
+> falsifier F-FI-8.)* *(review round 4 follow-up, S-02 edge: the immediately-before-the-last-block
+> form of the tail turn let a producer place an earlier transaction of the record in the last
+> block and have the later omitted transaction judged on the pre-state before that earlier
+> transaction executed — a stale read that discharged it without filling any block, and under
+> which the same-nonce shape made this duty's demand unsatisfiable for that batch; the tail turn
+> is now the state the batch reaches after the record's last earlier appearing transaction, and
+> this duty reads that state and the same remaining gas, the range's last block's final state
+> included.)*
 
-The clause has **no per-block record count, no per-block gas quota and no per-block capacity
-constant**: the number of records a batch must resolve is FI-12's cap, in positions per batch. A block
-that can carry forced work and carries none is invalid; a block that cannot is not. **One rule, one
-predicate, both sides read the same quantity:** a block with room to carry the transaction MUST carry
-it, and the walk discharges the transaction only when, at its turn, no block of the range at or after
-the turn had room to carry it — the block's own remaining gas at that turn, the same quantity the duty
-reads. A block that had room and omitted it leaves the position unresolved and makes the proof invalid.
+*(increment 04 consistency repair: the quotation previously stopped at the R4R4-NR-01 note and restated the clause's remaining sentences outside it, so "reads, in full" was false; it now reproduces the specification's CONS-01(v) from its heading to the clause's end, word for word.)*
+
 *(This is the
 single-unit restatement R6-D12-03 asked for: the obligation lives at the batch, the ordering lives at
 the block, and no registered constant is used in two units.)* *(Review round 3,
