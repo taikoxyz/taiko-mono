@@ -1304,7 +1304,7 @@ publication-time admission condition. Two candidates were considered and one is 
 
 | Clause | Preserved | Revived | Why |
 |---|---|---|---|
-| FI-10 "One register" | publication record is the forced-data record | kept verbatim | D-11/D-12 already right |
+| FI-10 "One register" | publication record is the forced-data record | kept in substance, **not** verbatim: retitled "(1) One register, no flag.", the identity sentence rewritten, and the stored-anchor and no-new-register sentences added *(repair: this cell claimed "kept verbatim"; the preserved and current clause texts differ)* | D-11/D-12 already right |
 | FI-10 "Order and the due point" | due at `l1BlockNumber + FI_INCLUSION_DELAY ≤ A` | kept; adds `nextSeq(A)`, the live/dead derived predicate, and `deadlineBlock` derived not stored | R5T-PDE-10; the status flag is gone |
 | FI-10 "Due point before death" | `FI_INCLUSION_DELAY < T_PROVE_DEADLINE` | strengthened to `FI_INCLUSION_DELAY + L1_FINALITY_DEPTH < T_PROVE_DEADLINE` | views are final-lagged; the window must be nonempty in *view* time |
 | FI-10 "Expiry and discard" | "MUST be discarded … no proof may be required to include it" with no ground | expiry is resolution mode (c), keyed on `deadlineBlock ≤ A` | R6-D12-01 Critical |
