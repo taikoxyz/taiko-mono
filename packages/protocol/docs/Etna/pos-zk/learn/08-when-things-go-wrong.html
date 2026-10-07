@@ -435,9 +435,11 @@ never proven before its deadline is dead &mdash; derived from its own stored blo
 deadline, with no status field &mdash; and the proof discharges it as dead by one comparison, needing neither
 its bytes nor any execution. Re-publication is the remedy for a user whose record expired: the same data can
 be published again as a new record with a fresh clock, so publication never becomes a second acceptance path.
-A due record is resolved in the proof as executed, void or dead: the walk reads the record&rsquo;s transactions
-in the record&rsquo;s own order, each one either runs or is set aside at its turn; a record all of whose
-transactions are set aside is void, and a record past its deadline is dead.</p></details>
+A due record is resolved in the proof as dead, void or executed. Dead is tested first and unconditionally:
+a record whose own deadline has passed at the anchored view is dead whatever its contents. Otherwise, while
+the record is live, the walk reads the record&rsquo;s transactions in the record&rsquo;s own order, each one either runs
+or is set aside at its turn; a live record all of whose transactions are set aside is void, and otherwise the
+record is executed.</p></details>
 <details><summary>Is a PoS confirmation above the last accepted checkpoint final?</summary>
 <p>No. It is valid but provisional: no v1 rule makes it permanent, and v1 has no path that replaces or
 discards it either. Accepted checkpoints and accepted batches are never touched. Value above the checkpoint

@@ -177,9 +177,10 @@ a proof referencing it is rejected, and the same data can be published again. Re
 record with a fresh clock and a new identity; it revives nothing and accepts nothing
 (<a href="../spec/04-l1-integration.html#DA-09">DA-09</a>). The same record is the forced-data record of
 <a href="11-forced-inclusion.html">lesson 11</a>: once it is due, a landing batch must advance the settlement
-frontier past it by resolving it &mdash; the walk reads its transactions in the record&rsquo;s own order, each one
-either runs or is set aside at its turn, a record all of whose transactions are set aside is void, and a
-record past its deadline is dead. The range itself is never discarded with the
+frontier past it by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has
+passed at the anchored view, decided from its own stored block number; otherwise, while the record is live,
+the walk reads its transactions in the record&rsquo;s own order, each one either runs or is set aside at its turn,
+and a live record all of whose transactions are set aside is void. The range itself is never discarded with the
 record: it stays landable from carried data or against a fresh publication of the same data
 (<a href="../spec/04-l1-integration.html#L1-04">L1-04</a>).</p>
 
