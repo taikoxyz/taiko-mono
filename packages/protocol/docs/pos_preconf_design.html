@@ -94,9 +94,9 @@
 
       <div class="tldr">
         <p>
-          <strong>FAST-only: PoS fast confirmation with atomic ZK settlement.</strong> Based on Etna and CometBFT v0.40.0.
-          This version does not design a QUEUE mode. Every "must" and "must not" below is a protocol requirement and needs
-          one coordinated fork; parameters and acceptance criteria are in the appendix.
+          <strong>PoS fast confirmation with atomic ZK settlement.</strong> Based on Etna and CometBFT v0.40.0.
+          Every "must" and "must not" below is a protocol requirement and needs one coordinated fork;
+          parameters and acceptance criteria are in the appendix.
         </p>
       </div>
 
@@ -153,7 +153,7 @@
             <td>Preconfirmation and recovery</td>
             <td>
               No promise that every mempool request is included within two seconds. A timeout does not automatically
-              discard the committed suffix or switch operating modes; valid existing batches can still be submitted.
+              discard the committed suffix; valid existing batches can still be submitted.
               Handling the suffix after a permanent failure needs an explicit governance process.
             </td>
           </tr>
@@ -195,8 +195,8 @@
             <td>Context</td>
             <td>
               The settlement context: configId, fiCursor, anchorId and a commitment to consensus metadata (current and next
-              set and pending updates). Its encoding version is fixed, and every proof applies only to this version's
-              FAST_ONLY domain.
+              set and pending updates). Its encoding version is fixed, and every proof binds this protocol's proof domain
+              and configId.
             </td>
           </tr>
           <tr>
@@ -234,7 +234,7 @@
         table. Apart from the defined staking membership, there is no proposer, submitter or prover address allowlist.
       </p>
       <p>
-        configId must bind the version, L1 chainId, Inbox address, L2 chainId, protocol parameters, the FAST_ONLY proof
+        configId must bind the version, L1 chainId, Inbox address, L2 chainId, protocol parameters, this protocol's proof
         domain and the complete proofPolicy (§3.1). Both proofs must authenticate the same batchCommitment, which binds the
         configuration, program version and proof domain, start and end head/context, height range, DA commitment, ordered
         FI input commitments, the complete, ordered and de-duplicated list of new anchor tuples,
@@ -353,25 +353,25 @@
         transaction order are fixed before proving; there is no default-manifest replacement and no rewriting after landing.
       </p>
 
-      <h3>4.3 FAST</h3>
+      <h3>4.3 Production time and view freshness</h3>
       <p>
         A block uses the accepted anchor, updated or inherited per §5. Canonical time is
         <code>max(parent.timestamp + 1, floor(Unix seconds of CometTime), anchor.timestamp)</code>; production checks
-        <code>timestamp − anchor.timestamp ≤ MAX_FAST_VIEW_AGE</code>, and pauses and refreshes observations independently
+        <code>timestamp − anchor.timestamp ≤ MAX_L1_VIEW_AGE</code>, and pauses and refreshes observations independently
         when it is exceeded. BFT Time is not an unbiased random number.
       </p>
       <p>
-        FAST drops Etna's <code>MAX_ANCHOR_OFFSET</code> and <code>TIMESTAMP_MAX_OFFSET</code> lower bounds relative to the
+        This protocol drops Etna's <code>MAX_ANCHOR_OFFSET</code> and <code>TIMESTAMP_MAX_OFFSET</code> lower bounds relative to the
         landing origin and time. A committed block is never re-anchored or re-timed; its acceptance depends on continuity,
-        the required proof combination and §4.1's authentication at submission. There is no separate Etna landing-age bound
-        for FAST, but a newly accepted anchor is still limited by the history authentication window.
+        the required proof combination and §4.1's authentication at submission. There is no separate Etna landing-age bound,
+        but a newly accepted anchor is still limited by the history authentication window.
       </p>
 
-      <h2>5. FAST consensus and committee</h2>
+      <h2>5. Consensus and committee</h2>
       <h3>5.1 Comet and observations</h3>
       <p>
-        The Comet height must equal <code>EVM.number</code>; <code>chain_id</code> is fixed to configId/FAST and differs
-        from the EVM chainId. Consensus keys, ABCI observation keys and L1 sending keys are separate.
+        The Comet height must equal <code>EVM.number</code>; <code>chain_id</code> binds configId and this protocol's consensus
+        domain and differs from the EVM chainId. Consensus keys, ABCI observation keys and L1 sending keys are separate.
       </p>
       <p>
         A candidate contains the EVM payload and hash, the protocol envelope, and any required observation certificates and
@@ -383,9 +383,9 @@
       <p>
         Observers sign only after independently verifying the anchor's real L1 finality, chain and freshness; there is no
         prior registration to check. Off-chain endorsement does not replace the §4.1 L1 acceptance check. A signature binds
-        configId, FAST, targetHeight, parentEVMHash, the valid committee commitment and the full anchor tuple. Keys and
-        weights come from the set frozen at the time; duplicate identities never count twice, and rotation only affects
-        future snapshots.
+        this protocol's observation-message domain, configId, targetHeight, parentEVMHash, the valid committee commitment
+        and the full anchor tuple. Keys and weights come from the set frozen at the time; duplicate identities never count
+        twice, and rotation only affects future snapshots.
       </p>
       <p>
         Updating the anchor needs a certificate from strictly more than 2/3 of the weight on the same tuple.
@@ -413,7 +413,7 @@
       <h3>5.2 Deterministic derivation and activation</h3>
       <p>
         H0 is the L2 height after the activation checkpoint, <code>e(h) = floor((h − H0) / N)</code> and
-        <code>H_e = H0 + eN</code>; these are defined only for <code>h ≥ H0</code>, and a FAST batch may not span epochs.
+        <code>H_e = H0 + eN</code>; these are defined only for <code>h ≥ H0</code>, and a batch may not span epochs.
         The startup configuration authenticates the initial committee; later committees are derived by the rules below,
         with no per-epoch freeze or activation transaction.
       </p>
@@ -520,14 +520,14 @@
         historical roots and keys cannot be overwritten, and re-entry uses a new bondId.
       </p>
       <p>
-        Double signing means the same configId/FAST, height, round and valid vote type with different BlockIDs (nil
+        Double signing means the same chain_id, height, round and valid vote type with different BlockIDs (nil
         included). The epoch follows from the height; after verifying the signatures against the committee record already on
         L1 per §5.2 and a membership path, the protocol slashes and rewards the reporter. The epoch need not have any
         accepted batch, and a production pause or a later configuration upgrade does not cancel old responsibility.
         Different vote types are not double signing, and members cannot be punished only for a submitter's bad data.
       </p>
       <p>
-        A FAST exit first removes the identity from future eligibility and records the actual L1
+        An exit first removes the identity from future eligibility and records the actual L1
         <code>exitEffectiveAt</code>, and the old bondId cannot rejoin. Before the withdrawal countdown starts, the contract
         checks that the old bondId is in none of the committees recorded on L1 whose end height is still above
         settledHeight; that set holds at most the current and the recorded next epoch, and the exiting party cannot choose
@@ -655,10 +655,10 @@
             U blocks; reaching U does not trigger an automatic rollback, and U × 2 s is not a wall-clock bound during a halt.
           </p>
           <p>
-            <code>MAX_FAST_VIEW_AGE</code> must state its normal budget and the finality-stall margin it is meant to
+            <code>MAX_L1_VIEW_AGE</code> must state its normal budget and the finality-stall margin it is meant to
             tolerate; the remaining margin is the limit minus the current reference age, and U must also cover any stall
-            during which production should continue. Exhausting the budget may pause production but never triggers a
-            permanent mode change.
+            during which production should continue. Exhausting the budget may pause production while valid batches
+            can still be submitted.
           </p>
 
           <h3>A.2 Daily cost and FI fees</h3>
@@ -783,7 +783,7 @@
             submission, the authentication proof must be refreshed.
           </p>
           <p>
-            The extension needs no new registration transaction, permanent anchor table or operating mode, but historical
+            The extension needs no new registration transaction or permanent anchor table, but historical
             Merkle witnesses must be kept and a hop and proof resource budget defined; a fixed total hop count means a bounded
             recovery range. It only lifts the direct query limit for historical hashes and cannot recover lost FI blobs,
             payloads or execution witnesses. Before enabling it, update both guests, the proofPolicy configuration, public
@@ -794,8 +794,8 @@
           <h3>A.5 Baseline and scope</h3>
           <p>
             This version keeps atomic settlement, anchor authentication at submission, consensus-derived committees, fixed FI
-            service slots and objective double-sign penalties. It does not include QUEUE, <code>enterQueue</code>, automatic
-            mode switching or suffix revocation, asynchronous pending proposals, overlapping proofs, a proving liveness bond,
+            service slots and objective double-sign penalties. It does not include automatic suffix revocation,
+            asynchronous pending proposals, overlapping proofs, a proving liveness bond,
             inclusion lists, lander rotation or misses, DA credit, special eligibility proofs or automatic generation
             recovery. Committee-free execution and exit and automatic recovery are left for separate follow-up design.
           </p>
