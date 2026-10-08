@@ -56,11 +56,11 @@
   - bridged_erc20: `0xD6601cdea5857338EbdEE4CF38298aff43f01431`
 - logs:
   - deployed on Sep 1, 2026 @commit`cd847999b` @tx`0x80c14fa5cece0c4e97331057fa7d72f915e58633315c555df68bd82d29d06174`
-  - register `bridge@1` to `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` on TBD @tx`TBD` (Proposal0023)
-  - register `bridge` to `0x1670000000000000000000000000000000000001` on TBD @tx`TBD` (Proposal0023)
-  - register `erc20_vault@1` to `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` on TBD @tx`TBD` (Proposal0023)
-  - register `erc20_vault` to `0x1670000000000000000000000000000000000002` on TBD @tx`TBD` (Proposal0023)
-  - register `bridged_erc20` to `0xD6601cdea5857338EbdEE4CF38298aff43f01431` on TBD @tx`TBD` (Proposal0023)
+  - register `bridge@1` to `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
+  - register `bridge` to `0x1670000000000000000000000000000000000001` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
+  - register `erc20_vault@1` to `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
+  - register `erc20_vault` to `0x1670000000000000000000000000000000000002` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
+  - register `bridged_erc20` to `0xD6601cdea5857338EbdEE4CF38298aff43f01431` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
 
 #### bridge
 
@@ -80,7 +80,7 @@
   - upgrade impl to `0x4Ca6bE8C1Ec05beFB216bAEEF9EE36997e35E98E` @commit`a3e1cf7` @tx`0xdf0348394d5e58f801de917575aafdc1cb55533b14a6e46fd460d1437238dc02`
   - upgrade impl to `0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83` @commit`9345f14` @tx`0xdbe9caf2b1282d0fecf9a752f2c1aeade8820bb66bb5ad210f0081996504173b`
   - changed owner to delegate controller @tx`0x75ae517cf2b1e901b26180622ca9f44c7502ad007391c33f08630042df34a86e`
-  - upgraded to `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` on TBD @commit`cd847999b` @tx`TBD` (Proposal0023)
+  - upgraded to `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` on Oct 8, 2026 @commit`cd847999b` @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
 
 #### erc20_vault
 
@@ -96,7 +96,7 @@
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - upgrade impl to `0xb96AbB41b01E3ad519D00E80355a1c3801910F62` @commit`9345f14` @tx`0xdbe9caf2b1282d0fecf9a752f2c1aeade8820bb66bb5ad210f0081996504173b`
   - change owner to delegate controller @tx`0x777b65f0e1bbbc5555007b63a93a4881598c90ac73684f6ad850b737d46c2434`
-  - upgraded to `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` on TBD @commit`fda424de5` @tx`TBD` (Proposal0023)
+  - upgraded to `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` on Oct 8, 2026 @commit`fda424de5` @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
 
 #### erc721_vault
 
@@ -128,7 +128,7 @@
 
 - impl: `0xD6601cdea5857338EbdEE4CF38298aff43f01431`
 - logs:
-  - `BridgedERC20V2` `0xD6601cdea5857338EbdEE4CF38298aff43f01431` registered as `bridged_erc20` on shared_resolver on TBD @commit`fda424de5` @tx`TBD` (Proposal0023)
+  - `BridgedERC20V2` `0xD6601cdea5857338EbdEE4CF38298aff43f01431` registered as `bridged_erc20` on shared_resolver on Oct 8, 2026 @commit`fda424de5` @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
 
 #### signal_service
 
