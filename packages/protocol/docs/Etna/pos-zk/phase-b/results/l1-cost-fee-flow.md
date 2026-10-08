@@ -22,7 +22,7 @@ This report answers as much of [S3-l1-cost-and-fee-flow.md](../S3-l1-cost-and-fe
 
 ### 2.1 Chains, contracts and how each was confirmed
 
-Ethereum mainnet `eth_chainId` = `0x1`; Taiko Alethia `eth_chainId` = `167000` (0x28c58). Addresses were **not** taken from memory: each was located in Taiko's own deployment log ([mainnet-contract-logs-L1.md](../../../../deployments/mainnet-contract-logs-L1.md), the canonical source cited by [docs.taiko.xyz/network/contract-addresses](https://docs.taiko.xyz/network/contract-addresses)) and then confirmed on-chain with `cast` / JSON-RPC. Raw commands and outputs: [identification.txt](./raw/s3-l1-cost-fee-flow-public/identification.txt).
+Ethereum mainnet `eth_chainId` = `0x1`; Taiko Alethia `eth_chainId` = `167000` (0x28c58). Addresses were **not** taken from memory: each was located in Taiko's own deployment log ([mainnet-contract-logs-L1.md](../../../../../deployments/mainnet-contract-logs-L1.md), the canonical source cited by [docs.taiko.xyz/network/contract-addresses](https://docs.taiko.xyz/network/contract-addresses)) and then confirmed on-chain with `cast` / JSON-RPC. Raw commands and outputs: [identification.txt](./raw/s3-l1-cost-fee-flow-public/identification.txt).
 
 | Role | Address | How confirmed |
 |---|---|---|
