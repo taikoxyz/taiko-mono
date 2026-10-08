@@ -240,7 +240,7 @@ criterion, not an optional extra** — the fee revenue that funds security under
 
 ### 8.6 Derived constraint found while specifying S1: the blob quantisation binds K
 
-At the DA-bound rate the arithmetic is unusually clean: **one 2-second L2 block equals exactly one blob** *(the design's own DA-bound rate, plan §8.2, unchanged)*
+At the DA-bound rate the arithmetic is unusually clean: **one 2-second L2 block equals exactly one blob** *(regime: this is the plan's own 2026-10-05 DA-bound rate at the then-current 6-blob target and 2 s cadence, kept as written; the design's cadence is 4 s and its own sustained rate is 32,768 B/s — one 131,072-byte blob per 4 s L2 block, spec/09 PARAM-02)*
 (131,072 bytes), so a K-block batch carries about K blobs. D5 requires the batch's data **and** its proof
 in one L1 transaction, and the measured BPO2 set caps blobs per L1 block at **14 target / 21 maximum** *(Phase B S4 public-data report §3 F6)*. Therefore:
 
