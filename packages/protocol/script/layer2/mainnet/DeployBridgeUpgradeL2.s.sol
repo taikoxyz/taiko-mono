@@ -8,9 +8,9 @@ import { Bridge } from "src/shared/bridge/Bridge.sol";
 import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
 
 /// @title DeployBridgeUpgradeL2
-/// @notice Deploys the L2 resolver and `Bridge` implementation that Proposal0023 wires up.
+/// @notice Deploys the L2 resolver and `Bridge` implementation that Proposal0024 wires up.
 /// @dev Deploys new contracts only. It does not upgrade the bridge proxy and registers no names:
-/// Proposal0023 registers every entry on the resolver as a DAO action, which is why the resolver is
+/// Proposal0024 registers every entry on the resolver as a DAO action, which is why the resolver is
 /// initialised with the DelegateController as its owner. `DeployERC20VaultUpgradeL2` deploys the
 /// vault-side contracts against the resolver this script deployed.
 ///
@@ -30,7 +30,7 @@ contract DeployBridgeUpgradeL2 is Script {
     error ImmutableMismatch();
     error ResolverOwnerMismatch();
 
-    /// @notice Deploys the contracts and logs the addresses Proposal0023 needs.
+    /// @notice Deploys the contracts and logs the addresses Proposal0024 needs.
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set");
@@ -63,7 +63,9 @@ contract DeployBridgeUpgradeL2 is Script {
         // only the owner can pause today; zero preserves both. The 1.10.0 implementation has no
         // `receive()` at all, so the pauser-only `receive()` is not a regression either.
         deployment_.bridgeImpl = address(
-            new Bridge(deployment_.resolverProxy, LibL2Addrs.SIGNAL_SERVICE, address(0), address(0))
+            new Bridge(
+                deployment_.resolverProxy, LibL2Addrs.SIGNAL_SERVICE, address(0), address(0), false
+            )
         );
     }
 
@@ -81,7 +83,7 @@ contract DeployBridgeUpgradeL2 is Script {
             bridgeImpl.resolver() == _deployment.resolverProxy
                 && address(bridgeImpl.signalService()) == LibL2Addrs.SIGNAL_SERVICE
                 && address(bridgeImpl.quotaManager()) == address(0)
-                && bridgeImpl.pauser() == address(0),
+                && bridgeImpl.pauser() == address(0) && !bridgeImpl.recallEnabled(),
             ImmutableMismatch()
         );
     }

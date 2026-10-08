@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   generate-and-deploy:
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:

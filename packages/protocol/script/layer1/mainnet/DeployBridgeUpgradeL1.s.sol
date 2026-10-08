@@ -6,7 +6,7 @@ import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { Bridge } from "src/shared/bridge/Bridge.sol";
 
 /// @title DeployBridgeUpgradeL1
-/// @notice Deploys the L1 `Bridge` implementation that Proposal0023 upgrades the mainnet bridge
+/// @notice Deploys the L1 `Bridge` implementation that Proposal0024 upgrades the mainnet bridge
 /// proxy to.
 /// @dev Deploys a new implementation only. It does not upgrade the proxy and does not call any
 /// initializer.
@@ -22,7 +22,7 @@ import { Bridge } from "src/shared/bridge/Bridge.sol";
 contract DeployBridgeUpgradeL1 is Script {
     error ImmutableMismatch();
 
-    /// @notice Deploys the implementation and logs the address Proposal0023 needs.
+    /// @notice Deploys the implementation and logs the address Proposal0024 needs.
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set");
@@ -32,7 +32,8 @@ contract DeployBridgeUpgradeL1 is Script {
             LibL1Addrs.SHARED_RESOLVER,
             LibL1Addrs.SIGNAL_SERVICE,
             LibL1Addrs.QUOTA_MANAGER,
-            LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+            LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+            false
         );
         vm.stopBroadcast();
 
@@ -50,7 +51,8 @@ contract DeployBridgeUpgradeL1 is Script {
             _bridgeImpl.resolver() == LibL1Addrs.SHARED_RESOLVER
                 && address(_bridgeImpl.signalService()) == LibL1Addrs.SIGNAL_SERVICE
                 && address(_bridgeImpl.quotaManager()) == LibL1Addrs.QUOTA_MANAGER
-                && _bridgeImpl.pauser() == LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                && _bridgeImpl.pauser() == LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+                && !_bridgeImpl.recallEnabled(),
             ImmutableMismatch()
         );
     }

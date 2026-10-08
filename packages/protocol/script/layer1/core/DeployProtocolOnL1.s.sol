@@ -365,7 +365,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "bridge",
             impl: address(
                 new Bridge(
-                    address(sharedResolver), signalService, quotaManager, config.bridgePauser
+                    address(sharedResolver), signalService, quotaManager, config.bridgePauser, false
                 )
             ),
             data: abi.encodeCall(Bridge.init, (address(0))),

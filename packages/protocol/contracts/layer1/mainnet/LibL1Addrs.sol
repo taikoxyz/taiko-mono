@@ -46,13 +46,14 @@ library LibL1Addrs {
     address public constant ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
     address public constant ERC721_VAULT = 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa;
     address public constant ERC1155_VAULT = 0xaf145913EA4a56BE22E120ED9C24589659881702;
-    // BridgedERC20V2 registered as bridged_erc20 by Proposal0023;
+    // BridgedERC20V2 registered as bridged_erc20 by Proposal0024;
     // replaces 0x65666141a541423606365123Ed280AB16a09A2e1
     address public constant BRIDGED_ERC20 = 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b;
-    address public constant BRIDGED_ERC721 = 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
-    address public constant BRIDGED_ERC1155 = 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
+    address public constant BRIDGED_ERC721 = 0xD9c9dB7519011437C54BCD32495c0347A410bc4D;
+    address public constant BRIDGED_ERC1155 = 0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e;
 
     // Proof system verifiers and attesters
+    address public constant ZK_REQUIRED_VERIFIER = 0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec;
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
     // Deployed by Proposal0017 (hack recovery); replaces 0x96337327648dcFA22b014009cf10A2D5E2F305f6
     address public constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;

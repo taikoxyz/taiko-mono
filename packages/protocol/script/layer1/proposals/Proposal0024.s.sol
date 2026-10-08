@@ -8,11 +8,11 @@ import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { LibNames } from "src/shared/libs/LibNames.sol";
 
-// To print the proposal action data: `P=0023 pnpm proposal`
-// To dryrun the proposal on L1: `P=0023 pnpm proposal:dryrun:l1`
-// To dryrun the proposal on L2: `P=0023 pnpm proposal:dryrun:l2`
+// To print the proposal action data: `P=0024 pnpm proposal`
+// To dryrun the proposal on L1: `P=0024 pnpm proposal:dryrun:l1`
+// To dryrun the proposal on L2: `P=0024 pnpm proposal:dryrun:l2`
 /// @custom:security-contact security@taiko.xyz
-contract Proposal0023 is BuildProposal {
+contract Proposal0024 is BuildProposal {
     /// @dev The contracts the L1 leg points at. A struct with named fields rather than positional
     /// parameters: every member is an `address`, so a transposed pair would compile silently.
     struct L1Deployment {

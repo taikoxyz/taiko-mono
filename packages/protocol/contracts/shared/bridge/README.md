@@ -105,4 +105,4 @@ Finally, any unused funds are sent back to the user as a refund.
 
 ### Failed bridging
 
-If the `statuses` is "RETRIABLE" and - for whatever reason - the second try also cannot successfully initiate releasing the funds/tokens to the recipient on the destination chain, the `statuses` will be set to "FAILED". In this case the `recallMessage` shall be called on the source chain's Bridge contract (with `message` and `proof` input params), which will send the assets back to the user.
+Failing and recalling messages are switched off in the deployed bridges (`recallEnabled` is false): `failMessage` and `recallMessage` revert with `B_RECALL_DISABLED`, a failed last-attempt `retryMessage` reverts with `B_RETRY_FAILED`, and a message whose delivery fails stays "RETRIABLE" until a retry succeeds. The path is off because a recall is released by a destination-chain failure proof, which a forged proof could satisfy for a message that was already delivered. An implementation constructed with `recallEnabled = true` restores `recallMessage` for "FAILED" messages.

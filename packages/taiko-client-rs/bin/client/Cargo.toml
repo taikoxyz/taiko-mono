@@ -41,5 +41,6 @@ url = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-rpc-types-eth = { workspace = true }
 http-body-util = { workspace = true }
+libc = "0.2"
 metrics = "0.24"
 tower = { workspace = true }

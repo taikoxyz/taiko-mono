@@ -10,6 +10,5 @@ onlyBuiltDependencies:
   - optimism
   - protobufjs
   - secp256k1
-  - sharp
   - svelte-preprocess
   - utf-8-validate

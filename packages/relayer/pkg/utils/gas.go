@@ -44,7 +44,7 @@ func SetGasTipOrPrice(ctx context.Context, auth *bind.TransactOpts, ethClient et
 			return nil
 		}
 
-		gasPrice, err := ethClient.SuggestGasPrice(context.Background())
+		gasPrice, err := ethClient.SuggestGasPrice(ctx)
 		if err != nil {
 			return errors.Wrap(err, "w.destBridge.SuggestGasPrice")
 		}

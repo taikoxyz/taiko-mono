@@ -127,6 +127,11 @@ func (f *DerivationSourceFetcher) manifestFromBlobBytes(
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 		return defaultPayload, nil
 	}
+	if err = validateManifestTransactions(derivationSourceManifest); err != nil {
+		log.Warn("Invalid manifest transaction encoding, use default payload instead", "error", err)
+		return defaultPayload, nil
+	}
+
 	// A forced-inclusion source must contain exactly one block. This is keyed on the source's
 	// isForcedInclusion flag (not its position in the array) to match the derivation spec and the
 	// Rust client.

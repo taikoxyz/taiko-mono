@@ -28,6 +28,7 @@ export default defineProject({
       $customToken: path.resolve(__dirname, './__mocks__/$customToken.ts'),
       $mocks: path.resolve(__dirname, './src/tests/mocks/index.ts'),
       '$env/static/public': path.resolve(__dirname, './__mocks__/$env/static/public.ts'),
+      '$env/dynamic/public': path.resolve(__dirname, './__mocks__/$env/dynamic/public.ts'),
       '$env/static/private': path.resolve(__dirname, './__mocks__/$env/static/private.ts'),
     },
   },

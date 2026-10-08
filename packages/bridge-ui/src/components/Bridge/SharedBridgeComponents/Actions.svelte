@@ -8,6 +8,7 @@
     computingBalance,
     destNetwork,
     enteredAmount,
+    erc20SendPlan,
     errorComputingBalance,
     insufficientAllowance,
     insufficientBalance,
@@ -101,6 +102,11 @@
 
   $: validApprovalStatus = $allApproved;
 
+  // What the plan made the buttons for: Bridge asks for a signature instead of an approval,
+  // or Approve is the one-time Permit2 approval rather than the vault's exact amount
+  $: signatureFlow = isERC20 && ($erc20SendPlan?.method === 'permit' || $erc20SendPlan?.method === 'permit2');
+  $: permit2Approval = isERC20 && $erc20SendPlan?.method === 'approve' && $erc20SendPlan.target === 'permit2';
+
   // USDT-style tokens must reset a non-zero allowance before raising it
   $: resetRequired = tokenNeedsAllowanceReset($selectedToken, $connectedSourceChain?.id) && $needsApprovalReset;
 
@@ -156,6 +162,11 @@
         {/if}
       </ActionButton>
     {:else}
+      {#if permit2Approval && !$allApproved}
+        <Alert type="info">
+          {$t('bridge.permit2_approval.info', { values: { token: $selectedToken.symbol } })}
+        </Alert>
+      {/if}
       <ActionButton
         priority="primary"
         disabled={disableApprove}
@@ -166,7 +177,8 @@
         {:else if $allApproved}
           <div class="f-items-center">
             <Icon type="check" />
-            <span class="body-bold">{$t('bridge.button.approved')}</span>
+            <span class="body-bold"
+              >{$t(signatureFlow ? 'bridge.button.no_approval_needed' : 'bridge.button.approved')}</span>
           </div>
         {:else if checking}
           <span class="body-bold">{$t('bridge.button.validating')}</span>

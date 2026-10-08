@@ -469,6 +469,9 @@ func (p *Processor) WaitForInterrupt() bool {
 func (p *Processor) Close(ctx context.Context) {
 	p.cancel()
 
+	// Wait for the event loop and for every message it has already handed to a worker. The
+	// workers are the ones that call into the tx manager and the event repository below, so
+	// waiting only for the loop would close both while a claim send is still in flight.
 	p.wg.Wait()
 
 	// Closing the tx manager closes the backend under it, which is what holds the connections to
@@ -554,7 +557,22 @@ func (p *Processor) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-p.msgCh:
+			// The worker is registered on the same WaitGroup as the loop, so Close cannot get past
+			// its p.wg.Wait and tear down the tx manager and the event repository while a message
+			// is still being processed. Without this the loop's own registration is released the
+			// moment the context is cancelled, and a worker parked in p.txmgr.Send — a claim send
+			// that takes seconds — would have its dependencies closed underneath it.
+			//
+			// Adding here is safe against Wait: the loop holds a count for its whole lifetime, so
+			// the counter is never zero when this runs, and no worker is added once the loop has
+			// returned.
+			p.wg.Add(1)
+
 			go func(m queue.Message) {
+				// Registered before the recover so it still runs when the body panics: defers
+				// unwind last-in-first-out, so the recover below sees the panic first.
+				defer p.wg.Done()
+
 				defer func() {
 					if r := recover(); r != nil {
 						slog.Error("panic processing message", "panic", r)

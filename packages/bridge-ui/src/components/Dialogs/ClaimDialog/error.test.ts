@@ -1,6 +1,25 @@
+import { ContractFunctionRevertedError, encodeErrorResult } from 'viem';
 import { describe, expect, it } from 'vitest';
 
-import { isMessageNotReceivedError, isQuotaManagerOutOfQuotaError } from './error';
+import { bridgeAbi } from '$abi';
+import { RecallDisabledError, RecallStatusUnknownError } from '$libs/error';
+
+import { getRecallErrorKey, isMessageNotReceivedError, isQuotaManagerOutOfQuotaError } from './error';
+
+describe('recall error feedback', () => {
+  it('decodes the protocol error with the generated ABI and maps nested causes to explanatory copy', () => {
+    const data = encodeErrorResult({ abi: bridgeAbi, errorName: 'B_RECALL_DISABLED' });
+    const cause = new ContractFunctionRevertedError({ abi: bridgeAbi, data, functionName: 'recallMessage' });
+    expect(getRecallErrorKey({ cause })).toBe('bridge.errors.recall.disabled');
+  });
+  it('distinguishes disabled recall from an unavailable capability read', () => {
+    expect(getRecallErrorKey(new RecallDisabledError())).toBe('bridge.errors.recall.disabled');
+    expect(getRecallErrorKey(new RecallStatusUnknownError())).toBe('bridge.errors.recall.unknown');
+  });
+  it('does not infer disabled recall from an ordinary failed retry', () => {
+    expect(getRecallErrorKey(new Error('B_RETRY_FAILED'))).toBeNull();
+  });
+});
 
 describe('isMessageNotReceivedError', () => {
   it('returns true for legacy and current bridge not received errors', () => {

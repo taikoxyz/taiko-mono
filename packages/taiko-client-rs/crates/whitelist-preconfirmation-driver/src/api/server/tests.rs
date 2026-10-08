@@ -23,6 +23,7 @@ use crate::{
 };
 use alloy_primitives::{Address, B256, Bytes as RpcBytes};
 use async_trait::async_trait;
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 
 struct MockApi;
 
@@ -122,6 +123,23 @@ async fn start_jwt_server() -> WhitelistApiServer {
     WhitelistApiServer::start(config, api).await.expect("server should start")
 }
 
+/// Mint an HS256 bearer token signed with `secret`, mirroring what API clients send.
+fn bearer_token(secret: &[u8]) -> String {
+    let claims = serde_json::json!({ "sub": "whitelist-preconfirmation-driver-test" });
+    encode(&Header::new(Algorithm::HS256), &claims, &EncodingKey::from_secret(secret))
+        .expect("token should encode")
+}
+
+/// Build request headers carrying `Authorization: Bearer <token>`.
+fn bearer_headers(token: &str) -> http::HeaderMap {
+    let mut headers = http::HeaderMap::new();
+    headers.insert(
+        http::header::AUTHORIZATION,
+        format!("Bearer {token}").parse().expect("valid authorization header"),
+    );
+    headers
+}
+
 #[tokio::test]
 async fn server_start_stop() {
     let config = test_config();
@@ -219,6 +237,27 @@ fn jwt_auth_rejects_missing_header() {
     let headers = http::HeaderMap::new();
     let err = auth.validate_headers(&headers).expect_err("missing header must fail");
     assert!(err.contains("missing bearer authorization header"));
+}
+
+#[test]
+fn jwt_auth_accepts_token_signed_with_configured_secret() {
+    let auth = JwtAuth::new(b"test-secret");
+    let headers = bearer_headers(&bearer_token(b"test-secret"));
+    auth.validate_headers(&headers).expect("token signed with the configured secret must pass");
+}
+
+#[test]
+fn jwt_auth_rejects_tokens_not_signed_with_configured_secret() {
+    let auth = JwtAuth::new(b"test-secret");
+
+    let forged = bearer_headers(&bearer_token(b"other-secret"));
+    let err =
+        auth.validate_headers(&forged).expect_err("token signed with another secret must fail");
+    assert!(err.contains("invalid bearer token"));
+
+    let malformed = bearer_headers("not-a-jwt");
+    let err = auth.validate_headers(&malformed).expect_err("malformed token must fail");
+    assert!(err.contains("invalid bearer token"));
 }
 
 #[tokio::test]
@@ -385,6 +424,27 @@ async fn preconf_blocks_still_requires_jwt_when_configured() {
         response.status(),
         reqwest::StatusCode::UNAUTHORIZED,
         "POST /preconfBlocks must remain JWT-protected"
+    );
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn preconf_blocks_accepts_valid_bearer_token_when_jwt_configured() {
+    let server = start_jwt_server().await;
+
+    let response = reqwest::Client::new()
+        .post(format!("{}/preconfBlocks", server.http_url()))
+        .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", bearer_token(b"test-secret")))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(sample_preconf_request())
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::OK,
+        "a bearer token signed with the configured secret must be accepted"
     );
 
     server.stop().await;

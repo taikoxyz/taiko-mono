@@ -44,7 +44,9 @@ contract TestBridge1 is CommonTest {
 
         eSignalService = _deployMockSignalService();
         eBridge = deployBridge(
-            address(new Bridge(address(resolver), address(eSignalService), address(0), address(0)))
+            address(
+                new Bridge(address(resolver), address(eSignalService), address(0), address(0), true)
+            )
         );
 
         vm.deal(Alice, 100 ether);
@@ -53,7 +55,9 @@ contract TestBridge1 is CommonTest {
     function setUpOnTaiko() internal override {
         tSignalService = _deployMockSignalService();
         tBridge = deployBridge(
-            address(new Bridge(address(resolver), address(tSignalService), address(0), address(0)))
+            address(
+                new Bridge(address(resolver), address(tSignalService), address(0), address(0), true)
+            )
         );
         vm.deal(address(tBridge), 100 ether);
     }

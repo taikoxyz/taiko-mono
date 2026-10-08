@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -25,6 +26,7 @@ type BalanceMonitor struct {
 	interval           time.Duration
 	erc20DecimalsCache map[common.Address]uint8
 	ctx                context.Context
+	wg                 sync.WaitGroup
 }
 
 // InitFromCli inits a new Indexer from command line or environment variables.
@@ -64,6 +66,10 @@ func (b *BalanceMonitor) Name() string {
 }
 
 func (b *BalanceMonitor) Close(ctx context.Context) {
+	// Wait for the background event loop to exit before closing the RPC
+	// clients, so we never close a client that the loop is still using.
+	b.wg.Wait()
+
 	if b.l1EthClient != nil {
 		b.l1EthClient.Close()
 	}
@@ -72,14 +78,29 @@ func (b *BalanceMonitor) Close(ctx context.Context) {
 	}
 }
 
+// Start launches the balance-checking loop in a background goroutine and returns
+// immediately. The previous implementation ran the loop on the caller's
+// goroutine and only returned once the context was cancelled, which deadlocked
+// graceful shutdown: the CLI wrapper registers signal handling and the deferred
+// Close only after Start returns, but Start could only return after that same
+// Close cancelled the context.
 func (b *BalanceMonitor) Start() error {
+	b.wg.Add(1)
+	go b.eventLoop()
+
+	return nil
+}
+
+func (b *BalanceMonitor) eventLoop() {
+	defer b.wg.Done()
+
 	ticker := time.NewTicker(b.interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-b.ctx.Done():
-			return nil
+			return
 		case <-ticker.C:
 			for _, address := range b.addresses {
 				// Create context with timeout for RPC calls to ensure graceful shutdown

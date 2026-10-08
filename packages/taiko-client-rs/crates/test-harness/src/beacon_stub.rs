@@ -5,44 +5,42 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use alloy_eips::eip7594::BlobTransactionSidecarVariant;
-use alloy_primitives::hex;
+use alloy_eips::{eip4844::kzg_to_versioned_hash, eip7594::BlobTransactionSidecarVariant};
+use alloy_primitives::{B256, hex};
 use anyhow::Result;
 use http_body_util::Full;
 use hyper::{
     Method, StatusCode, body::Bytes as HyperBytes, header::CONTENT_TYPE,
     server::conn::http1::Builder as Http1Builder, service::service_fn,
 };
-use serde::Serialize;
 use tokio::{net::TcpListener, select, spawn, sync::Notify, task::JoinHandle};
 use url::Url;
 
-/// Blob sidecar data stored in hex-encoded format for JSON serialization.
-#[derive(Clone, Serialize)]
-struct BlobSidecarData {
+/// A blob served by the stub.
+#[derive(Clone)]
+struct StoredBlob {
+    /// Versioned hash of the KZG commitment the blob was added with.
+    versioned_hash: B256,
+    /// Hex-encoded blob body.
     blob: String,
-    #[serde(rename = "kzg_commitment")]
-    kzg_commitment: String,
-    #[serde(rename = "kzg_proof")]
-    kzg_proof: String,
 }
 
-/// Shared state for blob sidecars.
-struct BlobSidecarStoreInner {
-    /// Sidecars keyed by slot.
-    by_slot: HashMap<u64, Vec<BlobSidecarData>>,
-    /// Default sidecars returned for any slot not in `by_slot`.
-    default: Vec<BlobSidecarData>,
+/// Shared state for the served blobs.
+struct BlobStoreInner {
+    /// Blobs keyed by slot, in block order.
+    by_slot: HashMap<u64, Vec<StoredBlob>>,
+    /// Default blobs returned for any slot not in `by_slot`.
+    default: Vec<StoredBlob>,
 }
 
-type BlobSidecarStore = Arc<RwLock<BlobSidecarStoreInner>>;
+type BlobStore = Arc<RwLock<BlobStoreInner>>;
 
-/// Minimal beacon API stub for driver startup (genesis/spec/block/blob_sidecars endpoints).
+/// Minimal beacon API stub for driver startup (genesis/spec/block/blobs endpoints).
 pub struct BeaconStubServer {
     endpoint: Url,
     shutdown: Arc<Notify>,
     handle: JoinHandle<()>,
-    blob_sidecars: BlobSidecarStore,
+    blobs: BlobStore,
 }
 
 impl BeaconStubServer {
@@ -54,11 +52,9 @@ impl BeaconStubServer {
         let shutdown = Arc::new(Notify::new());
         let cancel = shutdown.clone();
 
-        let blob_sidecars: BlobSidecarStore = Arc::new(RwLock::new(BlobSidecarStoreInner {
-            by_slot: HashMap::new(),
-            default: Vec::new(),
-        }));
-        let store = blob_sidecars.clone();
+        let blobs: BlobStore =
+            Arc::new(RwLock::new(BlobStoreInner { by_slot: HashMap::new(), default: Vec::new() }));
+        let store = blobs.clone();
 
         let handle = spawn(async move {
             loop {
@@ -82,7 +78,7 @@ impl BeaconStubServer {
             }
         });
 
-        Ok(Self { endpoint, shutdown, handle, blob_sidecars })
+        Ok(Self { endpoint, shutdown, handle, blobs })
     }
 
     /// Stub genesis time (matches the value returned by `/eth/v1/beacon/genesis`).
@@ -100,46 +96,39 @@ impl BeaconStubServer {
         (timestamp - Self::GENESIS_TIME) / Self::SECONDS_PER_SLOT
     }
 
-    /// Add a blob sidecar for the given slot. Can be called multiple times for the same slot.
+    /// Add a blob sidecar's blobs for the given slot. Can be called multiple times for the same
+    /// slot.
     pub fn add_blob_sidecar(&self, slot: u64, sidecar: BlobTransactionSidecarVariant) {
-        let mut store = self.blob_sidecars.write().unwrap();
+        let mut store = self.blobs.write().unwrap();
         let entry = store.by_slot.entry(slot).or_default();
-        Self::append_sidecar_data(entry, &sidecar);
+        Self::append_sidecar_blobs(entry, &sidecar);
     }
 
-    /// Set the default blob sidecar returned for ANY slot that has no specific sidecars,
-    /// replacing any previously set default. Useful for tests that don't know the exact
+    /// Set the default blob sidecar whose blobs are returned for ANY slot that has no specific
+    /// blobs, replacing any previously set default. Useful for tests that don't know the exact
     /// slot ahead of time.
     pub fn set_default_blob_sidecar(&self, sidecar: BlobTransactionSidecarVariant) {
-        let mut store = self.blob_sidecars.write().unwrap();
+        let mut store = self.blobs.write().unwrap();
         store.default.clear();
-        Self::append_sidecar_data(&mut store.default, &sidecar);
+        Self::append_sidecar_blobs(&mut store.default, &sidecar);
     }
 
     /// Append a blob sidecar to the defaults without discarding earlier ones. Use when
-    /// several proposals must stay fetchable at once: consumers hash-match against every
-    /// returned sidecar, and reconnect replay can re-fetch an earlier proposal's blob at
-    /// any point.
+    /// several proposals must stay fetchable at once: consumers request blobs by versioned
+    /// hash, and reconnect replay can re-fetch an earlier proposal's blob at any point.
     pub fn add_default_blob_sidecar(&self, sidecar: BlobTransactionSidecarVariant) {
-        let mut store = self.blob_sidecars.write().unwrap();
-        Self::append_sidecar_data(&mut store.default, &sidecar);
+        let mut store = self.blobs.write().unwrap();
+        Self::append_sidecar_blobs(&mut store.default, &sidecar);
     }
 
-    fn append_sidecar_data(
-        target: &mut Vec<BlobSidecarData>,
-        sidecar: &BlobTransactionSidecarVariant,
-    ) {
+    fn append_sidecar_blobs(target: &mut Vec<StoredBlob>, sidecar: &BlobTransactionSidecarVariant) {
         // Extract the EIP-4844 sidecar from the variant
         let sidecar = sidecar.as_eip4844().expect("Expected EIP-4844 sidecar variant");
 
-        for (i, blob) in sidecar.blobs.iter().enumerate() {
-            let commitment = sidecar.commitments.get(i).map(|c| c.as_slice()).unwrap_or(&[]);
-            let proof = sidecar.proofs.get(i).map(|p| p.as_slice()).unwrap_or(&[]);
-
-            target.push(BlobSidecarData {
-                blob: format!("0x{}", hex::encode(blob.as_slice())),
-                kzg_commitment: format!("0x{}", hex::encode(commitment)),
-                kzg_proof: format!("0x{}", hex::encode(proof)),
+        for (blob, commitment) in sidecar.blobs.iter().zip(&sidecar.commitments) {
+            target.push(StoredBlob {
+                versioned_hash: kzg_to_versioned_hash(commitment.as_slice()),
+                blob: hex::encode_prefixed(blob),
             });
         }
     }
@@ -155,16 +144,16 @@ impl BeaconStubServer {
 
 impl Drop for BeaconStubServer {
     /// Aborts the accept loop so tests that return early (failed `ensure!`, `?`) cannot
-    /// leak a listener that keeps serving stale sidecars while teardown runs.
+    /// leak a listener that keeps serving stale blobs while teardown runs.
     fn drop(&mut self) {
         self.handle.abort();
     }
 }
 
-/// Handle a single beacon API request against the sidecar store.
+/// Handle a single beacon API request against the blob store.
 fn handle_beacon_request(
     req: hyper::Request<hyper::body::Incoming>,
-    store: &BlobSidecarStore,
+    store: &BlobStore,
 ) -> hyper::Response<Full<HyperBytes>> {
     let empty_response = |status| {
         hyper::Response::builder().status(status).body(Full::new(HyperBytes::new())).unwrap()
@@ -176,22 +165,29 @@ fn handle_beacon_request(
 
     let path = req.uri().path();
 
-    // Handle blob_sidecars endpoint
-    if let Some(slot_str) = path.strip_prefix("/eth/v1/beacon/blob_sidecars/") {
+    // Handle the blobs endpoint, which serves only the blobs of the requested versioned hashes
+    // (every blob of the slot when there are none), in block order.
+    if let Some(slot_str) = path.strip_prefix("/eth/v1/beacon/blobs/") {
         let Ok(slot) = slot_str.parse::<u64>() else {
             return empty_response(StatusCode::BAD_REQUEST);
         };
+        let Some(requested) = requested_versioned_hashes(req.uri().query()) else {
+            return empty_response(StatusCode::BAD_REQUEST);
+        };
 
-        let sidecars = store.read().unwrap();
-        // Return slot-specific sidecars if available, otherwise return default sidecars.
-        let data = sidecars.by_slot.get(&slot).cloned().unwrap_or_else(|| sidecars.default.clone());
-
-        #[derive(Serialize)]
-        struct BlobSidecarsResponse {
-            data: Vec<BlobSidecarData>,
-        }
-
-        let response = BlobSidecarsResponse { data };
+        let store = store.read().unwrap();
+        // Return slot-specific blobs if available, otherwise return the default blobs.
+        let blobs = store.by_slot.get(&slot).unwrap_or(&store.default);
+        let data: Vec<&str> = blobs
+            .iter()
+            .filter(|stored| requested.is_empty() || requested.contains(&stored.versioned_hash))
+            .map(|stored| stored.blob.as_str())
+            .collect();
+        let response = serde_json::json!({
+            "execution_optimistic": false,
+            "finalized": false,
+            "data": data,
+        });
         let body = serde_json::to_vec(&response).expect("serialization never fails");
 
         return hyper::Response::builder()
@@ -217,6 +213,23 @@ fn handle_beacon_request(
         .unwrap()
 }
 
+/// Parse the repeated `versioned_hashes` query parameter of a blobs request. Returns `None`, a
+/// bad request, for a malformed or duplicated hash, since the parameter holds unique items.
+fn requested_versioned_hashes(query: Option<&str>) -> Option<Vec<B256>> {
+    let mut hashes = Vec::new();
+    for (key, value) in url::form_urlencoded::parse(query.unwrap_or_default().as_bytes()) {
+        if key != "versioned_hashes" {
+            continue;
+        }
+        let hash = value.parse::<B256>().ok()?;
+        if hashes.contains(&hash) {
+            return None;
+        }
+        hashes.push(hash);
+    }
+    Some(hashes)
+}
+
 #[cfg(test)]
 mod tests {
     use alloy_eips::eip4844::{Blob, BlobTransactionSidecar, Bytes48};
@@ -232,8 +245,21 @@ mod tests {
         })
     }
 
-    /// Fetches the sidecars served for an arbitrary slot and returns their commitments.
-    async fn fetch_default_commitments(server: &BeaconStubServer) -> Vec<String> {
+    /// Versioned hash of the commitment `sidecar_with_commitment(byte)` carries.
+    fn versioned_hash(byte: u8) -> B256 {
+        kzg_to_versioned_hash(&[byte; 48])
+    }
+
+    /// Hex encoding of the blob `sidecar_with_commitment(byte)` carries.
+    fn expected_blob(byte: u8) -> String {
+        hex::encode_prefixed([byte; 131_072])
+    }
+
+    /// Requests `path_and_query` from the stub and returns the status and the served blobs.
+    async fn fetch_blobs(
+        server: &BeaconStubServer,
+        path_and_query: &str,
+    ) -> (StatusCode, Vec<String>) {
         let endpoint = server.endpoint();
         let addr = format!(
             "{}:{}",
@@ -247,24 +273,24 @@ mod tests {
         spawn(connection);
 
         let request = hyper::Request::builder()
-            .uri("/eth/v1/beacon/blob_sidecars/0")
+            .uri(path_and_query)
             .header(hyper::header::HOST, "localhost")
             .body(Empty::<HyperBytes>::new())
             .expect("build request");
         let response = sender.send_request(request).await.expect("send request");
-        assert_eq!(response.status(), StatusCode::OK);
+        let status = response.status();
         let body = response.into_body().collect().await.expect("read body").to_bytes();
+        if status != StatusCode::OK {
+            return (status, Vec::new());
+        }
         let json: serde_json::Value = serde_json::from_slice(&body).expect("parse body");
-        json["data"]
+        let blobs = json["data"]
             .as_array()
             .expect("data array")
             .iter()
-            .map(|entry| entry["kzg_commitment"].as_str().expect("commitment").to_string())
-            .collect()
-    }
-
-    fn expected_commitment(byte: u8) -> String {
-        format!("0x{}", hex::encode([byte; 48]))
+            .map(|blob| blob.as_str().expect("hex blob").to_string())
+            .collect();
+        (status, blobs)
     }
 
     #[tokio::test]
@@ -273,9 +299,10 @@ mod tests {
         server.set_default_blob_sidecar(sidecar_with_commitment(0xAA));
         server.set_default_blob_sidecar(sidecar_with_commitment(0xBB));
 
-        let commitments = fetch_default_commitments(&server).await;
+        let (status, blobs) = fetch_blobs(&server, "/eth/v1/beacon/blobs/0").await;
 
-        assert_eq!(commitments, vec![expected_commitment(0xBB)]);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(blobs, vec![expected_blob(0xBB)]);
         server.shutdown().await.expect("shutdown stub");
     }
 
@@ -285,9 +312,51 @@ mod tests {
         server.set_default_blob_sidecar(sidecar_with_commitment(0xAA));
         server.add_default_blob_sidecar(sidecar_with_commitment(0xBB));
 
-        let commitments = fetch_default_commitments(&server).await;
+        let (status, blobs) = fetch_blobs(&server, "/eth/v1/beacon/blobs/0").await;
 
-        assert_eq!(commitments, vec![expected_commitment(0xAA), expected_commitment(0xBB)]);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(blobs, vec![expected_blob(0xAA), expected_blob(0xBB)]);
+        server.shutdown().await.expect("shutdown stub");
+    }
+
+    #[tokio::test]
+    async fn blobs_are_filtered_by_versioned_hashes_in_block_order() {
+        let server = BeaconStubServer::start().await.expect("start stub");
+        server.add_blob_sidecar(7, sidecar_with_commitment(0xAA));
+        server.add_blob_sidecar(7, sidecar_with_commitment(0xBB));
+        server.add_blob_sidecar(7, sidecar_with_commitment(0xCC));
+        server.set_default_blob_sidecar(sidecar_with_commitment(0xDD));
+
+        let path = format!(
+            "/eth/v1/beacon/blobs/7?versioned_hashes={}&versioned_hashes={}",
+            versioned_hash(0xCC),
+            versioned_hash(0xAA)
+        );
+        let (status, blobs) = fetch_blobs(&server, &path).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(blobs, vec![expected_blob(0xAA), expected_blob(0xCC)]);
+
+        // Other slots serve the default blobs, which do not hold the requested hashes.
+        let (status, blobs) = fetch_blobs(&server, &path.replace("/blobs/7", "/blobs/8")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(blobs.is_empty());
+        server.shutdown().await.expect("shutdown stub");
+    }
+
+    #[tokio::test]
+    async fn blobs_reject_duplicated_or_malformed_versioned_hashes() {
+        let server = BeaconStubServer::start().await.expect("start stub");
+        server.set_default_blob_sidecar(sidecar_with_commitment(0xAA));
+
+        let hash = versioned_hash(0xAA);
+        for query in [
+            format!("versioned_hashes={hash}&versioned_hashes={hash}"),
+            "versioned_hashes=0x01".into(),
+        ] {
+            let (status, _) =
+                fetch_blobs(&server, &format!("/eth/v1/beacon/blobs/0?{query}")).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{query}");
+        }
         server.shutdown().await.expect("shutdown stub");
     }
 }

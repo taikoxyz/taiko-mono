@@ -25,7 +25,7 @@ const (
 	maxPollRange = uint64(1000)
 )
 
-// SubscribeEvent creates a event subscription, will retry if the established subscription failed.
+// SubscribeEvent creates an event subscription and retries if the established subscription fails.
 func SubscribeEvent(
 	eventName string,
 	handler func(ctx context.Context) (event.Subscription, error),

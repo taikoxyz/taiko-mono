@@ -602,7 +602,7 @@ mod tests {
             manifest::{BlockManifest, DerivationSourceManifest},
         },
     };
-    use rpc::blob::BlobDataSource;
+    use rpc::blob::{BlobDataError, BlobDataSource};
 
     use crate::test_support::{
         mock_client_with_asserters, mock_client_with_l1_asserter, sample_derivation_source,
@@ -778,6 +778,18 @@ mod tests {
         assert!(!is_undecodable_manifest_error(&DerivationError::Manifest(
             ManifestFetcherError::EmptyBlobHashes
         )));
+        // Blob fetch failures, including a beacon node or blob server serving the wrong bytes,
+        // say nothing about the blob content: derivation must retry them.
+        for err in [
+            BlobDataError::Beacon("beacon node did not return blob".to_string()),
+            BlobDataError::Parse("blob hash mismatch from blob server".to_string()),
+            BlobDataError::HttpStatus { status: 404 },
+            BlobDataError::Other(anyhow::anyhow!("request timed out")),
+        ] {
+            assert!(!is_undecodable_manifest_error(&DerivationError::Manifest(
+                ManifestFetcherError::Blob(err)
+            )));
+        }
     }
 
     #[test]

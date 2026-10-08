@@ -7,6 +7,8 @@ This package contains the Bridge UI built with svelte and wagmi
     - [Set up environment variables](#set-up-environment-variables)
     - [Set up configurations](#set-up-configurations)
       - [Optional flags](#optional-flags)
+      - [Bridge recall availability](#bridge-recall-availability)
+      - [Regenerate contract ABIs](#regenerate-contract-abis)
     - [Start a development server:](#start-a-development-server)
   - [Building](#building)
 
@@ -106,6 +108,39 @@ config/
 
 More could be configured manually in `scripts/exportJsonToEnv.js`
 <br>
+
+#### Bridge recall availability
+
+`PUBLIC_BRIDGE_RECALL_ENABLED` enables recall detection when unset, empty after trimming,
+or set to `true` (case-insensitive, with surrounding whitespace ignored). Any other nonempty
+value disables Release and final retries in the UI; ordinary retries remain available.
+This is a public runtime environment variable, read when a page loads. Apply environment
+changes to the deployment and reload existing tabs.
+
+When enabled, the UI reads `recallEnabled()` from the bridge proxies. Release requires the
+source bridge to support recalls; a final retry requires both bridges, so it remains safe
+while the two chains upgrade separately. Legacy bridges without the getter retain their
+existing behaviour after a successful `paused()` read confirms a responsive contract.
+Missing-getter detection accepts empty reverts across RPC clients, including Besu's
+`Execution reverted` and older geth's `-32000` response without revert data.
+Generic internal errors (`-32603`) remain unknown, even if their message says execution reverted.
+RPC failures leave recall availability unknown and do not enable recalls. The flag cannot
+override a bridge reporting `recallEnabled() == false`. Capability is rechecked before
+requesting a signature. If a selected final retry becomes unavailable or cannot be verified,
+submission stops with an explanation; the user can go back and explicitly choose an ordinary
+retry. Returning from Review preserves the selected retry type while capabilities are checked.
+Background refreshes retain the last known answer after transient failures. Concurrent UI
+reads of the same bridge share one request, without caching completed results. Click-time
+and transaction checks bypass those shared reads and require fresh availability.
+Cross-chain reads are not atomic: capabilities can still change
+while a wallet request or transaction is pending. Operators can disable these actions
+before starting a rollout; existing tabs must reload to pick up the environment change.
+
+#### Regenerate contract ABIs
+
+Regenerate contract ABIs with `pnpm generate:abi`. This builds the protocol's `shared`
+profile using its configured compiler and EVM version, then regenerates all registered
+ABIs (including `QuotaManager`) through `wagmi.config.ts`.
 
 ### Start a development server:
 

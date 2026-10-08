@@ -2,6 +2,14 @@ export class NotConnectedError extends Error {
   name = 'NotConnectedError';
 }
 
+export class RecallDisabledError extends Error {
+  name = 'RecallDisabledError';
+}
+
+export class RecallStatusUnknownError extends Error {
+  name = 'RecallStatusUnknownError';
+}
+
 export class TokenMintedError extends Error {
   name = 'TokenMintedError';
 }
@@ -56,6 +64,15 @@ export class SendERC1155Error extends Error {
 
 export class ApproveError extends Error {
   name = 'ApproveError';
+}
+
+/**
+ * A signature-based send - `sendTokenWithPermit` or `sendTokenWithPermit2` - that the chain
+ * rejected. The flow is ruled out for the token for the session and the approval path is
+ * offered instead; a user rejection of the signature prompt is not this.
+ */
+export class PermitBridgeError extends Error {
+  name = 'PermitBridgeError';
 }
 
 export class RevertedWithoutMessageError extends Error {

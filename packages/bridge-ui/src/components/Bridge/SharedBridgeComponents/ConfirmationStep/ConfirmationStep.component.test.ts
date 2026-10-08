@@ -8,6 +8,7 @@
  * L2 -> L1 transfer is claimed on L1, hours later, not "on Taiko" in "a few minutes".
  */
 import { tick } from 'svelte';
+import { get } from 'svelte/store';
 import { vi } from 'vitest';
 
 window.matchMedia = vi.fn().mockReturnValue({
@@ -51,9 +52,14 @@ vi.mock('$components/Bridge/SharedBridgeComponents/Actions.svelte', async () => 
 
 // The wallet round trip, scripted per test
 const sendBridge = vi.fn();
+const approveToken = vi.fn();
 vi.mock('$libs/bridge/bridges', () => ({
   bridges: {
     ETH: { bridge: (...args: unknown[]) => sendBridge(...args) },
+    ERC20: {
+      bridge: (...args: unknown[]) => sendBridge(...args),
+      approve: (...args: unknown[]) => approveToken(...args),
+    },
     ERC721: { bridge: (...args: unknown[]) => sendBridge(...args) },
   },
   hasBridge: () => true,
@@ -80,6 +86,12 @@ vi.mock('$libs/util/getConnectedWallet', () => ({
 vi.mock('$libs/util/checkForPausedContracts', () => ({ isBridgePaused: vi.fn().mockResolvedValue(false) }));
 vi.mock('$libs/util/balance', () => ({ refreshUserBalance: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('$libs/token/waitForApprovalStatus', () => ({ waitForApprovalStatus: vi.fn().mockResolvedValue(undefined) }));
+// The status re-read after a failed bridge, scripted per test
+const readApprovalStatus = vi.fn();
+vi.mock('$libs/token/getTokenApprovalStatus', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$libs/token/getTokenApprovalStatus')>()),
+  getTokenApprovalStatus: (...args: unknown[]) => readApprovalStatus(...args),
+}));
 const successToast = vi.fn();
 vi.mock('$components/NotificationToast', () => ({ successToast: (...args: unknown[]) => successToast(...args) }));
 vi.mock('$components/NotificationToast/NotificationToast.svelte', () => ({
@@ -90,9 +102,11 @@ vi.mock('$components/NotificationToast/NotificationToast.svelte', () => ({
 }));
 
 import {
+  allApproved,
   destNetwork,
   destOwnerAddress,
   enteredAmount,
+  erc20SendPlan,
   gasLimitZero,
   processingFee,
   recipientAddress,
@@ -100,8 +114,10 @@ import {
   selectedToken,
 } from '$components/Bridge/state';
 import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
+import { InsufficientAllowanceError, PermitBridgeError } from '$libs/error';
 import { ETHToken, TokenType } from '$libs/token';
-import { ALICE, BOB } from '$mocks';
+import { ApprovalStatus } from '$libs/token/getTokenApprovalStatus';
+import { ALICE, BOB, L2_A_ADDRESSES } from '$mocks';
 import { account } from '$stores/account';
 import { connectedSourceChain } from '$stores/network';
 
@@ -111,6 +127,9 @@ const TX_HASH = `0x${'ab'.repeat(32)}`;
 
 /** A token the user could switch to while a prompt is open; its bridge is not the ETH one */
 const usdc = { type: TokenType.ERC20, symbol: 'USDC', name: 'USDC', decimals: 6, addresses: {} };
+const USDC_ON_L2 = '0x00000000000000000000000000000000000000c0';
+const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+const MAX = 2n ** 256n - 1n;
 
 let target: HTMLElement;
 let component: { $destroy: () => void } | null = null;
@@ -122,6 +141,10 @@ const flush = async () => {
 
 const startBridge = async () => {
   (target.querySelector('[data-testid="stub-bridge"]') as HTMLButtonElement).click();
+  await flush();
+};
+const click = async (testId: string) => {
+  (target.querySelector(`[data-testid="${testId}"]`) as HTMLButtonElement).click();
   await flush();
 };
 
@@ -141,6 +164,8 @@ beforeEach(() => {
   destOwnerAddress.set(null);
   gasLimitZero.set(false);
   selectedNFTs.set(null);
+  erc20SendPlan.set(null);
+  approveToken.mockResolvedValue(TX_HASH);
 
   target = document.createElement('div');
   document.body.appendChild(target);
@@ -325,5 +350,93 @@ describe('the confirmation copy', () => {
     expect(successToast).toHaveBeenCalledWith(
       expect.objectContaining({ message: expect.stringContaining('"chain":"Taiko"') }),
     );
+  });
+});
+
+describe('the ERC20 approval', () => {
+  const erc20 = { ...usdc, addresses: { 2: USDC_ON_L2 } };
+
+  beforeEach(() => selectedToken.set(erc20 as never));
+
+  it('approves what the plan asked for: Permit2, once, for everything', async () => {
+    erc20SendPlan.set({ method: 'approve', spender: PERMIT2, amount: MAX, currentAllowance: 0n, target: 'permit2' });
+    await click('stub-approve');
+
+    expect(approveToken).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenAddress: USDC_ON_L2, spenderAddress: PERMIT2, amount: MAX }),
+    );
+  });
+
+  it('approves the vault for the entered amount when there is no plan', async () => {
+    // Every vault without permit support: the flow it always had
+    await click('stub-approve');
+
+    expect(approveToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokenAddress: USDC_ON_L2,
+        spenderAddress: L2_A_ADDRESSES.erc20VaultAddress,
+        amount: BigInt(5),
+      }),
+    );
+  });
+
+  it('resets the allowance of the spender the plan is about to raise', async () => {
+    erc20SendPlan.set({ method: 'approve', spender: PERMIT2, amount: MAX, currentAllowance: 3n, target: 'permit2' });
+    await click('stub-reset-approval');
+
+    expect(approveToken).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenAddress: USDC_ON_L2, spenderAddress: PERMIT2, amount: 0n }),
+      true,
+    );
+  });
+});
+
+describe('after a failed ERC20 bridge', () => {
+  const erc20 = { ...usdc, addresses: { 2: USDC_ON_L2 } };
+
+  beforeEach(() => {
+    selectedToken.set(erc20 as never);
+    readApprovalStatus.mockResolvedValue(ApprovalStatus.APPROVAL_REQUIRED);
+  });
+
+  it('re-reads the approval status when the allowance turned out to be gone', async () => {
+    // Sufficient when the status was read, spent or revoked elsewhere before the click: the
+    // buttons still said "approved", and nothing else would have brought Approve back
+    sendBridge.mockRejectedValueOnce(new InsufficientAllowanceError('gone'));
+    await startBridge();
+    await flush();
+
+    expect(readApprovalStatus).toHaveBeenCalledWith(erc20);
+  });
+
+  it('re-reads it when the signed flow was ruled out for the token', async () => {
+    sendBridge.mockRejectedValueOnce(new PermitBridgeError('permit refused'));
+    await startBridge();
+    await flush();
+
+    expect(readApprovalStatus).toHaveBeenCalledWith(erc20);
+  });
+
+  it('keeps Bridge gated for the length of the re-read', async () => {
+    // A signature flow had allApproved raised; left up during the re-read, Bridge stays
+    // clickable under the spinner and a second click re-runs the same doomed send
+    allApproved.set(true);
+    let answer!: (status: unknown) => void;
+    readApprovalStatus.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    sendBridge.mockRejectedValueOnce(new PermitBridgeError('permit refused'));
+    await startBridge();
+    await flush();
+
+    expect(get(allApproved)).toBe(false);
+    answer(ApprovalStatus.APPROVAL_REQUIRED);
+    await flush();
+  });
+
+  it('leaves it alone on any other failure', async () => {
+    sendBridge.mockRejectedValueOnce(new Error('rpc down'));
+    await startBridge();
+    await flush();
+
+    expect(readApprovalStatus).not.toHaveBeenCalled();
   });
 });

@@ -4,31 +4,45 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/api/client"
 	"github.com/prysmaticlabs/prysm/v5/api/client/beacon"
-	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 )
 
 var (
 	// Request urls.
-	sidecarsRequestURL = "/eth/v1/beacon/blob_sidecars/%d"
-	genesisRequestURL  = "/eth/v1/beacon/genesis"
-	getConfigSpecPath  = "/eth/v1/config/spec"
-	beaconBlockBySlot  = "/eth/v2/beacon/blocks/%d"
+	blobsRequestURL   = "/eth/v1/beacon/blobs/%d"
+	genesisRequestURL = "/eth/v1/beacon/genesis"
+	getConfigSpecPath = "/eth/v1/config/spec"
+	beaconBlockBySlot = "/eth/v2/beacon/blocks/%d"
 )
+
+// blobsResponse is the response from the beacon node for fetching blobs.
+type blobsResponse struct {
+	Data []*eth.Blob `json:"data"`
+}
 
 // ConfigSpec is the config spec of the beacon node.
 type ConfigSpec struct {
 	SecondsPerSlot string `json:"SECONDS_PER_SLOT"`
 	SlotsPerEpoch  string `json:"SLOTS_PER_EPOCH"`
+}
+
+// configSpecResponse is the response from the beacon node for fetching the config spec.
+type configSpecResponse struct {
+	Data ConfigSpec `json:"data"`
 }
 
 // GenesisResponse is the response from the beacon node for fetching the genesis time.
@@ -80,33 +94,33 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 	defer cancel()
 
 	// Get the genesis time.
-	var genesisDetail *GenesisResponse
+	var genesisDetail GenesisResponse
 	resBytes, err := cli.Get(ctx, cli.BaseURL().Path+genesisRequestURL)
 	if err != nil {
 		return nil, err
 	}
 
 	if err := json.Unmarshal(resBytes, &genesisDetail); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode beacon genesis response: %w", err)
 	}
 
-	genesisTime, err := strconv.Atoi(genesisDetail.Data.GenesisTime)
+	genesisTime, err := parseBeaconUint64("genesis_time", genesisDetail.Data.GenesisTime)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the seconds per slot.
+	// Get the seconds per slot and the slots per epoch.
 	spec, err := getConfigSpec(ctx, cli)
 	if err != nil {
 		return nil, err
 	}
 
-	secondsPerSlot, err := strconv.Atoi(spec.Data.(map[string]interface{})["SECONDS_PER_SLOT"].(string))
+	secondsPerSlot, err := parseBeaconDurationSeconds("SECONDS_PER_SLOT", spec.SecondsPerSlot)
 	if err != nil {
 		return nil, err
 	}
 
-	slotsPerEpoch, err := strconv.Atoi(spec.Data.(map[string]interface{})["SLOTS_PER_EPOCH"].(string))
+	slotsPerEpoch, err := parseBeaconPositiveUint64("SLOTS_PER_EPOCH", spec.SlotsPerEpoch)
 	if err != nil {
 		return nil, err
 	}
@@ -118,29 +132,163 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		"genesisTime", genesisTime,
 	)
 
-	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot), uint64(slotsPerEpoch)}, nil
+	return &BeaconClient{cli, timeout, genesisTime, secondsPerSlot, slotsPerEpoch}, nil
 }
 
-// GetBlobs returns the sidecars for a given slot.
-func (c *BeaconClient) GetBlobs(ctx context.Context, time uint64) ([]*structs.Sidecar, error) {
+// parseBeaconUint64 parses a decimal uint64 value from a beacon node response. The Beacon API
+// serialises these values as base-10 uint64 strings, so anything else is rejected.
+func parseBeaconUint64(name, value string) (uint64, error) {
+	if value == "" {
+		return 0, fmt.Errorf("beacon node response is missing %s", name)
+	}
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s in beacon node response: %w", name, err)
+	}
+	return parsed, nil
+}
+
+// parseBeaconPositiveUint64 is parseBeaconUint64 for values that are later used as divisors.
+func parseBeaconPositiveUint64(name, value string) (uint64, error) {
+	parsed, err := parseBeaconUint64(name, value)
+	if err != nil {
+		return 0, err
+	}
+	if parsed == 0 {
+		return 0, fmt.Errorf("invalid %s in beacon node response: must be greater than zero", name)
+	}
+	return parsed, nil
+}
+
+// maxBeaconDurationSeconds is the largest number of seconds that still converts into a positive
+// time.Duration. Above it the product silently wraps: `time.Second * time.Duration(1<<63)` is zero
+// and `time.Second * time.Duration(math.MaxUint64)` is negative, either of which panics the
+// `time.NewTicker` call that derives the driver's lookahead interval from SECONDS_PER_SLOT.
+const maxBeaconDurationSeconds = uint64(math.MaxInt64 / int64(time.Second))
+
+// parseBeaconDurationSeconds is parseBeaconPositiveUint64 for values that are later converted into
+// a time.Duration of seconds.
+func parseBeaconDurationSeconds(name, value string) (uint64, error) {
+	parsed, err := parseBeaconPositiveUint64(name, value)
+	if err != nil {
+		return 0, err
+	}
+	if parsed > maxBeaconDurationSeconds {
+		return 0, fmt.Errorf(
+			"invalid %s in beacon node response: must be at most %d seconds, got %d",
+			name,
+			maxBeaconDurationSeconds,
+			parsed,
+		)
+	}
+	return parsed, nil
+}
+
+// GetBlobs returns the blobs with the given versioned hashes, in the same order, from the beacon block at the
+// slot of the given timestamp. Beacon nodes return blobs without their KZG commitments, in block order per the
+// spec (Lighthouse keeps the request order instead), so every returned blob is matched to a versioned hash by
+// recomputing its commitment: a beacon node can make this call fail, but it cannot make it return a blob that
+// does not match the requested versioned hash.
+func (c *BeaconClient) GetBlobs(ctx context.Context, timestamp uint64, blobHashes []common.Hash) ([]*eth.Blob, error) {
+	if len(blobHashes) == 0 {
+		return nil, nil
+	}
+
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	slot, err := c.timeToSlot(time)
-	if err != nil {
-		return nil, err
-	}
-	resBytes, err := c.Get(ctxWithTimeout, c.BaseURL().Path+fmt.Sprintf(sidecarsRequestURL, slot))
+	slot, err := c.timeToSlot(timestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	var sidecars *structs.SidecarsResponse
-	if err = json.Unmarshal(resBytes, &sidecars); err != nil {
-		return nil, err
+	// The endpoint takes unique versioned hashes, while a proposal may reference the same blob twice.
+	uniqueHashes := make([]common.Hash, 0, len(blobHashes))
+	seen := make(map[common.Hash]struct{}, len(blobHashes))
+	for _, blobHash := range blobHashes {
+		if _, ok := seen[blobHash]; !ok {
+			seen[blobHash] = struct{}{}
+			uniqueHashes = append(uniqueHashes, blobHash)
+		}
 	}
 
-	return sidecars.Data, nil
+	blobs, err := c.getBlobs(ctxWithTimeout, slot, uniqueHashes)
+	if err != nil {
+		return nil, err
+	}
+	return matchBlobs(blobs, blobHashes)
+}
+
+// getBlobs fetches the blobs with the given versioned hashes from the beacon block at the given slot.
+func (c *BeaconClient) getBlobs(ctx context.Context, slot uint64, blobHashes []common.Hash) ([]*eth.Blob, error) {
+	query := url.Values{}
+	for _, blobHash := range blobHashes {
+		query.Add("versioned_hashes", blobHash.Hex())
+	}
+
+	// client.Get escapes a query string into the path, so the request is built here.
+	requestURL := c.BaseURL().ResolveReference(&url.URL{
+		Path:     c.BaseURL().Path + fmt.Sprintf(blobsRequestURL, slot),
+		RawQuery: query.Encode(),
+	})
+	// A nil body, unlike http.NoBody, lets RateLimitedTransport retry the request on 429.
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, client.Non200Err(res)
+	}
+
+	resBytes, err := io.ReadAll(io.LimitReader(res.Body, client.MaxBodySize))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read beacon blobs response: %w", err)
+	}
+
+	var blobs blobsResponse
+	if err := json.Unmarshal(resBytes, &blobs); err != nil {
+		return nil, fmt.Errorf("failed to decode beacon blobs response: %w", err)
+	}
+	if blobs.Data == nil {
+		return nil, errors.New("beacon blobs response is missing data")
+	}
+	for _, blob := range blobs.Data {
+		if blob == nil {
+			return nil, errors.New("beacon blobs response contains a null blob")
+		}
+	}
+
+	return blobs.Data, nil
+}
+
+// matchBlobs returns, for each of the given versioned hashes, the blob whose KZG commitment hashes to it.
+func matchBlobs(blobs []*eth.Blob, blobHashes []common.Hash) ([]*eth.Blob, error) {
+	byHash := make(map[common.Hash]*eth.Blob, len(blobs))
+	for _, blob := range blobs {
+		commitment, err := blob.ComputeKZGCommitment()
+		if err != nil {
+			return nil, fmt.Errorf("failed to compute KZG commitment of beacon blob: %w", err)
+		}
+		byHash[eth.KZGToVersionedHash(commitment)] = blob
+	}
+
+	matched := make([]*eth.Blob, 0, len(blobHashes))
+	for _, blobHash := range blobHashes {
+		blob, ok := byHash[blobHash]
+		if !ok {
+			return nil, fmt.Errorf("beacon node did not return blob %s", blobHash)
+		}
+		matched = append(matched, blob)
+	}
+
+	return matched, nil
 }
 
 // timeToSlot returns the slots of the given timestamp.
@@ -211,16 +359,15 @@ func (c *BeaconClient) executionBlockNumberBySlot(ctx context.Context, slot uint
 	return new(big.Int).SetUint64(blockNumber), nil
 }
 
-// getConfigSpec retrieve the current configs of the network used by the beacon node.
-func getConfigSpec(ctx context.Context, c *beacon.Client) (*structs.GetSpecResponse, error) {
+// getConfigSpec retrieves the current configs of the network used by the beacon node.
+func getConfigSpec(ctx context.Context, c *beacon.Client) (*ConfigSpec, error) {
 	body, err := c.Get(ctx, c.BaseURL().Path+getConfigSpecPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "error requesting configSpecPath")
 	}
-	fsr := &structs.GetSpecResponse{}
-	err = json.Unmarshal(body, fsr)
-	if err != nil {
-		return nil, err
+	var spec configSpecResponse
+	if err := json.Unmarshal(body, &spec); err != nil {
+		return nil, fmt.Errorf("failed to decode beacon config spec response: %w", err)
 	}
-	return fsr, nil
+	return &spec.Data, nil
 }

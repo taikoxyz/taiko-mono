@@ -8,6 +8,8 @@ pub mod blob;
 pub mod client;
 pub mod error;
 pub mod l1_origin;
+#[cfg(test)]
+mod test_utils;
 
 pub use auth::TxPoolContentParams;
 pub use error::{Result, RpcClientError};

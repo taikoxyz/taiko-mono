@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
-	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
@@ -94,13 +93,16 @@ func (ds *BlobDataSource) GetBlobBytes(
 	timestamp uint64,
 	blobHashes []common.Hash,
 ) ([]byte, error) {
-	sidecars, err := ds.GetSidecars(ctx, timestamp, blobHashes)
+	blobs, err := ds.GetBlobs(ctx, timestamp, blobHashes)
 	if err != nil {
 		return nil, err
 	}
+	// A wrong count is a fetch bug, which must be retried rather than reported as ErrInvalidBlobBytes.
+	if len(blobs) != len(blobHashes) {
+		return nil, fmt.Errorf("blob count mismatch: expected %d, got %d", len(blobHashes), len(blobs))
+	}
 	var b []byte
-	for _, sidecar := range sidecars {
-		blob := eth.Blob(common.FromHex(sidecar.Blob))
+	for _, blob := range blobs {
 		bytes, err := blob.ToData()
 		if err != nil {
 			return nil, errors.Join(ErrInvalidBlobBytes, err)
@@ -113,80 +115,55 @@ func (ds *BlobDataSource) GetBlobBytes(
 	return b, nil
 }
 
-// GetSidecars get blob sidecar by meta
-func (ds *BlobDataSource) GetSidecars(
+// GetBlobs returns the blobs with the given versioned hashes, in the same order. It asks the L1 beacon
+// node first, and falls back to the blob server when no beacon node is configured, the beacon request
+// fails, or the beacon node does not return every requested blob.
+func (ds *BlobDataSource) GetBlobs(
 	ctx context.Context,
 	timestamp uint64,
 	blobHashes []common.Hash,
-) ([]*structs.Sidecar, error) {
-	var (
-		sidecars    []*structs.Sidecar
-		allSidecars []*structs.Sidecar
-		err         error
-	)
+) ([]*eth.Blob, error) {
+	var err error
 	if ds.client.L1Beacon == nil {
 		err = pkg.ErrBeaconNotFound
 	} else {
-		allSidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
-		if err == nil {
+		var blobs []*eth.Blob
+		if blobs, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp, blobHashes); err == nil {
 			log.Debug("Serving blobs from L1 beacon", "timestamp", timestamp)
+			return blobs, nil
 		}
 	}
+
+	if ds.blobServerEndpoint == nil {
+		// Beacon failed and there is no blob server to fall back to; surface
+		// the beacon error so the failure reason is not lost at this layer.
+		log.Info("No blob server endpoint set", "error", err.Error())
+		return nil, err
+	}
+	// Falling back to the blob server. Name the source and the reason so a
+	// beacon outage (recurring "beacon unavailable") is distinguishable from a
+	// deployment with no beacon configured (steady "no beacon configured").
+	if errors.Is(err, pkg.ErrBeaconNotFound) {
+		log.Info("Serving blobs from blob server: no beacon configured", "timestamp", timestamp)
+	} else {
+		log.Info("Serving blobs from blob server: beacon unavailable", "timestamp", timestamp, "error", err.Error())
+	}
+	blobDataSeq, err := ds.getBlobFromServer(ctx, blobHashes)
 	if err != nil {
-		if ds.blobServerEndpoint == nil {
-			// Beacon failed and there is no blob server to fall back to; surface
-			// the beacon error so the failure reason is not lost at this layer.
-			log.Info("No blob server endpoint set", "error", err.Error())
+		return nil, err
+	}
+	blobs := make([]*eth.Blob, len(blobDataSeq.Data))
+	for index, value := range blobDataSeq.Data {
+		if blobs[index], err = blobFromBlobServer(value, blobHashes[index]); err != nil {
 			return nil, err
 		}
-		// Falling back to the blob server. Name the source and the reason so a
-		// beacon outage (recurring "beacon unavailable") is distinguishable from a
-		// deployment with no beacon configured (steady "no beacon configured").
-		if errors.Is(err, pkg.ErrBeaconNotFound) {
-			log.Info("Serving blobs from blob server: no beacon configured", "timestamp", timestamp)
-		} else {
-			log.Info("Serving blobs from blob server: beacon unavailable", "timestamp", timestamp, "error", err.Error())
-		}
-		blobs, err := ds.getBlobFromServer(ctx, blobHashes)
-		if err != nil {
-			return nil, err
-		}
-		allSidecars = make([]*structs.Sidecar, len(blobs.Data))
-		for index, value := range blobs.Data {
-			sidecar, err := sidecarFromBlobServer(value, blobHashes[index])
-			if err != nil {
-				return nil, err
-			}
-			allSidecars[index] = sidecar
-		}
 	}
-	for _, blobHash := range blobHashes {
-		// Compare the blob hash with the sidecar's kzg commitment.
-		for j, sidecar := range allSidecars {
-			log.Debug(
-				"Block sidecar",
-				"index", j,
-				"KzgCommitment", sidecar.KzgCommitment,
-				"blobHash", blobHash,
-			)
-
-			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
-				sidecars = append(sidecars, sidecar)
-				break
-			}
-		}
-	}
-
-	if len(sidecars) != len(blobHashes) {
-		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
-	}
-	return sidecars, nil
+	return blobs, nil
 }
 
-// sidecarFromBlobServer rebuilds the sidecar from blob bytes and verifies it
-// against the requested versioned hash instead of trusting blob-server metadata.
-func sidecarFromBlobServer(blobData *BlobData, expectedHash common.Hash) (*structs.Sidecar, error) {
+// blobFromBlobServer decodes the blob bytes and verifies them against the
+// requested versioned hash instead of trusting blob-server metadata.
+func blobFromBlobServer(blobData *BlobData, expectedHash common.Hash) (*eth.Blob, error) {
 	if blobData == nil {
 		return nil, errors.New("nil blob data from blob server")
 	}
@@ -217,10 +194,7 @@ func sidecarFromBlobServer(blobData *BlobData, expectedHash common.Hash) (*struc
 		return nil, fmt.Errorf("blob server returned blob with versioned hash %s, expected %s", blobHash, expectedHash)
 	}
 
-	return &structs.Sidecar{
-		KzgCommitment: common.Bytes2Hex(commitment[:]),
-		Blob:          blob.String(),
-	}, nil
+	return &blob, nil
 }
 
 // getBlobFromServer get blob data from server path `/blob` or `/blobs`.
@@ -245,9 +219,13 @@ func (ds *BlobDataSource) getBlobByHash(ctx context.Context, blobHash common.Has
 		return nil, err
 	}
 
+	// The resty client has no timeout of its own, and a stalled blob server would stall derivation.
+	requestCtx, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
+	defer cancel()
+
 	resp, restErr := resty.New().R().
 		SetResult(BlobServerResponse{}).
-		SetContext(ctx).
+		SetContext(requestCtx).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
 		Get(requestURL)

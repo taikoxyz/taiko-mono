@@ -42,9 +42,10 @@ alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
+flate2 = { workspace = true }
 proposer = { path = "../proposer" }
-rand = { workspace = true }
 secp256k1 = { workspace = true }
+serde_json = { workspace = true }
 serial_test = { workspace = true }
 test-context = { workspace = true }
 test-harness = { path = "../test-harness" }

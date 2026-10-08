@@ -448,6 +448,7 @@ contract ERC20Vault is BaseVault {
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, amount);
+        _consumeTokenQuota(token, amount);
         to.sendEtherAndVerify(msg.value);
 
         emit TokenReceived({
@@ -462,15 +463,8 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IRecallableSender
-    /// @dev The refund debits the withdrawal quota just like a cross-chain delivery does. A recall
-    /// is reached through the same destination-chain failure proof that a delivery is, and on the
-    /// bridged branch it mints supply bounded by no vault balance, so the quota is the only numeric
-    /// ceiling on this path and is deliberately kept.
-    /// @dev Consequence worth knowing: `QuotaManager` caps a token's refill at its configured
-    /// quota, so a single recall larger than that cap can never be refunded in one call. An
-    /// out-of-quota refund reverts atomically, leaving the message `NEW` and retryable once the
-    /// quota refills; a recall above the cap stays blocked until the owner raises the token's quota
-    /// via `QuotaManager.updateQuota`.
+    /// @dev A refund only returns what the message pulled or burned on the send path, so it
+    /// consumes no token quota.
     function onMessageRecalled(
         IBridge.Message calldata _message,
         bytes32 _msgHash
@@ -505,12 +499,7 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @dev Releases tokens to `_to`, either by transferring the canonical token this vault
-    /// custodies or by minting the bridged representation.
-    /// @dev Every release debits the withdrawal quota, whether it settles a delivery from another
-    /// chain or refunds a recalled message. A recall is not itself a cross-chain inflow, but it is
-    /// reached through the same failure-proof primitive as a delivery, and on the bridged branch it
-    /// mints supply that no vault balance bounds -- so the quota is the only numeric ceiling on
-    /// either path and is deliberately applied to both.
+    /// custodies or by minting the bridged representation. Does not debit the quota.
     /// @param _ctoken The canonical token.
     /// @param _to The recipient of the released tokens.
     /// @param _amount The amount to release.
@@ -532,17 +521,11 @@ contract ERC20Vault is BaseVault {
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
-        _consumeTokenQuota(token_, _amount);
     }
 
-    /// @dev Consumes a given amount of token quota from the quota manager; reverts if quota is
-    /// insufficient. This is the final step of `_transferTokens`, so it runs only after the tokens
-    /// have been transferred/minted — quota is debited exactly when tokens are actually released.
-    /// Because it is the last step, a `QM_OUT_OF_QUOTA` revert rolls back the whole transaction
-    /// atomically: the token transfer/mint is undone and no partial state remains. Integrators
-    /// driving this flow externally (or via a custom vault) must expect the entire release to
-    /// revert when quota is exhausted, never a partial release. Skips the external call when nothing
-    /// is released (`_amount == 0`).
+    /// @dev Consumes token quota for a delivery; reverts if insufficient, undoing the transfer or
+    /// mint that `onMessageInvocation` just made. Meters what the vault transferred or minted, not
+    /// what a fee-on-transfer token hands the recipient. Skips the call when `_amount == 0`.
     /// @param _token The token address.
     /// @param _amount The amount of token quota to consume.
     function _consumeTokenQuota(address _token, uint256 _amount) private {

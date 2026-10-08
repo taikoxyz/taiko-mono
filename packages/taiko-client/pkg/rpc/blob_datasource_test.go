@@ -59,8 +59,62 @@ func TestBlobServerFallbackRejectsBlobDataNotMatchingRequestedHash(t *testing.T)
 	require.NoError(t, err)
 
 	ds := NewBlobDataSource(context.Background(), &Client{}, endpoint)
-	_, err = ds.GetSidecars(context.Background(), 0, []common.Hash{goodHash})
+	_, err = ds.GetBlobs(context.Background(), 0, []common.Hash{goodHash})
 	require.ErrorContains(t, err, "blob server returned blob with versioned hash")
+}
+
+func TestGetBlobsFallsBackToBlobServerWhenBeaconMissesBlobs(t *testing.T) {
+	blob, commitment, blobHash := testBlobWithCommitment(t, []byte("derivation data"))
+
+	// The beacon node answers, but without the requested blob (e.g. pruned or not custodied).
+	beacon := newBeaconStub()
+	beacon.blobsBody = `{"execution_optimistic":false,"finalized":true,"data":[]}`
+	beaconClient, err := NewBeaconClient(beacon.serve(t).URL, DefaultRpcTimeout)
+	require.NoError(t, err)
+
+	blobServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/blobs/"+blobHash.String(), r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(BlobServerResponse{
+			VersionedHash: blobHash.String(),
+			Commitment:    common.Bytes2Hex(commitment[:]),
+			Data:          blob.String(),
+		}))
+	}))
+	defer blobServer.Close()
+
+	endpoint, err := url.Parse(blobServer.URL)
+	require.NoError(t, err)
+
+	ds := NewBlobDataSource(context.Background(), &Client{L1Beacon: beaconClient}, endpoint)
+	blobs, err := ds.GetBlobs(context.Background(), 100, []common.Hash{blobHash})
+	require.NoError(t, err)
+	require.Equal(t, []*opeth.Blob{blob}, blobs)
+	require.Len(t, beacon.blobRequests(), 1)
+}
+
+func TestGetBlobBytesReportsInvalidBlobBytesOnlyForUndecodableBlobs(t *testing.T) {
+	// A blob matching its versioned hash but not the blob encoding is bad content: the default payload.
+	var undecodable opeth.Blob
+	undecodable[opeth.VersionOffset] = opeth.EncodingVersion + 1
+	commitment, err := undecodable.ComputeKZGCommitment()
+	require.NoError(t, err)
+	undecodableHash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
+
+	beacon := newBeaconStub()
+	beacon.blobsBody = blobsBody(t, &undecodable)
+	beaconClient, err := NewBeaconClient(beacon.serve(t).URL, DefaultRpcTimeout)
+	require.NoError(t, err)
+	ds := NewBlobDataSource(context.Background(), &Client{L1Beacon: beaconClient}, nil)
+
+	_, err = ds.GetBlobBytes(context.Background(), 100, []common.Hash{undecodableHash})
+	require.ErrorIs(t, err, ErrInvalidBlobBytes)
+
+	// A blob the beacon node does not serve is a fetch failure, which derivation must retry.
+	_, _, missingHash := testBlobWithCommitment(t, []byte("missing"))
+	_, err = ds.GetBlobBytes(context.Background(), 100, []common.Hash{missingHash})
+	require.ErrorContains(t, err, "did not return blob")
+	require.NotErrorIs(t, err, ErrInvalidBlobBytes)
 }
 
 func testBlobWithCommitment(t *testing.T, data []byte) (*opeth.Blob, kzg4844.Commitment, common.Hash) {
