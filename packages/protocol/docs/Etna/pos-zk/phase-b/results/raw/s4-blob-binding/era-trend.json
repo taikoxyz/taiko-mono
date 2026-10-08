@@ -1,0 +1,480 @@
+[
+ {
+  "label": "2024-08-taikoL1",
+  "address": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+  "topic0": "0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a",
+  "fromBlock": 20402317,
+  "toBlock": 20412316,
+  "fromTimestamp": 1722136775,
+  "url": "https://rpc.mevblocker.io",
+  "proposals": 5341,
+  "txSampleUrl": "https://rpc.mevblocker.io",
+  "sample": [
+   {
+    "hash": "0x17c1df498146390eea6fdea54a381e50fcbed5e9672c6864d10f8481ef986b6d",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402317
+   },
+   {
+    "hash": "0xbf754488876e0e0080fdc98102d5eea0ef3f67f7ec2c8bdae400ed0f537b82da",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402318
+   },
+   {
+    "hash": "0xee6524aa20f8cd5e8b2e5db7b81ce8d0b8e1b5ab4fa9a51fc7f0d5d67673ad25",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402321
+   },
+   {
+    "hash": "0xf3f9fd156d1269600b11e57f813bc02adff05afbb23dc2eb4801bfe427b16f31",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402323
+   },
+   {
+    "hash": "0xbe33f93161d7ba0cbafefb6f1874aa1bd75199a74176377515d60bcb86e6baaf",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402324
+   },
+   {
+    "hash": "0xf27cfa11c79479e8627ecc260b7c92d300e48cffdf2cfea2941ee79474308c5f",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402327
+   },
+   {
+    "hash": "0xb01a27ed9ae88e9a844b87ef8b0f8ddc86cd12eb0bc13afcf47360f72b78ae41",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402329
+   },
+   {
+    "hash": "0xe5a0a54c534b24e8b953ae072947cb28b0eb34dcdc3489fa6f1f7709669c7b88",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402331
+   },
+   {
+    "hash": "0x26fa61cc89785e18a9c389f9da307faa571628943d32475dfef63517179dc9a4",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402332
+   },
+   {
+    "hash": "0x458c6825d73df98eeecdddd44d1e184a6c2a19131db8721dbb7a665f4839dbdf",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402337
+   },
+   {
+    "hash": "0x2f037c3ef8742ccf164274c2dd64c78cd2042036c6a282ec166b8092dc0614cf",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402337
+   },
+   {
+    "hash": "0xb9cc7b9ab9050b96c497b2f297e840a39cfc97881ae59815b7ea2b3ea7084802",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402338
+   },
+   {
+    "hash": "0xec3cc0e8e17bc6693592e7c77c6b12345ee9e871a3d127ea993ab17e503ece91",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402340
+   },
+   {
+    "hash": "0x0183473321ed928dcd3e5fd31ad64d4e7d1b6a15c910ea2c2b6282ea33d676d6",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402342
+   },
+   {
+    "hash": "0x9fe5c7d99a3d016f7e7ba7b72ee3d83a8086bbffe6319ae9ed5039899789b2ec",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402343
+   },
+   {
+    "hash": "0xcdc72c79167b24aff63e5569b9329d7c35d2c1239495ed0789f49208ce583fdb",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402347
+   },
+   {
+    "hash": "0xf88bba8991cd9f5329bc923f2fc08922e504142eb1dcb8d3e6d986cf8986b249",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402349
+   },
+   {
+    "hash": "0x619fb6283d2abdd09d0c51cf8bf027d3ecb293dc3fe8a1e184b3a948cf40895a",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402351
+   },
+   {
+    "hash": "0x61d228203f8bf6b73ab9bd7f2ec78bea059a41a3f04a93df3491be1737532f58",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402353
+   },
+   {
+    "hash": "0xfdc24a07b5eb15a7f07d043b59c7535e22a147d9aeef429fbc7b7af4b26540d3",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402355
+   },
+   {
+    "hash": "0x21d472cb61407045e361369fe51e91c0bad4a1ce5fdd5bea2a8027d91812e424",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402357
+   },
+   {
+    "hash": "0xadcdbb02b40c29af3223ae5f72ce723360e6031c20b7e39b4bb61bad1645f859",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402358
+   },
+   {
+    "hash": "0x93da3b64516933396d811b9d2422c098d909baaa74355d939ea2283908af74ad",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402359
+   },
+   {
+    "hash": "0x980c47f7ea23eca5457bb78b2a4350301308cb8f1d2a1864c3cd3f8fbd93b465",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402361
+   },
+   {
+    "hash": "0xc05bdc0be0db803c102ed85d52694e8485b9ddfd7fe5fb54f1ba38f91d81b054",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402363
+   },
+   {
+    "hash": "0x70d634026497ee857ea1d6b65a1d9b70fe5f1d24e2832af1e119ff8a6227ab56",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402365
+   },
+   {
+    "hash": "0x5697d03a0ad61e84cfd4ee0cf29318a3b5d5263c4605dd6e29b6a00591db083f",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402369
+   },
+   {
+    "hash": "0xf62116fe63957fc99fbe76371d452d7b86079feaf95a87ee313c0ed743844ba1",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402372
+   },
+   {
+    "hash": "0x108cb895ad26b1f6542b82aee230f084428da548ec5b1160e897d20ed20f08e9",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402374
+   },
+   {
+    "hash": "0x466d1c03241d9ff48befac040f977e8a5f6d03794d834113f71e1b55cbb76dbf",
+    "type": "0x3",
+    "inputBytes": 516,
+    "blobs": 1,
+    "blockNumber": 20402375
+   }
+  ],
+  "typeCounts": {
+   "0x3": 30
+  },
+  "blobsPerTx_min_max": [
+   1,
+   1
+  ],
+  "calldataBytes_min_max": [
+   516,
+   516
+  ]
+ },
+ {
+  "label": "2025-02-taikoL1",
+  "address": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+  "topic0": "0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a",
+  "fromBlock": 21727117,
+  "toBlock": 21737116,
+  "fromTimestamp": 1738116707,
+  "url": "https://rpc.mevblocker.io",
+  "proposals": 0
+ },
+ {
+  "label": "2025-06-pacaya",
+  "address": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+  "topic0": "0x9eb7fc80523943f28950bbb71ed6d584effe3e1e02ca4ddc8c86e5ee1558c096",
+  "fromBlock": 22591117,
+  "toBlock": 22601116,
+  "fromTimestamp": 1748554535,
+  "url": "https://rpc.mevblocker.io",
+  "proposals": 1920,
+  "txSampleUrl": "https://rpc.mevblocker.io",
+  "sample": [
+   {
+    "hash": "0xfdd537a38a512874abc1cd67d3a89ecd035a6b56e704c985ed54c0632f7c3f24",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591122
+   },
+   {
+    "hash": "0x38e155956cbbbe3a673c6cecb49481e716bc7f65afc5e0cfd70d0cbab1c2f464",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591128
+   },
+   {
+    "hash": "0x6e13a3fb011efbcd31e90ef3abcb3ef23e7ebf8fd5911ae4dd427ac77d9d7ee6",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591140
+   },
+   {
+    "hash": "0xdb65b6e871e81443ef02fdc2285f8ae4f0fb471a400c258e600244d357fd3e36",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591150
+   },
+   {
+    "hash": "0x71ba474fbe450b2210fbb539a33d983f363950aedf65d71f0316c2eb8628f66e",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591152
+   },
+   {
+    "hash": "0xb98d8d9974eb7615d9a5fca9ae846e3b148ac9d031ddcd47c40190e13cb5cfe5",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591158
+   },
+   {
+    "hash": "0x5f7821e5c78de132e7e00444c28a486e750de824e6d3a4693596c91a48990914",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591163
+   },
+   {
+    "hash": "0xfbc2c87a63775f3f3c2307d7018fe15952eb2da3c25ea9a455616c1dc89627b5",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591178
+   },
+   {
+    "hash": "0xa382742509be73d29b611a93e1a70278ac4b484c93931e50bbda6ebf1b498852",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591190
+   },
+   {
+    "hash": "0x6cdef68b618dfdae946709fcad4d829da453346603ed651cd0ffe73817ee2aac",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591196
+   },
+   {
+    "hash": "0xe2cd81eaca2934709c4e689deab654b31fe0ab08093b5b4a3818b1c0c3eb1886",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591207
+   },
+   {
+    "hash": "0x9db633f119cb675a9ea5608cbd9d70bc04ce16d5fd3538b6e557e2814a0314ea",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591211
+   },
+   {
+    "hash": "0xd099403d03ac890b422f1511e63bcc168873609eaa0f181a7ee336ae9e769010",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591217
+   },
+   {
+    "hash": "0x8926a30ba81c271340f21eadefc939294b98f884e3f57ef05c88d9a85d3cf6a5",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591224
+   },
+   {
+    "hash": "0xc55968e962826acca7305db4efb9a892d14d9e4e4ff4909b7ee75aee5ad50935",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591231
+   },
+   {
+    "hash": "0xcc974644c30af828a44f1197eced782f4959418e02951405917e2d6ff5e16821",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591236
+   },
+   {
+    "hash": "0x8a8853dca1a56497308423415538031d06440b39ca1e027aab295ee9149b10bc",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591239
+   },
+   {
+    "hash": "0xdebe3066a3d49751d2cc8321cccab2cff31410bf89a0d8d9a4639cdba087e76b",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591245
+   },
+   {
+    "hash": "0x6d5532cd31461b37550a0ea3ed46003c5b5d0661623c67bd5fa362b5ea43433e",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591253
+   },
+   {
+    "hash": "0xead3c627b2b40bb23129c4017b22d2530e60a181a6a53518bde6d43f2b966b95",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591260
+   },
+   {
+    "hash": "0xee1e33448cb3c5680b1f29d4e6ed8f7dea1cae496cd7bb0fb4a4700a3fa7d7f5",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591265
+   },
+   {
+    "hash": "0x544992aca9464a830a7fc6d1a96f2ca8ae23cd7f88772e6be4e624a901837035",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591267
+   },
+   {
+    "hash": "0x66d19e2acc6ecb8073bcccdc46491776472c074ec65edc07915cbfdb8f44eb57",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591274
+   },
+   {
+    "hash": "0x34cbb64db68eb334d4d5b6dd26fe5feafe773f5430e28bd87ea3225b0711ecaf",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591286
+   },
+   {
+    "hash": "0x442ea4eb44cf098424f319c99505b2806f1565a6872e393890e8438f34c78538",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591289
+   },
+   {
+    "hash": "0x36f7b14fd91efe553170bbf5205e45e0ceaa06989ed07e93144b7da4b0759366",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591297
+   },
+   {
+    "hash": "0xe944059dd098a13dbca2f68de66285add80515315428bd0992bc31efde5677c0",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591302
+   },
+   {
+    "hash": "0xd76d274ab1c4b848dc56557d1ddcf1224fe742b6657430a9f87f67ace469e4c8",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591306
+   },
+   {
+    "hash": "0x4619425a1e39d09c8cc4a7148364b1c0dd7bb45226aaddf36a529a2b567894d1",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591316
+   },
+   {
+    "hash": "0x80fc278487031ab7f1f2e19090b29b448238f5f720bac1c3bf775ffbad46c966",
+    "type": "0x3",
+    "inputBytes": 964,
+    "blobs": 1,
+    "blockNumber": 22591320
+   }
+  ],
+  "typeCounts": {
+   "0x3": 30
+  },
+  "blobsPerTx_min_max": [
+   1,
+   1
+  ],
+  "calldataBytes_min_max": [
+   964,
+   964
+  ]
+ }
+]

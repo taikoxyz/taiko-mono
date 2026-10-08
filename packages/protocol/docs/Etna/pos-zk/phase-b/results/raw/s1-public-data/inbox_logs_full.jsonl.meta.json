@@ -1,0 +1,12 @@
+{
+  "endpoint": "https://gateway.tenderly.co/public/mainnet",
+  "address": "0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f",
+  "fromBlock": 24585332,
+  "toBlock": 26140717,
+  "chunk": 50000,
+  "logs": 48716,
+  "out": "inbox_logs_full.jsonl",
+  "wallClockUTC": "2026-10-07T13:16:22.850995Z",
+  "elapsedSec": 67.9,
+  "command": "fetch_inbox_logs.py https://gateway.tenderly.co/public/mainnet 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f 24585332 26140717 50000 inbox_logs_full.jsonl"
+}

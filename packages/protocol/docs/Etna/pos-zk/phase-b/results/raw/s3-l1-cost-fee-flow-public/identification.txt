@@ -1,0 +1,45 @@
+# S3 identification evidence (commands and raw outputs)
+# collected at 2026-10-07T13:35:13Z
+
+## chain id (Ethereum mainnet must be 0x1)
+$ curl -s -X POST https://ethereum-rpc.publicnode.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+{"jsonrpc":"2.0","result":"0x1","id":1}
+
+## Inbox proxy 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f bytecode size
+code bytes: 170
+
+## EIP-1967 implementation slot
+$ cast storage 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc --rpc-url https://ethereum-rpc.publicnode.com
+0x0000000000000000000000005253d4c91e80b880ddb54b78e74082abe066f6b9
+
+## getConfig() (proofVerifier, proposerChecker, proverWhitelist, signalService, bondToken, minBond, livenessBond, withdrawalDelay, provingWindow, permissionlessProvingDelay, maxProofSubmissionDelay, ringBufferSize, basefeeSharingPctg, forcedInclusionDelay, forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold, permissionlessInclusionMultiplier)
+$ cast call 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f 'getConfig()((address,address,address,address,address,uint64,uint64,uint48,uint48,uint48,uint48,uint48,uint8,uint16,uint64,uint64,uint8))' --rpc-url https://ethereum-rpc.publicnode.com
+(0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec, 0xFD019460881e6EeC632258222393d5821029b2ac, 0xEa798547d97e345395dA071a0D7ED8144CD612Ae, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C, 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800, 0, 0, 604800 [6.048e5], 14400 [1.44e4], 432000 [4.32e5], 180, 21600 [2.16e4], 75, 576, 1000000 [1e6], 50, 160)
+
+## getCoreState() (nextProposalId, lastProposalBlockId, lastFinalizedProposalId, lastFinalizedTimestamp, lastCheckpointTimestamp, lastFinalizedBlockHash)
+(40478 [4.047e4], 26140841 [2.614e7], 40471 [4.047e4], 1791378455 [1.791e9], 1791378455 [1.791e9], 0xc0e70dfd626b2a8f19a210d23e923ddf18a7d0434d1fb8e5e8da1d3ab920888e)
+
+## ZkRequiredVerifier 0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec sub-verifiers
+sgxGethVerifier = 0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee
+sgxRethVerifier = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8
+risc0RethVerifier = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b
+sp1RethVerifier = 0x73A0Db393ef87ce781ac7957bE10D6628432100F
+
+## getBond(0x5f62d006C10C009ff50C878Cd6157aC861C99990) (balance, withdrawalRequestedAt)
+(0, 0)
+
+## event topic0 derivations (cast keccak)
+Proposed(...) = 0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213
+Proved(...)   = 0xa274dcaff3629ec7d69d144038e97732516ff306fcbf8a2bc9423d106779a2f0
+
+## legacy TaikoInbox 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a: logs in last 2000 blocks
+{"jsonrpc":"2.0","error":{"code":-32602,"message":"Archive requests require a personal token. Get one at: https://www.allnodes.com/publicnode"},"id":1}
+
+
+## legacy TaikoInbox re-check via tenderly (publicnode rejects archive ranges)
+$ curl -s -X POST https://gateway.tenderly.co/public/mainnet ... eth_getLogs address=0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a fromBlock=head-2000
+{"id":1,"jsonrpc":"2.0","result":[]}
+
+## ProverWhitelist 0xEa798547d97e345395dA071a0D7ED8144CD612Ae
+isProverWhitelisted(0xa5cb34b75bd72f15290ef37a01f06183e8036875) = true
+2

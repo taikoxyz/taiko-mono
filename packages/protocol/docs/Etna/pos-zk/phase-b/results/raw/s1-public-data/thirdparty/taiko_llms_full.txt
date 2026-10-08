@@ -1,0 +1,2600 @@
+# Taiko Docs
+
+> Documentation for Taiko, a based rollup on Ethereum
+
+## Contributing \[How to contribute to Taiko docs, tooling, and protocol repositories.]
+
+### Ways to Contribute
+
+You do not need to be working on protocol code to make a useful contribution.
+
+Common contribution paths:
+
+* improve or fix documentation
+* report bugs with clear reproduction steps
+* work on existing issues
+* contribute tooling, client, or contract improvements
+* improve tests, examples, and operator runbooks
+
+### Where to Contribute
+
+Taiko work is spread across several repositories:
+
+* [`taiko-docs`](https://github.com/taikoxyz/taiko-docs) for documentation
+* [`taiko-mono`](https://github.com/taikoxyz/taiko-mono) for protocol contracts, clients, and services
+* [`alethia-reth`](https://github.com/taikoxyz/alethia-reth) for the Reth-based execution client
+* [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) for the geth-based execution client
+* [`simple-taiko-node`](https://github.com/taikoxyz/simple-taiko-node) for Docker-based node operations
+
+### Before You Open a PR
+
+* Check whether an issue already exists
+* Keep the scope focused and coherent
+* Include docs updates when behavior or interfaces change
+* Include tests when code behavior changes
+
+Taiko repositories generally expect [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) style PR titles such as `feat(scope): description`.
+
+### Documentation Contributions
+
+For docs changes:
+
+* prefer concise pages over long marketing copy
+* link to canonical sources for addresses, releases, and protocol constants
+* update related navigation when you add new pages
+* preserve the current information architecture unless there is a strong reason to change it
+
+### Code Contributions
+
+Language- and repo-specific conventions can vary by repository, so read the local contributing instructions before starting larger changes. For protocol and client work, keep changes well-scoped and documented, especially when modifying consensus behavior, proving logic, or deployment/configuration flows.
+
+### Getting Started
+
+If you are looking for a first contribution:
+
+* open an issue in the relevant repo
+* comment that you want to work on it
+* ask in [Discord](https://discord.com/invite/taiko-984015101017346058) if ownership or scope is unclear
+
+Smaller docs, tooling, and usability fixes are usually the easiest place to start.
+
+
+## Developer Tools \[Block explorers, RPC endpoints, bridge, faucets, indexers, and SDKs for building on Taiko mainnet and Hoodi testnet.]
+
+### Block Explorers
+
+| Tool                  | URL                                                                  | Notes                                                                                                  |
+| --------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Taikoscan**         | [taikoscan.io](https://taikoscan.io)                                 | Primary explorer. Verification API via Etherscan V2: `https://api.etherscan.io/v2/api?chainid=167000`. |
+| **Taikoscan (Hoodi)** | [hoodi.taikoscan.io](https://hoodi.taikoscan.io)                     | Testnet explorer. Verification API: `https://api.etherscan.io/v2/api?chainid=167013`.                  |
+| **Blockscout**        | [blockscout.mainnet.taiko.xyz](https://blockscout.mainnet.taiko.xyz) | Alternative explorer with open-source API.                                                             |
+
+### Bridge
+
+| Tool                     | URL                                                      | Notes                                                          |
+| ------------------------ | -------------------------------------------------------- | -------------------------------------------------------------- |
+| **Taiko Bridge**         | [bridge.taiko.xyz](https://bridge.taiko.xyz)             | Bridge ETH and ERC-20 tokens between Ethereum L1 and Taiko L2. |
+| **Taiko Bridge (Hoodi)** | [bridge.hoodi.taiko.xyz](https://bridge.hoodi.taiko.xyz) | Testnet bridge for Hoodi.                                      |
+
+For programmatic bridging, use the `ERC20Vault` contract directly. See [Bridge Tokens](/guides/bridge-tokens).
+
+### Development Frameworks
+
+| Framework                 | Setup for Taiko                                                                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Foundry** (recommended) | Add `[profile.taiko]` with `evm_version = "osaka"` (solc 0.8.29 or newer) to `foundry.toml`. Build with `FOUNDRY_PROFILE=taiko`. See [Deploy a Contract](/quickstart/deploy). |
+| **Hardhat**               | Set `evmVersion: "osaka"` in `hardhat.config.ts` under `solidity.settings` (requires solc 0.8.29 or newer).                                                                   |
+| **Remix**                 | Select "Osaka" from the EVM version dropdown in compiler settings.                                                                                                            |
+
+:::warning
+Taiko runs the **Osaka** EVM, so any EVM target up to Osaka runs. Pin **Osaka** (solc 0.8.29 or newer) to use `CLZ`, `P256VERIFY`, and the BLS12-381 precompiles from Solidity and to keep verification metadata consistent. If you still pin `shanghai` from earlier versions of these docs, change it to `osaka`.
+:::
+
+### Libraries
+
+| Library       | Taiko Support                                                        |
+| ------------- | -------------------------------------------------------------------- |
+| **viem**      | Built-in Taiko chain definitions. Import `taiko` from `viem/chains`. |
+| **ethers.js** | Use standard `JsonRpcProvider` with Taiko RPC URL.                   |
+| **web3.js**   | Use standard `Web3` with Taiko RPC URL.                              |
+
+### Wallets
+
+Any EVM-compatible wallet works with Taiko. Add the network manually or via [EIP-3085](https://eips.ethereum.org/EIPS/EIP-3085):
+
+| Wallet             | Notes                                                                            |
+| ------------------ | -------------------------------------------------------------------------------- |
+| **MetaMask**       | Add network with chain ID `167000`. See [Connect to Taiko](/quickstart/connect). |
+| **Rabby**          | Auto-detects Taiko.                                                              |
+| **Any EVM wallet** | Use the RPC and chain ID from [Connect to Taiko](/quickstart/connect).           |
+
+### RPC Providers
+
+| Provider             | URL                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| **Taiko Public RPC** | `https://rpc.mainnet.taiko.xyz` (rate-limited)                                                 |
+| **Taiko Hoodi RPC**  | `https://rpc.hoodi.taiko.xyz` (rate-limited)                                                   |
+| **Ankr**             | [ankr.com/rpc/taiko](https://www.ankr.com/rpc/taiko/)                                          |
+| **Tenderly**         | [docs.tenderly.co/node/rpc-reference/taiko](https://docs.tenderly.co/node/rpc-reference/taiko) |
+| **Thirdweb**         | [thirdweb.com/chainlist](https://thirdweb.com/chainlist?service=rpc-edge\&query=taiko)         |
+
+For production applications, use a dedicated RPC provider to avoid public rate limits. See [Connect to Taiko](/quickstart/connect) for the full list.
+
+### Oracles
+
+| Provider         | Link                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| **API3**         | [market.api3.org/taiko](https://market.api3.org/taiko)                                                  |
+| **Pyth Network** | [docs.pyth.network](https://docs.pyth.network/price-feeds/core/use-real-time-data/pull-integration/evm) |
+| **Supra**        | [docs.supra.com/oracles](https://docs.supra.com/oracles)                                                |
+| **APRO**         | [apro.com/data-push](https://www.apro.com/data-push?chain=taiko-main)                                   |
+
+### Indexing
+
+| Service                 | Link                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **GoldRush (Covalent)** | [goldrush.dev/docs/chains/taiko](https://goldrush.dev/docs/chains/taiko?utm_source=taiko\&utm_medium=partner-docs) |
+| **Goldsky**             | [docs.goldsky.com/chains/taiko](https://docs.goldsky.com/chains/taiko/?utm_source=taiko\&utm_medium=docs)          |
+| **The Graph**           | Any EVM-compatible subgraph works with Taiko.                                                                      |
+
+### Monitoring and Debugging
+
+| Tool                     | Link                                                                                                                         | Description                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Tenderly Debugger**    | [tenderly.co](https://tenderly.co?mtm_campaign=ext-docs\&mtm_kwd=taiko)                                                      | Step-by-step transaction debugging with expression evaluation. |
+| **Tenderly Alerts**      | [docs.tenderly.co/alerts](https://docs.tenderly.co/alerts/intro-to-alerts?mtm_campaign=ext-docs\&mtm_kwd=taiko)              | Notifications and webhooks on contract interactions.           |
+| **Tenderly Simulations** | [docs.tenderly.co/simulations](https://docs.tenderly.co/simulations/single-simulations?mtm_campaign=ext-docs\&mtm_kwd=taiko) | Predict transaction outcomes before sending.                   |
+| **Taiko Status**         | [status.taiko.xyz](https://status.taiko.xyz/)                                                                                | Network status page.                                           |
+
+### Account Abstraction
+
+| Provider     | Link                                             |
+| ------------ | ------------------------------------------------ |
+| **Thirdweb** | [thirdweb.com/taiko](https://thirdweb.com/taiko) |
+| **Openfort** | [openfort.io](https://openfort.io)               |
+
+### Payments
+
+| Tool                       | URL                                                    | Description                                                                                                                                                                                                                                        |
+| -------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Taiko x402 Facilitator** | [facilitator.taiko.xyz](https://facilitator.taiko.xyz) | Hosted [x402](https://www.x402.org/) payment backend that verifies and settles pay-per-request API charges on Taiko. Supports mainnet (`eip155:167000`) and Hoodi (`eip155:167013`) — see [`/supported`](https://facilitator.taiko.xyz/supported). |
+
+Point your x402 server implementation at the facilitator URL and it will verify client payment signatures and settle them on-chain — no need to run your own facilitator.
+
+### AI Tools
+
+| Resource          | URL                                                  | Description                                                                                           |
+| ----------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **SKILL.md**      | [`/SKILL.md`](https://docs.taiko.xyz/SKILL.md)           | Structured reference for AI coding agents — network details, deployment commands, contract addresses. |
+| **llms.txt**      | [`/llms.txt`](https://docs.taiko.xyz/llms.txt)           | Lightweight docs summary for LLM context windows.                                                     |
+| **llms-full.txt** | [`/llms-full.txt`](https://docs.taiko.xyz/llms-full.txt) | Full documentation in plain text for bulk LLM ingestion.                                              |
+
+See [Agent Quickstart](/quickstart/agent) for how to use these with your AI coding agent.
+
+
+## FAQ \[Answers to common questions about Taiko — based sequencing, type-1 EVM equivalence, fees, bridging, proving, and how to get started as a developer.]
+
+### General FAQ
+
+#### What is Taiko?
+
+Taiko is a **based rollup** on Ethereum with a **type-1 ZK-EVM**. It is fully Ethereum-equivalent at the protocol level, meaning any smart contract or tool that works on Ethereum works on Taiko without modification. Unlike most L2s, Taiko is not operated by a single sequencer — proposal ordering is anchored to Ethereum L1, and the protocol preserves a permissionless fallback for users through forced inclusion.
+
+#### What makes Taiko different from other L2s?
+
+Three things set Taiko apart:
+
+1. **Based sequencing.** Taiko is not operated by a single sequencer. Proposal ordering is tied to Ethereum L1, and forced inclusion keeps a permissionless fallback open for users. This means Taiko inherits Ethereum's decentralization and censorship resistance guarantees.
+2. **Type-1 EVM equivalence.** Taiko makes zero changes to the Ethereum execution environment — same opcodes, same state model, same gas costs. Contracts deploy to Taiko exactly as they deploy to Ethereum.
+3. **Multi-proof system.** Blocks are verified by multiple independent proof systems (SGX and ZK) that must agree on every state transition. This provides defense in depth: no single proof system is a single point of failure.
+
+#### Does Taiko have a sequencer?
+
+Not a single one. Taiko is a **based rollup** — it is not operated by a single sequencer, and proposal ordering is ultimately determined by Ethereum L1. During the current whitelisted preconfirmation rollout, sequencing of block contents is handled by launch-partner preconfers, with forced inclusion preserving a permissionless fallback path for users. See [Based Rollups](/protocol/based-rollups) for details.
+
+#### Is Taiko open source?
+
+Yes. Taiko is open source under the permissive MIT license. The Geth fork ([taiko-geth](https://github.com/taikoxyz/taiko-geth)) retains the original Geth GPL license. All protocol contracts, client software, and tooling are available at [github.com/taikoxyz](https://github.com/taikoxyz).
+
+#### What's the current testnet?
+
+**Taiko Hoodi** (chain ID `167013`). Previous testnets — Hekla, Grimsvotn, Eldfell, and others — are deprecated and no longer operational. Use Hoodi for all testing.
+
+* RPC: `https://rpc.hoodi.taiko.xyz`
+* Explorer: [hoodi.taikoscan.io](https://hoodi.taikoscan.io)
+* Bridge: [bridge.hoodi.taiko.xyz](https://bridge.hoodi.taiko.xyz)
+
+#### Where do I get testnet ETH?
+
+1. Get Hoodi L1 testnet ETH from an Ethereum Hoodi faucet (search for "Hoodi faucet" — several are available).
+2. Bridge the ETH to Taiko Hoodi using the [testnet bridge](https://bridge.hoodi.taiko.xyz).
+
+#### How do I bridge tokens to Taiko?
+
+**UI:** Use the [Taiko Bridge](https://bridge.taiko.xyz) for a guided experience.
+
+**Programmatically:** Approve and call `sendToken` on the `ERC20Vault` contract. See [Bridge Tokens](/guides/bridge-tokens) for a complete walkthrough with code examples.
+
+#### Where can I find deployed contract addresses?
+
+See [Contract Addresses](/network/contract-addresses) for both Taiko mainnet and Hoodi testnet addresses.
+
+### Developer FAQ
+
+#### How do I use Taiko with an AI coding agent?
+
+Point your agent at [`/SKILL.md`](https://docs.taiko.xyz/SKILL.md). This file is designed for AI consumption and contains everything an agent needs — network details, deployment commands, contract addresses, and common patterns. See also the [Agent Quickstart](/quickstart/agent).
+
+#### Which EVM version should I target on Taiko?
+
+**Taiko runs the Osaka EVM**, so contracts compiled for any target up to and including Osaka run. Pin `evm_version = "osaka"` to use `CLZ`, `P256VERIFY`, and the BLS12-381 precompiles from Solidity and to keep verification metadata consistent. It requires solc 0.8.29 or newer.
+
+```toml
+[profile.taiko]
+evm_version = "osaka"
+```
+
+Then build and deploy with `FOUNDRY_PROFILE=taiko forge build`. If your `foundry.toml` still says `evm_version = "shanghai"` from earlier versions of these docs, change it to `osaka`. See [Deploy a Contract](/quickstart/deploy) for the full guide.
+
+#### Why is my contract deployment failing on Taiko?
+
+The EVM version is almost never the cause: any target up to Osaka runs on Taiko. Check these first:
+
+* `forge create` printed the ABI but nothing deployed: add `--broadcast`; without it the command only simulates.
+* `insufficient funds`: bridge ETH to Taiko or use the Hoodi faucet.
+* A revert during deployment: constructor arguments are missing or mis-encoded, or the constructor itself reverts.
+* `zk gas limit exceeded`: the transaction does more proving-heavy work than a block allows. See [Unzen Fork](/protocol/unzen-fork).
+
+The [troubleshooting table](/quickstart/deploy#troubleshooting) on the deploy page covers verification errors too.
+
+#### How can I get the L1 block number from L2?
+
+Query the `TaikoAnchor` contract on L2. This predeployed contract anchors L1 state into every L2 block and exposes the last synced L1 block height. See [Contract Addresses](/network/contract-addresses) for the TaikoAnchor address.
+
+#### What RPC endpoints should I use?
+
+| Network       | RPC URL                         | Chain ID |
+| ------------- | ------------------------------- | -------- |
+| Mainnet       | `https://rpc.mainnet.taiko.xyz` | `167000` |
+| Hoodi Testnet | `https://rpc.hoodi.taiko.xyz`   | `167013` |
+
+The public RPCs are rate-limited. For production use, consider a third-party RPC provider. See [Connect to Taiko](/quickstart/connect) for a full list.
+
+#### Can I use Hardhat or Remix instead of Foundry?
+
+Yes. Taiko is fully Ethereum-equivalent, so any EVM development framework works. Target **Osaka** to use the newest features (any older target also runs):
+
+* **Hardhat:** Set `evmVersion: "osaka"` in `hardhat.config.ts` under `solidity.settings` (requires solc 0.8.29 or newer).
+* **Remix:** Select "Osaka" from the EVM version dropdown in the compiler settings.
+
+Foundry is recommended because it offers the most streamlined deployment and verification workflow for Taiko.
+
+#### I ran a node on a previous testnet. Do I need to do anything different?
+
+Yes. Previous testnet configurations are no longer valid. Update your node software and switch to Taiko Hoodi. See [Run a Node](/guides/run-a-node) for current instructions.
+
+### Glossary
+
+#### Based rollup
+
+A rollup where L1 validators sequence blocks rather than a centralized sequencer. Taiko is a based rollup: it is not operated by a single sequencer, and proposal ordering is determined by Ethereum L1. This inherits Ethereum's liveness and censorship resistance. See [Based Rollups](/protocol/based-rollups).
+
+#### Bond
+
+See [Liveness bond](#liveness-bond).
+
+#### Bridge
+
+The cross-chain messaging system connecting Ethereum L1 and Taiko L2. The bridge enables transfers of ETH, ERC-20 tokens, ERC-721 tokens, and arbitrary messages between chains. See [Bridging](/protocol/bridging) and [Bridge Tokens](/guides/bridge-tokens).
+
+#### ComposeVerifier
+
+A smart contract that orchestrates multi-proof verification. The live mainnet instance, `ZkRequiredVerifier`, requires two independent sub-proofs, at least one of them ZK (for example `sgxReth + risc0` or `risc0 + sp1`), to agree on a proposal range before accepting it as proved. See [Proving System](/protocol/proving-system).
+
+#### ERC20Vault
+
+The contract that escrows ERC-20 tokens during cross-chain bridging. When tokens are bridged from L1 to L2, the ERC20Vault locks them on the source chain and a corresponding `BridgedERC20` is minted on the destination chain. See [Bridge Tokens](/guides/bridge-tokens).
+
+#### Forced inclusion
+
+A mechanism ensuring that transactions cannot be censored by proposers. If a proposer refuses to include a transaction, the forced inclusion mechanism allows users to submit transactions directly to L1 for guaranteed inclusion in an L2 block.
+
+#### Liveness bond
+
+TAIKO tokens deposited by a proposer when submitting a proposal. The bond is returned once the proposal range has been proved (which finalizes it). If a proposal is not proved within the proving window, the bond is forfeited. The live Unzen configuration currently runs with a liveness bond of `0`, so this lever is effectively dormant today.
+
+#### Preconfirmation
+
+An early guarantee of transaction inclusion from the active preconfer before the proposal is submitted to L1. Preconfirmations reduce the time users wait for transaction confirmation by leveraging the preconfer's commitment to include specific transactions. In the current rollout, preconfers are whitelisted launch partners; a later stage plans to open preconfing to opted-in L1 validators. See [Preconfirmations](/protocol/preconfirmations).
+
+#### Proof tier
+
+A category of proof type with associated trust assumptions. Taiko supports multiple proof tiers — for example, SGX proofs (faster, hardware-based trust) and ZK proofs (slower, cryptographic trust). The multi-proof system requires agreement across independent proof types. See [Proving System](/protocol/proving-system).
+
+#### Proposer
+
+An entity that submits L2 block data to the `Inbox` contract on L1 as a proposal. Taiko is not operated by a single sequencer; forced inclusion preserves a permissionless path for submitting proposals during the current whitelisted preconfirmation rollout.
+
+#### Prover
+
+An entity that generates validity proofs for proposed L2 blocks. Provers must submit a proof within the proving window. Multiple proof types (SGX, ZK) are supported. See [Proving System](/protocol/proving-system).
+
+#### SGX proof
+
+A proof generated inside an Intel SGX (Software Guard Extensions) trusted execution environment. SGX proofs are fast to generate but rely on hardware-based trust assumptions — the proof is only as trustworthy as the SGX enclave. They serve as a first line of defense in Taiko's multi-proof system.
+
+#### SignalService
+
+The contract that enables cross-chain message verification via Merkle proofs. When a message is sent from one chain, the SignalService stores a signal (hash) that can be verified on the other chain by providing a Merkle proof against the source chain's state root. See [Bridging](/protocol/bridging).
+
+#### TaikoAnchor
+
+An L2 predeployed contract that anchors L1 state into L2 blocks. Every L2 block includes a call to TaikoAnchor that records the latest L1 block hash and signal root, enabling L2 contracts to verify L1 state. Located at a fixed L2 address. See [Contract Addresses](/network/contract-addresses).
+
+#### TaikoInbox
+
+The L1 contract where proposers submit L2 block data. The active entry point is the `Inbox` contract (introduced by the Shasta architecture and still used under Unzen), which accepts proposals (each carrying one or more L2 blocks), forwards proofs to the compose verifier, and advances finalization. The legacy Pacaya `TaikoInbox` is preserved for historical reference. See [Contract Addresses](/network/contract-addresses).
+
+#### Type-1 ZK-EVM
+
+A zero-knowledge EVM that is fully equivalent to Ethereum at the protocol level. Type-1 means no modifications to the Ethereum architecture — same hash functions, state trees, gas costs, and opcodes. This allows existing Ethereum tooling, contracts, and clients to work without changes.
+
+#### ZK proof
+
+A zero-knowledge proof of L2 state transition validity. Taiko supports ZK proofs generated by RISC0 and SP1 proof systems. ZK proofs provide the strongest trust guarantees — they are cryptographically verifiable and do not rely on hardware trust assumptions — but are more computationally expensive to generate than SGX proofs.
+
+
+## Getting Support \[Where to ask questions, report problems, and escalate security issues.]
+
+### Technical Support
+
+For general questions, integration help, and node issues, start in the [Taiko Discord](https://discord.com/invite/taiko-984015101017346058).
+
+* Use the community channels for broad questions.
+* Use the node and developer channels when you need help debugging infrastructure or tooling.
+
+### Bugs and Feature Requests
+
+If you hit a reproducible bug or want to request a feature, open an issue in the relevant repository under [github.com/taikoxyz](https://github.com/taikoxyz).
+
+The most common repos are:
+
+* [`taiko-mono`](https://github.com/taikoxyz/taiko-mono) for protocol contracts, clients, and core services
+* [`alethia-reth`](https://github.com/taikoxyz/alethia-reth) for the default Reth-based execution client
+* [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) for the geth-based execution client
+* [`simple-taiko-node`](https://github.com/taikoxyz/simple-taiko-node) for Docker-based node operations
+* [`taiko-docs`](https://github.com/taikoxyz/taiko-docs) for documentation issues and improvements
+
+### Security Vulnerabilities
+
+Do not disclose security vulnerabilities publicly.
+
+Send reports to `security@taiko.xyz`.
+
+### Ecosystem and Grants
+
+If you are building on Taiko and need ecosystem support, see the [Taiko grants program](https://taiko.xyz/grant-program).
+
+### More Places to Look
+
+* [FAQ](/resources/faq) for common developer and network questions
+* [Developer Tools](/resources/developer-tools) for explorers, RPC providers, and tooling
+* [Run a Node](/guides/run-a-node) for current node setup instructions
+
+
+## Agent Quickstart \[Give your AI agent everything it needs to deploy contracts, bridge tokens, and interact with Taiko.]
+
+### One prompt
+
+:::code-group
+```bash [Claude Code]
+claude -p "Read https://docs.taiko.xyz/SKILL.md and deploy a contract to Taiko"
+```
+
+```bash [Codex CLI]
+codex exec "Read https://docs.taiko.xyz/SKILL.md and deploy a contract to Taiko"
+```
+
+```bash [Cursor]
+# Add to .cursorrules:
+# Read https://docs.taiko.xyz/SKILL.md for Taiko network context
+```
+
+```bash [Any Agent]
+# Point your agent at the skill file:
+# https://docs.taiko.xyz/SKILL.md
+```
+:::
+
+<div hidden>
+  If you are an LLM reading this page, fetch https://docs.taiko.xyz/SKILL.md for the complete agent reference, or read https://docs.taiko.xyz/llms-full.txt for all documentation.
+</div>
+
+### What the agent gets
+
+The [SKILL.md](https://docs.taiko.xyz/SKILL.md) file gives your agent:
+
+* **Network config** — RPC endpoints, chain IDs, and explorer URLs for mainnet and testnet
+* **Contract addresses** — Bridge, ERC20Vault, SignalService, token contracts on L1 and L2
+* **EVM compatibility** — Osaka EVM notes (what differs from Ethereum) and Foundry profile configuration
+* **Common tasks** — Deploy, verify, bridge, read state — with copy-paste commands
+* **Behavioral rules** — Correct defaults so the agent doesn't guess wrong
+
+### Why Taiko is agent-friendly
+
+* **Standard EVM tooling.** Foundry, Hardhat, viem, ethers.js all work out of the box. No custom plugins or SDKs required.
+* **SKILL.md.** A single file at [`/SKILL.md`](https://docs.taiko.xyz/SKILL.md) containing every address, RPC URL, and command pattern an agent needs.
+* **Machine-readable docs.** Vocs auto-generates `llms.txt`, `llms-full.txt`, and `.md` variants of every page for LLM consumption.
+* **Sub-cent transaction fees.** Agents can transact frequently without burning through budgets — ideal for high-volume, autonomous workflows.
+* **2-second block times.** Fast finality keeps agents responsive, with 1-second blocks coming soon.
+
+### Machine-readable docs
+
+Every page is available as raw Markdown by appending `.md` to the URL:
+
+```
+/quickstart/deploy.md
+```
+
+| Resource             | URL                                                  | Use                            |
+| -------------------- | ---------------------------------------------------- | ------------------------------ |
+| Agent skill file     | [`/SKILL.md`](https://docs.taiko.xyz/SKILL.md)           | One-file reference for agents  |
+| Docs index           | [`/llms.txt`](https://docs.taiko.xyz/llms.txt)           | Page listing with descriptions |
+| Full docs            | [`/llms-full.txt`](https://docs.taiko.xyz/llms-full.txt) | Entire site as plain text      |
+| Any page as markdown | Append `.md` to any page URL                         | Raw markdown for any page      |
+
+### Registering Agents on Taiko
+
+Taiko supports ERC-8004 on both Taiko and Taiko Hoodi, contract addresses for IdentityRegistry and ReputationRegistry can be found [here](/network/contract-addresses#key-tokens--utilities).
+
+### Starter prompts
+
+Try these with your agent after loading the skill:
+
+* "Deploy a Counter contract to Taiko Hoodi testnet"
+* "Bridge 0.1 ETH from Ethereum to Taiko using cast"
+* "Add Taiko mainnet and testnet to my wagmi config"
+* "What's different about Taiko compared to Ethereum?"
+* "Verify my contract at 0x... on Taikoscan"
+
+### Best practices
+
+* **Pass `--broadcast`.** Without it, `forge create` only simulates the deployment and nothing lands on-chain. This is the most common reason a "successful" deploy has no contract.
+* **Test on Hoodi first.** Chain ID `167013`, RPC `https://rpc.hoodi.taiko.xyz`. Use testnet for iteration before mainnet deployment.
+* **Verify addresses against SKILL.md.** Contract addresses can change across upgrades. Always fetch the latest SKILL.md rather than relying on cached values.
+* **Pin the EVM version.** Taiko runs the Osaka EVM, and builds for older targets also run. Set `evm_version = "osaka"` (solc 0.8.29 or newer) via `FOUNDRY_PROFILE=taiko` to use `CLZ`, `P256VERIFY`, and the BLS12-381 precompiles from Solidity and to keep verification metadata consistent.
+* **Include SKILL.md in every prompt.** Agents have no persistent memory of past sessions. Re-inject the skill file each time.
+
+
+## Connect to Taiko \[RPC endpoints, chain IDs, and how to add Taiko to your wallet or dApp.]
+
+### Network Reference
+
+#### Taiko Mainnet
+
+| Field           | Value                                            |
+| --------------- | ------------------------------------------------ |
+| Network Name    | Taiko Mainnet                                    |
+| Chain ID        | `167000`                                         |
+| Chain ID (Hex)  | `0x28C58`                                        |
+| RPC URL         | `https://rpc.mainnet.taiko.xyz`                  |
+| Explorer        | `https://taikoscan.io`                           |
+| Explorer API    | `https://api.etherscan.io/v2/api?chainid=167000` |
+| Bridge          | `https://bridge.taiko.xyz`                       |
+| Native Currency | ETH                                              |
+
+#### Taiko Hoodi Testnet
+
+| Field           | Value                                            |
+| --------------- | ------------------------------------------------ |
+| Network Name    | Taiko Hoodi                                      |
+| Chain ID        | `167013`                                         |
+| Chain ID (Hex)  | `0x28C65`                                        |
+| RPC URL         | `https://rpc.hoodi.taiko.xyz`                    |
+| Explorer        | `https://hoodi.taikoscan.io`                     |
+| Explorer API    | `https://api.etherscan.io/v2/api?chainid=167013` |
+| Bridge          | `https://bridge.hoodi.taiko.xyz`                 |
+| Native Currency | ETH                                              |
+
+#### L1 Reference Chains
+
+Taiko settles to Ethereum L1. Use these chain IDs when configuring L1 connections.
+
+| Network          | Chain ID |
+| ---------------- | -------- |
+| Ethereum Mainnet | `1`      |
+| Ethereum Hoodi   | `560048` |
+
+#### Summary
+
+| Network             | Chain ID | RPC                             | Explorer                      |
+| ------------------- | -------- | ------------------------------- | ----------------------------- |
+| Taiko Mainnet       | `167000` | `https://rpc.mainnet.taiko.xyz` | `https://taikoscan.io`        |
+| Taiko Hoodi Testnet | `167013` | `https://rpc.hoodi.taiko.xyz`   | `https://hoodi.taikoscan.io`  |
+| Ethereum Mainnet    | `1`      | Use your preferred Ethereum RPC | `https://etherscan.io`        |
+| Ethereum Hoodi      | `560048` | Use your preferred Hoodi RPC    | `https://hoodi.etherscan.io/` |
+
+### Prompt mode
+
+Paste this into your coding agent to configure Taiko in one prompt:
+
+```
+Reference https://docs.taiko.xyz/SKILL.md
+
+Add Taiko mainnet and Hoodi testnet to my wagmi config.
+Use chain ID 167000 for mainnet and 167013 for testnet.
+```
+
+### Manual mode
+
+::::steps
+#### Add Taiko to MetaMask
+
+Open MetaMask → Settings → Networks → Add Network and enter:
+
+| Field        | Value                           |
+| ------------ | ------------------------------- |
+| Network Name | Taiko Mainnet                   |
+| RPC URL      | `https://rpc.mainnet.taiko.xyz` |
+| Chain ID     | `167000`                        |
+| Currency     | `ETH`                           |
+| Explorer     | `https://taikoscan.io`          |
+
+#### Configure wagmi / viem
+
+Use `defineChain` to add Taiko mainnet and testnet to your app config.
+
+```ts
+import { defineChain } from 'viem'
+
+export const taikoMainnet = defineChain({
+  id: 167_000,
+  name: 'Taiko Mainnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.mainnet.taiko.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Taikoscan', url: 'https://taikoscan.io' },
+  },
+})
+
+export const taikoHoodi = defineChain({
+  id: 167_013,
+  name: 'Taiko Hoodi',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.hoodi.taiko.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Taikoscan', url: 'https://hoodi.taikoscan.io' },
+  },
+})
+```
+
+:::info
+viem ships with a built-in `taiko` chain definition. You can import `taiko` directly from `viem/chains` instead of defining your own. For Hoodi testnet, use `defineChain` as shown above — the viem chain list may not include it yet.
+:::
+
+#### EIP-3085: wallet\_addEthereumChain
+
+Use these JSON params to programmatically prompt users to add Taiko.
+
+:::code-group
+```json [Mainnet]
+{
+  "chainId": "0x28C58",
+  "chainName": "Taiko Mainnet",
+  "nativeCurrency": {
+    "name": "Ether",
+    "symbol": "ETH",
+    "decimals": 18
+  },
+  "rpcUrls": ["https://rpc.mainnet.taiko.xyz"],
+  "blockExplorerUrls": ["https://taikoscan.io"]
+}
+```
+
+```json [Hoodi Testnet]
+{
+  "chainId": "0x28C65",
+  "chainName": "Taiko Hoodi",
+  "nativeCurrency": {
+    "name": "Ether",
+    "symbol": "ETH",
+    "decimals": 18
+  },
+  "rpcUrls": ["https://rpc.hoodi.taiko.xyz"],
+  "blockExplorerUrls": ["https://hoodi.taikoscan.io"]
+}
+```
+:::
+::::
+
+### Bootnodes
+
+Find the bootnodes for the respective chains in the `simple-taiko-node` repo sample `.env` files:
+
+* Repository: [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node)
+
+
+## Deploy a Contract \[Deploy and verify Solidity smart contracts on Taiko mainnet with Foundry. Osaka EVM profile, Etherscan V2 verification, end-to-end.]
+
+### Prompt mode
+
+Paste this into your coding agent:
+
+```
+Reference https://docs.taiko.xyz/SKILL.md
+
+Write a minimal Counter contract at src/Counter.sol, then deploy and verify
+it on Taiko mainnet. Use FOUNDRY_PROFILE=taiko to target Osaka EVM and
+verify via the Etherscan V2 endpoint:
+https://api.etherscan.io/v2/api?chainid=167000
+```
+
+### Manual mode
+
+:::warning
+Taiko runs the **Osaka** EVM, so any EVM target up to Osaka runs. Pin `evm_version = "osaka"` to use `CLZ`, `P256VERIFY`, and the BLS12-381 precompiles from Solidity and to keep verification metadata consistent; it requires solc 0.8.29 or newer. If you still have `evm_version = "shanghai"` from earlier versions of these docs, change it to `osaka`.
+:::
+
+#### Prerequisites
+
+* [Foundry](https://book.getfoundry.sh/getting-started/installation) installed
+* ETH on Taiko (bridge from L1 or use a Hoodi faucet — see [Bridge Tokens](/guides/bridge-tokens))
+* An [Etherscan API key](https://etherscan.io/apis) — the V2 unified key verifies on Taikoscan too
+
+::::steps
+#### Scaffold a project
+
+```bash
+forge init hello-taiko && cd hello-taiko
+```
+
+`forge init` generates `src/Counter.sol` — a minimal contract we'll deploy below. If an agent is driving the flow, have it write a contract into `src/` and use that filename instead.
+
+#### Configure Foundry
+
+Add a Taiko profile to `foundry.toml`:
+
+```toml
+[profile.taiko]
+evm_version = "osaka"
+```
+
+Build with it:
+
+```bash
+FOUNDRY_PROFILE=taiko forge build
+```
+
+#### Deploy and verify
+
+:::code-group
+```bash [Mainnet]
+FOUNDRY_PROFILE=taiko forge create src/Counter.sol:Counter \
+  --rpc-url https://rpc.mainnet.taiko.xyz \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --verify \
+  --verifier etherscan \
+  --verifier-url 'https://api.etherscan.io/v2/api?chainid=167000' \
+  --etherscan-api-key $ETHERSCAN_API_KEY
+```
+
+```bash [Hoodi Testnet]
+FOUNDRY_PROFILE=taiko forge create src/Counter.sol:Counter \
+  --rpc-url https://rpc.hoodi.taiko.xyz \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --verify \
+  --verifier etherscan \
+  --verifier-url 'https://api.etherscan.io/v2/api?chainid=167013' \
+  --etherscan-api-key $ETHERSCAN_API_KEY
+```
+:::
+
+`--broadcast` is required — without it, `forge create` only simulates.
+
+#### Confirm deployment
+
+```bash
+cast code $DEPLOYED_ADDRESS --rpc-url https://rpc.mainnet.taiko.xyz
+```
+
+A non-empty hex response confirms the contract exists on-chain.
+::::
+
+### Verify an already-deployed contract
+
+Same V2 URL, with `forge verify-contract`:
+
+```bash
+FOUNDRY_PROFILE=taiko forge verify-contract $CONTRACT_ADDRESS \
+  src/Counter.sol:Counter \
+  --verifier etherscan \
+  --verifier-url 'https://api.etherscan.io/v2/api?chainid=167000' \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  --watch
+```
+
+Swap `chainid=167000` → `chainid=167013` for Hoodi. `--watch` blocks until Taikoscan returns a final status.
+
+If your constructor takes arguments, pass them with `--constructor-args` using the same values you deployed with. Encode complex types first: `cast abi-encode "constructor(address,uint256)" 0xYourAddress 1000000000000000000`.
+
+### Troubleshooting
+
+| Problem                                       | Cause                                                                                                    | Fix                                                                                                                                      |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `forge create` prints ABI but nothing deploys | Missing `--broadcast`                                                                                    | Add `--broadcast` to the command                                                                                                         |
+| `insufficient funds`                          | Not enough ETH on Taiko                                                                                  | Bridge ETH from L1 or use the Hoodi faucet                                                                                               |
+| `zk gas limit exceeded`                       | The transaction exceeds the block's zk gas budget (proving-heavy work such as pairing or `modexp` calls) | Split the work across transactions or reduce precompile use; raising the gas limit does not help. See [Unzen Fork](/protocol/unzen-fork) |
+| `deprecated V1 endpoint`                      | Using `api.taikoscan.io/api`                                                                             | Switch to `https://api.etherscan.io/v2/api?chainid=167000`                                                                               |
+| `NOTOK: Unable to verify`                     | Compiler settings differ from the deployed build                                                         | Verify with the same `solc` version, EVM version, and optimizer settings used at deploy time (check with `forge config`)                 |
+| `NOTOK: Already Verified`                     | Contract is already verified                                                                             | No action needed — check the explorer                                                                                                    |
+| Bytecode mismatch                             | Compiler version differs                                                                                 | Use the exact `solc` version from your build (check with `forge config`)                                                                 |
+| Missing constructor args                      | Args not provided or mis-encoded                                                                         | Pass `--constructor-args` with the same values used at deploy time                                                                       |
+| `Invalid API Key`                             | Key not set or wrong key                                                                                 | Get an [Etherscan API key](https://etherscan.io/apis) — the V2 key works for all chains                                                  |
+
+
+## Based Rollups \[How based rollup sequencing works — Ethereum L1 validators order L2 transactions, eliminating centralized sequencers while inheriting Ethereum security.]
+
+A **based rollup** is a rollup whose block sequencing is driven by the underlying L1 chain rather than a separate sequencer. In Taiko's case, Ethereum L1 validators determine the ordering of L2 blocks. This design eliminates the need for a centralized sequencer and makes the rollup a natural extension of Ethereum.
+
+The term "based" was coined by Ethereum researcher Justin Drake to describe rollups that delegate sequencing to L1.
+
+### What "Based" Means
+
+In a traditional rollup, a dedicated sequencer (often a single operator) collects user transactions, orders them, and submits them to L1. The sequencer has full control over transaction ordering, which creates centralization risks.
+
+In a based rollup:
+
+* **L1 validators are the sequencers.** Ethereum's existing block proposers include rollup transactions in L1 blocks. The ordering of rollup transactions is determined by the same consensus mechanism that orders all Ethereum transactions.
+* **Proposal inclusion still inherits Ethereum ordering.** In the current Unzen rollout, the normal proposing path is preconf-whitelisted, but the proposal transactions themselves are still ordered by Ethereum L1, and forced inclusion preserves a permissionless fallback path.
+* **No separate consensus.** There is no additional proof-of-stake network, no sequencer committee, and no external coordination layer. The rollup inherits Ethereum's consensus directly.
+
+### How Block Proposing Works on Taiko
+
+Under the **Shasta** protocol architecture (which the current Unzen fork runs on), proposers interact with the **Inbox** contract deployed on Ethereum L1. The process works as follows:
+
+1. A proposer collects pending L2 transactions and constructs one or more L2 blocks.
+2. The proposer calls `propose` on `Inbox`, submitting proposal data through blob-backed derivation sources.
+3. If forced inclusions are due, they must be processed first, and the proposer's own source is appended last.
+4. The proposal transaction is included in an Ethereum L1 block, and its ordering is determined by Ethereum's consensus.
+5. In the current Unzen rollout, normal proposing is gated by the preconfirmation whitelist. If forced inclusions remain old enough, proposing becomes permissionless as a fallback.
+
+This means the fast path is not fully permissionless today, but the protocol still preserves a permissionless escape hatch when forced inclusions age out. Transaction ordering within each proposal is still determined by the proposer, while proposal ordering itself follows Ethereum's block ordering.
+
+:::info
+Under the Pacaya fork, blocks were proposed in **batches** rather than individually. The Shasta fork switched to **proposal-based derivation** around the separate `Inbox`, while keeping Ethereum L1 as the ordering layer; Unzen keeps that model.
+:::
+
+### Comparison with Other Sequencing Models
+
+| Property                  | Based Rollup (L1-Sequenced)                  | Centralized Sequencer                 | Shared Sequencer                |
+| ------------------------- | -------------------------------------------- | ------------------------------------- | ------------------------------- |
+| **Sequencing**            | Ethereum validators                          | Single operator                       | Multi-party committee           |
+| **Censorship resistance** | Inherits Ethereum's guarantees               | Sequencer can censor                  | Depends on operator set         |
+| **Liveness**              | As long as Ethereum is live                  | Sequencer downtime halts the rollup   | Depends on sequencer uptime     |
+| **Decentralization**      | Maximum -- uses existing Ethereum validators | Single point of failure               | Additional trust layer          |
+| **MEV flow**              | MEV flows to Ethereum validators             | MEV captured by sequencer             | MEV captured by sequencer set   |
+| **Infrastructure**        | No extra infrastructure needed               | Requires running a separate sequencer | Requires coordination mechanism |
+| **Simplicity**            | Minimal added complexity                     | Moderate                              | Higher complexity               |
+
+### Benefits of Based Sequencing
+
+#### Inherits Ethereum's Security and Liveness
+
+A based rollup is live whenever Ethereum is live. There is no separate operator whose downtime could halt the chain. The rollup cannot suffer from sequencer failures, because there is no sequencer to fail.
+
+#### Censorship Resistance
+
+Ethereum's validator set is large and decentralized. No single validator (or small group of validators) can persistently censor transactions. Based rollups inherit this property directly -- if a transaction can be included on Ethereum, it can be included on Taiko.
+
+#### No Single Point of Failure
+
+Centralized sequencers create a single point of failure for liveness, censorship resistance, and MEV extraction. Based rollups eliminate this entirely by distributing sequencing across Ethereum's full validator set.
+
+#### Economic Alignment with Ethereum
+
+MEV generated on the rollup flows to Ethereum validators rather than being captured by a centralized sequencer. This reinforces Ethereum's economic security and aligns the rollup's incentives with the base layer.
+
+### Forced Inclusion
+
+Even during the current preconfirmation phase (where whitelisted preconfers sequence blocks), Taiko maintains censorship resistance through **forced inclusion**, built into the `Inbox` contract on L1. Any user can call `saveForcedInclusion` with a blob reference to queue transactions; once a forced inclusion is due, the next proposal must process it before the proposer's own transactions, regardless of whether the current preconfer chooses to include it.
+
+This mechanism ensures that the protocol preserves its based rollup properties even when block building is temporarily delegated to permissioned preconfers.
+
+:::warning
+Forced inclusion adds latency compared to normal transaction inclusion. It is designed as a censorship-resistance backstop, not as the primary inclusion path.
+:::
+
+### Trade-offs
+
+Based rollups are not without trade-offs:
+
+**Block time is bounded by L1.** Without preconfirmations, the fastest a based rollup can confirm transactions is one L1 block time (12 seconds). Taiko addresses this with [based preconfirmations](/protocol/preconfirmations), which provide sub-second effective confirmation times.
+
+**MEV considerations.** Because L1 validators control transaction ordering, MEV extraction dynamics on the rollup are tied to Ethereum's MEV landscape. Proposers (or preconfers) can still extract MEV within the batches they construct, but batch ordering follows L1 consensus.
+
+**Proposer competition.** Multiple proposers may attempt to submit batches simultaneously, leading to wasted gas for losing proposals. In practice, the preconfirmation system coordinates this by electing a single preconfer per epoch.
+
+### Summary
+
+Based rollups represent the simplest and most Ethereum-aligned approach to rollup sequencing. By delegating sequencing to L1 validators, Taiko achieves:
+
+* Maximum decentralization with no additional trust assumptions
+* Full censorship resistance inherited from Ethereum
+* Liveness guaranteed as long as Ethereum is live
+* Economic alignment with the base layer
+* Minimal infrastructure complexity
+
+
+## Bridging \[Trust-minimized cross-chain messaging and asset transfers between Ethereum and Taiko using Merkle proofs, signal service, and synchronized state roots.]
+
+Taiko's bridge enables **trust-minimized asset transfers and message passing** between Ethereum (L1) and Taiko (L2). The bridge uses Merkle proofs and synchronized world state roots to verify cross-chain messages, requiring no trusted third party. Any contract or user can send and verify messages between chains.
+
+### Architecture Overview
+
+The bridge system consists of three layers:
+
+| Layer                     | Contracts                                     | Purpose                                                  |
+| ------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+| **State synchronization** | Inbox (L1), Anchor (L2)                       | Keep L1 and L2 world state roots in sync.                |
+| **Signal service**        | SignalService (deployed on both L1 and L2)    | Low-level cross-chain message passing via Merkle proofs. |
+| **Bridge and vaults**     | Bridge, ERC20Vault, ERC721Vault, ERC1155Vault | High-level asset transfer logic and token management.    |
+
+### Signal Service
+
+The **Signal Service** is the foundation of cross-chain communication. It is deployed on both L1 and L2 and provides two core operations:
+
+**Sending a signal.** Any contract or user calls `sendSignal(message)` to store a message in the Signal Service's contract storage. The message is persisted as a storage slot value, which becomes part of the chain's state trie.
+
+**Verifying a signal.** On the destination chain, anyone can call `verifySignalReceived(message, proof)` with a Merkle proof demonstrating that the signal was stored on the source chain. The Signal Service reconstructs the Merkle root using the provided sibling hashes and verifies it against the stored world state root of the source chain.
+
+#### How State Roots Stay in Sync
+
+* **L1 state on L2.** Every L2 block includes an `anchor` transaction that stores the corresponding L1 world state root in the L2 Anchor contract. This happens automatically as part of block construction.
+* **L2 state on L1.** When a proposal range is proved on L1 (which finalizes it), Inbox writes a checkpoint into the L1 Signal Service committing to the finalized L2 state. There is no separate "verify later" step.
+
+This bidirectional state synchronization enables Merkle proofs to be verified in both directions.
+
+### Bridge Contract
+
+The **Bridge** contract provides the user-facing interface for cross-chain transfers. It handles message lifecycle management including sending, processing, retrying, and recalling messages.
+
+#### Message Lifecycle
+
+A bridge message transitions through the following states:
+
+| Status        | Meaning                                                                           |
+| ------------- | --------------------------------------------------------------------------------- |
+| **NEW**       | Message has been sent on the source chain and is pending processing.              |
+| **RETRIABLE** | Processing failed on the destination chain, but the message can be retried.       |
+| **DONE**      | Message was processed successfully on the destination chain.                      |
+| **FAILED**    | Message failed permanently and cannot be retried.                                 |
+| **RECALLED**  | Message was recalled by the sender on the source chain, and assets were refunded. |
+
+#### Sending a Message (Source Chain)
+
+1. The user calls `sendMessage` on the Bridge contract (or `sendToken` on a token vault).
+2. The Bridge contract locks ETH or tokens.
+3. The Bridge contract calls `sendSignal` on the Signal Service to record the message.
+4. A `MessageSent` event is emitted.
+
+#### Processing a Message (Destination Chain)
+
+1. A relayer (or the user) retrieves the Merkle proof for the message using `eth_getProof` on the source chain.
+2. The relayer calls `processMessage` on the destination chain's Bridge contract, providing the message and its proof.
+3. The Bridge contract verifies the proof via the Signal Service.
+4. If valid, the bridge releases assets to the recipient and marks the message as DONE.
+
+:::info
+If processing fails (for example, due to an out-of-gas condition in the destination contract call), the message enters the RETRIABLE state. It can be retried later via `retryMessage`, or explicitly failed via `failMessage`, after which the sender can recall it on the source chain.
+:::
+
+### Token Bridging
+
+#### How Token Vaults Work
+
+Taiko uses a **vault system** for token bridging. There are three vault contracts, one for each token standard:
+
+| Vault            | Token Standard | Description                                              |
+| ---------------- | -------------- | -------------------------------------------------------- |
+| **ERC20Vault**   | ERC-20         | Fungible tokens. Supports solver-based fast withdrawals. |
+| **ERC721Vault**  | ERC-721        | Non-fungible tokens (NFTs).                              |
+| **ERC1155Vault** | ERC-1155       | Multi-token standard.                                    |
+
+#### Bridging Tokens to the Destination Chain
+
+1. The user calls `sendToken` on the appropriate vault on the source chain.
+2. The vault locks the tokens and creates a bridge message via the Bridge contract.
+3. On the destination chain, the message is processed and a **BridgedERC** contract mints the equivalent tokens.
+
+#### Bridging Tokens Back to the Canonical Chain
+
+1. The user calls `sendToken` on the BridgedERC contract on the destination chain.
+2. The bridged tokens are **burned**.
+3. On the canonical chain, the original vault releases the locked tokens back to the user.
+
+#### Approval-free ERC-20 sends: `sendTokenWithPermit` and `sendTokenWithPermit2`
+
+The plain `sendToken` path requires a prior `approve`, so bridging an ERC-20 always costs two transactions. `ERC20Vault` also exposes two entrypoints that fold the approval into the bridge call:
+
+| Entrypoint             | When to use                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sendTokenWithPermit`  | The token implements EIP-2612 `permit`. The caller signs the permit off-chain; the vault consumes it and pulls the tokens in the same call. Taiko-minted bridged tokens (`BridgedERC20V2`) support this natively.                                                                                                                                                           |
+| `sendTokenWithPermit2` | Works for **any** ERC-20, using Uniswap's [Permit2](https://github.com/Uniswap/permit2). The caller signs a Permit2 `SignatureTransfer` off-chain; the vault pulls the tokens through Permit2. Best for canonical tokens without permit (USDT, WBTC, and similar), or when the caller has already granted Permit2 an allowance elsewhere and wants zero on-chain approvals. |
+
+Both entrypoints match `sendToken`'s message shape, quota accounting, and refund path — a recall still refunds the sender. Permit2 lives at the same address on every chain: `0x000000000022D473030F116dDEE9F6B43aC78BA3`.
+
+:::info
+The EIP-2612 permit call is best-effort: a griefer can burn the signature's nonce by replaying it at the token. `sendTokenWithPermit` therefore checks the resulting allowance and reverts with `VAULT_PERMIT_NO_ALLOWANCE` if it is still insufficient, rather than failing deep inside the token pull. A caller with a standing allowance bridges against it even when the permit itself was consumed.
+:::
+
+#### ETH Bridging
+
+ETH transfers work through the Bridge contract directly:
+
+* **Direct transfer:** Call `sendMessage` on the Bridge with ETH attached.
+* **With token transfer:** Call `sendToken` on a token vault with ETH included as part of the transaction value.
+
+### L1 to L2 vs. L2 to L1
+
+The bridging flow differs in timing depending on the direction:
+
+| Direction    | Process                                                                                                                                               | Timing                                                                                            |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **L1 to L2** | Send on L1 --> relayer or user submits proof on L2 --> assets released on L2.                                                                         | Relatively fast. The L1 state root is available on L2 as soon as the next L2 block anchors it.    |
+| **L2 to L1** | Send on L2 --> wait for the proposal containing the message to be proved on L1 --> submit the message's Merkle proof on L1 --> assets released on L1. | Slower. Must wait for the proposal containing the message to be proved on L1, which finalizes it. |
+
+:::warning
+**L2 to L1 withdrawals wait for proof submission.** The current proving-window target is 4 hours, so expect withdrawals to take at least several hours on the normal path. ERC20Vault supports solver-based fast withdrawals to mitigate this delay for ERC-20 tokens.
+:::
+
+### Message Claiming: Automatic vs. Manual
+
+Bridge messages can be claimed in two ways:
+
+**Automatic (via relayer).** A relayer monitors for bridge messages and submits the Merkle proof on the destination chain automatically. The relayer earns a processing fee (set by the user when sending the message) as compensation for the gas cost.
+
+**Manual (by the user).** The user retrieves the proof themselves and calls `processMessage` directly on the destination chain. No processing fee is required, but the user must pay the destination chain gas cost.
+
+:::info
+The Bridge UI at [bridge.taiko.xyz](https://bridge.taiko.xyz) supports both automatic and manual claiming.
+:::
+
+### Summary
+
+| Feature               | Implementation                                                             |
+| --------------------- | -------------------------------------------------------------------------- |
+| **Security model**    | Merkle proofs verified against synchronized world state roots.             |
+| **Asset types**       | ETH, ERC-20, ERC-721, ERC-1155.                                            |
+| **Trust assumptions** | None beyond Ethereum and Taiko themselves -- no trusted relayer or oracle. |
+| **Permissionless**    | Anyone can send messages, relay proofs, or run a relayer.                  |
+| **Rate-limited**      | QuotaManager prevents excessive outflows.                                  |
+| **Fast withdrawals**  | Solver support for ERC-20 via ERC20Vault.                                  |
+
+
+## Economics \[Taiko fee flow, proposer and prover bonds, TAIKO token utility, and DAO treasury mechanics — the economic model behind the based rollup.]
+
+Taiko's economic model ensures fair compensation for the actors who operate the network -- proposers and provers -- while sustaining long-term protocol development through the Taiko DAO Treasury. The model is designed around the based rollup architecture, where fees flow through a transparent on-chain cycle.
+
+### TAIKO Token
+
+The TAIKO token serves two primary functions in the protocol:
+
+| Function          | Description                                                                                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Proving bonds** | Proposers deposit TAIKO tokens as a liveness bond when submitting a proposal. This bond ensures proposers are economically committed to seeing their proposals proved. |
+| **Governance**    | TAIKO token holders participate in protocol governance through the Taiko DAO, controlling smart contract upgrades, network parameters, and treasury allocation.        |
+
+### Transaction Fee Flow
+
+When a user submits a transaction on Taiko L2, they pay a standard EVM gas fee denominated in **ETH**. This fee has two components, allocated as follows:
+
+| Fee Component    | Allocation | Recipient          |
+| ---------------- | ---------- | ------------------ |
+| **Priority fee** | 100%       | L2 block proposer  |
+| **Base fee**     | 75%        | L2 block proposer  |
+| **Base fee**     | 25%        | Taiko DAO Treasury |
+
+The priority fee incentivizes faster transaction inclusion -- transactions with higher priority fees are more likely to be picked up by proposers (or preconfers). The base fee is determined by EIP-1559 dynamics on L2.
+
+### Proposer Economics
+
+Proposers (or preconfers) earn revenue from L2 transaction fees and bear costs for L1 operations and proving.
+
+#### Revenue
+
+* **Priority fees** from all transactions in the blocks they propose.
+* **75% of base fees** from L2 transactions.
+
+#### Costs
+
+| Cost              | Paid To                        | Description                                                                                                            |
+| ----------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| **L1 gas fee**    | Ethereum L1                    | Gas cost of calling `propose` on the Inbox contract to submit the proposal on-chain.                                   |
+| **Prover fee**    | Block prover                   | Compensation to provers for generating validity proofs. This is negotiated off-chain between proposers and provers.    |
+| **Liveness bond** | Inbox (returned after proving) | TAIKO tokens locked when submitting a proposal. Returned once the proposal range has been proved (which finalizes it). |
+
+:::info
+The liveness bond is not a cost in the typical sense -- it is returned to the proposer once the proposal is proved. However, it represents locked capital and creates an opportunity cost. The live Unzen configuration currently runs with a liveness bond of `0`.
+:::
+
+#### Profitability Considerations
+
+A proposer is profitable when:
+
+```
+L2 fee revenue > L1 gas cost + prover fee + opportunity cost of bond
+```
+
+A single proposal can carry many L2 blocks, amortizing the L1 gas cost across all included blocks. This makes small, frequent blocks economically viable -- an important property for preconfirmations.
+
+### Prover Economics
+
+Provers generate validity proofs (SGX, ZK) for contiguous proposal ranges and submit them to Ethereum L1.
+
+#### Revenue
+
+* **Prover fees** paid by proposers. The fee amount is determined by the market -- proposers and provers negotiate off-chain, and competitive dynamics drive fees toward the cost of proof generation.
+
+#### Costs
+
+| Cost            | Description                                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Computation** | Generating SGX attestations or ZK proofs requires significant computational resources. SGX proofs are cheaper; ZK proofs are more expensive. |
+| **L1 gas**      | Submitting proofs to Ethereum L1 via `Inbox.prove` incurs gas fees. Proving a range of proposals in a single submission amortizes this cost. |
+
+### Taiko DAO Treasury
+
+The Taiko DAO Treasury receives **25% of the L2 base fee**, providing sustainable funding for:
+
+* Protocol development and research
+* Security audits and bug bounties
+* Ecosystem growth and partnerships
+* Governance operations
+
+The treasury is managed by the Taiko DAO, which controls fund allocation through on-chain governance.
+
+### Economic Cycle Summary
+
+The full economic cycle flows as follows:
+
+1. **Users** pay ETH gas fees for L2 transactions.
+2. **Proposers** collect transaction fees, pay L1 gas to submit proposals, lock a TAIKO liveness bond, and pay provers.
+3. **Provers** generate proofs, earn prover fees, and pay L1 gas to submit proofs.
+4. **Taiko DAO Treasury** receives 25% of the base fee for protocol sustainability.
+5. **Ethereum L1** receives gas fees from both proposers and provers, plus MEV revenue from proposal ordering.
+
+This creates a self-sustaining cycle where each participant is economically incentivized to perform their role, and the protocol itself accumulates resources for long-term development.
+
+
+## Protocol Overview \[How Taiko works — a type-1 ZK-EVM based rollup that inherits Ethereum sequencing, with multi-proof verification and L1-anchored finality.]
+
+Taiko is an **Ethereum-equivalent (type-1) based rollup** that scales Ethereum without compromising its core properties: censorship resistance, permissionless access, and decentralization. Unlike traditional rollups that rely on centralized sequencers, Taiko delegates block sequencing to Ethereum L1 validators, making it a natural extension of Ethereum itself.
+
+### What Makes Taiko Different
+
+**Based rollup.** Ethereum L1 validators order Taiko proposal transactions on L1. Under the current Unzen fork, the fast proposing path is preconf-whitelisted, with permissionless fallback preserved through forced inclusion rules. See [Based Rollups](/protocol/based-rollups) for a deep dive.
+
+**Type-1 ZK-EVM.** Taiko runs an unmodified Ethereum execution layer. Every opcode, every precompile, every tool that works on Ethereum works on Taiko without modification. Developers deploy the same Solidity contracts with the same tooling (Hardhat, Foundry, etc.) -- no code changes needed.
+
+**Multi-proof verification.** Taiko uses a multi-proof architecture combining SGX (TEE-based) proofs and ZK proofs. A single proof type is never sufficient on its own -- multiple independent proof systems must agree on state transitions. See [Proving System](/protocol/proving-system) for details.
+
+### Key Components
+
+| Component                                | Role                                                                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Proposers**                            | Submit proposals containing one or more L2 blocks to Ethereum L1 via `Inbox`.                                                                          |
+| **Provers**                              | Generate validity proofs (SGX + ZK) confirming that proposed blocks were executed correctly.                                                           |
+| **Inbox**                                | L1 smart contract managing proposal intake, proof submission, checkpointing, and finalization.                                                         |
+| **Anchor**                               | L2 smart contract that anchors L1 checkpoints and related metadata into the L2 chain.                                                                  |
+| **Bridge**                               | Cross-chain messaging system for transferring assets and messages between L1 and L2.                                                                   |
+| **Signal Service**                       | Low-level cross-chain signaling contract used by the bridge for Merkle-proof-based message verification.                                               |
+| **ZkRequiredVerifier** (ComposeVerifier) | Verifier contract that orchestrates multiple sub-verifiers (SGX, ZK) for multi-proof validation and requires at least one ZK proof per proposal range. |
+
+### How Blocks Flow Through the Protocol
+
+Under Unzen's Shasta-based protocol architecture, a Taiko block moves through two protocol states: **proposed**, then **proved and finalized** in a single step.
+
+#### 1. Proposed
+
+A proposer submits one or more L2 blocks as a **proposal** to **Inbox** on Ethereum L1 by calling `propose`. Proposal data is carried through blob-backed derivation sources, and forced inclusions are processed first when due.
+
+At this point, the proposal exists on L1 but has not yet advanced finalization. Nodes can derive and execute the L2 blocks optimistically.
+
+#### 2. Proved and Finalized
+
+Provers generate validity proofs for a contiguous range of proposals. The proof submitted to `Inbox.prove` is checked through a composed verifier that requires two sub-proofs with at least one ZK proof, such as `sgxGeth + RISC0`, `sgxReth + SP1`, or `RISC0 + SP1`.
+
+In Unzen, a successful proof submission finalizes the proven range directly through the Shasta checkpoint-finalization model. `Inbox` checks that the range links to the current finalized head, writes a checkpoint into the signal service, and updates the finalized proposal ID and block hash. There is no separate post-proving finalization step: once a proposal range is proved, it is final.
+
+:::info
+Taiko still allows parallel proof generation, but finalization remains sequential. A proof can cover a range that overlaps already finalized proposals, yet it must advance finalization by at least one new proposal and connect cleanly to the latest finalized state.
+:::
+
+### Block States Summary
+
+| State                    | Meaning                                                                                                                                              | Finality                                                   |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **Proposed**             | Submitted to `Inbox` on L1. Data is available for derivation, but the proposal has not yet advanced finalization.                                    | Soft -- derivable but not finalized by the protocol.       |
+| **Proved and Finalized** | A valid proof has been accepted, the proven range has advanced the finalized proposal head, and a checkpoint has been written to the signal service. | Final at the protocol level, with L1-backed checkpointing. |
+
+A Taiko L2 block also inherits Ethereum's **Safe** and **Finalized** designations through its L1 origin. Each L2 block maps to an L1 origin block. If that L1 block is Safe, the L2 block is also considered Safe. Unzen's Shasta-based finalization is the protocol's own ordered checkpoint-finalization step on top of that L1 anchoring model.
+
+### Current Protocol Design: Unzen Fork
+
+Taiko is currently on the **Unzen fork**. Unzen runs on the **Shasta fork protocol architecture**, which reorganized the protocol around proposals, checkpoint-driven finalization, and explicit L1/L2 routing. Unzen keeps that architecture and adds execution-layer changes such as block-level zk gas metering.
+
+**Proposal-based derivation.** Blocks are organized around proposals handled by a separate `Inbox`
+
+**Checkpoint-driven finalization.** Successful proof submission finalizes proposal ranges in order and writes checkpoints into the signal service.
+
+**Whitelist-first rollout controls.** Proposer authorization and prover whitelisting structure the fast path during the preconfirmation rollout, while forced inclusion and delayed permissionless proving preserve escape hatches.
+
+**Key contracts introduced:**
+
+* **Inbox** becomes the main Shasta L1 protocol entry point
+* **Anchor** becomes the Shasta L2 anchoring contract
+* **ZkRequiredVerifier** (a ComposeVerifier) orchestrates multi-proof verification and requires at least one ZK proof per range
+* **Forced inclusion** (built into the Inbox) preserves censorship resistance during the preconfirmation rollout
+* **SignalServiceForkRouter** handles routing across the Pacaya/Shasta fork boundary
+
+### Further Reading
+
+* [Based Rollups](/protocol/based-rollups) -- how L1-sequenced block ordering works
+* [Unzen Fork](/protocol/unzen-fork) -- Shasta-based proposal derivation, checkpoint finalization, and zk-gas metering
+* [Shasta Fork](/protocol/shasta-fork) -- protocol architecture used by the current Unzen fork
+* [Proving System](/protocol/proving-system) -- multi-proof verification architecture
+* [Bridging](/protocol/bridging) -- cross-chain messaging and asset transfers
+* [Economics](/protocol/economics) -- fees, bonds, and token utility
+* [Preconfirmations](/protocol/preconfirmations) -- faster transaction finality via based preconfirmations
+* [Differences from Ethereum](/network/differences-from-ethereum) -- EVM version, account abstraction, and chain-specific behavior
+
+
+## Preconfirmations \[Sub-second transaction inclusion guarantees on Taiko from a designated preconfer, backed by the L1 proposal pipeline and forced inclusion.]
+
+Based preconfirmations give users **early transaction inclusion guarantees** without abandoning based rollup principles. A designated preconfer sequences blocks off-chain and gossips them to the network, providing users with near-instant transaction receipts. The preconfer then proposes the sequenced blocks on-chain to Ethereum L1, preserving Taiko's status as a based rollup.
+
+### What Are Preconfirmations?
+
+A preconfirmation (preconf) is a **cryptographic commitment** from a preconfer that a user's transaction will be included in a specific block with a specific execution outcome. The preconfer builds and propagates L2 blocks off-chain. Nodes on the network treat these blocks as canonical, updating their state immediately.
+
+Without preconfirmations, a based rollup's transaction confirmation time is bounded by L1 block time (12 seconds on Ethereum). Preconfirmations reduce effective confirmation time to the preconfer's configured block time, which could realistically be **500 milliseconds to 2 seconds**.
+
+:::info
+From the user's perspective, preconfirmations are invisible. Users send transactions to the same RPC endpoint as before. The preconfer picks up transactions from the mempool, builds blocks, and propagates them -- no changes to wallets, tooling, or transaction submission flow are required.
+:::
+
+### Types of Preconfirmations
+
+| Type                          | Guarantee                                                                                     | Use Case                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **Inclusion preconfirmation** | Transaction will eventually be included on L1, but no guarantee on execution order or timing. | Basic inclusion assurance.                                                  |
+| **Execution preconfirmation** | Transaction will be included with a specific execution ordering and state outcome.            | DeFi, trading, gaming -- any application requiring deterministic execution. |
+
+Taiko's implementation provides **execution preconfirmations**, the stronger of the two types. Users receive not just inclusion guarantees but exact execution ordering and state results.
+
+### How Preconfirmations Work on Taiko
+
+#### The Sequencing Process
+
+1. A user sends a transaction to the Taiko L2 mempool (via any standard RPC endpoint).
+2. The elected preconfer collects transactions from the mempool, builds an L2 block, and gossips it to the Taiko network.
+3. Full nodes verify the preconfer's signature, execute the block's transactions, and update their local state.
+4. The user receives a transaction receipt immediately -- the transaction is "sequenced."
+
+Blocks can be sequenced on top of other sequenced blocks. A preconfer may sequence hundreds of blocks before proposing any of them on-chain.
+
+#### On-Chain Proposal
+
+At some point during their turn, the preconfer submits the sequenced blocks on-chain to the Inbox contract as a **proposal**. This on-chain submission confirms the sequenced state and makes the blocks eligible for proving.
+
+From the user's perspective, the on-chain proposal is irrelevant -- they received their transaction receipt when the block was sequenced, potentially seconds earlier.
+
+#### Preconfer Rotation
+
+Each preconfer is elected for a **32-slot epoch** (approximately 6.4 minutes at Ethereum's 12-second slot time). During this epoch, the preconfer has exclusive sequencing rights. At the end of the epoch, the next preconfer takes over.
+
+### Rollout Stages
+
+Preconfirmations are being rolled out in two stages:
+
+#### Stage 1: Whitelisted Preconfirmations (Current)
+
+Three launch partners -- **Nethermind**, **Chainbound**, and **Gattaca** -- each run a preconfer using their own custom solution and are whitelisted in the protocol on-chain. This provides client diversity from day one.
+
+Each partner's solution is fully open source:
+
+* [Chainbound Sidecar](https://github.com/chainbound/taiko-mk1)
+* [Gattaca Sidecar](https://github.com/gattaca-com/taiko-gateway)
+* [Nethermind Sidecar](https://github.com/NethermindEth/Catalyst)
+
+:::warning
+While the whitelist-based approach is technically permissioned, it is a necessary step for testing preconfirmation -- a feature that impacts nearly every aspect of Taiko's codebase. The protocol preserves censorship resistance through **forced inclusion** on the `Inbox` contract, which allows any user to force transaction inclusion regardless of the preconfer.
+:::
+
+#### Stage 2: Secured by Stake (Planned)
+
+L1 validators will opt in to become preconfers by staking collateral and registering with the **PreconfServiceManager** contract. Validators can either run their own preconfer software or delegate their preconfirming rights to a third-party solution.
+
+This stage will make preconfirmation fully permissionless and secured by economic stake rather than a whitelist.
+
+### The Preconfer Lifecycle
+
+1. **Registration.** An L1 validator opts in by staking collateral and registering with the PreconfServiceManager contract.
+2. **Election.** For each slot, a single preconfer is elected. If the current L1 block proposer is a registered preconfer, they are chosen. Otherwise, a fallback preconfer is selected.
+3. **Transaction collection.** The preconfer reads transactions from the Taiko L2 public mempool. Transactions with higher L2 priority fees have a better chance of being preconfirmed.
+4. **Block building and propagation.** The preconfer builds L2 blocks and gossips them to the network. This gossip serves as the preconfirmation.
+5. **State sync.** Full nodes verify the preconfer's signature, execute the L2 transactions, and provide users with the latest preconfirmed state.
+6. **L1 inclusion.** The preconfer submits the preconfirmed blocks to the Inbox contract on L1 as a proposal, either through forced inclusion lists in MEV-Boost (if the preconfer is the current slot's proposer) or via the L1 mempool.
+7. **Slashing.** If a preconfer fails to honor commitments -- by not including preconfirmed transactions or submitting an incorrect lookahead -- they face slashing penalties on their staked collateral.
+
+:::info
+Slashing penalties motivate preconfers to honor their commitments, but users do not receive a share of the penalty as compensation for failed inclusion. The penalty serves as a deterrent rather than a restitution mechanism.
+:::
+
+### Configurable Block Time
+
+Because preconfers build blocks off-chain, the L2 block time becomes configurable. A preconfer can set their target block time based on their own profitability and performance analysis:
+
+* **Faster block times** (e.g., 500ms) provide better UX but produce more blocks that must be proved and proposed on-chain.
+* **Slower block times** (e.g., 2s) reduce operational costs but increase user-perceived latency.
+
+A single on-chain proposal can carry many small blocks, keeping L1 gas costs manageable regardless of block frequency.
+
+### Benefits
+
+* **Faster transaction finality.** Effective confirmation times of 500ms to 2 seconds, compared to 12 seconds without preconfirmations.
+* **Economic security.** Preconfers stake collateral and face slashing for misbehavior, providing economic guarantees beyond trust.
+* **Censorship resistance.** Forced inclusion on the `Inbox` ensures users can bypass a misbehaving preconfer and force transaction inclusion.
+* **Invisible to users.** No changes to wallets, RPCs, or transaction submission are needed.
+* **Client diversity.** Multiple independent preconfer implementations reduce the risk of a single software bug halting the chain.
+
+### Summary
+
+Based preconfirmations bridge the gap between based rollup decentralization and the fast confirmation times users expect. By allowing elected preconfers to sequence blocks off-chain and then submit them on-chain as proposals, Taiko achieves sub-second effective confirmation times while preserving its based rollup architecture, censorship resistance guarantees, and Ethereum alignment.
+
+
+## Proving System \[Taiko's proving lifecycle — Inbox proposals, SGX and ZK multi-proof verification, and checkpoint-driven L1 finalization for L2 state.]
+
+Under the **Shasta** protocol architecture (which the current Unzen fork runs on), Taiko proves L2 state transitions on Ethereum L1 through the `Inbox` and a compose `proofVerifier`. The core idea is still proof diversity, but the lifecycle is no longer the old Pacaya-style `proveBatches` plus `verifyBatches` flow. A successful proof submission advances finalization directly for a contiguous range of proposals.
+
+### Shasta Proving Model
+
+Shasta organizes L2 data around **proposals** rather than the older batch terminology.
+
+At a high level:
+
+1. A proposer submits one or more L2 blocks as a proposal to `Inbox`.
+2. A prover submits a proof for a contiguous range of proposals by calling `prove`.
+3. `Inbox` validates the proof range, checks parent-hash continuity, and forwards the proof to its configured `proofVerifier`.
+4. If the proof is valid, `Inbox` writes a checkpoint to the signal service and advances finalization for the proven range.
+
+This means there is no separate public "verified later by cooldown" step in the Shasta inbox flow. Successful proving is what advances finalization.
+
+### Proof Verifier Composition
+
+The inbox does not hardcode a single proving system. Instead, it points at a verifier contract that implements `IProofVerifier`. The current Unzen deployment on mainnet uses `ZkRequiredVerifier`, a `ComposeVerifier` over multiple sub-verifiers that requires at least one ZK proof in every accepted combination.
+
+The deployed verifier set includes:
+
+| Proof Type  | Contract Family | Trust Basis                                                     |
+| ----------- | --------------- | --------------------------------------------------------------- |
+| **sgxGeth** | `SgxVerifier`   | Intel SGX attestation over a Go Ethereum-derived execution path |
+| **sgxReth** | `SgxVerifier`   | Intel SGX attestation over a Reth-derived execution path        |
+| **RISC0**   | `Risc0Verifier` | Cryptographic ZK proof                                          |
+| **SP1**     | `SP1Verifier`   | Cryptographic ZK proof                                          |
+
+`ZkRequiredVerifier` accepts exactly two sub-proofs, and the second must be a ZK proof:
+
+* `sgxGeth + risc0`
+* `sgxGeth + sp1`
+* `sgxReth + risc0`
+* `sgxReth + sp1`
+* `risc0 + sp1`
+
+A TEE-only pair (`sgxGeth + sgxReth`) is not accepted. This keeps proof diversity while guaranteeing that every finalized range carries a cryptographic proof.
+
+### How `prove` Works
+
+When a prover calls `prove` on `Inbox`, the contract:
+
+1. Decodes a commitment covering a contiguous range of proposals.
+2. Allows the proof range to overlap already finalized proposals, but requires it to advance finalization by at least one proposal.
+3. Checks that the range connects to the latest finalized block hash.
+4. Saves a checkpoint to the signal service.
+5. Updates `lastFinalizedProposalId`, `lastFinalizedTimestamp`, and `lastFinalizedBlockHash`.
+6. Calls the configured `proofVerifier`.
+
+### SGX and ZK Proof Roles
+
+Taiko's verifier set is intentionally mixed:
+
+* **SGX proofs** are generally cheaper and faster to produce, but rely on trusted hardware assumptions.
+* **ZK proofs** are slower and more computationally expensive, but provide a purely cryptographic guarantee.
+* **Client diversity** matters too: the verifier set spans both geth-based and reth-based proving paths.
+
+The protocol therefore does not rely on a single verifier family or a single execution client to advance finalization.
+
+### Prover Permissions
+
+Shasta is designed for the staged preconfirmation rollout, so proving is not simply "anyone at any time".
+
+When the `ProverWhitelist` is enabled:
+
+* whitelisted provers can prove immediately
+* non-whitelisted provers can only prove once a proposal is older than `permissionlessProvingDelay`
+
+On the live mainnet Unzen inbox, the proving-related timing parameters are:
+
+| Parameter                        | Value     | Purpose                                                  |
+| -------------------------------- | --------- | -------------------------------------------------------- |
+| **Proving window**               | 4 hours   | Target window before a proof is considered late          |
+| **Permissionless proving delay** | 5 days    | Delay after which non-whitelisted provers may prove      |
+| **Max proof submission delay**   | 3 minutes | Sequential grace term used in the late-proof calculation |
+
+The late-proof cutoff is not just `proposal timestamp + proving window`. The inbox uses the maximum of:
+
+* `proposal.timestamp + provingWindow`
+* `lastFinalizedTimestamp + maxProofSubmissionDelay`
+
+### What Happens If a Proof Is Late
+
+The inbox still defines a late-proof settlement path for configurations that use nonzero bonds and do not rely on whitelist mode:
+
+* if a proof arrives on time, no bond transfer happens
+* if it arrives late, the proposer's liveness bond can be debited
+* half of the debited amount is credited to the actual prover
+* the other half is slashed
+
+That logic is best-effort: if the proposer has less than the configured liveness bond, the inbox debits whatever balance is available and splits that actual amount.
+
+For the current live Unzen configuration, however, this path is effectively dormant because `livenessBond = 0` and proving runs with whitelist mode enabled.
+
+### End-to-End Flow
+
+```text
+Proposer submits proposal(s) to Inbox
+        |
+        v
+ Proposal range exists on L1 but is not finalized
+        |
+        v
+ Prover assembles commitment + sub-proofs
+        |
+        v
+ prove() called on Inbox
+        |
+        v
+ Inbox validates range + prover permissions
+        |
+        v
+ ZkRequiredVerifier (ComposeVerifier) routes proof pieces
+ to SGX and/or ZK sub-verifiers
+        |
+        v
+ Required verifier combination passes
+        |
+        v
+ Inbox writes checkpoint and advances finalization
+```
+
+### Summary
+
+Taiko's proving system is defined by:
+
+* proposal-range proving through `Inbox.prove`
+* direct finalization on successful proof submission
+* a compose verifier that requires two sub-proofs, at least one of them ZK
+* whitelist-first prover access with permissionless fallback after delay
+
+For the broader protocol context, see [Shasta Fork](/protocol/shasta-fork), [Unzen Fork](/protocol/unzen-fork), [Based Rollups](/protocol/based-rollups), and [Contract Addresses](/network/contract-addresses).
+
+
+## Shasta Fork \[Protocol architecture for proposal-based derivation and checkpoint-driven finalization.]
+
+Shasta is the protocol architecture that Unzen currently runs on. It superseded Pacaya by reworking Taiko around a separate inbox, proposal-based derivation, and explicit L1/L2 routing for checkpoints and anchoring.
+
+Unzen is the current Taiko protocol fork. It keeps Shasta's proposal and finalization architecture, then adds execution-layer changes such as block-level zk gas metering. See [Unzen Fork](/protocol/unzen-fork) for the current fork details.
+
+### Proposal-Based Derivation
+
+Shasta organizes L2 block construction around **proposals** rather than the older batch terminology.
+
+Under this model:
+
+* proposals are identified by sequential proposal IDs
+* proposal data is carried in blob-backed derivation sources
+* forced inclusions are processed first and the proposer's source is appended last
+
+This keeps forced inclusion inside the normal proposal pipeline rather than treating it as a side path.
+
+### Sequential Finalization with Checkpoints
+
+Shasta keeps proving on Ethereum L1, but finalization becomes more explicitly checkpoint-driven.
+
+In practice:
+
+* `Inbox` accepts proposals and proofs for contiguous proposal ranges
+* successful proving advances finalization in order
+* finalization writes a checkpoint into the signal service
+
+This gives the rest of the protocol a fresh L1-backed checkpoint as Shasta-based proposals finalize.
+
+### L1/L2 Routing and Anchoring
+
+Shasta also changes how L1 state is reflected on L2.
+
+* `Anchor` stores anchored L1 checkpoints on L2 and records metadata used by the preconfirmation flow
+* `SignalServiceForkRouter` switches signal-service behavior across the Pacaya/Shasta fork boundary
+* the fork routing model lets Pacaya-era and Shasta-era logic coexist cleanly during transition
+
+This is one of the main architectural differences from the simpler Pacaya overview.
+
+### Preconfirmation-Oriented Permissioning
+
+Shasta is built to support the staged preconfirmation rollout.
+
+It introduces:
+
+* proposer authorization through `PreconfWhitelist`
+* prover whitelisting with permissionless fallback after delay
+* permissionless proposal fallback when forced inclusions stay too old
+
+These controls keep the fast path structured without removing the protocol's escape hatches.
+
+### Key Contract Changes
+
+Shasta introduces or elevates several contracts:
+
+* `Inbox` becomes the Shasta L1 protocol entry point
+* `Anchor` becomes the Shasta L2 anchoring contract
+* `PreconfWhitelist` controls proposer authorization
+* `ProverWhitelist` controls early proving access
+* `SignalServiceForkRouter` handles cross-fork signal-service routing
+
+See [Preconfirmations](/protocol/preconfirmations), [Proving System](/protocol/proving-system), and [Contract Addresses](/network/contract-addresses) for related details.
+
+
+## Unzen Fork \[Current protocol fork introducing block-level zk gas metering.]
+
+Unzen is the current Taiko protocol fork. It runs on the **Shasta protocol architecture** and introduces **zk gas** as a protocol-level budget for proving work.
+
+Instead of limiting blocks only by ordinary EVM gas, Unzen adds a separate weighted gas metric that reflects how expensive different opcodes and precompiles are to prove.
+
+The objective is to cap proving time per block with a protocol constant, `BLOCK_ZK_GAS_LIMIT`, so a block cannot be valid if it would require more proving work than the protocol budget allows.
+
+For the source protocol details, see the upstream [ZK Gas specification](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/zk_gas_spec.md).
+
+### EVM Version: Osaka
+
+Unzen runs the **Osaka** EVM version, which makes the Cancun, Prague, and Osaka execution-layer features available to contracts.
+
+The main contract-facing additions are:
+
+* Cancun opcodes: `TSTORE`, `TLOAD`, and `MCOPY` (`BLOBHASH` and `BLOBBASEFEE` also execute but always return `0` and `1`: Taiko L2 rejects blob transactions and never carries blobs)
+* Prague precompiles: BLS12-381 operations at addresses `0x0b` through `0x11`
+* Osaka opcode: `CLZ` (`0x1e`), exposed by Solidity inline assembly as `clz`
+* Osaka precompile: `P256VERIFY` for secp256r1 signature verification at address `0x100`
+
+### Proof Verifier: ZK Required
+
+With Unzen (Proposal0019), the mainnet `Inbox` points at `ZkRequiredVerifier`, which accepts two sub-proofs only if at least one of them is a ZK proof (RISC0 or SP1). A TEE-only pair no longer finalizes a range. See [Proving System](/protocol/proving-system).
+
+### Block-Level ZK Gas Limit
+
+Unzen defines `BLOCK_ZK_GAS_LIMIT` as the maximum cumulative zk gas allowed in a block.
+
+The initial specification sets:
+
+| Constant             |       Value |
+| -------------------- | ----------: |
+| `BLOCK_ZK_GAS_LIMIT` | 100,000,000 |
+
+All transactions in a block are metered, including system and anchor transactions.
+
+If cumulative zk gas exceeds the block limit during execution:
+
+* the transaction that crossed the limit is aborted
+* all state changes from that transaction are discarded
+* transactions that completed before it are kept
+* all remaining transactions in the block are skipped
+
+This makes the zk gas limit a block validity constraint rather than a mempool policy or local prover preference.
+
+### Weighted Opcode Metering
+
+`zk gas` is calculated by multiplying normal EVM gas spent by a proving-cost multiplier.
+
+For ordinary opcodes, Unzen meters each opcode execution as:
+
+```text
+zk_gas += step_gas * opcode_multiplier[opcode]
+```
+
+`step_gas` is the gas charged by the EVM for a single opcode, including static cost and dynamic costs such as memory expansion or storage access charges.
+
+The multiplier table is derived from per-opcode proving-time benchmarks. Expensive operations receive higher multipliers. For example, `mulmod`, `div`, `mod`, `keccak256`, and `call` receive larger weights than simple stack or memory operations.
+
+Unlisted opcodes default to `max(uint16)` as a fail-safe, making missing multiplier entries immediately exceed practical limits.
+
+### Precompile Metering
+
+Precompiles require explicit metering because they do not execute through the normal opcode loop.
+
+When a CALL-family opcode invokes an active precompile:
+
+* the CALL-family opcode is metered for opcode-side spawn overhead
+* the precompile itself is metered separately
+* the precompile multiplier is indexed by the low byte of the precompile address
+
+The precompile charge is:
+
+```text
+precompile_zk_gas = precompile_gas_used * precompile_multiplier[address]
+```
+
+`precompile_gas_used` is the gas charged by the precompile's own gas schedule, excluding the CALL-family opcode's separate costs.
+
+This keeps heavyweight precompiles such as `modexp`, point evaluation, BLAKE2F, and pairing operations represented in the block's proving budget.
+
+### Spawn Opcode Estimation
+
+Spawn opcodes need special handling because they can create child execution frames and pre-charge parent gas with a child execution budget.
+
+If Unzen used the observed parent opcode gas delta directly, the same child execution path could be counted twice:
+
+* once through the parent's forwarded gas budget
+* once through the child frame's actual opcode and precompile execution
+
+Unzen avoids this by using fixed raw-gas estimates for spawn opcodes whenever a child frame is created or a precompile is invoked.
+
+| Opcode         | Estimated raw gas |
+| -------------- | ----------------: |
+| `CALL`         |            12,500 |
+| `CALLCODE`     |            12,500 |
+| `DELEGATECALL` |             3,500 |
+| `STATICCALL`   |             3,500 |
+| `CREATE`       |            37,000 |
+| `CREATE2`      |            44,500 |
+
+Child-frame execution is still metered normally. The fixed parent-side estimate only replaces the parent opcode's observed gas delta so the forwarded child budget is not double counted.
+
+
+## Contract Addresses \[Contract addresses for Taiko on Ethereum L1 and Taiko L2.]
+
+:::info
+The canonical source for deployment data is the [deployment logs on GitHub](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/deployments). This page is a reference summary. If any discrepancy exists, the GitHub logs are authoritative.
+:::
+
+### Mainnet L1 (Ethereum)
+
+#### Bridge & Messaging
+
+Cross-chain plumbing used by any dapp moving assets or messages between L1 and Taiko. These contracts persist across protocol forks.
+
+| Contract             | Proxy Address                                |
+| -------------------- | -------------------------------------------- |
+| TaikoToken           | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` |
+| Bridge               | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` |
+| SignalService        | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` |
+| ERC20Vault           | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` |
+| ERC721Vault          | `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa` |
+| ERC1155Vault         | `0xaf145913EA4a56BE22E120ED9C24589659881702` |
+| QuotaManager         | `0x91f67118DD47d502B1f0C354D0611997B022f29E` |
+| SharedAddressManager | `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` |
+
+#### Rollup Protocol (Unzen)
+
+The live rollup: proposal inbox, preconfirmation routing, address resolvers, and the proof verifier set. `ZkRequiredVerifier` is the inbox's `proofVerifier`; it accepts two sub-proofs only if at least one is a ZK proof.
+
+| Contract                  | Address                                      |
+| ------------------------- | -------------------------------------------- |
+| Inbox (proxy)             | `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` |
+| PreconfWhitelist          | `0xFD019460881e6EeC632258222393d5821029b2ac` |
+| RollupAddressResolver     | `0x5A982Fb1818c22744f5d7D36D0C4c9f61937b33a` |
+| SharedResolver            | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` |
+| ProverWhitelist           | `0xEa798547d97e345395dA071a0D7ED8144CD612Ae` |
+| ZkRequiredVerifier (impl) | `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec` |
+| SgxVerifierGeth (impl)    | `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` |
+| SgxVerifierReth (impl)    | `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` |
+| Risc0Verifier (impl)      | `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` |
+| SP1Verifier (impl)        | `0x73A0Db393ef87ce781ac7957bE10D6628432100F` |
+
+<details>
+  <summary>Legacy</summary>
+
+  Legacy Contracts that have since been deprecated from the protocol. Kept here for historical reference and for any integrations still reading from the old inbox.
+
+  | Contract                | Proxy Address                                |
+  | ----------------------- | -------------------------------------------- |
+  | TaikoInbox              | `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a` |
+  | TaikoWrapper            | `0x9F9D2fC7abe74C79f86F0D1212107692430eef72` |
+  | ForcedInclusionStore    | `0x05d88855361808fA1d7fc28084Ef3fCa191c4e03` |
+  | ComposeVerifier         | `0xB16931e78d0cE3c9298bbEEf3b5e2276D34b8da1` |
+  | RollupAddressManager    | `0x579f40D0BE111b823962043702cabe6Aaa290780` |
+  | SgxRethVerifier         | `0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136` |
+  | SgxGethVerifier         | `0x7e6409e9b6c5e2064064a6cC994f9a2e95680782` |
+  | Risc0RethVerifier       | `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE` |
+  | SP1RethVerifier         | `0xbee1040D0Aab17AE19454384904525aE4A3602B9` |
+  | SgxGethAutomata         | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` |
+  | AutomataDcapAttestation | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` |
+  | TierSgx                 | `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81` |
+  | TierRisc0               | `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc` |
+  | TierSP1                 | `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452` |
+  | SignalServiceForkRouter | `0x6a4B15E4b0296B2ECE03Ee9Ed74E4A3E3ECA68D6` |
+  | PreconfRouter           | `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a` |
+</details>
+
+### Mainnet L2 (Taiko)
+
+#### Rollup Protocol (Unzen)
+
+| Contract             | Address                                      |
+| -------------------- | -------------------------------------------- |
+| TaikoAnchor          | `0x1670000000000000000000000000000000010001` |
+| RollupAddressManager | `0x1670000000000000000000000000000000010002` |
+| AnchorImpl (impl)    | `0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA` |
+| SignalServiceImpl    | `0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28` |
+
+#### Bridge & Messaging
+
+Predeployed at deterministic `0x167000...` addresses.
+
+| Contract             | Proxy Address                                |
+| -------------------- | -------------------------------------------- |
+| Bridge               | `0x1670000000000000000000000000000000000001` |
+| ERC20Vault           | `0x1670000000000000000000000000000000000002` |
+| ERC721Vault          | `0x1670000000000000000000000000000000000003` |
+| ERC1155Vault         | `0x1670000000000000000000000000000000000004` |
+| SignalService        | `0x1670000000000000000000000000000000000005` |
+| SharedAddressManager | `0x1670000000000000000000000000000000000006` |
+
+#### Key Tokens & Utilities
+
+| Token / Contract           | Address                                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| TaikoToken (bridged)       | `0xA9d23408b9bA935c230493c40C73824Df71A0975`                                              |
+| USDC (native)              | `0x07d83526730c7438048D55A4fc0b850e2aaB6f0b`                                              |
+| WETH                       | `0xA51894664A773981C6C112C43ce576f315d5b1B6`                                              |
+| Safe Singleton Factory     | `0x4e59b44847b379578588920cA78FbF26c0B4956C` `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` |
+| Multicall3                 | `0xca11bde05977b3631167028862be2a173976ca11`                                              |
+| EntryPoint (ERC-4337)      | `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`                                              |
+| ERC5564 Announcer          | `0x55649E01B5Df198D18D95b5cc5051630cfD45564`                                              |
+| ERC6538 Registry           | `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538`                                              |
+| ERC8004 IdentityRegistry   | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`                                              |
+| ERC8004 ReputationRegistry | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`                                              |
+
+<details>
+  <summary>Legacy</summary>
+
+  Legacy Contracts that have since been deprecated from the protocol. Kept here for historical reference and for any integrations still reading from the old inbox.
+
+  | Contract                | Proxy Address                                |
+  | ----------------------- | -------------------------------------------- |
+  | SharedResolver          | `0xc32277f541bBADAA260337E71Cea53871D310DC8` |
+  | RollupResolver          | `0x73251237d8F1B99e9966bB054722F3446195Ea56` |
+  | AnchorForkRouter (impl) | `0x38e4A497aD70aa0581BAc29747b0Ea7a53258585` |
+  | SignalServiceForkRouter | `0x2987F6Bef39b03F8522EC38B36aF0f7422938EAb` |
+</details>
+
+### Hoodi Testnet L1 (Ethereum Hoodi)
+
+#### Bridge & Messaging
+
+| Contract       | Proxy Address                                |
+| -------------- | -------------------------------------------- |
+| TaikoToken     | `0xf3b83e226202ECf7E7bb2419a4C6e3eC99e963DA` |
+| Bridge         | `0x6a4cf607DaC2C4784B7D934Bcb3AD7F2ED18Ed80` |
+| SignalService  | `0x4c70b7F5E153D497faFa0476575903F9299ed811` |
+| ERC20Vault     | `0x0857cd029937E7a119e492434c71CB9a9Bb59aB0` |
+| ERC721Vault    | `0x4876e7993dD40C22526c8B01F2D52AD8FdbdF768` |
+| ERC1155Vault   | `0x81Ff6CcE1e5cFd6ebE83922F5A9608d1752C92c6` |
+| SharedResolver | `0x7bbacc9FFd29442DF3173b7685560fCE96E01b62` |
+
+#### Rollup Protocol (Unzen)
+
+| Contract              | Proxy Address                                |
+| --------------------- | -------------------------------------------- |
+| Inbox                 | `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF` |
+| PreconfWhitelist      | `0x8B969Fcf37122bC5eCB4E0e5Ad65CEEC3f1393ba` |
+| ProverWhitelist       | `0xa9a84b6667A2c60BFdE8c239918d0d9a11c77E89` |
+| RollupAddressResolver | `0x0d006d8d394dD69fAfEfF62D21Fc03E7F50eDaF4` |
+
+<details>
+  <summary>Legacy</summary>
+
+  Legacy Contracts that have since been deprecated from the protocol. Kept here for historical reference and for any integrations still reading from the old inbox.
+
+  | Contract             | Proxy Address                                |
+  | -------------------- | -------------------------------------------- |
+  | PacayaInbox          | `0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9` |
+  | ForcedInclusionStore | `0xA7F175Aff7C62854d0A0498a0da17b66A9D452D0` |
+  | TaikoWrapper         | `0xB843132A26C13D751470a6bAf5F926EbF5d0E4b8` |
+  | ComposeVerifier      | `0xd9F11261AE4B873bE0f09D0Fc41d2E3F70CD8C59` |
+  | SgxRethVerifier      | `0xd46c13B67396cD1e74Bb40e298fbABeA7DC01f11` |
+  | SgxGethVerifier      | `0xCdBB6C1751413e78a40735b6D9Aaa7D55e8c038e` |
+  | Risc0RethVerifier    | `0xbf285Dd2FD56BF4893D207Fba4c738D1029edFfd` |
+  | SP1RethVerifier      | `0x3B3bb4A1Cb8B1A0D65F96a5A93415375C039Eda3` |
+  | PreconfRouter        | `0xCD15bdEc91BbD45E56D81b4b76d4f97f5a84e555` |
+</details>
+
+### Hoodi Testnet L2 (Taiko Hoodi)
+
+#### Rollup Protocol (Unzen)
+
+| Contract       | Proxy Address                                |
+| -------------- | -------------------------------------------- |
+| TaikoAnchor    | `0x1670130000000000000000000000000000010001` |
+| RollupResolver | `0x1670130000000000000000000000000000010002` |
+
+#### Bridge & Messaging
+
+| Contract       | Proxy Address                                |
+| -------------- | -------------------------------------------- |
+| Bridge         | `0x1670130000000000000000000000000000000001` |
+| ERC20Vault     | `0x1670130000000000000000000000000000000002` |
+| ERC721Vault    | `0x1670130000000000000000000000000000000003` |
+| ERC1155Vault   | `0x1670130000000000000000000000000000000004` |
+| SignalService  | `0x1670130000000000000000000000000000000005` |
+| SharedResolver | `0x1670130000000000000000000000000000000006` |
+
+#### Key Tokens & Utilities
+
+| Contract                           | Address                                                                                   |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| WETH                               | `0x3B39685B5495359c892DDD1057B5712F49976835`                                              |
+| Safe Singleton Factory             | `0x4e59b44847b379578588920cA78FbF26c0B4956C` `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` |
+| TaikoToken (Bridged)               | `0x557f5b2b222F1F59F94682dF01D35Dd11f37939a`                                              |
+| Multicall3                         | `0xca11bde05977b3631167028862be2a173976ca11`                                              |
+| IdentityRegistry (ERC-8004 v0.4)   | `0x5806074a60dc9325256b23062c006637ab6d5382`                                              |
+| ReputationRegistry (ERC-8004 v0.4) | `0x59f8f15002d586a0912225d3437da46ba5641f61`                                              |
+| ValidationRegistry (ERC-8004 v0.4) | `0xb3956967a17630caa36168857e99cc6e87086bf8`                                              |
+| IdentityRegistry (ERC-8004 v1.0)   | `0x8004Ac1BAA1Aa6B0D560a7Be6d32fe2f758b54f2`                                              |
+| ReputationRegistry (ERC-8004 v1.0) | `0x8004BeBB718920854944ADdDeB6e431E117bBc44`                                              |
+| ValidationRegistry (ERC-8004 v1.0) | `0x8004C0f2406207C77Ee28EBf7a2BC7F014fb013F`                                              |
+| ERC5564Announcer                   | `0x55649E01B5Df198D18D95b5cc5051630cfD45564`                                              |
+| ERC6538Registry                    | `0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538`                                              |
+
+
+## Differences from Ethereum \[Key differences between Taiko and Ethereum that affect smart contract development.]
+
+### EVM Version: Osaka
+
+Taiko runs the **Osaka** EVM, the same execution-layer feature set as Ethereum mainnet: transient storage (`TSTORE`/`TLOAD`), `MCOPY`, the BLS12-381 precompiles (`0x0b`–`0x11`), `CLZ` (`0x1e`), and `P256VERIFY` (`0x100`) are all available. Contracts compiled for any EVM target up to and including Osaka run on Taiko.
+
+What actually differs from Ethereum at the EVM level:
+
+| Difference                               | Detail                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| No blob transactions                     | EIP-4844 (type-3) transactions are rejected on L2. Taiko posts proposal data to L1 in blobs, but L2 blocks never carry blobs.                                                                                                                                                                                                                                                        |
+| `BLOBHASH` / `BLOBBASEFEE` are constants | Both opcodes execute, but `BLOBHASH` always returns `0` and `BLOBBASEFEE` always returns `1`, because there are no blobs on L2. Do not branch on them.                                                                                                                                                                                                                               |
+| Block-level zk gas budget                | Every block is also metered in **zk gas**, a proving-cost-weighted budget capped by `BLOCK_ZK_GAS_LIMIT`. A transaction that pushes a block over the limit is aborted and its state changes are discarded, even if it has ordinary gas left. Heavy precompiles (BLS12-381 pairing, `modexp`, point evaluation, BLAKE2F) carry large weights. See [Unzen Fork](/protocol/unzen-fork). |
+
+#### Which EVM Version to Target
+
+Solidity's default EVM target changes between compiler releases, and any target up to Osaka runs on Taiko, so an unpinned build works. Pin `evm_version = "osaka"` when you want `CLZ`, `P256VERIFY`, or the BLS12-381 precompiles from Solidity, and to keep verification metadata consistent across machines. The `osaka` target requires **solc 0.8.29 or newer**: older compilers reject it, and Foundry silently falls back to the newest target the compiler supports.
+
+If your project still has `evm_version = "shanghai"` from earlier versions of these docs, change it to `osaka`; contracts that use transient storage do not compile under a Shanghai target.
+
+#### Foundry Configuration
+
+Add a `[profile.taiko]` section to `foundry.toml`:
+
+```toml
+[profile.taiko]
+evm_version = "osaka"
+```
+
+Then compile and deploy with:
+
+```bash
+FOUNDRY_PROFILE=taiko forge build
+FOUNDRY_PROFILE=taiko forge script ...
+```
+
+#### Hardhat Configuration
+
+Set `evmVersion` in your Hardhat config:
+
+```js
+module.exports = {
+  solidity: {
+    version: "0.8.31", // evmVersion "osaka" requires solc 0.8.29 or newer
+    settings: {
+      evmVersion: "osaka",
+    },
+  },
+}
+```
+
+#### Impact on OpenZeppelin v5
+
+OpenZeppelin Contracts v5.1+ ships `ReentrancyGuardTransient`, which uses transient storage (`TSTORE`/`TLOAD`); the default `ReentrancyGuard` does not. Both work on Taiko's Osaka EVM without modification, as long as your build no longer pins a pre-Cancun target such as `shanghai`.
+
+### No Centralized Sequencer
+
+Taiko is a **based rollup** -- L1 Ethereum validators sequence blocks. There is no centralized sequencer.
+
+* Blocks are proposed by whitelisted proposers through preconfirmation infrastructure.
+* Anyone can force-include transactions through the `Inbox` contract's forced-inclusion queue on L1 (`saveForcedInclusion`).
+* Transaction ordering follows L1 inclusion order.
+
+### Block Time
+
+Taiko produces blocks every **2 seconds**, with **1-second block times coming soon**. Block timing is driven by based preconfirmations anchored to L1 inclusion, so don't hardcode exact intervals.
+
+### Proving System
+
+Taiko uses a **multi-proof system** requiring multiple independent proof types to agree on every state transition:
+
+| Proof Type | Description                        |
+| ---------- | ---------------------------------- |
+| SGX (Reth) | TEE-based attestation, Rust client |
+| SGX (Geth) | TEE-based attestation, Go client   |
+| ZK (RISC0) | RISC Zero zkVM proof               |
+| ZK (SP1)   | Succinct SP1 proof                 |
+
+* Every proposal range requires two sub-proofs from independent proof systems, at least one of which must be a ZK proof (RISC0 or SP1).
+* The `ZkRequiredVerifier` (a `ComposeVerifier`) orchestrates verification across sub-verifiers.
+* This provides both proof diversity and client diversity, reducing correlated failure risk.
+
+### Gas and Fee Model
+
+* Taiko uses EIP-1559 for L2 gas pricing.
+* Proposal data is posted to Ethereum in blobs. That L1 cost is paid by proposers and is not charged as a separate fee component on L2 transactions.
+
+### Account Abstraction (ERC-4337)
+
+Taiko supports **ERC-4337 account abstraction**, enabling smart contract wallets, gas sponsorship, batched user operations, and custom authentication flows.
+
+The singleton EntryPoint contract is deployed on Taiko mainnet at:
+
+`0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`
+
+Because Taiko is Ethereum-equivalent, standard ERC-4337 tooling (bundlers, paymasters, wallet SDKs) works without modification. Point your bundler at the Taiko RPC and configure the EntryPoint address above. See [Contract Addresses](/network/contract-addresses) for a full list of deployed contracts.
+
+### Execution Engine Diff
+
+For a complete list of modifications to go-ethereum, see the taiko-geth diff:
+
+* [https://geth.taiko.xyz/](https://geth.taiko.xyz/)
+
+
+## Software Releases \[Latest release versions for Taiko protocol contracts, taiko-geth, taiko-client, simple-taiko-node, and raiko — with links to changelogs.]
+
+### Software Releases
+
+It is **highly recommended** you use the latest software. You can find the latest versions here:
+
+For `simple-taiko-node v2.6.0`, the matching Unzen node bundle is `taiko-alethia-client-v2.6.0`, `alethia-reth` v1.3.1, and `taiko-geth` v2.6.0.
+
+#### Taiko
+
+| Package                                                                                | Release notes                                                                                                                                                                                              |
+| :------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [protocol](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol)         | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=taiko-alethia-protocol*\&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/CHANGELOG.md)   |
+| [alethia-reth](https://github.com/taikoxyz/alethia-reth)                               | [![GitHub Tag](https://img.shields.io/github/v/tag/taikoxyz/alethia-reth?filter=v*\&label=)](https://github.com/taikoxyz/alethia-reth/releases)                                                            |
+| [taiko-geth](https://github.com/taikoxyz/taiko-geth)                                   | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-geth?label=latest)](https://github.com/taikoxyz/taiko-geth/blob/taiko/CHANGELOG.md)                                              |
+| [taiko-client](https://github.com/taikoxyz/taiko-mono/tree/main/packages/taiko-client) | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=taiko-alethia-client*\&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/taiko-client/CHANGELOG.md) |
+| [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/tree/main)           | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/simple-taiko-node?include_prereleases\&label=)](https://github.com/taikoxyz/simple-taiko-node/blob/main/CHANGELOG.md)                  |
+| [raiko](https://github.com/taikoxyz/raiko/tree/main)                                   | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/raiko?label=)](https://github.com/taikoxyz/raiko/blob/main/CHANGELOG.md)                                                               |
+
+#### Taiko Hoodi
+
+| Package                                                                                | Release notes                                                                                                                                                                                                                   |
+| :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [protocol](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol)         | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?include_prereleases\&filter=taiko-alethia-protocol*\&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/CHANGELOG.md)   |
+| [alethia-reth](https://github.com/taikoxyz/alethia-reth)                               | [![GitHub Tag](https://img.shields.io/github/v/tag/taikoxyz/alethia-reth?include_prereleases\&label=)](https://github.com/taikoxyz/alethia-reth/releases)                                                                       |
+| [taiko-geth](https://github.com/taikoxyz/taiko-geth)                                   | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-geth?include_prereleases\&label=)](https://github.com/taikoxyz/taiko-geth/blob/taiko/CHANGELOG.md)                                                    |
+| [taiko-client](https://github.com/taikoxyz/taiko-mono/tree/main/packages/taiko-client) | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?include_prereleases\&filter=taiko-alethia-client*\&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/taiko-client/CHANGELOG.md) |
+| [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/tree/main)           | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/simple-taiko-node?include_prereleases\&label=)](https://github.com/taikoxyz/simple-taiko-node/blob/main/CHANGELOG.md)                                       |
+| [raiko](https://github.com/taikoxyz/raiko/tree/main)                                   | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/raiko?label=)](https://github.com/taikoxyz/raiko/blob/main/CHANGELOG.md)                                                                                    |
+
+### Deployment Logs
+
+Detailed contract deployment history is maintained in the protocol package:
+
+* [Mainnet L1 deployment logs](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/deployments/mainnet-contract-logs-L1.md)
+* [Mainnet L2 deployment logs](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/deployments/mainnet-contract-logs-L2.md)
+* [Hoodi testnet deployment logs](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/deployments/taiko-hoodi-contract-logs.md)
+
+
+## Bridge Tokens \[Bridge ETH and ERC-20 tokens between Ethereum L1 and Taiko L2 programmatically. Vault contracts, message proofs, and claim-side execution.]
+
+Most users should bridge through the official web UI. The programmatic flow below is for scripts and AI agents.
+
+### Bridge UI
+
+| Network               | URL                                                       |
+| --------------------- | --------------------------------------------------------- |
+| Mainnet (Taiko)       | [bridge.taiko.xyz](https://bridge.taiko.xyz/)             |
+| Testnet (Taiko Hoodi) | [bridge.hoodi.taiko.xyz](https://bridge.hoodi.taiko.xyz/) |
+
+The UI handles approvals, fee estimation, and relay monitoring. On testnet, the sidebar exposes a faucet for test tokens like [HORSE](https://hoodi.etherscan.io/token/0x0a5db5597adc81c871ebd89e81cfa07bdc8fafe3) — fund your wallet with Hoodi L1 ETH from a public Hoodi faucet first.
+
+### Programmatic bridging
+
+Use the flow below only when scripting a bridge transfer or driving it from an agent.
+
+#### Agent prompt
+
+Paste this into your coding agent:
+
+```
+Reference https://docs.taiko.xyz/SKILL.md
+
+Bridge 0.1 WETH from Ethereum L1 to Taiko L2.
+Approve the ERC20Vault, then call sendToken with the BridgeTransferOp struct.
+```
+
+#### Manual mode
+
+##### Contract addresses
+
+**Mainnet (Ethereum L1 ↔ Taiko L2)**
+
+| Contract         | Address                                      |
+| ---------------- | -------------------------------------------- |
+| L1 Bridge        | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` |
+| L1 ERC20Vault    | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` |
+| L1 SignalService | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` |
+| L2 Bridge        | `0x1670000000000000000000000000000000000001` |
+| L2 ERC20Vault    | `0x1670000000000000000000000000000000000002` |
+| L2 SignalService | `0x1670000000000000000000000000000000000005` |
+
+**Hoodi Testnet (Ethereum Hoodi L1 ↔ Taiko Hoodi L2)**
+
+| Contract         | Address                                      |
+| ---------------- | -------------------------------------------- |
+| L1 Bridge        | `0x6a4cf607DaC2C4784B7D934Bcb3AD7F2ED18Ed80` |
+| L1 ERC20Vault    | `0x0857cd029937E7a119e492434c71CB9a9Bb59aB0` |
+| L1 SignalService | `0x4c70b7F5E153D497faFa0476575903F9299ed811` |
+| L2 Bridge        | `0x1670130000000000000000000000000000000001` |
+| L2 ERC20Vault    | `0x1670130000000000000000000000000000000002` |
+| L2 SignalService | `0x1670130000000000000000000000000000000005` |
+
+##### Bridge ERC-20 tokens (L1 → L2)
+
+The mainnet examples below use a generic 18-decimal ERC-20. Adjust `parseUnits` / `--to-wei` for tokens with different decimals (for example, USDC has 6 decimals). For the Hoodi testnet version, see [Testnet example](#testnet-example).
+
+::::steps
+#### Approve the ERC20Vault
+
+The ERC20Vault pulls tokens from your wallet. Approve it for the amount you want to bridge.
+
+:::code-group
+```js [ethers.js]
+import { ethers } from "ethers";
+
+const provider = new ethers.JsonRpcProvider("https://eth.llamarpc.com");
+const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+
+const ERC20_ABI = ["function approve(address spender, uint256 amount) returns (bool)"];
+const token = new ethers.Contract(TOKEN_ADDRESS, ERC20_ABI, signer);
+
+const L1_ERC20_VAULT = "0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab";
+const amount = ethers.parseUnits("100", 18);
+
+const tx = await token.approve(L1_ERC20_VAULT, amount);
+await tx.wait();
+```
+
+```bash [cast]
+cast send $TOKEN_ADDRESS \
+  "approve(address,uint256)" \
+  0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab \
+  $(cast --to-wei 100) \
+  --rpc-url https://eth.llamarpc.com \
+  --private-key $PRIVATE_KEY
+```
+:::
+
+#### Call `sendToken` on the ERC20Vault
+
+Send a `BridgeTransferOp` struct to initiate the bridge.
+
+**`BridgeTransferOp` fields:**
+
+| Field         | Type      | Description                                                       |
+| ------------- | --------- | ----------------------------------------------------------------- |
+| `destChainId` | `uint64`  | Destination chain ID (`167000` for Taiko, `167013` for Hoodi)     |
+| `destOwner`   | `address` | Message owner on the destination chain (usually your own address) |
+| `to`          | `address` | Token recipient on L2                                             |
+| `fee`         | `uint64`  | Processing fee in wei paid to the relayer (set `0` to self-relay) |
+| `token`       | `address` | L1 token contract address                                         |
+| `gasLimit`    | `uint32`  | Gas limit for L2 execution (`140000` is a safe default)           |
+| `amount`      | `uint256` | Token amount in smallest unit                                     |
+
+:::code-group
+```js [ethers.js]
+const VAULT_ABI = [
+  "function sendToken((uint64 destChainId, address destOwner, address to, uint64 fee, address token, uint32 gasLimit, uint256 amount) op) payable returns (tuple)"
+];
+
+const vault = new ethers.Contract(L1_ERC20_VAULT, VAULT_ABI, signer);
+
+const op = {
+  destChainId: 167000,
+  destOwner: signer.address,
+  to: signer.address,
+  fee: 0,
+  token: TOKEN_ADDRESS,
+  gasLimit: 140000,
+  amount: ethers.parseUnits("100", 18),
+};
+
+// fee = 0 means self-relay; otherwise pass msg.value ≥ fee to cover the relayer
+const tx = await vault.sendToken(op, { value: 0 });
+const receipt = await tx.wait();
+console.log("Bridge tx:", receipt.hash);
+```
+
+```bash [cast]
+cast send 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab \
+  "sendToken((uint64,address,address,uint64,address,uint32,uint256))" \
+  "(167000,$YOUR_ADDRESS,$YOUR_ADDRESS,0,$TOKEN_ADDRESS,140000,$(cast --to-wei 100))" \
+  --rpc-url https://eth.llamarpc.com \
+  --private-key $PRIVATE_KEY
+```
+:::
+
+#### Wait for relay
+
+After the L1 transaction confirms, the bridge message is relayed to L2 — typically within a few minutes. Track progress in the [Bridge UI](https://bridge.taiko.xyz/) or by watching the L2 `SignalService`.
+::::
+
+##### Testnet example
+
+Swap in the Hoodi L1 ERC20Vault, a Hoodi L1 RPC, and chain ID `167013`:
+
+```bash
+cast send 0x0857cd029937E7a119e492434c71CB9a9Bb59aB0 \
+  "sendToken((uint64,address,address,uint64,address,uint32,uint256))" \
+  "(167013,$YOUR_ADDRESS,$YOUR_ADDRESS,0,$TOKEN_ADDRESS,140000,$(cast --to-wei 100))" \
+  --rpc-url https://hoodi.ethpandaops.io \
+  --private-key $PRIVATE_KEY
+```
+
+### Notes
+
+* **First bridge deploys a BridgedERC20.** The first time a given L1 token is bridged to L2, Taiko deploys a `BridgedERC20` contract for it. Subsequent bridges reuse the same contract.
+* **Bridged USDC ≠ native USDC.** Bridging L1 USDC through the ERC20Vault produces a BridgedERC20, not Taiko's native USDC (`0x07d83526730c7438048D55A4fc0b850e2aaB6f0b`). For native USDC use [Circle CCTP](https://www.circle.com/cross-chain-transfer-protocol).
+* **No rebase tokens.** Rebasing tokens (e.g., stETH) aren't supported. Use the wrapped version (e.g., wstETH).
+* **Fee-on-transfer tokens.** Supported, but the amount credited on L2 reflects the post-fee balance.
+* **Self-relay.** Setting `fee` to `0` skips the relayer — you finalize the message on L2 yourself via the Bridge UI or by calling `processMessage` on the L2 Bridge.
+* **Common L2 tokens:**
+
+| Token         | L2 Address                                   |
+| ------------- | -------------------------------------------- |
+| WETH          | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
+| USDC (native) | `0x07d83526730c7438048D55A4fc0b850e2aaB6f0b` |
+
+
+## Run a Node \[Run a Taiko mainnet or Hoodi testnet node with Docker or from source. Hardware, sync modes, RPC exposure, and taiko-client setup.]
+
+### Architecture
+
+Taiko nodes still follow Ethereum's execution/consensus split, but under the Shasta protocol architecture (which the current Unzen fork runs on) the consensus side is driven by Taiko's L1 inbox, proposal derivation rules, and L2 anchoring logic instead of an Ethereum beacon chain. The main components are:
+
+* [`alethia-reth`](https://github.com/taikoxyz/alethia-reth) — the default Reth-based **execution client** in `simple-taiko-node` for Unzen. It executes L2 blocks, maintains chain state, and exposes the JSON-RPC, WebSocket, metrics, and Engine API surfaces that `taiko-client` expects.
+* [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) — a minimally modified fork of `go-ethereum` that remains available as the geth-based execution client.
+* [`taiko-client`](https://github.com/taikoxyz/taiko-mono/tree/main/packages/taiko-client) — the **consensus and rollup driver**. It watches the `Inbox` on L1, derives L2 blocks from proposal data, tracks finalization, and drives the selected execution client through the Engine API.
+
+Since the Shasta fork, the protocol no longer upgrades the old Pacaya inbox in place. It uses a separate **Inbox** contract on L1 for proposing, proving, forced inclusion, and finalization, while the L2 side uses the **TaikoAnchor** plus fork-router contracts to keep pre-fork and post-fork behavior compatible during the transition.
+
+#### taiko-client roles
+
+| Component  | Responsibility                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `driver`   | Tracks L1 proposals and finalized proposal ranges, derives L2 blocks, and feeds them into the execution engine          |
+| `proposer` | Collects transactions and submits proposals to the L1 inbox, including lookahead data when preconfirmations are enabled |
+| `prover`   | Generates and submits validity proofs that finalize consecutive proposal ranges                                         |
+
+#### Chain synchronization
+
+At a high level, sync works like this:
+
+1. Read the latest finalized proposal state from the L1 inbox
+2. Attempt to catch up to the network tip via P2P preconfirmation peers
+3. If needed, replay finalized L2 blocks through the Engine API
+4. Listen for new `Proposed` events on L1
+5. Reconstruct and execute the corresponding L2 blocks from proposal data and forced inclusions
+6. Keep the L2 head anchored to the L1 checkpoints exposed through the anchor path
+
+If a proposed tx list is invalid, the protocol still advances by constructing an empty anchor-only block rather than halting execution.
+
+#### APIs
+
+Taiko nodes expose standard Ethereum-style interfaces:
+
+* **JSON-RPC API** for standard execution-layer workflows
+* **Engine API** for communication between `taiko-client` and execution client
+
+This is what allows most Ethereum tooling to work against Taiko with minimal changes.
+
+### Prerequisites
+
+#### Hardware
+
+| Resource | Minimum  |
+| -------- | -------- |
+| CPU      | 4 cores  |
+| RAM      | 16 GB    |
+| Storage  | 2 TB SSD |
+
+Storage requirements grow over time. Plan accordingly.
+
+#### Software
+
+| Dependency                                        | Version                                   | Check              |
+| ------------------------------------------------- | ----------------------------------------- | ------------------ |
+| [Git](https://git-scm.com/)                       | 2+                                        | `git --version`    |
+| [Docker](https://docs.docker.com/engine/install/) | 24+ (Docker method)                       | `docker --version` |
+| [Go](https://go.dev/)                             | 1.21+ (source method)                     | `go version`       |
+| [Make](https://www.gnu.org/software/make/)        | 4+ (source method)                        | `make --version`   |
+| [Rust](https://www.rust-lang.org/tools/install)   | stable (source method for `alethia-reth`) | `cargo --version`  |
+
+#### L1 Endpoint
+
+You need access to an Ethereum L1 node (execution + beacon).
+
+* **Mainnet nodes** require an Ethereum mainnet L1 endpoint.
+* **Hoodi testnet nodes** require an Ethereum Hoodi testnet L1 endpoint.
+
+:::warning
+Third-party RPC providers will eventually rate-limit your node and stop syncing. Run your own L1 node for a reliable setup.
+:::
+
+:::info
+To prove blocks older than 128 blocks, your L1 node must be an archive node.
+:::
+
+### Docker Method
+
+::::steps
+#### Clone simple-taiko-node
+
+```bash
+git clone https://github.com/taikoxyz/simple-taiko-node.git
+cd simple-taiko-node
+git checkout <release-tag>
+```
+
+On Windows, also run `git config core.autocrlf false` after cloning.
+
+#### Copy the sample environment file
+
+:::code-group
+```bash [Mainnet]
+cp .env.sample .env
+```
+
+```bash [Hoodi Testnet]
+cp .env.sample.hoodi .env
+```
+:::
+
+#### Configure L1 endpoints
+
+Open `.env` in a text editor and set:
+
+```bash
+L1_ENDPOINT_WS=ws://<your-l1-node>:8546
+L1_BEACON_HTTP=http://<your-l1-node>:5052
+```
+
+:::warning
+If your L1 node runs on the same machine, do not use `127.0.0.1`. Docker cannot reach the host loopback. Use `host.docker.internal` or your machine's private IP (find it with `ip addr show` or `ifconfig`).
+:::
+
+#### Choose an execution client
+
+In `.env`, set `COMPOSE_PROFILES` to the execution client profile you wish to use.
+
+:::code-group
+```bash [Mainnet]
+COMPOSE_PROFILES=reth_execution_engine
+```
+
+```bash [Mainnet - taiko-geth]
+COMPOSE_PROFILES=geth_execution_engine
+```
+
+```bash [Hoodi Testnet - alethia-reth]
+COMPOSE_PROFILES=reth_execution_engine
+```
+
+```bash [Hoodi Testnet - taiko-geth]
+COMPOSE_PROFILES=geth_execution_engine
+```
+:::
+
+In `simple-taiko-node`, `reth_execution_engine` runs `alethia-reth` and is the default profile for both mainnet and Hoodi. Use `geth_execution_engine` only if you want to run `taiko-geth` instead. Choose exactly one execution client profile; both profiles expose the same internal `l2_execution_engine` alias for `taiko-client`.
+
+If you run `alethia-reth`, you can set `L2_RETH_DATA_DIR` in `.env` to point at an extracted snapshot directory. If unset, Docker uses the `l2_execution_engine_data` volume. You may download the most recent publicly hosted snapshot for `alethia-reth` at [https://snapshots.taiko.xyz/](https://snapshots.taiko.xyz/).
+
+#### Configure preconfirmations (recommended)
+
+To receive preconfirmed blocks and keep your node at the tip of the chain, configure these settings in `.env`:
+
+1. Set `ENABLE_PRECONFS_P2P=true`.
+
+2. Set `PUBLIC_IP` to your machine's external IP. If left blank, NAT traversal (PMP/UPnP) is used automatically, but manual configuration is preferred.
+
+3. Open these ports on your firewall/router so they are reachable from the internet:
+   * TCP `4001` (or your custom `P2P_TCP_PORT`)
+   * UDP `30303` (or your custom `P2P_UDP_PORT`)
+
+4. Set a private key for your P2P peer identity. Use either:
+   * `PRIV_RAW` — hex-encoded private key in plaintext
+   * `PRIV_FILE` — filename of a key file in the `script/` directory
+
+:::info
+The P2P private key does not need to hold ETH or any assets. It exists only to give your node a stable peer identity. Use a unique key for each node.
+:::
+
+:::warning
+`PUBLIC_IP` must be publicly reachable from the internet at the advertised TCP and UDP ports. If it is not, your node will not join the P2P network.
+:::
+
+#### Start the node
+
+:::code-group
+```bash [Mainnet]
+docker compose up -d
+```
+
+```bash [Hoodi Testnet]
+docker compose -f docker-compose-hoodi.yml up -d
+```
+:::
+
+You may need `sudo` if your user is not in the `docker` group.
+
+#### Verify the node is running
+
+Check that the execution engine is connected:
+
+```bash
+curl http://localhost:8547 \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data '{"method":"eth_chainId","params":[],"id":1,"jsonrpc":"2.0"}'
+```
+
+Expected response for mainnet: `"result":"0x28c58"` (chain ID 167000).
+
+Check sync progress:
+
+```bash
+curl http://localhost:8547 \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}'
+```
+
+If the block number is `0` or not growing, inspect the logs:
+
+```bash
+docker compose logs -f
+```
+
+#### Verify P2P connectivity
+
+Search for `peer tick` in the logs:
+
+```bash
+docker compose logs -f | grep "peer tick"
+```
+
+Look for output like:
+
+```
+INFO [07-30|18:37:38.168] Peer tick  peersLen=2 peers="[...]" ...
+```
+
+If `peersLen` is greater than 0 and your L2 block number keeps increasing, P2P connectivity is working.
+::::
+
+### From Source Method
+
+A Taiko node has two components:
+
+* **Execution engine** — use `alethia-reth` by default on mainnet and Hoodi testnet, or `taiko-geth` if you need the geth-based client. It executes block payloads, holds chain state, and exposes the standard Ethereum JSON-RPC API.
+* **taiko-client** (consensus client) — decodes L2 blocks from L1 calldata/blobspace and passes payloads to the execution engine.
+
+::::steps
+#### Build an execution engine
+
+Choose the execution engine you want to run. Check out the matching release from the relevant releases page before building.
+
+:::code-group
+```bash [alethia-reth]
+git clone https://github.com/taikoxyz/alethia-reth.git
+cd alethia-reth
+git checkout <release-tag>
+cargo build --release
+```
+
+```bash [taiko-geth]
+git clone https://github.com/taikoxyz/taiko-geth.git
+cd taiko-geth
+git checkout <release-branch>
+make geth
+```
+:::
+
+#### Build taiko-client
+
+Clone the monorepo and check out the release branch from the [releases page](https://github.com/taikoxyz/taiko-mono/releases) (search for `taiko-client`):
+
+```bash
+git clone https://github.com/taikoxyz/taiko-mono.git
+cd taiko-mono/packages/taiko-client
+git checkout <release-branch>
+make build
+```
+
+#### Create a JWT secret
+
+The execution engine and taiko-client communicate over the Engine API, secured by a shared secret:
+
+```bash
+openssl rand -hex 32 > jwt.txt
+```
+
+Copy `jwt.txt` into both the execution engine and `taiko-client` directories, or pass the same absolute path to both commands.
+
+#### Start execution engine
+
+:::code-group
+```bash [Mainnet - alethia-reth]
+mkdir -p ./data/alethia-reth
+./target/release/alethia-reth node \
+  --chain mainnet \
+  --datadir ./data/alethia-reth \
+  --http \
+  --http.addr 0.0.0.0 \
+  --http.port 8545 \
+  --http.api eth,net,debug,trace,rpc \
+  --ws \
+  --ws.addr 0.0.0.0 \
+  --ws.port 8546 \
+  --metrics 0.0.0.0:6060 \
+  --color never \
+  --enable-discv5-discovery \
+  --engine.persistence-threshold 128 \
+  --engine.memory-block-buffer-target 128 \
+  --rpc.eth-proof-window 1209600 \
+  --authrpc.addr 0.0.0.0 \
+  --authrpc.port 8551 \
+  --authrpc.jwtsecret ./jwt.txt \
+  --ipcpath ./data/alethia-reth/reth.ipc \
+  --bootnodes "enode://266a8e3b5e44201eca9c368d58aa59a7750295397e77d5b32aea2644f9962cbc4e1cb0543aab0480995a209408174413f65e5ce253d60bb83d22d3b8ab12eb89@34.142.239.251:30303,enode://d94d78fa9c3be00d403788bcbcbfe7f99efb8db26b04b38100f520a38ee40a29b5f6b7ab01e4f8908e0683d3153fa840264500bc72c114c08b0eb770b6ce52f5@34.126.181.0:30303,enode://27384375dbbfd8af5df71392fceb01b93cef1f674e4884fb481be145426f9ce5706941fd93928101a3079a52e621d8a42d266ab9165f4f960233adce22e905f8@34.21.195.34:30303"
+```
+
+```bash [Mainnet - taiko-geth]
+./build/bin/geth \
+  --taiko \
+  --networkid 167000 \
+  --gcmode archive \
+  --datadir ./data/taiko-geth \
+  --metrics \
+  --metrics.expensive \
+  --metrics.addr "0.0.0.0" \
+  --bootnodes enode://266a8e3b5e44201eca9c368d58aa59a7750295397e77d5b32aea2644f9962cbc4e1cb0543aab0480995a209408174413f65e5ce253d60bb83d22d3b8ab12eb89@34.142.239.251:30303,enode://d94d78fa9c3be00d403788bcbcbfe7f99efb8db26b04b38100f520a38ee40a29b5f6b7ab01e4f8908e0683d3153fa840264500bc72c114c08b0eb770b6ce52f5@34.126.181.0:30303,enode://27384375dbbfd8af5df71392fceb01b93cef1f674e4884fb481be145426f9ce5706941fd93928101a3079a52e621d8a42d266ab9165f4f960233adce22e905f8@34.21.195.34:30303 \
+  --authrpc.addr "0.0.0.0" \
+  --authrpc.port 8551 \
+  --authrpc.vhosts "*" \
+  --authrpc.jwtsecret ./jwt.txt \
+  --http \
+  --http.api debug,eth,net,web3,txpool,taiko \
+  --http.addr "0.0.0.0" \
+  --http.port 8545 \
+  --http.vhosts "*" \
+  --ws \
+  --ws.api debug,eth,net,web3,txpool,taiko \
+  --ws.addr "0.0.0.0" \
+  --ws.port 8546 \
+  --ws.origins "*" \
+  --gpo.ignoreprice "25000000" \
+  --port 30306 \
+  --discovery.port 30306 \
+  --syncmode full \
+  --state.scheme=path
+```
+
+```bash [Hoodi Testnet - taiko-geth]
+./build/bin/geth \
+  --taiko \
+  --networkid 167013 \
+  --gcmode archive \
+  --datadir ./data/taiko-geth \
+  --metrics \
+  --metrics.expensive \
+  --metrics.addr "0.0.0.0" \
+  --bootnodes enode://eb5079aae185d5d8afa01bfd2d349da5b476609aced2b57c90142556cf0ee4a152bcdd724627a7de97adfc2a68af5742a8f58781366e6a857d4bde98de6fe986@34.44.53.195:30303,enode://dc1adc9fe0b23bcafb4a3929e14df0f020e0168886991ec26e6ca2fd8b86541f70edde6f0933b186f6e675b6ef5a7e0c7e9a96ffa3337c6afa28c10727b8a868@34.58.49.30:30303,enode://44503022a2ba9d554dc25530917a887686174e100b02a988b8e79cc35d8f174140ae1e4809c3a4c8ee64a3dc51e8c57967f5ed6d9bf661c233e40a00657e121d@104.197.222.109:30303 \
+  --authrpc.addr "0.0.0.0" \
+  --authrpc.port 8551 \
+  --authrpc.vhosts "*" \
+  --authrpc.jwtsecret ./jwt.txt \
+  --http \
+  --http.api admin,debug,eth,net,web3,txpool,miner,taiko \
+  --http.addr "0.0.0.0" \
+  --http.port 8545 \
+  --http.vhosts "*" \
+  --ws \
+  --ws.api admin,debug,eth,net,web3,txpool,miner,taiko \
+  --ws.addr "0.0.0.0" \
+  --ws.port 8546 \
+  --ws.origins "*" \
+  --gpo.ignoreprice "25000000" \
+  --port 30306 \
+  --discovery.port 30306 \
+  --syncmode full \
+  --state.scheme=path
+```
+
+```bash [Hoodi Testnet - alethia-reth]
+mkdir -p ./data/alethia-reth
+./target/release/alethia-reth node \
+  --chain taiko-hoodi \
+  --datadir ./data/alethia-reth \
+  --http \
+  --http.addr 0.0.0.0 \
+  --http.port 8545 \
+  --http.api eth,net,debug,trace,rpc \
+  --ws \
+  --ws.addr 0.0.0.0 \
+  --ws.port 8546 \
+  --metrics 0.0.0.0:6060 \
+  --color never \
+  --enable-discv5-discovery \
+  --engine.persistence-threshold 128 \
+  --engine.memory-block-buffer-target 128 \
+  --rpc.eth-proof-window 1209600 \
+  --authrpc.addr 0.0.0.0 \
+  --authrpc.port 8551 \
+  --authrpc.jwtsecret ./jwt.txt \
+  --ipcpath ./data/alethia-reth/reth.ipc \
+  --bootnodes "enode://eb5079aae185d5d8afa01bfd2d349da5b476609aced2b57c90142556cf0ee4a152bcdd724627a7de97adfc2a68af5742a8f58781366e6a857d4bde98de6fe986@34.44.53.195:30303,enode://dc1adc9fe0b23bcafb4a3929e14df0f020e0168886991ec26e6ca2fd8b86541f70edde6f0933b186f6e675b6ef5a7e0c7e9a96ffa3337c6afa28c10727b8a868@34.58.49.30:30303,enode://44503022a2ba9d554dc25530917a887686174e100b02a988b8e79cc35d8f174140ae1e4809c3a4c8ee64a3dc51e8c57967f5ed6d9bf661c233e40a00657e121d@104.197.222.109:30303"
+```
+:::
+
+Start the execution engine first. It will wait for taiko-client to connect.
+
+#### Start taiko-client
+
+Set your L1 endpoint environment variables:
+
+```bash
+export L1_ENDPOINT_WS=<your-l1-ws-endpoint>
+export L1_BEACON_HTTP=<your-l1-beacon-http-endpoint>
+export PUBLIC_IP=<your-external-ip>
+export PRIV_RAW=<your-p2p-private-key>
+```
+
+:::code-group
+```bash [Mainnet]
+./bin/taiko-client driver \
+  --l1.ws "${L1_ENDPOINT_WS}" \
+  --l2.ws ws://localhost:8546 \
+  --l1.beacon "${L1_BEACON_HTTP}" \
+  --l2.auth http://localhost:8551 \
+  --inbox 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f \
+  --taikoAnchor 0x1670000000000000000000000000000000010001 \
+  --verbosity 3 \
+  --jwtSecret ./jwt.txt \
+  --p2p.sync \
+  --p2p.checkPointSyncUrl https://rpc.mainnet.taiko.xyz \
+  --p2p.bootnodes enode://c263741b17759f3850d24d67d6c3cbc307c73e17d80c6b12a63a4792a10529d1125d00ecf7ef4c9b0dc51d28b94dfc1b8798fb524f61a1f93946748649f73b23@34.142.239.251:4001?discport=30304,enode://67c739e00a9b6476fce8f9d3cf0ae12589c325c51520da75c2dbfe5094d5c9ef72abf0e368316b10e8332b96e1886869164113a86b66f7f8b989ed0d8dee8895@34.126.181.0:4001?discport=30304,enode://a31855cd5c4138327617bde2e87418774d03c40cd7217344e24f6d906a8ca72c777d65ed9bd38b20e03fa5f91302ae690b00963cd490011c549189ac24e0d1b9@34.21.195.34:4001?discport=30304 \
+  --p2p.listen.ip 0.0.0.0 \
+  --p2p.advertise.ip ${PUBLIC_IP} \
+  --p2p.listen.tcp 4001 \
+  --p2p.advertise.tcp 4001 \
+  --p2p.listen.udp 30303 \
+  --p2p.advertise.udp 30303 \
+  --p2p.peerstore.path /node-keys/peerstore \
+  --p2p.discovery.path /node-keys/discv5 \
+  --preconfirmation.serverPort 9871 \
+  --preconfirmation.jwtSecret ./jwt.txt \
+  --p2p.useragent taiko \
+  --p2p.priv.raw "${PRIV_RAW}"
+```
+
+```bash [Hoodi Testnet]
+./bin/taiko-client driver \
+  --l1.ws "${L1_ENDPOINT_WS}" \
+  --l2.ws ws://localhost:8546 \
+  --l1.beacon "${L1_BEACON_HTTP}" \
+  --l2.auth http://localhost:8551 \
+  --inbox 0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF \
+  --taikoAnchor 0x1670130000000000000000000000000000010001 \
+  --verbosity 3 \
+  --jwtSecret ./jwt.txt \
+  --p2p.sync \
+  --p2p.checkPointSyncUrl https://rpc.hoodi.taiko.xyz \
+  --p2p.peerstore.path ./peerstore \
+  --p2p.discovery.path ./discv5 \
+  --preconfirmation.serverPort 9871 \
+  --preconfirmation.jwtSecret ./jwt.txt \
+  --p2p.listen.ip 0.0.0.0 \
+  --p2p.useragent taiko \
+  --p2p.bootnodes enode://b2d094ade1ce68990878b197bf818bd41d5b32e4019d42dc63d91d7020f531532f063833e44e84f78792969f69fd5553370216703c40fcc0cb835f17177fbe07@34.63.52.157:4001?discport=30304,enode://4f075635abd45a468e2fffeac97dad6e275d5728449054fbf265478b26db848092631c8e3cc287e5ab49cfa4e5ad4a53c2f0f4369d17c948fb0e08a6ceabc448@34.58.49.30:4001?discport=30304 \
+  --p2p.listen.tcp 4001 \
+  --p2p.advertise.tcp 4001 \
+  --p2p.listen.udp 30303 \
+  --p2p.advertise.udp 30303 \
+  --p2p.advertise.ip ${PUBLIC_IP} \
+  --p2p.priv.raw "${PRIV_RAW}"
+```
+:::
+
+:::info
+To run without P2P preconfirmations, remove all `--p2p.*` and `--preconfirmation.*` flags except `--p2p.sync` and `--p2p.checkPointSyncUrl`. Your node will only update when events are emitted on-chain.
+:::
+
+:::warning
+For Hoodi testnet, if you run an Ethereum Hoodi beacon client, configure it for data column sampling (Fusaka upgrade). Required flags by client:
+
+* **Lighthouse:** `--semi-supernode` or `--supernode`
+* **Teku:** `--p2p-subscribe-all-custody-subnets-enabled`
+* **Grandine:** `--subscribe-all-data-column-subnets`
+* **Lodestar:** `--supernode`
+* **Nimbus:** `--debug-peerdas-supernode`
+
+Alternatively, set a `--blob.server` URL pointing to a blob indexer service.
+:::
+::::
+
+### Monitoring
+
+#### Grafana Dashboard (Docker)
+
+A Grafana dashboard runs at `http://localhost:3001` (or your custom `GRAFANA_PORT`):
+
+```
+http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview
+```
+
+#### Docker CLI Reference
+
+| Action                           | Command                                             |
+| -------------------------------- | --------------------------------------------------- |
+| Start                            | `docker compose up -d`                              |
+| Stop                             | `docker compose down`                               |
+| Restart                          | `docker compose down && docker compose up -d`       |
+| Update                           | `git checkout <release-tag> && docker compose pull` |
+| Remove (with data)               | `docker compose down -v`                            |
+| View all logs                    | `docker compose logs -f`                            |
+| View alethia-reth execution logs | `docker compose logs -f reth_execution_engine`      |
+| View taiko-geth execution logs   | `docker compose logs -f geth_execution_engine`      |
+| View driver logs                 | `docker compose logs -f taiko_client_driver`        |
+| Resource usage                   | `docker stats`                                      |
+
+For Hoodi testnet, add `-f docker-compose-hoodi.yml` to the Docker Compose commands.
+
+### Troubleshooting
+
+| Problem                                                       | Cause                                   | Fix                                                                                                                       |
+| ------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `Caught SIGILL in blst_cgo_init`                              | Older CPU incompatible with blst        | Set `CGO_CFLAGS="-O -D__BLST_PORTABLE__"` and `CGO_CFLAGS_ALLOW="-O -D__BLST_PORTABLE__"`                                 |
+| `beacon client not found`                                     | Missing or incorrect `--l1.beacon` flag | Set `L1_BEACON_HTTP` in `.env` or pass `--l1.beacon` with a valid beacon endpoint                                         |
+| `Dial tcp: lookup l2_execution_engine ... server misbehaving` | L1 node out of sync or rate-limited     | Verify L1 sync status; run your own L1 node instead of a rate-limited provider                                            |
+| `no service selected`                                         | Outdated simple-taiko-node              | Pull the latest version and set `COMPOSE_PROFILES` in `.env`                                                              |
+| `failed to check whether L1 chain has been reorged`           | BlockPi archive mode disabled           | Enable the Archive feature on BlockPi, or use your own L1 node                                                            |
+| `Looking for peers` (stuck)                                   | P2P sync issue                          | Set `DISABLE_P2P_SYNC=true` in `.env` and restart                                                                         |
+| `Bind for 0.0.0.0:6060 failed: port is already allocated`     | Port conflict                           | Stop the conflicting service or change the port in `.env`                                                                 |
+| `Required flag "l2.suggestedFeeRecipient" not set`            | Spaces in `.env` values                 | Remove all trailing spaces from `.env` fields                                                                             |
+| `Unknown shorthand flag: 'd' in -d`                           | Docker Compose v1                       | Upgrade to [Docker Compose v2](https://docs.docker.com/compose/install/linux/) or use `docker-compose up -d` (hyphenated) |
+| `/bin/sh: ... not found` (Windows)                            | Windows line endings (CRLF)             | Delete the repo, run `git config --global core.autocrlf false`, and re-clone                                              |
+| `Dial tcp: connect: connection refused`                       | Firewall blocking ports                 | Check firewall rules with `sudo ufw status` and allow the required ports                                                  |
+| `No contract code at given address`                           | Node not synced or wrong network        | Wait for L1 to fully sync; verify you are on the correct network                                                          |
+| `Database contains incompatible genesis`                      | Old testnet data                        | Run `docker compose down -v` to remove old volumes                                                                        |
+| `genesis header hash mismatch`                                | Wrong docker-compose file               | Use the correct file for your network (e.g., `docker-compose-hoodi.yml` for Hoodi)                                        |
+

@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  
+    
+      <title>EIP-7892: Blob Parameter Only Hardforks</title>
+      <meta property="og:title" content="EIP-7892: Blob Parameter Only Hardforks" />
+    
+    <meta name="description" content="Defines a mechanism for scaling Ethereum’s blob capacity via specialized hard forks that modify only blob-related parameters." />
+    <meta property="og:description" content="Defines a mechanism for scaling Ethereum’s blob capacity via specialized hard forks that modify only blob-related parameters." />
+    <meta name="twitter:description" content="Defines a mechanism for scaling Ethereum’s blob capacity via specialized hard forks that modify only blob-related parameters." />
+  
+  <meta name="generator" content="Jekyll" />
+  <meta property="og:locale" content="en_US" />
+  <link rel="canonical" href="https://eips.ethereum.org/EIPS/eip-7892" />
+  <meta property="og:url" content="https://eips.ethereum.org/EIPS/eip-7892" />
+  <meta property="og:site_name" content="Ethereum Improvement Proposals" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://eips.ethereum.org/assets/images/eip-og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://eips.ethereum.org/assets/images/eip-og-image.png" />
+  <meta name="twitter:site" content="@" />
+  <script type="application/ld+json">
+    {
+      "@type": "WebSite",
+      "url": "https://eips.ethereum.org",
+      "name": "Ethereum Improvement Proposals",
+      "description": "Ethereum Improvement Proposals (EIPs) describe standards for the Ethereum platform, such as core protocol specifications.",
+      "@context": "https://schema.org"
+    }
+  </script>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+  <link rel="icon" type="image/png" href="/assets/images/favicon.png" /><link type="application/atom+xml" rel="alternate" href="https://eips.ethereum.org/feed.xml" title="Ethereum Improvement Proposals" /><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+  <link rel="stylesheet" href="/assets/css/override.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.min.js" integrity="sha384-Rx+T1VzGupg4BHQYs2gCW9It+akI2MM/mndMCy36UVfodzcJcF0GGLxZIzObiEfa" crossorigin="anonymous"></script>
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", (event) => {
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+      const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+    });
+  </script>
+  <script type="text/javascript">
+    window.MathJax = {
+      loader: {
+        load: ['input/tex-base', 'output/chtml']
+      },
+      tex: {
+        inlineMath: [['$', '$']],
+        displayMath: [['$$', '$$']],
+        processEscapes: true,
+        processEnvironments: false,
+        processRefs: false
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js" integrity="sha384-/1zmJ1mBdfKIOnwPxpdG6yaRrxP6qu3eVYm0cz2nOx+AcL4d3AqEFrwcqGZVVroG" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/citation-js/0.6.7/citation.min.js" integrity="sha512-N+LDFMa9owHXGS+CyMrBvuxq2QuGl3fiB/7cys3aUEL7K6P1soHGqsS0sjHXZpwNd9Kz0m3R4IPy1HYRi6ROEQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script type="text/javascript">
+    addEventListener('DOMContentLoaded', async () => {
+      const Cite = window.require('citation-js');
+      const citationElements = document.querySelectorAll('.language-csl-json');
+      for (let citationElement of citationElements) {
+        try {
+          const citation = await Cite.async(citationElement);
+          const template = document.createElement('template');
+          template.innerHTML = citation.format('bibliography', {
+            format: 'html',
+            template: 'apa',
+            lang: 'en-US'
+          });
+          if (citationElement.parentElement && citationElement.parentElement.matches('pre')) {
+            citationElement.parentElement.replaceWith(template.content);
+          } else {
+            citationElement.replaceWith(template.content);
+          }
+        } catch (e) {
+          console.error("unable to render citation", e);
+        }
+      }
+    });
+  </script>
+</head>
+<body><header class="site-header" role="banner">
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Ethereum Improvement Proposals</a><nav class="site-nav d-flex">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger row p-2"><a class="page-link col" href="/all">All</a><a class="page-link col" href="/core">Core</a><a class="page-link col" href="/networking">Networking</a><a class="page-link col" href="/interface">Interface</a><a class="page-link col" href="/erc">ERC</a><a class="page-link col" href="/meta">Meta</a><a class="page-link col" href="/informational">Informational</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="bi-megaphone-fill" fill="currentColor" viewBox="0 0 16 16">
+    <title>Alert</title>
+    <path d="M13 2.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0v-11zm-1 .724c-2.067.95-4.539 1.481-7 1.656v6.237a25.222 25.222 0 0 1 1.088.085c2.053.204 4.038.668 5.912 1.56V3.224zm-8 7.841V4.934c-.68.027-1.399.043-2.008.053A2.02 2.02 0 0 0 0 7v2c0 1.106.896 1.996 1.994 2.009a68.14 68.14 0 0 1 .496.008 64 64 0 0 1 1.51.048zm1.39 1.081c.285.021.569.047.85.078l.253 1.69a1 1 0 0 1-.983 1.187h-.548a1 1 0 0 1-.916-.599l-1.314-2.48a65.81 65.81 0 0 1 1.692.064c.327.017.65.037.966.06z"/>
+  </symbol>
+  <symbol id="bi-code" fill="currentColor" viewBox="0 0 16 16">
+    <title>Source</title>
+    <path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z"/>
+  </symbol>
+  <svg id="bi-chat" fill="currentColor" viewBox="0 0 16 16">
+    <title>Discuss</title>
+    <path d="M2.678 11.894a1 1 0 0 1 .287.801 10.97 10.97 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8.06 8.06 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894zm-.493 3.905a21.682 21.682 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a9.68 9.68 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9.06 9.06 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105z"/>
+  </svg>
+</svg>
+
+<div class="home">
+  
+  
+  
+ 
+  <span class="h5">
+    
+    
+    
+    
+    
+      <span class="badge text-light bg-success" data-bs-toggle="tooltip" data-bs-title="This EIP is finalized and is added as an Ethereum Standard. "> 🎉 Final</span>
+    
+       
+    
+      <a class="badge text-light bg-primary" data-bs-toggle="tooltip" data-bs-title="Describes an Ethereum design issue, or provides general guidelines or information to the Ethereum community, but does not propose a new feature. Informational EIPs do not necessarily represent Ethereum community consensus or a recommendation, so users and implementers are free to ignore Informational EIPs or follow their advice." href="../informational">Informational</a>
+    
+  </span>
+  <h1 class="page-heading">
+    EIP-7892: Blob Parameter Only Hardforks
+    <a href="https://ethereum-magicians.org/t/eip-7892-blob-parameter-only-hardforks/23018" class="no-underline">
+      <svg role="img" aria-label="Discuss" class="inline-svg" xmlns="https://www.w3.org/2000/svg" viewBox="0 0 16 16">
+        <use xlink:href="#bi-chat"/>
+      </svg>
+    </a>
+    <a href="https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7892.md" class="no-underline">
+      <svg role="img" aria-label="Source" class="inline-svg" xmlns="https://www.w3.org/2000/svg" viewBox="0 0 16 16">
+        <use xlink:href="#bi-code"/>
+      </svg>
+    </a>
+  </h1>
+  <h3>Defines a mechanism for scaling Ethereum’s blob capacity via specialized hard forks that modify only blob-related parameters.</h3>
+  <table class="table table-borderless preamble">
+    <tbody>
+      <tr>
+        <th scope="row">Authors</th>
+        <td>Mark Mackey&nbsp;(<a href="https://github.com/ethDreamer">@ethDreamer</a>), Raúl Kripalani&nbsp;(<a href="https://github.com/raulk">@raulk</a>)</td>
+      </tr>
+      
+        <tr>
+          <th scope="row">Created</th>
+          <td>2025-02-28</td>
+        </tr>
+      
+      
+             
+      
+      
+        <tr>
+          <th scope="row">Requires</th>
+          <td>
+
+  <a href="eip-7840">EIP-7840</a>
+
+</td>
+        </tr>
+      
+    </tbody>
+  </table>
+  <br/>
+
+  
+
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul>
+  <li><a href="#abstract">Abstract</a></li>
+  <li><a href="#motivation">Motivation</a></li>
+  <li><a href="#specification">Specification</a>
+    <ul>
+      <li><a href="#definition">Definition</a></li>
+      <li><a href="#blob-schedule-configuration">Blob schedule configuration</a></li>
+      <li><a href="#execution-layer-configuration">Execution layer configuration</a></li>
+      <li><a href="#blob-base-fee-computations">Blob base fee computations</a></li>
+      <li><a href="#consensus-layer-configuration">Consensus layer configuration</a></li>
+      <li><a href="#modified-compute_fork_digest">Modified compute_fork_digest</a></li>
+      <li><a href="#p2p-networking">P2P Networking</a></li>
+    </ul>
+  </li>
+  <li><a href="#rationale">Rationale</a>
+    <ul>
+      <li><a href="#why-not-just-use-regular-hardforks">Why not just use regular hardforks?</a></li>
+      <li><a href="#why-specify-parameters-in-the-node-configuration-instead-of-code">Why specify parameters in the node configuration instead of code?</a></li>
+      <li><a href="#why-not-create-an-on-chain-voting-mechanism-for-blob-parameters">Why not create an on-chain voting mechanism for blob parameters?</a></li>
+    </ul>
+  </li>
+  <li><a href="#backwards-compatibility">Backwards Compatibility</a></li>
+  <li><a href="#security-considerations">Security Considerations</a></li>
+  <li><a href="#copyright">Copyright</a></li>
+</ul>
+
+  </div>
+
+  <h2 id="abstract">
+      
+      
+        <a href="#abstract" class="anchor-link"></a> Abstract
+      
+      
+    </h2>
+
+<p>This EIP introduces <strong>Blob Parameter Only (BPO) Hardforks</strong>, a lightweight mechanism for incrementally scaling Ethereum’s blob capacity through targeted hard forks that modify only blob-related parameters: <code class="language-plaintext highlighter-rouge">target</code>, <code class="language-plaintext highlighter-rouge">max</code>, and <code class="language-plaintext highlighter-rouge">baseFeeUpdateFraction</code>. Unlike traditional hard forks, which require extensive coordination and introduce broader protocol changes, BPO forks enable rapid, low-overhead scaling of blob capacity in response to <strong>real-world demand and network conditions</strong>.</p>
+  
+    <h2 id="motivation">
+      
+      
+        <a href="#motivation" class="anchor-link"></a> Motivation
+      
+      
+    </h2>
+
+<p>Ethereum’s scaling strategy relies on Layer 2 (L2) solutions for transaction execution while using Ethereum as a <strong>data availability (DA) layer</strong>. However, the demand for DA has increased rapidly, and the current approach of only modifying blob parameters in large, infrequent hard forks is <strong>not agile enough</strong> to keep up with L2 growth.</p>
+
+<p>The key motivations for BPO forks are as follows:</p>
+
+<ol>
+  <li><strong>Continuous Scaling</strong>
+    <ul>
+      <li>L2 DA demand is growing rapidly, leading to ongoing saturation of blob capacity.</li>
+      <li>Large, infrequent blob parameter changes create high costs and inefficiencies.</li>
+      <li>BPO forks allow for more frequent, safer capacity increases.</li>
+    </ul>
+  </li>
+  <li><strong>Reduced Operational Overhead</strong>
+    <ul>
+      <li>Performance improvements and further testing will continue to unlock additional capacity.</li>
+      <li>It is desirable to reduce the time between core devs agreeing on a parameter increase and its effective deployment.</li>
+      <li>Full Ethereum hard forks require significant coordination, testing, and upgrade efforts across clients.</li>
+      <li>By isolating blob parameter changes, BPO forks reduce the complexity of upgrades.</li>
+    </ul>
+  </li>
+  <li><strong>Enhanced Stability with New Scaling Technologies</strong>
+    <ul>
+      <li>Major scaling upgrades introduce uncertainty in optimal blob limits.</li>
+      <li>Rather than forcing core developers to accept a suboptimal tradeoff between stability and capacity, BPO forks allow developers to safely increase parameters after observing mainnet performance and stability.</li>
+    </ul>
+  </li>
+  <li><strong>Predictable Upgrades for Builders</strong>
+    <ul>
+      <li>Builders and L2s require confidence that Ethereum will continuously scale to support their needs.</li>
+      <li>A structured BPO framework provides predictability, allowing rollups to commit to Ethereum over alternative DA solutions.</li>
+    </ul>
+  </li>
+</ol>
+  
+    <h2 id="specification">
+      
+      
+        <a href="#specification" class="anchor-link"></a> Specification
+      
+      
+    </h2>
+  
+    <h3 id="definition">
+      
+      
+        <a href="#definition" class="anchor-link"></a> Definition
+      
+      
+    </h3>
+
+<p>BPO hardforks are defined as protocol upgrades that modify only blob-related parameters through configuration, without requiring any client-side code changes. The new parameters take effect immediately at the specified activation time.</p>
+  
+    <h3 id="blob-schedule-configuration">
+      
+      
+        <a href="#blob-schedule-configuration" class="anchor-link"></a> Blob schedule configuration
+      
+      
+    </h3>
+
+<p>The following protocol parameters are now managed by the blob schedule configuration:</p>
+
+<ul>
+  <li><strong>Blob Target (<code class="language-plaintext highlighter-rouge">target</code>)</strong>: The expected number of blobs per block.</li>
+  <li><strong>Blob Limit (<code class="language-plaintext highlighter-rouge">max</code>)</strong>: The maximum number of blobs per block.</li>
+  <li><strong>Blob Base Fee Update Fraction (<code class="language-plaintext highlighter-rouge">baseFeeUpdateFraction</code>)</strong>: Determines how blob gas pricing adjusts per block.</li>
+</ul>
+
+<p>To ensure consistency, when a regular hardfork changes any of these parameters, it MUST do so by adding an entry to the blob schedule configuration.</p>
+  
+    <h3 id="execution-layer-configuration">
+      
+      
+        <a href="#execution-layer-configuration" class="anchor-link"></a> Execution layer configuration
+      
+      
+    </h3>
+
+<p>To facilitate these changes on the execution layer, each fork in the <code class="language-plaintext highlighter-rouge">blobSchedule</code> object defined in <a href="/EIPS/eip-7840">EIP-7840</a> is linked to an activation timestamp via a top-level <code class="language-plaintext highlighter-rouge">&lt;fork_name&gt;Time</code> field, which holds the Unix timestamp of the activation slot as a JSON number. BPO forks SHOULD be named using the convention <code class="language-plaintext highlighter-rouge">bpo&lt;index&gt;</code>, where <code class="language-plaintext highlighter-rouge">&lt;index&gt;</code> starts at <code class="language-plaintext highlighter-rouge">1</code>. Left padding is unnecessary since these labels are not subject to lexicographic sorting. Activation timestamps are required only for forks that occur <strong>after</strong> Prague.</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"blobSchedule"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"cancun"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"max"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"baseFeeUpdateFraction"</span><span class="p">:</span><span class="w"> </span><span class="mi">3338477</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"prague"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"max"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"baseFeeUpdateFraction"</span><span class="p">:</span><span class="w"> </span><span class="mi">5007716</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"osaka"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"max"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"baseFeeUpdateFraction"</span><span class="p">:</span><span class="w"> </span><span class="mi">5007716</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"bpo1"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"max"</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"baseFeeUpdateFraction"</span><span class="p">:</span><span class="w"> </span><span class="mi">8346193</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"bpo2"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"max"</span><span class="p">:</span><span class="w"> </span><span class="mi">21</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"baseFeeUpdateFraction"</span><span class="p">:</span><span class="w"> </span><span class="mi">11684671</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"cancunTime"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"pragueTime"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"osakaTime"</span><span class="p">:</span><span class="w"> </span><span class="mi">1747387400</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"bpo1Time"</span><span class="p">:</span><span class="w"> </span><span class="mi">1757387400</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"bpo2Time"</span><span class="p">:</span><span class="w"> </span><span class="mi">1767387784</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Since there is no backporting, the values for <code class="language-plaintext highlighter-rouge">cancunTime</code> and <code class="language-plaintext highlighter-rouge">pragueTime</code> are set to 0. It should also be noted that the other parameters and schedules above are purely illustrative. Actual values and schedules are beyond the scope of this specification.</p>
+  
+    <h3 id="blob-base-fee-computations">
+      
+      
+        <a href="#blob-base-fee-computations" class="anchor-link"></a> Blob base fee computations
+      
+      
+    </h3>
+
+<p>We modify the functions <code class="language-plaintext highlighter-rouge">get_base_fee_per_blob_gas</code> and <code class="language-plaintext highlighter-rouge">calc_excess_blob_gas</code> defined in <a href="/EIPS/eip-4844">EIP-4844</a> to explicitly use the blob schedule.
+In line with how updating <code class="language-plaintext highlighter-rouge">BLOB_BASE_FEE_UPDATE_FRACTION</code> was handled in <a href="/EIPS/eip-7691">EIP-7691</a>, the functions use the <em>current</em> block’s blob schedule.
+Moreover, <code class="language-plaintext highlighter-rouge">TARGET_BLOB_GAS_PER_BLOCK</code> is removed and replaced with <code class="language-plaintext highlighter-rouge">GAS_PER_BLOB * blob_schedule.target</code>, as it is now redundant.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">BlobSchedule</span><span class="p">:</span>
+   <span class="n">target</span><span class="p">:</span> <span class="n">U64</span>
+   <span class="nb">max</span><span class="p">:</span> <span class="n">U64</span>
+   <span class="n">base_fee_update_fraction</span><span class="p">:</span> <span class="n">Uint</span>
+
+ <span class="k">def</span> <span class="nf">calc_excess_blob_gas</span><span class="p">(</span><span class="n">parent</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">blob_schedule</span><span class="p">:</span> <span class="n">BlobSchedule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">target_blob_gas</span> <span class="o">=</span> <span class="n">GAS_PER_BLOB</span> <span class="o">*</span> <span class="n">blob_schedule</span><span class="p">.</span><span class="n">target</span>
+    <span class="k">if</span> <span class="n">parent</span><span class="p">.</span><span class="n">excess_blob_gas</span> <span class="o">+</span> <span class="n">parent</span><span class="p">.</span><span class="n">blob_gas_used</span> <span class="o">&lt;</span> <span class="n">target_blob_gas</span> <span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">parent</span><span class="p">.</span><span class="n">excess_blob_gas</span> <span class="o">+</span> <span class="n">parent</span><span class="p">.</span><span class="n">blob_gas_used</span> <span class="o">-</span> <span class="n">target_blob_gas</span>
+
+<span class="k">def</span> <span class="nf">get_base_fee_per_blob_gas</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">blob_schedule</span><span class="p">:</span> <span class="n">BlobSchedule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">fake_exponential</span><span class="p">(</span>
+        <span class="n">MIN_BASE_FEE_PER_BLOB_GAS</span><span class="p">,</span>
+        <span class="n">header</span><span class="p">.</span><span class="n">excess_blob_gas</span><span class="p">,</span>
+        <span class="n">blob_schedule</span><span class="p">.</span><span class="n">base_fee_update_fraction</span>
+    <span class="p">)</span>
+</code></pre></div></div>
+  
+    <h3 id="consensus-layer-configuration">
+      
+      
+        <a href="#consensus-layer-configuration" class="anchor-link"></a> Consensus layer configuration
+      
+      
+    </h3>
+
+<p>A new <code class="language-plaintext highlighter-rouge">BLOB_SCHEDULE</code> field is added to consensus layer configuration, containing a sequence of entries representing blob parameter changes <strong>after</strong> <code class="language-plaintext highlighter-rouge">ELECTRA_FORK_EPOCH</code>. There exists one entry per fork that changes blob parameters, whether it is a regular or a Blob-Parameter-Only fork.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">BLOB_SCHEDULE</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">EPOCH</span><span class="pi">:</span> <span class="m">400000</span>     <span class="c1"># A future anonymous BPO fork</span>
+    <span class="na">MAX_BLOBS_PER_BLOCK</span><span class="pi">:</span> <span class="m">15</span>
+  <span class="pi">-</span> <span class="na">EPOCH</span><span class="pi">:</span> <span class="m">420000</span>     <span class="c1"># A future anonymous BPO fork</span>
+    <span class="na">MAX_BLOBS_PER_BLOCK</span><span class="pi">:</span> <span class="m">21</span>
+</code></pre></div></div>
+
+<p>The parameters and schedules above are purely illustrative. Actual values and schedules are beyond the scope of this specification.</p>
+
+<p><strong>Requirements:</strong></p>
+
+<ul>
+  <li>Execution and consensus clients <strong>MUST</strong> share consistent BPO fork schedules.</li>
+  <li>The slot number in the EL’s <code class="language-plaintext highlighter-rouge">blobSchedule</code> <strong>MUST</strong> align with the start of the epoch specified in the consensus layer configuration.</li>
+  <li>The <code class="language-plaintext highlighter-rouge">max</code> field in the EL’s <code class="language-plaintext highlighter-rouge">blobSchedule</code> <strong>MUST</strong> equal the <code class="language-plaintext highlighter-rouge">MAX_BLOBS_PER_BLOCK</code> value in the consensus layer configuration.</li>
+</ul>
+  
+    <h3 id="modified-compute_fork_digest">
+      
+      
+        <a href="#modified-compute_fork_digest" class="anchor-link"></a> Modified <code class="language-plaintext highlighter-rouge">compute_fork_digest</code>
+      
+      
+    </h3>
+
+<p>The <code class="language-plaintext highlighter-rouge">compute_fork_digest</code> helper is updated to account for BPO forks:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">@</span><span class="n">dataclass</span>
+<span class="k">class</span> <span class="nc">BlobScheduleEntry</span><span class="p">:</span>
+   <span class="n">epoch</span><span class="p">:</span> <span class="n">Epoch</span>
+   <span class="n">max_blobs_per_block</span><span class="p">:</span> <span class="n">uint64</span>       <span class="c1"># Aligning with the type of MAX_BLOBS_PER_BLOCK
+</span>
+<span class="k">def</span> <span class="nf">compute_fork_digest</span><span class="p">(</span>
+  <span class="n">current_version</span><span class="p">:</span> <span class="n">Version</span><span class="p">,</span>       <span class="c1"># Unchanged; refers to the baseline hardfork atop which the blob schedule is applied
+</span>  <span class="n">genesis_validators_root</span><span class="p">:</span> <span class="n">Root</span><span class="p">,</span>  <span class="c1"># Unchanged
+</span>  <span class="n">current_epoch</span><span class="p">:</span> <span class="n">Epoch</span><span class="p">,</span>           <span class="c1"># New
+</span>  <span class="n">blob_schedule</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">BlobScheduleEntry</span><span class="p">]</span>  <span class="c1"># New
+</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ForkDigest</span><span class="p">:</span>
+    <span class="s">"""
+    Return the 4-byte fork digest for the ``current_version`` and ``genesis_validators_root``,
+    bitmasking blob parameters after ``ELECTRA_FORK_VERSION``.
+
+    This is a digest primarily used for domain separation on the p2p layer.
+    4-bytes suffices for practical separation of forks/chains.
+    """</span>
+    <span class="n">base_digest</span> <span class="o">=</span> <span class="n">compute_fork_data_root</span><span class="p">(</span><span class="n">current_version</span><span class="p">,</span> <span class="n">genesis_validators_root</span><span class="p">)[:</span><span class="mi">4</span><span class="p">]</span>
+
+    <span class="c1"># Find the blob parameters applicable to this epoch.
+</span>    <span class="n">sorted_schedule</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">blob_schedule</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="p">.</span><span class="n">epoch</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">blob_params</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">sorted_schedule</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">current_epoch</span> <span class="o">&gt;=</span> <span class="n">entry</span><span class="p">.</span><span class="n">epoch</span><span class="p">:</span>
+        <span class="n">blob_params</span> <span class="o">=</span> <span class="n">entry</span>
+        <span class="k">break</span>
+
+    <span class="c1"># This check enables us to roll out the BPO mechanism without a concurrent parameter change.
+</span>    <span class="k">if</span> <span class="n">blob_params</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">ForkDigest</span><span class="p">(</span><span class="n">base_digest</span><span class="p">)</span>
+
+    <span class="c1"># Safely bitmask blob parameters into the digest.
+</span>    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">blob_params</span><span class="p">.</span><span class="n">max_blobs_per_block</span> <span class="o">&lt;=</span> <span class="mh">0xFFFFFFFF</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">blob_params</span><span class="p">.</span><span class="n">max_blobs_per_block</span><span class="p">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">'big'</span><span class="p">)</span>
+    <span class="n">masked_digest</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">a</span> <span class="o">^</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">base_digest</span><span class="p">,</span> <span class="n">mask</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ForkDigest</span><span class="p">(</span><span class="n">masked_digest</span><span class="p">)</span>
+</code></pre></div></div>
+  
+    <h3 id="p2p-networking">
+      
+      
+        <a href="#p2p-networking" class="anchor-link"></a> P2P Networking
+      
+      
+    </h3>
+  
+    <h4 id="enr">
+      
+      
+        <a href="#enr" class="anchor-link"></a> ENR
+      
+      
+    </h4>
+
+<p>In the consensus layer, ENRs are extended with an additional entry <code class="language-plaintext highlighter-rouge">nfd</code>, short for “next fork digest”. This field communicates the digest of the next scheduled fork, regardless of whether it is a regular or BPO fork. This approach is preferred over encoding BPO-specific parameters because it is agnostic to specific use cases and offers greater long-term flexibility.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">Key</th>
+      <th style="text-align: left">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">nfd</code></td>
+      <td style="text-align: left">SSZ Bytes4 <code class="language-plaintext highlighter-rouge">ForkDigest</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>When discovering and interfacing with peers, nodes MUST evaluate <code class="language-plaintext highlighter-rouge">nfd</code> alongside their existing consideration of the <code class="language-plaintext highlighter-rouge">ENRForkID::next_*</code> fields under the <code class="language-plaintext highlighter-rouge">eth2</code> key, to form a more accurate view of the peer’s intended next fork.</p>
+  
+    <h4 id="status-reqresp">
+      
+      
+        <a href="#status-reqresp" class="anchor-link"></a> <code class="language-plaintext highlighter-rouge">Status</code> req/resp
+      
+      
+    </h4>
+
+<p>No changes are needed in this interaction, but it is noted that the response payload must correctly contain the updated <code class="language-plaintext highlighter-rouge">fork_digest</code>.</p>
+  
+    <h4 id="gossip-topics">
+      
+      
+        <a href="#gossip-topics" class="anchor-link"></a> Gossip topics
+      
+      
+    </h4>
+
+<p>No changes are required to topic structure or configuration. However, all topics will automatically rotate at a BPO fork due to changes in their <code class="language-plaintext highlighter-rouge">ForkDigestValue</code> component.</p>
+  
+    <h2 id="rationale">
+      
+      
+        <a href="#rationale" class="anchor-link"></a> Rationale
+      
+      
+    </h2>
+  
+    <h3 id="why-not-just-use-regular-hardforks">
+      
+      
+        <a href="#why-not-just-use-regular-hardforks" class="anchor-link"></a> Why not just use regular hardforks?
+      
+      
+    </h3>
+
+<p>Full hard forks require extensive coordination, testing, and implementation changes beyond parameter adjustments. For example, in Lighthouse, a typical hard fork implementation requires thousands of lines of boilerplate before any protocol changes occur. BPO forks streamline this process by avoiding the need for this boilerplate code.</p>
+  
+    <h3 id="why-specify-parameters-in-the-node-configuration-instead-of-code">
+      
+      
+        <a href="#why-specify-parameters-in-the-node-configuration-instead-of-code" class="anchor-link"></a> Why specify parameters in the node configuration instead of code?
+      
+      
+    </h3>
+
+<p>Allowing blob parameters to be configured externally enables rapid experimentation, testing, and adjustments without requiring code changes across client implementations. Testing teams can investigate different parameters with minimal involvement from client implementers.</p>
+  
+    <h3 id="why-not-create-an-on-chain-voting-mechanism-for-blob-parameters">
+      
+      
+        <a href="#why-not-create-an-on-chain-voting-mechanism-for-blob-parameters" class="anchor-link"></a> Why not create an on-chain voting mechanism for blob parameters?
+      
+      
+    </h3>
+
+<ul>
+  <li>Ethereum’s recent gas limit increase to 36M took nearly a year to coordinate</li>
+  <li>Blob capacity is a rapidly evolving, moving target that the wider staking community is not currently well equipped to track</li>
+  <li>An on-chain mechanism would require much more extensive code changes, testing cycles, and debates about governance structures.</li>
+  <li>BPO forks provide a simpler, more predictable approach while leaving room for future on-chain voting mechanisms when blob capacity stabilizes</li>
+</ul>
+  
+    <h2 id="backwards-compatibility">
+      
+      
+        <a href="#backwards-compatibility" class="anchor-link"></a> Backwards Compatibility
+      
+      
+    </h2>
+
+<p>BPO forks introduce no backwards compatibility concerns.</p>
+  
+    <h2 id="security-considerations">
+      
+      
+        <a href="#security-considerations" class="anchor-link"></a> Security Considerations
+      
+      
+    </h2>
+
+<p>No security risks have been identified.</p>
+  
+    <h2 id="copyright">
+      
+      
+        <a href="#copyright" class="anchor-link"></a> Copyright
+      
+      
+    </h2>
+
+<p>Copyright and related rights waived via <a href="/LICENSE">CC0</a>.</p>
+
+  <h2>Citation</h2>
+  <p>Please cite this document as:</p>
+  
+  <p>Mark Mackey&nbsp;(<a href="https://github.com/ethDreamer">@ethDreamer</a>), Raúl Kripalani&nbsp;(<a href="https://github.com/raulk">@raulk</a>), "EIP-7892: Blob Parameter Only Hardforks," <em>Ethereum Improvement Proposals</em>, no. 7892, February 2025. Available: https://eips.ethereum.org/EIPS/eip-7892.</p>
+</div>
+
+<script type="application/ld+json">
+  {
+    "@context": "http://schema.org",
+    "@type": "TechArticle",
+    "headline": "EIP-7892: Blob Parameter Only Hardforks",
+    "name": "EIP-7892: Blob Parameter Only Hardforks",
+    "author": "Mark Mackey (@ethDreamer), Raúl Kripalani (@raulk)",
+    "dateCreated": "2025-02-28",
+    "datePublished": "2025-02-28",
+    
+    "discussionUrl": "https://ethereum-magicians.org/t/eip-7892-blob-parameter-only-hardforks/23018",
+    
+    "inLanguage": "en-US",
+    "license": "#copyright",
+    "copyrightYear": "2025"
+  }
+</script>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Ethereum Improvement Proposals</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Ethereum Improvement Proposals</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/ethereum/EIPs"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">ethereum/EIPs</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>Ethereum Improvement Proposals (EIPs) describe standards for the Ethereum platform, such as core protocol specifications.</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

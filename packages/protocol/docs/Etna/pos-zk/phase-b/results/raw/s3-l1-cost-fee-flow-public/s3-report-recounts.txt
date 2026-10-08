@@ -1,0 +1,10 @@
+window 26086570..26136782 = 50213 blocks
+feeHistory baseFeePerGas=50264 baseFeePerBlobGas=50264 gasUsedRatio=50213 blobGasUsedRatio=50213 chunks=51 (look-ahead 51)
+cost-curve column: effective gas price held at 1.125879441 gwei; exec term constant 0.000085109730 ETH
+  point  base-fee-only ETH   reported col ETH   reported < base-fee floor?
+  min    0.0000040            0.0000855         False
+  p50    0.0000106            0.0000861         False
+  p90    0.0000701            0.0000914         False
+  p99    0.0002460            0.0001051         True
+  max    0.0007479            0.0001411         True
+propose gasUsed counts: {75594: 1572, 78448: 3} ; mean 75599.436 over 1575 rows

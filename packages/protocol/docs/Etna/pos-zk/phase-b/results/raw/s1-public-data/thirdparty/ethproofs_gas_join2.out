@@ -1,0 +1,5 @@
+gas fetched for 40 of 40 blocks
+Traceback (most recent call last):
+  File "/Users/daniel/Projects/taikoxyz/taiko-mono/packages/protocol/docs/Etna/pos-zk/phase-b/results/raw/s1-public-data/thirdparty/ethproofs_gas_join2.py", line 48, in <module>
+    r['secs'] = r['proving_ms'] / 1000.0
+TypeError: unsupported operand type(s) for /: 'NoneType' and 'float'

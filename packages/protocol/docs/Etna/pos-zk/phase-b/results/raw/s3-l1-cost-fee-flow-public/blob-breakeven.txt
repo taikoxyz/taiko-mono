@@ -1,0 +1,8 @@
+8 batches: L2 fees 0.001949445151 ETH, propose total 0.000850212063, propose exec-only 0.000827752150, blob 0.000022459913
+residual after execution = 0.001121693001 ETH over 1048576 blob gas
+break-even blob base fee = 1069729805.550 wei/blob-gas = 1.0697 gwei
+
+reconstructions that do NOT match (for the record):
+  all fees - propose total          : 1048310364 wei
+  base fees only - propose total    : 949088886 wei
+  all fees - (propose total + amortised prove): 221621770 wei

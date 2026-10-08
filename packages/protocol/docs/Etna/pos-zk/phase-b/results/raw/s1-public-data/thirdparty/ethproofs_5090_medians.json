@@ -1,0 +1,128 @@
+{
+ "source": "ethproofs_blocks_joined.json",
+ "records_total": 108,
+ "records_with_gas_time_cycles": 105,
+ "distinct_blocks_all": 40,
+ "distinct_blocks_good": 37,
+ "block_gas_used": {
+  "min": 4210109,
+  "median": 27832443,
+  "max": 51342486
+ },
+ "cluster_medians": [
+  {
+   "cluster": "Axiom 16x5090",
+   "hardware": "16x NVIDIA 5090s",
+   "n": 20,
+   "median_gas_per_sec": 12644433.645375475,
+   "median_cycles_per_gas": 6.4995851959030055,
+   "median_secs": 2.241,
+   "is_5090": true,
+   "gpus": 16
+  },
+  {
+   "cluster": "Airbender v3 4x5090",
+   "hardware": "4x5090",
+   "n": 20,
+   "median_gas_per_sec": 11420014.263497015,
+   "median_cycles_per_gas": 7.13114948685276,
+   "median_secs": 2.4285,
+   "is_5090": true,
+   "gpus": 4
+  },
+  {
+   "cluster": "Zisk 8x5090",
+   "hardware": null,
+   "n": 20,
+   "median_gas_per_sec": 7998628.2723550685,
+   "median_cycles_per_gas": 2.3715902369013016,
+   "median_secs": 3.4524999999999997,
+   "is_5090": true,
+   "gpus": 8
+  },
+  {
+   "cluster": "Airbender v3 2x5090",
+   "hardware": "2x5090",
+   "n": 20,
+   "median_gas_per_sec": 7019663.700030211,
+   "median_cycles_per_gas": 7.13114948685276,
+   "median_secs": 3.968,
+   "is_5090": true,
+   "gpus": 2
+  },
+  {
+   "cluster": "ZisK 2x5090",
+   "hardware": "2x NVIDIA 5090 32GB GPUs, AMD Ryzen Threadripper PRO 9965WX 24-Cores",
+   "n": 2,
+   "median_gas_per_sec": 3905462.52719587,
+   "median_cycles_per_gas": 2.4583916706769937,
+   "median_secs": 6.3325,
+   "is_5090": true,
+   "gpus": 2
+  },
+  {
+   "cluster": "Zilkworm Airbender 2x5090",
+   "hardware": "2x NVIDIA RTX 5090, AMD Ryzen Threadripper 9960X 24-core, 128GB RAM, on-prem single node",
+   "n": 2,
+   "median_gas_per_sec": 2844709.1203809595,
+   "median_cycles_per_gas": 11.37173398684152,
+   "median_secs": 8.7085,
+   "is_5090": true,
+   "gpus": 2
+  },
+  {
+   "cluster": "ZKM",
+   "hardware": null,
+   "n": 14,
+   "median_gas_per_sec": 1763961.8344243818,
+   "median_cycles_per_gas": 7.700805826329013,
+   "median_secs": 16.518500000000003,
+   "is_5090": false,
+   "gpus": null
+  },
+  {
+   "cluster": "Succinct Twin Peaks 2x5090",
+   "hardware": "2 x NVIDIA GeForce RTX 5090",
+   "n": 2,
+   "median_gas_per_sec": 1050897.6992503754,
+   "median_cycles_per_gas": 12.949587858253935,
+   "median_secs": 23.552999999999997,
+   "is_5090": true,
+   "gpus": 2
+  },
+  {
+   "cluster": "Pico 2x5090",
+   "hardware": "2x NVIDIA GeForce RTX 5090 32GB GPUs",
+   "n": 2,
+   "median_gas_per_sec": 957645.5755570584,
+   "median_cycles_per_gas": 14.913290074355444,
+   "median_secs": 25.8525,
+   "is_5090": true,
+   "gpus": 2
+  },
+  {
+   "cluster": "cysic",
+   "hardware": "NVIDIA 4090 24GB GPU, AMD EPYC 7773X 64-Core Processor",
+   "n": 3,
+   "median_gas_per_sec": 344774.1247031269,
+   "median_cycles_per_gas": 11.61698843299277,
+   "median_secs": 93.571,
+   "is_5090": false,
+   "gpus": null
+  }
+ ],
+ "range_5090_cluster_medians_gas_per_sec": [
+  957645.5755570584,
+  12644433.645375475
+ ],
+ "range_5090_record_level_gas_per_sec": [
+  940021.0324342275,
+  16195875.286565796
+ ],
+ "rtx5090_cluster_gpu_counts": [
+  2,
+  4,
+  8,
+  16
+ ]
+}

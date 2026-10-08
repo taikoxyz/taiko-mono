@@ -1,0 +1,179 @@
+Unzen Fork - Taiko
+Are you an LLM? Read
+llms.txt
+for a summary of the docs, or
+llms-full.txt
+for the full context.
+Skip to content
+Home
+Quickstart
+Agent Quickstart
+Connect to Taiko
+Deploy a Contract
+Guides
+Chevron Right
+Network Reference
+Chevron Right
+Protocol
+Chevron Right
+Overview
+Based Rollups
+Unzen Fork (Current)
+Shasta Fork
+Proving System
+Bridging
+Economics
+Preconfirmations
+Resources
+Developer Tools
+FAQ
+Getting Support
+Contributing
+GitHub
+Discord
+X
+Search...
+Taiko
+GitHub
+Bridge
+Taiko
+GitHub
+Bridge
+Menu
+Chevron Down
+Menu
+Unzen Fork (Current)
+On this page
+Chevron Right
+OpenAI
+Ask in ChatGPT
+Chevron Down
+Unzen Fork
+Current protocol fork introducing block-level zk gas metering.
+Unzen is the current Taiko protocol fork. It runs on the
+Shasta protocol architecture
+and introduces
+zk gas
+as a protocol-level budget for proving work.
+Instead of limiting blocks only by ordinary EVM gas, Unzen adds a separate weighted gas metric that reflects how expensive different opcodes and precompiles are to prove.
+The objective is to cap proving time per block with a protocol constant,
+BLOCK_ZK_GAS_LIMIT
+, so a block cannot be valid if it would require more proving work than the protocol budget allows.
+For the source protocol details, see the upstream
+ZK Gas specification
+.
+EVM Version: Osaka
+Unzen runs the
+Osaka
+EVM version, which makes the Cancun, Prague, and Osaka execution-layer features available to contracts.
+The main contract-facing additions are:
+Cancun opcodes:
+TSTORE
+,
+TLOAD
+, and
+MCOPY
+(
+BLOBHASH
+and
+BLOBBASEFEE
+also execute but always return
+0
+and
+1
+: Taiko L2 rejects blob transactions and never carries blobs)
+Prague precompiles: BLS12-381 operations at addresses
+0x0b
+through
+0x11
+Osaka opcode:
+CLZ
+(
+0x1e
+), exposed by Solidity inline assembly as
+clz
+Osaka precompile:
+P256VERIFY
+for secp256r1 signature verification at address
+0x100
+Proof Verifier: ZK Required
+With Unzen (Proposal0019), the mainnet
+Inbox
+points at
+ZkRequiredVerifier
+, which accepts two sub-proofs only if at least one of them is a ZK proof (RISC0 or SP1). A TEE-only pair no longer finalizes a range. See
+Proving System
+.
+Block-Level ZK Gas Limit
+Unzen defines
+BLOCK_ZK_GAS_LIMIT
+as the maximum cumulative zk gas allowed in a block.
+The initial specification sets:
+Constant
+Value
+BLOCK_ZK_GAS_LIMIT
+100,000,000
+All transactions in a block are metered, including system and anchor transactions.
+If cumulative zk gas exceeds the block limit during execution:
+the transaction that crossed the limit is aborted
+all state changes from that transaction are discarded
+transactions that completed before it are kept
+all remaining transactions in the block are skipped
+This makes the zk gas limit a block validity constraint rather than a mempool policy or local prover preference.
+Weighted Opcode Metering
+zk gas
+is calculated by multiplying normal EVM gas spent by a proving-cost multiplier.
+For ordinary opcodes, Unzen meters each opcode execution as:
+Copy
+zk_gas += step_gas * opcode_multiplier[opcode]
+step_gas
+is the gas charged by the EVM for a single opcode, including static cost and dynamic costs such as memory expansion or storage access charges.
+The multiplier table is derived from per-opcode proving-time benchmarks. Expensive operations receive higher multipliers. For example,
+mulmod
+,
+div
+,
+mod
+,
+keccak256
+, and
+call
+receive larger weights than simple stack or memory operations.
+Unlisted opcodes default to
+max(uint16)
+as a fail-safe, making missing multiplier entries immediately exceed practical limits.
+Precompile Metering
+Precompiles require explicit metering because they do not execute through the normal opcode loop.
+When a CALL-family opcode invokes an active precompile:
+the CALL-family opcode is metered for opcode-side spawn overhead
+the precompile itself is metered separately
+the precompile multiplier is indexed by the low byte of the precompile address
+The precompile charge is:
+Copy
+precompile_zk_gas = precompile_gas_used * precompile_multiplier[address]
+precompile_gas_used
+is the gas charged by the precompile's own gas schedule, excluding the CALL-family opcode's separate costs.
+This keeps heavyweight precompiles such as
+modexp
+, point evaluation, BLAKE2F, and pairing operations represented in the block's proving budget.
+Spawn Opcode Estimation
+Spawn opcodes need special handling because they can create child execution frames and pre-charge parent gas with a child execution budget.
+If Unzen used the observed parent opcode gas delta directly, the same child execution path could be counted twice:
+once through the parent's forwarded gas budget
+once through the child frame's actual opcode and precompile execution
+Unzen avoids this by using fixed raw-gas estimates for spawn opcodes whenever a child frame is created or a precompile is invoked.
+Opcode
+Estimated raw gas
+CALL
+12,500
+CALLCODE
+12,500
+DELEGATECALL
+3,500
+STATICCALL
+3,500
+CREATE
+37,000
+CREATE2
+44,500
+Child-frame execution is still metered normally. The fixed parent-side estimate only replaces the parent opcode's observed gas delta so the forwarded child budget is not double counted.

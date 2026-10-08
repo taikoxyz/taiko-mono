@@ -1,0 +1,1985 @@
+Setchain Algorithms for Blockchain Scalability ⋆
+Arivarasan Karmegama,c, Gabina Luz Bianchif, Margarita Caprettob,d,
+Martín Ceresae, Antonio Fernández Antab,a, César Sánchezb
+aIMDEA Networks Institute, Madrid, Spain
+bIMDEA Software Institute, Madrid, Spain
+cUniversidad Carlos III de Madrid, Madrid, Spain
+dUniversidad Politécnica de Madrid, Madrid, Spain
+eInput-Output, Madrid, Spain
+fUniversidad Nacional de Rosario, Rosario, Spain
+Abstract
+Blockchain scalability remains a longstanding obstacle to its broader adop-
+tion. To mitigate this limitation, numerous approaches have been proposed
+to improve blockchain throughput and efficiency. One such approach is
+Setchain, a reliable distributed object that improves scalability by relax-
+ing the strict total-order requirement among transactions. Setchain arranges
+elements as an ordered sequence of sets, calledepochs. Elements inside an
+epoch have no internal order, while epochs themselves are totally ordered.
+In this work, we introduce and evaluate three Setchain algorithms built
+on top of a block-based ledger.Vanillais a straightforward baseline im-
+plementation.Compresschaingroups elements into batches and compresses
+them before appending them as epochs on the ledger.Hashchaininstead
+maps each batch to a fixed-length hash, which is then appended as an epoch
+in the ledger. This design requires Hashchain to rely on a distributed service
+to retrieve the batch contents corresponding to a given hash.
+To enable light clients to safely interact with a single server, the proposed
+algorithms store epoch-proofs within the Setchain. Anepoch-proofis the
+hash of the epoch, cryptographically signed by a server. A client can verify
+the correctness of an epoch withf+ 1epoch-proofs, wherefis the maximum
+⋆This work is funded in part by a research grant from Nomadic Labs and the Tezos
+Foundation, and by MICIU/AEI /10.13039/501100011033/, ERDF, and the ESF+ under
+predoctoral training grant PREP2022-000373, grant DRONAC (PID2022-140560OB-I00),
+grant DECO (PID2022-138072OB-I00), and grant CEX2024-001471-M.
+number of Byzantine servers assumed. We implement all three Setchain
+variants on the CometBFT blockchain application platform and deploy them
+as Docker-based nodes in a cluster. We evaluate performance under multiple
+settings using clusters with four, seven, and ten servers. The results indicate
+that the Setchain algorithms achieve throughput orders of magnitude higher
+than that of the underlying blockchain, while reaching finality with latency
+under4seconds.
+Keywords:
+Blockchain, Setchain, Scalability, CometBFT
+1. Introduction
+The first blockchain deployed was designed by Satoshi Nakamoto [35],
+building on previous proposals [17, 29], as a method to eliminate trusted
+third parties in the implementation of the Bitcoin cryptocurrency. Modern
+blockchains incorporate smart contracts [46, 50], which are immutable state-
+ful programs stored in blockchains that extend the functionality of transac-
+tions beyond the exchange of cryptocurrency. Smart contracts allow the im-
+plementation of reliably decentralized sophisticated functionality, for exam-
+ple, enabling many applications in finances (DeFi) [4], governance (DAO) [40]
+and computation (Web3) [13].
+A blockchain is areliable distributed objectthat stores the sequence of
+transactions executed on behalf of users and the transactions are totally or-
+dered and packed into blocks [22, 21]. Real-world blockchains are maintained
+by multiple servers without a central authority, and they rely on aByzantine-
+tolerant consensus algorithmto establish transaction order and determine the
+resulting state updates [16, 18].
+1.1. Challenges
+A key challenge for real-world blockchains is appending transactions to
+the ledger at a high rate. This rate is known asthroughputand is typically
+expressed in transactions per second (TPS). Throughput depends on several
+bottlenecks, including the speed with which consensus is reached, network
+latency, and the computational overhead of executing transactions to update
+or validate the blockchain state. To preserve efficiency and decentralization,
+many systems [35, 13] also enforce limits on block size or execution com-
+plexity, which can further restrict throughput.
+2
+A second challenge is lowering blockchainlatency, i.e., the time between
+a user submitting a transaction and that transaction being included in the
+blockchain. In some blockchains, this latency can reach hours [49, 35].
+Moreover, in some blockchains (e.g., Bitcoin), a block that is initially
+reported as appended to the blockchain may later be discarded due to a chain
+fork. Thus, a third challenge is achievingfinality, namely identifying a point
+after which users can be confident that their transactions are permanently
+recorded and will not be removed.
+Finally, a fourth challenge is providing users withproofsthat their trans-
+actions are indeed in the chain. This can be done by having users contact
+multiple servers and request individual proofs (e.g., a full copy of the chain).
+In practice, this is rarely done; instead, users commonly trust that the single
+server they interact with is honest. It is therefore desirable to provide users
+(who contact only one server) with strong guarantees that their transactions
+have been appended to the chain.
+We address these challenges with Setchain [14], which is areliable dis-
+tributed objectthat implements Byzantine-tolerant distributed grown-only
+sets with barriers. Setchain has been shown to have a large throughput, and
+it usesepoch-proofs,which are cryptographic artifacts that allow users to
+interact reliably with only one server.
+1.2. Related Work
+Scalability remains a central challenge as blockchains gain popularity.
+Various techniques have been proposed to address this issue. Bitcoin, one
+of the most widely known blockchains, operates on Proof-of-Work (PoW),
+offering robust security and decentralization. However, Bitcoin suffers from
+low throughput, averaging around7TPS, due to its block size and 10-minute
+block intervals [47]. Additionally, Bitcoin’s latency is significant, with blocks
+typically taking10minutes to confirm, and (optimistic) finality is reached
+after about60minutes with the six-block confirmation rule [49].
+Ethereum, which now uses PoS, handled12-30TPS [42] with PoW. Fi-
+nality is generally reached within12to15minutes, as two “epochs” (each
+32slots or6.4minutes) are justified and finalized [9]. Sharding [33, 52],
+is an on-chain solution which partitions the blockchain into smaller seg-
+ments to enable parallel transaction processing. Though “The Merge” did
+not improve Ethereum’s throughput, as its main goal was to transition to
+PoS, Ethereum’s Danksharding initiative, part of the larger Ethereum 2.0
+3
+roadmap, is projected to increase throughput to more than100,000TPS
+once fully implemented [1].
+While sharding is still under development, Layer 2 solutions like rollups
+provide immediate scalability benefits. Layer 2 solutions include state chan-
+nels [39], sidechains, and various forms of rollups, such as Plasma [38], Op-
+timistic Rollups [31], and Zero Knowledge Rollups [2]. These technologies
+facilitatehigh-volumetransactionprocessingoffthemainblockchain, thereby
+alleviating network congestion and enhancing transaction speed and cost ef-
+ficiency.
+Arbitrum [31], a Layer 2 solution for Ethereum, enhances scalability using
+Optimistic Rollups. Its recent upgrade, Arbitrum Nitro, theoretically enables
+the network to achieve up to40,000TPS. However, transaction latency and
+finality on Arbitrum depend on Ethereum Layer-1 latency and finality, as
+Arbitrum posts batches of transactions to Ethereum for settlement. Arbi-
+trum employs a fraud-proof mechanism with a one-week resolution period,
+though such challenges are uncommon.
+Algorand [24], using a Pure Proof-of-Stake (PPoS) consensus mechanism,
+offers a throughput of around6,000TPS. It provides fast finality, with trans-
+actions confirmed in approximately3.5seconds. Cosmos [48], which employs
+the Tendermint consensus algorithm [11], can handle around10,000TPS.
+Tendermint provides finality within6-7seconds. However, the performance
+depends on the specific blockchain’s design, optimizations, and network con-
+ditions.
+Hyperledger Fabric, a permissioned blockchain, introduced Byzantine
+Fault Tolerant (BFT) ordering service in version v3.0.0 [20] through the
+SmartBFT consensus library [6], enabling Fabric to handle Byzantine faults.
+Fabric typically achieves thousands of TPS depending on the configuration,
+with fast finality upon block commitment. However, the addition of BFT
+may slightly increase latency due to added consensus steps.
+Another approach to scaling blockchain is consensus optimization. By
+implementing a Set Byzantine Consensus (SBC), Red Belly [18] enhances
+the scalability, allowing the network to agree on a superblock of all pro-
+posed blocks. RedBelly demonstrates impressive scalability in testing envi-
+ronments, achieving over660,000TPS and up to30,000TPS in real-world
+conditions. Fast finality ensures that transactions are final and irreversible
+within3seconds, further enhancing its appeal for high-throughput applica-
+tions. Algorithms for SBC or that use SBC are an active area of research
+[18, 14, 41], as they exploit the lack of order between transactions.
+4
+Table 1: Comparison of blockchain scalability approaches.†Analytical throughput
+bound for Hashchain with collector sizec= 500; see Section 7.1.
+System Ordering Throughput Finality
+Bitcoin Total ∼7 TPS ∼60 min
+Ethereum (PoS) Total 12–30 TPS 12–15 min
+Algorand Total ∼6,000 TPS ∼3.5 s
+Cosmos Total ∼10,000 TPS 6–7 s
+RedBelly Total 30,000–660,000 TPS ∼3 s
+Narwhal + Tusk Total ∼170,000 TPS ∼3 s
+Bullshark Total ∼125,000 TPS ∼2s
+Hyperledger Fabric Total Thousands TPS Deterministic upon
+(config-dependent) block commit
+Setchain Epoch-ordered sets ∼147,857 TPS† <4s
+Hotstuff [51] is a leader-based BFT replication consensus protocol with
+linear communication complexity and optimistic responsiveness. The Hot-
+stuff paper proposes a variant of the protocol, Chained HotStuff, which is a
+pipelined version of Basic HotStuff in which a Quorum Certificate can serve
+in multiple phases simultaneously. There are variants of this work that are
+proposed to improve its performance. For example, P-Hotstuff [53], which
+introduces parallelism into Hotstuff, claims to achieve an average throughput
+20 times higher than that of Hotstuff.
+FireLedger[12]isaBFTconsensusprotocoldesignedtooptimizethrough-
+put and latency in permissioned blockchain environments by leveraging the
+iterative nature of blockchains to improve their throughput in optimistic ex-
+ecution scenarios. In their evaluation, the authors report that FireLedger,
+when deployed on ten mid-range Amazon instances within a single data cen-
+ter, can reach a throughput of approximately160,000TPS for transactions
+of size512bytes. In a geo-distributed deployment across ten Amazon nodes,
+the protocol achieves around30,000TPS for the same transaction size.
+Dumbo [28] is an improvement on Honeybadger [34] (the first practical
+asynchronous BFT protocol). Dumbo replaces HoneyBadger’snconcurrent
+Asynchronous Binary Agreements (ABAs) with a single Multi-valued Vali-
+dated Byzantine Agreement (MVBA), improving both latency and through-
+put. Dumbo-NG [28] builds on this idea by decoupling transaction dis-
+semination from agreement and executing them concurrently. It uses a
+bandwidth-obliviousMVBAwiththresholdsignatures, achieving4–8×higher
+peak throughput and a latency that remains stable as throughput increases.
+5
+Narwhal [19] decouples reliable transaction dissemination from ordering
+via a DAG-based mempool that certifies availability and supports bounded-
+memory garbage collection and scale-out workers. When paired with Hot-
+Stuff (Narwhal-HS), it sustains approximately130–140,000TPS with less
+than 2 seconds of latency in WAN settings with50validators, and adding
+workers scales throughput roughly linearly to600,000TPS without increas-
+ing latency. Tusk adds the actual consensus on top of Narwhal: a fully
+asynchronous, zero-message-overhead protocol that orders by interpreting
+the local DAG with a shared random coin. In WAN experiments, it achieves
+170,000TPS at 3 seconds with 50 validators, and under 1 and 3 crash faults,
+it keeps latency below 4 and 6 seconds while maintaining high throughput.
+Bullshark [44] is a DAG-based Byzantine atomic broadcast protocol op-
+timized for the common (partially synchronous) case: it adds a fast path
+that commits in 2 rounds during synchrony while retaining an asynchronous
+fallback with 6-round expected latency andO(n)amortized communication.
+BuiltatopNarwhal[19], itdecouplesdatadisseminationfromordering, avoids
+view-change or synchronization, and provides timely fairness with bounded
+memory via garbage collection. In evaluation, a partially synchronous Bull-
+shark variant reaches around125,000TPS at 2 second latency with 50 par-
+ties.
+Fantastyc [10] proposes a byzantine-tolerant design that anchors only
+cryptographic proofs on-chain while keeping client updates and aggregated
+models off-chain in a fault-tolerant key-value store keyed by the data’s hash.
+A server collects, updates, stores key-values(hash(v), v)off-chain, and,
+after gatheringf+ 1signed hash-keys, produces a Proof of Availability &
+Integrity(PoA&I).TheblockchainrecordssetsofPoA&I(typicallyonetrans-
+action per round) rather than raw data, and clients later retrieve and verify
+values directly from the store using the anchored hashes. This cleanly de-
+couples ordering (chain), integrity (servers), and availability (storage) and
+allows light clients to validate using PoA&I alone. Conceptually, this mir-
+rors Hashchain’s approach of appending hashes of batches on the ledger and
+consolidating an epoch only afterf+ 1signatures on the batch hash, to en-
+sure at least one honest replica can serve the data, thereby slashing on-chain
+bandwidth while preserving retrievability.
+Table 1 summarizes the key properties of the approaches discussed in this
+section.
+6
+(a) Blockchain
+ (b) Setchain
+Figure 1: Blockchain vs Setchain
+1.3. Setchain
+A promising approach to enhance blockchain scalability is Setchain [14],
+a Byzantine-tolerant distributed object that implements a sequence of sets
+(calledepochs). By relaxing the strict total-order constraint of conventional
+blockchains (See Figure 1), Setchain can improve throughput and scalability
+by enabling transactions within the same epoch to be validated in parallel.
+Setchain fits applications such as digital registries (e.g., MIT Digital Diplo-
+mas [8, 37], Georgia Government registry [26]) or voting systems (e.g., Follow
+My Vote [23], Chirotonia [43]), where elements do not require a total order
+except at infrequent epoch barriers. Although Byzantine-tolerant distributed
+algorithms that implement Setchain have been proposed, efficient real-world
+implementations are still lacking.
+1.4. Contributions
+In this work, we propose a family of real-world Setchain algorithms built
+on top of a block-based ledger. We adopt an incremental methodology, intro-
+ducingasequenceofincreasinglyrefinedapproximationsthatleadtothefinal
+(and most sophisticated) solution (Section 3). We begin withAlgorithm
+Vanilla, a straightforward realization of Setchain whose throughput is com-
+parable to that of the underlying ledger. We then introduceAlgorithm
+Compresschain, which improves throughput by compressing epochs. Fi-
+nally, we presentAlgorithm Hashchain, which relies on hash functions.
+Among these algorithms, our main contribution is Hashchain. Hashchain
+leverages the succinctness of hashes to reduce the communication required
+during broadcasts and consensus, sending a fixed-size hash rather than the
+hundreds or thousands of elements that may comprise an epoch. The trade-
+off is the need for an additional distributed algorithm to retrieve the epoch
+7
+contents associated with a hash from the corresponding server.
+In addition, to enable users to interact with only one server, these al-
+gorithms maintain epoch proofs as part of the Setchain. Anepoch-proofis
+the hash of an epoch, cryptographically signed by a server. A user can val-
+idate the correctness of an epoch usingf+ 1epoch-proofs (wherefis the
+maximum number of Byzantine servers).
+We implement all three Setchain algorithms on top of the CometBFT
+blockchain application platform (Section 6) and deploy them as Docker nodes
+in a cluster. We evaluate performance under a range of configurations using
+clusters of four, seven, and ten servers. Our results show that the Setchain
+algorithms achieve throughput orders of magnitude higher than that of the
+underlying blockchain (tens of thousands of TPS) and provide finality with
+latency below4seconds.
+1.5. Structure
+The rest of the article is structured as follows: In Section 2, we present a
+brief description of our system model, Setchain, and other relevant concepts.
+Section 3 describes three implementations of Setchain on top of a block-based
+ledger. In Section 4, we present the proof of correctness for the Setchain al-
+gorithms. In Section 5, we present an analytical study of the throughput of
+the Setchain algorithms. In Section 6, we describe the implementation de-
+tails. Finally, in Section 7, we present and discuss our results and Section 8
+concludes.
+This article is an extended version of our conference paper [32]. Com-
+pared to the conference version, we include a detailed related-work discussion
+(Section 1.2), algorithmic details that were omitted due to space constraints
+(for example, Algorithm Vanilla), an analytical performance study of the
+Setchain Algorithms (Section 5), and complete correctness proofs for all pro-
+posed Setchain Algorithms (Section 4). We also provide additional experi-
+mental/analytical details and discussion to support a deeper understanding
+of the performance results.
+2. Model and Definitions
+2.1. System Model
+Table 2 summarizes the notation used throughout the paper. We con-
+sider a distributed system comprisingnservers and an unbounded number
+8
+Table 2: Summary of notations used throughout the paper.
+Symbol Description
+n Total number of servers
+f Maximum number of Byzantine servers
+e A setchain element
+U Universe of valid elements
+tx A transaction in the ledger
+L The block-based ledger object
+S The Setchain object
+Si Serveri, fori∈{1, . . . , n}
+G Batch of valid, unassigned elements forming a new epoch
+B A block delivered by the ledger
+ep Epoch-proof of serverS:⟨epoch, p, S⟩
+epoch epoch number
+p SignS(Hash(epoch, G))
+hbi Hash-batch tuple of serverSi:⟨h, s i, S i⟩
+si Signature of serverSi
+h Hash of a batch:h=Hash(batch)
+C Block capacity in bytes
+c Collector size (max elements per batch)
+r Compression ratio (Compresschain)
+R Ledger block production rate (blocks/s)
+Tv, Tc, Th Analytical throughput of Vanilla, Compresschain and Hashchain (TPS)
+le, lp, lh Size of one element, an epoch-proof and a hash batch (in bytes)
+of clients; together, they constitute the system processes. The system is per-
+missioned yet public (also known as “open permissioned” [18]), referring to an
+open model for clients, but where servers are known upfront (permissioned).
+This model can also be extended to a permissionless setting via committee
+sortition [25], without requiring substantial changes. Up tof < n/2of the
+servers may exhibit Byzantine behavior, while clients are unrestricted (i.e.,
+they may also be Byzantine). We assume that the value offis known. We
+usef+ 1as a lower bound on the number of consistent epoch-proofs needed
+to guarantee that an epoch is correct, and also as the number of signatures
+required to consolidate hashes into epochs (see Section 3.3).
+Weassumeapublickeyinfrastructure(PKI)inwhicheachprocess(server
+or client) possesses a public-private key pair. Every process is assumed to
+know the public keys of all other processes. The communication between
+processes is reliable in the sense that messages sent between correct processes
+are eventually delivered exactly once, and no spurious messages are created.
+9
+In addition, beyond the requirements of the underlying building blocks, we
+assume synchronous communication between correct processes: messages are
+delivered within a bounded time. This assumption is used by timeout-based
+mechanisms in our algorithms, including but not limited to batch retrieval in
+Hashchain. We do not assume bounds on message size or bandwidth. Faulty
+processes may send arbitrary messages; however, due to the PKI, they cannot
+impersonate other processes. The PKI, therefore, provides authenticated
+and secure communication between processes. Each message is signed by its
+sender using their private key, and the receiver verifies the signature using
+the sender’s public key. Messages with invalid signatures are discarded.
+Clients create elements and invoke a Setchain operation to add them.
+Client-generatedelementsaresignedandcanhencebeauthenticated. Servers
+can also validate these elements for syntactic and semantic correctness. Cor-
+rect servers process only authenticated, valid elements. We assume that a
+server cannot create a valid element on its own, and that clients and servers
+do not collude.
+2.2. Setchain
+A Setchain [14] is a Byzantine-tolerant distributed objectSthat imple-
+ments a sequence of sets calledepochs. The Setchain imposes an order across
+different epochs, but does not order elements within the same epoch. Thus,
+by relaxing the total-order constraint of traditional blockchains, Setchain can
+potentially deliver higher throughput and improved scalability.
+2.2.1. Setchain API
+LetUbe the set of valid elements that client processes may inject into
+the Setchain. A SetchainSis a reliable distributed object in which a set of
+servers maintain:
+•a grow-only setthe_set⊆Ucontaining all the elements that have been
+added;
+•a natural numberepoch∈N;
+•amaphistory:{1, . . . ,epoch}→2 U thatassociateseachepochnumber
+with the set of elements (subset ofthe_set) stamped with a given epoch
+number1;
+12U denotes the power set ofU.
+10
+•a setproofsof epoch-proofs (see Section 2.3) 2.
+Servers support two operations:addandget. A client requests a serverv
+to add an elementeto the SetchainSby invokingS.addv(e), whereasS.getv()
+returns the tuple(the_set,history,epoch,proofs)that servervmaintains.
+Servers may locally evaluate validity using a predicatevalid_element(e),
+which decides whether an elementeis valid. In a Setchain, when a new
+epoch is created, servers jointly determine which added elements inthe_set
+that have not yet been assigned an epoch are included in the next epoch,
+and then advance the epoch number. We refer to this procedure as anepoch
+increment. For the remainder of the paper, we assume that from any point in
+time there will be a future epoch increment. This is a reasonable assumption
+in practice, and can be enforced reliably through the use of timeouts.
+From the client’s perspective, a typical workflow proceeds as follows: a
+client invokesS.addv(e)at some servervto append a new valid elementein
+the Setchain. The elementeis disseminated among servers, and upon the
+next epoch increment, the servers attempt to include it in the newly created
+epoch. After waiting for some time, the client callsS.getw()at a (possibly
+different) serverwto confirm that the element has been effectively added to
+the Setchain and included in an epoch.
+2.2.2. Setchain Basic Properties
+Setchain implementations must satisfy certain properties that guarantee
+consistency between correct servers and that the valid elements added are
+eventually included in an epoch [14]. These properties hold only on correct
+servers, since Byzantine servers do not provide any guarantees.
+Property 1(Consistent-Sets).Let(T, H, h, P) =S.get v()be the result of
+an invocation to a correct serverv. Then, for alli∈{1, . . . , h}, H[i]⊆T.
+Property 2(Add-Get-Local).LetS.add v(e)be an operation invoked in a
+correct servervand letebe valid. Then, eventually all invocations(T, H, h, P)
+=S.get v()satisfye∈T.
+Property 3(Get-Global).Letvandwbe two correct servers, letebe a
+valid element, and let(T, H, h, P) =S.get v(). Ife∈T, then eventually all
+invocations(T ′, H′, h′, P′) =S.get w()satisfy thate∈T ′.
+2This set was not part of the API described in the original Setchain paper [14] and is
+one of the contributions of this work.
+11
+Property 4(Eventual-Get).Letvbe a correct server, letebe a valid element
+and let(T, H, h, P) =S.get v(). Ife∈T, then eventually all invocations
+(T′, H′, h′, P′) =S.get v()satisfy thate∈H ′.
+Property5(Unique-Epoch).Letvbe a correct server,(T, H, h, P) =S.get v(),
+and leti, i′∈{1, . . . , h}withi̸=i ′. Then,H[i]∩H[i ′] =∅.
+Property 6(Consistent-Gets).Letv, wbe correct servers,(T, H, h, P) =
+S.getv(),(T ′, H′, h′, P′) =S.get w(), andi∈ {1, . . . ,min(h, h ′)}. Then
+H[i] =H ′[i].
+Property 7(Add-before-Get).Letvbe a correct server,(T, H, h, P) =
+S.getv(), ande∈Tbe a valid element. Then there was an operation
+S.addw(e)invoked in the past in some serverw.
+Properties 1, 5, 6, and 7 are safety properties. Properties 2, 3, and 4 are
+liveness properties.
+2.3. Setchain Epoch-proofs
+The original Setchain [14] proposal assumes that a client interacts with a
+correct server. In practice, however, clients do not know whether the server
+it contacts is correct or Byzantine. As a result, a client may need to query
+a sufficiently large number of servers (at leastf+ 1) to guarantee that at
+least one of them is correct. In this work, we introduceepoch-proofsas
+a mechanism that enables clients to achieve the same guarantees without
+contacting multiple servers, simplifying the process and improving efficiency.
+2.3.1. Definition
+An epoch-proof is the cryptographic signature of an epochiby a server
+v. As discussed above, in this work, the Setchain maintains a setproofsof
+epoch-proofs, which is returned when agetoperation is invoked. Therefore,
+ifproofscontain at leastf+ 1consistent epoch-proofs for a given epochi,
+the client can be confident that the epoch is correct (See Figure 2). An
+epoch-proof is computed by signing the hash of the epoch number together
+with the epoch’s elements:epv(i) =Sign v(Hash(i,history[i])).
+2.3.2. Usage
+To add an element, a client sends a singleS.addv(e)request to one server
+v, with the hope thatvis a correct server. After waiting for some time, the
+12
+Client S1 S2 S3 S4 LedgerL
+add(e)
+append(epochk) epochk∋e
+new_block(B1∋epoch k)
+epi←⟨k, p i, S i⟩ ep1
+ep2
+ep3
+ep4
+new_block(B2∋⟨ep 1, . . . , epf+1⟩)
+f+ 1epoch-proofs for epochk
+⇒Epochkverifiableget(k)
+⟨epochk, ep 1, . . . , epf+1⟩
+−→client request−→append tx / epoch-proof−→deliver epoch99Knew_block notification
+Figure 2: Epoch-proof life-cycle withn= 4servers andf= 1. A client submits
+elemente; the server formsepoch k∋e, appends it to the ledger, and upon block
+delivery, signs and appends their epoch-proofsepi =⟨k, p i, S i⟩. Oncef+ 1con-
+sistent epoch-proofs are recorded in the ledger through a new block, any correct
+server can serve the verified epoch to the client.
+client can invoke aS.getw()from a single serverwand check whethereis
+in some epoch, and whether the returnedproofsset contains at leastf+ 1
+valid epoch-proofs for that epoch, ensuring that at least one correct server
+has signed it. Clients validate epoch-proofs by recomputing the hash of the
+corresponding epoch and verifying the signature in the epoch-proof against
+that hash using the public key of the signing server. Recall that servers’
+public keys are known to clients. This procedure typically requires only one
+message peraddand one message perget. It is possible that the client is
+unlucky; if serversvorware Byzantine, then after waiting a reasonable
+amount of time, the client may need to restart the procedure. The following
+is the basic property that any Setchain algorithm must satisfy concerning
+epoch-proofs.
+Property8(Valid-Epoch).Letvbe a correct server,(T, H, h, P) =S.get v(),
+andi∈{1, . . . , h}. Then eventually all invocations(T′, H′, h′, P′) =S.get v()
+satisfy thatP′ contains at leastf+ 1epoch-proofs ofH[i].
+13
+2.4. Block-based Ledger
+In the Setchain algorithms proposed in this paper, we assume access to
+a Byzantine-tolerant consensus service. For simplicity, we abstract this ser-
+vice as a block-based ledger. Although our algorithms only require that the
+number of Byzantine processes satisfiesf < n/2, the underlying block-based
+ledger may impose stricter requirements. For example, in Section 6, we use
+the CometBFT, which requiresf < n/3.
+2.4.1. Definition
+A block-based ledgerLis a Byzantine-tolerant distributed object that
+maintains a sequence of blocks. Each block contains a sequence of trans-
+actions appended to the ledger by its clients. We prefer not to call this
+object a blockchain, since its transactions lack semantics. To keep the ter-
+minology consistent, we always usetransactionto mean ablock-based ledger
+transaction, whereaselementrefers to Setchain elements. Depending on the
+implementation, a single ledger transaction may contain one or multiple ele-
+ments.
+2.4.2. API
+The block-based ledger provides two endpoints. First,append(tx)is used
+to submit a transactiontxto the ledger, which is eventually included in a
+block. Second,new_block(B)notifies the servers whenever a new blockB
+has been appended. The number of transactions inBis|B|, and thei-th
+transaction inBisB[i].
+2.4.3. Properties of the block-based ledger
+Since Setchain algorithms use a block-based ledger, proving correctness
+requires defining properties that the ledger guarantees. In particular, the
+ledger property used is that any valid transaction appended by a correct
+server will eventually be included in a block, which is then notified to all
+servers. Moreover, we assume that all blocks notified are final.
+Property 9.Ledger-Add-Eventual-Notify: Lettxbe a valid transaction,
+and letvbe a correct server. Then, ifvinvokesL.append v(tx), transaction
+txwill be eventually and permanently added in a fixed positioniwithin a
+blockB. Moreover, all correct serverswwill be eventually notified of the
+new blockBwithL.new_block w(B).
+14
+Property 10(Ledger-Consistent-Notification).All correct serversware no-
+tified withL.new_blockw(B)of the same set of blocks, and in the same order.
+Property 11(Notification-Implies-Append).If a correct serverwis notified
+withL.new_block w(B)containing a valid transactiontx, then some server
+vhad invokedL.append v(tx).
+3. Setchain Algorithms
+This section presents practical Setchain algorithms built on topof a block-
+based ledger. We describe three implementations, starting from a simple
+baseline that is trivially correct and progressing to a more involved design
+that relies on hashing. As discussed in Section 2.2, a SetchainSprovides two
+methods,addandget, which we instantiate for each algorithm.
+3.1. Algorithm Vanilla
+Figure 3: Algorithm Vanilla
+Algorithm Vanilla (See Fig-
+ure 3) is a basic implementation
+of SetchainSon top of a block-
+based ledgerL. In Vanilla, each
+servervmaintains the local sets:
+the_set,history, andproofs, and
+the counterepoch, as defined in
+Section 2.2. When a client in-
+vokesS.get v(), the servervreturns its currentthe_set,history,epoch, and
+proofs(Line 9).
+Clients append to Setchain an elementeby invokingS.add v(e). The
+server only accepts valid elements not already present inthe_set(see Line
+4). Ifesatisfies these conditions, the server addsetothe_set, and calls
+L.appendv(e), which eventually appendseto ledgerL.
+Whenever a new block is appended to the ledgerL, servervis notified
+throughL.new_block(B)(see Line 9). In all three algorithms, the ledger
+Lis also used to disseminate epoch-proofs. Accordingly, upon receiving a
+blockB, the server first extracts the valid epoch-proofs contained inBand
+adds them to the setproofs(Line 11). Next, the server extracts fromBthe
+valid, unassigned elements and collects them into a batchG(validity checks
+remain necessary because Byzantine servers may append invalid elements to
+the ledger). The server addsGtothe_set, forms a new epoch fromG, and
+15
+Algorithm VanillaCode executed by serverv. Uses block-based ledgerLshared
+by all servers.
+1 Init:the_set←∅,epoch←0,history←∅,proofs←∅
+2functionadd(e)
+3 assertvalid_element(e)∧e /∈the_set
+4the_set←the_set∪{e}
+5L.append(e)
+6return
+7functionget()
+8return(the_set,history,epoch,proofs)
+9upon(L.new_block(B)) do
+10np←{ep∈B:
+ep=⟨j, p, w⟩is an epoch-proof∧valid_proof(j, p, w,history[j])}
+11proofs←proofs∪np
+12G←{e∈B:eis an element∧valid_element(e)∧e /∈history}
+13the_set←the_set∪G
+14epoch←epoch+ 1
+15history[epoch]←G
+16p←Sign v(Hash(epoch, G))
+17L.append(⟨epoch, p, v⟩)
+18end upon
+stores it in thehistorymap. Finally, it generates an epoch-proof (including
+the epoch number, the epoch signature, and the server identity) and appends
+this proof to the ledger by invokingL.append(Line 17).
+Algorithm Vanilla addresses the proof requirement through epoch-proofs,
+enabling a client to safely rely on a single correct server. However, the re-
+sulting Setchain inherits the throughput and latency of the underlying block-
+based ledgerL.
+3.2. Algorithm Compresschain
+Algorithm Compresschain (See Figure 4) improves throughput relative
+to Vanilla. In Algorithm Compresschain, each server uses acollectorthat
+accumulates client elements and server-generated epoch-proofs until a target
+collector size is reached (or a timeout fires). Then, the collected batch,
+corresponding to a new epoch, is compressed and appended to the ledger as
+a single transaction.
+16
+Algorithm CompresschainCode executed by serverv. Uses block-based
+ledgerLshared by all servers.
+1 Init:the_set←∅,epoch←0,history←∅,proofs←∅,batch←∅
+2functionadd(e)
+3 assertvalid_element(e)∧(e /∈the_set)
+4the_set←the_set∪{e}
+5add_to_batch(e)
+6return
+7functionadd_to_batch(e)
+8batch←batch∪{e}
+9return
+10functionget()
+11return(the_set,history,epoch,proofs)
+12upon(isReady(batch)) do
+13 assertbatch̸=∅
+14b←Compress(batch)
+15L.append(b)
+16batch←∅
+17end upon
+18upon(L.new_block(B)) do
+19fori= 1to|B|do
+20batch_original←Decompress(B[i])
+21ifbatch_original=∅then continue
+22np←{ep∈batch_original:ep=⟨j, p, w⟩is an epoch-proof
+∧valid_proof(j, p, w,history[j])}
+23proofs←proofs∪np
+24G←{e∈batch_original:eis an element∧valid_element(e)
+∧(e /∈history)}
+25the_set←the_set∪G
+26epoch←epoch+ 1
+27history[epoch]←G
+28p←Sign v(Hash(epoch, G))
+29add_to_batch(⟨epoch, p, v⟩)
+30end upon
+Algorithm Compresschain extends Algorithm Vanilla with an additional
+setbatch, which collects client elements and epoch-proofs. When a client
+17
+Figure 4: Algorithm Compresschain
+submits an elementeviaS.add v(e), the server addsetothe_setand also
+enqueues it intobatchusingadd_to_batch(e)(Line 5). Oncebatchreaches
+the collector size (or a timeout is triggered whilebatch̸=∅), the event
+isReady(batch)is raised; the batch is then compressed, appended to the
+ledger, andbatchis reset to∅.
+When a new blockBis delivered, the server processes each compressed
+batch inBin order. LetB[i]denote thei-th transaction of blockB. The
+server decompressesB[i], adds the valid epoch-proofs found inB[i]toproofs,
+and extracts the valid elements ofB[i]into a setGthat will form a new
+epoch. The elements inGare added tothe_set, assigned an epoch number,
+and recorded inhistory. The server also creates an epoch-proof for the new
+epoch and forwards it to the collector viaS.add_to_batchv(·), which inserts
+it intobatch.
+The key difference between Algorithms Compresschain and Vanilla is the
+granularity of ledger transactions. In Algorithm Compresschain, each trans-
+action inBis a compressed batch (potentially containing many Setchain
+elements) that becomes an epoch, whereas in Algorithm Vanilla each transac-
+tion is a single element and an epoch corresponds to the set of valid elements
+inB. This change can substantially increase throughput.
+3.3. Algorithm Hashchain
+Algorithm Hashchain (See Figure 5) increases the throughput by hashing
+batches instead of compressing them. While hashing can yield a substan-
+tial reduction in communicated size, hashes are not reversible; therefore, an
+additional mechanism is required to recover the original batch contents.
+In Algorithm Hashchain, when a batch becomes ready (Line 12), serverv
+computes the batch hashh, signsh, and forms the hash-batchhbby combin-
+ing the hash, the signature, and the server identity. The server then appends
+hbas a transaction to the ledgerLand resetsbatchto∅.
+18
+Algorithm HashchainCode executed by serverv. Uses block-based ledgerL
+shared by all servers.
+1 Init:the_set←∅, epoch←0, history←∅,proofs←∅,hash_to_batch←∅,
+batch←∅,hash_to_signers←∅
+2functionadd(e)
+3 assertvalid_element(e)∧(e /∈the_set)
+4the_set←the_set∪{e}
+5add_to_batch(e)
+6return
+7functionadd_to_batch(e)
+8batch←batch∪{e}
+9return
+10functionget()
+11return(the_set, history, epoch,proofs)
+12upon(isReady(batch)) do
+13 assertbatch̸=∅
+14h←Hash(batch)
+15hash_to_batch[h]←batch
+16Register_batch(h,batch)
+17s←Sign v(h)
+18hb←⟨h, s, v⟩
+19L.append(hb)
+20batch←∅
+21end upon
+22upon(L.new_block(B)) do
+23fori= 1to|B|do
+24if(B[i] =⟨h, s w, w⟩)∧valid_hash(h, s w, w)∧w /∈hash_to_signers[h]then
+25batch_original←hash_to_batch[h]
+26ifbatch_original=∅then▷ his new
+27batch_original←Request_batch(h)
+28if(batch_original̸=∅)∧(Hash(batch_original) =h)then▷Found and correct
+29hash_to_batch[h]←batch_original
+30Register_batch(h,batch_original)
+31s v←Sign v(h)
+32hb←⟨h, s v, v⟩
+33L.append(hb)
+34np←{ep∈batch_original:ep=⟨j, p, w⟩is epoch-proof∧
+valid_proof(j, p, w,history[j])}
+35proofs←proofs∪np
+36G←{e∈batch_original:eis an element∧valid_element(e)∧(e /∈history)}
+37the_set←the_set∪G
+38hash_to_signers[h]←hash_to_signers[h]∪{w}
+39if|hash_to_signers[h]|=f+ 1then
+40epoch←epoch+ 1
+41G←{e∈hash_to_batch[h] :eis an element∧valid_element(e)∧(e /∈history)}
+42history[epoch]←G
+43p←Sign v(Hash(epoch, G))
+44add_to_batch(⟨epoch, p, v⟩)
+45end upon
+Because the original batch cannot be reconstructed fromhalone, the
+19
+Figure 5: Algorithm Hashchain
+server stores the batch associated withhin the maphash_to_batch. In ad-
+dition, the batch and its hashhare registered viaRegister_batch, enabling
+other servers to request and obtain the batch contents.
+Upon aL.new_block(B)notification, the server processes each valid
+hash-batchhb w =⟨h, s w, w⟩ ∈Bas follows. If servervdoes not have
+the batch forhinhash_to_batch, it sendsRequest_batch(h)to serverw,
+namely, to the signer of the hash-batch currently being processed. Since
+wmay be Byzantine, servervwaits only a bounded amount of time for
+a reply. If no batch is received, or if the received batch does not satisfy
+Hash(batch_original) =h, then the batch is discarded andvdoes not append
+its own hash-batch forh. Otherwise,vstores the batch inhash_to_batch,
+updatesthe_set, creates its own hash-batchhb v =⟨h, s v, v⟩, and appends
+it to the ledgerL. Thus, a Byzantine server can delay retrieval from that
+signer, but it cannot make a correct server accept an invalid batch.
+Observe that a hash-batch observed in ledgerLcannot be immediately
+assigned an epoch number: a Byzantine server could append a hash-batch
+and then refuse to serve the corresponding batch. For this reason, we require
+that a hash be signed by at leastf+ 1distinct servers before it can be
+consolidated into an epoch. Indeed, if hash-batches for the samehexist
+fromf+ 1different servers, then at least one of these signers is correct and
+will possess the batch and serve it upon request. Hence, selective withholding
+20
+S1 S2 S3 S4 LedgerL
+h←Hash(batch_original)
+hb1←⟨h, s 1, S 1⟩ append(hb1)
+new_block(B1∋hb 1)
+Request_batch(h)
+batch_original
+Request_batch(h)
+batch_original
+Request_batch(h)
+batch_original
+verifyHash(batch_original) =h
+hb2←⟨h, s 2, S 2⟩
+hb3←⟨h, s 3, S 3⟩
+hb4←⟨h, s 4, S 4⟩
+new_block(B2∋⟨hb 2, hb3, hb4⟩)
+|hash_to_signers[h]|=f+ 1
+⇒Epoch Consolidation
+pi←Sign Si (Hash(epoch, batch_original))
+epi←⟨epoch, p i, S i⟩
+ep1
+ep2
+ep3
+ep4
+−→append hash-batch\epoch-proof−→request batch−→deliver batch99Knew_block notification
+Figure 6: Hashchain batch retrieval and epoch consolidation withn= 4servers
+andf= 1. ServerS 1 appends hash-batchhb 1; the other servers retrieve the
+original batch, verify its hash, and append their own hash-batches. Oncef+ 1 = 2
+consistent signatures are recorded in the ledger, the epoch is consolidated.
+by Byzantine signers cannot violate safety, and oncef+ 1signatures exist it
+cannot prevent eventual retrieval through at least one correct signer.
+Then, the processing of hash-batchhbw is continued by addingwto the
+set of signers in the maphash_to_signers, which tracks the servers that
+appended hash-batches for a given hashh(Line 38). Once the signer set
+reachesf+ 1, the server extracts the valid elements from the batch into a
+setGand assigns an epoch number; we call this stepepoch consolidation
+(See Figure 6). The server also adds the valid epoch-proofs contained in the
+batch toproofs. Finally, as in the previous algorithms, the epoch is recorded
+inhistory, and an epoch-proof for this epoch is generated and sent to the
+collector viaS.add_to_batch v(ep).
+21
+4. Proofs of Correctness
+In this section, we present the proofs of correctness for the Setchain al-
+gorithms presented in Section 3.
+4.1. Correctness of Algorithm Vanilla
+Algorithm Vanilla guarantees Property 1.
+Lemma 1.Let(T, H, h, P) =S.get v()be an invocation to a correct server
+v. Then,∀i∈{1, . . . , h}, H[i]⊆T.
+Proof.Weprovethatinacorrectservervitholdsthat∀i∈[1,epoch],history[i]
+⊆the_setat all times.
+Initially, we have thatepoch= 0, since Line 14 was never executed.
+Hence, Line 15 was not executed either,historyis empty, and the claim
+trivially holds.
+Let us assume now thatepoch>0and consider somei∈[1,epoch]. Since
+epochis only modified in Line 14 by increments of 1, then, when it became
+equal toi, all the elementsGthat were later added tohistoryin epochi(in
+Line 15) were guaranteed to be inthe_setbefore (in Line 13), and are never
+removed fromthe_set.
+Algorithm Vanilla guarantees Property 2.
+Lemma 2.LetS.add v(e)be an operation invoked on a correct serverv, and
+ea valid element. Then, eventually all invocations(T, H, h, P) =S.get v()
+satisfye∈T.
+Proof.TheexecutionofS.add v(e)bythecorrectservervwilladdetothe_set
+(Line 4) if it is not already present. Since elements are never removed from
+the_set, elementewill eventually appear inthe_setreturned in all future
+S.getv()invocations which return(the_set,history,epoch,proofs).
+Algorithm Vanilla guarantees Property 3.
+Lemma 3.Letvandwbe two correct servers, letebe a valid element,
+and let(T, H, h, P) =S.get v(). Ife∈T, then eventually all invocations
+(T′, H′, h′, P′) =S.get w()satisfy thate∈T ′.
+22
+Proof.In Algorithm Vanilla, an element is added by servervtothe_setin
+Lines 4 and 13 only.
+First, let us consider the case whereeis added by servervtothe_set
+in Line 4 when a client invokedS.addv(e). Then,vinvokesL.append v(e)in
+Line 5. From Property 9, a blockBcontainingeis eventually notified to all
+correct Setchain servers, includingw.
+On the other hand, ifeis added by servervtothe_setat Line 13 for
+the first time, then a blockBcontainingewas notified tovby the ledgerL.
+From Property 10, this block must have been notified to all correct Setchain
+servers, includingw.
+In both cases, when processing blockB, serverwadds the valid ele-
+mentetothe_set(Line 13) if it is not already present, and is never re-
+moved fromthe_set. Hence, all future invocations ofS.getw()return tuples
+(T′, H′, h′, P′)such thate∈T ′.
+Algorithm Vanilla guarantees Property 4.
+Lemma4.Letvbe a correct server, letebe a valid element and let(T, H, h, P)
+=S.get v(). Ife∈T, then eventually all invocations(T ′, H′, h′, P′) =
+S.getv()satisfy thate∈H ′.
+Proof.The elementeis added by servervtothe_setin either Line 4 or 13.
+First, let us consider the case whereeis added byvtothe_setin Line 4
+when a client invokedS.add v(e). Then,vinvokesL.append v(e)in Line 5.
+From Property 9, eventually a blockBcontainingeis notified tov.
+Otherwise, ifeis added by servervtothe_setin Line 13 for the first
+time, then it was because a blockBcontainingewas notified tovby ledger
+L.
+Then, in both cases,vadds the batch of valid elementsGfrom the block
+Btohistoryat Line 15, withe∈G. After that, all future invocations of
+S.getw()return tuples(T ′, H′, h′, P′)that satisfye∈H ′.
+Algorithm Vanilla guarantees Property 5.
+Lemma 5.Letvbe a correct server,(T, H, h, P) =S.get v(), and leti, i′∈
+{1, . . . , h}withi̸=i ′. Then,H[i]∩H[i ′] =∅.
+Proof.By way of contradiction, let us assume that for some valid elemente
+it holds thate∈history[i]ande∈history[i ′]. Without loss of generality, let
+us assume that1≤i < i ′≤epoch.
+23
+Observe that the elements of an epoch are inserted intohistoryin Line 15,
+and they are added in increasing epoch order (variableepochis increased
+every time an epoch is created (Line 14) and never decreased). Then, when
+history[i′]is mapped to a setGwithe∈Gin Line 15, it already holds that
+e∈history[i]. But, from Line 12,Gdoes not contain elements already in
+history. Hence we have a contradiction.
+Algorithm Vanilla guarantees Property 6.
+Lemma 6.Letv, wbe correct servers, let(T, H, h, P) =S.get v()and
+(T′, H′, h′, P′) =S.get w(), and leti∈ {1, . . . ,min(h, h ′)}. Then,H[i] =
+H′[i].
+Proof.The proof proceeds by induction on the epoch numbern. For sim-
+plicity we assume thatH[0] =∅=H ′[0], which is the base casen= 0of
+the induction. Then, we show forn >0thatH[n] =H ′[n], assuming that
+∀i < n, H[i] =H ′[i].
+First, we show thatH[n]⊆H ′[n]. (The proof thatH ′[n]⊆H[n]is
+analogous.) Lete∈H[n]. Thenewas added byvtoH[n]at Line 15 when
+a ledger blockBcontainingewas processed byv. It is easy to see thatBis
+then-th block received byv. Therefore, from Property 10,walso receivesB
+as then-th block. The fact thatvadded elementetoH[n]implies that (1)
+eis a valid element and (2)e /∈H[0..n−1].By inductive hypothesis and (2),
+we conclude thateis not inH ′[0..n−1]. Sinceeis a valid element in the
+n-th block received bywthat is not inH[0..n−1],eis added toH ′[n].
+Algorithm Vanilla guarantees Property 7.
+Lemma 7.Letvbe a correct server,ebe a valid element,(T, H, h, P) =
+S.getv(), ande∈T. Then there was an operationS.add w(e)invoked in the
+past in some serverw.
+Proof.Elements are added tothe_setin Lines 4 and 13.
+First, let us consider the case whereewas added by servervtothe_setin
+Line 4. Then, it was added when operationS.addv(e)was being processed.
+On the other hand, ifewas added by servervtothe_setin Line 13,
+then a ledger blockBcontainingewas notified tovby the ledgerL. From
+Property 11, some serverwinvokedL.append w(e). Recall that, as mentioned
+in Section 2.1, we assume that a server cannot create a valid element by itself
+and that clients and servers do not collude. So, a serverwcannot append a
+valid elementewithL.append w(e)without a client invocationS.addw(e).
+24
+Algorithm Vanilla guarantees Property 8.
+Lemma 8.Letvbe a correct server,(T, H, h, P) =S.get v(), andi∈
+{1, . . . , h}. Then eventually all invocations(T ′, H′, h′, P′) =S.get v()sat-
+isfy thatP′ contains at leastf+ 1epoch-proofs ofH[i].
+Proof.LetE=history[i]be an epoch with epoch numberi, whose valid
+and new elements as setGwere added tohistorybyvat Line 15. Once
+this happens, the hash ofGis computed and signed byvasp v. Then, an
+epoch-proof consisting of⟨i, pv, v⟩is appended to the ledger byvin Line 17.
+By Property 10, all correct Setchain servers will eventually receive enough
+ledger blocks to reach the creation of epochi. From Line 6, all correct
+Setchain servers agree on the content of thei-th epoch. Therefore, every
+correct Setchain serverwmapsGtohistory w[i], generates an epoch-proof
+⟨i, pw, w⟩for the i-th epoch, and appends it to the ledger.
+Then, from Property 9, ledger blocks containing the epoch-proofs of
+history[i]will be notified to all correct Setchain servers, including serverv.
+Servervwill add these epoch-proofs toproofsin Line 11. Since we assume
+a system withnservers, where at mostf < n/2are not correct, at least
+f+ 1epoch-proofs for the i-th epoch will be appended to the ledger. Hence,
+eventually, in all invocations(T′, H′, h′, P′) =S.get v(), it will hold thatP′
+will contain at leastf+ 1epoch-proofs ofhistory[i].
+The combination of all the previous lemmas shows that Algorithm Vanilla
+implements a Setchain with epoch-proofs.
+4.2. Correctness of Algorithm Compresschain
+This section follows the same pattern as the previous section, proving
+Properties 1 to 8 to conclude that Algorithm Compresschain implements a
+Setchain with epoch-proofs.
+Algorithm Compresschain guarantees Property 1.
+Lemma 9.Let(T, H, h, P) =S.get v()be an invocation to a correct server
+v. Then,∀i∈{1, . . . , h}, H[i]⊆T.
+Proof.Weprovethatinacorrectservervitholdsthat∀i∈[1,epoch],history[i]
+⊆the_setat all times.
+Initially, we have thatepoch= 0, since Line 26 was never executed.
+Hence, Line 27 was not executed either,historyis empty, and the claim
+trivially holds initially.
+25
+Let us assume now thatepoch>0and consider somei∈[1, epoch]. Since
+epochis only modified in Line 26 by increments of 1, then, when it became
+equal toi, all the elementsGthat were later added tohistoryin epochi(in
+Line 27) were guaranteed to be inthe_setbefore (in Line 25), and are never
+removed fromthe_set.
+Algorithm Compresschain guarantees Property 2.
+Lemma 10.LetS.add v(e)be an operation invoked on a correct serverv, and
+ea valid element. Then, eventually all invocations(T, H, h, P) =S.get v()
+satisfye∈T.
+Proof.TheexecutionofS.add v(e)bythecorrectservervwilladdetothe_set
+(Line 4) if not already present, which will eventually be returned in all future
+S.getv()invocations which return(the_set,history, epoch,proofs).
+Algorithm Compresschain guarantees Property 3.
+Lemma 11.Letvandwbe two correct servers, letebe a valid element,
+and let(T, H, h, P) =S.get v(). Ife∈T, then eventually all invocations
+(T′, H′, h′, P′) =S.get w()satisfy thate∈T ′.
+Proof.In Algorithm Compresschain, an element is added by servervto
+the_setin Lines 4 and 25 only.
+First, let us consider the case whereeis added by servervtothe_setin
+Line 4 when a client invokedS.addv(e). Then,vaddsetobatchby invoking
+S.add_to_batchv(e)(Line 5). Eventually, aftereis added to thebatch, a
+notificationisReady(batch)is signaled. Therefore, eventuallyvcompresses
+batchwith elementeand appends the compressed batchcbto the ledgerL
+(Line 15). Note that, elements inbatchare removed only after the com-
+pressed version ofbatchis added to the ledgerL(line 16). From Property 9,
+eventually a blockBcontaining the compressed batchcbis notified to all
+correct Setchain servers, includingw.
+On the other hand, ifeis added by servervtothe_setat Line 25 for the
+first time, then a blockBcontaining a compressed batchcbwithe∈cbwas
+notified tovby the ledgerL. From Property 10, this block must have been
+notified to all correct Setchain servers, includingw.
+In both cases, when processingcb(withe∈cb), serverwadds the valid
+elementetothe_set(Line 25) if it is not already present and is never re-
+moved fromthe_set. Hence, all future invocations ofS.getw()return tuples
+(T′, H′, h′, P′)withe∈T.
+26
+Algorithm Compresschain guarantees Property 4.
+Lemma 12.Letvbe a correct server, letebe a valid element and let
+(T, H, h, P) =S.get v(). Ife∈T, then eventually all invocations(T′, H′, h′, P′)
+=S.get v()satisfy thate∈H ′.
+Proof.The elementewas added tothe_setof servervin Algorithm Com-
+presschain in either Line 4 or Line 25.
+First, let us consider the case whereeis added by servervtothe_setin
+Line 4 when a client invokedS.addv(e). Then,vaddsetobatchby invoking
+S.add_to_batchv(e)(Line 5). Eventually, aftereis added to thebatch, a
+notificationisReady(batch)is signaled. Therefore, eventuallyvcompresses
+batchwith elementeand appends the compressed batchcbto the ledgerL
+(Line 15). Note that, elements inbatchare removed only after the com-
+pressed version ofbatchis added to the ledgerL(Line 16). From Property 9,
+eventually a blockBcontaining the compressed batchcbis notified tov.
+On the other hand, ifeis added tothe_setat Line 25 for the first time,
+it was because a blockBcontaining the compressed batchcbwas notified to
+vby the ledgerLande∈cb.
+Then, in either case, after receivingcbwithe∈cbin blockB,vdecom-
+pressescband adds the setGof its valid elements tohistory(if not there
+already; Line 27). Sinceeis valid, after this, it holds thate∈history. Then,
+eventually, all invocations(T′, H′, h′, P′) =S.get v()satisfy thate∈H ′.
+Algorithm Compresschain guarantees Property 5.
+Lemma 13.Letvbe a correct server,(T, H, h, P) =S.get v(), and leti, i′∈
+{1, . . . , h}withi̸=i ′. Then,H[i]∩H[i ′] =∅.
+Proof.By way of contradiction, let us assume that for some valid elemente
+it holds thate∈history[i]ande∈history[i ′]. Without loss of generality, let
+us assume that1≤i < i ′≤epoch.
+Observe that the elements of an epoch are inserted intohistoryin Line 27
+and they do it in increasing epoch order. Then, when a setGwithe∈G
+is mapped tohistory[i′]in Line 27, it already holds thate∈history[i]. But,
+from Line 24,Gcannot contain elements already inhistory. Hence we have
+a contradiction.
+Algorithm Compresschain guarantees Property 6.
+27
+Lemma 14.Letv, wbe correct servers, let(T, H, h, P) =S.get v()and
+(T′, H′, h′, P′) =S.get w(), and leti∈ {1, . . . ,min(h, h ′)}. ThenH[i] =
+H′[i].
+Proof.The proof proceeds by induction on the epoch numbern. For sim-
+plicity we assume thatH[0] =∅=H ′[0], which is the base casen= 0of
+the induction. Then, we show forn >0thatH[n] =H ′[n], assuming that
+∀i < n, H[i] =H ′[i].
+First, we show thatH[n]⊆H ′[n]. (The proof thatH ′[n]⊆H[n]is
+analogous.) Lete∈H[n]. Thenewas added byvtoH[n]at Line 27 when
+a ledger blockBcontaining the compressed batchcbwas processed byvand
+e∈cb. From Property 10, we know thatwreceives the same set of blocks in
+the same order asv. So, it receivesBand processescbin the same order as
+vande∈cbThe fact thatvadded elementetoH[n]implies that (1)eis a
+valid element and (2)e /∈H[0..n−1].By inductive hypothesis and (2), we
+conclude thateis not inH ′[0..n−1]. Sinceeis a valid element that is not
+inH[0..n−1],eis added toH ′[n].
+Algorithm Compresschain guarantees Property 7.
+Lemma 15.Letvbe a correct server,ebe a valid element,(T, H, h, P)
+=S.get v(), ande∈T. Then there was an operationS.add w(e)invoked in
+the past in some serverw.
+Proof.Elements are added tothe_setin the Lines 4 and 25.
+First, let us consider the case whereewas added by servervtothe_setin
+Line 4. Then, it was added when operationS.addv(e)was being processed.
+On the other hand, ifewas added by servervtothe_setin Line 25,
+then a ledger blockBcontaining a compressed batchcbwas notified tov
+by the ledgerL, ande∈cb. From Property 11, some serverwinvoked
+L.appendw(cb).
+Recall that, as mentioned in Section 2.1, we assume that a server cannot
+create a valid element by itself, and clients and servers do not collude. So, a
+serverwcannot append a valid elementeas a part of the compressed batch
+cbwithL.append w(cb)without a client invocationS.add w(e).
+Algorithm Compresschain guarantees Property 8.
+Lemma 16.Letvbe a correct server,(T, H, h, P) =S.get v(), andi∈
+{1, . . . , h}. Then eventually all invocations(T′, H′, h′, P′) =S.get v()satisfy
+thatP ′ contains at leastf+ 1epoch-proofs ofH[i].
+28
+Proof.Lethistory[i]be an epoch with epoch numberiwhose valid and new
+elements as setGwere added tohistorybyvat Line 27. Once this happens,
+the hash ofGis computed and signed byvasp v. Then, an epoch-proof
+consisting of⟨i, p v, v⟩is added to thebatchbyvin Line 29. Eventually the
+batchwill be ready,vwill compressedbatchand append the compressed
+batchcb′ to the ledgerL(line 15).
+From Property 10, ledgerLnotifies the same set of blocks in the same
+order to all servers. Eventually, the ledger blockBwith the compressed
+batchcbwas notified to each correct serverwas it happened tov. Then,
+serverwmaps valid elements ofcbasGtohistory[i], generates an epoch-
+proof⟨i, p w, w⟩for the i-th epoch, and appends it to itsbatch. Eventually,
+this batch will be ready and compressed, and the compressed batchcb′′ will
+be appended to the ledgerL.
+Then, from Property 9, ledger blocks containing the compressed batches
+with the epoch-proofs of the i-th epoch will be notified to all correct Setchain
+servers, including serverv. Servervwill add these epoch-proofs toproofsin
+Line 23. Since we assume a system withnservers, where at mostf < n/2
+are not correct, at leastf+ 1epoch-proofs forhistory[i]will be appended
+by correct servers to the ledger as a part of compressed batches. Hence,
+eventually, in all invocations(T′, H′, h′, P′) =S.get v(), it will hold thatP′
+will contain at leastf+ 1epoch-proofs ofhistory[i].
+4.3. Correctness of Algorithm Hashchain
+Before writing the proofs for the properties of Setchain, we need some
+lemmas forEpoch Consolidationin Hashchain. Lemma 17 states that when
+a correct server generates a hash batch and appends it to the ledger, that
+server is available to share the original batch to other servers when requested.
+Lemma 17.Letvbe a correct server and lethbbe a valid hash batch ap-
+pended byvto the ledger L throughL.append(hb), wherehb=⟨hs, sg, v⟩.
+Thenvis available to share the original batchbatch_originalcorresponding
+to the hashhswhen requested by other serversw.
+Proof.Two places where a hash batch is appended to the ledgerLin Algo-
+rithm Hashchain are at Lines 19 and 33.
+When a correct servervappends a hash batchhbto the ledgerLat
+Line 19, it stores the hashhsand the correspondingbatch_originalin local,
+by calling theRegister_batch(h,batch)function (Line 16).
+29
+When a correct servervappends a hash batchhbto the ledgerLat
+Line 33, it has already either retrieved thebatch_originalfrom its local stor-
+age(Line25)orhasrequestedtheoriginalbatchusingthehashhsfoundinhb
+(Line 27). Once the batch is retrieved,vproceeds to append the hash batch
+hbto the ledgerL, only after verifying (Line 28) that thebatch_original
+is not empty and the hash ofbatch_originalmatches the hashhsfound
+inhb. Also, before appending, it stores the hashhsand the corresponding
+batch_originalin local, by calling theRegister_batch(h,batch)function
+(Line 30).
+Hence, in both cases,vwill be available to share the original batch,
+batch_original, correspondingtothehashhswhenrequestedbyotherservers
+w.
+Lemma 18.Letvbe a correct server and lethbbe a valid hash batch ap-
+pended byvto the ledger L throughL.append(hb), wherehb=⟨hs, sg, v⟩.
+Then eventually|hash_to_signers[hs]|≥f+ 1in each correct serverw.
+Proof.When hash batchhbis appended to the ledgerLby the correct server
+v, by Property 9 a blockBcontaininghbwill eventually be notified to all
+correct Setchain servers.
+Each correct Setchain serverw, when processinghbas a part of the re-
+ceived blockB, requests the original batch of elements fromvafter vali-
+dating the signaturesg. By previous lemma,vshares the original batch.
+After receiving the original batchbatch_original,wverifies the hashhsas
+Hash(batch_original) =hs. Since the hash is valid (vis correct), thenw
+generates a signaturesg ′ of the hashhs. Then, it generates a new hash
+batchhb ′ =⟨hs, sg ′, w⟩and appendshb ′ to the ledger. Serverwalso adds
+the identityvtohash_to_signers[hs].
+Again, by Property 9, all the correct Setchain servers will eventually be
+notified of blocks from the ledger with hash batches forhsfrom all correct
+servers. When the hash batch of a correct server is processed, the server is
+added tohash_to_signers[hs].
+Since we assume a system with at leastf+ 1correct servers, eventually
+|hash_to_signers[hs]|≥f+ 1.
+Algorithm Hashchain guarantees Property 1.
+Lemma 19.Let(T, H, h, P) =S.get v()be an invocation to a correct server
+v. Then,∀i∈{1, . . . , h}, H[i]⊆T.
+30
+Proof.Weprovethatinacorrectservervitholdsthat∀i∈[1, epoch],history[i]
+⊆the_setat all times.
+Initially, we have thatepoch= 0, since Line 40 was never executed.
+Hence, Line 42 was not executed either,historyis empty, and the claim
+trivially holds.
+Let us assume now thatepoch>0and consider somei∈[1, epoch]. Since
+epochis only modified in Line 40 by increments of 1, when it became equal
+toi, all the elementsGthat were later (in Line 42) added tohistoryin epoch
+iwere guaranteed to be inthe_setbefore (in Line 37).
+Algorithm Hashchain guarantees Property 2.
+Lemma 20.LetS.add v(e)be an operation invoked on a correct serverv, and
+ea valid element. Then, eventually all invocations(T, H, h, P) =S.get v()
+satisfye∈T.
+Proof.TheexecutionofS.add v(e)bythecorrectservervwilladdetothe_set
+(Line 4) if not already present. Since the elements are never removed from
+the_set,ewill eventually be returned in all futureS.getv()invocations which
+return(the_set,history, epoch,proofs).
+Algorithm Hashchain guarantees Property 3.
+Lemma 21.Letvandwbe two correct servers, letebe a valid element,
+and let(T, H, h, P) =S.get v(). Ife∈T, then eventually all invocations
+(T′, H′, h′, P′) =S.get w()satisfy thate∈T ′.
+Proof.Two places where an element is added tothe_setin Hashchain are in
+Lines 4 and 37.
+Let us consider the case where in serverv,eis added tothe_setin
+Line 4 when a client invokedS.add v(e). Thenvaddsetobatchby in-
+vokingS.add_to_batch v(e)(Line 5). Once a batch is ready,vinvokes
+L.append(hb), which appends a hash batchhbto the ledgerL, wherehb=
+⟨hs, sg, v⟩,hs=Hash(batch), ande∈batch.
+On the other hand, ifeis added tothe_setat Line 37 for the first time
+in serverv, then a blockBcontaininghbwas notified tovby the ledger, and
+the original batch was recovered and is valid. Since the hash is valid,vsigns
+it and generates a new hash batch ashb=⟨hs, sg, v⟩and appendshbto the
+ledgerLande∈batch_original.
+31
+In either case, according to Property 9, eventually a blockBcontaininghb
+isnotifiedtoallcorrectSetchainservers, includingw. Whenwencountersthe
+hash batch with the hashhsas a part of blockB, eventuallywcould retrieve
+the original batch fromvas proved in Lemma 17, if it doesn’t have it already.
+After verifying the original batch corresponding tohb,wwould add the valid
+elementetothe_setif it is not already present (Line 37). So, eventually
+all future invocations ofS.getw()returns(the_set,history, epoch,proofs)and
+e∈the_set.
+Algorithm Hashchain guarantees Property 4.
+Lemma 22.Letvbe a correct server, letebe a valid element and let
+(T, H, h, P) =S.get v(). Ife∈T, then eventually all invocations(T ′, H′, h′,
+P′) =S.get v()satisfy thate∈H ′.
+Proof.Two places where an element is added tothe_setin Hashchain are in
+Lines 4 and 37.
+Let us consider the case where in serverv,eis added tothe_setin
+Line 4 when a client invokedS.addv(e). Thenvaddsetobatchby invoking
+S.add_to_batchv(e)(Line 5). Once a batch is ready,vinvokesL.append(hb),
+which appends a hash batchhbto the ledgerL, wherehb=⟨hs, sg, v⟩,
+hs=Hash(batch), ande∈batch.
+On the other hand, ifeis added tothe_setat Line 37 for the first time
+in serverv, then a blockBcontaininghb ′ =⟨hs, sg′, w⟩was notified tovby
+the ledger, and the original batch was recovered and is valid. Since the hash
+is valid, thenvsigns the hashhsand generates a new hash batch for the
+hashhsashb=⟨hs, sg, v⟩and appendshbto the ledgerL. Also, it addse
+tothe_set.
+According to Lemma 18, eventuallyvreceives at leastf+ 1signatures
+for hashhs. Whenvreceives thef+ 1-th signature, the batch consolidates
+and it is assigned an epoch number (Line 40). Then, the valid elements from
+the batch, includinge, are added tohistoryas an epoch (Line 42), if not
+already present. Eventually all invocations(T′, H′, h′, P′) =S.get v()satisfy
+thate∈H ′.
+Algorithm Hashchain guarantees Property 5.
+Lemma 23.Letvbe a correct server,(T, H, h, P) =S.get v(), and leti, i′∈
+{1, . . . , h}withi̸=i ′. Then,H[i]∩H[i ′] =∅.
+32
+Proof.By way of contradiction, let us assume that for some valid elemente
+it holds thate∈history[i]ande∈history[i ′]. Without loss of generality, let
+us assume that1≤i < i ′≤epoch.
+So, foreto be included in the epochi′ as a part ofG(Line 42),Gmust
+have been processed through Line 36, which allows only elements that are
+not already present inhistoryto pass through. We know thati < i ′ and
+epochis only increased (Line 40) and never decreased. So, if epochiwas
+processed first and, as a result,e∈history[i], then the attempt to addeto
+history[i′]would not clear the conditions in Line 36. So, this contradicts our
+assumption thate∈history[i ′]. Then, we havehistory[i]∩history[i′] =∅.
+Algorithm Hashchain guarantees Property 6.
+Lemma 24.Letv, wbe correct servers, let(T, H, h, P) =S.get v()and
+(T′, H′, h′, P′) =S.get w(), and leti∈ {1, . . . ,min(h, h ′)}. ThenH[i] =
+H′[i].
+Proof.The proof proceeds by induction on the epoch numbern. For sim-
+plicity we assume thatH[0] =∅=H ′[0], which is the base casen= 0of
+the induction. Then, we show forn >0thatH[n] =H ′[n], assuming that
+∀i < n, H[i] =H ′[i].
+First, we show thatH[n]⊆H ′[n]. (The proof thatH ′[n]⊆H[n]is
+analogous.) Lete∈H[n]. Thenethat was added byvtoH[n]at Line 42
+whenvreceived thef+ 1-th signature for the hashhsashb=⟨hs, sg, z⟩,
+such thatv.hash_to_batch[hs] =batch_original,e∈batch_original,
+Hash(batch_original) =hs, and|hash_to_signers[hs]|=f+ 1. The fact
+thatvadded elementetoH[n]implies that (1)eis a valid element and (2)
+e /∈H[0..n−1].Then, by Property 9,wwill eventually receive a ledger block
+containinghb=⟨hs, sg, z⟩and by Properties 9 and 10, it will be thef+ 1-th
+signaturewreceives for hashhs. Sincewhas receivedf+ 1signatures ofhs,
+at least one of the signers is correct, and by Lemma 17, a correct serverz
+was available to sharebatch_originalwithwwhenwrequested it at Line 27
+(ifwalready doesn’t havebatch_original).By inductive hypothesis and (2),
+we conclude thateis not inH ′[0..n−1]. Sinceeis a valid element that is
+not inH′[0..n−1], it is added toH′[n]at Line 42 byw.
+Algorithm Hashchain guarantees Property 7.
+Lemma 25.Letvbe a correct server,ebe a valid element,(T, H, h, P)
+=S.get v(), ande∈T. Then, there was an operationS.add w(e)invoked in
+the past in some serverw.
+33
+Proof.Elements are added tothe_setin the Lines 4 and 37. First, let us
+consider the case whereewas added by servervtothe_setin Line 4. Then,
+it was added when operationS.addv(e)was being processed.
+On the other hand, ifewas added by servervtothe_setin Line 37, then
+a ledger blockBcontaining a hash batchhbwas notified tovby the ledgerL,
+wherehb=⟨hs, sg, v⟩,hs=Hash(batch), ande∈batch. From Property 11,
+some serverwinvokedL.append w(hb).
+Recall that, as mentioned in Section 2.1, we assume that a server cannot
+create a valid element by itself and do not collude with clients. So, a server
+wcannot append a valid elementeas a part of the hash batchhbwith
+L.appendw(cb)without a client invocationS.add w(e).
+Algorithm Hashchain guarantees Property 8.
+Lemma 26.Letvbe a correct server,(T, H, h, P) =S.get v(), andi∈
+{1, . . . , h}. Then eventually all invocations(T′, H′, h′, P′) =S.get v()satisfy
+thatP ′ contains at leastf+ 1epoch-proofs ofH[i].
+Proof.LetE=history[i]be an epoch with epoch numberiadded tohistory
+byvat Line 42. Thenvreceived thef+ 1-th signature for the hashhs
+ashb=⟨hs, sg, z⟩, such thatv.hash_to_batch[hs] =batch_original,e∈
+batch_original,Hash(batch_original) =hs, and|hash_to_signers[hs]|=f+
+1. From Properties 9 and 10, ledgerLnotifies the same set of blocks in the
+sameordertoallserversandthetransactionsinsidealedgerblockareordered
+as well. So, all correct Setchain serversw, eventually receive enough ledger
+blocks to reach the consolidation of epochi.
+Once the epoch is consolidated, each correct serverwgenerates the proof
+for the epochEas⟨i, p w, w⟩and append it tobatch. Eventually, the batch
+is ready,whashesbatch, signs it and appends it to the ledger asohb=
+⟨ohs, osg, w⟩. By Property 9, eventuallyvreceives a blockBcontainingohb
+and by Lemma 17,vcan retrieve thebatchfromw, which contains the epoch-
+proof⟨i, p w, w⟩. Then,vadds the proof of epochEtoproof sin Line 35.
+Since we assume a system withnservers, where at mostf < n/2are not
+correct, eventuallyvwill receive and add toproof sat leastf+1epoch-proofs
+for epochE, andproof swill be appended to the ledger as a part of the hash
+batches. Hence, eventually, in all invocations(T′, H′, h′, P′) =S.get v(), it
+will hold thatP′ will contain at leastf+ 1epoch-proofs ofE.
+34
+5. Analytical Performance Study
+In this section, we present a brief analysis of the stationary throughput
+that each of these algorithms can achieve. Let us assume in this analysis
+that all thensystem servers are correct. Then, each epoch will haven
+epoch-proofs appended to the ledgerLin the case of Algorithm Vanilla, and
+sent to the collector to be added to thebatchin the case of Compresschain
+and Hashchain. Let us assume epoch-proofs have lengthl p, the elements
+added by the clients have lengthle, and the ledgerLhas blocks of capacity
+C. With Algorithm Vanilla the valid elements in each ledger block form an
+epoch. Then, in the steady state, each block will containnepoch-proofs
+and up to(C−n·l p)/le elements3. If ledgerLcreates blocks at a rateR
+(in blocks/second), Vanilla can reach a throughput ofTv =R(C−n·l p)/le
+elements/second. Let us now consider Compresschain with collector size
+c. In the steady state, for each epochnepoch-proofs are generated. This
+means that, on average, there arenepoch-proofs in each batch. Let us
+assume the compression algorithm used has a compression ratior. Then,
+the length in the ledger of an epoch created from a full collector isℓ=
+((c−n)·l e +n·l p)/r. Then, in the steady state, each ledger block will
+contain up to(c−n)·C/ℓvalid elements, and Compresschain can reach a
+throughput ofT c = R·(c−n)·C
+ℓ = R·(c−n)·C
+((c−n)·le+n·lp)/r elements/second. Finally, let
+us consider Hashchain with collector sizec, and letl h be the length of a
+hash-batch. Let us assume that the bottleneck of Algorithm Hashchain is
+appending to the ledgerL. Observe thatnhash-batches are appended for
+each epoch consolidated. Then, in the steady state, Hashchain can reach a
+throughput ofT h =R·(c−n)·C/(n·l h)elements/second.
+6. Implementation and Evaluation Environment
+WeimplementthethreeproposedalgorithmsinGolang, usingCometBFT
+as the underlying block-based ledger. We first outline key implementation
+aspects, and then describe the experimental environment used to evaluate
+these implementations.
+3For simplicity we will omit floors and ceilings in this analysis.
+35
+6.1. CometBFT
+CometBFT [15] (formerly known as Tendermint) is a Byzantine-tolerant
+state machine replication engine. It is a blockchain middleware that supports
+the replication of arbitrary applications implemented in any programming
+language. Two fundamental components of CometBFT are a blockchain
+consensus engineand a genericapplication interface. The consensus en-
+gine is calledTendermintCore[11] and ensures that every validator (server)
+agrees on the same sequence of blocks with the same set of transactions
+in the same order. CometBFT (TendermintCore) preserves safety as long
+as strictly less than one third of the validators’ voting power is Byzantine;
+in the common equal-voting-power setting this corresponds to the standard
+boundn≥3f+ 1, i.e.,f=⌊(n−1)/3⌋. The application interface called
+Application BlockChain Interface (ABCI), bridges the consensus engine and
+the application. We write the code for the Setchain algorithms in the ABCI
+section of the ledger.
+6.2. Mapping the Block-based Ledger to CometBFT.
+The block-based ledger has two endpoints: anAppendfunction and a
+NewBlocknotification. HerewedefinehowtheseendpointsmaptoCometBFT.
+•Append: In our algorithms, when a client appends a transaction, it uses
+thefunctionBroadcastTxAsynctosendthetransactiontoaCometBFT
+ledger server. This function sends the transaction to the server without
+waiting for a reply. The server stores the transaction in the mempool
+and checks if the transaction is valid before sharing it with the other
+servers using a gossip protocol.
+•NewBlock: CometBFT’s application interface ABCI has a function
+FinalizeBlock. When the CometBFT validators agree upon the pro-
+posed block and finalize the order of transactions, the block is sent
+to all the CometBFT servers for the application layer to process the
+block. This allows the application to generate additional data (e.g.,
+events, updates to the application’s state, etc.) after the block has
+been finalized. So, the process done in the Setchain algorithms upon
+NewBlocknotification is done as a part of CometBFT’sFinalizeBlock
+application logic.
+36
+Table 3: Parameters for Setchain evaluation
+Name Description Values
+sending_rate Adding rate (el/s) 10000,5000,1000,500
+collector_limit Collector size (el) 100, 500
+server_count Number of servers 4, 7, 10
+network_delay Delay increase (ms) 0, 30, 100
+6.3. Performance Evaluation Platform
+We conducted a performance evaluation of the Setchain using a cluster.
+Each machine in the cluster has an Intel(R) Xeon(R) E-2186G CPU @ 3.80
+GHz with 12 cores, 32 GB RAM, and runs Debian GNU/Linux 11 (bullseye).
+We use Docker Engine version 20.10.5. The Setchain algorithms are imple-
+mented on top of CometBFT v0.38. Each ledger server runs in a Docker
+container, and each container runs on a separate machine in the cluster. The
+containers have no CPU or memory limit. Each Docker container contains
+one client, one collector module, and one CometBFT server (which contains
+the Setchain functionality in the ABCI).
+6.4. Experiment Scenarios
+The experimental parameters used in this study are summarized in Ta-
+ble 3. The sending rate reported in Table 3 corresponds to the aggregate
+rate at which elements are injected by all clients. Each client sends ele-
+ments at a rate ofsending_rate/server_count, forwarding them to its local
+server (i.e., the server running in the same Docker container). The param-
+eternetwork_delayrepresents an artificial latency added to all inter-server
+communication, in order to emulate the impact of moving from a local clus-
+ter to a wide-area deployment. CometBFT’s mempool plays a key role: it
+stores unconfirmed ledger transactions after validation and before they are
+included in blocks. In the default CometBFT configuration, the mempool
+admits at most5,000transactions. Since this limit could become a bottleneck
+for our Setchain evaluation, we increased the mempool capacity (after prelim-
+inary trial-and-error tuning) to10,000,000transactions or2GB, whichever
+is reached first.
+Unless stated otherwise, each experiment is configured so that clients in-
+ject elements into the Setchain for 50 seconds. The experiment terminates
+once all injected elements have been placed into epochs and all epoch-proofs
+37
+have been appended to ledger blocks; we then collect and analyze the logs.
+Injection and throughput are computed over the Setchain elements sent by
+clients and are reported inelements per second (el/s). To keep the workload
+realistic, we use transactions downloaded from Arbitrum [31] as Setchain el-
+ements. Hashing uses SHA512 [36], signatures use ed25519 from the EdDSA
+family [30, 7], and compression uses Brotli [5]. The average Arbitrum trans-
+action size is approximately438bytes, with a standard deviation of753.5.
+The length of an epoch-proof is139bytes. In Compresschain, the average
+compressed batch size is approximately16,000bytes with a standard devia-
+tion of2,100for a collector limit of100, and approximately66,000bytes with
+a standard deviation of15,000for a collector limit of500; the corresponding
+compression ratio thus ranges roughly from2.5to3.5. In Hashchain, the size
+of a hash-batch is139bytes. In CometBFT, blocks are produced roughly ev-
+ery1.25seconds (i.e., the block rate is approximately0.8blocks/s). Unless
+otherwise stated, the CometBFT block size is set to0.5MB.
+7. Performance Results
+7.1. Analysis
+We can estimate the achievable throughput for each algorithm using the
+analysis of Section 5 with the parameters of the evaluation scenario described
+in Section 6. These parameters for Algorithm Vanilla are, in the average case,
+n= 10,C= 500,000bytes,l e = 438bytes,l p = 139bytes, andR= 0.8
+block/s. Hence,T v≈955el/s. For Algorithm Compresschain we found that
+for collector sizec= 100the compression ratio is roughlyr= 2.7. Hence,
+we haveTc[c= 100]≈2,497el/s. For collector sizec= 500the compression
+ratio is roughlyr= 3.5, and we haveT c[c= 500]≈3,330el/s. Finally,
+for Algorithm Hashchain, using that the hash-batch has lengthl h = 139
+bytes, for collector sizec= 100we haveT h[c= 100]≈27,157el/s, while for
+collector sizec= 500we haveT h[c= 500]≈147,857el/s.
+Observe thatT h[c= 500]/T v≈155andT h[c= 500]/T c[c= 500]≈44.
+Hence, with Hashchain we expect the throughput to increase significantly.
+7.2. Throughput Comparison
+Fig. 7 reports the throughput over time (incommittedelements per sec-
+ond, el/s) achieved by the three Setchain algorithms under different sending
+rates, using10servers and no additional network delay. An added element
+is consideredcommittedonce the epoch that contains it has accumulated at
+38
+0 20 40 60 80
+101
+102
+103
+Time (s)
+el/s
+Vanilla
+Compresschain
+Hashchain
+(a) Sending rate =1,000el/s
+Collector size =100
+0 100 200 300
+101
+102
+103
+104
+Time (s)
+el/s
+Vanilla
+Compresschain
+Hashchain
+(b) Sending rate =5,000el/s
+Collector size =100
+0 100 200 300101
+102
+103
+104
+Time (s)
+el/s
+Compresschain
+Hashchain
+(c) Sending rate =10,000el/s
+Collector size =100
+0 100 200
+100
+101
+102
+103
+104
+105
+Time (s)
+el/s
+Compresschain
+Hashchain
+(d) Sending rate =10,000el/s
+Collector size =500
+Figure 7: Throughput over time of the Setchain algorithms for different sending
+rates. Solid lines plot the rolling average number of elements committed in 9
+seconds. The vertical bar marks the time clients add the last element (roughly
+after 50 s). The dotted horizontal lines show the minimum of the sending rate and
+the analytical throughput computed in Section 7.1.
+leastf+ 1epoch-proofs in the ledger. For reference, the figure also includes
+the analytical throughput values derived in Section 7.1.
+InFig.7a, withasendingrateof1,000el/sandcollectorsize100, allthree
+Setchain variants behave well. Still, the end-of-run peak for Vanilla suggests
+moderate stress, as many epoch-proofs accumulate near completion. This is
+39
+Table 4: Throughput Comparison (upto 50s) for Figure 7
+Algorithms Figure 7a Figure 7b Figure 7c Figure 7d
+Vanilla 657el/s 171el/s 100el/s 100el/s
+Compresschain 845el/s 996el/s 571el/s 743el/s
+Hashchain 884el/s 4,183el/s 2,540el/s 7,369el/s
+consistent with the maximum throughput for this configuration computed in
+Section 7.1, which is911el/s and therefore below the1,000el/s injection
+rate.
+In Fig. 7b, for a sending rate of5,000el/s and collector size100, both
+Vanilla and Compresschain require a long time to commit all submitted ele-
+ments and exhibit a pronounced end peak, again indicating stress. In addi-
+tion, both achieve throughput below the analytical bound, and even below
+the throughput observed in Fig. 7a. In contrast, Hashchain sustains the load
+and completes shortly after the injection phase ends.
+Fig. 7c shows the throughput for a sending rate of10,000el/s with col-
+lector size100. We omit Vanilla in order to focus the comparison between
+Compresschain and Hashchain. In this setting, both algorithms show signs
+of stress, although Compresschain is affected much more than Hashchain. As
+further illustrated in Fig. 7d, increasing the collector size to500alleviates
+stress for Hashchain, whereas it provides limited benefit for Compresschain.
+Finally, Table 4 reports the average throughput up to 50s for all three
+algorithms across the experiments shown in Fig. 7.
+7.2.1. Pushing the Hashchain Limits.
+As shown in Fig. 7d, there is a clear gap between the analytically achiev-
+able throughput (147,857el/s; see Section 7.1) and the throughput attained
+by our Hashchain implementation, mainly because our earlier experiments
+did not explore sufficiently high sending rates. To identify the maximum
+achievable throughput in practice, we therefore increased the sending rate.
+We observed a bottleneck around20,000el/s, which persisted even when
+further increasing the sending rate beyond this point and regardless of the
+collector size (see Fig. 8). The most plausible explanation is the hash-reversal
+step, in which servers exchange transaction batches over the network for each
+batch-hash produced by the collector.
+In our current implementation, Setchain servers are responsible for dis-
+tributing transaction batches. More efficientdesigns are possible, forexample
+40
+0 10 20 30 40 50 60 70 80 90
+101
+102
+103
+104
+105
+Time (s)
+el/s
+Vanilla (1000 el/s)
+Compresschain (3,500 el/s)
+Compresschain w/o
+Decompression (3,500 el/s)
+Hashchain (25,000 el/s)
+Hashchain w/o Hash-
+Reversal (150,000 el/s)
+Figure 8: Highest throughput measured in the evaluation platform (with collector
+size500when required). The vertical bar marks the time clients add the last
+element (roughly after 50 s). Solid lines plot the rolling average number of elements
+committed in 9 s. The dashed lines show the analytical throughput.
+by having only a subset of2f+ 1servers sign each batch-hash and epoch,
+by using optimistic validation of hash-batches (i.e., transferring a batch only
+upon request), or by adopting alternative batch-sharing protocols. To quan-
+tify the cost of hash-reversal, we ran additional experiments in which we
+removed hash-reversal and hash-batch validation, while assuming that all
+servers are correct (and thus that all hash-batches are valid).
+Fig. 8 reports the highest throughput achieved by Hashchain both with
+and without hash-reversal. The results indicate that hash-reversal is in-
+deed the dominant bottleneck: with a more efficient hash-reversal mecha-
+nism, Hashchain would scale substantially better. Without hash-reversal,
+Hashchain reaches an average throughput of133,882el/s during the first
+50seconds with a sending rate of150,000el/s, whereas with hash-reversal
+41
+0.5 1 2 4 8 16 32 64 128
+103
+104
+105
+106
+107
+108
+Block Size (MB)
+el/s
+Vanilla
+Compresschain w/o Decompression
+Hashchain w/o Hash Reversal
+Figure 9: Analytical throughput of the Setchain algorithms for various block sizes
+with collector size500.
+enabled it reaches only20,061el/s during the first50seconds with a sending
+rate of25,000el/s. These measurements use a collector size of500to remain
+comparable with the other experiments in this work; increasing the collector
+size would likely yield even higher throughput when hash-reversal is disabled.
+Fig. 8 also reports the highest throughputs achieved by Compresschain
+and Vanilla, for comparison with Hashchain. For Algorithm Compresschain,
+we additionally run the implementation with and without decompression
+and validation, to isolate the impact of these steps. In all cases, the observed
+throughputs remain well below Hashchain’s throughput, even when hash-
+reversal is enabled.
+Finally, the highest throughputs we observe for Vanilla, Compresschain
+without decompression, and Hashchain without hash-reversal are all close to
+their respective analytical bounds. Fig. 9 presents the analytical through-
+put of the three Setchain algorithms under larger CometBFT block sizes,
+keeping the remaining parameters unchanged (for Algorithm Compresschain
+and Algorithm Hashchain, we use a collector size of500). As illustrated in
+42
+500 el/s 1000 el/s 5000 el/s 10000 el/s
+Sending rate
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+Efficiency
+(a) Impact of sending rate
+4 Servers 7 Servers 10 Servers
+Number of servers
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+Efficiency (b) Impact of number of servers
+0 ms 30 ms 100 ms
+Network delay
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+Efficiency
+(c) Impact of network delay
+Vanilla
+Compresschain c=100Compresschain c=500
+Hashchain c=100Hashchain c=500
+100 s
+75 s
+50 s (d) Color codes
+Figure 10: Efficiency values observed under different scenarios. The base scenario
+has10servers, a sending rate of10,000el/s, and no (0) network delay.
+the figure, with the typical 4MB CometBFT block size, Hashchain reaches
+a throughput of106 el/s, and with 128MB blocks it exceeds 30 million el/s.
+7.3. Efficiency
+To quantify how stressed an algorithm is, we introduce a metric called
+efficiency. We define efficiency as the ratio between the number of committed
+elements and the total number of elements added. We report this efficiency
+after50,75, and100seconds. Recall that, in every experiment, clients
+inject elements for50seconds. When an algorithm is not stressed, we expect
+efficiency to be close to1at50seconds, and equal to1by75seconds. Unless
+stated otherwise, we use a baseline configuration with10servers, a sending
+rate of10,000el/s, and0network delay, and we vary one parameter at a
+time.
+7.3.1. Impact of the Sending Rate.
+Fig. 10a reports efficiency for four sending rates (500,1,000,5,000, and
+10,000), and for collector sizes100and500when applicable. The figure
+43
+shows that, at the lower rates500and1,000, all algorithms reach full effi-
+ciency within70seconds. At5,000and10,000, Vanilla exhibits very low
+efficiency. Compresschain also experiences a marked drop in efficiency, and
+increasing the collector size from100to500provides limited improvement.
+Hashchain shows reduced efficiency only at10,000, and this effect is miti-
+gated by increasing the collector size.
+7.3.2. Impact of Number of Servers.
+In Fig. 10b, we study the effect of varying the number of servers while
+keeping the sending rate fixed at10,000el/s. Vanilla consistently exhibits
+the lowest efficiency, even with 4 servers. Compresschain also achieves low
+efficiency, with only marginal improvement from increasing the collector size;
+moreover, its efficiency decreases as the number of servers grows. Hashchain
+shows low efficiency only with 10 servers and collector size 100. Interestingly,
+Hashchain also shows slightly imperfect efficiency with 4 servers, which may
+be explained by having fewer servers available to support the reverse hashing
+process.
+7.3.3. Impact of Network Delay.
+Fig. 10c illustrates how adding artificial delay to all inter-server messages
+affects efficiency, modeling the transition from a local-area network to a wide-
+area network. As expected, increasing the network delay reduces efficiency.
+Nevertheless, even at the largest delay of100ms, Hashchain with collector
+size500reaches full efficiency within100seconds.
+7.4. Commit Time Comparison
+In this section, we explore how elements get committed over time in the
+same scenarios explored in Section 7.3. For that, we compute the commit
+timeofthefirstelement, followedbythe10%, 20%, 30%, 40%, and50%ofthe
+elements for each algorithm and scenario. We plot this data in Fig. 11 with
+theyaxis truncated for visibility. In Fig. 11a we present results for different
+sending rates. We observe that Vanilla commits the first element earlier than
+the other two algorithms. For the low rates (500and1,000) elements are
+committed at a regular pace. However, in the seven combinations of rate and
+algorithm that showed low efficiency, the pace is not regular. Fig. 11b shows
+the impact of the number of servers in the commit time. A higher number of
+servers increases the commit time for Vanilla (although barely observable in
+the figure) and Compresschain, possibly because it makes consensus harder
+44
+500 el/s 1000 el/s 5000 el/s 10000 el/s
+Sending rate
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100Commit Time (s)
+(a) Impact of sending rate (10servers,0
+network delay).
+4 Servers 7 Servers 10 Servers
+Number of servers
+0
+20
+40
+60
+80
+100
+120
+140Commit Time (s)
+(b) Impact of number of servers (10,000
+el/s,0network delay).
+0 ms 30 ms 100 ms
+Network delay
+0
+20
+40
+60
+80
+100
+120
+140
+160
+180
+200Commit Time (s)
+(c) Impact of network delay (10servers,
+10,000el/s).
+Vanilla
+Compresschain c=100Compresschain c=500
+Hashchain c=100Hashchain c=500
+50% Elements
+40% Elements
+30% Elements
+20% Elements
+10% Elements
+First Element (d) Color codes
+Figure 11: Commit times observed under different scenarios. The base scenario
+has10servers, a sending rate of10,000el/s, and no (0) network delay.
+0 15 30 45 60
+Latency (s)
+0
+0.2
+0.4
+0.6
+0.8
+1
+F(x)
+(a) Vanilla
+0 2 4 6 8
+Latency (s)
+0
+0.2
+0.4
+0.6
+0.8
+1
+F(x)
+First mempool
+f+1 mempools
+All mempools
+Ledger
+f+1 epoch-proofs (b) Compresschain
+(collector size = 100)
+0 2 4 6 8
+Latency (s)
+0
+0.2
+0.4
+0.6
+0.8
+1
+F(x)
+(c) Hashchain
+(collector size = 100)
+Figure 12: Cumulative distribution functionF(x)of the latency experienced by
+the elements added to the Setchain to reach several stages in their process: (1)
+reach the mempool, (2) be replicated inf+ 1server mempools, (3) be replicated in
+all server mempools, (4) be inserted in a ledger block, and (5)f+ 1epoch-proofs
+are present in the ledger. The scenario is with10servers, a sending rate of1,250
+el/s, and no network delay.
+to reach. Surprisingly, for Hashchain (especially for a collector size of500)
+the pattern seems to be the opposite. We believe that a larger number of
+servers helps with the reverse hashing process of Hashchain. Regarding the
+45
+impact of the network delay, shown in Fig. 11c, the conclusion is that it
+negatively affects the commit times, as expected.
+7.5. Latency
+When a client sends a valid element to its local Setchain server, that
+element is eventually submitted to a CometBFT server as part of a ledger
+transaction. Once validated, the transaction is added to the mempool of
+the CometBFT server. Subsequently, it is disseminated to other CometBFT
+servers via a gossip protocol that propagates mempool transactions to peers,
+who in turn validate and forward them. Eventually, the transaction is in-
+cluded in a ledger block, and Setchain servers append epoch-proofs to the
+ledger. Oncef+ 1epoch-proofs for the epoch containing the element have
+been included in ledger blocks, the element is considered committed. Fig. 12
+reports the latency distributions observed for elements added to the Setchain,
+decomposed into five stages up to commit, for each algorithm. Specifically, it
+shows the time for an element to reach: (1) the mempool of one CometBFT
+server, (2) the mempools off+ 1CometBFT servers, (3) the mempools of
+all CometBFT servers, and (4) the ledger. Finally, it shows (5) the commit
+latency, defined as the time untilf+ 1epoch-proofs for the epoch containing
+the element appear in the ledger. In Fig. 12a, mempools are reached almost
+immediately because Vanilla forwards elements directly to the CometBFT
+server. Compresschain and Hashchain, in contrast, wait until the collector is
+full (or a timeout expires) before submitting the resulting batch as a ledger
+transaction, which explains the delayed mempool latencies in Fig. 12b and
+Fig. 12c. Consider now the time to reach the ledger and then to commit (i.e.,
+to obtainf+ 1epoch-proofs). With Vanilla, these gaps are on the order of
+tens of seconds in most cases, whereas for Compresschain and Hashchain they
+are typically between one and two seconds. In this scenario, both Compress-
+chain and Hashchain achieve commit latency and finality below 4 seconds
+with probability close to 1.
+8. Conclusion and Discussions
+In this work, we present three real-world Setchain implementation algo-
+rithms built on top of a block-based ledger. We formally verify that these
+algorithms satisfy the Setchain properties. We also implement all three al-
+gorithms and carry out an empirical evaluation to assess the effectiveness of
+each approach across a range of scenarios. Overall, Hashchain consistently
+46
+achieve the best results across the evaluated metrics. By leveraging the
+succinctness of hashing, it improves scalability and is therefore well-suited to
+large-scale deployments. Compresschain provides improvements over Vanilla,
+but its gains remain below those obtained with Hashchain.
+8.1. Extension to a fully functional blockchain
+While the algorithms proposed are meant to implement a Setchain object,
+in which elements inside an epoch have no order, in their implementation,
+they impose an order inside each epoch (e.g., to hash the epoch elements con-
+sistently). This means that the proposed algorithms can be easily extended
+to implement a blockchain, similarly as how Hyperledger Fabric or RedBelly
+do:
+•When adding elements to the Setchain and creating epochs, each trans-
+action can be optimistically validated by itself (independently of all
+other transactions, that is, in parallel), ignoring its semantics.
+•After each epoch is consolidated and its transactions ordered, the effect
+of its transactions can be computed (sequentially) in its actual final
+position. If a transaction is determined to be invalid it is marked as
+void.
+Observe that extending Setchain to a blockchain can present a trade-off
+between decentralization and scalability. As transaction execution must be
+done sequentially in an epoch, large epochs may require large computational
+resources. To ensure that less powerful servers can maintain synchroniza-
+tion with the blockchain, it may be required to limit epoch sizes, similar to
+Ethereum’s block size limitations [3].
+8.2. Limitations and Future Work
+To the best of our knowledge, there is currently no blockchain benchmark-
+ing tool that allows for a direct comparison between Setchain and state-of-
+the-art blockchain systems. We considered Diablo [27], a benchmarking suite
+focused on evaluating decentralized applications (dApps), but it does not suit
+our needs as Setchain does not currently support dApps.
+Another limitation of the current work is that we do not incorporate
+explicit defenses against transaction-flooding or DDoS-style overload. Our
+system model allows an unbounded number of clients, including Byzantine
+47
+clients, and under aggressive injection, the main expected effect is perfor-
+mance degradation: requests may accumulate in the collector or mempool,
+increasing latency and reducing efficiency when the offered load exceeds the
+service capacity. This tendency is already visible in our experiments as the
+sending rate increases. Designing admission-control, rate-limiting, or other
+anti-overload mechanisms for Setchain-based systems is an interesting direc-
+tion for future work.
+There are several other potential directions in which future work could
+evolve. One would be to run the experiments in a more distributed environ-
+ment to understand the scalability limits and ensure the system can handle
+real-world demands. This would also include understanding the tradeoffs
+between system parameters.
+While using an underlying block-based ledger service, like Comet-BFT,
+simplifies the algorithms, we have observed that it may also be a bottle-
+neck. We will explore if replacing this service with something lighter, like
+a set consensus service [18] or Malachite [45], can increase performance and
+scalability.
+Another interesting work, as highlighted in Section 7.2.1, would be to
+implementamoreefficienthash-reversaltechniquethatcouldfurtherimprove
+Hashchain’s performance. Another promising direction would be to design
+more efficient APIs for Setchain, and implement specific DeFi applications
+that can use Setchain as the underlying decentralized infrastructure.
+References
+[1] Ethereum roadmap - danksharding. https://ethereum.org/en/roadmap/
+danksharding/
+[2] Matter labs - zksync era. https://github.com/matter-labs/zksync-era
+[3] Ethereum development documentation - block size (2025), https://
+ethereum.org/en/developers/docs/blocks/#block-size
+[4] Adams, H., Robinson, N., Zinsmeister, D., Keefer, M., Angeris, G.:
+Uniswap v3 core (2021), https://uniswap.org/whitepaper-v3.pdf
+[5] Alakuijala, J., Szabadka, Z.: BrotliCompressedDataFormat.RFC7932
+(Jul 2016). https://doi.org/10.17487/RFC7932, https://www.rfc-editor.
+org/info/rfc7932
+48
+[6] Barger, A., Manevich, Y., Meir, H., Tock, Y.: A byzantine fault-tolerant
+consensus library for hyperledger fabric (2021), https://arxiv.org/abs/
+2107.06922
+[7] Bernstein, D.J., Duif, N., Lange, T., Schwabe, P., Yang, B.Y.: High-
+speed high-security signatures. Journal of Cryptographic Engineering
+2(2), 77–89 (Sep 2012). https://doi.org/10.1007/s13389-012-0027-1
+[8] Blockcerts: Blockcerts: The open standard for blockchain credentials,
+https://github.com/blockchain-certificates
+[9] Blocknative: Ethereum merge: The impact of proof-of-stake (2022),
+https://www.blocknative.com/blog/ethereum-merge-proof-of-stake
+[10] Boitier, W., Del Pozzo, A., Garcia-Perez, A., Gazut, S., Jobic, P.,
+Lemaire, A., Mahe, E., Mayoue, A., Perion, M., Rezende, T.F., Singh,
+D., Tucci-Piergiovanni, S.: Fantastyc: Blockchain-based federated learn-
+ing made secure and practical. In: 2024 43rd International Sympo-
+sium on Reliable Distributed Systems (SRDS). pp. 260–270 (2024).
+https://doi.org/10.1109/SRDS64841.2024.00033
+[11] Buchman, E., Kwon, J., Milosevic, Z.: The latest gossip on BFT consen-
+sus. CoRRabs/1807.04938(2018), http://arxiv.org/abs/1807.04938
+[12] Buchnik, Y., Friedman, R.: Fireledger: a high throughput blockchain
+consensus protocol. Proc. VLDB Endow.13(9), 1525–1539 (May 2020).
+https://doi.org/10.14778/3397230.3397246
+[13] Buterin, V.: Ethereum: A next-generation smart contract and decen-
+tralized application platform (2014), https://ethereum.org/content/
+whitepaper/whitepaper-pdf/Ethereum_Whitepaper_-_Buterin_2014.
+pdf
+[14] Capretto, M., Ceresa, M., Fernández Anta, A., Russo, A., Sánchez,
+C.: Improving blockchain scalability with the setchain data-type. Dis-
+tributed Ledger Technologies: Research and Practice3(2) (jun 2024).
+https://doi.org/10.1145/3626963
+[15] Cason, D., Fynn, E., Milosevic, N., Milosevic, Z., Buchman, E.,
+Pedone, F.: The design, architecture and performance of the ten-
+dermint blockchain network. In: 2021 40th International Sympo-
+49
+sium on Reliable Distributed Systems (SRDS). pp. 23–33 (2021).
+https://doi.org/10.1109/SRDS53918.2021.00012
+[16] Castro, M., Liskov, B.: Practical byzantine fault tolerance and proac-
+tive recovery. ACM Trans. Comput. Syst.20(4), 398–461 (2002).
+https://doi.org/10.1145/571637.571640
+[17] Chaum, D.L.: Computersystemsestablished, maintainedandtrustedby
+mutually suspicious groups. Tech. Rep. UCB/ERL M79/10, Electronics
+Research Laboratory, University of California Riverside, CA, USA (22
+February 1979)
+[18] Crain, T., Natoli, C., Gramoli, V.: Red belly: A secure, fair and scalable
+open blockchain. In: 2021 IEEE Symposium on Security and Privacy
+(SP). pp. 466–483 (2021). https://doi.org/10.1109/SP40001.2021.00087
+[19] Danezis, G., Kokoris-Kogias, L., Sonnino, A., Spiegelman, A.: Narwhal
+and tusk: a dag-based mempool and efficient bft consensus. In: Proceed-
+ings of the Seventeenth European Conference on Computer Systems. p.
+34–50. EuroSys ’22, Association for Computing Machinery, New York,
+NY, USA (2022). https://doi.org/10.1145/3492321.3519594
+[20] Fabric, H.: Hyperledger fabric v3.0.0 release (2023), https://github.
+com/hyperledger/fabric/releases/tag/v3.0.0
+[21] Fernández Anta, A., Georgiou, C., Herlihy, M., Potop-Butucaru, M.:
+Principles of Blockchain Systems. Morgan & Claypool Publishers (2021)
+[22] Fernández Anta, A., Konwar, K., Georgiou, C., Nicolaou, N.: Formal-
+izing and implementing distributed ledger objects. ACM Sigact News
+49(2), 58–76 (2018)
+[23] Follow My Vote: Follow my vote. https://followmyvote.com/ (2026),
+accessed: 2026-02-25
+[24] Fu, Y., Jing, M., Zhou, J., Wu, P., Wang, Y., Zhang, L., Hu, C.:
+Quantifying the blockchain trilemma: A comparative analysis of algo-
+rand, ethereum 2.0, and beyond (2024), https://ar5iv.labs.arxiv.org/
+html/2407.14335v1, accessed: 2024-10-01
+50
+[25] Gilad, Y., Hemo, R., Micali, S., Vlachos, G., Zeldovich, N.: Algorand:
+Scaling byzantine agreements for cryptocurrencies. In: Proceedings of
+the 26th Symposium on Operating Systems Principles. p. 51–68. SOSP
+’17, Association for Computing Machinery, New York, NY, USA (2017).
+https://doi.org/10.1145/3132747.3132757
+[26] Goderdzishvili, N., Gordadze, E., Gagnidze, N.: Georgia’s blockchain-
+powered property registration: Never blocked, always secured: Owner-
+ship data kept best! In: Proceedings of the 11th International Confer-
+ence on Theory and Practice of Electronic Governance. p. 673–675. ICE-
+GOV ’18, Association for Computing Machinery, New York, NY, USA
+(2018). https://doi.org/10.1145/3209415.3209437, https://doi.org/10.
+1145/3209415.3209437
+[27] Gramoli, V., Guerraoui, R., Lebedev, A., Natoli, C., Voron, G.: Dia-
+blo: A benchmark suite for blockchains. In: Proceedings of the Eigh-
+teenth European Conference on Computer Systems. p. 540–556. Eu-
+roSys ’23, Association for Computing Machinery, New York, NY, USA
+(2023). https://doi.org/10.1145/3552326.3567482, https://doi.org/10.
+1145/3552326.3567482
+[28] Guo, B., Lu, Z., Tang, Q., Xu, J., Zhang, Z.: Dumbo: Faster asyn-
+chronous bft protocols. In: Proceedings of the 2020 ACM SIGSAC Con-
+ference on Computer and Communications Security. p. 803–818. CCS
+’20, Association for Computing Machinery, New York, NY, USA (2020).
+https://doi.org/10.1145/3372297.3417262
+[29] Haber, S., Stornetta, W.S.: How to time-stamp a digital document.
+J. Cryptol.3(2), 99–111 (1991). https://doi.org/10.1007/BF00196791,
+https://doi.org/10.1007/BF00196791
+[30] Josefsson, S., Liusvaara, I.: Rfc 8032: Edwards-curve digital signature
+algorithm (eddsa) (2017)
+[31] Kalodner, H., Goldfeder, S., Chen, X., Weinberg, S.M., Felten, E.W.:
+Arbitrum: Scalable, private smart contracts. In: 27th USENIX Security
+Symposium (USENIX Security 18). pp. 1353–1370. USENIX Associa-
+tion, Baltimore, MD (Aug 2018), https://www.usenix.org/conference/
+usenixsecurity18/presentation/kalodner
+51
+[32] Karmegam, A., Bianchi, G.L., Capretto, M., Ceresa, M., Fernán-
+dez Anta, A., Sánchez, C.: Invited paper: Setchain algorithms
+for blockchain scalability. In: Bonomi, S., Mandal, P.S., Robinson, P.,
+Sharma, G., Tixeuil, S. (eds.) Stabilization, Safety, and Security of
+Distributed Systems. pp. 287–302. Springer Nature Switzerland, Cham
+(2026)
+[33] Kokoris-Kogias, E., Jovanovic, P., Gasser, L., Gailly, N., Syta, E., Ford,
+B.: Omniledger: A secure, scale-out, decentralized ledger via sharding.
+In: 2018 IEEE Symposium on Security and Privacy (SP). pp. 583–598
+(2018). https://doi.org/10.1109/SP.2018.000-5
+[34] Miller, A., Xia, Y., Croman, K., Shi, E., Song, D.: The honey badger
+of bft protocols. In: Proceedings of the 2016 ACM SIGSAC Confer-
+ence on Computer and Communications Security. p. 31–42. CCS ’16,
+Association for Computing Machinery, New York, NY, USA (2016).
+https://doi.org/10.1145/2976749.2978399
+[35] Nakamoto, S.: Bitcoin: a peer-to-peer electronic cash system (2008),
+http://www.bitcoin.org/bitcoin.pdf, white paper
+[36] National Institute of Standards and Technology (NIST): FIPS PUB
+180-4: SecureHashStandard(SHS).https://nvlpubs.nist.gov/nistpubs/
+FIPS/NIST.FIPS.180-4.pdf (Mar 2012), federal Information Processing
+Standards Publication
+[37] News, M.: Digital diploma debuts at
+mit (2017), https://news.mit.edu/2017/
+mit-debuts-secure-digital-diploma-using-bitcoin-blockchain-technology-1017
+[38] Poon, J., Buterin, V.: Plasma: Scalable autonomous smart contracts
+(2017), https://plasma.io/plasma.pdf
+[39] Poon, J., Dryja, T.: The bitcoin lightning network: Scal-
+able off-chain instant payments (2016), https://lightning.network/
+lightning-network-paper.pdf
+[40] Project, A.: Aragon: Aplatformforbuildingdecentralizedorganizations
+(2017), https://github.com/aragon/whitepaper
+52
+[41] Ranchal-Pedrosa, A., Gramoli, V.: Zlb: A blockchain to tolerate collud-
+ing majorities. In: 2024 54th Annual IEEE/IFIP International Confer-
+ence on Dependable Systems and Networks (DSN). pp. 209–222 (2024).
+https://doi.org/10.1109/DSN58291.2024.00032
+[42] Rao, I.S., Kiah, M.L.M., Hameed, M.M., Memon, Z.A.: Scal-
+ability of blockchain: a comprehensive review and future re-
+search direction. Cluster Computing27(5), 5547–5570 (Aug 2024).
+https://doi.org/10.1007/s10586-023-04257-7, https://doi.org/10.1007/
+s10586-023-04257-7
+[43] Russo, A., Fernández Anta, A., González Vasco, M.I., Romano,
+S.P.: Chirotonia: A scalable and secure e-voting framework based on
+blockchains and linkable ring signatures. In: Xiang, Y., Wang, Z., Wang,
+H., Niemi, V. (eds.) 2021 IEEE International Conference on Blockchain,
+Blockchain 2021, Melbourne, Australia, December 6-8, 2021. pp. 417–
+424. IEEE (2021)
+[44] Spiegelman, A., Giridharan, N., Sonnino, A., Kokoris-Kogias, L.: Bull-
+shark: Dag bft protocols made practical. In: Proceedings of the 2022
+ACM SIGSAC Conference on Computer and Communications Security.
+p. 2705–2718. CCS ’22, Association for Computing Machinery, New
+York, NY, USA (2022). https://doi.org/10.1145/3548606.3559361
+[45] Systems, I.: Malachite: Decentralize whatever, https://github.com/
+informalsystems/malachite
+[46] Szabo, N.: Smartcontracts: Buildingblocksfordigitalmarkets.Extropy
+16(1996)
+[47] Wallet, A.: What is tps (transactions per second)? (2023), https://
+atomicwallet.io/academy/articles/what-is-tps
+[48] Webisoft: Cosmos tps (transactions per second): Understanding the
+speed of the internet of blockchains (2023), https://webisoft.com/
+articles/cosmos-tps/
+[49] Wiki, B.: Confirmation - bitcoin wiki (2023), https://en.bitcoin.it/wiki/
+Confirmation, accessed: 2024-10-01
+53
+[50] Wood, G.: Ethereum: A secure decentralised generalised transaction
+ledger. http://gavwood.com/paper.pdf
+[51] Yin, M., Malkhi, D., Reiter, M.K., Gueta, G.G., Abraham, I.: Hot-
+stuff: Bft consensus with linearity and responsiveness. In: Proceed-
+ings of the 2019 ACM Symposium on Principles of Distributed Com-
+puting. p. 347–356. PODC ’19, Association for Computing Machinery,
+New York, NY, USA (2019). https://doi.org/10.1145/3293611.3331591,
+https://doi.org/10.1145/3293611.3331591
+[52] Zamani, M., Movahedi, M., Raykova, M.: Rapidchain: Scaling
+blockchain via full sharding. In: Proceedings of the 2018 ACM SIGSAC
+Conference on Computer and Communications Security. p. 931–948.
+CCS ’18, Association for Computing Machinery, New York, NY, USA
+(2018). https://doi.org/10.1145/3243734.3243853, https://doi.org/10.
+1145/3243734.3243853
+[53] Zhu, F., You, L., Wang, J., Li, L.: P-hotstuff: Par-
+allel bft algorithm with throughput insensitive to prop-
+agation delay. Computer Networks262, 111183 (2025).
+https://doi.org/https://doi.org/10.1016/j.comnet.2025.111183,
+https://www.sciencedirect.com/science/article/pii/S1389128625001513
+54

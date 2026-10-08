@@ -1,0 +1,54 @@
+[
+ {
+  "block": 26140000,
+  "ageDays": 0.1,
+  "blobGasUsed": 524288,
+  "slot": 15378831,
+  "sidecars": 4,
+  "note": "ok",
+  "beacon": "https://ethereum-beacon-api.publicnode.com"
+ },
+ {
+  "block": 26100000,
+  "ageDays": 5.7,
+  "blobGasUsed": 393216,
+  "slot": 15338683,
+  "sidecars": 3,
+  "note": "ok",
+  "beacon": "https://ethereum-beacon-api.publicnode.com"
+ },
+ {
+  "block": 25960717,
+  "ageDays": 25.1,
+  "blobGasUsed": 655360,
+  "slot": 15198723,
+  "sidecars": 5,
+  "note": "ok",
+  "beacon": "https://ethereum-beacon-api.publicnode.com"
+ },
+ {
+  "block": 25859766,
+  "ageDays": 39.2,
+  "blobGasUsed": 393216,
+  "slot": 15097390,
+  "sidecars": 3,
+  "note": "ok",
+  "beacon": "https://ethereum-beacon-api.publicnode.com"
+ },
+ {
+  "block": 25691199,
+  "ageDays": 62.7,
+  "blobGasUsed": 393216,
+  "slot": 14928221,
+  "note": "error RuntimeError('beacon /eth/v1/beacon/blob_sidecars/14928221 failed: 403",
+  "sidecars": null
+ },
+ {
+  "block": 25522632,
+  "ageDays": 86.2,
+  "blobGasUsed": 655360,
+  "slot": 14759060,
+  "note": "error RuntimeError('beacon /eth/v1/beacon/blob_sidecars/14759060 failed: 403",
+  "sidecars": null
+ }
+]

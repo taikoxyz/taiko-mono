@@ -1,0 +1,79 @@
+{
+ "window": {
+  "start_block": 26086570,
+  "end_block": 26136782,
+  "n_blocks": 50213
+ },
+ "fee_history": {
+  "baseFeePerGas_entries": 50264,
+  "baseFeePerBlobGas_entries": 50264,
+  "gasUsedRatio_entries": 50213,
+  "blobGasUsedRatio_entries": 50213,
+  "chunks": 51,
+  "look_ahead_entries": 51
+ },
+ "cost_curve_column": {
+  "source": "summary.json cost_curve[*].median_batch_total_eth_at_obs_median_egp",
+  "median_effective_gas_price_wei": 1125879441.0,
+  "const_exec_at_obs_median_egp_eth": 8.5109730462954e-05,
+  "median_priority_cost_wei": 75594000000000.0,
+  "points": [
+   {
+    "point": "min",
+    "base_fee_gwei": 0.047846945,
+    "base_fee_only_eth": 3.973930708106e-06,
+    "reported_incl_observed_priority_eth": 8.546671921073e-05,
+    "exec_at_basefee_eth": 3.61694196033e-06,
+    "exec_at_obs_median_egp_eth": 8.5109730462954e-05,
+    "blob_at_point_eth": 3.56988747776e-07,
+    "reported_below_base_fee_only": false
+   },
+   {
+    "point": "p50",
+    "base_fee_gwei": 0.127269031,
+    "base_fee_only_eth": 1.0571356590406e-05,
+    "reported_incl_observed_priority_eth": 8.6060311923946e-05,
+    "exec_at_basefee_eth": 9.620775129414e-06,
+    "exec_at_obs_median_egp_eth": 8.5109730462954e-05,
+    "blob_at_point_eth": 9.50581460992e-07,
+    "reported_below_base_fee_only": false
+   },
+   {
+    "point": "p90",
+    "base_fee_gwei": 0.8442610546999997,
+    "base_fee_only_eth": 7.010591830518377e-05,
+    "reported_incl_observed_priority_eth": 9.1394578599146e-05,
+    "exec_at_basefee_eth": 6.382107016899178e-05,
+    "exec_at_obs_median_egp_eth": 8.5109730462954e-05,
+    "blob_at_point_eth": 6.284848136192e-06,
+    "reported_below_base_fee_only": false
+   },
+   {
+    "point": "p99",
+    "base_fee_gwei": 2.9903179865200005,
+    "base_fee_only_eth": 0.0002459938800233008,
+    "reported_incl_observed_priority_eth": 0.00010505351261326184,
+    "exec_at_basefee_eth": 0.0002260500978729929,
+    "exec_at_obs_median_egp_eth": 8.5109730462954e-05,
+    "blob_at_point_eth": 1.994378215030784e-05,
+    "reported_below_base_fee_only": true
+   },
+   {
+    "point": "max",
+    "base_fee_gwei": 9.152174485,
+    "base_fee_only_eth": 0.000747869047756818,
+    "reported_incl_observed_priority_eth": 0.000141129300200682,
+    "exec_at_basefee_eth": 0.00069184947801909,
+    "exec_at_obs_median_egp_eth": 8.5109730462954e-05,
+    "blob_at_point_eth": 5.6019569737728e-05,
+    "reported_below_base_fee_only": true
+   }
+  ]
+ },
+ "propose_gasUsed_counts": {
+  "75594": 1572,
+  "78448": 3
+ },
+ "propose_gasUsed_mean": 75599.436,
+ "propose_rows": 1575
+}

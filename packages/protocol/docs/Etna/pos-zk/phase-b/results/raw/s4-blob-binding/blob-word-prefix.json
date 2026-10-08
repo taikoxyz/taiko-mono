@@ -1,0 +1,63 @@
+{
+ "note": "highestNonzeroWordIndex is 0-based over the 4096 32-byte words of the 131,072-byte blob; usedPrefixBytes = (index + 1) * 32 is the smallest prefix containing every non-zero byte.",
+ "maxHighestNonzeroWordIndex": 200,
+ "maxUsedPrefixBytes": 6432,
+ "records": [
+  {
+   "block": 26140617,
+   "slot": 15379448,
+   "blobIndexInBlock": 0,
+   "txHash": "0x5a6dd687ce4f70d962d5de3bc2c649eccf61785328f9d2ad8b9523e4291c6ccb",
+   "versionedHash": "0x01d35eec795dba863872365eb6f86b1de2df292e13e24e444c7095bf8498f035",
+   "blobBytes": 131072,
+   "nonzeroBytesInBlob": 2350,
+   "nonzeroFraction": 0.017929,
+   "blobSha256": "6f4a0ced167eff90c503d44f788ce3d7dfc7336c4c17823f694881ec68704ca5",
+   "highestNonzeroWordIndex": 75,
+   "usedPrefixBytes": 2432,
+   "trailingWordsAllZero": true
+  },
+  {
+   "block": 26140649,
+   "slot": 15379480,
+   "blobIndexInBlock": 0,
+   "txHash": "0xd22898fdd9fcfd39431c377163a40a390c1dc6fe3c4cf194f3c34097165e1805",
+   "versionedHash": "0x01107373c47eda8163027d07ee40cc450e7f7fa29a81df4330592de37dc6039b",
+   "blobBytes": 131072,
+   "nonzeroBytesInBlob": 3929,
+   "nonzeroFraction": 0.029976,
+   "blobSha256": "1faff7ffb2f3194b34f9b965d50d0cb555bc7965ac94a6ec88107bd3ec8c4000",
+   "highestNonzeroWordIndex": 125,
+   "usedPrefixBytes": 4032,
+   "trailingWordsAllZero": true
+  },
+  {
+   "block": 26140681,
+   "slot": 15379512,
+   "blobIndexInBlock": 19,
+   "txHash": "0x198ddd408aa514f8aa8d0b649fc35838fadc7e9a1fa0b46818778b3fa8824939",
+   "versionedHash": "0x01737f1c4a6514c3f3f36b8f98574346140c20d80f913c8f2ebf88a35bf78f8d",
+   "blobBytes": 131072,
+   "nonzeroBytesInBlob": 6350,
+   "nonzeroFraction": 0.048447,
+   "blobSha256": "dff80000b5ec601c985fe918c2491c66bf0140ecf6fc5769089e0fb2c4815159",
+   "highestNonzeroWordIndex": 200,
+   "usedPrefixBytes": 6432,
+   "trailingWordsAllZero": true
+  },
+  {
+   "block": 26140714,
+   "slot": 15379545,
+   "blobIndexInBlock": 2,
+   "txHash": "0x4b21e840ca73be6b1a650abc3f199e79071a4b03f936ab703d3d57f94e43d94e",
+   "versionedHash": "0x019fea4d986b0a141368aac2ba9338a276705b3301dec9eff1616e5025cc9323",
+   "blobBytes": 131072,
+   "nonzeroBytesInBlob": 4662,
+   "nonzeroFraction": 0.035568,
+   "blobSha256": "d31a0fc0b7440c2679504d0f2c100126bbea994e5f328c067d4548c078e0d6f7",
+   "highestNonzeroWordIndex": 148,
+   "usedPrefixBytes": 4768,
+   "trailingWordsAllZero": true
+  }
+ ]
+}

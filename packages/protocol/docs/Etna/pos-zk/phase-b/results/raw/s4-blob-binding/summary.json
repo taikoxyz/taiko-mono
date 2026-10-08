@@ -1,0 +1,1164 @@
+{
+ "census": {
+  "logs": 40474,
+  "genesis_logs": 1,
+  "nonzero_proposer": 40473,
+  "total_blobs": 40491,
+  "blob_dist": {
+   "0": 1,
+   "1": 40465,
+   "2": 4,
+   "4": 2,
+   "5": 2
+  },
+  "source_dist": {
+   "0": 1,
+   "1": 40471,
+   "2": 2
+  },
+  "block_min": 24792175,
+  "block_max": 26140714,
+  "ts_min": "2026-04-02T13:18:23Z",
+  "ts_max": "2026-10-07T13:09:23Z",
+  "per_month": {
+   "2026-04": 6403,
+   "2026-05": 6976,
+   "2026-06": 4955,
+   "2026-07": 6981,
+   "2026-08": 6985,
+   "2026-09": 6700,
+   "2026-10": 1474
+  }
+ },
+ "tx_sample": {
+  "n": 41,
+  "real_proposals": 40,
+  "types": {
+   "0x2": 1,
+   "0x3": 40
+  },
+  "real_types": {
+   "0x3": 40
+  },
+  "blobHashesMatchEvent_all": true,
+  "blobGasUsedMatches_all": true,
+  "toIsInbox_all": true,
+  "calldata_min": 164,
+  "calldata_max": 164,
+  "calldata_median": 164,
+  "maxFeePerBlobGas_min": 3662337,
+  "maxFeePerBlobGas_max": 316588782
+ },
+ "blobfee_check": {
+  "blocks_sampled": 24,
+  "blocks_with_blob_txs": 18,
+  "bpo2_match_count": 18,
+  "other_matches": 0
+ },
+ "sidecar_sample": {
+  "blocks": 5,
+  "sidecars_checked": 15,
+  "versioned_hash_match": 15,
+  "commitment_recomputed": 15,
+  "served_proof_verifies": 0,
+  "fresh_proof_verifies": 15,
+  "placeholder_proofs": 15
+ },
+ "verify_blob": [
+  {
+   "block": 26135739,
+   "ordinal": 0,
+   "vh_match": true,
+   "served_proof_verifies": false,
+   "served_proof_equals_fresh": false,
+   "python_y_matches_ckzg_y": true,
+   "precompile_ok": true
+  }
+ ],
+ "retention": [
+  {
+   "block": 26140000,
+   "ageDays": 0.1,
+   "blobGasUsed": 524288,
+   "slot": 15378831,
+   "sidecars": 4,
+   "note": "ok",
+   "beacon": "https://ethereum-beacon-api.publicnode.com"
+  },
+  {
+   "block": 26100000,
+   "ageDays": 5.7,
+   "blobGasUsed": 393216,
+   "slot": 15338683,
+   "sidecars": 3,
+   "note": "ok",
+   "beacon": "https://ethereum-beacon-api.publicnode.com"
+  },
+  {
+   "block": 25960717,
+   "ageDays": 25.1,
+   "blobGasUsed": 655360,
+   "slot": 15198723,
+   "sidecars": 5,
+   "note": "ok",
+   "beacon": "https://ethereum-beacon-api.publicnode.com"
+  },
+  {
+   "block": 25859766,
+   "ageDays": 39.2,
+   "blobGasUsed": 393216,
+   "slot": 15097390,
+   "sidecars": 3,
+   "note": "ok",
+   "beacon": "https://ethereum-beacon-api.publicnode.com"
+  },
+  {
+   "block": 25691199,
+   "ageDays": 62.7,
+   "blobGasUsed": 393216,
+   "slot": 14928221,
+   "note": "error RuntimeError('beacon /eth/v1/beacon/blob_sidecars/14928221 failed: 403",
+   "sidecars": null
+  },
+  {
+   "block": 25522632,
+   "ageDays": 86.2,
+   "blobGasUsed": 655360,
+   "slot": 14759060,
+   "note": "error RuntimeError('beacon /eth/v1/beacon/blob_sidecars/14759060 failed: 403",
+   "sidecars": null
+  }
+ ],
+ "era_trend": [
+  {
+   "label": "2024-08-taikoL1",
+   "address": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+   "topic0": "0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a",
+   "fromBlock": 20402317,
+   "toBlock": 20412316,
+   "fromTimestamp": 1722136775,
+   "url": "https://rpc.mevblocker.io",
+   "proposals": 5341,
+   "txSampleUrl": "https://rpc.mevblocker.io",
+   "typeCounts": {
+    "0x3": 30
+   },
+   "blobsPerTx_min_max": [
+    1,
+    1
+   ],
+   "calldataBytes_min_max": [
+    516,
+    516
+   ]
+  },
+  {
+   "label": "2025-02-taikoL1",
+   "address": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+   "topic0": "0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a",
+   "fromBlock": 21727117,
+   "toBlock": 21737116,
+   "fromTimestamp": 1738116707,
+   "url": "https://rpc.mevblocker.io",
+   "proposals": 0
+  },
+  {
+   "label": "2025-06-pacaya",
+   "address": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+   "topic0": "0x9eb7fc80523943f28950bbb71ed6d584effe3e1e02ca4ddc8c86e5ee1558c096",
+   "fromBlock": 22591117,
+   "toBlock": 22601116,
+   "fromTimestamp": 1748554535,
+   "url": "https://rpc.mevblocker.io",
+   "proposals": 1920,
+   "txSampleUrl": "https://rpc.mevblocker.io",
+   "typeCounts": {
+    "0x3": 30
+   },
+   "blobsPerTx_min_max": [
+    1,
+    1
+   ],
+   "calldataBytes_min_max": [
+    964,
+    964
+   ]
+  }
+ ],
+ "era_trend_extra": {
+  "2025-02-BlockProposedV2": {
+   "topic": "0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26",
+   "fromBlock": 21727117,
+   "toBlock": 21737116,
+   "count": 1000,
+   "url": "https://eth.blockscout.com/api/eth-rpc",
+   "sample": [
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 388,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 388,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 388,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 388,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    }
+   ],
+   "types": {
+    "0x3": 20
+   },
+   "blobs_min_max": [
+    1,
+    1
+   ],
+   "calldata_min_max": [
+    388,
+    516
+   ]
+  },
+  "2025-02-CalldataTxList": {
+   "topic": "0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418",
+   "fromBlock": 21727117,
+   "toBlock": 21737116,
+   "count": 12,
+   "url": "https://rpc.mevblocker.io",
+   "sample": [
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 23908,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 32964,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 58596,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 50180,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 103460,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 46852,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 33700,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 78404,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 43364,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 58404,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 38148,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 40132,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    }
+   ],
+   "types": {
+    "0x2": 12
+   },
+   "blobs_min_max": [
+    0,
+    0
+   ],
+   "calldata_min_max": [
+    23908,
+    103460
+   ]
+  },
+  "2024-08-BlockProposed": {
+   "topic": "0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a",
+   "fromBlock": 20402317,
+   "toBlock": 20412316,
+   "count": 5341,
+   "url": "https://rpc.mevblocker.io",
+   "sample": [
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x9b17fda35ed7eb7bb11a73ab69d0462045364514"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    }
+   ],
+   "types": {
+    "0x3": 20
+   },
+   "blobs_min_max": [
+    1,
+    1
+   ],
+   "calldata_min_max": [
+    516,
+    516
+   ]
+  },
+  "2024-08-CalldataTxList": {
+   "topic": "0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418",
+   "fromBlock": 20402317,
+   "toBlock": 20412316,
+   "count": 0,
+   "url": "https://rpc.mevblocker.io"
+  }
+ },
+ "old_inbox_2025_02_topics": {
+  "0x85f32beeaff2d0019a8d196f06790c9a652191759c46643311344fd38920423c": 10897,
+  "0x11a9112e5724f21b226e2535a95a264a80c9626ed4c0923faaa9fa6556467488": 5437,
+  "0xdf66aee38ea9fe523cfd238705d455a354305a646748dbb931898b51cee4727b": 7914,
+  "0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26": 5460,
+  "0x6de6fe586196fa05b73b973026c5fda3968a2933989bff3a0b6bd57644fab606": 5164,
+  "0xe5a390d9800811154279af0c1a80d3bdf558ea91f1301e7c6ec3c1ad83e80aef": 5164,
+  "0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418": 12
+ },
+ "network_blob_usage": {
+  "sampled_blocks": 400,
+  "max_blobs_per_block_observed": 21,
+  "hist": {
+   "0": 86,
+   "1": 62,
+   "2": 21,
+   "3": 39,
+   "4": 28,
+   "5": 23,
+   "6": 40,
+   "7": 23,
+   "8": 19,
+   "9": 12,
+   "10": 12,
+   "11": 6,
+   "12": 8,
+   "13": 4,
+   "14": 3,
+   "15": 3,
+   "16": 2,
+   "17": 2,
+   "19": 2,
+   "20": 2,
+   "21": 3
+  },
+  "lo": 24792175,
+  "hi": 26140717,
+  "step": 3371
+ },
+ "blob_price_series": {
+  "rule": "every 20th block of the 40,474 distinct proposal blocks (systematic sample), whole era",
+  "n_blocks": 2020,
+  "block_min": 24792175,
+  "block_max": 26137748,
+  "time_min": "2026-04-02T13:18:23Z",
+  "time_max": "2026-10-07T03:13:59Z",
+  "fraction_used": 11684671,
+  "price_wei": {
+   "min": 1668134,
+   "p50": 6991223,
+   "p90": 33430313,
+   "max": 675350452
+  },
+  "blob_cost_eth": {
+   "min": 2.18645659648e-07,
+   "p50": 9.16353581056e-07,
+   "p90": 4.381777985536e-06,
+   "max": 8.8519534444544e-05
+  },
+  "excess_min": 167408813,
+  "excess_max": 237558035,
+  "monthly": {
+   "2026-04": {
+    "n": 321,
+    "p50_wei": 10566665,
+    "min_wei": 1900173,
+    "max_wei": 650072782
+   },
+   "2026-05": {
+    "n": 348,
+    "p50_wei": 9004027,
+    "min_wei": 2268421,
+    "max_wei": 297674890
+   },
+   "2026-06": {
+    "n": 248,
+    "p50_wei": 8180667,
+    "min_wei": 3026557,
+    "max_wei": 302506342
+   },
+   "2026-07": {
+    "n": 349,
+    "p50_wei": 5496670,
+    "min_wei": 1668134,
+    "max_wei": 675350452
+   },
+   "2026-08": {
+    "n": 349,
+    "p50_wei": 4904372,
+    "min_wei": 1759235,
+    "max_wei": 293640459
+   },
+   "2026-09": {
+    "n": 335,
+    "p50_wei": 4755089,
+    "min_wei": 2127048,
+    "max_wei": 387928056
+   },
+   "2026-10": {
+    "n": 70,
+    "p50_wei": 6835155,
+    "min_wei": 3246933,
+    "max_wei": 82715055
+   }
+  }
+ },
+ "era_proposal_events": {
+  "2025-02-BlockProposedV2": {
+   "topic": "0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26",
+   "fromBlock": 21727117,
+   "toBlock": 21737116,
+   "count": 1000,
+   "url": "https://eth.blockscout.com/api/eth-rpc",
+   "sample": [
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 388,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 388,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 388,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 388,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+    }
+   ],
+   "types": {
+    "0x3": 20
+   },
+   "blobs_min_max": [
+    1,
+    1
+   ],
+   "calldata_min_max": [
+    388,
+    516
+   ]
+  },
+  "2025-02-CalldataTxList": {
+   "topic": "0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418",
+   "fromBlock": 21727117,
+   "toBlock": 21737116,
+   "count": 12,
+   "url": "https://rpc.mevblocker.io",
+   "sample": [
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 23908,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 32964,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 58596,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 50180,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 103460,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 46852,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 33700,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 78404,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 43364,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 58404,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 38148,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x2",
+     "blobs": 0,
+     "calldataBytes": 40132,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    }
+   ],
+   "types": {
+    "0x2": 12
+   },
+   "blobs_min_max": [
+    0,
+    0
+   ],
+   "calldata_min_max": [
+    23908,
+    103460
+   ]
+  },
+  "2024-08-BlockProposed": {
+   "topic": "0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a",
+   "fromBlock": 20402317,
+   "toBlock": 20412316,
+   "count": 5341,
+   "url": "https://rpc.mevblocker.io",
+   "sample": [
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x9b17fda35ed7eb7bb11a73ab69d0462045364514"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    },
+    {
+     "type": "0x3",
+     "blobs": 1,
+     "calldataBytes": 516,
+     "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+    }
+   ],
+   "types": {
+    "0x3": 20
+   },
+   "blobs_min_max": [
+    1,
+    1
+   ],
+   "calldata_min_max": [
+    516,
+    516
+   ]
+  },
+  "2024-08-CalldataTxList": {
+   "topic": "0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418",
+   "fromBlock": 20402317,
+   "toBlock": 20412316,
+   "count": 0,
+   "url": "https://rpc.mevblocker.io"
+  }
+ },
+ "control_checks": {
+  "old_inbox_2025_02_logs": 1000,
+  "topic_counts": {
+   "0x85f32beeaff2d0019a8d196f06790c9a652191759c46643311344fd38920423c": 302,
+   "0x11a9112e5724f21b226e2535a95a264a80c9626ed4c0923faaa9fa6556467488": 149,
+   "0xdf66aee38ea9fe523cfd238705d455a354305a646748dbb931898b51cee4727b": 229,
+   "0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26": 152,
+   "0x6de6fe586196fa05b73b973026c5fda3968a2933989bff3a0b6bd57644fab606": 84,
+   "0xe5a390d9800811154279af0c1a80d3bdf558ea91f1301e7c6ec3c1ad83e80aef": 84
+  },
+  "impl_code_sha256_onchain": "8bd0b01798c5ffa09c86c4c61577f2cd1f4ee50668c9629482abedff41aae423",
+  "impl_code_sha256_blockscout": "8bd0b01798c5ffa09c86c4c61577f2cd1f4ee50668c9629482abedff41aae423",
+  "eip1967_impl_slot": "0x0000000000000000000000005253d4c91e80b880ddb54b78e74082abe066f6b9"
+ },
+ "blob_content": [
+  {
+   "block": 26140617,
+   "txHash": "0x5a6dd687ce4f70d962d5de3bc2c649eccf61785328f9d2ad8b9523e4291c6ccb",
+   "proposalId": 40470,
+   "eventBlobHashes": "0x01d35eec795dba863872365eb6f86b1de2df292e13e24e444c7095bf8498f035",
+   "slot": 15379448,
+   "blobIndexInBlock": 0,
+   "eventOffsetElements": 0,
+   "blobSha256": "6f4a0ced167eff90c503d44f788ce3d7dfc7336c4c17823f694881ec68704ca5",
+   "versionedHash": "0x01d35eec795dba863872365eb6f86b1de2df292e13e24e444c7095bf8498f035",
+   "versionedHashMatchesEvent": true,
+   "payloadStartByte": 0,
+   "lengthPrefix": 251801689379520233394722004191656003674478173102712925009057547288576,
+   "lengthFitsBlob": false,
+   "payloadBytes": 0,
+   "payloadSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "payloadHeadHex": "",
+   "nonzeroBytesInBlob": 2350,
+   "nonzeroFraction": 0.017929,
+   "trailingAllZero": true
+  },
+  {
+   "block": 26140649,
+   "txHash": "0xd22898fdd9fcfd39431c377163a40a390c1dc6fe3c4cf194f3c34097165e1805",
+   "proposalId": 40471,
+   "eventBlobHashes": "0x01107373c47eda8163027d07ee40cc450e7f7fa29a81df4330592de37dc6039b",
+   "slot": 15379480,
+   "blobIndexInBlock": 0,
+   "eventOffsetElements": 0,
+   "blobSha256": "1faff7ffb2f3194b34f9b965d50d0cb555bc7965ac94a6ec88107bd3ec8c4000",
+   "versionedHash": "0x01107373c47eda8163027d07ee40cc450e7f7fa29a81df4330592de37dc6039b",
+   "versionedHashMatchesEvent": true,
+   "payloadStartByte": 0,
+   "lengthPrefix": 418089797924172031190734569904171616306013528740179971679614580817920,
+   "lengthFitsBlob": false,
+   "payloadBytes": 0,
+   "payloadSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "payloadHeadHex": "",
+   "nonzeroBytesInBlob": 3929,
+   "nonzeroFraction": 0.029976,
+   "trailingAllZero": true
+  },
+  {
+   "block": 26140681,
+   "txHash": "0x198ddd408aa514f8aa8d0b649fc35838fadc7e9a1fa0b46818778b3fa8824939",
+   "proposalId": 40472,
+   "eventBlobHashes": "0x01737f1c4a6514c3f3f36b8f98574346140c20d80f913c8f2ebf88a35bf78f8d",
+   "slot": 15379512,
+   "blobIndexInBlock": 19,
+   "eventOffsetElements": 0,
+   "blobSha256": "dff80000b5ec601c985fe918c2491c66bf0140ecf6fc5769089e0fb2c4815159",
+   "versionedHash": "0x01737f1c4a6514c3f3f36b8f98574346140c20d80f913c8f2ebf88a35bf78f8d",
+   "versionedHashMatchesEvent": true,
+   "payloadStartByte": 0,
+   "lengthPrefix": 670733985637040722079039918317296983439042862606097289578706615926784,
+   "lengthFitsBlob": false,
+   "payloadBytes": 0,
+   "payloadSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "payloadHeadHex": "",
+   "nonzeroBytesInBlob": 6350,
+   "nonzeroFraction": 0.048447,
+   "trailingAllZero": true
+  },
+  {
+   "block": 26140714,
+   "txHash": "0x4b21e840ca73be6b1a650abc3f199e79071a4b03f936ab703d3d57f94e43d94e",
+   "proposalId": 40473,
+   "eventBlobHashes": "0x019fea4d986b0a141368aac2ba9338a276705b3301dec9eff1616e5025cc9323",
+   "slot": 15379545,
+   "blobIndexInBlock": 2,
+   "eventOffsetElements": 0,
+   "blobSha256": "d31a0fc0b7440c2679504d0f2c100126bbea994e5f328c067d4548c078e0d6f7",
+   "versionedHash": "0x019fea4d986b0a141368aac2ba9338a276705b3301dec9eff1616e5025cc9323",
+   "versionedHashMatchesEvent": true,
+   "payloadStartByte": 0,
+   "lengthPrefix": 495073083133887334666912648140934702331125843477981372006515905396736,
+   "lengthFitsBlob": false,
+   "payloadBytes": 0,
+   "payloadSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "payloadHeadHex": "",
+   "nonzeroBytesInBlob": 4662,
+   "nonzeroFraction": 0.035568,
+   "trailingAllZero": true
+  }
+ ],
+ "artifact_notes": {
+  "census": "block 24792175-26140714, 40474 Proposed logs, decoded to proposals.csv/proposals_by_tx.csv",
+  "tx_sample": "every 1000th proposal row; 40 real proposals all type 0x3 with matching blob hashes",
+  "sidecar_sample": "15 sidecars over 5 blocks: versioned hash and commitment recomputation match; served proofs are 0xc0||0..0 placeholders and do not verify; fresh proofs verify",
+  "blob_price_series": "systematic sample: every 20th of the 40474 proposal blocks (2020 blocks), whole era, BPO2 fraction 11684671",
+  "network_blob_usage": "400 blocks spread across the era; max 21 blobs observed in a block",
+  "retention": "beacon sidecars served at 0.1/5.7/25.1/39.2 days; 62.7/86.2 days returned HTTP 403 (rate limit, not conclusive)"
+ }
+}
