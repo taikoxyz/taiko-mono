@@ -1,0 +1,381 @@
+{
+ "2025-02-BlockProposedV2": {
+  "topic": "0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26",
+  "fromBlock": 21727117,
+  "toBlock": 21737116,
+  "count": 1000,
+  "url": "https://eth.blockscout.com/api/eth-rpc",
+  "sample": [
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 388,
+    "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 388,
+    "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 388,
+    "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 388,
+    "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x06a9ab27c7e2255df1815e6cc0168d7755feb19a"
+   }
+  ],
+  "types": {
+   "0x3": 20
+  },
+  "blobs_min_max": [
+   1,
+   1
+  ],
+  "calldata_min_max": [
+   388,
+   516
+  ]
+ },
+ "2025-02-CalldataTxList": {
+  "topic": "0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418",
+  "fromBlock": 21727117,
+  "toBlock": 21737116,
+  "count": 12,
+  "url": "https://rpc.mevblocker.io",
+  "sample": [
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 23908,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 32964,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 58596,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 50180,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 103460,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 46852,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 33700,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 78404,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 43364,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 58404,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 38148,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x2",
+    "blobs": 0,
+    "calldataBytes": 40132,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   }
+  ],
+  "types": {
+   "0x2": 12
+  },
+  "blobs_min_max": [
+   0,
+   0
+  ],
+  "calldata_min_max": [
+   23908,
+   103460
+  ]
+ },
+ "2024-08-BlockProposed": {
+  "topic": "0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a",
+  "fromBlock": 20402317,
+  "toBlock": 20412316,
+  "count": 5341,
+  "url": "https://rpc.mevblocker.io",
+  "sample": [
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x9b17fda35ed7eb7bb11a73ab69d0462045364514"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   },
+   {
+    "type": "0x3",
+    "blobs": 1,
+    "calldataBytes": 516,
+    "to": "0x68d30f47f19c07bccef4ac7fae2dc12fca3e0dc9"
+   }
+  ],
+  "types": {
+   "0x3": 20
+  },
+  "blobs_min_max": [
+   1,
+   1
+  ],
+  "calldata_min_max": [
+   516,
+   516
+  ]
+ },
+ "2024-08-CalldataTxList": {
+  "topic": "0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418",
+  "fromBlock": 20402317,
+  "toBlock": 20412316,
+  "count": 0,
+  "url": "https://rpc.mevblocker.io"
+ }
+}

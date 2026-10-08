@@ -1,0 +1,54 @@
+{
+ "census": {
+  "logs": 40474,
+  "distinct_blocks": 40474,
+  "first_block": 24792175,
+  "last_block": 26140714,
+  "every_20th_n": 2024,
+  "every_20th_last_block": 26140297
+ },
+ "headers_sample": {
+  "n": 2020,
+  "first_block": 24792175,
+  "last_block": 26137748,
+  "last_timestamp": 1791342839,
+  "in_every_20th_set": 2020,
+  "missing_vs_every_20th": 4,
+  "first_missing_block": 26138386,
+  "blocks_not_in_census_sample": 0
+ },
+ "price_stats_headers_sample_only": {
+  "n": 2020,
+  "p50": 6991223,
+  "p90_artifact_index_int(0.9n)": 33430313,
+  "p90_nearest_rank_ceil(0.9n)-1": 33158382,
+  "p90_linear_interpolation": 33185575.1,
+  "min": 1668134,
+  "max": 675350452
+ },
+ "price_stats_committed_script_combined": {
+  "n_sources": {
+   "headers-sample": 2020,
+   "headers-late": 138,
+   "headers-sample-rev": 800
+  },
+  "n": 2162,
+  "p50": 6838873,
+  "p90_artifact_index_int(0.9n)": 32784583,
+  "p90_nearest_rank_ceil(0.9n)-1": 32784583,
+  "p90_linear_interpolation": 32774197.0,
+  "min": 1668134,
+  "max": 675350452
+ },
+ "probe": {
+  "n_blocks": 24,
+  "first_block": 24792175,
+  "last_block": 26084522,
+  "mean_gap_blocks": 56189.0,
+  "min_gap_blocks": 56189,
+  "max_gap_blocks": 56189,
+  "era_last_block": 26140714,
+  "unprobed_tail_blocks": 56192,
+  "unprobed_tail_days_at_12s": 7.8
+ }
+}

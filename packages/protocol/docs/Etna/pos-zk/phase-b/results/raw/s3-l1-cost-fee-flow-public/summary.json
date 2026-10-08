@@ -1,0 +1,412 @@
+{
+ "window": {
+  "start_ts": 1790726400,
+  "end_ts": 1791331200,
+  "start_block": 26086570,
+  "end_block": 26136782,
+  "start_block_ts": 1790726411,
+  "end_block_plus1_ts": 1791331211,
+  "head": 26140796,
+  "collected_at": "2026-10-07T13:26:04Z"
+ },
+ "n_propose_txs": 1575,
+ "n_proposed_logs": 1575,
+ "n_proved_logs": 315,
+ "event_topic_census": {
+  "Proposed": 1575,
+  "Proved": 315
+ },
+ "gasUsed": {
+  "n": 1575,
+  "min": 75594,
+  "p10": 75594.0,
+  "p50": 75594.0,
+  "mean": 75599.43619047619,
+  "p90": 75594.0,
+  "p99": 75594.0,
+  "max": 78448
+ },
+ "input_bytes": {
+  "n": 1575,
+  "min": 164,
+  "p10": 164.0,
+  "p50": 164.0,
+  "mean": 164.0,
+  "p90": 164.0,
+  "p99": 164.0,
+  "max": 164
+ },
+ "effectiveGasPrice": {
+  "n": 1575,
+  "min": 1056573379,
+  "p10": 1069509816.0,
+  "p50": 1125879441.0,
+  "mean": 1340110713.5974603,
+  "p90": 1834207367.6,
+  "p99": 3919518855.14,
+  "max": 9623706438
+ },
+ "blobs": {
+  "n": 1575,
+  "min": 1,
+  "p10": 1.0,
+  "p50": 1.0,
+  "mean": 1.0,
+  "p90": 1.0,
+  "p99": 1.0,
+  "max": 1
+ },
+ "total_cost_wei": {
+  "n": 1575,
+  "min": 80255419564154,
+  "p10": 81362359797228.4,
+  "p50": 86124247283334.0,
+  "mean": 103763590479802.69,
+  "p90": 144844298456692.0,
+  "p99": 320303281485517.8,
+  "max": 768261556767804
+ },
+ "exec_cost_wei": {
+  "n": 1575,
+  "min": 79870608012126,
+  "p10": 80853006953607.6,
+  "p50": 85138106333922.0,
+  "mean": 101310560575132.62,
+  "p90": 138655071746354.39,
+  "p99": 296292108335453.1,
+  "max": 727494464474172
+ },
+ "blob_cost_wei": {
+  "n": 1575,
+  "min": 373375238144,
+  "p10": 517881724928.0,
+  "p50": 947223003136.0,
+  "mean": 2453029904670.07,
+  "p90": 6168861501030.4,
+  "p99": 19117242279526.4,
+  "max": 47521347928064
+ },
+ "total_cost_usd": {
+  "n": 1542,
+  "min": 0.21534075286817017,
+  "p10": 0.21855219294068615,
+  "p50": 0.2329237745097792,
+  "mean": 0.2797050372977992,
+  "p90": 0.3882240943281264,
+  "p99": 0.8445342328923302,
+  "max": 2.0584569673569506
+ },
+ "total_eth": 0.16342765500568926,
+ "total_exec_eth": 0.15956413290583388,
+ "total_blob_eth": 0.00386352209985536,
+ "total_usd": 431.30516751320636,
+ "base_fee_cost_wei": {
+  "n": 1542,
+  "min": 4276608012126,
+  "p10": 5233903554459.0,
+  "p50": 9491674033146.0,
+  "mean": 25507887906000.59,
+  "p90": 62939815130179.22,
+  "p99": 205964490777135.25,
+  "max": 651900464474172
+ },
+ "priority_cost_wei": {
+  "n": 1542,
+  "min": 75594000000000,
+  "p10": 75594000000000.0,
+  "p50": 75594000000000.0,
+  "mean": 75696023285140.3,
+  "p90": 75594000000000.0,
+  "p99": 75594000000000.0,
+  "max": 224351905686336
+ },
+ "total_base_fee_eth": 0.03933316315105291,
+ "total_priority_eth": 0.11672326790568634,
+ "intrinsic_gas": {
+  "n": 1575,
+  "min": 21752,
+  "p10": 21752.0,
+  "p50": 21752.0,
+  "mean": 21752.0,
+  "p90": 21752.0,
+  "p99": 21752.0,
+  "max": 21752
+ },
+ "contract_gas": {
+  "n": 1575,
+  "min": 53842,
+  "p10": 53842.0,
+  "p50": 53842.0,
+  "mean": 53847.43619047619,
+  "p90": 53842.0,
+  "p99": 53842.0,
+  "max": 56696
+ },
+ "calldata_gas": {
+  "n": 1575,
+  "min": 752,
+  "p10": 752.0,
+  "p50": 752.0,
+  "mean": 752.0,
+  "p90": 752.0,
+  "p99": 752.0,
+  "max": 752
+ },
+ "total_intrinsic_gas": 34259400,
+ "total_contract_gas": 84809712,
+ "blob_count_dist": {
+  "1": 1575
+ },
+ "type_dist": {
+  "0x3": 1575
+ },
+ "proposer_dist": {
+  "0x5f62d006c10c009ff50c878cd6157ac861c99990": 781,
+  "0x35376dd47c061bc3b8c8e8d61987019e7ed58f06": 794
+ },
+ "per_day": {
+  "2026-09-30": {
+   "n": 209,
+   "eth": 0.021433858730148865,
+   "usd": 57.51954502987332,
+   "gas": 15799146,
+   "blobs": 209,
+   "blob_eth": 0.000524196917805056,
+   "exec_eth": 0.02090966181234381
+  },
+  "2026-10-01": {
+   "n": 208,
+   "eth": 0.02685562639488859,
+   "usd": 72.33726048319762,
+   "gas": 15723552,
+   "blobs": 208,
+   "blob_eth": 0.0008973870948679685,
+   "exec_eth": 0.02595823930002063
+  },
+  "2026-10-02": {
+   "n": 225,
+   "eth": 0.021379612138399125,
+   "usd": 57.92911411468071,
+   "gas": 17011504,
+   "blobs": 225,
+   "blob_eth": 0.00039936378968473613,
+   "exec_eth": 0.020980248348714398
+  },
+  "2026-10-03": {
+   "n": 225,
+   "eth": 0.01877990013564306,
+   "usd": 50.36972202581212,
+   "gas": 17011504,
+   "blobs": 225,
+   "blob_eth": 0.000156938373562368,
+   "exec_eth": 0.0186229617620807
+  },
+  "2026-10-04": {
+   "n": 225,
+   "eth": 0.01914962027076436,
+   "usd": 51.72538726797571,
+   "gas": 17008650,
+   "blobs": 225,
+   "blob_eth": 0.00018928170054451196,
+   "exec_eth": 0.018960338570219823
+  },
+  "2026-10-05": {
+   "n": 225,
+   "eth": 0.02547678238803867,
+   "usd": 69.09410653796903,
+   "gas": 17011504,
+   "blobs": 225,
+   "blob_eth": 0.0007401097651814399,
+   "exec_eth": 0.024736672622857208
+  },
+  "2026-10-06": {
+   "n": 225,
+   "eth": 0.02674056694414223,
+   "usd": 72.33003205369825,
+   "gas": 17008650,
+   "blobs": 225,
+   "blob_eth": 0.0008522583036395519,
+   "exec_eth": 0.025888308640502667
+  }
+ },
+ "baseFee_percentiles": {
+  "n": 50264,
+  "min": 47846945,
+  "p10": 69425480.1,
+  "p50": 127269031.0,
+  "mean": 342238679.1076516,
+  "p90": 844261054.6999997,
+  "p99": 2990317986.5200005,
+  "max": 9152174485
+ },
+ "blobBaseFee_percentiles": {
+  "n": 50264,
+  "min": 2723608,
+  "p10": 3959039.4,
+  "p50": 7252361.0,
+  "mean": 18801079.672966737,
+  "p90": 47949586.0,
+  "p99": 152158982.47,
+  "max": 427395399
+ },
+ "fee_history_blocks": 50264,
+ "blobGasUsedRatio": {
+  "n": 50213,
+  "min": 0.0,
+  "p10": 0.0,
+  "p50": 0.19047619047619047,
+  "mean": 0.21999045968935912,
+  "p90": 0.5238095238095238,
+  "p99": 0.8095238095238095,
+  "max": 1.0
+ },
+ "cost_curve": [
+  {
+   "point": "min",
+   "baseFeePerGas": 47846945.0,
+   "blobBaseFeePerGas": 2723608.0,
+   "median_batch_exec_eth_at_basefee": 3.61694196033e-06,
+   "median_batch_exec_eth_at_obs_median_egp": 8.5109730462954e-05,
+   "median_batch_blob_eth": 3.56988747776e-07,
+   "median_batch_total_eth_at_basefee": 3.973930708106e-06,
+   "median_batch_total_eth_at_obs_median_egp": 8.546671921073e-05
+  },
+  {
+   "point": "p50",
+   "baseFeePerGas": 127269031.0,
+   "blobBaseFeePerGas": 7252361.0,
+   "median_batch_exec_eth_at_basefee": 9.620775129414e-06,
+   "median_batch_exec_eth_at_obs_median_egp": 8.5109730462954e-05,
+   "median_batch_blob_eth": 9.50581460992e-07,
+   "median_batch_total_eth_at_basefee": 1.0571356590406e-05,
+   "median_batch_total_eth_at_obs_median_egp": 8.6060311923946e-05
+  },
+  {
+   "point": "p90",
+   "baseFeePerGas": 844261054.6999997,
+   "blobBaseFeePerGas": 47949586.0,
+   "median_batch_exec_eth_at_basefee": 6.382107016899178e-05,
+   "median_batch_exec_eth_at_obs_median_egp": 8.5109730462954e-05,
+   "median_batch_blob_eth": 6.284848136192e-06,
+   "median_batch_total_eth_at_basefee": 7.010591830518377e-05,
+   "median_batch_total_eth_at_obs_median_egp": 9.1394578599146e-05
+  },
+  {
+   "point": "p99",
+   "baseFeePerGas": 2990317986.5200005,
+   "blobBaseFeePerGas": 152158982.47,
+   "median_batch_exec_eth_at_basefee": 0.0002260500978729929,
+   "median_batch_exec_eth_at_obs_median_egp": 8.5109730462954e-05,
+   "median_batch_blob_eth": 1.994378215030784e-05,
+   "median_batch_total_eth_at_basefee": 0.0002459938800233008,
+   "median_batch_total_eth_at_obs_median_egp": 0.00010505351261326184
+  },
+  {
+   "point": "max",
+   "baseFeePerGas": 9152174485.0,
+   "blobBaseFeePerGas": 427395399.0,
+   "median_batch_exec_eth_at_basefee": 0.00069184947801909,
+   "median_batch_exec_eth_at_obs_median_egp": 8.5109730462954e-05,
+   "median_batch_blob_eth": 5.6019569737728e-05,
+   "median_batch_total_eth_at_basefee": 0.000747869047756818,
+   "median_batch_total_eth_at_obs_median_egp": 0.000141129300200682
+  }
+ ],
+ "median_effective_gas_price": 1125879441.0,
+ "median_priority_cost_wei": 75594000000000.0,
+ "prove": {
+  "n": 315,
+  "gasUsed": {
+   "n": 315,
+   "min": 399306,
+   "p10": 399382.8,
+   "p50": 399414.0,
+   "mean": 399413.4666666667,
+   "p90": 399438.0,
+   "p99": 399462.0,
+   "max": 399474
+  },
+  "total_eth": 0.17066027064897502,
+  "cost_wei": {
+   "n": 315,
+   "min": 421293925680738,
+   "p10": 426769758495990.0,
+   "p50": 450373279524954.0,
+   "mean": 541778636980873.0,
+   "p90": 733936050329167.8,
+   "p99": 1617230376052913.0,
+   "max": 3685833064467834
+  },
+  "type_dist": {
+   "0x2": 315
+  },
+  "from_dist": {
+   "0xa5cb34b75bd72f15290ef37a01f06183e8036875": 315
+  },
+  "eth_per_newly_proven_proposal": 0.00010835572739617461
+ },
+ "proved_events": {
+  "n": 315,
+  "newlyProven_total": 1575,
+  "newlyProven_per_proof": {
+   "n": 315,
+   "min": 5,
+   "p10": 5.0,
+   "p50": 5.0,
+   "mean": 5.0,
+   "p90": 5.0,
+   "p99": 5.0,
+   "max": 5
+  },
+  "sample": [
+   {
+    "tx": "0x3e44475b4a3711a7823ac36f6b20953728cfe0a96538759bd70328b232f4a86c",
+    "block": 26086670,
+    "firstProposalId": 38772,
+    "firstNewProposalId": 38772,
+    "lastProposalId": 38776,
+    "newlyProven": 5
+   },
+   {
+    "tx": "0xdaaf71cae7b4dfbfa57bfb0b887977735943d2e69b0f254733861e035f0c3630",
+    "block": 26086828,
+    "firstProposalId": 38777,
+    "firstNewProposalId": 38777,
+    "lastProposalId": 38781,
+    "newlyProven": 5
+   },
+   {
+    "tx": "0xb6013ebee1ec1457efe026e4fc77ced28788caac4bf49f91c7b7bd4b9568f3c8",
+    "block": 26087020,
+    "firstProposalId": 38782,
+    "firstNewProposalId": 38782,
+    "lastProposalId": 38786,
+    "newlyProven": 5
+   },
+   {
+    "tx": "0x0cd996722d1185c46d5386c1a13aa0f2f391735543f680851df8bd8f96c2f0eb",
+    "block": 26136399,
+    "firstProposalId": 40332,
+    "firstNewProposalId": 40332,
+    "lastProposalId": 40336,
+    "newlyProven": 5
+   },
+   {
+    "tx": "0x778c17eb64c065c8aae63d7a4cc849f0609ae20db122ef9fd9fb3bbae5430a47",
+    "block": 26136557,
+    "firstProposalId": 40337,
+    "firstNewProposalId": 40337,
+    "lastProposalId": 40341,
+    "newlyProven": 5
+   },
+   {
+    "tx": "0xa985a47cc5ee668549b197e4d097b48f914b1a54962f4d27465f0ab614e7fef9",
+    "block": 26136721,
+    "firstProposalId": 40342,
+    "firstNewProposalId": 40342,
+    "lastProposalId": 40346,
+    "newlyProven": 5
+   }
+  ]
+ }
+}

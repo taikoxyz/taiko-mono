@@ -1,0 +1,224 @@
+Proving System - Taiko
+Are you an LLM? Read
+llms.txt
+for a summary of the docs, or
+llms-full.txt
+for the full context.
+Skip to content
+Home
+Quickstart
+Agent Quickstart
+Connect to Taiko
+Deploy a Contract
+Guides
+Chevron Right
+Network Reference
+Chevron Right
+Protocol
+Chevron Right
+Overview
+Based Rollups
+Unzen Fork (Current)
+Shasta Fork
+Proving System
+Bridging
+Economics
+Preconfirmations
+Resources
+Developer Tools
+FAQ
+Getting Support
+Contributing
+GitHub
+Discord
+X
+Search...
+Taiko
+GitHub
+Bridge
+Taiko
+GitHub
+Bridge
+Menu
+Chevron Down
+Menu
+Proving System
+On this page
+Chevron Right
+OpenAI
+Ask in ChatGPT
+Chevron Down
+Proving System
+Taiko's proving lifecycle — Inbox proposals, SGX and ZK multi-proof verification, and checkpoint-driven L1 finalization for L2 state.
+Under the
+Shasta
+protocol architecture (which the current Unzen fork runs on), Taiko proves L2 state transitions on Ethereum L1 through the
+Inbox
+and a compose
+proofVerifier
+. The core idea is still proof diversity, but the lifecycle is no longer the old Pacaya-style
+proveBatches
+plus
+verifyBatches
+flow. A successful proof submission advances finalization directly for a contiguous range of proposals.
+Shasta Proving Model
+Shasta organizes L2 data around
+proposals
+rather than the older batch terminology.
+At a high level:
+A proposer submits one or more L2 blocks as a proposal to
+Inbox
+.
+A prover submits a proof for a contiguous range of proposals by calling
+prove
+.
+Inbox
+validates the proof range, checks parent-hash continuity, and forwards the proof to its configured
+proofVerifier
+.
+If the proof is valid,
+Inbox
+writes a checkpoint to the signal service and advances finalization for the proven range.
+This means there is no separate public "verified later by cooldown" step in the Shasta inbox flow. Successful proving is what advances finalization.
+Proof Verifier Composition
+The inbox does not hardcode a single proving system. Instead, it points at a verifier contract that implements
+IProofVerifier
+. The current Unzen deployment on mainnet uses
+ZkRequiredVerifier
+, a
+ComposeVerifier
+over multiple sub-verifiers that requires at least one ZK proof in every accepted combination.
+The deployed verifier set includes:
+Proof Type
+Contract Family
+Trust Basis
+sgxGeth
+SgxVerifier
+Intel SGX attestation over a Go Ethereum-derived execution path
+sgxReth
+SgxVerifier
+Intel SGX attestation over a Reth-derived execution path
+RISC0
+Risc0Verifier
+Cryptographic ZK proof
+SP1
+SP1Verifier
+Cryptographic ZK proof
+ZkRequiredVerifier
+accepts exactly two sub-proofs, and the second must be a ZK proof:
+sgxGeth + risc0
+sgxGeth + sp1
+sgxReth + risc0
+sgxReth + sp1
+risc0 + sp1
+A TEE-only pair (
+sgxGeth + sgxReth
+) is not accepted. This keeps proof diversity while guaranteeing that every finalized range carries a cryptographic proof.
+How
+prove
+Works
+When a prover calls
+prove
+on
+Inbox
+, the contract:
+Decodes a commitment covering a contiguous range of proposals.
+Allows the proof range to overlap already finalized proposals, but requires it to advance finalization by at least one proposal.
+Checks that the range connects to the latest finalized block hash.
+Saves a checkpoint to the signal service.
+Updates
+lastFinalizedProposalId
+,
+lastFinalizedTimestamp
+, and
+lastFinalizedBlockHash
+.
+Calls the configured
+proofVerifier
+.
+SGX and ZK Proof Roles
+Taiko's verifier set is intentionally mixed:
+SGX proofs
+are generally cheaper and faster to produce, but rely on trusted hardware assumptions.
+ZK proofs
+are slower and more computationally expensive, but provide a purely cryptographic guarantee.
+Client diversity
+matters too: the verifier set spans both geth-based and reth-based proving paths.
+The protocol therefore does not rely on a single verifier family or a single execution client to advance finalization.
+Prover Permissions
+Shasta is designed for the staged preconfirmation rollout, so proving is not simply "anyone at any time".
+When the
+ProverWhitelist
+is enabled:
+whitelisted provers can prove immediately
+non-whitelisted provers can only prove once a proposal is older than
+permissionlessProvingDelay
+On the live mainnet Unzen inbox, the proving-related timing parameters are:
+Parameter
+Value
+Purpose
+Proving window
+4 hours
+Target window before a proof is considered late
+Permissionless proving delay
+5 days
+Delay after which non-whitelisted provers may prove
+Max proof submission delay
+3 minutes
+Sequential grace term used in the late-proof calculation
+The late-proof cutoff is not just
+proposal timestamp + proving window
+. The inbox uses the maximum of:
+proposal.timestamp + provingWindow
+lastFinalizedTimestamp + maxProofSubmissionDelay
+What Happens If a Proof Is Late
+The inbox still defines a late-proof settlement path for configurations that use nonzero bonds and do not rely on whitelist mode:
+if a proof arrives on time, no bond transfer happens
+if it arrives late, the proposer's liveness bond can be debited
+half of the debited amount is credited to the actual prover
+the other half is slashed
+That logic is best-effort: if the proposer has less than the configured liveness bond, the inbox debits whatever balance is available and splits that actual amount.
+For the current live Unzen configuration, however, this path is effectively dormant because
+livenessBond = 0
+and proving runs with whitelist mode enabled.
+End-to-End Flow
+Copy
+Proposer submits proposal(s) to Inbox
+|
+v
+Proposal range exists on L1 but is not finalized
+|
+v
+Prover assembles commitment + sub-proofs
+|
+v
+prove() called on Inbox
+|
+v
+Inbox validates range + prover permissions
+|
+v
+ZkRequiredVerifier (ComposeVerifier) routes proof pieces
+to SGX and/or ZK sub-verifiers
+|
+v
+Required verifier combination passes
+|
+v
+Inbox writes checkpoint and advances finalization
+Summary
+Taiko's proving system is defined by:
+proposal-range proving through
+Inbox.prove
+direct finalization on successful proof submission
+a compose verifier that requires two sub-proofs, at least one of them ZK
+whitelist-first prover access with permissionless fallback after delay
+For the broader protocol context, see
+Shasta Fork
+,
+Unzen Fork
+,
+Based Rollups
+, and
+Contract Addresses
+.

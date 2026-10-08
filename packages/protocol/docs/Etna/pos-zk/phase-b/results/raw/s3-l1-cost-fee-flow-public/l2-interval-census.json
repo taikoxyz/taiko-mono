@@ -1,0 +1,32 @@
+{
+ "source": "l2-two-day.csv",
+ "rows": 86356,
+ "block_range": [
+  12257702,
+  12344057
+ ],
+ "contiguous": true,
+ "null_fields": 0,
+ "distinct_proposal_ids": 451,
+ "total_l2_gas": 11168016854,
+ "within_batch": {
+  "intervals": 85905,
+  "exactly_2s": 85904,
+  "pct_2s": 99.99883592340376,
+  "non_2s": {
+   "8": 1
+  }
+ },
+ "all_consecutive": {
+  "intervals": 86355,
+  "exactly_2s": 86352,
+  "pct_2s": 99.99652596838631,
+  "non_2s": {
+   "4": 1,
+   "8": 1,
+   "82": 1
+  }
+ },
+ "mean_l2_gas_per_block": 129325.31444254018,
+ "median_l2_gas_per_block": 112068.0
+}

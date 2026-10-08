@@ -1,0 +1,145 @@
+Economics - Taiko
+Are you an LLM? Read
+llms.txt
+for a summary of the docs, or
+llms-full.txt
+for the full context.
+Skip to content
+Home
+Quickstart
+Agent Quickstart
+Connect to Taiko
+Deploy a Contract
+Guides
+Chevron Right
+Network Reference
+Chevron Right
+Protocol
+Chevron Right
+Overview
+Based Rollups
+Unzen Fork (Current)
+Shasta Fork
+Proving System
+Bridging
+Economics
+Preconfirmations
+Resources
+Developer Tools
+FAQ
+Getting Support
+Contributing
+GitHub
+Discord
+X
+Search...
+Taiko
+GitHub
+Bridge
+Taiko
+GitHub
+Bridge
+Menu
+Chevron Down
+Menu
+Economics
+On this page
+Chevron Right
+OpenAI
+Ask in ChatGPT
+Chevron Down
+Economics
+Taiko fee flow, proposer and prover bonds, TAIKO token utility, and DAO treasury mechanics — the economic model behind the based rollup.
+Taiko's economic model ensures fair compensation for the actors who operate the network -- proposers and provers -- while sustaining long-term protocol development through the Taiko DAO Treasury. The model is designed around the based rollup architecture, where fees flow through a transparent on-chain cycle.
+TAIKO Token
+The TAIKO token serves two primary functions in the protocol:
+Function
+Description
+Proving bonds
+Proposers deposit TAIKO tokens as a liveness bond when submitting a proposal. This bond ensures proposers are economically committed to seeing their proposals proved.
+Governance
+TAIKO token holders participate in protocol governance through the Taiko DAO, controlling smart contract upgrades, network parameters, and treasury allocation.
+Transaction Fee Flow
+When a user submits a transaction on Taiko L2, they pay a standard EVM gas fee denominated in
+ETH
+. This fee has two components, allocated as follows:
+Fee Component
+Allocation
+Recipient
+Priority fee
+100%
+L2 block proposer
+Base fee
+75%
+L2 block proposer
+Base fee
+25%
+Taiko DAO Treasury
+The priority fee incentivizes faster transaction inclusion -- transactions with higher priority fees are more likely to be picked up by proposers (or preconfers). The base fee is determined by EIP-1559 dynamics on L2.
+Proposer Economics
+Proposers (or preconfers) earn revenue from L2 transaction fees and bear costs for L1 operations and proving.
+Revenue
+Priority fees
+from all transactions in the blocks they propose.
+75% of base fees
+from L2 transactions.
+Costs
+Cost
+Paid To
+Description
+L1 gas fee
+Ethereum L1
+Gas cost of calling
+propose
+on the Inbox contract to submit the proposal on-chain.
+Prover fee
+Block prover
+Compensation to provers for generating validity proofs. This is negotiated off-chain between proposers and provers.
+Liveness bond
+Inbox (returned after proving)
+TAIKO tokens locked when submitting a proposal. Returned once the proposal range has been proved (which finalizes it).
+Info
+The liveness bond is not a cost in the typical sense -- it is returned to the proposer once the proposal is proved. However, it represents locked capital and creates an opportunity cost. The live Unzen configuration currently runs with a liveness bond of
+0
+.
+Profitability Considerations
+A proposer is profitable when:
+Copy
+L2 fee revenue > L1 gas cost + prover fee + opportunity cost of bond
+A single proposal can carry many L2 blocks, amortizing the L1 gas cost across all included blocks. This makes small, frequent blocks economically viable -- an important property for preconfirmations.
+Prover Economics
+Provers generate validity proofs (SGX, ZK) for contiguous proposal ranges and submit them to Ethereum L1.
+Revenue
+Prover fees
+paid by proposers. The fee amount is determined by the market -- proposers and provers negotiate off-chain, and competitive dynamics drive fees toward the cost of proof generation.
+Costs
+Cost
+Description
+Computation
+Generating SGX attestations or ZK proofs requires significant computational resources. SGX proofs are cheaper; ZK proofs are more expensive.
+L1 gas
+Submitting proofs to Ethereum L1 via
+Inbox.prove
+incurs gas fees. Proving a range of proposals in a single submission amortizes this cost.
+Taiko DAO Treasury
+The Taiko DAO Treasury receives
+25% of the L2 base fee
+, providing sustainable funding for:
+Protocol development and research
+Security audits and bug bounties
+Ecosystem growth and partnerships
+Governance operations
+The treasury is managed by the Taiko DAO, which controls fund allocation through on-chain governance.
+Economic Cycle Summary
+The full economic cycle flows as follows:
+Users
+pay ETH gas fees for L2 transactions.
+Proposers
+collect transaction fees, pay L1 gas to submit proposals, lock a TAIKO liveness bond, and pay provers.
+Provers
+generate proofs, earn prover fees, and pay L1 gas to submit proofs.
+Taiko DAO Treasury
+receives 25% of the base fee for protocol sustainability.
+Ethereum L1
+receives gas fees from both proposers and provers, plus MEV revenue from proposal ordering.
+This creates a self-sustaining cycle where each participant is economically incentivized to perform their role, and the protocol itself accumulates resources for long-term development.
