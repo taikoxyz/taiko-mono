@@ -276,7 +276,7 @@ Review round 4 owns that attempt (§7, Q-B1).
 |----|------|-----------|
 | F1 | Epoch-handoff argument (M2): parent validity plus epoch-scoped certificates, with no cross-height lock carry-over | independent review; explicit argument in `CONS` rules (review round 3, R3A-03) |
 | F2 | In-guest cost of the blob-path polynomial evaluation | measurement gate (implementation); not needed for calldata path |
-| F3 | 2 s cadence under a permissionless global set | measurement gate + stated assumptions |
+| F3 | 4 s cadence under a permissionless global set (the 2 s of the pre-decision text superseded by the Phase B cadence decision of 2026-10-07, conditioned on the intended validator count staying near or below 128) <em>(the register carries this same item as Open (F-CADENCE-1); F-CADENCE-1 governs for the register and F3 remains this item's id of record &mdash; one item, two spellings)</em> | measurement gate + stated assumptions |
 | F4 | Proving throughput formula inputs (cycles per L2 gas; proven cycles/s per machine) | measurement gate |
 | Q-A1 | Is the Mode A availability counterexample reachable *inside* the stated assumptions? | **closed by D-7**: the selection no longer depends on the answer — the requirement set does not accept the resulting unbounded halt either way |
 | Q-B1 | Does the `REC-03` resistance analysis survive independent review? Falsifiers: proving not permissionless in practice; `T_RECOVERY_DELAY` shorter than an honest prover needs to land a batch; a bond refundable on cancellation | adversarial review round 4, which must attempt to break it; *user decision D-7: the selection is not settled until that review attempts to break the analysis* |

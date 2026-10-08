@@ -190,12 +190,14 @@ Equivalently, per 2-second L2 block: `block_data_budget = DA_bytes_per_second x 
 | Quantity | Value | Tag |
 |---|---|---|
 | Bytes per blob | 131,072 | sourced (EIP-4844) |
-| Blobs per L1 block (target / maximum) | 6 / 9 | sourced (EIP-7691) |
+| Blobs per L1 block (target / maximum) | 14 / 21 | sourced (EIP-7892 BPO2 set in force over the measured window; base-fee update fraction 11,684,671 — Phase B S4 public-data report §3 F6) |
 | L1 slot duration | 12 s | sourced, re-derived if Ethereum changes it |
 | DA bytes per L1 block (target) | 786,432 | derived |
 | DA throughput (target / maximum) | 65,536 / 98,304 bytes per second | derived |
 | Data budget per 2 s L2 block (target) | 131,072 bytes (one blob) | derived |
 | **`b`, bytes per L2 gas** | **unknown** | **unmeasured — this is S1's headline output** |
+
+*(Design assumption, unchanged: the derived rows above — 786,432 B per L1 block, 65,536 / 98,304 B/s and the 131,072 B per-2 s-block budget — are the plan's own 2026-10-05 baseline at the then-current 6-blob target, not the chain's in-force set. Phase B S4 public-data report §3 F6 measures the in-force set at target 14 / max 21 / base-fee update fraction 11,684,671. This propagation keeps the design rows as written.)*
 
 Illustrative only, to show the sensitivity: at `b = 0.006` bytes/gas the target is ≈ 11 Mgas/s; at
 `b = 0.02` (calldata-heavy, poorly compressible workload) it is ≈ 3.3 Mgas/s. These are arithmetic on an
@@ -238,17 +240,17 @@ criterion, not an optional extra** — the fee revenue that funds security under
 
 ### 8.6 Derived constraint found while specifying S1: the blob quantisation binds K
 
-At the DA-bound rate the arithmetic is unusually clean: **one 2-second L2 block equals exactly one blob**
+At the DA-bound rate the arithmetic is unusually clean: **one 2-second L2 block equals exactly one blob** *(the design's own DA-bound rate, plan §8.2, unchanged)*
 (131,072 bytes), so a K-block batch carries about K blobs. D5 requires the batch's data **and** its proof
-in one L1 transaction, and EIP-7691 caps blobs per L1 block at **6 target / 9 maximum**. Therefore:
+in one L1 transaction, and the measured BPO2 set caps blobs per L1 block at **14 target / 21 maximum** *(Phase B S4 public-data report §3 F6)*. Therefore:
 
 ```
-BATCH_BLOCKS x blobs_per_block  <=  blobs_per_L1_tx_max          (a hard ceiling: 9)
-BATCH_BLOCKS                    <=  blobs_per_L1_tx_target       (the sustainable value: 6)
+BATCH_BLOCKS x blobs_per_block  <=  blobs_per_L1_tx_max          (a hard ceiling: 21)
+BATCH_BLOCKS                    <=  blobs_per_L1_tx_target       (the sustainable value: 14)
 ```
 
-The registered placeholder `BATCH_BLOCKS = 32` is **not publishable** at the DA-bound rate: it would need
-32 blobs in one transaction against a ceiling of 9. This is a derived bound, not a preference, and it
+The retired placeholder `BATCH_BLOCKS = 32` is **not publishable** at the DA-bound rate: it would need
+32 blobs in one transaction against a ceiling of 21 *(the measured BPO2 maximum; Phase B S4 public-data report §3 F6)*; the owner's Phase B decision registers the planning length at `BATCH_BLOCKS = 14` — the BPO2 target — which is publishable in one transaction by construction (`spec/09-parameters.html`). This is a derived bound, not a preference, and it
 propagates:
 
 | Consequence | Value at the target rate |
@@ -259,10 +261,12 @@ propagates:
 | Fleet sizing (S1) | must be evaluated at ≈ 150 in flight, not 28 |
 | Reward per batch | spreads over 6 blocks, not 32 — the per-batch reward floor from S3 must be read with this |
 
+*(These consequences are the plan's own 2026-10-05 design arithmetic at the then-current 6-blob chain target; they are design assumptions, not the chain's in-force limits. The measured set is target 14 / max 21 — Phase B S4 public-data report §3 F6 — and this propagation keeps the design rows unchanged rather than re-deriving them.)*
+
 Two ways out, and both are user-visible decisions rather than parameter tweaks: **cap the block gas limit**
 so each 2 s block carries less data (more blocks per batch, less throughput), or **accept more than one L1
-transaction per batch**, which D5 forbids for an accepted batch. S1 must report `blobCount` and `K <= 9`
-per cell for this reason, and S3 must price the constraint, because the fee revenue that funds security is
+transaction per batch**, which D5 forbids for an accepted batch. S1 must report `blobCount` and `K <= 21`
+per cell for this reason *(the 21-blob BPO2 ceiling — Phase B S4 public-data report §3 F6)*, and S3 must price the constraint, because the fee revenue that funds security is
 a function of it.
 
 **Action.** The specification must register the constraint alongside `BATCH_BLOCKS` and `MAX_BATCH_BLOCKS`

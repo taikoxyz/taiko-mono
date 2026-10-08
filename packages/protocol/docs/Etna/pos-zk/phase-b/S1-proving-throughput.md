@@ -18,11 +18,11 @@ Fills register rows: `b` (bytes per L2 gas), `G_L2_TARGET` (derived from `b`), `
 | `C` | zkVM cycles per L2 gas | unmeasured (PARAM-03) | measured, per backend, per workload |
 | `R_gas` | proven gas/s per machine | unmeasured (PARAM-03) | measured, per backend and machine class |
 | In-guest blob evaluation | cycles per blob / per 4,096 elements | **unmeasured** (PARAM-03, open item F2) | measured, plus its share of batch cycles |
-| `BATCH_BLOCKS` (K) | L2 blocks | 32 placeholder, unmeasured | cost/latency curve for K ∈ {8, 32, 128} |
+| `BATCH_BLOCKS` (K) | L2 blocks | 32 placeholder, unmeasured; **not publishable in one L1 transaction** at the DA-bound rate — 32 blobs against the measured per-L1-block maximum of 21 (one 2 s L2 block = one blob) | cost/latency curve for K ∈ {8, 32, 128}. *(Phase B S4 public-data report §3 F6: target 14 / max 21 / base-fee update fraction 11,684,671 in force; stated as a bound — the value stays unmeasured. The owner's Phase B decision registers the planning length at `BATCH_BLOCKS = 14` — the BPO2 target — so the registered value is publishable in one transaction by construction.)* |
 | `T_PROOF_MAX_PERMITTED` (evidence) | seconds | unmeasured | per-batch proof latency distribution at each K |
-| `MAX_BATCH_BLOCKS` | L2 blocks | unset | the publishability bound derived in §4.4 |
+| `MAX_BATCH_BLOCKS` | L2 blocks | unset; at the DA-bound rate it MUST respect the §4.4 bound — one 2 s L2 block is one blob and the measured per-L1-block maximum is 21, so the 32-block placeholder above is not publishable in one transaction (32 > 21) | the publishability bound derived in §4.4. *(Phase B S4 public-data report §3 F6: the maximum in force is 21, not the superseded EIP-7691 9.)* |
 
-**The target, re-derived from plan §8 so the engineer never has to re-read it.** Plan §8.1 writes `G_L2_TARGET = DA_bytes_per_l1_block x blobs_per_block_target / L1_slot_seconds / b`; plan §8.2 fixes the operands as 131,072 bytes per blob (sourced, EIP-4844), 6 target blobs per L1 block (sourced, EIP-7691) and 12 s per L1 slot (sourced). The operative form is therefore
+**The target, re-derived from plan §8 so the engineer never has to re-read it.** Plan §8.1 writes `G_L2_TARGET = DA_bytes_per_l1_block x blobs_per_block_target / L1_slot_seconds / b`; plan §8.2 fixes the operands as 131,072 bytes per blob (sourced, EIP-4844), 6 target blobs per L1 block *(the plan's own 2026-10-05 design baseline, kept unchanged; the chain's measured in-force target is 14 — Phase B S4 public-data report §3 F6)* and 12 s per L1 slot (sourced). The operative form is therefore
 
     DA_bytes_per_second = 6 x 131,072 / 12 = 786,432 / 12 = 65,536 bytes/s      [derived]
     G_L2_TARGET         = 65,536 / b                                            [gas/s]
@@ -107,7 +107,7 @@ The pass/fail needs four additive quantities: cycles of EVM execution, marginal 
 | Backend | RISC Zero v3.0.6; SP1 v6.8.1 | both mandatory |
 | K (blocks per batch) | 8; 32; 128 | plan §1 S1; K=32 is the current placeholder |
 | N (signers in the head certificate) | 67; 101; 133 (= ceil(2n/3) for n = 100/150/200) plus a 0 control | distinct messages, 02-consensus-survey.md §10.5(a) |
-| m (blobs per batch) | natural `ceil(len(P)/131,072)` at each K, plus cells at 1, 6, 9 for per-blob scaling | 6/9 are the EIP-7691 target/maximum |
+| m (blobs per batch) | natural `ceil(len(P)/131,072)` at each K, plus cells at **1, 14, 21** for per-blob scaling *(re-based from 1, 6, 9)* | 14/21 are the measured BPO2 target/maximum in force, and 21 is the per-L1-block ceiling the sweep must not exceed; the old 6/9 were the superseded EIP-7691 pair. *(Phase B S4 public-data report §3 F6.)* |
 | Layer mode | E; E+C; E+C+B | additivity control |
 | Proof mode | `core/succinct` AND the wrapped mode actually used on L1 (Groth16; PLONK separately if used) | wrap is part of cost per proof |
 | Machine class | one primary GPU class (N_MAX machines, pre-registered) + one CPU-only baseline | hardware envelope in §10 |
@@ -123,7 +123,7 @@ The pass/fail needs four additive quantities: cycles of EVM execution, marginal 
 | 0 controls | empty guest; keccak-only; Ed25519-only; B negative controls (per backend) | 3 |
 | 1 main | backend x K x {E, E+C, E+C+B}, N=101, natural m | 8 consecutive batches for the cycle/gas distribution, plus 4 repeats of one fixed batch for wall-clock variance |
 | 2 consensus scaling | backend x N ∈ {67, 101, 133}, K=32 | ≥ 3 |
-| 3 blob scaling | backend x m ∈ {1, 6, 9}, K=32 | ≥ 3 |
+| 3 blob scaling | backend x m ∈ {1, 14, 21}, K=32 *(re-based from {1, 6, 9}; 21 is the ceiling — Phase B S4 public-data report §3 F6)* | ≥ 3 |
 | 4 wrap | backend x {unwrapped, Groth16; PLONK if used} at K=32 | ≥ 3 |
 | 5 CPU baseline | 1 cell per backend at K=32 | ≥ 3 |
 
@@ -139,7 +139,7 @@ At the DA-bound rate, one 2 s L2 block consumes `65,536 x 2 = 131,072` bytes = o
 
     blobCount(K) <= K,  with equality when len(P) is blob-aligned    [derived]
 
-EIP-7691 caps blobs at 6 target / 9 maximum **per L1 block**, and D5/L1-01 lands a batch's data and proof in **one** transaction. Consequence: at the DA-bound rate, **K > 9 is not publishable in a single `land` transaction**; the K = 32 and K = 128 cells remain necessary to measure cost and pipeline depth, but they are not simultaneously reachable with the DA-bound rate and one-transaction batches. The report MUST state, for every K: `blobCount`, `b_billed`, and whether `blobCount <= 9`. (Derived from EIP-4844 131,072 B/blob and EIP-7691 6/9, `spec/09-parameters.html` PARAM-02; confirm against L1-01/D5 with S3/S4.)
+the measured BPO2 set caps blobs at 14 target / 21 maximum **per L1 block**, and D5/L1-01 lands a batch's data and proof in **one** transaction. Consequence: at the DA-bound rate, **K > 21 is not publishable in a single `land` transaction**; the K = 32 and K = 128 cells remain necessary to measure cost and pipeline depth, but they are not simultaneously reachable with the DA-bound rate and one-transaction batches. The report MUST state, for every K: `blobCount`, `b_billed`, and whether `blobCount <= 21`. (Derived from EIP-4844 131,072 B/blob and the measured BPO2 set — target 14 / max 21 / base-fee update fraction 11,684,671, `spec/09-parameters.html` PARAM-02; confirm against L1-01/D5 with S3/S4. *(Phase B S4 public-data report §3 F6: the previous 6/9 was the superseded EIP-7691 pair. The 65,536 B/s above is the design's own DA-bound rate, unchanged.)*
 
 ## 5. Metrics
 
@@ -257,7 +257,7 @@ Under `packages/protocol/docs/Etna/pos-zk/phase-b/artifacts/S1/`:
 | `raw/<cell>/<rep>` | cycles reports, proof receipts/sizes, prover logs, `nvidia-smi`/`rocm-smi` captures, memory samples, timing logs |
 | `report` | `phase-b/S1-proving-throughput-report.md` — the measurement report with versions, hardware, workload, method, date, variance, and the parameter values for re-derivation |
 
-The report MUST include the omissions table of §3.5 and the `blobCount`/`K<=9` statement of §4.4.
+The report MUST include the omissions table of §3.5 and the `blobCount`/`K<=21` statement of §4.4. *(Phase B S4 public-data report §3 F6: the ceiling is 21, not the superseded 9.)*
 
 ## 10. Effort and skills (estimate, not a measurement)
 
