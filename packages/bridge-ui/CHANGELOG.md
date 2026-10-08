@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.19.0...bridge-ui-v2.19.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **bridge-ui:** move the Vercel function runtime to nodejs22.x ([#22269](https://github.com/taikoxyz/taiko-mono/issues/22269)) ([5ccc84e](https://github.com/taikoxyz/taiko-mono/commit/5ccc84e0feced31b5c0e345f96073f1ce578277c))
+
 ## [2.19.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.18.0...bridge-ui-v2.19.0) (2026-10-07)
 
 
