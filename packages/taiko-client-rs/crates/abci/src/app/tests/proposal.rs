@@ -406,8 +406,8 @@ async fn round_trip_at_a_switch_height_with_the_landed_record() {
 }
 
 /// A set must not activate before its record has landed: without `committee[1]` on L1 the
-/// switch height cannot be built nor accepted. The record
-/// has not landed yet: a wait, not a conflict.
+/// switch height cannot be built nor accepted. The record has not landed yet: a wait, not a
+/// conflict.
 #[tokio::test]
 async fn switch_height_without_the_landed_record_halts() {
     let fx = Fixture::genesis(2);

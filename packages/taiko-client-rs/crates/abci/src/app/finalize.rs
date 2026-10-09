@@ -2,11 +2,10 @@
 //!
 //! `FinalizeBlock` is deterministic: it judges a decided block on its envelope, the committed
 //! [`AppState`] and the EL alone, never L1 (every L1 fact a block consumes travels in the block),
-//! so a node replaying after a crash or
-//! block-syncing derives the same response and state as one that voted. A decided block that
-//! fails a deterministic check, that the EL rejects, or that contradicts a known committee is a
-//! safety halt: the process exits and an operator must investigate. The derived state stays pending
-//! until `Commit` persists it.
+//! so a node replaying after a crash or block-syncing derives the same response and state as one
+//! that voted. A decided block that fails a deterministic check, that the EL rejects, or that
+//! contradicts a known committee is a safety halt: the process exits and an operator must
+//! investigate. The derived state stays pending until `Commit` persists it.
 
 use std::{fmt, future::Future, time::Duration};
 
@@ -45,15 +44,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`validate_block`] from the block's single envelope and BFT time; the next state and the
     /// validator updates are derived ([`next_state`]); the EL executes the block unless the
     /// cached verdict already did, then moves its forkchoice to `head = safe =` the block and
-    /// `finalized =` the anchored `lastCheckpoint.blockHash` (the L1-accepted checkpoint, so the EL
-    /// can still rewind above it; zero stays zero); the next
-    /// state becomes pending until `Commit`. The state is derived before any EL call so a
-    /// contradiction halts before the EL moves.
+    /// `finalized =` the anchored `lastCheckpoint.blockHash` (the L1-accepted checkpoint, so the
+    /// EL can still rewind above it; zero stays zero); the next state becomes pending until
+    /// `Commit`. The state is derived before any EL call so a contradiction halts before the EL
+    /// moves.
     ///
     /// The response carries one code-0 `ExecTxResult` for the envelope transaction, the
     /// validator updates of a switch height (CometBFT applies them two heights later, at
-    /// `h_first`), `app_hash =` the block hash, no events and
-    /// no parameter updates.
+    /// `h_first`), `app_hash =` the block hash, no events and no parameter updates.
     ///
     /// Re-finalizing a block the EL already executed (a replay after a crash before `Commit`)
     /// answers the same: the EL accepts a known payload and forkchoice again. EL calls block
@@ -116,9 +114,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Commit`: persists the state the last `FinalizeBlock` derived and makes it the
     /// committed state.
     ///
-    /// Clears the `ProcessProposal` cache, the cached committee witness and the halt reason,
-    /// publishes the new head's gauges,
-    /// and answers `retain_height = 0` (no block pruning). Errors: [`AbciError::NothingToCommit`]
+    /// Clears the `ProcessProposal` cache, the cached committee witness, the kept reads of an
+    /// unfinished committee discovery and the halt reason, publishes the new head's gauges, and
+    /// answers `retain_height = 0` (no block pruning). Errors: [`AbciError::NothingToCommit`]
     /// without a pending state; [`AbciError::Store`] when it cannot be persisted (it then stays
     /// pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {

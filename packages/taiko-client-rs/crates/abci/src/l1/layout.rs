@@ -16,11 +16,10 @@
 //!   record hash of the committee the registry derives at `L1_0`'s cutoff, and `lastCheckpoint =
 //!   (B*, H*)` (270–271). Without that checkpoint the first height `H_0 = B* + 1` fails
 //!   back-pressure and the chain never starts; without the others the genesis does not verify.
-//! - **One registry checkpoint per changing L1 block.** The registry appends exactly one checkpoint
-//!   in every L1 block that changes any entry, and none in other blocks, so
-//!   `checkpoints[i].l1Block` is strictly increasing in `i`. The snapshot search relies on the
-//!   order, and discovery reads checkpoint `i`'s entries at any block before `checkpoints[i +
-//!   1].l1Block`.
+//! - **A registry checkpoint in every changing L1 block.** `checkpoints[i].l1Block` is strictly
+//!   increasing in `i`, and every L1 block that changes any entry has a checkpoint (a block that
+//!   changes none may have one too). The snapshot search relies on the order, and discovery reads
+//!   checkpoint `i`'s entries at any block before `checkpoints[i + 1].l1Block`.
 //! - **Complete checkpoints.** A checkpoint's `count` and `entriesRoot` cover every entry (exited
 //!   ones included, in `bondId` order) as they stand at the end of its `l1Block`.
 //! - **Unique pubkeys.** Registration refuses a `pubkey` that any non-exited entry holds (ideally
