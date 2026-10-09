@@ -15,6 +15,7 @@ use crate::{
     test_utils::{EngineCall, Fixture, MockEngine, MockL1},
 };
 
+mod committee_witness;
 mod finalize;
 mod handle;
 mod info;
