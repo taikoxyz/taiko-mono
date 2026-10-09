@@ -254,7 +254,7 @@ async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
     let v = validator.verdicts.get(&req.hash).expect("the verdict is cached");
     assert!(v.executed);
     assert_eq!(v.block, env.block);
-    assert!(!v.anchor_changed, "H_0 re-proves the genesis anchor L1_0");
+    assert_eq!(v.anchor.number, fx.activation.l1_0, "H_0 re-proves the genesis anchor L1_0");
     let (target, derived) = v.derived.as_ref().expect("committee 1 is derived");
     assert_eq!(*target, 1);
     assert_eq!(derived.record, committee.record);
@@ -303,7 +303,6 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(66)], "finality check");
     let v = &app.verdicts[&req.hash];
-    assert!(v.anchor_changed);
     assert_eq!(v.anchor.number, 66);
     assert_eq!(v.anchor.inbox.last_checkpoint_height, fx.activation.genesis_height + 1);
     decide(&mut app, &req).await;

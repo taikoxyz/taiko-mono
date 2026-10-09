@@ -1,16 +1,10 @@
-//! RPC client for interacting with L1 and L2 nodes.
+//! JSON-RPC provider builders: timeout-bounded HTTP (or WebSocket) providers and the
+//! JWT-authenticated Engine API provider.
 
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{fs, io, path::Path, time::Duration};
 
 use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
-use alloy_provider::{
-    Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
-    utils::JoinedRecommendedFillers,
-};
+use alloy_provider::{ProviderBuilder, RootProvider, WsConnect};
 use alloy_rpc_types_engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use http_body_util::Full;
@@ -22,78 +16,10 @@ use hyper_util::{
 use reqwest::Client as ReqwestClient;
 use tower::{ServiceBuilder, timeout::TimeoutLayer};
 
-use crate::{
-    SubscriptionSource,
-    error::{Result, RpcClientError},
-};
-
-/// L1 provider type used by [`Client`]: recommended fillers over an HTTP/WS root provider.
-pub type DefaultProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
+use crate::error::{Result, RpcClientError};
 
 /// Default HTTP timeout for RPC and auxiliary HTTP clients.
 pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
-
-/// A client for interacting with the L1 and L2 providers.
-///
-/// The client is read-only towards L1: it never signs or submits transactions, so it
-/// carries no wallet.
-#[derive(Clone, Debug)]
-pub struct Client {
-    /// L2 chain ID, fetched from the L2 provider at startup.
-    pub chain_id: u64,
-    /// Walletless L1 provider used for reads.
-    pub l1_provider: DefaultProvider,
-    /// L2 public provider for read-only access.
-    pub l2_provider: RootProvider,
-    /// L2 authenticated provider for Engine API calls.
-    pub l2_auth_provider: RootProvider,
-}
-
-/// Configuration for the `Client`.
-#[derive(Clone, Debug)]
-pub struct ClientConfig {
-    /// Source describing how to build the L1 provider.
-    pub l1_provider_source: SubscriptionSource,
-    /// HTTP endpoint for the L2 public provider.
-    pub l2_provider_url: Url,
-    /// HTTP endpoint for the L2 authenticated provider.
-    pub l2_auth_provider_url: Url,
-    /// Path to the engine JWT secret.
-    pub jwt_secret: PathBuf,
-}
-
-impl Client {
-    /// Create a new `Client` from the given configuration.
-    pub async fn new(config: ClientConfig) -> Result<Self> {
-        let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {
-            RpcClientError::Connection(format!(
-                "L1 provider source (l1.http or l1.ws) connection failed: {}",
-                e
-            ))
-        })?;
-        let l2_provider =
-            connect_provider_with_timeout(config.l2_provider_url.clone()).await.map_err(|e| {
-                RpcClientError::Connection(format!(
-                    "L2 HTTP RPC (l2.http) connection failed for {}: {}",
-                    config.l2_provider_url, e
-                ))
-            })?;
-        let jwt_secret = read_jwt_secret(config.jwt_secret.as_path()).ok_or_else(|| {
-            RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
-        })?;
-        let l2_auth_provider =
-            build_jwt_http_provider(config.l2_auth_provider_url.clone(), jwt_secret);
-
-        let chain_id = l2_provider.get_chain_id().await.map_err(|e| {
-            RpcClientError::RpcMessage(format!(
-                "L2 HTTP RPC (l2.http) failed to get chain id from {}: {}",
-                config.l2_provider_url, e
-            ))
-        })?;
-
-        Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider })
-    }
-}
 
 /// Build a reqwest HTTP client with a bounded timeout.
 fn reqwest_client_with_timeout() -> ReqwestClient {
@@ -148,6 +74,8 @@ pub fn read_jwt_secret(path: &Path) -> Option<JwtSecret> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     #[test]

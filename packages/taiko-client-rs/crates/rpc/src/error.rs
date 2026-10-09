@@ -1,8 +1,6 @@
 //! Error types for RPC operations.
 
 use alloy::transports::TransportError;
-use anyhow::anyhow;
-use protocol::subscription_source::SubscriptionSourceError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -12,17 +10,9 @@ pub type Result<T> = StdResult<T, RpcClientError>;
 /// Error types for RPC operations
 #[derive(Debug, Error)]
 pub enum RpcClientError {
-    /// Failed to read JWT secret
-    #[error("failed to read JWT secret from {0}")]
-    JwtSecretReadFailed(String),
-
     /// Connection error
     #[error("connection error: {0}")]
     Connection(String),
-
-    /// Provider error
-    #[error("provider error: {0}")]
-    Provider(String),
 
     /// Typed RPC error from the transport stack.
     #[error("RPC error: {0}")]
@@ -50,24 +40,13 @@ pub enum RpcClientError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<SubscriptionSourceError> for RpcClientError {
-    /// Convert subscription source errors into RPC client error variants.
-    fn from(err: SubscriptionSourceError) -> Self {
-        match err {
-            SubscriptionSourceError::Connection(msg) => RpcClientError::Connection(msg),
-            SubscriptionSourceError::Wallet(msg) => RpcClientError::Other(anyhow!(msg)),
-            other => RpcClientError::Other(anyhow!(other)),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_error_display() {
-        let err = RpcClientError::JwtSecretReadFailed("/path/to/jwt.hex".to_string());
-        assert_eq!(err.to_string(), "failed to read JWT secret from /path/to/jwt.hex");
+        let err = RpcClientError::Connection("refused".to_string());
+        assert_eq!(err.to_string(), "connection error: refused");
     }
 }

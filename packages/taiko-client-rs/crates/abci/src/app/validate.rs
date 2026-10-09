@@ -32,8 +32,6 @@ pub struct Validated {
     pub block: ExecutionBlock,
     /// The block's anchor: proven by its witness, or the parent's when it carries none.
     pub anchor: AnchorState,
-    /// Whether the anchor's L1 block number differs from the parent's.
-    pub anchor_changed: bool,
     /// At an epoch's first height `h_first(e)`: the committee of epoch `e + 1` derived from the
     /// committee witness, keyed by that target epoch.
     pub derived: Option<(u64, CommitteeState)>,
@@ -290,7 +288,6 @@ pub(crate) fn validate_block(
     rules::check_header(header, &expected)?;
     Ok(Validated {
         block: env.block.clone(),
-        anchor_changed: facts.anchor.number != state.anchor.number,
         anchor: facts.anchor,
         derived: facts.derived,
         executed: false,

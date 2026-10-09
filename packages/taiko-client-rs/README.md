@@ -80,7 +80,6 @@ Serves the ABCI++ application to a CometBFT node.
 | `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT`  | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`  |
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`             | Prometheus metrics server (default off, `0.0.0.0:9090`)                     |
 | `-v`, `--verbosity`                     | `VERBOSITY`             | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it       |
-| `--devnet-etna-timestamp`               | `DEVNET_ETNA_TIMESTAMP` | Devnet only: must match alethia-reth's `--devnet-etna-timestamp`            |
 
 The L2 chain id is read from `--l2.http` and selects the built-in chain parameters. Only the
 internal devnet (chain id `167001`) has Etna PoS parameters so far; on other chains `abci`

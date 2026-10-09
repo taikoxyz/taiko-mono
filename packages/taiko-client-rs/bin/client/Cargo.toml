@@ -22,7 +22,6 @@ clap = { workspace = true }
 # observability
 async-trait = { workspace = true }
 axum = { workspace = true }
-metrics-exporter-prometheus = { version = "0.16", default-features = false }
 once_cell = { workspace = true }
 prometheus = { workspace = true }
 tracing = { workspace = true }
@@ -30,7 +29,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # taiko
 abci = { path = "../../crates/abci" }
-protocol = { path = "../../crates/protocol" }
 rpc = { path = "../../crates/rpc" }
 
 # types
@@ -40,5 +38,4 @@ url = { workspace = true }
 [dev-dependencies]
 http-body-util = { workspace = true }
 libc = "0.2"
-metrics = "0.24"
 tower = { workspace = true }
