@@ -678,6 +678,38 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
     assert_eq!(set, expected);
 }
 
+/// The invariant that keeps `CommitteeUnknown` (D19) unreachable on a chain the app built: the
+/// committee of epoch `t` is derived at `h_first(t − 1)` (its witness is mandatory there), which
+/// precedes the switch height `h_first(t) − 2` because the schedule refuses `L < 3`, and the
+/// switch to `t − 1` prunes only below `t − 2`. Replaying a run with the shortest epochs the
+/// fixture's cap allows (`L = U + 3 = 4`), every switch height finds both committees.
+#[tokio::test]
+async fn every_switch_height_finds_both_committees() {
+    let fx = short_epochs();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, decided) = multi_epoch_run(&fx, dir.path()).await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let schedule = app.state().unwrap().schedule;
+    let mut switches = vec![];
+    for (req, _) in &decided {
+        let height = req.height.value();
+        if let Some(t) = schedule.switch_target(height) {
+            let known: Vec<u64> = app.state().unwrap().committees.keys().copied().collect();
+            assert!(
+                known.contains(&(t - 1)) && known.contains(&t),
+                "switch to {t} at {height} knows {known:?}"
+            );
+            assert!(schedule.h_first(t - 1) < height, "committee {t} is derived before its switch");
+            switches.push(t);
+        }
+        finalize(&mut app, req.clone()).await.expect("finalizes");
+        commit(&mut app).await.expect("commits");
+    }
+    assert_eq!(switches, [1, 2]);
+}
+
 /// Two fresh apps finalizing the same decided requests (cold: no `ProcessProposal`) give the
 /// same responses and states as the app that proposed and processed them.
 #[tokio::test]
