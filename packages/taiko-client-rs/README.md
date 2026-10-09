@@ -167,6 +167,24 @@ key is registered in the staking registry snapshot the genesis committee is deri
 
 ## Operations
 
+### L1 node requirements
+
+- **Every node** reads L1 headers and the `finalized` block from its own L1 node to check that
+  anchored L1 headers are canonical and final. Full nodes need nothing more.
+- **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
+  historical blocks. A proposal proves Inbox storage at its anchor, which is at least
+  `l1_finality_extra_depth` blocks behind L1 `finalized`. At an epoch boundary the proposer also
+  reads the next committee's registry entries at a block up to `cutoff_lag + cutoff_grid` blocks
+  before the parent block's anchor. The proof window must therefore reach at least
+  `(head − finalized) + l1_finality_extra_depth + cutoff_lag + cutoff_grid` blocks behind the L1
+  head, plus a margin for an anchor that has not moved for a while. These names are the
+  `abci::ChainParams` fields.
+- reth limits historical proofs with `--rpc.eth-proof-window`. Its default `0` serves proofs at
+  the head only, so set it to at least that depth. With other clients, check how far back they
+  keep the state needed for proofs.
+- `abci-genesis` reads the activation block and the blocks back to its cutoff. Once those leave
+  the node's proof window it needs an archive node.
+
 ### Restarts
 
 - Restart `taiko-client abci` and CometBFT together, the app first: CometBFT stops when its
