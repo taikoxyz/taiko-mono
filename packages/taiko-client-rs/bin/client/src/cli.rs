@@ -2,8 +2,8 @@
 //!
 //! This module provides the main CLI structure and command dispatch logic.
 //! It parses command-line arguments using `clap` and routes to the appropriate
-//! subcommand handler (proposer, driver, or whitelist preconfirmation driver), which then runs
-//! until it finishes or the process receives SIGINT or SIGTERM.
+//! subcommand handler, which then runs until it finishes or the process receives SIGINT or
+//! SIGTERM.
 
 use std::{future::Future, time::Duration};
 
@@ -12,25 +12,13 @@ use clap::{Parser, Subcommand};
 use tokio::runtime::{Builder, Runtime};
 use tracing::info;
 
-use crate::commands::{
-    driver::DriverSubCommand, proposer::ProposerSubCommand,
-    whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverSubCommand,
-};
-
 /// Upper bound on how long runtime shutdown waits for in-flight tasks after the subcommand has
 /// returned or been stopped by a shutdown signal, so a stuck task cannot keep the process alive.
 const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Subcommands for the CLI.
 #[derive(Debug, Clone, Subcommand)]
-pub enum Commands {
-    /// Run the proposer.
-    Proposer(Box<ProposerSubCommand>),
-    /// Run the driver.
-    Driver(Box<DriverSubCommand>),
-    /// Run the whitelist preconfirmation driver with whitelist P2P protocol.
-    WhitelistPreconfirmationDriver(Box<WhitelistPreconfirmationDriverSubCommand>),
-}
+pub enum Commands {}
 
 #[derive(Parser, Clone, Debug)]
 #[command(author)]
@@ -44,11 +32,7 @@ pub struct Cli {
 impl Cli {
     /// Run the subcommand.
     pub fn run(self) -> Result<()> {
-        match self.subcommand {
-            Commands::Proposer(proposer_cmd) => Self::run_until_shutdown(proposer_cmd.run()),
-            Commands::Driver(driver_cmd) => Self::run_until_shutdown(driver_cmd.run()),
-            Commands::WhitelistPreconfirmationDriver(cmd) => Self::run_until_shutdown(cmd.run()),
-        }
+        match self.subcommand {}
     }
 
     /// Run `fut` on a new runtime until it finishes or the process receives SIGINT or SIGTERM.

@@ -1,10 +1,7 @@
-# Shared config for the two identical alethia-reth L2 nodes; each service below
-# only overrides its container name and host port mappings.
-#
 # Images default to pulling their moving tags on every run so CI always tests
 # against the current alethia-reth main; for fast local iteration export
 # PULL_POLICY=missing to reuse the images already present on the daemon.
-# ALETHIA_RETH_IMAGE overrides the image of both L2 nodes.
+# ALETHIA_RETH_IMAGE overrides the L2 node image.
 x-l2-node: &l2-node
   image: ${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:main}
   pull_policy: ${PULL_POLICY:-always}
@@ -51,11 +48,3 @@ services:
       - "28545:8545"
       - "28546:8546"
       - "28551:8551"
-
-  l2_node_1:
-    <<: *l2-node
-    container_name: l2_node_1
-    ports:
-      - "38545:8545"
-      - "38546:8546"
-      - "38551:8551"
