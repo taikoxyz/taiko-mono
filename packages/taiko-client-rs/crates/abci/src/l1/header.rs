@@ -189,7 +189,7 @@ fn field<T: Decodable>(
 mod tests {
     use super::*;
     use crate::test_utils::raw_with_future_fields;
-    use alloy_primitives::{Address, B64, Bloom, U256, b256, hex};
+    use alloy_primitives::{Address, B64, Bloom, U64, U256, b256, hex};
 
     /// A post-Prague header (21 fields) with distinct values in the positions the node reads.
     fn prague() -> Header {
@@ -373,6 +373,49 @@ mod tests {
             RawL1Header::decode(&mut encoded.as_slice()),
             Err(alloy_rlp::Error::UnexpectedList)
         );
+    }
+
+    /// A real Ethereum mainnet header, pinned in `testdata/mainnet_header_26155639.json`: block
+    /// `0x18f1a77` as `eth_getBlockByNumber` served it, `raw` being the RLP list of its 21 header
+    /// fields.
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct MainnetHeader {
+        number: U64,
+        hash: B256,
+        parent_hash: B256,
+        state_root: B256,
+        timestamp: U64,
+        raw: Bytes,
+    }
+
+    /// The node reads a real mainnet header at Ethereum's positions: the raw bytes hash to the
+    /// reported block hash, and parent hash, state root, number and timestamp are the reported
+    /// ones.
+    #[test]
+    fn decodes_a_real_mainnet_header() {
+        let fixture: MainnetHeader =
+            serde_json::from_str(include_str!("testdata/mainnet_header_26155639.json"))
+                .expect("the fixture parses");
+        assert_eq!(fixture.number, U64::from(0x018f_1a77));
+        assert_eq!(keccak256(&fixture.raw), fixture.hash, "the fixture is the block's header");
+
+        let header = RawL1Header::from_raw(fixture.raw.clone()).expect("a mainnet header decodes");
+        assert_eq!(header.hash(), fixture.hash);
+        assert_eq!(header.parent_hash(), fixture.parent_hash);
+        assert_eq!(header.state_root(), fixture.state_root);
+        assert_eq!(header.number(), fixture.number.to::<u64>());
+        assert_eq!(header.timestamp(), fixture.timestamp.to::<u64>());
+
+        let mut buf = fixture.raw.as_ref();
+        let Ok(alloy_rlp::PayloadView::List(items)) = alloy_rlp::Header::decode_raw(&mut buf)
+        else {
+            panic!("a list");
+        };
+        assert_eq!(items.len(), 21, "a post-Prague header");
+        let decoded =
+            <Header as Decodable>::decode(&mut fixture.raw.as_ref()).expect("alloy decodes it");
+        assert_eq!(RawL1Header::from(&decoded), header, "alloy re-encodes the same bytes");
     }
 
     /// The positions are Ethereum's: an empty post-Prague mainnet-shaped header pins them.
