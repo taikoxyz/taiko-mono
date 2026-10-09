@@ -18,6 +18,7 @@ use crate::{
     envelope::{EnvelopeError, EtnaEnvelope},
     l1::L1Error,
     rules::{RuleViolation, encode_extra_data},
+    test_utils::edit_l1_header,
 };
 
 /// One in-place header mutation.
@@ -191,7 +192,7 @@ async fn anchor_not_final_is_rejected() {
     // Final but not canonical: the own L1 holds another block 66.
     let mut other = fx.anchor_witness(app.l1(), 66, None);
     app.l1().set_finalized(66);
-    other.l1_header.gas_used += 1;
+    other.l1_header = edit_l1_header(&other.l1_header, |h| h.gas_used += 1);
     app.l1().insert_header(other.l1_header.clone());
     assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
 }

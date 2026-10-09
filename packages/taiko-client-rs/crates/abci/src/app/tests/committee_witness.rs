@@ -66,7 +66,7 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     let (mut app, moved) = epoch_start(&fx, dir.path()).await;
 
     let env = propose(&mut app).await;
-    assert_eq!(env.anchor.as_ref().map(|w| w.l1_header.number), Some(NEW_ANCHOR));
+    assert_eq!(env.anchor.as_ref().map(|w| w.l1_header.number()), Some(NEW_ANCHOR));
     let w = env.committee.clone().expect("h_first(1) carries a committee witness");
     assert_eq!(w, witness_at(&app, PARENT_ANCHOR).await);
     assert_eq!(w.record.target_epoch, 2);

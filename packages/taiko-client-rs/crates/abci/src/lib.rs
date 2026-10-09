@@ -4,13 +4,13 @@
 //!
 //! Stock CometBFT orders and finalizes blocks; this crate builds and validates them and drives
 //! the alethia-reth execution layer through the Engine API. Every L1 fact a block consumes travels
-//! inside the block as an L1 header plus EIP-1186 proofs, so replay never calls L1.
+//! inside the block as a raw L1 header plus EIP-1186 proofs, so replay never calls L1.
 //!
-//! The `types`, `config`, `schedule`, `envelope`, `l1::layout`, `l1::mpt`, `l1::witness`,
-//! `committee`, `rules` and `engine::convert` modules and the genesis `app_state` codec perform
-//! no I/O; `l1::source`, `engine` and `elsync` hold the L1 and execution-engine adapters,
-//! `l1::fetch` and the genesis builder read L1 through them, `app` answers CometBFT's ABCI
-//! requests on top of them, and `server` serves the app on CometBFT's ABCI socket.
+//! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
+//! `l1::witness`, `committee`, `rules` and `engine::convert` modules and the genesis `app_state`
+//! codec perform no I/O; `l1::source`, `engine` and `elsync` hold the L1 and execution-engine
+//! adapters, `l1::fetch` and the genesis builder read L1 through them, `app` answers CometBFT's
+//! ABCI requests on top of them, and `server` serves the app on CometBFT's ABCI socket.
 
 /// The ABCI++ application: request dispatch and the per-method handlers (spec §5).
 pub mod app;
@@ -61,8 +61,8 @@ pub use genesis::{
     decode_app_state, encode_app_state,
 };
 pub use l1::{
-    FetchError, L1Error, L1Source, RpcL1Source, build_committee_witness,
-    build_committee_witness_within, is_final_canonical,
+    FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
+    build_committee_witness, build_committee_witness_within, is_final_canonical,
 };
 pub use metrics::AbciMetrics;
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};

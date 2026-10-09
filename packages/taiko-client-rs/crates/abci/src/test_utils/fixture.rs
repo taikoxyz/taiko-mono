@@ -37,7 +37,7 @@ use crate::{
     config::ChainParams,
     envelope::AnchorWitness,
     genesis::{GenesisWitness, encode_app_state},
-    l1::{layout::inbox, verify_anchor_witness},
+    l1::{header::RawL1Header, layout::inbox, verify_anchor_witness},
     rules::chain_id_for,
     schedule::Schedule,
     store::{AppState, CommitteeState, Store},
@@ -96,7 +96,7 @@ pub(crate) struct Fixture {
     pub(crate) registry: RegistryStorage,
     /// The L1 state at `L1_0` (filler accounts, Inbox, registry).
     pub(crate) l1_state: TestState,
-    /// The genesis witness (its `l1_header` is block `L1_0` with `l1_state`'s root).
+    /// The genesis witness (its `l1_header` is the raw block `L1_0` with `l1_state`'s root).
     pub(crate) witness: GenesisWitness,
     /// The derived `e_0` committee record.
     pub(crate) record: CommitteeRecord,
@@ -153,14 +153,14 @@ impl Fixture {
         let mut header = l1_header(spec.l1_0, Self::l1_timestamp(spec.l1_0));
         header.state_root = l1_state.state_root();
         let witness = GenesisWitness {
-            l1_header: header,
+            l1_header: RawL1Header::from(&header),
             inbox: l1_state.witness(params.inbox, &inbox::genesis_slots(Schedule::E0)),
             committee: committee_witness(&l1_state, params.registry, &registry, 0, record.clone()),
         };
 
         let request = InitChain {
             time: Time::from_unix_timestamp(
-                i64::try_from(witness.l1_header.timestamp).expect("timestamp fits i64"),
+                i64::try_from(witness.l1_header.timestamp()).expect("timestamp fits i64"),
                 0,
             )
             .expect("valid genesis time"),
@@ -188,7 +188,8 @@ impl Fixture {
     /// An L1 whose canonical, finalized block `L1_0` is the witness header over `l1_state`.
     pub(crate) fn l1(&self) -> MockL1 {
         let l1 = MockL1::new(self.activation.l1_0 + self.params.l1_finality_extra_depth);
-        l1.insert_block(self.witness.l1_header.clone(), self.l1_state.clone());
+        l1.insert_header(self.witness.l1_header.clone());
+        l1.state().states.insert(self.activation.l1_0, self.l1_state.clone());
         l1
     }
 
@@ -246,14 +247,14 @@ impl Fixture {
     }
 
     /// Plants L1 block `number` holding `inbox` and `registry` (plus the filler accounts) as
-    /// canonical in `l1`, without moving its finalized block; returns the stored header.
+    /// canonical in `l1`, without moving its finalized block; returns the stored raw header.
     pub(crate) fn plant_l1_block(
         &self,
         l1: &MockL1,
         number: u64,
         inbox: &InboxStorage,
         registry: &RegistryStorage,
-    ) -> Header {
+    ) -> RawL1Header {
         let state = l1_state_with(&self.params, inbox, registry);
         l1.insert_block(l1_header(number, Self::l1_timestamp(number)), state)
     }
@@ -266,7 +267,7 @@ impl Fixture {
         number: u64,
         inbox: &InboxStorage,
         registry: &RegistryStorage,
-    ) -> Header {
+    ) -> RawL1Header {
         let header = self.plant_l1_block(l1, number, inbox, registry);
         l1.set_finalized(number + self.params.l1_finality_extra_depth);
         header
@@ -344,9 +345,9 @@ impl Fixture {
             },
             anchor: AnchorState {
                 number: self.activation.l1_0,
-                hash: self.witness.l1_header.hash_slow(),
+                hash: self.witness.l1_header.hash(),
                 state_root: self.l1_state.state_root(),
-                timestamp: self.witness.l1_header.timestamp,
+                timestamp: self.witness.l1_header.timestamp(),
                 inbox: InboxFacts {
                     migration_state: inbox::ETNA_ACTIVE,
                     recovery_generation: self.inbox.recovery_generation,
@@ -436,7 +437,7 @@ mod tests {
     #[test]
     fn fixture_witness_verifies_against_its_own_l1_state() {
         let fx = Fixture::genesis(3);
-        let root = fx.witness.l1_header.state_root;
+        let root = fx.witness.l1_header.state_root();
         assert_eq!(root, fx.l1_state.state_root());
         let (activation, facts, committee_e0) =
             verify_genesis_inbox(root, &fx.witness.inbox, fx.params.inbox).expect("inbox verifies");

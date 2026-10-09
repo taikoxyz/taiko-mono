@@ -247,6 +247,7 @@ mod tests {
     fn block_of(call: &L1Call) -> Option<u64> {
         match call {
             L1Call::Finalized => None,
+            L1Call::CanonicalHash(block) |
             L1Call::Header(block) |
             L1Call::AccountWitness { block, .. } |
             L1Call::StorageAt { block, .. } => Some(*block),
@@ -306,8 +307,9 @@ mod tests {
         assert_eq!(witness.record.checkpoint_index, 0);
         assert_eq!(witness.entries, sample_entries(3));
         assert!(l1.calls().iter().all(|c| block_of(c) == Some(70)), "{:?}", l1.calls());
-        let (record, _) = verify_committee_witness(header.state_root, &fx.params, &witness, 70, 1)
-            .expect("the witness verifies");
+        let (record, _) =
+            verify_committee_witness(header.state_root(), &fx.params, &witness, 70, 1)
+                .expect("the witness verifies");
         assert_eq!(record, witness.record);
     }
 
@@ -342,7 +344,7 @@ mod tests {
             }]
         );
         assert_eq!(calls.len(), at_block(19) + at_block(22), "no other block is read");
-        verify_committee_witness(header.state_root, &params, &witness, 22, 1)
+        verify_committee_witness(header.state_root(), &params, &witness, 22, 1)
             .expect("the witness verifies at the parent anchor");
     }
 

@@ -2,9 +2,9 @@
 //! `app_state`, and the `abci-genesis` builder that reads it from L1.
 //!
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
-//! is the RLP of a [`GenesisWitness`]: the `L1_0` header, the Inbox proofs of the activation slots
-//! and `committee[e_0]`, and the committee witness of epoch `e_0`. `InitChain` decodes it with
-//! [`decode_app_state`] and re-verifies every fact against the node's own L1; nothing in it is
+//! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header, the Inbox proofs of the activation
+//! slots and `committee[e_0]`, and the committee witness of epoch `e_0`. `InitChain` decodes it
+//! with [`decode_app_state`] and re-verifies every fact against the node's own L1; nothing in it is
 //! trusted.
 //!
 //! [`build_genesis`] reads the Ethereum-final activation record and the `e_0` committee from the
@@ -13,7 +13,6 @@
 //!
 //! [`L1Source`]: crate::l1::L1Source
 
-use alloy_consensus::Header;
 use alloy_primitives::{B256, Bytes};
 use alloy_rlp::{Decodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
@@ -21,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     committee::CommitteeError,
     envelope::CommitteeWitness,
-    l1::{FetchError, L1Error, WitnessError, layout::inbox},
+    l1::{FetchError, L1Error, WitnessError, header::RawL1Header, layout::inbox},
     schedule::ScheduleError,
     types::AccountWitness,
 };
@@ -39,11 +38,12 @@ pub use doc::{
 
 /// Everything `InitChain` verifies to start the chain, carried in the genesis `app_state`.
 ///
-/// RLP: `[l1_header, inbox, committee]`.
+/// RLP: `[l1_header, inbox, committee]`, where `l1_header` is a byte string holding the raw
+/// header RLP (as in the envelope's anchor witness).
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct GenesisWitness {
-    /// The L1 header of block `L1_0`; its `stateRoot` is the root of both proofs.
-    pub l1_header: Header,
+    /// The raw L1 header of block `L1_0`; its `stateRoot` is the root of both proofs.
+    pub l1_header: RawL1Header,
     /// EIP-1186 proof of the Inbox account and `layout::inbox::genesis_slots(E0)`, in slot order.
     pub inbox: AccountWitness,
     /// The committee witness of epoch `e_0` (target epoch 0, parent anchor `L1_0`), proven
@@ -182,10 +182,11 @@ pub fn encode_app_state(w: &GenesisWitness) -> Vec<u8> {
 mod tests {
     use super::*;
     use crate::{
-        test_utils::l1_header,
+        test_utils::{l1_header, raw_with_future_fields},
         types::{CommitteeRecord, RegistryEntry, StorageProof},
     };
-    use alloy_primitives::{Address, B256, U256, bytes};
+    use alloy_consensus::Header;
+    use alloy_primitives::{Address, B256, U256, bytes, keccak256};
 
     fn account(seed: u8) -> AccountWitness {
         AccountWitness {
@@ -205,7 +206,10 @@ mod tests {
 
     fn witness() -> GenesisWitness {
         GenesisWitness {
-            l1_header: Header { state_root: B256::repeat_byte(0x5a), ..l1_header(64, 1_000) },
+            l1_header: RawL1Header::from(&Header {
+                state_root: B256::repeat_byte(0x5a),
+                ..l1_header(64, 1_000)
+            }),
             inbox: account(1),
             committee: CommitteeWitness {
                 record: CommitteeRecord {
@@ -258,6 +262,27 @@ mod tests {
         alloy_rlp::Header { list: true, payload_length: fields.len() }.encode(&mut expected);
         expected.extend(fields);
         assert_eq!(alloy_rlp::encode(&w), expected);
+    }
+
+    /// The `L1_0` header travels as one RLP byte string of its raw bytes, so a header of an L1
+    /// fork newer than this client (two unknown trailing fields here) round-trips unchanged.
+    #[test]
+    fn the_l1_header_is_carried_as_its_raw_bytes() {
+        let raw = raw_with_future_fields(&l1_header(64, 1_000));
+        let w = GenesisWitness {
+            l1_header: RawL1Header::from_raw(raw.clone()).expect("a header"),
+            ..witness()
+        };
+        let encoded = alloy_rlp::encode(&w);
+        let mut payload = alloy_rlp::Header::decode_bytes(&mut encoded.as_slice(), true).unwrap();
+        assert_eq!(
+            alloy_rlp::Header::decode_bytes(&mut payload, false),
+            Ok(raw.as_ref()),
+            "the first field is the raw header as a byte string"
+        );
+        let decoded = decode_app_state(&encode_app_state(&w)).expect("decodes");
+        assert_eq!(decoded.l1_header.hash(), keccak256(&raw));
+        assert_eq!(decoded, w);
     }
 
     #[test]

@@ -25,7 +25,10 @@ use alloy_trie::{
 use crate::{
     committee::{entries_root, snapshot_slots},
     envelope::{AnchorWitness, CommitteeWitness},
-    l1::layout::{inbox, registry},
+    l1::{
+        header::RawL1Header,
+        layout::{inbox, registry},
+    },
     schedule::Schedule,
     types::{AccountWitness, ActivationRecord, CommitteeRecord, RegistryEntry, StorageProof},
 };
@@ -265,6 +268,28 @@ pub(crate) fn l1_header(number: u64, timestamp: u64) -> Header {
     }
 }
 
+/// `header`'s RLP with two fields of an L1 fork newer than alloy's header appended (a 32-byte
+/// hash and a slot number), as a node of such a fork serves it.
+pub(crate) fn raw_with_future_fields(header: &Header) -> Bytes {
+    let encoded = alloy_rlp::encode(header);
+    let mut payload =
+        alloy_rlp::Header::decode_bytes(&mut encoded.as_slice(), true).expect("a list").to_vec();
+    payload.extend([vec![0xa0], vec![0xba; 32], alloy_rlp::encode(0x0102_0304u64)].concat());
+    let mut raw = Vec::new();
+    alloy_rlp::Header { list: true, payload_length: payload.len() }.encode(&mut raw);
+    raw.extend(payload);
+    raw.into()
+}
+
+/// `raw` with the alloy header it encodes changed by `edit` (re-encoded, so `raw` must hold no
+/// fields alloy's header does not know).
+pub(crate) fn edit_l1_header(raw: &RawL1Header, edit: impl FnOnce(&mut Header)) -> RawL1Header {
+    let mut header: Header =
+        alloy_rlp::Decodable::decode(&mut raw.raw().as_ref()).expect("an alloy header");
+    edit(&mut header);
+    RawL1Header::from(&header)
+}
+
 /// The [`AccountSpec`] of an Inbox at `address` holding `storage`.
 pub(crate) fn inbox_account(address: Address, storage: &InboxStorage) -> AccountSpec {
     (address, 1, U256::ZERO, keccak256(b"etna inbox code"), storage.slots())
@@ -295,7 +320,7 @@ pub(crate) fn anchor_witness_in(
 ) -> AnchorWitness {
     header.state_root = state.state_root();
     AnchorWitness {
-        l1_header: header,
+        l1_header: RawL1Header::from(&header),
         inbox: state.witness(inbox_address, &inbox::anchor_slots(committee_epoch)),
     }
 }
@@ -665,8 +690,8 @@ mod tests {
         let address = Address::repeat_byte(0xe7);
         let storage = InboxStorage::genesis(sample_activation(), B256::repeat_byte(0x99));
         let (witness, state) = anchor_witness(address, &storage, l1_header(70, 1_000), Some(0));
-        assert_eq!(witness.l1_header.state_root, state.state_root());
-        assert_eq!(witness.l1_header.number, 70);
+        assert_eq!(witness.l1_header.state_root(), state.state_root());
+        assert_eq!(witness.l1_header.number(), 70);
         assert_eq!(witness.inbox.address, address);
         let slots: Vec<B256> = witness.inbox.storage.iter().map(|p| p.slot).collect();
         assert_eq!(slots, inbox::anchor_slots(Some(0)));

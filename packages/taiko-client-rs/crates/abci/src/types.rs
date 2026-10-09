@@ -137,7 +137,7 @@ pub struct ActivationRecord {
 pub struct AnchorState {
     /// L1 block number `n` of the anchor.
     pub number: u64,
-    /// L1 block hash, `keccak256(rlp(l1_header))`.
+    /// L1 block hash: `keccak256` of the raw L1 header.
     pub hash: B256,
     /// L1 state root; also the L2 block's `parentBeaconBlockRoot`.
     pub state_root: B256,

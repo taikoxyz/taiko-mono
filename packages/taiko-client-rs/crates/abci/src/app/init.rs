@@ -97,16 +97,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
         .await?;
         if !is_final {
             return Err(AbciError::GenesisNotFinal {
-                number: l1_header.number,
-                hash: l1_header.hash_slow(),
+                number: l1_header.number(),
+                hash: l1_header.hash(),
             });
         }
 
         let (activation, inbox_facts, committee_e0) =
-            verify_genesis_inbox(l1_header.state_root, &w.inbox, params.inbox)?;
-        if l1_header.number != activation.l1_0 {
+            verify_genesis_inbox(l1_header.state_root(), &w.inbox, params.inbox)?;
+        if l1_header.number() != activation.l1_0 {
             return Err(AbciError::GenesisL1Mismatch {
-                header: l1_header.number,
+                header: l1_header.number(),
                 l1_0: activation.l1_0,
             });
         }
@@ -127,7 +127,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
 
         let (record, members) = verify_committee_witness(
-            l1_header.state_root,
+            l1_header.state_root(),
             params,
             &w.committee,
             activation.l1_0,
@@ -149,9 +149,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             parent,
             anchor: AnchorState {
                 number: activation.l1_0,
-                hash: l1_header.hash_slow(),
-                state_root: l1_header.state_root,
-                timestamp: l1_header.timestamp,
+                hash: l1_header.hash(),
+                state_root: l1_header.state_root(),
+                timestamp: l1_header.timestamp(),
                 inbox: inbox_facts,
             },
             committees: BTreeMap::from([(Schedule::E0, CommitteeState { record, members })]),

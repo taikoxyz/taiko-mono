@@ -364,7 +364,7 @@ fn candidate_anchor(
             Err(Rejection::MissingWitness(WitnessKind::Anchor))
         }
         None => Ok(state.anchor.clone()),
-        Some(w) if !forced && w.l1_header.number == state.anchor.number => {
+        Some(w) if !forced && w.l1_header.number() == state.anchor.number => {
             Err(Rejection::UnexpectedWitness(WitnessKind::Anchor))
         }
         Some(w) => Ok(verify_anchor_witness(w, params.inbox, switch)?),
