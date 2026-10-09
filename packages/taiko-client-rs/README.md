@@ -189,8 +189,9 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 ### Tests
 
-- `just unit` runs the unit tests (everything outside `tests/` directories). No docker needed;
-  the protocol crate's subscription-source test spawns a local `anvil` from Foundry.
+- `just unit` runs the unit tests (everything outside `tests/` directories) and the abci
+  doctests. No docker needed; the protocol crate's subscription-source test spawns a local
+  `anvil` from Foundry.
 - `just test` runs the docker integration scenarios in `crates/abci/tests` (single validator,
   anchor finality, restart, epoch switch with and without landing, back-pressure, generation
   bump, smoke). Each scenario boots its own devnet through the docker CLI (anvil as L1,
