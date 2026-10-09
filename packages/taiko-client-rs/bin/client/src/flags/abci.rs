@@ -135,6 +135,7 @@ mod tests {
     fn parse(argv: Vec<&'static str>) -> Result<AbciSubCommand, clap::Error> {
         match Cli::try_parse_from(argv)?.subcommand {
             Commands::Abci(cmd) => Ok(*cmd),
+            other => panic!("expected abci, got {other:?}"),
         }
     }
 
