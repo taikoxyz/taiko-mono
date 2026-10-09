@@ -313,6 +313,16 @@ fn known_header_fields() -> BTreeSet<String> {
     }
 }
 
+/// The node's canonical raw L1 header at `number` ([`L1Source::header`]), required to be block
+/// `number` whatever the [`L1Source`] ([`L1Error::HeaderNumberMismatch`] otherwise).
+pub async fn header_at<L: L1Source + ?Sized>(l1: &L, number: u64) -> Result<RawL1Header, L1Error> {
+    let header = l1.header(number).await?;
+    if header.number() != number {
+        return Err(L1Error::HeaderNumberMismatch { requested: number, got: header.number() });
+    }
+    Ok(header)
+}
+
 /// Whether `header` is final and canonical in the node's own L1 view (spec §6.1): the node's
 /// `finalized` number is at least `header.number() + extra_depth` (`F_L1`) and the node's
 /// canonical block hash at `header.number()` is `header.hash()`, i.e. `keccak256` of the raw

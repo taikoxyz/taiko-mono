@@ -126,13 +126,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::InitialHeight { got: initial_height, expected: schedule.h0() });
         }
 
-        let (record, members) = verify_committee_witness(
-            l1_header.state_root(),
-            params,
-            &w.committee,
-            activation.l1_0,
-            Schedule::E0,
-        )?;
+        let anchor = AnchorState {
+            number: l1_header.number(),
+            hash: l1_header.hash(),
+            state_root: l1_header.state_root(),
+            timestamp: l1_header.timestamp(),
+            inbox: inbox_facts,
+        };
+        let (record, members) =
+            verify_committee_witness(&anchor, params, &w.committee, Schedule::E0)?;
         let derived = record_hash(params.l2_chain_id, &record);
         if derived != committee_e0 {
             return Err(AbciError::CommitteeRecordMismatch { derived, recorded: committee_e0 });
@@ -147,13 +149,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             schedule,
             last_height: activation.genesis_height,
             parent,
-            anchor: AnchorState {
-                number: activation.l1_0,
-                hash: l1_header.hash(),
-                state_root: l1_header.state_root(),
-                timestamp: l1_header.timestamp(),
-                inbox: inbox_facts,
-            },
+            anchor,
             committees: BTreeMap::from([(Schedule::E0, CommitteeState { record, members })]),
         })
     }

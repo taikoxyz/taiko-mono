@@ -3,6 +3,34 @@
 //! This module is normative for contract authors: every slot the node proves with EIP-1186
 //! witnesses is derived here. Values are 32-byte storage words; packed fields follow Solidity's
 //! low-order-first packing and are extracted with [`word_u64`], [`word_u32`] and [`word_u8`].
+//!
+//! # Contract obligations
+//!
+//! The node proves what the contracts store, but relies on the contracts for the following. A
+//! contract that breaks one cannot make nodes accept a block its proofs contradict, but it can
+//! stop the chain: most of these failures are permanent, since a height's L1 snapshot is fixed
+//! once its parent is committed, and only a recovery generation gets past them.
+//!
+//! - **Activation.** By the activation block `L1_0` the Inbox holds the activation record (slots
+//!   272–274), `migrationState = ETNA_ACTIVE` (258), `committee[e_0]` (the 276 mapping) = the
+//!   record hash of the committee the registry derives at `L1_0`'s cutoff, and `lastCheckpoint =
+//!   (B*, H*)` (270–271). Without that checkpoint the first height `H_0 = B* + 1` fails
+//!   back-pressure and the chain never starts; without the others the genesis does not verify.
+//! - **One registry checkpoint per changing L1 block.** The registry appends exactly one checkpoint
+//!   in every L1 block that changes any entry, and none in other blocks, so
+//!   `checkpoints[i].l1Block` is strictly increasing in `i`. The snapshot search relies on the
+//!   order, and discovery reads checkpoint `i`'s entries at any block before `checkpoints[i +
+//!   1].l1Block`.
+//! - **Complete checkpoints.** A checkpoint's `count` and `entriesRoot` cover every entry (exited
+//!   ones included, in `bondId` order) as they stand at the end of its `l1Block`.
+//! - **Unique pubkeys.** Registration refuses a `pubkey` that any non-exited entry holds (ideally
+//!   requiring a proof of possession of the key). The node keeps only the lowest `bondId` among
+//!   eligible entries sharing a pubkey (`committee::derive`), so a squatting entry cannot halt the
+//!   chain; that rule is defence in depth, not a substitute.
+//! - **Committee records.** `committee[e]` is written only with the record hash the chain derived
+//!   for epoch `e` at `h_first(e − 1)` (proven by the checkpoint that covers that height). A zero
+//!   `committee[e]` holds the chain at `e`'s switch height until it lands; a different non-zero
+//!   value is a record conflict (spec §8.2) that stops the chain there.
 
 use alloy_primitives::U256;
 
@@ -73,19 +101,15 @@ pub mod inbox {
 ///
 /// The registry keeps its state in an ERC-7201 namespace `taiko.etna.registry` whose first field
 /// is `checkpoints`, a dynamic array of two-word structs `{ uint64 l1Block; uint32 count; }` and
-/// `bytes32 entriesRoot`. The second field (amendment A1) is `entries`, a dynamic array of
-/// three-word structs `{ bytes32 pubkey; uint256 effStake; uint64 activeFromL1;
-/// uint64 exitEffectiveL1; uint64 lastHeartbeatAt; }` indexed by `bondId`.
+/// `bytes32 entriesRoot`. The second field is `entries`, the live entry array the checkpoints
+/// snapshot: a dynamic array of three-word structs `{ bytes32 pubkey; uint256 effStake;
+/// uint64 activeFromL1; uint64 exitEffectiveL1; uint64 lastHeartbeatAt; }` indexed by `bondId`.
 ///
-/// The contract appends a checkpoint in every L1 block that changes any entry, so the entries
-/// read at block `checkpoints[i].l1Block` (or any later block before `checkpoints[i + 1].l1Block`)
-/// are checkpoint `i`'s snapshot. Entry reads are discovery only: a committee witness carries the
-/// entries and `committee::verify_snapshot` checks them against the proven `entriesRoot`.
-///
-/// The contract must refuse to register a `pubkey` that any non-exited entry holds (ideally
-/// requiring a proof of possession of the key). The node keeps only the lowest `bondId` among
-/// eligible entries sharing a pubkey (`committee::derive`), so a squatting entry cannot halt the
-/// chain, but that is defence in depth, not a substitute.
+/// As the contract appends a checkpoint in every L1 block that changes any entry (see the
+/// contract obligations in the module docs), the entries read at block `checkpoints[i].l1Block`
+/// (or any later block before `checkpoints[i + 1].l1Block`) are checkpoint `i`'s snapshot. Entry
+/// reads are discovery only: a committee witness carries the entries and
+/// `committee::verify_snapshot` checks them against the proven `entriesRoot`.
 pub mod registry {
     use alloy_primitives::{B256, U256, keccak256};
 

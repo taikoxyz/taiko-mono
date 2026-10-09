@@ -153,6 +153,14 @@ pub enum EngineError {
         /// `keccak256(rlp(header))` of the returned header fields.
         computed: B256,
     },
+    /// The engine answered a request for block `requested` with block `got`.
+    #[error("requested engine block {requested}, the engine answered block {got}")]
+    HeaderNumberMismatch {
+        /// The requested block number.
+        requested: u64,
+        /// The block number of the answer.
+        got: u64,
+    },
 }
 
 impl EngineError {

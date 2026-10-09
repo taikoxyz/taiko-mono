@@ -273,7 +273,9 @@ impl Engine for RpcEngine {
         }
     }
 
-    /// `eth_getBlockByNumber(number)` on the public endpoint.
+    /// `eth_getBlockByNumber(number)` on the public endpoint; the header must hash to the reported
+    /// hash ([`EngineError::HeaderHashMismatch`]) and be block `number`
+    /// ([`EngineError::HeaderNumberMismatch`]).
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError> {
         let Some(block) = self.l2.get_block_by_number(number.into()).await.map_err(|e| {
             transport_error(format!("eth_getBlockByNumber({number}) at {}", self.l2_endpoint), e)
@@ -285,6 +287,9 @@ impl Engine for RpcEngine {
         let computed = header.hash_slow();
         if computed != reported {
             return Err(EngineError::HeaderHashMismatch { number, reported, computed });
+        }
+        if header.number != number {
+            return Err(EngineError::HeaderNumberMismatch { requested: number, got: header.number });
         }
         Ok(Some(header))
     }
@@ -707,6 +712,17 @@ mod tests {
             matches!(err, Err(EngineError::HeaderHashMismatch { number: 1, reported, .. }) if reported == hash),
             "{err:?}"
         );
+    }
+
+    /// An answer for another block than requested is refused, even though it is self-consistent.
+    #[tokio::test]
+    async fn header_by_number_rejects_another_block() {
+        let block: Value = serde_json::from_str::<Value>(ANVIL).unwrap()["block"].clone();
+        let m = mocked();
+        m.l2.push_success(&block);
+        let err = m.engine.header_by_number(2).await;
+        assert_eq!(err, Err(EngineError::HeaderNumberMismatch { requested: 2, got: 1 }));
+        assert!(!err.unwrap_err().is_retryable());
     }
 
     /// The mocked transport fails in transport when it has no response queued (as a refused

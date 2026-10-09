@@ -13,7 +13,7 @@ use super::{
 use crate::{
     engine::Engine,
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope},
-    l1::{L1Error, L1Source, build_committee_witness_within, layout::inbox},
+    l1::{L1Error, L1Source, build_committee_witness_within, header_at, layout::inbox},
     metrics::{AbciMetrics, set_u64},
     rules,
     store::AppState,
@@ -165,14 +165,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
         .await?)
     }
 
-    /// The anchor witness at L1 block `n`: its canonical header and the Inbox proofs of
-    /// `anchor_slots(switch)`.
+    /// The anchor witness at L1 block `n`: its canonical header (which must be block `n`) and the
+    /// Inbox proofs of `anchor_slots(switch)`.
     async fn anchor_witness(
         &self,
         n: u64,
         switch: Option<u64>,
     ) -> Result<AnchorWitness, Rejection> {
-        let l1_header = self.l1_read("L1 header read", self.l1.header(n)).await?;
+        let l1_header = self.l1_read("L1 header read", header_at(&self.l1, n)).await?;
         let slots = inbox::anchor_slots(switch);
         let inbox = self
             .l1_read("inbox proof read", self.l1.account_witness(self.params.inbox, &slots, n))

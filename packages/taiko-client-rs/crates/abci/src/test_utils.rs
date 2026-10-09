@@ -30,7 +30,10 @@ use crate::{
         layout::{inbox, registry},
     },
     schedule::Schedule,
-    types::{AccountWitness, ActivationRecord, CommitteeRecord, RegistryEntry, StorageProof},
+    types::{
+        AccountWitness, ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, RegistryEntry,
+        StorageProof,
+    },
 };
 
 /// A complete, consistent genesis (L1 state, witness, EL chain, `InitChain` request).
@@ -268,6 +271,24 @@ pub(crate) fn l1_header(number: u64, timestamp: u64) -> Header {
     }
 }
 
+/// The anchor at L1 block `number` with state root `state_root` (hash, timestamp and Inbox facts
+/// neutral): all a committee witness is verified against.
+pub(crate) fn anchor_at(number: u64, state_root: B256) -> AnchorState {
+    AnchorState {
+        number,
+        hash: B256::ZERO,
+        state_root,
+        timestamp: 0,
+        inbox: InboxFacts {
+            migration_state: inbox::ETNA_ACTIVE,
+            recovery_generation: 0,
+            last_checkpoint_height: 0,
+            last_checkpoint_hash: B256::ZERO,
+            committee: None,
+        },
+    }
+}
+
 /// `header`'s RLP with two fields of an L1 fork newer than alloy's header appended (a 32-byte
 /// hash and a slot number), as a node of such a fork serves it.
 pub(crate) fn raw_with_future_fields(header: &Header) -> Bytes {
@@ -362,9 +383,9 @@ pub(crate) struct RegistryStorage {
 
 impl RegistryStorage {
     /// The `(slot, word)` pairs of this storage: `checkpoints.length` at `R`, then per
-    /// checkpoint the packed `l1Block | count << 64` word and `entriesRoot`, then the `entries`
-    /// array (amendment A1) holding the LAST checkpoint's entries: `entries.length` at `R + 1`
-    /// and per entry its `pubkey`, `effStake` and packed
+    /// checkpoint the packed `l1Block | count << 64` word and `entriesRoot`, then the live
+    /// `entries` array (see `layout::registry`) holding the LAST checkpoint's entries:
+    /// `entries.length` at `R + 1` and per entry its `pubkey`, `effStake` and packed
     /// `activeFromL1 | exitEffectiveL1 << 64 | lastHeartbeatAt << 128` words. Zero words are
     /// included (the trie drops them, so they read back through exclusion proofs).
     ///
@@ -613,7 +634,7 @@ mod tests {
         assert_eq!(word(&slots, root1), U256::ZERO);
     }
 
-    /// The entries array holds the LAST checkpoint's entries, packed per amendment A1.
+    /// The entries array holds the LAST checkpoint's entries, packed per `layout::registry`.
     #[test]
     fn registry_storage_packs_the_last_checkpoint_entries() {
         let mut last = sample_entries(3);

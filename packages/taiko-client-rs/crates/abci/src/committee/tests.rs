@@ -2,8 +2,8 @@ use super::*;
 use crate::{
     l1::layout::registry,
     test_utils::{
-        RegistryStorage, TestState, committee_witness, filler_accounts, registry_account,
-        sample_entries,
+        RegistryStorage, TestState, anchor_at, committee_witness, filler_accounts,
+        registry_account, sample_entries,
     },
 };
 use alloy_primitives::{address, b256, keccak256};
@@ -779,7 +779,7 @@ fn verify_committee_witness_accepts_the_derived_record() {
     assert_eq!(record.cutoff_l1_block, 24);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record.clone());
     assert_eq!(
-        verify_committee_witness(state.state_root(), &params, &w, 27, 3),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Ok((record, members))
     );
 }
@@ -801,7 +801,7 @@ fn verify_committee_witness_rejects_a_record_mismatch() {
     for claimed in claims {
         let w = committee_witness(&state, REGISTRY, &storage, 1, claimed.clone());
         assert_eq!(
-            verify_committee_witness(state.state_root(), &params, &w, 27, 3),
+            verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
             Err(CommitteeError::RecordMismatch {
                 claimed: Box::new(claimed),
                 derived: Box::new(derived.clone()),
@@ -820,14 +820,14 @@ fn verify_committee_witness_requires_the_cutoff_snapshot() {
     let early = CommitteeRecord { checkpoint_index: 0, ..derived.clone() };
     let w = committee_witness(&state, REGISTRY, &storage, 0, early);
     assert_eq!(
-        verify_committee_witness(state.state_root(), &params, &w, 27, 3),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Err(CommitteeError::NextCheckpointNotAfterCutoff { l1_block: 20, cutoff: 24 })
     );
 
     let late = CommitteeRecord { checkpoint_index: 2, ..derived };
     let w = committee_witness(&state, REGISTRY, &storage, 2, late);
     assert_eq!(
-        verify_committee_witness(state.state_root(), &params, &w, 27, 3),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Err(CommitteeError::CheckpointAfterCutoff { l1_block: 30, cutoff: 24 })
     );
 }
@@ -840,7 +840,7 @@ fn verify_committee_witness_rejects_a_parent_anchor_below_the_lag() {
     let (record, _) = expected_committee(&params);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record);
     assert_eq!(
-        verify_committee_witness(state.state_root(), &params, &w, 1, 3),
+        verify_committee_witness(&anchor_at(1, state.state_root()), &params, &w, 3),
         Err(CommitteeError::AnchorBelowLag { parent_anchor: 1, lag: 2 })
     );
 }
@@ -853,7 +853,7 @@ fn verify_committee_witness_rejects_another_registry() {
     let (record, _) = expected_committee(&params);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record);
     assert_eq!(
-        verify_committee_witness(state.state_root(), &params, &w, 27, 3),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Err(CommitteeError::WrongContract { expected: OTHER, got: REGISTRY })
     );
 }
