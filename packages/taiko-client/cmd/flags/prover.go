@@ -84,12 +84,24 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_FORCE_SP1_PROOF"},
 	}
+	SP1ProofPercentage = &cli.Uint64Flag{
+		Name: "prover.sp1ProofPercentage",
+		Usage: "Prove the first X of every 100 proposals (proposalID % 100 < X) with SP1, and the rest via RISC0 " +
+			"with the SP1 fallback of --prover.maxRisc0ProofProposalDistance. Both X and 100 - X must be " +
+			"multiples of --prover.zkvm.batchSize. 0 disables it, 100 behaves like --prover.forceSP1Proof. " +
+			"Ignored when --prover.forceSP1Proof, --prover.forceSGXProof or --prover.zkOnlyProofs is set. " +
+			"Post Shasta fork only.",
+		Value:    0,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_SP1_PROOF_PERCENTAGE"},
+	}
 	ForceSGXProof = &cli.BoolFlag{
 		Name: "prover.forceSGXProof",
 		Usage: "Always request SGX_RETH proofs from the Raiko proof producer instead of using the " +
 			"RISC0-to-SP1 selection and fallback flow. Ignored when --prover.zkOnlyProofs is set. " +
 			"The inbox's proof verifier must accept the [SGX_GETH, SGX_RETH] sub-proof pair. " +
-			"When set, --prover.forceSP1Proof and --prover.maxRisc0ProofProposalDistance are ignored. " +
+			"When set, --prover.forceSP1Proof, --prover.sp1ProofPercentage and " +
+			"--prover.maxRisc0ProofProposalDistance are ignored. " +
 			"Post Shasta fork only.",
 		Value:    false,
 		Category: proverCategory,
@@ -103,7 +115,8 @@ var (
 			"Unzen hardfork; on the pre-Unzen MainnetVerifier every submission reverts. " +
 			"Intended for provers running without a TEE (sgx-geth) service or during SGX outages; " +
 			"note that it generates proofs on both ZKVMs for every proposal. " +
-			"When set, --prover.forceSP1Proof and --prover.maxRisc0ProofProposalDistance are ignored. " +
+			"When set, --prover.forceSP1Proof, --prover.sp1ProofPercentage and " +
+			"--prover.maxRisc0ProofProposalDistance are ignored. " +
 			"Post Shasta fork only.",
 		Value:    false,
 		Category: proverCategory,
@@ -179,6 +192,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProposalWindowSize,
 	MaxRisc0ProofProposalDistance,
 	ForceSP1Proof,
+	SP1ProofPercentage,
 	ForceSGXProof,
 	ZkOnlyProofs,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

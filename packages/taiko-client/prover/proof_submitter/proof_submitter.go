@@ -86,6 +86,7 @@ func NewProofSubmitter(
 	proposalWindowSize *big.Int,
 	maxRisc0ProofProposalDistance *big.Int,
 	forceSP1Proof bool,
+	sp1ProofPercentage uint64,
 	forceSGXProof bool,
 	zkOnlyProofs bool,
 ) (*ProofSubmitter, error) {
@@ -114,6 +115,7 @@ func NewProofSubmitter(
 		proposalWindowSize:            proposalWindowSize,
 		maxRisc0ProofProposalDistance: maxRisc0ProofProposalDistance,
 		forceSP1Proof:                 forceSP1Proof,
+		sp1ProofPercentage:            sp1ProofPercentage,
 		forceSGXProof:                 forceSGXProof,
 		zkOnlyProofs:                  zkOnlyProofs,
 		ctx:                           ctx,
