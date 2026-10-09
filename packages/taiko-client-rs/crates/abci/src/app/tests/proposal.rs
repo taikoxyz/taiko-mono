@@ -17,7 +17,7 @@ use crate::{
     l1::{layout::registry, verify_anchor_witness},
     rules,
     store::CommitteeState,
-    test_utils::{GenesisSpec, L1Call, RegistryStorage, sample_entries, simple_block},
+    test_utils::{GenesisSpec, L1Call, LogCapture, RegistryStorage, sample_entries, simple_block},
     types::{AnchorState, ParentInfo},
 };
 
@@ -450,10 +450,49 @@ async fn switch_height_with_a_conflicting_record_is_rejected() {
 
     let witness = fx.anchor_witness(app.l1(), 66, Some(1));
     let env = hand_envelope(&app, Some(witness), None);
+    let logs = LogCapture::start();
     assert_eq!(rejected(&mut app, &env).await, "record_conflict");
+    let errors = logs.at("ERROR");
+    assert!(errors.len() == 1 && errors[0].contains("reason=\"record_conflict\""), "{errors:?}");
     let expected = record_hash(fx.params.l2_chain_id, &c1.record);
     let conflict = || Rejection::RecordConflict { epoch: 1, expected, proven: other };
     assert_eq!(validate(&app, &env).map(|_| ()), Err(conflict()));
     assert!(conflict().logs_at_error(), "a conflict is logged at ERROR");
     assert!(!Rejection::RecordNotLanded { epoch: 1 }.logs_at_error(), "a wait is a WARN");
+}
+
+/// A `record_conflict` asks an operator to investigate, so a proposer must not raise it with a
+/// forged L1 header: a conflicting `committee[1]` proven by an anchor that is not final and
+/// canonical in the own L1 view is refused as `anchor_not_final`, and nothing is logged at
+/// ERROR. Only a final, canonical anchor proves a real conflict (see
+/// `switch_height_with_a_conflicting_record_is_rejected`).
+#[tokio::test]
+async fn a_conflicting_record_on_an_unconfirmed_anchor_is_anchor_not_final() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let switch = app.state().unwrap().schedule.h_first(1) - 2;
+    let c1 = fx.committee(1);
+    let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
+
+    // The proposer's block 66 proves another committee[1]; the own L1 holds it but has not
+    // finalized it.
+    let forged = fx.inbox_with(switch - 7, &[(1, B256::repeat_byte(0xc1))]);
+    fx.plant_l1_block(app.l1(), 66, &forged, &fx.registry);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66, Some(1))), None);
+    assert!(
+        matches!(validate(&app, &env), Err(Rejection::RecordConflict { epoch: 1, .. })),
+        "deterministically a conflict"
+    );
+    let logs = LogCapture::start();
+    assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
+
+    // The own L1 finalizes another block 66, holding the landed record: the forged one is not
+    // canonical.
+    let landed = fx.inbox_with(switch - 7, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
+    fx.advance_l1(app.l1(), 66, &landed, &fx.registry);
+    assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
+    assert_eq!(logs.at("ERROR"), Vec::<String>::new(), "no operator alarm");
+    assert_eq!(logs.at("WARN").len(), 2, "{}", logs.text());
 }

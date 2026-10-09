@@ -14,7 +14,10 @@
 //! [`Engine`](crate::engine::Engine) implementations with scripted answers and call logs.
 //! [`Fixture`] combines all of them into a complete genesis for app tests.
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
@@ -465,6 +468,54 @@ pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
             last_heartbeat_at: 1,
         })
         .collect()
+}
+
+/// Captures every log line emitted on the current thread while alive (a `#[tokio::test]` runs its
+/// futures on the test thread), formatted without colours: `<time> <LEVEL> <target>: ...`.
+pub(crate) struct LogCapture {
+    /// The formatted lines so far.
+    lines: Arc<Mutex<Vec<u8>>>,
+    /// Keeps the capturing subscriber the thread's default.
+    _guard: tracing::subscriber::DefaultGuard,
+}
+
+impl LogCapture {
+    /// Starts capturing at every level.
+    pub(crate) fn start() -> Self {
+        let lines = Arc::new(Mutex::new(Vec::new()));
+        let sink = Arc::clone(&lines);
+        let subscriber = tracing_subscriber::fmt()
+            .with_ansi(false)
+            .with_max_level(tracing::Level::TRACE)
+            .with_writer(move || LogSink(Arc::clone(&sink)))
+            .finish();
+        Self { lines, _guard: tracing::subscriber::set_default(subscriber) }
+    }
+
+    /// The lines captured so far.
+    pub(crate) fn text(&self) -> String {
+        String::from_utf8_lossy(&self.lines.lock().expect("log capture lock")).into_owned()
+    }
+
+    /// The captured lines logged at `level` (e.g. `"ERROR"`).
+    pub(crate) fn at(&self, level: &str) -> Vec<String> {
+        let marker = format!(" {level} ");
+        self.text().lines().filter(|line| line.contains(&marker)).map(str::to_owned).collect()
+    }
+}
+
+/// The writer [`LogCapture`]'s subscriber formats into.
+struct LogSink(Arc<Mutex<Vec<u8>>>);
+
+impl std::io::Write for LogSink {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().expect("log capture lock").extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 /// Set in the child process [`in_own_process`] re-runs a test in.

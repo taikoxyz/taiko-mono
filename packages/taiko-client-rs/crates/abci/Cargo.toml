@@ -54,3 +54,4 @@ tempfile = { workspace = true }
 tendermint-proto = { workspace = true }
 test-harness = { path = "../test-harness" }
 tokio = { workspace = true, features = ["test-util"] }
+tracing-subscriber = { workspace = true }
