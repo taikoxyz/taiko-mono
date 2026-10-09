@@ -85,6 +85,19 @@ func (s *ProofSubmitter) resumeRisc0() bool {
 	return true
 }
 
+// aggregateSP1FallbackTail requests aggregation of the partial SP1 batch left by the
+// fallback cycle that just ended. The RISC0 proofs that follow cannot enter their buffer
+// until that batch is finalized, so it must not wait for forceBatchProvingInterval.
+func (s *ProofSubmitter) aggregateSP1FallbackTail() {
+	buffer, ok := s.proofBuffers[proofProducer.ProofTypeZKSP1]
+	if !ok || buffer.Len() == 0 {
+		return
+	}
+	if buffer.MarkAggregatingIfNot() {
+		s.batchAggregationNotify <- proofProducer.ProofTypeZKSP1
+	}
+}
+
 // decideZKProofType applies the RISC0 backlog drain/resume state machine and
 // reports whether this proposal should be proven via RISC0 or SP1. It has side
 // effects: it latches into SP1 fallback mode (and fires a one-off backlog clear)
@@ -146,6 +159,7 @@ func (s *ProofSubmitter) decideZKProofType(
 					"maxSP1ProposalID", maxSP1ProposalID,
 					"lastFinalizedProposalID", lastFinalizedProposalID,
 				)
+				s.aggregateSP1FallbackTail()
 			}
 			return proofProducer.ProofTypeZKR0
 		}
