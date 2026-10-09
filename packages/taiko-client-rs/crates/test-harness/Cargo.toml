@@ -9,6 +9,7 @@ publish = false
 tokio = { workspace = true }
 
 # ethereum
+alloy = { workspace = true, features = ["consensus", "signer-local", "std"] }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true, features = ["std", "serde"] }
 alloy-provider = { workspace = true }

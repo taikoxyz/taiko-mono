@@ -4,27 +4,25 @@ use std::{
     fs,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
     time::Duration,
 };
 
 use abci::{
-    ActivationRecord, App, AppOptions, ChainParams, Engine, GenesisDoc, RegistryEntry, RpcEngine,
-    RpcL1Source, Schedule, ServerError, Snapshot, Store, build_genesis,
+    ActivationRecord, ChainParams, GenesisDoc, RegistryEntry, RpcL1Source, Schedule, Snapshot,
+    build_genesis,
     committee::{self, record_hash},
     l1::layout::inbox::ETNA_ACTIVE,
-    serve_with,
 };
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{B256, U256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
 use rpc::client::connect_http_with_timeout;
-use tokio::{net::TcpStream, task::JoinHandle};
 use url::Url;
 
 use crate::{
     DevnetSpec,
+    app::{AppConfig, AppNode, free_port},
     cometbft::{CmtClient, HomeConfig, write_home},
     docker::{DockerEnv, host_port},
     keys::{ValidatorKey, node_keys, validator_keys},
@@ -52,7 +50,7 @@ const RETH_CMD: &str = "./alethia-reth node --chain devnet --devnet-etna-timesta
 pub(crate) const VALIDATOR_STAKE: u128 = 10_000_000_000_000_000_000;
 
 /// Deadline for a container's RPC to come up.
-const RPC_TIMEOUT: Duration = Duration::from_secs(90);
+pub(crate) const RPC_TIMEOUT: Duration = Duration::from_secs(90);
 /// Poll interval of the readiness waits.
 pub(crate) const POLL: Duration = Duration::from_millis(250);
 
@@ -63,24 +61,6 @@ pub(crate) struct RethNode {
     pub http: Url,
     /// Engine API URL on the host.
     pub auth: Url,
-}
-
-/// One in-process `abci` app served on a host port.
-#[derive(Debug)]
-pub(crate) struct AppNode {
-    /// The host port it listens on (all interfaces).
-    pub port: u16,
-    /// The `serve_with` task.
-    pub task: JoinHandle<Result<(), ServerError>>,
-    /// The reason of a safety halt, once one happened.
-    pub halt: Arc<Mutex<Option<String>>>,
-}
-
-impl Drop for AppNode {
-    /// Aborts the server task.
-    fn drop(&mut self) {
-        self.task.abort();
-    }
 }
 
 /// Everything [`boot`] starts.
@@ -198,8 +178,16 @@ pub(crate) async fn boot(
     // 5. The apps, listening before CometBFT starts.
     let mut apps = Vec::with_capacity(n);
     for (i, node) in reth.iter().enumerate() {
-        let store = tmp.join(format!("app-{i}"));
-        apps.push(start_app(i, node, &l1_http, &params, &jwt, &store).await?);
+        let config = AppConfig {
+            index: i,
+            reth: node.clone(),
+            l1_http: l1_http.clone(),
+            params: params.clone(),
+            jwt: jwt.clone(),
+            store_dir: tmp.join(format!("app-{i}")),
+            port: free_port()?,
+        };
+        apps.push(AppNode::start(config).await?);
     }
 
     // 6. CometBFT.
@@ -218,7 +206,7 @@ pub(crate) async fn boot(
             &home,
             &HomeConfig {
                 moniker: &cmt_names[i],
-                proxy_app: &format!("tcp://host.docker.internal:{}", apps[i].port),
+                proxy_app: &format!("tcp://host.docker.internal:{}", apps[i].port()),
                 timeout_commit_ms: spec.timeout_commit_ms,
                 persistent_peers: &peers,
                 genesis_json: &genesis_json,
@@ -313,50 +301,8 @@ async fn plant_genesis(
     Ok(activation)
 }
 
-/// Starts app `i` over alethia-reth `node` with its store in `store_dir`, served on a free host
-/// port; returns once it listens. A safety halt is recorded instead of exiting the process.
-async fn start_app(
-    i: usize,
-    node: &RethNode,
-    l1_http: &Url,
-    params: &ChainParams,
-    jwt: &Path,
-    store_dir: &Path,
-) -> Result<AppNode> {
-    let engine = RpcEngine::new(node.http.clone(), node.auth.clone(), jwt)?;
-    let engine_ref = &engine;
-    wait_until(&format!("engine API of alethia-reth {i}"), RPC_TIMEOUT, POLL, || async move {
-        engine_ref.check_capabilities().await?;
-        Ok(Some(()))
-    })
-    .await?;
-    fs::create_dir_all(store_dir)?;
-    let l1 = RpcL1Source::new(connect_http_with_timeout(l1_http.clone()));
-    let store = Store::new(store_dir.to_path_buf());
-    let app = App::new(l1, engine, params.clone(), store, AppOptions::default())?;
-
-    let port = std::net::TcpListener::bind("0.0.0.0:0")?.local_addr()?.port();
-    let halt = Arc::new(Mutex::new(None));
-    let hook = {
-        let halt = halt.clone();
-        move |reason: &str| {
-            eprintln!("app {i} safety halt: {reason}");
-            *halt.lock().expect("halt lock") = Some(reason.to_string());
-        }
-    };
-    let addr = format!("tcp://0.0.0.0:{port}");
-    let task = tokio::spawn(async move { serve_with(app, &addr, hook).await });
-    let app = AppNode { port, task, halt };
-    wait_until(&format!("app {i} listening on {port}"), Duration::from_secs(10), POLL, || async {
-        ensure!(!app.task.is_finished(), "the app server stopped");
-        Ok(TcpStream::connect(("127.0.0.1", port)).await.ok().map(drop))
-    })
-    .await?;
-    Ok(app)
-}
-
 /// `http://127.0.0.1:<port>/`.
-fn local_url(port: u16) -> Result<Url> {
+pub(crate) fn local_url(port: u16) -> Result<Url> {
     Ok(Url::parse(&format!("http://127.0.0.1:{port}/"))?)
 }
 

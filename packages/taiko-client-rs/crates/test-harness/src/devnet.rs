@@ -17,10 +17,12 @@ use tracing_subscriber::EnvFilter;
 use url::Url;
 
 use crate::{
-    boot::{AppNode, POLL, RethNode, VALIDATOR_STAKE, boot},
+    app::AppNode,
+    boot::{POLL, RPC_TIMEOUT, RethNode, VALIDATOR_STAKE, boot, local_url},
     cometbft::{CmtClient, CmtStatus},
-    docker::DockerEnv,
+    docker::{DockerEnv, docker, host_port},
     keys::ValidatorKey,
+    l1::set_interval_mining,
     lander::Lander,
     planter::{Planter, registry_entry},
     wait::wait_until,
@@ -217,7 +219,36 @@ impl Devnet {
 
     /// The RPC URL of CometBFT node `i`.
     pub fn cmt_rpc(&self, i: usize) -> Url {
-        self.cmt[i].url().clone()
+        self.cmt[i].url()
+    }
+
+    /// The docker container name of CometBFT node `i`.
+    pub fn cmt_container(&self, i: usize) -> String {
+        format!("abci-{}-cmt-{i}", self.id)
+    }
+
+    /// Whether CometBFT node `i`'s container is running (it exits when its ABCI connection
+    /// breaks).
+    pub async fn cmt_running(&self, i: usize) -> Result<bool> {
+        let name = self.cmt_container(i);
+        Ok(docker(&["inspect", "-f", "{{.State.Running}}", &name]).await? == "true")
+    }
+
+    /// Restarts CometBFT node `i`'s container (`docker restart`; it also starts a container that
+    /// exited, e.g. after losing its ABCI connection) and waits until its RPC answers again,
+    /// i.e. until its handshake with the app (and any block replay) is done. The published RPC
+    /// port changes on restart; every clone of [`Devnet::cmt`]`(i)` follows it.
+    pub async fn cmt_restart(&self, i: usize) -> Result<()> {
+        let name = self.cmt_container(i);
+        docker(&["restart", "-t", "10", &name]).await?;
+        let url = local_url(host_port(&name, 26657).await?)?;
+        self.cmt[i].set_url(url);
+        let client = &self.cmt[i];
+        wait_until(&format!("{name} RPC after restart"), RPC_TIMEOUT, POLL, || async move {
+            Ok(Some(client.latest_height().await?))
+        })
+        .await
+        .map(drop)
     }
 
     /// The RPC client of CometBFT node `i`.
@@ -248,7 +279,36 @@ impl Devnet {
 
     /// The reason of app `i`'s safety halt, if it halted.
     pub fn app_halt(&self, i: usize) -> Option<String> {
-        self.apps[i].halt.lock().expect("halt lock").clone()
+        self.apps[i].halt()
+    }
+
+    /// Whether app `i` is running.
+    pub fn app_running(&self, i: usize) -> bool {
+        self.apps[i].is_running()
+    }
+
+    /// Stops app `i` completely: its runtime shuts down, closing the listener and CometBFT's
+    /// ABCI connections (CometBFT node `i` then exits; see [`Devnet::cmt_restart`]). A no-op when
+    /// it is not running.
+    pub async fn app_stop(&mut self, i: usize) {
+        self.apps[i].stop().await;
+    }
+
+    /// Starts the stopped app `i` again with the same store directory and port; returns once it
+    /// listens.
+    pub async fn app_start(&mut self, i: usize) -> Result<()> {
+        self.apps[i].launch().await
+    }
+
+    /// Pauses anvil's interval mining: no L1 block (hence no new `finalized`) until
+    /// [`Devnet::l1_resume`]. Planting with [`Planter::next_block`] resumes it on commit.
+    pub async fn l1_pause(&self) -> Result<()> {
+        set_interval_mining(&self.l1, 0).await
+    }
+
+    /// Resumes anvil's interval mining at one block per second.
+    pub async fn l1_resume(&self) -> Result<()> {
+        set_interval_mining(&self.l1, 1).await
     }
 
     /// Waits until CometBFT node `i` committed height `h`; returns the height reached. Fails on
@@ -285,8 +345,8 @@ impl Devnet {
     /// temporary directories go when `self` drops.
     pub async fn stop(mut self) -> Result<()> {
         self.lander.stop();
-        for app in &self.apps {
-            app.task.abort();
+        for app in &mut self.apps {
+            app.stop().await;
         }
         self.docker.cleanup().await
     }
@@ -294,7 +354,7 @@ impl Devnet {
     /// Prints each app's halt reason (best effort, for failure diagnostics).
     fn print_statuses(&self) {
         for (i, app) in self.apps.iter().enumerate() {
-            if let Some(reason) = app.halt.lock().ok().and_then(|h| h.clone()) {
+            if let Some(reason) = app.halt() {
                 eprintln!("app {i} safety halt: {reason}");
             }
         }
@@ -302,15 +362,13 @@ impl Devnet {
 }
 
 impl Drop for Devnet {
-    /// Stops the lander and the apps; the docker environment then removes the containers
-    /// (printing their logs first while panicking) and the temporary directories go.
+    /// Stops the lander; the apps stop as they drop (joining their threads), then the docker
+    /// environment removes the containers (printing their logs first while panicking) and the
+    /// temporary directories go.
     fn drop(&mut self) {
         self.lander.stop();
         if std::thread::panicking() {
             self.print_statuses();
-        }
-        for app in &self.apps {
-            app.task.abort();
         }
     }
 }

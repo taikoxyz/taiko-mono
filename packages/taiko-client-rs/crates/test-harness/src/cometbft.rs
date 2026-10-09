@@ -1,6 +1,11 @@
 //! CometBFT node homes and a minimal CometBFT RPC client.
 
-use std::{fs, path::Path, time::Duration};
+use std::{
+    fs,
+    path::Path,
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
 use abci::{CommitteeState, Status};
 use alloy_primitives::B256;
@@ -94,12 +99,15 @@ pub struct CmtStatus {
 }
 
 /// A minimal client of CometBFT's JSON-RPC (URI over HTTP GET).
+///
+/// Clones share the base URL, so [`CmtClient::set_url`] (after a container restart moved the
+/// published port) redirects every clone.
 #[derive(Clone, Debug)]
 pub struct CmtClient {
     /// The HTTP client.
     http: reqwest::Client,
-    /// The RPC base URL (`http://host:port/`).
-    base: Url,
+    /// The RPC base URL (`http://host:port/`), shared by clones.
+    base: Arc<RwLock<Url>>,
 }
 
 impl CmtClient {
@@ -109,17 +117,22 @@ impl CmtClient {
             .timeout(Duration::from_secs(5))
             .build()
             .expect("a reqwest client with a timeout builds");
-        Self { http, base }
+        Self { http, base: Arc::new(RwLock::new(base)) }
     }
 
     /// The RPC base URL.
-    pub fn url(&self) -> &Url {
-        &self.base
+    pub fn url(&self) -> Url {
+        self.base.read().expect("CometBFT URL lock").clone()
+    }
+
+    /// Points this client and all its clones at `base`.
+    pub fn set_url(&self, base: Url) {
+        *self.base.write().expect("CometBFT URL lock") = base;
     }
 
     /// `GET <base>/<method>?<query>` and its JSON-RPC `result`.
     pub async fn call(&self, method: &str, query: &[(&str, String)]) -> Result<Value> {
-        let mut url = self.base.join(method)?;
+        let mut url = self.url().join(method)?;
         if !query.is_empty() {
             url.query_pairs_mut().extend_pairs(query);
         }
