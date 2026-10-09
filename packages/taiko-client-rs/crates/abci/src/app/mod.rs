@@ -4,7 +4,7 @@
 //! persisted [`AppState`], and answers CometBFT's requests through [`App::handle`]. `InitChain`
 //! lives in [`init`]; `Info`, `Query` and `CheckTx` in [`info`]; `PrepareProposal` in
 //! [`prepare`] and `ProcessProposal` in [`process`], both on top of the deterministic checks of
-//! [`validate`]. `FinalizeBlock` is a placeholder until its handler lands.
+//! [`validate`]; `FinalizeBlock` and `Commit` in [`finalize`].
 //!
 //! Errors returned by [`App::handle`] are fatal to the connection; [`AbciError::SafetyHalt`]
 //! marks the ones where the node must stop signing and an operator must investigate (spec §8.2).
@@ -32,6 +32,8 @@ use crate::{
     store::{AppState, Store, StoreError},
 };
 
+/// The `FinalizeBlock` and `Commit` handlers (spec §5.5, §5.6).
+mod finalize;
 /// `Info`, `Query` and `CheckTx` handlers (spec §5.2, §5.6).
 mod info;
 /// The `InitChain` handler (spec §5.1).
@@ -58,6 +60,13 @@ pub const APP_VERSION: u64 = 0;
 
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
+
+/// First pause before `FinalizeBlock` retries an EL call that is syncing, timed out or failed
+/// in transport; the pause doubles per attempt up to [`FINALIZE_RETRY_MAX`].
+pub const FINALIZE_RETRY_INITIAL: Duration = Duration::from_millis(100);
+
+/// Cap of the doubling pause between `FinalizeBlock`'s EL retries.
+pub const FINALIZE_RETRY_MAX: Duration = Duration::from_secs(5);
 
 /// Deadlines of the app's external calls (spec §8.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -107,9 +116,10 @@ pub enum AbciError {
     /// process must exit and an operator must investigate.
     #[error("safety halt: {0}")]
     SafetyHalt(String),
-    /// The ABCI method has no handler yet (placeholder until its task lands).
-    #[error("{0} is not implemented yet")]
-    NotImplemented(&'static str),
+    /// `Commit` arrived without a `FinalizeBlock` result to persist; CometBFT never sends one,
+    /// so the connection is broken.
+    #[error("Commit without a finalized block")]
+    NothingToCommit,
     /// A block-level method (named by the value) arrived before `InitChain`; CometBFT never
     /// sends one, so the connection is broken.
     #[error("{0} before InitChain")]
@@ -240,6 +250,9 @@ pub struct App<L: L1Source, E: Engine> {
     opts: AppOptions,
     /// The committed state; `None` before `InitChain`.
     state: Option<AppState>,
+    /// The state `FinalizeBlock` derived for the decided block; persisted and made the
+    /// committed state by `Commit`.
+    pending: Option<AppState>,
     /// `ProcessProposal` ACCEPT verdicts by CometBFT block hash, for `FinalizeBlock`; cleared
     /// at `Commit`.
     verdicts: HashMap<Hash, Validated>,
@@ -278,6 +291,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             store,
             opts,
             state,
+            pending: None,
             verdicts: HashMap::new(),
             halt: None,
             superseded: false,
@@ -321,9 +335,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Answers one ABCI request.
     ///
-    /// Methods without app logic answer at once: `Echo` echoes, `Flush` flushes, `Commit`
-    /// answers `retain_height = 0` (D17), vote extensions are empty and accepted (disabled), and
-    /// the snapshot methods answer empty defaults (state sync is disabled).
+    /// Methods without app logic answer at once: `Echo` echoes, `Flush` flushes, vote
+    /// extensions are empty and accepted (disabled), and the snapshot methods answer empty
+    /// defaults (state sync is disabled).
     pub async fn handle(&mut self, req: Request) -> Result<Response, AbciError> {
         Ok(match req {
             Request::Echo(r) => Response::Echo(response::Echo { message: r.message }),
@@ -332,14 +346,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Request::Query(r) => Response::Query(self.query(r)),
             Request::CheckTx(r) => Response::CheckTx(self.check_tx(r)),
             Request::InitChain(r) => Response::InitChain(self.init_chain(r).await?),
-            // Placeholder until FinalizeBlock lands: then Commit persists the pending state.
-            Request::Commit => {
-                self.verdicts.clear();
-                Response::Commit(response::Commit {
-                    data: Default::default(),
-                    retain_height: Height::from(0u32),
-                })
-            }
+            Request::Commit => Response::Commit(self.commit()?),
             Request::ListSnapshots => Response::ListSnapshots(Default::default()),
             Request::OfferSnapshot(_) => Response::OfferSnapshot(Default::default()),
             Request::LoadSnapshotChunk(_) => Response::LoadSnapshotChunk(Default::default()),
@@ -356,8 +363,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Request::ProcessProposal(r) => {
                 Response::ProcessProposal(self.process_proposal(r).await?)
             }
-            // PLACEHOLDER (task 12 replaces it with the real handler).
-            Request::FinalizeBlock(_) => return Err(AbciError::NotImplemented("FinalizeBlock")),
+            Request::FinalizeBlock(r) => Response::FinalizeBlock(self.finalize_block(r).await?),
         })
     }
 

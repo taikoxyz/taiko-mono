@@ -28,17 +28,6 @@ async fn echo_and_flush_answer_in_kind() {
 }
 
 #[tokio::test]
-async fn commit_never_prunes() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = app(dir.path());
-    let Response::Commit(resp) = app.handle(Request::Commit).await.unwrap() else {
-        panic!("Commit answered another response");
-    };
-    assert_eq!(resp.retain_height.value(), 0, "retain_height = 0 (D17)");
-    assert!(resp.data.is_empty());
-}
-
-#[tokio::test]
 async fn vote_extensions_are_empty_and_accepted() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = app(dir.path());
