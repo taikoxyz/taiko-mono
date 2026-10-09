@@ -406,7 +406,8 @@ async fn round_trip_at_a_switch_height_with_the_landed_record() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
-/// D19: without `committee[1]` on L1 the switch height cannot be built nor accepted.
+/// D19: without `committee[1]` on L1 the switch height cannot be built nor accepted. The record
+/// has not landed yet: a wait, not a conflict.
 #[tokio::test]
 async fn switch_height_without_the_landed_record_halts() {
     let fx = Fixture::genesis(2);
@@ -420,13 +421,39 @@ async fn switch_height_without_the_landed_record_halts() {
     let time = bft_time(&app);
     let txs = prepare(&mut app, prepare_req(switch, time)).await;
     assert!(txs.is_empty());
-    assert_eq!(app.halt.as_deref(), Some("record_mismatch"));
+    assert_eq!(app.halt.as_deref(), Some("record_not_landed"));
 
     let witness = fx.anchor_witness(app.l1(), 66, Some(1));
     let env = hand_envelope(&app, Some(witness), None);
-    assert_eq!(rejected(&mut app, &env).await, "record_mismatch");
-    assert!(matches!(
-        validate(&app, &env),
-        Err(Rejection::RecordMismatch { epoch: 1, proven: Some((1, B256::ZERO)), .. })
-    ));
+    assert_eq!(rejected(&mut app, &env).await, "record_not_landed");
+    assert_eq!(validate(&app, &env).map(|_| ()), Err(Rejection::RecordNotLanded { epoch: 1 }));
+}
+
+/// Spec §8.2: a different non-zero `committee[1]` on L1 means L1 and the chain hold two records
+/// for epoch 1. The switch height is refused as `record_conflict` (logged at ERROR, as an
+/// operator must investigate), never accepted; refusing stays a liveness matter.
+#[tokio::test]
+async fn switch_height_with_a_conflicting_record_is_rejected() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let switch = app.state().unwrap().schedule.h_first(1) - 2;
+    let c1 = fx.committee(1);
+    let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
+    let other = B256::repeat_byte(0xc1);
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7, &[(1, other)]), &fx.registry);
+
+    let time = bft_time(&app);
+    assert!(prepare(&mut app, prepare_req(switch, time)).await.is_empty());
+    assert_eq!(app.halt.as_deref(), Some("record_conflict"));
+
+    let witness = fx.anchor_witness(app.l1(), 66, Some(1));
+    let env = hand_envelope(&app, Some(witness), None);
+    assert_eq!(rejected(&mut app, &env).await, "record_conflict");
+    let expected = record_hash(fx.params.l2_chain_id, &c1.record);
+    let conflict = || Rejection::RecordConflict { epoch: 1, expected, proven: other };
+    assert_eq!(validate(&app, &env).map(|_| ()), Err(conflict()));
+    assert!(conflict().logs_at_error(), "a conflict is logged at ERROR");
+    assert!(!Rejection::RecordNotLanded { epoch: 1 }.logs_at_error(), "a wait is a WARN");
 }

@@ -403,20 +403,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
         })
     }
 
-    /// Records a refused proposal: logs it (ERROR for a local build fault, WARN otherwise), keeps
-    /// its label as the halt reason for `/status`, and sets the `superseded` status when the
-    /// Inbox proved a later generation.
+    /// Records a refused proposal: logs it (ERROR for a local build fault or a record conflict,
+    /// see [`Rejection::logs_at_error`], WARN otherwise), keeps its label as the halt reason for
+    /// `/status`, and sets the `superseded` status when the Inbox proved a later generation.
     ///
     /// An [`Rejection::EmptyProposal`] never replaces a reason already recorded: it is how a
     /// halted proposer (this node included) proposes nothing, so the reason recorded earlier at
     /// the height (e.g. this node's own failed build) is the one that explains the halt.
     fn note_rejection(&mut self, method: &'static str, height: u64, rejection: &Rejection) {
         let reason = rejection.label();
-        match rejection {
-            Rejection::Oversize { .. } | Rejection::BuiltHeader(_) => {
-                tracing::error!(method, height, reason, error = %rejection, "proposal refused");
-            }
-            _ => tracing::warn!(method, height, reason, error = %rejection, "proposal refused"),
+        if rejection.logs_at_error() {
+            tracing::error!(method, height, reason, error = %rejection, "proposal refused");
+        } else {
+            tracing::warn!(method, height, reason, error = %rejection, "proposal refused");
         }
         if matches!(rejection, Rejection::Superseded { .. }) {
             self.superseded = true;

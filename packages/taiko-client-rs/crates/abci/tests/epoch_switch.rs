@@ -23,9 +23,9 @@ use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, ensure};
 use test_harness::{Devnet, DevnetSpec, wait_until};
 
-/// The `/status` halt reason of a switch height whose anchored `committee[t]` is not the derived
-/// record (D19, `Rejection::RecordMismatch`).
-const RECORD_MISMATCH: &str = "record_mismatch";
+/// The `/status` halt reason of a switch height whose anchored `committee[t]` has not landed
+/// (D19, `Rejection::RecordNotLanded`).
+const RECORD_NOT_LANDED: &str = "record_not_landed";
 
 /// The anchor L1 block number in L2 block `h`'s `extraData`.
 async fn anchor_of(l2: &RootProvider, h: u64) -> anyhow::Result<u64> {
@@ -189,8 +189,8 @@ async fn epoch_switch_halts_without_landing() -> anyhow::Result<()> {
     );
     let record = devnet.planter().inbox_word(inbox::committee_slot(t)).await?;
     assert!(record.is_zero(), "committee[{t}] landed while landing was off");
-    assert_eq!(status.halt_reason.as_deref(), Some(RECORD_MISMATCH), "/status halt reason");
-    assert_eq!(reasons, BTreeSet::from([RECORD_MISMATCH.to_string()]), "/status halt reasons");
+    assert_eq!(status.halt_reason.as_deref(), Some(RECORD_NOT_LANDED), "/status halt reason");
+    assert_eq!(reasons, BTreeSet::from([RECORD_NOT_LANDED.to_string()]), "/status halt reasons");
     assert_eq!(devnet.app_halt(0), None);
 
     // Landing the record lets the switch through.
