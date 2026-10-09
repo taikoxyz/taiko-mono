@@ -10,7 +10,12 @@
 //! marks the ones where the node must stop signing and an operator must investigate (spec §8.2).
 //! A bad or unbuildable proposal is never an error: it is a [`Rejection`] (liveness only).
 
-use std::{collections::HashMap, future::Future, time::Duration};
+use std::{
+    collections::HashMap,
+    future::Future,
+    sync::{Mutex, MutexGuard, PoisonError},
+    time::Duration,
+};
 
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
@@ -25,6 +30,7 @@ use crate::{
     config::{ChainParams, ConfigError},
     elsync::ElSyncError,
     engine::{Engine, EngineError},
+    envelope::CommitteeWitness,
     genesis::GenesisError,
     l1::{L1Error, L1Source, WitnessError},
     metrics::{AbciMetrics, set_u64},
@@ -270,6 +276,11 @@ pub struct App<L: L1Source, E: Engine> {
     /// `ProcessProposal` ACCEPT verdicts by CometBFT block hash, for `FinalizeBlock`; cleared
     /// at `Commit`.
     verdicts: HashMap<Hash, Validated>,
+    /// The committee witness `PrepareProposal` discovered and verified at `h_first(e)`, kept so
+    /// that later rounds at the same height reuse it instead of reading the registry again.
+    /// Replaced when the key differs; cleared at `Commit`. Behind a mutex as the proposer runs on
+    /// `&self`.
+    committee_cache: Mutex<Option<CachedCommittee>>,
     /// The label of the last proposal rejection or failed build (a liveness halt), reported by
     /// `/status`; an empty proposal does not replace a recorded label. Cleared by the next
     /// accepted or built proposal and by `Commit`.
@@ -314,6 +325,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             state,
             pending: None,
             verdicts: HashMap::new(),
+            committee_cache: Mutex::new(None),
             halt: None,
             superseded: false,
             el_reconciled: false,
@@ -416,6 +428,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         AbciMetrics::halted().set(1);
     }
 
+    /// The committee-witness cache, which holds no invariant a panicking holder could break.
+    fn committee_cache(&self) -> MutexGuard<'_, Option<CachedCommittee>> {
+        self.committee_cache.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// Clears the liveness-halt reason after an accepted or built proposal or a commit.
     fn clear_halt(&mut self) {
         self.halt = None;
@@ -434,6 +451,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
             status.head.saturating_sub(status.last_checkpoint_height),
         );
     }
+}
+
+/// A committee witness `PrepareProposal` discovered and verified, with the key it was built for.
+#[derive(Clone, Debug)]
+struct CachedCommittee {
+    /// The parent's anchor L1 block number `n_p` the witness is proven against.
+    parent_anchor: u64,
+    /// The epoch whose committee the witness proves.
+    target_epoch: u64,
+    /// The witness.
+    witness: CommitteeWitness,
 }
 
 /// Whether `state` is still at the genesis anchor `B*`: no PoS block has been committed yet.

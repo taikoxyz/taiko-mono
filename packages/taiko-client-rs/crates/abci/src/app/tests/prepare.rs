@@ -1,6 +1,6 @@
 //! `PrepareProposal` (spec §5.3): anchor choice, and every reason it proposes nothing.
 
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 use super::{
     proposal::{bft_time, jump, mid_epoch, next_height, prepare, prepare_req, propose},
@@ -210,4 +210,116 @@ async fn the_built_block_is_the_envelope_block() {
     assert_eq!(*parent, app.state().unwrap().parent.hash);
     assert_eq!(attrs.block_metadata.tx_list, None, "the EL selects from its own txpool");
     assert_eq!(simple_block(*parent, attrs), env.block);
+}
+
+/// The L1 reads of the staking registry `app` made so far.
+fn registry_reads(app: &App<MockL1, MockEngine>) -> usize {
+    let registry = app.params.registry;
+    app.l1()
+        .calls()
+        .iter()
+        .filter(|c| {
+            matches!(c, L1Call::StorageAt { address, .. } | L1Call::AccountWitness { address, .. }
+                if *address == registry)
+        })
+        .count()
+}
+
+/// An app whose next height is `h_first(1)`, anchored at the finalized L1 block 70 where the
+/// checkpoint is within the cap: the proposer there discovers the committee of epoch 2.
+async fn before_epoch_start(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
+    let mut app = initialized(fx, dir).await;
+    let h_e = app.state().unwrap().schedule.h_first(1);
+    fx.advance_l1(app.l1(), 70, &fx.inbox_with(h_e - 6, &[]), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 70, None);
+    jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
+    app
+}
+
+/// Repeated rounds at `h_first(e)` reuse the committee witness the first round discovered: the
+/// parent's anchor and the target epoch are the same, so is the witness. `Commit` drops it.
+#[tokio::test]
+async fn a_second_round_at_an_epoch_start_reuses_the_committee_witness() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_epoch_start(&fx, dir.path()).await;
+
+    // Round 0: the committee is discovered, then the EL fails to build.
+    app.engine().state().build_script.push_back(Err(EngineError::Transport("down".into())));
+    assert_eq!(refused(&mut app).await, "engine_error");
+    assert!(registry_reads(&app) > 0, "round 0 discovers the committee");
+
+    // Round 1 at the same height: no registry read at all, and the same witness.
+    app.l1().state().calls.clear();
+    let env = propose(&mut app).await;
+    assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
+    let witness = crate::l1::build_committee_witness(app.l1(), &app.params, 70, 2)
+        .await
+        .expect("the witness builds");
+    assert_eq!(env.committee, Some(witness));
+
+    let (resp, req) = super::proposal::judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    super::proposal::decide(&mut app, &req).await;
+    assert!(app.committee_cache.lock().unwrap().is_none(), "Commit drops the cached witness");
+}
+
+/// A cached witness is only reused for the same parent anchor and target epoch.
+#[tokio::test]
+async fn a_cached_committee_witness_of_another_parent_anchor_is_not_reused() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_epoch_start(&fx, dir.path()).await;
+    app.engine().state().build_script.push_back(Err(EngineError::Transport("down".into())));
+    assert_eq!(refused(&mut app).await, "engine_error");
+
+    // The committed parent moves to anchor 72 (e.g. after a state rewrite): rediscovered there.
+    let h_e = app.state().unwrap().schedule.h_first(1);
+    fx.advance_l1(app.l1(), 72, &fx.inbox_with(h_e - 6, &[]), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 72, None);
+    jump(&mut app, h_e - 1, anchor, &[]);
+    app.l1().state().calls.clear();
+    let env = propose(&mut app).await;
+    assert!(registry_reads(&app) > 0, "rediscovered at the new parent anchor");
+    assert_eq!(env.committee.expect("h_first(1) carries a committee").record.cutoff_l1_block, 72);
+}
+
+/// At `h_first(e)` the cheap candidate checks run before the committee discovery: a block that
+/// cannot be proposed anyway (back-pressure, anchor progress, a superseded generation) costs no
+/// registry read.
+#[tokio::test]
+async fn failing_pre_checks_skip_the_committee_discovery() {
+    let fx = Fixture::genesis(3);
+
+    // Back-pressure: the checkpoint is still at B*, more than the cap below h_first(1).
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let h_e = app.state().unwrap().schedule.h_first(1);
+    fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 70, None);
+    jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
+    app.l1().state().calls.clear();
+    assert_eq!(refused(&mut app).await, "back_pressure");
+    assert_eq!(registry_reads(&app), 0, "back-pressure: {:?}", app.l1().calls());
+
+    // Anchor progress: epoch 1 is not open on L1 at the genesis anchor.
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
+    app.l1().state().calls.clear();
+    assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
+    assert_eq!(registry_reads(&app), 0, "anchor progress: {:?}", app.l1().calls());
+
+    // Generation: the new anchor proves a later recovery generation.
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let mut inbox = fx.inbox_with(h_e - 6, &[]);
+    inbox.recovery_generation = 1;
+    fx.advance_l1(app.l1(), 70, &inbox, &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
+    app.l1().state().calls.clear();
+    assert_eq!(refused(&mut app).await, "superseded");
+    assert_eq!(registry_reads(&app), 0, "generation: {:?}", app.l1().calls());
 }

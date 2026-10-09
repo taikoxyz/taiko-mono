@@ -296,21 +296,33 @@ pub(crate) fn expected_header(
     })
 }
 
-/// Steps (b)–(h) of [`validate_block`] on a candidate's witnesses and `extraData` claims.
-///
-/// (b) the anchor witness is required iff the anchor number changes (per the witness, or per
-/// `extraData` when absent), `height == H_0` or `height` is a switch height; a present witness
-/// must verify for `anchor_slots(switch_target(height))`, an absent one inherits the parent's
-/// anchor; (c) anchor progress; (d) the generation triple, an Inbox ahead of the chain being
-/// [`Rejection::Superseded`]; (e) `migrationState == ETNA_ACTIVE`; (f) back-pressure; (g) the
-/// committee witness is required iff `height = h_first(e)` and must prove committee `e + 1`
-/// against the parent's anchor; (h) at a switch height to epoch `t`, D19.
+/// Steps (b)–(h) of [`validate_block`] on a candidate's witnesses and `extraData` claims:
+/// [`check_candidate_anchor`], then [`finish_candidate`].
 pub(crate) fn check_candidate(
     state: &AppState,
     params: &ChainParams,
     height: u64,
     c: &Candidate<'_>,
 ) -> Result<CandidateFacts, Rejection> {
+    let anchor = check_candidate_anchor(state, params, height, c)?;
+    finish_candidate(state, params, height, c.committee, anchor)
+}
+
+/// Steps (b)–(f) of [`validate_block`], which need no committee witness, and the candidate's
+/// anchor they prove.
+///
+/// (b) the anchor witness is required iff the anchor number changes (per the witness, or per
+/// `extraData` when absent), `height == H_0` or `height` is a switch height; a present witness
+/// must verify for `anchor_slots(switch_target(height))`, an absent one inherits the parent's
+/// anchor; (c) anchor progress; (d) the generation triple, an Inbox ahead of the chain being
+/// [`Rejection::Superseded`]; (e) `migrationState == ETNA_ACTIVE`; (f) back-pressure. Ignores
+/// `c.committee`, so `PrepareProposal` runs these cheap checks before it discovers a committee.
+pub(crate) fn check_candidate_anchor(
+    state: &AppState,
+    params: &ChainParams,
+    height: u64,
+    c: &Candidate<'_>,
+) -> Result<AnchorState, Rejection> {
     let schedule = &state.schedule;
     let switch = schedule.switch_target(height);
 
@@ -331,10 +343,22 @@ pub(crate) fn check_candidate(
         anchor.inbox.last_checkpoint_height,
         params.unsettled_cap(),
     )?;
+    Ok(anchor)
+}
 
-    let derived = candidate_committee(state, params, height, c.committee)?;
-    if let Some(t) = switch {
-        check_switch(state, params, schedule, t, &anchor)?;
+/// Steps (g)–(h) of [`validate_block`] on top of the `anchor` [`check_candidate_anchor`]
+/// proved: (g) the committee witness is required iff `height = h_first(e)` and must prove
+/// committee `e + 1` against the parent's anchor; (h) at a switch height to epoch `t`, D19.
+pub(crate) fn finish_candidate(
+    state: &AppState,
+    params: &ChainParams,
+    height: u64,
+    committee: Option<&CommitteeWitness>,
+    anchor: AnchorState,
+) -> Result<CandidateFacts, Rejection> {
+    let derived = candidate_committee(state, params, height, committee)?;
+    if let Some(t) = state.schedule.switch_target(height) {
+        check_switch(state, params, &state.schedule, t, &anchor)?;
     }
     Ok(CandidateFacts { anchor, derived })
 }

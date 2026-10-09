@@ -20,6 +20,7 @@ repository = "https://github.com/taikoxyz/taiko-mono"
 [workspace.dependencies]
 # async
 async-trait = "0.1"
+futures = { version = "0.3", default-features = false, features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"

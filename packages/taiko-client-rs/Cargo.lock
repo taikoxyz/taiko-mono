@@ -17,6 +17,7 @@ dependencies = [
  "alloy-trie",
  "anyhow",
  "async-trait",
+ "futures",
  "once_cell",
  "prometheus",
  "prost 0.13.5",

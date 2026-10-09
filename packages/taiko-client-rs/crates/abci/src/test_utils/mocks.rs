@@ -53,6 +53,28 @@ pub(crate) struct MockL1State {
     pub(crate) delay: Option<Duration>,
     /// Every call, in order.
     pub(crate) calls: Vec<L1Call>,
+    /// Calls currently in progress (started, not yet answered or dropped).
+    pub(crate) in_flight: usize,
+    /// The most calls ever in progress at once.
+    pub(crate) max_in_flight: usize,
+}
+
+/// Counts one [`MockL1`] call as in progress until dropped.
+struct InFlight<'a>(&'a MockL1);
+
+impl<'a> InFlight<'a> {
+    fn new(l1: &'a MockL1) -> Self {
+        let mut state = l1.state();
+        state.in_flight += 1;
+        state.max_in_flight = state.max_in_flight.max(state.in_flight);
+        Self(l1)
+    }
+}
+
+impl Drop for InFlight<'_> {
+    fn drop(&mut self) {
+        self.0.state().in_flight -= 1;
+    }
 }
 
 /// An in-memory L1 node: canonical headers, per-block [`TestState`]s with real proofs, and a
@@ -136,11 +158,13 @@ impl MockL1 {
 #[async_trait]
 impl L1Source for MockL1 {
     async fn finalized_number(&self) -> Result<u64, L1Error> {
+        let _call = InFlight::new(self);
         self.pause().await;
         Ok(self.record(L1Call::Finalized)?.finalized)
     }
 
     async fn canonical_hash(&self, number: u64) -> Result<B256, L1Error> {
+        let _call = InFlight::new(self);
         self.pause().await;
         let state = self.record(L1Call::CanonicalHash(number))?;
         state
@@ -151,6 +175,7 @@ impl L1Source for MockL1 {
     }
 
     async fn header(&self, number: u64) -> Result<RawL1Header, L1Error> {
+        let _call = InFlight::new(self);
         self.pause().await;
         let state = self.record(L1Call::Header(number))?;
         state
@@ -166,6 +191,7 @@ impl L1Source for MockL1 {
         slots: &[B256],
         block: u64,
     ) -> Result<AccountWitness, L1Error> {
+        let _call = InFlight::new(self);
         self.pause().await;
         let state =
             self.record(L1Call::AccountWitness { address, slots: slots.to_vec(), block })?;
@@ -173,6 +199,7 @@ impl L1Source for MockL1 {
     }
 
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
+        let _call = InFlight::new(self);
         self.pause().await;
         let state = self.record(L1Call::StorageAt { address, slot, block })?;
         Ok(Self::state_at(&state, address, block)?.storage(address, slot))
