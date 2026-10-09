@@ -138,9 +138,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// server-range or unknown JSON-RPC error code) and an elapsed deadline are retried on one
     /// [`Backoff`] for the block. A forkchoice update answering `SYNCING` means the EL does not
     /// hold the block (e.g. it restarted since executing it), so the payload is re-sent before
-    /// the next forkchoice attempt. `INVALID` and every other engine error (an Engine API error
-    /// code, a malformed call, a reply of the wrong shape) are the EL's deterministic answer:
-    /// [`AbciError::SafetyHalt`].
+    /// the next forkchoice attempt. A payload answered `SYNCING` means the EL lacks the block's
+    /// ancestry (e.g. it lost its tail), which it only backfills once a forkchoice update points
+    /// it at a head, so the block is sent as `head = safe` right away (with `finalized`) before
+    /// the payload is retried; a `VALID` answer to that nudge settles the block. `INVALID` and
+    /// every other engine error (an Engine API error code, a malformed call, a reply of the
+    /// wrong shape) are the EL's deterministic answer: [`AbciError::SafetyHalt`].
     async fn settle(&self, height: u64, v: &Validated, finalized: B256) -> Result<(), AbciError> {
         let hash = v.block.header.hash_slow();
         let mut executed = v.executed;
@@ -166,7 +169,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         executed = true;
                         continue;
                     }
-                    Settled::Syncing => (method, "the execution engine is syncing".to_string()),
+                    Settled::Syncing => {
+                        let nudge = self.engine.forkchoice(hash, hash, finalized);
+                        let fcu = "engine_forkchoiceUpdated";
+                        if let Settled::Valid = self.el_call(height, fcu, nudge).await? {
+                            return Ok(());
+                        }
+                        (method, "the execution engine is syncing; pointed it at the block".into())
+                    }
                     Settled::Retry(reason) => (method, reason),
                 }
             };
