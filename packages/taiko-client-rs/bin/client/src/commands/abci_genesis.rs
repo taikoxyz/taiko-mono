@@ -5,7 +5,7 @@ use std::{io::Write, path::PathBuf};
 
 use abci::{RpcL1Source, build_genesis};
 use clap::Parser;
-use rpc::client::connect_http_with_timeout;
+use rpc::client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 use url::Url;
@@ -66,7 +66,8 @@ impl AbciGenesisSubCommand {
             .try_init();
 
         let params = load_chain_params(self.l2_chain_id, self.chain_config.as_deref())?;
-        let l1 = RpcL1Source::new(connect_http_with_timeout(self.l1_http.clone()));
+        let l1 =
+            RpcL1Source::new(connect_http_with_timeout(self.l1_http.clone(), DEFAULT_HTTP_TIMEOUT));
         let doc = build_genesis(&l1, &params).await?;
         let mut json = doc.to_json_pretty();
         json.push('\n');

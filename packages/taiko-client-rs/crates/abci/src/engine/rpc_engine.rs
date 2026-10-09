@@ -1,7 +1,7 @@
 //! [`RpcEngine`]: the [`Engine`] trait over alethia-reth's JWT-authenticated Engine API endpoint
 //! (through [`rpc::auth::EngineClient`]) and its public JSON-RPC endpoint (for headers).
 
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::Header;
@@ -15,7 +15,9 @@ use async_trait::async_trait;
 use rpc::{
     RpcClientError,
     auth::EngineClient,
-    client::{build_jwt_http_provider, connect_http_with_timeout, read_jwt_secret},
+    client::{
+        build_jwt_http_provider, connect_http_with_timeout, http_timeout_for, read_jwt_secret,
+    },
 };
 use url::Url;
 
@@ -39,17 +41,35 @@ impl RpcEngine {
     /// Connects to the public endpoint `l2_http` and the Engine API endpoint `l2_auth`, signing
     /// every Engine API request with the hex JWT secret read from `jwt_secret`.
     ///
-    /// Both URLs must be `http`/`https`; no request is sent until the first call (use
-    /// [`Engine::check_capabilities`] at startup). Fails with [`EngineError::Setup`] on another
-    /// scheme or an unreadable secret.
-    pub fn new(l2_http: Url, l2_auth: Url, jwt_secret: &Path) -> Result<Self, EngineError> {
-        for (flag, url) in [("l2.http", &l2_http), ("l2.auth", &l2_auth)] {
-            if !matches!(url.scheme(), "http" | "https") {
-                return Err(EngineError::Setup(format!(
-                    "{flag} {url}: unsupported URL scheme `{}` (want http or https)",
-                    url.scheme()
-                )));
-            }
+    /// `l2_http` must be `http` or `https`; `l2_auth` must be plain `http`, as the JWT client
+    /// speaks no TLS (serve the Engine API on a local or private network). No request is sent
+    /// until the first call (use [`Engine::check_capabilities`] at startup). Fails with
+    /// [`EngineError::Setup`] on another scheme or an unreadable secret.
+    ///
+    /// `call_timeout` is the caller's deadline for one call
+    /// ([`AppOptions::engine_timeout`](crate::AppOptions)); every HTTP request times out after
+    /// [`http_timeout_for`]`(call_timeout)`, so the transport never cuts a call short of it.
+    pub fn new(
+        l2_http: Url,
+        l2_auth: Url,
+        jwt_secret: &Path,
+        call_timeout: Duration,
+    ) -> Result<Self, EngineError> {
+        let scheme_error = |flag: &str, url: &Url, want: &str| {
+            EngineError::Setup(format!(
+                "{flag} {url}: unsupported URL scheme `{}` (want {want})",
+                url.scheme()
+            ))
+        };
+        if !matches!(l2_http.scheme(), "http" | "https") {
+            return Err(scheme_error("l2.http", &l2_http, "http or https"));
+        }
+        if l2_auth.scheme() != "http" {
+            return Err(scheme_error(
+                "l2.auth",
+                &l2_auth,
+                "http: the JWT-authenticated Engine API client speaks plain HTTP only",
+            ));
         }
         let secret = read_jwt_secret(jwt_secret).ok_or_else(|| {
             EngineError::Setup(format!(
@@ -57,10 +77,11 @@ impl RpcEngine {
                 jwt_secret.display()
             ))
         })?;
+        let timeout = http_timeout_for(call_timeout);
         Ok(Self::from_parts(
-            connect_http_with_timeout(l2_http.clone()),
+            connect_http_with_timeout(l2_http.clone(), timeout),
             l2_http.to_string(),
-            build_jwt_http_provider(l2_auth.clone(), secret),
+            build_jwt_http_provider(l2_auth.clone(), secret, timeout),
             l2_auth.to_string(),
         ))
     }
@@ -750,18 +771,32 @@ mod tests {
         );
     }
 
+    /// The public endpoint may use TLS; the JWT client speaks plain HTTP only, so an `https`
+    /// Engine API endpoint is refused at startup instead of failing every call.
     #[test]
     fn new_validates_schemes_and_the_jwt_secret() {
         let jwt = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/docker/jwt.hex"));
         let http = |s: &str| Url::parse(s).unwrap();
+        let new = |l2: &str, auth: &str, jwt: &Path| {
+            RpcEngine::new(http(l2), http(auth), jwt, Duration::from_secs(5))
+        };
 
-        assert!(RpcEngine::new(http(L2), http(AUTH), jwt).is_ok());
-        for (l2, auth) in [("ws://l2.test", AUTH), (L2, "ipc://auth.test")] {
-            let err = RpcEngine::new(http(l2), http(auth), jwt).unwrap_err();
-            assert!(matches!(&err, EngineError::Setup(msg) if msg.contains("scheme")), "{err:?}");
+        assert!(new(L2, AUTH, jwt).is_ok());
+        assert!(new("https://l2.test/", AUTH, jwt).is_ok());
+        for (l2, auth, flag) in [
+            ("ws://l2.test", AUTH, "l2.http"),
+            (L2, "ipc://auth.test", "l2.auth"),
+            (L2, "https://auth.test", "l2.auth"),
+        ] {
+            let err = new(l2, auth, jwt).unwrap_err();
+            assert!(
+                matches!(&err, EngineError::Setup(msg) if msg.starts_with(flag) && msg.contains("scheme")),
+                "{l2} {auth}: {err:?}"
+            );
         }
-        let err =
-            RpcEngine::new(http(L2), http(AUTH), Path::new("/nonexistent/jwt.hex")).unwrap_err();
+        let err = new(L2, "https://auth.test", jwt).unwrap_err().to_string();
+        assert!(err.contains("plain HTTP only"), "{err}");
+        let err = new(L2, AUTH, Path::new("/nonexistent/jwt.hex")).unwrap_err();
         assert!(
             matches!(&err, EngineError::Setup(msg) if msg.contains("/nonexistent/jwt.hex")),
             "{err:?}"

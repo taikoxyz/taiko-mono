@@ -15,7 +15,7 @@ use std::{
 
 use abci::{App, AppOptions, ChainParams, Engine, RpcEngine, RpcL1Source, Store, serve_with};
 use anyhow::{Context, Result, anyhow, ensure};
-use rpc::client::connect_http_with_timeout;
+use rpc::client::{connect_http_with_timeout, http_timeout_for};
 use tokio::{net::TcpStream, sync::oneshot};
 use url::Url;
 
@@ -222,7 +222,9 @@ fn run(
 
 /// Waits for the EL's Engine API and builds the app over its store.
 async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
-    let engine = RpcEngine::new(c.reth.http.clone(), c.reth.auth.clone(), &c.jwt)?;
+    let opts = AppOptions::default();
+    let engine =
+        RpcEngine::new(c.reth.http.clone(), c.reth.auth.clone(), &c.jwt, opts.engine_timeout)?;
     let engine_ref = &engine;
     wait_until(
         &format!("engine API of alethia-reth {}", c.index),
@@ -235,9 +237,12 @@ async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
     )
     .await?;
     fs::create_dir_all(&c.store_dir)?;
-    let l1 = RpcL1Source::new(connect_http_with_timeout(c.l1_http.clone()));
+    let l1 = RpcL1Source::new(connect_http_with_timeout(
+        c.l1_http.clone(),
+        http_timeout_for(opts.l1_timeout),
+    ));
     let store = Store::new(c.store_dir.clone());
-    Ok(App::new(l1, engine, c.params.clone(), store, AppOptions::default())?)
+    Ok(App::new(l1, engine, c.params.clone(), store, opts)?)
 }
 
 /// A free host port (bound on all interfaces, then released).

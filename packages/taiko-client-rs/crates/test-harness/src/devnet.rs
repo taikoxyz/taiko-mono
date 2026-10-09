@@ -11,7 +11,7 @@ use abci::{ActivationRecord, ChainParams, GenesisDoc, RegistryEntry, Schedule, S
 use alloy_primitives::U256;
 use alloy_provider::RootProvider;
 use anyhow::{Result, anyhow, ensure};
-use rpc::client::connect_http_with_timeout;
+use rpc::client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout};
 use tempfile::TempDir;
 use tracing_subscriber::EnvFilter;
 use url::Url;
@@ -222,7 +222,7 @@ impl Devnet {
 
     /// A provider for alethia-reth `i`.
     pub fn l2_provider(&self, i: usize) -> RootProvider {
-        connect_http_with_timeout(self.l2_http(i))
+        connect_http_with_timeout(self.l2_http(i), DEFAULT_HTTP_TIMEOUT)
     }
 
     /// The RPC URL of CometBFT node `i`.
