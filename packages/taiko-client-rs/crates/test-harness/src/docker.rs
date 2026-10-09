@@ -1,6 +1,9 @@
 //! The docker CLI: one private network and the containers started on it, removed on drop.
 
-use std::process::{Command, Output};
+use std::{
+    process::{Command, Output},
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use anyhow::{Context, Result, bail};
 
@@ -49,7 +52,7 @@ pub(crate) async fn host_port(container: &str, container_port: u16) -> Result<u1
 /// One devnet's docker resources: a private network and the containers started on it.
 ///
 /// Dropping it without [`DockerEnv::cleanup`] removes everything (blocking) and, while
-/// panicking, first prints the tail of every container's log.
+/// panicking, first prints the tail of every container's log unless it was already printed.
 #[derive(Debug)]
 pub(crate) struct DockerEnv {
     /// The network name.
@@ -60,13 +63,20 @@ pub(crate) struct DockerEnv {
     network_created: bool,
     /// Whether everything was already removed.
     cleaned: bool,
+    /// Whether [`DockerEnv::dump_logs`] ran.
+    logs_dumped: AtomicBool,
 }
 
 impl DockerEnv {
     /// Creates the network `name`.
     pub(crate) async fn create(name: String) -> Result<Self> {
-        let mut env =
-            Self { network: name, containers: Vec::new(), network_created: false, cleaned: false };
+        let mut env = Self {
+            network: name,
+            containers: Vec::new(),
+            network_created: false,
+            cleaned: false,
+            logs_dumped: AtomicBool::new(false),
+        };
         docker(&["network", "create", &env.network]).await?;
         env.network_created = true;
         Ok(env)
@@ -86,8 +96,14 @@ impl DockerEnv {
         docker(&full).await.map(drop)
     }
 
+    /// Whether [`DockerEnv::dump_logs`] already ran.
+    pub(crate) fn logs_dumped(&self) -> bool {
+        self.logs_dumped.load(Ordering::Relaxed)
+    }
+
     /// Prints `docker logs --tail 200` of every container to stderr.
     pub(crate) fn dump_logs(&self) {
+        self.logs_dumped.store(true, Ordering::Relaxed);
         for name in &self.containers {
             eprintln!("===== docker logs --tail 200 {name} =====");
             match Command::new("docker").args(["logs", "--tail", "200", name]).output() {
@@ -139,12 +155,13 @@ impl DockerEnv {
 }
 
 impl Drop for DockerEnv {
-    /// Removes what is left, printing the container logs first while panicking.
+    /// Removes what is left, printing the container logs first while panicking (unless they
+    /// were already printed).
     fn drop(&mut self) {
         if self.cleaned {
             return;
         }
-        if std::thread::panicking() {
+        if std::thread::panicking() && !self.logs_dumped() {
             self.dump_logs();
         }
         self.cleanup_blocking();

@@ -10,7 +10,7 @@ use std::{
 use abci::{ActivationRecord, ChainParams, GenesisDoc, RegistryEntry, Schedule, Status};
 use alloy_primitives::U256;
 use alloy_provider::RootProvider;
-use anyhow::{Result, bail, ensure};
+use anyhow::{Result, anyhow, ensure};
 use rpc::client::connect_http_with_timeout;
 use tempfile::TempDir;
 use tracing_subscriber::EnvFilter;
@@ -25,7 +25,7 @@ use crate::{
     l1::set_interval_mining,
     lander::Lander,
     planter::{Planter, registry_entry},
-    wait::wait_until,
+    wait::{Fatal, wait_until},
 };
 
 /// Shape of a devnet.
@@ -119,6 +119,8 @@ pub struct Devnet {
     docker: DockerEnv,
     /// CometBFT homes and app stores (deleted last).
     tmp: TempDir,
+    /// Whether [`Devnet::stop`] succeeded; otherwise dropping prints the diagnostics.
+    stopped: bool,
 }
 
 impl Devnet {
@@ -149,6 +151,7 @@ impl Devnet {
                     planter: b.planter,
                     docker,
                     tmp,
+                    stopped: false,
                 })
             }
             Err(e) => {
@@ -323,18 +326,23 @@ impl Devnet {
     }
 
     /// Waits until CometBFT node `i` committed height `h`; returns the height reached. Fails on
-    /// timeout or when app `i` halts.
+    /// timeout, or at once when app `i` halts; on failure it first prints each app's halt reason
+    /// and the tail of every container's log.
     pub async fn wait_for_height(&self, i: usize, h: u64, timeout: Duration) -> Result<u64> {
         let what = format!("CometBFT node {i} at height {h}");
         wait_until(&what, timeout, POLL, || async move {
             if let Some(reason) = self.app_halt(i) {
-                bail!("app {i} halted: {reason}");
+                return Err(Fatal(anyhow!("app {i} halted: {reason}")).into());
             }
             let height = self.cmt[i].latest_height().await?;
             Ok((height >= h).then_some(height))
         })
         .await
-        .inspect_err(|_| self.print_statuses())
+        .inspect_err(|e| {
+            eprintln!("devnet {}: {e:#}", self.id);
+            self.print_statuses();
+            self.docker.dump_logs();
+        })
     }
 
     /// CometBFT node `i`'s latest height and validator set.
@@ -347,19 +355,23 @@ impl Devnet {
         self.cmt[i].abci_status().await
     }
 
-    /// Prints `docker logs --tail 200` of every container.
+    /// Prints `docker logs --tail 200` of every container (a later drop without a successful
+    /// [`Devnet::stop`] does not print them again).
     pub fn dump_logs(&self) {
         self.docker.dump_logs();
     }
 
     /// Stops the devnet: the lander and the apps, then every container and the network; the
-    /// temporary directories go when `self` drops.
+    /// temporary directories go when `self` drops. Only a successful stop spares the drop's
+    /// diagnostics.
     pub async fn stop(mut self) -> Result<()> {
         self.lander.stop();
         for app in &mut self.apps {
             app.stop().await;
         }
-        self.docker.cleanup().await
+        self.docker.cleanup().await?;
+        self.stopped = true;
+        Ok(())
     }
 
     /// Prints each app's halt reason (best effort, for failure diagnostics).
@@ -373,13 +385,18 @@ impl Devnet {
 }
 
 impl Drop for Devnet {
-    /// Stops the lander; the apps stop as they drop (joining their threads), then the docker
-    /// environment removes the containers (printing their logs first while panicking) and the
-    /// temporary directories go.
+    /// Stops the lander, then, when [`Devnet::stop`] did not succeed (the scenario panicked or
+    /// returned an error), prints each app's halt reason and the tail of every container's log
+    /// while everything still runs, unless a failed [`Devnet::wait_for_height`] or
+    /// [`Devnet::dump_logs`] already printed the logs. The apps then stop as they drop (joining
+    /// their threads), the docker environment removes the containers and the temporary
+    /// directories go.
     fn drop(&mut self) {
         self.lander.stop();
-        if std::thread::panicking() {
+        if !self.stopped && !self.docker.logs_dumped() {
+            eprintln!("devnet {} dropped without a successful stop()", self.id);
             self.print_statuses();
+            self.docker.dump_logs();
         }
     }
 }
