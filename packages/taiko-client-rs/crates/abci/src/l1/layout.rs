@@ -81,6 +81,11 @@ pub mod inbox {
 /// read at block `checkpoints[i].l1Block` (or any later block before `checkpoints[i + 1].l1Block`)
 /// are checkpoint `i`'s snapshot. Entry reads are discovery only: a committee witness carries the
 /// entries and `committee::verify_snapshot` checks them against the proven `entriesRoot`.
+///
+/// The contract must refuse to register a `pubkey` that any non-exited entry holds (ideally
+/// requiring a proof of possession of the key). The node keeps only the lowest `bondId` among
+/// eligible entries sharing a pubkey (`committee::derive`), so a squatting entry cannot halt the
+/// chain, but that is defence in depth, not a substitute.
 pub mod registry {
     use alloy_primitives::{B256, U256, keccak256};
 

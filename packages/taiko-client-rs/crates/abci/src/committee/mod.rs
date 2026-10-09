@@ -3,9 +3,17 @@
 //! A committee witness proves one registry checkpoint (`checkpoints.length`, `checkpoints[i]`
 //! and, when it exists, `checkpoints[i + 1].l1Block`) plus all of that checkpoint's entries.
 //! [`verify_snapshot`] checks that the checkpoint is the last one at or before the cutoff and that
-//! the entries hash to its `entriesRoot`; [`derive`] then applies eligibility, the `N_MAX` cap and
-//! the voting-power mapping to build the [`CommitteeRecord`] and its members. Both are pure, so
-//! the guest can run them unchanged.
+//! the entries hash to its `entriesRoot`; [`derive`] then applies eligibility, one member per
+//! pubkey (the lowest `bondId` wins), the `N_MAX` cap and the voting-power mapping to build the
+//! [`CommitteeRecord`] and its members. Both are pure, so the guest can run them unchanged.
+//!
+//! A derivation failure at `H_e` is permanent: the cutoff and the snapshot checkpoint follow from
+//! the committed parent's anchor, so no block at `H_e` can ever carry a valid committee witness,
+//! and only a recovery generation restarts the chain (no eligible entry, [`CommitteeError::Empty`],
+//! is such a halt). Hence [`derive`] does not reject a snapshot with a duplicate pubkey, which one
+//! squatting bond copying a sitting validator's key would create: it drops the later entries. The
+//! registry contract must still refuse a pubkey that any non-exited entry holds (see
+//! `l1::layout`); the node's rule is defence in depth.
 //!
 //! Every hash is `keccak256`; `abi.encode` of static types is the concatenation of 32-byte
 //! big-endian words, and `bytes32` domain tags are right-padded ASCII.
@@ -130,10 +138,8 @@ pub enum CommitteeError {
     /// The target epoch has no MEM-08 `k = targetEpoch − e_0 + 1` in `u64`.
     #[error("target epoch {0} has no MEM-08 k")]
     EpochOutOfRange(u64),
-    /// Two eligible entries share a consensus public key (invalid snapshot).
-    #[error("duplicate eligible pubkey {0}")]
-    DuplicatePubkey(B256),
-    /// No entry is eligible (liveness halt).
+    /// No entry is eligible. At `H_e` this halts the chain for good (the snapshot is fixed by
+    /// the committed parent's anchor) until a recovery generation restarts it.
     #[error("no eligible registry entry")]
     Empty,
     /// A member's voting power `effStake / VP_UNIT` does not fit `u64`.
@@ -345,10 +351,13 @@ pub fn verify_snapshot(
 ///
 /// An entry is eligible iff `active_from_l1 <= cutoff < exit_effective_l1`,
 /// `eff_stake >= max(s_min, vp_unit)`, `last_heartbeat_at > 0` and
-/// `last_heartbeat_at + heartbeat_window >= cutoff` (saturating). Duplicate pubkeys among the
-/// eligible entries reject the snapshot. If more than `n_max` remain, the first `n_max` by
-/// (`eff_stake` descending, MEM-08 key ascending) are kept. Each member's power is
-/// `eff_stake / vp_unit`; the total must not exceed [`MAX_TOTAL_POWER`].
+/// `last_heartbeat_at + heartbeat_window >= cutoff` (saturating). Among eligible entries that
+/// share a pubkey only the one with the lowest `bondId` (index in the snapshot, i.e. the earliest
+/// registration) is kept: a later entry copying a sitting validator's key changes nothing
+/// (defence in depth; the registry must refuse such a registration, see the module docs). If
+/// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, MEM-08 key ascending)
+/// are kept. Each member's power is `eff_stake / vp_unit`; the total must not exceed
+/// [`MAX_TOTAL_POWER`]. No eligible entry is [`CommitteeError::Empty`].
 pub fn derive(
     snapshot: &Snapshot,
     cutoff: u64,
@@ -364,17 +373,20 @@ pub fn derive(
         .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
     let min_stake = params.s_min.max(params.vp_unit);
 
-    let mut eligible: Vec<(B256, &RegistryEntry)> = snapshot
+    // `(MEM-08 key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
+    let mut eligible: Vec<(B256, usize, &RegistryEntry)> = snapshot
         .entries
         .iter()
-        .filter(|e| is_eligible(e, cutoff, min_stake, params.heartbeat_window))
-        .map(|e| (mem08_key(params.l2_chain_id, e.pubkey), e))
+        .enumerate()
+        .filter(|(_, e)| is_eligible(e, cutoff, min_stake, params.heartbeat_window))
+        .map(|(bond_id, e)| (mem08_key(params.l2_chain_id, e.pubkey), bond_id, e))
         .collect();
-    eligible.sort_by_key(|(key, _)| *key);
-    // Equal pubkeys have equal keys, so after the sort duplicates are adjacent.
-    if let Some(pair) = eligible.windows(2).find(|pair| pair[0].0 == pair[1].0) {
-        return Err(CommitteeError::DuplicatePubkey(pair[0].1.pubkey));
-    }
+    // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
+    // lowest bondId first, and `dedup_by_key` keeps exactly that one.
+    eligible.sort_by_key(|(key, bond_id, _)| (*key, *bond_id));
+    eligible.dedup_by_key(|(key, _, _)| *key);
+    let mut eligible: Vec<(B256, &RegistryEntry)> =
+        eligible.into_iter().map(|(key, _, e)| (key, e)).collect();
     if eligible.len() > params.n_max {
         eligible.sort_by(|a, b| b.1.eff_stake.cmp(&a.1.eff_stake).then(a.0.cmp(&b.0)));
         eligible.truncate(params.n_max);
