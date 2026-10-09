@@ -55,9 +55,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`Rejection::EmptyProposal`]; the transactions must be exactly one envelope;
     /// [`validate_block`] with the request's BFT time; a present anchor witness must be
     /// final and canonical in the own L1 view (L1 is not called when it is absent); the EL must
-    /// execute the block as `VALID`. An Inbox ahead of the chain is reported as
-    /// [`Rejection::Superseded`] only once its anchor is final and canonical: a forged L1 header
-    /// could claim any generation.
+    /// execute the block as `VALID`. An Inbox ahead of the chain ([`Rejection::Superseded`],
+    /// which stops the node for good) and a record conflict ([`Rejection::RecordConflict`], an
+    /// ERROR asking an operator to investigate) are reported only once their anchor is final and
+    /// canonical, as a forged L1 header could prove any generation or record; otherwise the
+    /// anchor's own failure is.
     async fn judge(
         &self,
         state: &AppState,
@@ -74,12 +76,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let height = req.height.value();
         let validated =
             match validate_block(state, &self.params, &env, height, super::unix_secs(req.time)) {
-                Err(superseded @ Rejection::Superseded { .. }) => {
+                Err(
+                    l1_fact @ (Rejection::Superseded { .. } | Rejection::RecordConflict { .. }),
+                ) => {
                     // Without a witness the facts are the committed parent's, already trusted.
                     if let Some(w) = &env.anchor {
                         self.check_anchor_final(w).await?;
                     }
-                    return Err(superseded);
+                    return Err(l1_fact);
                 }
                 other => other?,
             };

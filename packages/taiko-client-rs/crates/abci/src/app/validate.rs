@@ -130,8 +130,9 @@ pub enum Rejection {
     },
     /// At the switch height to epoch `t`, the anchored `committee[t]` is a non-zero hash other
     /// than the derived record's: L1 and the chain hold two different records for one epoch.
-    /// Still refused like any proposal, but logged at ERROR, as an operator must
-    /// investigate.
+    /// Still refused like any proposal, but logged at ERROR, as an operator must investigate;
+    /// `ProcessProposal` reports it only once the anchor is final and canonical in the own L1
+    /// view (`anchor_not_final` otherwise), so a forged L1 header cannot raise the alarm.
     #[error(
         "committee[{epoch}] on L1 is {proven}, but the chain derived the record hash {expected}"
     )]
