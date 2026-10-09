@@ -11,8 +11,9 @@
 //! chain, so back-pressure and the epoch switch never stall a scenario unless the test pauses it.
 //!
 //! Dropping a [`Devnet`] (or awaiting [`Devnet::stop`]) stops the apps, removes every container
-//! and the network and deletes the temporary directories; on a panic it first prints the tail of
-//! every container's log.
+//! and the network and deletes the temporary directories. Dropping it without a successful
+//! [`Devnet::stop`] (a scenario that panics or returns an error) first prints each app's halt
+//! reason and the tail of every container's log, as does a failed [`Devnet::wait_for_height`].
 
 mod app;
 mod boot;
@@ -35,4 +36,4 @@ pub use l1::{
 };
 pub use l2::{DEV_KEY, dev_signer, send_transfer};
 pub use planter::{InboxValues, NextBlock, Planter, registry_entry};
-pub use wait::wait_until;
+pub use wait::{Fatal, wait_until};

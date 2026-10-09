@@ -45,7 +45,7 @@
 
 - `just unit` runs only the unit tests (everything outside `tests/` dirs) with no docker — use it for fast iteration. Unit tests live next to the code (`#[cfg(test)] mod tests`); abci's shared builders live in `crates/abci/src/test_utils*`.
 - `just test` runs the abci docker scenarios through `tests/entrypoint.sh`: it checks docker, pulls the anvil, alethia-reth and CometBFT images (override with `ANVIL_IMAGE`, `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE`; `PULL_POLICY=missing` reuses local images) and runs the scenarios serially with the nextest `integration` profile, since each boots its own devnet. Extra args go to nextest, e.g. `just test restart` for one scenario.
-- Name tests after observable behavior (e.g., `handles_invalid_proposal`). The harness prints every container's log tail when a scenario panics or its devnet fails to boot; keep that output for any failing integration case.
+- Name tests after observable behavior (e.g., `handles_invalid_proposal`). The harness prints every container's log tail when a scenario fails (panics, returns an error or times out waiting for a height) or its devnet fails to boot; keep that output for any failing integration case.
 - Targeted verification is fine while iterating, but completion still requires a final full `just fmt && just clippy && just unit && just test` pass with clean output.
 
 ## Commit & Pull Request Guidelines

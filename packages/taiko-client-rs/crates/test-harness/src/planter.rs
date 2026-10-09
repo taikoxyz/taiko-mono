@@ -142,12 +142,30 @@ impl Planter {
     }
 
     /// Pauses interval mining and returns the section whose writes land in exactly the next
-    /// block; [`NextBlock::commit`] mines it and resumes interval mining.
+    /// block; [`NextBlock::commit`] mines it and resumes interval mining. If pausing or reading
+    /// the block number fails, interval mining is resumed before the error is returned.
     pub async fn next_block(&self) -> Result<NextBlock> {
         let guard = self.mining.clone().lock_owned().await;
-        set_interval_mining(&self.l1, 0).await?;
-        let number = block_number(&self.l1).await? + 1;
-        Ok(NextBlock { planter: self.clone(), number, sent: Vec::new(), guard: Some(guard) })
+        // The number must be read while paused, or a block could be mined in between.
+        let paused = async {
+            set_interval_mining(&self.l1, 0).await?;
+            block_number(&self.l1).await
+        }
+        .await;
+        match paused {
+            Ok(latest) => Ok(NextBlock {
+                planter: self.clone(),
+                number: latest + 1,
+                sent: Vec::new(),
+                guard: Some(guard),
+            }),
+            Err(e) => {
+                if let Err(resume) = set_interval_mining(&self.l1, 1).await {
+                    eprintln!("resuming L1 interval mining: {resume:#}");
+                }
+                Err(e)
+            }
+        }
     }
 
     /// Writes the present fields of `v` into the Inbox and waits until the transaction is mined
