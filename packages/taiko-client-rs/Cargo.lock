@@ -10,15 +10,21 @@ dependencies = [
  "alloy-consensus 1.8.3",
  "alloy-eips 1.8.3",
  "alloy-primitives",
+ "alloy-provider",
  "alloy-rlp",
  "alloy-rpc-types-engine 1.8.3",
+ "alloy-transport",
  "alloy-trie",
+ "async-trait",
  "protocol",
+ "rpc",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
+ "tokio",
  "toml",
+ "url",
 ]
 
 [[package]]

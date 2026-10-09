@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_primitives::{B256, Bytes};
-use alloy_provider::Provider;
+use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV5, ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId,
     PayloadStatus,
@@ -98,7 +98,23 @@ pub fn check_engine_capabilities(advertised: Vec<String>) -> Result<()> {
     }
 }
 
-impl Client {
+/// Engine API client over one JWT-authenticated provider.
+///
+/// Holds nothing but the provider, so callers that never talk to L1 (the `abci` crate) can drive
+/// the execution engine without building a full [`Client`]; [`Client`] delegates its Engine API
+/// methods here.
+#[derive(Clone, Debug)]
+pub struct EngineClient {
+    /// JWT-authenticated provider for the execution engine's auth RPC endpoint.
+    pub provider: RootProvider,
+}
+
+impl EngineClient {
+    /// Wrap an already-authenticated provider (see [`crate::client::build_jwt_http_provider`]).
+    pub const fn new(provider: RootProvider) -> Self {
+        Self { provider }
+    }
+
     /// Verify through `engine_exchangeCapabilities` that the execution engine serves every
     /// method in [`REQUIRED_ENGINE_METHODS`] ([`check_engine_capabilities`]).
     ///
@@ -106,7 +122,7 @@ impl Client {
     /// it with this client fails here at startup instead of on the first Engine API call.
     pub async fn check_engine_capabilities(&self) -> Result<()> {
         let advertised = self
-            .l2_auth_provider
+            .provider
             .raw_request(Cow::Borrowed("engine_exchangeCapabilities"), (REQUIRED_ENGINE_METHODS,))
             .await?;
         check_engine_capabilities(advertised)
@@ -127,7 +143,7 @@ impl Client {
         let params =
             engine_forkchoice_updated_v3_params(forkchoice_state, payload_attributes.as_ref())?;
 
-        self.l2_auth_provider
+        self.provider
             .raw_request(Cow::Borrowed("engine_forkchoiceUpdatedV3"), params)
             .await
             .map_err(Into::into)
@@ -142,7 +158,7 @@ impl Client {
         &self,
         payload_id: PayloadId,
     ) -> Result<ExecutionPayloadEnvelopeV5> {
-        self.l2_auth_provider
+        self.provider
             .raw_request(Cow::Borrowed("engine_getPayloadV5"), (payload_id,))
             .await
             .map_err(Into::into)
@@ -162,10 +178,51 @@ impl Client {
         let params =
             engine_new_payload_v4_params(payload, header_difficulty, parent_beacon_block_root)?;
 
-        self.l2_auth_provider
+        self.provider
             .raw_request(Cow::Borrowed("engine_newPayloadV4"), params)
             .await
             .map_err(Into::into)
+    }
+}
+
+impl Client {
+    /// An [`EngineClient`] over this client's `l2_auth_provider`.
+    pub fn engine(&self) -> EngineClient {
+        EngineClient::new(self.l2_auth_provider.clone())
+    }
+
+    /// [`EngineClient::check_engine_capabilities`] over `l2_auth_provider`.
+    pub async fn check_engine_capabilities(&self) -> Result<()> {
+        self.engine().check_engine_capabilities().await
+    }
+
+    /// [`EngineClient::engine_forkchoice_updated_v3`] over `l2_auth_provider`.
+    pub async fn engine_forkchoice_updated_v3(
+        &self,
+        forkchoice_state: ForkchoiceState,
+        payload_attributes: Option<TaikoPayloadAttributes>,
+    ) -> Result<ForkchoiceUpdated> {
+        self.engine().engine_forkchoice_updated_v3(forkchoice_state, payload_attributes).await
+    }
+
+    /// [`EngineClient::engine_get_payload_v5`] over `l2_auth_provider`.
+    pub async fn engine_get_payload_v5(
+        &self,
+        payload_id: PayloadId,
+    ) -> Result<ExecutionPayloadEnvelopeV5> {
+        self.engine().engine_get_payload_v5(payload_id).await
+    }
+
+    /// [`EngineClient::engine_new_payload_v4`] over `l2_auth_provider`.
+    pub async fn engine_new_payload_v4(
+        &self,
+        payload: &ExecutionPayloadV3,
+        header_difficulty: u64,
+        parent_beacon_block_root: B256,
+    ) -> Result<PayloadStatus> {
+        self.engine()
+            .engine_new_payload_v4(payload, header_difficulty, parent_beacon_block_root)
+            .await
     }
 }
 

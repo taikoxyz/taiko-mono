@@ -7,17 +7,20 @@
 //! inside the block as an L1 header plus EIP-1186 proofs, so replay never calls L1.
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::layout`, `l1::mpt`, `l1::witness`,
-//! `committee`, `rules` and `engine::convert` modules perform no I/O.
+//! `committee`, `rules` and `engine::convert` modules perform no I/O; `l1::source`, `engine` and
+//! `elsync` hold the L1 and execution-engine adapters.
 
 /// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
 pub mod committee;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
-/// Engine API payload conversion for alethia-reth #248.
+/// Execution-layer sync to a trusted head over devp2p.
+pub mod elsync;
+/// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #248.
 pub mod engine;
 /// The CometBFT block envelope codec (`0x01 || rlp([block, anchor, committee])`).
 pub mod envelope;
-/// L1 storage layout, EIP-1186 proof verification and Inbox witness decoding.
+/// L1 storage layout, EIP-1186 proof verification, Inbox witness decoding and the L1 source.
 pub mod l1;
 /// Header derivation and block-validity predicates (spec §4.2, §5.4).
 pub mod rules;
@@ -33,11 +36,15 @@ pub(crate) mod test_utils;
 
 pub use committee::{CommitteeError, Snapshot};
 pub use config::{ChainParams, ConfigError};
-pub use engine::{EngineError, block_from_payload, payload_from_block};
+pub use elsync::{ElSyncError, ensure_block};
+pub use engine::{
+    Engine, EngineError, PayloadVerdict, RpcEngine, block_from_payload, payload_from_block,
+};
 pub use envelope::{
     AnchorWitness, CommitteeWitness, ENVELOPE_VERSION, EnvelopeError, EtnaEnvelope, ExecutionBlock,
     single_envelope,
 };
+pub use l1::{L1Error, L1Source, RpcL1Source, is_final_canonical};
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
 pub use schedule::{Schedule, ScheduleError};
 pub use store::{AppState, CommitteeState, Store, StoreError};
