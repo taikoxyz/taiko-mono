@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use alloy_consensus::Header;
 use alloy_primitives::B256;
 use tendermint::abci::{Code, request::CheckTxKind};
 
@@ -15,6 +16,7 @@ use crate::{
     schedule::ScheduleError,
     store::CommitteeState,
     test_utils::{EngineCall, MockEngine},
+    types::ParentInfo,
 };
 
 #[tokio::test]
@@ -32,14 +34,20 @@ async fn info_before_init_chain_reports_height_zero() {
     assert!(app.engine().calls().is_empty(), "nothing to reconcile before InitChain");
 }
 
+/// Before the first PoS block CometBFT's store is empty: it accepts only an app at height 0
+/// (and then re-sends InitChain).
 #[tokio::test]
-async fn info_after_init_chain_reports_the_genesis_anchor() {
+async fn info_at_genesis_reports_height_zero() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let resp = info(&mut app).await.expect("Info succeeds");
-    assert_eq!(resp.last_block_height.value(), fx.activation.genesis_height);
-    assert_eq!(resp.last_block_app_hash.as_bytes(), fx.genesis_hash().as_slice());
+    assert_eq!(resp.last_block_height.value(), 0);
+    assert!(resp.last_block_app_hash.as_bytes().is_empty());
+    assert!(
+        app.engine().calls().contains(&EngineCall::HeaderByNumber(fx.activation.genesis_height)),
+        "the EL is still reconciled with B*"
+    );
 }
 
 #[tokio::test]
@@ -51,8 +59,39 @@ async fn app_new_reloads_the_persisted_state() {
     let mut app = fx.app(dir.path());
     assert_eq!(app.state(), Some(&fx.expected_state()));
     let resp = info(&mut app).await.expect("Info succeeds");
-    assert_eq!(resp.last_block_height.value(), fx.activation.genesis_height);
-    assert_eq!(resp.last_block_app_hash.as_bytes(), fx.genesis_hash().as_slice());
+    assert_eq!(resp.last_block_height.value(), 0, "still at genesis");
+    assert!(resp.last_block_app_hash.as_bytes().is_empty());
+}
+
+#[tokio::test]
+async fn info_after_the_first_block_reports_the_committed_head() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let b_star = fx.el_chain.last().unwrap().clone();
+    let first = Header {
+        number: b_star.number + 1,
+        parent_hash: b_star.hash_slow(),
+        timestamp: b_star.timestamp + 2,
+        ..b_star.clone()
+    };
+    let mut state = fx.expected_state();
+    state.last_height = first.number;
+    state.parent = ParentInfo {
+        number: first.number,
+        hash: first.hash_slow(),
+        grandparent_timestamp: b_star.timestamp,
+        timestamp: first.timestamp,
+        ..state.parent
+    };
+    Store::new(dir.path().to_path_buf()).save(&state).unwrap();
+
+    let mut chain = fx.el_chain.clone();
+    chain.push(first.clone());
+    let engine = MockEngine::with_chain(chain);
+    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let resp = info(&mut app).await.expect("Info succeeds");
+    assert_eq!(resp.last_block_height.value(), first.number);
+    assert_eq!(resp.last_block_app_hash.as_bytes(), first.hash_slow().as_slice());
 }
 
 #[tokio::test]
@@ -68,7 +107,7 @@ async fn info_syncs_an_el_missing_the_committed_block() {
     }
     let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
     let resp = info(&mut app).await.expect("Info succeeds after the EL sync");
-    assert_eq!(resp.last_block_height.value(), fx.activation.genesis_height);
+    assert_eq!(resp.last_block_height.value(), 0, "still at genesis");
     let h = fx.genesis_hash();
     assert!(
         app.engine().calls().contains(&EngineCall::Forkchoice {

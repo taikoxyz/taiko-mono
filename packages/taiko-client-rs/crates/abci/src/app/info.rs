@@ -7,7 +7,8 @@ use tendermint::{
 };
 
 use super::{
-    APP_NAME, APP_VERSION, AbciError, App, ELSYNC_POLL, app_hash, cometbft_height, within,
+    APP_NAME, APP_VERSION, AbciError, App, ELSYNC_POLL, app_hash, at_genesis, cometbft_height,
+    within,
 };
 use crate::{elsync::ensure_block, engine::Engine, l1::L1Source, store::AppState};
 
@@ -18,17 +19,23 @@ pub const CODE_REJECTED: u32 = 1;
 pub const CHECK_TX_LOG: &str = "transactions go to the execution layer";
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// Handles `Info`: the last committed height and its EL block hash (0 and empty before
-    /// `InitChain`).
+    /// Handles `Info`: the last committed height and its EL block hash.
     ///
-    /// With a state, first reconciles the EL with it ([`App::reconcile_el`]), so CometBFT's
-    /// handshake replays on top of an EL that holds the committed head.
+    /// Reports 0 and an empty hash before `InitChain` and while the state is still at the
+    /// genesis anchor `B*` (no PoS block committed): CometBFT's store is then empty, and it only
+    /// accepts an app at height 0, to which it re-sends `InitChain`. With a state, first
+    /// reconciles the EL with it ([`App::reconcile_el`]), so CometBFT's handshake replays on top
+    /// of an EL that holds the committed head.
     pub(super) async fn info(&self, _req: request::Info) -> Result<response::Info, AbciError> {
         let (last_block_height, last_block_app_hash) = match &self.state {
             None => (Height::from(0u32), AppHash::default()),
             Some(state) => {
                 self.reconcile_el(state).await?;
-                (cometbft_height(state.last_height), app_hash(state.parent.hash))
+                if at_genesis(state) {
+                    (Height::from(0u32), AppHash::default())
+                } else {
+                    (cometbft_height(state.last_height), app_hash(state.parent.hash))
+                }
             }
         };
         Ok(response::Info {

@@ -2,18 +2,20 @@
 //!
 //! [`App`] owns the node's own L1 view, the execution engine, the chain parameters and the
 //! persisted [`AppState`], and answers CometBFT's requests through [`App::handle`]. `InitChain`
-//! lives in [`init`]; `Info`, `Query` and `CheckTx` in [`info`]. `PrepareProposal`,
-//! `ProcessProposal` and `FinalizeBlock` are placeholders until their handlers land.
+//! lives in [`init`]; `Info`, `Query` and `CheckTx` in [`info`]; `PrepareProposal` in
+//! [`prepare`] and `ProcessProposal` in [`process`], both on top of the deterministic checks of
+//! [`validate`]. `FinalizeBlock` is a placeholder until its handler lands.
 //!
 //! Errors returned by [`App::handle`] are fatal to the connection; [`AbciError::SafetyHalt`]
 //! marks the ones where the node must stop signing and an operator must investigate (spec §8.2).
+//! A bad or unbuildable proposal is never an error: it is a [`Rejection`] (liveness only).
 
-use std::{future::Future, time::Duration};
+use std::{collections::HashMap, future::Future, time::Duration};
 
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tendermint::{
-    AppHash,
+    AppHash, Hash, Time,
     block::Height,
     v0_38::abci::{Request, Response, response},
 };
@@ -34,11 +36,18 @@ use crate::{
 mod info;
 /// The `InitChain` handler (spec §5.1).
 mod init;
+/// The `PrepareProposal` handler (spec §5.3).
+mod prepare;
+/// The `ProcessProposal` handler (spec §5.4).
+mod process;
+/// Deterministic block validation shared by `ProcessProposal` and `FinalizeBlock` (spec §5.4).
+mod validate;
 
 #[cfg(test)]
 mod tests;
 
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
+pub use validate::{Rejection, Validated, WitnessKind};
 
 /// The application name reported in `Info.data`.
 pub const APP_NAME: &str = "taiko-abci";
@@ -101,6 +110,10 @@ pub enum AbciError {
     /// The ABCI method has no handler yet (placeholder until its task lands).
     #[error("{0} is not implemented yet")]
     NotImplemented(&'static str),
+    /// A block-level method (named by the value) arrived before `InitChain`; CometBFT never
+    /// sends one, so the connection is broken.
+    #[error("{0} before InitChain")]
+    Uninitialized(&'static str),
     /// `InitChain` arrived although the app already holds (or persisted) a state.
     #[error("InitChain on an already initialized app")]
     AlreadyInitialized,
@@ -227,7 +240,11 @@ pub struct App<L: L1Source, E: Engine> {
     opts: AppOptions,
     /// The committed state; `None` before `InitChain`.
     state: Option<AppState>,
-    /// The current liveness-halt reason, reported by `/status`.
+    /// `ProcessProposal` ACCEPT verdicts by CometBFT block hash, for `FinalizeBlock`; cleared
+    /// at `Commit`.
+    verdicts: HashMap<Hash, Validated>,
+    /// The label of the last proposal rejection or failed build (a liveness halt), reported by
+    /// `/status`; cleared by the next accepted or built proposal.
     halt: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
     superseded: bool,
@@ -254,7 +271,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some(state) = &state {
             check_stored_state(state, &params)?;
         }
-        Ok(Self { l1, engine, params, store, opts, state, halt: None, superseded: false })
+        Ok(Self {
+            l1,
+            engine,
+            params,
+            store,
+            opts,
+            state,
+            verdicts: HashMap::new(),
+            halt: None,
+            superseded: false,
+        })
     }
 
     /// The committed state; `None` before `InitChain`.
@@ -306,10 +333,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Request::CheckTx(r) => Response::CheckTx(self.check_tx(r)),
             Request::InitChain(r) => Response::InitChain(self.init_chain(r).await?),
             // Placeholder until FinalizeBlock lands: then Commit persists the pending state.
-            Request::Commit => Response::Commit(response::Commit {
-                data: Default::default(),
-                retain_height: Height::from(0u32),
-            }),
+            Request::Commit => {
+                self.verdicts.clear();
+                Response::Commit(response::Commit {
+                    data: Default::default(),
+                    retain_height: Height::from(0u32),
+                })
+            }
             Request::ListSnapshots => Response::ListSnapshots(Default::default()),
             Request::OfferSnapshot(_) => Response::OfferSnapshot(Default::default()),
             Request::LoadSnapshotChunk(_) => Response::LoadSnapshotChunk(Default::default()),
@@ -320,16 +350,41 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Request::VerifyVoteExtension(_) => {
                 Response::VerifyVoteExtension(response::VerifyVoteExtension::Accept)
             }
-            // PLACEHOLDERS (tasks 11 and 12 replace them with the real handlers).
-            Request::PrepareProposal(_) => {
-                return Err(AbciError::NotImplemented("PrepareProposal"));
+            Request::PrepareProposal(r) => {
+                Response::PrepareProposal(self.prepare_proposal(r).await?)
             }
-            Request::ProcessProposal(_) => {
-                return Err(AbciError::NotImplemented("ProcessProposal"));
+            Request::ProcessProposal(r) => {
+                Response::ProcessProposal(self.process_proposal(r).await?)
             }
+            // PLACEHOLDER (task 12 replaces it with the real handler).
             Request::FinalizeBlock(_) => return Err(AbciError::NotImplemented("FinalizeBlock")),
         })
     }
+
+    /// Records a refused proposal: logs it (ERROR for a local build fault, WARN otherwise), keeps
+    /// its label as the halt reason for `/status`, and sets the `superseded` status when the
+    /// Inbox proved a later generation.
+    fn note_rejection(&mut self, method: &'static str, height: u64, rejection: &Rejection) {
+        let reason = rejection.label();
+        match rejection {
+            Rejection::Oversize { .. } | Rejection::BuiltHeader(_) => {
+                tracing::error!(method, height, reason, error = %rejection, "proposal refused");
+            }
+            _ => tracing::warn!(method, height, reason, error = %rejection, "proposal refused"),
+        }
+        if matches!(rejection, Rejection::Superseded { .. }) {
+            self.superseded = true;
+        }
+        self.halt = Some(reason.to_string());
+    }
+}
+
+/// Whether `state` is still at the genesis anchor `B*`: no PoS block has been committed yet.
+///
+/// CometBFT re-sends `InitChain` whenever the app reports height 0, so `Info` reports 0 and
+/// `InitChain` is idempotent in this state.
+fn at_genesis(state: &AppState) -> bool {
+    state.last_height == state.activation.genesis_height
 }
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
@@ -377,6 +432,28 @@ where
         Ok(result) => result.map_err(AbciError::from),
         Err(_) => Err(AbciError::Timeout { what, after: limit }),
     }
+}
+
+/// Runs `fut` with a deadline of `limit` for a proposal handler: an elapsed deadline is
+/// [`Rejection::Timeout`] naming `what`, and `fut`'s own error converts into [`Rejection`].
+async fn deadline<T, Err>(
+    what: &'static str,
+    limit: Duration,
+    fut: impl Future<Output = Result<T, Err>>,
+) -> Result<T, Rejection>
+where
+    Rejection: From<Err>,
+{
+    match tokio::time::timeout(limit, fut).await {
+        Ok(result) => result.map_err(Rejection::from),
+        Err(_) => Err(Rejection::Timeout(what)),
+    }
+}
+
+/// `time` in whole seconds since the Unix epoch (`floor(time_H)`); times before the epoch map to
+/// 0.
+fn unix_secs(time: Time) -> u64 {
+    u64::try_from(time.unix_timestamp()).unwrap_or(0)
 }
 
 /// `h` as a CometBFT height.
