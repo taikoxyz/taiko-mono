@@ -73,7 +73,14 @@ pub mod inbox {
 ///
 /// The registry keeps its state in an ERC-7201 namespace `taiko.etna.registry` whose first field
 /// is `checkpoints`, a dynamic array of two-word structs `{ uint64 l1Block; uint32 count; }` and
-/// `bytes32 entriesRoot`.
+/// `bytes32 entriesRoot`. The second field (amendment A1) is `entries`, a dynamic array of
+/// three-word structs `{ bytes32 pubkey; uint256 effStake; uint64 activeFromL1;
+/// uint64 exitEffectiveL1; uint64 lastHeartbeatAt; }` indexed by `bondId`.
+///
+/// The contract appends a checkpoint in every L1 block that changes any entry, so the entries
+/// read at block `checkpoints[i].l1Block` (or any later block before `checkpoints[i + 1].l1Block`)
+/// are checkpoint `i`'s snapshot. Entry reads are discovery only: a committee witness carries the
+/// entries and `committee::verify_snapshot` checks them against the proven `entriesRoot`.
 pub mod registry {
     use alloy_primitives::{B256, U256, keccak256};
 
@@ -103,6 +110,28 @@ pub mod registry {
         let data = U256::from_be_bytes(keccak256(base()).0);
         let first = data.wrapping_add(U256::from(i) * U256::from(2));
         [B256::from(first), B256::from(first.wrapping_add(U256::from(1)))]
+    }
+
+    /// The slot holding `entries.length` (the `entries` array's own slot, `R + 1`).
+    pub fn entries_length_slot() -> B256 {
+        B256::from(U256::from_be_bytes(base().0).wrapping_add(U256::from(1)))
+    }
+
+    /// The three slots of `entries[j]`, as Solidity lays out dynamic-array elements:
+    /// `[keccak256(R + 1) + 3j, keccak256(R + 1) + 3j + 1, keccak256(R + 1) + 3j + 2]` (wrapping
+    /// in U256).
+    ///
+    /// The words are `pubkey` (`bytes32`), `effStake` (`uint256`), and the packed
+    /// `activeFromL1` (`uint64`, bits 0–63), `exitEffectiveL1` (bits 64–127) and
+    /// `lastHeartbeatAt` (bits 128–191).
+    pub fn entry_slots(j: u64) -> [B256; 3] {
+        let data = U256::from_be_bytes(keccak256(entries_length_slot()).0);
+        let first = data.wrapping_add(U256::from(j) * U256::from(3));
+        [
+            B256::from(first),
+            B256::from(first.wrapping_add(U256::from(1))),
+            B256::from(first.wrapping_add(U256::from(2))),
+        ]
     }
 }
 
@@ -256,6 +285,59 @@ mod tests {
     #[test]
     fn registry_checkpoint_data_starts_at_keccak_of_base() {
         assert_eq!(registry::checkpoint_slots(0)[0], keccak256(registry::base()));
+    }
+
+    #[test]
+    fn registry_entries_length_slot_is_base_plus_one() {
+        assert_eq!(
+            registry::entries_length_slot(),
+            b256!("46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8001")
+        );
+        let base = U256::from_be_bytes(registry::base().0);
+        assert_eq!(registry::entries_length_slot(), B256::from(base + U256::from(1)));
+    }
+
+    #[test]
+    fn registry_entry_slots_are_pinned() {
+        assert_eq!(
+            registry::entry_slots(0),
+            [
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcba"),
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbb"),
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbc"),
+            ]
+        );
+        assert_eq!(
+            registry::entry_slots(1),
+            [
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbd"),
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbe"),
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbf"),
+            ]
+        );
+        assert_eq!(
+            registry::entry_slots(2),
+            [
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc0"),
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc1"),
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc2"),
+            ]
+        );
+        assert_eq!(
+            registry::entry_slots(u64::MAX),
+            [
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb7"),
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb8"),
+                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb9"),
+            ]
+        );
+    }
+
+    #[test]
+    fn registry_entry_data_starts_at_keccak_of_the_entries_slot() {
+        assert_eq!(registry::entry_slots(0)[0], keccak256(registry::entries_length_slot()));
+        // The entries array does not overlap the checkpoints array near index 0.
+        assert_ne!(registry::entry_slots(0)[0], registry::checkpoint_slots(0)[0]);
     }
 
     #[test]

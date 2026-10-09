@@ -7,6 +7,7 @@
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     sync::{Mutex, MutexGuard},
+    time::Duration,
 };
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
@@ -43,6 +44,8 @@ pub(crate) struct MockL1State {
     pub(crate) states: BTreeMap<u64, TestState>,
     /// When set, every call fails with this error.
     pub(crate) fail: Option<L1Error>,
+    /// When set, every call first sleeps this long (tokio time), to exercise timeouts.
+    pub(crate) delay: Option<Duration>,
     /// Every call, in order.
     pub(crate) calls: Vec<L1Call>,
 }
@@ -92,6 +95,14 @@ impl MockL1 {
         self.state().calls.clone()
     }
 
+    /// Sleeps for the scripted `delay`, if any (the lock is not held while sleeping).
+    async fn pause(&self) {
+        let delay = self.state().delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
+    }
+
     /// Records `call` and returns the scripted failure, if any.
     fn record(&self, call: L1Call) -> Result<MutexGuard<'_, MockL1State>, L1Error> {
         let mut state = self.state();
@@ -119,10 +130,12 @@ impl MockL1 {
 #[async_trait]
 impl L1Source for MockL1 {
     async fn finalized_number(&self) -> Result<u64, L1Error> {
+        self.pause().await;
         Ok(self.record(L1Call::Finalized)?.finalized)
     }
 
     async fn header(&self, number: u64) -> Result<Header, L1Error> {
+        self.pause().await;
         let state = self.record(L1Call::Header(number))?;
         state
             .headers
@@ -137,12 +150,14 @@ impl L1Source for MockL1 {
         slots: &[B256],
         block: u64,
     ) -> Result<AccountWitness, L1Error> {
+        self.pause().await;
         let state =
             self.record(L1Call::AccountWitness { address, slots: slots.to_vec(), block })?;
         Ok(Self::state_at(&state, address, block)?.witness(address, slots))
     }
 
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
+        self.pause().await;
         let state = self.record(L1Call::StorageAt { address, slot, block })?;
         Ok(Self::state_at(&state, address, block)?.storage(address, slot))
     }
