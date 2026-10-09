@@ -167,7 +167,7 @@ impl GenesisDoc {
         initial_height: u64,
         members: &[Member],
     ) -> Result<Self, GenesisError> {
-        let timestamp = w.l1_header.timestamp;
+        let timestamp = w.l1_header.timestamp();
         let genesis_time = i64::try_from(timestamp)
             .ok()
             .and_then(|secs| Time::from_unix_timestamp(secs, 0).ok())
@@ -195,7 +195,10 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::*;
-    use crate::{genesis::encode_app_state, test_utils::Fixture};
+    use crate::{
+        genesis::encode_app_state,
+        test_utils::{Fixture, edit_l1_header},
+    };
 
     fn member(pubkey: B256, power: u64) -> Member {
         Member { pubkey, eff_stake: U256::from(power), power }
@@ -296,7 +299,7 @@ mod tests {
     #[test]
     fn genesis_time_out_of_range_is_rejected() {
         let mut fx = Fixture::genesis(1);
-        fx.witness.l1_header.timestamp = u64::MAX;
+        fx.witness.l1_header = edit_l1_header(&fx.witness.l1_header, |h| h.timestamp = u64::MAX);
         let err = GenesisDoc::assemble(&fx.witness, "c".into(), 1, &fx.members).unwrap_err();
         assert!(matches!(err, GenesisError::GenesisTime(u64::MAX)), "{err:?}");
     }

@@ -296,12 +296,12 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert!(env.committee.is_none());
     let (_, _, extra_anchor) = rules::decode_extra_data(&env.block.header.extra_data).unwrap();
     assert_eq!(extra_anchor, 66);
-    assert_eq!(env.block.header.parent_beacon_block_root, Some(header.state_root));
+    assert_eq!(env.block.header.parent_beacon_block_root, Some(header.state_root()));
 
     app.l1().state().calls.clear();
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
-    assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::Header(66)], "finality check");
+    assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(66)], "finality check");
     let v = &app.verdicts[&req.hash];
     assert!(v.anchor_changed);
     assert_eq!(v.anchor.number, 66);
@@ -401,7 +401,7 @@ async fn round_trip_at_a_switch_height_with_the_landed_record() {
     let landed_anchor = fx.anchor_state(app.l1(), 66, None);
     jump(&mut app, switch - 1, landed_anchor, &[]);
     let env = propose(&mut app).await;
-    assert_eq!(env.anchor.as_ref().map(|w| w.l1_header.number), Some(66));
+    assert_eq!(env.anchor.as_ref().map(|w| w.l1_header.number()), Some(66));
     let (resp, _) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }

@@ -111,7 +111,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if is_final {
             Ok(())
         } else {
-            Err(Rejection::AnchorNotFinal { number: w.l1_header.number })
+            Err(Rejection::AnchorNotFinal { number: w.l1_header.number() })
         }
     }
 }

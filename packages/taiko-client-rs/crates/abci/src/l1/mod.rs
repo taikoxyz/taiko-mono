@@ -1,11 +1,13 @@
-//! L1 layer: the Inbox and staking-registry storage layout, EIP-1186 proof verification and the
-//! decoding of verified Inbox witnesses into facts, plus the node's own L1 view ([`source`]) and
-//! the committee-witness discovery over it ([`fetch`]).
+//! L1 layer: the raw L1 header, the Inbox and staking-registry storage layout, EIP-1186 proof
+//! verification and the decoding of verified Inbox witnesses into facts, plus the node's own L1
+//! view ([`source`]) and the committee-witness discovery over it ([`fetch`]).
 //!
-//! `layout`, `mpt` and `witness` perform no I/O.
+//! `header`, `layout`, `mpt` and `witness` perform no I/O.
 
 /// Committee-witness discovery from the node's own L1 (proposers and the genesis builder).
 pub mod fetch;
+/// The raw L1 header witnesses carry, read by position (spec §4.1).
+pub mod header;
 /// Storage slots of the Inbox and staking registry (spec §6.2).
 pub mod layout;
 /// EIP-1186 account and storage proof verification (spec §6.3).
@@ -16,6 +18,7 @@ pub mod source;
 pub mod witness;
 
 pub use fetch::{FetchError, build_committee_witness, build_committee_witness_within};
+pub use header::{L1HeaderError, RawL1Header};
 pub use mpt::{MptError, VerifiedStorage, verify_account_witness};
 pub use source::{L1Error, L1Source, RpcL1Source, is_final_canonical};
 pub use witness::{WitnessError, verify_anchor_witness, verify_genesis_inbox};

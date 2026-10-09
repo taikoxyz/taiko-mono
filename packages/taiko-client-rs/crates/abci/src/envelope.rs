@@ -10,13 +10,18 @@
 //! committee    = [] | [ CommitteeWitness ]
 //! ```
 //!
-//! The inner structs are RLP lists of their fields in declaration order.
+//! The inner structs are RLP lists of their fields in declaration order. The anchor's L1 header
+//! is one RLP byte string holding the header's exact RLP ([`RawL1Header`]), so a header carrying
+//! fields of an L1 fork newer than this client still decodes and hashes as on L1.
 
 use alloy_consensus::Header;
 use alloy_primitives::Bytes;
 use alloy_rlp::{BufMut, Decodable, Encodable, RlpDecodable, RlpEncodable};
 
-use crate::types::{AccountWitness, CommitteeRecord, RegistryEntry};
+use crate::{
+    l1::header::RawL1Header,
+    types::{AccountWitness, CommitteeRecord, RegistryEntry},
+};
 
 /// Leading version byte of every envelope.
 pub const ENVELOPE_VERSION: u8 = 1;
@@ -41,11 +46,12 @@ pub struct ExecutionBlock {
 /// The L1 anchor witness: an L1 header plus the Inbox account and storage proofs against its
 /// `stateRoot` (spec §4.1, §6.2).
 ///
-/// RLP: `[l1_header, inbox]`.
+/// RLP: `[l1_header, inbox]`, where `l1_header` is a byte string holding the raw header RLP.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct AnchorWitness {
-    /// The anchor L1 header; its hash is the anchor hash and its `stateRoot` the proof root.
-    pub l1_header: Header,
+    /// The anchor L1 header, raw; its hash (`keccak256` of the raw bytes) is the anchor hash and
+    /// its `stateRoot` the proof root.
+    pub l1_header: RawL1Header,
     /// EIP-1186 proof of the Inbox account and its anchor slot set, in slot order.
     pub inbox: AccountWitness,
 }
@@ -301,7 +307,7 @@ mod tests {
     }
 
     fn anchor() -> AnchorWitness {
-        AnchorWitness { l1_header: header(9_000), inbox: account_witness(0xa1) }
+        AnchorWitness { l1_header: RawL1Header::from(&header(9_000)), inbox: account_witness(0xa1) }
     }
 
     fn committee() -> CommitteeWitness {
@@ -461,6 +467,21 @@ mod tests {
         );
     }
 
+    /// An anchor witness whose L1 header bytes are not a header is a malformed envelope.
+    #[test]
+    fn decode_rejects_a_malformed_raw_l1_header() {
+        let env = envelope(None, None);
+        let inbox = alloy_rlp::encode(account_witness(0xa1));
+        // A 14-field list: one field short of a pre-London header.
+        let short = rlp_list(&vec![vec![0x80]; 14]);
+        let anchor = rlp_list(&[alloy_rlp::encode(Bytes::from(short)), inbox]);
+        let body = rlp_list(&[alloy_rlp::encode(&env.block), rlp_list(&[anchor]), rlp_list(&[])]);
+        assert_eq!(
+            EtnaEnvelope::decode(&versioned(body)),
+            Err(EnvelopeError::Rlp(alloy_rlp::Error::Custom("raw L1 header has too few fields")))
+        );
+    }
+
     #[test]
     fn rlp_decodable_matches_versioned_decode() {
         let env = envelope(Some(anchor()), Some(committee()));
@@ -583,9 +604,11 @@ mod tests {
 
     /// This vector pins the consensus wire format of an envelope carrying both witnesses: the
     /// field order of `ExecutionBlock`, `AnchorWitness`, `CommitteeWitness`, `AccountWitness`,
-    /// `StorageProof`, `CommitteeRecord` and `RegistryEntry`, the post-Prague header fields, and
-    /// the one-element list wrapping a present witness. If it changes, the encoding changed, which
-    /// is a consensus-breaking change for every node replaying committed blocks.
+    /// `StorageProof`, `CommitteeRecord` and `RegistryEntry`, the post-Prague header fields, the
+    /// anchor's L1 header as one byte string of its raw RLP (here with two fields alloy's header
+    /// does not know), and the one-element list wrapping a present witness. If it changes, the
+    /// encoding changed, which is a consensus-breaking change for every node replaying
+    /// committed blocks.
     ///
     /// The expected bytes are assembled from per-field RLP written out by hand (only list headers
     /// are computed), so they do not depend on the encoder under test. Same-typed sibling fields
@@ -599,6 +622,12 @@ mod tests {
         /// RLP of a 32-byte word whose bytes are all `byte`.
         fn word(byte: u8) -> Vec<u8> {
             [vec![0xa0], vec![byte; 32]].concat()
+        }
+        /// RLP byte string of `bytes` (longer than 255 bytes): `0xb9 || len (2 bytes) || bytes`.
+        fn string(bytes: &[u8]) -> Vec<u8> {
+            let len = u16::try_from(bytes.len()).expect("a header is shorter than 64 KiB");
+            assert!(len > 255, "the long-string form with a 2-byte length");
+            [vec![0xb9], len.to_be_bytes().to_vec(), bytes.to_vec()].concat()
         }
 
         let header = |number: u64| Header {
@@ -624,8 +653,8 @@ mod tests {
             requests_hash: Some(EMPTY_REQUESTS),
             ..Header::default()
         };
-        let header_rlp = |number: &[u8]| {
-            list(&[
+        let header_rlp = |number: &[u8], extra: &[&[u8]]| {
+            let fields: &[&[u8]] = &[
                 &word(0x01), // parentHash
                 // ommersHash
                 &hex!("a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
@@ -650,8 +679,12 @@ mod tests {
                 &word(0x07),       // parentBeaconBlockRoot
                 // requestsHash
                 &hex!("a0e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-            ])
+            ];
+            list(&[fields, extra].concat())
         };
+        // The anchor's L1 header: the same 21 fields (number 0x2400) plus two fields of an L1
+        // fork newer than alloy's header (a 32-byte hash and a slot number), carried opaquely.
+        let l1_header = header_rlp(&hex!("822400"), &[&word(0xba), &hex!("8401020304")]);
 
         let env = EtnaEnvelope {
             block: ExecutionBlock {
@@ -659,7 +692,8 @@ mod tests {
                 transactions: vec![bytes!("02f86c82028d8084b2d05e00")],
             },
             anchor: Some(AnchorWitness {
-                l1_header: header(0x2400),
+                l1_header: RawL1Header::from_raw(l1_header.clone().into())
+                    .expect("an L1 header with two extra fields"),
                 inbox: AccountWitness {
                     address: address!("00000000000000000000000000000000e7a10001"),
                     nonce: 1,
@@ -708,7 +742,7 @@ mod tests {
         };
 
         let block = list(&[
-            &header_rlp(&hex!("820400")),                  // header (number 0x0400)
+            &header_rlp(&hex!("820400"), &[]), // header (number 0x0400)
             &list(&[&hex!("8c02f86c82028d8084b2d05e00")]), // transactions: one opaque tx
         ]);
         let inbox = list(&[
@@ -726,8 +760,8 @@ mod tests {
             ])]),
         ]);
         let anchor = list(&[
-            &header_rlp(&hex!("822400")), // l1_header (number 0x2400)
-            &inbox,                       // inbox
+            &string(&l1_header), // l1_header: the raw header as one byte string
+            &inbox,              // inbox
         ]);
         let record = list(&[
             &hex!("02"),                     // target_epoch

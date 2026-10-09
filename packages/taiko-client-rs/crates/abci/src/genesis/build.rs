@@ -49,7 +49,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     let l1_header = l1.header(l1_0).await?;
     let inbox = l1.account_witness(params.inbox, &inbox::genesis_slots(Schedule::E0), l1_0).await?;
     let (activation, facts, committee_e0) =
-        verify_genesis_inbox(l1_header.state_root, &inbox, params.inbox)?;
+        verify_genesis_inbox(l1_header.state_root(), &inbox, params.inbox)?;
     if activation.l1_0 != l1_0 {
         return Err(GenesisError::ActivationMismatch { l1_0, proven: activation.l1_0 });
     }
@@ -57,7 +57,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
 
     let committee = build_committee_witness(l1, params, l1_0, Schedule::E0).await?;
     let (record, members) =
-        verify_committee_witness(l1_header.state_root, params, &committee, l1_0, Schedule::E0)?;
+        verify_committee_witness(l1_header.state_root(), params, &committee, l1_0, Schedule::E0)?;
     let derived = record_hash(params.l2_chain_id, &record);
     if derived != committee_e0 {
         return Err(GenesisError::CommitteeRecordMismatch { derived, recorded: committee_e0 });

@@ -48,10 +48,11 @@ pub enum WitnessError {
 /// Verifies an anchor witness and returns the anchor it proves.
 ///
 /// Checks that `w.inbox` proves the account at `inbox` and the slot set
-/// `layout::inbox::anchor_slots(committee_epoch)` against `w.l1_header.state_root`, then decodes
-/// the Inbox facts (`committee` is `Some((epoch, committee[epoch]))` iff `committee_epoch` is
-/// set; a zero record hash is returned as is). Does not check the header's canonicality or
-/// finality, nor any value of the facts.
+/// `layout::inbox::anchor_slots(committee_epoch)` against the raw L1 header's `stateRoot`, then
+/// decodes the Inbox facts (`committee` is `Some((epoch, committee[epoch]))` iff
+/// `committee_epoch` is set; a zero record hash is returned as is). The anchor's number,
+/// timestamp and hash (`keccak256` of the raw header) come from the raw header. Does not check
+/// the header's canonicality or finality, nor any value of the facts.
 pub fn verify_anchor_witness(
     w: &AnchorWitness,
     inbox: Address,
@@ -59,8 +60,11 @@ pub fn verify_anchor_witness(
 ) -> Result<AnchorState, WitnessError> {
     check_contract(&w.inbox, inbox)?;
     let header = &w.l1_header;
-    let storage =
-        verify_account_witness(header.state_root, &w.inbox, &inbox::anchor_slots(committee_epoch))?;
+    let storage = verify_account_witness(
+        header.state_root(),
+        &w.inbox,
+        &inbox::anchor_slots(committee_epoch),
+    )?;
     let facts = InboxFacts {
         migration_state: word_u8(word(&storage, inbox::slot(inbox::MIGRATION_STATE)), 0),
         recovery_generation: word_u64(word(&storage, inbox::slot(inbox::RECOVERY_GENERATION)), 0),
@@ -72,10 +76,10 @@ pub fn verify_anchor_witness(
         committee: committee_epoch.map(|e| (e, word(&storage, inbox::committee_slot(e)).into())),
     };
     Ok(AnchorState {
-        number: header.number,
-        hash: header.hash_slow(),
-        state_root: header.state_root,
-        timestamp: header.timestamp,
+        number: header.number(),
+        hash: header.hash(),
+        state_root: header.state_root(),
+        timestamp: header.timestamp(),
         inbox: facts,
     })
 }
@@ -151,8 +155,8 @@ fn word(storage: &VerifiedStorage, slot: B256) -> U256 {
 mod tests {
     use super::*;
     use crate::test_utils::{
-        AccountSpec, InboxStorage, TestState, anchor_witness, anchor_witness_in, filler_accounts,
-        genesis_inbox_witness, l1_header, sample_activation,
+        AccountSpec, InboxStorage, TestState, anchor_witness, anchor_witness_in, edit_l1_header,
+        filler_accounts, genesis_inbox_witness, l1_header, sample_activation,
     };
     use alloy_primitives::{address, keccak256};
 
@@ -200,8 +204,8 @@ mod tests {
     fn anchor_hash_is_the_l1_header_hash() {
         let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99), None);
         let anchor = verify_anchor_witness(&w, INBOX, None).unwrap();
-        assert_eq!(anchor.hash, w.l1_header.hash_slow());
-        assert_eq!(anchor.hash, keccak256(alloy_rlp::encode(&w.l1_header)));
+        assert_eq!(anchor.hash, w.l1_header.hash());
+        assert_eq!(anchor.hash, keccak256(w.l1_header.raw()));
     }
 
     #[test]
@@ -268,7 +272,7 @@ mod tests {
     #[test]
     fn anchor_rejects_a_tampered_header_state_root() {
         let (mut w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99), None);
-        w.l1_header.state_root = B256::repeat_byte(0x01);
+        w.l1_header = edit_l1_header(&w.l1_header, |h| h.state_root = B256::repeat_byte(0x01));
         let err = verify_anchor_witness(&w, INBOX, None).unwrap_err();
         assert!(matches!(err, WitnessError::Mpt(MptError::Account(_))), "{err:?}");
     }

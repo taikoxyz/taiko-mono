@@ -11,10 +11,10 @@ use crate::{
     elsync::ElSyncError,
     engine::PayloadVerdict,
     genesis::GenesisError,
-    l1::witness::WitnessError,
+    l1::{RawL1Header, witness::WitnessError},
     rules::{RuleViolation, chain_id_for},
     schedule::ScheduleError,
-    test_utils::{EngineCall, GenesisSpec, L1Call, MockEngine, l1_header},
+    test_utils::{EngineCall, GenesisSpec, L1Call, MockEngine, edit_l1_header, l1_header},
 };
 
 #[tokio::test]
@@ -33,7 +33,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
     assert_eq!(Store::new(dir.path().to_path_buf()).load().unwrap(), Some(expected));
 
     // L1: only the finality check (finalized number and the canonical header at L1_0).
-    assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::Header(fx.activation.l1_0)]);
+    assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(fx.activation.l1_0)]);
     // EL: already holds B*, so no forkchoice update.
     assert!(
         !app.engine().calls().iter().any(|c| matches!(c, EngineCall::Forkchoice { .. })),
@@ -91,7 +91,7 @@ async fn init_chain_is_idempotent_at_genesis() {
     assert_eq!(restarted, first);
     assert_eq!(app.state(), Some(&fx.expected_state()));
     assert_eq!(Store::new(dir.path().to_path_buf()).load().unwrap(), Some(fx.expected_state()));
-    assert!(app.l1().calls().contains(&L1Call::Header(fx.activation.l1_0)), "re-verified");
+    assert!(app.l1().calls().contains(&L1Call::CanonicalHash(fx.activation.l1_0)), "re-verified");
 
     // The validators are echoed in the request's order, as on the first InitChain.
     let mut reordered = fx.request.clone();
@@ -198,7 +198,7 @@ async fn non_canonical_genesis_l1_header_is_rejected() {
     let fx = Fixture::genesis(2);
     let (l1, engine, params, req) = fx.parts();
     // The own L1 node holds a different block at L1_0.
-    l1.insert_header(l1_header(fx.activation.l1_0, 1));
+    l1.insert_header(RawL1Header::from(&l1_header(fx.activation.l1_0, 1)));
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
     let err = init_chain(&mut app, req).await.expect_err("not canonical");
@@ -239,7 +239,7 @@ async fn genesis_header_must_be_the_activation_block() {
     let l1_0 = fx.activation.l1_0;
     // Same L1 state, but the witness header is block L1_0 + 1 (canonical and final there).
     let mut witness = fx.witness.clone();
-    witness.l1_header.number = l1_0 + 1;
+    witness.l1_header = edit_l1_header(&witness.l1_header, |h| h.number = l1_0 + 1);
     fx.set_witness(witness.clone());
     let (l1, engine, params, req) = fx.parts();
     l1.insert_header(witness.l1_header);

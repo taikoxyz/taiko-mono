@@ -20,7 +20,10 @@ use super::TestState;
 use crate::{
     engine::{Engine, EngineError, PayloadVerdict},
     envelope::ExecutionBlock,
-    l1::source::{L1Error, L1Source},
+    l1::{
+        header::RawL1Header,
+        source::{L1Error, L1Source},
+    },
     types::AccountWitness,
 };
 
@@ -28,6 +31,7 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum L1Call {
     Finalized,
+    CanonicalHash(u64),
     Header(u64),
     AccountWitness { address: Address, slots: Vec<B256>, block: u64 },
     StorageAt { address: Address, slot: B256, block: u64 },
@@ -38,8 +42,9 @@ pub(crate) enum L1Call {
 pub(crate) struct MockL1State {
     /// What `finalized_number` returns.
     pub(crate) finalized: u64,
-    /// Canonical headers by number (`header` fails with `BlockNotFound` for others).
-    pub(crate) headers: BTreeMap<u64, Header>,
+    /// Canonical raw headers by number (`header` and `canonical_hash` fail with
+    /// `BlockNotFound` for others).
+    pub(crate) headers: BTreeMap<u64, RawL1Header>,
     /// L1 state per block number, serving `account_witness` and `storage_at`.
     pub(crate) states: BTreeMap<u64, TestState>,
     /// When set, every call fails with this error.
@@ -71,18 +76,19 @@ impl MockL1 {
     }
 
     /// Makes `header` canonical at its number.
-    pub(crate) fn insert_header(&self, header: Header) {
-        self.state().headers.insert(header.number, header);
+    pub(crate) fn insert_header(&self, header: RawL1Header) {
+        self.state().headers.insert(header.number(), header);
     }
 
     /// Makes `header` (with its `state_root` set to `state`'s root) canonical at its number and
-    /// serves `state` at that block; returns the stored header.
-    pub(crate) fn insert_block(&self, mut header: Header, state: TestState) -> Header {
+    /// serves `state` at that block; returns the stored raw header.
+    pub(crate) fn insert_block(&self, mut header: Header, state: TestState) -> RawL1Header {
         header.state_root = state.state_root();
+        let raw = RawL1Header::from(&header);
         let mut guard = self.state();
-        guard.headers.insert(header.number, header.clone());
+        guard.headers.insert(header.number, raw.clone());
         guard.states.insert(header.number, state);
-        header
+        raw
     }
 
     /// Sets the `finalized` number.
@@ -134,7 +140,17 @@ impl L1Source for MockL1 {
         Ok(self.record(L1Call::Finalized)?.finalized)
     }
 
-    async fn header(&self, number: u64) -> Result<Header, L1Error> {
+    async fn canonical_hash(&self, number: u64) -> Result<B256, L1Error> {
+        self.pause().await;
+        let state = self.record(L1Call::CanonicalHash(number))?;
+        state
+            .headers
+            .get(&number)
+            .map(RawL1Header::hash)
+            .ok_or(L1Error::BlockNotFound(BlockNumberOrTag::Number(number)))
+    }
+
+    async fn header(&self, number: u64) -> Result<RawL1Header, L1Error> {
         self.pause().await;
         let state = self.record(L1Call::Header(number))?;
         state
@@ -404,7 +420,7 @@ mod tests {
         let header = l1.insert_block(l1_header(5, 50), state);
 
         let witness = l1.account_witness(address, &[slot], 5).await.unwrap();
-        let verified = verify_account_witness(header.state_root, &witness, &[slot]).unwrap();
+        let verified = verify_account_witness(header.state_root(), &witness, &[slot]).unwrap();
         assert_eq!(verified.get(slot), Some(U256::from(9)));
         assert_eq!(l1.storage_at(address, slot, 5).await, Ok(U256::from(9)));
         assert!(matches!(l1.storage_at(Address::ZERO, slot, 5).await, Err(L1Error::Rpc(_))));
