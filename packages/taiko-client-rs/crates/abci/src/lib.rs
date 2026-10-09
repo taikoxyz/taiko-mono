@@ -7,12 +7,14 @@
 //! inside the block as an L1 header plus EIP-1186 proofs, so replay never calls L1.
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::layout`, `l1::mpt`, `l1::witness`,
-//! `committee` and `rules` modules perform no I/O.
+//! `committee`, `rules` and `engine::convert` modules perform no I/O.
 
 /// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
 pub mod committee;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
+/// Engine API payload conversion for alethia-reth #248.
+pub mod engine;
 /// The CometBFT block envelope codec (`0x01 || rlp([block, anchor, committee])`).
 pub mod envelope;
 /// L1 storage layout, EIP-1186 proof verification and Inbox witness decoding.
@@ -21,6 +23,8 @@ pub mod l1;
 pub mod rules;
 /// Epoch schedule derived from the L1 activation record.
 pub mod schedule;
+/// The persisted app state and its atomic file store.
+pub mod store;
 /// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
 pub mod types;
 
@@ -29,12 +33,14 @@ pub(crate) mod test_utils;
 
 pub use committee::{CommitteeError, Snapshot};
 pub use config::{ChainParams, ConfigError};
+pub use engine::{EngineError, block_from_payload, payload_from_block};
 pub use envelope::{
     AnchorWitness, CommitteeWitness, ENVELOPE_VERSION, EnvelopeError, EtnaEnvelope, ExecutionBlock,
     single_envelope,
 };
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
 pub use schedule::{Schedule, ScheduleError};
+pub use store::{AppState, CommitteeState, Store, StoreError};
 pub use types::{
     AccountWitness, ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, Member, ParentInfo,
     RegistryEntry, StorageProof,
