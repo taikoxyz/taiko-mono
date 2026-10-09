@@ -193,10 +193,6 @@ jobs:
           workspaces: |
             packages/taiko-client-rs -> target
 
-      # The protocol crate's subscription-source unit test spawns a local anvil.
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
       - name: Setup just
         uses: extractions/setup-just@v4
         with:
