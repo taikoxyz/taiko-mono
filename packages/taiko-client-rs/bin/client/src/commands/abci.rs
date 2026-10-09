@@ -66,7 +66,6 @@ impl Subcommand for AbciSubCommand {
     /// the app over the state in `--data-dir`; the ABCI server on `--abci.addr`.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
-        self.common_flags.apply_devnet_fork_overrides();
         self.init_metrics()?;
 
         let common = &self.common_flags;

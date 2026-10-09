@@ -12,7 +12,6 @@ use alloy_rpc_types_engine::{
 use anyhow::anyhow;
 use serde_json::Value;
 
-use super::client::Client;
 use crate::error::{Result, RpcClientError};
 
 /// The Engine API methods this client calls, for every fork: the Osaka methods alethia-reth
@@ -99,10 +98,6 @@ pub fn check_engine_capabilities(advertised: Vec<String>) -> Result<()> {
 }
 
 /// Engine API client over one JWT-authenticated provider.
-///
-/// Holds nothing but the provider, so callers that never talk to L1 (the `abci` crate) can drive
-/// the execution engine without building a full [`Client`]; [`Client`] delegates its Engine API
-/// methods here.
 #[derive(Clone, Debug)]
 pub struct EngineClient {
     /// JWT-authenticated provider for the execution engine's auth RPC endpoint.
@@ -182,47 +177,6 @@ impl EngineClient {
             .raw_request(Cow::Borrowed("engine_newPayloadV4"), params)
             .await
             .map_err(Into::into)
-    }
-}
-
-impl Client {
-    /// An [`EngineClient`] over this client's `l2_auth_provider`.
-    pub fn engine(&self) -> EngineClient {
-        EngineClient::new(self.l2_auth_provider.clone())
-    }
-
-    /// [`EngineClient::check_engine_capabilities`] over `l2_auth_provider`.
-    pub async fn check_engine_capabilities(&self) -> Result<()> {
-        self.engine().check_engine_capabilities().await
-    }
-
-    /// [`EngineClient::engine_forkchoice_updated_v3`] over `l2_auth_provider`.
-    pub async fn engine_forkchoice_updated_v3(
-        &self,
-        forkchoice_state: ForkchoiceState,
-        payload_attributes: Option<TaikoPayloadAttributes>,
-    ) -> Result<ForkchoiceUpdated> {
-        self.engine().engine_forkchoice_updated_v3(forkchoice_state, payload_attributes).await
-    }
-
-    /// [`EngineClient::engine_get_payload_v5`] over `l2_auth_provider`.
-    pub async fn engine_get_payload_v5(
-        &self,
-        payload_id: PayloadId,
-    ) -> Result<ExecutionPayloadEnvelopeV5> {
-        self.engine().engine_get_payload_v5(payload_id).await
-    }
-
-    /// [`EngineClient::engine_new_payload_v4`] over `l2_auth_provider`.
-    pub async fn engine_new_payload_v4(
-        &self,
-        payload: &ExecutionPayloadV3,
-        header_difficulty: u64,
-        parent_beacon_block_root: B256,
-    ) -> Result<PayloadStatus> {
-        self.engine()
-            .engine_new_payload_v4(payload, header_difficulty, parent_beacon_block_root)
-            .await
     }
 }
 

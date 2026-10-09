@@ -2,7 +2,7 @@
 //!
 //! This module defines the unified error type [`CliError`] used throughout the CLI binary.
 //! It consolidates errors from downstream crates (rpc, abci) as well as CLI-specific errors like
-//! URL parsing, runtime initialization, and metrics setup.
+//! runtime initialization, signal handling and metrics setup.
 
 use std::path::PathBuf;
 
@@ -12,7 +12,7 @@ use thiserror::Error;
 ///
 /// This enum covers all error cases in the CLI binary, including:
 /// - Errors propagated from downstream crates (rpc, abci)
-/// - Configuration errors (URL parsing, socket address parsing)
+/// - Configuration errors (socket address parsing, chain parameters)
 /// - Runtime errors (tokio runtime initialization, shutdown signal handlers, I/O)
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
@@ -23,13 +23,6 @@ pub enum CliError {
     /// initialization and provider communication.
     #[error(transparent)]
     Rpc(#[from] rpc::RpcClientError),
-
-    /// Failed to parse a URL.
-    ///
-    /// Occurs when parsing endpoint URLs from command-line arguments fails.
-    /// Common causes include malformed URLs or unsupported schemes.
-    #[error("failed to parse URL: {0}")]
-    UrlParse(#[from] url::ParseError),
 
     /// Runtime initialization or I/O error.
     ///
@@ -170,9 +163,9 @@ mod tests {
     #[test]
     fn report_keeps_a_plain_message() {
         assert_eq!(
-            CliError::from(RpcClientError::Provider("missing L2 latest block".to_string()))
+            CliError::from(RpcClientError::RpcMessage("missing L2 latest block".to_string()))
                 .report(),
-            "provider error: missing L2 latest block"
+            "RPC error: missing L2 latest block"
         );
     }
 }

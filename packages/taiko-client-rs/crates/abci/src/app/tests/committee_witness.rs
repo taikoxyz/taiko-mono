@@ -77,7 +77,6 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     let v = &app.verdicts[&req.hash];
-    assert!(v.anchor_changed);
     assert_eq!(v.anchor, moved, "the block itself is anchored at the new L1 block");
     let (target, derived) = v.derived.clone().expect("committee 2 is derived");
     assert_eq!(target, 2);

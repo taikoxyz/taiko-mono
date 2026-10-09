@@ -4,7 +4,6 @@ use std::{io::IsTerminal, net::SocketAddr, path::Path};
 
 use ::abci::ChainParams;
 use async_trait::async_trait;
-use rpc::client::ClientConfig;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -27,16 +26,6 @@ pub fn load_chain_params(l2_chain_id: u64, chain_config: Option<&Path>) -> Resul
     }
     params.validate()?;
     Ok(params)
-}
-
-/// Build a [`ClientConfig`] from the shared common CLI flags.
-pub fn build_client_config(common: &CommonArgs) -> Result<ClientConfig> {
-    Ok(ClientConfig {
-        l1_provider_source: common.l1_provider_source()?,
-        l2_provider_url: common.l2_http_endpoint.clone(),
-        l2_auth_provider_url: common.l2_auth_endpoint.clone(),
-        jwt_secret: common.l2_auth_jwt_secret.clone(),
-    })
 }
 
 /// Shared behaviour for CLI subcommands.
