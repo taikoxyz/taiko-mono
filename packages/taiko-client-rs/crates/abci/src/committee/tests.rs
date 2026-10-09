@@ -610,20 +610,60 @@ fn stake_below_vp_unit_is_ineligible_when_vp_unit_dominates() {
     assert_eq!(members, vec![Member { pubkey: at.pubkey, eff_stake: at.eff_stake, power: 1 }]);
 }
 
+/// Among eligible entries sharing a pubkey, the one with the lowest `bondId` (index) is the
+/// member; the later ones are dropped.
 #[test]
-fn duplicate_eligible_pubkeys_are_rejected() {
+fn duplicate_eligible_pubkeys_keep_the_lowest_bond_id() {
+    let params = devnet();
     let entries = vec![entry(1, ether(1)), entry(2, ether(1)), entry(1, ether(5))];
+    let (_, members) = derive(&snapshot(entries), C, 1, &params).expect("derives");
     assert_eq!(
-        derived_pubkeys(entries, &devnet()),
-        Err(CommitteeError::DuplicatePubkey(B256::repeat_byte(1)))
+        members.iter().map(|m| m.pubkey).collect::<Vec<_>>(),
+        key_sorted(&params, vec![B256::repeat_byte(1), B256::repeat_byte(2)])
+    );
+    let first = members.iter().find(|m| m.pubkey == B256::repeat_byte(1)).unwrap();
+    assert_eq!(first.eff_stake, ether(1), "bondId 0's stake, not bondId 2's");
+}
+
+/// A squatter registering a sitting validator's key (with any stake) changes nothing: the
+/// committee and its record are the ones derived without the squatting entry, so the chain does
+/// not halt at the next `H_e`.
+#[test]
+fn a_squatter_copying_a_sitting_validators_key_changes_nothing() {
+    let params = devnet();
+    let sitting = vec![entry(1, ether(3)), entry(2, ether(1)), entry(3, ether(2))];
+    let honest = derive(&snapshot(sitting.clone()), C, 1, &params).expect("derives");
+
+    for copied in [1u8, 2, 3] {
+        let mut squatted = sitting.clone();
+        squatted.push(RegistryEntry { last_heartbeat_at: C, ..entry(copied, ether(1_000)) });
+        assert_eq!(derive(&snapshot(squatted), C, 1, &params), Ok(honest.clone()), "{copied}");
+    }
+}
+
+/// Duplicates are dropped before the `n_max` cap, so a squatter's large stake cannot push an
+/// honest member out of the committee.
+#[test]
+fn duplicates_are_dropped_before_the_n_max_cap() {
+    let params = ChainParams { n_max: 2, ..devnet() };
+    let entries = vec![entry(1, ether(1)), entry(2, ether(2)), entry(1, ether(100))];
+    assert_eq!(
+        derived_pubkeys(entries, &params),
+        Ok(key_sorted(&params, vec![B256::repeat_byte(1), B256::repeat_byte(2)]))
     );
 }
 
+/// The rule applies among ELIGIBLE entries only: an exited earlier entry does not shadow a later
+/// eligible one with the same key.
 #[test]
 fn a_duplicate_of_an_ineligible_entry_is_ignored() {
     let exited = RegistryEntry { exit_effective_l1: C, ..entry(1, ether(1)) };
     let rejoined = entry(1, ether(2));
-    assert_eq!(derived_pubkeys(vec![exited, rejoined], &devnet()), Ok(vec![B256::repeat_byte(1)]));
+    let (_, members) = derive(&snapshot(vec![exited, rejoined]), C, 1, &devnet()).unwrap();
+    assert_eq!(
+        members,
+        vec![Member { pubkey: B256::repeat_byte(1), eff_stake: ether(2), power: 2_000_000_000 }]
+    );
 }
 
 #[test]
