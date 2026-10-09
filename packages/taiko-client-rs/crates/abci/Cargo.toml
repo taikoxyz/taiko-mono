@@ -12,6 +12,7 @@ rust-version.workspace = true
 alloy-consensus = { workspace = true }
 alloy-primitives = { workspace = true, features = ["std", "serde", "rlp"] }
 alloy-rlp = { workspace = true, features = ["std", "derive"] }
+alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 
 # taiko
 protocol = { path = "../protocol", default-features = false }
