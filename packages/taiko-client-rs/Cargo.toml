@@ -68,6 +68,8 @@ alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", pa
 
 # consensus
 tendermint = "0.40"
+tendermint-proto = "0.40"
+tower-abci = "0.19"
 
 # networking
 axum = "0.7"
@@ -82,6 +84,7 @@ thiserror = { version = "2.0.12", default-features = false }
 url = "2.5.4"
 
 # serialization
+prost = "0.13"
 serde_json = "1"
 toml = "0.9"
 

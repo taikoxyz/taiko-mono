@@ -8,8 +8,8 @@
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::layout`, `l1::mpt`, `l1::witness`,
 //! `committee`, `rules`, `engine::convert` and `genesis` modules perform no I/O; `l1::source`,
-//! `engine` and `elsync` hold the L1 and execution-engine adapters, and `app` answers CometBFT's
-//! ABCI requests on top of them.
+//! `engine` and `elsync` hold the L1 and execution-engine adapters, `app` answers CometBFT's
+//! ABCI requests on top of them, and `server` serves the app on CometBFT's ABCI socket.
 
 /// The ABCI++ application: request dispatch and the per-method handlers (spec §5).
 pub mod app;
@@ -27,10 +27,14 @@ pub mod envelope;
 pub mod genesis;
 /// L1 storage layout, EIP-1186 proof verification, Inbox witness decoding and the L1 source.
 pub mod l1;
+/// Prometheus metrics of the ABCI app.
+pub mod metrics;
 /// Header derivation and block-validity predicates (spec §4.2, §5.4).
 pub mod rules;
 /// Epoch schedule derived from the L1 activation record.
 pub mod schedule;
+/// The tower-abci socket server: one sequential app worker behind CometBFT's four connections.
+pub mod server;
 /// The persisted app state and its atomic file store.
 pub mod store;
 /// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
@@ -52,8 +56,13 @@ pub use envelope::{
 };
 pub use genesis::{AppStateJson, GenesisError, GenesisWitness, decode_app_state, encode_app_state};
 pub use l1::{L1Error, L1Source, RpcL1Source, is_final_canonical};
+pub use metrics::AbciMetrics;
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
 pub use schedule::{Schedule, ScheduleError};
+pub use server::{
+    AbciHandler, AppService, ExitProcess, HaltHook, ListenAddr, SAFETY_HALT_EXIT_CODE, ServerError,
+    serve, serve_with,
+};
 pub use store::{AppState, CommitteeState, Store, StoreError};
 pub use types::{
     AccountWitness, ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, Member, ParentInfo,

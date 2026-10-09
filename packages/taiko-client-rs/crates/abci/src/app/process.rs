@@ -12,6 +12,7 @@ use crate::{
     engine::{Engine, PayloadVerdict},
     envelope::{AnchorWitness, single_envelope},
     l1::{L1Source, is_final_canonical},
+    metrics::AbciMetrics,
     store::AppState,
 };
 
@@ -26,6 +27,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         &mut self,
         req: request::ProcessProposal,
     ) -> Result<response::ProcessProposal, AbciError> {
+        let _timer = AbciMetrics::process_seconds().start_timer();
         let height = req.height.value();
         let verdict = match &self.state {
             None => return Err(AbciError::Uninitialized("ProcessProposal")),
@@ -34,11 +36,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
         match verdict {
             Ok(validated) => {
                 tracing::debug!(height, hash = %req.hash, "proposal accepted");
-                self.halt = None;
+                AbciMetrics::process_accepted().inc();
+                self.clear_halt();
                 self.verdicts.insert(req.hash, validated);
                 Ok(response::ProcessProposal::Accept)
             }
             Err(rejection) => {
+                AbciMetrics::process_rejected().with_label_values(&[rejection.label()]).inc();
                 self.note_rejection("ProcessProposal", height, &rejection);
                 Ok(response::ProcessProposal::Reject)
             }

@@ -9,6 +9,8 @@ use tracing_subscriber::EnvFilter;
 
 use crate::{error::Result, flags::common::CommonArgs};
 
+pub mod abci;
+
 /// Build a [`ClientConfig`] from the shared common CLI flags.
 pub fn build_client_config(common: &CommonArgs) -> Result<ClientConfig> {
     Ok(ClientConfig {

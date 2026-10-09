@@ -16,15 +16,21 @@ dependencies = [
  "alloy-transport",
  "alloy-trie",
  "async-trait",
+ "once_cell",
+ "prometheus",
+ "prost 0.13.5",
  "protocol",
  "rpc",
  "serde",
  "serde_json",
  "tempfile",
  "tendermint",
+ "tendermint-proto",
  "thiserror 2.0.18",
  "tokio",
  "toml",
+ "tower",
+ "tower-abci",
  "tracing",
  "url",
 ]
@@ -7223,6 +7229,8 @@ dependencies = [
 name = "taiko-client"
 version = "2.3.0"
 dependencies = [
+ "abci",
+ "alloy-provider",
  "async-trait",
  "axum",
  "clap",
@@ -7654,6 +7662,25 @@ dependencies = [
  "tokio-util",
  "tower-layer",
  "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "tower-abci"
+version = "0.19.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f20500d25342b86338bc9e053694dd199e9dafbc1044126a54ce378bfbbcfa5"
+dependencies = [
+ "bytes",
+ "futures",
+ "pin-project",
+ "prost 0.13.5",
+ "tendermint",
+ "tendermint-proto",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tower",
  "tracing",
 ]
 

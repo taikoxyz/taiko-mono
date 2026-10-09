@@ -26,6 +26,7 @@ use crate::{
     engine::{Engine, EngineError, PayloadVerdict},
     envelope::single_envelope,
     l1::L1Source,
+    metrics::AbciMetrics,
     store::AppState,
     types::ParentInfo,
 };
@@ -55,6 +56,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         &mut self,
         req: request::FinalizeBlock,
     ) -> Result<response::FinalizeBlock, AbciError> {
+        let _timer = AbciMetrics::finalize_seconds().start_timer();
         let height = req.height.value();
         let Some(state) = &self.state else {
             return Err(AbciError::Uninitialized("FinalizeBlock"));
@@ -114,16 +116,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Commit`: persists the state the last `FinalizeBlock` derived and makes it the
     /// committed state.
     ///
-    /// Clears the `ProcessProposal` cache and the halt reason, and answers `retain_height = 0`
-    /// (D17). Errors: [`AbciError::NothingToCommit`] without a pending state;
-    /// [`AbciError::Store`] when it cannot be persisted (it then stays pending).
+    /// Clears the `ProcessProposal` cache and the halt reason, publishes the new head's gauges,
+    /// and answers `retain_height = 0` (D17). Errors: [`AbciError::NothingToCommit`] without a
+    /// pending state; [`AbciError::Store`] when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save(pending)?;
         tracing::info!(height = pending.last_height, hash = %pending.parent.hash, "block committed");
         self.state = self.pending.take();
         self.verdicts.clear();
-        self.halt = None;
+        self.clear_halt();
+        self.publish_state_metrics();
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })
     }
 

@@ -2,12 +2,15 @@
 //!
 //! This module provides the main CLI structure and command dispatch logic.
 //! It parses command-line arguments using `clap` and routes to the appropriate
-//! subcommand handler, which then runs until it finishes or the process receives SIGINT or
-//! SIGTERM.
+//! subcommand handler (today only `abci`), which then runs until it finishes or the process
+//! receives SIGINT or SIGTERM.
 
 use std::{future::Future, time::Duration};
 
-use crate::error::{CliError, Result};
+use crate::{
+    commands::abci::AbciSubCommand,
+    error::{CliError, Result},
+};
 use clap::{Parser, Subcommand};
 use tokio::runtime::{Builder, Runtime};
 use tracing::info;
@@ -18,7 +21,10 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Subcommands for the CLI.
 #[derive(Debug, Clone, Subcommand)]
-pub enum Commands {}
+pub enum Commands {
+    /// Run the ABCI++ application of the Etna PoS chain for CometBFT.
+    Abci(Box<AbciSubCommand>),
+}
 
 #[derive(Parser, Clone, Debug)]
 #[command(author)]
@@ -32,7 +38,9 @@ pub struct Cli {
 impl Cli {
     /// Run the subcommand.
     pub fn run(self) -> Result<()> {
-        match self.subcommand {}
+        match self.subcommand {
+            Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
+        }
     }
 
     /// Run `fut` on a new runtime until it finishes or the process receives SIGINT or SIGTERM.
