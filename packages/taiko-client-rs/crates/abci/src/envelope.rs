@@ -250,7 +250,7 @@ fn decode_optional<T: Decodable>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{Address, B64, B256, Bloom, U256, address, b256, bytes, hex};
+    use alloy_primitives::{Address, B64, B256, Bloom, U256, address, b256, bytes, hex, keccak256};
 
     /// `keccak256(rlp([]))`, the root of an empty trie.
     const EMPTY_ROOT: B256 =
@@ -806,5 +806,15 @@ mod tests {
 
         assert_eq!(hex::encode(env.encode()), hex::encode(&expected));
         assert_eq!(EtnaEnvelope::decode(&expected), Ok(env));
+
+        // The fields the node reads from the anchor's raw L1 header, at Ethereum's positions.
+        let decoded = EtnaEnvelope::decode(&expected).expect("decodes");
+        let l1 = &decoded.anchor.as_ref().expect("an anchor witness").l1_header;
+        assert_eq!(l1.raw().as_ref(), l1_header.as_slice());
+        assert_eq!(l1.hash(), keccak256(&l1_header));
+        assert_eq!(l1.parent_hash(), B256::repeat_byte(0x01));
+        assert_eq!(l1.state_root(), B256::repeat_byte(0x02));
+        assert_eq!(l1.number(), 0x2400);
+        assert_eq!(l1.timestamp(), 0x68e7_7800);
     }
 }
