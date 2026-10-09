@@ -52,6 +52,7 @@ type Config struct {
 	ForceSP1Proof                 bool
 	SP1ProofPercentage            uint64
 	ForceSGXProof                 bool
+	SGXRethCompanionProof         bool
 	ZkOnlyProofs                  bool
 }
 
@@ -96,6 +97,14 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	zkOnlyProofs := c.Bool(flags.ZkOnlyProofs.Name)
+	sgxRethCompanionProof := c.Bool(flags.SGXRethCompanionProof.Name)
+	if sgxRethCompanionProof && c.Bool(flags.ForceSGXProof.Name) {
+		return nil, fmt.Errorf(
+			"--%s cannot be combined with --%s, which already pairs an SGX_RETH proof with an SGX_GETH proof",
+			flags.SGXRethCompanionProof.Name,
+			flags.ForceSGXProof.Name,
+		)
+	}
 	sp1ProofPercentage := c.Uint64(flags.SP1ProofPercentage.Name)
 	if err := validateSP1ProofPercentage(sp1ProofPercentage, c.Uint64(flags.ZKVMBatchSize.Name)); err != nil {
 		return nil, err
@@ -136,6 +145,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ForceSP1Proof:          c.Bool(flags.ForceSP1Proof.Name),
 		SP1ProofPercentage:     sp1ProofPercentage,
 		ForceSGXProof:          c.Bool(flags.ForceSGXProof.Name),
+		SGXRethCompanionProof:  sgxRethCompanionProof,
 		ZkOnlyProofs:           zkOnlyProofs,
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),

@@ -193,6 +193,76 @@ func TestRequestProposalProofForceSGXUsesSGXReth(t *testing.T) {
 	)
 }
 
+func TestRequestProposalProofSGXRethCompanion(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		sp1ProofPercentage uint64
+		forceSP1Proof      bool
+		zkOnlyProofs       bool
+		proposalID         int64
+		expectedPrimary    proofProducer.ProofType
+		expectedCompanion  proofProducer.ProofType
+	}{
+		{
+			name:              "RISC0 within distance",
+			proposalID:        140,
+			expectedPrimary:   proofProducer.ProofTypeZKR0,
+			expectedCompanion: proofProducer.ProofTypeSgx,
+		},
+		{
+			name:               "SP1 share",
+			sp1ProofPercentage: 10,
+			proposalID:         105,
+			expectedPrimary:    proofProducer.ProofTypeZKSP1,
+			expectedCompanion:  proofProducer.ProofTypeSgx,
+		},
+		{
+			name:              "force SP1",
+			forceSP1Proof:     true,
+			proposalID:        140,
+			expectedPrimary:   proofProducer.ProofTypeZKSP1,
+			expectedCompanion: proofProducer.ProofTypeSgx,
+		},
+		{
+			name:              "ZK-only ignores it",
+			zkOnlyProofs:      true,
+			proposalID:        140,
+			expectedPrimary:   proofProducer.ProofTypeZKSP1,
+			expectedCompanion: proofProducer.ProofTypeZKR0,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			producer := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
+			submitter := &ProofSubmitter{
+				zkvmProofProducer:             producer,
+				maxRisc0ProofProposalDistance: big.NewInt(30),
+				sp1ProofPercentage:            tc.sp1ProofPercentage,
+				forceSP1Proof:                 tc.forceSP1Proof,
+				zkOnlyProofs:                  tc.zkOnlyProofs,
+				sgxRethCompanionProof:         true,
+			}
+
+			opts := &proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(tc.proposalID)}
+			resp, err := submitter.requestProposalProof(
+				context.Background(),
+				opts,
+				big.NewInt(tc.proposalID),
+				metadata.NewTaikoProposalMetadataShasta(
+					&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(tc.proposalID)},
+					0,
+				),
+				time.Now(),
+				big.NewInt(120),
+			)
+
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedPrimary, resp.ProofType)
+			require.Equal(t, []proofProducer.ProofType{tc.expectedCompanion}, producer.requestedCompanionTypes)
+			require.Equal(t, tc.expectedCompanion, opts.CompanionProofType)
+		})
+	}
+}
+
 func TestRequestProposalProofErrorsOnNilZKVMResponse(t *testing.T) {
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0, nilResponse: true}
 	submitter := &ProofSubmitter{
