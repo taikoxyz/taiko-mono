@@ -1,6 +1,6 @@
 //! `abci` subcommand: serves the Etna PoS chain's ABCI++ app to CometBFT.
 
-use abci::{AbciMetrics, App, ChainParams, Engine, RpcEngine, RpcL1Source, Store, serve};
+use abci::{AbciMetrics, App, Engine, RpcEngine, RpcL1Source, Store, serve};
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use clap::Parser;
@@ -12,7 +12,7 @@ use tracing::info;
 use url::Url;
 
 use crate::{
-    commands::Subcommand,
+    commands::{Subcommand, load_chain_params},
     error::{CliError, Result},
     flags::{abci::AbciArgs, common::CommonArgs},
 };
@@ -34,19 +34,6 @@ impl AbciSubCommand {
     /// [`abci::SAFETY_HALT_EXIT_CODE`]).
     pub async fn run(&self) -> Result<()> {
         <Self as Subcommand>::run(self).await
-    }
-
-    /// The chain parameters of `l2_chain_id`: the built-in ones, overridden by
-    /// `--chain-config` when given, validated.
-    fn chain_params(&self, l2_chain_id: u64) -> Result<ChainParams> {
-        let mut params = ChainParams::builtin(l2_chain_id)?;
-        if let Some(path) = &self.abci_flags.chain_config {
-            let toml = std::fs::read_to_string(path)
-                .map_err(|source| CliError::ChainConfigRead { path: path.clone(), source })?;
-            params = params.with_overrides(&toml)?;
-        }
-        params.validate()?;
-        Ok(params)
     }
 }
 
@@ -85,7 +72,7 @@ impl Subcommand for AbciSubCommand {
         let common = &self.common_flags;
         let flags = &self.abci_flags;
         let chain_id = l2_chain_id(&common.l2_http_endpoint).await?;
-        let params = self.chain_params(chain_id)?;
+        let params = load_chain_params(chain_id, flags.chain_config.as_deref())?;
         let engine = RpcEngine::new(
             common.l2_http_endpoint.clone(),
             common.l2_auth_endpoint.clone(),

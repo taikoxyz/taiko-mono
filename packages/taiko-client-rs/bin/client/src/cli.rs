@@ -2,13 +2,13 @@
 //!
 //! This module provides the main CLI structure and command dispatch logic.
 //! It parses command-line arguments using `clap` and routes to the appropriate
-//! subcommand handler (today only `abci`), which then runs until it finishes or the process
-//! receives SIGINT or SIGTERM.
+//! subcommand handler (`abci` or `abci-genesis`), which then runs until it finishes or the
+//! process receives SIGINT or SIGTERM.
 
 use std::{future::Future, time::Duration};
 
 use crate::{
-    commands::abci::AbciSubCommand,
+    commands::{abci::AbciSubCommand, abci_genesis::AbciGenesisSubCommand},
     error::{CliError, Result},
 };
 use clap::{Parser, Subcommand};
@@ -24,6 +24,8 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 pub enum Commands {
     /// Run the ABCI++ application of the Etna PoS chain for CometBFT.
     Abci(Box<AbciSubCommand>),
+    /// Write the CometBFT genesis.json of the Etna PoS chain from the L1 activation record.
+    AbciGenesis(Box<AbciGenesisSubCommand>),
 }
 
 #[derive(Parser, Clone, Debug)]
@@ -40,6 +42,7 @@ impl Cli {
     pub fn run(self) -> Result<()> {
         match self.subcommand {
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
+            Commands::AbciGenesis(cmd) => Self::run_until_shutdown(cmd.run()),
         }
     }
 

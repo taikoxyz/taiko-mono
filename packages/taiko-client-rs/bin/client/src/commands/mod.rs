@@ -1,15 +1,33 @@
 //! Command implementations.
 
-use std::{io::IsTerminal, net::SocketAddr};
+use std::{io::IsTerminal, net::SocketAddr, path::Path};
 
+use ::abci::ChainParams;
 use async_trait::async_trait;
 use rpc::client::ClientConfig;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use crate::{error::Result, flags::common::CommonArgs};
+use crate::{
+    error::{CliError, Result},
+    flags::common::CommonArgs,
+};
 
 pub mod abci;
+pub mod abci_genesis;
+
+/// The chain parameters of `l2_chain_id`: the built-in ones, overridden by the TOML file at
+/// `chain_config` when given, validated.
+pub fn load_chain_params(l2_chain_id: u64, chain_config: Option<&Path>) -> Result<ChainParams> {
+    let mut params = ChainParams::builtin(l2_chain_id)?;
+    if let Some(path) = chain_config {
+        let toml = std::fs::read_to_string(path)
+            .map_err(|source| CliError::ChainConfigRead { path: path.to_path_buf(), source })?;
+        params = params.with_overrides(&toml)?;
+    }
+    params.validate()?;
+    Ok(params)
+}
 
 /// Build a [`ClientConfig`] from the shared common CLI flags.
 pub fn build_client_config(common: &CommonArgs) -> Result<ClientConfig> {

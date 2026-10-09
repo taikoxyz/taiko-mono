@@ -3,7 +3,7 @@
 
 use std::future::Future;
 
-use alloy_primitives::{B256, Bytes, U256};
+use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
@@ -11,17 +11,12 @@ use super::{
     validate::{Candidate, Rejection, check_candidate, expected_header},
 };
 use crate::{
-    committee::{self, Snapshot, snapshot_slots},
     engine::Engine,
-    envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope},
-    l1::{
-        L1Error, L1Source,
-        layout::{inbox, registry, word_u32, word_u64},
-    },
+    envelope::{AnchorWitness, EtnaEnvelope},
+    l1::{L1Error, L1Source, build_committee_witness_within, layout::inbox},
     metrics::{AbciMetrics, set_u64},
     rules,
     store::AppState,
-    types::RegistryEntry,
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -61,7 +56,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// In order: a superseded chain proposes nothing; the anchor is
     /// `n = max(parent anchor, own finalized − F_L1)`, and its witness (header and Inbox proofs
     /// at `n`) is fetched iff `n` moves, the height is `H_0` or a switch height; at
-    /// `h_first(e)` the committee witness for `e + 1` is built against the parent's anchor; the
+    /// `h_first(e)` the committee witness for `e + 1` is built against the parent's anchor
+    /// ([`build_committee_witness_within`], each read within the L1 deadline); the
     /// witnesses pass the same checks as in `ProcessProposal` ([`check_candidate`]); the EL
     /// builds on the parent with the derived attributes, and the built header must carry the
     /// derived fields; the envelope must fit `max_tx_bytes`.
@@ -89,7 +85,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let committee = match schedule.epoch_starting_at(height) {
             Some(e) => {
                 let target = e.checked_add(1).expect("an epoch below u64::MAX starts at a height");
-                Some(self.committee_witness(state, target).await?)
+                let witness = build_committee_witness_within(
+                    &self.l1,
+                    params,
+                    state.anchor.number,
+                    target,
+                    self.opts.l1_timeout,
+                )
+                .await?;
+                Some(witness)
             }
             None => None,
         };
@@ -133,70 +137,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .l1_read("inbox proof read", self.l1.account_witness(self.params.inbox, &slots, n))
             .await?;
         Ok(AnchorWitness { l1_header, inbox })
-    }
-
-    /// The committee witness for `target` against the parent's anchor `n_p` (spec §6.4,
-    /// amendment A1).
-    ///
-    /// Discovers, with unproven storage reads at `n_p`, the last checkpoint `i` whose `l1Block`
-    /// is at or before the cutoff (binary search; checkpoint 0 when none is, which the
-    /// pre-check then rejects) and its `count`; reads its entries at L1 block
-    /// `checkpoints[i].l1Block`; proves `snapshot_slots(i, i + 1 < length)` at `n_p`; and
-    /// derives the record the block claims.
-    async fn committee_witness(
-        &self,
-        state: &AppState,
-        target: u64,
-    ) -> Result<CommitteeWitness, Rejection> {
-        let params = &self.params;
-        let n_p = state.anchor.number;
-        let cutoff = committee::cutoff(n_p, params.cutoff_grid, params.cutoff_lag)?;
-
-        let length = self.registry_word(registry::length_slot(), n_p).await?;
-        let length = u64::try_from(length)
-            .map_err(|_| Rejection::Registry(format!("checkpoints.length {length} exceeds u64")))?;
-        // Invariant: checkpoints below `lo` are at or before the cutoff, from `hi` on after it.
-        let (mut lo, mut hi) = (0u64, length);
-        while lo < hi {
-            let mid = lo + (hi - lo) / 2;
-            let head = self.registry_word(registry::checkpoint_slots(mid)[0], n_p).await?;
-            if word_u64(head, 0) <= cutoff {
-                lo = mid + 1;
-            } else {
-                hi = mid;
-            }
-        }
-        let index = lo.saturating_sub(1);
-        let head = self.registry_word(registry::checkpoint_slots(index)[0], n_p).await?;
-        let (l1_block, count) = (word_u64(head, 0), word_u32(head, 64));
-
-        let mut entries = Vec::new();
-        for j in 0..u64::from(count) {
-            let [pubkey, stake, packed] = registry::entry_slots(j);
-            let packed = self.registry_word(packed, l1_block).await?;
-            entries.push(RegistryEntry {
-                pubkey: B256::from(self.registry_word(pubkey, l1_block).await?),
-                eff_stake: self.registry_word(stake, l1_block).await?,
-                active_from_l1: word_u64(packed, 0),
-                exit_effective_l1: word_u64(packed, 64),
-                last_heartbeat_at: word_u64(packed, 128),
-            });
-        }
-
-        let has_next = index.checked_add(1).is_some_and(|next| next < length);
-        let slots = snapshot_slots(index, has_next);
-        let proof = self
-            .l1_read("registry proof read", self.l1.account_witness(params.registry, &slots, n_p))
-            .await?;
-        let snapshot = Snapshot { checkpoint_index: index, l1_block, entries };
-        let (record, _) = committee::derive(&snapshot, cutoff, target, params)?;
-        Ok(CommitteeWitness { record, registry: proof, entries: snapshot.entries })
-    }
-
-    /// The raw registry storage word at `slot` as of L1 block `block`.
-    async fn registry_word(&self, slot: B256, block: u64) -> Result<U256, Rejection> {
-        self.l1_read("registry storage read", self.l1.storage_at(self.params.registry, slot, block))
-            .await
     }
 
     /// Runs one own-L1 read within the L1 deadline.

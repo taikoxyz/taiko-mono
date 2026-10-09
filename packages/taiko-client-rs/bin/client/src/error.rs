@@ -86,6 +86,20 @@ pub enum CliError {
     /// The ABCI server failed (bad address, listener failure, or the app worker stopped).
     #[error(transparent)]
     AbciServer(#[from] abci::ServerError),
+
+    /// The genesis could not be built from L1 (an L1 read failed, the activation record is not
+    /// final or active, or the L1 facts fail the `InitChain` checks).
+    #[error("genesis: {0}")]
+    Genesis(#[from] abci::GenesisError),
+
+    /// The `--out` genesis file could not be written.
+    #[error("cannot write the genesis to {path}: {source}")]
+    GenesisWrite {
+        /// The `--out` path.
+        path: PathBuf,
+        /// The write error.
+        source: std::io::Error,
+    },
 }
 
 impl From<abci::AbciError> for CliError {

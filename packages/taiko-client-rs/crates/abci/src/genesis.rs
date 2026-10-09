@@ -1,17 +1,41 @@
-//! The CometBFT genesis `app_state` of the Etna PoS chain (spec §5.1).
+//! The CometBFT genesis of the Etna PoS chain (spec §5.1): the genesis witness carried in
+//! `app_state`, and the `abci-genesis` builder that reads it from L1.
 //!
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
 //! is the RLP of a [`GenesisWitness`]: the `L1_0` header, the Inbox proofs of the activation slots
 //! and `committee[e_0]`, and the committee witness of epoch `e_0`. `InitChain` decodes it with
 //! [`decode_app_state`] and re-verifies every fact against the node's own L1; nothing in it is
-//! trusted. The `abci-genesis` builder that reads these facts from L1 lives here too (task 14).
+//! trusted.
+//!
+//! [`build_genesis`] reads the Ethereum-final activation record and the `e_0` committee from the
+//! node's own L1, checks them as `InitChain` will, and assembles the whole CometBFT v0.40
+//! [`GenesisDoc`]. The codec here performs no I/O; the builder reads L1 through [`L1Source`].
+//!
+//! [`L1Source`]: crate::l1::L1Source
 
 use alloy_consensus::Header;
-use alloy_primitives::Bytes;
+use alloy_primitives::{B256, Bytes};
 use alloy_rlp::{Decodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
-use crate::{envelope::CommitteeWitness, types::AccountWitness};
+use crate::{
+    committee::CommitteeError,
+    envelope::CommitteeWitness,
+    l1::{FetchError, L1Error, WitnessError, layout::inbox},
+    schedule::ScheduleError,
+    types::AccountWitness,
+};
+
+/// The `abci-genesis` builder: L1 reads and self-checks.
+mod build;
+/// The CometBFT v0.40 `genesis.json` document.
+mod doc;
+
+pub use build::build_genesis;
+pub use doc::{
+    AbciParams, AuthorityParams, BlockParams, EvidenceParams, GenesisConsensusParams, GenesisDoc,
+    GenesisValidator, ValidatorParams, VersionParams, validator_address,
+};
 
 /// Everything `InitChain` verifies to start the chain, carried in the genesis `app_state`.
 ///
@@ -35,7 +59,10 @@ pub struct AppStateJson {
     pub witness: Bytes,
 }
 
-/// Why the genesis `app_state` could not be decoded.
+/// Why the genesis `app_state` could not be decoded, or a genesis could not be built.
+///
+/// [`decode_app_state`] yields only [`GenesisError::Json`], [`GenesisError::Rlp`] and
+/// [`GenesisError::TrailingBytes`]; the other variants come from [`build_genesis`].
 #[derive(Debug, thiserror::Error)]
 pub enum GenesisError {
     /// The bytes are not the JSON object `{"witness": "0x<hex>"}` (malformed JSON, a missing or
@@ -48,6 +75,87 @@ pub enum GenesisError {
     /// Bytes remain after the witness RLP list; the value is how many.
     #[error("{0} trailing bytes after the genesis witness")]
     TrailingBytes(usize),
+    /// An L1 read failed.
+    #[error(transparent)]
+    L1(#[from] L1Error),
+    /// The Inbox at the L1 `finalized` block is not in `ETNA_ACTIVE`; the value is its
+    /// `migrationState`.
+    #[error(
+        "inbox migrationState at the finalized L1 block is {0}, expected ETNA_ACTIVE ({active})",
+        active = inbox::ETNA_ACTIVE
+    )]
+    NotActive(u8),
+    /// The activation block `L1_0` is not yet final with the chain's extra depth:
+    /// `L1_0 + l1_finality_extra_depth > finalized`.
+    #[error(
+        "activation L1 block {l1_0} is not final: finalized is {finalized}, extra depth \
+         {extra_depth}"
+    )]
+    ActivationNotFinal {
+        /// `L1_0` from the finalized activation record.
+        l1_0: u64,
+        /// The chain's `l1_finality_extra_depth` (`F_L1`).
+        extra_depth: u64,
+        /// The L1 node's `finalized` block number.
+        finalized: u64,
+    },
+    /// The Inbox proofs at `L1_0` do not verify, or do not show an activated Inbox (boxed, as
+    /// the witness error is large).
+    #[error("genesis inbox witness rejected: {0}")]
+    Witness(Box<WitnessError>),
+    /// The activation record proven at `L1_0` names another activation block than the record
+    /// read at the `finalized` block.
+    #[error("activation record at L1 block {l1_0} names L1_0 = {proven}")]
+    ActivationMismatch {
+        /// `L1_0` from the record at the `finalized` block (the block the proofs are taken at).
+        l1_0: u64,
+        /// `L1_0` from the record proven at that block.
+        proven: u64,
+    },
+    /// The activation record's schedule violates the epoch-length bounds (spec §6.5).
+    #[error(transparent)]
+    Schedule(#[from] ScheduleError),
+    /// The `e_0` committee witness could not be built from L1 (boxed, as the error is large).
+    #[error("e_0 committee discovery failed: {0}")]
+    Fetch(Box<FetchError>),
+    /// The built `e_0` committee witness does not verify (boxed, as the error is large).
+    #[error("e_0 committee witness rejected: {0}")]
+    Committee(Box<CommitteeError>),
+    /// The committee derived from the registry is not the one recorded at `committee[e_0]`.
+    #[error("derived committee record hash {derived} differs from committee[e0] = {recorded}")]
+    CommitteeRecordMismatch {
+        /// `record_hash` of the derived committee record.
+        derived: B256,
+        /// The record hash proven at `committee[e_0]`.
+        recorded: B256,
+    },
+    /// `B* + 1` does not fit a CometBFT height; the value is `B*`.
+    #[error("initial height B* + 1 for B* = {0} exceeds the CometBFT height range")]
+    InitialHeight(u64),
+    /// The `L1_0` timestamp (Unix seconds) is not a valid CometBFT genesis time.
+    #[error("L1_0 timestamp {0} is not a valid genesis time")]
+    GenesisTime(u64),
+}
+
+impl From<WitnessError> for GenesisError {
+    /// Boxes `e` into [`GenesisError::Witness`].
+    fn from(e: WitnessError) -> Self {
+        Self::Witness(Box::new(e))
+    }
+}
+
+impl From<FetchError> for GenesisError {
+    /// Boxes `e` into [`GenesisError::Fetch`].
+    fn from(e: FetchError) -> Self {
+        Self::Fetch(Box::new(e))
+    }
+}
+
+impl From<CommitteeError> for GenesisError {
+    /// Boxes `e` into [`GenesisError::Committee`].
+    fn from(e: CommitteeError) -> Self {
+        Self::Committee(Box::new(e))
+    }
 }
 
 /// Decodes the genesis `app_state` JSON into its [`GenesisWitness`].

@@ -18,7 +18,7 @@ use crate::{
     config::ChainParams,
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
-    l1::{L1Error, WitnessError, layout::inbox, verify_anchor_witness},
+    l1::{FetchError, L1Error, WitnessError, layout::inbox, verify_anchor_witness},
     rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
     schedule::Schedule,
     store::{AppState, CommitteeState},
@@ -187,6 +187,19 @@ impl Rejection {
             Self::Registry(_) => "registry_discovery",
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
+        }
+    }
+}
+
+impl From<FetchError> for Rejection {
+    /// Maps a failed committee-witness discovery onto the proposal reasons: L1 errors, timeouts,
+    /// unusable registry words and derivation failures keep their own labels.
+    fn from(e: FetchError) -> Self {
+        match e {
+            FetchError::L1(e) => Self::L1(e),
+            FetchError::Timeout(what) => Self::Timeout(what),
+            FetchError::Registry(reason) => Self::Registry(reason),
+            FetchError::Committee(e) => Self::Committee(e),
         }
     }
 }
