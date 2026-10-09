@@ -14,7 +14,7 @@ use crate::{
     app::validate::Rejection,
     committee::{CommitteeError, entries_root, record_hash, verify_committee_witness},
     envelope::CommitteeWitness,
-    l1::{MptError, build_committee_witness_within},
+    l1::{DiscoveryProgress, MptError, build_committee_witness_within},
     test_utils::{RegistryStorage, sample_entries},
     types::AnchorState,
 };
@@ -52,7 +52,8 @@ async fn epoch_start(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, Anch
 /// The committee-2 witness an honest proposer builds at `h_first(1)` against the anchor
 /// `n_p` (its L1 state and its cutoff).
 async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness {
-    build_committee_witness_within(app.l1(), &app.params, n_p, 2, app.opts.l1_timeout)
+    let progress = DiscoveryProgress::default();
+    build_committee_witness_within(app.l1(), &app.params, n_p, 2, app.opts.l1_timeout, &progress)
         .await
         .expect("the committee witness builds")
 }

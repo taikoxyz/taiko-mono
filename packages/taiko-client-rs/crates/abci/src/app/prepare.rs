@@ -7,7 +7,7 @@ use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
-    AbciError, App, CachedCommittee, deadline,
+    AbciError, App, deadline,
     validate::{Candidate, Rejection, check_candidate_anchor, expected_header, finish_candidate},
 };
 use crate::{
@@ -64,11 +64,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// at `n`) is fetched iff `n` moves, the height is `H_0` or a switch height; the anchor
     /// passes the committee-free checks of `ProcessProposal` ([`check_candidate_anchor`]: anchor
     /// progress, generation, `migrationState`, back-pressure), so a block that cannot be proposed
-    /// costs no committee discovery; at `h_first(e)` the committee witness for `e + 1` is taken
-    /// from an earlier round at this height or built against the parent's anchor
-    /// ([`App::committee_witness`]); the rest of `ProcessProposal`'s witness checks pass
-    /// ([`finish_candidate`]); the EL builds on the parent with the derived attributes, and the
-    /// built header must carry the derived fields; the envelope must fit `max_tx_bytes`.
+    /// costs no committee discovery; at `h_first(e)` the committee witness for `e + 1` is one
+    /// verified earlier at this height (an own earlier round, or another proposer's block) or is
+    /// built against the parent's anchor ([`App::committee_witness`]); the rest of
+    /// `ProcessProposal`'s witness checks pass ([`finish_candidate`]); the EL builds on the
+    /// parent with the derived attributes, and the built header must carry the derived fields;
+    /// the envelope must fit `max_tx_bytes`.
     async fn propose(
         &self,
         state: &AppState,
@@ -107,11 +108,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let witness = committee.as_ref().map(|(_, w)| w);
         let facts = finish_candidate(state, params, height, witness, anchor_state)?;
         if let Some((target_epoch, witness)) = &committee {
-            *self.committee_cache() = Some(CachedCommittee {
-                parent_anchor: state.anchor.number,
-                target_epoch: *target_epoch,
-                witness: witness.clone(),
-            });
+            self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
         }
         let expected =
             expected_header(state, params, height, &facts.anchor, super::unix_secs(req.time))?;
@@ -134,10 +131,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// The committee witness of `target_epoch` against the parent's anchor `parent_anchor`: the
-    /// one an earlier round at this height discovered and verified, if its key matches, else a
-    /// fresh discovery ([`build_committee_witness_within`], each read within the L1 deadline,
-    /// reading no state older than the committee cutoff). The caller caches a fresh witness once
-    /// it verifies.
+    /// one verified earlier at this height (discovered by this node, or carried by another
+    /// proposer's block), if its key matches, else a discovery ([`build_committee_witness_within`],
+    /// each read within the L1 deadline, reading no state older than the committee cutoff) that
+    /// resumes from the reads of an attempt the prepare deadline cut short. The caller caches a
+    /// discovered witness once it verifies.
     async fn committee_witness(
         &self,
         parent_anchor: u64,
@@ -161,6 +159,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             parent_anchor,
             target_epoch,
             self.opts.l1_timeout,
+            &self.discovery,
         )
         .await?)
     }

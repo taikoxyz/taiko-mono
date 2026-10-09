@@ -7,7 +7,7 @@ use super::{
     *,
 };
 use crate::{
-    engine::EngineError,
+    engine::{EngineError, PayloadVerdict},
     l1::L1Error,
     rules::decode_extra_data,
     test_utils::{GenesisSpec, L1Call, simple_block},
@@ -277,6 +277,78 @@ async fn a_second_round_at_an_epoch_start_reuses_the_committee_witness() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     super::proposal::decide(&mut app, &req).await;
     assert!(app.committee_cache.lock().unwrap().is_none(), "Commit drops the cached witness");
+}
+
+/// CometBFT rotates proposers round by round: a node that judged another proposer's block at
+/// `h_first(e)` keeps its verified committee witness, so its own proposal at that height (a later
+/// round) needs no discovery. The witness is proven against the committed parent's anchor alone,
+/// so it is kept even when a node-local check (here the EL) refuses that block.
+#[tokio::test]
+async fn a_committee_witness_judged_at_an_epoch_start_is_reused_by_the_next_proposer() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut a = before_epoch_start(&fx, dir.path()).await;
+    let env = propose(&mut a).await;
+    let witness = env.committee.clone().expect("h_first(1) carries a committee witness");
+
+    // B accepts A's round-0 block, the round fails anyway, and B proposes in round 1.
+    let dir = tempfile::tempdir().unwrap();
+    let mut b = before_epoch_start(&fx, dir.path()).await;
+    let (resp, _) = super::proposal::judge(&mut b, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", b.halt);
+    b.l1().state().calls.clear();
+    let own = propose(&mut b).await;
+    assert_eq!(registry_reads(&b), 0, "{:?}", b.l1().calls());
+    assert_eq!(own.committee.as_ref(), Some(&witness));
+
+    // C's EL refuses A's block (syncing); C still proposes without discovery.
+    let dir = tempfile::tempdir().unwrap();
+    let mut c = before_epoch_start(&fx, dir.path()).await;
+    c.engine().state().new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
+    let (resp, _) = super::proposal::judge(&mut c, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Reject);
+    assert_eq!(c.halt.as_deref(), Some("payload_syncing"));
+    c.l1().state().calls.clear();
+    let own = propose(&mut c).await;
+    assert_eq!(registry_reads(&c), 0, "{:?}", c.l1().calls());
+    assert_eq!(own.committee, Some(witness));
+}
+
+/// `PrepareProposal`'s deadline does not grow with the round, so a discovery cut short by it
+/// keeps the registry reads it finished: the next attempt at the height resumes from them.
+#[tokio::test(start_paused = true)]
+async fn a_discovery_cut_short_by_the_deadline_resumes_where_it_stopped() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_epoch_start(&fx, dir.path()).await;
+    let registry = fx.params.registry;
+    let storage_reads = |app: &App<MockL1, MockEngine>| -> Vec<L1Call> {
+        let calls = app.l1().calls();
+        calls.into_iter().filter(|c| matches!(c, L1Call::StorageAt { .. })).collect()
+    };
+
+    // 600 ms per read: the finalized number, `checkpoints.length` and the one checkpoint head
+    // answer by 1.8 s; the entries read is still pending at the 2 s deadline.
+    app.l1().state().delay = Some(Duration::from_millis(600));
+    assert_eq!(refused(&mut app).await, "timeout");
+    let finished = storage_reads(&app);
+    assert_eq!(finished.len(), 2, "{:?}", app.l1().calls());
+
+    // The next round reads only what is still missing: the entries and the snapshot proof.
+    app.l1().state().delay = None;
+    app.l1().state().calls.clear();
+    let env = propose(&mut app).await;
+    assert_eq!(storage_reads(&app), [], "the finished reads are not repeated");
+    assert_eq!(registry_reads(&app), 2, "{:?}", app.l1().calls());
+    let witness = crate::l1::build_committee_witness(app.l1(), &app.params, 70, 2)
+        .await
+        .expect("the witness builds");
+    assert_eq!(env.committee, Some(witness));
+    assert!(
+        finished
+            .iter()
+            .all(|c| matches!(c, L1Call::StorageAt { address, .. } if *address == registry))
+    );
 }
 
 /// A cached witness is only reused for the same parent anchor and target epoch.
