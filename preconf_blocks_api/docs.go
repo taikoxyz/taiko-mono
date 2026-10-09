@@ -246,6 +246,10 @@ const docTemplate = `{
                     "description": "BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.",
                     "type": "integer"
                 },
+                "blockAccessListHash": {
+                    "description": "CHANGE(taiko): Preserve the EIP-7928 hash when reading L1 headers.\nBlockAccessListHash was added by EIP-7928 and is ignored in legacy headers.\nA nil value uses an empty-string placeholder when SlotNumber is present.",
+                    "type": "string"
+                },
                 "difficulty": {
                     "type": "integer"
                 },
