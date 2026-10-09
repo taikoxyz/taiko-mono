@@ -1,4 +1,4 @@
-//! The CometBFT block envelope (spec §4.1).
+//! The CometBFT block envelope.
 //!
 //! Every CometBFT block's `Data.Txs` holds exactly one item, the envelope:
 //!
@@ -44,7 +44,7 @@ pub struct ExecutionBlock {
 }
 
 /// The L1 anchor witness: an L1 header plus the Inbox account and storage proofs against its
-/// `stateRoot` (spec §4.1, §6.2).
+/// `stateRoot`.
 ///
 /// RLP: `[l1_header, inbox]`, where `l1_header` is a byte string holding the raw header RLP.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
@@ -56,7 +56,7 @@ pub struct AnchorWitness {
     pub inbox: AccountWitness,
 }
 
-/// The committee witness carried at an epoch's first height (spec §4.1, §6.4).
+/// The committee witness carried at an epoch's first height.
 ///
 /// RLP: `[record, registry, entries]`. The registry proofs verify against the parent's anchor
 /// `stateRoot`.

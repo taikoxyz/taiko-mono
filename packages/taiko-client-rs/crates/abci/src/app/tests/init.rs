@@ -1,4 +1,4 @@
-//! `InitChain` (spec §5.1): the happy path and every rejection.
+//! `InitChain`: the happy path and every rejection.
 
 use std::time::Duration;
 

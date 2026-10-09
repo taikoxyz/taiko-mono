@@ -1,4 +1,4 @@
-//! Docker scenario 5 (spec §9.2): no block anchors above anvil's `finalized`, and entering an
+//! Docker scenario: no block anchors above anvil's `finalized`, and entering an
 //! epoch waits for L1 to reach the epoch's first L1 block `L1_first(e)` as `finalized`.
 //!
 //! `EPOCH_LEN_L1 = 30` makes epoch 1 need an anchor at `L1_0 + 30`, which anvil's `finalized`

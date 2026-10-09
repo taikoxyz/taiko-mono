@@ -1,4 +1,4 @@
-//! The CometBFT genesis of the Etna PoS chain (spec §5.1): the genesis witness carried in
+//! The CometBFT genesis of the Etna PoS chain: the genesis witness carried in
 //! `app_state`, and the `abci-genesis` builder that reads it from L1.
 //!
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
@@ -112,7 +112,8 @@ pub enum GenesisError {
         /// `L1_0` from the record proven at that block.
         proven: u64,
     },
-    /// The activation record's schedule violates the epoch-length bounds (spec §6.5).
+    /// The activation record's schedule violates the epoch-length bounds
+    /// ([`Schedule::validate`](crate::Schedule::validate)).
     #[error(transparent)]
     Schedule(#[from] ScheduleError),
     /// The `e_0` committee witness could not be built from L1 (boxed, as the error is large).

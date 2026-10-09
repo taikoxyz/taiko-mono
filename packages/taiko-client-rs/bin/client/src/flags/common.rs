@@ -23,20 +23,21 @@ pub struct CommonArgs {
                 supported: its client stops reconnecting after a longer L1 outage)"
     )]
     pub l1_http_endpoint: Url,
-    /// HTTP RPC endpoint of a L2 taiko execution engine.
+    /// JSON-RPC endpoint of alethia-reth (`http` or `https`).
     #[clap(
         long = "l2.http",
         env = "L2_HTTP",
         required = true,
-        help = "HTTP RPC endpoint of a L2 taiko execution engine"
+        help = "JSON-RPC endpoint of alethia-reth (http or https)"
     )]
     pub l2_http_endpoint: Url,
-    /// Authenticated HTTP RPC endpoint of a L2 taiko execution engine.
+    /// JWT-authenticated Engine API endpoint of alethia-reth; plain `http` only, as the JWT
+    /// client speaks no TLS.
     #[clap(
         long = "l2.auth",
         env = "L2_AUTH",
         required = true,
-        help = "Authenticated HTTP RPC endpoint of a L2 taiko-geth execution engine"
+        help = "JWT-authenticated Engine API endpoint of alethia-reth (plain http only)"
     )]
     pub l2_auth_endpoint: Url,
     /// Path to a JWT secret to use for authenticated RPC endpoints.

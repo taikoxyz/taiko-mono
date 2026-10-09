@@ -1,4 +1,4 @@
-//! Prometheus metrics of the ABCI app (spec §8.3).
+//! Prometheus metrics of the ABCI app.
 //!
 //! The collectors live in the process-wide default registry, which the client's metrics server
 //! exposes. They register on first use; [`AbciMetrics::init`] forces that at startup so every

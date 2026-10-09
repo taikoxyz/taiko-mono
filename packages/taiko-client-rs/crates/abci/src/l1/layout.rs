@@ -1,4 +1,4 @@
-//! L1 storage layout of the Etna Inbox and staking registry (spec §6.2). No I/O.
+//! L1 storage layout of the Etna Inbox and staking registry. No I/O.
 //!
 //! This module is normative for contract authors: every slot the node proves with EIP-1186
 //! witnesses is derived here. Values are 32-byte storage words; packed fields follow Solidity's
@@ -30,7 +30,8 @@
 //! - **Committee records.** `committee[e]` is written only with the record hash the chain derived
 //!   for epoch `e` at `h_first(e − 1)` (proven by the checkpoint that covers that height). A zero
 //!   `committee[e]` holds the chain at `e`'s switch height until it lands; a different non-zero
-//!   value is a record conflict (spec §8.2) that stops the chain there.
+//!   value is a record conflict (L1 and the chain hold two records for one epoch) that stops the
+//!   chain there.
 
 use alloy_primitives::U256;
 
@@ -38,9 +39,9 @@ use alloy_primitives::U256;
 pub mod inbox {
     use alloy_primitives::{B256, U256, keccak256};
 
-    /// `migrationState` (spec-pinned): `uint8`, bits 0–7.
+    /// `migrationState` (slot pinned by #22262): `uint8`, bits 0–7.
     pub const MIGRATION_STATE: u64 = 258;
-    /// `recoveryGeneration` (spec-pinned): `uint64`, bits 0–63.
+    /// `recoveryGeneration` (slot pinned by #22262): `uint64`, bits 0–63.
     pub const RECOVERY_GENERATION: u64 = 268;
     /// `lastCheckpoint.height`: `uint64`, bits 0–63.
     pub const LAST_CHECKPOINT_HEIGHT: u64 = 270;
@@ -71,7 +72,7 @@ pub mod inbox {
 
     /// The slots a per-block anchor witness proves, in this order:
     /// `[258, 268, 270, 271]`, followed by `committee[epoch]` when `committee_epoch` is set
-    /// (switch heights, D19).
+    /// (switch heights, which need the next committee's record landed).
     pub fn anchor_slots(committee_epoch: Option<u64>) -> Vec<B256> {
         let mut slots = vec![
             slot(MIGRATION_STATE),

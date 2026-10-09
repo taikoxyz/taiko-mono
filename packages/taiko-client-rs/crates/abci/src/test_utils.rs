@@ -4,7 +4,8 @@
 //! with `alloy_trie::HashBuilder`, so the [`AccountWitness`]es it hands out carry genuine
 //! EIP-1186 proofs (inclusion proofs for non-zero slots, exclusion proofs for zero/absent ones).
 //!
-//! [`InboxStorage`] packs Inbox facts into storage words exactly as spec §6.2 lays them out, and
+//! [`InboxStorage`] packs Inbox facts into storage words exactly as [`crate::l1::layout`] lays
+//! them out, and
 //! [`anchor_witness`] / [`genesis_inbox_witness`] turn it into witnesses with real proofs.
 //! [`RegistryStorage`] does the same for the staking registry's checkpoints (and the last
 //! checkpoint's entries), and [`committee_witness`] proves one checkpoint of it.
@@ -184,7 +185,7 @@ fn proof_for(nodes: &ProofNodes, key: B256) -> Vec<Bytes> {
     nodes.matching_nodes_sorted(&Nibbles::unpack(key)).into_iter().map(|(_, node)| node).collect()
 }
 
-/// The Inbox's storage as spec §6.2 lays it out, before packing into words.
+/// The Inbox's storage as [`crate::l1::layout::inbox`] lays it out, before packing into words.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct InboxStorage {
     /// Slot 258, `uint8` at bits 0–7.
@@ -215,7 +216,7 @@ impl InboxStorage {
         }
     }
 
-    /// The `(slot, word)` pairs of this storage, packed low-order-first per spec §6.2. Zero words
+    /// The `(slot, word)` pairs of this storage, packed low-order-first like Solidity. Zero words
     /// are included (the trie drops them, so they read back through exclusion proofs).
     pub(crate) fn slots(&self) -> Vec<(B256, U256)> {
         let mut slots = vec![
@@ -373,7 +374,8 @@ pub(crate) fn genesis_inbox_witness(
     (state.witness(inbox_address, &inbox::genesis_slots(Schedule::E0)), state)
 }
 
-/// The staking registry's storage as spec §6.2 lays it out, before packing into words.
+/// The staking registry's storage as [`crate::l1::layout::registry`] lays it out, before
+/// packing into words.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RegistryStorage {
     /// `checkpoints[i] = (l1Block, entries)`, in index order; `count = entries.len()` and

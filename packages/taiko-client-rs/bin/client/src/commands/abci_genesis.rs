@@ -1,5 +1,5 @@
 //! `abci-genesis` subcommand: writes the Etna PoS chain's CometBFT `genesis.json` from the
-//! Ethereum-final activation record on L1 (spec §3.3, §5.1).
+//! Ethereum-final activation record on L1.
 
 use std::{io::Write, path::PathBuf};
 

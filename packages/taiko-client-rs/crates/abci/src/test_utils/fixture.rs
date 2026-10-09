@@ -414,7 +414,7 @@ pub(crate) fn el_chain(genesis_height: u64) -> Vec<Header> {
     }
 }
 
-/// CometBFT consensus parameters as the genesis builder writes them (spec §5.1).
+/// CometBFT consensus parameters as the genesis builder writes them.
 pub(crate) fn consensus_params() -> consensus::Params {
     consensus::Params {
         block: block::Size { max_bytes: 22_020_096, max_gas: -1, time_iota_ms: 1_000 },

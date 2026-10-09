@@ -1,9 +1,10 @@
-//! The node's own L1 view (spec §6.1, D13): the `finalized` block number, canonical block hashes
+//! The node's own L1 view (finality = its L1 node's `finalized` tag, SYS-02): the `finalized`
+//! block number, canonical block hashes
 //! and raw headers, EIP-1186 account proofs and raw storage reads, behind [`L1Source`] so the app
 //! can run against an in-memory L1 in tests.
 //!
-//! Only `PrepareProposal`, `ProcessProposal` (the ¹ checks of spec §5.4) and `InitChain` use it;
-//! `FinalizeBlock` and replay never call L1 (D4).
+//! Only `PrepareProposal`, `ProcessProposal` (its node-local checks) and `InitChain` use it;
+//! `FinalizeBlock` and replay never call L1, as every L1 fact a block consumes travels in it.
 
 use std::collections::BTreeSet;
 
@@ -323,7 +324,7 @@ pub async fn header_at<L: L1Source + ?Sized>(l1: &L, number: u64) -> Result<RawL
     Ok(header)
 }
 
-/// Whether `header` is final and canonical in the node's own L1 view (spec §6.1): the node's
+/// Whether `header` is final and canonical in the node's own L1 view: the node's
 /// `finalized` number is at least `header.number() + extra_depth` (`F_L1`) and the node's
 /// canonical block hash at `header.number()` is `header.hash()`, i.e. `keccak256` of the raw
 /// header.

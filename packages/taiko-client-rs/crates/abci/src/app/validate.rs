@@ -1,11 +1,12 @@
-//! Deterministic block validation shared by `ProcessProposal` and `FinalizeBlock` (spec §5.4
-//! steps 1–8 without the ¹ checks).
+//! Deterministic block validation shared by `ProcessProposal` and `FinalizeBlock`: every check
+//! of a proposal except the node-local ones, marked ¹ here (anchor finality in the node's own L1
+//! view, EL execution), which affect liveness only.
 //!
 //! [`validate_block`] judges a decoded envelope against the committed [`AppState`] alone: no L1,
-//! no EL. [`check_candidate`] holds the witness steps (b)–(h) so `PrepareProposal` can run the
-//! same checks on its witnesses before it asks the EL to build. [`Rejection`] also carries the
-//! reasons of the node-local ¹ checks and of a failed build, so every handler reports one label
-//! set.
+//! no EL, in its steps (a)–(i). [`check_candidate`] holds the witness steps (b)–(h) so
+//! `PrepareProposal` can run the same checks on its witnesses before it asks the EL to build.
+//! [`Rejection`] also carries the reasons of the ¹ checks, of the envelope decoding and of a
+//! failed build, so every handler reports one label set.
 
 use std::fmt;
 
@@ -61,9 +62,10 @@ impl fmt::Display for WitnessKind {
 /// Why a proposal is rejected (`ProcessProposal`) or not built (`PrepareProposal`).
 ///
 /// Every variant is a liveness matter for the node that observes it: the block is refused, the
-/// chain keeps rounding. [`validate_block`] yields only the deterministic variants; the ¹
-/// node-local ones (anchor finality, L1, engine, timeouts) and the handler-level ones
-/// ([`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Registry`],
+/// chain keeps rounding. [`validate_block`] yields only the deterministic variants on a decoded
+/// envelope; the ¹ node-local ones (anchor finality, L1, engine, EL sync state, timeouts) and the
+/// handler-level ones ([`Rejection::Envelope`], [`Rejection::EmptyProposal`],
+/// [`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Registry`],
 /// [`Rejection::Oversize`], [`Rejection::BuiltHeader`]) come from the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
@@ -71,10 +73,10 @@ pub enum Rejection {
     #[error("malformed envelope: {0}")]
     Envelope(#[from] EnvelopeError),
     /// `ProcessProposal`: the block carries no transaction at all, which is how a proposer in a
-    /// liveness halt proposes nothing (spec §5.3).
+    /// liveness halt proposes nothing.
     #[error("empty proposal: the proposer built no block")]
     EmptyProposal,
-    /// A header field or a consensus predicate fails (spec §4.2, §5.4).
+    /// A header field or a consensus predicate fails ([`RuleViolation`]).
     #[error(transparent)]
     Rule(#[from] RuleViolation),
     /// The anchor witness does not verify.
@@ -100,31 +102,35 @@ pub enum Rejection {
     /// A witness the height must not carry is present.
     #[error("the block carries an unexpected {0} witness")]
     UnexpectedWitness(WitnessKind),
-    /// The anchored Inbox is not in `ETNA_ACTIVE` (spec §5.4 step 6).
+    /// The anchored Inbox is not in `ETNA_ACTIVE`.
     #[error("inbox migrationState is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
     NotActive(u8),
     /// A switch height needs a committee the app does not hold.
     #[error("no committee known for epoch {0}")]
     CommitteeUnknown(u64),
     /// At a switch height, the anchored checkpoint does not yet cover the height that derived
-    /// the next committee (D19): wait for it to land.
-    #[error("lastCheckpoint.height {last_checkpoint_height} is below {required} (D19)")]
+    /// the next committee (a set must not activate before its record has landed): wait for it
+    /// to land.
+    #[error(
+        "lastCheckpoint.height {last_checkpoint_height} is below {required}, the height that \
+         derived the next committee"
+    )]
     CheckpointNotLanded {
         /// The anchored `lastCheckpoint.height`.
         last_checkpoint_height: u64,
         /// `h_first(t - 1)`, the height that derived committee `t`.
         required: u64,
     },
-    /// At the switch height to epoch `t`, the anchored `committee[t]` is still zero (D19): wait
-    /// for the record to land.
-    #[error("committee[{epoch}] has not landed on L1 yet (D19)")]
+    /// At the switch height to epoch `t`, the anchored `committee[t]` is still zero (a set must
+    /// not activate before its record has landed): wait for the record to land.
+    #[error("committee[{epoch}] has not landed on L1 yet")]
     RecordNotLanded {
         /// The switching-to epoch `t`.
         epoch: u64,
     },
     /// At the switch height to epoch `t`, the anchored `committee[t]` is a non-zero hash other
-    /// than the derived record's: L1 and the chain hold two different records for one epoch
-    /// (spec §8.2). Still refused like any proposal, but logged at ERROR, as an operator must
+    /// than the derived record's: L1 and the chain hold two different records for one epoch.
+    /// Still refused like any proposal, but logged at ERROR, as an operator must
     /// investigate.
     #[error(
         "committee[{epoch}] on L1 is {proven}, but the chain derived the record hash {expected}"
@@ -251,8 +257,8 @@ pub(crate) struct CandidateFacts {
     pub(crate) derived: Option<(u64, CommitteeState)>,
 }
 
-/// Validates `env` as the block at `height` on top of `state` (spec §5.4 steps 1–8 without the
-/// ¹ checks); `bft_secs` is the block's BFT time in whole seconds.
+/// Validates `env` as the block at `height` on top of `state` (every check but the ¹ ones);
+/// `bft_secs` is the block's BFT time in whole seconds.
 ///
 /// In order: (a) `height == state.last_height + 1`, the header's number and parent hash;
 /// (b)–(h) [`check_candidate`] with the generation and anchor number decoded from the header's
@@ -295,7 +301,7 @@ pub(crate) fn validate_block(
 }
 
 /// The derived header fields of the block at `height` on top of `state` with `anchor` and BFT
-/// time `bft_secs` (spec §4.2), with the chain's minimum base fee.
+/// time `bft_secs` ([`rules::expected_header`]), with the chain's minimum base fee.
 pub(crate) fn expected_header(
     state: &AppState,
     params: &ChainParams,
@@ -366,7 +372,8 @@ pub(crate) fn check_candidate_anchor(
 
 /// Steps (g)–(h) of [`validate_block`] on top of the `anchor` [`check_candidate_anchor`]
 /// proved: (g) the committee witness is required iff `height = h_first(e)` and must prove
-/// committee `e + 1` against the parent's anchor; (h) at a switch height to epoch `t`, D19.
+/// committee `e + 1` against the parent's anchor; (h) at a switch height to epoch `t`, the
+/// record-landed check ([`check_switch`]).
 pub(crate) fn finish_candidate(
     state: &AppState,
     params: &ChainParams,
@@ -433,7 +440,8 @@ fn candidate_committee(
     }
 }
 
-/// Step (h), D19: at the switch height to epoch `t`, the app holds committees `t − 1` and `t`,
+/// Step (h): a set must not activate before its record has landed. At the switch height to
+/// epoch `t`, the app holds committees `t − 1` and `t`,
 /// the anchored checkpoint covers `h_first(t − 1)` (the height that derived `t`,
 /// [`Rejection::CheckpointNotLanded`] otherwise), and the anchored `committee[t]` is the derived
 /// record's hash: zero is [`Rejection::RecordNotLanded`], another hash

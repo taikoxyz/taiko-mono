@@ -1,4 +1,4 @@
-//! Turns verified Inbox witnesses into facts (spec §5.1, §5.4 step 3, §6.2). No I/O.
+//! Turns verified Inbox witnesses into facts. No I/O.
 //!
 //! [`verify_anchor_witness`] checks a per-block anchor witness's proofs against its own L1
 //! header and decodes the Inbox facts; [`verify_genesis_inbox`] does the same for the genesis
@@ -89,9 +89,9 @@ pub fn verify_anchor_witness(
 ///
 /// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots(E0)`. The
 /// returned facts take the last checkpoint from the activation record (`(B*, H*)`, the genesis
-/// record of spec MIG) and set `committee = Some((E0, committee[E0]))`. Rejects, in this order:
-/// `migrationState != ETNA_ACTIVE`, a zero genesis hash, a zero `committee[E0]`, a zero epoch
-/// length. The remaining schedule bounds are checked by [`Schedule::validate`].
+/// record of #22262's MIG rules) and set `committee = Some((E0, committee[E0]))`. Rejects, in this
+/// order: `migrationState != ETNA_ACTIVE`, a zero genesis hash, a zero `committee[E0]`, a zero
+/// epoch length. The remaining schedule bounds are checked by [`Schedule::validate`].
 pub fn verify_genesis_inbox(
     state_root: B256,
     w: &AccountWitness,

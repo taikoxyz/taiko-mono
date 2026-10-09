@@ -1,4 +1,4 @@
-//! `PrepareProposal` (spec §5.3): choose the anchor, collect the L1 witnesses the height needs,
+//! `PrepareProposal`: choose the anchor, collect the L1 witnesses the height needs,
 //! check them as `ProcessProposal` would, and let the EL build the block.
 
 use std::future::Future;

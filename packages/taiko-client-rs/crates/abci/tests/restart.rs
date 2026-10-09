@@ -1,4 +1,4 @@
-//! Docker scenario 6 (spec §9.2): stopping the `abci` app mid-chain and starting it again over
+//! Docker scenario: stopping the `abci` app mid-chain and starting it again over
 //! the same store recovers through the CometBFT handshake; the L2 chain below the old head is
 //! unchanged.
 //!

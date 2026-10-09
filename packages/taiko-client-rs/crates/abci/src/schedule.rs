@@ -1,14 +1,19 @@
-//! Epoch schedule derived from the Etna activation record (spec §6.5).
+//! Epoch schedule derived from the Etna activation record.
 //!
-//! Heights are CometBFT heights, which equal L2 block numbers (D8). With `e_0 = 0`:
+//! Heights are CometBFT heights, which equal L2 block numbers (the genesis `initial_height` is
+//! `B* + 1`). With `e_0 = 0`:
 //! `H_0 = B* + 1`, `epoch_of(h) = (h - H_0) / L + e_0`, `h_first(e) = H_0 + (e - e_0)·L`,
 //! `h_last(e) = h_first(e + 1) - 1`, `L1_first(e) = L1_0 + (e - e_0)·EPOCH_LEN_L1`. The validator
 //! set of every epoch `e >= 1` is emitted from `FinalizeBlock` at the switch height
-//! `h_first(e) - 2` (D20); epoch `e_0`'s set comes from genesis.
+//! `h_first(e) - 2`, as CometBFT applies validator updates two heights after the block that
+//! returns them; epoch `e_0`'s set comes from genesis.
 //!
-//! Limits: every method panics when `epoch_len == 0` or `genesis_height == u64::MAX` (both
-//! rejected by [`Schedule::validate`]), and methods taking an epoch panic when their result would
-//! overflow `u64`. Each panic message names the method.
+//! Limits (each panic message names the method): every method but [`Schedule::l1_first`]
+//! panics when `genesis_height == u64::MAX`; the methods dividing by `L`
+//! ([`Schedule::epoch_of`], [`Schedule::epoch_starting_at`], [`Schedule::switch_target`]) panic
+//! when `epoch_len == 0`; [`Schedule::validate`] rejects both. The methods taking an epoch
+//! ([`Schedule::h_first`], [`Schedule::h_last`], [`Schedule::l1_first`]) panic when their result
+//! would overflow `u64` and do not check `L` (with `L = 0` every epoch would start at `H_0`).
 
 use crate::types::ActivationRecord;
 use serde::{Deserialize, Serialize};
@@ -30,13 +35,17 @@ pub struct Schedule {
 /// Schedule parameters rejected by [`Schedule::validate`].
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ScheduleError {
-    /// `epoch_len < 3`: the switch height `h_first(e) - 2` would not lie inside epoch `e - 1`.
+    /// `epoch_len < 3`: the switch height `h_first(e) - 2` would not come after `h_first(e - 1)`,
+    /// the height that derives epoch `e`'s committee (with `L = 2` they coincide, with `L = 1`
+    /// the switch height lies in an earlier epoch), so the record could never have landed.
     #[error("epoch_len ({epoch_len}) must be >= 3")]
     EpochTooShort {
         /// The rejected `L`.
         epoch_len: u64,
     },
-    /// `epoch_len < unsettled_cap + 3` (review 5451940267's `N >= U + 3`).
+    /// `epoch_len < unsettled_cap + 3` (#22262 review 5451940267's `N >= U + 3`): with it,
+    /// back-pressure alone keeps `lastCheckpoint.height > h_first(e - 1)` at the switch height
+    /// `h_first(e) - 2`.
     #[error("epoch_len ({epoch_len}) must be >= unsettled_cap ({unsettled_cap}) + 3")]
     EpochShorterThanCap {
         /// The rejected `L`.
@@ -122,7 +131,8 @@ impl Schedule {
     }
 
     /// `Some(e)` iff `h` is the switch height of epoch `e >= 1`, i.e. `h == h_first(e) - 2`:
-    /// the height whose `FinalizeBlock` emits epoch `e`'s validator set (D20). Never `H_0`.
+    /// the height whose `FinalizeBlock` emits epoch `e`'s validator set (CometBFT applies it two
+    /// heights later). Never `H_0`.
     ///
     /// # Panics
     ///

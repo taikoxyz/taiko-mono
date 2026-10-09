@@ -6,15 +6,15 @@
 
 /// Committee-witness discovery from the node's own L1 (proposers and the genesis builder).
 pub mod fetch;
-/// The raw L1 header witnesses carry, read by position (spec §4.1).
+/// The raw L1 header witnesses carry, read by position.
 pub mod header;
-/// Storage slots of the Inbox and staking registry (spec §6.2).
+/// Storage slots of the Inbox and staking registry.
 pub mod layout;
-/// EIP-1186 account and storage proof verification (spec §6.3).
+/// EIP-1186 account and storage proof verification.
 pub mod mpt;
 /// The [`L1Source`] trait over the operator's own L1 node and its JSON-RPC implementation.
 pub mod source;
-/// Anchor and genesis Inbox witness verification into facts (spec §5.1, §5.4).
+/// Anchor and genesis Inbox witness verification into facts.
 pub mod witness;
 
 pub use fetch::{FetchError, build_committee_witness, build_committee_witness_within};

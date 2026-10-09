@@ -3,7 +3,7 @@
 //! [`ExecutionBlock`] a CometBFT block carries.
 //!
 //! alethia-reth #248 is driven through `engine_forkchoiceUpdatedV3`, `engine_getPayloadV5` and
-//! `engine_newPayloadV4` only (spec §2). [`convert`] maps a built payload to the full EL header
+//! `engine_newPayloadV4` only. [`convert`] maps a built payload to the full EL header
 //! the envelope carries and back.
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
@@ -43,7 +43,7 @@ pub trait Engine: Send + Sync + 'static {
 
     /// Builds a block on top of `parent_hash` from `attrs` and returns it with its full header.
     ///
-    /// `attrs` must carry a `parentBeaconBlockRoot` (the anchor's L1 state root, spec §4.2).
+    /// `attrs` must carry a `parentBeaconBlockRoot` (the anchor's L1 state root).
     async fn build_block(
         &self,
         parent_hash: B256,
@@ -165,7 +165,7 @@ pub enum EngineError {
 
 impl EngineError {
     /// Whether a retry of the call may succeed: `FinalizeBlock` retries such an error with
-    /// backoff and halts on any other (spec §8.1, §8.2).
+    /// backoff and halts on any other.
     ///
     /// | Error                                      | Retryable | Meaning                         |
     /// | ------------------------------------------ | --------- | ------------------------------- |

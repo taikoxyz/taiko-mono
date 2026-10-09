@@ -1,4 +1,4 @@
-//! `ProcessProposal` (spec §5.4): every rejection, and its effect on `/status`.
+//! `ProcessProposal`: every rejection, and its effect on `/status`.
 
 use std::time::Duration;
 
@@ -72,7 +72,7 @@ async fn transaction_count_and_garbage_are_rejected() {
     );
 }
 
-/// A halted proposer proposes no block (spec §5.3); rejecting that empty proposal must not mask
+/// A halted proposer proposes no block; rejecting that empty proposal must not mask
 /// the reason this node recorded at the height, which `/status` reports.
 #[tokio::test]
 async fn empty_proposal_keeps_the_recorded_halt_reason() {

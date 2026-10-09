@@ -1,4 +1,4 @@
-//! The persisted app state and its atomic file store (spec §3.2, §5.5).
+//! The persisted app state and its atomic file store.
 //!
 //! [`AppState`] is everything `FinalizeBlock` needs besides the envelope and the EL: the chain
 //! identity, the activation record and schedule, the committed parent, its anchor facts and the

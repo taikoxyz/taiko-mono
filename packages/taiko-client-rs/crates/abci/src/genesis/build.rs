@@ -1,4 +1,4 @@
-//! The `abci-genesis` builder (spec §3.3, §5.1): reads the Ethereum-final activation record and
+//! The `abci-genesis` builder: reads the Ethereum-final activation record and
 //! the `e_0` committee from the node's own L1, checks them as `InitChain` will, and assembles the
 //! CometBFT genesis document.
 

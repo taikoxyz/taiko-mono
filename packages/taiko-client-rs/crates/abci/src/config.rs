@@ -1,10 +1,10 @@
-//! Chain parameters of the Etna PoS chain (spec §7) and their optional TOML override.
+//! Chain parameters of the Etna PoS chain and their optional TOML override.
 
 use alloy_primitives::{Address, U256, address};
 use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
 use serde::{Deserialize, Deserializer, de};
 
-/// Per-chain constants consumed by consensus (spec §7).
+/// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChainParams {
     /// L2 EVM chain id.
@@ -93,7 +93,7 @@ impl ChainParams {
     /// Built-in parameters for `l2_chain_id`.
     ///
     /// Only the devnet (`TAIKO_DEVNET_CHAIN_ID`) is configured; mainnet, Hoodi and every other
-    /// chain return [`ConfigError::NotConfigured`] until their Etna PoS values exist (spec §7).
+    /// chain return [`ConfigError::NotConfigured`] until their Etna PoS values exist.
     /// The returned parameters pass [`ChainParams::validate`].
     pub fn builtin(l2_chain_id: u64) -> Result<Self, ConfigError> {
         match l2_chain_id {

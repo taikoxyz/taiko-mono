@@ -1,5 +1,5 @@
-//! Docker scenario 1 (spec §9.2): a one-validator devnet produces blocks, includes the
-//! transactions sent to its EL, and every block follows the header rules of spec §4.2.
+//! Docker scenario: a one-validator devnet produces blocks, includes the transactions sent to
+//! its EL, and every block follows the header rules of `abci::rules::expected_header`.
 
 use std::{
     collections::BTreeSet,
@@ -51,8 +51,8 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         "the recipient did not receive both transfers"
     );
 
-    // Every L2 block up to the head follows spec §4.2; CometBFT commits each block's hash. Run a
-    // few blocks past the transfers so the anchor moves several times.
+    // Every L2 block up to the head follows the header rules; CometBFT commits each block's hash.
+    // Run a few blocks past the transfers so the anchor moves several times.
     let last_tx_block = tx_blocks.last().copied().unwrap_or_default();
     devnet.wait_for_height(0, (last_tx_block + 4).max(10), Duration::from_secs(60)).await?;
     let head = l2.get_block_number().await?;
@@ -84,7 +84,8 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
             "block {h}: parentBeaconBlockRoot is not the state root of L1 block {anchor}"
         );
         assert!(header.timestamp > prev_timestamp, "block {h}: timestamp not increasing");
-        // D9: max(parent + 1, floor(BFT time of CometBFT block h), anchor timestamp), written out
+        // The timestamp rule max(parent + 1, floor(BFT time of CometBFT block h), anchor
+        // timestamp), written out
         // here rather than through `rules::block_timestamp` so a wrong formula shared by
         // PrepareProposal and ProcessProposal still fails.
         let bft_secs = cmt_time_secs(devnet.cmt(0), h).await?;
@@ -92,7 +93,7 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         let d9 = (prev_timestamp + 1).max(bft_secs).max(anchor_ts);
         assert_eq!(
             header.timestamp, d9,
-            "block {h}: D9 timestamp (parent {prev_timestamp}, BFT {bft_secs}, anchor {anchor_ts})"
+            "block {h}: timestamp (parent {prev_timestamp}, BFT {bft_secs}, anchor {anchor_ts})"
         );
         assert_eq!(header.gas_limit, gas_limit, "block {h}: gasLimit");
         if tx_blocks.contains(&h) {

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// One EIP-1186 storage proof: a storage slot, its value and the MPT nodes proving it.
 ///
-/// RLP: `[slot, value, proof_nodes]` (spec §4.1).
+/// RLP: `[slot, value, proof_nodes]`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 pub struct StorageProof {
     /// The un-hashed 32-byte storage slot; the storage-trie key is `keccak256(slot)`.
@@ -45,7 +45,8 @@ pub struct AccountWitness {
     pub storage: Vec<StorageProof>,
 }
 
-/// One staking-registry entry as captured by a registry checkpoint (spec §6.2).
+/// One staking-registry entry as captured by a registry checkpoint (layout in
+/// [`l1::layout::registry`](crate::l1::layout::registry)).
 ///
 /// Entries are append-only by index (`bondId`); exited entries stay with `exit_effective_l1` set.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
@@ -63,7 +64,8 @@ pub struct RegistryEntry {
     pub last_heartbeat_at: u64,
 }
 
-/// The committee record for one target epoch, as hashed into `committee[epoch]` on L1 (spec §6.4).
+/// The committee record for one target epoch, as hashed into `committee[epoch]` on L1
+/// ([`committee::record_hash`](crate::committee::record_hash)).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 pub struct CommitteeRecord {
     /// The epoch this committee signs.
@@ -97,7 +99,7 @@ pub struct Member {
     pub power: u64,
 }
 
-/// Inbox facts proven by an anchor (or genesis) witness (spec §6.2).
+/// Inbox facts proven by an anchor (or genesis) witness.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InboxFacts {
     /// `migrationState` (slot 258); `ETNA_ACTIVE = 3` once Etna PoS is live.
@@ -114,7 +116,7 @@ pub struct InboxFacts {
     pub committee: Option<(u64, B256)>,
 }
 
-/// The Etna activation record read from the Inbox (slots 272–274, spec §6.2).
+/// The Etna activation record read from the Inbox (slots 272–274).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActivationRecord {
     /// `B*`: L2 block number of the genesis anchor (an existing, uncertified L2 block).
@@ -147,7 +149,8 @@ pub struct AnchorState {
     pub inbox: InboxFacts,
 }
 
-/// Summary of the committed L2 parent block needed to derive the next header (spec §4.2).
+/// Summary of the committed L2 parent block needed to derive the next header
+/// ([`rules::expected_header`](crate::rules::expected_header)).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParentInfo {
     /// L2 block number (== CometBFT height).

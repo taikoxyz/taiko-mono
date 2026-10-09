@@ -1,10 +1,12 @@
-//! `FinalizeBlock` (spec §5.5) and `Commit` (spec §5.6).
+//! `FinalizeBlock` and `Commit`.
 //!
 //! `FinalizeBlock` is deterministic: it judges a decided block on its envelope, the committed
-//! [`AppState`] and the EL alone, never L1 (D4), so a node replaying after a crash or
+//! [`AppState`] and the EL alone, never L1 (every L1 fact a block consumes travels in the block),
+//! so a node replaying after a crash or
 //! block-syncing derives the same response and state as one that voted. A decided block that
 //! fails a deterministic check, that the EL rejects, or that contradicts a known committee is a
-//! safety halt (spec §8.2). The derived state stays pending until `Commit` persists it.
+//! safety halt: the process exits and an operator must investigate. The derived state stays pending
+//! until `Commit` persists it.
 
 use std::{fmt, future::Future, time::Duration};
 
@@ -43,12 +45,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`validate_block`] from the block's single envelope and BFT time; the next state and the
     /// validator updates are derived ([`next_state`]); the EL executes the block unless the
     /// cached verdict already did, then moves its forkchoice to `head = safe =` the block and
-    /// `finalized =` the anchored `lastCheckpoint.blockHash` (D18; zero stays zero); the next
+    /// `finalized =` the anchored `lastCheckpoint.blockHash` (the L1-accepted checkpoint, so the EL
+    /// can still rewind above it; zero stays zero); the next
     /// state becomes pending until `Commit`. The state is derived before any EL call so a
     /// contradiction halts before the EL moves.
     ///
     /// The response carries one code-0 `ExecTxResult` for the envelope transaction, the
-    /// validator updates of a switch height (D20), `app_hash =` the block hash, no events and
+    /// validator updates of a switch height (CometBFT applies them two heights later, at
+    /// `h_first`), `app_hash =` the block hash, no events and
     /// no parameter updates.
     ///
     /// Re-finalizing a block the EL already executed (a replay after a crash before `Commit`)
@@ -114,8 +118,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Clears the `ProcessProposal` cache, the cached committee witness and the halt reason,
     /// publishes the new head's gauges,
-    /// and answers `retain_height = 0` (D17). Errors: [`AbciError::NothingToCommit`] without a
-    /// pending state; [`AbciError::Store`] when it cannot be persisted (it then stays pending).
+    /// and answers `retain_height = 0` (no block pruning). Errors: [`AbciError::NothingToCommit`]
+    /// without a pending state; [`AbciError::Store`] when it cannot be persisted (it then stays
+    /// pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save(pending)?;
@@ -131,7 +136,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Makes the EL execute the decided block of `v` at `height` (unless `v.executed`: the
     /// `ProcessProposal` verdict already did) and adopt it as `head = safe =` the block with
     /// `finalized`, for as long as it takes: `FinalizeBlock` must not answer before the EL holds
-    /// the block (spec §8.1).
+    /// the block.
     ///
     /// Each call runs within the engine deadline ([`App::el_call`]). `SYNCING`/`ACCEPTED`, a
     /// retryable engine error ([`EngineError::is_retryable`]: a transport failure, an internal,
@@ -271,8 +276,9 @@ impl Backoff {
 /// The parent becomes the block's header summary (its grandparent timestamp the old parent's)
 /// and the anchor the block's; a committee derived at `h_first(e)` is added, a different record
 /// already known for its epoch being a [`AbciError::SafetyHalt`]. At the switch height to epoch
-/// `t` (D20) the updates are [`committee::validator_updates`] from set `t − 1` to set `t`, and
-/// committees below `t − 1` are pruned; every other height emits none.
+/// `t`, `h_first(t) − 2` (CometBFT applies updates two heights later), the updates are
+/// [`committee::validator_updates`] from set `t − 1` to set `t`, and committees below `t − 1` are
+/// pruned; every other height emits none.
 fn next_state(
     state: &AppState,
     v: &Validated,

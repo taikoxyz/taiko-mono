@@ -1,5 +1,5 @@
 //! The Etna PoS docker devnet: anvil, alethia-reth and CometBFT containers plus in-process
-//! `abci` apps (spec §9.2).
+//! `abci` apps.
 
 use std::{
     sync::atomic::{AtomicU64, Ordering},

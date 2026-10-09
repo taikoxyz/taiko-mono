@@ -1,4 +1,4 @@
-//! Header derivation and block-validity predicates (spec §4.2, §5.4). No I/O.
+//! Header derivation and block-validity predicates. No I/O.
 //!
 //! [`expected_header`] derives every consensus-chosen field of the L2 block at height `H` from
 //! the committed parent, the block's L1 anchor, the BFT time, the recovery generation and the
@@ -29,7 +29,8 @@ use crate::{
 };
 
 /// `basefeeSharingPctg` of every Etna PoS block: 100 routes the whole base fee to the coinbase
-/// (the fee vault) under alethia-reth #248 (D10).
+/// (the fee vault) under alethia-reth #248. Consensus pins it to exactly 100, as #248 does not
+/// bound it and would mint base fee above 100.
 pub const BASEFEE_SHARING_PCTG: u8 = 100;
 
 /// Length of an Etna `extraData`: `[pctg(1) | generation(6) | anchorNumber(6)]`.
@@ -44,7 +45,8 @@ const CHAIN_ID_PREFIX: &str = "taiko-etna-";
 /// Everything [`expected_header`] derives the header of height `height` from.
 #[derive(Clone, Copy, Debug)]
 pub struct HeaderInputs<'a> {
-    /// CometBFT height `H` of the block, which is also its L2 block number (D8).
+    /// CometBFT height `H` of the block, which is also its L2 block number (the genesis
+    /// `initial_height` is `B* + 1`).
     pub height: u64,
     /// The committed parent block (`H - 1`).
     pub parent: &'a ParentInfo,
@@ -61,7 +63,7 @@ pub struct HeaderInputs<'a> {
     pub min_base_fee: u64,
 }
 
-/// The consensus-chosen header fields of one block (spec §4.2).
+/// The consensus-chosen header fields of one block.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExpectedHeader {
     /// L2 block number, equal to the CometBFT height.
@@ -70,13 +72,14 @@ pub struct ExpectedHeader {
     pub parent_hash: B256,
     /// Block timestamp in seconds: `max(parent.timestamp + 1, floor(time_H), anchor.timestamp)`.
     pub timestamp: u64,
-    /// Coinbase and suggested fee recipient: the chain's `L2FeeVault` (D11).
+    /// Coinbase and suggested fee recipient: the chain's `L2FeeVault` (ECON-02, CONS-01).
     pub beneficiary: Address,
-    /// The 13-byte `[100 | generation | anchorNumber]` `extraData` (D10).
+    /// The 13-byte `[100 | generation | anchorNumber]` `extraData` ([`encode_extra_data`]).
     pub extra_data: Bytes,
     /// The anchor's L1 state root.
     pub parent_beacon_block_root: B256,
-    /// `L2_BLOCK_GAS_LIMIT`, in gas (D12).
+    /// `L2_BLOCK_GAS_LIMIT`, in gas: a chain constant (alethia-reth #248 has no parent-delta
+    /// gas-limit rule).
     pub gas_limit: u64,
     /// EIP-4396 base fee per gas, in wei.
     pub base_fee: u64,
@@ -115,7 +118,7 @@ pub const HEADER_FIELD_DEBUG_MAX: usize = 256;
 /// Why a block, header or `chain_id` breaks a consensus rule.
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum RuleViolation {
-    /// The block height is not the parent's number plus one (D8).
+    /// The block height is not the parent's number plus one.
     #[error("height {height} does not follow parent block {parent}")]
     HeightMismatch {
         /// The block's height.
@@ -243,7 +246,7 @@ impl RuleViolation {
     }
 }
 
-/// D9: `max(parent_ts + 1, bft_secs, anchor_ts)`, all in seconds.
+/// The block timestamp `max(parent_ts + 1, bft_secs, anchor_ts)`, all in seconds.
 ///
 /// The parent bound keeps timestamps strictly increasing even when `floor(time_H)` does not
 /// advance past the parent (strict equality with BFT time could deadlock a height). Saturates at
@@ -252,7 +255,9 @@ pub fn block_timestamp(parent_ts: u64, bft_secs: u64, anchor_ts: u64) -> u64 {
     parent_ts.saturating_add(1).max(bft_secs).max(anchor_ts)
 }
 
-/// Encodes the 13-byte Etna `extraData` `[100 | generation u48 BE | anchor u48 BE]` (D10).
+/// Encodes the 13-byte Etna `extraData` `[100 | generation u48 BE | anchor u48 BE]`: the
+/// unused proposal-id slot carries the recovery generation, so the EL block hash an L1
+/// checkpoint pins commits to it.
 ///
 /// Fails with [`RuleViolation::ExtraDataOverflow`] when `generation` or `anchor` exceeds
 /// `uint48`.
@@ -282,7 +287,7 @@ fn uint48_be(bytes: &[u8]) -> u64 {
     u64::from_be_bytes(word)
 }
 
-/// Derives the consensus-chosen header fields of height `i.height` (spec §4.2).
+/// Derives the consensus-chosen header fields of height `i.height`.
 ///
 /// Fails when the height does not follow the parent ([`RuleViolation::HeightMismatch`]), when the
 /// generation or anchor number exceeds `uint48`, or when the base fee cannot be derived.
@@ -399,9 +404,10 @@ impl fmt::Write for Bounded {
     }
 }
 
-/// Builds the `engine_forkchoiceUpdated` payload attributes for `e` (spec §4.2).
+/// Builds the `engine_forkchoiceUpdated` payload attributes for `e`.
 ///
-/// `txList` is `None`, so the EL builds from its own txpool (D16); withdrawals are present but
+/// `txList` is `None`, so the EL builds from its own txpool (user transactions travel over EL
+/// devp2p); withdrawals are present but
 /// empty; the L1 origin records the anchor number (from `e.extra_data`) and `anchor_hash`, is not
 /// forced and carries a zero signature. The payload id is stamped from `e.parent_hash`.
 ///
@@ -432,7 +438,7 @@ pub fn payload_attributes(e: &ExpectedHeader, anchor_hash: B256) -> TaikoPayload
     )
 }
 
-/// Checks the anchor L1 block number of the block at `height` (spec §4.2, §5.4 step 6).
+/// Checks the anchor L1 block number of the block at `height`.
 ///
 /// In order: `anchor >= parent_anchor` ([`RuleViolation::AnchorRegressed`]), `anchor >= L1_0`
 /// ([`RuleViolation::AnchorBeforeActivation`]) and `anchor >= L1_first(epoch_of(height))`
@@ -476,7 +482,7 @@ pub fn check_back_pressure(
     Ok(())
 }
 
-/// Checks the generation triple of a block (spec §5.4 step 5).
+/// Checks the generation triple of a block.
 ///
 /// `chain` is the `chain_id` suffix, `extra` the block's `extraData` generation and `inbox` the
 /// Inbox `recoveryGeneration` proven at the anchor. `chain != extra` is a

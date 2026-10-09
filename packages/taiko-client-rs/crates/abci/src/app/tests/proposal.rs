@@ -1,4 +1,4 @@
-//! `PrepareProposal` → `ProcessProposal` round trips (spec §5.3, §5.4), and the helpers the
+//! `PrepareProposal` → `ProcessProposal` round trips, and the helpers the
 //! proposal tests share: requests, crafted committed states and hand-built envelopes.
 
 use alloy_primitives::{B256, Bytes, keccak256};
@@ -405,7 +405,8 @@ async fn round_trip_at_a_switch_height_with_the_landed_record() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
-/// D19: without `committee[1]` on L1 the switch height cannot be built nor accepted. The record
+/// A set must not activate before its record has landed: without `committee[1]` on L1 the
+/// switch height cannot be built nor accepted. The record
 /// has not landed yet: a wait, not a conflict.
 #[tokio::test]
 async fn switch_height_without_the_landed_record_halts() {
@@ -428,7 +429,7 @@ async fn switch_height_without_the_landed_record_halts() {
     assert_eq!(validate(&app, &env).map(|_| ()), Err(Rejection::RecordNotLanded { epoch: 1 }));
 }
 
-/// Spec §8.2: a different non-zero `committee[1]` on L1 means L1 and the chain hold two records
+/// A different non-zero `committee[1]` on L1 means L1 and the chain hold two records
 /// for epoch 1. The switch height is refused as `record_conflict` (logged at ERROR, as an
 /// operator must investigate), never accepted; refusing stays a liveness matter.
 #[tokio::test]

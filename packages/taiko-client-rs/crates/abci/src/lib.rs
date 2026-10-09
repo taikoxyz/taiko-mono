@@ -12,7 +12,7 @@
 //! adapters, `l1::fetch` and the genesis builder read L1 through them, `app` answers CometBFT's
 //! ABCI requests on top of them, and `server` serves the app on CometBFT's ABCI socket.
 
-/// The ABCI++ application: request dispatch and the per-method handlers (spec §5).
+/// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
 /// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
 pub mod committee;
@@ -31,7 +31,7 @@ pub mod genesis;
 pub mod l1;
 /// Prometheus metrics of the ABCI app.
 pub mod metrics;
-/// Header derivation and block-validity predicates (spec §4.2, §5.4).
+/// Header derivation and block-validity predicates.
 pub mod rules;
 /// Epoch schedule derived from the L1 activation record.
 pub mod schedule;
