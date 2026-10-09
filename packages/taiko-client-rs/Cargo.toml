@@ -23,7 +23,6 @@ async-trait = "0.1"
 futures = { version = "0.3", default-features = false, features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
-tokio-stream = "0.1"
 
 # cli
 clap = { version = "4", features = ["derive", "env"] }
@@ -56,9 +55,7 @@ alloy-rpc-types-engine-2 = { package = "alloy-rpc-types-engine", version = "2.0.
 alloy-transport = { version = "1.8.3", default-features = false }
 alloy-transport-http = { version = "1.8.3", features = ["hyper", "jwt-auth"] }
 alloy-trie = { version = "0.9.5", default-features = false }
-event-scanner = "1.1.1"
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
-robust-provider = "1.0.1"
 
 # taiko
 alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "53d2cd81eb7dd271ef4eec693a14afc1a35ac12b", default-features = false }

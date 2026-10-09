@@ -49,7 +49,6 @@ Every validator and every full node runs three processes:
 
 - Rust toolchain (1.95 or later)
 - [Just](https://github.com/casey/just) and [cargo-nextest](https://nexte.st)
-- [Foundry](https://getfoundry.sh)'s `anvil` on `PATH` (for `just unit`)
 - Docker (for the integration tests)
 
 ## Build the source
@@ -207,8 +206,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 ### Tests
 
 - `just unit` runs the unit tests (everything outside `tests/` directories) and the abci
-  doctests. No docker needed; the protocol crate's subscription-source test spawns a local
-  `anvil` from Foundry.
+  doctests. No docker needed.
 - `just test` runs the docker integration scenarios in `crates/abci/tests` (single validator,
   anchor finality, restart, epoch switch with and without landing, back-pressure, generation
   bump, smoke). Each scenario boots its own devnet through the docker CLI (anvil as L1,

@@ -8,8 +8,5 @@ pub mod shasta;
 /// available without the `net` feature for zkVM guests (e.g. raiko2) that must regenerate the
 /// canonical golden-touch anchor signature.
 pub mod signer;
-/// Provider/event-scanner subscription source abstraction.
-#[cfg(feature = "net")]
-pub mod subscription_source;
 
 pub use signer::{FixedKSigner, FixedKSignerError};
