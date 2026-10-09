@@ -64,6 +64,18 @@ pub struct AbciArgs {
                 included), in seconds"
     )]
     pub elsync_timeout_secs: u64,
+    /// Overall deadline of one `PrepareProposal`, in seconds; must stay below CometBFT's
+    /// `timeout_propose`.
+    #[clap(
+        long = "prepare.timeout",
+        env = "ABCI_PREPARE_TIMEOUT",
+        value_name = "SECONDS",
+        default_value_t = AppOptions::default().prepare_timeout.as_secs(),
+        value_parser = clap::value_parser!(u64).range(1..),
+        help = "Overall deadline of one PrepareProposal (L1 reads and the block build), in \
+                seconds; must stay below CometBFT's timeout_propose"
+    )]
+    pub prepare_timeout_secs: u64,
 }
 
 impl AbciArgs {
@@ -73,6 +85,7 @@ impl AbciArgs {
             l1_timeout: Duration::from_secs(self.l1_timeout_secs),
             engine_timeout: Duration::from_secs(self.engine_timeout_secs),
             elsync_timeout: Duration::from_secs(self.elsync_timeout_secs),
+            prepare_timeout: Duration::from_secs(self.prepare_timeout_secs),
         }
     }
 }
@@ -102,6 +115,7 @@ mod tests {
             "ABCI_L1_TIMEOUT",
             "ABCI_ENGINE_TIMEOUT",
             "ABCI_ELSYNC_TIMEOUT",
+            "ABCI_PREPARE_TIMEOUT",
             "L1_HTTP",
             "L1_WS",
             "L2_HTTP",
@@ -170,6 +184,8 @@ mod tests {
             "6",
             "--elsync.timeout",
             "60",
+            "--prepare.timeout",
+            "1",
         ]))
         .expect("abci parses");
 
@@ -182,6 +198,7 @@ mod tests {
                 l1_timeout: Duration::from_secs(4),
                 engine_timeout: Duration::from_secs(6),
                 elsync_timeout: Duration::from_secs(60),
+                prepare_timeout: Duration::from_secs(1),
             }
         );
     }
@@ -197,6 +214,7 @@ mod tests {
             EnvGuard::set("ABCI_L1_TIMEOUT", "7"),
             EnvGuard::set("ABCI_ENGINE_TIMEOUT", "8"),
             EnvGuard::set("ABCI_ELSYNC_TIMEOUT", "9"),
+            EnvGuard::set("ABCI_PREPARE_TIMEOUT", "1"),
             EnvGuard::set("L1_WS", "ws://localhost:8546"),
             EnvGuard::set("L2_HTTP", "http://localhost:28545"),
             EnvGuard::set("L2_AUTH", "http://localhost:28551"),
@@ -214,6 +232,7 @@ mod tests {
                 l1_timeout: Duration::from_secs(7),
                 engine_timeout: Duration::from_secs(8),
                 elsync_timeout: Duration::from_secs(9),
+                prepare_timeout: Duration::from_secs(1),
             }
         );
         assert!(cmd.common_flags.l1_provider_source().is_ok());
@@ -238,6 +257,7 @@ mod tests {
             ["--l1.timeout", "0"],
             ["--engine.timeout", "0"],
             ["--elsync.timeout", "0"],
+            ["--prepare.timeout", "0"],
         ] {
             let mut args = vec!["--data-dir", "/data"];
             args.extend(extra);

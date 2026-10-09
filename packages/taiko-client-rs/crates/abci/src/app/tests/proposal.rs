@@ -323,6 +323,8 @@ async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
     let h_e = schedule.h_first(1);
 
     // Checkpoints at L1 blocks 64 (genesis), 66 (a fourth validator joins) and 69 (a fifth).
+    // Only blocks 68 (the newest block still holding checkpoint 1's entries) and 70 (the
+    // anchor) are served: discovery needs no older state.
     let l1_0 = fx.activation.l1_0;
     let at_66 =
         RegistryStorage { checkpoints: vec![(l1_0, sample_entries(3)), (66, sample_entries(4))] };
@@ -330,7 +332,7 @@ async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
     at_70.checkpoints.push((69, sample_entries(5)));
     let c1 = fx.committee(1);
     let inbox = fx.inbox_with(h_e - 6, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
-    fx.plant_l1_block(app.l1(), 66, &inbox, &at_66);
+    fx.plant_l1_block(app.l1(), 68, &inbox, &at_66);
     fx.advance_l1(app.l1(), 70, &inbox, &at_70);
     let anchor = fx.anchor_state(app.l1(), 70, None);
     jump(&mut app, h_e - 1, anchor, &[(1, c1)]);
@@ -344,13 +346,18 @@ async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
     assert_eq!(committee.record.checkpoint_index, 1);
     assert_eq!(committee.entries, sample_entries(4));
     assert_eq!(committee.registry.storage.len(), 4, "checkpoint 2 (block 69) is proven too");
-    let entry_reads = app
+    let entry_slots: Vec<B256> = (0..4).flat_map(registry::entry_slots).collect();
+    let entry_reads: Vec<L1Call> = app
         .l1()
         .calls()
-        .iter()
-        .filter(|c| matches!(c, L1Call::StorageAt { block: 66, .. }))
-        .count();
-    assert_eq!(entry_reads, 4 * 3, "entries are read at the checkpoint's own L1 block");
+        .into_iter()
+        .filter(|c| matches!(c, L1Call::AccountWitness { block: 68, .. }))
+        .collect();
+    assert_eq!(
+        entry_reads,
+        [L1Call::AccountWitness { address: fx.params.registry, slots: entry_slots, block: 68 }],
+        "all entries in one read, at min(n_p, checkpoints[2].l1Block - 1) = 68"
+    );
     assert!(app.l1().calls().contains(&L1Call::StorageAt {
         address: fx.params.registry,
         slot: registry::length_slot(),
