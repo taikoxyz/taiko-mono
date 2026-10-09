@@ -76,6 +76,14 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		}
 	}
 
+	if p.cfg.SP1ProofPercentage > 0 && !p.cfg.ForceSP1Proof && !p.cfg.ForceSGXProof && !p.cfg.ZkOnlyProofs {
+		log.Info(
+			"SP1 proof share enabled",
+			"sp1ProofPercentage", p.cfg.SP1ProofPercentage,
+			"cycle", proofSubmitter.SP1ProofShareCycle,
+		)
+	}
+
 	// Initialize proof verifier IDs and the Raiko proof producer.
 	verifierIDs := verifierIDsByProofType()
 
@@ -127,6 +135,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		new(big.Int).SetUint64(p.cfg.ProposalWindowSize),
 		new(big.Int).SetUint64(p.cfg.MaxRisc0ProofProposalDistance),
 		p.cfg.ForceSP1Proof,
+		p.cfg.SP1ProofPercentage,
 		p.cfg.ForceSGXProof,
 		p.cfg.ZkOnlyProofs,
 	); err != nil {

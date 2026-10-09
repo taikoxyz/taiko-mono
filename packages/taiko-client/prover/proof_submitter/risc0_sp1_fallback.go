@@ -85,10 +85,26 @@ func (s *ProofSubmitter) resumeRisc0() bool {
 	return true
 }
 
+// aggregateSP1FallbackTail requests aggregation of the partial SP1 batch left by the
+// fallback cycle that just ended. The RISC0 proofs that follow cannot enter their buffer
+// until that batch is finalized, so it must not wait for forceBatchProvingInterval.
+func (s *ProofSubmitter) aggregateSP1FallbackTail() {
+	buffer, ok := s.proofBuffers[proofProducer.ProofTypeZKSP1]
+	if !ok || buffer.Len() == 0 {
+		return
+	}
+	if buffer.MarkAggregatingIfNot() {
+		s.batchAggregationNotify <- proofProducer.ProofTypeZKSP1
+	}
+}
+
 // decideZKProofType applies the RISC0 backlog drain/resume state machine and
 // reports whether this proposal should be proven via RISC0 or SP1. It has side
 // effects: it latches into SP1 fallback mode (and fires a one-off backlog clear)
 // on the first distance breach, and unlatches when the backlog is drained.
+// Proposals in the fixed SP1 share (see sp1_proof_share.go) always use SP1 and
+// never resume RISC0; they only count as a distance breach while a RISC0-share
+// proposal blocks finalization.
 func (s *ProofSubmitter) decideZKProofType(
 	ctx context.Context,
 	proposalID *big.Int,
@@ -98,13 +114,28 @@ func (s *ProofSubmitter) decideZKProofType(
 		return proofProducer.ProofTypeZKSP1
 	}
 
-	// Machine inactive: no positive distance configured, or no control-plane client.
-	// Preserve stateless behavior: nil = use RISC0, 0 = always use SP1,
+	// The machine is inactive without a positive distance or a control-plane client.
+	// Inactive, it preserves stateless behavior: nil = use RISC0, 0 = always use SP1,
 	// N = RISC0 within N proposals. When risc0Backlog is nil this also guarantees
 	// the machine paths below never dereference it (canResumeRisc0/fireClearAsync).
-	if s.maxRisc0ProofProposalDistance == nil ||
-		s.maxRisc0ProofProposalDistance.Sign() <= 0 ||
-		s.risc0Backlog == nil {
+	machineActive := s.maxRisc0ProofProposalDistance != nil &&
+		s.maxRisc0ProofProposalDistance.Sign() > 0 &&
+		s.risc0Backlog != nil
+
+	if s.inSP1ProofShare(proposalID) {
+		// A breach in the SP1 share still latches fallback while a RISC0-share proposal
+		// blocks finalization: the proving window can leave every breaching proposal in the
+		// SP1 share, and a stuck RISC0 proof would otherwise never fall back. It does not
+		// latch while an SP1-share proposal blocks, since falling back cannot unblock that.
+		if machineActive &&
+			!s.inSP1ProofShare(new(big.Int).Add(lastFinalizedProposalID, common.Big1)) &&
+			!s.shouldUseRisc0Proof(proposalID, lastFinalizedProposalID) {
+			s.latchSP1Fallback(proposalID, lastFinalizedProposalID)
+		}
+		return proofProducer.ProofTypeZKSP1
+	}
+
+	if !machineActive {
 		if s.shouldUseRisc0Proof(proposalID, lastFinalizedProposalID) {
 			return proofProducer.ProofTypeZKR0
 		}
@@ -128,6 +159,7 @@ func (s *ProofSubmitter) decideZKProofType(
 					"maxSP1ProposalID", maxSP1ProposalID,
 					"lastFinalizedProposalID", lastFinalizedProposalID,
 				)
+				s.aggregateSP1FallbackTail()
 			}
 			return proofProducer.ProofTypeZKR0
 		}
@@ -135,20 +167,26 @@ func (s *ProofSubmitter) decideZKProofType(
 	}
 
 	if !s.shouldUseRisc0Proof(proposalID, lastFinalizedProposalID) {
-		s.trackSP1FallbackProposal(proposalID)
-		if s.markSP1Fallback() {
-			log.Warn(
-				"RISC0 proof backlog detected, clearing RISC0 backlog and falling back to SP1",
-				"proposalID", proposalID,
-				"lastFinalizedProposalID", lastFinalizedProposalID,
-				"maxRisc0ProofProposalDistance", s.maxRisc0ProofProposalDistance,
-			)
-			s.clearRisc0ProofBuffersAndResend()
-			s.fireClearAsync()
-		}
+		s.latchSP1Fallback(proposalID, lastFinalizedProposalID)
 		return proofProducer.ProofTypeZKSP1
 	}
 	return proofProducer.ProofTypeZKR0
+}
+
+// latchSP1Fallback records a distance breach. The first caller to latch SP1 fallback
+// mode also flushes the local RISC0 proofs and clears the RISC0 backlog.
+func (s *ProofSubmitter) latchSP1Fallback(proposalID *big.Int, lastFinalizedProposalID *big.Int) {
+	s.trackSP1FallbackProposal(proposalID)
+	if s.markSP1Fallback() {
+		log.Warn(
+			"RISC0 proof backlog detected, clearing RISC0 backlog and falling back to SP1",
+			"proposalID", proposalID,
+			"lastFinalizedProposalID", lastFinalizedProposalID,
+			"maxRisc0ProofProposalDistance", s.maxRisc0ProofProposalDistance,
+		)
+		s.clearRisc0ProofBuffersAndResend()
+		s.fireClearAsync()
+	}
 }
 
 // canResumeRisc0 reports whether SP1 fallback mode can switch back to RISC0. It checks

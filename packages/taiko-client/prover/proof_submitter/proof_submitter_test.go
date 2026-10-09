@@ -240,6 +240,48 @@ func TestTryAggregateUsesLastItemInsertTimeForForcedInterval(t *testing.T) {
 	require.Empty(t, s.batchAggregationNotify)
 }
 
+func TestTryAggregateFlushesPartialBufferAtSP1ShareRunEnd(t *testing.T) {
+	sp1, r0 := proofProducer.ProofTypeZKSP1, proofProducer.ProofTypeZKR0
+	for _, tc := range []struct {
+		name               string
+		sp1ProofPercentage uint64
+		forceSP1Proof      bool
+		zkOnlyProofs       bool
+		proofType          proofProducer.ProofType
+		lastProposalID     int64
+		expected           bool
+	}{
+		{name: "SP1 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 129, expected: true},
+		{name: "before SP1 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 128},
+		{name: "RISC0 run end", sp1ProofPercentage: 30, proofType: r0, lastProposalID: 199, expected: true},
+		{name: "RISC0 at SP1 run end", sp1ProofPercentage: 30, proofType: r0, lastProposalID: 129},
+		{name: "SP1 fallback at RISC0 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 199},
+		{name: "share disabled", proofType: r0, lastProposalID: 199},
+		{name: "SP1 only", sp1ProofPercentage: 100, proofType: sp1, lastProposalID: 199},
+		{name: "force SP1", sp1ProofPercentage: 30, forceSP1Proof: true, proofType: sp1, lastProposalID: 129},
+		{name: "ZK-only", sp1ProofPercentage: 30, zkOnlyProofs: true, proofType: sp1, lastProposalID: 129},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			buffer := proofProducer.NewProofBuffer(5)
+			for _, id := range []int64{tc.lastProposalID - 1, tc.lastProposalID} {
+				_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(id)})
+				require.NoError(t, err)
+			}
+
+			s := &ProofSubmitter{
+				batchAggregationNotify:    make(chan proofProducer.ProofType, 1),
+				forceBatchProvingInterval: time.Hour,
+				sp1ProofPercentage:        tc.sp1ProofPercentage,
+				forceSP1Proof:             tc.forceSP1Proof,
+				zkOnlyProofs:              tc.zkOnlyProofs,
+			}
+
+			require.Equal(t, tc.expected, s.TryAggregate(buffer, tc.proofType))
+			require.Equal(t, tc.expected, buffer.IsAggregating())
+		})
+	}
+}
+
 func TestCacheAccess(t *testing.T) {
 	cacheMap := cmap.New[*proofProducer.ProofResponse]()
 	cacheMap.Set("1", &proofProducer.ProofResponse{})
@@ -250,4 +292,40 @@ func TestCacheAccess(t *testing.T) {
 
 func TestDefaultProofBufferMonitorInterval(t *testing.T) {
 	require.Equal(t, time.Minute, monitorInterval)
+}
+
+func TestTryAggregateFlushesPartialBufferWhenNextProposalCachedAsOtherType(t *testing.T) {
+	sp1, r0 := proofProducer.ProofTypeZKSP1, proofProducer.ProofTypeZKR0
+	for _, tc := range []struct {
+		name       string
+		cachedType proofProducer.ProofType
+		cachedID   int64
+		expected   bool
+	}{
+		{name: "next proposal cached as SP1", cachedType: sp1, cachedID: 14, expected: true},
+		{name: "next proposal cached as RISC0", cachedType: r0, cachedID: 14},
+		{name: "later proposal cached as SP1", cachedType: sp1, cachedID: 15},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			buffer := proofProducer.NewProofBuffer(5)
+			_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(13)})
+			require.NoError(t, err)
+
+			s := &ProofSubmitter{
+				batchAggregationNotify:    make(chan proofProducer.ProofType, 1),
+				forceBatchProvingInterval: time.Hour,
+				proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+					sp1: cmap.New[*proofProducer.ProofResponse](),
+					r0:  cmap.New[*proofProducer.ProofResponse](),
+				},
+			}
+			s.proofCacheMaps[tc.cachedType].Set(
+				big.NewInt(tc.cachedID).String(),
+				&proofProducer.ProofResponse{BatchID: big.NewInt(tc.cachedID)},
+			)
+
+			require.Equal(t, tc.expected, s.TryAggregate(buffer, r0))
+			require.Equal(t, tc.expected, buffer.IsAggregating())
+		})
+	}
 }

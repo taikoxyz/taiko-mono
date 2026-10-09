@@ -138,12 +138,13 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	return clearedCount
 }
 
-// MarkAggregatingIfNot marks the proofs in this buffer are aggregating if not.
+// MarkAggregatingIfNot atomically marks a nonempty buffer as aggregating.
+// It returns false if the buffer is empty or already aggregating.
 func (pb *ProofBuffer) MarkAggregatingIfNot() bool {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
 
-	if pb.isAggregating {
+	if pb.isAggregating || len(pb.buffer) == 0 {
 		return false
 	}
 	pb.isAggregating = true

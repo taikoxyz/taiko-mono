@@ -114,6 +114,81 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeForceSP1DoesNotClearBac
 	s.Equal(int32(0), fake.clearCalls.Load())
 }
 
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareBreachDoesNotLatchWhileSP1ShareBlocks() {
+	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	sub.sp1ProofPercentage = 30
+
+	// 120 is in the SP1 share (120 % 100 < 30) and beyond 10 + 30, but 11, which blocks
+	// finalization, is in the SP1 share too: falling back to SP1 would not unblock it.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(120), big.NewInt(10)))
+	s.False(sub.inSP1Fallback())
+	s.Nil(sub.maxSP1FallbackProposalID())
+	s.Equal(int32(0), fake.clearCalls.Load())
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareBreachLatchesWhileRisc0ShareBlocks() {
+	fake := &fakeRisc0Backlog{clean: true, cleared: make(chan struct{}, 1)}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	sub.maxRisc0ProofProposalDistance = big.NewInt(20)
+	sub.sp1ProofPercentage = 30
+
+	// RISC0-share 190 blocks finalization at 189. With a 30-proposal window only 190-219 are
+	// requested, and every breach (210-219 > 189 + 20) is in the SP1 share, so 210 must latch.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(210), big.NewInt(189)))
+	s.Require().True(sub.inSP1Fallback())
+	s.Equal(uint64(210), sub.maxSP1FallbackProposalID().Uint64())
+
+	select {
+	case <-fake.cleared:
+	case <-time.After(time.Second):
+		s.FailNow("clear was not called")
+	}
+
+	// The blocked RISC0-share proposal is now re-proven via SP1 until the fallback range drains.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(190), big.NewInt(189)))
+	s.True(sub.inSP1Fallback())
+	s.Equal(int32(0), fake.statusCalls.Load())
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareBreachWithoutBacklogClientDoesNotLatch() {
+	sub := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(20), sp1ProofPercentage: 30} // risc0Backlog nil
+
+	// Same breach as above, but without a control-plane client the machine stays stateless.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(210), big.NewInt(189)))
+	s.False(sub.inSP1Fallback())
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareDuringFallbackSkipsTrackAndResume() {
+	fake := &fakeRisc0Backlog{clean: true}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	sub.sp1ProofPercentage = 30
+	s.True(sub.markSP1Fallback())
+
+	// 111 <= 110 + 1 would let a RISC0-share proposal resume RISC0, but SP1-share
+	// proposals never evaluate the resume condition, and 111 is within the distance.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(111), big.NewInt(110)))
+	s.True(sub.inSP1Fallback())
+	s.Nil(sub.maxSP1FallbackProposalID())
+	s.Equal(int32(0), fake.statusCalls.Load())
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeRisc0ShareBeyondDistanceStillLatches() {
+	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	sub.sp1ProofPercentage = 30
+
+	// 141 is in the RISC0 share (141 % 100 >= 30) and 141 > 100 + 30 breaches the distance.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(141), big.NewInt(100)))
+	s.True(sub.inSP1Fallback())
+
+	select {
+	case <-fake.cleared:
+	case <-time.After(time.Second):
+		s.FailNow("clear was not called")
+	}
+}
+
 func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeNilBacklogFallsBackToStateless() {
 	sub := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(30)} // risc0Backlog nil
 	// 40 <= 10+30 stays RISC0; 41 > 10+30 uses SP1; neither latches without a control-plane client.
@@ -296,5 +371,120 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeBreachClearsLocalRisc0B
 	case <-fake.cleared:
 	case <-time.After(time.Second):
 		s.FailNow("expected raiko backlog clear")
+	}
+}
+
+// newRisc0SP1FallbackSubmitterWithBuffers wires mainnet-sized (5) RISC0 and SP1 buffers
+// and caches, with a forced aggregation interval that never elapses during a test.
+func newRisc0SP1FallbackSubmitterWithBuffers(backlog proofProducer.Risc0BacklogController) *ProofSubmitter {
+	sub := newRisc0SP1FallbackSubmitter(backlog)
+	sub.proofBuffers = map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+		proofProducer.ProofTypeZKR0:  proofProducer.NewProofBuffer(5),
+		proofProducer.ProofTypeZKSP1: proofProducer.NewProofBuffer(5),
+	}
+	sub.proofCacheMaps = map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+		proofProducer.ProofTypeZKR0:  cmap.New[*proofProducer.ProofResponse](),
+		proofProducer.ProofTypeZKSP1: cmap.New[*proofProducer.ProofResponse](),
+	}
+	sub.batchAggregationNotify = make(chan proofProducer.ProofType, 2)
+	sub.flushCacheNotify = make(chan proofProducer.ProofType, 1)
+	sub.forceBatchProvingInterval = time.Hour
+	return sub
+}
+
+func newZKProofResponseForTest(id int64, proofType proofProducer.ProofType) *proofProducer.ProofResponse {
+	return &proofProducer.ProofResponse{BatchID: big.NewInt(id), Meta: newShastaMetaForTest(id), ProofType: proofType}
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeResumeAggregatesSP1Tail() {
+	sub := newRisc0SP1FallbackSubmitterWithBuffers(&fakeRisc0Backlog{clean: true})
+	sp1Buffer := sub.proofBuffers[proofProducer.ProofTypeZKSP1]
+
+	// The fallback cycle drains 11 and 12 with SP1: a partial batch, so it does not aggregate yet.
+	s.True(sub.markSP1Fallback())
+	sub.trackSP1FallbackProposal(big.NewInt(11))
+	for _, id := range []int64{11, 12} {
+		s.NoError(sub.handleProofResponse(
+			newShastaMetaForTest(id), big.NewInt(11), newZKProofResponseForTest(id, proofProducer.ProofTypeZKSP1),
+		))
+	}
+	s.False(sp1Buffer.IsAggregating())
+
+	// 11 <= 10 + 1 and the backend is clean: 13 resumes RISC0.
+	s.Equal(proofProducer.ProofTypeZKR0, sub.decideZKProofType(context.Background(), big.NewInt(13), big.NewInt(10)))
+	s.False(sub.inSP1Fallback())
+
+	// 13 cannot enter the RISC0 buffer until 11 and 12 are finalized, so the resume must
+	// aggregate their partial batch now instead of after forceBatchProvingInterval.
+	s.NoError(sub.handleProofResponse(
+		newShastaMetaForTest(13), big.NewInt(11), newZKProofResponseForTest(13, proofProducer.ProofTypeZKR0),
+	))
+	s.Zero(sub.proofBuffers[proofProducer.ProofTypeZKR0].Len())
+	s.True(sub.proofCacheMaps[proofProducer.ProofTypeZKR0].Has("13"))
+
+	s.True(sp1Buffer.IsAggregating())
+	s.Equal([]proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, drainAggregationNotify(sub))
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeConcurrentResumeAggregatesSP1TailOnce() {
+	sub := newRisc0SP1FallbackSubmitterWithBuffers(&fakeRisc0Backlog{clean: true})
+	s.True(sub.markSP1Fallback())
+	sub.trackSP1FallbackProposal(big.NewInt(11))
+	s.NoError(sub.handleProofResponse(
+		newShastaMetaForTest(11), big.NewInt(11), newZKProofResponseForTest(11, proofProducer.ProofTypeZKSP1),
+	))
+
+	const n = 50
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func() {
+			defer wg.Done()
+			sub.decideZKProofType(context.Background(), big.NewInt(12), big.NewInt(10))
+		}()
+	}
+	wg.Wait()
+
+	s.False(sub.inSP1Fallback())
+	s.Equal([]proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, drainAggregationNotify(sub))
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestResumeWithOutOfOrderSP1ProofAggregatesRisc0RunEnd() {
+	sub := newRisc0SP1FallbackSubmitterWithBuffers(&fakeRisc0Backlog{clean: true})
+	sp1Buffer, risc0Buffer := sub.proofBuffers[proofProducer.ProofTypeZKSP1], sub.proofBuffers[proofProducer.ProofTypeZKR0]
+
+	// The fallback cycle proves 11, 12 and, out of order, 14 with SP1 while 13 is still in flight.
+	s.True(sub.markSP1Fallback())
+	sub.trackSP1FallbackProposal(big.NewInt(11))
+	for _, id := range []int64{11, 12, 14} {
+		s.NoError(sub.handleProofResponse(
+			newShastaMetaForTest(id), big.NewInt(11), newZKProofResponseForTest(id, proofProducer.ProofTypeZKSP1),
+		))
+	}
+	s.True(sub.proofCacheMaps[proofProducer.ProofTypeZKSP1].Has("14"))
+
+	// 13 resumes RISC0, and 11 and 12 are aggregated and finalized.
+	s.Equal(proofProducer.ProofTypeZKR0, sub.decideZKProofType(context.Background(), big.NewInt(13), big.NewInt(10)))
+	drainAggregationNotify(sub)
+	sp1Buffer.ClearItems(11, 12)
+
+	// 13 is proven with RISC0, but 14 keeps its SP1 proof, so 13 ends a RISC0 run.
+	s.NoError(sub.handleProofResponse(
+		newShastaMetaForTest(13), big.NewInt(13), newZKProofResponseForTest(13, proofProducer.ProofTypeZKR0),
+	))
+	s.Equal(1, risc0Buffer.Len())
+	s.True(risc0Buffer.IsAggregating())
+	s.Equal([]proofProducer.ProofType{proofProducer.ProofTypeZKR0}, drainAggregationNotify(sub))
+}
+
+func drainAggregationNotify(sub *ProofSubmitter) []proofProducer.ProofType {
+	var proofTypes []proofProducer.ProofType
+	for {
+		select {
+		case proofType := <-sub.batchAggregationNotify:
+			proofTypes = append(proofTypes, proofType)
+		default:
+			return proofTypes
+		}
 	}
 }
