@@ -11,7 +11,7 @@ use prost::Message;
 use tendermint::v0_38::abci::{request, response};
 use tendermint_proto::v0_38::abci as pb;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::TcpStream,
     sync::mpsc::UnboundedReceiver,
 };
@@ -89,7 +89,7 @@ fn pb_flush() -> pb::Request {
 }
 
 /// Writes `requests` varint-length-prefixed, in one write.
-async fn send(stream: &mut TcpStream, requests: &[pb::Request]) {
+async fn send(stream: &mut (impl AsyncWrite + Unpin), requests: &[pb::Request]) {
     let mut bytes = Vec::new();
     for req in requests {
         bytes.extend(req.encode_length_delimited_to_vec());
@@ -99,7 +99,7 @@ async fn send(stream: &mut TcpStream, requests: &[pb::Request]) {
 
 /// Reads one varint-length-prefixed response, buffering surplus bytes in `buf`; `None` when
 /// the server closed the connection.
-async fn recv(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Option<pb::Response> {
+async fn recv(stream: &mut (impl AsyncRead + Unpin), buf: &mut Vec<u8>) -> Option<pb::Response> {
     loop {
         let mut cursor = &buf[..];
         if let Ok(len) = prost::encoding::decode_varint(&mut cursor) {
@@ -124,7 +124,10 @@ async fn recv(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Option<pb::Response>
 }
 
 /// Reads one response and returns its value.
-async fn recv_value(stream: &mut TcpStream, buf: &mut Vec<u8>) -> pb::response::Value {
+async fn recv_value(
+    stream: &mut (impl AsyncRead + Unpin),
+    buf: &mut Vec<u8>,
+) -> pb::response::Value {
     recv(stream, buf).await.expect("a response").value.expect("a response value")
 }
 
@@ -193,6 +196,76 @@ async fn answers_echo_and_info_over_tcp() {
     }
     assert!(!server.is_finished());
     assert!(halts.try_recv().is_err(), "no halt");
+}
+
+/// Connects to the unix socket at `path`, retrying until the server listens.
+#[cfg(unix)]
+async fn connect_unix(
+    path: &Path,
+    server: &JoinHandle<Result<(), ServerError>>,
+) -> tokio::net::UnixStream {
+    let deadline = tokio::time::Instant::now() + WAIT;
+    loop {
+        match tokio::net::UnixStream::connect(path).await {
+            Ok(stream) => return stream,
+            Err(e) if tokio::time::Instant::now() < deadline => {
+                assert!(!server.is_finished(), "server stopped early: {e}");
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            Err(e) => panic!("cannot connect to the ABCI socket: {e}"),
+        }
+    }
+}
+
+/// A process that exits (e.g. after a safety halt) leaves its socket file behind; the next
+/// start replaces that stale socket instead of failing to bind with `AddrInUse`.
+#[cfg(unix)]
+#[tokio::test]
+async fn serves_over_unix_replacing_a_stale_socket() {
+    let dir = tempfile::tempdir().unwrap();
+    let sock = dir.path().join("abci.sock");
+    drop(std::os::unix::net::UnixListener::bind(&sock).unwrap());
+    assert!(sock.exists(), "dropping a listener leaves the socket file behind");
+
+    let (hook, _halts) = recording_hook();
+    let app = fixture_app(dir.path());
+    let addr = format!("unix://{}", sock.display());
+    let server = tokio::spawn(async move { serve_with(app, &addr, hook).await });
+    let mut stream = connect_unix(&sock, &server).await;
+    let mut buf = Vec::new();
+    send(&mut stream, &[pb_echo("over uds")]).await;
+    match recv_value(&mut stream, &mut buf).await {
+        pb::response::Value::Echo(echo) => assert_eq!(echo.message, "over uds"),
+        other => panic!("Echo answered {other:?}"),
+    }
+    assert!(!server.is_finished());
+    server.abort();
+}
+
+/// Only a stale socket is removed: a regular file at the path, or a socket another process
+/// still listens on, is left alone and the server refuses to start.
+#[cfg(unix)]
+#[tokio::test]
+async fn refuses_a_unix_path_that_is_no_stale_socket() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("abci.sock");
+    std::fs::write(&file, b"not a socket").unwrap();
+    let (hook, _halts) = recording_hook();
+    let addr = format!("unix://{}", file.display());
+    let err = serve_with(fixture_app(dir.path()), &addr, hook).await.unwrap_err();
+    assert!(matches!(&err, ServerError::SocketPath { path, .. } if *path == file), "{err:?}");
+    assert!(err.to_string().contains("not a socket"), "{err}");
+    assert_eq!(std::fs::read(&file).unwrap(), b"not a socket", "the file is kept");
+
+    let live = dir.path().join("live.sock");
+    let listener = std::os::unix::net::UnixListener::bind(&live).unwrap();
+    let (hook, _halts) = recording_hook();
+    let addr = format!("unix://{}", live.display());
+    let err = serve_with(fixture_app(dir.path()), &addr, hook).await.unwrap_err();
+    assert!(matches!(&err, ServerError::SocketPath { path, .. } if *path == live), "{err:?}");
+    assert!(err.to_string().contains("listens"), "{err}");
+    std::os::unix::net::UnixStream::connect(&live).expect("the live socket still accepts");
+    drop(listener);
 }
 
 #[tokio::test]
