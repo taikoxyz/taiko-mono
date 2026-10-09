@@ -27,6 +27,7 @@ pub(crate) struct TestServer {
     shutdown: Arc<Notify>,
     handle: JoinHandle<()>,
     requests: Arc<Mutex<Vec<Uri>>>,
+    authorizations: Arc<Mutex<Vec<Option<String>>>>,
 }
 
 impl TestServer {
@@ -45,6 +46,8 @@ impl TestServer {
         let handler = Arc::new(handler);
         let requests = Arc::new(Mutex::new(Vec::new()));
         let recorded = requests.clone();
+        let authorizations = Arc::new(Mutex::new(Vec::new()));
+        let recorded_authorizations = authorizations.clone();
 
         let handle = spawn(async move {
             loop {
@@ -54,10 +57,15 @@ impl TestServer {
                         let Ok((stream, _)) = accept_result else { continue };
                         let handler = handler.clone();
                         let recorded = recorded.clone();
+                        let recorded_authorizations = recorded_authorizations.clone();
                         spawn(async move {
                             let io = hyper_util::rt::TokioIo::new(stream);
                             let service = service_fn(move |request: hyper::Request<_>| {
                                 recorded.lock().unwrap().push(request.uri().clone());
+                                recorded_authorizations.lock().unwrap().push(
+                                    request.headers().get(hyper::header::AUTHORIZATION)
+                                        .map(|value| value.to_str().unwrap().to_owned()),
+                                );
                                 let (status, body) = handler(request.uri());
                                 async move {
                                     Ok::<_, hyper::Error>(
@@ -76,7 +84,7 @@ impl TestServer {
             }
         });
 
-        Self { endpoint, shutdown, handle, requests }
+        Self { endpoint, shutdown, handle, requests, authorizations }
     }
 
     pub(crate) fn endpoint(&self) -> Url {
@@ -92,6 +100,11 @@ impl TestServer {
             .filter(|uri| uri.path().starts_with(prefix))
             .cloned()
             .collect()
+    }
+
+    /// Authorization headers recorded from the real client's requests, in request order.
+    pub(crate) fn authorization_headers(&self) -> Vec<Option<String>> {
+        self.authorizations.lock().unwrap().clone()
     }
 }
 
