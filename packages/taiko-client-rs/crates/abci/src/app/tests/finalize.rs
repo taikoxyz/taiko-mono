@@ -522,13 +522,57 @@ async fn syncing_and_transport_errors_are_retried_with_backoff() {
     let start = tokio::time::Instant::now();
     finalize(&mut app, req).await.expect("finalizes once the EL is ready");
 
-    // One backoff for the block: 100, 200 ms for newPayload, then 400, 800, 1600, 3200 ms and
-    // three times the 5 s cap for the forkchoice (each SYNCING re-sends the payload first).
-    assert_eq!(start.elapsed(), Duration::from_millis(300 + 6_000 + 15_000));
+    // One backoff for the block: 100 ms after newPayload's SYNCING (whose forkchoice nudge takes
+    // one scripted SYNCING), 200 ms after the transport error, then 400, 800, 1600, 3200 ms and
+    // twice the 5 s cap for the forkchoice (each SYNCING re-sends the payload first).
+    assert_eq!(start.elapsed(), Duration::from_millis(300 + 6_000 + 10_000));
     let calls = engine_calls_since(&app, before);
     let count = |pred: fn(&EngineCall) -> bool| calls.iter().filter(|c| pred(c)).count();
-    assert_eq!(count(|c| matches!(c, EngineCall::NewPayload(_))), 3 + 7);
-    assert_eq!(count(|c| matches!(c, EngineCall::Forkchoice { .. })), 8);
+    assert_eq!(count(|c| matches!(c, EngineCall::NewPayload(_))), 3 + 6);
+    assert_eq!(count(|c| matches!(c, EngineCall::Forkchoice { .. })), 1 + 7);
+}
+
+/// An EL answering `newPayload` with SYNCING (e.g. one that lost its tail and so the block's
+/// ancestry) is pointed at the block by a forkchoice update before the payload is retried, so it
+/// starts backfilling from it; a nudge answered VALID settles the block at once.
+#[tokio::test(start_paused = true)]
+async fn a_syncing_payload_is_followed_by_a_forkchoice_nudge() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let env = propose(&mut app).await;
+    let hash = env.block.header.hash_slow();
+    let finalized = app.state().unwrap().anchor.inbox.last_checkpoint_hash;
+    let fcu = EngineCall::Forkchoice { head: hash, safe: hash, finalized };
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+
+    // An EL without the block (this node built it, so drop it from the mock EL's blocks):
+    // SYNCING twice, each nudge answered SYNCING too, then the payload executes and the
+    // forkchoice settles it.
+    {
+        let mut engine = app.engine().state();
+        engine.known.remove(&hash);
+        engine
+            .new_payload_script
+            .extend([Ok(PayloadVerdict::Syncing), Ok(PayloadVerdict::Syncing)]);
+    }
+    let before = app.engine().calls().len();
+    finalize(&mut app, req.clone()).await.expect("finalizes once the EL is ready");
+    let payload = EngineCall::NewPayload(hash);
+    assert_eq!(
+        engine_calls_since(&app, before),
+        [payload.clone(), fcu.clone(), payload.clone(), fcu.clone(), payload.clone(), fcu.clone()]
+    );
+
+    // A nudge the EL answers VALID (it caught up meanwhile) settles the block.
+    {
+        let mut engine = app.engine().state();
+        engine.new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
+        engine.forkchoice_script.push_back(Ok(PayloadVerdict::Valid));
+    }
+    let before = app.engine().calls().len();
+    finalize(&mut app, req).await.expect("finalizes on the nudge");
+    assert_eq!(engine_calls_since(&app, before), [payload, fcu]);
 }
 
 #[tokio::test(start_paused = true)]
