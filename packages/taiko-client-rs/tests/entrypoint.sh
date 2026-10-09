@@ -1,70 +1,48 @@
 #!/bin/bash
+#
+# Runs the abci docker integration scenarios (`crates/abci/tests`, all marked
+# `#[ignore = "docker"]`). Each scenario boots its own devnet through the docker CLI
+# (`crates/test-harness`: anvil as L1, alethia-reth, CometBFT) and removes it
+# afterwards, so this script only checks docker, pre-pulls the images and runs the
+# scenarios one at a time. Extra arguments are forwarded to `cargo nextest run`,
+# e.g. `just test --no-capture` or `just test restart` (a test-name filter).
+#
+# Environment:
+#   ANVIL_IMAGE, ALETHIA_RETH_IMAGE, COMETBFT_IMAGE  override the images.
+#   PULL_POLICY=missing  reuse images already present on the daemon instead of
+#                        pulling the (moving) tags on every run.
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Run from the package root so relative paths (compose file, nextest config,
-# workspace crates) resolve regardless of the caller's working directory.
+# Run from the package root so the nextest config and the workspace resolve
+# regardless of the caller's working directory.
 cd "$DIR/.."
 
-export HARNESS_L1_HTTP=${HARNESS_L1_HTTP:-http://localhost:18545}
-export HARNESS_L1_WS=${HARNESS_L1_WS:-ws://localhost:18545}
-export L2_HTTP_0=http://localhost:28545
-export L2_WS_0=ws://localhost:28546
-export L2_AUTH_0=http://localhost:28551
-export JWT_SECRET=$DIR/docker/jwt.hex
-
-# Verify required CLI tools are present before starting containers, so a missing
-# binary fails loudly instead of hanging in a readiness loop below.
-for cmd in cast; do
-    if ! command -v "$cmd" > /dev/null 2>&1; then
-        echo "ERROR: required command '$cmd' not found in PATH"
-        exit 1
-    fi
-done
-
-# Prefer Docker Compose v2 plugin; fallback to the standalone v1/v2 binary.
-if docker compose version > /dev/null 2>&1; then
-    DOCKER_COMPOSE=(docker compose)
-elif command -v docker-compose > /dev/null 2>&1; then
-    DOCKER_COMPOSE=(docker-compose)
-else
-    echo "ERROR: neither 'docker compose' nor 'docker-compose' is available"
+if ! command -v docker > /dev/null 2>&1; then
+    echo "ERROR: required command 'docker' not found in PATH"
+    exit 1
+fi
+if ! docker info > /dev/null 2>&1; then
+    echo "ERROR: the docker daemon is not reachable"
     exit 1
 fi
 
-COMPOSE_FILE="${TAIKO_TEST_COMPOSE_FILE:-tests/docker/docker-compose.test.yaml}"
-COMPOSE_ARGS=(-f "$COMPOSE_FILE")
-cleanup() {
-    "${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" down -v
-}
+export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:stable}
+# Built from taikoxyz/alethia-reth#248; switch back to `alethia-reth:main` when that
+# PR merges.
+export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48}
+export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0}
 
-echo "Starting docker compose services..."
-"${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" up -d
-trap cleanup EXIT
+# Pull before the first scenario so downloads don't eat into its readiness deadlines.
+for image in "$ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETBFT_IMAGE"; do
+    if [[ "${PULL_POLICY:-always}" == "missing" ]] && docker image inspect "$image" > /dev/null 2>&1; then
+        echo "Using local image $image"
+    else
+        echo "Pulling $image"
+        docker pull --quiet "$image"
+    fi
+done
 
-# Wait for an RPC endpoint to accept requests, bounded so a container that never
-# comes up dumps its logs and fails instead of hanging forever.
-wait_for_rpc() {
-    local url="$1" name="$2" deadline=$((SECONDS + 120))
-    until cast chain-id --rpc-url "$url" > /dev/null 2>&1; do
-        if (( SECONDS >= deadline )); then
-            echo "ERROR: $name ($url) not ready after 120s"
-            "${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" logs --tail=100
-            exit 1
-        fi
-        sleep 1
-    done
-    echo "$name is ready ($url)"
-}
-
-wait_for_rpc "$HARNESS_L1_HTTP" "L1 node"
-wait_for_rpc "$L2_WS_0" "L2 node 0"
-
-if [[ -n "${TEST_CRATE:-}" ]]; then
-    echo "Running integration tests for crate: ${TEST_CRATE}"
-    cargo nextest -v run -p "${TEST_CRATE}" --all-features -E 'kind(test)' "$@"
-else
-    echo "Running integration tests (default)"
-    cargo nextest -v run --workspace --all-features -E 'kind(test)' "$@"
-fi
+echo "Running the abci docker scenarios"
+cargo nextest run -p abci --all-features --profile integration --run-ignored only -E 'kind(test)' "$@"

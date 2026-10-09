@@ -119,8 +119,8 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just clippy
 
-  # Unit tests need no docker stack or contract deploy — fast fail-first signal
-  # while the full integration job below brings up its environment.
+  # Unit tests need no docker — fast fail-first signal while the Tests job below
+  # runs the docker scenarios.
   unit:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Unit Tests
@@ -265,38 +265,6 @@ jobs:
             $SUDO ln -sf /usr/local/bin/mold /usr/bin/ld
           fi
 
-      - name: Ensure docker-compose is available
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          if docker compose version > /dev/null 2>&1; then
-            docker compose version
-            exit 0
-          fi
-
-          if command -v docker-compose > /dev/null 2>&1; then
-            docker-compose version
-            exit 0
-          fi
-
-          ARCH="$(uname -m)"
-          if [ "$ARCH" = "arm64" ]; then
-            ARCH="aarch64"
-          fi
-
-          if [ "$(whoami)" = root ]; then
-            SUDO=""
-          else
-            SUDO="sudo"
-          fi
-
-          $SUDO curl -fsSL \
-            "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" \
-            -o /usr/local/bin/docker-compose
-          $SUDO chmod +x /usr/local/bin/docker-compose
-          docker-compose version
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -311,9 +279,6 @@ jobs:
           workspaces: |
             packages/taiko-client-rs -> target
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
       - name: Setup just
         uses: extractions/setup-just@v4
         with:
@@ -325,7 +290,9 @@ jobs:
 
       - uses: taiki-e/install-action@nextest
 
-      - name: Run tests
+      # The abci docker scenarios: each boots its own anvil + alethia-reth + CometBFT
+      # devnet through the docker CLI, one scenario at a time.
+      - name: Run docker scenarios
         working-directory: packages/taiko-client-rs
         env:
           # The alethia-reth image built from taikoxyz/alethia-reth#248, until that PR merges;
@@ -333,20 +300,14 @@ jobs:
           ALETHIA_RETH_IMAGE: us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48
         run: just test
 
-      # The entrypoint's EXIT trap can be skipped on job cancellation/timeout;
-      # leaked fixed-name containers would fail the next run on this runner. A real
-      # `down` failure must fail the job loudly instead of leaving that poison behind.
-      - name: Tear down docker compose stack
+      # Each scenario removes its devnet when it ends, but a job cancellation or
+      # timeout can skip that; remove leftover `abci-*` containers and networks so
+      # they can't poison the next run on this runner. A real removal failure must
+      # fail the job loudly instead of leaving that poison behind.
+      - name: Remove leftover devnet containers
         if: always()
-        working-directory: packages/taiko-client-rs
         shell: bash
         run: |
           set -euo pipefail
-          if docker compose version > /dev/null 2>&1; then
-            docker compose -f tests/docker/docker-compose.test.yaml down -v --remove-orphans
-          elif command -v docker-compose > /dev/null 2>&1; then
-            docker-compose -f tests/docker/docker-compose.test.yaml down -v --remove-orphans
-          else
-            echo "ERROR: no docker compose implementation available for teardown"
-            exit 1
-          fi
+          docker ps -aq --filter name=^abci- | xargs -r docker rm -f -v
+          docker network ls -q --filter name=^abci- | xargs -r docker network rm

@@ -116,6 +116,11 @@
         {
           "type": "toml",
           "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value == \"abci\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
           "jsonpath": "$.package[?(@.name.value == \"bindings\" && !@.source)].version"
         },
         {

@@ -27,9 +27,9 @@ const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
 ///
 /// Deliberately above `HTTP_REQUEST_TIMEOUT`: geth blocks `eth_getLogs` while rendering the
 /// filtermaps log-index head (13-21s observed on Hoodi archive nodes), and a poll canceled by
-/// a tight client timeout kills the scanner generation — closing preconfirmation ingress for
-/// the whole reconnect-and-replay window. Waiting out a slow-but-alive answer is strictly
-/// cheaper than that.
+/// a tight client timeout kills the scanner generation — stalling log ingress for the whole
+/// reconnect-and-replay window. Waiting out a slow-but-alive answer is strictly cheaper than
+/// that.
 const SCANNER_HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Connect timeout for the event scanner's HTTP provider, keeping dead-endpoint detection

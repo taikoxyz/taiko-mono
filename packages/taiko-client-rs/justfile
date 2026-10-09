@@ -1,6 +1,8 @@
 # Pass recipe arguments through as real positional args ($@) instead of a
 # space-joined string, so forwarded values keep their quoting (e.g.
-# `just test -E 'test(some_name)'` reaches nextest as two intact args).
+# `-E 'test(a) | test(b)'` reaches nextest as two intact args). Note that nextest
+# ORs an extra `-E` with a recipe's own `-E` filterset, while a bare test-name
+# filter (`just test restart`) is ANDed with it.
 set positional-arguments := true
 
 fmt_toolchain := "nightly-2025-09-27"
@@ -33,13 +35,18 @@ udeps:
   rustup toolchain install {{udeps_toolchain}} --profile minimal && \
   cargo +{{udeps_toolchain}} udeps --all-targets
 
+# The abci docker scenarios (`crates/abci/tests`, `#[ignore = "docker"]`), one at
+# a time; each boots its own anvil + alethia-reth + CometBFT devnet. Needs a
+# running docker daemon. Extra args are forwarded to nextest (e.g.
+# `just test restart` runs one scenario).
 test *ARGS:
   ./tests/entrypoint.sh "$@"
 
-# Unit tests only (everything outside `tests/` dirs): no docker env, no contract
-# deploy — sub-minute feedback. The protocol pass also compiles and runs its tests
-# without default features so test-only feature leaks stay covered in CI.
-# Extra args are forwarded to nextest.
+# Unit tests only (everything outside `tests/` dirs; the docker scenarios are
+# also `#[ignore]`d): no docker. The protocol pass also compiles and runs its
+# tests without default features so test-only feature leaks stay covered in CI;
+# it has no filterset, so it also runs protocol's (docker-free) integration
+# binary. Extra args are forwarded to nextest.
 unit *ARGS:
   cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test)' "$@" && \
   cargo nextest run -p protocol --no-default-features "$@"

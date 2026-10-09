@@ -1,74 +1,182 @@
 # taiko-client-rs
 
-A Rust implementation of the Taiko Alethia protocol client. The Shasta driver, proposer and whitelist preconfirmation driver have been removed; networks before the Etna activation keep using the previous release.
+The Rust consensus-side node of the Taiko Etna PoS chain. Stock CometBFT orders and finalizes
+blocks; the `taiko-client abci` ABCI++ application builds and validates them and drives
+alethia-reth through the Engine API. Networks before the Etna activation keep using the previous
+release of this client.
+
+## Architecture
+
+Every validator and every full node runs three processes:
+
+```
+             CometBFT v0.40.x (stock, own process)
+                  │  ABCI socket (proxy_app, default tcp://127.0.0.1:26658)
+                  ▼
+      taiko-client abci  ── Engine API (JWT) + eth RPC ──▶  alethia-reth
+          │        │
+          │        └── own L1 node: headers, eth_getProof, `finalized`
+          └── --data-dir: abci-state.json
+```
+
+- **CometBFT** runs consensus among the current committee (Ed25519 keys, voting power derived
+  from stake) and keeps the block store. Its mempool is disabled (`mempool.type = "nop"`): user
+  transactions travel over the execution layer's devp2p, and the proposer's alethia-reth picks
+  them from its own txpool.
+- **`taiko-client abci`** wraps each execution block, together with the L1 facts it consumes (an
+  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry), into the
+  CometBFT block. Validators only check with their own L1 node that the anchored L1 header is
+  canonical and final; `FinalizeBlock`, replay and block sync never call L1. At epoch boundaries
+  the app derives the next committee from the registry snapshot and hands CometBFT the validator
+  updates. Its state is persisted atomically at every `Commit`.
+- **alethia-reth** executes blocks; the app drives it with `engine_forkchoiceUpdatedV3`,
+  `engine_getPayloadV5` and `engine_newPayloadV4`. CometBFT height equals the EL block number.
 
 ## Project structure
 
-| Path                   | Description                                                  |
-| ---------------------- | ------------------------------------------------------------ |
-| `bin/client/`          | Main executable for the Taiko client                         |
-| `crates/abci/`         | ABCI++ application of the Etna PoS chain (CometBFT)          |
-| `crates/bindings/`     | Rust contract bindings for the Taiko Anchor contract         |
-| `crates/protocol/`     | Core protocol types and data structures                      |
-| `crates/rpc/`          | RPC client utilities and helper functions                    |
-| `crates/test-harness/` | Test utilities and harness for integration tests             |
-| `script/`              | Helpful scripts for development and deployment               |
-| `tests/`               | Integration and end-to-end tests                             |
+| Path                   | Description                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`)                               |
+| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                     |
+| `crates/protocol/`     | Shared protocol helpers; its `shasta` modules are kept for raiko2                |
+| `crates/rpc/`          | Engine API wrappers, capability check and JWT provider helpers                   |
+| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)  |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) for the abci integration scenarios |
+| `script/`              | Maintenance scripts (binding generation)                                         |
+| `tests/`               | The integration test entrypoint and the test JWT secret                          |
 
 ## Prerequisites
 
 - Rust toolchain (1.95 or later)
-- Docker (for running tests)
-- Just (for simplified commands)
+- [Just](https://github.com/casey/just) and [cargo-nextest](https://nexte.st)
+- Docker (for the integration tests)
 
 ## Build the source
 
-Building the `taiko-client` binary requires a Rust compiler. Once installed, run:
-
 ```sh
 cargo build --release
-```
-
-### Usage
-
-Then review all available sub-commands:
-
-```sh
 ./target/release/taiko-client --help
 ```
 
-`taiko-client abci` serves the Etna PoS chain's ABCI++ application to a CometBFT node
-(`proxy_app`, default `tcp://127.0.0.1:26658`) on top of alethia-reth and an own L1 node:
+## Subcommands
 
-```sh
-./target/release/taiko-client abci \
-  --l1.http http://localhost:8545 \
-  --l2.http http://localhost:28545 --l2.auth http://localhost:28551 --jwt.secret ./jwt.hex \
-  --data-dir ./abci-data
-```
+### `abci`
 
-A safety halt (a committed block or the execution engine contradicting the app state) exits
-the process with status 2; investigate before restarting.
+Serves the ABCI++ application to a CometBFT node.
+
+| Flag                                    | Env                     | Description                                                                 |
+| --------------------------------------- | ----------------------- | --------------------------------------------------------------------------- |
+| `--abci.addr`                           | `ABCI_ADDR`             | Socket CometBFT's `proxy_app` connects to (default `tcp://127.0.0.1:26658`) |
+| `--data-dir`                            | `ABCI_DATA_DIR`         | Directory of the persisted app state (`abci-state.json`), required          |
+| `--chain-config`                        | `ABCI_CHAIN_CONFIG`     | Optional TOML overriding the built-in chain parameters (devnet only)        |
+| `--l1.http` / `--l1.ws`                 | `L1_HTTP` / `L1_WS`     | The operator's own L1 node (exactly one)                                    |
+| `--l2.http`                             | `L2_HTTP`               | alethia-reth's JSON-RPC endpoint, required                                  |
+| `--l2.auth`                             | `L2_AUTH`               | alethia-reth's Engine API endpoint, required                                |
+| `--jwt.secret`                          | `JWT_SECRET`            | Engine API JWT secret file, required                                        |
+| `--l1.timeout`                          | `ABCI_L1_TIMEOUT`       | Deadline of one L1 read, in seconds (default 3)                             |
+| `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`   | Deadline of one Engine API or EL RPC call, in seconds (default 5)           |
+| `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`   | Deadline of an EL sync to a trusted head, in seconds (default 600)          |
+| `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`             | Prometheus metrics server (default off, `0.0.0.0:9090`)                     |
+| `-v`, `--verbosity`                     | `VERBOSITY`             | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it       |
+| `--devnet-etna-timestamp`               | `DEVNET_ETNA_TIMESTAMP` | Devnet only: must match alethia-reth's `--devnet-etna-timestamp`            |
+
+The L2 chain id is read from `--l2.http` and selects the built-in chain parameters. Only the
+internal devnet (chain id `167001`) has Etna PoS parameters so far; on other chains `abci`
+refuses to start. The `--chain-config` TOML uses the snake_case names of `abci::ChainParams`
+(for example `d_max = 12`); absent keys keep their built-in values.
+
+A safety halt (a committed block or the execution engine contradicting the app state) exits the
+process with status 2; investigate before restarting. Liveness halts (anchor not final,
+back-pressure, committee record not landed, superseded generation) keep the process running and
+CometBFT rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
+
+### `abci-genesis`
+
+Reads the Ethereum-final activation record from L1 and writes the CometBFT `genesis.json`
+(chain id `taiko-etna-<l2 chain id>-g<generation>`, initial height, validator set and the genesis
+witness in `app_state`). It never invents values; `InitChain` re-verifies everything.
+
+| Flag             | Description                                                                       |
+| ---------------- | --------------------------------------------------------------------------------- |
+| `--l1.http`      | L1 node serving `eth_getProof` at the activation block (an archive node later on) |
+| `--l2.chain-id`  | L2 chain id selecting the built-in chain parameters (no L2 node is contacted)     |
+| `--chain-config` | Optional TOML overriding the built-in chain parameters (devnet only)              |
+| `--out`          | Path of the `genesis.json` to write (default: standard output)                    |
+
+## Run a validator
+
+The walkthrough assumes the Etna Inbox on L1 is activated and the validator's Ed25519 consensus
+key is registered in the staking registry snapshot the genesis committee is derived from.
+
+1. **Build the genesis** from L1 (every node must use the same file):
+
+   ```sh
+   taiko-client abci-genesis --l1.http http://l1-node:8545 --l2.chain-id 167001 \
+     --out ./genesis.json
+   ```
+
+2. **Initialize the CometBFT home** and install the genesis. `cometbft init` creates
+   `config/priv_validator_key.json`; its public key is the one the staking registry must hold.
+
+   ```sh
+   cometbft init --home ./cmt
+   cp ./genesis.json ./cmt/config/genesis.json
+   ```
+
+3. **Configure CometBFT** in `./cmt/config/config.toml`:
+
+   ```toml
+   proxy_app = "tcp://127.0.0.1:26658"   # taiko-client abci's --abci.addr
+
+   [mempool]
+   type = "nop"                          # user transactions travel over the EL's devp2p
+
+   [consensus]
+   timeout_commit = "1s"                 # block cadence; keep it at 1s or more
+
+   [p2p]
+   persistent_peers = "<node id>@<host>:26656,…"
+   ```
+
+   Leave `create_empty_blocks = true` (the default).
+
+4. **Start alethia-reth** with Etna active (devnet example):
+
+   ```sh
+   alethia-reth node --chain devnet --devnet-etna-timestamp 0 \
+     --http --http.api eth,net --authrpc.addr 127.0.0.1 --authrpc.jwtsecret ./jwt.hex
+   ```
+
+5. **Start the app**, then **CometBFT** (the app must listen before CometBFT connects):
+
+   ```sh
+   taiko-client abci --l1.http http://l1-node:8545 \
+     --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
+     --data-dir ./abci-data
+   cometbft start --home ./cmt
+   ```
+
+   On restart, CometBFT's handshake replays any blocks the app has not committed yet.
 
 ## Development
 
-### Format code
-
 ```sh
-just fmt
+just fmt        # pinned nightly rustfmt + cargo sort (never call cargo fmt directly)
+just fmt-check
+just clippy     # doc lints on library code, then every target with -D warnings
 ```
 
-### Run lints
+### Tests
 
-```sh
-just clippy
-```
-
-### Run tests
-
-```sh
-just test
-```
+- `just unit` runs the unit tests (everything outside `tests/` directories). No docker needed;
+  the protocol crate's subscription-source test spawns a local `anvil` from Foundry.
+- `just test` runs the docker integration scenarios in `crates/abci/tests` (single validator,
+  anchor finality, restart, epoch switch with and without landing, back-pressure, generation
+  bump, smoke). Each scenario boots its own devnet through the docker CLI (anvil as L1,
+  alethia-reth, CometBFT), so they run one at a time; the suite takes a few minutes. Extra
+  arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.
+  `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
+  `ALETHIA_RETH_IMAGE` and `COMETBFT_IMAGE`, or set `PULL_POLICY=missing` to reuse local images.
 
 ## License
 

@@ -2,6 +2,5 @@ target/
 **/target/
 .bmad-core/
 .code/
-crates/event-indexer/pkg/
 .worktrees/
 .vscode
