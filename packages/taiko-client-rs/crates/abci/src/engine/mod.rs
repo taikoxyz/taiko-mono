@@ -72,9 +72,9 @@ pub trait Engine: Send + Sync + 'static {
 /// [`EngineError::BlockHashMismatch`] through [`EngineError::NotEtnaShaped`] mean the payload or
 /// block itself is malformed for Etna: a block from a peer failing with one of them is invalid,
 /// not a local fault. The remaining variants are local faults (engine endpoint, configuration or
-/// engine behaviour). Of the JSON-RPC failures, only [`EngineError::Transport`] is transient
-/// ([`EngineError::is_transport`]); [`EngineError::ErrorReply`] and [`EngineError::BadReply`]
-/// are the engine's answer to the call and repeat on a retry.
+/// engine behaviour). Whether a retry of the call may succeed is [`EngineError::is_retryable`]:
+/// transport failures and some JSON-RPC error codes are transient, every other failure is the
+/// engine's (or this client's) answer to the call and repeats on a retry.
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum EngineError {
     /// The header rebuilt from a payload does not hash to the payload's `blockHash`.
@@ -111,14 +111,15 @@ pub enum EngineError {
     #[error("header field `{0}` is not Etna-shaped")]
     NotEtnaShaped(&'static str),
     /// A JSON-RPC exchange with the engine failed in transport: the endpoint could not be
-    /// reached, the connection broke off, or the HTTP layer answered with an error. The value
-    /// names the method and endpoint and renders the cause. Transient: the same call may succeed
-    /// later.
+    /// reached, the connection broke off, or the HTTP layer answered with an error status. The
+    /// value names the method and endpoint and renders the cause. Transient: the same call may
+    /// succeed later.
     #[error("engine RPC transport failed: {0}")]
     Transport(String),
     /// The engine answered a JSON-RPC call with an error object, e.g. `-38002` (invalid
-    /// forkchoice state), `-32602` (invalid params) or `-38005` (unsupported fork): it received
-    /// the call and refused it, which it does again for the same call.
+    /// forkchoice state) or `-32603` (internal error). The code tells whether the engine refused
+    /// the call itself, which it does again for the same call, or failed transiently
+    /// ([`EngineError::is_retryable`]).
     #[error("{call} answered JSON-RPC error {code}: {message}")]
     ErrorReply {
         /// The method and the endpoint it was sent to.
@@ -128,9 +129,10 @@ pub enum EngineError {
         /// The JSON-RPC error message.
         message: String,
     },
-    /// The engine answered with a result this client cannot decode (e.g. an unknown payload
-    /// status or a `null` result), or the request could not be encoded locally. The value names
-    /// the method and endpoint and renders the cause; the same call fails the same way again.
+    /// The engine answered with JSON this client cannot decode into the expected reply (e.g.
+    /// an unknown payload status or a `null` result), or the request could not be encoded
+    /// locally. The value names the method and endpoint and renders the cause; the same call
+    /// fails the same way again.
     #[error("engine RPC gave no usable reply: {0}")]
     BadReply(String),
     /// The engine client cannot be used: an endpoint with an unsupported URL scheme, an
@@ -154,10 +156,94 @@ pub enum EngineError {
 }
 
 impl EngineError {
-    /// Whether this is a transport failure ([`EngineError::Transport`]), the only engine error a
-    /// retry can cure: every other variant is the engine's (or this client's) deterministic
-    /// answer to the call.
-    pub const fn is_transport(&self) -> bool {
-        matches!(self, Self::Transport(_))
+    /// Whether a retry of the call may succeed: `FinalizeBlock` retries such an error with
+    /// backoff and halts on any other (spec §8.1, §8.2).
+    ///
+    /// | Error                                      | Retryable | Meaning                         |
+    /// | ------------------------------------------ | --------- | ------------------------------- |
+    /// | [`Transport`](Self::Transport)             | yes       | the exchange itself failed      |
+    /// | `ErrorReply` `-38001..=-38005`             | no        | Engine API verdict on the call  |
+    /// | `ErrorReply` `-32700`, `-32600..=-32602`   | no        | the call itself is malformed    |
+    /// | `ErrorReply` `-32603`                      | yes       | internal error                  |
+    /// | `ErrorReply` `-32099..=-32000`             | yes       | implementation-defined error    |
+    /// | `ErrorReply`, any other code               | yes       | unknown, so not a known verdict |
+    /// | [`BadReply`](Self::BadReply)               | no        | JSON of the wrong shape         |
+    /// | every other variant                        | no        | malformed block, setup, verdict |
+    ///
+    /// The Engine API codes are unknown payload, invalid forkchoice state, invalid payload
+    /// attributes, too large request and unsupported fork; the malformed-call codes are parse
+    /// error, invalid request, method not found and invalid params. reth answers `-32603` when
+    /// its engine task has stopped (e.g. during a shutdown) and on provider or database faults;
+    /// a block it judged bad is answered `INVALID` instead.
+    pub const fn is_retryable(&self) -> bool {
+        match self {
+            Self::Transport(_) => true,
+            Self::ErrorReply { code, .. } => {
+                !matches!(*code, -38005..=-38001 | -32700 | -32602..=-32600)
+            }
+            _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A JSON-RPC error reply with `code`.
+    fn reply(code: i64) -> EngineError {
+        EngineError::ErrorReply {
+            call: "engine_x at http://el.test/".into(),
+            code,
+            message: "m".into(),
+        }
+    }
+
+    /// The retry classes of `EngineError::is_retryable`'s table: the Engine API's own codes and
+    /// the JSON-RPC codes for a malformed call are the engine's verdict on the call; internal,
+    /// server-range and unknown codes, and transport failures, are transient.
+    #[test]
+    fn is_retryable_follows_the_error_class_table() {
+        for code in [-38001, -38002, -38003, -38004, -38005, -32700, -32600, -32601, -32602] {
+            assert!(!reply(code).is_retryable(), "{code} is a verdict on the call");
+        }
+        for code in [
+            -32603,
+            -32000,
+            -32001,
+            -32050,
+            -32099,
+            -38000,
+            -38006,
+            -32604,
+            -32100,
+            -32768,
+            -1,
+            0,
+            3,
+            i64::MIN,
+            i64::MAX,
+        ] {
+            assert!(reply(code).is_retryable(), "{code} is transient or unknown");
+        }
+        assert!(EngineError::Transport("connection refused".into()).is_retryable());
+        for error in [
+            EngineError::BadReply("null".into()),
+            EngineError::Setup("jwt".into()),
+            EngineError::BuildNotStarted("SYNCING".into()),
+            EngineError::NotEtnaShaped("withdrawals_root"),
+            EngineError::Withdrawals(1),
+            EngineError::BlobGas { blob_gas_used: 1, excess_blob_gas: 0 },
+            EngineError::BaseFeeOverflow(U256::MAX),
+            EngineError::DifficultyOverflow(U256::MAX),
+            EngineError::BlockHashMismatch { expected: B256::ZERO, computed: B256::ZERO },
+            EngineError::HeaderHashMismatch {
+                number: 1,
+                reported: B256::ZERO,
+                computed: B256::ZERO,
+            },
+        ] {
+            assert!(!error.is_retryable(), "{error:?}");
+        }
     }
 }

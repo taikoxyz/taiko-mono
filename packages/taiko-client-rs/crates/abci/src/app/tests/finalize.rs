@@ -268,8 +268,9 @@ async fn execution_failures_of_a_decided_block_are_safety_halts() {
     assert_eq!(app.state().cloned(), committed);
 }
 
-/// A JSON-RPC error reply or an undecodable reply is the EL's deterministic answer to the
-/// call: retrying cannot change it, so the decided block halts at once (spec §8.2).
+/// An Engine API error code, a JSON-RPC code for a malformed call, or a reply of the wrong shape
+/// is the EL's deterministic answer to the call: retrying cannot change it, so the decided block
+/// halts at once (spec §8.2).
 #[tokio::test]
 async fn el_error_replies_on_a_decided_block_are_safety_halts() {
     let fx = Fixture::genesis(1);
@@ -296,7 +297,11 @@ async fn el_error_replies_on_a_decided_block_are_safety_halts() {
         .count();
     assert_eq!(fcus, 1, "an error reply is not retried");
 
-    for error in [reply(-32602, "Invalid params"), EngineError::BadReply("null".into())] {
+    for error in [
+        reply(-32602, "Invalid params"),
+        reply(-38005, "Unsupported fork"),
+        EngineError::BadReply("null".into()),
+    ] {
         let before = app.engine().calls().len();
         app.engine().state().new_payload_script.push_back(Err(error.clone()));
         let msg = safety_halt(finalize(&mut app, req.clone()).await);
@@ -308,6 +313,60 @@ async fn el_error_replies_on_a_decided_block_are_safety_halts() {
         );
     }
     assert_eq!(app.pending, None, "nothing becomes pending");
+}
+
+/// reth answers `-32603` (internal error) while its engine task stops during a shutdown
+/// ("beacon consensus engine task stopped") and on provider or database faults, and
+/// implementation-defined `-32000`-range errors: none is a verdict on the block, so
+/// `FinalizeBlock` retries them with backoff, on newPayload and on the forkchoice update alike,
+/// and the block then finalizes.
+#[tokio::test(start_paused = true)]
+async fn transient_el_error_replies_are_retried_until_the_block_finalizes() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let env = propose(&mut app).await;
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let reply = |code: i64, message: &str| EngineError::ErrorReply {
+        call: "engine_x at http://el.test/".into(),
+        code,
+        message: message.into(),
+    };
+    {
+        let mut engine = app.engine().state();
+        engine.new_payload_script.extend([
+            Err(reply(-32603, "beacon consensus engine task stopped")),
+            Err(reply(-32603, "database error")),
+        ]);
+        engine.forkchoice_script.extend([
+            Err(reply(-32603, "beacon consensus engine task stopped")),
+            Err(reply(-32001, "busy")),
+        ]);
+    }
+    let before = app.engine().calls().len();
+    let start = tokio::time::Instant::now();
+    tokio::time::timeout(Duration::from_secs(600), finalize(&mut app, req))
+        .await
+        .expect("the retried calls succeed")
+        .expect("finalizes once the EL answers");
+
+    // One backoff for the block: 100 and 200 ms after the failed newPayloads, 400 and 800 ms
+    // after the failed forkchoice updates.
+    assert_eq!(start.elapsed(), Duration::from_millis(100 + 200 + 400 + 800));
+    let hash = env.block.header.hash_slow();
+    let fcu = EngineCall::Forkchoice { head: hash, safe: hash, finalized: fx.genesis_hash() };
+    assert_eq!(
+        engine_calls_since(&app, before),
+        [
+            EngineCall::NewPayload(hash),
+            EngineCall::NewPayload(hash),
+            EngineCall::NewPayload(hash),
+            fcu.clone(),
+            fcu.clone(),
+            fcu,
+        ]
+    );
+    assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(hash));
 }
 
 /// alethia-reth's `INVALID` with a `null` `validationError` (which alloy's strict decoding

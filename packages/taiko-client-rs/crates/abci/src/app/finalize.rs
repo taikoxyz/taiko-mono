@@ -132,11 +132,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// the block (spec §8.1).
     ///
     /// Each call runs within the engine deadline ([`App::el_call`]). `SYNCING`/`ACCEPTED`, a
-    /// transport failure ([`EngineError::Transport`]) and an elapsed deadline are retried on one
+    /// retryable engine error ([`EngineError::is_retryable`]: a transport failure, an internal,
+    /// server-range or unknown JSON-RPC error code) and an elapsed deadline are retried on one
     /// [`Backoff`] for the block. A forkchoice update answering `SYNCING` means the EL does not
     /// hold the block (e.g. it restarted since executing it), so the payload is re-sent before
-    /// the next forkchoice attempt. `INVALID`, a JSON-RPC error reply, an undecodable reply and
-    /// any other engine error are the EL's deterministic answer: [`AbciError::SafetyHalt`].
+    /// the next forkchoice attempt. `INVALID` and every other engine error (an Engine API error
+    /// code, a malformed call, a reply of the wrong shape) are the EL's deterministic answer:
+    /// [`AbciError::SafetyHalt`].
     async fn settle(&self, height: u64, v: &Validated, finalized: B256) -> Result<(), AbciError> {
         let hash = v.block.header.hash_slow();
         let mut executed = v.executed;
@@ -187,7 +189,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 "payload_invalid",
                 format!("{method} answered INVALID: {reason}"),
             )),
-            Ok(Err(e)) if e.is_transport() => Ok(Settled::Retry(e.to_string())),
+            Ok(Err(e)) if e.is_retryable() => Ok(Settled::Retry(e.to_string())),
             Ok(Err(e)) => Err(safety_halt(height, "engine_error", format!("{method} failed: {e}"))),
             Err(_) => Ok(Settled::Retry(format!("timed out after {limit:?}"))),
         }
@@ -201,7 +203,8 @@ enum Settled {
     Valid,
     /// `SYNCING`/`ACCEPTED`: the EL cannot execute (or does not hold) the block yet.
     Syncing,
-    /// A transport failure or an elapsed deadline, rendered: the call is retried.
+    /// A retryable engine error ([`EngineError::is_retryable`]) or an elapsed deadline,
+    /// rendered: the call is retried.
     Retry(String),
 }
 
