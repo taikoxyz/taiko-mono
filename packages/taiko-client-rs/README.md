@@ -64,27 +64,27 @@ cargo build --release
 
 Serves the ABCI++ application to a CometBFT node.
 
-| Flag                                    | Env                    | Description                                                                 |
-| --------------------------------------- | ---------------------- | --------------------------------------------------------------------------- |
-| `--abci.addr`                           | `ABCI_ADDR`            | Socket CometBFT's `proxy_app` connects to (default `tcp://127.0.0.1:26658`) |
-| `--data-dir`                            | `ABCI_DATA_DIR`        | Directory of the persisted app state (`abci-state.json`), required          |
-| `--chain-config`                        | `ABCI_CHAIN_CONFIG`    | Optional TOML overriding the built-in chain parameters (devnet only)        |
-| `--l1.http`                             | `L1_HTTP`              | The operator's own L1 node, HTTP(S) only (no WebSocket), required           |
-| `--l2.http`                             | `L2_HTTP`              | alethia-reth's JSON-RPC endpoint, required                                  |
-| `--l2.auth`                             | `L2_AUTH`              | alethia-reth's Engine API endpoint, required                                |
-| `--jwt.secret`                          | `JWT_SECRET`           | Engine API JWT secret file, required                                        |
-| `--l1.timeout`                          | `ABCI_L1_TIMEOUT`      | Deadline of one L1 read, in seconds (default 3)                             |
-| `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`  | Deadline of one Engine API or EL RPC call, in seconds (default 5)           |
-| `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`  | Deadline of an EL sync to a trusted head, in seconds (default 600)          |
-| `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT` | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`  |
-| `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                     |
-| `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it       |
+| Flag                                    | Env                    | Description                                                                   |
+| --------------------------------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| `--abci.addr`                           | `ABCI_ADDR`            | Socket CometBFT's `proxy_app` connects to (default `tcp://127.0.0.1:26658`)   |
+| `--data-dir`                            | `ABCI_DATA_DIR`        | Directory of the persisted app state (`abci-state.json`), required            |
+| `--chain-config`                        | `ABCI_CHAIN_CONFIG`    | Optional TOML overriding the built-in chain parameters (devnet only)          |
+| `--l1.http`                             | `L1_HTTP`              | The operator's own L1 node, HTTP(S) only, required (see L1 node requirements) |
+| `--l2.http`                             | `L2_HTTP`              | alethia-reth's JSON-RPC endpoint, required                                    |
+| `--l2.auth`                             | `L2_AUTH`              | alethia-reth's Engine API endpoint, plain `http` only, required               |
+| `--jwt.secret`                          | `JWT_SECRET`           | Engine API JWT secret file, required                                          |
+| `--l1.timeout`                          | `ABCI_L1_TIMEOUT`      | Deadline of one L1 read, in seconds (default 3)                               |
+| `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`  | Deadline of one Engine API or EL RPC call, in seconds (default 5)             |
+| `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`  | Deadline of an EL sync to a trusted head, in seconds (default 600)            |
+| `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT` | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`    |
+| `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                       |
+| `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it         |
 
 The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
-selects the built-in chain parameters. Only the
-internal devnet (chain id `167001`) has Etna PoS parameters so far; on other chains `abci`
-refuses to start. The `--chain-config` TOML uses the snake_case names of `abci::ChainParams`
-(for example `d_max = 12`); absent keys keep their built-in values.
+selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
+parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
+snake_case names of `abci::ChainParams` (for example `d_max = 12`); absent keys keep their
+built-in values.
 
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness halts (anchor not final,
@@ -116,12 +116,19 @@ key is registered in the staking registry snapshot the genesis committee is deri
      --out ./genesis.json
    ```
 
-2. **Initialize the CometBFT home** and install the genesis. `cometbft init` creates
-   `config/priv_validator_key.json`; its public key is the one the staking registry must hold.
+   Build it with the release that runs the chain and regenerate any `genesis.json` an earlier
+   build wrote: the genesis witness format in `app_state` changed (it now carries the raw L1
+   header), and `InitChain` refuses an `app_state` it cannot decode.
+
+2. **Initialize the CometBFT home** and install the genesis and the registered key.
+   `cometbft init` writes a fresh `config/priv_validator_key.json` that the staking registry does
+   not hold, so replace it with the consensus key whose public key the registry holds (the one
+   the genesis committee of step 1 was derived from):
 
    ```sh
    cometbft init --home ./cmt
    cp ./genesis.json ./cmt/config/genesis.json
+   cp /path/to/registered/priv_validator_key.json ./cmt/config/priv_validator_key.json
    ```
 
 3. **Configure CometBFT** in `./cmt/config/config.toml`:
@@ -168,6 +175,9 @@ key is registered in the staking registry snapshot the genesis committee is deri
 
 ### L1 node requirements
 
+- **HTTP only.** `--l1.http` takes an `http` or `https` JSON-RPC endpoint. WebSocket is not
+  supported: alloy's WebSocket client stops reconnecting after a few attempts, so a longer L1
+  outage would leave every later L1 read failing until a restart.
 - **Every node** reads L1 headers and the `finalized` block from its own L1 node to check that
   anchored L1 headers are canonical and final. Full nodes need nothing more.
 - **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
@@ -179,8 +189,15 @@ key is registered in the staking registry snapshot the genesis committee is deri
   head, plus a margin for an anchor that has not moved for a while. These names are the
   `abci::ChainParams` fields.
 - reth limits historical proofs with `--rpc.eth-proof-window`. Its default `0` serves proofs at
-  the head only, so set it to at least that depth. With other clients, check how far back they
-  keep the state needed for proofs.
+  the head only, so set it to at least that depth. geth with the default path-based state scheme
+  keeps only about the 128 most recent states, so that depth must stay below 128 there (or run
+  a hash-scheme archive node). With other clients, check how far back they keep the state needed
+  for proofs.
+- **Validators** (and `abci-genesis`) also read raw L1 headers with `debug_getRawHeader`, so
+  enable the `debug` namespace on their L1 node (e.g. `--http.api eth,debug`). Without it the
+  app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every
+  header field: after the next L1 fork that adds one, proposals fail with an error naming the
+  unknown fields until the namespace is enabled.
 - `abci-genesis` reads the activation block and the blocks back to its cutoff. Once those leave
   the node's proof window it needs an archive node.
 
