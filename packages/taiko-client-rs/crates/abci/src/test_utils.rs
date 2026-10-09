@@ -8,6 +8,9 @@
 //! [`anchor_witness`] / [`genesis_inbox_witness`] turn it into witnesses with real proofs.
 //! [`RegistryStorage`] does the same for the staking registry's checkpoints, and
 //! [`committee_witness`] proves one checkpoint of it.
+//!
+//! [`MockL1`] and [`MockEngine`] are in-memory [`L1Source`](crate::l1::source::L1Source) and
+//! [`Engine`](crate::engine::Engine) implementations with scripted answers and call logs.
 
 use std::collections::BTreeMap;
 
@@ -25,6 +28,11 @@ use crate::{
     schedule::Schedule,
     types::{AccountWitness, ActivationRecord, CommitteeRecord, RegistryEntry, StorageProof},
 };
+
+/// In-memory L1 and execution-engine mocks.
+mod mocks;
+
+pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1};
 
 /// One account of a [`TestState`]: `(address, nonce, balance, code_hash, storage)`, where
 /// `storage` lists `(slot, value)` pairs (zero values are the same as absent slots; on duplicate
@@ -94,6 +102,19 @@ impl TestState {
     /// The state root over every account.
     pub(crate) fn state_root(&self) -> B256 {
         self.state_root
+    }
+
+    /// Whether `address` is part of the state.
+    pub(crate) fn has_account(&self, address: Address) -> bool {
+        self.accounts.contains_key(&address)
+    }
+
+    /// The storage word of `address` at `slot` (zero for an absent slot or account).
+    pub(crate) fn storage(&self, address: Address, slot: B256) -> U256 {
+        self.accounts
+            .get(&address)
+            .and_then(|account| account.storage.get(&slot).copied())
+            .unwrap_or_default()
     }
 
     /// An EIP-1186 witness for `address` and `slots` (in the given order), as `eth_getProof`
