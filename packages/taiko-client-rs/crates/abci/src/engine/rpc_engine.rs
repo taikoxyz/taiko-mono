@@ -141,13 +141,11 @@ fn transport_error(call: String, err: TransportError) -> EngineError {
     }
 }
 
-/// [`transport_error`] for the `rpc` crate's [`RpcClientError`]: its connection errors are
-/// transport failures, its local failures (e.g. a request that does not serialize)
-/// [`EngineError::BadReply`].
+/// [`transport_error`] for the `rpc` crate's [`RpcClientError`]: its local failures (e.g. a
+/// request that does not serialize) are [`EngineError::BadReply`].
 fn client_error(call: String, err: RpcClientError) -> EngineError {
     match err {
         RpcClientError::Rpc(err) => transport_error(call, err),
-        RpcClientError::Connection(cause) => EngineError::Transport(format!("{call}: {cause}")),
         other => EngineError::BadReply(format!("{call}: {other}")),
     }
 }

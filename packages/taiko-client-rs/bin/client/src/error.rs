@@ -46,13 +46,6 @@ pub enum CliError {
     #[error("invalid socket address: {0}")]
     AddrParse(#[from] std::net::AddrParseError),
 
-    /// Invalid L1 transport configuration.
-    ///
-    /// Occurs when CLI arguments or programmatic construction provide either zero or multiple
-    /// L1 endpoints.
-    #[error("configure exactly one of --l1.http / L1_HTTP or --l1.ws / L1_WS")]
-    InvalidL1EndpointConfig,
-
     /// The ABCI app failed to start (e.g. an inconsistent persisted state); boxed, as the app
     /// error is large.
     #[error(transparent)]

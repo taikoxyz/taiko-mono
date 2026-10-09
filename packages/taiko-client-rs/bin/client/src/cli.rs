@@ -151,10 +151,10 @@ mod tests {
 
     #[tokio::test]
     async fn returns_subcommand_result_when_no_signal_arrives() {
-        let result =
-            run_until_signal(async { Err(CliError::InvalidL1EndpointConfig) }, pending()).await;
+        let failed = async { Err(CliError::Runtime(std::io::Error::other("boom"))) };
+        let result = run_until_signal(failed, pending()).await;
 
-        assert!(matches!(result, Err(CliError::InvalidL1EndpointConfig)));
+        assert!(matches!(result, Err(CliError::Runtime(_))));
     }
 
     #[tokio::test]

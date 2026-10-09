@@ -117,7 +117,6 @@ mod tests {
             "ABCI_ELSYNC_TIMEOUT",
             "ABCI_PREPARE_TIMEOUT",
             "L1_HTTP",
-            "L1_WS",
             "L2_HTTP",
             "L2_AUTH",
             "JWT_SECRET",
@@ -215,7 +214,7 @@ mod tests {
             EnvGuard::set("ABCI_ENGINE_TIMEOUT", "8"),
             EnvGuard::set("ABCI_ELSYNC_TIMEOUT", "9"),
             EnvGuard::set("ABCI_PREPARE_TIMEOUT", "1"),
-            EnvGuard::set("L1_WS", "ws://localhost:8546"),
+            EnvGuard::set("L1_HTTP", "http://localhost:8545"),
             EnvGuard::set("L2_HTTP", "http://localhost:28545"),
             EnvGuard::set("L2_AUTH", "http://localhost:28551"),
             EnvGuard::set("JWT_SECRET", "/tmp/jwt.hex"),
@@ -235,7 +234,7 @@ mod tests {
                 prepare_timeout: Duration::from_secs(1),
             }
         );
-        assert!(cmd.common_flags.l1_provider_source().is_ok());
+        assert_eq!(cmd.common_flags.l1_http_endpoint.as_str(), "http://localhost:8545/");
     }
 
     #[test]

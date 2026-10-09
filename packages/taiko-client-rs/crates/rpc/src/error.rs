@@ -10,10 +10,6 @@ pub type Result<T> = StdResult<T, RpcClientError>;
 /// Error types for RPC operations
 #[derive(Debug, Error)]
 pub enum RpcClientError {
-    /// Connection error
-    #[error("connection error: {0}")]
-    Connection(String),
-
     /// Typed RPC error from the transport stack.
     #[error("RPC error: {0}")]
     Rpc(#[from] TransportError),
@@ -46,7 +42,7 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let err = RpcClientError::Connection("refused".to_string());
-        assert_eq!(err.to_string(), "connection error: refused");
+        let err = RpcClientError::RpcMessage("eth_chainId failed".to_string());
+        assert_eq!(err.to_string(), "RPC error: eth_chainId failed");
     }
 }

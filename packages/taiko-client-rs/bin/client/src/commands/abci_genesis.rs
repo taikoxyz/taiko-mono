@@ -13,6 +13,7 @@ use url::Url;
 use crate::{
     commands::load_chain_params,
     error::{CliError, Result},
+    flags::common::http_url,
 };
 
 /// Command-line interface of the genesis builder.
@@ -28,6 +29,7 @@ pub struct AbciGenesisSubCommand {
     #[clap(
         long = "l1.http",
         required = true,
+        value_parser = http_url,
         help = "HTTP RPC endpoint of an L1 node serving eth_getProof and eth_getStorageAt from \
                 the activation block back to its committee cutoff (at most cutoff_lag + \
                 cutoff_grid blocks earlier); an archive node once those blocks leave the state \
@@ -153,7 +155,12 @@ mod tests {
         assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
         assert!(err.to_string().contains("--l1.http"), "{err}");
 
-        for (l1, chain_id) in [("http://l1", "-1"), ("http://l1", "devnet"), ("not a url", "7")] {
+        for (l1, chain_id) in [
+            ("http://l1", "-1"),
+            ("http://l1", "devnet"),
+            ("not a url", "7"),
+            ("ws://l1:8546", "7"),
+        ] {
             let argv = ["taiko-client", "abci-genesis", "--l1.http", l1, "--l2.chain-id", chain_id];
             let err = parse(&argv).expect_err("invalid value");
             assert!(

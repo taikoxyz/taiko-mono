@@ -4,10 +4,7 @@ use abci::{AbciMetrics, App, Engine, RpcEngine, RpcL1Source, Store, serve};
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use clap::Parser;
-use rpc::{
-    RpcClientError, SubscriptionSource,
-    client::{connect_http_with_timeout, connect_provider_with_timeout},
-};
+use rpc::{RpcClientError, client::connect_http_with_timeout};
 use tracing::info;
 use url::Url;
 
@@ -62,7 +59,7 @@ impl Subcommand for AbciSubCommand {
     /// Connects to the EL and L1, loads the app state and serves the app.
     ///
     /// In order: logs and metrics; the L2 chain id from `l2.http`; the chain parameters for it;
-    /// the Engine API client and its capability check; the L1 provider (`l1.http` or `l1.ws`);
+    /// the Engine API client and its capability check; the L1 provider (`l1.http`);
     /// the app over the state in `--data-dir`; the ABCI server on `--abci.addr`.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
@@ -78,10 +75,7 @@ impl Subcommand for AbciSubCommand {
             &common.l2_auth_jwt_secret,
         )?;
         engine.check_capabilities().await?;
-        let l1_url = match common.l1_provider_source()? {
-            SubscriptionSource::Http(url) | SubscriptionSource::Ws(url) => url,
-        };
-        let l1 = RpcL1Source::new(connect_provider_with_timeout(l1_url).await?);
+        let l1 = RpcL1Source::new(connect_http_with_timeout(common.l1_http_endpoint.clone()));
         let app =
             App::new(l1, engine, params, Store::new(flags.data_dir.clone()), flags.app_options())?;
         info!(
