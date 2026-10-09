@@ -72,6 +72,10 @@ pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
     #[error("malformed envelope: {0}")]
     Envelope(#[from] EnvelopeError),
+    /// `ProcessProposal`: the block carries no transaction at all, which is how a proposer in a
+    /// liveness halt proposes nothing (spec §5.3).
+    #[error("empty proposal: the proposer built no block")]
+    EmptyProposal,
     /// A header field or a consensus predicate fails (spec §4.2, §5.4).
     #[error(transparent)]
     Rule(#[from] RuleViolation),
@@ -166,6 +170,7 @@ impl Rejection {
     pub fn label(&self) -> &'static str {
         match self {
             Self::Envelope(_) => "envelope",
+            Self::EmptyProposal => "empty_proposal",
             Self::Rule(rule) => rule.label(),
             Self::Witness(_) => "anchor_witness",
             Self::Committee(_) => "committee_witness",

@@ -7,8 +7,8 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 
 use super::{
     proposal::{
-        bft_time, hand_envelope, jump, mid_epoch, next_height, process, process_req, propose,
-        rejected, validate,
+        bft_time, hand_envelope, jump, mid_epoch, next_height, prepare, prepare_req, process,
+        process_req, propose, rejected, validate,
     },
     *,
 };
@@ -49,16 +49,16 @@ async fn transaction_count_and_garbage_are_rejected() {
     let (mut app, env) = plain(&fx, dir.path()).await;
     let (h, t) = (next_height(&app), bft_time(&app));
 
-    let cases: [(Vec<Bytes>, &str); 4] = [
-        (vec![], "zero txs"),
-        (vec![env.encode(), env.encode()], "two txs"),
-        (vec![Bytes::from_static(&[0x01, 0xff, 0x00])], "garbage"),
-        (vec![Bytes::from_static(&[0x02, 0xc0])], "wrong version"),
+    let cases: [(Vec<Bytes>, &str, &str); 4] = [
+        (vec![], "zero txs", "empty_proposal"),
+        (vec![env.encode(), env.encode()], "two txs", "envelope"),
+        (vec![Bytes::from_static(&[0x01, 0xff, 0x00])], "garbage", "envelope"),
+        (vec![Bytes::from_static(&[0x02, 0xc0])], "wrong version", "envelope"),
     ];
-    for (txs, case) in cases {
+    for (txs, case, label) in cases {
         let resp = process(&mut app, process_req(h, t, txs)).await;
         assert_eq!(resp, response::ProcessProposal::Reject, "{case}");
-        assert_eq!(app.halt.as_deref(), Some("envelope"), "{case}");
+        assert_eq!(app.halt.as_deref(), Some(label), "{case}");
     }
     let txs = vec![env.encode()];
     let resp = process(&mut app, process_req(h, t, txs.clone())).await;
@@ -69,6 +69,34 @@ async fn transaction_count_and_garbage_are_rejected() {
         Err(EnvelopeError::TxCount(0)),
         "zero txs is the envelope's tx-count error"
     );
+}
+
+/// A halted proposer proposes no block (spec §5.3); rejecting that empty proposal must not mask
+/// the reason this node recorded at the height, which `/status` reports.
+#[tokio::test]
+async fn empty_proposal_keeps_the_recorded_halt_reason() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let (h, t) = (next_height(&app), bft_time(&app));
+    let reject = response::ProcessProposal::Reject;
+
+    // Nothing recorded yet: the empty proposal itself is the reason.
+    assert_eq!(process(&mut app, process_req(h, t, vec![])).await, reject);
+    assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("empty_proposal"));
+
+    // The node's own build fails, so it proposes nothing; judging that empty proposal keeps the
+    // build's reason.
+    app.l1().state().fail = Some(L1Error::Rpc("down".into()));
+    assert!(prepare(&mut app, prepare_req(h, t)).await.is_empty());
+    assert_eq!(app.halt.as_deref(), Some("l1_error"));
+    assert_eq!(process(&mut app, process_req(h, t, vec![])).await, reject);
+    assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("l1_error"));
+
+    // A malformed, non-empty proposal is news and replaces it.
+    let garbage = vec![Bytes::from_static(&[0x01, 0xff, 0x00])];
+    assert_eq!(process(&mut app, process_req(h, t, garbage)).await, reject);
+    assert_eq!(app.halt.as_deref(), Some("envelope"));
 }
 
 #[tokio::test]
