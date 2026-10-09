@@ -114,16 +114,49 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeForceSP1DoesNotClearBac
 	s.Equal(int32(0), fake.clearCalls.Load())
 }
 
-func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareBeyondDistanceDoesNotLatch() {
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareBreachDoesNotLatchWhileSP1ShareBlocks() {
 	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
 	sub := newRisc0SP1FallbackSubmitter(fake)
 	sub.sp1ProofPercentage = 30
 
-	// 120 is in the SP1 share (120 % 100 < 30) and beyond 10 + 30, but must not count as a breach.
+	// 120 is in the SP1 share (120 % 100 < 30) and beyond 10 + 30, but 11, which blocks
+	// finalization, is in the SP1 share too: falling back to SP1 would not unblock it.
 	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(120), big.NewInt(10)))
 	s.False(sub.inSP1Fallback())
 	s.Nil(sub.maxSP1FallbackProposalID())
 	s.Equal(int32(0), fake.clearCalls.Load())
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareBreachLatchesWhileRisc0ShareBlocks() {
+	fake := &fakeRisc0Backlog{clean: true, cleared: make(chan struct{}, 1)}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	sub.maxRisc0ProofProposalDistance = big.NewInt(20)
+	sub.sp1ProofPercentage = 30
+
+	// RISC0-share 190 blocks finalization at 189. With a 30-proposal window only 190-219 are
+	// requested, and every breach (210-219 > 189 + 20) is in the SP1 share, so 210 must latch.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(210), big.NewInt(189)))
+	s.Require().True(sub.inSP1Fallback())
+	s.Equal(uint64(210), sub.maxSP1FallbackProposalID().Uint64())
+
+	select {
+	case <-fake.cleared:
+	case <-time.After(time.Second):
+		s.FailNow("clear was not called")
+	}
+
+	// The blocked RISC0-share proposal is now re-proven via SP1 until the fallback range drains.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(190), big.NewInt(189)))
+	s.True(sub.inSP1Fallback())
+	s.Equal(int32(0), fake.statusCalls.Load())
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareBreachWithoutBacklogClientDoesNotLatch() {
+	sub := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(20), sp1ProofPercentage: 30} // risc0Backlog nil
+
+	// Same breach as above, but without a control-plane client the machine stays stateless.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(210), big.NewInt(189)))
+	s.False(sub.inSP1Fallback())
 }
 
 func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareDuringFallbackSkipsTrackAndResume() {
@@ -133,7 +166,7 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareDuringFallbackS
 	s.True(sub.markSP1Fallback())
 
 	// 111 <= 110 + 1 would let a RISC0-share proposal resume RISC0, but SP1-share
-	// proposals never evaluate the resume condition or record themselves as fallback.
+	// proposals never evaluate the resume condition, and 111 is within the distance.
 	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(111), big.NewInt(110)))
 	s.True(sub.inSP1Fallback())
 	s.Nil(sub.maxSP1FallbackProposalID())
