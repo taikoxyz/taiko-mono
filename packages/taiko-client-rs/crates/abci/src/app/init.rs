@@ -164,7 +164,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let opts = self.opts;
         within(
             "EL sync to the genesis anchor",
-            opts.elsync_timeout + opts.engine_timeout,
+            opts.elsync_timeout.saturating_add(opts.engine_timeout),
             ensure_block(&self.engine, number, hash, opts.elsync_timeout, ELSYNC_POLL),
         )
         .await?;
