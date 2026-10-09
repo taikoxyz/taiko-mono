@@ -87,10 +87,10 @@ var (
 	SP1ProofPercentage = &cli.Uint64Flag{
 		Name: "prover.sp1ProofPercentage",
 		Usage: "Prove the first X of every 100 proposals (proposalID % 100 < X) with SP1, and the rest via RISC0 " +
-			"with the SP1 fallback of --prover.maxRisc0ProofProposalDistance. Both X and 100 - X must be " +
-			"multiples of --prover.zkvm.batchSize. 0 disables it, 100 behaves like --prover.forceSP1Proof. " +
-			"Ignored when --prover.forceSP1Proof, --prover.forceSGXProof or --prover.zkOnlyProofs is set. " +
-			"Post Shasta fork only.",
+			"with the SP1 fallback of --prover.maxRisc0ProofProposalDistance. For 0 < X < 100, both X and " +
+			"100 - X must be multiples of --prover.zkvm.batchSize. 0 disables it, 100 behaves like " +
+			"--prover.forceSP1Proof. Ignored (but still validated) when --prover.forceSP1Proof, " +
+			"--prover.forceSGXProof or --prover.zkOnlyProofs is set. Post Shasta fork only.",
 		Value:    0,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_SP1_PROOF_PERCENTAGE"},

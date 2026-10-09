@@ -108,6 +108,12 @@ func TestNewConfigFromCliContextSP1ProofPercentage(t *testing.T) {
 		require.Zero(t, cfg.SP1ProofPercentage)
 	})
 
+	t.Run("accepts the default with any batch size", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.ZKVMBatchSize.Name, "3")
+
+		require.Zero(t, cfg.SP1ProofPercentage)
+	})
+
 	t.Run("accepts runs that fill whole batches", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(
 			t,

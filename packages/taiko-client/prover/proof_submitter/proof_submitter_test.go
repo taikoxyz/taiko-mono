@@ -254,6 +254,7 @@ func TestTryAggregateFlushesPartialBufferAtSP1ShareRunEnd(t *testing.T) {
 		{name: "SP1 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 129, expected: true},
 		{name: "before SP1 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 128},
 		{name: "RISC0 run end", sp1ProofPercentage: 30, proofType: r0, lastProposalID: 199, expected: true},
+		{name: "RISC0 at SP1 run end", sp1ProofPercentage: 30, proofType: r0, lastProposalID: 129},
 		{name: "SP1 fallback at RISC0 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 199},
 		{name: "share disabled", proofType: r0, lastProposalID: 199},
 		{name: "SP1 only", sp1ProofPercentage: 100, proofType: sp1, lastProposalID: 199},

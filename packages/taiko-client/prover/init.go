@@ -78,7 +78,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 
 	if p.cfg.SP1ProofPercentage > 0 && !p.cfg.ForceSP1Proof && !p.cfg.ForceSGXProof && !p.cfg.ZkOnlyProofs {
 		log.Info(
-			"SP1 proof share enabled: the first proposals of every cycle use SP1, the rest RISC0 with SP1 fallback",
+			"SP1 proof share enabled",
 			"sp1ProofPercentage", p.cfg.SP1ProofPercentage,
 			"cycle", proofSubmitter.SP1ProofShareCycle,
 		)
