@@ -116,16 +116,26 @@ impl RpcEngine {
     }
 }
 
+/// How many characters of a non-JSON reply body an [`EngineError::Transport`] quotes.
+const BODY_EXCERPT_CHARS: usize = 120;
+
 /// A failed JSON-RPC exchange `call` (method and endpoint) as an [`EngineError`]: transport
-/// failures ([`RpcError::Transport`]: refused or broken connections, HTTP errors) are
-/// [`EngineError::Transport`]; a JSON-RPC error object is [`EngineError::ErrorReply`]; anything
-/// else (a `null` or undecodable result, a request that does not encode) is
+/// failures ([`RpcError::Transport`]: refused or broken connections, HTTP error statuses) and a
+/// reply body that is not JSON at all (e.g. a proxy's HTML page) are [`EngineError::Transport`];
+/// a JSON-RPC error object is [`EngineError::ErrorReply`]; anything else (a `null` result, JSON
+/// that does not decode into the reply, a request that does not encode) is
 /// [`EngineError::BadReply`].
 fn transport_error(call: String, err: TransportError) -> EngineError {
     match err {
         RpcError::Transport(kind) => EngineError::Transport(format!("{call}: {kind}")),
         RpcError::ErrorResp(payload) => {
             EngineError::ErrorReply { call, code: payload.code, message: payload.message.into() }
+        }
+        RpcError::DeserError { err, text }
+            if serde_json::from_str::<serde::de::IgnoredAny>(&text).is_err() =>
+        {
+            let excerpt: String = text.chars().take(BODY_EXCERPT_CHARS).collect();
+            EngineError::Transport(format!("{call}: the reply is not JSON ({err}): {excerpt:?}"))
         }
         other => EngineError::BadReply(format!("{call}: {other}")),
     }
@@ -542,6 +552,109 @@ mod tests {
             "{err:?}"
         );
         assert!(err.is_retryable(), "a server-range error is transient");
+    }
+
+    /// Serves every HTTP request on a local port with `200 OK`, `content_type` and `body`, as a
+    /// proxy or login page in front of the engine might; returns the endpoint.
+    async fn http_200(content_type: &'static str, body: &'static str) -> Url {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
+        tokio::spawn(async move {
+            while let Ok((mut socket, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    // Read the whole request (head and `content-length` body) before answering.
+                    let (mut request, mut chunk) = (Vec::new(), [0u8; 4096]);
+                    loop {
+                        if let Some(end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                            let head = String::from_utf8_lossy(&request[..end]).to_lowercase();
+                            let len = head
+                                .lines()
+                                .find_map(|line| line.strip_prefix("content-length:"))
+                                .and_then(|len| len.trim().parse::<usize>().ok())
+                                .unwrap_or(0);
+                            if request.len() >= end + 4 + len {
+                                break;
+                            }
+                        }
+                        match socket.read(&mut chunk).await {
+                            Ok(0) | Err(_) => return,
+                            Ok(n) => request.extend_from_slice(&chunk[..n]),
+                        }
+                    }
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: {content_type}\r\ncontent-length: {}\r\n\
+                         connection: close\r\n\r\n{body}",
+                        body.len()
+                    );
+                    let _ = socket.write_all(response.as_bytes()).await;
+                    let _ = socket.shutdown().await;
+                });
+            }
+        });
+        url
+    }
+
+    /// An [`RpcEngine`] whose public and Engine API endpoints are both `url`, over HTTP.
+    fn over_http(url: &Url) -> RpcEngine {
+        RpcEngine::from_parts(
+            ProviderBuilder::default().connect_http(url.clone()),
+            url.to_string(),
+            ProviderBuilder::default().connect_http(url.clone()),
+            url.to_string(),
+        )
+    }
+
+    /// An HTTP 200 whose body is not JSON at all (e.g. a proxy's error or login page in front of
+    /// the engine) says nothing about the call: a transport failure, retried. A JSON body that
+    /// does not decode into the reply stays [`EngineError::BadReply`].
+    #[tokio::test]
+    async fn a_non_json_body_is_a_transport_error() {
+        let engine = over_http(&http_200("text/html", "<html><body>Sign in</body></html>").await);
+        let errors = [
+            engine.new_payload(&golden_block()).await.unwrap_err(),
+            engine.forkchoice(B256::ZERO, B256::ZERO, B256::ZERO).await.unwrap_err(),
+            engine.header_by_number(1).await.unwrap_err(),
+        ];
+        for (err, method) in errors.iter().zip([
+            "engine_newPayloadV4",
+            "engine_forkchoiceUpdatedV3",
+            "eth_getBlockByNumber",
+        ]) {
+            assert!(
+                matches!(err, EngineError::Transport(msg) if msg.contains(method) && msg.contains("Sign in")),
+                "{err:?}"
+            );
+            assert!(err.is_retryable());
+        }
+
+        let engine = over_http(&http_200("application/json", r#"{"login":"required"}"#).await);
+        let errors = [
+            engine.new_payload(&golden_block()).await.unwrap_err(),
+            engine.forkchoice(B256::ZERO, B256::ZERO, B256::ZERO).await.unwrap_err(),
+            engine.header_by_number(1).await.unwrap_err(),
+        ];
+        for err in errors {
+            assert!(matches!(&err, EngineError::BadReply(_)), "{err:?}");
+            assert!(!err.is_retryable());
+        }
+    }
+
+    /// A reply that fails to decode is classified by whether it is JSON at all.
+    #[test]
+    fn undecodable_replies_are_classified_by_whether_they_are_json() {
+        let deser = |text: &str| {
+            TransportError::deser_err(serde_json::from_str::<Value>("x").unwrap_err(), text)
+        };
+        for text in ["<html>502 Bad Gateway</html>", "", "Bad Gateway", "{\"status\":"] {
+            let err = transport_error("engine_x at http://el.test/".into(), deser(text));
+            assert!(matches!(&err, EngineError::Transport(_)), "{text:?}: {err:?}");
+        }
+        for text in ["null", "{}", "[]", r#"{"status":"MAYBE"}"#, "  \"text\"\n"] {
+            let err = transport_error("engine_x at http://el.test/".into(), deser(text));
+            assert!(matches!(&err, EngineError::BadReply(_)), "{text:?}: {err:?}");
+        }
     }
 
     #[tokio::test]

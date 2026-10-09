@@ -111,9 +111,9 @@ pub enum EngineError {
     #[error("header field `{0}` is not Etna-shaped")]
     NotEtnaShaped(&'static str),
     /// A JSON-RPC exchange with the engine failed in transport: the endpoint could not be
-    /// reached, the connection broke off, or the HTTP layer answered with an error status. The
-    /// value names the method and endpoint and renders the cause. Transient: the same call may
-    /// succeed later.
+    /// reached, the connection broke off, the HTTP layer answered with an error status, or the
+    /// body was not JSON at all (e.g. a proxy's error page). The value names the method and
+    /// endpoint and renders the cause. Transient: the same call may succeed later.
     #[error("engine RPC transport failed: {0}")]
     Transport(String),
     /// The engine answered a JSON-RPC call with an error object, e.g. `-38002` (invalid
