@@ -15,7 +15,8 @@
 //! stops on its broken ABCI client.
 //!
 //! A `unix://` socket file outlives the process (exiting skips any cleanup), so [`serve_with`]
-//! removes a stale socket at the path before it binds; anything else there is refused.
+//! removes a stale socket at the path before it binds: one whose probe connection is refused.
+//! Anything else there is refused.
 
 use std::{
     future::Future,
@@ -52,6 +53,10 @@ pub const DEFAULT_ADDR: &str = "tcp://127.0.0.1:26658";
 /// slot suffices.
 const SPLIT_BOUND: usize = 1;
 
+/// How long [`remove_stale_socket`] waits for its probe connection to an existing socket file.
+#[cfg(unix)]
+const SOCKET_PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
+
 /// Errors of [`serve`]. The server only returns when it fails.
 #[derive(Debug, thiserror::Error)]
 pub enum ServerError {
@@ -67,13 +72,14 @@ pub enum ServerError {
         source: BoxError,
     },
     /// The `unix://` socket path holds something the server must not replace: a file that is
-    /// not a socket (never removed), or a socket another process still listens on.
+    /// not a socket (never removed), a socket another process still listens on, or a socket
+    /// whose probe connection failed other than by refusal (so it is not known to be stale).
     #[error("ABCI socket path {}: {reason}", path.display())]
     SocketPath {
         /// The configured socket path.
         path: PathBuf,
         /// Why the path cannot be used.
-        reason: &'static str,
+        reason: String,
     },
     /// The app worker stopped (a safety halt whose hook returned, or a panic); the value says
     /// why.
@@ -223,7 +229,7 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
 ) -> Result<(), ServerError> {
     let listen_addr = ListenAddr::parse(addr)?;
     if let ListenAddr::Unix(path) = &listen_addr {
-        remove_stale_socket(addr, path)?;
+        remove_stale_socket(addr, path).await?;
     }
     let (service, worker) = AppService::spawn(handler, halt);
     let (consensus, mempool, snapshot, info) = split::service(service, SPLIT_BOUND);
@@ -257,28 +263,46 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
 /// Removes a stale unix socket left at `path` (the configured address `addr`) by an earlier
 /// run, so binding does not fail with `AddrInUse`; a missing path is fine.
 ///
-/// A path that is not a socket is never removed, and a socket another process still accepts
-/// connections on is left alone: both are [`ServerError::SocketPath`]. Failing to inspect or
-/// remove the path is [`ServerError::Listen`].
+/// Only a socket whose probe connection is refused (`ECONNREFUSED`: nothing listens on it) is
+/// stale and removed. Anything else is [`ServerError::SocketPath`] and left in place: a path that
+/// is not a socket; a socket that accepts the probe or, with a full backlog, cannot take it yet
+/// (`EAGAIN`: the probe never blocks); a probe failing otherwise (e.g. `EACCES`); or no answer
+/// within [`SOCKET_PROBE_TIMEOUT`]. Failing to inspect or remove the path is
+/// [`ServerError::Listen`]. (On macOS a full backlog also refuses connections, so a live
+/// listener with a full backlog looks stale there.)
 #[cfg(unix)]
-fn remove_stale_socket(addr: &str, path: &Path) -> Result<(), ServerError> {
+async fn remove_stale_socket(addr: &str, path: &Path) -> Result<(), ServerError> {
     use std::{io::ErrorKind, os::unix::fs::FileTypeExt};
 
     let listen_error = |source: std::io::Error| ServerError::Listen {
         addr: addr.to_string(),
         source: source.into(),
     };
-    let refuse = |reason| ServerError::SocketPath { path: path.to_path_buf(), reason };
+    let refuse = |reason: String| ServerError::SocketPath { path: path.to_path_buf(), reason };
     let meta = match std::fs::symlink_metadata(path) {
         Ok(meta) => meta,
         Err(e) if e.kind() == ErrorKind::NotFound => return Ok(()),
         Err(e) => return Err(listen_error(e)),
     };
     if !meta.file_type().is_socket() {
-        return Err(refuse("the path exists and is not a socket"));
+        return Err(refuse("the path exists and is not a socket".into()));
     }
-    if std::os::unix::net::UnixStream::connect(path).is_ok() {
-        return Err(refuse("another process listens on the socket"));
+    let live = "another process listens on the socket";
+    match tokio::time::timeout(SOCKET_PROBE_TIMEOUT, tokio::net::UnixStream::connect(path)).await {
+        Ok(Err(e)) if e.kind() == ErrorKind::ConnectionRefused => {}
+        Ok(Ok(_)) => return Err(refuse(live.into())),
+        Ok(Err(e)) if e.kind() == ErrorKind::WouldBlock => {
+            return Err(refuse(format!("{live} (its backlog is full)")));
+        }
+        Ok(Err(e)) => {
+            return Err(refuse(format!("probing the socket failed ({e}); it is left in place")));
+        }
+        Err(_) => {
+            return Err(refuse(format!(
+                "the socket did not answer a probe within {SOCKET_PROBE_TIMEOUT:?}; it is left in \
+                 place"
+            )));
+        }
     }
     tracing::info!(path = %path.display(), "removing the stale ABCI socket");
     std::fs::remove_file(path).map_err(listen_error)
@@ -286,7 +310,7 @@ fn remove_stale_socket(addr: &str, path: &Path) -> Result<(), ServerError> {
 
 /// Without unix sockets nothing is ever left at a `unix://` path (serving one fails later).
 #[cfg(not(unix))]
-fn remove_stale_socket(_addr: &str, _path: &Path) -> Result<(), ServerError> {
+async fn remove_stale_socket(_addr: &str, _path: &Path) -> Result<(), ServerError> {
     Ok(())
 }
 

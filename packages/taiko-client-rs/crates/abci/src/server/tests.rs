@@ -268,6 +268,37 @@ async fn refuses_a_unix_path_that_is_no_stale_socket() {
     drop(listener);
 }
 
+/// Only a refused connection proves a socket stale: a socket the server cannot even probe (here
+/// one without write permission, `EACCES`) may still belong to a live process, so it is left in
+/// place and the server refuses to start.
+#[cfg(unix)]
+#[tokio::test]
+async fn refuses_a_socket_it_cannot_probe() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let sock = dir.path().join("abci.sock");
+    drop(std::os::unix::net::UnixListener::bind(&sock).unwrap());
+    std::fs::set_permissions(&sock, std::fs::Permissions::from_mode(0o000)).unwrap();
+    match std::os::unix::net::UnixStream::connect(&sock) {
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {}
+        other => {
+            eprintln!("skipped: a mode-000 socket answered {other:?} (privileged user?)");
+            return;
+        }
+    }
+
+    let (hook, _halts) = recording_hook();
+    let addr = format!("unix://{}", sock.display());
+    let err = tokio::time::timeout(WAIT, serve_with(fixture_app(dir.path()), &addr, hook))
+        .await
+        .expect("refuses at once instead of serving")
+        .unwrap_err();
+    assert!(matches!(&err, ServerError::SocketPath { path, .. } if *path == sock), "{err:?}");
+    assert!(err.to_string().contains("ermission denied"), "{err}");
+    assert!(std::fs::symlink_metadata(&sock).is_ok(), "the socket file is kept");
+}
+
 #[tokio::test]
 async fn back_to_back_requests_are_answered_in_order() {
     let dir = tempfile::tempdir().unwrap();
