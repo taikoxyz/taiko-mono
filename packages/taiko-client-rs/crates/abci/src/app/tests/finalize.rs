@@ -15,6 +15,7 @@ use super::{
     *,
 };
 use crate::{
+    app::FINALIZE_RETRY_ESCALATE,
     committee::{self, Snapshot, record_hash},
     engine::{EngineError, PayloadVerdict},
     store::{AppState, CommitteeState},
@@ -267,6 +268,145 @@ async fn execution_failures_of_a_decided_block_are_safety_halts() {
     assert_eq!(app.state().cloned(), committed);
 }
 
+/// A JSON-RPC error reply or an undecodable reply is the EL's deterministic answer to the
+/// call: retrying cannot change it, so the decided block halts at once (spec §8.2).
+#[tokio::test]
+async fn el_error_replies_on_a_decided_block_are_safety_halts() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let env = propose(&mut app).await;
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let reply = |code: i64, message: &str| EngineError::ErrorReply {
+        call: "engine_x at http://el.test/".into(),
+        code,
+        message: message.into(),
+    };
+
+    let before = app.engine().calls().len();
+    app.engine()
+        .state()
+        .forkchoice_script
+        .push_back(Err(reply(-38002, "Invalid forkchoice state")));
+    let msg = safety_halt(finalize(&mut app, req.clone()).await);
+    assert!(msg.contains("engine_forkchoiceUpdated") && msg.contains("-38002"), "{msg}");
+    let fcus = engine_calls_since(&app, before)
+        .iter()
+        .filter(|c| matches!(c, EngineCall::Forkchoice { .. }))
+        .count();
+    assert_eq!(fcus, 1, "an error reply is not retried");
+
+    for error in [reply(-32602, "Invalid params"), EngineError::BadReply("null".into())] {
+        let before = app.engine().calls().len();
+        app.engine().state().new_payload_script.push_back(Err(error.clone()));
+        let msg = safety_halt(finalize(&mut app, req.clone()).await);
+        assert!(msg.contains("engine_newPayload"), "{error:?}: {msg}");
+        assert_eq!(
+            engine_calls_since(&app, before),
+            [EngineCall::NewPayload(env.block.header.hash_slow())],
+            "{error:?} is not retried and the forkchoice never moves"
+        );
+    }
+    assert_eq!(app.pending, None, "nothing becomes pending");
+}
+
+/// alethia-reth's `INVALID` with a `null` `validationError` (which alloy's strict decoding
+/// refuses) reaches `FinalizeBlock` through the RPC engine as `INVALID`: a safety halt, not an
+/// endless retry.
+#[tokio::test(start_paused = true)]
+async fn rpc_engine_invalid_without_a_validation_error_is_a_safety_halt() {
+    use alloy_provider::ProviderBuilder;
+    use alloy_transport::mock::Asserter;
+
+    use crate::engine::RpcEngine;
+
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let env = propose(&mut app).await;
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    Store::new(dir.path().to_path_buf()).save(app.state().unwrap()).unwrap();
+    drop(app);
+
+    let (l2, auth) = (Asserter::new(), Asserter::new());
+    let engine = RpcEngine::from_parts(
+        ProviderBuilder::default().connect_mocked_client(l2),
+        "http://l2-http.test/".into(),
+        ProviderBuilder::default().connect_mocked_client(auth.clone()),
+        "http://l2-auth.test/".into(),
+    );
+    auth.push_success(
+        &serde_json::json!({ "status": "INVALID", "latestValidHash": null, "validationError": null }),
+    );
+    let mut app = App::new(
+        fx.l1(),
+        engine,
+        fx.params.clone(),
+        Store::new(dir.path().to_path_buf()),
+        AppOptions::default(),
+    )
+    .expect("the app restarts on the RPC engine");
+    let result =
+        tokio::time::timeout(Duration::from_secs(600), app.handle(Request::FinalizeBlock(req)))
+            .await
+            .expect("FinalizeBlock halts instead of retrying");
+    match result {
+        Err(AbciError::SafetyHalt(msg)) => {
+            assert!(msg.contains("engine_newPayload answered INVALID: INVALID"), "{msg}")
+        }
+        other => panic!("expected a safety halt, got {other:?}"),
+    }
+}
+
+/// The block was executed in `ProcessProposal`, but the EL lost it (e.g. it restarted): its
+/// forkchoice update answers `SYNCING`, so `FinalizeBlock` re-sends the payload before
+/// retrying the forkchoice.
+#[tokio::test(start_paused = true)]
+async fn forkchoice_syncing_after_a_cached_verdict_resends_the_payload() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let env = propose(&mut app).await;
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    let hash = env.block.header.hash_slow();
+    assert!(app.verdicts[&req.hash].executed);
+    app.engine().state().known.remove(&hash);
+
+    let before = app.engine().calls().len();
+    tokio::time::timeout(Duration::from_secs(600), finalize(&mut app, finalize_req(&req)))
+        .await
+        .expect("the re-sent payload lets the forkchoice through")
+        .expect("finalizes once the EL has the block");
+    let fcu = EngineCall::Forkchoice { head: hash, safe: hash, finalized: fx.genesis_hash() };
+    assert_eq!(
+        engine_calls_since(&app, before),
+        [fcu.clone(), EngineCall::NewPayload(hash), fcu],
+        "SYNCING on the forkchoice re-sends the payload first"
+    );
+    assert_eq!(
+        app.engine().state().chain.get(&env.block.header.number).map(|h| h.hash_slow()),
+        Some(hash)
+    );
+}
+
+/// Retries are logged at WARN for the first minute, then at ERROR (still retrying), so an EL
+/// that never settles a decided block reaches the operators.
+#[tokio::test(start_paused = true)]
+async fn el_retries_escalate_after_a_minute() {
+    let start = tokio::time::Instant::now();
+    let mut backoff = super::super::finalize::Backoff::new(7);
+    let mut log = vec![];
+    while start.elapsed() < Duration::from_secs(70) {
+        log.push((start.elapsed(), backoff.escalated()));
+        backoff.wait("engine_newPayload", "the execution engine is syncing").await;
+    }
+    assert!(log.iter().all(|(at, escalated)| *escalated == (*at >= FINALIZE_RETRY_ESCALATE)));
+    assert!(log.iter().any(|(_, escalated)| !escalated));
+    assert!(log.iter().any(|(_, escalated)| *escalated));
+    assert_eq!(FINALIZE_RETRY_ESCALATE, Duration::from_secs(60));
+}
+
 #[tokio::test]
 async fn a_decided_block_failing_validation_is_a_safety_halt() {
     let fx = Fixture::genesis(1);
@@ -314,7 +454,7 @@ async fn syncing_and_transport_errors_are_retried_with_backoff() {
     {
         let mut engine = app.engine().state();
         engine.new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
-        engine.new_payload_script.push_back(Err(EngineError::Rpc("connection refused".into())));
+        engine.new_payload_script.push_back(Err(EngineError::Transport("refused".into())));
         for _ in 0..7 {
             engine.forkchoice_script.push_back(Ok(PayloadVerdict::Syncing));
         }
@@ -323,11 +463,12 @@ async fn syncing_and_transport_errors_are_retried_with_backoff() {
     let start = tokio::time::Instant::now();
     finalize(&mut app, req).await.expect("finalizes once the EL is ready");
 
-    // newPayload: 100 + 200 ms; forkchoice: 100, 200, 400, 800, 1600, 3200, then the 5 s cap.
-    assert_eq!(start.elapsed(), Duration::from_millis(300 + 6_300 + 5_000));
+    // One backoff for the block: 100, 200 ms for newPayload, then 400, 800, 1600, 3200 ms and
+    // three times the 5 s cap for the forkchoice (each SYNCING re-sends the payload first).
+    assert_eq!(start.elapsed(), Duration::from_millis(300 + 6_000 + 15_000));
     let calls = engine_calls_since(&app, before);
     let count = |pred: fn(&EngineCall) -> bool| calls.iter().filter(|c| pred(c)).count();
-    assert_eq!(count(|c| matches!(c, EngineCall::NewPayload(_))), 3);
+    assert_eq!(count(|c| matches!(c, EngineCall::NewPayload(_))), 3 + 7);
     assert_eq!(count(|c| matches!(c, EngineCall::Forkchoice { .. })), 8);
 }
 

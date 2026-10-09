@@ -6,7 +6,10 @@ use std::path::Path;
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
-use alloy_provider::{Provider, RootProvider};
+use alloy_provider::{
+    Provider, RootProvider,
+    transport::{RpcError, TransportError},
+};
 use alloy_rpc_types_engine::{ForkchoiceState, ForkchoiceUpdated, PayloadStatusEnum};
 use async_trait::async_trait;
 use rpc::{
@@ -24,11 +27,11 @@ use crate::envelope::ExecutionBlock;
 pub struct RpcEngine {
     /// Public L2 JSON-RPC provider (`eth_getBlockByNumber`).
     l2: RootProvider,
-    /// The public endpoint, named in [`EngineError::Rpc`] messages.
+    /// The public endpoint, named in error messages.
     l2_endpoint: String,
     /// Engine API client over the JWT-authenticated endpoint.
     auth: EngineClient,
-    /// The authenticated endpoint, named in [`EngineError::Rpc`] messages.
+    /// The authenticated endpoint, named in error messages.
     auth_endpoint: String,
 }
 
@@ -63,7 +66,7 @@ impl RpcEngine {
     }
 
     /// Wraps already-built providers; `*_endpoint` label them in error messages.
-    fn from_parts(
+    pub(crate) fn from_parts(
         l2: RootProvider,
         l2_endpoint: String,
         auth: RootProvider,
@@ -72,12 +75,35 @@ impl RpcEngine {
         Self { l2, l2_endpoint, auth: EngineClient::new(auth), auth_endpoint }
     }
 
-    /// An [`EngineError::Rpc`] naming the authenticated endpoint and `method`.
-    fn auth_error(&self, method: &str, err: impl std::fmt::Display) -> EngineError {
-        EngineError::Rpc(format!("{method} at {}: {err}", self.auth_endpoint))
+    /// The failed Engine API call `method` as an [`EngineError`] naming the authenticated
+    /// endpoint ([`client_error`]).
+    fn auth_error(&self, method: &str, err: RpcClientError) -> EngineError {
+        client_error(format!("{method} at {}", self.auth_endpoint), err)
     }
 
-    /// `engine_forkchoiceUpdatedV3(state, attrs)` with transport errors named.
+    /// The verdict of a payload status reply of `method` that alloy's strict decoding refused,
+    /// decoded leniently ([`LenientStatus`]) from the raw result `status_of` extracts it from;
+    /// otherwise `err` as an [`EngineError`] ([`RpcEngine::auth_error`]).
+    fn lenient_verdict(
+        &self,
+        method: &str,
+        err: RpcClientError,
+        status_of: fn(serde_json::Value) -> Option<serde_json::Value>,
+    ) -> Result<PayloadVerdict, EngineError> {
+        if let RpcClientError::Rpc(RpcError::DeserError { text, .. }) = &err {
+            let lenient = serde_json::from_str(text)
+                .ok()
+                .and_then(status_of)
+                .and_then(|status| serde_json::from_value::<LenientStatus>(status).ok())
+                .and_then(LenientStatus::verdict);
+            if let Some(verdict) = lenient {
+                return Ok(verdict);
+            }
+        }
+        Err(self.auth_error(method, err))
+    }
+
+    /// `engine_forkchoiceUpdatedV3(state, attrs)` with failures classified.
     async fn forkchoice_updated(
         &self,
         state: ForkchoiceState,
@@ -90,18 +116,71 @@ impl RpcEngine {
     }
 }
 
+/// A failed JSON-RPC exchange `call` (method and endpoint) as an [`EngineError`]: transport
+/// failures ([`RpcError::Transport`]: refused or broken connections, HTTP errors) are
+/// [`EngineError::Transport`]; a JSON-RPC error object is [`EngineError::ErrorReply`]; anything
+/// else (a `null` or undecodable result, a request that does not encode) is
+/// [`EngineError::BadReply`].
+fn transport_error(call: String, err: TransportError) -> EngineError {
+    match err {
+        RpcError::Transport(kind) => EngineError::Transport(format!("{call}: {kind}")),
+        RpcError::ErrorResp(payload) => {
+            EngineError::ErrorReply { call, code: payload.code, message: payload.message.into() }
+        }
+        other => EngineError::BadReply(format!("{call}: {other}")),
+    }
+}
+
+/// [`transport_error`] for the `rpc` crate's [`RpcClientError`]: its connection errors are
+/// transport failures, its local failures (e.g. a request that does not serialize)
+/// [`EngineError::BadReply`].
+fn client_error(call: String, err: RpcClientError) -> EngineError {
+    match err {
+        RpcClientError::Rpc(err) => transport_error(call, err),
+        RpcClientError::Connection(cause) => EngineError::Transport(format!("{call}: {cause}")),
+        other => EngineError::BadReply(format!("{call}: {other}")),
+    }
+}
+
 /// Maps an Engine API status to a [`PayloadVerdict`]: `ACCEPTED` and `SYNCING` both mean "not
 /// executed yet".
 fn verdict(status: PayloadStatusEnum) -> PayloadVerdict {
     match status {
         PayloadStatusEnum::Valid => PayloadVerdict::Valid,
-        PayloadStatusEnum::Invalid { validation_error } if validation_error.is_empty() => {
-            PayloadVerdict::Invalid("INVALID".to_string())
-        }
-        PayloadStatusEnum::Invalid { validation_error } => {
-            PayloadVerdict::Invalid(validation_error)
-        }
+        PayloadStatusEnum::Invalid { validation_error } => invalid(Some(validation_error)),
         PayloadStatusEnum::Syncing | PayloadStatusEnum::Accepted => PayloadVerdict::Syncing,
+    }
+}
+
+/// [`PayloadVerdict::Invalid`] with the engine's `validationError`, or `"INVALID"` when it gave
+/// none (absent, `null` or empty).
+fn invalid(validation_error: Option<String>) -> PayloadVerdict {
+    PayloadVerdict::Invalid(
+        validation_error.filter(|e| !e.is_empty()).unwrap_or_else(|| "INVALID".to_string()),
+    )
+}
+
+/// A payload status as engines may send it: alloy's [`PayloadStatusEnum`] requires a string
+/// `validationError` with `INVALID`, but engines also send `null` or omit it.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LenientStatus {
+    /// `VALID`, `INVALID`, `SYNCING` or `ACCEPTED`.
+    status: String,
+    /// The engine's reason for `INVALID`, if it gave one.
+    #[serde(default)]
+    validation_error: Option<String>,
+}
+
+impl LenientStatus {
+    /// The verdict this status carries; `None` for an unknown status.
+    fn verdict(self) -> Option<PayloadVerdict> {
+        match self.status.as_str() {
+            "VALID" => Some(PayloadVerdict::Valid),
+            "INVALID" => Some(invalid(self.validation_error)),
+            "SYNCING" | "ACCEPTED" => Some(PayloadVerdict::Syncing),
+            _ => None,
+        }
     }
 }
 
@@ -153,18 +232,18 @@ impl Engine for RpcEngine {
         block_from_payload(&envelope.execution_payload, envelope.block_value, root)
     }
 
-    /// [`payload_from_block`], then `engine_newPayloadV4`.
+    /// [`payload_from_block`], then `engine_newPayloadV4`; an `INVALID` status without a
+    /// `validationError` is still [`PayloadVerdict::Invalid`] ([`LenientStatus`]).
     async fn new_payload(&self, block: &ExecutionBlock) -> Result<PayloadVerdict, EngineError> {
         let (payload, difficulty, root) = payload_from_block(block)?;
-        let status = self
-            .auth
-            .engine_new_payload_v4(&payload, difficulty, root)
-            .await
-            .map_err(|e| self.auth_error("engine_newPayloadV4", e))?;
-        Ok(verdict(status.status))
+        match self.auth.engine_new_payload_v4(&payload, difficulty, root).await {
+            Ok(status) => Ok(verdict(status.status)),
+            Err(e) => self.lenient_verdict("engine_newPayloadV4", e, Some),
+        }
     }
 
-    /// `engine_forkchoiceUpdatedV3` without attributes.
+    /// `engine_forkchoiceUpdatedV3` without attributes; an `INVALID` status without a
+    /// `validationError` is still [`PayloadVerdict::Invalid`] ([`LenientStatus`]).
     async fn forkchoice(
         &self,
         head: B256,
@@ -176,13 +255,18 @@ impl Engine for RpcEngine {
             safe_block_hash: safe,
             finalized_block_hash: finalized,
         };
-        Ok(verdict(self.forkchoice_updated(state, None).await?.payload_status.status))
+        match self.auth.engine_forkchoice_updated_v3(state, None).await {
+            Ok(updated) => Ok(verdict(updated.payload_status.status)),
+            Err(e) => self.lenient_verdict("engine_forkchoiceUpdatedV3", e, |mut reply| {
+                reply.get_mut("payloadStatus").map(serde_json::Value::take)
+            }),
+        }
     }
 
     /// `eth_getBlockByNumber(number)` on the public endpoint.
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError> {
         let Some(block) = self.l2.get_block_by_number(number.into()).await.map_err(|e| {
-            EngineError::Rpc(format!("eth_getBlockByNumber({number}) at {}: {e}", self.l2_endpoint))
+            transport_error(format!("eth_getBlockByNumber({number}) at {}", self.l2_endpoint), e)
         })?
         else {
             return Ok(None);
@@ -377,13 +461,80 @@ mod tests {
     }
 
     /// `INVALID_BLOCK_HASH` left the Engine API with Shanghai and is not a V3+ status; a reply
-    /// carrying it is an error, never a verdict.
+    /// carrying it, or no result at all, is a reply-class error, never a verdict.
     #[tokio::test]
     async fn new_payload_rejects_an_unknown_status() {
+        for reply in [status("INVALID_BLOCK_HASH", Some("bad hash")), Value::Null, json!({})] {
+            let m = mocked();
+            m.auth.push_success(&reply);
+            let err = m.engine.new_payload(&golden_block()).await.unwrap_err();
+            assert!(
+                matches!(&err, EngineError::BadReply(msg)
+                    if msg.contains(AUTH) && msg.contains("engine_newPayloadV4")),
+                "{reply}: {err:?}"
+            );
+            assert!(!err.is_transport(), "{reply}");
+        }
+    }
+
+    /// alethia-reth may send `INVALID` with a `null` or absent `validationError`, which alloy's
+    /// `PayloadStatusEnum` cannot decode: the verdict is still `INVALID`, never an error that
+    /// `FinalizeBlock` would retry.
+    #[tokio::test]
+    async fn invalid_without_a_validation_error_is_invalid() {
+        let null = json!({ "status": "INVALID", "latestValidHash": null, "validationError": null });
+        let absent = json!({ "status": "INVALID", "latestValidHash": B256::repeat_byte(1) });
+        for reply in [null, absent] {
+            let m = mocked();
+            m.auth.push_success(&reply);
+            assert_eq!(
+                m.engine.new_payload(&golden_block()).await,
+                Ok(PayloadVerdict::Invalid("INVALID".into())),
+                "newPayload {reply}"
+            );
+
+            let m = mocked();
+            m.auth.push_success(&fcu(reply.clone(), None));
+            let head = B256::repeat_byte(0x0a);
+            assert_eq!(
+                m.engine.forkchoice(head, head, B256::ZERO).await,
+                Ok(PayloadVerdict::Invalid("INVALID".into())),
+                "forkchoice {reply}"
+            );
+        }
+    }
+
+    /// A JSON-RPC error object is the engine refusing the call: a reply-class error carrying
+    /// its code and message, not a transport failure.
+    #[tokio::test]
+    async fn json_rpc_error_replies_are_reply_errors() {
+        let error = |code: i64, message: &str| -> alloy_transport::mock::MockResponse {
+            alloy_transport::mock::MockResponse::Failure(
+                serde_json::from_value(json!({ "code": code, "message": message })).unwrap(),
+            )
+        };
         let m = mocked();
-        m.auth.push_success(&status("INVALID_BLOCK_HASH", Some("bad hash")));
-        let err = m.engine.new_payload(&golden_block()).await;
-        assert!(matches!(err, Err(EngineError::Rpc(_))), "{err:?}");
+        m.auth.push(error(-38002, "Invalid forkchoice state"));
+        let err = m.engine.forkchoice(B256::ZERO, B256::ZERO, B256::ZERO).await.unwrap_err();
+        assert!(
+            matches!(&err, EngineError::ErrorReply { call, code: -38002, message }
+                if call.contains(AUTH) && call.contains("engine_forkchoiceUpdatedV3")
+                    && message == "Invalid forkchoice state"),
+            "{err:?}"
+        );
+        assert!(!err.is_transport());
+
+        m.auth.push(error(-32602, "Invalid params"));
+        let err = m.engine.new_payload(&golden_block()).await.unwrap_err();
+        assert!(matches!(&err, EngineError::ErrorReply { code: -32602, .. }), "{err:?}");
+
+        m.l2.push(error(-32000, "header not found"));
+        let err = m.engine.header_by_number(1).await.unwrap_err();
+        assert!(
+            matches!(&err, EngineError::ErrorReply { call, code: -32000, .. }
+                if call.contains(L2) && call.contains("eth_getBlockByNumber")),
+            "{err:?}"
+        );
     }
 
     #[tokio::test]
@@ -438,23 +589,29 @@ mod tests {
         );
     }
 
+    /// The mocked transport fails in transport when it has no response queued (as a refused
+    /// connection would): a transport-class error naming the endpoint and method.
     #[tokio::test]
     async fn transport_errors_name_the_endpoint_and_method() {
         let m = mocked();
-        m.auth.push_failure_msg("connection refused");
         let err = m.engine.forkchoice(B256::ZERO, B256::ZERO, B256::ZERO).await.unwrap_err();
         assert!(
-            matches!(&err, EngineError::Rpc(msg)
-                if msg.contains(AUTH) && msg.contains("engine_forkchoiceUpdatedV3")
-                    && msg.contains("connection refused")),
+            matches!(&err, EngineError::Transport(msg)
+                if msg.contains(AUTH) && msg.contains("engine_forkchoiceUpdatedV3")),
+            "{err:?}"
+        );
+        assert!(err.is_transport());
+
+        let err = m.engine.new_payload(&golden_block()).await.unwrap_err();
+        assert!(
+            matches!(&err, EngineError::Transport(msg) if msg.contains("engine_newPayloadV4")),
             "{err:?}"
         );
 
-        m.l2.push_failure_msg("timeout");
         let err = m.engine.header_by_number(1).await.unwrap_err();
         assert!(
-            matches!(&err, EngineError::Rpc(msg)
-                if msg.contains(L2) && msg.contains("eth_getBlockByNumber") && msg.contains("timeout")),
+            matches!(&err, EngineError::Transport(msg)
+                if msg.contains(L2) && msg.contains("eth_getBlockByNumber")),
             "{err:?}"
         );
     }

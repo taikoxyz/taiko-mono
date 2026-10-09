@@ -62,12 +62,19 @@ pub const APP_VERSION: u64 = 0;
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
 
-/// First pause before `FinalizeBlock` retries an EL call that is syncing, timed out or failed
-/// in transport; the pause doubles per attempt up to [`FINALIZE_RETRY_MAX`].
+/// First pause before `FinalizeBlock` retries an EL call for a decided block that answered
+/// `SYNCING`/`ACCEPTED`, exceeded the engine deadline or failed in transport
+/// ([`EngineError::Transport`]); the pause doubles per retry of the block up to
+/// [`FINALIZE_RETRY_MAX`]. A JSON-RPC error reply or an undecodable reply is never retried: it is
+/// the EL's deterministic answer, a safety halt.
 pub const FINALIZE_RETRY_INITIAL: Duration = Duration::from_millis(100);
 
 /// Cap of the doubling pause between `FinalizeBlock`'s EL retries.
 pub const FINALIZE_RETRY_MAX: Duration = Duration::from_secs(5);
+
+/// How long `FinalizeBlock` retries the EL for one decided block before it logs every further
+/// retry at ERROR instead of WARN (it keeps retrying), so operators notice a stuck EL.
+pub const FINALIZE_RETRY_ESCALATE: Duration = Duration::from_secs(60);
 
 /// Deadlines of the app's external calls (spec §8.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
