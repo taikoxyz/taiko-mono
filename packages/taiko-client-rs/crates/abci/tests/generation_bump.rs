@@ -10,12 +10,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::{l1::layout::inbox, rules::decode_extra_data};
-use alloy_eips::BlockNumberOrTag;
+use abci::l1::layout::inbox;
 use alloy_primitives::U256;
-use alloy_provider::{Provider, RootProvider};
+use alloy_provider::Provider;
 use anyhow::Context;
-use test_harness::{Devnet, DevnetSpec, InboxValues, wait_until};
+use test_harness::{Devnet, DevnetSpec, InboxValues, extra_data_of, wait_until};
 
 /// The `/status` halt reason of a superseded chain.
 const SUPERSEDED: &str = "superseded";
@@ -23,16 +22,6 @@ const SUPERSEDED: &str = "superseded";
 /// Bound on the blocks committed after the planting: the bump lands in one L1 block and becomes
 /// final two blocks later (~3 s), the next proposal then anchors on it; 1 s cadence.
 const MAX_BLOCKS_AFTER_PLANT: u64 = 8;
-
-/// `(generation, anchor)` from L2 block `h`'s `extraData`.
-async fn extra_of(l2: &RootProvider, h: u64) -> anyhow::Result<(u64, u64)> {
-    let block = l2
-        .get_block_by_number(BlockNumberOrTag::Number(h))
-        .await?
-        .with_context(|| format!("L2 block {h} missing"))?;
-    let (_, generation, anchor) = decode_extra_data(&block.header.extra_data)?;
-    Ok((generation, anchor))
-}
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
@@ -91,7 +80,7 @@ async fn generation_bump_supersedes_the_chain() -> anyhow::Result<()> {
     let l2 = devnet.l2_provider(0);
     assert_eq!(l2.get_block_number().await?, stop, "the EL moved past CometBFT");
     for h in 1..=stop {
-        let (generation, anchor) = extra_of(&l2, h).await?;
+        let (_, generation, anchor) = extra_data_of(&l2, h).await?;
         assert_eq!(generation, 0, "block {h}: extraData generation");
         assert!(anchor < bump, "block {h}: anchor {anchor} carries the bump (L1 block {bump})");
     }

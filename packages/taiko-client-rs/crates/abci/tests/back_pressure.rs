@@ -27,9 +27,8 @@ async fn back_pressure_stops_at_the_unsettled_cap() -> anyhow::Result<()> {
     assert_eq!(cap, spec.d_max - spec.margin_v);
     devnet.wait_for_height(0, 8, Duration::from_secs(60)).await?;
 
-    // Freeze lastCheckpoint: pause the lander and let an in-flight landing settle.
-    devnet.lander_pause();
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    // Freeze lastCheckpoint: pause the lander (waiting out a landing in flight).
+    devnet.lander_pause().await;
     let slot = inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT);
     let frozen = u64::try_from(devnet.planter().inbox_word(slot).await?)?;
     let paused_at = devnet.cmt(0).latest_height().await?;

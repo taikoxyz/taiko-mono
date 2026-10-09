@@ -1,5 +1,6 @@
-//! L2 (alethia-reth) transaction helpers.
+//! L2 (alethia-reth) helpers: transfers and the `extraData` of committed blocks.
 
+use abci::rules::decode_extra_data;
 use alloy::{
     consensus::{SignableTransaction, TxEip1559, TxEnvelope},
     signers::{SignerSync, local::PrivateKeySigner},
@@ -51,4 +52,19 @@ pub async fn send_transfer(
     let envelope = TxEnvelope::Eip1559(tx.into_signed(signature));
     let pending = l2.send_raw_transaction(&envelope.encoded_2718()).await?;
     Ok(*pending.tx_hash())
+}
+
+/// `(basefee sharing pctg, generation, anchor L1 block number)` from the `extraData` of L2
+/// block `h`.
+pub async fn extra_data_of(l2: &RootProvider, h: u64) -> Result<(u8, u64, u64)> {
+    let block = l2
+        .get_block_by_number(BlockNumberOrTag::Number(h))
+        .await?
+        .with_context(|| format!("L2 block {h} missing"))?;
+    Ok(decode_extra_data(&block.header.extra_data)?)
+}
+
+/// The anchor L1 block number in the `extraData` of L2 block `h`.
+pub async fn anchor_of(l2: &RootProvider, h: u64) -> Result<u64> {
+    Ok(extra_data_of(l2, h).await?.2)
 }

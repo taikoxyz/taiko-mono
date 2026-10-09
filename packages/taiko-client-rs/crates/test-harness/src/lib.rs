@@ -30,10 +30,7 @@ mod wait;
 pub use cometbft::{CmtClient, CmtStatus, CmtValidator};
 pub use devnet::{Devnet, DevnetSpec, init_tracing};
 pub use keys::{ValidatorKey, node_keys, validator_keys};
-pub use l1::{
-    advance_l1_time, anvil_request, block_number, finalized_number, mine_l1_blocks,
-    set_interval_mining, set_storage,
-};
-pub use l2::{DEV_KEY, dev_signer, send_transfer};
+pub use l1::{anvil_request, block_number, finalized_number, mine_l1_blocks, set_interval_mining};
+pub use l2::{DEV_KEY, anchor_of, dev_signer, extra_data_of, send_transfer};
 pub use planter::{InboxValues, NextBlock, Planter, registry_entry};
 pub use wait::{Fatal, wait_until};

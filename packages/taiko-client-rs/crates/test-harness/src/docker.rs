@@ -5,7 +5,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 
 /// Runs `docker <args>` and returns its trimmed stdout; a non-zero exit is an error carrying
 /// stderr.
@@ -51,18 +51,16 @@ pub(crate) async fn host_port(container: &str, container_port: u16) -> Result<u1
 
 /// One devnet's docker resources: a private network and the containers started on it.
 ///
-/// Dropping it without [`DockerEnv::cleanup`] removes everything (blocking) and, while
+/// Dropping it before [`DockerEnv::cleanup`] succeeded removes what is left (blocking) and, while
 /// panicking, first prints the tail of every container's log unless it was already printed.
 #[derive(Debug)]
 pub(crate) struct DockerEnv {
     /// The network name.
     network: String,
-    /// Names of the containers started on it, in start order.
+    /// Names of the containers started on it and not removed yet, in start order.
     containers: Vec<String>,
-    /// Whether the network exists.
+    /// Whether the network exists (created and not removed yet).
     network_created: bool,
-    /// Whether everything was already removed.
-    cleaned: bool,
     /// Whether [`DockerEnv::dump_logs`] ran.
     logs_dumped: AtomicBool,
 }
@@ -74,7 +72,6 @@ impl DockerEnv {
             network: name,
             containers: Vec::new(),
             network_created: false,
-            cleaned: false,
             logs_dumped: AtomicBool::new(false),
         };
         docker(&["network", "create", &env.network]).await?;
@@ -116,40 +113,48 @@ impl DockerEnv {
         }
     }
 
-    /// Removes every container and the network.
+    /// Whether every container and the network are removed.
+    fn cleaned(&self) -> bool {
+        self.containers.is_empty() && !self.network_created
+    }
+
+    /// Removes every container, then the network, attempting the network even when removing
+    /// the containers failed. Only what was removed is forgotten, so a later call (or the drop)
+    /// retries the rest; fails with every removal error.
     pub(crate) async fn cleanup(&mut self) -> Result<()> {
-        if self.cleaned {
-            return Ok(());
-        }
-        self.cleaned = true;
+        let mut errors = Vec::new();
         if !self.containers.is_empty() {
             let mut args = vec!["rm", "-f", "-v"];
             args.extend(self.containers.iter().map(String::as_str));
-            docker(&args).await?;
+            match docker(&args).await {
+                Ok(_) => self.containers.clear(),
+                Err(e) => errors.push(format!("{e:#}")),
+            }
         }
         if self.network_created {
-            docker(&["network", "rm", &self.network]).await?;
+            match docker(&["network", "rm", &self.network]).await {
+                Ok(_) => self.network_created = false,
+                Err(e) => errors.push(format!("{e:#}")),
+            }
         }
-        Ok(())
+        if errors.is_empty() { Ok(()) } else { Err(anyhow!(errors.join("; "))) }
     }
 
     /// Blocking [`DockerEnv::cleanup`]; failures are printed.
     fn cleanup_blocking(&mut self) {
-        if self.cleaned {
-            return;
-        }
-        self.cleaned = true;
         if !self.containers.is_empty() {
             let mut args = vec!["rm", "-f", "-v"];
             args.extend(self.containers.iter().map(String::as_str));
-            if let Err(e) = docker_blocking(&args) {
-                eprintln!("devnet cleanup: {e:#}");
+            match docker_blocking(&args) {
+                Ok(_) => self.containers.clear(),
+                Err(e) => eprintln!("devnet cleanup: {e:#}"),
             }
         }
-        if self.network_created &&
-            let Err(e) = docker_blocking(&["network", "rm", &self.network])
-        {
-            eprintln!("devnet cleanup: {e:#}");
+        if self.network_created {
+            match docker_blocking(&["network", "rm", &self.network]) {
+                Ok(_) => self.network_created = false,
+                Err(e) => eprintln!("devnet cleanup: {e:#}"),
+            }
         }
     }
 }
@@ -158,7 +163,7 @@ impl Drop for DockerEnv {
     /// Removes what is left, printing the container logs first while panicking (unless they
     /// were already printed).
     fn drop(&mut self) {
-        if self.cleaned {
+        if self.cleaned() {
             return;
         }
         if std::thread::panicking() && !self.logs_dumped() {

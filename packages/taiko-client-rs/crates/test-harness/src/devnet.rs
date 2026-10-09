@@ -2,7 +2,6 @@
 //! `abci` apps (spec §9.2).
 
 use std::{
-    path::Path,
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -91,8 +90,6 @@ pub fn init_tracing() {
 pub struct Devnet {
     /// The unique id in every docker name.
     id: String,
-    /// The shape it was started with.
-    spec: DevnetSpec,
     /// The fake lander (stopped first on teardown).
     lander: Lander,
     /// The apps, by validator index.
@@ -101,8 +98,6 @@ pub struct Devnet {
     cmt: Vec<CmtClient>,
     /// The alethia-reth nodes, by validator index.
     reth: Vec<RethNode>,
-    /// anvil's JSON-RPC URL on the host.
-    l1_http: Url,
     /// anvil provider.
     l1: RootProvider,
     /// The validator keys (the first `initial_validators` form `e_0`).
@@ -117,8 +112,9 @@ pub struct Devnet {
     planter: Planter,
     /// The containers and the network.
     docker: DockerEnv,
-    /// CometBFT homes and app stores (deleted last).
-    tmp: TempDir,
+    /// CometBFT homes and app stores, held only so that they are deleted last, when the
+    /// devnet drops.
+    _tmp: TempDir,
     /// Whether [`Devnet::stop`] succeeded; otherwise dropping prints the diagnostics.
     stopped: bool,
 }
@@ -137,12 +133,10 @@ impl Devnet {
                 tracing::info!(id, network = docker.network(), "devnet started");
                 Ok(Self {
                     id,
-                    spec,
                     lander: b.lander,
                     apps: b.apps,
                     cmt: b.cmt,
                     reth: b.reth,
-                    l1_http: b.l1_http,
                     l1: b.l1,
                     keys: b.keys,
                     params: b.params,
@@ -150,7 +144,7 @@ impl Devnet {
                     genesis: b.genesis,
                     planter: b.planter,
                     docker,
-                    tmp,
+                    _tmp: tmp,
                     stopped: false,
                 })
             }
@@ -168,11 +162,6 @@ impl Devnet {
     /// The unique id in every docker name of this devnet (`abci-<id>-…`).
     pub fn id(&self) -> &str {
         &self.id
-    }
-
-    /// The shape it was started with.
-    pub fn spec(&self) -> &DevnetSpec {
-        &self.spec
     }
 
     /// The chain parameters the apps run with.
@@ -205,11 +194,6 @@ impl Devnet {
         registry_entry(self.keys[i].pubkey(), U256::from(VALIDATOR_STAKE))
     }
 
-    /// anvil's JSON-RPC URL.
-    pub fn l1_http(&self) -> Url {
-        self.l1_http.clone()
-    }
-
     /// A provider for anvil.
     pub fn l1(&self) -> &RootProvider {
         &self.l1
@@ -223,11 +207,6 @@ impl Devnet {
     /// A provider for alethia-reth `i`.
     pub fn l2_provider(&self, i: usize) -> RootProvider {
         connect_http_with_timeout(self.l2_http(i), DEFAULT_HTTP_TIMEOUT)
-    }
-
-    /// The RPC URL of CometBFT node `i`.
-    pub fn cmt_rpc(&self, i: usize) -> Url {
-        self.cmt[i].url()
     }
 
     /// The docker container name of CometBFT node `i`.
@@ -264,25 +243,20 @@ impl Devnet {
         &self.cmt[i]
     }
 
-    /// The devnet's temporary directory: `app-<i>/` holds app `i`'s store, `cmt-<i>/` CometBFT
-    /// node `i`'s home.
-    pub fn tmp_dir(&self) -> &Path {
-        self.tmp.path()
-    }
-
     /// The L1 state planter.
     pub fn planter(&self) -> &Planter {
         &self.planter
     }
 
-    /// Pauses the fake lander: `lastCheckpoint` and `committee[·]` stop moving.
-    pub fn lander_pause(&self) {
-        self.lander.set_paused(true);
+    /// Pauses the fake lander: `lastCheckpoint` and `committee[·]` stop moving. Returns once a
+    /// landing already in flight has been mined, so L1 holds the frozen values.
+    pub async fn lander_pause(&self) {
+        self.lander.pause().await;
     }
 
     /// Resumes the fake lander.
     pub fn lander_resume(&self) {
-        self.lander.set_paused(false);
+        self.lander.resume();
     }
 
     /// Makes the fake lander plant (`true`) or skip (`false`) the `committee[t]` records while
@@ -326,13 +300,19 @@ impl Devnet {
     }
 
     /// Waits until CometBFT node `i` committed height `h`; returns the height reached. Fails on
-    /// timeout, or at once when app `i` halts; on failure it first prints each app's halt reason
-    /// and the tail of every container's log.
+    /// timeout, or at once when an app halts or its thread exits on its own (an app the test
+    /// stopped with [`Devnet::app_stop`] does not count); on failure it first prints each app's
+    /// halt reason and the tail of every container's log.
     pub async fn wait_for_height(&self, i: usize, h: u64, timeout: Duration) -> Result<u64> {
         let what = format!("CometBFT node {i} at height {h}");
         wait_until(&what, timeout, POLL, || async move {
-            if let Some(reason) = self.app_halt(i) {
-                return Err(Fatal(anyhow!("app {i} halted: {reason}")).into());
+            for (j, app) in self.apps.iter().enumerate() {
+                if let Some(reason) = app.halt() {
+                    return Err(Fatal(anyhow!("app {j} halted: {reason}")).into());
+                }
+                if app.exited() {
+                    return Err(Fatal(anyhow!("app {j} stopped on its own")).into());
+                }
             }
             let height = self.cmt[i].latest_height().await?;
             Ok((height >= h).then_some(height))

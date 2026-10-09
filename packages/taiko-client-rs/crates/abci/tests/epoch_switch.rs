@@ -16,25 +16,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::{RegistryEntry, l1::layout::inbox, rules::decode_extra_data};
-use alloy_eips::BlockNumberOrTag;
+use abci::{RegistryEntry, l1::layout::inbox};
 use alloy_primitives::{B256, U256};
-use alloy_provider::{Provider, RootProvider};
-use anyhow::{Context, ensure};
-use test_harness::{Devnet, DevnetSpec, wait_until};
+use anyhow::ensure;
+use test_harness::{Devnet, DevnetSpec, anchor_of, wait_until};
 
 /// The `/status` halt reason of a switch height whose anchored `committee[t]` has not landed
 /// (D19, `Rejection::RecordNotLanded`).
 const RECORD_NOT_LANDED: &str = "record_not_landed";
-
-/// The anchor L1 block number in L2 block `h`'s `extraData`.
-async fn anchor_of(l2: &RootProvider, h: u64) -> anyhow::Result<u64> {
-    let block = l2
-        .get_block_by_number(BlockNumberOrTag::Number(h))
-        .await?
-        .with_context(|| format!("L2 block {h} missing"))?;
-    Ok(decode_extra_data(&block.header.extra_data)?.2)
-}
 
 /// CometBFT node 0's validator set at `height` as `(pubkey, power)` pairs.
 async fn validator_set(devnet: &Devnet, height: u64) -> anyhow::Result<BTreeSet<(B256, u64)>> {

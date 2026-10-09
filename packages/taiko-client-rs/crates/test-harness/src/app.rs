@@ -83,8 +83,19 @@ impl AppNode {
         self.running.as_ref().is_some_and(|t| !t.is_finished())
     }
 
-    /// Starts a stopped app again over the same store and port; returns once it listens.
+    /// Whether its thread exited on its own (the server stopped, e.g. after a safety halt),
+    /// rather than through [`AppNode::stop`].
+    pub(crate) fn exited(&self) -> bool {
+        self.running.as_ref().is_some_and(AppThread::is_finished)
+    }
+
+    /// Starts a stopped app again over the same store and port; returns once it listens. An
+    /// app whose thread exited on its own counts as stopped.
     pub(crate) async fn launch(&mut self) -> Result<()> {
+        if self.exited() {
+            // Join the finished thread and drop its handle.
+            self.stop().await;
+        }
         ensure!(self.running.is_none(), "app {} is already running", self.config.index);
         let i = self.config.index;
         let (ready_tx, ready_rx) = oneshot::channel();
