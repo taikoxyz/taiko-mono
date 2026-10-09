@@ -6,8 +6,8 @@
 //! the alethia-reth execution layer through the Engine API. Every L1 fact a block consumes travels
 //! inside the block as an L1 header plus EIP-1186 proofs, so replay never calls L1.
 //!
-//! The `types`, `config`, `schedule`, `envelope`, `l1::layout`, `l1::mpt`, `l1::witness` and
-//! `committee` modules perform no I/O.
+//! The `types`, `config`, `schedule`, `envelope`, `l1::layout`, `l1::mpt`, `l1::witness`,
+//! `committee` and `rules` modules perform no I/O.
 
 /// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
 pub mod committee;
@@ -17,6 +17,8 @@ pub mod config;
 pub mod envelope;
 /// L1 storage layout, EIP-1186 proof verification and Inbox witness decoding.
 pub mod l1;
+/// Header derivation and block-validity predicates (spec §4.2, §5.4).
+pub mod rules;
 /// Epoch schedule derived from the L1 activation record.
 pub mod schedule;
 /// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
@@ -31,6 +33,7 @@ pub use envelope::{
     AnchorWitness, CommitteeWitness, ENVELOPE_VERSION, EnvelopeError, EtnaEnvelope, ExecutionBlock,
     single_envelope,
 };
+pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
 pub use schedule::{Schedule, ScheduleError};
 pub use types::{
     AccountWitness, ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, Member, ParentInfo,

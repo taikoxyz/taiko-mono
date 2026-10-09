@@ -10,11 +10,13 @@ rust-version.workspace = true
 [dependencies]
 # ethereum
 alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true, features = ["std", "serde", "rlp"] }
 alloy-rlp = { workspace = true, features = ["std", "derive"] }
 alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 
 # taiko
+alethia-reth-primitives = { workspace = true }
 protocol = { path = "../protocol", default-features = false }
 
 # types
