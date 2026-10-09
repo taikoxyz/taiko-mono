@@ -10,7 +10,7 @@ use tendermint::{
     validator,
 };
 
-use super::{AbciError, App, ELSYNC_POLL, app_hash, within};
+use super::{AbciError, App, ELSYNC_POLL, app_hash, at_genesis, within};
 use crate::{
     committee::{record_hash, verify_committee_witness},
     elsync::ensure_block,
@@ -26,22 +26,62 @@ use crate::{
 impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `InitChain`: verifies the genesis and persists the initial state.
     ///
-    /// In order: rejects an already initialized app; decodes the `app_state` witness; requires
-    /// its L1 header to be final and canonical in the own L1 view; verifies the Inbox witness
-    /// (activated Inbox, activation record) and that the header is block `L1_0`; validates the
-    /// schedule; requires the `chain_id` generation to equal the Inbox's `recoveryGeneration`
-    /// and `initial_height == B* + 1`; recomputes the `e_0` committee from its witness (cutoff
-    /// from `L1_0`) and requires its record hash to equal `committee[e_0]` and its members to
-    /// be exactly the genesis validators; makes sure the EL serves `B*` with hash `H*` (EL sync
-    /// if needed). Then persists the state with `last = (B*, H*)` and answers the requested
-    /// validators with `app_hash = H*`.
+    /// CometBFT re-sends `InitChain` whenever the app reports height 0, i.e. after a restart
+    /// before the first PoS block is committed. An app already holding a state answers only
+    /// while that state is still at the genesis anchor `B*`: the request is verified again and
+    /// must yield exactly the stored state, which is then answered as before without being
+    /// rewritten. A state past `B*`, or a request yielding another state, is
+    /// [`AbciError::AlreadyInitialized`]; a verification failure is reported as such.
+    ///
+    /// See [`App::verify_genesis`] for the checks. Answers the requested validators with
+    /// `app_hash = H*`.
     pub(super) async fn init_chain(
         &mut self,
         req: request::InitChain,
     ) -> Result<response::InitChain, AbciError> {
-        if self.state.is_some() {
-            return Err(AbciError::AlreadyInitialized);
+        let restart = match &self.state {
+            None => false,
+            Some(state) if at_genesis(state) => true,
+            Some(_) => return Err(AbciError::AlreadyInitialized),
+        };
+        let state = self.verify_genesis(&req).await?;
+        let genesis_hash = state.activation.genesis_hash;
+        if restart {
+            if self.state.as_ref() != Some(&state) {
+                return Err(AbciError::AlreadyInitialized);
+            }
+            tracing::info!(chain_id = %state.chain_id, "InitChain re-sent at genesis; re-verified");
+        } else {
+            self.store.save(&state)?;
+            tracing::info!(
+                chain_id = %state.chain_id,
+                genesis_height = state.activation.genesis_height,
+                genesis_hash = %genesis_hash,
+                l1_0 = state.activation.l1_0,
+                validators = req.validators.len(),
+                "chain initialized"
+            );
+            self.state = Some(state);
         }
+
+        Ok(response::InitChain {
+            consensus_params: None,
+            validators: req.validators,
+            app_hash: app_hash(genesis_hash),
+        })
+    }
+
+    /// Verifies an `InitChain` request and returns the state it starts.
+    ///
+    /// In order: decodes the `app_state` witness; requires its L1 header to be final and
+    /// canonical in the own L1 view; verifies the Inbox witness (activated Inbox, activation
+    /// record) and that the header is block `L1_0`; validates the schedule; requires the
+    /// `chain_id` generation to equal the Inbox's `recoveryGeneration` and
+    /// `initial_height == B* + 1`; recomputes the `e_0` committee from its witness (cutoff from
+    /// `L1_0`) and requires its record hash to equal `committee[e_0]` and its members to be
+    /// exactly the genesis validators; makes sure the EL serves `B*` with hash `H*` (EL sync if
+    /// needed). The state has `last = (B*, H*)`.
+    async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let w = decode_app_state(&req.app_state_bytes)?;
         let params = &self.params;
         let l1_header = &w.l1_header;
@@ -97,8 +137,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         check_validators(&req.validators, &members)?;
 
         let parent = self.genesis_parent(&activation).await?;
-        let state = AppState {
-            chain_id: req.chain_id,
+        Ok(AppState {
+            chain_id: req.chain_id.clone(),
             generation,
             activation: activation.clone(),
             schedule,
@@ -112,22 +152,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 inbox: inbox_facts,
             },
             committees: BTreeMap::from([(Schedule::E0, CommitteeState { record, members })]),
-        };
-        self.store.save(&state)?;
-        tracing::info!(
-            chain_id = %state.chain_id,
-            genesis_height = activation.genesis_height,
-            genesis_hash = %activation.genesis_hash,
-            l1_0 = activation.l1_0,
-            validators = req.validators.len(),
-            "chain initialized"
-        );
-        self.state = Some(state);
-
-        Ok(response::InitChain {
-            consensus_params: None,
-            validators: req.validators,
-            app_hash: app_hash(activation.genesis_hash),
         })
     }
 

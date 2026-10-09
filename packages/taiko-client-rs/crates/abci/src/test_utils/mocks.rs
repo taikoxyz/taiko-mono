@@ -11,9 +11,9 @@ use std::{
 };
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
-use alloy_consensus::Header;
-use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{Address, B256, U256};
+use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
+use alloy_eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH};
+use alloy_primitives::{Address, B64, B256, U256, keccak256};
 use async_trait::async_trait;
 
 use super::TestState;
@@ -185,7 +185,7 @@ pub(crate) struct MockEngineState {
     pub(crate) known: HashMap<B256, Header>,
     /// Scripted `header_by_number` answers (before falling back to `chain`).
     pub(crate) header_script: VecDeque<Result<Option<Header>, EngineError>>,
-    /// Scripted `build_block` answers (an empty queue fails the call).
+    /// Scripted `build_block` answers (an empty queue builds [`simple_block`]).
     pub(crate) build_script: VecDeque<Result<ExecutionBlock, EngineError>>,
     /// Scripted `new_payload` answers (before the default `Valid`).
     pub(crate) new_payload_script: VecDeque<Result<PayloadVerdict, EngineError>>,
@@ -193,8 +193,42 @@ pub(crate) struct MockEngineState {
     pub(crate) forkchoice_script: VecDeque<Result<PayloadVerdict, EngineError>>,
     /// What `check_capabilities` returns.
     pub(crate) capabilities: Option<EngineError>,
+    /// When set, every call first sleeps this long (tokio time), to exercise timeouts.
+    pub(crate) delay: Option<Duration>,
     /// Every call, in order.
     pub(crate) calls: Vec<EngineCall>,
+}
+
+/// The block a simple EL builds on `parent_hash` from `attrs`: every attribute-derived field as
+/// alethia-reth #248 assembles it (Etna body commitments included), no transactions, and
+/// deterministic execution results.
+pub(crate) fn simple_block(parent_hash: B256, attrs: &TaikoPayloadAttributes) -> ExecutionBlock {
+    let eth = &attrs.payload_attributes;
+    let number = attrs.l1_origin.block_id.to::<u64>();
+    let header = Header {
+        parent_hash,
+        number,
+        timestamp: eth.timestamp,
+        beneficiary: eth.suggested_fee_recipient,
+        extra_data: attrs.block_metadata.extra_data.clone(),
+        parent_beacon_block_root: eth.parent_beacon_block_root,
+        gas_limit: attrs.block_metadata.gas_limit,
+        base_fee_per_gas: Some(attrs.base_fee_per_gas.to::<u64>()),
+        mix_hash: eth.prev_randao,
+        withdrawals_root: Some(EMPTY_ROOT_HASH),
+        blob_gas_used: Some(0),
+        excess_blob_gas: Some(0),
+        requests_hash: Some(EMPTY_REQUESTS_HASH),
+        ommers_hash: EMPTY_OMMER_ROOT_HASH,
+        nonce: B64::ZERO,
+        state_root: keccak256(parent_hash),
+        transactions_root: EMPTY_ROOT_HASH,
+        receipts_root: EMPTY_ROOT_HASH,
+        gas_used: 0,
+        difficulty: U256::from(1_000 + number % 1_000),
+        ..Header::default()
+    };
+    ExecutionBlock { header, transactions: vec![] }
 }
 
 impl MockEngineState {
@@ -252,34 +286,44 @@ impl MockEngine {
     pub(crate) fn calls(&self) -> Vec<EngineCall> {
         self.state().calls.clone()
     }
+
+    /// Sleeps for the scripted `delay`, if any (the lock is not held while sleeping).
+    async fn pause(&self) {
+        let delay = self.state().delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
+    }
 }
 
 #[async_trait]
 impl Engine for MockEngine {
     async fn check_capabilities(&self) -> Result<(), EngineError> {
+        self.pause().await;
         let mut state = self.state();
         state.calls.push(EngineCall::CheckCapabilities);
         state.capabilities.clone().map_or(Ok(()), Err)
     }
 
-    /// Pops `build_script`; a built block becomes known. An empty script is an error.
+    /// Pops `build_script`, defaulting to [`simple_block`]; a built block becomes known.
     async fn build_block(
         &self,
         parent_hash: B256,
         attrs: TaikoPayloadAttributes,
     ) -> Result<ExecutionBlock, EngineError> {
+        self.pause().await;
         let mut state = self.state();
+        let built =
+            state.build_script.pop_front().unwrap_or_else(|| Ok(simple_block(parent_hash, &attrs)));
         state.calls.push(EngineCall::BuildBlock { parent: parent_hash, attrs: Box::new(attrs) });
-        let built = state
-            .build_script
-            .pop_front()
-            .unwrap_or_else(|| Err(EngineError::Rpc("mock engine: no scripted build".into())))?;
+        let built = built?;
         state.known.insert(built.header.hash_slow(), built.header.clone());
         Ok(built)
     }
 
     /// Pops `new_payload_script`, defaulting to `Valid`; a `Valid` block becomes known.
     async fn new_payload(&self, block: &ExecutionBlock) -> Result<PayloadVerdict, EngineError> {
+        self.pause().await;
         let mut state = self.state();
         let hash = block.header.hash_slow();
         state.calls.push(EngineCall::NewPayload(hash));
@@ -298,6 +342,7 @@ impl Engine for MockEngine {
         safe: B256,
         finalized: B256,
     ) -> Result<PayloadVerdict, EngineError> {
+        self.pause().await;
         let mut state = self.state();
         state.calls.push(EngineCall::Forkchoice { head, safe, finalized });
         let known = state.known.get(&head).cloned();
@@ -314,6 +359,7 @@ impl Engine for MockEngine {
 
     /// Pops `header_script`, falling back to the canonical `chain`.
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError> {
+        self.pause().await;
         let mut state = self.state();
         state.calls.push(EngineCall::HeaderByNumber(number));
         match state.header_script.pop_front() {

@@ -6,6 +6,11 @@
 //! assembles the genesis witness and the CometBFT `InitChain` request that start the chain.
 //! [`Fixture::l1`] and [`Fixture::engine`] serve that L1 and EL; [`Fixture::expected_state`] is
 //! the `AppState` a correct `InitChain` persists.
+//!
+//! For proposal tests, [`Fixture::plant_l1_block`] and [`Fixture::advance_l1`] add later L1
+//! blocks with updated Inbox/registry storage to a [`MockL1`], [`Fixture::anchor_witness`] and
+//! [`Fixture::anchor_state`] read them back as an anchor, and [`Fixture::committee`] derives a
+//! later epoch's committee from the genesis snapshot.
 
 use std::{collections::BTreeMap, path::Path};
 
@@ -30,8 +35,9 @@ use crate::{
     app::{App, AppOptions},
     committee::{self, Snapshot},
     config::ChainParams,
+    envelope::AnchorWitness,
     genesis::{GenesisWitness, encode_app_state},
-    l1::layout::inbox,
+    l1::{layout::inbox, verify_anchor_witness},
     rules::chain_id_for,
     schedule::Schedule,
     store::{AppState, CommitteeState, Store},
@@ -142,12 +148,9 @@ impl Fixture {
             recovery_generation: spec.recovery_generation,
             ..InboxStorage::genesis(activation.clone(), committee_e0)
         };
-        let mut accounts = filler_accounts();
-        accounts.push(inbox_account(params.inbox, &inbox));
-        accounts.push(registry_account(params.registry, &registry));
-        let l1_state = TestState::new(accounts);
+        let l1_state = l1_state_with(&params, &inbox, &registry);
 
-        let mut header = l1_header(spec.l1_0, 1_760_000_000 + spec.l1_0 * 12);
+        let mut header = l1_header(spec.l1_0, Self::l1_timestamp(spec.l1_0));
         header.state_root = l1_state.state_root();
         let witness = GenesisWitness {
             l1_header: header,
@@ -223,6 +226,97 @@ impl Fixture {
         self.activation.genesis_hash
     }
 
+    /// The timestamp of L1 block `number` in fixture L1s (12-second slots).
+    pub(crate) fn l1_timestamp(number: u64) -> u64 {
+        1_760_000_000 + number * 12
+    }
+
+    /// The genesis Inbox storage with the last checkpoint moved to `last_checkpoint_height`
+    /// (hash derived from the height) and `committee` entries appended to the mapping.
+    pub(crate) fn inbox_with(
+        &self,
+        last_checkpoint_height: u64,
+        committee: &[(u64, B256)],
+    ) -> InboxStorage {
+        let mut inbox = self.inbox.clone();
+        inbox.last_checkpoint_height = last_checkpoint_height;
+        inbox.last_checkpoint_hash = B256::from(U256::from(last_checkpoint_height) + U256::from(1));
+        inbox.committee.extend_from_slice(committee);
+        inbox
+    }
+
+    /// Plants L1 block `number` holding `inbox` and `registry` (plus the filler accounts) as
+    /// canonical in `l1`, without moving its finalized block; returns the stored header.
+    pub(crate) fn plant_l1_block(
+        &self,
+        l1: &MockL1,
+        number: u64,
+        inbox: &InboxStorage,
+        registry: &RegistryStorage,
+    ) -> Header {
+        let state = l1_state_with(&self.params, inbox, registry);
+        l1.insert_block(l1_header(number, Self::l1_timestamp(number)), state)
+    }
+
+    /// Plants L1 block `number` (see [`Fixture::plant_l1_block`]) and moves `l1`'s finalized
+    /// block so that it is final with the chain's extra depth: a proposer then anchors there.
+    pub(crate) fn advance_l1(
+        &self,
+        l1: &MockL1,
+        number: u64,
+        inbox: &InboxStorage,
+        registry: &RegistryStorage,
+    ) -> Header {
+        let header = self.plant_l1_block(l1, number, inbox, registry);
+        l1.set_finalized(number + self.params.l1_finality_extra_depth);
+        header
+    }
+
+    /// The anchor witness of the L1 block `number` planted in `l1`, proving
+    /// `anchor_slots(committee_epoch)`.
+    pub(crate) fn anchor_witness(
+        &self,
+        l1: &MockL1,
+        number: u64,
+        committee_epoch: Option<u64>,
+    ) -> AnchorWitness {
+        let guard = l1.state();
+        let header = guard.headers.get(&number).expect("the L1 block is planted").clone();
+        let state = guard.states.get(&number).expect("the L1 block has a state");
+        AnchorWitness {
+            l1_header: header,
+            inbox: state.witness(self.params.inbox, &inbox::anchor_slots(committee_epoch)),
+        }
+    }
+
+    /// The anchor a witness of the L1 block `number` planted in `l1` proves.
+    pub(crate) fn anchor_state(
+        &self,
+        l1: &MockL1,
+        number: u64,
+        committee_epoch: Option<u64>,
+    ) -> AnchorState {
+        let w = self.anchor_witness(l1, number, committee_epoch);
+        verify_anchor_witness(&w, self.params.inbox, committee_epoch).expect("planted anchor")
+    }
+
+    /// The committee of `target_epoch` derived from the genesis registry snapshot with the
+    /// genesis cutoff (the members equal epoch `e_0`'s; the record differs in its target and
+    /// set root).
+    pub(crate) fn committee(&self, target_epoch: u64) -> CommitteeState {
+        let params = &self.params;
+        let cutoff = committee::cutoff(self.activation.l1_0, params.cutoff_grid, params.cutoff_lag)
+            .expect("L1_0 has a cutoff");
+        let snapshot = Snapshot {
+            checkpoint_index: 0,
+            l1_block: self.activation.l1_0,
+            entries: self.registry.checkpoints[0].1.clone(),
+        };
+        let (record, members) = committee::derive(&snapshot, cutoff, target_epoch, params)
+            .expect("the genesis snapshot derives a committee");
+        CommitteeState { record, members }
+    }
+
     /// The `AppState` a correct `InitChain` persists for this genesis.
     pub(crate) fn expected_state(&self) -> AppState {
         let b_star = self.el_chain.last().expect("the EL chain holds B*");
@@ -267,6 +361,19 @@ impl Fixture {
             )]),
         }
     }
+}
+
+/// The L1 state at `params`' addresses: the filler accounts, the Inbox holding `inbox` and the
+/// staking registry holding `registry`.
+pub(crate) fn l1_state_with(
+    params: &ChainParams,
+    inbox: &InboxStorage,
+    registry: &RegistryStorage,
+) -> TestState {
+    let mut accounts = filler_accounts();
+    accounts.push(inbox_account(params.inbox, inbox));
+    accounts.push(registry_account(params.registry, registry));
+    TestState::new(accounts)
 }
 
 /// The CometBFT validator updates of `members` (Ed25519 key, power), in member order.

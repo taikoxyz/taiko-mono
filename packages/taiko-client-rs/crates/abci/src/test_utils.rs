@@ -36,7 +36,7 @@ mod fixture;
 mod mocks;
 
 pub(crate) use fixture::{Fixture, GenesisSpec, validator_updates};
-pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1};
+pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
 
 /// One account of a [`TestState`]: `(address, nonce, balance, code_hash, storage)`, where
 /// `storage` lists `(slot, value)` pairs (zero values are the same as absent slots; on duplicate

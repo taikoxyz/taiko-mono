@@ -12,12 +12,15 @@ use super::{AbciError, App, AppOptions};
 use crate::{
     config::ChainParams,
     store::Store,
-    test_utils::{Fixture, MockEngine, MockL1},
+    test_utils::{EngineCall, Fixture, MockEngine, MockL1},
 };
 
 mod handle;
 mod info;
 mod init;
+mod prepare;
+mod process;
+mod proposal;
 
 /// A fresh app over the given parts with default options and a store in `dir`.
 fn app_with(
