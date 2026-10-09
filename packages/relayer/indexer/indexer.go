@@ -136,6 +136,13 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // InitFromConfig inits a new Indexer from a provided Config struct
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
+	// errgroup.SetLimit(0) does not mean "unlimited": it makes every
+	// errgroup.Group.Go call block forever, so an indexer built with a zero
+	// limit would stop on the first event it has to handle.
+	if cfg.NumGoroutines == 0 {
+		return errors.New("maxNumGoroutines must be greater than zero")
+	}
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err

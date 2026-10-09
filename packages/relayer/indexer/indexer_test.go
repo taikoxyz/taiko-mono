@@ -13,6 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
@@ -152,4 +153,21 @@ func TestHandleMessageProcessedEventSkipsIgnoredMessageHash(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 0, mockBridge.IsMessageSentCalls)
 	assert.Equal(t, 0, eventRepo.SavedCount())
+}
+
+// A zero goroutine limit makes every errgroup.Group.Go call in the indexing
+// paths block forever, so InitFromConfig must reject it before it opens a
+// database connection or dials RPC.
+func TestInitFromConfigRejectsZeroNumGoroutines(t *testing.T) {
+	err := InitFromConfig(context.Background(), new(Indexer), &Config{
+		NumGoroutines: 0,
+		OpenDBFunc: func() (db.DB, error) {
+			t.Fatal("InitFromConfig opened the database despite the invalid config")
+
+			return nil, nil
+		},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "maxNumGoroutines must be greater than zero")
 }
