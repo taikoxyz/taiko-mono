@@ -109,23 +109,35 @@ pub enum Rejection {
     #[error("no committee known for epoch {0}")]
     CommitteeUnknown(u64),
     /// At a switch height, the anchored checkpoint does not yet cover the height that derived
-    /// the next committee (D19).
+    /// the next committee (D19): wait for it to land.
     #[error("lastCheckpoint.height {last_checkpoint_height} is below {required} (D19)")]
-    RecordNotLanded {
+    CheckpointNotLanded {
         /// The anchored `lastCheckpoint.height`.
         last_checkpoint_height: u64,
         /// `h_first(t - 1)`, the height that derived committee `t`.
         required: u64,
     },
-    /// At a switch height, the anchored `committee[t]` is not the derived record's hash (D19).
-    #[error("committee[{epoch}] on L1 is {proven:?}, expected the derived record hash {expected}")]
-    RecordMismatch {
+    /// At the switch height to epoch `t`, the anchored `committee[t]` is still zero (D19): wait
+    /// for the record to land.
+    #[error("committee[{epoch}] has not landed on L1 yet (D19)")]
+    RecordNotLanded {
+        /// The switching-to epoch `t`.
+        epoch: u64,
+    },
+    /// At the switch height to epoch `t`, the anchored `committee[t]` is a non-zero hash other
+    /// than the derived record's: L1 and the chain hold two different records for one epoch
+    /// (spec §8.2). Still refused like any proposal, but logged at ERROR, as an operator must
+    /// investigate.
+    #[error(
+        "committee[{epoch}] on L1 is {proven}, but the chain derived the record hash {expected}"
+    )]
+    RecordConflict {
         /// The switching-to epoch `t`.
         epoch: u64,
         /// `record_hash` of the derived committee `t`.
         expected: B256,
-        /// What the anchor witness proves for the committee mapping.
-        proven: Option<(u64, B256)>,
+        /// The non-zero `committee[t]` the anchor witness proves.
+        proven: B256,
     },
     /// ¹ The anchor L1 header is not final and canonical in the own L1 view.
     #[error("anchor L1 block {number} is not final and canonical in the own L1 view")]
@@ -181,8 +193,9 @@ impl Rejection {
             Self::UnexpectedWitness(WitnessKind::Committee) => "unexpected_committee_witness",
             Self::NotActive(_) => "inbox_not_active",
             Self::CommitteeUnknown(_) => "committee_unknown",
+            Self::CheckpointNotLanded { .. } => "checkpoint_not_landed",
             Self::RecordNotLanded { .. } => "record_not_landed",
-            Self::RecordMismatch { .. } => "record_mismatch",
+            Self::RecordConflict { .. } => "record_conflict",
             Self::AnchorNotFinal { .. } => "anchor_not_final",
             Self::L1(_) => "l1_error",
             Self::Engine(_) => "engine_error",
@@ -193,6 +206,14 @@ impl Rejection {
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
         }
+    }
+
+    /// Whether the refusal is logged at ERROR rather than WARN: a local build fault
+    /// ([`Rejection::Oversize`], [`Rejection::BuiltHeader`]) or a record conflict on L1
+    /// ([`Rejection::RecordConflict`]), which an operator must look at; every other refusal is
+    /// an expected liveness wait or a bad proposal.
+    pub fn logs_at_error(&self) -> bool {
+        matches!(self, Self::Oversize { .. } | Self::BuiltHeader(_) | Self::RecordConflict { .. })
     }
 }
 
@@ -416,8 +437,10 @@ fn candidate_committee(
 }
 
 /// Step (h), D19: at the switch height to epoch `t`, the app holds committees `t − 1` and `t`,
-/// the anchored checkpoint covers `h_first(t − 1)` (the height that derived `t`), and the
-/// anchored `committee[t]` is the derived record's hash.
+/// the anchored checkpoint covers `h_first(t − 1)` (the height that derived `t`,
+/// [`Rejection::CheckpointNotLanded`] otherwise), and the anchored `committee[t]` is the derived
+/// record's hash: zero is [`Rejection::RecordNotLanded`], another hash
+/// [`Rejection::RecordConflict`].
 fn check_switch(
     state: &AppState,
     params: &ChainParams,
@@ -434,15 +457,20 @@ fn check_switch(
     let required = schedule.h_first(prev);
     let last_checkpoint_height = anchor.inbox.last_checkpoint_height;
     if last_checkpoint_height < required {
-        return Err(Rejection::RecordNotLanded { last_checkpoint_height, required });
+        return Err(Rejection::CheckpointNotLanded { last_checkpoint_height, required });
     }
     let expected = record_hash(params.l2_chain_id, &next.record);
-    if anchor.inbox.committee != Some((t, expected)) {
-        return Err(Rejection::RecordMismatch {
-            epoch: t,
-            expected,
-            proven: anchor.inbox.committee,
-        });
+    // A switch height always carries an anchor witness proving `committee[t]`; anything else
+    // proves no record for `t`, i.e. a zero one.
+    let proven = match anchor.inbox.committee {
+        Some((epoch, hash)) if epoch == t => hash,
+        _ => B256::ZERO,
+    };
+    if proven.is_zero() {
+        return Err(Rejection::RecordNotLanded { epoch: t });
+    }
+    if proven != expected {
+        return Err(Rejection::RecordConflict { epoch: t, expected, proven });
     }
     Ok(())
 }
