@@ -43,7 +43,7 @@ pub(crate) fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
         prev_randao: B256::ZERO,
         suggested_fee_recipient: Address::ZERO,
         withdrawals: Some(Vec::new()),
-        parent_beacon_block_root: None,
+        parent_beacon_block_root: Some(B256::ZERO),
         slot_number: None,
         target_gas_limit: None,
     };

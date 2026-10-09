@@ -47,7 +47,9 @@ Driver beacon sync path submits checkpoint payloads and runs forkchoice updates 
 Behavior anchors:
 
 - `crates/driver/src/sync/beacon.rs`
-  - Beacon sync submits remote payloads and forkchoice updates to catch up block bodies.
+  - Beacon sync submits the checkpoint head with `engine_newPayloadV4` (its header difficulty and
+    `parentBeaconBlockRoot`: zero before Etna, the header's nonzero root for an Etna head) and
+    then a null-attribute `engine_forkchoiceUpdatedV3` to catch up block bodies.
 - `alethia-reth/crates/rpc/src/engine/api.rs`
   - Custom L1-origin persistence is tied to the payload-attributes path.
   - Without payload attributes, table persistence path is not executed.
@@ -63,6 +65,21 @@ When beacon sync is triggered by the driver, the node can sync event-confirmed b
 - Event-confirmed block presence does not imply batch-mapping row presence.
 
 This is expected recoverable state, not automatic corruption.
+
+## Open Gap: Batch Lookup Across Etna Blocks
+
+When the batch-mapping row is missing, `last_block_id_by_batch_id` falls back to scanning blocks
+backward from the head (`alethia-reth/crates/rpc/src/eth/auth/lookup.rs`). The scan stops at a
+block without transactions or whose tx 0 calldata does not start with the `anchorV4` selector (it
+does not check the sender or recipient). Etna blocks have no anchor transaction and may be empty,
+so the scan usually stops at the first Etna block it meets and reports the batch as not found.
+This is still open in alethia-reth #248. Keying the scan on the `proposalId` in bytes 1..7 of
+`extraData`, which both the 7-byte and the 13-byte layouts carry, would fix it without the anchor.
+
+Until it is fixed, a node that beacon-syncs onto Etna history has no batch-mapping rows for those
+blocks, and derivation's parent lookup (`load_parent_block` in
+`crates/driver/src/derivation/pipeline/shasta/pipeline/mod.rs`) fails closed: event sync keeps
+retrying and the node stalls instead of deriving from a wrong parent.
 
 ## Recovery / Reconciliation Signals
 

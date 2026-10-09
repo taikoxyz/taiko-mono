@@ -11,6 +11,7 @@ use alloy::transports::http::reqwest::Url as RpcUrl;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::RootProvider;
 use anyhow::{Context, Result, ensure};
+use protocol::shasta::set_devnet_etna_override;
 use rpc::{
     SubscriptionSource,
     client::{Client, ClientConfig, connect_provider_with_timeout},
@@ -43,6 +44,18 @@ impl ShastaEnv {
         Ok(SubscriptionSource::Ws(l1_ws_url))
     }
 
+    /// Reads the devnet Etna activation time the harness started the nodes with; unset means
+    /// Etna never activates, as in alethia-reth. This harness also treats an empty value as
+    /// unset, which alethia-reth itself rejects.
+    fn load_devnet_etna_timestamp() -> Result<Option<u64>> {
+        match env::var("DEVNET_ETNA_TIMESTAMP") {
+            Ok(value) if !value.is_empty() => {
+                Ok(Some(value.parse().context("invalid DEVNET_ETNA_TIMESTAMP")?))
+            }
+            _ => Ok(None),
+        }
+    }
+
     fn load_l2_secondary_endpoints() -> Result<(RpcUrl, RpcUrl)> {
         let l2_ws_1 = env::var("L2_WS_1").context("L2_WS_1 env var is required")?;
         let l2_auth_1 = env::var("L2_AUTH_1").context("L2_AUTH_1 env var is required")?;
@@ -60,6 +73,13 @@ impl ShastaEnv {
 
         // Initialize tracing for the test harness.
         init_tracing("info");
+
+        // The Etna boundary job runs the nodes with a devnet Etna activation; the in-process
+        // client must use the same schedule. nextest runs each test in its own process, so the
+        // process-global override is set once per test.
+        if let Some(timestamp) = Self::load_devnet_etna_timestamp()? {
+            set_devnet_etna_override(timestamp);
+        }
 
         // Read all required endpoints, secrets, and addresses from the harness environment.
         let l1_source = Self::load_l1_source()?;
@@ -300,6 +320,33 @@ mod tests {
         let result = ShastaEnv::load_l1_source();
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn devnet_etna_timestamp_is_none_when_unset_or_empty() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let unset = EnvGuard::unset("DEVNET_ETNA_TIMESTAMP");
+        assert_eq!(ShastaEnv::load_devnet_etna_timestamp().unwrap(), None);
+        drop(unset);
+
+        let _empty = EnvGuard::set("DEVNET_ETNA_TIMESTAMP", "");
+        assert_eq!(ShastaEnv::load_devnet_etna_timestamp().unwrap(), None);
+    }
+
+    #[test]
+    fn devnet_etna_timestamp_parses_the_harness_value() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _etna = EnvGuard::set("DEVNET_ETNA_TIMESTAMP", "1700003600");
+
+        assert_eq!(ShastaEnv::load_devnet_etna_timestamp().unwrap(), Some(1_700_003_600));
+    }
+
+    #[test]
+    fn devnet_etna_timestamp_rejects_garbage() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _etna = EnvGuard::set("DEVNET_ETNA_TIMESTAMP", "soon");
+
+        assert!(ShastaEnv::load_devnet_etna_timestamp().is_err());
     }
 
     #[test]

@@ -15,7 +15,7 @@ mod helper;
 pub mod shasta;
 
 pub use beacon_stub::BeaconStubServer;
-pub use helper::mine_l1_block;
+pub use helper::{advance_l1_time, mine_l1_block, mine_l1_blocks};
 pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};
 
 /// Initialise tracing for tests using a single global subscriber.

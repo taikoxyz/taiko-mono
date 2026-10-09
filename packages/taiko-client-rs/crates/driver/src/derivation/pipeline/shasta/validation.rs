@@ -1,9 +1,9 @@
-use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
         BLOCK_GAS_LIMIT_MAX_CHANGE, GAS_LIMIT_DENOMINATOR, MAX_BLOCK_GAS_LIMIT,
-        MIN_BLOCK_GAS_LIMIT, max_anchor_offset_for_chain, timestamp_max_offset_for_chain,
+        MIN_BLOCK_GAS_LIMIT, max_anchor_offset_for_chain, parent_manifest_gas_limit,
+        timestamp_max_offset_for_chain,
     },
     manifest::DerivationSourceManifest,
 };
@@ -14,7 +14,8 @@ use thiserror::Error;
 pub struct ValidationContext {
     /// Timestamp of the parent L2 block.
     pub parent_timestamp: u64,
-    /// Gas limit of the parent L2 block (includes the anchor transaction gas when non-genesis).
+    /// Gas limit of the parent L2 block (includes the anchor reserve when the parent is a
+    /// non-genesis pre-Etna block).
     pub parent_gas_limit: u64,
     /// Number of the parent L2 block.
     pub parent_block_number: u64,
@@ -30,6 +31,8 @@ pub struct ValidationContext {
     pub fork_timestamp: u64,
     /// L2 chain ID used for chain-aware validation bounds.
     pub chain_id: u64,
+    /// Whether the parent block is an Etna block, whose gas limit carries no anchor reserve.
+    pub parent_is_etna: bool,
 }
 
 /// Parameters required to populate inherited metadata for forced/default manifests.
@@ -51,6 +54,8 @@ pub struct InheritedMetadataInput {
     pub parent_gas_limit: u64,
     /// L2 chain ID used for chain-aware inherited timestamp bounds.
     pub chain_id: u64,
+    /// Whether the parent block is an Etna block, whose gas limit carries no anchor reserve.
+    pub parent_is_etna: bool,
 }
 
 /// Errors that can occur during manifest validation.
@@ -85,8 +90,12 @@ pub fn validate_source_manifest(
         ctx.parent_anchor_block_number,
         ctx.is_forced_inclusion,
         ctx.chain_id,
-    ) || !validate_gas_limit(manifest, ctx.parent_block_number, ctx.parent_gas_limit)
-    {
+    ) || !validate_gas_limit(
+        manifest,
+        ctx.parent_block_number,
+        ctx.parent_gas_limit,
+        ctx.parent_is_etna,
+    ) {
         return Err(ValidationError::DefaultManifest);
     }
 
@@ -190,9 +199,10 @@ fn validate_gas_limit(
     manifest: &DerivationSourceManifest,
     parent_block_number: u64,
     parent_gas_limit: u64,
+    parent_is_etna: bool,
 ) -> bool {
     let mut effective_parent_gas_limit =
-        effective_parent_gas_limit(parent_block_number, parent_gas_limit);
+        parent_manifest_gas_limit(parent_block_number, parent_gas_limit, parent_is_etna);
 
     for block in &manifest.blocks {
         let (lower_bound, upper_bound) = gas_limit_bounds(effective_parent_gas_limit);
@@ -219,15 +229,6 @@ fn gas_limit_bounds(parent_gas_limit: u64) -> (u64, u64) {
     (lower, upper)
 }
 
-/// Compute the parent gas limit after discounting anchor gas for non-genesis parents.
-fn effective_parent_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -> u64 {
-    if parent_block_number == 0 {
-        parent_gas_limit
-    } else {
-        parent_gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
-    }
-}
-
 /// Populate each block with inherited metadata (timestamp, anchor, gas limit, coinbase)
 /// using the parent block’s values so forced-inclusion segments and default manifests have
 /// consistent metadata prior to validation.
@@ -236,8 +237,11 @@ pub fn apply_inherited_metadata(
     input: InheritedMetadataInput,
 ) {
     let mut parent_ts = input.parent_timestamp;
-    let parent_gas_limit =
-        effective_parent_gas_limit(input.parent_block_number, input.parent_gas_limit);
+    let parent_gas_limit = parent_manifest_gas_limit(
+        input.parent_block_number,
+        input.parent_gas_limit,
+        input.parent_is_etna,
+    );
 
     for block in &mut manifest.blocks {
         let lower_bound = compute_timestamp_lower_bound(
@@ -256,6 +260,7 @@ pub fn apply_inherited_metadata(
 
 #[cfg(test)]
 mod tests {
+    use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
     use alloy_primitives::Address;
     use protocol::shasta::{
         constants::{MAX_ANCHOR_OFFSET, TAIKO_HOODI_CHAIN_ID},
@@ -335,6 +340,7 @@ mod tests {
                 parent_block_number: 2,
                 parent_gas_limit: 30_000_000,
                 chain_id: TAIKO_HOODI_CHAIN_ID,
+                parent_is_etna: false,
             },
         );
         assert!(validate_anchor_numbers(
@@ -357,6 +363,7 @@ mod tests {
                 parent_block_number: 2,
                 parent_gas_limit: 30_000_000,
                 chain_id: TAIKO_HOODI_CHAIN_ID,
+                parent_is_etna: false,
             },
         );
         assert!(validate_anchor_numbers(&manifest, 100, 60, true, TAIKO_HOODI_CHAIN_ID));
@@ -373,7 +380,7 @@ mod tests {
             anchor_block_number: 0,
             transactions: Vec::new(),
         }]);
-        assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
+        assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit, false));
 
         let manifest = manifest_with_blocks(vec![BlockManifest {
             gas_limit: 0,
@@ -382,7 +389,7 @@ mod tests {
             anchor_block_number: 0,
             transactions: Vec::new(),
         }]);
-        assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
+        assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit, false));
 
         let manifest = manifest_with_blocks(vec![BlockManifest {
             gas_limit: parent_gas_limit - ANCHOR_V3_V4_GAS_LIMIT,
@@ -391,7 +398,91 @@ mod tests {
             anchor_block_number: 0,
             transactions: Vec::new(),
         }]);
-        assert!(validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
+        assert!(validate_gas_limit(&manifest, parent_block_number, parent_gas_limit, false));
+    }
+
+    /// A child's manifest gas limit is measured against its parent's manifest gas limit: the
+    /// parent's header gas limit minus the parent's anchor gas reserve, which only a non-genesis
+    /// pre-Etna parent carries. So a 30M child fits a 30M Etna parent and a 30M genesis parent,
+    /// but not a 30M non-genesis pre-Etna parent, whose manifest limit is 29M.
+    #[test]
+    fn validate_gas_limit_measures_against_the_parent_manifest_limit() {
+        let child = |gas_limit| {
+            manifest_with_blocks(vec![BlockManifest {
+                gas_limit,
+                timestamp: 0,
+                coinbase: Address::ZERO,
+                anchor_block_number: 0,
+                transactions: Vec::new(),
+            }])
+        };
+        let full = child(30_000_000);
+        let reserved = child(30_000_000 - ANCHOR_V3_V4_GAS_LIMIT);
+
+        // Etna parent: its header limit is its manifest limit.
+        assert!(validate_gas_limit(&full, 6, 30_000_000, true));
+        assert!(!validate_gas_limit(&reserved, 6, 30_000_000, true));
+        // Pre-Etna non-genesis parent: the 1M anchor reserve is subtracted.
+        assert!(!validate_gas_limit(&full, 6, 30_000_000, false));
+        assert!(validate_gas_limit(&reserved, 6, 30_000_000, false));
+        // Genesis parent: never subtracted, whatever the fork.
+        assert!(validate_gas_limit(&full, 0, 30_000_000, false));
+        assert!(validate_gas_limit(&full, 0, 30_000_000, true));
+    }
+
+    #[test]
+    fn validate_source_manifest_keeps_the_full_limit_of_an_etna_parent() {
+        let ctx = |parent_is_etna| ValidationContext {
+            parent_timestamp: 1_000,
+            parent_gas_limit: 30_000_000,
+            parent_block_number: 6,
+            parent_anchor_block_number: 50,
+            proposal_timestamp: 1_010,
+            origin_block_number: 100,
+            is_forced_inclusion: false,
+            fork_timestamp: 0,
+            chain_id: TAIKO_HOODI_CHAIN_ID,
+            parent_is_etna,
+        };
+        let manifest = manifest_with_blocks(vec![BlockManifest {
+            timestamp: 1_005,
+            coinbase: Address::ZERO,
+            anchor_block_number: 60,
+            gas_limit: 30_000_000,
+            transactions: Vec::new(),
+        }]);
+
+        assert_eq!(validate_source_manifest(&manifest, &ctx(true)), Ok(()));
+        assert_eq!(
+            validate_source_manifest(&manifest, &ctx(false)),
+            Err(ValidationError::DefaultManifest)
+        );
+    }
+
+    #[test]
+    fn apply_inherited_metadata_inherits_the_parent_manifest_limit() {
+        let inherited_gas_limit = |parent_block_number, parent_is_etna| {
+            let mut manifest = manifest_with_blocks(vec![BlockManifest::default()]);
+            apply_inherited_metadata(
+                &mut manifest,
+                InheritedMetadataInput {
+                    parent_timestamp: 1_000,
+                    proposal_timestamp: 1_010,
+                    fork_timestamp: 0,
+                    proposer: Address::repeat_byte(0x11),
+                    anchor_block_number: 60,
+                    parent_block_number,
+                    parent_gas_limit: 30_000_000,
+                    chain_id: TAIKO_HOODI_CHAIN_ID,
+                    parent_is_etna,
+                },
+            );
+            manifest.blocks[0].gas_limit
+        };
+
+        assert_eq!(inherited_gas_limit(6, true), 30_000_000);
+        assert_eq!(inherited_gas_limit(6, false), 30_000_000 - ANCHOR_V3_V4_GAS_LIMIT);
+        assert_eq!(inherited_gas_limit(0, false), 30_000_000);
     }
 
     #[test]
@@ -406,6 +497,7 @@ mod tests {
             is_forced_inclusion: false,
             fork_timestamp: 0,
             chain_id: TAIKO_HOODI_CHAIN_ID,
+            parent_is_etna: false,
         };
 
         let manifest = manifest_with_blocks(Vec::new());
@@ -439,6 +531,7 @@ mod tests {
                 parent_block_number: 10,
                 parent_gas_limit: 30_000_000,
                 chain_id: TAIKO_HOODI_CHAIN_ID,
+                parent_is_etna: false,
             },
         );
 
@@ -467,6 +560,7 @@ mod tests {
                 parent_block_number: 10,
                 parent_gas_limit: 30_000_000,
                 chain_id: TAIKO_HOODI_CHAIN_ID,
+                parent_is_etna: false,
             },
         );
 

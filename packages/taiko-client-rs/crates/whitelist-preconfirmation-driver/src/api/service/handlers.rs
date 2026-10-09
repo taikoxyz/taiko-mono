@@ -48,6 +48,7 @@ fn log_build_preconf_block_entry(
         base_fee_per_gas = data.base_fee_per_gas,
         extra_data = %alloy_primitives::hex::encode(&data.extra_data),
         parent_hash = %data.parent_hash,
+        parent_beacon_block_root = ?data.parent_beacon_block_root,
         end_of_sequencing = end_of_sequencing.unwrap_or(false),
         is_forced_inclusion = is_forced_inclusion.unwrap_or(false),
         "🏗️ New preconfirmation block building request"
@@ -102,8 +103,12 @@ impl WhitelistApi for WhitelistApiService {
 
         // Insert the preconfirmation payload locally first to
         // obtain the canonical block hash before gossiping.
-        let driver_payload =
-            self.driver_payload_from_request(&data, is_forced_inclusion, prev_randao, [0u8; 65])?;
+        let driver_payload = payload_build::driver_payload_from_request(
+            &data,
+            is_forced_inclusion,
+            prev_randao,
+            [0u8; 65],
+        )?;
         let submission_outcome = self
             .event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload, data.parent_hash))
@@ -146,8 +151,6 @@ impl WhitelistApi for WhitelistApiService {
         let block_hash = inserted_block.header.hash;
         let block_number = inserted_block.header.number;
         let block_header = inserted_block.header.clone();
-        let base_fee_per_gas =
-            inserted_block.header.base_fee_per_gas.unwrap_or(data.base_fee_per_gas);
         let block_hash_signature =
             self.sign_digest(block_signing_hash(self.chain_id, block_hash.as_slice()))?;
 
@@ -161,21 +164,13 @@ impl WhitelistApi for WhitelistApiService {
             .await?;
         self.state.record_inserted_block(block_number);
 
-        let execution_payload = crate::payload::execution_payload_from_header(
+        let envelope = payload_build::published_envelope(
+            &data,
             &inserted_block.header,
-            base_fee_per_gas,
-            vec![data.transactions.clone()],
-        );
-
-        let envelope = WhitelistExecutionPayloadEnvelope {
             end_of_sequencing,
             is_forced_inclusion,
-            parent_beacon_block_root: None,
-            header_difficulty: (!inserted_block.header.difficulty.is_zero())
-                .then_some(inserted_block.header.difficulty),
-            execution_payload,
-            signature: Some(block_hash_signature),
-        };
+            block_hash_signature,
+        );
 
         // Wire signature for preconfBlocks topic is over full SSZ envelope bytes.
         let ssz_bytes = encode_envelope_ssz(&envelope);

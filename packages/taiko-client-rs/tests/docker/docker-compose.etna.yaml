@@ -1,0 +1,23 @@
+# Overlay for the Etna boundary job (`ETNA_BOUNDARY=true tests/entrypoint.sh`): pins the L1
+# genesis timestamp and runs both alethia-reth nodes with the devnet Etna activation, so the test
+# crosses Unzen -> Etna by moving L1 time. Compose replaces list-valued keys, so anvil's
+# entrypoint is restated in full; the L2 nodes take the activation through alethia-reth's
+# environment variable for `--devnet-etna-timestamp` and keep their shared entrypoint.
+services:
+  l1_node:
+    entrypoint:
+      - anvil
+      - --host
+      - "0.0.0.0"
+      - --gas-limit
+      - "200000000"
+      - --timestamp
+      - "${L1_START_TIMESTAMP:?L1_START_TIMESTAMP is required}"
+
+  l2_node_0:
+    environment:
+      ALETHIA_RETH_DEVNET_ETNA_TIMESTAMP: "${DEVNET_ETNA_TIMESTAMP:?DEVNET_ETNA_TIMESTAMP is required}"
+
+  l2_node_1:
+    environment:
+      ALETHIA_RETH_DEVNET_ETNA_TIMESTAMP: "${DEVNET_ETNA_TIMESTAMP:?DEVNET_ETNA_TIMESTAMP is required}"

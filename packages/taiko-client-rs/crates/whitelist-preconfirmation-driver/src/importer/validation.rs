@@ -1,11 +1,12 @@
 //! Payload-level validation for preconfirmation import compatibility.
 
+use alethia_reth_primitives::ETNA_EXTRA_DATA_LEN;
 use alloy_consensus::TxEnvelope;
 use alloy_eips::Decodable2718;
-use alloy_primitives::Address;
+use alloy_primitives::{Address, B256};
 use protocol::{
     codec::ZlibTxListCodec,
-    shasta::{unzen_active_for_chain_timestamp, validate_anchor_transaction},
+    shasta::{is_etna_at, unzen_active_for_chain_timestamp, validate_anchor_transaction},
 };
 
 use crate::{
@@ -17,8 +18,22 @@ use crate::{
 };
 
 /// Validate execution payload shape for preconfirmation import compatibility.
+///
+/// Shared by REST builds and P2P imports. The fork is decided by the payload's own timestamp
+/// against `etna_fork_timestamp`, the chain's already-resolved Etna activation time (`None`
+/// while Etna is not scheduled):
+///
+/// | Rule                       | Pre-Etna                              | Etna                      |
+/// | -------------------------- | ------------------------------------- | ------------------------- |
+/// | `parent_beacon_block_root` | absent or zero                        | present and nonzero       |
+/// | `extra_data`               | non-empty                             | exactly 13 bytes          |
+/// | transaction list           | non-empty, tx[0] is the anchor tx     | may be empty, tx[0] free  |
+///
+/// The gas limit only has to be nonzero in both forks and is passed through unchanged.
 pub(crate) fn validate_execution_payload_for_preconf(
     payload: &alloy_rpc_types_engine::ExecutionPayloadV1,
+    parent_beacon_block_root: Option<B256>,
+    etna_fork_timestamp: Option<u64>,
     chain_id: u64,
     anchor_address: Address,
 ) -> Result<()> {
@@ -44,7 +59,17 @@ pub(crate) fn validate_execution_payload_for_preconf(
         ));
     }
 
-    if payload.extra_data.is_empty() {
+    let is_etna = is_etna_at(etna_fork_timestamp, payload.timestamp);
+    validate_fork_beacon_root(is_etna, payload.timestamp, parent_beacon_block_root)?;
+
+    if is_etna {
+        if payload.extra_data.len() != ETNA_EXTRA_DATA_LEN {
+            return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+                "Etna extra data must be exactly {ETNA_EXTRA_DATA_LEN} bytes, got {}",
+                payload.extra_data.len()
+            )));
+        }
+    } else if payload.extra_data.is_empty() {
         return Err(WhitelistPreconfirmationDriverError::invalid_payload("empty extra data"));
     }
 
@@ -66,6 +91,12 @@ pub(crate) fn validate_execution_payload_for_preconf(
             err,
         )
     })?;
+
+    // An Etna block has no anchor transaction: its list may be empty and its first transaction
+    // is an ordinary one.
+    if is_etna {
+        return Ok(());
+    }
 
     if txs.is_empty() {
         return Err(WhitelistPreconfirmationDriverError::invalid_payload(
@@ -91,6 +122,28 @@ pub(crate) fn validate_execution_payload_for_preconf(
     Ok(())
 }
 
+/// Enforce the fork's `parentBeaconBlockRoot` rule on a preconfirmation payload.
+///
+/// An Etna payload must carry a nonzero root (the L1 state root of its anchor block); a pre-Etna
+/// payload must carry none or a zero one. A missing root counts as zero.
+fn validate_fork_beacon_root(
+    is_etna: bool,
+    timestamp: u64,
+    parent_beacon_block_root: Option<B256>,
+) -> Result<()> {
+    let root = parent_beacon_block_root.unwrap_or_default();
+    match (is_etna, root.is_zero()) {
+        (true, true) => Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "Etna payload at timestamp {timestamp} requires a nonzero parent beacon block root",
+        ))),
+        (false, false) => Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "pre-Etna payload at timestamp {timestamp} carries nonzero parent beacon block root \
+             {root}",
+        ))),
+        _ => Ok(()),
+    }
+}
+
 /// Ensure unsafe payload envelopes carry an embedded signature for response-topic compatibility.
 pub(super) fn normalize_unsafe_payload_envelope(
     mut envelope: WhitelistExecutionPayloadEnvelope,
@@ -102,16 +155,46 @@ pub(super) fn normalize_unsafe_payload_envelope(
     envelope
 }
 
-/// Reject envelopes whose `header_difficulty` presence contradicts the Unzen
-/// status at the payload timestamp.
+/// Run every payload-level check an inbound P2P envelope must pass before it is cached: the
+/// shared fork-aware payload validation with the envelope's root (a zero root slot decodes to
+/// `None`, which counts as zero), then the header-difficulty rule.
+pub(super) fn validate_envelope_for_import(
+    envelope: &WhitelistExecutionPayloadEnvelope,
+    chain_id: u64,
+    anchor_address: Address,
+    etna_fork_timestamp: Option<u64>,
+) -> Result<()> {
+    validate_execution_payload_for_preconf(
+        &envelope.execution_payload,
+        envelope.parent_beacon_block_root,
+        etna_fork_timestamp,
+        chain_id,
+        anchor_address,
+    )?;
+    validate_envelope_header_difficulty(
+        chain_id,
+        etna_fork_timestamp,
+        envelope.execution_payload.timestamp,
+        envelope.header_difficulty,
+    )
+}
+
+/// Reject envelopes whose `header_difficulty` presence contradicts the fork at the payload
+/// timestamp.
 ///
+/// - Etna                                         → any (an empty Etna block has difficulty 0)
 /// - Unzen active + `None` or zero                → error
 /// - Unzen inactive + `Some(non_zero)`            → error
 pub(crate) fn validate_envelope_header_difficulty(
     chain_id: u64,
+    etna_fork_timestamp: Option<u64>,
     timestamp: u64,
     header_difficulty: Option<alloy_primitives::U256>,
 ) -> Result<()> {
+    if is_etna_at(etna_fork_timestamp, timestamp) {
+        return Ok(());
+    }
+
     let unzen = unzen_active_for_chain_timestamp(chain_id, timestamp).map_err(|err| {
         WhitelistPreconfirmationDriverError::invalid_payload_with_context(
             &format!("unzen fork lookup failed for chain {chain_id} at timestamp {timestamp}"),

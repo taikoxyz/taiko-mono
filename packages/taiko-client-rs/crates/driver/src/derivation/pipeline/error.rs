@@ -8,7 +8,7 @@ use rpc::RpcClientError;
 use thiserror::Error;
 
 use crate::{derivation::manifest::ManifestFetcherError, sync::error::EngineSubmissionError};
-use protocol::shasta::AnchorTxConstructorError;
+use protocol::shasta::{AnchorTxConstructorError, ProtocolError};
 
 /// Errors emitted by derivation stages.
 #[derive(Debug, Error)]
@@ -83,6 +83,24 @@ pub enum DerivationError {
     MissingParentBaseFee {
         /// Parent block number whose header was missing `base_fee_per_gas`.
         parent_block_number: u64,
+    },
+    /// An Etna block's 13-byte `extraData` could not be decoded or encoded.
+    #[error("invalid Etna extraData")]
+    EtnaExtraData(#[source] ProtocolError),
+    /// An Etna block would reuse its Etna parent's anchor root (same anchor block number), but
+    /// the parent header carries no nonzero `parentBeaconBlockRoot`.
+    #[error(
+        "Etna parent block {parent_block_number} has no nonzero parentBeaconBlockRoot to reuse"
+    )]
+    MissingEtnaParentRoot {
+        /// Number of the parent block whose root is missing or zero.
+        parent_block_number: u64,
+    },
+    /// The L1 anchor block an Etna block commits to has a zero state root.
+    #[error("L1 anchor block {block_number} has a zero state root")]
+    ZeroAnchorStateRoot {
+        /// L1 anchor block number whose state root is zero.
+        block_number: u64,
     },
     /// Generic error bucket.
     #[error(transparent)]
