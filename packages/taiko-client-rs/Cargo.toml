@@ -89,6 +89,9 @@ serde_json = "1"
 toml = "0.9"
 
 # testing
+base64 = "0.22"
+ed25519-dalek = "2"
+sha2 = "0.10"
 tempfile = "3"
 
 [profile.dev]
