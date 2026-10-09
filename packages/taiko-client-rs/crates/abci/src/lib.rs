@@ -7,9 +7,12 @@
 //! inside the block as an L1 header plus EIP-1186 proofs, so replay never calls L1.
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::layout`, `l1::mpt`, `l1::witness`,
-//! `committee`, `rules` and `engine::convert` modules perform no I/O; `l1::source`, `engine` and
-//! `elsync` hold the L1 and execution-engine adapters.
+//! `committee`, `rules`, `engine::convert` and `genesis` modules perform no I/O; `l1::source`,
+//! `engine` and `elsync` hold the L1 and execution-engine adapters, and `app` answers CometBFT's
+//! ABCI requests on top of them.
 
+/// The ABCI++ application: request dispatch and the per-method handlers (spec §5).
+pub mod app;
 /// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
 pub mod committee;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
@@ -20,6 +23,8 @@ pub mod elsync;
 pub mod engine;
 /// The CometBFT block envelope codec (`0x01 || rlp([block, anchor, committee])`).
 pub mod envelope;
+/// The CometBFT genesis `app_state` (the genesis witness) and its codec.
+pub mod genesis;
 /// L1 storage layout, EIP-1186 proof verification, Inbox witness decoding and the L1 source.
 pub mod l1;
 /// Header derivation and block-validity predicates (spec §4.2, §5.4).
@@ -34,6 +39,7 @@ pub mod types;
 #[cfg(test)]
 pub(crate) mod test_utils;
 
+pub use app::{AbciError, App, AppOptions, Status};
 pub use committee::{CommitteeError, Snapshot};
 pub use config::{ChainParams, ConfigError};
 pub use elsync::{ElSyncError, ensure_block};
@@ -44,6 +50,7 @@ pub use envelope::{
     AnchorWitness, CommitteeWitness, ENVELOPE_VERSION, EnvelopeError, EtnaEnvelope, ExecutionBlock,
     single_envelope,
 };
+pub use genesis::{AppStateJson, GenesisError, GenesisWitness, decode_app_state, encode_app_state};
 pub use l1::{L1Error, L1Source, RpcL1Source, is_final_canonical};
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
 pub use schedule::{Schedule, ScheduleError};

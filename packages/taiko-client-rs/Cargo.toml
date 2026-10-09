@@ -66,6 +66,9 @@ alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", pa
     "serde",
 ] }
 
+# consensus
+tendermint = "0.40"
+
 # networking
 axum = "0.7"
 

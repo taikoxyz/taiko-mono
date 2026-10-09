@@ -21,10 +21,16 @@ alloy-rlp = { workspace = true, features = ["std", "derive"] }
 alloy-rpc-types-engine = { workspace = true, features = ["std", "serde"] }
 alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 
+# consensus
+tendermint = { workspace = true }
+
 # taiko
 alethia-reth-primitives = { workspace = true }
 protocol = { path = "../protocol", default-features = false }
 rpc = { path = "../rpc" }
+
+# observability
+tracing = { workspace = true }
 
 # types
 thiserror = { workspace = true }

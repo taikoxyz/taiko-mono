@@ -6,11 +6,12 @@
 //!
 //! [`InboxStorage`] packs Inbox facts into storage words exactly as spec §6.2 lays them out, and
 //! [`anchor_witness`] / [`genesis_inbox_witness`] turn it into witnesses with real proofs.
-//! [`RegistryStorage`] does the same for the staking registry's checkpoints, and
-//! [`committee_witness`] proves one checkpoint of it.
+//! [`RegistryStorage`] does the same for the staking registry's checkpoints (and the last
+//! checkpoint's entries), and [`committee_witness`] proves one checkpoint of it.
 //!
 //! [`MockL1`] and [`MockEngine`] are in-memory [`L1Source`](crate::l1::source::L1Source) and
 //! [`Engine`](crate::engine::Engine) implementations with scripted answers and call logs.
+//! [`Fixture`] combines all of them into a complete genesis for app tests.
 
 use std::collections::BTreeMap;
 
@@ -29,9 +30,12 @@ use crate::{
     types::{AccountWitness, ActivationRecord, CommitteeRecord, RegistryEntry, StorageProof},
 };
 
+/// A complete, consistent genesis (L1 state, witness, EL chain, `InitChain` request).
+mod fixture;
 /// In-memory L1 and execution-engine mocks.
 mod mocks;
 
+pub(crate) use fixture::{Fixture, GenesisSpec, validator_updates};
 pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1};
 
 /// One account of a [`TestState`]: `(address, nonce, balance, code_hash, storage)`, where
@@ -333,8 +337,16 @@ pub(crate) struct RegistryStorage {
 
 impl RegistryStorage {
     /// The `(slot, word)` pairs of this storage: `checkpoints.length` at `R`, then per
-    /// checkpoint the packed `l1Block | count << 64` word and `entriesRoot`. Zero words are
+    /// checkpoint the packed `l1Block | count << 64` word and `entriesRoot`, then the `entries`
+    /// array (amendment A1) holding the LAST checkpoint's entries: `entries.length` at `R + 1`
+    /// and per entry its `pubkey`, `effStake` and packed
+    /// `activeFromL1 | exitEffectiveL1 << 64 | lastHeartbeatAt << 128` words. Zero words are
     /// included (the trie drops them, so they read back through exclusion proofs).
+    ///
+    /// A state built from this storage is the registry as of the last checkpoint's L1 block, so
+    /// a proposer reading entries there sees the last checkpoint's snapshot. Tests that need an
+    /// earlier checkpoint's entries in storage must build one state per L1 block (a storage
+    /// holding only the checkpoints up to that one).
     pub(crate) fn slots(&self) -> Vec<(B256, U256)> {
         let mut slots = vec![(registry::length_slot(), U256::from(self.checkpoints.len()))];
         for (i, (l1_block, entries)) in self.checkpoints.iter().enumerate() {
@@ -342,6 +354,19 @@ impl RegistryStorage {
             let count = u32::try_from(entries.len()).expect("checkpoint count fits uint32");
             slots.push((head, U256::from(*l1_block) | (U256::from(count) << 64)));
             slots.push((root, entries_root(entries).into()));
+        }
+        let entries = self.checkpoints.last().map(|(_, entries)| entries.as_slice()).unwrap_or(&[]);
+        slots.push((registry::entries_length_slot(), U256::from(entries.len())));
+        for (j, entry) in entries.iter().enumerate() {
+            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
+            slots.push((pubkey, entry.pubkey.into()));
+            slots.push((stake, entry.eff_stake));
+            slots.push((
+                packed,
+                U256::from(entry.active_from_l1) |
+                    (U256::from(entry.exit_effective_l1) << 64) |
+                    (U256::from(entry.last_heartbeat_at) << 128),
+            ));
         }
         slots
     }
@@ -517,8 +542,10 @@ mod tests {
         let storage =
             RegistryStorage { checkpoints: vec![(u64::MAX, sample_entries(3)), (7, vec![])] };
         let slots = storage.slots();
-        assert_eq!(slots.len(), 1 + 2 * 2);
+        // length + 2 words per checkpoint + entries.length (the last checkpoint has no entries).
+        assert_eq!(slots.len(), 1 + 2 * 2 + 1);
         assert_eq!(word(&slots, registry::length_slot()), U256::from(2));
+        assert_eq!(word(&slots, registry::entries_length_slot()), U256::ZERO);
 
         let [head0, root0] = registry::checkpoint_slots(0);
         assert_eq!(word_u64(word(&slots, head0), 0), u64::MAX);
@@ -529,6 +556,37 @@ mod tests {
         let [head1, root1] = registry::checkpoint_slots(1);
         assert_eq!(word(&slots, head1), U256::from(7));
         assert_eq!(word(&slots, root1), U256::ZERO);
+    }
+
+    /// The entries array holds the LAST checkpoint's entries, packed per amendment A1.
+    #[test]
+    fn registry_storage_packs_the_last_checkpoint_entries() {
+        let mut last = sample_entries(3);
+        last[1].active_from_l1 = 0x0102;
+        last[1].exit_effective_l1 = 0x0304;
+        last[1].last_heartbeat_at = u64::MAX;
+        let storage =
+            RegistryStorage { checkpoints: vec![(5, sample_entries(5)), (9, last.clone())] };
+        let slots = storage.slots();
+        assert_eq!(slots.len(), 1 + 2 * 2 + 1 + 3 * 3);
+        assert_eq!(word(&slots, registry::entries_length_slot()), U256::from(3));
+
+        for (j, entry) in last.iter().enumerate() {
+            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
+            assert_eq!(B256::from(word(&slots, pubkey)), entry.pubkey);
+            assert_eq!(word(&slots, stake), entry.eff_stake);
+            let packed = word(&slots, packed);
+            assert_eq!(word_u64(packed, 0), entry.active_from_l1);
+            assert_eq!(word_u64(packed, 64), entry.exit_effective_l1);
+            assert_eq!(word_u64(packed, 128), entry.last_heartbeat_at);
+            assert_eq!(packed >> 192, U256::ZERO);
+        }
+        assert!(slots.iter().all(|(slot, _)| *slot != registry::entry_slots(3)[0]));
+
+        assert_eq!(
+            B256::from(word(&slots, registry::entry_slots(1)[2])),
+            b256!("0000000000000000ffffffffffffffff00000000000003040000000000000102")
+        );
     }
 
     #[test]
