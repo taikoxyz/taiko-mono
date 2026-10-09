@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PoS Preconfirmation Design</title>
+    <style>
+      /* Layout: a single reading column; guarantees and mechanisms first, then one collapsible appendix. */
+      :root {
+        --bg: #fbfaf8;
+        --surface: #f2f0ec;
+        --line: #dedad3;
+        --fg: #1f2328;
+        --muted: #5d6470;
+        --accent: #8a5a00;
+        --accent-soft: #f3e6cc;
+        --code-bg: #ebe8e2;
+        --font-body: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111418;
+          --surface: #181d23;
+          --line: #2a313a;
+          --fg: #e3e6ea;
+          --muted: #9aa4b0;
+          --accent: #d9b36c;
+          --accent-soft: #2b2416;
+          --code-bg: #1f252d;
+          color-scheme: dark;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--font-body);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+      main { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
+      header { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
+      .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--accent); margin: 0 0 10px; }
+      h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.25; margin: 0 0 10px; text-wrap: balance; }
+      .dek { color: var(--muted); margin: 0; }
+      h2 { font-size: 22px; margin: 44px 0 12px; padding-top: 20px; border-top: 1px solid var(--line); text-wrap: balance; }
+      h3 { font-size: 17px; margin: 28px 0 8px; }
+      p { margin: 0 0 12px; }
+      ul, ol { margin: 0 0 12px; padding-left: 1.4em; }
+      li { margin: 4px 0; }
+      code { font-family: var(--font-mono); font-size: 0.88em; background: var(--code-bg); border-radius: 4px; padding: 0.05em 0.35em; overflow-wrap: anywhere; }
+      a { color: var(--accent); }
+      .tldr { background: var(--accent-soft); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 20px 0 8px; }
+      .tldr strong { color: var(--accent); }
+      .tldr p:last-child { margin-bottom: 0; }
+      dl.glossary { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; }
+      dl.glossary dt { font-family: var(--font-mono); font-size: 14px; color: var(--accent); }
+      dl.glossary dd { margin: 0; }
+      .table-wrap { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--line); border-radius: 8px; }
+      table { border-collapse: collapse; width: 100%; font-size: 14px; }
+      th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-top: 1px solid var(--line); }
+      th { background: var(--surface); border-top: none; font-weight: 600; }
+      table.kv td:first-child { width: 22%; font-weight: 600; }
+      table.num td { white-space: nowrap; }
+      details.appendix { border: 1px solid var(--line); border-radius: 8px; margin: 28px 0 18px; background: var(--bg); }
+      details.appendix > summary { cursor: pointer; padding: 12px 16px; font-size: 18px; font-weight: 600; background: var(--surface); border-radius: 8px; }
+      details.appendix[open] > summary { border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+      details.appendix > .appendix-body { padding: 4px 18px 8px; }
+      details.appendix h3:first-child { margin-top: 16px; }
+      footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+      @media (max-width: 560px) {
+        dl.glossary { grid-template-columns: 1fr; }
+        table.kv td:first-child { width: auto; }
+        details.appendix > .appendix-body { padding: 4px 12px 8px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Taiko protocol · design draft for discussion · revised 2026-10-07</p>
+        <h1>PoS Preconfirmation Design: Etna and CometBFT</h1>
+        <p class="dek">
+          An open-stake committee gives preconfirmations in about two seconds. Anyone can submit a batch that carries DA,
+          a valid QC and the required pair of proofs, and L1 keeps a single settled frontier. The committee is derived
+          deterministically from fixed historical snapshots, with no per-epoch maintenance transaction. Forced inclusions
+          are processed in fixed service slots during normal consensus. On failure, production pauses while valid batches
+          can still be submitted; permanent failures rely on governance.
+        </p>
+      </header>
+
+      <div class="tldr">
+        <p>
+          <strong>PoS fast confirmation with atomic ZK settlement.</strong> Based on Etna and CometBFT v0.40.0.
+          Every "must" and "must not" below is a protocol requirement and needs one coordinated fork;
+          parameters and acceptance criteria are in the appendix.
+        </p>
+      </div>
+
+      <h2>Terms</h2>
+      <dl class="glossary">
+        <dt>seat</dt>
+        <dd>A fixed-size stake unit in the registry. Voting power is counted in seats.</dd>
+        <dt>leader</dt>
+        <dd>The CometBFT proposer of a height; CometBFT rotates it.</dd>
+        <dt>QC</dt>
+        <dd>
+          Quorum certificate: a CometBFT commit with precommit signatures from strictly more than 2/3 of the voting
+          power. The Comet height equals the EVM block number.
+        </dd>
+        <dt>settledHead</dt>
+        <dd>The last L2 block accepted on L1 (height, blockHash, stateRoot, contextHash): the only L1 execution frontier.</dd>
+        <dt>Context</dt>
+        <dd>The proven settlement context: configId, fiCursor, anchorId and a commitment to consensus metadata.</dd>
+        <dt>anchor</dt>
+        <dd>The L1 block an L2 block is anchored to; anchorId is the hash of its canonical header.</dd>
+        <dt>observation certificate</dt>
+        <dd>
+          Signatures from strictly more than 2/3 of the committee weight, made with dedicated observation keys, that
+          endorse one finalized L1 anchor tuple.
+        </dd>
+        <dt>U</dt>
+        <dd>The back-pressure bound: a block may be at most U heights above the settled height seen at its anchor.</dd>
+        <dt>FI</dt>
+        <dd>Forced inclusion: a single-blob request in the L1 queue.</dd>
+        <dt>proofPolicy</dt>
+        <dd>The required proof combination: RISC0_RETH AND SP1_RETH.</dd>
+      </dl>
+
+      <h2>1. Scope and guarantees</h2>
+      <div class="table-wrap">
+        <table class="kv">
+          <tr><th>Guarantee</th><th>Boundary</th></tr>
+          <tr>
+            <td>Execution and ordering</td>
+            <td>
+              Every accepted batch must satisfy the dual-ZK policy of §3; the proofs cover a valid Comet QC, execution and
+              the protocol rules. An ordinary EVM revert is still valid execution.
+            </td>
+          </tr>
+          <tr>
+            <td>FI</td>
+            <td>
+              In normal operation, a due queue head that is visible in the common L1 view gets one full processing
+              opportunity in a reserved slot; invalid skip or zk abort can discharge the item, and success of every
+              transaction is not guaranteed. FI cannot advance on its own when the committee loses quorum.
+            </td>
+          </tr>
+          <tr>
+            <td>Preconfirmation and recovery</td>
+            <td>
+              No promise that every mempool request is included within two seconds. A timeout does not automatically
+              discard the committed suffix; valid existing batches can still be submitted.
+              Handling the suffix after a permanent failure needs an explicit governance process.
+            </td>
+          </tr>
+          <tr>
+            <td>Admission and fees</td>
+            <td>
+              Fixed bond per seat, a limited active set (about 100 seats targeted), open application, no admission within
+              bounded time. Ordinary transactions pay for execution; there is no prepaid preconfirmation tip and no
+              separate deadline or refund ticket for timely fair exchange.
+            </td>
+          </tr>
+          <tr>
+            <td>External dependencies</td>
+            <td>
+              Depends on L1 finality and inclusion, data availability, committee quorum and full proof supply. An L1
+              finality stall can make anchors stale or exhaust U and pause production; this version promises neither
+              committee-free exit nor permanent-failure recovery without governance.
+            </td>
+          </tr>
+        </table>
+      </div>
+      <p>
+        Comet safety requires malicious voting power below 1/3, and a QC needs strictly more than 2/3. Observation
+        certificates also need strictly more than 2/3: with honest observers signing only true statements, malicious or
+        compromised observation weight of at most 2/3 cannot forge one on its own. Refreshing the view needs more than 2/3
+        of honest weight available and able to sign the same candidate, plus progressing L1 finality and eventual network
+        synchrony. The weight denominator does not shrink when members are offline or abstain.
+      </p>
+
+      <h2>2. State and interfaces</h2>
+      <div class="table-wrap">
+        <table class="kv">
+          <tr><th>State</th><th>Meaning</th></tr>
+          <tr>
+            <td>settledHead</td>
+            <td>The last accepted L2 height, blockHash, stateRoot and contextHash. It is the only L1 execution frontier.</td>
+          </tr>
+          <tr>
+            <td>Context</td>
+            <td>
+              The settlement context: configId, fiCursor, anchorId and a commitment to consensus metadata (current and next
+              set and pending updates). Its encoding version is fixed, and every proof binds this protocol's proof domain
+              and configId.
+            </td>
+          </tr>
+          <tr>
+            <td>lastAcceptedAt</td>
+            <td>
+              The time of the latest successful <code>submitBatch</code> that advanced the height, initialized at
+              activation. It is for monitoring only and is never a reason to reject a batch or to end responsibilities
+              automatically.
+            </td>
+          </tr>
+          <tr>
+            <td>FI queue</td>
+            <td>
+              <code>head</code> and <code>tail</code>; each item has an immutable inputCommitment and single-blob
+              reference, the actual <code>enqueuedAt</code>, and a <code>serviceFee</code> (base FI fee plus top-ups).
+              <code>head</code> equals the settled <code>Context.fiCursor</code>.
+            </td>
+          </tr>
+          <tr>
+            <td>committee[e]</td>
+            <td>
+              A committee commitment determined by consensus and recorded through normal settlement with ZK; it binds the
+              source parent block and anchor, cutoff, root, encoding and target epoch, and H0/N fix its height range.
+            </td>
+          </tr>
+          <tr>
+            <td>Registry</td>
+            <td>Historical eligible-set checkpoints, bond identities, consensus and observation keys, weights, and exit/slashing state.</td>
+          </tr>
+        </table>
+      </div>
+      <p>
+        The interfaces are <code>submitBatch</code>, <code>enqueueFI</code>, <code>topUpFI</code>, and the Registry's
+        staking, exit and double-sign reporting. There is no separate anchor registration interface or historical anchor
+        table. Apart from the defined staking membership, there is no proposer, submitter or prover address allowlist.
+      </p>
+      <p>
+        configId must bind the version, L1 chainId, Inbox address, L2 chainId, protocol parameters, this protocol's proof
+        domain and the complete proofPolicy (§3.1). Both proofs must authenticate the same batchCommitment, which binds the
+        configuration, program version and proof domain, start and end head/context, height range, DA commitment, ordered
+        FI input commitments, the complete, ordered and de-duplicated list of new anchor tuples,
+        <code>fiFeeRecipient</code>, the epoch/committee commitment, the QC, and the next-committee record required by §5.2.
+        The execution coinbase is fixed before proving and never derived from the final L1 <code>msg.sender</code>.
+      </p>
+
+      <h2>3. Atomic batch acceptance</h2>
+      <p><code>submitBatch</code> must verify:</p>
+      <ol>
+        <li>
+          The starting blockHash and contextHash equal settledHead exactly, the start and end context fields re-hash
+          correctly, and endHeight increases. There is no overlap and no partial acceptance; after a race, a stale start
+          must be re-batched or re-aggregated.
+        </li>
+        <li>
+          The actually published blob/data commitments, bounded batch size and encoding. An ordinary BlockRecord commits to
+          the final EVM body; an FI BlockRecord references the original input and replays it; the guest binds both to the
+          declared blocks. A proof does not replace DA.
+        </li>
+        <li>
+          The L1 authenticity of inherited and new anchors per §4.1, the committee commitment, and the immutable input
+          commitments of the current FIFO prefix. The mutable serviceFee is not part of that commitment, so top-ups do not
+          invalidate existing proofs.
+        </li>
+        <li>
+          Both proofs per §3.1. Each replays execution, ABCI consensus metadata and FI rules from the authenticated start
+          and outputs endContext. It checks the last block's Comet header and QC — chain_id and height, the frozen root and
+          ValidatorsHash, strictly more than 2/3 of the signing weight, the DataHash binding to the EVM hash and protocol
+          envelope, and that AppHash matches the replayed previous state — and the parentHash chain binds the whole batch.
+        </li>
+        <li>
+          Then atomically advance settledHead, the FI head, fees and lastAcceptedAt; the first batch of an epoch must also
+          record the next committee of §5.2. Any failed condition reverts everything: no pending proposal is left behind,
+          and no batch is accepted as "derives to zero blocks".
+        </li>
+      </ol>
+      <p>
+        <strong>Pausing does not change acceptance.</strong> While production is paused, existing batches that satisfy
+        these rules can still be submitted. FI due-ness is judged by each block's common anchor and canonical time; records
+        that only become due at submission time do not retroactively rewrite committed batches.
+      </p>
+
+      <h3>3.1 Proof policy</h3>
+      <p>
+        The target proofPolicy is <strong>RISC0_RETH AND SP1_RETH</strong>: two different backends each provide a full
+        proof, and L1 must verify each one and check that both cover the same batchCommitment. Repeated backends, different
+        public inputs, unknown program versions, a single ZK proof, SGX + ZK or SGX + SGX do not satisfy this configuration.
+      </p>
+      <p>
+        configId fixes the two verifiers and verification keys, the guest programs and image IDs, the aggregation format
+        and the public-input encoding. An unaudited single outer proof must not replace the two-sided AND check. Changing
+        the combination or the programs needs a new configuration and an explicit upgrade, never a silent downgrade because
+        proving is slow. This target is not a copy of the current mainnet combination and does not mean fast dual-ZK proving
+        already exists.
+      </p>
+      <p>
+        Two zkVMs are not two independent execution implementations; a bug in the shared guest, EL logic, encoding or
+        routing can affect both. The QC is verified inside the guest, so it is not an extra L1 safety gate against a
+        top-level verifier bug. Launch must validate the full combination's security, public reproducibility, tail latency
+        and cost; removing address allowlists does not replace these checks.
+      </p>
+
+      <h2>4. Anchors and Etna execution</h2>
+      <h3>4.1 Authentication at submission</h3>
+      <p>
+        anchorId is the hash of the canonical L1 header; the tuple is number/hash/stateRoot/timestamp. The ZK proofs must
+        recompute the header hash, check that these fields come from that same header, and bind them to the execution and
+        protocol checks that use the anchor; authenticating a hash field that is not tied to the stateRoot is not enough.
+      </p>
+      <p><code>submitBatch</code> distinguishes two cases:</p>
+      <ol>
+        <li>
+          <strong>Inherited:</strong> only when anchorId equals the starting settled <code>Context.anchorId</code> may the
+          batch reuse the accepted frontier's existing authentication; the proofs must still bind the full header and
+          tuple. A root that appeared somewhere earlier in history does not bypass new authentication.
+        </li>
+        <li>
+          <strong>New:</strong> the public inputs list every new tuple of the batch relative to the starting anchor —
+          complete, de-duplicated and in order of first use. Every anchor actually used must come from the inherited one or
+          this list, the list must match the batch's usage exactly, and <code>MAX_ANCHORS_PER_BATCH</code> bounds it. The
+          contract reads each height's canonical L1 hash through <code>BLOCKHASH</code> or EIP-2935 and compares it with the
+          header hash bound by the proofs; a current or future height, an unqueryable height or a mismatch is rejected.
+        </li>
+      </ol>
+      <p>
+        EIP-2935 serves the most recent 8191 blocks directly, and fewer right after activation. New anchors must still be
+        authenticatable at call time; U and fast-proving assumptions do not replace the per-anchor window check. A new anchor
+        used several times in a batch is queried once; after success only the last anchorId is kept through endContext,
+        with no persisted history list.
+      </p>
+      <p>
+        Over-age anchors or any other authentication failure revert the whole batch. A committed anchor must not be
+        rewritten. This version does not enable the cross-window authentication of A.4, so a suffix that cannot be accepted
+        under this version's rules goes to governance per §8. 8191 blocks is the direct query window, not a cryptographic
+        limit on authentication; allowing valid late submission does not mean this version allows unbounded delay.
+      </p>
+      <p>
+        This check authenticates canonical L1; it does not prove finality at voting time, which still rests on the §5
+        observation certificates. Nodes must keep headers and witnesses; the L1 hash query window and RPC retention of
+        historical <code>eth_getProof</code> are two separate requirements.
+      </p>
+
+      <h3>4.2 Common execution rules</h3>
+      <p>
+        Keep Etna's execution without an anchor transaction, the mixHash/base fee/gasLimit evolution, zk gas metering and
+        the skip/abort/truncation semantics. <code>parentBeaconBlockRoot</code> is the chosen L1 execution stateRoot; the
+        13-byte extraData is <code>basefeeSharingPctg(1) | fiCursor(6) | anchorNumber(6)</code> with canonical big-endian
+        uint48 encoding, and the old proposalId layout switches at the fork.
+      </p>
+      <p>
+        The anchor number never decreases, and the same number must keep the same anchorId; header fields are authenticated
+        per §4.1 and match the tuple used in execution; L2 timestamps strictly increase and are never earlier than
+        <code>anchor.timestamp</code>. At submission the last block's timestamp is not later than the current L1
+        <code>block.timestamp</code>, and no anchor comes from the future. All execution fields, the coinbase and the
+        transaction order are fixed before proving; there is no default-manifest replacement and no rewriting after landing.
+      </p>
+
+      <h3>4.3 Production time and view freshness</h3>
+      <p>
+        A block uses the accepted anchor, updated or inherited per §5. Canonical time is
+        <code>max(parent.timestamp + 1, floor(Unix seconds of CometTime), anchor.timestamp)</code>; production checks
+        <code>timestamp − anchor.timestamp ≤ MAX_L1_VIEW_AGE</code>, and pauses and refreshes observations independently
+        when it is exceeded. BFT Time is not an unbiased random number.
+      </p>
+      <p>
+        This protocol drops Etna's <code>MAX_ANCHOR_OFFSET</code> and <code>TIMESTAMP_MAX_OFFSET</code> lower bounds relative to the
+        landing origin and time. A committed block is never re-anchored or re-timed; its acceptance depends on continuity,
+        the required proof combination and §4.1's authentication at submission. There is no separate Etna landing-age bound,
+        but a newly accepted anchor is still limited by the history authentication window.
+      </p>
+
+      <h2>5. Consensus and committee</h2>
+      <h3>5.1 Comet and observations</h3>
+      <p>
+        The Comet height must equal <code>EVM.number</code>; <code>chain_id</code> binds configId and this protocol's consensus
+        domain and differs from the EVM chainId. Consensus keys, ABCI observation keys and L1 sending keys are separate.
+      </p>
+      <p>
+        A candidate contains the EVM payload and hash, the protocol envelope, and any required observation certificates and
+        MPT witnesses. AppHash commits to the execution head, the Context and the current and next committee state.
+        <code>ProcessProposal</code> and the guests share the header, time, anchor, FI, DA and execution rules; an EL
+        <code>VALID</code> alone is not enough. An ordinary Comet commit, Ethereum finality and ZK acceptance cannot stand
+        in for each other.
+      </p>
+      <p>
+        Observers sign only after independently verifying the anchor's real L1 finality, chain and freshness; there is no
+        prior registration to check. Off-chain endorsement does not replace the §4.1 L1 acceptance check. A signature binds
+        this protocol's observation-message domain, configId, targetHeight, parentEVMHash, the valid committee commitment
+        and the full anchor tuple. Keys and weights come from the set frozen at the time; duplicate identities never count
+        twice, and rotation only affects future snapshots.
+      </p>
+      <p>
+        Updating the anchor needs a certificate from strictly more than 2/3 of the weight on the same tuple.
+        <code>ProcessProposal</code> deterministically checks signatures, authorization, domain, monotonicity/ancestry and
+        age, and never decides ACCEPT or REJECT from a node's live RPC response. Registry, FI and Inbox settled-height reads
+        under the same root are authenticated with MPT proofs. Signatures over different tuples cannot be combined into an
+        unsigned minimum or median.
+      </p>
+      <p>
+        An accepted anchor can be inherited; only an update needs a new certificate. Certificates are collected over a
+        separate P2P/RPC channel, so startup, pauses and committee changes do not depend on new blocks. Observations are not
+        constrained by Comet's H/R/S lock, but domains must be closed persistently, and old parents, expired authorizations
+        and pre-signing for the future must be rejected. A member without an eligible observation may abstain.
+      </p>
+      <p>
+        Normal operation has no inclusion lists and no lander rotation; FI service slots follow §6. Every block has a
+        deterministic DA cap and can land on its own. Taking the Inbox settled head authenticated under the same anchor as
+        the frontier, the candidate chain must extend that prefix and satisfy
+        <code>h − settledHeight(anchor) ≤ U</code>; U must cover the normal observation delay. Back-pressure may not be
+        relaxed with another branch's settled height. There is no DA token bucket or daCredit. Comet keeps its time and
+        clock constraints and the commit wait, with a minimum normal step <code>δ_min = 1 s</code> and a target of about
+        2 s; local running time never changes content validity.
+      </p>
+
+      <h3>5.2 Deterministic derivation and activation</h3>
+      <p>
+        H0 is the L2 height after the activation checkpoint, <code>e(h) = floor((h − H0) / N)</code> and
+        <code>H_e = H0 + eN</code>; these are defined only for <code>h ≥ H0</code>, and a batch may not span epochs.
+        The startup configuration authenticates the initial committee; later committees are derived by the rules below,
+        with no per-epoch freeze or activation transaction.
+      </p>
+      <p>
+        <strong>Determined by consensus.</strong> At epoch e's first block <code>H_e</code>, take the anchor
+        <code>A_e</code> already accepted in its parent state and use the cutoff
+        <code>C_e = S × floor((A_e.timestamp − D_registry) / S)</code>, with <code>D_registry ≥ S &gt; 0</code>. From the
+        Registry's historical checkpoints authenticated under <code>A_e.stateRoot</code>, select the end-of-block state of
+        the last L1 block no later than <code>C_e</code>, including every eligibility change in that block, verified with a
+        full snapshot or adjacent-boundary witness; missed slots do not change the rule. Startup needs enough lookback
+        history; with missing data the first block is rejected, and no caller-chosen root is accepted.
+      </p>
+      <p>
+        The next committee is every active seat of that snapshot in canonical encoding, checked for unique members, positive
+        weights, non-emptiness and the size cap; this version does not sample a sub-committee, and Comet rotates the
+        proposer. The result goes into the protocol envelope/DataHash and the Context and is committed by this block's
+        ordinary QC, with no extra voting round; any metadata that affects derivation must be bound by this commitment or by
+        the continuously authenticated Context, never self-reported as an uncommitted witness. The record binds configId,
+        <code>targetEpoch = e+1</code>, <code>H_next</code>, the source parent block hash, <code>A_e.anchorId</code>,
+        <code>C_e</code>, the root and the encoding version; updating the anchor in the current block, the submission time
+        and later stake changes cannot change it.
+      </p>
+      <p>
+        <strong>Recorded through proofs.</strong> The guests replay the derivation from the authenticated start. The first
+        accepted batch of epoch e necessarily contains <code>H_e</code> and must output the full record as an authenticated
+        public output; the contract writes <code>committee[e+1]</code> atomically. The same record is idempotent and a
+        conflicting one is rejected; later batches check the commitment in the Context and cannot overwrite or re-derive it.
+        L1 no longer computes the cutoff from the current <code>block.timestamp</code>; the record text is published and
+        matched against the stored commitment.
+      </p>
+      <p>
+        <strong>Activated by height.</strong> The agreed new set is submitted in <code>FinalizeBlock</code> at
+        <code>H_next − 2</code> and takes effect at <code>H_next</code>. At the update point, an MPT proof under the common
+        anchor must show that the L1 record matches the agreed value; with missing data or a mismatch the candidate is
+        rejected, and observations can refresh independently per §5.1. This check does not re-decide membership and needs
+        no separate L1 transaction.
+      </p>
+      <p>
+        The configuration must satisfy <code>N ≥ U + 3</code>. At the update point,
+        <code>settledHeight(anchor) ≥ H_e + N − 2 − U ≥ H_e + 1</code>; strict continuous settlement and the rule that the
+        first batch must record guarantee that the anchor's L1 state already contains <code>committee[e+1]</code>. So every
+        committee that can legally activate has an L1 record, and an abandoned suffix can still be reported without special
+        eligibility proofs.
+      </p>
+      <p>
+        Fixing membership does not wait for <code>submitBatch</code>, but actual production and rotation are still limited
+        by U, anchor freshness and proof supply and cannot run arbitrarily far ahead of L1. The L1 record is only part of
+        normal settlement; submitters get no power to choose the committee.
+      </p>
+
+      <h2>6. Mandatory FI in normal consensus</h2>
+      <p>
+        <code>enqueueFI</code> accepts a single blob with bounded encoding and decompressed size and records the actual call
+        time as <code>enqueuedAt</code>; an old blob's publication time cannot stand in for it. inputCommitment binds
+        configId, the queue index, <code>enqueuedAt</code> and the canonical blob reference. The base FI service fee is
+        escrowed as <code>serviceFee</code>; <code>topUpFI</code> only adds to that balance and changes neither the input,
+        the queue position nor the due time.
+      </p>
+      <p>
+        Fix <code>M ≥ 2</code>; heights with <code>(h − H0) mod M = 0</code> are FI service slots.
+        <code>ProcessProposal</code> and both guests must enforce:
+      </p>
+      <ol>
+        <li>
+          Authenticate <code>queue[fiCursor]</code> and <code>tail</code> with MPT proofs under the block's accepted anchor;
+          an item is due only if its record is visible and <code>block.timestamp ≥ enqueuedAt + FI_DELAY</code>, measured on
+          the canonical L2 timestamp.
+        </li>
+        <li>
+          When a service slot has a due head, it must process exactly that item in a dedicated FI block with no ordinary
+          transactions; without a due item it may be an ordinary block. Other heights consume no FI and keep their share for
+          ordinary transactions.
+        </li>
+        <li>
+          The original input order is fixed; timestamp, anchor, gasLimit and coinbase follow protocol rules, and the user's
+          blob cannot override them. The item gets the full user gas and zk gas budget; authenticated malformed input or
+          decoding over the limits is treated as empty input, and everything else follows Etna's invalid skip, zk abort and
+          suffix truncation.
+        </li>
+        <li>
+          Verify the body, stateRoot, receipts and zk gas, and advance the cursor by exactly one; even an empty output forms
+          a real EVM block. Missing data, failed authentication or an omitted mandatory item make the candidate or proof
+          invalid and cannot consume the cursor.
+        </li>
+      </ol>
+      <p>
+        Each batch consumes the contiguous prefix <code>[head, endCursor)</code>, not beyond <code>tail</code> or
+        <code>MAX_FI_PER_BATCH</code>; the contract checks the same immutable input commitments, and only a successful
+        acceptance advances <code>head</code> and pays <code>serviceFee</code>. Original FI data can reference the existing
+        blob without being published again; the necessary records and envelope and a single FI block must fit into one valid
+        submission on their own.
+      </p>
+      <p>
+        If a prefix of N_FI items, including the item itself, is visible and due, continuous normal production processes it
+        within at most <code>M × N_FI</code> later heights, plus visibility and due time, proving and L1 acceptance. This
+        depends on quorum, proofs and data availability, and there is no wall-clock bound during a halt. This version
+        provides no committee-bypassing FI execution and no automatic refund on timeout.
+      </p>
+
+      <h2>7. Stake, penalties and fees</h2>
+      <p>
+        All active seats vote, with no sampling. Launch needs at least 4 active addresses; independent addresses do not mean
+        independent entities. A Registry leaf permanently binds a unique bondId, consensus key, observationKey and weight;
+        historical roots and keys cannot be overwritten, and re-entry uses a new bondId.
+      </p>
+      <p>
+        Double signing means the same chain_id, height, round and valid vote type with different BlockIDs (nil
+        included). The epoch follows from the height; after verifying the signatures against the committee record already on
+        L1 per §5.2 and a membership path, the protocol slashes and rewards the reporter. The epoch need not have any
+        accepted batch, and a production pause or a later configuration upgrade does not cancel old responsibility.
+        Different vote types are not double signing, and members cannot be punished only for a submitter's bad data.
+      </p>
+      <p>
+        An exit first removes the identity from future eligibility and records the actual L1
+        <code>exitEffectiveAt</code>, and the old bondId cannot rejoin. Before the withdrawal countdown starts, the contract
+        checks that the old bondId is in none of the committees recorded on L1 whose end height is still above
+        settledHeight; that set holds at most the current and the recorded next epoch, and the exiting party cannot choose
+        it.
+      </p>
+      <p>
+        It must also authenticate the header <code>A_s</code> of the current settled <code>Context.anchorId</code> and check
+        <code>S × floor((A_s.timestamp − D_registry) / S) ≥ exitEffectiveAt</code>, without substituting the current L1 time
+        or a self-chosen anchor. If a derivation's first block has been accepted, its committee record is already on L1; if
+        not, its source parent block lies after the settled frontier, and anchor monotonicity keeps its cutoff no earlier
+        than this bound. This covers a next committee already fixed off-chain but not yet submitted, so a bond cannot be
+        released before a missed responsibility appears.
+      </p>
+      <p>
+        Only after the responsibility-closing conditions hold does <code>EVIDENCE_PERIOD</code> start, counted from the
+        accepted on-chain closing record; withdrawal comes after it. Reports are possible during the window, and slashing
+        reduces the withdrawable balance. If the end of responsibility cannot be authenticated during a halt, the bond stays
+        locked and is not released by a timeout. Unauthenticated reports do not extend the window; keys are retired only
+        after the withdrawal is actually finalized, and an L1 reorg rolls back dependent transitions along with it.
+      </p>
+      <p>
+        There is no prepaid preconfirmation service fee. Ordinary EVM execution fees go to the proven coinbase. The base FI
+        protocol fee and later top-ups form one <code>serviceFee</code>, escrowed at enqueue and paid once to the
+        <code>fiFeeRecipient</code> bound in the proofs when a valid batch consumes the item; a copied submission cannot
+        change the recipient. The fee buys one processing opportunity, so a valid skip or abort still earns it; missing data
+        or an invalid proof consumes nothing and pays nothing.
+      </p>
+      <p>
+        The base FI fee and its congestion curve are set by configuration; today's mainnet 0.001 ETH is a reference for the
+        base fee, not a full cost commitment for the new deployment. There is no dedicated lander reward and no proving
+        liveness bond; normal submission, proving and DA costs must be estimated per the appendix.
+      </p>
+      <p>
+        At launch, the operator organizes and funds ordinary batch proving and submission, covering both proof backends,
+        proving compute, DA, L1 gas and failed or competing retries. Batch ranges and jobs are coordinated off-chain, including
+        re-batching or re-aggregation when a starting head becomes stale. This grants no exclusive submission right and does
+        not change coinbase fee allocation. Long-term fee sharing or a proving market is not decided in this version;
+        operator funding and proof supply remain liveness assumptions.
+      </p>
+
+      <h2>8. Pause, recovery and migration</h2>
+      <p>
+        An L1 finality stall, a stale anchor, exhausted U, or unavailable quorum or proofs can pause new production. Alerts
+        only describe the fault; they do not change acceptance rules, revert the suffix automatically or end bond
+        responsibilities. During a pause, keep the Comet state, WAL and H/R/S, payloads, QCs, observations and proof
+        material; valid existing batches can still be submitted.
+      </p>
+      <p>
+        When the L1 view, quorum and proving recover and the existing suffix can still settle, refresh observations and
+        continue on the same configId and signing history; never clear H/R/S or re-sign conflicting blocks. When a new
+        anchor is past the history authentication window, data is permanently unavailable or quorum cannot return, this
+        version has no automatic recovery path, and governance must explicitly close the old configuration and handle the
+        suffix. A new configuration can only start from an accepted, L1-finalized execution frontier, keeping the FI cursor
+        and queue, historical responsibilities and evidence. Closing old submission rights and retiring keys wait for the
+        related L1 records to finalize, and a faked zero-block proof cannot stand in for missing data.
+      </p>
+      <p>
+        Full verifying nodes run CometBFT + ABCI + EL. Original FI data is kept until consumption and the related L1
+        finality, and signing and eligibility material until responsibilities and the evidence period end; EL and ABCI
+        history must cover U plus reorg margin. The runbook must state governance latency, powers and owners; users are not
+        promised independent execution or exit after a halt.
+      </p>
+      <p>
+        RPC <code>head</code> can reach committed blocks, <code>safe</code> reaches accepted blocks, and
+        <code>finalized</code> reaches accepted ancestors whose L1 records are finalized. Accepted means both DA and proof are
+        done, but it can still be affected by an L1 reorg. The UI separates waiting for finality, proof and acceptance, and a
+        fault pause, and never marks transactions failed or refunded automatically.
+      </p>
+      <p>
+        The Etna relayer keeps <code>waitProofTarget</code> and header-anchor proof targets; normal finalized visibility is
+        still about 13–19 minutes, plus propagation and execution delay. The RPC actually used must support historical
+        <code>eth_getProof</code> at the needed age, and the root must be verified. Temporary unavailability of historical
+        state or tries keeps the message, backs off or switches to a qualified RPC, and never sends it straight to the
+        dead-letter queue. Historical hash authentication does not replace Merkle witnesses.
+      </p>
+      <p>
+        Migration starts from one settled checkpoint: settle old pending proposals, handle the old preconfirmation suffix
+        explicitly, migrate the real FI queue and cursor, authenticate the initial committee and anchor, and initialize the
+        Context and lastAcceptedAt. Synchronize fork routing, extraData, service slots, fee fields, BlockRecord, Context, EL
+        and clients, both guests, the aggregator and the verification keys; retire the old asynchronous entry points and any
+        verification path that does not meet proofPolicy, and keep evidence of old responsibilities.
+      </p>
+
+      <details class="appendix">
+        <summary>Appendix: Parameters, cost and acceptance</summary>
+        <div class="appendix-body">
+          <h3>A.1 Latency and the U/N budget</h3>
+          <p>
+            Protocol parameters, encodings and proofPolicy must be fixed before activation and bound into configId. Let F be
+            the budget for an L1 acceptance to enter the common finalized view (including observation propagation), B the
+            bound on how long the oldest block waits for its batch to seal, P the budget of the complete dual-proof path
+            after sealing, I the L1 inclusion and retry budget, and δ_min the fastest allowed production step. Use
+            <code>L = F + B + P + I</code> and <code>U ≥ ceil(L / δ_min)</code> plus a fault margin, and enforce
+            <code>N ≥ U + 3</code>.
+          </p>
+          <p>
+            P must measure the overall tail latency and sustained throughput of witness generation, queueing, RISC0 and SP1
+            proving and aggregation, not one backend's p50. Parallel generation is limited by the slower path and
+            head-of-line blocking. This version plans for <code>P_budget = 1 min</code> as the fast-proving target, to be
+            accepted by measured P95/P99 and throughput under target load; if it is missed, re-choose batching, U and N and
+            review the configuration, rather than weakening proofPolicy to pretend the target is met.
+          </p>
+          <p>
+            Sensitivity example only: F = 20 min, B = 5 min, I = 1 min, δ_min = 1 s, with epoch length estimated at the
+            two-second target; no extra stall margin is included.
+          </p>
+          <div class="table-wrap">
+            <table class="num">
+              <tr><th>Full proof budget P</th><th>L</th><th>Minimum U</th><th>Minimum N</th><th>Epoch at 2 s</th></tr>
+              <tr><td>1 min (planning target)</td><td>27 min</td><td>1620</td><td>1623</td><td>about 54.1 min</td></tr>
+              <tr><td>31 min (historical comparison)</td><td>57 min</td><td>3420</td><td>3423</td><td>about 114.1 min</td></tr>
+              <tr><td>61 min (historical comparison)</td><td>87 min</td><td>5220</td><td>5223</td><td>about 174.1 min</td></tr>
+            </table>
+          </div>
+          <p>
+            The 31/61-minute figures are historical p50/p90 values supplied in earlier review; they were not re-measured for
+            this revision and are not shown to equal the new dual-proof path. At a steady two-second cadence the height
+            difference roughly halves, but hard limits must not be configured on that basis while a one-second fastest step
+            is allowed.
+          </p>
+          <p>
+            After fast proving, the main floor is the finalized-visibility delay: in the example F is about 74% of L, and
+            even with P near zero L ≈ 26 min, U ≥ 1560 and N ≥ 1563, about 52.1 minutes per epoch at two seconds. Fast
+            proving greatly shortens the old proof wait but cannot remove F, which still limits how fast committees rotate
+            and eligibility changes take effect. This version keeps a single finalized view. Switching to a fresher settled
+            view would require redesigning §5.2's committee recording and activation and the L1 reorg rules together;
+            replacing only the back-pressure reading to shrink N is not allowed.
+          </p>
+          <p>
+            U bounds the gap to the settled height seen at an older anchor, which can include blocks that newer L1 has
+            already accepted. The actually unaccepted suffix, measured against the current canonical L1 frontier, is at most
+            U blocks; reaching U does not trigger an automatic rollback, and U × 2 s is not a wall-clock bound during a halt.
+          </p>
+          <p>
+            <code>MAX_L1_VIEW_AGE</code> must state its normal budget and the finality-stall margin it is meant to
+            tolerate; the remaining margin is the limit minus the current reference age, and U must also cover any stall
+            during which production should continue. Exhausting the budget may pause production while valid batches
+            can still be submitted.
+          </p>
+
+          <h3>A.2 Daily cost and FI fees</h3>
+          <p>
+            <code>daily settlement execution fee = (86400 / B_seconds) × gas_per_submit × gasPrice_gwei × 10⁻⁹ ETH</code>.
+            Using a planning placeholder of 750,000 gas per submission (assuming SP1 uses Groth16; about 700k–800k, not
+            measured on the new protocol), counting L1 execution fees only:
+          </p>
+          <div class="table-wrap">
+            <table class="num">
+              <tr><th>Batch interval</th><th>Submissions per day</th><th>0.1 gwei</th><th>1 gwei</th></tr>
+              <tr><td>1 min</td><td>1440</td><td>0.108 ETH/day</td><td>1.08 ETH/day</td></tr>
+              <tr><td>5 min</td><td>288</td><td>0.0216 ETH/day</td><td>0.216 ETH/day</td></tr>
+              <tr><td>10 min</td><td>144</td><td>0.0108 ETH/day</td><td>0.108 ETH/day</td></tr>
+            </table>
+          </div>
+          <p>
+            The basis is seven sampled mainnet SGX_GETH + RISC0_RETH prove transactions at about 399k gas each, plus SP1
+            replacing SGX and the extra work of atomic submission; the sample was not independently re-measured, and the old
+            prove and propose costs cannot simply be added. Before launch, measure with fixed verifier versions, real dual
+            proofs and ordinary, epoch-boundary and FI batches, and replace the placeholder with margin.
+          </p>
+          <p>
+            These gas prices are scenario inputs; blobs, proving compute, failed or racing resubmissions and operations are
+            extra. At one batch every five minutes and 0.1 gwei, settlement execution alone reaches 0.0216 ETH per day,
+            close to the earlier historical total revenue reference of about 0.0225 ETH per day (not re-measured), so overall
+            economic viability cannot be claimed from it. Changing B requires recomputing U and N in A.1.
+          </p>
+          <p>
+            The base FI fee and congestion curve are charged by configuration; the base fee and <code>topUpFI</code> both count
+            toward one <code>serviceFee</code>, paid to <code>fiFeeRecipient</code> only on authenticated consumption. Quotes
+            and the UI must separate the L1 enqueue gas and DA cost, the escrowed service fee and the actual L2 execution fee,
+            and must not advertise one processing opportunity as guaranteed successful execution or a refund on halt.
+          </p>
+          <p>
+            FI pricing must use the measured worst-case processing cost from A.3, covering dual-proof work and settlement
+            overhead. In particular, measure a first transaction that executes near the zk-gas limit, then exceeds it and
+            aborts, leaving an empty block: both guests must still replay the original input to verify the abort, while that
+            transaction pays no L2 execution fee. The base fee and congestion curve must account for this cost with margin,
+            rather than estimating only successful maximal blocks, final recorded zk gas or expected execution-fee revenue.
+          </p>
+
+          <h3>A.3 Required acceptance</h3>
+          <div class="table-wrap">
+            <table class="kv">
+              <tr><th>Area</th><th>Checks</th></tr>
+              <tr>
+                <td>Consensus and committee</td>
+                <td>
+                  Fix H0, N, δ_min, U, S and D_registry. Test derivation from the first block's parent anchor; that changing
+                  the current block's anchor or delaying batches does not change membership; mandatory recording in the first
+                  batch; <code>H_next − 2</code> / <code>H_next</code>; and <code>N ≥ U + 3</code>. Without L1 progress,
+                  back-pressure applies before the update point.
+                </td>
+              </tr>
+              <tr>
+                <td>Anchors and RPC</td>
+                <td>
+                  Test inheriting the current anchor, completeness and field binding of every new tuple, EIP-2935 boundaries
+                  including right after activation, L1 reorgs and strict-start races. The real RPC's historical
+                  <code>eth_getProof</code> depth must cover the target age plus proof-fetching and retry margin; an archive
+                  label or <code>eth_call</code> is not a substitute.
+                </td>
+              </tr>
+              <tr>
+                <td>FI and resources</td>
+                <td>
+                  Fix <code>M ≥ 2</code>, FI_DELAY, the base fee and congestion curve, per-item limits and
+                  <code>MAX_FI_PER_BATCH</code>. Test visibility and due boundaries, mandatory consumption in service slots, no
+                  consumption in ordinary slots, ordinary blocks in idle slots, bad witnesses not consuming, and complete fee
+                  attribution; a mandatory FI block with its necessary envelope must be submittable on its own. Cost workloads
+                  must include a first transaction that executes near the zk-gas limit, exceeds it and aborts, leaving an empty
+                  block and no L2 execution fee from that transaction. Verify that both guests replay the original input;
+                  measure witness generation, compute and latency for both proof backends, and DA/L1 settlement costs, and use
+                  them for the worst-case FI pricing in A.2.
+                </td>
+              </tr>
+              <tr>
+                <td>Proofs and DA</td>
+                <td>
+                  Fix this fork's parameters on Etna's 45M gas / 100M zk gas baseline, <code>MAX_BLOCK_DA_BYTES</code>,
+                  <code>MAX_BATCH_BLOCKS</code>, <code>MAX_ANCHORS_PER_BATCH</code> and blob, envelope and decoding limits.
+                  Test the dual-backend AND over the same statement, repeated, missing or single proofs, mixed programs and
+                  domains, rollback on invalid proofs, rejection of zero height progress, and no batch spanning epochs.
+                </td>
+              </tr>
+              <tr>
+                <td>Pause and late submission</td>
+                <td>
+                  Simulate 25-minute, 64-minute and longer finality stalls, prover outages, RPC failures and exhausted U.
+                  After a pause, valid old batches are still accepted and not rewritten by FIs due at the current time; after
+                  observations, quorum and proving recover, continue the original signing history. Over-age anchors that can
+                  no longer be accepted under this version's direct authentication must be detected and routed to the
+                  governance runbook; the A.4 extension, which is not enabled, does not count as an existing recovery
+                  capability.
+                </td>
+              </tr>
+              <tr>
+                <td>Exit and evidence</td>
+                <td>
+                  Test old keys and duplicate weights, double signing in unaccepted suffixes, cutoff rounding, non-membership
+                  proofs for current and future sets, and exit attacks around a set already derived off-chain but not
+                  submitted. <code>EVIDENCE_PERIOD</code> covers evidence propagation and L1 submission; unfinished
+                  responsibility cannot be released because of a halt.
+                </td>
+              </tr>
+              <tr>
+                <td>Operations and release</td>
+                <td>
+                  Keep state, QCs, FI blobs, observations and header witnesses; measure restarts, historical replay, reorgs and
+                  retention. UI and relayer waits, alerts and retries are staged per phase; do not raise every timeout
+                  uniformly. At least 4 validators complete real dual proofs and fault injection; measure gas, DA, compute,
+                  throughput and revenue before evaluating launch.
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <h3>A.4 Optional extension: cross-window anchor authentication</h3>
+          <p>
+            This section is a future direction and not part of this version's acceptance rules. The contract authenticates,
+            at submission, a recent reference hash still inside the direct query window; both guests verify an
+            account/storage proof of the EIP-2935 history contract under that reference's full header and stateRoot to obtain
+            an older header hash, recompute that header, and walk back hop by hop to the target anchor. The recent reference,
+            the full authentication chain and the target tuple must bind the same batch statement; what can be replaced is the
+            authentication witness, never a committed anchor.
+          </p>
+          <p>
+            Each hop must check the fixed history contract, strictly decreasing heights, the 8191-block range, ring-buffer
+            slots and field binding, and handle the real valid range around L1 forks and right after activation; this contract
+            alone cannot cover history from before it began recording. If the recent reference gets too old before
+            submission, the authentication proof must be refreshed.
+          </p>
+          <p>
+            The extension needs no new registration transaction or permanent anchor table, but historical
+            Merkle witnesses must be kept and a hop and proof resource budget defined; a fixed total hop count means a bounded
+            recovery range. It only lifts the direct query limit for historical hashes and cannot recover lost FI blobs,
+            payloads or execution witnesses. Before enabling it, update both guests, the proofPolicy configuration, public
+            inputs and boundary tests; only with complete data and every other rule satisfied can such over-age batches become
+            ordinary late submissions.
+          </p>
+
+          <h3>A.5 Baseline and scope</h3>
+          <p>
+            This version keeps atomic settlement, anchor authentication at submission, consensus-derived committees, fixed FI
+            service slots and objective double-sign penalties. It does not include automatic suffix revocation,
+            asynchronous pending proposals, overlapping proofs, a proving liveness bond,
+            inclusion lists, lander rotation or misses, DA credit, special eligibility proofs or automatic generation
+            recovery. Committee-free execution and exit and automatic recovery are left for separate follow-up design.
+          </p>
+          <ul>
+            <li>
+              <a href="https://github.com/taikoxyz/taiko-mono/blob/5d35cdd7a28d93fb0c8f2cbb513f33e5ef4108a1/packages/protocol/docs/Derivation.md">Etna #22189 · 5d35cdd7</a>:
+              the execution and header baseline; this document explicitly overrides its landing metadata and default-source
+              handling.
+            </li>
+            <li>
+              <a href="https://eips.ethereum.org/EIPS/eip-2935">EIP-2935</a>: direct authentication of new anchors at
+              submission, with an 8191-block direct window; there is no permanent anchor registry.
+            </li>
+            <li>
+              <a href="https://github.com/taikoxyz/taiko-mono/blob/e94925825939993740829d0bd82d4aeb8a6fcbe3/packages/protocol/contracts/layer1/verifiers/compose/ZkRequiredVerifier.sol">ZkRequiredVerifier</a>:
+              the current deployment, kept separate from the target policy. A read of the
+              <a href="https://etherscan.io/address/0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f#readProxyContract">Inbox</a>
+              at L1 height 26,140,143 on 2026-10-07 showed the configuration pointing to
+              <code>0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec</code> with two whitelisted provers; that implementation accepts
+              SGX + ZK or RISC0 + SP1. This specification's pure dual-ZK, open submission cannot inherit that deployment's
+              whole policy.
+            </li>
+            <li>
+              <a href="https://github.com/taikoxyz/taiko-mono/blob/106e3deb5797ff940b064047d60b61d64058214b/packages/relayer/processor/etna_anchor.go#L14">Etna relayer #22242 · 106e3deb</a>
+              and <a href="https://geth.ethereum.org/docs/fundamentals/archive">Geth archive</a>: adapt historical proof ranges
+              and retries on temporary unavailability; historical state is not the same as historical Merkle proofs.
+            </li>
+            <li>
+              <a href="https://ethereum.org/latest/why-build-on-ethereum/">Ethereum finality incident review</a>: the 2023
+              stalls of about 25 and 64 minutes are used for fault testing, not as an upper bound on future stalls.
+            </li>
+            <li>
+              <a href="https://ethresear.ch/t/preconfirmation-fair-exchange/21891">Preconfirmation Fair Exchange</a>: this
+              version has no separate timely-fair-exchange market with delivery by a user's target time or refunds.
+            </li>
+          </ul>
+        </div>
+      </details>
+
+      <footer>
+        <p>Figures marked as examples, estimates or placeholders are calculations, not measurements. Revised 2026-10-07.</p>
+      </footer>
+    </main>
+  </body>
+</html>
