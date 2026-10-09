@@ -53,13 +53,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// In order: a superseded chain rejects everything; no transaction at all is an
     /// [`Rejection::EmptyProposal`]; the transactions must be exactly one envelope;
-    /// [`validate_block`] with the request's BFT time; a present anchor witness must be
-    /// final and canonical in the own L1 view (L1 is not called when it is absent); the EL must
-    /// execute the block as `VALID`. An Inbox ahead of the chain ([`Rejection::Superseded`],
-    /// which stops the node for good) and a record conflict ([`Rejection::RecordConflict`], an
-    /// ERROR asking an operator to investigate) are reported only once their anchor is final and
-    /// canonical, as a forged L1 header could prove any generation or record; otherwise the
-    /// anchor's own failure is.
+    /// [`validate_block`] with the request's BFT time; a present anchor witness must be final and
+    /// canonical in the own L1 view (L1 is not called when it is absent); the EL must execute the
+    /// block as `VALID`.
+    ///
+    /// An Inbox ahead of the chain ([`Rejection::Superseded`], which stops the node for good) and
+    /// a record conflict ([`Rejection::RecordConflict`], an ERROR asking an operator to
+    /// investigate) are reported only once their anchor is final and canonical, as a forged L1
+    /// header could prove any generation or record; otherwise the anchor's own failure is. A
+    /// committee witness [`validate_block`] verified is cached for this node's own proposals at
+    /// the height (CometBFT rotates proposers by round), even when a later check refuses the
+    /// block: it is proven against the committed parent's anchor alone.
     async fn judge(
         &self,
         state: &AppState,
@@ -87,6 +91,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 }
                 other => other?,
             };
+        if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
+            self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
+        }
         if let Some(w) = &env.anchor {
             self.check_anchor_final(w).await?;
         }

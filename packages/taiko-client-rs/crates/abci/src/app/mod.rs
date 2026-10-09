@@ -32,7 +32,7 @@ use crate::{
     engine::{Engine, EngineError},
     envelope::CommitteeWitness,
     genesis::GenesisError,
-    l1::{L1Error, L1Source, WitnessError},
+    l1::{DiscoveryProgress, L1Error, L1Source, WitnessError},
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, generation_from_chain_id},
     schedule::{Schedule, ScheduleError},
@@ -280,11 +280,14 @@ pub struct App<L: L1Source, E: Engine> {
     /// `ProcessProposal` ACCEPT verdicts by CometBFT block hash, for `FinalizeBlock`; cleared
     /// at `Commit`.
     verdicts: HashMap<Hash, Validated>,
-    /// The committee witness `PrepareProposal` discovered and verified at `h_first(e)`, kept so
-    /// that later rounds at the same height reuse it instead of reading the registry again.
-    /// Replaced when the key differs; cleared at `Commit`. Behind a mutex as the proposer runs on
-    /// `&self`.
+    /// The last committee witness verified at `h_first(e)`, by `PrepareProposal` (discovered) or
+    /// `ProcessProposal` (another proposer's), kept so that this node's proposals in later rounds
+    /// at the same height reuse it instead of reading the registry again. Replaced when the key
+    /// differs; cleared at `Commit`. Behind a mutex as the handlers run on `&self`.
     committee_cache: Mutex<Option<CachedCommittee>>,
+    /// The registry reads of a committee discovery `PrepareProposal`'s deadline cut short, from
+    /// which the next attempt resumes; cleared at `Commit`.
+    discovery: DiscoveryProgress,
     /// The label of the last proposal rejection or failed build (a liveness halt), reported by
     /// `/status`; an empty proposal does not replace a recorded label. Cleared by the next
     /// accepted or built proposal and by `Commit`.
@@ -330,6 +333,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             pending: None,
             verdicts: HashMap::new(),
             committee_cache: Mutex::new(None),
+            discovery: DiscoveryProgress::default(),
             halt: None,
             superseded: false,
             el_reconciled: false,
@@ -436,6 +440,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.committee_cache.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Caches `witness`, verified as the committee witness of `target_epoch` against the
+    /// committed parent's anchor `parent_anchor`, for this node's proposals at the height.
+    fn cache_committee_witness(
+        &self,
+        parent_anchor: u64,
+        target_epoch: u64,
+        witness: &CommitteeWitness,
+    ) {
+        *self.committee_cache() =
+            Some(CachedCommittee { parent_anchor, target_epoch, witness: witness.clone() });
+    }
+
     /// Clears the liveness-halt reason after an accepted or built proposal or a commit.
     fn clear_halt(&mut self) {
         self.halt = None;
@@ -456,7 +472,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 }
 
-/// A committee witness `PrepareProposal` discovered and verified, with the key it was built for.
+/// A verified committee witness, with the key it was verified for.
 #[derive(Clone, Debug)]
 struct CachedCommittee {
     /// The parent's anchor L1 block number `n_p` the witness is proven against.

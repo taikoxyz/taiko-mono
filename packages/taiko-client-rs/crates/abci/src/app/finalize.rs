@@ -128,6 +128,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.state = self.pending.take();
         self.verdicts.clear();
         *self.committee_cache() = None;
+        self.discovery.clear();
         self.clear_halt();
         self.publish_state_metrics();
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })
