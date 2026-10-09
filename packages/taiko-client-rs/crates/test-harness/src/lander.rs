@@ -13,7 +13,7 @@ use abci::{Schedule, committee::record_hash};
 use alloy_eips::BlockNumberOrTag;
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result};
-use tokio::task::JoinHandle;
+use tokio::{sync::Mutex, task::JoinHandle};
 
 use crate::{
     cometbft::CmtClient,
@@ -48,6 +48,9 @@ struct Switches {
     paused: AtomicBool,
     /// While set, ticks plant committee records; while clear, only `lastCheckpoint` moves.
     land_committees: AtomicBool,
+    /// Held by the task for the whole of a tick, from its pause check until its last write is
+    /// mined, so that [`Lander::pause`] can wait out a tick in flight.
+    tick: Mutex<()>,
 }
 
 /// The running lander task.
@@ -65,14 +68,24 @@ impl Lander {
         let switches = Arc::new(Switches {
             paused: AtomicBool::new(false),
             land_committees: AtomicBool::new(land_committees),
+            tick: Mutex::new(()),
         });
         let task = tokio::spawn(run(ctx, switches.clone()));
         Self { switches, task }
     }
 
-    /// Pauses (`true`) or resumes (`false`) landing.
-    pub(crate) fn set_paused(&self, paused: bool) {
-        self.switches.paused.store(paused, Ordering::SeqCst);
+    /// Pauses landing and returns once a tick already in flight has finished (its writes
+    /// mined), so no landing happens after it returns.
+    pub(crate) async fn pause(&self) {
+        self.switches.paused.store(true, Ordering::SeqCst);
+        // A tick that read `paused` before the store holds the lock until it is done; one that
+        // takes the lock after this point sees the pause.
+        drop(self.switches.tick.lock().await);
+    }
+
+    /// Resumes landing.
+    pub(crate) fn resume(&self) {
+        self.switches.paused.store(false, Ordering::SeqCst);
     }
 
     /// Enables (`true`) or disables (`false`) planting committee records; `lastCheckpoint` keeps
@@ -108,6 +121,7 @@ async fn run(ctx: LanderCtx, switches: Arc<Switches>) {
     let mut landed = Landed { height: None, next_epoch: Schedule::E0 + 1 };
     loop {
         tokio::time::sleep(TICK).await;
+        let _tick = switches.tick.lock().await;
         if switches.paused.load(Ordering::SeqCst) {
             continue;
         }

@@ -10,7 +10,7 @@
 # Environment:
 #   ANVIL_IMAGE, ALETHIA_RETH_IMAGE, COMETBFT_IMAGE  override the images.
 #   PULL_POLICY=missing  reuse images already present on the daemon instead of
-#                        pulling the (moving) tags on every run.
+#                        pulling them on every run.
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,7 +28,9 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:stable}
+# Pinned to the anvil release the scenarios are verified with: a moving tag could change its
+# JSON-RPC behaviour under them (e.g. whether it serves debug_getRawHeader).
+export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
 # Built from taikoxyz/alethia-reth#248; switch back to `alethia-reth:main` when that
 # PR merges.
 export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48}

@@ -12,24 +12,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::{l1::layout::inbox, rules::decode_extra_data};
-use alloy_eips::{BlockId, BlockNumberOrTag};
+use abci::l1::layout::inbox;
+use alloy_eips::BlockId;
 use alloy_primitives::U256;
-use alloy_provider::{Provider, RootProvider};
-use anyhow::{Context, ensure};
-use test_harness::{Devnet, DevnetSpec, block_number, finalized_number, wait_until};
+use alloy_provider::Provider;
+use anyhow::ensure;
+use test_harness::{Devnet, DevnetSpec, anchor_of, block_number, finalized_number, wait_until};
 
 /// The `/status` halt reason of the epoch entry rule (`RuleViolation::EpochNotOpenOnL1`).
 const EPOCH_RULE: &str = "epoch_not_open_on_l1";
-
-/// The anchor L1 block number in L2 block `h`'s `extraData`.
-async fn anchor_of(l2: &RootProvider, h: u64) -> anyhow::Result<u64> {
-    let block = l2
-        .get_block_by_number(BlockNumberOrTag::Number(h))
-        .await?
-        .with_context(|| format!("L2 block {h} missing"))?;
-    Ok(decode_extra_data(&block.header.extra_data)?.2)
-}
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]

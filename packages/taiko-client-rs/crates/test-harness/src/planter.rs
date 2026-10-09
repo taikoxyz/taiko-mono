@@ -178,14 +178,6 @@ impl Planter {
         }
     }
 
-    /// Appends a registry checkpoint with `entries` in a block of its own and returns that
-    /// block's number (the checkpoint's `l1Block`).
-    pub async fn plant_registry_checkpoint(&self, entries: &[RegistryEntry]) -> Result<u64> {
-        let mut next = self.next_block().await?;
-        next.write_registry_checkpoint(entries).await?;
-        next.commit().await
-    }
-
     /// The raw storage word of the Inbox at `slot` in the latest block.
     pub async fn inbox_word(&self, slot: B256) -> Result<U256> {
         self.word(self.inbox, slot).await

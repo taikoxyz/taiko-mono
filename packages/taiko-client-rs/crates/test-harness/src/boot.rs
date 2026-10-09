@@ -32,8 +32,8 @@ use crate::{
     wait::wait_until,
 };
 
-/// Default anvil image (override with `ANVIL_IMAGE`).
-const ANVIL_IMAGE: &str = "ghcr.io/foundry-rs/foundry:stable";
+/// Default anvil image (override with `ANVIL_IMAGE`), pinned like `tests/entrypoint.sh`'s.
+const ANVIL_IMAGE: &str = "ghcr.io/foundry-rs/foundry:v1.5.1";
 /// Default alethia-reth #248 image (override with `ALETHIA_RETH_IMAGE`).
 const RETH_IMAGE: &str = "us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48";
 /// Default CometBFT image (override with `COMETBFT_IMAGE`).
@@ -73,8 +73,6 @@ pub(crate) struct Booted {
     pub cmt: Vec<CmtClient>,
     /// The alethia-reth nodes, by validator index.
     pub reth: Vec<RethNode>,
-    /// anvil's JSON-RPC URL on the host.
-    pub l1_http: Url,
     /// anvil provider.
     pub l1: RootProvider,
     /// The validator keys.
@@ -256,7 +254,7 @@ pub(crate) async fn boot(
         spec.land_committees,
     );
 
-    Ok(Booted { lander, apps, cmt, reth, l1_http, l1, keys, params, activation, genesis, planter })
+    Ok(Booted { lander, apps, cmt, reth, l1, keys, params, activation, genesis, planter })
 }
 
 /// The hash and state root of block 0 of the EL behind `l2`.
