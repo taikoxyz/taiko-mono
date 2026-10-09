@@ -32,6 +32,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// committed state alone: CometBFT also sends `Info` for every RPC `/abci_info` call, on the
     /// same sequential worker as consensus, and an EL hiccup there must neither delay consensus
     /// nor fail the connection.
+    ///
+    /// Limitation: the reconcile runs once per app process, not once per CometBFT handshake. A
+    /// CometBFT restarting under a running app sends a handshake `Info` with the same fields as
+    /// an RPC `/abci_info` one, and tower-abci offers no hook for a new connection (its accept
+    /// loop, connection loop and codec are private), so that handshake is not re-checked. An EL
+    /// that restarted or crashed while the app kept running may come back without its last
+    /// blocks; operators restart the app then (README, "Operations"), and until they do,
+    /// `FinalizeBlock` keeps retrying a block the EL cannot execute (spec §8.1).
     pub(super) async fn info(&mut self, _req: request::Info) -> Result<response::Info, AbciError> {
         let (last_block_height, last_block_app_hash) = match &self.state {
             None => (Height::from(0u32), AppHash::default()),

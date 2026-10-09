@@ -278,7 +278,8 @@ pub struct App<L: L1Source, E: Engine> {
     superseded: bool,
     /// Whether this process already made sure the EL serves the committed head: set by the
     /// first successful `Info` reconcile (CometBFT's handshake) or a successful `InitChain`,
-    /// never cleared. Later `Info` calls (CometBFT also sends one per RPC `/abci_info`) then
+    /// never cleared, so a CometBFT restart under a running app is not re-checked (see
+    /// [`App::info`]). Later `Info` calls (CometBFT also sends one per RPC `/abci_info`) then
     /// answer from the committed state without EL I/O.
     el_reconciled: bool,
 }

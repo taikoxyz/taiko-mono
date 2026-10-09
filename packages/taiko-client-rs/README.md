@@ -165,6 +165,20 @@ key is registered in the staking registry snapshot the genesis committee is deri
 
    On restart, CometBFT's handshake replays any blocks the app has not committed yet.
 
+## Operations
+
+### Restarts
+
+- Restart `taiko-client abci` and CometBFT together, the app first: CometBFT stops when its
+  connection to the app breaks, and the app must listen before CometBFT connects.
+- The app checks alethia-reth against its committed head once per process, at CometBFT's first
+  handshake `Info`, and syncs alethia-reth to that head if it lacks it. A CometBFT restart under a
+  running app is not re-checked.
+- If alethia-reth restarted or crashed while the app kept running, it may come back without its
+  last blocks: restart the app and CometBFT so the next handshake re-checks it. Until then
+  `FinalizeBlock` keeps retrying a block alethia-reth cannot execute, logging at ERROR after a
+  minute.
+
 ## Development
 
 ```sh
