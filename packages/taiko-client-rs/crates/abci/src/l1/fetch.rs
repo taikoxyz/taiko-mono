@@ -7,13 +7,15 @@
 //! them against the proven `entriesRoot`, so a lying L1 node can only make the witness fail
 //! verification, never pass with other content.
 //!
-//! The entries are read in batches ([`ENTRY_BATCH`] per `account_witness` call, proofs unused) at
-//! the newest L1 block that still holds the snapshot, so discovery never needs state older than
-//! the cutoff (an archive node only once the cutoff leaves the node's state window).
+//! The entries are read in batches ([`ENTRY_BATCH`] per `account_witness` call, proofs unused,
+//! up to [`ENTRY_READS_IN_FLIGHT`] calls at once) at the newest L1 block that still holds the
+//! snapshot, so discovery never needs state older than the cutoff (an archive node only once the
+//! cutoff leaves the node's state window).
 
-use std::{collections::BTreeMap, future::Future, time::Duration};
+use std::{collections::BTreeMap, future::Future, ops::Range, time::Duration};
 
 use alloy_primitives::{B256, U256};
+use futures::{StreamExt, TryStreamExt, stream};
 
 use super::{
     layout::{registry, word_u32, word_u64},
@@ -30,6 +32,10 @@ use crate::{
 /// realistic registry, while bounding a single request (and what an unproven `count` from the
 /// L1 node makes the proposer allocate at once).
 const ENTRY_BATCH: u64 = 128;
+
+/// The most entry-batch reads discovery keeps in flight at once: enough to overlap the round trips
+/// of a large registry, few enough not to flood the L1 node.
+const ENTRY_READS_IN_FLIGHT: usize = 4;
 
 /// The most entries discovery reads for one checkpoint: a larger `count` is
 /// [`FetchError::Registry`], refused before any entry is read.
@@ -79,7 +85,8 @@ pub async fn build_committee_witness<L: L1Source + ?Sized>(
 /// `parent_anchor`, the last checkpoint `i` whose `l1Block` is at or before the cutoff (binary
 /// search, each checkpoint word read once; checkpoint 0 when none is, which verification then
 /// rejects) and its `count` (at most [`MAX_REGISTRY_ENTRIES`], [`FetchError::Registry`]
-/// otherwise); reads its entries in batches of [`ENTRY_BATCH`] at the newest block
+/// otherwise); reads its entries in batches of [`ENTRY_BATCH`] ([`ENTRY_READS_IN_FLIGHT`] at once)
+/// at the newest block
 /// that still holds that snapshot, `min(parent_anchor, checkpoints[i + 1].l1Block − 1)` when a
 /// next checkpoint exists and `parent_anchor` otherwise (the registry appends a checkpoint in
 /// every L1 block that changes an entry, so the entries stay checkpoint `i`'s until the next one;
@@ -176,40 +183,55 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
     }
 
     /// The first `count` registry entries as stored at L1 block `block`, read with one
-    /// `account_witness` call per [`ENTRY_BATCH`] entries (the proofs are not needed).
-    ///
-    /// A response for other slots than requested is [`FetchError::Registry`].
+    /// `account_witness` call per [`ENTRY_BATCH`] entries (the proofs are not needed), at most
+    /// [`ENTRY_READS_IN_FLIGHT`] calls at once; the first failing batch fails the read.
     async fn entries(&self, count: u32, block: u64) -> Result<Vec<RegistryEntry>, FetchError> {
         let count = u64::from(count);
-        let mut entries = Vec::new();
-        let mut start = 0;
-        while start < count {
-            let end = count.min(start + ENTRY_BATCH);
-            let slots: Vec<B256> = (start..end).flat_map(registry::entry_slots).collect();
-            let witness = self
-                .read(
-                    "registry entries read",
-                    self.l1.account_witness(self.params.registry, &slots, block),
-                )
-                .await?;
-            if !witness.storage.iter().map(|p| p.slot).eq(slots.iter().copied()) {
-                return Err(FetchError::Registry(format!(
-                    "the entries read at block {block} answered other slots than requested"
-                )));
-            }
-            for words in witness.storage.chunks_exact(3) {
+        let batches = (0..count.div_ceil(ENTRY_BATCH))
+            .map(|i| i * ENTRY_BATCH..count.min((i + 1) * ENTRY_BATCH));
+        let batches: Vec<Vec<RegistryEntry>> = stream::iter(batches)
+            .map(|batch| self.entry_batch(batch, block))
+            .buffered(ENTRY_READS_IN_FLIGHT)
+            .try_collect()
+            .await?;
+        Ok(batches.concat())
+    }
+
+    /// The registry entries with indices in `batch` as stored at L1 block `block`, read with one
+    /// `account_witness` call.
+    ///
+    /// A response for other slots than requested is [`FetchError::Registry`].
+    async fn entry_batch(
+        &self,
+        batch: Range<u64>,
+        block: u64,
+    ) -> Result<Vec<RegistryEntry>, FetchError> {
+        let slots: Vec<B256> = batch.flat_map(registry::entry_slots).collect();
+        let witness = self
+            .read(
+                "registry entries read",
+                self.l1.account_witness(self.params.registry, &slots, block),
+            )
+            .await?;
+        if !witness.storage.iter().map(|p| p.slot).eq(slots.iter().copied()) {
+            return Err(FetchError::Registry(format!(
+                "the entries read at block {block} answered other slots than requested"
+            )));
+        }
+        Ok(witness
+            .storage
+            .chunks_exact(3)
+            .map(|words| {
                 let packed = words[2].value;
-                entries.push(RegistryEntry {
+                RegistryEntry {
                     pubkey: B256::from(words[0].value),
                     eff_stake: words[1].value,
                     active_from_l1: word_u64(packed, 0),
                     exit_effective_l1: word_u64(packed, 64),
                     last_heartbeat_at: word_u64(packed, 128),
-                });
-            }
-            start = end;
-        }
-        Ok(entries)
+                }
+            })
+            .collect())
     }
 
     /// The raw registry storage word at `slot` as of L1 block `block`.
@@ -393,6 +415,30 @@ mod tests {
         )
         .await;
         assert_eq!(within, Ok(fx.witness.committee.clone()));
+    }
+
+    /// The entry batches are read concurrently, at most four at a time, and still yield the
+    /// entries in index order.
+    #[tokio::test(start_paused = true)]
+    async fn entry_batches_are_read_concurrently_but_bounded() {
+        let bound = ENTRY_READS_IN_FLIGHT;
+        let fx = Fixture::genesis(1);
+        let n = 6 * ENTRY_BATCH + 1; // seven batches
+        let entries = sample_entries(usize::try_from(n).unwrap());
+        let storage = RegistryStorage { checkpoints: vec![(64, entries.clone())] };
+        let l1 = MockL1::new(64);
+        fx.plant_l1_block(&l1, 64, &fx.inbox, &storage);
+        l1.state().delay = Some(Duration::from_secs(1));
+
+        let start = tokio::time::Instant::now();
+        let witness =
+            build_committee_witness_within(&l1, &fx.params, 64, 1, Duration::from_secs(5))
+                .await
+                .expect("witness");
+        assert_eq!(witness.entries, entries);
+        assert_eq!(l1.state().max_in_flight, bound);
+        // checkpoints.length, the head, two waves of entry reads, the proof: 5 s instead of 10 s.
+        assert_eq!(start.elapsed(), Duration::from_secs(5));
     }
 
     /// Every read is bounded on its own; the deadline names the read that stalled.

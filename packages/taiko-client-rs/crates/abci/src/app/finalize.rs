@@ -112,7 +112,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Commit`: persists the state the last `FinalizeBlock` derived and makes it the
     /// committed state.
     ///
-    /// Clears the `ProcessProposal` cache and the halt reason, publishes the new head's gauges,
+    /// Clears the `ProcessProposal` cache, the cached committee witness and the halt reason,
+    /// publishes the new head's gauges,
     /// and answers `retain_height = 0` (D17). Errors: [`AbciError::NothingToCommit`] without a
     /// pending state; [`AbciError::Store`] when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
@@ -121,6 +122,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         tracing::info!(height = pending.last_height, hash = %pending.parent.hash, "block committed");
         self.state = self.pending.take();
         self.verdicts.clear();
+        *self.committee_cache() = None;
         self.clear_halt();
         self.publish_state_metrics();
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })

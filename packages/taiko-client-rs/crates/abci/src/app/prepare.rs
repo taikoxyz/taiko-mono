@@ -7,12 +7,12 @@ use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
-    AbciError, App, deadline,
-    validate::{Candidate, Rejection, check_candidate, expected_header},
+    AbciError, App, CachedCommittee, deadline,
+    validate::{Candidate, Rejection, check_candidate_anchor, expected_header, finish_candidate},
 };
 use crate::{
     engine::Engine,
-    envelope::{AnchorWitness, EtnaEnvelope},
+    envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope},
     l1::{L1Error, L1Source, build_committee_witness_within, layout::inbox},
     metrics::{AbciMetrics, set_u64},
     rules,
@@ -61,11 +61,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// In order: a superseded chain proposes nothing; the anchor is
     /// `n = max(parent anchor, own finalized − F_L1)`, and its witness (header and Inbox proofs
-    /// at `n`) is fetched iff `n` moves, the height is `H_0` or a switch height; at
-    /// `h_first(e)` the committee witness for `e + 1` is built against the parent's anchor
-    /// ([`build_committee_witness_within`], each read within the L1 deadline, reading no state
-    /// older than the committee cutoff); the witnesses pass the same checks as in `ProcessProposal`
-    /// ([`check_candidate`]); the EL builds on the parent with the derived attributes, and the
+    /// at `n`) is fetched iff `n` moves, the height is `H_0` or a switch height; the anchor
+    /// passes the committee-free checks of `ProcessProposal` ([`check_candidate_anchor`]: anchor
+    /// progress, generation, `migrationState`, back-pressure), so a block that cannot be proposed
+    /// costs no committee discovery; at `h_first(e)` the committee witness for `e + 1` is taken
+    /// from an earlier round at this height or built against the parent's anchor
+    /// ([`App::committee_witness`]); the rest of `ProcessProposal`'s witness checks pass
+    /// ([`finish_candidate`]); the EL builds on the parent with the derived attributes, and the
     /// built header must carry the derived fields; the envelope must fit `max_tx_bytes`.
     async fn propose(
         &self,
@@ -88,29 +90,29 @@ impl<L: L1Source, E: Engine> App<L, E> {
         } else {
             None
         };
-        let committee = match schedule.epoch_starting_at(height) {
-            Some(e) => {
-                let target = e.checked_add(1).expect("an epoch below u64::MAX starts at a height");
-                let witness = build_committee_witness_within(
-                    &self.l1,
-                    params,
-                    state.anchor.number,
-                    target,
-                    self.opts.l1_timeout,
-                )
-                .await?;
-                Some(witness)
-            }
-            None => None,
-        };
-
         let candidate = Candidate {
             anchor: anchor.as_ref(),
-            committee: committee.as_ref(),
+            committee: None,
             extra_generation: state.generation,
             extra_anchor: n,
         };
-        let facts = check_candidate(state, params, height, &candidate)?;
+        let anchor_state = check_candidate_anchor(state, params, height, &candidate)?;
+        let committee = match schedule.epoch_starting_at(height) {
+            Some(e) => {
+                let target = e.checked_add(1).expect("an epoch below u64::MAX starts at a height");
+                Some((target, self.committee_witness(state.anchor.number, target).await?))
+            }
+            None => None,
+        };
+        let witness = committee.as_ref().map(|(_, w)| w);
+        let facts = finish_candidate(state, params, height, witness, anchor_state)?;
+        if let Some((target_epoch, witness)) = &committee {
+            *self.committee_cache() = Some(CachedCommittee {
+                parent_anchor: state.anchor.number,
+                target_epoch: *target_epoch,
+                witness: witness.clone(),
+            });
+        }
         let expected =
             expected_header(state, params, height, &facts.anchor, super::unix_secs(req.time))?;
         let attrs = rules::payload_attributes(&expected, facts.anchor.hash);
@@ -122,12 +124,45 @@ impl<L: L1Source, E: Engine> App<L, E> {
         .await?;
         rules::check_header(&block.header, &expected).map_err(Rejection::BuiltHeader)?;
 
+        let committee = committee.map(|(_, w)| w);
         let envelope = EtnaEnvelope { block, anchor, committee }.encode();
         if i64::try_from(envelope.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
             Ok(envelope)
         } else {
             Err(Rejection::Oversize { len: envelope.len(), max: req.max_tx_bytes })
         }
+    }
+
+    /// The committee witness of `target_epoch` against the parent's anchor `parent_anchor`: the
+    /// one an earlier round at this height discovered and verified, if its key matches, else a
+    /// fresh discovery ([`build_committee_witness_within`], each read within the L1 deadline,
+    /// reading no state older than the committee cutoff). The caller caches a fresh witness once
+    /// it verifies.
+    async fn committee_witness(
+        &self,
+        parent_anchor: u64,
+        target_epoch: u64,
+    ) -> Result<CommitteeWitness, Rejection> {
+        let cached = self.committee_cache().as_ref().and_then(|c| {
+            (c.parent_anchor == parent_anchor && c.target_epoch == target_epoch)
+                .then(|| c.witness.clone())
+        });
+        if let Some(witness) = cached {
+            tracing::debug!(
+                parent_anchor,
+                target_epoch,
+                "reusing the discovered committee witness"
+            );
+            return Ok(witness);
+        }
+        Ok(build_committee_witness_within(
+            &self.l1,
+            &self.params,
+            parent_anchor,
+            target_epoch,
+            self.opts.l1_timeout,
+        )
+        .await?)
     }
 
     /// The anchor witness at L1 block `n`: its canonical header and the Inbox proofs of
