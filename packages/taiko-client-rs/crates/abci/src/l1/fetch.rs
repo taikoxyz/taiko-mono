@@ -31,6 +31,17 @@ use crate::{
 /// L1 node makes the proposer allocate at once).
 const ENTRY_BATCH: u64 = 128;
 
+/// The most entries discovery reads for one checkpoint: a larger `count` is
+/// [`FetchError::Registry`], refused before any entry is read.
+///
+/// `count` is an unproven read from the node's own L1, and `abci-genesis` runs without an overall
+/// deadline, so a buggy L1 node claiming up to `u32::MAX` entries could otherwise drive millions
+/// of reads. The cap bounds discovery at `MAX_REGISTRY_ENTRIES / ENTRY_BATCH` = 32 entry reads.
+/// Entries are append-only (an exited bond keeps its index), so it bounds every bond ever
+/// registered, far above the committee cap `n_max` (128 on the devnet); a registry growing past
+/// it needs a client release raising it.
+pub const MAX_REGISTRY_ENTRIES: u32 = 4096;
+
 /// Why a committee witness could not be built.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum FetchError {
@@ -67,7 +78,8 @@ pub async fn build_committee_witness<L: L1Source + ?Sized>(
 /// Computes the cutoff from `parent_anchor`; discovers, with unproven storage reads at
 /// `parent_anchor`, the last checkpoint `i` whose `l1Block` is at or before the cutoff (binary
 /// search, each checkpoint word read once; checkpoint 0 when none is, which verification then
-/// rejects) and its `count`; reads its entries in batches of [`ENTRY_BATCH`] at the newest block
+/// rejects) and its `count` (at most [`MAX_REGISTRY_ENTRIES`], [`FetchError::Registry`]
+/// otherwise); reads its entries in batches of [`ENTRY_BATCH`] at the newest block
 /// that still holds that snapshot, `min(parent_anchor, checkpoints[i + 1].l1Block − 1)` when a
 /// next checkpoint exists and `parent_anchor` otherwise (the registry appends a checkpoint in
 /// every L1 block that changes an entry, so the entries stay checkpoint `i`'s until the next one;
@@ -121,6 +133,12 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         let index = lo.saturating_sub(1);
         let head = self.head(&mut heads, index, n_p).await?;
         let (l1_block, count) = (word_u64(head, 0), word_u32(head, 64));
+        if count > MAX_REGISTRY_ENTRIES {
+            return Err(FetchError::Registry(format!(
+                "checkpoint {index} claims {count} entries, above the discovery cap of \
+                 {MAX_REGISTRY_ENTRIES}"
+            )));
+        }
 
         let next = index.checked_add(1).filter(|next| *next < length);
         let entries_block = match next {
@@ -390,6 +408,65 @@ mod tests {
         )
         .await;
         assert_eq!(err, Err(FetchError::Timeout("registry storage read")));
+    }
+
+    /// The L1 state of a registry with one checkpoint (at L1 block 1) whose head claims `count`
+    /// entries, none of them stored.
+    fn registry_claiming(fx: &Fixture, count: u32) -> TestState {
+        let head = U256::from(1u64) | (U256::from(count) << 64);
+        TestState::new(vec![(
+            fx.params.registry,
+            1,
+            U256::ZERO,
+            B256::ZERO,
+            vec![
+                (registry::length_slot(), U256::from(1u64)),
+                (registry::checkpoint_slots(0)[0], head),
+            ],
+        )])
+    }
+
+    /// `count` is an unproven read and `abci-genesis` has no overall deadline: a checkpoint
+    /// claiming more than [`MAX_REGISTRY_ENTRIES`] entries is refused before any entry is read.
+    #[tokio::test]
+    async fn a_registry_count_above_the_cap_is_refused_unread() {
+        let fx = Fixture::genesis(1);
+        let n_p = fx.activation.l1_0;
+        for count in [MAX_REGISTRY_ENTRIES + 1, u32::MAX] {
+            let l1 = fx.l1();
+            l1.state().states.insert(n_p, registry_claiming(&fx, count));
+            let err = build_committee_witness(&l1, &fx.params, n_p, 0).await;
+            assert!(
+                matches!(&err, Err(FetchError::Registry(msg)) if msg.contains(&count.to_string())),
+                "{count}: {err:?}"
+            );
+            assert_eq!(
+                l1.calls().len(),
+                2,
+                "{count}: only checkpoints.length and the head are read: {:?}",
+                l1.calls()
+            );
+        }
+    }
+
+    /// A checkpoint claiming exactly [`MAX_REGISTRY_ENTRIES`] entries is still read, in
+    /// `MAX_REGISTRY_ENTRIES / ENTRY_BATCH` batches.
+    #[tokio::test]
+    async fn a_registry_count_at_the_cap_is_read() {
+        let fx = Fixture::genesis(1);
+        let n_p = fx.activation.l1_0;
+        let l1 = fx.l1();
+        l1.state().states.insert(n_p, registry_claiming(&fx, MAX_REGISTRY_ENTRIES));
+        let err = build_committee_witness(&l1, &fx.params, n_p, 0).await;
+        assert!(!matches!(err, Err(FetchError::Registry(_))), "{err:?}");
+        let batches = l1
+            .calls()
+            .iter()
+            .filter(|c| {
+                matches!(c, L1Call::AccountWitness { slots, .. } if *slots != snapshot_slots(0, false))
+            })
+            .count();
+        assert_eq!(batches as u64, u64::from(MAX_REGISTRY_ENTRIES) / ENTRY_BATCH);
     }
 
     #[tokio::test]
