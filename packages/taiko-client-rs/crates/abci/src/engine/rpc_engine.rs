@@ -473,7 +473,7 @@ mod tests {
                     if msg.contains(AUTH) && msg.contains("engine_newPayloadV4")),
                 "{reply}: {err:?}"
             );
-            assert!(!err.is_transport(), "{reply}");
+            assert!(!err.is_retryable(), "{reply}");
         }
     }
 
@@ -504,8 +504,8 @@ mod tests {
         }
     }
 
-    /// A JSON-RPC error object is the engine refusing the call: a reply-class error carrying
-    /// its code and message, not a transport failure.
+    /// A JSON-RPC error object is an [`EngineError::ErrorReply`] carrying its code and message;
+    /// the code decides whether a retry may cure it ([`EngineError::is_retryable`]).
     #[tokio::test]
     async fn json_rpc_error_replies_are_reply_errors() {
         let error = |code: i64, message: &str| -> alloy_transport::mock::MockResponse {
@@ -522,11 +522,17 @@ mod tests {
                     && message == "Invalid forkchoice state"),
             "{err:?}"
         );
-        assert!(!err.is_transport());
+        assert!(!err.is_retryable(), "invalid forkchoice state is a verdict");
 
         m.auth.push(error(-32602, "Invalid params"));
         let err = m.engine.new_payload(&golden_block()).await.unwrap_err();
         assert!(matches!(&err, EngineError::ErrorReply { code: -32602, .. }), "{err:?}");
+        assert!(!err.is_retryable(), "invalid params is a verdict");
+
+        m.auth.push(error(-32603, "beacon consensus engine task stopped"));
+        let err = m.engine.new_payload(&golden_block()).await.unwrap_err();
+        assert!(matches!(&err, EngineError::ErrorReply { code: -32603, .. }), "{err:?}");
+        assert!(err.is_retryable(), "an internal error is transient");
 
         m.l2.push(error(-32000, "header not found"));
         let err = m.engine.header_by_number(1).await.unwrap_err();
@@ -535,6 +541,7 @@ mod tests {
                 if call.contains(L2) && call.contains("eth_getBlockByNumber")),
             "{err:?}"
         );
+        assert!(err.is_retryable(), "a server-range error is transient");
     }
 
     #[tokio::test]
@@ -600,7 +607,7 @@ mod tests {
                 if msg.contains(AUTH) && msg.contains("engine_forkchoiceUpdatedV3")),
             "{err:?}"
         );
-        assert!(err.is_transport());
+        assert!(err.is_retryable());
 
         let err = m.engine.new_payload(&golden_block()).await.unwrap_err();
         assert!(
