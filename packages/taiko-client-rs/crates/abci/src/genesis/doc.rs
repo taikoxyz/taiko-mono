@@ -1,4 +1,4 @@
-//! The CometBFT v0.40 `genesis.json` document (spec §5.1).
+//! The CometBFT v0.40 `genesis.json` document.
 //!
 //! The types mirror CometBFT's JSON exactly: every integer is a decimal string, as Go's amino
 //! JSON writes `int64`/`uint64`, and the field order is CometBFT's own. Only the fields an Etna
@@ -20,7 +20,7 @@ pub struct GenesisDoc {
     pub genesis_time: String,
     /// `taiko-etna-<L2 chain id>-g<recoveryGeneration>`.
     pub chain_id: String,
-    /// `B* + 1`, as a decimal string (D8).
+    /// `B* + 1`, as a decimal string, so every CometBFT height equals its EL block number.
     pub initial_height: String,
     /// The consensus parameters ([`GenesisConsensusParams::etna`]).
     pub consensus_params: GenesisConsensusParams,
@@ -98,7 +98,7 @@ pub struct AuthorityParams {
 }
 
 impl GenesisConsensusParams {
-    /// The parameters of every Etna genesis (spec §5.1): CometBFT's default
+    /// The parameters of every Etna genesis: CometBFT's default
     /// `block.max_bytes` (22,020,096, above any envelope) without a gas limit, the default
     /// evidence limits (100,000 blocks, 48 h, 1 MiB), Ed25519 keys only, app version 0, vote
     /// extensions disabled, and no update authority.

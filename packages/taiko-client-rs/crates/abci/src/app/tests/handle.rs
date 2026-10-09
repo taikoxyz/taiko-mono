@@ -1,4 +1,4 @@
-//! [`App::handle`] dispatch of the methods without app logic (spec §5.6).
+//! [`App::handle`] dispatch of the methods without app logic.
 
 use tendermint::{
     Hash, Time,

@@ -1,6 +1,6 @@
-//! The committee witness at `h_first(e)` (spec §4.1, §6.4): it is proven against the PARENT's
+//! The committee witness at `h_first(e)`: it is proven against the PARENT's
 //! anchor even when the block moves its own anchor, and every forgery of its record, entries or
-//! registry proofs is refused. Also the committees a switch height needs (D19).
+//! registry proofs is refused. Also the committees a switch height needs.
 
 use alloy_primitives::{B256, U256};
 
@@ -176,7 +176,7 @@ async fn forged_committee_witnesses_are_rejected() {
     }
 }
 
-/// (d) D19 needs committees `t − 1` and `t` at the switch height to `t`. The app cannot reach
+/// (d) The switch height to `t` needs committees `t − 1` and `t`. The app cannot reach
 /// that height without them (committee `t` is derived at `h_first(t − 1)`; see
 /// `finalize::every_switch_height_finds_both_committees`), so this crafts states that lack one:
 /// the build and the proposal both stop at `committee_unknown`.

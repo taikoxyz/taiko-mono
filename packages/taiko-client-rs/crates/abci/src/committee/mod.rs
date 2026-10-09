@@ -1,4 +1,5 @@
-//! Committee derivation from staking-registry snapshots (spec §6.2, §6.4). No I/O.
+//! Committee derivation from staking-registry snapshots (layout in
+//! [`l1::layout::registry`](crate::l1::layout::registry)). No I/O.
 //!
 //! A committee witness proves one registry checkpoint (`checkpoints.length`, `checkpoints[i]`
 //! and, when it exists, `checkpoints[i + 1].l1Block`) plus all of that checkpoint's entries.
@@ -178,7 +179,7 @@ pub struct Snapshot {
     pub entries: Vec<RegistryEntry>,
 }
 
-/// The registry `entriesRoot` over `entries` (spec §6.2).
+/// The registry `entriesRoot` over `entries`.
 ///
 /// Leaf `i` = `keccak256(abi.encode(bytes32("ETNA_REG_ENTRY"), uint256(i), bytes32 pubkey,
 /// uint256 effStake, uint64 activeFromL1, uint64 exitEffectiveL1, uint64 lastHeartbeatAt))`;
@@ -199,12 +200,13 @@ pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
 /// The MEM-08 sort key of `pubkey`:
 /// `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), uint256 chainId, bytes32 pubkey))`.
 ///
-/// `chain_id` is the L2 EVM chain id (D15).
+/// `chain_id` is the L2 EVM chain id, which unlike the CometBFT `chain_id` does not change with
+/// the recovery generation.
 pub fn mem08_key(chain_id: u64, pubkey: B256) -> B256 {
     keccak256([SET_KEY_TAG, word(chain_id), pubkey].concat())
 }
 
-/// The MEM-08 set root over `members` (spec `03`, §6.4 step 6).
+/// The MEM-08 set root over `members` (#22262), with `chainId` = the L2 EVM chain id.
 ///
 /// `members` must already be sorted by [`mem08_key`] ascending (checked in debug builds). Leaf
 /// `index` = `keccak256(abi.encode(bytes32("ETNA_SET_LEAF"), uint256 chainId, uint256 k,
@@ -237,7 +239,7 @@ pub fn mem08_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
     level[0]
 }
 
-/// The committee record hash stored at `committee[targetEpoch]` on L1 (spec §6.4 step 8):
+/// The committee record hash stored at `committee[targetEpoch]` on L1:
 /// `keccak256(abi.encode(bytes32("ETNA_COMMITTEE_V1"), uint256 l2ChainId, uint64 targetEpoch,
 /// uint64 cutoffL1Block, uint64 checkpointIndex, bytes32 setRoot, uint256 totalStake,
 /// uint64 totalPower, uint8 encodingVersion))`.
@@ -258,7 +260,7 @@ pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
     )
 }
 
-/// The snapshot cutoff `C = grid · floor((parent_anchor − lag) / grid)` (spec §6.4 step 1).
+/// The snapshot cutoff `C = grid · floor((parent_anchor − lag) / grid)`.
 ///
 /// `parent_anchor` is the parent block's anchor L1 block number `n_p`. Rejects `grid == 0` and
 /// `parent_anchor < lag`.
@@ -288,7 +290,7 @@ pub fn snapshot_slots(i: u64, has_next: bool) -> Vec<B256> {
     slots
 }
 
-/// Verifies the registry snapshot carried by `w` against the L1 `state_root` (spec §6.4 step 2).
+/// Verifies the registry snapshot carried by `w` against the L1 `state_root`.
 ///
 /// The claimed checkpoint is `i = w.record.checkpoint_index`; the witness proves the next
 /// checkpoint iff it carries four storage proofs. Checks, in order: the witness proves the
@@ -346,8 +348,8 @@ pub fn verify_snapshot(
     Ok(Snapshot { checkpoint_index: index, l1_block, entries: w.entries.clone() })
 }
 
-/// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` (spec §6.4
-/// steps 3–8) and returns its record and members (sorted by [`mem08_key`]).
+/// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` and returns its
+/// record and members (sorted by [`mem08_key`]).
 ///
 /// An entry is eligible iff `active_from_l1 <= cutoff < exit_effective_l1`,
 /// `eff_stake >= max(s_min, vp_unit)`, `last_heartbeat_at > 0` and
@@ -463,7 +465,7 @@ pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(B256, u64)> {
     updates.into_iter().collect()
 }
 
-/// Whether `e` is eligible at `cutoff` (spec §6.4 step 3, MEM-13 evaluated at `cutoff`).
+/// Whether `e` is eligible at `cutoff` (MEM-13, evaluated at `cutoff`).
 fn is_eligible(e: &RegistryEntry, cutoff: u64, min_stake: U256, heartbeat_window: u64) -> bool {
     e.active_from_l1 <= cutoff &&
         cutoff < e.exit_effective_l1 &&

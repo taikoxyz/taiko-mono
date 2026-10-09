@@ -1,5 +1,5 @@
 //! The planter: writes Etna Inbox and staking-registry state into anvil following
-//! `abci::l1::layout` (spec §6.2: the Inbox slots, the registry checkpoints and its live
+//! `abci::l1::layout` (the Inbox slots, the registry checkpoints and its live
 //! `entries` array).
 //!
 //! Writes are real transactions, not `anvil_setStorageAt`: anvil stores block `n`'s historical

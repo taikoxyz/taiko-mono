@@ -1,4 +1,4 @@
-//! The app's Prometheus metrics (spec §8.3). The collectors are process-wide, so every test
+//! The app's Prometheus metrics. The collectors are process-wide, so every test
 //! runs alone in its process ([`in_own_process`]) and the exact values below hold.
 
 use super::{

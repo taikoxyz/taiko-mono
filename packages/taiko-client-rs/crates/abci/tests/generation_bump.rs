@@ -1,4 +1,4 @@
-//! Docker scenario 4 (spec §9.2): planting `recoveryGeneration = 1` into the Inbox supersedes
+//! Docker scenario: planting `recoveryGeneration = 1` into the Inbox supersedes
 //! the generation-0 chain. Once a proposal anchors at a final L1 block that carries the bump, the
 //! app sets `/status.superseded` and refuses every proposal from then on: CometBFT stops.
 //!

@@ -1,4 +1,4 @@
-//! Docker devnet harness for the Etna PoS `abci` app (spec §9.2).
+//! Docker devnet harness for the Etna PoS `abci` app.
 //!
 //! [`Devnet::start`] boots one throw-away devnet per test: an anvil L1, one alethia-reth EL and
 //! one CometBFT node per validator (docker containers on a private network, host ports chosen by

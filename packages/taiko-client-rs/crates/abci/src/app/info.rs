@@ -1,4 +1,4 @@
-//! `Info` (spec §5.2), `Query` and `CheckTx` (spec §5.6).
+//! `Info`, `Query` and `CheckTx`.
 
 use tendermint::{
     AppHash,
@@ -15,7 +15,8 @@ use crate::{elsync::ensure_block, engine::Engine, l1::L1Source, store::AppState}
 /// Response code of a rejected `CheckTx` and of a failed `Query`.
 pub const CODE_REJECTED: u32 = 1;
 
-/// The `CheckTx` rejection log: user transactions travel over EL devp2p (D16).
+/// The `CheckTx` rejection log: user transactions travel over EL devp2p, never through
+/// CometBFT (its mempool is `nop`).
 pub const CHECK_TX_LOG: &str = "transactions go to the execution layer";
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -39,7 +40,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// loop, connection loop and codec are private), so that handshake is not re-checked. An EL
     /// that restarted or crashed while the app kept running may come back without its last
     /// blocks; operators restart the app then (README, "Operations"), and until they do,
-    /// `FinalizeBlock` keeps retrying a block the EL cannot execute (spec §8.1).
+    /// `FinalizeBlock` keeps retrying a block the EL cannot execute.
     pub(super) async fn info(&mut self, _req: request::Info) -> Result<response::Info, AbciError> {
         let (last_block_height, last_block_app_hash) = match &self.state {
             None => (Height::from(0u32), AppHash::default()),
@@ -132,7 +133,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         serde_json::to_vec(committee).map_err(|e| e.to_string())
     }
 
-    /// Handles `CheckTx`: rejects every transaction (the CometBFT mempool is `nop`, D16).
+    /// Handles `CheckTx`: rejects every transaction (the CometBFT mempool is `nop`; user
+    /// transactions travel over EL devp2p).
     pub(super) fn check_tx(&self, _req: request::CheckTx) -> response::CheckTx {
         response::CheckTx {
             code: Code::from(CODE_REJECTED),

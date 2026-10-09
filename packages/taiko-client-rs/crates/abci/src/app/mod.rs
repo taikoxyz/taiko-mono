@@ -1,4 +1,4 @@
-//! The ABCI++ application (spec §5).
+//! The ABCI++ application.
 //!
 //! [`App`] owns the node's own L1 view, the execution engine, the chain parameters and the
 //! persisted [`AppState`], and answers CometBFT's requests through [`App::handle`]. `InitChain`
@@ -7,7 +7,7 @@
 //! [`validate`]; `FinalizeBlock` and `Commit` in [`finalize`].
 //!
 //! Errors returned by [`App::handle`] are fatal to the connection; [`AbciError::SafetyHalt`]
-//! marks the ones where the node must stop signing and an operator must investigate (spec §8.2).
+//! marks the ones where the node must stop signing and an operator must investigate.
 //! A bad or unbuildable proposal is never an error: it is a [`Rejection`] (liveness only).
 
 use std::{
@@ -39,17 +39,17 @@ use crate::{
     store::{AppState, Store, StoreError},
 };
 
-/// The `FinalizeBlock` and `Commit` handlers (spec §5.5, §5.6).
+/// The `FinalizeBlock` and `Commit` handlers.
 mod finalize;
-/// `Info`, `Query` and `CheckTx` handlers (spec §5.2, §5.6).
+/// `Info`, `Query` and `CheckTx` handlers.
 mod info;
-/// The `InitChain` handler (spec §5.1).
+/// The `InitChain` handler.
 mod init;
-/// The `PrepareProposal` handler (spec §5.3).
+/// The `PrepareProposal` handler.
 mod prepare;
-/// The `ProcessProposal` handler (spec §5.4).
+/// The `ProcessProposal` handler.
 mod process;
-/// Deterministic block validation shared by `ProcessProposal` and `FinalizeBlock` (spec §5.4).
+/// Deterministic block validation shared by `ProcessProposal` and `FinalizeBlock`.
 mod validate;
 
 #[cfg(test)]
@@ -69,10 +69,11 @@ pub const APP_VERSION: u64 = 0;
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
 
 /// First pause before `FinalizeBlock` retries an EL call for a decided block that answered
-/// `SYNCING`/`ACCEPTED`, exceeded the engine deadline or failed in transport
-/// ([`EngineError::Transport`]); the pause doubles per retry of the block up to
-/// [`FINALIZE_RETRY_MAX`]. A JSON-RPC error reply or an undecodable reply is never retried: it is
-/// the EL's deterministic answer, a safety halt.
+/// `SYNCING`/`ACCEPTED`, exceeded the engine deadline or failed with a retryable error
+/// ([`EngineError::is_retryable`]: a transport failure, or a JSON-RPC error code a retry may
+/// cure); the pause doubles per retry of the block up to [`FINALIZE_RETRY_MAX`]. Every other
+/// engine error (an Engine API or malformed-call error code, a reply of the wrong shape) is the
+/// EL's deterministic answer and never retried: a safety halt.
 pub const FINALIZE_RETRY_INITIAL: Duration = Duration::from_millis(100);
 
 /// Cap of the doubling pause between `FinalizeBlock`'s EL retries.
@@ -82,7 +83,7 @@ pub const FINALIZE_RETRY_MAX: Duration = Duration::from_secs(5);
 /// retry at ERROR instead of WARN (it keeps retrying), so operators notice a stuck EL.
 pub const FINALIZE_RETRY_ESCALATE: Duration = Duration::from_secs(60);
 
-/// Deadlines of the app's external calls (spec §8.1).
+/// Deadlines of the app's external calls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AppOptions {
     /// Deadline of one L1 operation (a finality check, a header or proof read).
@@ -110,7 +111,7 @@ impl Default for AppOptions {
     }
 }
 
-/// The app's status as served by the `/status` query (spec §5.6).
+/// The app's status as served by the `/status` query.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Status {
     /// Last committed height (== L2 block number); `B*` right after `InitChain`.
@@ -132,7 +133,7 @@ pub struct Status {
 /// Why an ABCI request failed. Every variant is fatal to the request; see the module docs.
 #[derive(Debug, thiserror::Error)]
 pub enum AbciError {
-    /// A committed block or the EL contradicts the app's verified state (spec §8.2): the
+    /// A committed block or the EL contradicts the app's verified state: the
     /// process must exit and an operator must investigate.
     #[error("safety halt: {0}")]
     SafetyHalt(String),
@@ -169,7 +170,8 @@ pub enum AbciError {
         /// `L1_0` from the activation record.
         l1_0: u64,
     },
-    /// The activation record's schedule violates the epoch-length bounds (spec §6.5).
+    /// The activation record's schedule violates the epoch-length bounds
+    /// ([`Schedule::validate`]).
     #[error(transparent)]
     Schedule(#[from] ScheduleError),
     /// A CometBFT `chain_id` is not `taiko-etna-<l2ChainId>-g<generation>` for this chain.
@@ -183,7 +185,8 @@ pub enum AbciError {
         /// The Inbox's `recoveryGeneration` at `L1_0`.
         inbox: u64,
     },
-    /// The genesis `initial_height` is not `B* + 1` (D8).
+    /// The genesis `initial_height` is not `B* + 1` (so that every CometBFT height equals its
+    /// EL block number).
     #[error("initial_height {got} must be B* + 1 = {expected}")]
     InitialHeight {
         /// The requested initial height.
@@ -258,7 +261,8 @@ impl From<ElSyncError> for AbciError {
 /// The ABCI++ application over an L1 source `L` and an execution engine `E`.
 #[derive(Debug)]
 pub struct App<L: L1Source, E: Engine> {
-    /// The node's own L1 view (never used by `FinalizeBlock` or replay, D4).
+    /// The node's own L1 view (never used by `FinalizeBlock` or replay: blocks carry their L1
+    /// facts).
     l1: L,
     /// The execution engine.
     engine: E,
@@ -300,7 +304,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// any).
     ///
     /// A loaded state must be consistent with `params` and with itself: its schedule must pass
-    /// [`Schedule::validate`] for `params`' unsettled cap (spec §6.5) and equal the one derived
+    /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived
     /// from its activation record, its `chain_id` must name `params.l2_chain_id` and its
     /// generation, and its last height must equal its parent's number and fit a CometBFT
     /// height.

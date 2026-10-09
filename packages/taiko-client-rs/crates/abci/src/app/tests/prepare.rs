@@ -1,4 +1,4 @@
-//! `PrepareProposal` (spec §5.3): anchor choice, and every reason it proposes nothing.
+//! `PrepareProposal`: anchor choice, and every reason it proposes nothing.
 
 use std::{path::Path, time::Duration};
 

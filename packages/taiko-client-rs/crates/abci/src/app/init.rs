@@ -1,4 +1,4 @@
-//! `InitChain` (spec §5.1): verify the genesis witness against the node's own L1 and the EL,
+//! `InitChain`: verify the genesis witness against the node's own L1 and the EL,
 //! then persist the initial [`AppState`].
 
 use std::collections::BTreeMap;

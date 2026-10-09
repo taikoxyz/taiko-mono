@@ -1,4 +1,4 @@
-//! Docker scenario 3 (spec §9.2): with `lastCheckpoint` frozen on L1 the chain stops at the
+//! Docker scenario: with `lastCheckpoint` frozen on L1 the chain stops at the
 //! unsettled depth `U = D_MAX − MARGIN_V` (HALT-03), and a planted advance resumes it.
 //!
 //! The defaults `D_MAX = 12`, `MARGIN_V = 2` give `U = 10`, comfortably above the ~5–6 blocks the

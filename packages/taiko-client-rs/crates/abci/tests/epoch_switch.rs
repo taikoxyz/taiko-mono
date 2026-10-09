@@ -1,14 +1,16 @@
-//! Docker scenario 2 (spec §9.2): the epoch switch.
+//! Docker scenarios: the epoch switch.
 //!
 //! [`epoch_switch_adds_the_joining_validator`]: four nodes, the first three forming the genesis
 //! committee. A registry checkpoint planted after start adds validator 4; the first epoch `e`
 //! whose `H_e` cutoff (the parent's anchor, `G = 1`, `LAG = 0`) covers it derives a four-member
 //! committee `t = e + 1`; once the fake lander lands it (`lastCheckpoint ≥ H_e`,
-//! `committee[t]`), `FinalizeBlock(h_first(t) − 2)` emits the update (D19, D20), CometBFT's set
+//! `committee[t]`), `FinalizeBlock(h_first(t) − 2)` emits the update (CometBFT applies it two
+//! heights later; a set never activates before its record has landed), CometBFT's set
 //! at `h_first(t)` has four members, and validator 4 signs commits of epoch `t`.
 //!
 //! [`epoch_switch_halts_without_landing`]: one validator, the lander moving `lastCheckpoint` but
-//! not planting `committee[1]`; the switch height `h_first(1) − 2` is refused (D19), so the chain
+//! not planting `committee[1]`; the switch height `h_first(1) − 2` is refused (its record has
+//! not landed), so the chain
 //! stays one block below it until the record lands.
 
 use std::{
@@ -22,7 +24,7 @@ use anyhow::ensure;
 use test_harness::{Devnet, DevnetSpec, anchor_of, wait_until};
 
 /// The `/status` halt reason of a switch height whose anchored `committee[t]` has not landed
-/// (D19, `Rejection::RecordNotLanded`).
+/// (`Rejection::RecordNotLanded`).
 const RECORD_NOT_LANDED: &str = "record_not_landed";
 
 /// CometBFT node 0's validator set at `height` as `(pubkey, power)` pairs.
@@ -170,7 +172,8 @@ async fn epoch_switch_halts_without_landing() -> anyhow::Result<()> {
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
     eprintln!("halt reasons seen while stalled: {reasons:?}; status {status:?}");
-    // The checkpoint covers h_first(t − 1), so D19 fails on the missing committee[t] alone.
+    // The checkpoint covers h_first(t − 1), so the switch fails on the missing committee[t]
+    // alone.
     assert!(
         status.last_checkpoint_height >= schedule.h_first(t - 1),
         "lastCheckpoint {} stopped moving",

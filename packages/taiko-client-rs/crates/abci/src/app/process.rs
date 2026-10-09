@@ -1,4 +1,4 @@
-//! `ProcessProposal` (spec §5.4): the deterministic checks of [`validate_block`], then the
+//! `ProcessProposal`: the deterministic checks of [`validate_block`], then the
 //! node-local ¹ checks (anchor finality in the own L1 view, EL execution).
 
 use alloy_primitives::Bytes;

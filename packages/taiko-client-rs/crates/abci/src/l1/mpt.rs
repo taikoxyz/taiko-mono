@@ -1,4 +1,4 @@
-//! EIP-1186 account and storage proof verification (spec §6.3). No I/O.
+//! EIP-1186 account and storage proof verification. No I/O.
 //!
 //! The account proof is checked against an L1 header's `stateRoot` at key `keccak256(address)`;
 //! each storage proof is then checked against the proven `storageRoot` at key `keccak256(slot)`.

@@ -1,5 +1,5 @@
 //! The fake lander: keeps `lastCheckpoint` and the landed committee records moving behind the
-//! chain (spec §9.2).
+//! chain, as settlement would.
 
 use std::{
     sync::{

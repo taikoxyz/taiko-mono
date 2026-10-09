@@ -1,4 +1,4 @@
-//! `Info` (spec §5.2), `Query` and `CheckTx` (spec §5.6), and `App::new` reloading the store.
+//! `Info`, `Query` and `CheckTx`, and `App::new` reloading the store.
 
 use std::time::Duration;
 

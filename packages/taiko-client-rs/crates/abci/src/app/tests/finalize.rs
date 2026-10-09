@@ -1,4 +1,4 @@
-//! `FinalizeBlock` and `Commit` (spec §5.5, §5.6): verdict cache, cold-start re-validation,
+//! `FinalizeBlock` and `Commit`: verdict cache, cold-start re-validation,
 //! state transitions, validator-set switches, EL forkchoice and retries, safety halts,
 //! persistence, crash replay, determinism and a multi-epoch run.
 
@@ -164,7 +164,8 @@ async fn finalize_updates_parent_anchor_and_committees() {
     assert_eq!(app.state().unwrap().anchor, fx.anchor_state(app.l1(), 66, None));
 }
 
-/// D20 at the switch height to epoch 2: the exact updates (a removal, a power change, an
+/// The switch height to epoch 2 (`h_first(2) − 2`, as CometBFT applies updates two heights
+/// later) emits the exact updates (a removal, a power change, an
 /// unchanged member restated, an addition), sorted by key, and committees below 1 pruned.
 #[tokio::test]
 async fn switch_height_emits_the_exact_updates_and_prunes() {
@@ -270,7 +271,7 @@ async fn execution_failures_of_a_decided_block_are_safety_halts() {
 
 /// An Engine API error code, a JSON-RPC code for a malformed call, or a reply of the wrong shape
 /// is the EL's deterministic answer to the call: retrying cannot change it, so the decided block
-/// halts at once (spec §8.2).
+/// halts at once.
 #[tokio::test]
 async fn el_error_replies_on_a_decided_block_are_safety_halts() {
     let fx = Fixture::genesis(1);
@@ -484,7 +485,7 @@ async fn a_decided_block_failing_validation_is_a_safety_halt() {
     assert_eq!(app.pending, None);
 }
 
-/// Two different records for one epoch (spec §8.2).
+/// Two different records for one epoch: a safety halt.
 #[tokio::test]
 async fn a_conflicting_committee_record_is_a_safety_halt() {
     let fx = Fixture::genesis(2);
@@ -613,7 +614,7 @@ async fn commit_persists_the_pending_state_and_clears_the_cache() {
 
     app.halt = Some("stale".into());
     let resp = commit(&mut app).await.expect("commits");
-    assert_eq!(resp.retain_height.value(), 0, "retain_height = 0 (D17)");
+    assert_eq!(resp.retain_height.value(), 0, "retain_height = 0 (no pruning)");
     assert!(resp.data.is_empty());
     assert_eq!(app.state(), Some(&pending));
     assert_eq!(app.pending, None);
@@ -781,11 +782,11 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
     assert_eq!(set, expected);
 }
 
-/// The invariant that keeps `CommitteeUnknown` (D19) unreachable on a chain the app built: the
-/// committee of epoch `t` is derived at `h_first(t − 1)` (its witness is mandatory there), which
-/// precedes the switch height `h_first(t) − 2` because the schedule refuses `L < 3`, and the
-/// switch to `t − 1` prunes only below `t − 2`. Replaying a run with the shortest epochs the
-/// fixture's cap allows (`L = U + 3 = 4`), every switch height finds both committees.
+/// The invariant that keeps `CommitteeUnknown` (a switch height lacking a committee) unreachable on
+/// a chain the app built: the committee of epoch `t` is derived at `h_first(t − 1)` (its witness is
+/// mandatory there), which precedes the switch height `h_first(t) − 2` because the schedule refuses
+/// `L < 3`, and the switch to `t − 1` prunes only below `t − 2`. Replaying a run with the shortest
+/// epochs the fixture's cap allows (`L = U + 3 = 4`), every switch height finds both committees.
 #[tokio::test]
 async fn every_switch_height_finds_both_committees() {
     let fx = short_epochs();

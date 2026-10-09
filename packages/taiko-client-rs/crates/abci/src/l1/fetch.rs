@@ -1,4 +1,4 @@
-//! Discovery of the committee witness from the node's own L1 (spec §6.4), reading the registry's
+//! Discovery of the committee witness from the node's own L1, reading the registry's
 //! `checkpoints` and live `entries` arrays (see `l1::layout::registry`).
 //!
 //! A proposer at `H_e` and the `abci-genesis` builder both need the [`CommitteeWitness`] of a

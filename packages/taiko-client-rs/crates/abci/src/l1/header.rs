@@ -1,4 +1,4 @@
-//! The raw L1 header an anchor or genesis witness carries (spec §4.1). No I/O.
+//! The raw L1 header an anchor or genesis witness carries. No I/O.
 //!
 //! An L1 header travels as its exact RLP bytes, never as a decoded struct: its hash is
 //! `keccak256(raw)`, and the node reads the few fields it uses by position from the RLP list

@@ -1,4 +1,4 @@
-//! The ABCI socket server (spec §3.1, §8.1, §8.2).
+//! The ABCI socket server.
 //!
 //! CometBFT opens four connections to the app's socket (consensus, mempool, info, snapshot).
 //! [`serve`] answers them through tower-abci: [`split::service`] fans the four connections into
