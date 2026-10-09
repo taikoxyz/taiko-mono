@@ -19,7 +19,7 @@ use crate::{
     committee::{self, Snapshot, record_hash},
     engine::{EngineError, PayloadVerdict},
     store::{AppState, CommitteeState},
-    test_utils::{GenesisSpec, RegistryStorage, sample_entries},
+    test_utils::{GenesisSpec, LogCapture, RegistryStorage, sample_entries},
     types::{ParentInfo, RegistryEntry},
 };
 
@@ -574,6 +574,38 @@ async fn a_syncing_payload_is_followed_by_a_forkchoice_nudge() {
     let before = app.engine().calls().len();
     finalize(&mut app, req).await.expect("finalizes on the nudge");
     assert_eq!(engine_calls_since(&app, before), [payload, fcu]);
+}
+
+/// A forkchoice nudge that itself fails (a transport error, its deadline) is not reported as
+/// having pointed the EL at the block: the payload retry is logged with the nudge's own error.
+#[tokio::test(start_paused = true)]
+async fn a_failed_forkchoice_nudge_logs_its_own_error() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let env = propose(&mut app).await;
+    let hash = env.block.header.hash_slow();
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let slow = app.opts.engine_timeout + Duration::from_secs(1);
+    {
+        // newPayload answers SYNCING three times; the nudges after it fail on the transport,
+        // time out, then answer SYNCING (the EL lacks the block).
+        let mut engine = app.engine().state();
+        engine.known.remove(&hash);
+        engine.new_payload_script.extend((0..3).map(|_| Ok(PayloadVerdict::Syncing)));
+        engine.forkchoice_script.push_back(Err(EngineError::Transport("connection reset".into())));
+        engine.delay_script.extend([Duration::ZERO, Duration::ZERO, Duration::ZERO, slow]);
+    }
+    let logs = LogCapture::start();
+    finalize(&mut app, req).await.expect("finalizes once the EL executes the block");
+
+    let retries = logs.at("WARN");
+    assert_eq!(retries.len(), 3, "{}", logs.text());
+    for (line, error) in retries[..2].iter().zip(["connection reset", "timed out"]) {
+        assert!(line.contains("pointing it at the block failed") && line.contains(error), "{line}");
+        assert!(!line.contains("pointed it at the block"), "{line}");
+    }
+    assert!(retries[2].contains("pointed it at the block"), "{}", retries[2]);
 }
 
 #[tokio::test(start_paused = true)]
