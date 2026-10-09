@@ -62,6 +62,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 "chain initialized"
             );
             self.state = Some(state);
+            self.publish_state_metrics();
         }
 
         Ok(response::InitChain {

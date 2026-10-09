@@ -18,11 +18,6 @@ fn main() {
 
     // Run the subcommand. Print the message chain, not `Debug`: the messages carry the
     // operator hints.
-    #[expect(
-        unreachable_code,
-        reason = "`Commands` has no variants yet, so `Cli` is uninhabited and clap exits from \
-                  `parse` with a usage error"
-    )]
     if let Err(err) = cli::Cli::parse().run() {
         eprintln!("Error: {}", err.report());
         std::process::exit(1);

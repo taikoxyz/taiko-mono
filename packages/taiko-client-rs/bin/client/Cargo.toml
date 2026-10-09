@@ -13,6 +13,9 @@ rust-version.workspace = true
 # async
 tokio = { workspace = true }
 
+# ethereum
+alloy-provider = { workspace = true }
+
 # cli
 clap = { workspace = true }
 
@@ -26,6 +29,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # taiko
+abci = { path = "../../crates/abci" }
 protocol = { path = "../../crates/protocol" }
 rpc = { path = "../../crates/rpc" }
 

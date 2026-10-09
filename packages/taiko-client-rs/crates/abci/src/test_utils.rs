@@ -419,6 +419,36 @@ pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
         .collect()
 }
 
+/// Set in the child process [`in_own_process`] re-runs a test in.
+const OWN_PROCESS_ENV: &str = "ABCI_TEST_OWN_PROCESS";
+
+/// Whether the calling test runs alone in its process, so process-wide state (the Prometheus
+/// collectors) sees no other test: true under nextest (one process per test) and in the child
+/// this spawns. Otherwise re-runs the test `test` of `module` (pass `module_path!()`) alone in a
+/// child process, asserts that it passed, and returns false: the caller then returns at once.
+pub(crate) fn in_own_process(module: &str, test: &str) -> bool {
+    let nextest = std::env::var("NEXTEST_EXECUTION_MODE").is_ok_and(|m| m == "process-per-test");
+    if nextest || std::env::var_os(OWN_PROCESS_ENV).is_some() {
+        return true;
+    }
+    let path = module.split_once("::").map_or(module, |(_, path)| path);
+    let name = format!("{path}::{test}");
+    let output = std::process::Command::new(std::env::current_exe().expect("test binary path"))
+        .args(["--exact", &name, "--nocapture"])
+        .env(OWN_PROCESS_ENV, "1")
+        .output()
+        .expect("the child test process spawns");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "{name} failed in its own process\nstdout:\n{stdout}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // libtest exits 0 when the filter matches nothing, so check that the child ran the test.
+    assert!(stdout.contains("1 passed"), "the child did not run {name}\nstdout:\n{stdout}");
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

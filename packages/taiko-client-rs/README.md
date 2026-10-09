@@ -7,6 +7,7 @@ A Rust implementation of the Taiko Alethia protocol client. The Shasta driver, p
 | Path                   | Description                                                  |
 | ---------------------- | ------------------------------------------------------------ |
 | `bin/client/`          | Main executable for the Taiko client                         |
+| `crates/abci/`         | ABCI++ application of the Etna PoS chain (CometBFT)          |
 | `crates/bindings/`     | Rust contract bindings for the Taiko Anchor contract         |
 | `crates/protocol/`     | Core protocol types and data structures                      |
 | `crates/rpc/`          | RPC client utilities and helper functions                    |
@@ -35,6 +36,19 @@ Then review all available sub-commands:
 ```sh
 ./target/release/taiko-client --help
 ```
+
+`taiko-client abci` serves the Etna PoS chain's ABCI++ application to a CometBFT node
+(`proxy_app`, default `tcp://127.0.0.1:26658`) on top of alethia-reth and an own L1 node:
+
+```sh
+./target/release/taiko-client abci \
+  --l1.http http://localhost:8545 \
+  --l2.http http://localhost:28545 --l2.auth http://localhost:28551 --jwt.secret ./jwt.hex \
+  --data-dir ./abci-data
+```
+
+A safety halt (a committed block or the execution engine contradicting the app state) exits
+the process with status 2; investigate before restarting.
 
 ## Development
 

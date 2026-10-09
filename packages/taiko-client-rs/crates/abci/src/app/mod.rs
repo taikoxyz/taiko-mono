@@ -27,6 +27,7 @@ use crate::{
     engine::{Engine, EngineError},
     genesis::GenesisError,
     l1::{L1Error, L1Source, WitnessError},
+    metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, generation_from_chain_id},
     schedule::{Schedule, ScheduleError},
     store::{AppState, Store, StoreError},
@@ -284,7 +285,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some(state) = &state {
             check_stored_state(state, &params)?;
         }
-        Ok(Self {
+        let app = Self {
             l1,
             engine,
             params,
@@ -295,7 +296,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             verdicts: HashMap::new(),
             halt: None,
             superseded: false,
-        })
+        };
+        app.publish_state_metrics();
+        Ok(app)
     }
 
     /// The committed state; `None` before `InitChain`.
@@ -382,6 +385,26 @@ impl<L: L1Source, E: Engine> App<L, E> {
             self.superseded = true;
         }
         self.halt = Some(reason.to_string());
+        AbciMetrics::halted().set(1);
+    }
+
+    /// Clears the liveness-halt reason after an accepted or built proposal or a commit.
+    fn clear_halt(&mut self) {
+        self.halt = None;
+        AbciMetrics::halted().set(0);
+    }
+
+    /// Publishes the committed state's head, epoch, generation and unsettled depth gauges
+    /// (no-op before `InitChain`).
+    fn publish_state_metrics(&self) {
+        let Some(status) = self.status() else { return };
+        set_u64(AbciMetrics::head(), status.head);
+        set_u64(AbciMetrics::epoch(), status.epoch);
+        set_u64(AbciMetrics::generation(), status.generation);
+        set_u64(
+            AbciMetrics::unsettled_depth(),
+            status.head.saturating_sub(status.last_checkpoint_height),
+        );
     }
 }
 

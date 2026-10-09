@@ -1,15 +1,17 @@
 //! Error types for the CLI.
 //!
 //! This module defines the unified error type [`CliError`] used throughout the CLI binary.
-//! It consolidates errors from downstream crates (rpc) as well as CLI-specific errors like URL
-//! parsing, runtime initialization, and metrics setup.
+//! It consolidates errors from downstream crates (rpc, abci) as well as CLI-specific errors like
+//! URL parsing, runtime initialization, and metrics setup.
+
+use std::path::PathBuf;
 
 use thiserror::Error;
 
 /// Errors that can occur during CLI execution.
 ///
 /// This enum covers all error cases in the CLI binary, including:
-/// - Errors propagated from downstream crates (rpc)
+/// - Errors propagated from downstream crates (rpc, abci)
 /// - Configuration errors (URL parsing, socket address parsing)
 /// - Runtime errors (tokio runtime initialization, shutdown signal handlers, I/O)
 /// - Metrics initialization errors
@@ -57,6 +59,40 @@ pub enum CliError {
     /// L1 endpoints.
     #[error("configure exactly one of --l1.http / L1_HTTP or --l1.ws / L1_WS")]
     InvalidL1EndpointConfig,
+
+    /// The ABCI app failed to start (e.g. an inconsistent persisted state); boxed, as the app
+    /// error is large.
+    #[error(transparent)]
+    Abci(Box<abci::AbciError>),
+
+    /// The chain parameters are not built in for the L2 chain id, or the `--chain-config`
+    /// override is malformed or invalid.
+    #[error("chain parameters: {0}")]
+    ChainConfig(#[from] abci::ConfigError),
+
+    /// The `--chain-config` file could not be read.
+    #[error("cannot read the chain config {path}: {source}")]
+    ChainConfigRead {
+        /// The `--chain-config` path.
+        path: PathBuf,
+        /// The read error.
+        source: std::io::Error,
+    },
+
+    /// The execution-engine client could not be built or lacks a required Engine API method.
+    #[error("execution engine: {0}")]
+    Engine(#[from] abci::EngineError),
+
+    /// The ABCI server failed (bad address, listener failure, or the app worker stopped).
+    #[error(transparent)]
+    AbciServer(#[from] abci::ServerError),
+}
+
+impl From<abci::AbciError> for CliError {
+    /// Wraps the app error in [`CliError::Abci`].
+    fn from(e: abci::AbciError) -> Self {
+        Self::Abci(Box::new(e))
+    }
 }
 
 /// Result alias for CLI operations.

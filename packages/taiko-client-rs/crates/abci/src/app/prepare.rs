@@ -18,6 +18,7 @@ use crate::{
         L1Error, L1Source,
         layout::{inbox, registry, word_u32, word_u64},
     },
+    metrics::{AbciMetrics, set_u64},
     rules,
     store::AppState,
     types::RegistryEntry,
@@ -42,10 +43,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let txs = match built {
             Ok(envelope) => {
                 tracing::debug!(height, bytes = envelope.len(), "proposal built");
-                self.halt = None;
+                AbciMetrics::proposals_built().inc();
+                self.clear_halt();
                 vec![envelope.0]
             }
             Err(rejection) => {
+                AbciMetrics::proposals_empty().inc();
                 self.note_rejection("PrepareProposal", height, &rejection);
                 vec![]
             }
@@ -76,6 +79,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let switch = schedule.switch_target(height);
 
         let finalized = self.l1_read("L1 finalized read", self.l1.finalized_number()).await?;
+        set_u64(AbciMetrics::l1_finality_lag(), finalized.saturating_sub(state.anchor.number));
         let n = state.anchor.number.max(finalized.saturating_sub(params.l1_finality_extra_depth));
         let anchor = if n != state.anchor.number || height == schedule.h0() || switch.is_some() {
             Some(self.anchor_witness(n, switch).await?)

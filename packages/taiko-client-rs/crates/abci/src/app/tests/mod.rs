@@ -19,6 +19,7 @@ mod finalize;
 mod handle;
 mod info;
 mod init;
+mod metrics;
 mod prepare;
 mod process;
 mod proposal;
