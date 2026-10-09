@@ -37,7 +37,10 @@ pub enum ElSyncError {
         found: B256,
     },
     /// The EL did not serve the trusted head at its height within the timeout.
-    #[error("execution engine did not reach block {number} ({hash}) within {timeout:?}")]
+    #[error(
+        "execution engine did not reach block {number} ({hash}) within {timeout:?}{}",
+        .last_error.as_ref().map(|e| format!(" (last poll failed: {e})")).unwrap_or_default()
+    )]
     Timeout {
         /// The trusted head's height.
         number: u64,
@@ -45,6 +48,8 @@ pub enum ElSyncError {
         hash: B256,
         /// The timeout that elapsed.
         timeout: Duration,
+        /// The retryable error of the last poll, rendered, if that poll failed.
+        last_error: Option<String>,
     },
 }
 
@@ -58,7 +63,9 @@ pub enum ElSyncError {
 /// An `INVALID` answer is [`ElSyncError::Rejected`]. After a `VALID` answer the EL must serve
 /// `hash` at `number`; another block there is [`ElSyncError::Conflict`] (the EL disagrees about
 /// the trusted chain). While the EL reports `SYNCING`, another block at `number` is the EL's old
-/// view and polling continues.
+/// view and polling continues. A poll failing with a retryable error
+/// ([`EngineError::is_retryable`], e.g. the EL restarting or too busy to answer in time) counts
+/// as "not yet"; the initial check, the forkchoice update and any other error end the sync.
 pub async fn ensure_block<E: Engine + ?Sized>(
     engine: &E,
     number: u64,
@@ -66,7 +73,8 @@ pub async fn ensure_block<E: Engine + ?Sized>(
     timeout: Duration,
     poll: Duration,
 ) -> Result<(), ElSyncError> {
-    let deadline = Instant::now() + timeout;
+    // `None` (a timeout too large to represent) never expires.
+    let deadline = Instant::now().checked_add(timeout);
     if engine.header_by_number(number).await?.is_some_and(|h| h.hash_slow() == hash) {
         return Ok(());
     }
@@ -76,20 +84,33 @@ pub async fn ensure_block<E: Engine + ?Sized>(
         PayloadVerdict::Invalid(reason) => return Err(ElSyncError::Rejected { hash, reason }),
     };
     loop {
-        if let Some(header) = engine.header_by_number(number).await? {
-            let found = header.hash_slow();
-            if found == hash {
-                return Ok(());
+        let last_error = match engine.header_by_number(number).await {
+            Ok(Some(header)) => {
+                let found = header.hash_slow();
+                if found == hash {
+                    return Ok(());
+                }
+                if accepted {
+                    return Err(ElSyncError::Conflict { number, expected: hash, found });
+                }
+                None
             }
-            if accepted {
-                return Err(ElSyncError::Conflict { number, expected: hash, found });
+            Ok(None) => None,
+            Err(e) if e.is_retryable() => {
+                tracing::debug!(number, %hash, error = %e, "EL sync poll failed; retrying");
+                Some(e.to_string())
             }
-        }
+            Err(e) => return Err(e.into()),
+        };
         let now = Instant::now();
-        if now >= deadline {
-            return Err(ElSyncError::Timeout { number, hash, timeout });
-        }
-        tokio::time::sleep(poll.min(deadline - now)).await;
+        let pause = match deadline {
+            Some(deadline) if now >= deadline => {
+                return Err(ElSyncError::Timeout { number, hash, timeout, last_error });
+            }
+            Some(deadline) => poll.min(deadline - now),
+            None => poll,
+        };
+        tokio::time::sleep(pause).await;
     }
 }
 
@@ -177,10 +198,95 @@ mod tests {
         let started = Instant::now();
         assert_eq!(
             ensure_block(&engine, 7, hash, TIMEOUT, POLL).await,
-            Err(ElSyncError::Timeout { number: 7, hash, timeout: TIMEOUT })
+            Err(ElSyncError::Timeout { number: 7, hash, timeout: TIMEOUT, last_error: None })
         );
         assert_eq!(started.elapsed(), TIMEOUT);
         assert_eq!(forkchoice_calls(&engine).len(), 1, "the forkchoice update is sent once");
+    }
+
+    /// A poll failing with a retryable error (the EL restarting, a timeout) is "not yet": the
+    /// sync keeps polling and succeeds once the EL serves the block.
+    #[tokio::test(start_paused = true)]
+    async fn retryable_poll_errors_keep_polling() {
+        let target = header(7, 1);
+        let hash = target.hash_slow();
+        let engine = MockEngine::with_chain([target]);
+        {
+            let mut state = engine.state();
+            state.forkchoice_script.push_back(Ok(PayloadVerdict::Syncing));
+            state.header_script.extend([
+                Ok(None),
+                Err(EngineError::Transport("connection refused".into())),
+                Err(EngineError::ErrorReply {
+                    call: "eth_getBlockByNumber".into(),
+                    code: -32603,
+                    message: "internal error".into(),
+                }),
+            ]);
+        }
+
+        let started = Instant::now();
+        assert_eq!(ensure_block(&engine, 7, hash, TIMEOUT, POLL).await, Ok(()));
+        assert_eq!(started.elapsed(), 2 * POLL);
+        assert_eq!(forkchoice_calls(&engine).len(), 1, "the forkchoice update is sent once");
+    }
+
+    /// A sync that only ever saw retryable poll errors times out naming the last one.
+    #[tokio::test(start_paused = true)]
+    async fn a_timeout_after_failing_polls_names_the_last_error() {
+        let engine = MockEngine::new();
+        let down = EngineError::Transport("connection refused".into());
+        {
+            let mut state = engine.state();
+            state.forkchoice_script.push_back(Ok(PayloadVerdict::Syncing));
+            state.header_script.push_back(Ok(None));
+            state.header_script.extend((0..=TIMEOUT.as_secs()).map(|_| Err(down.clone())));
+        }
+
+        let hash = header(7, 1).hash_slow();
+        let err = ensure_block(&engine, 7, hash, TIMEOUT, POLL).await.unwrap_err();
+        assert_eq!(
+            err,
+            ElSyncError::Timeout {
+                number: 7,
+                hash,
+                timeout: TIMEOUT,
+                last_error: Some(down.to_string())
+            }
+        );
+        assert!(err.to_string().contains("last poll failed: "), "{err}");
+    }
+
+    /// A non-retryable poll error (a reply of the wrong shape, a hash mismatch) ends the sync.
+    #[tokio::test(start_paused = true)]
+    async fn a_non_retryable_poll_error_ends_the_sync() {
+        let engine = MockEngine::new();
+        let bad = EngineError::BadReply("eth_getBlockByNumber: null".into());
+        {
+            let mut state = engine.state();
+            state.forkchoice_script.push_back(Ok(PayloadVerdict::Syncing));
+            state.header_script.extend([Ok(None), Err(bad.clone())]);
+        }
+
+        let hash = header(7, 1).hash_slow();
+        assert_eq!(
+            ensure_block(&engine, 7, hash, TIMEOUT, POLL).await,
+            Err(ElSyncError::Engine(bad))
+        );
+    }
+
+    /// A timeout too large to add to the clock never expires instead of panicking.
+    #[tokio::test(start_paused = true)]
+    async fn an_unrepresentable_timeout_does_not_panic() {
+        let target = header(7, 1);
+        let hash = target.hash_slow();
+        let engine = MockEngine::with_chain([target]);
+        {
+            let mut state = engine.state();
+            state.forkchoice_script.push_back(Ok(PayloadVerdict::Syncing));
+            state.header_script.extend([Ok(None), Ok(None)]);
+        }
+        assert_eq!(ensure_block(&engine, 7, hash, Duration::MAX, POLL).await, Ok(()));
     }
 
     #[tokio::test(start_paused = true)]

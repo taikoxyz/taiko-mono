@@ -86,7 +86,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 tracing::info!(number, %hash, "execution engine lacks the committed head; syncing");
                 within(
                     "EL sync to the committed head",
-                    opts.elsync_timeout + opts.engine_timeout,
+                    opts.elsync_timeout.saturating_add(opts.engine_timeout),
                     ensure_block(&self.engine, number, hash, opts.elsync_timeout, ELSYNC_POLL),
                 )
                 .await

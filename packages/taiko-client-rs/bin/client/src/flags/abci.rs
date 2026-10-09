@@ -5,6 +5,10 @@ use std::{path::PathBuf, time::Duration};
 use abci::{AppOptions, ListenAddr, server::DEFAULT_ADDR};
 use clap::Parser;
 
+/// Upper bound of every `abci` timeout flag, in seconds: an hour, far above any useful
+/// deadline, so that adding deadlines to each other or to an `Instant` cannot overflow.
+pub const MAX_TIMEOUT_SECS: u64 = 3600;
+
 /// Flags of the `abci` subcommand (besides the common ones).
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct AbciArgs {
@@ -39,8 +43,8 @@ pub struct AbciArgs {
         env = "ABCI_L1_TIMEOUT",
         value_name = "SECONDS",
         default_value_t = AppOptions::default().l1_timeout.as_secs(),
-        value_parser = clap::value_parser!(u64).range(1..),
-        help = "Deadline of one L1 read (finality check, header or proof), in seconds"
+        value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS),
+        help = "Deadline of one L1 read (finality check, header or proof), in seconds (1-3600)"
     )]
     pub l1_timeout_secs: u64,
     /// Deadline of one Engine API or EL RPC call, in seconds.
@@ -49,8 +53,8 @@ pub struct AbciArgs {
         env = "ABCI_ENGINE_TIMEOUT",
         value_name = "SECONDS",
         default_value_t = AppOptions::default().engine_timeout.as_secs(),
-        value_parser = clap::value_parser!(u64).range(1..),
-        help = "Deadline of one Engine API or EL RPC call, in seconds"
+        value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS),
+        help = "Deadline of one Engine API or EL RPC call, in seconds (1-3600)"
     )]
     pub engine_timeout_secs: u64,
     /// Deadline of an EL sync to a trusted head, in seconds.
@@ -59,9 +63,9 @@ pub struct AbciArgs {
         env = "ABCI_ELSYNC_TIMEOUT",
         value_name = "SECONDS",
         default_value_t = AppOptions::default().elsync_timeout.as_secs(),
-        value_parser = clap::value_parser!(u64).range(1..),
+        value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS),
         help = "Deadline of an execution-layer sync to a trusted head (devp2p download \
-                included), in seconds"
+                included), in seconds (1-3600)"
     )]
     pub elsync_timeout_secs: u64,
     /// Overall deadline of one `PrepareProposal`, in seconds; must stay below CometBFT's
@@ -71,9 +75,9 @@ pub struct AbciArgs {
         env = "ABCI_PREPARE_TIMEOUT",
         value_name = "SECONDS",
         default_value_t = AppOptions::default().prepare_timeout.as_secs(),
-        value_parser = clap::value_parser!(u64).range(1..),
+        value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS),
         help = "Overall deadline of one PrepareProposal (L1 reads and the block build), in \
-                seconds; must stay below CometBFT's timeout_propose"
+                seconds (1-3600); must stay below CometBFT's timeout_propose"
     )]
     pub prepare_timeout_secs: u64,
 }
@@ -247,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_invalid_addresses_and_zero_timeouts() {
+    fn rejects_invalid_addresses_and_out_of_range_timeouts() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_env();
         for extra in [
@@ -257,11 +261,33 @@ mod tests {
             ["--engine.timeout", "0"],
             ["--elsync.timeout", "0"],
             ["--prepare.timeout", "0"],
+            ["--l1.timeout", "3601"],
+            ["--engine.timeout", "3601"],
+            ["--elsync.timeout", "3601"],
+            ["--prepare.timeout", "18446744073709551615"],
         ] {
             let mut args = vec!["--data-dir", "/data"];
             args.extend(extra);
             let err = parse(argv(&args)).expect_err("invalid value");
             assert_eq!(err.kind(), ErrorKind::ValueValidation, "{extra:?}: {err}");
         }
+
+        let max = "3600";
+        assert_eq!(max.parse::<u64>().unwrap(), MAX_TIMEOUT_SECS);
+        let mut args = vec!["--data-dir", "/data"];
+        for flag in ["--l1.timeout", "--engine.timeout", "--elsync.timeout", "--prepare.timeout"] {
+            args.extend([flag, max]);
+        }
+        let flags = parse(argv(&args)).expect("the upper bound itself is accepted").abci_flags;
+        let hour = Duration::from_secs(MAX_TIMEOUT_SECS);
+        assert_eq!(
+            flags.app_options(),
+            AppOptions {
+                l1_timeout: hour,
+                engine_timeout: hour,
+                elsync_timeout: hour,
+                prepare_timeout: hour
+            }
+        );
     }
 }

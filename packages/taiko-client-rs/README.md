@@ -80,7 +80,8 @@ Serves the ABCI++ application to a CometBFT node.
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                     |
 | `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it       |
 
-The L2 chain id is read from `--l2.http` and selects the built-in chain parameters. Only the
+The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
+selects the built-in chain parameters. Only the
 internal devnet (chain id `167001`) has Etna PoS parameters so far; on other chains `abci`
 refuses to start. The `--chain-config` TOML uses the snake_case names of `abci::ChainParams`
 (for example `d_max = 12`); absent keys keep their built-in values.
