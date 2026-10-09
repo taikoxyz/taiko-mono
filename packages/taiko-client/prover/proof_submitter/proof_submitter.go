@@ -459,9 +459,12 @@ func (s *ProofSubmitter) ClearProofBuffers(batchProof *proofProducer.BatchProofs
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
 // or the forced aggregation interval has passed.
 func (s *ProofSubmitter) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
-	// Check conditions first (without locking)
+	// Check conditions first (without locking). A buffer that ends a fixed SP1-share run
+	// aggregates right away, since no proposal of its type follows until the next run.
 	if uint64(buffer.Len()) < buffer.MaxLength &&
-		(buffer.Len() == 0 || time.Since(buffer.LastItemAt()) <= s.forceBatchProvingInterval) {
+		(buffer.Len() == 0 ||
+			(time.Since(buffer.LastItemAt()) <= s.forceBatchProvingInterval &&
+				!s.endsProofShareRun(buffer.LastInsertID(), proofType))) {
 		return false
 	}
 

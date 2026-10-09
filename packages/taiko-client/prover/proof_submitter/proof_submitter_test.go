@@ -240,6 +240,47 @@ func TestTryAggregateUsesLastItemInsertTimeForForcedInterval(t *testing.T) {
 	require.Empty(t, s.batchAggregationNotify)
 }
 
+func TestTryAggregateFlushesPartialBufferAtSP1ShareRunEnd(t *testing.T) {
+	sp1, r0 := proofProducer.ProofTypeZKSP1, proofProducer.ProofTypeZKR0
+	for _, tc := range []struct {
+		name               string
+		sp1ProofPercentage uint64
+		forceSP1Proof      bool
+		zkOnlyProofs       bool
+		proofType          proofProducer.ProofType
+		lastProposalID     int64
+		expected           bool
+	}{
+		{name: "SP1 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 129, expected: true},
+		{name: "before SP1 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 128},
+		{name: "RISC0 run end", sp1ProofPercentage: 30, proofType: r0, lastProposalID: 199, expected: true},
+		{name: "SP1 fallback at RISC0 run end", sp1ProofPercentage: 30, proofType: sp1, lastProposalID: 199},
+		{name: "share disabled", proofType: r0, lastProposalID: 199},
+		{name: "SP1 only", sp1ProofPercentage: 100, proofType: sp1, lastProposalID: 199},
+		{name: "force SP1", sp1ProofPercentage: 30, forceSP1Proof: true, proofType: sp1, lastProposalID: 129},
+		{name: "ZK-only", sp1ProofPercentage: 30, zkOnlyProofs: true, proofType: sp1, lastProposalID: 129},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			buffer := proofProducer.NewProofBuffer(5)
+			for _, id := range []int64{tc.lastProposalID - 1, tc.lastProposalID} {
+				_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(id)})
+				require.NoError(t, err)
+			}
+
+			s := &ProofSubmitter{
+				batchAggregationNotify:    make(chan proofProducer.ProofType, 1),
+				forceBatchProvingInterval: time.Hour,
+				sp1ProofPercentage:        tc.sp1ProofPercentage,
+				forceSP1Proof:             tc.forceSP1Proof,
+				zkOnlyProofs:              tc.zkOnlyProofs,
+			}
+
+			require.Equal(t, tc.expected, s.TryAggregate(buffer, tc.proofType))
+			require.Equal(t, tc.expected, buffer.IsAggregating())
+		})
+	}
+}
+
 func TestCacheAccess(t *testing.T) {
 	cacheMap := cmap.New[*proofProducer.ProofResponse]()
 	cacheMap.Set("1", &proofProducer.ProofResponse{})
