@@ -20,7 +20,7 @@
 </div>
 
 > [!WARNING]
-> The `main` branch is under active development. For the latest version of the Taiko Alethia protocol contracts (Unzen fork), please use the [`taiko-alethia-protocol-v3.1.0`](https://github.com/taikoxyz/taiko-mono/releases/tag/untagged-d92f6462ca613cb97fcc) branch. The release process involves security measures that the `main` branch does not guarantee.
+> The `main` branch is under active development. For the latest version of the Taiko Alethia protocol contracts (Unzen fork), please use the [`taiko-alethia-protocol-v3.1.0`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v3.1.0) branch. The release process involves security measures that the `main` branch does not guarantee.
 
 ## Documentation
 
