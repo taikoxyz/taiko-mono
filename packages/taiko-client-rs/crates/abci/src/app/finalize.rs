@@ -147,7 +147,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// the next forkchoice attempt. A payload answered `SYNCING` means the EL lacks the block's
     /// ancestry (e.g. it lost its tail), which it only backfills once a forkchoice update points
     /// it at a head, so the block is sent as `head = safe` right away (with `finalized`) before
-    /// the payload is retried; a `VALID` answer to that nudge settles the block. `INVALID` and
+    /// the payload is retried; a `VALID` answer to that nudge settles the block, and a nudge that
+    /// fails (a retryable error, its deadline) is logged with its own error. `INVALID` and
     /// every other engine error (an Engine API error code, a malformed call, a reply of the
     /// wrong shape) are the EL's deterministic answer: [`AbciError::SafetyHalt`].
     async fn settle(&self, height: u64, v: &Validated, finalized: B256) -> Result<(), AbciError> {
@@ -156,7 +157,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let mut backoff = Backoff::new(height);
         loop {
             let (method, reason) = if executed {
-                let method = "engine_forkchoiceUpdated";
+                let method = FCU;
                 match self
                     .el_call(height, method, self.engine.forkchoice(hash, hash, finalized))
                     .await?
@@ -177,11 +178,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     }
                     Settled::Syncing => {
                         let nudge = self.engine.forkchoice(hash, hash, finalized);
-                        let fcu = "engine_forkchoiceUpdated";
-                        if let Settled::Valid = self.el_call(height, fcu, nudge).await? {
-                            return Ok(());
-                        }
-                        (method, "the execution engine is syncing; pointed it at the block".into())
+                        let reason = match self.el_call(height, FCU, nudge).await? {
+                            Settled::Valid => return Ok(()),
+                            Settled::Syncing => {
+                                "the execution engine is syncing; pointed it at the block".into()
+                            }
+                            Settled::Retry(error) => format!(
+                                "the execution engine is syncing; pointing it at the block failed: \
+                                 {error}"
+                            ),
+                        };
+                        (method, reason)
                     }
                     Settled::Retry(reason) => (method, reason),
                 }
@@ -213,6 +220,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 }
+
+/// The Engine API method name of a forkchoice update, for logs and safety-halt messages.
+const FCU: &str = "engine_forkchoiceUpdated";
 
 /// What one EL call of `FinalizeBlock` came to, short of a safety halt.
 #[derive(Debug)]
