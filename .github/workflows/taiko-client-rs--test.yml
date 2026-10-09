@@ -295,8 +295,10 @@ jobs:
       - name: Run docker scenarios
         working-directory: packages/taiko-client-rs
         env:
-          # The alethia-reth image built from taikoxyz/alethia-reth#248, until that PR merges;
-          # then drop this variable to return to alethia-reth:main.
+          # The alethia-reth image built from taikoxyz/alethia-reth#248, until that PR merges.
+          # tests/entrypoint.sh and crates/test-harness/src/boot.rs default to the same tag, so
+          # when it merges move all three to alethia-reth:main (dropping only this variable
+          # keeps the sha-1e25b48 default).
           ALETHIA_RETH_IMAGE: us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48
         run: just test
 

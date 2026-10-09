@@ -6,9 +6,12 @@ nextest-version = "0.9.104"
 # Integration test binaries (targets from any `tests/` dir) include the abci docker
 # scenarios, each of which boots its own devnet (anvil, alethia-reth, CometBFT).
 # Never run two of them at once, even outside `just test`, so they stay within the
-# docker daemon's memory.
+# docker daemon's memory. A direct `cargo nextest run --run-ignored only` uses this
+# profile, so it gets the same hang guard as the `integration` profile below: a
+# wedged scenario is terminated instead of stalling the serial lane forever.
 filter = 'kind(test)'
 test-group = "docker"
+slow-timeout = { period = "120s", terminate-after = 5 }
 
 [test-groups.docker]
 max-threads = 1

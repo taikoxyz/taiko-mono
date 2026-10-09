@@ -49,6 +49,7 @@ Every validator and every full node runs three processes:
 
 - Rust toolchain (1.95 or later)
 - [Just](https://github.com/casey/just) and [cargo-nextest](https://nexte.st)
+- [Foundry](https://getfoundry.sh)'s `anvil` on `PATH` (for `just unit`)
 - Docker (for the integration tests)
 
 ## Build the source
@@ -148,12 +149,17 @@ key is registered in the staking registry snapshot the genesis committee is deri
      --http --http.api eth,net --authrpc.addr 127.0.0.1 --authrpc.jwtsecret ./jwt.hex
    ```
 
-5. **Start the app**, then **CometBFT** (the app must listen before CometBFT connects):
+5. **Start the app**, then **CometBFT** in another terminal (the app runs in the foreground and
+   must listen before CometBFT connects):
 
    ```sh
    taiko-client abci --l1.http http://l1-node:8545 \
      --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
      --data-dir ./abci-data
+   ```
+
+   ```sh
+   # in another terminal
    cometbft start --home ./cmt
    ```
 
