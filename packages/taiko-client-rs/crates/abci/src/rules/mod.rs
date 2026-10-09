@@ -10,7 +10,7 @@
 //! Execution results (state root, receipts root, transactions root, gas used and the zk gas in
 //! `difficulty`) are not checked here: `engine_newPayload` validates them.
 
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Write as _};
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
@@ -85,6 +85,20 @@ pub struct ExpectedHeader {
 }
 
 /// Outcome of [`check_generation`] when the block's own generation fields agree.
+///
+/// It must be acted on (`#[must_use]`): dropping it would let a superseded chain go unnoticed.
+///
+/// ```compile_fail
+/// #![deny(unused_must_use)]
+/// abci::rules::check_generation(0, 0, 1).unwrap(); // the outcome is dropped
+/// ```
+///
+/// ```
+/// #![deny(unused_must_use)]
+/// let outcome = abci::rules::check_generation(0, 0, 1).unwrap();
+/// assert_eq!(outcome, abci::rules::GenerationCheck::Superseded);
+/// ```
+#[must_use = "a superseded chain must stop proposing and accepting blocks"]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GenerationCheck {
     /// The chain, the block and the Inbox all carry the same generation.
@@ -93,6 +107,10 @@ pub enum GenerationCheck {
     /// `superseded` status and rejects every proposal from then on.
     Superseded,
 }
+
+/// The longest `Debug` rendering, in characters, that a [`RuleViolation::HeaderField`] keeps of
+/// a value (see [`RuleViolation::header_field`]).
+pub const HEADER_FIELD_DEBUG_MAX: usize = 256;
 
 /// Why a block, header or `chain_id` breaks a consensus rule.
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -106,13 +124,16 @@ pub enum RuleViolation {
         parent: u64,
     },
     /// A header field differs from its derived value; the first differing field is reported.
+    /// Built by [`RuleViolation::header_field`], which bounds both renderings.
     #[error("header field {field} is {got}, expected {expected}")]
     HeaderField {
         /// The `alloy_consensus::Header` field name.
         field: &'static str,
-        /// The derived value, `Debug`-formatted.
+        /// The derived value, `Debug`-formatted, at most [`HEADER_FIELD_DEBUG_MAX`] characters
+        /// plus `…`.
         expected: String,
-        /// The header's value, `Debug`-formatted.
+        /// The header's value, `Debug`-formatted, at most [`HEADER_FIELD_DEBUG_MAX`] characters
+        /// plus `…`.
         got: String,
     },
     /// A number does not fit its 6-byte `uint48` `extraData` slot.
@@ -195,6 +216,14 @@ pub enum RuleViolation {
 }
 
 impl RuleViolation {
+    /// A [`RuleViolation::HeaderField`] for `field`, rendering `expected` and `got` with
+    /// `Debug` but keeping at most [`HEADER_FIELD_DEBUG_MAX`] characters of each (a longer
+    /// rendering is cut and ends in `…`): proposer-controlled fields such as `extraData` can be
+    /// as large as a block, and must not become equally large error strings or log lines.
+    pub fn header_field(field: &'static str, expected: &dyn Debug, got: &dyn Debug) -> Self {
+        Self::HeaderField { field, expected: bounded_debug(expected), got: bounded_debug(got) }
+    }
+
     /// A stable snake_case label of the variant, for the rejection-reason metric.
     pub fn label(&self) -> &'static str {
         match self {
@@ -319,7 +348,8 @@ pub fn check_header(h: &Header, e: &ExpectedHeader) -> Result<(), RuleViolation>
     field_eq("nonce", B64::ZERO, h.nonce)
 }
 
-/// `Ok` iff `expected == got`, else a [`RuleViolation::HeaderField`] naming `field`.
+/// `Ok` iff `expected == got`, else a [`RuleViolation::HeaderField`] naming `field`
+/// ([`RuleViolation::header_field`]).
 fn field_eq<T: PartialEq + Debug>(
     field: &'static str,
     expected: T,
@@ -328,11 +358,45 @@ fn field_eq<T: PartialEq + Debug>(
     if expected == got {
         return Ok(());
     }
-    Err(RuleViolation::HeaderField {
-        field,
-        expected: format!("{expected:?}"),
-        got: format!("{got:?}"),
-    })
+    Err(RuleViolation::header_field(field, &expected, &got))
+}
+
+/// `value`'s `Debug` rendering cut to [`HEADER_FIELD_DEBUG_MAX`] characters plus `…` when
+/// longer; formatting stops at the bound, so a huge value is never rendered in full.
+fn bounded_debug(value: &dyn Debug) -> String {
+    let mut out = Bounded { text: String::new(), chars: 0, cut: false };
+    // `Bounded` fails the write once full, which ends the formatting early.
+    let _ = write!(out, "{value:?}");
+    if out.cut {
+        out.text.push('…');
+    }
+    out.text
+}
+
+/// A [`fmt::Write`] sink that keeps the first [`HEADER_FIELD_DEBUG_MAX`] characters and fails
+/// once more arrive.
+struct Bounded {
+    /// The characters kept so far.
+    text: String,
+    /// How many characters `text` holds.
+    chars: usize,
+    /// Whether characters beyond the bound were dropped.
+    cut: bool,
+}
+
+impl fmt::Write for Bounded {
+    /// Appends `s` up to the bound; fails (stopping the formatter) when `s` does not fit.
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for c in s.chars() {
+            if self.chars == HEADER_FIELD_DEBUG_MAX {
+                self.cut = true;
+                return Err(fmt::Error);
+            }
+            self.text.push(c);
+            self.chars += 1;
+        }
+        Ok(())
+    }
 }
 
 /// Builds the `engine_forkchoiceUpdated` payload attributes for `e` (spec §4.2).

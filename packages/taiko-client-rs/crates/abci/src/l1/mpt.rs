@@ -20,6 +20,12 @@ use alloy_trie::{
 
 use crate::types::AccountWitness;
 
+// `verify_account_witness` turns panics inside `alloy-trie` on malformed (proposer-supplied)
+// proofs into errors with `catch_unwind`. Under `panic = "abort"` a bad proof would abort the
+// node instead of rejecting the block, so refuse to build that way.
+#[cfg(panic = "abort")]
+compile_error!("abci proof verification relies on unwinding (catch_unwind)");
+
 /// Errors from [`verify_account_witness`].
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum MptError {
@@ -78,7 +84,7 @@ impl VerifiedStorage {
 /// over a leaf), and whoever chooses `state_root` can make such nodes hash-link to it. Over-long
 /// compact paths are rejected before they reach the library; any other panic inside it is caught
 /// and returned as [`MptError::MalformedProof`] (the default panic hook still prints it to
-/// stderr). Catching relies on unwinding, so this must not be built with `panic = "abort"`.
+/// stderr). Catching relies on unwinding, so the crate refuses to build with `panic = "abort"`.
 pub fn verify_account_witness(
     state_root: B256,
     w: &AccountWitness,
