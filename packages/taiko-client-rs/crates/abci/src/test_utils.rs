@@ -6,6 +6,8 @@
 //!
 //! [`InboxStorage`] packs Inbox facts into storage words exactly as spec §6.2 lays them out, and
 //! [`anchor_witness`] / [`genesis_inbox_witness`] turn it into witnesses with real proofs.
+//! [`RegistryStorage`] does the same for the staking registry's checkpoints, and
+//! [`committee_witness`] proves one checkpoint of it.
 
 use std::collections::BTreeMap;
 
@@ -17,10 +19,11 @@ use alloy_trie::{
 };
 
 use crate::{
-    envelope::AnchorWitness,
-    l1::layout::inbox,
+    committee::{entries_root, snapshot_slots},
+    envelope::{AnchorWitness, CommitteeWitness},
+    l1::layout::{inbox, registry},
     schedule::Schedule,
-    types::{AccountWitness, ActivationRecord, StorageProof},
+    types::{AccountWitness, ActivationRecord, CommitteeRecord, RegistryEntry, StorageProof},
 };
 
 /// One account of a [`TestState`]: `(address, nonce, balance, code_hash, storage)`, where
@@ -299,10 +302,81 @@ pub(crate) fn genesis_inbox_witness(
     (state.witness(inbox_address, &inbox::genesis_slots(Schedule::E0)), state)
 }
 
+/// The staking registry's storage as spec §6.2 lays it out, before packing into words.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct RegistryStorage {
+    /// `checkpoints[i] = (l1Block, entries)`, in index order; `count = entries.len()` and
+    /// `entriesRoot = entries_root(entries)`.
+    pub(crate) checkpoints: Vec<(u64, Vec<RegistryEntry>)>,
+}
+
+impl RegistryStorage {
+    /// The `(slot, word)` pairs of this storage: `checkpoints.length` at `R`, then per
+    /// checkpoint the packed `l1Block | count << 64` word and `entriesRoot`. Zero words are
+    /// included (the trie drops them, so they read back through exclusion proofs).
+    pub(crate) fn slots(&self) -> Vec<(B256, U256)> {
+        let mut slots = vec![(registry::length_slot(), U256::from(self.checkpoints.len()))];
+        for (i, (l1_block, entries)) in self.checkpoints.iter().enumerate() {
+            let [head, root] = registry::checkpoint_slots(i as u64);
+            let count = u32::try_from(entries.len()).expect("checkpoint count fits uint32");
+            slots.push((head, U256::from(*l1_block) | (U256::from(count) << 64)));
+            slots.push((root, entries_root(entries).into()));
+        }
+        slots
+    }
+}
+
+/// The [`AccountSpec`] of a staking registry at `address` holding `storage`.
+pub(crate) fn registry_account(address: Address, storage: &RegistryStorage) -> AccountSpec {
+    (address, 1, U256::ZERO, keccak256(b"etna registry code"), storage.slots())
+}
+
+/// A committee witness claiming `record` for checkpoint `index` of the registry at `registry` in
+/// `state` (which must hold `storage` there).
+///
+/// Proves `committee::snapshot_slots(index, has_next)` with `has_next = index + 1 <
+/// checkpoints.len()`, and carries the entries of `checkpoints[index]` (none if `index` is out
+/// of range). `record.checkpoint_index` is left as given.
+pub(crate) fn committee_witness(
+    state: &TestState,
+    registry: Address,
+    storage: &RegistryStorage,
+    index: u64,
+    record: CommitteeRecord,
+) -> CommitteeWitness {
+    let len = storage.checkpoints.len() as u64;
+    let has_next = index.checked_add(1).is_some_and(|next| next < len);
+    let entries = usize::try_from(index)
+        .ok()
+        .and_then(|i| storage.checkpoints.get(i))
+        .map(|(_, entries)| entries.clone())
+        .unwrap_or_default();
+    CommitteeWitness {
+        record,
+        registry: state.witness(registry, &snapshot_slots(index, has_next)),
+        entries,
+    }
+}
+
+/// `n` registry entries that are eligible at any cutoff below `2^63` under the devnet
+/// parameters: deterministic, distinct pubkeys `keccak256("etna validator <i>")`, stake
+/// `(i + 1)` TAIKO, active from L1 block 0, no exit, heartbeat at L1 block 1.
+pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
+    (0..n)
+        .map(|i| RegistryEntry {
+            pubkey: keccak256(format!("etna validator {i}")),
+            eff_stake: U256::from(i + 1) * U256::from(10u64).pow(U256::from(18u64)),
+            active_from_l1: 0,
+            exit_effective_l1: u64::MAX,
+            last_heartbeat_at: 1,
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::l1::layout::{word_u8, word_u64};
+    use crate::l1::layout::{word_u8, word_u32, word_u64};
     use alloy_primitives::{U256, b256};
 
     fn word(slots: &[(B256, U256)], slot: B256) -> U256 {
@@ -414,6 +488,67 @@ mod tests {
         assert_eq!(storage.last_checkpoint_height, activation.genesis_height);
         assert_eq!(storage.last_checkpoint_hash, activation.genesis_hash);
         assert_eq!(storage.committee, vec![(Schedule::E0, B256::repeat_byte(0x99))]);
+    }
+
+    /// Pack, then decode with the layout readers: length, l1Block, count and entriesRoot.
+    #[test]
+    fn registry_storage_packing_decodes_back() {
+        let storage =
+            RegistryStorage { checkpoints: vec![(u64::MAX, sample_entries(3)), (7, vec![])] };
+        let slots = storage.slots();
+        assert_eq!(slots.len(), 1 + 2 * 2);
+        assert_eq!(word(&slots, registry::length_slot()), U256::from(2));
+
+        let [head0, root0] = registry::checkpoint_slots(0);
+        assert_eq!(word_u64(word(&slots, head0), 0), u64::MAX);
+        assert_eq!(word_u32(word(&slots, head0), 64), 3);
+        assert_eq!(word(&slots, head0) >> 96, U256::ZERO);
+        assert_eq!(B256::from(word(&slots, root0)), entries_root(&sample_entries(3)));
+
+        let [head1, root1] = registry::checkpoint_slots(1);
+        assert_eq!(word(&slots, head1), U256::from(7));
+        assert_eq!(word(&slots, root1), U256::ZERO);
+    }
+
+    #[test]
+    fn committee_witness_proves_the_next_checkpoint_only_when_it_exists() {
+        let address = Address::repeat_byte(0xe8);
+        let storage =
+            RegistryStorage { checkpoints: vec![(10, sample_entries(1)), (20, sample_entries(2))] };
+        let state = TestState::new(vec![registry_account(address, &storage)]);
+        let record = CommitteeRecord {
+            target_epoch: 1,
+            cutoff_l1_block: 0,
+            checkpoint_index: 0,
+            set_root: B256::ZERO,
+            total_stake: U256::ZERO,
+            total_power: 0,
+            encoding_version: 1,
+        };
+
+        let first = committee_witness(&state, address, &storage, 0, record.clone());
+        let slots: Vec<B256> = first.registry.storage.iter().map(|p| p.slot).collect();
+        assert_eq!(slots, snapshot_slots(0, true));
+        assert_eq!(first.entries, sample_entries(1));
+
+        let last = committee_witness(&state, address, &storage, 1, record.clone());
+        let slots: Vec<B256> = last.registry.storage.iter().map(|p| p.slot).collect();
+        assert_eq!(slots, snapshot_slots(1, false));
+        assert_eq!(last.entries, sample_entries(2));
+
+        let beyond = committee_witness(&state, address, &storage, u64::MAX, record);
+        assert_eq!(beyond.registry.storage.len(), 3);
+        assert!(beyond.entries.is_empty());
+    }
+
+    #[test]
+    fn sample_entries_are_distinct_and_deterministic() {
+        let entries = sample_entries(4);
+        assert_eq!(entries, sample_entries(4));
+        assert_eq!(entries[..2], sample_entries(2)[..]);
+        let pubkeys: std::collections::BTreeSet<B256> = entries.iter().map(|e| e.pubkey).collect();
+        assert_eq!(pubkeys.len(), 4);
+        assert_eq!(entries[3].eff_stake, U256::from(4_000_000_000_000_000_000u64));
     }
 
     #[test]
