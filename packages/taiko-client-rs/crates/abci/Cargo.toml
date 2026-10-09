@@ -47,7 +47,9 @@ toml = { workspace = true }
 
 [dev-dependencies]
 alloy-transport = { workspace = true }
+anyhow = { workspace = true }
 prost = { workspace = true }
 tempfile = { workspace = true }
 tendermint-proto = { workspace = true }
+test-harness = { path = "../test-harness" }
 tokio = { workspace = true, features = ["test-util"] }
