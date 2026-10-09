@@ -5,10 +5,13 @@
 //! A storage value of zero must come with a complete exclusion proof (one that ends where the trie
 //! diverges from the key), and a non-zero value with an inclusion proof of `rlp(value)`.
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    panic::{self, AssertUnwindSafe},
+};
 
 use alloy_primitives::{B256, Bytes, U256, keccak256};
-use alloy_rlp::{Decodable, EMPTY_STRING_CODE};
+use alloy_rlp::{Decodable, EMPTY_STRING_CODE, Header, PayloadView};
 use alloy_trie::{
     EMPTY_ROOT_HASH, Nibbles, TrieAccount,
     nodes::TrieNode,
@@ -42,6 +45,10 @@ pub enum MptError {
         #[source]
         source: Box<ProofVerificationError>,
     },
+    /// A proof node that the trie library cannot process; never valid. Whoever chooses the state
+    /// root can make such a node hash-link to it, so this is an invalid witness, not a local fault.
+    #[error("malformed proof node")]
+    MalformedProof,
 }
 
 /// Storage words proven by [`verify_account_witness`], keyed by un-hashed slot.
@@ -65,7 +72,26 @@ impl VerifiedStorage {
 /// witness's storage slots equal `expected_slots` exactly (same order, same length); (c) every
 /// storage proof proves its value under `storage_root` at `keccak256(slot)`, with value zero
 /// accepted only through a complete exclusion proof.
+///
+/// Never panics, whatever the input. `alloy-trie` and `nybbles` assert on some malformed nodes
+/// (compact paths longer than 64 nibbles, paths that walk past 64 nibbles, an in-place extension
+/// over a leaf), and whoever chooses `state_root` can make such nodes hash-link to it. Over-long
+/// compact paths are rejected before they reach the library; any other panic inside it is caught
+/// and returned as [`MptError::MalformedProof`] (the default panic hook still prints it to
+/// stderr). Catching relies on unwinding, so this must not be built with `panic = "abort"`.
 pub fn verify_account_witness(
+    state_root: B256,
+    w: &AccountWitness,
+    expected_slots: &[B256],
+) -> Result<VerifiedStorage, MptError> {
+    // The closure only reads its arguments, so no state it could leave half-updated outlives a
+    // caught panic.
+    panic::catch_unwind(AssertUnwindSafe(|| verify_witness(state_root, w, expected_slots)))
+        .unwrap_or(Err(MptError::MalformedProof))
+}
+
+/// [`verify_account_witness`] without the panic boundary.
+fn verify_witness(
     state_root: B256,
     w: &AccountWitness,
     expected_slots: &[B256],
@@ -76,7 +102,7 @@ pub fn verify_account_witness(
         storage_root: w.storage_root,
         code_hash: w.code_hash,
     };
-    verify_proof(
+    verify_nodes(
         state_root,
         Nibbles::unpack(keccak256(w.address)),
         Some(alloy_rlp::encode(account)),
@@ -109,9 +135,9 @@ fn verify_storage_value(
     proof: &[Bytes],
 ) -> Result<(), ProofVerificationError> {
     if !value.is_zero() {
-        return verify_proof(storage_root, key, Some(alloy_rlp::encode(value)), proof);
+        return verify_nodes(storage_root, key, Some(alloy_rlp::encode(value)), proof);
     }
-    verify_proof(storage_root, key, None, proof)?;
+    verify_nodes(storage_root, key, None, proof)?;
     if proves_absence(storage_root, &key, proof) {
         Ok(())
     } else {
@@ -146,7 +172,7 @@ fn proves_absence(root: B256, key: &Nibbles, proof: &[Bytes]) -> bool {
         if keccak256(encoded) != next_hash {
             return false;
         }
-        let Ok(mut node) = TrieNode::decode(&mut &encoded[..]) else { return false };
+        let Some(mut node) = decode_node(encoded) else { return false };
         // Follow `key` through this node and any children encoded in place inside it, until the
         // path ends or reaches a child referenced by hash (the next proof node).
         next_hash = loop {
@@ -172,7 +198,7 @@ fn proves_absence(root: B256, key: &Nibbles, proof: &[Bytes]) -> bool {
             if let Some(hash) = child.as_hash() {
                 break hash;
             }
-            let Ok(inline) = TrieNode::decode(&mut child.as_slice()) else { return false };
+            let Some(inline) = decode_node(child.as_slice()) else { return false };
             node = inline;
         };
     }
@@ -180,10 +206,49 @@ fn proves_absence(root: B256, key: &Nibbles, proof: &[Bytes]) -> bool {
     false
 }
 
+/// [`verify_proof`], after rejecting any proof node with a compact path longer than 64 nibbles
+/// (decoding one panics inside `alloy-trie`). Nodes encoded in place inside a proof node are at
+/// most 32 bytes, too short to hold such a path, so only the proof nodes themselves need the check.
+fn verify_nodes(
+    root: B256,
+    key: Nibbles,
+    expected_value: Option<Vec<u8>>,
+    proof: &[Bytes],
+) -> Result<(), ProofVerificationError> {
+    if proof.iter().any(|node| has_overlong_path(node)) {
+        return Err(alloy_rlp::Error::Custom("trie node path longer than 64 nibbles").into());
+    }
+    verify_proof(root, key, expected_value, proof)
+}
+
+/// Decodes a trie node, or `None` if it is malformed, including a compact path longer than 64
+/// nibbles (which `TrieNode::decode` panics on).
+fn decode_node(node: &[u8]) -> Option<TrieNode> {
+    if has_overlong_path(node) {
+        return None;
+    }
+    TrieNode::decode(&mut &node[..]).ok()
+}
+
+/// Whether `node` is a two-item (leaf or extension) node whose compact path holds more than the
+/// 64 nibbles a `Nibbles` can. Anything else `TrieNode::decode` handles without panicking.
+fn has_overlong_path(mut node: &[u8]) -> bool {
+    let Ok(PayloadView::List(items)) = Header::decode_raw(&mut node) else { return false };
+    let [mut path, _] = items[..] else { return false };
+    let Ok(path) = Header::decode_bytes(&mut path, false) else { return false };
+    // The flag byte carries one path nibble when its odd bit (`0x10`) is set; each further byte
+    // carries two.
+    path.split_first()
+        .is_some_and(|(flag, rest)| 2 * rest.len() + usize::from(flag & 0x10 != 0) > 64)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{AccountSpec, TestState};
+    use crate::{
+        test_utils::{AccountSpec, TestState},
+        types::StorageProof,
+    };
     use alloy_primitives::{Address, address, b256};
     use alloy_trie::{HashBuilder, proof::ProofRetainer};
 
@@ -580,5 +645,158 @@ mod tests {
         assert!(accepts_zero(root, B256::repeat_byte(0x11), &proof), "diverges at the extension");
         assert!(!accepts_zero(root, one, &proof), "the in-place leaf holds a value");
         verify_storage_value(root, Nibbles::unpack(one), U256::from(1u64), &proof).unwrap();
+    }
+
+    // Malformed nodes that `alloy-trie` or `nybbles` assert on. Whoever chooses the state root can
+    // make them hash-link to it, so verification must reject them, never panic.
+
+    /// RLP-encodes `items` (each already RLP-encoded) as a list.
+    fn rlp_list(items: &[&[u8]]) -> Vec<u8> {
+        let payload = items.concat();
+        let mut out = Vec::new();
+        Header { list: true, payload_length: payload.len() }.encode(&mut out);
+        out.extend_from_slice(&payload);
+        out
+    }
+
+    /// A reference to `node` by hash, as a parent node holds it.
+    fn hash_ref(node: &[u8]) -> Vec<u8> {
+        alloy_rlp::encode(keccak256(node))
+    }
+
+    /// A leaf (flag `0x2`/`0x3`) or extension (`0x0`/`0x1`) node with the raw compact path
+    /// `compact` and a one-byte value or a dummy hash child.
+    fn short_node(compact: &[u8]) -> Vec<u8> {
+        let second = if compact[0] & 0x20 == 0 { hash_ref(b"child") } else { vec![0x01] };
+        rlp_list(&[&alloy_rlp::encode(compact), &second])
+    }
+
+    /// A branch node holding `child` (raw RLP: a hash reference or an in-place node) at `nibble`
+    /// and a dummy hash reference at the next nibble, so it is itself referenced by hash.
+    fn branch_with(nibble: u8, child: &[u8]) -> Vec<u8> {
+        let filler = alloy_rlp::encode(B256::repeat_byte(0x11));
+        let empty = [EMPTY_STRING_CODE];
+        let items: Vec<&[u8]> = (0..17u8)
+            .map(|i| match i {
+                _ if i == nibble => child,
+                _ if i == (nibble + 1) % 16 => &filler[..],
+                _ => &empty[..],
+            })
+            .collect();
+        rlp_list(&items)
+    }
+
+    /// A `len`-byte compact path: the flag byte `flag`, then zero bytes.
+    fn compact_path(flag: u8, len: usize) -> Vec<u8> {
+        let mut path = vec![0u8; len];
+        path[0] = flag;
+        path
+    }
+
+    /// Root nodes whose compact path holds more than 64 nibbles (`Nibbles::unpack` or
+    /// `Nibbles::join` assert on them), as one-node proofs.
+    fn overlong_path_proofs() -> Vec<(&'static str, Vec<Bytes>)> {
+        [
+            ("even leaf, 66 nibbles", 0x20, 34),
+            ("odd leaf, 65 nibbles", 0x30, 33),
+            ("even extension, 66 nibbles", 0x00, 34),
+            ("odd extension, 65 nibbles", 0x10, 33),
+        ]
+        .into_iter()
+        .map(|(name, flag, len)| (name, vec![short_node(&compact_path(flag, len)).into()]))
+        .collect()
+    }
+
+    /// Proofs for `key` that hash-link to their first node but that `alloy-trie` or `nybbles`
+    /// cannot process, each flagged with whether the verifier rejects it before calling into the
+    /// library (`true`) or only by catching the library's panic.
+    fn malformed_proofs(key: B256) -> Vec<(&'static str, Vec<Bytes>, bool)> {
+        let nibble = key[0] >> 4;
+        // (a) A branch whose in-place extension child points at a leaf: `unreachable!`.
+        let in_place_leaf = rlp_list(&[&[0x20], &[0x01]]);
+        let in_place_extension = rlp_list(&[&[0x15], &in_place_leaf]);
+        let a = vec![branch_with(nibble, &in_place_extension).into()];
+        // (b) A branch then a leaf with a full 64-nibble path: the walked path overflows.
+        let leaf = short_node(&compact_path(0x20, 33));
+        let b = vec![branch_with(nibble, &hash_ref(&leaf)).into(), leaf.into()];
+
+        let mut proofs = vec![
+            ("in-place extension over a leaf", a, false),
+            ("64-nibble leaf under a branch", b, false),
+        ];
+        // (c) A root node whose compact path is longer than 64 nibbles.
+        proofs.extend(overlong_path_proofs().into_iter().map(|(name, proof)| (name, proof, true)));
+        proofs
+    }
+
+    /// A witness for `INBOX` with a genuine account proof (from a one-account state trie) that
+    /// carries `storage_root` and `storage`, and the root of that state trie.
+    fn witness_over(storage_root: B256, storage: Vec<StorageProof>) -> (B256, AccountWitness) {
+        let (nonce, balance, code_hash) = (1, U256::from(5u64), keccak256(b"inbox code"));
+        let account = TrieAccount { nonce, balance, storage_root, code_hash };
+        let key = Nibbles::unpack(keccak256(INBOX));
+        let mut builder = HashBuilder::default().with_proof_retainer(ProofRetainer::new(vec![key]));
+        builder.add_leaf(key, &alloy_rlp::encode(account));
+        let root = builder.root();
+        let account_proof =
+            builder.take_proof_nodes().into_nodes_sorted().into_iter().map(|(_, n)| n).collect();
+        let witness = AccountWitness {
+            address: INBOX,
+            nonce,
+            balance,
+            storage_root,
+            code_hash,
+            account_proof,
+            storage,
+        };
+        (root, witness)
+    }
+
+    #[test]
+    fn rejects_malformed_account_proofs_without_panicking() {
+        for (name, proof, guarded) in malformed_proofs(keccak256(INBOX)) {
+            let state_root = keccak256(&proof[0]);
+            let (_, mut witness) = witness_over(EMPTY_ROOT_HASH, vec![]);
+            witness.account_proof = proof;
+            let err = verify_account_witness(state_root, &witness, &[]).unwrap_err();
+            if guarded {
+                assert!(matches!(err, MptError::Account(ProofVerificationError::Rlp(_))), "{name}");
+            } else {
+                assert_eq!(err, MptError::MalformedProof, "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_malformed_storage_proofs_without_panicking() {
+        let s = slot(258);
+        let absent = StorageProof { slot: s, value: U256::ZERO, proof: vec![] };
+        let (root, witness) = witness_over(EMPTY_ROOT_HASH, vec![absent]);
+        verify_account_witness(root, &witness, &[s]).unwrap();
+
+        for (name, proof, guarded) in malformed_proofs(keccak256(s)) {
+            for value in [U256::ZERO, WORD] {
+                let storage = vec![StorageProof { slot: s, value, proof: proof.clone() }];
+                let (root, witness) = witness_over(keccak256(&proof[0]), storage);
+                let err = verify_account_witness(root, &witness, &[s]).unwrap_err();
+                if guarded {
+                    assert!(
+                        matches!(&err, MptError::Storage { slot: got, source }
+                            if *got == s && matches!(**source, ProofVerificationError::Rlp(_))),
+                        "{name}, value {value}: {err:?}"
+                    );
+                } else {
+                    assert_eq!(err, MptError::MalformedProof, "{name}, value {value}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn absence_walk_rejects_overlong_paths() {
+        let key = Nibbles::unpack(B256::ZERO);
+        for (name, proof) in overlong_path_proofs() {
+            assert!(!proves_absence(keccak256(&proof[0]), &key, &proof), "{name}");
+        }
     }
 }
