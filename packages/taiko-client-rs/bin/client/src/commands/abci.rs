@@ -4,7 +4,10 @@ use abci::{AbciMetrics, App, Engine, RpcEngine, RpcL1Source, Store, serve};
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use clap::Parser;
-use rpc::{RpcClientError, client::connect_http_with_timeout};
+use rpc::{
+    RpcClientError,
+    client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout, http_timeout_for},
+};
 use tracing::info;
 use url::Url;
 
@@ -36,7 +39,7 @@ impl AbciSubCommand {
 
 /// `eth_chainId` of the L2 execution engine's public endpoint `url`.
 async fn l2_chain_id(url: &Url) -> Result<u64> {
-    connect_http_with_timeout(url.clone()).get_chain_id().await.map_err(|e| {
+    connect_http_with_timeout(url.clone(), DEFAULT_HTTP_TIMEOUT).get_chain_id().await.map_err(|e| {
         CliError::from(RpcClientError::RpcMessage(format!(
             "L2 HTTP RPC (l2.http) failed to get chain id from {url}: {e}"
         )))
@@ -69,15 +72,19 @@ impl Subcommand for AbciSubCommand {
         let flags = &self.abci_flags;
         let chain_id = l2_chain_id(&common.l2_http_endpoint).await?;
         let params = load_chain_params(chain_id, flags.chain_config.as_deref())?;
+        let opts = flags.app_options();
         let engine = RpcEngine::new(
             common.l2_http_endpoint.clone(),
             common.l2_auth_endpoint.clone(),
             &common.l2_auth_jwt_secret,
+            opts.engine_timeout,
         )?;
         engine.check_capabilities().await?;
-        let l1 = RpcL1Source::new(connect_http_with_timeout(common.l1_http_endpoint.clone()));
-        let app =
-            App::new(l1, engine, params, Store::new(flags.data_dir.clone()), flags.app_options())?;
+        let l1 = RpcL1Source::new(connect_http_with_timeout(
+            common.l1_http_endpoint.clone(),
+            http_timeout_for(opts.l1_timeout),
+        ));
+        let app = App::new(l1, engine, params, Store::new(flags.data_dir.clone()), opts)?;
         info!(
             chain_id,
             addr = %flags.addr,

@@ -17,7 +17,7 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{B256, U256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
-use rpc::client::connect_http_with_timeout;
+use rpc::client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout};
 use url::Url;
 
 use crate::{
@@ -124,7 +124,7 @@ pub(crate) async fn boot(
     }
 
     let l1_http = local_url(host_port(&anvil, 8545).await?)?;
-    let l1 = connect_http_with_timeout(l1_http.clone());
+    let l1 = connect_http_with_timeout(l1_http.clone(), DEFAULT_HTTP_TIMEOUT);
     wait_until("anvil RPC", RPC_TIMEOUT, POLL, || async { Ok(Some(l1.get_block_number().await?)) })
         .await?;
     let mut reth = Vec::with_capacity(n);
@@ -133,7 +133,7 @@ pub(crate) async fn boot(
             http: local_url(host_port(name, 8545).await?)?,
             auth: local_url(host_port(name, 8551).await?)?,
         };
-        let provider = connect_http_with_timeout(node.http.clone());
+        let provider = connect_http_with_timeout(node.http.clone(), DEFAULT_HTTP_TIMEOUT);
         wait_until(&format!("{name} RPC"), RPC_TIMEOUT, POLL, || async {
             Ok(Some(provider.get_chain_id().await?))
         })
@@ -142,11 +142,13 @@ pub(crate) async fn boot(
     }
 
     // 2. The L2 genesis anchor and the chain parameters.
-    let l2 = connect_http_with_timeout(reth[0].http.clone());
+    let l2 = connect_http_with_timeout(reth[0].http.clone(), DEFAULT_HTTP_TIMEOUT);
     let chain_id = l2.get_chain_id().await?;
     let (genesis_hash, genesis_state_root) = genesis_block(&l2).await?;
     for node in &reth[1..] {
-        let (other, _) = genesis_block(&connect_http_with_timeout(node.http.clone())).await?;
+        let (other, _) =
+            genesis_block(&connect_http_with_timeout(node.http.clone(), DEFAULT_HTTP_TIMEOUT))
+                .await?;
         ensure!(other == genesis_hash, "alethia-reth genesis hashes differ");
     }
     let params = ChainParams::builtin(chain_id)?
