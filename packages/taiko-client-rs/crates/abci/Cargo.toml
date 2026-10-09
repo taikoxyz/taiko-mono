@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 # ethereum
+alloy-consensus = { workspace = true }
 alloy-primitives = { workspace = true, features = ["std", "serde", "rlp"] }
 alloy-rlp = { workspace = true, features = ["std", "derive"] }
 
