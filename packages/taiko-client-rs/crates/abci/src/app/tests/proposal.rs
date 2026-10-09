@@ -2,7 +2,12 @@
 //! proposal tests share: requests, crafted committed states and hand-built envelopes.
 
 use alloy_primitives::{B256, Bytes, keccak256};
-use tendermint::{Hash, Time, account, block::Height};
+use tendermint::{
+    Hash, Time,
+    abci::types::CommitInfo,
+    account,
+    block::{Height, Round},
+};
 
 use super::*;
 use crate::{
@@ -116,36 +121,57 @@ pub(super) fn validate(
     validate::validate_block(state, &app.params, env, next_height(app), bft_time(app))
 }
 
-/// Stand-in for `FinalizeBlock` + `Commit` (task 12): commits the cached verdict of the block
-/// with `hash` to the app state.
-pub(super) fn commit(app: &mut App<MockL1, MockEngine>, hash: &Hash) {
-    let v = app.verdicts.remove(hash).expect("the block was accepted");
-    let state = app.state.as_mut().expect("initialized");
-    let h = &v.block.header;
-    state.parent = ParentInfo {
-        number: h.number,
-        hash: h.hash_slow(),
-        timestamp: h.timestamp,
-        gas_limit: h.gas_limit,
-        gas_used: h.gas_used,
-        base_fee: h.base_fee_per_gas.expect("Etna blocks carry a base fee"),
-        difficulty: h.difficulty,
-        grandparent_timestamp: state.parent.timestamp,
-    };
-    state.last_height = h.number;
-    state.anchor = v.anchor;
-    if let Some((epoch, committee)) = v.derived {
-        state.committees.insert(epoch, committee);
+/// The `FinalizeBlock` request CometBFT sends once the block `p` proposed is decided.
+pub(super) fn finalize_req(p: &request::ProcessProposal) -> request::FinalizeBlock {
+    request::FinalizeBlock {
+        txs: p.txs.clone(),
+        decided_last_commit: CommitInfo { round: Round::default(), votes: vec![] },
+        misbehavior: vec![],
+        hash: p.hash,
+        height: p.height,
+        time: p.time,
+        next_validators_hash: p.next_validators_hash,
+        proposer_address: p.proposer_address,
     }
-    app.verdicts.clear();
 }
 
-/// Prepares, accepts and commits the next height; returns its envelope.
+/// Sends `FinalizeBlock` through [`App::handle`].
+pub(super) async fn finalize(
+    app: &mut App<MockL1, MockEngine>,
+    req: request::FinalizeBlock,
+) -> Result<response::FinalizeBlock, AbciError> {
+    match app.handle(Request::FinalizeBlock(req)).await? {
+        Response::FinalizeBlock(r) => Ok(r),
+        other => panic!("FinalizeBlock answered {other:?}"),
+    }
+}
+
+/// Sends `Commit` through [`App::handle`].
+pub(super) async fn commit(
+    app: &mut App<MockL1, MockEngine>,
+) -> Result<response::Commit, AbciError> {
+    match app.handle(Request::Commit).await? {
+        Response::Commit(r) => Ok(r),
+        other => panic!("Commit answered {other:?}"),
+    }
+}
+
+/// Finalizes and commits the block `p` proposed; returns the `FinalizeBlock` response.
+pub(super) async fn decide(
+    app: &mut App<MockL1, MockEngine>,
+    p: &request::ProcessProposal,
+) -> response::FinalizeBlock {
+    let resp = finalize(app, finalize_req(p)).await.expect("FinalizeBlock succeeds");
+    commit(app).await.expect("Commit succeeds");
+    resp
+}
+
+/// Prepares, accepts, finalizes and commits the next height; returns its envelope.
 pub(super) async fn step(app: &mut App<MockL1, MockEngine>) -> EtnaEnvelope {
     let env = propose(app).await;
     let (resp, req) = judge(app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
-    commit(app, &req.hash);
+    decide(app, &req).await;
     env
 }
 
@@ -259,7 +285,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert!(app.l1().calls().is_empty(), "no witness, no L1 call");
     let anchor_before = app.state().unwrap().anchor.clone();
     assert_eq!(app.verdicts[&req.hash].anchor, anchor_before);
-    commit(&mut app, &req.hash);
+    decide(&mut app, &req).await;
 
     // L1 finalizes block 66, where the checkpoint has advanced: the anchor moves.
     let inbox = fx.inbox_with(fx.activation.genesis_height + 1, &[]);
@@ -280,7 +306,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert!(v.anchor_changed);
     assert_eq!(v.anchor.number, 66);
     assert_eq!(v.anchor.inbox.last_checkpoint_height, fx.activation.genesis_height + 1);
-    commit(&mut app, &req.hash);
+    decide(&mut app, &req).await;
     assert_eq!(app.state().unwrap().anchor.number, 66);
 }
 

@@ -195,6 +195,9 @@ pub(crate) struct MockEngineState {
     pub(crate) capabilities: Option<EngineError>,
     /// When set, every call first sleeps this long (tokio time), to exercise timeouts.
     pub(crate) delay: Option<Duration>,
+    /// Scripted per-call sleeps (tokio time), one popped per call before falling back to
+    /// `delay`.
+    pub(crate) delay_script: VecDeque<Duration>,
     /// Every call, in order.
     pub(crate) calls: Vec<EngineCall>,
 }
@@ -272,6 +275,19 @@ impl MockEngine {
         engine
     }
 
+    /// The same EL after a process restart: its database (canonical chain and known blocks)
+    /// survives; scripts, delay and the call log do not.
+    pub(crate) fn reopen(&self) -> Self {
+        let engine = Self::new();
+        {
+            let old = self.state();
+            let mut state = engine.state();
+            state.chain = old.chain.clone();
+            state.known = old.known.clone();
+        }
+        engine
+    }
+
     /// Adds `header` to the known (not canonical) blocks.
     pub(crate) fn insert_known(&self, header: Header) {
         self.state().known.insert(header.hash_slow(), header);
@@ -287,9 +303,13 @@ impl MockEngine {
         self.state().calls.clone()
     }
 
-    /// Sleeps for the scripted `delay`, if any (the lock is not held while sleeping).
+    /// Sleeps for the next `delay_script` entry or else the scripted `delay`, if any (the lock
+    /// is not held while sleeping).
     async fn pause(&self) {
-        let delay = self.state().delay;
+        let delay = {
+            let mut state = self.state();
+            state.delay_script.pop_front().or(state.delay)
+        };
         if let Some(delay) = delay {
             tokio::time::sleep(delay).await;
         }
