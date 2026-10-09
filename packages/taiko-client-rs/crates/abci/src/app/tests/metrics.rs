@@ -75,7 +75,7 @@ async fn refusals_count_by_reason_and_raise_halted() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let empty = AbciMetrics::proposals_empty().get();
-    let envelope = rejected("envelope");
+    let empty_proposals = rejected("empty_proposal");
     let processed = AbciMetrics::process_seconds().get_sample_count();
 
     app.l1().state().fail = Some(L1Error::Rpc("down".into()));
@@ -86,7 +86,7 @@ async fn refusals_count_by_reason_and_raise_halted() {
 
     let req = process_req(next_height(&app), bft_time(&app), vec![]);
     assert_eq!(process(&mut app, req).await, response::ProcessProposal::Reject);
-    assert_eq!(rejected("envelope"), envelope + 1);
+    assert_eq!(rejected("empty_proposal"), empty_proposals + 1);
     assert_eq!(AbciMetrics::process_seconds().get_sample_count(), processed + 1);
     assert_eq!(AbciMetrics::halted().get(), 1);
 

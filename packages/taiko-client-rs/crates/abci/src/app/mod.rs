@@ -258,7 +258,8 @@ pub struct App<L: L1Source, E: Engine> {
     /// at `Commit`.
     verdicts: HashMap<Hash, Validated>,
     /// The label of the last proposal rejection or failed build (a liveness halt), reported by
-    /// `/status`; cleared by the next accepted or built proposal.
+    /// `/status`; an empty proposal does not replace a recorded label. Cleared by the next
+    /// accepted or built proposal and by `Commit`.
     halt: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
     superseded: bool,
@@ -373,6 +374,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Records a refused proposal: logs it (ERROR for a local build fault, WARN otherwise), keeps
     /// its label as the halt reason for `/status`, and sets the `superseded` status when the
     /// Inbox proved a later generation.
+    ///
+    /// An [`Rejection::EmptyProposal`] never replaces a reason already recorded: it is how a
+    /// halted proposer (this node included) proposes nothing, so the reason recorded earlier at
+    /// the height (e.g. this node's own failed build) is the one that explains the halt.
     fn note_rejection(&mut self, method: &'static str, height: u64, rejection: &Rejection) {
         let reason = rejection.label();
         match rejection {
@@ -383,6 +388,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         if matches!(rejection, Rejection::Superseded { .. }) {
             self.superseded = true;
+        }
+        if matches!(rejection, Rejection::EmptyProposal) && self.halt.is_some() {
+            return;
         }
         self.halt = Some(reason.to_string());
         AbciMetrics::halted().set(1);

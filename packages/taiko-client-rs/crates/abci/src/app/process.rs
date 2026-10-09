@@ -51,8 +51,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Judges one proposal on top of `state`.
     ///
-    /// In order: a superseded chain rejects everything; the transactions must be exactly one
-    /// envelope; [`validate_block`] with the request's BFT time; a present anchor witness must be
+    /// In order: a superseded chain rejects everything; no transaction at all is an
+    /// [`Rejection::EmptyProposal`]; the transactions must be exactly one envelope;
+    /// [`validate_block`] with the request's BFT time; a present anchor witness must be
     /// final and canonical in the own L1 view (L1 is not called when it is absent); the EL must
     /// execute the block as `VALID`. An Inbox ahead of the chain is reported as
     /// [`Rejection::Superseded`] only once its anchor is final and canonical: a forged L1 header
@@ -64,6 +65,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ) -> Result<Validated, Rejection> {
         if self.superseded {
             return Err(Rejection::ChainSuperseded);
+        }
+        if req.txs.is_empty() {
+            return Err(Rejection::EmptyProposal);
         }
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
         let env = single_envelope(&txs)?;
