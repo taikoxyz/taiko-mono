@@ -35,19 +35,95 @@ async fn info_before_init_chain_reports_height_zero() {
 }
 
 /// Before the first PoS block CometBFT's store is empty: it accepts only an app at height 0
-/// (and then re-sends InitChain).
+/// (and then re-sends InitChain). `InitChain` already made sure the EL holds `B*`, so a later
+/// `Info` of the same process does not ask the EL again.
 #[tokio::test]
 async fn info_at_genesis_reports_height_zero() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
+    assert!(
+        app.engine().calls().contains(&EngineCall::HeaderByNumber(fx.activation.genesis_height)),
+        "InitChain checks B* on the EL"
+    );
+    app.engine().state().calls.clear();
     let resp = info(&mut app).await.expect("Info succeeds");
     assert_eq!(resp.last_block_height.value(), 0);
     assert!(resp.last_block_app_hash.as_bytes().is_empty());
-    assert!(
-        app.engine().calls().contains(&EngineCall::HeaderByNumber(fx.activation.genesis_height)),
-        "the EL is still reconciled with B*"
-    );
+    assert_eq!(app.engine().calls(), [], "InitChain reconciled the EL already");
+}
+
+/// CometBFT also sends `Info` for every RPC `/abci_info` call, on the same sequential worker as
+/// consensus: only the first `Info` after a start (the handshake) reconciles the EL, later ones
+/// answer from the committed state without EL I/O.
+#[tokio::test(start_paused = true)]
+async fn only_the_first_info_after_a_start_reconciles_the_el() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let b_star = fx.el_chain.last().unwrap().clone();
+    let first = Header {
+        number: b_star.number + 1,
+        parent_hash: b_star.hash_slow(),
+        timestamp: b_star.timestamp + 2,
+        ..b_star.clone()
+    };
+    let mut state = fx.expected_state();
+    state.last_height = first.number;
+    state.parent = ParentInfo {
+        number: first.number,
+        hash: first.hash_slow(),
+        grandparent_timestamp: b_star.timestamp,
+        timestamp: first.timestamp,
+        ..state.parent
+    };
+    Store::new(dir.path().to_path_buf()).save(&state).unwrap();
+    let mut chain = fx.el_chain.clone();
+    chain.push(first.clone());
+    let engine = MockEngine::with_chain(chain);
+    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+
+    let handshake = info(&mut app).await.expect("the handshake Info reconciles");
+    assert_eq!(app.engine().calls(), [EngineCall::HeaderByNumber(first.number)]);
+
+    // Even an EL that went away is not asked again.
+    app.engine().state().calls.clear();
+    app.engine().state().delay = Some(Duration::from_secs(3_600));
+    for _ in 0..3 {
+        let later = info(&mut app).await.expect("a later Info answers from the state");
+        assert_eq!(later, handshake);
+        assert_eq!(later.last_block_height.value(), first.number);
+        assert_eq!(later.last_block_app_hash.as_bytes(), first.hash_slow().as_slice());
+    }
+    assert_eq!(app.engine().calls(), [], "later Info calls make no engine call");
+}
+
+/// A failed reconcile is not remembered: the next `Info` tries again.
+#[tokio::test(start_paused = true)]
+async fn info_retries_a_failed_reconcile() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    drop(initialized(&fx, dir.path()).await);
+
+    let opts = AppOptions { elsync_timeout: Duration::from_secs(30), ..AppOptions::default() };
+    let mut app = app_with(fx.l1(), MockEngine::new(), fx.params.clone(), dir.path(), opts);
+    info(&mut app).await.expect_err("the EL never syncs");
+
+    // The EL catches up (e.g. after its own restart); the next Info reconciles and succeeds.
+    {
+        let mut engine = app.engine().state();
+        for header in &fx.el_chain {
+            engine.known.insert(header.hash_slow(), header.clone());
+            engine.chain.insert(header.number, header.clone());
+        }
+        engine.calls.clear();
+    }
+    let resp = info(&mut app).await.expect("the retried reconcile succeeds");
+    assert_eq!(resp.last_block_height.value(), 0, "still at genesis");
+    assert_eq!(app.engine().calls(), [EngineCall::HeaderByNumber(fx.activation.genesis_height)]);
+
+    app.engine().state().calls.clear();
+    info(&mut app).await.expect("Info succeeds");
+    assert_eq!(app.engine().calls(), [], "the successful reconcile is remembered");
 }
 
 #[tokio::test]

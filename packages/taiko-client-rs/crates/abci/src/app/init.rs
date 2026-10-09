@@ -33,8 +33,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// rewritten. A state past `B*`, or a request yielding another state, is
     /// [`AbciError::AlreadyInitialized`]; a verification failure is reported as such.
     ///
-    /// See [`App::verify_genesis`] for the checks. Answers the requested validators with
-    /// `app_hash = H*`.
+    /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves `B*`, a
+    /// successful `InitChain` also counts as this process's EL reconcile (see [`App::info`]).
+    /// Answers the requested validators with `app_hash = H*`.
     pub(super) async fn init_chain(
         &mut self,
         req: request::InitChain,
@@ -64,6 +65,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             self.state = Some(state);
             self.publish_state_metrics();
         }
+        self.el_reconciled = true;
 
         Ok(response::InitChain {
             consensus_params: None,

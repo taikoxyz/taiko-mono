@@ -23,14 +23,23 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Reports 0 and an empty hash before `InitChain` and while the state is still at the
     /// genesis anchor `B*` (no PoS block committed): CometBFT's store is then empty, and it only
-    /// accepts an app at height 0, to which it re-sends `InitChain`. With a state, first
-    /// reconciles the EL with it ([`App::reconcile_el`]), so CometBFT's handshake replays on top
-    /// of an EL that holds the committed head.
-    pub(super) async fn info(&self, _req: request::Info) -> Result<response::Info, AbciError> {
+    /// accepts an app at height 0, to which it re-sends `InitChain`.
+    ///
+    /// With a state, the first `Info` after the process started (CometBFT's handshake) first
+    /// reconciles the EL with it ([`App::reconcile_el`]), so the handshake replays on top of an
+    /// EL that holds the committed head; its failure is the request's error and the next `Info`
+    /// tries again. Once a reconcile (or `InitChain`) succeeded, `Info` answers from the
+    /// committed state alone: CometBFT also sends `Info` for every RPC `/abci_info` call, on the
+    /// same sequential worker as consensus, and an EL hiccup there must neither delay consensus
+    /// nor fail the connection.
+    pub(super) async fn info(&mut self, _req: request::Info) -> Result<response::Info, AbciError> {
         let (last_block_height, last_block_app_hash) = match &self.state {
             None => (Height::from(0u32), AppHash::default()),
             Some(state) => {
-                self.reconcile_el(state).await?;
+                if !self.el_reconciled {
+                    self.reconcile_el(state).await?;
+                    self.el_reconciled = true;
+                }
                 if at_genesis(state) {
                     (Height::from(0u32), AppHash::default())
                 } else {

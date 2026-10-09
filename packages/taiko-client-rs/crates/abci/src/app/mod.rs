@@ -263,6 +263,11 @@ pub struct App<L: L1Source, E: Engine> {
     halt: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
     superseded: bool,
+    /// Whether this process already made sure the EL serves the committed head: set by the
+    /// first successful `Info` reconcile (CometBFT's handshake) or a successful `InitChain`,
+    /// never cleared. Later `Info` calls (CometBFT also sends one per RPC `/abci_info`) then
+    /// answer from the committed state without EL I/O.
+    el_reconciled: bool,
 }
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -297,6 +302,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             verdicts: HashMap::new(),
             halt: None,
             superseded: false,
+            el_reconciled: false,
         };
         app.publish_state_metrics();
         Ok(app)
