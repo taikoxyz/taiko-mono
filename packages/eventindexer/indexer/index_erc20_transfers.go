@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"golang.org/x/sync/errgroup"
@@ -96,6 +97,12 @@ func (i *Indexer) indexERC20Transfers(
 func (i *Indexer) isERC20Transfer(_ context.Context, vLog types.Log) bool {
 	// malformed event
 	if len(vLog.Topics) == 0 {
+		return false
+	}
+
+	// EIP-7708 ETH transfer logs reuse the ERC20 Transfer event, emitted from the
+	// system address, which is not a token.
+	if vLog.Address == params.SystemAddress {
 		return false
 	}
 
