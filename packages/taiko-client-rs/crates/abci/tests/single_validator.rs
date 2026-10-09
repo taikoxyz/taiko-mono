@@ -10,8 +10,11 @@ use abci::{ChainParams, rules::decode_extra_data};
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{U256, address};
 use alloy_provider::Provider;
-use anyhow::{Context, ensure};
-use test_harness::{Devnet, DevnetSpec, dev_signer, finalized_number, send_transfer, wait_until};
+use anyhow::{Context, anyhow, ensure};
+use tendermint::Time;
+use test_harness::{
+    CmtClient, Devnet, DevnetSpec, dev_signer, finalized_number, send_transfer, wait_until,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
@@ -81,6 +84,16 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
             "block {h}: parentBeaconBlockRoot is not the state root of L1 block {anchor}"
         );
         assert!(header.timestamp > prev_timestamp, "block {h}: timestamp not increasing");
+        // D9: max(parent + 1, floor(BFT time of CometBFT block h), anchor timestamp), written out
+        // here rather than through `rules::block_timestamp` so a wrong formula shared by
+        // PrepareProposal and ProcessProposal still fails.
+        let bft_secs = cmt_time_secs(devnet.cmt(0), h).await?;
+        let anchor_ts = l1_block.header.timestamp;
+        let d9 = (prev_timestamp + 1).max(bft_secs).max(anchor_ts);
+        assert_eq!(
+            header.timestamp, d9,
+            "block {h}: D9 timestamp (parent {prev_timestamp}, BFT {bft_secs}, anchor {anchor_ts})"
+        );
         assert_eq!(header.gas_limit, gas_limit, "block {h}: gasLimit");
         if tx_blocks.contains(&h) {
             assert!(header.difficulty > U256::ZERO, "block {h}: zero zk gas with transactions");
@@ -103,4 +116,17 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
     devnet.stop().await?;
     eprintln!("scenario 1 done after {:?}", started.elapsed());
     Ok(())
+}
+
+/// `floor` of the BFT time (`header.time`, RFC 3339 with nanoseconds) of CometBFT block `height`,
+/// in Unix seconds.
+async fn cmt_time_secs(cmt: &CmtClient, height: u64) -> anyhow::Result<u64> {
+    let block = cmt.call("block", &[("height", height.to_string())]).await?;
+    let time = block["block"]["header"]["time"]
+        .as_str()
+        .with_context(|| format!("CometBFT block {height}: no header time"))?;
+    let time = Time::parse_from_rfc3339(time)
+        .map_err(|e| anyhow!("CometBFT block {height}: header time {time:?}: {e}"))?;
+    u64::try_from(time.unix_timestamp())
+        .with_context(|| format!("CometBFT block {height}: header time {time} before the epoch"))
 }
