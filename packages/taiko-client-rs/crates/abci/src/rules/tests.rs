@@ -323,6 +323,52 @@ fn check_header_rejects_every_single_field_mutation() {
     }
 }
 
+/// A proposer controls header fields such as `extraData` (up to the block size): a violation
+/// keeps at most [`HEADER_FIELD_DEBUG_MAX`] characters of a rendered value, so a hostile header
+/// cannot blow up error strings and log lines.
+#[test]
+fn header_field_violations_bound_a_huge_proposed_value() {
+    let huge = Bytes::from(vec![0xab; 100_000]);
+    let e = non_genesis_expected();
+    let h = Header { extra_data: huge.clone(), ..header_for(&e) };
+    let Err(RuleViolation::HeaderField { field, expected, got }) = check_header(&h, &e) else {
+        panic!("expected a HeaderField violation");
+    };
+    assert_eq!(field, "extra_data");
+    assert_eq!(expected, format!("{:?}", e.extra_data), "a short value stays whole");
+    assert_eq!(got.chars().count(), HEADER_FIELD_DEBUG_MAX + 1, "the bound plus the ellipsis");
+    assert!(got.ends_with('…'), "{got}");
+    assert!(format!("{huge:?}").starts_with(got.trim_end_matches('…')), "a prefix is kept");
+    let message = check_header(&h, &e).unwrap_err().to_string();
+    assert!(message.len() < 4 * HEADER_FIELD_DEBUG_MAX, "{} bytes", message.len());
+}
+
+/// Both rendered values are bounded; one of exactly the bound is kept whole.
+#[test]
+fn header_field_bounds_both_values() {
+    let huge = Bytes::from(vec![0xcd; 1_000]);
+    let exact = "x".repeat(HEADER_FIELD_DEBUG_MAX - 2); // `Debug` adds the two quotes
+    let one_more = "x".repeat(HEADER_FIELD_DEBUG_MAX - 1);
+    match RuleViolation::header_field("f", &huge, &exact) {
+        RuleViolation::HeaderField { field, expected, got } => {
+            assert_eq!(field, "f");
+            assert_eq!(expected.chars().count(), HEADER_FIELD_DEBUG_MAX + 1);
+            assert!(expected.ends_with('…'));
+            assert_eq!(got, format!("{exact:?}"));
+            assert_eq!(got.chars().count(), HEADER_FIELD_DEBUG_MAX);
+        }
+        other => panic!("{other:?}"),
+    }
+    match RuleViolation::header_field("f", &one_more, &huge) {
+        RuleViolation::HeaderField { expected, got, .. } => {
+            // One character over: the closing quote gives way to the ellipsis.
+            assert_eq!(expected, format!("\"{}…", "x".repeat(HEADER_FIELD_DEBUG_MAX - 1)));
+            assert_eq!(got.chars().count(), HEADER_FIELD_DEBUG_MAX + 1);
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
 #[test]
 fn check_header_reports_the_first_mismatch() {
     let e = non_genesis_expected();

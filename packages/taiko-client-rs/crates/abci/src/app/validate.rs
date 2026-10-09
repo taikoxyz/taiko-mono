@@ -341,17 +341,11 @@ pub(crate) fn check_candidate(
 
 /// Step (a): the header's number is `height` and its parent hash is the committed `parent`.
 fn check_link(header: &Header, height: u64, parent: B256) -> Result<(), RuleViolation> {
-    let field =
-        |field, expected: &dyn fmt::Debug, got: &dyn fmt::Debug| RuleViolation::HeaderField {
-            field,
-            expected: format!("{expected:?}"),
-            got: format!("{got:?}"),
-        };
     if header.number != height {
-        return Err(field("number", &height, &header.number));
+        return Err(RuleViolation::header_field("number", &height, &header.number));
     }
     if header.parent_hash != parent {
-        return Err(field("parent_hash", &parent, &header.parent_hash));
+        return Err(RuleViolation::header_field("parent_hash", &parent, &header.parent_hash));
     }
     Ok(())
 }
