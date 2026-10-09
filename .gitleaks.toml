@@ -36,8 +36,9 @@ regexes = [
   # Committed to contracts/bindings by design (see struct.go GoldenTouchPrivKey).
   '''(0x)?92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38''',
 
-  # Unit-test fixture key in whitelist-preconfirmation-driver: exists only to
-  # assert the key is redacted from Debug output (network_config_debug_does_not_include_raw_key).
+  # Unit-test fixture key of taiko-client-rs's removed whitelist-preconfirmation-driver
+  # crate; it stays in git history, which the push and weekly scans walk. It existed only
+  # to assert the key is redacted from Debug output (network_config_debug_does_not_include_raw_key).
   '''(0x)?1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d''',
 
   # Go type reference, not a value — the default generic-api-key rule matches the identifier.
