@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -459,21 +460,41 @@ func (s *ProofSubmitter) ClearProofBuffers(batchProof *proofProducer.BatchProofs
 }
 
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full, the forced
-// aggregation interval has passed, or its last proposal ends a fixed SP1-share or RISC0 run
-// (see sp1_proof_share.go). The last case keeps a partial batch at a run end from waiting
-// for the forced aggregation interval.
+// aggregation interval has passed, or its last proposal ends a run of proofType: a fixed
+// SP1-share or RISC0 run (see sp1_proof_share.go), or a run whose next proposal is already
+// proven with another proof type. The last two cases keep a partial batch at a run end from
+// waiting for the forced aggregation interval.
 func (s *ProofSubmitter) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
 	// Check conditions first (without locking)
 	if uint64(buffer.Len()) < buffer.MaxLength &&
 		(buffer.Len() == 0 ||
 			(time.Since(buffer.LastItemAt()) <= s.forceBatchProvingInterval &&
-				!s.endsProofShareRun(buffer.LastInsertID(), proofType))) {
+				!s.endsProofShareRun(buffer.LastInsertID(), proofType) &&
+				!s.nextProposalCachedAsOtherType(buffer.LastInsertID(), proofType))) {
 		return false
 	}
 
 	if buffer.MarkAggregatingIfNot() { // Returns true if successfully marked
 		s.batchAggregationNotify <- proofType
 		return true
+	}
+	return false
+}
+
+// nextProposalCachedAsOtherType reports whether the proposal after lastProposalID already has a
+// cached proof of another proof type. That proposal gets no proof of proofType, so the buffer
+// cannot grow until its batch is finalized. This happens when the RISC0-to-SP1 fallback resumes
+// RISC0 after SP1 proved a proposal out of order: the in-flight proposals before it switch to
+// RISC0.
+func (s *ProofSubmitter) nextProposalCachedAsOtherType(
+	lastProposalID uint64,
+	proofType proofProducer.ProofType,
+) bool {
+	nextProposalID := strconv.FormatUint(lastProposalID+1, 10)
+	for cachedProofType, cacheMap := range s.proofCacheMaps {
+		if cachedProofType != proofType && cacheMap.Has(nextProposalID) {
+			return true
+		}
 	}
 	return false
 }
