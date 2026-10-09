@@ -13,6 +13,7 @@ alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true, features = ["std", "serde", "rlp"] }
 alloy-rlp = { workspace = true, features = ["std", "derive"] }
+alloy-rpc-types-engine = { workspace = true, features = ["std", "serde"] }
 alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 
 # taiko
@@ -24,7 +25,8 @@ thiserror = { workspace = true }
 
 # serialization
 serde = { workspace = true }
+serde_json = { workspace = true }
 toml = { workspace = true }
 
 [dev-dependencies]
-serde_json = { workspace = true }
+tempfile = { workspace = true }
