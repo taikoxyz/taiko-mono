@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.3.0...taiko-alethia-client-rs-v2.4.0) (2026-10-09)
+
+
+### Features
+
+* **taiko-client-rs:** refresh finality for canonical proposals ([#22258](https://github.com/taikoxyz/taiko-mono/issues/22258)) ([d8daf29](https://github.com/taikoxyz/taiko-mono/commit/d8daf297906307e6f532cfbced1d1bccbb601ff5))
+* **taiko-client-rs:** support prefixed blob source endpoints ([#22277](https://github.com/taikoxyz/taiko-mono/issues/22277)) ([f04e8f3](https://github.com/taikoxyz/taiko-mono/commit/f04e8f3e887f4ea4fa22e92900c590c3ea966331))
+
+
+### Bug Fixes
+
+* **taiko-client-rs:** reject trailing bytes in transaction-list RLP ([#22180](https://github.com/taikoxyz/taiko-mono/issues/22180)) ([961bbd8](https://github.com/taikoxyz/taiko-mono/commit/961bbd8ff55a0f66f44ad04160eb51638d655b66))
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 
