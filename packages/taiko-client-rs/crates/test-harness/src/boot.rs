@@ -98,7 +98,7 @@ pub(crate) struct Booted {
 /// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
 /// 5. one app per validator, listening before CometBFT starts;
 /// 6. one CometBFT node per validator, waiting for their RPCs;
-/// 7. the fake lander.
+/// 7. the fake lander (planting committee records iff `spec.land_committees`).
 pub(crate) async fn boot(
     id: &str,
     spec: &DevnetSpec,
@@ -243,13 +243,16 @@ pub(crate) async fn boot(
     }
 
     // 7. The fake lander.
-    let lander = Lander::spawn(LanderCtx {
-        planter: planter.clone(),
-        l2,
-        cmt: cmt[0].clone(),
-        schedule: Schedule::from_activation(&activation),
-        l2_chain_id: params.l2_chain_id,
-    });
+    let lander = Lander::spawn(
+        LanderCtx {
+            planter: planter.clone(),
+            l2,
+            cmt: cmt[0].clone(),
+            schedule: Schedule::from_activation(&activation),
+            l2_chain_id: params.l2_chain_id,
+        },
+        spec.land_committees,
+    );
 
     Ok(Booted { lander, apps, cmt, reth, l1_http, l1, keys, params, activation, genesis, planter })
 }

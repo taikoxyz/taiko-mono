@@ -41,26 +41,44 @@ pub(crate) struct LanderCtx {
     pub l2_chain_id: u64,
 }
 
+/// The lander's switches, shared with its task.
+#[derive(Debug)]
+struct Switches {
+    /// While set, ticks write nothing.
+    paused: AtomicBool,
+    /// While set, ticks plant committee records; while clear, only `lastCheckpoint` moves.
+    land_committees: AtomicBool,
+}
+
 /// The running lander task.
 #[derive(Debug)]
 pub(crate) struct Lander {
-    /// While set, ticks write nothing.
-    paused: Arc<AtomicBool>,
+    /// The switches the task reads every tick.
+    switches: Arc<Switches>,
     /// The task.
     task: JoinHandle<()>,
 }
 
 impl Lander {
-    /// Spawns the lander.
-    pub(crate) fn spawn(ctx: LanderCtx) -> Self {
-        let paused = Arc::new(AtomicBool::new(false));
-        let task = tokio::spawn(run(ctx, paused.clone()));
-        Self { paused, task }
+    /// Spawns the lander; it plants committee records iff `land_committees`.
+    pub(crate) fn spawn(ctx: LanderCtx, land_committees: bool) -> Self {
+        let switches = Arc::new(Switches {
+            paused: AtomicBool::new(false),
+            land_committees: AtomicBool::new(land_committees),
+        });
+        let task = tokio::spawn(run(ctx, switches.clone()));
+        Self { switches, task }
     }
 
     /// Pauses (`true`) or resumes (`false`) landing.
     pub(crate) fn set_paused(&self, paused: bool) {
-        self.paused.store(paused, Ordering::SeqCst);
+        self.switches.paused.store(paused, Ordering::SeqCst);
+    }
+
+    /// Enables (`true`) or disables (`false`) planting committee records; `lastCheckpoint` keeps
+    /// moving either way (unless paused).
+    pub(crate) fn set_land_committees(&self, land: bool) {
+        self.switches.land_committees.store(land, Ordering::SeqCst);
     }
 
     /// Stops the task.
@@ -86,22 +104,24 @@ struct Landed {
 }
 
 /// The lander loop: one [`tick`] every [`TICK`] unless paused; errors are logged and retried.
-async fn run(ctx: LanderCtx, paused: Arc<AtomicBool>) {
+async fn run(ctx: LanderCtx, switches: Arc<Switches>) {
     let mut landed = Landed { height: None, next_epoch: Schedule::E0 + 1 };
     loop {
         tokio::time::sleep(TICK).await;
-        if paused.load(Ordering::SeqCst) {
+        if switches.paused.load(Ordering::SeqCst) {
             continue;
         }
-        if let Err(e) = tick(&ctx, &mut landed).await {
+        let land_committees = switches.land_committees.load(Ordering::SeqCst);
+        if let Err(e) = tick(&ctx, &mut landed, land_committees).await {
             tracing::debug!(error = format!("{e:#}"), "fake lander tick failed");
         }
     }
 }
 
-/// Plants `lastCheckpoint = (head − TRAIL, its hash)` and every committee record whose deriving
-/// block `h_first(t − 1)` is landed and that the app already knows.
-async fn tick(ctx: &LanderCtx, landed: &mut Landed) -> Result<()> {
+/// Plants `lastCheckpoint = (head − TRAIL, its hash)` and, when `land_committees`, every
+/// committee record whose deriving block `h_first(t − 1)` is landed and that the app already
+/// knows.
+async fn tick(ctx: &LanderCtx, landed: &mut Landed, land_committees: bool) -> Result<()> {
     let head = ctx.l2.get_block_number().await.context("L2 eth_blockNumber")?;
     let target = head.saturating_sub(TRAIL);
     if landed.height.is_none_or(|h| h < target) {
@@ -119,6 +139,9 @@ async fn tick(ctx: &LanderCtx, landed: &mut Landed) -> Result<()> {
         landed.height = Some(target);
     }
     let Some(height) = landed.height else { return Ok(()) };
+    if !land_committees {
+        return Ok(());
+    }
     loop {
         let t = landed.next_epoch;
         if ctx.schedule.h_first(t - 1) > height {

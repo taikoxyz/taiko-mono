@@ -209,6 +209,26 @@ impl CmtClient {
         }
     }
 
+    /// The validator addresses (upper-case hex, as [`ValidatorKey::address`]) whose precommit
+    /// for the block is in the commit of `height` (`block_id_flag` = commit). Below the latest
+    /// height this is the canonical commit carried by block `height + 1`.
+    pub async fn commit_signers(&self, height: u64) -> Result<Vec<String>> {
+        /// CometBFT's `BlockIDFlagCommit`.
+        const BLOCK_ID_FLAG_COMMIT: u64 = 2;
+        let result = self.call("commit", &[("height", height.to_string())]).await?;
+        let signatures = result["signed_header"]["commit"]["signatures"]
+            .as_array()
+            .context("commit: no signatures array")?;
+        let mut signers = Vec::new();
+        for sig in signatures {
+            if str_u64(&sig["block_id_flag"])? == BLOCK_ID_FLAG_COMMIT {
+                let address = sig["validator_address"].as_str().context("validator_address")?;
+                signers.push(address.to_uppercase());
+            }
+        }
+        Ok(signers)
+    }
+
     /// The `app_hash` in the header of the block at `height`.
     pub async fn header_app_hash(&self, height: u64) -> Result<B256> {
         let block = self.call("block", &[("height", height.to_string())]).await?;

@@ -45,10 +45,14 @@ pub struct DevnetSpec {
     pub margin_v: u64,
     /// CometBFT `timeout_commit`, in milliseconds.
     pub timeout_commit_ms: u64,
+    /// Whether the fake lander plants committee records from the start (see
+    /// [`Devnet::lander_land_committees`]).
+    pub land_committees: bool,
 }
 
 impl Default for DevnetSpec {
-    /// One validator, `L = 20`, `EPOCH_LEN_L1 = 10`, `D_MAX = 12`, `MARGIN_V = 2`, 1 s commits.
+    /// One validator, `L = 20`, `EPOCH_LEN_L1 = 10`, `D_MAX = 12`, `MARGIN_V = 2`, 1 s commits,
+    /// committee records landed.
     fn default() -> Self {
         Self {
             validators: 1,
@@ -58,6 +62,7 @@ impl Default for DevnetSpec {
             d_max: 12,
             margin_v: 2,
             timeout_commit_ms: 1000,
+            land_committees: true,
         }
     }
 }
@@ -275,6 +280,12 @@ impl Devnet {
     /// Resumes the fake lander.
     pub fn lander_resume(&self) {
         self.lander.set_paused(false);
+    }
+
+    /// Makes the fake lander plant (`true`) or skip (`false`) the `committee[t]` records while
+    /// it keeps moving `lastCheckpoint`; skipped records are planted once re-enabled.
+    pub fn lander_land_committees(&self, land: bool) {
+        self.lander.set_land_committees(land);
     }
 
     /// The reason of app `i`'s safety halt, if it halted.
