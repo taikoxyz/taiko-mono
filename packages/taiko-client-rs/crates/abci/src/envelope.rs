@@ -21,6 +21,11 @@ use crate::types::{AccountWitness, CommitteeRecord, RegistryEntry};
 /// Leading version byte of every envelope.
 pub const ENVELOPE_VERSION: u8 = 1;
 
+/// Name of the optional `anchor` field, as carried by [`EnvelopeError::OptionalArity`].
+const ANCHOR_FIELD: &str = "anchor";
+/// Name of the optional `committee` field, as carried by [`EnvelopeError::OptionalArity`].
+const COMMITTEE_FIELD: &str = "committee";
+
 /// The L2 execution block a CometBFT block carries.
 ///
 /// RLP: `[header, transactions]`. The block is fully determined by these two fields: withdrawals
@@ -134,8 +139,8 @@ impl EtnaEnvelope {
         let payload_length = payload.len();
         let envelope = Self {
             block: ExecutionBlock::decode(&mut payload)?,
-            anchor: decode_optional(&mut payload, "anchor")?,
-            committee: decode_optional(&mut payload, "committee")?,
+            anchor: decode_optional(&mut payload, ANCHOR_FIELD)?,
+            committee: decode_optional(&mut payload, COMMITTEE_FIELD)?,
         };
         if !payload.is_empty() {
             return Err(alloy_rlp::Error::ListLengthMismatch {
@@ -167,11 +172,20 @@ impl Encodable for EtnaEnvelope {
 impl Decodable for EtnaEnvelope {
     /// Reads the RLP body `[block, anchor, committee]` (without the version byte), advancing `buf`
     /// past it. An optional witness list with more than one element is reported as
-    /// [`alloy_rlp::Error::Custom`].
+    /// [`alloy_rlp::Error::Custom`] naming the field.
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         Self::decode_body(buf).map_err(|err| match err {
             EnvelopeError::Rlp(err) => err,
-            _ => alloy_rlp::Error::Custom("optional envelope field holds more than one element"),
+            EnvelopeError::OptionalArity(field) => {
+                alloy_rlp::Error::Custom(optional_arity_message(field))
+            }
+            // `decode_body` never returns these: they concern the version byte, the bytes after
+            // the body and the CometBFT transaction list, none of which it reads. They are still
+            // mapped (not panicked on) so a future change cannot turn bad input into a crash.
+            EnvelopeError::Empty |
+            EnvelopeError::Version(_) |
+            EnvelopeError::TrailingBytes(_) |
+            EnvelopeError::TxCount(_) => alloy_rlp::Error::Custom("unexpected envelope error"),
         })
     }
 }
@@ -182,6 +196,16 @@ pub fn single_envelope(txs: &[Bytes]) -> Result<EtnaEnvelope, EnvelopeError> {
     match txs {
         [tx] => EtnaEnvelope::decode(tx),
         _ => Err(EnvelopeError::TxCount(txs.len())),
+    }
+}
+
+/// The [`EnvelopeError::OptionalArity`] message for `field` as a `&'static str`, the only payload
+/// [`alloy_rlp::Error::Custom`] can carry.
+fn optional_arity_message(field: &'static str) -> &'static str {
+    match field {
+        ANCHOR_FIELD => "optional envelope field `anchor` holds more than one element",
+        COMMITTEE_FIELD => "optional envelope field `committee` holds more than one element",
+        _ => "optional envelope field holds more than one element",
     }
 }
 
@@ -493,6 +517,260 @@ mod tests {
             "c0" // committee: absent
         );
         assert_eq!(env.encode().to_vec(), expected.to_vec());
+        assert_eq!(EtnaEnvelope::decode(&expected), Ok(env));
+    }
+
+    #[test]
+    fn rlp_decodable_names_the_optional_field_with_more_than_one_element() {
+        let block = alloy_rlp::encode(envelope(None, None).block);
+        let two_anchors = rlp_list(&[alloy_rlp::encode(anchor()), alloy_rlp::encode(anchor())]);
+        let body = rlp_list(&[block.clone(), two_anchors, rlp_list(&[])]);
+        assert_eq!(
+            <EtnaEnvelope as Decodable>::decode(&mut body.as_slice()),
+            Err(alloy_rlp::Error::Custom(
+                "optional envelope field `anchor` holds more than one element"
+            ))
+        );
+
+        let two_committees =
+            rlp_list(&[alloy_rlp::encode(committee()), alloy_rlp::encode(committee())]);
+        let body = rlp_list(&[block, rlp_list(&[]), two_committees]);
+        assert_eq!(
+            <EtnaEnvelope as Decodable>::decode(&mut body.as_slice()),
+            Err(alloy_rlp::Error::Custom(
+                "optional envelope field `committee` holds more than one element"
+            ))
+        );
+    }
+
+    /// Non-canonical RLP must be rejected: otherwise one envelope would have several encodings,
+    /// so one block could be carried by CometBFT transactions with different hashes.
+    #[test]
+    fn decode_rejects_non_canonical_rlp() {
+        let header = alloy_rlp::encode(Header::default());
+        let with_txs = |txs: &[u8]| {
+            versioned(rlp_list(&[
+                rlp_list(&[header.clone(), txs.to_vec()]),
+                rlp_list(&[]),
+                rlp_list(&[]),
+            ]))
+        };
+        let expected = |txs: Vec<Bytes>| {
+            Ok(EtnaEnvelope {
+                block: ExecutionBlock { header: Header::default(), transactions: txs },
+                anchor: None,
+                committee: None,
+            })
+        };
+
+        // A one-byte tx `0x05` is its own encoding; the string form `0x81 0x05` is non-canonical.
+        assert_eq!(EtnaEnvelope::decode(&with_txs(&hex!("c105"))), expected(vec![bytes!("05")]));
+        assert_eq!(
+            EtnaEnvelope::decode(&with_txs(&hex!("c28105"))),
+            Err(EnvelopeError::Rlp(alloy_rlp::Error::NonCanonicalSingleByte))
+        );
+
+        // A 4-byte tx list must use the short list form `0xc4`, not the long form `0xf8 0x04`.
+        assert_eq!(
+            EtnaEnvelope::decode(&with_txs(&hex!("c483aabbcc"))),
+            expected(vec![bytes!("aabbcc")])
+        );
+        assert_eq!(
+            EtnaEnvelope::decode(&with_txs(&hex!("f80483aabbcc"))),
+            Err(EnvelopeError::Rlp(alloy_rlp::Error::NonCanonicalSize))
+        );
+    }
+
+    /// This vector pins the consensus wire format of an envelope carrying both witnesses: the
+    /// field order of `ExecutionBlock`, `AnchorWitness`, `CommitteeWitness`, `AccountWitness`,
+    /// `StorageProof`, `CommitteeRecord` and `RegistryEntry`, the post-Prague header fields, and
+    /// the one-element list wrapping a present witness. If it changes, the encoding changed, which
+    /// is a consensus-breaking change for every node replaying committed blocks.
+    ///
+    /// The expected bytes are assembled from per-field RLP written out by hand (only list headers
+    /// are computed), so they do not depend on the encoder under test. Same-typed sibling fields
+    /// hold distinct values, so swapping any two of them changes the bytes.
+    #[test]
+    fn golden_vector_envelope_with_witnesses() {
+        /// RLP list of the given already-encoded items.
+        fn list(items: &[&[u8]]) -> Vec<u8> {
+            rlp_list(&items.iter().map(|item| item.to_vec()).collect::<Vec<_>>())
+        }
+        /// RLP of a 32-byte word whose bytes are all `byte`.
+        fn word(byte: u8) -> Vec<u8> {
+            [vec![0xa0], vec![byte; 32]].concat()
+        }
+
+        let header = |number: u64| Header {
+            parent_hash: B256::repeat_byte(0x01),
+            beneficiary: address!("00000000000000000000000000000000e7a10003"),
+            state_root: B256::repeat_byte(0x02),
+            transactions_root: B256::repeat_byte(0x03),
+            receipts_root: B256::repeat_byte(0x04),
+            logs_bloom: Bloom::repeat_byte(0x05),
+            difficulty: U256::from(0x0102),
+            number,
+            gas_limit: 0x0200_0000,
+            gas_used: 0x5208,
+            timestamp: 0x68e7_7800,
+            extra_data: bytes!("6401"),
+            mix_hash: B256::repeat_byte(0x06),
+            nonce: B64::ZERO,
+            base_fee_per_gas: Some(0x0098_9680),
+            withdrawals_root: Some(EMPTY_ROOT),
+            blob_gas_used: Some(0x0002_0000),
+            excess_blob_gas: Some(0x0004_0000),
+            parent_beacon_block_root: Some(B256::repeat_byte(0x07)),
+            requests_hash: Some(EMPTY_REQUESTS),
+            ..Header::default()
+        };
+        let header_rlp = |number: &[u8]| {
+            list(&[
+                &word(0x01), // parentHash
+                // ommersHash
+                &hex!("a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
+                &hex!("9400000000000000000000000000000000e7a10003"), // beneficiary
+                &word(0x02),                                         // stateRoot
+                &word(0x03),                                         // transactionsRoot
+                &word(0x04),                                         // receiptsRoot
+                &[hex!("b90100").as_slice(), &[0x05; 256]].concat(), // logsBloom
+                &hex!("820102"),                                     // difficulty
+                number,                                              // number
+                &hex!("8402000000"),                                 // gasLimit
+                &hex!("825208"),                                     // gasUsed
+                &hex!("8468e77800"),                                 // timestamp
+                &hex!("826401"),                                     // extraData
+                &word(0x06),                                         // mixHash
+                &hex!("880000000000000000"),                         // nonce
+                &hex!("83989680"),                                   // baseFeePerGas
+                // withdrawalsRoot
+                &hex!("a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"),
+                &hex!("83020000"), // blobGasUsed
+                &hex!("83040000"), // excessBlobGas
+                &word(0x07),       // parentBeaconBlockRoot
+                // requestsHash
+                &hex!("a0e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+            ])
+        };
+
+        let env = EtnaEnvelope {
+            block: ExecutionBlock {
+                header: header(0x0400),
+                transactions: vec![bytes!("02f86c82028d8084b2d05e00")],
+            },
+            anchor: Some(AnchorWitness {
+                l1_header: header(0x2400),
+                inbox: AccountWitness {
+                    address: address!("00000000000000000000000000000000e7a10001"),
+                    nonce: 1,
+                    balance: U256::from(0x0de0_b6b3_a764_0000u64),
+                    storage_root: B256::repeat_byte(0x11),
+                    code_hash: B256::repeat_byte(0x12),
+                    account_proof: vec![bytes!("e2a0aabb")],
+                    storage: vec![crate::types::StorageProof {
+                        slot: B256::with_last_byte(0x0e),
+                        value: U256::from(3),
+                        proof: vec![bytes!("e3a120cc")],
+                    }],
+                },
+            }),
+            committee: Some(CommitteeWitness {
+                record: CommitteeRecord {
+                    target_epoch: 2,
+                    cutoff_l1_block: 0x23f0,
+                    checkpoint_index: 5,
+                    set_root: B256::repeat_byte(0x44),
+                    total_stake: U256::from(10).pow(U256::from(24)),
+                    total_power: 0x0f_4240,
+                    encoding_version: 1,
+                },
+                registry: AccountWitness {
+                    address: address!("00000000000000000000000000000000e7a10002"),
+                    nonce: 2,
+                    balance: U256::from(0x05f5_e100),
+                    storage_root: B256::repeat_byte(0x21),
+                    code_hash: B256::repeat_byte(0x22),
+                    account_proof: vec![bytes!("e2a0ddee")],
+                    storage: vec![crate::types::StorageProof {
+                        slot: B256::with_last_byte(0x01),
+                        value: U256::ZERO,
+                        proof: vec![bytes!("e3a120ff")],
+                    }],
+                },
+                entries: vec![RegistryEntry {
+                    pubkey: B256::repeat_byte(0x10),
+                    eff_stake: U256::from(10).pow(U256::from(21)),
+                    active_from_l1: 0x64,
+                    exit_effective_l1: u64::MAX,
+                    last_heartbeat_at: 0x1f40,
+                }],
+            }),
+        };
+
+        let block = list(&[
+            &header_rlp(&hex!("820400")),                  // header (number 0x0400)
+            &list(&[&hex!("8c02f86c82028d8084b2d05e00")]), // transactions: one opaque tx
+        ]);
+        let inbox = list(&[
+            &hex!("9400000000000000000000000000000000e7a10001"), // address
+            &hex!("01"),                                         // nonce
+            &hex!("880de0b6b3a7640000"),                         // balance: 1 ether
+            &word(0x11),                                         // storage_root
+            &word(0x12),                                         // code_hash
+            &list(&[&hex!("84e2a0aabb")]),                       // account_proof: one node
+            &list(&[&list(&[
+                // storage: one StorageProof
+                &[vec![0xa0], vec![0; 31], vec![0x0e]].concat(), // slot 14 (B256 keeps zeros)
+                &hex!("03"),                                     // value
+                &list(&[&hex!("84e3a120cc")]),                   // proof: one node
+            ])]),
+        ]);
+        let anchor = list(&[
+            &header_rlp(&hex!("822400")), // l1_header (number 0x2400)
+            &inbox,                       // inbox
+        ]);
+        let record = list(&[
+            &hex!("02"),                     // target_epoch
+            &hex!("8223f0"),                 // cutoff_l1_block
+            &hex!("05"),                     // checkpoint_index
+            &word(0x44),                     // set_root
+            &hex!("8ad3c21bcecceda1000000"), // total_stake: 10^24
+            &hex!("830f4240"),               // total_power
+            &hex!("01"),                     // encoding_version
+        ]);
+        let registry = list(&[
+            &hex!("9400000000000000000000000000000000e7a10002"), // address
+            &hex!("02"),                                         // nonce
+            &hex!("8405f5e100"),                                 // balance
+            &word(0x21),                                         // storage_root
+            &word(0x22),                                         // code_hash
+            &list(&[&hex!("84e2a0ddee")]),                       // account_proof: one node
+            &list(&[&list(&[
+                // storage: one StorageProof (an exclusion proof)
+                &[vec![0xa0], vec![0; 31], vec![0x01]].concat(), // slot 1
+                &hex!("80"),                                     // value: zero
+                &list(&[&hex!("84e3a120ff")]),                   // proof: one node
+            ])]),
+        ]);
+        let entry = list(&[
+            &word(0x10),                   // pubkey
+            &hex!("893635c9adc5dea00000"), // eff_stake: 10^21
+            &hex!("64"),                   // active_from_l1
+            &hex!("88ffffffffffffffff"),   // exit_effective_l1: u64::MAX
+            &hex!("821f40"),               // last_heartbeat_at
+        ]);
+        let committee = list(&[
+            &record,          // record
+            &registry,        // registry
+            &list(&[&entry]), // entries: one RegistryEntry
+        ]);
+        let expected = versioned(list(&[
+            &block,
+            &list(&[&anchor]),    // anchor: present, a one-element list
+            &list(&[&committee]), // committee: present, a one-element list
+        ]));
+
+        assert_eq!(hex::encode(env.encode()), hex::encode(&expected));
         assert_eq!(EtnaEnvelope::decode(&expected), Ok(env));
     }
 }
