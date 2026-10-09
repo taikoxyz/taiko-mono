@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use alloy_primitives::Address;
 use clap::Parser;
 use protocol::shasta::set_devnet_etna_override;
 use rpc::SubscriptionSource;
@@ -12,7 +11,7 @@ use url::Url;
 use crate::error::{CliError, Result};
 
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
-/// CLI flags shared by proposer and driver-style subcommands.
+/// CLI flags shared by the node subcommands.
 pub struct CommonArgs {
     /// HTTP RPC endpoint of a L1 ethereum node.
     #[clap(long = "l1.http", env = "L1_HTTP", help = "HTTP RPC endpoint of a L1 ethereum node")]
@@ -44,14 +43,6 @@ pub struct CommonArgs {
         help = "Path to a JWT secret to use for authenticated RPC endpoints"
     )]
     pub l2_auth_jwt_secret: PathBuf,
-    /// Taiko Shasta protocol Inbox contract address.
-    #[clap(
-        long = "shasta.inbox",
-        env = "SHASTA_INBOX",
-        required = true,
-        help = "Taiko Shasta protocol Inbox contract address"
-    )]
-    pub shasta_inbox_address: Address,
     /// Verbosity level for logging.
     #[clap(
         short = 'v',
@@ -137,7 +128,7 @@ mod tests {
         [EnvGuard::unset("L1_HTTP"), EnvGuard::unset("L1_WS")]
     }
 
-    fn required_args() -> [&'static str; 9] {
+    fn required_args() -> [&'static str; 7] {
         [
             "common",
             "--l2.http",
@@ -146,8 +137,6 @@ mod tests {
             "http://localhost:28551",
             "--jwt.secret",
             "/tmp/jwt.hex",
-            "--shasta.inbox",
-            "0x0000000000000000000000000000000000000000",
         ]
     }
 
@@ -165,8 +154,6 @@ mod tests {
             required_args()[4],
             required_args()[5],
             required_args()[6],
-            required_args()[7],
-            required_args()[8],
         ])
         .expect("http endpoint should parse");
 
@@ -187,8 +174,6 @@ mod tests {
             required_args()[4],
             required_args()[5],
             required_args()[6],
-            required_args()[7],
-            required_args()[8],
         ])
         .expect("ws endpoint should parse");
 
@@ -203,7 +188,6 @@ mod tests {
             l2_http_endpoint: Url::parse("http://localhost:28545").unwrap(),
             l2_auth_endpoint: Url::parse("http://localhost:28551").unwrap(),
             l2_auth_jwt_secret: "/tmp/jwt.hex".into(),
-            shasta_inbox_address: "0x0000000000000000000000000000000000000000".parse().unwrap(),
             verbosity: 2,
             metrics_enabled: false,
             metrics_port: 9090,
@@ -230,8 +214,6 @@ mod tests {
             required_args()[4],
             required_args()[5],
             required_args()[6],
-            required_args()[7],
-            required_args()[8],
         ])
         .expect("dual endpoints should parse before validation");
 

@@ -2,11 +2,9 @@
 
 use std::borrow::Cow;
 
-use alethia_reth_primitives::payload::attributes::{RpcL1Origin, TaikoPayloadAttributes};
-use alethia_reth_rpc_types::PreBuiltTxList as TaikoPreBuiltTxList;
-use alloy::rpc::json_rpc::RpcSend;
-use alloy_primitives::{Address, B256, Bytes, FixedBytes, U256};
-use alloy_provider::{Provider, RootProvider};
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
+use alloy_primitives::{B256, Bytes};
+use alloy_provider::Provider;
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV5, ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId,
     PayloadStatus,
@@ -15,36 +13,12 @@ use anyhow::anyhow;
 use serde_json::Value;
 
 use super::client::Client;
-use crate::{
-    error::{Result, RpcClientError},
-    l1_origin::EngineRpcL1Origin,
-};
-
-/// Re-export of Taiko's pre-built transaction list type using untyped transactions.
-pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
+use crate::error::{Result, RpcClientError};
 
 /// The Engine API methods this client calls, for every fork: the Osaka methods alethia-reth
 /// serves since it removed the V2 methods.
 pub const REQUIRED_ENGINE_METHODS: [&str; 3] =
     ["engine_forkchoiceUpdatedV3", "engine_getPayloadV5", "engine_newPayloadV4"];
-
-/// Parameters for fetching pre-built transaction lists with minimum tip.
-pub struct TxPoolContentParams {
-    /// Beneficiary used for txpool list filtering on the engine side.
-    pub beneficiary: Address,
-    /// Optional base fee hint used by the txpool prebuild endpoint.
-    pub base_fee: Option<u64>,
-    /// Block gas limit used when building candidate tx lists.
-    pub block_max_gas_limit: u64,
-    /// Maximum encoded bytes permitted per returned tx list.
-    pub max_bytes_per_tx_list: u64,
-    /// Local addresses to prioritize in txpool prebuild.
-    pub locals: Vec<String>,
-    /// Maximum number of tx lists requested from the engine.
-    pub max_transactions_lists: u64,
-    /// Minimum tip (wei) required for transactions in returned lists.
-    pub min_tip: u64,
-}
 
 /// JSON payload submitted as the first `engine_newPayloadV4` argument.
 ///
@@ -138,126 +112,6 @@ impl Client {
         check_engine_capabilities(advertised)
     }
 
-    /// Issue an L1-origin lookup against the given provider, mapping ignorable engine errors to
-    /// `Ok(None)` and converting the transport wrapper into the public [`RpcL1Origin`] type.
-    pub(crate) async fn request_l1_origin<Params: RpcSend>(
-        provider: &RootProvider,
-        method: &'static str,
-        params: Params,
-    ) -> Result<Option<RpcL1Origin>> {
-        provider
-            .raw_request::<_, Option<EngineRpcL1Origin>>(Cow::Borrowed(method), params)
-            .await
-            .or_else(handle_ignorable_origin_error)
-            .map(|origin| origin.map(Into::into))
-    }
-
-    /// Fetch pre-built transaction lists from the authenticated L2 execution engine.
-    pub async fn tx_pool_content_with_min_tip(
-        &self,
-        params: TxPoolContentParams,
-    ) -> Result<Vec<PreBuiltTxList>> {
-        self.l2_auth_provider
-            .raw_request(
-                Cow::Borrowed("taikoAuth_txPoolContentWithMinTip"),
-                (
-                    params.beneficiary,
-                    params.base_fee,
-                    params.block_max_gas_limit,
-                    params.max_bytes_per_tx_list,
-                    params.locals,
-                    params.max_transactions_lists,
-                    params.min_tip,
-                ),
-            )
-            .await
-            .map_err(Into::into)
-    }
-
-    /// Update the execution engine's L1 origin metadata for a given block.
-    pub async fn update_l1_origin(&self, origin: &RpcL1Origin) -> Result<Option<RpcL1Origin>> {
-        let origin = EngineRpcL1Origin::from(origin.clone());
-        self.l2_auth_provider
-            .raw_request::<_, Option<EngineRpcL1Origin>>(
-                Cow::Borrowed("taikoAuth_updateL1Origin"),
-                (origin,),
-            )
-            .await
-            .map(|origin| origin.map(Into::into))
-            .map_err(Into::into)
-    }
-
-    /// Store the signature associated with a block's L1 origin envelope.
-    pub async fn set_l1_origin_signature(
-        &self,
-        block_id: U256,
-        signature: FixedBytes<65>,
-    ) -> Result<Option<RpcL1Origin>> {
-        self.l2_auth_provider
-            .raw_request::<_, Option<EngineRpcL1Origin>>(
-                Cow::Borrowed("taikoAuth_setL1OriginSignature"),
-                (block_id, signature),
-            )
-            .await
-            .map(|origin| origin.map(Into::into))
-            .map_err(Into::into)
-    }
-
-    /// Update the head L1 origin pointer in the execution engine.
-    pub async fn set_head_l1_origin(&self, block_id: U256) -> Result<Option<U256>> {
-        self.l2_auth_provider
-            .raw_request(Cow::Borrowed("taikoAuth_setHeadL1Origin"), (block_id,))
-            .await
-            .map_err(Into::into)
-    }
-
-    /// Record the last block associated with a batch in the execution engine.
-    pub async fn set_batch_to_last_block(
-        &self,
-        batch_id: U256,
-        block_id: U256,
-    ) -> Result<Option<U256>> {
-        self.l2_auth_provider
-            .raw_request(Cow::Borrowed("taikoAuth_setBatchToLastBlock"), (batch_id, block_id))
-            .await
-            .map_err(Into::into)
-    }
-
-    /// Fetch the last L1 origin associated with the given batch id via the authenticated engine
-    /// API.
-    pub async fn last_l1_origin_by_batch_id(
-        &self,
-        proposal_id: U256,
-    ) -> Result<Option<RpcL1Origin>> {
-        Self::request_l1_origin(
-            &self.l2_auth_provider,
-            "taikoAuth_lastL1OriginByBatchID",
-            (proposal_id,),
-        )
-        .await
-    }
-
-    /// Fetch the last block id that corresponds to the provided batch id via the authenticated
-    /// engine API.
-    pub async fn last_block_id_by_batch_id(&self, proposal_id: U256) -> Result<Option<U256>> {
-        self.l2_auth_provider
-            .raw_request(Cow::Borrowed("taikoAuth_lastBlockIDByBatchID"), (proposal_id,))
-            .await
-            .or_else(handle_ignorable_origin_error)
-    }
-
-    /// Fetch the cached last block id that corresponds to the provided batch id via the
-    /// authenticated engine API, without allowing the engine to scan the chain as a fallback.
-    pub async fn last_certain_block_id_by_batch_id(
-        &self,
-        proposal_id: U256,
-    ) -> Result<Option<U256>> {
-        self.l2_auth_provider
-            .raw_request(Cow::Borrowed("taikoAuth_lastCertainBlockIDByBatchID"), (proposal_id,))
-            .await
-            .or_else(handle_ignorable_origin_error)
-    }
-
     /// Update the forkchoice state via `engine_forkchoiceUpdatedV3`, optionally starting a payload
     /// build.
     ///
@@ -315,28 +169,10 @@ impl Client {
     }
 }
 
-/// Checks whether the underlying RPC error message represents a "not found" or ignorable response.
-///
-/// Covers all three "no usable mapping" responses emitted by the execution engine's batch
-/// lookup: missing entry, uncertain match at head, and backward-scan lookback exhaustion.
-fn is_ignorable_origin_error(message: &str) -> bool {
-    message.contains("not found") ||
-        message.contains("proposal last block uncertain") ||
-        message.contains("proposal last block lookback exceeded")
-}
-
-/// Converts an RPC error into an optional origin, mapping ignorable errors to `Ok(None)`.
-pub(crate) fn handle_ignorable_origin_error<T, E>(err: E) -> Result<Option<T>>
-where
-    E: Into<RpcClientError> + std::fmt::Display,
-{
-    let message = err.to_string();
-    if is_ignorable_origin_error(&message) { Ok(None) } else { Err(err.into()) }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alethia_reth_primitives::payload::attributes::RpcL1Origin;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types_engine::{ExecutionPayloadV1, ExecutionPayloadV2, ExecutionPayloadV3};
 
@@ -367,18 +203,6 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains(r#"["engine_newPayloadV4"]"#), "{err}");
-    }
-
-    #[test]
-    fn ignorable_origin_errors_cover_all_engine_lookup_miss_messages() {
-        assert!(is_ignorable_origin_error("not found"));
-        assert!(is_ignorable_origin_error(
-            "proposal last block uncertain: BatchToLastBlockID missing and no newer proposal observed"
-        ));
-        assert!(is_ignorable_origin_error(
-            "proposal last block lookback exceeded: BatchToLastBlockID missing and lookback limit reached"
-        ));
-        assert!(!is_ignorable_origin_error("connection refused"));
     }
 
     /// Build the `ExecutionPayloadV3` shared by the `engine_new_payload_v4_value` tests,

@@ -2,20 +2,12 @@
 
 use std::{io::IsTerminal, net::SocketAddr};
 
-use ::driver::config::DriverConfig;
 use async_trait::async_trait;
 use rpc::client::ClientConfig;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use crate::{
-    error::Result,
-    flags::{common::CommonArgs, driver::DriverArgs},
-};
-
-pub mod driver;
-pub mod proposer;
-pub mod whitelist_preconfirmation_driver;
+use crate::{error::Result, flags::common::CommonArgs};
 
 /// Build a [`ClientConfig`] from the shared common CLI flags.
 pub fn build_client_config(common: &CommonArgs) -> Result<ClientConfig> {
@@ -24,24 +16,7 @@ pub fn build_client_config(common: &CommonArgs) -> Result<ClientConfig> {
         l2_provider_url: common.l2_http_endpoint.clone(),
         l2_auth_provider_url: common.l2_auth_endpoint.clone(),
         jwt_secret: common.l2_auth_jwt_secret.clone(),
-        inbox_address: common.shasta_inbox_address,
     })
-}
-
-/// Build a [`DriverConfig`] from the shared common/driver CLI flags.
-pub fn build_driver_config(
-    common: &CommonArgs,
-    driver: &DriverArgs,
-    preconfirmation_enabled: bool,
-) -> Result<DriverConfig> {
-    Ok(DriverConfig::new(
-        build_client_config(common)?,
-        driver.retry_interval(),
-        driver.l1_beacon_endpoint.clone(),
-        driver.l2_checkpoint_endpoint.clone(),
-        driver.blob_server_endpoint.clone(),
-        preconfirmation_enabled,
-    ))
 }
 
 /// Shared behaviour for CLI subcommands.

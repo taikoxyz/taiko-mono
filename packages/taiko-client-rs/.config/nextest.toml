@@ -3,25 +3,10 @@ nextest-version = "0.9.104"
 [profile.default]
 
 [[profile.default.overrides]]
-# This opt-in scenario runs a sequence of proposals through two separate drivers.
-# Give its per-proposal deadlines and harness startup time to report their errors.
-filter = 'test(derivation_split_parity)'
-test-group = "l1-shared"
-slow-timeout = { period = "60s", terminate-after = 40 }
-
-[[profile.default.overrides]]
-# The Etna boundary scenario crosses a fork with four proposals, a preconfirmation and two
-# syncer start-ups.
-filter = 'kind(test) & test(etna_boundary)'
-test-group = "l1-shared"
-slow-timeout = { period = "60s", terminate-after = 10 }
-
-[[profile.default.overrides]]
 # All integration test binaries (targets from any `tests/` dir) are serialized
 # to avoid shared L1/L2 state races. A wedged test would otherwise stall the
 # whole serialized lane until the CI job timeout, so terminate it after 4 slow
-# periods (240s); `ShastaEnv::setup` fails fast on the leaked chain state a
-# killed test leaves behind (its teardown snapshot revert never runs).
+# periods (240s).
 filter = 'kind(test)'
 test-group = "l1-shared"
 slow-timeout = { period = "60s", terminate-after = 4 }

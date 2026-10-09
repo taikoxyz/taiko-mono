@@ -1,58 +1,26 @@
 //! Error types for the CLI.
 //!
 //! This module defines the unified error type [`CliError`] used throughout the CLI binary.
-//! It consolidates errors from downstream crates (driver, proposer, rpc)
-//! and whitelist-preconfirmation-driver, as well as CLI-specific errors like URL parsing, runtime
-//! initialization, and metrics setup.
+//! It consolidates errors from downstream crates (rpc) as well as CLI-specific errors like URL
+//! parsing, runtime initialization, and metrics setup.
 
 use thiserror::Error;
 
 /// Errors that can occur during CLI execution.
 ///
 /// This enum covers all error cases in the CLI binary, including:
-/// - Errors propagated from downstream crates (driver, proposer, rpc,
-///   whitelist-preconfirmation-driver)
+/// - Errors propagated from downstream crates (rpc)
 /// - Configuration errors (URL parsing, socket address parsing)
 /// - Runtime errors (tokio runtime initialization, shutdown signal handlers, I/O)
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
 pub enum CliError {
-    /// Error from the driver crate.
-    ///
-    /// Wraps [`driver::DriverError`] for errors occurring during driver operations
-    /// such as event syncing, block derivation, and execution engine communication.
-    #[error(transparent)]
-    Driver(#[from] driver::DriverError),
-
-    /// Error from the driver sync module.
-    ///
-    /// Wraps [`driver::sync::SyncError`] for errors occurring during event syncer
-    /// initialization and synchronization operations.
-    #[error(transparent)]
-    Sync(#[from] driver::sync::SyncError),
-
-    /// Error from the proposer crate.
-    ///
-    /// Wraps [`proposer::error::ProposerError`] for errors occurring during block proposal
-    /// operations such as transaction building and L1 submission.
-    #[error(transparent)]
-    Proposer(#[from] proposer::error::ProposerError),
-
     /// Error from the RPC client crate.
     ///
     /// Wraps [`rpc::RpcClientError`] for errors occurring during RPC client
     /// initialization and provider communication.
     #[error(transparent)]
     Rpc(#[from] rpc::RpcClientError),
-
-    /// Error from the whitelist preconfirmation driver.
-    ///
-    /// Wraps [`whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverError`] for
-    /// whitelist preconfirmation message validation and insertion failures.
-    #[error(transparent)]
-    WhitelistPreconfirmation(
-        #[from] whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverError,
-    ),
 
     /// Failed to parse a URL.
     ///
@@ -103,7 +71,7 @@ impl CliError {
     ///
     /// A cause is skipped when the message before it already contains its text, since most
     /// wrappers embed their source in their own message. The messages carry the remediation
-    /// hints (e.g. for `--devnet-etna-timestamp`), which the derived `Debug` output omits.
+    /// hints, which the derived `Debug` output omits.
     pub fn report(&self) -> String {
         let mut report = self.to_string();
         let mut previous = report.clone();
@@ -124,46 +92,29 @@ impl CliError {
 #[cfg(test)]
 mod tests {
     use super::CliError;
-    use driver::{
-        DriverError,
-        derivation::DerivationError,
-        sync::{SyncError, error::EngineSubmissionError},
-    };
-    use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
-    use rpc::{
-        RpcClientError,
-        client::{EtnaScheduleHead, check_etna_schedule_for_head},
-    };
+    use rpc::RpcClientError;
+
+    /// An error whose message leaves out its source.
+    #[derive(Debug, thiserror::Error)]
+    #[error("could not bind the metrics port")]
+    struct BindError(#[source] std::io::Error);
 
     #[test]
-    fn report_shows_the_schedule_hint_once() {
-        let head = EtnaScheduleHead {
-            number: 5,
-            timestamp: 1_000,
-            parent_beacon_block_root: None,
-            extra_data_len: 7,
-        };
-        let mismatch =
-            check_etna_schedule_for_head(TAIKO_DEVNET_CHAIN_ID, Some(1_000), head).unwrap_err();
-        let report = CliError::from(DriverError::Rpc(mismatch)).report();
+    fn report_skips_a_cause_the_message_already_embeds() {
+        let report = CliError::from(std::io::Error::other("disk full")).report();
 
-        assert!(report.starts_with("rpc error: L2 head block 5"), "{report}");
-        assert_eq!(report.matches("--devnet-etna-timestamp").count(), 1, "{report}");
-        assert!(!report.contains("caused by"), "{report}");
+        assert_eq!(report, "runtime error: disk full");
     }
 
     #[test]
     fn report_lists_causes_the_message_leaves_out() {
-        let err = DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
-            EngineSubmissionError::InvalidBlock(7, "bad state root".to_string()),
-        )));
+        let err = std::io::Error::other(BindError(std::io::Error::other("address in use")));
         let report = CliError::from(err).report();
 
         assert_eq!(
             report,
-            "derivation failed\n  caused by: execution engine rejected block 7: bad state root"
+            "runtime error: could not bind the metrics port\n  caused by: address in use"
         );
-        assert!(!report.contains("RpcClientError"), "{report}");
     }
 
     #[test]

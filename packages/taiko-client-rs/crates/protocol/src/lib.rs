@@ -2,10 +2,6 @@
 #![cfg_attr(test, allow(missing_docs, clippy::missing_docs_in_private_items))]
 //! Taiko protocol constants and types.
 
-/// Byte-level encoding and decoding helpers shared across protocol crates.
-pub mod codec;
-/// Shared Prometheus registration helpers.
-pub mod metrics;
 /// Shasta-specific protocol types, constants, and builders.
 pub mod shasta;
 /// Deterministic fixed-k secp256k1 signer. Depends only on `alloy-primitives`/`k256`, so it is
