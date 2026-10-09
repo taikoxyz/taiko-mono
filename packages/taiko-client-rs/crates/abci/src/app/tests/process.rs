@@ -338,7 +338,7 @@ async fn execution_failures_are_rejected() {
     let scripts = [
         (Ok(PayloadVerdict::Invalid("bad state root".into())), "payload_invalid"),
         (Ok(PayloadVerdict::Syncing), "payload_syncing"),
-        (Err(EngineError::Rpc("connection refused".into())), "engine_error"),
+        (Err(EngineError::Transport("connection refused".into())), "engine_error"),
     ];
     for (script, label) in scripts {
         app.engine().state().new_payload_script.push_back(script);

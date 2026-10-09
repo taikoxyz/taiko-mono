@@ -198,10 +198,10 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn engine_errors_propagate() {
         let engine = MockEngine::new();
-        engine.state().header_script.push_back(Err(EngineError::Rpc("down".into())));
+        engine.state().header_script.push_back(Err(EngineError::Transport("down".into())));
         assert_eq!(
             ensure_block(&engine, 7, B256::ZERO, TIMEOUT, POLL).await,
-            Err(ElSyncError::Engine(EngineError::Rpc("down".into())))
+            Err(ElSyncError::Engine(EngineError::Transport("down".into())))
         );
     }
 }

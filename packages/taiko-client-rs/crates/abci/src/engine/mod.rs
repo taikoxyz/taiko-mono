@@ -72,7 +72,9 @@ pub trait Engine: Send + Sync + 'static {
 /// [`EngineError::BlockHashMismatch`] through [`EngineError::NotEtnaShaped`] mean the payload or
 /// block itself is malformed for Etna: a block from a peer failing with one of them is invalid,
 /// not a local fault. The remaining variants are local faults (engine endpoint, configuration or
-/// engine behaviour).
+/// engine behaviour). Of the JSON-RPC failures, only [`EngineError::Transport`] is transient
+/// ([`EngineError::is_transport`]); [`EngineError::ErrorReply`] and [`EngineError::BadReply`]
+/// are the engine's answer to the call and repeat on a retry.
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum EngineError {
     /// The header rebuilt from a payload does not hash to the payload's `blockHash`.
@@ -108,10 +110,29 @@ pub enum EngineError {
     /// not match the block's transactions); the value names the field.
     #[error("header field `{0}` is not Etna-shaped")]
     NotEtnaShaped(&'static str),
-    /// A JSON-RPC call to the execution engine failed (transport, auth or a JSON-RPC error
-    /// response); the value is the rendered cause.
-    #[error("engine RPC failed: {0}")]
-    Rpc(String),
+    /// A JSON-RPC exchange with the engine failed in transport: the endpoint could not be
+    /// reached, the connection broke off, or the HTTP layer answered with an error. The value
+    /// names the method and endpoint and renders the cause. Transient: the same call may succeed
+    /// later.
+    #[error("engine RPC transport failed: {0}")]
+    Transport(String),
+    /// The engine answered a JSON-RPC call with an error object, e.g. `-38002` (invalid
+    /// forkchoice state), `-32602` (invalid params) or `-38005` (unsupported fork): it received
+    /// the call and refused it, which it does again for the same call.
+    #[error("{call} answered JSON-RPC error {code}: {message}")]
+    ErrorReply {
+        /// The method and the endpoint it was sent to.
+        call: String,
+        /// The JSON-RPC error code.
+        code: i64,
+        /// The JSON-RPC error message.
+        message: String,
+    },
+    /// The engine answered with a result this client cannot decode (e.g. an unknown payload
+    /// status or a `null` result), or the request could not be encoded locally. The value names
+    /// the method and endpoint and renders the cause; the same call fails the same way again.
+    #[error("engine RPC gave no usable reply: {0}")]
+    BadReply(String),
     /// The engine client cannot be used: an endpoint with an unsupported URL scheme, an
     /// unreadable JWT secret, or an engine missing required Engine API methods.
     #[error("engine setup failed: {0}")]
@@ -130,4 +151,13 @@ pub enum EngineError {
         /// `keccak256(rlp(header))` of the returned header fields.
         computed: B256,
     },
+}
+
+impl EngineError {
+    /// Whether this is a transport failure ([`EngineError::Transport`]), the only engine error a
+    /// retry can cure: every other variant is the engine's (or this client's) deterministic
+    /// answer to the call.
+    pub const fn is_transport(&self) -> bool {
+        matches!(self, Self::Transport(_))
+    }
 }

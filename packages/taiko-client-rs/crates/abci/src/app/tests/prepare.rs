@@ -93,7 +93,7 @@ async fn engine_failures_propose_nothing() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    app.engine().state().build_script.push_back(Err(EngineError::Rpc("no payload".into())));
+    app.engine().state().build_script.push_back(Err(EngineError::Transport("no payload".into())));
     assert_eq!(refused(&mut app).await, "engine_error");
 
     // An EL that builds another timestamp than derived fails the self-check.

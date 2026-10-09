@@ -6,7 +6,7 @@
 //! fails a deterministic check, that the EL rejects, or that contradicts a known committee is a
 //! safety halt (spec §8.2). The derived state stays pending until `Commit` persists it.
 
-use std::{fmt, future::Future};
+use std::{fmt, future::Future, time::Duration};
 
 use alloy_primitives::{B256, Bytes};
 use tendermint::{
@@ -17,8 +17,11 @@ use tendermint::{
     vote::Power,
 };
 
+use tokio::time::Instant;
+
 use super::{
-    AbciError, App, FINALIZE_RETRY_INITIAL, FINALIZE_RETRY_MAX, app_hash, unix_secs,
+    AbciError, App, FINALIZE_RETRY_ESCALATE, FINALIZE_RETRY_INITIAL, FINALIZE_RETRY_MAX, app_hash,
+    unix_secs,
     validate::{Rejection, Validated, validate_block},
 };
 use crate::{
@@ -50,8 +53,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Re-finalizing a block the EL already executed (a replay after a crash before `Commit`)
     /// answers the same: the EL accepts a known payload and forkchoice again. EL calls block
-    /// until the EL answers ([`App::settle`]). Errors: [`AbciError::Uninitialized`] before
-    /// `InitChain`; [`AbciError::SafetyHalt`] for any failure of the decided block.
+    /// until the EL settles the block ([`App::settle`]). Errors: [`AbciError::Uninitialized`]
+    /// before `InitChain`; [`AbciError::SafetyHalt`] for any failure of the decided block.
     pub(super) async fn finalize_block(
         &mut self,
         req: request::FinalizeBlock,
@@ -86,15 +89,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .collect::<Result<Vec<_>, _>>()?;
 
         let hash = next.parent.hash;
-        if !validated.executed {
-            self.settle(height, "engine_newPayload", || self.engine.new_payload(&validated.block))
-                .await?;
-        }
         let finalized = next.anchor.inbox.last_checkpoint_hash;
-        self.settle(height, "engine_forkchoiceUpdated", || {
-            self.engine.forkchoice(hash, hash, finalized)
-        })
-        .await?;
+        self.settle(height, &validated, finalized).await?;
 
         tracing::debug!(
             height,
@@ -130,47 +126,127 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })
     }
 
-    /// Runs the EL call `call` (named `what`) for the block at `height` until it answers
-    /// `VALID`.
+    /// Makes the EL execute the decided block of `v` at `height` (unless `v.executed`: the
+    /// `ProcessProposal` verdict already did) and adopt it as `head = safe =` the block with
+    /// `finalized`, for as long as it takes: `FinalizeBlock` must not answer before the EL holds
+    /// the block (spec §8.1).
     ///
-    /// `INVALID` and any error but a transport failure (e.g. a block the engine adapter cannot
-    /// encode) are [`AbciError::SafetyHalt`]s. `SYNCING`/`ACCEPTED`, a transport failure
-    /// ([`EngineError::Rpc`]) and a call exceeding the engine deadline are retried after a pause
-    /// of [`FINALIZE_RETRY_INITIAL`], doubling up to [`FINALIZE_RETRY_MAX`], for as long as it
-    /// takes: `FinalizeBlock` must not answer before the EL holds the block (spec §8.1).
-    async fn settle<F, Fut>(
+    /// Each call runs within the engine deadline ([`App::el_call`]). `SYNCING`/`ACCEPTED`, a
+    /// transport failure ([`EngineError::Transport`]) and an elapsed deadline are retried on one
+    /// [`Backoff`] for the block. A forkchoice update answering `SYNCING` means the EL does not
+    /// hold the block (e.g. it restarted since executing it), so the payload is re-sent before
+    /// the next forkchoice attempt. `INVALID`, a JSON-RPC error reply, an undecodable reply and
+    /// any other engine error are the EL's deterministic answer: [`AbciError::SafetyHalt`].
+    async fn settle(&self, height: u64, v: &Validated, finalized: B256) -> Result<(), AbciError> {
+        let hash = v.block.header.hash_slow();
+        let mut executed = v.executed;
+        let mut backoff = Backoff::new(height);
+        loop {
+            let (method, reason) = if executed {
+                let method = "engine_forkchoiceUpdated";
+                match self
+                    .el_call(height, method, self.engine.forkchoice(hash, hash, finalized))
+                    .await?
+                {
+                    Settled::Valid => return Ok(()),
+                    Settled::Syncing => {
+                        executed = false;
+                        (method, "the execution engine lacks the block; re-sending it".to_string())
+                    }
+                    Settled::Retry(reason) => (method, reason),
+                }
+            } else {
+                let method = "engine_newPayload";
+                match self.el_call(height, method, self.engine.new_payload(&v.block)).await? {
+                    Settled::Valid => {
+                        executed = true;
+                        continue;
+                    }
+                    Settled::Syncing => (method, "the execution engine is syncing".to_string()),
+                    Settled::Retry(reason) => (method, reason),
+                }
+            };
+            backoff.wait(method, &reason).await;
+        }
+    }
+
+    /// Runs the EL call `call` (named `method`) for the decided block at `height` within the
+    /// engine deadline and sorts its answer (see [`App::settle`]).
+    async fn el_call(
         &self,
         height: u64,
-        what: &'static str,
-        mut call: F,
-    ) -> Result<(), AbciError>
-    where
-        F: FnMut() -> Fut,
-        Fut: Future<Output = Result<PayloadVerdict, EngineError>>,
-    {
+        method: &'static str,
+        call: impl Future<Output = Result<PayloadVerdict, EngineError>>,
+    ) -> Result<Settled, AbciError> {
         let limit = self.opts.engine_timeout;
-        let mut pause = FINALIZE_RETRY_INITIAL;
-        loop {
-            let reason = match tokio::time::timeout(limit, call()).await {
-                Ok(Ok(PayloadVerdict::Valid)) => return Ok(()),
-                Ok(Ok(PayloadVerdict::Invalid(reason))) => {
-                    return Err(safety_halt(
-                        height,
-                        "payload_invalid",
-                        format!("{what} answered INVALID: {reason}"),
-                    ));
-                }
-                Ok(Ok(PayloadVerdict::Syncing)) => "the execution engine is syncing".to_string(),
-                Ok(Err(e @ EngineError::Rpc(_))) => e.to_string(),
-                Ok(Err(e)) => {
-                    return Err(safety_halt(height, "engine_error", format!("{what} failed: {e}")));
-                }
-                Err(_) => format!("timed out after {limit:?}"),
-            };
-            tracing::warn!(height, method = what, %reason, retry_in = ?pause, "retrying the EL");
-            tokio::time::sleep(pause).await;
-            pause = (pause * 2).min(FINALIZE_RETRY_MAX);
+        match tokio::time::timeout(limit, call).await {
+            Ok(Ok(PayloadVerdict::Valid)) => Ok(Settled::Valid),
+            Ok(Ok(PayloadVerdict::Syncing)) => Ok(Settled::Syncing),
+            Ok(Ok(PayloadVerdict::Invalid(reason))) => Err(safety_halt(
+                height,
+                "payload_invalid",
+                format!("{method} answered INVALID: {reason}"),
+            )),
+            Ok(Err(e)) if e.is_transport() => Ok(Settled::Retry(e.to_string())),
+            Ok(Err(e)) => Err(safety_halt(height, "engine_error", format!("{method} failed: {e}"))),
+            Err(_) => Ok(Settled::Retry(format!("timed out after {limit:?}"))),
         }
+    }
+}
+
+/// What one EL call of `FinalizeBlock` came to, short of a safety halt.
+#[derive(Debug)]
+enum Settled {
+    /// `VALID`.
+    Valid,
+    /// `SYNCING`/`ACCEPTED`: the EL cannot execute (or does not hold) the block yet.
+    Syncing,
+    /// A transport failure or an elapsed deadline, rendered: the call is retried.
+    Retry(String),
+}
+
+/// The pause schedule of one decided block's EL retries in `FinalizeBlock`: the first pause is
+/// [`FINALIZE_RETRY_INITIAL`], doubling up to [`FINALIZE_RETRY_MAX`]. Retries are logged at WARN,
+/// and at ERROR once the block has been retried for [`FINALIZE_RETRY_ESCALATE`].
+#[derive(Debug)]
+pub(super) struct Backoff {
+    /// The decided block's height, for the logs.
+    height: u64,
+    /// When the retries started.
+    since: Instant,
+    /// The next pause.
+    pause: Duration,
+}
+
+impl Backoff {
+    /// A fresh schedule for the decided block at `height`, starting now.
+    pub(super) fn new(height: u64) -> Self {
+        Self { height, since: Instant::now(), pause: FINALIZE_RETRY_INITIAL }
+    }
+
+    /// Whether the block has been retried for [`FINALIZE_RETRY_ESCALATE`] or longer.
+    pub(super) fn escalated(&self) -> bool {
+        self.since.elapsed() >= FINALIZE_RETRY_ESCALATE
+    }
+
+    /// Logs that the EL call `method` is retried because of `reason` (WARN, or ERROR once
+    /// [`Backoff::escalated`]) and sleeps the current pause, doubling the next one up to the cap.
+    pub(super) async fn wait(&mut self, method: &'static str, reason: &str) {
+        let (height, retry_in, retrying_for) = (self.height, self.pause, self.since.elapsed());
+        if self.escalated() {
+            tracing::error!(
+                height,
+                method,
+                %reason,
+                ?retrying_for,
+                ?retry_in,
+                "the EL still does not settle the decided block; retrying"
+            );
+        } else {
+            tracing::warn!(height, method, %reason, ?retry_in, "retrying the EL");
+        }
+        tokio::time::sleep(self.pause).await;
+        self.pause = (self.pause * 2).min(FINALIZE_RETRY_MAX);
     }
 }
 
