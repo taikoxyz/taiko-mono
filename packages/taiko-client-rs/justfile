@@ -46,10 +46,12 @@ test *ARGS:
 # also `#[ignore]`d): no docker. The protocol pass also compiles and runs its
 # tests without default features so test-only feature leaks stay covered in CI;
 # it has no filterset, so it also runs protocol's (docker-free) integration
-# binary. Extra args are forwarded to nextest.
+# binary. nextest skips doctests, so abci's (e.g. its `compile_fail` checks)
+# run in a last `cargo test --doc` pass. Extra args are forwarded to nextest.
 unit *ARGS:
   cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test)' "$@" && \
-  cargo nextest run -p protocol --no-default-features "$@"
+  cargo nextest run -p protocol --no-default-features "$@" && \
+  cargo test -p abci --doc
 
 gen_bindings:
   ./script/gen_bindings.sh
