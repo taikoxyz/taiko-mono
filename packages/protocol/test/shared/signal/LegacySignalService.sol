@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "../common/EssentialContract.sol";
-import "../libs/LibTrieProof.sol";
-import "./ICheckpointStore.sol";
-import "./ISignalService.sol";
-
-import "./SignalService_Layout.sol"; // DO NOT DELETE
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibTrieProof } from "src/shared/libs/LibTrieProof.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
@@ -15,7 +13,9 @@ import "./SignalService_Layout.sol"; // DO NOT DELETE
 /// The storage layout of this contract is compatible and aligned with both the Pacaya version and the fork router.
 /// (e.g. the owner slot is in the same position).
 /// @custom:security-contact security@taiko.xyz
-contract SignalService is EssentialContract, ISignalService {
+// Test fixture copied from fd88b22c4, before VERSION namespacing was introduced.
+// Only its contract name and import paths differ from that implementation.
+contract LegacySignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -39,18 +39,6 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
 
-    /// @notice Address authorized to pause/unpause alongside the owner. Optional (may be zero).
-    address public immutable pauser;
-
-    // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    /// @notice Version of the received-signal cache and checkpoint mappings.
-    /// @dev Bumping this value in a future implementation invalidates old cached signals and
-    /// checkpoints without touching the old storage slots.
-    uint256 public constant VERSION = 1;
-
     // ---------------------------------------------------------------
     // Storage variables
     // ---------------------------------------------------------------
@@ -60,17 +48,14 @@ contract SignalService is EssentialContract, ISignalService {
     // slot2: isAuthorized
     uint256[2] private _slotsUsedByPacaya;
 
-    /// @dev Cache for received signals, namespaced by VERSION so a version bump invalidates cache
-    /// entries together with the checkpoints they were derived from.
+    /// @dev Cache for received signals.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
     /// Does NOT reuse the pacaya slot.
-    mapping(uint256 version => mapping(bytes32 signalSlot => bool received)) internal
-        _receivedSignals;
+    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
 
     /// @notice Storage for checkpoints persisted via the SignalService.
-    /// @dev Maps checkpoint version => block number => checkpoint data.
-    mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) private
-        _checkpoints;
+    /// @dev Maps block number to checkpoint data
+    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
 
     uint256[46] private __gap;
 
@@ -78,18 +63,12 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the signal service's immutable state.
-    /// @param authorizedSyncer Address that can save checkpoints to this contract.
-    /// @param remoteSignalService Address of the remote signal service.
-    /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
-    /// zero).
-    constructor(address authorizedSyncer, address remoteSignalService, address _pauser) {
+    constructor(address authorizedSyncer, address remoteSignalService) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
-        pauser = _pauser;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -122,7 +101,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
-        _receivedSignals[VERSION][getSignalSlot(_chainId, _app, _signal)] = true;
+        _receivedSignals[getSignalSlot(_chainId, _app, _signal)] = true;
         return 0;
     }
 
@@ -176,7 +155,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
+        _checkpoints[_checkpoint.blockNumber] = CheckpointRecord({
             blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
         });
 
@@ -197,17 +176,6 @@ contract SignalService is EssentialContract, ISignalService {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
-    function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
-
-    /// @dev Returns the authenticated state root for a checkpoint proof.
-    /// @param _blockId Source block number.
-    /// @return stateRoot_ State root saved in the checkpoint.
-    function _getStateRoot(uint64 _blockId) internal view virtual returns (bytes32 stateRoot_) {
-        if (_blockId > type(uint48).max) revert SS_INVALID_BLOCK_ID();
-        return _getCheckpoint(uint48(_blockId)).stateRoot;
-    }
-
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
     /// @return checkpoint_ The checkpoint
@@ -216,7 +184,7 @@ contract SignalService is EssentialContract, ISignalService {
         view
         returns (Checkpoint memory checkpoint_)
     {
-        CheckpointRecord storage record = _checkpoints[VERSION][_blockNumber];
+        CheckpointRecord storage record = _checkpoints[_blockNumber];
         bytes32 blockHash = record.blockHash;
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
@@ -258,11 +226,6 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-    /// @dev Verifies a cached signal or a proof against the implementation's authenticated root.
-    /// @param _chainId Source chain ID.
-    /// @param _app Source application that sent the signal.
-    /// @param _signal Signal being proven.
-    /// @param _proof ABI-encoded hop proofs, or empty bytes for a cached signal.
     function _verifySignalReceived(
         uint64 _chainId,
         address _app,
@@ -277,7 +240,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
-            require(_receivedSignals[VERSION][slot], SS_SIGNAL_NOT_RECEIVED());
+            require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
             return;
         }
 
@@ -290,13 +253,22 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_EMPTY_PROOF();
         }
 
-        bytes32 stateRoot = _getStateRoot(proof.blockId);
-        if (stateRoot != proof.rootHash) {
+        if (proof.blockId > type(uint48).max) {
+            revert SS_INVALID_BLOCK_ID();
+        }
+
+        Checkpoint memory checkpoint = _getCheckpoint(uint48(proof.blockId));
+        if (checkpoint.stateRoot != proof.rootHash) {
             revert SS_INVALID_CHECKPOINT();
         }
 
         LibTrieProof.verifyMerkleProof(
-            stateRoot, _remoteSignalService, slot, _signal, proof.accountProof, proof.storageProof
+            checkpoint.stateRoot,
+            _remoteSignalService,
+            slot,
+            _signal,
+            proof.accountProof,
+            proof.storageProof
         );
     }
 
