@@ -441,12 +441,11 @@ fn candidate_committee(
     }
 }
 
-/// Step (h): a set must not activate before its record has landed. At the switch height to
-/// epoch `t`, the app holds committees `t − 1` and `t`,
-/// the anchored checkpoint covers `h_first(t − 1)` (the height that derived `t`,
-/// [`Rejection::CheckpointNotLanded`] otherwise), and the anchored `committee[t]` is the derived
-/// record's hash: zero is [`Rejection::RecordNotLanded`], another hash
-/// [`Rejection::RecordConflict`].
+/// Step (h): a set must not activate before its record has landed. At the switch height to epoch
+/// `t`, the app holds committees `t − 1` and `t`, the anchored checkpoint covers `h_first(t − 1)`
+/// (the height that derived `t`, [`Rejection::CheckpointNotLanded`] otherwise), and the anchored
+/// `committee[t]` is the derived record's hash: zero is [`Rejection::RecordNotLanded`], another
+/// hash [`Rejection::RecordConflict`].
 fn check_switch(
     state: &AppState,
     params: &ChainParams,
