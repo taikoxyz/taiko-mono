@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.8.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.7.0...taiko-alethia-client-v2.8.0) (2026-10-09)
+
+
+### Features
+
+* **protocol,taiko-client:** raise inbox basefee sharing to 100% and rotate raiko2 to `v0.9.0` (Proposal0026) ([#22127](https://github.com/taikoxyz/taiko-mono/issues/22127)) ([6d1d627](https://github.com/taikoxyz/taiko-mono/commit/6d1d62741464efe736179e3b35f133d5844469ca))
+* **taiko-client:** add a fixed SP1 proof share ahead of the RISC0 + SP1 fallback flow ([#22273](https://github.com/taikoxyz/taiko-mono/issues/22273)) ([1e33996](https://github.com/taikoxyz/taiko-mono/commit/1e339969c430521edfd710708b0d6c28227d16f2))
+* **taiko-client:** preserve Glamsterdam L1 header hashes ([#22274](https://github.com/taikoxyz/taiko-mono/issues/22274)) ([217d62d](https://github.com/taikoxyz/taiko-mono/commit/217d62db9192622d02bc590bf9eb510b357f3af6))
+
 ## [2.7.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.6.0...taiko-alethia-client-v2.7.0) (2026-09-28)
 
 
