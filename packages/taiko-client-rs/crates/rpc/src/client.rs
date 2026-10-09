@@ -1,10 +1,10 @@
-//! JSON-RPC provider builders: timeout-bounded HTTP (or WebSocket) providers and the
-//! JWT-authenticated Engine API provider.
+//! JSON-RPC provider builders: timeout-bounded HTTP providers and the JWT-authenticated Engine
+//! API provider.
 
 use std::{fs, io, path::Path, time::Duration};
 
-use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
-use alloy_provider::{ProviderBuilder, RootProvider, WsConnect};
+use alloy::rpc::client::RpcClient;
+use alloy_provider::{ProviderBuilder, RootProvider};
 use alloy_rpc_types_engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use http_body_util::Full;
@@ -13,10 +13,8 @@ use hyper_util::{
     client::legacy::{Client as HyperService, connect::HttpConnector},
     rt::TokioExecutor,
 };
-use reqwest::Client as ReqwestClient;
+use reqwest::{Client as ReqwestClient, Url};
 use tower::{ServiceBuilder, timeout::TimeoutLayer};
-
-use crate::error::{Result, RpcClientError};
 
 /// Default HTTP timeout for RPC and auxiliary HTTP clients.
 pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
@@ -29,18 +27,6 @@ fn reqwest_client_with_timeout() -> ReqwestClient {
 /// Build a [`RootProvider`] backed by a reqwest client with a bounded timeout.
 pub fn connect_http_with_timeout(url: Url) -> RootProvider {
     ProviderBuilder::default().connect_reqwest(reqwest_client_with_timeout(), url)
-}
-
-/// Build a [`RootProvider`] backed by either HTTP or WebSocket transport based on URL scheme.
-pub async fn connect_provider_with_timeout(url: Url) -> Result<RootProvider> {
-    match url.scheme() {
-        "http" | "https" => Ok(connect_http_with_timeout(url)),
-        "ws" | "wss" => ProviderBuilder::default()
-            .connect_ws(WsConnect::new(url.as_str()))
-            .await
-            .map_err(|e| RpcClientError::Connection(e.to_string())),
-        scheme => Err(RpcClientError::Connection(format!("unsupported RPC scheme: {scheme}"))),
-    }
 }
 
 /// Builds a [`RootProvider`] backed by an HTTP transport that authenticates each request
@@ -99,12 +85,5 @@ mod tests {
         // Should return None for non-existent file
         let secret = read_jwt_secret(jwt_path.as_path());
         assert!(secret.is_none());
-    }
-
-    #[tokio::test]
-    async fn connect_provider_rejects_unknown_scheme() {
-        let url = Url::parse("ftp://localhost:1234").expect("invalid test URL");
-        let err = connect_provider_with_timeout(url).await.unwrap_err();
-        assert!(err.to_string().contains("unsupported RPC scheme"));
     }
 }
