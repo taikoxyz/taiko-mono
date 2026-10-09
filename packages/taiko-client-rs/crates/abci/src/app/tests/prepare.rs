@@ -177,6 +177,21 @@ async fn failing_pre_checks_propose_nothing() {
     assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
 }
 
+/// An own L1 node answering the header request for the anchor block with another block's header
+/// gets nothing proposed on it.
+#[tokio::test]
+async fn a_header_of_another_l1_block_is_not_proposed_on() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let header = fx.advance_l1(app.l1(), 66, &fx.inbox_with(1_003, &[]), &fx.registry);
+    let other = crate::test_utils::edit_l1_header(&header, |h| h.number = 67);
+    app.l1().state().headers.insert(66, other);
+
+    assert_eq!(refused(&mut app).await, "l1_error");
+    assert!(app.engine().calls().iter().all(|c| !matches!(c, EngineCall::BuildBlock { .. })));
+}
+
 /// Generation superseded on L1: the proposer stops proposing (and reports it), for good.
 #[tokio::test]
 async fn superseded_generation_stops_proposing() {

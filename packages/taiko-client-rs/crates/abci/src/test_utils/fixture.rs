@@ -446,10 +446,9 @@ mod tests {
         assert_eq!(committee_e0, committee::record_hash(fx.params.l2_chain_id, &fx.record));
         assert_eq!(
             verify_committee_witness(
-                root,
+                &fx.expected_state().anchor,
                 &fx.params,
                 &fx.witness.committee,
-                fx.activation.l1_0,
                 0
             ),
             Ok((fx.record.clone(), fx.members.clone()))

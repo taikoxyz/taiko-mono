@@ -30,7 +30,7 @@ use crate::{
         mpt::{MptError, verify_account_witness},
     },
     schedule::Schedule,
-    types::{CommitteeRecord, Member, RegistryEntry},
+    types::{AnchorState, CommitteeRecord, Member, RegistryEntry},
 };
 
 /// The committee record `encodingVersion` this crate derives.
@@ -427,21 +427,22 @@ pub fn derive(
     Ok((record, members))
 }
 
-/// Verifies a committee witness end to end and returns the committee it proves.
+/// Verifies a committee witness end to end against the parent's anchor and returns the
+/// committee it proves.
 ///
-/// Computes the cutoff from `parent_anchor` and `params`' grid and lag, verifies the snapshot
-/// against `state_root` and `params.registry` ([`verify_snapshot`]), derives the committee for
-/// `target_epoch` ([`derive`]) and requires the derived record to equal `w.record`
+/// The anchor binds the two facts the witness depends on: the cutoff comes from its L1 block
+/// number with `params`' grid and lag, and the snapshot proofs verify against its state root and
+/// `params.registry` ([`verify_snapshot`]). Then derives the committee for `target_epoch`
+/// ([`derive`]) and requires the derived record to equal `w.record`
 /// ([`CommitteeError::RecordMismatch`] otherwise).
 pub fn verify_committee_witness(
-    state_root: B256,
+    parent_anchor: &AnchorState,
     params: &ChainParams,
     w: &CommitteeWitness,
-    parent_anchor: u64,
     target_epoch: u64,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
-    let c = cutoff(parent_anchor, params.cutoff_grid, params.cutoff_lag)?;
-    let snapshot = verify_snapshot(state_root, params.registry, w, c)?;
+    let c = cutoff(parent_anchor.number, params.cutoff_grid, params.cutoff_lag)?;
+    let snapshot = verify_snapshot(parent_anchor.state_root, params.registry, w, c)?;
     let (record, members) = derive(&snapshot, c, target_epoch, params)?;
     if record != w.record {
         return Err(CommitteeError::RecordMismatch {

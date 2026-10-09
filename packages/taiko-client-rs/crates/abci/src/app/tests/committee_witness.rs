@@ -99,7 +99,7 @@ async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
     assert_eq!(w.record.checkpoint_index, 1);
     assert_eq!(w.entries, sample_entries(4));
     assert_eq!(
-        verify_committee_witness(moved.state_root, &app.params, &w, NEW_ANCHOR, 2).map(|_| ()),
+        verify_committee_witness(&moved, &app.params, &w, 2).map(|_| ()),
         Ok(()),
         "valid against the new anchor"
     );

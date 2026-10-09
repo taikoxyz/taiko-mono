@@ -20,5 +20,5 @@ pub mod witness;
 pub use fetch::{FetchError, build_committee_witness, build_committee_witness_within};
 pub use header::{L1HeaderError, RawL1Header};
 pub use mpt::{MptError, VerifiedStorage, verify_account_witness};
-pub use source::{L1Error, L1Source, RpcL1Source, is_final_canonical};
+pub use source::{L1Error, L1Source, RpcL1Source, header_at, is_final_canonical};
 pub use witness::{WitnessError, verify_anchor_witness, verify_genesis_inbox};

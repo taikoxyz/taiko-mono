@@ -7,12 +7,13 @@ use crate::{
     committee::{record_hash, verify_committee_witness},
     config::ChainParams,
     l1::{
-        L1Source, build_committee_witness,
+        L1Source, build_committee_witness, header_at,
         layout::{inbox, word_u8, word_u64},
         verify_genesis_inbox,
     },
     rules::chain_id_for,
     schedule::Schedule,
+    types::AnchorState,
 };
 
 /// Builds the CometBFT genesis of the activated Etna chain from the node's own L1.
@@ -46,7 +47,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
         return Err(GenesisError::ActivationNotFinal { l1_0, extra_depth, finalized });
     }
 
-    let l1_header = l1.header(l1_0).await?;
+    let l1_header = header_at(l1, l1_0).await?;
     let inbox = l1.account_witness(params.inbox, &inbox::genesis_slots(Schedule::E0), l1_0).await?;
     let (activation, facts, committee_e0) =
         verify_genesis_inbox(l1_header.state_root(), &inbox, params.inbox)?;
@@ -55,9 +56,15 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     }
     Schedule::from_activation(&activation).validate(params.unsettled_cap())?;
 
+    let anchor = AnchorState {
+        number: l1_0,
+        hash: l1_header.hash(),
+        state_root: l1_header.state_root(),
+        timestamp: l1_header.timestamp(),
+        inbox: facts,
+    };
     let committee = build_committee_witness(l1, params, l1_0, Schedule::E0).await?;
-    let (record, members) =
-        verify_committee_witness(l1_header.state_root(), params, &committee, l1_0, Schedule::E0)?;
+    let (record, members) = verify_committee_witness(&anchor, params, &committee, Schedule::E0)?;
     let derived = record_hash(params.l2_chain_id, &record);
     if derived != committee_e0 {
         return Err(GenesisError::CommitteeRecordMismatch { derived, recorded: committee_e0 });
@@ -68,7 +75,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
         .checked_add(1)
         .filter(|h| i64::try_from(*h).is_ok())
         .ok_or(GenesisError::InitialHeight(activation.genesis_height))?;
-    let chain_id = chain_id_for(params.l2_chain_id, facts.recovery_generation);
+    let chain_id = chain_id_for(params.l2_chain_id, anchor.inbox.recovery_generation);
     GenesisDoc::assemble(
         &GenesisWitness { l1_header, inbox, committee },
         chain_id,
@@ -220,6 +227,22 @@ mod tests {
         let err = build_genesis(&l1, &fx.params).await.unwrap_err();
         assert!(
             matches!(err, GenesisError::ActivationMismatch { l1_0: 66, proven: 64 }),
+            "{err:?}"
+        );
+    }
+
+    /// An own L1 node answering the header request for `L1_0` with another block's header.
+    #[tokio::test]
+    async fn a_header_of_another_l1_block_is_rejected() {
+        let fx = Fixture::genesis(1);
+        let l1 = fx.l1();
+        let l1_0 = fx.activation.l1_0;
+        let other = crate::test_utils::edit_l1_header(&fx.witness.l1_header, |h| h.number += 1);
+        l1.state().headers.insert(l1_0, other);
+        let err = build_genesis(&l1, &fx.params).await.unwrap_err();
+        assert!(
+            matches!(err, GenesisError::L1(L1Error::HeaderNumberMismatch { requested, got })
+                if requested == l1_0 && got == l1_0 + 1),
             "{err:?}"
         );
     }

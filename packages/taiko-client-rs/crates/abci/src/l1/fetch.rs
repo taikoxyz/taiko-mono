@@ -1,4 +1,5 @@
-//! Discovery of the committee witness from the node's own L1 (spec §6.4, amendment A1).
+//! Discovery of the committee witness from the node's own L1 (spec §6.4), reading the registry's
+//! `checkpoints` and live `entries` arrays (see `l1::layout::registry`).
 //!
 //! A proposer at `H_e` and the `abci-genesis` builder both need the [`CommitteeWitness`] of a
 //! target epoch: the last registry checkpoint at or before the cutoff, all of its entries, and
@@ -262,7 +263,9 @@ mod tests {
     use crate::{
         committee::verify_committee_witness,
         schedule::Schedule,
-        test_utils::{Fixture, L1Call, MockL1, RegistryStorage, TestState, sample_entries},
+        test_utils::{
+            Fixture, L1Call, MockL1, RegistryStorage, TestState, anchor_at, sample_entries,
+        },
     };
 
     /// The L1 block a call reads, if any.
@@ -330,7 +333,7 @@ mod tests {
         assert_eq!(witness.entries, sample_entries(3));
         assert!(l1.calls().iter().all(|c| block_of(c) == Some(70)), "{:?}", l1.calls());
         let (record, _) =
-            verify_committee_witness(header.state_root(), &fx.params, &witness, 70, 1)
+            verify_committee_witness(&anchor_at(70, header.state_root()), &fx.params, &witness, 1)
                 .expect("the witness verifies");
         assert_eq!(record, witness.record);
     }
@@ -366,7 +369,7 @@ mod tests {
             }]
         );
         assert_eq!(calls.len(), at_block(19) + at_block(22), "no other block is read");
-        verify_committee_witness(header.state_root(), &params, &witness, 22, 1)
+        verify_committee_witness(&anchor_at(22, header.state_root()), &params, &witness, 1)
             .expect("the witness verifies at the parent anchor");
     }
 
