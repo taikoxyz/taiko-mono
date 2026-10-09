@@ -7,6 +7,7 @@
 
 use std::{
     collections::HashMap,
+    fmt,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -101,7 +102,6 @@ struct ExecutionPayloadHeader {
 }
 
 /// Minimal beacon client capable of retrieving blobs.
-#[derive(Debug)]
 pub struct BeaconClient {
     /// Base beacon REST endpoint URL.
     endpoint: Url,
@@ -115,13 +115,29 @@ pub struct BeaconClient {
     slots_per_epoch: u64,
 }
 
+impl fmt::Debug for BeaconClient {
+    /// Report beacon timing metadata without the credential-bearing endpoint or HTTP client.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BeaconClient")
+            .field("genesis_time", &self.genesis_time)
+            .field("seconds_per_slot", &self.seconds_per_slot)
+            .field("slots_per_epoch", &self.slots_per_epoch)
+            .finish_non_exhaustive()
+    }
+}
+
 impl BeaconClient {
     /// Build a new beacon client by fetching genesis and slot/epoch metadata.
     ///
     /// The Go client follows the same pattern: it reads `/eth/v1/beacon/genesis` to determine
     /// the genesis timestamp and `/eth/v1/config/spec` to fetch `SECONDS_PER_SLOT`. Those values
     /// allow proposal timestamps to be converted into the correct beacon slot.
-    pub async fn new(endpoint: Url) -> Result<Self, BlobDataError> {
+    pub async fn new(mut endpoint: Url) -> Result<Self, BlobDataError> {
+        // Treat the configured path as a directory so provider prefixes (including API keys)
+        // survive relative URL joins, whether or not the endpoint ends with a slash.
+        if !endpoint.path().ends_with('/') {
+            endpoint.set_path(&format!("{}/", endpoint.path()));
+        }
         let http = HttpClient::builder()
             .no_proxy()
             .timeout(DEFAULT_HTTP_TIMEOUT)
@@ -129,18 +145,23 @@ impl BeaconClient {
             .map_err(|err| BlobDataError::Other(err.into()))?;
 
         let genesis_url = endpoint
-            .join("/eth/v1/beacon/genesis")
+            .join("eth/v1/beacon/genesis")
             .map_err(|err| BlobDataError::Other(err.into()))?;
-        let genesis_res =
-            http.get(genesis_url).send().await.map_err(|err| BlobDataError::Other(err.into()))?;
+        let genesis_res = http
+            .get(genesis_url)
+            .send()
+            .await
+            .map_err(|err| BlobDataError::Other(err.without_url().into()))?;
         if !genesis_res.status().is_success() {
             return Err(BlobDataError::Beacon(format!(
                 "genesis request failed with status {}",
                 genesis_res.status()
             )));
         }
-        let genesis: GenesisResponse =
-            genesis_res.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let genesis: GenesisResponse = genesis_res
+            .json()
+            .await
+            .map_err(|err| BlobDataError::Parse(err.without_url().to_string()))?;
         let genesis_time = genesis
             .data
             .genesis_time
@@ -148,17 +169,22 @@ impl BeaconClient {
             .map_err(|err| BlobDataError::Parse(err.to_string()))?;
 
         let spec_url =
-            endpoint.join("/eth/v1/config/spec").map_err(|err| BlobDataError::Other(err.into()))?;
-        let spec_res =
-            http.get(spec_url).send().await.map_err(|err| BlobDataError::Other(err.into()))?;
+            endpoint.join("eth/v1/config/spec").map_err(|err| BlobDataError::Other(err.into()))?;
+        let spec_res = http
+            .get(spec_url)
+            .send()
+            .await
+            .map_err(|err| BlobDataError::Other(err.without_url().into()))?;
         if !spec_res.status().is_success() {
             return Err(BlobDataError::Beacon(format!(
                 "spec request failed with status {}",
                 spec_res.status()
             )));
         }
-        let spec: SpecResponse =
-            spec_res.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let spec: SpecResponse = spec_res
+            .json()
+            .await
+            .map_err(|err| BlobDataError::Parse(err.without_url().to_string()))?;
         let seconds_per_slot = parse_spec_positive_u64(&spec.data, "SECONDS_PER_SLOT")?;
         let slots_per_epoch = parse_spec_positive_u64(&spec.data, "SLOTS_PER_EPOCH")?;
 
@@ -213,31 +239,29 @@ impl BeaconClient {
     ) -> Result<Vec<Blob>, BlobDataError> {
         let mut blobs_url = self
             .endpoint
-            .join(&format!("/eth/v1/beacon/blobs/{slot}"))
+            .join(&format!("eth/v1/beacon/blobs/{slot}"))
             .map_err(|err| BlobDataError::Other(err.into()))?;
         for hash in blob_hashes {
             blobs_url.query_pairs_mut().append_pair("versioned_hashes", &hash.to_string());
         }
-        debug!(slot, url = blobs_url.as_str(), "requesting beacon blobs");
+        debug!(slot, "requesting beacon blobs");
 
         let response = self
             .http
-            .get(blobs_url.clone())
+            .get(blobs_url)
             .header(ACCEPT, "application/json")
             .send()
             .await
-            .map_err(|err| BlobDataError::Other(err.into()))?;
+            .map_err(|err| BlobDataError::Other(err.without_url().into()))?;
         if !response.status().is_success() {
-            debug!(
-                status = response.status().as_u16(),
-                url = blobs_url.as_str(),
-                "beacon blobs request failed"
-            );
+            debug!(status = response.status().as_u16(), slot, "beacon blobs request failed");
             return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
         }
 
-        let payload: BlobsResponse =
-            response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let payload: BlobsResponse = response
+            .json()
+            .await
+            .map_err(|err| BlobDataError::Parse(err.without_url().to_string()))?;
 
         // A plain loop: iterator adapters copy each 128 KiB blob through several stack frames.
         let mut blobs = Vec::with_capacity(payload.data.len());
@@ -285,28 +309,25 @@ impl BeaconClient {
     ) -> Result<Option<u64>, BlobDataError> {
         let block_url = self
             .endpoint
-            .join(&format!("/eth/v2/beacon/blocks/{slot}"))
+            .join(&format!("eth/v2/beacon/blocks/{slot}"))
             .map_err(|err| BlobDataError::Other(err.into()))?;
-        debug!(slot, url = block_url.as_str(), "requesting beacon block by slot");
+        debug!(slot, "requesting beacon block by slot");
 
         let response = self
             .http
-            .get(block_url.clone())
+            .get(block_url)
             .send()
             .await
-            .map_err(|err| BlobDataError::Other(err.into()))?;
+            .map_err(|err| BlobDataError::Other(err.without_url().into()))?;
         if !response.status().is_success() {
-            warn!(
-                status = response.status().as_u16(),
-                slot,
-                url = block_url.as_str(),
-                "beacon block request failed"
-            );
+            warn!(status = response.status().as_u16(), slot, "beacon block request failed");
             return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
         }
 
-        let payload: BeaconBlockResponse =
-            response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let payload: BeaconBlockResponse = response
+            .json()
+            .await
+            .map_err(|err| BlobDataError::Parse(err.without_url().to_string()))?;
 
         let Some(block_number) = payload.execution_block_number() else {
             debug!(slot, "beacon block missing execution payload");
@@ -519,6 +540,138 @@ mod tests {
             _ => (StatusCode::NOT_FOUND, String::new()),
         })
         .await
+    }
+
+    #[tokio::test]
+    async fn debug_omits_endpoint_credentials() {
+        let client = BeaconClient {
+            endpoint: Url::parse(
+                "https://user:password@provider.example/path-key?key=query-key#fragment",
+            )
+            .unwrap(),
+            http: HttpClient::new(),
+            genesis_time: 0,
+            seconds_per_slot: 12,
+            slots_per_epoch: 32,
+        };
+
+        let output = format!("{client:?}");
+
+        for secret in ["password", "path-key", "query-key"] {
+            assert!(!output.contains(secret), "BeaconClient Debug exposes {secret}");
+        }
+        assert!(output.contains("genesis_time"));
+    }
+
+    #[tokio::test]
+    async fn initialization_errors_do_not_expose_provider_path() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint =
+            Url::parse(&format!("http://{}/v2/test-project-key", listener.local_addr().unwrap()))
+                .unwrap();
+        drop(listener);
+
+        let error = BeaconClient::new(endpoint).await.unwrap_err().to_string();
+
+        assert!(!error.contains("test-project-key"), "provider credential leaked: {error}");
+        assert!(!error.contains("http://"), "endpoint URL leaked: {error}");
+    }
+
+    #[tokio::test]
+    async fn blob_and_block_transport_errors_omit_endpoint_url() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint =
+            Url::parse(&format!("http://{}/v2/test-project-key/", listener.local_addr().unwrap()))
+                .unwrap();
+        drop(listener);
+        let client = BeaconClient {
+            endpoint,
+            http: HttpClient::builder().no_proxy().build().unwrap(),
+            genesis_time: 0,
+            seconds_per_slot: 12,
+            slots_per_epoch: 32,
+        };
+
+        let errors = [
+            client.blobs_by_timestamp(0, &[B256::ZERO]).await.unwrap_err(),
+            client.execution_block_number_by_slot(0).await.unwrap_err(),
+        ];
+
+        for error in errors {
+            assert!(matches!(&error, BlobDataError::Other(_)), "expected transport error: {error}");
+            assert!(!error.to_string().contains("http://"), "endpoint URL leaked: {error}");
+        }
+    }
+
+    #[tokio::test]
+    async fn requests_preserve_endpoint_path_prefix() {
+        let blob = TestBlob::new(0x11);
+
+        for (configured_path, prefix) in [
+            ("/", ""),
+            ("/v2/test-project", "/v2/test-project"),
+            ("/v2/test-project/", "/v2/test-project"),
+            ("/proxy/test%2Fproject", "/proxy/test%2Fproject"),
+            ("/proxy/test%2Fproject/", "/proxy/test%2Fproject"),
+            ("/v2/test-project?key=query-secret", "/v2/test-project"),
+            ("/v2/test-project#fragment-secret", "/v2/test-project"),
+            ("/v2/test-project/?key=query-secret#fragment-secret", "/v2/test-project"),
+        ] {
+            let body = blobs_body(&[&blob]);
+            let beacon = TestServer::start(move |uri| match uri.path().strip_prefix(prefix) {
+                Some("/eth/v1/beacon/genesis") => {
+                    (StatusCode::OK, r#"{"data":{"genesis_time":"0"}}"#.to_owned())
+                }
+                Some("/eth/v1/config/spec") => (
+                    StatusCode::OK,
+                    r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#.to_owned(),
+                ),
+                Some("/eth/v1/beacon/blobs/7") => (StatusCode::OK, body.clone()),
+                Some("/eth/v2/beacon/blocks/7") => (
+                    StatusCode::OK,
+                    r#"{"data":{"message":{"body":{"execution_payload":{"block_number":"123"}}}}}"#
+                        .to_owned(),
+                ),
+                _ => (StatusCode::NOT_FOUND, String::new()),
+            })
+            .await;
+            let mut endpoint = beacon.endpoint().join(configured_path).unwrap();
+            endpoint.set_username("user").unwrap();
+            endpoint.set_password(Some("pass")).unwrap();
+            let client = BeaconClient::new(endpoint)
+                .await
+                .unwrap_or_else(|err| panic!("{configured_path}: {err}"));
+
+            let sidecars = client.blobs_by_timestamp(84, &[blob.hash]).await.unwrap();
+            assert!(serves(&sidecars, &[&blob]), "{configured_path}");
+            assert_eq!(client.execution_block_number_by_timestamp(84).await.unwrap(), 123);
+
+            let requests = beacon.requests_with_prefix("");
+            let paths: Vec<_> = requests.iter().map(|uri| uri.path()).collect();
+            assert_eq!(
+                paths,
+                [
+                    format!("{prefix}/eth/v1/beacon/genesis"),
+                    format!("{prefix}/eth/v1/config/spec"),
+                    format!("{prefix}/eth/v1/beacon/blobs/7"),
+                    format!("{prefix}/eth/v2/beacon/blocks/7"),
+                ],
+                "{configured_path}",
+            );
+            assert_eq!(versioned_hashes_query(&requests[2]), [blob.hash.to_string()]);
+            // Base queries/fragments are not forwarded; URL userinfo supplies HTTP Basic auth.
+            for index in [0, 1, 3] {
+                assert_eq!(requests[index].query(), None);
+            }
+            assert_eq!(
+                requests[2].query(),
+                Some(format!("versioned_hashes={}", blob.hash).as_str())
+            );
+            assert_eq!(
+                beacon.authorization_headers(),
+                vec![Some("Basic dXNlcjpwYXNz".to_owned()); 4]
+            );
+        }
     }
 
     #[tokio::test]

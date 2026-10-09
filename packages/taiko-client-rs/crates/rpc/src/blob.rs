@@ -1,6 +1,6 @@
 //! Utilities for fetching blob sidecars from beacon or blob servers.
 
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use alloy::primitives::{B256, hex};
 use alloy_eips::eip4844::{Blob, Bytes48, VERSIONED_HASH_VERSION_KZG, c_kzg};
@@ -52,7 +52,6 @@ struct BlobServerResponse {
 }
 
 /// A data source capable of fetching blob sidecars from a public HTTP endpoint.
-#[derive(Debug)]
 pub struct BlobDataSource {
     /// Optional beacon client used as the primary blob source.
     beacon: Option<Arc<BeaconClient>>,
@@ -62,13 +61,29 @@ pub struct BlobDataSource {
     client: OnceCell<HttpClient>,
 }
 
+impl fmt::Debug for BlobDataSource {
+    /// Report source availability without logging configured endpoints or HTTP client state.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BlobDataSource")
+            .field("beacon_configured", &self.beacon.is_some())
+            .field("blob_server_configured", &self.blob_server_endpoint.is_some())
+            .finish_non_exhaustive()
+    }
+}
+
 impl BlobDataSource {
     /// Create a new [`BlobDataSource`] targeting the given endpoint.
     pub async fn new(
         beacon_endpoint: Option<Url>,
-        blob_server_endpoint: Option<Url>,
+        mut blob_server_endpoint: Option<Url>,
         disable_beacon: bool,
     ) -> Result<Self, BlobDataError> {
+        if let Some(endpoint) = blob_server_endpoint.as_mut() {
+            // Resolve blob routes below the configured provider prefix, not the host root.
+            if !endpoint.path().ends_with('/') {
+                endpoint.set_path(&format!("{}/", endpoint.path()));
+            }
+        }
         let beacon = if let (Some(endpoint), false) = (beacon_endpoint, disable_beacon) {
             Some(Arc::new(BeaconClient::new(endpoint).await?))
         } else {
@@ -148,24 +163,26 @@ impl BlobDataSource {
 
         for hash in blob_hashes {
             let url = endpoint
-                .join(&format!("/blobs/{hash}"))
+                .join(&format!("blobs/{hash}"))
                 .map_err(|err| BlobDataError::Other(err.into()))?;
-            debug!(hash = ?hash, url = url.as_str(), "requesting blob sidecar from endpoint");
+            debug!(hash = ?hash, "requesting blob sidecar from endpoint");
 
             let response = client
                 .get(url)
                 .header("accept", "application/json")
                 .send()
                 .await
-                .map_err(|err| BlobDataError::Other(err.into()))?;
+                .map_err(|err| BlobDataError::Other(err.without_url().into()))?;
 
             if !response.status().is_success() {
                 warn!(status = response.status().as_u16(), hash = ?hash, "blob server returned error status");
                 return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
             }
 
-            let payload: BlobServerResponse =
-                response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+            let payload: BlobServerResponse = response
+                .json()
+                .await
+                .map_err(|err| BlobDataError::Parse(err.without_url().to_string()))?;
 
             // On the blocking thread pool: the first commitment loads the KZG trusted setup, which
             // takes seconds on a CPU-limited node and would otherwise stall the async runtime.
@@ -277,6 +294,88 @@ mod tests {
     };
     use alloy_eips::eip4844::env_settings::EnvKzgSettings;
     use hyper::StatusCode;
+
+    #[tokio::test]
+    async fn fallback_preserves_blob_server_path_prefix() {
+        let sidecar = sidecar_for_blob(Blob::ZERO);
+        let commitment = sidecar.commitments[0];
+        let hash = versioned_hash_from_commitment(&commitment);
+
+        for (configured_path, prefix) in [
+            ("/", ""),
+            ("/archive/v2/project", "/archive/v2/project"),
+            ("/archive/v2/project/", "/archive/v2/project"),
+            ("/archive/test%2Fproject", "/archive/test%2Fproject"),
+        ] {
+            let beacon = start_beacon(|_| (StatusCode::OK, r#"{"data":[]}"#.to_owned())).await;
+            let body = blob_server_body(&Blob::ZERO, &commitment, hash);
+            let expected_path = format!("{prefix}/blobs/{hash}");
+            let route = expected_path.clone();
+            let server = TestServer::start(move |uri| {
+                if uri.path() == route {
+                    (StatusCode::OK, body.clone())
+                } else {
+                    (StatusCode::NOT_FOUND, String::new())
+                }
+            })
+            .await;
+            let mut endpoint = server.endpoint();
+            endpoint.set_path(configured_path);
+            let source =
+                BlobDataSource::new(Some(beacon.endpoint()), Some(endpoint), false).await.unwrap();
+
+            let fetched = source
+                .get_blobs(0, &[hash])
+                .await
+                .unwrap_or_else(|err| panic!("{configured_path}: {err}"));
+
+            assert_eq!(fetched[0].blobs, vec![Blob::ZERO]);
+            assert_eq!(fetched[0].commitments, vec![commitment]);
+            assert_eq!(beacon.requests_with_prefix("/eth/v1/beacon/blobs/").len(), 1);
+            let requests = server.requests_with_prefix("");
+            assert_eq!(requests.len(), 1);
+            assert_eq!(requests[0].path(), expected_path);
+        }
+    }
+
+    #[tokio::test]
+    async fn blob_server_transport_errors_omit_endpoint_url() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint =
+            Url::parse(&format!("http://{}/v2/test-project-key", listener.local_addr().unwrap()))
+                .unwrap();
+        drop(listener);
+        let source = BlobDataSource::new(None, Some(endpoint), true).await.unwrap();
+        source.client.set(HttpClient::builder().no_proxy().build().unwrap()).unwrap();
+
+        let error = source.get_blobs(0, &[B256::ZERO]).await.unwrap_err();
+        assert!(matches!(&error, BlobDataError::Other(_)), "expected transport error: {error}");
+        let error = error.to_string();
+
+        assert!(!error.contains("http://"), "blob server error exposes URL: {error}");
+    }
+
+    #[tokio::test]
+    async fn debug_omits_blob_server_credentials() {
+        let source = BlobDataSource::new(
+            None,
+            Some(
+                Url::parse(
+                    "https://user:password@provider.example/path-key?key=query-key#fragment",
+                )
+                .unwrap(),
+            ),
+            true,
+        )
+        .await
+        .unwrap();
+
+        let output = format!("{source:?}");
+
+        for secret in ["password", "path-key", "query-key"] {
+            assert!(!output.contains(secret), "BlobDataSource Debug exposes {secret}");
+        }
+    }
 
     #[tokio::test]
     async fn blob_server_rejects_blob_bytes_that_do_not_match_commitment_metadata() {
