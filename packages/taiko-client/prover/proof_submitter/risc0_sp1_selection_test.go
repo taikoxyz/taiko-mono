@@ -126,6 +126,45 @@ func TestRequestProposalProofForceSP1UsesSP1WithinRisc0Distance(t *testing.T) {
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, risc0.requestedTypes)
 }
 
+func TestRequestProposalProofSP1ShareUsesSP1ForFirstProposalsOfEachCycle(t *testing.T) {
+	for _, tc := range []struct {
+		sp1ProofPercentage uint64
+		proposalID         int64
+		expected           proofProducer.ProofType
+	}{
+		{sp1ProofPercentage: 30, proposalID: 100, expected: proofProducer.ProofTypeZKSP1},
+		{sp1ProofPercentage: 30, proposalID: 129, expected: proofProducer.ProofTypeZKSP1},
+		{sp1ProofPercentage: 30, proposalID: 130, expected: proofProducer.ProofTypeZKR0},
+		{sp1ProofPercentage: 30, proposalID: 199, expected: proofProducer.ProofTypeZKR0},
+		{sp1ProofPercentage: 30, proposalID: 200, expected: proofProducer.ProofTypeZKSP1},
+		{sp1ProofPercentage: 0, proposalID: 100, expected: proofProducer.ProofTypeZKR0},
+		{sp1ProofPercentage: 100, proposalID: 199, expected: proofProducer.ProofTypeZKSP1},
+	} {
+		producer := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
+		submitter := &ProofSubmitter{
+			zkvmProofProducer: producer,
+			// Every RISC0-share proposal below stays within 99 + 1000, so only the share decides.
+			maxRisc0ProofProposalDistance: big.NewInt(1000),
+			sp1ProofPercentage:            tc.sp1ProofPercentage,
+		}
+
+		resp, err := submitter.requestProposalProof(
+			context.Background(),
+			&proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(tc.proposalID)},
+			big.NewInt(tc.proposalID),
+			metadata.NewTaikoProposalMetadataShasta(
+				&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(tc.proposalID)},
+				0,
+			),
+			time.Now(),
+			big.NewInt(99),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, tc.expected, resp.ProofType, "percentage %d, proposal %d", tc.sp1ProofPercentage, tc.proposalID)
+	}
+}
+
 func TestRequestProposalProofForceSGXUsesSGXReth(t *testing.T) {
 	producer := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
 	submitter := &ProofSubmitter{

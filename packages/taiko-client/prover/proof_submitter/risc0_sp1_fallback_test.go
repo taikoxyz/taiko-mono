@@ -114,6 +114,48 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeForceSP1DoesNotClearBac
 	s.Equal(int32(0), fake.clearCalls.Load())
 }
 
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareBeyondDistanceDoesNotLatch() {
+	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	sub.sp1ProofPercentage = 30
+
+	// 120 is in the SP1 share (120 % 100 < 30) and beyond 10 + 30, but must not count as a breach.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(120), big.NewInt(10)))
+	s.False(sub.inSP1Fallback())
+	s.Nil(sub.maxSP1FallbackProposalID())
+	s.Equal(int32(0), fake.clearCalls.Load())
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeSP1ShareDuringFallbackSkipsTrackAndResume() {
+	fake := &fakeRisc0Backlog{clean: true}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	sub.sp1ProofPercentage = 30
+	s.True(sub.markSP1Fallback())
+
+	// 111 <= 110 + 1 would let a RISC0-share proposal resume RISC0, but SP1-share
+	// proposals never evaluate the resume condition or record themselves as fallback.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(111), big.NewInt(110)))
+	s.True(sub.inSP1Fallback())
+	s.Nil(sub.maxSP1FallbackProposalID())
+	s.Equal(int32(0), fake.statusCalls.Load())
+}
+
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeRisc0ShareBeyondDistanceStillLatches() {
+	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	sub.sp1ProofPercentage = 30
+
+	// 141 is in the RISC0 share (141 % 100 >= 30) and 141 > 100 + 30 breaches the distance.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(141), big.NewInt(100)))
+	s.True(sub.inSP1Fallback())
+
+	select {
+	case <-fake.cleared:
+	case <-time.After(time.Second):
+		s.FailNow("clear was not called")
+	}
+}
+
 func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeNilBacklogFallsBackToStateless() {
 	sub := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(30)} // risc0Backlog nil
 	// 40 <= 10+30 stays RISC0; 41 > 10+30 uses SP1; neither latches without a control-plane client.

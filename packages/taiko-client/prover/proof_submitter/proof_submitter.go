@@ -58,6 +58,7 @@ type ProofSubmitter struct {
 	proposalWindowSize            *big.Int
 	maxRisc0ProofProposalDistance *big.Int
 	forceSP1Proof                 bool
+	sp1ProofPercentage            uint64
 	forceSGXProof                 bool
 	zkOnlyProofs                  bool
 	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).

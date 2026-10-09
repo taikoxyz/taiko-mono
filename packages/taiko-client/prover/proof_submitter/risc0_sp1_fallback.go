@@ -89,12 +89,19 @@ func (s *ProofSubmitter) resumeRisc0() bool {
 // reports whether this proposal should be proven via RISC0 or SP1. It has side
 // effects: it latches into SP1 fallback mode (and fires a one-off backlog clear)
 // on the first distance breach, and unlatches when the backlog is drained.
+// Proposals in the fixed SP1 share (see sp1_proof_share.go) use SP1 without
+// touching the machine.
 func (s *ProofSubmitter) decideZKProofType(
 	ctx context.Context,
 	proposalID *big.Int,
 	lastFinalizedProposalID *big.Int,
 ) proofProducer.ProofType {
 	if s.forceSP1Proof {
+		return proofProducer.ProofTypeZKSP1
+	}
+
+	// The fixed SP1 share never counts as fallback, latches it, or triggers a resume check.
+	if s.inSP1ProofShare(proposalID) {
 		return proofProducer.ProofTypeZKSP1
 	}
 
