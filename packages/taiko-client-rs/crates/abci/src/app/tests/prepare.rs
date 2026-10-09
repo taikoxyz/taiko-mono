@@ -44,6 +44,33 @@ async fn slow_l1_proposes_nothing() {
     assert_eq!(refused(&mut app).await, "timeout");
 }
 
+/// One overall deadline bounds `PrepareProposal` (below CometBFT's `timeout_propose`): reads
+/// that each stay within their own deadline still propose nothing once they add up past it.
+#[tokio::test(start_paused = true)]
+async fn prepare_proposes_nothing_past_its_overall_deadline() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    // The anchor moves, so the proposer reads the finalized number, a header and a proof.
+    let inbox = fx.inbox_with(fx.activation.genesis_height + 3, &[]);
+    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    let overall = app.opts.prepare_timeout;
+    assert_eq!(overall, Duration::from_secs(2), "the default overall deadline");
+    let per_read = overall / 2 + Duration::from_millis(1);
+    assert!(per_read < app.opts.l1_timeout, "each read alone is in time");
+    app.l1().state().delay = Some(per_read);
+
+    let start = tokio::time::Instant::now();
+    assert_eq!(refused(&mut app).await, "timeout");
+    assert_eq!(start.elapsed(), overall, "answered at the overall deadline");
+    assert!(app.engine().calls().iter().all(|c| !matches!(c, EngineCall::BuildBlock { .. })));
+
+    // In time, the same height builds.
+    app.l1().state().delay = None;
+    assert!(propose(&mut app).await.anchor.is_some());
+    assert_eq!(app.halt, None);
+}
+
 #[tokio::test]
 async fn envelope_above_max_tx_bytes_is_not_proposed() {
     let fx = Fixture::genesis(1);

@@ -21,12 +21,17 @@ use crate::{
     about = "Writes the CometBFT genesis.json of the Etna PoS chain from the L1 activation record"
 )]
 pub struct AbciGenesisSubCommand {
-    /// HTTP RPC endpoint of the L1 node; it must serve `eth_getProof` at the activation block.
+    /// HTTP RPC endpoint of the L1 node; it must serve `eth_getProof` and `eth_getStorageAt`
+    /// at the activation block and back to its committee cutoff (the registry entries are read
+    /// at the newest block that still holds the snapshot, at most `cutoff_lag + cutoff_grid`
+    /// blocks earlier).
     #[clap(
         long = "l1.http",
         required = true,
-        help = "HTTP RPC endpoint of an L1 node serving eth_getProof at the activation block \
-                (an archive node once that block leaves the state window)"
+        help = "HTTP RPC endpoint of an L1 node serving eth_getProof and eth_getStorageAt from \
+                the activation block back to its committee cutoff (at most cutoff_lag + \
+                cutoff_grid blocks earlier); an archive node once those blocks leave the state \
+                window"
     )]
     pub l1_http: Url,
     /// The L2 chain id whose built-in chain parameters apply; no L2 node is contacted.

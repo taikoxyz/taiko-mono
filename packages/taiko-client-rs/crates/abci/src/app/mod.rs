@@ -78,15 +78,21 @@ pub struct AppOptions {
     pub engine_timeout: Duration,
     /// Deadline of an EL sync to a trusted head (devp2p download included).
     pub elsync_timeout: Duration,
+    /// Overall deadline of one `PrepareProposal` (every L1 read and the EL build together, on
+    /// top of their own deadlines); past it the node proposes nothing. Must stay below
+    /// CometBFT's `timeout_propose`, or the round times out before the proposal is ready.
+    pub prepare_timeout: Duration,
 }
 
 impl Default for AppOptions {
-    /// `l1_timeout` 3 s, `engine_timeout` 5 s, `elsync_timeout` 600 s.
+    /// `l1_timeout` 3 s, `engine_timeout` 5 s, `elsync_timeout` 600 s, `prepare_timeout` 2 s
+    /// (below CometBFT's default `timeout_propose` of 3 s).
     fn default() -> Self {
         Self {
             l1_timeout: Duration::from_secs(3),
             engine_timeout: Duration::from_secs(5),
             elsync_timeout: Duration::from_secs(600),
+            prepare_timeout: Duration::from_secs(2),
         }
     }
 }

@@ -23,9 +23,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `PrepareProposal`: one envelope, or no transactions when the node cannot or must
     /// not propose (liveness only).
     ///
-    /// A failed build (I/O error, timeout, a failing pre-check, an oversized envelope) is recorded
-    /// as the halt reason and logged, and answers empty `txs`; it is never an error. The only
-    /// error is a request before `InitChain`.
+    /// The whole build runs within [`AppOptions::prepare_timeout`](super::AppOptions) (each
+    /// external call also keeps its own deadline), so the proposer answers before CometBFT's
+    /// `timeout_propose` even when every call is slow but in time. A failed build (I/O error,
+    /// timeout, a failing pre-check, an oversized envelope) is recorded as the halt reason and
+    /// logged, and answers empty `txs`; it is never an error. The only error is a request before
+    /// `InitChain`.
     pub(super) async fn prepare_proposal(
         &mut self,
         req: request::PrepareProposal,
@@ -33,7 +36,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let height = req.height.value();
         let built = match &self.state {
             None => return Err(AbciError::Uninitialized("PrepareProposal")),
-            Some(state) => self.propose(state, &req).await,
+            Some(state) => {
+                deadline("PrepareProposal", self.opts.prepare_timeout, self.propose(state, &req))
+                    .await
+            }
         };
         let txs = match built {
             Ok(envelope) => {
@@ -57,10 +63,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `n = max(parent anchor, own finalized − F_L1)`, and its witness (header and Inbox proofs
     /// at `n`) is fetched iff `n` moves, the height is `H_0` or a switch height; at
     /// `h_first(e)` the committee witness for `e + 1` is built against the parent's anchor
-    /// ([`build_committee_witness_within`], each read within the L1 deadline); the
-    /// witnesses pass the same checks as in `ProcessProposal` ([`check_candidate`]); the EL
-    /// builds on the parent with the derived attributes, and the built header must carry the
-    /// derived fields; the envelope must fit `max_tx_bytes`.
+    /// ([`build_committee_witness_within`], each read within the L1 deadline, reading no state
+    /// older than the committee cutoff); the witnesses pass the same checks as in `ProcessProposal`
+    /// ([`check_candidate`]); the EL builds on the parent with the derived attributes, and the
+    /// built header must carry the derived fields; the envelope must fit `max_tx_bytes`.
     async fn propose(
         &self,
         state: &AppState,
