@@ -268,9 +268,15 @@ async fn a_second_round_at_an_epoch_start_reuses_the_committee_witness() {
     app.l1().state().calls.clear();
     let env = propose(&mut app).await;
     assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
-    let witness = crate::l1::build_committee_witness(app.l1(), &app.params, 70, 2)
-        .await
-        .expect("the witness builds");
+    let witness = crate::l1::build_committee_witness(
+        app.l1(),
+        &app.params,
+        &app.state().unwrap().schedule,
+        70,
+        2,
+    )
+    .await
+    .expect("the witness builds");
     assert_eq!(env.committee, Some(witness));
 
     let (resp, req) = super::proposal::judge(&mut app, &env).await;
@@ -340,9 +346,15 @@ async fn a_discovery_cut_short_by_the_deadline_resumes_where_it_stopped() {
     let env = propose(&mut app).await;
     assert_eq!(storage_reads(&app), [], "the finished reads are not repeated");
     assert_eq!(registry_reads(&app), 2, "{:?}", app.l1().calls());
-    let witness = crate::l1::build_committee_witness(app.l1(), &app.params, 70, 2)
-        .await
-        .expect("the witness builds");
+    let witness = crate::l1::build_committee_witness(
+        app.l1(),
+        &app.params,
+        &app.state().unwrap().schedule,
+        70,
+        2,
+    )
+    .await
+    .expect("the witness builds");
     assert_eq!(env.committee, Some(witness));
     assert!(
         finished

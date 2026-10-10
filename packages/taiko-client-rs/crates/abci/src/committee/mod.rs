@@ -4,9 +4,10 @@
 //! A committee witness proves one registry checkpoint (`checkpoints.length`, `checkpoints[i]`
 //! and, when it exists, `checkpoints[i + 1].l1Block`) plus all of that checkpoint's entries.
 //! [`verify_snapshot`] checks that the checkpoint is the last one at or before the cutoff and that
-//! the entries hash to its `entriesRoot`; [`derive`] then applies eligibility, one member per
-//! pubkey (the lowest `bondId` wins), the `N_MAX` cap and the voting-power mapping to build the
-//! [`CommitteeRecord`] and its members. Both are pure, so the guest can run them unchanged.
+//! the entries hash to its `entriesRoot`; [`derive`] then applies eligibility (with the MEM-13
+//! heartbeat rule of [`heartbeat_floor`]), one member per pubkey (the lowest `bondId` wins), the
+//! `N_MAX` cap and the voting-power mapping to build the [`CommitteeRecord`] and its members.
+//! Both are pure, so the guest can run them unchanged.
 //!
 //! A derivation failure at `H_e` is permanent: the cutoff and the snapshot checkpoint follow from
 //! the committed parent's anchor, so no block at `H_e` can ever carry a valid committee witness,
@@ -40,6 +41,10 @@ pub const ENCODING_VERSION: u8 = 1;
 /// Upper bound on a committee's total voting power: CometBFT's `MaxTotalVotingPower`,
 /// `(2^63 − 1) / 8`.
 pub const MAX_TOTAL_POWER: u64 = (i64::MAX as u64) / 8;
+
+/// `LOOKAHEAD_EPOCHS` of #22262 (normative, not tunable): MEM-13 evaluates the heartbeats of
+/// epoch `e`'s committee at the start of the L1-side epoch `e − LOOKAHEAD_EPOCHS`.
+pub const LOOKAHEAD_EPOCHS: u64 = 2;
 
 /// `bytes32("ETNA_REG_ENTRY")`: domain tag of registry entry leaves.
 const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY");
@@ -136,8 +141,12 @@ pub enum CommitteeError {
     /// `VP_UNIT` is zero, so voting power is undefined.
     #[error("vp_unit must be > 0")]
     ZeroVpUnit,
-    /// The target epoch has no MEM-08 `k = targetEpoch − e_0 + 1` in `u64`.
-    #[error("target epoch {0} has no MEM-08 k")]
+    /// `HEARTBEAT_WINDOW` is zero, so the heartbeat windows of a filtered epoch are undefined.
+    #[error("heartbeat window must be >= 1")]
+    ZeroHeartbeatWindow,
+    /// The target epoch has no MEM-08 `k = targetEpoch − e_0 + 1` in `u64`, or its heartbeat
+    /// evaluation block `L1_first(targetEpoch − LOOKAHEAD_EPOCHS)` overflows `u64`.
+    #[error("target epoch {0} is out of range")]
     EpochOutOfRange(u64),
     /// No entry is eligible. At `H_e` this halts the chain for good (the snapshot is fixed by
     /// the committed parent's anchor) until a recovery generation restarts it.
@@ -348,12 +357,61 @@ pub fn verify_snapshot(
     Ok(Snapshot { checkpoint_index: index, l1_block, entries: w.entries.clone() })
 }
 
+/// The heartbeat requirement of `target_epoch`'s committee derived at `cutoff` (MEM-13(3) of
+/// #22262): `None` when the epoch's roster is not filtered by heartbeats, else the floor `f`. An
+/// entry of a filtered epoch is eligible only with a heartbeat (`lastHeartbeatAt > 0`) and
+/// `lastHeartbeatAt >= f`.
+///
+/// With `W = HEARTBEAT_WINDOW`, the evaluation instant is
+/// `I*(e) = floor(L1_first(e − LOOKAHEAD_EPOCHS) / W) · W`, the start of the window holding the
+/// first L1 block of the L1-side epoch `e − 2`, and `f = I*(e) − W`: the last heartbeat must
+/// name that window, the one before it or a later one, so an entry that attests once per window
+/// is always eligible. The instant follows from the activation schedule and the target epoch
+/// alone; the cutoff, which the parent block's proposer moves by choosing its anchor, does not
+/// set it.
+///
+/// Two adaptations to in-consensus derivation, where the parent's anchor fixes the snapshot and a
+/// derivation that leaves no entry eligible halts the chain for good:
+/// - Epochs up to `e_0 + LOOKAHEAD_EPOCHS` are not filtered: `e_0` by CONS-14, and the launch
+///   epochs `e_0 + 1` and `e_0 + 2`. The spec shifts their instant two windows past `L1_0` and
+///   forbids appending their sets before then, but here `e_0 + 1` is derived at `H_0` from the
+///   activation snapshot itself, so the shifted instant could never be met, and any filter on it
+///   would need the pre-activation heartbeats CONS-14 does not rely on.
+/// - The instant is capped at the start of the window holding the cutoff, as the snapshot holds no
+///   later heartbeat. Every block of epoch `e − 2`, the parent of the height deriving `e` included,
+///   anchors at or after `L1_first(e − 2)`, so the cap binds only when the cutoff's lag and grid
+///   put it before `I*(e)`, and it only lowers the floor.
+///
+/// Errors: [`CommitteeError::ZeroHeartbeatWindow`] for a filtered epoch with `W = 0`;
+/// [`CommitteeError::EpochOutOfRange`] when `L1_first(e − 2)` overflows `u64`.
+pub fn heartbeat_floor(
+    schedule: &Schedule,
+    heartbeat_window: u64,
+    target_epoch: u64,
+    cutoff: u64,
+) -> Result<Option<u64>, CommitteeError> {
+    let Some(instant_epoch) =
+        target_epoch.checked_sub(LOOKAHEAD_EPOCHS).filter(|e| *e > Schedule::E0)
+    else {
+        return Ok(None);
+    };
+    if heartbeat_window == 0 {
+        return Err(CommitteeError::ZeroHeartbeatWindow);
+    }
+    let l1_first = schedule
+        .checked_l1_first(instant_epoch)
+        .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
+    let window_start = |n: u64| n - n % heartbeat_window;
+    let instant = window_start(l1_first).min(window_start(cutoff));
+    Ok(Some(instant.saturating_sub(heartbeat_window)))
+}
+
 /// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` and returns its
 /// record and members (sorted by [`mem08_key`]).
 ///
 /// An entry is eligible iff `active_from_l1 <= cutoff < exit_effective_l1`,
-/// `eff_stake >= max(s_min, vp_unit)`, `last_heartbeat_at > 0` and
-/// `last_heartbeat_at + heartbeat_window >= cutoff` (saturating). Among eligible entries that
+/// `eff_stake >= max(s_min, vp_unit)` and, when [`heartbeat_floor`] filters the epoch,
+/// `last_heartbeat_at > 0` and `last_heartbeat_at >=` the floor. Among eligible entries that
 /// share a pubkey only the one with the lowest `bondId` (index in the snapshot, i.e. the earliest
 /// registration) is kept: a later entry copying a sitting validator's key changes nothing
 /// (defence in depth; the registry must refuse such a registration, see the module docs). If
@@ -364,6 +422,7 @@ pub fn derive(
     snapshot: &Snapshot,
     cutoff: u64,
     target_epoch: u64,
+    schedule: &Schedule,
     params: &ChainParams,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
     if params.vp_unit.is_zero() {
@@ -374,13 +433,14 @@ pub fn derive(
         .and_then(|d| d.checked_add(1))
         .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
     let min_stake = params.s_min.max(params.vp_unit);
+    let floor = heartbeat_floor(schedule, params.heartbeat_window, target_epoch, cutoff)?;
 
     // `(MEM-08 key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
     let mut eligible: Vec<(B256, usize, &RegistryEntry)> = snapshot
         .entries
         .iter()
         .enumerate()
-        .filter(|(_, e)| is_eligible(e, cutoff, min_stake, params.heartbeat_window))
+        .filter(|(_, e)| is_eligible(e, cutoff, min_stake, floor))
         .map(|(bond_id, e)| (mem08_key(params.l2_chain_id, e.pubkey), bond_id, e))
         .collect();
     // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
@@ -434,18 +494,19 @@ pub fn derive(
 ///
 /// The anchor binds the two facts the witness depends on: the cutoff comes from its L1 block
 /// number with `params`' grid and lag, and the snapshot proofs verify against its state root and
-/// `params.registry` ([`verify_snapshot`]). Then derives the committee for `target_epoch`
-/// ([`derive`]) and requires the derived record to equal `w.record`
+/// `params.registry` ([`verify_snapshot`]). Then derives the committee for `target_epoch` under
+/// `schedule` ([`derive`]) and requires the derived record to equal `w.record`
 /// ([`CommitteeError::RecordMismatch`] otherwise).
 pub fn verify_committee_witness(
     parent_anchor: &AnchorState,
+    schedule: &Schedule,
     params: &ChainParams,
     w: &CommitteeWitness,
     target_epoch: u64,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
     let c = cutoff(parent_anchor.number, params.cutoff_grid, params.cutoff_lag)?;
     let snapshot = verify_snapshot(parent_anchor.state_root, params.registry, w, c)?;
-    let (record, members) = derive(&snapshot, c, target_epoch, params)?;
+    let (record, members) = derive(&snapshot, c, target_epoch, schedule, params)?;
     if record != w.record {
         return Err(CommitteeError::RecordMismatch {
             claimed: Box::new(w.record.clone()),
@@ -465,13 +526,13 @@ pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(B256, u64)> {
     updates.into_iter().collect()
 }
 
-/// Whether `e` is eligible at `cutoff` (MEM-13, evaluated at `cutoff`).
-fn is_eligible(e: &RegistryEntry, cutoff: u64, min_stake: U256, heartbeat_window: u64) -> bool {
+/// Whether `e` is eligible at `cutoff`: active, staked at least `min_stake` and, when the epoch is
+/// filtered (`floor` from [`heartbeat_floor`]), with a heartbeat at or after the floor.
+fn is_eligible(e: &RegistryEntry, cutoff: u64, min_stake: U256, floor: Option<u64>) -> bool {
     e.active_from_l1 <= cutoff &&
         cutoff < e.exit_effective_l1 &&
         e.eff_stake >= min_stake &&
-        e.last_heartbeat_at > 0 &&
-        e.last_heartbeat_at.saturating_add(heartbeat_window) >= cutoff
+        floor.is_none_or(|floor| e.last_heartbeat_at > 0 && e.last_heartbeat_at >= floor)
 }
 
 /// The registry leaf of entry `index` (see [`entries_root`]).

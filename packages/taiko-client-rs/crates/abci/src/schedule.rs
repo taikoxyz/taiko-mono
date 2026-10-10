@@ -13,7 +13,8 @@
 //! ([`Schedule::epoch_of`], [`Schedule::epoch_starting_at`], [`Schedule::switch_target`]) panic
 //! when `epoch_len == 0`; [`Schedule::validate`] rejects both. The methods taking an epoch
 //! ([`Schedule::h_first`], [`Schedule::h_last`], [`Schedule::l1_first`]) panic when their result
-//! would overflow `u64` and do not check `L` (with `L = 0` every epoch would start at `H_0`).
+//! would overflow `u64` and do not check `L` (with `L = 0` every epoch would start at `H_0`);
+//! [`Schedule::checked_l1_first`] returns `None` instead.
 
 use crate::types::ActivationRecord;
 use serde::{Deserialize, Serialize};
@@ -125,9 +126,12 @@ impl Schedule {
     ///
     /// If the L1 block number overflows `u64`.
     pub fn l1_first(&self, e: u64) -> u64 {
-        Self::offset(e, self.epoch_len_l1)
-            .and_then(|o| o.checked_add(self.l1_0))
-            .expect("l1_first: L1 block number overflows u64")
+        self.checked_l1_first(e).expect("l1_first: L1 block number overflows u64")
+    }
+
+    /// [`Schedule::l1_first`], or `None` if the L1 block number overflows `u64`.
+    pub fn checked_l1_first(&self, e: u64) -> Option<u64> {
+        Self::offset(e, self.epoch_len_l1)?.checked_add(self.l1_0)
     }
 
     /// `Some(e)` iff `h` is the switch height of epoch `e >= 1`, i.e. `h == h_first(e) - 2`:

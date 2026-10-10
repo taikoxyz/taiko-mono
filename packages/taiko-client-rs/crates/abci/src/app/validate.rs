@@ -435,7 +435,8 @@ fn candidate_committee(
         (Some(_), None) => Err(Rejection::MissingWitness(WitnessKind::Committee)),
         (Some(e), Some(w)) => {
             let target = e.checked_add(1).expect("an epoch below u64::MAX starts at a u64 height");
-            let (record, members) = verify_committee_witness(&state.anchor, params, w, target)?;
+            let (record, members) =
+                verify_committee_witness(&state.anchor, &state.schedule, params, w, target)?;
             Ok(Some((target, CommitteeState { record, members })))
         }
     }

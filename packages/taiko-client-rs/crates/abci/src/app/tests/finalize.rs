@@ -219,7 +219,8 @@ async fn switch_height_emits_the_exact_updates_and_prunes() {
         let l1_0 = fx.activation.l1_0;
         let cutoff = committee::cutoff(l1_0, params.cutoff_grid, params.cutoff_lag).unwrap();
         let snapshot = Snapshot { checkpoint_index: 0, l1_block: l1_0, entries };
-        let (record, members) = committee::derive(&snapshot, cutoff, target, params).unwrap();
+        let (record, members) =
+            committee::derive(&snapshot, cutoff, target, &fx.schedule(), params).unwrap();
         CommitteeState { record, members }
     };
     let all = sample_entries(4);

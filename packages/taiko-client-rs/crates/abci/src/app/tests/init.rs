@@ -14,7 +14,10 @@ use crate::{
     l1::{RawL1Header, witness::WitnessError},
     rules::{RuleViolation, chain_id_for},
     schedule::ScheduleError,
-    test_utils::{EngineCall, GenesisSpec, L1Call, MockEngine, edit_l1_header, l1_header},
+    test_utils::{
+        EngineCall, GenesisSpec, L1Call, MockEngine, edit_l1_header, l1_header, sample_entries,
+    },
+    types::RegistryEntry,
 };
 
 #[tokio::test]
@@ -40,6 +43,23 @@ async fn init_chain_persists_the_verified_genesis_state() {
         "{:?}",
         app.engine().calls()
     );
+}
+
+/// The `e_0` committee is the active bonded set unfiltered by heartbeats (CONS-14): a genesis
+/// whose entries never sent one initializes the chain.
+#[tokio::test]
+async fn a_genesis_committee_without_heartbeats_initializes() {
+    let entries: Vec<RegistryEntry> = sample_entries(2)
+        .into_iter()
+        .map(|e| RegistryEntry { last_heartbeat_at: 0, ..e })
+        .collect();
+    let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
+    assert_eq!(fx.members.len(), 2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
+    assert_eq!(resp.validators, fx.request.validators);
+    assert_eq!(app.state(), Some(&fx.expected_state()));
 }
 
 #[tokio::test]

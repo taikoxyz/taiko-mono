@@ -55,12 +55,14 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     if activation.l1_0 != l1_0 {
         return Err(GenesisError::ActivationMismatch { l1_0, proven: activation.l1_0 });
     }
-    Schedule::from_activation(&activation).validate(params.unsettled_cap())?;
+    let schedule = Schedule::from_activation(&activation);
+    schedule.validate(params.unsettled_cap())?;
 
     // `header_at` returned block `l1_0`, so the anchor's number is `l1_0`.
     let anchor = anchor_state(&l1_header, facts);
-    let committee = build_committee_witness(l1, params, l1_0, Schedule::E0).await?;
-    let (record, members) = verify_committee_witness(&anchor, params, &committee, Schedule::E0)?;
+    let committee = build_committee_witness(l1, params, &schedule, l1_0, Schedule::E0).await?;
+    let (record, members) =
+        verify_committee_witness(&anchor, &schedule, params, &committee, Schedule::E0)?;
     let derived = record_hash(params.l2_chain_id, &record);
     if derived != committee_e0 {
         return Err(GenesisError::CommitteeRecordMismatch { derived, recorded: committee_e0 });

@@ -287,7 +287,8 @@ async fn plant_genesis(
     };
     let cutoff = committee::cutoff(l1_0, params.cutoff_grid, params.cutoff_lag)?;
     let snapshot = Snapshot { checkpoint_index: 0, l1_block: l1_0, entries: entries.to_vec() };
-    let (record, _) = committee::derive(&snapshot, cutoff, Schedule::E0, params)?;
+    let schedule = Schedule::from_activation(&activation);
+    let (record, _) = committee::derive(&snapshot, cutoff, Schedule::E0, &schedule, params)?;
     next.plant_inbox(&InboxValues {
         migration_state: Some(ETNA_ACTIVE),
         recovery_generation: Some(0),
