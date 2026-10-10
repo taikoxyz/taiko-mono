@@ -29,7 +29,9 @@ pub struct ChainParams {
     pub cutoff_grid: u64,
     /// `LAG`: snapshot cutoff lag behind the parent's anchor, in L1 blocks.
     pub cutoff_lag: u64,
-    /// `HEARTBEAT_WINDOW`: maximum heartbeat age at the cutoff, in L1 blocks.
+    /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows MEM-13 eligibility is measured
+    /// in, in L1 blocks ([`committee::heartbeat_floor`](crate::committee::heartbeat_floor));
+    /// `>= 1`.
     pub heartbeat_window: u64,
     /// `F_L1`: extra L1 depth required on top of the own L1 node's `finalized` block.
     pub l1_finality_extra_depth: u64,
@@ -76,6 +78,9 @@ pub enum ConfigError {
     /// `cutoff_grid == 0`.
     #[error("cutoff_grid must be >= 1")]
     ZeroCutoffGrid,
+    /// `heartbeat_window == 0`.
+    #[error("heartbeat_window must be >= 1")]
+    ZeroHeartbeatWindow,
     /// `block_gas_limit == 0`.
     #[error("block_gas_limit must be > 0")]
     ZeroBlockGasLimit,
@@ -160,7 +165,8 @@ impl ChainParams {
     }
 
     /// Checks `d_max >= margin_v`, `vp_unit > 0`, `n_max >= 1`, `cutoff_grid >= 1`,
-    /// `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first violation.
+    /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
+    /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.d_max < self.margin_v {
             return Err(ConfigError::DMaxBelowMargin { d_max: self.d_max, margin_v: self.margin_v });
@@ -173,6 +179,9 @@ impl ChainParams {
         }
         if self.cutoff_grid == 0 {
             return Err(ConfigError::ZeroCutoffGrid);
+        }
+        if self.heartbeat_window == 0 {
+            return Err(ConfigError::ZeroHeartbeatWindow);
         }
         if self.block_gas_limit == 0 {
             return Err(ConfigError::ZeroBlockGasLimit);
@@ -424,6 +433,12 @@ mod tests {
     fn validate_rejects_zero_cutoff_grid() {
         let p = ChainParams { cutoff_grid: 0, ..devnet() };
         assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroCutoffGrid));
+    }
+
+    #[test]
+    fn validate_rejects_zero_heartbeat_window() {
+        let p = ChainParams { heartbeat_window: 0, ..devnet() };
+        assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroHeartbeatWindow));
     }
 
     #[test]

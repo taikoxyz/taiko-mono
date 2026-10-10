@@ -41,7 +41,10 @@ use crate::{
     rules::chain_id_for,
     schedule::Schedule,
     store::{AppState, CommitteeState, Store},
-    types::{ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, Member, ParentInfo},
+    types::{
+        ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, Member, ParentInfo,
+        RegistryEntry,
+    },
 };
 
 /// The knobs of a [`Fixture`]; [`GenesisSpec::new`] gives a valid default.
@@ -49,6 +52,8 @@ use crate::{
 pub(crate) struct GenesisSpec {
     /// Number of registry entries, all eligible (see [`sample_entries`]).
     pub(crate) n_validators: usize,
+    /// Overrides the genesis registry entries (default: `sample_entries(n_validators)`).
+    pub(crate) entries: Option<Vec<RegistryEntry>>,
     /// `B*`, the genesis anchor's L2 block number.
     pub(crate) genesis_height: u64,
     /// `L1_0`, the activation's L1 block number (the registry checkpoint is written there too).
@@ -71,6 +76,7 @@ impl GenesisSpec {
     pub(crate) fn new(n_validators: usize) -> Self {
         Self {
             n_validators,
+            entries: None,
             genesis_height: 1_000,
             l1_0: 64,
             epoch_len: 20,
@@ -129,9 +135,14 @@ impl Fixture {
             genesis_state_root: b_star.state_root,
         };
 
-        let registry =
-            RegistryStorage { checkpoints: vec![(spec.l1_0, sample_entries(spec.n_validators))] };
-        let (record, members) = genesis_committee(&params, spec.l1_0, &registry, Schedule::E0);
+        let entries = spec.entries.clone().unwrap_or_else(|| sample_entries(spec.n_validators));
+        let registry = RegistryStorage { checkpoints: vec![(spec.l1_0, entries)] };
+        let (record, members) = genesis_committee(
+            &params,
+            &Schedule::from_activation(&activation),
+            &registry,
+            Schedule::E0,
+        );
         let committee_e0 = spec
             .committee_e0
             .unwrap_or_else(|| committee::record_hash(params.l2_chain_id, &record));
@@ -293,12 +304,17 @@ impl Fixture {
         verify_anchor_witness(&w, self.params.inbox, committee_epoch).expect("planted anchor")
     }
 
+    /// The schedule of the fixture's activation record.
+    pub(crate) fn schedule(&self) -> Schedule {
+        Schedule::from_activation(&self.activation)
+    }
+
     /// The committee of `target_epoch` derived from the genesis registry snapshot with the
     /// genesis cutoff (the members equal epoch `e_0`'s; the record differs in its target and
     /// set root).
     pub(crate) fn committee(&self, target_epoch: u64) -> CommitteeState {
         let (record, members) =
-            genesis_committee(&self.params, self.activation.l1_0, &self.registry, target_epoch);
+            genesis_committee(&self.params, &self.schedule(), &self.registry, target_epoch);
         CommitteeState { record, members }
     }
 
@@ -348,14 +364,15 @@ impl Fixture {
     }
 }
 
-/// The committee of `target_epoch` derived from `registry`'s first checkpoint (the genesis
-/// snapshot) with the cutoff of the activation block `l1_0`.
+/// The committee of `target_epoch` derived under `schedule` from `registry`'s first checkpoint
+/// (the genesis snapshot) with the cutoff of the activation block `schedule.l1_0`.
 fn genesis_committee(
     params: &ChainParams,
-    l1_0: u64,
+    schedule: &Schedule,
     registry: &RegistryStorage,
     target_epoch: u64,
 ) -> (CommitteeRecord, Vec<Member>) {
+    let l1_0 = schedule.l1_0;
     let cutoff =
         committee::cutoff(l1_0, params.cutoff_grid, params.cutoff_lag).expect("L1_0 has a cutoff");
     let snapshot = Snapshot {
@@ -363,7 +380,7 @@ fn genesis_committee(
         l1_block: l1_0,
         entries: registry.checkpoints[0].1.clone(),
     };
-    committee::derive(&snapshot, cutoff, target_epoch, params)
+    committee::derive(&snapshot, cutoff, target_epoch, schedule, params)
         .expect("the genesis snapshot derives a committee")
 }
 
@@ -450,6 +467,7 @@ mod tests {
         assert_eq!(
             verify_committee_witness(
                 &fx.expected_state().anchor,
+                &fx.schedule(),
                 &fx.params,
                 &fx.witness.committee,
                 0

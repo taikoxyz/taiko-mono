@@ -13,15 +13,20 @@
 //!
 //! - **Activation.** By the activation block `L1_0` the Inbox holds the activation record (slots
 //!   272–274), `migrationState = ETNA_ACTIVE` (258), `committee[e_0]` (the 276 mapping) = the
-//!   record hash of the committee the registry derives at `L1_0`'s cutoff, and `lastCheckpoint =
-//!   (B*, H*)` (270–271). Without that checkpoint the first height `H_0 = B* + 1` fails
-//!   back-pressure and the chain never starts; without the others the genesis does not verify.
+//!   record hash of the committee the registry derives at `L1_0`'s cutoff (the active bonded set,
+//!   not filtered by heartbeats: CONS-14), and `lastCheckpoint = (B*, H*)` (270–271). Without that
+//!   checkpoint the first height `H_0 = B* + 1` fails back-pressure and the chain never starts;
+//!   without the others the genesis does not verify.
 //! - **A registry checkpoint in every changing L1 block.** `checkpoints[i].l1Block` is strictly
 //!   increasing in `i`, and every L1 block that changes any entry has a checkpoint (a block that
 //!   changes none may have one too). The snapshot search relies on the order, and discovery reads
 //!   checkpoint `i`'s entries at any block before `checkpoints[i + 1].l1Block`.
 //! - **Complete checkpoints.** A checkpoint's `count` and `entriesRoot` cover every entry (exited
 //!   ones included, in `bondId` order) as they stand at the end of its `l1Block`.
+//! - **Heartbeat records.** An entry's `lastHeartbeatAt` is the start L1 block of the heartbeat
+//!   window its last accepted heartbeat named, on the chain's `HEARTBEAT_WINDOW` grid (MEM-13(2b)),
+//!   and 0 until its first heartbeat. Eligibility from epoch `e_0 + 3` on compares it with a window
+//!   start (`committee::heartbeat_floor`).
 //! - **Unique pubkeys.** Registration refuses a `pubkey` that any non-exited entry holds (ideally
 //!   requiring a proof of possession of the key). The node keeps only the lowest `bondId` among
 //!   eligible entries sharing a pubkey (`committee::derive`), so a squatting entry cannot halt the

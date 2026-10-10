@@ -127,7 +127,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         let anchor = anchor_state(l1_header, inbox_facts);
         let (record, members) =
-            verify_committee_witness(&anchor, params, &w.committee, Schedule::E0)?;
+            verify_committee_witness(&anchor, &schedule, params, &w.committee, Schedule::E0)?;
         let derived = record_hash(params.l2_chain_id, &record);
         if derived != committee_e0 {
             return Err(AbciError::CommitteeRecordMismatch { derived, recorded: committee_e0 });

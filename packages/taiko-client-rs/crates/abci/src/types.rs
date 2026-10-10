@@ -60,7 +60,8 @@ pub struct RegistryEntry {
     /// First L1 block number at which the entry is exited (exclusive end of activity);
     /// `u64::MAX` means no exit is scheduled.
     pub exit_effective_l1: u64,
-    /// L1 block number of the last heartbeat; 0 means the validator never sent one.
+    /// Start L1 block of the heartbeat window the entry's last accepted heartbeat named
+    /// (MEM-13(2b) of #22262); 0 means the entry never sent one.
     pub last_heartbeat_at: u64,
 }
 
