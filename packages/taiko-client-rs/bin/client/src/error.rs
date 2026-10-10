@@ -78,6 +78,11 @@ pub enum CliError {
     #[error("genesis: {0}")]
     Genesis(#[from] abci::GenesisError),
 
+    /// The activation's committee record could not be computed (an L1 read failed, the proving
+    /// block is not after the genesis cutoff, or no registry entry is eligible at it).
+    #[error("committee record: {0}")]
+    CommitteeRecord(#[from] abci::CommitteeRecordError),
+
     /// The `--out` genesis file could not be written.
     #[error("cannot write the genesis to {path}: {source}")]
     GenesisWrite {

@@ -11,6 +11,10 @@
 //! node's own L1, checks them as `InitChain` will, and assembles the whole CometBFT v0.40
 //! [`GenesisDoc`]. The codec here performs no I/O; the builder reads L1 through [`L1Source`].
 //!
+//! Before the activation, [`build_committee_record`] computes from the registry the
+//! `committeeRecordHash` (`committee[e_0]`) the activating DAO proposal passes for a chosen
+//! `genesisCutoff`, derived exactly as `InitChain` later derives the genesis committee.
+//!
 //! [`L1Source`]: crate::l1::L1Source
 
 use alloy_primitives::{B256, Bytes};
@@ -29,12 +33,15 @@ use crate::{
 mod build;
 /// The CometBFT v0.40 `genesis.json` document.
 mod doc;
+/// The `abci-committee-record` builder: the activation's `committeeRecordHash`.
+mod record;
 
 pub use build::build_genesis;
 pub use doc::{
     AbciParams, AuthorityParams, BlockParams, EvidenceParams, GenesisConsensusParams, GenesisDoc,
     GenesisValidator, ValidatorParams, VersionParams, validator_address,
 };
+pub use record::{CommitteeRecordError, GenesisCommitteeRecord, build_committee_record};
 
 /// Everything `InitChain` verifies to start the chain, carried in the genesis `app_state`.
 ///

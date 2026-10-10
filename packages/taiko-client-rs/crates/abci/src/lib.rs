@@ -57,8 +57,9 @@ pub use envelope::{
     single_envelope,
 };
 pub use genesis::{
-    AppStateJson, GenesisDoc, GenesisError, GenesisValidator, GenesisWitness, build_genesis,
-    decode_app_state, encode_app_state,
+    AppStateJson, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc, GenesisError,
+    GenesisValidator, GenesisWitness, build_committee_record, build_genesis, decode_app_state,
+    encode_app_state,
 };
 pub use l1::{
     FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
