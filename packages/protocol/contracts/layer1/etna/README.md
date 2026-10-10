@@ -48,8 +48,8 @@ refer to that specification.
    that delay, not by the 4 hours.
 5. DAO proposal 2: `upgradeToAndCall(EtnaInbox, activateEtna(params))`, with `genesisHeight = B*`
    and the `committeeRecordHash` that `taiko-client abci-committee-record` (taiko-client-rs)
-   computes from the registry at `genesisCutoff` (a past L1 block at or after the registry's first
-   checkpoint). `B*` is known only once the drain completes, so this proposal can only be written
+   computes from the registry at `genesisCutoff` (a finalized L1 block at or after the registry's
+   first checkpoint). `B*` is known only once the drain completes, so this proposal can only be written
    after proposal 1 executes (open item O13).
 6. Validators run `abci-genesis` and start CometBFT. alethia-reth's Etna fork timestamp must fall
    after `B*`'s timestamp and at or before the first proof-of-stake block.
@@ -262,7 +262,7 @@ The guest's obligations: a valid proof attests that
   `h_first(e)`;
 - the blocks' data is encoded in the bound blobs.
 
-Notes for guests not written in Solidity:
+Notes for guests:
 
 - `keccak256(abi.encode(records))` hashes the ABI encoding of a dynamic array, which starts with
   the `0x20` offset word, then the length, then each record as two words (`epoch`, `recordHash`).
