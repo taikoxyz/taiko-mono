@@ -1,0 +1,79 @@
+#![cfg_attr(not(test), deny(missing_docs, clippy::missing_docs_in_private_items))]
+#![cfg_attr(test, allow(missing_docs, clippy::missing_docs_in_private_items))]
+//! ABCI++ application for the Etna PoS chain.
+//!
+//! Stock CometBFT orders and finalizes blocks; this crate builds and validates them and drives
+//! the alethia-reth execution layer through the Engine API. Every L1 fact a block consumes travels
+//! inside the block as a raw L1 header plus EIP-1186 proofs, so replay never calls L1.
+//!
+//! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
+//! `l1::witness`, `committee`, `rules` and `engine::convert` modules and the genesis `app_state`
+//! codec perform no I/O; `l1::source`, `engine` and `elsync` hold the L1 and execution-engine
+//! adapters, `l1::fetch` and the genesis builder read L1 through them, `app` answers CometBFT's
+//! ABCI requests on top of them, and `server` serves the app on CometBFT's ABCI socket.
+
+/// The ABCI++ application: request dispatch and the per-method handlers.
+pub mod app;
+/// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
+pub mod committee;
+/// Chain parameters (built-in per L2 chain id, optional TOML override).
+pub mod config;
+/// Execution-layer sync to a trusted head over devp2p.
+pub mod elsync;
+/// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #248.
+pub mod engine;
+/// The CometBFT block envelope codec (`0x01 || rlp([block, anchor, committee])`).
+pub mod envelope;
+/// The CometBFT genesis: the `app_state` genesis witness, its codec, and the builder of the
+/// whole `genesis.json` from L1.
+pub mod genesis;
+/// L1 storage layout, EIP-1186 proof verification, Inbox witness decoding and the L1 source.
+pub mod l1;
+/// Prometheus metrics of the ABCI app.
+pub mod metrics;
+/// Header derivation and block-validity predicates.
+pub mod rules;
+/// Epoch schedule derived from the L1 activation record.
+pub mod schedule;
+/// The tower-abci socket server: one sequential app worker behind CometBFT's four connections.
+pub mod server;
+/// The persisted app state and its atomic file store.
+pub mod store;
+/// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
+pub mod types;
+
+#[cfg(test)]
+pub(crate) mod test_utils;
+
+pub use app::{AbciError, App, AppOptions, Status};
+pub use committee::{CommitteeError, Snapshot};
+pub use config::{ChainParams, ConfigError};
+pub use elsync::{ElSyncError, ensure_block};
+pub use engine::{
+    Engine, EngineError, PayloadVerdict, RpcEngine, block_from_payload, payload_from_block,
+};
+pub use envelope::{
+    AnchorWitness, CommitteeWitness, ENVELOPE_VERSION, EnvelopeError, EtnaEnvelope, ExecutionBlock,
+    single_envelope,
+};
+pub use genesis::{
+    AppStateJson, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc, GenesisError,
+    GenesisValidator, GenesisWitness, build_committee_record, build_genesis, decode_app_state,
+    encode_app_state,
+};
+pub use l1::{
+    FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
+    build_committee_witness, build_committee_witness_at_cutoff, header_at, is_final_canonical,
+};
+pub use metrics::AbciMetrics;
+pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
+pub use schedule::{Schedule, ScheduleError};
+pub use server::{
+    AbciHandler, AppService, ExitProcess, HaltHook, ListenAddr, SAFETY_HALT_EXIT_CODE, ServerError,
+    serve, serve_with,
+};
+pub use store::{AppState, CommitteeState, Store, StoreError};
+pub use types::{
+    AccountWitness, ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, Member, ParentInfo,
+    RegistryEntry, StorageProof,
+};

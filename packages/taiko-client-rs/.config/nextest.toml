@@ -3,28 +3,26 @@ nextest-version = "0.9.104"
 [profile.default]
 
 [[profile.default.overrides]]
-# This opt-in scenario runs a sequence of proposals through two separate drivers.
-# Give its per-proposal deadlines and harness startup time to report their errors.
-filter = 'test(derivation_split_parity)'
-test-group = "l1-shared"
-slow-timeout = { period = "60s", terminate-after = 40 }
-
-[[profile.default.overrides]]
-# The Etna boundary scenario crosses a fork with four proposals, a preconfirmation and two
-# syncer start-ups.
-filter = 'kind(test) & test(etna_boundary)'
-test-group = "l1-shared"
-slow-timeout = { period = "60s", terminate-after = 10 }
-
-[[profile.default.overrides]]
-# All integration test binaries (targets from any `tests/` dir) are serialized
-# to avoid shared L1/L2 state races. A wedged test would otherwise stall the
-# whole serialized lane until the CI job timeout, so terminate it after 4 slow
-# periods (240s); `ShastaEnv::setup` fails fast on the leaked chain state a
-# killed test leaves behind (its teardown snapshot revert never runs).
+# Integration test binaries (targets from any `tests/` dir) include the abci docker
+# scenarios, each of which boots its own devnet (anvil, alethia-reth, CometBFT).
+# Never run two of them at once, even outside `just test`, so they stay within the
+# docker daemon's memory. A direct `cargo nextest run --run-ignored only` uses this
+# profile, so it gets the same hang guard as the `integration` profile below: a
+# wedged scenario is terminated instead of stalling the serial lane forever.
 filter = 'kind(test)'
-test-group = "l1-shared"
-slow-timeout = { period = "60s", terminate-after = 4 }
+test-group = "docker"
+slow-timeout = { period = "120s", terminate-after = 5 }
 
-[test-groups.l1-shared]
+[test-groups.docker]
 max-threads = 1
+
+# `just test` (tests/entrypoint.sh): the docker scenarios, one at a time. Booting a
+# devnet and walking it through an epoch switch takes minutes, so a scenario is only
+# flagged after 2 minutes and terminated after 10, which is above the harness's own
+# readiness and progress deadlines; a scenario that wedges past them would otherwise
+# stall the serial lane until the CI job timeout. Every scenario runs even after one
+# fails, so a CI run reports all failures at once.
+[profile.integration]
+test-threads = 1
+fail-fast = false
+slow-timeout = { period = "120s", terminate-after = 5 }

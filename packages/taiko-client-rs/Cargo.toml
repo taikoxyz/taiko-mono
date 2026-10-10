@@ -1,13 +1,11 @@
 [workspace]
 members = [
     "bin/client",
+    "crates/abci",
     "crates/bindings",
-    "crates/driver",
-    "crates/proposer",
     "crates/protocol",
     "crates/rpc",
     "crates/test-harness",
-    "crates/whitelist-preconfirmation-driver",
 ]
 resolver = "2"
 
@@ -22,10 +20,9 @@ repository = "https://github.com/taikoxyz/taiko-mono"
 [workspace.dependencies]
 # async
 async-trait = "0.1"
+futures = { version = "0.3", default-features = false, features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
-tokio-retry = "0.3.0"
-tokio-stream = "0.1"
 
 # cli
 clap = { version = "4", features = ["derive", "env"] }
@@ -49,29 +46,16 @@ alloy-consensus = { version = "1.8.3", default-features = false, features = [
 alloy-contract = { version = "1.8.3", default-features = false }
 alloy-eips = { version = "1.8.3", default-features = false }
 alloy-hardforks = { version = "0.4.7", default-features = false }
-alloy-json-rpc = { version = "1.8.3", default-features = false }
-alloy-network = { version = "1.8.3", default-features = false }
-alloy-node-bindings = { version = "1.8.3" }
 alloy-primitives = { version = "1.5.7", default-features = false }
 alloy-provider = { version = "1.8.3", default-features = false }
 alloy-rlp = { version = "0.3.15", default-features = false }
-alloy-rpc-client = { version = "1.8.3", default-features = false }
 alloy-rpc-types = { version = "1.8.3", default-features = false }
 alloy-rpc-types-engine = { version = "1.8.3", default-features = false }
 alloy-rpc-types-engine-2 = { package = "alloy-rpc-types-engine", version = "2.0.4", default-features = false }
-alloy-rpc-types-eth = { version = "1.8.3", default-features = false }
-alloy-signer = { version = "1.8.3", default-features = false }
-alloy-signer-local = { version = "1.8.3", default-features = false }
-alloy-sol-macro = { version = "1.5.7", default-features = false, features = [
-    "json",
-] }
-alloy-sol-types = { version = "1.5.7", default-features = false }
 alloy-transport = { version = "1.8.3", default-features = false }
 alloy-transport-http = { version = "1.8.3", features = ["hyper", "jwt-auth"] }
-base-tx-manager = { git = "https://github.com/base/base", rev = "1f1149cca0748f7ee7c6234f54d0be8dab51579a" }
-event-scanner = "1.1.1"
+alloy-trie = { version = "0.9.5", default-features = false }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
-robust-provider = "1.0.1"
 
 # taiko
 alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "53d2cd81eb7dd271ef4eec693a14afc1a35ac12b", default-features = false }
@@ -79,39 +63,14 @@ alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", pac
 alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "53d2cd81eb7dd271ef4eec693a14afc1a35ac12b", default-features = false, features = [
     "serde",
 ] }
-alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "53d2cd81eb7dd271ef4eec693a14afc1a35ac12b" }
+
+# consensus
+tendermint = "0.40"
+tendermint-proto = "0.40"
+tower-abci = "0.19"
 
 # networking
-arc-swap = "1.7"
-axum = { version = "0.7", features = ["ws"] }
-bytes = "1"
-discv5 = "0.10.2"
-enr = "0.13"
-futures = "0.3"
-hashlink = "0.10"
-http = "1"
-http-body = "1"
-# jsonwebtoken 10 ships no crypto backend by default: exactly one of `aws_lc_rs` / `rust_crypto`
-# must be enabled, otherwise `decode()` panics at runtime. 10.3 is the GHSA-h395-gr6q-cpjc floor.
-jsonwebtoken = { version = "10.3", features = ["aws_lc_rs"] }
-kona-disc = { git = "https://github.com/ethereum-optimism/optimism", package = "kona-disc", tag = "kona-node/v1.2.9", default-features = false }
-kona-gossip = { git = "https://github.com/ethereum-optimism/optimism", package = "kona-gossip", tag = "kona-node/v1.2.9", default-features = false }
-kona-peers = { git = "https://github.com/ethereum-optimism/optimism", package = "kona-peers", tag = "kona-node/v1.2.9", default-features = false }
-libp2p = { version = "0.56.0", features = [
-    "tcp",
-    "dns",
-    "gossipsub",
-    "ping",
-    "identify",
-    "noise",
-    "secp256k1",
-    "yamux",
-    "macros",
-    "tokio",
-] }
-snap = "1.1"
-ssz = { package = "ethereum_ssz", version = "0.9.1" }
-tower-http = { version = "0.6", features = ["cors"] }
+axum = "0.7"
 
 # types
 anyhow = "1"
@@ -123,14 +82,15 @@ thiserror = { version = "2.0.12", default-features = false }
 url = "2.5.4"
 
 # serialization
-secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
+prost = "0.13"
 serde_json = "1"
-sha2 = "0.10"
+toml = "0.9"
 
 # testing
-serial_test = { version = "3", features = ["async"] }
-test-context = "0.3"
-test-log = { version = "0.2", features = ["trace"] }
+base64 = "0.22"
+ed25519-dalek = "2"
+sha2 = "0.10"
+tempfile = "3"
 
 [profile.dev]
 debug = "line-tables-only"

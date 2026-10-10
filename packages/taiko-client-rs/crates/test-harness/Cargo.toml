@@ -4,30 +4,37 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
-[features]
-default = []
-
 [dependencies]
-alethia-reth-primitives = { workspace = true, features = ["net"] }
-alloy = { workspace = true }
-alloy-consensus = { workspace = true }
-alloy-eips = { workspace = true, features = ["sha2"] }
-alloy-primitives = { workspace = true }
+# async
+tokio = { workspace = true }
+
+# ethereum
+alloy = { workspace = true, features = ["consensus", "signer-local", "std"] }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true, features = ["std", "serde"] }
 alloy-provider = { workspace = true }
-alloy-rlp = { workspace = true }
-alloy-rpc-types = { workspace = true }
-alloy-rpc-types-engine = { workspace = true }
-anyhow = { workspace = true }
-bindings = { path = "../bindings" }
-http-body-util = { workspace = true }
-hyper = { workspace = true }
-hyper-util = { workspace = true }
-protocol = { path = "../protocol" }
+
+# taiko
+abci = { path = "../abci" }
 rpc = { path = "../rpc" }
+
+# observability
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# web
+reqwest = { workspace = true }
+
+# types
+anyhow = { workspace = true }
+url = { workspace = true }
+
+# serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-test-context = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-url = { workspace = true }
+
+# testing
+base64 = { workspace = true }
+ed25519-dalek = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }

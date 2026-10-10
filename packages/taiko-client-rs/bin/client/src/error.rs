@@ -1,65 +1,28 @@
 //! Error types for the CLI.
 //!
 //! This module defines the unified error type [`CliError`] used throughout the CLI binary.
-//! It consolidates errors from downstream crates (driver, proposer, rpc)
-//! and whitelist-preconfirmation-driver, as well as CLI-specific errors like URL parsing, runtime
-//! initialization, and metrics setup.
+//! It consolidates errors from downstream crates (rpc, abci) as well as CLI-specific errors like
+//! runtime initialization, signal handling and metrics setup.
+
+use std::path::PathBuf;
 
 use thiserror::Error;
 
 /// Errors that can occur during CLI execution.
 ///
 /// This enum covers all error cases in the CLI binary, including:
-/// - Errors propagated from downstream crates (driver, proposer, rpc,
-///   whitelist-preconfirmation-driver)
-/// - Configuration errors (URL parsing, socket address parsing)
+/// - Errors propagated from downstream crates (rpc, abci)
+/// - Configuration errors (socket address parsing, chain parameters)
 /// - Runtime errors (tokio runtime initialization, shutdown signal handlers, I/O)
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
 pub enum CliError {
-    /// Error from the driver crate.
-    ///
-    /// Wraps [`driver::DriverError`] for errors occurring during driver operations
-    /// such as event syncing, block derivation, and execution engine communication.
-    #[error(transparent)]
-    Driver(#[from] driver::DriverError),
-
-    /// Error from the driver sync module.
-    ///
-    /// Wraps [`driver::sync::SyncError`] for errors occurring during event syncer
-    /// initialization and synchronization operations.
-    #[error(transparent)]
-    Sync(#[from] driver::sync::SyncError),
-
-    /// Error from the proposer crate.
-    ///
-    /// Wraps [`proposer::error::ProposerError`] for errors occurring during block proposal
-    /// operations such as transaction building and L1 submission.
-    #[error(transparent)]
-    Proposer(#[from] proposer::error::ProposerError),
-
     /// Error from the RPC client crate.
     ///
     /// Wraps [`rpc::RpcClientError`] for errors occurring during RPC client
     /// initialization and provider communication.
     #[error(transparent)]
     Rpc(#[from] rpc::RpcClientError),
-
-    /// Error from the whitelist preconfirmation driver.
-    ///
-    /// Wraps [`whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverError`] for
-    /// whitelist preconfirmation message validation and insertion failures.
-    #[error(transparent)]
-    WhitelistPreconfirmation(
-        #[from] whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverError,
-    ),
-
-    /// Failed to parse a URL.
-    ///
-    /// Occurs when parsing endpoint URLs from command-line arguments fails.
-    /// Common causes include malformed URLs or unsupported schemes.
-    #[error("failed to parse URL: {0}")]
-    UrlParse(#[from] url::ParseError),
 
     /// Runtime initialization or I/O error.
     ///
@@ -83,12 +46,59 @@ pub enum CliError {
     #[error("invalid socket address: {0}")]
     AddrParse(#[from] std::net::AddrParseError),
 
-    /// Invalid L1 transport configuration.
-    ///
-    /// Occurs when CLI arguments or programmatic construction provide either zero or multiple
-    /// L1 endpoints.
-    #[error("configure exactly one of --l1.http / L1_HTTP or --l1.ws / L1_WS")]
-    InvalidL1EndpointConfig,
+    /// The ABCI app failed to start (e.g. an inconsistent persisted state); boxed, as the app
+    /// error is large.
+    #[error(transparent)]
+    Abci(Box<abci::AbciError>),
+
+    /// The chain parameters are not built in for the L2 chain id, or the `--chain-config`
+    /// override is malformed or invalid.
+    #[error("chain parameters: {0}")]
+    ChainConfig(#[from] abci::ConfigError),
+
+    /// The `--chain-config` file could not be read.
+    #[error("cannot read the chain config {path}: {source}")]
+    ChainConfigRead {
+        /// The `--chain-config` path.
+        path: PathBuf,
+        /// The read error.
+        source: std::io::Error,
+    },
+
+    /// The execution-engine client could not be built or lacks a required Engine API method.
+    #[error("execution engine: {0}")]
+    Engine(#[from] abci::EngineError),
+
+    /// The ABCI server failed (bad address, listener failure, or the app worker stopped).
+    #[error(transparent)]
+    AbciServer(#[from] abci::ServerError),
+
+    /// The genesis could not be built from L1 (an L1 read failed, the activation record is not
+    /// final or active, or the L1 facts fail the `InitChain` checks).
+    #[error("genesis: {0}")]
+    Genesis(#[from] abci::GenesisError),
+
+    /// The activation's committee record could not be computed (an L1 read failed, the genesis
+    /// cutoff is not final, the proving block is not after it, or no registry entry is eligible
+    /// at it).
+    #[error("committee record: {0}")]
+    CommitteeRecord(#[from] abci::CommitteeRecordError),
+
+    /// The `--out` genesis file could not be written.
+    #[error("cannot write the genesis to {path}: {source}")]
+    GenesisWrite {
+        /// The `--out` path.
+        path: PathBuf,
+        /// The write error.
+        source: std::io::Error,
+    },
+}
+
+impl From<abci::AbciError> for CliError {
+    /// Wraps the app error in [`CliError::Abci`].
+    fn from(e: abci::AbciError) -> Self {
+        Self::Abci(Box::new(e))
+    }
 }
 
 /// Result alias for CLI operations.
@@ -103,7 +113,7 @@ impl CliError {
     ///
     /// A cause is skipped when the message before it already contains its text, since most
     /// wrappers embed their source in their own message. The messages carry the remediation
-    /// hints (e.g. for `--devnet-etna-timestamp`), which the derived `Debug` output omits.
+    /// hints, which the derived `Debug` output omits.
     pub fn report(&self) -> String {
         let mut report = self.to_string();
         let mut previous = report.clone();
@@ -124,54 +134,37 @@ impl CliError {
 #[cfg(test)]
 mod tests {
     use super::CliError;
-    use driver::{
-        DriverError,
-        derivation::DerivationError,
-        sync::{SyncError, error::EngineSubmissionError},
-    };
-    use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
-    use rpc::{
-        RpcClientError,
-        client::{EtnaScheduleHead, check_etna_schedule_for_head},
-    };
+    use rpc::RpcClientError;
+
+    /// An error whose message leaves out its source.
+    #[derive(Debug, thiserror::Error)]
+    #[error("could not bind the metrics port")]
+    struct BindError(#[source] std::io::Error);
 
     #[test]
-    fn report_shows_the_schedule_hint_once() {
-        let head = EtnaScheduleHead {
-            number: 5,
-            timestamp: 1_000,
-            parent_beacon_block_root: None,
-            extra_data_len: 7,
-        };
-        let mismatch =
-            check_etna_schedule_for_head(TAIKO_DEVNET_CHAIN_ID, Some(1_000), head).unwrap_err();
-        let report = CliError::from(DriverError::Rpc(mismatch)).report();
+    fn report_skips_a_cause_the_message_already_embeds() {
+        let report = CliError::from(std::io::Error::other("disk full")).report();
 
-        assert!(report.starts_with("rpc error: L2 head block 5"), "{report}");
-        assert_eq!(report.matches("--devnet-etna-timestamp").count(), 1, "{report}");
-        assert!(!report.contains("caused by"), "{report}");
+        assert_eq!(report, "runtime error: disk full");
     }
 
     #[test]
     fn report_lists_causes_the_message_leaves_out() {
-        let err = DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
-            EngineSubmissionError::InvalidBlock(7, "bad state root".to_string()),
-        )));
+        let err = std::io::Error::other(BindError(std::io::Error::other("address in use")));
         let report = CliError::from(err).report();
 
         assert_eq!(
             report,
-            "derivation failed\n  caused by: execution engine rejected block 7: bad state root"
+            "runtime error: could not bind the metrics port\n  caused by: address in use"
         );
-        assert!(!report.contains("RpcClientError"), "{report}");
     }
 
     #[test]
     fn report_keeps_a_plain_message() {
         assert_eq!(
-            CliError::from(RpcClientError::Provider("missing L2 latest block".to_string()))
+            CliError::from(RpcClientError::RpcMessage("missing L2 latest block".to_string()))
                 .report(),
-            "provider error: missing L2 latest block"
+            "RPC error: missing L2 latest block"
         );
     }
 }

@@ -2,38 +2,42 @@
 
 use std::path::PathBuf;
 
-use alloy_primitives::Address;
 use clap::Parser;
-use protocol::shasta::set_devnet_etna_override;
-use rpc::SubscriptionSource;
 use tracing::Level;
 use url::Url;
 
-use crate::error::{CliError, Result};
-
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
-/// CLI flags shared by proposer and driver-style subcommands.
+/// CLI flags shared by the node subcommands.
 pub struct CommonArgs {
-    /// HTTP RPC endpoint of a L1 ethereum node.
-    #[clap(long = "l1.http", env = "L1_HTTP", help = "HTTP RPC endpoint of a L1 ethereum node")]
-    pub l1_http_endpoint: Option<Url>,
-    /// WebSocket RPC endpoint of a L1 ethereum node.
-    #[clap(long = "l1.ws", env = "L1_WS", help = "WebSocket RPC endpoint of a L1 ethereum node")]
-    pub l1_ws_endpoint: Option<Url>,
-    /// HTTP RPC endpoint of a L2 taiko execution engine.
+    /// HTTP(S) JSON-RPC endpoint of the operator's own L1 node.
+    ///
+    /// HTTP only: alloy's WebSocket client gives up after a few reconnect attempts, after which
+    /// every L1 read fails until the process restarts, while an HTTP client recovers as soon as
+    /// the node answers again.
+    #[clap(
+        long = "l1.http",
+        env = "L1_HTTP",
+        required = true,
+        value_parser = http_url,
+        help = "HTTP(S) JSON-RPC endpoint of the operator's own L1 node (WebSocket is not \
+                supported: its client stops reconnecting after a longer L1 outage)"
+    )]
+    pub l1_http_endpoint: Url,
+    /// JSON-RPC endpoint of alethia-reth (`http` or `https`).
     #[clap(
         long = "l2.http",
         env = "L2_HTTP",
         required = true,
-        help = "HTTP RPC endpoint of a L2 taiko execution engine"
+        help = "JSON-RPC endpoint of alethia-reth (http or https)"
     )]
     pub l2_http_endpoint: Url,
-    /// Authenticated HTTP RPC endpoint of a L2 taiko execution engine.
+    /// JWT-authenticated Engine API endpoint of alethia-reth; plain `http` only, as the JWT
+    /// client speaks no TLS.
     #[clap(
         long = "l2.auth",
         env = "L2_AUTH",
         required = true,
-        help = "Authenticated HTTP RPC endpoint of a L2 taiko-geth execution engine"
+        help = "JWT-authenticated Engine API endpoint of alethia-reth (plain http only)"
     )]
     pub l2_auth_endpoint: Url,
     /// Path to a JWT secret to use for authenticated RPC endpoints.
@@ -44,14 +48,6 @@ pub struct CommonArgs {
         help = "Path to a JWT secret to use for authenticated RPC endpoints"
     )]
     pub l2_auth_jwt_secret: PathBuf,
-    /// Taiko Shasta protocol Inbox contract address.
-    #[clap(
-        long = "shasta.inbox",
-        env = "SHASTA_INBOX",
-        required = true,
-        help = "Taiko Shasta protocol Inbox contract address"
-    )]
-    pub shasta_inbox_address: Address,
     /// Verbosity level for logging.
     #[clap(
         short = 'v',
@@ -85,37 +81,9 @@ pub struct CommonArgs {
         help = "Address to bind Prometheus metrics server"
     )]
     pub metrics_addr: String,
-    /// Etna activation time for the Taiko internal devnet; unset means Etna never activates and
-    /// `0` activates it at genesis, mirroring alethia-reth's `--devnet-etna-timestamp`.
-    #[clap(
-        long = "devnet-etna-timestamp",
-        env = "DEVNET_ETNA_TIMESTAMP",
-        value_name = "TIMESTAMP",
-        help = "Activate the Etna fork on the Taiko internal devnet at this Unix timestamp. Must match the value passed to alethia-reth's --devnet-etna-timestamp. Unset means Etna never activates; 0 activates it at genesis. Ignored on other chains; startup fails on the devnet chain id with a genesis other than the canonical devnet one, where alethia-reth ignores its flag."
-    )]
-    pub devnet_etna_timestamp: Option<u64>,
 }
 
 impl CommonArgs {
-    /// Resolve the configured L1 provider source.
-    pub fn l1_provider_source(&self) -> Result<SubscriptionSource> {
-        match (&self.l1_http_endpoint, &self.l1_ws_endpoint) {
-            (Some(url), None) => Ok(SubscriptionSource::Http(url.clone())),
-            (None, Some(url)) => Ok(SubscriptionSource::Ws(url.clone())),
-            _ => Err(CliError::InvalidL1EndpointConfig),
-        }
-    }
-
-    /// Install the devnet fork-time overrides before any fork lookup runs.
-    ///
-    /// Only the devnet Etna time is configurable (the devnet activates Unzen at genesis); it is
-    /// installed only when set, so an unset flag keeps Etna unscheduled.
-    pub fn apply_devnet_fork_overrides(&self) {
-        if let Some(timestamp) = self.devnet_etna_timestamp {
-            set_devnet_etna_override(timestamp);
-        }
-    }
-
     /// Convert verbosity level to tracing::Level
     pub fn log_level(&self) -> Level {
         match self.verbosity {
@@ -128,6 +96,15 @@ impl CommonArgs {
     }
 }
 
+/// Parses `value` as a URL with the `http` or `https` scheme.
+pub fn http_url(value: &str) -> Result<Url, String> {
+    let url = Url::parse(value).map_err(|e| e.to_string())?;
+    match url.scheme() {
+        "http" | "https" => Ok(url),
+        scheme => Err(format!("unsupported URL scheme `{scheme}` (want http or https)")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,7 +114,7 @@ mod tests {
         [EnvGuard::unset("L1_HTTP"), EnvGuard::unset("L1_WS")]
     }
 
-    fn required_args() -> [&'static str; 9] {
+    fn required_args() -> [&'static str; 7] {
         [
             "common",
             "--l2.http",
@@ -146,161 +123,73 @@ mod tests {
             "http://localhost:28551",
             "--jwt.secret",
             "/tmp/jwt.hex",
-            "--shasta.inbox",
-            "0x0000000000000000000000000000000000000000",
         ]
     }
 
+    /// `required_args()` followed by `extra`.
+    fn argv(extra: &[&'static str]) -> Vec<&'static str> {
+        let mut argv = required_args().to_vec();
+        argv.extend_from_slice(extra);
+        argv
+    }
+
     #[test]
-    fn accepts_http_l1_endpoint() {
+    fn accepts_http_and_https_l1_endpoints() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let args = CommonArgs::try_parse_from([
-            required_args()[0],
-            "--l1.http",
-            "http://localhost:8545",
-            required_args()[1],
-            required_args()[2],
-            required_args()[3],
-            required_args()[4],
-            required_args()[5],
-            required_args()[6],
-            required_args()[7],
-            required_args()[8],
-        ])
-        .expect("http endpoint should parse");
+        for url in ["http://localhost:8545", "https://l1.example:443/rpc"] {
+            let args = CommonArgs::try_parse_from(argv(&["--l1.http", url]))
+                .expect("http(s) endpoint should parse");
 
-        assert!(matches!(args.l1_provider_source().unwrap(), SubscriptionSource::Http(_)));
+            assert_eq!(args.l1_http_endpoint, Url::parse(url).unwrap());
+        }
     }
 
     #[test]
-    fn accepts_ws_l1_endpoint() {
+    fn requires_an_http_l1_endpoint() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let args = CommonArgs::try_parse_from([
-            required_args()[0],
-            "--l1.ws",
-            "ws://localhost:8546",
-            required_args()[1],
-            required_args()[2],
-            required_args()[3],
-            required_args()[4],
-            required_args()[5],
-            required_args()[6],
-            required_args()[7],
-            required_args()[8],
-        ])
-        .expect("ws endpoint should parse");
+        let err = CommonArgs::try_parse_from(argv(&[])).expect_err("--l1.http is required");
+        assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--l1.http"), "{err}");
 
-        assert!(matches!(args.l1_provider_source().unwrap(), SubscriptionSource::Ws(_)));
+        // A WebSocket endpoint is refused however it is given.
+        let err = CommonArgs::try_parse_from(argv(&["--l1.ws", "ws://localhost:8546"]))
+            .expect_err("--l1.ws is gone");
+        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument, "{err}");
+        for url in ["ws://localhost:8546", "wss://l1.example/ws"] {
+            let err = CommonArgs::try_parse_from(argv(&["--l1.http", url]))
+                .expect_err("a WebSocket URL is not an HTTP endpoint");
+            assert_eq!(err.kind(), clap::error::ErrorKind::ValueValidation, "{url}: {err}");
+            assert!(err.to_string().contains("want http or https"), "{err}");
+        }
     }
 
     #[test]
-    fn rejects_programmatic_missing_l1_endpoint() {
-        let args = CommonArgs {
-            l1_http_endpoint: None,
-            l1_ws_endpoint: None,
-            l2_http_endpoint: Url::parse("http://localhost:28545").unwrap(),
-            l2_auth_endpoint: Url::parse("http://localhost:28551").unwrap(),
-            l2_auth_jwt_secret: "/tmp/jwt.hex".into(),
-            shasta_inbox_address: "0x0000000000000000000000000000000000000000".parse().unwrap(),
-            verbosity: 2,
-            metrics_enabled: false,
-            metrics_port: 9090,
-            metrics_addr: "0.0.0.0".to_string(),
-            devnet_etna_timestamp: None,
-        };
-
-        assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
-    }
-
-    #[test]
-    fn rejects_both_l1_endpoints() {
+    fn l1_ws_env_does_not_stand_in_for_l1_http() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let args = CommonArgs::try_parse_from([
-            required_args()[0],
-            "--l1.http",
-            "http://localhost:8545",
-            "--l1.ws",
-            "ws://localhost:8546",
-            required_args()[1],
-            required_args()[2],
-            required_args()[3],
-            required_args()[4],
-            required_args()[5],
-            required_args()[6],
-            required_args()[7],
-            required_args()[8],
-        ])
-        .expect("dual endpoints should parse before validation");
-
-        assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
-    }
-
-    #[test]
-    fn rejects_dual_l1_env_endpoints() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _http = EnvGuard::set("L1_HTTP", "http://localhost:8545");
         let _ws = EnvGuard::set("L1_WS", "ws://localhost:8546");
+        let err = CommonArgs::try_parse_from(argv(&[])).expect_err("L1_WS is not read");
+        assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
 
-        let args = CommonArgs::try_parse_from(required_args()).expect("env-backed L1 config");
-
-        assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
+        let _http = EnvGuard::set("L1_HTTP", "http://localhost:8545");
+        let args = CommonArgs::try_parse_from(argv(&[])).expect("L1_HTTP is read");
+        assert_eq!(args.l1_http_endpoint.as_str(), "http://localhost:8545/");
     }
 
-    /// The devnet activates Unzen at genesis in the chainspec, so the old override flag is gone
-    /// and passing it fails startup instead of being silently ignored.
+    /// The client reads no fork times (the app follows the activation record on L1, and
+    /// alethia-reth owns its fork schedule), so it defines no devnet fork-time flags and passing
+    /// one fails startup instead of being silently ignored.
     #[test]
-    fn rejects_removed_devnet_unzen_timestamp_flag() {
+    fn rejects_removed_devnet_fork_time_flags() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
-        argv.extend(["--devnet-unzen-timestamp", "5"]);
+        for flag in ["--devnet-unzen-timestamp", "--devnet-etna-timestamp"] {
+            let err = CommonArgs::try_parse_from(argv(&["--l1.http", "http://l1:8545", flag, "5"]))
+                .expect_err("removed flag must be rejected");
 
-        let err = CommonArgs::try_parse_from(argv).expect_err("removed flag must be rejected");
-
-        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
-    }
-
-    #[test]
-    fn devnet_etna_timestamp_defaults_to_never() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _clear = clear_l1_env();
-        let _clear_det = EnvGuard::unset("DEVNET_ETNA_TIMESTAMP");
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
-
-        let args = CommonArgs::try_parse_from(argv).expect("default parse should succeed");
-
-        assert_eq!(args.devnet_etna_timestamp, None);
-    }
-
-    #[test]
-    fn devnet_etna_timestamp_flag_preserves_zero() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _clear = clear_l1_env();
-        let _clear_det = EnvGuard::unset("DEVNET_ETNA_TIMESTAMP");
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
-        argv.extend(["--devnet-etna-timestamp", "0"]);
-
-        let args = CommonArgs::try_parse_from(argv).expect("devnet etna timestamp should parse");
-
-        assert_eq!(args.devnet_etna_timestamp, Some(0), "0 activates Etna at genesis");
-    }
-
-    #[test]
-    fn parses_devnet_etna_timestamp_from_env() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _clear = clear_l1_env();
-        let _env = EnvGuard::set("DEVNET_ETNA_TIMESTAMP", "300");
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
-
-        let args = CommonArgs::try_parse_from(argv).expect("env-backed args should parse");
-
-        assert_eq!(args.devnet_etna_timestamp, Some(300));
+            assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument, "{flag}");
+        }
     }
 }

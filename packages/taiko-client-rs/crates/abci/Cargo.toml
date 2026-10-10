@@ -1,0 +1,57 @@
+[package]
+name = "abci"
+version.workspace = true
+description = "ABCI++ application for the Etna PoS chain (CometBFT + alethia-reth)"
+edition.workspace = true
+publish = false
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# async
+async-trait = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+
+# ethereum
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true, features = ["std", "serde", "rlp"] }
+alloy-provider = { workspace = true }
+alloy-rlp = { workspace = true, features = ["std", "derive"] }
+alloy-rpc-types-engine = { workspace = true, features = ["std", "serde"] }
+alloy-trie = { workspace = true, features = ["std", "ethereum"] }
+
+# consensus
+tendermint = { workspace = true }
+tower = { workspace = true }
+tower-abci = { workspace = true }
+
+# taiko
+alethia-reth-primitives = { workspace = true }
+protocol = { path = "../protocol", default-features = false }
+rpc = { path = "../rpc" }
+
+# observability
+once_cell = { workspace = true }
+prometheus = { workspace = true }
+tracing = { workspace = true }
+
+# types
+thiserror = { workspace = true }
+url = { workspace = true }
+
+# serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+
+[dev-dependencies]
+alloy-transport = { workspace = true }
+anyhow = { workspace = true }
+prost = { workspace = true }
+tempfile = { workspace = true }
+tendermint-proto = { workspace = true }
+test-harness = { path = "../test-harness" }
+tokio = { workspace = true, features = ["test-util"] }
+tracing-subscriber = { workspace = true }
