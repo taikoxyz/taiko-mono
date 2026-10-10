@@ -99,7 +99,9 @@ impl GenesisSpec {
     /// 5, grid 1, genesis cutoff 63, and `n_validators` entries registered in a checkpoint at L1
     /// block 58 and active from block 62. The lagged cutoff of `L1_0`, `cutoff(64) = 59`, selects
     /// the same checkpoint but precedes the entries' activation, so a genesis committee derived
-    /// there would have no eligible entry.
+    /// there would have no eligible entry, and `e_0 + 1`, derived at `H_0` from the genesis
+    /// anchor, has its members only through the genesis-cutoff floor
+    /// ([`committee::snapshot_cutoff`]: `max(59, 63) = 63`).
     pub(crate) fn active_after_lagged_l1_0_cutoff(n_validators: usize) -> Self {
         let mut spec = Self::new(n_validators);
         spec.params.cutoff_lag = 5;
@@ -339,14 +341,15 @@ impl Fixture {
     }
 
     /// The committee of `target_epoch` derived from the genesis registry snapshot: at the genesis
-    /// cutoff for `e_0`, and for a later epoch at the cutoff of the activation block `L1_0`, as
-    /// `H_0` derives `e_0 + 1` from the genesis anchor (under the default parameters the members
-    /// equal epoch `e_0`'s; the record differs in its target, cutoff and set root).
+    /// cutoff for `e_0`, and for a later epoch at the floored cutoff of the activation block
+    /// `L1_0` ([`committee::snapshot_cutoff`]), as `H_0` derives `e_0 + 1` from the genesis
+    /// anchor (under the default parameters the members equal epoch `e_0`'s; the record differs
+    /// in its target, cutoff and set root).
     pub(crate) fn committee(&self, target_epoch: u64) -> CommitteeState {
         let cutoff = if target_epoch == Schedule::E0 {
             self.activation.genesis_cutoff
         } else {
-            committee::cutoff(self.activation.l1_0, self.params.cutoff_grid, self.params.cutoff_lag)
+            committee::snapshot_cutoff(self.activation.l1_0, &self.schedule(), &self.params)
                 .expect("L1_0 has a cutoff")
         };
         let (record, members) =

@@ -98,7 +98,11 @@ Reads the Ethereum-final activation record from L1 and writes the CometBFT `gene
 witness in `app_state`). It never invents values; `InitChain` re-verifies everything. The genesis
 committee is the staking registry's snapshot at the Inbox's `genesisCutoff`, taken as is (the
 `cutoff_lag` and `cutoff_grid` of later epochs do not apply): the activating DAO proposal names
-that past L1 block explicitly, as it is written before the activation block is known.
+that past L1 block explicitly, as it is written before the activation block is known. Every
+later epoch's snapshot cutoff is the parent block's anchor lagged by `cutoff_lag` and rounded
+down to the `cutoff_grid`, floored at `genesisCutoff`: the first height derives epoch 1 from the
+activation block, whose lagged cutoff may precede `genesisCutoff`, and the floor keeps every
+entry eligible at `genesisCutoff` in it.
 
 | Flag             | Description                                                                       |
 | ---------------- | --------------------------------------------------------------------------------- |

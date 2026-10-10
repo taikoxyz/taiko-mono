@@ -114,7 +114,7 @@ mod tests {
     use crate::{
         committee::{CommitteeError, record_hash},
         genesis::decode_app_state,
-        l1::{FetchError, L1Error, WitnessError, build_committee_witness, layout::inbox},
+        l1::{FetchError, L1Error, WitnessError, layout::inbox},
         test_utils::{Fixture, GenesisSpec, L1Call},
     };
 
@@ -193,11 +193,17 @@ mod tests {
     async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
         let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
         assert_eq!((fx.activation.l1_0, fx.activation.genesis_cutoff), (64, 63));
-        // Discovered through the parent anchor L1_0 like a later epoch, at cutoff 59, no entry is
-        // active yet.
-        let anchored =
-            build_committee_witness(&fx.l1(), &fx.params, &fx.schedule(), 64, Schedule::E0).await;
-        assert_eq!(anchored, Err(FetchError::Committee(CommitteeError::Empty)));
+        // At the lagged cutoff of L1_0, 59, no entry is active yet.
+        let lagged = build_committee_witness_at_cutoff(
+            &fx.l1(),
+            &fx.params,
+            &fx.schedule(),
+            64,
+            59,
+            Schedule::E0,
+        )
+        .await;
+        assert_eq!(lagged, Err(FetchError::Committee(CommitteeError::Empty)));
 
         let l1 = fx.l1();
         let doc = build_genesis(&l1, &fx.params).await.expect("e_0 derives at the genesis cutoff");

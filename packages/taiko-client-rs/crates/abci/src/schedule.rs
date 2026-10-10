@@ -15,11 +15,16 @@
 //! ([`Schedule::h_first`], [`Schedule::h_last`], [`Schedule::l1_first`]) panic when their result
 //! would overflow `u64` and do not check `L` (with `L = 0` every epoch would start at `H_0`);
 //! [`Schedule::checked_l1_first`] returns `None` instead.
+//!
+//! The schedule also carries the genesis cutoff, the snapshot cutoff of `e_0` and the floor of
+//! every later epoch's cutoff
+//! ([`committee::snapshot_cutoff`](crate::committee::snapshot_cutoff)).
 
 use crate::types::ActivationRecord;
 use serde::{Deserialize, Serialize};
 
-/// The epoch schedule: the four activation-record fields the epoch arithmetic needs.
+/// The epoch schedule: the activation-record fields the epoch arithmetic and the committee
+/// snapshot cutoffs need.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Schedule {
     /// `B*`: L2 block number of the genesis anchor; the first CometBFT height is `B* + 1`.
@@ -31,6 +36,9 @@ pub struct Schedule {
     /// `EPOCH_LEN_L1`: epoch length in L1 blocks, the step of the per-epoch minimum anchor;
     /// validated `>= 1`.
     pub epoch_len_l1: u64,
+    /// `genesisCutoff`: the L1 block of epoch `e_0`'s registry snapshot, and the floor of every
+    /// later epoch's snapshot cutoff; `< l1_0` for a verified activation.
+    pub genesis_cutoff: u64,
 }
 
 /// Schedule parameters rejected by [`Schedule::validate`].
@@ -73,6 +81,7 @@ impl Schedule {
             l1_0: a.l1_0,
             epoch_len: a.epoch_len,
             epoch_len_l1: a.epoch_len_l1,
+            genesis_cutoff: a.genesis_cutoff,
         }
     }
 
@@ -205,7 +214,13 @@ mod tests {
     const EPOCH_LEN_L1: u64 = 4;
 
     fn schedule(genesis_height: u64, epoch_len: u64) -> Schedule {
-        Schedule { genesis_height, l1_0: L1_0, epoch_len, epoch_len_l1: EPOCH_LEN_L1 }
+        Schedule {
+            genesis_height,
+            l1_0: L1_0,
+            epoch_len,
+            epoch_len_l1: EPOCH_LEN_L1,
+            genesis_cutoff: L1_0 - 1,
+        }
     }
 
     /// Every (genesis_height, L) combination the boundary tables run over.
@@ -224,7 +239,13 @@ mod tests {
         };
         assert_eq!(
             Schedule::from_activation(&a),
-            Schedule { genesis_height: 7, l1_0: 9, epoch_len: 20, epoch_len_l1: 5 }
+            Schedule {
+                genesis_height: 7,
+                l1_0: 9,
+                epoch_len: 20,
+                epoch_len_l1: 5,
+                genesis_cutoff: 8
+            }
         );
     }
 

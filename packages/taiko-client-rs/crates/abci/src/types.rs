@@ -140,7 +140,8 @@ pub struct ActivationRecord {
     /// `genesisCutoff`: the snapshot cutoff `C` of the genesis committee `e_0`, an L1 block
     /// number; validated `< l1_0`. Unlike every later epoch's cutoff it is not derived from an
     /// anchor with the cutoff lag and grid: the activation names it explicitly, as the DAO
-    /// proposal that activates Etna is written before `L1_0` is known.
+    /// proposal that activates Etna is written before `L1_0` is known. It also floors every later
+    /// epoch's cutoff ([`committee::snapshot_cutoff`](crate::committee::snapshot_cutoff)).
     pub genesis_cutoff: u64,
 }
 

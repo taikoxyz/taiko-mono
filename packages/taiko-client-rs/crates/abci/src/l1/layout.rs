@@ -19,7 +19,12 @@
 //!   `H_0 = B* + 1` fails back-pressure and the chain never starts; without the others the genesis
 //!   does not verify. `genesisCutoff` is a block before `L1_0` and at or after the registry's first
 //!   checkpoint: the DAO proposal that activates Etna is written before `L1_0` is known, so it
-//!   names a past cutoff and the record hash precomputed there.
+//!   names a past cutoff and the record hash precomputed there (`taiko-client
+//!   abci-committee-record`). At least one entry must be eligible at that snapshot, or `e_0` does
+//!   not derive. Every later epoch's snapshot cutoff is floored at `genesisCutoff`
+//!   (`committee::snapshot_cutoff`), so `e_0 + 1`, derived at `H_0` from the genesis anchor `L1_0`,
+//!   sees at least the entries eligible at `genesisCutoff` even when the lagged cutoff of `L1_0`
+//!   precedes it; a `genesisCutoff` close to `L1_0` is therefore safe.
 //! - **A registry checkpoint in every changing L1 block.** `checkpoints[i].l1Block` is strictly
 //!   increasing in `i`, and every L1 block that changes any entry has a checkpoint (a block that
 //!   changes none may have one too). The snapshot search relies on the order, and discovery reads

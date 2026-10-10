@@ -7,7 +7,7 @@ use tendermint::{block::Height, vote};
 
 use super::*;
 use crate::{
-    committee::{self, CommitteeError, verify_committee_witness},
+    committee::{self, CommitteeError, verify_committee_witness_at_cutoff},
     elsync::ElSyncError,
     engine::PayloadVerdict,
     genesis::GenesisError,
@@ -63,20 +63,22 @@ async fn a_genesis_committee_without_heartbeats_initializes() {
 }
 
 /// `e_0` is derived at the Inbox's `genesisCutoff` as is, not at the lagged, gridded cutoff of
-/// `L1_0` that every later epoch uses: entries active from L1 block 62 are in `e_0` under
-/// `L1_0 = 64`, lag 5, grid 1 and genesis cutoff 63, where `cutoff(64) = 59` leaves none
-/// eligible.
+/// `L1_0`: entries active from L1 block 62 are in `e_0` under `L1_0 = 64`, lag 5, grid 1 and
+/// genesis cutoff 63, where `cutoff(64) = 59` leaves none eligible.
 #[tokio::test]
 async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
     let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
     let (l1_0, genesis_cutoff) = (fx.activation.l1_0, fx.activation.genesis_cutoff);
     assert_eq!((l1_0, genesis_cutoff), (64, 63));
     assert!(fx.registry.checkpoints[0].1.iter().all(|e| e.active_from_l1 == 62));
-    // Verified through the genesis anchor like a later epoch, the snapshot is the same checkpoint
-    // but at cutoff 59, where no entry is active yet.
+    // At the lagged cutoff 59 of the genesis anchor the snapshot is the same checkpoint, but no
+    // entry is active yet.
+    let lagged = committee::cutoff(l1_0, fx.params.cutoff_grid, fx.params.cutoff_lag).unwrap();
+    assert_eq!(lagged, 59);
     assert_eq!(
-        verify_committee_witness(
-            &fx.expected_state().anchor,
+        verify_committee_witness_at_cutoff(
+            fx.witness.l1_header.state_root(),
+            lagged,
             &fx.schedule(),
             &fx.params,
             &fx.witness.committee,

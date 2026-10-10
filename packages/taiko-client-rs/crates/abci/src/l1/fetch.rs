@@ -4,9 +4,10 @@
 //! A proposer at `H_e` and the `abci-genesis` builder both need the [`CommitteeWitness`] of a
 //! target epoch: the last registry checkpoint at or before the cutoff, all of its entries, and
 //! the proofs of [`snapshot_slots`] at the parent anchor. A proposer takes the cutoff from the
-//! parent anchor ([`build_committee_witness`]); the genesis builder takes the Inbox's
-//! `genesisCutoff` as is and proves at `L1_0` ([`build_committee_witness_at_cutoff`]). The
-//! checkpoint index and the entries are found with unproven reads;
+//! parent anchor, floored at the genesis cutoff ([`build_committee_witness`],
+//! [`committee::snapshot_cutoff`](crate::committee::snapshot_cutoff)); the genesis builder takes
+//! the Inbox's `genesisCutoff` as is and proves at `L1_0` ([`build_committee_witness_at_cutoff`]).
+//! The checkpoint index and the entries are found with unproven reads;
 //! [`verify_snapshot`](crate::committee::verify_snapshot) later checks them against the proven
 //! `entriesRoot`, so a lying L1 node can only make the witness fail verification, never pass with
 //! other content.
@@ -118,7 +119,8 @@ struct Reads {
 /// reading the node's own L1 without deadlines.
 ///
 /// In order:
-/// - the cutoff, computed from `parent_anchor`;
+/// - the cutoff, computed from `parent_anchor` and floored at `schedule.genesis_cutoff`
+///   ([`committee::snapshot_cutoff`]);
 /// - with unproven storage reads at `parent_anchor`, the last checkpoint `i` whose `l1Block` is at
 ///   or before the cutoff (binary search, each checkpoint word read once; checkpoint 0 when none
 ///   is, which verification then rejects) and its `count` (at most [`MAX_REGISTRY_ENTRIES`],
@@ -128,7 +130,7 @@ struct Reads {
 ///   checkpoint, else `min(parent_anchor, checkpoints[i + 1].l1Block − 1)`. The registry appends a
 ///   checkpoint in every L1 block that changes an entry, so the entries stay checkpoint `i`'s until
 ///   the next one, whose block is after the cutoff, i.e. at most `cutoff_lag + cutoff_grid` blocks
-///   before `parent_anchor`;
+///   before `parent_anchor` (the floor only moves the cutoff later);
 /// - the proof of `snapshot_slots(i, i + 1 < length)` at `parent_anchor`;
 /// - the record the witness claims, derived from the snapshot under `schedule`.
 pub async fn build_committee_witness<L: L1Source + ?Sized>(
@@ -154,6 +156,10 @@ pub async fn build_committee_witness<L: L1Source + ?Sized>(
 /// checks it. The entries are read at the newest block that still holds the snapshot, which is
 /// at or after `cutoff` but, unlike a proposer's, not bounded by the cutoff lag and grid: as old
 /// as `genesisCutoff` in the worst case.
+///
+/// Precondition: `cutoff <= block`. A snapshot at a later cutoff is not final at `block` (a
+/// checkpoint may still be written after `block` and at or before `cutoff`), so its witness
+/// would prove a snapshot the registry can still change.
 pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
@@ -200,9 +206,11 @@ struct Discovery<'a, L: ?Sized> {
     l1: &'a L,
     /// The chain parameters (registry address, cutoff grid and lag, derivation parameters).
     params: &'a ChainParams,
-    /// The chain's epoch schedule, which the heartbeat eligibility of the derivation reads.
+    /// The chain's epoch schedule, which the heartbeat eligibility of the derivation and the
+    /// genesis-cutoff floor of an anchored cutoff read.
     schedule: &'a Schedule,
-    /// The snapshot cutoff; `None` derives it from the parent anchor with the cutoff lag and grid.
+    /// The snapshot cutoff; `None` derives it from the parent anchor
+    /// ([`committee::snapshot_cutoff`]: the cutoff lag and grid, floored at the genesis cutoff).
     cutoff: Option<u64>,
     /// The deadline of each single L1 read; `None` waits indefinitely.
     read_timeout: Option<Duration>,
@@ -233,7 +241,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         let params = self.params;
         let cutoff = match self.cutoff {
             Some(cutoff) => cutoff,
-            None => committee::cutoff(n_p, params.cutoff_grid, params.cutoff_lag)?,
+            None => committee::snapshot_cutoff(n_p, self.schedule, params)?,
         };
 
         let length = self.registry_word(registry::length_slot(), n_p).await?;
@@ -381,7 +389,8 @@ mod tests {
         committee::{verify_committee_witness, verify_committee_witness_at_cutoff},
         schedule::Schedule,
         test_utils::{
-            Fixture, L1Call, MockL1, RegistryStorage, TestState, anchor_at, sample_entries,
+            Fixture, GenesisSpec, L1Call, MockL1, RegistryStorage, TestState, anchor_at,
+            sample_entries,
         },
     };
 
@@ -470,6 +479,8 @@ mod tests {
     async fn entries_are_read_just_before_the_next_checkpoint() {
         let fx = Fixture::genesis(3);
         let params = ChainParams { cutoff_lag: 5, ..fx.params.clone() };
+        // No genesis-cutoff floor: this parent anchor predates the fixture's `L1_0`.
+        let schedule = Schedule { genesis_cutoff: 0, ..fx.schedule() };
         let (old, new) = (sample_entries(3), sample_entries(4));
         let at_19 = RegistryStorage { checkpoints: vec![(10, old.clone())] };
         let at_22 = RegistryStorage { checkpoints: vec![(10, old.clone()), (20, new)] };
@@ -480,7 +491,7 @@ mod tests {
         // Cutoff 22 - 5 = 17: checkpoint 0 (block 10) is the snapshot, checkpoint 1 (block 20)
         // follows it, so the entries are read at min(22, 20 - 1) = 19.
         let witness =
-            build_committee_witness(&l1, &params, &fx.schedule(), 22, 1).await.expect("witness");
+            build_committee_witness(&l1, &params, &schedule, 22, 1).await.expect("witness");
         assert_eq!(witness.record.cutoff_l1_block, 17);
         assert_eq!(witness.record.checkpoint_index, 0);
         assert_eq!(witness.entries, old);
@@ -497,12 +508,43 @@ mod tests {
         assert_eq!(calls.len(), at_block(19) + at_block(22), "no other block is read");
         verify_committee_witness(
             &anchor_at(22, header.state_root()),
-            &fx.schedule(),
+            &schedule,
             &params,
             &witness,
             1,
         )
         .expect("the witness verifies at the parent anchor");
+    }
+
+    /// A proposer's discovery floors the anchored cutoff at the genesis cutoff: under the
+    /// regression genesis (`L1_0 = 64`, lag 5, grid 1, genesis cutoff 63, entries active from
+    /// 62), `e_0 + 1` is discovered at `max(cutoff(64) = 59, 63) = 63`, where every entry is
+    /// eligible, and the witness verifies through the genesis anchor.
+    #[tokio::test]
+    async fn the_anchored_cutoff_is_floored_at_the_genesis_cutoff() {
+        let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+        let l1_0 = fx.activation.l1_0;
+        let witness = build_committee_witness(&fx.l1(), &fx.params, &fx.schedule(), l1_0, 1)
+            .await
+            .expect("e_0 + 1 derives at the floored cutoff");
+        assert_eq!(witness.record.cutoff_l1_block, fx.activation.genesis_cutoff);
+        assert_eq!(witness.record.checkpoint_index, 0);
+        assert_eq!(witness.entries, fx.registry.checkpoints[0].1);
+        let (record, members) = verify_committee_witness(
+            &fx.anchor_state(&fx.l1(), l1_0, None),
+            &fx.schedule(),
+            &fx.params,
+            &witness,
+            1,
+        )
+        .expect("the witness verifies through the genesis anchor");
+        assert_eq!(record, witness.record);
+        assert_eq!(members.len(), 2);
+
+        // Without the floor the lagged cutoff 59 precedes every entry's activation.
+        let unfloored = Schedule { genesis_cutoff: 0, ..fx.schedule() };
+        let err = build_committee_witness(&fx.l1(), &fx.params, &unfloored, l1_0, 1).await;
+        assert_eq!(err, Err(FetchError::Committee(CommitteeError::Empty)));
     }
 
     /// An explicit cutoff is taken as is: no lag, no grid (with lag 5 and grid 4 the parent anchor
