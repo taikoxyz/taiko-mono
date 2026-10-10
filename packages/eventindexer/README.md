@@ -4,6 +4,12 @@
 
 Catches events, stores them in the database to be queried via API.
 
+ERC20 transfers are written sequentially in ascending block number, transaction
+index, and log index order. Run one indexer writer per chain and database. The
+existing per-log transactions and replay protection remain unchanged; sequential
+writes reduce parallel write throughput. This ordering does not reconcile
+historical incorrect balances or duplicate records.
+
 ## Running the app
 
 run `cp .default.env .env`, and configure your environment variables. You need to be running a MySQL instance, and replace all the `MYSQL_` env vars with yours.

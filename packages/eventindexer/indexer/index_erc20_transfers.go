@@ -1,9 +1,11 @@
 package indexer
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 
@@ -17,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"golang.org/x/sync/errgroup"
 )
 
 // nolint: lll
@@ -68,26 +69,25 @@ func (i *Indexer) indexERC20Transfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-	wg, ctx := errgroup.WithContext(ctx)
+	// Apply balance writes in chain order; copy logs because NFT indexing may share the caller's slice.
+	orderedLogs := slices.Clone(logs)
+	slices.SortStableFunc(orderedLogs, func(a, b types.Log) int {
+		return cmp.Or(cmp.Compare(a.BlockNumber, b.BlockNumber),
+			cmp.Compare(a.TxIndex, b.TxIndex), cmp.Compare(a.Index, b.Index))
+	})
 
-	for _, vLog := range logs {
-		l := vLog
+	for _, log := range orderedLogs {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 
-		wg.Go(func() error {
-			if !i.isERC20Transfer(ctx, l) {
-				return nil
-			}
+		if !i.isERC20Transfer(ctx, log) {
+			continue
+		}
 
-			if err := i.saveERC20Transfer(ctx, chainID, l); err != nil {
-				return err
-			}
-
-			return nil
-		})
-	}
-
-	if err := wg.Wait(); err != nil {
-		return err
+		if err := i.saveERC20Transfer(ctx, chainID, log); err != nil {
+			return err
+		}
 	}
 
 	return nil
