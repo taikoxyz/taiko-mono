@@ -83,7 +83,7 @@ abstract contract EtnaInboxTestBase is InboxTestBase {
     function setUp() public virtual override {
         super.setUp();
         _proveShastaHistory();
-        _deployStakingRegistry();
+        _deployRegistryWithValidator();
         landVerifier = new MockLandProofVerifier();
         etnaConfig = _buildEtnaConfig();
         _migrate();
@@ -136,7 +136,7 @@ abstract contract EtnaInboxTestBase is InboxTestBase {
     }
 
     /// @dev Deploys the staking registry and registers one validator, writing checkpoint 0.
-    function _deployStakingRegistry() internal {
+    function _deployRegistryWithValidator() internal {
         _advanceBlock();
         taikoToken = new TestERC20("Taiko Token", "TAIKO");
         registry = _deployRegistry();

@@ -241,7 +241,7 @@ contract DeployEtnaDevnet is Script {
     // Custom Errors
     // ---------------------------------------------------------------
 
-    error InvalidPrivateKey();
     error InboxConfigMismatch();
+    error InvalidPrivateKey();
     error ProofVerifierHasNoCode();
 }

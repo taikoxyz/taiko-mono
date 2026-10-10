@@ -174,16 +174,17 @@ interface IEtnaInbox {
     /// `_input.lastHeight`, proven by `_proof`.
     /// @dev Permissionless. Requires, in order: Etna is active; the batch makes progress, covers
     /// at most `maxBatchBlocks` blocks and ends at or below `type(uint48).max` (the signal
-    /// service key width); `_input.records` holds exactly one non-zero record, with
-    /// `epoch == e + 1` and in ascending order, for every epoch `e` whose first block
-    /// `h_first(e) = genesisHeight + 1 + e * epochLenL2` lies in the batch, and each becomes
-    /// `committee[e + 1]`, and `committee[e + 1]` is still empty; `anchorNumber` is a past L1
-    /// block whose hash is available, from `blockhash` for the last 256 blocks and from the
-    /// EIP-2935 history contract for the last 8191; the transaction carries at least one blob,
-    /// and the batch binds the hashes of all of them. Then makes `(lastHeight, lastBlockHash)` the
-    /// last checkpoint, saves `(lastHeight, lastBlockHash, lastStateRoot)` in the signal service,
-    /// emits `BatchLanded` and verifies `_proof` against the landing statement hash (see
-    /// `hashLandStatement`) with a proposal age of 0.
+    /// service key width); for every epoch `e` whose first block
+    /// `h_first(e) = genesisHeight + 1 + e * epochLenL2` lies in the batch, in ascending order,
+    /// `_input.records` holds exactly one non-zero record with `epoch == e + 1` and
+    /// `committee[e + 1]` is still empty (the record then becomes `committee[e + 1]`), and no
+    /// other record; `anchorNumber` is a past L1 block whose hash is available, from `blockhash`
+    /// for the last 256 blocks and from the EIP-2935 history contract for the last 8191; the
+    /// transaction carries at least one blob, and the batch binds the hashes of all of them. Then
+    /// makes `(lastHeight, lastBlockHash)` the last checkpoint, saves
+    /// `(lastHeight, lastBlockHash, lastStateRoot)` in the signal service, emits `BatchLanded`
+    /// and verifies `_proof` against the landing statement hash (see `hashLandStatement`) with a
+    /// proposal age of 0.
     ///
     /// A valid proof attests that:
     /// - heights `parentHeight + 1` to `lastHeight` form a chain from the parent block hash to
@@ -195,8 +196,7 @@ interface IEtnaInbox {
     /// - every block's anchor lies on the L1 header chain ending at `anchorHash`, the hash of
     ///   `anchorNumber`, so `anchorNumber` is at or after the last block's anchor number. A lander
     ///   picks a recent L1 block, so a landing outage longer than the 8191-block EIP-2935 window
-    ///   does not strand the batch; the chosen block must only be at most 8191 blocks old when
-    ///   `land` executes;
+    ///   does not strand the batch;
     /// - each record is the committee record derived from the witness carried in block
     ///   `h_first(e)`;
     /// - the blocks' data is encoded in the bound blobs (the encoding is defined with the lander
