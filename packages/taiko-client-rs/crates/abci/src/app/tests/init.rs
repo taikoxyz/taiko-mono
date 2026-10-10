@@ -51,7 +51,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
 async fn a_genesis_committee_without_heartbeats_initializes() {
     let entries: Vec<RegistryEntry> = sample_entries(2)
         .into_iter()
-        .map(|e| RegistryEntry { last_heartbeat_at: 0, ..e })
+        .map(|e| RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 0, ..e })
         .collect();
     let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
     assert_eq!(fx.members.len(), 2);

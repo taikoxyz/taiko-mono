@@ -33,7 +33,7 @@ fn devnet() -> ChainParams {
 // ---------------------------------------------------------------------------------------------
 
 /// Vector entry `i`: pubkey `0xa1 + i` repeated, `(i + 1)` TAIKO, active from `10 + i`, exit at
-/// `1000 + i` for odd `i` (none for even `i`), heartbeat at `20 + i`.
+/// `1000 + i` for odd `i` (none for even `i`), heartbeat at `20 + i` with sequence `30 + i`.
 fn vector_entry(i: u8) -> RegistryEntry {
     RegistryEntry {
         pubkey: B256::repeat_byte(0xa1 + i),
@@ -41,6 +41,7 @@ fn vector_entry(i: u8) -> RegistryEntry {
         active_from_l1: 10 + u64::from(i),
         exit_effective_l1: if i % 2 == 1 { 1_000 + u64::from(i) } else { u64::MAX },
         last_heartbeat_at: 20 + u64::from(i),
+        last_heartbeat_seq: 30 + u64::from(i),
     }
 }
 
@@ -109,10 +110,10 @@ fn entries_root_vectors() {
     let entries: Vec<RegistryEntry> = (0..5).map(vector_entry).collect();
     let cases = [
         (0, B256::ZERO),
-        (1, b256!("79d02e61db82f52d1f6a72c02f7f859cb3a3b8f220d2e9af5c121e32f10a6fe1")),
-        (2, b256!("27270b36dd91e08ae8539fb23a46da6fd1d49aa9c8601d5e49b2b9a191e9262e")),
-        (3, b256!("d5d58b6300f543970e7ac8bd634c54b49efce15accb3f3cbf56ed69a45940418")),
-        (5, b256!("3dedf1650cbb3ebb87215bad5b2ef3639b7810cb76d1144f7e2aefd9bacbf11a")),
+        (1, b256!("a8f6885e8bcbd1472f170ee0c1881bd17e2777b5be837042a869f9af9b0ad4e5")),
+        (2, b256!("1277441ec01a1f4fc6387db4a7ed59c0451b9dd11861bc34d135bff4a33d9025")),
+        (3, b256!("6ad9da0279384bc7b83f94a9745abd095c3d6b759cc4ff09a9c5efaa1d2b8072")),
+        (5, b256!("c89969296cd089a4e790030d9a57997264d9518a044fe6af270bc59df4c1d689")),
     ];
     for (count, expected) in cases {
         assert_eq!(entries_root(&entries[..count]), expected, "count {count}");
@@ -425,7 +426,7 @@ fn verify_snapshot_rejects_entries_that_do_not_hash_to_the_root() {
     let storage = registry_storage();
     let state = registry_state(&storage);
     let mut w = witness_at(&state, &storage, 1);
-    w.entries[2].last_heartbeat_at += 1;
+    w.entries[2].last_heartbeat_seq += 1;
     assert_eq!(
         verify_snapshot(state.state_root(), REGISTRY, &w, 25),
         Err(CommitteeError::EntriesRootMismatch {
@@ -476,7 +477,8 @@ fn verify_snapshot_rejects_a_bad_proof() {
 // derive
 // ---------------------------------------------------------------------------------------------
 
-/// An entry eligible at any cutoff: pubkey `seed` repeated, no exit, heartbeat at L1 block 1.
+/// An entry eligible at any cutoff: pubkey `seed` repeated, no exit, one heartbeat at L1 block 1
+/// (sequence 1).
 fn entry(seed: u8, eff_stake: U256) -> RegistryEntry {
     RegistryEntry {
         pubkey: B256::repeat_byte(seed),
@@ -484,6 +486,7 @@ fn entry(seed: u8, eff_stake: U256) -> RegistryEntry {
         active_from_l1: 0,
         exit_effective_l1: u64::MAX,
         last_heartbeat_at: 1,
+        last_heartbeat_seq: 1,
     }
 }
 
@@ -629,7 +632,7 @@ fn heartbeat_floor_is_capped_at_the_cutoff_window() {
 /// that never sent a heartbeat is a member, so a genesis of such entries derives.
 #[test]
 fn genesis_and_launch_epochs_are_not_heartbeat_filtered() {
-    let never = RegistryEntry { last_heartbeat_at: 0, ..entry(1, ether(1)) };
+    let never = RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 0, ..entry(1, ether(1)) };
     for target in [Schedule::E0, Schedule::E0 + 1, Schedule::E0 + LOOKAHEAD_EPOCHS] {
         assert_eq!(heartbeat_floor(&HB_SCHEDULE, W, target, C), Ok(None), "{target}");
         assert_eq!(heartbeat_eligible(vec![never.clone()], C, target), Ok(vec![never.pubkey]));
@@ -637,16 +640,25 @@ fn genesis_and_launch_epochs_are_not_heartbeat_filtered() {
     assert_eq!(heartbeat_eligible(vec![never], 300, 3), Err(CommitteeError::Empty));
 }
 
-/// In a filtered epoch an entry without a heartbeat is ineligible even when the floor is 0.
+/// In a filtered epoch an entry without a heartbeat (`lastHeartbeatSeq = 0`) is ineligible even
+/// when the floor is 0, while one whose heartbeat named window 0 (`lastHeartbeatAt = 0`,
+/// `lastHeartbeatSeq > 0`) is eligible: with the devnet window every L1 block is in window 0, so
+/// the epoch-3 committee derives from such heartbeats alone.
 #[test]
-fn an_entry_that_never_sent_a_heartbeat_is_ineligible() {
-    let params = ChainParams { heartbeat_window: u64::MAX, ..devnet() };
+fn the_heartbeat_sequence_tells_a_window_0_heartbeat_from_none() {
+    let params = devnet();
     assert_eq!(heartbeat_floor(&SCHEDULE, params.heartbeat_window, 3, C), Ok(Some(0)));
-    let never = RegistryEntry { last_heartbeat_at: 0, ..entry(1, ether(1)) };
-    let alive = entry(2, ether(1));
+    let never = RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 0, ..entry(1, ether(1)) };
+    let window_0 =
+        RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 1, ..entry(2, ether(1)) };
     let (_, members) =
-        derive(&snapshot(vec![never, alive.clone()]), C, 3, &SCHEDULE, &params).expect("derives");
-    assert_eq!(members.iter().map(|m| m.pubkey).collect::<Vec<_>>(), vec![alive.pubkey]);
+        derive(&snapshot(vec![never.clone(), window_0.clone()]), C, 3, &SCHEDULE, &params)
+            .expect("derives");
+    assert_eq!(members.iter().map(|m| m.pubkey).collect::<Vec<_>>(), vec![window_0.pubkey]);
+    assert_eq!(
+        derive(&snapshot(vec![never]), C, 3, &SCHEDULE, &params),
+        Err(CommitteeError::Empty)
+    );
 }
 
 #[test]

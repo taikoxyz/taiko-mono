@@ -61,8 +61,11 @@ pub struct RegistryEntry {
     /// `u64::MAX` means no exit is scheduled.
     pub exit_effective_l1: u64,
     /// Start L1 block of the heartbeat window the entry's last accepted heartbeat named
-    /// (MEM-13(2b) of #22262); 0 means the entry never sent one.
+    /// (MEM-13(2b) of #22262); 0 before the first heartbeat, and also after one naming window 0.
     pub last_heartbeat_at: u64,
+    /// `lastHeartbeatSeq`: the sequence of the entry's last accepted heartbeat; 0 means the entry
+    /// never sent one (MEM-13(3)'s guard, which `last_heartbeat_at` cannot give for window 0).
+    pub last_heartbeat_seq: u64,
 }
 
 /// The committee record for one target epoch, as hashed into `committee[epoch]` on L1
@@ -251,6 +254,7 @@ mod tests {
             active_from_l1: 12,
             exit_effective_l1: u64::MAX,
             last_heartbeat_at: 0,
+            last_heartbeat_seq: 1,
         });
     }
 

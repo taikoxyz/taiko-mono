@@ -229,6 +229,7 @@ mod tests {
                     active_from_l1: 0,
                     exit_effective_l1: u64::MAX,
                     last_heartbeat_at: 3,
+                    last_heartbeat_seq: 1,
                 }],
             },
         }

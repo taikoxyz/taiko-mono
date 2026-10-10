@@ -394,7 +394,8 @@ impl RegistryStorage {
     /// checkpoint the packed `l1Block | count << 64` word and `entriesRoot`, then the live
     /// `entries` array (see `layout::registry`) holding the LAST checkpoint's entries:
     /// `entries.length` at `R + 1` and per entry its `pubkey`, `effStake` and packed
-    /// `activeFromL1 | exitEffectiveL1 << 64 | lastHeartbeatAt << 128` words. Zero words are
+    /// `activeFromL1 | exitEffectiveL1 << 64 | lastHeartbeatAt << 128 | lastHeartbeatSeq << 192`
+    /// words. Zero words are
     /// included (the trie drops them, so they read back through exclusion proofs).
     ///
     /// A state built from this storage is the registry as of the last checkpoint's L1 block, so
@@ -419,7 +420,8 @@ impl RegistryStorage {
                 packed,
                 U256::from(entry.active_from_l1) |
                     (U256::from(entry.exit_effective_l1) << 64) |
-                    (U256::from(entry.last_heartbeat_at) << 128),
+                    (U256::from(entry.last_heartbeat_at) << 128) |
+                    (U256::from(entry.last_heartbeat_seq) << 192),
             ));
         }
         slots
@@ -460,7 +462,8 @@ pub(crate) fn committee_witness(
 
 /// `n` registry entries that are eligible at any cutoff below `2^63` under the devnet
 /// parameters: deterministic, distinct pubkeys `keccak256("etna validator <i>")`, stake
-/// `(i + 1)` TAIKO, active from L1 block 0, no exit, heartbeat at L1 block 1.
+/// `(i + 1)` TAIKO, active from L1 block 0, no exit, one heartbeat naming window 0 (start 0,
+/// sequence 1: every L1 block is in window 0 under the devnet heartbeat window).
 pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
     (0..n)
         .map(|i| RegistryEntry {
@@ -468,7 +471,8 @@ pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
             eff_stake: U256::from(i + 1) * U256::from(10u64).pow(U256::from(18u64)),
             active_from_l1: 0,
             exit_effective_l1: u64::MAX,
-            last_heartbeat_at: 1,
+            last_heartbeat_at: 0,
+            last_heartbeat_seq: 1,
         })
         .collect()
 }
@@ -697,6 +701,7 @@ mod tests {
         last[1].active_from_l1 = 0x0102;
         last[1].exit_effective_l1 = 0x0304;
         last[1].last_heartbeat_at = u64::MAX;
+        last[1].last_heartbeat_seq = 0x0506;
         let storage =
             RegistryStorage { checkpoints: vec![(5, sample_entries(5)), (9, last.clone())] };
         let slots = storage.slots();
@@ -711,13 +716,13 @@ mod tests {
             assert_eq!(word_u64(packed, 0), entry.active_from_l1);
             assert_eq!(word_u64(packed, 64), entry.exit_effective_l1);
             assert_eq!(word_u64(packed, 128), entry.last_heartbeat_at);
-            assert_eq!(packed >> 192, U256::ZERO);
+            assert_eq!(word_u64(packed, 192), entry.last_heartbeat_seq);
         }
         assert!(slots.iter().all(|(slot, _)| *slot != registry::entry_slots(3)[0]));
 
         assert_eq!(
             B256::from(word(&slots, registry::entry_slots(1)[2])),
-            b256!("0000000000000000ffffffffffffffff00000000000003040000000000000102")
+            b256!("0000000000000506ffffffffffffffff00000000000003040000000000000102")
         );
     }
 

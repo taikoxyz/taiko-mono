@@ -91,15 +91,17 @@ impl InboxValues {
     }
 }
 
-/// A registry entry for `pubkey` with `eff_stake`, active from L1 block 0, never exiting, with a
-/// heartbeat at L1 block 1.
+/// A registry entry for `pubkey` with `eff_stake`, active from L1 block 0, never exiting, with
+/// one heartbeat naming window 0 (start 0, sequence 1; the devnet heartbeat window puts every
+/// L1 block in window 0).
 pub fn registry_entry(pubkey: B256, eff_stake: U256) -> RegistryEntry {
     RegistryEntry {
         pubkey,
         eff_stake,
         active_from_l1: 0,
         exit_effective_l1: u64::MAX,
-        last_heartbeat_at: 1,
+        last_heartbeat_at: 0,
+        last_heartbeat_seq: 1,
     }
 }
 
@@ -212,7 +214,8 @@ impl Planter {
                 packed,
                 U256::from(e.active_from_l1) |
                     (U256::from(e.exit_effective_l1) << 64) |
-                    (U256::from(e.last_heartbeat_at) << 128),
+                    (U256::from(e.last_heartbeat_at) << 128) |
+                    (U256::from(e.last_heartbeat_seq) << 192),
             ));
         }
         Ok((index, w))

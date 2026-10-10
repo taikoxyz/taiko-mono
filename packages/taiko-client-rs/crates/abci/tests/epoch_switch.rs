@@ -53,16 +53,13 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     let power = u64::try_from(stake / devnet.params().vp_unit)?;
     devnet.wait_for_height(0, 1, Duration::from_secs(90)).await?;
 
-    // Registry checkpoint 1: the genesis entries plus validator 4, active (and heartbeating) from
-    // the checkpoint's own L1 block.
+    // Registry checkpoint 1: the genesis entries plus validator 4, active from the checkpoint's own
+    // L1 block and heartbeating there (window 0 under the devnet window: start 0, sequence 1, as
+    // every planted entry).
     let mut next = devnet.planter().next_block().await?;
     let joined = next.number();
     let mut entries: Vec<RegistryEntry> = (0..3).map(|i| devnet.registry_entry(i)).collect();
-    entries.push(RegistryEntry {
-        active_from_l1: joined,
-        last_heartbeat_at: joined,
-        ..devnet.registry_entry(3)
-    });
+    entries.push(RegistryEntry { active_from_l1: joined, ..devnet.registry_entry(3) });
     let index = next.write_registry_checkpoint(&entries).await?;
     assert_eq!(index, 1, "registry checkpoint index");
     assert_eq!(next.commit().await?, joined);
