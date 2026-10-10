@@ -11,7 +11,7 @@
 //! A bad or unbuildable proposal is never an error: it is a [`Rejection`] (liveness only).
 
 use std::{
-    collections::HashMap,
+    collections::VecDeque,
     future::Future,
     sync::{Mutex, MutexGuard, PoisonError},
     time::Duration,
@@ -83,6 +83,15 @@ pub const FINALIZE_RETRY_MAX: Duration = Duration::from_secs(5);
 /// How long `FinalizeBlock` retries the EL for one decided block before it logs every further
 /// retry at ERROR instead of WARN (it keeps retrying), so operators notice a stuck EL.
 pub const FINALIZE_RETRY_ESCALATE: Duration = Duration::from_secs(60);
+
+/// How many `ProcessProposal` ACCEPT verdicts the app keeps for `FinalizeBlock` at one height.
+///
+/// A height that takes many rounds (e.g. while more than a third of the voting power cannot see
+/// the proposals' anchors as final) yields a new accepted proposal per round, each up to the
+/// block size limit, so the cache is bounded. The decided block is a recent round's proposal, or
+/// a locked block that its re-proposal processes again, and `FinalizeBlock` re-validates and
+/// executes a block whose verdict was evicted.
+pub const MAX_VERDICTS: usize = 4;
 
 /// Deadlines of the app's external calls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -276,9 +285,9 @@ pub struct App<L: L1Source, E: Engine> {
     /// The state `FinalizeBlock` derived for the decided block; persisted and made the
     /// committed state by `Commit`.
     pending: Option<AppState>,
-    /// `ProcessProposal` ACCEPT verdicts by CometBFT block hash, for `FinalizeBlock`; cleared
-    /// at `Commit`.
-    verdicts: HashMap<Hash, Validated>,
+    /// The latest `ProcessProposal` ACCEPT verdicts (at most [`MAX_VERDICTS`]), for
+    /// `FinalizeBlock`; cleared at `Commit`.
+    verdicts: Verdicts,
     /// The last committee witness verified at `h_first(e)`, by `PrepareProposal` (its own) or
     /// `ProcessProposal` (another proposer's), kept so that this node's proposals in later rounds
     /// at the same height reuse it instead of reading the registry again. Every verified witness
@@ -328,7 +337,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             opts,
             state,
             pending: None,
-            verdicts: HashMap::new(),
+            verdicts: Verdicts::default(),
             committee_cache: Mutex::new(None),
             discovery: DiscoveryProgress::default(),
             halt: None,
@@ -487,6 +496,52 @@ impl<L: L1Source, E: Engine> App<L, E> {
             AbciMetrics::unsettled_depth(),
             status.head.saturating_sub(status.last_checkpoint_height),
         );
+    }
+}
+
+/// The latest `ProcessProposal` ACCEPT verdicts by CometBFT block hash, oldest first, at most
+/// [`MAX_VERDICTS`].
+#[derive(Debug, Default)]
+struct Verdicts(VecDeque<(Hash, Validated)>);
+
+impl Verdicts {
+    /// Records `validated` as the newest verdict for `hash`, replacing an older one for the same
+    /// hash and evicting the oldest beyond [`MAX_VERDICTS`].
+    fn insert(&mut self, hash: Hash, validated: Validated) {
+        self.0.retain(|(kept, _)| *kept != hash);
+        if self.0.len() >= MAX_VERDICTS {
+            self.0.pop_front();
+        }
+        self.0.push_back((hash, validated));
+    }
+
+    /// Takes the verdict for `hash`, if kept.
+    fn remove(&mut self, hash: &Hash) -> Option<Validated> {
+        let index = self.0.iter().position(|(kept, _)| kept == hash)?;
+        self.0.remove(index).map(|(_, validated)| validated)
+    }
+
+    /// The verdict for `hash`, if kept.
+    #[cfg(test)]
+    fn get(&self, hash: &Hash) -> Option<&Validated> {
+        self.0.iter().find(|(kept, _)| kept == hash).map(|(_, validated)| validated)
+    }
+
+    /// How many verdicts are kept.
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Whether no verdict is kept.
+    #[cfg(test)]
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Forgets every verdict.
+    fn clear(&mut self) {
+        self.0.clear();
     }
 }
 
