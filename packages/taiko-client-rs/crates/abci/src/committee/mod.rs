@@ -191,7 +191,8 @@ pub struct Snapshot {
 /// The registry `entriesRoot` over `entries`.
 ///
 /// Leaf `i` = `keccak256(abi.encode(bytes32("ETNA_REG_ENTRY"), uint256(i), bytes32 pubkey,
-/// uint256 effStake, uint64 activeFromL1, uint64 exitEffectiveL1, uint64 lastHeartbeatAt))`;
+/// uint256 effStake, uint64 activeFromL1, uint64 exitEffectiveL1, uint64 lastHeartbeatAt,
+/// uint64 lastHeartbeatSeq))`;
 /// the leaves are padded with `bytes32(0)` to the next power of two and hashed pairwise
 /// (`keccak256(left ‖ right)`). One entry gives its leaf; no entries give `bytes32(0)`.
 pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
@@ -359,7 +360,7 @@ pub fn verify_snapshot(
 
 /// The heartbeat requirement of `target_epoch`'s committee derived at `cutoff` (MEM-13(3) of
 /// #22262): `None` when the epoch's roster is not filtered by heartbeats, else the floor `f`. An
-/// entry of a filtered epoch is eligible only with a heartbeat (`lastHeartbeatAt > 0`) and
+/// entry of a filtered epoch is eligible only with a heartbeat (`lastHeartbeatSeq > 0`) and
 /// `lastHeartbeatAt >= f`.
 ///
 /// With `W = HEARTBEAT_WINDOW`, the evaluation instant is
@@ -411,7 +412,7 @@ pub fn heartbeat_floor(
 ///
 /// An entry is eligible iff `active_from_l1 <= cutoff < exit_effective_l1`,
 /// `eff_stake >= max(s_min, vp_unit)` and, when [`heartbeat_floor`] filters the epoch,
-/// `last_heartbeat_at > 0` and `last_heartbeat_at >=` the floor. Among eligible entries that
+/// `last_heartbeat_seq > 0` and `last_heartbeat_at >=` the floor. Among eligible entries that
 /// share a pubkey only the one with the lowest `bondId` (index in the snapshot, i.e. the earliest
 /// registration) is kept: a later entry copying a sitting validator's key changes nothing
 /// (defence in depth; the registry must refuse such a registration, see the module docs). If
@@ -532,7 +533,7 @@ fn is_eligible(e: &RegistryEntry, cutoff: u64, min_stake: U256, floor: Option<u6
     e.active_from_l1 <= cutoff &&
         cutoff < e.exit_effective_l1 &&
         e.eff_stake >= min_stake &&
-        floor.is_none_or(|floor| e.last_heartbeat_at > 0 && e.last_heartbeat_at >= floor)
+        floor.is_none_or(|floor| e.last_heartbeat_seq > 0 && e.last_heartbeat_at >= floor)
 }
 
 /// The registry leaf of entry `index` (see [`entries_root`]).
@@ -546,6 +547,7 @@ fn entry_leaf(index: usize, e: &RegistryEntry) -> B256 {
             word(e.active_from_l1),
             word(e.exit_effective_l1),
             word(e.last_heartbeat_at),
+            word(e.last_heartbeat_seq),
         ]
         .concat(),
     )

@@ -297,6 +297,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
                     active_from_l1: word_u64(packed, 0),
                     exit_effective_l1: word_u64(packed, 64),
                     last_heartbeat_at: word_u64(packed, 128),
+                    last_heartbeat_seq: word_u64(packed, 192),
                 }
             })
             .collect();

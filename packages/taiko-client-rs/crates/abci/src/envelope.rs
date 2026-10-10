@@ -329,6 +329,7 @@ mod tests {
                     active_from_l1: 100,
                     exit_effective_l1: u64::MAX,
                     last_heartbeat_at: 8_000,
+                    last_heartbeat_seq: 7,
                 },
                 RegistryEntry {
                     pubkey: B256::repeat_byte(0x20),
@@ -336,6 +337,7 @@ mod tests {
                     active_from_l1: 200,
                     exit_effective_l1: 9_500,
                     last_heartbeat_at: 0,
+                    last_heartbeat_seq: 0,
                 },
             ],
         }
@@ -737,6 +739,7 @@ mod tests {
                     active_from_l1: 0x64,
                     exit_effective_l1: u64::MAX,
                     last_heartbeat_at: 0x1f40,
+                    last_heartbeat_seq: 0x0102,
                 }],
             }),
         };
@@ -792,6 +795,7 @@ mod tests {
             &hex!("64"),                   // active_from_l1
             &hex!("88ffffffffffffffff"),   // exit_effective_l1: u64::MAX
             &hex!("821f40"),               // last_heartbeat_at
+            &hex!("820102"),               // last_heartbeat_seq
         ]);
         let committee = list(&[
             &record,          // record

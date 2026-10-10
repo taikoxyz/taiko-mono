@@ -25,8 +25,10 @@
 //!   ones included, in `bondId` order) as they stand at the end of its `l1Block`.
 //! - **Heartbeat records.** An entry's `lastHeartbeatAt` is the start L1 block of the heartbeat
 //!   window its last accepted heartbeat named, on the chain's `HEARTBEAT_WINDOW` grid (MEM-13(2b)),
-//!   and 0 until its first heartbeat. Eligibility from epoch `e_0 + 3` on compares it with a window
-//!   start (`committee::heartbeat_floor`).
+//!   and `lastHeartbeatSeq` is that heartbeat's sequence: both 0 until the first heartbeat
+//!   (registration is not one), and the sequence `> 0` after it, including after a heartbeat naming
+//!   window 0 (whose start is 0). Eligibility from epoch `e_0 + 3` on requires `lastHeartbeatSeq >
+//!   0` and compares `lastHeartbeatAt` with a window start (`committee::heartbeat_floor`).
 //! - **Unique pubkeys.** Registration refuses a `pubkey` that any non-exited entry holds (ideally
 //!   requiring a proof of possession of the key). The node keeps only the lowest `bondId` among
 //!   eligible entries sharing a pubkey (`committee::derive`), so a squatting entry cannot halt the
@@ -109,7 +111,7 @@ pub mod inbox {
 /// `{ uint64 l1Block; uint32 count; bytes32 entriesRoot; }`. The second field is `entries`, the
 /// live entry array the checkpoints snapshot: a dynamic array of three-word structs
 /// `{ bytes32 pubkey; uint256 effStake; uint64 activeFromL1; uint64 exitEffectiveL1;
-/// uint64 lastHeartbeatAt; }` indexed by `bondId`.
+/// uint64 lastHeartbeatAt; uint64 lastHeartbeatSeq; }` indexed by `bondId`.
 ///
 /// As the contract appends a checkpoint in every L1 block that changes any entry (see the
 /// contract obligations in the module docs), the entries read at block `checkpoints[i].l1Block`
@@ -157,8 +159,8 @@ pub mod registry {
     /// in U256).
     ///
     /// The words are `pubkey` (`bytes32`), `effStake` (`uint256`), and the packed
-    /// `activeFromL1` (`uint64`, bits 0–63), `exitEffectiveL1` (bits 64–127) and
-    /// `lastHeartbeatAt` (bits 128–191).
+    /// `activeFromL1` (`uint64`, bits 0–63), `exitEffectiveL1` (bits 64–127),
+    /// `lastHeartbeatAt` (bits 128–191) and `lastHeartbeatSeq` (bits 192–255).
     pub fn entry_slots(j: u64) -> [B256; 3] {
         let data = U256::from_be_bytes(keccak256(entries_length_slot()).0);
         let first = data.wrapping_add(U256::from(j) * U256::from(3));
