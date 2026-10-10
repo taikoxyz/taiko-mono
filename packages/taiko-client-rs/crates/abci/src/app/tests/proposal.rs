@@ -284,7 +284,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     assert!(app.l1().calls().is_empty(), "no witness, no L1 call");
     let anchor_before = app.state().unwrap().anchor.clone();
-    assert_eq!(app.verdicts[&req.hash].anchor, anchor_before);
+    assert_eq!(app.verdicts.get(&req.hash).expect("the verdict is cached").anchor, anchor_before);
     decide(&mut app, &req).await;
 
     // L1 finalizes block 66, where the checkpoint has advanced: the anchor moves.
@@ -302,7 +302,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(66)], "finality check");
-    let v = &app.verdicts[&req.hash];
+    let v = app.verdicts.get(&req.hash).expect("the verdict is cached");
     assert_eq!(v.anchor.number, 66);
     assert_eq!(v.anchor.inbox.last_checkpoint_height, fx.activation.genesis_height + 1);
     decide(&mut app, &req).await;
@@ -365,7 +365,13 @@ async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
 
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
-    let (target, derived) = app.verdicts[&req.hash].derived.clone().expect("derived");
+    let (target, derived) = app
+        .verdicts
+        .get(&req.hash)
+        .expect("the verdict is cached")
+        .derived
+        .clone()
+        .expect("derived");
     assert_eq!(target, 2);
     assert_eq!(derived.record, committee.record);
     assert_eq!(derived.members.len(), 4);
@@ -392,7 +398,7 @@ async fn round_trip_at_a_switch_height_with_the_landed_record() {
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     assert_eq!(
-        app.verdicts[&req.hash].anchor.inbox.committee,
+        app.verdicts.get(&req.hash).expect("the verdict is cached").anchor.inbox.committee,
         Some((1, record_hash(fx.params.l2_chain_id, &c1.record)))
     );
 

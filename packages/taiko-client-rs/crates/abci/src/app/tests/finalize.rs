@@ -15,7 +15,7 @@ use super::{
     *,
 };
 use crate::{
-    app::FINALIZE_RETRY_ESCALATE,
+    app::{FINALIZE_RETRY_ESCALATE, MAX_VERDICTS},
     committee::{self, Snapshot, record_hash},
     engine::{EngineError, PayloadVerdict},
     store::{AppState, CommitteeState},
@@ -81,6 +81,46 @@ async fn finalize_after_process_uses_the_cached_verdict() {
     assert_eq!(out.consensus_param_updates, None);
     assert_eq!(out.app_hash, AppHash::try_from(hash.to_vec()).unwrap());
     assert_eq!(app.state().unwrap().last_height, next_height(&app) - 1, "not committed yet");
+    assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(hash));
+}
+
+/// A height that takes many rounds keeps only the latest [`MAX_VERDICTS`] accepted proposals,
+/// and a decided block whose verdict was evicted is re-validated and executed like one
+/// `ProcessProposal` never saw.
+#[tokio::test]
+async fn the_verdict_cache_is_bounded_and_an_evicted_block_still_finalizes() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = anchor_moving(&fx, dir.path()).await;
+    let env = propose(&mut app).await;
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    for round in 1..=MAX_VERDICTS {
+        let mut later = req.clone();
+        later.hash = Hash::Sha256([u8::try_from(round).unwrap(); 32]);
+        assert_eq!(process(&mut app, later).await, response::ProcessProposal::Accept);
+    }
+    assert_eq!(app.verdicts.len(), MAX_VERDICTS);
+    assert!(app.verdicts.get(&req.hash).is_none(), "the oldest verdict is evicted");
+
+    // Processing a kept block again refreshes it instead of adding a second verdict.
+    let mut kept = req.clone();
+    kept.hash = Hash::Sha256([1; 32]);
+    assert_eq!(process(&mut app, kept.clone()).await, response::ProcessProposal::Accept);
+    assert_eq!(app.verdicts.len(), MAX_VERDICTS);
+
+    let before = app.engine().calls().len();
+    finalize(&mut app, finalize_req(&req)).await.expect("the evicted block finalizes");
+    let hash = env.block.header.hash_slow();
+    let checkpoint = fx.inbox_with(fx.activation.genesis_height + 3, &[]).last_checkpoint_hash;
+    assert_eq!(
+        engine_calls_since(&app, before),
+        [
+            EngineCall::NewPayload(hash),
+            EngineCall::Forkchoice { head: hash, safe: hash, finalized: checkpoint },
+        ],
+        "re-validated and executed, as on a cold start"
+    );
     assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(hash));
 }
 
@@ -430,7 +470,7 @@ async fn forkchoice_syncing_after_a_cached_verdict_resends_the_payload() {
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     let hash = env.block.header.hash_slow();
-    assert!(app.verdicts[&req.hash].executed);
+    assert!(app.verdicts.get(&req.hash).expect("the verdict is cached").executed);
     app.engine().state().known.remove(&hash);
 
     let before = app.engine().calls().len();
