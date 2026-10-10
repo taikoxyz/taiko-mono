@@ -2,7 +2,7 @@
 //! from the registry before the DAO proposal that activates Etna is written.
 
 use alloy_primitives::{B256, U256};
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use crate::{
     committee::{CommitteeError, record_hash, verify_committee_witness_at_cutoff},
@@ -14,6 +14,10 @@ use crate::{
 
 /// The genesis committee an activation with a given `genesisCutoff` records, as
 /// [`build_committee_record`] derives it.
+///
+/// Serializes with every `U256` (the record's `total_stake`, each member's `eff_stake`) as a
+/// decimal string, as the plain-text report prints them; alloy's own `U256` serialization is `0x`
+/// hex.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct GenesisCommitteeRecord {
     /// `committeeRecordHash`: the `committee[e_0]` value `activateEtna` takes
@@ -21,8 +25,10 @@ pub struct GenesisCommitteeRecord {
     pub record_hash: B256,
     /// The derived record: target epoch `e_0`, snapshot cutoff `genesisCutoff`, the snapshot's
     /// checkpoint index, set root and totals.
+    #[serde(serialize_with = "serialize_record")]
     pub record: CommitteeRecord,
     /// The members, sorted by the MEM-08 key; their powers become the genesis validator set.
+    #[serde(serialize_with = "serialize_members")]
     pub members: Vec<Member>,
     /// The L1 block the registry snapshot was read and proven at (the proving block).
     pub proving_block: u64,
@@ -42,12 +48,84 @@ impl GenesisCommitteeRecord {
     }
 }
 
+/// The report's JSON shape of a [`CommitteeRecord`]: its fields, with `total_stake` in decimal.
+#[derive(Serialize)]
+struct RecordJson {
+    /// [`CommitteeRecord::target_epoch`].
+    target_epoch: u64,
+    /// [`CommitteeRecord::cutoff_l1_block`].
+    cutoff_l1_block: u64,
+    /// [`CommitteeRecord::checkpoint_index`].
+    checkpoint_index: u64,
+    /// [`CommitteeRecord::set_root`].
+    set_root: B256,
+    /// [`CommitteeRecord::total_stake`], in TAIKO base units, as a decimal string.
+    #[serde(serialize_with = "serialize_decimal")]
+    total_stake: U256,
+    /// [`CommitteeRecord::total_power`].
+    total_power: u64,
+    /// [`CommitteeRecord::encoding_version`].
+    encoding_version: u8,
+}
+
+/// The report's JSON shape of a [`Member`]: its fields, with `eff_stake` in decimal.
+#[derive(Serialize)]
+struct MemberJson {
+    /// [`Member::pubkey`].
+    pubkey: B256,
+    /// [`Member::eff_stake`], in TAIKO base units, as a decimal string.
+    #[serde(serialize_with = "serialize_decimal")]
+    eff_stake: U256,
+    /// [`Member::power`].
+    power: u64,
+}
+
+/// Serializes [`GenesisCommitteeRecord::record`] as a [`RecordJson`].
+fn serialize_record<S: Serializer>(record: &CommitteeRecord, s: S) -> Result<S::Ok, S::Error> {
+    RecordJson {
+        target_epoch: record.target_epoch,
+        cutoff_l1_block: record.cutoff_l1_block,
+        checkpoint_index: record.checkpoint_index,
+        set_root: record.set_root,
+        total_stake: record.total_stake,
+        total_power: record.total_power,
+        encoding_version: record.encoding_version,
+    }
+    .serialize(s)
+}
+
+/// Serializes [`GenesisCommitteeRecord::members`] as a sequence of [`MemberJson`].
+fn serialize_members<S: Serializer>(members: &[Member], s: S) -> Result<S::Ok, S::Error> {
+    s.collect_seq(members.iter().map(|m| MemberJson {
+        pubkey: m.pubkey,
+        eff_stake: m.eff_stake,
+        power: m.power,
+    }))
+}
+
+/// Serializes a `U256` as a decimal string.
+fn serialize_decimal<S: Serializer>(value: &U256, s: S) -> Result<S::Ok, S::Error> {
+    s.collect_str(value)
+}
+
 /// Why the activation's committee record could not be computed.
 #[derive(Debug, thiserror::Error)]
 pub enum CommitteeRecordError {
     /// An L1 read failed (the `finalized` number or the proving block's header).
     #[error(transparent)]
     L1(#[from] L1Error),
+    /// The genesis cutoff is after the L1 `finalized` block. The activation fixes the cutoff
+    /// irreversibly, so the registry snapshot there must already be final.
+    #[error(
+        "the genesis cutoff {genesis_cutoff} is after the L1 finalized block {finalized}; the \
+         activation fixes it irreversibly, so pick a final L1 block"
+    )]
+    GenesisCutoffNotFinal {
+        /// The requested `genesisCutoff`.
+        genesis_cutoff: u64,
+        /// The L1 node's `finalized` block number.
+        finalized: u64,
+    },
     /// The proving block is not after the genesis cutoff, so the snapshot at the cutoff is not
     /// final there: a checkpoint written later, at or before the cutoff, would change it.
     #[error(
@@ -88,8 +166,10 @@ pub enum CommitteeRecordError {
 /// Computes the genesis committee record an activation with `genesis_cutoff` would record, from
 /// the node's own L1.
 ///
-/// In order: the proving block is `at`, or the L1 `finalized` block when `None`, and must be after
-/// `genesis_cutoff` ([`CommitteeRecordError::ProvingBlockNotAfterCutoff`]); builds the `e_0`
+/// In order: `genesis_cutoff` must be at or before the L1 `finalized` block
+/// ([`CommitteeRecordError::GenesisCutoffNotFinal`]), as the activation fixes it irreversibly; the
+/// proving block is `at`, or the `finalized` block when `None`, and must be after `genesis_cutoff`
+/// ([`CommitteeRecordError::ProvingBlockNotAfterCutoff`]); builds the `e_0`
 /// committee witness with the snapshot at `genesis_cutoff` itself (no cutoff lag or grid) and its
 /// proofs at the proving block ([`build_committee_witness_at_cutoff`]), verifies it against that
 /// block's canonical header ([`verify_committee_witness_at_cutoff`]), and derives the committee
@@ -105,10 +185,11 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
     genesis_cutoff: u64,
     at: Option<u64>,
 ) -> Result<GenesisCommitteeRecord, CommitteeRecordError> {
-    let at = match at {
-        Some(at) => at,
-        None => l1.finalized_number().await?,
-    };
+    let finalized = l1.finalized_number().await?;
+    if genesis_cutoff > finalized {
+        return Err(CommitteeRecordError::GenesisCutoffNotFinal { genesis_cutoff, finalized });
+    }
+    let at = at.unwrap_or(finalized);
     if at <= genesis_cutoff {
         return Err(CommitteeRecordError::ProvingBlockNotAfterCutoff { at, genesis_cutoff });
     }
@@ -198,10 +279,18 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
         assert_eq!(json["record_hash"], report.record_hash.to_string());
         assert_eq!(json["record"]["cutoff_l1_block"], cutoff);
+        assert_eq!(json["record"]["total_stake"], report.record.total_stake.to_string());
         assert_eq!(json["members"].as_array().map(Vec::len), Some(3));
+        for (member, value) in report.members.iter().zip(json["members"].as_array().unwrap()) {
+            assert_eq!(value["pubkey"], member.pubkey.to_string());
+            assert_eq!(value["eff_stake"], member.eff_stake.to_string(), "decimal, not hex");
+            assert_eq!(value["power"], member.power);
+        }
+        assert_eq!(json["proving_block"], report.proving_block);
         assert_eq!(json["min_l1_0"], cutoff + 1);
 
-        // An explicit proving block skips the finalized read and gives the same record.
+        // An explicit proving block, even one past the finalized block, gives the same record;
+        // the finalized block is still read, to check that the cutoff is final.
         let later = fx.activation.l1_0 + 6;
         fx.plant_l1_block(&l1, later, &fx.inbox, &fx.registry);
         l1.state().calls.clear();
@@ -210,7 +299,54 @@ mod tests {
             .expect("the snapshot is final at the later block too");
         assert_eq!(at_later.proving_block, later);
         assert_eq!(at_later.record_hash, report.record_hash);
-        assert!(!l1.calls().contains(&L1Call::Finalized));
+        assert_eq!(l1.calls()[0], L1Call::Finalized);
+    }
+
+    /// The JSON report prints every `U256` as a decimal string, as the plain-text report does.
+    #[test]
+    fn json_report_prints_u256_values_in_decimal() {
+        let stake = U256::from(10u64).pow(U256::from(30u64));
+        let report = GenesisCommitteeRecord {
+            record_hash: B256::repeat_byte(0xab),
+            record: CommitteeRecord {
+                target_epoch: 0,
+                cutoff_l1_block: 63,
+                checkpoint_index: 2,
+                set_root: B256::repeat_byte(0x5e),
+                total_stake: stake,
+                total_power: 7,
+                encoding_version: 1,
+            },
+            members: vec![Member { pubkey: B256::repeat_byte(0x11), eff_stake: stake, power: 7 }],
+            proving_block: 64,
+            min_l1_0: None,
+        };
+        let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
+        let decimal = "1000000000000000000000000000000";
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "record_hash": B256::repeat_byte(0xab).to_string(),
+                "record": {
+                    "target_epoch": 0,
+                    "cutoff_l1_block": 63,
+                    "checkpoint_index": 2,
+                    "set_root": B256::repeat_byte(0x5e).to_string(),
+                    "total_stake": decimal,
+                    "total_power": 7,
+                    "encoding_version": 1,
+                },
+                "members": [
+                    { "pubkey": B256::repeat_byte(0x11).to_string(), "eff_stake": decimal, "power": 7 },
+                ],
+                "proving_block": 64,
+                "min_l1_0": null,
+            })
+        );
+        let text = report.to_json_pretty();
+        let order = ["record_hash", "record", "members", "proving_block", "min_l1_0"]
+            .map(|key| text.find(&format!("\"{key}\"")).expect("every field is printed"));
+        assert!(order.is_sorted(), "fields in declaration order: {text}");
     }
 
     /// The record applies no heartbeat filter, as `e_0` never does: entries that never sent a
@@ -263,7 +399,8 @@ mod tests {
         );
     }
 
-    /// The proving block must be after the cutoff; nothing is read when `--at` already fails.
+    /// The proving block must be after the cutoff; nothing but the finalized block is read when
+    /// `--at` already fails.
     #[tokio::test]
     async fn a_proving_block_not_after_the_cutoff_is_refused() {
         let fx = Fixture::genesis(2);
@@ -281,7 +418,7 @@ mod tests {
                 ),
                 "{err:?}"
             );
-            assert!(l1.calls().is_empty(), "{:?}", l1.calls());
+            assert_eq!(l1.calls(), vec![L1Call::Finalized]);
         }
 
         // The default proving block, the finalized one, must be after the cutoff too.
@@ -294,6 +431,41 @@ mod tests {
             matches!(err, CommitteeRecordError::ProvingBlockNotAfterCutoff { at, .. } if at == finalized),
             "{err:?}"
         );
+    }
+
+    /// A cutoff after the L1 finalized block is refused, even with a later explicit proving
+    /// block, before anything but the finalized block is read; a cutoff at the finalized block
+    /// is final and passes that check.
+    #[tokio::test]
+    async fn a_genesis_cutoff_after_the_finalized_block_is_refused() {
+        let fx = Fixture::genesis(2);
+        let l1 = fx.l1();
+        let finalized = l1.state().finalized;
+        for cutoff in [finalized + 1, u64::MAX] {
+            l1.state().calls.clear();
+            let at = cutoff.saturating_add(5);
+            let err = build_committee_record(&l1, &fx.params, cutoff, Some(at))
+                .await
+                .expect_err("cutoff > finalized");
+            assert!(
+                matches!(
+                    err,
+                    CommitteeRecordError::GenesisCutoffNotFinal { genesis_cutoff, finalized: f }
+                        if genesis_cutoff == cutoff && f == finalized
+                ),
+                "{err:?}"
+            );
+            assert!(err.to_string().contains("pick a final L1 block"), "{err}");
+            assert_eq!(l1.calls(), vec![L1Call::Finalized]);
+        }
+
+        // A cutoff at the finalized block is final: it is accepted with a later proving block.
+        let later = finalized + 6;
+        fx.plant_l1_block(&l1, later, &fx.inbox, &fx.registry);
+        let report = build_committee_record(&l1, &fx.params, finalized, Some(later))
+            .await
+            .expect("a cutoff at the finalized block is final");
+        assert_eq!(report.record.cutoff_l1_block, finalized);
     }
 
     #[test]

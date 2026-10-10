@@ -81,7 +81,8 @@ pub enum CommitteeError {
     /// The cutoff grid `G` is zero.
     #[error("cutoff grid must be >= 1")]
     ZeroCutoffGrid,
-    /// The parent's anchor number is below the cutoff lag, so no cutoff exists.
+    /// The parent's anchor number is below the cutoff lag, so no lagged cutoff exists
+    /// ([`cutoff`] only: [`snapshot_cutoff`] then takes the genesis cutoff).
     #[error("parent anchor {parent_anchor} is below the cutoff lag {lag}")]
     AnchorBelowLag {
         /// The parent block's anchor L1 block number `n_p`.
@@ -293,7 +294,8 @@ pub fn cutoff(parent_anchor: u64, grid: u64, lag: u64) -> Result<u64, CommitteeE
 
 /// The snapshot cutoff of a committee for a target epoch after `e_0`, derived at a height whose
 /// parent anchors at `parent_anchor`: `max(cutoff(parent_anchor), schedule.genesis_cutoff)`, with
-/// `params`' grid and lag ([`cutoff`], whose errors it returns).
+/// `params`' grid and lag ([`cutoff`]). A parent anchor below the lag has no lagged cutoff, so the
+/// floor alone stands: `schedule.genesis_cutoff`. Rejects only `grid == 0`.
 ///
 /// The floor keeps every later snapshot at or after the genesis committee's: `e_0 + 1` is derived
 /// at `H_0` from the genesis anchor `L1_0`, whose lagged cutoff may precede `genesisCutoff`, so
@@ -305,7 +307,11 @@ pub fn snapshot_cutoff(
     schedule: &Schedule,
     params: &ChainParams,
 ) -> Result<u64, CommitteeError> {
-    Ok(cutoff(parent_anchor, params.cutoff_grid, params.cutoff_lag)?.max(schedule.genesis_cutoff))
+    match cutoff(parent_anchor, params.cutoff_grid, params.cutoff_lag) {
+        Ok(lagged) => Ok(lagged.max(schedule.genesis_cutoff)),
+        Err(CommitteeError::AnchorBelowLag { .. }) => Ok(schedule.genesis_cutoff),
+        Err(err) => Err(err),
+    }
 }
 
 /// The registry slots a committee witness for checkpoint `i` proves, in this order:

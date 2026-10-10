@@ -45,11 +45,13 @@ pub struct AbciCommitteeRecordSubCommand {
     )]
     pub chain_config: Option<PathBuf>,
     /// The `genesisCutoff` the activation will pass: the L1 block whose registry snapshot defines
-    /// the genesis committee.
+    /// the genesis committee. It must be at or before the L1 `finalized` block, as the activation
+    /// fixes it irreversibly.
     #[clap(
         long = "genesis-cutoff",
         required = true,
-        help = "L1 block of the genesis committee's registry snapshot (activateEtna's genesisCutoff)"
+        help = "L1 block of the genesis committee's registry snapshot (activateEtna's \
+                genesisCutoff), at or before the L1 finalized block"
     )]
     pub genesis_cutoff: u64,
     /// The L1 block the snapshot is read and proven at; must be after the cutoff. The L1

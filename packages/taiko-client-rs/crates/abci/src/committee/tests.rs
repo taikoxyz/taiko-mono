@@ -922,17 +922,25 @@ fn verify_committee_witness_requires_the_cutoff_snapshot() {
     );
 }
 
+/// A parent anchor below the lag has no lagged cutoff, so the snapshot is taken at the genesis
+/// cutoff: through an anchor of 1, the record derived at 25 verifies and the one at 24 does not.
 #[test]
-fn verify_committee_witness_rejects_a_parent_anchor_below_the_lag() {
+fn verify_committee_witness_takes_the_genesis_cutoff_below_the_lag() {
     let params = grid_params();
     let storage = registry_storage();
     let state = registry_state(&storage);
-    let (record, _) = expected_committee(&params);
-    let w = committee_witness(&state, REGISTRY, &storage, 1, record);
-    assert_eq!(
-        verify_committee_witness(&anchor_at(1, state.state_root()), &SCHEDULE, &params, &w, 3),
-        Err(CommitteeError::AnchorBelowLag { parent_anchor: 1, lag: 2 })
-    );
+    let anchor = anchor_at(1, state.state_root());
+    let snapshot = Snapshot { checkpoint_index: 1, l1_block: 20, entries: sample_entries(3) };
+    let (floored, members) = derive(&snapshot, 25, 3, &FLOORED, &params).unwrap();
+    let w = committee_witness(&state, REGISTRY, &storage, 1, floored.clone());
+    assert_eq!(verify_committee_witness(&anchor, &FLOORED, &params, &w, 3), Ok((floored, members)));
+
+    let (lagged, _) = expected_committee(&params);
+    let w = committee_witness(&state, REGISTRY, &storage, 1, lagged.clone());
+    assert!(matches!(
+        verify_committee_witness(&anchor, &FLOORED, &params, &w, 3),
+        Err(CommitteeError::RecordMismatch { .. })
+    ));
 }
 
 #[test]
@@ -980,16 +988,19 @@ fn verify_committee_witness_at_cutoff_takes_the_cutoff_as_is() {
 const FLOORED: Schedule = Schedule { genesis_cutoff: 25, ..SCHEDULE };
 
 /// The anchored cutoff is floored at the genesis cutoff; above it, the anchor's lagged, gridded
-/// cutoff stands; below the lag it is still undefined.
+/// cutoff stands; below the lag, where no lagged cutoff exists, the genesis cutoff stands. A zero
+/// grid is still rejected.
 #[test]
 fn snapshot_cutoff_is_floored_at_the_genesis_cutoff() {
     let params = grid_params();
     assert_eq!(snapshot_cutoff(27, &SCHEDULE, &params), Ok(24));
     assert_eq!(snapshot_cutoff(27, &FLOORED, &params), Ok(25));
     assert_eq!(snapshot_cutoff(31, &FLOORED, &params), Ok(28));
+    assert_eq!(snapshot_cutoff(1, &FLOORED, &params), Ok(25));
+    assert_eq!(snapshot_cutoff(1, &SCHEDULE, &params), Ok(0));
     assert_eq!(
-        snapshot_cutoff(1, &FLOORED, &params),
-        Err(CommitteeError::AnchorBelowLag { parent_anchor: 1, lag: 2 })
+        snapshot_cutoff(27, &FLOORED, &ChainParams { cutoff_grid: 0, ..params }),
+        Err(CommitteeError::ZeroCutoffGrid)
     );
 }
 

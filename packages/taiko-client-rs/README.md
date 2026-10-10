@@ -101,8 +101,8 @@ committee is the staking registry's snapshot at the Inbox's `genesisCutoff`, tak
 that past L1 block explicitly, as it is written before the activation block is known. Every
 later epoch's snapshot cutoff is the parent block's anchor lagged by `cutoff_lag` and rounded
 down to the `cutoff_grid`, floored at `genesisCutoff`: the first height derives epoch 1 from the
-activation block, whose lagged cutoff may precede `genesisCutoff`, and the floor keeps every
-entry eligible at `genesisCutoff` in it.
+activation block, and derives it from the `genesisCutoff` snapshot whenever that block's lagged
+cutoff precedes it.
 
 | Flag             | Description                                                                       |
 | ---------------- | --------------------------------------------------------------------------------- |
@@ -127,7 +127,7 @@ proposal's hash.
 | `--l1.http`        | L1 node serving state from the proving block back to `--genesis-cutoff`, HTTP(S) |
 | `--l2.chain-id`    | L2 chain id selecting the built-in chain parameters (no L2 node is contacted)    |
 | `--chain-config`   | Optional TOML overriding the built-in chain parameters (devnet only)             |
-| `--genesis-cutoff` | The activation's `genesisCutoff`, an L1 block number, required                   |
+| `--genesis-cutoff` | The activation's `genesisCutoff`, an L1 block at or before `finalized`, required |
 | `--at`             | The proving block, after the cutoff (default: the L1 node's `finalized` block)   |
 | `--json`           | Print the report as JSON instead of plain text                                   |
 
@@ -135,12 +135,14 @@ The report gives the record hash, the cutoff, the snapshot's checkpoint index, t
 every member's public key and voting power, the total voting power and stake, and the first
 activation block whose lagged, gridded cutoff reaches the genesis cutoff (informational: the node
 floors every later epoch's cutoff at `genesisCutoff`, so an earlier activation is safe too). A
-cutoff at which no entry is eligible is refused with an explanation: activating with it would
-leave the chain without validators. Logs go to standard error.
+cutoff after the L1 node's `finalized` block is refused, as the activation fixes it irreversibly,
+and so is a cutoff at which no entry is eligible: activating with it would leave the chain
+without validators. `--json` prints stakes as decimal strings, like the plain text. Logs go to
+standard error.
 
 ```sh
 taiko-client abci-committee-record --l1.http http://l1-node:8545 --l2.chain-id 167001 \
-  --genesis-cutoff 21500000
+  --genesis-cutoff 400000
 ```
 
 ## Run a validator

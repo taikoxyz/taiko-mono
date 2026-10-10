@@ -23,8 +23,8 @@
 //!   abci-committee-record`). At least one entry must be eligible at that snapshot, or `e_0` does
 //!   not derive. Every later epoch's snapshot cutoff is floored at `genesisCutoff`
 //!   (`committee::snapshot_cutoff`), so `e_0 + 1`, derived at `H_0` from the genesis anchor `L1_0`,
-//!   sees at least the entries eligible at `genesisCutoff` even when the lagged cutoff of `L1_0`
-//!   precedes it; a `genesisCutoff` close to `L1_0` is therefore safe.
+//!   derives from the `genesisCutoff` snapshot whenever the lagged cutoff of `L1_0` precedes it; a
+//!   `genesisCutoff` close to `L1_0` is therefore safe.
 //! - **A registry checkpoint in every changing L1 block.** `checkpoints[i].l1Block` is strictly
 //!   increasing in `i`, and every L1 block that changes any entry has a checkpoint (a block that
 //!   changes none may have one too). The snapshot search relies on the order, and discovery reads
