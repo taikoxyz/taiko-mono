@@ -535,10 +535,10 @@ pub fn verify_committee_witness(
     w: &CommitteeWitness,
     target_epoch: u64,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
-    let c = snapshot_cutoff(parent_anchor.number, schedule, params)?;
+    let cutoff = snapshot_cutoff(parent_anchor.number, schedule, params)?;
     verify_committee_witness_at_cutoff(
         parent_anchor.state_root,
-        c,
+        cutoff,
         schedule,
         params,
         w,

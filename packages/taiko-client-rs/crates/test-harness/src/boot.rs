@@ -162,7 +162,12 @@ pub(crate) async fn boot(
         plant_genesis(&planter, &params, spec, &entries, (genesis_hash, genesis_state_root))
             .await?;
     let l1_0 = activation.l1_0;
-    tracing::info!(l1_0, genesis_cutoff = activation.genesis_cutoff, %genesis_hash, "activation planted");
+    tracing::info!(
+        l1_0,
+        genesis_cutoff = activation.genesis_cutoff,
+        %genesis_hash,
+        "activation planted"
+    );
 
     // 4. Genesis, once L1_0 is final.
     wait_until("L1 finalized >= L1_0", RPC_TIMEOUT, POLL, || async {

@@ -169,12 +169,12 @@ pub enum CommitteeRecordError {
 /// In order: `genesis_cutoff` must be at or before the L1 `finalized` block
 /// ([`CommitteeRecordError::GenesisCutoffNotFinal`]), as the activation fixes it irreversibly; the
 /// proving block is `at`, or the `finalized` block when `None`, and must be after `genesis_cutoff`
-/// ([`CommitteeRecordError::ProvingBlockNotAfterCutoff`]); builds the `e_0`
-/// committee witness with the snapshot at `genesis_cutoff` itself (no cutoff lag or grid) and its
-/// proofs at the proving block ([`build_committee_witness_at_cutoff`]), verifies it against that
-/// block's canonical header ([`verify_committee_witness_at_cutoff`]), and derives the committee
-/// as `InitChain` will: no heartbeat filter, the lowest `bondId` per pubkey, at most `n_max`
-/// members by stake. No eligible entry is [`CommitteeRecordError::NoEligibleEntry`].
+/// ([`CommitteeRecordError::ProvingBlockNotAfterCutoff`]); builds the `e_0` committee witness with
+/// the snapshot at `genesis_cutoff` itself (no cutoff lag or grid) and its proofs at the proving
+/// block ([`build_committee_witness_at_cutoff`]), verifies it against that block's canonical
+/// header ([`verify_committee_witness_at_cutoff`]), and derives the committee as `InitChain` will:
+/// no heartbeat filter, the lowest `bondId` per pubkey, at most `n_max` members by stake. No
+/// eligible entry is [`CommitteeRecordError::NoEligibleEntry`].
 ///
 /// The snapshot is the same at any proving block after the cutoff, so the record equals the one
 /// `abci-genesis` later derives at `L1_0`. Like `abci-genesis`, this reads the registry entries at
@@ -336,9 +336,11 @@ mod tests {
                     "total_power": 7,
                     "encoding_version": 1,
                 },
-                "members": [
-                    { "pubkey": B256::repeat_byte(0x11).to_string(), "eff_stake": decimal, "power": 7 },
-                ],
+                "members": [{
+                    "pubkey": B256::repeat_byte(0x11).to_string(),
+                    "eff_stake": decimal,
+                    "power": 7,
+                }],
                 "proving_block": 64,
                 "min_l1_0": null,
             })

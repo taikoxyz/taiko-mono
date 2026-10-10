@@ -13,7 +13,7 @@ use crate::{
     genesis::GenesisError,
     l1::{RawL1Header, witness::WitnessError},
     rules::{RuleViolation, chain_id_for},
-    schedule::ScheduleError,
+    schedule::{Schedule, ScheduleError},
     test_utils::{
         EngineCall, GenesisSpec, L1Call, MockEngine, edit_l1_header, l1_header, sample_entries,
     },
@@ -82,7 +82,7 @@ async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
             &fx.schedule(),
             &fx.params,
             &fx.witness.committee,
-            0
+            Schedule::E0
         ),
         Err(CommitteeError::Empty)
     );
