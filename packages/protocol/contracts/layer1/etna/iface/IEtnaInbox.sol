@@ -97,7 +97,10 @@ interface IEtnaInbox {
         bytes32 lastBlockHash;
         /// @notice The state root of the batch's last block.
         bytes32 lastStateRoot;
-        /// @notice The L1 anchor block number of the batch's last block.
+        /// @notice An L1 block such that every block of the batch has its anchor on the L1 header
+        /// chain ending at this block's hash, i.e. at or after the last block's anchor number.
+        /// @dev A lander picks a recent L1 block, so a landing outage longer than the EIP-2935
+        /// window does not strand the batch.
         uint64 anchorNumber;
         /// @notice One record per epoch whose first block lies in the batch, in ascending order.
         CommitteeRecord[] records;
@@ -137,7 +140,7 @@ interface IEtnaInbox {
     /// @param lastHeight The height of the batch's last block, the new checkpoint.
     /// @param lastBlockHash The hash of the batch's last block.
     /// @param lastStateRoot The state root of the batch's last block.
-    /// @param anchorNumber The L1 anchor block number of the batch's last block.
+    /// @param anchorNumber The L1 block whose header chain holds every block's anchor.
     /// @param statementHash The landing statement hash the proof was verified against.
     /// @param lander The caller.
     event BatchLanded(
@@ -174,26 +177,36 @@ interface IEtnaInbox {
     /// service key width); `_input.records` holds exactly one non-zero record, with
     /// `epoch == e + 1` and in ascending order, for every epoch `e` whose first block
     /// `h_first(e) = genesisHeight + 1 + e * epochLenL2` lies in the batch, and each becomes
-    /// `committee[e + 1]`; `anchorNumber` is a past L1 block whose hash is available, from
-    /// `blockhash` for the last 256 blocks and from the EIP-2935 history contract for the last
-    /// 8191; the transaction carries at least one blob, and the batch binds the hashes of all of
-    /// them. Then makes `(lastHeight, lastBlockHash)` the last checkpoint, saves
-    /// `(lastHeight, lastBlockHash, lastStateRoot)` in the signal service, emits `BatchLanded` and
-    /// verifies `_proof` against the landing statement hash (see `hashLandStatement`) with a
-    /// proposal age of 0.
+    /// `committee[e + 1]`, and `committee[e + 1]` is still empty; `anchorNumber` is a past L1
+    /// block whose hash is available, from `blockhash` for the last 256 blocks and from the
+    /// EIP-2935 history contract for the last 8191; the transaction carries at least one blob,
+    /// and the batch binds the hashes of all of them. Then makes `(lastHeight, lastBlockHash)` the
+    /// last checkpoint, saves `(lastHeight, lastBlockHash, lastStateRoot)` in the signal service,
+    /// emits `BatchLanded` and verifies `_proof` against the landing statement hash (see
+    /// `hashLandStatement`) with a proposal age of 0.
     ///
     /// A valid proof attests that:
     /// - heights `parentHeight + 1` to `lastHeight` form a chain from the parent block hash to
     ///   `lastBlockHash` with post-state `lastStateRoot`, each executed under the Etna rules
     ///   (alethia-reth#248 plus the Etna node's header rules);
     /// - each height has a CometBFT commit with more than 2/3 of the voting power of its epoch
-    ///   committee, under `chain_id = taiko-etna-<l2ChainId>-g<generation>`;
-    /// - every block's anchor lies on the L1 header chain ending at `anchorHash`, and the last
-    ///   block's anchor number is `anchorNumber`;
+    ///   committee, under `chain_id = taiko-etna-<l2ChainId>-g<generation>`; the first epoch's
+    ///   committee is `committee[0]` from activation;
+    /// - every block's anchor lies on the L1 header chain ending at `anchorHash`, the hash of
+    ///   `anchorNumber`, so `anchorNumber` is at or after the last block's anchor number. A lander
+    ///   picks a recent L1 block, so a landing outage longer than the 8191-block EIP-2935 window
+    ///   does not strand the batch; the chosen block must only be at most 8191 blocks old when
+    ///   `land` executes;
     /// - each record is the committee record derived from the witness carried in block
     ///   `h_first(e)`;
     /// - the blocks' data is encoded in the bound blobs (the encoding is defined with the lander
     ///   and the guest).
+    ///
+    /// Notes for guests: `keccak256(abi.encode(records))` hashes Solidity's ABI encoding of a
+    /// dynamic array, which starts with the `0x20` offset word, then the length, then each
+    /// record as two words. The statement does not bind `address(this)`, so the Inbox and
+    /// registry addresses are constants of the guest program image: a proof for another Inbox
+    /// needs another image.
     /// @param _input The batch.
     /// @param _proof The proof of the landing statement.
     function land(LandInput calldata _input, bytes calldata _proof) external;

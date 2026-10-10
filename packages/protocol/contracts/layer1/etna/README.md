@@ -28,7 +28,8 @@ refer to that specification.
 - **`e_0`:** the first epoch, always 0.
 - **Committee record:** the members and voting power of one epoch's committee, which the node
   derives from a registry checkpoint; the Inbox stores its hash, the **record hash**.
-- **`genesisCutoff`:** the L1 block whose registry checkpoint defines the epoch-0 committee.
+- **`genesisCutoff`:** the L1 block whose registry checkpoint defines the epoch-0 committee. The
+  node also floors every later committee's cutoff at it.
 - **`W` (`heartbeatWindow`):** the heartbeat window in L1 blocks. Window `k` covers L1 blocks
   `k * W` to `(k + 1) * W - 1`; its start is `k * W`.
 - **Landing:** submitting a proven batch of Etna blocks to `EtnaInbox.land`; the caller is the
@@ -42,22 +43,58 @@ refer to that specification.
 3. DAO proposal 1: upgrade the Inbox proxy to the Shasta implementation that has `freeze()` and call
    it, in one `upgradeToAndCall`. From then on `propose` and `saveForcedInclusion` revert, while
    `prove`, the bond functions and the views keep working.
-4. Wait for the drain: every Shasta proposal proven (the proving window is 4 hours on mainnet).
+4. Wait for the drain: every Shasta proposal proven. The proving window is 4 hours on mainnet, but
+   anyone may prove only after `permissionlessProvingDelay` (5 days), so the drain is bounded by
+   that delay, not by the 4 hours.
 5. DAO proposal 2: `upgradeToAndCall(EtnaInbox, activateEtna(params))`, with `genesisHeight = B*`
-   and the `committeeRecordHash` the Etna node tooling computes from the registry at
-   `genesisCutoff` (a past L1 block at or after the registry's first checkpoint).
+   and the `committeeRecordHash` that `taiko-client abci-committee-record` (taiko-client-rs)
+   computes from the registry at `genesisCutoff` (a past L1 block at or after the registry's first
+   checkpoint). `B*` is known only once the drain completes, so this proposal can only be written
+   after proposal 1 executes (open item O13).
 6. Validators run `abci-genesis` and start CometBFT. alethia-reth's Etna fork timestamp must fall
    after `B*`'s timestamp and at or before the first proof-of-stake block.
 
-`activateEtna` requires, in order: the Inbox is frozen; it is drained
-(`lastFinalizedProposalId + 1 == nextProposalId`); the L1 SignalService holds a checkpoint at `B*`
-whose block hash is the Shasta last finalized block hash; `epochLenL2 >= 3` and `epochLenL1 > 0`;
-`genesisCutoff < block.number` and the registry's first checkpoint is at or before it;
-`committeeRecordHash != 0`.
+`activateEtna` requires, in order:
+
+1. the Inbox is frozen (`NotFrozen`);
+2. it is drained, `lastFinalizedProposalId + 1 == nextProposalId` (`NotDrained`);
+3. `B* <= type(uint48).max`, the SignalService key width, and the L1 SignalService holds a
+   checkpoint at `B*` whose block hash is the Shasta last finalized block hash (`GenesisMismatch`);
+4. `epochLenL2 >= 3` and `epochLenL1 > 0` (`InvalidEpochLength`);
+5. `genesisCutoff < block.number` and the registry's first checkpoint is at or before it
+   (`InvalidGenesisCutoff`);
+6. `committeeRecordHash != 0` (`ZeroCommitteeRecord`).
 
 On a devnet, `script/layer1/etna/DeployEtnaDevnet.s.sol` performs step 1 and deploys the two
 implementations of steps 3 and 5, logging both owner calls; `script/layer2/DeployL2FeeVault.s.sol`
 performs step 2. Each script's NatSpec lists its environment variables.
+
+No Etna guest exists yet, so a devnet's `EtnaInbox` uses a stand-in proof verifier such as the
+accept-all `contracts/layer1/devnet/OpVerifier.sol`. As `land` is permissionless, anyone can then
+land any batch: write arbitrary SignalService checkpoints (forged L2 to L1 messages) and conflicting
+committee records (a permanent halt at that epoch). Such a verifier is for devnets only.
+
+## Activation checklist (not enforced on-chain; a mistake halts L2 until a DAO upgrade)
+
+- **A live genesis committee.** At least one entry is eligible at the latest registry checkpoint
+  at or before `genesisCutoff`. Prefer `L1_0 − genesisCutoff` below the registry's `exitDelay`, so
+  the genesis committee is not stale: entries may exit or go offline between the cutoff and the
+  activation. The node derives every later committee at
+  `max(cutoff(parent anchor), genesisCutoff)`, so a `genesisCutoff` close to `L1_0` is safe.
+- **Equal values on both sides.** Node `inbox` = the Inbox proxy; node `registry` = the Inbox's
+  `stakingRegistry` immutable = the registry proxy; node `fee_vault` = the `L2FeeVault` proxy;
+  `l2ChainId` = node `l2_chain_id`; registry `heartbeatWindow` = node `heartbeat_window`; registry
+  `minStake >= max(s_min, vp_unit)`; node `vp_unit >=` the TAIKO supply divided by the node's
+  `MAX_TOTAL_POWER` (about 8.7e8 base units), so one large stake cannot make a committee's total
+  voting power exceed CometBFT's limit (`TotalPowerTooLarge`).
+- **No SignalService version bump.** No L1 SignalService version bump between the last Shasta
+  `prove` and the activation: checkpoints live under `_checkpoints[VERSION]`, so a bump orphans the
+  `B*` checkpoint and `activateEtna` reverts `GenesisMismatch`.
+- **Legacy bond parameters and empty slots.** The `EtnaInbox` legacy bond parameters (`bondToken`,
+  `minBond`, `withdrawalDelay`) equal the live Shasta configuration, and the live proxy's slots
+  258–300 are zero before the freeze (verified on mainnet; check Hoodi before its proposal).
+- **DAO-owned registry.** The registry owner, who can upgrade it and so change committees, is the
+  DAO.
 
 ## Node-facing storage
 
@@ -130,10 +167,13 @@ a recovery generation gets past it.
 
 - **Activation writes.** `activateEtna` writes, in one call: the activation record (272–274),
   `migrationState = 3` (258), `genesisCutoff` (279), `committee[0]` (278) and
-  `lastCheckpoint = (B*, H*)` (270–271). `committee[0]` must be the record hash of the committee the
-  registry derives at `genesisCutoff`: every active bonded entry, without the heartbeat filter.
-  Without the checkpoint the node cannot accept `H_0`, since it refuses heights too far beyond the
-  last landed checkpoint, so the chain never starts; without the rest the genesis does not verify.
+  `lastCheckpoint = (B*, H*)` (270–271). `committee[0]` must be the record hash of the full
+  committee derivation (taiko-client-rs `committee::derive`) at `genesisCutoff`: the entries
+  active at the cutoff with a stake of at least `max(s_min, vp_unit)`, the lowest `bondId` per
+  pubkey, the top `n_max` by stake, and no heartbeat filter. `taiko-client abci-committee-record`
+  computes it. Without the checkpoint the node cannot accept `H_0`, since it refuses heights too
+  far beyond the last landed checkpoint, so the chain never starts; without the rest the genesis
+  does not verify.
 - **One registry checkpoint per changing L1 block.** Every L1 block that changes an entry ends with
   exactly one checkpoint (changes in the same block overwrite its `count` and `entriesRoot`), so
   `checkpoints[i].l1Block` strictly increases. The node's snapshot search relies on that order, and
@@ -177,9 +217,11 @@ block hash, it requires, in order:
    key width (`NoProgress`, `BatchTooLarge`, `HeightOverflow`).
 3. One record per epoch `e` with `h_first(e)` in `(p, lastHeight]`, in ascending order, with
    `epoch == e + 1` and a non-zero hash; anything missing, extra, reordered or zero reverts
-   `CommitteeRecordsMismatch`. Each becomes `committee[e + 1]`.
+   `CommitteeRecordsMismatch`. Each becomes `committee[e + 1]`, which must still be empty
+   (`CommitteeAlreadyRecorded`).
 4. `anchorNumber < block.number`, with its hash from `blockhash` up to 256 blocks back or from the
-   EIP-2935 history contract up to 8191 blocks back, and non-zero (`AnchorUnavailable`).
+   EIP-2935 history contract (`0x0000F90827F1C53a10cb7A02335B175320002935`) up to 8191 blocks back,
+   and non-zero (`AnchorUnavailable`).
 5. The transaction carries at least one blob (`BlobsRequired`); all of its blob hashes are bound.
 
 It then sets `lastCheckpoint = (lastHeight, lastBlockHash)`, saves
@@ -210,12 +252,22 @@ The guest's obligations: a valid proof attests that
 - heights `p + 1` to `lastHeight` form a chain from `parentHash` to `lastBlockHash` with post-state
   `lastStateRoot`, each executed under the Etna rules;
 - each height has a CometBFT commit signed by more than 2/3 of its epoch committee's voting power,
-  under the CometBFT chain id `taiko-etna-<l2ChainId>-g<recoveryGeneration>`;
-- every block's L1 anchor lies on the L1 header chain ending at `anchorHash`, and the last block's
-  anchor number is `anchorNumber`;
+  under the CometBFT chain id `taiko-etna-<l2ChainId>-g<recoveryGeneration>`; the first epoch's
+  committee is `committee[0]` from the activation;
+- every block's L1 anchor lies on the L1 header chain ending at `anchorHash`, the hash of
+  `anchorNumber`. So `anchorNumber` is any L1 block at or after the last block's anchor number: a
+  lander picks a recent one, and a landing outage longer than the 8191-block EIP-2935 window does
+  not strand the batch;
 - each record is the committee record derived from the registry witness carried in block
   `h_first(e)`;
 - the blocks' data is encoded in the bound blobs.
+
+Notes for guests not written in Solidity:
+
+- `keccak256(abi.encode(records))` hashes the ABI encoding of a dynamic array, which starts with
+  the `0x20` offset word, then the length, then each record as two words (`epoch`, `recordHash`).
+- The statement does not bind `address(this)`, so the Inbox and registry addresses are constants
+  of the guest program image: a proof for another Inbox needs another image.
 
 ## Open items
 
@@ -229,9 +281,18 @@ The guest's obligations: a valid proof attests that
 - **O5.** `activateEtna` cannot check the node's `L >= D_MAX - MARGIN_V + 3` (`D_MAX` is the node's
   maximum number of unlanded blocks, `MARGIN_V` its safety margin); with a smaller `L` the node
   refuses the genesis.
-- **O6.** The EIP-2935 window limits a batch's last anchor to 8191 L1 blocks (about 27 hours) before
-  it lands.
-- **O7.** The 4096-entry cap counts exited entries; pruning or compaction is a follow-up.
+- **O6.** The chosen `anchorNumber` must be at most 8191 L1 blocks (about 27 hours) old when `land`
+  executes, the EIP-2935 window. Any L1 block at or after the batch's last anchor qualifies, so the
+  lander can always choose a recent one.
+- **O7.** Registry fill griefing. Slots are never reclaimed: exited and withdrawn entries count
+  toward the 4096-entry cap. Filling one slot costs about 370k gas (`register` about 250k,
+  `requestExit` about 56k, `withdraw` about 60k), so all 4096 cost about 1.5B gas (about 1.5 ETH at
+  1 gwei) plus `minStake` of capital, which is refunded and can be reused every
+  `activationDelay + exitDelay + withdrawalDelay`. Once the registry is full no validator can join,
+  the eligible set only shrinks, and the chain halts with an empty committee. The escape needs a
+  registry upgrade plus a node change, as the 4096-entry cap (tree depth 12) is pinned on both
+  sides. A mitigation (pruning or compaction, a registration fee or burn, a minimum bonding period,
+  or gated registration at launch) is required before mainnet.
 - **O8.** No Ed25519 proof of possession: anyone may register any free key; pubkey uniqueness and
   the node's lowest-bond-id rule limit the damage.
 - **O9.** Once slashing exists, the registry's `withdrawalDelay` must exceed the time to land a
@@ -240,5 +301,14 @@ The guest's obligations: a valid proof attests that
 - **O11.** The specification's separate heartbeat key (with rotation and retirement), its signed
   heartbeat payload and relayed heartbeats are not built; the bond owner heartbeats directly. The
   node's eligibility rule already matches the fields recorded here.
-- **O12.** `committee[0]` and the records of epochs 1 and 2 apply no heartbeat filter; the tool
-  computing the activation's `committeeRecordHash` must follow the same rule.
+- **O12.** `committee[0]` and the records of epochs 1 and 2 apply no heartbeat filter;
+  `taiko-client abci-committee-record`, which computes the activation's `committeeRecordHash`,
+  follows the same rule.
+- **O13.** `activateEtna` takes `B*` as owner calldata, but `B*` exists only after the freeze
+  executes and the drain completes, so DAO proposal 2 can only be written after proposal 1
+  executes. With a 10-day veto period plus a 7-day timelock, L2 is down for about 17 days.
+  Candidate fixes, to decide before Hoodi: (a) a pre-committed upgrade, where proposal 1's `freeze`
+  also records the `EtnaInbox` implementation and the activation parameters, and anyone triggers
+  the upgrade and the activation once drained (downtime = drain time, one proposal); (b) record the
+  last finalized block number on-chain during the drain, so `activateEtna` needs no `B*` and
+  proposal 2 can be prepared in parallel.

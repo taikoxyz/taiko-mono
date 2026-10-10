@@ -37,14 +37,19 @@ import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.so
 ///
 /// Environment:
 /// - `PRIVATE_KEY`; `INBOX_PROXY`, the live Shasta Inbox proxy.
-/// - `ETNA_PROOF_VERIFIER`: the `IProofVerifier` of `land` proofs. No Etna guest exists yet, so
-///   a devnet passes a stand-in verifier.
+/// - `ETNA_PROOF_VERIFIER`: the `IProofVerifier` of `land` proofs; it must have code. No Etna
+///   guest exists yet, so a devnet passes a stand-in verifier such as the accept-all
+///   `contracts/layer1/devnet/OpVerifier.sol`. DEVNET ONLY: `land` is permissionless, so with an
+///   accept-all verifier anyone can write arbitrary signal service checkpoints (forged L2 to L1
+///   messages) and conflicting committee records (a permanent halt at that epoch).
 /// - `L2_CHAIN_ID`; `MAX_BATCH_BLOCKS`, the most L2 blocks one `land` call may cover.
 /// - `CONTRACT_OWNER`: the registry owner; the deployer if unset or zero.
 /// - `TAIKO_TOKEN`: the staked token; the live Inbox's bond token if unset or zero.
 /// - `REGISTRY_MIN_STAKE` (TAIKO base units), `REGISTRY_ACTIVATION_DELAY`,
-///   `REGISTRY_EXIT_DELAY`, `REGISTRY_WITHDRAWAL_DELAY`, `REGISTRY_HEARTBEAT_WINDOW` (L1 blocks):
-///   they must match the Etna node's chain constants.
+///   `REGISTRY_EXIT_DELAY`, `REGISTRY_WITHDRAWAL_DELAY`, `REGISTRY_HEARTBEAT_WINDOW` (L1 blocks).
+///   Only two relate to the Etna node's chain constants: the heartbeat window must equal its
+///   `heartbeat_window` and the minimum stake must be at least its `max(s_min, vp_unit)`. The
+///   three delays are registry-only.
 /// - Activation (for the second call): `GENESIS_HEIGHT`, `EPOCH_LEN_L2`, `EPOCH_LEN_L1`,
 ///   `GENESIS_CUTOFF`, `COMMITTEE_RECORD_HASH`.
 /// @custom:security-contact security@taiko.xyz
@@ -79,11 +84,12 @@ contract DeployEtnaDevnet is Script {
         require(privateKey != 0, InvalidPrivateKey());
 
         Params memory params = _loadParams();
+        require(params.etnaProofVerifier.code.length != 0, ProofVerifierHasNoCode());
         IInbox.Config memory live = IInbox(params.inbox).getConfig();
         if (params.taikoToken == address(0)) params.taikoToken = live.bondToken;
 
         vm.startBroadcast(privateKey);
-        address registry = _deployRegistry(params);
+        (address registry, address registryImpl) = _deployRegistry(params);
         address devnetInboxImpl = address(
             new DevnetInbox(
                 live.proofVerifier,
@@ -113,6 +119,7 @@ contract DeployEtnaDevnet is Script {
         );
 
         console2.log("EtnaStakingRegistry proxy:", registry);
+        console2.log("  impl               :", registryImpl);
         console2.log("  owner              :", EtnaStakingRegistry(registry).owner());
         console2.log("  taikoToken         :", params.taikoToken);
         console2.log("DevnetInbox impl (freeze):", devnetInboxImpl);
@@ -187,8 +194,12 @@ contract DeployEtnaDevnet is Script {
     /// the owner.
     /// @param _params The deployment parameters.
     /// @return registry_ The registry proxy.
-    function _deployRegistry(Params memory _params) private returns (address registry_) {
-        address impl = address(
+    /// @return impl_ The registry implementation.
+    function _deployRegistry(Params memory _params)
+        private
+        returns (address registry_, address impl_)
+    {
+        impl_ = address(
             new EtnaStakingRegistry(
                 _params.taikoToken,
                 _params.minStake,
@@ -199,7 +210,7 @@ contract DeployEtnaDevnet is Script {
             )
         );
         registry_ = address(
-            new ERC1967Proxy(impl, abi.encodeCall(EtnaStakingRegistry.init, (_params.owner)))
+            new ERC1967Proxy(impl_, abi.encodeCall(EtnaStakingRegistry.init, (_params.owner)))
         );
     }
 
@@ -232,4 +243,5 @@ contract DeployEtnaDevnet is Script {
 
     error InvalidPrivateKey();
     error InboxConfigMismatch();
+    error ProofVerifierHasNoCode();
 }

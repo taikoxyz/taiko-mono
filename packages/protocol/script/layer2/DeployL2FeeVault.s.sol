@@ -12,8 +12,8 @@ import { L2FeeVault } from "src/layer2/core/L2FeeVault.sol";
 ///
 /// Environment:
 /// - `PRIVATE_KEY`.
-/// - `CONTRACT_OWNER`: the vault owner, the L2 `DelegateController` outside devnets; the
-///   deployer if unset or zero.
+/// - `CONTRACT_OWNER`: the vault owner, who controls every Etna block's fees: the L2
+///   `DelegateController` outside devnets. Required and non-zero.
 /// @custom:security-contact security@taiko.xyz
 contract DeployL2FeeVault is Script {
     // ---------------------------------------------------------------
@@ -24,7 +24,8 @@ contract DeployL2FeeVault is Script {
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, InvalidPrivateKey());
-        address owner = vm.envOr("CONTRACT_OWNER", address(0));
+        address owner = vm.envAddress("CONTRACT_OWNER");
+        require(owner != address(0), InvalidOwner());
 
         vm.startBroadcast(privateKey);
         address impl = address(new L2FeeVault());
@@ -40,5 +41,6 @@ contract DeployL2FeeVault is Script {
     // Custom Errors
     // ---------------------------------------------------------------
 
+    error InvalidOwner();
     error InvalidPrivateKey();
 }
