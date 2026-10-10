@@ -12,6 +12,7 @@ import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
+import { LibInboxMigration } from "../libs/LibInboxMigration.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -54,6 +55,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
 
     event InboxActivated(bytes32 lastPacayaBlockHash);
+
+    /// @notice Emitted when the owner freezes the inbox for the Etna migration.
+    /// @param l1Block The L1 block number in which the inbox was frozen.
+    event Frozen(uint64 l1Block);
 
     // ---------------------------------------------------------------
     // Constants
@@ -142,7 +147,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Storage for bond balances.
     LibBonds.Storage private _bondStorage;
 
-    uint256[43] private __gap;
+    /// @dev Etna migration state (slot 258), read in place by the Etna Inbox implementation.
+    LibInboxMigration.State private _migration;
+
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -257,6 +265,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         emit ForcedInclusionsVoided(head, tail);
     }
 
+    /// @notice Freezes the inbox ahead of the Etna migration. From then on `propose` and
+    ///         `saveForcedInclusion` revert, while `prove`, the bond functions and the views keep
+    ///         working so every outstanding proposal can still be proven.
+    /// @dev One-way and callable once. Forced inclusions still queued are never included; their
+    ///      fees stay in the contract.
+    function freeze() external onlyOwner {
+        require(_migration.migrationState == LibInboxMigration.NONE, InvalidMigrationState());
+
+        _migration = LibInboxMigration.State({
+            migrationState: LibInboxMigration.FROZEN,
+            frozenAtL1Block: uint64(block.number),
+            drainedAtL1Block: 0
+        });
+        emit Frozen(uint64(block.number));
+    }
+
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
@@ -268,6 +292,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+        require(_migration.migrationState == LibInboxMigration.NONE, InboxIsFrozen());
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -429,6 +454,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// submitted to make sure blocks have been produced already and the derivation can use the
     /// parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
+        require(_migration.migrationState == LibInboxMigration.NONE, InboxIsFrozen());
         bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
 
@@ -550,6 +576,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @inheritdoc IInbox
     function getCoreState() external view returns (CoreState memory) {
         return _coreState;
+    }
+
+    /// @notice Returns the Etna migration state of the inbox.
+    /// @return The migration state, the freeze block and the drain block.
+    function migration() external view returns (LibInboxMigration.State memory) {
+        return _migration;
     }
 
     /// @inheritdoc IInbox
@@ -819,8 +851,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
+    error InboxIsFrozen();
     error IncorrectProposalCount();
     error InsufficientBond();
+    error InvalidMigrationState();
     error InvalidRecoveryState();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
