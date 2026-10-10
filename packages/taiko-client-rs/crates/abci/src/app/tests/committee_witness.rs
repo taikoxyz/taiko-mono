@@ -1,6 +1,6 @@
-//! The committee witness at `h_first(e)`: it is proven against the PARENT's
-//! anchor even when the block moves its own anchor, and every forgery of its record, entries or
-//! registry proofs is refused. Also the committees a switch height needs.
+//! The committee witness at `h_first(e)`: it is proven against the PARENT's anchor even when the
+//! block moves its own anchor, and every forgery of its record, entries or registry proofs is
+//! refused. Also the committees a switch height needs.
 
 use alloy_primitives::{B256, U256};
 

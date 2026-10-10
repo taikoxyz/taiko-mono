@@ -61,8 +61,8 @@ pub use genesis::{
     decode_app_state, encode_app_state,
 };
 pub use l1::{
-    DiscoveryProgress, FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
-    build_committee_witness, build_committee_witness_within, header_at, is_final_canonical,
+    FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
+    build_committee_witness, header_at, is_final_canonical,
 };
 pub use metrics::AbciMetrics;
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};

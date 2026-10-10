@@ -67,10 +67,12 @@ pub const MAX_FORCED_INCLUSIONS_PER_PROPOSAL: u16 = 10;
 
 /// Process-global override for the devnet Etna activation timestamp.
 ///
-/// Set once at startup from the CLI flag mirroring alethia-reth's `--devnet-etna-timestamp` so
-/// client and node agree on devnet fork timing. There is no implicit default: without an
-/// override the devnet keeps the chainspec's `ForkCondition::Never`, exactly like alethia-reth.
-/// Only the first call takes effect; subsequent calls are silently ignored.
+/// Kept for downstream users of this crate (raiko2 re-exports the setter), which set it once at
+/// startup to the value of alethia-reth's `--devnet-etna-timestamp` so that they and the node
+/// agree on devnet fork timing; `taiko-client` itself never sets it. There is no implicit
+/// default: without an override the devnet keeps the chainspec's `ForkCondition::Never`,
+/// exactly like alethia-reth. Only the first call takes effect; subsequent calls are silently
+/// ignored.
 static DEVNET_ETNA_OVERRIDE: OnceLock<u64> = OnceLock::new();
 
 /// Set the devnet Etna activation timestamp override (`0` activates Etna at genesis). Must be

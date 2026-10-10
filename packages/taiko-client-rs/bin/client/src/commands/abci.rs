@@ -61,9 +61,9 @@ impl Subcommand for AbciSubCommand {
 
     /// Connects to the EL and L1, loads the app state and serves the app.
     ///
-    /// In order: logs and metrics; the L2 chain id from `l2.http`; the chain parameters for it;
-    /// the Engine API client and its capability check; the L1 provider (`l1.http`);
-    /// the app over the state in `--data-dir`; the ABCI server on `--abci.addr`.
+    /// In order: logs and metrics; the L2 chain id from `--l2.http`; the chain parameters for it;
+    /// the Engine API client and its capability check; the L1 provider (`--l1.http`); the app
+    /// over the state in `--data-dir`; the ABCI server on `--abci.addr`.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;

@@ -3,15 +3,14 @@
 //! [`epoch_switch_adds_the_joining_validator`]: four nodes, the first three forming the genesis
 //! committee. A registry checkpoint planted after start adds validator 4; the first epoch `e`
 //! whose `H_e` cutoff (the parent's anchor, `G = 1`, `LAG = 0`) covers it derives a four-member
-//! committee `t = e + 1`; once the fake lander lands it (`lastCheckpoint ≥ H_e`,
-//! `committee[t]`), `FinalizeBlock(h_first(t) − 2)` emits the update (CometBFT applies it two
-//! heights later; a set never activates before its record has landed), CometBFT's set
-//! at `h_first(t)` has four members, and validator 4 signs commits of epoch `t`.
+//! committee `t = e + 1`; once the fake lander lands it (`lastCheckpoint ≥ H_e`, `committee[t]`),
+//! `FinalizeBlock(h_first(t) − 2)` emits the update (CometBFT applies it two heights later; a set
+//! never activates before its record has landed), CometBFT's set at `h_first(t)` has four
+//! members, and validator 4 signs commits of epoch `t`.
 //!
 //! [`epoch_switch_halts_without_landing`]: one validator, the lander moving `lastCheckpoint` but
 //! not planting `committee[1]`; the switch height `h_first(1) − 2` is refused (its record has
-//! not landed), so the chain
-//! stays one block below it until the record lands.
+//! not landed), so the chain stays one block below it until the record lands.
 
 use std::{
     collections::BTreeSet,
@@ -19,7 +18,7 @@ use std::{
 };
 
 use abci::{RegistryEntry, l1::layout::inbox};
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use anyhow::ensure;
 use test_harness::{Devnet, DevnetSpec, anchor_of, wait_until};
 
@@ -49,7 +48,7 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     let devnet = Devnet::start(spec.clone()).await?;
     eprintln!("devnet {} up after {:?}", devnet.id(), started.elapsed());
     let schedule = devnet.schedule();
-    let keys = devnet.keys().to_vec();
+    let keys = devnet.keys();
     let stake = devnet.registry_entry(0).eff_stake;
     let power = u64::try_from(stake / devnet.params().vp_unit)?;
     devnet.wait_for_height(0, 1, Duration::from_secs(90)).await?;
@@ -60,11 +59,9 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     let joined = next.number();
     let mut entries: Vec<RegistryEntry> = (0..3).map(|i| devnet.registry_entry(i)).collect();
     entries.push(RegistryEntry {
-        pubkey: keys[3].pubkey(),
-        eff_stake: U256::from(10_000_000_000_000_000_000u128),
         active_from_l1: joined,
-        exit_effective_l1: u64::MAX,
         last_heartbeat_at: joined,
+        ..devnet.registry_entry(3)
     });
     let index = next.write_registry_checkpoint(&entries).await?;
     assert_eq!(index, 1, "registry checkpoint index");
@@ -143,7 +140,7 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     }
 
     devnet.stop().await?;
-    eprintln!("scenario 2 done after {:?}", started.elapsed());
+    eprintln!("epoch-switch scenario done after {:?}", started.elapsed());
     Ok(())
 }
 
@@ -160,8 +157,7 @@ async fn epoch_switch_halts_without_landing() -> anyhow::Result<()> {
     // The chain runs up to the switch height and stops below it.
     let reached = devnet.wait_for_height(0, switch - 1, Duration::from_secs(60)).await?;
     assert_eq!(reached, switch - 1, "the chain passed the switch height without the record");
-    let hold = Duration::from_millis(3 * spec.timeout_commit_ms) + Duration::from_secs(2);
-    let hold_end = Instant::now() + hold;
+    let hold_end = Instant::now() + spec.stall_hold();
     let mut reasons = BTreeSet::new();
     let mut status = devnet.abci_status(0).await?;
     while Instant::now() < hold_end {
@@ -197,6 +193,6 @@ async fn epoch_switch_halts_without_landing() -> anyhow::Result<()> {
     assert_eq!(devnet.app_halt(0), None);
 
     devnet.stop().await?;
-    eprintln!("negative scenario 2 done after {:?}", started.elapsed());
+    eprintln!("epoch-switch halt scenario done after {:?}", started.elapsed());
     Ok(())
 }

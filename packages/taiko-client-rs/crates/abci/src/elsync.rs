@@ -1,5 +1,4 @@
-//! Execution-layer sync to a trusted head, at `InitChain` and at the first `Info` (MEM-11,
-//! MIG-01).
+//! Execution-layer sync to a trusted head, at `InitChain` and at the first `Info` (MEM-11, MIG-01).
 //!
 //! History up to the activation boundary, and any height the EL is missing at startup, is
 //! fetched by the EL itself over devp2p: [`ensure_block`] points the EL's forkchoice at a block

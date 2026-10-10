@@ -10,7 +10,10 @@
 //! Execution results (state root, receipts root, transactions root, gas used and the zk gas in
 //! `difficulty`) are not checked here: `engine_newPayload` validates them.
 
-use std::fmt::{self, Debug, Write as _};
+use std::{
+    cmp::Ordering,
+    fmt::{self, Debug, Write as _},
+};
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
@@ -30,7 +33,7 @@ use crate::{
 
 /// `basefeeSharingPctg` of every Etna PoS block: 100 routes the whole base fee to the coinbase
 /// (the fee vault) under alethia-reth #248. Consensus pins it to exactly 100, as #248 does not
-/// bound it and would mint base fee above 100.
+/// bound it and would credit the coinbase more than the base fee for a pctg above 100.
 pub const BASEFEE_SHARING_PCTG: u8 = 100;
 
 /// Length of an Etna `extraData`: `[pctg(1) | generation(6) | anchorNumber(6)]`.
@@ -317,10 +320,7 @@ pub fn expected_header(i: &HeaderInputs<'_>) -> Result<ExpectedHeader, RuleViola
         parent_beacon_block_root: i.anchor.state_root,
         gas_limit: i.params.block_gas_limit,
         base_fee,
-        mix_hash: calculate_shasta_mix_hash(
-            B256::from(parent.difficulty.to_be_bytes::<32>()),
-            i.height,
-        ),
+        mix_hash: calculate_shasta_mix_hash(B256::from(parent.difficulty), i.height),
     })
 }
 
@@ -407,9 +407,9 @@ impl fmt::Write for Bounded {
 /// Builds the `engine_forkchoiceUpdated` payload attributes for `e`.
 ///
 /// `txList` is `None`, so the EL builds from its own txpool (user transactions travel over EL
-/// devp2p); withdrawals are present but
-/// empty; the L1 origin records the anchor number (from `e.extra_data`) and `anchor_hash`, is not
-/// forced and carries a zero signature. The payload id is stamped from `e.parent_hash`.
+/// devp2p); withdrawals are present but empty; the L1 origin records the anchor number (from
+/// `e.extra_data`) and `anchor_hash`, is not forced and carries a zero signature. The payload id
+/// is stamped from `e.parent_hash`.
 ///
 /// # Panics
 ///
@@ -497,9 +497,9 @@ pub fn check_generation(
         return Err(RuleViolation::GenerationMismatch { chain, extra });
     }
     match inbox.cmp(&chain) {
-        std::cmp::Ordering::Greater => Ok(GenerationCheck::Superseded),
-        std::cmp::Ordering::Less => Err(RuleViolation::GenerationAhead { chain, inbox }),
-        std::cmp::Ordering::Equal => Ok(GenerationCheck::Ok),
+        Ordering::Greater => Ok(GenerationCheck::Superseded),
+        Ordering::Less => Err(RuleViolation::GenerationAhead { chain, inbox }),
+        Ordering::Equal => Ok(GenerationCheck::Ok),
     }
 }
 

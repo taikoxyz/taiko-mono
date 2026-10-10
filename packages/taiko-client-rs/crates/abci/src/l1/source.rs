@@ -1,10 +1,10 @@
 //! The node's own L1 view (finality = its L1 node's `finalized` tag, SYS-02): the `finalized`
-//! block number, canonical block hashes
-//! and raw headers, EIP-1186 account proofs and raw storage reads, behind [`L1Source`] so the app
-//! can run against an in-memory L1 in tests.
+//! block number, canonical block hashes and raw headers, EIP-1186 account proofs and raw storage
+//! reads, behind [`L1Source`] so the app can run against an in-memory L1 in tests.
 //!
-//! Only `PrepareProposal`, `ProcessProposal` (its node-local checks) and `InitChain` use it;
-//! `FinalizeBlock` and replay never call L1, as every L1 fact a block consumes travels in it.
+//! Only `PrepareProposal`, `ProcessProposal` (its node-local checks), `InitChain` and the
+//! `abci-genesis` builder use it; `FinalizeBlock` and replay never call L1, as every L1 fact a
+//! block consumes travels in it.
 
 use std::collections::BTreeSet;
 
@@ -122,8 +122,9 @@ pub trait L1Source: Send + Sync + 'static {
     ) -> Result<AccountWitness, L1Error>;
 
     /// The raw (unproven) storage word of `address` at `slot` as of block `block`; used only to
-    /// discover values that are later checked against proven roots (the registry's checkpoint
-    /// index and entries, see `l1::fetch`).
+    /// discover which proofs to read (the registry's `checkpoints` length and heads in
+    /// `l1::fetch`, the Inbox's `migrationState` and activation word in the genesis builder),
+    /// whose proven values are then checked.
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error>;
 }
 
@@ -181,8 +182,7 @@ impl L1Source for RpcL1Source {
 
     /// `eth_getBlockByNumber(number)`'s `hash`, then `debug_getRawHeader(number)`, which must be
     /// an L1 header ([`L1Error::MalformedHeader`]) hashing to that hash
-    /// ([`L1Error::HeaderHashMismatch`]) and numbered `number`
-    /// ([`L1Error::HeaderNumberMismatch`]).
+    /// ([`L1Error::HeaderHashMismatch`]) and numbered `number` ([`L1Error::HeaderNumberMismatch`]).
     ///
     /// When the node does not serve `debug_getRawHeader` (method not found or not supported),
     /// the JSON header is re-encoded instead, under the same checks, if every member of the JSON
@@ -324,10 +324,9 @@ pub async fn header_at<L: L1Source + ?Sized>(l1: &L, number: u64) -> Result<RawL
     Ok(header)
 }
 
-/// Whether `header` is final and canonical in the node's own L1 view: the node's
-/// `finalized` number is at least `header.number() + extra_depth` (`F_L1`) and the node's
-/// canonical block hash at `header.number()` is `header.hash()`, i.e. `keccak256` of the raw
-/// header.
+/// Whether `header` is final and canonical in the node's own L1 view: the node's `finalized`
+/// number is at least `header.number() + extra_depth` (`F_L1`) and the node's canonical block
+/// hash at `header.number()` is `header.hash()`, i.e. `keccak256` of the raw header.
 ///
 /// An overflowing `header.number() + extra_depth` is never final. The canonical hash is only
 /// fetched once the finality bound holds.

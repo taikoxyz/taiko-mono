@@ -8,8 +8,7 @@ use std::{
 };
 
 use abci::{
-    ActivationRecord, ChainParams, GenesisDoc, RegistryEntry, RpcL1Source, Schedule, Snapshot,
-    build_genesis,
+    ActivationRecord, ChainParams, RegistryEntry, RpcL1Source, Schedule, Snapshot, build_genesis,
     committee::{self, record_hash},
     l1::layout::inbox::ETNA_ACTIVE,
 };
@@ -81,8 +80,6 @@ pub(crate) struct Booted {
     pub params: ChainParams,
     /// The planted activation record.
     pub activation: ActivationRecord,
-    /// The CometBFT genesis.
-    pub genesis: GenesisDoc,
     /// Writes L1 state.
     pub planter: Planter,
 }
@@ -254,7 +251,7 @@ pub(crate) async fn boot(
         spec.land_committees,
     );
 
-    Ok(Booted { lander, apps, cmt, reth, l1, keys, params, activation, genesis, planter })
+    Ok(Booted { lander, apps, cmt, reth, l1, keys, params, activation, planter })
 }
 
 /// The hash and state root of block 0 of the EL behind `l2`.

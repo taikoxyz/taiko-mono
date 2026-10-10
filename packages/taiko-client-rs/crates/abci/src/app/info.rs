@@ -6,11 +6,8 @@ use tendermint::{
     block::Height,
 };
 
-use super::{
-    APP_NAME, APP_VERSION, AbciError, App, ELSYNC_POLL, app_hash, at_genesis, cometbft_height,
-    within,
-};
-use crate::{elsync::ensure_block, engine::Engine, l1::L1Source, store::AppState};
+use super::{APP_NAME, APP_VERSION, AbciError, App, app_hash, at_genesis, cometbft_height, within};
+use crate::{engine::Engine, l1::L1Source, store::AppState};
 
 /// Response code of a rejected `CheckTx` and of a failed `Query`.
 pub const CODE_REJECTED: u32 = 1;
@@ -67,8 +64,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Makes sure the EL serves the committed head `state.parent` at `state.last_height`.
     ///
-    /// An EL without a block there is pointed at the head and awaited ([`ensure_block`]); an EL
-    /// serving another block there, rejecting the head, or serving another block after
+    /// An EL without a block there is pointed at the head and awaited ([`App::sync_el_to`]); an
+    /// EL serving another block there, rejecting the head, or serving another block after
     /// accepting it contradicts the committed chain: [`AbciError::SafetyHalt`]. An EL ahead of
     /// the state is fine: CometBFT replays the missing heights and `FinalizeBlock` re-executes
     /// them idempotently.
@@ -85,12 +82,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ))),
             None => {
                 tracing::info!(number, %hash, "execution engine lacks the committed head; syncing");
-                within(
-                    "EL sync to the committed head",
-                    opts.elsync_timeout.saturating_add(opts.engine_timeout),
-                    ensure_block(&self.engine, number, hash, opts.elsync_timeout, ELSYNC_POLL),
-                )
-                .await
+                self.sync_el_to("EL sync to the committed head", number, hash).await
             }
         }
     }

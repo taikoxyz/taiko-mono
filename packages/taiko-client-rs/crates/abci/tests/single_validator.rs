@@ -85,14 +85,13 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         );
         assert!(header.timestamp > prev_timestamp, "block {h}: timestamp not increasing");
         // The timestamp rule max(parent + 1, floor(BFT time of CometBFT block h), anchor
-        // timestamp), written out
-        // here rather than through `rules::block_timestamp` so a wrong formula shared by
-        // PrepareProposal and ProcessProposal still fails.
+        // timestamp), written out here rather than through `rules::block_timestamp` so a wrong
+        // formula shared by PrepareProposal and ProcessProposal still fails.
         let bft_secs = cmt_time_secs(devnet.cmt(0), h).await?;
         let anchor_ts = l1_block.header.timestamp;
-        let d9 = (prev_timestamp + 1).max(bft_secs).max(anchor_ts);
+        let expected = (prev_timestamp + 1).max(bft_secs).max(anchor_ts);
         assert_eq!(
-            header.timestamp, d9,
+            header.timestamp, expected,
             "block {h}: timestamp (parent {prev_timestamp}, BFT {bft_secs}, anchor {anchor_ts})"
         );
         assert_eq!(header.gas_limit, gas_limit, "block {h}: gasLimit");
@@ -115,7 +114,7 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
     assert_eq!(devnet.app_halt(0), None);
 
     devnet.stop().await?;
-    eprintln!("scenario 1 done after {:?}", started.elapsed());
+    eprintln!("single-validator scenario done after {:?}", started.elapsed());
     Ok(())
 }
 

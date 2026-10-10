@@ -179,8 +179,8 @@ mod tests {
     }
 
     /// The client reads no fork times (the app follows the activation record on L1, and
-    /// alethia-reth owns its fork schedule), so the old devnet fork-time flags are gone and
-    /// passing one fails startup instead of being silently ignored.
+    /// alethia-reth owns its fork schedule), so it defines no devnet fork-time flags and passing
+    /// one fails startup instead of being silently ignored.
     #[test]
     fn rejects_removed_devnet_fork_time_flags() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");

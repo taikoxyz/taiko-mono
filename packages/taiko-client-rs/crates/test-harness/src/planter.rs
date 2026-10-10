@@ -1,6 +1,5 @@
 //! The planter: writes Etna Inbox and staking-registry state into anvil following
-//! `abci::l1::layout` (the Inbox slots, the registry checkpoints and its live
-//! `entries` array).
+//! `abci::l1::layout` (the Inbox slots, the registry checkpoints and its live `entries` array).
 //!
 //! Writes are real transactions, not `anvil_setStorageAt`: anvil stores block `n`'s historical
 //! state when it starts mining block `n + 1`, so an out-of-band `anvil_setStorageAt` made in
@@ -121,11 +120,6 @@ impl Planter {
     /// A planter writing the Inbox at `inbox` and the registry at `registry` through `l1`.
     pub fn new(l1: RootProvider, inbox: Address, registry: Address) -> Self {
         Self { l1, inbox, registry, mining: Arc::new(Mutex::new(())) }
-    }
-
-    /// The anvil provider.
-    pub fn l1(&self) -> &RootProvider {
-        &self.l1
     }
 
     /// Places [`SETTER_CODE`] at the Inbox and registry addresses (`anvil_setCode`, out of band)

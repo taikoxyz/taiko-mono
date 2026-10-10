@@ -5,7 +5,7 @@ use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
-    AbciError, App, deadline,
+    AbciError, App, deadline, unix_secs,
     validate::{Rejection, Validated, validate_block},
 };
 use crate::{
@@ -77,20 +77,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
         let env = single_envelope(&txs)?;
-        let height = req.height.value();
-        let validated =
-            match validate_block(state, &self.params, &env, height, super::unix_secs(req.time)) {
-                Err(
-                    l1_fact @ (Rejection::Superseded { .. } | Rejection::RecordConflict { .. }),
-                ) => {
-                    // Without a witness the facts are the committed parent's, already trusted.
-                    if let Some(w) = &env.anchor {
-                        self.check_anchor_final(w).await?;
-                    }
-                    return Err(l1_fact);
+        let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
+        let validated = match validate_block(state, &self.params, &env, height, bft_secs) {
+            Err(l1_fact @ (Rejection::Superseded { .. } | Rejection::RecordConflict { .. })) => {
+                // Without a witness the facts are the committed parent's, already trusted.
+                if let Some(w) = &env.anchor {
+                    self.check_anchor_final(w).await?;
                 }
-                other => other?,
-            };
+                return Err(l1_fact);
+            }
+            other => other?,
+        };
         if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
             self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
         }

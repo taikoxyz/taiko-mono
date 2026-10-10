@@ -10,7 +10,7 @@ use alloy_provider::{
     Provider, RootProvider,
     transport::{RpcError, TransportError},
 };
-use alloy_rpc_types_engine::{ForkchoiceState, ForkchoiceUpdated, PayloadStatusEnum};
+use alloy_rpc_types_engine::{ForkchoiceState, PayloadStatusEnum};
 use async_trait::async_trait;
 use rpc::{
     RpcClientError,
@@ -78,11 +78,12 @@ impl RpcEngine {
             ))
         })?;
         let timeout = http_timeout_for(call_timeout);
+        let (l2_endpoint, auth_endpoint) = (l2_http.to_string(), l2_auth.to_string());
         Ok(Self::from_parts(
-            connect_http_with_timeout(l2_http.clone(), timeout),
-            l2_http.to_string(),
-            build_jwt_http_provider(l2_auth.clone(), secret, timeout),
-            l2_auth.to_string(),
+            connect_http_with_timeout(l2_http, timeout),
+            l2_endpoint,
+            build_jwt_http_provider(l2_auth, secret, timeout),
+            auth_endpoint,
         ))
     }
 
@@ -122,18 +123,6 @@ impl RpcEngine {
             }
         }
         Err(self.auth_error(method, err))
-    }
-
-    /// `engine_forkchoiceUpdatedV3(state, attrs)` with failures classified.
-    async fn forkchoice_updated(
-        &self,
-        state: ForkchoiceState,
-        attrs: Option<TaikoPayloadAttributes>,
-    ) -> Result<ForkchoiceUpdated, EngineError> {
-        self.auth
-            .engine_forkchoice_updated_v3(state, attrs)
-            .await
-            .map_err(|e| self.auth_error("engine_forkchoiceUpdatedV3", e))
     }
 }
 
@@ -244,7 +233,11 @@ impl Engine for RpcEngine {
             safe_block_hash: B256::ZERO,
             finalized_block_hash: B256::ZERO,
         };
-        let updated = self.forkchoice_updated(state, Some(attrs)).await?;
+        let updated = self
+            .auth
+            .engine_forkchoice_updated_v3(state, Some(attrs))
+            .await
+            .map_err(|e| self.auth_error("engine_forkchoiceUpdatedV3", e))?;
         let payload_id = match (&updated.payload_status.status, updated.payload_id) {
             (PayloadStatusEnum::Valid, Some(id)) => id,
             (status, id) => {

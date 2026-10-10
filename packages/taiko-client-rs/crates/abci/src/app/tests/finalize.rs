@@ -165,8 +165,8 @@ async fn finalize_updates_parent_anchor_and_committees() {
 }
 
 /// The switch height to epoch 2 (`h_first(2) − 2`, as CometBFT applies updates two heights
-/// later) emits the exact updates (a removal, a power change, an
-/// unchanged member restated, an addition), sorted by key, and committees below 1 pruned.
+/// later) emits the exact updates (a removal, a power change, an unchanged member restated, an
+/// addition), sorted by key, and committees below 1 pruned.
 #[tokio::test]
 async fn switch_height_emits_the_exact_updates_and_prunes() {
     let fx = Fixture::genesis(3);

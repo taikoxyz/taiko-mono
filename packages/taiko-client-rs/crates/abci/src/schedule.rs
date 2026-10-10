@@ -8,8 +8,8 @@
 //! `h_first(e) - 2`, as CometBFT applies validator updates two heights after the block that
 //! returns them; epoch `e_0`'s set comes from genesis.
 //!
-//! Limits (each panic message names the method): every method but [`Schedule::l1_first`]
-//! panics when `genesis_height == u64::MAX`; the methods dividing by `L`
+//! Limits (each panic message names the method): every height method panics when
+//! `genesis_height == u64::MAX`; the methods dividing by `L`
 //! ([`Schedule::epoch_of`], [`Schedule::epoch_starting_at`], [`Schedule::switch_target`]) panic
 //! when `epoch_len == 0`; [`Schedule::validate`] rejects both. The methods taking an epoch
 //! ([`Schedule::h_first`], [`Schedule::h_last`], [`Schedule::l1_first`]) panic when their result

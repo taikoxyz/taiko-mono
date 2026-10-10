@@ -1,5 +1,5 @@
-//! Docker scenario: with `lastCheckpoint` frozen on L1 the chain stops at the
-//! unsettled depth `U = D_MAX − MARGIN_V` (HALT-03), and a planted advance resumes it.
+//! Docker scenario: with `lastCheckpoint` frozen on L1 the chain stops at the unsettled depth
+//! `U = D_MAX − MARGIN_V` (HALT-03), and a planted advance resumes it.
 //!
 //! The defaults `D_MAX = 12`, `MARGIN_V = 2` give `U = 10`, comfortably above the ~5–6 blocks the
 //! running fake lander's checkpoint trails the head by (its own lag plus L1 finality), so only
@@ -42,8 +42,7 @@ async fn back_pressure_stops_at_the_unsettled_cap() -> anyhow::Result<()> {
     let stop = frozen + cap;
     let reached = devnet.wait_for_height(0, stop, Duration::from_secs(40)).await?;
     assert_eq!(reached, stop, "the chain passed the unsettled cap");
-    let hold = Duration::from_millis(3 * spec.timeout_commit_ms) + Duration::from_secs(2);
-    let hold_end = Instant::now() + hold;
+    let hold_end = Instant::now() + spec.stall_hold();
     let mut reasons = BTreeSet::new();
     let mut status = devnet.abci_status(0).await?;
     while Instant::now() < hold_end {
@@ -72,6 +71,6 @@ async fn back_pressure_stops_at_the_unsettled_cap() -> anyhow::Result<()> {
     assert_eq!(devnet.app_halt(0), None);
 
     devnet.stop().await?;
-    eprintln!("scenario 3 done after {:?}", started.elapsed());
+    eprintln!("back-pressure scenario done after {:?}", started.elapsed());
     Ok(())
 }
