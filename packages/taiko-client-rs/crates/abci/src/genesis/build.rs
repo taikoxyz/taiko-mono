@@ -4,13 +4,12 @@
 
 use super::{GenesisDoc, GenesisError, GenesisWitness};
 use crate::{
-    committee::{record_hash, verify_committee_witness},
+    committee::{record_hash, verify_committee_witness_at_cutoff},
     config::ChainParams,
     l1::{
-        L1Source, build_committee_witness, header_at,
+        L1Source, build_committee_witness_at_cutoff, header_at,
         layout::{inbox, word_u8, word_u64},
         verify_genesis_inbox,
-        witness::anchor_state,
     },
     rules::chain_id_for,
     schedule::Schedule,
@@ -23,9 +22,14 @@ use crate::{
 /// activation block `L1_0` to be final with the chain's extra depth
 /// ([`GenesisError::ActivationNotFinal`]); takes the canonical header of `L1_0` and the Inbox
 /// proofs of `genesis_slots(e_0)` there, and verifies them as `InitChain` will (the record must
-/// name the same `L1_0`, the schedule must be valid); builds the `e_0` committee witness against
-/// `L1_0` and requires the committee it proves to hash to `committee[e_0]`
-/// ([`GenesisError::CommitteeRecordMismatch`]).
+/// name the same `L1_0`, `genesisCutoff` must lie before it, the schedule must be valid); builds
+/// the `e_0` committee witness with the snapshot at `genesisCutoff` itself (no cutoff lag or
+/// grid) and its proofs at `L1_0`, and requires the committee it proves to hash to
+/// `committee[e_0]` ([`GenesisError::CommitteeRecordMismatch`]).
+///
+/// The registry entries of that snapshot are read at the newest block that still holds it, which
+/// can be as old as `genesisCutoff`: the L1 node must serve that state (an archive node once it
+/// leaves the node's state window).
 ///
 /// The document has `chain_id = taiko-etna-<l2ChainId>-g<recoveryGeneration>`,
 /// `initial_height = B* + 1`, `genesis_time` = the `L1_0` timestamp, the `e_0` members as
@@ -58,11 +62,24 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     let schedule = Schedule::from_activation(&activation);
     schedule.validate(params.unsettled_cap())?;
 
-    // `header_at` returned block `l1_0`, so the anchor's number is `l1_0`.
-    let anchor = anchor_state(&l1_header, facts);
-    let committee = build_committee_witness(l1, params, &schedule, l1_0, Schedule::E0).await?;
-    let (record, members) =
-        verify_committee_witness(&anchor, &schedule, params, &committee, Schedule::E0)?;
+    let genesis_cutoff = activation.genesis_cutoff;
+    let committee = build_committee_witness_at_cutoff(
+        l1,
+        params,
+        &schedule,
+        l1_0,
+        genesis_cutoff,
+        Schedule::E0,
+    )
+    .await?;
+    let (record, members) = verify_committee_witness_at_cutoff(
+        l1_header.state_root(),
+        genesis_cutoff,
+        &schedule,
+        params,
+        &committee,
+        Schedule::E0,
+    )?;
     let derived = record_hash(params.l2_chain_id, &record);
     if derived != committee_e0 {
         return Err(GenesisError::CommitteeRecordMismatch { derived, recorded: committee_e0 });
@@ -73,7 +90,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
         .checked_add(1)
         .filter(|h| i64::try_from(*h).is_ok())
         .ok_or(GenesisError::InitialHeight(activation.genesis_height))?;
-    let chain_id = chain_id_for(params.l2_chain_id, anchor.inbox.recovery_generation);
+    let chain_id = chain_id_for(params.l2_chain_id, facts.recovery_generation);
     GenesisDoc::assemble(
         &GenesisWitness { l1_header, inbox: inbox_witness, committee },
         chain_id,
@@ -95,8 +112,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        committee::record_hash,
-        l1::{L1Error, layout::inbox},
+        committee::{CommitteeError, record_hash},
+        genesis::decode_app_state,
+        l1::{FetchError, L1Error, WitnessError, layout::inbox},
         test_utils::{Fixture, GenesisSpec, L1Call},
     };
 
@@ -166,6 +184,73 @@ mod tests {
             |c| matches!(c, L1Call::StorageAt { address, block, .. } if *address == fx.params.inbox && *block == finalized)
         ), "{calls:?}");
         assert_eq!(calls[3], L1Call::Header(fx.activation.l1_0));
+    }
+
+    /// `e_0` is discovered and derived at the Inbox's `genesisCutoff` as is, not at the lagged,
+    /// gridded cutoff of `L1_0`: entries active from L1 block 62 are in `e_0` under `L1_0 = 64`,
+    /// lag 5, grid 1 and genesis cutoff 63, where `cutoff(64) = 59` leaves none eligible.
+    #[tokio::test]
+    async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
+        let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+        assert_eq!((fx.activation.l1_0, fx.activation.genesis_cutoff), (64, 63));
+        // At the lagged cutoff of L1_0, 59, no entry is active yet.
+        let lagged = build_committee_witness_at_cutoff(
+            &fx.l1(),
+            &fx.params,
+            &fx.schedule(),
+            64,
+            59,
+            Schedule::E0,
+        )
+        .await;
+        assert_eq!(lagged, Err(FetchError::Committee(CommitteeError::Empty)));
+
+        let l1 = fx.l1();
+        let doc = build_genesis(&l1, &fx.params).await.expect("e_0 derives at the genesis cutoff");
+        assert_eq!(doc.validators.len(), 2);
+        let req = init_chain_from(&doc);
+        assert_eq!(req.validators, fx.request.validators);
+        assert_eq!(req.app_state_bytes, fx.request.app_state_bytes);
+        let witness = decode_app_state(&req.app_state_bytes).expect("decodes");
+        assert_eq!(witness.committee.record.cutoff_l1_block, 63);
+        let registry_reads: Vec<u64> = l1
+            .calls()
+            .into_iter()
+            .filter_map(|c| match c {
+                L1Call::AccountWitness { address, block, .. } |
+                L1Call::StorageAt { address, block, .. }
+                    if address == fx.params.registry =>
+                {
+                    Some(block)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(registry_reads, [64; 4], "every registry read is at L1_0");
+    }
+
+    /// The Inbox's `genesisCutoff` must lie before `L1_0`; nothing of the registry is read.
+    #[tokio::test]
+    async fn a_genesis_cutoff_not_before_l1_0_is_rejected() {
+        for genesis_cutoff in [64, 65] {
+            let fx = Fixture::build(GenesisSpec { genesis_cutoff, ..GenesisSpec::new(2) });
+            let l1 = fx.l1();
+            let err = build_genesis(&l1, &fx.params).await.unwrap_err();
+            assert!(
+                matches!(&err, GenesisError::Witness(e) if **e
+                    == WitnessError::GenesisCutoffNotBeforeActivation { genesis_cutoff, l1_0: 64 }),
+                "{err:?}"
+            );
+            assert!(
+                !l1.calls().iter().any(|c| matches!(
+                    c,
+                    L1Call::AccountWitness { address, .. } | L1Call::StorageAt { address, .. }
+                        if *address == fx.params.registry
+                )),
+                "{:?}",
+                l1.calls()
+            );
+        }
     }
 
     #[tokio::test]

@@ -2,13 +2,16 @@
 //!
 //! This module provides the main CLI structure and command dispatch logic.
 //! It parses command-line arguments using `clap` and routes to the appropriate
-//! subcommand handler (`abci` or `abci-genesis`), which then runs until it finishes or the
-//! process receives SIGINT or SIGTERM.
+//! subcommand handler (`abci`, `abci-genesis` or `abci-committee-record`), which then runs until
+//! it finishes or the process receives SIGINT or SIGTERM.
 
 use std::{future::Future, time::Duration};
 
 use crate::{
-    commands::{abci::AbciSubCommand, abci_genesis::AbciGenesisSubCommand},
+    commands::{
+        abci::AbciSubCommand, abci_committee_record::AbciCommitteeRecordSubCommand,
+        abci_genesis::AbciGenesisSubCommand,
+    },
     error::{CliError, Result},
 };
 use clap::{Parser, Subcommand};
@@ -26,6 +29,8 @@ pub enum Commands {
     Abci(Box<AbciSubCommand>),
     /// Write the CometBFT genesis.json of the Etna PoS chain from the L1 activation record.
     AbciGenesis(Box<AbciGenesisSubCommand>),
+    /// Compute the committeeRecordHash an Etna activation takes for a genesis cutoff.
+    AbciCommitteeRecord(Box<AbciCommitteeRecordSubCommand>),
 }
 
 #[derive(Parser, Clone, Debug)]
@@ -43,6 +48,7 @@ impl Cli {
         match self.subcommand {
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciGenesis(cmd) => Self::run_until_shutdown(cmd.run()),
+            Commands::AbciCommitteeRecord(cmd) => Self::run_until_shutdown(cmd.run()),
         }
     }
 

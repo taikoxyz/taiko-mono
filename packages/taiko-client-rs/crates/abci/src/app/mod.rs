@@ -169,7 +169,8 @@ pub enum AbciError {
         /// The genesis header's hash.
         hash: B256,
     },
-    /// The genesis Inbox witness does not verify or is not an activated Inbox.
+    /// The genesis Inbox witness does not verify or does not show a valid activation (see
+    /// [`verify_genesis_inbox`](crate::l1::verify_genesis_inbox)).
     #[error("genesis inbox witness rejected: {0}")]
     Witness(#[from] WitnessError),
     /// The genesis L1 header is not the activation record's `L1_0` block.

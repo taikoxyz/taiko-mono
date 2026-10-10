@@ -44,6 +44,15 @@ pub enum WitnessError {
     /// Genesis only: the activation record's `epochLenL2` (L) is zero.
     #[error("activation record has a zero epoch length")]
     ZeroEpochLength,
+    /// Genesis only: `genesisCutoff` is not before the activation block `L1_0`, so the genesis
+    /// committee's snapshot would not be one the activation could have seen.
+    #[error("genesis cutoff {genesis_cutoff} is not before the activation block L1_0 = {l1_0}")]
+    GenesisCutoffNotBeforeActivation {
+        /// The proven `genesisCutoff` (slot 279).
+        genesis_cutoff: u64,
+        /// The activation record's `L1_0`.
+        l1_0: u64,
+    },
 }
 
 /// Verifies an anchor witness and returns the anchor it proves.
@@ -89,13 +98,15 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 }
 
 /// Verifies the genesis Inbox witness against `state_root` (the `L1_0` header's) and returns the
-/// activation record, the Inbox facts at genesis and the `committee[e_0]` record hash.
+/// activation record (with `genesisCutoff`), the Inbox facts at genesis and the `committee[e_0]`
+/// record hash.
 ///
 /// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots(E0)`. The
 /// returned facts take the last checkpoint from the activation record (`(B*, H*)`, the genesis
 /// record of #22262's MIG rules) and set `committee = Some((E0, committee[E0]))`. Rejects, in this
 /// order: `migrationState != ETNA_ACTIVE`, a zero genesis hash, a zero `committee[E0]`, a zero
-/// epoch length. The remaining schedule bounds are checked by [`Schedule::validate`].
+/// epoch length, `genesisCutoff >= L1_0`. The remaining schedule bounds are checked by
+/// [`Schedule::validate`].
 pub fn verify_genesis_inbox(
     state_root: B256,
     w: &AccountWitness,
@@ -116,6 +127,7 @@ pub fn verify_genesis_inbox(
         epoch_len_l1: word_u64(packed, 192),
         genesis_hash: inbox_word(&storage, inbox::ACTIVATION_GENESIS_HASH).into(),
         genesis_state_root: inbox_word(&storage, inbox::ACTIVATION_GENESIS_STATE_ROOT).into(),
+        genesis_cutoff: word_u64(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
     };
     if activation.genesis_hash.is_zero() {
         return Err(WitnessError::ZeroGenesisHash);
@@ -126,6 +138,12 @@ pub fn verify_genesis_inbox(
     }
     if activation.epoch_len == 0 {
         return Err(WitnessError::ZeroEpochLength);
+    }
+    if activation.genesis_cutoff >= activation.l1_0 {
+        return Err(WitnessError::GenesisCutoffNotBeforeActivation {
+            genesis_cutoff: activation.genesis_cutoff,
+            l1_0: activation.l1_0,
+        });
     }
 
     let facts = InboxFacts {
@@ -302,6 +320,7 @@ mod tests {
             epoch_len_l1: u64::MAX,
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
+            genesis_cutoff: 0x0102_0304_0506_0707,
         };
         let storage = InboxStorage {
             recovery_generation: 6,
@@ -391,6 +410,59 @@ mod tests {
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
         assert_eq!(err, WitnessError::ZeroEpochLength);
+    }
+
+    /// `genesisCutoff` must lie before `L1_0`, and the check comes after the epoch length's.
+    #[test]
+    fn genesis_rejects_a_cutoff_not_before_l1_0() {
+        let l1_0 = sample_activation().l1_0;
+        for genesis_cutoff in [l1_0, l1_0 + 1, u64::MAX] {
+            let activation = ActivationRecord { genesis_cutoff, ..sample_activation() };
+            let storage = InboxStorage::genesis(activation.clone(), committee_e0());
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
+            assert_eq!(
+                err,
+                WitnessError::GenesisCutoffNotBeforeActivation { genesis_cutoff, l1_0 }
+            );
+
+            let storage = InboxStorage::genesis(
+                ActivationRecord { epoch_len: 0, ..activation },
+                committee_e0(),
+            );
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
+            assert_eq!(err, WitnessError::ZeroEpochLength);
+        }
+
+        // The block right before L1_0, and block 0, are accepted.
+        for genesis_cutoff in [l1_0 - 1, 0] {
+            let activation = ActivationRecord { genesis_cutoff, ..sample_activation() };
+            let storage = InboxStorage::genesis(activation, committee_e0());
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+            assert_eq!(decoded.genesis_cutoff, genesis_cutoff);
+        }
+    }
+
+    /// Variables packed above `genesisCutoff` in slot 279 do not leak into it.
+    #[test]
+    fn genesis_ignores_bits_above_the_genesis_cutoff() {
+        let storage = InboxStorage::genesis(sample_activation(), committee_e0());
+        let cutoff_slot = inbox::slot(inbox::GENESIS_CUTOFF);
+        let slots = storage
+            .slots()
+            .into_iter()
+            .map(|(slot, word)| {
+                (slot, if slot == cutoff_slot { word | ((U256::MAX >> 64) << 64) } else { word })
+            })
+            .collect();
+        let mut accounts: Vec<AccountSpec> = filler_accounts();
+        accounts.push((INBOX, 1, U256::ZERO, keccak256(b"code"), slots));
+        let state = TestState::new(accounts);
+        let w = state.witness(INBOX, &inbox::genesis_slots(Schedule::E0));
+        let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+        assert_eq!(decoded, sample_activation());
     }
 
     #[test]

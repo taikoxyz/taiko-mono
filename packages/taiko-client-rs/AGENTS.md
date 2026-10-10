@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`); keep orchestration light and delegate protocol logic to the crates.
+- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`); keep orchestration light and delegate protocol logic to the crates.
 - `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule` and `committee` free of I/O so they can later move unchanged into a no_std crate for the guest.
 - `crates/protocol` and `crates/rpc` hold shared protocol helpers and the Engine API / JWT provider helpers. Document shared traits whenever exposing cross-crate APIs.
 - `crates/protocol` is also consumed by raiko2 (pinned by git rev); keep the `shasta` modules and `FixedKSigner` it imports.

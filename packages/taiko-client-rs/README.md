@@ -36,7 +36,7 @@ Every validator and every full node runs three processes:
 
 | Path                   | Description                                                                      |
 | ---------------------- | -------------------------------------------------------------------------------- |
-| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`)                               |
+| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`)      |
 | `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                     |
 | `crates/protocol/`     | Shared protocol helpers; its `shasta` modules are kept for raiko2                |
 | `crates/rpc/`          | Engine API wrappers, capability check and JWT provider helpers                   |
@@ -95,19 +95,63 @@ CometBFT rounding; the ABCI query `/status` reports the head, epoch, generation 
 
 Reads the Ethereum-final activation record from L1 and writes the CometBFT `genesis.json`
 (chain id `taiko-etna-<l2 chain id>-g<generation>`, initial height, validator set and the genesis
-witness in `app_state`). It never invents values; `InitChain` re-verifies everything.
+witness in `app_state`). It never invents values; `InitChain` re-verifies everything. The genesis
+committee is the staking registry's snapshot at the Inbox's `genesisCutoff`, taken as is (the
+`cutoff_lag` and `cutoff_grid` of later epochs do not apply): the activating DAO proposal names
+that past L1 block explicitly, as it is written before the activation block is known. Every
+later epoch's snapshot cutoff is the parent block's anchor lagged by `cutoff_lag` and rounded
+down to the `cutoff_grid`, floored at `genesisCutoff`: the first height derives epoch 1 from the
+activation block, and derives it from the `genesisCutoff` snapshot whenever that block's lagged
+cutoff precedes it.
 
 | Flag             | Description                                                                       |
 | ---------------- | --------------------------------------------------------------------------------- |
-| `--l1.http`      | L1 node serving state from the activation block back to its cutoff (then archive) |
+| `--l1.http`      | L1 node serving state from the activation block back to `genesisCutoff` (archive) |
 | `--l2.chain-id`  | L2 chain id selecting the built-in chain parameters (no L2 node is contacted)     |
 | `--chain-config` | Optional TOML overriding the built-in chain parameters (devnet only)              |
 | `--out`          | Path of the `genesis.json` to write (default: standard output)                    |
 
+### `abci-committee-record`
+
+Computes, before the activation, the `committeeRecordHash` that `activateEtna` takes for a chosen
+`genesisCutoff`: the hash of the genesis committee derived from the staking registry's snapshot
+at that L1 block exactly as `InitChain` will derive it (every entry active at the cutoff with an
+effective stake of at least `max(s_min, vp_unit)`, the lowest bond id per public key, at most
+`n_max` members by stake, no heartbeat filter). The snapshot is read and proven at a later L1
+block, the proving block, and the derived committee is verified against it before anything is
+printed. Run it while writing the activating DAO proposal; anyone can rerun it to check the
+proposal's hash.
+
+| Flag               | Description                                                                      |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `--l1.http`        | L1 node serving state from the proving block back to `--genesis-cutoff`, HTTP(S) |
+| `--l2.chain-id`    | L2 chain id selecting the built-in chain parameters (no L2 node is contacted)    |
+| `--chain-config`   | Optional TOML overriding the built-in chain parameters (devnet only)             |
+| `--genesis-cutoff` | The activation's `genesisCutoff`, an L1 block at or before `finalized`, required |
+| `--at`             | The proving block, after the cutoff (default: the L1 node's `finalized` block)   |
+| `--json`           | Print the report as JSON instead of plain text                                   |
+
+The report gives the record hash, the cutoff, the snapshot's checkpoint index, the proving block,
+every member's public key and voting power, the total voting power and stake, and the first
+activation block whose lagged, gridded cutoff reaches the genesis cutoff (informational: the node
+floors every later epoch's cutoff at `genesisCutoff`, so an earlier activation is safe too). A
+cutoff after the L1 node's `finalized` block is refused, as the activation fixes it irreversibly,
+and so is a cutoff at which no entry is eligible: activating with it would leave the chain
+without validators. `--json` prints stakes as decimal strings, like the plain text. Logs go to
+standard error.
+
+```sh
+taiko-client abci-committee-record --l1.http http://l1-node:8545 --l2.chain-id 167001 \
+  --genesis-cutoff 400000
+```
+
 ## Run a validator
 
 The walkthrough assumes the Etna Inbox on L1 is activated and the validator's Ed25519 consensus
-key is registered in the staking registry snapshot the genesis committee is derived from.
+key is registered in the staking registry snapshot the genesis committee is derived from. The
+activation's `committeeRecordHash` was computed with `abci-committee-record` at the activation's
+`genesisCutoff`; `abci-genesis` and `InitChain` re-derive the same committee and refuse a genesis
+whose `committee[e_0]` differs.
 
 1. **Build the genesis** from L1 (every node must use the same file):
 
@@ -197,8 +241,9 @@ key is registered in the staking registry snapshot the genesis committee is deri
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every
   header field: after the next L1 fork that adds one, proposals fail with an error naming the
   unknown fields until the namespace is enabled.
-- `abci-genesis` reads the activation block and the blocks back to its cutoff. Once those leave
-  the node's proof window it needs an archive node.
+- `abci-genesis` reads the activation block and the registry entries back to the Inbox's
+  `genesisCutoff`. That block is fixed when the activating DAO proposal is written, well before
+  the activation block, so in practice `abci-genesis` needs an archive node.
 
 ### Restarts
 

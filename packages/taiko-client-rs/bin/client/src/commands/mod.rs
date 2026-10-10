@@ -13,6 +13,7 @@ use crate::{
 };
 
 pub mod abci;
+pub mod abci_committee_record;
 pub mod abci_genesis;
 
 /// The chain parameters of `l2_chain_id`: the built-in ones, overridden by the TOML file at

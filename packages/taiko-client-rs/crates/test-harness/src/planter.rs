@@ -54,9 +54,9 @@ pub struct InboxValues {
     pub recovery_generation: Option<u64>,
     /// `lastCheckpoint` `(height, blockHash)` (slots 270, 271).
     pub last_checkpoint: Option<(u64, B256)>,
-    /// The activation record (slots 272–274).
+    /// The activation record (slots 272–274) with its `genesisCutoff` (slot 279).
     pub activation: Option<ActivationRecord>,
-    /// `committee[epoch] = recordHash` entries (mapping at slot 276).
+    /// `committee[epoch] = recordHash` entries (mapping at slot 278).
     pub committee: Vec<(u64, B256)>,
 }
 
@@ -83,6 +83,7 @@ impl InboxValues {
             w.push((slot(inbox::ACTIVATION_PACKED), packed));
             w.push((slot(inbox::ACTIVATION_GENESIS_HASH), a.genesis_hash.into()));
             w.push((slot(inbox::ACTIVATION_GENESIS_STATE_ROOT), a.genesis_state_root.into()));
+            w.push((slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)));
         }
         for (epoch, hash) in &self.committee {
             w.push((inbox::committee_slot(*epoch), (*hash).into()));
@@ -360,5 +361,37 @@ mod tests {
         let v = InboxValues { recovery_generation: Some(0), ..Default::default() };
         assert_eq!(v.writes(), vec![(inbox::slot(inbox::RECOVERY_GENERATION), U256::ZERO)]);
         assert!(InboxValues::default().writes().is_empty());
+    }
+
+    #[test]
+    fn inbox_values_write_the_activation_with_its_genesis_cutoff() {
+        let activation = ActivationRecord {
+            genesis_height: 1,
+            l1_0: 2,
+            epoch_len: 3,
+            epoch_len_l1: 4,
+            genesis_hash: B256::repeat_byte(5),
+            genesis_state_root: B256::repeat_byte(6),
+            genesis_cutoff: 7,
+        };
+        let v = InboxValues {
+            activation: Some(activation),
+            committee: vec![(0, B256::repeat_byte(8))],
+            ..Default::default()
+        };
+        let packed = U256::from(1u64) |
+            U256::from(2u64) << 64 |
+            U256::from(3u64) << 128 |
+            U256::from(4u64) << 192;
+        assert_eq!(
+            v.writes(),
+            vec![
+                (inbox::slot(272), packed),
+                (inbox::slot(273), U256::from_be_bytes([5; 32])),
+                (inbox::slot(274), U256::from_be_bytes([6; 32])),
+                (inbox::slot(279), U256::from(7u64)),
+                (inbox::committee_slot(0), U256::from_be_bytes([8; 32])),
+            ]
+        );
     }
 }

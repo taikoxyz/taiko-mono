@@ -12,11 +12,19 @@
 //! once its parent is committed, and only a recovery generation gets past them.
 //!
 //! - **Activation.** By the activation block `L1_0` the Inbox holds the activation record (slots
-//!   272–274), `migrationState = ETNA_ACTIVE` (258), `committee[e_0]` (the 276 mapping) = the
-//!   record hash of the committee the registry derives at `L1_0`'s cutoff (the active bonded set,
-//!   not filtered by heartbeats: CONS-14), and `lastCheckpoint = (B*, H*)` (270–271). Without that
-//!   checkpoint the first height `H_0 = B* + 1` fails back-pressure and the chain never starts;
-//!   without the others the genesis does not verify.
+//!   272–274), `migrationState = ETNA_ACTIVE` (258), `genesisCutoff` (279), `committee[e_0]` (the
+//!   278 mapping) = the record hash of the committee the registry derives with the snapshot cutoff
+//!   `genesisCutoff` itself (no lag or grid; the active bonded set, not filtered by heartbeats:
+//!   CONS-14), and `lastCheckpoint = (B*, H*)` (270–271). Without `lastCheckpoint` the first height
+//!   `H_0 = B* + 1` fails back-pressure and the chain never starts; without the others the genesis
+//!   does not verify. `genesisCutoff` is a block before `L1_0` and at or after the registry's first
+//!   checkpoint: the DAO proposal that activates Etna is written before `L1_0` is known, so it
+//!   names a past cutoff and the record hash precomputed there (`taiko-client
+//!   abci-committee-record`). At least one entry must be eligible at that snapshot, or `e_0` does
+//!   not derive. Every later epoch's snapshot cutoff is floored at `genesisCutoff`
+//!   (`committee::snapshot_cutoff`), so `e_0 + 1`, derived at `H_0` from the genesis anchor `L1_0`,
+//!   derives from the `genesisCutoff` snapshot whenever the lagged cutoff of `L1_0` precedes it; a
+//!   `genesisCutoff` close to `L1_0` is therefore safe.
 //! - **A registry checkpoint in every changing L1 block.** `checkpoints[i].l1Block` is strictly
 //!   increasing in `i`, and every L1 block that changes any entry has a checkpoint (a block that
 //!   changes none may have one too). The snapshot search relies on the order, and discovery reads
@@ -61,7 +69,10 @@ pub mod inbox {
     /// Activation record: `genesisStateRoot` (S*), `bytes32`.
     pub const ACTIVATION_GENESIS_STATE_ROOT: u64 = 274;
     /// Base slot of `committee`: `mapping(uint64 epoch => bytes32 recordHash)`.
-    pub const COMMITTEE_MAPPING: u64 = 276;
+    pub const COMMITTEE_MAPPING: u64 = 278;
+    /// `genesisCutoff`: `uint64`, bits 0–63. The snapshot cutoff (an L1 block before `L1_0`) of
+    /// the genesis committee `committee[e_0]`, set once by the activation.
+    pub const GENESIS_CUTOFF: u64 = 279;
     /// `migrationState` value once Etna PoS is live.
     pub const ETNA_ACTIVE: u8 = 3;
 
@@ -91,7 +102,7 @@ pub mod inbox {
     }
 
     /// The slots the genesis witness proves, in this order:
-    /// `[258, 268, 272, 273, 274, committee[e0]]`.
+    /// `[258, 268, 272, 273, 274, 279, committee[e0]]`.
     pub fn genesis_slots(e0: u64) -> Vec<B256> {
         vec![
             slot(MIGRATION_STATE),
@@ -99,6 +110,7 @@ pub mod inbox {
             slot(ACTIVATION_PACKED),
             slot(ACTIVATION_GENESIS_HASH),
             slot(ACTIVATION_GENESIS_STATE_ROOT),
+            slot(GENESIS_CUTOFF),
             committee_slot(e0),
         ]
     }
@@ -214,7 +226,11 @@ mod tests {
         );
         assert_eq!(
             inbox::slot(inbox::COMMITTEE_MAPPING),
-            b256!("0000000000000000000000000000000000000000000000000000000000000114")
+            b256!("0000000000000000000000000000000000000000000000000000000000000116")
+        );
+        assert_eq!(
+            inbox::slot(inbox::GENESIS_CUTOFF),
+            b256!("0000000000000000000000000000000000000000000000000000000000000117")
         );
         assert_eq!(inbox::slot(0), B256::ZERO);
         assert_eq!(inbox::slot(u64::MAX), B256::from(U256::from(u64::MAX)));
@@ -224,22 +240,22 @@ mod tests {
     fn committee_slot_is_pinned() {
         assert_eq!(
             inbox::committee_slot(0),
-            b256!("2787162cb5efc0991778decb6064e0d16695115fa7a391c7834a23d0f07e0d55")
+            b256!("c23516b0e3be2a5ae5c5d7bbb9c18b102f5fedf97e629ab6fe6d7325551b15f7")
         );
         assert_eq!(
             inbox::committee_slot(1),
-            b256!("231d1e3aab20212e2b1c4bfd35b30ad741110c0b6bc7e655cd2209414a3b58fb")
+            b256!("bd3f4b02b07831a9050e2ee72d1a0d271b4bae76f1926d288553c1d10a2b28b8")
         );
         assert_eq!(
             inbox::committee_slot(u64::MAX),
-            b256!("84d66c6015411bc5482c4c3241ff6a96073d9595f88bfe6d47fa1e53a96585b9")
+            b256!("a9198a218bb586d7584ea66bd97c2b631c8ce51546ef109dc2c43cadc73dec73")
         );
     }
 
     #[test]
     fn committee_slot_matches_manual_abi_encoding() {
         for epoch in [0, 1, 2, 1_000, u64::MAX] {
-            assert_eq!(inbox::committee_slot(epoch), keccak256(abi_encode_two_u64(epoch, 276)));
+            assert_eq!(inbox::committee_slot(epoch), keccak256(abi_encode_two_u64(epoch, 278)));
         }
     }
 
@@ -255,10 +271,10 @@ mod tests {
 
     #[test]
     fn genesis_slots_are_ordered() {
-        let mut expected = [258u64, 268, 272, 273, 274].map(inbox::slot).to_vec();
+        let mut expected = [258u64, 268, 272, 273, 274, 279].map(inbox::slot).to_vec();
         expected.push(inbox::committee_slot(0));
         assert_eq!(inbox::genesis_slots(0), expected);
-        assert_eq!(inbox::genesis_slots(3)[5], inbox::committee_slot(3));
+        assert_eq!(inbox::genesis_slots(3)[6], inbox::committee_slot(3));
     }
 
     #[test]
