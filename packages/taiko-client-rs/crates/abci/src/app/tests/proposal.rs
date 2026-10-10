@@ -269,6 +269,49 @@ async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
     assert_eq!(app.halt, None);
 }
 
+/// A `genesisCutoff` above the genesis anchor's lagged cutoff does not halt the chain at `H_0`:
+/// under `L1_0 = 64`, lag 5, grid 1, genesis cutoff 63 and entries active from L1 block 62,
+/// `InitChain` derives `e_0` at 63, and `H_0` derives `e_0 + 1` at the floored cutoff
+/// `max(cutoff(64) = 59, 63) = 63` (at 59 no entry would be active). Proposer and validator
+/// agree on it.
+#[tokio::test]
+async fn h0_derives_the_next_committee_at_the_floored_genesis_cutoff() {
+    let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+    let genesis_cutoff = fx.activation.genesis_cutoff;
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let e0 = app.state().expect("initialized").committees[&0].clone();
+    assert_eq!(e0.record.cutoff_l1_block, genesis_cutoff);
+    assert_eq!(e0.members.len(), 2);
+
+    let env = propose(&mut app).await;
+    let committee = env.committee.as_ref().expect("H_0 = h_first(e_0) carries a committee");
+    assert_eq!(committee.record.target_epoch, 1);
+    assert_eq!(committee.record.cutoff_l1_block, genesis_cutoff);
+    assert_eq!(committee.record.checkpoint_index, 0);
+
+    let other_dir = tempfile::tempdir().unwrap();
+    let mut validator = initialized(&fx, other_dir.path()).await;
+    let (resp, req) = judge(&mut validator, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", validator.halt);
+    let (target, derived) = validator
+        .verdicts
+        .get(&req.hash)
+        .expect("the verdict is cached")
+        .derived
+        .clone()
+        .expect("committee 1 is derived");
+    assert_eq!(target, 1);
+    assert_eq!(derived.record, committee.record);
+    assert_eq!(derived, fx.committee(1));
+    assert_eq!(derived.members, e0.members, "same snapshot, same members");
+
+    decide(&mut validator, &req).await;
+    let state = validator.state().expect("committed");
+    assert_eq!(state.last_height, fx.activation.genesis_height + 1);
+    assert_eq!(state.committees[&1], derived);
+}
+
 #[tokio::test]
 async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     let fx = Fixture::genesis(2);

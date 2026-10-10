@@ -437,7 +437,7 @@ fn payload_attributes_id_depends_on_the_parent_hash() {
 /// `H_0 = 101`, `L = 20`, `L1_0 = 50`, `EPOCH_LEN_L1 = 4`: epoch 2 starts at height 141 and needs
 /// an anchor >= 58.
 fn schedule() -> Schedule {
-    Schedule { genesis_height: 100, l1_0: 50, epoch_len: 20, epoch_len_l1: 4 }
+    Schedule { genesis_height: 100, l1_0: 50, epoch_len: 20, epoch_len_l1: 4, genesis_cutoff: 49 }
 }
 
 #[test]

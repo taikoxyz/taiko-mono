@@ -204,6 +204,7 @@ mod tests {
             epoch_len_l1: 4,
             genesis_hash: B256::repeat_byte(0x66),
             genesis_state_root: B256::repeat_byte(0x77),
+            genesis_cutoff: 990,
         };
         AppState {
             chain_id: "taiko-etna-167001-g0".to_string(),
