@@ -199,9 +199,10 @@ pub(crate) struct InboxStorage {
     pub(crate) last_checkpoint_height: u64,
     /// Slot 271, `bytes32`.
     pub(crate) last_checkpoint_hash: B256,
-    /// Slots 272–274; `None` leaves them empty (not yet activated).
+    /// Slots 272–274 and `genesis_cutoff` in slot 279 (`uint64` at bits 0–63); `None` leaves
+    /// them empty (not yet activated).
     pub(crate) activation: Option<ActivationRecord>,
-    /// `committee[epoch] = record_hash` entries of the slot-276 mapping.
+    /// `committee[epoch] = record_hash` entries of the slot-278 mapping.
     pub(crate) committee: Vec<(u64, B256)>,
 }
 
@@ -237,6 +238,7 @@ impl InboxStorage {
                 (inbox::slot(inbox::ACTIVATION_PACKED), packed),
                 (inbox::slot(inbox::ACTIVATION_GENESIS_HASH), a.genesis_hash.into()),
                 (inbox::slot(inbox::ACTIVATION_GENESIS_STATE_ROOT), a.genesis_state_root.into()),
+                (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)),
             ]);
         }
         slots.extend(
@@ -248,7 +250,8 @@ impl InboxStorage {
     }
 }
 
-/// A sample activation record with every field distinct and non-zero.
+/// A sample activation record with every field distinct and non-zero (the genesis cutoff is the
+/// block before `L1_0`).
 pub(crate) fn sample_activation() -> ActivationRecord {
     ActivationRecord {
         genesis_height: 1_000,
@@ -257,6 +260,7 @@ pub(crate) fn sample_activation() -> ActivationRecord {
         epoch_len_l1: 4,
         genesis_hash: B256::repeat_byte(0x48),
         genesis_state_root: B256::repeat_byte(0x53),
+        genesis_cutoff: 63,
     }
 }
 
@@ -575,6 +579,7 @@ mod tests {
             epoch_len_l1: u64::MAX - 1,
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
+            genesis_cutoff: u64::MAX - 2,
         };
         let storage = InboxStorage {
             migration_state: u8::MAX,
@@ -603,10 +608,12 @@ mod tests {
             B256::from(at(inbox::ACTIVATION_GENESIS_STATE_ROOT)),
             activation.genesis_state_root
         );
+        assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), activation.genesis_cutoff);
+        assert_eq!(at(inbox::GENESIS_CUTOFF) >> 64, U256::ZERO);
 
         assert_eq!(B256::from(word(&slots, inbox::committee_slot(0))), B256::repeat_byte(0xa4));
         assert_eq!(B256::from(word(&slots, inbox::committee_slot(9))), B256::repeat_byte(0xa5));
-        assert_eq!(slots.len(), 4 + 3 + 2);
+        assert_eq!(slots.len(), 4 + 4 + 2);
     }
 
     /// Hand-written storage words (as a Solidity contract would write them) equal the packing.
@@ -619,6 +626,7 @@ mod tests {
             epoch_len_l1: 0x4444_4444,
             genesis_hash: B256::repeat_byte(0x55),
             genesis_state_root: B256::repeat_byte(0x66),
+            genesis_cutoff: 0x2221,
         };
         let storage = InboxStorage {
             migration_state: 3,
@@ -647,7 +655,11 @@ mod tests {
             at(inbox::ACTIVATION_PACKED),
             b256!("0000000044444444000000000033333300000000000022220000000000000011")
         );
-        assert_eq!(slots.len(), 4 + 3);
+        assert_eq!(
+            at(inbox::GENESIS_CUTOFF),
+            b256!("0000000000000000000000000000000000000000000000000000000000002221")
+        );
+        assert_eq!(slots.len(), 4 + 4);
     }
 
     #[test]

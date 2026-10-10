@@ -220,6 +220,7 @@ mod tests {
             epoch_len_l1: 5,
             genesis_hash: B256::repeat_byte(1),
             genesis_state_root: B256::repeat_byte(2),
+            genesis_cutoff: 8,
         };
         assert_eq!(
             Schedule::from_activation(&a),

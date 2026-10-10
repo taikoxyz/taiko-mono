@@ -7,7 +7,7 @@ use tendermint::{block::Height, vote};
 
 use super::*;
 use crate::{
-    committee::CommitteeError,
+    committee::{self, CommitteeError, verify_committee_witness},
     elsync::ElSyncError,
     engine::PayloadVerdict,
     genesis::GenesisError,
@@ -60,6 +60,65 @@ async fn a_genesis_committee_without_heartbeats_initializes() {
     let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
     assert_eq!(resp.validators, fx.request.validators);
     assert_eq!(app.state(), Some(&fx.expected_state()));
+}
+
+/// `e_0` is derived at the Inbox's `genesisCutoff` as is, not at the lagged, gridded cutoff of
+/// `L1_0` that every later epoch uses: entries active from L1 block 62 are in `e_0` under
+/// `L1_0 = 64`, lag 5, grid 1 and genesis cutoff 63, where `cutoff(64) = 59` leaves none
+/// eligible.
+#[tokio::test]
+async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
+    let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+    let (l1_0, genesis_cutoff) = (fx.activation.l1_0, fx.activation.genesis_cutoff);
+    assert_eq!((l1_0, genesis_cutoff), (64, 63));
+    assert!(fx.registry.checkpoints[0].1.iter().all(|e| e.active_from_l1 == 62));
+    // Verified through the genesis anchor like a later epoch, the snapshot is the same checkpoint
+    // but at cutoff 59, where no entry is active yet.
+    assert_eq!(
+        verify_committee_witness(
+            &fx.expected_state().anchor,
+            &fx.schedule(),
+            &fx.params,
+            &fx.witness.committee,
+            0
+        ),
+        Err(CommitteeError::Empty)
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
+    assert_eq!(resp.validators.len(), 2);
+    let state = app.state().expect("initialized");
+    assert_eq!(state, &fx.expected_state());
+    let e0 = &state.committees[&0];
+    assert_eq!(e0.record.cutoff_l1_block, genesis_cutoff);
+    let pubkeys: Vec<B256> = e0.members.iter().map(|m| m.pubkey).collect();
+    let mut expected: Vec<B256> = fx.registry.checkpoints[0].1.iter().map(|e| e.pubkey).collect();
+    expected.sort_by_key(|pubkey| committee::mem08_key(fx.params.l2_chain_id, *pubkey));
+    assert_eq!(pubkeys, expected);
+}
+
+/// The Inbox's `genesisCutoff` must lie before `L1_0`.
+#[tokio::test]
+async fn a_genesis_cutoff_not_before_l1_0_is_rejected() {
+    for genesis_cutoff in [64, 65] {
+        let fx = Fixture::build(GenesisSpec { genesis_cutoff, ..GenesisSpec::new(2) });
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = fx.app(dir.path());
+        let err = init_chain(&mut app, fx.request.clone()).await.expect_err("cutoff at L1_0");
+        assert!(
+            matches!(
+                err,
+                AbciError::Witness(WitnessError::GenesisCutoffNotBeforeActivation {
+                    genesis_cutoff: c,
+                    l1_0: 64
+                }) if c == genesis_cutoff
+            ),
+            "{err:?}"
+        );
+        assert_not_initialized(&app, dir.path());
+    }
 }
 
 #[tokio::test]

@@ -12,7 +12,7 @@ use tendermint::{
 
 use super::{AbciError, App, app_hash, at_genesis, within};
 use crate::{
-    committee::{record_hash, verify_committee_witness},
+    committee::{record_hash, verify_committee_witness_at_cutoff},
     engine::Engine,
     genesis::decode_app_state,
     l1::{L1Source, is_final_canonical, verify_genesis_inbox, witness::anchor_state},
@@ -58,6 +58,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 genesis_height = state.activation.genesis_height,
                 genesis_hash = %genesis_hash,
                 l1_0 = state.activation.l1_0,
+                genesis_cutoff = state.activation.genesis_cutoff,
                 validators = req.validators.len(),
                 "chain initialized"
             );
@@ -77,12 +78,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// In order: decodes the `app_state` witness; requires its L1 header to be final and
     /// canonical in the own L1 view; verifies the Inbox witness (activated Inbox, activation
-    /// record) and that the header is block `L1_0`; validates the schedule; requires the
-    /// `chain_id` generation to equal the Inbox's `recoveryGeneration` and
-    /// `initial_height == B* + 1`; recomputes the `e_0` committee from its witness (cutoff from
-    /// `L1_0`) and requires its record hash to equal `committee[e_0]` and its members to be
-    /// exactly the genesis validators; makes sure the EL serves `B*` with hash `H*` (EL sync if
-    /// needed). The state has `last = (B*, H*)`.
+    /// record, `genesisCutoff < L1_0`) and that the header is block `L1_0`; validates the
+    /// schedule; requires the `chain_id` generation to equal the Inbox's `recoveryGeneration` and
+    /// `initial_height == B* + 1`; recomputes the `e_0` committee from its witness (proofs against
+    /// `L1_0`'s state root, snapshot cutoff `genesisCutoff` as is, without the cutoff lag and
+    /// grid that apply from `e_0 + 1` on) and requires its record hash to equal `committee[e_0]`
+    /// and its members to be exactly the genesis validators; makes sure the EL serves `B*` with
+    /// hash `H*` (EL sync if needed). The state has `last = (B*, H*)`.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let w = decode_app_state(&req.app_state_bytes)?;
         let params = &self.params;
@@ -125,15 +127,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::InitialHeight { got: initial_height, expected: schedule.h0() });
         }
 
-        let anchor = anchor_state(l1_header, inbox_facts);
-        let (record, members) =
-            verify_committee_witness(&anchor, &schedule, params, &w.committee, Schedule::E0)?;
+        let (record, members) = verify_committee_witness_at_cutoff(
+            l1_header.state_root(),
+            activation.genesis_cutoff,
+            &schedule,
+            params,
+            &w.committee,
+            Schedule::E0,
+        )?;
         let derived = record_hash(params.l2_chain_id, &record);
         if derived != committee_e0 {
             return Err(AbciError::CommitteeRecordMismatch { derived, recorded: committee_e0 });
         }
         check_validators(&req.validators, &members)?;
 
+        let anchor = anchor_state(l1_header, inbox_facts);
         let parent = self.genesis_parent(&activation).await?;
         Ok(AppState {
             chain_id: req.chain_id.clone(),

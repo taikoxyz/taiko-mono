@@ -120,7 +120,8 @@ pub struct InboxFacts {
     pub committee: Option<(u64, B256)>,
 }
 
-/// The Etna activation record read from the Inbox (slots 272–274).
+/// The Etna activation record read from the Inbox (slots 272–274), with the genesis committee's
+/// snapshot cutoff (slot 279).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActivationRecord {
     /// `B*`: L2 block number of the genesis anchor (an existing, uncertified L2 block).
@@ -136,6 +137,11 @@ pub struct ActivationRecord {
     pub genesis_hash: B256,
     /// `S*`: L2 state root of `B*`.
     pub genesis_state_root: B256,
+    /// `genesisCutoff`: the snapshot cutoff `C` of the genesis committee `e_0`, an L1 block
+    /// number; validated `< l1_0`. Unlike every later epoch's cutoff it is not derived from an
+    /// anchor with the cutoff lag and grid: the activation names it explicitly, as the DAO
+    /// proposal that activates Etna is written before `L1_0` is known.
+    pub genesis_cutoff: u64,
 }
 
 /// The L1 anchor a block uses: the L1 header facts plus the Inbox facts proven at it.
@@ -286,6 +292,7 @@ mod tests {
             epoch_len_l1: 4,
             genesis_hash: B256::repeat_byte(0x66),
             genesis_state_root: B256::repeat_byte(0x77),
+            genesis_cutoff: 99,
         });
     }
 

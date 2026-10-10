@@ -843,7 +843,7 @@ fn a_zero_vp_unit_is_rejected() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// verify_committee_witness
+// verify_committee_witness, verify_committee_witness_at_cutoff
 // ---------------------------------------------------------------------------------------------
 
 /// Devnet parameters with a coarse cutoff: `G = 4`, `LAG = 2`. A parent anchor of 27 gives
@@ -943,6 +943,53 @@ fn verify_committee_witness_rejects_another_registry() {
     assert_eq!(
         verify_committee_witness(&anchor_at(27, state.state_root()), &SCHEDULE, &params, &w, 3),
         Err(CommitteeError::WrongContract { expected: OTHER, got: REGISTRY })
+    );
+}
+
+/// The explicit cutoff is used as is, neither lagged nor rounded to the grid: 25 selects
+/// checkpoint 1 and the record carries 25, so the same witness does not verify through a parent
+/// anchor of 27, whose cutoff is 24.
+#[test]
+fn verify_committee_witness_at_cutoff_takes_the_cutoff_as_is() {
+    let params = grid_params();
+    let storage = registry_storage();
+    let state = registry_state(&storage);
+    let snapshot = Snapshot { checkpoint_index: 1, l1_block: 20, entries: sample_entries(3) };
+    let (record, members) = derive(&snapshot, 25, 3, &SCHEDULE, &params).unwrap();
+    assert_eq!(record.cutoff_l1_block, 25);
+    let w = committee_witness(&state, REGISTRY, &storage, 1, record.clone());
+    assert_eq!(
+        verify_committee_witness_at_cutoff(state.state_root(), 25, &SCHEDULE, &params, &w, 3),
+        Ok((record.clone(), members))
+    );
+
+    let (derived, _) = expected_committee(&params);
+    assert_eq!(
+        verify_committee_witness(&anchor_at(27, state.state_root()), &SCHEDULE, &params, &w, 3),
+        Err(CommitteeError::RecordMismatch {
+            claimed: Box::new(record),
+            derived: Box::new(derived)
+        })
+    );
+}
+
+/// The explicit cutoff selects the snapshot like a derived one: a checkpoint after it, or one
+/// followed by a checkpoint at or before it, is rejected.
+#[test]
+fn verify_committee_witness_at_cutoff_requires_the_cutoff_snapshot() {
+    let params = grid_params();
+    let storage = registry_storage();
+    let state = registry_state(&storage);
+    let (record, _) = expected_committee(&params);
+    let w = committee_witness(&state, REGISTRY, &storage, 1, record);
+    let root = state.state_root();
+    assert_eq!(
+        verify_committee_witness_at_cutoff(root, 19, &SCHEDULE, &params, &w, 3),
+        Err(CommitteeError::CheckpointAfterCutoff { l1_block: 20, cutoff: 19 })
+    );
+    assert_eq!(
+        verify_committee_witness_at_cutoff(root, 30, &SCHEDULE, &params, &w, 3),
+        Err(CommitteeError::NextCheckpointNotAfterCutoff { l1_block: 30, cutoff: 30 })
     );
 }
 

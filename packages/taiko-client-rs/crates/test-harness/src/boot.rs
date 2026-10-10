@@ -88,8 +88,8 @@ pub(crate) struct Booted {
 ///
 /// 1. anvil and one alethia-reth per validator, waiting for their RPCs;
 /// 2. the chain parameters for alethia-reth's chain id with `spec`'s `d_max` / `margin_v`;
-/// 3. the setter contracts, then registry checkpoint 0 (the first `initial_validators` keys) and
-///    the activated Inbox, both in L1 block `L1_0`;
+/// 3. the setter contracts, then registry checkpoint 0 (the first `initial_validators` keys) in an
+///    L1 block `c` and the activated Inbox, with `genesisCutoff = c`, in a later block `L1_0`;
 /// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
 /// 5. one app per validator, listening before CometBFT starts;
 /// 6. one CometBFT node per validator, waiting for their RPCs;
@@ -150,7 +150,7 @@ pub(crate) async fn boot(
         .with_overrides(&format!("d_max = {}\nmargin_v = {}\n", spec.d_max, spec.margin_v))?;
     params.validate()?;
 
-    // 3. L1 state: registry checkpoint 0 and the activated Inbox, both in block L1_0.
+    // 3. L1 state: registry checkpoint 0 in block c, then the activated Inbox in block L1_0 > c.
     let keys = validator_keys(n);
     let planter = Planter::new(l1.clone(), params.inbox, params.registry);
     planter.install().await?;
@@ -162,7 +162,7 @@ pub(crate) async fn boot(
         plant_genesis(&planter, &params, spec, &entries, (genesis_hash, genesis_state_root))
             .await?;
     let l1_0 = activation.l1_0;
-    tracing::info!(l1_0, %genesis_hash, "activation planted");
+    tracing::info!(l1_0, genesis_cutoff = activation.genesis_cutoff, %genesis_hash, "activation planted");
 
     // 4. Genesis, once L1_0 is final.
     wait_until("L1 finalized >= L1_0", RPC_TIMEOUT, POLL, || async {
@@ -263,9 +263,11 @@ async fn genesis_block(l2: &RootProvider) -> Result<(B256, B256)> {
     Ok((block.header.hash, block.header.state_root))
 }
 
-/// Plants registry checkpoint 0 with `entries` and the activated Inbox (activation record over
-/// the L2 genesis `(hash, state root)`, `lastCheckpoint = (0, genesis hash)`, generation 0,
-/// `committee[e_0]`) into one L1 block, `L1_0`, and returns the activation record.
+/// Plants registry checkpoint 0 with `entries` into an L1 block `c`, then the activated Inbox
+/// (activation record over the L2 genesis `(hash, state root)`, `lastCheckpoint = (0, genesis
+/// hash)`, generation 0, `genesisCutoff = c` and `committee[e_0]` derived at `c`) into a later
+/// block `L1_0`, as the activating DAO proposal names a cutoff before the block it lands in.
+/// Returns the activation record.
 async fn plant_genesis(
     planter: &Planter,
     params: &ChainParams,
@@ -274,9 +276,18 @@ async fn plant_genesis(
     (genesis_hash, genesis_state_root): (B256, B256),
 ) -> Result<ActivationRecord> {
     let mut next = planter.next_block().await?;
-    let l1_0 = next.number();
+    let genesis_cutoff = next.number();
     let index = next.write_registry_checkpoint(entries).await?;
     ensure!(index == 0, "the registry already holds {index} checkpoints");
+    let mined = next.commit().await?;
+    ensure!(
+        mined == genesis_cutoff,
+        "checkpoint 0 landed in L1 block {mined}, not {genesis_cutoff}"
+    );
+
+    let mut next = planter.next_block().await?;
+    let l1_0 = next.number();
+    ensure!(l1_0 > genesis_cutoff, "L1_0 {l1_0} is not after the genesis cutoff {genesis_cutoff}");
     let activation = ActivationRecord {
         genesis_height: 0,
         l1_0,
@@ -284,11 +295,13 @@ async fn plant_genesis(
         epoch_len_l1: spec.epoch_len_l1,
         genesis_hash,
         genesis_state_root,
+        genesis_cutoff,
     };
-    let cutoff = committee::cutoff(l1_0, params.cutoff_grid, params.cutoff_lag)?;
-    let snapshot = Snapshot { checkpoint_index: 0, l1_block: l1_0, entries: entries.to_vec() };
+    let snapshot =
+        Snapshot { checkpoint_index: 0, l1_block: genesis_cutoff, entries: entries.to_vec() };
     let schedule = Schedule::from_activation(&activation);
-    let (record, _) = committee::derive(&snapshot, cutoff, Schedule::E0, &schedule, params)?;
+    let (record, _) =
+        committee::derive(&snapshot, genesis_cutoff, Schedule::E0, &schedule, params)?;
     next.plant_inbox(&InboxValues {
         migration_state: Some(ETNA_ACTIVE),
         recovery_generation: Some(0),

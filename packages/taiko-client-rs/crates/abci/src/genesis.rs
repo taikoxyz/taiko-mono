@@ -3,9 +3,9 @@
 //!
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
 //! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header, the Inbox proofs of the activation
-//! slots and `committee[e_0]`, and the committee witness of epoch `e_0`. `InitChain` decodes it
-//! with [`decode_app_state`] and re-verifies every fact against the node's own L1; nothing in it is
-//! trusted.
+//! slots, `genesisCutoff` and `committee[e_0]`, and the committee witness of epoch `e_0`.
+//! `InitChain` decodes it with [`decode_app_state`] and re-verifies every fact against the node's
+//! own L1; nothing in it is trusted.
 //!
 //! [`build_genesis`] reads the Ethereum-final activation record and the `e_0` committee from the
 //! node's own L1, checks them as `InitChain` will, and assembles the whole CometBFT v0.40
@@ -46,8 +46,8 @@ pub struct GenesisWitness {
     pub l1_header: RawL1Header,
     /// EIP-1186 proof of the Inbox account and `layout::inbox::genesis_slots(E0)`, in slot order.
     pub inbox: AccountWitness,
-    /// The committee witness of epoch `e_0` (target epoch 0, parent anchor `L1_0`), proven
-    /// against the same `stateRoot`.
+    /// The committee witness of epoch `e_0` (target epoch 0, snapshot cutoff = the Inbox's
+    /// `genesisCutoff`), proven against the same `stateRoot`.
     pub committee: CommitteeWitness,
 }
 
@@ -99,8 +99,8 @@ pub enum GenesisError {
         /// The L1 node's `finalized` block number.
         finalized: u64,
     },
-    /// The Inbox proofs at `L1_0` do not verify, or do not show an activated Inbox (boxed, as
-    /// the witness error is large).
+    /// The Inbox proofs at `L1_0` do not verify, or do not show a valid activation (boxed, as the
+    /// witness error is large).
     #[error("genesis inbox witness rejected: {0}")]
     Witness(Box<WitnessError>),
     /// The activation record proven at `L1_0` names another activation block than the record

@@ -95,11 +95,14 @@ CometBFT rounding; the ABCI query `/status` reports the head, epoch, generation 
 
 Reads the Ethereum-final activation record from L1 and writes the CometBFT `genesis.json`
 (chain id `taiko-etna-<l2 chain id>-g<generation>`, initial height, validator set and the genesis
-witness in `app_state`). It never invents values; `InitChain` re-verifies everything.
+witness in `app_state`). It never invents values; `InitChain` re-verifies everything. The genesis
+committee is the staking registry's snapshot at the Inbox's `genesisCutoff`, taken as is (the
+`cutoff_lag` and `cutoff_grid` of later epochs do not apply): the activating DAO proposal names
+that past L1 block explicitly, as it is written before the activation block is known.
 
 | Flag             | Description                                                                       |
 | ---------------- | --------------------------------------------------------------------------------- |
-| `--l1.http`      | L1 node serving state from the activation block back to its cutoff (then archive) |
+| `--l1.http`      | L1 node serving state from the activation block back to `genesisCutoff` (archive) |
 | `--l2.chain-id`  | L2 chain id selecting the built-in chain parameters (no L2 node is contacted)     |
 | `--chain-config` | Optional TOML overriding the built-in chain parameters (devnet only)              |
 | `--out`          | Path of the `genesis.json` to write (default: standard output)                    |
@@ -197,8 +200,9 @@ key is registered in the staking registry snapshot the genesis committee is deri
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every
   header field: after the next L1 fork that adds one, proposals fail with an error naming the
   unknown fields until the namespace is enabled.
-- `abci-genesis` reads the activation block and the blocks back to its cutoff. Once those leave
-  the node's proof window it needs an archive node.
+- `abci-genesis` reads the activation block and the registry entries back to the Inbox's
+  `genesisCutoff`. That block is fixed when the activating DAO proposal is written, well before
+  the activation block, so in practice `abci-genesis` needs an archive node.
 
 ### Restarts
 
