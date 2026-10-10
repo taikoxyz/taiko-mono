@@ -11,7 +11,8 @@ pragma solidity ^0.8.26;
 /// The Etna node reads the activation record, the last checkpoint, the committee mapping, the
 /// genesis cutoff and the migration state straight from storage with EIP-1186 proofs, so their
 /// slots and packing are part of the node-facing layout (taiko-client-rs
-/// `crates/abci/src/l1/layout.rs`).
+/// `crates/abci/src/l1/layout.rs`). Anyone may then `land` batches of Etna blocks with a validity
+/// proof, which advances the last checkpoint and records each new epoch's committee.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaInbox {
     // ---------------------------------------------------------------
@@ -80,6 +81,28 @@ interface IEtnaInbox {
         bytes32 blockHash;
     }
 
+    /// @notice A committee record carried by a landed batch.
+    struct CommitteeRecord {
+        /// @notice The epoch whose committee the record defines.
+        uint64 epoch;
+        /// @notice The committee record hash.
+        bytes32 recordHash;
+    }
+
+    /// @notice The batch of `land`: the L2 blocks after the last checkpoint up to `lastHeight`.
+    struct LandInput {
+        /// @notice The height of the batch's last block.
+        uint64 lastHeight;
+        /// @notice The hash of the batch's last block.
+        bytes32 lastBlockHash;
+        /// @notice The state root of the batch's last block.
+        bytes32 lastStateRoot;
+        /// @notice The L1 anchor block number of the batch's last block.
+        uint64 anchorNumber;
+        /// @notice One record per epoch whose first block lies in the batch, in ascending order.
+        CommitteeRecord[] records;
+    }
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -104,6 +127,29 @@ interface IEtnaInbox {
         bytes32 committeeRecordHash
     );
 
+    /// @notice Emitted when a landed batch records the committee of an epoch.
+    /// @param epoch The epoch.
+    /// @param recordHash The committee record hash, now `committee(epoch)`.
+    event CommitteeRecorded(uint64 indexed epoch, bytes32 recordHash);
+
+    /// @notice Emitted when a batch is landed.
+    /// @param firstHeight The height of the batch's first block.
+    /// @param lastHeight The height of the batch's last block, the new checkpoint.
+    /// @param lastBlockHash The hash of the batch's last block.
+    /// @param lastStateRoot The state root of the batch's last block.
+    /// @param anchorNumber The L1 anchor block number of the batch's last block.
+    /// @param statementHash The landing statement hash the proof was verified against.
+    /// @param lander The caller.
+    event BatchLanded(
+        uint64 firstHeight,
+        uint64 lastHeight,
+        bytes32 lastBlockHash,
+        bytes32 lastStateRoot,
+        uint64 anchorNumber,
+        bytes32 statementHash,
+        address indexed lander
+    );
+
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
@@ -120,6 +166,64 @@ interface IEtnaInbox {
     /// The node also requires `L >= D_MAX - MARGIN_V + 3`, which the contract cannot check.
     /// @param _params The activation parameters.
     function activateEtna(ActivationParams calldata _params) external;
+
+    /// @notice Lands a batch of Etna L2 blocks, the blocks after the last checkpoint up to
+    /// `_input.lastHeight`, proven by `_proof`.
+    /// @dev Permissionless. Requires, in order: Etna is active; the batch makes progress, covers
+    /// at most `maxBatchBlocks` blocks and ends at or below `type(uint48).max` (the signal
+    /// service key width); `_input.records` holds exactly one non-zero record, with
+    /// `epoch == e + 1` and in ascending order, for every epoch `e` whose first block
+    /// `h_first(e) = genesisHeight + 1 + e * epochLenL2` lies in the batch, and each becomes
+    /// `committee[e + 1]`; `anchorNumber` is a past L1 block whose hash is available, from
+    /// `blockhash` for the last 256 blocks and from the EIP-2935 history contract for the last
+    /// 8191; the transaction carries at least one blob, and the batch binds the hashes of all of
+    /// them. Then makes `(lastHeight, lastBlockHash)` the last checkpoint, saves
+    /// `(lastHeight, lastBlockHash, lastStateRoot)` in the signal service, emits `BatchLanded` and
+    /// verifies `_proof` against the landing statement hash (see `hashLandStatement`) with a
+    /// proposal age of 0.
+    ///
+    /// A valid proof attests that:
+    /// - heights `parentHeight + 1` to `lastHeight` form a chain from the parent block hash to
+    ///   `lastBlockHash` with post-state `lastStateRoot`, each executed under the Etna rules
+    ///   (alethia-reth#248 plus the Etna node's header rules);
+    /// - each height has a CometBFT commit with more than 2/3 of the voting power of its epoch
+    ///   committee, under `chain_id = taiko-etna-<l2ChainId>-g<generation>`;
+    /// - every block's anchor lies on the L1 header chain ending at `anchorHash`, and the last
+    ///   block's anchor number is `anchorNumber`;
+    /// - each record is the committee record derived from the witness carried in block
+    ///   `h_first(e)`;
+    /// - the blocks' data is encoded in the bound blobs (the encoding is defined with the lander
+    ///   and the guest).
+    /// @param _input The batch.
+    /// @param _proof The proof of the landing statement.
+    function land(LandInput calldata _input, bytes calldata _proof) external;
+
+    /// @notice Returns the landing statement hash a `land` proof attests to.
+    /// @dev The hash is `keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V1"), block.chainid,
+    /// l2ChainId, _generation, _parentHeight, _parentHash, lastHeight, lastBlockHash,
+    /// lastStateRoot, anchorNumber, _anchorHash, keccak256(abi.encode(records)),
+    /// keccak256(abi.encodePacked(_blobHashes))))`, where `block.chainid` is a `uint256`, the
+    /// generation, heights and anchor number are `uint64`s, and `records` and the other batch
+    /// fields come from `_input`. `land` binds the current recovery generation, the last
+    /// checkpoint as the parent, the anchor hash it reads and the transaction's blob hashes.
+    /// @param _generation The recovery generation.
+    /// @param _parentHeight The height of the block the batch builds on.
+    /// @param _parentHash The hash of the block the batch builds on.
+    /// @param _input The batch.
+    /// @param _anchorHash The L1 block hash of `_input.anchorNumber`.
+    /// @param _blobHashes The versioned hashes of the batch's blobs, in transaction order.
+    /// @return The landing statement hash.
+    function hashLandStatement(
+        uint64 _generation,
+        uint64 _parentHeight,
+        bytes32 _parentHash,
+        LandInput calldata _input,
+        bytes32 _anchorHash,
+        bytes32[] calldata _blobHashes
+    )
+        external
+        view
+        returns (bytes32);
 
     /// @notice Returns the latest landed L2 block.
     /// @return The latest landed checkpoint; zero before activation.

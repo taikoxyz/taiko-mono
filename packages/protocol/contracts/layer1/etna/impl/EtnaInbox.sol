@@ -19,7 +19,7 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @title EtnaInbox
 /// @notice The Etna implementation of the Inbox proxy. It replaces the Shasta implementation once
 /// the Shasta Inbox is frozen and drained, activates Etna from the last finalized Shasta block,
-/// and keeps the legacy Shasta bond exit.
+/// lands proven batches of Etna blocks, and keeps the legacy Shasta bond exit.
 /// @dev Upgrades the existing, initialized Shasta Inbox proxy in place, so it has no initializer.
 /// It does not carry the Shasta propose, prove, deposit, forced inclusion or codec entry points.
 ///
@@ -36,6 +36,18 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @dev The smallest epoch length in L2 blocks.
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
+
+    /// @dev The domain tag of the landing statement.
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V1");
+
+    /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
+    uint256 private constant _BLOCKHASH_WINDOW = 256;
+
+    /// @dev The EIP-2935 history storage contract.
+    address private constant _HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53a10cb7A02335B175320002935;
+
+    /// @dev The number of most recent L1 blocks whose hash the EIP-2935 contract serves.
+    uint256 private constant _HISTORY_SERVE_WINDOW = 8191;
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -191,6 +203,48 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
     }
 
+    /// @inheritdoc IEtnaInbox
+    function land(LandInput calldata _input, bytes calldata _proof) external nonReentrant {
+        require(_migration.migrationState == LibInboxMigration.ETNA_ACTIVE, EtnaNotActive());
+
+        LandedCheckpoint memory parent = _lastCheckpoint;
+        uint64 lastHeight = _input.lastHeight;
+        require(lastHeight > parent.height, NoProgress());
+        require(lastHeight - parent.height <= _maxBatchBlocks, BatchTooLarge());
+        require(lastHeight <= type(uint48).max, HeightOverflow());
+
+        _recordCommittees(parent.height, lastHeight, _input.records);
+
+        bytes32 statementHash = _hashLandStatement(
+            _recoveryGeneration,
+            parent.height,
+            parent.blockHash,
+            _input,
+            _readAnchorHash(_input.anchorNumber),
+            _readBlobHashes()
+        );
+
+        _lastCheckpoint = LandedCheckpoint({ height: lastHeight, blockHash: _input.lastBlockHash });
+        _signalService.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: uint48(lastHeight),
+                blockHash: _input.lastBlockHash,
+                stateRoot: _input.lastStateRoot
+            })
+        );
+        emit BatchLanded(
+            parent.height + 1,
+            lastHeight,
+            _input.lastBlockHash,
+            _input.lastStateRoot,
+            _input.anchorNumber,
+            statementHash,
+            msg.sender
+        );
+
+        _proofVerifier.verifyProof(0, statementHash, _proof);
+    }
+
     /// @notice Withdraws legacy Shasta bond of the caller to a recipient.
     /// @dev Same rules as the Shasta `Inbox.withdraw`: without a withdrawal request whose delay
     /// has passed, the remaining balance must stay at or above the minimum bond; a withdrawal of
@@ -219,6 +273,24 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @return bond_ The bond balance and withdrawal request timestamp.
     function getBond(address _address) external view returns (IBondManager.Bond memory bond_) {
         return _bondStorage.getBond(_address);
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function hashLandStatement(
+        uint64 _generation,
+        uint64 _parentHeight,
+        bytes32 _parentHash,
+        LandInput calldata _input,
+        bytes32 _anchorHash,
+        bytes32[] calldata _blobHashes
+    )
+        external
+        view
+        returns (bytes32)
+    {
+        return _hashLandStatement(
+            _generation, _parentHeight, _parentHash, _input, _anchorHash, _blobHashes
+        );
     }
 
     /// @inheritdoc IEtnaInbox
@@ -252,8 +324,92 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Computes the landing statement hash; the single encoding behind `land` and
+    /// `hashLandStatement`. The guest and the lander reproduce it byte for byte.
+    /// @param _generation The recovery generation.
+    /// @param _parentHeight The height of the block the batch builds on.
+    /// @param _parentHash The hash of the block the batch builds on.
+    /// @param _input The batch.
+    /// @param _anchorHash The L1 block hash of `_input.anchorNumber`.
+    /// @param _blobHashes The versioned hashes of the batch's blobs.
+    /// @return The landing statement hash.
+    function _hashLandStatement(
+        uint64 _generation,
+        uint64 _parentHeight,
+        bytes32 _parentHash,
+        LandInput calldata _input,
+        bytes32 _anchorHash,
+        bytes32[] memory _blobHashes
+    )
+        internal
+        view
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encode(
+                _LAND_STATEMENT_TAG,
+                block.chainid,
+                _l2ChainId,
+                _generation,
+                _parentHeight,
+                _parentHash,
+                _input.lastHeight,
+                _input.lastBlockHash,
+                _input.lastStateRoot,
+                _input.anchorNumber,
+                _anchorHash,
+                keccak256(abi.encode(_input.records)),
+                keccak256(abi.encodePacked(_blobHashes))
+            )
+        );
+    }
+
+    // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Checks that `_records` holds exactly one non-zero record, keyed `e + 1` and in
+    /// ascending order, for every epoch `e` whose first block lies in
+    /// `(_parentHeight, _lastHeight]`, and stores each as `committee[e + 1]`.
+    /// @param _parentHeight The height of the block the batch builds on, at least `B*`.
+    /// @param _lastHeight The height of the batch's last block.
+    /// @param _records The batch's committee records.
+    function _recordCommittees(
+        uint64 _parentHeight,
+        uint64 _lastHeight,
+        CommitteeRecord[] calldata _records
+    )
+        private
+    {
+        uint256 genesisHeight = _activation.genesisHeight;
+        uint256 epochLen = _activation.epochLenL2;
+
+        // The first epoch whose first block `genesisHeight + 1 + epoch * epochLen` lies above
+        // `_parentHeight`: `ceil((_parentHeight - genesisHeight) / epochLen)`.
+        uint256 epoch = (_parentHeight - genesisHeight + epochLen - 1) / epochLen;
+        uint256 firstHeight = genesisHeight + 1 + epoch * epochLen;
+        uint256 count = _records.length;
+        uint256 i;
+        for (; firstHeight <= _lastHeight; ++i) {
+            require(i < count, CommitteeRecordsMismatch());
+            // `epoch` stays below `type(uint48).max`, as `firstHeight` does.
+            uint64 recordEpoch = uint64(epoch + 1);
+            bytes32 recordHash = _records[i].recordHash;
+            require(_records[i].epoch == recordEpoch && recordHash != 0, CommitteeRecordsMismatch());
+            // Batches are contiguous, so each epoch's first block is landed once.
+            require(_committee[recordEpoch] == 0, CommitteeAlreadyRecorded());
+
+            _committee[recordEpoch] = recordHash;
+            emit CommitteeRecorded(recordEpoch, recordHash);
+
+            ++epoch;
+            firstHeight += epochLen;
+        }
+        require(i == count, CommitteeRecordsMismatch());
+    }
 
     /// @dev Returns the signal service checkpoint of the Etna genesis and checks that it is the
     /// last finalized Shasta block.
@@ -280,6 +436,41 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(checkpoint_.blockHash == _lastFinalizedBlockHash, GenesisMismatch());
     }
 
+    /// @dev Returns the hash of L1 block `_anchorNumber`: from `blockhash` for the last 256
+    /// blocks, from the EIP-2935 history contract for the last 8191; reverts otherwise or if the
+    /// hash is zero.
+    /// @param _anchorNumber The L1 block number.
+    /// @return anchorHash_ The L1 block hash.
+    function _readAnchorHash(uint64 _anchorNumber) private view returns (bytes32 anchorHash_) {
+        require(_anchorNumber < block.number, AnchorUnavailable());
+        uint256 age = block.number - _anchorNumber;
+        if (age <= _BLOCKHASH_WINDOW) {
+            anchorHash_ = blockhash(_anchorNumber);
+        } else {
+            require(age <= _HISTORY_SERVE_WINDOW, AnchorUnavailable());
+            (bool success, bytes memory data) =
+                _HISTORY_STORAGE_ADDRESS.staticcall(abi.encode(uint256(_anchorNumber)));
+            require(success && data.length == 32, AnchorUnavailable());
+            anchorHash_ = abi.decode(data, (bytes32));
+        }
+        require(anchorHash_ != 0, AnchorUnavailable());
+    }
+
+    /// @dev Returns the versioned hashes of the transaction's blobs; reverts if there are none.
+    /// @return blobHashes_ `blobhash(0)`, `blobhash(1)`, ... up to the first zero.
+    function _readBlobHashes() private view returns (bytes32[] memory blobHashes_) {
+        uint256 count;
+        while (blobhash(count) != 0) {
+            ++count;
+        }
+        require(count != 0, BlobsRequired());
+
+        blobHashes_ = new bytes32[](count);
+        for (uint256 i; i < count; ++i) {
+            blobHashes_[i] = blobhash(i);
+        }
+    }
+
     /// @dev Returns whether `_cutoff` is a past L1 block at or after the registry's first
     /// checkpoint, so the epoch-0 snapshot exists and is final.
     /// @param _cutoff The genesis cutoff.
@@ -294,9 +485,17 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // Custom Errors
     // ---------------------------------------------------------------
 
+    error AnchorUnavailable();
+    error BatchTooLarge();
+    error BlobsRequired();
+    error CommitteeAlreadyRecorded();
+    error CommitteeRecordsMismatch();
+    error EtnaNotActive();
     error GenesisMismatch();
+    error HeightOverflow();
     error InvalidEpochLength();
     error InvalidGenesisCutoff();
+    error NoProgress();
     error NotDrained();
     error NotFrozen();
     error ZeroCommitteeRecord();

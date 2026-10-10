@@ -6,8 +6,26 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { InboxTestBase } from "test/layer1/core/inbox/InboxTestBase.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
+
+/// @notice A `land` proof verifier that accepts every proof until it is told to reject.
+/// @dev `verifyProof` is a view (called with STATICCALL), so it cannot record the statement hash;
+/// tests observe it with `vm.expectCall` and the `BatchLanded` event instead.
+contract MockLandProofVerifier is IProofVerifier {
+    bool public rejects;
+
+    function setRejects(bool _rejects) external {
+        rejects = _rejects;
+    }
+
+    function verifyProof(uint256 _proposalAge, bytes32, bytes calldata) external view {
+        require(!rejects && _proposalAge == 0, ProofRejected());
+    }
+
+    error ProofRejected();
+}
 
 /// @title EtnaInboxTestBase
 /// @notice Runs the Shasta-to-Etna migration of the Inbox proxy: proves two Shasta batches,
@@ -42,6 +60,7 @@ abstract contract EtnaInboxTestBase is InboxTestBase {
     // State
     // ---------------------------------------------------------------
 
+    MockLandProofVerifier internal landVerifier;
     TestERC20 internal taikoToken;
     EtnaStakingRegistry internal registry;
     IEtnaInbox.Config internal etnaConfig;
@@ -65,6 +84,7 @@ abstract contract EtnaInboxTestBase is InboxTestBase {
         super.setUp();
         _proveShastaHistory();
         _deployStakingRegistry();
+        landVerifier = new MockLandProofVerifier();
         etnaConfig = _buildEtnaConfig();
         _migrate();
     }
@@ -82,7 +102,7 @@ abstract contract EtnaInboxTestBase is InboxTestBase {
 
     function _buildEtnaConfig() internal virtual returns (IEtnaInbox.Config memory) {
         return IEtnaInbox.Config({
-            proofVerifier: address(verifier),
+            proofVerifier: address(landVerifier),
             signalService: address(signalService),
             stakingRegistry: address(registry),
             bondToken: address(bondToken),
