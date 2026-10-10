@@ -1,6 +1,6 @@
-//! Docker scenario: planting `recoveryGeneration = 1` into the Inbox supersedes
-//! the generation-0 chain. Once a proposal anchors at a final L1 block that carries the bump, the
-//! app sets `/status.superseded` and refuses every proposal from then on: CometBFT stops.
+//! Docker scenario: planting `recoveryGeneration = 1` into the Inbox supersedes the generation-0
+//! chain. Once a proposal anchors at a final L1 block that carries the bump, the app sets
+//! `/status.superseded` and refuses every proposal from then on: CometBFT stops.
 //!
 //! The fake lander writes only `lastCheckpoint` and `committee[·]`, so it never overwrites the
 //! planted generation.
@@ -43,19 +43,17 @@ async fn generation_bump_supersedes_the_chain() -> anyhow::Result<()> {
         started.elapsed()
     );
 
-    let devnet_ref = &devnet;
     wait_until(
         "/status superseded",
         Duration::from_secs(30),
         Duration::from_millis(250),
-        || async { Ok(devnet_ref.abci_status(0).await?.superseded.then_some(())) },
+        || async { Ok(devnet.abci_status(0).await?.superseded.then_some(())) },
     )
     .await?;
 
     // CometBFT stays put.
     let stop = devnet.cmt(0).latest_height().await?;
-    let hold = Duration::from_millis(3 * spec.timeout_commit_ms) + Duration::from_secs(2);
-    let hold_end = Instant::now() + hold;
+    let hold_end = Instant::now() + spec.stall_hold();
     let mut reasons = BTreeSet::new();
     while Instant::now() < hold_end {
         assert_eq!(devnet.cmt(0).latest_height().await?, stop, "CometBFT moved after supersession");
@@ -88,6 +86,6 @@ async fn generation_bump_supersedes_the_chain() -> anyhow::Result<()> {
     assert_eq!(generation, U256::from(1), "the planted generation was overwritten");
 
     devnet.stop().await?;
-    eprintln!("scenario 4 done after {:?}", started.elapsed());
+    eprintln!("generation-bump scenario done after {:?}", started.elapsed());
     Ok(())
 }

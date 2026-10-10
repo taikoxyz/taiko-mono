@@ -200,10 +200,10 @@ pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
 /// The MEM-08 sort key of `pubkey`:
 /// `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), uint256 chainId, bytes32 pubkey))`.
 ///
-/// `chain_id` is the L2 EVM chain id, which unlike the CometBFT `chain_id` does not change with
-/// the recovery generation.
-pub fn mem08_key(chain_id: u64, pubkey: B256) -> B256 {
-    keccak256([SET_KEY_TAG, word(chain_id), pubkey].concat())
+/// `l2_chain_id` is the L2 EVM chain id, which unlike the CometBFT `chain_id` does not change
+/// with the recovery generation.
+pub fn mem08_key(l2_chain_id: u64, pubkey: B256) -> B256 {
+    keccak256([SET_KEY_TAG, word(l2_chain_id), pubkey].concat())
 }
 
 /// The MEM-08 set root over `members` (#22262), with `chainId` = the L2 EVM chain id.
@@ -491,15 +491,16 @@ fn entry_leaf(index: usize, e: &RegistryEntry) -> B256 {
 }
 
 /// The MEM-08 leaf of the member at sorted position `index` (see [`mem08_root`]).
-fn set_leaf(chain_id: u64, k: u64, index: usize, m: &Member) -> B256 {
+fn set_leaf(l2_chain_id: u64, k: u64, index: usize, m: &Member) -> B256 {
     keccak256(
-        [SET_LEAF_TAG, word(chain_id), word(k), word(index), m.pubkey, word(m.eff_stake)].concat(),
+        [SET_LEAF_TAG, word(l2_chain_id), word(k), word(index), m.pubkey, word(m.eff_stake)]
+            .concat(),
     )
 }
 
 /// A MEM-08 inner node over `left` and `right` (see [`mem08_root`]).
-fn set_node(chain_id: u64, k: u64, left: B256, right: B256) -> B256 {
-    keccak256([SET_NODE_TAG, word(chain_id), word(k), left, right].concat())
+fn set_node(l2_chain_id: u64, k: u64, left: B256, right: B256) -> B256 {
+    keccak256([SET_NODE_TAG, word(l2_chain_id), word(k), left, right].concat())
 }
 
 /// One `abi.encode` word: the unsigned integer `value` left-padded to 32 bytes, big-endian.

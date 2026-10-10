@@ -6,7 +6,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use abci::{ActivationRecord, ChainParams, GenesisDoc, RegistryEntry, Schedule, Status};
+use abci::{ActivationRecord, ChainParams, RegistryEntry, Schedule, Status};
 use alloy_primitives::U256;
 use alloy_provider::RootProvider;
 use anyhow::{Result, anyhow, ensure};
@@ -67,6 +67,12 @@ impl Default for DevnetSpec {
 }
 
 impl DevnetSpec {
+    /// How long a scenario watches a stalled chain to confirm it stays put: three commit
+    /// timeouts plus 2 s of slack.
+    pub fn stall_hold(&self) -> Duration {
+        Duration::from_millis(3 * self.timeout_commit_ms) + Duration::from_secs(2)
+    }
+
     /// Checks the validator counts.
     fn validate(&self) -> Result<()> {
         ensure!(self.validators >= 1, "a devnet needs at least one validator");
@@ -106,8 +112,6 @@ pub struct Devnet {
     params: ChainParams,
     /// The planted activation record.
     activation: ActivationRecord,
-    /// The CometBFT genesis.
-    genesis: GenesisDoc,
     /// Writes L1 state.
     planter: Planter,
     /// The containers and the network.
@@ -141,7 +145,6 @@ impl Devnet {
                     keys: b.keys,
                     params: b.params,
                     activation: b.activation,
-                    genesis: b.genesis,
                     planter: b.planter,
                     docker,
                     _tmp: tmp,
@@ -177,11 +180,6 @@ impl Devnet {
     /// The chain's epoch schedule.
     pub fn schedule(&self) -> Schedule {
         Schedule::from_activation(&self.activation)
-    }
-
-    /// The CometBFT genesis every node started from.
-    pub fn genesis(&self) -> &GenesisDoc {
-        &self.genesis
     }
 
     /// The validator keys; the first `initial_validators` form the genesis committee.

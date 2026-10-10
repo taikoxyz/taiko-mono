@@ -11,8 +11,8 @@
 //! The entries are read in batches ([`ENTRY_BATCH`] per `account_witness` call, proofs unused,
 //! up to [`ENTRY_READS_IN_FLIGHT`] calls at once) at the newest L1 block that still holds the
 //! snapshot, so discovery never needs state older than the cutoff (an archive node only once the
-//! cutoff leaves the node's state window). A discovery cut short keeps its finished reads in a
-//! [`DiscoveryProgress`], from which the next attempt against the same parent anchor resumes.
+//! cutoff leaves the node's state window). A proposer's discovery cut short keeps its finished
+//! reads, from which its next attempt against the same parent anchor resumes.
 
 use std::{
     collections::HashMap,
@@ -85,11 +85,11 @@ pub enum FetchError {
 /// that ends in any other way (a witness, an L1 or registry error) forgets them, so a bad answer
 /// is not replayed.
 #[derive(Debug, Default)]
-pub struct DiscoveryProgress(Mutex<Reads>);
+pub(crate) struct DiscoveryProgress(Mutex<Reads>);
 
 impl DiscoveryProgress {
     /// Forgets every kept read.
-    pub fn clear(&self) {
+    pub(crate) fn clear(&self) {
         *self.lock() = Reads::default();
     }
 
@@ -102,10 +102,9 @@ impl DiscoveryProgress {
 /// The reads a [`DiscoveryProgress`] keeps.
 #[derive(Debug, Default)]
 struct Reads {
-    /// The parent anchor `n_p` the reads were made for.
-    parent_anchor: u64,
-    /// Registry storage words (`checkpoints.length`, checkpoint heads) as of `parent_anchor`, by
-    /// slot.
+    /// The parent anchor `n_p` the reads were made for; `None` before the first discovery.
+    parent_anchor: Option<u64>,
+    /// Registry storage words by slot (`checkpoints.length`, checkpoint heads) at `parent_anchor`.
     words: HashMap<B256, U256>,
     /// Entry batches, by the L1 block they were read at and their index range.
     batches: HashMap<(u64, Range<u64>), Vec<RegistryEntry>>,
@@ -113,23 +112,6 @@ struct Reads {
 
 /// Builds the committee witness for `target_epoch` against the parent anchor `parent_anchor`,
 /// reading the node's own L1 without deadlines.
-///
-/// See [`build_committee_witness_within`] for the steps.
-pub async fn build_committee_witness<L: L1Source + ?Sized>(
-    l1: &L,
-    params: &ChainParams,
-    parent_anchor: u64,
-    target_epoch: u64,
-) -> Result<CommitteeWitness, FetchError> {
-    let progress = DiscoveryProgress::default();
-    Discovery { l1, params, read_timeout: None, progress: &progress }
-        .witness(parent_anchor, target_epoch)
-        .await
-}
-
-/// Builds the committee witness for `target_epoch` against the parent anchor `parent_anchor`,
-/// bounding every single L1 read by `read_timeout` ([`FetchError::Timeout`] otherwise) and
-/// resuming from, and adding to, the reads `progress` kept for `parent_anchor`.
 ///
 /// In order:
 /// - the cutoff, computed from `parent_anchor`;
@@ -145,9 +127,24 @@ pub async fn build_committee_witness<L: L1Source + ?Sized>(
 ///   before `parent_anchor`;
 /// - the proof of `snapshot_slots(i, i + 1 < length)` at `parent_anchor`;
 /// - the record the witness claims, derived from the snapshot.
+pub async fn build_committee_witness<L: L1Source + ?Sized>(
+    l1: &L,
+    params: &ChainParams,
+    parent_anchor: u64,
+    target_epoch: u64,
+) -> Result<CommitteeWitness, FetchError> {
+    let progress = DiscoveryProgress::default();
+    Discovery { l1, params, read_timeout: None, progress: &progress }
+        .witness(parent_anchor, target_epoch)
+        .await
+}
+
+/// [`build_committee_witness`], bounding every single L1 read by `read_timeout`
+/// ([`FetchError::Timeout`] otherwise) and resuming from, and adding to, the reads `progress`
+/// kept for `parent_anchor`.
 ///
 /// A read past its deadline keeps `progress`; any other end clears it ([`DiscoveryProgress`]).
-pub async fn build_committee_witness_within<L: L1Source + ?Sized>(
+pub(crate) async fn build_committee_witness_within<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
     parent_anchor: u64,
@@ -174,13 +171,13 @@ struct Discovery<'a, L: ?Sized> {
 
 impl<L: L1Source + ?Sized> Discovery<'_, L> {
     /// The committee witness for `target` against the parent anchor `n_p` (see
-    /// [`build_committee_witness_within`]): resumes from the kept reads of `n_p` (forgetting
-    /// those of another parent anchor), and forgets them again unless a read timed out.
+    /// [`build_committee_witness`]): resumes from the kept reads of `n_p` (forgetting those of
+    /// another parent anchor), and forgets them again unless a read timed out.
     async fn witness(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
         {
             let mut reads = self.progress.lock();
-            if reads.parent_anchor != n_p {
-                *reads = Reads { parent_anchor: n_p, ..Reads::default() };
+            if reads.parent_anchor != Some(n_p) {
+                *reads = Reads { parent_anchor: Some(n_p), ..Reads::default() };
             }
         }
         let result = self.discover(n_p, target).await;
@@ -190,7 +187,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         result
     }
 
-    /// The discovery steps of [`build_committee_witness_within`].
+    /// The discovery steps of [`build_committee_witness`].
     async fn discover(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
         let params = self.params;
         let cutoff = committee::cutoff(n_p, params.cutoff_grid, params.cutoff_lag)?;
@@ -248,9 +245,9 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
     /// [`ENTRY_READS_IN_FLIGHT`] calls at once; the first failing batch fails the read.
     async fn entries(&self, count: u32, block: u64) -> Result<Vec<RegistryEntry>, FetchError> {
         let count = u64::from(count);
-        let batches = (0..count.div_ceil(ENTRY_BATCH))
+        let ranges = (0..count.div_ceil(ENTRY_BATCH))
             .map(|i| i * ENTRY_BATCH..count.min((i + 1) * ENTRY_BATCH));
-        let batches: Vec<Vec<RegistryEntry>> = stream::iter(batches)
+        let batches: Vec<Vec<RegistryEntry>> = stream::iter(ranges)
             .map(|batch| self.entry_batch(batch, block))
             .buffered(ENTRY_READS_IN_FLIGHT)
             .try_collect()

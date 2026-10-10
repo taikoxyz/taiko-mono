@@ -3,8 +3,9 @@
 //! view, EL execution), which affect liveness only.
 //!
 //! [`validate_block`] judges a decoded envelope against the committed [`AppState`] alone: no L1,
-//! no EL, in its steps (a)–(i). [`check_candidate`] holds the witness steps (b)–(h) so
-//! `PrepareProposal` can run the same checks on its witnesses before it asks the EL to build.
+//! no EL, in its steps (a)–(i). [`check_candidate`] holds the witness steps (b)–(h);
+//! `PrepareProposal` runs its two halves ([`check_candidate_anchor`], [`finish_candidate`]) on
+//! its own witnesses before it asks the EL to build.
 //! [`Rejection`] also carries the reasons of the ¹ checks, of the envelope decoding and of a
 //! failed build, so every handler reports one label set.
 
@@ -21,7 +22,6 @@ use crate::{
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
     l1::{FetchError, L1Error, WitnessError, layout::inbox, verify_anchor_witness},
     rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
-    schedule::Schedule,
     store::{AppState, CommitteeState},
     types::AnchorState,
 };
@@ -323,7 +323,7 @@ pub(crate) fn expected_header(
 
 /// Steps (b)–(h) of [`validate_block`] on a candidate's witnesses and `extraData` claims:
 /// [`check_candidate_anchor`], then [`finish_candidate`].
-pub(crate) fn check_candidate(
+fn check_candidate(
     state: &AppState,
     params: &ChainParams,
     height: u64,
@@ -384,7 +384,7 @@ pub(crate) fn finish_candidate(
 ) -> Result<CandidateFacts, Rejection> {
     let derived = candidate_committee(state, params, height, committee)?;
     if let Some(t) = state.schedule.switch_target(height) {
-        check_switch(state, params, &state.schedule, t, &anchor)?;
+        check_switch(state, params, t, &anchor)?;
     }
     Ok(CandidateFacts { anchor, derived })
 }
@@ -449,7 +449,6 @@ fn candidate_committee(
 fn check_switch(
     state: &AppState,
     params: &ChainParams,
-    schedule: &Schedule,
     t: u64,
     anchor: &AnchorState,
 ) -> Result<(), Rejection> {
@@ -459,7 +458,7 @@ fn check_switch(
         return Err(Rejection::CommitteeUnknown(prev));
     }
     let next = state.committees.get(&t).ok_or(Rejection::CommitteeUnknown(t))?;
-    let required = schedule.h_first(prev);
+    let required = state.schedule.h_first(prev);
     let last_checkpoint_height = anchor.inbox.last_checkpoint_height;
     if last_checkpoint_height < required {
         return Err(Rejection::CheckpointNotLanded { last_checkpoint_height, required });

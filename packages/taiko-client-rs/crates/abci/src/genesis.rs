@@ -1,5 +1,5 @@
-//! The CometBFT genesis of the Etna PoS chain: the genesis witness carried in
-//! `app_state`, and the `abci-genesis` builder that reads it from L1.
+//! The CometBFT genesis of the Etna PoS chain: the genesis witness carried in `app_state`, and the
+//! `abci-genesis` builder that reads it from L1.
 //!
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
 //! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header, the Inbox proofs of the activation

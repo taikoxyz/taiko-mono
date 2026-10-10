@@ -10,17 +10,16 @@ use tendermint::{
     validator,
 };
 
-use super::{AbciError, App, ELSYNC_POLL, app_hash, at_genesis, within};
+use super::{AbciError, App, app_hash, at_genesis, within};
 use crate::{
     committee::{record_hash, verify_committee_witness},
-    elsync::ensure_block,
     engine::Engine,
     genesis::decode_app_state,
-    l1::{L1Source, is_final_canonical, verify_genesis_inbox},
+    l1::{L1Source, is_final_canonical, verify_genesis_inbox, witness::anchor_state},
     rules::generation_from_chain_id,
     schedule::Schedule,
     store::{AppState, CommitteeState},
-    types::{ActivationRecord, AnchorState, Member, ParentInfo},
+    types::{ActivationRecord, Member, ParentInfo},
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -126,13 +125,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::InitialHeight { got: initial_height, expected: schedule.h0() });
         }
 
-        let anchor = AnchorState {
-            number: l1_header.number(),
-            hash: l1_header.hash(),
-            state_root: l1_header.state_root(),
-            timestamp: l1_header.timestamp(),
-            inbox: inbox_facts,
-        };
+        let anchor = anchor_state(l1_header, inbox_facts);
         let (record, members) =
             verify_committee_witness(&anchor, params, &w.committee, Schedule::E0)?;
         let derived = record_hash(params.l2_chain_id, &record);
@@ -161,13 +154,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `B*`'s parent contradicts the verified genesis: [`AbciError::SafetyHalt`].
     async fn genesis_parent(&self, activation: &ActivationRecord) -> Result<ParentInfo, AbciError> {
         let (number, hash) = (activation.genesis_height, activation.genesis_hash);
-        let opts = self.opts;
-        within(
-            "EL sync to the genesis anchor",
-            opts.elsync_timeout.saturating_add(opts.engine_timeout),
-            ensure_block(&self.engine, number, hash, opts.elsync_timeout, ELSYNC_POLL),
-        )
-        .await?;
+        self.sync_el_to("EL sync to the genesis anchor", number, hash).await?;
 
         let header = self.el_header(number).await?;
         let found = header.hash_slow();
@@ -195,8 +182,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         parent_info(&header, hash, grandparent_timestamp)
     }
 
-    /// The EL's canonical header at `number`; a missing block is
-    /// [`AbciError::ElBlockMissing`].
+    /// The EL's canonical header at `number`; a missing block is [`AbciError::ElBlockMissing`].
     async fn el_header(&self, number: u64) -> Result<Header, AbciError> {
         within("EL header read", self.opts.engine_timeout, self.engine.header_by_number(number))
             .await?
@@ -233,7 +219,7 @@ fn parent_info(
 /// Requires the genesis validators to be exactly `members`: the same Ed25519 keys with the same
 /// powers, in any order, without duplicates.
 fn check_validators(validators: &[validator::Update], members: &[Member]) -> Result<(), AbciError> {
-    let mismatch = |reason: String| AbciError::GenesisValidatorsMismatch(reason);
+    let mismatch = AbciError::GenesisValidatorsMismatch;
     let mut genesis = BTreeMap::new();
     for v in validators {
         let key = v

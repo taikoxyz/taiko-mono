@@ -1,5 +1,5 @@
-//! Docker scenario: no block anchors above anvil's `finalized`, and entering an
-//! epoch waits for L1 to reach the epoch's first L1 block `L1_first(e)` as `finalized`.
+//! Docker scenario: no block anchors above anvil's `finalized`, and entering an epoch waits for L1
+//! to reach the epoch's first L1 block `L1_first(e)` as `finalized`.
 //!
 //! `EPOCH_LEN_L1 = 30` makes epoch 1 need an anchor at `L1_0 + 30`, which anvil's `finalized`
 //! (one block per second, two behind the tip) only reaches after the chain arrives at the epoch
@@ -69,8 +69,7 @@ async fn anchor_finality_gates_epoch_entry() -> anyhow::Result<()> {
     // The chain keeps producing on the frozen anchor up to the boundary, then stops there.
     let reached = devnet.wait_for_height(0, last, Duration::from_secs(40)).await?;
     assert_eq!(reached, last, "the chain passed the epoch boundary with L1 paused");
-    let hold = Duration::from_millis(3 * spec.timeout_commit_ms) + Duration::from_secs(2);
-    let hold_end = Instant::now() + hold;
+    let hold_end = Instant::now() + spec.stall_hold();
     let mut reasons = BTreeSet::new();
     let mut reason = None;
     while Instant::now() < hold_end {
@@ -109,6 +108,6 @@ async fn anchor_finality_gates_epoch_entry() -> anyhow::Result<()> {
     assert_eq!(devnet.app_halt(0), None);
 
     devnet.stop().await?;
-    eprintln!("scenario 5 done after {:?}", started.elapsed());
+    eprintln!("anchor-finality scenario done after {:?}", started.elapsed());
     Ok(())
 }

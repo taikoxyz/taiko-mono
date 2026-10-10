@@ -1,6 +1,6 @@
-//! The `abci-genesis` builder: reads the Ethereum-final activation record and
-//! the `e_0` committee from the node's own L1, checks them as `InitChain` will, and assembles the
-//! CometBFT genesis document.
+//! The `abci-genesis` builder: reads the Ethereum-final activation record and the `e_0` committee
+//! from the node's own L1, checks them as `InitChain` will, and assembles the CometBFT genesis
+//! document.
 
 use super::{GenesisDoc, GenesisError, GenesisWitness};
 use crate::{
@@ -10,10 +10,10 @@ use crate::{
         L1Source, build_committee_witness, header_at,
         layout::{inbox, word_u8, word_u64},
         verify_genesis_inbox,
+        witness::anchor_state,
     },
     rules::chain_id_for,
     schedule::Schedule,
-    types::AnchorState,
 };
 
 /// Builds the CometBFT genesis of the activated Etna chain from the node's own L1.
@@ -48,21 +48,17 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     }
 
     let l1_header = header_at(l1, l1_0).await?;
-    let inbox = l1.account_witness(params.inbox, &inbox::genesis_slots(Schedule::E0), l1_0).await?;
+    let inbox_witness =
+        l1.account_witness(params.inbox, &inbox::genesis_slots(Schedule::E0), l1_0).await?;
     let (activation, facts, committee_e0) =
-        verify_genesis_inbox(l1_header.state_root(), &inbox, params.inbox)?;
+        verify_genesis_inbox(l1_header.state_root(), &inbox_witness, params.inbox)?;
     if activation.l1_0 != l1_0 {
         return Err(GenesisError::ActivationMismatch { l1_0, proven: activation.l1_0 });
     }
     Schedule::from_activation(&activation).validate(params.unsettled_cap())?;
 
-    let anchor = AnchorState {
-        number: l1_0,
-        hash: l1_header.hash(),
-        state_root: l1_header.state_root(),
-        timestamp: l1_header.timestamp(),
-        inbox: facts,
-    };
+    // `header_at` returned block `l1_0`, so the anchor's number is `l1_0`.
+    let anchor = anchor_state(&l1_header, facts);
     let committee = build_committee_witness(l1, params, l1_0, Schedule::E0).await?;
     let (record, members) = verify_committee_witness(&anchor, params, &committee, Schedule::E0)?;
     let derived = record_hash(params.l2_chain_id, &record);
@@ -77,7 +73,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
         .ok_or(GenesisError::InitialHeight(activation.genesis_height))?;
     let chain_id = chain_id_for(params.l2_chain_id, anchor.inbox.recovery_generation);
     GenesisDoc::assemble(
-        &GenesisWitness { l1_header, inbox, committee },
+        &GenesisWitness { l1_header, inbox: inbox_witness, committee },
         chain_id,
         initial_height,
         &members,

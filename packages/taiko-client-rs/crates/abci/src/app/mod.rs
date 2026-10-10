@@ -18,6 +18,7 @@ use std::{
 };
 
 use alloy_primitives::B256;
+use rpc::client::http_timeout_for;
 use serde::{Deserialize, Serialize};
 use tendermint::{
     AppHash, Hash, Time,
@@ -28,7 +29,7 @@ use tendermint::{
 use crate::{
     committee::CommitteeError,
     config::{ChainParams, ConfigError},
-    elsync::ElSyncError,
+    elsync::{ElSyncError, ensure_block},
     engine::{Engine, EngineError},
     envelope::CommitteeWitness,
     genesis::GenesisError,
@@ -133,8 +134,8 @@ pub struct Status {
 /// Why an ABCI request failed. Every variant is fatal to the request; see the module docs.
 #[derive(Debug, thiserror::Error)]
 pub enum AbciError {
-    /// A committed block or the EL contradicts the app's verified state: the
-    /// process must exit and an operator must investigate.
+    /// A committed block or the EL contradicts the app's verified state: the process must exit
+    /// and an operator must investigate.
     #[error("safety halt: {0}")]
     SafetyHalt(String),
     /// `Commit` arrived without a `FinalizeBlock` result to persist; CometBFT never sends one,
@@ -170,8 +171,7 @@ pub enum AbciError {
         /// `L1_0` from the activation record.
         l1_0: u64,
     },
-    /// The activation record's schedule violates the epoch-length bounds
-    /// ([`Schedule::validate`]).
+    /// The activation record's schedule violates the epoch-length bounds ([`Schedule::validate`]).
     #[error(transparent)]
     Schedule(#[from] ScheduleError),
     /// A CometBFT `chain_id` is not `taiko-etna-<l2ChainId>-g<generation>` for this chain.
@@ -197,8 +197,7 @@ pub enum AbciError {
     /// The genesis committee witness does not verify.
     #[error("genesis committee witness rejected: {0}")]
     Committee(#[from] CommitteeError),
-    /// The committee derived from the genesis witness is not the one recorded at
-    /// `committee[e_0]`.
+    /// The committee derived from the genesis witness is not the one recorded at `committee[e_0]`.
     #[error("derived committee record hash {derived} differs from committee[e0] = {recorded}")]
     CommitteeRecordMismatch {
         /// `record_hash` of the derived committee record.
@@ -280,10 +279,10 @@ pub struct App<L: L1Source, E: Engine> {
     /// `ProcessProposal` ACCEPT verdicts by CometBFT block hash, for `FinalizeBlock`; cleared
     /// at `Commit`.
     verdicts: HashMap<Hash, Validated>,
-    /// The last committee witness verified at `h_first(e)`, by `PrepareProposal` (discovered) or
+    /// The last committee witness verified at `h_first(e)`, by `PrepareProposal` (its own) or
     /// `ProcessProposal` (another proposer's), kept so that this node's proposals in later rounds
-    /// at the same height reuse it instead of reading the registry again. Replaced when the key
-    /// differs; cleared at `Commit`. Behind a mutex as the handlers run on `&self`.
+    /// at the same height reuse it instead of reading the registry again. Every verified witness
+    /// overwrites it; cleared at `Commit`. Behind a mutex as the handlers run on `&self`.
     committee_cache: Mutex<Option<CachedCommittee>>,
     /// The registry reads of a committee discovery `PrepareProposal`'s deadline cut short, from
     /// which the next attempt resumes; cleared at `Commit`.
@@ -303,14 +302,12 @@ pub struct App<L: L1Source, E: Engine> {
 }
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// Creates the app, validating `params` and loading the persisted state from `store` (if
-    /// any).
+    /// Creates the app, validating `params` and loading any persisted state from `store`.
     ///
     /// A loaded state must be consistent with `params` and with itself: its schedule must pass
-    /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived
-    /// from its activation record, its `chain_id` must name `params.l2_chain_id` and its
-    /// generation, and its last height must equal its parent's number and fit a CometBFT
-    /// height.
+    /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived from its
+    /// activation record, its `chain_id` must name `params.l2_chain_id` and its generation, and
+    /// its last height must equal its parent's number and fit a CometBFT height.
     pub fn new(
         l1: L,
         engine: E,
@@ -452,6 +449,27 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(CachedCommittee { parent_anchor, target_epoch, witness: witness.clone() });
     }
 
+    /// Makes the EL serve block `hash` at `number` ([`ensure_block`] within
+    /// [`AppOptions::elsync_timeout`]).
+    ///
+    /// The outer deadline (an [`AbciError::Timeout`] naming `what`) adds one EL request's HTTP
+    /// timeout to the sync's own, so a poll in flight at the sync deadline ends with the sync's
+    /// own timeout error rather than being cut short by the outer one.
+    async fn sync_el_to(
+        &self,
+        what: &'static str,
+        number: u64,
+        hash: B256,
+    ) -> Result<(), AbciError> {
+        let opts = self.opts;
+        within(
+            what,
+            opts.elsync_timeout.saturating_add(http_timeout_for(opts.engine_timeout)),
+            ensure_block(&self.engine, number, hash, opts.elsync_timeout, ELSYNC_POLL),
+        )
+        .await
+    }
+
     /// Clears the liveness-halt reason after an accepted or built proposal or a commit.
     fn clear_halt(&mut self) {
         self.halt = None;
@@ -554,8 +572,7 @@ where
     }
 }
 
-/// `time` in whole seconds since the Unix epoch (`floor(time_H)`); times before the epoch map to
-/// 0.
+/// `time` in whole seconds since the Unix epoch (`floor(time_H)`); earlier times map to 0.
 fn unix_secs(time: Time) -> u64 {
     u64::try_from(time.unix_timestamp()).unwrap_or(0)
 }

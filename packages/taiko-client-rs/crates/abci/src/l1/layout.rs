@@ -100,10 +100,11 @@ pub mod inbox {
 /// Staking-registry storage slots (contract address = chain constant `ETNA_REGISTRY`).
 ///
 /// The registry keeps its state in an ERC-7201 namespace `taiko.etna.registry` whose first field
-/// is `checkpoints`, a dynamic array of two-word structs `{ uint64 l1Block; uint32 count; }` and
-/// `bytes32 entriesRoot`. The second field is `entries`, the live entry array the checkpoints
-/// snapshot: a dynamic array of three-word structs `{ bytes32 pubkey; uint256 effStake;
-/// uint64 activeFromL1; uint64 exitEffectiveL1; uint64 lastHeartbeatAt; }` indexed by `bondId`.
+/// is `checkpoints`, a dynamic array of two-word structs
+/// `{ uint64 l1Block; uint32 count; bytes32 entriesRoot; }`. The second field is `entries`, the
+/// live entry array the checkpoints snapshot: a dynamic array of three-word structs
+/// `{ bytes32 pubkey; uint256 effStake; uint64 activeFromL1; uint64 exitEffectiveL1;
+/// uint64 lastHeartbeatAt; }` indexed by `bondId`.
 ///
 /// As the contract appends a checkpoint in every L1 block that changes any entry (see the
 /// contract obligations in the module docs), the entries read at block `checkpoints[i].l1Block`

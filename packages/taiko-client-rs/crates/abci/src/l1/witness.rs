@@ -10,6 +10,7 @@ use alloy_primitives::{Address, B256, U256};
 use crate::{
     envelope::AnchorWitness,
     l1::{
+        header::RawL1Header,
         layout::{inbox, word_u8, word_u64},
         mpt::{MptError, VerifiedStorage, verify_account_witness},
     },
@@ -66,22 +67,25 @@ pub fn verify_anchor_witness(
         &inbox::anchor_slots(committee_epoch),
     )?;
     let facts = InboxFacts {
-        migration_state: word_u8(word(&storage, inbox::slot(inbox::MIGRATION_STATE)), 0),
-        recovery_generation: word_u64(word(&storage, inbox::slot(inbox::RECOVERY_GENERATION)), 0),
-        last_checkpoint_height: word_u64(
-            word(&storage, inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT)),
-            0,
-        ),
-        last_checkpoint_hash: word(&storage, inbox::slot(inbox::LAST_CHECKPOINT_HASH)).into(),
+        migration_state: word_u8(inbox_word(&storage, inbox::MIGRATION_STATE), 0),
+        recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
+        last_checkpoint_height: word_u64(inbox_word(&storage, inbox::LAST_CHECKPOINT_HEIGHT), 0),
+        last_checkpoint_hash: inbox_word(&storage, inbox::LAST_CHECKPOINT_HASH).into(),
         committee: committee_epoch.map(|e| (e, word(&storage, inbox::committee_slot(e)).into())),
     };
-    Ok(AnchorState {
+    Ok(anchor_state(header, facts))
+}
+
+/// The anchor at L1 header `header` with the Inbox facts `inbox` proven against its `stateRoot`:
+/// its number, hash (`keccak256` of the raw header), state root and timestamp come from `header`.
+pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorState {
+    AnchorState {
         number: header.number(),
         hash: header.hash(),
         state_root: header.state_root(),
         timestamp: header.timestamp(),
-        inbox: facts,
-    })
+        inbox,
+    }
 }
 
 /// Verifies the genesis Inbox witness against `state_root` (the `L1_0` header's) and returns the
@@ -100,19 +104,18 @@ pub fn verify_genesis_inbox(
     check_contract(w, inbox)?;
     let storage = verify_account_witness(state_root, w, &inbox::genesis_slots(Schedule::E0))?;
 
-    let migration_state = word_u8(word(&storage, inbox::slot(inbox::MIGRATION_STATE)), 0);
+    let migration_state = word_u8(inbox_word(&storage, inbox::MIGRATION_STATE), 0);
     if migration_state != inbox::ETNA_ACTIVE {
         return Err(WitnessError::NotActivated(migration_state));
     }
-    let packed = word(&storage, inbox::slot(inbox::ACTIVATION_PACKED));
+    let packed = inbox_word(&storage, inbox::ACTIVATION_PACKED);
     let activation = ActivationRecord {
         genesis_height: word_u64(packed, 0),
         l1_0: word_u64(packed, 64),
         epoch_len: word_u64(packed, 128),
         epoch_len_l1: word_u64(packed, 192),
-        genesis_hash: word(&storage, inbox::slot(inbox::ACTIVATION_GENESIS_HASH)).into(),
-        genesis_state_root: word(&storage, inbox::slot(inbox::ACTIVATION_GENESIS_STATE_ROOT))
-            .into(),
+        genesis_hash: inbox_word(&storage, inbox::ACTIVATION_GENESIS_HASH).into(),
+        genesis_state_root: inbox_word(&storage, inbox::ACTIVATION_GENESIS_STATE_ROOT).into(),
     };
     if activation.genesis_hash.is_zero() {
         return Err(WitnessError::ZeroGenesisHash);
@@ -127,7 +130,7 @@ pub fn verify_genesis_inbox(
 
     let facts = InboxFacts {
         migration_state,
-        recovery_generation: word_u64(word(&storage, inbox::slot(inbox::RECOVERY_GENERATION)), 0),
+        recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: activation.genesis_height,
         last_checkpoint_hash: activation.genesis_hash,
         committee: Some((Schedule::E0, committee_record)),
@@ -149,6 +152,11 @@ fn check_contract(w: &AccountWitness, inbox: Address) -> Result<(), WitnessError
 /// [`verify_account_witness`], which succeeds only when the witness proves exactly that set.
 fn word(storage: &VerifiedStorage, slot: B256) -> U256 {
     storage.get(slot).expect("slot belongs to the verified slot set")
+}
+
+/// The proven word at the plain Inbox slot `n` ([`inbox::slot`]); panics like [`word`].
+fn inbox_word(storage: &VerifiedStorage, n: u64) -> U256 {
+    word(storage, inbox::slot(n))
 }
 
 #[cfg(test)]

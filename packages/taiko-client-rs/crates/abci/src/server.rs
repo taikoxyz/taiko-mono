@@ -81,8 +81,7 @@ pub enum ServerError {
         /// Why the path cannot be used.
         reason: String,
     },
-    /// The app worker stopped (a safety halt whose hook returned, or a panic); the value says
-    /// why.
+    /// The app worker stopped (a safety halt whose hook returned, or a panic); the value says why.
     #[error("ABCI app worker stopped: {0}")]
     WorkerStopped(String),
 }
@@ -316,8 +315,7 @@ async fn remove_stale_socket(_addr: &str, _path: &Path) -> Result<(), ServerErro
 
 /// The app worker: answers `queue` one request at a time with `handler`, in queue order.
 ///
-/// Returns why it stopped: a safety halt (after answering it and running `halt`) or a closed
-/// queue.
+/// Returns why it stopped: a safety halt (after answering it and running `halt`) or a closed queue.
 async fn run_worker<H: AbciHandler, K: HaltHook>(
     mut handler: H,
     mut queue: mpsc::UnboundedReceiver<Job>,

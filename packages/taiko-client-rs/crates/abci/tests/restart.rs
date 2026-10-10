@@ -1,6 +1,5 @@
-//! Docker scenario: stopping the `abci` app mid-chain and starting it again over
-//! the same store recovers through the CometBFT handshake; the L2 chain below the old head is
-//! unchanged.
+//! Docker scenario: stopping the `abci` app mid-chain and starting it again over the same store
+//! recovers through the CometBFT handshake; the L2 chain below the old head is unchanged.
 //!
 //! The "restart before the first block" path (a re-sent `InitChain` over a persisted genesis
 //! state) is not driven here: stopping the app between genesis and the first commit is racy

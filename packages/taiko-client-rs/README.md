@@ -116,9 +116,8 @@ key is registered in the staking registry snapshot the genesis committee is deri
      --out ./genesis.json
    ```
 
-   Build it with the release that runs the chain and regenerate any `genesis.json` an earlier
-   build wrote: the genesis witness format in `app_state` changed (it now carries the raw L1
-   header), and `InitChain` refuses an `app_state` it cannot decode.
+   Build `genesis.json` with the release that runs the chain: `InitChain` refuses an
+   `app_state` it cannot decode.
 
 2. **Initialize the CometBFT home** and install the genesis and the registered key.
    `cometbft init` writes a fresh `config/priv_validator_key.json` that the staking registry does

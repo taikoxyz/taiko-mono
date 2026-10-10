@@ -7,7 +7,7 @@ use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
-    AbciError, App, deadline,
+    AbciError, App, deadline, unix_secs,
     validate::{Candidate, Rejection, check_candidate_anchor, expected_header, finish_candidate},
 };
 use crate::{
@@ -100,7 +100,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let anchor_state = check_candidate_anchor(state, params, height, &candidate)?;
         let committee = match schedule.epoch_starting_at(height) {
             Some(e) => {
-                let target = e.checked_add(1).expect("an epoch below u64::MAX starts at a height");
+                let target =
+                    e.checked_add(1).expect("an epoch below u64::MAX starts at a u64 height");
                 Some((target, self.committee_witness(state.anchor.number, target).await?))
             }
             None => None,
@@ -110,8 +111,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some((target_epoch, witness)) = &committee {
             self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
         }
-        let expected =
-            expected_header(state, params, height, &facts.anchor, super::unix_secs(req.time))?;
+        let expected = expected_header(state, params, height, &facts.anchor, unix_secs(req.time))?;
         let attrs = rules::payload_attributes(&expected, facts.anchor.hash);
         let block = deadline(
             "engine block build",
@@ -134,8 +134,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// one verified earlier at this height (discovered by this node, or carried by another
     /// proposer's block), if its key matches, else a discovery ([`build_committee_witness_within`],
     /// each read within the L1 deadline, reading no state older than the committee cutoff) that
-    /// resumes from the reads of an attempt the prepare deadline cut short. The caller caches a
-    /// discovered witness once it verifies.
+    /// resumes from the reads of an attempt the prepare deadline cut short. The caller caches the
+    /// witness once it verifies.
     async fn committee_witness(
         &self,
         parent_anchor: u64,
@@ -146,11 +146,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 .then(|| c.witness.clone())
         });
         if let Some(witness) = cached {
-            tracing::debug!(
-                parent_anchor,
-                target_epoch,
-                "reusing the discovered committee witness"
-            );
+            tracing::debug!(parent_anchor, target_epoch, "reusing the cached committee witness");
             return Ok(witness);
         }
         Ok(build_committee_witness_within(

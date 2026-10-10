@@ -5,8 +5,8 @@
 //! EIP-1186 proofs (inclusion proofs for non-zero slots, exclusion proofs for zero/absent ones).
 //!
 //! [`InboxStorage`] packs Inbox facts into storage words exactly as [`crate::l1::layout`] lays
-//! them out, and
-//! [`anchor_witness`] / [`genesis_inbox_witness`] turn it into witnesses with real proofs.
+//! them out, and [`anchor_witness`] / [`genesis_inbox_witness`] turn it into witnesses with real
+//! proofs.
 //! [`RegistryStorage`] does the same for the staking registry's checkpoints (and the last
 //! checkpoint's entries), and [`committee_witness`] proves one checkpoint of it.
 //!
@@ -358,9 +358,7 @@ pub(crate) fn anchor_witness(
     header: Header,
     committee_epoch: Option<u64>,
 ) -> (AnchorWitness, TestState) {
-    let mut accounts = filler_accounts();
-    accounts.push(inbox_account(inbox_address, storage));
-    let state = TestState::new(accounts);
+    let state = inbox_state(inbox_address, storage);
     (anchor_witness_in(&state, inbox_address, header, committee_epoch), state)
 }
 
@@ -371,10 +369,15 @@ pub(crate) fn genesis_inbox_witness(
     inbox_address: Address,
     storage: &InboxStorage,
 ) -> (AccountWitness, TestState) {
+    let state = inbox_state(inbox_address, storage);
+    (state.witness(inbox_address, &inbox::genesis_slots(Schedule::E0)), state)
+}
+
+/// An L1 state holding the Inbox (`storage`) at `inbox_address` plus the filler accounts.
+fn inbox_state(inbox_address: Address, storage: &InboxStorage) -> TestState {
     let mut accounts = filler_accounts();
     accounts.push(inbox_account(inbox_address, storage));
-    let state = TestState::new(accounts);
-    (state.witness(inbox_address, &inbox::genesis_slots(Schedule::E0)), state)
+    TestState::new(accounts)
 }
 
 /// The staking registry's storage as [`crate::l1::layout::registry`] lays it out, before

@@ -98,10 +98,10 @@ pub struct AuthorityParams {
 }
 
 impl GenesisConsensusParams {
-    /// The parameters of every Etna genesis: CometBFT's default
-    /// `block.max_bytes` (22,020,096, above any envelope) without a gas limit, the default
-    /// evidence limits (100,000 blocks, 48 h, 1 MiB), Ed25519 keys only, app version 0, vote
-    /// extensions disabled, and no update authority.
+    /// The parameters of every Etna genesis: CometBFT's default `block.max_bytes` (22,020,096,
+    /// above any envelope) without a gas limit, the default evidence limits (100,000 blocks,
+    /// 48 h, 1 MiB), Ed25519 keys only, app version 0, vote extensions disabled, and no update
+    /// authority.
     pub fn etna() -> Self {
         Self {
             block: BlockParams { max_bytes: "22020096".into(), max_gas: "-1".into() },

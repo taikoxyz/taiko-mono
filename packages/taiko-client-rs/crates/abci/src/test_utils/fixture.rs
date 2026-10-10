@@ -131,15 +131,7 @@ impl Fixture {
 
         let registry =
             RegistryStorage { checkpoints: vec![(spec.l1_0, sample_entries(spec.n_validators))] };
-        let cutoff = committee::cutoff(spec.l1_0, params.cutoff_grid, params.cutoff_lag)
-            .expect("L1_0 has a cutoff");
-        let snapshot = Snapshot {
-            checkpoint_index: 0,
-            l1_block: spec.l1_0,
-            entries: registry.checkpoints[0].1.clone(),
-        };
-        let (record, members) = committee::derive(&snapshot, cutoff, Schedule::E0, &params)
-            .expect("the sample entries derive a committee");
+        let (record, members) = genesis_committee(&params, spec.l1_0, &registry, Schedule::E0);
         let committee_e0 = spec
             .committee_e0
             .unwrap_or_else(|| committee::record_hash(params.l2_chain_id, &record));
@@ -305,16 +297,8 @@ impl Fixture {
     /// genesis cutoff (the members equal epoch `e_0`'s; the record differs in its target and
     /// set root).
     pub(crate) fn committee(&self, target_epoch: u64) -> CommitteeState {
-        let params = &self.params;
-        let cutoff = committee::cutoff(self.activation.l1_0, params.cutoff_grid, params.cutoff_lag)
-            .expect("L1_0 has a cutoff");
-        let snapshot = Snapshot {
-            checkpoint_index: 0,
-            l1_block: self.activation.l1_0,
-            entries: self.registry.checkpoints[0].1.clone(),
-        };
-        let (record, members) = committee::derive(&snapshot, cutoff, target_epoch, params)
-            .expect("the genesis snapshot derives a committee");
+        let (record, members) =
+            genesis_committee(&self.params, self.activation.l1_0, &self.registry, target_epoch);
         CommitteeState { record, members }
     }
 
@@ -362,6 +346,25 @@ impl Fixture {
             )]),
         }
     }
+}
+
+/// The committee of `target_epoch` derived from `registry`'s first checkpoint (the genesis
+/// snapshot) with the cutoff of the activation block `l1_0`.
+fn genesis_committee(
+    params: &ChainParams,
+    l1_0: u64,
+    registry: &RegistryStorage,
+    target_epoch: u64,
+) -> (CommitteeRecord, Vec<Member>) {
+    let cutoff =
+        committee::cutoff(l1_0, params.cutoff_grid, params.cutoff_lag).expect("L1_0 has a cutoff");
+    let snapshot = Snapshot {
+        checkpoint_index: 0,
+        l1_block: l1_0,
+        entries: registry.checkpoints[0].1.clone(),
+    };
+    committee::derive(&snapshot, cutoff, target_epoch, params)
+        .expect("the genesis snapshot derives a committee")
 }
 
 /// The L1 state at `params`' addresses: the filler accounts, the Inbox holding `inbox` and the
