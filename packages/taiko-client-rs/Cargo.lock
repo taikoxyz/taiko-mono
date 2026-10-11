@@ -3584,6 +3584,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "lander"
+version = "2.3.0"
+dependencies = [
+ "abci",
+ "alloy",
+ "alloy-consensus 1.8.3",
+ "alloy-eips 1.8.3",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rlp",
+ "alloy-rpc-types 1.8.3",
+ "alloy-signer-local",
+ "alloy-transport",
+ "alloy-trie",
+ "anyhow",
+ "async-trait",
+ "base64",
+ "ed25519-dalek",
+ "futures",
+ "prometheus",
+ "prost 0.13.5",
+ "protocol",
+ "reqwest",
+ "rpc",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "tendermint",
+ "tendermint-proto",
+ "test-harness",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5004,12 +5042,14 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
+ "tokio-util",
  "tower",
  "tower-http",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
 ]
 
@@ -7040,15 +7080,31 @@ name = "taiko-client"
 version = "2.3.0"
 dependencies = [
  "abci",
+ "alloy",
+ "alloy-consensus 1.8.3",
+ "alloy-eips 1.8.3",
+ "alloy-primitives",
  "alloy-provider",
+ "anyhow",
  "async-trait",
  "axum",
+ "base64",
  "clap",
+ "ed25519-dalek",
  "http-body-util",
+ "lander",
  "libc",
  "once_cell",
  "prometheus",
+ "prost 0.13.5",
+ "protocol",
  "rpc",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "tendermint",
+ "tendermint-proto",
+ "test-harness",
  "thiserror 2.0.18",
  "tokio",
  "tower",
@@ -7935,6 +7991,19 @@ dependencies = [
  "indexmap 2.14.0",
  "wasm-encoder",
  "wasmparser",
+]
+
+[[package]]
+name = "wasm-streams"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d1ec4f6517c9e11ae630e200b2b65d193279042e28edd4a2cda233e46670bbb"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

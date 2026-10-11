@@ -48,6 +48,14 @@ pub struct CommonArgs {
         help = "Path to a JWT secret to use for authenticated RPC endpoints"
     )]
     pub l2_auth_jwt_secret: PathBuf,
+    /// Logging and Prometheus options independent of authenticated RPCs.
+    #[command(flatten)]
+    pub observability: ObservabilityArgs,
+}
+
+/// Logging and Prometheus flags reused by ABCI and the permissionless lander.
+#[derive(Parser, Clone, Debug, PartialEq, Eq)]
+pub struct ObservabilityArgs {
     /// Verbosity level for logging.
     #[clap(
         short = 'v',
@@ -85,6 +93,13 @@ pub struct CommonArgs {
 
 impl CommonArgs {
     /// Convert verbosity level to tracing::Level
+    pub fn log_level(&self) -> Level {
+        self.observability.log_level()
+    }
+}
+
+impl ObservabilityArgs {
+    /// Convert verbosity to the minimum tracing level.
     pub fn log_level(&self) -> Level {
         match self.verbosity {
             0 => Level::ERROR,

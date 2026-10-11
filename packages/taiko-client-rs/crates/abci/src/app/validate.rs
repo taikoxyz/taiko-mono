@@ -459,23 +459,16 @@ fn check_switch(
         return Err(Rejection::CommitteeUnknown(prev));
     }
     let next = state.committees.get(&t).ok_or(Rejection::CommitteeUnknown(t))?;
-    let required = state.schedule().h_first(prev);
-    let last_checkpoint_height = anchor.inbox.last_checkpoint_height;
-    if last_checkpoint_height < required {
-        return Err(Rejection::CheckpointNotLanded { last_checkpoint_height, required });
-    }
     let expected = record_hash(params.l2_chain_id, &next.record);
-    // A switch height always carries an anchor witness proving `committee[t]`; anything else
-    // proves no record for `t`, i.e. a zero one.
-    let proven = match anchor.inbox.committee {
-        Some((epoch, hash)) if epoch == t => hash,
-        _ => B256::ZERO,
-    };
-    if proven.is_zero() {
-        return Err(Rejection::RecordNotLanded { epoch: t });
-    }
-    if proven != expected {
-        return Err(Rejection::RecordConflict { epoch: t, expected, proven });
-    }
-    Ok(())
+    rules::check_switch_landed(&state.schedule(), t, anchor, expected).map_err(
+        |error| match error {
+            rules::SwitchError::CheckpointNotLanded { last_checkpoint_height, required } => {
+                Rejection::CheckpointNotLanded { last_checkpoint_height, required }
+            }
+            rules::SwitchError::RecordNotLanded { epoch } => Rejection::RecordNotLanded { epoch },
+            rules::SwitchError::RecordConflict { epoch, expected, proven } => {
+                Rejection::RecordConflict { epoch, expected, proven }
+            }
+        },
+    )
 }
