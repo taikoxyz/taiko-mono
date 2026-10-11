@@ -35,7 +35,8 @@ async fn block_hashes(l2: &RootProvider, head: u64) -> anyhow::Result<Vec<B256>>
 async fn restart_recovers_through_the_handshake() -> anyhow::Result<()> {
     let started = Instant::now();
     let mut devnet = Devnet::start(DevnetSpec::default()).await?;
-    devnet.wait_for_height(0, 6, Duration::from_secs(60)).await?;
+    // Include an autonomous switch in the persisted history before the crash.
+    devnet.wait_for_height(0, devnet.schedule().h_first(1) + 5, Duration::from_secs(90)).await?;
 
     devnet.app_stop(0).await;
     assert!(!devnet.app_running(0));

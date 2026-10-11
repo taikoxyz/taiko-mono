@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// Leading version byte of every envelope.
-pub const ENVELOPE_VERSION: u8 = 1;
+pub const ENVELOPE_VERSION: u8 = 2;
 
 /// Name of the optional `anchor` field, as carried by [`EnvelopeError::OptionalArity`].
 const ANCHOR_FIELD: &str = "anchor";
@@ -56,13 +56,13 @@ pub struct AnchorWitness {
     pub inbox: AccountWitness,
 }
 
-/// The committee witness carried at an epoch's first height.
+/// The committee witness carried only at the target epoch's switch height `H(t)-2`.
 ///
 /// RLP: `[record, registry, entries]`. The registry proofs verify against the parent's anchor
 /// `stateRoot`.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct CommitteeWitness {
-    /// The committee record the block claims for the starting epoch.
+    /// The committee record the switch block claims for the incoming epoch.
     pub record: CommitteeRecord,
     /// EIP-1186 proof of the staking-registry account and its snapshot slots.
     pub registry: AccountWitness,
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn encode_starts_with_version_byte() {
         let encoded = envelope(Some(anchor()), None).encode();
-        assert_eq!(encoded[0], 0x01);
+        assert_eq!(encoded[0], 0x02);
         assert_eq!(encoded.len(), 1 + alloy_rlp::encode(envelope(Some(anchor()), None)).len());
     }
 
@@ -406,7 +406,7 @@ mod tests {
     #[test]
     fn decode_rejects_wrong_version() {
         let mut encoded = envelope(None, None).encode().to_vec();
-        for version in [0x00, 0x02, 0xff] {
+        for version in [0x00, 0x01, 0xff] {
             encoded[0] = version;
             assert_eq!(EtnaEnvelope::decode(&encoded), Err(EnvelopeError::Version(version)));
         }
@@ -513,7 +513,7 @@ mod tests {
             committee: None,
         };
         let expected = hex!(
-            "01"       // ENVELOPE_VERSION
+            "02"       // ENVELOPE_VERSION
             "f901f6"   // envelope list
             "f901f1"   // block list
             "f901ed"   // header list (Header::default(): 15 pre-London fields)

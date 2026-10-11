@@ -12,12 +12,11 @@ use tendermint::{
 use super::*;
 use crate::{
     app::validate::{self, Rejection, Validated},
-    committee::record_hash,
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope},
     l1::{layout::registry, verify_anchor_witness},
     rules,
     store::CommitteeState,
-    test_utils::{GenesisSpec, L1Call, LogCapture, RegistryStorage, sample_entries, simple_block},
+    test_utils::{GenesisSpec, L1Call, RegistryStorage, sample_entries, simple_block},
     types::{AnchorState, ParentInfo},
 };
 
@@ -203,7 +202,7 @@ pub(super) fn jump(
 /// height: no witness required, back-pressure satisfied.
 pub(super) async fn mid_epoch(fx: &Fixture, dir: &Path, offset: u64) -> App<MockL1, MockEngine> {
     let mut app = initialized(fx, dir).await;
-    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
+    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
     jump(&mut app, fx.genesis.genesis_height + offset, anchor, &[]);
     app
 }
@@ -218,10 +217,8 @@ pub(super) fn hand_envelope(
     let state = app.state().expect("initialized");
     let height = next_height(app);
     let anchor_state = match &anchor {
-        Some(w) => {
-            verify_anchor_witness(w, app.params.inbox, state.schedule().switch_target(height))
-                .expect("the hand-built anchor witness verifies")
-        }
+        Some(w) => verify_anchor_witness(w, app.params.inbox)
+            .expect("the hand-built anchor witness verifies"),
         None => state.anchor.clone(),
     };
     let expected =
@@ -232,7 +229,7 @@ pub(super) fn hand_envelope(
 }
 
 #[tokio::test]
-async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
+async fn round_trip_at_h0_carries_only_the_anchor_witness() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -242,9 +239,7 @@ async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
     let env = propose(&mut app).await;
     let anchor = env.anchor.as_ref().expect("H_0 carries an anchor witness");
     assert_eq!(anchor.l1_header, fx.witness.l1_header, "anchored at the finalized L1_0");
-    let committee = env.committee.as_ref().expect("H_0 = h_first(e_0) carries a committee");
-    assert_eq!(committee.record.target_epoch, 1);
-    assert_eq!(committee.entries, sample_entries(3));
+    assert!(env.committee.is_none());
     assert_eq!(env.block.header.number, h0);
     assert_eq!(env.block.header.parent_hash, fx.genesis_hash());
 
@@ -257,11 +252,7 @@ async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
     assert!(v.executed);
     assert_eq!(v.block, env.block);
     assert_eq!(v.anchor.number, fx.genesis.l1_0, "H_0 re-proves the genesis anchor L1_0");
-    let (target, derived) = v.derived.as_ref().expect("committee 1 is derived");
-    assert_eq!(*target, 1);
-    assert_eq!(derived.record, committee.record);
-    assert_eq!(derived.members, fx.members, "same snapshot, same members");
-    assert_eq!(derived, &fx.committee(1));
+    assert!(v.derived.is_none());
     assert!(
         validator.engine().calls().contains(&EngineCall::NewPayload(env.block.header.hash_slow()))
     );
@@ -277,7 +268,7 @@ async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
 /// `max(cutoff(64) = 59, 63) = 63` (at 59 no entry would be active). Proposer and validator
 /// agree on it.
 #[tokio::test]
-async fn h0_derives_the_next_committee_at_the_floored_genesis_cutoff() {
+async fn switch_derives_the_next_committee_at_the_floored_genesis_cutoff() {
     let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
     let genesis_cutoff = fx.genesis.genesis_cutoff;
     let dir = tempfile::tempdir().unwrap();
@@ -286,6 +277,10 @@ async fn h0_derives_the_next_committee_at_the_floored_genesis_cutoff() {
     assert_eq!(e0.record.cutoff_l1_block, genesis_cutoff);
     assert_eq!(e0.members.len(), 2);
 
+    let switch = fx.schedule().h_first(1) - 2;
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
+    let parent = fx.anchor_state(app.l1(), 66);
+    jump(&mut app, switch - 1, parent.clone(), &[]);
     let env = propose(&mut app).await;
     let committee = env.committee.as_ref().expect("H_0 = h_first(e_0) carries a committee");
     assert_eq!(committee.record.target_epoch, 1);
@@ -294,6 +289,8 @@ async fn h0_derives_the_next_committee_at_the_floored_genesis_cutoff() {
 
     let other_dir = tempfile::tempdir().unwrap();
     let mut validator = initialized(&fx, other_dir.path()).await;
+    fx.advance_l1(validator.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
+    jump(&mut validator, switch - 1, parent, &[]);
     let (resp, req) = judge(&mut validator, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", validator.halt);
     let (target, derived) = validator
@@ -310,7 +307,7 @@ async fn h0_derives_the_next_committee_at_the_floored_genesis_cutoff() {
 
     decide(&mut validator, &req).await;
     let state = validator.state().expect("committed");
-    assert_eq!(state.last_height, fx.genesis.genesis_height + 1);
+    assert_eq!(state.last_height, switch);
     assert_eq!(state.committees[&1], derived);
 }
 
@@ -333,7 +330,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     decide(&mut app, &req).await;
 
     // L1 finalizes block 66, where the checkpoint has advanced: the anchor moves.
-    let inbox = fx.inbox_with(fx.genesis.genesis_height + 1, &[]);
+    let inbox = fx.inbox_with(fx.genesis.genesis_height + 1);
     let header = fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     let env = propose(&mut app).await;
     let anchor = env.anchor.as_ref().expect("a moved anchor carries its witness");
@@ -354,17 +351,18 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert_eq!(app.state().unwrap().anchor.number, 66);
 }
 
-/// At `h_first(1)` the committee of epoch 2 is derived from the registry snapshot at the
-/// parent's anchor: the last checkpoint at or before the cutoff, with its own entries.
+/// Switch 4 derives at fixed cutoff 68 and authenticates checkpoint 1 plus its successor under
+/// the unchanged parent anchor 70. Discovery reads the complete historical entries at 68.
 #[tokio::test]
-async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
+async fn round_trip_at_a_switch_derives_the_fixed_cutoff_committee() {
     let mut spec = GenesisSpec::new(3);
     spec.params.cutoff_grid = 4;
+    spec.epoch_len_l1 = 2;
     let fx = Fixture::build(spec);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let schedule = app.state().unwrap().schedule();
-    let h_e = schedule.h_first(1);
+    let h_e = schedule.h_first(4) - 2;
 
     // Checkpoints at L1 blocks 64 (genesis), 66 (a fourth validator joins) and 69 (a fifth).
     // Only blocks 68 (the newest block still holding checkpoint 1's entries) and 70 (the
@@ -374,18 +372,19 @@ async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
         RegistryStorage { checkpoints: vec![(l1_0, sample_entries(3)), (66, sample_entries(4))] };
     let mut at_70 = at_66.clone();
     at_70.checkpoints.push((69, sample_entries(5)));
-    let c1 = fx.committee(1);
-    let inbox = fx.inbox_with(h_e - 6, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
+    let c3 = fx.committee(3);
+    let inbox = fx.inbox_with(h_e - 6);
     fx.plant_l1_block(app.l1(), 68, &inbox, &at_66);
     fx.advance_l1(app.l1(), 70, &inbox, &at_70);
-    let anchor = fx.anchor_state(app.l1(), 70, None);
-    jump(&mut app, h_e - 1, anchor, &[(1, c1)]);
+    let anchor = fx.anchor_state(app.l1(), 70);
+    jump(&mut app, h_e - 1, anchor, &[(3, c3)]);
 
     let env = propose(&mut app).await;
     assert!(env.anchor.is_none(), "the anchor stays at 70");
-    let committee = env.committee.as_ref().expect("h_first(1) carries a committee");
-    // Cutoff 4·floor(70 / 4) = 68: checkpoint 1 (block 66) is the last one at or before it.
-    assert_eq!(committee.record.target_epoch, 2);
+    let committee = env.committee.as_ref().expect("switch 4 carries a committee");
+    // Fixed cutoff 4·floor((64 + (4-2)*2) / 4) = 68: checkpoint 1 (block 66) is the last one at or
+    // before it.
+    assert_eq!(committee.record.target_epoch, 4);
     assert_eq!(committee.record.cutoff_l1_block, 68);
     assert_eq!(committee.record.checkpoint_index, 1);
     assert_eq!(committee.entries, sample_entries(4));
@@ -417,133 +416,67 @@ async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
         .derived
         .clone()
         .expect("derived");
-    assert_eq!(target, 2);
+    assert_eq!(target, 4);
     assert_eq!(derived.record, committee.record);
     assert_eq!(derived.members.len(), 4);
 }
 
-/// At the switch height `h_first(1) − 2` the anchor witness proves `committee[1]`; the landed
-/// record lets the block through.
 #[tokio::test]
-async fn round_trip_at_a_switch_height_with_the_landed_record() {
+async fn committee_is_required_only_at_switch_without_l1_publication() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule().h_first(1) - 2;
-    let c1 = fx.committee(1);
-    let landed = fx.inbox_with(switch - 7, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
-
-    // The anchor moves to the landing block.
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
-    jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
-    fx.advance_l1(app.l1(), 66, &landed, &fx.registry);
+    let h0 = propose(&mut app).await;
+    assert!(h0.committee.is_none(), "H0 needs no runtime committee witness");
+    let switch = fx.schedule().h_first(1) - 2;
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 66);
+    jump(&mut app, switch - 1, anchor, &[]);
     let env = propose(&mut app).await;
-    let anchor = env.anchor.as_ref().expect("a switch height carries an anchor witness");
-    assert_eq!(anchor.inbox.storage.len(), 5, "committee[1] is proven");
-    let (resp, req) = judge(&mut app, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    assert!(env.anchor.is_none(), "switch does not force a stationary anchor proof");
+    assert_eq!(env.committee.as_ref().unwrap().record.target_epoch, 1);
+    assert!(validate(&app, &env).is_ok());
+    let mut missing = env.clone();
+    missing.committee = None;
     assert_eq!(
-        app.verdicts.get(&req.hash).expect("the verdict is cached").anchor.inbox.committee,
-        Some((1, record_hash(fx.params.l2_chain_id, &c1.record)))
+        validate(&app, &missing).map(|_| ()),
+        Err(Rejection::MissingWitness(validate::WitnessKind::Committee))
     );
-
-    // The witness is forced even when the anchor does not move.
-    let landed_anchor = fx.anchor_state(app.l1(), 66, None);
-    jump(&mut app, switch - 1, landed_anchor, &[]);
-    let env = propose(&mut app).await;
-    assert_eq!(env.anchor.as_ref().map(|w| w.l1_header.number()), Some(66));
-    let (resp, _) = judge(&mut app, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
-/// A set must not activate before its record has landed: without `committee[1]` on L1 the
-/// switch height can be neither built nor accepted. The record is still pending, so this is a
-/// wait, not a conflict.
 #[tokio::test]
-async fn switch_height_without_the_landed_record_halts() {
+async fn restart_rejects_a_changed_committee_config_opening() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let _app = initialized(&fx, dir.path()).await;
+    let mut params = fx.params.clone();
+    params.n_max += 1;
+    assert!(matches!(
+        App::new(
+            fx.l1(),
+            fx.engine(),
+            params,
+            Store::new(dir.path().to_path_buf()),
+            AppOptions::default()
+        ),
+        Err(AbciError::StoredState(_))
+    ));
+}
+
+#[tokio::test]
+async fn epoch_first_height_forbids_a_runtime_committee_witness() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule().h_first(1) - 2;
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
-    jump(&mut app, switch - 1, genesis_anchor, &[(1, fx.committee(1))]);
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7, &[]), &fx.registry);
-
-    let time = bft_time(&app);
-    let txs = prepare(&mut app, prepare_req(switch, time)).await;
-    assert!(txs.is_empty());
-    assert_eq!(app.halt.as_deref(), Some("record_not_landed"));
-
-    let witness = fx.anchor_witness(app.l1(), 66, Some(1));
-    let env = hand_envelope(&app, Some(witness), None);
-    assert_eq!(rejected(&mut app, &env).await, "record_not_landed");
-    assert_eq!(validate(&app, &env).map(|_| ()), Err(Rejection::RecordNotLanded { epoch: 1 }));
-}
-
-/// A different non-zero `committee[1]` on L1 means L1 and the chain hold two records
-/// for epoch 1. The switch height is refused as `record_conflict` (logged at ERROR, as an
-/// operator must investigate), never accepted; refusing stays a liveness matter.
-#[tokio::test]
-async fn switch_height_with_a_conflicting_record_is_rejected() {
-    let fx = Fixture::genesis(2);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule().h_first(1) - 2;
-    let c1 = fx.committee(1);
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
-    jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
-    let other = B256::repeat_byte(0xc1);
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7, &[(1, other)]), &fx.registry);
-
-    let time = bft_time(&app);
-    assert!(prepare(&mut app, prepare_req(switch, time)).await.is_empty());
-    assert_eq!(app.halt.as_deref(), Some("record_conflict"));
-
-    let witness = fx.anchor_witness(app.l1(), 66, Some(1));
-    let env = hand_envelope(&app, Some(witness), None);
-    let logs = LogCapture::start();
-    assert_eq!(rejected(&mut app, &env).await, "record_conflict");
-    let errors = logs.at("ERROR");
-    assert!(errors.len() == 1 && errors[0].contains("reason=\"record_conflict\""), "{errors:?}");
-    let expected = record_hash(fx.params.l2_chain_id, &c1.record);
-    let conflict = || Rejection::RecordConflict { epoch: 1, expected, proven: other };
-    assert_eq!(validate(&app, &env).map(|_| ()), Err(conflict()));
-    assert!(conflict().logs_at_error(), "a conflict is logged at ERROR");
-    assert!(!Rejection::RecordNotLanded { epoch: 1 }.logs_at_error(), "a wait is a WARN");
-}
-
-/// A `record_conflict` asks an operator to investigate, so a proposer must not raise it with a
-/// forged L1 header: a conflicting `committee[1]` proven by an anchor that is not final and
-/// canonical in the own L1 view is refused as `anchor_not_final`, and nothing is logged at
-/// ERROR. Only a final, canonical anchor proves a real conflict (see
-/// `switch_height_with_a_conflicting_record_is_rejected`).
-#[tokio::test]
-async fn a_conflicting_record_on_an_unconfirmed_anchor_is_anchor_not_final() {
-    let fx = Fixture::genesis(2);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule().h_first(1) - 2;
-    let c1 = fx.committee(1);
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
-    jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
-
-    // The proposer's block 66 proves another committee[1]; the own L1 holds it but has not
-    // finalized it.
-    let forged = fx.inbox_with(switch - 7, &[(1, B256::repeat_byte(0xc1))]);
-    fx.plant_l1_block(app.l1(), 66, &forged, &fx.registry);
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66, Some(1))), None);
-    assert!(
-        matches!(validate(&app, &env), Err(Rejection::RecordConflict { epoch: 1, .. })),
-        "deterministically a conflict"
+    let h = fx.schedule().h_first(1);
+    fx.advance_l1(app.l1(), 68, &fx.inbox_with(h - 7), &fx.registry);
+    let parent = fx.anchor_state(app.l1(), 68);
+    jump(&mut app, h - 1, parent, &[(1, fx.committee(1))]);
+    let mut env = propose(&mut app).await;
+    assert!(env.committee.is_none());
+    env.committee = Some(fx.witness.committee.clone());
+    assert_eq!(
+        validate(&app, &env).map(|_| ()),
+        Err(Rejection::UnexpectedWitness(validate::WitnessKind::Committee))
     );
-    let logs = LogCapture::start();
-    assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
-
-    // The own L1 finalizes another block 66, holding the landed record: the forged one is not
-    // canonical.
-    let landed = fx.inbox_with(switch - 7, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
-    fx.advance_l1(app.l1(), 66, &landed, &fx.registry);
-    assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
-    assert_eq!(logs.at("ERROR"), Vec::<String>::new(), "no operator alarm");
-    assert_eq!(logs.at("WARN").len(), 2, "{}", logs.text());
 }

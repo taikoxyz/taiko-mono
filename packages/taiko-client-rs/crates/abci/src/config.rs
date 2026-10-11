@@ -27,7 +27,7 @@ pub struct ChainParams {
     pub n_max: usize,
     /// `G`: snapshot cutoff grid, in L1 blocks; `>= 1`.
     pub cutoff_grid: u64,
-    /// `LAG`: snapshot cutoff lag behind the parent's anchor, in L1 blocks.
+    /// `LAG`: snapshot cutoff lag behind the fixed two-epoch L1 reference, in L1 blocks.
     pub cutoff_lag: u64,
     /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows MEM-13 eligibility is measured
     /// in, in L1 blocks ([`committee::heartbeat_floor`](crate::committee::heartbeat_floor));

@@ -3,16 +3,16 @@
 //!
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
 //! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header, the Inbox proofs of the genesis
-//! slots, `genesisCutoff` and `committee[e_0]`, and the committee witness of epoch `e_0`.
-//! `InitChain` decodes it with [`decode_app_state`] and re-verifies every fact against the node's
-//! own L1; nothing in it is trusted.
+//! slots, `genesisCutoff` and `genesisCommitteeRecordHash`, and the committee witness of epoch
+//! `e_0`. `InitChain` decodes it with [`decode_app_state`] and re-verifies every fact against the
+//! node's own L1; nothing in it is trusted.
 //!
 //! [`build_genesis`] reads the Ethereum-final genesis record and the `e_0` committee from the
 //! node's own L1, checks them as `InitChain` will, and assembles the whole CometBFT v0.40
 //! [`GenesisDoc`]. The codec here performs no I/O; the builder reads L1 through [`L1Source`].
 //!
 //! Before Inbox initialization, [`build_committee_record`] computes from the registry the
-//! `committeeRecordHash` (`committee[e_0]`) that `EtnaInbox::init` takes for a chosen
+//! `committeeRecordHash` (`genesisCommitteeRecordHash`) that `EtnaInbox::init` takes for a chosen
 //! `genesisCutoff`, derived exactly as `InitChain` later derives the genesis committee.
 //!
 //! [`L1Source`]: crate::l1::L1Source
@@ -55,7 +55,7 @@ pub use record::{CommitteeRecordError, GenesisCommitteeRecord, build_committee_r
 pub struct GenesisWitness {
     /// The raw L1 header of block `L1_0`; its `stateRoot` is the root of both proofs.
     pub l1_header: RawL1Header,
-    /// EIP-1186 proof of the Inbox account and `layout::inbox::genesis_slots(E0)`, in slot order.
+    /// EIP-1186 proof of the Inbox account and `layout::inbox::genesis_slots()`, in slot order.
     pub inbox: AccountWitness,
     /// The committee witness of epoch `e_0` (target epoch 0, snapshot cutoff = the Inbox's
     /// `genesisCutoff`), proven against the same `stateRoot`.
@@ -76,6 +76,14 @@ pub struct AppStateJson {
 /// [`GenesisError::TrailingBytes`]; the other variants come from [`build_genesis`].
 #[derive(Debug, thiserror::Error)]
 pub enum GenesisError {
+    /// The local committee parameters do not open the authenticated Inbox configuration.
+    #[error("committee configuration hash {local} differs from authenticated {proven}")]
+    ConfigMismatch {
+        /// Hash of the local derivation parameters.
+        local: B256,
+        /// Configuration hash proven under the genesis header.
+        proven: B256,
+    },
     /// The bytes are not the JSON object `{"witness": "0x<hex>"}` (malformed JSON, a missing or
     /// unknown field, or a malformed hex string).
     #[error("genesis app_state is not {{\"witness\": \"0x<hex>\"}}: {0}")]
@@ -132,12 +140,15 @@ pub enum GenesisError {
     /// The built `e_0` committee witness does not verify (boxed, as the error is large).
     #[error("e_0 committee witness rejected: {0}")]
     Committee(Box<CommitteeError>),
-    /// The committee derived from the registry is not the one recorded at `committee[e_0]`.
-    #[error("derived committee record hash {derived} differs from committee[e0] = {recorded}")]
+    /// The committee derived from the registry is not the one recorded at
+    /// `genesisCommitteeRecordHash`.
+    #[error(
+        "derived committee record hash {derived} differs from genesisCommitteeRecordHash = {recorded}"
+    )]
     CommitteeRecordMismatch {
         /// `record_hash` of the derived committee record.
         derived: B256,
-        /// The record hash proven at `committee[e_0]`.
+        /// The record hash proven at `genesisCommitteeRecordHash`.
         recorded: B256,
     },
     /// The `L1_0` timestamp (Unix seconds) is not a valid CometBFT genesis time.

@@ -57,13 +57,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// canonical in the own L1 view (L1 is not called when it is absent); the EL must execute the
     /// block as `VALID`.
     ///
-    /// An Inbox ahead of the chain ([`Rejection::Superseded`], which stops the node for good) and
-    /// a record conflict ([`Rejection::RecordConflict`], an ERROR asking an operator to
-    /// investigate) are reported only once their anchor is final and canonical, as a forged L1
-    /// header could prove any generation or record; otherwise the anchor's own failure is. A
-    /// committee witness [`validate_block`] verified is cached for this node's own proposals at
-    /// the height (CometBFT rotates proposers by round), even when a later check refuses the
-    /// block: it is proven against the committed parent's anchor alone.
+    /// Supersession is reported only after the supplied anchor is independently confirmed final
+    /// and canonical, since a forged header could claim a later generation. Verified committee
+    /// witnesses are cached at their switch height even if a later node-local check refuses the
+    /// block; their proofs depend only on the committed parent's authenticated anchor.
     async fn judge(
         &self,
         state: &AppState,
@@ -79,7 +76,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let env = single_envelope(&txs)?;
         let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
         let validated = match validate_block(state, &self.params, &env, height, bft_secs) {
-            Err(l1_fact @ (Rejection::Superseded { .. } | Rejection::RecordConflict { .. })) => {
+            Err(l1_fact @ Rejection::Superseded { .. }) => {
                 // Without a witness the facts are the committed parent's, already trusted.
                 if let Some(w) = &env.anchor {
                     self.check_anchor_final(w).await?;

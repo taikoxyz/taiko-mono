@@ -19,7 +19,7 @@ pub(crate) struct GenesisContext {
     pub(crate) genesis: GenesisRecord,
     /// The L1 initialization header and its proven Inbox facts.
     pub(crate) anchor: AnchorState,
-    /// The record hash the initialized Inbox stores at committee[0].
+    /// The record hash the initialized Inbox stores at genesisCommitteeRecordHash.
     pub(crate) committee_hash: B256,
 }
 
@@ -39,6 +39,10 @@ pub(crate) fn verify_context(
             l1_0: header.number(),
             proven: genesis.l1_0,
         });
+    }
+    let local = crate::committee::committee_config_hash(params);
+    if local != genesis.committee_config_hash {
+        return Err(GenesisError::ConfigMismatch { local, proven: genesis.committee_config_hash });
     }
     Schedule::from_genesis(&genesis).validate(params.unsettled_cap())?;
     Ok(GenesisContext { genesis, anchor: anchor_state(header, facts), committee_hash })

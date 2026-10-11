@@ -27,7 +27,8 @@ pub const STATE_FILE: &str = "abci-state.json";
 /// interrupted save and is discarded by [`Store::load`].
 pub const TMP_FILE: &str = "abci-state.json.tmp";
 
-/// One epoch's committee: its record (as hashed into `committee[epoch]` on L1) and members.
+/// One epoch's committee: its record (as deterministically derived from a fixed L1 snapshot) and
+/// members.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitteeState {
     /// The committee record of the epoch.
@@ -234,6 +235,12 @@ mod tests {
 
     fn state() -> AppState {
         let genesis = GenesisRecord {
+            committee_config_hash: crate::committee::committee_config_hash(
+                &crate::config::ChainParams::builtin(
+                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+                )
+                .unwrap(),
+            ),
             genesis_height: 0,
             l1_0: 1_000,
             epoch_len: 20,
@@ -267,7 +274,6 @@ mod tests {
                     recovery_generation: 0,
                     last_checkpoint_height: 101,
                     last_checkpoint_hash: B256::repeat_byte(0x33),
-                    committee: Some((1, B256::repeat_byte(0x44))),
                 },
             },
             committees: (0..4).map(|e| (e, committee(e))).collect(),

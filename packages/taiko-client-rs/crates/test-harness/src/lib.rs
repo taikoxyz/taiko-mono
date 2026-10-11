@@ -7,8 +7,8 @@
 //! stop it completely and start it again ([`Devnet::app_stop`], [`Devnet::app_start`]). Before
 //! the apps start it plants an initialized Inbox and a staking registry into anvil with
 //! [`Planter`] and builds the CometBFT genesis from that L1 state with `abci::build_genesis`. A
-//! background fake lander keeps `lastCheckpoint` and the landed committee records moving behind the
-//! chain, so back-pressure and the epoch switch never stall a scenario unless the test pauses it.
+//! background fake lander advances only `lastCheckpoint` behind the chain; autonomous committee
+//! activation needs no publication, while paused settlement still exercises back-pressure.
 //!
 //! Dropping a [`Devnet`] (or awaiting [`Devnet::stop`]) stops the apps, removes every container
 //! and the network and deletes the temporary directories. Dropping it without a successful

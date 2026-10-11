@@ -12,9 +12,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::l1::layout::inbox;
-use alloy_eips::BlockId;
-use alloy_primitives::U256;
 use alloy_provider::Provider;
 use anyhow::ensure;
 use test_harness::{Devnet, DevnetSpec, anchor_of, block_number, finalized_number, wait_until};
@@ -40,18 +37,10 @@ async fn anchor_finality_gates_epoch_entry() -> anyhow::Result<()> {
     let l1 = devnet.l1();
     let l2 = devnet.l2_provider(0);
 
-    // Pause L1 a few blocks before the boundary, once committee[1] has landed in a final L1
-    // block (the switch height `boundary - 2` proves it at the frozen anchor).
+    // Pause L1 before the epoch boundary; switching requires only the embedded snapshot.
     let pause_at = boundary - 7;
-    let inbox_address = devnet.params().inbox;
     wait_until("the pause point", Duration::from_secs(90), Duration::from_millis(250), || async {
-        let height = devnet.cmt(0).latest_height().await?;
-        let finalized = finalized_number(l1).await?;
-        let landed = l1
-            .get_storage_at(inbox_address, U256::from_be_bytes(inbox::committee_slot(1).0))
-            .block_id(BlockId::number(finalized))
-            .await?;
-        Ok((height >= pause_at && !landed.is_zero()).then_some(()))
+        Ok((devnet.cmt(0).latest_height().await? >= pause_at).then_some(()))
     })
     .await?;
     devnet.l1_pause().await?;

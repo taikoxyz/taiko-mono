@@ -1,30 +1,13 @@
-//! Docker scenarios: the epoch switch.
-//!
-//! [`epoch_switch_adds_the_joining_validator`]: four nodes, the first three forming the genesis
-//! committee. A registry checkpoint planted after start adds validator 4; the first epoch `e`
-//! whose `H_e` cutoff (the parent's anchor, `G = 1`, `LAG = 0`) covers it derives a four-member
-//! committee `t = e + 1`; once the fake lander lands it (`lastCheckpoint ≥ H_e`, `committee[t]`),
-//! `FinalizeBlock(h_first(t) − 2)` emits the update (CometBFT applies it two heights later; a set
-//! never activates before its record has landed), CometBFT's set at `h_first(t)` has four
-//! members, and validator 4 signs commits of epoch `t`.
-//!
-//! [`epoch_switch_halts_without_landing`]: one validator, the lander moving `lastCheckpoint` but
-//! not planting `committee[1]`; the switch height `h_first(1) − 2` is refused (its record has
-//! not landed), so the chain stays one block below it until the record lands.
+//! Docker scenarios for autonomous fixed-cutoff epoch activation.
 
 use std::{
     collections::BTreeSet,
     time::{Duration, Instant},
 };
 
-use abci::{RegistryEntry, l1::layout::inbox};
+use abci::{RegistryEntry, committee::fixed_cutoff};
 use alloy_primitives::B256;
-use anyhow::ensure;
-use test_harness::{Devnet, DevnetSpec, anchor_of, wait_until};
-
-/// The `/status` halt reason of a switch height whose anchored `committee[t]` has not landed
-/// (`Rejection::RecordNotLanded`).
-const RECORD_NOT_LANDED: &str = "record_not_landed";
+use test_harness::{Devnet, DevnetSpec, wait_until};
 
 /// CometBFT node 0's validator set at `height` as `(pubkey, power)` pairs.
 async fn validator_set(devnet: &Devnet, height: u64) -> anyhow::Result<BTreeSet<(B256, u64)>> {
@@ -66,20 +49,10 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     let planted_at = devnet.cmt(0).latest_height().await?;
     eprintln!("validator 4 planted in L1 block {joined} at CometBFT height {planted_at}");
 
-    // The first epoch e whose H_e cutoff (the parent's anchor) covers the checkpoint.
-    let l2 = devnet.l2_provider(0);
-    let mut e = 1;
-    let t = loop {
-        ensure!(e <= 3, "no H_e cutoff covered L1 block {joined} by epoch 3");
-        let h_e = schedule.h_first(e);
-        devnet.wait_for_height(0, h_e, Duration::from_secs(90)).await?;
-        let cutoff = anchor_of(&l2, h_e - 1).await?;
-        eprintln!("H_{e} = {h_e}: cutoff (parent anchor) {cutoff}");
-        if cutoff >= joined {
-            break e + 1;
-        }
-        e += 1;
-    };
+    let t = (1..=5)
+        .find(|t| fixed_cutoff(&schedule, devnet.params(), *t).unwrap() >= joined)
+        .expect("join checkpoint covered by fixed epoch cutoff");
+    devnet.wait_for_height(0, schedule.h_first(t) - 2, Duration::from_secs(180)).await?;
     let h_first = schedule.h_first(t);
     let switch = h_first - 2;
     eprintln!("target epoch {t}: switch height {switch}, h_first {h_first}");
@@ -143,53 +116,35 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn epoch_switch_halts_without_landing() -> anyhow::Result<()> {
-    let started = Instant::now();
-    let spec = DevnetSpec { land_committees: false, ..Default::default() };
-    let devnet = Devnet::start(spec.clone()).await?;
+async fn epoch_switch_activates_without_committee_publication() -> anyhow::Result<()> {
+    let devnet = Devnet::start(DevnetSpec::default()).await?;
     let schedule = devnet.schedule();
-    let t = 1;
-    let switch = schedule.h_first(t) - 2;
-
-    // The chain runs up to the switch height and stops below it.
-    let reached = devnet.wait_for_height(0, switch - 1, Duration::from_secs(60)).await?;
-    assert_eq!(reached, switch - 1, "the chain passed the switch height without the record");
-    let hold_end = Instant::now() + spec.stall_hold();
-    let mut reasons = BTreeSet::new();
-    let mut status = devnet.abci_status(0).await?;
-    while Instant::now() < hold_end {
-        let height = devnet.cmt(0).latest_height().await?;
-        assert_eq!(height, switch - 1, "CometBFT reached the switch height without the record");
-        status = devnet.abci_status(0).await?;
-        reasons.extend(status.halt_reason.clone());
-        tokio::time::sleep(Duration::from_millis(250)).await;
-    }
-    eprintln!("halt reasons seen while stalled: {reasons:?}; status {status:?}");
-    // The checkpoint covers h_first(t − 1), so the switch fails on the missing committee[t]
-    // alone.
-    assert!(
-        status.last_checkpoint_height >= schedule.h_first(t - 1),
-        "lastCheckpoint {} stopped moving",
-        status.last_checkpoint_height
+    let h = schedule.h_first(1);
+    devnet.wait_for_height(0, h + 2, Duration::from_secs(90)).await?;
+    let committee = devnet.cmt(0).committee(1).await?.expect("switch derives committee 1");
+    assert_eq!(committee.record.cutoff_l1_block, fixed_cutoff(&schedule, devnet.params(), 1)?);
+    assert_eq!(validator_set(&devnet, h).await?.len(), 1);
+    // Slot 278 remains the immutable genesis hash; no epoch mapping exists or is written.
+    let bootstrap = devnet
+        .planter()
+        .inbox_word(abci::l1::layout::inbox::slot(abci::l1::layout::inbox::GENESIS_COMMITTEE_HASH))
+        .await?;
+    let initial =
+        devnet.cmt(0).committee(0).await?.expect("genesis committee retained across first switch");
+    assert_eq!(
+        B256::from(bootstrap),
+        abci::committee::record_hash(devnet.params().l2_chain_id, &initial.record)
     );
-    let record = devnet.planter().inbox_word(inbox::committee_slot(t)).await?;
-    assert!(record.is_zero(), "committee[{t}] landed while landing was off");
-    assert_eq!(status.halt_reason.as_deref(), Some(RECORD_NOT_LANDED), "/status halt reason");
-    assert_eq!(reasons, BTreeSet::from([RECORD_NOT_LANDED.to_string()]), "/status halt reasons");
+    for epoch in [1, 2, 3] {
+        let legacy_mapping_slot = alloy_primitives::keccak256(
+            [abci::l1::layout::inbox::slot(epoch), abci::l1::layout::inbox::slot(278)].concat(),
+        );
+        assert!(
+            devnet.planter().inbox_word(legacy_mapping_slot).await?.is_zero(),
+            "no future committee mapping output for epoch {epoch}"
+        );
+    }
     assert_eq!(devnet.app_halt(0), None);
-
-    // Landing the record lets the switch through.
-    devnet.lander_land_committees(true);
-    let resumed = Instant::now();
-    devnet.wait_for_height(0, schedule.h_first(t) + 1, Duration::from_secs(30)).await?;
-    eprintln!("past h_first({t}) {:?} after re-enabling the landing", resumed.elapsed());
-    let record = devnet.planter().inbox_word(inbox::committee_slot(t)).await?;
-    assert!(!record.is_zero(), "committee[{t}] not landed");
-    let status = devnet.abci_status(0).await?;
-    assert_eq!(status.epoch, t);
-    assert_eq!(devnet.app_halt(0), None);
-
     devnet.stop().await?;
-    eprintln!("epoch-switch halt scenario done after {:?}", started.elapsed());
     Ok(())
 }

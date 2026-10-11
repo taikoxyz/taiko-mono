@@ -17,7 +17,7 @@ const OTHER: Address = address!("00000000000000000000000000000000E7A10001");
 const C: u64 = 100;
 /// Schedule of the `derive` tests: `L1_0 = 0` and 10 L1 blocks per epoch, so with the devnet
 /// heartbeat window every heartbeat at or after L1 block 1 qualifies. Genesis cutoff 0, so
-/// [`snapshot_cutoff`] applies no floor.
+/// [`fixed_cutoff`] applies no floor.
 const SCHEDULE: Schedule = Schedule { l1_0: 0, epoch_len: 10, epoch_len_l1: 10, genesis_cutoff: 0 };
 
 fn ether(n: u64) -> U256 {
@@ -849,6 +849,8 @@ fn a_zero_vp_unit_is_rejected() {
 
 /// Devnet parameters with a coarse cutoff: `G = 4`, `LAG = 2`. A parent anchor of 27 gives
 /// cutoff 24, whose snapshot is checkpoint 1 (L1 block 20) of [`registry_storage`].
+const WITNESS_SCHEDULE: Schedule = Schedule { l1_0: 17, ..SCHEDULE };
+
 fn grid_params() -> ChainParams {
     ChainParams { cutoff_grid: 4, cutoff_lag: 2, ..devnet() }
 }
@@ -856,7 +858,7 @@ fn grid_params() -> ChainParams {
 /// The record and members derived for target epoch 3 from checkpoint 1 at cutoff 24.
 fn expected_committee(params: &ChainParams) -> (CommitteeRecord, Vec<Member>) {
     let snapshot = Snapshot { checkpoint_index: 1, l1_block: 20, entries: sample_entries(3) };
-    derive(&snapshot, 24, 3, &SCHEDULE, params).unwrap()
+    derive(&snapshot, 24, 3, &WITNESS_SCHEDULE, params).unwrap()
 }
 
 #[test]
@@ -868,7 +870,13 @@ fn verify_committee_witness_accepts_the_derived_record() {
     assert_eq!(record.cutoff_l1_block, 24);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record.clone());
     assert_eq!(
-        verify_committee_witness(&anchor_at(27, state.state_root()), &SCHEDULE, &params, &w, 3),
+        verify_committee_witness(
+            &anchor_at(27, state.state_root()),
+            &WITNESS_SCHEDULE,
+            &params,
+            &w,
+            3
+        ),
         Ok((record, members))
     );
 }
@@ -890,7 +898,13 @@ fn verify_committee_witness_rejects_a_record_mismatch() {
     for claimed in claims {
         let w = committee_witness(&state, REGISTRY, &storage, 1, claimed.clone());
         assert_eq!(
-            verify_committee_witness(&anchor_at(27, state.state_root()), &SCHEDULE, &params, &w, 3),
+            verify_committee_witness(
+                &anchor_at(27, state.state_root()),
+                &WITNESS_SCHEDULE,
+                &params,
+                &w,
+                3
+            ),
             Err(CommitteeError::RecordMismatch {
                 claimed: Box::new(claimed),
                 derived: Box::new(derived.clone()),
@@ -909,14 +923,26 @@ fn verify_committee_witness_requires_the_cutoff_snapshot() {
     let early = CommitteeRecord { checkpoint_index: 0, ..derived.clone() };
     let w = committee_witness(&state, REGISTRY, &storage, 0, early);
     assert_eq!(
-        verify_committee_witness(&anchor_at(27, state.state_root()), &SCHEDULE, &params, &w, 3),
+        verify_committee_witness(
+            &anchor_at(27, state.state_root()),
+            &WITNESS_SCHEDULE,
+            &params,
+            &w,
+            3
+        ),
         Err(CommitteeError::NextCheckpointNotAfterCutoff { l1_block: 20, cutoff: 24 })
     );
 
     let late = CommitteeRecord { checkpoint_index: 2, ..derived };
     let w = committee_witness(&state, REGISTRY, &storage, 2, late);
     assert_eq!(
-        verify_committee_witness(&anchor_at(27, state.state_root()), &SCHEDULE, &params, &w, 3),
+        verify_committee_witness(
+            &anchor_at(27, state.state_root()),
+            &WITNESS_SCHEDULE,
+            &params,
+            &w,
+            3
+        ),
         Err(CommitteeError::CheckpointAfterCutoff { l1_block: 30, cutoff: 24 })
     );
 }
@@ -924,22 +950,15 @@ fn verify_committee_witness_requires_the_cutoff_snapshot() {
 /// A parent anchor below the lag has no lagged cutoff, so the snapshot is taken at the genesis
 /// cutoff: through an anchor of 1, the record derived at 25 verifies and the one at 24 does not.
 #[test]
-fn verify_committee_witness_takes_the_genesis_cutoff_below_the_lag() {
+fn verify_committee_witness_rejects_anchor_before_genesis_cutoff() {
     let params = grid_params();
     let storage = registry_storage();
     let state = registry_state(&storage);
-    let anchor = anchor_at(1, state.state_root());
-    let snapshot = Snapshot { checkpoint_index: 1, l1_block: 20, entries: sample_entries(3) };
-    let (floored, members) = derive(&snapshot, 25, 3, &FLOORED, &params).unwrap();
-    let w = committee_witness(&state, REGISTRY, &storage, 1, floored.clone());
-    assert_eq!(verify_committee_witness(&anchor, &FLOORED, &params, &w, 3), Ok((floored, members)));
-
-    let (lagged, _) = expected_committee(&params);
-    let w = committee_witness(&state, REGISTRY, &storage, 1, lagged.clone());
-    assert!(matches!(
-        verify_committee_witness(&anchor, &FLOORED, &params, &w, 3),
-        Err(CommitteeError::RecordMismatch { .. })
-    ));
+    let w = witness_at(&state, &storage, 1);
+    assert_eq!(
+        verify_committee_witness(&anchor_at(1, state.state_root()), &FLOORED, &params, &w, 3),
+        Err(CommitteeError::CutoffAfterAnchor { cutoff: 25, anchor: 1 })
+    );
 }
 
 #[test]
@@ -950,7 +969,13 @@ fn verify_committee_witness_rejects_another_registry() {
     let (record, _) = expected_committee(&params);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record);
     assert_eq!(
-        verify_committee_witness(&anchor_at(27, state.state_root()), &SCHEDULE, &params, &w, 3),
+        verify_committee_witness(
+            &anchor_at(27, state.state_root()),
+            &WITNESS_SCHEDULE,
+            &params,
+            &w,
+            3
+        ),
         Err(CommitteeError::WrongContract { expected: OTHER, got: REGISTRY })
     );
 }
@@ -964,17 +989,30 @@ fn verify_committee_witness_at_cutoff_takes_the_cutoff_as_is() {
     let storage = registry_storage();
     let state = registry_state(&storage);
     let snapshot = Snapshot { checkpoint_index: 1, l1_block: 20, entries: sample_entries(3) };
-    let (record, members) = derive(&snapshot, 25, 3, &SCHEDULE, &params).unwrap();
+    let (record, members) = derive(&snapshot, 25, 3, &WITNESS_SCHEDULE, &params).unwrap();
     assert_eq!(record.cutoff_l1_block, 25);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record.clone());
     assert_eq!(
-        verify_committee_witness_at_cutoff(state.state_root(), 25, &SCHEDULE, &params, &w, 3),
+        verify_committee_witness_at_cutoff(
+            state.state_root(),
+            25,
+            &WITNESS_SCHEDULE,
+            &params,
+            &w,
+            3
+        ),
         Ok((record.clone(), members))
     );
 
     let (derived, _) = expected_committee(&params);
     assert_eq!(
-        verify_committee_witness(&anchor_at(27, state.state_root()), &SCHEDULE, &params, &w, 3),
+        verify_committee_witness(
+            &anchor_at(27, state.state_root()),
+            &WITNESS_SCHEDULE,
+            &params,
+            &w,
+            3
+        ),
         Err(CommitteeError::RecordMismatch {
             claimed: Box::new(record),
             derived: Box::new(derived)
@@ -984,27 +1022,11 @@ fn verify_committee_witness_at_cutoff_takes_the_cutoff_as_is() {
 
 /// [`SCHEDULE`] with genesis cutoff 25: above the cutoff 24 of a parent anchor of 27 under
 /// [`grid_params`], below the cutoff 28 of a parent anchor of 31.
-const FLOORED: Schedule = Schedule { genesis_cutoff: 25, ..SCHEDULE };
+const FLOORED: Schedule = Schedule { genesis_cutoff: 25, ..WITNESS_SCHEDULE };
 
 /// The anchored cutoff is floored at the genesis cutoff; above it, the anchor's lagged, gridded
 /// cutoff stands; below the lag, where no lagged cutoff exists, the genesis cutoff stands. A zero
 /// grid is still rejected.
-#[test]
-fn snapshot_cutoff_is_floored_at_the_genesis_cutoff() {
-    let params = grid_params();
-    assert_eq!(snapshot_cutoff(27, &SCHEDULE, &params), Ok(24));
-    assert_eq!(snapshot_cutoff(27, &FLOORED, &params), Ok(25));
-    assert_eq!(snapshot_cutoff(31, &FLOORED, &params), Ok(28));
-    assert_eq!(snapshot_cutoff(1, &FLOORED, &params), Ok(25));
-    assert_eq!(snapshot_cutoff(1, &SCHEDULE, &params), Ok(0));
-    assert_eq!(
-        snapshot_cutoff(27, &FLOORED, &ChainParams { cutoff_grid: 0, ..params }),
-        Err(CommitteeError::ZeroCutoffGrid)
-    );
-}
-
-/// Through a parent anchor whose lagged cutoff (24) precedes the genesis cutoff (25), a witness
-/// verifies only with the record derived at the genesis cutoff; the record at 24 is a mismatch.
 #[test]
 fn verify_committee_witness_derives_at_the_floored_cutoff() {
     let params = grid_params();
@@ -1039,10 +1061,10 @@ fn verify_committee_witness_past_the_genesis_cutoff_is_unaffected() {
     let state = registry_state(&storage);
     let anchor = anchor_at(31, state.state_root());
     let snapshot = Snapshot { checkpoint_index: 1, l1_block: 20, entries: sample_entries(3) };
-    let (record, members) = derive(&snapshot, 28, 3, &SCHEDULE, &params).unwrap();
+    let (record, members) = derive(&snapshot, 28, 3, &WITNESS_SCHEDULE, &params).unwrap();
     assert_eq!(record.cutoff_l1_block, 28);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record.clone());
-    for schedule in [SCHEDULE, FLOORED] {
+    for schedule in [Schedule { l1_0: 21, ..WITNESS_SCHEDULE }, Schedule { l1_0: 21, ..FLOORED }] {
         assert_eq!(
             verify_committee_witness(&anchor, &schedule, &params, &w, 3),
             Ok((record.clone(), members.clone())),
@@ -1062,11 +1084,11 @@ fn verify_committee_witness_at_cutoff_requires_the_cutoff_snapshot() {
     let w = committee_witness(&state, REGISTRY, &storage, 1, record);
     let root = state.state_root();
     assert_eq!(
-        verify_committee_witness_at_cutoff(root, 19, &SCHEDULE, &params, &w, 3),
+        verify_committee_witness_at_cutoff(root, 19, &WITNESS_SCHEDULE, &params, &w, 3),
         Err(CommitteeError::CheckpointAfterCutoff { l1_block: 20, cutoff: 19 })
     );
     assert_eq!(
-        verify_committee_witness_at_cutoff(root, 30, &SCHEDULE, &params, &w, 3),
+        verify_committee_witness_at_cutoff(root, 30, &WITNESS_SCHEDULE, &params, &w, 3),
         Err(CommitteeError::NextCheckpointNotAfterCutoff { l1_block: 30, cutoff: 30 })
     );
 }
@@ -1112,4 +1134,122 @@ fn validator_updates_from_or_to_an_empty_set() {
 fn validator_updates_restate_unchanged_members() {
     let set = vec![member(1, 1)];
     assert_eq!(validator_updates(&set, &set), vec![(B256::repeat_byte(1), 1)]);
+}
+
+#[test]
+fn fixed_snapshot_record_is_independent_of_parent_anchor() {
+    let params = ChainParams { registry: REGISTRY, cutoff_grid: 16, cutoff_lag: 7, ..devnet() };
+    let schedule = Schedule { l1_0: 1000, epoch_len_l1: 32, genesis_cutoff: 980, ..SCHEDULE };
+    let storage = RegistryStorage { checkpoints: vec![(980, sample_entries(3))] };
+    let state = registry_state(&storage);
+    let snapshot = Snapshot { checkpoint_index: 0, l1_block: 980, entries: sample_entries(3) };
+    let (record, members) = derive(&snapshot, 992, 1, &schedule, &params).unwrap();
+    let w = committee_witness(&state, REGISTRY, &storage, 0, record.clone());
+    for number in [1058, 1099] {
+        assert_eq!(
+            verify_committee_witness(
+                &anchor_at(number, state.state_root()),
+                &schedule,
+                &params,
+                &w,
+                1
+            ),
+            Ok((record.clone(), members.clone()))
+        );
+    }
+}
+
+#[test]
+fn fixed_cutoff_launch_lag_grid_and_overflow() {
+    let params = ChainParams { cutoff_grid: 16, cutoff_lag: 7, ..devnet() };
+    let schedule = Schedule { l1_0: 1000, epoch_len_l1: 32, genesis_cutoff: 980, ..SCHEDULE };
+    for (epoch, expected) in [(0, 980), (1, 992), (2, 992), (3, 1024), (4, 1056)] {
+        assert_eq!(fixed_cutoff(&schedule, &params, epoch), Ok(expected));
+    }
+    assert_eq!(
+        fixed_cutoff(&schedule, &ChainParams { cutoff_lag: u64::MAX, ..params.clone() }, 1),
+        Ok(980)
+    );
+    assert_eq!(
+        fixed_cutoff(&schedule, &ChainParams { cutoff_grid: 0, ..params.clone() }, 0),
+        Err(CommitteeError::ZeroCutoffGrid)
+    );
+    assert_eq!(
+        fixed_cutoff(&Schedule { l1_0: u64::MAX, ..schedule }, &params, 3),
+        Err(CommitteeError::EpochOutOfRange(3))
+    );
+    assert_eq!(
+        fixed_cutoff(&schedule, &params, u64::MAX),
+        Err(CommitteeError::EpochOutOfRange(u64::MAX))
+    );
+}
+
+#[test]
+fn committee_config_hash_matches_independent_ethers_vector() {
+    let params = ChainParams {
+        l2_chain_id: 167001,
+        registry: Address::repeat_byte(0x22),
+        cutoff_grid: 10,
+        cutoff_lag: 20,
+        vp_unit: U256::from(1_000_000_000u64),
+        s_min: ether(1),
+        n_max: 128,
+        heartbeat_window: 32,
+        ..devnet()
+    };
+    assert_eq!(
+        committee_config_hash(&params),
+        b256!("af72a8cac328b7a82ec9c449fb39aecc89a196de580f512cc40f0e1d8a6ad2fa")
+    );
+}
+
+#[test]
+fn witness_rejects_a_fixed_cutoff_after_proving_anchor() {
+    let params = ChainParams { registry: REGISTRY, ..devnet() };
+    let storage = registry_storage();
+    let state = registry_state(&storage);
+    let w = witness_at(&state, &storage, 0);
+    assert_eq!(
+        verify_committee_witness(
+            &anchor_at(9, state.state_root()),
+            &Schedule { l1_0: 10, ..SCHEDULE },
+            &params,
+            &w,
+            1
+        ),
+        Err(CommitteeError::CutoffAfterAnchor { cutoff: 10, anchor: 9 })
+    );
+}
+
+#[test]
+fn committee_config_hash_binds_each_config_opening_field() {
+    let params = devnet();
+    let mut variants = Vec::new();
+    let mut p = params.clone();
+    p.l2_chain_id += 1;
+    variants.push(p);
+    let mut p = params.clone();
+    p.registry = OTHER;
+    variants.push(p);
+    let mut p = params.clone();
+    p.cutoff_grid += 1;
+    variants.push(p);
+    let mut p = params.clone();
+    p.cutoff_lag += 1;
+    variants.push(p);
+    let mut p = params.clone();
+    p.vp_unit += U256::from(1);
+    variants.push(p);
+    let mut p = params.clone();
+    p.s_min += U256::from(1);
+    variants.push(p);
+    let mut p = params.clone();
+    p.n_max += 1;
+    variants.push(p);
+    let mut p = params.clone();
+    p.heartbeat_window += 1;
+    variants.push(p);
+    for changed in variants {
+        assert_ne!(committee_config_hash(&changed), committee_config_hash(&params));
+    }
 }

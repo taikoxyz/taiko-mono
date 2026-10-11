@@ -8,7 +8,7 @@
 //!
 //! Methods dividing by `L` panic when it is zero; [`Schedule::validate`] rejects it.
 //! Epoch offsets are checked for `u64` overflow. The genesis cutoff floors every later
-//! snapshot cutoff ([`committee::snapshot_cutoff`](crate::committee::snapshot_cutoff)).
+//! snapshot cutoff ([`committee::fixed_cutoff`](crate::committee::fixed_cutoff)).
 
 use crate::types::GenesisRecord;
 use serde::{Deserialize, Serialize};
@@ -32,9 +32,7 @@ pub struct Schedule {
 /// Schedule parameters rejected by [`Schedule::validate`].
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ScheduleError {
-    /// `epoch_len < 3`: the switch height `h_first(e) - 2` would not come after `h_first(e - 1)`,
-    /// the height that derives epoch `e`'s committee (with `L = 2` they coincide, with `L = 1`
-    /// the switch height lies in an earlier epoch), so the record could never have landed.
+    /// The existing minimum epoch length preserves a distinct H+2 activation boundary.
     #[error("epoch_len ({epoch_len}) must be >= 3")]
     EpochTooShort {
         /// The rejected `L`.
@@ -200,6 +198,12 @@ mod tests {
     #[test]
     fn from_genesis_copies_the_schedule_fields() {
         let a = GenesisRecord {
+            committee_config_hash: crate::committee::committee_config_hash(
+                &crate::config::ChainParams::builtin(
+                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+                )
+                .unwrap(),
+            ),
             genesis_height: 0,
             l1_0: 9,
             epoch_len: 20,

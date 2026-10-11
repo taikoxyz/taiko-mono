@@ -93,7 +93,7 @@ pub(crate) struct Booted {
 /// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
 /// 5. one app per validator, listening before CometBFT starts;
 /// 6. one CometBFT node per validator, waiting for their RPCs;
-/// 7. the fake lander (planting committee records iff `spec.land_committees`).
+/// 7. the fake lander (advancing checkpoints only).
 pub(crate) async fn boot(
     id: &str,
     spec: &DevnetSpec,
@@ -245,16 +245,7 @@ pub(crate) async fn boot(
     }
 
     // 7. The fake lander.
-    let lander = Lander::spawn(
-        LanderCtx {
-            planter: planter.clone(),
-            l2,
-            cmt: cmt[0].clone(),
-            schedule: Schedule::from_genesis(&genesis),
-            l2_chain_id: params.l2_chain_id,
-        },
-        spec.land_committees,
-    );
+    let lander = Lander::spawn(LanderCtx { planter: planter.clone(), l2 });
 
     Ok(Booted { lander, apps, cmt, reth, l1, keys, params, genesis, planter })
 }
@@ -270,9 +261,9 @@ async fn genesis_block(l2: &RootProvider) -> Result<(B256, B256)> {
 
 /// Plants registry checkpoint 0 with `entries` into an L1 block `c`, then the initialized Inbox
 /// (genesis record over the L2 genesis `(hash, state root)`, `lastCheckpoint = (0, genesis
-/// hash)`, generation 0, `genesisCutoff = c` and `committee[e_0]` derived at `c`) into a later
-/// block `L1_0`, as the initializing DAO proposal names a cutoff before the block it lands in.
-/// Returns the genesis record.
+/// hash)`, generation 0, `genesisCutoff = c` and `genesisCommitteeRecordHash` derived at `c`) into
+/// a later block `L1_0`, as the initializing DAO proposal names a cutoff before the block it lands
+/// in. Returns the genesis record.
 async fn plant_genesis(
     planter: &Planter,
     params: &ChainParams,
@@ -294,6 +285,7 @@ async fn plant_genesis(
     let l1_0 = next.number();
     ensure!(l1_0 > genesis_cutoff, "L1_0 {l1_0} is not after the genesis cutoff {genesis_cutoff}");
     let genesis = GenesisRecord {
+        committee_config_hash: committee::committee_config_hash(params),
         genesis_height: 0,
         l1_0,
         epoch_len: spec.epoch_len,
@@ -312,7 +304,7 @@ async fn plant_genesis(
         recovery_generation: Some(0),
         last_checkpoint: Some((0, genesis_hash)),
         genesis: Some(genesis.clone()),
-        committee: vec![(Schedule::E0, record_hash(params.l2_chain_id, &record))],
+        genesis_committee_hash: Some(record_hash(params.l2_chain_id, &record)),
     })
     .await?;
     let mined = next.commit().await?;

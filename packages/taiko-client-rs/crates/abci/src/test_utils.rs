@@ -33,7 +33,6 @@ use crate::{
         header::RawL1Header,
         layout::{inbox, registry},
     },
-    schedule::Schedule,
     types::{
         AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, RegistryEntry,
         StorageProof,
@@ -202,8 +201,8 @@ pub(crate) struct InboxStorage {
     /// Slots 272–274 and `genesis_cutoff` in slot 279 (`uint64` at bits 0–63); `None` leaves
     /// them empty (not yet initialized).
     pub(crate) genesis: Option<GenesisRecord>,
-    /// `committee[epoch] = record_hash` entries of the slot-278 mapping.
-    pub(crate) committee: Vec<(u64, B256)>,
+    /// The bootstrap committee hash at plain slot 278.
+    pub(crate) genesis_committee_hash: Option<B256>,
 }
 
 impl InboxStorage {
@@ -216,7 +215,7 @@ impl InboxStorage {
             last_checkpoint_height: genesis.genesis_height,
             last_checkpoint_hash: genesis.genesis_hash,
             genesis: Some(genesis),
-            committee: vec![(Schedule::E0, committee_e0)],
+            genesis_committee_hash: Some(committee_e0),
         }
     }
 
@@ -239,13 +238,12 @@ impl InboxStorage {
                 (inbox::slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()),
                 (inbox::slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()),
                 (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)),
+                (inbox::slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()),
             ]);
         }
-        slots.extend(
-            self.committee
-                .iter()
-                .map(|(epoch, hash)| (inbox::committee_slot(*epoch), (*hash).into())),
-        );
+        if let Some(hash) = self.genesis_committee_hash {
+            slots.push((inbox::slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
+        }
         slots
     }
 }
@@ -254,6 +252,12 @@ impl InboxStorage {
 /// block before `L1_0`).
 pub(crate) fn sample_genesis_record() -> GenesisRecord {
     GenesisRecord {
+        committee_config_hash: crate::committee::committee_config_hash(
+            &crate::config::ChainParams::builtin(
+                protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+            )
+            .unwrap(),
+        ),
         genesis_height: 0,
         l1_0: 64,
         epoch_len: 20,
@@ -292,7 +296,6 @@ pub(crate) fn anchor_at(number: u64, state_root: B256) -> AnchorState {
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
-            committee: None,
         },
     }
 }
@@ -340,17 +343,16 @@ pub(crate) fn filler_accounts() -> Vec<AccountSpec> {
 }
 
 /// An anchor witness for the Inbox at `inbox_address` in `state`: `header` with its `state_root`
-/// set to `state`'s root, and proofs of `layout::inbox::anchor_slots(committee_epoch)`.
+/// set to `state`'s root, and proofs of `layout::inbox::anchor_slots()`.
 pub(crate) fn anchor_witness_in(
     state: &TestState,
     inbox_address: Address,
     mut header: Header,
-    committee_epoch: Option<u64>,
 ) -> AnchorWitness {
     header.state_root = state.state_root();
     AnchorWitness {
         l1_header: RawL1Header::from(&header),
-        inbox: state.witness(inbox_address, &inbox::anchor_slots(committee_epoch)),
+        inbox: state.witness(inbox_address, &inbox::anchor_slots()),
     }
 }
 
@@ -360,21 +362,20 @@ pub(crate) fn anchor_witness(
     inbox_address: Address,
     storage: &InboxStorage,
     header: Header,
-    committee_epoch: Option<u64>,
 ) -> (AnchorWitness, TestState) {
     let state = inbox_state(inbox_address, storage);
-    (anchor_witness_in(&state, inbox_address, header, committee_epoch), state)
+    (anchor_witness_in(&state, inbox_address, header), state)
 }
 
 /// Builds an L1 state holding the Inbox (`storage`) plus filler accounts, and returns the
-/// genesis Inbox witness (proofs of `layout::inbox::genesis_slots(E0)`) together with the state
+/// genesis Inbox witness (proofs of `layout::inbox::genesis_slots()`) together with the state
 /// (whose root the witness verifies against).
 pub(crate) fn genesis_inbox_witness(
     inbox_address: Address,
     storage: &InboxStorage,
 ) -> (AccountWitness, TestState) {
     let state = inbox_state(inbox_address, storage);
-    (state.witness(inbox_address, &inbox::genesis_slots(Schedule::E0)), state)
+    (state.witness(inbox_address, &inbox::genesis_slots()), state)
 }
 
 /// An L1 state holding the Inbox (`storage`) at `inbox_address` plus the filler accounts.
@@ -573,6 +574,12 @@ mod tests {
     #[test]
     fn inbox_storage_packing_decodes_back() {
         let genesis = GenesisRecord {
+            committee_config_hash: crate::committee::committee_config_hash(
+                &crate::config::ChainParams::builtin(
+                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+                )
+                .unwrap(),
+            ),
             genesis_height: u64::MAX,
             l1_0: 0x0102_0304_0506_0708,
             epoch_len: 1,
@@ -587,7 +594,7 @@ mod tests {
             last_checkpoint_height: u64::MAX - 7,
             last_checkpoint_hash: B256::repeat_byte(0xa3),
             genesis: Some(genesis.clone()),
-            committee: vec![(0, B256::repeat_byte(0xa4)), (9, B256::repeat_byte(0xa5))],
+            genesis_committee_hash: Some(B256::repeat_byte(0xa4)),
         };
         let slots = storage.slots();
         let at = |n| word(&slots, inbox::slot(n));
@@ -608,8 +615,10 @@ mod tests {
         assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), genesis.genesis_cutoff);
         assert_eq!(at(inbox::GENESIS_CUTOFF) >> 64, U256::ZERO);
 
-        assert_eq!(B256::from(word(&slots, inbox::committee_slot(0))), B256::repeat_byte(0xa4));
-        assert_eq!(B256::from(word(&slots, inbox::committee_slot(9))), B256::repeat_byte(0xa5));
+        assert_eq!(
+            B256::from(word(&slots, inbox::slot(inbox::GENESIS_COMMITTEE_HASH))),
+            B256::repeat_byte(0xa4)
+        );
         assert_eq!(slots.len(), 4 + 4 + 2);
     }
 
@@ -617,6 +626,12 @@ mod tests {
     #[test]
     fn inbox_storage_packing_matches_hand_written_words() {
         let genesis = GenesisRecord {
+            committee_config_hash: crate::committee::committee_config_hash(
+                &crate::config::ChainParams::builtin(
+                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+                )
+                .unwrap(),
+            ),
             genesis_height: 0x11,
             l1_0: 0x2222,
             epoch_len: 0x33_3333,
@@ -631,7 +646,7 @@ mod tests {
             last_checkpoint_height: 0x0a0b_0c0d,
             last_checkpoint_hash: B256::repeat_byte(0x77),
             genesis: Some(genesis),
-            committee: vec![],
+            genesis_committee_hash: None,
         };
         let slots = storage.slots();
         let at = |n| B256::from(word(&slots, inbox::slot(n)));
@@ -656,14 +671,14 @@ mod tests {
             at(inbox::GENESIS_CUTOFF),
             b256!("0000000000000000000000000000000000000000000000000000000000002221")
         );
-        assert_eq!(slots.len(), 4 + 4);
+        assert_eq!(slots.len(), 4 + 5);
     }
 
     #[test]
     fn inbox_storage_without_genesis_leaves_genesis_slots_out() {
         let storage = InboxStorage {
             genesis: None,
-            committee: vec![],
+            genesis_committee_hash: None,
             ..InboxStorage::genesis(sample_genesis_record(), B256::ZERO)
         };
         let slots: Vec<B256> = storage.slots().into_iter().map(|(s, _)| s).collect();
@@ -678,7 +693,7 @@ mod tests {
         assert_eq!(storage.recovery_generation, 0);
         assert_eq!(storage.last_checkpoint_height, genesis.genesis_height);
         assert_eq!(storage.last_checkpoint_hash, genesis.genesis_hash);
-        assert_eq!(storage.committee, vec![(Schedule::E0, B256::repeat_byte(0x99))]);
+        assert_eq!(storage.genesis_committee_hash, Some(B256::repeat_byte(0x99)));
     }
 
     /// Pack, then decode with the layout readers: length, l1Block, count and entriesRoot.
@@ -780,11 +795,11 @@ mod tests {
     fn anchor_witness_sets_the_header_state_root() {
         let address = Address::repeat_byte(0xe7);
         let storage = InboxStorage::genesis(sample_genesis_record(), B256::repeat_byte(0x99));
-        let (witness, state) = anchor_witness(address, &storage, l1_header(70, 1_000), Some(0));
+        let (witness, state) = anchor_witness(address, &storage, l1_header(70, 1_000));
         assert_eq!(witness.l1_header.state_root(), state.state_root());
         assert_eq!(witness.l1_header.number(), 70);
         assert_eq!(witness.inbox.address, address);
         let slots: Vec<B256> = witness.inbox.storage.iter().map(|p| p.slot).collect();
-        assert_eq!(slots, inbox::anchor_slots(Some(0)));
+        assert_eq!(slots, inbox::anchor_slots());
     }
 }

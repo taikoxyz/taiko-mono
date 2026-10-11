@@ -104,6 +104,7 @@ fn render_text(report: &GenesisCommitteeRecord) -> String {
     let mut out = String::new();
     // Writing to a `String` cannot fail.
     let _ = writeln!(out, "committeeRecordHash: {}", report.record_hash);
+    let _ = writeln!(out, "committeeConfigHash: {}", report.committee_config_hash);
     let _ = writeln!(out, "genesisCutoff:       {}", record.cutoff_l1_block);
     let _ = writeln!(out, "checkpointIndex:     {}", record.checkpoint_index);
     let _ = writeln!(out, "provingBlock:        {}", report.proving_block);
@@ -237,6 +238,7 @@ mod tests {
         };
         let report = GenesisCommitteeRecord {
             record_hash: word("ab").parse().unwrap(),
+            committee_config_hash: word("cd").parse().unwrap(),
             record: CommitteeRecord {
                 target_epoch: 0,
                 cutoff_l1_block: 63,
@@ -255,15 +257,16 @@ mod tests {
         let text = render_text(&report);
         let lines: Vec<&str> = text.lines().collect();
         assert_eq!(lines[0], format!("committeeRecordHash: {}", word("ab")));
-        assert_eq!(lines[1], "genesisCutoff:       63");
-        assert_eq!(lines[2], "checkpointIndex:     2");
-        assert_eq!(lines[3], "provingBlock:        64");
-        assert_eq!(lines[4], "members:             2");
-        assert_eq!(lines[5], format!("  {} power 1000000000", word("11")));
-        assert_eq!(lines[6], format!("  {} power 2000000000", word("22")));
-        assert_eq!(lines[7], "totalPower:          3000000000");
-        assert_eq!(lines[8], "totalStake:          3000000000000000000");
-        assert_eq!(lines.len(), 9);
+        assert_eq!(lines[1], format!("committeeConfigHash: {}", word("cd")));
+        assert_eq!(lines[2], "genesisCutoff:       63");
+        assert_eq!(lines[3], "checkpointIndex:     2");
+        assert_eq!(lines[4], "provingBlock:        64");
+        assert_eq!(lines[5], "members:             2");
+        assert_eq!(lines[6], format!("  {} power 1000000000", word("11")));
+        assert_eq!(lines[7], format!("  {} power 2000000000", word("22")));
+        assert_eq!(lines[8], "totalPower:          3000000000");
+        assert_eq!(lines[9], "totalStake:          3000000000000000000");
+        assert_eq!(lines.len(), 10);
         assert!(!text.ends_with('\n'));
     }
 }

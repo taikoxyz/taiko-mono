@@ -3,8 +3,8 @@
 //! [`Fixture::build`] plants an initialized Inbox and a staking registry (one checkpoint, by
 //! default written at the genesis cutoff, holding `n_validators` eligible entries) in an L1
 //! [`TestState`], derives the `e_0` committee from it at the genesis cutoff, records its hash at
-//! `committee[e_0]`, builds the EL chain up to the genesis anchor `B*`, and assembles the genesis
-//! witness and the CometBFT `InitChain` request that start the chain.
+//! `genesisCommitteeRecordHash`, builds the EL chain up to the genesis anchor `B*`, and assembles
+//! the genesis witness and the CometBFT `InitChain` request that start the chain.
 //! [`Fixture::l1`] and [`Fixture::engine`] serve that L1 and EL; [`Fixture::expected_state`] is
 //! the `AppState` a correct `InitChain` persists.
 //!
@@ -68,7 +68,7 @@ pub(crate) struct GenesisSpec {
     pub(crate) epoch_len_l1: u64,
     /// The Inbox's `recoveryGeneration`; the `chain_id` uses the same generation.
     pub(crate) recovery_generation: u64,
-    /// Overrides `committee[e_0]` on L1 (default: the derived record's hash).
+    /// Overrides `genesisCommitteeRecordHash` on L1 (default: the derived record's hash).
     pub(crate) committee_e0: Option<B256>,
     /// The chain parameters (default: devnet).
     pub(crate) params: ChainParams,
@@ -100,7 +100,7 @@ impl GenesisSpec {
     /// the same checkpoint but precedes the entries' genesis, so a genesis committee derived
     /// there would have no eligible entry, and `e_0 + 1`, derived at `H_0` from the genesis
     /// anchor, has its members only through the genesis-cutoff floor
-    /// ([`committee::snapshot_cutoff`]: `max(59, 63) = 63`).
+    /// ([`committee::fixed_cutoff`]: `max(59, 63) = 63`).
     pub(crate) fn active_after_lagged_l1_0_cutoff(n_validators: usize) -> Self {
         let mut spec = Self::new(n_validators);
         spec.params.cutoff_lag = 5;
@@ -154,6 +154,7 @@ impl Fixture {
         let el_chain = el_chain();
         let b_star = el_chain.last().expect("the EL chain holds B*");
         let genesis = GenesisRecord {
+            committee_config_hash: committee::committee_config_hash(&params),
             genesis_height: spec.genesis_height,
             l1_0: spec.l1_0,
             epoch_len: spec.epoch_len,
@@ -187,7 +188,7 @@ impl Fixture {
         header.state_root = l1_state.state_root();
         let witness = GenesisWitness {
             l1_header: RawL1Header::from(&header),
-            inbox: l1_state.witness(params.inbox, &inbox::genesis_slots(Schedule::E0)),
+            inbox: l1_state.witness(params.inbox, &inbox::genesis_slots()),
             committee: committee_witness(&l1_state, params.registry, &registry, 0, record.clone()),
         };
 
@@ -266,16 +267,11 @@ impl Fixture {
     }
 
     /// The genesis Inbox storage with the last checkpoint moved to `last_checkpoint_height`
-    /// (hash derived from the height) and `committee` entries appended to the mapping.
-    pub(crate) fn inbox_with(
-        &self,
-        last_checkpoint_height: u64,
-        committee: &[(u64, B256)],
-    ) -> InboxStorage {
+    /// (hash derived from the height) with the bootstrap committee unchanged.
+    pub(crate) fn inbox_with(&self, last_checkpoint_height: u64) -> InboxStorage {
         let mut inbox = self.inbox.clone();
         inbox.last_checkpoint_height = last_checkpoint_height;
         inbox.last_checkpoint_hash = B256::from(U256::from(last_checkpoint_height) + U256::from(1));
-        inbox.committee.extend_from_slice(committee);
         inbox
     }
 
@@ -307,31 +303,21 @@ impl Fixture {
     }
 
     /// The anchor witness of the L1 block `number` planted in `l1`, proving
-    /// `anchor_slots(committee_epoch)`.
-    pub(crate) fn anchor_witness(
-        &self,
-        l1: &MockL1,
-        number: u64,
-        committee_epoch: Option<u64>,
-    ) -> AnchorWitness {
+    /// `anchor_slots()`.
+    pub(crate) fn anchor_witness(&self, l1: &MockL1, number: u64) -> AnchorWitness {
         let guard = l1.state();
         let header = guard.headers.get(&number).expect("the L1 block is planted").clone();
         let state = guard.states.get(&number).expect("the L1 block has a state");
         AnchorWitness {
             l1_header: header,
-            inbox: state.witness(self.params.inbox, &inbox::anchor_slots(committee_epoch)),
+            inbox: state.witness(self.params.inbox, &inbox::anchor_slots()),
         }
     }
 
     /// The anchor a witness of the L1 block `number` planted in `l1` proves.
-    pub(crate) fn anchor_state(
-        &self,
-        l1: &MockL1,
-        number: u64,
-        committee_epoch: Option<u64>,
-    ) -> AnchorState {
-        let w = self.anchor_witness(l1, number, committee_epoch);
-        verify_anchor_witness(&w, self.params.inbox, committee_epoch).expect("planted anchor")
+    pub(crate) fn anchor_state(&self, l1: &MockL1, number: u64) -> AnchorState {
+        let w = self.anchor_witness(l1, number);
+        verify_anchor_witness(&w, self.params.inbox).expect("planted anchor")
     }
 
     /// The schedule of the fixture's genesis record.
@@ -339,16 +325,13 @@ impl Fixture {
         Schedule::from_genesis(&self.genesis)
     }
 
-    /// The committee of `target_epoch` derived from the genesis registry snapshot: at the genesis
-    /// cutoff for `e_0`, and for a later epoch at the floored cutoff of the genesis block
-    /// `L1_0` ([`committee::snapshot_cutoff`]), as `H_0` derives `e_0 + 1` from the genesis
-    /// anchor (under the default parameters the members equal epoch `e_0`'s; the record differs
-    /// in its target, cutoff and set root).
+    /// Derives `target_epoch` at its fixed cutoff using the genesis fixture's registry entries.
+    /// Later checkpoint scenarios construct and authenticate their own witness instead.
     pub(crate) fn committee(&self, target_epoch: u64) -> CommitteeState {
         let cutoff = if target_epoch == Schedule::E0 {
             self.genesis.genesis_cutoff
         } else {
-            committee::snapshot_cutoff(self.genesis.l1_0, &self.schedule(), &self.params)
+            committee::fixed_cutoff(&self.schedule(), &self.params, target_epoch)
                 .expect("L1_0 has a cutoff")
         };
         let (record, members) =
@@ -364,7 +347,6 @@ impl Fixture {
         } else {
             0
         };
-        let committee_e0 = self.inbox.committee[0].1;
         AppState {
             chain_id: self.request.chain_id.clone(),
             generation: self.inbox.recovery_generation,
@@ -390,7 +372,6 @@ impl Fixture {
                     recovery_generation: self.inbox.recovery_generation,
                     last_checkpoint_height: self.genesis.genesis_height,
                     last_checkpoint_hash: self.genesis.genesis_hash,
-                    committee: Some((Schedule::E0, committee_e0)),
                 },
             },
             committees: BTreeMap::from([(
