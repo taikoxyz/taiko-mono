@@ -4,125 +4,63 @@ import (
 	"context"
 	"math/big"
 
-	"log/slog"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 )
 
-type FilterFunc func(
-	ctx context.Context,
-	chainID *big.Int,
-	i *Indexer,
-	filterOpts *bind.FilterOpts,
-) error
-
-func filterFunc(
-	ctx context.Context,
-	chainID *big.Int,
-	i *Indexer,
-	filterOpts *bind.FilterOpts,
-) error {
-	wg, ctx := errgroup.WithContext(ctx)
-
-	if i.bridge != nil {
-		wg.Go(func() error {
-			messagesSent, err := i.bridge.FilterMessageSent(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "i.bridge.FilterMessageSent")
-			}
-			defer messagesSent.Close()
-
-			err = i.saveMessageSentEvents(ctx, chainID, messagesSent)
-			if err != nil {
-				return errors.Wrap(err, "i.saveMessageSentEvents")
-			}
-
-			return nil
-		})
-	}
-
-	wg.Go(func() error {
-		if err := i.indexRawBlockData(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
-			return errors.Wrap(err, "i.indexRawBlockData")
-		}
-
-		return nil
-	})
-
-	err := wg.Wait()
-
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			slog.Error("filter context cancelled")
-			return err
-		}
-
+// filter applies each batch serially and advances the in-memory cursor only
+// after every NFT balance mutation in that batch has succeeded.
+func (i *Indexer) filter(ctx context.Context) error {
+	if err := i.checkWriterLock(ctx); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (i *Indexer) filter(
-	ctx context.Context,
-) error {
 	endBlockID, err := i.ethClient.BlockNumber(ctx)
 	if err != nil {
 		return errors.Wrap(err, "i.ethClient.BlockNumber")
 	}
 
-	slog.Info("getting batch of events",
-		"startBlock", i.latestIndexedBlockNumber,
-		"endBlock", endBlockID,
-		"batchSize", i.blockBatchSize,
-	)
-
-	for j := i.nextFilterStartBlock(); j <= endBlockID; j += i.blockBatchSize {
-		end := min(j+i.blockBatchSize-1, endBlockID)
-
-		slog.Info("block batch", "start", j, "end", end)
-
-		filterOpts := &bind.FilterOpts{
-			Start:   j,
-			End:     &end,
-			Context: ctx,
+	for start := i.nextFilterStartBlock(); start <= endBlockID; {
+		if err := i.checkWriterLock(ctx); err != nil {
+			return err
 		}
 
-		wg, ctx := errgroup.WithContext(ctx)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 
-		wg.Go(func() error {
-			if err := filterFunc(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
-				return errors.Wrap(err, "filter")
-			}
+		end := endBlockID
+		if endBlockID-start >= i.blockBatchSize {
+			end = start + i.blockBatchSize - 1
+		}
 
-			return nil
+		logs, err := i.ethClient.FilterLogs(ctx, ethereum.FilterQuery{
+			FromBlock: new(big.Int).SetUint64(start), ToBlock: new(big.Int).SetUint64(end),
+			Topics: [][]common.Hash{{logTransferSigHash, transferSingleSignatureHash, transferBatchSignatureHash}},
 		})
-
-		if i.inbox != nil {
-			wg.Go(func() error {
-				if err := filterFuncShasta(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
-					return errors.Wrap(err, "filterFuncShasta")
-				}
-
-				return nil
-			})
+		if err != nil {
+			return errors.Wrap(err, "i.ethClient.FilterLogs")
 		}
 
-		if err := wg.Wait(); err != nil {
+		if err := i.indexNFTTransfers(ctx, new(big.Int).SetUint64(i.srcChainID), logs); err != nil {
+			return err
+		}
+
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 
 		i.latestIndexedBlockNumber = end
+
+		if end == endBlockID {
+			break
+		}
+
+		start = end + 1
 	}
 
 	return nil
 }
 
-// nextFilterStartBlock returns the first block the next filter pass requests.
-// latestIndexedBlockNumber is the last block already filtered, so scanning
-// resumes at the block after it.
-func (i *Indexer) nextFilterStartBlock() uint64 {
-	return i.latestIndexedBlockNumber + 1
-}
+func (i *Indexer) nextFilterStartBlock() uint64 { return i.latestIndexedBlockNumber + 1 }

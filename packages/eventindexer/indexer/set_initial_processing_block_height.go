@@ -11,9 +11,8 @@ import (
 func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
-	firstShastaBlock func(context.Context) (uint64, error),
 ) error {
-	startingBlock, err := i.initialIndexingBlockByMode(ctx, mode, firstShastaBlock)
+	startingBlock, err := i.initialIndexingBlockByMode(ctx, mode)
 	if err != nil {
 		return err
 	}
@@ -30,7 +29,6 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 func (i *Indexer) initialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
-	firstShastaBlock func(context.Context) (uint64, error),
 ) (uint64, error) {
 	switch mode {
 	case Sync, Resync:
@@ -39,11 +37,11 @@ func (i *Indexer) initialIndexingBlockByMode(
 	}
 
 	if mode == Sync {
-		latest, err := i.eventRepo.FindLatestBlockID(ctx,
+		latest, err := i.nftCursorRepo.FindLatestBlockID(ctx,
 			i.srcChainID,
 		)
 		if err != nil {
-			return 0, errors.Wrap(err, "svc.eventRepo.FindLatestBlockID")
+			return 0, errors.Wrap(err, "svc.nftCursorRepo.FindLatestBlockID")
 		}
 
 		if latest != 0 {
@@ -51,41 +49,5 @@ func (i *Indexer) initialIndexingBlockByMode(
 		}
 	}
 
-	if i.layer == Layer2 {
-		return 0, nil
-	}
-
-	firstBlock, err := firstShastaBlock(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	// The Shasta activation block itself carries events and must be filtered.
-	// Inbox.activate emits the genesis Proposed event in that block, and because
-	// activation sets lastProposalBlockId to 1, a regular propose may land in the
-	// same L1 block. Step back one block so the first filter range includes it.
-	if firstBlock == 0 {
-		return 0, nil
-	}
-
-	return firstBlock - 1, nil
-}
-
-// getFirstShastaBlockHeight returns the first Shasta block height.
-func (i *Indexer) getFirstShastaBlockHeight(ctx context.Context) (uint64, error) {
-	if i.inbox == nil {
-		return 0, errors.New("inbox contract not configured")
-	}
-
-	ts, err := i.inbox.ActivationTimestamp(nil)
-	if err != nil {
-		return 0, errors.Wrap(err, "inbox.ActivationTimestamp")
-	}
-
-	blockNum, err := i.getBlockByTimestamp(ctx, ts.Uint64())
-	if err != nil {
-		return 0, errors.Wrap(err, "getBlockByTimestamp")
-	}
-
-	return blockNum, nil
+	return 0, nil
 }

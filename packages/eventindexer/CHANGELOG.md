@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Keep only ordered ERC721/ERC1155 indexing and the `/nftsByAddress` query API,
+  with probes, metrics, single-writer ownership and replay protection.
+- Remove unused ERC20, event/proposal/proof, chart and account/transaction
+  features, routes, flags and bindings. Query API no longer requires RPC.
+- Preserve historical migrations and the read-only legacy NFT startup watermark;
+  retire event-only L1 deployments before upgrading to this NFT-only binary.
+
 ## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.14.0...eventindexer-v0.15.0) (2026-05-21)
 
 

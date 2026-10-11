@@ -1,50 +1,52 @@
-[![Event Indexer](https://app.codecov.io/gh/taikoxyz/taiko-mono/flags/main?flags%5B0%5D=eventindexer)](https://codecov.io/gh/taikoxyz/taiko-mono)
+# NFT indexer
 
-# Indexer
+Indexes ERC721 and ERC1155 TransferSingle/TransferBatch logs and serves the NFT
+holdings used by bridge-ui. The only business API is `GET /nftsByAddress`;
+`/healthz` and `/` remain for probes, with metrics on the configured metrics port.
+The query API needs a database connection and does not require RPC.
 
-Catches events, stores them in the database to be queried via API.
+## Running
 
-ERC20, ERC721, and ERC1155 transfers are applied sequentially in ascending block
-number, transaction index, and log index order. The existing per-transfer
-transactions and replay protection remain unchanged; serial writes reduce
-parallel write throughput and do not reconcile historical incorrect balances or
-duplicate records.
+Copy `.default.env` to `.env` and configure the database and source-chain RPC.
+Apply the existing SQL migrations before starting either process. From this
+package directory, run `go run ./cmd api` for queries or `go run ./cmd indexer`
+for NFT indexing. `EVENTINDEXER_ENV_FILE` selects a different env file.
 
-When either balance indexer is enabled, startup obtains a MySQL `GET_LOCK` scoped
-to the source chain and database, and refuses to start if another guarded writer
-already holds it. The NFT and ERC20 repositories share the dedicated session
-holding that lock; a lost session cannot continue balance writes through the
-ordinary connection pool. Ownership is checked before each indexing batch, and
-lock loss stops indexing and returns a fatal CLI error so the supervisor can
-restart the process. Shutdown or failed startup releases and discards the session. Configure at least two open database connections, or an unlimited pool.
-All writers must use this guarded version; stop older unguarded writers before
-upgrading.
+The indexer requires `INDEX_NFTS=true`, a positive `BLOCK_BATCH_SIZE`, and
+`SYNC_MODE=sync` or `resync`. Disabled NFT indexing fails before opening DB/RPC;
+retire old L1 event-only deployments instead of upgrading them to this binary.
+The `LAYER`, Inbox/Bridge, ERC20, subscription/backoff and transaction-manager
+options are retired. Existing enabled L2 NFT deployment settings remain valid.
 
-A missing ERC20 sender balance emits a structured warning while preserving the
-existing skip behavior. Durable recovery of an interrupted batch is tracked
-separately in [#22285](https://github.com/taikoxyz/taiko-mono/issues/22285): the
-current restart cursor is still derived from the latest persisted event, rather
-than a completed-batch checkpoint.
+## Query API
 
-## Running the app
+`GET /nftsByAddress?address=0x...&chainID=167000&page=0&size=100` retains the
+existing paginated JSON response and NFT fields. CORS/request logging remain
+available. Set `--http.corsOrigins` when the default `*` is inappropriate.
 
-run `cp .default.env .env`, and configure your environment variables. You need to be running a MySQL instance, and replace all the `MYSQL_` env vars with yours.
+Event/statistics, proposal/proof, ERC20, Galxe and chart endpoints are removed
+and return 404. Swagger documents only the NFT query and probes; regenerate it
+with `GOTOOLCHAIN=go1.26.0 sh scripts/swagger.sh`.
 
-Run `go run cmd/main.go --help` to see the available configuration flags. Configure the database, source-chain RPC, and layer-specific variables before starting the indexer.
+## Writer and replay behavior
 
-## Layer-specific Inbox configuration
+NFT logs are applied sequentially by block, transaction index and log index.
+A dedicated MySQL session holds a chain/database-scoped `GET_LOCK` and executes
+the NFT balance transactions. A second guarded writer fails startup; session
+loss prevents pooled fallback writes and returns a fatal CLI error after cleanup
+so the supervisor can restart. Configure at least two open DB connections or an
+unlimited pool, and stop older unguarded writers before upgrading.
 
-Set `LAYER=l1` with `SHASTA_INBOX_ADDRESS` pointing to the Shasta Inbox on the
-source L1. The L1 indexer uses this binding to filter `Proposed` and `Proved`
-events. A checkpointed `SYNC_MODE=sync` resumes from the database without
-calling `activationTimestamp()`; a fresh sync or `resync` uses that timestamp
-to find the first Shasta block.
+Per-transfer claims remain atomic with balance updates and make restart replay
+idempotent. On `sync`, startup still reads the historical `events` watermark;
+`resync` and an empty watermark start from genesis. The service no longer writes
+events, so that legacy marker does not advance and later restarts can rescan the
+same historical range. A durable NFT checkpoint is outside this change. The existing
+recency-based pre-claim bootstrap check remains; it does not detect every
+historical or resync overcount. Historical balances may require an operator
+reconciliation decision.
 
-Set `LAYER=l2` without `SHASTA_INBOX_ADDRESS`. The L2 indexer starts from its
-database checkpoint or block zero and never queries an L1 Inbox.
-
-# Block data
-
-1. parse data
-2. store
-3. cron job that updates every 24 hours
+All historical migrations remain unchanged for installed database and Goose
+version compatibility; no tables or existing data are dropped. Historical
+incorrect balances/duplicates require separate reconciliation. Unused runtime
+code and bindings are removed rather than kept as disabled features.

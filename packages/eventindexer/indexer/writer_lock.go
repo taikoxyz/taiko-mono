@@ -27,10 +27,6 @@ func writerLockKey(chainID uint64, database string) string {
 }
 
 func (i *Indexer) acquireWriterLock(ctx context.Context) (err error) {
-	if !i.indexNfts && !i.indexERC20s {
-		return nil
-	}
-
 	if i.writerConn != nil {
 		return errors.New("balance writer lock already acquired")
 	}
@@ -81,7 +77,7 @@ func (i *Indexer) acquireWriterLock(ctx context.Context) (err error) {
 	}
 	// Session clones Config and (with Context set) Statement. Both pools must
 	// point at the reserved connection, including transaction BeginTx calls.
-	// Keep i.db and the account/event/transaction repositories on their usual pool.
+	// Keep the read-only cursor repository on its usual pool.
 	pinned := i.db.GormDB().Session(&gorm.Session{NewDB: true, Context: ctx})
 	pinned.ConnPool = conn
 	pinned.Statement.ConnPool = conn
@@ -92,23 +88,12 @@ func (i *Indexer) acquireWriterLock(ctx context.Context) (err error) {
 		return err
 	}
 
-	erc20, err := repo.NewERC20BalanceRepository(pinnedDB)
-
-	if err != nil {
-		return err
-	}
-
 	i.nftBalanceRepo = nft
-	i.erc20BalanceRepo = erc20
 
 	return nil
 }
 
 func (i *Indexer) checkWriterLock(ctx context.Context) error {
-	if !i.indexNfts && !i.indexERC20s {
-		return nil
-	}
-
 	if i.writerConn == nil {
 		return errWriterLockLost
 	}

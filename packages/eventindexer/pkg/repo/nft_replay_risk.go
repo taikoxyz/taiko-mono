@@ -10,7 +10,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
-// UnclaimedBalanceReplayRisk reports whether a previous process may already have
+// UnclaimedNFTReplayRisk reports whether a previous process may already have
 // applied balance mutations for the block range this process is about to replay,
 // without leaving claims behind in processed_transfer_logs.
 //
@@ -27,29 +27,17 @@ import (
 // indexing was switched off long ago and is only now being re-enabled — cannot
 // be double counted, because the replay range is entirely newer than anything
 // the previous process wrote.
-func UnclaimedBalanceReplayRisk(
+func UnclaimedNFTReplayRisk(
 	ctx context.Context,
 	d db.DB,
 	chainID int64,
-	kind string,
 ) (bool, error) {
-	var table string
-
-	switch kind {
-	case eventindexer.TransferKindNFT:
-		table = "nft_balances"
-	case eventindexer.TransferKindERC20:
-		table = "erc20_balances"
-	default:
-		return false, errors.Errorf("unknown transfer log kind %q", kind)
-	}
-
 	var claims int64
 
 	if err := d.GormDB().WithContext(ctx).
 		Table("processed_transfer_logs").
 		Where("chain_id = ?", chainID).
-		Where("kind = ?", kind).
+		Where("kind = ?", eventindexer.TransferKindNFT).
 		Count(&claims).Error; err != nil {
 		return false, errors.Wrap(err, "count processed_transfer_logs")
 	}
@@ -62,7 +50,7 @@ func UnclaimedBalanceReplayRisk(
 	var lastBalanceWrite sql.NullTime
 
 	if err := d.GormDB().WithContext(ctx).
-		Table(table).
+		Table("nft_balances").
 		Where("chain_id = ?", chainID).
 		Select("MAX(updated_at)").
 		Scan(&lastBalanceWrite).Error; err != nil {
@@ -86,7 +74,7 @@ func UnclaimedBalanceReplayRisk(
 		return false, errors.Wrap(err, "resume block transacted_at")
 	}
 
-	// no events, so the cursor starts at the fork height rather than resuming
+	// no events, so the cursor starts at the genesis rather than resuming
 	// into a range a previous process worked on
 	if !resumeBlockTime.Valid {
 		return false, nil

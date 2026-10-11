@@ -4,11 +4,8 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/patrickmn/go-cache"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 
 	echo "github.com/labstack/echo/v4"
@@ -28,31 +25,19 @@ import (
 // @host eventindexer.hekla.taiko.xyz
 // Server represents an eventindexer http server instance.
 type Server struct {
-	echo             *echo.Echo
-	eventRepo        eventindexer.EventRepository
-	nftBalanceRepo   eventindexer.NFTBalanceRepository
-	erc20BalanceRepo eventindexer.ERC20BalanceRepository
-	chartRepo        eventindexer.ChartRepository
-	cache            *cache.Cache
+	echo           *echo.Echo
+	nftBalanceRepo eventindexer.NFTBalanceRepository
 }
 
 type NewServerOpts struct {
-	Echo             *echo.Echo
-	EventRepo        eventindexer.EventRepository
-	NFTBalanceRepo   eventindexer.NFTBalanceRepository
-	ERC20BalanceRepo eventindexer.ERC20BalanceRepository
-	ChartRepo        eventindexer.ChartRepository
-	EthClient        *ethclient.Client
-	CorsOrigins      []string
+	Echo           *echo.Echo
+	NFTBalanceRepo eventindexer.NFTBalanceRepository
+	CorsOrigins    []string
 }
 
 func (opts NewServerOpts) Validate() error {
 	if opts.Echo == nil {
 		return ErrNoHTTPFramework
-	}
-
-	if opts.EventRepo == nil {
-		return eventindexer.ErrNoEventRepository
 	}
 
 	if opts.NFTBalanceRepo == nil {
@@ -67,15 +52,9 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		return nil, err
 	}
 
-	cache := cache.New(5*time.Minute, 10*time.Minute)
-
 	srv := &Server{
-		echo:             opts.Echo,
-		eventRepo:        opts.EventRepo,
-		nftBalanceRepo:   opts.NFTBalanceRepo,
-		erc20BalanceRepo: opts.ERC20BalanceRepo,
-		chartRepo:        opts.ChartRepo,
-		cache:            cache,
+		echo:           opts.Echo,
+		nftBalanceRepo: opts.NFTBalanceRepo,
 	}
 
 	corsOrigins := opts.CorsOrigins
@@ -105,6 +84,10 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Health endpoints for probes
+// @Summary Health probe
+// @Success 200
+// @Router /healthz [get]
+// @Router / [get]
 func (srv *Server) Health(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }

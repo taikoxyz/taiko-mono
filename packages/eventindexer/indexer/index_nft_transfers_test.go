@@ -94,7 +94,8 @@ func TestIndexNFTTransfersOrderAndFiltering(t *testing.T) {
 	// Identical ordering tuples retain caller order even when transaction hashes differ.
 	tied := batch
 	tied.TxHash = common.HexToHash("0x9999")
-	erc20 := erc20IndexLog(mint.Address, ZeroAddress, alice, 1, 0, 0)
+	erc20 := mint
+	erc20.Topics = append([]common.Hash(nil), mint.Topics[:3]...)
 	logs := []types.Log{batch, tied, single, outgoing, erc20, {}, {Topics: []common.Hash{common.HexToHash("0xff")}}, mint}
 	original := append([]types.Log(nil), logs...)
 	require.NoError(t, idx.indexNFTTransfers(context.Background(), big.NewInt(167), logs))

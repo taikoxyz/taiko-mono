@@ -78,7 +78,7 @@ func TestIntegration_WriterLock(t *testing.T) {
 
 	other := open("other_indexer")
 	makeIndexer := func(database db.DB, chain uint64) *Indexer {
-		return &Indexer{db: database, srcChainID: chain, indexERC20s: true, ctx: ctx, wg: &sync.WaitGroup{}, layer: Layer2, syncMode: Resync}
+		return &Indexer{db: database, srcChainID: chain, ctx: ctx, wg: &sync.WaitGroup{}, syncMode: Resync}
 	}
 	a := makeIndexer(d, 1)
 	require.NoError(t, a.acquireWriterLock(ctx))
@@ -88,8 +88,8 @@ func TestIntegration_WriterLock(t *testing.T) {
 	require.ErrorContains(t, b.acquireWriterLock(ctx), "already held")
 	require.Nil(t, b.writerConn)
 
-	cursor := &initialBlockEventRepository{}
-	b.eventRepo = cursor
+	cursor := &initialNFTCursorRepository{}
+	b.nftCursorRepo = cursor
 	b.syncMode = Sync
 	require.ErrorContains(t, b.Start(), "already held")
 	require.Zero(t, cursor.calls)
@@ -138,21 +138,11 @@ func TestIntegration_WriterLock(t *testing.T) {
 	require.NoError(t, lost.acquireWriterLock(ctx))
 
 	defer lost.releaseWriterLock()
-	metadataID, err := lost.erc20BalanceRepo.CreateMetadata(ctx, 1, "0x123", "TEST", 18)
-	require.NoError(t, err)
 
 	ref := func(kind string, index uint) eventindexer.TransferLogRef {
 		return eventindexer.TransferLogRef{ChainID: 1, Kind: kind, TxHash: "0x" + strings.Repeat("a", 64), LogIndex: index}
 	}
-	erc20Opts := eventindexer.UpdateERC20BalanceOpts{
-		ERC20MetadataID: int64(metadataID), ChainID: 1, ContractAddress: "0x123", Address: "0x456", Amount: "1",
-	}
 	nftOpts := eventindexer.UpdateNFTBalanceOpts{ChainID: 1, ContractAddress: "0x123", Address: "0x456", Amount: 1}
-	erc20Balance, _, err := lost.erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx,
-		ref(eventindexer.TransferKindERC20, 1), erc20Opts, eventindexer.UpdateERC20BalanceOpts{})
-	require.NoError(t, err)
-	require.Equal(t, "1", erc20Balance.Amount)
-
 	nftBalance, _, err := lost.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx,
 		ref(eventindexer.TransferKindNFT, 2), nftOpts, eventindexer.UpdateNFTBalanceOpts{})
 	require.NoError(t, err)
@@ -163,25 +153,18 @@ func TestIntegration_WriterLock(t *testing.T) {
 	require.NoError(t, lost.writerConn.QueryRowContext(ctx, "SELECT CONNECTION_ID()").Scan(&id))
 	require.NoError(t, d.GormDB().Exec(fmt.Sprintf("KILL CONNECTION %d", id)).Error)
 	require.ErrorIs(t, lost.checkWriterLock(ctx), errWriterLockLost)
-	_, _, err = lost.erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx,
-		ref(eventindexer.TransferKindERC20, 3),
-		erc20Opts,
-		eventindexer.UpdateERC20BalanceOpts{})
-	require.Error(t, err)
 	_, _, err = lost.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx,
 		ref(eventindexer.TransferKindNFT, 4),
 		nftOpts,
 		eventindexer.UpdateNFTBalanceOpts{})
 	require.Error(t, err)
 	// A batch stops before requesting RPC data after ownership is lost.
-	require.ErrorIs(t, lost.indexRawBlockData(ctx, nil, 1, 1), errWriterLockLost)
+	require.ErrorIs(t, lost.filter(ctx), errWriterLockLost)
 
 	var claims int64
 
 	require.NoError(t, d.GormDB().Table("processed_transfer_logs").Count(&claims).Error)
-	require.EqualValues(t, 2, claims)
-	require.NoError(t, d.GormDB().First(erc20Balance, erc20Balance.ID).Error)
-	require.Equal(t, "1", erc20Balance.Amount)
+	require.EqualValues(t, 1, claims)
 	require.NoError(t, d.GormDB().First(nftBalance, nftBalance.ID).Error)
 	require.EqualValues(t, 1, nftBalance.Amount)
 	require.NoError(t, b.acquireWriterLock(ctx))
