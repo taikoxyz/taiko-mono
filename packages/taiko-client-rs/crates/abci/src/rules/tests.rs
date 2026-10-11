@@ -26,7 +26,6 @@ fn anchor(number: u64, timestamp: u64) -> AnchorState {
             recovery_generation: GENERATION,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
-            committee: None,
         },
     }
 }
@@ -620,44 +619,4 @@ fn every_violation_has_a_message() {
     for v in every_violation() {
         assert!(!v.to_string().is_empty(), "{v:?}");
     }
-}
-
-#[test]
-fn switch_landing_checks_checkpoint_before_missing_record() {
-    let schedule = Schedule { l1_0: 60, epoch_len: 10, epoch_len_l1: 32, genesis_cutoff: 59 };
-    let a = anchor(66, 100);
-    assert_eq!(
-        check_switch_landed(&schedule, 1, &a, B256::repeat_byte(1)),
-        Err(SwitchError::CheckpointNotLanded { last_checkpoint_height: 0, required: 1 })
-    );
-}
-
-#[test]
-fn switch_landing_requires_the_target_epoch_record() {
-    let schedule = Schedule { l1_0: 60, epoch_len: 10, epoch_len_l1: 32, genesis_cutoff: 59 };
-    let mut a = anchor(66, 100);
-    a.inbox.last_checkpoint_height = 1;
-    for proven in [None, Some((2, B256::repeat_byte(1))), Some((1, B256::ZERO))] {
-        a.inbox.committee = proven;
-        assert_eq!(
-            check_switch_landed(&schedule, 1, &a, B256::repeat_byte(1)),
-            Err(SwitchError::RecordNotLanded { epoch: 1 })
-        );
-    }
-}
-
-#[test]
-fn switch_landing_compares_the_proven_record_after_checkpoint_coverage() {
-    let schedule = Schedule { l1_0: 60, epoch_len: 10, epoch_len_l1: 32, genesis_cutoff: 59 };
-    let mut a = anchor(66, 100);
-    let expected = B256::repeat_byte(1);
-    let proven = B256::repeat_byte(2);
-    a.inbox.last_checkpoint_height = 1;
-    a.inbox.committee = Some((1, proven));
-    assert_eq!(
-        check_switch_landed(&schedule, 1, &a, expected),
-        Err(SwitchError::RecordConflict { epoch: 1, expected, proven })
-    );
-    a.inbox.committee = Some((1, expected));
-    assert_eq!(check_switch_landed(&schedule, 1, &a, expected), Ok(()));
 }

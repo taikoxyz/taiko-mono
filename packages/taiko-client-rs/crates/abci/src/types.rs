@@ -68,7 +68,7 @@ pub struct RegistryEntry {
     pub last_heartbeat_seq: u64,
 }
 
-/// The committee record for one target epoch, as hashed into `committee[epoch]` on L1
+/// The committee record for one target epoch, as deterministically derived from a fixed L1 snapshot
 /// ([`committee::record_hash`](crate::committee::record_hash)).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 pub struct CommitteeRecord {
@@ -117,15 +117,14 @@ pub struct InboxFacts {
     pub last_checkpoint_height: u64,
     /// `lastCheckpoint.blockHash` (slot 271): L2 block hash of that checkpoint.
     pub last_checkpoint_hash: B256,
-    /// `(epoch, committee[epoch])` when the witness also proved a committee record hash (switch
-    /// heights and genesis); `None` otherwise. Persisted only; never RLP-encoded.
-    pub committee: Option<(u64, B256)>,
 }
 
 /// The Etna genesis record read from the Inbox (the compatibility `activation` slots 272–274), with
 /// the genesis committee's snapshot cutoff (slot 279).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenesisRecord {
+    /// Authenticated slot-269 derivation configuration hash; required for persisted state.
+    pub committee_config_hash: B256,
     /// L2 genesis block number, always zero; retained to validate older state files.
     pub genesis_height: u64,
     /// `L1_0`: L1 block number of initialization; epoch `e_0` starts its L1 view here.
@@ -143,7 +142,7 @@ pub struct GenesisRecord {
     /// number; validated `< l1_0`. Unlike every later epoch's cutoff it is not derived from an
     /// anchor with the cutoff lag and grid: the genesis names it explicitly, as the DAO
     /// proposal that activates Etna is written before `L1_0` is known. It also floors every later
-    /// epoch's cutoff ([`committee::snapshot_cutoff`](crate::committee::snapshot_cutoff)).
+    /// epoch's cutoff ([`committee::fixed_cutoff`](crate::committee::fixed_cutoff)).
     pub genesis_cutoff: u64,
 }
 
@@ -225,13 +224,12 @@ mod tests {
         }
     }
 
-    fn inbox_facts(committee: Option<(u64, B256)>) -> InboxFacts {
+    fn inbox_facts() -> InboxFacts {
         InboxFacts {
             status: 3,
             recovery_generation: 2,
             last_checkpoint_height: 1_000,
             last_checkpoint_hash: B256::repeat_byte(0x33),
-            committee,
         }
     }
 
@@ -282,13 +280,19 @@ mod tests {
 
     #[test]
     fn inbox_facts_json_round_trips() {
-        json_round_trip(&inbox_facts(None));
-        json_round_trip(&inbox_facts(Some((5, B256::repeat_byte(0x55)))));
+        json_round_trip(&inbox_facts());
+        json_round_trip(&inbox_facts());
     }
 
     #[test]
     fn genesis_record_json_round_trips() {
         json_round_trip(&GenesisRecord {
+            committee_config_hash: crate::committee::committee_config_hash(
+                &crate::config::ChainParams::builtin(
+                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+                )
+                .unwrap(),
+            ),
             genesis_height: 0,
             l1_0: 100,
             epoch_len: 20,
@@ -306,7 +310,7 @@ mod tests {
             hash: B256::repeat_byte(0x88),
             state_root: B256::repeat_byte(0x99),
             timestamp: 1_760_000_000,
-            inbox: inbox_facts(Some((0, B256::repeat_byte(0xaa)))),
+            inbox: inbox_facts(),
         });
     }
 
@@ -331,5 +335,19 @@ mod tests {
             eff_stake: U256::from(5_000_000_000u64),
             power: 5,
         });
+    }
+}
+
+#[cfg(test)]
+mod fixed_cutoff_state_tests {
+    use super::*;
+    #[test]
+    fn old_genesis_record_without_config_hash_is_rejected() {
+        let legacy = serde_json::json!({
+            "genesis_height":0,"l1_0":64,"epoch_len":20,"epoch_len_l1":4,
+            "genesis_hash":B256::repeat_byte(1),"genesis_state_root":B256::repeat_byte(2),
+            "genesis_cutoff":63
+        });
+        assert!(serde_json::from_value::<GenesisRecord>(legacy).is_err());
     }
 }

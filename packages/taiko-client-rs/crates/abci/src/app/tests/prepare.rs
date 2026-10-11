@@ -52,7 +52,7 @@ async fn prepare_proposes_nothing_past_its_overall_deadline() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     // The anchor moves, so the proposer reads the finalized number, a header and a proof.
-    let inbox = fx.inbox_with(fx.genesis.genesis_height + 3, &[]);
+    let inbox = fx.inbox_with(fx.genesis.genesis_height + 3);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     let overall = app.opts.prepare_timeout;
     assert_eq!(overall, Duration::from_secs(2), "the default overall deadline");
@@ -136,7 +136,7 @@ async fn proposer_never_anchors_below_the_parent() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     fx.plant_l1_block(app.l1(), 66, &fx.inbox, &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), 66, None);
+    let anchor = fx.anchor_state(app.l1(), 66);
     jump(&mut app, fx.genesis.genesis_height + 5, anchor, &[]);
     assert_eq!(app.l1().state().finalized, fx.genesis.l1_0, "own L1 lags behind");
 
@@ -172,7 +172,7 @@ async fn failing_pre_checks_propose_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let h_first = app.state().unwrap().schedule().h_first(1);
-    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
+    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
     jump(&mut app, h_first - 1, anchor, &[(1, fx.committee(1))]);
     assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
 }
@@ -184,7 +184,7 @@ async fn a_header_of_another_l1_block_is_not_proposed_on() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    let header = fx.advance_l1(app.l1(), 66, &fx.inbox_with(1_003, &[]), &fx.registry);
+    let header = fx.advance_l1(app.l1(), 66, &fx.inbox_with(1_003), &fx.registry);
     let other = crate::test_utils::edit_l1_header(&header, |h| h.number = 67);
     app.l1().state().headers.insert(66, other);
 
@@ -240,24 +240,24 @@ fn registry_reads(app: &App<MockL1, MockEngine>) -> usize {
         .count()
 }
 
-/// An app whose next height is `h_first(1)`, anchored at the finalized L1 block 70 where the
+/// An app whose next height is switch 2, anchored at the finalized L1 block 70 where the
 /// checkpoint is within the cap: the proposer there discovers the committee of epoch 2.
-async fn before_epoch_start(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
+async fn before_switch(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
     let mut app = initialized(fx, dir).await;
-    let h_e = app.state().unwrap().schedule().h_first(1);
-    fx.advance_l1(app.l1(), 70, &fx.inbox_with(h_e - 6, &[]), &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), 70, None);
+    let h_e = app.state().unwrap().schedule().h_first(2) - 2;
+    fx.advance_l1(app.l1(), 70, &fx.inbox_with(h_e - 6), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 70);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
     app
 }
 
-/// Repeated rounds at `h_first(e)` reuse the committee witness the first round discovered: the
+/// Repeated rounds at `H(t)-2` reuse the committee witness the first round discovered: the
 /// parent's anchor and the target epoch are the same, so is the witness. `Commit` drops it.
 #[tokio::test]
-async fn a_second_round_at_an_epoch_start_reuses_the_committee_witness() {
+async fn a_second_round_at_a_switch_reuses_the_committee_witness() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = before_epoch_start(&fx, dir.path()).await;
+    let mut app = before_switch(&fx, dir.path()).await;
 
     // Round 0: the committee is discovered, then the EL fails to build.
     app.engine().state().build_script.push_back(Err(EngineError::Transport("down".into())));
@@ -286,20 +286,20 @@ async fn a_second_round_at_an_epoch_start_reuses_the_committee_witness() {
 }
 
 /// CometBFT rotates proposers round by round: a node that judged another proposer's block at
-/// `h_first(e)` keeps its verified committee witness, so its own proposal at that height (a later
+/// `H(t)-2` keeps its verified committee witness, so its own proposal at that height (a later
 /// round) needs no discovery. The witness is proven against the committed parent's anchor alone,
 /// so it is kept even when a node-local check (here the EL) refuses that block.
 #[tokio::test]
-async fn a_committee_witness_judged_at_an_epoch_start_is_reused_by_the_next_proposer() {
+async fn a_committee_witness_judged_at_a_switch_is_reused_by_the_next_proposer() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
-    let mut a = before_epoch_start(&fx, dir.path()).await;
+    let mut a = before_switch(&fx, dir.path()).await;
     let env = propose(&mut a).await;
-    let witness = env.committee.clone().expect("h_first(1) carries a committee witness");
+    let witness = env.committee.clone().expect("switch 2 carries a committee witness");
 
     // B accepts A's round-0 block, the round fails anyway, and B proposes in round 1.
     let dir = tempfile::tempdir().unwrap();
-    let mut b = before_epoch_start(&fx, dir.path()).await;
+    let mut b = before_switch(&fx, dir.path()).await;
     let (resp, _) = super::proposal::judge(&mut b, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", b.halt);
     b.l1().state().calls.clear();
@@ -309,7 +309,7 @@ async fn a_committee_witness_judged_at_an_epoch_start_is_reused_by_the_next_prop
 
     // C's EL refuses A's block (syncing); C still proposes without discovery.
     let dir = tempfile::tempdir().unwrap();
-    let mut c = before_epoch_start(&fx, dir.path()).await;
+    let mut c = before_switch(&fx, dir.path()).await;
     c.engine().state().new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
     let (resp, _) = super::proposal::judge(&mut c, &env).await;
     assert_eq!(resp, response::ProcessProposal::Reject);
@@ -326,7 +326,7 @@ async fn a_committee_witness_judged_at_an_epoch_start_is_reused_by_the_next_prop
 async fn a_discovery_cut_short_by_the_deadline_resumes_where_it_stopped() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = before_epoch_start(&fx, dir.path()).await;
+    let mut app = before_switch(&fx, dir.path()).await;
     let registry = fx.params.registry;
     let storage_reads = |app: &App<MockL1, MockEngine>| -> Vec<L1Call> {
         let calls = app.l1().calls();
@@ -368,22 +368,22 @@ async fn a_discovery_cut_short_by_the_deadline_resumes_where_it_stopped() {
 async fn a_cached_committee_witness_of_another_parent_anchor_is_not_reused() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = before_epoch_start(&fx, dir.path()).await;
+    let mut app = before_switch(&fx, dir.path()).await;
     app.engine().state().build_script.push_back(Err(EngineError::Transport("down".into())));
     assert_eq!(refused(&mut app).await, "engine_error");
 
     // The committed parent moves to anchor 72 (e.g. after a state rewrite): rediscovered there.
-    let h_e = app.state().unwrap().schedule().h_first(1);
-    fx.advance_l1(app.l1(), 72, &fx.inbox_with(h_e - 6, &[]), &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), 72, None);
+    let h_e = app.state().unwrap().schedule().h_first(2) - 2;
+    fx.advance_l1(app.l1(), 72, &fx.inbox_with(h_e - 6), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 72);
     jump(&mut app, h_e - 1, anchor, &[]);
     app.l1().state().calls.clear();
     let env = propose(&mut app).await;
     assert!(registry_reads(&app) > 0, "rediscovered at the new parent anchor");
-    assert_eq!(env.committee.expect("h_first(1) carries a committee").record.cutoff_l1_block, 72);
+    assert_eq!(env.committee.expect("switch 2 carries a committee").record.cutoff_l1_block, 64);
 }
 
-/// At `h_first(e)` the cheap candidate checks run before the committee discovery: a block that
+/// At `H(t)-2` the cheap candidate checks run before the committee discovery: a block that
 /// cannot be proposed anyway (back-pressure, anchor progress, a superseded generation) costs no
 /// registry read.
 #[tokio::test]
@@ -393,9 +393,9 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     // Back-pressure: the checkpoint is still at B*, more than the cap below h_first(1).
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let h_e = app.state().unwrap().schedule().h_first(1);
+    let h_e = app.state().unwrap().schedule().h_first(2) - 2;
     fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), 70, None);
+    let anchor = fx.anchor_state(app.l1(), 70);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
     app.l1().state().calls.clear();
     assert_eq!(refused(&mut app).await, "back_pressure");
@@ -404,7 +404,7 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     // Anchor progress: epoch 1 is not open on L1 at the genesis anchor.
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
+    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
     app.l1().state().calls.clear();
     assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
@@ -413,10 +413,10 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     // Generation: the new anchor proves a later recovery generation.
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let mut inbox = fx.inbox_with(h_e - 6, &[]);
+    let mut inbox = fx.inbox_with(h_e - 6);
     inbox.recovery_generation = 1;
     fx.advance_l1(app.l1(), 70, &inbox, &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
+    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
     app.l1().state().calls.clear();
     assert_eq!(refused(&mut app).await, "superseded");

@@ -287,11 +287,11 @@ impl Backoff {
 /// validator updates the height emits.
 ///
 /// The parent becomes the block's header summary (its grandparent timestamp the old parent's)
-/// and the anchor the block's; a committee derived at `h_first(e)` is added, a different record
-/// already known for its epoch being a [`AbciError::SafetyHalt`]. At the switch height to epoch
-/// `t`, `h_first(t) − 2` (CometBFT applies updates two heights later), the updates are
-/// [`committee::validator_updates`] from set `t − 1` to set `t`, and committees below `t − 1` are
-/// pruned; every other height emits none.
+/// and the anchor the block's; the incoming committee derived at the switch is added before
+/// validator updates, a different record already known for its epoch being a
+/// [`AbciError::SafetyHalt`]. At the switch height to epoch `t`, `h_first(t) − 2` (CometBFT applies
+/// updates two heights later), the updates are [`committee::validator_updates`] from set `t − 1` to
+/// set `t`, and committees below `t − 1` are pruned; every other height emits none.
 fn next_state(
     state: &AppState,
     v: &Validated,

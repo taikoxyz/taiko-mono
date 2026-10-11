@@ -167,10 +167,10 @@ async fn anchor_regression_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), 66, None);
+    let anchor = fx.anchor_state(app.l1(), 66);
     jump(&mut app, fx.genesis.genesis_height + 5, anchor, &[]);
 
-    let witness = fx.anchor_witness(app.l1(), fx.genesis.l1_0, None);
+    let witness = fx.anchor_witness(app.l1(), fx.genesis.l1_0);
     let env = hand_envelope(&app, Some(witness), None);
     assert_eq!(
         validate(&app, &env).map(|_| ()),
@@ -185,12 +185,12 @@ async fn anchor_not_final_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     fx.plant_l1_block(app.l1(), 66, &fx.inbox, &fx.registry); // canonical, not finalized
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66, None)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
     assert!(validate(&app, &env).is_ok(), "deterministically valid");
     assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
 
     // Final but not canonical: the own L1 holds another block 66.
-    let mut other = fx.anchor_witness(app.l1(), 66, None);
+    let mut other = fx.anchor_witness(app.l1(), 66);
     app.l1().set_finalized(66);
     other.l1_header = edit_l1_header(&other.l1_header, |h| h.gas_used += 1);
     app.l1().insert_header(other.l1_header.clone());
@@ -202,7 +202,7 @@ async fn wrong_inbox_proof_is_rejected() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(1_002, &[]), &fx.registry);
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(1_002), &fx.registry);
     let env = propose(&mut app).await;
 
     let mut bad = env.clone();
@@ -232,7 +232,11 @@ async fn missing_required_witnesses_are_rejected() {
         Err(Rejection::MissingWitness(WitnessKind::Anchor))
     );
     assert_eq!(rejected(&mut app, &bad).await, "missing_anchor_witness");
-    let mut bad = env.clone();
+    let switch = fx.schedule().h_first(1) - 2;
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 66);
+    super::proposal::jump(&mut app, switch - 1, anchor, &[]);
+    let mut bad = propose(&mut app).await;
     bad.committee = None;
     assert_eq!(rejected(&mut app, &bad).await, "missing_committee_witness");
 
@@ -253,7 +257,7 @@ async fn unexpected_witnesses_are_rejected() {
 
     // An anchor witness that does not move the anchor, at a height that does not force one.
     let mut bad = env.clone();
-    bad.anchor = Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0, None));
+    bad.anchor = Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0));
     assert_eq!(rejected(&mut app, &bad).await, "unexpected_anchor_witness");
 
     let mut bad = env.clone();
@@ -300,7 +304,7 @@ async fn superseded_generation_rejects_every_proposal() {
     inbox.recovery_generation = 1;
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
 
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66, None)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
     assert_eq!(validate(&app, &env).map(|_| ()), Err(Rejection::Superseded { chain: 0, inbox: 1 }));
     assert_eq!(rejected(&mut app, &env).await, "superseded");
     assert!(app.superseded);
@@ -326,7 +330,7 @@ async fn superseding_anchor_must_be_final() {
     inbox.recovery_generation = 1;
     fx.plant_l1_block(app.l1(), 66, &inbox, &fx.registry);
 
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66, None)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
     assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
     assert!(!app.superseded);
 }

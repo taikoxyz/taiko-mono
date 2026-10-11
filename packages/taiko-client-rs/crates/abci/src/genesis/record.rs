@@ -20,9 +20,11 @@ use crate::{
 /// hex.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct GenesisCommitteeRecord {
-    /// `committeeRecordHash`: the `committee[e_0]` value `EtnaInbox::init` takes
+    /// `committeeRecordHash`: the `genesisCommitteeRecordHash` value `EtnaInbox::init` takes
     /// ([`record_hash`] of `record`).
     pub record_hash: B256,
+    /// Required genesis deployment input authenticating the local derivation parameters.
+    pub committee_config_hash: B256,
     /// The derived record: target epoch `e_0`, snapshot cutoff `genesisCutoff`, the snapshot's
     /// checkpoint index, set root and totals.
     #[serde(serialize_with = "serialize_record")]
@@ -215,6 +217,7 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
 
     Ok(GenesisCommitteeRecord {
         record_hash: record_hash(params.l2_chain_id, &record),
+        committee_config_hash: crate::committee::committee_config_hash(params),
         record,
         members,
         proving_block: at,
@@ -252,11 +255,19 @@ mod tests {
         assert_eq!(report.record, fx.record);
         assert_eq!(report.members, fx.members);
         assert_eq!(report.record_hash, record_hash(fx.params.l2_chain_id, &fx.record));
-        assert_eq!(report.record_hash, fx.inbox.committee[0].1, "the recorded committee[e_0]");
+        assert_eq!(
+            report.record_hash,
+            fx.inbox.genesis_committee_hash.unwrap(),
+            "the recorded committee[e_0]"
+        );
         assert_eq!(report.record.cutoff_l1_block, cutoff);
         assert_eq!(l1.calls()[0], L1Call::Finalized);
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
         assert_eq!(json["record_hash"], report.record_hash.to_string());
+        assert_eq!(
+            json["committee_config_hash"],
+            crate::committee::committee_config_hash(&fx.params).to_string()
+        );
         assert_eq!(json["record"]["cutoff_l1_block"], cutoff);
         assert_eq!(json["record"]["total_stake"], report.record.total_stake.to_string());
         assert_eq!(json["members"].as_array().map(Vec::len), Some(3));
@@ -298,6 +309,7 @@ mod tests {
         let stake = U256::from(10u64).pow(U256::from(30u64));
         let report = GenesisCommitteeRecord {
             record_hash: B256::repeat_byte(0xab),
+            committee_config_hash: B256::repeat_byte(0xcd),
             record: CommitteeRecord {
                 target_epoch: 0,
                 cutoff_l1_block: 63,
@@ -316,6 +328,7 @@ mod tests {
             json,
             serde_json::json!({
                 "record_hash": B256::repeat_byte(0xab).to_string(),
+                "committee_config_hash": B256::repeat_byte(0xcd).to_string(),
                 "record": {
                     "target_epoch": 0,
                     "cutoff_l1_block": 63,
@@ -334,7 +347,7 @@ mod tests {
             })
         );
         let text = report.to_json_pretty();
-        let order = ["record_hash", "record", "members", "proving_block"]
+        let order = ["record_hash", "committee_config_hash", "record", "members", "proving_block"]
             .map(|key| text.find(&format!("\"{key}\"")).expect("every field is printed"));
         assert!(order.is_sorted(), "fields in declaration order: {text}");
     }

@@ -118,35 +118,6 @@ pub enum GenerationCheck {
 /// a value (see [`RuleViolation::header_field`]).
 pub const HEADER_FIELD_DEBUG_MAX: usize = 256;
 
-/// Why a switch cannot use the committee record proven by its L1 anchor.
-#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
-pub enum SwitchError {
-    /// The anchored checkpoint does not yet cover the committee derivation height.
-    #[error("checkpoint {last_checkpoint_height} is below required height {required}")]
-    CheckpointNotLanded {
-        /// Height of the checkpoint proven by the anchor.
-        last_checkpoint_height: u64,
-        /// Height at which the target committee was derived.
-        required: u64,
-    },
-    /// The anchor does not prove a nonzero record for the target epoch.
-    #[error("committee record for epoch {epoch} has not landed")]
-    RecordNotLanded {
-        /// Target committee epoch.
-        epoch: u64,
-    },
-    /// The proven record conflicts with the deterministically derived record.
-    #[error("committee {epoch} record is {proven}, expected {expected}")]
-    RecordConflict {
-        /// Target committee epoch.
-        epoch: u64,
-        /// Hash of the derived record.
-        expected: B256,
-        /// Hash proven under the anchor state root.
-        proven: B256,
-    },
-}
-
 /// Why a block, header or `chain_id` breaks a consensus rule.
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum RuleViolation {
@@ -559,44 +530,6 @@ pub fn generation_from_chain_id(chain_id: &str, l2_chain_id: u64) -> Result<u64,
         return Err(invalid());
     }
     digits.parse().map_err(|_| invalid())
-}
-
-/// Checks that an epoch switch's anchor proves its checkpoint and committee record landed.
-///
-/// The caller first verifies that both surrounding committee contexts exist. This predicate
-/// checks checkpoint coverage before a missing record before a conflicting record, preserving
-/// the ABCI switch gate's rejection order. `target` must be a scheduled epoch at least one.
-///
-/// # Panics
-///
-/// If `target` is zero or its preceding epoch's first height overflows `u64`.
-pub fn check_switch_landed(
-    schedule: &Schedule,
-    target: u64,
-    anchor: &AnchorState,
-    expected_record_hash: B256,
-) -> Result<(), SwitchError> {
-    let previous = target.checked_sub(1).expect("switch target is at least one");
-    let required = schedule.h_first(previous);
-    let last_checkpoint_height = anchor.inbox.last_checkpoint_height;
-    if last_checkpoint_height < required {
-        return Err(SwitchError::CheckpointNotLanded { last_checkpoint_height, required });
-    }
-    let proven = match anchor.inbox.committee {
-        Some((epoch, hash)) if epoch == target => hash,
-        _ => B256::ZERO,
-    };
-    if proven.is_zero() {
-        return Err(SwitchError::RecordNotLanded { epoch: target });
-    }
-    if proven != expected_record_hash {
-        return Err(SwitchError::RecordConflict {
-            epoch: target,
-            expected: expected_record_hash,
-            proven,
-        });
-    }
-    Ok(())
 }
 
 #[cfg(test)]

@@ -1,57 +1,20 @@
-//! L1 storage layout of the Etna Inbox and staking registry. No I/O.
+//! Normative L1 Inbox and staking-registry storage slots. No I/O.
 //!
-//! This module is normative for contract authors: every slot the node proves with EIP-1186
-//! witnesses is derived here. Values are 32-byte storage words; packed fields follow Solidity's
-//! low-order-first packing and are extracted with [`word_u64`], [`word_u32`] and [`word_u8`].
+//! Inbox activation authenticates status, generation, schedule, genesis cutoff, configuration
+//! hash and the single genesis committee hash. Runtime anchors prove only status, generation
+//! and checkpoint height/hash; no future committee mapping exists.
 //!
-//! # Contract obligations
-//!
-//! The node proves what the contracts store, but relies on the contracts for the following. A
-//! contract that breaks one cannot make nodes accept a block its proofs contradict, but it can
-//! stop the chain: most of these failures are permanent, since a height's L1 snapshot is fixed
-//! once its parent is committed, and only a recovery generation gets past them.
-//!
-//! - **Activation.** By the initialization block `L1_0` the Inbox holds the genesis record (slots
-//!   272–274), `status = ETNA_ACTIVE` (258), `genesisCutoff` (279), `committee[e_0]` (the 278
-//!   mapping) = the record hash of the committee the registry derives with the snapshot cutoff
-//!   `genesisCutoff` itself (no lag or grid; the active bonded set, not filtered by heartbeats:
-//!   CONS-14), and `lastCheckpoint = (B*, H*)` (270–271). Without `lastCheckpoint` the first height
-//!   `H_0 = B* + 1` fails back-pressure and the chain never starts; without the others the genesis
-//!   does not verify. `genesisCutoff` is a block before `L1_0` and at or after the registry's first
-//!   checkpoint: the DAO proposal that activates Etna is written before `L1_0` is known, so it
-//!   names a past cutoff and the record hash precomputed there (`taiko-client
-//!   abci-committee-record`). At least one entry must be eligible at that snapshot, or `e_0` does
-//!   not derive. Every later epoch's snapshot cutoff is floored at `genesisCutoff`
-//!   (`committee::snapshot_cutoff`), so `e_0 + 1`, derived at `H_0` from the genesis anchor `L1_0`,
-//!   derives from the `genesisCutoff` snapshot whenever the lagged cutoff of `L1_0` precedes it; a
-//!   `genesisCutoff` close to `L1_0` is therefore safe.
-//! - **A registry checkpoint in every changing L1 block.** `checkpoints[i].l1Block` is strictly
-//!   increasing in `i`, and every L1 block that changes any entry has a checkpoint (a block that
-//!   changes none may have one too). The snapshot search relies on the order, and discovery reads
-//!   checkpoint `i`'s entries at any block before `checkpoints[i + 1].l1Block`.
-//! - **Complete checkpoints.** A checkpoint's `count` and `entriesRoot` cover every entry (exited
-//!   ones included, in `bondId` order) as they stand at the end of its `l1Block`.
-//! - **Heartbeat records.** An entry's `lastHeartbeatAt` is the start L1 block of the heartbeat
-//!   window its last accepted heartbeat named, on the chain's `HEARTBEAT_WINDOW` grid (MEM-13(2b)),
-//!   and `lastHeartbeatSeq` is that heartbeat's sequence: both 0 until the first heartbeat
-//!   (registration is not one), and the sequence `> 0` after it, including after a heartbeat naming
-//!   window 0 (whose start is 0). Eligibility from epoch `e_0 + 3` on requires `lastHeartbeatSeq >
-//!   0` and compares `lastHeartbeatAt` with a window start (`committee::heartbeat_floor`).
-//! - **Unique pubkeys.** Registration refuses a `pubkey` that any non-exited entry holds (ideally
-//!   requiring a proof of possession of the key). The node keeps only the lowest `bondId` among
-//!   eligible entries sharing a pubkey (`committee::derive`), so a squatting entry cannot halt the
-//!   chain; that rule is defence in depth, not a substitute.
-//! - **Committee records.** `committee[e]` is written only with the record hash the chain derived
-//!   for epoch `e` at `h_first(e − 1)` (proven by the checkpoint that covers that height). A zero
-//!   `committee[e]` holds the chain at `e`'s switch height until it lands; a different non-zero
-//!   value is a record conflict (L1 and the chain hold two records for one epoch) that stops the
-//!   chain there.
+//! Registry checkpoints must be strictly increasing and complete, with a checkpoint in every
+//! changing L1 block. Discovery reads historical entries before the next checkpoint and then
+//! verifies their authenticated root. Heartbeat sequence zero means no heartbeat; registration
+//! must protect unique non-exited public keys. Earliest-bond deduplication is defense in depth.
+//! Packed Solidity fields are decoded low-order-first.
 
 use alloy_primitives::U256;
 
 /// Inbox storage slots (contract address = chain constant `ETNA_INBOX`).
 pub mod inbox {
-    use alloy_primitives::{B256, U256, keccak256};
+    use alloy_primitives::{B256, U256};
 
     /// Inbox initialization status: `uint8`, bits 0–7. Slot 258 remains compatible with
     /// the contract's `migrationState()` getter.
@@ -69,10 +32,12 @@ pub mod inbox {
     pub const GENESIS_BLOCK_HASH: u64 = 273;
     /// Activation record: `genesisStateRoot` (S*), `bytes32`.
     pub const GENESIS_STATE_ROOT: u64 = 274;
-    /// Base slot of `committee`: `mapping(uint64 epoch => bytes32 recordHash)`.
-    pub const COMMITTEE_MAPPING: u64 = 278;
+    /// Authenticated fixed-cutoff derivation configuration hash.
+    pub const COMMITTEE_CONFIG_HASH: u64 = 269;
+    /// The single bootstrap committee record hash; future committees are never published.
+    pub const GENESIS_COMMITTEE_HASH: u64 = 278;
     /// `genesisCutoff`: `uint64`, bits 0–63. The snapshot cutoff (an L1 block before `L1_0`) of
-    /// the genesis committee `committee[e_0]`, set once by the genesis.
+    /// the genesis committee, set once by the genesis.
     pub const GENESIS_CUTOFF: u64 = 279;
     /// Inbox status after genesis initialization.
     pub const ETNA_ACTIVE: u8 = 3;
@@ -82,38 +47,27 @@ pub mod inbox {
         B256::from(U256::from(n))
     }
 
-    /// The storage slot of `committee[epoch]`:
-    /// `keccak256(abi.encode(uint256(epoch), uint256(COMMITTEE_MAPPING)))`.
-    pub fn committee_slot(epoch: u64) -> B256 {
-        keccak256([slot(epoch), slot(COMMITTEE_MAPPING)].concat())
+    /// The four fixed slots authenticated by every per-block anchor witness.
+    pub fn anchor_slots() -> Vec<B256> {
+        [STATUS, RECOVERY_GENERATION, LAST_CHECKPOINT_HEIGHT, LAST_CHECKPOINT_HASH]
+            .map(slot)
+            .to_vec()
     }
 
-    /// The slots a per-block anchor witness proves, in this order:
-    /// `[258, 268, 270, 271]`, followed by `committee[epoch]` when `committee_epoch` is set
-    /// (switch heights, which need the next committee's record landed).
-    pub fn anchor_slots(committee_epoch: Option<u64>) -> Vec<B256> {
-        let mut slots = vec![
-            slot(STATUS),
-            slot(RECOVERY_GENERATION),
-            slot(LAST_CHECKPOINT_HEIGHT),
-            slot(LAST_CHECKPOINT_HASH),
-        ];
-        slots.extend(committee_epoch.map(committee_slot));
-        slots
-    }
-
-    /// The slots the genesis witness proves, in this order:
-    /// `[258, 268, 272, 273, 274, 279, committee[e0]]`.
-    pub fn genesis_slots(e0: u64) -> Vec<B256> {
-        vec![
-            slot(STATUS),
-            slot(RECOVERY_GENERATION),
-            slot(GENESIS_PACKED),
-            slot(GENESIS_BLOCK_HASH),
-            slot(GENESIS_STATE_ROOT),
-            slot(GENESIS_CUTOFF),
-            committee_slot(e0),
+    /// Genesis status, generation, schedule, cutoff, bootstrap committee and configuration.
+    pub fn genesis_slots() -> Vec<B256> {
+        [
+            STATUS,
+            RECOVERY_GENERATION,
+            GENESIS_PACKED,
+            GENESIS_BLOCK_HASH,
+            GENESIS_STATE_ROOT,
+            GENESIS_CUTOFF,
+            GENESIS_COMMITTEE_HASH,
+            COMMITTEE_CONFIG_HASH,
         ]
+        .map(slot)
+        .to_vec()
     }
 }
 
@@ -211,14 +165,6 @@ mod tests {
     use super::*;
     use alloy_primitives::{B256, b256, keccak256};
 
-    /// Builds `abi.encode(uint256(a), uint256(b))` byte by byte.
-    fn abi_encode_two_u64(a: u64, b: u64) -> [u8; 64] {
-        let mut out = [0u8; 64];
-        out[24..32].copy_from_slice(&a.to_be_bytes());
-        out[56..64].copy_from_slice(&b.to_be_bytes());
-        out
-    }
-
     #[test]
     fn inbox_plain_slots_are_big_endian_numbers() {
         assert_eq!(
@@ -226,7 +172,7 @@ mod tests {
             b256!("0000000000000000000000000000000000000000000000000000000000000102")
         );
         assert_eq!(
-            inbox::slot(inbox::COMMITTEE_MAPPING),
+            inbox::slot(inbox::GENESIS_COMMITTEE_HASH),
             b256!("0000000000000000000000000000000000000000000000000000000000000116")
         );
         assert_eq!(
@@ -238,44 +184,15 @@ mod tests {
     }
 
     #[test]
-    fn committee_slot_is_pinned() {
-        assert_eq!(
-            inbox::committee_slot(0),
-            b256!("c23516b0e3be2a5ae5c5d7bbb9c18b102f5fedf97e629ab6fe6d7325551b15f7")
-        );
-        assert_eq!(
-            inbox::committee_slot(1),
-            b256!("bd3f4b02b07831a9050e2ee72d1a0d271b4bae76f1926d288553c1d10a2b28b8")
-        );
-        assert_eq!(
-            inbox::committee_slot(u64::MAX),
-            b256!("a9198a218bb586d7584ea66bd97c2b631c8ce51546ef109dc2c43cadc73dec73")
-        );
+    fn anchor_slots_are_fixed() {
+        assert_eq!(inbox::anchor_slots(), [258u64, 268, 270, 271].map(inbox::slot).to_vec());
     }
-
-    #[test]
-    fn committee_slot_matches_manual_abi_encoding() {
-        for epoch in [0, 1, 2, 1_000, u64::MAX] {
-            assert_eq!(inbox::committee_slot(epoch), keccak256(abi_encode_two_u64(epoch, 278)));
-        }
-    }
-
-    #[test]
-    fn anchor_slots_are_ordered_and_optionally_extended() {
-        let expected = [258u64, 268, 270, 271].map(inbox::slot).to_vec();
-        assert_eq!(inbox::anchor_slots(None), expected);
-
-        let mut with_committee = expected;
-        with_committee.push(inbox::committee_slot(7));
-        assert_eq!(inbox::anchor_slots(Some(7)), with_committee);
-    }
-
     #[test]
     fn genesis_slots_are_ordered() {
-        let mut expected = [258u64, 268, 272, 273, 274, 279].map(inbox::slot).to_vec();
-        expected.push(inbox::committee_slot(0));
-        assert_eq!(inbox::genesis_slots(0), expected);
-        assert_eq!(inbox::genesis_slots(3)[6], inbox::committee_slot(3));
+        assert_eq!(
+            inbox::genesis_slots(),
+            [258u64, 268, 272, 273, 274, 279, 278, 269].map(inbox::slot).to_vec()
+        );
     }
 
     #[test]

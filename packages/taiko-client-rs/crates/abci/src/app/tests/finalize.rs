@@ -16,7 +16,7 @@ use super::{
 };
 use crate::{
     app::{FINALIZE_RETRY_ESCALATE, MAX_VERDICTS},
-    committee::{self, Snapshot, record_hash},
+    committee::{self, Snapshot},
     engine::{EngineError, PayloadVerdict},
     store::{AppState, CommitteeState},
     test_utils::{GenesisSpec, LogCapture, RegistryStorage, sample_entries},
@@ -48,7 +48,7 @@ fn safety_halt(result: Result<response::FinalizeBlock, AbciError>) -> String {
 /// checkpoint at `B* + 3`, so its next proposal moves the anchor and carries a witness.
 async fn anchor_moving(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
     let app = mid_epoch(fx, dir, 5).await;
-    let inbox = fx.inbox_with(fx.genesis.genesis_height + 3, &[]);
+    let inbox = fx.inbox_with(fx.genesis.genesis_height + 3);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     app
 }
@@ -67,7 +67,7 @@ async fn finalize_after_process_uses_the_cached_verdict() {
     let before = app.engine().calls().len();
     let out = finalize(&mut app, finalize_req(&req)).await.expect("finalizes");
     let hash = env.block.header.hash_slow();
-    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3, &[]).last_checkpoint_hash;
+    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3).last_checkpoint_hash;
     assert_eq!(
         engine_calls_since(&app, before),
         [EngineCall::Forkchoice { head: hash, safe: hash, finalized: checkpoint }],
@@ -112,7 +112,7 @@ async fn the_verdict_cache_is_bounded_and_an_evicted_block_still_finalizes() {
     let before = app.engine().calls().len();
     finalize(&mut app, finalize_req(&req)).await.expect("the evicted block finalizes");
     let hash = env.block.header.hash_slow();
-    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3, &[]).last_checkpoint_hash;
+    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3).last_checkpoint_hash;
     assert_eq!(
         engine_calls_since(&app, before),
         [
@@ -140,7 +140,7 @@ async fn finalize_without_process_revalidates_and_executes() {
     let before = validator.engine().calls().len();
     let out = finalize(&mut validator, req.clone()).await.expect("finalizes");
     let hash = env.block.header.hash_slow();
-    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3, &[]).last_checkpoint_hash;
+    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3).last_checkpoint_hash;
     assert_eq!(
         engine_calls_since(&validator, before),
         [
@@ -150,7 +150,7 @@ async fn finalize_without_process_revalidates_and_executes() {
     );
     assert!(validator.l1().calls().is_empty(), "the anchor witness is checked without L1");
     let pending = validator.pending.as_ref().expect("pending state");
-    assert_eq!(pending.anchor, fx.anchor_state(proposer.l1(), 66, None));
+    assert_eq!(pending.anchor, fx.anchor_state(proposer.l1(), 66));
 
     assert_eq!(finalize(&mut proposer, req).await.expect("finalizes"), out, "same response");
     assert_eq!(proposer.pending, validator.pending, "same next state");
@@ -181,8 +181,7 @@ async fn finalize_updates_parent_anchor_and_committees() {
         difficulty: h.difficulty,
         grandparent_timestamp: before.parent.timestamp,
     };
-    expected.anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
-    expected.committees.insert(1, fx.committee(1));
+    expected.anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
     assert_eq!(app.pending.as_ref(), Some(&expected));
     assert_eq!(app.state(), Some(&before), "the committed state waits for Commit");
     commit(&mut app).await.expect("commits");
@@ -198,10 +197,10 @@ async fn finalize_updates_parent_anchor_and_committees() {
     assert_eq!(state.committees, expected.committees);
 
     // A moved anchor replaces the anchor facts.
-    let inbox = fx.inbox_with(h0, &[]);
+    let inbox = fx.inbox_with(h0);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     step(&mut app).await;
-    assert_eq!(app.state().unwrap().anchor, fx.anchor_state(app.l1(), 66, None));
+    assert_eq!(app.state().unwrap().anchor, fx.anchor_state(app.l1(), 66));
 }
 
 /// The switch height to epoch 2 (`h_first(2) − 2`, as CometBFT applies updates two heights
@@ -213,28 +212,32 @@ async fn switch_height_emits_the_exact_updates_and_prunes() {
     let params = &fx.params;
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule().h_first(2) - 2;
+    let switch = app.state().unwrap().schedule().h_first(4) - 2;
 
     let derive = |entries: Vec<RegistryEntry>, target| {
-        let l1_0 = fx.genesis.l1_0;
-        let cutoff = committee::cutoff(l1_0, params.cutoff_grid, params.cutoff_lag).unwrap();
-        let snapshot = Snapshot { checkpoint_index: 0, l1_block: l1_0, entries };
+        let cutoff = committee::fixed_cutoff(&fx.schedule(), params, target).unwrap();
+        let snapshot = Snapshot {
+            checkpoint_index: u64::from(target == 4),
+            l1_block: if target == 4 { 71 } else { 63 },
+            entries,
+        };
         let (record, members) =
             committee::derive(&snapshot, cutoff, target, &fx.schedule(), params).unwrap();
         CommitteeState { record, members }
     };
     let all = sample_entries(4);
-    let c1 = derive(all[..3].to_vec(), 1);
+    let c1 = derive(all[..3].to_vec(), 3);
     let mut next = all.clone();
     next.remove(0); // validator 0 leaves
     next[0].eff_stake *= U256::from(5); // validator 1 changes power; 2 stays; 3 joins
-    let c2 = derive(next, 2);
+    let c2 = derive(next.clone(), 4);
 
-    let landed = fx.inbox_with(switch - 5, &[(2, record_hash(params.l2_chain_id, &c2.record))]);
-    fx.advance_l1(app.l1(), 70, &landed, &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), 70, None);
-    jump(&mut app, switch - 1, anchor, &[(1, c1.clone()), (2, c2.clone())]);
-    assert_eq!(app.state().unwrap().committees.keys().copied().collect::<Vec<_>>(), [0, 1, 2]);
+    let landed = fx.inbox_with(switch - 5);
+    let changed = RegistryStorage { checkpoints: vec![(63, all[..3].to_vec()), (71, next)] };
+    fx.advance_l1(app.l1(), 76, &landed, &changed);
+    let anchor = fx.anchor_state(app.l1(), 76);
+    jump(&mut app, switch - 1, anchor, &[(3, c1.clone())]);
+    assert_eq!(app.state().unwrap().committees.keys().copied().collect::<Vec<_>>(), [0, 3]);
 
     let env = propose(&mut app).await;
     let (resp, req) = judge(&mut app, &env).await;
@@ -251,7 +254,7 @@ async fn switch_height_emits_the_exact_updates_and_prunes() {
     assert_eq!(updates_of(&out), expected.into_iter().collect::<Vec<_>>());
     assert_eq!(updates_of(&out), committee::validator_updates(&c1.members, &c2.members));
     let pending = app.pending.as_ref().expect("pending state");
-    assert_eq!(pending.committees.keys().copied().collect::<Vec<_>>(), [1, 2], "0 is pruned");
+    assert_eq!(pending.committees.keys().copied().collect::<Vec<_>>(), [3, 4], "0 is pruned");
 
     // The heights around it emit nothing.
     commit(&mut app).await.unwrap();
@@ -274,7 +277,7 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     assert_eq!(engine_calls_since(&app, before).last(), Some(&fcu));
 
     // An Inbox with no checkpoint hash keeps `finalized` at zero.
-    let mut inbox = fx.inbox_with(fx.genesis.genesis_height + 1, &[]);
+    let mut inbox = fx.inbox_with(fx.genesis.genesis_height + 1);
     inbox.last_checkpoint_hash = B256::ZERO;
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     let before = app.engine().calls().len();
@@ -532,7 +535,11 @@ async fn a_conflicting_committee_record_is_a_safety_halt() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let env = propose(&mut app).await; // H_0 derives committee 1
+    let switch = fx.schedule().h_first(1) - 2;
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
+    let parent = fx.anchor_state(app.l1(), 66);
+    jump(&mut app, switch - 1, parent, &[]);
+    let env = propose(&mut app).await; // switch derives committee 1
     let (_, req) = judge(&mut app, &env).await;
     app.state.as_mut().unwrap().committees.insert(1, fx.committee(2));
     let before = app.engine().calls().len();
@@ -770,18 +777,16 @@ async fn multi_epoch_run(
     let mut app = initialized(fx, dir).await;
     let (h0, l1_0) = (app.state().unwrap().schedule().h0(), fx.genesis.l1_0);
     let joined = RegistryStorage {
-        checkpoints: vec![(l1_0, sample_entries(3)), (l1_0 + 2, sample_entries(4))],
+        checkpoints: vec![
+            (fx.genesis.genesis_cutoff, sample_entries(3)),
+            (l1_0 + 2, sample_entries(4)),
+        ],
     };
     let mut decided = vec![];
-    for k in 0..2 * fx.genesis.epoch_len + 2 {
+    for k in 0..3 * fx.genesis.epoch_len + 2 {
         if k > 0 {
             let state = app.state().unwrap();
-            let landed: Vec<(u64, B256)> = state
-                .committees
-                .iter()
-                .map(|(e, c)| (*e, record_hash(fx.params.l2_chain_id, &c.record)))
-                .collect();
-            let mut inbox = fx.inbox_with(state.last_height, &landed);
+            let mut inbox = fx.inbox_with(state.last_height);
             inbox.last_checkpoint_hash = state.parent.hash;
             let registry = if k >= 2 { &joined } else { &fx.registry };
             fx.advance_l1(app.l1(), l1_0 + k, &inbox, registry);
@@ -808,16 +813,16 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
     let state = app.state().unwrap();
     let schedule = state.schedule();
     let h0 = schedule.h0();
-    assert_eq!(decided.len(), 10);
-    assert_eq!(state.last_height, h0 + 9);
-    assert_eq!(schedule.epoch_of(state.last_height), 2);
+    assert_eq!(decided.len(), 14);
+    assert_eq!(state.last_height, h0 + 13);
+    assert_eq!(schedule.epoch_of(state.last_height), 3);
 
     let c1 = fx.committee(1);
-    let c2 = state.committees[&2].clone();
+    let c2 = state.committees[&3].clone();
     assert_eq!(c1.members, fx.members, "committee 1 comes from the genesis snapshot");
-    assert_eq!(c2.members.len(), 4, "the fourth validator is in committee 2");
-    assert_eq!(state.committees[&3].members, c2.members);
-    assert_eq!(state.committees.keys().copied().collect::<Vec<_>>(), [1, 2, 3], "0 is pruned");
+    assert_eq!(c2.members.len(), 4, "the fourth validator is in committee 3");
+    assert_eq!(state.committees[&2].members, c1.members);
+    assert_eq!(state.committees.keys().copied().collect::<Vec<_>>(), [2, 3], "0 is pruned");
 
     // CometBFT's view of the validator set, updated by every response.
     let mut set: BTreeMap<B256, u64> = fx.members.iter().map(|m| (m.pubkey, m.power)).collect();
@@ -833,6 +838,9 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
                 assert_eq!(updates, committee::validator_updates(&fx.members, &c1.members))
             }
             Some(2) => {
+                assert_eq!(updates, committee::validator_updates(&c1.members, &c1.members));
+            }
+            Some(3) => {
                 assert_eq!(updates, committee::validator_updates(&c1.members, &c2.members))
             }
             other => assert!(updates.is_empty(), "height {height} (switch {other:?})"),
@@ -850,16 +858,14 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
         }
         assert_ne!(block_hash, B256::ZERO);
     }
-    assert_eq!(changes, [schedule.h_first(2) - 2], "the set changes once, at the switch to 2");
+    assert_eq!(changes, [schedule.h_first(3) - 2], "the set changes once, at the switch to 3");
     let expected: BTreeMap<B256, u64> = c2.members.iter().map(|m| (m.pubkey, m.power)).collect();
     assert_eq!(set, expected);
 }
 
-/// The invariant that keeps `CommitteeUnknown` (a switch height lacking a committee) unreachable on
-/// a chain the app built: the committee of epoch `t` is derived at `h_first(t − 1)` (its witness is
-/// mandatory there), which precedes the switch height `h_first(t) − 2` because the schedule refuses
-/// `L < 3`, and the switch to `t − 1` prunes only below `t − 2`. Replaying a run with the shortest
-/// epochs the fixture's cap allows (`L = U + 3 = 4`), every switch height finds both committees.
+/// Full-history replay requires only the outgoing set before a switch. The embedded switch
+/// witness authenticates the incoming set, which FinalizeBlock inserts before H+2 updates.
+/// The minimum allowed epoch length remains unchanged.
 #[tokio::test]
 async fn every_switch_height_finds_both_committees() {
     let fx = short_epochs();
@@ -875,7 +881,7 @@ async fn every_switch_height_finds_both_committees() {
         if let Some(t) = schedule.switch_target(height) {
             let known: Vec<u64> = app.state().unwrap().committees.keys().copied().collect();
             assert!(
-                known.contains(&(t - 1)) && known.contains(&t),
+                known.contains(&(t - 1)) && !known.contains(&t),
                 "switch to {t} at {height} knows {known:?}"
             );
             assert!(schedule.h_first(t - 1) < height, "committee {t} is derived before its switch");
@@ -883,8 +889,11 @@ async fn every_switch_height_finds_both_committees() {
         }
         finalize(&mut app, req.clone()).await.expect("finalizes");
         commit(&mut app).await.expect("commits");
+        if let Some(t) = schedule.switch_target(height) {
+            assert!(app.state().unwrap().committees.contains_key(&t));
+        }
     }
-    assert_eq!(switches, [1, 2]);
+    assert_eq!(switches, [1, 2, 3]);
 }
 
 /// Two fresh apps finalizing the same decided requests (cold: no `ProcessProposal`) give the

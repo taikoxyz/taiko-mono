@@ -1,4 +1,4 @@
-//! The committee witness at `h_first(e)`: it is proven against the PARENT's anchor even when the
+//! The committee witness at `H(t)-2`: it is proven against the PARENT's anchor even when the
 //! block moves its own anchor, and every forgery of its record, entries or registry proofs is
 //! refused. Also the committees a switch height needs.
 
@@ -12,44 +12,48 @@ use super::{
 };
 use crate::{
     app::validate::Rejection,
-    committee::{CommitteeError, entries_root, record_hash, verify_committee_witness},
+    committee::{CommitteeError, entries_root, verify_committee_witness},
     envelope::CommitteeWitness,
     l1::{DiscoveryProgress, MptError, build_committee_witness_within},
     test_utils::{RegistryStorage, sample_entries},
     types::AnchorState,
 };
 
-/// The L1 block the parent of `h_first(1)` is anchored at in [`epoch_start`].
+/// The L1 block the parent of `switch 2` is anchored at in [`before_switch`].
 const PARENT_ANCHOR: u64 = 70;
-/// The L1 block the block at `h_first(1)` moves its anchor to in [`epoch_start`].
+/// The L1 block the block at `switch 2` moves its anchor to in [`before_switch`].
 const NEW_ANCHOR: u64 = 74;
 /// The L1 block of the registry checkpoint written between the two anchors.
 const JOIN_BLOCK: u64 = 72;
 
-/// An app whose next height is `h_first(1)` and whose block there moves the anchor.
+/// An app whose next height is `switch 2` and whose block there moves the anchor.
 ///
 /// The parent is anchored at L1 block [`PARENT_ANCHOR`], where the registry holds only the
 /// genesis checkpoint (three entries). The own L1 has finalized [`NEW_ANCHOR`], where the last
 /// checkpoint has advanced and a second registry checkpoint (block [`JOIN_BLOCK`], four entries)
 /// exists. Devnet parameters (`G = 1`, `LAG = 0`) make the cutoff the anchor number itself, so
 /// the two anchors select different checkpoints. Returns the app and the new anchor.
-async fn epoch_start(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, AnchorState) {
+async fn before_switch(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, AnchorState) {
     let mut app = initialized(fx, dir).await;
-    let h_e = app.state().unwrap().schedule().h_first(1);
-    fx.plant_l1_block(app.l1(), PARENT_ANCHOR, &fx.inbox_with(h_e - 6, &[]), &fx.registry);
-    let parent = fx.anchor_state(app.l1(), PARENT_ANCHOR, None);
+    let h_e = app.state().unwrap().schedule().h_first(2) - 2;
+    fx.plant_l1_block(app.l1(), PARENT_ANCHOR, &fx.inbox_with(h_e - 6), &fx.registry);
+    let parent = fx.anchor_state(app.l1(), PARENT_ANCHOR);
     jump(&mut app, h_e - 1, parent, &[(1, fx.committee(1))]);
 
     let joined = RegistryStorage {
-        checkpoints: vec![(fx.genesis.l1_0, sample_entries(3)), (JOIN_BLOCK, sample_entries(4))],
+        checkpoints: vec![
+            (fx.genesis.genesis_cutoff, sample_entries(3)),
+            (JOIN_BLOCK, sample_entries(4)),
+        ],
     };
-    fx.advance_l1(app.l1(), NEW_ANCHOR, &fx.inbox_with(h_e - 3, &[]), &joined);
-    let moved = fx.anchor_state(app.l1(), NEW_ANCHOR, None);
+    fx.plant_l1_block(app.l1(), JOIN_BLOCK - 1, &fx.inbox_with(h_e - 3), &fx.registry);
+    fx.advance_l1(app.l1(), NEW_ANCHOR, &fx.inbox_with(h_e - 3), &joined);
+    let moved = fx.anchor_state(app.l1(), NEW_ANCHOR);
     assert_ne!(moved.state_root, app.state().unwrap().anchor.state_root);
     (app, moved)
 }
 
-/// The committee-2 witness an honest proposer builds at `h_first(1)` against the anchor
+/// The committee-2 witness an honest proposer builds at `switch 2` against the anchor
 /// `n_p` (its L1 state and its cutoff).
 async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness {
     let progress = DiscoveryProgress::default();
@@ -73,14 +77,14 @@ async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness
 async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
-    let (mut app, moved) = epoch_start(&fx, dir.path()).await;
+    let (mut app, moved) = before_switch(&fx, dir.path()).await;
 
     let env = propose(&mut app).await;
     assert_eq!(env.anchor.as_ref().map(|w| w.l1_header.number()), Some(NEW_ANCHOR));
-    let w = env.committee.clone().expect("h_first(1) carries a committee witness");
+    let w = env.committee.clone().expect("switch 2 carries a committee witness");
     assert_eq!(w, witness_at(&app, PARENT_ANCHOR).await);
     assert_eq!(w.record.target_epoch, 2);
-    assert_eq!(w.record.cutoff_l1_block, PARENT_ANCHOR, "C = n_p");
+    assert_eq!(w.record.cutoff_l1_block, fx.genesis.l1_0, "C = n_p");
     assert_eq!(w.record.checkpoint_index, 0, "checkpoint 1 (block 72) is after the cutoff");
     assert_eq!(w.entries, sample_entries(3));
 
@@ -101,12 +105,12 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
 async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
-    let (mut app, moved) = epoch_start(&fx, dir.path()).await;
+    let (mut app, moved) = before_switch(&fx, dir.path()).await;
 
     let w = witness_at(&app, NEW_ANCHOR).await;
-    assert_eq!(w.record.cutoff_l1_block, NEW_ANCHOR);
-    assert_eq!(w.record.checkpoint_index, 1);
-    assert_eq!(w.entries, sample_entries(4));
+    assert_eq!(w.record.cutoff_l1_block, fx.genesis.l1_0);
+    assert_eq!(w.record.checkpoint_index, 0);
+    assert_eq!(w.entries, sample_entries(3));
     assert_eq!(
         verify_committee_witness(&moved, &app.state().unwrap().schedule(), &app.params, &w, 2)
             .map(|_| ()),
@@ -114,7 +118,7 @@ async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
         "valid against the new anchor"
     );
 
-    let anchor = fx.anchor_witness(app.l1(), NEW_ANCHOR, None);
+    let anchor = fx.anchor_witness(app.l1(), NEW_ANCHOR);
     let env = hand_envelope(&app, Some(anchor), Some(w));
     match validate(&app, &env) {
         Err(Rejection::Committee(CommitteeError::Mpt(MptError::Account(_)))) => {}
@@ -128,15 +132,15 @@ type Forge = Box<dyn Fn(&mut CommitteeWitness)>;
 /// Whether a committee error is the one a forgery must be rejected with.
 type Expect = fn(&CommitteeError) -> bool;
 
-/// (c) At the same moving-anchor `h_first(1)`: a forged record, a forged entry list and a
+/// (c) At the same moving-anchor `switch 2`: a forged record, a forged entry list and a
 /// tampered registry proof are each refused, with the expected committee error and the
 /// `committee_witness` label.
 #[tokio::test]
 async fn forged_committee_witnesses_are_rejected() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
-    let (mut app, _) = epoch_start(&fx, dir.path()).await;
-    let anchor = fx.anchor_witness(app.l1(), NEW_ANCHOR, None);
+    let (mut app, _) = before_switch(&fx, dir.path()).await;
+    let anchor = fx.anchor_witness(app.l1(), NEW_ANCHOR);
     let valid = witness_at(&app, PARENT_ANCHOR).await;
     let env = hand_envelope(&app, Some(anchor.clone()), Some(valid.clone()));
     assert!(validate(&app, &env).is_ok(), "the unforged witness passes");
@@ -187,35 +191,20 @@ async fn forged_committee_witnesses_are_rejected() {
     }
 }
 
-/// (d) The switch height to `t` needs committees `t − 1` and `t`. The app cannot reach
-/// that height without them (committee `t` is derived at `h_first(t − 1)`; see
-/// `finalize::every_switch_height_finds_both_committees`), so this crafts states that lack one:
-/// the build and the proposal both stop at `committee_unknown`.
+/// An unknown outgoing committee cannot be replaced, even with a valid incoming witness.
 #[tokio::test]
-async fn switch_height_with_an_unknown_committee_is_rejected() {
+async fn switch_height_with_an_unknown_outgoing_committee_is_rejected() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule().h_first(1) - 2;
-    let c1 = fx.committee(1);
-    let landed = fx.inbox_with(switch - 7, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
-    fx.advance_l1(app.l1(), 66, &landed, &fx.registry);
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
-    let witness = fx.anchor_witness(app.l1(), 66, Some(1));
-
-    // The target committee 1 is unknown.
-    jump(&mut app, switch - 1, genesis_anchor.clone(), &[]);
-    let time = bft_time(&app);
-    assert!(prepare(&mut app, prepare_req(switch, time)).await.is_empty());
-    assert_eq!(app.halt.as_deref(), Some("committee_unknown"));
-    let env = hand_envelope(&app, Some(witness.clone()), None);
-    assert_eq!(validate(&app, &env).map(|_| ()), Err(Rejection::CommitteeUnknown(1)));
-    assert_eq!(rejected(&mut app, &env).await, "committee_unknown");
-
-    // The outgoing committee 0 is unknown.
-    jump(&mut app, switch - 1, genesis_anchor, &[(1, c1)]);
+    let switch = fx.schedule().h_first(1) - 2;
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
+    let parent = fx.anchor_state(app.l1(), 66);
+    jump(&mut app, switch - 1, parent, &[]);
+    let env = propose(&mut app).await;
     app.state.as_mut().unwrap().committees.remove(&0);
-    let env = hand_envelope(&app, Some(witness), None);
     assert_eq!(validate(&app, &env).map(|_| ()), Err(Rejection::CommitteeUnknown(0)));
     assert_eq!(rejected(&mut app, &env).await, "committee_unknown");
+    let time = bft_time(&app);
+    assert!(prepare(&mut app, prepare_req(switch, time)).await.is_empty());
 }

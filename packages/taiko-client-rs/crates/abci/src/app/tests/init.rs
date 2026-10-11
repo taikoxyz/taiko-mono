@@ -537,3 +537,18 @@ async fn el_serving_another_block_after_sync_is_a_safety_halt() {
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
 }
+
+#[tokio::test]
+async fn genesis_rejects_a_different_committee_config_opening() {
+    let mut fx = Fixture::genesis(2);
+    let proven = fx.genesis.committee_config_hash;
+    fx.params.cutoff_lag += 1;
+    let local = committee::committee_config_hash(&fx.params);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    let err = init_chain(&mut app, fx.request.clone()).await.unwrap_err();
+    assert!(
+        matches!(err, AbciError::Genesis(GenesisError::ConfigMismatch {local:l,proven:p}) if l==local && p==proven)
+    );
+    assert_not_initialized(&app, dir.path());
+}

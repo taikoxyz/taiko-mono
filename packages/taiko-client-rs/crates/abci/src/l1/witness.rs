@@ -14,7 +14,6 @@ use crate::{
         layout::{inbox, word_u8, word_u64},
         mpt::{MptError, VerifiedStorage, verify_account_witness},
     },
-    schedule::Schedule,
     types::{AccountWitness, AnchorState, GenesisRecord, InboxFacts},
 };
 
@@ -38,8 +37,8 @@ pub enum WitnessError {
     /// Genesis only: the genesis record's `genesisBlockHash` (H*) is zero.
     #[error("genesis record has a zero genesis block hash")]
     ZeroGenesisHash,
-    /// Genesis only: `committee[e_0]` is zero, so no genesis committee was recorded.
-    #[error("committee[e0] record hash is zero")]
+    /// Genesis only: `genesisCommitteeRecordHash` is zero, so no genesis committee was recorded.
+    #[error("genesis committee record hash is zero")]
     ZeroCommitteeRecord,
     /// Genesis only: the genesis record's `epochLenL2` (L) is zero.
     #[error("genesis record has a zero epoch length")]
@@ -58,32 +57,22 @@ pub enum WitnessError {
     },
 }
 
-/// Verifies an anchor witness and returns the anchor it proves.
+/// Authenticates the four fixed Inbox slots under the anchor's L1 header and decodes its facts.
 ///
-/// Checks that `w.inbox` proves the account at `inbox` and the slot set
-/// `layout::inbox::anchor_slots(committee_epoch)` against the raw L1 header's `stateRoot`, then
-/// decodes the Inbox facts (`committee` is `Some((epoch, committee[epoch]))` iff
-/// `committee_epoch` is set; a zero record hash is returned as is). The anchor's number,
-/// timestamp and hash (`keccak256` of the raw header) come from the raw header. Does not check
-/// the header's canonicality or finality, nor any value of the facts.
+/// Checks the configured Inbox account and exact slot order. Header number, hash, timestamp
+/// and state root come from the embedded raw header; canonicality/finality is checked separately.
 pub fn verify_anchor_witness(
     w: &AnchorWitness,
     inbox: Address,
-    committee_epoch: Option<u64>,
 ) -> Result<AnchorState, WitnessError> {
     check_contract(&w.inbox, inbox)?;
     let header = &w.l1_header;
-    let storage = verify_account_witness(
-        header.state_root(),
-        &w.inbox,
-        &inbox::anchor_slots(committee_epoch),
-    )?;
+    let storage = verify_account_witness(header.state_root(), &w.inbox, &inbox::anchor_slots())?;
     let facts = InboxFacts {
         status: word_u8(inbox_word(&storage, inbox::STATUS), 0),
         recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: word_u64(inbox_word(&storage, inbox::LAST_CHECKPOINT_HEIGHT), 0),
         last_checkpoint_hash: inbox_word(&storage, inbox::LAST_CHECKPOINT_HASH).into(),
-        committee: committee_epoch.map(|e| (e, word(&storage, inbox::committee_slot(e)).into())),
     };
     Ok(anchor_state(header, facts))
 }
@@ -101,13 +90,13 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 }
 
 /// Verifies the genesis Inbox witness against `state_root` (the `L1_0` header's) and returns the
-/// genesis record (with `genesisCutoff`), the Inbox facts at genesis and the `committee[e_0]`
-/// record hash.
+/// genesis record (with `genesisCutoff`), the Inbox facts at genesis and the
+/// `genesisCommitteeRecordHash` record hash.
 ///
-/// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots(E0)`. The
+/// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots()`. The
 /// returned facts take the last checkpoint from the genesis record (`(B*, H*)`, the genesis
-/// record of #22262's MIG rules) and set `committee = Some((E0, committee[E0]))`. Rejects, in this
-/// order: `status != ETNA_ACTIVE`, a zero genesis hash, a zero `committee[E0]`, a zero
+/// record of #22262's MIG rules). Rejects, in this order: `status != ETNA_ACTIVE`, a zero
+/// genesis hash, a zero bootstrap committee hash, a zero
 /// epoch length, `genesisCutoff >= L1_0`. The remaining schedule bounds are checked by
 /// [`Schedule::validate`].
 pub fn verify_genesis_inbox(
@@ -116,7 +105,7 @@ pub fn verify_genesis_inbox(
     inbox: Address,
 ) -> Result<(GenesisRecord, InboxFacts, B256), WitnessError> {
     check_contract(w, inbox)?;
-    let storage = verify_account_witness(state_root, w, &inbox::genesis_slots(Schedule::E0))?;
+    let storage = verify_account_witness(state_root, w, &inbox::genesis_slots())?;
 
     let status = word_u8(inbox_word(&storage, inbox::STATUS), 0);
     if status != inbox::ETNA_ACTIVE {
@@ -131,6 +120,7 @@ pub fn verify_genesis_inbox(
         genesis_hash: inbox_word(&storage, inbox::GENESIS_BLOCK_HASH).into(),
         genesis_state_root: inbox_word(&storage, inbox::GENESIS_STATE_ROOT).into(),
         genesis_cutoff: word_u64(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
+        committee_config_hash: inbox_word(&storage, inbox::COMMITTEE_CONFIG_HASH).into(),
     };
     if genesis.genesis_height != 0 {
         return Err(WitnessError::NonzeroGenesisHeight(genesis.genesis_height));
@@ -138,7 +128,7 @@ pub fn verify_genesis_inbox(
     if genesis.genesis_hash.is_zero() {
         return Err(WitnessError::ZeroGenesisHash);
     }
-    let committee_record: B256 = word(&storage, inbox::committee_slot(Schedule::E0)).into();
+    let committee_record: B256 = inbox_word(&storage, inbox::GENESIS_COMMITTEE_HASH).into();
     if committee_record.is_zero() {
         return Err(WitnessError::ZeroCommitteeRecord);
     }
@@ -157,7 +147,6 @@ pub fn verify_genesis_inbox(
         recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: genesis.genesis_height,
         last_checkpoint_hash: genesis.genesis_hash,
-        committee: Some((Schedule::E0, committee_record)),
     };
     Ok((genesis, facts, committee_record))
 }
@@ -203,7 +192,7 @@ mod tests {
             last_checkpoint_height: 0x0123_4567_89ab_cdef,
             last_checkpoint_hash: B256::repeat_byte(0xc4),
             genesis: Some(sample_genesis_record()),
-            committee: vec![(0, B256::repeat_byte(0xe0)), (3, B256::repeat_byte(0xe3))],
+            genesis_committee_hash: Some(B256::repeat_byte(0xe0)),
         }
     }
 
@@ -214,8 +203,8 @@ mod tests {
     #[test]
     fn anchor_decodes_every_field() {
         let storage = live_storage();
-        let (w, state) = anchor_witness(INBOX, &storage, l1_header(4_242, 1_760_000_123), None);
-        let anchor = verify_anchor_witness(&w, INBOX, None).unwrap();
+        let (w, state) = anchor_witness(INBOX, &storage, l1_header(4_242, 1_760_000_123));
+        let anchor = verify_anchor_witness(&w, INBOX).unwrap();
 
         assert_eq!(anchor.number, 4_242);
         assert_eq!(anchor.timestamp, 1_760_000_123);
@@ -227,44 +216,26 @@ mod tests {
                 recovery_generation: u64::MAX - 1,
                 last_checkpoint_height: 0x0123_4567_89ab_cdef,
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
-                committee: None,
             }
         );
     }
 
     #[test]
     fn anchor_hash_is_the_l1_header_hash() {
-        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99), None);
-        let anchor = verify_anchor_witness(&w, INBOX, None).unwrap();
+        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
+        let anchor = verify_anchor_witness(&w, INBOX).unwrap();
         assert_eq!(anchor.hash, w.l1_header.hash());
         assert_eq!(anchor.hash, keccak256(w.l1_header.raw()));
     }
 
     #[test]
-    fn anchor_decodes_the_committee_record_at_switch_heights() {
-        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99), Some(3));
-        let anchor = verify_anchor_witness(&w, INBOX, Some(3)).unwrap();
-        assert_eq!(anchor.inbox.committee, Some((3, B256::repeat_byte(0xe3))));
-        assert_eq!(anchor.inbox.last_checkpoint_hash, B256::repeat_byte(0xc4));
-    }
-
-    #[test]
-    fn anchor_returns_an_unrecorded_committee_as_zero() {
-        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99), Some(4));
-        let anchor = verify_anchor_witness(&w, INBOX, Some(4)).unwrap();
-        assert_eq!(anchor.inbox.committee, Some((4, B256::ZERO)));
-    }
-
-    #[test]
-    fn anchor_slot_set_follows_the_committee_epoch() {
-        let storage = live_storage();
-        let (without, _) = anchor_witness(INBOX, &storage, l1_header(9, 99), None);
-        let (with, _) = anchor_witness(INBOX, &storage, l1_header(9, 99), Some(3));
-
-        for (w, epoch) in [(&without, Some(3)), (&with, None), (&with, Some(0))] {
-            let err = verify_anchor_witness(w, INBOX, epoch).unwrap_err();
-            assert!(matches!(err, WitnessError::Mpt(MptError::SlotSet { .. })), "{err:?}");
-        }
+    fn anchor_proves_only_the_four_fixed_slots() {
+        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
+        assert_eq!(
+            w.inbox.storage.iter().map(|proof| proof.slot).collect::<Vec<_>>(),
+            inbox::anchor_slots()
+        );
+        verify_anchor_witness(&w, INBOX).unwrap();
     }
 
     #[test]
@@ -286,8 +257,8 @@ mod tests {
             ],
         ));
         let state = TestState::new(accounts);
-        let w = anchor_witness_in(&state, INBOX, l1_header(1, 1), None);
-        let facts = verify_anchor_witness(&w, INBOX, None).unwrap().inbox;
+        let w = anchor_witness_in(&state, INBOX, l1_header(1, 1));
+        let facts = verify_anchor_witness(&w, INBOX).unwrap().inbox;
         assert_eq!(facts.status, 3);
         assert_eq!(facts.recovery_generation, 5);
         assert_eq!(facts.last_checkpoint_height, 77);
@@ -296,30 +267,31 @@ mod tests {
 
     #[test]
     fn anchor_rejects_another_contract() {
-        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99), None);
-        let err = verify_anchor_witness(&w, OTHER, None).unwrap_err();
+        let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
+        let err = verify_anchor_witness(&w, OTHER).unwrap_err();
         assert_eq!(err, WitnessError::WrongContract { expected: OTHER, got: INBOX });
     }
 
     #[test]
     fn anchor_rejects_a_tampered_header_state_root() {
-        let (mut w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99), None);
+        let (mut w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
         w.l1_header = edit_l1_header(&w.l1_header, |h| h.state_root = B256::repeat_byte(0x01));
-        let err = verify_anchor_witness(&w, INBOX, None).unwrap_err();
+        let err = verify_anchor_witness(&w, INBOX).unwrap_err();
         assert!(matches!(err, WitnessError::Mpt(MptError::Account(_))), "{err:?}");
     }
 
     #[test]
     fn anchor_rejects_a_tampered_storage_value() {
-        let (mut w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99), None);
+        let (mut w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
         w.inbox.storage[2].value += U256::from(1u64);
-        let err = verify_anchor_witness(&w, INBOX, None).unwrap_err();
+        let err = verify_anchor_witness(&w, INBOX).unwrap_err();
         assert!(matches!(err, WitnessError::Mpt(MptError::Storage { .. })), "{err:?}");
     }
 
     #[test]
     fn genesis_decodes_the_record_and_facts() {
         let genesis = GenesisRecord {
+            committee_config_hash: B256::repeat_byte(0xb1),
             genesis_height: 0,
             l1_0: 0x0102_0304_0506_0708,
             epoch_len: 0xfedc_ba98_7654_3210,
@@ -346,7 +318,6 @@ mod tests {
                 recovery_generation: 6,
                 last_checkpoint_height: genesis.genesis_height,
                 last_checkpoint_hash: genesis.genesis_hash,
-                committee: Some((Schedule::E0, committee_e0())),
             }
         );
         assert_eq!(record, committee_e0());
@@ -381,7 +352,7 @@ mod tests {
     #[test]
     fn genesis_rejects_an_anchor_slot_set() {
         let storage = InboxStorage::genesis(sample_genesis_record(), committee_e0());
-        let (w, state) = anchor_witness(INBOX, &storage, l1_header(9, 99), Some(0));
+        let (w, state) = anchor_witness(INBOX, &storage, l1_header(9, 99));
         let err = verify_genesis_inbox(state.state_root(), &w.inbox, INBOX).unwrap_err();
         assert!(matches!(err, WitnessError::Mpt(MptError::SlotSet { .. })), "{err:?}");
     }
@@ -411,7 +382,7 @@ mod tests {
     #[test]
     fn genesis_rejects_a_missing_committee_record() {
         let storage = InboxStorage {
-            committee: vec![(1, committee_e0())],
+            genesis_committee_hash: None,
             ..InboxStorage::genesis(sample_genesis_record(), committee_e0())
         };
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
@@ -474,7 +445,7 @@ mod tests {
         let mut accounts: Vec<AccountSpec> = filler_accounts();
         accounts.push((INBOX, 1, U256::ZERO, keccak256(b"code"), slots));
         let state = TestState::new(accounts);
-        let w = state.witness(INBOX, &inbox::genesis_slots(Schedule::E0));
+        let w = state.witness(INBOX, &inbox::genesis_slots());
         let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
         assert_eq!(decoded, sample_genesis_record());
     }

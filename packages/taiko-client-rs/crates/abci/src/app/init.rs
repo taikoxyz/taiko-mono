@@ -81,9 +81,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// schedule; requires the `chain_id` generation to equal the Inbox's `recoveryGeneration` and
     /// `initial_height == 1`; recomputes the `e_0` committee from its witness (proofs against
     /// `L1_0`'s state root, snapshot cutoff `genesisCutoff` as is, without the cutoff lag and
-    /// grid that apply from `e_0 + 1` on) and requires its record hash to equal `committee[e_0]`
-    /// and its members to be exactly the genesis validators; makes sure the EL serves `B*` with
-    /// hash `H*` (EL sync if needed). The state has `last = (B*, H*)`.
+    /// grid that apply from `e_0 + 1` on) and requires its record hash to equal
+    /// `genesisCommitteeRecordHash` and its members to be exactly the genesis validators; makes
+    /// sure the EL serves `B*` with hash `H*` (EL sync if needed). The state has `last = (B*,
+    /// H*)`.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let w = decode_app_state(&req.app_state_bytes)?;
         let params = &self.params;

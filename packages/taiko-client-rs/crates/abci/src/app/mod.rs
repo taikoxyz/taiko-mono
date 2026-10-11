@@ -261,10 +261,11 @@ pub struct App<L: L1Source, E: Engine> {
     /// The latest `ProcessProposal` ACCEPT verdicts (at most [`MAX_VERDICTS`]), for
     /// `FinalizeBlock`; cleared at `Commit`.
     verdicts: Verdicts,
-    /// The last committee witness verified at `h_first(e)`, by `PrepareProposal` (its own) or
-    /// `ProcessProposal` (another proposer's), kept so that this node's proposals in later rounds
-    /// at the same height reuse it instead of reading the registry again. Every verified witness
-    /// overwrites it; cleared at `Commit`. Behind a mutex as the handlers run on `&self`.
+    /// The last committee witness verified at switch height `H(t)-2`, by `PrepareProposal` (its
+    /// own) or `ProcessProposal` (another proposer's), kept so that this node's proposals in
+    /// later rounds at the same height reuse it instead of reading the registry again. Every
+    /// verified witness overwrites it; cleared at `Commit`. Behind a mutex as the handlers run
+    /// on `&self`.
     committee_cache: Mutex<Option<CachedCommittee>>,
     /// The registry reads of a committee discovery `PrepareProposal`'s deadline cut short, from
     /// which the next attempt resumes; cleared at `Commit`.
@@ -549,6 +550,11 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
             "chain_id {} names generation {generation}, state has {}",
             state.chain_id, state.generation
         )));
+    }
+    if state.genesis.committee_config_hash != crate::committee::committee_config_hash(params) {
+        return Err(AbciError::StoredState(
+            "committee configuration opening differs from genesis".into(),
+        ));
     }
     if state.parent.number != state.last_height {
         return Err(AbciError::StoredState(format!(

@@ -16,7 +16,7 @@ use alloy_primitives::B256;
 use protocol::shasta::constants::min_base_fee_for_chain;
 
 use crate::{
-    committee::{CommitteeError, record_hash, verify_committee_witness},
+    committee::{CommitteeError, verify_committee_witness},
     config::ChainParams,
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
@@ -33,8 +33,7 @@ pub struct Validated {
     pub block: ExecutionBlock,
     /// The block's anchor: proven by its witness, or the parent's when it carries none.
     pub anchor: AnchorState,
-    /// At an epoch's first height `h_first(e)`: the committee of epoch `e + 1` derived from the
-    /// committee witness, keyed by that target epoch.
+    /// At switch height `H(t)-2`: the freshly derived incoming committee, keyed by target epoch.
     pub derived: Option<(u64, CommitteeState)>,
     /// Whether the EL already executed the block and answered `VALID`.
     pub executed: bool,
@@ -108,42 +107,6 @@ pub enum Rejection {
     /// A switch height needs a committee the app does not hold.
     #[error("no committee known for epoch {0}")]
     CommitteeUnknown(u64),
-    /// At a switch height, the anchored checkpoint does not yet cover the height that derived
-    /// the next committee (a set must not activate before its record has landed): wait for it
-    /// to land.
-    #[error(
-        "lastCheckpoint.height {last_checkpoint_height} is below {required}, the height that \
-         derived the next committee"
-    )]
-    CheckpointNotLanded {
-        /// The anchored `lastCheckpoint.height`.
-        last_checkpoint_height: u64,
-        /// `h_first(t - 1)`, the height that derived committee `t`.
-        required: u64,
-    },
-    /// At the switch height to epoch `t`, the anchored `committee[t]` is still zero (a set must
-    /// not activate before its record has landed): wait for the record to land.
-    #[error("committee[{epoch}] has not landed on L1 yet")]
-    RecordNotLanded {
-        /// The switching-to epoch `t`.
-        epoch: u64,
-    },
-    /// At the switch height to epoch `t`, the anchored `committee[t]` is a non-zero hash other
-    /// than the derived record's: L1 and the chain hold two different records for one epoch.
-    /// Still refused like any proposal, but logged at ERROR, as an operator must investigate;
-    /// `ProcessProposal` reports it only once the anchor is final and canonical in the own L1
-    /// view (`anchor_not_final` otherwise), so a forged L1 header cannot raise the alarm.
-    #[error(
-        "committee[{epoch}] on L1 is {proven}, but the chain derived the record hash {expected}"
-    )]
-    RecordConflict {
-        /// The switching-to epoch `t`.
-        epoch: u64,
-        /// `record_hash` of the derived committee `t`.
-        expected: B256,
-        /// The non-zero `committee[t]` the anchor witness proves.
-        proven: B256,
-    },
     /// ¹ The anchor L1 header is not final and canonical in the own L1 view.
     #[error("anchor L1 block {number} is not final and canonical in the own L1 view")]
     AnchorNotFinal {
@@ -198,9 +161,6 @@ impl Rejection {
             Self::UnexpectedWitness(WitnessKind::Committee) => "unexpected_committee_witness",
             Self::NotActive(_) => "inbox_not_active",
             Self::CommitteeUnknown(_) => "committee_unknown",
-            Self::CheckpointNotLanded { .. } => "checkpoint_not_landed",
-            Self::RecordNotLanded { .. } => "record_not_landed",
-            Self::RecordConflict { .. } => "record_conflict",
             Self::AnchorNotFinal { .. } => "anchor_not_final",
             Self::L1(_) => "l1_error",
             Self::Engine(_) => "engine_error",
@@ -213,12 +173,10 @@ impl Rejection {
         }
     }
 
-    /// Whether the refusal is logged at ERROR rather than WARN: a local build fault
-    /// ([`Rejection::Oversize`], [`Rejection::BuiltHeader`]) or a record conflict on L1
-    /// ([`Rejection::RecordConflict`]), which an operator must look at; every other refusal is
-    /// an expected liveness wait or a bad proposal.
+    /// Whether the refusal reports a local build fault at ERROR; expected liveness waits and
+    /// malformed proposals log at WARN.
     pub fn logs_at_error(&self) -> bool {
-        matches!(self, Self::Oversize { .. } | Self::BuiltHeader(_) | Self::RecordConflict { .. })
+        matches!(self, Self::Oversize { .. } | Self::BuiltHeader(_))
     }
 }
 
@@ -254,7 +212,7 @@ pub(crate) struct Candidate<'a> {
 pub(crate) struct CandidateFacts {
     /// The candidate's anchor (proven, or inherited from the parent).
     pub(crate) anchor: AnchorState,
-    /// The committee derived at an epoch's first height, keyed by its target epoch.
+    /// The committee derived at a switch height, keyed by its target epoch.
     pub(crate) derived: Option<(u64, CommitteeState)>,
 }
 
@@ -333,15 +291,9 @@ fn check_candidate(
     finish_candidate(state, params, height, c.committee, anchor)
 }
 
-/// Steps (b)–(f) of [`validate_block`], which need no committee witness, and the candidate's
-/// anchor they prove.
-///
-/// (b) the anchor witness is required iff the anchor number changes (per the witness, or per
-/// `extraData` when absent), `height == H_0` or `height` is a switch height; a present witness
-/// must verify for `anchor_slots(switch_target(height))`, an absent one inherits the parent's
-/// anchor; (c) anchor progress; (d) the generation triple, an Inbox ahead of the chain being
-/// [`Rejection::Superseded`]; (e) `status == ETNA_ACTIVE`; (f) back-pressure. Ignores
-/// `c.committee`, so `PrepareProposal` runs these cheap checks before it discovers a committee.
+/// Authenticates a supplied anchor or inherits the parent's anchor, then checks anchor progress,
+/// generation, active status and the unchanged back-pressure cap before registry discovery.
+/// Anchor witnesses are forced only on anchor moves and H0, independently of switch heights.
 pub(crate) fn check_candidate_anchor(
     state: &AppState,
     params: &ChainParams,
@@ -349,9 +301,8 @@ pub(crate) fn check_candidate_anchor(
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
     let schedule = &state.schedule();
-    let switch = schedule.switch_target(height);
 
-    let anchor = candidate_anchor(state, params, height, switch, c)?;
+    let anchor = candidate_anchor(state, params, height, c)?;
     rules::check_anchor_progress(state.anchor.number, anchor.number, schedule, height)?;
 
     let inbox_generation = anchor.inbox.recovery_generation;
@@ -371,10 +322,9 @@ pub(crate) fn check_candidate_anchor(
     Ok(anchor)
 }
 
-/// Steps (g)–(h) of [`validate_block`] on top of the `anchor` [`check_candidate_anchor`]
-/// proved: (g) the committee witness is required iff `height = h_first(e)` and must prove
-/// committee `e + 1` against the parent's anchor; (h) at a switch height to epoch `t`, the
-/// record-landed check ([`check_switch`]).
+/// Derives the incoming committee at switch height `H(t)-2` and requires the outgoing local
+/// committee to exist. No L1 committee publication or checkpoint coverage of a prior derivation
+/// is required; back-pressure was already checked on the anchor.
 pub(crate) fn finish_candidate(
     state: &AppState,
     params: &ChainParams,
@@ -383,8 +333,10 @@ pub(crate) fn finish_candidate(
     anchor: AnchorState,
 ) -> Result<CandidateFacts, Rejection> {
     let derived = candidate_committee(state, params, height, committee)?;
-    if let Some(t) = state.schedule().switch_target(height) {
-        check_switch(state, params, t, &anchor)?;
+    if let Some(t) = state.schedule().switch_target(height) &&
+        !state.committees.contains_key(&(t - 1))
+    {
+        return Err(Rejection::CommitteeUnknown(t - 1));
     }
     Ok(CandidateFacts { anchor, derived })
 }
@@ -405,10 +357,9 @@ fn candidate_anchor(
     state: &AppState,
     params: &ChainParams,
     height: u64,
-    switch: Option<u64>,
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
-    let forced = height == state.schedule().h0() || switch.is_some();
+    let forced = height == state.schedule().h0();
     match c.anchor {
         None if forced || c.extra_anchor != state.anchor.number => {
             Err(Rejection::MissingWitness(WitnessKind::Anchor))
@@ -417,58 +368,26 @@ fn candidate_anchor(
         Some(w) if !forced && w.l1_header.number() == state.anchor.number => {
             Err(Rejection::UnexpectedWitness(WitnessKind::Anchor))
         }
-        Some(w) => Ok(verify_anchor_witness(w, params.inbox, switch)?),
+        Some(w) => Ok(verify_anchor_witness(w, params.inbox)?),
     }
 }
 
-/// Step (g): the committee of epoch `e + 1` at `height = h_first(e)`, proven against the
-/// parent's anchor; no witness at any other height.
+/// Derives committee `t` only at its switch height `H(t)-2`, using the committed parent's
+/// authenticated anchor. Non-switch heights forbid runtime committee witnesses.
 fn candidate_committee(
     state: &AppState,
     params: &ChainParams,
     height: u64,
     w: Option<&CommitteeWitness>,
 ) -> Result<Option<(u64, CommitteeState)>, Rejection> {
-    match (state.schedule().epoch_starting_at(height), w) {
+    match (state.schedule().switch_target(height), w) {
         (None, None) => Ok(None),
         (None, Some(_)) => Err(Rejection::UnexpectedWitness(WitnessKind::Committee)),
         (Some(_), None) => Err(Rejection::MissingWitness(WitnessKind::Committee)),
-        (Some(e), Some(w)) => {
-            let target = e.checked_add(1).expect("an epoch below u64::MAX starts at a u64 height");
+        (Some(target), Some(w)) => {
             let (record, members) =
                 verify_committee_witness(&state.anchor, &state.schedule(), params, w, target)?;
             Ok(Some((target, CommitteeState { record, members })))
         }
     }
-}
-
-/// Step (h): a set must not activate before its record has landed. At the switch height to epoch
-/// `t`, the app holds committees `t − 1` and `t`, the anchored checkpoint covers `h_first(t − 1)`
-/// (the height that derived `t`, [`Rejection::CheckpointNotLanded`] otherwise), and the anchored
-/// `committee[t]` is the derived record's hash: zero is [`Rejection::RecordNotLanded`], another
-/// hash [`Rejection::RecordConflict`].
-fn check_switch(
-    state: &AppState,
-    params: &ChainParams,
-    t: u64,
-    anchor: &AnchorState,
-) -> Result<(), Rejection> {
-    // `switch_target` only yields epochs >= 1.
-    let prev = t - 1;
-    if !state.committees.contains_key(&prev) {
-        return Err(Rejection::CommitteeUnknown(prev));
-    }
-    let next = state.committees.get(&t).ok_or(Rejection::CommitteeUnknown(t))?;
-    let expected = record_hash(params.l2_chain_id, &next.record);
-    rules::check_switch_landed(&state.schedule(), t, anchor, expected).map_err(
-        |error| match error {
-            rules::SwitchError::CheckpointNotLanded { last_checkpoint_height, required } => {
-                Rejection::CheckpointNotLanded { last_checkpoint_height, required }
-            }
-            rules::SwitchError::RecordNotLanded { epoch } => Rejection::RecordNotLanded { epoch },
-            rules::SwitchError::RecordConflict { epoch, expected, proven } => {
-                Rejection::RecordConflict { epoch, expected, proven }
-            }
-        },
-    )
 }

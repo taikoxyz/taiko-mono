@@ -60,17 +60,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Builds the encoded envelope of the block at `req.height` on top of `state`.
     ///
-    /// In order: a superseded chain proposes nothing; the anchor is
-    /// `n = max(parent anchor, own finalized − F_L1)`, and its witness (header and Inbox proofs
-    /// at `n`) is fetched iff `n` moves, the height is `H_0` or a switch height; the anchor
-    /// passes the committee-free checks of `ProcessProposal` ([`check_candidate_anchor`]: anchor
-    /// progress, generation, initialized status, back-pressure), so a block that cannot be proposed
-    /// costs no committee discovery; at `h_first(e)` the committee witness for `e + 1` is one
-    /// verified earlier at this height (an own earlier round, or another proposer's block) or is
-    /// built against the parent's anchor ([`App::committee_witness`]); the rest of
-    /// `ProcessProposal`'s witness checks pass ([`finish_candidate`]); the EL builds on the
-    /// parent with the derived attributes, and the built header must carry the derived fields;
-    /// the envelope must fit `max_tx_bytes`.
+    /// Chooses `max(parent anchor, own finalized - extra depth)`, authenticates a changed anchor
+    /// or the forced H0 anchor, and checks progress, generation, status and back-pressure.
+    /// At `H(t)-2`, discovers or reuses committee `t` under the committed parent's state root
+    /// and fixed cutoff. Then verifies the candidate, builds through the EL, checks every
+    /// derived header field and ensures the envelope fits CometBFT's transaction limit.
     async fn propose(
         &self,
         state: &AppState,
@@ -87,22 +81,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let finalized = self.l1_read("L1 finalized read", self.l1.finalized_number()).await?;
         set_u64(AbciMetrics::l1_finality_lag(), finalized.saturating_sub(state.anchor.number));
         let n = state.anchor.number.max(finalized.saturating_sub(params.l1_finality_extra_depth));
-        let anchor = if n != state.anchor.number || height == schedule.h0() || switch.is_some() {
-            Some(self.anchor_witness(n, switch).await?)
+        let anchor = if n != state.anchor.number || height == schedule.h0() {
+            Some(self.anchor_witness(n).await?)
         } else {
             None
         };
         let candidate = Candidate {
             anchor: anchor.as_ref(),
             committee: None,
+
             extra_generation: state.generation,
             extra_anchor: n,
         };
         let anchor_state = check_candidate_anchor(state, params, height, &candidate)?;
-        let committee = match schedule.epoch_starting_at(height) {
-            Some(e) => {
-                let target =
-                    e.checked_add(1).expect("an epoch below u64::MAX starts at a u64 height");
+        let committee = match switch {
+            Some(target) => {
                 let witness = self.committee_witness(schedule, state.anchor.number, target).await?;
                 Some((target, witness))
             }
@@ -165,14 +158,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// The anchor witness at L1 block `n`: its canonical header (which must be block `n`) and the
-    /// Inbox proofs of `anchor_slots(switch)`.
-    async fn anchor_witness(
-        &self,
-        n: u64,
-        switch: Option<u64>,
-    ) -> Result<AnchorWitness, Rejection> {
+    /// Inbox proofs of `anchor_slots()`.
+    async fn anchor_witness(&self, n: u64) -> Result<AnchorWitness, Rejection> {
         let l1_header = self.l1_read("L1 header read", header_at(&self.l1, n)).await?;
-        let slots = inbox::anchor_slots(switch);
+        let slots = inbox::anchor_slots();
         let inbox = self
             .l1_read("inbox proof read", self.l1.account_witness(self.params.inbox, &slots, n))
             .await?;

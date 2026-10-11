@@ -1,31 +1,15 @@
-//! Committee derivation from staking-registry snapshots (layout in
-//! [`l1::layout::registry`](crate::l1::layout::registry)). No I/O.
+//! Pure committee derivation from authenticated staking-registry snapshots.
 //!
-//! A committee witness proves one registry checkpoint (`checkpoints.length`, `checkpoints[i]`
-//! and, when it exists, `checkpoints[i + 1].l1Block`) plus all of that checkpoint's entries.
-//! [`verify_snapshot`] checks that the checkpoint is the last one at or before the cutoff and that
-//! the entries hash to its `entriesRoot`; [`derive`] then applies eligibility (with the MEM-13
-//! heartbeat rule of [`heartbeat_floor`]), one member per pubkey (the lowest `bondId` wins), the
-//! `N_MAX` cap and the voting-power mapping to build the [`CommitteeRecord`] and its members.
-//! Both are pure, so the guest can run them unchanged.
+//! Every epoch selects the last registry checkpoint at or before its [`fixed_cutoff`],
+//! determined by the genesis schedule and configured lag/grid, independently of parent anchors.
+//! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
+//! [`derive`] retains the existing eligibility, heartbeat, earliest-bond deduplication, stake cap,
+//! MEM-08 ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
 //!
-//! The snapshot cutoff of epoch `e_0` is the Inbox's `genesisCutoff`; every later epoch's is
-//! [`snapshot_cutoff`](crate::committee::snapshot_cutoff): the parent anchor's lagged, gridded
-//! [`cutoff`](crate::committee::cutoff), floored at `genesisCutoff`. Without the floor, a
-//! `genesisCutoff` above `cutoff(L1_0)` would let `e_0` derive while `e_0 + 1`, derived at `H_0`
-//! from the genesis anchor `L1_0`, might find no entry active yet: a permanent halt right after
-//! an irreversible genesis.
-//!
-//! A derivation failure at `H_e` is permanent: the cutoff and the snapshot checkpoint follow from
-//! the committed parent's anchor, so no block at `H_e` can ever carry a valid committee witness,
-//! and only a recovery generation restarts the chain (no eligible entry, [`CommitteeError::Empty`],
-//! is such a halt). Hence [`derive`] does not reject a snapshot with a duplicate pubkey, which one
-//! squatting bond copying a sitting validator's key would create: it drops the later entries. The
-//! registry contract must still refuse a pubkey that any non-exited entry holds (see
-//! `l1::layout`); the node's rule is defence in depth.
-//!
-//! Every hash is `keccak256`; `abi.encode` of static types is the concatenation of 32-byte
-//! big-endian words, and `bytes32` domain tags are right-padded ASCII.
+//! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
+//! number must cover the fixed cutoff. A failed or empty fixed snapshot has no implicit fallback;
+//! the unchanged recovery-generation and registry old-key/withdrawal assumptions still apply.
+//! All hashes use keccak256 over static 32-byte Solidity ABI words.
 
 use std::collections::BTreeMap;
 
@@ -67,6 +51,14 @@ const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V1");
 /// Why a committee witness, snapshot or derivation was rejected.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum CommitteeError {
+    /// The proving anchor is too early to authenticate the final snapshot at the fixed cutoff.
+    #[error("fixed cutoff {cutoff} is after proving anchor {anchor}")]
+    CutoffAfterAnchor {
+        /// Required fixed L1 snapshot cutoff.
+        cutoff: u64,
+        /// Proving L1 block number.
+        anchor: u64,
+    },
     /// The witness proves an account other than the configured staking registry.
     #[error("witness proves {got}, expected the registry at {expected}")]
     WrongContract {
@@ -81,8 +73,8 @@ pub enum CommitteeError {
     /// The cutoff grid `G` is zero.
     #[error("cutoff grid must be >= 1")]
     ZeroCutoffGrid,
-    /// The parent's anchor number is below the cutoff lag, so no lagged cutoff exists
-    /// ([`cutoff`] only: [`snapshot_cutoff`] then takes the genesis cutoff).
+    /// The standalone lag/grid helper was given a number below the lag.
+    /// Runtime selection uses [`fixed_cutoff`], whose lag subtraction saturates.
     #[error("parent anchor {parent_anchor} is below the cutoff lag {lag}")]
     AnchorBelowLag {
         /// The parent block's anchor L1 block number `n_p`.
@@ -156,8 +148,8 @@ pub enum CommitteeError {
     /// evaluation block `L1_first(targetEpoch − LOOKAHEAD_EPOCHS)` overflows `u64`.
     #[error("target epoch {0} is out of range")]
     EpochOutOfRange(u64),
-    /// No entry is eligible. At `H_e` this halts the chain for good (the snapshot is fixed by
-    /// the committed parent's anchor) until a recovery generation restarts it.
+    /// No entry is eligible at the fixed snapshot. Activation cannot advance its cutoff or
+    /// silently reuse an old committee; recovery requires a new generation.
     #[error("no eligible registry entry")]
     Empty,
     /// A member's voting power `effStake / VP_UNIT` does not fit `u64`.
@@ -257,7 +249,7 @@ pub fn mem08_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
     level[0]
 }
 
-/// The committee record hash stored at `committee[targetEpoch]` on L1:
+/// The committee record hash; only the genesis record hash is stored on L1:
 /// `keccak256(abi.encode(bytes32("ETNA_COMMITTEE_V1"), uint256 l2ChainId, uint64 targetEpoch,
 /// uint64 cutoffL1Block, uint64 checkpointIndex, bytes32 setRoot, uint256 totalStake,
 /// uint64 totalPower, uint8 encodingVersion))`.
@@ -292,26 +284,50 @@ pub fn cutoff(parent_anchor: u64, grid: u64, lag: u64) -> Result<u64, CommitteeE
     Ok(lagged / grid * grid)
 }
 
-/// The snapshot cutoff of a committee for a target epoch after `e_0`, derived at a height whose
-/// parent anchors at `parent_anchor`: `max(cutoff(parent_anchor), schedule.genesis_cutoff)`, with
-/// `params`' grid and lag ([`cutoff`]). A parent anchor below the lag has no lagged cutoff, so the
-/// floor alone stands: `schedule.genesis_cutoff`. Rejects only `grid == 0`.
+/// The fixed registry snapshot cutoff for `target_epoch`, independent of the proving anchor.
 ///
-/// The floor keeps every later snapshot at or after the genesis committee's: `e_0 + 1` is derived
-/// at `H_0` from the genesis anchor `L1_0`, whose lagged cutoff may precede `genesisCutoff`, so
-/// without it entries active at `genesisCutoff` could be missing from `e_0 + 1`. Every parent
-/// anchor is at or after `L1_0 > genesisCutoff`, so the snapshot is always provable at it. `e_0`
-/// itself is derived at `genesisCutoff` exactly ([`verify_committee_witness_at_cutoff`]).
-pub fn snapshot_cutoff(
-    parent_anchor: u64,
+/// Epoch 0 uses the authenticated genesis cutoff. Later epochs use the lagged and gridded
+/// L1 start of epoch `target_epoch.saturating_sub(2)`, floored at the genesis cutoff.
+/// Rejects a zero grid or an overflowing L1 schedule; lag subtraction saturates at zero.
+pub fn fixed_cutoff(
     schedule: &Schedule,
     params: &ChainParams,
+    target_epoch: u64,
 ) -> Result<u64, CommitteeError> {
-    match cutoff(parent_anchor, params.cutoff_grid, params.cutoff_lag) {
-        Ok(lagged) => Ok(lagged.max(schedule.genesis_cutoff)),
-        Err(CommitteeError::AnchorBelowLag { .. }) => Ok(schedule.genesis_cutoff),
-        Err(err) => Err(err),
+    if params.cutoff_grid == 0 {
+        return Err(CommitteeError::ZeroCutoffGrid);
     }
+    if target_epoch == 0 {
+        return Ok(schedule.genesis_cutoff);
+    }
+    let base = schedule
+        .checked_l1_first(target_epoch.saturating_sub(LOOKAHEAD_EPOCHS))
+        .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
+    let lagged = base.saturating_sub(params.cutoff_lag);
+    Ok((lagged / params.cutoff_grid * params.cutoff_grid).max(schedule.genesis_cutoff))
+}
+
+/// The authenticated derivation configuration: eleven static Solidity ABI words.
+///
+/// Binds the L2 chain, registry, cutoff parameters, stake/power rules, heartbeat window,
+/// fixed two-epoch lookahead and committee-record encoding version.
+pub fn committee_config_hash(params: &ChainParams) -> B256 {
+    keccak256(
+        [
+            tag(b"ETNA_FIXED_CUTOFF_V1"),
+            word(params.l2_chain_id),
+            B256::from(U256::from_be_slice(params.registry.as_slice())),
+            word(params.cutoff_grid),
+            word(params.cutoff_lag),
+            word(params.vp_unit),
+            word(params.s_min),
+            word(params.n_max),
+            word(params.heartbeat_window),
+            word(LOOKAHEAD_EPOCHS),
+            word(ENCODING_VERSION),
+        ]
+        .concat(),
+    )
 }
 
 /// The registry slots a committee witness for checkpoint `i` proves, in this order:
@@ -388,34 +404,12 @@ pub fn verify_snapshot(
     Ok(Snapshot { checkpoint_index: index, l1_block, entries: w.entries.clone() })
 }
 
-/// The heartbeat requirement of `target_epoch`'s committee derived at `cutoff` (MEM-13(3) of
-/// #22262): `None` when the epoch's roster is not filtered by heartbeats, else the floor `f`. An
-/// entry of a filtered epoch is eligible only with a heartbeat (`lastHeartbeatSeq > 0`) and
-/// `lastHeartbeatAt >= f`.
+/// The existing MEM-13 heartbeat floor for the committee of `target_epoch` at `cutoff`.
 ///
-/// With `W = HEARTBEAT_WINDOW`, the evaluation instant is
-/// `I*(e) = floor(L1_first(e − LOOKAHEAD_EPOCHS) / W) · W`, the start of the window holding the
-/// first L1 block of the L1-side epoch `e − 2`, and `f = I*(e) − W`: the last heartbeat must
-/// name that window, the one before it or a later one, so an entry that attests once per window
-/// is always eligible. The instant follows from the genesis schedule and the target epoch
-/// alone; the cutoff, which the parent block's proposer moves by choosing its anchor, does not
-/// set it.
-///
-/// Two adaptations to in-consensus derivation, where the parent's anchor fixes the snapshot and a
-/// derivation that leaves no entry eligible halts the chain for good:
-/// - Epochs up to `e_0 + LOOKAHEAD_EPOCHS` are not filtered: `e_0` by CONS-14, and the launch
-///   epochs `e_0 + 1` and `e_0 + 2`. The spec shifts their instant two windows past `L1_0` and
-///   forbids appending their sets before then, but here `e_0 + 1` is derived at `H_0` from the
-///   registry snapshot at the floored cutoff of `L1_0` ([`snapshot_cutoff`], before `L1_0`), proven
-///   at the initialization block `L1_0` (the genesis anchor), so the shifted instant could never be
-///   met, and any filter on it would need the pre-genesis heartbeats CONS-14 does not rely on.
-/// - The instant is capped at the start of the window holding the cutoff, as the snapshot holds no
-///   later heartbeat. Every block of epoch `e − 2`, the parent of the height deriving `e` included,
-///   anchors at or after `L1_first(e − 2)`, so the cap binds only when the cutoff's lag and grid
-///   put it before `I*(e)`, and it only lowers the floor.
-///
-/// Errors: [`CommitteeError::ZeroHeartbeatWindow`] for a filtered epoch with `W = 0`;
-/// [`CommitteeError::EpochOutOfRange`] when `L1_first(e − 2)` overflows `u64`.
+/// Epochs 0, 1 and 2 are exempt. Later epochs evaluate the start of the heartbeat window
+/// containing `L1_first(target_epoch-2)`, capped by the window containing the cutoff, and
+/// subtract one window with saturation. Eligibility also requires a nonzero heartbeat sequence.
+/// Rejects a zero heartbeat window for filtered epochs or an overflowing L1 schedule.
 pub fn heartbeat_floor(
     schedule: &Schedule,
     heartbeat_window: u64,
@@ -524,9 +518,8 @@ pub fn derive(
 /// Verifies a committee witness for a target epoch after `e_0` end to end against the parent's
 /// anchor and returns the committee it proves.
 ///
-/// The anchor binds the two facts the witness depends on: the cutoff comes from its L1 block
-/// number with `params`' grid and lag, floored at `schedule.genesis_cutoff`
-/// ([`snapshot_cutoff`]), and the snapshot proofs verify against its state root. The rest is
+/// The epoch and authenticated schedule determine [`fixed_cutoff`]. The proving anchor must
+/// cover that cutoff; snapshot proofs authenticate under its state root. The rest follows
 /// [`verify_committee_witness_at_cutoff`].
 pub fn verify_committee_witness(
     parent_anchor: &AnchorState,
@@ -535,7 +528,10 @@ pub fn verify_committee_witness(
     w: &CommitteeWitness,
     target_epoch: u64,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
-    let cutoff = snapshot_cutoff(parent_anchor.number, schedule, params)?;
+    let cutoff = fixed_cutoff(schedule, params, target_epoch)?;
+    if cutoff > parent_anchor.number {
+        return Err(CommitteeError::CutoffAfterAnchor { cutoff, anchor: parent_anchor.number });
+    }
     verify_committee_witness_at_cutoff(
         parent_anchor.state_root,
         cutoff,
@@ -559,8 +555,8 @@ pub fn verify_committee_witness(
 /// against (the proving block). Only then is the snapshot final: a checkpoint written after the
 /// proving block but at or before `cutoff` would change it, and the proofs cannot show it.
 ///
-/// Every epoch after `e_0` goes through [`verify_committee_witness`], which takes the cutoff from
-/// the parent's anchor ([`snapshot_cutoff`]). The genesis committee `e_0` is verified here
+/// Runtime switches use [`verify_committee_witness`] and their epoch's fixed cutoff.
+/// The genesis committee `e_0` is verified here
 /// directly, with the Inbox's `genesisCutoff` against the `L1_0` header's state root: the
 /// genesis names that cutoff explicitly, as `L1_0` is unknown when the DAO proposal that
 /// activates Etna is written.

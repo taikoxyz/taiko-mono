@@ -45,9 +45,6 @@ pub struct DevnetSpec {
     pub margin_v: u64,
     /// CometBFT `timeout_commit`, in milliseconds.
     pub timeout_commit_ms: u64,
-    /// Whether the fake lander plants committee records from the start (see
-    /// [`Devnet::lander_land_committees`]).
-    pub land_committees: bool,
 }
 
 impl Default for DevnetSpec {
@@ -62,7 +59,6 @@ impl Default for DevnetSpec {
             d_max: 12,
             margin_v: 2,
             timeout_commit_ms: 1000,
-            land_committees: true,
         }
     }
 }
@@ -253,7 +249,7 @@ impl Devnet {
         &self.planter
     }
 
-    /// Pauses the fake lander: `lastCheckpoint` and `committee[·]` stop moving. Returns once a
+    /// Pauses the fake lander: `lastCheckpoint` stops moving. Returns once a
     /// landing already in flight has been mined, so L1 holds the frozen values.
     pub async fn lander_pause(&self) {
         self.lander.pause().await;
@@ -262,12 +258,6 @@ impl Devnet {
     /// Resumes the fake lander.
     pub fn lander_resume(&self) {
         self.lander.resume();
-    }
-
-    /// Makes the fake lander plant (`true`) or skip (`false`) the `committee[t]` records while
-    /// it keeps moving `lastCheckpoint`; skipped records are planted once re-enabled.
-    pub fn lander_land_committees(&self, land: bool) {
-        self.lander.set_land_committees(land);
     }
 
     /// The reason of app `i`'s safety halt, if it halted.

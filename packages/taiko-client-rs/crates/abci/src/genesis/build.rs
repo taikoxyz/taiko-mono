@@ -19,11 +19,11 @@ use crate::{
 /// `finalized` block and requires `ETNA_ACTIVE` ([`GenesisError::NotActive`]); requires the
 /// initialization block `L1_0` to be final with the chain's extra depth
 /// ([`GenesisError::InitializationNotFinal`]); takes the canonical header of `L1_0` and the Inbox
-/// proofs of `genesis_slots(e_0)` there, and verifies them as `InitChain` will (the record must
+/// proofs of `genesis_slots()` there, and verifies them as `InitChain` will (the record must
 /// name the same `L1_0`, `genesisCutoff` must lie before it, the schedule must be valid); builds
 /// the `e_0` committee witness with the snapshot at `genesisCutoff` itself (no cutoff lag or
 /// grid) and its proofs at `L1_0`, and requires the committee it proves to hash to
-/// `committee[e_0]` ([`GenesisError::CommitteeRecordMismatch`]).
+/// `genesisCommitteeRecordHash` ([`GenesisError::CommitteeRecordMismatch`]).
 ///
 /// The registry entries of that snapshot are read at the newest block that still holds it, which
 /// can be as old as `genesisCutoff`: the L1 node must serve that state (an archive node once it
@@ -50,8 +50,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     }
 
     let l1_header = header_at(l1, l1_0).await?;
-    let inbox_witness =
-        l1.account_witness(params.inbox, &inbox::genesis_slots(Schedule::E0), l1_0).await?;
+    let inbox_witness = l1.account_witness(params.inbox, &inbox::genesis_slots(), l1_0).await?;
     let context = verify_context(&l1_header, &inbox_witness, params)?;
     let schedule = Schedule::from_genesis(&context.genesis);
     let genesis_cutoff = context.genesis.genesis_cutoff;
