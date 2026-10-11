@@ -327,7 +327,7 @@ fn next_state(
         next.committees.insert(*epoch, derived.clone());
     }
 
-    let Some(t) = state.schedule.switch_target(height) else {
+    let Some(t) = state.schedule().switch_target(height) else {
         return Ok((next, vec![]));
     };
     let set = |epoch: u64| {

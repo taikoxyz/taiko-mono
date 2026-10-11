@@ -434,27 +434,27 @@ fn payload_attributes_id_depends_on_the_parent_hash() {
 // anchor progress, back-pressure, generation
 // ---------------------------------------------------------------------------------------------
 
-/// `H_0 = 101`, `L = 20`, `L1_0 = 50`, `EPOCH_LEN_L1 = 4`: epoch 2 starts at height 141 and needs
+/// `H_0 = 1`, `L = 20`, `L1_0 = 50`, `EPOCH_LEN_L1 = 4`: epoch 2 starts at height 41 and needs
 /// an anchor >= 58.
 fn schedule() -> Schedule {
-    Schedule { genesis_height: 100, l1_0: 50, epoch_len: 20, epoch_len_l1: 4, genesis_cutoff: 49 }
+    Schedule { l1_0: 50, epoch_len: 20, epoch_len_l1: 4, genesis_cutoff: 49 }
 }
 
 #[test]
 fn anchor_progress_accepts_monotone_anchors_at_or_past_the_epoch_minimum() {
     let s = schedule();
     // Same anchor as the parent, at L1_0, at H_0.
-    check_anchor_progress(50, 50, &s, 101).unwrap();
+    check_anchor_progress(50, 50, &s, 1).unwrap();
     // Exactly L1_first(2) at the first height of epoch 2.
-    check_anchor_progress(55, 58, &s, 141).unwrap();
+    check_anchor_progress(55, 58, &s, 41).unwrap();
     // Unchanged anchor past the epoch minimum.
-    check_anchor_progress(70, 70, &s, 160).unwrap();
+    check_anchor_progress(70, 70, &s, 60).unwrap();
 }
 
 #[test]
 fn anchor_progress_rejects_a_regression() {
     assert_eq!(
-        check_anchor_progress(60, 59, &schedule(), 141),
+        check_anchor_progress(60, 59, &schedule(), 41),
         Err(RuleViolation::AnchorRegressed { parent: 60, anchor: 59 })
     );
 }
@@ -462,7 +462,7 @@ fn anchor_progress_rejects_a_regression() {
 #[test]
 fn anchor_progress_rejects_an_anchor_before_activation() {
     assert_eq!(
-        check_anchor_progress(40, 49, &schedule(), 101),
+        check_anchor_progress(40, 49, &schedule(), 1),
         Err(RuleViolation::AnchorBeforeActivation { anchor: 49, l1_0: 50 })
     );
 }
@@ -470,11 +470,11 @@ fn anchor_progress_rejects_an_anchor_before_activation() {
 #[test]
 fn anchor_progress_rejects_an_epoch_not_yet_open_on_l1() {
     assert_eq!(
-        check_anchor_progress(55, 57, &schedule(), 141),
+        check_anchor_progress(55, 57, &schedule(), 41),
         Err(RuleViolation::EpochNotOpenOnL1 { epoch: 2, l1_first: 58 })
     );
     // The last height of epoch 1 only needs L1_first(1) = 54.
-    check_anchor_progress(55, 57, &schedule(), 140).unwrap();
+    check_anchor_progress(55, 57, &schedule(), 40).unwrap();
 }
 
 #[test]

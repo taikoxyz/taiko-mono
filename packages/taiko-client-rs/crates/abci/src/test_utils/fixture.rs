@@ -76,13 +76,13 @@ pub(crate) struct GenesisSpec {
 }
 
 impl GenesisSpec {
-    /// A valid genesis with `n_validators` validators: `B* = 1000`, `L1_0 = 64`, genesis cutoff
+    /// A valid genesis with `n_validators` validators: `B* = 0`, `L1_0 = 64`, genesis cutoff
     /// 63, `L = 20`, `EPOCH_LEN_L1 = 4`, generation 0, devnet parameters.
     pub(crate) fn new(n_validators: usize) -> Self {
         Self {
             n_validators,
             entries: None,
-            genesis_height: 1_000,
+            genesis_height: 0,
             l1_0: 64,
             genesis_cutoff: 63,
             checkpoint_l1_block: None,
@@ -152,7 +152,7 @@ impl Fixture {
     pub(crate) fn build(spec: GenesisSpec) -> Self {
         let params = spec.params.clone();
 
-        let el_chain = el_chain(spec.genesis_height);
+        let el_chain = el_chain();
         let b_star = el_chain.last().expect("the EL chain holds B*");
         let activation = ActivationRecord {
             genesis_height: spec.genesis_height,
@@ -202,7 +202,7 @@ impl Fixture {
             consensus_params: consensus_params(),
             validators: validator_updates(&members),
             app_state_bytes: encode_app_state(&witness).into(),
-            initial_height: Height::try_from(spec.genesis_height + 1).expect("height fits i64"),
+            initial_height: Height::from(1u32),
         };
 
         Self {
@@ -370,7 +370,6 @@ impl Fixture {
             chain_id: self.request.chain_id.clone(),
             generation: self.inbox.recovery_generation,
             activation: self.activation.clone(),
-            schedule: Schedule::from_activation(&self.activation),
             last_height: self.activation.genesis_height,
             parent: ParentInfo {
                 number: b_star.number,
@@ -443,29 +442,19 @@ pub(crate) fn validator_updates(members: &[Member]) -> Vec<validator::Update> {
         .collect()
 }
 
-/// The EL chain up to `B* = genesis_height`: `[B* − 1, B*]`, or `[B*]` when `B* = 0`. `B*`
-/// links to its parent and carries a base fee and zk gas (difficulty).
-pub(crate) fn el_chain(genesis_height: u64) -> Vec<Header> {
-    let block = |number: u64, parent_hash: B256| Header {
-        parent_hash,
+/// An EL genesis header with a base fee and zk gas (difficulty).
+pub(crate) fn el_chain() -> Vec<Header> {
+    vec![Header {
         beneficiary: Address::repeat_byte(0xfe),
-        state_root: B256::with_last_byte(u8::try_from(number % 251).expect("fits u8") + 1),
-        number,
+        state_root: B256::with_last_byte(1),
+        number: 0,
         gas_limit: 45_000_000,
-        gas_used: 21_000 * (number % 7 + 1),
-        timestamp: 1_760_000_000 + number * 2,
-        base_fee_per_gas: Some(10_000_000 + number),
-        difficulty: U256::from(243_000 + number),
+        gas_used: 21_000,
+        timestamp: 1_760_000_000,
+        base_fee_per_gas: Some(10_000_000),
+        difficulty: U256::from(243_000),
         ..Header::default()
-    };
-    match genesis_height.checked_sub(1) {
-        None => vec![block(0, B256::ZERO)],
-        Some(parent) => {
-            let parent = block(parent, B256::repeat_byte(0x99));
-            let b_star = block(genesis_height, parent.hash_slow());
-            vec![parent, b_star]
-        }
-    }
+    }]
 }
 
 /// CometBFT consensus parameters as the genesis builder writes them.
@@ -518,14 +507,5 @@ mod tests {
         assert_eq!(fx.members.len(), 3);
         assert_eq!(fx.request.validators.len(), 3);
         assert_eq!(fx.request.initial_height.value(), fx.activation.genesis_height + 1);
-    }
-
-    #[test]
-    fn fixture_el_chain_links_b_star_to_its_parent() {
-        let chain = el_chain(1_000);
-        assert_eq!(chain.len(), 2);
-        assert_eq!(chain[1].parent_hash, chain[0].hash_slow());
-        assert_eq!(chain[1].number, 1_000);
-        assert_eq!(el_chain(0).len(), 1);
     }
 }

@@ -85,16 +85,10 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
         return Err(GenesisError::CommitteeRecordMismatch { derived, recorded: committee_e0 });
     }
 
-    let initial_height = activation
-        .genesis_height
-        .checked_add(1)
-        .filter(|h| i64::try_from(*h).is_ok())
-        .ok_or(GenesisError::InitialHeight(activation.genesis_height))?;
     let chain_id = chain_id_for(params.l2_chain_id, facts.recovery_generation);
     GenesisDoc::assemble(
         &GenesisWitness { l1_header, inbox: inbox_witness, committee },
         chain_id,
-        initial_height,
         &members,
     )
 }

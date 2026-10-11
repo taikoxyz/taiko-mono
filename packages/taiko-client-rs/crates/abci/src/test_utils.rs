@@ -254,7 +254,7 @@ impl InboxStorage {
 /// block before `L1_0`).
 pub(crate) fn sample_activation() -> ActivationRecord {
     ActivationRecord {
-        genesis_height: 1_000,
+        genesis_height: 0,
         l1_0: 64,
         epoch_len: 20,
         epoch_len_l1: 4,

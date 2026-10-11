@@ -35,7 +35,7 @@ const JOIN_BLOCK: u64 = 72;
 /// the two anchors select different checkpoints. Returns the app and the new anchor.
 async fn epoch_start(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, AnchorState) {
     let mut app = initialized(fx, dir).await;
-    let h_e = app.state().unwrap().schedule.h_first(1);
+    let h_e = app.state().unwrap().schedule().h_first(1);
     fx.plant_l1_block(app.l1(), PARENT_ANCHOR, &fx.inbox_with(h_e - 6, &[]), &fx.registry);
     let parent = fx.anchor_state(app.l1(), PARENT_ANCHOR, None);
     jump(&mut app, h_e - 1, parent, &[(1, fx.committee(1))]);
@@ -53,7 +53,7 @@ async fn epoch_start(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, Anch
 /// `n_p` (its L1 state and its cutoff).
 async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness {
     let progress = DiscoveryProgress::default();
-    let schedule = app.state().expect("initialized").schedule;
+    let schedule = app.state().expect("initialized").schedule();
     build_committee_witness_within(
         app.l1(),
         &app.params,
@@ -108,7 +108,7 @@ async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
     assert_eq!(w.record.checkpoint_index, 1);
     assert_eq!(w.entries, sample_entries(4));
     assert_eq!(
-        verify_committee_witness(&moved, &app.state().unwrap().schedule, &app.params, &w, 2)
+        verify_committee_witness(&moved, &app.state().unwrap().schedule(), &app.params, &w, 2)
             .map(|_| ()),
         Ok(()),
         "valid against the new anchor"
@@ -196,7 +196,7 @@ async fn switch_height_with_an_unknown_committee_is_rejected() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule.h_first(1) - 2;
+    let switch = app.state().unwrap().schedule().h_first(1) - 2;
     let c1 = fx.committee(1);
     let landed = fx.inbox_with(switch - 7, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
     fx.advance_l1(app.l1(), 66, &landed, &fx.registry);

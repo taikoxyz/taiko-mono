@@ -348,7 +348,7 @@ pub(crate) fn check_candidate_anchor(
     height: u64,
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
-    let schedule = &state.schedule;
+    let schedule = &state.schedule();
     let switch = schedule.switch_target(height);
 
     let anchor = candidate_anchor(state, params, height, switch, c)?;
@@ -383,7 +383,7 @@ pub(crate) fn finish_candidate(
     anchor: AnchorState,
 ) -> Result<CandidateFacts, Rejection> {
     let derived = candidate_committee(state, params, height, committee)?;
-    if let Some(t) = state.schedule.switch_target(height) {
+    if let Some(t) = state.schedule().switch_target(height) {
         check_switch(state, params, t, &anchor)?;
     }
     Ok(CandidateFacts { anchor, derived })
@@ -408,7 +408,7 @@ fn candidate_anchor(
     switch: Option<u64>,
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
-    let forced = height == state.schedule.h0() || switch.is_some();
+    let forced = height == state.schedule().h0() || switch.is_some();
     match c.anchor {
         None if forced || c.extra_anchor != state.anchor.number => {
             Err(Rejection::MissingWitness(WitnessKind::Anchor))
@@ -429,14 +429,14 @@ fn candidate_committee(
     height: u64,
     w: Option<&CommitteeWitness>,
 ) -> Result<Option<(u64, CommitteeState)>, Rejection> {
-    match (state.schedule.epoch_starting_at(height), w) {
+    match (state.schedule().epoch_starting_at(height), w) {
         (None, None) => Ok(None),
         (None, Some(_)) => Err(Rejection::UnexpectedWitness(WitnessKind::Committee)),
         (Some(_), None) => Err(Rejection::MissingWitness(WitnessKind::Committee)),
         (Some(e), Some(w)) => {
             let target = e.checked_add(1).expect("an epoch below u64::MAX starts at a u64 height");
             let (record, members) =
-                verify_committee_witness(&state.anchor, &state.schedule, params, w, target)?;
+                verify_committee_witness(&state.anchor, &state.schedule(), params, w, target)?;
             Ok(Some((target, CommitteeState { record, members })))
         }
     }
@@ -459,7 +459,7 @@ fn check_switch(
         return Err(Rejection::CommitteeUnknown(prev));
     }
     let next = state.committees.get(&t).ok_or(Rejection::CommitteeUnknown(t))?;
-    let required = state.schedule.h_first(prev);
+    let required = state.schedule().h_first(prev);
     let last_checkpoint_height = anchor.inbox.last_checkpoint_height;
     if last_checkpoint_height < required {
         return Err(Rejection::CheckpointNotLanded { last_checkpoint_height, required });

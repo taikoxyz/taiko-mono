@@ -171,7 +171,7 @@ async fn failing_pre_checks_propose_nothing() {
     // Epoch 1 opens on L1 only at L1_first(1) = L1_0 + EPOCH_LEN_L1.
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let h_first = app.state().unwrap().schedule.h_first(1);
+    let h_first = app.state().unwrap().schedule().h_first(1);
     let anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
     jump(&mut app, h_first - 1, anchor, &[(1, fx.committee(1))]);
     assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
@@ -244,7 +244,7 @@ fn registry_reads(app: &App<MockL1, MockEngine>) -> usize {
 /// checkpoint is within the cap: the proposer there discovers the committee of epoch 2.
 async fn before_epoch_start(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
     let mut app = initialized(fx, dir).await;
-    let h_e = app.state().unwrap().schedule.h_first(1);
+    let h_e = app.state().unwrap().schedule().h_first(1);
     fx.advance_l1(app.l1(), 70, &fx.inbox_with(h_e - 6, &[]), &fx.registry);
     let anchor = fx.anchor_state(app.l1(), 70, None);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
@@ -271,7 +271,7 @@ async fn a_second_round_at_an_epoch_start_reuses_the_committee_witness() {
     let witness = crate::l1::build_committee_witness(
         app.l1(),
         &app.params,
-        &app.state().unwrap().schedule,
+        &app.state().unwrap().schedule(),
         70,
         2,
     )
@@ -349,7 +349,7 @@ async fn a_discovery_cut_short_by_the_deadline_resumes_where_it_stopped() {
     let witness = crate::l1::build_committee_witness(
         app.l1(),
         &app.params,
-        &app.state().unwrap().schedule,
+        &app.state().unwrap().schedule(),
         70,
         2,
     )
@@ -373,7 +373,7 @@ async fn a_cached_committee_witness_of_another_parent_anchor_is_not_reused() {
     assert_eq!(refused(&mut app).await, "engine_error");
 
     // The committed parent moves to anchor 72 (e.g. after a state rewrite): rediscovered there.
-    let h_e = app.state().unwrap().schedule.h_first(1);
+    let h_e = app.state().unwrap().schedule().h_first(1);
     fx.advance_l1(app.l1(), 72, &fx.inbox_with(h_e - 6, &[]), &fx.registry);
     let anchor = fx.anchor_state(app.l1(), 72, None);
     jump(&mut app, h_e - 1, anchor, &[]);
@@ -393,7 +393,7 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     // Back-pressure: the checkpoint is still at B*, more than the cap below h_first(1).
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let h_e = app.state().unwrap().schedule.h_first(1);
+    let h_e = app.state().unwrap().schedule().h_first(1);
     fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
     let anchor = fx.anchor_state(app.l1(), 70, None);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);

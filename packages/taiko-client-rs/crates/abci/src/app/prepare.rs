@@ -80,7 +80,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(Rejection::ChainSuperseded);
         }
         let params = &self.params;
-        let schedule = &state.schedule;
+        let schedule = &state.schedule();
         let height = req.height.value();
         let switch = schedule.switch_target(height);
 
