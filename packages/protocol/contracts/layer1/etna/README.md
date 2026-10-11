@@ -162,6 +162,10 @@ one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 entries exi
 
 ## Landing
 
+`l1ReferenceBlockNumber` names the L1 reference block used to authenticate this batch's L1 header
+chain. Each L2 block keeps its own anchor; they need not all use this reference block. Their anchors
+must lie on the header chain ending at `l1ReferenceBlockHash`, the reference block's hash.
+
 `land(input, proof)` is permissionless. With `p` and `parentHash` the last checkpoint's height and
 block hash, it requires, in order:
 
@@ -176,7 +180,7 @@ block hash, it requires, in order:
    `epoch == e + 1` and a non-zero hash; anything missing, extra, reordered or zero reverts
    `CommitteeRecordsMismatch`. Each becomes `committee[e + 1]`, which must still be empty
    (`CommitteeAlreadyRecorded`).
-5. `anchorNumber < block.number`, with its hash from `blockhash` up to 256 blocks back or from the
+5. `l1ReferenceBlockNumber < block.number`, with its hash from `blockhash` up to 256 blocks back or from the
    EIP-2935 history contract (`0x0000F90827F1C53a10cb7A02335B175320002935`) up to 8191 blocks back,
    and non-zero (`AnchorUnavailable`).
 6. The transaction carries at least one blob (`BlobsRequired`); all of its blob hashes are bound.
@@ -197,7 +201,7 @@ statementHash = keccak256(abi.encode(
     p, parentHash,                 // uint64, bytes32
     startCommitteeRecordHash,      // bytes32, read from committee[p / epochLenL2]
     lastHeight, lastBlockHash, lastStateRoot,
-    anchorNumber, anchorHash,      // uint64, bytes32
+    l1ReferenceBlockNumber, l1ReferenceBlockHash,      // uint64, bytes32
     keccak256(abi.encode(records)),
     keccak256(abi.encodePacked(blobHashes))
 ));
@@ -224,7 +228,7 @@ and new committee records are claims whose correctness the proof must establish.
 must accept only an Etna program that enforces the following V3 constraints:
 
 1. **Authenticate the context and contract identities.** Reconstruct the L1 header whose RLP
-   hash is the bound `anchorHash`, then authenticate all other block anchors through its
+   hash is the bound `l1ReferenceBlockHash`, then authenticate all other block anchors through its
    parent-header chain. Every Inbox account proof must target the **bound Inbox address**, and
    every registry account proof must target the **bound registry address**. Derive the account-trie
    key from the corresponding 20-byte address and verify the account proof against the chosen
@@ -302,7 +306,7 @@ Notes for guests:
   verifier still pins the trusted Etna program and its protocol rules; an address change alone
   does not require a different guest image. A proof for another Inbox or registry has a different
   V3 statement, even when all other inputs are identical.
-- `anchorNumber` may be a recent L1 block after all batch anchors, so a landing outage longer than
+- `l1ReferenceBlockNumber` may be a recent L1 block after all batch anchors, so a landing outage longer than
   the EIP-2935 window need not strand old blocks. Every storage witness must still authenticate
   against an anchor on that header chain; current tentative writes cannot serve as past L1 proofs.
 

@@ -37,8 +37,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint64 lastHeight;
         bytes32 lastBlockHash;
         bytes32 lastStateRoot;
-        uint64 anchorNumber;
-        bytes32 anchorHash;
+        uint64 l1ReferenceBlockNumber;
+        bytes32 l1ReferenceBlockHash;
         bytes32 recordsHash;
         bytes32 blobHashesHash;
     }
@@ -209,7 +209,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             parent.blockHash,
             startCommitteeRecordHash,
             _input,
-            _readAnchorHash(_input.anchorNumber),
+            _readL1ReferenceBlockHash(_input.l1ReferenceBlockNumber),
             _readBlobHashes()
         );
 
@@ -226,7 +226,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             lastHeight,
             _input.lastBlockHash,
             _input.lastStateRoot,
-            _input.anchorNumber,
+            _input.l1ReferenceBlockNumber,
             statementHash,
             msg.sender
         );
@@ -241,7 +241,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         bytes32 _parentHash,
         bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
-        bytes32 _anchorHash,
+        bytes32 _l1ReferenceBlockHash,
         bytes32[] calldata _blobHashes
     )
         external
@@ -254,7 +254,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             _parentHash,
             _startCommitteeRecordHash,
             _input,
-            _anchorHash,
+            _l1ReferenceBlockHash,
             _blobHashes
         );
     }
@@ -302,7 +302,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @param _parentHash The hash of the block the batch builds on.
     /// @param _startCommitteeRecordHash The on-chain record hash of the first block's committee.
     /// @param _input The batch.
-    /// @param _anchorHash The L1 block hash of `_input.anchorNumber`.
+    /// @param _l1ReferenceBlockHash The L1 block hash of `_input.l1ReferenceBlockNumber`.
     /// @param _blobHashes The versioned hashes of the batch's blobs.
     /// @return The landing statement hash.
     function _hashLandStatement(
@@ -311,7 +311,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         bytes32 _parentHash,
         bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
-        bytes32 _anchorHash,
+        bytes32 _l1ReferenceBlockHash,
         bytes32[] memory _blobHashes
     )
         internal
@@ -331,8 +331,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         statement.lastHeight = _input.lastHeight;
         statement.lastBlockHash = _input.lastBlockHash;
         statement.lastStateRoot = _input.lastStateRoot;
-        statement.anchorNumber = _input.anchorNumber;
-        statement.anchorHash = _anchorHash;
+        statement.l1ReferenceBlockNumber = _input.l1ReferenceBlockNumber;
+        statement.l1ReferenceBlockHash = _l1ReferenceBlockHash;
         statement.recordsHash = keccak256(abi.encode(_input.records));
         statement.blobHashesHash = keccak256(abi.encodePacked(_blobHashes));
         return keccak256(abi.encode(statement));
@@ -381,24 +381,28 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(i == count, CommitteeRecordsMismatch());
     }
 
-    /// @dev Returns the hash of L1 block `_anchorNumber`: from `blockhash` for the last 256
+    /// @dev Returns the hash of L1 block `_l1ReferenceBlockNumber`: from `blockhash` for the last 256
     /// blocks, from the EIP-2935 history contract for the last 8191; reverts otherwise or if the
     /// hash is zero.
-    /// @param _anchorNumber The L1 block number.
-    /// @return anchorHash_ The L1 block hash.
-    function _readAnchorHash(uint64 _anchorNumber) private view returns (bytes32 anchorHash_) {
-        require(_anchorNumber < block.number, AnchorUnavailable());
-        uint256 age = block.number - _anchorNumber;
+    /// @param _l1ReferenceBlockNumber The L1 block number.
+    /// @return l1ReferenceBlockHash_ The L1 block hash.
+    function _readL1ReferenceBlockHash(uint64 _l1ReferenceBlockNumber)
+        private
+        view
+        returns (bytes32 l1ReferenceBlockHash_)
+    {
+        require(_l1ReferenceBlockNumber < block.number, AnchorUnavailable());
+        uint256 age = block.number - _l1ReferenceBlockNumber;
         if (age <= _BLOCKHASH_WINDOW) {
-            anchorHash_ = blockhash(_anchorNumber);
+            l1ReferenceBlockHash_ = blockhash(_l1ReferenceBlockNumber);
         } else {
             require(age <= _HISTORY_SERVE_WINDOW, AnchorUnavailable());
             (bool success, bytes memory data) =
-                _HISTORY_STORAGE_ADDRESS.staticcall(abi.encode(uint256(_anchorNumber)));
+                _HISTORY_STORAGE_ADDRESS.staticcall(abi.encode(uint256(_l1ReferenceBlockNumber)));
             require(success && data.length == 32, AnchorUnavailable());
-            anchorHash_ = abi.decode(data, (bytes32));
+            l1ReferenceBlockHash_ = abi.decode(data, (bytes32));
         }
-        require(anchorHash_ != 0, AnchorUnavailable());
+        require(l1ReferenceBlockHash_ != 0, AnchorUnavailable());
     }
 
     /// @dev Returns the versioned hashes of the transaction's blobs; reverts if there are none.

@@ -87,11 +87,12 @@ interface IEtnaInbox {
         bytes32 lastBlockHash;
         /// @notice The state root of the batch's last block.
         bytes32 lastStateRoot;
-        /// @notice An L1 block such that every block of the batch has its anchor on the L1 header
-        /// chain ending at this block's hash, i.e. at or after the last block's anchor number.
-        /// @dev A lander picks a recent L1 block, so a landing outage longer than the EIP-2935
+        /// @notice The L1 reference block authenticating the batch's anchor header chain.
+        /// @dev Every L2 block may have its own anchor; all must be on the L1 header chain ending
+        /// at this reference block, whose number is at least the last block's anchor number.
+        /// A lander picks a recent L1 block, so a landing outage longer than the EIP-2935
         /// window does not strand the batch.
-        uint64 anchorNumber;
+        uint64 l1ReferenceBlockNumber;
         /// @notice One record per epoch whose first block lies in the batch, in ascending order.
         CommitteeRecord[] records;
     }
@@ -128,7 +129,7 @@ interface IEtnaInbox {
     /// @param lastHeight The height of the batch's last block, the new checkpoint.
     /// @param lastBlockHash The hash of the batch's last block.
     /// @param lastStateRoot The state root of the batch's last block.
-    /// @param anchorNumber The L1 block whose header chain holds every block's anchor.
+    /// @param l1ReferenceBlockNumber The L1 block whose header chain holds every block's anchor.
     /// @param statementHash The landing statement hash the proof was verified against.
     /// @param lander The caller.
     event BatchLanded(
@@ -136,7 +137,7 @@ interface IEtnaInbox {
         uint64 lastHeight,
         bytes32 lastBlockHash,
         bytes32 lastStateRoot,
-        uint64 anchorNumber,
+        uint64 l1ReferenceBlockNumber,
         bytes32 statementHash,
         address indexed lander
     );
@@ -166,7 +167,7 @@ interface IEtnaInbox {
     /// `h_first(e) = 1 + e * epochLenL2` lies in the batch, in ascending order,
     /// `_input.records` holds exactly one non-zero record with `epoch == e + 1` and
     /// `committee[e + 1]` is still empty (the record then becomes `committee[e + 1]`), and no
-    /// other record; `anchorNumber` is a past L1 block whose hash is available, from `blockhash`
+    /// other record; `l1ReferenceBlockNumber` is a past L1 block whose hash is available, from `blockhash`
     /// for the last 256 blocks and from the EIP-2935 history contract for the last 8191; the
     /// transaction carries at least one blob, and the batch binds the hashes of all of them. Then
     /// makes `(lastHeight, lastBlockHash)` the last checkpoint, saves
@@ -188,8 +189,8 @@ interface IEtnaInbox {
     ///   its set root, total stake and mapped voting power under the authenticated chain rules;
     /// - each height has a CometBFT commit with more than 2/3 of the voting power of its epoch
     ///   committee, under `chain_id = taiko-etna-<l2ChainId>-g<generation>`;
-    /// - every block's anchor lies on the L1 header chain ending at `anchorHash`, the hash of
-    ///   `anchorNumber`, so `anchorNumber` is at or after the last block's anchor number. A lander
+    /// - every block's anchor lies on the L1 header chain ending at `l1ReferenceBlockHash`, the hash of
+    ///   `l1ReferenceBlockNumber`, so `l1ReferenceBlockNumber` is at or after the last block's anchor number. A lander
     ///   picks a recent L1 block, so a landing outage longer than the 8191-block EIP-2935 window
     ///   does not strand the batch;
     /// - each output record for epoch e + 1 is derived at h_first(e), using the PARENT block's
@@ -202,7 +203,7 @@ interface IEtnaInbox {
     ///   authorize its own switch. Apply CometBFT's H+2 update timing, so t signs from h_first(t);
     /// - a later committee whose derivation height precedes this batch is authenticated against
     ///   its already-landed Inbox record using a storage proof under an L1 anchor on the header
-    ///   chain ending at anchorHash. It must not be supplied as an unchecked committee or mistaken
+    ///   chain ending at l1ReferenceBlockHash. It must not be supplied as an unchecked committee or mistaken
     ///   for an output of this batch. When the derivation height is inside this batch, the guest
     ///   uses the derived record that is committed by the batch outputs;
     /// - the blocks' data is encoded in the bound blobs (the encoding is defined with the lander
@@ -222,7 +223,7 @@ interface IEtnaInbox {
     /// @dev The hash is keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V3"), block.chainid,
     /// l2ChainId, address(this), address(stakingRegistry), _generation, _parentHeight, _parentHash,
     /// _startCommitteeRecordHash, lastHeight,
-    /// lastBlockHash, lastStateRoot, anchorNumber, _anchorHash, keccak256(abi.encode(records)),
+    /// lastBlockHash, lastStateRoot, l1ReferenceBlockNumber, _l1ReferenceBlockHash, keccak256(abi.encode(records)),
     /// keccak256(abi.encodePacked(_blobHashes)))). Chain id is uint256; generation, heights and
     /// anchor number are uint64; identities are address; hashes are bytes32. Both identities are
     /// derived internally: call this helper through the Inbox proxy to bind its address, rather
@@ -234,7 +235,7 @@ interface IEtnaInbox {
     /// @param _parentHash The hash of the block the batch builds on.
     /// @param _startCommitteeRecordHash The record hash of the batch's first committee.
     /// @param _input The batch.
-    /// @param _anchorHash The L1 block hash of `_input.anchorNumber`.
+    /// @param _l1ReferenceBlockHash The L1 block hash of `_input.l1ReferenceBlockNumber`.
     /// @param _blobHashes The versioned hashes of the batch's blobs, in transaction order.
     /// @return The landing statement hash.
     function hashLandStatement(
@@ -243,7 +244,7 @@ interface IEtnaInbox {
         bytes32 _parentHash,
         bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
-        bytes32 _anchorHash,
+        bytes32 _l1ReferenceBlockHash,
         bytes32[] calldata _blobHashes
     )
         external
