@@ -48,12 +48,79 @@ one block once for compatibility; the first completed batch establishes the mark
 
 `resync` requires no retained NFT balances, NFT transfer claims or NFT checkpoint
 for that chain. A rebuild must reconcile and clear these three together. `sync`
+also rejects NFT claims without any balance rows: already claimed transfers are
+skipped, so they cannot reconstruct balances that were deleted independently. It
 refuses genesis replay when balances exist without either an NFT checkpoint or a
 legacy events watermark, regardless of claims or `ALLOW_UNCLAIMED_BALANCE_REPLAY`.
 The existing recency check remains for the narrow legacy bootstrap overlap: the
 escape hatch accepts its possible single overcount, not an unsafe clean rebuild.
 Malformed recognized ERC1155 logs warn and skip; valid later logs continue, while
 repository and RPC errors fail the batch.
+
+### Rebuilding one chain
+
+Stop every indexer for the selected chain and back up/reconcile its NFT state.
+Do not clear only balances or truncate shared tables. The following MySQL example
+clears the three NFT state sets for Mainnet while preserving other chains and
+historical business events; select the intended chain before executing it:
+
+```sql
+SET @nft_chain_id = 167000;
+START TRANSACTION;
+DELETE FROM nft_balances WHERE chain_id = @nft_chain_id;
+DELETE FROM processed_transfer_logs
+WHERE chain_id = @nft_chain_id AND kind = 'nft';
+DELETE FROM events
+WHERE chain_id = @nft_chain_id AND event = 'NFTIndexerCheckpoint';
+COMMIT;
+```
+
+Start the empty state with `INDEX_NFTS=true` and `SYNC_MODE=resync`. As soon as
+indexing begins, change the deployment environment to `SYNC_MODE=sync` before
+its next restart. Continue from the saved checkpoint after an interruption;
+do not clear state again merely because a retained `resync` environment is refused.
+
+### Deliberately skipping a blocked range
+
+Repair RPC/database failures before choosing to omit history. If an operator
+decides to skip through block N, stop every writer and back up the selected
+chain's state first. Confirm N exists on the selected chain and does not exceed
+its current RPC head. With an existing checkpoint, this example advances Mainnet
+through block 20000000; check that exactly one row changed:
+
+```sql
+UPDATE events
+SET emitted_block_id = 20000000, transacted_at = NOW()
+WHERE chain_id = 167000 AND event = 'NFTIndexerCheckpoint'
+  AND emitted_block_id < 20000000;
+SELECT ROW_COUNT();
+```
+
+If no checkpoint exists, do not treat an update affecting zero rows as success.
+After reconciling the intended starting position, a stopped writer permits this
+guarded initial marker insertion; expect one inserted row, and verify the marker:
+
+```sql
+INSERT INTO events
+  (name, event, chain_id, data, emitted_block_id, transacted_at)
+SELECT 'NFTIndexerCheckpoint', 'NFTIndexerCheckpoint', 167000, '{}', 20000000, NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM events
+  WHERE chain_id = 167000 AND event = 'NFTIndexerCheckpoint'
+);
+SELECT ROW_COUNT();
+SELECT emitted_block_id FROM events
+WHERE chain_id = 167000 AND event = 'NFTIndexerCheckpoint';
+```
+
+Restart in
+`SYNC_MODE=sync`: filtering begins at N+1, and the omitted range will not update
+NFT balances. Those omissions require separate reconciliation. Moving a marker
+backward does not rebuild balances while transfer claims remain.
+
+The `eventindexer_nft_indexer_lag_blocks{chain_id="..."}` metric reports the last
+observed RPC head minus the successfully checkpointed position, clamped at zero.
+It stays positive when a batch fails; it is not a proof of current RPC health.
 
 All historical migrations remain unchanged for installed database and Goose
 version compatibility; no tables or existing data are dropped. Historical

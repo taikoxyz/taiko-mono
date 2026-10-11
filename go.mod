@@ -8,7 +8,6 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
 	github.com/cyberhorsey/webutils v0.0.0-20230314183728-56890c6ddbe7
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/ethereum-optimism/optimism v1.7.4
 	github.com/ethereum/go-ethereum v1.15.5
@@ -28,14 +27,12 @@ require (
 	github.com/modern-go/reflect2 v1.0.2
 	github.com/morkid/paginate v1.1.11
 	github.com/orcaman/concurrent-map/v2 v2.0.1
-	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prysmaticlabs/prysm/v5 v5.3.3
 	github.com/rabbitmq/amqp091-go v1.15.0
-	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.44.0
@@ -89,6 +86,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.5.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect

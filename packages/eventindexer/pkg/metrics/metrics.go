@@ -3,14 +3,14 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"log/slog"
 	"strconv"
 
 	echoprom "github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/urfave/cli/v2"
 )
