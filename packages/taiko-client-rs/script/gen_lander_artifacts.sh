@@ -2,7 +2,7 @@
 # Reproduce the Etna landing ABI and actual-contract integration artifacts.
 set -euo pipefail
 
-PINNED_REVISION=639bae72ba2e69fc44387306d56f9fef7cb6703d
+PINNED_REVISION=1a964fb41275d2717d570b2b2bb7bf914cc94b98
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
