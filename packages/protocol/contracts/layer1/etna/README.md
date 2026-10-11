@@ -188,9 +188,11 @@ which reverts on a bad proof and undoes everything. The statement is:
 
 ```solidity
 statementHash = keccak256(abi.encode(
-    bytes32("TAIKO_ETNA_LAND_V2"),
+    bytes32("TAIKO_ETNA_LAND_V3"),
     block.chainid,                 // uint256
     l2ChainId,                     // uint64
+    address(this),                 // address: Inbox proxy, not implementation or caller
+    address(stakingRegistry),      // address: configured registry
     recoveryGeneration,            // uint64
     p, parentHash,                 // uint64, bytes32
     startCommitteeRecordHash,      // bytes32, read from committee[p / epochLenL2]
@@ -201,24 +203,42 @@ statementHash = keccak256(abi.encode(
 ));
 ```
 
-The V2 domain separates this encoding from V1, which did not bind the starting committee.
-`hashLandStatement` is a raw encoding helper with an explicit starting-record argument. It does
-not authenticate that argument; `land` supplies the value read from storage. The fixed vector in
-`test/layer1/etna/EtnaInboxLand.t.sol` pins all fields for the guest and lander.
+The V3 domain separates this encoding from earlier schemas without explicit contract identities.
+The preimage has sixteen static ABI words (512 bytes); each address occupies one word with twelve
+leading zero bytes. The implementation assembles a memory-only static struct, whose ABI encoding
+is identical to the flat field list above.
+
+`hashLandStatement` derives both addresses internally, just like `land`. Call it through the Inbox
+proxy: delegatecall makes `address(this)` the proxy, while a direct call to the implementation binds
+the implementation address. Neither identity comes from `msg.sender` or a calldata argument. The
+helper still takes an explicit starting-record argument for raw encoding; `land` supplies that
+record from storage. The fixed vector in `test/layer1/etna/EtnaInboxLand.t.sol` pins all fields for
+the guest and lander, including fixed Inbox and registry addresses.
 
 ### Verification constraints
 
-The trusted inputs are the parent checkpoint, generation and starting committee record read by
-`land`, plus the L1 anchor hash and actual transaction blob hashes. The terminal block/state roots
+The trusted inputs are the executing Inbox address, its configured registry address, the parent
+checkpoint, generation and starting committee record read by `land`, plus the L1 anchor hash and
+actual transaction blob hashes. The terminal block/state roots
 and new committee records are claims whose correctness the proof must establish. The verifier
-must accept only an Etna program that enforces the following V2 constraints:
+must accept only an Etna program that enforces the following V3 constraints:
 
-1. **Authenticate the context.** Reconstruct the L1 header whose RLP hash is the bound
-   `anchorHash`, then authenticate all other block anchors through its parent-header chain. Verify
-   Inbox/registry account and storage proofs against those headers' state roots. The epoch schedule
-   and genesis record must match the authenticated Inbox state; selection parameters and contract
-   addresses must match the trusted program configuration. A witness cannot choose another registry,
-   epoch length, cutoff rule or voting-power unit.
+1. **Authenticate the context and contract identities.** Reconstruct the L1 header whose RLP
+   hash is the bound `anchorHash`, then authenticate all other block anchors through its
+   parent-header chain. Every Inbox account proof must target the **bound Inbox address**, and
+   every registry account proof must target the **bound registry address**. Derive the account-trie
+   key from the corresponding 20-byte address and verify the account proof against the chosen
+   authenticated L1 header's state root. Verify its storage proofs under that account's proved
+   storage root. A witness-supplied address or a valid proof for another account cannot override
+   either identity, even if that account happens to contain the same storage values.
+
+   Read the epoch schedule, genesis and switch state from the authenticated bound Inbox account;
+   read registry checkpoints and roots from the authenticated bound registry account. Selection
+   parameters must match the trusted program's protocol configuration. A witness cannot choose
+   another epoch length, cutoff rule or voting-power unit. Binding identities and authenticating
+   historical state are separate checks: the latter still uses the prescribed historical snapshots,
+   not the registry's latest state at submission time.
+
 2. **Open the starting commitment.** Hash the full starting committee record and require equality
    with `startCommitteeRecordHash`, with `targetEpoch == p / epochLenL2`. Its supplied members must
    reconstruct the canonical MEM-08 set root, total stake and voting power. The record encoding is
@@ -242,8 +262,7 @@ must accept only an Etna program that enforces the following V2 constraints:
    anchor to compute the prescribed snapshot cutoff, floored at `genesisCutoff`. For L2 block 1,
    the parent anchor is the genesis record's L1 initialization block `L1_0`. Authenticate the
    registry checkpoint selected at that cutoff, reconstruct `entriesRoot` from its complete entry
-   list, and apply the same
-   eligibility, key deduplication, size cap and power mapping as the node. The resulting record for
+   list, and apply the same eligibility, key deduplication, size cap and power mapping as the node. The resulting record for
    `e + 1` must equal the corresponding committed `records` output. These are future records to be
    landed by this transaction; they are not independently trusted committees.
 4. **Verify every switch.** At `h_switch(t) = h_first(t) - 2`, reproduce the node's switch gate
@@ -259,7 +278,7 @@ must accept only an Etna program that enforces the following V2 constraints:
    CometBFT commits with strictly more than 2/3 of the correct committee's voting power under
    `taiko-etna-<l2ChainId>-g<generation>`, and the data commitment to the bound blob hashes. The
    resulting terminal height, block hash, state root and committee outputs must reproduce the bound
-   V2 statement exactly.
+   V3 statement exactly.
 
 For example, with `L = 10`, a previous landing of blocks 1–5 has already stored `committee[1]`,
 derived at block 1. A new batch 6–12 starts under `committee[0]`: its bound starting record is C0.
@@ -278,8 +297,11 @@ Notes for guests:
 
 - `keccak256(abi.encode(records))` hashes a dynamic-array ABI encoding: the `0x20` offset word,
   length, then each record as two words (`epoch`, `recordHash`).
-- Inbox and registry addresses are fixed by the trusted program image because the statement does
-  not bind `address(this)`. Another Inbox requires another image/configuration.
+- Inbox and registry identities are authenticated public inputs. Guest code must use these
+  identities for its MPT proofs rather than rely on per-deployment hardcoded addresses. The
+  verifier still pins the trusted Etna program and its protocol rules; an address change alone
+  does not require a different guest image. A proof for another Inbox or registry has a different
+  V3 statement, even when all other inputs are identical.
 - `anchorNumber` may be a recent L1 block after all batch anchors, so a landing outage longer than
   the EIP-2935 window need not strand old blocks. Every storage witness must still authenticate
   against an anchor on that header chain; current tentative writes cannot serve as past L1 proofs.

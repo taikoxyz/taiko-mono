@@ -18,6 +18,32 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    /// @dev The V3 statement in wire order. All fields are static, so abi.encode of this
+    /// memory-only struct is the same sixteen-word encoding as the flat field list. Building
+    /// it one field at a time keeps the non-IR compiler within its stack limit.
+    struct LandStatement {
+        bytes32 domain;
+        uint256 l1ChainId;
+        uint64 l2ChainId;
+        address inbox;
+        address stakingRegistry;
+        uint64 generation;
+        uint64 parentHeight;
+        bytes32 parentHash;
+        bytes32 startCommitteeRecordHash;
+        uint64 lastHeight;
+        bytes32 lastBlockHash;
+        bytes32 lastStateRoot;
+        uint64 anchorNumber;
+        bytes32 anchorHash;
+        bytes32 recordsHash;
+        bytes32 blobHashesHash;
+    }
+
+    // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
@@ -28,7 +54,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
 
     /// @dev The domain tag of the landing statement.
-    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V2");
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V3");
 
     /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
     uint256 private constant _BLOCKHASH_WINDOW = 256;
@@ -268,7 +294,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @dev Computes the landing statement hash; the single encoding behind `land` and
-    /// `hashLandStatement`. The guest and the lander reproduce it byte for byte.
+    /// `hashLandStatement`. The execution address is the Inbox proxy under delegatecall, and
+    /// the registry address comes from this implementation's immutable configuration. The guest
+    /// and the lander reproduce this encoding byte for byte.
     /// @param _generation The recovery generation.
     /// @param _parentHeight The height of the block the batch builds on.
     /// @param _parentHash The hash of the block the batch builds on.
@@ -290,24 +318,24 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         view
         returns (bytes32)
     {
-        return keccak256(
-            abi.encode(
-                _LAND_STATEMENT_TAG,
-                block.chainid,
-                _l2ChainId,
-                _generation,
-                _parentHeight,
-                _parentHash,
-                _startCommitteeRecordHash,
-                _input.lastHeight,
-                _input.lastBlockHash,
-                _input.lastStateRoot,
-                _input.anchorNumber,
-                _anchorHash,
-                keccak256(abi.encode(_input.records)),
-                keccak256(abi.encodePacked(_blobHashes))
-            )
-        );
+        LandStatement memory statement;
+        statement.domain = _LAND_STATEMENT_TAG;
+        statement.l1ChainId = block.chainid;
+        statement.l2ChainId = _l2ChainId;
+        statement.inbox = address(this);
+        statement.stakingRegistry = address(_stakingRegistry);
+        statement.generation = _generation;
+        statement.parentHeight = _parentHeight;
+        statement.parentHash = _parentHash;
+        statement.startCommitteeRecordHash = _startCommitteeRecordHash;
+        statement.lastHeight = _input.lastHeight;
+        statement.lastBlockHash = _input.lastBlockHash;
+        statement.lastStateRoot = _input.lastStateRoot;
+        statement.anchorNumber = _input.anchorNumber;
+        statement.anchorHash = _anchorHash;
+        statement.recordsHash = keccak256(abi.encode(_input.records));
+        statement.blobHashesHash = keccak256(abi.encodePacked(_blobHashes));
+        return keccak256(abi.encode(statement));
     }
 
     // ---------------------------------------------------------------
