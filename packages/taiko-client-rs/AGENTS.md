@@ -4,7 +4,7 @@
 
 - `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`, `lander`); keep orchestration light and delegate protocol logic to the crates.
 - `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule` and `committee` free of I/O so they can later move unchanged into a no_std crate for the guest.
-- `crates/lander` constructs authenticated CometBFT batches and blob sidecars, binds the V3 statement, obtains proof through a trait (dummy `0x00` in this version), and durably submits to L1. Keep the journal independent of ABCI; never replace or cancel an outstanding nonce automatically.
+- `crates/lander` constructs authenticated CometBFT batches and blob sidecars, binds the V4 statement and fixed-cutoff committee configuration, obtains proof through a trait (dummy `0x00` in this version), and durably submits to L1. Keep the journal independent of ABCI; never replace or cancel an outstanding nonce automatically.
 - `crates/protocol` and `crates/rpc` hold shared protocol helpers and the Engine API / JWT provider helpers. Document shared traits whenever exposing cross-crate APIs.
 - `crates/protocol` is also consumed by raiko2 (pinned by git rev); keep the `shasta` modules and `FixedKSigner` it imports.
 - `crates/bindings/` is kept only for protocol's anchor builder, which raiko2 uses. It is generated via `just gen_bindings` (Solidity sources in `../protocol`); never hand-edit or reformat files under `crates/bindings/src`.

@@ -25,9 +25,12 @@ Every validator and every full node runs three processes:
 - **`taiko-client abci`** wraps each execution block, together with the L1 facts it consumes (an
   L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry), into the
   CometBFT block. Validators only check with their own L1 node that the anchored L1 header is
-  canonical and final; `FinalizeBlock`, replay and block sync never call L1. At epoch boundaries
-  the app derives the next committee from the registry snapshot and hands CometBFT the validator
-  updates. Its state is persisted atomically at every `Commit`. The file stores one genesis record; the epoch schedule is derived from it. Valid older files carrying a matching redundant schedule remain readable. Older `activation` and `migration_state` JSON fields are accepted as aliases for `genesis` and `status`.
+  canonical and final; `FinalizeBlock`, replay and block sync never call L1. At each switch
+  height the app derives the target committee from its fixed L1 cutoff and hands CometBFT the
+  validator updates, effective two heights later. Its state is persisted atomically at every
+  `Commit`. The genesis record includes the authenticated committee config hash, and the epoch
+  schedule is derived from it. Old `activation` and `migration_state` field names remain aliases
+  within the new model; a state file lacking the required config hash is rejected.
 - **alethia-reth** executes blocks; the app drives it with `engine_forkchoiceUpdatedV3`,
   `engine_getPayloadV5` and `engine_newPayloadV4`. CometBFT height equals the EL block number; Etna starts at L2 block 0, and consensus starts at height 1.
 
@@ -44,6 +47,44 @@ Every validator and every full node runs three processes:
 | `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) for the abci integration scenarios      |
 | `script/`              | Maintenance scripts (binding generation)                                              |
 | `tests/`               | The integration test entrypoint and the test JWT secret                               |
+
+## Fixed-cutoff committees
+
+Epoch `t` starts at `H(t) = 1 + t * epochLenL2`. Committee 0 uses `genesisCutoff`.
+Every later committee has an objective L1 cutoff:
+
+```text
+base(t) = L1_0 + max(t - 2, 0) * epochLenL1
+cutoff(t) = max(genesisCutoff, floor(max(base(t) - cutoff_lag, 0) / cutoff_grid) * cutoff_grid)
+```
+
+The registry checkpoint is the last one at or before that cutoff, authenticated under a
+canonical finalized L1 state at or after it. Nodes use the committed parent's anchor to prove
+the runtime switch snapshot. Snapshot entries are fully verified before eligibility, heartbeat,
+pubkey deduplication, size cap and voting power are derived. Committees 0, 1 and 2 retain their
+launch heartbeat exemption; later committees use the existing target-epoch window predicate.
+
+At `H(t) - 2`, the envelope carries committee `t`'s witness and `FinalizeBlock` returns the
+validator updates. CometBFT activates them at `H(t)`. Epoch-first blocks no longer publish a
+future committee. The Inbox stores only the genesis committee hash and the authenticated
+`committeeConfigHash`; no separate `set()` transaction or landed epoch mapping authorizes a
+switch. The proof guest must independently derive every required signing/pending committee
+from the same fixed snapshot and authenticated configuration, including arbitrary batch cuts.
+
+The envelope is version 2. State files must contain `genesis.committee_config_hash`, and the
+local committee parameters must open it correctly. Old version-1 history and V3 pending landing
+journals are not automatically migrated; never discard an outstanding signed nonce to force
+startup. The outer complete-block blob codec remains version 1.
+
+Settlement back-pressure remains `height - anchoredCheckpointHeight <= d_max - margin_v`;
+generation behavior is unchanged. Thus committee authorization does not wait for `land`, while
+a long settlement outage can still stop overall block production. An empty fixed-cutoff roster
+and an outgoing committee without quorum still require explicit protocol recovery; this change
+does not supply an implicit replacement set.
+
+Fixed cutoffs also preserve snapshot membership after a long L2 stall. Stake retention,
+withdrawal timing and restart trust assumptions must cover that schedule lag; this change
+does not add a recovery-generation bootstrap.
 
 ## Prerequisites
 
@@ -88,14 +129,14 @@ built-in values.
 
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness halts (anchor not final,
-back-pressure, committee record not landed, superseded generation) keep the process running and
+back-pressure, committee discovery unavailable, superseded generation) keep the process running and
 CometBFT rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
 
 ### `lander`
 
 Runs an independent permissionless landing service. It reads decided blocks,
-certificates and committee hints from CometBFT, authenticates them against the
-current Inbox checkpoint and L1 history, and submits complete batches in blob
+certificates from CometBFT, independently authenticates the required committees from fixed-cutoff
+L1 registry witnesses, and submits complete batches in blob
 transactions. No validator identity or stake is required to call `land`.
 
 The first version implements `ProofProvider` with `DummyProofProvider`, which
@@ -140,14 +181,14 @@ between 1 and `--max-blocks`. Blob/message limits can make a prefix smaller
 than the minimum; its deadline still permits submission. The defaults retain
 immediate submission whenever a complete block is available.
 
-Two consensus conditions bypass both thresholds: only one producible height
-remains before the unsettled cap `U = d_max - margin_v`, or an unlanded epoch
-committee derivation block is available, including height 1. Pressure uses the
+Two conditions bypass both thresholds: only one producible height remains before
+the unsettled cap `U = d_max - margin_v`, or an unlanded switch witness is available.
+Pressure uses the
 checkpoint authenticated by the decided tip's L1 anchor, so a more recent L1
-checkpoint cannot hide pressure while the node has not adopted it. Epoch
-urgency covers the entire unlanded history, allowing several capacity-limited
-prefixes to land the derivation record. These overrides submit complete blocks
-and retain all batch validation.
+checkpoint cannot hide pressure while the node has not adopted it. Switch urgency
+covers the unlanded history, allowing several capacity-limited prefixes to publish
+the witness. This flush is useful for settlement and does not authorize committee
+activation. These overrides submit complete blocks and retain all batch validation.
 
 The waiting timer is keyed by checkpoint height, hash and generation and is
 persisted in the journal. More blocks arriving, temporary RPC failures, and
@@ -156,9 +197,15 @@ backlog resets it. Waiting never requests a proof or signs a transaction.
 
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V3 binds the Inbox
-proxy, registry, both chain ids, generation, current checkpoint, starting
-committee, terminal block/root, ordered committee outputs and blob hashes.
+the anchor number or state root committed in an L2 header. V4 binds the Inbox
+proxy, registry, both chain ids, generation, current checkpoint, authenticated committee config
+hash, terminal block/root and blob hashes. Each committee is independently derived from its
+fixed L1 snapshot; no per-epoch committee output or starting-set hint is authoritative.
+
+Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
+along with each committee's registry witness and proving header in the reference ancestry.
+The latest Inbox snapshot used to collect a coherent checkpoint is a separate operational
+input; it cannot replace a proof under an older reference chain.
 
 Blob payload V1 is `0x01 || rlp([[comet_block_proto, commit_proto], ...])`,
 using canonical `tendermint-proto` v0_38 messages. It retains the envelope inside
@@ -183,9 +230,8 @@ an underpriced transaction or a dropped stale job can require operator
 reconciliation. Use one active lander per signing account and separate accounts
 for independent competitors.
 
-The service needs unpruned CometBFT blocks/commits and the committee hints
-retained under ABCI's settlement bounds, the checkpoint parent EL header, and
-L1 headers/proofs back through the consumed anchors. A reference chain is
+The service needs unpruned CometBFT blocks/commits, the checkpoint parent EL header, and
+L1 headers/proofs and registry snapshot entries for every consumed fixed cutoff. A reference chain is
 bounded to 131,072 headers; the durable journal is bounded to 256 MiB.
 A complete single block exceeding the configured blob capacity stops with its
 height and required capacity, rather than truncating consensus data.
@@ -198,10 +244,10 @@ witness in `app_state`). It never invents values; `InitChain` re-verifies everyt
 committee is the staking registry's snapshot at the Inbox's `genesisCutoff`, taken as is (the
 `cutoff_lag` and `cutoff_grid` of later epochs do not apply): the initializing DAO proposal names
 that past L1 block explicitly, as it is written before the initialization block is known. Every
-later epoch's snapshot cutoff is the parent block's anchor lagged by `cutoff_lag` and rounded
-down to the `cutoff_grid`, floored at `genesisCutoff`: the first height derives epoch 1 from the
-initialization block, and derives it from the `genesisCutoff` snapshot whenever that block's lagged
-cutoff precedes it.
+later epoch's snapshot cutoff is fixed by its target epoch and the authenticated L1 schedule,
+lag and grid, floored at `genesisCutoff`. It never changes with a proposer's parent anchor or
+a lander's reference. Genesis verification also checks the stored committee config hash against
+the local parameters.
 
 | Flag             | Description                                                                           |
 | ---------------- | ------------------------------------------------------------------------------------- |
@@ -231,8 +277,9 @@ proposal's hash.
 | `--json`           | Print the report as JSON instead of plain text                                       |
 
 The report gives the record hash, the cutoff, the snapshot's checkpoint index, the proving block,
-every member's public key and voting power, and the total voting power and stake.
-The node floors every later epoch's cutoff at `genesisCutoff`. A
+every member's public key and voting power, the total voting power and stake, and the committee
+config hash required by Inbox initialization.
+The node floors every later epoch's fixed cutoff at `genesisCutoff`. A
 cutoff after the L1 node's `finalized` block is refused, as the initialization fixes it irreversibly,
 and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
 without validators. `--json` prints stakes as decimal strings, like the plain text. Logs go to
@@ -248,8 +295,9 @@ taiko-client abci-committee-record --l1.http http://l1-node:8545 --l2.chain-id 1
 The walkthrough assumes the Etna Inbox on L1 is initialized and the validator's Ed25519 consensus
 key is registered in the staking registry snapshot the genesis committee is derived from. The
 initialization's `committeeRecordHash` was computed with `abci-committee-record` at the initialization's
-`genesisCutoff`; `abci-genesis` and `InitChain` re-derive the same committee and refuse a genesis
-whose `committee[e_0]` differs.
+`genesisCutoff`, and its committee config hash matches the node's parameters; `abci-genesis` and
+`InitChain` re-derive the same committee and refuse a genesis whose stored genesis committee hash
+or config opening differs.
 
 1. **Build the genesis** from L1 (every node must use the same file):
 
@@ -323,15 +371,14 @@ whose `committee[e_0]` differs.
   anchored L1 headers are canonical and final. Full nodes need nothing more.
 - **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
   historical blocks. A proposal proves Inbox storage at its anchor, which is at least
-  `l1_finality_extra_depth` blocks behind L1 `finalized`. At an epoch boundary the proposer also
-  reads the next committee's registry entries at a block up to `cutoff_lag + cutoff_grid` blocks
-  before the parent block's anchor. The proof window must therefore reach at least
-  `(head − finalized) + l1_finality_extra_depth + cutoff_lag + cutoff_grid` blocks behind the L1
-  head, plus a margin for an anchor that has not moved for a while. These names are the
-  `abci::ChainParams` fields.
+  `l1_finality_extra_depth` blocks behind L1 `finalized`. At a switch height the proposer also
+  reconstructs the registry entries at the target epoch's fixed cutoff. That snapshot may be
+  substantially older than the parent anchor, especially after a long L2 stall. The state window
+  or cached history must cover those historical entry reads as well as the parent-anchor proofs;
+  `cutoff_lag + cutoff_grid` alone is no longer a sufficient window estimate.
 - reth limits historical proofs with `--rpc.eth-proof-window`. Its default `0` serves proofs at
-  the head only, so set it to at least that depth. geth with the default path-based state scheme
-  keeps only about the 128 most recent states, so that depth must stay below 128 there (or run
+  the head only, so configure it for the required fixed-cutoff history. geth with the default path-based state scheme
+  keeps only about the 128 most recent states, so the required depth must stay below 128 there (or run
   a hash-scheme archive node). With other clients, check how far back they keep the state needed
   for proofs.
 - **Validators** (and `abci-genesis`) also read raw L1 headers with `debug_getRawHeader`, so
