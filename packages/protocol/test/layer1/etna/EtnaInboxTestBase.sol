@@ -14,13 +14,29 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 /// @dev `verifyProof` is a view; tests observe its statement hash with `vm.expectCall`.
 contract MockLandProofVerifier is IProofVerifier {
     bool public rejects;
+    bytes32 public expectedStatementHash;
 
     function setRejects(bool _rejects) external {
         rejects = _rejects;
     }
 
-    function verifyProof(uint256 _proposalAge, bytes32, bytes calldata) external view {
+    /// @dev Models a proof accepted only for one public statement, without implementing a guest.
+    function setExpectedStatementHash(bytes32 _statementHash) external {
+        expectedStatementHash = _statementHash;
+    }
+
+    function verifyProof(
+        uint256 _proposalAge,
+        bytes32 _statementHash,
+        bytes calldata
+    )
+        external
+        view
+    {
         require(!rejects && _proposalAge == 0, ProofRejected());
+        require(
+            expectedStatementHash == 0 || _statementHash == expectedStatementHash, ProofRejected()
+        );
     }
 
     error ProofRejected();

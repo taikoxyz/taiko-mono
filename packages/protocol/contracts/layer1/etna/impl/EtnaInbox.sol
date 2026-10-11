@@ -28,7 +28,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
 
     /// @dev The domain tag of the landing statement.
-    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V1");
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V2");
 
     /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
     uint256 private constant _BLOCKHASH_WINDOW = 256;
@@ -171,12 +171,17 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(lastHeight - parent.height <= _maxBatchBlocks, BatchTooLarge());
         require(lastHeight <= type(uint48).max, HeightOverflow());
 
+        // The first block is parent.height + 1; epoch e starts at 1 + e * epochLenL2.
+        // Read the trusted starting record before accepting any new committee outputs.
+        bytes32 startCommitteeRecordHash = _committee[parent.height / _activation.epochLenL2];
+        require(startCommitteeRecordHash != 0, StartingCommitteeNotRecorded());
         _recordCommittees(parent.height, lastHeight, _input.records);
 
         bytes32 statementHash = _hashLandStatement(
             _recoveryGeneration,
             parent.height,
             parent.blockHash,
+            startCommitteeRecordHash,
             _input,
             _readAnchorHash(_input.anchorNumber),
             _readBlobHashes()
@@ -208,6 +213,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
+        bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
         bytes32 _anchorHash,
         bytes32[] calldata _blobHashes
@@ -217,7 +223,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         returns (bytes32)
     {
         return _hashLandStatement(
-            _generation, _parentHeight, _parentHash, _input, _anchorHash, _blobHashes
+            _generation,
+            _parentHeight,
+            _parentHash,
+            _startCommitteeRecordHash,
+            _input,
+            _anchorHash,
+            _blobHashes
         );
     }
 
@@ -260,6 +272,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @param _generation The recovery generation.
     /// @param _parentHeight The height of the block the batch builds on.
     /// @param _parentHash The hash of the block the batch builds on.
+    /// @param _startCommitteeRecordHash The on-chain record hash of the first block's committee.
     /// @param _input The batch.
     /// @param _anchorHash The L1 block hash of `_input.anchorNumber`.
     /// @param _blobHashes The versioned hashes of the batch's blobs.
@@ -268,6 +281,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
+        bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
         bytes32 _anchorHash,
         bytes32[] memory _blobHashes
@@ -284,6 +298,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
                 _generation,
                 _parentHeight,
                 _parentHash,
+                _startCommitteeRecordHash,
                 _input.lastHeight,
                 _input.lastBlockHash,
                 _input.lastStateRoot,
@@ -398,5 +413,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     error InvalidEpochLength();
     error InvalidGenesisCutoff();
     error NoProgress();
+    error StartingCommitteeNotRecorded();
     error ZeroCommitteeRecord();
 }
