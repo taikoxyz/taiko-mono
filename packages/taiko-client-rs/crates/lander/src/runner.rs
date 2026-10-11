@@ -2,20 +2,26 @@
 
 use crate::{
     batch::BatchSource,
+    config::BatchPolicy,
     error::{LanderError, Result},
     l1::LandingSource,
     metrics::{LanderMetrics, TransactionPhase},
     proof::{ProofError, ProofProvider},
-    store::{JournalIdentity, JournalState, ProvedJob, Store},
+    store::{BatchWait, JournalIdentity, JournalState, ProvedJob, Store},
     tx::{LandingReceipt, SignedTransaction, TransactionTransport},
     types::LandingSnapshot,
 };
-use std::{sync::Arc, time::Duration};
-use tokio::time::timeout;
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+use tokio::time::{Instant, timeout};
 
 /// Runtime deadlines and confirmation policy; transport reads also retain their HTTP deadlines.
 #[derive(Clone, Copy, Debug)]
 pub struct RunnerConfig {
+    /// Minimum complete-prefix size or maximum first-backlog wait before preparing a batch.
+    pub batch_policy: BatchPolicy,
     /// Normal polling interval, including idle and known-pending waits.
     pub poll_interval: Duration,
     /// One proof-provider invocation's deadline.
@@ -33,6 +39,7 @@ pub struct RunnerConfig {
 impl RunnerConfig {
     /// Refuse unbounded, zero-duration loops or an undefined confirmation depth.
     pub fn validate(&self) -> Result<()> {
+        self.batch_policy.validate()?;
         if self.poll_interval.is_zero() ||
             self.proof_timeout.is_zero() ||
             self.broadcast_timeout.is_zero() ||
@@ -62,6 +69,30 @@ pub enum StepOutcome {
     Settled,
 }
 
+/// Durable backlog identity plus monotonic age, independent of arrivals and RPC retries.
+struct BatchWaiting {
+    /// Checkpoint identity and wall time restored from the Idle journal.
+    marker: BatchWait,
+    /// Already elapsed wall time at startup; later clock changes cannot extend the wait.
+    restored_elapsed: Duration,
+    /// Monotonic start of this process's contribution to backlog age.
+    started_at: Instant,
+}
+
+impl BatchWaiting {
+    /// Elapsed age including downtime and this process's monotonic runtime.
+    fn elapsed(&self) -> Duration {
+        self.restored_elapsed.saturating_add(self.started_at.elapsed())
+    }
+
+    /// Check whether a coherent checkpoint can retain the existing first-backlog observation.
+    fn matches(&self, snapshot: &LandingSnapshot) -> bool {
+        self.marker.checkpoint_height == snapshot.checkpoint_height &&
+            self.marker.checkpoint_hash == snapshot.checkpoint_hash &&
+            self.marker.generation == snapshot.generation
+    }
+}
+
 /// Independently runnable lander. Dropping `run` leaves the durable phase resumable.
 pub struct Runner {
     /// I/O-free validation plus bounded collectors, behind an injectable builder interface.
@@ -76,6 +107,8 @@ pub struct Runner {
     store: Store,
     /// Current phase, mirrored on disk at every network mutation boundary.
     state: JournalState,
+    /// First local backlog age; present only while the durable phase is Idle.
+    waiting: Option<BatchWaiting>,
     /// Time and confirmation bounds.
     config: RunnerConfig,
 }
@@ -96,9 +129,24 @@ impl Runner {
                 "configured signer differs from journal sender".into(),
             ));
         }
-        let state = store.load()?;
+        let (state, marker) = store.load_with_wait()?;
+        let waiting = if let Some(mut marker) = marker {
+            let now_unix_ms = unix_milliseconds()?;
+            if marker.first_seen_unix_ms > now_unix_ms {
+                // Persist the clamp so a future timestamp cannot restart the full wait forever.
+                marker.first_seen_unix_ms = now_unix_ms;
+                store.save_with_wait(&state, Some(&marker))?;
+            }
+            Some(BatchWaiting {
+                restored_elapsed: Duration::from_millis(now_unix_ms - marker.first_seen_unix_ms),
+                marker,
+                started_at: Instant::now(),
+            })
+        } else {
+            None
+        };
         observe_state(&state);
-        Ok(Self { batches, l1, transactions, proofs, store, state, config })
+        Ok(Self { batches, l1, transactions, proofs, store, state, waiting, config })
     }
 
     /// Current durable phase, useful for supervision and deterministic crash tests.
@@ -114,7 +162,7 @@ impl Runner {
                 Ok(outcome) => {
                     retry_delay = self.config.poll_interval;
                     if outcome != StepOutcome::Progress {
-                        tokio::time::sleep(self.config.poll_interval).await;
+                        tokio::time::sleep(self.poll_delay()).await;
                     }
                 }
                 Err(error) if error.is_retryable() => {
@@ -128,10 +176,22 @@ impl Runner {
         }
     }
 
+    /// Poll no later than a pending backlog deadline, retaining ordinary polling once it expires.
+    fn poll_delay(&self) -> Duration {
+        if let Some(waiting) = &self.waiting {
+            let remaining = self.config.batch_policy.max_wait.saturating_sub(waiting.elapsed());
+            if !remaining.is_zero() {
+                return self.config.poll_interval.min(remaining);
+            }
+        }
+        self.config.poll_interval
+    }
+
     /// One state transition; signing and broadcasting cannot precede their durable prerequisites.
     pub async fn step(&mut self) -> Result<StepOutcome> {
         let snapshot = self.l1.snapshot().await?;
         self.validate_identity(&snapshot)?;
+        self.reconcile_wait_checkpoint(&snapshot)?;
         self.batches.validate_checkpoint(&snapshot).await?;
         tracing::debug!(
             landed_height = snapshot.checkpoint_height,
@@ -140,9 +200,57 @@ impl Runner {
         );
         match self.state.clone() {
             JournalState::Idle => {
+                let observation = self.batches.observe(&snapshot).await?;
+                if observation.decided_height <= snapshot.checkpoint_height {
+                    self.clear_wait()?;
+                    return Ok(StepOutcome::Waiting);
+                }
+                self.start_wait(&snapshot)?;
+                let elapsed = self.waiting.as_ref().map_or(Duration::ZERO, BatchWaiting::elapsed);
+                tracing::debug!(
+                    decided_height = observation.decided_height,
+                    publishable_blocks = observation.publishable_blocks,
+                    wait_seconds = elapsed.as_secs_f64(),
+                    minimum_blocks = self.config.batch_policy.min_blocks,
+                    maximum_wait_seconds = self.config.batch_policy.max_wait.as_secs_f64(),
+                    "lander observing batch backlog"
+                );
+                if observation.publishable_blocks == 0 ||
+                    (observation.publishable_blocks < self.config.batch_policy.min_blocks &&
+                        elapsed < self.config.batch_policy.max_wait &&
+                        !observation.force_backpressure &&
+                        !observation.force_epoch)
+                {
+                    return Ok(StepOutcome::Waiting);
+                }
                 let Some(request) = self.batches.prepare(snapshot).await? else {
+                    self.clear_wait()?;
                     return Ok(StepOutcome::Waiting);
                 };
+                let elapsed = self.waiting.as_ref().map_or(Duration::ZERO, BatchWaiting::elapsed);
+                if request.batch.blocks.len() < self.config.batch_policy.min_blocks &&
+                    elapsed < self.config.batch_policy.max_wait &&
+                    !observation.force_backpressure &&
+                    !observation.force_epoch
+                {
+                    // The decided tip can regress between observation and full construction.
+                    return Ok(StepOutcome::Waiting);
+                }
+                let trigger = if observation.force_backpressure {
+                    "backpressure"
+                } else if observation.force_epoch {
+                    "epoch"
+                } else if request.batch.blocks.len() >= self.config.batch_policy.min_blocks {
+                    "minimum"
+                } else {
+                    "timeout"
+                };
+                tracing::info!(
+                    trigger,
+                    batch_blocks = request.batch.blocks.len(),
+                    wait_seconds = elapsed.as_secs_f64(),
+                    "lander batch collection threshold reached"
+                );
                 LanderMetrics::batch(
                     request.batch.blocks.len(),
                     request.batch.blobs.versioned_hashes.len(),
@@ -213,6 +321,43 @@ impl Runner {
         self.store.save(&state)?;
         observe_state(&state);
         self.state = state;
+        self.waiting = None;
+        Ok(())
+    }
+
+    /// Discard an old timer before subsequent checkpoint/observation reads can fail transiently.
+    fn reconcile_wait_checkpoint(&mut self, snapshot: &LandingSnapshot) -> Result<()> {
+        if self.waiting.as_ref().is_some_and(|waiting| !waiting.matches(snapshot)) {
+            self.clear_wait()?;
+        }
+        Ok(())
+    }
+
+    /// Persist the first nonempty local backlog observation before any batch construction.
+    fn start_wait(&mut self, snapshot: &LandingSnapshot) -> Result<()> {
+        if self.waiting.is_none() {
+            let marker = BatchWait {
+                checkpoint_height: snapshot.checkpoint_height,
+                checkpoint_hash: snapshot.checkpoint_hash,
+                generation: snapshot.generation,
+                first_seen_unix_ms: unix_milliseconds()?,
+            };
+            self.store.save_with_wait(&self.state, Some(&marker))?;
+            self.waiting = Some(BatchWaiting {
+                marker,
+                restored_elapsed: Duration::ZERO,
+                started_at: Instant::now(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Clear a completed or replaced backlog timer without changing the transaction phase.
+    fn clear_wait(&mut self) -> Result<()> {
+        if self.waiting.is_some() {
+            self.store.save(&self.state)?;
+            self.waiting = None;
+        }
         Ok(())
     }
 
@@ -454,6 +599,15 @@ impl Runner {
         self.transition(JournalState::Idle)?;
         Ok(StepOutcome::Settled)
     }
+}
+
+/// Capture a portable wall timestamp for restart continuity; in-process waiting is monotonic.
+fn unix_milliseconds() -> Result<u64> {
+    let elapsed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| LanderError::Journal(format!("wall clock precedes Unix epoch: {e}")))?;
+    u64::try_from(elapsed.as_millis())
+        .map_err(|_| LanderError::Journal("wall clock milliseconds exceed journal range".into()))
 }
 
 /// Publish restored as well as newly committed phases without exposing transaction identifiers.

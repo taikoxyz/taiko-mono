@@ -199,6 +199,8 @@ impl CliProcess {
             .env_remove("L2_HTTP")
             .env_remove("L2_AUTH")
             .env_remove("JWT_SECRET")
+            .env_remove("LANDER_MIN_BLOCKS")
+            .env_remove("LANDER_MAX_BATCH_WAIT")
             .env_remove("METRICS_ENABLED")
             .env_remove("METRICS_ADDR")
             .env_remove("METRICS_PORT")

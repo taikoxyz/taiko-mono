@@ -133,6 +133,27 @@ the receipt's own canonical block (default 1). Logging and metrics flags match
 the other subcommands. Metrics use bounded phase/retry labels; transaction
 hashes and waiting reasons appear in logs.
 
+Batch submission starts when the complete publishable prefix reaches
+`--min-blocks` (default 1) **or** the oldest locally observed backlog has waited
+`--max-batch-wait` seconds (default 30; accepts 1–3600). The minimum must be
+between 1 and `--max-blocks`. Blob/message limits can make a prefix smaller
+than the minimum; its deadline still permits submission. The defaults retain
+immediate submission whenever a complete block is available.
+
+Two consensus conditions bypass both thresholds: only one producible height
+remains before the unsettled cap `U = d_max - margin_v`, or an unlanded epoch
+committee derivation block is available, including height 1. Pressure uses the
+checkpoint authenticated by the decided tip's L1 anchor, so a more recent L1
+checkpoint cannot hide pressure while the node has not adopted it. Epoch
+urgency covers the entire unlanded history, allowing several capacity-limited
+prefixes to land the derivation record. These overrides submit complete blocks
+and retain all batch validation.
+
+The waiting timer is keyed by checkpoint height, hash and generation and is
+persisted in the journal. More blocks arriving, temporary RPC failures, and
+process restarts preserve its age. A different coherent checkpoint or an empty
+backlog resets it. Waiting never requests a proof or signs a transaction.
+
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
 the anchor number or state root committed in an L2 header. V3 binds the Inbox
@@ -351,7 +372,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
   bump and smoke. Lander scenarios cover actual Inbox blob transactions, permissionless races,
   verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
-  and actual-CLI SIGTERM/SIGKILL restarts. Each scenario boots its own devnet through the docker CLI (anvil as L1,
+  and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
   alethia-reth, CometBFT), so they run one at a time; the suite takes a few minutes. Extra
   arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.
   `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
