@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **taiko-client-rs:** add the permissionless Etna lander crate and CLI, authenticated CometBFT batch/blob construction, an async proof-provider trait with dummy `0x00`, and durable transaction/receipt recovery ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
+
+### Bug Fixes
+
+* **taiko-client-rs:** reserve checked 20% signing gas headroom when a pending L1 reference crosses the BLOCKHASH-to-EIP-2935 window, with a real-contract regression ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
+
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 

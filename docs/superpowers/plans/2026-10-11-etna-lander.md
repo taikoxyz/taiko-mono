@@ -1,7 +1,7 @@
 # Etna lander implementation plan
 
 Date: 2026-10-11
-Status: implementation and final verification complete; existing-PR integration authorized
+Status: implementation and final verification complete; pushed to the existing PR
 
 > For execution: use superpowers:subagent-driven-development if the user
 > selects delegated execution, or superpowers:executing-plans for inline
@@ -414,10 +414,10 @@ the existing GitHub PR description.
       durability, permissionless races, and preserved ABCI behavior. Fix supported
       findings and rerun the affected checks; repeat the full sequence if code
       changed after final verification.
-- [ ] Commit the completed change. Check the remote PR branch is still the
+- [x] Commit the completed change. Check the remote PR branch is still the
       expected ancestor; integrate any concurrent updates and reverify as needed.
       Push normally to origin HEAD:refs/heads/feat/taiko-client-rs-abci.
-- [ ] Rewrite the PR description around its final ABCI + lander scope, exact
+- [x] Rewrite the PR description around its final ABCI + lander scope, exact
       validation, dummy-only proof status, real-guest follow-up, and operating
       requirements. Use gh with a body file.
 - [ ] Confirm remote HEAD, tracked working-tree state, and the attached PR.
