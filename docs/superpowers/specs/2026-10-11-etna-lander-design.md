@@ -1,7 +1,7 @@
 # Etna lander design
 
 Date: 2026-10-11
-Status: conversational design approved; written-spec review pending
+Status: written spec approved by the user on 2026-10-11
 Target PR: https://github.com/taikoxyz/taiko-mono/pull/22280
 
 ## Intent and accepted scope
