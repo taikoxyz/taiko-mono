@@ -6,7 +6,7 @@ use clap::Parser;
 use lander::{
     Limits, SidecarMode,
     blob::PAYLOAD_BYTES_PER_BLOB,
-    config::{FeeCaps, LanderConfig, MAX_TIMEOUT_SECS, Timeouts},
+    config::{BatchPolicy, FeeCaps, LanderConfig, MAX_TIMEOUT_SECS, Timeouts},
 };
 use url::Url;
 
@@ -36,6 +36,13 @@ pub struct LanderArgs {
     /// Maximum complete blocks per batch; must respect the deployed Inbox limit.
     #[clap(long = "max-blocks", env = "LANDER_MAX_BLOCKS", required = true, value_parser = positive_usize)]
     pub max_blocks: usize,
+    /// Minimum complete blocks before submission; wait expiry or consensus may require earlier
+    /// landing.
+    #[clap(long = "min-blocks", env = "LANDER_MIN_BLOCKS", default_value_t = 1, value_parser = positive_usize)]
+    pub min_blocks: usize,
+    /// Maximum wait for a below-threshold batch, in seconds; positive and at most one hour.
+    #[clap(long = "max-batch-wait", env = "LANDER_MAX_BATCH_WAIT", default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS))]
+    pub max_batch_wait_secs: u64,
     /// Maximum blobs per transaction; must respect the configured L1 fork limit.
     #[clap(long = "max-blobs", env = "LANDER_MAX_BLOBS", required = true, value_parser = positive_usize)]
     pub max_blobs: usize,
@@ -90,6 +97,10 @@ impl LanderArgs {
                 max_blobs: self.max_blobs,
                 max_payload_bytes,
                 max_message_bytes: max_payload_bytes,
+            },
+            batch_policy: BatchPolicy {
+                min_blocks: self.min_blocks,
+                max_wait: Duration::from_secs(self.max_batch_wait_secs),
             },
             fee_caps: FeeCaps {
                 max_fee_per_gas: self.max_fee_per_gas,
@@ -157,6 +168,8 @@ mod tests {
             "LANDER_DATA_DIR",
             "LANDER_CHAIN_CONFIG",
             "LANDER_MAX_BLOCKS",
+            "LANDER_MIN_BLOCKS",
+            "LANDER_MAX_BATCH_WAIT",
             "LANDER_MAX_BLOBS",
             "LANDER_MAX_FEE_PER_GAS",
             "LANDER_MAX_PRIORITY_FEE_PER_GAS",
@@ -221,6 +234,8 @@ mod tests {
         assert_eq!(c.limits.max_blocks, 16);
         assert_eq!(c.limits.max_blobs, 6);
         assert_eq!(c.timeouts, Timeouts::default());
+        assert_eq!(c.batch_policy.min_blocks, 1);
+        assert_eq!(c.batch_policy.max_wait, Duration::from_secs(30));
         assert_eq!(c.sidecar_mode, SidecarMode::Eip4844);
         let mut args = argv();
         *args.last_mut().unwrap() = "eip7594";
@@ -228,6 +243,81 @@ mod tests {
             parse(args).unwrap().lander_flags.config().unwrap().sidecar_mode,
             SidecarMode::Eip7594
         );
+    }
+
+    #[test]
+    fn accepts_batching_threshold_and_wait_options() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        let mut args = argv();
+        args.extend(["--min-blocks", "8", "--max-batch-wait", "60"]);
+        let command = parse(args).unwrap();
+        let config = command.lander_flags.config().unwrap();
+        assert_eq!(config.batch_policy.min_blocks, 8);
+        assert_eq!(config.batch_policy.max_wait, Duration::from_secs(60));
+    }
+
+    #[test]
+    fn reads_batch_policy_from_environment_and_allows_cli_overrides() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        let _minimum = EnvGuard::set("LANDER_MIN_BLOCKS", "6");
+        let _wait = EnvGuard::set("LANDER_MAX_BATCH_WAIT", "120");
+        let config = parse(argv()).unwrap().lander_flags.config().unwrap();
+        assert_eq!(config.batch_policy.min_blocks, 6);
+        assert_eq!(config.batch_policy.max_wait, Duration::from_secs(120));
+        let mut args = argv();
+        args.extend(["--min-blocks", "16", "--max-batch-wait", "3600"]);
+        let config = parse(args).unwrap().lander_flags.config().unwrap();
+        assert_eq!(config.batch_policy.min_blocks, 16);
+        assert_eq!(config.batch_policy.max_wait, Duration::from_secs(3600));
+    }
+
+    #[test]
+    fn rejects_invalid_batch_policy_environment_values() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        for (name, value) in [
+            ("LANDER_MIN_BLOCKS", "0"),
+            ("LANDER_MAX_BATCH_WAIT", "0"),
+            ("LANDER_MAX_BATCH_WAIT", "3601"),
+        ] {
+            let _value = EnvGuard::set(name, value);
+            let error = parse(argv()).unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::ValueValidation, "{name}={value}: {error}");
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_batching_option_values() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        for (flag, value) in [
+            ("--min-blocks", "0"),
+            ("--min-blocks", "-1"),
+            ("--min-blocks", "1.5"),
+            ("--min-blocks", "18446744073709551616"),
+            ("--max-batch-wait", "0"),
+            ("--max-batch-wait", "-1"),
+            ("--max-batch-wait", "3601"),
+            ("--max-batch-wait", "1.5"),
+        ] {
+            let mut args = argv();
+            let option = format!("{flag}={value}");
+            args.push(&option);
+            let error = parse(args).unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::ValueValidation, "{flag}={value}: {error}");
+        }
+    }
+
+    #[test]
+    fn rejects_batching_threshold_above_maximum_blocks() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        let mut args = argv();
+        args.extend(["--min-blocks", "17"]);
+        let command = parse(args).unwrap();
+        assert!(command.lander_flags.config().is_err());
     }
 
     #[test]

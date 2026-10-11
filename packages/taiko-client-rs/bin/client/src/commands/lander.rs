@@ -100,6 +100,7 @@ impl LanderSubCommand {
             Arc::new(DummyProofProvider),
             store,
             RunnerConfig {
+                batch_policy: config.batch_policy,
                 poll_interval: config.poll_interval,
                 proof_timeout: config.timeouts.proof,
                 broadcast_timeout: config.timeouts.broadcast,

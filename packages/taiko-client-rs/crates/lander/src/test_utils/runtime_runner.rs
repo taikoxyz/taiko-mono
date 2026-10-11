@@ -1,9 +1,10 @@
 use crate::{
     LanderError, Result,
-    batch::BatchSource,
+    batch::{BatchObservation, BatchSource},
+    config::BatchPolicy,
     contracts::IEtnaInbox::LandInput,
     l1::{LandingSource, ParentContext},
-    proof::{DummyProofProvider, ProofError, ProofProvider, ProofRequest},
+    proof::{ProofError, ProofProvider, ProofRequest},
     runner::{Runner, RunnerConfig, StepOutcome},
     store::{JournalIdentity, JournalState, ProvedJob, Store},
     test_utils::runtime::{request, signed, signer},
@@ -30,6 +31,15 @@ struct Control {
     estimate_revert: bool,
     compete_during_estimate: bool,
     signs: usize,
+    prepares: usize,
+    proofs: usize,
+    decided_height: u64,
+    publishable_blocks: usize,
+    force_backpressure: bool,
+    force_epoch: bool,
+    observation_error: bool,
+    checkpoint_error: bool,
+    prepare_empty: bool,
     broadcasts: Vec<Bytes>,
     events: Vec<&'static str>,
 }
@@ -53,6 +63,15 @@ impl Fixture {
             estimate_revert: false,
             compete_during_estimate: false,
             signs: 0,
+            prepares: 0,
+            proofs: 0,
+            decided_height: 2,
+            publishable_blocks: 2,
+            force_backpressure: false,
+            force_epoch: false,
+            observation_error: false,
+            checkpoint_error: false,
+            prepare_empty: false,
             broadcasts: vec![],
             events: vec![],
         };
@@ -73,10 +92,24 @@ impl Fixture {
         }
     }
     fn runner(&self) -> Runner {
-        self.with_proofs(Arc::new(DummyProofProvider))
+        self.with_policy(BatchPolicy::default())
+    }
+    fn with_policy(&self, policy: BatchPolicy) -> Runner {
+        self.with_policy_and_proofs(
+            policy,
+            Arc::new(CountingProof { control: self.control.clone() }),
+        )
     }
     fn with_proofs(&self, proofs: Arc<dyn ProofProvider>) -> Runner {
-        let batches = Arc::new(MockBatch { request: self.request.clone() });
+        self.with_policy_and_proofs(BatchPolicy::default(), proofs)
+    }
+    fn with_policy_and_proofs(
+        &self,
+        policy: BatchPolicy,
+        proofs: Arc<dyn ProofProvider>,
+    ) -> Runner {
+        let batches =
+            Arc::new(MockBatch { request: self.request.clone(), control: self.control.clone() });
         let l1 = Arc::new(MockL1 { request: self.request.clone(), control: self.control.clone() });
         let tx = Arc::new(MockTx {
             control: self.control.clone(),
@@ -89,6 +122,7 @@ impl Fixture {
             proofs,
             Store::open(self.directory.path(), self.identity()).unwrap(),
             RunnerConfig {
+                batch_policy: policy,
                 poll_interval: Duration::from_millis(10),
                 proof_timeout: Duration::from_millis(50),
                 broadcast_timeout: Duration::from_millis(50),
@@ -123,15 +157,37 @@ impl Fixture {
 }
 struct MockBatch {
     request: ProofRequest,
+    control: Arc<Mutex<Control>>,
 }
 #[async_trait]
 impl BatchSource for MockBatch {
+    async fn observe(&self, _: &LandingSnapshot) -> Result<BatchObservation> {
+        let control = self.control.lock().unwrap();
+        if control.observation_error {
+            return Err(LanderError::Temporary("decided RPC temporarily unavailable".into()));
+        }
+        Ok(BatchObservation {
+            decided_height: control.decided_height,
+            publishable_blocks: control.publishable_blocks,
+            force_backpressure: control.force_backpressure,
+            force_epoch: control.force_epoch,
+        })
+    }
     async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>> {
+        let mut control = self.control.lock().unwrap();
+        control.prepares += 1;
+        if control.prepare_empty {
+            return Ok(None);
+        }
         Ok((snapshot.checkpoint_height == self.request.batch.snapshot.checkpoint_height)
             .then(|| self.request.clone()))
     }
     async fn validate_checkpoint(&self, _: &LandingSnapshot) -> Result<()> {
-        Ok(())
+        if self.control.lock().unwrap().checkpoint_error {
+            Err(LanderError::Temporary("checkpoint RPC temporarily unavailable".into()))
+        } else {
+            Ok(())
+        }
     }
 }
 struct MockL1 {
@@ -466,6 +522,271 @@ async fn changed_proxy_statement_or_unchanged_checkpoint_committee_stops_before_
         let control = fixture.control.lock().unwrap();
         assert_eq!(control.signs, 0);
         assert_eq!(control.broadcasts.len(), 0);
+    }
+}
+
+struct CountingProof {
+    control: Arc<Mutex<Control>>,
+}
+#[async_trait]
+impl ProofProvider for CountingProof {
+    async fn prove(&self, _: &ProofRequest) -> std::result::Result<Bytes, ProofError> {
+        self.control.lock().unwrap().proofs += 1;
+        Ok(Bytes::from_static(&[0]))
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn batch_waits_for_minimum_or_first_backlog_deadline_without_preparing() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+    fixture.control.lock().unwrap().publishable_blocks = 1;
+    let mut runner = fixture.with_policy(policy);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    {
+        let control = fixture.control.lock().unwrap();
+        assert_eq!((control.prepares, control.proofs, control.signs), (0, 0, 0));
+    }
+    let original = disk_wait(&fixture).unwrap();
+    tokio::time::advance(Duration::from_secs(20)).await;
+    {
+        let mut control = fixture.control.lock().unwrap();
+        control.publishable_blocks = 2;
+        control.decided_height = 3;
+    }
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert_eq!(disk_wait(&fixture), Some(original));
+    tokio::time::advance(Duration::from_secs(9)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert!(matches!(runner.state(), JournalState::Prepared { .. }));
+    assert_eq!(fixture.control.lock().unwrap().proofs, 1);
+    assert!(disk_wait(&fixture).is_none());
+}
+
+fn disk_wait(fixture: &Fixture) -> Option<crate::store::BatchWait> {
+    let journal: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(fixture.directory.path().join("lander-state.json")).unwrap(),
+    )
+    .unwrap();
+    journal.get("waiting").map(|waiting| serde_json::from_value(waiting.clone()).unwrap())
+}
+
+#[tokio::test(start_paused = true)]
+async fn minimum_is_sufficient_without_waiting_for_the_deadline() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 2, max_wait: Duration::from_secs(30) };
+    fixture.control.lock().unwrap().publishable_blocks = 1;
+    let mut runner = fixture.with_policy(policy);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    fixture.control.lock().unwrap().publishable_blocks = 2;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert!(disk_wait(&fixture).is_none());
+}
+
+#[tokio::test(start_paused = true)]
+async fn incomplete_backlog_retains_its_timer_until_a_complete_prefix_is_available() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+    fixture.control.lock().unwrap().publishable_blocks = 0;
+    let mut runner = fixture.with_policy(policy);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    let marker = disk_wait(&fixture).unwrap();
+    tokio::time::advance(Duration::from_secs(31)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert_eq!(fixture.control.lock().unwrap().prepares, 0);
+    assert_eq!(disk_wait(&fixture), Some(marker));
+    fixture.control.lock().unwrap().publishable_blocks = 1;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+}
+
+#[tokio::test(start_paused = true)]
+async fn transient_observation_and_checkpoint_errors_preserve_wait_age() {
+    for checkpoint_error in [false, true] {
+        let fixture = Fixture::new();
+        let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+        let mut runner = fixture.with_policy(policy);
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+        let marker = disk_wait(&fixture).unwrap();
+        tokio::time::advance(Duration::from_secs(20)).await;
+        {
+            let mut control = fixture.control.lock().unwrap();
+            control.observation_error = !checkpoint_error;
+            control.checkpoint_error = checkpoint_error;
+        }
+        assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
+        assert_eq!(disk_wait(&fixture), Some(marker));
+        tokio::time::advance(Duration::from_secs(10)).await;
+        {
+            let mut control = fixture.control.lock().unwrap();
+            control.observation_error = false;
+            control.checkpoint_error = false;
+        }
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn restart_restores_elapsed_age_and_keeps_the_existing_wall_marker() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+    let mut first = fixture.with_policy(policy);
+    assert_eq!(first.step().await.unwrap(), StepOutcome::Waiting);
+    drop(first);
+    let store = Store::open(fixture.directory.path(), fixture.identity()).unwrap();
+    let (_, mut waiting) = store.load_with_wait().unwrap();
+    let marker = waiting.as_mut().unwrap();
+    marker.first_seen_unix_ms = super::unix_milliseconds().unwrap() - 25_000;
+    store.save_with_wait(&JournalState::Idle, waiting.as_ref()).unwrap();
+    drop(store);
+    let marker = disk_wait(&fixture).unwrap();
+    let mut resumed = fixture.with_policy(policy);
+    assert_eq!(resumed.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(4)).await;
+    assert_eq!(resumed.step().await.unwrap(), StepOutcome::Waiting);
+    assert_eq!(disk_wait(&fixture), Some(marker));
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(resumed.step().await.unwrap(), StepOutcome::Progress);
+}
+
+#[tokio::test(start_paused = true)]
+async fn future_wall_marker_is_clamped_once_and_monotonic_wait_remains_bounded() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+    let store = Store::open(fixture.directory.path(), fixture.identity()).unwrap();
+    let future = crate::store::BatchWait {
+        checkpoint_height: fixture.request.batch.snapshot.checkpoint_height,
+        checkpoint_hash: fixture.request.batch.snapshot.checkpoint_hash,
+        generation: fixture.request.batch.snapshot.generation,
+        first_seen_unix_ms: u64::MAX,
+    };
+    store.save_with_wait(&JournalState::Idle, Some(&future)).unwrap();
+    drop(store);
+    let mut runner = fixture.with_policy(policy);
+    let clamped = disk_wait(&fixture).unwrap();
+    assert!(clamped.first_seen_unix_ms < future.first_seen_unix_ms);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(30)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+}
+
+#[tokio::test(start_paused = true)]
+async fn empty_backlog_discards_the_prior_deadline() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+    let mut runner = fixture.with_policy(policy);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(20)).await;
+    fixture.control.lock().unwrap().decided_height = 0;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert!(disk_wait(&fixture).is_none());
+    fixture.control.lock().unwrap().decided_height = 2;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(10)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(20)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+}
+
+#[tokio::test(start_paused = true)]
+async fn checkpoint_identity_change_discards_wait_even_when_following_rpc_fails() {
+    for identity_field in ["height", "hash", "generation"] {
+        for checkpoint_error in [false, true] {
+            let fixture = Fixture::new();
+            let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+            let mut runner = fixture.with_policy(policy);
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+            tokio::time::advance(Duration::from_secs(20)).await;
+            {
+                let mut control = fixture.control.lock().unwrap();
+                match identity_field {
+                    "height" => control.snapshot.checkpoint_height += 1,
+                    "hash" => control.snapshot.checkpoint_hash = B256::repeat_byte(99),
+                    "generation" => control.snapshot.generation += 1,
+                    _ => unreachable!(),
+                }
+                control.observation_error = !checkpoint_error;
+                control.checkpoint_error = checkpoint_error;
+            }
+            assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
+            assert!(disk_wait(&fixture).is_none());
+            {
+                let mut control = fixture.control.lock().unwrap();
+                control.snapshot = fixture.request.batch.snapshot.clone();
+                control.observation_error = false;
+                control.checkpoint_error = false;
+            }
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+            tokio::time::advance(Duration::from_secs(10)).await;
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+            tokio::time::advance(Duration::from_secs(20)).await;
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+        }
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn consensus_pressure_and_epoch_progress_bypass_high_threshold_and_long_wait() {
+    for force_epoch in [false, true] {
+        let fixture = Fixture::new();
+        let policy = BatchPolicy { min_blocks: 100, max_wait: Duration::from_secs(3600) };
+        {
+            let mut control = fixture.control.lock().unwrap();
+            control.force_backpressure = !force_epoch;
+            control.force_epoch = force_epoch;
+        }
+        let mut runner = fixture.with_policy(policy);
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+        assert!(matches!(runner.state(), JournalState::Prepared { .. }));
+        assert_eq!(fixture.control.lock().unwrap().proofs, 1);
+        assert!(disk_wait(&fixture).is_none());
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn lower_prepared_tip_does_not_bypass_the_minimum_threshold() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 3, max_wait: Duration::from_secs(30) };
+    fixture.control.lock().unwrap().publishable_blocks = 3;
+    let mut runner = fixture.with_policy(policy);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert_eq!(runner.state(), &JournalState::Idle);
+    assert_eq!(fixture.control.lock().unwrap().proofs, 0);
+    assert!(disk_wait(&fixture).is_some());
+    tokio::time::advance(Duration::from_secs(30)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+}
+
+#[tokio::test(start_paused = true)]
+async fn empty_fresh_preparation_clears_an_expired_backlog_timer() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+    let mut runner = fixture.with_policy(policy);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(30)).await;
+    fixture.control.lock().unwrap().prepare_empty = true;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert!(disk_wait(&fixture).is_none());
+    fixture.control.lock().unwrap().prepare_empty = false;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(29)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+}
+
+#[tokio::test(start_paused = true)]
+async fn run_wakes_at_the_remaining_batch_deadline_before_a_long_poll_interval() {
+    for poll_interval in [Duration::from_secs(20), Duration::from_secs(3600)] {
+        let fixture = Fixture::new();
+        let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+        let mut runner = fixture.with_policy(policy);
+        runner.config.poll_interval = poll_interval;
+        runner.config.retry_max_delay = poll_interval;
+        assert!(tokio::time::timeout(Duration::from_secs(31), runner.run()).await.is_err());
+        assert_eq!(fixture.control.lock().unwrap().proofs, 1);
+        assert!(matches!(runner.state(), JournalState::Pending { .. }));
     }
 }
 

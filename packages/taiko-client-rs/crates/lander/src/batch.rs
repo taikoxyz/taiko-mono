@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 use crate::{
     blob, codec,
-    comet::CometSource,
+    comet::{CometSource, CometStatus},
     committee::{AuthenticatedCommittee, authenticate},
     contracts::IEtnaInbox::{CommitteeRecord, LandInput},
     error::{LanderError, Result},
@@ -18,9 +18,32 @@ use crate::{
     validate::{EnvelopeContext, verify_body, verify_commit, verify_envelope, verify_structure},
 };
 
+/// Decided backlog and complete-prefix facts used by the runner's publication policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BatchObservation {
+    /// Highest certified CometBFT height reported by the configured chain.
+    pub decided_height: u64,
+    /// Complete blocks fitting the configured block, codec, payload and blob bounds.
+    pub publishable_blocks: usize,
+    /// The certified tip's anchored unsettled depth has reached `U - 1`.
+    pub force_backpressure: bool,
+    /// An unlanded epoch's first height exists anywhere in the decided backlog.
+    pub force_epoch: bool,
+}
+
+/// Canonical complete-block prefix shared by readiness preview and authenticated preparation.
+struct PublishablePrefix {
+    /// Exact complete pairs selected without computing signatures, witnesses or KZG proofs.
+    blocks: Vec<CertifiedBlock>,
+    /// Canonical V1 bytes used to count blobs and later build exactly one sidecar.
+    payload: Vec<u8>,
+}
+
 /// Boundary used by the runner to prepare jobs and authenticate competing checkpoint progress.
 #[async_trait]
 pub trait BatchSource: Send + Sync {
+    /// Preview complete-prefix capacity and authenticated urgency without building a proof job.
+    async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchObservation>;
     /// Build the largest complete publishable prefix above this coherent checkpoint.
     async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>>;
     /// Ensure the current L1 checkpoint identifies this node's certified execution chain.
@@ -76,6 +99,75 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             .validate(self.params.unsettled_cap())
             .map_err(|e| LanderError::Configuration(e.to_string()))?;
         Ok(schedule)
+    }
+
+    /// Read a decided tip from the configured generation and reject a lagging endpoint.
+    async fn status(&self, snapshot: &LandingSnapshot) -> Result<CometStatus> {
+        let status = self.comet.status().await?;
+        crate::metrics::LanderMetrics::progress(snapshot.checkpoint_height, status.height);
+        if status.chain_id != rules::chain_id_for(snapshot.l2_chain_id, snapshot.generation) {
+            return Err(LanderError::Safety("Comet endpoint chain/generation mismatch".into()));
+        }
+        if status.height < snapshot.checkpoint_height {
+            return Err(LanderError::Unavailable(format!(
+                "Comet decided tip {} is below checkpoint {}",
+                status.height, snapshot.checkpoint_height
+            )));
+        }
+        Ok(status)
+    }
+
+    /// Select exact complete-block boundaries using canonical codec and blob capacity checks.
+    ///
+    /// An oversized first block is a capacity error; a later oversized block ends the prefix.
+    /// This shared preview performs no signature/MPT validation, reference reads or KZG work.
+    async fn publishable_prefix(
+        &self,
+        snapshot: &LandingSnapshot,
+        decided_height: u64,
+    ) -> Result<PublishablePrefix> {
+        let mut blocks = Vec::new();
+        let mut payload = Vec::new();
+        let stop = decided_height
+            .min(snapshot.checkpoint_height.saturating_add(self.limits.max_blocks as u64));
+        if stop <= snapshot.checkpoint_height {
+            return Ok(PublishablePrefix { blocks, payload });
+        }
+        for height in snapshot.checkpoint_height + 1..=stop {
+            let pair = self.comet.block(height).await?;
+            if pair.block.header.height.value() != height {
+                return Err(LanderError::Safety(format!(
+                    "Comet response at requested height {height} identifies {}",
+                    pair.block.header.height
+                )));
+            }
+            blocks.push(pair);
+            match codec::encode(&blocks, &self.limits) {
+                Ok(encoded) if blob::required_blobs(encoded.len()) <= self.limits.max_blobs => {
+                    payload = encoded;
+                }
+                Ok(encoded) => {
+                    if blocks.len() == 1 {
+                        return Err(LanderError::Capacity(format!(
+                            "block {height} needs {} blobs, configured {}",
+                            blob::required_blobs(encoded.len()),
+                            self.limits.max_blobs
+                        )));
+                    }
+                    blocks.pop();
+                    break;
+                }
+                Err(LanderError::Capacity(_)) if blocks.len() > 1 => {
+                    blocks.pop();
+                    break;
+                }
+                Err(LanderError::Capacity(reason)) => {
+                    return Err(LanderError::Capacity(format!("block {height}: {reason}")))
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(PublishablePrefix { blocks, payload })
     }
 
     /// Load a full hint only when its authenticating mapping hash is available.
@@ -155,37 +247,69 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
 
 #[async_trait]
 impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBuilder<C, L> {
+    /// Authenticate the coherent checkpoint against this source's certified chain.
     async fn validate_checkpoint(&self, snapshot: &LandingSnapshot) -> Result<()> {
         let schedule = self.schedule(snapshot)?;
-        let status = self.comet.status().await?;
-        crate::metrics::LanderMetrics::progress(snapshot.checkpoint_height, status.height);
-        if status.chain_id != rules::chain_id_for(snapshot.l2_chain_id, snapshot.generation) {
-            return Err(LanderError::Safety("Comet endpoint chain/generation mismatch".into()));
-        }
-        if status.height < snapshot.checkpoint_height {
-            return Err(LanderError::Unavailable(format!(
-                "Comet decided tip {} is below checkpoint {}",
-                status.height, snapshot.checkpoint_height
-            )));
-        }
+        self.status(snapshot).await?;
         self.checkpoint(snapshot, &schedule, &mut BTreeMap::new()).await?;
         Ok(())
     }
 
+    /// Preview capacity and authenticate the tip's historical anchor for urgency decisions.
+    async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchObservation> {
+        let schedule = self.schedule(snapshot)?;
+        let status = self.status(snapshot).await?;
+        if status.height == snapshot.checkpoint_height {
+            return Ok(BatchObservation {
+                decided_height: status.height,
+                publishable_blocks: 0,
+                force_backpressure: false,
+                force_epoch: false,
+            });
+        }
+        let prefix = self.publishable_prefix(snapshot, status.height).await?;
+        let tip = match prefix.blocks.last() {
+            Some(block) if block.block.header.height.value() == status.height => block.clone(),
+            _ => self.comet.block(status.height).await?,
+        };
+        let epoch = schedule.epoch_of(status.height);
+        let mut committees = BTreeMap::new();
+        self.committee(snapshot, epoch, &mut committees).await?;
+        verify_commit(&tip.commit, &tip.block.header, &committees[&epoch], &status.chain_id)
+            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        // The certified Comet app hash commits to the tip's execution parent, including when
+        // the tip is beyond the selected prefix. Body verification binds its EL header to it.
+        let parent_hash = alloy_primitives::B256::try_from(tip.block.header.app_hash.as_bytes())
+            .map_err(|_| LanderError::Safety("tip has invalid parent execution app hash".into()))?;
+        let envelope = verify_body(&tip, status.height, parent_hash)
+            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        let tip_context = ParentContext {
+            header: envelope.block.header,
+            // Anchor recovery only consumes the supplied certified header, not base-fee inputs.
+            grandparent_timestamp: 0,
+        };
+        let anchor = self.l1.parent_anchor(snapshot, &tip_context).await?;
+        if anchor.inbox.recovery_generation != snapshot.generation ||
+            anchor.inbox.status != abci::l1::layout::inbox::ETNA_ACTIVE
+        {
+            return Err(LanderError::Safety("tip anchor has superseded or inactive Inbox".into()));
+        }
+        Ok(BatchObservation {
+            decided_height: status.height,
+            publishable_blocks: prefix.blocks.len(),
+            force_backpressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
+                self.params.unsettled_cap().saturating_sub(1),
+            // The last first-height is sufficient to detect any epoch derivation in the
+            // entire backlog, even if codec or blob bounds exclude it from this batch.
+            force_epoch: schedule.h_first(epoch) > snapshot.checkpoint_height,
+        })
+    }
+
+    /// Authenticate the selected prefix and construct its immutable statement and sidecar.
     async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>> {
         let schedule = self.schedule(&snapshot)?;
-        let status = self.comet.status().await?;
-        crate::metrics::LanderMetrics::progress(snapshot.checkpoint_height, status.height);
+        let status = self.status(&snapshot).await?;
         let chain_id = rules::chain_id_for(snapshot.l2_chain_id, snapshot.generation);
-        if status.chain_id != chain_id {
-            return Err(LanderError::Safety("Comet endpoint chain/generation mismatch".into()));
-        }
-        if status.height < snapshot.checkpoint_height {
-            return Err(LanderError::Unavailable(format!(
-                "Comet decided tip {} is below checkpoint {}",
-                status.height, snapshot.checkpoint_height
-            )));
-        }
         if status.height == snapshot.checkpoint_height {
             return Ok(None);
         }
@@ -195,49 +319,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let parent_anchor = self.l1.parent_anchor(&snapshot, &parent_context).await?;
         let mut anchor = parent_anchor.clone();
         let mut parent = parent_info(&parent_context)?;
-        let mut blocks = Vec::new();
+        let PublishablePrefix { blocks, payload } =
+            self.publishable_prefix(&snapshot, status.height).await?;
         let mut anchors = Vec::new();
         let mut records = Vec::new();
-        let mut payload = Vec::new();
         let mut terminal = None;
-        let stop = status
-            .height
-            .min(snapshot.checkpoint_height.saturating_add(self.limits.max_blocks as u64));
-        for height in snapshot.checkpoint_height + 1..=stop {
-            let pair = self.comet.block(height).await?;
-            // Choose complete-block boundaries before expensive signature/MPT verification.
-            blocks.push(pair.clone());
-            let encoded = match codec::encode(&blocks, &self.limits) {
-                Ok(encoded) if blob::required_blobs(encoded.len()) <= self.limits.max_blobs => {
-                    encoded
-                }
-                Ok(encoded) => {
-                    if blocks.len() == 1 {
-                        return Err(LanderError::Capacity(format!(
-                            "block {height} needs {} blobs, configured {}",
-                            blob::required_blobs(encoded.len()),
-                            self.limits.max_blobs
-                        )));
-                    }
-                    blocks.pop();
-                    break;
-                }
-                Err(LanderError::Capacity(reason)) if blocks.len() > 1 => {
-                    let _ = reason;
-                    blocks.pop();
-                    break;
-                }
-                Err(LanderError::Capacity(reason)) => {
-                    return Err(LanderError::Capacity(format!("block {height}: {reason}")))
-                }
-                Err(error) => return Err(error),
-            };
+        for pair in &blocks {
+            let height = pair.block.header.height.value();
             let epoch = schedule.epoch_of(height);
             self.committee(&snapshot, epoch, &mut committees).await?;
             if let Some(target) = schedule.switch_target(height) {
                 self.committee(&snapshot, target, &mut committees).await?;
             }
-            let envelope = verify_structure(&pair, previous.as_ref(), height, parent.hash)
+            let envelope = verify_structure(pair, previous.as_ref(), height, parent.hash)
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
             if let (Some(last), Some(previous)) = (&pair.block.last_commit, previous.as_ref()) {
                 let prev_epoch = schedule.epoch_of(height - 1);
@@ -294,8 +388,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             parent = facts.parent;
             anchor = facts.anchor;
             anchors.push(anchor.clone());
-            payload = encoded;
-            previous = Some(pair);
+            previous = Some(pair.clone());
         }
         let Some(last) = terminal else {
             return Ok(None);

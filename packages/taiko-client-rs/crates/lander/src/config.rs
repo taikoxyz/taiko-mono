@@ -59,6 +59,38 @@ impl Default for Timeouts {
     }
 }
 
+/// Collection threshold and bounded wait for a complete authenticated batch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BatchPolicy {
+    /// Minimum complete blocks before submission, unless wait expires or consensus requires
+    /// earlier landing.
+    pub min_blocks: usize,
+    /// Maximum collection wait for a below-threshold batch, measured by the runner's clock.
+    pub max_wait: Duration,
+}
+
+impl BatchPolicy {
+    /// Reject a zero threshold or a collection wait outside the positive one-hour bound.
+    pub fn validate(&self) -> Result<()> {
+        if self.min_blocks == 0 {
+            return Err(LanderError::Configuration("minimum batch blocks must be positive".into()));
+        }
+        if self.max_wait.is_zero() || self.max_wait > Duration::from_secs(MAX_TIMEOUT_SECS) {
+            return Err(LanderError::Configuration(format!(
+                "maximum batch wait must be positive and at most {MAX_TIMEOUT_SECS} seconds"
+            )));
+        }
+        Ok(())
+    }
+}
+
+impl Default for BatchPolicy {
+    /// Preserve immediate submission of any complete block with a bounded collection wait.
+    fn default() -> Self {
+        Self { min_blocks: 1, max_wait: Duration::from_secs(30) }
+    }
+}
+
 /// Complete operator input, containing paths to secrets rather than their contents.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LanderConfig {
@@ -76,6 +108,8 @@ pub struct LanderConfig {
     pub chain_config: Option<PathBuf>,
     /// Explicit batch, blob and codec limits.
     pub limits: Limits,
+    /// Collection threshold and maximum wait before a batch becomes eligible.
+    pub batch_policy: BatchPolicy,
     /// Operator-supplied transaction fee ceilings, in wei.
     pub fee_caps: FeeCaps,
     /// Network sidecar representation matching the operator's L1 fork.
@@ -92,6 +126,12 @@ impl LanderConfig {
     /// Validate every local invariant before opening RPCs or reading a signing key.
     pub fn validate(&self) -> Result<()> {
         self.limits.validate()?;
+        self.batch_policy.validate()?;
+        if self.batch_policy.min_blocks > self.limits.max_blocks {
+            return Err(LanderError::Configuration(
+                "minimum batch blocks cannot exceed maximum batch blocks".into(),
+            ));
+        }
         self.fee_caps.validate()?;
         self.timeouts.validate()?;
         for (name, endpoint) in
@@ -141,6 +181,7 @@ mod tests {
                 max_payload_bytes: 700_000,
                 max_message_bytes: 700_000,
             },
+            batch_policy: BatchPolicy::default(),
             fee_caps: FeeCaps {
                 max_fee_per_gas: 10,
                 max_priority_fee_per_gas: 1,
@@ -151,6 +192,39 @@ mod tests {
             poll_interval: Duration::from_secs(1),
             confirmations: 1,
         }
+    }
+
+    #[test]
+    fn default_policy_keeps_single_complete_blocks_eligible() {
+        let config = valid();
+        assert_eq!(config.batch_policy.min_blocks, 1);
+        assert_eq!(config.batch_policy.max_wait, Duration::from_secs(30));
+        config.validate().unwrap();
+    }
+
+    #[test]
+    fn rejects_zero_minimum_batch_blocks() {
+        let policy = BatchPolicy { min_blocks: 0, ..BatchPolicy::default() };
+        assert!(matches!(policy.validate(), Err(LanderError::Configuration(_))));
+        assert!(LanderConfig { batch_policy: policy, ..valid() }.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_zero_and_excessive_collection_waits() {
+        for max_wait in [Duration::ZERO, Duration::from_secs(3600) + Duration::from_nanos(1)] {
+            let policy = BatchPolicy { max_wait, ..BatchPolicy::default() };
+            assert!(matches!(policy.validate(), Err(LanderError::Configuration(_))));
+            assert!(LanderConfig { batch_policy: policy, ..valid() }.validate().is_err());
+        }
+    }
+
+    #[test]
+    fn validates_minimum_against_maximum_blocks_with_inclusive_boundaries() {
+        let mut config = valid();
+        config.batch_policy = BatchPolicy { min_blocks: 16, max_wait: Duration::from_secs(3600) };
+        config.validate().unwrap();
+        config.batch_policy.min_blocks = 17;
+        assert!(matches!(config.validate(), Err(LanderError::Configuration(_))));
     }
 
     #[test]

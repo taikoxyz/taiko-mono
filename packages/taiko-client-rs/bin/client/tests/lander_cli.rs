@@ -6,12 +6,19 @@ mod support {
     pub mod lander;
 }
 
-use std::{path::Path, time::Duration};
+use std::{
+    path::Path,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use alloy_primitives::U256;
 use alloy_provider::Provider;
-use anyhow::{Result, ensure};
-use contracts_support::{ContractFixture, fixtures::FixtureChain};
+use anyhow::{Context, Result, ensure};
+use contracts_support::{
+    ContractFixture,
+    contracts::{EtnaInbox, view},
+    fixtures::FixtureChain,
+};
 use lander::store::{JournalIdentity, Store};
 use serde_json::json;
 use support::lander::{CliInputs, CliProcess, FixtureRpc, RpcData};
@@ -58,7 +65,16 @@ async fn wait_checkpoint(
     process: &mut CliProcess,
     height: u64,
 ) -> Result<()> {
-    tokio::time::timeout(Duration::from_secs(90), async {
+    wait_checkpoint_before(fixture, process, height, Duration::from_secs(90)).await
+}
+
+async fn wait_checkpoint_before(
+    fixture: &ContractFixture,
+    process: &mut CliProcess,
+    height: u64,
+    deadline: Duration,
+) -> Result<()> {
+    tokio::time::timeout(deadline, async {
         loop {
             process.assert_running()?;
             let checkpoint = fixture.checkpoint().await?;
@@ -266,6 +282,190 @@ async fn lander_cli_refuses_locks_corrupt_journals_and_invalid_caps_before_signi
             "fatal startup error submitted a transaction"
         );
         ensure!(fixture.checkpoint().await?.0 == 0, "fatal startup error advanced the checkpoint");
+        Ok(())
+    }
+    .await;
+    if result.is_err() {
+        fixture.anvil.dump_logs();
+    }
+    result
+}
+
+async fn wait_batch_marker(
+    process: &mut CliProcess,
+    directory: &Path,
+) -> Result<serde_json::Value> {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            process.assert_running()?;
+            if let Ok(bytes) = std::fs::read(directory.join("lander-state.json")) &&
+                let Ok(journal) = serde_json::from_slice::<serde_json::Value>(&bytes) &&
+                journal["state"]["phase"] == "idle" &&
+                journal["waiting"].is_object()
+            {
+                return Ok(journal["waiting"].clone());
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .map_err(|error| {
+        anyhow::anyhow!("no durable batch wait marker: {error}\n{}", process.output())
+    })?
+}
+
+#[tokio::test]
+#[ignore = "docker"]
+async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill() -> Result<()> {
+    let fixture = ContractFixture::deploy().await?;
+    let result = async {
+        let mut chain = FixtureChain::new(&fixture).await?;
+        chain.extend(&fixture, 1).await?;
+        let rpc = FixtureRpc::start(rpc_data(&chain)).await?;
+        let directory = TempDir::new()?;
+        let args = inputs(&fixture, &rpc, &directory)?;
+        let policy = [("--min-blocks", "3"), ("--max-batch-wait", "30")];
+        let sender = dev_signer().address();
+        let nonce = fixture.anvil.provider.get_transaction_count(sender).await?;
+        let mut first = CliProcess::spawn(
+            Path::new(CLIENT),
+            &args,
+            directory.path().join("batch-first.log"),
+            &policy,
+        )?;
+        // The genesis derivation block lands immediately despite the configured minimum.
+        wait_checkpoint_before(&fixture, &mut first, 1, Duration::from_secs(15)).await?;
+        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
+        chain.extend(&fixture, 3).await?;
+        rpc.replace(rpc_data(&chain)).await;
+        let waiting = wait_batch_marker(&mut first, &args.data).await?;
+        ensure!(waiting["checkpoint_height"] == 1, "wait attached to wrong checkpoint");
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        first.assert_running()?;
+        ensure!(fixture.checkpoint().await?.0 == 1, "submitted before minimum or deadline");
+        ensure!(
+            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 1,
+            "waiting consumed a nonce",
+        );
+        chain.extend(&fixture, 4).await?;
+        rpc.replace(rpc_data(&chain)).await;
+        // Three publishable blocks trigger before the thirty-second timer.
+        // The fifteen-second observation window includes real signing and inclusion overhead.
+        wait_checkpoint_before(&fixture, &mut first, 4, Duration::from_secs(15)).await?;
+        let first_seen = waiting["first_seen_unix_ms"]
+            .as_u64()
+            .context("durable waiting timer has no observation timestamp")?;
+        let age_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_millis()
+            .saturating_sub(u128::from(first_seen));
+        ensure!(
+            age_ms < 30_000,
+            "minimum test reached the timer deadline instead of the count gate"
+        );
+        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
+        chain.extend(&fixture, 5).await?;
+        rpc.replace(rpc_data(&chain)).await;
+        let original_wait = wait_batch_marker(&mut first, &args.data).await?;
+        ensure!(original_wait["checkpoint_height"] == 4, "new backlog retained old checkpoint");
+        ensure!(!first.signal(libc::SIGKILL).await?.success(), "SIGKILL should be abrupt");
+        let mut second = CliProcess::spawn(
+            Path::new(CLIENT),
+            &args,
+            directory.path().join("batch-restarted.log"),
+            &policy,
+        )?;
+        let restored_wait = wait_batch_marker(&mut second, &args.data).await?;
+        ensure!(restored_wait == original_wait, "restart reset the durable batching timer");
+        wait_checkpoint_before(&fixture, &mut second, 5, Duration::from_secs(50)).await?;
+        ensure!(
+            fixture.checkpoint().await? == (5, chain.headers[5].hash_slow()),
+            "timeout checkpoint differs"
+        );
+        ensure!(
+            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 3,
+            "batch policy consumed extra nonces"
+        );
+        ensure!(second.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
+        assert_key_absent(&first);
+        assert_key_absent(&second);
+        Ok(())
+    }
+    .await;
+    if result.is_err() {
+        fixture.anvil.dump_logs();
+    }
+    result
+}
+
+#[tokio::test]
+#[ignore = "docker"]
+async fn lander_cli_flushes_backpressure_and_epoch_records_before_batch_deadline() -> Result<()> {
+    let fixture = ContractFixture::deploy().await?;
+    let result = async {
+        let mut chain = FixtureChain::new(&fixture).await?;
+        chain.extend(&fixture, 1).await?;
+        let rpc = FixtureRpc::start(rpc_data(&chain)).await?;
+        let directory = TempDir::new()?;
+        let args = inputs(&fixture, &rpc, &directory)?;
+        let sender = dev_signer().address();
+        let nonce = fixture.anvil.provider.get_transaction_count(sender).await?;
+        let mut process = CliProcess::spawn(
+            Path::new(CLIENT),
+            &args,
+            directory.path().join("batch-urgent.log"),
+            &[("--min-blocks", "5"), ("--max-batch-wait", "3600")],
+        )?;
+        wait_checkpoint_before(&fixture, &mut process, 1, Duration::from_secs(15)).await?;
+        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
+        chain.extend(&fixture, 5).await?;
+        rpc.replace(rpc_data(&chain)).await;
+        // Four unlanded blocks leave only one height before the ABCI cap U=5.
+        wait_checkpoint_before(&fixture, &mut process, 5, Duration::from_secs(15)).await?;
+        ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
+        assert_key_absent(&process);
+        // Land two more blocks to isolate epoch urgency from back-pressure at height 9.
+        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
+        chain.extend(&fixture, 7).await?;
+        rpc.replace(rpc_data(&chain)).await;
+        let mut setup = CliProcess::spawn(
+            Path::new(CLIENT),
+            &args,
+            directory.path().join("batch-epoch-setup.log"),
+            &[("--min-blocks", "2"), ("--max-batch-wait", "3600")],
+        )?;
+        wait_checkpoint_before(&fixture, &mut setup, 7, Duration::from_secs(15)).await?;
+        ensure!(setup.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
+        assert_key_absent(&setup);
+        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
+        chain.extend(&fixture, 9).await?;
+        rpc.replace(rpc_data(&chain)).await;
+        let mut process = CliProcess::spawn(
+            Path::new(CLIENT),
+            &args,
+            directory.path().join("batch-epoch.log"),
+            &[("--min-blocks", "5"), ("--max-batch-wait", "3600")],
+        )?;
+        // Only two blocks remain (depth 2 < U-1=4), but height 9 derives committee 2.
+        wait_checkpoint_before(&fixture, &mut process, 9, Duration::from_secs(15)).await?;
+        let committee = view(
+            &fixture.anvil.provider,
+            fixture.inbox,
+            EtnaInbox::committeeCall { _epoch: 2 },
+            None,
+        )
+        .await?;
+        ensure!(!committee.is_zero(), "epoch output did not land");
+        ensure!(
+            fixture.checkpoint().await? == (9, chain.headers[9].hash_slow()),
+            "urgent checkpoint differs"
+        );
+        ensure!(
+            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 4,
+            "urgent flush consumed extra nonces"
+        );
+        ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
+        assert_key_absent(&process);
         Ok(())
     }
     .await;

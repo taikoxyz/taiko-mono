@@ -130,6 +130,7 @@ pub struct Fixture {
     pub headers: BTreeMap<u64, Header>,
     pub l1_headers: BTreeMap<u64, RawL1Header>,
     pub mismatch_statement: AtomicBool,
+    states: BTreeMap<u64, State>,
 }
 
 fn l1_header(number: u64, state: &State, parent: B256) -> RawL1Header {
@@ -203,6 +204,10 @@ fn anchor(
 
 impl Fixture {
     pub fn new(checkpoint: u64, tip: u64) -> Self {
+        Self::with_calldata(checkpoint, tip, 0)
+    }
+
+    fn with_calldata(checkpoint: u64, tip: u64, bytes: usize) -> Self {
         assert!(checkpoint == 0 || checkpoint == 20);
         let mut params = parameters();
         params.d_max = 20;
@@ -331,7 +336,28 @@ impl Fixture {
                 ),
             })
             .unwrap();
+            let transactions = if bytes == 0 {
+                vec![]
+            } else {
+                use alloy::signers::SignerSync;
+                use alloy_consensus::{SignableTransaction, TxEip1559, TxEnvelope};
+                use alloy_eips::eip2718::Encodable2718;
+                let tx = TxEip1559 {
+                    chain_id: params.l2_chain_id,
+                    nonce: height - 1,
+                    gas_limit: 2_000_000,
+                    max_fee_per_gas: 1_000_001,
+                    max_priority_fee_per_gas: 1,
+                    to: alloy_primitives::TxKind::Call(params.fee_vault),
+                    input: Bytes::from(vec![0x2a; bytes]),
+                    ..Default::default()
+                };
+                let signature =
+                    super::runtime::signer().sign_hash_sync(&tx.signature_hash()).unwrap();
+                vec![Bytes::from(TxEnvelope::Eip1559(tx.into_signed(signature)).encoded_2718())]
+            };
             let el = Header {
+                transactions_root: alloy_trie::root::ordered_trie_root_encoded(&transactions),
                 number: height,
                 parent_hash: expected.parent_hash,
                 state_root: B256::from(U256::from(height + 100)),
@@ -351,7 +377,7 @@ impl Fixture {
             };
             let mut pair = pair_with_envelope(
                 EtnaEnvelope {
-                    block: ExecutionBlock { header: el.clone(), transactions: vec![] },
+                    block: ExecutionBlock { header: el.clone(), transactions },
                     anchor: witness,
                     committee,
                 },
@@ -408,6 +434,7 @@ impl Fixture {
             headers,
             l1_headers,
             mismatch_statement: AtomicBool::new(false),
+            states,
         }
     }
 }
@@ -417,7 +444,7 @@ impl CometSource for Fixture {
     async fn status(&self) -> Result<CometStatus> {
         Ok(CometStatus {
             chain_id: rules::chain_id_for(self.params.l2_chain_id, 0),
-            height: *self.blocks.last_key_value().unwrap().0,
+            height: *self.headers.last_key_value().unwrap().0,
         })
     }
     async fn block(&self, height: u64) -> Result<CertifiedBlock> {
@@ -451,9 +478,30 @@ impl LandingSource for Fixture {
     async fn parent_anchor(
         &self,
         snapshot: &LandingSnapshot,
-        _parent: &ParentContext,
+        parent: &ParentContext,
     ) -> Result<AnchorState> {
-        Ok(self.anchors[&snapshot.checkpoint_height].clone())
+        let number = if parent.header.number == 0 {
+            snapshot.genesis.l1_0
+        } else {
+            let (_, generation, number) = rules::decode_extra_data(&parent.header.extra_data)
+                .map_err(|e| LanderError::Safety(e.to_string()))?;
+            if generation != snapshot.generation {
+                return Err(LanderError::Safety("anchor generation mismatch".into()));
+            }
+            number
+        };
+        let witness = AnchorWitness {
+            l1_header: self.l1_headers[&number].clone(),
+            inbox: self.states[&number].witness(self.params.inbox, &inbox::anchor_slots(None)),
+        };
+        let anchor = abci::l1::verify_anchor_witness(&witness, self.params.inbox, None)
+            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        if parent.header.number != 0 &&
+            parent.header.parent_beacon_block_root != Some(anchor.state_root)
+        {
+            return Err(LanderError::Safety("parent anchor root mismatch".into()));
+        }
+        Ok(anchor)
     }
     async fn committee_hash(&self, snapshot: &LandingSnapshot, epoch: u64) -> Result<B256> {
         Ok(if epoch == 0 || (epoch == 1 && snapshot.checkpoint_height > 0) {
@@ -500,5 +548,221 @@ impl LandingSource for Fixture {
         } else {
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod readiness {
+    use super::*;
+    use crate::{
+        batch::{BatchBuilder, BatchSource},
+        blob, codec,
+        types::{Limits, SidecarMode},
+    };
+    use std::sync::Arc;
+
+    fn limits(blocks: usize) -> Limits {
+        Limits {
+            max_blocks: blocks,
+            max_blobs: 2,
+            max_payload_bytes: 240_000,
+            max_message_bytes: 200_000,
+        }
+    }
+
+    fn builder(fixture: Arc<Fixture>, limits: Limits) -> BatchBuilder<Fixture, Fixture> {
+        BatchBuilder::new(
+            fixture.clone(),
+            fixture.clone(),
+            fixture.params.clone(),
+            limits,
+            SidecarMode::Eip4844,
+        )
+        .unwrap()
+    }
+
+    fn advance_checkpoint(fixture: &mut Fixture, height: u64) {
+        fixture.snapshot.checkpoint_height = height;
+        fixture.snapshot.checkpoint_hash = fixture.headers[&height].hash_slow();
+        let epoch = height / fixture.snapshot.genesis.epoch_len;
+        fixture.snapshot.start_committee_record_hash =
+            record_hash(fixture.params.l2_chain_id, &fixture.committees[&epoch].state.record);
+        // The current L1 state has advanced while the tip still consumes its older L1 anchor.
+        let mut accounts = fixture.states.last_key_value().unwrap().1.accounts.clone();
+        let slots = &mut accounts.get_mut(&fixture.params.inbox).unwrap().0;
+        slots.insert(inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height));
+        slots.insert(
+            inbox::slot(inbox::LAST_CHECKPOINT_HASH),
+            fixture.snapshot.checkpoint_hash.into(),
+        );
+        let state = State::new(
+            accounts
+                .into_iter()
+                .map(|(address, (slots, _))| (address, slots.into_iter().collect()))
+                .collect(),
+        );
+        let number = fixture.snapshot.l1_block_number;
+        let raw = l1_header(number, &state, fixture.l1_headers[&(number - 1)].hash());
+        fixture.snapshot.l1_block_hash = raw.hash();
+        fixture.states.insert(number, state);
+        fixture.l1_headers.insert(number, raw);
+    }
+
+    #[tokio::test]
+    async fn no_backlog_has_no_publishable_blocks_or_urgent_flags() {
+        for checkpoint in [0, 20] {
+            let fixture = Arc::new(Fixture::new(checkpoint, checkpoint));
+            let observed =
+                builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await.unwrap();
+            assert_eq!(observed.decided_height, checkpoint);
+            assert_eq!(observed.publishable_blocks, 0);
+            assert!(!observed.force_backpressure);
+            assert!(!observed.force_epoch);
+        }
+    }
+
+    #[tokio::test]
+    async fn first_epoch_height_is_urgent_without_building_reference_or_statement() {
+        let mut fixture = Fixture::new(0, 3);
+        fixture.l1_headers.remove(&14);
+        fixture.mismatch_statement.store(true, Ordering::Relaxed);
+        let fixture = Arc::new(fixture);
+        let observed =
+            builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await.unwrap();
+        assert_eq!(observed.decided_height, 3);
+        assert_eq!(observed.publishable_blocks, 3);
+        assert!(!observed.force_backpressure);
+        assert!(observed.force_epoch);
+    }
+
+    #[tokio::test]
+    async fn pressure_uses_tip_authenticated_anchor_instead_of_latest_checkpoint() {
+        let mut fixture = Fixture::new(20, 20);
+        advance_checkpoint(&mut fixture, 19);
+        let fixture = Arc::new(fixture);
+        let observed =
+            builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await.unwrap();
+        assert_eq!(observed.publishable_blocks, 1);
+        // U=20, tip=20, tip anchor CP=1: depth 19 forces publication despite latest CP=19.
+        assert!(observed.force_backpressure);
+        assert!(!observed.force_epoch);
+    }
+
+    #[tokio::test]
+    async fn pressure_below_unsettled_cap_minus_one_allows_waiting() {
+        let mut fixture = Fixture::new(20, 20);
+        fixture.blocks.remove(&20);
+        fixture.headers.remove(&20);
+        advance_checkpoint(&mut fixture, 18);
+        let fixture = Arc::new(fixture);
+        let observed =
+            builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await.unwrap();
+        // U=20, tip=19, tip anchor CP=1: depth 18 stays below the urgent threshold.
+        assert_eq!(observed.decided_height, 19);
+        assert_eq!(observed.publishable_blocks, 1);
+        assert!(!observed.force_backpressure);
+        assert!(!observed.force_epoch);
+    }
+
+    #[tokio::test]
+    async fn epoch_first_height_outside_blob_prefix_forces_publication_without_pressure() {
+        let fixture = Arc::new(Fixture::with_calldata(20, 26, 70_000));
+        let mut bound = limits(6);
+        bound.max_blobs = 1;
+        let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
+        assert_eq!(observed.decided_height, 26);
+        assert_eq!(observed.publishable_blocks, 1);
+        assert!(observed.force_epoch); // h_first(1)=24 is beyond the single-block prefix at 21.
+        assert!(!observed.force_backpressure); // The tip anchor CP=20 gives depth 6 < 19.
+        let request = builder(fixture.clone(), bound)
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(request.batch.input.lastHeight, 21);
+    }
+
+    #[tokio::test]
+    async fn observation_counts_the_same_blob_and_codec_bounded_prefix_as_prepare() {
+        let fixture = Arc::new(Fixture::with_calldata(0, 3, 70_000));
+        let mut bound = limits(3);
+        bound.max_blobs = 1;
+        let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
+        assert_eq!(observed.publishable_blocks, 1);
+        let first = codec::encode(&[fixture.blocks[&1].clone()], &bound).unwrap();
+        assert_eq!(blob::required_blobs(first.len()), 1);
+        bound.max_payload_bytes = first.len() - 1;
+        assert!(matches!(
+            builder(fixture.clone(), bound).observe(&fixture.snapshot).await,
+            Err(LanderError::Capacity(_))
+        ));
+        bound = limits(3);
+        bound.max_blocks = 2;
+        assert_eq!(
+            builder(fixture.clone(), bound)
+                .observe(&fixture.snapshot)
+                .await
+                .unwrap()
+                .publishable_blocks,
+            2
+        );
+        bound.max_message_bytes = 1;
+        assert!(matches!(
+            builder(fixture.clone(), bound).observe(&fixture.snapshot).await,
+            Err(LanderError::Capacity(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn tip_body_and_certificate_are_authenticated_beyond_selected_prefix() {
+        let mut fixture = Fixture::new(20, 26);
+        fixture.blocks.get_mut(&26).unwrap().block.data[0].push(0);
+        let fixture = Arc::new(fixture);
+        assert!(matches!(
+            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
+            Err(LanderError::Safety(_))
+        ));
+        let mut fixture = Fixture::new(20, 26);
+        fixture
+            .blocks
+            .get_mut(&26)
+            .unwrap()
+            .commit
+            .signatures
+            .fill(tendermint::block::CommitSig::BlockIdFlagAbsent);
+        let fixture = Arc::new(fixture);
+        assert!(matches!(
+            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
+            Err(LanderError::Safety(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn observation_rejects_certified_rpc_block_from_another_height() {
+        let mut fixture = Fixture::new(20, 26);
+        fixture.blocks.insert(21, fixture.blocks[&22].clone());
+        let fixture = Arc::new(fixture);
+        assert!(matches!(
+            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
+            Err(LanderError::Safety(_))
+        ));
+        assert!(matches!(
+            builder(fixture.clone(), limits(1)).prepare(fixture.snapshot.clone()).await,
+            Err(LanderError::Safety(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn pressure_rejects_anchor_mpt_root_that_differs_from_certified_tip() {
+        let mut fixture = Fixture::new(20, 20);
+        advance_checkpoint(&mut fixture, 19);
+        let state = fixture.states[&10].clone();
+        fixture.states.insert(11, state.clone());
+        fixture.l1_headers.insert(11, l1_header(11, &state, fixture.l1_headers[&10].hash()));
+        let fixture = Arc::new(fixture);
+        assert!(matches!(
+            builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await,
+            Err(LanderError::Safety(_))
+        ));
     }
 }
