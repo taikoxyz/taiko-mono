@@ -2,17 +2,11 @@
 pragma solidity ^0.8.26;
 
 /// @title IEtnaInbox
-/// @notice The Etna implementation of the Inbox proxy: the L1 anchor of the Etna PoS chain.
-/// @dev The Shasta Inbox proxy migrates in place in two upgrades: the Shasta implementation's
-/// `freeze()` stops new proposals, and once every Shasta proposal is proven the owner upgrades to
-/// the Etna implementation and calls `activateEtna` in the same transaction. The last finalized
-/// Shasta block becomes the Etna genesis `B*` and the starting checkpoint.
-///
-/// The Etna node reads the activation record, the last checkpoint, the committee mapping, the
-/// genesis cutoff and the migration state straight from storage with EIP-1186 proofs, so their
-/// slots and packing are part of the node-facing layout (taiko-client-rs
-/// `crates/abci/src/l1/layout.rs`). Anyone may then `land` batches of Etna blocks with a validity
-/// proof, which advances the last checkpoint and records each new epoch's committee.
+/// @notice The L1 anchor of an Etna PoS chain that starts from L2 genesis.
+/// @dev A fresh proxy is initialized with the L2 block-0 hash and state root, epoch parameters,
+/// and the initial committee record. The node reads the genesis record, last checkpoint and
+/// committee mapping directly from storage with EIP-1186 proofs. Their existing slots and packing
+/// remain the interface to taiko-client-rs `crates/abci/src/l1/layout.rs`.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaInbox {
     // ---------------------------------------------------------------
@@ -27,40 +21,36 @@ interface IEtnaInbox {
         address signalService;
         /// @notice The Etna staking registry the committees derive from.
         address stakingRegistry;
-        /// @notice The ERC20 token of the legacy Shasta bonds.
-        address bondToken;
         /// @notice The chain id of the Etna L2.
         uint64 l2ChainId;
         /// @notice The maximum number of L2 blocks one `land` call may cover.
         uint64 maxBatchBlocks;
-        /// @notice The legacy Shasta minimum bond in gwei, kept for the bond exit.
-        uint64 minBond;
-        /// @notice The legacy Shasta bond withdrawal delay in seconds, kept for the bond exit.
-        uint48 withdrawalDelay;
     }
 
-    /// @notice The owner's parameters of `activateEtna`.
-    struct ActivationParams {
-        /// @notice `B*`: the last finalized Shasta L2 block, the Etna genesis.
-        uint64 genesisHeight;
-        /// @notice `L`: the epoch length in L2 blocks.
+    /// @notice The genesis parameters of a new Etna chain.
+    struct GenesisParams {
+        /// @notice The hash of L2 block 0.
+        bytes32 genesisBlockHash;
+        /// @notice The state root of L2 block 0.
+        bytes32 genesisStateRoot;
+        /// @notice The epoch length in L2 blocks.
         uint64 epochLenL2;
         /// @notice The epoch length in L1 blocks.
         uint64 epochLenL1;
-        /// @notice The L1 block at which the epoch-0 committee snapshot is taken.
+        /// @notice A past L1 block whose registry snapshot defines committee 0.
         uint64 genesisCutoff;
-        /// @notice `committee[0]`, computed off-chain from the registry at `genesisCutoff`.
+        /// @notice The initial committee record hash, computed from that snapshot.
         bytes32 committeeRecordHash;
     }
 
-    /// @notice The activation record.
+    /// @notice The genesis record; named activation for the existing node storage interface.
     /// @dev Three storage words: `genesisHeight` (bits 0–63), `l1Block` (bits 64–127),
     /// `epochLenL2` (bits 128–191) and `epochLenL1` (bits 192–255), then `genesisBlockHash`, then
     /// `genesisStateRoot`.
     struct Activation {
-        /// @notice `B*`: the Etna genesis height.
+        /// @notice The Etna genesis height, always 0.
         uint64 genesisHeight;
-        /// @notice `L1_0`: the L1 block in which Etna was activated.
+        /// @notice `L1_0`: the L1 block in which the proxy was initialized.
         uint64 l1Block;
         /// @notice `L`: the epoch length in L2 blocks.
         uint64 epochLenL2;
@@ -72,7 +62,7 @@ interface IEtnaInbox {
         bytes32 genesisStateRoot;
     }
 
-    /// @notice The latest L2 block landed on L1 (`B*` right after activation).
+    /// @notice The latest L2 block landed on L1 (block 0 after initialization).
     /// @dev Two storage words: `height` (bits 0–63), then `blockHash`.
     struct LandedCheckpoint {
         /// @notice The L2 block height.
@@ -110,17 +100,15 @@ interface IEtnaInbox {
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when the owner activates Etna.
-    /// @param genesisHeight `B*`.
-    /// @param genesisBlockHash `H*`.
-    /// @param genesisStateRoot `S*`.
-    /// @param l1Block `L1_0`, the activation block.
-    /// @param epochLenL2 `L`, the epoch length in L2 blocks.
+    /// @notice Emitted when a fresh Etna proxy is initialized from L2 genesis.
+    /// @param genesisBlockHash The hash of L2 block 0.
+    /// @param genesisStateRoot The state root of L2 block 0.
+    /// @param l1Block The L1 initialization block.
+    /// @param epochLenL2 The epoch length in L2 blocks.
     /// @param epochLenL1 The epoch length in L1 blocks.
-    /// @param genesisCutoff The L1 block of the epoch-0 committee snapshot.
-    /// @param committeeRecordHash `committee[0]`.
-    event EtnaActivated(
-        uint64 genesisHeight,
+    /// @param genesisCutoff The initial committee's registry snapshot block.
+    /// @param committeeRecordHash The initial committee record hash.
+    event EtnaInitialized(
         bytes32 genesisBlockHash,
         bytes32 genesisStateRoot,
         uint64 l1Block,
@@ -157,25 +145,23 @@ interface IEtnaInbox {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Activates Etna on the frozen and drained Shasta Inbox.
-    /// @dev Owner only; meant for `upgradeToAndCall` in the upgrade from the Shasta
-    /// implementation. Requires, in order: the Inbox is frozen; every Shasta proposal is proven;
-    /// the signal service holds a checkpoint at `genesisHeight` whose block hash is the Shasta
-    /// last finalized block hash; `epochLenL2 >= 3` and `epochLenL1 > 0`; `genesisCutoff` is a
-    /// past L1 block at or after the registry's first checkpoint; `committeeRecordHash` is
-    /// non-zero. Then records the activation (`L1_0 = block.number`, the checkpoint's block hash
-    /// and state root as `H*` and `S*`), the genesis cutoff, `committee[0]` and the starting
-    /// checkpoint `(B*, H*)`, and moves the migration state to `ETNA_ACTIVE`, so it runs once.
-    /// The node also requires `L >= D_MAX - MARGIN_V + 3`, which the contract cannot check.
-    /// @param _params The activation parameters.
-    function activateEtna(ActivationParams calldata _params) external;
+    /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
+    /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root
+    /// and committee record, epochLenL2 >= 3, epochLenL1 > 0, and a past genesis cutoff at or
+    /// after the registry's first checkpoint. The SignalService must authorize this proxy as its
+    /// syncer: initialization saves its block-0 checkpoint too, and any failure rolls back all
+    /// state. The owner supplies the trusted genesis values and the committee record computed
+    /// from the registry snapshot. The node also requires L >= D_MAX - MARGIN_V + 3.
+    /// @param _owner The owner; the proxy deployer if zero.
+    /// @param _params The genesis parameters.
+    function init(address _owner, GenesisParams calldata _params) external;
 
     /// @notice Lands a batch of Etna L2 blocks, the blocks after the last checkpoint up to
     /// `_input.lastHeight`, proven by `_proof`.
     /// @dev Permissionless. Requires, in order: Etna is active; the batch makes progress, covers
     /// at most `maxBatchBlocks` blocks and ends at or below `type(uint48).max` (the signal
     /// service key width); for every epoch `e` whose first block
-    /// `h_first(e) = genesisHeight + 1 + e * epochLenL2` lies in the batch, in ascending order,
+    /// `h_first(e) = 1 + e * epochLenL2` lies in the batch, in ascending order,
     /// `_input.records` holds exactly one non-zero record with `epoch == e + 1` and
     /// `committee[e + 1]` is still empty (the record then becomes `committee[e + 1]`), and no
     /// other record; `anchorNumber` is a past L1 block whose hash is available, from `blockhash`
@@ -192,7 +178,7 @@ interface IEtnaInbox {
     ///   (alethia-reth#248 plus the Etna node's header rules);
     /// - each height has a CometBFT commit with more than 2/3 of the voting power of its epoch
     ///   committee, under `chain_id = taiko-etna-<l2ChainId>-g<generation>`; the first epoch's
-    ///   committee is `committee[0]` from activation;
+    ///   committee is `committee[0]` from initialization;
     /// - every block's anchor lies on the L1 header chain ending at `anchorHash`, the hash of
     ///   `anchorNumber`, so `anchorNumber` is at or after the last block's anchor number. A lander
     ///   picks a recent L1 block, so a landing outage longer than the 8191-block EIP-2935 window
@@ -239,7 +225,7 @@ interface IEtnaInbox {
         returns (bytes32);
 
     /// @notice Returns the latest landed L2 block.
-    /// @return The latest landed checkpoint; zero before activation.
+    /// @return The latest landed checkpoint; zero before initialization.
     function lastCheckpoint() external view returns (LandedCheckpoint memory);
 
     /// @notice Returns the committee record hash of `_epoch`.
@@ -247,16 +233,17 @@ interface IEtnaInbox {
     /// @return The committee record hash; zero if not recorded.
     function committee(uint64 _epoch) external view returns (bytes32);
 
-    /// @notice Returns the activation record.
-    /// @return The activation record; zero before activation.
+    /// @notice Returns the genesis record at the existing activation-record slots.
+    /// @return The genesis record; zero before initialization.
     function activation() external view returns (Activation memory);
 
     /// @notice Returns the L1 block of the epoch-0 committee snapshot.
-    /// @return The genesis cutoff; zero before activation.
+    /// @return The genesis cutoff; zero before initialization.
     function genesisCutoff() external view returns (uint64);
 
-    /// @notice Returns the migration state (`LibInboxMigration`).
-    /// @return The migration state: `FROZEN` before activation, `ETNA_ACTIVE` after.
+    /// @notice Returns the status word consumed by the existing ABCI node.
+    /// @dev The name is retained for node compatibility; there is no migration state machine.
+    /// @return 3 after initialization, 0 before initialization.
     function migrationState() external view returns (uint8);
 
     /// @notice Returns the recovery generation bound into every landing statement.

@@ -3,12 +3,6 @@ pragma solidity ^0.8.26;
 
 import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IBondManager } from "src/layer1/core/iface/IBondManager.sol";
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { LibBonds } from "src/layer1/core/libs/LibBonds.sol";
-import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol";
-import { LibInboxMigration } from "src/layer1/core/libs/LibInboxMigration.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -17,22 +11,18 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 
 /// @title EtnaInbox
-/// @notice The Etna implementation of the Inbox proxy. It replaces the Shasta implementation once
-/// the Shasta Inbox is frozen and drained, activates Etna from the last finalized Shasta block,
-/// lands proven batches of Etna blocks, and keeps the legacy Shasta bond exit.
-/// @dev Upgrades the existing, initialized Shasta Inbox proxy in place, so it has no initializer.
-/// It does not carry the Shasta propose, prove, deposit, forced inclusion or codec entry points.
-///
-/// Storage keeps the Shasta variables at their slots (251–258) and places the Etna variables on
-/// the slots the Etna node reads (268, 270–274, 278, 279). Slots 259–267, 269 and 275–277 are
-/// reserved for features of the Etna specification (taikoxyz/taiko-mono#22262) not built here.
+/// @notice The L1 anchor of an Etna PoS chain starting at L2 block 0. A fresh proxy records its
+/// genesis checkpoint and initial committee in one initialization, then lands proven batches.
+/// @dev Uses the existing ABCI storage interface without any Shasta state or migration logic.
+/// Slots 251–257, 259–267, 269 and 275–277 are reserved to keep the node-facing slots unchanged.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInbox is IEtnaInbox, EssentialContract {
-    using LibBonds for LibBonds.Storage;
-
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
+
+    /// @dev The initialized status value expected by the ABCI node.
+    uint8 private constant _ETNA_ACTIVE = 3;
 
     /// @dev The smallest epoch length in L2 blocks.
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
@@ -62,44 +52,23 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The Etna staking registry.
     IEtnaStakingRegistry internal immutable _stakingRegistry;
 
-    /// @dev The ERC20 token of the legacy Shasta bonds.
-    IERC20 internal immutable _bondToken;
-
     /// @dev The chain id of the Etna L2.
     uint64 internal immutable _l2ChainId;
 
     /// @dev The maximum number of L2 blocks one `land` call may cover.
     uint64 internal immutable _maxBatchBlocks;
 
-    /// @dev The legacy Shasta minimum bond in gwei.
-    uint64 internal immutable _minBond;
-
-    /// @dev The legacy Shasta bond withdrawal delay in seconds.
-    uint48 internal immutable _withdrawalDelay;
-
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @dev Slot 251: the Shasta `activationTimestamp`; no longer used.
-    uint48 private __deprecatedActivationTimestamp;
+    /// @dev Slots 251–257: reserved to preserve the existing ABCI storage interface.
+    uint256[7] private __reservedBeforeStatus;
 
-    /// @dev Slots 252–253: the Shasta core state, frozen; `activateEtna` reads its finalization.
-    IInbox.CoreState private _coreState;
+    /// @dev Slot 258: 3 once initialized; zero before initialization.
+    uint8 private _status;
 
-    /// @dev Slot 254: the Shasta proposal hash ring buffer; no longer used.
-    mapping(uint256 proposalId => bytes32 proposalHash) private __deprecatedProposalHashes;
-
-    /// @dev Slots 255–256: the Shasta forced inclusion queue; no longer used.
-    LibForcedInclusion.Storage private __deprecatedForcedInclusions;
-
-    /// @dev Slot 257: the Shasta bond balances, kept for the legacy bond exit.
-    LibBonds.Storage private _bondStorage;
-
-    /// @dev Slot 258: the migration state word, written by the Shasta `freeze()` and here.
-    LibInboxMigration.State private _migration;
-
-    /// @dev Slots 259–267: reserved (#22262 MIG-02).
+    /// @dev Slots 259–267: reserved to preserve the ABCI storage interface.
     uint256[9] private __reservedSpec;
 
     /// @dev Slot 268: the recovery generation (bits 0–63; the rest is reserved for GOV-04).
@@ -111,7 +80,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Slots 270–271: the latest landed L2 block.
     LandedCheckpoint private _lastCheckpoint;
 
-    /// @dev Slots 272–274: the activation record.
+    /// @dev Slots 272–274: the genesis record at the existing activation-record slots.
     Activation private _activation;
 
     /// @dev Slots 275–277: reserved (#22262 publication register).
@@ -136,18 +105,14 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(_config.proofVerifier != address(0), ZERO_ADDRESS());
         require(_config.signalService != address(0), ZERO_ADDRESS());
         require(_config.stakingRegistry != address(0), ZERO_ADDRESS());
-        require(_config.bondToken != address(0), ZERO_ADDRESS());
         require(_config.l2ChainId != 0, ZERO_VALUE());
         require(_config.maxBatchBlocks != 0, ZERO_VALUE());
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _signalService = ISignalService(_config.signalService);
         _stakingRegistry = IEtnaStakingRegistry(_config.stakingRegistry);
-        _bondToken = IERC20(_config.bondToken);
         _l2ChainId = _config.l2ChainId;
         _maxBatchBlocks = _config.maxBatchBlocks;
-        _minBond = _config.minBond;
-        _withdrawalDelay = _config.withdrawalDelay;
     }
 
     // ---------------------------------------------------------------
@@ -155,46 +120,39 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IEtnaInbox
-    function activateEtna(ActivationParams calldata _params) external onlyOwner {
-        LibInboxMigration.State memory migration = _migration;
-        require(migration.migrationState == LibInboxMigration.FROZEN, NotFrozen());
-
-        IInbox.CoreState memory coreState = _coreState;
-        require(
-            uint256(coreState.lastFinalizedProposalId) + 1 == coreState.nextProposalId, NotDrained()
-        );
-
-        ICheckpointStore.Checkpoint memory genesis =
-            _genesisCheckpoint(_params.genesisHeight, coreState.lastFinalizedBlockHash);
-
+    function init(address _owner, GenesisParams calldata _params) external initializer {
+        require(_params.genesisBlockHash != 0 && _params.genesisStateRoot != 0, InvalidGenesis());
         require(
             _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL1 != 0, InvalidEpochLength()
         );
         require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
         require(_params.committeeRecordHash != 0, ZeroCommitteeRecord());
 
+        __Essential_init(_owner);
         uint64 l1Block = uint64(block.number);
-        migration.migrationState = LibInboxMigration.ETNA_ACTIVE;
-        migration.drainedAtL1Block = l1Block;
-        _migration = migration;
-
+        _status = _ETNA_ACTIVE;
         _activation = Activation({
-            genesisHeight: _params.genesisHeight,
+            genesisHeight: 0,
             l1Block: l1Block,
             epochLenL2: _params.epochLenL2,
             epochLenL1: _params.epochLenL1,
-            genesisBlockHash: genesis.blockHash,
-            genesisStateRoot: genesis.stateRoot
+            genesisBlockHash: _params.genesisBlockHash,
+            genesisStateRoot: _params.genesisStateRoot
         });
         _genesisCutoff = _params.genesisCutoff;
         _committee[0] = _params.committeeRecordHash;
-        _lastCheckpoint =
-            LandedCheckpoint({ height: _params.genesisHeight, blockHash: genesis.blockHash });
+        _lastCheckpoint = LandedCheckpoint({ height: 0, blockHash: _params.genesisBlockHash });
+        _signalService.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: _params.genesisBlockHash,
+                stateRoot: _params.genesisStateRoot
+            })
+        );
 
-        emit EtnaActivated(
-            _params.genesisHeight,
-            genesis.blockHash,
-            genesis.stateRoot,
+        emit EtnaInitialized(
+            _params.genesisBlockHash,
+            _params.genesisStateRoot,
             l1Block,
             _params.epochLenL2,
             _params.epochLenL1,
@@ -205,7 +163,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     function land(LandInput calldata _input, bytes calldata _proof) external nonReentrant {
-        require(_migration.migrationState == LibInboxMigration.ETNA_ACTIVE, EtnaNotActive());
+        require(_status == _ETNA_ACTIVE, EtnaNotActive());
 
         LandedCheckpoint memory parent = _lastCheckpoint;
         uint64 lastHeight = _input.lastHeight;
@@ -243,36 +201,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
 
         _proofVerifier.verifyProof(0, statementHash, _proof);
-    }
-
-    /// @notice Withdraws legacy Shasta bond of the caller to a recipient.
-    /// @dev Same rules as the Shasta `Inbox.withdraw`: without a withdrawal request whose delay
-    /// has passed, the remaining balance must stay at or above the minimum bond; a withdrawal of
-    /// the whole balance clears the request. Emits `IBondManager.BondWithdrawn`.
-    /// @param _to The recipient of the withdrawn tokens.
-    /// @param _amount The amount to withdraw in gwei, capped at the balance.
-    function withdraw(address _to, uint64 _amount) external nonReentrant {
-        _bondStorage.withdraw(_bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay);
-    }
-
-    /// @notice Requests the withdrawal of the caller's legacy Shasta bond.
-    /// @dev The whole balance becomes withdrawable after the withdrawal delay. Emits
-    /// `IBondManager.WithdrawalRequested`.
-    function requestWithdrawal() external nonReentrant {
-        _bondStorage.requestWithdrawal(msg.sender, _withdrawalDelay);
-    }
-
-    /// @notice Cancels the caller's pending legacy bond withdrawal request.
-    /// @dev Emits `IBondManager.WithdrawalCancelled`.
-    function cancelWithdrawal() external nonReentrant {
-        _bondStorage.cancelWithdrawal(msg.sender);
-    }
-
-    /// @notice Returns the legacy Shasta bond of an address.
-    /// @param _address The bond holder.
-    /// @return bond_ The bond balance and withdrawal request timestamp.
-    function getBond(address _address) external view returns (IBondManager.Bond memory bond_) {
-        return _bondStorage.getBond(_address);
     }
 
     /// @inheritdoc IEtnaInbox
@@ -315,7 +243,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     function migrationState() external view returns (uint8) {
-        return _migration.migrationState;
+        return _status;
     }
 
     /// @inheritdoc IEtnaInbox
@@ -374,7 +302,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Checks that `_records` holds exactly one non-zero record, keyed `e + 1` and in
     /// ascending order, for every epoch `e` whose first block lies in
     /// `(_parentHeight, _lastHeight]`, and stores each as `committee[e + 1]`.
-    /// @param _parentHeight The height of the block the batch builds on, at least `B*`.
+    /// @param _parentHeight The height of the block the batch builds on, starting at 0.
     /// @param _lastHeight The height of the batch's last block.
     /// @param _records The batch's committee records.
     function _recordCommittees(
@@ -384,13 +312,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     )
         private
     {
-        uint256 genesisHeight = _activation.genesisHeight;
         uint256 epochLen = _activation.epochLenL2;
 
-        // The first epoch whose first block `genesisHeight + 1 + epoch * epochLen` lies above
-        // `_parentHeight`: `ceil((_parentHeight - genesisHeight) / epochLen)`.
-        uint256 epoch = (_parentHeight - genesisHeight + epochLen - 1) / epochLen;
-        uint256 firstHeight = genesisHeight + 1 + epoch * epochLen;
+        // Epoch e starts at height 1 + e * epochLen. The first one above the parent is
+        // ceil(parentHeight / epochLen); uint256 arithmetic keeps the sum in range.
+        uint256 epoch = (uint256(_parentHeight) + epochLen - 1) / epochLen;
+        uint256 firstHeight = 1 + epoch * epochLen;
         uint256 count = _records.length;
         uint256 i;
         for (; firstHeight <= _lastHeight; ++i) {
@@ -409,31 +336,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             firstHeight += epochLen;
         }
         require(i == count, CommitteeRecordsMismatch());
-    }
-
-    /// @dev Returns the signal service checkpoint of the Etna genesis and checks that it is the
-    /// last finalized Shasta block.
-    /// @param _genesisHeight `B*`.
-    /// @param _lastFinalizedBlockHash The Shasta last finalized block hash.
-    /// @return checkpoint_ The checkpoint at `B*`.
-    function _genesisCheckpoint(
-        uint64 _genesisHeight,
-        bytes32 _lastFinalizedBlockHash
-    )
-        private
-        view
-        returns (ICheckpointStore.Checkpoint memory checkpoint_)
-    {
-        // Signal service checkpoints are keyed by uint48 heights.
-        require(_genesisHeight <= type(uint48).max, GenesisMismatch());
-        try _signalService.getCheckpoint(uint48(_genesisHeight)) returns (
-            ICheckpointStore.Checkpoint memory checkpoint
-        ) {
-            checkpoint_ = checkpoint;
-        } catch {
-            revert GenesisMismatch();
-        }
-        require(checkpoint_.blockHash == _lastFinalizedBlockHash, GenesisMismatch());
     }
 
     /// @dev Returns the hash of L1 block `_anchorNumber`: from `blockhash` for the last 256
@@ -472,7 +374,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @dev Returns whether `_cutoff` is a past L1 block at or after the registry's first
-    /// checkpoint, so the epoch-0 snapshot exists and is final.
+    /// checkpoint, so the epoch-0 snapshot exists.
     /// @param _cutoff The genesis cutoff.
     /// @return Whether the cutoff is valid.
     function _isValidGenesisCutoff(uint64 _cutoff) private view returns (bool) {
@@ -491,12 +393,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     error CommitteeAlreadyRecorded();
     error CommitteeRecordsMismatch();
     error EtnaNotActive();
-    error GenesisMismatch();
+    error InvalidGenesis();
     error HeightOverflow();
     error InvalidEpochLength();
     error InvalidGenesisCutoff();
     error NoProgress();
-    error NotDrained();
-    error NotFrozen();
     error ZeroCommitteeRecord();
 }

@@ -1,133 +1,101 @@
-# Etna L1 contracts
+# Etna contracts
 
-Etna replaces Shasta's proposer and prover flow with a proof-of-stake chain: a committee of TAIKO
-stakers orders and signs L2 blocks with CometBFT, and anyone may later land proven batches of those
-blocks on L1. This directory holds the L1 side.
+Etna starts as a new proof-of-stake chain at L2 block 0. A committee of TAIKO stakers orders and
+signs L2 blocks with CometBFT, and anyone can land proven batches on L1.
 
-| Contract                           | Role                                                                                                                                                                                 |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `impl/EtnaInbox.sol`               | The new implementation of the existing Shasta Inbox proxy: activates Etna from the last finalized Shasta block, lands proven batches (`land`) and keeps the legacy Shasta bond exit. |
-| `impl/EtnaStakingRegistry.sol`     | A new UUPS proxy: validators stake TAIKO against an Ed25519 consensus key, send heartbeats, exit and withdraw. Committees are derived from its checkpoints.                          |
-| `libs/LibEntriesTree.sol`          | The incremental Merkle tree behind the registry's `entriesRoot`.                                                                                                                     |
-| `../../layer2/core/L2FeeVault.sol` | On L2: the coinbase of every Etna block, holding fees until the owner withdraws them.                                                                                                |
+| Contract                           | Role                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| `impl/EtnaInbox.sol`               | A fresh UUPS proxy initialized with L2 genesis and committee 0; lands proven batches.    |
+| `impl/EtnaStakingRegistry.sol`     | Validators stake TAIKO, heartbeat, exit and withdraw. Its checkpoints define committees. |
+| `libs/LibEntriesTree.sol`          | The incremental Merkle tree behind the registry checkpoints.                             |
+| `../../layer2/core/L2FeeVault.sol` | The L2 fee recipient; the owner can withdraw collected fees.                             |
 
-The Etna node (taiko-client-rs `crates/abci`, taikoxyz/taiko-mono#22280) reads the Inbox and the
-registry straight from storage with EIP-1186 storage proofs, so the slots below are an interface,
-not an implementation detail. Its side of this interface is `crates/abci/src/l1/layout.rs`. The
-protocol itself is specified in taikoxyz/taiko-mono#22262; requirement IDs such as `MEM-13` below
-refer to that specification.
+The ABCI node in taikoxyz/taiko-mono#22280 reads the Inbox and registry with EIP-1186 proofs.
+Its interface is `crates/abci/src/l1/layout.rs`. This PR preserves that storage interface; it
+implements no Shasta-to-Etna migration. The protocol specification is #22262.
 
-## Terms
+## Genesis initialization
 
-- **`B*` (genesis height):** the last finalized Shasta L2 block, which becomes the Etna genesis.
-  **`H*`** is its block hash and **`S*`** its state root.
-- **`H_0`:** the first Etna block, `B* + 1`.
-- **`L1_0`:** the L1 block in which `activateEtna` ran.
-- **`L` (`epochLenL2`):** the epoch length in L2 blocks. Epoch `e` starts at L2 block
-  `h_first(e) = B* + 1 + e * L`. **`epochLenL1`** is the epoch length in L1 blocks.
-- **`e_0`:** the first epoch, always 0.
-- **Committee record:** the members and voting power of one epoch's committee, which the node
-  derives from a registry checkpoint; the Inbox stores its hash, the **record hash**.
-- **`genesisCutoff`:** the L1 block whose registry checkpoint defines the epoch-0 committee. The
-  node also floors every later committee's cutoff at it.
-- **`W` (`heartbeatWindow`):** the heartbeat window in L1 blocks. Window `k` covers L1 blocks
-  `k * W` to `(k + 1) * W - 1`; its start is `k * W`.
-- **Landing:** submitting a proven batch of Etna blocks to `EtnaInbox.land`; the caller is the
-  **lander**, and the program whose proof `land` verifies is the **guest**.
+1. Deploy the staking registry with `DeployEtnaDevnet.run()`. Validators register, then wait for
+   their activation delay and L1 finality.
+2. Choose a finalized registry snapshot at `genesisCutoff` and compute committee 0 with
+   `taiko-client abci-committee-record`. At least one validator must be eligible there.
+3. Prepare the L2 genesis file, including the fee vault or its planned deployment, and obtain its
+   block-0 hash and state root. Set the node's fee-vault address consistently. If the genesis
+   contracts embed L1 addresses, predict them before computing that hash: for deployment-wallet
+   nonce `n`, the L1 SignalService proxy is CREATE at `n + 1` and the Inbox proxy at `n + 3`.
+   Keep the wallet's nonce unchanged until `deployInbox()` runs.
+4. Call `DeployEtnaDevnet.deployInbox()` with the genesis hash, state root, epoch lengths,
+   `genesisCutoff` and committee record hash. It deploys fresh SignalService and EtnaInbox proxies.
+   The Inbox is initialized atomically in the proxy constructor and saves a block-0 checkpoint to
+   SignalService. SignalService authorizes the predicted Inbox proxy address.
+5. Once the L1 initialization block is final, run `abci-genesis` and start CometBFT and the EL.
+   The first consensus block is L2 block 1. Configure the EL's Etna fork from genesis.
 
-## Rollout order
+`init(owner, params)` requires non-zero genesis hash, state root and committee record hash;
+`epochLenL2 >= 3`; `epochLenL1 > 0`; and a past `genesisCutoff` at or after the registry's first
+checkpoint. It runs once; implementation contracts have initializers disabled. SignalService must
+authorize this proxy, or initialization reverts without retaining ownership or genesis state.
 
-1. Deploy the registry. Validators register and heartbeat.
-2. On L2, deploy `L2FeeVault`; its address becomes the node's `fee_vault` chain constant. The L2
-   Anchor and SignalService upgrade of taikoxyz/taiko-mono#22222 follows its own ordering.
-3. DAO proposal 1: upgrade the Inbox proxy to the Shasta implementation that has `freeze()` and call
-   it, in one `upgradeToAndCall`. From then on `propose` and `saveForcedInclusion` revert, while
-   `prove`, the bond functions and the views keep working.
-4. Wait for the drain: every Shasta proposal proven. The proving window is 4 hours on mainnet, but
-   anyone may prove only after `permissionlessProvingDelay` (5 days), so the drain is bounded by
-   that delay, not by the 4 hours.
-5. DAO proposal 2: `upgradeToAndCall(EtnaInbox, activateEtna(params))`, with `genesisHeight = B*`
-   and the `committeeRecordHash` that `taiko-client abci-committee-record` (taiko-client-rs)
-   computes from the registry at `genesisCutoff` (a finalized L1 block at or after the registry's
-   first checkpoint). `B*` is known only once the drain completes, so this proposal can only be written
-   after proposal 1 executes (open item O13).
-6. Validators run `abci-genesis` and start CometBFT. alethia-reth's Etna fork timestamp must fall
-   after `B*`'s timestamp and at or before the first proof-of-stake block.
+The genesis hash, state root and committee record are trusted bootstrap inputs. The deployer must
+check that they match the L2 genesis file and the registry snapshot. The contract fixes
+`genesisHeight = 0`; there is no freeze, drain, upgrade from an existing Inbox, or legacy bond exit.
 
-`activateEtna` requires, in order:
-
-1. the Inbox is frozen (`NotFrozen`);
-2. it is drained, `lastFinalizedProposalId + 1 == nextProposalId` (`NotDrained`);
-3. `B* <= type(uint48).max`, the SignalService key width, and the L1 SignalService holds a
-   checkpoint at `B*` whose block hash is the Shasta last finalized block hash (`GenesisMismatch`);
-4. `epochLenL2 >= 3` and `epochLenL1 > 0` (`InvalidEpochLength`);
-5. `genesisCutoff < block.number` and the registry's first checkpoint is at or before it
-   (`InvalidGenesisCutoff`);
-6. `committeeRecordHash != 0` (`ZeroCommitteeRecord`).
-
-On a devnet, `script/layer1/etna/DeployEtnaDevnet.s.sol` performs step 1 and deploys the two
-implementations of steps 3 and 5, logging both owner calls; `script/layer2/DeployL2FeeVault.s.sol`
-performs step 2. Each script's NatSpec lists its environment variables.
+The deployment script's NatSpec lists its environment variables. Both calls use `PRIVATE_KEY` and
+optional `CONTRACT_OWNER`; `run()` needs `TAIKO_TOKEN` and `REGISTRY_*`. `deployInbox()` needs
+`STAKING_REGISTRY`, `REMOTE_SIGNAL_SERVICE` (L2), `ETNA_PROOF_VERIFIER`, `L2_CHAIN_ID`,
+`MAX_BATCH_BLOCKS`, `GENESIS_BLOCK_HASH`, `GENESIS_STATE_ROOT`, `EPOCH_LEN_L2`, `EPOCH_LEN_L1`,
+`GENESIS_CUTOFF` and `COMMITTEE_RECORD_HASH`. Use the same deployer for the four consecutive CREATEs
+of the Inbox deployment; the script predicts the final proxy using its current nonce.
 
 No Etna guest exists yet, so a devnet's `EtnaInbox` uses a stand-in proof verifier such as the
 accept-all `contracts/layer1/devnet/OpVerifier.sol`. As `land` is permissionless, anyone can then
 land any batch: write arbitrary SignalService checkpoints (forged L2 to L1 messages) and conflicting
 committee records (a permanent halt at that epoch). Such a verifier is for devnets only.
 
-## Activation checklist (not enforced on-chain; a mistake halts L2 until a DAO upgrade)
+## Configuration checks
 
-- **A live genesis committee.** At least one entry is eligible at the latest registry checkpoint
-  at or before `genesisCutoff`. Prefer `L1_0 − genesisCutoff` below the registry's `exitDelay`, so
-  the genesis committee is not stale: entries may exit or go offline between the cutoff and the
-  activation. The node derives every later committee at
-  `max(cutoff(parent anchor), genesisCutoff)`, so a `genesisCutoff` close to `L1_0` is safe.
-- **Equal values on both sides.** Node `inbox` = the Inbox proxy; node `registry` = the Inbox's
-  `stakingRegistry` immutable = the registry proxy; node `fee_vault` = the `L2FeeVault` proxy;
-  `l2ChainId` = node `l2_chain_id`; registry `heartbeatWindow` = node `heartbeat_window`; registry
-  `minStake >= max(s_min, vp_unit)`; node `vp_unit >=` the TAIKO supply divided by the node's
-  `MAX_TOTAL_POWER` (about 8.7e8 base units), so one large stake cannot make a committee's total
-  voting power exceed CometBFT's limit (`TotalPowerTooLarge`).
-- **No SignalService version bump.** No L1 SignalService version bump between the last Shasta
-  `prove` and the activation: checkpoints live under `_checkpoints[VERSION]`, so a bump orphans the
-  `B*` checkpoint and `activateEtna` reverts `GenesisMismatch`.
-- **Legacy bond parameters and empty slots.** The `EtnaInbox` legacy bond parameters (`bondToken`,
-  `minBond`, `withdrawalDelay`) equal the live Shasta configuration, and the live proxy's slots
-  258–300 are zero before the freeze (verified on mainnet; check Hoodi before its proposal).
-- **DAO-owned registry.** The registry owner, who can upgrade it and so change committees, is the
-  DAO.
+- Keep node `inbox`, `registry` and `fee_vault` addresses equal to the deployed proxies, and
+  `l2ChainId` equal to the node's chain id.
+- Registry `heartbeatWindow` must equal node `heartbeat_window`, and `minStake` must be at least
+  node `max(s_min, vp_unit)`. Choose `vp_unit` large enough that the entire TAIKO supply cannot
+  exceed CometBFT's maximum voting power.
+- Choose `epochLenL2 >= D_MAX - MARGIN_V + 3`, the node's back-pressure requirement. The contract
+  checks only the minimum of 3 because those node parameters are not on-chain.
+- The genesis snapshot must contain live eligible validators. A cutoff close to the L1
+  initialization block reduces the chance of entries exiting or going offline before startup.
+- The registry and Inbox owners can upgrade the contracts; use the intended chain governance.
 
 ## Node-facing storage
 
-Packed fields follow Solidity's packing: the first field takes the lowest bits of the word.
+Packed fields use Solidity's low-order-first packing. The node's existing `activation` record is
+now the genesis record: `B* = 0`, `H*` and `S*` are the L2 block-0 hash and state root, and `L1_0`
+is the L1 proxy-initialization block. `h_first(e) = 1 + e * epochLenL2`.
 
-### `EtnaInbox` (the Inbox proxy)
+### `EtnaInbox`
 
-Slots 0–250 are the `EssentialContract` prefix, unchanged. The Shasta variables keep their slots so
-the upgrade preserves them.
+Slots 0–250 are the `EssentialContract` prefix. Other reserved slots keep the existing ABCI
+interface stable; they do not contain Shasta state.
 
-| Slot    | Content                                                                      | Packing                                                             |
-| ------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| 251     | Shasta `activationTimestamp` (no longer used)                                | `uint48`                                                            |
-| 252–253 | Shasta core state (frozen; `activateEtna` reads its finalization)            | struct                                                              |
-| 254     | Shasta proposal hashes (no longer used)                                      | mapping                                                             |
-| 255–256 | Shasta forced inclusion queue (no longer used)                               | struct                                                              |
-| 257     | Shasta bond balances, kept for the legacy bond exit                          | struct                                                              |
-| 258     | `migrationState`, `frozenAtL1Block`, `drainedAtL1Block`                      | `uint8` bits 0–7, `uint64` bits 8–71, `uint64` bits 72–135          |
-| 259–267 | reserved (#22262 migration features not built here)                          | —                                                                   |
-| 268     | `recoveryGeneration`                                                         | `uint64` bits 0–63; the rest is reserved for stall recovery         |
-| 269     | reserved (#22262 config registry)                                            | —                                                                   |
-| 270     | `lastCheckpoint.height`                                                      | `uint64` bits 0–63                                                  |
-| 271     | `lastCheckpoint.blockHash`                                                   | `bytes32`                                                           |
-| 272     | `genesisHeight` (`B*`), `l1Block` (`L1_0`), `epochLenL2` (`L`), `epochLenL1` | `uint64` bits 0–63, 64–127, 128–191, 192–255                        |
-| 273     | `genesisBlockHash` (`H*`)                                                    | `bytes32`                                                           |
-| 274     | `genesisStateRoot` (`S*`)                                                    | `bytes32`                                                           |
-| 275–277 | reserved (#22262 publication register)                                       | —                                                                   |
-| 278     | `committee`: `mapping(uint64 epoch => bytes32 recordHash)`                   | `committee[e]` at `keccak256(abi.encode(uint256(e), uint256(278)))` |
-| 279     | `genesisCutoff`                                                              | `uint64` bits 0–63                                                  |
-| 280–300 | `__gap`                                                                      | —                                                                   |
+| Slot    | Content                                                | Packing                                            |
+| ------- | ------------------------------------------------------ | -------------------------------------------------- |
+| 251–257 | reserved                                               | —                                                  |
+| 258     | initialized status                                     | `uint8` bits 0–7: 3 after initialization, 0 before |
+| 259–267 | reserved                                               | —                                                  |
+| 268     | `recoveryGeneration`                                   | `uint64` bits 0–63                                 |
+| 269     | reserved                                               | —                                                  |
+| 270     | `lastCheckpoint.height`                                | `uint64` bits 0–63; initially 0                    |
+| 271     | `lastCheckpoint.blockHash`                             | `bytes32`; initially the genesis hash              |
+| 272     | `genesisHeight`, `l1Block`, `epochLenL2`, `epochLenL1` | four `uint64` values, in that order                |
+| 273     | `genesisBlockHash`                                     | `bytes32`                                          |
+| 274     | `genesisStateRoot`                                     | `bytes32`                                          |
+| 275–277 | reserved                                               | —                                                  |
+| 278     | `committee`                                            | `mapping(uint64 epoch => bytes32 recordHash)`      |
+| 279     | `genesisCutoff`                                        | `uint64` bits 0–63                                 |
+| 280–300 | `__gap`                                                | —                                                  |
 
-`migrationState` is 0 (none), 1 (frozen, written by the Shasta `freeze()`) or 3 (Etna active);
-value 2 is reserved by #22262. The node reads only bits 0–7 of slot 258.
+`migrationState()` retains its name as a compatibility getter for the ABCI status word.
+It exposes no migration state machine. `activation()` returns the genesis record.
 
 ### `EtnaStakingRegistry`
 
@@ -160,37 +128,22 @@ one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 entries exi
 
 ## Contract obligations
 
-The node verifies what the contracts store but relies on the contracts for the following. A
-contract that breaks one cannot make nodes accept a block their proofs contradict, but it can stop
-the chain, mostly for good: a height's L1 snapshot is fixed once its parent is committed, and only
-a recovery generation gets past it.
-
-- **Activation writes.** `activateEtna` writes, in one call: the activation record (272–274),
-  `migrationState = 3` (258), `genesisCutoff` (279), `committee[0]` (278) and
-  `lastCheckpoint = (B*, H*)` (270–271). `committee[0]` must be the record hash of the full
-  committee derivation (taiko-client-rs `committee::derive`) at `genesisCutoff`: the entries
-  active at the cutoff with a stake of at least `max(s_min, vp_unit)`, the lowest `bondId` per
-  pubkey, the top `n_max` by stake, and no heartbeat filter. `taiko-client abci-committee-record`
-  computes it. Without the checkpoint the node cannot accept `H_0`, since it refuses heights too
-  far beyond the last landed checkpoint, so the chain never starts; without the rest the genesis
-  does not verify.
-- **One registry checkpoint per changing L1 block.** Every L1 block that changes an entry ends with
-  exactly one checkpoint (changes in the same block overwrite its `count` and `entriesRoot`), so
-  `checkpoints[i].l1Block` strictly increases. The node's snapshot search relies on that order, and
-  it reads checkpoint `i`'s entries at any L1 block before `checkpoints[i + 1].l1Block`.
-- **Complete checkpoints.** A checkpoint's `count` and `entriesRoot` cover every entry, exited ones
-  included, in bond id order, as they stand at the end of its `l1Block`.
-- **Heartbeat records.** `lastHeartbeatAt` and `lastHeartbeatSeq` follow the heartbeat rule below.
-- **Unique pubkeys.** `register` refuses a pubkey held by an entry whose exit is not yet effective.
-  The node also keeps only the lowest bond id among eligible entries sharing a pubkey, as defence in
-  depth.
-- **Committee records come only from `activateEtna` and `land`.** `committee[0]` is set at
-  activation; `committee[e + 1]` is set only by `land`, from a proven batch containing
-  `h_first(e)`, and never overwritten (`land` asserts the slot is empty). A missing `committee[e]`
-  holds the chain at epoch `e`'s first block until a batch lands it; a conflicting value would stop
-  the chain there.
+- Initialization writes the genesis record, status 3, `genesisCutoff`, `committee[0]` and
+  `lastCheckpoint = (0, H*)`, and saves `(0, H*, S*)` in SignalService.
+- `committee[0]` must be the record hash derived by the node at `genesisCutoff`: active entries
+  with at least `max(s_min, vp_unit)`, lowest bond id per pubkey, top `n_max` by stake, and no
+  heartbeat filter. The contract accepts the deployer's supplied record; the node verifies it.
+- Each L1 block changing an entry ends with one checkpoint. Same-block mutations overwrite the
+  latest checkpoint; its `count` and root cover all entries, including exited ones.
+- Registration rejects a key held by any entry whose exit is not yet effective. The node also
+  deduplicates eligible keys defensively.
+- `committee[e + 1]` is written only by `land`, from a proven batch covering `h_first(e)`, and
+  cannot be overwritten. Missing records hold the node at its switch height; conflicting records
+  halt it.
 
 ## Heartbeats
+
+`W` is the registry's `heartbeatWindow` in L1 blocks; the initial epoch `e_0` is 0.
 
 - Only the bond owner calls `heartbeat(bondId)`, and only while `block.number < exitEffectiveL1`.
 - The heartbeat names the current window: `windowStart = floor(block.number / W) * W`.
@@ -212,7 +165,7 @@ a recovery generation gets past it.
 `land(input, proof)` is permissionless. With `p` and `parentHash` the last checkpoint's height and
 block hash, it requires, in order:
 
-1. Etna is active (`EtnaNotActive`).
+1. The proxy is initialized (`EtnaNotActive`).
 2. `p < lastHeight <= p + maxBatchBlocks` and `lastHeight <= type(uint48).max`, the SignalService
    key width (`NoProgress`, `BatchTooLarge`, `HeightOverflow`).
 3. One record per epoch `e` with `h_first(e)` in `(p, lastHeight]`, in ascending order, with
@@ -253,7 +206,7 @@ The guest's obligations: a valid proof attests that
   `lastStateRoot`, each executed under the Etna rules;
 - each height has a CometBFT commit signed by more than 2/3 of its epoch committee's voting power,
   under the CometBFT chain id `taiko-etna-<l2ChainId>-g<recoveryGeneration>`; the first epoch's
-  committee is `committee[0]` from the activation;
+  committee is `committee[0]` from initialization;
 - every block's L1 anchor lies on the L1 header chain ending at `anchorHash`, the hash of
   `anchorNumber`. So `anchorNumber` is any L1 block at or after the last block's anchor number: a
   lander picks a recent one, and a landing outage longer than the 8191-block EIP-2935 window does
@@ -271,44 +224,14 @@ Notes for guests:
 
 ## Open items
 
-- **O1.** Forced inclusions still queued at the freeze are never included; their fees stay in the
-  Inbox.
-- **O2.** The guest's statement semantics and the blob encoding are fixed with the guest and
-  lander follow-ups.
-- **O3.** Landers are not paid until prover rewards exist (#22262 `L1-11`).
-- **O4.** `recoveryGeneration` stays 0 until stall recovery exists (#22262 `GOV-04`); the statement
-  already binds it.
-- **O5.** `activateEtna` cannot check the node's `L >= D_MAX - MARGIN_V + 3` (`D_MAX` is the node's
-  maximum number of unlanded blocks, `MARGIN_V` its safety margin); with a smaller `L` the node
-  refuses the genesis.
-- **O6.** The chosen `anchorNumber` must be at most 8191 L1 blocks (about 27 hours) old when `land`
-  executes, the EIP-2935 window. Any L1 block at or after the batch's last anchor qualifies, so the
-  lander can always choose a recent one.
-- **O7.** Registry fill griefing. Slots are never reclaimed: exited and withdrawn entries count
-  toward the 4096-entry cap. Filling one slot costs about 370k gas (`register` about 250k,
-  `requestExit` about 56k, `withdraw` about 60k), so all 4096 cost about 1.5B gas (about 1.5 ETH at
-  1 gwei) plus `minStake` of capital, which is refunded and can be reused every
-  `activationDelay + exitDelay + withdrawalDelay`. Once the registry is full no validator can join,
-  the eligible set only shrinks, and the chain halts with an empty committee. The escape needs a
-  registry upgrade plus a node change, as the 4096-entry cap (tree depth 12) is pinned on both
-  sides. A mitigation (pruning or compaction, a registration fee or burn, a minimum bonding period,
-  or gated registration at launch) is required before mainnet.
-- **O8.** No Ed25519 proof of possession: anyone may register any free key; pubkey uniqueness and
-  the node's lowest-bond-id rule limit the damage.
-- **O9.** Once slashing exists, the registry's `withdrawalDelay` must exceed the time to land a
-  batch plus the evidence window.
-- **O10.** `ProverWhitelist` and the proposer checker become unused after activation.
-- **O11.** The specification's separate heartbeat key (with rotation and retirement), its signed
-  heartbeat payload and relayed heartbeats are not built; the bond owner heartbeats directly. The
-  node's eligibility rule already matches the fields recorded here.
-- **O12.** `committee[0]` and the records of epochs 1 and 2 apply no heartbeat filter;
-  `taiko-client abci-committee-record`, which computes the activation's `committeeRecordHash`,
-  follows the same rule.
-- **O13.** `activateEtna` takes `B*` as owner calldata, but `B*` exists only after the freeze
-  executes and the drain completes, so DAO proposal 2 can only be written after proposal 1
-  executes. With a 10-day veto period plus a 7-day timelock, L2 is down for about 17 days.
-  Candidate fixes, to decide before Hoodi: (a) a pre-committed upgrade, where proposal 1's `freeze`
-  also records the `EtnaInbox` implementation and the activation parameters, and anyone triggers
-  the upgrade and the activation once drained (downtime = drain time, one proposal); (b) record the
-  last finalized block number on-chain during the drain, so `activateEtna` needs no `B*` and
-  proposal 2 can be prepared in parallel.
+- The Etna guest, blob encoding and lander are follow-ups. No prover rewards, slashing or stall
+  recovery exist here; `recoveryGeneration` stays 0. The staking withdrawal delay must cover the
+  evidence and landing windows once slashing is introduced.
+- Registry capacity griefing: entries are never reclaimed, so exited/withdrawn bonds consume
+  the 4096-entry capacity forever. Repeated registration and exit can permanently prevent new
+  validators from joining. Pruning/compaction, a registration cost or a launch gate is required
+  before mainnet; changing the capacity also requires changing the node's pinned tree depth.
+- No Ed25519 proof of possession is required for registration.
+- The spec's separate heartbeat key, signed payload and relayed heartbeats are not implemented;
+  the bond owner heartbeats directly. Epochs 0, 1 and 2 have no heartbeat eligibility filter.
+- Forced inclusions, fee accounting and an L2-to-L1 fee sweep remain separate work.

@@ -25,7 +25,6 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
 
     function setUp() public override {
         super.setUp();
-        _activate();
 
         vm.roll(L1_HEAD);
         anchorNumber = L1_HEAD - 1;
@@ -66,7 +65,9 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         _assertLastCheckpoint(lastHeight, input.lastBlockHash);
         _assertSignalCheckpoint(input);
         assertEq(etnaInbox.committee(1), _recordHash(1), "committee 1");
-        assertEq(vm.load(address(inbox), _committeeSlot(1)), _recordHash(1), "slot of committee 1");
+        assertEq(
+            vm.load(address(etnaInbox), _committeeSlot(1)), _recordHash(1), "slot of committee 1"
+        );
         assertEq(etnaInbox.committee(0), COMMITTEE_RECORD_0, "committee 0 unchanged");
     }
 
@@ -100,7 +101,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     }
 
     function test_land_RecordsTwoBoundariesEndingOnAnEpochStart() external {
-        // h_first(0) = B* + 1 and h_first(1) = B* + 11 = lastHeight.
+        // The epoch starts at heights 1 and 11, with the latter equal to lastHeight.
         _land(_batch(genesisHeight + 11, _recordRange(1, 2)));
 
         assertEq(etnaInbox.committee(1), _recordHash(1), "committee 1");
@@ -149,7 +150,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     }
 
     function test_land_BindsTheRecoveryGeneration() external {
-        vm.store(address(inbox), bytes32(RECOVERY_GENERATION_SLOT), bytes32(uint256(5)));
+        vm.store(address(etnaInbox), bytes32(RECOVERY_GENERATION_SLOT), bytes32(uint256(5)));
         assertEq(etnaInbox.recoveryGeneration(), 5, "generation");
 
         IEtnaInbox.LandInput memory input = _batch(genesisHeight + 5, _recordRange(1, 1));
@@ -240,7 +241,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     }
 
     function test_land_RevertWhen_CommitteeAlreadyRecorded() external {
-        vm.store(address(inbox), _committeeSlot(1), keccak256("stale"));
+        vm.store(address(etnaInbox), _committeeSlot(1), keccak256("stale"));
 
         _expectLandRevert(
             _batch(genesisHeight + 5, _recordRange(1, 1)),
@@ -355,9 +356,8 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
 
     function test_land_RevertWhen_NoProgress() external {
         _expectLandRevert(_batch(genesisHeight, _recordRange(1, 0)), EtnaInbox.NoProgress.selector);
-        _expectLandRevert(
-            _batch(genesisHeight - 1, _recordRange(1, 0)), EtnaInbox.NoProgress.selector
-        );
+        _land(_batch(5, _recordRange(1, 1)));
+        _expectLandRevert(_batch(4, _recordRange(2, 0)), EtnaInbox.NoProgress.selector);
     }
 
     function test_land_RevertWhen_BatchTooLarge() external {
@@ -369,7 +369,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
 
     function test_land_RevertWhen_HeightOverflow() external {
         etnaConfig.maxBatchBlocks = type(uint64).max;
-        inbox.upgradeTo(address(new EtnaInbox(etnaConfig)));
+        etnaInbox.upgradeTo(address(new EtnaInbox(etnaConfig)));
 
         _expectLandRevert(
             _batch(uint64(type(uint48).max) + 1, _recordRange(1, 0)),
@@ -580,8 +580,12 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     }
 }
 
-/// @notice `land` before `activateEtna`.
-contract EtnaInboxLandBeforeActivationTest is EtnaInboxTestBase {
+/// @notice An uninitialized proxy cannot land a batch.
+contract EtnaInboxLandBeforeInitializationTest is EtnaInboxTestBase {
+    function _initializeOnDeploy() internal pure override returns (bool) {
+        return false;
+    }
+
     function test_land_RevertWhen_EtnaNotActive() external {
         vm.blobhashes(_getBlobHashes(1));
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
