@@ -21,6 +21,7 @@ use std::{
 
 struct Control {
     snapshot: LandingSnapshot,
+    snapshot_rpc: Option<Arc<crate::l1::RpcLandingSource>>,
     reference_current: bool,
     receipt: Option<LandingReceipt>,
     canonical_receipt: B256,
@@ -53,6 +54,7 @@ impl Fixture {
         let request = request();
         let control = Control {
             snapshot: request.batch.snapshot.clone(),
+            snapshot_rpc: None,
             reference_current: true,
             receipt: None,
             canonical_receipt: B256::repeat_byte(30),
@@ -197,7 +199,12 @@ struct MockL1 {
 #[async_trait]
 impl LandingSource for MockL1 {
     async fn snapshot(&self) -> Result<LandingSnapshot> {
-        Ok(self.control.lock().unwrap().snapshot.clone())
+        let rpc = self.control.lock().unwrap().snapshot_rpc.clone();
+        if let Some(rpc) = rpc {
+            rpc.snapshot().await
+        } else {
+            Ok(self.control.lock().unwrap().snapshot.clone())
+        }
     }
     async fn parent_header(&self, _: &LandingSnapshot) -> Result<ParentContext> {
         Ok(ParentContext {
@@ -869,4 +876,34 @@ async fn estimation_revert_rechecks_checkpoint_races_but_stops_for_unchanged_job
         }
         assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 0);
     }
+}
+
+#[tokio::test]
+async fn latest_snapshot_reorg_preserves_pending_journal_and_signed_nonce_then_retries() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    let pending = runner.state().clone();
+    let transaction = pending_transaction(&runner);
+    let journal = fixture.directory.path().join("lander-state.json");
+    let journal_before = std::fs::read(&journal).unwrap();
+    let rpc = crate::l1::tests::snapshot_rpc(true, false, false).await;
+    fixture.control.lock().unwrap().snapshot_rpc = Some(rpc.source.clone());
+    let error = runner.step().await.unwrap_err();
+    assert!(error.is_retryable(), "ordinary snapshot reorg must retry: {error}");
+    assert_eq!(runner.state(), &pending);
+    assert_eq!(std::fs::read(&journal).unwrap(), journal_before);
+    assert_eq!(pending_transaction(&runner), transaction);
+    assert_eq!(fixture.control.lock().unwrap().signs, 1);
+    assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 1);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert_eq!(runner.state(), &pending);
+    assert_eq!(std::fs::read(&journal).unwrap(), journal_before);
+    assert_eq!(pending_transaction(&runner), transaction);
+    let control = fixture.control.lock().unwrap();
+    assert_eq!(control.signs, 1);
+    assert_eq!(control.broadcasts.len(), 1);
+    assert_eq!(control.nonce, NonceState { confirmed: 0, pending: transaction.nonce + 1 });
 }

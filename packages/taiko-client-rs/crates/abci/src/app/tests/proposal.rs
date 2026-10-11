@@ -264,9 +264,9 @@ async fn round_trip_at_h0_carries_only_the_anchor_witness() {
 
 /// A `genesisCutoff` above the genesis anchor's lagged cutoff does not halt the chain at `H_0`:
 /// under `L1_0 = 64`, lag 5, grid 1, genesis cutoff 63 and entries active from L1 block 62,
-/// `InitChain` derives `e_0` at 63, and `H_0` derives `e_0 + 1` at the floored cutoff
-/// `max(cutoff(64) = 59, 63) = 63` (at 59 no entry would be active). Proposer and validator
-/// agree on it.
+/// `InitChain` derives `e_0` at 63. At `H(e_0 + 1) - 2`, proposer and validator derive
+/// `e_0 + 1` at its fixed target-epoch cutoff, floored to genesis cutoff 63
+/// (at 59 no entry would be active), and agree on it.
 #[tokio::test]
 async fn switch_derives_the_next_committee_at_the_floored_genesis_cutoff() {
     let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));

@@ -153,7 +153,7 @@ impl RpcLandingSource {
 impl LandingSource for RpcLandingSource {
     async fn snapshot(&self) -> Result<LandingSnapshot> {
         let latest = self.l1.get_block_number().await.map_err(rpc_error)?;
-        let raw = self.anchors.header(latest).await.map_err(anchor_error)?;
+        let raw = self.anchors.header_hash_pinned(latest).await.map_err(anchor_error)?;
         let l1_chain_id = U256::from(self.l1.get_chain_id().await.map_err(rpc_error)?);
         let l2_chain_id = self.l2.get_chain_id().await.map_err(rpc_error)?;
         if l2_chain_id != self.params.l2_chain_id {
@@ -164,7 +164,7 @@ impl LandingSource for RpcLandingSource {
         }
         let witness = self
             .anchors
-            .account_witness(self.params.inbox, &snapshot_slots(), latest)
+            .account_witness_hash_canonical(self.params.inbox, &snapshot_slots(), raw.hash())
             .await
             .map_err(anchor_error)?;
         decode_snapshot(raw, witness, l1_chain_id, l2_chain_id, &self.params)

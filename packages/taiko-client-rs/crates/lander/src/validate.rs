@@ -1,6 +1,6 @@
 //! Pure certificate, CometBFT body-commitment and Etna envelope validation.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use abci::{
     AnchorState, ChainParams, CommitteeState, EtnaEnvelope, ParentInfo, Schedule,
@@ -290,24 +290,15 @@ pub struct EnvelopeContext<'a> {
     pub schedule: &'a Schedule,
     /// Shared chain constants.
     pub params: &'a ChainParams,
-    /// Independently derived committee contexts.
-    pub committees: &'a BTreeMap<u64, AuthenticatedCommittee>,
 }
 
-/// Validates all existing ABCI pure rules using authenticated parent/committee context.
+/// Validates all existing ABCI pure rules using authenticated parent and chain context.
 pub fn verify_envelope(
     envelope: EtnaEnvelope,
     context: EnvelopeContext<'_>,
 ) -> Result<BlockFacts, ValidationError> {
-    let EnvelopeContext {
-        bft_time_secs,
-        parent,
-        parent_anchor,
-        generation,
-        schedule,
-        params,
-        committees: _,
-    } = context;
+    let EnvelopeContext { bft_time_secs, parent, parent_anchor, generation, schedule, params } =
+        context;
     let height = envelope.block.header.number;
     let (_, extra_generation, extra_anchor) =
         rules::decode_extra_data(&envelope.block.header.extra_data)

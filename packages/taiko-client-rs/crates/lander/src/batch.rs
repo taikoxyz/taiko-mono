@@ -384,7 +384,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                     generation: snapshot.generation,
                     schedule: &schedule,
                     params: &self.params,
-                    committees: &committees,
                 },
             )
             .map_err(|e| LanderError::Safety(e.to_string()))?;

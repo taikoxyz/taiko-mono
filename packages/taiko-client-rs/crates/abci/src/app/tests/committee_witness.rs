@@ -31,8 +31,8 @@ const JOIN_BLOCK: u64 = 72;
 /// The parent is anchored at L1 block [`PARENT_ANCHOR`], where the registry holds only the
 /// genesis checkpoint (three entries). The own L1 has finalized [`NEW_ANCHOR`], where the last
 /// checkpoint has advanced and a second registry checkpoint (block [`JOIN_BLOCK`], four entries)
-/// exists. Devnet parameters (`G = 1`, `LAG = 0`) make the cutoff the anchor number itself, so
-/// the two anchors select different checkpoints. Returns the app and the new anchor.
+/// exists. Committee 2 uses its fixed target-epoch cutoff at L1 block 64, before the join,
+/// independently of which covering anchor proves the registry. Returns the app and new anchor.
 async fn before_switch(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, AnchorState) {
     let mut app = initialized(fx, dir).await;
     let h_e = app.state().unwrap().schedule().h_first(2) - 2;
@@ -54,7 +54,7 @@ async fn before_switch(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, An
 }
 
 /// The committee-2 witness an honest proposer builds at `switch 2` against the anchor
-/// `n_p` (its L1 state and its cutoff).
+/// `n_p`, using its proven registry state and committee 2's fixed target-epoch cutoff.
 async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness {
     let progress = DiscoveryProgress::default();
     let schedule = app.state().expect("initialized").schedule();
@@ -72,7 +72,7 @@ async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness
 }
 
 /// (a) The honest proposer moves the anchor to [`NEW_ANCHOR`] and proves committee 2 at the
-/// parent's anchor [`PARENT_ANCHOR`]: cutoff 70 selects the genesis checkpoint. Accepted.
+/// parent's anchor [`PARENT_ANCHOR`]: fixed cutoff 64 selects the genesis checkpoint. Accepted.
 #[tokio::test]
 async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     let fx = Fixture::genesis(3);

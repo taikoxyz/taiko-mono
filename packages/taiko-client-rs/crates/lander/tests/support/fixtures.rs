@@ -193,7 +193,6 @@ impl FixtureChain {
                     generation: 0,
                     schedule: &schedule,
                     params: &fixture.params,
-                    committees: &self.committees,
                 },
             )?;
             if let Some(derived) = facts.derived {

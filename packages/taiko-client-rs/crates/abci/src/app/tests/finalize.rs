@@ -163,7 +163,7 @@ async fn finalize_updates_parent_anchor_and_committees() {
     let mut app = initialized(&fx, dir.path()).await;
     let h0 = fx.genesis.genesis_height + 1;
 
-    // H_0 = h_first(e_0): the committee of epoch 1 is derived and kept.
+    // H_0 = h_first(e_0): re-prove the launch anchor; committee 1 waits until H(1)-2.
     let env = propose(&mut app).await;
     let (_, req) = judge(&mut app, &env).await;
     let before = app.state().unwrap().clone();
@@ -768,8 +768,9 @@ fn short_epochs() -> Fixture {
 ///
 /// With a cap of 1 every height needs a new checkpoint, so before each height after `H_0` the
 /// own L1 finalizes one more block (`L1_0 + k`) whose Inbox records the last committed block as
-/// the checkpoint and every committee the app knows as landed. A fourth validator registers
-/// at L1 block `L1_0 + 2`, so committees 2 and 3 have four members and 0 and 1 three.
+/// checkpoint; settlement advances only checkpoint facts. A fourth validator registers at
+/// L1 block `L1_0 + 2`. Fixed target-epoch cutoffs keep committees 0, 1 and 2 at three members,
+/// while committee 3 includes the fourth validator, derived at `H(3) - 2`.
 async fn multi_epoch_run(
     fx: &Fixture,
     dir: &Path,
