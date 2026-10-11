@@ -17,6 +17,10 @@ func (i *Indexer) indexRawBlockData(
 	start uint64,
 	end uint64,
 ) error {
+	if err := i.checkWriterLock(ctx); err != nil {
+		return err
+	}
+
 	wg, ctx := errgroup.WithContext(ctx)
 	// BLOCK parsing
 
@@ -95,21 +99,20 @@ func (i *Indexer) indexRawBlockData(
 		return err
 	}
 
-	// index NFT transfers
-	if i.indexNfts {
+	// Both balance repositories share the guarded MySQL session. Run their
+	// transactions sequentially; block/account/transaction work remains concurrent.
+	if i.indexNfts || i.indexERC20s {
 		wg.Go(func() error {
-			if err := i.indexNFTTransfers(ctx, chainID, logs); err != nil {
-				return errors.Wrap(err, "svc.indexNFTTransfers")
+			if i.indexNfts {
+				if err := i.indexNFTTransfers(ctx, chainID, logs); err != nil {
+					return errors.Wrap(err, "svc.indexNFTTransfers")
+				}
 			}
 
-			return nil
-		})
-	}
-
-	if i.indexERC20s {
-		wg.Go(func() error {
-			if err := i.indexERC20Transfers(ctx, chainID, logs); err != nil {
-				return errors.Wrap(err, "svc.indexERC20Transfers")
+			if i.indexERC20s {
+				if err := i.indexERC20Transfers(ctx, chainID, logs); err != nil {
+					return errors.Wrap(err, "svc.indexERC20Transfers")
+				}
 			}
 
 			return nil

@@ -59,7 +59,18 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			syscall.SIGTERM,
 			syscall.SIGQUIT,
 		}...)
-		<-quitCh
+		defer signal.Stop(quitCh)
+
+		var fatalErrors <-chan error
+		if source, ok := app.(interface{ FatalErrors() <-chan error }); ok {
+			fatalErrors = source.FatalErrors()
+		}
+
+		select {
+		case <-quitCh:
+		case err := <-fatalErrors:
+			return err
+		}
 
 		return nil
 	}

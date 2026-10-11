@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -65,11 +67,13 @@ func TestIsERC20Transfer(t *testing.T) {
 // The spy records repository applications, without duplicating balance arithmetic.
 type erc20TransferSpy struct {
 	eventindexer.ERC20BalanceRepository
-	mu       sync.Mutex
-	calls    []erc20TransferCall
-	failHash string
-	failure  error
-	cancel   context.CancelFunc
+	inFlight  atomic.Int32
+	maxActive atomic.Int32
+	mu        sync.Mutex
+	calls     []erc20TransferCall
+	failHash  string
+	failure   error
+	cancel    context.CancelFunc
 }
 
 type erc20TransferCall struct {
@@ -82,6 +86,19 @@ func (s *erc20TransferSpy) IncreaseAndDecreaseBalancesInTx(
 	_ context.Context, ref eventindexer.TransferLogRef,
 	increase, decrease eventindexer.UpdateERC20BalanceOpts,
 ) (*eventindexer.ERC20Balance, *eventindexer.ERC20Balance, error) {
+	active := s.inFlight.Add(1)
+	defer s.inFlight.Add(-1)
+
+	for old := s.maxActive.Load(); active > old; old = s.maxActive.Load() {
+		if s.maxActive.CompareAndSwap(old, active) {
+			break
+		}
+	}
+	// Yield before recording so the recording mutex cannot conceal overlapping calls.
+	for n := 0; n < 100; n++ {
+		runtime.Gosched()
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.calls = append(s.calls, erc20TransferCall{ref, increase, decrease})
@@ -135,6 +152,7 @@ func TestIndexERC20TransfersOrderAndFiltering(t *testing.T) {
 	require.NoError(t, idx.indexERC20Transfers(context.Background(), big.NewInt(167), logs))
 	require.Equal(t, original, logs, "the caller's slice may be shared with NFT indexing")
 	require.Len(t, spy.calls, 4)
+	require.Equal(t, int32(1), spy.maxActive.Load())
 
 	for n, log := range []types.Log{mint, outgoing, nextTx, nextBlock} {
 		require.Equal(t, eventindexer.TransferLogRef{

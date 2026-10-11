@@ -1,11 +1,9 @@
 package indexer
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"math/big"
-	"slices"
 	"strings"
 	"sync"
 
@@ -69,12 +67,7 @@ func (i *Indexer) indexERC20Transfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-	// Apply balance writes in chain order; copy logs because NFT indexing may share the caller's slice.
-	orderedLogs := slices.Clone(logs)
-	slices.SortStableFunc(orderedLogs, func(a, b types.Log) int {
-		return cmp.Or(cmp.Compare(a.BlockNumber, b.BlockNumber),
-			cmp.Compare(a.TxIndex, b.TxIndex), cmp.Compare(a.Index, b.Index))
-	})
+	orderedLogs := orderedTransferLogs(logs)
 
 	for _, log := range orderedLogs {
 		if err := ctx.Err(); err != nil {

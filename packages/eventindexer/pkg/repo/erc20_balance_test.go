@@ -1,8 +1,10 @@
 package repo
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"testing"
 
@@ -126,6 +128,29 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
+
+	t.Run("missing sender emits warning", func(t *testing.T) {
+		var logs bytes.Buffer
+
+		previous := slog.Default()
+		slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn})))
+		t.Cleanup(func() { slog.SetDefault(previous) })
+
+		increased, decreased, err := ERC20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
+			testRef(eventindexer.TransferKindERC20, 20), eventindexer.UpdateERC20BalanceOpts{},
+			eventindexer.UpdateERC20BalanceOpts{
+				ERC20MetadataID: int64(pk), ChainID: 1, Address: "0xmissing", ContractAddress: "0x123", Amount: "1",
+			})
+		assert.NoError(t, err)
+		assert.Nil(t, increased)
+		assert.Nil(t, decreased)
+		assert.Contains(t, logs.String(), `"level":"WARN"`)
+		assert.Contains(t, logs.String(), "sender balance not found")
+		assert.Contains(t, logs.String(), `"chainID":1`)
+		assert.Contains(t, logs.String(), `"contractAddress":"0x123"`)
+		assert.Contains(t, logs.String(), `"address":"0xmissing"`)
+		assert.Contains(t, logs.String(), `"amount":"1"`)
+	})
 }
 
 func TestIntegration_ERC20Balance_FindByAddress(t *testing.T) {

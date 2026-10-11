@@ -2,6 +2,8 @@ package indexer
 
 import (
 	"context"
+	"database/sql"
+	stderrors "errors"
 	"log/slog"
 	"sync"
 	"time"
@@ -37,6 +39,10 @@ var (
 
 type Indexer struct {
 	db db.DB
+
+	writerConn     *sql.Conn
+	writerLockName string
+	fatalErrors    chan error
 
 	accountRepo      eventindexer.AccountRepository
 	eventRepo        eventindexer.EventRepository
@@ -75,7 +81,17 @@ type Indexer struct {
 	contractToMetadataMutex *sync.Mutex
 }
 
-func (i *Indexer) Start() error {
+func (i *Indexer) Start() (err error) {
+	if err = i.acquireWriterLock(i.ctx); err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			i.releaseWriterLock()
+		}
+	}()
+
 	if err := i.checkBalanceClaimBootstrap(i.ctx); err != nil {
 		return err
 	}
@@ -84,6 +100,7 @@ func (i *Indexer) Start() error {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
+	i.fatalErrors = make(chan error, 1)
 	i.wg.Add(1)
 
 	go i.eventLoop(i.ctx)
@@ -93,6 +110,7 @@ func (i *Indexer) Start() error {
 
 func (i *Indexer) eventLoop(ctx context.Context) {
 	defer i.wg.Done()
+	defer i.releaseWriterLock()
 
 	t := time.NewTicker(10 * time.Second)
 
@@ -104,12 +122,28 @@ func (i *Indexer) eventLoop(ctx context.Context) {
 			slog.Info("event loop context done")
 			return
 		case <-t.C:
+			if err := i.checkWriterLock(ctx); err != nil {
+				slog.Error("stopping indexer after balance writer lock loss", "error", err)
+				i.fatalErrors <- err
+
+				return
+			}
+
 			if err := i.filter(ctx); err != nil {
 				slog.Error("error filtering", "error", err)
+
+				if stderrors.Is(err, errWriterLockLost) {
+					i.fatalErrors <- err
+					return
+				}
 			}
 		}
 	}
 }
+
+// FatalErrors lets the CLI exit when indexing can no longer continue safely.
+// Start initializes the buffered channel before launching the event loop.
+func (i *Indexer) FatalErrors() <-chan error { return i.fatalErrors }
 
 func (i *Indexer) Name() string {
 	return "indexer"

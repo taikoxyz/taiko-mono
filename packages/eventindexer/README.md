@@ -4,11 +4,27 @@
 
 Catches events, stores them in the database to be queried via API.
 
-ERC20 transfers are written sequentially in ascending block number, transaction
-index, and log index order. Run one indexer writer per chain and database. The
-existing per-log transactions and replay protection remain unchanged; sequential
-writes reduce parallel write throughput. This ordering does not reconcile
-historical incorrect balances or duplicate records.
+ERC20, ERC721, and ERC1155 transfers are applied sequentially in ascending block
+number, transaction index, and log index order. The existing per-transfer
+transactions and replay protection remain unchanged; serial writes reduce
+parallel write throughput and do not reconcile historical incorrect balances or
+duplicate records.
+
+When either balance indexer is enabled, startup obtains a MySQL `GET_LOCK` scoped
+to the source chain and database, and refuses to start if another guarded writer
+already holds it. The NFT and ERC20 repositories share the dedicated session
+holding that lock; a lost session cannot continue balance writes through the
+ordinary connection pool. Ownership is checked before each indexing batch, and
+lock loss stops indexing and returns a fatal CLI error so the supervisor can
+restart the process. Shutdown or failed startup releases and discards the session. Configure at least two open database connections, or an unlimited pool.
+All writers must use this guarded version; stop older unguarded writers before
+upgrading.
+
+A missing ERC20 sender balance emits a structured warning while preserving the
+existing skip behavior. Durable recovery of an interrupted batch is tracked
+separately in [#22285](https://github.com/taikoxyz/taiko-mono/issues/22285): the
+current restart cursor is still derived from the latest persisted event, rather
+than a completed-batch checkpoint.
 
 ## Running the app
 

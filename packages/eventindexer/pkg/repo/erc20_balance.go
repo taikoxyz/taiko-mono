@@ -90,7 +90,14 @@ func (r *ERC20BalanceRepository) decreaseBalanceInDB(
 		if err != gorm.ErrRecordNotFound {
 			return nil, errors.Wrap(err, "r.db.gormDB.First")
 		} else {
-			// cant decrease a balance if user never had this balance, indexing issue
+			// A missing sender balance can indicate a gap in indexed transfer history.
+			slog.WarnContext(db.Statement.Context, "skipping ERC20 debit: sender balance not found",
+				"chainID", opts.ChainID,
+				"contractAddress", opts.ContractAddress,
+				"address", opts.Address,
+				"amount", opts.Amount,
+			)
+
 			return nil, nil
 		}
 	}
