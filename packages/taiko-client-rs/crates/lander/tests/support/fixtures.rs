@@ -3,11 +3,12 @@
 //! The EL headers are structural fixtures, not an EVM execution proof. Every host rule and
 //! certificate is checked before these fixtures are submitted to the accepting test verifier.
 
-use std::collections::BTreeMap;
+use async_trait::async_trait;
+use std::{collections::BTreeMap, sync::Arc};
 
 use abci::{
     AnchorState, EtnaEnvelope, ExecutionBlock, ParentInfo, Schedule,
-    committee::record_hash,
+    committee::{record_hash, verify_committee_witness},
     envelope::AnchorWitness,
     l1::{
         fetch::build_committee_witness,
@@ -24,11 +25,10 @@ use alloy_provider::Provider;
 use anyhow::{Result, ensure};
 use ed25519_dalek::{Signer, SigningKey};
 use lander::{
-    CertifiedBlock, LandingSnapshot, Limits, PreparedBatch, ProofRequest, SidecarMode, blob, codec,
+    CertifiedBlock, LandingSnapshot, Limits, ProofRequest, SidecarMode,
     committee::{AuthenticatedCommittee, authenticate},
-    contracts::IEtnaInbox::{CommitteeRecord, LandInput},
+    contracts::IEtnaInbox::LandInput,
     l1::{LandingSource, RpcLandingSource},
-    statement,
     validate::{EnvelopeContext, commit_hash, verify_commit, verify_envelope, verify_structure},
 };
 use sha2::{Digest, Sha256};
@@ -47,6 +47,7 @@ pub fn limits() -> Limits {
 }
 
 /// The decided chain survives checkpoint advances so later fixtures preserve exact history.
+#[derive(Clone)]
 pub struct FixtureChain {
     pub blocks: Vec<CertifiedBlock>,
     pub headers: Vec<Header>,
@@ -58,13 +59,11 @@ impl FixtureChain {
     pub async fn new(fixture: &ContractFixture) -> Result<Self> {
         let source = RpcL1Source::new(fixture.anvil.provider.clone());
         let header = source.header(fixture.genesis.l1_0).await?;
-        let witness = source
-            .account_witness(fixture.inbox, &inbox::anchor_slots(Some(0)), header.number())
-            .await?;
+        let witness =
+            source.account_witness(fixture.inbox, &inbox::anchor_slots(), header.number()).await?;
         let anchor = verify_anchor_witness(
             &AnchorWitness { l1_header: header, inbox: witness },
             fixture.inbox,
-            Some(0),
         )?;
         let hash = record_hash(L2_CHAIN_ID, &fixture.committee.record);
         let committee = authenticate(fixture.committee.clone(), 0, hash, &fixture.params)?;
@@ -86,12 +85,11 @@ impl FixtureChain {
             let parent_anchor = self.anchors.last().expect("genesis anchor");
             let raw = source.header(source.finalized_number().await?).await?;
             let switch = schedule.switch_target(height);
-            let needs_anchor =
-                height == 1 || switch.is_some() || raw.number() != parent_anchor.number;
+            let needs_anchor = height == 1 || raw.number() != parent_anchor.number;
             let witness = if needs_anchor {
                 Some(AnchorWitness {
                     inbox: source
-                        .account_witness(fixture.inbox, &inbox::anchor_slots(switch), raw.number())
+                        .account_witness(fixture.inbox, &inbox::anchor_slots(), raw.number())
                         .await?,
                     l1_header: raw,
                 })
@@ -99,23 +97,38 @@ impl FixtureChain {
                 None
             };
             let anchor = match &witness {
-                Some(witness) => verify_anchor_witness(witness, fixture.inbox, switch)?,
+                Some(witness) => verify_anchor_witness(witness, fixture.inbox)?,
                 None => parent_anchor.clone(),
             };
-            let committee = if let Some(epoch) = schedule.epoch_starting_at(height) {
+            let committee = if let Some(target) = switch {
                 Some(
                     build_committee_witness(
                         &source,
                         &fixture.params,
                         &schedule,
                         parent_anchor.number,
-                        epoch + 1,
+                        target,
                     )
                     .await?,
                 )
             } else {
                 None
             };
+            if let Some(w) = &committee {
+                let target = switch.expect("switch committee");
+                let (record, members) =
+                    verify_committee_witness(parent_anchor, &schedule, &fixture.params, w, target)?;
+                let hash = record_hash(L2_CHAIN_ID, &record);
+                self.committees.insert(
+                    target,
+                    authenticate(
+                        abci::CommitteeState { record, members },
+                        target,
+                        hash,
+                        &fixture.params,
+                    )?,
+                );
+            }
             let parent_info = ParentInfo {
                 number: parent.number,
                 hash: parent.hash_slow(),
@@ -163,7 +176,12 @@ impl FixtureChain {
                 committee,
             };
             let current = &self.committees[&schedule.epoch_of(height)];
-            let pair = signed_pair(envelope.clone(), current, self.blocks.last());
+            let pair = signed_pair(
+                envelope.clone(),
+                current,
+                &self.committees[&schedule.epoch_of(height + 1)],
+                self.blocks.last(),
+            );
             verify_commit(&pair.commit, &pair.block.header, current, "taiko-etna-167001-g0")?;
             verify_structure(&pair, self.blocks.last(), height, parent.hash_slow())?;
             let facts = verify_envelope(
@@ -203,9 +221,12 @@ impl FixtureChain {
         let state = source.header(p.get_block_number().await?).await?;
         let pin = Some(BlockId::hash_canonical(state.hash()));
         let checkpoint = view(p, fixture.inbox, EtnaInbox::lastCheckpointCall {}, pin).await?;
-        let start_epoch = checkpoint.height / fixture.genesis.epoch_len;
-        let starting =
-            view(p, fixture.inbox, EtnaInbox::committeeCall { _epoch: start_epoch }, pin).await?;
+        let config = view(p, fixture.inbox, EtnaInbox::committeeConfigHashCall {}, pin).await?;
+        let bootstrap =
+            view(p, fixture.inbox, EtnaInbox::genesisCommitteeRecordHashCall {}, pin).await?;
+        let inbox_witness = source
+            .account_witness(fixture.inbox, &lander::l1::snapshot_slots(), state.number())
+            .await?;
         let snapshot = LandingSnapshot {
             l1_block_hash: state.hash(),
             l1_block_number: state.number(),
@@ -217,82 +238,27 @@ impl FixtureChain {
             checkpoint_height: checkpoint.height,
             checkpoint_hash: checkpoint.blockHash,
             genesis: fixture.genesis.clone(),
-            start_committee_record_hash: starting,
+            committee_config_hash: config,
+            genesis_committee_record_hash: bootstrap,
+            l1_header: state,
+            inbox_witness,
         };
-        let first = usize::try_from(checkpoint.height)?;
-        let stop = usize::try_from(last)?;
-        ensure!(first < stop && stop <= self.blocks.len(), "fixture batch range");
-        ensure!(
-            self.headers[first].hash_slow() == checkpoint.blockHash,
-            "fixture checkpoint contradiction"
-        );
-        let blocks = self.blocks[first..stop].to_vec();
-        let anchors = self.anchors[first + 1..=stop].to_vec();
-        let reference = source.header(source.finalized_number().await?).await?;
-        let oldest = self.anchors[first..=stop]
-            .iter()
-            .map(|anchor| anchor.number)
-            .min()
-            .expect("parent anchor");
-        ensure!(
-            reference.number() >=
-                anchors.iter().map(|anchor| anchor.number).max().expect("batch anchor"),
-            "reference before anchor"
-        );
-        let mut reference_headers = vec![];
-        for number in (oldest..=reference.number()).rev() {
-            reference_headers.push(source.header(number).await?.raw().clone());
-        }
-        let schedule = Schedule::from_genesis(&fixture.genesis);
-        let records = ((checkpoint.height + 1)..=last)
-            .filter_map(|height| schedule.epoch_starting_at(height))
-            .map(|epoch| {
-                let state = &self.committees[&(epoch + 1)].state;
-                CommitteeRecord {
-                    epoch: epoch + 1,
-                    recordHash: record_hash(L2_CHAIN_ID, &state.record),
-                }
-            })
-            .collect();
-        let terminal = &self.headers[stop];
-        let input = LandInput {
-            lastHeight: last,
-            lastBlockHash: terminal.hash_slow(),
-            lastStateRoot: terminal.state_root,
-            l1ReferenceBlockNumber: reference.number(),
-            records,
-        };
-        let payload = codec::encode(&blocks, &limits())?;
-        let blobs = blob::build(&payload, &limits(), mode)?;
-        let statement_hash =
-            statement::hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes);
-        let adapter = RpcLandingSource::new(p.clone(), p.clone(), fixture.params.clone());
-        ensure!(
-            adapter
-                .statement_hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes)
-                .await? ==
-                statement_hash,
-            "real proxy V3 hash differs"
-        );
-        Ok(ProofRequest {
-            batch: PreparedBatch {
-                snapshot,
-                parent_header: self.headers[first].clone(),
-                grandparent_timestamp: if first == 0 {
-                    0
-                } else {
-                    self.headers[first - 1].timestamp
-                },
-                parent_anchor: self.anchors[first].clone(),
-                blocks,
-                anchors,
-                reference_headers,
-                committees: self.committees.values().map(|c| c.state.clone()).collect(),
-                input,
-                blobs,
-                statement_hash,
-            },
-        })
+        ensure!(last <= self.blocks.len() as u64, "fixture batch range");
+        let chain = Arc::new(Self {
+            blocks: self.blocks[..last as usize].to_vec(),
+            headers: self.headers[..=last as usize].to_vec(),
+            anchors: self.anchors[..=last as usize].to_vec(),
+            committees: self.committees.clone(),
+        });
+        let adapter = Arc::new(FixtureLanding {
+            chain: chain.clone(),
+            rpc: RpcLandingSource::new(p.clone(), p.clone(), fixture.params.clone()),
+        });
+        use lander::batch::BatchSource;
+        lander::batch::BatchBuilder::new(chain, adapter, fixture.params.clone(), limits(), mode)?
+            .prepare(snapshot)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("empty fixture batch"))
     }
 }
 
@@ -305,6 +271,7 @@ fn merkle(items: &[Vec<u8>]) -> Hash {
 pub fn signed_pair(
     envelope: EtnaEnvelope,
     committee: &AuthenticatedCommittee,
+    next: &AuthenticatedCommittee,
     previous: Option<&CertifiedBlock>,
 ) -> CertifiedBlock {
     let height = envelope.block.header.number;
@@ -322,7 +289,7 @@ pub fn signed_pair(
             &data.iter().map(|tx| Sha256::digest(tx).to_vec()).collect::<Vec<_>>(),
         )),
         validators_hash: committee.validators.hash(),
-        next_validators_hash: committee.validators.hash(),
+        next_validators_hash: next.validators.hash(),
         consensus_hash: Hash::Sha256([2; 32]),
         app_hash: AppHash::try_from(parent.to_vec()).unwrap(),
         last_results_hash: None,
@@ -361,4 +328,94 @@ pub fn signed_pair(
         signature: Some(key.sign(&bytes).to_bytes().to_vec().try_into().unwrap()),
     }];
     CertifiedBlock { block, commit }
+}
+
+#[async_trait]
+impl lander::comet::CometSource for FixtureChain {
+    async fn status(&self) -> lander::error::Result<lander::comet::CometStatus> {
+        Ok(lander::comet::CometStatus {
+            chain_id: "taiko-etna-167001-g0".into(),
+            height: self.blocks.len() as u64,
+        })
+    }
+    async fn block(&self, height: u64) -> lander::error::Result<CertifiedBlock> {
+        self.blocks
+            .get(height as usize - 1)
+            .cloned()
+            .ok_or_else(|| lander::error::LanderError::Unavailable("fixture block".into()))
+    }
+    async fn committee(&self, _: u64) -> lander::error::Result<abci::CommitteeState> {
+        panic!("production builder must derive from L1, never trust committee hints")
+    }
+}
+
+struct FixtureLanding {
+    chain: Arc<FixtureChain>,
+    rpc: RpcLandingSource,
+}
+#[async_trait]
+impl LandingSource for FixtureLanding {
+    async fn snapshot(&self) -> lander::error::Result<LandingSnapshot> {
+        unreachable!()
+    }
+    async fn parent_header(
+        &self,
+        snapshot: &LandingSnapshot,
+    ) -> lander::error::Result<lander::l1::ParentContext> {
+        let height = snapshot.checkpoint_height as usize;
+        Ok(lander::l1::ParentContext {
+            header: self.chain.headers[height].clone(),
+            grandparent_timestamp: height
+                .checked_sub(1)
+                .map_or(0, |h| self.chain.headers[h].timestamp),
+        })
+    }
+    async fn parent_anchor(
+        &self,
+        snapshot: &LandingSnapshot,
+        parent: &lander::l1::ParentContext,
+    ) -> lander::error::Result<AnchorState> {
+        self.rpc.parent_anchor(snapshot, parent).await
+    }
+    async fn starting_inbox_witness(
+        &self,
+        anchor: &AnchorState,
+    ) -> lander::error::Result<abci::AnchorWitness> {
+        self.rpc.starting_inbox_witness(anchor).await
+    }
+    async fn committee_witness(
+        &self,
+        snapshot: &LandingSnapshot,
+        anchor: &AnchorState,
+        epoch: u64,
+    ) -> lander::error::Result<abci::CommitteeWitness> {
+        self.rpc.committee_witness(snapshot, anchor, epoch).await
+    }
+    async fn reference(
+        &self,
+        snapshot: &LandingSnapshot,
+        anchors: &[AnchorState],
+    ) -> lander::error::Result<Vec<abci::RawL1Header>> {
+        self.rpc.reference(snapshot, anchors).await
+    }
+    async fn statement_hash(
+        &self,
+        snapshot: &LandingSnapshot,
+        input: &LandInput,
+        hash: B256,
+        blobs: &[B256],
+    ) -> lander::error::Result<B256> {
+        self.rpc.statement_hash(snapshot, input, hash, blobs).await
+    }
+    async fn canonical_hash(&self, number: u64) -> lander::error::Result<B256> {
+        self.rpc.canonical_hash(number).await
+    }
+    async fn validate_reference(
+        &self,
+        snapshot: &LandingSnapshot,
+        number: u64,
+        hash: B256,
+    ) -> lander::error::Result<()> {
+        self.rpc.validate_reference(snapshot, number, hash).await
+    }
 }

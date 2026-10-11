@@ -1,6 +1,9 @@
 //! Serializable, immutable contexts. Contract-independent facts remain separate from ABI types.
 
-use abci::{AnchorState, CommitteeState, GenesisRecord};
+use abci::{
+    AccountWitness, AnchorState, AnchorWitness, CommitteeState, CommitteeWitness, GenesisRecord,
+    RawL1Header,
+};
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
@@ -73,8 +76,25 @@ pub struct LandingSnapshot {
     pub checkpoint_hash: B256,
     /// Authenticated genesis and epoch parameters, including the genesis cutoff.
     pub genesis: GenesisRecord,
-    /// On-chain record of the batch's starting committee.
-    pub start_committee_record_hash: B256,
+    /// Authenticated deployment configuration commitment.
+    pub committee_config_hash: B256,
+    /// Genesis-only bootstrap record commitment, stored directly at slot 278.
+    pub genesis_committee_record_hash: B256,
+    /// Raw canonical header authenticating every snapshot storage field.
+    #[serde(with = "rlp_serde")]
+    pub l1_header: RawL1Header,
+    /// Inbox account and storage proof for the complete snapshot slot set.
+    pub inbox_witness: AccountWitness,
+}
+
+/// One independently derived committee's authenticated registry witness provenance.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitteeContext {
+    /// Authenticated proving anchor whose number covers this epoch's fixed cutoff.
+    pub anchor: AnchorState,
+    /// Registry proof and complete entries used to recompute this committee.
+    #[serde(with = "rlp_serde")]
+    pub witness: CommitteeWitness,
 }
 
 /// A complete CometBFT block paired with the decision certificate for that same height.
@@ -97,6 +117,10 @@ pub struct PreparedBatch {
     pub grandparent_timestamp: u64,
     /// Anchor consumed by the parent; genesis uses the initialization L1 block.
     pub parent_anchor: AnchorState,
+    /// Inbox schedule/config/bootstrap and anchor-facts proof under the parent root in reference
+    /// ancestry.
+    #[serde(with = "rlp_serde")]
+    pub starting_inbox_witness: AnchorWitness,
     /// Exact complete block/commit pairs in increasing height order.
     pub blocks: Vec<CertifiedBlock>,
     /// Each block's own authenticated L1 anchor, in matching block order.
@@ -105,11 +129,41 @@ pub struct PreparedBatch {
     pub reference_headers: Vec<Bytes>,
     /// All consulted committees in epoch order, including starting and newly derived contexts.
     pub committees: Vec<CommitteeState>,
-    /// Exact contract public output fields, including only new committee records.
+    /// Registry witnesses deduplicated by epoch, with their authenticated proving roots.
+    pub committee_witnesses: Vec<CommitteeContext>,
+    /// Exact four contract public output fields.
     #[serde(with = "crate::contracts::land_input_serde")]
     pub input: LandInput,
     /// Sidecar and ordered versioned blob hashes binding the V1 payload.
     pub blobs: PreparedBlobs,
-    /// Identity of this job: the exact V3 public statement hash.
+    /// Identity of this job: the exact V4 public statement hash.
     pub statement_hash: B256,
+}
+
+/// Canonical RLP journal encoding for protocol witness types that intentionally have no JSON wire
+/// API.
+mod rlp_serde {
+    use alloy_primitives::Bytes;
+    use alloy_rlp::{Decodable, Encodable};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Retain exact protocol RLP bytes rather than duplicating consensus witness fields.
+    pub fn serialize<T: Encodable, S: Serializer>(
+        value: &T,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        Bytes::from(alloy_rlp::encode(value)).serialize(serializer)
+    }
+
+    /// Require canonical complete RLP when restoring a journaled witness.
+    pub fn deserialize<'de, T: Decodable + Encodable, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<T, D::Error> {
+        let bytes = Bytes::deserialize(deserializer)?;
+        let value: T = alloy_rlp::decode_exact(&bytes).map_err(serde::de::Error::custom)?;
+        if alloy_rlp::encode(&value).as_slice() != bytes.as_ref() {
+            return Err(serde::de::Error::custom("noncanonical witness RLP"));
+        }
+        Ok(value)
+    }
 }

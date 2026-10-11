@@ -84,7 +84,7 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     let w = env.committee.clone().expect("switch 2 carries a committee witness");
     assert_eq!(w, witness_at(&app, PARENT_ANCHOR).await);
     assert_eq!(w.record.target_epoch, 2);
-    assert_eq!(w.record.cutoff_l1_block, fx.genesis.l1_0, "C = n_p");
+    assert_eq!(w.record.cutoff_l1_block, fx.genesis.l1_0, "fixed launch cutoff");
     assert_eq!(w.record.checkpoint_index, 0, "checkpoint 1 (block 72) is after the cutoff");
     assert_eq!(w.entries, sample_entries(3));
 
@@ -99,7 +99,7 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
 }
 
 /// (b) The same derivation proven against the block's NEW anchor: self-consistent there (its
-/// cutoff 74 selects checkpoint 1 with four entries), but not against the parent's anchor, so
+/// fixed cutoff still selects checkpoint 0), but not against the parent's anchor, so
 /// the block is refused.
 #[tokio::test]
 async fn committee_witness_proven_at_the_new_anchor_is_rejected() {

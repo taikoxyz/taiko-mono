@@ -2,7 +2,7 @@
 
 use abci::{
     ChainParams, CommitteeState, GenesisRecord, RegistryEntry, Schedule, Snapshot,
-    committee::{derive, record_hash},
+    committee::{committee_config_hash, derive, record_hash},
 };
 use alloy::{
     rpc::types::TransactionRequest,
@@ -196,6 +196,7 @@ impl ContractFixture {
             epochLenL1: 1,
             genesisCutoff: cutoff,
             committeeRecordHash: record_hash(L2_CHAIN_ID, &committee.record),
+            committeeConfigHash: committee_config_hash(&params),
         };
         let inbox = proxy(
             p,
@@ -207,6 +208,7 @@ impl ContractFixture {
         ensure!(inbox == predicted_inbox, "CREATE-predicted authorized syncer differs");
         let activated = view(p, inbox, EtnaInbox::activationCall {}, None).await?;
         let genesis = GenesisRecord {
+            committee_config_hash: committee_config_hash(&params),
             genesis_height: 0,
             l1_0: activated.l1Block,
             epoch_len: EPOCH_LEN,
@@ -257,7 +259,7 @@ impl ContractFixture {
         .map(drop)
     }
 
-    /// Require the verifier to receive this exact V3 public statement.
+    /// Require the verifier to receive this exact V4 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(
             &self.anvil.provider,

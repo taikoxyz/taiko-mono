@@ -388,7 +388,7 @@ impl Runner {
         }
         let batch = &job.request.batch;
         if snapshot.genesis != batch.snapshot.genesis ||
-            snapshot.start_committee_record_hash != batch.snapshot.start_committee_record_hash
+            snapshot.committee_config_hash != batch.snapshot.committee_config_hash
         {
             return Err(LanderError::Safety(
                 "unchanged checkpoint has changed genesis or committee identity".into(),

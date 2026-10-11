@@ -11,6 +11,7 @@ use alloy_primitives::{Address, B256, U256};
 
 pub(crate) fn request() -> ProofRequest {
     let genesis = GenesisRecord {
+        committee_config_hash: B256::repeat_byte(3),
         genesis_height: 0,
         l1_0: 10,
         epoch_len: 20,
@@ -29,7 +30,6 @@ pub(crate) fn request() -> ProofRequest {
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: genesis.genesis_hash,
-            committee: None,
         },
     };
     ProofRequest {
@@ -45,21 +45,44 @@ pub(crate) fn request() -> ProofRequest {
                 checkpoint_height: 0,
                 checkpoint_hash: genesis.genesis_hash,
                 genesis,
-                start_committee_record_hash: B256::repeat_byte(6),
+                committee_config_hash: B256::repeat_byte(3),
+                genesis_committee_record_hash: B256::repeat_byte(6),
+                l1_header: abci::RawL1Header::from(&Header::default()),
+                inbox_witness: abci::AccountWitness {
+                    address: alloy_primitives::Address::ZERO,
+                    nonce: 0,
+                    balance: U256::ZERO,
+                    storage_root: B256::ZERO,
+                    code_hash: B256::ZERO,
+                    account_proof: vec![],
+                    storage: vec![],
+                },
             },
             parent_header: Header::default(),
             grandparent_timestamp: 0,
             parent_anchor: anchor,
+            starting_inbox_witness: abci::AnchorWitness {
+                l1_header: abci::RawL1Header::from(&Header::default()),
+                inbox: abci::AccountWitness {
+                    address: Address::ZERO,
+                    nonce: 0,
+                    balance: U256::ZERO,
+                    storage_root: B256::ZERO,
+                    code_hash: B256::ZERO,
+                    account_proof: vec![],
+                    storage: vec![],
+                },
+            },
             blocks: vec![],
             anchors: vec![],
             reference_headers: vec![],
             committees: vec![],
+            committee_witnesses: vec![],
             input: LandInput {
                 lastHeight: 1,
                 lastBlockHash: B256::repeat_byte(7),
                 lastStateRoot: B256::repeat_byte(8),
                 l1ReferenceBlockNumber: 15,
-                records: vec![],
             },
             blobs: PreparedBlobs {
                 payload_bytes: 0,

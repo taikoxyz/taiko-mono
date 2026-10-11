@@ -1,7 +1,7 @@
 //! Discovery of registry witnesses from L1 RPC, followed by independent pure verification.
 //!
-//! Runtime discovery computes the epoch's [`committee::fixed_cutoff`] and proves at the parent
-//! anchor. Explicit-cutoff discovery serves genesis and authenticated host proof jobs. The
+//! Runtime discovery computes the epoch's [`crate::committee::fixed_cutoff`] and proves at the
+//! parent anchor. Explicit-cutoff discovery serves genesis and authenticated host proof jobs. The
 //! proving block must cover the cutoff. Checkpoint binary search and historical entry reads are
 //! untrusted until their complete root verifies; entries may require archive state well before
 //! the proving block. Interrupted discovery preserves completed reads for the same context.
@@ -191,7 +191,7 @@ struct Discovery<'a, L: ?Sized> {
     /// fixed epoch cutoffs.
     schedule: &'a Schedule,
     /// Explicit snapshot cutoff for genesis/host jobs; `None` selects the target epoch's
-    /// [`committee::fixed_cutoff`].
+    /// [`crate::committee::fixed_cutoff`].
     cutoff: Option<u64>,
     /// The deadline of each single L1 read; `None` waits indefinitely.
     read_timeout: Option<Duration>,

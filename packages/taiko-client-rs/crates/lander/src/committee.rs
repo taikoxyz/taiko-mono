@@ -1,4 +1,4 @@
-//! Authentication of untrusted ABCI committee hints against the landed record hash.
+//! Reconstruction of validator sets after independent fixed-cutoff registry derivation.
 
 use abci::{
     ChainParams, CommitteeState,
@@ -21,8 +21,8 @@ pub enum CommitteeError {
     /// A committee violates the member ordering, stake, power, or encoding rules.
     #[error("invalid committee: {0}")]
     Invalid(&'static str),
-    /// The recomputed record differs from the authenticated L1 mapping.
-    #[error("committee record hash {got} differs from landed hash {expected}")]
+    /// The recomputed record differs from the independently derived commitment.
+    #[error("committee record hash {got} differs from authenticated hash {expected}")]
     Hash {
         /// Landed or independently proven record hash.
         expected: B256,
@@ -38,12 +38,14 @@ pub struct AuthenticatedCommittee {
     pub state: CommitteeState,
     /// CometBFT orders its validators by descending power then ascending address.
     pub validators: validator::Set,
+    /// Fixed-cutoff registry proof retained when this context was independently derived.
+    pub provenance: Option<crate::types::CommitteeContext>,
 }
 
-/// Reconstructs MEM-08 and voting power before trusting any committee query.
+/// Reconstructs MEM-08 and voting power against an independently derived record hash.
 ///
-/// A hint is useful only after its complete record hashes to `expected_hash` from an L1
-/// mapping or an independently proven epoch-start derivation. This check applies to both.
+/// Callers first independently derive registry eligibility under an authenticated L1 root.
+/// This reconstruction then checks the complete record, members and voting power.
 pub fn authenticate(
     state: CommitteeState,
     epoch: u64,
@@ -102,7 +104,11 @@ pub fn authenticate(
     if got != expected_hash {
         return Err(CommitteeError::Hash { expected: expected_hash, got });
     }
-    Ok(AuthenticatedCommittee { state, validators: validator::Set::without_proposer(validators) })
+    Ok(AuthenticatedCommittee {
+        state,
+        validators: validator::Set::without_proposer(validators),
+        provenance: None,
+    })
 }
 
 #[cfg(test)]

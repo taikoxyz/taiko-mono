@@ -27,7 +27,10 @@ pub(crate) fn request() -> ProofRequest {
     let (params, committee, keys) = super::consensus::committee(&[3, 3, 3], 0);
     request.batch.snapshot.inbox = params.inbox;
     request.batch.snapshot.registry = params.registry;
-    request.batch.snapshot.start_committee_record_hash =
+    request.batch.snapshot.committee_config_hash = abci::committee::committee_config_hash(&params);
+    request.batch.snapshot.genesis.committee_config_hash =
+        request.batch.snapshot.committee_config_hash;
+    request.batch.snapshot.genesis_committee_record_hash =
         abci::committee::record_hash(params.l2_chain_id, &committee.state.record);
     let block =
         super::consensus::pair(1, request.batch.snapshot.checkpoint_hash, &committee, &keys, None);

@@ -14,7 +14,7 @@ use std::{
 };
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
-const JOURNAL_VERSION: u8 = 1;
+const JOURNAL_VERSION: u8 = 2;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -92,6 +92,13 @@ pub struct BatchWait {
     pub first_seen_unix_ms: u64,
 }
 
+/// Minimal schema opening checked before incompatible outstanding jobs are decoded.
+#[derive(Deserialize)]
+struct JournalSchema {
+    /// Wire/protocol discriminator; old signed transactions are never migrated.
+    version: u8,
+}
+
 /// Versioned disk envelope so identities are checked even when the state is idle.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Journal {
@@ -101,7 +108,7 @@ struct Journal {
     identity: JournalIdentity,
     /// Resumable phase.
     state: JournalState,
-    /// Optional Idle-only backlog timer; absence keeps version 1 journals compatible.
+    /// Optional Idle-only backlog timer; absence allows a timer-free V4 journal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     waiting: Option<BatchWait>,
 }
@@ -163,6 +170,13 @@ impl Store {
         file.take(MAX_JOURNAL_BYTES + 1).read_to_end(&mut bytes).map_err(io_error)?;
         if bytes.len() as u64 > MAX_JOURNAL_BYTES {
             return Err(LanderError::Journal("journal grew beyond allocation limit".into()));
+        }
+        let schema: JournalSchema = serde_json::from_slice(&bytes)
+            .map_err(|e| LanderError::Journal(format!("corrupt journal schema: {e}")))?;
+        if schema.version != JOURNAL_VERSION {
+            return Err(LanderError::Journal(
+                "incompatible pre-V4 journal; signed transaction retained unchanged".into(),
+            ));
         }
         let journal: Journal = serde_json::from_slice(&bytes)
             .map_err(|e| LanderError::Journal(format!("corrupt journal: {e}")))?;
@@ -253,7 +267,7 @@ impl Store {
                 &batch.blobs.versioned_hashes,
             ) != batch.statement_hash
         {
-            return Err(LanderError::Journal("job V3 statement identity mismatch".into()));
+            return Err(LanderError::Journal("job V4 statement identity mismatch".into()));
         }
         let limits = crate::types::Limits {
             max_blocks: 100_000,
@@ -374,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_version_one_idle_loads_without_a_timer() {
+    fn legacy_v3_journal_is_rejected_without_modifying_its_file() {
         let directory = tempfile::tempdir().unwrap();
         let journal = serde_json::json!({
             "version": 1,
@@ -382,8 +396,40 @@ mod tests {
             "state": { "phase": "idle" },
         });
         std::fs::write(directory.path().join("lander-state.json"), journal.to_string()).unwrap();
-        let store = Store::open(directory.path(), identity()).unwrap();
-        assert_eq!(store.load_with_wait().unwrap(), (JournalState::Idle, None));
+        assert!(matches!(Store::open(directory.path(), identity()), Err(LanderError::Journal(_))));
+        assert_eq!(
+            std::fs::read_to_string(directory.path().join("lander-state.json")).unwrap(),
+            journal.to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn legacy_pending_journal_retains_exact_signed_bytes_and_nonce_on_rejection() {
+        let request = crate::test_utils::runtime::request();
+        let proof = Bytes::from_static(&[0]);
+        let transaction = crate::test_utils::runtime::signed(&request, &proof, 7).await;
+        let id = JournalIdentity {
+            l1_chain_id: request.batch.snapshot.l1_chain_id,
+            l2_chain_id: request.batch.snapshot.l2_chain_id,
+            inbox: request.batch.snapshot.inbox,
+            registry: request.batch.snapshot.registry,
+            sender: transaction.sender,
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let state =
+            JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
+        let bytes = serde_json::to_vec(
+            &serde_json::json!({ "version": 1, "identity": id, "state": state }),
+        )
+        .unwrap();
+        let path = directory.path().join("lander-state.json");
+        std::fs::write(&path, &bytes).unwrap();
+        let error = match Store::open(directory.path(), id) {
+            Err(e) => e,
+            Ok(_) => panic!("V3 must be rejected"),
+        };
+        assert!(error.to_string().contains("incompatible pre-V4"));
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
     }
 
     #[test]
@@ -399,7 +445,7 @@ mod tests {
         };
         let directory = tempfile::tempdir().unwrap();
         let journal = serde_json::json!({
-            "version": 1,
+            "version": JOURNAL_VERSION,
             "identity": identity,
             "state": JournalState::Prepared {
                 job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),

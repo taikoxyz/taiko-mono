@@ -72,15 +72,15 @@ pub struct CommitteeWitness {
 
 /// The decoded block envelope: the execution block plus the optional L1 witnesses.
 ///
-/// Wire format: `0x01 || rlp([block, anchor, committee])`, where each optional witness is an empty
+/// Wire format: `0x02 || rlp([block, anchor, committee])`, where each optional witness is an empty
 /// RLP list when absent and a one-element RLP list holding the witness when present.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EtnaEnvelope {
     /// The L2 execution block.
     pub block: ExecutionBlock,
-    /// Present iff the block moves the anchor, is `H_0`, or is a switch height.
+    /// Present iff the block moves the anchor or is height 1.
     pub anchor: Option<AnchorWitness>,
-    /// Present iff the block is the first height of an epoch.
+    /// Present iff the block is the target epoch's switch height H-2.
     pub committee: Option<CommitteeWitness>,
 }
 

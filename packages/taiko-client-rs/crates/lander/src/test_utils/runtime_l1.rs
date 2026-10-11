@@ -121,7 +121,6 @@ fn anchor(header: &RawL1Header) -> AnchorState {
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::repeat_byte(1),
-            committee: None,
         },
     }
 }
@@ -138,6 +137,7 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         checkpoint_height: 0,
         checkpoint_hash: B256::repeat_byte(1),
         genesis: GenesisRecord {
+            committee_config_hash: B256::repeat_byte(3),
             genesis_height: 0,
             l1_0: 10,
             epoch_len: 20,
@@ -146,7 +146,18 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
             genesis_state_root: B256::repeat_byte(2),
             genesis_cutoff: 9,
         },
-        start_committee_record_hash: B256::repeat_byte(3),
+        committee_config_hash: B256::repeat_byte(3),
+        genesis_committee_record_hash: B256::repeat_byte(6),
+        l1_header: headers[&20].clone(),
+        inbox_witness: abci::AccountWitness {
+            address: params.inbox,
+            nonce: 0,
+            balance: U256::ZERO,
+            storage_root: B256::ZERO,
+            code_hash: B256::ZERO,
+            account_proof: vec![],
+            storage: vec![],
+        },
     }
 }
 async fn source(
@@ -167,7 +178,17 @@ async fn source(
         );
     }
     let answers = headers.clone();
-    let pin = answers[&20].hash();
+    let proof_fixture = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
+    let mut proof_snapshot = proof_fixture.snapshot.clone();
+    let mut raw: Header = alloy_rlp::decode_exact(proof_snapshot.l1_header.raw()).unwrap();
+    raw.number = 20;
+    raw.parent_hash = answers[&19].hash();
+    proof_snapshot.l1_header = RawL1Header::from(&raw);
+    proof_snapshot.l1_block_number = 20;
+    proof_snapshot.l1_block_hash = raw.hash_slow();
+    let expected_proof = proof_snapshot.inbox_witness.clone();
+    let mut answers = answers;
+    answers.insert(20, proof_snapshot.l1_header.clone());
     let l1 = rpc(move |request| match request["method"].as_str().unwrap() {
         "eth_chainId" => json!("0x1"),
         "eth_blockNumber" => json!("0x14"),
@@ -188,23 +209,12 @@ async fn source(
             .unwrap();
             json!(answers[&number].raw())
         }
-        "eth_getStorageAt" => {
-            // The live head would move after every call. Only the exact EIP-1898 selector can
-            // consistently read genesis/config/checkpoint; an unpinned adapter sees status 0.
-            if request["params"][2] != json!({"blockHash":pin,"requireCanonical":true}) {
-                return json!(U256::ZERO);
-            }
-            let slot: U256 = serde_json::from_value(request["params"][1].clone()).unwrap();
-            let word = match u64::try_from(slot).unwrap_or(u64::MAX) {
-                258 => U256::from(3),
-                268 | 270 => U256::ZERO,
-                271 | 273 => U256::from_be_bytes(B256::repeat_byte(1).0),
-                272 => (U256::from(10) << 64) | (U256::from(20) << 128) | (U256::from(1) << 192),
-                274 => U256::from_be_bytes(B256::repeat_byte(2).0),
-                279 => U256::from(9),
-                _ => U256::from_be_bytes(B256::repeat_byte(3).0),
-            };
-            json!(word)
+        "eth_getProof" => {
+            assert_eq!(request["params"][2], json!("0x14"));
+            json!({ "address": expected_proof.address, "nonce": format!("0x{:x}", expected_proof.nonce),
+                "balance": expected_proof.balance, "storageHash": expected_proof.storage_root,
+                "codeHash": expected_proof.code_hash, "accountProof": expected_proof.account_proof,
+                "storageProof": expected_proof.storage.iter().map(|s| json!({"key": s.slot, "value": s.value, "proof": s.proof})).collect::<Vec<_>>() })
         }
         other => panic!("unexpected L1 method {other}"),
     })
@@ -214,11 +224,8 @@ async fn source(
         json!("0x28c59")
     })
     .await;
-    let source = RpcLandingSource::new(
-        l1.provider.clone(),
-        l2.provider.clone(),
-        ChainParams::builtin(167001).unwrap(),
-    );
+    let source =
+        RpcLandingSource::new(l1.provider.clone(), l2.provider.clone(), proof_fixture.params);
     (source, l1, l2, headers)
 }
 
@@ -226,17 +233,19 @@ async fn source(
 async fn snapshot_cannot_mix_inbox_generations_config_and_checkpoint_across_live_heads() {
     let (source, l1, _l2, headers) = source(18, false).await;
     let observed = source.snapshot().await.unwrap();
-    assert_eq!(observed, snapshot(&headers));
+    let mut expected = crate::test_utils::consensus_mpt::Fixture::new(20, 26).snapshot;
+    let mut header: Header = alloy_rlp::decode_exact(expected.l1_header.raw()).unwrap();
+    header.number = 20;
+    header.parent_hash = headers[&19].hash();
+    expected.l1_header = RawL1Header::from(&header);
+    expected.l1_block_number = 20;
+    expected.l1_block_hash = header.hash_slow();
+    assert_eq!(observed, expected);
     let calls = l1.requests.lock().unwrap();
-    let slots =
-        calls.iter().filter(|call| call["method"] == "eth_getStorageAt").collect::<Vec<_>>();
-    assert_eq!(slots.len(), 9);
-    for call in slots {
-        assert_eq!(
-            call["params"][2],
-            json!({"blockHash":headers[&20].hash(),"requireCanonical":true})
-        );
-    }
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 1);
+    assert!(calls.iter().all(|call| call["method"] != "eth_getStorageAt"));
+    assert_eq!(observed.l1_header.hash(), observed.l1_block_hash);
+    let _ = headers;
 }
 
 #[tokio::test]

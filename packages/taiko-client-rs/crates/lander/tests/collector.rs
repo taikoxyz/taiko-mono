@@ -29,7 +29,10 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
     assert_eq!(Some(committee.clone()), devnet.cmt(0).committee(0).await?);
     let onchain = devnet
         .l1()
-        .get_storage_at(devnet.params().inbox, U256::from_be_bytes(inbox::committee_slot(0).0))
+        .get_storage_at(
+            devnet.params().inbox,
+            U256::from_be_bytes(inbox::slot(inbox::GENESIS_COMMITTEE_HASH).0),
+        )
         .await?;
     let hash = record_hash(devnet.params().l2_chain_id, &committee.record);
     assert_eq!(U256::from_be_bytes(hash.0), onchain);
@@ -63,7 +66,6 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
     };
     let payload = codec::encode(&blocks, &limits)?;
     assert_eq!(codec::decode(&payload, &limits)?, blocks);
-    let next = source.committee(1).await?;
-    assert_eq!(Some(next), devnet.cmt(0).committee(1).await?);
+    assert!(devnet.cmt(0).committee(1).await?.is_none(), "no switch witness exists by height 5");
     devnet.stop().await
 }

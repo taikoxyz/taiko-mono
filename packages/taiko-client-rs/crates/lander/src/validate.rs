@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use abci::{
     AnchorState, ChainParams, CommitteeState, EtnaEnvelope, ParentInfo, Schedule,
-    committee::{record_hash, verify_committee_witness},
+    committee::verify_committee_witness,
     l1::{layout::inbox, witness::verify_anchor_witness},
     rules::{self, GenerationCheck, HeaderInputs},
 };
@@ -45,7 +45,7 @@ pub struct BlockFacts {
     pub envelope: EtnaEnvelope,
     /// The block's own anchor, independently of a later landing reference.
     pub anchor: AnchorState,
-    /// A newly derived `e + 1` committee only at `h_first(e)`.
+    /// A newly derived target committee only at its H-2 switch height.
     pub derived: Option<CommitteeState>,
     /// Parent facts to consume when validating the next execution header.
     pub parent: ParentInfo,
@@ -290,7 +290,7 @@ pub struct EnvelopeContext<'a> {
     pub schedule: &'a Schedule,
     /// Shared chain constants.
     pub params: &'a ChainParams,
-    /// Previously landed or independently derived committee contexts.
+    /// Independently derived committee contexts.
     pub committees: &'a BTreeMap<u64, AuthenticatedCommittee>,
 }
 
@@ -306,14 +306,14 @@ pub fn verify_envelope(
         generation,
         schedule,
         params,
-        committees,
+        committees: _,
     } = context;
     let height = envelope.block.header.number;
     let (_, extra_generation, extra_anchor) =
         rules::decode_extra_data(&envelope.block.header.extra_data)
             .map_err(|e| ValidationError::Etna(e.to_string()))?;
     let switch = schedule.switch_target(height);
-    let forced = height == 1 || switch.is_some();
+    let forced = height == 1;
     let anchor = match envelope.anchor.as_ref() {
         None if forced || extra_anchor != parent_anchor.number => {
             return Err(ValidationError::Etna("required anchor witness is missing".into()))
@@ -322,7 +322,7 @@ pub fn verify_envelope(
         Some(w) if !forced && w.l1_header.number() == parent_anchor.number => {
             return Err(ValidationError::Etna("unexpected unchanged anchor witness".into()))
         }
-        Some(w) => verify_anchor_witness(w, params.inbox, switch)
+        Some(w) => verify_anchor_witness(w, params.inbox)
             .map_err(|e| ValidationError::Etna(e.to_string()))?,
     };
     rules::check_anchor_progress(parent_anchor.number, anchor.number, schedule, height)
@@ -335,12 +335,9 @@ pub fn verify_envelope(
     }
     rules::check_back_pressure(height, anchor.inbox.last_checkpoint_height, params.unsettled_cap())
         .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    let derived = match (schedule.epoch_starting_at(height), envelope.committee.as_ref()) {
+    let derived = match (switch, envelope.committee.as_ref()) {
         (None, None) => None,
-        (Some(epoch), Some(w)) => {
-            let target = epoch
-                .checked_add(1)
-                .ok_or_else(|| ValidationError::Etna("epoch overflow".into()))?;
+        (Some(target), Some(w)) => {
             let (record, members) =
                 verify_committee_witness(parent_anchor, schedule, params, w, target)
                     .map_err(|e| ValidationError::Etna(e.to_string()))?;
@@ -348,21 +345,6 @@ pub fn verify_envelope(
         }
         _ => return Err(ValidationError::Etna("committee witness presence mismatch".into())),
     };
-    if let Some(target) = switch {
-        if !committees.contains_key(&(target - 1)) {
-            return Err(ValidationError::Etna(format!("committee {} unavailable", target - 1)));
-        }
-        let next = committees
-            .get(&target)
-            .ok_or_else(|| ValidationError::Etna(format!("committee {target} unavailable")))?;
-        rules::check_switch_landed(
-            schedule,
-            target,
-            &anchor,
-            record_hash(params.l2_chain_id, &next.state.record),
-        )
-        .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    }
     let expected = rules::expected_header(&HeaderInputs {
         height,
         parent,

@@ -14,11 +14,7 @@ use std::{
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
-use contracts_support::{
-    ContractFixture,
-    contracts::{EtnaInbox, view},
-    fixtures::FixtureChain,
-};
+use contracts_support::{ContractFixture, fixtures::FixtureChain};
 use lander::store::{JournalIdentity, Store};
 use serde_json::json;
 use support::lander::{CliInputs, CliProcess, FixtureRpc, RpcData};
@@ -331,10 +327,17 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
             Path::new(CLIENT),
             &args,
             directory.path().join("batch-first.log"),
+            &[("--min-blocks", "1"), ("--max-batch-wait", "30")],
+        )?;
+        // Seed the checkpoint explicitly; genesis carries no runtime publication witness.
+        wait_checkpoint_before(&fixture, &mut first, 1, Duration::from_secs(15)).await?;
+        ensure!(first.signal(libc::SIGTERM).await?.success(), "initial checkpoint exits cleanly");
+        let mut first = CliProcess::spawn(
+            Path::new(CLIENT),
+            &args,
+            directory.path().join("batch-policy.log"),
             &policy,
         )?;
-        // The genesis derivation block lands immediately despite the configured minimum.
-        wait_checkpoint_before(&fixture, &mut first, 1, Duration::from_secs(15)).await?;
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, 3).await?;
         rpc.replace(rpc_data(&chain)).await;
@@ -400,7 +403,8 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
 
 #[tokio::test]
 #[ignore = "docker"]
-async fn lander_cli_flushes_backpressure_and_epoch_records_before_batch_deadline() -> Result<()> {
+async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadline() -> Result<()>
+{
     let fixture = ContractFixture::deploy().await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
@@ -414,9 +418,16 @@ async fn lander_cli_flushes_backpressure_and_epoch_records_before_batch_deadline
             Path::new(CLIENT),
             &args,
             directory.path().join("batch-urgent.log"),
-            &[("--min-blocks", "5"), ("--max-batch-wait", "3600")],
+            &[("--min-blocks", "1"), ("--max-batch-wait", "3600")],
         )?;
         wait_checkpoint_before(&fixture, &mut process, 1, Duration::from_secs(15)).await?;
+        ensure!(process.signal(libc::SIGTERM).await?.success(), "initial flush exits");
+        let mut process = CliProcess::spawn(
+            Path::new(CLIENT),
+            &args,
+            directory.path().join("batch-pressure.log"),
+            &[("--min-blocks", "5"), ("--max-batch-wait", "3600")],
+        )?;
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, 5).await?;
         rpc.replace(rpc_data(&chain)).await;
@@ -424,21 +435,9 @@ async fn lander_cli_flushes_backpressure_and_epoch_records_before_batch_deadline
         wait_checkpoint_before(&fixture, &mut process, 5, Duration::from_secs(15)).await?;
         ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
         assert_key_absent(&process);
-        // Land two more blocks to isolate epoch urgency from back-pressure at height 9.
+        // The unlanded switch at height 7 triggers useful settlement at depth 2.
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, 7).await?;
-        rpc.replace(rpc_data(&chain)).await;
-        let mut setup = CliProcess::spawn(
-            Path::new(CLIENT),
-            &args,
-            directory.path().join("batch-epoch-setup.log"),
-            &[("--min-blocks", "2"), ("--max-batch-wait", "3600")],
-        )?;
-        wait_checkpoint_before(&fixture, &mut setup, 7, Duration::from_secs(15)).await?;
-        ensure!(setup.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
-        assert_key_absent(&setup);
-        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, 9).await?;
         rpc.replace(rpc_data(&chain)).await;
         let mut process = CliProcess::spawn(
             Path::new(CLIENT),
@@ -446,22 +445,14 @@ async fn lander_cli_flushes_backpressure_and_epoch_records_before_batch_deadline
             directory.path().join("batch-epoch.log"),
             &[("--min-blocks", "5"), ("--max-batch-wait", "3600")],
         )?;
-        // Only two blocks remain (depth 2 < U-1=4), but height 9 derives committee 2.
-        wait_checkpoint_before(&fixture, &mut process, 9, Duration::from_secs(15)).await?;
-        let committee = view(
-            &fixture.anvil.provider,
-            fixture.inbox,
-            EtnaInbox::committeeCall { _epoch: 2 },
-            None,
-        )
-        .await?;
-        ensure!(!committee.is_zero(), "epoch output did not land");
+        // Only two blocks remain, including the fixed-cutoff switch witness.
+        wait_checkpoint_before(&fixture, &mut process, 7, Duration::from_secs(15)).await?;
         ensure!(
-            fixture.checkpoint().await? == (9, chain.headers[9].hash_slow()),
+            fixture.checkpoint().await? == (7, chain.headers[7].hash_slow()),
             "urgent checkpoint differs"
         );
         ensure!(
-            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 4,
+            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 3,
             "urgent flush consumed extra nonces"
         );
         ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");

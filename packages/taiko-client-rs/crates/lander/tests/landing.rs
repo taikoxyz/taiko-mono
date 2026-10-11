@@ -83,11 +83,6 @@ async fn assert_landed(
     .await?;
     assert_eq!(saved.blockHash, request.batch.input.lastBlockHash);
     assert_eq!(saved.stateRoot, request.batch.input.lastStateRoot);
-    for output in &request.batch.input.records {
-        let hash =
-            view(p, fixture.inbox, EtnaInbox::committeeCall { _epoch: output.epoch }, None).await?;
-        assert_eq!(hash, output.recordHash);
-    }
     Ok(())
 }
 
@@ -98,15 +93,24 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let mut chain = FixtureChain::new(&fixture).await?;
     chain.extend(&fixture, 5).await?;
     let first = chain.prepare(&fixture, 5, SidecarMode::Eip7594).await?;
-    assert_eq!(first.batch.input.records.iter().map(|r| r.epoch).collect::<Vec<_>>(), vec![1]);
+    assert_eq!(first.batch.committees.len(), 1);
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
     assert_landed(&fixture, &first, &signed).await?;
     // Advancing the real checkpoint opens the next host-valid block range and committee switch.
     mine_l1_blocks(&fixture.anvil.provider, 3).await?;
+    chain.extend(&fixture, 7).await?;
+    let switch_cut = chain.prepare(&fixture, 7, SidecarMode::Eip7594).await?;
+    fixture.expect_statement(switch_cut.batch.statement_hash).await?;
+    let signed = sign(&fixture, &switch_cut).await?;
+    assert_landed(&fixture, &switch_cut, &signed).await?;
+    mine_l1_blocks(&fixture.anvil.provider, 3).await?;
     chain.extend(&fixture, 10).await?;
     let next = chain.prepare(&fixture, 10, SidecarMode::Eip7594).await?;
-    assert_eq!(next.batch.input.records.iter().map(|r| r.epoch).collect::<Vec<_>>(), vec![2]);
+    assert_eq!(
+        next.batch.committees.iter().map(|c| c.record.target_epoch).collect::<Vec<_>>(),
+        vec![0, 1]
+    );
     fixture.expect_statement(next.batch.statement_hash).await?;
     let signed = sign(&fixture, &next).await?;
     assert_landed(&fixture, &next, &signed).await?;
@@ -130,9 +134,14 @@ async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees()
     assert!(receipt.logs().is_empty(), "reverted call must remove all emitted protocol events");
     assert_eq!(fixture.checkpoint().await?, (0, fixture.genesis.genesis_hash));
     assert_eq!(
-        view(&fixture.anvil.provider, fixture.inbox, EtnaInbox::committeeCall { _epoch: 1 }, None)
-            .await?,
-        B256::ZERO
+        view(
+            &fixture.anvil.provider,
+            fixture.inbox,
+            EtnaInbox::genesisCommitteeRecordHashCall {},
+            None
+        )
+        .await?,
+        abci::committee::record_hash(fixture.params.l2_chain_id, &fixture.committee.record)
     );
     assert!(
         view(
@@ -176,6 +185,8 @@ async fn lander_competing_sender_partial_progress_reverts_obsolete_batch() -> Re
         },
     )?;
     assert_eq!(other.sender(), fixture.admin);
+    // The dummy verifier must bind the exact statement to model a real proof's parent binding.
+    fixture.expect_statement(winner.batch.statement_hash).await?;
     let proof = Bytes::from(vec![0]);
     let transaction = other.sign(&winner, &proof).await?;
     other.broadcast(&transaction).await?;
@@ -184,10 +195,8 @@ async fn lander_competing_sender_partial_progress_reverts_obsolete_batch() -> Re
     assert!(!receipt(&fixture.anvil.provider, loser.hash).await?.status());
     assert_eq!(fixture.checkpoint().await?, (3, winner.batch.input.lastBlockHash));
     let rebuilt = chain.prepare(&fixture, 5, SidecarMode::Eip7594).await?;
-    assert!(
-        rebuilt.batch.input.records.is_empty(),
-        "already-landed epoch output must not be repeated"
-    );
+    assert_eq!(rebuilt.batch.committees.len(), 1, "starting context is independently derived");
+    fixture.expect_statement(rebuilt.batch.statement_hash).await?;
     let signed = sign(&fixture, &rebuilt).await?;
     assert!(signed.nonce > loser.nonce, "the old nonce must settle before a new transaction");
     assert_landed(&fixture, &rebuilt, &signed).await?;
@@ -207,9 +216,14 @@ async fn lander_statement_mismatch_is_refused_before_broadcast() -> Result<()> {
     assert_eq!(transport(&fixture)?.nonce_state().await?, before);
     assert_eq!(fixture.checkpoint().await?, (0, fixture.genesis.genesis_hash));
     assert_eq!(
-        view(&fixture.anvil.provider, fixture.inbox, EtnaInbox::committeeCall { _epoch: 1 }, None)
-            .await?,
-        B256::ZERO
+        view(
+            &fixture.anvil.provider,
+            fixture.inbox,
+            EtnaInbox::genesisCommitteeRecordHashCall {},
+            None
+        )
+        .await?,
+        abci::committee::record_hash(fixture.params.l2_chain_id, &fixture.committee.record)
     );
     fixture.anvil.stop().await
 }
