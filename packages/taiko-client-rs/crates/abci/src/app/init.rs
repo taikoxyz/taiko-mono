@@ -12,14 +12,13 @@ use tendermint::{
 
 use super::{AbciError, App, app_hash, at_genesis, within};
 use crate::{
-    committee::{record_hash, verify_committee_witness_at_cutoff},
     engine::Engine,
-    genesis::decode_app_state,
-    l1::{L1Source, is_final_canonical, verify_genesis_inbox, witness::anchor_state},
+    genesis::{decode_app_state, verify_committee, verify_context},
+    l1::{L1Source, is_final_canonical},
     rules::generation_from_chain_id,
     schedule::Schedule,
-    store::{AppState, CommitteeState},
-    types::{ActivationRecord, Member, ParentInfo},
+    store::AppState,
+    types::{GenesisRecord, Member, ParentInfo},
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -45,7 +44,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(_) => return Err(AbciError::AlreadyInitialized),
         };
         let state = self.verify_genesis(&req).await?;
-        let genesis_hash = state.activation.genesis_hash;
+        let genesis_hash = state.genesis.genesis_hash;
         if restart {
             if self.state.as_ref() != Some(&state) {
                 return Err(AbciError::AlreadyInitialized);
@@ -55,10 +54,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
             self.store.save(&state)?;
             tracing::info!(
                 chain_id = %state.chain_id,
-                genesis_height = state.activation.genesis_height,
+                genesis_height = state.genesis.genesis_height,
                 genesis_hash = %genesis_hash,
-                l1_0 = state.activation.l1_0,
-                genesis_cutoff = state.activation.genesis_cutoff,
+                l1_0 = state.genesis.l1_0,
+                genesis_cutoff = state.genesis.genesis_cutoff,
                 validators = req.validators.len(),
                 "chain initialized"
             );
@@ -77,10 +76,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Verifies an `InitChain` request and returns the state it starts.
     ///
     /// In order: decodes the `app_state` witness; requires its L1 header to be final and
-    /// canonical in the own L1 view; verifies the Inbox witness (activated Inbox, activation
+    /// canonical in the own L1 view; verifies the Inbox witness (initialized Inbox, genesis
     /// record, `genesisCutoff < L1_0`) and that the header is block `L1_0`; validates the
     /// schedule; requires the `chain_id` generation to equal the Inbox's `recoveryGeneration` and
-    /// `initial_height == B* + 1`; recomputes the `e_0` committee from its witness (proofs against
+    /// `initial_height == 1`; recomputes the `e_0` committee from its witness (proofs against
     /// `L1_0`'s state root, snapshot cutoff `genesisCutoff` as is, without the cutoff lag and
     /// grid that apply from `e_0 + 1` on) and requires its record hash to equal `committee[e_0]`
     /// and its members to be exactly the genesis validators; makes sure the EL serves `B*` with
@@ -103,23 +102,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
             });
         }
 
-        let (activation, inbox_facts, committee_e0) =
-            verify_genesis_inbox(l1_header.state_root(), &w.inbox, params.inbox)?;
-        if l1_header.number() != activation.l1_0 {
-            return Err(AbciError::GenesisL1Mismatch {
-                header: l1_header.number(),
-                l1_0: activation.l1_0,
-            });
-        }
-
-        let schedule = Schedule::from_activation(&activation);
-        schedule.validate(params.unsettled_cap())?;
-
+        let context = verify_context(l1_header, &w.inbox, params)?;
+        let schedule = Schedule::from_genesis(&context.genesis);
         let generation = generation_from_chain_id(&req.chain_id, params.l2_chain_id)?;
-        if generation != inbox_facts.recovery_generation {
+        if generation != context.anchor.inbox.recovery_generation {
             return Err(AbciError::GenerationMismatch {
                 chain_id: generation,
-                inbox: inbox_facts.recovery_generation,
+                inbox: context.anchor.inbox.recovery_generation,
             });
         }
         let initial_height = req.initial_height.value();
@@ -127,30 +116,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::InitialHeight { got: initial_height, expected: schedule.h0() });
         }
 
-        let (record, members) = verify_committee_witness_at_cutoff(
-            l1_header.state_root(),
-            activation.genesis_cutoff,
-            &schedule,
-            params,
-            &w.committee,
-            Schedule::E0,
-        )?;
-        let derived = record_hash(params.l2_chain_id, &record);
-        if derived != committee_e0 {
-            return Err(AbciError::CommitteeRecordMismatch { derived, recorded: committee_e0 });
-        }
-        check_validators(&req.validators, &members)?;
-
-        let anchor = anchor_state(l1_header, inbox_facts);
-        let parent = self.genesis_parent(&activation).await?;
+        let committee = verify_committee(&context, &w.committee, params)?;
+        check_validators(&req.validators, &committee.members)?;
+        let parent = self.genesis_parent(&context.genesis).await?;
         Ok(AppState {
             chain_id: req.chain_id.clone(),
             generation,
-            activation: activation.clone(),
-            last_height: activation.genesis_height,
+            genesis: context.genesis,
+            last_height: 0,
             parent,
-            anchor,
-            committees: BTreeMap::from([(Schedule::E0, CommitteeState { record, members })]),
+            anchor: context.anchor,
+            committees: BTreeMap::from([(Schedule::E0, committee)]),
         })
     }
 
@@ -159,8 +135,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// An EL that rejects the genesis hash or serves another block at height 0 contradicts
     /// the verified genesis: [`AbciError::SafetyHalt`].
-    async fn genesis_parent(&self, activation: &ActivationRecord) -> Result<ParentInfo, AbciError> {
-        let (number, hash) = (0, activation.genesis_hash);
+    async fn genesis_parent(&self, genesis: &GenesisRecord) -> Result<ParentInfo, AbciError> {
+        let (number, hash) = (0, genesis.genesis_hash);
         self.sync_el_to("EL sync to the genesis anchor", number, hash).await?;
 
         let header = self.el_header(number).await?;

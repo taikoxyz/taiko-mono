@@ -35,7 +35,7 @@ use crate::{
     },
     schedule::Schedule,
     types::{
-        AccountWitness, ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, RegistryEntry,
+        AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, RegistryEntry,
         StorageProof,
     },
 };
@@ -192,7 +192,7 @@ fn proof_for(nodes: &ProofNodes, key: B256) -> Vec<Bytes> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct InboxStorage {
     /// Slot 258, `uint8` at bits 0–7.
-    pub(crate) migration_state: u8,
+    pub(crate) status: u8,
     /// Slot 268, `uint64` at bits 0–63.
     pub(crate) recovery_generation: u64,
     /// Slot 270, `uint64` at bits 0–63.
@@ -200,22 +200,22 @@ pub(crate) struct InboxStorage {
     /// Slot 271, `bytes32`.
     pub(crate) last_checkpoint_hash: B256,
     /// Slots 272–274 and `genesis_cutoff` in slot 279 (`uint64` at bits 0–63); `None` leaves
-    /// them empty (not yet activated).
-    pub(crate) activation: Option<ActivationRecord>,
+    /// them empty (not yet initialized).
+    pub(crate) genesis: Option<GenesisRecord>,
     /// `committee[epoch] = record_hash` entries of the slot-278 mapping.
     pub(crate) committee: Vec<(u64, B256)>,
 }
 
 impl InboxStorage {
-    /// An Inbox right after activation: `ETNA_ACTIVE`, generation 0, last checkpoint = the
+    /// An Inbox right after genesis: `ETNA_ACTIVE`, generation 0, last checkpoint = the
     /// genesis anchor `(B*, H*)`, and `committee[e_0] = committee_e0`.
-    pub(crate) fn genesis(activation: ActivationRecord, committee_e0: B256) -> Self {
+    pub(crate) fn genesis(genesis: GenesisRecord, committee_e0: B256) -> Self {
         Self {
-            migration_state: inbox::ETNA_ACTIVE,
+            status: inbox::ETNA_ACTIVE,
             recovery_generation: 0,
-            last_checkpoint_height: activation.genesis_height,
-            last_checkpoint_hash: activation.genesis_hash,
-            activation: Some(activation),
+            last_checkpoint_height: genesis.genesis_height,
+            last_checkpoint_hash: genesis.genesis_hash,
+            genesis: Some(genesis),
             committee: vec![(Schedule::E0, committee_e0)],
         }
     }
@@ -224,20 +224,20 @@ impl InboxStorage {
     /// are included (the trie drops them, so they read back through exclusion proofs).
     pub(crate) fn slots(&self) -> Vec<(B256, U256)> {
         let mut slots = vec![
-            (inbox::slot(inbox::MIGRATION_STATE), U256::from(self.migration_state)),
+            (inbox::slot(inbox::STATUS), U256::from(self.status)),
             (inbox::slot(inbox::RECOVERY_GENERATION), U256::from(self.recovery_generation)),
             (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(self.last_checkpoint_height)),
             (inbox::slot(inbox::LAST_CHECKPOINT_HASH), self.last_checkpoint_hash.into()),
         ];
-        if let Some(a) = &self.activation {
+        if let Some(a) = &self.genesis {
             let packed = U256::from(a.genesis_height) |
                 (U256::from(a.l1_0) << 64) |
                 (U256::from(a.epoch_len) << 128) |
                 (U256::from(a.epoch_len_l1) << 192);
             slots.extend([
-                (inbox::slot(inbox::ACTIVATION_PACKED), packed),
-                (inbox::slot(inbox::ACTIVATION_GENESIS_HASH), a.genesis_hash.into()),
-                (inbox::slot(inbox::ACTIVATION_GENESIS_STATE_ROOT), a.genesis_state_root.into()),
+                (inbox::slot(inbox::GENESIS_PACKED), packed),
+                (inbox::slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()),
+                (inbox::slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()),
                 (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)),
             ]);
         }
@@ -250,10 +250,10 @@ impl InboxStorage {
     }
 }
 
-/// A sample activation record with every field distinct and non-zero (the genesis cutoff is the
+/// A sample genesis record with every field distinct and non-zero (the genesis cutoff is the
 /// block before `L1_0`).
-pub(crate) fn sample_activation() -> ActivationRecord {
-    ActivationRecord {
+pub(crate) fn sample_genesis_record() -> GenesisRecord {
+    GenesisRecord {
         genesis_height: 0,
         l1_0: 64,
         epoch_len: 20,
@@ -288,7 +288,7 @@ pub(crate) fn anchor_at(number: u64, state_root: B256) -> AnchorState {
         state_root,
         timestamp: 0,
         inbox: InboxFacts {
-            migration_state: inbox::ETNA_ACTIVE,
+            status: inbox::ETNA_ACTIVE,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
@@ -572,7 +572,7 @@ mod tests {
     /// Pack, then decode with the layout readers: every field comes back.
     #[test]
     fn inbox_storage_packing_decodes_back() {
-        let activation = ActivationRecord {
+        let genesis = GenesisRecord {
             genesis_height: u64::MAX,
             l1_0: 0x0102_0304_0506_0708,
             epoch_len: 1,
@@ -582,33 +582,30 @@ mod tests {
             genesis_cutoff: u64::MAX - 2,
         };
         let storage = InboxStorage {
-            migration_state: u8::MAX,
+            status: u8::MAX,
             recovery_generation: u64::MAX,
             last_checkpoint_height: u64::MAX - 7,
             last_checkpoint_hash: B256::repeat_byte(0xa3),
-            activation: Some(activation.clone()),
+            genesis: Some(genesis.clone()),
             committee: vec![(0, B256::repeat_byte(0xa4)), (9, B256::repeat_byte(0xa5))],
         };
         let slots = storage.slots();
         let at = |n| word(&slots, inbox::slot(n));
 
-        assert_eq!(word_u8(at(inbox::MIGRATION_STATE), 0), u8::MAX);
-        assert_eq!(at(inbox::MIGRATION_STATE) >> 8, U256::ZERO);
+        assert_eq!(word_u8(at(inbox::STATUS), 0), u8::MAX);
+        assert_eq!(at(inbox::STATUS) >> 8, U256::ZERO);
         assert_eq!(word_u64(at(inbox::RECOVERY_GENERATION), 0), u64::MAX);
         assert_eq!(word_u64(at(inbox::LAST_CHECKPOINT_HEIGHT), 0), u64::MAX - 7);
         assert_eq!(B256::from(at(inbox::LAST_CHECKPOINT_HASH)), B256::repeat_byte(0xa3));
 
-        let packed = at(inbox::ACTIVATION_PACKED);
-        assert_eq!(word_u64(packed, 0), activation.genesis_height);
-        assert_eq!(word_u64(packed, 64), activation.l1_0);
-        assert_eq!(word_u64(packed, 128), activation.epoch_len);
-        assert_eq!(word_u64(packed, 192), activation.epoch_len_l1);
-        assert_eq!(B256::from(at(inbox::ACTIVATION_GENESIS_HASH)), activation.genesis_hash);
-        assert_eq!(
-            B256::from(at(inbox::ACTIVATION_GENESIS_STATE_ROOT)),
-            activation.genesis_state_root
-        );
-        assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), activation.genesis_cutoff);
+        let packed = at(inbox::GENESIS_PACKED);
+        assert_eq!(word_u64(packed, 0), genesis.genesis_height);
+        assert_eq!(word_u64(packed, 64), genesis.l1_0);
+        assert_eq!(word_u64(packed, 128), genesis.epoch_len);
+        assert_eq!(word_u64(packed, 192), genesis.epoch_len_l1);
+        assert_eq!(B256::from(at(inbox::GENESIS_BLOCK_HASH)), genesis.genesis_hash);
+        assert_eq!(B256::from(at(inbox::GENESIS_STATE_ROOT)), genesis.genesis_state_root);
+        assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), genesis.genesis_cutoff);
         assert_eq!(at(inbox::GENESIS_CUTOFF) >> 64, U256::ZERO);
 
         assert_eq!(B256::from(word(&slots, inbox::committee_slot(0))), B256::repeat_byte(0xa4));
@@ -619,7 +616,7 @@ mod tests {
     /// Hand-written storage words (as a Solidity contract would write them) equal the packing.
     #[test]
     fn inbox_storage_packing_matches_hand_written_words() {
-        let activation = ActivationRecord {
+        let genesis = GenesisRecord {
             genesis_height: 0x11,
             l1_0: 0x2222,
             epoch_len: 0x33_3333,
@@ -629,18 +626,18 @@ mod tests {
             genesis_cutoff: 0x2221,
         };
         let storage = InboxStorage {
-            migration_state: 3,
+            status: 3,
             recovery_generation: 0x0102,
             last_checkpoint_height: 0x0a0b_0c0d,
             last_checkpoint_hash: B256::repeat_byte(0x77),
-            activation: Some(activation),
+            genesis: Some(genesis),
             committee: vec![],
         };
         let slots = storage.slots();
         let at = |n| B256::from(word(&slots, inbox::slot(n)));
 
         assert_eq!(
-            at(inbox::MIGRATION_STATE),
+            at(inbox::STATUS),
             b256!("0000000000000000000000000000000000000000000000000000000000000003")
         );
         assert_eq!(
@@ -652,7 +649,7 @@ mod tests {
             b256!("000000000000000000000000000000000000000000000000000000000a0b0c0d")
         );
         assert_eq!(
-            at(inbox::ACTIVATION_PACKED),
+            at(inbox::GENESIS_PACKED),
             b256!("0000000044444444000000000033333300000000000022220000000000000011")
         );
         assert_eq!(
@@ -663,11 +660,11 @@ mod tests {
     }
 
     #[test]
-    fn inbox_storage_without_activation_leaves_activation_slots_out() {
+    fn inbox_storage_without_genesis_leaves_genesis_slots_out() {
         let storage = InboxStorage {
-            activation: None,
+            genesis: None,
             committee: vec![],
-            ..InboxStorage::genesis(sample_activation(), B256::ZERO)
+            ..InboxStorage::genesis(sample_genesis_record(), B256::ZERO)
         };
         let slots: Vec<B256> = storage.slots().into_iter().map(|(s, _)| s).collect();
         assert_eq!(slots, [258u64, 268, 270, 271].map(inbox::slot));
@@ -675,12 +672,12 @@ mod tests {
 
     #[test]
     fn genesis_storage_points_the_last_checkpoint_at_the_genesis_anchor() {
-        let activation = sample_activation();
-        let storage = InboxStorage::genesis(activation.clone(), B256::repeat_byte(0x99));
-        assert_eq!(storage.migration_state, inbox::ETNA_ACTIVE);
+        let genesis = sample_genesis_record();
+        let storage = InboxStorage::genesis(genesis.clone(), B256::repeat_byte(0x99));
+        assert_eq!(storage.status, inbox::ETNA_ACTIVE);
         assert_eq!(storage.recovery_generation, 0);
-        assert_eq!(storage.last_checkpoint_height, activation.genesis_height);
-        assert_eq!(storage.last_checkpoint_hash, activation.genesis_hash);
+        assert_eq!(storage.last_checkpoint_height, genesis.genesis_height);
+        assert_eq!(storage.last_checkpoint_hash, genesis.genesis_hash);
         assert_eq!(storage.committee, vec![(Schedule::E0, B256::repeat_byte(0x99))]);
     }
 
@@ -782,7 +779,7 @@ mod tests {
     #[test]
     fn anchor_witness_sets_the_header_state_root() {
         let address = Address::repeat_byte(0xe7);
-        let storage = InboxStorage::genesis(sample_activation(), B256::repeat_byte(0x99));
+        let storage = InboxStorage::genesis(sample_genesis_record(), B256::repeat_byte(0x99));
         let (witness, state) = anchor_witness(address, &storage, l1_header(70, 1_000), Some(0));
         assert_eq!(witness.l1_header.state_root(), state.state_root());
         assert_eq!(witness.l1_header.number(), 70);

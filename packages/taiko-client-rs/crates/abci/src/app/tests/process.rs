@@ -152,7 +152,7 @@ async fn generation_mismatch_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let (mut app, env) = plain(&fx, dir.path()).await;
     let mut bad = env.clone();
-    bad.block.header.extra_data = encode_extra_data(1, fx.activation.l1_0).unwrap();
+    bad.block.header.extra_data = encode_extra_data(1, fx.genesis.l1_0).unwrap();
     assert_eq!(
         validate(&app, &bad),
         Err(Rejection::Rule(RuleViolation::GenerationMismatch { chain: 0, extra: 1 }))
@@ -168,9 +168,9 @@ async fn anchor_regression_is_rejected() {
     let mut app = initialized(&fx, dir.path()).await;
     fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
     let anchor = fx.anchor_state(app.l1(), 66, None);
-    jump(&mut app, fx.activation.genesis_height + 5, anchor, &[]);
+    jump(&mut app, fx.genesis.genesis_height + 5, anchor, &[]);
 
-    let witness = fx.anchor_witness(app.l1(), fx.activation.l1_0, None);
+    let witness = fx.anchor_witness(app.l1(), fx.genesis.l1_0, None);
     let env = hand_envelope(&app, Some(witness), None);
     assert_eq!(
         validate(&app, &env).map(|_| ()),
@@ -253,7 +253,7 @@ async fn unexpected_witnesses_are_rejected() {
 
     // An anchor witness that does not move the anchor, at a height that does not force one.
     let mut bad = env.clone();
-    bad.anchor = Some(fx.anchor_witness(app.l1(), fx.activation.l1_0, None));
+    bad.anchor = Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0, None));
     assert_eq!(rejected(&mut app, &bad).await, "unexpected_anchor_witness");
 
     let mut bad = env.clone();
@@ -274,7 +274,7 @@ async fn back_pressure_boundary() {
 
     // Depth exactly the cap (the anchored last checkpoint is B*).
     let mut app = mid_epoch(&fx, dir.path(), cap - 1).await;
-    assert_eq!(next_height(&app) - fx.activation.genesis_height, cap);
+    assert_eq!(next_height(&app) - fx.genesis.genesis_height, cap);
     let env = propose(&mut app).await;
     let (resp, _) = super::proposal::judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);

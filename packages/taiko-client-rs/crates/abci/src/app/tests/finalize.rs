@@ -48,7 +48,7 @@ fn safety_halt(result: Result<response::FinalizeBlock, AbciError>) -> String {
 /// checkpoint at `B* + 3`, so its next proposal moves the anchor and carries a witness.
 async fn anchor_moving(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
     let app = mid_epoch(fx, dir, 5).await;
-    let inbox = fx.inbox_with(fx.activation.genesis_height + 3, &[]);
+    let inbox = fx.inbox_with(fx.genesis.genesis_height + 3, &[]);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     app
 }
@@ -67,7 +67,7 @@ async fn finalize_after_process_uses_the_cached_verdict() {
     let before = app.engine().calls().len();
     let out = finalize(&mut app, finalize_req(&req)).await.expect("finalizes");
     let hash = env.block.header.hash_slow();
-    let checkpoint = fx.inbox_with(fx.activation.genesis_height + 3, &[]).last_checkpoint_hash;
+    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3, &[]).last_checkpoint_hash;
     assert_eq!(
         engine_calls_since(&app, before),
         [EngineCall::Forkchoice { head: hash, safe: hash, finalized: checkpoint }],
@@ -112,7 +112,7 @@ async fn the_verdict_cache_is_bounded_and_an_evicted_block_still_finalizes() {
     let before = app.engine().calls().len();
     finalize(&mut app, finalize_req(&req)).await.expect("the evicted block finalizes");
     let hash = env.block.header.hash_slow();
-    let checkpoint = fx.inbox_with(fx.activation.genesis_height + 3, &[]).last_checkpoint_hash;
+    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3, &[]).last_checkpoint_hash;
     assert_eq!(
         engine_calls_since(&app, before),
         [
@@ -140,7 +140,7 @@ async fn finalize_without_process_revalidates_and_executes() {
     let before = validator.engine().calls().len();
     let out = finalize(&mut validator, req.clone()).await.expect("finalizes");
     let hash = env.block.header.hash_slow();
-    let checkpoint = fx.inbox_with(fx.activation.genesis_height + 3, &[]).last_checkpoint_hash;
+    let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3, &[]).last_checkpoint_hash;
     assert_eq!(
         engine_calls_since(&validator, before),
         [
@@ -161,7 +161,7 @@ async fn finalize_updates_parent_anchor_and_committees() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let h0 = fx.activation.genesis_height + 1;
+    let h0 = fx.genesis.genesis_height + 1;
 
     // H_0 = h_first(e_0): the committee of epoch 1 is derived and kept.
     let env = propose(&mut app).await;
@@ -181,7 +181,7 @@ async fn finalize_updates_parent_anchor_and_committees() {
         difficulty: h.difficulty,
         grandparent_timestamp: before.parent.timestamp,
     };
-    expected.anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    expected.anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     expected.committees.insert(1, fx.committee(1));
     assert_eq!(app.pending.as_ref(), Some(&expected));
     assert_eq!(app.state(), Some(&before), "the committed state waits for Commit");
@@ -216,7 +216,7 @@ async fn switch_height_emits_the_exact_updates_and_prunes() {
     let switch = app.state().unwrap().schedule().h_first(2) - 2;
 
     let derive = |entries: Vec<RegistryEntry>, target| {
-        let l1_0 = fx.activation.l1_0;
+        let l1_0 = fx.genesis.l1_0;
         let cutoff = committee::cutoff(l1_0, params.cutoff_grid, params.cutoff_lag).unwrap();
         let snapshot = Snapshot { checkpoint_index: 0, l1_block: l1_0, entries };
         let (record, members) =
@@ -274,7 +274,7 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     assert_eq!(engine_calls_since(&app, before).last(), Some(&fcu));
 
     // An Inbox with no checkpoint hash keeps `finalized` at zero.
-    let mut inbox = fx.inbox_with(fx.activation.genesis_height + 1, &[]);
+    let mut inbox = fx.inbox_with(fx.genesis.genesis_height + 1, &[]);
     inbox.last_checkpoint_hash = B256::ZERO;
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     let before = app.engine().calls().len();
@@ -768,12 +768,12 @@ async fn multi_epoch_run(
     dir: &Path,
 ) -> (App<MockL1, MockEngine>, Vec<(request::FinalizeBlock, response::FinalizeBlock)>) {
     let mut app = initialized(fx, dir).await;
-    let (h0, l1_0) = (app.state().unwrap().schedule().h0(), fx.activation.l1_0);
+    let (h0, l1_0) = (app.state().unwrap().schedule().h0(), fx.genesis.l1_0);
     let joined = RegistryStorage {
         checkpoints: vec![(l1_0, sample_entries(3)), (l1_0 + 2, sample_entries(4))],
     };
     let mut decided = vec![];
-    for k in 0..2 * fx.activation.epoch_len + 2 {
+    for k in 0..2 * fx.genesis.epoch_len + 2 {
         if k > 0 {
             let state = app.state().unwrap();
             let landed: Vec<(u64, B256)> = state

@@ -103,7 +103,7 @@ pub enum Rejection {
     #[error("the block carries an unexpected {0} witness")]
     UnexpectedWitness(WitnessKind),
     /// The anchored Inbox is not in `ETNA_ACTIVE`.
-    #[error("inbox migrationState is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
+    #[error("inbox status is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
     NotActive(u8),
     /// A switch height needs a committee the app does not hold.
     #[error("no committee known for epoch {0}")]
@@ -340,7 +340,7 @@ fn check_candidate(
 /// `extraData` when absent), `height == H_0` or `height` is a switch height; a present witness
 /// must verify for `anchor_slots(switch_target(height))`, an absent one inherits the parent's
 /// anchor; (c) anchor progress; (d) the generation triple, an Inbox ahead of the chain being
-/// [`Rejection::Superseded`]; (e) `migrationState == ETNA_ACTIVE`; (f) back-pressure. Ignores
+/// [`Rejection::Superseded`]; (e) `status == ETNA_ACTIVE`; (f) back-pressure. Ignores
 /// `c.committee`, so `PrepareProposal` runs these cheap checks before it discovers a committee.
 pub(crate) fn check_candidate_anchor(
     state: &AppState,
@@ -360,8 +360,8 @@ pub(crate) fn check_candidate_anchor(
     {
         return Err(Rejection::Superseded { chain: state.generation, inbox: inbox_generation });
     }
-    if anchor.inbox.migration_state != inbox::ETNA_ACTIVE {
-        return Err(Rejection::NotActive(anchor.inbox.migration_state));
+    if anchor.inbox.status != inbox::ETNA_ACTIVE {
+        return Err(Rejection::NotActive(anchor.inbox.status));
     }
     rules::check_back_pressure(
         height,

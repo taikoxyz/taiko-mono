@@ -5,7 +5,7 @@
 //! docker), and one in-process `abci` app per validator that its CometBFT node reaches through
 //! `host.docker.internal`; each app runs on its own OS thread and tokio runtime, so a test can
 //! stop it completely and start it again ([`Devnet::app_stop`], [`Devnet::app_start`]). Before
-//! the apps start it plants an activated Inbox and a staking registry into anvil with
+//! the apps start it plants an initialized Inbox and a staking registry into anvil with
 //! [`Planter`] and builds the CometBFT genesis from that L1 state with `abci::build_genesis`. A
 //! background fake lander keeps `lastCheckpoint` and the landed committee records moving behind the
 //! chain, so back-pressure and the epoch switch never stall a scenario unless the test pauses it.

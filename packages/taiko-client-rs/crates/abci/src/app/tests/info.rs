@@ -43,7 +43,7 @@ async fn info_at_genesis_reports_height_zero() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     assert!(
-        app.engine().calls().contains(&EngineCall::HeaderByNumber(fx.activation.genesis_height)),
+        app.engine().calls().contains(&EngineCall::HeaderByNumber(fx.genesis.genesis_height)),
         "InitChain checks B* on the EL"
     );
     app.engine().state().calls.clear();
@@ -119,7 +119,7 @@ async fn info_retries_a_failed_reconcile() {
     }
     let resp = info(&mut app).await.expect("the retried reconcile succeeds");
     assert_eq!(resp.last_block_height.value(), 0, "still at genesis");
-    assert_eq!(app.engine().calls(), [EngineCall::HeaderByNumber(fx.activation.genesis_height)]);
+    assert_eq!(app.engine().calls(), [EngineCall::HeaderByNumber(fx.genesis.genesis_height)]);
 
     app.engine().state().calls.clear();
     info(&mut app).await.expect("Info succeeds");
@@ -305,7 +305,7 @@ async fn app_new_rejects_an_inconsistent_stored_state() {
     let mut bad_generation = good.clone();
     bad_generation.generation = 1;
     let mut bad_genesis = good.clone();
-    bad_genesis.activation.genesis_height = 1;
+    bad_genesis.genesis.genesis_height = 1;
     let mut bad_parent = good.clone();
     bad_parent.parent.number += 1;
     let mut bad_height = good.clone();
@@ -328,16 +328,16 @@ async fn status_query_reports_the_committed_head() {
     let mut app = initialized(&fx, dir.path()).await;
     let resp = query(&mut app, "/status").await;
     assert_eq!(resp.code, Code::Ok, "{}", resp.log);
-    assert_eq!(resp.height.value(), fx.activation.genesis_height);
+    assert_eq!(resp.height.value(), fx.genesis.genesis_height);
     let status: Status = serde_json::from_slice(&resp.value).expect("status JSON");
     assert_eq!(
         status,
         Status {
-            head: fx.activation.genesis_height,
+            head: fx.genesis.genesis_height,
             epoch: 0,
             generation: 0,
-            last_checkpoint_height: fx.activation.genesis_height,
-            anchor: fx.activation.l1_0,
+            last_checkpoint_height: fx.genesis.genesis_height,
+            anchor: fx.genesis.l1_0,
             halt_reason: None,
             superseded: false,
         }

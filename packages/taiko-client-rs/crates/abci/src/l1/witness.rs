@@ -2,7 +2,7 @@
 //!
 //! [`verify_anchor_witness`] checks a per-block anchor witness's proofs against its own L1
 //! header and decodes the Inbox facts; [`verify_genesis_inbox`] does the same for the genesis
-//! witness and also decodes the activation record. Neither checks that the L1 header is
+//! witness and also decodes the genesis record. Neither checks that the L1 header is
 //! canonical and final: that needs the node's own L1 and lives in `l1::source`.
 
 use alloy_primitives::{Address, B256, U256};
@@ -15,7 +15,7 @@ use crate::{
         mpt::{MptError, VerifiedStorage, verify_account_witness},
     },
     schedule::Schedule,
-    types::{AccountWitness, ActivationRecord, AnchorState, InboxFacts},
+    types::{AccountWitness, AnchorState, GenesisRecord, InboxFacts},
 };
 
 /// Why an anchor or genesis witness was rejected.
@@ -32,28 +32,28 @@ pub enum WitnessError {
     /// The account or storage proofs do not verify, or prove the wrong slot set.
     #[error(transparent)]
     Mpt(#[from] MptError),
-    /// Genesis only: the Inbox's `migrationState` is not `ETNA_ACTIVE`.
-    #[error("inbox migrationState is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
-    NotActivated(u8),
-    /// Genesis only: the activation record's `genesisBlockHash` (H*) is zero.
-    #[error("activation record has a zero genesis block hash")]
+    /// Genesis only: the Inbox's initialization status is not `ETNA_ACTIVE`.
+    #[error("inbox status is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
+    NotInitialized(u8),
+    /// Genesis only: the genesis record's `genesisBlockHash` (H*) is zero.
+    #[error("genesis record has a zero genesis block hash")]
     ZeroGenesisHash,
     /// Genesis only: `committee[e_0]` is zero, so no genesis committee was recorded.
     #[error("committee[e0] record hash is zero")]
     ZeroCommitteeRecord,
-    /// Genesis only: the activation record's `epochLenL2` (L) is zero.
-    #[error("activation record has a zero epoch length")]
+    /// Genesis only: the genesis record's `epochLenL2` (L) is zero.
+    #[error("genesis record has a zero epoch length")]
     ZeroEpochLength,
     /// The Inbox names an existing L2 block rather than genesis block 0.
     #[error("genesis height {0} is unsupported; Etna must start at L2 block 0")]
     NonzeroGenesisHeight(u64),
-    /// Genesis only: `genesisCutoff` is not before the activation block `L1_0`, so the genesis
-    /// committee's snapshot would not be one the activation could have seen.
-    #[error("genesis cutoff {genesis_cutoff} is not before the activation block L1_0 = {l1_0}")]
-    GenesisCutoffNotBeforeActivation {
+    /// Genesis only: `genesisCutoff` is not before the initialization block `L1_0`, so the genesis
+    /// committee's snapshot would not be one the genesis could have seen.
+    #[error("genesis cutoff {genesis_cutoff} is not before the genesis block L1_0 = {l1_0}")]
+    GenesisCutoffNotBeforeInitialization {
         /// The proven `genesisCutoff` (slot 279).
         genesis_cutoff: u64,
-        /// The activation record's `L1_0`.
+        /// The genesis record's `L1_0`.
         l1_0: u64,
     },
 }
@@ -79,7 +79,7 @@ pub fn verify_anchor_witness(
         &inbox::anchor_slots(committee_epoch),
     )?;
     let facts = InboxFacts {
-        migration_state: word_u8(inbox_word(&storage, inbox::MIGRATION_STATE), 0),
+        status: word_u8(inbox_word(&storage, inbox::STATUS), 0),
         recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: word_u64(inbox_word(&storage, inbox::LAST_CHECKPOINT_HEIGHT), 0),
         last_checkpoint_hash: inbox_word(&storage, inbox::LAST_CHECKPOINT_HASH).into(),
@@ -101,65 +101,65 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 }
 
 /// Verifies the genesis Inbox witness against `state_root` (the `L1_0` header's) and returns the
-/// activation record (with `genesisCutoff`), the Inbox facts at genesis and the `committee[e_0]`
+/// genesis record (with `genesisCutoff`), the Inbox facts at genesis and the `committee[e_0]`
 /// record hash.
 ///
 /// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots(E0)`. The
-/// returned facts take the last checkpoint from the activation record (`(B*, H*)`, the genesis
+/// returned facts take the last checkpoint from the genesis record (`(B*, H*)`, the genesis
 /// record of #22262's MIG rules) and set `committee = Some((E0, committee[E0]))`. Rejects, in this
-/// order: `migrationState != ETNA_ACTIVE`, a zero genesis hash, a zero `committee[E0]`, a zero
+/// order: `status != ETNA_ACTIVE`, a zero genesis hash, a zero `committee[E0]`, a zero
 /// epoch length, `genesisCutoff >= L1_0`. The remaining schedule bounds are checked by
 /// [`Schedule::validate`].
 pub fn verify_genesis_inbox(
     state_root: B256,
     w: &AccountWitness,
     inbox: Address,
-) -> Result<(ActivationRecord, InboxFacts, B256), WitnessError> {
+) -> Result<(GenesisRecord, InboxFacts, B256), WitnessError> {
     check_contract(w, inbox)?;
     let storage = verify_account_witness(state_root, w, &inbox::genesis_slots(Schedule::E0))?;
 
-    let migration_state = word_u8(inbox_word(&storage, inbox::MIGRATION_STATE), 0);
-    if migration_state != inbox::ETNA_ACTIVE {
-        return Err(WitnessError::NotActivated(migration_state));
+    let status = word_u8(inbox_word(&storage, inbox::STATUS), 0);
+    if status != inbox::ETNA_ACTIVE {
+        return Err(WitnessError::NotInitialized(status));
     }
-    let packed = inbox_word(&storage, inbox::ACTIVATION_PACKED);
-    let activation = ActivationRecord {
+    let packed = inbox_word(&storage, inbox::GENESIS_PACKED);
+    let genesis = GenesisRecord {
         genesis_height: word_u64(packed, 0),
         l1_0: word_u64(packed, 64),
         epoch_len: word_u64(packed, 128),
         epoch_len_l1: word_u64(packed, 192),
-        genesis_hash: inbox_word(&storage, inbox::ACTIVATION_GENESIS_HASH).into(),
-        genesis_state_root: inbox_word(&storage, inbox::ACTIVATION_GENESIS_STATE_ROOT).into(),
+        genesis_hash: inbox_word(&storage, inbox::GENESIS_BLOCK_HASH).into(),
+        genesis_state_root: inbox_word(&storage, inbox::GENESIS_STATE_ROOT).into(),
         genesis_cutoff: word_u64(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
     };
-    if activation.genesis_height != 0 {
-        return Err(WitnessError::NonzeroGenesisHeight(activation.genesis_height));
+    if genesis.genesis_height != 0 {
+        return Err(WitnessError::NonzeroGenesisHeight(genesis.genesis_height));
     }
-    if activation.genesis_hash.is_zero() {
+    if genesis.genesis_hash.is_zero() {
         return Err(WitnessError::ZeroGenesisHash);
     }
     let committee_record: B256 = word(&storage, inbox::committee_slot(Schedule::E0)).into();
     if committee_record.is_zero() {
         return Err(WitnessError::ZeroCommitteeRecord);
     }
-    if activation.epoch_len == 0 {
+    if genesis.epoch_len == 0 {
         return Err(WitnessError::ZeroEpochLength);
     }
-    if activation.genesis_cutoff >= activation.l1_0 {
-        return Err(WitnessError::GenesisCutoffNotBeforeActivation {
-            genesis_cutoff: activation.genesis_cutoff,
-            l1_0: activation.l1_0,
+    if genesis.genesis_cutoff >= genesis.l1_0 {
+        return Err(WitnessError::GenesisCutoffNotBeforeInitialization {
+            genesis_cutoff: genesis.genesis_cutoff,
+            l1_0: genesis.l1_0,
         });
     }
 
     let facts = InboxFacts {
-        migration_state,
+        status,
         recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
-        last_checkpoint_height: activation.genesis_height,
-        last_checkpoint_hash: activation.genesis_hash,
+        last_checkpoint_height: genesis.genesis_height,
+        last_checkpoint_hash: genesis.genesis_hash,
         committee: Some((Schedule::E0, committee_record)),
     };
-    Ok((activation, facts, committee_record))
+    Ok((genesis, facts, committee_record))
 }
 
 /// Rejects a witness that proves an account other than the configured Inbox.
@@ -188,7 +188,7 @@ mod tests {
     use super::*;
     use crate::test_utils::{
         AccountSpec, InboxStorage, TestState, anchor_witness, anchor_witness_in, edit_l1_header,
-        filler_accounts, genesis_inbox_witness, l1_header, sample_activation,
+        filler_accounts, genesis_inbox_witness, l1_header, sample_genesis_record,
     };
     use alloy_primitives::{address, keccak256};
 
@@ -198,11 +198,11 @@ mod tests {
     /// A live Inbox with every anchor field distinct and using its full width.
     fn live_storage() -> InboxStorage {
         InboxStorage {
-            migration_state: inbox::ETNA_ACTIVE,
+            status: inbox::ETNA_ACTIVE,
             recovery_generation: u64::MAX - 1,
             last_checkpoint_height: 0x0123_4567_89ab_cdef,
             last_checkpoint_hash: B256::repeat_byte(0xc4),
-            activation: Some(sample_activation()),
+            genesis: Some(sample_genesis_record()),
             committee: vec![(0, B256::repeat_byte(0xe0)), (3, B256::repeat_byte(0xe3))],
         }
     }
@@ -223,7 +223,7 @@ mod tests {
         assert_eq!(
             anchor.inbox,
             InboxFacts {
-                migration_state: inbox::ETNA_ACTIVE,
+                status: inbox::ETNA_ACTIVE,
                 recovery_generation: u64::MAX - 1,
                 last_checkpoint_height: 0x0123_4567_89ab_cdef,
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
@@ -280,7 +280,7 @@ mod tests {
             U256::ZERO,
             keccak256(b"code"),
             vec![
-                dirty(inbox::MIGRATION_STATE, U256::from(3u64), 8),
+                dirty(inbox::STATUS, U256::from(3u64), 8),
                 dirty(inbox::RECOVERY_GENERATION, U256::from(5u64), 64),
                 dirty(inbox::LAST_CHECKPOINT_HEIGHT, U256::from(77u64), 64),
             ],
@@ -288,7 +288,7 @@ mod tests {
         let state = TestState::new(accounts);
         let w = anchor_witness_in(&state, INBOX, l1_header(1, 1), None);
         let facts = verify_anchor_witness(&w, INBOX, None).unwrap().inbox;
-        assert_eq!(facts.migration_state, 3);
+        assert_eq!(facts.status, 3);
         assert_eq!(facts.recovery_generation, 5);
         assert_eq!(facts.last_checkpoint_height, 77);
         assert_eq!(facts.last_checkpoint_hash, B256::ZERO);
@@ -318,8 +318,8 @@ mod tests {
     }
 
     #[test]
-    fn genesis_decodes_the_activation_record_and_facts() {
-        let activation = ActivationRecord {
+    fn genesis_decodes_the_record_and_facts() {
+        let genesis = GenesisRecord {
             genesis_height: 0,
             l1_0: 0x0102_0304_0506_0708,
             epoch_len: 0xfedc_ba98_7654_3210,
@@ -333,19 +333,19 @@ mod tests {
             // The genesis witness does not prove slots 270/271; the facts must ignore them.
             last_checkpoint_height: 1,
             last_checkpoint_hash: B256::repeat_byte(0x01),
-            ..InboxStorage::genesis(activation.clone(), committee_e0())
+            ..InboxStorage::genesis(genesis.clone(), committee_e0())
         };
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         let (decoded, facts, record) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
 
-        assert_eq!(decoded, activation);
+        assert_eq!(decoded, genesis);
         assert_eq!(
             facts,
             InboxFacts {
-                migration_state: inbox::ETNA_ACTIVE,
+                status: inbox::ETNA_ACTIVE,
                 recovery_generation: 6,
-                last_checkpoint_height: activation.genesis_height,
-                last_checkpoint_hash: activation.genesis_hash,
+                last_checkpoint_height: genesis.genesis_height,
+                last_checkpoint_hash: genesis.genesis_hash,
                 committee: Some((Schedule::E0, committee_e0())),
             }
         );
@@ -355,16 +355,16 @@ mod tests {
     /// A valid storage proof cannot make a non-genesis L2 height a supported bootstrap.
     #[test]
     fn genesis_rejects_nonzero_l2_height() {
-        let mut activation = sample_activation();
-        activation.genesis_height = 1;
-        let storage = InboxStorage::genesis(activation, committee_e0());
+        let mut genesis = sample_genesis_record();
+        genesis.genesis_height = 1;
+        let storage = InboxStorage::genesis(genesis, committee_e0());
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         assert!(verify_genesis_inbox(state.state_root(), &w, INBOX).is_err());
     }
 
     #[test]
     fn genesis_rejects_another_contract() {
-        let storage = InboxStorage::genesis(sample_activation(), committee_e0());
+        let storage = InboxStorage::genesis(sample_genesis_record(), committee_e0());
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         let err = verify_genesis_inbox(state.state_root(), &w, OTHER).unwrap_err();
         assert_eq!(err, WitnessError::WrongContract { expected: OTHER, got: INBOX });
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn genesis_rejects_a_wrong_state_root() {
-        let storage = InboxStorage::genesis(sample_activation(), committee_e0());
+        let storage = InboxStorage::genesis(sample_genesis_record(), committee_e0());
         let (w, _) = genesis_inbox_witness(INBOX, &storage);
         let err = verify_genesis_inbox(B256::repeat_byte(0x01), &w, INBOX).unwrap_err();
         assert!(matches!(err, WitnessError::Mpt(MptError::Account(_))), "{err:?}");
@@ -380,7 +380,7 @@ mod tests {
 
     #[test]
     fn genesis_rejects_an_anchor_slot_set() {
-        let storage = InboxStorage::genesis(sample_activation(), committee_e0());
+        let storage = InboxStorage::genesis(sample_genesis_record(), committee_e0());
         let (w, state) = anchor_witness(INBOX, &storage, l1_header(9, 99), Some(0));
         let err = verify_genesis_inbox(state.state_root(), &w.inbox, INBOX).unwrap_err();
         assert!(matches!(err, WitnessError::Mpt(MptError::SlotSet { .. })), "{err:?}");
@@ -390,19 +390,19 @@ mod tests {
     fn genesis_rejects_an_inactive_inbox() {
         for state_value in [0u8, 1, 2, 4, u8::MAX] {
             let storage = InboxStorage {
-                migration_state: state_value,
-                ..InboxStorage::genesis(sample_activation(), committee_e0())
+                status: state_value,
+                ..InboxStorage::genesis(sample_genesis_record(), committee_e0())
             };
             let (w, state) = genesis_inbox_witness(INBOX, &storage);
             let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
-            assert_eq!(err, WitnessError::NotActivated(state_value));
+            assert_eq!(err, WitnessError::NotInitialized(state_value));
         }
     }
 
     #[test]
     fn genesis_rejects_a_zero_genesis_hash() {
-        let activation = ActivationRecord { genesis_hash: B256::ZERO, ..sample_activation() };
-        let storage = InboxStorage::genesis(activation, committee_e0());
+        let genesis = GenesisRecord { genesis_hash: B256::ZERO, ..sample_genesis_record() };
+        let storage = InboxStorage::genesis(genesis, committee_e0());
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
         assert_eq!(err, WitnessError::ZeroGenesisHash);
@@ -412,7 +412,7 @@ mod tests {
     fn genesis_rejects_a_missing_committee_record() {
         let storage = InboxStorage {
             committee: vec![(1, committee_e0())],
-            ..InboxStorage::genesis(sample_activation(), committee_e0())
+            ..InboxStorage::genesis(sample_genesis_record(), committee_e0())
         };
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
@@ -421,8 +421,8 @@ mod tests {
 
     #[test]
     fn genesis_rejects_a_zero_epoch_length() {
-        let activation = ActivationRecord { epoch_len: 0, ..sample_activation() };
-        let storage = InboxStorage::genesis(activation, committee_e0());
+        let genesis = GenesisRecord { epoch_len: 0, ..sample_genesis_record() };
+        let storage = InboxStorage::genesis(genesis, committee_e0());
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
         assert_eq!(err, WitnessError::ZeroEpochLength);
@@ -431,21 +431,19 @@ mod tests {
     /// `genesisCutoff` must lie before `L1_0`, and the check comes after the epoch length's.
     #[test]
     fn genesis_rejects_a_cutoff_not_before_l1_0() {
-        let l1_0 = sample_activation().l1_0;
+        let l1_0 = sample_genesis_record().l1_0;
         for genesis_cutoff in [l1_0, l1_0 + 1, u64::MAX] {
-            let activation = ActivationRecord { genesis_cutoff, ..sample_activation() };
-            let storage = InboxStorage::genesis(activation.clone(), committee_e0());
+            let genesis = GenesisRecord { genesis_cutoff, ..sample_genesis_record() };
+            let storage = InboxStorage::genesis(genesis.clone(), committee_e0());
             let (w, state) = genesis_inbox_witness(INBOX, &storage);
             let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
             assert_eq!(
                 err,
-                WitnessError::GenesisCutoffNotBeforeActivation { genesis_cutoff, l1_0 }
+                WitnessError::GenesisCutoffNotBeforeInitialization { genesis_cutoff, l1_0 }
             );
 
-            let storage = InboxStorage::genesis(
-                ActivationRecord { epoch_len: 0, ..activation },
-                committee_e0(),
-            );
+            let storage =
+                InboxStorage::genesis(GenesisRecord { epoch_len: 0, ..genesis }, committee_e0());
             let (w, state) = genesis_inbox_witness(INBOX, &storage);
             let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
             assert_eq!(err, WitnessError::ZeroEpochLength);
@@ -453,8 +451,8 @@ mod tests {
 
         // The block right before L1_0, and block 0, are accepted.
         for genesis_cutoff in [l1_0 - 1, 0] {
-            let activation = ActivationRecord { genesis_cutoff, ..sample_activation() };
-            let storage = InboxStorage::genesis(activation, committee_e0());
+            let genesis = GenesisRecord { genesis_cutoff, ..sample_genesis_record() };
+            let storage = InboxStorage::genesis(genesis, committee_e0());
             let (w, state) = genesis_inbox_witness(INBOX, &storage);
             let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
             assert_eq!(decoded.genesis_cutoff, genesis_cutoff);
@@ -464,7 +462,7 @@ mod tests {
     /// Variables packed above `genesisCutoff` in slot 279 do not leak into it.
     #[test]
     fn genesis_ignores_bits_above_the_genesis_cutoff() {
-        let storage = InboxStorage::genesis(sample_activation(), committee_e0());
+        let storage = InboxStorage::genesis(sample_genesis_record(), committee_e0());
         let cutoff_slot = inbox::slot(inbox::GENESIS_CUTOFF);
         let slots = storage
             .slots()
@@ -478,15 +476,15 @@ mod tests {
         let state = TestState::new(accounts);
         let w = state.witness(INBOX, &inbox::genesis_slots(Schedule::E0));
         let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
-        assert_eq!(decoded, sample_activation());
+        assert_eq!(decoded, sample_genesis_record());
     }
 
     #[test]
-    fn genesis_rejects_an_unactivated_record() {
-        // Activation slots empty but migrationState set: the zero genesis hash trips first.
+    fn genesis_rejects_an_uninitialized_record() {
+        // Genesis slots empty but initialized status set: the zero genesis hash trips first.
         let storage = InboxStorage {
-            activation: None,
-            ..InboxStorage::genesis(sample_activation(), committee_e0())
+            genesis: None,
+            ..InboxStorage::genesis(sample_genesis_record(), committee_e0())
         };
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();

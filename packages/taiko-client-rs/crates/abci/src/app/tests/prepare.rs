@@ -52,7 +52,7 @@ async fn prepare_proposes_nothing_past_its_overall_deadline() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     // The anchor moves, so the proposer reads the finalized number, a header and a proof.
-    let inbox = fx.inbox_with(fx.activation.genesis_height + 3, &[]);
+    let inbox = fx.inbox_with(fx.genesis.genesis_height + 3, &[]);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     let overall = app.opts.prepare_timeout;
     assert_eq!(overall, Duration::from_secs(2), "the default overall deadline");
@@ -120,7 +120,7 @@ async fn proposer_anchors_at_finalized_minus_the_extra_depth() {
     let fx = Fixture::build(spec);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    assert_eq!(app.l1().state().finalized, fx.activation.l1_0 + 2);
+    assert_eq!(app.l1().state().finalized, fx.genesis.l1_0 + 2);
     let header = fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
     assert_eq!(app.l1().state().finalized, 72);
 
@@ -137,8 +137,8 @@ async fn proposer_never_anchors_below_the_parent() {
     let mut app = initialized(&fx, dir.path()).await;
     fx.plant_l1_block(app.l1(), 66, &fx.inbox, &fx.registry);
     let anchor = fx.anchor_state(app.l1(), 66, None);
-    jump(&mut app, fx.activation.genesis_height + 5, anchor, &[]);
-    assert_eq!(app.l1().state().finalized, fx.activation.l1_0, "own L1 lags behind");
+    jump(&mut app, fx.genesis.genesis_height + 5, anchor, &[]);
+    assert_eq!(app.l1().state().finalized, fx.genesis.l1_0, "own L1 lags behind");
 
     let env = propose(&mut app).await;
     assert!(env.anchor.is_none());
@@ -164,7 +164,7 @@ async fn failing_pre_checks_propose_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let mut inbox = fx.inbox.clone();
-    inbox.migration_state = 2;
+    inbox.status = 2;
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     assert_eq!(refused(&mut app).await, "inbox_not_active");
 
@@ -172,7 +172,7 @@ async fn failing_pre_checks_propose_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let h_first = app.state().unwrap().schedule().h_first(1);
-    let anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     jump(&mut app, h_first - 1, anchor, &[(1, fx.committee(1))]);
     assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
 }
@@ -404,7 +404,7 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     // Anchor progress: epoch 1 is not open on L1 at the genesis anchor.
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
     app.l1().state().calls.clear();
     assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
@@ -416,7 +416,7 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     let mut inbox = fx.inbox_with(h_e - 6, &[]);
     inbox.recovery_generation = 1;
     fx.advance_l1(app.l1(), 70, &inbox, &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
     app.l1().state().calls.clear();
     assert_eq!(refused(&mut app).await, "superseded");

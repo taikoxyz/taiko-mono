@@ -416,7 +416,7 @@ mod tests {
     async fn discovery_reads_the_entries_in_one_batch() {
         let fx = Fixture::genesis(3);
         let l1 = fx.l1();
-        let n_p = fx.activation.l1_0;
+        let n_p = fx.genesis.l1_0;
         build_committee_witness(&l1, &fx.params, &fx.schedule(), n_p, Schedule::E0)
             .await
             .expect("witness");
@@ -523,11 +523,11 @@ mod tests {
     #[tokio::test]
     async fn the_anchored_cutoff_is_floored_at_the_genesis_cutoff() {
         let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
-        let l1_0 = fx.activation.l1_0;
+        let l1_0 = fx.genesis.l1_0;
         let witness = build_committee_witness(&fx.l1(), &fx.params, &fx.schedule(), l1_0, 1)
             .await
             .expect("e_0 + 1 derives at the floored cutoff");
-        assert_eq!(witness.record.cutoff_l1_block, fx.activation.genesis_cutoff);
+        assert_eq!(witness.record.cutoff_l1_block, fx.genesis.genesis_cutoff);
         assert_eq!(witness.record.checkpoint_index, 0);
         assert_eq!(witness.entries, fx.registry.checkpoints[0].1);
         let (record, members) = verify_committee_witness(
@@ -541,7 +541,7 @@ mod tests {
         assert_eq!(record, witness.record);
         assert_eq!(members.len(), 2);
 
-        // Without the floor the lagged cutoff 59 precedes every entry's activation.
+        // Without the floor the lagged cutoff 59 precedes every entry's genesis.
         let unfloored = Schedule { genesis_cutoff: 0, ..fx.schedule() };
         let err = build_committee_witness(&fx.l1(), &fx.params, &unfloored, l1_0, 1).await;
         assert_eq!(err, Err(FetchError::Committee(CommitteeError::Empty)));
@@ -626,13 +626,13 @@ mod tests {
     async fn rebuilds_the_fixture_genesis_committee_witness() {
         let fx = Fixture::genesis(3);
         let l1 = fx.l1();
-        let l1_0 = fx.activation.l1_0;
+        let l1_0 = fx.genesis.l1_0;
         let witness = build_committee_witness_at_cutoff(
             &l1,
             &fx.params,
             &fx.schedule(),
             l1_0,
-            fx.activation.genesis_cutoff,
+            fx.genesis.genesis_cutoff,
             Schedule::E0,
         )
         .await
@@ -702,7 +702,7 @@ mod tests {
             &l1,
             &fx.params,
             &fx.schedule(),
-            fx.activation.l1_0,
+            fx.genesis.l1_0,
             Schedule::E0,
             Duration::from_secs(4),
             &DiscoveryProgress::default(),
@@ -763,7 +763,7 @@ mod tests {
     async fn an_unfinished_discovery_resumes_from_its_finished_reads() {
         let fx = Fixture::genesis(3);
         let l1 = fx.l1();
-        let n_p = fx.activation.l1_0;
+        let n_p = fx.genesis.l1_0;
         let progress = DiscoveryProgress::default();
         let limit = Duration::from_secs(5);
 
@@ -793,7 +793,7 @@ mod tests {
     async fn other_failures_and_another_parent_anchor_start_afresh() {
         let fx = Fixture::genesis(3);
         let l1 = fx.l1();
-        let n_p = fx.activation.l1_0;
+        let n_p = fx.genesis.l1_0;
         let progress = DiscoveryProgress::default();
         let limit = Duration::from_secs(5);
 
@@ -838,7 +838,7 @@ mod tests {
     #[tokio::test]
     async fn a_registry_count_above_the_cap_is_refused_unread() {
         let fx = Fixture::genesis(1);
-        let n_p = fx.activation.l1_0;
+        let n_p = fx.genesis.l1_0;
         for count in [MAX_REGISTRY_ENTRIES + 1, u32::MAX] {
             let l1 = fx.l1();
             l1.state().states.insert(n_p, registry_claiming(&fx, count));
@@ -861,7 +861,7 @@ mod tests {
     #[tokio::test]
     async fn a_registry_count_at_the_cap_is_read() {
         let fx = Fixture::genesis(1);
-        let n_p = fx.activation.l1_0;
+        let n_p = fx.genesis.l1_0;
         let l1 = fx.l1();
         l1.state().states.insert(n_p, registry_claiming(&fx, MAX_REGISTRY_ENTRIES));
         let err = build_committee_witness(&l1, &fx.params, &fx.schedule(), n_p, 0).await;
@@ -882,7 +882,7 @@ mod tests {
         let l1 = fx.l1();
         l1.state().fail = Some(L1Error::Rpc("down".into()));
         let err =
-            build_committee_witness(&l1, &fx.params, &fx.schedule(), fx.activation.l1_0, 0).await;
+            build_committee_witness(&l1, &fx.params, &fx.schedule(), fx.genesis.l1_0, 0).await;
         assert_eq!(err, Err(FetchError::L1(L1Error::Rpc("down".into()))));
 
         // A registry whose checkpoints.length does not fit u64.
@@ -894,9 +894,9 @@ mod tests {
             B256::ZERO,
             vec![(registry::length_slot(), U256::MAX)],
         );
-        l1.state().states.insert(fx.activation.l1_0, TestState::new(vec![registry_account]));
+        l1.state().states.insert(fx.genesis.l1_0, TestState::new(vec![registry_account]));
         let err =
-            build_committee_witness(&l1, &fx.params, &fx.schedule(), fx.activation.l1_0, 0).await;
+            build_committee_witness(&l1, &fx.params, &fx.schedule(), fx.genesis.l1_0, 0).await;
         assert!(matches!(err, Err(FetchError::Registry(_))), "{err:?}");
         assert_eq!(l1.calls().len(), 1, "discovery stops at the bad length");
         assert!(matches!(l1.calls()[0], L1Call::StorageAt { .. }));

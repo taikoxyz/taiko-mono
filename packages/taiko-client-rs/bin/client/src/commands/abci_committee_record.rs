@@ -1,5 +1,5 @@
-//! `abci-committee-record` subcommand: computes the `committeeRecordHash` an Etna activation
-//! takes for a chosen `genesisCutoff`, from the staking registry on L1, before the activating DAO
+//! `abci-committee-record` subcommand: computes the `committeeRecordHash` `EtnaInbox::init`
+//! takes for a chosen `genesisCutoff`, from the staking registry on L1, before the initializing DAO
 //! proposal is written.
 
 use std::{fmt::Write as _, io::Write as _, path::PathBuf};
@@ -13,10 +13,10 @@ use url::Url;
 
 use crate::{commands::load_chain_params, error::Result, flags::common::http_url};
 
-/// Command-line interface of the activation committee record tool.
+/// Command-line interface of the genesis committee record tool.
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 #[command(
-    about = "Computes the committeeRecordHash an Etna activation takes for a genesis cutoff, from \
+    about = "Computes the committeeRecordHash an Etna genesis takes for a genesis cutoff, from \
              the staking registry on L1"
 )]
 pub struct AbciCommitteeRecordSubCommand {
@@ -44,13 +44,13 @@ pub struct AbciCommitteeRecordSubCommand {
         help = "Optional TOML file overriding the built-in chain parameters (devnet only)"
     )]
     pub chain_config: Option<PathBuf>,
-    /// The `genesisCutoff` the activation will pass: the L1 block whose registry snapshot defines
-    /// the genesis committee. It must be at or before the L1 `finalized` block, as the activation
-    /// fixes it irreversibly.
+    /// The `genesisCutoff` the initialization will pass: the L1 block whose registry snapshot
+    /// defines the genesis committee. It must be at or before the L1 `finalized` block, as the
+    /// genesis fixes it irreversibly.
     #[clap(
         long = "genesis-cutoff",
         required = true,
-        help = "L1 block of the genesis committee's registry snapshot (activateEtna's \
+        help = "L1 block of the genesis committee's registry snapshot (EtnaInbox::init's \
                 genesisCutoff), at or before the L1 finalized block"
     )]
     pub genesis_cutoff: u64,

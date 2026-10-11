@@ -64,7 +64,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `n = max(parent anchor, own finalized − F_L1)`, and its witness (header and Inbox proofs
     /// at `n`) is fetched iff `n` moves, the height is `H_0` or a switch height; the anchor
     /// passes the committee-free checks of `ProcessProposal` ([`check_candidate_anchor`]: anchor
-    /// progress, generation, `migrationState`, back-pressure), so a block that cannot be proposed
+    /// progress, generation, initialized status, back-pressure), so a block that cannot be proposed
     /// costs no committee discovery; at `h_first(e)` the committee witness for `e + 1` is one
     /// verified earlier at this height (an own earlier round, or another proposer's block) or is
     /// built against the parent's anchor ([`App::committee_witness`]); the rest of

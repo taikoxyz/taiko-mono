@@ -10,14 +10,14 @@
 //! Epoch offsets are checked for `u64` overflow. The genesis cutoff floors every later
 //! snapshot cutoff ([`committee::snapshot_cutoff`](crate::committee::snapshot_cutoff)).
 
-use crate::types::ActivationRecord;
+use crate::types::GenesisRecord;
 use serde::{Deserialize, Serialize};
 
-/// The epoch schedule: the activation-record fields the epoch arithmetic and the committee
+/// The epoch schedule: the genesis-record fields the epoch arithmetic and the committee
 /// snapshot cutoffs need.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Schedule {
-    /// `L1_0`: L1 block number of the activation; the minimum anchor of epoch `e_0`.
+    /// `L1_0`: L1 block number of initialization; the minimum anchor of epoch `e_0`.
     pub l1_0: u64,
     /// `L`: epoch length in L2 blocks (CometBFT heights); validated `>= 3` and `>= U + 3`.
     pub epoch_len: u64,
@@ -25,7 +25,7 @@ pub struct Schedule {
     /// validated `>= 1`.
     pub epoch_len_l1: u64,
     /// `genesisCutoff`: the L1 block of epoch `e_0`'s registry snapshot, and the floor of every
-    /// later epoch's snapshot cutoff; `< l1_0` for a verified activation.
+    /// later epoch's snapshot cutoff; `< l1_0` for a verified genesis.
     pub genesis_cutoff: u64,
 }
 
@@ -56,11 +56,11 @@ pub enum ScheduleError {
 }
 
 impl Schedule {
-    /// `e_0`, the activation epoch.
+    /// `e_0`, the genesis epoch.
     pub const E0: u64 = 0;
 
-    /// Takes the schedule fields of the activation record.
-    pub fn from_activation(a: &ActivationRecord) -> Self {
+    /// Takes the schedule fields of the genesis record.
+    pub fn from_genesis(a: &GenesisRecord) -> Self {
         Self {
             l1_0: a.l1_0,
             epoch_len: a.epoch_len,
@@ -198,8 +198,8 @@ mod tests {
     const CASES: [u64; 2] = [3, 20];
 
     #[test]
-    fn from_activation_copies_the_schedule_fields() {
-        let a = ActivationRecord {
+    fn from_genesis_copies_the_schedule_fields() {
+        let a = GenesisRecord {
             genesis_height: 0,
             l1_0: 9,
             epoch_len: 20,
@@ -209,7 +209,7 @@ mod tests {
             genesis_cutoff: 8,
         };
         assert_eq!(
-            Schedule::from_activation(&a),
+            Schedule::from_genesis(&a),
             Schedule { l1_0: 9, epoch_len: 20, epoch_len_l1: 5, genesis_cutoff: 8 }
         );
     }

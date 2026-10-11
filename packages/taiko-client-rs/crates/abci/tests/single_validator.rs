@@ -64,7 +64,7 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
     let genesis =
         l2.get_block_by_number(BlockNumberOrTag::Number(0)).await?.context("no L2 block 0")?;
     let mut prev_timestamp = genesis.header.timestamp;
-    let mut prev_anchor = devnet.activation().l1_0;
+    let mut prev_anchor = devnet.genesis().l1_0;
     for h in 1..=head {
         let block =
             l2.get_block_by_number(BlockNumberOrTag::Number(h)).await?.context("missing block")?;
@@ -104,7 +104,7 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         prev_anchor = anchor;
     }
     eprintln!("checked L2 blocks 1..={head}; last anchor {prev_anchor}, L1 finalized {finalized}");
-    assert!(prev_anchor > devnet.activation().l1_0, "the anchor never moved past L1_0");
+    assert!(prev_anchor > devnet.genesis().l1_0, "the anchor never moved past L1_0");
 
     let status = devnet.abci_status(0).await?;
     let l2_head = l2.get_block_number().await?;

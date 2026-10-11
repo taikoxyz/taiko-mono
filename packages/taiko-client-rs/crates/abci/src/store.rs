@@ -1,7 +1,7 @@
 //! The persisted app state and its atomic file store.
 //!
 //! [`AppState`] is everything `FinalizeBlock` needs besides the envelope and the EL: the chain
-//! identity, the activation record and schedule, the committed parent, its anchor facts and the
+//! identity, the genesis record and schedule, the committed parent, its anchor facts and the
 //! known committees. `Commit` persists it with [`Store::save`]: the JSON is written to
 //! `abci-state.json.tmp`, fsynced, renamed over `abci-state.json` and the directory fsynced, so a
 //! crash leaves either the old or the new state, never a torn file.
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     schedule::Schedule,
-    types::{ActivationRecord, AnchorState, CommitteeRecord, Member, ParentInfo},
+    types::{AnchorState, CommitteeRecord, GenesisRecord, Member, ParentInfo},
 };
 
 /// File name of the persisted state inside the data directory.
@@ -43,8 +43,9 @@ pub struct AppState {
     pub chain_id: String,
     /// Recovery generation of the running chain (the `chain_id` suffix).
     pub generation: u64,
-    /// The Etna activation record verified at `InitChain`.
-    pub activation: ActivationRecord,
+    /// The Etna genesis record verified at `InitChain`.
+    #[serde(alias = "activation")]
+    pub genesis: GenesisRecord,
     /// Last committed CometBFT height (== `parent.number`); `B*` right after `InitChain`.
     pub last_height: u64,
     /// Summary of the last committed L2 block, the parent of the next height.
@@ -75,7 +76,7 @@ struct LegacySchedule {
 impl AppState {
     /// Derives the epoch schedule from the canonical genesis record.
     pub fn schedule(&self) -> Schedule {
-        Schedule::from_activation(&self.activation)
+        Schedule::from_genesis(&self.genesis)
     }
 
     /// Drops every committee of an epoch below `keep_from_epoch`.
@@ -152,7 +153,7 @@ impl Store {
         let legacy: LegacyState = serde_json::from_slice(&bytes)
             .map_err(|source| StoreError::Corrupt { path: path.clone(), source })?;
         if let Some(legacy) = legacy.schedule &&
-            (legacy.genesis_height != state.activation.genesis_height ||
+            (legacy.genesis_height != state.genesis.genesis_height ||
                 legacy.schedule != state.schedule())
         {
             return Err(StoreError::Corrupt {
@@ -232,7 +233,7 @@ mod tests {
     }
 
     fn state() -> AppState {
-        let activation = ActivationRecord {
+        let genesis = GenesisRecord {
             genesis_height: 0,
             l1_0: 1_000,
             epoch_len: 20,
@@ -244,7 +245,7 @@ mod tests {
         AppState {
             chain_id: "taiko-etna-167001-g0".to_string(),
             generation: 0,
-            activation,
+            genesis,
             last_height: 105,
             parent: ParentInfo {
                 number: 105,
@@ -262,7 +263,7 @@ mod tests {
                 state_root: B256::repeat_byte(0x5a),
                 timestamp: 1_791_526_400,
                 inbox: InboxFacts {
-                    migration_state: 3,
+                    status: 3,
                     recovery_generation: 0,
                     last_checkpoint_height: 101,
                     last_checkpoint_hash: B256::repeat_byte(0x33),
@@ -296,6 +297,21 @@ mod tests {
         assert_eq!(store.load().unwrap(), Some(state()));
     }
 
+    /// Newly saved state identifies the initialized genesis record explicitly.
+    #[test]
+    fn save_uses_genesis_terminology() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        store.save(&state()).unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&fs::read(dir.path().join(STATE_FILE)).unwrap()).unwrap();
+        assert!(json.get("genesis").is_some());
+        assert!(json.get("activation").is_none());
+        assert!(json["anchor"]["inbox"].get("status").is_some());
+        assert!(json["anchor"]["inbox"].get("migration_state").is_none());
+        assert_eq!(store.load().unwrap(), Some(state()));
+    }
+
     /// Prior JSON remains readable, but inconsistent legacy schedule data is refused.
     #[test]
     fn load_checks_a_legacy_schedule() {
@@ -304,14 +320,24 @@ mod tests {
         let s = state();
         let mut json = serde_json::to_value(&s).unwrap();
         json["schedule"] = serde_json::json!({
-            "genesis_height": s.activation.genesis_height,
-            "l1_0": s.activation.l1_0,
-            "epoch_len": s.activation.epoch_len,
-            "epoch_len_l1": s.activation.epoch_len_l1,
-            "genesis_cutoff": s.activation.genesis_cutoff,
+            "genesis_height": s.genesis.genesis_height,
+            "l1_0": s.genesis.l1_0,
+            "epoch_len": s.genesis.epoch_len,
+            "epoch_len_l1": s.genesis.epoch_len_l1,
+            "genesis_cutoff": s.genesis.genesis_cutoff,
         });
+        let record = json.as_object_mut().unwrap().remove("genesis").unwrap();
+        json["activation"] = record;
+        let facts = json["anchor"]["inbox"].as_object_mut().unwrap();
+        let status = facts.remove("status").unwrap();
+        facts.insert("migration_state".into(), status);
+        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
+        assert_eq!(store.load().unwrap(), Some(s.clone()));
+        // The first simplification wrote the old record/status names without a schedule.
+        let schedule = json.as_object_mut().unwrap().remove("schedule").unwrap();
         fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
         assert_eq!(store.load().unwrap(), Some(s));
+        json["schedule"] = schedule;
         json["schedule"]["epoch_len"] = serde_json::json!(21);
         fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
         assert!(store.load().is_err());

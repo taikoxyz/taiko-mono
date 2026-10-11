@@ -5,7 +5,7 @@
 //! state when it starts mining block `n + 1`, so an out-of-band `anvil_setStorageAt` made in
 //! between leaks into block `n`'s state, and `eth_getProof` / `eth_getStorageAt` at `n` then
 //! disagree with `n`'s header `stateRoot`. [`Planter::install`] therefore places a tiny
-//! storage-setter contract ([`SETTER_CODE`]) at both addresses once, before the activation block,
+//! storage-setter contract ([`SETTER_CODE`]) at both addresses once, before the genesis block,
 //! and every later write is a transaction to it from anvil's first dev account.
 //!
 //! anvil also keeps every zero `SSTORE` as an explicit zero leaf, so zeros are never written:
@@ -14,7 +14,7 @@
 use std::{sync::Arc, time::Duration};
 
 use abci::{
-    ActivationRecord, RegistryEntry,
+    GenesisRecord, RegistryEntry,
     committee::entries_root,
     l1::layout::{inbox, registry},
 };
@@ -48,14 +48,14 @@ const RECEIPT_TIMEOUT: Duration = Duration::from_secs(30);
 /// Inbox values to write; `None` / empty fields are left untouched.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct InboxValues {
-    /// `migrationState` (slot 258).
-    pub migration_state: Option<u8>,
+    /// `status` (slot 258, exposed by the compatibility `migrationState` getter).
+    pub status: Option<u8>,
     /// `recoveryGeneration` (slot 268).
     pub recovery_generation: Option<u64>,
     /// `lastCheckpoint` `(height, blockHash)` (slots 270, 271).
     pub last_checkpoint: Option<(u64, B256)>,
-    /// The activation record (slots 272–274) with its `genesisCutoff` (slot 279).
-    pub activation: Option<ActivationRecord>,
+    /// The genesis record (slots 272–274) with its `genesisCutoff` (slot 279).
+    pub genesis: Option<GenesisRecord>,
     /// `committee[epoch] = recordHash` entries (mapping at slot 278).
     pub committee: Vec<(u64, B256)>,
 }
@@ -65,8 +65,8 @@ impl InboxValues {
     fn writes(&self) -> Vec<(B256, U256)> {
         let slot = inbox::slot;
         let mut w = Vec::new();
-        if let Some(state) = self.migration_state {
-            w.push((slot(inbox::MIGRATION_STATE), U256::from(state)));
+        if let Some(state) = self.status {
+            w.push((slot(inbox::STATUS), U256::from(state)));
         }
         if let Some(generation) = self.recovery_generation {
             w.push((slot(inbox::RECOVERY_GENERATION), U256::from(generation)));
@@ -75,14 +75,14 @@ impl InboxValues {
             w.push((slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)));
             w.push((slot(inbox::LAST_CHECKPOINT_HASH), hash.into()));
         }
-        if let Some(a) = &self.activation {
+        if let Some(a) = &self.genesis {
             let packed = U256::from(a.genesis_height) |
                 (U256::from(a.l1_0) << 64) |
                 (U256::from(a.epoch_len) << 128) |
                 (U256::from(a.epoch_len_l1) << 192);
-            w.push((slot(inbox::ACTIVATION_PACKED), packed));
-            w.push((slot(inbox::ACTIVATION_GENESIS_HASH), a.genesis_hash.into()));
-            w.push((slot(inbox::ACTIVATION_GENESIS_STATE_ROOT), a.genesis_state_root.into()));
+            w.push((slot(inbox::GENESIS_PACKED), packed));
+            w.push((slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()));
+            w.push((slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()));
             w.push((slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)));
         }
         for (epoch, hash) in &self.committee {
@@ -364,8 +364,8 @@ mod tests {
     }
 
     #[test]
-    fn inbox_values_write_the_activation_with_its_genesis_cutoff() {
-        let activation = ActivationRecord {
+    fn inbox_values_write_the_genesis_with_its_cutoff() {
+        let genesis = GenesisRecord {
             genesis_height: 1,
             l1_0: 2,
             epoch_len: 3,
@@ -375,7 +375,7 @@ mod tests {
             genesis_cutoff: 7,
         };
         let v = InboxValues {
-            activation: Some(activation),
+            genesis: Some(genesis),
             committee: vec![(0, B256::repeat_byte(8))],
             ..Default::default()
         };

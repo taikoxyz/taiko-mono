@@ -20,7 +20,7 @@ pub struct GenesisDoc {
     pub genesis_time: String,
     /// `taiko-etna-<L2 chain id>-g<recoveryGeneration>`.
     pub chain_id: String,
-    /// `B* + 1`, as a decimal string, so every CometBFT height equals its EL block number.
+    /// The first consensus height, always `"1"`, as a decimal string.
     pub initial_height: String,
     /// The consensus parameters ([`GenesisConsensusParams::etna`]).
     pub consensus_params: GenesisConsensusParams,

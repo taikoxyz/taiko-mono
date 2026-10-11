@@ -171,8 +171,8 @@ pub enum RuleViolation {
         /// The block's anchor L1 block number.
         anchor: u64,
     },
-    /// The anchor L1 block precedes the Etna activation block `L1_0`.
-    #[error("anchor {anchor} is below the activation block L1_0 = {l1_0}")]
+    /// The anchor L1 block precedes the Etna initialization block `L1_0`.
+    #[error("anchor {anchor} is below the genesis block L1_0 = {l1_0}")]
     AnchorBeforeActivation {
         /// The block's anchor L1 block number.
         anchor: u64,

@@ -1,10 +1,10 @@
 //! A complete, mutually consistent genesis for app tests.
 //!
-//! [`Fixture::build`] plants an activated Inbox and a staking registry (one checkpoint, by default
-//! written at the genesis cutoff, holding `n_validators` eligible entries) in an L1 [`TestState`],
-//! derives the `e_0` committee from it at the genesis cutoff, records its hash at `committee[e_0]`,
-//! builds the EL chain up to the genesis anchor `B*`, and assembles the genesis witness and the
-//! CometBFT `InitChain` request that start the chain.
+//! [`Fixture::build`] plants an initialized Inbox and a staking registry (one checkpoint, by
+//! default written at the genesis cutoff, holding `n_validators` eligible entries) in an L1
+//! [`TestState`], derives the `e_0` committee from it at the genesis cutoff, records its hash at
+//! `committee[e_0]`, builds the EL chain up to the genesis anchor `B*`, and assembles the genesis
+//! witness and the CometBFT `InitChain` request that start the chain.
 //! [`Fixture::l1`] and [`Fixture::engine`] serve that L1 and EL; [`Fixture::expected_state`] is
 //! the `AppState` a correct `InitChain` persists.
 //!
@@ -43,8 +43,7 @@ use crate::{
     schedule::Schedule,
     store::{AppState, CommitteeState, Store},
     types::{
-        ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, Member, ParentInfo,
-        RegistryEntry,
+        AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo, RegistryEntry,
     },
 };
 
@@ -57,7 +56,7 @@ pub(crate) struct GenesisSpec {
     pub(crate) entries: Option<Vec<RegistryEntry>>,
     /// `B*`, the genesis anchor's L2 block number.
     pub(crate) genesis_height: u64,
-    /// `L1_0`, the activation's L1 block number.
+    /// `L1_0`, the genesis's L1 block number.
     pub(crate) l1_0: u64,
     /// `genesisCutoff`, the `e_0` snapshot cutoff.
     pub(crate) genesis_cutoff: u64,
@@ -98,7 +97,7 @@ impl GenesisSpec {
     /// A genesis whose `e_0` exists only at the explicit genesis cutoff: `L1_0 = 64`, cutoff lag
     /// 5, grid 1, genesis cutoff 63, and `n_validators` entries registered in a checkpoint at L1
     /// block 58 and active from block 62. The lagged cutoff of `L1_0`, `cutoff(64) = 59`, selects
-    /// the same checkpoint but precedes the entries' activation, so a genesis committee derived
+    /// the same checkpoint but precedes the entries' genesis, so a genesis committee derived
     /// there would have no eligible entry, and `e_0 + 1`, derived at `H_0` from the genesis
     /// anchor, has its members only through the genesis-cutoff floor
     /// ([`committee::snapshot_cutoff`]: `max(59, 63) = 63`).
@@ -122,8 +121,8 @@ impl GenesisSpec {
 pub(crate) struct Fixture {
     /// The chain parameters the app runs with.
     pub(crate) params: ChainParams,
-    /// The activation record planted in the Inbox.
-    pub(crate) activation: ActivationRecord,
+    /// The genesis record planted in the Inbox.
+    pub(crate) genesis: GenesisRecord,
     /// The Inbox storage at `L1_0`.
     pub(crate) inbox: InboxStorage,
     /// The registry storage at `L1_0`: one checkpoint (by default at the genesis cutoff).
@@ -154,7 +153,7 @@ impl Fixture {
 
         let el_chain = el_chain();
         let b_star = el_chain.last().expect("the EL chain holds B*");
-        let activation = ActivationRecord {
+        let genesis = GenesisRecord {
             genesis_height: spec.genesis_height,
             l1_0: spec.l1_0,
             epoch_len: spec.epoch_len,
@@ -169,7 +168,7 @@ impl Fixture {
         let registry = RegistryStorage { checkpoints: vec![(checkpoint_l1_block, entries)] };
         let (record, members) = genesis_committee(
             &params,
-            &Schedule::from_activation(&activation),
+            &Schedule::from_genesis(&genesis),
             &registry,
             spec.genesis_cutoff,
             Schedule::E0,
@@ -180,7 +179,7 @@ impl Fixture {
 
         let inbox = InboxStorage {
             recovery_generation: spec.recovery_generation,
-            ..InboxStorage::genesis(activation.clone(), committee_e0)
+            ..InboxStorage::genesis(genesis.clone(), committee_e0)
         };
         let l1_state = l1_state_with(&params, &inbox, &registry);
 
@@ -207,7 +206,7 @@ impl Fixture {
 
         Self {
             params,
-            activation,
+            genesis,
             inbox,
             registry,
             l1_state,
@@ -221,9 +220,9 @@ impl Fixture {
 
     /// An L1 whose canonical, finalized block `L1_0` is the witness header over `l1_state`.
     pub(crate) fn l1(&self) -> MockL1 {
-        let l1 = MockL1::new(self.activation.l1_0 + self.params.l1_finality_extra_depth);
+        let l1 = MockL1::new(self.genesis.l1_0 + self.params.l1_finality_extra_depth);
         l1.insert_header(self.witness.l1_header.clone());
-        l1.state().states.insert(self.activation.l1_0, self.l1_state.clone());
+        l1.state().states.insert(self.genesis.l1_0, self.l1_state.clone());
         l1
     }
 
@@ -258,7 +257,7 @@ impl Fixture {
 
     /// `H*`, the genesis anchor's L2 block hash.
     pub(crate) fn genesis_hash(&self) -> B256 {
-        self.activation.genesis_hash
+        self.genesis.genesis_hash
     }
 
     /// The timestamp of L1 block `number` in fixture L1s (12-second slots).
@@ -335,21 +334,21 @@ impl Fixture {
         verify_anchor_witness(&w, self.params.inbox, committee_epoch).expect("planted anchor")
     }
 
-    /// The schedule of the fixture's activation record.
+    /// The schedule of the fixture's genesis record.
     pub(crate) fn schedule(&self) -> Schedule {
-        Schedule::from_activation(&self.activation)
+        Schedule::from_genesis(&self.genesis)
     }
 
     /// The committee of `target_epoch` derived from the genesis registry snapshot: at the genesis
-    /// cutoff for `e_0`, and for a later epoch at the floored cutoff of the activation block
+    /// cutoff for `e_0`, and for a later epoch at the floored cutoff of the genesis block
     /// `L1_0` ([`committee::snapshot_cutoff`]), as `H_0` derives `e_0 + 1` from the genesis
     /// anchor (under the default parameters the members equal epoch `e_0`'s; the record differs
     /// in its target, cutoff and set root).
     pub(crate) fn committee(&self, target_epoch: u64) -> CommitteeState {
         let cutoff = if target_epoch == Schedule::E0 {
-            self.activation.genesis_cutoff
+            self.genesis.genesis_cutoff
         } else {
-            committee::snapshot_cutoff(self.activation.l1_0, &self.schedule(), &self.params)
+            committee::snapshot_cutoff(self.genesis.l1_0, &self.schedule(), &self.params)
                 .expect("L1_0 has a cutoff")
         };
         let (record, members) =
@@ -369,8 +368,8 @@ impl Fixture {
         AppState {
             chain_id: self.request.chain_id.clone(),
             generation: self.inbox.recovery_generation,
-            activation: self.activation.clone(),
-            last_height: self.activation.genesis_height,
+            genesis: self.genesis.clone(),
+            last_height: self.genesis.genesis_height,
             parent: ParentInfo {
                 number: b_star.number,
                 hash: b_star.hash_slow(),
@@ -382,15 +381,15 @@ impl Fixture {
                 grandparent_timestamp,
             },
             anchor: AnchorState {
-                number: self.activation.l1_0,
+                number: self.genesis.l1_0,
                 hash: self.witness.l1_header.hash(),
                 state_root: self.l1_state.state_root(),
                 timestamp: self.witness.l1_header.timestamp(),
                 inbox: InboxFacts {
-                    migration_state: inbox::ETNA_ACTIVE,
+                    status: inbox::ETNA_ACTIVE,
                     recovery_generation: self.inbox.recovery_generation,
-                    last_checkpoint_height: self.activation.genesis_height,
-                    last_checkpoint_hash: self.activation.genesis_hash,
+                    last_checkpoint_height: self.genesis.genesis_height,
+                    last_checkpoint_hash: self.genesis.genesis_hash,
                     committee: Some((Schedule::E0, committee_e0)),
                 },
             },
@@ -482,15 +481,15 @@ mod tests {
         let fx = Fixture::genesis(3);
         let root = fx.witness.l1_header.state_root();
         assert_eq!(root, fx.l1_state.state_root());
-        let (activation, facts, committee_e0) =
+        let (genesis, facts, committee_e0) =
             verify_genesis_inbox(root, &fx.witness.inbox, fx.params.inbox).expect("inbox verifies");
-        assert_eq!(activation, fx.activation);
+        assert_eq!(genesis, fx.genesis);
         assert_eq!(facts.recovery_generation, 0);
         assert_eq!(committee_e0, committee::record_hash(fx.params.l2_chain_id, &fx.record));
         assert_eq!(
             verify_committee_witness_at_cutoff(
                 root,
-                fx.activation.genesis_cutoff,
+                fx.genesis.genesis_cutoff,
                 &fx.schedule(),
                 &fx.params,
                 &fx.witness.committee,
@@ -498,14 +497,11 @@ mod tests {
             ),
             Ok((fx.record.clone(), fx.members.clone()))
         );
-        assert_eq!(fx.activation.genesis_cutoff, fx.activation.l1_0 - 1);
-        assert_eq!(fx.record.cutoff_l1_block, fx.activation.genesis_cutoff);
-        assert_eq!(
-            fx.registry.checkpoints,
-            vec![(fx.activation.genesis_cutoff, sample_entries(3))]
-        );
+        assert_eq!(fx.genesis.genesis_cutoff, fx.genesis.l1_0 - 1);
+        assert_eq!(fx.record.cutoff_l1_block, fx.genesis.genesis_cutoff);
+        assert_eq!(fx.registry.checkpoints, vec![(fx.genesis.genesis_cutoff, sample_entries(3))]);
         assert_eq!(fx.members.len(), 3);
         assert_eq!(fx.request.validators.len(), 3);
-        assert_eq!(fx.request.initial_height.value(), fx.activation.genesis_height + 1);
+        assert_eq!(fx.request.initial_height.value(), fx.genesis.genesis_height + 1);
     }
 }

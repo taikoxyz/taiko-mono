@@ -36,7 +36,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
     assert_eq!(Store::new(dir.path().to_path_buf()).load().unwrap(), Some(expected));
 
     // L1: only the finality check (finalized number and the canonical header at L1_0).
-    assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(fx.activation.l1_0)]);
+    assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(fx.genesis.l1_0)]);
     // EL: already holds B*, so no forkchoice update.
     assert!(
         !app.engine().calls().iter().any(|c| matches!(c, EngineCall::Forkchoice { .. })),
@@ -68,7 +68,7 @@ async fn a_genesis_committee_without_heartbeats_initializes() {
 #[tokio::test]
 async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
     let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
-    let (l1_0, genesis_cutoff) = (fx.activation.l1_0, fx.activation.genesis_cutoff);
+    let (l1_0, genesis_cutoff) = (fx.genesis.l1_0, fx.genesis.genesis_cutoff);
     assert_eq!((l1_0, genesis_cutoff), (64, 63));
     assert!(fx.registry.checkpoints[0].1.iter().all(|e| e.active_from_l1 == 62));
     // At the lagged cutoff 59 of the genesis anchor the snapshot is the same checkpoint, but no
@@ -110,13 +110,9 @@ async fn a_genesis_cutoff_not_before_l1_0_is_rejected() {
         let mut app = fx.app(dir.path());
         let err = init_chain(&mut app, fx.request.clone()).await.expect_err("cutoff at L1_0");
         assert!(
-            matches!(
-                err,
-                AbciError::Witness(WitnessError::GenesisCutoffNotBeforeActivation {
-                    genesis_cutoff: c,
-                    l1_0: 64
-                }) if c == genesis_cutoff
-            ),
+            matches!(&err, AbciError::Genesis(GenesisError::Witness(e)) if matches!(e.as_ref(),
+                WitnessError::GenesisCutoffNotBeforeInitialization { genesis_cutoff: c, l1_0: 64 }
+                if *c == genesis_cutoff)),
             "{err:?}"
         );
         assert_not_initialized(&app, dir.path());
@@ -172,7 +168,7 @@ async fn init_chain_is_idempotent_at_genesis() {
     assert_eq!(restarted, first);
     assert_eq!(app.state(), Some(&fx.expected_state()));
     assert_eq!(Store::new(dir.path().to_path_buf()).load().unwrap(), Some(fx.expected_state()));
-    assert!(app.l1().calls().contains(&L1Call::CanonicalHash(fx.activation.l1_0)), "re-verified");
+    assert!(app.l1().calls().contains(&L1Call::CanonicalHash(fx.genesis.l1_0)), "re-verified");
 
     // The validators are echoed in the request's order, as on the first InitChain.
     let mut reordered = fx.request.clone();
@@ -238,11 +234,11 @@ async fn malformed_app_state_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     let err = init_chain(&mut app, fx.request.clone()).await.expect_err("bad app_state");
-    assert!(matches!(err, AbciError::AppState(GenesisError::Rlp(_))), "{err:?}");
+    assert!(matches!(err, AbciError::Genesis(GenesisError::Rlp(_))), "{err:?}");
 
     fx.request.app_state_bytes = b"null".to_vec().into();
     let err = init_chain(&mut app, fx.request.clone()).await.expect_err("bad app_state");
-    assert!(matches!(err, AbciError::AppState(GenesisError::Json(_))), "{err:?}");
+    assert!(matches!(err, AbciError::Genesis(GenesisError::Json(_))), "{err:?}");
     assert_not_initialized(&app, dir.path());
 }
 
@@ -250,12 +246,12 @@ async fn malformed_app_state_is_rejected() {
 async fn genesis_l1_block_above_finalized_is_rejected() {
     let fx = Fixture::genesis(2);
     let (l1, engine, params, req) = fx.parts();
-    l1.set_finalized(fx.activation.l1_0 - 1);
+    l1.set_finalized(fx.genesis.l1_0 - 1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
     let err = init_chain(&mut app, req).await.expect_err("not final");
     assert!(
-        matches!(err, AbciError::GenesisNotFinal { number, .. } if number == fx.activation.l1_0),
+        matches!(err, AbciError::GenesisNotFinal { number, .. } if number == fx.genesis.l1_0),
         "{err:?}"
     );
     assert_not_initialized(&app, dir.path());
@@ -266,7 +262,7 @@ async fn genesis_l1_block_within_the_extra_depth_is_rejected() {
     let fx = Fixture::genesis(2);
     let (l1, engine, mut params, req) = fx.parts();
     params.l1_finality_extra_depth = 1;
-    l1.set_finalized(fx.activation.l1_0);
+    l1.set_finalized(fx.genesis.l1_0);
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
     let err = init_chain(&mut app, req).await.expect_err("not final");
@@ -279,7 +275,7 @@ async fn non_canonical_genesis_l1_header_is_rejected() {
     let fx = Fixture::genesis(2);
     let (l1, engine, params, req) = fx.parts();
     // The own L1 node holds a different block at L1_0.
-    l1.insert_header(RawL1Header::from(&l1_header(fx.activation.l1_0, 1)));
+    l1.insert_header(RawL1Header::from(&l1_header(fx.genesis.l1_0, 1)));
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
     let err = init_chain(&mut app, req).await.expect_err("not canonical");
@@ -310,14 +306,17 @@ async fn witness_of_another_inbox_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
     let err = init_chain(&mut app, req).await.expect_err("wrong inbox");
-    assert!(matches!(err, AbciError::Witness(WitnessError::WrongContract { .. })), "{err:?}");
+    assert!(
+        matches!(&err, AbciError::Genesis(GenesisError::Witness(e)) if matches!(e.as_ref(), WitnessError::WrongContract { .. })),
+        "{err:?}"
+    );
     assert_not_initialized(&app, dir.path());
 }
 
 #[tokio::test]
-async fn genesis_header_must_be_the_activation_block() {
+async fn genesis_header_must_be_the_initialization_block() {
     let mut fx = Fixture::genesis(2);
-    let l1_0 = fx.activation.l1_0;
+    let l1_0 = fx.genesis.l1_0;
     // Same L1 state, but the witness header is block L1_0 + 1 (canonical and final there).
     let mut witness = fx.witness.clone();
     witness.l1_header = edit_l1_header(&witness.l1_header, |h| h.number = l1_0 + 1);
@@ -329,7 +328,7 @@ async fn genesis_header_must_be_the_activation_block() {
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
     let err = init_chain(&mut app, req).await.expect_err("header is not L1_0");
     assert!(
-        matches!(err, AbciError::GenesisL1Mismatch { header, l1_0: a } if header == l1_0 + 1 && a == l1_0),
+        matches!(err, AbciError::Genesis(GenesisError::InitializationMismatch { l1_0: header, proven: a }) if header == l1_0 + 1 && a == l1_0),
         "{err:?}"
     );
     assert_not_initialized(&app, dir.path());
@@ -345,7 +344,10 @@ async fn schedule_violating_the_unsettled_cap_is_rejected() {
     assert!(
         matches!(
             err,
-            AbciError::Schedule(ScheduleError::EpochShorterThanCap { epoch_len: 12, .. })
+            AbciError::Genesis(GenesisError::Schedule(ScheduleError::EpochShorterThanCap {
+                epoch_len: 12,
+                ..
+            }))
         ),
         "{err:?}"
     );
@@ -366,6 +368,17 @@ async fn chain_id_generation_must_match_the_inbox() {
         let err = init_chain(&mut app, fx.request.clone()).await.expect_err("bad chain id");
         assert!(matches!(err, AbciError::ChainId(RuleViolation::InvalidChainId { .. })), "{err:?}");
     }
+    assert_not_initialized(&app, dir.path());
+}
+
+/// Unsupported bootstrap records are refused before any Engine call or state write.
+#[tokio::test]
+async fn nonzero_genesis_height_is_rejected_before_el_work() {
+    let fx = Fixture::build(GenesisSpec { genesis_height: 1, ..GenesisSpec::new(2) });
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    init_chain(&mut app, fx.request.clone()).await.expect_err("nonzero genesis");
+    assert!(app.engine().calls().is_empty(), "no EL initialization for an invalid record");
     assert_not_initialized(&app, dir.path());
 }
 
@@ -395,7 +408,7 @@ async fn committee_record_hash_must_match_committee_e0() {
     let mut app = fx.app(dir.path());
     let err = init_chain(&mut app, fx.request.clone()).await.expect_err("record hash mismatch");
     assert!(
-        matches!(err, AbciError::CommitteeRecordMismatch { recorded, .. } if recorded == B256::repeat_byte(0xc0)),
+        matches!(err, AbciError::Genesis(GenesisError::CommitteeRecordMismatch { recorded, .. }) if recorded == B256::repeat_byte(0xc0)),
         "{err:?}"
     );
     assert_not_initialized(&app, dir.path());
@@ -410,7 +423,10 @@ async fn committee_witness_claiming_another_record_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     let err = init_chain(&mut app, fx.request.clone()).await.expect_err("record mismatch");
-    assert!(matches!(err, AbciError::Committee(CommitteeError::RecordMismatch { .. })), "{err:?}");
+    assert!(
+        matches!(&err, AbciError::Genesis(GenesisError::Committee(e)) if matches!(e.as_ref(), CommitteeError::RecordMismatch { .. })),
+        "{err:?}"
+    );
     assert_not_initialized(&app, dir.path());
 }
 

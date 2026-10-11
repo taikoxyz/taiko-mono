@@ -118,7 +118,7 @@ async fn replay_recovers_after_app_state_is_lost() -> anyhow::Result<()> {
     devnet.wait_for_height(0, before.last_height, Duration::from_secs(60)).await?;
     let restored: AppState = serde_json::from_slice(&fs::read(&file)?)?;
     assert!(restored.last_height >= before.last_height);
-    assert_eq!(restored.activation, before.activation);
+    assert_eq!(restored.genesis, before.genesis);
     assert_eq!(restored.committees, before.committees);
     assert_eq!(restored.generation, before.generation);
     assert_eq!(block_hashes(&l2, before.last_height).await?, old_hashes);

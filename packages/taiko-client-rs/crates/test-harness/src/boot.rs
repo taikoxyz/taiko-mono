@@ -8,7 +8,7 @@ use std::{
 };
 
 use abci::{
-    ActivationRecord, ChainParams, RegistryEntry, RpcL1Source, Schedule, Snapshot, build_genesis,
+    ChainParams, GenesisRecord, RegistryEntry, RpcL1Source, Schedule, Snapshot, build_genesis,
     committee::{self, record_hash},
     l1::layout::inbox::ETNA_ACTIVE,
 };
@@ -78,8 +78,8 @@ pub(crate) struct Booted {
     pub keys: Vec<ValidatorKey>,
     /// The chain parameters the apps run with.
     pub params: ChainParams,
-    /// The planted activation record.
-    pub activation: ActivationRecord,
+    /// The planted genesis record.
+    pub genesis: GenesisRecord,
     /// Writes L1 state.
     pub planter: Planter,
 }
@@ -89,7 +89,7 @@ pub(crate) struct Booted {
 /// 1. anvil and one alethia-reth per validator, waiting for their RPCs;
 /// 2. the chain parameters for alethia-reth's chain id with `spec`'s `d_max` / `margin_v`;
 /// 3. the setter contracts, then registry checkpoint 0 (the first `initial_validators` keys) in an
-///    L1 block `c` and the activated Inbox, with `genesisCutoff = c`, in a later block `L1_0`;
+///    L1 block `c` and the initialized Inbox, with `genesisCutoff = c`, in a later block `L1_0`;
 /// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
 /// 5. one app per validator, listening before CometBFT starts;
 /// 6. one CometBFT node per validator, waiting for their RPCs;
@@ -150,7 +150,7 @@ pub(crate) async fn boot(
         .with_overrides(&format!("d_max = {}\nmargin_v = {}\n", spec.d_max, spec.margin_v))?;
     params.validate()?;
 
-    // 3. L1 state: registry checkpoint 0 in block c, then the activated Inbox in block L1_0 > c.
+    // 3. L1 state: registry checkpoint 0 in block c, then the initialized Inbox in block L1_0 > c.
     let keys = validator_keys(n);
     let planter = Planter::new(l1.clone(), params.inbox, params.registry);
     planter.install().await?;
@@ -158,15 +158,15 @@ pub(crate) async fn boot(
         .iter()
         .map(|k| registry_entry(k.pubkey(), U256::from(VALIDATOR_STAKE)))
         .collect();
-    let activation =
+    let genesis =
         plant_genesis(&planter, &params, spec, &entries, (genesis_hash, genesis_state_root))
             .await?;
-    let l1_0 = activation.l1_0;
+    let l1_0 = genesis.l1_0;
     tracing::info!(
         l1_0,
-        genesis_cutoff = activation.genesis_cutoff,
+        genesis_cutoff = genesis.genesis_cutoff,
         %genesis_hash,
-        "activation planted"
+        "genesis planted"
     );
 
     // 4. Genesis, once L1_0 is final.
@@ -174,8 +174,8 @@ pub(crate) async fn boot(
         Ok((finalized_number(&l1).await? >= l1_0).then_some(()))
     })
     .await?;
-    let genesis = build_genesis(&RpcL1Source::new(l1.clone()), &params).await?;
-    let genesis_json = genesis.to_json_pretty();
+    let genesis_doc = build_genesis(&RpcL1Source::new(l1.clone()), &params).await?;
+    let genesis_json = genesis_doc.to_json_pretty();
 
     // 5. The apps, listening before CometBFT starts.
     let mut apps = Vec::with_capacity(n);
@@ -250,13 +250,13 @@ pub(crate) async fn boot(
             planter: planter.clone(),
             l2,
             cmt: cmt[0].clone(),
-            schedule: Schedule::from_activation(&activation),
+            schedule: Schedule::from_genesis(&genesis),
             l2_chain_id: params.l2_chain_id,
         },
         spec.land_committees,
     );
 
-    Ok(Booted { lander, apps, cmt, reth, l1, keys, params, activation, planter })
+    Ok(Booted { lander, apps, cmt, reth, l1, keys, params, genesis, planter })
 }
 
 /// The hash and state root of block 0 of the EL behind `l2`.
@@ -268,18 +268,18 @@ async fn genesis_block(l2: &RootProvider) -> Result<(B256, B256)> {
     Ok((block.header.hash, block.header.state_root))
 }
 
-/// Plants registry checkpoint 0 with `entries` into an L1 block `c`, then the activated Inbox
-/// (activation record over the L2 genesis `(hash, state root)`, `lastCheckpoint = (0, genesis
+/// Plants registry checkpoint 0 with `entries` into an L1 block `c`, then the initialized Inbox
+/// (genesis record over the L2 genesis `(hash, state root)`, `lastCheckpoint = (0, genesis
 /// hash)`, generation 0, `genesisCutoff = c` and `committee[e_0]` derived at `c`) into a later
-/// block `L1_0`, as the activating DAO proposal names a cutoff before the block it lands in.
-/// Returns the activation record.
+/// block `L1_0`, as the initializing DAO proposal names a cutoff before the block it lands in.
+/// Returns the genesis record.
 async fn plant_genesis(
     planter: &Planter,
     params: &ChainParams,
     spec: &DevnetSpec,
     entries: &[RegistryEntry],
     (genesis_hash, genesis_state_root): (B256, B256),
-) -> Result<ActivationRecord> {
+) -> Result<GenesisRecord> {
     let mut next = planter.next_block().await?;
     let genesis_cutoff = next.number();
     let index = next.write_registry_checkpoint(entries).await?;
@@ -293,7 +293,7 @@ async fn plant_genesis(
     let mut next = planter.next_block().await?;
     let l1_0 = next.number();
     ensure!(l1_0 > genesis_cutoff, "L1_0 {l1_0} is not after the genesis cutoff {genesis_cutoff}");
-    let activation = ActivationRecord {
+    let genesis = GenesisRecord {
         genesis_height: 0,
         l1_0,
         epoch_len: spec.epoch_len,
@@ -304,20 +304,20 @@ async fn plant_genesis(
     };
     let snapshot =
         Snapshot { checkpoint_index: 0, l1_block: genesis_cutoff, entries: entries.to_vec() };
-    let schedule = Schedule::from_activation(&activation);
+    let schedule = Schedule::from_genesis(&genesis);
     let (record, _) =
         committee::derive(&snapshot, genesis_cutoff, Schedule::E0, &schedule, params)?;
     next.plant_inbox(&InboxValues {
-        migration_state: Some(ETNA_ACTIVE),
+        status: Some(ETNA_ACTIVE),
         recovery_generation: Some(0),
         last_checkpoint: Some((0, genesis_hash)),
-        activation: Some(activation.clone()),
+        genesis: Some(genesis.clone()),
         committee: vec![(Schedule::E0, record_hash(params.l2_chain_id, &record))],
     })
     .await?;
     let mined = next.commit().await?;
-    ensure!(mined == l1_0, "activation landed in L1 block {mined}, expected {l1_0}");
-    Ok(activation)
+    ensure!(mined == l1_0, "genesis landed in L1 block {mined}, expected {l1_0}");
+    Ok(genesis)
 }
 
 /// `http://127.0.0.1:<port>/`.

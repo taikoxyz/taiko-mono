@@ -7,7 +7,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use abci::{ActivationRecord, ChainParams, RegistryEntry, Schedule, Status};
+use abci::{ChainParams, GenesisRecord, RegistryEntry, Schedule, Status};
 use alloy_primitives::U256;
 use alloy_provider::RootProvider;
 use anyhow::{Result, anyhow, ensure};
@@ -111,8 +111,8 @@ pub struct Devnet {
     keys: Vec<ValidatorKey>,
     /// The chain parameters the apps run with.
     params: ChainParams,
-    /// The planted activation record.
-    activation: ActivationRecord,
+    /// The planted genesis record.
+    genesis: GenesisRecord,
     /// Writes L1 state.
     planter: Planter,
     /// The containers and the network.
@@ -145,7 +145,7 @@ impl Devnet {
                     l1: b.l1,
                     keys: b.keys,
                     params: b.params,
-                    activation: b.activation,
+                    genesis: b.genesis,
                     planter: b.planter,
                     docker,
                     _tmp: tmp,
@@ -179,14 +179,14 @@ impl Devnet {
         &self.params
     }
 
-    /// The planted activation record.
-    pub fn activation(&self) -> &ActivationRecord {
-        &self.activation
+    /// The planted genesis record.
+    pub fn genesis(&self) -> &GenesisRecord {
+        &self.genesis
     }
 
     /// The chain's epoch schedule.
     pub fn schedule(&self) -> Schedule {
-        Schedule::from_activation(&self.activation)
+        Schedule::from_genesis(&self.genesis)
     }
 
     /// The validator keys; the first `initial_validators` form the genesis committee.

@@ -123,7 +123,7 @@ pub trait L1Source: Send + Sync + 'static {
 
     /// The raw (unproven) storage word of `address` at `slot` as of block `block`; used only to
     /// discover which proofs to read (the registry's `checkpoints` length and heads in
-    /// `l1::fetch`, the Inbox's `migrationState` and activation word in the genesis builder),
+    /// `l1::fetch`, the Inbox's `migrationState` and genesis word in the genesis builder),
     /// whose proven values are then checked.
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error>;
 }
