@@ -1,8 +1,10 @@
 package indexer
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"sync"
@@ -90,7 +92,11 @@ func TestIntegration_WriterLock(t *testing.T) {
 	t.Cleanup(a.releaseWriterLock)
 
 	b := makeIndexer(d, 1)
-	require.ErrorContains(t, b.acquireWriterLock(ctx), "already held")
+
+	var holderID uint64
+
+	require.NoError(t, a.writerConn.QueryRowContext(ctx, "SELECT CONNECTION_ID()").Scan(&holderID))
+	require.ErrorContains(t, b.acquireWriterLock(ctx), fmt.Sprintf("holder_connection_id=%d", holderID))
 	require.Nil(t, b.writerConn)
 
 	cursor := &initialNFTCursorRepository{}
@@ -178,6 +184,8 @@ func TestIntegration_WriterLock(t *testing.T) {
 
 	markerOnly := makeIndexer(d, 1)
 	require.ErrorContains(t, markerOnly.checkBalanceClaimBootstrap(ctx), "clean rebuild")
+	markerOnly.syncMode = Sync
+	require.NoError(t, markerOnly.checkBalanceClaimBootstrap(ctx))
 	require.NoError(t, makeIndexer(d, 9).checkBalanceClaimBootstrap(ctx))
 
 	// Claims alone and marker alone also make a resync unsafe; the allow flag
@@ -188,6 +196,134 @@ func TestIntegration_WriterLock(t *testing.T) {
 	require.ErrorContains(t, makeIndexer(d, 3).checkBalanceClaimBootstrap(ctx), "clean rebuild")
 	require.NoError(t, lost.nftCursorRepo.SaveCheckpoint(ctx, 4, 0))
 	require.ErrorContains(t, makeIndexer(d, 4).checkBalanceClaimBootstrap(ctx), "clean rebuild")
+
+	// Claimed logs cannot restore missing balances, with either kind of cursor.
+	for _, chainID := range []uint64{30, 31, 32} {
+		require.NoError(t, d.GormDB().Exec("INSERT INTO processed_transfer_logs (chain_id, kind, tx_hash, log_index, batch_index) "+
+			"VALUES (?, 'nft', ?, 0, 0)", chainID, "0x"+strings.Repeat("c", 64)).Error)
+
+		if chainID == 31 {
+			require.NoError(t, lost.nftCursorRepo.SaveCheckpoint(ctx, chainID, 100))
+		}
+
+		if chainID == 32 {
+			require.NoError(t, d.GormDB().Exec("INSERT INTO events (name, event, chain_id, data, emitted_block_id) "+
+				"VALUES ('MessageSent', 'MessageSent', ?, '{}', 100)", chainID).Error)
+		}
+
+		for _, allow := range []bool{false, true} {
+			guarded := makeIndexer(d, chainID)
+			guarded.syncMode = Sync
+			guarded.allowUnclaimedBalanceReplay = allow
+			require.ErrorContains(t, guarded.checkBalanceClaimBootstrap(ctx), "missing NFT balances")
+		}
+	}
+	// A balances-only resync must fail even when compatibility replay is allowed.
+	require.NoError(t, d.GormDB().Exec("INSERT INTO nft_balances (chain_id,address,amount,contract_address,contract_type,token_id,updated_at) "+
+		"VALUES (33,'0xholder',1,'0xnft','ERC721',1,NOW())").Error)
+
+	balancesOnly := makeIndexer(d, 33)
+	balancesOnly.allowUnclaimedBalanceReplay = true
+	require.ErrorContains(t, balancesOnly.checkBalanceClaimBootstrap(ctx), "clean rebuild")
+	// A checkpoint bypasses legacy overlap checks, even without claims.
+	require.NoError(t, lost.nftCursorRepo.SaveCheckpoint(ctx, 33, 100))
+
+	balancesOnly.syncMode = Sync
+	balancesOnly.allowUnclaimedBalanceReplay = false
+	require.NoError(t, balancesOnly.checkBalanceClaimBootstrap(ctx))
+	// An actually empty chain is valid even with a persisted empty checkpoint.
+	require.NoError(t, lost.nftCursorRepo.SaveCheckpoint(ctx, 34, 100))
+
+	empty := makeIndexer(d, 34)
+	empty.syncMode = Sync
+	require.NoError(t, empty.checkBalanceClaimBootstrap(ctx))
+	require.NoError(t, d.GormDB().Exec("INSERT INTO processed_transfer_logs (chain_id,kind,tx_hash,log_index,batch_index) "+
+		"VALUES (35,'erc20',?,0,0)", "0x"+strings.Repeat("e", 64)).Error)
+
+	empty.srcChainID = 35
+	require.NoError(t, empty.checkBalanceClaimBootstrap(ctx))
+
+	t.Run("different chain first checkpoints do not deadlock", func(t *testing.T) {
+		first, second := makeIndexer(d, 40), makeIndexer(d, 41)
+		require.NoError(t, first.acquireWriterLock(ctx))
+		require.NoError(t, second.acquireWriterLock(ctx))
+
+		defer first.releaseWriterLock()
+		defer second.releaseWriterLock()
+		// Hold both transactions after their missing-marker SELECT to make
+		// expose the former cross-chain repeatable-read gap-lock blocking.
+		ready := make(chan struct{}, 2)
+		release := make(chan struct{})
+
+		require.NoError(t, d.GormDB().Callback().Row().After("gorm:row").Register("test:marker_barrier", func(tx *gorm.DB) {
+			if strings.HasPrefix(tx.Statement.SQL.String(), "SELECT id FROM events") {
+				ready <- struct{}{}
+
+				<-release
+			}
+		}))
+
+		defer func() { require.NoError(t, d.GormDB().Callback().Row().Remove("test:marker_barrier")) }()
+
+		errs := make(chan error, 2)
+
+		for _, writer := range []*Indexer{first, second} {
+			go func(i *Indexer) { errs <- i.nftCursorRepo.SaveCheckpoint(ctx, i.srcChainID, 10) }(writer)
+		}
+
+		for n := 0; n < 2; n++ {
+			select {
+			case <-ready:
+			case <-time.After(5 * time.Second):
+				close(release)
+				t.Fatal("checkpoint selects did not meet")
+			}
+		}
+
+		close(release)
+
+		for n := 0; n < 2; n++ {
+			require.NoError(t, <-errs)
+		}
+
+		for _, writer := range []*Indexer{first, second} {
+			height, present, err := writer.nftCursorRepo.FindCheckpoint(ctx, writer.srcChainID)
+			require.NoError(t, err)
+			require.True(t, present)
+			require.EqualValues(t, 10, height)
+		}
+	})
+	t.Run("missing debit warns and replay retains claim", func(t *testing.T) {
+		var logs bytes.Buffer
+
+		previous := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+
+		defer slog.SetDefault(previous)
+
+		ref := eventindexer.TransferLogRef{ChainID: 36, Kind: eventindexer.TransferKindNFT, TxHash: "0x" + strings.Repeat("d", 64)}
+		credit := eventindexer.UpdateNFTBalanceOpts{ChainID: 36, Address: "0xrecipient", ContractAddress: "0xnft", TokenID: 7, Amount: 1}
+		debit := credit
+		debit.Address = "0xmissing"
+		_, missing, err := lost.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, ref, credit, debit)
+		require.NoError(t, err)
+		require.Nil(t, missing)
+
+		for _, field := range []string{"missing NFT debit balance", "chain_id=36", "holder=0xmissing", "contract=0xnft", "token_id=7", "amount=1"} {
+			require.Contains(t, logs.String(), field)
+		}
+
+		logs.Reset()
+
+		_, _, err = lost.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, ref, credit, debit)
+		require.NoError(t, err)
+		require.Empty(t, logs.String())
+
+		var amount int64
+
+		require.NoError(t, d.GormDB().Table("nft_balances").Where("chain_id=36").Select("SUM(amount)").Scan(&amount).Error)
+		require.EqualValues(t, 1, amount)
+	})
 
 	// A failed checkpoint after real committed NFT transfers replays through
 	// the claims and advances only after the retry persists the completed batch.
@@ -209,15 +345,19 @@ func TestIntegration_WriterLock(t *testing.T) {
 	halfway := &failingNFTBalance{NFTBalanceRepository: originalBalances}
 	replay.nftBalanceRepo = halfway
 	replay.blockBatchSize = 10
-	checkpoint := &failingCheckpoint{NFTCursorRepository: replay.nftCursorRepo, fail: true}
+	checkpoint := &failingCheckpoint{NFTCursorRepository: replay.nftCursorRepo}
 	replay.nftCursorRepo = checkpoint
 	require.ErrorContains(t, replay.filter(ctx), "mid-batch fixture failure")
 	require.Zero(t, replay.latestIndexedBlockNumber)
+	require.Zero(t, checkpoint.calls)
+
 	_, present, err := replay.nftCursorRepo.FindCheckpoint(ctx, 5)
 	require.NoError(t, err)
 	require.False(t, present)
 
 	replay.nftBalanceRepo = originalBalances
+	checkpoint.fail = true
+
 	require.ErrorContains(t, replay.filter(ctx), "checkpoint fixture failure")
 	require.Zero(t, replay.latestIndexedBlockNumber)
 
@@ -257,7 +397,7 @@ func TestIntegration_WriterLock(t *testing.T) {
 	var claims int64
 
 	require.NoError(t, d.GormDB().Table("processed_transfer_logs").Count(&claims).Error)
-	require.EqualValues(t, 4, claims)
+	require.EqualValues(t, 9, claims)
 	require.NoError(t, d.GormDB().First(nftBalance, nftBalance.ID).Error)
 	require.EqualValues(t, 1, nftBalance.Amount)
 	require.NoError(t, b.acquireWriterLock(ctx))
@@ -290,10 +430,12 @@ func TestIntegration_WriterLock(t *testing.T) {
 // failingCheckpoint wraps the real pinned repository to fail only persistence.
 type failingCheckpoint struct {
 	eventindexer.NFTCursorRepository
-	fail bool
+	fail  bool
+	calls int
 }
 
 func (r *failingCheckpoint) SaveCheckpoint(ctx context.Context, chain, height uint64) error {
+	r.calls++
 	if r.fail {
 		return fmt.Errorf("checkpoint fixture failure")
 	}

@@ -73,6 +73,11 @@ func (i *Indexer) acquireWriterLock(ctx context.Context) (err error) {
 	}
 
 	if !acquired.Valid || acquired.Int64 != 1 {
+		var holder sql.NullInt64
+		if lookupErr := conn.QueryRowContext(ctx, "SELECT IS_USED_LOCK(?)", i.writerLockName).Scan(&holder); lookupErr == nil && holder.Valid {
+			return fmt.Errorf("balance writer lock %q already held or unavailable; holder_connection_id=%d", i.writerLockName, holder.Int64)
+		}
+
 		return fmt.Errorf("balance writer lock %q already held or unavailable", i.writerLockName)
 	}
 	// Session clones Config and (with Context set) Statement. Both pools must
@@ -101,6 +106,10 @@ func (i *Indexer) acquireWriterLock(ctx context.Context) (err error) {
 }
 
 func (i *Indexer) checkWriterLock(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	if i.writerConn == nil {
 		return errWriterLockLost
 	}
@@ -110,6 +119,10 @@ func (i *Indexer) checkWriterLock(ctx context.Context) error {
 		"SELECT IS_USED_LOCK(?) = CONNECTION_ID()", i.writerLockName).Scan(&owned)
 
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		return fmt.Errorf("%w: %v", errWriterLockLost, err)
 	}
 

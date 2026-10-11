@@ -99,6 +99,10 @@ func (i *Indexer) eventLoop(ctx context.Context) {
 			return
 		case <-t.C:
 			if err := i.checkWriterLock(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+
 				slog.Error("stopping indexer after balance writer lock loss", "error", err)
 				i.fatalErrors <- err
 
@@ -106,6 +110,10 @@ func (i *Indexer) eventLoop(ctx context.Context) {
 			}
 
 			if err := i.filter(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+
 				slog.Error("error filtering", "error", err)
 
 				if stderrors.Is(err, errWriterLockLost) {
@@ -203,7 +211,14 @@ func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
 
 	if i.syncMode == Resync && (balances > 0 || claims > 0 || checkpoints > 0) {
 		return errors.Newf("NFT resync for chain %d requires a clean rebuild: "+
-			"remove retained NFT balances, NFT claims and NFT checkpoint together after operator reconciliation", i.srcChainID)
+			"to resume an existing checkpoint, continue with SYNC_MODE=sync; otherwise remove chain-scoped "+
+			"NFT balances, NFT-kind claims and NFT checkpoint together after operator reconciliation", i.srcChainID)
+	}
+
+	if i.syncMode == Sync && claims > 0 && balances == 0 {
+		return errors.Newf("missing NFT balances for chain %d with retained NFT claims; "+
+			"claimed logs cannot rebuild missing balances. After reconciliation, rebuild by removing chain-scoped "+
+			"NFT balances, NFT-kind claims and NFT checkpoint together; after completing resync, continue with SYNC_MODE=sync", i.srcChainID)
 	}
 
 	if i.syncMode == Sync && balances > 0 && checkpoints == 0 && legacy == 0 {
@@ -231,8 +246,8 @@ func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
 
 	return errors.Newf(
 		"NFT balances for chain %d were written before transfer log claims existed, so this "+
-			"restart would replay and double count them once. Either reset those balances so "+
-			"they rebuild from claims, or set --allowUnclaimedBalanceReplay / "+
+			"restart would replay and double count them once. After reconciliation, rebuild by removing chain-scoped NFT balances, "+
+			"NFT-kind claims and NFT checkpoint together, or set --allowUnclaimedBalanceReplay / "+
 			"ALLOW_UNCLAIMED_BALANCE_REPLAY=true to accept a single overcount",
 		i.srcChainID,
 	)

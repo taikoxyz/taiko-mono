@@ -53,9 +53,12 @@ func (r *NFTCursorRepository) SaveCheckpoint(ctx context.Context, chainID, heigh
 	return r.db.GormDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var id uint64
 
-		result := tx.Raw("SELECT id FROM events WHERE chain_id = ? AND event = ? LIMIT 1 FOR UPDATE", chainID, NFTCheckpointEvent).Scan(&id)
+		// The named per-chain writer lock serializes this lookup and insert.
+		// A locking missing-row read would gap-lock other chains in MySQL.
+		// The primary-key UPDATE below takes its own row lock.
+		result := tx.Raw("SELECT id FROM events WHERE chain_id = ? AND event = ? LIMIT 1", chainID, NFTCheckpointEvent).Scan(&id)
 		if result.Error != nil {
-			return errors.Wrap(result.Error, "find NFT checkpoint for update")
+			return errors.Wrap(result.Error, "find NFT checkpoint")
 		}
 
 		if result.RowsAffected == 0 {

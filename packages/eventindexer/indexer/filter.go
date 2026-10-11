@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/metrics"
 )
 
 // filter applies each batch serially and advances the in-memory cursor only
@@ -20,6 +21,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "i.ethClient.BlockNumber")
 	}
+
+	metrics.SetNFTIndexerLag(i.srcChainID, endBlockID, i.latestIndexedBlockNumber)
 
 	for start := i.nextFilterStartBlock(); start <= endBlockID; {
 		if err := i.checkWriterLock(ctx); err != nil {
@@ -60,6 +63,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		}
 
 		i.latestIndexedBlockNumber = end
+		metrics.SetNFTIndexerLag(i.srcChainID, endBlockID, end)
 
 		if end == endBlockID {
 			break
