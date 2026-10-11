@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"runtime"
 	"sync"
@@ -155,6 +156,105 @@ func TestIndexNFTTransfersCancellation(t *testing.T) {
 
 			require.ErrorIs(t, (&Indexer{nftBalanceRepo: spy}).indexNFTTransfers(ctx, big.NewInt(167), []types.Log{first, later}), context.Canceled)
 			require.Len(t, spy.calls, want)
+		})
+	}
+}
+
+func malformedERC1155Logs(t *testing.T) map[string]types.Log {
+	t.Helper()
+
+	result := make(map[string]types.Log)
+
+	for _, kind := range []string{"TransferSingle", "TransferBatch"} {
+		base := nftIndexLog(t, kind, common.HexToAddress("0x1"), common.HexToAddress("0x2"), 1, 0, 0)
+		for _, count := range []int{1, 2, 3, 5} {
+			invalid := base
+			invalid.Topics = append([]common.Hash(nil), base.Topics...)
+
+			if count < 4 {
+				invalid.Topics = invalid.Topics[:count]
+			} else {
+				invalid.Topics = append(invalid.Topics, common.Hash{})
+			}
+
+			result[fmt.Sprintf("%s topics %d", kind, count)] = invalid
+		}
+
+		invalid := base
+		invalid.Data = []byte{1, 2, 3}
+		result[kind+" malformed data"] = invalid
+	}
+
+	parsed, err := getParsedERC1155ABI()
+	require.NoError(t, err)
+
+	for _, lengths := range [][2]int{{2, 1}, {1, 2}} {
+		invalid := nftIndexLog(t, "TransferBatch", common.HexToAddress("0x1"), common.HexToAddress("0x2"), 1, 0, 0)
+		ids := []*big.Int{big.NewInt(8), big.NewInt(9)}[:lengths[0]]
+		values := []*big.Int{big.NewInt(4), big.NewInt(5)}[:lengths[1]]
+		invalid.Data, err = parsed.Events["TransferBatch"].Inputs.NonIndexed().Pack(ids, values)
+		require.NoError(t, err)
+
+		result[fmt.Sprintf("batch ids %d values %d", lengths[0], lengths[1])] = invalid
+	}
+
+	return result
+}
+
+func TestIndexNFTTransfersSkipsMalformedERC1155(t *testing.T) {
+	for name, invalid := range malformedERC1155Logs(t) {
+		t.Run(name, func(t *testing.T) {
+			spy := &nftTransferSpy{}
+			idx := &Indexer{nftBalanceRepo: spy}
+			later := nftIndexLog(t, "TransferBatch", ZeroAddress, common.HexToAddress("0x2"), 2, 0, 0)
+			require.NotPanics(t, func() {
+				require.NoError(t, idx.indexNFTTransfers(context.Background(), big.NewInt(167), []types.Log{later, invalid}))
+			})
+			require.Len(t, spy.calls, 2)
+
+			for n, call := range spy.calls {
+				require.Equal(t, nftTransferRef(big.NewInt(167), later, uint(n)), call.ref)
+				require.Equal(t, int64(8+n), call.increase.TokenID)
+				require.Equal(t, int64(4+n), call.increase.Amount)
+			}
+		})
+	}
+}
+
+func TestSaveERC1155TransferSkipsMalformed(t *testing.T) {
+	for name, invalid := range malformedERC1155Logs(t) {
+		t.Run(name, func(t *testing.T) {
+			spy := &nftTransferSpy{}
+
+			require.NotPanics(t, func() {
+				require.NoError(t, (&Indexer{nftBalanceRepo: spy}).saveERC1155Transfer(context.Background(), big.NewInt(167), invalid))
+			})
+			require.Empty(t, spy.calls)
+		})
+	}
+}
+
+func TestSaveERC1155TransferPreservesABISetupError(t *testing.T) {
+	valid := nftIndexLog(t, "TransferSingle", ZeroAddress, common.HexToAddress("0x2"), 1, 0, 0)
+	originalErr := parsedERC1155ABIErr
+	failure := errors.New("static ABI initialization failed")
+	parsedERC1155ABIErr = failure
+
+	t.Cleanup(func() { parsedERC1155ABIErr = originalErr })
+
+	spy := &nftTransferSpy{}
+	require.ErrorIs(t, (&Indexer{nftBalanceRepo: spy}).saveERC1155Transfer(context.Background(), big.NewInt(167), valid), failure)
+	require.Empty(t, spy.calls)
+}
+
+func TestSaveERC1155TransferPreservesRepositoryError(t *testing.T) {
+	for _, kind := range []string{"TransferSingle", "TransferBatch"} {
+		t.Run(kind, func(t *testing.T) {
+			valid := nftIndexLog(t, kind, ZeroAddress, common.HexToAddress("0x2"), 1, 0, 0)
+			failure := errors.New("repository failed")
+			spy := &nftTransferSpy{failure: failure}
+			require.ErrorIs(t, (&Indexer{nftBalanceRepo: spy}).saveERC1155Transfer(context.Background(), big.NewInt(167), valid), failure)
+			require.Len(t, spy.calls, 1)
 		})
 	}
 }
