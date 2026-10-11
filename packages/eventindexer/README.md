@@ -43,8 +43,12 @@ one `NFTIndexerCheckpoint` marker per chain in the existing `events` table using
 the same locked MySQL session. Startup resumes at the completed block plus one;
 block zero is a valid checkpoint. If a batch or checkpoint write fails, the memory
 cursor stays unchanged and retry uses transfer claims to avoid duplicate balances.
-When no NFT marker exists, `sync` reads only historical business events and rewinds
-one block once for compatibility; the first completed batch establishes the marker.
+After validating a clean `resync`, startup commits checkpoint zero on the locked
+session before launching the event loop or applying any NFT transfer. A `sync`
+with no retained NFT balances, NFT claims or checkpoint does the same, even when
+historical business events exist. Those event rows do not establish processed NFT
+history. A retained legacy NFT snapshot without a checkpoint keeps the existing
+one-block rewind for compatibility; its first completed batch establishes a marker.
 
 `resync` requires no retained NFT balances, NFT transfer claims or NFT checkpoint
 for that chain. A rebuild must reconcile and clear these three together. `sync`
@@ -75,10 +79,24 @@ WHERE chain_id = @nft_chain_id AND event = 'NFTIndexerCheckpoint';
 COMMIT;
 ```
 
-Start the empty state with `INDEX_NFTS=true` and `SYNC_MODE=resync`. As soon as
-indexing begins, change the deployment environment to `SYNC_MODE=sync` before
-its next restart. Continue from the saved checkpoint after an interruption;
-do not clear state again merely because a retained `resync` environment is refused.
+Start the empty state with `INDEX_NFTS=true` and `SYNC_MODE=resync`. Before changing
+the deployment environment to `SYNC_MODE=sync`, confirm exactly one checkpoint row
+exists for the selected chain:
+
+```sql
+SET @nft_chain_id = 167000;
+SELECT emitted_block_id FROM events
+WHERE chain_id = @nft_chain_id AND event = 'NFTIndexerCheckpoint';
+```
+
+A returned height of zero is a valid checkpoint, not an absent row. Startup now
+commits this row before the first 10-second polling tick and before balance writes,
+so switching mode or resuming an interrupted first batch continues from block one
+with claim deduplication. Change the environment before any restart after confirming
+the row; do not clear state again merely because retained `resync` is refused.
+If no checkpoint exists, do not infer safe continuation from legacy business
+events. Reconcile and perform the coordinated clean rebuild with `resync` instead
+of blindly switching retained data to `sync`.
 
 ### Deliberately skipping a blocked range
 
