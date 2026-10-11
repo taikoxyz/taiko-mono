@@ -15,6 +15,7 @@
 //! [`Devnet::stop`] (a scenario that panics or returns an error) first prints each app's halt
 //! reason and the tail of every container's log, as does a failed [`Devnet::wait_for_height`].
 
+mod anvil;
 mod app;
 mod boot;
 mod cometbft;
@@ -27,6 +28,7 @@ mod lander;
 mod planter;
 mod wait;
 
+pub use anvil::StandaloneAnvil;
 pub use cometbft::{CmtClient, CmtStatus, CmtValidator};
 pub use devnet::{Devnet, DevnetSpec, init_tracing};
 pub use keys::{ValidatorKey, node_keys, validator_keys};

@@ -17,6 +17,10 @@ use thiserror::Error;
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
 pub enum CliError {
+    /// A lander configuration, source, persistence or submission failure.
+    #[error(transparent)]
+    Lander(#[from] lander::LanderError),
+
     /// Error from the RPC client crate.
     ///
     /// Wraps [`rpc::RpcClientError`] for errors occurring during RPC client

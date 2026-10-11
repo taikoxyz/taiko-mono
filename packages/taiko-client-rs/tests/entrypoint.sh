@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Runs the abci docker integration scenarios (`crates/abci/tests`, all marked
+# Runs the ABCI, lander, and CLI docker scenarios (all marked
 # `#[ignore = "docker"]`). Each scenario boots its own devnet through the docker CLI
 # (`crates/test-harness`: anvil as L1, alethia-reth, CometBFT) and removes it
 # afterwards, so this script only checks docker, pre-pulls the images and runs the
@@ -8,7 +8,7 @@
 # e.g. `just test --no-capture` or `just test restart` (a test-name filter).
 #
 # Environment:
-#   ANVIL_IMAGE, ALETHIA_RETH_IMAGE, COMETBFT_IMAGE  override the images.
+#   ANVIL_IMAGE, LANDER_ANVIL_IMAGE, ALETHIA_RETH_IMAGE, COMETBFT_IMAGE override the images.
 #   PULL_POLICY=missing  reuse images already present on the daemon instead of
 #                        pulling them on every run.
 
@@ -33,11 +33,13 @@ fi
 export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
 # Built from taikoxyz/alethia-reth#248; switch back to `alethia-reth:main` when that
 # PR merges.
+# Real contracts require canonical zero-storage proofs and modern EIP-7594 wrappers.
+export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
 export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48}
 export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0}
 
 # Pull before the first scenario so downloads don't eat into its readiness deadlines.
-for image in "$ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETBFT_IMAGE"; do
+for image in "$ANVIL_IMAGE" "$LANDER_ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETBFT_IMAGE"; do
     if [[ "${PULL_POLICY:-always}" == "missing" ]] && docker image inspect "$image" > /dev/null 2>&1; then
         echo "Using local image $image"
     else
@@ -46,5 +48,5 @@ for image in "$ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETBFT_IMAGE"; do
     fi
 done
 
-echo "Running the abci docker scenarios"
-cargo nextest run -p abci --all-features --profile integration --run-ignored only -E 'kind(test)' "$@"
+echo "Running the ABCI, lander, and CLI docker scenarios"
+cargo nextest run -p abci -p lander -p taiko-client --all-features --profile integration --run-ignored only -E 'kind(test)' "$@"

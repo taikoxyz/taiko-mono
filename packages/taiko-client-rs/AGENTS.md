@@ -2,12 +2,13 @@
 
 ## Project Structure & Module Organization
 
-- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`); keep orchestration light and delegate protocol logic to the crates.
+- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`, `lander`); keep orchestration light and delegate protocol logic to the crates.
 - `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule` and `committee` free of I/O so they can later move unchanged into a no_std crate for the guest.
+- `crates/lander` constructs authenticated CometBFT batches and blob sidecars, binds the V3 statement, obtains proof through a trait (dummy `0x00` in this version), and durably submits to L1. Keep the journal independent of ABCI; never replace or cancel an outstanding nonce automatically.
 - `crates/protocol` and `crates/rpc` hold shared protocol helpers and the Engine API / JWT provider helpers. Document shared traits whenever exposing cross-crate APIs.
 - `crates/protocol` is also consumed by raiko2 (pinned by git rev); keep the `shasta` modules and `FixedKSigner` it imports.
 - `crates/bindings/` is kept only for protocol's anchor builder, which raiko2 uses. It is generated via `just gen_bindings` (Solidity sources in `../protocol`); never hand-edit or reformat files under `crates/bindings/src`.
-- `crates/test-harness` boots docker devnets (anvil as L1, alethia-reth, CometBFT) through the docker CLI. The docker scenarios live in `crates/abci/tests/` and are marked `#[ignore = "docker"]`.
+- `crates/test-harness` boots docker devnets (anvil as L1, alethia-reth, CometBFT) through the docker CLI. The Docker scenarios live in `crates/abci/tests/`, `crates/lander/tests/` and `bin/client/tests/` and are marked `#[ignore = "docker"]`.
 - `tests/` holds `tests/entrypoint.sh` (run by `just test`) and the test JWT secret `tests/docker/jwt.hex`.
 - `script/` keeps repeatable maintenance scripts; extend them instead of duplicating ad-hoc helpers.
 
@@ -44,7 +45,7 @@
 ## Testing Guidelines
 
 - `just unit` runs only the unit tests (everything outside `tests/` dirs) with no docker — use it for fast iteration. Unit tests live next to the code (`#[cfg(test)] mod tests`); abci's shared builders live in `crates/abci/src/test_utils*`.
-- `just test` runs the abci docker scenarios through `tests/entrypoint.sh`: it checks docker, pulls the anvil, alethia-reth and CometBFT images (override with `ANVIL_IMAGE`, `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE`; `PULL_POLICY=missing` reuses local images) and runs the scenarios serially with the nextest `integration` profile, since each boots its own devnet. Extra args go to nextest, e.g. `just test restart` for one scenario.
+- `just test` runs the ABCI, lander and CLI Docker scenarios through `tests/entrypoint.sh`: it checks docker, pulls the anvil, alethia-reth and CometBFT images (override with `ANVIL_IMAGE`, `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE`, `LANDER_ANVIL_IMAGE`; `PULL_POLICY=missing` reuses local images) and runs the scenarios serially with the nextest `integration` profile, since each boots its own devnet. Extra args go to nextest, e.g. `just test restart` for one scenario.
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`). The harness prints every container's log tail when a scenario fails (panics, returns an error or times out waiting for a height) or its devnet fails to boot; keep that output for any failing integration case.
 - Targeted verification is fine while iterating, but completion still requires a final full `just fmt && just clippy && just unit && just test` pass with clean output.
 
@@ -58,3 +59,5 @@
 
 - Use only the ephemeral test keys bundled in the test harness and `tests/docker`; never commit real credentials or `.env` files.
 - The docker scenarios publish ephemeral host ports and name every container and network `abci-<id>-…`; after an interrupted run remove leftovers with `docker ps -aq --filter 'name=^abci-' | xargs -r docker rm -f -v` and `docker network ls -q --filter 'name=^abci-' | xargs -r docker network rm` (as CI does; the quotes keep shells with extended globbing, such as zsh with `EXTENDED_GLOB`, from expanding the `^`).
+
+- Lander real-contract fixtures pin protocol commit `639bae72ba2e69fc44387306d56f9fef7cb6703d`. Regenerate with `script/gen_lander_artifacts.sh`; generated artifact hashes and compiler provenance are unit-tested. Real-contract tests use `LANDER_ANVIL_IMAGE` (Foundry v1.8.5); existing ABCI tests retain their independent Anvil pin.

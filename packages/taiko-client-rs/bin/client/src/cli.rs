@@ -2,15 +2,15 @@
 //!
 //! This module provides the main CLI structure and command dispatch logic.
 //! It parses command-line arguments using `clap` and routes to the appropriate
-//! subcommand handler (`abci`, `abci-genesis` or `abci-committee-record`), which then runs until
-//! it finishes or the process receives SIGINT or SIGTERM.
+//! subcommand handler (`abci`, `abci-genesis`, `abci-committee-record` or `lander`), which then
+//! runs until it finishes or the process receives SIGINT or SIGTERM.
 
 use std::{future::Future, time::Duration};
 
 use crate::{
     commands::{
         abci::AbciSubCommand, abci_committee_record::AbciCommitteeRecordSubCommand,
-        abci_genesis::AbciGenesisSubCommand,
+        abci_genesis::AbciGenesisSubCommand, lander::LanderSubCommand,
     },
     error::{CliError, Result},
 };
@@ -27,6 +27,8 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 pub enum Commands {
     /// Run the ABCI++ application of the Etna PoS chain for CometBFT.
     Abci(Box<AbciSubCommand>),
+    /// Run the permissionless Etna lander with the dummy proof provider.
+    Lander(Box<LanderSubCommand>),
     /// Write the CometBFT genesis.json of the Etna PoS chain from the L1 genesis record.
     AbciGenesis(Box<AbciGenesisSubCommand>),
     /// Compute the committeeRecordHash an Etna genesis takes for a genesis cutoff.
@@ -47,6 +49,7 @@ impl Cli {
     pub fn run(self) -> Result<()> {
         match self.subcommand {
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
+            Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciGenesis(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciCommitteeRecord(cmd) => Self::run_until_shutdown(cmd.run()),
         }

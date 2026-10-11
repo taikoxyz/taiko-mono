@@ -29,6 +29,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # taiko
 abci = { path = "../../crates/abci" }
+lander = { path = "../../crates/lander" }
 rpc = { path = "../../crates/rpc" }
 
 # types
@@ -36,6 +37,22 @@ thiserror = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
+alloy = { workspace = true, features = ["std", "sol-types", "contract", "providers", "rpc-types", "json-abi"] }
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true }
+anyhow = { workspace = true }
+base64 = { workspace = true }
+ed25519-dalek = { workspace = true }
 http-body-util = { workspace = true }
 libc = "0.2"
+prost = { workspace = true }
+protocol = { path = "../../crates/protocol", default-features = false }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+tendermint = { workspace = true }
+tendermint-proto = { workspace = true }
+test-harness = { path = "../../crates/test-harness" }
+tokio = { workspace = true, features = ["test-util"] }
 tower = { workspace = true }

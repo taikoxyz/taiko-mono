@@ -2,7 +2,7 @@
 
 The Rust consensus-side node of the Taiko Etna PoS chain, starting from L2 genesis block 0. Stock CometBFT orders and finalizes
 blocks; the `taiko-client abci` ABCI++ application builds and validates them and drives
-alethia-reth through the Engine API. Other networks keep using the previous release of this client.
+alethia-reth through the Engine API. The independent `taiko-client lander` publishes decided batches to L1. Other networks keep using the previous release of this client.
 
 ## Architecture
 
@@ -33,16 +33,17 @@ Every validator and every full node runs three processes:
 
 ## Project structure
 
-| Path                   | Description                                                                      |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`)      |
-| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                     |
-| `crates/protocol/`     | Shared protocol helpers; its `shasta` modules are kept for raiko2                |
-| `crates/rpc/`          | Engine API wrappers, capability check and JWT provider helpers                   |
-| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)  |
-| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) for the abci integration scenarios |
-| `script/`              | Maintenance scripts (binding generation)                                         |
-| `tests/`               | The integration test entrypoint and the test JWT secret                          |
+| Path                   | Description                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `lander`) |
+| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission         |
+| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                          |
+| `crates/protocol/`     | Shared protocol helpers; its `shasta` modules are kept for raiko2                     |
+| `crates/rpc/`          | Engine API wrappers, capability check and JWT provider helpers                        |
+| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)       |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) for the abci integration scenarios      |
+| `script/`              | Maintenance scripts (binding generation)                                              |
+| `tests/`               | The integration test entrypoint and the test JWT secret                               |
 
 ## Prerequisites
 
@@ -89,6 +90,84 @@ A safety halt (a committed block or the execution engine contradicting the app s
 process with status 2; investigate before restarting. Liveness halts (anchor not final,
 back-pressure, committee record not landed, superseded generation) keep the process running and
 CometBFT rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
+
+### `lander`
+
+Runs an independent permissionless landing service. It reads decided blocks,
+certificates and committee hints from CometBFT, authenticates them against the
+current Inbox checkpoint and L1 history, and submits complete batches in blob
+transactions. No validator identity or stake is required to call `land`.
+
+The first version implements `ProofProvider` with `DummyProofProvider`, which
+always returns the single byte `0x00`. The deployed verifier must accept this
+value for landing to succeed. A real Etna validity-proof guest/provider remains
+separate work; the current contract tests establish the submission and binding
+path rather than EVM validity-proof soundness.
+
+Required inputs are public `--l1.http`, public `--l2.http`, `--comet.http`, a
+`--signing-key` file containing a hex key, an exclusive `--data-dir`,
+`--max-blocks`, `--max-blobs`, all three fee caps, and `--sidecar`.
+The command needs no Engine API or JWT. Fee caps are positive wei per gas:
+`--max-fee-per-gas`, `--max-priority-fee-per-gas`, and
+`--max-fee-per-blob-gas`; the priority cap cannot exceed the execution cap.
+Signed transactions add a checked 20% gas-limit margin to the RPC estimate,
+covering a pending reference that moves from BLOCKHASH into the EIP-2935 lookup
+branch before inclusion. Set the limits to match the deployed Inbox and L1 fork. Choose the budgets
+explicitly before running this example:
+
+```sh
+taiko-client lander --l1.http http://l1-node:8545 \
+  --l2.http http://localhost:8545 --comet.http http://localhost:26657 \
+  --signing-key ./lander.key --data-dir ./lander-data \
+  --max-blocks 10 --max-blobs 6 --sidecar eip7594 \
+  --max-fee-per-gas "$LANDER_MAX_FEE_PER_GAS" \
+  --max-priority-fee-per-gas "$LANDER_MAX_PRIORITY_FEE_PER_GAS" \
+  --max-fee-per-blob-gas "$LANDER_MAX_FEE_PER_BLOB_GAS"
+```
+
+Optional `--chain-config` uses the same parameters as ABCI; only the internal
+devnet has built-in Etna parameters. `--rpc.timeout`, `--proof.timeout`,
+`--broadcast.timeout` and `--receipt.timeout` accept 1–3600 seconds.
+`--poll.interval` is milliseconds (default 1000); `--confirmations` counts
+the receipt's own canonical block (default 1). Logging and metrics flags match
+the other subcommands. Metrics use bounded phase/retry labels; transaction
+hashes and waiting reasons appear in logs.
+
+The batch's L1 reference is separate from each L2 block's anchor. The reference
+authenticates an ancestor header chain covering those anchors; it never changes
+the anchor number or state root committed in an L2 header. V3 binds the Inbox
+proxy, registry, both chain ids, generation, current checkpoint, starting
+committee, terminal block/root, ordered committee outputs and blob hashes.
+
+Blob payload V1 is `0x01 || rlp([[comet_block_proto, commit_proto], ...])`,
+using canonical `tendermint-proto` v0_38 messages. It retains the envelope inside
+each complete CometBFT block and publishes that block's commit as well. Existing
+`BlobCoder` handles multi-blob field encoding; there is no compression.
+`eip4844` and `eip7594` select different sidecar wrappers/proofs for the same
+payload and commitments. Choose the mode supported by the L1 fork.
+At height 1, the Rust domain form normalizes Go's present empty last commit and
+last block id to `None`. Certificate part-set verification reconstructs those
+Go protobuf defaults; a guest must apply that reconstruction when verifying
+the signed 64 KiB part-set root. The blob codec retains the canonical Rust
+domain representation.
+
+The journal is `lander-state.json`, separate from `abci-state.json`, and the
+process holds `lander.lock`. It writes/fsyncs signed transaction bytes and the
+sidecar before broadcasting. Restart reconciles receipts and account nonces
+before resubmission; lost responses can only cause identical-byte rebroadcast.
+Another lander advancing the checkpoint causes unbroadcast work to be rebuilt.
+An already attempted transaction retains its nonce until reconciled, even if
+its job becomes stale. This version does not replace fees or cancel nonces:
+an underpriced transaction or a dropped stale job can require operator
+reconciliation. Use one active lander per signing account and separate accounts
+for independent competitors.
+
+The service needs unpruned CometBFT blocks/commits and the committee hints
+retained under ABCI's settlement bounds, the checkpoint parent EL header, and
+L1 headers/proofs back through the consumed anchors. A reference chain is
+bounded to 131,072 headers; the durable journal is bounded to 256 MiB.
+A complete single block exceeding the configured blob capacity stops with its
+height and required capacity, rather than truncating consensus data.
 
 ### `abci-genesis`
 
@@ -267,13 +346,26 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 - `just unit` runs the unit tests (everything outside `tests/` directories) and the abci
   doctests. No docker needed.
-- `just test` runs the docker integration scenarios in `crates/abci/tests` (single validator,
+- `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
+  `crates/lander/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
-  bump, smoke). Each scenario boots its own devnet through the docker CLI (anvil as L1,
+  bump and smoke. Lander scenarios cover actual Inbox blob transactions, permissionless races,
+  verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
+  and actual-CLI SIGTERM/SIGKILL restarts. Each scenario boots its own devnet through the docker CLI (anvil as L1,
   alethia-reth, CometBFT), so they run one at a time; the suite takes a few minutes. Extra
   arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.
   `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
-  `ALETHIA_RETH_IMAGE` and `COMETBFT_IMAGE`, or set `PULL_POLICY=missing` to reuse local images.
+  `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
+  `PULL_POLICY=missing` to reuse local images. Existing ABCI tests retain Anvil v1.5.1;
+  actual-contract lander tests use v1.8.5, which fixes canonical zero-storage proofs
+  and supports EIP-7594 wrappers. `just unit` also verifies the pinned contract artifact hashes.
+
+Regenerate lander ABI/deployment fixtures with
+`script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
+The script requires protocol HEAD `639bae72ba2e69fc44387306d56f9fef7cb6703d`,
+installs pnpm dependencies before Foundry, verifies compiler source hashes,
+formats generated JSON, and records ABI/bytecode/compiler provenance. It leaves
+the existing Anchor bindings unchanged.
 
 ## License
 

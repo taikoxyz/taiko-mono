@@ -130,6 +130,12 @@ do not duplicate or rewrite that envelope. The blocks are
 in increasing, consecutive height order. The first byte is the batch codec
 version, independent of the envelope's version.
 
+At height 1, the pinned domain adapters normalize Go's present empty last commit
+and last block id to None. Signed part-set verification reconstructs the Go
+non-nullable empty BlockID/PartSetHeader messages before hashing 64 KiB parts.
+A real guest must use this reconstruction; V1 itself retains the canonical
+Rust-domain protobuf representation.
+
 There is no compression in V1. Encode the entire payload once, then split it
 with the existing BlobCoder. Decoding concatenates the decoded blob payloads
 in transaction order before checking the version and canonical RLP. Reject
@@ -197,6 +203,11 @@ complete signed network transaction, sidecar, transaction hash, sender, nonce,
 chain ids, contract identities, reference hash, and job identity before any
 broadcast. Pending tracks that same transaction. Confirming waits for the
 configured number of canonical L1 confirmations.
+
+Signing uses a nonzero RPC gas estimate plus a checked, rounded-up 20%
+headroom. This covers the higher-cost EIP-2935 lookup when a signed pending
+transaction crosses the 256-block BLOCKHASH window before inclusion. Fee caps
+remain the explicit operator values.
 
 Use write/fsync/rename/directory-fsync for journal updates and an exclusive
 data-directory lock. Persist neither the private key nor an endpoint credential
