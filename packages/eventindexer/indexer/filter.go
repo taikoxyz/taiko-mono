@@ -51,6 +51,14 @@ func (i *Indexer) filter(ctx context.Context) error {
 			return err
 		}
 
+		if err := i.checkWriterLock(ctx); err != nil {
+			return err
+		}
+
+		if err := i.nftCursorRepo.SaveCheckpoint(ctx, i.srcChainID, end); err != nil {
+			return errors.Wrap(err, "save NFT checkpoint")
+		}
+
 		i.latestIndexedBlockNumber = end
 
 		if end == endBlockID {

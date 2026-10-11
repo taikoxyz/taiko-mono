@@ -9,9 +9,12 @@ import (
 )
 
 type initialNFTCursorRepository struct {
-	latest uint64
-	err    error
-	calls  int
+	latest     uint64
+	err        error
+	calls      int
+	checkpoint bool
+	saveErr    error
+	saved      []uint64
 }
 
 func (r *initialNFTCursorRepository) FindLatestBlockID(context.Context, uint64) (uint64, error) {
@@ -47,4 +50,34 @@ func TestInitialIndexingBlockByMode(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (r *initialNFTCursorRepository) FindCheckpoint(context.Context, uint64) (uint64, bool, error) {
+	return r.latest, r.checkpoint, nil
+}
+func (r *initialNFTCursorRepository) SaveCheckpoint(_ context.Context, _ uint64, height uint64) error {
+	if r.saveErr != nil {
+		return r.saveErr
+	}
+
+	r.saved = append(r.saved, height)
+	r.latest = height
+	r.checkpoint = true
+
+	return nil
+}
+func TestInitialNFTCheckpointExact(t *testing.T) {
+	r := &initialNFTCursorRepository{latest: 20, checkpoint: true}
+	i := &Indexer{nftCursorRepo: r, srcChainID: 1}
+	got, err := i.initialIndexingBlockByMode(context.Background(), Sync)
+	require.NoError(t, err)
+	require.EqualValues(t, 20, got)
+}
+
+func TestInitialNFTCheckpointZeroPresent(t *testing.T) {
+	r := &initialNFTCursorRepository{checkpoint: true}
+	i := &Indexer{nftCursorRepo: r, srcChainID: 1}
+	require.NoError(t, i.setInitialIndexingBlockByMode(context.Background(), Sync))
+	require.EqualValues(t, 1, i.nextFilterStartBlock())
+	require.Zero(t, r.calls)
 }

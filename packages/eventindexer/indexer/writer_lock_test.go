@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -19,6 +23,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 )
 
 func TestWriterLockKey(t *testing.T) {
@@ -148,11 +153,99 @@ func TestIntegration_WriterLock(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, nftBalance.Amount)
 
+	// Resync rejects any retained state, even when the escape hatch is enabled.
+	for _, allow := range []bool{false, true} {
+		guarded := makeIndexer(d, 1)
+		guarded.allowUnclaimedBalanceReplay = allow
+		require.ErrorContains(t, guarded.checkBalanceClaimBootstrap(ctx), "clean rebuild")
+		guarded.syncMode = Sync
+		require.ErrorContains(t, guarded.checkBalanceClaimBootstrap(ctx), "watermark")
+	}
+
+	require.NoError(t, d.GormDB().Exec("INSERT INTO events (name, event, chain_id, data, emitted_block_id) "+
+		"VALUES ('MessageSent', 'MessageSent', 1, '{}', 0)").Error)
+
+	zeroLegacy := makeIndexer(d, 1)
+	zeroLegacy.syncMode = Sync
+	zeroLegacy.allowUnclaimedBalanceReplay = true
+	require.ErrorContains(t, zeroLegacy.checkBalanceClaimBootstrap(ctx), "watermark")
+	require.NoError(t, lost.nftCursorRepo.SaveCheckpoint(ctx, 1, 12))
+	require.NoError(t, lost.nftCursorRepo.SaveCheckpoint(ctx, 1, 10))
+	height, found, err := lost.nftCursorRepo.FindCheckpoint(ctx, 1)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.EqualValues(t, 12, height)
+
+	markerOnly := makeIndexer(d, 1)
+	require.ErrorContains(t, markerOnly.checkBalanceClaimBootstrap(ctx), "clean rebuild")
+	require.NoError(t, makeIndexer(d, 9).checkBalanceClaimBootstrap(ctx))
+
+	// Claims alone and marker alone also make a resync unsafe; the allow flag
+	// only applies to the narrow legacy bootstrap overlap.
+	require.NoError(t, d.GormDB().Exec("INSERT INTO processed_transfer_logs (chain_id, kind, tx_hash, log_index, batch_index) "+
+		"VALUES (3, 'nft', ?, 0, 0)",
+		"0x"+strings.Repeat("b", 64)).Error)
+	require.ErrorContains(t, makeIndexer(d, 3).checkBalanceClaimBootstrap(ctx), "clean rebuild")
+	require.NoError(t, lost.nftCursorRepo.SaveCheckpoint(ctx, 4, 0))
+	require.ErrorContains(t, makeIndexer(d, 4).checkBalanceClaimBootstrap(ctx), "clean rebuild")
+
+	// A failed checkpoint after real committed NFT transfers replays through
+	// the claims and advances only after the retry persists the completed batch.
+	replay := makeIndexer(d, 5)
+	require.NoError(t, replay.acquireWriterLock(ctx))
+	fixture := &nftFilterRPC{logs: []types.Log{
+		nftIndexLog(t, "ERC721", ZeroAddress, common.HexToAddress("0x1"), 1, 0, 0),
+		nftIndexLog(t, "ERC721", common.HexToAddress("0x1"), common.HexToAddress("0x2"), 2, 0, 0),
+	}}
+	server := rpc.NewServer()
+	require.NoError(t, server.RegisterName("eth", fixture))
+
+	defer server.Stop()
+
+	client := ethclient.NewClient(rpc.DialInProc(server))
+	defer client.Close()
+	replay.ethClient = client
+	originalBalances := replay.nftBalanceRepo
+	halfway := &failingNFTBalance{NFTBalanceRepository: originalBalances}
+	replay.nftBalanceRepo = halfway
+	replay.blockBatchSize = 10
+	checkpoint := &failingCheckpoint{NFTCursorRepository: replay.nftCursorRepo, fail: true}
+	replay.nftCursorRepo = checkpoint
+	require.ErrorContains(t, replay.filter(ctx), "mid-batch fixture failure")
+	require.Zero(t, replay.latestIndexedBlockNumber)
+	_, present, err := replay.nftCursorRepo.FindCheckpoint(ctx, 5)
+	require.NoError(t, err)
+	require.False(t, present)
+
+	replay.nftBalanceRepo = originalBalances
+	require.ErrorContains(t, replay.filter(ctx), "checkpoint fixture failure")
+	require.Zero(t, replay.latestIndexedBlockNumber)
+
+	checkpoint.fail = false
+
+	require.NoError(t, replay.filter(ctx))
+	require.EqualValues(t, 2, replay.latestIndexedBlockNumber)
+
+	var replayAmount int64
+
+	require.NoError(t, d.GormDB().Table("nft_balances").Where("chain_id = ?", 5).Select("SUM(amount)").Scan(&replayAmount).Error)
+	require.EqualValues(t, 1, replayAmount)
+	replay.releaseWriterLock()
+
 	var id uint64
 
 	require.NoError(t, lost.writerConn.QueryRowContext(ctx, "SELECT CONNECTION_ID()").Scan(&id))
 	require.NoError(t, d.GormDB().Exec(fmt.Sprintf("KILL CONNECTION %d", id)).Error)
 	require.ErrorIs(t, lost.checkWriterLock(ctx), errWriterLockLost)
+	require.Error(t, lost.nftCursorRepo.SaveCheckpoint(ctx, 1, 99))
+
+	cursorRepo, err := repo.NewNFTCursorRepository(d)
+	require.NoError(t, err)
+	height, found, err = cursorRepo.FindCheckpoint(ctx, 1)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.EqualValues(t, 12, height)
+
 	_, _, err = lost.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx,
 		ref(eventindexer.TransferKindNFT, 4),
 		nftOpts,
@@ -164,7 +257,7 @@ func TestIntegration_WriterLock(t *testing.T) {
 	var claims int64
 
 	require.NoError(t, d.GormDB().Table("processed_transfer_logs").Count(&claims).Error)
-	require.EqualValues(t, 1, claims)
+	require.EqualValues(t, 4, claims)
 	require.NoError(t, d.GormDB().First(nftBalance, nftBalance.ID).Error)
 	require.EqualValues(t, 1, nftBalance.Amount)
 	require.NoError(t, b.acquireWriterLock(ctx))
@@ -192,4 +285,34 @@ func TestIntegration_WriterLock(t *testing.T) {
 	pool.SetMaxOpenConns(1)
 	require.ErrorContains(t, makeIndexer(d, 3).acquireWriterLock(ctx), "MaxOpenConns")
 	pool.SetMaxOpenConns(0)
+}
+
+// failingCheckpoint wraps the real pinned repository to fail only persistence.
+type failingCheckpoint struct {
+	eventindexer.NFTCursorRepository
+	fail bool
+}
+
+func (r *failingCheckpoint) SaveCheckpoint(ctx context.Context, chain, height uint64) error {
+	if r.fail {
+		return fmt.Errorf("checkpoint fixture failure")
+	}
+
+	return r.NFTCursorRepository.SaveCheckpoint(ctx, chain, height)
+}
+
+type failingNFTBalance struct {
+	eventindexer.NFTBalanceRepository
+	calls int
+}
+
+func (r *failingNFTBalance) IncreaseAndDecreaseBalancesInTx(
+	ctx context.Context, ref eventindexer.TransferLogRef, increase, decrease eventindexer.UpdateNFTBalanceOpts,
+) (*eventindexer.NFTBalance, *eventindexer.NFTBalance, error) {
+	r.calls++
+	if r.calls == 2 {
+		return nil, nil, fmt.Errorf("mid-batch fixture failure")
+	}
+
+	return r.NFTBalanceRepository.IncreaseAndDecreaseBalancesInTx(ctx, ref, increase, decrease)
 }

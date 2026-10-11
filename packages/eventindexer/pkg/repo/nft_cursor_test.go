@@ -42,3 +42,54 @@ func TestIntegration_NFTCursorReadsLegacyWatermark(t *testing.T) {
 	_, err = r.FindLatestBlockID(ctx, 1)
 	require.ErrorIs(t, err, context.Canceled)
 }
+
+func TestIntegration_NFTCheckpointMarker(t *testing.T) {
+	database, closeFn, err := testMysql(t)
+	require.NoError(t, err)
+
+	defer closeFn()
+
+	r, err := NewNFTCursorRepository(database)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	for _, height := range []uint64{0, 20, 10, 25} {
+		require.NoError(t, r.SaveCheckpoint(ctx, 1, height))
+		got, found, err := r.FindCheckpoint(ctx, 1)
+		require.NoError(t, err)
+		require.True(t, found)
+
+		want := height
+		if height == 10 {
+			want = 20
+		}
+
+		require.Equal(t, want, got)
+	}
+
+	require.NoError(t, r.SaveCheckpoint(ctx, 2, 0))
+	got, found, err := r.FindCheckpoint(ctx, 2)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Zero(t, got)
+
+	_, found, err = r.FindCheckpoint(ctx, 3)
+	require.NoError(t, err)
+	require.False(t, found)
+
+	var count int64
+
+	require.NoError(t, database.GormDB().Table("events").Where("chain_id = ? AND event = ?", 1, NFTCheckpointEvent).Count(&count).Error)
+	require.EqualValues(t, 1, count)
+	require.NoError(t, database.GormDB().Exec("INSERT INTO events (name, event, chain_id, data, emitted_block_id) "+
+		"VALUES ('MessageSent','MessageSent',1,'{}',100)").Error)
+
+	legacy, err := r.FindLatestBlockID(ctx, 1)
+	require.NoError(t, err)
+	require.EqualValues(t, 100, legacy)
+
+	got, found, err = r.FindCheckpoint(ctx, 1)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.EqualValues(t, 25, got)
+}

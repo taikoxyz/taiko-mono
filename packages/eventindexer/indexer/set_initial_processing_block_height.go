@@ -37,6 +37,15 @@ func (i *Indexer) initialIndexingBlockByMode(
 	}
 
 	if mode == Sync {
+		checkpoint, found, err := i.nftCursorRepo.FindCheckpoint(ctx, i.srcChainID)
+		if err != nil {
+			return 0, errors.Wrap(err, "read NFT checkpoint")
+		}
+
+		if found {
+			return checkpoint, nil
+		}
+
 		latest, err := i.nftCursorRepo.FindLatestBlockID(ctx,
 			i.srcChainID,
 		)

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"sync"
@@ -107,7 +108,8 @@ func TestFilterNFTOnlyRPCAndCursor(t *testing.T) {
 				fixture.failure = failure
 			}
 
-			i := &Indexer{ethClient: client, nftBalanceRepo: spy, srcChainID: 167, blockBatchSize: 10, writerConn: filterTestWriter(t)}
+			cursor := &initialNFTCursorRepository{}
+			i := &Indexer{nftCursorRepo: cursor, ethClient: client, nftBalanceRepo: spy, srcChainID: 167, blockBatchSize: 10, writerConn: filterTestWriter(t)}
 			err := i.filter(ctx)
 
 			require.Len(t, fixture.queries, 1)
@@ -133,6 +135,42 @@ func TestFilterNFTOnlyRPCAndCursor(t *testing.T) {
 					require.ErrorIs(t, err, context.Canceled)
 				}
 			}
+		})
+	}
+}
+
+func TestFilterEmptyBatchDurableRestart(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(fmt.Sprint(fail), func(t *testing.T) {
+			server := rpc.NewServer()
+			require.NoError(t, server.RegisterName("eth", &nftFilterRPC{logs: []types.Log{}}))
+
+			defer server.Stop()
+
+			client := ethclient.NewClient(rpc.DialInProc(server))
+			defer client.Close()
+
+			cursor := &initialNFTCursorRepository{}
+			if fail {
+				cursor.saveErr = errors.New("checkpoint failed")
+			}
+
+			i := &Indexer{ethClient: client, nftCursorRepo: cursor, nftBalanceRepo: &nftTransferSpy{},
+				srcChainID: 167, blockBatchSize: 10, writerConn: filterTestWriter(t)}
+
+			err := i.filter(context.Background())
+			if fail {
+				require.ErrorContains(t, err, "checkpoint failed")
+				require.Zero(t, i.latestIndexedBlockNumber)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, []uint64{2}, cursor.saved)
+			restart := &Indexer{nftCursorRepo: cursor, srcChainID: 167}
+			require.NoError(t, restart.setInitialIndexingBlockByMode(context.Background(), Sync))
+			require.EqualValues(t, 3, restart.nextFilterStartBlock())
 		})
 	}
 }

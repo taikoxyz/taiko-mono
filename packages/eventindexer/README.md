@@ -38,13 +38,22 @@ so the supervisor can restart. Configure at least two open DB connections or an
 unlimited pool, and stop older unguarded writers before upgrading.
 
 Per-transfer claims remain atomic with balance updates and make restart replay
-idempotent. On `sync`, startup still reads the historical `events` watermark;
-`resync` and an empty watermark start from genesis. The service no longer writes
-events, so that legacy marker does not advance and later restarts can rescan the
-same historical range. A durable NFT checkpoint is outside this change. The existing
-recency-based pre-claim bootstrap check remains; it does not detect every
-historical or resync overcount. Historical balances may require an operator
-reconciliation decision.
+idempotent. Each successfully completed batch, including an empty batch, updates
+one `NFTIndexerCheckpoint` marker per chain in the existing `events` table using
+the same locked MySQL session. Startup resumes at the completed block plus one;
+block zero is a valid checkpoint. If a batch or checkpoint write fails, the memory
+cursor stays unchanged and retry uses transfer claims to avoid duplicate balances.
+When no NFT marker exists, `sync` reads only historical business events and rewinds
+one block once for compatibility; the first completed batch establishes the marker.
+
+`resync` requires no retained NFT balances, NFT transfer claims or NFT checkpoint
+for that chain. A rebuild must reconcile and clear these three together. `sync`
+refuses genesis replay when balances exist without either an NFT checkpoint or a
+legacy events watermark, regardless of claims or `ALLOW_UNCLAIMED_BALANCE_REPLAY`.
+The existing recency check remains for the narrow legacy bootstrap overlap: the
+escape hatch accepts its possible single overcount, not an unsafe clean rebuild.
+Malformed recognized ERC1155 logs warn and skip; valid later logs continue, while
+repository and RPC errors fail the batch.
 
 All historical migrations remain unchanged for installed database and Goose
 version compatibility; no tables or existing data are dropped. Historical

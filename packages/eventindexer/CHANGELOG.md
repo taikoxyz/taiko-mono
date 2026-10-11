@@ -6,7 +6,9 @@
   with probes, metrics, single-writer ownership and replay protection.
 - Remove unused ERC20, event/proposal/proof, chart and account/transaction
   features, routes, flags and bindings. Query API no longer requires RPC.
-- Preserve historical migrations and the read-only legacy NFT startup watermark;
+- Persist completed NFT batches in an existing events marker and guard unsafe
+  resync/genesis replay; skip malformed ERC1155 wire logs with warnings.
+- Preserve historical migrations and the legacy NFT startup fallback;
   retire event-only L1 deployments before upgrading to this NFT-only binary.
 
 ## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.14.0...eventindexer-v0.15.0) (2026-05-21)

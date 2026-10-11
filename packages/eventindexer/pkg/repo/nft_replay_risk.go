@@ -10,23 +10,11 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
-// UnclaimedNFTReplayRisk reports whether a previous process may already have
-// applied balance mutations for the block range this process is about to replay,
-// without leaving claims behind in processed_transfer_logs.
-//
-// The claim table makes replays idempotent, but only for logs claimed at least
-// once. On the first start after the table is introduced there are no claims,
-// while setInitialIndexingBlockByMode still rewinds the cursor into a range the
-// previous process already applied — so that one restart would double count.
-// Nothing records what the previous process applied, so this cannot be repaired
-// automatically; the point of this check is to make the situation loud.
-//
-// The signal is recency, not mere existence. Balances written at or after the
-// block being resumed from mean a process was applying them inside the range
-// about to be replayed. Balances that predate it — a chain where balance
-// indexing was switched off long ago and is only now being re-enabled — cannot
-// be double counted, because the replay range is entirely newer than anything
-// the previous process wrote.
+// UnclaimedNFTReplayRisk checks the legacy bootstrap overlap when no durable
+// NFT checkpoint exists. Balances without a positive legacy watermark are at
+// risk even if some transfer claims exist: partial claims cannot cover genesis
+// replay. With a usable watermark, preserve the established recency check for
+// the first pre-claim restart. NFT markers never participate in that comparison.
 func UnclaimedNFTReplayRisk(
 	ctx context.Context,
 	d db.DB,
@@ -40,11 +28,6 @@ func UnclaimedNFTReplayRisk(
 		Where("kind = ?", eventindexer.TransferKindNFT).
 		Count(&claims).Error; err != nil {
 		return false, errors.Wrap(err, "count processed_transfer_logs")
-	}
-
-	// once this chain has claimed anything, every later replay is covered
-	if claims > 0 {
-		return false, nil
 	}
 
 	var lastBalanceWrite sql.NullTime
@@ -66,7 +49,7 @@ func UnclaimedNFTReplayRisk(
 
 	if err := d.GormDB().WithContext(ctx).
 		Table("events").
-		Where("chain_id = ?", chainID).
+		Where("chain_id = ? AND event <> ? AND emitted_block_id > 0", chainID, NFTCheckpointEvent).
 		Select("transacted_at").
 		Order("emitted_block_id DESC").
 		Limit(1).
@@ -74,11 +57,35 @@ func UnclaimedNFTReplayRisk(
 		return false, errors.Wrap(err, "resume block transacted_at")
 	}
 
-	// no events, so the cursor starts at the genesis rather than resuming
-	// into a range a previous process worked on
+	// Missing history cannot prove that some claims cover existing balances.
 	if !resumeBlockTime.Valid {
+		return true, nil
+	}
+
+	if claims > 0 {
 		return false, nil
 	}
 
 	return !lastBalanceWrite.Time.Before(resumeBlockTime.Time), nil
+}
+
+// NFTReplayState reports retained indexing state before accepting a clean rebuild.
+func NFTReplayState(ctx context.Context, d db.DB, chainID uint64) (balances, claims, checkpoints, legacy int64, err error) {
+	for _, query := range []struct {
+		table, predicate string
+		args             []interface{}
+		count            *int64
+	}{
+		{"processed_transfer_logs", "chain_id = ? AND kind = ?", []interface{}{chainID, eventindexer.TransferKindNFT}, &claims},
+		{"nft_balances", "chain_id = ?", []interface{}{chainID}, &balances},
+		{"events", "chain_id = ? AND event = ?", []interface{}{chainID, NFTCheckpointEvent}, &checkpoints},
+		{"events", "chain_id = ? AND event <> ? AND emitted_block_id > 0", []interface{}{chainID, NFTCheckpointEvent}, &legacy},
+	} {
+		if err = d.GormDB().WithContext(ctx).Table(query.table).Where(query.predicate, query.args...).Count(query.count).Error; err != nil {
+			err = errors.Wrap(err, "count "+query.table)
+			return
+		}
+	}
+
+	return
 }

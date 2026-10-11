@@ -77,7 +77,7 @@ func (i *Indexer) acquireWriterLock(ctx context.Context) (err error) {
 	}
 	// Session clones Config and (with Context set) Statement. Both pools must
 	// point at the reserved connection, including transaction BeginTx calls.
-	// Keep the read-only cursor repository on its usual pool.
+	// Checkpoint transactions must use this same physical session.
 	pinned := i.db.GormDB().Session(&gorm.Session{NewDB: true, Context: ctx})
 	pinned.ConnPool = conn
 	pinned.Statement.ConnPool = conn
@@ -89,6 +89,13 @@ func (i *Indexer) acquireWriterLock(ctx context.Context) (err error) {
 	}
 
 	i.nftBalanceRepo = nft
+
+	cursor, err := repo.NewNFTCursorRepository(pinnedDB)
+	if err != nil {
+		return err
+	}
+
+	i.nftCursorRepo = cursor
 
 	return nil
 }

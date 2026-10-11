@@ -193,14 +193,28 @@ func (i *Indexer) Close(ctx context.Context) {
 	}
 }
 
-// checkBalanceClaimBootstrap refuses to start when this process would replay
-// balance mutations that a previous process already applied.
-//
-// processed_transfer_logs makes replays idempotent, but only for logs claimed at
-// least once. Nothing records what a pre-claim process applied, so the indexer
-// cannot repair this by itself and the choice belongs to an operator: reset the
-// balances so they rebuild from claims, or accept a single overcount.
+// checkBalanceClaimBootstrap rejects retained state for resync and missing
+// watermarks for balances. The escape hatch applies only to legacy overlap.
 func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
+	balances, claims, checkpoints, legacy, err := repo.NFTReplayState(ctx, i.db, i.srcChainID)
+	if err != nil {
+		return err
+	}
+
+	if i.syncMode == Resync && (balances > 0 || claims > 0 || checkpoints > 0) {
+		return errors.Newf("NFT resync for chain %d requires a clean rebuild: "+
+			"remove retained NFT balances, NFT claims and NFT checkpoint together after operator reconciliation", i.srcChainID)
+	}
+
+	if i.syncMode == Sync && balances > 0 && checkpoints == 0 && legacy == 0 {
+		return errors.Newf("NFT balances for chain %d have no NFT checkpoint or legacy watermark; "+
+			"refusing genesis replay regardless of claims or allowUnclaimedBalanceReplay", i.srcChainID)
+	}
+
+	if checkpoints > 0 {
+		return nil
+	}
+
 	atRisk, err := repo.UnclaimedNFTReplayRisk(ctx, i.db, int64(i.srcChainID))
 	if err != nil {
 		return errors.Wrap(err, "repo.UnclaimedNFTReplayRisk")

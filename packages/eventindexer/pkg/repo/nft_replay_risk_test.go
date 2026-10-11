@@ -56,7 +56,7 @@ func TestIntegration_UnclaimedNFTReplayRisk(t *testing.T) {
 		{
 			"balances but no events, cursor starts at the genesis",
 			func(t *testing.T, d db.DB) { seedNFTBalance(t, d, 1, recent) },
-			false,
+			true,
 		},
 		{
 			// balance indexing was switched off long ago and is only now being
@@ -76,6 +76,21 @@ func TestIntegration_UnclaimedNFTReplayRisk(t *testing.T) {
 				seedResumeBlock(t, d, 1, resume)
 			},
 			true,
+		},
+
+		{"zero-height legacy events cannot justify genesis replay", func(t *testing.T, d db.DB) {
+			seedNFTBalance(t, d, 1, old)
+			seedResumeBlock(t, d, 1, resume)
+			assert.NoError(t, d.GormDB().Exec("UPDATE events SET emitted_block_id = 0 WHERE chain_id = 1").Error)
+			_, err := markTransferLogApplied(context.Background(), d.GormDB(), testRef(eventindexer.TransferKindNFT, 1))
+			assert.NoError(t, err)
+		}, true},
+		{
+			"some claims cannot justify genesis replay", func(t *testing.T, d db.DB) {
+				seedNFTBalance(t, d, 1, old)
+				_, err := markTransferLogApplied(context.Background(), d.GormDB(), testRef(eventindexer.TransferKindNFT, 1))
+				assert.NoError(t, err)
+			}, true,
 		},
 		{
 			"a claim for this chain and kind clears the risk",
