@@ -41,7 +41,7 @@ async fn epoch_start(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, Anch
     jump(&mut app, h_e - 1, parent, &[(1, fx.committee(1))]);
 
     let joined = RegistryStorage {
-        checkpoints: vec![(fx.activation.l1_0, sample_entries(3)), (JOIN_BLOCK, sample_entries(4))],
+        checkpoints: vec![(fx.genesis.l1_0, sample_entries(3)), (JOIN_BLOCK, sample_entries(4))],
     };
     fx.advance_l1(app.l1(), NEW_ANCHOR, &fx.inbox_with(h_e - 3, &[]), &joined);
     let moved = fx.anchor_state(app.l1(), NEW_ANCHOR, None);
@@ -148,7 +148,7 @@ async fn forged_committee_witnesses_are_rejected() {
     let account: Expect = |e| matches!(e, CommitteeError::Mpt(MptError::Account(_)));
     let slots: Expect = |e| matches!(e, CommitteeError::Mpt(MptError::SlotSet { .. }));
     let contract: Expect = |e| matches!(e, CommitteeError::WrongContract { .. });
-    let (l1_0, inbox) = (fx.activation.l1_0, fx.params.inbox);
+    let (l1_0, inbox) = (fx.genesis.l1_0, fx.params.inbox);
     let cases: Vec<(&str, Forge, Expect)> = vec![
         // The record.
         ("set_root", Box::new(|w| w.record.set_root = B256::repeat_byte(0x5e)), record),
@@ -200,7 +200,7 @@ async fn switch_height_with_an_unknown_committee_is_rejected() {
     let c1 = fx.committee(1);
     let landed = fx.inbox_with(switch - 7, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
     fx.advance_l1(app.l1(), 66, &landed, &fx.registry);
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     let witness = fx.anchor_witness(app.l1(), 66, Some(1));
 
     // The target committee 1 is unknown.

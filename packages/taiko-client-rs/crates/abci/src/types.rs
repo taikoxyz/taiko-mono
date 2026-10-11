@@ -106,8 +106,10 @@ pub struct Member {
 /// Inbox facts proven by an anchor (or genesis) witness.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InboxFacts {
-    /// `migrationState` (slot 258); `ETNA_ACTIVE = 3` once Etna PoS is live.
-    pub migration_state: u8,
+    /// `status` (slot 258, exposed by the compatibility `migrationState` getter); `ETNA_ACTIVE =
+    /// 3` once Etna PoS is live.
+    #[serde(alias = "migration_state")]
+    pub status: u8,
     /// `recoveryGeneration` (slot 268); also the CometBFT `chain_id` suffix and the `extraData`
     /// generation of every block of that generation.
     pub recovery_generation: u64,
@@ -120,13 +122,13 @@ pub struct InboxFacts {
     pub committee: Option<(u64, B256)>,
 }
 
-/// The Etna activation record read from the Inbox (slots 272–274), with the genesis committee's
-/// snapshot cutoff (slot 279).
+/// The Etna genesis record read from the Inbox (the compatibility `activation` slots 272–274), with
+/// the genesis committee's snapshot cutoff (slot 279).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ActivationRecord {
-    /// `B*`: L2 block number of the genesis anchor (an existing, uncertified L2 block).
+pub struct GenesisRecord {
+    /// L2 genesis block number, always zero; retained to validate older state files.
     pub genesis_height: u64,
-    /// `L1_0`: L1 block number of the activation; epoch `e_0` starts its L1 view here.
+    /// `L1_0`: L1 block number of initialization; epoch `e_0` starts its L1 view here.
     pub l1_0: u64,
     /// `L`: epoch length in L2 blocks (validated `>= 3` and `>= unsettled_cap + 3`).
     pub epoch_len: u64,
@@ -139,7 +141,7 @@ pub struct ActivationRecord {
     pub genesis_state_root: B256,
     /// `genesisCutoff`: the snapshot cutoff `C` of the genesis committee `e_0`, an L1 block
     /// number; validated `< l1_0`. Unlike every later epoch's cutoff it is not derived from an
-    /// anchor with the cutoff lag and grid: the activation names it explicitly, as the DAO
+    /// anchor with the cutoff lag and grid: the genesis names it explicitly, as the DAO
     /// proposal that activates Etna is written before `L1_0` is known. It also floors every later
     /// epoch's cutoff ([`committee::snapshot_cutoff`](crate::committee::snapshot_cutoff)).
     pub genesis_cutoff: u64,
@@ -225,7 +227,7 @@ mod tests {
 
     fn inbox_facts(committee: Option<(u64, B256)>) -> InboxFacts {
         InboxFacts {
-            migration_state: 3,
+            status: 3,
             recovery_generation: 2,
             last_checkpoint_height: 1_000,
             last_checkpoint_hash: B256::repeat_byte(0x33),
@@ -285,8 +287,8 @@ mod tests {
     }
 
     #[test]
-    fn activation_record_json_round_trips() {
-        json_round_trip(&ActivationRecord {
+    fn genesis_record_json_round_trips() {
+        json_round_trip(&GenesisRecord {
             genesis_height: 0,
             l1_0: 100,
             epoch_len: 20,

@@ -184,7 +184,7 @@ pub(super) fn jump(
     committees: &[(u64, CommitteeState)],
 ) {
     let state = app.state.as_mut().expect("initialized");
-    let offset = last - state.activation.genesis_height;
+    let offset = last - state.genesis.genesis_height;
     let timestamp = state.parent.timestamp + 2 * offset;
     state.parent = ParentInfo {
         number: last,
@@ -203,8 +203,8 @@ pub(super) fn jump(
 /// height: no witness required, back-pressure satisfied.
 pub(super) async fn mid_epoch(fx: &Fixture, dir: &Path, offset: u64) -> App<MockL1, MockEngine> {
     let mut app = initialized(fx, dir).await;
-    let anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
-    jump(&mut app, fx.activation.genesis_height + offset, anchor, &[]);
+    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
+    jump(&mut app, fx.genesis.genesis_height + offset, anchor, &[]);
     app
 }
 
@@ -236,7 +236,7 @@ async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let h0 = fx.activation.genesis_height + 1;
+    let h0 = fx.genesis.genesis_height + 1;
     assert_eq!(next_height(&app), h0);
 
     let env = propose(&mut app).await;
@@ -256,7 +256,7 @@ async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
     let v = validator.verdicts.get(&req.hash).expect("the verdict is cached");
     assert!(v.executed);
     assert_eq!(v.block, env.block);
-    assert_eq!(v.anchor.number, fx.activation.l1_0, "H_0 re-proves the genesis anchor L1_0");
+    assert_eq!(v.anchor.number, fx.genesis.l1_0, "H_0 re-proves the genesis anchor L1_0");
     let (target, derived) = v.derived.as_ref().expect("committee 1 is derived");
     assert_eq!(*target, 1);
     assert_eq!(derived.record, committee.record);
@@ -279,7 +279,7 @@ async fn round_trip_at_h0_carries_the_anchor_and_committee_witnesses() {
 #[tokio::test]
 async fn h0_derives_the_next_committee_at_the_floored_genesis_cutoff() {
     let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
-    let genesis_cutoff = fx.activation.genesis_cutoff;
+    let genesis_cutoff = fx.genesis.genesis_cutoff;
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let e0 = app.state().expect("initialized").committees[&0].clone();
@@ -310,7 +310,7 @@ async fn h0_derives_the_next_committee_at_the_floored_genesis_cutoff() {
 
     decide(&mut validator, &req).await;
     let state = validator.state().expect("committed");
-    assert_eq!(state.last_height, fx.activation.genesis_height + 1);
+    assert_eq!(state.last_height, fx.genesis.genesis_height + 1);
     assert_eq!(state.committees[&1], derived);
 }
 
@@ -333,7 +333,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     decide(&mut app, &req).await;
 
     // L1 finalizes block 66, where the checkpoint has advanced: the anchor moves.
-    let inbox = fx.inbox_with(fx.activation.genesis_height + 1, &[]);
+    let inbox = fx.inbox_with(fx.genesis.genesis_height + 1, &[]);
     let header = fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     let env = propose(&mut app).await;
     let anchor = env.anchor.as_ref().expect("a moved anchor carries its witness");
@@ -349,7 +349,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(66)], "finality check");
     let v = app.verdicts.get(&req.hash).expect("the verdict is cached");
     assert_eq!(v.anchor.number, 66);
-    assert_eq!(v.anchor.inbox.last_checkpoint_height, fx.activation.genesis_height + 1);
+    assert_eq!(v.anchor.inbox.last_checkpoint_height, fx.genesis.genesis_height + 1);
     decide(&mut app, &req).await;
     assert_eq!(app.state().unwrap().anchor.number, 66);
 }
@@ -369,7 +369,7 @@ async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
     // Checkpoints at L1 blocks 64 (genesis), 66 (a fourth validator joins) and 69 (a fifth).
     // Only blocks 68 (the newest block still holding checkpoint 1's entries) and 70 (the
     // anchor) are served: discovery needs no older state.
-    let l1_0 = fx.activation.l1_0;
+    let l1_0 = fx.genesis.l1_0;
     let at_66 =
         RegistryStorage { checkpoints: vec![(l1_0, sample_entries(3)), (66, sample_entries(4))] };
     let mut at_70 = at_66.clone();
@@ -434,7 +434,7 @@ async fn round_trip_at_a_switch_height_with_the_landed_record() {
     let landed = fx.inbox_with(switch - 7, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
 
     // The anchor moves to the landing block.
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
     fx.advance_l1(app.l1(), 66, &landed, &fx.registry);
     let env = propose(&mut app).await;
@@ -465,7 +465,7 @@ async fn switch_height_without_the_landed_record_halts() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let switch = app.state().unwrap().schedule().h_first(1) - 2;
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     jump(&mut app, switch - 1, genesis_anchor, &[(1, fx.committee(1))]);
     fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7, &[]), &fx.registry);
 
@@ -490,7 +490,7 @@ async fn switch_height_with_a_conflicting_record_is_rejected() {
     let mut app = initialized(&fx, dir.path()).await;
     let switch = app.state().unwrap().schedule().h_first(1) - 2;
     let c1 = fx.committee(1);
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
     let other = B256::repeat_byte(0xc1);
     fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7, &[(1, other)]), &fx.registry);
@@ -524,7 +524,7 @@ async fn a_conflicting_record_on_an_unconfirmed_anchor_is_anchor_not_final() {
     let mut app = initialized(&fx, dir.path()).await;
     let switch = app.state().unwrap().schedule().h_first(1) - 2;
     let c1 = fx.committee(1);
-    let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
+    let genesis_anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0, None);
     jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
 
     // The proposer's block 66 proves another committee[1]; the own L1 holds it but has not

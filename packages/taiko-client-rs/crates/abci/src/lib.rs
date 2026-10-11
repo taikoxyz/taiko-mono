@@ -33,7 +33,7 @@ pub mod l1;
 pub mod metrics;
 /// Header derivation and block-validity predicates.
 pub mod rules;
-/// Epoch schedule derived from the L1 activation record.
+/// Epoch schedule derived from the L1 genesis record.
 pub mod schedule;
 /// The tower-abci socket server: one sequential app worker behind CometBFT's four connections.
 pub mod server;
@@ -74,6 +74,6 @@ pub use server::{
 };
 pub use store::{AppState, CommitteeState, Store, StoreError};
 pub use types::{
-    AccountWitness, ActivationRecord, AnchorState, CommitteeRecord, InboxFacts, Member, ParentInfo,
+    AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo,
     RegistryEntry, StorageProof,
 };

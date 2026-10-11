@@ -27,9 +27,9 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 pub enum Commands {
     /// Run the ABCI++ application of the Etna PoS chain for CometBFT.
     Abci(Box<AbciSubCommand>),
-    /// Write the CometBFT genesis.json of the Etna PoS chain from the L1 activation record.
+    /// Write the CometBFT genesis.json of the Etna PoS chain from the L1 genesis record.
     AbciGenesis(Box<AbciGenesisSubCommand>),
-    /// Compute the committeeRecordHash an Etna activation takes for a genesis cutoff.
+    /// Compute the committeeRecordHash an Etna genesis takes for a genesis cutoff.
     AbciCommitteeRecord(Box<AbciCommitteeRecordSubCommand>),
 }
 

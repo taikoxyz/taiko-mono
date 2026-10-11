@@ -11,9 +11,9 @@
 //! stop the chain: most of these failures are permanent, since a height's L1 snapshot is fixed
 //! once its parent is committed, and only a recovery generation gets past them.
 //!
-//! - **Activation.** By the activation block `L1_0` the Inbox holds the activation record (slots
-//!   272–274), `migrationState = ETNA_ACTIVE` (258), `genesisCutoff` (279), `committee[e_0]` (the
-//!   278 mapping) = the record hash of the committee the registry derives with the snapshot cutoff
+//! - **Activation.** By the initialization block `L1_0` the Inbox holds the genesis record (slots
+//!   272–274), `status = ETNA_ACTIVE` (258), `genesisCutoff` (279), `committee[e_0]` (the 278
+//!   mapping) = the record hash of the committee the registry derives with the snapshot cutoff
 //!   `genesisCutoff` itself (no lag or grid; the active bonded set, not filtered by heartbeats:
 //!   CONS-14), and `lastCheckpoint = (B*, H*)` (270–271). Without `lastCheckpoint` the first height
 //!   `H_0 = B* + 1` fails back-pressure and the chain never starts; without the others the genesis
@@ -53,8 +53,9 @@ use alloy_primitives::U256;
 pub mod inbox {
     use alloy_primitives::{B256, U256, keccak256};
 
-    /// `migrationState` (slot pinned by #22262): `uint8`, bits 0–7.
-    pub const MIGRATION_STATE: u64 = 258;
+    /// Inbox initialization status: `uint8`, bits 0–7. Slot 258 remains compatible with
+    /// the contract's `migrationState()` getter.
+    pub const STATUS: u64 = 258;
     /// `recoveryGeneration` (slot pinned by #22262): `uint64`, bits 0–63.
     pub const RECOVERY_GENERATION: u64 = 268;
     /// `lastCheckpoint.height`: `uint64`, bits 0–63.
@@ -63,17 +64,17 @@ pub mod inbox {
     pub const LAST_CHECKPOINT_HASH: u64 = 271;
     /// Activation record, packed: `genesisHeight` (B*, bits 0–63), `l1Block` (L1_0, bits 64–127),
     /// `epochLenL2` (L, bits 128–191), `epochLenL1` (bits 192–255).
-    pub const ACTIVATION_PACKED: u64 = 272;
+    pub const GENESIS_PACKED: u64 = 272;
     /// Activation record: `genesisBlockHash` (H*), `bytes32`.
-    pub const ACTIVATION_GENESIS_HASH: u64 = 273;
+    pub const GENESIS_BLOCK_HASH: u64 = 273;
     /// Activation record: `genesisStateRoot` (S*), `bytes32`.
-    pub const ACTIVATION_GENESIS_STATE_ROOT: u64 = 274;
+    pub const GENESIS_STATE_ROOT: u64 = 274;
     /// Base slot of `committee`: `mapping(uint64 epoch => bytes32 recordHash)`.
     pub const COMMITTEE_MAPPING: u64 = 278;
     /// `genesisCutoff`: `uint64`, bits 0–63. The snapshot cutoff (an L1 block before `L1_0`) of
-    /// the genesis committee `committee[e_0]`, set once by the activation.
+    /// the genesis committee `committee[e_0]`, set once by the genesis.
     pub const GENESIS_CUTOFF: u64 = 279;
-    /// `migrationState` value once Etna PoS is live.
+    /// Inbox status after genesis initialization.
     pub const ETNA_ACTIVE: u8 = 3;
 
     /// The 32-byte storage slot for the plain slot number `n`.
@@ -92,7 +93,7 @@ pub mod inbox {
     /// (switch heights, which need the next committee's record landed).
     pub fn anchor_slots(committee_epoch: Option<u64>) -> Vec<B256> {
         let mut slots = vec![
-            slot(MIGRATION_STATE),
+            slot(STATUS),
             slot(RECOVERY_GENERATION),
             slot(LAST_CHECKPOINT_HEIGHT),
             slot(LAST_CHECKPOINT_HASH),
@@ -105,11 +106,11 @@ pub mod inbox {
     /// `[258, 268, 272, 273, 274, 279, committee[e0]]`.
     pub fn genesis_slots(e0: u64) -> Vec<B256> {
         vec![
-            slot(MIGRATION_STATE),
+            slot(STATUS),
             slot(RECOVERY_GENERATION),
-            slot(ACTIVATION_PACKED),
-            slot(ACTIVATION_GENESIS_HASH),
-            slot(ACTIVATION_GENESIS_STATE_ROOT),
+            slot(GENESIS_PACKED),
+            slot(GENESIS_BLOCK_HASH),
+            slot(GENESIS_STATE_ROOT),
             slot(GENESIS_CUTOFF),
             committee_slot(e0),
         ]
@@ -221,7 +222,7 @@ mod tests {
     #[test]
     fn inbox_plain_slots_are_big_endian_numbers() {
         assert_eq!(
-            inbox::slot(inbox::MIGRATION_STATE),
+            inbox::slot(inbox::STATUS),
             b256!("0000000000000000000000000000000000000000000000000000000000000102")
         );
         assert_eq!(

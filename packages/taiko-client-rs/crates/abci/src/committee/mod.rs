@@ -14,7 +14,7 @@
 //! [`cutoff`](crate::committee::cutoff), floored at `genesisCutoff`. Without the floor, a
 //! `genesisCutoff` above `cutoff(L1_0)` would let `e_0` derive while `e_0 + 1`, derived at `H_0`
 //! from the genesis anchor `L1_0`, might find no entry active yet: a permanent halt right after
-//! an irreversible activation.
+//! an irreversible genesis.
 //!
 //! A derivation failure at `H_e` is permanent: the cutoff and the snapshot checkpoint follow from
 //! the committed parent's anchor, so no block at `H_e` can ever carry a valid committee witness,
@@ -397,7 +397,7 @@ pub fn verify_snapshot(
 /// `I*(e) = floor(L1_first(e − LOOKAHEAD_EPOCHS) / W) · W`, the start of the window holding the
 /// first L1 block of the L1-side epoch `e − 2`, and `f = I*(e) − W`: the last heartbeat must
 /// name that window, the one before it or a later one, so an entry that attests once per window
-/// is always eligible. The instant follows from the activation schedule and the target epoch
+/// is always eligible. The instant follows from the genesis schedule and the target epoch
 /// alone; the cutoff, which the parent block's proposer moves by choosing its anchor, does not
 /// set it.
 ///
@@ -407,8 +407,8 @@ pub fn verify_snapshot(
 ///   epochs `e_0 + 1` and `e_0 + 2`. The spec shifts their instant two windows past `L1_0` and
 ///   forbids appending their sets before then, but here `e_0 + 1` is derived at `H_0` from the
 ///   registry snapshot at the floored cutoff of `L1_0` ([`snapshot_cutoff`], before `L1_0`), proven
-///   at the activation block `L1_0` (the genesis anchor), so the shifted instant could never be
-///   met, and any filter on it would need the pre-activation heartbeats CONS-14 does not rely on.
+///   at the initialization block `L1_0` (the genesis anchor), so the shifted instant could never be
+///   met, and any filter on it would need the pre-genesis heartbeats CONS-14 does not rely on.
 /// - The instant is capped at the start of the window holding the cutoff, as the snapshot holds no
 ///   later heartbeat. Every block of epoch `e − 2`, the parent of the height deriving `e` included,
 ///   anchors at or after `L1_first(e − 2)`, so the cap binds only when the cutoff's lag and grid
@@ -562,7 +562,7 @@ pub fn verify_committee_witness(
 /// Every epoch after `e_0` goes through [`verify_committee_witness`], which takes the cutoff from
 /// the parent's anchor ([`snapshot_cutoff`]). The genesis committee `e_0` is verified here
 /// directly, with the Inbox's `genesisCutoff` against the `L1_0` header's state root: the
-/// activation names that cutoff explicitly, as `L1_0` is unknown when the DAO proposal that
+/// genesis names that cutoff explicitly, as `L1_0` is unknown when the DAO proposal that
 /// activates Etna is written.
 pub fn verify_committee_witness_at_cutoff(
     state_root: B256,

@@ -2,17 +2,17 @@
 //! `abci-genesis` builder that reads it from L1.
 //!
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
-//! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header, the Inbox proofs of the activation
+//! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header, the Inbox proofs of the genesis
 //! slots, `genesisCutoff` and `committee[e_0]`, and the committee witness of epoch `e_0`.
 //! `InitChain` decodes it with [`decode_app_state`] and re-verifies every fact against the node's
 //! own L1; nothing in it is trusted.
 //!
-//! [`build_genesis`] reads the Ethereum-final activation record and the `e_0` committee from the
+//! [`build_genesis`] reads the Ethereum-final genesis record and the `e_0` committee from the
 //! node's own L1, checks them as `InitChain` will, and assembles the whole CometBFT v0.40
 //! [`GenesisDoc`]. The codec here performs no I/O; the builder reads L1 through [`L1Source`].
 //!
-//! Before the activation, [`build_committee_record`] computes from the registry the
-//! `committeeRecordHash` (`committee[e_0]`) the activating DAO proposal passes for a chosen
+//! Before Inbox initialization, [`build_committee_record`] computes from the registry the
+//! `committeeRecordHash` (`committee[e_0]`) that `EtnaInbox::init` takes for a chosen
 //! `genesisCutoff`, derived exactly as `InitChain` later derives the genesis committee.
 //!
 //! [`L1Source`]: crate::l1::L1Source
@@ -33,8 +33,12 @@ use crate::{
 mod build;
 /// The CometBFT v0.40 `genesis.json` document.
 mod doc;
-/// The `abci-committee-record` builder: the activation's `committeeRecordHash`.
+/// The `abci-committee-record` builder: the genesis's `committeeRecordHash`.
 mod record;
+/// Shared pure verification of the genesis context and initial committee.
+mod verify;
+
+pub(crate) use verify::{verify_committee, verify_context};
 
 pub use build::build_genesis;
 pub use doc::{
@@ -88,38 +92,37 @@ pub enum GenesisError {
     /// The Inbox at the L1 `finalized` block is not in `ETNA_ACTIVE`; the value is its
     /// `migrationState`.
     #[error(
-        "inbox migrationState at the finalized L1 block is {0}, expected ETNA_ACTIVE ({active})",
+        "inbox status at the finalized L1 block is {0}, expected ETNA_ACTIVE ({active})",
         active = inbox::ETNA_ACTIVE
     )]
     NotActive(u8),
-    /// The activation block `L1_0` is not yet final with the chain's extra depth:
+    /// The initialization block `L1_0` is not yet final with the chain's extra depth:
     /// `L1_0 + l1_finality_extra_depth > finalized`.
     #[error(
-        "activation L1 block {l1_0} is not final: finalized is {finalized}, extra depth \
+        "genesis L1 block {l1_0} is not final: finalized is {finalized}, extra depth \
          {extra_depth}"
     )]
-    ActivationNotFinal {
-        /// `L1_0` from the finalized activation record.
+    InitializationNotFinal {
+        /// `L1_0` read from the initialized Inbox.
         l1_0: u64,
         /// The chain's `l1_finality_extra_depth` (`F_L1`).
         extra_depth: u64,
         /// The L1 node's `finalized` block number.
         finalized: u64,
     },
-    /// The Inbox proofs at `L1_0` do not verify, or do not show a valid activation (boxed, as the
+    /// The Inbox proofs at `L1_0` do not verify, or do not show a valid genesis (boxed, as the
     /// witness error is large).
     #[error("genesis inbox witness rejected: {0}")]
     Witness(Box<WitnessError>),
-    /// The activation record proven at `L1_0` names another activation block than the record
-    /// read at the `finalized` block.
-    #[error("activation record at L1 block {l1_0} names L1_0 = {proven}")]
-    ActivationMismatch {
-        /// `L1_0` from the record at the `finalized` block (the block the proofs are taken at).
+    /// The proven genesis record names an initialization L1 block different from its header.
+    #[error("genesis record at L1 block {l1_0} names L1_0 = {proven}")]
+    InitializationMismatch {
+        /// The supplied header's number (the block the proofs are taken at).
         l1_0: u64,
         /// `L1_0` from the record proven at that block.
         proven: u64,
     },
-    /// The activation record's schedule violates the epoch-length bounds
+    /// The genesis record's schedule violates the epoch-length bounds
     /// ([`Schedule::validate`](crate::Schedule::validate)).
     #[error(transparent)]
     Schedule(#[from] ScheduleError),

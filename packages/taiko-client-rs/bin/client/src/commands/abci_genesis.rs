@@ -1,5 +1,5 @@
 //! `abci-genesis` subcommand: writes the Etna PoS chain's CometBFT `genesis.json` from the
-//! Ethereum-final activation record on L1.
+//! Ethereum-final genesis record on L1.
 
 use std::{io::Write, path::PathBuf};
 
@@ -19,20 +19,20 @@ use crate::{
 /// Command-line interface of the genesis builder.
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 #[command(
-    about = "Writes the CometBFT genesis.json of the Etna PoS chain from the L1 activation record"
+    about = "Writes the CometBFT genesis.json of the Etna PoS chain from the L1 genesis record"
 )]
 pub struct AbciGenesisSubCommand {
     /// HTTP RPC endpoint of the L1 node; it must serve `eth_getProof` and `eth_getStorageAt`
-    /// at the activation block and back to the Inbox's `genesisCutoff` (the registry entries are
-    /// read at the newest block that still holds the genesis snapshot, which can be as old as
-    /// `genesisCutoff`). The cutoff is fixed when the activating DAO proposal is written, well
-    /// before the activation block, so in practice this is an archive node.
+    /// at the initialization L1 block and back to the Inbox's `genesisCutoff` (the registry
+    /// entries are read at the newest block that still holds the genesis snapshot, which can
+    /// be as old as `genesisCutoff`). The cutoff is fixed when the initializing DAO proposal
+    /// is written, well before the genesis block, so in practice this is an archive node.
     #[clap(
         long = "l1.http",
         required = true,
         value_parser = http_url,
         help = "HTTP RPC endpoint of an L1 node serving eth_getProof and eth_getStorageAt from \
-                the activation block back to the Inbox's genesisCutoff, which the activating DAO \
+                the initialization L1 block back to the Inbox's genesisCutoff, which the initializing DAO \
                 proposal fixed well before it (in practice an archive node)"
     )]
     pub l1_http: Url,

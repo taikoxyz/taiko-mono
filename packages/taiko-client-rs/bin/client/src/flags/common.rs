@@ -178,7 +178,7 @@ mod tests {
         assert_eq!(args.l1_http_endpoint.as_str(), "http://localhost:8545/");
     }
 
-    /// The client reads no fork times (the app follows the activation record on L1, and
+    /// The client reads no fork times (the app follows the genesis record on L1, and
     /// alethia-reth owns its fork schedule), so it defines no devnet fork-time flags and passing
     /// one fails startup instead of being silently ignored.
     #[test]

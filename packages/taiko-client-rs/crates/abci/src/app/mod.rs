@@ -27,13 +27,12 @@ use tendermint::{
 };
 
 use crate::{
-    committee::CommitteeError,
     config::{ChainParams, ConfigError},
     elsync::{ElSyncError, ensure_block},
     engine::{Engine, EngineError},
     envelope::CommitteeWitness,
     genesis::GenesisError,
-    l1::{DiscoveryProgress, L1Error, L1Source, WitnessError},
+    l1::{DiscoveryProgress, L1Error, L1Source},
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, generation_from_chain_id},
     schedule::ScheduleError,
@@ -158,9 +157,9 @@ pub enum AbciError {
     /// `InitChain` arrived although the app already holds (or persisted) a state.
     #[error("InitChain on an already initialized app")]
     AlreadyInitialized,
-    /// The genesis `app_state` does not decode.
+    /// The genesis `app_state` does not decode or its authenticated facts do not verify.
     #[error(transparent)]
-    AppState(#[from] GenesisError),
+    Genesis(#[from] GenesisError),
     /// The genesis L1 header is not final and canonical in the node's own L1 view.
     #[error("genesis L1 block {number} ({hash}) is not final and canonical in the own L1 view")]
     GenesisNotFinal {
@@ -169,19 +168,7 @@ pub enum AbciError {
         /// The genesis header's hash.
         hash: B256,
     },
-    /// The genesis Inbox witness does not verify or does not show a valid activation (see
-    /// [`verify_genesis_inbox`](crate::l1::verify_genesis_inbox)).
-    #[error("genesis inbox witness rejected: {0}")]
-    Witness(#[from] WitnessError),
-    /// The genesis L1 header is not the activation record's `L1_0` block.
-    #[error("genesis L1 header is block {header}, but the activation record's L1_0 is {l1_0}")]
-    GenesisL1Mismatch {
-        /// The genesis header's L1 block number.
-        header: u64,
-        /// `L1_0` from the activation record.
-        l1_0: u64,
-    },
-    /// The activation record's schedule violates the epoch-length bounds ([`Schedule::validate`]).
+    /// The genesis record's schedule violates the epoch-length bounds ([`Schedule::validate`]).
     #[error(transparent)]
     Schedule(#[from] ScheduleError),
     /// A CometBFT `chain_id` is not `taiko-etna-<l2ChainId>-g<generation>` for this chain.
@@ -195,25 +182,13 @@ pub enum AbciError {
         /// The Inbox's `recoveryGeneration` at `L1_0`.
         inbox: u64,
     },
-    /// The genesis `initial_height` is not `B* + 1` (so that every CometBFT height equals its
-    /// EL block number).
-    #[error("initial_height {got} must be B* + 1 = {expected}")]
+    /// The requested first consensus height is not 1 for this genesis-only chain.
+    #[error("initial_height {got} must be {expected} for a genesis-only chain")]
     InitialHeight {
         /// The requested initial height.
         got: u64,
-        /// `B* + 1`.
+        /// The first consensus height, always 1.
         expected: u64,
-    },
-    /// The genesis committee witness does not verify.
-    #[error("genesis committee witness rejected: {0}")]
-    Committee(#[from] CommitteeError),
-    /// The committee derived from the genesis witness is not the one recorded at `committee[e_0]`.
-    #[error("derived committee record hash {derived} differs from committee[e0] = {recorded}")]
-    CommitteeRecordMismatch {
-        /// `record_hash` of the derived committee record.
-        derived: B256,
-        /// The record hash proven at `committee[e_0]`.
-        recorded: B256,
     },
     /// The genesis validators are not exactly the derived `e_0` committee; the value says how.
     #[error("genesis validators differ from the derived committee: {0}")]
@@ -313,7 +288,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// A loaded state must be consistent with `params` and with itself: its schedule must pass
     /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived from its
-    /// activation record, its `chain_id` must name `params.l2_chain_id` and its generation, and
+    /// genesis record, its `chain_id` must name `params.l2_chain_id` and its generation, and
     /// its last height must equal its parent's number and fit a CometBFT height.
     pub fn new(
         l1: L,
@@ -554,7 +529,7 @@ struct CachedCommittee {
     witness: CommitteeWitness,
 }
 
-/// Whether `state` is still at the genesis anchor `B*`: no PoS block has been committed yet.
+/// Whether `state` is still at genesis block 0: no PoS block has been committed yet.
 ///
 /// CometBFT re-sends `InitChain` whenever the app reports height 0, so `Info` reports 0 and
 /// `InitChain` is idempotent in this state.
@@ -565,7 +540,7 @@ fn at_genesis(state: &AppState) -> bool {
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
     state.schedule().validate(params.unsettled_cap())?;
-    if state.activation.genesis_height != 0 {
+    if state.genesis.genesis_height != 0 {
         return Err(AbciError::StoredState("genesis height must be zero".into()));
     }
     let generation = generation_from_chain_id(&state.chain_id, params.l2_chain_id)?;

@@ -22,7 +22,7 @@ fn anchor(number: u64, timestamp: u64) -> AnchorState {
         state_root: B256::repeat_byte(0x5a),
         timestamp,
         inbox: InboxFacts {
-            migration_state: 3,
+            status: 3,
             recovery_generation: GENERATION,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,

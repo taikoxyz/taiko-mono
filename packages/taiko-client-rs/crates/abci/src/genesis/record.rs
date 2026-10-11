@@ -1,4 +1,4 @@
-//! The `abci-committee-record` builder: the `committeeRecordHash` an activation takes, computed
+//! The `abci-committee-record` builder: the `committeeRecordHash` an genesis takes, computed
 //! from the registry before the DAO proposal that activates Etna is written.
 
 use alloy_primitives::{B256, U256};
@@ -12,7 +12,7 @@ use crate::{
     types::{CommitteeRecord, Member},
 };
 
-/// The genesis committee an activation with a given `genesisCutoff` records, as
+/// The genesis committee an genesis with a given `genesisCutoff` records, as
 /// [`build_committee_record`] derives it.
 ///
 /// Serializes with every `U256` (the record's `total_stake`, each member's `eff_stake`) as a
@@ -20,7 +20,7 @@ use crate::{
 /// hex.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct GenesisCommitteeRecord {
-    /// `committeeRecordHash`: the `committee[e_0]` value `activateEtna` takes
+    /// `committeeRecordHash`: the `committee[e_0]` value `EtnaInbox::init` takes
     /// ([`record_hash`] of `record`).
     pub record_hash: B256,
     /// The derived record: target epoch `e_0`, snapshot cutoff `genesisCutoff`, the snapshot's
@@ -101,17 +101,17 @@ fn serialize_decimal<S: Serializer>(value: &U256, s: S) -> Result<S::Ok, S::Erro
     s.collect_str(value)
 }
 
-/// Why the activation's committee record could not be computed.
+/// Why the genesis's committee record could not be computed.
 #[derive(Debug, thiserror::Error)]
 pub enum CommitteeRecordError {
     /// An L1 read failed (the `finalized` number or the proving block's header).
     #[error(transparent)]
     L1(#[from] L1Error),
-    /// The genesis cutoff is after the L1 `finalized` block. The activation fixes the cutoff
+    /// The genesis cutoff is after the L1 `finalized` block. The genesis fixes the cutoff
     /// irreversibly, so the registry snapshot there must already be final.
     #[error(
         "the genesis cutoff {genesis_cutoff} is after the L1 finalized block {finalized}; the \
-         activation fixes it irreversibly, so pick a final L1 block"
+         genesis fixes it irreversibly, so pick a final L1 block"
     )]
     GenesisCutoffNotFinal {
         /// The requested `genesisCutoff`.
@@ -132,12 +132,12 @@ pub enum CommitteeRecordError {
         genesis_cutoff: u64,
     },
     /// No registry entry is eligible at the genesis cutoff, so no genesis committee exists: an
-    /// activation with this cutoff would leave the chain without validators.
+    /// genesis with this cutoff would leave the chain without validators.
     #[error(
         "no registry entry is eligible at the genesis cutoff {genesis_cutoff}: the registry has \
          no checkpoint at or before it, or no entry of that checkpoint is active at it \
          (activeFromL1 <= cutoff < exitEffectiveL1) with an effective stake of at least \
-         {min_stake} (max(s_min, vp_unit)); an activation with this cutoff would halt the chain \
+         {min_stake} (max(s_min, vp_unit)); an genesis with this cutoff would halt the chain \
          at genesis"
     )]
     NoEligibleEntry {
@@ -156,11 +156,11 @@ pub enum CommitteeRecordError {
     Committee(Box<CommitteeError>),
 }
 
-/// Computes the genesis committee record an activation with `genesis_cutoff` would record, from
+/// Computes the genesis committee record an genesis with `genesis_cutoff` would record, from
 /// the node's own L1.
 ///
 /// In order: `genesis_cutoff` must be at or before the L1 `finalized` block
-/// ([`CommitteeRecordError::GenesisCutoffNotFinal`]), as the activation fixes it irreversibly; the
+/// ([`CommitteeRecordError::GenesisCutoffNotFinal`]), as the genesis fixes it irreversibly; the
 /// proving block is `at`, or the `finalized` block when `None`, and must be after `genesis_cutoff`
 /// ([`CommitteeRecordError::ProvingBlockNotAfterCutoff`]); builds the `e_0` committee witness with
 /// the snapshot at `genesis_cutoff` itself (no cutoff lag or grid) and its proofs at the proving
@@ -221,7 +221,7 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
     })
 }
 
-/// The schedule `e_0`'s derivation runs under before any activation exists: the proving block
+/// The schedule `e_0`'s derivation runs under before any genesis exists: the proving block
 /// stands in for `L1_0` and the epoch lengths are zero. `e_0` applies no heartbeat filter, so
 /// [`derive`](crate::committee::derive) reads none of these fields for it, and the record does
 /// not depend on them.
@@ -237,18 +237,18 @@ mod tests {
         types::RegistryEntry,
     };
 
-    /// Before the activation, the record computed at the fixture's genesis cutoff with proofs at
-    /// a later block is exactly the one the fixture's Inbox records at activation: the record
+    /// Before the genesis, the record computed at the fixture's genesis cutoff with proofs at
+    /// a later block is exactly the one the fixture's Inbox records at genesis: the record
     /// hash of [`committee::derive`] at the cutoff.
     #[tokio::test]
     async fn computes_the_record_hash_of_the_derived_genesis_committee() {
         let fx = Fixture::genesis(3);
         let l1 = fx.l1();
-        let cutoff = fx.activation.genesis_cutoff;
+        let cutoff = fx.genesis.genesis_cutoff;
         let report = build_committee_record(&l1, &fx.params, cutoff, None)
             .await
             .expect("the fixture registry yields a committee");
-        assert_eq!(report.proving_block, fx.activation.l1_0, "the finalized block by default");
+        assert_eq!(report.proving_block, fx.genesis.l1_0, "the finalized block by default");
         assert_eq!(report.record, fx.record);
         assert_eq!(report.members, fx.members);
         assert_eq!(report.record_hash, record_hash(fx.params.l2_chain_id, &fx.record));
@@ -269,7 +269,7 @@ mod tests {
 
         // An explicit proving block, even one past the finalized block, gives the same record;
         // the finalized block is still read, to check that the cutoff is final.
-        let later = fx.activation.l1_0 + 6;
+        let later = fx.genesis.l1_0 + 6;
         fx.plant_l1_block(&l1, later, &fx.inbox, &fx.registry);
         l1.state().calls.clear();
         let at_later = build_committee_record(&l1, &fx.params, cutoff, Some(later))
@@ -284,13 +284,12 @@ mod tests {
     #[tokio::test]
     async fn report_omits_an_initialization_minimum() {
         let fx = Fixture::genesis(1);
-        let report =
-            build_committee_record(&fx.l1(), &fx.params, fx.activation.genesis_cutoff, None)
-                .await
-                .unwrap();
+        let report = build_committee_record(&fx.l1(), &fx.params, fx.genesis.genesis_cutoff, None)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
         assert!(json.get("min_l1_0").is_none());
-        assert_eq!(json["record"]["cutoff_l1_block"], fx.activation.genesis_cutoff);
+        assert_eq!(json["record"]["cutoff_l1_block"], fx.genesis.genesis_cutoff);
     }
 
     /// The JSON report prints every `U256` as a decimal string, as the plain-text report does.
@@ -349,10 +348,9 @@ mod tests {
             .map(|e| RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 0, ..e })
             .collect();
         let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
-        let report =
-            build_committee_record(&fx.l1(), &fx.params, fx.activation.genesis_cutoff, None)
-                .await
-                .expect("a committee without heartbeats");
+        let report = build_committee_record(&fx.l1(), &fx.params, fx.genesis.genesis_cutoff, None)
+            .await
+            .expect("a committee without heartbeats");
         assert_eq!(report.members.len(), 2);
         assert_eq!(report.record, fx.record);
     }
@@ -362,17 +360,17 @@ mod tests {
     #[tokio::test]
     async fn no_eligible_entry_is_explained() {
         let fx = Fixture::genesis(2);
-        let at = fx.activation.l1_0 + 1;
+        let at = fx.genesis.l1_0 + 1;
         let l1 = MockL1::new(at);
         fx.plant_l1_block(&l1, at, &fx.inbox, &RegistryStorage { checkpoints: vec![] });
-        let err = build_committee_record(&l1, &fx.params, fx.activation.genesis_cutoff, None)
+        let err = build_committee_record(&l1, &fx.params, fx.genesis.genesis_cutoff, None)
             .await
             .expect_err("an empty registry");
         assert!(
             matches!(
                 err,
                 CommitteeRecordError::NoEligibleEntry { genesis_cutoff, min_stake }
-                    if genesis_cutoff == fx.activation.genesis_cutoff
+                    if genesis_cutoff == fx.genesis.genesis_cutoff
                         && min_stake == fx.params.s_min.max(fx.params.vp_unit)
             ),
             "{err:?}"
@@ -395,7 +393,7 @@ mod tests {
     #[tokio::test]
     async fn a_proving_block_not_after_the_cutoff_is_refused() {
         let fx = Fixture::genesis(2);
-        let cutoff = fx.activation.genesis_cutoff;
+        let cutoff = fx.genesis.genesis_cutoff;
         for at in [cutoff, cutoff - 1] {
             let l1 = fx.l1();
             let err = build_committee_record(&l1, &fx.params, cutoff, Some(at))
@@ -414,7 +412,7 @@ mod tests {
 
         // The default proving block, the finalized one, must be after the cutoff too.
         let l1 = fx.l1();
-        let finalized = fx.activation.l1_0;
+        let finalized = fx.genesis.l1_0;
         let err = build_committee_record(&l1, &fx.params, finalized, None)
             .await
             .expect_err("finalized <= cutoff");

@@ -73,12 +73,12 @@ pub enum CliError {
     #[error(transparent)]
     AbciServer(#[from] abci::ServerError),
 
-    /// The genesis could not be built from L1 (an L1 read failed, the activation record is not
+    /// The genesis could not be built from L1 (an L1 read failed, the genesis record is not
     /// final or active, or the L1 facts fail the `InitChain` checks).
     #[error("genesis: {0}")]
     Genesis(#[from] abci::GenesisError),
 
-    /// The activation's committee record could not be computed (an L1 read failed, the genesis
+    /// The genesis's committee record could not be computed (an L1 read failed, the genesis
     /// cutoff is not final, the proving block is not after it, or no registry entry is eligible
     /// at it).
     #[error("committee record: {0}")]
