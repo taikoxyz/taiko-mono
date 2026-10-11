@@ -18,12 +18,8 @@ pragma solidity ^0.8.26;
 //   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __deprecatedActivationTimestamp | uint48                                             | Slot: 251  | Offset: 0    | Bytes: 6   
-//   _coreState                     | struct IInbox.CoreState                            | Slot: 252  | Offset: 0    | Bytes: 64  
-//   __deprecatedProposalHashes     | mapping(uint256 => bytes32)                        | Slot: 254  | Offset: 0    | Bytes: 32  
-//   __deprecatedForcedInclusions   | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
-//   _bondStorage                   | struct LibBonds.Storage                            | Slot: 257  | Offset: 0    | Bytes: 32  
-//   _migration                     | struct LibInboxMigration.State                     | Slot: 258  | Offset: 0    | Bytes: 32  
+//   __reservedBeforeStatus         | uint256[7]                                         | Slot: 251  | Offset: 0    | Bytes: 224 
+//   _status                        | uint8                                              | Slot: 258  | Offset: 0    | Bytes: 1   
 //   __reservedSpec                 | uint256[9]                                         | Slot: 259  | Offset: 0    | Bytes: 288 
 //   _recoveryGeneration            | uint64                                             | Slot: 268  | Offset: 0    | Bytes: 8   
 //   __reservedConfigRegistry       | uint256                                            | Slot: 269  | Offset: 0    | Bytes: 32  
