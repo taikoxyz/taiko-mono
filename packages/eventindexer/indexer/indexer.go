@@ -72,6 +72,10 @@ func (i *Indexer) Start() (err error) {
 		return err
 	}
 
+	if err := i.initializeNFTCheckpoint(i.ctx); err != nil {
+		return err
+	}
+
 	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
@@ -201,6 +205,29 @@ func (i *Indexer) Close(ctx context.Context) {
 	}
 }
 
+// initializeNFTCheckpoint certifies genesis before the loop or any balance write.
+// Legacy business events are a fallback only when NFT state is retained.
+func (i *Indexer) initializeNFTCheckpoint(ctx context.Context) error {
+	switch i.syncMode {
+	case Sync, Resync:
+	default:
+		return eventindexer.ErrInvalidMode
+	}
+
+	balances, claims, checkpoints, _, err := repo.NFTReplayState(ctx, i.db, i.srcChainID)
+	if err != nil {
+		return err
+	}
+
+	if balances == 0 && claims == 0 && checkpoints == 0 {
+		if err := i.nftCursorRepo.SaveCheckpoint(ctx, i.srcChainID, 0); err != nil {
+			return errors.Wrap(err, "initialize NFT genesis checkpoint")
+		}
+	}
+
+	return nil
+}
+
 // checkBalanceClaimBootstrap rejects retained state for resync and missing
 // watermarks for balances. The escape hatch applies only to legacy overlap.
 func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
@@ -210,15 +237,22 @@ func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
 	}
 
 	if i.syncMode == Resync && (balances > 0 || claims > 0 || checkpoints > 0) {
-		return errors.Newf("NFT resync for chain %d requires a clean rebuild: "+
-			"to resume an existing checkpoint, continue with SYNC_MODE=sync; otherwise remove chain-scoped "+
-			"NFT balances, NFT-kind claims and NFT checkpoint together after operator reconciliation", i.srcChainID)
+		if checkpoints > 0 {
+			return errors.Newf("NFT resync for chain %d requires a clean rebuild: "+
+				"to resume an existing checkpoint, continue with SYNC_MODE=sync; otherwise reconcile and remove chain-scoped "+
+				"NFT balances, NFT-kind claims and NFT checkpoint together, then start SYNC_MODE=resync", i.srcChainID)
+		}
+
+		return errors.Newf("NFT resync for chain %d has retained NFT state but no trustworthy NFT checkpoint; "+
+			"a clean rebuild requires operator reconciliation and removal of chain-scoped NFT balances, NFT-kind claims "+
+			"and NFT checkpoint together, then start SYNC_MODE=resync", i.srcChainID)
 	}
 
 	if i.syncMode == Sync && claims > 0 && balances == 0 {
 		return errors.Newf("missing NFT balances for chain %d with retained NFT claims; "+
 			"claimed logs cannot rebuild missing balances. After reconciliation, rebuild by removing chain-scoped "+
-			"NFT balances, NFT-kind claims and NFT checkpoint together; after completing resync, continue with SYNC_MODE=sync", i.srcChainID)
+			"NFT balances, NFT-kind claims and NFT checkpoint together, then start SYNC_MODE=resync; "+
+			"switch to SYNC_MODE=sync only after confirming the NFT checkpoint row", i.srcChainID)
 	}
 
 	if i.syncMode == Sync && balances > 0 && checkpoints == 0 && legacy == 0 {
@@ -247,7 +281,8 @@ func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
 	return errors.Newf(
 		"NFT balances for chain %d were written before transfer log claims existed, so this "+
 			"restart would replay and double count them once. After reconciliation, rebuild by removing chain-scoped NFT balances, "+
-			"NFT-kind claims and NFT checkpoint together, or set --allowUnclaimedBalanceReplay / "+
+			"NFT-kind claims and NFT checkpoint together, then start SYNC_MODE=resync and confirm the NFT checkpoint row "+
+			"before switching to SYNC_MODE=sync, or set --allowUnclaimedBalanceReplay / "+
 			"ALLOW_UNCLAIMED_BALANCE_REPLAY=true to accept a single overcount",
 		i.srcChainID,
 	)

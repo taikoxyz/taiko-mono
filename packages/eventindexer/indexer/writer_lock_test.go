@@ -136,7 +136,7 @@ func TestIntegration_WriterLock(t *testing.T) {
 	replacement.releaseWriterLock()
 	// Shutdown cleanup happens before waiters are released.
 	shutdownCtx, cancel := context.WithCancel(ctx)
-	running := makeIndexer(d, 1)
+	running := makeIndexer(d, 100)
 	running.ctx = shutdownCtx
 	require.NoError(t, running.Start())
 	cancel()
@@ -144,6 +144,183 @@ func TestIntegration_WriterLock(t *testing.T) {
 	require.Nil(t, running.writerConn)
 	require.NoError(t, b.acquireWriterLock(ctx))
 	b.releaseWriterLock()
+	t.Run("initialize rebuild before tick and restart", func(t *testing.T) {
+		for _, mode := range []SyncMode{Resync, Sync} {
+			t.Run(string(mode), func(t *testing.T) {
+				chainID := uint64(60)
+				if mode == Sync {
+					chainID = 61
+				}
+
+				require.NoError(t, d.GormDB().Exec("INSERT INTO events (name,event,chain_id,data,emitted_block_id) "+
+					"VALUES ('MessageSent','MessageSent',?,'{}',5000)", chainID).Error)
+
+				startCtx, stop := context.WithCancel(ctx)
+				first := makeIndexer(d, chainID)
+				first.ctx, first.syncMode = startCtx, mode
+				require.NoError(t, first.Start())
+
+				defer func() { stop(); first.wg.Wait() }()
+
+				height, found, err := first.nftCursorRepo.FindCheckpoint(ctx, chainID)
+				require.NoError(t, err)
+				require.True(t, found, "Start must persist genesis before any RPC or tick")
+				require.Zero(t, height)
+				require.EqualValues(t, 1, first.nextFilterStartBlock())
+				stop()
+				first.wg.Wait()
+
+				restartCtx, end := context.WithCancel(ctx)
+				restart := makeIndexer(d, chainID)
+				restart.ctx, restart.syncMode = restartCtx, Sync
+				require.NoError(t, restart.Start())
+
+				defer func() { end(); restart.wg.Wait() }()
+				require.EqualValues(t, 1, restart.nextFilterStartBlock())
+			})
+		}
+	})
+	t.Run("partial first batch restarts from genesis", func(t *testing.T) {
+		const chainID = 62
+
+		require.NoError(t, d.GormDB().Exec("INSERT INTO events (name,event,chain_id,data,emitted_block_id) "+
+			"VALUES ('MessageSent','MessageSent',?,'{}',5000)", chainID).Error)
+
+		startCtx, stop := context.WithCancel(ctx)
+		first := makeIndexer(d, chainID)
+		first.ctx = startCtx
+		require.NoError(t, first.Start())
+
+		defer func() { stop(); first.wg.Wait() }()
+
+		fixture := &nftFilterRPC{logs: []types.Log{
+			nftIndexLog(t, "ERC721", ZeroAddress, common.HexToAddress("0x1"), 1, 0, 0),
+			nftIndexLog(t, "ERC721", common.HexToAddress("0x1"), common.HexToAddress("0x2"), 2, 0, 0),
+		}}
+		server := rpc.NewServer()
+		require.NoError(t, server.RegisterName("eth", fixture))
+
+		defer server.Stop()
+
+		client := ethclient.NewClient(rpc.DialInProc(server))
+		defer client.Close()
+		first.ethClient, first.blockBatchSize = client, 10
+		first.nftBalanceRepo = &failingNFTBalance{NFTBalanceRepository: first.nftBalanceRepo}
+		require.ErrorContains(t, first.filter(ctx), "mid-batch fixture failure")
+		height, found, err := first.nftCursorRepo.FindCheckpoint(ctx, chainID)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Zero(t, height)
+
+		var claims int64
+
+		require.NoError(t, d.GormDB().Table("processed_transfer_logs").Where("chain_id = ?", chainID).Count(&claims).Error)
+		require.EqualValues(t, 1, claims)
+		stop()
+		first.wg.Wait()
+
+		restartCtx, end := context.WithCancel(ctx)
+		restart := makeIndexer(d, chainID)
+		restart.ctx, restart.syncMode = restartCtx, Sync
+		restart.ethClient, restart.blockBatchSize = client, 10
+		require.NoError(t, restart.Start())
+
+		defer func() { end(); restart.wg.Wait() }()
+		require.EqualValues(t, 1, restart.nextFilterStartBlock())
+		require.NoError(t, restart.filter(ctx))
+		require.Equal(t, "0x1", fixture.queries[len(fixture.queries)-1]["fromBlock"])
+		require.NoError(t, d.GormDB().Table("processed_transfer_logs").Where("chain_id = ?", chainID).Count(&claims).Error)
+		require.EqualValues(t, 2, claims)
+
+		var amount int64
+
+		require.NoError(t, d.GormDB().Table("nft_balances").Where("chain_id = ?", chainID).Select("SUM(amount)").Scan(&amount).Error)
+		require.EqualValues(t, 1, amount)
+
+		height, found, err = restart.nftCursorRepo.FindCheckpoint(ctx, chainID)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.EqualValues(t, 2, height)
+	})
+	t.Run("retained legacy state keeps legacy cursor", func(t *testing.T) {
+		const chainID = 64
+
+		require.NoError(t, d.GormDB().Exec("INSERT INTO events (name,event,chain_id,data,emitted_block_id,transacted_at) "+
+			"VALUES ('MessageSent','MessageSent',?,'{}',5000,NOW())", chainID).Error)
+		require.NoError(t, d.GormDB().Exec("INSERT INTO nft_balances (chain_id,address,amount,contract_address,contract_type,token_id,updated_at) "+
+			"VALUES (?,'0xholder',1,'0xnft','ERC721',1,'2020-01-01')", chainID).Error)
+
+		resync := makeIndexer(d, chainID)
+		err := resync.checkBalanceClaimBootstrap(ctx)
+		require.ErrorContains(t, err, "no trustworthy NFT checkpoint")
+		require.ErrorContains(t, err, "SYNC_MODE=resync")
+		require.NotContains(t, err.Error(), "SYNC_MODE=sync")
+
+		runCtx, stop := context.WithCancel(ctx)
+		retained := makeIndexer(d, chainID)
+		retained.ctx, retained.syncMode = runCtx, Sync
+		require.NoError(t, retained.Start())
+
+		defer func() { stop(); retained.wg.Wait() }()
+		require.EqualValues(t, 5000, retained.nextFilterStartBlock())
+		_, found, err := retained.nftCursorRepo.FindCheckpoint(ctx, chainID)
+		require.NoError(t, err)
+		require.False(t, found)
+	})
+	t.Run("initial checkpoint failure releases pinned session", func(t *testing.T) {
+		const chainID = 63
+		failed := makeIndexer(d, chainID)
+		failureCtx, cancelFailure := context.WithCancel(ctx)
+		failed.ctx = failureCtx
+
+		defer func() { cancelFailure(); failed.wg.Wait() }()
+
+		var writeSession uint64
+
+		require.NoError(t, d.GormDB().Callback().Raw().Before("gorm:raw").Register("fail_initial_checkpoint", func(tx *gorm.DB) {
+			if !strings.HasPrefix(tx.Statement.SQL.String(), "INSERT INTO events") {
+				return
+			}
+
+			err := tx.Statement.ConnPool.QueryRowContext(ctx, "SELECT CONNECTION_ID()").Scan(&writeSession)
+			require.NoError(t, err)
+
+			var writerSession uint64
+			// The transaction occupies the reserved connection, so compare the named-lock holder.
+			require.NoError(t, d.GormDB().Raw("SELECT IS_USED_LOCK(?)", failed.writerLockName).Scan(&writerSession).Error)
+			require.Equal(t, writerSession, writeSession)
+
+			_ = tx.AddError(fmt.Errorf("initial checkpoint fixture failure"))
+		}))
+
+		defer func() { require.NoError(t, d.GormDB().Callback().Raw().Remove("fail_initial_checkpoint")) }()
+
+		err := failed.Start()
+		if err == nil {
+			failed.releaseWriterLock()
+		}
+
+		require.ErrorContains(t, err, "initial checkpoint fixture failure")
+		require.NotZero(t, writeSession)
+		require.Nil(t, failed.writerConn)
+		require.Nil(t, failed.FatalErrors())
+		require.Zero(t, failed.latestIndexedBlockNumber)
+
+		cursor, err := repo.NewNFTCursorRepository(d)
+		require.NoError(t, err)
+		_, found, err := cursor.FindCheckpoint(ctx, chainID)
+		require.NoError(t, err)
+		require.False(t, found)
+
+		balances, claims, _, _, err := repo.NFTReplayState(ctx, d, chainID)
+		require.NoError(t, err)
+		require.Zero(t, balances)
+		require.Zero(t, claims)
+
+		replacement := makeIndexer(d, chainID)
+		require.NoError(t, replacement.acquireWriterLock(ctx))
+		replacement.releaseWriterLock()
+	})
 	// Kill the physical session, then exercise the actual balance repository.
 	lost := makeIndexer(d, 1)
 	require.NoError(t, lost.acquireWriterLock(ctx))
@@ -397,7 +574,7 @@ func TestIntegration_WriterLock(t *testing.T) {
 	var claims int64
 
 	require.NoError(t, d.GormDB().Table("processed_transfer_logs").Count(&claims).Error)
-	require.EqualValues(t, 9, claims)
+	require.EqualValues(t, 11, claims)
 	require.NoError(t, d.GormDB().First(nftBalance, nftBalance.ID).Error)
 	require.EqualValues(t, 1, nftBalance.Amount)
 	require.NoError(t, b.acquireWriterLock(ctx))
