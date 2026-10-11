@@ -44,8 +44,8 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(etnaInbox.migrationState(), 3, "active status");
         assertEq(etnaInbox.recoveryGeneration(), 0, "recovery generation");
         assertEq(etnaInbox.genesisCutoff(), registryCheckpointBlock, "genesis cutoff");
-        assertEq(etnaInbox.committee(0), COMMITTEE_RECORD_0, "committee 0");
-        assertEq(etnaInbox.committee(1), bytes32(0), "committee 1");
+        assertEq(etnaInbox.genesisCommitteeRecordHash(), COMMITTEE_RECORD_0, "committee 0");
+        assertEq(etnaInbox.committeeConfigHash(), COMMITTEE_CONFIG_HASH, "committee config");
 
         IEtnaInbox.LandedCheckpoint memory checkpoint = etnaInbox.lastCheckpoint();
         assertEq(checkpoint.height, 0, "checkpoint height");
@@ -58,6 +58,17 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(record.epochLenL1, EPOCH_LEN_L1, "epoch length L1");
         assertEq(record.genesisBlockHash, genesisBlockHash, "genesis hash");
         assertEq(record.genesisStateRoot, genesisStateRoot, "genesis state root");
+    }
+
+    function test_init_StoresAuthenticatedConfigAtSlot269() external view {
+        assertEq(bytes32(_loadSlot(269)), COMMITTEE_CONFIG_HASH, "authenticated config installed");
+        assertEq(
+            etnaInbox.committeeConfigHash(), COMMITTEE_CONFIG_HASH, "authenticated config getter"
+        );
+    }
+
+    function test_init_StoresGenesisCommitteeDirectlyAtSlot278() external view {
+        assertEq(bytes32(_loadSlot(278)), COMMITTEE_RECORD_0, "bootstrap committee installed");
     }
 
     function test_init_SavesTheBlockZeroSignalCheckpoint() external view {
@@ -89,7 +100,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(bytes32(_loadSlot(ACTIVATION_SLOT + 1)), genesisBlockHash, "273: genesis hash");
         assertEq(bytes32(_loadSlot(ACTIVATION_SLOT + 2)), genesisStateRoot, "274: state root");
         assertEq(
-            vm.load(address(etnaInbox), _committeeSlot(0)), COMMITTEE_RECORD_0, "278: committee 0"
+            bytes32(_loadSlot(GENESIS_COMMITTEE_SLOT)), COMMITTEE_RECORD_0, "278: genesis committee"
         );
         assertEq(_loadSlot(GENESIS_CUTOFF_SLOT), registryCheckpointBlock, "279: genesis cutoff");
     }
@@ -101,7 +112,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         for (uint256 slot = 259; slot <= 267; ++slot) {
             assertEq(_loadSlot(slot), 0, "259-267");
         }
-        assertEq(_loadSlot(269), 0, "269");
+        assertEq(bytes32(_loadSlot(COMMITTEE_CONFIG_SLOT)), COMMITTEE_CONFIG_HASH, "269: config");
         for (uint256 slot = 275; slot <= 277; ++slot) {
             assertEq(_loadSlot(slot), 0, "275-277");
         }
@@ -222,6 +233,12 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         _expectInvalidGenesis(params, EtnaInbox.ZeroCommitteeRecord.selector);
     }
 
+    function test_init_RevertWhen_CommitteeConfigHashIsZero() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.committeeConfigHash = 0;
+        _expectInvalidGenesis(params, EtnaInbox.ZeroCommitteeConfigHash.selector);
+    }
+
     function test_init_CanRetryAfterRejectedParameters() external {
         IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
         params.genesisBlockHash = 0;
@@ -261,7 +278,10 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         assertEq(etnaInbox.migrationState(), 0, "inactive status");
         assertEq(etnaInbox.recoveryGeneration(), 0, "recovery generation");
         assertEq(etnaInbox.genesisCutoff(), 0, "cutoff not installed");
-        assertEq(etnaInbox.committee(0), bytes32(0), "committee not installed");
+        assertEq(etnaInbox.genesisCommitteeRecordHash(), bytes32(0), "committee not installed");
+        assertEq(etnaInbox.committeeConfigHash(), bytes32(0), "config not installed");
+        assertEq(_loadSlot(COMMITTEE_CONFIG_SLOT), 0, "config storage not installed");
+        assertEq(_loadSlot(GENESIS_COMMITTEE_SLOT), 0, "committee storage not installed");
         assertEq(etnaInbox.lastCheckpoint().blockHash, bytes32(0), "checkpoint not installed");
         for (uint256 slot = 251; slot <= 300; ++slot) {
             assertEq(_loadSlot(slot), 0, "genesis storage unchanged");

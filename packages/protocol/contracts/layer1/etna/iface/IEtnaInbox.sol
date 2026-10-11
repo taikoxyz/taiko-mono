@@ -4,9 +4,9 @@ pragma solidity ^0.8.26;
 /// @title IEtnaInbox
 /// @notice The L1 anchor of an Etna PoS chain that starts from L2 genesis.
 /// @dev A fresh proxy is initialized with the L2 block-0 hash and state root, epoch parameters,
-/// and the initial committee record. The node reads the genesis record, last checkpoint and
-/// committee mapping directly from storage with EIP-1186 proofs. Their existing slots and packing
-/// remain the interface to taiko-client-rs `crates/abci/src/l1/layout.rs`.
+/// and the initial committee record and derivation configuration hash. The node authenticates
+/// genesis and checkpoint storage with EIP-1186 proofs. Future committees are derived from fixed
+/// L1 cutoffs and are never published by landing transactions.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaInbox {
     // ---------------------------------------------------------------
@@ -41,6 +41,8 @@ interface IEtnaInbox {
         uint64 genesisCutoff;
         /// @notice The initial committee record hash, computed from that snapshot.
         bytes32 committeeRecordHash;
+        /// @notice The non-zero commitment to the fixed-cutoff committee derivation configuration.
+        bytes32 committeeConfigHash;
     }
 
     /// @notice The genesis record; named activation for the existing node storage interface.
@@ -71,14 +73,6 @@ interface IEtnaInbox {
         bytes32 blockHash;
     }
 
-    /// @notice A committee record carried by a landed batch.
-    struct CommitteeRecord {
-        /// @notice The epoch whose committee the record defines.
-        uint64 epoch;
-        /// @notice The committee record hash.
-        bytes32 recordHash;
-    }
-
     /// @notice The batch of `land`: the L2 blocks after the last checkpoint up to `lastHeight`.
     struct LandInput {
         /// @notice The height of the batch's last block.
@@ -93,8 +87,6 @@ interface IEtnaInbox {
         /// A lander picks a recent L1 block, so a landing outage longer than the EIP-2935
         /// window does not strand the batch.
         uint64 l1ReferenceBlockNumber;
-        /// @notice One record per epoch whose first block lies in the batch, in ascending order.
-        CommitteeRecord[] records;
     }
 
     // ---------------------------------------------------------------
@@ -119,11 +111,6 @@ interface IEtnaInbox {
         bytes32 committeeRecordHash
     );
 
-    /// @notice Emitted when a landed batch records the committee of an epoch.
-    /// @param epoch The epoch.
-    /// @param recordHash The committee record hash, now `committee(epoch)`.
-    event CommitteeRecorded(uint64 indexed epoch, bytes32 recordHash);
-
     /// @notice Emitted when a batch is landed.
     /// @param firstHeight The height of the batch's first block.
     /// @param lastHeight The height of the batch's last block, the new checkpoint.
@@ -147,9 +134,10 @@ interface IEtnaInbox {
     // ---------------------------------------------------------------
 
     /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
-    /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root
-    /// and committee record, epochLenL2 >= 3, epochLenL1 > 0, and a past genesis cutoff at or
-    /// after the registry's first checkpoint. The SignalService must authorize this proxy as its
+    /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
+    /// committee record and derivation configuration hash, epochLenL2 >= 3, epochLenL1 > 0, and
+    /// a past genesis cutoff at or after the registry's first checkpoint. The SignalService must
+    /// authorize this proxy as its
     /// syncer: initialization saves its block-0 checkpoint too, and any failure rolls back all
     /// state. The owner supplies the trusted genesis values and the committee record computed
     /// from the registry snapshot. The node also requires L >= D_MAX - MARGIN_V + 3.
@@ -157,114 +145,100 @@ interface IEtnaInbox {
     /// @param _params The genesis parameters.
     function init(address _owner, GenesisParams calldata _params) external;
 
-    /// @notice Lands a batch of Etna L2 blocks, the blocks after the last checkpoint up to
-    /// `_input.lastHeight`, proven by `_proof`.
-    /// @dev Permissionless. Requires, in order: Etna is active; the batch makes progress, covers
-    /// at most `maxBatchBlocks` blocks and ends at or below `type(uint48).max` (the signal
-    /// service key width); committee[parentHeight / epochLenL2] is non-zero and is bound as
-    /// the starting committee record before any new records are written; for every epoch `e`
-    /// whose first block
-    /// `h_first(e) = 1 + e * epochLenL2` lies in the batch, in ascending order,
-    /// `_input.records` holds exactly one non-zero record with `epoch == e + 1` and
-    /// `committee[e + 1]` is still empty (the record then becomes `committee[e + 1]`), and no
-    /// other record; `l1ReferenceBlockNumber` is a past L1 block whose hash is available, from `blockhash`
-    /// for the last 256 blocks and from the EIP-2935 history contract for the last 8191; the
-    /// transaction carries at least one blob, and the batch binds the hashes of all of them. Then
-    /// makes `(lastHeight, lastBlockHash)` the last checkpoint, saves
-    /// `(lastHeight, lastBlockHash, lastStateRoot)` in the signal service, emits `BatchLanded`
-    /// and verifies `_proof` against the landing statement hash (see `hashLandStatement`) with a
-    /// proposal age of 0.
+    /// @notice Lands the L2 blocks after the last checkpoint up to `_input.lastHeight`.
+    /// @dev Permissionless. Requires active status, progress, at most `maxBatchBlocks` blocks,
+    /// and a last height at or below `type(uint48).max`. The reference is a past L1 block with
+    /// a non-zero hash available through blockhash (256 blocks) or EIP-2935 (8191 blocks).
+    /// At least one blob is required, and every actual transaction blob hash is bound in order.
+    /// Saves the terminal checkpoint in the Inbox and SignalService, emits BatchLanded, then
+    /// verifies the V4 statement with proposal age 0; verifier failure rolls back every write.
+    /// No future committee record is an input or output of landing.
     ///
-    /// A valid proof attests that:
-    /// - every Inbox account/storage MPT proof targets the bound Inbox address, and every
-    ///   registry account/storage MPT proof targets the bound staking registry address. Derive
-    ///   each account-trie path from its bound address, authenticate it under the corresponding
-    ///   L1 header's state root, then verify storage under that account's proved storage root.
-    ///   These identities come from address(this) and the configured registry, never calldata;
-    /// - heights `parentHeight + 1` to `lastHeight` form a chain from the parent block hash to
-    ///   `lastBlockHash` with post-state `lastStateRoot`, each executed under the Etna rules
-    ///   (alethia-reth#248 plus the Etna node's header rules);
-    /// - the full starting committee record hashes to the on-chain startCommitteeRecordHash
-    ///   bound by land, with target epoch parentHeight / epochLenL2. Its members reconstruct
-    ///   its set root, total stake and mapped voting power under the authenticated chain rules;
-    /// - each height has a CometBFT commit with more than 2/3 of the voting power of its epoch
-    ///   committee, under `chain_id = taiko-etna-<l2ChainId>-g<generation>`;
-    /// - every block's anchor lies on the L1 header chain ending at `l1ReferenceBlockHash`, the hash of
-    ///   `l1ReferenceBlockNumber`, so `l1ReferenceBlockNumber` is at or after the last block's anchor number. A lander
-    ///   picks a recent L1 block, so a landing outage longer than the 8191-block EIP-2935 window
-    ///   does not strand the batch;
-    /// - each output record for epoch e + 1 is derived at h_first(e), using the PARENT block's
-    ///   authenticated L1 anchor to select the prescribed registry checkpoint cutoff. For block
-    ///   1, the parent anchor is the genesis record's L1 initialization block. The epoch schedule,
-    ///   cutoff and committee-selection rules must match the authenticated chain configuration;
-    /// - at every h_first(t) - 2, the switch block's own L1 anchor proves both
-    ///   lastCheckpoint.height >= h_first(t - 1) and committee[t] == derivedRecordHash. This is
-    ///   required for committees derived inside this batch too: a new output alone cannot
-    ///   authorize its own switch. Apply CometBFT's H+2 update timing, so t signs from h_first(t);
-    /// - a later committee whose derivation height precedes this batch is authenticated against
-    ///   its already-landed Inbox record using a storage proof under an L1 anchor on the header
-    ///   chain ending at l1ReferenceBlockHash. It must not be supplied as an unchecked committee or mistaken
-    ///   for an output of this batch. When the derivation height is inside this batch, the guest
-    ///   uses the derived record that is committed by the batch outputs;
-    /// - the blocks' data is encoded in the bound blobs (the encoding is defined with the lander
-    ///   and the guest).
+    /// A valid Etna proof must authenticate every Inbox/registry account and storage proof under
+    /// the respective bound address and authenticated L1 state root. It must open the stored
+    /// committeeConfigHash using the exact eleven-word encoding:
+    /// abi.encode(bytes32("ETNA_FIXED_CUTOFF_V1"), uint256(l2ChainId), address(stakingRegistry),
+    /// uint64(cutoffGrid), uint64(cutoffLag), uint256(vpUnit), uint256(sMin), uint64(nMax),
+    /// uint64(heartbeatWindow), uint64(2), uint8(1)). It must also authenticate the genesis
+    /// schedule and cutoff from Inbox storage, rather than treating them as unchecked hints.
     ///
-    /// Notes for guests: `keccak256(abi.encode(records))` hashes Solidity's ABI encoding of a
-    /// dynamic array, which starts with the `0x20` offset word, then the length, then each
-    /// record as two words. The guest must derive the account-trie paths from the two bound
-    /// addresses and verify storage proofs under those authenticated accounts' storage roots;
-    /// caller-supplied witness addresses cannot override them. The verifier must trust the Etna
-    /// program enforcing these V3 rules.
-    /// @param _input The batch.
-    /// @param _proof The proof of the landing statement.
+    /// For committee t >= 1 the cutoff is max(genesisCutoff,
+    /// floor(max(L1_0 + max(t - 2, 0) * epochLenL1 - cutoffLag, 0) / cutoffGrid) * cutoffGrid).
+    /// Committee 0 uses genesisCutoff. Arithmetic is checked and cutoffGrid is non-zero. For
+    /// every used committee (including the parent certificate), authenticate the last registry
+    /// checkpoint at or before this cutoff, the checkpoint-array length, its complete entries/root
+    /// and the next checkpoint's height when present. L1-only proof jobs may authenticate the
+    /// snapshot under the reference header if its number covers the cutoff. Derive eligibility,
+    /// key deduplication, ranking, MEM-08 ordering,
+    /// voting power and heartbeat eligibility under the committed configuration. Launch epochs
+    /// 0, 1 and 2 remain exempt from heartbeat filtering; no empty-set fallback is implied.
+    ///
+    /// At S(t) = 1 + t * epochLenL2 - 2 require the committee witness under the committed
+    /// parent's authenticated anchor and require cutoff(t) <= parentAnchor.number. Apply
+    /// CometBFT H+2 timing at H(t) = 1 + t * epochLenL2, checking every current/next validator
+    /// hash and commit with strictly more than 2/3 voting power under
+    /// taiko-etna-<l2ChainId>-g<generation>. Epoch-first blocks need no publication witness.
+    /// The existing anchor progress, status, generation and back-pressure rules still apply.
+    ///
+    /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
+    /// anchor's ancestry on the header chain ending at the reference hash, and block data in the
+    /// bound blobs. A batch may start or end at any valid height and never needs a previous
+    /// batch's committee output. The verifier must pin a guest enforcing these V4 rules; a
+    /// dummy verifier is for development only and does not establish consensus validity.
+    /// @param _input The four-field batch terminal checkpoint and reference block.
+    /// @param _proof The proof of the V4 landing statement.
     function land(LandInput calldata _input, bytes calldata _proof) external;
 
-    /// @notice Encodes the V3 landing statement hash for the supplied public inputs.
-    /// @dev The hash is keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V3"), block.chainid,
+    /// @notice Encodes the V4 landing statement for supplied batch public inputs.
+    /// @dev Fifteen static ABI words (480 bytes): bytes32("TAIKO_ETNA_LAND_V4"), block.chainid,
     /// l2ChainId, address(this), address(stakingRegistry), _generation, _parentHeight, _parentHash,
-    /// _startCommitteeRecordHash, lastHeight,
-    /// lastBlockHash, lastStateRoot, l1ReferenceBlockNumber, _l1ReferenceBlockHash, keccak256(abi.encode(records)),
-    /// keccak256(abi.encodePacked(_blobHashes)))). Chain id is uint256; generation, heights and
-    /// anchor number are uint64; identities are address; hashes are bytes32. Both identities are
-    /// derived internally: call this helper through the Inbox proxy to bind its address, rather
-    /// than the implementation address. The helper does not authenticate the supplied batch values.
-    /// land reads the parent and starting committee from storage,
-    /// resolves the anchor hash and reads the transaction's actual blob hashes itself.
+    /// committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot, l1ReferenceBlockNumber,
+    /// _l1ReferenceBlockHash, keccak256(abi.encodePacked(_blobHashes)). Chain id is uint256;
+    /// generation/heights are uint64, identities address and hashes bytes32. Identities and the
+    /// config hash are read internally; call through the Inbox proxy to bind its address.
+    /// This helper does not authenticate supplied batch values. land reads the stored parent
+    /// and generation, resolves the reference hash and reads the actual transaction blob hashes.
     /// @param _generation The recovery generation.
-    /// @param _parentHeight The height of the block the batch builds on.
-    /// @param _parentHash The hash of the block the batch builds on.
-    /// @param _startCommitteeRecordHash The record hash of the batch's first committee.
-    /// @param _input The batch.
-    /// @param _l1ReferenceBlockHash The L1 block hash of `_input.l1ReferenceBlockNumber`.
-    /// @param _blobHashes The versioned hashes of the batch's blobs, in transaction order.
-    /// @return The landing statement hash.
+    /// @param _parentHeight The parent checkpoint height.
+    /// @param _parentHash The parent checkpoint block hash.
+    /// @param _input The four-field batch.
+    /// @param _l1ReferenceBlockHash The hash of `_input.l1ReferenceBlockNumber`.
+    /// @param _blobHashes The versioned blob hashes in transaction order.
+    /// @return statementHash_ The V4 statement hash.
     function hashLandStatement(
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
-        bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] calldata _blobHashes
     )
         external
         view
-        returns (bytes32);
+        returns (bytes32 statementHash_);
 
     /// @notice Returns the latest landed L2 block.
+    /// @dev The initialized checkpoint is L2 block 0.
     /// @return The latest landed checkpoint; zero before initialization.
     function lastCheckpoint() external view returns (LandedCheckpoint memory);
 
-    /// @notice Returns the committee record hash of `_epoch`.
-    /// @param _epoch The epoch.
-    /// @return The committee record hash; zero if not recorded.
-    function committee(uint64 _epoch) external view returns (bytes32);
+    /// @notice Returns the authenticated committee derivation configuration commitment.
+    /// @dev Stored at slot 269; installed once from the trusted genesis deployment input.
+    /// @return configHash_ The configuration hash; zero before initialization.
+    function committeeConfigHash() external view returns (bytes32 configHash_);
+
+    /// @notice Returns the initial committee record commitment.
+    /// @dev Stored directly at slot 278; no future epoch committee mapping exists.
+    /// @return recordHash_ The genesis committee record hash; zero before initialization.
+    function genesisCommitteeRecordHash() external view returns (bytes32 recordHash_);
 
     /// @notice Returns the genesis record at the existing activation-record slots.
+    /// @dev The schedule and hashes are installed once during initialization.
     /// @return The genesis record; zero before initialization.
     function activation() external view returns (Activation memory);
 
     /// @notice Returns the L1 block of the epoch-0 committee snapshot.
+    /// @dev This is also the lower bound for every future fixed cutoff.
     /// @return The genesis cutoff; zero before initialization.
     function genesisCutoff() external view returns (uint64);
 

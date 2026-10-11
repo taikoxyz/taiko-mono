@@ -14,15 +14,15 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @notice The L1 anchor of an Etna PoS chain starting at L2 block 0. A fresh proxy records its
 /// genesis checkpoint and initial committee in one initialization, then lands proven batches.
 /// @dev Uses the existing ABCI storage interface without any Shasta state or migration logic.
-/// Slots 251–257, 259–267, 269 and 275–277 are reserved to keep the node-facing slots unchanged.
+/// Slots 251–257, 259–267 and 275–277 are reserved to keep the node-facing slots unchanged.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
-    /// @dev The V3 statement in wire order. All fields are static, so abi.encode of this
-    /// memory-only struct is the same sixteen-word encoding as the flat field list. Building
+    /// @dev The V4 statement in wire order. All fields are static, so abi.encode of this
+    /// memory-only struct is the same fifteen-word encoding as the flat field list. Building
     /// it one field at a time keeps the non-IR compiler within its stack limit.
     struct LandStatement {
         bytes32 domain;
@@ -33,13 +33,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint64 generation;
         uint64 parentHeight;
         bytes32 parentHash;
-        bytes32 startCommitteeRecordHash;
+        bytes32 committeeConfigHash;
         uint64 lastHeight;
         bytes32 lastBlockHash;
         bytes32 lastStateRoot;
         uint64 l1ReferenceBlockNumber;
         bytes32 l1ReferenceBlockHash;
-        bytes32 recordsHash;
         bytes32 blobHashesHash;
     }
 
@@ -54,7 +53,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
 
     /// @dev The domain tag of the landing statement.
-    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V3");
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V4");
 
     /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
     uint256 private constant _BLOCKHASH_WINDOW = 256;
@@ -100,8 +99,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Slot 268: the recovery generation (bits 0–63; the rest is reserved for GOV-04).
     uint64 private _recoveryGeneration;
 
-    /// @dev Slot 269: reserved (PARAM-04 config registry).
-    uint256 private __reservedConfigRegistry;
+    /// @dev Slot 269: the authenticated fixed-cutoff committee derivation configuration.
+    bytes32 private _committeeConfigHash;
 
     /// @dev Slots 270–271: the latest landed L2 block.
     LandedCheckpoint private _lastCheckpoint;
@@ -112,8 +111,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Slots 275–277: reserved (#22262 publication register).
     uint256[3] private __reservedPublications;
 
-    /// @dev Slot 278: the committee record hash of each epoch.
-    mapping(uint64 epoch => bytes32 recordHash) private _committee;
+    /// @dev Slot 278: the genesis committee record commitment; no future epoch mapping.
+    bytes32 private _genesisCommitteeRecordHash;
 
     /// @dev Slot 279: the L1 block of the epoch-0 committee snapshot.
     uint64 private _genesisCutoff;
@@ -153,6 +152,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
         require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
         require(_params.committeeRecordHash != 0, ZeroCommitteeRecord());
+        require(_params.committeeConfigHash != 0, ZeroCommitteeConfigHash());
 
         __Essential_init(_owner);
         uint64 l1Block = uint64(block.number);
@@ -166,7 +166,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             genesisStateRoot: _params.genesisStateRoot
         });
         _genesisCutoff = _params.genesisCutoff;
-        _committee[0] = _params.committeeRecordHash;
+        _genesisCommitteeRecordHash = _params.committeeRecordHash;
+        _committeeConfigHash = _params.committeeConfigHash;
         _lastCheckpoint = LandedCheckpoint({ height: 0, blockHash: _params.genesisBlockHash });
         _signalService.saveCheckpoint(
             ICheckpointStore.Checkpoint({
@@ -197,17 +198,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(lastHeight - parent.height <= _maxBatchBlocks, BatchTooLarge());
         require(lastHeight <= type(uint48).max, HeightOverflow());
 
-        // The first block is parent.height + 1; epoch e starts at 1 + e * epochLenL2.
-        // Read the trusted starting record before accepting any new committee outputs.
-        bytes32 startCommitteeRecordHash = _committee[parent.height / _activation.epochLenL2];
-        require(startCommitteeRecordHash != 0, StartingCommitteeNotRecorded());
-        _recordCommittees(parent.height, lastHeight, _input.records);
-
         bytes32 statementHash = _hashLandStatement(
             _recoveryGeneration,
             parent.height,
             parent.blockHash,
-            startCommitteeRecordHash,
             _input,
             _readL1ReferenceBlockHash(_input.l1ReferenceBlockNumber),
             _readBlobHashes()
@@ -239,23 +233,16 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
-        bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] calldata _blobHashes
     )
         external
         view
-        returns (bytes32)
+        returns (bytes32 statementHash_)
     {
         return _hashLandStatement(
-            _generation,
-            _parentHeight,
-            _parentHash,
-            _startCommitteeRecordHash,
-            _input,
-            _l1ReferenceBlockHash,
-            _blobHashes
+            _generation, _parentHeight, _parentHash, _input, _l1ReferenceBlockHash, _blobHashes
         );
     }
 
@@ -265,8 +252,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
-    function committee(uint64 _epoch) external view returns (bytes32) {
-        return _committee[_epoch];
+    function committeeConfigHash() external view returns (bytes32 configHash_) {
+        return _committeeConfigHash;
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function genesisCommitteeRecordHash() external view returns (bytes32 recordHash_) {
+        return _genesisCommitteeRecordHash;
     }
 
     /// @inheritdoc IEtnaInbox
@@ -300,7 +292,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @param _generation The recovery generation.
     /// @param _parentHeight The height of the block the batch builds on.
     /// @param _parentHash The hash of the block the batch builds on.
-    /// @param _startCommitteeRecordHash The on-chain record hash of the first block's committee.
     /// @param _input The batch.
     /// @param _l1ReferenceBlockHash The L1 block hash of `_input.l1ReferenceBlockNumber`.
     /// @param _blobHashes The versioned hashes of the batch's blobs.
@@ -309,7 +300,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
-        bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] memory _blobHashes
@@ -327,13 +317,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         statement.generation = _generation;
         statement.parentHeight = _parentHeight;
         statement.parentHash = _parentHash;
-        statement.startCommitteeRecordHash = _startCommitteeRecordHash;
+        statement.committeeConfigHash = _committeeConfigHash;
         statement.lastHeight = _input.lastHeight;
         statement.lastBlockHash = _input.lastBlockHash;
         statement.lastStateRoot = _input.lastStateRoot;
         statement.l1ReferenceBlockNumber = _input.l1ReferenceBlockNumber;
         statement.l1ReferenceBlockHash = _l1ReferenceBlockHash;
-        statement.recordsHash = keccak256(abi.encode(_input.records));
         statement.blobHashesHash = keccak256(abi.encodePacked(_blobHashes));
         return keccak256(abi.encode(statement));
     }
@@ -341,45 +330,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    /// @dev Checks that `_records` holds exactly one non-zero record, keyed `e + 1` and in
-    /// ascending order, for every epoch `e` whose first block lies in
-    /// `(_parentHeight, _lastHeight]`, and stores each as `committee[e + 1]`.
-    /// @param _parentHeight The height of the block the batch builds on, starting at 0.
-    /// @param _lastHeight The height of the batch's last block.
-    /// @param _records The batch's committee records.
-    function _recordCommittees(
-        uint64 _parentHeight,
-        uint64 _lastHeight,
-        CommitteeRecord[] calldata _records
-    )
-        private
-    {
-        uint256 epochLen = _activation.epochLenL2;
-
-        // Epoch e starts at height 1 + e * epochLen. The first one above the parent is
-        // ceil(parentHeight / epochLen); uint256 arithmetic keeps the sum in range.
-        uint256 epoch = (uint256(_parentHeight) + epochLen - 1) / epochLen;
-        uint256 firstHeight = 1 + epoch * epochLen;
-        uint256 count = _records.length;
-        uint256 i;
-        for (; firstHeight <= _lastHeight; ++i) {
-            require(i < count, CommitteeRecordsMismatch());
-            // `epoch` stays below `type(uint48).max`, as `firstHeight` does.
-            uint64 recordEpoch = uint64(epoch + 1);
-            bytes32 recordHash = _records[i].recordHash;
-            require(_records[i].epoch == recordEpoch && recordHash != 0, CommitteeRecordsMismatch());
-            // Batches are contiguous, so each epoch's first block is landed once.
-            require(_committee[recordEpoch] == 0, CommitteeAlreadyRecorded());
-
-            _committee[recordEpoch] = recordHash;
-            emit CommitteeRecorded(recordEpoch, recordHash);
-
-            ++epoch;
-            firstHeight += epochLen;
-        }
-        require(i == count, CommitteeRecordsMismatch());
-    }
 
     /// @dev Returns the hash of L1 block `_l1ReferenceBlockNumber`: from `blockhash` for the last 256
     /// blocks, from the EIP-2935 history contract for the last 8191; reverts otherwise or if the
@@ -437,14 +387,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     error AnchorUnavailable();
     error BatchTooLarge();
     error BlobsRequired();
-    error CommitteeAlreadyRecorded();
-    error CommitteeRecordsMismatch();
     error EtnaNotActive();
     error InvalidGenesis();
     error HeightOverflow();
     error InvalidEpochLength();
     error InvalidGenesisCutoff();
     error NoProgress();
-    error StartingCommitteeNotRecorded();
     error ZeroCommitteeRecord();
+    error ZeroCommitteeConfigHash();
 }
