@@ -63,6 +63,9 @@ contract DeployEtnaDevnet is Script {
     /// @notice Deploys fresh SignalService and EtnaInbox proxies initialized from L2 genesis.
     /// @dev Four consecutive CREATEs are broadcast from one deployer. Predicts the final proxy
     /// address so the SignalService authorizes it before the Inbox initializes its checkpoint.
+    /// COMMITTEE_CONFIG_HASH must be the canonical ETNA_FIXED_CUTOFF_V1 opening for this chain
+    /// and registry, matching node parameters. Fixture inputs may use a dummy verifier only on
+    /// ephemeral devnets; ETNA_PROOF_VERIFIER must explicitly select that deployed verifier.
     /// @return inbox_ The new EtnaInbox proxy.
     /// @return signalService_ The new L1 SignalService proxy.
     function deployInbox() external returns (address inbox_, address signalService_) {
@@ -78,7 +81,8 @@ contract DeployEtnaDevnet is Script {
             epochLenL2: _envUint64("EPOCH_LEN_L2"),
             epochLenL1: _envUint64("EPOCH_LEN_L1"),
             genesisCutoff: _envUint64("GENESIS_CUTOFF"),
-            committeeRecordHash: vm.envBytes32("COMMITTEE_RECORD_HASH")
+            committeeRecordHash: vm.envBytes32("COMMITTEE_RECORD_HASH"),
+            committeeConfigHash: vm.envBytes32("COMMITTEE_CONFIG_HASH")
         });
         uint64 l2ChainId = _envUint64("L2_CHAIN_ID");
         uint64 maxBatchBlocks = _envUint64("MAX_BATCH_BLOCKS");

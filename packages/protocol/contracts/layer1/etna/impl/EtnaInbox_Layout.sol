@@ -7,25 +7,25 @@ pragma solidity ^0.8.26;
 /// @custom:security-contact security@taiko.xyz
 
 // solhint-disable max-line-length
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __reservedBeforeStatus         | uint256[7]                                         | Slot: 251  | Offset: 0    | Bytes: 224 
-//   _status                        | uint8                                              | Slot: 258  | Offset: 0    | Bytes: 1   
-//   __reservedSpec                 | uint256[9]                                         | Slot: 259  | Offset: 0    | Bytes: 288 
-//   _recoveryGeneration            | uint64                                             | Slot: 268  | Offset: 0    | Bytes: 8   
-//   __reservedConfigRegistry       | uint256                                            | Slot: 269  | Offset: 0    | Bytes: 32  
-//   _lastCheckpoint                | struct IEtnaInbox.LandedCheckpoint                 | Slot: 270  | Offset: 0    | Bytes: 64  
-//   _activation                    | struct IEtnaInbox.Activation                       | Slot: 272  | Offset: 0    | Bytes: 96  
-//   __reservedPublications         | uint256[3]                                         | Slot: 275  | Offset: 0    | Bytes: 96  
-//   _committee                     | mapping(uint64 => bytes32)                         | Slot: 278  | Offset: 0    | Bytes: 32  
-//   _genesisCutoff                 | uint64                                             | Slot: 279  | Offset: 0    | Bytes: 8   
-//   __gap                          | uint256[21]                                        | Slot: 280  | Offset: 0    | Bytes: 672 
+//   __reservedBeforeStatus         | uint256[7]                                         | Slot: 251  | Offset: 0    | Bytes: 224
+//   _status                        | uint8                                              | Slot: 258  | Offset: 0    | Bytes: 1
+//   __reservedSpec                 | uint256[9]                                         | Slot: 259  | Offset: 0    | Bytes: 288
+//   _recoveryGeneration            | uint64                                             | Slot: 268  | Offset: 0    | Bytes: 8
+//   _committeeConfigHash           | bytes32                                            | Slot: 269  | Offset: 0    | Bytes: 32
+//   _lastCheckpoint                | struct IEtnaInbox.LandedCheckpoint                 | Slot: 270  | Offset: 0    | Bytes: 64
+//   _activation                    | struct IEtnaInbox.Activation                       | Slot: 272  | Offset: 0    | Bytes: 96
+//   __reservedPublications         | uint256[3]                                         | Slot: 275  | Offset: 0    | Bytes: 96
+//   _genesisCommitteeRecordHash    | bytes32                                            | Slot: 278  | Offset: 0    | Bytes: 32
+//   _genesisCutoff                 | uint64                                             | Slot: 279  | Offset: 0    | Bytes: 8
+//   __gap                          | uint256[21]                                        | Slot: 280  | Offset: 0    | Bytes: 672

@@ -34,6 +34,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _deployInbox_RevertWhen_GenesisBlockHashIsZero();
         _deployInbox_RevertWhen_GenesisStateRootIsZero();
         _deployInbox_RevertWhen_ProofVerifierHasNoCode();
+        _deployInbox_RevertWhen_CommitteeConfigHashIsZero();
     }
 
     modifier withEnvironment() {
@@ -61,6 +62,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("EPOCH_LEN_L1", vm.toString(EPOCH_LEN_L1));
         vm.setEnv("GENESIS_CUTOFF", vm.toString(registryCheckpointBlock));
         vm.setEnv("COMMITTEE_RECORD_HASH", vm.toString(COMMITTEE_RECORD_0));
+        vm.setEnv("COMMITTEE_CONFIG_HASH", vm.toString(COMMITTEE_CONFIG_HASH));
     }
 
     function _run_DeploysAnInitializedRegistryWithTheConfiguredOwner() private withEnvironment {
@@ -104,27 +106,24 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(deployed.migrationState(), 3, "initialized");
         assertEq(deployed.lastCheckpoint().height, 0, "L2 block zero");
         assertEq(deployed.lastCheckpoint().blockHash, genesisBlockHash, "genesis parent");
-        assertEq(deployed.committee(0), COMMITTEE_RECORD_0, "committee zero");
+        assertEq(deployed.genesisCommitteeRecordHash(), COMMITTEE_RECORD_0, "committee zero");
+        assertEq(deployed.committeeConfigHash(), COMMITTEE_CONFIG_HASH, "committee config");
         ICheckpointStore.Checkpoint memory checkpoint = deployedSignals.getCheckpoint(0);
         assertEq(checkpoint.blockHash, genesisBlockHash, "checkpoint zero hash");
         assertEq(checkpoint.stateRoot, genesisStateRoot, "checkpoint zero root");
 
-        IEtnaInbox.CommitteeRecord[] memory records = new IEtnaInbox.CommitteeRecord[](1);
-        records[0] =
-            IEtnaInbox.CommitteeRecord({ epoch: 1, recordHash: keccak256("committee one") });
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             lastHeight: 1,
             lastBlockHash: keccak256("first Etna block"),
             lastStateRoot: keccak256("first Etna state"),
-            l1ReferenceBlockNumber: uint64(block.number - 1),
-            records: records
+            l1ReferenceBlockNumber: uint64(block.number - 1)
         });
         bytes32 l1ReferenceBlockHash = keccak256("genesis anchor");
         vm.setBlockhash(input.l1ReferenceBlockNumber, l1ReferenceBlockHash);
         bytes32[] memory blobHashes = _getBlobHashes(1);
         vm.blobhashes(blobHashes);
         bytes32 statement = deployed.hashLandStatement(
-            0, 0, genesisBlockHash, COMMITTEE_RECORD_0, input, l1ReferenceBlockHash, blobHashes
+            0, 0, genesisBlockHash, input, l1ReferenceBlockHash, blobHashes
         );
         vm.expectCall(
             address(landVerifier),
@@ -164,6 +163,11 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     function _deployInbox_RevertWhen_ProofVerifierHasNoCode() private withEnvironment {
         vm.setEnv("ETNA_PROOF_VERIFIER", vm.toString(Alice));
         _expectRejectedDeployment(DeployEtnaDevnet.ProofVerifierHasNoCode.selector);
+    }
+
+    function _deployInbox_RevertWhen_CommitteeConfigHashIsZero() private withEnvironment {
+        vm.setEnv("COMMITTEE_CONFIG_HASH", vm.toString(bytes32(0)));
+        _expectRejectedDeployment(EtnaInbox.ZeroCommitteeConfigHash.selector);
     }
 
     function _expectRejectedDeployment(bytes4 _error) private {

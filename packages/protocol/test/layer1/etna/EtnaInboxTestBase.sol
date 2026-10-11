@@ -51,7 +51,8 @@ abstract contract EtnaInboxTestBase is CommonTest {
     uint256 internal constant RECOVERY_GENERATION_SLOT = 268;
     uint256 internal constant LAST_CHECKPOINT_SLOT = 270;
     uint256 internal constant ACTIVATION_SLOT = 272;
-    uint256 internal constant COMMITTEE_SLOT = 278;
+    uint256 internal constant COMMITTEE_CONFIG_SLOT = 269;
+    uint256 internal constant GENESIS_COMMITTEE_SLOT = 278;
     uint256 internal constant GENESIS_CUTOFF_SLOT = 279;
 
     uint64 internal constant L2_CHAIN_ID = 167_001;
@@ -59,6 +60,7 @@ abstract contract EtnaInboxTestBase is CommonTest {
     uint64 internal constant EPOCH_LEN_L2 = 10;
     uint64 internal constant EPOCH_LEN_L1 = 32;
     bytes32 internal constant COMMITTEE_RECORD_0 = keccak256("committee record 0");
+    bytes32 internal constant COMMITTEE_CONFIG_HASH = keccak256("committee config");
     uint256 internal constant MIN_STAKE = 1000 ether;
     bytes32 internal constant VALIDATOR_KEY = bytes32(uint256(0xa1));
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
@@ -146,7 +148,8 @@ abstract contract EtnaInboxTestBase is CommonTest {
             epochLenL2: EPOCH_LEN_L2,
             epochLenL1: EPOCH_LEN_L1,
             genesisCutoff: registryCheckpointBlock,
-            committeeRecordHash: COMMITTEE_RECORD_0
+            committeeRecordHash: COMMITTEE_RECORD_0,
+            committeeConfigHash: COMMITTEE_CONFIG_HASH
         });
     }
 
@@ -166,7 +169,7 @@ abstract contract EtnaInboxTestBase is CommonTest {
         return uint256(vm.load(address(etnaInbox), bytes32(_slot)));
     }
 
-    function _committeeSlot(uint64 _epoch) internal pure returns (bytes32) {
-        return keccak256(abi.encode(uint256(_epoch), COMMITTEE_SLOT));
+    function _legacyCommitteeSlot(uint64 _epoch) internal pure returns (bytes32) {
+        return keccak256(abi.encode(uint256(_epoch), GENESIS_COMMITTEE_SLOT));
     }
 }
