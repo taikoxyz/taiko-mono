@@ -168,14 +168,18 @@ block hash, it requires, in order:
 1. The proxy is initialized (`EtnaNotActive`).
 2. `p < lastHeight <= p + maxBatchBlocks` and `lastHeight <= type(uint48).max`, the SignalService
    key width (`NoProgress`, `BatchTooLarge`, `HeightOverflow`).
-3. One record per epoch `e` with `h_first(e)` in `(p, lastHeight]`, in ascending order, with
+3. The first block's epoch is `startEpoch = p / epochLenL2`, since the batch starts at `p + 1`
+   and epoch `e` starts at `1 + e * epochLenL2`. Before writing any outputs, the contract reads
+   `startCommitteeRecordHash = committee[startEpoch]` and requires it to be non-zero
+   (`StartingCommitteeNotRecorded`). This input comes from contract storage, never calldata.
+4. One record per epoch `e` with `h_first(e)` in `(p, lastHeight]`, in ascending order, with
    `epoch == e + 1` and a non-zero hash; anything missing, extra, reordered or zero reverts
    `CommitteeRecordsMismatch`. Each becomes `committee[e + 1]`, which must still be empty
    (`CommitteeAlreadyRecorded`).
-4. `anchorNumber < block.number`, with its hash from `blockhash` up to 256 blocks back or from the
+5. `anchorNumber < block.number`, with its hash from `blockhash` up to 256 blocks back or from the
    EIP-2935 history contract (`0x0000F90827F1C53a10cb7A02335B175320002935`) up to 8191 blocks back,
    and non-zero (`AnchorUnavailable`).
-5. The transaction carries at least one blob (`BlobsRequired`); all of its blob hashes are bound.
+6. The transaction carries at least one blob (`BlobsRequired`); all of its blob hashes are bound.
 
 It then sets `lastCheckpoint = (lastHeight, lastBlockHash)`, saves
 `(lastHeight, lastBlockHash, lastStateRoot)` in the L1 SignalService (which keeps the Bridge's L2 to
@@ -184,11 +188,12 @@ which reverts on a bad proof and undoes everything. The statement is:
 
 ```solidity
 statementHash = keccak256(abi.encode(
-    bytes32("TAIKO_ETNA_LAND_V1"),
+    bytes32("TAIKO_ETNA_LAND_V2"),
     block.chainid,                 // uint256
     l2ChainId,                     // uint64
     recoveryGeneration,            // uint64
     p, parentHash,                 // uint64, bytes32
+    startCommitteeRecordHash,      // bytes32, read from committee[p / epochLenL2]
     lastHeight, lastBlockHash, lastStateRoot,
     anchorNumber, anchorHash,      // uint64, bytes32
     keccak256(abi.encode(records)),
@@ -196,31 +201,88 @@ statementHash = keccak256(abi.encode(
 ));
 ```
 
-`hashLandStatement` returns the same hash for given inputs, and
-`test_hashLandStatement_MatchesTheFixedVector` (`test/layer1/etna/EtnaInboxLand.t.sol`) pins one
-vector for the lander and the guest.
+The V2 domain separates this encoding from V1, which did not bind the starting committee.
+`hashLandStatement` is a raw encoding helper with an explicit starting-record argument. It does
+not authenticate that argument; `land` supplies the value read from storage. The fixed vector in
+`test/layer1/etna/EtnaInboxLand.t.sol` pins all fields for the guest and lander.
 
-The guest's obligations: a valid proof attests that
+### Verification constraints
 
-- heights `p + 1` to `lastHeight` form a chain from `parentHash` to `lastBlockHash` with post-state
-  `lastStateRoot`, each executed under the Etna rules;
-- each height has a CometBFT commit signed by more than 2/3 of its epoch committee's voting power,
-  under the CometBFT chain id `taiko-etna-<l2ChainId>-g<recoveryGeneration>`; the first epoch's
-  committee is `committee[0]` from initialization;
-- every block's L1 anchor lies on the L1 header chain ending at `anchorHash`, the hash of
-  `anchorNumber`. So `anchorNumber` is any L1 block at or after the last block's anchor number: a
-  lander picks a recent one, and a landing outage longer than the 8191-block EIP-2935 window does
-  not strand the batch;
-- each record is the committee record derived from the registry witness carried in block
-  `h_first(e)`;
-- the blocks' data is encoded in the bound blobs.
+The trusted inputs are the parent checkpoint, generation and starting committee record read by
+`land`, plus the L1 anchor hash and actual transaction blob hashes. The terminal block/state roots
+and new committee records are claims whose correctness the proof must establish. The verifier
+must accept only an Etna program that enforces the following V2 constraints:
+
+1. **Authenticate the context.** Reconstruct the L1 header whose RLP hash is the bound
+   `anchorHash`, then authenticate all other block anchors through its parent-header chain. Verify
+   Inbox/registry account and storage proofs against those headers' state roots. The epoch schedule
+   and genesis record must match the authenticated Inbox state; selection parameters and contract
+   addresses must match the trusted program configuration. A witness cannot choose another registry,
+   epoch length, cutoff rule or voting-power unit.
+2. **Open the starting commitment.** Hash the full starting committee record and require equality
+   with `startCommitteeRecordHash`, with `targetEpoch == p / epochLenL2`. Its supplied members must
+   reconstruct the canonical MEM-08 set root, total stake and voting power. The record encoding is
+   the node's `committee::record_hash`:
+
+   ```solidity
+   recordHash = keccak256(abi.encode(
+       bytes32("ETNA_COMMITTEE_V1"),
+       l2ChainId,          // uint256
+       targetEpoch,       // uint64
+       cutoffL1Block,     // uint64
+       checkpointIndex,   // uint64
+       setRoot,           // bytes32, selected committee; not registry entriesRoot
+       totalStake,        // uint256
+       totalPower,        // uint64
+       encodingVersion    // uint8
+   ));
+   ```
+
+3. **Derive committee outputs.** At `h_first(e)`, use the **parent block's** authenticated L1
+   anchor to compute the prescribed snapshot cutoff, floored at `genesisCutoff`. For L2 block 1,
+   the parent anchor is the genesis record's L1 initialization block `L1_0`. Authenticate the
+   registry checkpoint selected at that cutoff, reconstruct `entriesRoot` from its complete entry
+   list, and apply the same
+   eligibility, key deduplication, size cap and power mapping as the node. The resulting record for
+   `e + 1` must equal the corresponding committed `records` output. These are future records to be
+   landed by this transaction; they are not independently trusted committees.
+4. **Verify every switch.** At `h_switch(t) = h_first(t) - 2`, reproduce the node's switch gate
+   using that block's own authenticated L1 anchor: its Inbox proof must show both
+   `lastCheckpoint.height >= h_first(t - 1)` and `committee[t] == derivedRecordHash`. This is
+   required even if the derivation happened inside this batch. When the derivation was before the
+   batch, open the already-landed on-chain record to recover its members; do not invent a committee
+   or treat it as this batch's output. A freshly derived output cannot by itself authorize a switch
+   before it has landed on L1. Apply the validator update with CometBFT's H+2 timing, so the new
+   committee signs from `h_first(t)`.
+5. **Verify execution, finality and data.** Authenticate the parent EL header against `parentHash`
+   to obtain its state root. Verify the consecutive EL blocks and all Etna header rules, the
+   CometBFT commits with strictly more than 2/3 of the correct committee's voting power under
+   `taiko-etna-<l2ChainId>-g<generation>`, and the data commitment to the bound blob hashes. The
+   resulting terminal height, block hash, state root and committee outputs must reproduce the bound
+   V2 statement exactly.
+
+For example, with `L = 10`, a previous landing of blocks 1–5 has already stored `committee[1]`,
+derived at block 1. A new batch 6–12 starts under `committee[0]`: its bound starting record is C0.
+At switch block 9, the guest proves the block's L1 anchor already contains committee 1 and a
+checkpoint covering block 1; committee 1 then signs from block 11. Block 11 derives committee 2,
+which is the new batch's output. The starting record C0, previously landed C1 and output C2 have
+different roles and must all satisfy their respective checks.
+
+Consequently a single genesis batch covering blocks 1–11 cannot satisfy the switch gate unless
+committee 1 has already landed in an earlier transaction, which would advance the parent checkpoint.
+The valid path splits before switch block 9, lands committee 1, then produces the later blocks with
+an L1 anchor proving it. Contract tests using a mock verifier exercise statement encoding, batching
+and rollback; accepting a large mock batch does not establish that its consensus proof is valid.
 
 Notes for guests:
 
-- `keccak256(abi.encode(records))` hashes the ABI encoding of a dynamic array, which starts with
-  the `0x20` offset word, then the length, then each record as two words (`epoch`, `recordHash`).
-- The statement does not bind `address(this)`, so the Inbox and registry addresses are constants
-  of the guest program image: a proof for another Inbox needs another image.
+- `keccak256(abi.encode(records))` hashes a dynamic-array ABI encoding: the `0x20` offset word,
+  length, then each record as two words (`epoch`, `recordHash`).
+- Inbox and registry addresses are fixed by the trusted program image because the statement does
+  not bind `address(this)`. Another Inbox requires another image/configuration.
+- `anchorNumber` may be a recent L1 block after all batch anchors, so a landing outage longer than
+  the EIP-2935 window need not strand old blocks. Every storage witness must still authenticate
+  against an anchor on that header chain; current tentative writes cannot serve as past L1 proofs.
 
 ## Open items
 

@@ -123,8 +123,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setBlockhash(input.anchorNumber, anchorHash);
         bytes32[] memory blobHashes = _getBlobHashes(1);
         vm.blobhashes(blobHashes);
-        bytes32 statement =
-            deployed.hashLandStatement(0, 0, genesisBlockHash, input, anchorHash, blobHashes);
+        bytes32 statement = deployed.hashLandStatement(
+            0, 0, genesisBlockHash, COMMITTEE_RECORD_0, input, anchorHash, blobHashes
+        );
         vm.expectCall(
             address(landVerifier),
             abi.encodeCall(IProofVerifier.verifyProof, (0, statement, bytes("proof")))

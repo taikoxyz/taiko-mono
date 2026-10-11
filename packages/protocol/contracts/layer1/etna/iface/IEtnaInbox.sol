@@ -160,7 +160,9 @@ interface IEtnaInbox {
     /// `_input.lastHeight`, proven by `_proof`.
     /// @dev Permissionless. Requires, in order: Etna is active; the batch makes progress, covers
     /// at most `maxBatchBlocks` blocks and ends at or below `type(uint48).max` (the signal
-    /// service key width); for every epoch `e` whose first block
+    /// service key width); committee[parentHeight / epochLenL2] is non-zero and is bound as
+    /// the starting committee record before any new records are written; for every epoch `e`
+    /// whose first block
     /// `h_first(e) = 1 + e * epochLenL2` lies in the batch, in ascending order,
     /// `_input.records` holds exactly one non-zero record with `epoch == e + 1` and
     /// `committee[e + 1]` is still empty (the record then becomes `committee[e + 1]`), and no
@@ -176,15 +178,28 @@ interface IEtnaInbox {
     /// - heights `parentHeight + 1` to `lastHeight` form a chain from the parent block hash to
     ///   `lastBlockHash` with post-state `lastStateRoot`, each executed under the Etna rules
     ///   (alethia-reth#248 plus the Etna node's header rules);
+    /// - the full starting committee record hashes to the on-chain startCommitteeRecordHash
+    ///   bound by land, with target epoch parentHeight / epochLenL2. Its members reconstruct
+    ///   its set root, total stake and mapped voting power under the authenticated chain rules;
     /// - each height has a CometBFT commit with more than 2/3 of the voting power of its epoch
-    ///   committee, under `chain_id = taiko-etna-<l2ChainId>-g<generation>`; the first epoch's
-    ///   committee is `committee[0]` from initialization;
+    ///   committee, under `chain_id = taiko-etna-<l2ChainId>-g<generation>`;
     /// - every block's anchor lies on the L1 header chain ending at `anchorHash`, the hash of
     ///   `anchorNumber`, so `anchorNumber` is at or after the last block's anchor number. A lander
     ///   picks a recent L1 block, so a landing outage longer than the 8191-block EIP-2935 window
     ///   does not strand the batch;
-    /// - each record is the committee record derived from the witness carried in block
-    ///   `h_first(e)`;
+    /// - each output record for epoch e + 1 is derived at h_first(e), using the PARENT block's
+    ///   authenticated L1 anchor to select the prescribed registry checkpoint cutoff. For block
+    ///   1, the parent anchor is the genesis record's L1 initialization block. The epoch schedule,
+    ///   cutoff and committee-selection rules must match the authenticated chain configuration;
+    /// - at every h_first(t) - 2, the switch block's own L1 anchor proves both
+    ///   lastCheckpoint.height >= h_first(t - 1) and committee[t] == derivedRecordHash. This is
+    ///   required for committees derived inside this batch too: a new output alone cannot
+    ///   authorize its own switch. Apply CometBFT's H+2 update timing, so t signs from h_first(t);
+    /// - a later committee whose derivation height precedes this batch is authenticated against
+    ///   its already-landed Inbox record using a storage proof under an L1 anchor on the header
+    ///   chain ending at anchorHash. It must not be supplied as an unchecked committee or mistaken
+    ///   for an output of this batch. When the derivation height is inside this batch, the guest
+    ///   uses the derived record that is committed by the batch outputs;
     /// - the blocks' data is encoded in the bound blobs (the encoding is defined with the lander
     ///   and the guest).
     ///
@@ -192,22 +207,23 @@ interface IEtnaInbox {
     /// dynamic array, which starts with the `0x20` offset word, then the length, then each
     /// record as two words. The statement does not bind `address(this)`, so the Inbox and
     /// registry addresses are constants of the guest program image: a proof for another Inbox
-    /// needs another image.
+    /// needs another image. The verifier must trust the Etna program enforcing these V2 rules.
     /// @param _input The batch.
     /// @param _proof The proof of the landing statement.
     function land(LandInput calldata _input, bytes calldata _proof) external;
 
-    /// @notice Returns the landing statement hash a `land` proof attests to.
-    /// @dev The hash is `keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V1"), block.chainid,
-    /// l2ChainId, _generation, _parentHeight, _parentHash, lastHeight, lastBlockHash,
-    /// lastStateRoot, anchorNumber, _anchorHash, keccak256(abi.encode(records)),
-    /// keccak256(abi.encodePacked(_blobHashes))))`, where `block.chainid` is a `uint256`, the
-    /// generation, heights and anchor number are `uint64`s, and `records` and the other batch
-    /// fields come from `_input`. `land` binds the current recovery generation, the last
-    /// checkpoint as the parent, the anchor hash it reads and the transaction's blob hashes.
+    /// @notice Encodes the V2 landing statement hash for the supplied public inputs.
+    /// @dev The hash is keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V2"), block.chainid,
+    /// l2ChainId, _generation, _parentHeight, _parentHash, _startCommitteeRecordHash, lastHeight,
+    /// lastBlockHash, lastStateRoot, anchorNumber, _anchorHash, keccak256(abi.encode(records)),
+    /// keccak256(abi.encodePacked(_blobHashes)))). Chain id is uint256; generation, heights and
+    /// anchor number are uint64; hashes are bytes32. This is a raw encoding helper: it does not
+    /// authenticate supplied values. land reads the parent and starting committee from storage,
+    /// resolves the anchor hash and reads the transaction's actual blob hashes itself.
     /// @param _generation The recovery generation.
     /// @param _parentHeight The height of the block the batch builds on.
     /// @param _parentHash The hash of the block the batch builds on.
+    /// @param _startCommitteeRecordHash The record hash of the batch's first committee.
     /// @param _input The batch.
     /// @param _anchorHash The L1 block hash of `_input.anchorNumber`.
     /// @param _blobHashes The versioned hashes of the batch's blobs, in transaction order.
@@ -216,6 +232,7 @@ interface IEtnaInbox {
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
+        bytes32 _startCommitteeRecordHash,
         LandInput calldata _input,
         bytes32 _anchorHash,
         bytes32[] calldata _blobHashes
