@@ -98,7 +98,7 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 /// record of #22262's MIG rules). Rejects, in this order: `status != ETNA_ACTIVE`, a zero
 /// genesis hash, a zero bootstrap committee hash, a zero
 /// epoch length, `genesisCutoff >= L1_0`. The remaining schedule bounds are checked by
-/// [`Schedule::validate`].
+/// [`crate::Schedule::validate`].
 pub fn verify_genesis_inbox(
     state_root: B256,
     w: &AccountWitness,

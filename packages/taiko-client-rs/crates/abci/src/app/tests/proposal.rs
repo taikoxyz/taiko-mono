@@ -282,7 +282,7 @@ async fn switch_derives_the_next_committee_at_the_floored_genesis_cutoff() {
     let parent = fx.anchor_state(app.l1(), 66);
     jump(&mut app, switch - 1, parent.clone(), &[]);
     let env = propose(&mut app).await;
-    let committee = env.committee.as_ref().expect("H_0 = h_first(e_0) carries a committee");
+    let committee = env.committee.as_ref().expect("H(1)-2 carries the incoming committee");
     assert_eq!(committee.record.target_epoch, 1);
     assert_eq!(committee.record.cutoff_l1_block, genesis_cutoff);
     assert_eq!(committee.record.checkpoint_index, 0);

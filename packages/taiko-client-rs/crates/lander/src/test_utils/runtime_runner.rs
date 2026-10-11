@@ -208,8 +208,16 @@ impl LandingSource for MockL1 {
     async fn parent_anchor(&self, _: &LandingSnapshot, _: &ParentContext) -> Result<AnchorState> {
         Ok(self.request.batch.parent_anchor.clone())
     }
-    async fn committee_hash(&self, _: &LandingSnapshot, _: u64) -> Result<B256> {
-        Ok(B256::ZERO)
+    async fn starting_inbox_witness(&self, _: &AnchorState) -> Result<abci::AnchorWitness> {
+        unreachable!()
+    }
+    async fn committee_witness(
+        &self,
+        _: &LandingSnapshot,
+        _: &AnchorState,
+        _: u64,
+    ) -> Result<abci::CommitteeWitness> {
+        unreachable!("runner mock never derives a committee")
     }
     async fn reference(&self, _: &LandingSnapshot, _: &[AnchorState]) -> Result<Vec<RawL1Header>> {
         Ok(vec![])
@@ -512,7 +520,7 @@ async fn changed_proxy_statement_or_unchanged_checkpoint_committee_stops_before_
         {
             let mut control = fixture.control.lock().unwrap();
             if committee_change {
-                control.snapshot.start_committee_record_hash = B256::ZERO;
+                control.snapshot.committee_config_hash = B256::ZERO;
             } else {
                 control.helper_mismatch = true;
             }

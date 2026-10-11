@@ -281,7 +281,6 @@ mod tests {
     #[test]
     fn inbox_facts_json_round_trips() {
         json_round_trip(&inbox_facts());
-        json_round_trip(&inbox_facts());
     }
 
     #[test]

@@ -49,7 +49,7 @@ pub struct DevnetSpec {
 
 impl Default for DevnetSpec {
     /// One validator, `L = 20`, `EPOCH_LEN_L1 = 10`, `D_MAX = 12`, `MARGIN_V = 2`, 1 s commits,
-    /// committee records landed.
+    /// fake lander advancing checkpoints.
     fn default() -> Self {
         Self {
             validators: 1,

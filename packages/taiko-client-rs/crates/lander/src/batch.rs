@@ -2,19 +2,25 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use abci::{AnchorState, ChainParams, ParentInfo, Schedule, committee::record_hash, rules};
+use abci::{
+    AnchorState, ChainParams, ParentInfo, Schedule,
+    committee::{record_hash, verify_committee_witness},
+    rules,
+};
 use async_trait::async_trait;
 
 use crate::{
     blob, codec,
     comet::{CometSource, CometStatus},
     committee::{AuthenticatedCommittee, authenticate},
-    contracts::IEtnaInbox::{CommitteeRecord, LandInput},
+    contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result},
     l1::{LandingSource, ParentContext},
     proof::ProofRequest,
     statement,
-    types::{CertifiedBlock, LandingSnapshot, Limits, PreparedBatch, SidecarMode},
+    types::{
+        CertifiedBlock, CommitteeContext, LandingSnapshot, Limits, PreparedBatch, SidecarMode,
+    },
     validate::{EnvelopeContext, verify_body, verify_commit, verify_envelope, verify_structure},
 };
 
@@ -27,7 +33,7 @@ pub struct BatchObservation {
     pub publishable_blocks: usize,
     /// The certified tip's anchored unsettled depth has reached `U - 1`.
     pub force_backpressure: bool,
-    /// An unlanded epoch's first height exists anywhere in the decided backlog.
+    /// An unlanded switch witness exists anywhere in the decided backlog.
     pub force_epoch: bool,
 }
 
@@ -52,7 +58,7 @@ pub trait BatchSource: Send + Sync {
 
 /// Collector-backed builder; no proof computation or transaction mutation occurs here.
 pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
-    /// Read-only CometBFT block/certificate and committee hints.
+    /// Read-only CometBFT block/certificate source.
     comet: Arc<C>,
     /// Coherent L1 reads and public L2 checkpoint headers.
     l1: Arc<L>,
@@ -80,6 +86,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
 
     /// Ensure one coherent Inbox context matches the configured chain and genesis schedule.
     fn schedule(&self, snapshot: &LandingSnapshot) -> Result<Schedule> {
+        crate::l1::authenticate_snapshot(snapshot, &self.params)?;
         if snapshot.l2_chain_id != self.params.l2_chain_id ||
             snapshot.inbox != self.params.inbox ||
             snapshot.registry != self.params.registry ||
@@ -87,7 +94,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             snapshot.genesis.genesis_cutoff >= snapshot.genesis.l1_0 ||
             snapshot.genesis.genesis_hash.is_zero() ||
             snapshot.genesis.genesis_state_root.is_zero() ||
-            snapshot.start_committee_record_hash.is_zero() ||
+            snapshot.committee_config_hash.is_zero() ||
             snapshot.checkpoint_hash.is_zero()
         {
             return Err(LanderError::Configuration(
@@ -170,29 +177,36 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(PublishablePrefix { blocks, payload })
     }
 
-    /// Load a full hint only when its authenticating mapping hash is available.
+    /// Derive an epoch from its fixed-cutoff registry proof under an authenticated anchor.
     async fn committee(
         &self,
         snapshot: &LandingSnapshot,
+        anchor: &AnchorState,
         epoch: u64,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
     ) -> Result<()> {
         if committees.contains_key(&epoch) {
             return Ok(());
         }
-        let expected = if epoch == snapshot.checkpoint_height / snapshot.genesis.epoch_len {
-            snapshot.start_committee_record_hash
-        } else {
-            self.l1.committee_hash(snapshot, epoch).await?
-        };
-        if expected.is_zero() {
-            return Err(LanderError::Unavailable(format!(
-                "committee epoch {epoch} is not landed in snapshot"
-            )));
+        let witness = self.l1.committee_witness(snapshot, anchor, epoch).await?;
+        let (record, members) = verify_committee_witness(
+            anchor,
+            &Schedule::from_genesis(&snapshot.genesis),
+            &self.params,
+            &witness,
+            epoch,
+        )
+        .map_err(|e| LanderError::Safety(e.to_string()))?;
+        let hash = record_hash(self.params.l2_chain_id, &record);
+        if epoch == 0 && hash != snapshot.genesis_committee_record_hash {
+            return Err(LanderError::Safety(
+                "derived genesis committee differs from bootstrap".into(),
+            ));
         }
-        let hint = self.comet.committee(epoch).await?;
-        let authenticated = authenticate(hint, epoch, expected, &self.params)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        let mut authenticated =
+            authenticate(abci::CommitteeState { record, members }, epoch, hash, &self.params)
+                .map_err(|e| LanderError::Safety(e.to_string()))?;
+        authenticated.provenance = Some(CommitteeContext { anchor: anchor.clone(), witness });
         committees.insert(epoch, authenticated);
         Ok(())
     }
@@ -203,7 +217,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         snapshot: &LandingSnapshot,
         schedule: &Schedule,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
-    ) -> Result<(ParentContext, Option<CertifiedBlock>)> {
+    ) -> Result<(ParentContext, AnchorState, abci::AnchorWitness, Option<CertifiedBlock>)> {
         let parent = self.l1.parent_header(snapshot).await?;
         if parent.header.number != snapshot.checkpoint_height ||
             parent.header.hash_slow() != snapshot.checkpoint_hash
@@ -213,6 +227,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 snapshot.checkpoint_height
             )));
         }
+        let anchor = self.l1.parent_anchor(snapshot, &parent).await?;
+        let starting_inbox_witness = self.l1.starting_inbox_witness(&anchor).await?;
+        let (genesis, bootstrap) =
+            crate::l1::verify_starting_inbox(&starting_inbox_witness, &anchor, self.params.inbox)?;
+        if genesis != snapshot.genesis ||
+            bootstrap != snapshot.genesis_committee_record_hash ||
+            anchor.inbox.recovery_generation != snapshot.generation ||
+            anchor.number < genesis.l1_0
+        {
+            return Err(LanderError::Safety(
+                "starting genesis/config proof contradicts snapshot".into(),
+            ));
+        }
         if snapshot.checkpoint_height == 0 {
             if snapshot.checkpoint_hash != snapshot.genesis.genesis_hash ||
                 parent.header.state_root != snapshot.genesis.genesis_state_root
@@ -221,11 +248,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     "genesis checkpoint hash/state root mismatch".into(),
                 ));
             }
-            return Ok((parent, None));
+            return Ok((parent, anchor, starting_inbox_witness, None));
         }
         let pair = self.comet.block(snapshot.checkpoint_height).await?;
         let epoch = schedule.epoch_of(snapshot.checkpoint_height);
-        self.committee(snapshot, epoch, committees).await?;
+        self.committee(snapshot, &anchor, epoch, committees).await?;
         let envelope = verify_body(&pair, snapshot.checkpoint_height, parent.header.parent_hash)
             .map_err(|e| LanderError::Safety(e.to_string()))?;
         if envelope.block.header != parent.header {
@@ -241,7 +268,17 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             &rules::chain_id_for(snapshot.l2_chain_id, snapshot.generation),
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
-        Ok((parent, Some(pair)))
+        let next_epoch = schedule.epoch_of(
+            snapshot
+                .checkpoint_height
+                .checked_add(1)
+                .ok_or_else(|| LanderError::Safety("checkpoint height overflow".into()))?,
+        );
+        self.committee(snapshot, &anchor, next_epoch, committees).await?;
+        if pair.block.header.next_validators_hash != committees[&next_epoch].validators.hash() {
+            return Err(LanderError::Safety("checkpoint next validator hash disagrees".into()));
+        }
+        Ok((parent, anchor, starting_inbox_witness, Some(pair)))
     }
 }
 
@@ -274,21 +311,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         };
         let epoch = schedule.epoch_of(status.height);
         let mut committees = BTreeMap::new();
-        self.committee(snapshot, epoch, &mut committees).await?;
-        verify_commit(&tip.commit, &tip.block.header, &committees[&epoch], &status.chain_id)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
-        // The certified Comet app hash commits to the tip's execution parent, including when
-        // the tip is beyond the selected prefix. Body verification binds its EL header to it.
+        // Body validation binds the tip execution header before its anchor is recovered.
         let parent_hash = alloy_primitives::B256::try_from(tip.block.header.app_hash.as_bytes())
             .map_err(|_| LanderError::Safety("tip has invalid parent execution app hash".into()))?;
         let envelope = verify_body(&tip, status.height, parent_hash)
             .map_err(|e| LanderError::Safety(e.to_string()))?;
-        let tip_context = ParentContext {
-            header: envelope.block.header,
-            // Anchor recovery only consumes the supplied certified header, not base-fee inputs.
-            grandparent_timestamp: 0,
-        };
+        let tip_context = ParentContext { header: envelope.block.header, grandparent_timestamp: 0 };
         let anchor = self.l1.parent_anchor(snapshot, &tip_context).await?;
+        self.committee(snapshot, &anchor, epoch, &mut committees).await?;
+        verify_commit(&tip.commit, &tip.block.header, &committees[&epoch], &status.chain_id)
+            .map_err(|e| LanderError::Safety(e.to_string()))?;
         if anchor.inbox.recovery_generation != snapshot.generation ||
             anchor.inbox.status != abci::l1::layout::inbox::ETNA_ACTIVE
         {
@@ -299,9 +331,14 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             publishable_blocks: prefix.blocks.len(),
             force_backpressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
                 self.params.unsettled_cap().saturating_sub(1),
-            // The last first-height is sufficient to detect any epoch derivation in the
-            // entire backlog, even if codec or blob bounds exclude it from this batch.
-            force_epoch: schedule.h_first(epoch) > snapshot.checkpoint_height,
+            // A decided switch witness can justify useful settlement even outside this prefix;
+            // publication is never permission to activate its committee.
+            force_epoch: schedule.switch_target(status.height).is_some() ||
+                schedule.h_first(epoch.saturating_add(1)).saturating_sub(2) <= status.height &&
+                    schedule.h_first(epoch.saturating_add(1)).saturating_sub(2) >
+                        snapshot.checkpoint_height ||
+                epoch > 0 &&
+                    schedule.h_first(epoch).saturating_sub(2) > snapshot.checkpoint_height,
         })
     }
 
@@ -314,28 +351,23 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             return Ok(None);
         }
         let mut committees = BTreeMap::new();
-        let (parent_context, mut previous) =
+        let (parent_context, parent_anchor, starting_inbox_witness, mut previous) =
             self.checkpoint(&snapshot, &schedule, &mut committees).await?;
-        let parent_anchor = self.l1.parent_anchor(&snapshot, &parent_context).await?;
         let mut anchor = parent_anchor.clone();
         let mut parent = parent_info(&parent_context)?;
         let PublishablePrefix { blocks, payload } =
             self.publishable_prefix(&snapshot, status.height).await?;
         let mut anchors = Vec::new();
-        let mut records = Vec::new();
         let mut terminal = None;
         for pair in &blocks {
             let height = pair.block.header.height.value();
             let epoch = schedule.epoch_of(height);
-            self.committee(&snapshot, epoch, &mut committees).await?;
-            if let Some(target) = schedule.switch_target(height) {
-                self.committee(&snapshot, target, &mut committees).await?;
-            }
+            self.committee(&snapshot, &anchor, epoch, &mut committees).await?;
             let envelope = verify_structure(pair, previous.as_ref(), height, parent.hash)
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
             if let (Some(last), Some(previous)) = (&pair.block.last_commit, previous.as_ref()) {
                 let prev_epoch = schedule.epoch_of(height - 1);
-                self.committee(&snapshot, prev_epoch, &mut committees).await?;
+                self.committee(&snapshot, &anchor, prev_epoch, &mut committees).await?;
                 verify_commit(last, &previous.block.header, &committees[&prev_epoch], &chain_id)
                     .map_err(|e| LanderError::Safety(e.to_string()))?;
             }
@@ -366,19 +398,20 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                         "derived committee {epoch} conflicts with authenticated context"
                     )));
                 }
-                committees.insert(
-                    epoch,
-                    authenticate(derived, epoch, hash, &self.params)
-                        .map_err(|e| LanderError::Safety(e.to_string()))?,
-                );
-                records.push(CommitteeRecord { epoch, recordHash: hash });
+                let mut committee = authenticate(derived, epoch, hash, &self.params)
+                    .map_err(|e| LanderError::Safety(e.to_string()))?;
+                committee.provenance = Some(CommitteeContext {
+                    anchor: anchor.clone(),
+                    witness: facts.envelope.committee.clone().expect("verified switch witness"),
+                });
+                committees.entry(epoch).or_insert(committee);
             }
             let next_epoch = schedule.epoch_of(
                 height
                     .checked_add(1)
                     .ok_or_else(|| LanderError::Safety("height overflow".into()))?,
             );
-            self.committee(&snapshot, next_epoch, &mut committees).await?;
+            self.committee(&snapshot, &anchor, next_epoch, &mut committees).await?;
             if pair.block.header.next_validators_hash != committees[&next_epoch].validators.hash() {
                 return Err(LanderError::Safety(format!(
                     "next validator hash disagrees at height {height}"
@@ -405,7 +438,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             lastBlockHash: last.hash_slow(),
             lastStateRoot: last.state_root,
             l1ReferenceBlockNumber: reference.number(),
-            records,
         };
         let blobs = blob::build(&payload, &self.limits, self.mode)?;
         let hash = statement::hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes);
@@ -415,7 +447,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .await?;
         if contract_hash != hash {
             return Err(LanderError::Configuration(format!(
-                "local V3 statement {hash} differs from Inbox helper {contract_hash}"
+                "local V4 statement {hash} differs from Inbox helper {contract_hash}"
             )));
         }
         Ok(Some(ProofRequest {
@@ -424,9 +456,14 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 parent_header: parent_context.header,
                 grandparent_timestamp: parent_context.grandparent_timestamp,
                 parent_anchor,
+                starting_inbox_witness,
                 blocks,
                 anchors,
                 reference_headers: headers.iter().map(|header| header.raw().clone()).collect(),
+                committee_witnesses: committees
+                    .values()
+                    .filter_map(|c| c.provenance.clone())
+                    .collect(),
                 committees: committees.into_values().map(|committee| committee.state).collect(),
                 input,
                 blobs,
@@ -528,8 +565,7 @@ mod tests {
         let request = builder(fixture, limits(3)).prepare(snapshot).await.unwrap().unwrap();
         assert_eq!(request.batch.blocks.len(), 3);
         assert_eq!(request.batch.input.lastHeight, 3);
-        assert_eq!(request.batch.input.records.len(), 1);
-        assert_eq!(request.batch.input.records[0].epoch, 1);
+        assert_eq!(request.batch.committee_witnesses.len(), 1);
         assert_eq!(request.batch.input.l1ReferenceBlockNumber, 14);
         assert_eq!(request.batch.parent_anchor.number, 10);
         assert!(request.batch.anchors.iter().all(|anchor| anchor.number == 10));
@@ -549,8 +585,7 @@ mod tests {
         let snapshot = fixture.snapshot.clone();
         let request = builder(fixture.clone(), limits(6)).prepare(snapshot).await.unwrap().unwrap();
         assert_eq!(request.batch.input.lastHeight, 26);
-        assert_eq!(request.batch.input.records.len(), 1);
-        assert_eq!(request.batch.input.records[0].epoch, 2);
+        assert_eq!(request.batch.committee_witnesses.len(), 2);
         assert_eq!(
             request
                 .batch
@@ -558,7 +593,7 @@ mod tests {
                 .iter()
                 .map(|committee| committee.record.target_epoch)
                 .collect::<Vec<_>>(),
-            vec![0, 1, 2]
+            vec![0, 1]
         );
         assert_eq!(request.batch.blocks[1].block.header.height.value(), 22);
         assert_eq!(
@@ -660,7 +695,7 @@ mod tests {
     #[tokio::test]
     async fn missing_extra_and_wrong_epoch_committee_witnesses_are_rejected() {
         let mut fixture = Fixture::new(20, 26);
-        alter_envelope(&mut fixture, 24, |envelope| envelope.committee = None);
+        alter_envelope(&mut fixture, 22, |envelope| envelope.committee = None);
         let fixture = Arc::new(fixture);
         let error = builder(fixture.clone(), limits(6))
             .prepare(fixture.snapshot.clone())
@@ -670,7 +705,7 @@ mod tests {
         assert!(error.to_string().contains("committee witness presence"));
         let mut fixture = Fixture::new(20, 26);
         let extra =
-            abci::EtnaEnvelope::decode(&fixture.blocks[&24].block.data[0]).unwrap().committee;
+            abci::EtnaEnvelope::decode(&fixture.blocks[&22].block.data[0]).unwrap().committee;
         alter_envelope(&mut fixture, 21, |envelope| envelope.committee = extra);
         let fixture = Arc::new(fixture);
         assert!(matches!(
@@ -678,14 +713,149 @@ mod tests {
             Err(LanderError::Safety(_))
         ));
         let mut fixture = Fixture::new(20, 26);
-        alter_envelope(&mut fixture, 24, |envelope| {
-            envelope.committee.as_mut().unwrap().record.target_epoch = 1
+        alter_envelope(&mut fixture, 22, |envelope| {
+            envelope.committee.as_mut().unwrap().record.target_epoch = 2
         });
         let fixture = Arc::new(fixture);
         assert!(matches!(
             builder(fixture.clone(), limits(6)).prepare(fixture.snapshot.clone()).await,
             Err(LanderError::Safety(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn starting_inbox_checkpoint_proofs_are_required_and_cannot_be_mutated() {
+        for mutation in [0, 1] {
+            let mut fixture = Fixture::new(24, 26);
+            fixture.starting_proof_mutation = Some(mutation);
+            let fixture = Arc::new(fixture);
+            assert!(
+                matches!(
+                    builder(fixture.clone(), limits(3)).prepare(fixture.snapshot.clone()).await,
+                    Err(LanderError::Safety(_))
+                ),
+                "starting checkpoint proof mutation {mutation} was accepted"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn checkpoint_pending_next_validator_hash_is_independently_authenticated() {
+        let mut fixture = Fixture::new(23, 26);
+        let pair = fixture.blocks.get_mut(&23).unwrap();
+        pair.block.header.next_validators_hash = fixture.committees[&0].validators.hash();
+        pair.commit.block_id.part_set_header = crate::validate::block_parts(&pair.block);
+        let keys = vec![
+            ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
+            ed25519_dalek::SigningKey::from_bytes(&[2; 32]),
+        ];
+        crate::test_utils::consensus::resign(pair, &fixture.committees[&0], &keys);
+        let fixture = Arc::new(fixture);
+        let error = builder(fixture.clone(), limits(3))
+            .validate_checkpoint(&fixture.snapshot)
+            .await
+            .expect_err("checkpoint next hash must derive pending epoch 1 from L1");
+        assert!(error.to_string().contains("next validator hash"));
+    }
+
+    #[tokio::test]
+    async fn arbitrary_batch_cuts_rederive_starting_and_pending_committees_without_hints() {
+        for (checkpoint, tip) in [(20, 26), (22, 26), (23, 26), (24, 26), (20, 39)] {
+            let mut fixture = Fixture::new(checkpoint, tip);
+            fixture.reject_committee_hints = true;
+            let fixture = Arc::new(fixture);
+            let request = builder(fixture.clone(), limits(20))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(request.batch.input.lastHeight, tip);
+            let (genesis, bootstrap) = crate::l1::verify_starting_inbox(
+                &request.batch.starting_inbox_witness,
+                &request.batch.parent_anchor,
+                fixture.params.inbox,
+            )
+            .unwrap();
+            assert_eq!(genesis, request.batch.snapshot.genesis);
+            assert_eq!(bootstrap, request.batch.snapshot.genesis_committee_record_hash);
+            let headers = request
+                .batch
+                .reference_headers
+                .iter()
+                .map(|raw| abci::RawL1Header::from_raw(raw.clone()).unwrap())
+                .collect::<Vec<_>>();
+            assert!(headers.iter().all(|h| h.number() < request.batch.snapshot.l1_block_number));
+            assert_eq!(
+                request
+                    .batch
+                    .starting_inbox_witness
+                    .inbox
+                    .storage
+                    .iter()
+                    .map(|p| p.slot)
+                    .collect::<Vec<_>>(),
+                crate::l1::snapshot_slots()
+            );
+            assert!(
+                headers
+                    .iter()
+                    .any(|h| h.hash() == request.batch.starting_inbox_witness.l1_header.hash())
+            );
+            let mut changed_parent = request.batch.parent_anchor.clone();
+            changed_parent.inbox.last_checkpoint_height += 1;
+            assert!(
+                crate::l1::verify_starting_inbox(
+                    &request.batch.starting_inbox_witness,
+                    &changed_parent,
+                    fixture.params.inbox
+                )
+                .is_err()
+            );
+            for context in &request.batch.committee_witnesses {
+                assert!(headers.iter().any(|h| h.hash() == context.anchor.hash &&
+                    h.state_root() == context.anchor.state_root));
+            }
+
+            assert_eq!(request.batch.committees.len(), request.batch.committee_witnesses.len());
+            for (committee, context) in
+                request.batch.committees.iter().zip(&request.batch.committee_witnesses)
+            {
+                assert_eq!(committee.record, context.witness.record);
+                assert!(context.anchor.number >= committee.record.cutoff_l1_block);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn registry_address_root_entries_and_snapshot_config_mutations_are_rejected() {
+        for mutation in 0..4 {
+            let mut fixture = Fixture::new(24, 26);
+            fixture.witness_mutation = Some(mutation);
+            let fixture = Arc::new(fixture);
+            assert!(
+                matches!(
+                    builder(fixture.clone(), limits(3)).prepare(fixture.snapshot.clone()).await,
+                    Err(LanderError::Safety(_))
+                ),
+                "registry mutation {mutation}"
+            );
+        }
+        for mutation in 0..5 {
+            let fixture = Arc::new(Fixture::new(24, 26));
+            let mut snapshot = fixture.snapshot.clone();
+            match mutation {
+                0 => snapshot.committee_config_hash = alloy_primitives::B256::ZERO,
+                1 => snapshot.genesis.epoch_len_l1 += 1,
+                2 => snapshot.genesis.genesis_cutoff += 1,
+                3 => snapshot.inbox_witness.address = alloy_primitives::Address::ZERO,
+                4 => snapshot.genesis_committee_record_hash = alloy_primitives::B256::ZERO,
+                _ => unreachable!(),
+            }
+            assert!(
+                builder(fixture.clone(), limits(3)).prepare(snapshot).await.is_err(),
+                "Inbox binding mutation {mutation}"
+            );
+        }
     }
 
     #[tokio::test]
