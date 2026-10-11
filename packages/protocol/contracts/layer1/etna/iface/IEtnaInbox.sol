@@ -175,6 +175,11 @@ interface IEtnaInbox {
     /// proposal age of 0.
     ///
     /// A valid proof attests that:
+    /// - every Inbox account/storage MPT proof targets the bound Inbox address, and every
+    ///   registry account/storage MPT proof targets the bound staking registry address. Derive
+    ///   each account-trie path from its bound address, authenticate it under the corresponding
+    ///   L1 header's state root, then verify storage under that account's proved storage root.
+    ///   These identities come from address(this) and the configured registry, never calldata;
     /// - heights `parentHeight + 1` to `lastHeight` form a chain from the parent block hash to
     ///   `lastBlockHash` with post-state `lastStateRoot`, each executed under the Etna rules
     ///   (alethia-reth#248 plus the Etna node's header rules);
@@ -205,20 +210,24 @@ interface IEtnaInbox {
     ///
     /// Notes for guests: `keccak256(abi.encode(records))` hashes Solidity's ABI encoding of a
     /// dynamic array, which starts with the `0x20` offset word, then the length, then each
-    /// record as two words. The statement does not bind `address(this)`, so the Inbox and
-    /// registry addresses are constants of the guest program image: a proof for another Inbox
-    /// needs another image. The verifier must trust the Etna program enforcing these V2 rules.
+    /// record as two words. The guest must derive the account-trie paths from the two bound
+    /// addresses and verify storage proofs under those authenticated accounts' storage roots;
+    /// caller-supplied witness addresses cannot override them. The verifier must trust the Etna
+    /// program enforcing these V3 rules.
     /// @param _input The batch.
     /// @param _proof The proof of the landing statement.
     function land(LandInput calldata _input, bytes calldata _proof) external;
 
-    /// @notice Encodes the V2 landing statement hash for the supplied public inputs.
-    /// @dev The hash is keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V2"), block.chainid,
-    /// l2ChainId, _generation, _parentHeight, _parentHash, _startCommitteeRecordHash, lastHeight,
+    /// @notice Encodes the V3 landing statement hash for the supplied public inputs.
+    /// @dev The hash is keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V3"), block.chainid,
+    /// l2ChainId, address(this), address(stakingRegistry), _generation, _parentHeight, _parentHash,
+    /// _startCommitteeRecordHash, lastHeight,
     /// lastBlockHash, lastStateRoot, anchorNumber, _anchorHash, keccak256(abi.encode(records)),
     /// keccak256(abi.encodePacked(_blobHashes)))). Chain id is uint256; generation, heights and
-    /// anchor number are uint64; hashes are bytes32. This is a raw encoding helper: it does not
-    /// authenticate supplied values. land reads the parent and starting committee from storage,
+    /// anchor number are uint64; identities are address; hashes are bytes32. Both identities are
+    /// derived internally: call this helper through the Inbox proxy to bind its address, rather
+    /// than the implementation address. The helper does not authenticate the supplied batch values.
+    /// land reads the parent and starting committee from storage,
     /// resolves the anchor hash and reads the transaction's actual blob hashes itself.
     /// @param _generation The recovery generation.
     /// @param _parentHeight The height of the block the batch builds on.

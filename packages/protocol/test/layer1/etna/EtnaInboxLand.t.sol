@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase, MockLandProofVerifier } from "./EtnaInboxTestBase.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -35,30 +36,126 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     // Happy paths
     // ---------------------------------------------------------------
 
-    function test_land_BindsTheStoredStartingCommitteeInTheV2Statement() external {
-        IEtnaInbox.LandInput memory input = _batch(5, _recordRange(1, 1));
-        bytes32 expected = keccak256(
-            abi.encode(
-                bytes32("TAIKO_ETNA_LAND_V2"),
-                block.chainid,
-                L2_CHAIN_ID,
-                uint64(0),
-                uint64(0),
+    function test_land_BindsTheStoredStartingCommitteeInTheV3Statement() external {
+        _landExpectingStartingCommittee(_batch(5, _recordRange(1, 1)), COMMITTEE_RECORD_0);
+    }
+
+    function test_land_BindsTheProxyAndConfiguredRegistryIndependentlyOfTheCaller() external {
+        IEtnaInbox.LandInput memory input = _batch(11, _recordRange(1, 2));
+        bytes32 expected =
+            _manualStatement(0, genesisBlockHash, COMMITTEE_RECORD_0, input, ANCHOR_HASH);
+        assertNotEq(
+            expected,
+            _manualStatementForAddresses(
+                address(etnaImplementation),
+                address(registry),
+                0,
                 genesisBlockHash,
                 COMMITTEE_RECORD_0,
-                input.lastHeight,
-                input.lastBlockHash,
-                input.lastStateRoot,
-                input.anchorNumber,
-                ANCHOR_HASH,
-                keccak256(abi.encode(input.records)),
-                keccak256(abi.encodePacked(_getBlobHashes(blobCount)))
-            )
+                input,
+                ANCHOR_HASH
+            ),
+            "implementation is not the Inbox"
         );
+        assertNotEq(
+            expected,
+            _manualStatementForAddresses(
+                Carol,
+                address(registry),
+                0,
+                genesisBlockHash,
+                COMMITTEE_RECORD_0,
+                input,
+                ANCHOR_HASH
+            ),
+            "caller is not the Inbox"
+        );
+        landVerifier.setExpectedStatementHash(expected);
+        uint256 snapshot = vm.snapshotState();
         vm.expectCall(
             address(landVerifier), abi.encodeCall(IProofVerifier.verifyProof, (0, expected, PROOF))
         );
+        vm.blobhashes(_getBlobHashes(blobCount));
+        vm.prank(Carol);
+        etnaInbox.land(input, PROOF);
+        _assertLastCheckpoint(input.lastHeight, input.lastBlockHash);
+        _assertSignalCheckpoint(input);
+
+        assertTrue(vm.revertToStateAndDelete(snapshot), "restored the same landing input");
+        _land(input); // Bob submits the identical proof after Carol's execution was reverted.
+        _assertLastCheckpoint(input.lastHeight, input.lastBlockHash);
+        _assertSignalCheckpoint(input);
+    }
+
+    function test_land_RejectsAProofForAnotherInboxAndRollsBack() external {
+        EtnaInbox otherInbox = EtnaInbox(address(new ERC1967Proxy(address(etnaImplementation), "")));
+        IEtnaInbox.LandInput memory input = _batch(11, _recordRange(1, 2));
+        bytes32 wrongStatement = _manualStatementForAddresses(
+            address(otherInbox),
+            address(registry),
+            0,
+            genesisBlockHash,
+            COMMITTEE_RECORD_0,
+            input,
+            ANCHOR_HASH
+        );
+        _rejectStatementAndAssertRollback(input, wrongStatement);
+        _landExpectingStartingCommittee(input, COMMITTEE_RECORD_0);
+        _assertSignalCheckpoint(input);
+    }
+
+    function test_land_RejectsAProofForThePreviousRegistryAndRollsBack() external {
+        IEtnaInbox.LandInput memory input = _batch(11, _recordRange(1, 2));
+        bytes32 previousStatement =
+            _manualStatement(0, genesisBlockHash, COMMITTEE_RECORD_0, input, ANCHOR_HASH);
+        IEtnaInbox.Config memory config = etnaConfig;
+        config.stakingRegistry = address(_deployRegistry());
+        etnaInbox.upgradeTo(address(new EtnaInbox(config)));
+        _rejectStatementAndAssertRollback(input, previousStatement);
+
+        bytes32 expected = _manualStatementForAddresses(
+            address(etnaInbox),
+            config.stakingRegistry,
+            0,
+            genesisBlockHash,
+            COMMITTEE_RECORD_0,
+            input,
+            ANCHOR_HASH
+        );
+        landVerifier.setExpectedStatementHash(expected);
         _land(input);
+        _assertLastCheckpoint(input.lastHeight, input.lastBlockHash);
+        _assertSignalCheckpoint(input);
+    }
+
+    function test_land_RejectsAV2ProofAndRollsBack() external {
+        IEtnaInbox.LandInput memory input = _batch(11, _recordRange(1, 2));
+        bytes memory context = abi.encode(
+            bytes32("TAIKO_ETNA_LAND_V2"),
+            block.chainid,
+            L2_CHAIN_ID,
+            uint64(0),
+            uint64(0),
+            genesisBlockHash,
+            COMMITTEE_RECORD_0
+        );
+        bytes32 legacyStatement = keccak256(
+            bytes.concat(
+                context,
+                abi.encode(
+                    input.lastHeight,
+                    input.lastBlockHash,
+                    input.lastStateRoot,
+                    input.anchorNumber,
+                    ANCHOR_HASH,
+                    keccak256(abi.encode(input.records)),
+                    keccak256(abi.encodePacked(_getBlobHashes(blobCount)))
+                )
+            )
+        );
+        _rejectStatementAndAssertRollback(input, legacyStatement);
+        _landExpectingStartingCommittee(input, COMMITTEE_RECORD_0);
+        _assertSignalCheckpoint(input);
     }
 
     function test_land_SelectsStartingCommitteeAtBothSidesOfTheEpochBoundary() external {
@@ -576,26 +673,74 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     // hashLandStatement
     // ---------------------------------------------------------------
 
+    function test_hashLandStatement_BindsEachProxySharingTheSameImplementation() external {
+        EtnaInbox otherInbox = EtnaInbox(address(new ERC1967Proxy(address(etnaImplementation), "")));
+        IEtnaInbox.LandInput memory input = _batch(5, _recordRange(1, 1));
+        bytes32[] memory blobs = _getBlobHashes(blobCount);
+        bytes32 firstStatement = etnaInbox.hashLandStatement(
+            0, 0, genesisBlockHash, COMMITTEE_RECORD_0, input, ANCHOR_HASH, blobs
+        );
+        bytes32 secondStatement = otherInbox.hashLandStatement(
+            0, 0, genesisBlockHash, COMMITTEE_RECORD_0, input, ANCHOR_HASH, blobs
+        );
+        assertNotEq(firstStatement, secondStatement, "each Inbox proxy is bound");
+    }
+
+    function test_hashLandStatement_BindsTheRegistryWhenOnlyItsImmutableChanges() external {
+        IEtnaInbox.LandInput memory input = _batch(5, _recordRange(1, 1));
+        bytes32[] memory blobs = _getBlobHashes(blobCount);
+        bytes32 original = etnaInbox.hashLandStatement(
+            0, 0, genesisBlockHash, COMMITTEE_RECORD_0, input, ANCHOR_HASH, blobs
+        );
+        IEtnaInbox.Config memory config = etnaConfig;
+        config.stakingRegistry = address(_deployRegistry());
+        etnaInbox.upgradeTo(address(new EtnaInbox(config)));
+        bytes32 upgraded = etnaInbox.hashLandStatement(
+            0, 0, genesisBlockHash, COMMITTEE_RECORD_0, input, ANCHOR_HASH, blobs
+        );
+        assertNotEq(original, upgraded, "configured Registry is bound");
+        assertEq(
+            upgraded,
+            _manualStatementForAddresses(
+                address(etnaInbox),
+                config.stakingRegistry,
+                0,
+                genesisBlockHash,
+                COMMITTEE_RECORD_0,
+                input,
+                ANCHOR_HASH
+            ),
+            "same proxy uses the new Registry"
+        );
+    }
+
     function test_hashLandStatement_EncodesTheSpecifiedFields() external {
         IEtnaInbox.LandInput memory input = _batch(genesisHeight + 11, _recordRange(1, 2));
         bytes32[] memory blobHashes = _getBlobHashes(3);
 
+        bytes memory context = abi.encode(
+            bytes32("TAIKO_ETNA_LAND_V3"),
+            block.chainid,
+            L2_CHAIN_ID,
+            address(etnaInbox),
+            address(registry),
+            uint64(9),
+            genesisHeight,
+            genesisBlockHash,
+            COMMITTEE_RECORD_0
+        );
         bytes32 expected = keccak256(
-            abi.encode(
-                bytes32("TAIKO_ETNA_LAND_V2"),
-                block.chainid,
-                L2_CHAIN_ID,
-                uint64(9),
-                genesisHeight,
-                genesisBlockHash,
-                COMMITTEE_RECORD_0,
-                input.lastHeight,
-                input.lastBlockHash,
-                input.lastStateRoot,
-                input.anchorNumber,
-                ANCHOR_HASH,
-                keccak256(abi.encode(input.records)),
-                keccak256(abi.encodePacked(blobHashes))
+            bytes.concat(
+                context,
+                abi.encode(
+                    input.lastHeight,
+                    input.lastBlockHash,
+                    input.lastStateRoot,
+                    input.anchorNumber,
+                    ANCHOR_HASH,
+                    keccak256(abi.encode(input.records)),
+                    keccak256(abi.encodePacked(blobHashes))
+                )
             )
         );
         assertEq(
@@ -631,6 +776,14 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     /// encoding breaks it.
     function test_hashLandStatement_MatchesTheFixedVector() external {
         vm.chainId(1);
+        address vectorInbox = 0x1111111111111111111111111111111111111111;
+        IEtnaInbox.Config memory config = etnaConfig;
+        config.stakingRegistry = 0x2222222222222222222222222222222222222222;
+        EtnaInbox vectorImplementation = new EtnaInbox(config);
+        // The raw hash helper reads only address(this), chain ID and implementation immutables.
+        // Etching configured runtime pins the address without initialization or storage fixtures.
+        // Foundry resets this code and the chain ID after this test.
+        vm.etch(vectorInbox, address(vectorImplementation).code);
 
         IEtnaInbox.CommitteeRecord[] memory records = new IEtnaInbox.CommitteeRecord[](2);
         records[0] = IEtnaInbox.CommitteeRecord({ epoch: 1, recordHash: bytes32(uint256(0x55)) });
@@ -659,18 +812,20 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
 
         // block.chainid = 1, l2ChainId = 167001, generation = 3, parent = (100, 0x11),
-        // starting committee = 0x77, anchorHash = 0x44. Independently generated with ethers ABI/Keccak.
+        // starting committee = 0x77, anchorHash = 0x44, Inbox = 0x1111...1111, Registry = 0x2222...2222.
+        // Independently generated with ethers ABI/Keccak; the V3 preimage is 16 words (512 bytes).
         assertEq(
-            etnaInbox.hashLandStatement(
-                3,
-                100,
-                bytes32(uint256(0x11)),
-                bytes32(uint256(0x77)),
-                input,
-                bytes32(uint256(0x44)),
-                blobHashes
-            ),
-            0x1a8c4ce2f449b91771d0b726381c91812888c5e212f1240fd0b0750c7250bde1,
+            EtnaInbox(vectorInbox)
+                .hashLandStatement(
+                    3,
+                    100,
+                    bytes32(uint256(0x11)),
+                    bytes32(uint256(0x77)),
+                    input,
+                    bytes32(uint256(0x44)),
+                    blobHashes
+                ),
+            0x90607f5e39a9f1a365d93fbf59a9397c3243e004182898c0c8db284ae190a56b,
             "statement hash"
         );
     }
@@ -735,7 +890,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Independently encodes the expected V2 public statement for generation zero.
+    /// @dev Independently encodes the expected V3 public statement for generation zero.
     function _manualStatement(
         uint64 _parentHeight,
         bytes32 _parentHash,
@@ -747,24 +902,68 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         view
         returns (bytes32)
     {
+        return _manualStatementForAddresses(
+            address(etnaInbox),
+            address(registry),
+            _parentHeight,
+            _parentHash,
+            _startCommitteeRecordHash,
+            _input,
+            _anchorHash
+        );
+    }
+
+    /// @dev Concatenating static ABI words preserves the exact flat V3 encoding.
+    function _manualStatementForAddresses(
+        address _inbox,
+        address _registry,
+        uint64 _parentHeight,
+        bytes32 _parentHash,
+        bytes32 _startCommitteeRecordHash,
+        IEtnaInbox.LandInput memory _input,
+        bytes32 _anchorHash
+    )
+        internal
+        view
+        returns (bytes32)
+    {
+        bytes memory context = abi.encode(
+            bytes32("TAIKO_ETNA_LAND_V3"), block.chainid, L2_CHAIN_ID, _inbox, _registry
+        );
+        context = bytes.concat(
+            context, abi.encode(uint64(0), _parentHeight, _parentHash, _startCommitteeRecordHash)
+        );
         return keccak256(
-            abi.encode(
-                bytes32("TAIKO_ETNA_LAND_V2"),
-                block.chainid,
-                L2_CHAIN_ID,
-                uint64(0),
-                _parentHeight,
-                _parentHash,
-                _startCommitteeRecordHash,
-                _input.lastHeight,
-                _input.lastBlockHash,
-                _input.lastStateRoot,
-                _input.anchorNumber,
-                _anchorHash,
-                keccak256(abi.encode(_input.records)),
-                keccak256(abi.encodePacked(_getBlobHashes(blobCount)))
+            bytes.concat(
+                context,
+                abi.encode(
+                    _input.lastHeight,
+                    _input.lastBlockHash,
+                    _input.lastStateRoot,
+                    _input.anchorNumber,
+                    _anchorHash,
+                    keccak256(abi.encode(_input.records)),
+                    keccak256(abi.encodePacked(_getBlobHashes(blobCount)))
+                )
             )
         );
+    }
+
+    /// @dev Rejects the supplied proof statement and checks every attempted landing write reverted.
+    function _rejectStatementAndAssertRollback(
+        IEtnaInbox.LandInput memory _input,
+        bytes32 _wrongStatement
+    )
+        internal
+    {
+        landVerifier.setExpectedStatementHash(_wrongStatement);
+        _expectLandRevert(_input, MockLandProofVerifier.ProofRejected.selector);
+        _assertLastCheckpoint(0, genesisBlockHash);
+        assertEq(etnaInbox.committee(0), COMMITTEE_RECORD_0, "trusted root retained");
+        assertEq(etnaInbox.committee(1), bytes32(0), "first output reverted");
+        assertEq(etnaInbox.committee(2), bytes32(0), "second output reverted");
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        signalService.getCheckpoint(uint48(_input.lastHeight));
     }
 
     function _landExpectingStartingCommittee(
