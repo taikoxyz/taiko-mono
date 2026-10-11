@@ -458,7 +458,7 @@ mod tests {
 
     /// With a checkpoint after the cutoff, the entries are read at the newest block that still
     /// holds the chosen snapshot: the block before that next checkpoint, which lies after the
-    /// cutoff (so at most `cutoff_lag + cutoff_grid` blocks before the parent anchor).
+    /// fixed target-epoch cutoff and may be much older than the covering parent anchor.
     #[tokio::test]
     async fn entries_are_read_just_before_the_next_checkpoint() {
         let fx = Fixture::genesis(3);
@@ -500,7 +500,7 @@ mod tests {
         .expect("the witness verifies at the parent anchor");
     }
 
-    /// A proposer's discovery floors the anchored cutoff at the genesis cutoff: under the
+    /// A proposer's discovery floors the fixed target-epoch cutoff at genesis cutoff: under the
     /// regression genesis (`L1_0 = 64`, lag 5, grid 1, genesis cutoff 63, entries active from
     /// 62), `e_0 + 1` is discovered at `max(cutoff(64) = 59, 63) = 63`, where every entry is
     /// eligible, and the witness verifies through the genesis anchor.
@@ -525,15 +525,15 @@ mod tests {
         assert_eq!(record, witness.record);
         assert_eq!(members.len(), 2);
 
-        // Without the floor the lagged cutoff 59 precedes every entry's genesis.
+        // Without the floor the fixed cutoff precedes every entry's genesis.
         let unfloored = Schedule { l1_0: 22, genesis_cutoff: 0, ..fx.schedule() };
         let err = build_committee_witness(&fx.l1(), &fx.params, &unfloored, l1_0, 1).await;
         assert_eq!(err, Err(FetchError::Committee(CommitteeError::Empty)));
     }
 
-    /// An explicit cutoff is taken as is: no lag, no grid (with lag 5 and grid 4 the parent anchor
-    /// 64 would give cutoff 56, before every checkpoint). The parent-anchor reads are made at the
-    /// given block, and the entries at the newest block that still holds the snapshot.
+    /// An explicit cutoff is taken as is, without the fixed target-epoch lag/grid computation.
+    /// The parent-anchor reads are made at the given block, and the entries at the newest block
+    /// that still holds the snapshot.
     #[tokio::test]
     async fn an_explicit_cutoff_is_taken_as_is() {
         let fx = Fixture::genesis(3);
@@ -604,8 +604,8 @@ mod tests {
     }
 
     /// Against the fixture's L1, discovery at the genesis cutoff rebuilds exactly the genesis
-    /// committee witness. Through the parent anchor `L1_0` (cutoff 64 under the devnet's lag 0
-    /// and grid 1) it finds the same snapshot; only the record's cutoff differs.
+    /// committee witness. Runtime discovery for target epoch 0 uses the same genesis cutoff
+    /// through the covering parent anchor `L1_0`, reproducing the same record and snapshot.
     #[tokio::test]
     async fn rebuilds_the_fixture_genesis_committee_witness() {
         let fx = Fixture::genesis(3);

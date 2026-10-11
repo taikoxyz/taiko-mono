@@ -98,8 +98,8 @@ impl GenesisSpec {
     /// 5, grid 1, genesis cutoff 63, and `n_validators` entries registered in a checkpoint at L1
     /// block 58 and active from block 62. The lagged cutoff of `L1_0`, `cutoff(64) = 59`, selects
     /// the same checkpoint but precedes the entries' genesis, so a genesis committee derived
-    /// there would have no eligible entry, and `e_0 + 1`, derived at `H_0` from the genesis
-    /// anchor, has its members only through the genesis-cutoff floor
+    /// there would have no eligible entry. `e_0 + 1` is derived at `H(e_0 + 1) - 2`,
+    /// using its fixed target-epoch cutoff with the genesis-cutoff floor
     /// ([`committee::fixed_cutoff`]: `max(59, 63) = 63`).
     pub(crate) fn active_after_lagged_l1_0_cutoff(n_validators: usize) -> Self {
         let mut spec = Self::new(n_validators);

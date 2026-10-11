@@ -158,6 +158,86 @@ impl RpcL1Source {
             .map_err(|e| L1Error::Rpc(format!("eth_getBlockByNumber({tag}): {e}")))?
             .ok_or(L1Error::BlockNotFound(tag))
     }
+
+    /// Select the canonical JSON header at `number`, then obtain its raw bytes by that exact hash.
+    /// A head reorg cannot mix the JSON header with a replacement header at the same height.
+    /// Missing raw headers remain RPC errors; malformed or contradictory headers remain errors.
+    pub async fn header_hash_pinned(&self, number: u64) -> Result<RawL1Header, L1Error> {
+        self.header_at(number, true).await
+    }
+
+    /// Read the complete exact-slot account proof at a hash that must still be canonical.
+    /// Noncanonical or unavailable pins fail at RPC acquisition, before root verification.
+    pub async fn account_witness_hash_canonical(
+        &self,
+        address: Address,
+        slots: &[B256],
+        hash: B256,
+    ) -> Result<AccountWitness, L1Error> {
+        self.account_witness_at(address, slots, BlockId::hash_canonical(hash)).await
+    }
+
+    /// Validate one selected JSON header, using numeric or hash-pinned raw acquisition.
+    async fn header_at(&self, number: u64, pin_raw: bool) -> Result<RawL1Header, L1Error> {
+        let tag = BlockNumberOrTag::Number(number);
+        let block = self.block(tag).await?;
+        let reported: B256 = member(&block, "hash")?;
+        let selector = if pin_raw { serde_json::json!(reported) } else { serde_json::json!(tag) };
+        let header = match self
+            .provider
+            .raw_request::<_, Bytes>("debug_getRawHeader".into(), (selector,))
+            .await
+        {
+            Ok(raw) => RawL1Header::from_raw(raw)
+                .map_err(|error| L1Error::MalformedHeader { number, error })?,
+            Err(e) if e.as_error_resp().is_some_and(|p| METHOD_UNAVAILABLE.contains(&p.code)) => {
+                header_from_json(number, block)?
+            }
+            Err(e) => return Err(L1Error::Rpc(format!("debug_getRawHeader({number}): {e}"))),
+        };
+        let computed = header.hash();
+        if computed != reported {
+            return Err(L1Error::HeaderHashMismatch { number, reported, computed });
+        }
+        if header.number() != number {
+            return Err(L1Error::HeaderNumberMismatch { requested: number, got: header.number() });
+        }
+        Ok(header)
+    }
+
+    /// Acquire an exact-slot witness under the caller's numeric or canonical-hash selector.
+    async fn account_witness_at(
+        &self,
+        address: Address,
+        slots: &[B256],
+        block: BlockId,
+    ) -> Result<AccountWitness, L1Error> {
+        let response =
+            self.provider.get_proof(address, slots.to_vec()).block_id(block).await.map_err(
+                |e| L1Error::Rpc(format!("eth_getProof({address}) at block {block}: {e}")),
+            )?;
+        if response.address != address {
+            return Err(L1Error::ProofAddressMismatch { requested: address, got: response.address });
+        }
+        let got: Vec<B256> = response.storage_proof.iter().map(|p| p.key.as_b256()).collect();
+        if got != slots {
+            return Err(L1Error::ProofSlotMismatch { requested: slots.to_vec(), got });
+        }
+        Ok(AccountWitness {
+            address,
+            nonce: response.nonce,
+            balance: response.balance,
+            storage_root: response.storage_hash,
+            code_hash: response.code_hash,
+            account_proof: response.account_proof,
+            storage: response
+                .storage_proof
+                .into_iter()
+                .zip(slots)
+                .map(|(p, slot)| StorageProof { slot: *slot, value: p.value, proof: p.proof })
+                .collect(),
+        })
+    }
 }
 
 #[async_trait]
@@ -189,29 +269,7 @@ impl L1Source for RpcL1Source {
     /// block is a field alloy's [`Header`] knows or a block-level member
     /// ([`L1Error::UnknownHeaderFields`] otherwise).
     async fn header(&self, number: u64) -> Result<RawL1Header, L1Error> {
-        let tag = BlockNumberOrTag::Number(number);
-        let block = self.block(tag).await?;
-        let reported: B256 = member(&block, "hash")?;
-        let header = match self
-            .provider
-            .raw_request::<_, Bytes>("debug_getRawHeader".into(), (tag,))
-            .await
-        {
-            Ok(raw) => RawL1Header::from_raw(raw)
-                .map_err(|error| L1Error::MalformedHeader { number, error })?,
-            Err(e) if e.as_error_resp().is_some_and(|p| METHOD_UNAVAILABLE.contains(&p.code)) => {
-                header_from_json(number, block)?
-            }
-            Err(e) => return Err(L1Error::Rpc(format!("debug_getRawHeader({number}): {e}"))),
-        };
-        let computed = header.hash();
-        if computed != reported {
-            return Err(L1Error::HeaderHashMismatch { number, reported, computed });
-        }
-        if header.number() != number {
-            return Err(L1Error::HeaderNumberMismatch { requested: number, got: header.number() });
-        }
-        Ok(header)
+        self.header_at(number, false).await
     }
 
     /// `eth_getProof(address, slots, block)`; fails with [`L1Error::ProofAddressMismatch`] or
@@ -222,33 +280,7 @@ impl L1Source for RpcL1Source {
         slots: &[B256],
         block: u64,
     ) -> Result<AccountWitness, L1Error> {
-        let response = self
-            .provider
-            .get_proof(address, slots.to_vec())
-            .block_id(BlockId::number(block))
-            .await
-            .map_err(|e| L1Error::Rpc(format!("eth_getProof({address}) at block {block}: {e}")))?;
-        if response.address != address {
-            return Err(L1Error::ProofAddressMismatch { requested: address, got: response.address });
-        }
-        let got: Vec<B256> = response.storage_proof.iter().map(|p| p.key.as_b256()).collect();
-        if got != slots {
-            return Err(L1Error::ProofSlotMismatch { requested: slots.to_vec(), got });
-        }
-        Ok(AccountWitness {
-            address,
-            nonce: response.nonce,
-            balance: response.balance,
-            storage_root: response.storage_hash,
-            code_hash: response.code_hash,
-            account_proof: response.account_proof,
-            storage: response
-                .storage_proof
-                .into_iter()
-                .zip(slots)
-                .map(|(p, slot)| StorageProof { slot: *slot, value: p.value, proof: p.proof })
-                .collect(),
-        })
+        self.account_witness_at(address, slots, BlockId::number(block)).await
     }
 
     /// `eth_getStorageAt(address, slot, block)`.

@@ -202,15 +202,16 @@ async fn source(
             json_header(&answers[&number])
         }
         "debug_getRawHeader" => {
-            let number = u64::from_str_radix(
-                request["params"][0].as_str().unwrap().trim_start_matches("0x"),
-                16,
-            )
-            .unwrap();
-            json!(answers[&number].raw())
+            let selector = request["params"][0].as_str().unwrap();
+            let header = answers.values().find(|header| json!(header.hash()) == json!(selector));
+            let header = header.unwrap_or_else(|| {
+                let number = u64::from_str_radix(selector.trim_start_matches("0x"), 16).unwrap();
+                &answers[&number]
+            });
+            json!(header.raw())
         }
         "eth_getProof" => {
-            assert_eq!(request["params"][2], json!("0x14"));
+            assert_eq!(request["params"][2], json!({"blockHash": proof_snapshot.l1_block_hash, "requireCanonical": true}));
             json!({ "address": expected_proof.address, "nonce": format!("0x{:x}", expected_proof.nonce),
                 "balance": expected_proof.balance, "storageHash": expected_proof.storage_root,
                 "codeHash": expected_proof.code_hash, "accountProof": expected_proof.account_proof,
@@ -227,6 +228,123 @@ async fn source(
     let source =
         RpcLandingSource::new(l1.provider.clone(), l2.provider.clone(), proof_fixture.params);
     (source, l1, l2, headers)
+}
+
+/// Two genuine Inbox tries at the same height, with a deterministic canonical-head change.
+pub(crate) struct SnapshotRpc {
+    pub(crate) source: Arc<RpcLandingSource>,
+    pub(crate) l1: RpcFixture,
+    pub(crate) a: LandingSnapshot,
+    pub(crate) b: LandingSnapshot,
+    _l2: RpcFixture,
+}
+
+fn proof_json(witness: &abci::AccountWitness) -> Value {
+    json!({"address": witness.address, "nonce": format!("0x{:x}", witness.nonce),
+        "balance": witness.balance, "storageHash": witness.storage_root,
+        "codeHash": witness.code_hash, "accountProof": witness.account_proof,
+        "storageProof": witness.storage.iter().map(|s| json!({"key": s.slot, "value": s.value, "proof": s.proof})).collect::<Vec<_>>()})
+}
+
+pub(crate) async fn snapshot_rpc(reorg: bool, before_raw: bool, malformed: bool) -> SnapshotRpc {
+    let fixture_a = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
+    let fixture_b = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
+    let pin = |mut snapshot: LandingSnapshot| {
+        let mut header: Header = alloy_rlp::decode_exact(snapshot.l1_header.raw()).unwrap();
+        header.number = 20;
+        snapshot.l1_header = RawL1Header::from(&header);
+        snapshot.l1_block_hash = snapshot.l1_header.hash();
+        snapshot.l1_block_number = 20;
+        snapshot
+    };
+    let a = pin(fixture_a.snapshot);
+    let b = pin(fixture_b.snapshot);
+    assert_ne!(a.l1_header.state_root(), b.l1_header.state_root());
+    let (answer_a, answer_b) = (a.clone(), b.clone());
+    let switched = Mutex::new(false);
+    let l1 = rpc(move |request| {
+        let mut switched = switched.lock().unwrap();
+        match request["method"].as_str().unwrap() {
+            "eth_chainId" => json!("0x1"),
+            "eth_blockNumber" => json!("0x14"),
+            "eth_getBlockByNumber" => {
+                let result = json_header(if *switched { &answer_b.l1_header } else { &answer_a.l1_header });
+                if reorg && before_raw { *switched = true; }
+                result
+            }
+            "debug_getRawHeader" => {
+                let selector = &request["params"][0];
+                let header = if selector == &json!(answer_a.l1_block_hash) {
+                    &answer_a.l1_header
+                } else if selector == &json!(answer_b.l1_block_hash) || *switched {
+                    &answer_b.l1_header
+                } else { &answer_a.l1_header };
+                let result = json!(header.raw());
+                if reorg { *switched = true; }
+                result
+            }
+            "eth_getProof" => {
+                let selector = &request["params"][2];
+                if *switched && selector == &json!({"blockHash": answer_a.l1_block_hash, "requireCanonical": true}) {
+                    return json!({"__rpc_error": {"code": -32000, "message": "block is not canonical"}});
+                }
+                let mut witness = if *switched { answer_b.inbox_witness.clone() } else { answer_a.inbox_witness.clone() };
+                if malformed { witness.account_proof.clear(); }
+                proof_json(&witness)
+            }
+            other => panic!("unexpected snapshot RPC method {other}"),
+        }
+    }).await;
+    let chain_id = fixture_a.params.l2_chain_id;
+    let l2 = rpc(move |request| {
+        assert_eq!(request["method"], "eth_chainId");
+        json!(format!("0x{chain_id:x}"))
+    })
+    .await;
+    let source =
+        Arc::new(RpcLandingSource::new(l1.provider.clone(), l2.provider.clone(), fixture_a.params));
+    SnapshotRpc { source, l1, a, b, _l2: l2 }
+}
+
+#[tokio::test]
+async fn snapshot_reorg_retries_with_coherent_hash_pinned_header_and_proof() {
+    for before_raw in [false, true] {
+        let rpc = snapshot_rpc(true, before_raw, false).await;
+        let error = rpc.source.snapshot().await.unwrap_err();
+        assert!(error.is_retryable(), "ordinary head reorg must retry: {error}");
+        assert!(matches!(error, LanderError::Temporary(_)));
+        assert_eq!(rpc.source.snapshot().await.unwrap(), rpc.b);
+        let calls = rpc.l1.requests.lock().unwrap();
+        let proofs =
+            calls.iter().filter(|call| call["method"] == "eth_getProof").collect::<Vec<_>>();
+        assert_eq!(proofs.len(), 2);
+        for (call, snapshot) in proofs.iter().zip([&rpc.a, &rpc.b]) {
+            assert_eq!(
+                call["params"][2],
+                json!({"blockHash": snapshot.l1_block_hash, "requireCanonical": true})
+            );
+            assert_eq!(call["params"][1].as_array().unwrap().len(), 10);
+        }
+        let raw =
+            calls.iter().filter(|call| call["method"] == "debug_getRawHeader").collect::<Vec<_>>();
+        assert_eq!(raw.len(), 2);
+        assert_eq!(raw[0]["params"][0], json!(rpc.a.l1_block_hash));
+        assert_eq!(raw[1]["params"][0], json!(rpc.b.l1_block_hash));
+    }
+}
+
+#[tokio::test]
+async fn snapshot_malformed_proof_at_canonical_pinned_hash_is_safety() {
+    let rpc = snapshot_rpc(false, false, true).await;
+    let error = rpc.source.snapshot().await.unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    assert!(!error.is_retryable());
+    let calls = rpc.l1.requests.lock().unwrap();
+    let proof = calls.iter().find(|call| call["method"] == "eth_getProof").unwrap();
+    assert_eq!(
+        proof["params"][2],
+        json!({"blockHash": rpc.a.l1_block_hash, "requireCanonical": true})
+    );
 }
 
 #[tokio::test]
