@@ -32,13 +32,6 @@ pub struct GenesisCommitteeRecord {
     pub members: Vec<Member>,
     /// The L1 block the registry snapshot was read and proven at (the proving block).
     pub proving_block: u64,
-    /// The smallest activation block `L1_0` after `genesisCutoff` whose lagged, gridded cutoff
-    /// reaches `genesisCutoff`: `max(cutoff_lag + cutoff_grid · ceil(genesisCutoff /
-    /// cutoff_grid), genesisCutoff + 1)`; `None` if it overflows `u64`. Informational: the node
-    /// floors every later epoch's cutoff at `genesisCutoff`
-    /// ([`snapshot_cutoff`](crate::committee::snapshot_cutoff)), so an earlier `L1_0` is safe
-    /// too.
-    pub min_l1_0: Option<u64>,
 }
 
 impl GenesisCommitteeRecord {
@@ -225,7 +218,6 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
         record,
         members,
         proving_block: at,
-        min_l1_0: min_l1_0(genesis_cutoff, params),
     })
 }
 
@@ -234,25 +226,13 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
 /// [`derive`](crate::committee::derive) reads none of these fields for it, and the record does
 /// not depend on them.
 fn genesis_schedule(at: u64, genesis_cutoff: u64) -> Schedule {
-    Schedule { genesis_height: 0, l1_0: at, epoch_len: 0, epoch_len_l1: 0, genesis_cutoff }
-}
-
-/// The smallest `L1_0 > genesis_cutoff` whose lagged, gridded cutoff
-/// ([`cutoff`](crate::committee::cutoff)) reaches `genesis_cutoff`: `cutoff(n) >= C` iff
-/// `n >= LAG + G · ceil(C / G)`; `None` if that overflows `u64` (a zero grid, which
-/// [`ChainParams::validate`] rejects, gives `None` too).
-fn min_l1_0(genesis_cutoff: u64, params: &ChainParams) -> Option<u64> {
-    let first = genesis_cutoff
-        .checked_next_multiple_of(params.cutoff_grid)?
-        .checked_add(params.cutoff_lag)?;
-    Some(first.max(genesis_cutoff.checked_add(1)?))
+    Schedule { l1_0: at, epoch_len: 0, epoch_len_l1: 0, genesis_cutoff }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        committee,
         test_utils::{Fixture, GenesisSpec, L1Call, MockL1, RegistryStorage, sample_entries},
         types::RegistryEntry,
     };
@@ -274,7 +254,6 @@ mod tests {
         assert_eq!(report.record_hash, record_hash(fx.params.l2_chain_id, &fx.record));
         assert_eq!(report.record_hash, fx.inbox.committee[0].1, "the recorded committee[e_0]");
         assert_eq!(report.record.cutoff_l1_block, cutoff);
-        assert_eq!(report.min_l1_0, Some(cutoff + 1), "lag 0, grid 1");
         assert_eq!(l1.calls()[0], L1Call::Finalized);
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
         assert_eq!(json["record_hash"], report.record_hash.to_string());
@@ -287,7 +266,6 @@ mod tests {
             assert_eq!(value["power"], member.power);
         }
         assert_eq!(json["proving_block"], report.proving_block);
-        assert_eq!(json["min_l1_0"], cutoff + 1);
 
         // An explicit proving block, even one past the finalized block, gives the same record;
         // the finalized block is still read, to check that the cutoff is final.
@@ -300,6 +278,19 @@ mod tests {
         assert_eq!(at_later.proving_block, later);
         assert_eq!(at_later.record_hash, report.record_hash);
         assert_eq!(l1.calls()[0], L1Call::Finalized);
+    }
+
+    /// The report describes the chosen snapshot without suggesting a later initialization gate.
+    #[tokio::test]
+    async fn report_omits_an_initialization_minimum() {
+        let fx = Fixture::genesis(1);
+        let report =
+            build_committee_record(&fx.l1(), &fx.params, fx.activation.genesis_cutoff, None)
+                .await
+                .unwrap();
+        let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
+        assert!(json.get("min_l1_0").is_none());
+        assert_eq!(json["record"]["cutoff_l1_block"], fx.activation.genesis_cutoff);
     }
 
     /// The JSON report prints every `U256` as a decimal string, as the plain-text report does.
@@ -319,7 +310,6 @@ mod tests {
             },
             members: vec![Member { pubkey: B256::repeat_byte(0x11), eff_stake: stake, power: 7 }],
             proving_block: 64,
-            min_l1_0: None,
         };
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
         let decimal = "1000000000000000000000000000000";
@@ -342,11 +332,10 @@ mod tests {
                     "power": 7,
                 }],
                 "proving_block": 64,
-                "min_l1_0": null,
             })
         );
         let text = report.to_json_pretty();
-        let order = ["record_hash", "record", "members", "proving_block", "min_l1_0"]
+        let order = ["record_hash", "record", "members", "proving_block"]
             .map(|key| text.find(&format!("\"{key}\"")).expect("every field is printed"));
         assert!(order.is_sorted(), "fields in declaration order: {text}");
     }
@@ -468,25 +457,5 @@ mod tests {
             .await
             .expect("a cutoff at the finalized block is final");
         assert_eq!(report.record.cutoff_l1_block, finalized);
-    }
-
-    #[test]
-    fn min_l1_0_is_the_first_block_whose_cutoff_reaches_the_genesis_cutoff() {
-        let params = |cutoff_grid, cutoff_lag| ChainParams {
-            cutoff_grid,
-            cutoff_lag,
-            ..ChainParams::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID).unwrap()
-        };
-        for (cutoff, grid, lag, expected) in
-            [(63, 1, 0, 64), (63, 1, 5, 68), (63, 4, 5, 69), (64, 4, 5, 69), (60, 4, 0, 61)]
-        {
-            let p = params(grid, lag);
-            let n = min_l1_0(cutoff, &p).expect("fits");
-            assert_eq!(n, expected, "C={cutoff} G={grid} LAG={lag}");
-            assert!(committee::cutoff(n, grid, lag).unwrap() >= cutoff);
-            assert!(n == cutoff + 1 || committee::cutoff(n - 1, grid, lag).unwrap() < cutoff);
-        }
-        assert_eq!(min_l1_0(u64::MAX - 1, &params(4, 0)), None);
-        assert_eq!(min_l1_0(u64::MAX, &params(1, 0)), None);
     }
 }

@@ -18,8 +18,7 @@ const C: u64 = 100;
 /// Schedule of the `derive` tests: `L1_0 = 0` and 10 L1 blocks per epoch, so with the devnet
 /// heartbeat window every heartbeat at or after L1 block 1 qualifies. Genesis cutoff 0, so
 /// [`snapshot_cutoff`] applies no floor.
-const SCHEDULE: Schedule =
-    Schedule { genesis_height: 0, l1_0: 0, epoch_len: 10, epoch_len_l1: 10, genesis_cutoff: 0 };
+const SCHEDULE: Schedule = Schedule { l1_0: 0, epoch_len: 10, epoch_len_l1: 10, genesis_cutoff: 0 };
 
 fn ether(n: u64) -> U256 {
     U256::from(n) * U256::from(10u64).pow(U256::from(18u64))
@@ -579,7 +578,7 @@ const W: u64 = 100;
 /// `L1_first(e) = 200 + 30·e` and the first filtered epoch 3 evaluates at
 /// `I*(3) = floor(L1_first(1) / W) · W = floor(230 / 100) · 100 = 200`.
 const HB_SCHEDULE: Schedule =
-    Schedule { genesis_height: 0, l1_0: 200, epoch_len: 10, epoch_len_l1: 30, genesis_cutoff: 199 };
+    Schedule { l1_0: 200, epoch_len: 10, epoch_len_l1: 30, genesis_cutoff: 199 };
 
 /// The member pubkeys `derive` returns for `target` at `cutoff` under [`HB_SCHEDULE`] and
 /// heartbeat window [`W`].

@@ -147,7 +147,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             chain_id: req.chain_id.clone(),
             generation,
             activation: activation.clone(),
-            schedule,
             last_height: activation.genesis_height,
             parent,
             anchor,
@@ -158,10 +157,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Makes sure the EL serves the genesis anchor `B*` with hash `H*` (syncing it over devp2p
     /// if needed) and summarizes it as the parent of `H_0`.
     ///
-    /// An EL that rejects `H*`, serves another block at `B*`, or whose block at `B* − 1` is not
-    /// `B*`'s parent contradicts the verified genesis: [`AbciError::SafetyHalt`].
+    /// An EL that rejects the genesis hash or serves another block at height 0 contradicts
+    /// the verified genesis: [`AbciError::SafetyHalt`].
     async fn genesis_parent(&self, activation: &ActivationRecord) -> Result<ParentInfo, AbciError> {
-        let (number, hash) = (activation.genesis_height, activation.genesis_hash);
+        let (number, hash) = (0, activation.genesis_hash);
         self.sync_el_to("EL sync to the genesis anchor", number, hash).await?;
 
         let header = self.el_header(number).await?;
@@ -172,22 +171,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
             )));
         }
 
-        let grandparent_timestamp = match number.checked_sub(1) {
-            None => 0,
-            Some(parent_number) => {
-                let parent = self.el_header(parent_number).await?;
-                if parent.hash_slow() != header.parent_hash {
-                    return Err(AbciError::SafetyHalt(format!(
-                        "execution engine block {parent_number} ({}) is not the parent {} of \
-                         the genesis anchor",
-                        parent.hash_slow(),
-                        header.parent_hash
-                    )));
-                }
-                parent.timestamp
-            }
-        };
-        parent_info(&header, hash, grandparent_timestamp)
+        Ok(ParentInfo {
+            number: 0,
+            hash,
+            timestamp: header.timestamp,
+            gas_limit: header.gas_limit,
+            gas_used: header.gas_used,
+            base_fee: header.base_fee_per_gas.unwrap_or(0),
+            difficulty: header.difficulty,
+            grandparent_timestamp: 0,
+        })
     }
 
     /// The EL's canonical header at `number`; a missing block is [`AbciError::ElBlockMissing`].
@@ -196,32 +189,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .await?
             .ok_or(AbciError::ElBlockMissing(number))
     }
-}
-
-/// The [`ParentInfo`] of the EL block `header` (whose hash is `hash`).
-///
-/// A block without a base fee is accepted only at height 0, where the next base fee does not
-/// depend on it (it is recorded as 0).
-fn parent_info(
-    header: &Header,
-    hash: B256,
-    grandparent_timestamp: u64,
-) -> Result<ParentInfo, AbciError> {
-    let base_fee = match (header.base_fee_per_gas, header.number) {
-        (Some(base_fee), _) => base_fee,
-        (None, 0) => 0,
-        (None, number) => return Err(AbciError::MissingBaseFee(number)),
-    };
-    Ok(ParentInfo {
-        number: header.number,
-        hash,
-        timestamp: header.timestamp,
-        gas_limit: header.gas_limit,
-        gas_used: header.gas_used,
-        base_fee,
-        difficulty: header.difficulty,
-        grandparent_timestamp,
-    })
 }
 
 /// Requires the genesis validators to be exactly `members`: the same Ed25519 keys with the same

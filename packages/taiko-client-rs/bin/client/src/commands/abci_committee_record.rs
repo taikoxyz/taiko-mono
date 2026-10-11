@@ -112,13 +112,7 @@ fn render_text(report: &GenesisCommitteeRecord) -> String {
         let _ = writeln!(out, "  {} power {}", member.pubkey, member.power);
     }
     let _ = writeln!(out, "totalPower:          {}", record.total_power);
-    let _ = writeln!(out, "totalStake:          {}", record.total_stake);
-    let _ = write!(
-        out,
-        "minL1_0:             {} (first activation block whose lagged cutoff reaches the genesis \
-         cutoff; informational, the node floors later cutoffs at the genesis cutoff)",
-        report.min_l1_0.map_or_else(|| "overflows u64".to_string(), |n| n.to_string())
-    );
+    let _ = write!(out, "totalStake:          {}", record.total_stake);
     out
 }
 
@@ -257,7 +251,6 @@ mod tests {
                 member("22", "2000000000000000000", 2_000_000_000),
             ],
             proving_block: 64,
-            min_l1_0: Some(64),
         };
         let text = render_text(&report);
         let lines: Vec<&str> = text.lines().collect();
@@ -270,11 +263,7 @@ mod tests {
         assert_eq!(lines[6], format!("  {} power 2000000000", word("22")));
         assert_eq!(lines[7], "totalPower:          3000000000");
         assert_eq!(lines[8], "totalStake:          3000000000000000000");
-        assert!(lines[9].starts_with("minL1_0:             64 ("), "{}", lines[9]);
-        assert_eq!(lines.len(), 10);
+        assert_eq!(lines.len(), 9);
         assert!(!text.ends_with('\n'));
-
-        let none = render_text(&GenesisCommitteeRecord { min_l1_0: None, ..report });
-        assert!(none.contains("minL1_0:             overflows u64"), "{none}");
     }
 }

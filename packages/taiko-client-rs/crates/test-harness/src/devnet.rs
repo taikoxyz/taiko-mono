@@ -2,6 +2,7 @@
 //! `abci` apps.
 
 use std::{
+    path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -165,6 +166,12 @@ impl Devnet {
     /// The unique id in every docker name of this devnet (`abci-<id>-…`).
     pub fn id(&self) -> &str {
         &self.id
+    }
+
+    /// The app's persisted data directory inside this devnet's temporary workspace.
+    pub fn app_data_dir(&self, i: usize) -> PathBuf {
+        assert!(i < self.apps.len(), "app index out of range");
+        self._tmp.path().join(format!("app-{i}"))
     }
 
     /// The chain parameters the apps run with.

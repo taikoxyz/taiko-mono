@@ -36,7 +36,7 @@ use crate::{
     l1::{DiscoveryProgress, L1Error, L1Source, WitnessError},
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, generation_from_chain_id},
-    schedule::{Schedule, ScheduleError},
+    schedule::ScheduleError,
     store::{AppState, Store, StoreError},
 };
 
@@ -218,9 +218,6 @@ pub enum AbciError {
     /// The genesis validators are not exactly the derived `e_0` committee; the value says how.
     #[error("genesis validators differ from the derived committee: {0}")]
     GenesisValidatorsMismatch(String),
-    /// An EL block the app needs carries no base fee.
-    #[error("execution block {0} has no base fee")]
-    MissingBaseFee(u64),
     /// The EL has no canonical block at a height it must serve.
     #[error("execution engine has no canonical block at height {0}")]
     ElBlockMissing(u64),
@@ -372,7 +369,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The `/status` view of the app; `None` before `InitChain`.
     pub fn status(&self) -> Option<Status> {
         let state = self.state.as_ref()?;
-        let schedule = &state.schedule;
+        let schedule = &state.schedule();
         Some(Status {
             head: state.last_height,
             epoch: schedule.epoch_of(state.last_height.max(schedule.h0())),
@@ -562,17 +559,14 @@ struct CachedCommittee {
 /// CometBFT re-sends `InitChain` whenever the app reports height 0, so `Info` reports 0 and
 /// `InitChain` is idempotent in this state.
 fn at_genesis(state: &AppState) -> bool {
-    state.last_height == state.activation.genesis_height
+    state.last_height == 0
 }
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
-    state.schedule.validate(params.unsettled_cap())?;
-    if state.schedule != Schedule::from_activation(&state.activation) {
-        return Err(AbciError::StoredState(format!(
-            "schedule {:?} differs from the activation record's",
-            state.schedule
-        )));
+    state.schedule().validate(params.unsettled_cap())?;
+    if state.activation.genesis_height != 0 {
+        return Err(AbciError::StoredState("genesis height must be zero".into()));
     }
     let generation = generation_from_chain_id(&state.chain_id, params.l2_chain_id)?;
     if generation != state.generation {

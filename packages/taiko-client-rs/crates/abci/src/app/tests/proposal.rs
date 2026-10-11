@@ -218,8 +218,10 @@ pub(super) fn hand_envelope(
     let state = app.state().expect("initialized");
     let height = next_height(app);
     let anchor_state = match &anchor {
-        Some(w) => verify_anchor_witness(w, app.params.inbox, state.schedule.switch_target(height))
-            .expect("the hand-built anchor witness verifies"),
+        Some(w) => {
+            verify_anchor_witness(w, app.params.inbox, state.schedule().switch_target(height))
+                .expect("the hand-built anchor witness verifies")
+        }
         None => state.anchor.clone(),
     };
     let expected =
@@ -361,7 +363,7 @@ async fn round_trip_at_an_epoch_start_derives_the_next_committee() {
     let fx = Fixture::build(spec);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let schedule = app.state().unwrap().schedule;
+    let schedule = app.state().unwrap().schedule();
     let h_e = schedule.h_first(1);
 
     // Checkpoints at L1 blocks 64 (genesis), 66 (a fourth validator joins) and 69 (a fifth).
@@ -427,7 +429,7 @@ async fn round_trip_at_a_switch_height_with_the_landed_record() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule.h_first(1) - 2;
+    let switch = app.state().unwrap().schedule().h_first(1) - 2;
     let c1 = fx.committee(1);
     let landed = fx.inbox_with(switch - 7, &[(1, record_hash(fx.params.l2_chain_id, &c1.record))]);
 
@@ -462,7 +464,7 @@ async fn switch_height_without_the_landed_record_halts() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule.h_first(1) - 2;
+    let switch = app.state().unwrap().schedule().h_first(1) - 2;
     let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
     jump(&mut app, switch - 1, genesis_anchor, &[(1, fx.committee(1))]);
     fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7, &[]), &fx.registry);
@@ -486,7 +488,7 @@ async fn switch_height_with_a_conflicting_record_is_rejected() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule.h_first(1) - 2;
+    let switch = app.state().unwrap().schedule().h_first(1) - 2;
     let c1 = fx.committee(1);
     let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
     jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);
@@ -520,7 +522,7 @@ async fn a_conflicting_record_on_an_unconfirmed_anchor_is_anchor_not_final() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule.h_first(1) - 2;
+    let switch = app.state().unwrap().schedule().h_first(1) - 2;
     let c1 = fx.committee(1);
     let genesis_anchor = fx.anchor_state(app.l1(), fx.activation.l1_0, None);
     jump(&mut app, switch - 1, genesis_anchor, &[(1, c1.clone())]);

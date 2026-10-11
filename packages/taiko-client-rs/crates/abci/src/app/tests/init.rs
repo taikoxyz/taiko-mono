@@ -141,7 +141,7 @@ async fn genesis_at_block_zero_has_a_zero_grandparent_timestamp() {
     let state = app.state().expect("initialized");
     assert_eq!(state.last_height, 0);
     assert_eq!(state.parent.grandparent_timestamp, 0);
-    assert_eq!(state.schedule.h0(), 1);
+    assert_eq!(state.schedule().h0(), 1);
     assert_eq!(state, &fx.expected_state());
 }
 
@@ -370,16 +370,15 @@ async fn chain_id_generation_must_match_the_inbox() {
 }
 
 #[tokio::test]
-async fn initial_height_must_be_b_star_plus_one() {
+async fn initial_height_must_be_one() {
     let mut fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
-    let b_star = fx.activation.genesis_height;
-    for wrong in [b_star, b_star + 2, 1] {
+    for wrong in [0, 2, 7] {
         fx.request.initial_height = Height::try_from(wrong).unwrap();
         let err = init_chain(&mut app, fx.request.clone()).await.expect_err("wrong height");
         assert!(
-            matches!(err, AbciError::InitialHeight { got, expected } if got == wrong && expected == b_star + 1),
+            matches!(err, AbciError::InitialHeight { got, expected } if got == wrong && expected == 1),
             "{err:?}"
         );
     }
@@ -484,7 +483,7 @@ async fn el_holding_another_b_star_is_a_safety_halt() {
     let fx = Fixture::genesis(2);
     let (l1, _, params, req) = fx.parts();
     let mut other = fx.el_chain.clone();
-    other[1].timestamp += 1;
+    other[0].timestamp += 1;
     let engine = MockEngine::with_chain(other);
     // The EL accepts H* as VALID but keeps serving its own block at B*.
     engine.state().forkchoice_script.push_back(Ok(PayloadVerdict::Valid));
@@ -512,27 +511,13 @@ async fn el_rejecting_b_star_is_a_safety_halt() {
 async fn el_serving_another_block_after_sync_is_a_safety_halt() {
     let fx = Fixture::genesis(2);
     let (l1, engine, params, req) = fx.parts();
-    let mut other = fx.el_chain[1].clone();
+    let mut other = fx.el_chain[0].clone();
     other.timestamp += 1;
     // ensure_block sees B*; the follow-up read of B* returns another block.
-    engine.state().header_script.extend([Ok(Some(fx.el_chain[1].clone())), Ok(Some(other))]);
+    engine.state().header_script.extend([Ok(Some(fx.el_chain[0].clone())), Ok(Some(other))]);
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
     let err = init_chain(&mut app, req).await.expect_err("EL changed its mind");
-    assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
-    assert_not_initialized(&app, dir.path());
-}
-
-#[tokio::test]
-async fn el_grandparent_not_linked_to_b_star_is_a_safety_halt() {
-    let fx = Fixture::genesis(2);
-    let (l1, _, params, req) = fx.parts();
-    let mut chain = fx.el_chain.clone();
-    chain[0].timestamp += 1; // B*'s parent hash no longer matches.
-    let engine = MockEngine::with_chain(chain);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
-    let err = init_chain(&mut app, req).await.expect_err("broken link");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
 }

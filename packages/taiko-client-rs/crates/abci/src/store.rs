@@ -45,8 +45,6 @@ pub struct AppState {
     pub generation: u64,
     /// The Etna activation record verified at `InitChain`.
     pub activation: ActivationRecord,
-    /// The epoch schedule derived from `activation`.
-    pub schedule: Schedule,
     /// Last committed CometBFT height (== `parent.number`); `B*` right after `InitChain`.
     pub last_height: u64,
     /// Summary of the last committed L2 block, the parent of the next height.
@@ -57,7 +55,29 @@ pub struct AppState {
     pub committees: BTreeMap<u64, CommitteeState>,
 }
 
+/// The prior state-file shape may carry a redundant schedule beside the canonical record.
+#[derive(Deserialize)]
+struct LegacyState {
+    /// Present only in files written before schedules were derived on demand.
+    schedule: Option<LegacySchedule>,
+}
+
+/// The legacy schedule also stored a configurable L2 genesis height.
+#[derive(Deserialize)]
+struct LegacySchedule {
+    /// Must agree with the canonical record's supported height, zero.
+    genesis_height: u64,
+    /// The remaining schedule fields are unchanged.
+    #[serde(flatten)]
+    schedule: Schedule,
+}
+
 impl AppState {
+    /// Derives the epoch schedule from the canonical genesis record.
+    pub fn schedule(&self) -> Schedule {
+        Schedule::from_activation(&self.activation)
+    }
+
     /// Drops every committee of an epoch below `keep_from_epoch`.
     pub fn prune_committees(&mut self, keep_from_epoch: u64) {
         self.committees = self.committees.split_off(&keep_from_epoch);
@@ -125,9 +145,24 @@ impl Store {
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
             Err(source) => return Err(StoreError::Io { op: "read", path, source }),
         };
-        serde_json::from_slice(&bytes)
-            .map(Some)
-            .map_err(|source| StoreError::Corrupt { path, source })
+        let state: AppState = serde_json::from_slice(&bytes)
+            .map_err(|source| StoreError::Corrupt { path: path.clone(), source })?;
+        // Keep AppState on serde_json's direct deserializer: flatten buffering does not
+        // preserve its integer-keyed committee map's JSON key decoding.
+        let legacy: LegacyState = serde_json::from_slice(&bytes)
+            .map_err(|source| StoreError::Corrupt { path: path.clone(), source })?;
+        if let Some(legacy) = legacy.schedule &&
+            (legacy.genesis_height != state.activation.genesis_height ||
+                legacy.schedule != state.schedule())
+        {
+            return Err(StoreError::Corrupt {
+                path,
+                source: <serde_json::Error as serde::de::Error>::custom(
+                    "legacy schedule differs from the canonical genesis record",
+                ),
+            });
+        }
+        Ok(Some(state))
     }
 
     /// Persists `s` atomically, replacing any previous state.
@@ -198,7 +233,7 @@ mod tests {
 
     fn state() -> AppState {
         let activation = ActivationRecord {
-            genesis_height: 99,
+            genesis_height: 0,
             l1_0: 1_000,
             epoch_len: 20,
             epoch_len_l1: 4,
@@ -209,7 +244,6 @@ mod tests {
         AppState {
             chain_id: "taiko-etna-167001-g0".to_string(),
             generation: 0,
-            schedule: Schedule::from_activation(&activation),
             activation,
             last_height: 105,
             parent: ParentInfo {
@@ -248,6 +282,39 @@ mod tests {
         assert!(dir.path().join(STATE_FILE).is_file());
         assert!(!dir.path().join(TMP_FILE).exists(), "save leaves no temp file");
         assert_eq!(store.load().expect("loads"), Some(s));
+    }
+
+    /// Newly written state has one canonical source for the epoch schedule.
+    #[test]
+    fn save_omits_the_redundant_schedule() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        store.save(&state()).unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&fs::read(dir.path().join(STATE_FILE)).unwrap()).unwrap();
+        assert!(json.get("schedule").is_none());
+        assert_eq!(store.load().unwrap(), Some(state()));
+    }
+
+    /// Prior JSON remains readable, but inconsistent legacy schedule data is refused.
+    #[test]
+    fn load_checks_a_legacy_schedule() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        let s = state();
+        let mut json = serde_json::to_value(&s).unwrap();
+        json["schedule"] = serde_json::json!({
+            "genesis_height": s.activation.genesis_height,
+            "l1_0": s.activation.l1_0,
+            "epoch_len": s.activation.epoch_len,
+            "epoch_len_l1": s.activation.epoch_len_l1,
+            "genesis_cutoff": s.activation.genesis_cutoff,
+        });
+        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
+        assert_eq!(store.load().unwrap(), Some(s));
+        json["schedule"]["epoch_len"] = serde_json::json!(21);
+        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
+        assert!(store.load().is_err());
     }
 
     #[test]

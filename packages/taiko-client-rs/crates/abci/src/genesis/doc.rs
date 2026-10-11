@@ -164,7 +164,6 @@ impl GenesisDoc {
     pub(crate) fn assemble(
         w: &GenesisWitness,
         chain_id: String,
-        initial_height: u64,
         members: &[Member],
     ) -> Result<Self, GenesisError> {
         let timestamp = w.l1_header.timestamp();
@@ -175,7 +174,7 @@ impl GenesisDoc {
         Ok(Self {
             genesis_time: genesis_time.to_rfc3339(),
             chain_id,
-            initial_height: initial_height.to_string(),
+            initial_height: "1".to_string(),
             consensus_params: GenesisConsensusParams::etna(),
             validators: members.iter().map(GenesisValidator::from_member).collect(),
             app_hash: String::new(),
@@ -222,7 +221,7 @@ mod tests {
     #[test]
     fn json_has_the_cometbft_v040_shape() {
         let fx = Fixture::genesis(1);
-        let doc = GenesisDoc::assemble(&fx.witness, "taiko-etna-7-g0".into(), 1_001, &fx.members)
+        let doc = GenesisDoc::assemble(&fx.witness, "taiko-etna-7-g0".into(), &fx.members)
             .expect("assembles");
         let mut json: Value = serde_json::from_str(&doc.to_json_pretty()).expect("JSON");
         let app_state = json["app_state"].take();
@@ -231,7 +230,7 @@ mod tests {
             json!({
                 "genesis_time": "2025-10-09T09:06:08Z",
                 "chain_id": "taiko-etna-7-g0",
-                "initial_height": "1001",
+                "initial_height": "1",
                 "consensus_params": {
                     "block": { "max_bytes": "22020096", "max_gas": "-1" },
                     "evidence": {
@@ -266,7 +265,7 @@ mod tests {
     #[test]
     fn json_keys_follow_the_cometbft_order() {
         let fx = Fixture::genesis(1);
-        let doc = GenesisDoc::assemble(&fx.witness, "taiko-etna-7-g0".into(), 1_001, &fx.members)
+        let doc = GenesisDoc::assemble(&fx.witness, "taiko-etna-7-g0".into(), &fx.members)
             .expect("assembles");
         let text = doc.to_json_pretty();
         let at = |key: &str| text.find(&format!("\"{key}\"")).expect("key present");
@@ -287,7 +286,7 @@ mod tests {
     fn validators_keep_the_member_order_and_powers() {
         let fx = Fixture::genesis(1);
         let members = [member(B256::repeat_byte(9), 7), member(B256::repeat_byte(1), u64::MAX)];
-        let doc = GenesisDoc::assemble(&fx.witness, "c".into(), 1, &members).expect("assembles");
+        let doc = GenesisDoc::assemble(&fx.witness, "c".into(), &members).expect("assembles");
         let addresses: Vec<&str> = doc.validators.iter().map(|v| v.address.as_str()).collect();
         assert_eq!(addresses[1], "72CD6E8422C407FB6D098690F1130B7DED7EC2F7");
         assert_eq!(addresses[0], validator_address(B256::repeat_byte(9)));
@@ -300,7 +299,7 @@ mod tests {
     fn genesis_time_out_of_range_is_rejected() {
         let mut fx = Fixture::genesis(1);
         fx.witness.l1_header = edit_l1_header(&fx.witness.l1_header, |h| h.timestamp = u64::MAX);
-        let err = GenesisDoc::assemble(&fx.witness, "c".into(), 1, &fx.members).unwrap_err();
+        let err = GenesisDoc::assemble(&fx.witness, "c".into(), &fx.members).unwrap_err();
         assert!(matches!(err, GenesisError::GenesisTime(u64::MAX)), "{err:?}");
     }
 }

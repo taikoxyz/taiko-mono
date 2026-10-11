@@ -215,7 +215,7 @@ async fn info_halts_when_the_el_holds_another_committed_block() {
     drop(initialized(&fx, dir.path()).await);
 
     let mut other = fx.el_chain.clone();
-    other[1].gas_used += 1;
+    other[0].gas_used += 1;
     let engine = MockEngine::with_chain(other);
     let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
     let err = info(&mut app).await.expect_err("EL disagrees with the app state");
@@ -304,15 +304,15 @@ async fn app_new_rejects_an_inconsistent_stored_state() {
 
     let mut bad_generation = good.clone();
     bad_generation.generation = 1;
-    let mut bad_schedule = good.clone();
-    bad_schedule.schedule.l1_0 += 1;
+    let mut bad_genesis = good.clone();
+    bad_genesis.activation.genesis_height = 1;
     let mut bad_parent = good.clone();
     bad_parent.parent.number += 1;
     let mut bad_height = good.clone();
     bad_height.last_height = u64::MAX;
     bad_height.parent.number = u64::MAX;
 
-    for state in [bad_generation, bad_schedule, bad_parent, bad_height] {
+    for state in [bad_generation, bad_genesis, bad_parent, bad_height] {
         store.save(&state).unwrap();
         let err =
             App::new(fx.l1(), fx.engine(), fx.params.clone(), store.clone(), AppOptions::default())

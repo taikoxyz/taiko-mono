@@ -28,9 +28,9 @@ Every validator and every full node runs three processes:
   CometBFT block. Validators only check with their own L1 node that the anchored L1 header is
   canonical and final; `FinalizeBlock`, replay and block sync never call L1. At epoch boundaries
   the app derives the next committee from the registry snapshot and hands CometBFT the validator
-  updates. Its state is persisted atomically at every `Commit`.
+  updates. Its state is persisted atomically at every `Commit`. The file stores one genesis record; the epoch schedule is derived from it. Valid older files carrying a matching redundant schedule remain readable.
 - **alethia-reth** executes blocks; the app drives it with `engine_forkchoiceUpdatedV3`,
-  `engine_getPayloadV5` and `engine_newPayloadV4`. CometBFT height equals the EL block number.
+  `engine_getPayloadV5` and `engine_newPayloadV4`. CometBFT height equals the EL block number; Etna starts at L2 block 0, and consensus starts at height 1.
 
 ## Project structure
 
@@ -132,9 +132,8 @@ proposal's hash.
 | `--json`           | Print the report as JSON instead of plain text                                   |
 
 The report gives the record hash, the cutoff, the snapshot's checkpoint index, the proving block,
-every member's public key and voting power, the total voting power and stake, and the first
-activation block whose lagged, gridded cutoff reaches the genesis cutoff (informational: the node
-floors every later epoch's cutoff at `genesisCutoff`, so an earlier activation is safe too). A
+every member's public key and voting power, and the total voting power and stake.
+The node floors every later epoch's cutoff at `genesisCutoff`. A
 cutoff after the L1 node's `finalized` block is refused, as the activation fixes it irreversibly,
 and so is a cutoff at which no entry is eligible: activating with it would leave the chain
 without validators. `--json` prints stakes as decimal strings, like the plain text. Logs go to
@@ -270,7 +269,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 - `just unit` runs the unit tests (everything outside `tests/` directories) and the abci
   doctests. No docker needed.
 - `just test` runs the docker integration scenarios in `crates/abci/tests` (single validator,
-  anchor finality, restart, epoch switch with and without landing, back-pressure, generation
+  anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
   bump, smoke). Each scenario boots its own devnet through the docker CLI (anvil as L1,
   alethia-reth, CometBFT), so they run one at a time; the suite takes a few minutes. Extra
   arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.

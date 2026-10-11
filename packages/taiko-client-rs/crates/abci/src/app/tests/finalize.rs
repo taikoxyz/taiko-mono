@@ -213,7 +213,7 @@ async fn switch_height_emits_the_exact_updates_and_prunes() {
     let params = &fx.params;
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule.h_first(2) - 2;
+    let switch = app.state().unwrap().schedule().h_first(2) - 2;
 
     let derive = |entries: Vec<RegistryEntry>, target| {
         let l1_0 = fx.activation.l1_0;
@@ -768,7 +768,7 @@ async fn multi_epoch_run(
     dir: &Path,
 ) -> (App<MockL1, MockEngine>, Vec<(request::FinalizeBlock, response::FinalizeBlock)>) {
     let mut app = initialized(fx, dir).await;
-    let (h0, l1_0) = (app.state().unwrap().schedule.h0(), fx.activation.l1_0);
+    let (h0, l1_0) = (app.state().unwrap().schedule().h0(), fx.activation.l1_0);
     let joined = RegistryStorage {
         checkpoints: vec![(l1_0, sample_entries(3)), (l1_0 + 2, sample_entries(4))],
     };
@@ -806,7 +806,7 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
     let dir = tempfile::tempdir().unwrap();
     let (app, decided) = multi_epoch_run(&fx, dir.path()).await;
     let state = app.state().unwrap();
-    let schedule = state.schedule;
+    let schedule = state.schedule();
     let h0 = schedule.h0();
     assert_eq!(decided.len(), 10);
     assert_eq!(state.last_height, h0 + 9);
@@ -868,7 +868,7 @@ async fn every_switch_height_finds_both_committees() {
 
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let schedule = app.state().unwrap().schedule;
+    let schedule = app.state().unwrap().schedule();
     let mut switches = vec![];
     for (req, _) in &decided {
         let height = req.height.value();

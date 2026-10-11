@@ -44,6 +44,9 @@ pub enum WitnessError {
     /// Genesis only: the activation record's `epochLenL2` (L) is zero.
     #[error("activation record has a zero epoch length")]
     ZeroEpochLength,
+    /// The Inbox names an existing L2 block rather than genesis block 0.
+    #[error("genesis height {0} is unsupported; Etna must start at L2 block 0")]
+    NonzeroGenesisHeight(u64),
     /// Genesis only: `genesisCutoff` is not before the activation block `L1_0`, so the genesis
     /// committee's snapshot would not be one the activation could have seen.
     #[error("genesis cutoff {genesis_cutoff} is not before the activation block L1_0 = {l1_0}")]
@@ -129,6 +132,9 @@ pub fn verify_genesis_inbox(
         genesis_state_root: inbox_word(&storage, inbox::ACTIVATION_GENESIS_STATE_ROOT).into(),
         genesis_cutoff: word_u64(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
     };
+    if activation.genesis_height != 0 {
+        return Err(WitnessError::NonzeroGenesisHeight(activation.genesis_height));
+    }
     if activation.genesis_hash.is_zero() {
         return Err(WitnessError::ZeroGenesisHash);
     }
@@ -314,7 +320,7 @@ mod tests {
     #[test]
     fn genesis_decodes_the_activation_record_and_facts() {
         let activation = ActivationRecord {
-            genesis_height: u64::MAX - 3,
+            genesis_height: 0,
             l1_0: 0x0102_0304_0506_0708,
             epoch_len: 0xfedc_ba98_7654_3210,
             epoch_len_l1: u64::MAX,
@@ -344,6 +350,16 @@ mod tests {
             }
         );
         assert_eq!(record, committee_e0());
+    }
+
+    /// A valid storage proof cannot make a non-genesis L2 height a supported bootstrap.
+    #[test]
+    fn genesis_rejects_nonzero_l2_height() {
+        let mut activation = sample_activation();
+        activation.genesis_height = 1;
+        let storage = InboxStorage::genesis(activation, committee_e0());
+        let (w, state) = genesis_inbox_witness(INBOX, &storage);
+        assert!(verify_genesis_inbox(state.state_root(), &w, INBOX).is_err());
     }
 
     #[test]

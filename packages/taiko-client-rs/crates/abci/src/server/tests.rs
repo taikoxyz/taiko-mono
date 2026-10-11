@@ -386,7 +386,7 @@ async fn safety_halt_answers_runs_the_halt_hook_and_stops_the_worker() {
     app.handle(Request::InitChain(fx.request.clone())).await.expect("InitChain succeeds");
     drop(app);
     let mut other = fx.el_chain.clone();
-    other[1].gas_used += 1;
+    other[0].gas_used += 1;
     let app = App::new(
         fx.l1(),
         MockEngine::with_chain(other),

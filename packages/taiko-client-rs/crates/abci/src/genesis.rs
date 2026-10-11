@@ -137,9 +137,6 @@ pub enum GenesisError {
         /// The record hash proven at `committee[e_0]`.
         recorded: B256,
     },
-    /// `B* + 1` does not fit a CometBFT height; the value is `B*`.
-    #[error("initial height B* + 1 for B* = {0} exceeds the CometBFT height range")]
-    InitialHeight(u64),
     /// The `L1_0` timestamp (Unix seconds) is not a valid CometBFT genesis time.
     #[error("L1_0 timestamp {0} is not a valid genesis time")]
     GenesisTime(u64),

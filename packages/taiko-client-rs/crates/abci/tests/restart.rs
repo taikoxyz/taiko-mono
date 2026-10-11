@@ -5,8 +5,12 @@
 //! state) is not driven here: stopping the app between genesis and the first commit is racy
 //! against a 1 s cadence, and the unit test `init_chain_is_idempotent_at_genesis` covers it.
 
-use std::time::{Duration, Instant};
+use std::{
+    fs,
+    time::{Duration, Instant},
+};
 
+use abci::{AppState, store::STATE_FILE};
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::B256;
 use alloy_provider::{Provider, RootProvider};
@@ -78,6 +82,49 @@ async fn restart_recovers_through_the_handshake() -> anyhow::Result<()> {
     assert_eq!(devnet.app_halt(0), None);
     eprintln!("CometBFT height {height}, app head {} after {:?}", status.head, started.elapsed());
 
+    devnet.stop().await?;
+    Ok(())
+}
+
+/// Missing app state is reconstructed from the intact CometBFT history, including committees.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn replay_recovers_after_app_state_is_lost() -> anyhow::Result<()> {
+    let mut devnet = Devnet::start(DevnetSpec::default()).await?;
+    // Cross an epoch so recovery must reconstruct more than the genesis committee.
+    devnet.wait_for_height(0, 26, Duration::from_secs(90)).await?;
+    devnet.lander_pause().await;
+    devnet.app_stop(0).await;
+    let d = &devnet;
+    wait_until("CometBFT exit", Duration::from_secs(30), Duration::from_millis(100), || async {
+        Ok((!d.cmt_running(0).await?).then_some(()))
+    })
+    .await?;
+
+    let file = devnet.app_data_dir(0).join(STATE_FILE);
+    let before: AppState = serde_json::from_slice(&fs::read(&file)?)?;
+    let l2 = devnet.l2_provider(0);
+    let old_hashes = block_hashes(&l2, before.last_height).await?;
+    let finalized = l2
+        .get_block_by_number(BlockNumberOrTag::Finalized)
+        .await?
+        .context("missing EL finalized block")?;
+    assert!(finalized.header.number > 0, "the EL checkpoint must have advanced");
+    fs::rename(&file, devnet.app_data_dir(0).join("abci-state.saved.json"))?;
+    assert!(!file.exists(), "the app starts without its state file");
+
+    devnet.app_start(0).await?;
+    devnet.cmt_restart(0).await?;
+    devnet.wait_for_height(0, before.last_height, Duration::from_secs(60)).await?;
+    let restored: AppState = serde_json::from_slice(&fs::read(&file)?)?;
+    assert!(restored.last_height >= before.last_height);
+    assert_eq!(restored.activation, before.activation);
+    assert_eq!(restored.committees, before.committees);
+    assert_eq!(restored.generation, before.generation);
+    assert_eq!(block_hashes(&l2, before.last_height).await?, old_hashes);
+    devnet.lander_resume();
+    devnet.wait_for_height(0, before.last_height + 3, Duration::from_secs(60)).await?;
+    assert_eq!(devnet.app_halt(0), None);
     devnet.stop().await?;
     Ok(())
 }
