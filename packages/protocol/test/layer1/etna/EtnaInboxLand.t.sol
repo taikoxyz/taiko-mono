@@ -32,6 +32,24 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         vm.setBlockhash(l1ReferenceBlockNumber, L1_REFERENCE_BLOCK_HASH);
     }
 
+    function test_land_RevertWhen_ProofUsesTheFormerV4Domain() external {
+        IEtnaInbox.LandInput memory input = _batch(11);
+        bytes memory preimage = _manualPreimage(
+            address(etnaInbox),
+            address(registry),
+            0,
+            genesisBlockHash,
+            COMMITTEE_CONFIG_HASH,
+            input,
+            L1_REFERENCE_BLOCK_HASH
+        );
+        bytes32 formerDomain = bytes32("TAIKO_ETNA_LAND_V4");
+        assembly {
+            mstore(add(preimage, 32), formerDomain)
+        }
+        _rejectStatementAndAssertRollback(input, keccak256(preimage));
+    }
+
     /// @dev Requiring any future committee publication would block this valid checkpoint advance.
     function test_land_CrossesEpochBoundariesWithoutCommitteeRecords() external {
         IEtnaInbox.LandInput memory input = _batch(11);
@@ -159,7 +177,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     }
 
     /// @dev Independently mutate each of the fifteen public words accepted by the verifier.
-    function test_land_RejectsEveryMutatedV4FieldAndRollsBack() external {
+    function test_land_RejectsEveryMutatedV5FieldAndRollsBack() external {
         IEtnaInbox.LandInput memory input = _batch(11);
         bytes memory words = _manualPreimage(
             address(etnaInbox),
@@ -581,7 +599,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Independent ethers/5.7.2 vector shared with the client; config 352 bytes, V4 480 bytes.
+    /// @dev Independent ethers/5.7.2 vector shared with the client; config 288 bytes, V5 480 bytes.
     function test_hashLandStatement_MatchesTheFixedVector() external {
         vm.chainId(1);
         address vectorInbox = 0x1111111111111111111111111111111111111111;
@@ -589,21 +607,9 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         config.stakingRegistry = 0x2222222222222222222222222222222222222222;
         EtnaInbox impl = new EtnaInbox(config);
         vm.etch(vectorInbox, address(impl).code);
-        bytes memory configWords = abi.encode(
-            bytes32("ETNA_FIXED_CUTOFF_V1"),
-            uint256(167_001),
-            config.stakingRegistry,
-            uint64(10),
-            uint64(20),
-            uint256(1e9),
-            uint256(1 ether),
-            uint64(128),
-            uint64(32),
-            uint64(2),
-            uint8(1)
-        );
-        bytes32 configHash = 0xaf72a8cac328b7a82ec9c449fb39aecc89a196de580f512cc40f0e1d8a6ad2fa;
-        assertEq(configWords.length, 352, "eleven config words");
+        bytes memory configWords = _parentAnchorConfigWords(config.stakingRegistry);
+        bytes32 configHash = 0xa39d945e8d229bca83870430088db2065f92f8b01303480447d03d5dd11ee377;
+        assertEq(configWords.length, 288, "nine config words");
         assertEq(keccak256(configWords), configHash, "config opening");
         vm.store(vectorInbox, bytes32(COMMITTEE_CONFIG_SLOT), configHash);
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
@@ -626,8 +632,71 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
                 .hashLandStatement(
                     3, 100, bytes32(uint256(0x11)), input, bytes32(uint256(0x44)), blobs
                 ),
-            0xc25b74e918f50098001818a711b7604376e98978fa8cdace46af3803cdd100c2,
-            "V4 statement"
+            0x4d02d06b547ccf426c7797489fa6bf8e68ed66b1dbdfcab3ba38cfcf0845d870,
+            "V5 statement"
+        );
+    }
+
+    function test_land_RejectsEveryMutatedParentAnchorConfigWord() external {
+        bytes memory configWords = _parentAnchorConfigWords(address(registry));
+        bytes32 configHash = keccak256(configWords);
+        vm.store(address(etnaInbox), bytes32(COMMITTEE_CONFIG_SLOT), configHash);
+        IEtnaInbox.LandInput memory input = _batch(11);
+        for (uint256 i; i < 9; ++i) {
+            bytes memory mutated = bytes.concat(configWords);
+            assembly {
+                let word := add(add(mutated, 32), mul(i, 32))
+                mstore(word, xor(mload(word), 1))
+            }
+            _rejectStatementAndAssertRollback(
+                input,
+                _manualStatement(
+                    0, genesisBlockHash, keccak256(mutated), input, L1_REFERENCE_BLOCK_HASH
+                )
+            );
+        }
+        _landExpectingConfig(input, configHash);
+        _assertLastCheckpoint(11, input.lastBlockHash);
+        _assertSignalCheckpoint(input);
+    }
+
+    function test_land_RevertWhen_ProofUsesTheFormerFixedCutoffConfigHash() external {
+        bytes32 configHash = keccak256(_parentAnchorConfigWords(address(registry)));
+        vm.store(address(etnaInbox), bytes32(COMMITTEE_CONFIG_SLOT), configHash);
+        bytes32 formerConfigHash = keccak256(
+            abi.encode(
+                bytes32("ETNA_FIXED_CUTOFF_V1"),
+                uint256(167_001),
+                address(registry),
+                uint64(10),
+                uint64(20),
+                uint256(1e9),
+                uint256(1 ether),
+                uint64(128),
+                uint64(32),
+                uint64(2),
+                uint8(1)
+            )
+        );
+        IEtnaInbox.LandInput memory input = _batch(11);
+        _rejectStatementAndAssertRollback(
+            input,
+            _manualStatement(0, genesisBlockHash, formerConfigHash, input, L1_REFERENCE_BLOCK_HASH)
+        );
+    }
+
+    /// @dev Nine independent static words; the contract stores this commitment opaquely.
+    function _parentAnchorConfigWords(address _registry) internal pure returns (bytes memory) {
+        return abi.encode(
+            bytes32("ETNA_PARENT_ANCHOR_V1"),
+            uint256(167_001),
+            _registry,
+            uint256(1e9),
+            uint256(1 ether),
+            uint64(128),
+            uint64(32),
+            uint64(2),
+            uint8(1)
         );
     }
 
@@ -700,7 +769,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Independent flat V4 encoding, deliberately not the implementation's struct helper.
+    /// @dev Independent flat V5 encoding, deliberately not the implementation's struct helper.
     function _manualPreimage(
         address _inbox,
         address _registry,
@@ -715,7 +784,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         returns (bytes memory)
     {
         bytes memory context = abi.encode(
-            bytes32("TAIKO_ETNA_LAND_V4"), block.chainid, L2_CHAIN_ID, _inbox, _registry
+            bytes32("TAIKO_ETNA_LAND_V5"), block.chainid, L2_CHAIN_ID, _inbox, _registry
         );
         return bytes.concat(
             context,
