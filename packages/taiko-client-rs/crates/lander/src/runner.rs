@@ -11,11 +11,17 @@ use crate::{
     tx::{LandingReceipt, SignedTransaction, TransactionTransport},
     types::LandingSnapshot,
 };
+use alloy_primitives::B256;
 use std::{
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::time::{Instant, timeout};
+
+/// How long a consumed nonce may lack its own transaction's receipt before the account is treated
+/// as shared. Execution clients index receipts after importing a block (geth asynchronously), so
+/// the account nonce can advance moments before the receipt becomes queryable by hash.
+const UNINDEXED_RECEIPT_GRACE: Duration = Duration::from_secs(30);
 
 /// Runtime deadlines and confirmation policy; transport reads also retain their HTTP deadlines.
 #[derive(Clone, Copy, Debug)]
@@ -109,6 +115,8 @@ pub struct Runner {
     state: JournalState,
     /// First local backlog age; present only while the durable phase is Idle.
     waiting: Option<BatchWaiting>,
+    /// Outstanding transaction whose nonce was first seen consumed without a receipt, and when.
+    unindexed_receipt: Option<(B256, Instant)>,
     /// Time and confirmation bounds.
     config: RunnerConfig,
 }
@@ -146,7 +154,17 @@ impl Runner {
             None
         };
         observe_state(&state);
-        Ok(Self { batches, l1, transactions, proofs, store, state, waiting, config })
+        Ok(Self {
+            batches,
+            l1,
+            transactions,
+            proofs,
+            store,
+            state,
+            waiting,
+            unindexed_receipt: None,
+            config,
+        })
     }
 
     /// Current durable phase, useful for supervision and deterministic crash tests.
@@ -470,6 +488,7 @@ impl Runner {
                 .await
                 .map_err(|_| LanderError::Temporary("receipt lookup deadline exceeded".into()))??;
         if let Some(receipt) = receipt {
+            self.unindexed_receipt = None;
             if receipt.transaction_hash != transaction.hash {
                 return Err(LanderError::Safety(
                     "receipt identifies a different transaction".into(),
@@ -487,9 +506,25 @@ impl Runner {
                 |_| LanderError::Temporary("nonce reconciliation deadline exceeded".into()),
             )??;
         if nonce.confirmed > transaction.nonce {
+            let first_seen = match self.unindexed_receipt {
+                Some((hash, at)) if hash == transaction.hash => at,
+                _ => {
+                    let now = Instant::now();
+                    self.unindexed_receipt = Some((transaction.hash, now));
+                    now
+                }
+            };
+            if first_seen.elapsed() < UNINDEXED_RECEIPT_GRACE {
+                return Err(LanderError::Temporary(format!(
+                    "nonce {} is mined but receipt {} is not indexed yet",
+                    transaction.nonce, transaction.hash
+                )));
+            }
             return Err(LanderError::Safety(format!(
-                "nonce {} is mined but receipt {} is unavailable; stop to resolve shared-account nonce",
-                transaction.nonce, transaction.hash
+                "nonce {} is mined but receipt {} is still unavailable after {}s; stop to resolve shared-account nonce",
+                transaction.nonce,
+                transaction.hash,
+                UNINDEXED_RECEIPT_GRACE.as_secs()
             )));
         }
         if nonce.confirmed < transaction.nonce {

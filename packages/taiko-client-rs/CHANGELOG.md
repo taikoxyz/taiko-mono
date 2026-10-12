@@ -10,6 +10,7 @@
 
 ### Bug Fixes
 
+* **taiko-client-rs:** let the lander wait up to 30s for a receipt whose nonce is already mined before treating the account as shared, since execution clients index receipts after the block ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
 * **taiko-client-rs:** reserve checked 20% signing gas headroom when a pending L1 reference crosses the BLOCKHASH-to-EIP-2935 window, with a real-contract regression ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
 
 

@@ -346,6 +346,28 @@ async fn happy_path_is_journal_first_and_waits_for_canonical_confirmation_depth(
     assert_eq!(control.broadcasts.len(), 1);
 }
 
+#[tokio::test(start_paused = true)]
+async fn mined_nonce_waits_for_a_lagging_receipt_index_without_resending() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    let transaction = pending_transaction(&runner);
+    // The account nonce reflects the new block before the receipt is queryable by hash.
+    fixture.control.lock().unwrap().nonce =
+        NonceState { confirmed: transaction.nonce + 1, pending: transaction.nonce + 1 };
+    for _ in 0..3 {
+        assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
+        tokio::time::advance(super::UNINDEXED_RECEIPT_GRACE / 4).await;
+    }
+    fixture.mine(&transaction, true);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert!(matches!(runner.state(), JournalState::Confirming { .. }));
+    let control = fixture.control.lock().unwrap();
+    assert_eq!((control.signs, control.broadcasts.len()), (1, 1));
+}
+
 #[tokio::test]
 async fn lost_broadcast_response_and_restart_never_sign_or_allocate_a_second_nonce() {
     let fixture = Fixture::new();
@@ -483,7 +505,7 @@ async fn dropped_transaction_is_identically_rebroadcast_after_receipt_and_nonce_
     assert_eq!(control.signs, 1);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn expired_unbroadcast_reference_rebuilds_and_consumed_unknown_nonce_is_fatal() {
     let fixture = Fixture::new();
     let mut runner = fixture.runner();
@@ -496,6 +518,8 @@ async fn expired_unbroadcast_reference_rebuilds_and_consumed_unknown_nonce_is_fa
         runner.step().await.unwrap();
     }
     fixture.control.lock().unwrap().nonce.confirmed = 1;
+    assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
+    tokio::time::advance(super::UNINDEXED_RECEIPT_GRACE).await;
     assert!(matches!(runner.step().await, Err(LanderError::Safety(_))));
     assert_eq!(fixture.control.lock().unwrap().signs, 1);
 }
