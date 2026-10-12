@@ -36,7 +36,7 @@ func seedNFTBalance(t *testing.T, d db.DB, chainID int64, updatedAt time.Time) {
 	assert.Equal(t, nil, err)
 }
 
-func TestIntegration_UnclaimedBalanceReplayRisk(t *testing.T) {
+func TestIntegration_UnclaimedNFTReplayRisk(t *testing.T) {
 	var (
 		old    = time.Now().Add(-90 * 24 * time.Hour).UTC().Truncate(time.Second)
 		resume = time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Second)
@@ -44,24 +44,18 @@ func TestIntegration_UnclaimedBalanceReplayRisk(t *testing.T) {
 	)
 
 	tests := []struct {
-		name   string
-		seed   func(t *testing.T, d db.DB)
-		kind   string
-		want   bool
-		wantOK bool
+		name string
+		seed func(t *testing.T, d db.DB)
+		want bool
 	}{
 		{
 			"nothing indexed yet",
 			func(t *testing.T, d db.DB) {},
-			eventindexer.TransferKindNFT,
 			false,
-			true,
 		},
 		{
-			"balances but no events, cursor starts at the fork height",
+			"balances but no events, cursor starts at the genesis",
 			func(t *testing.T, d db.DB) { seedNFTBalance(t, d, 1, recent) },
-			eventindexer.TransferKindNFT,
-			false,
 			true,
 		},
 		{
@@ -72,9 +66,7 @@ func TestIntegration_UnclaimedBalanceReplayRisk(t *testing.T) {
 				seedNFTBalance(t, d, 1, old)
 				seedResumeBlock(t, d, 1, resume)
 			},
-			eventindexer.TransferKindNFT,
 			false,
-			true,
 		},
 		{
 			// a pre-claim process was writing balances inside the replay range
@@ -83,9 +75,22 @@ func TestIntegration_UnclaimedBalanceReplayRisk(t *testing.T) {
 				seedNFTBalance(t, d, 1, recent)
 				seedResumeBlock(t, d, 1, resume)
 			},
-			eventindexer.TransferKindNFT,
 			true,
-			true,
+		},
+
+		{"zero-height legacy events cannot justify genesis replay", func(t *testing.T, d db.DB) {
+			seedNFTBalance(t, d, 1, old)
+			seedResumeBlock(t, d, 1, resume)
+			assert.NoError(t, d.GormDB().Exec("UPDATE events SET emitted_block_id = 0 WHERE chain_id = 1").Error)
+			_, err := markTransferLogApplied(context.Background(), d.GormDB(), testRef(eventindexer.TransferKindNFT, 1))
+			assert.NoError(t, err)
+		}, true},
+		{
+			"some claims cannot justify genesis replay", func(t *testing.T, d db.DB) {
+				seedNFTBalance(t, d, 1, old)
+				_, err := markTransferLogApplied(context.Background(), d.GormDB(), testRef(eventindexer.TransferKindNFT, 1))
+				assert.NoError(t, err)
+			}, true,
 		},
 		{
 			"a claim for this chain and kind clears the risk",
@@ -98,31 +103,6 @@ func TestIntegration_UnclaimedBalanceReplayRisk(t *testing.T) {
 				assert.Equal(t, nil, err)
 				assert.True(t, applied)
 			},
-			eventindexer.TransferKindNFT,
-			false,
-			true,
-		},
-		{
-			// claims are scoped per kind, an erc20 claim says nothing about nfts
-			"a claim for the other kind does not clear the risk",
-			func(t *testing.T, d db.DB) {
-				seedNFTBalance(t, d, 1, recent)
-				seedResumeBlock(t, d, 1, resume)
-
-				applied, err := markTransferLogApplied(context.Background(), d.GormDB(),
-					testRef(eventindexer.TransferKindERC20, 1))
-				assert.Equal(t, nil, err)
-				assert.True(t, applied)
-			},
-			eventindexer.TransferKindNFT,
-			true,
-			true,
-		},
-		{
-			"unknown kind",
-			func(t *testing.T, d db.DB) {},
-			"erc721",
-			false,
 			false,
 		},
 	}
@@ -137,11 +117,7 @@ func TestIntegration_UnclaimedBalanceReplayRisk(t *testing.T) {
 			truncate(t, database)
 			tt.seed(t, database)
 
-			got, err := UnclaimedBalanceReplayRisk(context.Background(), database, 1, tt.kind)
-			if !tt.wantOK {
-				assert.NotNil(t, err)
-				return
-			}
+			got, err := UnclaimedNFTReplayRisk(context.Background(), database, 1)
 
 			assert.Equal(t, nil, err)
 			assert.Equal(t, tt.want, got)

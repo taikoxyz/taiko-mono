@@ -24,117 +24,22 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/chart/chartByTask": {
+        "/": {
             "get": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Get time series data for displaying charts",
-                "operationId": "get-charts-by-task",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "task to query",
-                        "name": "task",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "start date",
-                        "name": "start",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "end date",
-                        "name": "end",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
+                "summary": "Health probe",
                 "responses": {
                     "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/eventindexer.ChartResponse"
-                        }
+                        "description": "OK"
                     }
                 }
             }
         },
-        "/erc20sByAddress": {
+        "/healthz": {
             "get": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Get erc20 balances by address and chain ID",
-                "operationId": "get-erc20-balances-by-address-and-chain-id",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "address to query",
-                        "name": "address",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "chainID to query",
-                        "name": "chainID",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
+                "summary": "Health probe",
                 "responses": {
                     "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/paginate.Page"
-                        }
-                    }
-                }
-            }
-        },
-        "/events": {
-            "get": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Get events by address and event name",
-                "operationId": "get-events-by-address-and-event-name",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "address to query",
-                        "name": "address",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "event name to query",
-                        "name": "event",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/paginate.Page"
-                        }
+                        "description": "OK"
                     }
                 }
             }
@@ -163,6 +68,18 @@ const docTemplate = `{
                         "name": "chainID",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Zero-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -174,191 +91,9 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/uniqueProposers": {
-            "get": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Get unique proposers",
-                "operationId": "get-unique-proposers",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/http.uniqueProposersResp"
-                        }
-                    }
-                }
-            }
-        },
-        "/uniqueProvers": {
-            "get": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Get unique provers",
-                "operationId": "get-unique-provers",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/http.uniqueProversResp"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
-        "decimal.NullDecimal": {
-            "type": "object",
-            "properties": {
-                "decimal": {
-                    "type": "number"
-                },
-                "valid": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "eventindexer.ChartItem": {
-            "type": "object",
-            "properties": {
-                "date": {
-                    "type": "string"
-                },
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
-        "eventindexer.ChartResponse": {
-            "type": "object",
-            "properties": {
-                "chart": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/eventindexer.ChartItem"
-                    }
-                }
-            }
-        },
-        "eventindexer.Event": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string"
-                },
-                "amount": {
-                    "$ref": "#/definitions/decimal.NullDecimal"
-                },
-                "assignedProver": {
-                    "type": "string"
-                },
-                "blockID": {
-                    "type": "integer"
-                },
-                "chainID": {
-                    "type": "integer"
-                },
-                "contractAddress": {
-                    "type": "string"
-                },
-                "data": {
-                    "type": "string"
-                },
-                "emittedBlockID": {
-                    "type": "integer"
-                },
-                "event": {
-                    "type": "string"
-                },
-                "feeTokenAddress": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "proofReward": {
-                    "$ref": "#/definitions/decimal.NullDecimal"
-                },
-                "proposerReward": {
-                    "$ref": "#/definitions/decimal.NullDecimal"
-                },
-                "tier": {
-                    "type": "integer"
-                },
-                "to": {
-                    "type": "string"
-                },
-                "tokenID": {
-                    "type": "integer"
-                },
-                "transactedAt": {
-                    "type": "string"
-                }
-            }
-        },
-        "eventindexer.UniqueProposersResponse": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string"
-                },
-                "count": {
-                    "type": "integer"
-                }
-            }
-        },
-        "eventindexer.UniqueProversResponse": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string"
-                },
-                "count": {
-                    "type": "integer"
-                }
-            }
-        },
-        "http.uniqueProposersResp": {
-            "type": "object",
-            "properties": {
-                "proposers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/eventindexer.UniqueProposersResponse"
-                    }
-                },
-                "uniqueProposers": {
-                    "type": "integer"
-                }
-            }
-        },
-        "http.uniqueProversResp": {
-            "type": "object",
-            "properties": {
-                "provers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/eventindexer.UniqueProversResponse"
-                    }
-                },
-                "uniqueProvers": {
-                    "type": "integer"
-                }
-            }
-        },
         "paginate.Page": {
             "type": "object",
             "properties": {

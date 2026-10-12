@@ -90,7 +90,10 @@ func (r *NFTBalanceRepository) decreaseBalanceInDB(
 		if err != gorm.ErrRecordNotFound {
 			return nil, errors.Wrap(err, "r.db.gormDB.First")
 		} else {
-			// cant decrease a balance if user never had this balance, indexing issue
+			slog.Warn("missing NFT debit balance", "chain_id", opts.ChainID,
+				"holder", opts.Address, "contract", opts.ContractAddress,
+				"token_id", opts.TokenID, "amount", opts.Amount)
+			// Preserve the historical skip for an absent sender row.
 			return nil, nil
 		}
 	}
