@@ -25,10 +25,6 @@ pub struct ChainParams {
     pub s_min: U256,
     /// `N_MAX`: maximum committee size; `>= 1`.
     pub n_max: usize,
-    /// `G`: snapshot cutoff grid, in L1 blocks; `>= 1`.
-    pub cutoff_grid: u64,
-    /// `LAG`: snapshot cutoff lag behind the fixed two-epoch L1 reference, in L1 blocks.
-    pub cutoff_lag: u64,
     /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows MEM-13 eligibility is measured
     /// in, in L1 blocks ([`committee::heartbeat_floor`](crate::committee::heartbeat_floor));
     /// `>= 1`.
@@ -75,9 +71,6 @@ pub enum ConfigError {
     /// `n_max == 0`.
     #[error("n_max must be >= 1")]
     ZeroNMax,
-    /// `cutoff_grid == 0`.
-    #[error("cutoff_grid must be >= 1")]
-    ZeroCutoffGrid,
     /// `heartbeat_window == 0`.
     #[error("heartbeat_window must be >= 1")]
     ZeroHeartbeatWindow,
@@ -112,8 +105,6 @@ impl ChainParams {
                 vp_unit: U256::from(1_000_000_000u64),
                 s_min: U256::from(1_000_000_000_000_000_000u64),
                 n_max: 128,
-                cutoff_grid: 1,
-                cutoff_lag: 0,
                 heartbeat_window: u64::MAX / 2,
                 l1_finality_extra_depth: 0,
                 block_gas_limit: 45_000_000,
@@ -148,8 +139,6 @@ impl ChainParams {
         self.vp_unit = o.vp_unit.map_or(self.vp_unit, |v| v.0);
         self.s_min = o.s_min.map_or(self.s_min, |v| v.0);
         self.n_max = o.n_max.unwrap_or(self.n_max);
-        self.cutoff_grid = o.cutoff_grid.unwrap_or(self.cutoff_grid);
-        self.cutoff_lag = o.cutoff_lag.unwrap_or(self.cutoff_lag);
         self.heartbeat_window = o.heartbeat_window.unwrap_or(self.heartbeat_window);
         self.l1_finality_extra_depth =
             o.l1_finality_extra_depth.unwrap_or(self.l1_finality_extra_depth);
@@ -164,8 +153,8 @@ impl ChainParams {
         self.d_max.saturating_sub(self.margin_v)
     }
 
-    /// Checks `d_max >= margin_v`, `vp_unit > 0`, `n_max >= 1`, `cutoff_grid >= 1`,
-    /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
+    /// Checks `d_max >= margin_v`, `vp_unit > 0`, `n_max >= 1`, `heartbeat_window >= 1`,
+    /// `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
     /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.d_max < self.margin_v {
@@ -176,9 +165,6 @@ impl ChainParams {
         }
         if self.n_max == 0 {
             return Err(ConfigError::ZeroNMax);
-        }
-        if self.cutoff_grid == 0 {
-            return Err(ConfigError::ZeroCutoffGrid);
         }
         if self.heartbeat_window == 0 {
             return Err(ConfigError::ZeroHeartbeatWindow);
@@ -215,10 +201,6 @@ struct Overrides {
     s_min: Option<U256String>,
     /// See [`ChainParams::n_max`].
     n_max: Option<usize>,
-    /// See [`ChainParams::cutoff_grid`].
-    cutoff_grid: Option<u64>,
-    /// See [`ChainParams::cutoff_lag`].
-    cutoff_lag: Option<u64>,
     /// See [`ChainParams::heartbeat_window`].
     heartbeat_window: Option<u64>,
     /// See [`ChainParams::l1_finality_extra_depth`].
@@ -276,8 +258,6 @@ mod tests {
         assert_eq!(p.vp_unit, U256::from(1_000_000_000u64));
         assert_eq!(p.s_min, U256::from(1_000_000_000_000_000_000u64));
         assert_eq!(p.n_max, 128);
-        assert_eq!(p.cutoff_grid, 1);
-        assert_eq!(p.cutoff_lag, 0);
         assert_eq!(p.heartbeat_window, u64::MAX / 2);
         assert_eq!(p.l1_finality_extra_depth, 0);
         assert_eq!(p.block_gas_limit, 45_000_000);
@@ -297,6 +277,16 @@ mod tests {
     }
 
     #[test]
+    fn obsolete_snapshot_overrides_are_rejected() {
+        for key in ["cutoff_grid", "cutoff_lag"] {
+            assert!(matches!(
+                devnet().with_overrides(&format!("{key} = 1")),
+                Err(ConfigError::Toml(_))
+            ));
+        }
+    }
+
+    #[test]
     fn empty_override_keeps_builtin() {
         assert_eq!(devnet().with_overrides("").unwrap(), devnet());
     }
@@ -309,8 +299,6 @@ mod tests {
                 d_max = 30
                 margin_v = 5
                 n_max = 4
-                cutoff_grid = 8
-                cutoff_lag = 2
                 heartbeat_window = 9223372036854775807
                 l1_finality_extra_depth = 3
                 block_gas_limit = 60000000
@@ -321,8 +309,6 @@ mod tests {
         assert_eq!(p.margin_v, 5);
         assert_eq!(p.unsettled_cap(), 25);
         assert_eq!(p.n_max, 4);
-        assert_eq!(p.cutoff_grid, 8);
-        assert_eq!(p.cutoff_lag, 2);
         assert_eq!(p.heartbeat_window, i64::MAX as u64);
         assert_eq!(p.l1_finality_extra_depth, 3);
         assert_eq!(p.block_gas_limit, 60_000_000);
@@ -427,12 +413,6 @@ mod tests {
     fn validate_rejects_zero_n_max() {
         let p = ChainParams { n_max: 0, ..devnet() };
         assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroNMax));
-    }
-
-    #[test]
-    fn validate_rejects_zero_cutoff_grid() {
-        let p = ChainParams { cutoff_grid: 0, ..devnet() };
-        assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroCutoffGrid));
     }
 
     #[test]

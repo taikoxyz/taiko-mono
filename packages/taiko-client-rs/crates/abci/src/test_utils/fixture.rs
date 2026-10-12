@@ -94,17 +94,10 @@ impl GenesisSpec {
         }
     }
 
-    /// A genesis whose `e_0` exists only at the explicit genesis cutoff: `L1_0 = 64`, cutoff lag
-    /// 5, grid 1, genesis cutoff 63, and `n_validators` entries registered in a checkpoint at L1
-    /// block 58 and active from block 62. The lagged cutoff of `L1_0`, `cutoff(64) = 59`, selects
-    /// the same checkpoint but precedes the entries' genesis, so a genesis committee derived
-    /// there would have no eligible entry. `e_0 + 1` is derived at `H(e_0 + 1) - 2`,
-    /// using its fixed target-epoch cutoff with the genesis-cutoff floor
-    /// ([`committee::fixed_cutoff`]: `max(59, 63) = 63`).
-    pub(crate) fn active_after_lagged_l1_0_cutoff(n_validators: usize) -> Self {
+    /// A genesis at explicit snapshot 63 with entries active from 62 and parent `L1_0 = 64`.
+    /// An earlier explicit snapshot 59 has no active entries; runtime snapshots use the parent.
+    pub(crate) fn eligible_at_explicit_genesis_snapshot(n_validators: usize) -> Self {
         let mut spec = Self::new(n_validators);
-        spec.params.cutoff_lag = 5;
-        spec.params.cutoff_grid = 1;
         spec.checkpoint_l1_block = Some(58);
         spec.entries = Some(
             sample_entries(n_validators)
@@ -325,14 +318,14 @@ impl Fixture {
         Schedule::from_genesis(&self.genesis)
     }
 
-    /// Derives `target_epoch` at its fixed cutoff using the genesis fixture's registry entries.
+    /// Derives `target_epoch` using the fixture registry: explicit genesis cutoff for epoch zero,
+    /// genesis parent anchor for later epochs.
     /// Later checkpoint scenarios construct and authenticate their own witness instead.
     pub(crate) fn committee(&self, target_epoch: u64) -> CommitteeState {
         let cutoff = if target_epoch == Schedule::E0 {
             self.genesis.genesis_cutoff
         } else {
-            committee::fixed_cutoff(&self.schedule(), &self.params, target_epoch)
-                .expect("L1_0 has a cutoff")
+            self.genesis.l1_0
         };
         let (record, members) =
             genesis_committee(&self.params, &self.schedule(), &self.registry, cutoff, target_epoch);

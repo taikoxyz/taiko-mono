@@ -21,8 +21,8 @@ use crate::{
 /// ([`GenesisError::InitializationNotFinal`]); takes the canonical header of `L1_0` and the Inbox
 /// proofs of `genesis_slots()` there, and verifies them as `InitChain` will (the record must
 /// name the same `L1_0`, `genesisCutoff` must lie before it, the schedule must be valid); builds
-/// the `e_0` committee witness with the snapshot at `genesisCutoff` itself (no cutoff lag or
-/// grid) and its proofs at `L1_0`, and requires the committee it proves to hash to
+/// the `e_0` committee witness with the explicit snapshot at `genesisCutoff` and its proofs
+/// at `L1_0`, and requires the committee it proves to hash to
 /// `genesisCommitteeRecordHash` ([`GenesisError::CommitteeRecordMismatch`]).
 ///
 /// The registry entries of that snapshot are read at the newest block that still holds it, which
@@ -159,15 +159,13 @@ mod tests {
         assert_eq!(calls[3], L1Call::Header(fx.genesis.l1_0));
     }
 
-    /// `e_0` is discovered and derived at the Inbox's `genesisCutoff` as is, not at the lagged,
-    /// gridded cutoff of `L1_0`: entries active from L1 block 62 are in `e_0` under `L1_0 = 64`,
-    /// lag 5, grid 1 and genesis cutoff 63, where `cutoff(64) = 59` leaves none eligible.
+    /// Genesis derives at explicit snapshot 63; an earlier snapshot 59 has no active entries.
     #[tokio::test]
     async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
-        let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+        let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
         assert_eq!((fx.genesis.l1_0, fx.genesis.genesis_cutoff), (64, 63));
-        // At the lagged cutoff of L1_0, 59, no entry is active yet.
-        let lagged = build_committee_witness_at_cutoff(
+        // At explicit snapshot 59 no entry is active yet.
+        let earlier = build_committee_witness_at_cutoff(
             &fx.l1(),
             &fx.params,
             &fx.schedule(),
@@ -176,7 +174,7 @@ mod tests {
             Schedule::E0,
         )
         .await;
-        assert_eq!(lagged, Err(FetchError::Committee(CommitteeError::Empty)));
+        assert_eq!(earlier, Err(FetchError::Committee(CommitteeError::Empty)));
 
         let l1 = fx.l1();
         let doc = build_genesis(&l1, &fx.params).await.expect("e_0 derives at the genesis cutoff");

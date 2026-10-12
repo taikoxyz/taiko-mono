@@ -215,7 +215,7 @@ async fn switch_height_emits_the_exact_updates_and_prunes() {
     let switch = app.state().unwrap().schedule().h_first(4) - 2;
 
     let derive = |entries: Vec<RegistryEntry>, target| {
-        let cutoff = committee::fixed_cutoff(&fx.schedule(), params, target).unwrap();
+        let cutoff = if target == 4 { 76 } else { 64 };
         let snapshot = Snapshot {
             checkpoint_index: u64::from(target == 4),
             l1_block: if target == 4 { 71 } else { 63 },
@@ -541,6 +541,7 @@ async fn a_conflicting_committee_record_is_a_safety_halt() {
     jump(&mut app, switch - 1, parent, &[]);
     let env = propose(&mut app).await; // switch derives committee 1
     let (_, req) = judge(&mut app, &env).await;
+    let derived = app.verdicts.get(&req.hash).unwrap().derived.as_ref().unwrap().1.clone();
     app.state.as_mut().unwrap().committees.insert(1, fx.committee(2));
     let before = app.engine().calls().len();
     let msg = safety_halt(finalize(&mut app, finalize_req(&req)).await);
@@ -548,7 +549,7 @@ async fn a_conflicting_committee_record_is_a_safety_halt() {
     assert_eq!(engine_calls_since(&app, before), [], "the EL is not touched");
 
     // The same record again is no conflict.
-    app.state.as_mut().unwrap().committees.insert(1, fx.committee(1));
+    app.state.as_mut().unwrap().committees.insert(1, derived);
     finalize(&mut app, finalize_req(&req)).await.expect("an identical record is fine");
 }
 
@@ -769,8 +770,8 @@ fn short_epochs() -> Fixture {
 /// With a cap of 1 every height needs a new checkpoint, so before each height after `H_0` the
 /// own L1 finalizes one more block (`L1_0 + k`) whose Inbox records the last committed block as
 /// checkpoint; settlement advances only checkpoint facts. A fourth validator registers at
-/// L1 block `L1_0 + 2`. Fixed target-epoch cutoffs keep committees 0, 1 and 2 at three members,
-/// while committee 3 includes the fourth validator, derived at `H(3) - 2`.
+/// L1 block `L1_0 + 2`. Committee 1 selects its earlier committed parent; committees 2 and 3
+/// include the fourth validator once their committed parent anchors cover the join.
 async fn multi_epoch_run(
     fx: &Fixture,
     dir: &Path,
@@ -822,7 +823,7 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
     let c2 = state.committees[&3].clone();
     assert_eq!(c1.members, fx.members, "committee 1 comes from the genesis snapshot");
     assert_eq!(c2.members.len(), 4, "the fourth validator is in committee 3");
-    assert_eq!(state.committees[&2].members, c1.members);
+    assert_eq!(state.committees[&2].members, c2.members);
     assert_eq!(state.committees.keys().copied().collect::<Vec<_>>(), [2, 3], "0 is pruned");
 
     // CometBFT's view of the validator set, updated by every response.
@@ -839,10 +840,10 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
                 assert_eq!(updates, committee::validator_updates(&fx.members, &c1.members))
             }
             Some(2) => {
-                assert_eq!(updates, committee::validator_updates(&c1.members, &c1.members));
+                assert_eq!(updates, committee::validator_updates(&c1.members, &c2.members));
             }
             Some(3) => {
-                assert_eq!(updates, committee::validator_updates(&c1.members, &c2.members))
+                assert_eq!(updates, committee::validator_updates(&c2.members, &c2.members))
             }
             other => assert!(updates.is_empty(), "height {height} (switch {other:?})"),
         }
@@ -859,7 +860,7 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
         }
         assert_ne!(block_hash, B256::ZERO);
     }
-    assert_eq!(changes, [schedule.h_first(3) - 2], "the set changes once, at the switch to 3");
+    assert_eq!(changes, [schedule.h_first(2) - 2], "the set changes once, at the switch to 2");
     let expected: BTreeMap<B256, u64> = c2.members.iter().map(|m| (m.pubkey, m.power)).collect();
     assert_eq!(set, expected);
 }
@@ -918,4 +919,59 @@ async fn finalize_is_deterministic_across_fresh_apps() {
     }
     assert_eq!(states[0], states[1]);
     assert_eq!(Some(&states[0]), proposer.state());
+}
+
+/// Crash on both sides of Commit at each switch, including the joining-validator switch.
+/// Cold replay must preserve complete responses, updates, committees and canonical EL hashes.
+#[tokio::test]
+async fn switch_replay_survives_crashes_before_and_after_commit() {
+    let fx = short_epochs();
+    let source_dir = tempfile::tempdir().unwrap();
+    let (_, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let mut switches = Vec::new();
+    for (req, expected) in &decided {
+        let target = fx.schedule().switch_target(req.height.value());
+        let committed = app.state().unwrap().clone();
+        app.l1().state().calls.clear();
+        let response = finalize(&mut app, req.clone()).await.unwrap();
+        assert_eq!(&response, expected);
+        assert!(app.l1().calls().is_empty());
+        let pending = app.pending.as_ref().unwrap().clone();
+        let hash = pending.parent.hash;
+        assert_eq!(app.engine().state().chain[&pending.last_height].hash_slow(), hash);
+        if let Some(target) = target {
+            switches.push(target);
+            assert!(!committed.committees.contains_key(&target));
+            assert!(pending.committees.contains_key(&target));
+            assert!(!response.validator_updates.is_empty());
+            if target == 2 {
+                assert_eq!(pending.committees[&target].members.len(), 4);
+                assert_eq!(committed.committees[&(target - 1)].members.len(), 3);
+            }
+            // The EL has executed the switch while the durable store still holds its parent.
+            let engine = app.engine().reopen();
+            drop(app);
+            app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+            assert_eq!(app.state(), Some(&committed));
+            info(&mut app).await.unwrap();
+            app.l1().state().calls.clear();
+            assert_eq!(finalize(&mut app, req.clone()).await.unwrap(), response);
+            assert_eq!(app.pending.as_ref(), Some(&pending));
+            assert!(app.l1().calls().is_empty(), "switch replay requires no L1 reads");
+        }
+        commit(&mut app).await.unwrap();
+        assert_eq!(app.state(), Some(&pending));
+        if target.is_some() {
+            // A crash after Commit reloads the incoming committee before the following height.
+            let engine = app.engine().reopen();
+            drop(app);
+            app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+            assert_eq!(app.state(), Some(&pending));
+            info(&mut app).await.unwrap();
+            assert_eq!(app.engine().state().chain[&pending.last_height].hash_slow(), hash);
+        }
+    }
+    assert_eq!(switches, [1, 2, 3]);
 }

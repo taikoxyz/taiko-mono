@@ -50,8 +50,8 @@ pub(crate) fn verify_context(
 
 /// Verifies the registry snapshot, derives committee 0 and checks its recorded hash.
 ///
-/// The explicit genesis cutoff applies without the later epochs' lag or grid. Both genesis
-/// entry points call this independently; neither trusts a previously generated document.
+/// The explicit genesis cutoff applies independently of runtime parent-anchor selection. Both
+/// genesis entry points call this independently; neither trusts a previously generated document.
 pub(crate) fn verify_committee(
     context: &GenesisContext,
     witness: &CommitteeWitness,

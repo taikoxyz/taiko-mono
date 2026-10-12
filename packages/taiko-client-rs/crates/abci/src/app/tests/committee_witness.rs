@@ -20,19 +20,19 @@ use crate::{
 };
 
 /// The L1 block the parent of `switch 2` is anchored at in [`before_switch`].
-const PARENT_ANCHOR: u64 = 70;
+const PARENT_ANCHOR: u64 = 1010;
 /// The L1 block the block at `switch 2` moves its anchor to in [`before_switch`].
-const NEW_ANCHOR: u64 = 74;
+const NEW_ANCHOR: u64 = 1030;
 /// The L1 block of the registry checkpoint written between the two anchors.
-const JOIN_BLOCK: u64 = 72;
+const JOIN_BLOCK: u64 = 1020;
 
 /// An app whose next height is `switch 2` and whose block there moves the anchor.
 ///
 /// The parent is anchored at L1 block [`PARENT_ANCHOR`], where the registry holds only the
 /// genesis checkpoint (three entries). The own L1 has finalized [`NEW_ANCHOR`], where the last
 /// checkpoint has advanced and a second registry checkpoint (block [`JOIN_BLOCK`], four entries)
-/// exists. Committee 2 uses its fixed target-epoch cutoff at L1 block 64, before the join,
-/// independently of which covering anchor proves the registry. Returns the app and new anchor.
+/// exists. Committee 2 uses committed parent 1010, before the join at 1020.
+/// Returns the app and new candidate anchor 1030.
 async fn before_switch(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, AnchorState) {
     let mut app = initialized(fx, dir).await;
     let h_e = app.state().unwrap().schedule().h_first(2) - 2;
@@ -54,7 +54,7 @@ async fn before_switch(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, An
 }
 
 /// The committee-2 witness an honest proposer builds at `switch 2` against the anchor
-/// `n_p`, using its proven registry state and committee 2's fixed target-epoch cutoff.
+/// `n_p`, using that parent number and its authenticated registry state.
 async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness {
     let progress = DiscoveryProgress::default();
     let schedule = app.state().expect("initialized").schedule();
@@ -72,7 +72,7 @@ async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness
 }
 
 /// (a) The honest proposer moves the anchor to [`NEW_ANCHOR`] and proves committee 2 at the
-/// parent's anchor [`PARENT_ANCHOR`]: fixed cutoff 64 selects the genesis checkpoint. Accepted.
+/// parent's anchor [`PARENT_ANCHOR`]: snapshot 1010 selects the genesis checkpoint. Accepted.
 #[tokio::test]
 async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     let fx = Fixture::genesis(3);
@@ -84,8 +84,8 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     let w = env.committee.clone().expect("switch 2 carries a committee witness");
     assert_eq!(w, witness_at(&app, PARENT_ANCHOR).await);
     assert_eq!(w.record.target_epoch, 2);
-    assert_eq!(w.record.cutoff_l1_block, fx.genesis.l1_0, "fixed launch cutoff");
-    assert_eq!(w.record.checkpoint_index, 0, "checkpoint 1 (block 72) is after the cutoff");
+    assert_eq!(w.record.cutoff_l1_block, PARENT_ANCHOR, "committed parent snapshot");
+    assert_eq!(w.record.checkpoint_index, 0, "checkpoint 1 (block 1020) is after the parent");
     assert_eq!(w.entries, sample_entries(3));
 
     let (resp, req) = judge(&mut app, &env).await;
@@ -98,9 +98,8 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     assert_eq!(derived.members.len(), 3);
 }
 
-/// (b) The same derivation proven against the block's NEW anchor: self-consistent there (its
-/// fixed cutoff still selects checkpoint 0), but not against the parent's anchor, so
-/// the block is refused.
+/// (b) The candidate anchor 1030 selects the joined checkpoint and is valid there, but its
+/// registry proof does not authenticate under the committed parent 1010, so it is refused.
 #[tokio::test]
 async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
     let fx = Fixture::genesis(3);
@@ -108,9 +107,9 @@ async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
     let (mut app, moved) = before_switch(&fx, dir.path()).await;
 
     let w = witness_at(&app, NEW_ANCHOR).await;
-    assert_eq!(w.record.cutoff_l1_block, fx.genesis.l1_0);
-    assert_eq!(w.record.checkpoint_index, 0);
-    assert_eq!(w.entries, sample_entries(3));
+    assert_eq!(w.record.cutoff_l1_block, NEW_ANCHOR);
+    assert_eq!(w.record.checkpoint_index, 1);
+    assert_eq!(w.entries, sample_entries(4));
     assert_eq!(
         verify_committee_witness(&moved, &app.state().unwrap().schedule(), &app.params, &w, 2)
             .map(|_| ()),

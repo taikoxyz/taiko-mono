@@ -62,23 +62,20 @@ async fn a_genesis_committee_without_heartbeats_initializes() {
     assert_eq!(app.state(), Some(&fx.expected_state()));
 }
 
-/// `e_0` is derived at the Inbox's `genesisCutoff` as is, not at the lagged, gridded cutoff of
-/// `L1_0`: entries active from L1 block 62 are in `e_0` under `L1_0 = 64`, lag 5, grid 1 and
-/// genesis cutoff 63, where `cutoff(64) = 59` leaves none eligible.
+/// Genesis derives at explicit snapshot 63; entries active from 62 remain inactive at 59.
 #[tokio::test]
 async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
-    let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+    let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
     let (l1_0, genesis_cutoff) = (fx.genesis.l1_0, fx.genesis.genesis_cutoff);
     assert_eq!((l1_0, genesis_cutoff), (64, 63));
     assert!(fx.registry.checkpoints[0].1.iter().all(|e| e.active_from_l1 == 62));
-    // At the lagged cutoff 59 of the genesis anchor the snapshot is the same checkpoint, but no
+    // At explicit snapshot 59 the registry mutation checkpoint is the same, but no
     // entry is active yet.
-    let lagged = committee::cutoff(l1_0, fx.params.cutoff_grid, fx.params.cutoff_lag).unwrap();
-    assert_eq!(lagged, 59);
+    let earlier = 59;
     assert_eq!(
         verify_committee_witness_at_cutoff(
             fx.witness.l1_header.state_root(),
-            lagged,
+            earlier,
             &fx.schedule(),
             &fx.params,
             &fx.witness.committee,
@@ -542,7 +539,7 @@ async fn el_serving_another_block_after_sync_is_a_safety_halt() {
 async fn genesis_rejects_a_different_committee_config_opening() {
     let mut fx = Fixture::genesis(2);
     let proven = fx.genesis.committee_config_hash;
-    fx.params.cutoff_lag += 1;
+    fx.params.heartbeat_window -= 1;
     let local = committee::committee_config_hash(&fx.params);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());

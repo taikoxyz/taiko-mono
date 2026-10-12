@@ -391,7 +391,7 @@ mod tests {
         assert!(err.to_string().contains("would halt the chain at genesis"), "{err}");
 
         // Entries active from L1 block 62 are not eligible at cutoff 59.
-        let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+        let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
         let err = build_committee_record(&fx.l1(), &fx.params, 59, None)
             .await
             .expect_err("no entry is active yet");

@@ -2,8 +2,8 @@
 //! chain. Once a proposal anchors at a final L1 block that carries the bump, the app sets
 //! `/status.superseded` and refuses every proposal from then on: CometBFT stops.
 //!
-//! The fake lander writes only `lastCheckpoint` and `committee[·]`, so it never overwrites the
-//! planted generation.
+//! The fake lander advances only `lastCheckpoint`; committee bootstrap is immutable and runtime
+//! activation needs no publication, so settlement never overwrites the planted generation.
 
 use std::{
     collections::BTreeSet,

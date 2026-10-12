@@ -3,7 +3,7 @@
 //! Every CometBFT block's `Data.Txs` holds exactly one item, the envelope:
 //!
 //! ```text
-//! envelope     = 0x01 || rlp(EtnaEnvelope)
+//! envelope     = 0x03 || rlp(EtnaEnvelope)
 //! EtnaEnvelope = [ block, anchor, committee ]
 //! block        = [ header, transactions ]   // EL header RLP, EIP-2718 tx bytes as opaque strings
 //! anchor       = [] | [ AnchorWitness ]     // empty list = absent
@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// Leading version byte of every envelope.
-pub const ENVELOPE_VERSION: u8 = 2;
+pub const ENVELOPE_VERSION: u8 = 3;
 
 /// Name of the optional `anchor` field, as carried by [`EnvelopeError::OptionalArity`].
 const ANCHOR_FIELD: &str = "anchor";
@@ -72,7 +72,7 @@ pub struct CommitteeWitness {
 
 /// The decoded block envelope: the execution block plus the optional L1 witnesses.
 ///
-/// Wire format: `0x02 || rlp([block, anchor, committee])`, where each optional witness is an empty
+/// Wire format: `0x03 || rlp([block, anchor, committee])`, where each optional witness is an empty
 /// RLP list when absent and a one-element RLP list holding the witness when present.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EtnaEnvelope {
@@ -109,7 +109,7 @@ pub enum EnvelopeError {
 }
 
 impl EtnaEnvelope {
-    /// Encodes the envelope as `0x01 || rlp([block, anchor, committee])`.
+    /// Encodes the envelope as `0x03 || rlp([block, anchor, committee])`.
     pub fn encode(&self) -> Bytes {
         let mut out = Vec::with_capacity(1 + Encodable::length(self));
         out.push(ENVELOPE_VERSION);
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn encode_starts_with_version_byte() {
         let encoded = envelope(Some(anchor()), None).encode();
-        assert_eq!(encoded[0], 0x02);
+        assert_eq!(encoded[0], 0x03);
         assert_eq!(encoded.len(), 1 + alloy_rlp::encode(envelope(Some(anchor()), None)).len());
     }
 
@@ -406,7 +406,7 @@ mod tests {
     #[test]
     fn decode_rejects_wrong_version() {
         let mut encoded = envelope(None, None).encode().to_vec();
-        for version in [0x00, 0x01, 0xff] {
+        for version in [0x00, 0x01, 0x02, 0xff] {
             encoded[0] = version;
             assert_eq!(EtnaEnvelope::decode(&encoded), Err(EnvelopeError::Version(version)));
         }
@@ -513,7 +513,7 @@ mod tests {
             committee: None,
         };
         let expected = hex!(
-            "02"       // ENVELOPE_VERSION
+            "03"       // ENVELOPE_VERSION
             "f901f6"   // envelope list
             "f901f1"   // block list
             "f901ed"   // header list (Header::default(): 15 pre-London fields)

@@ -22,7 +22,7 @@ pub mod config;
 pub mod elsync;
 /// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #248.
 pub mod engine;
-/// The CometBFT block envelope codec (`0x02 || rlp([block, anchor, committee])`).
+/// The CometBFT block envelope codec (`0x03 || rlp([block, anchor, committee])`).
 pub mod envelope;
 /// The CometBFT genesis: the `app_state` genesis witness, its codec, and the builder of the
 /// whole `genesis.json` from L1.
@@ -46,7 +46,7 @@ pub mod types;
 pub(crate) mod test_utils;
 
 pub use app::{AbciError, App, AppOptions, Status};
-pub use committee::{CommitteeError, Snapshot, committee_config_hash, fixed_cutoff};
+pub use committee::{CommitteeError, Snapshot, committee_config_hash};
 pub use config::{ChainParams, ConfigError};
 pub use elsync::{ElSyncError, ensure_block};
 pub use engine::{
