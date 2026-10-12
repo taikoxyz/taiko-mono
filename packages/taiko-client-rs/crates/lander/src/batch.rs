@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use abci::{
     AnchorState, ChainParams, ParentInfo, Schedule,
-    committee::{record_hash, verify_committee_witness},
+    committee::{record_hash, verify_committee_witness_at_cutoff},
     rules,
 };
 use async_trait::async_trait;
@@ -15,6 +15,7 @@ use crate::{
     committee::{AuthenticatedCommittee, authenticate},
     contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result},
+    history,
     l1::{LandingSource, ParentContext},
     proof::ProofRequest,
     statement,
@@ -43,6 +44,44 @@ struct PublishablePrefix {
     blocks: Vec<CertifiedBlock>,
     /// Canonical V1 bytes used to count blobs and later build exactly one sidecar.
     payload: Vec<u8>,
+}
+
+/// Fully authenticated starting checkpoint and immutable derivation history.
+struct BatchStart {
+    /// Parent header and ancestry-derived base-fee timestamp.
+    parent: ParentContext,
+    /// Historical L1 proving anchor authenticated by the checkpoint execution header.
+    anchor: AnchorState,
+    /// Full schedule/bootstrap/anchor-facts proof retained for the guest.
+    inbox_witness: abci::AnchorWitness,
+    /// Certified checkpoint block, absent at genesis.
+    previous: Option<CertifiedBlock>,
+    /// Exact minimal descending checkpoint-bound execution headers.
+    history: Vec<alloy_consensus::Header>,
+}
+
+/// Constant-space forward authentication state shared by observation and proof preparation.
+struct ForwardState {
+    /// Exact authenticated committed parent inputs.
+    parent: ParentInfo,
+    /// Exact execution header whose anchor selects an embedded incoming set.
+    header: alloy_consensus::Header,
+    /// Current authenticated L1 anchor.
+    anchor: AnchorState,
+    /// Previous certified block used to check last_commit and BFT parent links.
+    previous: Option<CertifiedBlock>,
+}
+
+impl ForwardState {
+    /// Initialize from a contract-bound checkpoint after its history and certificate verify.
+    fn new(start: &BatchStart) -> Result<Self> {
+        Ok(Self {
+            parent: parent_info(&start.parent)?,
+            header: start.parent.header.clone(),
+            anchor: start.anchor.clone(),
+            previous: start.previous.clone(),
+        })
+    }
 }
 
 /// Boundary used by the runner to prepare jobs and authenticate competing checkpoint progress.
@@ -121,6 +160,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 status.height, snapshot.checkpoint_height
             )));
         }
+        if status.height - snapshot.checkpoint_height > self.params.unsettled_cap() {
+            return Err(LanderError::Temporary(
+                "Comet tip exceeds this operational checkpoint's unsettled cap; refresh coherent Inbox snapshot".into(),
+            ));
+        }
         Ok(status)
     }
 
@@ -177,20 +221,30 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(PublishablePrefix { blocks, payload })
     }
 
-    /// Derive an epoch from its fixed-cutoff registry proof under an authenticated anchor.
+    /// Derive an epoch from its authenticated parent snapshot registry proof under an authenticated
+    /// anchor.
     async fn committee(
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
         epoch: u64,
+        derivation_parent: Option<alloy_consensus::Header>,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
     ) -> Result<()> {
         if committees.contains_key(&epoch) {
             return Ok(());
         }
-        let witness = self.l1.committee_witness(snapshot, anchor, epoch).await?;
-        let (record, members) = verify_committee_witness(
-            anchor,
+        let schedule = Schedule::from_genesis(&snapshot.genesis);
+        let snapshot_number = history::snapshot_number(derivation_parent.as_ref(), &schedule)?;
+        if anchor.number < snapshot_number {
+            return Err(LanderError::Safety(
+                "committee proving root predates authenticated derivation snapshot".into(),
+            ));
+        }
+        let witness = self.l1.committee_witness(snapshot, anchor, snapshot_number, epoch).await?;
+        let (record, members) = verify_committee_witness_at_cutoff(
+            anchor.state_root,
+            snapshot_number,
             &Schedule::from_genesis(&snapshot.genesis),
             &self.params,
             &witness,
@@ -206,7 +260,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let mut authenticated =
             authenticate(abci::CommitteeState { record, members }, epoch, hash, &self.params)
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
-        authenticated.provenance = Some(CommitteeContext { anchor: anchor.clone(), witness });
+        authenticated.provenance =
+            Some(CommitteeContext { anchor: anchor.clone(), derivation_parent, witness });
         committees.insert(epoch, authenticated);
         Ok(())
     }
@@ -217,8 +272,26 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         snapshot: &LandingSnapshot,
         schedule: &Schedule,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
-    ) -> Result<(ParentContext, AnchorState, abci::AnchorWitness, Option<CertifiedBlock>)> {
-        let parent = self.l1.parent_header(snapshot).await?;
+    ) -> Result<BatchStart> {
+        let required = history::requirements(snapshot.checkpoint_height, schedule)?;
+        let mut parent = self.l1.parent_header(snapshot).await?;
+        history::check_header_capacity(&parent.header)?;
+        let mut headers = vec![parent.header.clone()];
+        for height in (required.oldest..snapshot.checkpoint_height).rev() {
+            let header = self.l1.execution_header(height).await?;
+            history::check_header_capacity(&header)?;
+            headers.push(header);
+        }
+        let derivations = history::verify(
+            history::HistoryInput {
+                height: snapshot.checkpoint_height,
+                hash: snapshot.checkpoint_hash,
+                generation: snapshot.generation,
+                schedule,
+            },
+            &headers,
+        )?;
+        parent.grandparent_timestamp = headers.get(1).map_or(0, |h| h.timestamp);
         if parent.header.number != snapshot.checkpoint_height ||
             parent.header.hash_slow() != snapshot.checkpoint_hash
         {
@@ -228,6 +301,22 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             )));
         }
         let anchor = self.l1.parent_anchor(snapshot, &parent).await?;
+        let embedded_number = if parent.header.number == 0 {
+            snapshot.genesis.l1_0
+        } else {
+            rules::decode_extra_data(&parent.header.extra_data)
+                .map_err(|e| LanderError::Safety(e.to_string()))?
+                .2
+        };
+        if anchor.number != embedded_number ||
+            parent.header.number > 0 &&
+                parent.header.parent_beacon_block_root != Some(anchor.state_root)
+        {
+            return Err(LanderError::Safety(
+                "checkpoint proving anchor differs from embedded EL number/root".into(),
+            ));
+        }
+
         let starting_inbox_witness = self.l1.starting_inbox_witness(&anchor).await?;
         let (genesis, bootstrap) =
             crate::l1::verify_starting_inbox(&starting_inbox_witness, &anchor, self.params.inbox)?;
@@ -240,6 +329,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 "starting genesis/config proof contradicts snapshot".into(),
             ));
         }
+        for (epoch, derivation) in derivations {
+            self.committee(snapshot, &anchor, epoch, derivation, committees).await?;
+        }
         if snapshot.checkpoint_height == 0 {
             if snapshot.checkpoint_hash != snapshot.genesis.genesis_hash ||
                 parent.header.state_root != snapshot.genesis.genesis_state_root
@@ -248,11 +340,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     "genesis checkpoint hash/state root mismatch".into(),
                 ));
             }
-            return Ok((parent, anchor, starting_inbox_witness, None));
+            return Ok(BatchStart {
+                parent,
+                anchor,
+                inbox_witness: starting_inbox_witness,
+                previous: None,
+                history: headers,
+            });
         }
         let pair = self.comet.block(snapshot.checkpoint_height).await?;
         let epoch = schedule.epoch_of(snapshot.checkpoint_height);
-        self.committee(snapshot, &anchor, epoch, committees).await?;
         let envelope = verify_body(&pair, snapshot.checkpoint_height, parent.header.parent_hash)
             .map_err(|e| LanderError::Safety(e.to_string()))?;
         if envelope.block.header != parent.header {
@@ -274,11 +371,125 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 .checked_add(1)
                 .ok_or_else(|| LanderError::Safety("checkpoint height overflow".into()))?,
         );
-        self.committee(snapshot, &anchor, next_epoch, committees).await?;
         if pair.block.header.next_validators_hash != committees[&next_epoch].validators.hash() {
             return Err(LanderError::Safety("checkpoint next validator hash disagrees".into()));
         }
-        Ok((parent, anchor, starting_inbox_witness, Some(pair)))
+        Ok(BatchStart {
+            parent,
+            anchor,
+            inbox_witness: starting_inbox_witness,
+            previous: Some(pair),
+            history: headers,
+        })
+    }
+    /// Verify one successor using a known outgoing certificate before accepting new authorities.
+    fn authenticate_block(
+        &self,
+        snapshot: &LandingSnapshot,
+        schedule: &Schedule,
+        state: &mut ForwardState,
+        committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
+        pair: &CertifiedBlock,
+    ) -> Result<()> {
+        let chain_id = rules::chain_id_for(snapshot.l2_chain_id, snapshot.generation);
+        let expected = state
+            .parent
+            .number
+            .checked_add(1)
+            .ok_or_else(|| LanderError::Safety("forward height overflow".into()))?;
+        if pair.block.header.height.value() != expected {
+            return Err(LanderError::Safety(format!(
+                "Comet successor requires height {expected}, got {}",
+                pair.block.header.height
+            )));
+        }
+        codec::check_message_limits(pair, &self.limits)?;
+        let height = pair.block.header.height.value();
+        let epoch = schedule.epoch_of(height);
+        if !committees.contains_key(&epoch) {
+            return Err(LanderError::Safety(format!(
+                "missing authenticated signing committee {epoch}"
+            )));
+        }
+        let envelope = verify_structure(pair, state.previous.as_ref(), height, state.parent.hash)
+            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        if let (Some(last), Some(previous)) = (&pair.block.last_commit, state.previous.as_ref()) {
+            let prev_epoch = schedule.epoch_of(height - 1);
+
+            verify_commit(last, &previous.block.header, &committees[&prev_epoch], &chain_id)
+                .map_err(|e| LanderError::Safety(e.to_string()))?;
+        }
+        verify_commit(&pair.commit, &pair.block.header, &committees[&epoch], &chain_id)
+            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        let bft_secs = u64::try_from(pair.block.header.time.unix_timestamp())
+            .map_err(|_| LanderError::Safety("negative BFT block timestamp".into()))?;
+        let facts = verify_envelope(
+            envelope,
+            EnvelopeContext {
+                bft_time_secs: bft_secs,
+                parent: &state.parent,
+                parent_anchor: &state.anchor,
+                generation: snapshot.generation,
+                schedule,
+                params: &self.params,
+            },
+        )
+        .map_err(|e| LanderError::Safety(e.to_string()))?;
+        if let Some(derived) = facts.derived {
+            let epoch = derived.record.target_epoch;
+            let hash = record_hash(snapshot.l2_chain_id, &derived.record);
+            if let Some(existing) = committees.get(&epoch) &&
+                existing.state != derived
+            {
+                return Err(LanderError::Safety(format!(
+                    "derived committee {epoch} conflicts with authenticated context"
+                )));
+            }
+            let mut committee = authenticate(derived, epoch, hash, &self.params)
+                .map_err(|e| LanderError::Safety(e.to_string()))?;
+            committee.provenance = Some(CommitteeContext {
+                anchor: state.anchor.clone(),
+                derivation_parent: Some(state.header.clone()),
+                witness: facts.envelope.committee.clone().expect("verified switch witness"),
+            });
+            committees.entry(epoch).or_insert(committee);
+        }
+        let next_epoch = schedule.epoch_of(
+            height.checked_add(1).ok_or_else(|| LanderError::Safety("height overflow".into()))?,
+        );
+        if !committees.contains_key(&next_epoch) {
+            return Err(LanderError::Safety(format!(
+                "missing authenticated next committee {next_epoch}"
+            )));
+        }
+        if pair.block.header.next_validators_hash != committees[&next_epoch].validators.hash() {
+            return Err(LanderError::Safety(format!(
+                "next validator hash disagrees at height {height}"
+            )));
+        }
+        state.header = facts.envelope.block.header.clone();
+        state.parent = facts.parent;
+        state.anchor = facts.anchor;
+        state.previous = Some(pair.clone());
+        Ok(())
+    }
+
+    /// Retain only the selected proof prefix's per-block anchors after shared verification.
+    fn authenticate_blocks(
+        &self,
+        snapshot: &LandingSnapshot,
+        schedule: &Schedule,
+        start: &BatchStart,
+        committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
+        blocks: &[CertifiedBlock],
+    ) -> Result<Vec<AnchorState>> {
+        let mut state = ForwardState::new(start)?;
+        let mut anchors = Vec::new();
+        for pair in blocks {
+            self.authenticate_block(snapshot, schedule, &mut state, committees, pair)?;
+            anchors.push(state.anchor.clone());
+        }
+        Ok(anchors)
     }
 }
 
@@ -305,27 +516,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             });
         }
         let prefix = self.publishable_prefix(snapshot, status.height).await?;
-        let tip = match prefix.blocks.last() {
-            Some(block) if block.block.header.height.value() == status.height => block.clone(),
-            _ => self.comet.block(status.height).await?,
-        };
-        let epoch = schedule.epoch_of(status.height);
         let mut committees = BTreeMap::new();
-        // Body validation binds the tip execution header before its anchor is recovered.
-        let parent_hash = alloy_primitives::B256::try_from(tip.block.header.app_hash.as_bytes())
-            .map_err(|_| LanderError::Safety("tip has invalid parent execution app hash".into()))?;
-        let envelope = verify_body(&tip, status.height, parent_hash)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
-        let tip_context = ParentContext { header: envelope.block.header, grandparent_timestamp: 0 };
-        let anchor = self.l1.parent_anchor(snapshot, &tip_context).await?;
-        self.committee(snapshot, &anchor, epoch, &mut committees).await?;
-        verify_commit(&tip.commit, &tip.block.header, &committees[&epoch], &status.chain_id)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
-        if anchor.inbox.recovery_generation != snapshot.generation ||
-            anchor.inbox.status != abci::l1::layout::inbox::ETNA_ACTIVE
-        {
-            return Err(LanderError::Safety("tip anchor has superseded or inactive Inbox".into()));
+        let start = self.checkpoint(snapshot, &schedule, &mut committees).await?;
+        let mut state = ForwardState::new(&start)?;
+        for pair in &prefix.blocks {
+            self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, pair)?;
         }
+        let fetched = state.parent.number;
+        for height in fetched + 1..=status.height {
+            let pair = self.comet.block(height).await?;
+            self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, &pair)?;
+        }
+        let anchor = &state.anchor;
+        let epoch = schedule.epoch_of(status.height);
         Ok(BatchObservation {
             decided_height: status.height,
             publishable_blocks: prefix.blocks.len(),
@@ -346,85 +549,23 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
     async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>> {
         let schedule = self.schedule(&snapshot)?;
         let status = self.status(&snapshot).await?;
-        let chain_id = rules::chain_id_for(snapshot.l2_chain_id, snapshot.generation);
         if status.height == snapshot.checkpoint_height {
             return Ok(None);
         }
         let mut committees = BTreeMap::new();
-        let (parent_context, parent_anchor, starting_inbox_witness, mut previous) =
-            self.checkpoint(&snapshot, &schedule, &mut committees).await?;
-        let mut anchor = parent_anchor.clone();
-        let mut parent = parent_info(&parent_context)?;
+        let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
         let PublishablePrefix { blocks, payload } =
             self.publishable_prefix(&snapshot, status.height).await?;
-        let mut anchors = Vec::new();
-        let mut terminal = None;
-        for pair in &blocks {
-            let height = pair.block.header.height.value();
-            let epoch = schedule.epoch_of(height);
-            self.committee(&snapshot, &anchor, epoch, &mut committees).await?;
-            let envelope = verify_structure(pair, previous.as_ref(), height, parent.hash)
-                .map_err(|e| LanderError::Safety(e.to_string()))?;
-            if let (Some(last), Some(previous)) = (&pair.block.last_commit, previous.as_ref()) {
-                let prev_epoch = schedule.epoch_of(height - 1);
-                self.committee(&snapshot, &anchor, prev_epoch, &mut committees).await?;
-                verify_commit(last, &previous.block.header, &committees[&prev_epoch], &chain_id)
-                    .map_err(|e| LanderError::Safety(e.to_string()))?;
-            }
-            verify_commit(&pair.commit, &pair.block.header, &committees[&epoch], &chain_id)
-                .map_err(|e| LanderError::Safety(e.to_string()))?;
-            let bft_secs = u64::try_from(pair.block.header.time.unix_timestamp())
-                .map_err(|_| LanderError::Safety("negative BFT block timestamp".into()))?;
-            let facts = verify_envelope(
-                envelope,
-                EnvelopeContext {
-                    bft_time_secs: bft_secs,
-                    parent: &parent,
-                    parent_anchor: &anchor,
-                    generation: snapshot.generation,
-                    schedule: &schedule,
-                    params: &self.params,
-                },
-            )
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
-            if let Some(derived) = facts.derived {
-                let epoch = derived.record.target_epoch;
-                let hash = record_hash(snapshot.l2_chain_id, &derived.record);
-                if let Some(existing) = committees.get(&epoch) &&
-                    existing.state != derived
-                {
-                    return Err(LanderError::Safety(format!(
-                        "derived committee {epoch} conflicts with authenticated context"
-                    )));
-                }
-                let mut committee = authenticate(derived, epoch, hash, &self.params)
-                    .map_err(|e| LanderError::Safety(e.to_string()))?;
-                committee.provenance = Some(CommitteeContext {
-                    anchor: anchor.clone(),
-                    witness: facts.envelope.committee.clone().expect("verified switch witness"),
-                });
-                committees.entry(epoch).or_insert(committee);
-            }
-            let next_epoch = schedule.epoch_of(
-                height
-                    .checked_add(1)
-                    .ok_or_else(|| LanderError::Safety("height overflow".into()))?,
-            );
-            self.committee(&snapshot, &anchor, next_epoch, &mut committees).await?;
-            if pair.block.header.next_validators_hash != committees[&next_epoch].validators.hash() {
-                return Err(LanderError::Safety(format!(
-                    "next validator hash disagrees at height {height}"
-                )));
-            }
-            terminal = Some(facts.envelope.block.header.clone());
-            parent = facts.parent;
-            anchor = facts.anchor;
-            anchors.push(anchor.clone());
-            previous = Some(pair.clone());
-        }
-        let Some(last) = terminal else {
+        let anchors =
+            self.authenticate_blocks(&snapshot, &schedule, &start, &mut committees, &blocks)?;
+        let Some(terminal) = blocks.last() else {
             return Ok(None);
         };
+        let last = abci::EtnaEnvelope::decode(&terminal.block.data[0])
+            .map_err(|e| LanderError::Safety(e.to_string()))?
+            .block
+            .header;
+        let parent_anchor = start.anchor;
         let consumed = std::iter::once(parent_anchor.clone())
             .chain(anchors.iter().cloned())
             .collect::<Vec<_>>();
@@ -446,16 +587,17 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .await?;
         if contract_hash != hash {
             return Err(LanderError::Configuration(format!(
-                "local V4 statement {hash} differs from Inbox helper {contract_hash}"
+                "local V5 statement {hash} differs from Inbox helper {contract_hash}"
             )));
         }
         Ok(Some(ProofRequest {
             batch: PreparedBatch {
                 snapshot,
-                parent_header: parent_context.header,
-                grandparent_timestamp: parent_context.grandparent_timestamp,
+                parent_header: start.parent.header,
+                execution_history: start.history,
+                grandparent_timestamp: start.parent.grandparent_timestamp,
                 parent_anchor,
-                starting_inbox_witness,
+                starting_inbox_witness: start.inbox_witness,
                 blocks,
                 anchors,
                 reference_headers: headers.iter().map(|header| header.raw().clone()).collect(),
@@ -555,6 +697,161 @@ mod tests {
             SidecarMode::Eip4844,
         )
         .unwrap()
+    }
+
+    #[tokio::test]
+    async fn mid_epoch_uses_derivation_parent_snapshot_after_anchor_moves() {
+        let fixture = Arc::new(Fixture::new(24, 26));
+        let request = builder(fixture.clone(), limits(2))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        let incoming =
+            request.batch.committees.iter().find(|c| c.record.target_epoch == 1).unwrap();
+        assert_eq!(incoming.record.cutoff_l1_block, 11);
+        assert_eq!(request.batch.parent_anchor.number, 12);
+    }
+
+    #[tokio::test]
+    async fn pending_incoming_committee_survives_switch_checkpoint_and_one_block_cut() {
+        for (checkpoint, tip) in [(8, 9), (9, 10), (10, 11), (11, 12)] {
+            let fixture = Arc::new(Fixture::with_epoch(checkpoint, tip, 0, 10));
+            let request = builder(fixture.clone(), limits(1))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .unwrap()
+                .unwrap();
+            let next =
+                request.batch.committees.iter().find(|c| c.record.target_epoch == 1).unwrap();
+            assert_eq!(next.record.cutoff_l1_block, 11);
+            let context = request
+                .batch
+                .committee_witnesses
+                .iter()
+                .find(|c| c.witness.record.target_epoch == 1)
+                .unwrap();
+            assert_eq!(context.derivation_parent.as_ref().unwrap().number, 8);
+            assert_eq!(
+                request.batch.grandparent_timestamp,
+                fixture.headers[&(checkpoint - 1)].timestamp
+            );
+            let restored: PreparedBatch =
+                serde_json::from_slice(&serde_json::to_vec(&request.batch).unwrap()).unwrap();
+            assert_eq!(restored, request.batch);
+        }
+    }
+
+    #[tokio::test]
+    async fn builder_and_observe_reject_missing_and_forged_required_history() {
+        for mutation in 0..5 {
+            let mut fixture = Fixture::new(24, 26);
+            match mutation {
+                0 => {
+                    fixture.headers.remove(&21);
+                }
+                1 => fixture.headers.get_mut(&21).unwrap().number = 22,
+                2 => {
+                    fixture.headers.get_mut(&22).unwrap().parent_hash = alloy_primitives::B256::ZERO
+                }
+                3 => {
+                    fixture.headers.get_mut(&21).unwrap().extra_data =
+                        abci::rules::encode_extra_data(1, 11).unwrap()
+                }
+                4 => {
+                    fixture.headers.get_mut(&21).unwrap().parent_beacon_block_root =
+                        Some(alloy_primitives::B256::ZERO)
+                }
+                _ => unreachable!(),
+            }
+            let fixture = Arc::new(fixture);
+            for observation in [false, true] {
+                let b = builder(fixture.clone(), limits(1));
+                let error = if observation {
+                    b.observe(&fixture.snapshot).await.unwrap_err()
+                } else {
+                    b.prepare(fixture.snapshot.clone()).await.unwrap_err()
+                };
+                if mutation == 0 {
+                    assert!(matches!(error, LanderError::Unavailable(_)));
+                    assert!(error.to_string().contains("height 21"));
+                } else {
+                    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn observe_authenticates_switch_beyond_capacity_limited_prefix() {
+        let fixture = Arc::new(Fixture::new(20, 26));
+        let observed =
+            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
+        assert_eq!(observed.publishable_blocks, 1);
+        assert_eq!(observed.decided_height, 26);
+        assert!(observed.force_epoch);
+        let mut fixture = Fixture::new(20, 26);
+        alter_envelope(&mut fixture, 22, |e| e.committee = None);
+        let fixture = Arc::new(fixture);
+        assert!(matches!(
+            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
+            Err(LanderError::Safety(_))
+        ));
+        let mut fixture = Fixture::new(20, 26);
+        fixture.blocks.get_mut(&21).unwrap().commit.signatures.clear();
+        let fixture = Arc::new(fixture);
+        assert!(matches!(
+            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
+            Err(LanderError::Safety(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn oversized_history_rejects_before_reading_any_source_header() {
+        let fixture = Arc::new(Fixture::new(24, 26));
+        let b = builder(fixture.clone(), limits(1));
+        let mut snapshot = fixture.snapshot.clone();
+        snapshot.checkpoint_height = 199_999;
+        let mut schedule = Schedule::from_genesis(&snapshot.genesis);
+        schedule.epoch_len = 100_000;
+        // The fixture source has no header at this height and panics if called: capacity must
+        // reject before either parent_header or execution_header is invoked.
+        let error = b
+            .checkpoint(&snapshot, &schedule, &mut BTreeMap::new())
+            .await
+            .err()
+            .expect("operational history cap");
+        assert!(matches!(error, LanderError::Capacity(_)));
+    }
+
+    #[tokio::test]
+    async fn checkpoint_rejects_proving_anchor_not_embedded_in_its_el_header() {
+        let mut fixture = Fixture::new(24, 26);
+        fixture.parent_anchor_override = Some(fixture.anchors[&20].clone());
+        let fixture = Arc::new(fixture);
+        assert!(matches!(
+            builder(fixture.clone(), limits(1)).validate_checkpoint(&fixture.snapshot).await,
+            Err(LanderError::Safety(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn stale_operational_checkpoint_retries_before_any_decided_block_reads() {
+        let mut fixture = Fixture::new(20, 41);
+        fixture.blocks.clear();
+        let fixture = Arc::new(fixture);
+        for observe in [true, false] {
+            let b = builder(fixture.clone(), limits(1));
+            let error = if observe {
+                b.observe(&fixture.snapshot).await.unwrap_err()
+            } else {
+                b.prepare(fixture.snapshot.clone()).await.unwrap_err()
+            };
+            assert!(
+                matches!(error, LanderError::Temporary(_)),
+                "stale coherent snapshot must retry: {error}"
+            );
+        }
     }
 
     #[tokio::test]

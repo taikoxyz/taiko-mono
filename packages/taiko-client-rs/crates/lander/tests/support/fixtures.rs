@@ -369,6 +369,11 @@ impl LandingSource for FixtureLanding {
                 .map_or(0, |h| self.chain.headers[h].timestamp),
         })
     }
+    async fn execution_header(&self, number: u64) -> lander::error::Result<Header> {
+        self.chain.headers.get(number as usize).cloned().ok_or_else(|| {
+            lander::LanderError::Unavailable(format!("required execution history height {number}"))
+        })
+    }
     async fn parent_anchor(
         &self,
         snapshot: &LandingSnapshot,
@@ -386,9 +391,10 @@ impl LandingSource for FixtureLanding {
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
+        snapshot_number: u64,
         epoch: u64,
     ) -> lander::error::Result<abci::CommitteeWitness> {
-        self.rpc.committee_witness(snapshot, anchor, epoch).await
+        self.rpc.committee_witness(snapshot, anchor, snapshot_number, epoch).await
     }
     async fn reference(
         &self,

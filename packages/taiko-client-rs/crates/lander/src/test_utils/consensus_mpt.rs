@@ -16,8 +16,7 @@ use abci::{
     EtnaEnvelope, ExecutionBlock, GenesisRecord, InboxFacts, ParentInfo, RawL1Header,
     RegistryEntry, Schedule, StorageProof,
     committee::{
-        Snapshot, committee_config_hash, derive, entries_root, fixed_cutoff, record_hash,
-        snapshot_slots,
+        Snapshot, committee_config_hash, derive, entries_root, record_hash, snapshot_slots,
     },
     l1::layout::{inbox, registry},
     rules::{self, HeaderInputs},
@@ -136,6 +135,7 @@ pub struct Fixture {
     pub reject_committee_hints: bool,
     pub witness_mutation: Option<u8>,
     pub starting_proof_mutation: Option<u8>,
+    pub parent_anchor_override: Option<AnchorState>,
     states: BTreeMap<u64, State>,
 }
 
@@ -229,9 +229,13 @@ impl Fixture {
     }
 
     fn with_calldata(checkpoint: u64, tip: u64, bytes: usize) -> Self {
-        assert!(checkpoint == 0 || checkpoint >= 20);
+        Self::with_epoch(checkpoint, tip, bytes, 23)
+    }
+
+    pub fn with_epoch(checkpoint: u64, tip: u64, bytes: usize, epoch_len: u64) -> Self {
+        assert!(checkpoint == 0 || checkpoint >= epoch_len - 3);
         let mut params = parameters();
-        params.d_max = 20;
+        params.d_max = epoch_len - 3;
         let genesis_header = Header {
             number: 0,
             state_root: B256::repeat_byte(7),
@@ -244,7 +248,7 @@ impl Fixture {
             committee_config_hash: committee_config_hash(&params),
             genesis_height: 0,
             l1_0: 10,
-            epoch_len: 23,
+            epoch_len,
             epoch_len_l1: 1,
             genesis_cutoff: 1,
             genesis_hash: genesis_header.hash_slow(),
@@ -267,7 +271,13 @@ impl Fixture {
         let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
         let mut committees = BTreeMap::new();
         for epoch in 0..=3 {
-            let cutoff = fixed_cutoff(&schedule, &params, epoch).unwrap();
+            let cutoff = if epoch == 0 {
+                genesis.genesis_cutoff
+            } else if epoch == 1 {
+                11
+            } else {
+                12
+            };
             let (record, members) = derive(&snapshot, cutoff, epoch, &schedule, &params).unwrap();
             let hash = record_hash(params.l2_chain_id, &record);
             committees.insert(
@@ -301,16 +311,22 @@ impl Fixture {
                 states.insert(11, s);
                 l1_headers.insert(11, raw);
             }
-            if checkpoint > 0 && height == 22 {
-                let s =
-                    state(&params, &entries, 20, headers[&20].hash_slow(), &committees, &genesis);
+            if checkpoint > 0 && height == epoch_len - 1 {
+                let s = state(
+                    &params,
+                    &entries,
+                    epoch_len - 3,
+                    headers[&(epoch_len - 3)].hash_slow(),
+                    &committees,
+                    &genesis,
+                );
                 let raw = l1_header(12, &s, l1_headers[&11].hash());
                 states.insert(12, s);
                 l1_headers.insert(12, raw);
             }
             let number = if checkpoint == 0 || height == 1 {
                 10
-            } else if height < 22 {
+            } else if height < epoch_len - 1 {
                 11
             } else {
                 12
@@ -320,7 +336,7 @@ impl Fixture {
             } else if number == 11 {
                 1
             } else {
-                20
+                epoch_len - 3
             };
             let cp_hash = headers[&cp].hash_slow();
             let forced = height == 1;
@@ -466,6 +482,7 @@ impl Fixture {
             reject_committee_hints: false,
             witness_mutation: None,
             starting_proof_mutation: None,
+            parent_anchor_override: None,
             states,
         }
     }
@@ -508,11 +525,21 @@ impl LandingSource for Fixture {
             },
         })
     }
+    async fn execution_header(&self, number: u64) -> Result<Header> {
+        self.headers.get(&number).cloned().ok_or_else(|| {
+            LanderError::Unavailable(format!(
+                "required execution history height {number} unavailable"
+            ))
+        })
+    }
     async fn parent_anchor(
         &self,
         snapshot: &LandingSnapshot,
         parent: &ParentContext,
     ) -> Result<AnchorState> {
+        if let Some(anchor) = &self.parent_anchor_override {
+            return Ok(anchor.clone());
+        }
         let number = if parent.header.number == 0 {
             snapshot.genesis.l1_0
         } else {
@@ -560,6 +587,7 @@ impl LandingSource for Fixture {
         &self,
         _: &LandingSnapshot,
         anchor: &AnchorState,
+        _snapshot_number: u64,
         epoch: u64,
     ) -> Result<CommitteeWitness> {
         let mut witness = CommitteeWitness {

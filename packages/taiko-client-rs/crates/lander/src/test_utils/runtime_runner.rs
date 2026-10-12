@@ -212,6 +212,9 @@ impl LandingSource for MockL1 {
             grandparent_timestamp: 0,
         })
     }
+    async fn execution_header(&self, _: u64) -> Result<alloy_consensus::Header> {
+        unreachable!()
+    }
     async fn parent_anchor(&self, _: &LandingSnapshot, _: &ParentContext) -> Result<AnchorState> {
         Ok(self.request.batch.parent_anchor.clone())
     }
@@ -222,6 +225,7 @@ impl LandingSource for MockL1 {
         &self,
         _: &LandingSnapshot,
         _: &AnchorState,
+        _: u64,
         _: u64,
     ) -> Result<abci::CommitteeWitness> {
         unreachable!("runner mock never derives a committee")
