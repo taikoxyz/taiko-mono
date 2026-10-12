@@ -5,11 +5,12 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/taiko-client-rs-abci]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:
       - "packages/taiko-client-rs/**"
+      - ".github/workflows/taiko-client-rs--docker.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
