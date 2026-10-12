@@ -26,7 +26,7 @@ Every validator and every full node runs three processes:
   L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry), into the
   CometBFT block. Validators only check with their own L1 node that the anchored L1 header is
   canonical and final; `FinalizeBlock`, replay and block sync never call L1. At each switch
-  height the app derives the target committee from its fixed L1 cutoff and hands CometBFT the
+  height the app derives the target committee from the committed parent anchor and hands CometBFT the
   validator updates, effective two heights later. Its state is persisted atomically at every
   `Commit`. The genesis record includes the authenticated committee config hash, and the epoch
   schedule is derived from it. Old `activation` and `migration_state` field names remain aliases
@@ -146,8 +146,8 @@ CometBFT rounding; the ABCI query `/status` reports the head, epoch, generation 
 ### `lander`
 
 Runs an independent permissionless landing service. It reads decided blocks,
-certificates from CometBFT, independently authenticates the required committees from fixed-cutoff
-L1 registry witnesses, and submits complete batches in blob
+certificates from CometBFT, independently authenticates the required committees from historical
+derivation-parent L1 registry witnesses, and submits complete batches in blob
 transactions. No validator identity or stake is required to call `land`.
 
 The first version implements `ProofProvider` with `DummyProofProvider`, which
@@ -299,7 +299,7 @@ proposal's hash.
 The report gives the record hash, the cutoff, the snapshot's checkpoint index, the proving block,
 every member's public key and voting power, the total voting power and stake, and the committee
 config hash required by Inbox initialization.
-The node floors every later epoch's fixed cutoff at `genesisCutoff`. A
+Committee 0 uses this explicit genesis cutoff; later committees use the committed derivation parent anchor. A
 cutoff after the L1 node's `finalized` block is refused, as the initialization fixes it irreversibly,
 and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
 without validators. `--json` prints stakes as decimal strings, like the plain text. Logs go to
