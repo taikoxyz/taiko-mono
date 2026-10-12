@@ -48,19 +48,20 @@ Every validator and every full node runs three processes:
 | `script/`              | Maintenance scripts (binding generation)                                              |
 | `tests/`               | The integration test entrypoint and the test JWT secret                               |
 
-## Fixed-cutoff committees
+## Committees from the committed parent anchor
 
 Epoch `t` starts at `H(t) = 1 + t * epochLenL2`. Committee 0 uses `genesisCutoff`.
-Every later committee has an objective L1 cutoff:
+Every later committee uses the committed parent of its switch block:
 
 ```text
-base(t) = L1_0 + max(t - 2, 0) * epochLenL1
-cutoff(t) = max(genesisCutoff, floor(max(base(t) - cutoff_lag, 0) / cutoff_grid) * cutoff_grid)
+switch(t) = H(t) - 2
+derivationParent(t) = H(t) - 3
+snapshot(t) = anchor.number in committed EL block derivationParent(t)
 ```
 
-The registry checkpoint is the last one at or before that cutoff, authenticated under a
-canonical finalized L1 state at or after it. Nodes use the committed parent's anchor to prove
-the runtime switch snapshot. Snapshot entries are fully verified before eligibility, heartbeat,
+At the switch, nodes prove the latest registry checkpoint at or before that snapshot under
+the committed parent's exact L1 state root. Eligibility is evaluated at the snapshot number,
+even when the last registry mutation is older. Snapshot entries are fully verified before eligibility, heartbeat,
 pubkey deduplication, size cap and voting power are derived. Committees 0, 1 and 2 retain their
 launch heartbeat exemption; later committees use the existing target-epoch window predicate.
 
@@ -69,22 +70,32 @@ validator updates. CometBFT activates them at `H(t)`. Epoch-first blocks no long
 future committee. The Inbox stores only the genesis committee hash and the authenticated
 `committeeConfigHash`; no separate `set()` transaction or landed epoch mapping authorizes a
 switch. The proof guest must independently derive every required signing/pending committee
-from the same fixed snapshot and authenticated configuration, including arbitrary batch cuts.
+from the same authenticated historical snapshot and configuration, including arbitrary batch cuts.
 
-The envelope is version 2. State files must contain `genesis.committee_config_hash`, and the
-local committee parameters must open it correctly. Old version-1 history and V3 pending landing
-journals are not automatically migrated; never discard an outstanding signed nonce to force
-startup. The outer complete-block blob codec remains version 1.
+For example, with ten blocks per epoch, committee 1 is derived at height 9 from height 8's
+committed anchor and activates at height 11. If height 8 anchored L1 block 1010, a new anchor
+1030 proposed at height 9 cannot change that selection. A different decided history whose
+height 8 anchored 1020 may select a different committee; all nodes replaying one history agree.
+
+The config hash binds nine ABI words: `ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry,
+`vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2 and membership algorithm 1.
+The envelope is version 3 and the lander journal schema is 3. State files must contain
+`genesis.committee_config_hash`, and local parameters must open it correctly. Old version-2
+history, fixed-cutoff configuration/state openings and V4 journals/statements are rejected;
+never discard an outstanding signed nonce to force startup. No migration is provided.
+The outer complete-block blob codec and committee record encoding remain version 1.
 
 Settlement back-pressure remains `height - anchoredCheckpointHeight <= d_max - margin_v`;
 generation behavior is unchanged. Thus committee authorization does not wait for `land`, while
-a long settlement outage can still stop overall block production. An empty fixed-cutoff roster
+a long settlement outage can still stop overall block production. An empty committed-parent roster
 and an outgoing committee without quorum still require explicit protocol recovery; this change
 does not supply an implicit replacement set.
 
-Fixed cutoffs also preserve snapshot membership after a long L2 stall. Stake retention,
-withdrawal timing and restart trust assumptions must cover that schedule lag; this change
-does not add a recovery-generation bootstrap.
+The incoming set becomes certain only after its derivation parent commits. Valid preceding
+anchor choices can affect membership, so guaranteed advance notice is shorter. Once an empty
+parent snapshot is committed, later L1 registry changes cannot repair that switch. Stake
+retention, withdrawal timing and restart trust assumptions remain; this change does not add
+a recovery-generation bootstrap or an implicit replacement set.
 
 ## Prerequisites
 
@@ -197,13 +208,20 @@ backlog resets it. Waiting never requests a proof or signs a transaction.
 
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V4 binds the Inbox
+the anchor number or state root committed in an L2 header. V5 binds the Inbox
 proxy, registry, both chain ids, generation, current checkpoint, authenticated committee config
 hash, terminal block/root and blob hashes. Each committee is independently derived from its
-fixed L1 snapshot; no per-epoch committee output or starting-set hint is authoritative.
+committed derivation parent's L1 snapshot; no per-epoch committee output or starting-set hint is authoritative.
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
+For an arbitrary batch start, minimal descending EL headers authenticate the current and next
+committees' derivation parents from the contract's checkpoint hash. With checkpoint 15 and an
+epoch length of 10, headers 15 through 8 identify committee 1's snapshot from header 8.
+The preceding header also authenticates the timestamp used for the parent's base fee.
+Historical registry checkpoints can be proved under a later authenticated L1 root covering
+the snapshot number; selection still uses the authenticated historical number. The earliest
+required derivation parent is at most `epochLenL2 + 2` links behind the checkpoint.
 The latest Inbox snapshot used to collect a coherent checkpoint is a separate operational
 input; it cannot replace a proof under an older reference chain.
 
@@ -230,8 +248,8 @@ an underpriced transaction or a dropped stale job can require operator
 reconciliation. Use one active lander per signing account and separate accounts
 for independent competitors.
 
-The service needs unpruned CometBFT blocks/commits, the checkpoint parent EL header, and
-L1 headers/proofs and registry snapshot entries for every consumed fixed cutoff. A reference chain is
+The service needs unpruned CometBFT blocks/commits, the checkpoint parent and required EL ancestor headers, and
+L1 headers/proofs and registry snapshot entries for every consumed historical snapshot. A reference chain is
 bounded to 131,072 headers; the durable journal is bounded to 256 MiB.
 A complete single block exceeding the configured blob capacity stops with its
 height and required capacity, rather than truncating consensus data.
@@ -241,12 +259,10 @@ height and required capacity, rather than truncating consensus data.
 Reads the Ethereum-final genesis record from L1 and writes the CometBFT `genesis.json`
 (chain id `taiko-etna-<l2 chain id>-g<generation>`, initial height, validator set and the genesis
 witness in `app_state`). It never invents values; `InitChain` re-verifies everything. The genesis
-committee is the staking registry's snapshot at the Inbox's `genesisCutoff`, taken as is (the
-`cutoff_lag` and `cutoff_grid` of later epochs do not apply): the initializing DAO proposal names
+committee is the staking registry's snapshot at the Inbox's explicit `genesisCutoff`: the initializing DAO proposal names
 that past L1 block explicitly, as it is written before the initialization block is known. Every
-later epoch's snapshot cutoff is fixed by its target epoch and the authenticated L1 schedule,
-lag and grid, floored at `genesisCutoff`. It never changes with a proposer's parent anchor or
-a lander's reference. Genesis verification also checks the stored committee config hash against
+later epoch uses the committed switch-parent anchor; the new block's proposed anchor and a
+lander's reference cannot replace it. Genesis verification also checks the stored committee config hash against
 the local parameters.
 
 | Flag             | Description                                                                           |
@@ -372,12 +388,12 @@ or config opening differs.
 - **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
   historical blocks. A proposal proves Inbox storage at its anchor, which is at least
   `l1_finality_extra_depth` blocks behind L1 `finalized`. At a switch height the proposer also
-  reconstructs the registry entries at the target epoch's fixed cutoff. That snapshot may be
-  substantially older than the parent anchor, especially after a long L2 stall. The state window
-  or cached history must cover those historical entry reads as well as the parent-anchor proofs;
-  `cutoff_lag + cutoff_grid` alone is no longer a sufficient window estimate.
+  reconstructs the registry entries at the committed parent anchor. The selected registry
+  checkpoint can be older than that anchor. The state window or cached history must cover
+  those historical entry reads as well as the parent-anchor proofs. Landers starting mid-epoch
+  also need the earlier derivation snapshot's entries and the bounded EL ancestor headers.
 - reth limits historical proofs with `--rpc.eth-proof-window`. Its default `0` serves proofs at
-  the head only, so configure it for the required fixed-cutoff history. geth with the default path-based state scheme
+  the head only, so configure it for the required historical proofs. geth with the default path-based state scheme
   keeps only about the 128 most recent states, so the required depth must stay below 128 there (or run
   a hash-scheme archive node). With other clients, check how far back they keep the state needed
   for proofs.

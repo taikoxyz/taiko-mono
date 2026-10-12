@@ -4,7 +4,7 @@
 
 ### Features
 
-* **taiko-client-rs:** derive committees from fixed authenticated L1 cutoffs and apply CometBFT H+2 updates without per-epoch set or land publication; bind committee configuration in the V4 landing statement and version-2 envelope while retaining back-pressure and generation rules ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
+* **taiko-client-rs:** derive incoming committees from the committed switch-parent anchor and apply CometBFT H+2 updates without per-epoch set or land publication; authenticate historical derivation parents for arbitrary landing cuts and bind the nine-word committee configuration in V5 statements, version-3 envelopes and schema-3 journals while retaining back-pressure and generation rules ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
 * **taiko-client-rs:** make lander minimum batch size and maximum wait configurable, persist backlog age across restarts, and flush early for back-pressure and committee transitions ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
 * **taiko-client-rs:** add the permissionless Etna lander crate and CLI, authenticated CometBFT batch/blob construction, an async proof-provider trait with dummy `0x00`, and durable transaction/receipt recovery ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
 

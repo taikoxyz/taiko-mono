@@ -5,8 +5,8 @@ pragma solidity ^0.8.26;
 /// @notice The L1 anchor of an Etna PoS chain that starts from L2 genesis.
 /// @dev A fresh proxy is initialized with the L2 block-0 hash and state root, epoch parameters,
 /// and the initial committee record and derivation configuration hash. The node authenticates
-/// genesis and checkpoint storage with EIP-1186 proofs. Future committees are derived from fixed
-/// L1 cutoffs and are never published by landing transactions.
+/// genesis and checkpoint storage with EIP-1186 proofs. Future committees derive from the
+/// committed switch-parent anchor and are never published by landing transactions.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaInbox {
     // ---------------------------------------------------------------
@@ -41,7 +41,7 @@ interface IEtnaInbox {
         uint64 genesisCutoff;
         /// @notice The initial committee record hash, computed from that snapshot.
         bytes32 committeeRecordHash;
-        /// @notice The non-zero commitment to the fixed-cutoff committee derivation configuration.
+        /// @notice The non-zero commitment to the parent-anchor committee derivation configuration.
         bytes32 committeeConfigHash;
     }
 
@@ -151,46 +151,59 @@ interface IEtnaInbox {
     /// a non-zero hash available through blockhash (256 blocks) or EIP-2935 (8191 blocks).
     /// At least one blob is required, and every actual transaction blob hash is bound in order.
     /// Saves the terminal checkpoint in the Inbox and SignalService, emits BatchLanded, then
-    /// verifies the V4 statement with proposal age 0; verifier failure rolls back every write.
+    /// verifies the V5 statement with proposal age 0; verifier failure rolls back every write.
     /// No future committee record is an input or output of landing.
     ///
     /// A valid Etna proof must authenticate every Inbox/registry account and storage proof under
     /// the respective bound address and authenticated L1 state root. It must open the stored
-    /// committeeConfigHash using the exact eleven-word encoding:
-    /// abi.encode(bytes32("ETNA_FIXED_CUTOFF_V1"), uint256(l2ChainId), address(stakingRegistry),
-    /// uint64(cutoffGrid), uint64(cutoffLag), uint256(vpUnit), uint256(sMin), uint64(nMax),
-    /// uint64(heartbeatWindow), uint64(2), uint8(1)). It must also authenticate the genesis
-    /// schedule and cutoff from Inbox storage, rather than treating them as unchecked hints.
+    /// committeeConfigHash using the exact nine-word encoding (288 bytes):
+    /// abi.encode(bytes32("ETNA_PARENT_ANCHOR_V1"), uint256(l2ChainId), address(stakingRegistry),
+    /// uint256(vpUnit), uint256(sMin), uint64(nMax), uint64(heartbeatWindow), uint64(2), uint8(1)).
+    /// The final words bind heartbeat lookahead 2 and retained membership algorithm version 1.
+    /// Authenticate the genesis schedule and explicit genesisCutoff from Inbox storage.
+    /// Committee 0 opens the plain slot-278 bootstrap record at genesisCutoff (slot 279).
     ///
-    /// For committee t >= 1 the cutoff is max(genesisCutoff,
-    /// floor(max(L1_0 + max(t - 2, 0) * epochLenL1 - cutoffLag, 0) / cutoffGrid) * cutoffGrid).
-    /// Committee 0 uses genesisCutoff. Arithmetic is checked and cutoffGrid is non-zero. For
-    /// every used committee (including the parent certificate), authenticate the last registry
-    /// checkpoint at or before this cutoff, the checkpoint-array length, its complete entries/root
-    /// and the next checkpoint's height when present. L1-only proof jobs may authenticate the
-    /// snapshot under the reference header if its number covers the cutoff. Derive eligibility,
-    /// key deduplication, ranking, MEM-08 ordering,
-    /// voting power and heartbeat eligibility under the committed configuration. Launch epochs
-    /// 0, 1 and 2 remain exempt from heartbeat filtering; no empty-set fallback is implied.
+    /// For t >= 1, H(t) = 1 + t * epochLenL2, S(t) = H(t) - 2 and D(t) = H(t) - 3, with
+    /// checked arithmetic. At S(t), derive the incoming set at exactly the committed parent's
+    /// anchor number, under that parent's authenticated L1 root; never the candidate's anchor.
+    /// Authenticate complete registry entries/count/root and evaluate active/exit eligibility at
+    /// that snapshot number. Preserve effective stake, earliest eligible bondId per pubkey,
+    /// nMax ranking, MEM-08 ordering/root, voting-power division and overflow caps. Heartbeats
+    /// retain target-epoch evaluation with lookahead 2 and exemptions for epochs 0, 1 and 2.
+    /// Non-switch blocks forbid runtime committee witnesses. No empty-set fallback is implied.
     ///
-    /// At S(t) = 1 + t * epochLenL2 - 2 require the committee witness under the committed
-    /// parent's authenticated anchor and require cutoff(t) <= parentAnchor.number. Apply
-    /// CometBFT H+2 timing at H(t) = 1 + t * epochLenL2, checking every current/next validator
-    /// hash and commit with strictly more than 2/3 voting power under
-    /// taiko-etna-<l2ChainId>-g<generation>. Epoch-first blocks need no publication witness.
-    /// The existing anchor progress, status, generation and back-pressure rules still apply.
+    /// For arbitrary batch starts, authenticate the checkpoint EL header against the public
+    /// parent hash, then consecutive descending parentHash links through each required D(t).
+    /// Read the snapshot number only from D(t)'s generation-checked Etna anchor extraData;
+    /// a separate derivation hint or the checkpoint's newer anchor cannot select the set.
+    /// At nonzero checkpoint heights also authenticate the preceding EL header for the base-fee
+    /// grandparent timestamp. Current/next starting epochs differ by at most one; checked
+    /// history bounds require at most epochLenL2 + 2 links, without replaying old transactions.
+    /// A later authenticated proving root whose number covers the snapshot may prove the last
+    /// immutable registry checkpoint at/before it, the successor after it (when present), array
+    /// length and complete entries/root. Recompute all parent/current/pending sets. In-batch
+    /// switches still require the actual committed parent's exact root and snapshot number.
+    ///
+    /// Apply CometBFT H+2 timing: updates returned at S(t) and persisted at Commit activate at
+    /// H(t). Verify the parent certificate, every current/pending certificate and current/next
+    /// validator hash across S/S+1/H and arbitrary cuts, with strictly more than 2/3 distinct
+    /// signer voting power under taiko-etna-<l2ChainId>-g<generation>. Anchor progress, status,
+    /// generation and back-pressure rules still apply; deterministic Finalize/replay makes no
+    /// new L1 calls. Epoch-first blocks need no publication witness.
     ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
-    /// anchor's ancestry on the header chain ending at the reference hash, and block data in the
-    /// bound blobs. A batch may start or end at any valid height and never needs a previous
-    /// batch's committee output. The verifier must pin a guest enforcing these V4 rules; a
-    /// dummy verifier is for development only and does not establish consensus validity.
+    /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
+    /// block data in the bound blobs. A batch may start/end at any valid height without a previous
+    /// batch's committee output. Envelope version 3 and journal schema 3 reject former V2/V4
+    /// histories/jobs; never discard or replace a signed nonce. The verifier must pin a guest
+    /// enforcing these V5 rules. Dummy proof 0x00 is for development only; no real guest exists
+    /// here and the dummy verifier does not establish consensus validity or ZK soundness.
     /// @param _input The four-field batch terminal checkpoint and reference block.
-    /// @param _proof The proof of the V4 landing statement.
+    /// @param _proof The proof of the V5 landing statement.
     function land(LandInput calldata _input, bytes calldata _proof) external;
 
-    /// @notice Encodes the V4 landing statement for supplied batch public inputs.
-    /// @dev Fifteen static ABI words (480 bytes): bytes32("TAIKO_ETNA_LAND_V4"), block.chainid,
+    /// @notice Encodes the V5 landing statement for supplied batch public inputs.
+    /// @dev Fifteen static ABI words (480 bytes): bytes32("TAIKO_ETNA_LAND_V5"), block.chainid,
     /// l2ChainId, address(this), address(stakingRegistry), _generation, _parentHeight, _parentHash,
     /// committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot, l1ReferenceBlockNumber,
     /// _l1ReferenceBlockHash, keccak256(abi.encodePacked(_blobHashes)). Chain id is uint256;
@@ -204,7 +217,7 @@ interface IEtnaInbox {
     /// @param _input The four-field batch.
     /// @param _l1ReferenceBlockHash The hash of `_input.l1ReferenceBlockNumber`.
     /// @param _blobHashes The versioned blob hashes in transaction order.
-    /// @return statementHash_ The V4 statement hash.
+    /// @return statementHash_ The V5 statement hash.
     function hashLandStatement(
         uint64 _generation,
         uint64 _parentHeight,
@@ -238,7 +251,7 @@ interface IEtnaInbox {
     function activation() external view returns (Activation memory);
 
     /// @notice Returns the L1 block of the epoch-0 committee snapshot.
-    /// @dev This is also the lower bound for every future fixed cutoff.
+    /// @dev Committee 0 alone uses this explicit snapshot; runtime sets use switch-parent anchors.
     /// @return The genesis cutoff; zero before initialization.
     function genesisCutoff() external view returns (uint64);
 
