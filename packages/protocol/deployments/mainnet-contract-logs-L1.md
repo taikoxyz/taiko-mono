@@ -72,7 +72,6 @@
 
 - address: `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC`
 - owner: `admin.taiko.eth` (`0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`)
-- note: immutable (no proxy), verified `QuotaManager`; deployed with the Proposal0017 Bridge/ERC20Vault implementations as their constructor `QUOTA_MANAGER`. The live Bridge (`0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`) and ERC20Vault (`0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`) are its only quota consumers (`quotaManager()` on both returns this address). Replaces the previous upgradeable QuotaManager proxy `0x91f67118DD47d502B1f0C354D0611997B022f29E`.
 - quota (configured maxima, read on-chain 2026-07-07):
   - Quota Period: 24 hours
   - ETH: 250 ETH
@@ -161,7 +160,6 @@
 - proxy: `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`
 - impl: `0xFca4F0Ab7B95EEf2e3A60EF2Bc0c42DdAA62E66D`
 - owner : `controller.taiko.eth`
-- note: `DefaultResolver`; read by `bridge`, `erc20_vault`, `erc721_vault` and `erc1155_vault`. `signal_service`, `taiko_token`, the inbox and the other rollup contracts carry no resolver; the legacy bridged tokens read the sam; `BridgedERC20V2` tokens and the bridged ERC721/ERC1155 tokens on the `0xD9c9dB75…` / `0x35001aB6…` implementations authorise the vault through an immutable.
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - bond_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
@@ -191,7 +189,6 @@
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
 - impl: `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449`
 - owner : `controller.taiko.eth`
-- note: legacy `AddressManager`; read by the bridged ERC721/ERC1155 tokens on the `0xC3310905…` / `0x3c90963c…` implementations and the bridged ERC20s on the `0x65666141…` implementation (they authorise their vault through it). Not read by `bridge`, `erc20_vault`, `erc721_vault`, `erc1155_vault` (shared_resolver), `signal_service`, `taiko_token` or the rollup contracts.
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
