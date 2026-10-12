@@ -251,8 +251,10 @@ reconciliation. Use one active lander per signing account and separate accounts
 for independent competitors.
 
 The service needs unpruned CometBFT blocks/commits, the checkpoint parent and required EL ancestor headers, and
-L1 headers/proofs and registry snapshot entries for every consumed historical snapshot. A reference chain is
-bounded to 131,072 headers; the durable journal is bounded to 256 MiB.
+L1 headers/proofs and registry snapshot entries for every consumed historical snapshot. Starting EL ancestry is
+bounded to 65,536 headers of at most 1,024 encoded bytes each, in addition to its epoch bound;
+the count is checked before ancestor reads. A reference chain is bounded to 131,072 headers;
+the durable journal is bounded to 256 MiB.
 A complete single block exceeding the configured blob capacity stops with its
 height and required capacity, rather than truncating consensus data.
 
