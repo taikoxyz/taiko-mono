@@ -11,7 +11,7 @@
 - proxy: `0x1670000000000000000000000000000000000006`
 - impl: `0x0167000000000000000000000000000000000006`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
-- note: legacy 1.10.0 `AddressManager` (`getAddress(uint64,bytes32)` only); read by `erc721_vault`, `erc1155_vault`, the bridged TAIKO token, the bridged ERC721/ERC1155 tokens and the bridged ERC20s on the `0x0167…10096` / `0x98161D67…` implementations, e.g. bridged USDT `0x2DEF1957…` (they authorise `erc20_vault` through it). Not read by `bridge`, `erc20_vault` (shared_resolver), `signal_service`, the anchor or the delegate controller.
+- note: legacy 1.10.0 `AddressManager` (`getAddress(uint64,bytes32)` only); read by the bridged TAIKO token, the bridged ERC721/ERC1155 tokens on the `0x0167…10097` / `0x0167…10098` implementations and the bridged ERC20s on the `0x0167…10096` / `0x98161D67…` implementations, e.g. bridged USDT `0x2DEF1957…` (they authorise their vault through it). Not read by `bridge`, `erc20_vault`, `erc721_vault`, `erc1155_vault` (shared_resolver), `signal_service`, the anchor or the delegate controller.
 - names:
   - taiko_token: `0xA9d23408b9bA935c230493c40C73824Df71A0975`
   - signal_service: `0x1670000000000000000000000000000000000005`
@@ -47,13 +47,19 @@
 - proxy: `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`
 - impl: `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
-- note: `DefaultResolver`; read by `bridge` and `erc20_vault` only. The NFT vaults and the legacy bridged tokens read the sam; `BridgedERC20V2` tokens authorise the vault through an immutable. `erc20_vault` for chain 167000 is registered for symmetry with L1 and read by nothing.
+- note: `DefaultResolver`; read by `bridge`, `erc20_vault`, `erc721_vault` and `erc1155_vault`. The legacy bridged tokens read the sam; `BridgedERC20V2` tokens and the bridged ERC721/ERC1155 tokens on the `0x71c2f41A…` / `0x7dF8bfBf…` implementations authorise the vault through an immutable. `erc20_vault`, `erc721_vault` and `erc1155_vault` for chain 167000 are registered for symmetry with L1 and read by nothing.
 - names:
   - bridge: `0x1670000000000000000000000000000000000001`
   - bridge@1: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - erc20_vault: `0x1670000000000000000000000000000000000002`
   - erc20_vault@1: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
+  - erc721_vault: `0x1670000000000000000000000000000000000003`
+  - erc721_vault@1: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
+  - erc1155_vault: `0x1670000000000000000000000000000000000004`
+  - erc1155_vault@1: `0xaf145913EA4a56BE22E120ED9C24589659881702`
   - bridged_erc20: `0xD6601cdea5857338EbdEE4CF38298aff43f01431`
+  - bridged_erc721: `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0`
+  - bridged_erc1155: `0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F`
 - logs:
   - deployed on Sep 1, 2026 @commit`cd847999b` @tx`0x80c14fa5cece0c4e97331057fa7d72f915e58633315c555df68bd82d29d06174`
   - register `bridge@1` to `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
@@ -61,11 +67,17 @@
   - register `erc20_vault@1` to `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
   - register `erc20_vault` to `0x1670000000000000000000000000000000000002` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
   - register `bridged_erc20` to `0xD6601cdea5857338EbdEE4CF38298aff43f01431` on Oct 8, 2026 @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
+  - register `erc721_vault@1` to `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa` on Oct 12, 2026 @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
+  - register `erc1155_vault@1` to `0xaf145913EA4a56BE22E120ED9C24589659881702` on Oct 12, 2026 @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
+  - register `erc721_vault` to `0x1670000000000000000000000000000000000003` on Oct 12, 2026 @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
+  - register `erc1155_vault` to `0x1670000000000000000000000000000000000004` on Oct 12, 2026 @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
+  - register `bridged_erc721` to `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0` on Oct 12, 2026 @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
+  - register `bridged_erc1155` to `0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F` on Oct 12, 2026 @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
 
 #### bridge
 
 - proxy: `0x1670000000000000000000000000000000000001`
-- impl: `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb`
+- impl: `0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
 - todo:
   - upgrade the contract:https://github.com/taikoxyz/taiko-mono/pull/17529
@@ -81,11 +93,12 @@
   - upgrade impl to `0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83` @commit`9345f14` @tx`0xdbe9caf2b1282d0fecf9a752f2c1aeade8820bb66bb5ad210f0081996504173b`
   - changed owner to delegate controller @tx`0x75ae517cf2b1e901b26180622ca9f44c7502ad007391c33f08630042df34a86e`
   - upgraded to `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` on Oct 8, 2026 @commit`cd847999b` @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
+  - upgraded to `0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3` on Oct 12, 2026 @commit`3ef2366f6` @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
 
 #### erc20_vault
 
 - proxy: `0x1670000000000000000000000000000000000002`
-- impl: `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`
+- impl: `0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -97,11 +110,12 @@
   - upgrade impl to `0xb96AbB41b01E3ad519D00E80355a1c3801910F62` @commit`9345f14` @tx`0xdbe9caf2b1282d0fecf9a752f2c1aeade8820bb66bb5ad210f0081996504173b`
   - change owner to delegate controller @tx`0x777b65f0e1bbbc5555007b63a93a4881598c90ac73684f6ad850b737d46c2434`
   - upgraded to `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` on Oct 8, 2026 @commit`fda424de5` @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
+  - upgraded to `0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c` on Oct 12, 2026 @commit`3ef2366f6` @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
 
 #### erc721_vault
 
 - proxy: `0x1670000000000000000000000000000000000003`
-- impl: `0xd532f20a4751156C566Da7745db95E7f80145B36`
+- impl: `0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -110,11 +124,12 @@
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - upgrade impl to `0xd532f20a4751156C566Da7745db95E7f80145B36` @commit`9345f14` @tx`0xdbe9caf2b1282d0fecf9a752f2c1aeade8820bb66bb5ad210f0081996504173b`
   - change owner to delegate controller @tx`0x777b65f0e1bbbc5555007b63a93a4881598c90ac73684f6ad850b737d46c2434`
+  - upgraded to `0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0` on Oct 12, 2026 @commit`3ef2366f6` @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
 
 #### erc1155_vault
 
 - proxy: `0x1670000000000000000000000000000000000004`
-- impl: `0xBBBC4ad39488b990E095042fa6c59A90d3817846`
+- impl: `0xe148CceFFcd5494301c20e047634995C60611e57`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -123,12 +138,25 @@
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - upgrade impl to `0xBBBC4ad39488b990E095042fa6c59A90d3817846` @commit`9345f14` @tx`0xdbe9caf2b1282d0fecf9a752f2c1aeade8820bb66bb5ad210f0081996504173b`
   - change owner to delegate controller @tx`0x777b65f0e1bbbc5555007b63a93a4881598c90ac73684f6ad850b737d46c2434`
+  - upgraded to `0xe148CceFFcd5494301c20e047634995C60611e57` on Oct 12, 2026 @commit`3ef2366f6` @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
 
 #### bridged_erc20
 
 - impl: `0xD6601cdea5857338EbdEE4CF38298aff43f01431`
 - logs:
   - `BridgedERC20V2` `0xD6601cdea5857338EbdEE4CF38298aff43f01431` registered as `bridged_erc20` on shared_resolver on Oct 8, 2026 @commit`fda424de5` @tx`0xc61c925bbc9b815715c6bc009cfcb50c16e93904dc07e799c913953a2b6be095` (Proposal0024)
+
+#### bridged_erc721
+
+- impl: `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0`
+- logs:
+  - `BridgedERC721` `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0` registered as `bridged_erc721` on shared_resolver on Oct 12, 2026 @commit`3ef2366f6` @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
+
+#### bridged_erc1155
+
+- impl: `0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F`
+- logs:
+  - `BridgedERC1155` `0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F` registered as `bridged_erc1155` on shared_resolver on Oct 12, 2026 @commit`3ef2366f6` @tx`0xe8c9d02693ed235dce16a36685a7d07f2929b6927054e07be41293cec00d194d` (Proposal0025)
 
 #### signal_service
 

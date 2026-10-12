@@ -46,7 +46,7 @@
 
 - ens: `bridge.based.taiko.eth`
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
-- impl: `0xA15dca0A72da684f20e0FC708DECFb230a715462`
+- impl: `0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6`
 - owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -66,6 +66,7 @@
   - Change owner to controller @tx`0x6348cbb8f4c907bd72ded06cb9ba587d4ca794a546dab7e7ab6f0281a9c48c2c`
   - upgraded to `0x1c94D798CFA08F396E5BA9F81697289c53273381` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
   - upgraded to `0xA15dca0A72da684f20e0FC708DECFb230a715462` on Oct 8, 2026 @commit`cd847999b` @tx`0x17c27b257bb1445a512d4426c962de5c5f4b282f459c7e851c413702ad11d10c` (Proposal0024)
+  - upgraded to `0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6` on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### quota_manager
 
@@ -86,7 +87,7 @@
 
 - ens: `v20.based.taiko.eth`
 - proxy: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
-- impl: `0x32E47c04E8c329E8c10062731448e7658aDEEB8e`
+- impl: `0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92`
 - owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -99,14 +100,14 @@
   - change owner to controller.taiko.eth @tx`0xc67a1ab94e6c4ccc5a357269c54a15b99f64ac9ed0c089b853d634772dbe40e0`
   - upgraded to `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
   - upgraded to `0x32E47c04E8c329E8c10062731448e7658aDEEB8e` on Oct 8, 2026 @commit`fda424de5` @tx`0x17c27b257bb1445a512d4426c962de5c5f4b282f459c7e851c413702ad11d10c` (Proposal0024)
+  - upgraded to `0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92` on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### erc721_vault
 
 - ens: `v721.based.taiko.eth`
 - proxy: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
-- impl: `0xA4C5c20aB33C96B1c281Dca37D03E23609274C49`
+- impl: `0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802`
 - owner: `controller.taiko.eth`
-- note: `addressManager()` points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0xEC04849E7722Fd69797a155796Db75aC8F94f692` to `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -115,14 +116,14 @@
   - upgraded from `0x55B5df6B53466446221180498BfD1C59e54732c4` to `0xD961e3Ef2D7DF58cDc67BFd9055255430E5e3fEc` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - upgraded from `0xD961e3Ef2D7DF58cDc67BFd9055255430E5e3fEc` to `0xA4C5c20aB33C96B1c281Dca37D03E23609274C49` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - change owner to controller.taiko.eth @tx`0xc67a1ab94e6c4ccc5a357269c54a15b99f64ac9ed0c089b853d634772dbe40e0`
+  - upgraded to `0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802` on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### erc1155_vault
 
 - ens: `v1155.based.taiko.eth`
 - proxy: `0xaf145913EA4a56BE22E120ED9C24589659881702`
-- impl: `0x838ed469db456b67EB3b0B74D759Be4DA999b9c8`
+- impl: `0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E`
 - owner: `controller.taiko.eth`
-- note: `addressManager()` points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0x7748dA086A2e6EDd8Db97eD236840910013c6396` to `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -131,6 +132,7 @@
   - upgraded from `0xca92880829139b310B6b0CB41f66D566Db1a59C8` to `0x89C68Bc7028f8b1e69A91382b0a4b1825085617b` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - upgraded from `0x89C68Bc7028f8b1e69A91382b0a4b1825085617b` to `0x838ed469db456b67EB3b0B74D759Be4DA999b9c8` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - change owner to controller.taiko.eth @tx`0xc67a1ab94e6c4ccc5a357269c54a15b99f64ac9ed0c089b853d634772dbe40e0`
+  - upgraded to `0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E` on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### bridged_erc20
 
@@ -142,22 +144,24 @@
 
 #### bridged_erc721
 
-- impl: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
+- impl: `0xD9c9dB7519011437C54BCD32495c0347A410bc4D`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
+  - `BridgedERC721` `0xD9c9dB7519011437C54BCD32495c0347A410bc4D` registered as `bridged_erc721` on shared_resolver on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### bridged_erc1155
 
-- impl: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
+- impl: `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
+  - `BridgedERC1155` `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e` registered as `bridged_erc1155` on shared_resolver on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### shared_resolver
 
 - proxy: `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`
 - impl: `0xFca4F0Ab7B95EEf2e3A60EF2Bc0c42DdAA62E66D`
 - owner : `controller.taiko.eth`
-- note: `DefaultResolver`; read by `bridge` and `erc20_vault` only. `signal_service`, `taiko_token`, the inbox and the other rollup contracts carry no resolver; the NFT vaults and the legacy bridged tokens read the sam; `BridgedERC20V2` tokens authorise the vault through an immutable.
+- note: `DefaultResolver`; read by `bridge`, `erc20_vault`, `erc721_vault` and `erc1155_vault`. `signal_service`, `taiko_token`, the inbox and the other rollup contracts carry no resolver; the legacy bridged tokens read the sam; `BridgedERC20V2` tokens and the bridged ERC721/ERC1155 tokens on the `0xD9c9dB75…` / `0x35001aB6…` implementations authorise the vault through an immutable.
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - bond_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
@@ -172,12 +176,14 @@
   - erc1155_vault: `0xaf145913EA4a56BE22E120ED9C24589659881702`
   - erc1155_vault@167000: `0x1670000000000000000000000000000000000004`
   - bridged_erc20: `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b`
-  - bridged_erc721: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
-  - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
+  - bridged_erc721: `0xD9c9dB7519011437C54BCD32495c0347A410bc4D`
+  - bridged_erc1155: `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e`
 - logs:
   - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x0a48a276897935e7406b4cc8f17a9b1480c56cb866d6504fd28184ac8e79e8a0`
   - remove `bridge_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
   - register `bridged_erc20` to `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b` on Oct 8, 2026 @tx`0x17c27b257bb1445a512d4426c962de5c5f4b282f459c7e851c413702ad11d10c` (Proposal0024)
+  - register `bridged_erc721` to `0xD9c9dB7519011437C54BCD32495c0347A410bc4D` on Oct 12, 2026 @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
+  - register `bridged_erc1155` to `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e` on Oct 12, 2026 @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### shared_address_manager (sam)
 
@@ -185,7 +191,7 @@
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
 - impl: `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449`
 - owner : `controller.taiko.eth`
-- note: legacy `AddressManager`; read by `erc721_vault`, `erc1155_vault`, the bridged ERC721/ERC1155 tokens and the bridged ERC20s on the `0x65666141…` implementation (they authorise `erc20_vault` through it). Not read by `bridge`, `erc20_vault` (shared_resolver), `signal_service`, `taiko_token` or the rollup contracts.
+- note: legacy `AddressManager`; read by the bridged ERC721/ERC1155 tokens on the `0xC3310905…` / `0x3c90963c…` implementations and the bridged ERC20s on the `0x65666141…` implementation (they authorise their vault through it). Not read by `bridge`, `erc20_vault`, `erc721_vault`, `erc1155_vault` (shared_resolver), `signal_service`, `taiko_token` or the rollup contracts.
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
