@@ -77,8 +77,6 @@
 - proxy: `0x1670000000000000000000000000000000000001`
 - impl: `0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
-- todo:
-  - upgrade the contract:https://github.com/taikoxyz/taiko-mono/pull/17529
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - redeployed on May 22, 2024 @commit`b955e0e`
@@ -209,11 +207,6 @@
   - set erc20_vault as a minter @tx`0x71cc56f3209b375f5734fb5041e425ce2ba445baa407e0a7019598f46b32993b`
   - updated master minter to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0x6d8019683b10e59259610d57063c19d7a38b6f3de51eb94cce97818a7e0b9cc4`
   - transferred ownership to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0x55ed56d6c30e366566436f8341cd2f54d14c94790398a24633068d08c8972d45`
-
-#### airdrop contract
-
-- proxy: `0x30A0EE3f0F2C76Ad9f0731a4C1c89d9e2cB10930`
-- owner: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
 
 ## Other EOAs/Contracts
 
