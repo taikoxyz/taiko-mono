@@ -218,6 +218,8 @@ along with each committee's registry witness and proving header in the reference
 For an arbitrary batch start, minimal descending EL headers authenticate the current and next
 committees' derivation parents from the contract's checkpoint hash. With checkpoint 15 and an
 epoch length of 10, headers 15 through 8 identify committee 1's snapshot from header 8.
+At checkpoint 9, committee 1 is already pending: the next block, height 10, still signs with
+committee 0 but advertises committee 1 in `next_validators_hash`. Its proof also needs header 8.
 The preceding header also authenticates the timestamp used for the parent's base fee.
 Historical registry checkpoints can be proved under a later authenticated L1 root covering
 the snapshot number; selection still uses the authenticated historical number. The earliest
