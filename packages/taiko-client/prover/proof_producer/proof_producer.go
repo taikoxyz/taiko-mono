@@ -42,7 +42,8 @@ type BatchProofs struct {
 	Verifier       common.Address
 	VerifierID     uint8
 	// The companion sub-proof submitted alongside BatchProof: the SGX_GETH proof by
-	// default, or the RISC0 proof in ZK-only mode.
+	// default, the SGX_RETH proof with --prover.sgxRethCompanionProof, or the RISC0
+	// proof in ZK-only mode.
 	CompanionBatchProof []byte
 	CompanionVerifierID uint8
 }

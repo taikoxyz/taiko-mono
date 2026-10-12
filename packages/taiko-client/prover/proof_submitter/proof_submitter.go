@@ -61,6 +61,7 @@ type ProofSubmitter struct {
 	forceSP1Proof                 bool
 	sp1ProofPercentage            uint64
 	forceSGXProof                 bool
+	sgxRethCompanionProof         bool
 	zkOnlyProofs                  bool
 	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
 	risc0Backlog proofProducer.Risc0BacklogController
@@ -89,6 +90,7 @@ func NewProofSubmitter(
 	forceSP1Proof bool,
 	sp1ProofPercentage uint64,
 	forceSGXProof bool,
+	sgxRethCompanionProof bool,
 	zkOnlyProofs bool,
 ) (*ProofSubmitter, error) {
 	if zkvmProofProducer == nil {
@@ -118,6 +120,7 @@ func NewProofSubmitter(
 		forceSP1Proof:                 forceSP1Proof,
 		sp1ProofPercentage:            sp1ProofPercentage,
 		forceSGXProof:                 forceSGXProof,
+		sgxRethCompanionProof:         sgxRethCompanionProof,
 		zkOnlyProofs:                  zkOnlyProofs,
 		ctx:                           ctx,
 	}
@@ -299,6 +302,8 @@ func (s *ProofSubmitter) requestProposalProof(
 	companionProofType := proofProducer.ProofTypeSgxGeth
 	if s.zkOnlyProofs {
 		companionProofType = proofProducer.ProofTypeZKR0
+	} else if s.sgxRethCompanionProof {
+		companionProofType = proofProducer.ProofTypeSgx
 	}
 
 	proposalOpts := opts.ProposalOptions()

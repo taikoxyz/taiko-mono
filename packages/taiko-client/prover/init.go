@@ -75,6 +75,17 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 			)
 		}
 	}
+	if p.cfg.SGXRethCompanionProof && !p.cfg.ZkOnlyProofs {
+		if inboxConfig, err := p.rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx}); err != nil {
+			log.Warn("SGX_RETH companion proofs are enabled, but fetching the inbox's proof verifier failed", "error", err)
+		} else {
+			log.Warn(
+				"SGX_RETH companion proofs are enabled: the inbox's proof verifier must accept the "+
+					"[SGX_RETH, RISC0] and [SGX_RETH, SP1] sub-proof pairs, otherwise every proof submission will revert",
+				"proofVerifier", inboxConfig.ProofVerifier,
+			)
+		}
+	}
 
 	if p.cfg.SP1ProofPercentage > 0 && !p.cfg.ForceSP1Proof && !p.cfg.ForceSGXProof && !p.cfg.ZkOnlyProofs {
 		log.Info(
@@ -137,6 +148,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		p.cfg.ForceSP1Proof,
 		p.cfg.SP1ProofPercentage,
 		p.cfg.ForceSGXProof,
+		p.cfg.SGXRethCompanionProof,
 		p.cfg.ZkOnlyProofs,
 	); err != nil {
 		return fmt.Errorf("failed to initialize proof submitter: %w", err)

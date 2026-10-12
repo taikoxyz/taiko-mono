@@ -107,10 +107,20 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_FORCE_SGX_PROOF"},
 	}
+	SGXRethCompanionProof = &cli.BoolFlag{
+		Name: "prover.sgxRethCompanionProof",
+		Usage: "Pair each RISC0 or SP1 proof with an SGX_RETH proof instead of an SGX_GETH proof. " +
+			"The Raiko host must serve sgx (SGX_RETH) proofs, and the inbox's proof verifier must accept " +
+			"the [SGX_RETH, RISC0] and [SGX_RETH, SP1] sub-proof pairs. Ignored when --prover.zkOnlyProofs " +
+			"is set. Cannot be combined with --prover.forceSGXProof. Post Shasta fork only.",
+		Value:    false,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_SGX_RETH_COMPANION_PROOF"},
+	}
 	ZkOnlyProofs = &cli.BoolFlag{
 		Name: "prover.zkOnlyProofs",
 		Usage: "Prove every proposal with both RISC0 and SP1 proofs and submit the [RISC0, SP1] sub-proof pair, " +
-			"instead of pairing a single ZK proof with an SGX_GETH proof. The " +
+			"instead of pairing a single ZK proof with an SGX proof. The " +
 			"inbox's proof verifier must accept the [RISC0, SP1] pair — i.e. ZkRequiredVerifier, live with the " +
 			"Unzen hardfork; on the pre-Unzen MainnetVerifier every submission reverts. " +
 			"Intended for provers running without a TEE (sgx-geth) service or during SGX outages; " +
@@ -194,5 +204,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ForceSP1Proof,
 	SP1ProofPercentage,
 	ForceSGXProof,
+	SGXRethCompanionProof,
 	ZkOnlyProofs,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

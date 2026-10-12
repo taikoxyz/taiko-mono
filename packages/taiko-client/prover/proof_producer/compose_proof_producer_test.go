@@ -406,6 +406,52 @@ func TestComposeProducerAggregateRequestsPrimaryAndSgxGethCompanion(t *testing.T
 	require.True(t, opts.CompanionProofAggregationGenerated)
 }
 
+func TestComposeProducerAggregateRequestsPrimaryAndSGXRethCompanion(t *testing.T) {
+	recorder := &raikoRequestRecorder{proofs: map[ProofType]string{
+		ProofTypeZKSP1: "0xaaaa",
+		ProofTypeSgx:   "0xbbbb",
+	}}
+	server := httptest.NewServer(recorder.handler())
+	defer server.Close()
+
+	producer := &ComposeProofProducer{
+		VerifierIDs: map[ProofType]uint8{
+			ProofTypeSgx:   4,
+			ProofTypeZKSP1: 6,
+		},
+		RaikoHostEndpoint:   server.URL,
+		RaikoRequestTimeout: time.Second,
+	}
+	opts := &ProposalProofRequestOptions{
+		ProofType:          ProofTypeZKSP1,
+		CompanionProofType: ProofTypeSgx,
+		L2BlockNums:        []*big.Int{common.Big1},
+	}
+
+	result, err := producer.Aggregate(
+		context.Background(),
+		[]*ProofResponse{
+			{
+				BatchID:   common.Big1,
+				ProofType: ProofTypeZKSP1,
+				Meta: metadata.NewTaikoProposalMetadataShasta(
+					&shastaBindings.ShastaInboxClientProposed{Id: common.Big1},
+					0,
+				),
+				Opts: opts,
+			},
+		},
+		time.Now(),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, map[ProofType]int{ProofTypeZKSP1: 1, ProofTypeSgx: 1}, recorder.requestedTypes())
+	require.Equal(t, uint8(6), result.VerifierID)
+	require.Equal(t, common.Hex2Bytes("aaaa"), result.BatchProof)
+	require.Equal(t, uint8(4), result.CompanionVerifierID)
+	require.Equal(t, common.Hex2Bytes("bbbb"), result.CompanionBatchProof)
+}
+
 func TestComposeProducerZkOnlyRequestProofRequestsBothZkProofs(t *testing.T) {
 	recorder := &raikoRequestRecorder{proofs: map[ProofType]string{
 		// A single SP1 proof from raiko is null, only the RISC0 companion carries bytes.

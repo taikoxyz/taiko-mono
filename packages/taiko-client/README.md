@@ -45,6 +45,32 @@ Review each sub-command's command line flags:
 bin/taiko-client <sub-command> --help
 ```
 
+### SGX_RETH companion proofs
+
+After the Shasta fork, enable `--prover.sgxRethCompanionProof` when the prover
+should pair each RISC0 or SP1 proof with SGX_RETH instead of SGX_GETH. The flag
+defaults to `false`, preserving the SGX_GETH companion, and keeps the existing
+RISC0/SP1 selection and fallback behavior.
+
+Add `--prover.sgxRethCompanionProof` to your existing prover command, keeping all
+required connection, contract, and signing options. Alternatively, enable it in
+the prover's environment:
+
+```sh
+export PROVER_SGX_RETH_COMPANION_PROOF=true
+```
+
+Before enabling this mode, ensure that the configured Raiko host serves `sgx`
+(SGX_RETH) proofs, including aggregation, and that its SGX signer has a valid
+registered instance in the SGX_RETH verifier. The inbox's proof verifier must
+accept both `[SGX_RETH, RISC0]` and `[SGX_RETH, SP1]`; `MainnetVerifier` and
+`ZkRequiredVerifier` support these pairs. Submissions revert if the configured
+verifier does not accept the selected pair.
+
+Do not combine this flag with `--prover.forceSGXProof`: startup rejects that
+combination. With `--prover.zkOnlyProofs`, the companion flag is ignored and the
+prover still submits `[RISC0, SP1]`.
+
 ## L1 beacon node requirements
 
 The driver reads each proposal's blobs from the L1 beacon node set by `--l1.beacon`, through `GET /eth/v1/beacon/blobs/{block_id}?versioned_hashes=...`, and checks every blob against its versioned hash. On Prysm, use v7.1.8 or later: v6.1.0 to v7.1.7 drop the connection when a requested blob appears twice in its block ([OffchainLabs/prysm#17199](https://github.com/OffchainLabs/prysm/pull/17199)), and the driver then needs the blob server set by `--blob.server`.

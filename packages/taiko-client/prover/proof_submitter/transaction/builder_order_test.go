@@ -21,6 +21,17 @@ func TestOrderedSubProofsAscendingVerifierIDs(t *testing.T) {
 		BatchProof:          []byte{0x06},
 	}))
 
+	// SGX_RETH companion (4) + ZK primary (5/6), already ascending.
+	require.Equal(t, []encoding.SubProofShasta{
+		{VerifierId: 4, Proof: []byte{0x04}},
+		{VerifierId: 5, Proof: []byte{0x05}},
+	}, orderedSubProofs(&producer.BatchProofs{
+		CompanionVerifierID: 4,
+		CompanionBatchProof: []byte{0x04},
+		VerifierID:          5,
+		BatchProof:          []byte{0x05},
+	}))
+
 	// ZK-only mode: RISC0 companion (5) + SP1 primary (6), already ascending.
 	require.Equal(t, []encoding.SubProofShasta{
 		{VerifierId: 5, Proof: []byte{0x05}},

@@ -175,6 +175,45 @@ func TestNewConfigFromCliContextForceSGXProof(t *testing.T) {
 	})
 }
 
+func TestNewConfigFromCliContextSGXRethCompanionProof(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.False(t, cfg.SGXRethCompanionProof)
+	})
+
+	t.Run("uses flag value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.SGXRethCompanionProof.Name)
+
+		require.True(t, cfg.SGXRethCompanionProof)
+	})
+
+	t.Run("allows zk only proofs", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(
+			t,
+			"--"+flags.SGXRethCompanionProof.Name,
+			"--"+flags.ZkOnlyProofs.Name,
+		)
+
+		require.True(t, cfg.SGXRethCompanionProof)
+		require.True(t, cfg.ZkOnlyProofs)
+	})
+
+	t.Run("rejects force sgx proof", func(t *testing.T) {
+		err := runTestConfigFromCLI(
+			t,
+			"--"+flags.SGXRethCompanionProof.Name,
+			"--"+flags.ForceSGXProof.Name,
+		)
+
+		require.ErrorContains(
+			t,
+			err,
+			"--"+flags.SGXRethCompanionProof.Name+" cannot be combined with --"+flags.ForceSGXProof.Name,
+		)
+	})
+}
+
 func TestNewConfigFromCliContextZkOnlyProofs(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
@@ -288,6 +327,7 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 		&cli.Uint64Flag{Name: flags.SP1ProofPercentage.Name},
 		&cli.Uint64Flag{Name: flags.ZKVMBatchSize.Name, Value: flags.ZKVMBatchSize.Value},
 		&cli.BoolFlag{Name: flags.ForceSGXProof.Name},
+		&cli.BoolFlag{Name: flags.SGXRethCompanionProof.Name},
 		&cli.BoolFlag{Name: flags.ZkOnlyProofs.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 	}

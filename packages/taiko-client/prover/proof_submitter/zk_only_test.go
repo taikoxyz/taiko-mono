@@ -73,6 +73,7 @@ func TestNewProofSubmitterRequiresZKVMProducer(t *testing.T) {
 		0,
 		false,
 		false,
+		false,
 	)
 
 	require.ErrorContains(t, err, "proof submitter requires a ZKVM proof producer")
