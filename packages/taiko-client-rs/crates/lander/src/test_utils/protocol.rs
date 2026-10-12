@@ -59,6 +59,7 @@ pub(crate) fn request() -> ProofRequest {
                 },
             },
             parent_header: Header::default(),
+            execution_history: vec![],
             grandparent_timestamp: 0,
             parent_anchor: anchor,
             starting_inbox_witness: abci::AnchorWitness {

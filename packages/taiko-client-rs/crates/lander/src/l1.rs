@@ -4,7 +4,7 @@ use abci::{
     AccountWitness, AnchorState, ChainParams, CommitteeWitness, GenesisRecord, Schedule,
     envelope::AnchorWitness,
     l1::{
-        fetch::build_committee_witness,
+        fetch::build_committee_witness_at_cutoff,
         header::RawL1Header,
         layout::{inbox, word_u64},
         mpt::verify_account_witness,
@@ -53,6 +53,8 @@ pub trait LandingSource: Send + Sync {
     async fn snapshot(&self) -> Result<LandingSnapshot>;
     /// Authenticate the checkpoint's EL parent and its preceding timestamp.
     async fn parent_header(&self, snapshot: &LandingSnapshot) -> Result<ParentContext>;
+    /// Read an untrusted public execution header; the builder verifies checkpoint ancestry.
+    async fn execution_header(&self, number: u64) -> Result<Header>;
     /// Recover the exact historical anchor consumed by the checkpoint parent.
     async fn parent_anchor(
         &self,
@@ -66,6 +68,7 @@ pub trait LandingSource: Send + Sync {
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
+        snapshot_number: u64,
         epoch: u64,
     ) -> Result<CommitteeWitness>;
     /// Authenticate all consumed anchors along a descending finalized reference chain.
@@ -193,6 +196,11 @@ impl LandingSource for RpcLandingSource {
         Ok(ParentContext { header, grandparent_timestamp })
     }
 
+    /// Return public EL data for pure checkpoint-bound history authentication.
+    async fn execution_header(&self, number: u64) -> Result<Header> {
+        self.el_header(number).await
+    }
+
     async fn parent_anchor(
         &self,
         snapshot: &LandingSnapshot,
@@ -238,13 +246,15 @@ impl LandingSource for RpcLandingSource {
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
+        snapshot_number: u64,
         epoch: u64,
     ) -> Result<CommitteeWitness> {
-        build_committee_witness(
+        build_committee_witness_at_cutoff(
             &self.anchors,
             &self.params,
             &Schedule::from_genesis(&snapshot.genesis),
             anchor.number,
+            snapshot_number,
             epoch,
         )
         .await

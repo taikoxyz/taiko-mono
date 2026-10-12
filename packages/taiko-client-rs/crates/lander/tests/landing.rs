@@ -2,7 +2,7 @@
 mod support;
 
 use alloy::{consensus::Transaction, sol_types::SolCall};
-use alloy_primitives::{B256, Bytes};
+use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use lander::{
@@ -12,7 +12,7 @@ use lander::{
 };
 use support::{
     ContractFixture,
-    contracts::{EtnaInbox, SignalService, receipt, view},
+    contracts::{EtnaInbox, EtnaStakingRegistry, SignalService, receipt, transact, view},
     fixtures::FixtureChain,
 };
 use test_harness::{dev_signer, mine_l1_blocks};
@@ -97,23 +97,48 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
     assert_landed(&fixture, &first, &signed).await?;
-    // Advancing the real checkpoint opens the next host-valid block range and committee switch.
+    // Land exactly D=6, then mutate the registry after the immutable derivation snapshot.
     mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-    chain.extend(&fixture, 7).await?;
-    let switch_cut = chain.prepare(&fixture, 7, SidecarMode::Eip7594).await?;
-    fixture.expect_statement(switch_cut.batch.statement_hash).await?;
-    let signed = sign(&fixture, &switch_cut).await?;
-    assert_landed(&fixture, &switch_cut, &signed).await?;
-    mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-    chain.extend(&fixture, 10).await?;
-    let next = chain.prepare(&fixture, 10, SidecarMode::Eip7594).await?;
-    assert_eq!(
-        next.batch.committees.iter().map(|c| c.record.target_epoch).collect::<Vec<_>>(),
-        vec![0, 1]
-    );
-    fixture.expect_statement(next.batch.statement_hash).await?;
-    let signed = sign(&fixture, &next).await?;
-    assert_landed(&fixture, &next, &signed).await?;
+    chain.extend(&fixture, 6).await?;
+    let derivation = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
+    fixture.expect_statement(derivation.batch.statement_hash).await?;
+    assert_landed(&fixture, &derivation, &sign(&fixture, &derivation).await?).await?;
+    transact(
+        &fixture.anvil.provider,
+        dev_signer().address(),
+        fixture.registry,
+        EtnaStakingRegistry::requestExitCall { _bondId: U256::ZERO }.abi_encode(),
+    )
+    .await?;
+    let immutable_snapshot = chain.anchors[6].number;
+    // One-block cuts before/on/after S=7, S+1=8, H=9 and within epoch 1.
+    for last in 7..=11 {
+        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
+        chain.extend(&fixture, last).await?;
+        let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
+        assert_eq!(next.batch.blocks.len(), 1);
+        let incoming = next
+            .batch
+            .committee_witnesses
+            .iter()
+            .find(|c| c.witness.record.target_epoch == 1)
+            .context("incoming epoch")?;
+        assert_eq!(incoming.witness.record.cutoff_l1_block, immutable_snapshot);
+        assert_eq!(incoming.derivation_parent.as_ref().context("D header")?.number, 6);
+        if last > 7 {
+            assert!(
+                incoming.anchor.number > immutable_snapshot,
+                "later root must reconstruct D snapshot"
+            );
+            assert!(
+                incoming.witness.registry.storage.len() > 3,
+                "historical selected/successor proofs retained"
+            );
+        }
+        fixture.expect_statement(next.batch.statement_hash).await?;
+        let signed = sign(&fixture, &next).await?;
+        assert_landed(&fixture, &next, &signed).await?;
+    }
     fixture.anvil.stop().await
 }
 

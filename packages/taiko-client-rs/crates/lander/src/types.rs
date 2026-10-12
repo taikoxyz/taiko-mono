@@ -90,8 +90,10 @@ pub struct LandingSnapshot {
 /// One independently derived committee's authenticated registry witness provenance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitteeContext {
-    /// Authenticated proving anchor whose number covers this epoch's fixed cutoff.
+    /// Authenticated proving anchor whose number covers the derivation snapshot.
     pub anchor: AnchorState,
+    /// Authenticated execution derivation parent; absent only for explicit genesis cutoff.
+    pub derivation_parent: Option<Header>,
     /// Registry proof and complete entries used to recompute this committee.
     #[serde(with = "rlp_serde")]
     pub witness: CommitteeWitness,
@@ -113,6 +115,8 @@ pub struct PreparedBatch {
     pub snapshot: LandingSnapshot,
     /// Public EL parent header, verified against the checkpoint height and hash.
     pub parent_header: Header,
+    /// Minimal descending EL ancestry rooted at the contract checkpoint hash.
+    pub execution_history: Vec<Header>,
     /// Timestamp of the parent's parent; zero when the parent is genesis.
     pub grandparent_timestamp: u64,
     /// Anchor consumed by the parent; genesis uses the initialization L1 block.
@@ -136,7 +140,7 @@ pub struct PreparedBatch {
     pub input: LandInput,
     /// Sidecar and ordered versioned blob hashes binding the V1 payload.
     pub blobs: PreparedBlobs,
-    /// Identity of this job: the exact V4 public statement hash.
+    /// Identity of this job: the exact V5 public statement hash.
     pub statement_hash: B256,
 }
 

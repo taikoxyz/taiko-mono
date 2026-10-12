@@ -1,4 +1,4 @@
-//! Reconstruction of validator sets after independent fixed-cutoff registry derivation.
+//! Reconstruction of validator sets after independent parent-anchor registry derivation.
 
 use abci::{
     ChainParams, CommitteeState,
@@ -38,7 +38,7 @@ pub struct AuthenticatedCommittee {
     pub state: CommitteeState,
     /// CometBFT orders its validators by descending power then ascending address.
     pub validators: validator::Set,
-    /// Fixed-cutoff registry proof retained when this context was independently derived.
+    /// Registry proof and authenticated derivation parent retained for independent derivation.
     pub provenance: Option<crate::types::CommitteeContext>,
 }
 

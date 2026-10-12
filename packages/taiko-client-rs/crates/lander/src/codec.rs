@@ -30,14 +30,7 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
         previous = Some(pair.block.header.height.value());
         let block = RawBlock::from(pair.block.clone());
         let commit = RawCommit::from(pair.commit.clone());
-        if block.encoded_len() > limits.max_message_bytes ||
-            commit.encoded_len() > limits.max_message_bytes
-        {
-            return Err(LanderError::Capacity(format!(
-                "protobuf at height {} exceeds message limit",
-                pair.block.header.height
-            )));
-        }
+        check_message_limits(pair, limits)?;
         let block = block.encode_to_vec();
         let commit = commit.encode_to_vec();
         let length = block
@@ -72,6 +65,21 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
         commit.as_slice().encode(&mut out);
     }
     Ok(out)
+}
+
+/// Bound one block and certificate without retaining a complete backlog or encoding its payload.
+pub(crate) fn check_message_limits(pair: &CertifiedBlock, limits: &Limits) -> Result<()> {
+    let block = RawBlock::from(pair.block.clone());
+    let commit = RawCommit::from(pair.commit.clone());
+    if block.encoded_len() > limits.max_message_bytes ||
+        commit.encoded_len() > limits.max_message_bytes
+    {
+        return Err(LanderError::Capacity(format!(
+            "protobuf at height {} exceeds message limit",
+            pair.block.header.height
+        )));
+    }
+    Ok(())
 }
 
 /// Decode bounded, canonical RLP and canonical v0_38 protobuf block/commit messages.

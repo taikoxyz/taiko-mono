@@ -259,7 +259,7 @@ impl ContractFixture {
         .map(drop)
     }
 
-    /// Require the verifier to receive this exact V4 public statement.
+    /// Require the verifier to receive this exact V5 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(
             &self.anvil.provider,

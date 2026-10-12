@@ -14,9 +14,9 @@ use std::{
 };
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
-const JOURNAL_VERSION: u8 = 2;
+const JOURNAL_VERSION: u8 = 3;
 /// Hard allocation bound before reading or decoding an untrusted journal.
-const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
+pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Public identities a journal may be resumed under; no keys or endpoint credentials occur here.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,7 +108,7 @@ struct Journal {
     identity: JournalIdentity,
     /// Resumable phase.
     state: JournalState,
-    /// Optional Idle-only backlog timer; absence allows a timer-free V4 journal.
+    /// Optional Idle-only backlog timer; absence allows a timer-free V5 journal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     waiting: Option<BatchWait>,
 }
@@ -175,7 +175,7 @@ impl Store {
             .map_err(|e| LanderError::Journal(format!("corrupt journal schema: {e}")))?;
         if schema.version != JOURNAL_VERSION {
             return Err(LanderError::Journal(
-                "incompatible pre-V4 journal; signed transaction retained unchanged".into(),
+                "incompatible pre-V5 journal; signed transaction retained unchanged".into(),
             ));
         }
         let journal: Journal = serde_json::from_slice(&bytes)
@@ -267,7 +267,7 @@ impl Store {
                 &batch.blobs.versioned_hashes,
             ) != batch.statement_hash
         {
-            return Err(LanderError::Journal("job V4 statement identity mismatch".into()));
+            return Err(LanderError::Journal("job V5 statement identity mismatch".into()));
         }
         let limits = crate::types::Limits {
             max_blocks: 100_000,
@@ -388,10 +388,10 @@ mod tests {
     }
 
     #[test]
-    fn legacy_v3_journal_is_rejected_without_modifying_its_file() {
+    fn legacy_v4_journal_is_rejected_without_modifying_its_file() {
         let directory = tempfile::tempdir().unwrap();
         let journal = serde_json::json!({
-            "version": 1,
+            "version": 2,
             "identity": identity(),
             "state": { "phase": "idle" },
         });
@@ -419,16 +419,16 @@ mod tests {
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
         let bytes = serde_json::to_vec(
-            &serde_json::json!({ "version": 1, "identity": id, "state": state }),
+            &serde_json::json!({ "version": 2, "identity": id, "state": state }),
         )
         .unwrap();
         let path = directory.path().join("lander-state.json");
         std::fs::write(&path, &bytes).unwrap();
         let error = match Store::open(directory.path(), id) {
             Err(e) => e,
-            Ok(_) => panic!("V3 must be rejected"),
+            Ok(_) => panic!("V4 must be rejected"),
         };
-        assert!(error.to_string().contains("incompatible pre-V4"));
+        assert!(error.to_string().contains("incompatible pre-V5"));
         assert_eq!(std::fs::read(path).unwrap(), bytes);
     }
 

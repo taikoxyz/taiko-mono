@@ -1,5 +1,5 @@
-//! Exact V4 ABI encoding, including proxy/registry identities, fixed configuration and ordered
-//! blobs.
+//! Exact V5 ABI encoding, including proxy/registry identities, parent-anchor configuration and
+//! ordered blobs.
 
 use crate::{contracts::IEtnaInbox::LandInput, types::LandingSnapshot};
 use alloy_primitives::{B256, U256, keccak256};
@@ -20,7 +20,7 @@ pub fn preimage(
     blob_hashes: &[B256],
 ) -> [u8; PREIMAGE_BYTES] {
     let mut tag = [0u8; 32];
-    tag[..b"TAIKO_ETNA_LAND_V4".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V4");
+    tag[..b"TAIKO_ETNA_LAND_V5".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V5");
     let mut inbox = [0u8; 32];
     inbox[12..].copy_from_slice(snapshot.inbox.as_slice());
     let mut registry = [0u8; 32];
@@ -49,7 +49,7 @@ pub fn preimage(
     out
 }
 
-/// Compute the V4 job identity from coherent state, immutable outputs and ordered blobs.
+/// Compute the V5 job identity from coherent state, immutable outputs and ordered blobs.
 pub fn hash(
     snapshot: &LandingSnapshot,
     input: &LandInput,
@@ -75,7 +75,7 @@ mod tests {
         snapshot.checkpoint_height = 100;
         snapshot.checkpoint_hash = B256::from(U256::from(0x11));
         snapshot.committee_config_hash =
-            b256!("af72a8cac328b7a82ec9c449fb39aecc89a196de580f512cc40f0e1d8a6ad2fa");
+            b256!("a39d945e8d229bca83870430088db2065f92f8b01303480447d03d5dd11ee377");
         let input = LandInput {
             lastHeight: 164,
             lastBlockHash: B256::from(U256::from(0x22)),
@@ -91,7 +91,7 @@ mod tests {
     }
 
     #[test]
-    fn matches_pinned_solidity_v4_vector_and_exact_fifteen_words() {
+    fn matches_independent_ethers_v5_vector_and_exact_fifteen_words() {
         let (snapshot, input, reference, hashes) = vector();
         assert_eq!(
             blob_hashes_hash(&hashes),
@@ -100,12 +100,12 @@ mod tests {
         assert_eq!(preimage(&snapshot, &input, reference, &hashes).len(), 480);
         assert_eq!(
             hash(&snapshot, &input, reference, &hashes),
-            b256!("c25b74e918f50098001818a711b7604376e98978fa8cdace46af3803cdd100c2")
+            b256!("4d02d06b547ccf426c7797489fa6bf8e68ed66b1dbdfcab3ba38cfcf0845d870")
         );
     }
 
     #[test]
-    fn every_fifteen_word_and_v3_domain_mutation_changes_the_vector() {
+    fn every_fifteen_word_and_v4_domain_mutation_changes_the_vector() {
         let (snapshot, input, reference, hashes) = vector();
         let preimage = preimage(&snapshot, &input, reference, &hashes);
         let expected = keccak256(preimage);
@@ -114,9 +114,9 @@ mod tests {
             changed[word * 32 + 31] ^= 1;
             assert_ne!(keccak256(changed), expected, "word {word}");
         }
-        let mut v3 = preimage;
-        v3[b"TAIKO_ETNA_LAND_V4".len() - 1] = b'3';
-        assert_ne!(keccak256(v3), expected, "old domain cannot share job identity");
+        let mut v4 = preimage;
+        v4[b"TAIKO_ETNA_LAND_V5".len() - 1] = b'4';
+        assert_ne!(keccak256(v4), expected, "old domain cannot share job identity");
     }
 
     #[test]
