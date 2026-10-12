@@ -139,39 +139,50 @@ one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 entries exi
   latest checkpoint; its `count` and root cover all entries, including exited ones.
 - Registration rejects a key held by any entry whose exit is not yet effective. The node also
   deduplicates eligible keys defensively.
-- Future committees derive from fixed L1 cutoffs. There is no `committee(epoch)` getter,
+- Future committees derive from the committed switch-parent anchor. There is no `committee(epoch)` getter,
   mapping, committee landing output or publication event. Landing is never an activation gate.
 
 ## Authenticated committee configuration
 
-The canonical commitment is the eleven-word encoding (352 bytes):
+The canonical commitment is the nine-word encoding (288 bytes):
 
 ```solidity
 committeeConfigHash = keccak256(abi.encode(
-    bytes32("ETNA_FIXED_CUTOFF_V1"), uint256(l2ChainId), address(stakingRegistry),
-    uint64(cutoffGrid), uint64(cutoffLag), uint256(vpUnit), uint256(sMin), uint64(nMax),
+    bytes32("ETNA_PARENT_ANCHOR_V1"), uint256(l2ChainId), address(stakingRegistry),
+    uint256(vpUnit), uint256(sMin), uint64(nMax),
     uint64(heartbeatWindow), uint64(2), uint8(1)
 ));
 ```
 
-The last words bind lookahead 2 and record/algorithm version 1. Supply this nonzero hash as
-`COMMITTEE_CONFIG_HASH` at deployment. The node independently opens it against its configured
-parameters and persists it in authenticated genesis state. It must also authenticate `L1_0`, both
-epoch lengths and `genesisCutoff` from Inbox storage.
+The last words bind heartbeat lookahead 2 and retained membership/MEM-08 algorithm version 1.
+Supply this nonzero hash as `COMMITTEE_CONFIG_HASH` at deployment. Slot 269 remains an opaque
+commitment; the node/guest must open it against its configured parameters and persist/check it
+in authenticated genesis state. Authenticate `L1_0`, both epoch lengths and `genesisCutoff` from
+Inbox storage independently. No lag or grid parameter belongs to this configuration.
 
-For committee 0, `cutoff(0) = genesisCutoff`. For every `t >= 1`:
+Committee 0 alone uses the explicit `genesisCutoff` and plain slot-278 bootstrap record; slot 279
+retains that cutoff. For every target epoch `t >= 1`, with checked arithmetic:
 
 ```text
-base(t) = L1_0 + max(t - 2, 0) * epochLenL1
-lagged(t) = max(base(t) - cutoffLag, 0)
-cutoff(t) = max(genesisCutoff, floor(lagged(t) / cutoffGrid) * cutoffGrid)
+H(t) = 1 + t * epochLenL2
+S(t) = H(t) - 2
+D(t) = H(t) - 3
+snapshot(t) = committed EL block D(t)'s anchor.number
 ```
 
-Arithmetic is checked, and `cutoffGrid` must be nonzero. Select the last registry checkpoint at
-or before this cutoff, authenticate its metadata, complete entry count and entries root, and
-prove the next checkpoint's height is after the cutoff when it exists. A later proving header
-can authenticate the immutable historical checkpoint; its height must cover the cutoff. No
-failure advances the cutoff and no implicit empty-roster fallback exists.
+At switch `S(t)`, registry proofs use exactly the committed parent's anchor root and number,
+never the candidate's new anchor or a fresh finalized head. Select the latest registry checkpoint,
+authenticate its complete entry count/root, and evaluate `active_from <= snapshot < exit_effective`
+at the parent anchor number, rather than the checkpoint's mutation height. Keep effective stake,
+earliest eligible bondId per pubkey, `nMax` ranking, MEM-08 order/root, voting-power division and
+existing overflow caps. Existing anchor progress ensures runtime anchors are at least `L1_0`,
+which is strictly after `genesisCutoff`; no extra runtime genesis floor is needed.
+
+The set becomes certain only after `D(t)` commits and offers less guaranteed advance notice than
+fixed cutoffs. Different valid L2 anchor histories may select different sets; replaying the same
+committed parent derives the same set. An empty set at that immutable snapshot halts at `S(t)`;
+later registry updates cannot repair that parent and no advancing-snapshot/old-set fallback exists.
+Outgoing-quorum, old-key/stake-retention/withdrawal and recovery-bootstrap limits remain.
 
 ## Heartbeats
 
@@ -202,11 +213,11 @@ EIP-2935 history contract (8191 blocks). At least one transaction blob is requir
 
 Landing saves the terminal checkpoint in the Inbox and SignalService, emits `BatchLanded`, and
 calls `proofVerifier.verifyProof(0, statementHash, proof)`. Failure rolls back all writes. The
-fifteen-word V4 preimage (480 bytes) is:
+fifteen-word V5 preimage (480 bytes) is:
 
 ```solidity
 statementHash = keccak256(abi.encode(
-    bytes32("TAIKO_ETNA_LAND_V4"),
+    bytes32("TAIKO_ETNA_LAND_V5"),
     block.chainid, l2ChainId, address(this), address(stakingRegistry),
     recoveryGeneration, p, parentHash, committeeConfigHash,
     lastHeight, lastBlockHash, lastStateRoot,
@@ -219,7 +230,10 @@ Both identities, config hash, generation and parent come from the contract. The 
 and ordered blob hashes come from the actual L1 execution context. `hashLandStatement` derives
 identities and config internally but accepts raw generation, parent and terminal inputs for
 encoding; it does not authenticate them. Call it through the proxy to bind that proxy's address.
-V3 digests and old wire histories are incompatible with this prelaunch version.
+V4 digests, fixed-cutoff configuration openings, envelope-2 histories and journal-schema-2 jobs
+are incompatible with this prelaunch version. Envelope and journal schema versions are now 3;
+record encoding stays 1. No deployed-chain migration is provided. Reject old signed jobs without
+discarding their nonce, cancelling or automatically replacing their transaction.
 
 ### Guest and consensus obligations
 
@@ -227,32 +241,57 @@ Every account proof must derive its trie path from the corresponding bound Inbox
 address. Authenticate storage under that proved account root and an authenticated L1 header.
 Open `committeeConfigHash` exactly as above and authenticate the genesis schedule. Apply the
 existing membership, earliest eligible bond per key, stake ranking, MEM-08 ordering, floor power
-mapping and overflow rules to each fixed snapshot. Keep heartbeat evaluation at the target
-schedule instant, capped at the cutoff window, including the nonzero sequence guard and launch
-exemptions for epochs 0, 1 and 2.
+mapping and overflow rules at the authenticated snapshot. Keep heartbeat evaluation at the target
+schedule instant with its two-epoch lookahead, capped at the snapshot window, including the nonzero
+sequence guard and launch exemptions for epochs 0, 1 and 2. The lookahead does not select a snapshot.
 
-At switch `S(t) = 1 + t * epochLenL2 - 2`, require exactly one committee witness for `t` under
-the committed parent's anchor and explicitly require `cutoff(t) <= parentAnchor.number`. Compare
-every derived record field, return validator updates at FinalizeBlock and persist at Commit.
-CometBFT activates them at `H(t) = 1 + t * epochLenL2`. Non-switch blocks carry no runtime
-committee witness; epoch-first blocks have no extra requirement. Envelope version is 2.
+At switch `S(t)`, require exactly one committee witness for `t` under the committed parent's exact
+anchor root and number. Compare every derived record field, derive before returning validator
+updates at FinalizeBlock, and persist at Commit. CometBFT activates them at `H(t)` with H+2 timing.
+Non-switch blocks carry no runtime committee witness; epoch-first blocks have no extra publication
+requirement. The committed anchor already passed canonical/finalized checks, so deterministic
+Finalize/replay must not introduce L1 calls.
 
-The guest must verify the parent certificate, every current/next validator hash around H+2,
-commits with strictly more than two-thirds voting power under
-`taiko-etna-<l2ChainId>-g<generation>`, execution ancestry from the stored parent to terminal
-hash/state root, and blob data. Every anchor belongs to the header chain ending at the reference
-hash. Reference headers may be recent even for old batches. A batch can start/end at arbitrary
-valid heights and never depends on an earlier batch's committee output.
+For a batch starting after a switch, the checkpoint's newer anchor cannot reconstruct a starting
+set. Authenticate the checkpoint EL header against the contract-bound parent hash, then the minimal
+consecutive descending EL hash/parentHash links through `D(t)` for every needed current/next signing
+epoch. Read each snapshot number only from that authenticated header's generation-checked Etna
+anchor extraData. Include checkpoint `p-1` at nonzero `p` to authenticate the base-fee grandparent
+timestamp. With `epochLenL2=10`, checkpoint 15 needs headers `15 -> ... -> 8`; committee 1 derives
+from header 8. Checkpoint 10 needs outgoing bootstrap committee 0 and pending committee 1 from
+header 8. A separate unproved derivation hint is never authoritative.
+
+Current/next starting epochs differ by at most one. The earliest required derivation header is at
+most `epochLenL2 + 2` links behind the checkpoint. Use checked bounds, existing I/O/journal limits
+and only required ancestors, without re-executing historical transactions/commits or preallocating
+from unbounded caller input. EL RPC and Comet envelopes are both usable sources because the hash
+links authenticate the headers. Missing history reports the required height; transient RPC failures
+remain retryable, while broken links/height/generation/anchor/config/record/entries reject.
+
+A starting committee may use a later authenticated checkpoint-parent proving root whose L1 number
+covers its derived snapshot. Under that root prove the last immutable registry checkpoint at/before
+the snapshot, its successor after it when present, array length and complete historical entries/root.
+This recovers the derivation-parent snapshot without original-root metadata MPT proofs; historical
+entry values still require RPC/cache data. The guest independently checks retained EL ancestry and
+per-epoch provenance and recomputes all parent/current/pending sets. In-batch switch proofs still use
+the actual embedded committed parent's exact root and snapshot number.
+
+Verify the parent certificate and every current/pending certificate, current validator hash and
+`nextValidatorHash` across `S/S+1/H` and arbitrary cuts. Require strictly more than two-thirds voting
+power from distinct signers under `taiko-etna-<l2ChainId>-g<generation>`. Prove execution ancestry
+from the stored parent to terminal hash/state root and blob data. Every anchor and actual proving
+L1 root belongs to the header chain ending at the reference hash. Reference headers may be recent
+even for old batches. Arbitrary batch cuts never depend on an earlier batch's committee output.
 
 The existing status, generation, anchor progress and back-pressure checks remain. In particular,
 `height - checkpoint <= d_max - margin_v` can still stop block production during a settlement
 outage, and `epochLenL2 >= unsettledCap + 3` remains the schedule bound. Committee authorization
 is autonomous, while settlement progress still matters for overall liveness.
 
-The fixed Solidity vector pins the four-field ABI, eleven-word config and V4 statement against
+The fixed Solidity vector pins the four-field ABI, nine-word config and V5 statement against
 independent ethers encoding. Tests use an explicitly dummy verifier for batching, statement
-binding and rollback; they do not prove the authoritative guest rules. No real ZK guest is part
-of this change. Empty-roster liveness and old-key/withdrawal assumptions remain unchanged.
+binding and rollback; they do not prove the authoritative guest rules. Dummy proof `0x00` remains explicit; no real ZK guest is part
+of this change, and host/contract integration checks do not establish production ZK soundness. Empty-roster liveness and old-key/withdrawal assumptions remain unchanged.
 
 ## Open items
 

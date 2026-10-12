@@ -21,7 +21,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @dev The V4 statement in wire order. All fields are static, so abi.encode of this
+    /// @dev The V5 statement in wire order. All fields are static, so abi.encode of this
     /// memory-only struct is the same fifteen-word encoding as the flat field list. Building
     /// it one field at a time keeps the non-IR compiler within its stack limit.
     struct LandStatement {
@@ -53,7 +53,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
 
     /// @dev The domain tag of the landing statement.
-    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V4");
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V5");
 
     /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
     uint256 private constant _BLOCKHASH_WINDOW = 256;
@@ -99,7 +99,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Slot 268: the recovery generation (bits 0–63; the rest is reserved for GOV-04).
     uint64 private _recoveryGeneration;
 
-    /// @dev Slot 269: the authenticated fixed-cutoff committee derivation configuration.
+    /// @dev Slot 269: the authenticated parent-anchor committee derivation configuration.
     bytes32 private _committeeConfigHash;
 
     /// @dev Slots 270–271: the latest landed L2 block.
