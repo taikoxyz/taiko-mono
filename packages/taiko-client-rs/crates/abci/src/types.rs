@@ -139,10 +139,8 @@ pub struct GenesisRecord {
     /// `S*`: L2 state root of `B*`.
     pub genesis_state_root: B256,
     /// `genesisCutoff`: the snapshot cutoff `C` of the genesis committee `e_0`, an L1 block
-    /// number; validated `< l1_0`. Unlike every later epoch's cutoff it is not derived from an
-    /// anchor with the cutoff lag and grid: the genesis names it explicitly, as the DAO
-    /// proposal that activates Etna is written before `L1_0` is known. It also floors every later
-    /// epoch's cutoff ([`committee::fixed_cutoff`](crate::committee::fixed_cutoff)).
+    /// number; validated `< l1_0`. Genesis names it explicitly before `L1_0` is known.
+    /// Runtime epochs select the committed derivation parent anchor instead.
     pub genesis_cutoff: u64,
 }
 
@@ -338,7 +336,7 @@ mod tests {
 }
 
 #[cfg(test)]
-mod fixed_cutoff_state_tests {
+mod committee_config_state_tests {
     use super::*;
     #[test]
     fn old_genesis_record_without_config_hash_is_rejected() {

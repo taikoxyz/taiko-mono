@@ -32,7 +32,7 @@ pub mod inbox {
     pub const GENESIS_BLOCK_HASH: u64 = 273;
     /// Activation record: `genesisStateRoot` (S*), `bytes32`.
     pub const GENESIS_STATE_ROOT: u64 = 274;
-    /// Authenticated fixed-cutoff derivation configuration hash.
+    /// Authenticated parent-anchor derivation configuration hash.
     pub const COMMITTEE_CONFIG_HASH: u64 = 269;
     /// The single bootstrap committee record hash; future committees are never published.
     pub const GENESIS_COMMITTEE_HASH: u64 = 278;

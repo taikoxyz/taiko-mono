@@ -380,7 +380,7 @@ async fn a_cached_committee_witness_of_another_parent_anchor_is_not_reused() {
     app.l1().state().calls.clear();
     let env = propose(&mut app).await;
     assert!(registry_reads(&app) > 0, "rediscovered at the new parent anchor");
-    assert_eq!(env.committee.expect("switch 2 carries a committee").record.cutoff_l1_block, 64);
+    assert_eq!(env.committee.expect("switch 2 carries a committee").record.cutoff_l1_block, 72);
 }
 
 /// At `H(t)-2` the cheap candidate checks run before the committee discovery: a block that

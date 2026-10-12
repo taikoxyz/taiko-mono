@@ -1,10 +1,10 @@
 //! Discovery of registry witnesses from L1 RPC, followed by independent pure verification.
 //!
-//! Runtime discovery computes the epoch's [`crate::committee::fixed_cutoff`] and proves at the
-//! parent anchor. Explicit-cutoff discovery serves genesis and authenticated host proof jobs. The
-//! proving block must cover the cutoff. Checkpoint binary search and historical entry reads are
-//! untrusted until their complete root verifies; entries may require archive state well before
-//! the proving block. Interrupted discovery preserves completed reads for the same context.
+//! Runtime discovery selects and proves at the committed parent anchor. Explicit-cutoff discovery
+//! serves genesis and authenticated host proof jobs. The proving block must cover the cutoff.
+//! Checkpoint binary search and historical entry reads are untrusted until their complete root
+//! verifies; entries may require archive state well before the proving block. Interrupted discovery
+//! preserves completed reads for the same context.
 
 use std::{
     collections::HashMap,
@@ -107,13 +107,14 @@ struct Reads {
 /// reading the node's own L1 without deadlines.
 ///
 /// In order:
-/// - the epoch's fixed cutoff from the authenticated schedule and derivation parameters;
+/// - the supplied committed parent anchor number as the snapshot cutoff;
 /// - the last registry checkpoint at or before it, found by binary search;
 /// - the complete entries read at the proving block or just before the successor checkpoint;
 /// - checkpoint and successor storage proofs at the proving block.
 ///
 /// Every result is independently checked by the pure committee verifier. Historical entry
-/// discovery may need archive RPC; a later proving block never advances the fixed cutoff.
+/// discovery may need archive RPC; an explicit historical snapshot is never advanced by its later
+/// proving block.
 pub async fn build_committee_witness<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
@@ -127,7 +128,7 @@ pub async fn build_committee_witness<L: L1Source + ?Sized>(
         .await
 }
 
-/// [`build_committee_witness`] with the given `cutoff` instead of the target epoch's fixed cutoff:
+/// [`build_committee_witness`] with the given explicit historical `cutoff`:
 /// the snapshot is the last checkpoint with `l1Block <= cutoff` (no lag, no grid), and every read
 /// [`build_committee_witness`] makes at the parent anchor is made at L1 block `block`.
 ///
@@ -185,13 +186,11 @@ pub(crate) async fn build_committee_witness_within<L: L1Source + ?Sized>(
 struct Discovery<'a, L: ?Sized> {
     /// The node's own L1.
     l1: &'a L,
-    /// The chain parameters (registry address, cutoff grid and lag, derivation parameters).
+    /// The chain parameters (registry address and derivation parameters).
     params: &'a ChainParams,
-    /// The chain's epoch schedule, which the heartbeat eligibility of the derivation and the
-    /// fixed epoch cutoffs.
+    /// The chain's epoch schedule for heartbeat eligibility.
     schedule: &'a Schedule,
-    /// Explicit snapshot cutoff for genesis/host jobs; `None` selects the target epoch's
-    /// [`crate::committee::fixed_cutoff`].
+    /// Explicit snapshot cutoff for genesis/host jobs; `None` selects the supplied parent number.
     cutoff: Option<u64>,
     /// The deadline of each single L1 read; `None` waits indefinitely.
     read_timeout: Option<Duration>,
@@ -220,10 +219,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
     /// The discovery steps of [`build_committee_witness`].
     async fn discover(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
         let params = self.params;
-        let cutoff = match self.cutoff {
-            Some(cutoff) => cutoff,
-            None => committee::fixed_cutoff(self.schedule, params, target)?,
-        };
+        let cutoff = self.cutoff.unwrap_or(n_p);
 
         if cutoff > n_p {
             return Err(CommitteeError::CutoffAfterAnchor { cutoff, anchor: n_p }.into());
@@ -456,14 +452,13 @@ mod tests {
         assert_eq!(record, witness.record);
     }
 
-    /// With a checkpoint after the cutoff, the entries are read at the newest block that still
-    /// holds the chosen snapshot: the block before that next checkpoint, which lies after the
-    /// fixed target-epoch cutoff and may be much older than the covering parent anchor.
+    /// An explicit historical snapshot reads entries just before the successor checkpoint,
+    /// while authenticating metadata under its later covering proving root.
     #[tokio::test]
     async fn entries_are_read_just_before_the_next_checkpoint() {
         let fx = Fixture::genesis(3);
-        let params = ChainParams { cutoff_lag: 5, ..fx.params.clone() };
-        // No genesis-cutoff floor: this parent anchor predates the fixture's `L1_0`.
+        let params = fx.params.clone();
+        // This explicit historical snapshot predates the fixture's `L1_0`.
         let schedule = Schedule { l1_0: 22, genesis_cutoff: 0, ..fx.schedule() };
         let (old, new) = (sample_entries(3), sample_entries(4));
         let at_19 = RegistryStorage { checkpoints: vec![(10, old.clone())] };
@@ -472,10 +467,11 @@ mod tests {
         fx.plant_l1_block(&l1, 19, &fx.inbox, &at_19);
         let header = fx.plant_l1_block(&l1, 22, &fx.inbox, &at_22);
 
-        // Cutoff 22 - 5 = 17: checkpoint 0 (block 10) is the snapshot, checkpoint 1 (block 20)
+        // Explicit snapshot 17: checkpoint 0 (block 10) is the snapshot, checkpoint 1 (block 20)
         // follows it, so the entries are read at min(22, 20 - 1) = 19.
-        let witness =
-            build_committee_witness(&l1, &params, &schedule, 22, 1).await.expect("witness");
+        let witness = build_committee_witness_at_cutoff(&l1, &params, &schedule, 22, 17, 1)
+            .await
+            .expect("witness");
         assert_eq!(witness.record.cutoff_l1_block, 17);
         assert_eq!(witness.record.checkpoint_index, 0);
         assert_eq!(witness.entries, old);
@@ -490,8 +486,9 @@ mod tests {
             }]
         );
         assert_eq!(calls.len(), at_block(19) + at_block(22), "no other block is read");
-        verify_committee_witness(
-            &anchor_at(22, header.state_root()),
+        verify_committee_witness_at_cutoff(
+            header.state_root(),
+            17,
             &schedule,
             &params,
             &witness,
@@ -500,44 +497,34 @@ mod tests {
         .expect("the witness verifies at the parent anchor");
     }
 
-    /// A proposer's discovery floors the fixed target-epoch cutoff at genesis cutoff: under the
-    /// regression genesis (`L1_0 = 64`, lag 5, grid 1, genesis cutoff 63, entries active from
-    /// 62), `e_0 + 1` is discovered at `max(cutoff(64) = 59, 63) = 63`, where every entry is
-    /// eligible, and the witness verifies through the genesis anchor.
+    /// Runtime discovery takes the actual parent number even when the genesis cutoff is older.
     #[tokio::test]
-    async fn the_anchored_cutoff_is_floored_at_the_genesis_cutoff() {
-        let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+    async fn runtime_snapshot_is_the_supplied_parent_number() {
+        let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
         let l1_0 = fx.genesis.l1_0;
         let witness = build_committee_witness(&fx.l1(), &fx.params, &fx.schedule(), l1_0, 1)
             .await
-            .expect("e_0 + 1 derives at the floored cutoff");
-        assert_eq!(witness.record.cutoff_l1_block, fx.genesis.genesis_cutoff);
-        assert_eq!(witness.record.checkpoint_index, 0);
-        assert_eq!(witness.entries, fx.registry.checkpoints[0].1);
-        let (record, members) = verify_committee_witness(
+            .expect("parent snapshot");
+        assert_eq!(witness.record.cutoff_l1_block, 64);
+        assert_ne!(witness.record.cutoff_l1_block, fx.genesis.genesis_cutoff);
+        let (_, members) = verify_committee_witness(
             &fx.anchor_state(&fx.l1(), l1_0),
             &fx.schedule(),
             &fx.params,
             &witness,
             1,
         )
-        .expect("the witness verifies through the genesis anchor");
-        assert_eq!(record, witness.record);
+        .unwrap();
         assert_eq!(members.len(), 2);
-
-        // Without the floor the fixed cutoff precedes every entry's genesis.
-        let unfloored = Schedule { l1_0: 22, genesis_cutoff: 0, ..fx.schedule() };
-        let err = build_committee_witness(&fx.l1(), &fx.params, &unfloored, l1_0, 1).await;
-        assert_eq!(err, Err(FetchError::Committee(CommitteeError::Empty)));
     }
 
-    /// An explicit cutoff is taken as is, without the fixed target-epoch lag/grid computation.
+    /// An explicit historical snapshot is taken as is, independent of the runtime parent.
     /// The parent-anchor reads are made at the given block, and the entries at the newest block
     /// that still holds the snapshot.
     #[tokio::test]
     async fn an_explicit_cutoff_is_taken_as_is() {
         let fx = Fixture::genesis(3);
-        let params = ChainParams { cutoff_lag: 5, cutoff_grid: 4, ..fx.params.clone() };
+        let params = fx.params.clone();
         let (old, new) = (sample_entries(3), sample_entries(4));
         let at_61 = RegistryStorage { checkpoints: vec![(60, old.clone())] };
         let at_64 = RegistryStorage { checkpoints: vec![(60, old.clone()), (62, new)] };
@@ -604,8 +591,8 @@ mod tests {
     }
 
     /// Against the fixture's L1, discovery at the genesis cutoff rebuilds exactly the genesis
-    /// committee witness. Runtime discovery for target epoch 0 uses the same genesis cutoff
-    /// through the covering parent anchor `L1_0`, reproducing the same record and snapshot.
+    /// committee witness. Runtime-style discovery at `L1_0` instead carries its supplied parent
+    /// number, while preserving the same complete entries.
     #[tokio::test]
     async fn rebuilds_the_fixture_genesis_committee_witness() {
         let fx = Fixture::genesis(3);
@@ -626,7 +613,7 @@ mod tests {
         let anchored = build_committee_witness(&l1, &fx.params, &fx.schedule(), l1_0, Schedule::E0)
             .await
             .expect("the fixture registry yields a witness");
-        assert_eq!(anchored.record.cutoff_l1_block, fx.genesis.genesis_cutoff);
+        assert_eq!(anchored.record.cutoff_l1_block, l1_0);
         assert_eq!(
             CommitteeWitness { record: fx.witness.committee.record.clone(), ..anchored.clone() },
             fx.witness.committee

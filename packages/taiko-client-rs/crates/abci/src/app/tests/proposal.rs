@@ -262,14 +262,11 @@ async fn round_trip_at_h0_carries_only_the_anchor_witness() {
     assert_eq!(app.halt, None);
 }
 
-/// A `genesisCutoff` above the genesis anchor's lagged cutoff does not halt the chain at `H_0`:
-/// under `L1_0 = 64`, lag 5, grid 1, genesis cutoff 63 and entries active from L1 block 62,
-/// `InitChain` derives `e_0` at 63. At `H(e_0 + 1) - 2`, proposer and validator derive
-/// `e_0 + 1` at its fixed target-epoch cutoff, floored to genesis cutoff 63
-/// (at 59 no entry would be active), and agree on it.
+/// Genesis remains at explicit snapshot 63 while the runtime switch derives at parent 66.
+/// Both select the same entries, and proposer and validator agree on the runtime record.
 #[tokio::test]
-async fn switch_derives_the_next_committee_at_the_floored_genesis_cutoff() {
-    let fx = Fixture::build(GenesisSpec::active_after_lagged_l1_0_cutoff(2));
+async fn switch_derives_the_next_committee_at_the_committed_parent() {
+    let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
     let genesis_cutoff = fx.genesis.genesis_cutoff;
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -284,7 +281,7 @@ async fn switch_derives_the_next_committee_at_the_floored_genesis_cutoff() {
     let env = propose(&mut app).await;
     let committee = env.committee.as_ref().expect("H(1)-2 carries the incoming committee");
     assert_eq!(committee.record.target_epoch, 1);
-    assert_eq!(committee.record.cutoff_l1_block, genesis_cutoff);
+    assert_eq!(committee.record.cutoff_l1_block, 66);
     assert_eq!(committee.record.checkpoint_index, 0);
 
     let other_dir = tempfile::tempdir().unwrap();
@@ -302,7 +299,7 @@ async fn switch_derives_the_next_committee_at_the_floored_genesis_cutoff() {
         .expect("committee 1 is derived");
     assert_eq!(target, 1);
     assert_eq!(derived.record, committee.record);
-    assert_eq!(derived, fx.committee(1));
+    assert_eq!(derived.record.cutoff_l1_block, 66);
     assert_eq!(derived.members, e0.members, "same snapshot, same members");
 
     decide(&mut validator, &req).await;
@@ -351,12 +348,10 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert_eq!(app.state().unwrap().anchor.number, 66);
 }
 
-/// Switch 4 derives at fixed cutoff 68 and authenticates checkpoint 1 plus its successor under
-/// the unchanged parent anchor 70. Discovery reads the complete historical entries at 68.
+/// Switch 4 derives at parent 70 and authenticates the latest checkpoint (69) and all entries.
 #[tokio::test]
-async fn round_trip_at_a_switch_derives_the_fixed_cutoff_committee() {
+async fn round_trip_at_a_switch_derives_the_parent_snapshot_committee() {
     let mut spec = GenesisSpec::new(3);
-    spec.params.cutoff_grid = 4;
     spec.epoch_len_l1 = 2;
     let fx = Fixture::build(spec);
     let dir = tempfile::tempdir().unwrap();
@@ -382,24 +377,23 @@ async fn round_trip_at_a_switch_derives_the_fixed_cutoff_committee() {
     let env = propose(&mut app).await;
     assert!(env.anchor.is_none(), "the anchor stays at 70");
     let committee = env.committee.as_ref().expect("switch 4 carries a committee");
-    // Fixed cutoff 4·floor((64 + (4-2)*2) / 4) = 68: checkpoint 1 (block 66) is the last one at or
-    // before it.
+    // The parent snapshot 70 selects the latest registry checkpoint at 69.
     assert_eq!(committee.record.target_epoch, 4);
-    assert_eq!(committee.record.cutoff_l1_block, 68);
-    assert_eq!(committee.record.checkpoint_index, 1);
-    assert_eq!(committee.entries, sample_entries(4));
-    assert_eq!(committee.registry.storage.len(), 4, "checkpoint 2 (block 69) is proven too");
-    let entry_slots: Vec<B256> = (0..4).flat_map(registry::entry_slots).collect();
+    assert_eq!(committee.record.cutoff_l1_block, 70);
+    assert_eq!(committee.record.checkpoint_index, 2);
+    assert_eq!(committee.entries, sample_entries(5));
+    assert_eq!(committee.registry.storage.len(), 3, "latest checkpoint needs no successor");
+    let entry_slots: Vec<B256> = (0..5).flat_map(registry::entry_slots).collect();
     let entry_reads: Vec<L1Call> = app
         .l1()
         .calls()
         .into_iter()
-        .filter(|c| matches!(c, L1Call::AccountWitness { block: 68, .. }))
+        .filter(|c| matches!(c, L1Call::AccountWitness { slots, block: 70, .. } if slots == &entry_slots))
         .collect();
     assert_eq!(
         entry_reads,
-        [L1Call::AccountWitness { address: fx.params.registry, slots: entry_slots, block: 68 }],
-        "all entries in one read, at min(n_p, checkpoints[2].l1Block - 1) = 68"
+        [L1Call::AccountWitness { address: fx.params.registry, slots: entry_slots, block: 70 }],
+        "all latest entries in one read at parent 70"
     );
     assert!(app.l1().calls().contains(&L1Call::StorageAt {
         address: fx.params.registry,
@@ -418,7 +412,7 @@ async fn round_trip_at_a_switch_derives_the_fixed_cutoff_committee() {
         .expect("derived");
     assert_eq!(target, 4);
     assert_eq!(derived.record, committee.record);
-    assert_eq!(derived.members.len(), 4);
+    assert_eq!(derived.members.len(), 5);
 }
 
 #[tokio::test]
@@ -479,4 +473,24 @@ async fn epoch_first_height_forbids_a_runtime_committee_witness() {
         validate(&app, &env).map(|_| ()),
         Err(Rejection::UnexpectedWitness(validate::WitnessKind::Committee))
     );
+}
+
+#[test]
+fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
+    let mut spec = GenesisSpec::new(2);
+    spec.params.registry = alloy_primitives::Address::repeat_byte(0x22);
+    spec.params.heartbeat_window = 32;
+    let fx = Fixture::build(spec);
+    let mut state = fx.expected_state();
+    // Independent ethers eleven-word vector: same remaining fields, old grid10/lag20.
+    state.genesis.committee_config_hash =
+        alloy_primitives::b256!("af72a8cac328b7a82ec9c449fb39aecc89a196de580f512cc40f0e1d8a6ad2fa");
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().to_path_buf());
+    store.save(&state).unwrap();
+    let file = dir.path().join(crate::store::STATE_FILE);
+    let before = std::fs::read(&file).unwrap();
+    let result = App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default());
+    assert!(matches!(result, Err(AbciError::StoredState(_))));
+    assert_eq!(std::fs::read(file).unwrap(), before);
 }

@@ -7,8 +7,7 @@
 //! applies the updates two heights later. Epoch 0's validators come from genesis.
 //!
 //! Methods dividing by `L` panic when it is zero; [`Schedule::validate`] rejects it.
-//! Epoch offsets are checked for `u64` overflow. The genesis cutoff floors every later
-//! snapshot cutoff ([`committee::fixed_cutoff`](crate::committee::fixed_cutoff)).
+//! Epoch offsets and derivation-parent heights are checked for `u64` overflow.
 
 use crate::types::GenesisRecord;
 use serde::{Deserialize, Serialize};
@@ -24,8 +23,8 @@ pub struct Schedule {
     /// `EPOCH_LEN_L1`: epoch length in L1 blocks, the step of the per-epoch minimum anchor;
     /// validated `>= 1`.
     pub epoch_len_l1: u64,
-    /// `genesisCutoff`: the L1 block of epoch `e_0`'s registry snapshot, and the floor of every
-    /// later epoch's snapshot cutoff; `< l1_0` for a verified genesis.
+    /// `genesisCutoff`: the explicit L1 block of epoch `e_0`'s registry snapshot; `< l1_0`
+    /// for a verified genesis. Runtime epochs use the committed derivation parent anchor.
     pub genesis_cutoff: u64,
 }
 
@@ -94,6 +93,17 @@ impl Schedule {
         Self::offset(e, self.epoch_len)
             .and_then(|o| o.checked_add(self.h0()))
             .expect("h_first: height overflows u64")
+    }
+
+    /// The committed L2 parent selecting `target_epoch` at its switch: `H(target_epoch) - 3`.
+    ///
+    /// Epoch zero uses its explicit genesis snapshot and returns `None`. Also returns `None`
+    /// if any multiplication, addition or subtraction exceeds the `u64` height domain.
+    pub fn derivation_parent_height(&self, target_epoch: u64) -> Option<u64> {
+        if target_epoch == Self::E0 {
+            return None;
+        }
+        Self::offset(target_epoch, self.epoch_len)?.checked_add(self.h0())?.checked_sub(3)
     }
 
     /// `h_last(e) = h_first(e + 1) - 1`, the last height of epoch `e`.
@@ -341,5 +351,24 @@ mod tests {
     #[should_panic(expected = "l1_first")]
     fn l1_first_panics_on_overflow() {
         schedule(20).l1_first(u64::MAX);
+    }
+}
+
+#[cfg(test)]
+mod parent_height_tests {
+    use super::*;
+
+    #[test]
+    fn derivation_parent_is_checked_before_switch_and_activation() {
+        let schedule =
+            Schedule { l1_0: 1000, epoch_len: 10, epoch_len_l1: 32, genesis_cutoff: 980 };
+        for (epoch, height) in
+            [(0, None), (1, Some(8)), (2, Some(18)), (3, Some(28)), (u64::MAX, None)]
+        {
+            assert_eq!(schedule.derivation_parent_height(epoch), height);
+        }
+        assert_eq!(Schedule { epoch_len: u64::MAX, ..schedule }.derivation_parent_height(1), None);
+        assert_eq!(Schedule { epoch_len: 1, ..schedule }.derivation_parent_height(1), None);
+        assert_eq!(Schedule { epoch_len: 3, ..schedule }.derivation_parent_height(1), Some(1));
     }
 }

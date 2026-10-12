@@ -63,7 +63,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Chooses `max(parent anchor, own finalized - extra depth)`, authenticates a changed anchor
     /// or the forced H0 anchor, and checks progress, generation, status and back-pressure.
     /// At `H(t)-2`, discovers or reuses committee `t` under the committed parent's state root
-    /// and fixed cutoff. Then verifies the candidate, builds through the EL, checks every
+    /// and anchor number. Then verifies the candidate, builds through the EL, checks every
     /// derived header field and ensures the envelope fits CometBFT's transaction limit.
     async fn propose(
         &self,

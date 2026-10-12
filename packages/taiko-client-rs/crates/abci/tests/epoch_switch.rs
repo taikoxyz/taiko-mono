@@ -1,12 +1,13 @@
-//! Docker scenarios for autonomous fixed-cutoff epoch activation.
+//! Docker scenarios for autonomous parent-anchor epoch activation.
 
 use std::{
     collections::BTreeSet,
     time::{Duration, Instant},
 };
 
-use abci::{RegistryEntry, committee::fixed_cutoff};
+use abci::RegistryEntry;
 use alloy_primitives::B256;
+use alloy_provider::Provider;
 use test_harness::{Devnet, DevnetSpec, wait_until};
 
 /// CometBFT node 0's validator set at `height` as `(pubkey, power)` pairs.
@@ -49,9 +50,8 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     let planted_at = devnet.cmt(0).latest_height().await?;
     eprintln!("validator 4 planted in L1 block {joined} at CometBFT height {planted_at}");
 
-    let t = (1..=5)
-        .find(|t| fixed_cutoff(&schedule, devnet.params(), *t).unwrap() >= joined)
-        .expect("join checkpoint covered by fixed epoch cutoff");
+    // The joined entry is visible when the committed derivation parent covers its L1 block.
+    let t = 1;
     devnet.wait_for_height(0, schedule.h_first(t) - 2, Duration::from_secs(180)).await?;
     let h_first = schedule.h_first(t);
     let switch = h_first - 2;
@@ -122,7 +122,15 @@ async fn epoch_switch_activates_without_committee_publication() -> anyhow::Resul
     let h = schedule.h_first(1);
     devnet.wait_for_height(0, h + 2, Duration::from_secs(90)).await?;
     let committee = devnet.cmt(0).committee(1).await?.expect("switch derives committee 1");
-    assert_eq!(committee.record.cutoff_l1_block, fixed_cutoff(&schedule, devnet.params(), 1)?);
+    let parent = devnet
+        .l2_provider(0)
+        .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(
+            schedule.derivation_parent_height(1).unwrap(),
+        ))
+        .await?
+        .expect("committed derivation parent");
+    let anchor = abci::rules::decode_extra_data(&parent.header.inner.extra_data)?;
+    assert_eq!(committee.record.cutoff_l1_block, anchor.2);
     assert_eq!(validator_set(&devnet, h).await?.len(), 1);
     // Slot 278 remains the immutable genesis hash; no epoch mapping exists or is written.
     let bootstrap = devnet
